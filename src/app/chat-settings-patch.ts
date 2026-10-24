@@ -1,7 +1,7 @@
 // Pure settings-patch computation for the AI `update_settings` tool. Extracted
 // from use-chat-dispatcher so the hook stays under the 800-line ratchet and so
 // the validation is unit-testable without React. No refs, no setters, no clock.
-import { sanitizeFeatures } from "./feature-modules";
+import { ALL_MODULE_IDS, sanitizeFeatures } from "./feature-modules";
 import {
   NEXT_ACTIONS_FIELD_COERCE,
   resolveNextActionsConfig,
@@ -52,9 +52,17 @@ export function computeSettingsPatch(
     applied.hideExternalTasks = patch.hideExternalTasks;
   }
   if (patch.enabledModules !== undefined) {
-    // sanitizeFeatures drops any unknown/invalid module id — a hallucinated
-    // id can never enable a non-existent module.
-    const feats = sanitizeFeatures(patch.enabledModules);
+    // ★ §779 — the list is the PROJECT's saved functions now, so a value that would only read as
+    // "switch everything off" is refused (the caller writes nothing) instead of sanitised to []:
+    // `sanitizeFeatures` turns a non-array into [] and drops every unknown id. `[]` itself stays
+    // allowed (it is the Simple preset, `deriveMode`), and a list mixing known and unknown ids keeps
+    // the known ones, which `applied` echoes back to the model.
+    const raw: unknown = patch.enabledModules;
+    if (!Array.isArray(raw)) throw new Error("enabledModules must be a list of module ids");
+    const feats = sanitizeFeatures(raw);
+    if (raw.length > 0 && feats.length === 0) {
+      throw new Error(`enabledModules names no known module: ${raw.map(String).join(", ")}; known ids: ${ALL_MODULE_IDS.join(", ")}`);
+    }
     changes.features = feats;
     applied.enabledModules = feats;
   }

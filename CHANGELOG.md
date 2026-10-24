@@ -79,7 +79,8 @@ longer carries its own changelog comment.
   on again. It now shows the project's saved functions. Turning a function on from Budget's setup checklist or the
   Time bookings notice now starts from the same saved functions, and "Save current as template" (in Settings → Templates
   and in the project menu) stores them. When Claude switches functions on or off, the change is now saved with the
-  project, so Edit project and the navigation agree and the next project load no longer undoes it.
+  project, so Edit project and the navigation agree and the next project load no longer undoes it. A function list from
+  Claude that is not a list, or that names no known function, is refused instead of switching every function off.
 - **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
   against the wrong year, so the new project and its milestones could already be over on the day you created
   it. Claude is now told today's date and reads a month or range without a year as the next one to come (the

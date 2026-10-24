@@ -969,7 +969,7 @@ export const TOOL_DEFS = [
             ],
           },
           description:
-            "The COMPLETE set of feature modules that should be enabled (this REPLACES the current set — include every module the user wants on). Invalid ids are dropped. Call get_app_state first to see the current enabledModules.",
+            "The COMPLETE set of feature modules that should be enabled (this REPLACES the current set — include every module the user wants on). It is saved with the current project. Invalid ids are dropped; a list with no valid id is refused. An empty list switches every module off. Call get_app_state first to see the current enabledModules.",
         },
         nextActionsWeights: {
           type: "object",

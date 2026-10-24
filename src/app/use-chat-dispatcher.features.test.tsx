@@ -56,6 +56,19 @@ describe("useChatDispatcher — update_settings { enabledModules } writes the pr
     expect(hook.result.current.ws.features).toEqual(LEAN);
   });
 
+  // Mutation: removing the refusal in `computeSettingsPatch` turns this red (the patch sanitises to [] and
+  // switches every function off, in the mirror and the project).
+  it("a non-array enabledModules is refused and writes nothing", () => {
+    const { hook, setSettings, logActivityAs } = renderWithWorkspace();
+    act(() => { hook.result.current.ws.setFeatures(LEAN); });
+    expect(() => hook.result.current.dispatcher.updateSettings({ enabledModules: "raid" })).toThrow(
+      "enabledModules must be a list of module ids",
+    );
+    expect(hook.result.current.ws.features).toEqual(LEAN);
+    expect(setSettings).not.toHaveBeenCalled();
+    expect(logActivityAs).not.toHaveBeenCalled();
+  });
+
   it("a read-only window (a popout) refuses and writes nothing", () => {
     const { hook, setSettings } = renderWithWorkspace(true);
     expect(() => hook.result.current.dispatcher.updateSettings({ enabledModules: LEAN })).toThrow();
