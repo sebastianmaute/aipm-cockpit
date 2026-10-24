@@ -82,7 +82,8 @@ longer carries its own changelog comment.
   working days" are one reason, but were learned and overridden as two, so "Always suppress" on "Due soon" did not
   demote a task due in one working day. They now share one learning row and one override; rows and overrides already saved
   under the one-day form are merged into it the next time the app loads them. If the two rows had different overrides,
-  the one set on the several-days row is kept; an override set only on the one-day row now applies to every count.
+  the one set on the several-days row is kept, unless it was Auto; then the one-day row's override applies to every
+  count, as one set only on the one-day row does.
 - **The Action Center learning view looks like every other view (§777).** It sits in the standard pane card with
   the table scrolling inside it, and Back, the title, Reset learned data, Print and reset-size share one toolbar row.
   Each row now names its reason in words ("No recent update", "Blocked") instead of an internal id, in English and
