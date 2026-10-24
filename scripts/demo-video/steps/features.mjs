@@ -27,16 +27,101 @@ async function drag(ctx, loc, dx, label) {
   await pace(ctx, 1500);
 }
 
-/** A Gantt View-menu layer: opened, toggled with its caption, closed. */
+/** The Gantt's own prefs key (gantt-engine.ts PREFS_KEY), and the prefs the clip opens the Gantt with: the stored
+ *  ones (or none) with dependencies, absences and the critical path off and milestones below the tasks, so those
+ *  toggles switch their layer ON, as the narration says. Milestones stay on: the clip drags one before its View
+ *  section, and viewToggle shows that layer off and on again. Stamped v2 (GANTT_PREFS_VERSION), with every status
+ *  shown: under v2 an empty status list means "show nothing". */
+export const GANTT_PREFS_KEY = 'aipm-cockpit:gantt-prefs';
+const GANTT_STATUSES = ['open', 'completed', 'overdue'];
+export function ganttPrefsSeed(current) {
+  const base = current && typeof current === 'object' && !Array.isArray(current) ? current : {};
+  const statuses = Array.isArray(base.statuses) && base.statuses.length ? base.statuses : GANTT_STATUSES;
+  return {
+    ...base, statuses, v: 2,
+    showDependencies: false, showAbsences: false, showCriticalPath: false, showMilestones: true, milestonePlacement: 'below',
+  };
+}
+
+/** Off camera, before the Gantt first opens: the View layers off (ganttPrefsSeed). The app reads its prefs when
+ *  the Gantt mounts, so it opens with them. */
+const ganttLayersOff = step('gantt-layers-off', {
+  setup: true,
+  run: async (ctx) => {
+    const current = await ctx.page.evaluate((k) => localStorage.getItem(k), GANTT_PREFS_KEY);
+    let parsed = null;
+    try { parsed = current ? JSON.parse(current) : null; } catch { parsed = null; }
+    await ctx.page.evaluate(([k, v]) => localStorage.setItem(k, v), [GANTT_PREFS_KEY, JSON.stringify(ganttPrefsSeed(parsed))]);
+  },
+});
+
+/** What shows a layer on the chart, where something does: the dependency arrows' marker, absence bands
+ *  (titled "<person>: <type> <from>–<to>"), milestone rows. Critical path and inline placement are checked by
+ *  their toggle's pressed state only. */
+const LAYER_SHOWS = {
+  'view-dependencies': (ctx) => main(ctx).locator('#gantt-arrow').count(),
+  'view-absences': (ctx) => main(ctx).locator('[title]').evaluateAll((els) => els.filter((e) => /: \S+ \d{4}-\d\d-\d\d/.test(e.getAttribute('title'))).length),
+  'view-milestones': (ctx) => main(ctx).getByRole('slider', { name: /^Move milestone – / }).count(),
+};
+
+/** A Gantt View-menu layer: opened, toggled on with its caption, closed, and checked: the toggle reads pressed
+ *  and, where the chart shows the layer, it is there. */
 const viewToggle = (id, label, text) => step(id, {
   run: async (ctx) => {
     await caption(ctx, text, `f-gantt-${id}`);
-    await click(ctx, main(ctx).getByRole('button', { name: 'View', exact: true }), 'View', 500);
-    await click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: label, exact: true }), label, 1800);
+    const view = main(ctx).getByRole('button', { name: 'View', exact: true });
+    await click(ctx, view, 'View', 500);
+    const toggle = ctx.page.locator(DLG).last().getByRole('button', { name: label, exact: true });
+    // A layer already on (milestones: the clip drags one before this) is switched off and on again, so the
+    // toggle is seen showing its layer. The chart's re-layout may close the menu in between: it is reopened.
+    if ((await toggle.getAttribute('aria-pressed')) === 'true') {
+      await click(ctx, toggle, label, 900);
+      if (!(await toggle.isVisible().catch(() => false))) await click(ctx, view, 'View', 500);
+    }
+    await click(ctx, toggle, label, 1800);
+    if ((await toggle.getAttribute('aria-pressed')) !== 'true') throw new Error(`View: ${label} did not switch on`);
     await ctx.page.keyboard.press('Escape');
     await pace(ctx, 1500);
+    if (LAYER_SHOWS[id] && !(await LAYER_SHOWS[id](ctx))) throw new Error(`View: ${label} is on, but nothing on the chart shows it`);
   },
 });
+
+// ---- f-workload: the reassign moves the counts; the planned load is moved by hand ----
+const MAYA = 'Maya Patel';
+const LIAM = 'Liam Foster';
+/** Maya's and Liam's near-term planned utilisation (%) after the rebalance: down from 240, up from 0. */
+const MAYA_NOW = 100;
+const LIAM_NOW = 60;
+/** The Open column of a Workload row (Assignee, Email, Open, Overdue, …); Overdue is the next one. */
+const OPEN_CELL = 2;
+const utilCell = (ctx, who) => main(ctx).getByRole('spinbutton', { name: `Near-term utilization for ${who}`, exact: true });
+/** A person's Workload row, found by its utilisation field (a role query: RAID's hidden table also names people). */
+const workloadRow = (ctx, who) => main(ctx).locator('tbody').getByRole('row')
+  .filter({ has: ctx.page.getByRole('spinbutton', { name: `Near-term utilization for ${who}`, exact: true }) });
+async function workloadCounts(ctx, who) {
+  const cells = workloadRow(ctx, who).locator('td, th');
+  return { open: Number(await cells.nth(OPEN_CELL).innerText()), overdue: Number(await cells.nth(OPEN_CELL + 1).innerText()) };
+}
+const nearTerm = async (ctx, who) => Number(await utilCell(ctx, who).inputValue());
+
+/** What is wrong with the counts after one overdue task of Maya's went to Liam, or null: Maya one open and one
+ *  overdue fewer, Liam one of each more. */
+export function countsMoved(before, after) {
+  const want = { [MAYA]: -1, [LIAM]: 1 };
+  for (const who of [MAYA, LIAM]) {
+    for (const k of ['open', 'overdue']) {
+      if (after[who][k] - before[who][k] !== want[who]) return `${who} ${k} went from ${before[who][k]} to ${after[who][k]}`;
+    }
+  }
+  return null;
+}
+
+/** What is wrong with the planned utilisation after the rebalance, or null: Maya's lower, Liam's higher. */
+export function utilMoved(before, after) {
+  if (!(after[MAYA] < before[MAYA])) return `${MAYA} util did not come down (${before[MAYA]} → ${after[MAYA]})`;
+  if (!(after[LIAM] > before[LIAM])) return `${LIAM} util did not go up (${before[LIAM]} → ${after[LIAM]})`;
+  return null;
+}
 
 // §742: a bar's drag handles are sliders (keyboard-operable), not buttons.
 const bar = (ctx, kind) => main(ctx).getByRole('slider', { name: `${kind} – ${BAR_TASK}`, exact: true }).first();
@@ -161,6 +246,7 @@ export const FEATURE_STEPS = Object.freeze({
     viewToggle('view-critical-path', 'Critical path', 'View: the critical path.'),
     viewToggle('view-milestones', 'Milestones', 'View: milestones.'),
     viewToggle('view-inline-milestones', 'Inline milestones', 'View: milestones inline, in the task rows.'),
+    ganttLayersOff,
   ],
 
   'f-milestones': [
@@ -291,11 +377,40 @@ export const FEATURE_STEPS = Object.freeze({
     step('workload-reassign', {
       run: async (ctx) => {
         await caption(ctx, 'Reassign one of her overdue tasks.', 'f-workload-reassign');
-        await click(ctx, main(ctx).getByRole('button', { name: 'Triage overdue tasks – Maya Patel', exact: true }), 'Triage', 1000);
+        ctx.workloadBefore = { [MAYA]: await workloadCounts(ctx, MAYA), [LIAM]: await workloadCounts(ctx, LIAM) };
+        await click(ctx, main(ctx).getByRole('button', { name: `Triage overdue tasks – ${MAYA}`, exact: true }), 'Triage', 1000);
         const owner = ctx.page.getByRole('combobox', { name: /^Owner – / }).first();
-        await choose(ctx, owner, { label: 'Liam Foster' }, 'reassign owner');
+        await choose(ctx, owner, { label: LIAM }, 'reassign owner');
         await L.settle(ctx.page);
-        await pace(ctx, 2000);
+        await pace(ctx, 1200);
+        await ctx.page.keyboard.press('Escape');
+      },
+    }),
+    step('workload-counts', {
+      run: async (ctx) => {
+        await caption(ctx, 'The counts follow the task: one open and overdue fewer for Maya, one more for Liam.', 'f-workload-counts');
+        await moveTo(ctx, workloadRow(ctx, MAYA).locator('td, th').nth(OPEN_CELL), `${MAYA} open`);
+        await pace(ctx, 1500);
+        await moveTo(ctx, workloadRow(ctx, LIAM).locator('td, th').nth(OPEN_CELL), `${LIAM} open`);
+        await pace(ctx, 1500);
+        const after = { [MAYA]: await workloadCounts(ctx, MAYA), [LIAM]: await workloadCounts(ctx, LIAM) };
+        const wrong = countsMoved(ctx.workloadBefore, after);
+        if (wrong) throw new Error(`workload: ${wrong}`);
+      },
+    }),
+    step('workload-rebalance', {
+      run: async (ctx) => {
+        await caption(ctx, "Util (now) is planned time, not tasks: lower Maya's, raise Liam's.", 'f-workload-rebalance');
+        const before = { [MAYA]: await nearTerm(ctx, MAYA), [LIAM]: await nearTerm(ctx, LIAM) };
+        for (const [who, value] of [[MAYA, MAYA_NOW], [LIAM, LIAM_NOW]]) {
+          const cell = utilCell(ctx, who);
+          await type(ctx, cell, String(value), `${who} util`);
+          await cell.press('Tab');
+          await L.settle(ctx.page);
+        }
+        await pace(ctx, 1500);
+        const wrong = utilMoved(before, { [MAYA]: await nearTerm(ctx, MAYA), [LIAM]: await nearTerm(ctx, LIAM) });
+        if (wrong) throw new Error(`workload: ${wrong}`);
       },
     }),
   ],
