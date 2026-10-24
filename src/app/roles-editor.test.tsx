@@ -746,10 +746,30 @@ describe("RolesEditor rate card fits a 1280px window (§766)", () => {
     expect(rateFieldDisplay(1166.67, "en-US")).toBe("1166.67");
     expect(rateFieldDisplay(10666.67, "de-DE")).toBe("10666,67");
     expect(rateFieldDisplay(123456, "de-DE")).toBe("123456");
-    renderEditor("EUR", [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 133.33, externalRate: 200 }]);
-    const hourly = screen.getAllByRole("spinbutton")[0] as HTMLInputElement;
-    expect(hourly.value).toBe("133.33");
-    expect(hourly.title).toBe(rateFieldDisplay(133.33));
+  });
+
+  // The rendered title uses the browser's default locale. Each case forces that
+  // default, so the test means the same on a de-DE machine and an en-US CI runner:
+  // a title built with String(value) would read "133.33" under de-DE too.
+  it.each([
+    ["de-DE", "133,33"],
+    ["en-US", "133.33"],
+  ])("titles a rendered rate field in the browser locale (%s)", (locale, expected) => {
+    const RealNumberFormat = Intl.NumberFormat;
+    // A `function`, not an arrow: the code calls it with `new`.
+    const spy = vi.spyOn(Intl, "NumberFormat").mockImplementation(
+      function (loc?: string | string[], opts?: Intl.NumberFormatOptions) {
+        return new RealNumberFormat(loc ?? locale, opts);
+      } as typeof Intl.NumberFormat,
+    );
+    try {
+      renderEditor("EUR", [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 133.33, externalRate: 200 }]);
+      const hourly = screen.getAllByRole("spinbutton")[0] as HTMLInputElement;
+      expect(hourly.value).toBe("133.33");
+      expect(hourly.title).toBe(expected);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   // Guard: the 1280 fit is a budget. Measured 2026-10-24 at 1280×720: the scroller

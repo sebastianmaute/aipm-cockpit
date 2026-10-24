@@ -116,7 +116,8 @@ function round2(n: number): number {
 /** A rate as its number field shows it, for the field's `title`. Chromium draws the
  *  decimal separator in the browser's own locale, not the app language (measured
  *  2026-10-24: "1166,67" under `--lang=de-DE`, "1166.67" under `--lang=en-US`), and
- *  without grouping, so only the separator is localised. `locale` is for tests. */
+ *  without grouping, so only the separator is localised. `locale` is for tests.
+ *  Measured in Chromium only; Firefox may follow the page `lang` instead. */
 export function rateFieldDisplay(value: number, locale?: string): string {
   const sep = new Intl.NumberFormat(locale).formatToParts(1.5).find((p) => p.type === "decimal")?.value ?? ".";
   return String(value).replace(".", sep);
