@@ -1,12 +1,12 @@
 // §715 check-render.mjs as a process: its exit code for a clean render (0), a render with a real finding (1) and
 // one whose only findings are unverified (3). It probes real files, so the fixtures are tiny MP4s made with
-// ffmpeg; without ffmpeg on the PATH (the CI unit job) the test is skipped.
+// ffmpeg; without ffmpeg on the PATH the suite is skipped (proved by a run with it hidden).
 import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), 'check-render.mjs');
 const hasFfmpeg = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
@@ -21,13 +21,24 @@ const cue = (n, a, b) => `${n}\n00:00:${String(a).padStart(2, '0')},000 --> 00:0
 const run = (...files) => spawnSync(process.execPath, [CLI, ...files], { encoding: 'utf8' });
 
 describe.skipIf(!hasFfmpeg)('check-render.mjs exit codes (§715)', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-render-'));
-  const clean = path.join(dir, 'features', '01-clean.mp4');
-  const stall = path.join(dir, 'features', '02-stall.mp4');
-  const old = path.join(dir, 'chapters', '03-old.mp4');
-  render(clean, 6, `${cue(1, 1, 2)}\n${cue(2, 3, 4)}`); // tail 2 s: fine
-  render(stall, 26, `${cue(1, 1, 2)}\n${cue(2, 22, 24)}`); // a 20 s gap in a feature clip
-  render(old, 26, `${cue(1, 1, 2)}\n${cue(2, 22, 24)}`); // the same in a chapter without a waits file: unverified
+  // vitest runs this body to collect the tests even when the suite is skipped: the fixtures are made in
+  // beforeAll, which a skipped suite never runs, so a machine without ffmpeg only skips.
+  let dir;
+  let clean;
+  let stall;
+  let old;
+  beforeAll(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-render-'));
+    clean = path.join(dir, 'features', '01-clean.mp4');
+    stall = path.join(dir, 'features', '02-stall.mp4');
+    old = path.join(dir, 'chapters', '03-old.mp4');
+    render(clean, 6, `${cue(1, 1, 2)}\n${cue(2, 3, 4)}`); // tail 2 s: fine
+    render(stall, 26, `${cue(1, 1, 2)}\n${cue(2, 22, 24)}`); // a 20 s gap in a feature clip
+    render(old, 26, `${cue(1, 1, 2)}\n${cue(2, 22, 24)}`); // the same in a chapter without a waits file: unverified
+  });
+  afterAll(() => {
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+  });
 
   it('exits 0 when every render is clean', () => {
     const r = run(clean);
