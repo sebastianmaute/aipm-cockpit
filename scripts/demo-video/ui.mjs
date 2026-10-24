@@ -204,6 +204,8 @@ export async function titleCard(ctx, title, beat) {
  *  frame is held until the voice is done, plus its pause and 1.5 s: about 1.9 s after the last voice. */
 export async function closingBeat(ctx, beat) {
   await waitForVoice(ctx);
+  // The closing caption sits where every video ends it: at the bottom.
+  await placeCaption(ctx, null, 'closing');
   const text = beat ? ctx.narration?.get(beat)?.text : null;
   await caption(ctx, text ?? '', text ? beat : undefined);
   await waitForVoice(ctx);
@@ -234,8 +236,35 @@ export async function moveTo(ctx, loc, label) {
   await loc.scrollIntoViewIfNeeded({ timeout: MOVE_TIMEOUT_MS });
   const box = await loc.boundingBox();
   if (!box) throw new Error(`not visible: ${label}`);
+  await placeCaption(ctx, box, label);
   await ctx.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: ctx.rehearse ? 2 : 12 });
   await pace(ctx, 350);
+}
+
+/** In the page: the caption box at the bottom of the frame (where it sits), measured; when it would cover the
+ *  target `box`, it goes to the top of the frame instead. Measured and moved in one task, so no frame shows it
+ *  in between. Returns its bottom rectangle and whether it went to the top. */
+const CAPTION_PLACE = (box) => {
+  const b = document.getElementById('demo-subtitle');
+  if (!b) return null;
+  b.style.top = 'auto';
+  b.style.bottom = '32px';
+  const r = b.getBoundingClientRect();
+  const rect = { x: r.x, y: r.y, width: r.width, height: r.height };
+  const covers = !!box && box.x < rect.x + rect.width && box.x + box.width > rect.x && box.y < rect.y + rect.height && box.y + box.height > rect.y;
+  if (covers) {
+    b.style.bottom = 'auto';
+    b.style.top = '32px';
+  }
+  return { rect, top: covers };
+};
+
+/** No on-camera target may sit under the caption box: for a target (`box`) it would cover, the caption goes to
+ *  the top of the frame for that action, and returns to the bottom with the next target that is clear of it (or
+ *  with `box` null). Works for any target, a fixed wizard button included, since nothing is scrolled. */
+export async function placeCaption(ctx, box, label) {
+  const r = await ctx.page.evaluate(CAPTION_PLACE, box);
+  if (r?.top) ctx.log(`CAPTION at the top for ${label}: target ${JSON.stringify(box)}, caption ${JSON.stringify(r.rect)}`);
 }
 
 /** Whether a select holds `option`, matched the way it was asked for: a string matches the value or the

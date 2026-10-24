@@ -21,7 +21,8 @@ function fakeCtx({ narration, rehearse = false, onCamera = true } = {}) {
   const calls = [];
   const lines = [];
   const page = {
-    evaluate: async (_fn, t) => { calls.push(`show(${t})`); },
+    // The caption placement (ui.placeCaption) measures the box: not a caption change, so not recorded.
+    evaluate: async (fn, t) => { if (!String(fn).includes('getBoundingClientRect')) calls.push(`show(${t})`); },
     waitForTimeout: async (ms) => { calls.push(`wait(${ms})`); clock += ms; },
   };
   const ctx = { page, rehearse, log: (l) => lines.push(l), lines };
@@ -106,7 +107,7 @@ describe('a beat shown again (§715)', () => {
     const { ctx } = fakeCtx({ narration: { 'mon-a': 1.0, 'mon-b': 2.0 } });
     const shownAt = [];
     const evaluate = ctx.page.evaluate;
-    ctx.page.evaluate = async (fn, t) => { shownAt.push([t, clock]); await evaluate(fn, t); };
+    ctx.page.evaluate = async (fn, t) => { if (!String(fn).includes('getBoundingClientRect')) shownAt.push([t, clock]); await evaluate(fn, t); };
     await caption(ctx, 'A', 'mon-a');
     await caption(ctx, 'B', 'mon-b');
     const freeAt = ctx.voiceFreeAt;
@@ -158,7 +159,7 @@ describe('voice-only beats (§715)', () => {
     const { ctx, calls } = fakeCtx({ narration: { 'mon-a': 2.0 } });
     const shownAt = [];
     const evaluate = ctx.page.evaluate;
-    ctx.page.evaluate = async (fn, t) => { shownAt.push([t, clock]); await evaluate(fn, t); };
+    ctx.page.evaluate = async (fn, t) => { if (!String(fn).includes('getBoundingClientRect')) shownAt.push([t, clock]); await evaluate(fn, t); };
     await caption(ctx, 'A', 'mon-a');
     await closingBeat(ctx, CLOSING);
     expect(calls).toEqual(['show(A)', `wait(${2000 + PAUSE_MS})`, 'show()', 'wait(1500)']);

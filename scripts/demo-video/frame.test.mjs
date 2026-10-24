@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VIEWPORT } from './lib.mjs';
-import { OVERLAY, SPLASH, SPLASH_MS, checkDevBadge, endSplash, showSplash } from './ui.mjs';
+import { OVERLAY, SPLASH, SPLASH_MS, checkDevBadge, endSplash, moveTo, placeCaption, showSplash } from './ui.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const src = (f) => fs.readFileSync(path.join(HERE, f), 'utf8');
@@ -21,7 +21,8 @@ describe('the 1080p frame (§715)', () => {
   });
 });
 
-describe('next.config.ts (§715)', () => {
+describe('next.config.ts, its source (§715)', () => {
+  // A source-text check beside the behaviour test below: the gate is the one spread, and nothing else sets it.
   it('hides the dev indicator only behind DEMO_RECORDER=1', () => {
     const config = src('../../next.config.ts');
     expect(config).toContain('...(process.env.DEMO_RECORDER === "1" ? { devIndicators: false as const } : {}),');
@@ -137,5 +138,95 @@ describe('checkDevBadge (§715)', () => {
     const { ctx, lines } = badgeCtx(new Error('Execution context was destroyed'));
     expect(await checkDevBadge(ctx)).toBe(1);
     expect(lines).toEqual(['DEV BADGE check failed: Execution context was destroyed']);
+  });
+});
+
+describe('the caption box never covers the target (§715)', () => {
+  /** The caption box's rectangle at the bottom of the frame, as the browser measures it there. */
+  const BOTTOM = { x: 640, y: 988, width: 640, height: 60, top: 988, left: 640, right: 1280, bottom: 1048 };
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    OVERLAY('db.example');
+    vi.spyOn(document.getElementById('demo-subtitle'), 'getBoundingClientRect').mockReturnValue(BOTTOM);
+  });
+  afterEach(() => vi.restoreAllMocks());
+  const sub = () => document.getElementById('demo-subtitle');
+
+  it('moves to the top of the frame for a target the box would cover, and says so', async () => {
+    const { ctx, lines } = domCtx();
+    await placeCaption(ctx, { x: 1243, y: 972, width: 60, height: 36 }, 'Next/Skip');
+    expect([sub().style.top, sub().style.bottom]).toEqual(['32px', 'auto']);
+    expect(lines).toEqual(['CAPTION at the top for Next/Skip: target {"x":1243,"y":972,"width":60,"height":36}, caption {"x":640,"y":988,"width":640,"height":60}']);
+  });
+
+  it('returns to the bottom for the next target that is clear of it', async () => {
+    const { ctx } = domCtx();
+    await placeCaption(ctx, { x: 345, y: 969, width: 1215, height: 30 }, 'linked task');
+    expect(sub().style.top).toBe('32px');
+    await placeCaption(ctx, { x: 300, y: 400, width: 200, height: 30 }, 'Add task');
+    expect([sub().style.top, sub().style.bottom]).toEqual(['auto', '32px']);
+  });
+
+  it('a target that only touches the box edge is clear of it', async () => {
+    const { ctx } = domCtx();
+    await placeCaption(ctx, { x: 1280, y: 1000, width: 40, height: 20 }, 'edge');
+    expect(sub().style.bottom).toBe('32px');
+  });
+
+  it('moveTo places the caption before it moves the cursor', async () => {
+    const { ctx } = domCtx();
+    ctx.page.mouse = { move: async () => { ctx.movedWithCaptionAt = sub().style.top; } };
+    const loc = {
+      waitFor: async () => {}, isVisible: async () => true, count: async () => 1, scrollIntoViewIfNeeded: async () => {},
+      boundingBox: async () => ({ x: 1243, y: 972, width: 60, height: 36 }),
+    };
+    await moveTo(ctx, loc, 'Next/Skip');
+    expect(ctx.movedWithCaptionAt).toBe('32px');
+  });
+});
+
+describe('the dev-badge probe against real markup (§715)', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  /** A nextjs-portal as Next's dev overlay mounts it: an open shadow root, with the badge button or without. */
+  function portal({ badge }) {
+    const p = document.createElement('nextjs-portal');
+    const root = p.attachShadow({ mode: 'open' });
+    root.innerHTML = `<div id="devtools-indicator"><div data-next-badge-root>${badge ? '<button data-nextjs-dev-tools-button aria-label="Open Next.js Dev Tools">N</button>' : ''}</div></div>`;
+    document.body.appendChild(p);
+  }
+
+  it('finds the badge in a portal that has it (a positive control: the probe can see it at all)', async () => {
+    portal({ badge: true });
+    const { ctx, lines } = domCtx();
+    expect(await checkDevBadge(ctx)).toBe(1);
+    expect(lines).toEqual(['DEV BADGE visible — start the dev server with DEMO_RECORDER=1']);
+  });
+
+  it('passes a portal without it, as DEMO_RECORDER=1 leaves it (the root stays for errors)', async () => {
+    portal({ badge: false });
+    const { ctx } = domCtx();
+    expect(await checkDevBadge(ctx)).toBe(0);
+  });
+
+  it('looks for the attribute the installed Next.js puts on its badge, in the portal it mounts', () => {
+    const devtools = fs.readFileSync(path.join(HERE, '../../node_modules/next/dist/compiled/next-devtools/index.js'), 'utf8');
+    expect(devtools).toContain('"data-nextjs-dev-tools-button":!0');
+    expect(devtools).toContain('nextjs-portal');
+    expect(src('ui.mjs')).toContain("querySelectorAll('nextjs-portal')");
+    expect(src('ui.mjs')).toContain("querySelector('[data-nextjs-dev-tools-button]')");
+  });
+});
+
+describe('next.config.ts, loaded (§715)', () => {
+  afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); });
+
+  it('hides the dev indicator with DEMO_RECORDER=1, and leaves it alone without', async () => {
+    vi.stubEnv('DEMO_RECORDER', '1');
+    vi.resetModules();
+    expect((await import('../../next.config.ts')).default.devIndicators).toBe(false);
+    vi.stubEnv('DEMO_RECORDER', '');
+    vi.resetModules();
+    expect('devIndicators' in (await import('../../next.config.ts')).default).toBe(false);
   });
 });
