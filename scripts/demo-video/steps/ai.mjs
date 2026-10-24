@@ -4,7 +4,7 @@
 import { step } from './step.mjs';
 import { AI_TIMEOUT_MS, timedAiWait, waitForAi } from '../ai-wait.mjs';
 import * as L from '../lib.mjs';
-import { caption, click, holdVoice, moveTo, nav, pace, type } from '../ui.mjs';
+import { caption, choose, click, holdVoice, moveTo, nav, pace, type } from '../ui.mjs';
 import { DEMO_CRM_TASK, DEMO_DUPLICATE_PAIRS, DEMO_GDPR_ISSUE } from '../week-story.mjs';
 import {
   DLG, askClaude, askClaudeApply, askClaudeCheck, chat, dedup, digestGenerate, failToast, main, nextActions, noop, resources, weekStep,
@@ -119,13 +119,15 @@ const allocPlan = step('alloc-plan', {
       done: d.getByRole('button', { name: /^Apply/ }).first().or(failToast(ctx)),
       label: 'plan with AI',
     });
-    await pace(ctx, 3000);
+    await pace(ctx, 2000);
   },
   check: async (ctx) => ((await ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).isEnabled().catch(() => false)) ? null : 'no allocation'),
+  // The beat says "you apply it, and Workload shows the new split": said as Apply is clicked, before the two navs,
+  // so the stretch after Claude's proposal has a voice (§715, no silence over 8 s).
   after: async (ctx) => {
+    await caption(ctx, 'Workload shows the new split.', 'ai-alloc-workload');
     await click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).first(), 'Apply plan', 1500);
     await resources(ctx, 'Workload');
-    await caption(ctx, 'Workload shows the new split.', 'ai-alloc-workload');
     await pace(ctx, 3000);
   },
   replay: noop,
@@ -211,19 +213,27 @@ const weightsSuggest = step('weights-suggest', {
 });
 
 // ---- ai-scheduled ----
+/** §772: Turso jobs live in scheduled_jobs_v2, one JSON `data` row per job beside a marker row. */
+export const STORED_JOBS_SQL = "SELECT data FROM scheduled_jobs_v2 WHERE id <> '__migrated__'";
+const JOB = 'Morning check';
+const JOB_INSTRUCTION = 'Look for overdue tasks and risks without an owner.';
+const JOB_ZONE = 'Europe/Berlin';
+/** A job row's control by its label; the row token is the job's name. */
+const jobControl = (ctx, role, label) => main(ctx).getByRole(role, { name: `${label} – ${JOB}`, exact: true });
+
 /** The first recorded run of the stored job `name`, polled in the throwaway database. */
 async function storedRun(name) {
   const until = Date.now() + AI_TIMEOUT_MS;
   for (;;) {
-    const jobs = (await L.query('SELECT data FROM scheduled_jobs')).map((r) => JSON.parse(r[0].value));
+    const jobs = (await L.query(STORED_JOBS_SQL)).map((r) => JSON.parse(r[0].value));
     const run = jobs.find((j) => j.name === name)?.history?.[0];
     if (run) return run;
     if (Date.now() > until) throw new Error(`scheduled job ${name} did not run`);
     await new Promise((r) => setTimeout(r, 2000));
   }
 }
-/** Off camera: scheduled jobs on, and one daily job at 09:00 (the app's default time; the take starts at 08:30).
- *  The runner sees the new job at once (§750: one job list for the runner and Settings). */
+/** Off camera: scheduled jobs on, and a new daily job at 09:00 (the app's default time; the take starts at 08:30).
+ *  Add job names the open project; a new job (a new key) runs once today. The runner sees it at once (§750). */
 const scheduledJob = step('scheduled-job', {
   setup: true,
   run: async (ctx) => {
@@ -233,19 +243,33 @@ const scheduledJob = step('scheduled-job', {
     await click(ctx, main(ctx).getByRole('button', { name: 'Add job', exact: true }), 'Add job', 500);
     // One change event: the name field is controlled by a store round trip, so typing it character by
     // character would interleave with the saves.
-    await type(ctx, main(ctx).getByRole('textbox', { name: /^Job name – / }).last(), 'Morning check', 'job name', { slow: false });
+    await type(ctx, main(ctx).getByRole('textbox', { name: /^Job name – / }).last(), JOB, 'job name', { slow: false });
     // The row's names change only once the save resolved (the token follows the stored name).
-    await main(ctx).getByRole('checkbox', { name: 'Enabled – Morning check', exact: true }).waitFor({ timeout: 30000 });
+    await jobControl(ctx, 'checkbox', 'Enabled').waitFor({ timeout: 30000 });
+  },
+});
+/** On camera: the job's project (preselected), its own instruction typed (saved when the field loses focus),
+ *  its time zone. */
+const scheduledConfigure = step('scheduled-configure', {
+  run: async (ctx) => {
+    await settingsTab(ctx, 'AI Assistant', 'Scheduled jobs');
+    await caption(ctx, 'A daily job for this project, with its own instruction and time zone.', 'ai-scheduled-job');
+    const project = jobControl(ctx, 'combobox', 'Project');
+    await moveTo(ctx, project, 'job project');
+    if (!(await project.inputValue())) throw new Error(`${ctx.clipId}: the new job has no project`);
+    await pace(ctx, 800);
+    const instruction = jobControl(ctx, 'textbox', 'Instruction');
+    await type(ctx, instruction, JOB_INSTRUCTION, 'job instruction');
+    await instruction.press('Tab');
+    await choose(ctx, jobControl(ctx, 'combobox', 'Time zone'), JOB_ZONE, 'job time zone');
+    await pace(ctx, 800);
   },
 });
 const scheduledRun = step('scheduled-run', {
   ai: true,
-  trigger: async (ctx) => { await settingsTab(ctx, 'AI Assistant', 'Scheduled jobs'); return main(ctx).getByRole('checkbox', { name: 'Enabled – Morning check', exact: true }); },
+  trigger: async (ctx) => { await settingsTab(ctx, 'AI Assistant', 'Scheduled jobs'); return jobControl(ctx, 'checkbox', 'Enabled'); },
   run: async (ctx) => {
     await settingsTab(ctx, 'AI Assistant', 'Scheduled jobs');
-    await caption(ctx, 'The morning check runs every day at 09:00.', 'ai-scheduled-daily');
-    await moveTo(ctx, main(ctx).getByRole('textbox', { name: 'Job name – Morning check', exact: true }), 'Morning check');
-    await pace(ctx, 2000);
     // The app has no "run now": the runner checks every five minutes, so the clock jumps past 09:00
     // (fastForward fires each due timer once, not every tick in between).
     await caption(ctx, 'At 09:00 it runs by itself.', 'ai-scheduled-runs');
@@ -253,18 +277,24 @@ const scheduledRun = step('scheduled-run', {
     // The run is read from the stored job (Node, off screen) while the view stays put, and Settings shows
     // it as soon as the runner records it (§750).
     // Claude's think time on camera, timed like any AI wait so the clip can trim it.
-    const run = await timedAiWait(ctx, () => storedRun('Morning check'));
+    const run = await timedAiWait(ctx, () => storedRun(JOB));
     if (!run.ok) throw new Error(`${ctx.clipId}: the scheduled run failed (${run.error ?? 'no detail'})`);
     const lastRun = main(ctx).getByText(/^Last run: /).first();
     await lastRun.waitFor({ timeout: 15000 });
     await caption(ctx, 'It ran: its suggestions are counted on the job.', 'ai-scheduled-ran');
     await moveTo(ctx, lastRun, 'Last run');
-    await pace(ctx, 3000);
+    await pace(ctx, 2000);
+    // The report it wrote, newest first in Scheduled reports (Portfolio).
+    await caption(ctx, 'Its report is kept under Scheduled reports.', 'ai-scheduled-report');
+    await nav(ctx, 'Scheduled reports');
+    await click(ctx, reportTab(ctx), 'newest report', 2500);
+    await pace(ctx, 2000);
   },
-  // The row reads "Last run: <time> — N suggestions" in one element.
-  check: async (ctx) => ((await main(ctx).getByText(/ — (\d+ suggestions|1 suggestion)$/).count()) ? null : 'no analysis'),
+  check: async (ctx) => ((await reportTab(ctx).count()) ? null : 'no report'),
   replay: noop,
 });
+/** The newest report tab of the job: each tab's name holds its run time, project and job. */
+const reportTab = (ctx) => main(ctx).getByRole('tab', { name: new RegExp(JOB) }).first();
 
 export const AI_STEPS = Object.freeze({
   'ai-proposal': [wizardProposal],
@@ -282,7 +312,7 @@ export const AI_STEPS = Object.freeze({
   // An import is refused while budget hours follow the plan (Tuesday switches it off first too).
   'ai-forecast-import': [weekStep('budget-follow-plan-off'), weekStep('forecast-import')],
   'ai-weights': [weightsHistory, weightsSuggest],
-  'ai-scheduled': [scheduledJob, scheduledRun],
+  'ai-scheduled': [scheduledJob, scheduledConfigure, scheduledRun],
 });
 
 // ---- preconditions (A's "What A needs from project E", re-checked against the reworked data) ----
