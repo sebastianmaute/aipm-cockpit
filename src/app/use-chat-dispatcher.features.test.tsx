@@ -76,3 +76,32 @@ describe("useChatDispatcher — update_settings { enabledModules } writes the pr
     expect(setSettings).not.toHaveBeenCalled();
   });
 });
+
+describe("useChatDispatcher — get_app_state reports the project's saved functions (§779)", () => {
+  // Mutation: reading `settingsRef.current.features` (the mirror) again turns this red: the fixture's
+  // mirror is `defaultSettings`, every function on, while the project saved LEAN.
+  it("enabledModules and mode come from Workspace.features, not the settings mirror", () => {
+    const { hook } = renderWithWorkspace();
+    act(() => { hook.result.current.ws.setFeatures(LEAN); });
+    const snap = hook.result.current.dispatcher.getSnapshot();
+    expect(snap.enabledModules).toEqual(LEAN);
+    expect(snap.mode).toBe("modular");
+  });
+
+  it("a project with no saved list reports every function on", () => {
+    const { hook } = renderWithWorkspace();
+    expect(hook.result.current.dispatcher.getSnapshot().enabledModules).toEqual([...ALL_MODULE_IDS]);
+  });
+
+  // Mutation: dropping the synchronous ref write in `updateSettings` turns this red (the snapshot read in
+  // the same tick still sees the old list).
+  it("a get_app_state right after the write, in the same tick, sees the new list", () => {
+    const { hook } = renderWithWorkspace();
+    let snap: ReturnType<typeof hook.result.current.dispatcher.getSnapshot> | undefined;
+    act(() => {
+      hook.result.current.dispatcher.updateSettings({ enabledModules: LEAN });
+      snap = hook.result.current.dispatcher.getSnapshot();
+    });
+    expect(snap?.enabledModules).toEqual(LEAN);
+  });
+});

@@ -14,7 +14,7 @@ import { resourceLogName } from "./chat-tool-summaries";
 import { historySearchEnabled } from "./settings-types";
 import { summarizeForRecap } from "./activity-recap";
 import { assertJiraManagedUnchanged, buildTaskCleanPatch } from "./chat-task-patch";
-import { deriveMode, isViewEnabled, type FeatureModuleId } from "./feature-modules";
+import { deriveMode, isViewEnabled, sanitizeFeatures } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
 import { useViewDigest } from "./use-view-digest";
 import { useChatSearchBindings } from "./use-chat-search-bindings";
@@ -111,6 +111,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     setStakeholders,
     project,
     setProject,
+    features,
     setFeatures,
     insights,
     knowledgeItems,
@@ -143,6 +144,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const knowledgeItemsRef = useRef(knowledgeItems);
   const budgetsRef = useRef(budgets);
   const activityLogRef = useRef(activityLog);
+  // §779 — the project's SAVED functions, which `get_app_state` reports; `settings.features` is only the
+  // mirror `useFeaturesSync` keeps and can lag a project switch.
+  const featuresRef = useRef(features);
   const viewDigest = useViewDigest({
     view: args.currentView, tasks, filteredSortedTasks, effectiveFilters,
     resources, budgets, milestones, today: args.clock.today, settings: args.settings,
@@ -220,6 +224,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     activityLogRef.current = activityLog;
   }, [activityLog]);
+  useEffect(() => {
+    featuresRef.current = features;
+  }, [features]);
   useEffect(() => {
     viewDigestRef.current = viewDigest;
   }, [viewDigest]);
@@ -760,7 +767,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // `onCommitFeatures` and Edit project use); `settings.features` above is only the mirror
           // `useFeaturesSync` keeps, so writing it alone was lost on the next sync and Edit project
           // disagreed with the navigation. The mirror write stays so a back-to-back call reads it.
-          if (changes.features) setFeatures(changes.features);
+          // ★ The ref is written in the same tick, like the entity refs, so a `get_app_state` right after
+          //  this call reports the new list.
+          if (changes.features) {
+            featuresRef.current = changes.features;
+            setFeatures(changes.features);
+          }
           // ★ NO ARGS — "Settings updated" has no placeholder, and the
           // user-side row omits field values too (secrets). Inside the
           // `applied` guard: a patch that changed nothing is not a change.
@@ -986,8 +998,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           taskCount: tasks.length,
           knownGroups: Array.from(groups).sort(),
           knownLabels: Array.from(labels).sort(),
-          mode: deriveMode(settingsRef.current.features),
-          enabledModules: settingsRef.current.features as FeatureModuleId[],
+          // §779 — the project's saved functions (absent = the legacy all-on default), not the mirror.
+          mode: deriveMode(sanitizeFeatures(featuresRef.current)),
+          enabledModules: sanitizeFeatures(featuresRef.current),
           currentView: view,
           insights: insightsRef.current ?? [],
           // Assembled by useViewDigest — needs pane state this hook lacks (health
