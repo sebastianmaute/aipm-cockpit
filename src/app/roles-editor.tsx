@@ -41,8 +41,12 @@ import { Input, Select } from "./form-controls";
 const REORDER_HANDLE_CLASS = "cursor-move text-muted-foreground";
 
 /** §766: with these widths and `w-16` rate inputs the table is 908px at its
- *  narrowest, which a 1280×720 window's Manage roles pane shows whole (916px).
- *  A rate cell is px-3 + the currency symbol + a 64px input, which holds "12345". */
+ *  narrowest, which a 1280×720 window's Manage roles pane shows whole (916px) with
+ *  "€"; "US$" (en-GB) widens each rate cell by 16px and the table scrolls there.
+ *  A rate cell is px-3 + the currency symbol + a 64px spinner-less input. Measured in
+ *  Chromium on 2026-10-24, editable and read-only, EN and DE: up to 7 characters show
+ *  whole ("123456", "1166.67", "133.33"); 8 ("12345.67") overflow by 4px, and the
+ *  field's `title` carries the full value. */
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
   grade: 100,
@@ -232,10 +236,14 @@ export function RolesEditor({
       <td className="px-3 py-2 text-right">
         <span className="inline-flex items-center justify-end gap-1">
           <span aria-hidden className="text-muted-foreground">{curSymbol}</span>
+          {/* No spinner (it took about 15px of the 64px field), and the full value in
+              `title` for a value too long for the field (§766; see ROLES_COL_WIDTHS). */}
           <Input type="number" min={0} step={1} value={value} readOnly={!editable}
             aria-label={`${rowCtx} — ${t(lang, labelKey)}`}
+            title={String(value)}
             onChange={editable ? (e) => onChange(e.target.value) : undefined}
-            size="xs" state={editable ? "default" : "muted"} className="w-16 text-right tabular-nums" />
+            size="xs" state={editable ? "default" : "muted"}
+            className="w-16 text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
         </span>
       </td>
     );
@@ -310,8 +318,10 @@ export function RolesEditor({
                 </th>
                 {/* Pinned with the row delete cells below. `-right-2` cancels the
                     scroller's `pr-2` (INNER_TABLE_CLASS): a sticky offset counts from the
-                    padding edge, so `right-0` left an 8px strip the table scrolled through. */}
-                <th className="sticky -right-2 px-3 py-2 font-medium print:static" />
+                    padding edge, so `right-0` left an 8px strip the table scrolled through.
+                    That padding-edge rule is Chromium's, measured at 1024×576 on 2026-10-24;
+                    a browser measuring from the outer edge would clip 8px of this cell. */}
+                <th className="sticky -right-2 px-3 py-2 font-medium print:hidden" />
               </tr>
             </>} tbodyClassName="divide-y divide-line">
               {sortedRoles.map((r) => {

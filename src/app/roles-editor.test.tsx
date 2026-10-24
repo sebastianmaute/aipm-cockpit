@@ -690,7 +690,8 @@ describe("RolesEditor reference list row heights", () => {
 // on 2026-10-23 against the e2e seed, in English and German, at 1920×1080, 1366×768,
 // 1280×720, 1024×576 and 853×480: with these widths and `w-16` rate inputs the table is
 // 908px at its narrowest, and the panel shows 1002px of it at 1366 and 916px at 1280, so
-// nothing scrolls sideways there. A 64px input holds "12345" with its spinner showing.
+// nothing scrolls sideways there (with "€"; "US$" scrolls at 1280). A 64px input
+// without a spinner shows up to 7 characters, e.g. "1166.67".
 // Below 1280 the table scrolls inside the panel, so the delete column is pinned right
 // and each row's ✕ stays in view. jsdom has no layout: these pin the measured inputs.
 describe("RolesEditor rate card fits a 1280px window (§766)", () => {
@@ -717,6 +718,39 @@ describe("RolesEditor rate card fits a 1280px window (§766)", () => {
     }
   });
 
+  // §766 peer review: the number spinner took about 15px of a 64px field. It is
+  // dropped on these inputs only, and each field, read-only derived ones included,
+  // carries its full value in `title` in case a long value still scrolls.
+  it("draws the rate inputs without a spinner and titles each with its value", () => {
+    renderEditor();
+    const inputs = screen.getAllByRole("spinbutton") as HTMLInputElement[];
+    expect(inputs.some((i) => i.readOnly)).toBe(true);
+    expect(inputs.some((i) => !i.readOnly)).toBe(true);
+    for (const i of inputs) {
+      expect(i.className.split(/\s+/)).toEqual(expect.arrayContaining([
+        "[appearance:textfield]",
+        "[&::-webkit-inner-spin-button]:appearance-none",
+        "[&::-webkit-outer-spin-button]:appearance-none",
+      ]));
+      expect(i.value).not.toBe("");
+      expect(i.title).toBe(i.value);
+    }
+  });
+
+  // Guard: the 1280 fit is a budget. Measured 2026-10-24 at 1280×720 the scroller
+  // shows 916px; the delete column renders 48px and the rate columns render at their
+  // declared 100px, so the declared minimums plus the delete column must stay within
+  // 916px (8px headroom today). A new column, or a wider one, must re-measure first.
+  it("keeps the declared column widths inside the measured 1280 budget", () => {
+    const SCROLLER_AT_1280 = 916;
+    const DELETE_COL = 48;
+    renderEditor();
+    const headerCells = (document.querySelector("table") as HTMLElement).querySelectorAll("thead th");
+    expect(headerCells).toHaveLength(Object.keys(ROLES_COL_WIDTHS).length + 1);
+    const declared = Object.values(ROLES_COL_WIDTHS).reduce((a, b) => a + b, 0);
+    expect(declared + DELETE_COL).toBeLessThanOrEqual(SCROLLER_AT_1280);
+  });
+
   // ★ A sticky offset is measured from the scroller's PADDING edge, and the scroller
   // (INNER_TABLE_CLASS) has `pr-2`. At `right-0` the pinned cells stopped 8px short
   // of the edge and the Hours/Days control scrolled through that strip, beside the ✕
@@ -734,7 +768,9 @@ describe("RolesEditor rate card fits a 1280px window (§766)", () => {
     }
     const headerCells = table.querySelectorAll("thead th");
     const last = (headerCells[headerCells.length - 1] as HTMLElement).className.split(/\s+/);
-    expect(last).toEqual(expect.arrayContaining(["sticky", "-right-2", "print:static"]));
+    // In print the body cells are hidden, so the header cell is hidden too.
+    expect(last).toEqual(expect.arrayContaining(["sticky", "-right-2", "print:hidden"]));
+    expect(last).not.toContain("print:static");
     expect(last).not.toContain("right-0");
   });
 
