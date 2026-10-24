@@ -23,6 +23,7 @@ const baseProps = () => ({
   onBack: vi.fn(),
   learningEnabled: true,
   loadProblem: null,
+  pendingWrites: 0,
 });
 
 const stats = (acted: number) => ({ acted, snoozed: 0, dismissed: 0, lastAt: 0 });
@@ -202,6 +203,19 @@ describe("LearningInsights", () => {
     expect(screen.getByRole("status").textContent).toBe(t("en-US", "learningStoreNotReadyNotice"));
     rerender(<LearningInsights {...baseProps()} loadProblem="failed" now={0} />);
     expect(screen.getByRole("status").textContent).toBe(t("en-US", "learningLoadFailedFinalNotice"));
+    // The held writes are still saved if a new store identity reads: "not saved YET".
+    expect(screen.getByRole("status").textContent).toContain("not saved yet");
+    expect(t("en-US", "learningLoadFailedFinalToast")).toContain("not saved yet");
+  });
+
+  // §781 — the notice counts the changes waiting to be saved, when there are any.
+  it("counts the held changes in the notice", () => {
+    const { rerender } = render(<LearningInsights {...baseProps()} loadProblem="unreadable" pendingWrites={3} now={0} />);
+    expect(screen.getByRole("status").textContent).toBe(`${t("en-US", "learningLoadFailedNotice")} 3 changes not saved yet.`);
+    rerender(<LearningInsights {...baseProps()} loadProblem="unreadable" pendingWrites={1} now={0} />);
+    expect(screen.getByRole("status").textContent).toContain("1 change not saved yet.");
+    rerender(<LearningInsights {...baseProps()} lang="de" loadProblem="unreadable" pendingWrites={2} now={0} />);
+    expect(screen.getByRole("status").textContent).toContain("2 Änderungen noch nicht gespeichert.");
   });
 
   // §777 — the view is a standard pane: the resizable card, an inner scroll

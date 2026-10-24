@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { t, type Lang } from "./i18n";
+import { t, tPlural, type Lang } from "./i18n";
 import {
   decayStats,
   effectiveBias,
@@ -35,6 +35,9 @@ interface LearningInsightsProps {
   /** Why the stored learning has not been read (`useActionLearning`'s `loadProblem`):
    *  the rows are this session's only, and nothing is saved until a read works (§781). */
   loadProblem: LearningLoadProblem;
+  /** How many changes wait for a successful load (`useActionLearning`'s `pendingWrites`):
+   *  counted in the notice when there are any. */
+  pendingWrites: number;
   /** Decay reference time. Defaults to Date.now(); injectable for deterministic tests. */
   now?: number;
 }
@@ -73,6 +76,7 @@ export function LearningInsights({
   onBack,
   learningEnabled,
   loadProblem,
+  pendingWrites,
   now,
 }: LearningInsightsProps) {
   const kinds = Object.keys(state);
@@ -111,7 +115,9 @@ export function LearningInsights({
       </header>
 
       {loadProblem !== null && (
-        <p role="status" className="mb-3 text-sm text-muted-foreground">{t(lang, LOAD_PROBLEM_NOTICE[loadProblem])}</p>
+        <p role="status" className="mb-3 text-sm text-muted-foreground">{t(lang, LOAD_PROBLEM_NOTICE[loadProblem])}
+          {pendingWrites > 0 && ` ${tPlural(lang, "learningPendingWrites", pendingWrites, pendingWrites)}`}
+        </p>
       )}
       {kinds.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(lang, "learningInsightsEmpty")}</p>

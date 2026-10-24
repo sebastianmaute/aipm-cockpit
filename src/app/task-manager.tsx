@@ -1679,6 +1679,7 @@ function TaskManagerInner() {
       onBack={() => setActiveTab("settings")}
       learningEnabled={(settings.nextActionsLearning ?? defaultNextActionsLearning).enabled}
       loadProblem={learning.loadProblem}
+      pendingWrites={learning.pendingWrites}
     />
   );
 
