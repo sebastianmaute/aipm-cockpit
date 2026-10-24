@@ -196,7 +196,8 @@
   card titles it with `functionsRowTitle` and lists the functions it turns on and off against `Workspace.features`
   (labels via the Functions picker's `moduleNames`), and a refused value shows as a rejection on the field.
   The block also lists the call's other settings ("Also sets …", keys as the tool names them, judged by the
-  dispatcher's `previewSettings` against the live settings the write patches) and says the change cannot be
+  dispatcher's `previewSettings` against the live settings at staging; a settings change between staging and
+  Apply is not re-checked, as settings carry no token, the same window as every untokened row) and says the change cannot be
   undone (no shortcut is named: neither Ctrl+Z/Cmd+Z nor the undo button reverses it); each row is described against the list an earlier functions row in the
   same turn leaves (`functions.before`), and `applyProposal` refuses a row whose `before` no longer matches the
   live `Workspace.features` (`getFeatures`) as a conflict (`FUNCTIONS_MOVED_ERROR`), so it never overwrites a
