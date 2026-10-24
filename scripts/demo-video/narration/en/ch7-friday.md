@@ -18,6 +18,12 @@ Draft message opens your mail program with a ready-made update for the DPO, to s
 ## fri-chat-dpo
 Or the assistant drafts it. You give it the news, and Claude writes the update from the project as it stands, ready for you to check.
 
+## fri-split-task
+Pilot feedback fixes, the fixes from the first trial with real users, is too big for one task. A new linked task takes the registration part, for Sofia Ramirez, set to follow the first.
+
+## fri-optimize-wbs
+Optimize with AI does the same for the rest of the plan. Claude proposes how to cut the open work into tasks: split what runs over a week, group the rest, and link what depends on what. You review it and apply.
+
 ## fri-insights
 Insights point out patterns in the project's data, such as a budget off its plan.
 
@@ -26,12 +32,6 @@ For the budget insight, Claude writes a recommendation: what to do about it.
 
 ## fri-insight-apply
 Apply recommendation first shows the changes it proposes. Once you have checked them, Apply makes them in the project.
-
-## fri-split-task
-Pilot feedback fixes, the fixes from the first trial with real users, is too big for one task. A new linked task takes the registration part, for Sofia Ramirez, set to follow the first.
-
-## fri-optimize-wbs
-Optimize with AI does the same for the rest of the plan. Claude proposes how to cut the open work into tasks: split what runs over a week, group the rest, and link what depends on what. You review it and apply.
 
 ## fri-trends
 Trends draws the project's figures week by week, so you see whether things improve.
