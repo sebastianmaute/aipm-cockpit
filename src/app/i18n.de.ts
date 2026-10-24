@@ -5400,6 +5400,8 @@ export const de: Record<TranslationKey, string> = {
   chatProposalFunctionsOff: "Schaltet aus: {0}",
   chatProposalFunctionsUnchanged: "Die Funktionen bleiben unverändert",
   chatProposalFunctionsDropped: "Keine bekannte Funktion, ignoriert: {0}",
+  chatProposalFunctionsOthers: "Setzt außerdem {0}",
+  chatProposalFunctionsNoUndo: "Lässt sich nicht mit Strg+Z rückgängig machen.",
   chatProposalSelectAll: "Alle auswählen",
   chatProposalApplied: "{0} übernommen",
   chatProposalFailed: "Nicht übernommen – seit Ihrer Prüfung geändert",

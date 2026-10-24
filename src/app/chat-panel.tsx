@@ -1260,6 +1260,8 @@ function ChatPanelInner({
         // replay — `runTool` is awaited per row — so the same epoch is re-read
         // before every row.
         isScopeStale: () => isScopeStale(getScopeEpoch, p.scopeEpoch),
+        // §779 — the live saved functions, so a staged functions row is refused if they moved since.
+        getFeatures: () => workspaceRef.current?.features,
       });
       const failed = new Map(
         result.rows

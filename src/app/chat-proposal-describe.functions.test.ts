@@ -18,7 +18,7 @@ describe("describeProposal — update_settings { enabledModules } (§779)", () =
   // Mutation: dropping the update_settings branch from `describeProposal` turns this red (no `functions`).
   test("names the functions switched on and off, compared with the saved functions", () => {
     const row = only(settings({ enabledModules: ["dashboard", "raid"] }), wsWith(["dashboard", "milestones"]));
-    expect(row.functions).toEqual({ on: ["raid"], off: ["milestones"], dropped: [] });
+    expect(row.functions).toMatchObject({ on: ["raid"], off: ["milestones"], dropped: [] });
     expect(row.plan.rejected).toEqual([]);
   });
 
@@ -31,12 +31,12 @@ describe("describeProposal — update_settings { enabledModules } (§779)", () =
 
   test("[] switches every saved function off", () => {
     const row = only(settings({ enabledModules: [] }), wsWith(["budget", "raid"]));
-    expect(row.functions).toEqual({ on: [], off: ["budget", "raid"], dropped: [] });
+    expect(row.functions).toMatchObject({ on: [], off: ["budget", "raid"], dropped: [] });
   });
 
   test("an unknown id in a mixed list is listed as dropped, as the write reports it", () => {
     const row = only(settings({ enabledModules: ["raid", "raidd"] }), wsWith([]));
-    expect(row.functions).toEqual({ on: ["raid"], off: [], dropped: ["raidd"] });
+    expect(row.functions).toMatchObject({ on: ["raid"], off: [], dropped: ["raidd"] });
   });
 
   // Mutation: describing a refused value as a change turns this red. The refusal is the write's own
@@ -53,5 +53,43 @@ describe("describeProposal — update_settings { enabledModules } (§779)", () =
     const row = only(settings({ showViewHints: false }), wsWith(["raid"]));
     expect(row.functions).toBeUndefined();
     expect(row.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+  });
+  // The card names the full lists too, so Apply can re-judge against the baseline it was described with.
+  test("carries the baseline and the resulting list", () => {
+    const row = only(settings({ enabledModules: ["raid", "dashboard"] }), wsWith(["budget"]));
+    expect(row.functions?.before).toEqual(["budget"]);
+    expect(row.functions?.after).toEqual(["dashboard", "raid"]);
+  });
+
+  // Mutation: describing every row against the pre-turn `ws.features` turns this red (row 2 would be
+  // described against a list row 1 already changed).
+  test("a second functions row is described against the list the first leaves", () => {
+    const [first, second] = describeProposal(
+      [settings({ enabledModules: ["dashboard", "raid"] }), settings({ enabledModules: ["raid", "budget"] })],
+      wsWith(["dashboard"]),
+    );
+    expect(first.functions).toMatchObject({ on: ["raid"], off: [] });
+    expect(second.functions).toMatchObject({ before: ["dashboard", "raid"], on: ["budget"], off: ["dashboard"] });
+  });
+
+  test("a refused functions row does not move the next row's baseline", () => {
+    const [, second] = describeProposal(
+      [settings({ enabledModules: "raid" }), settings({ enabledModules: ["raid"] })],
+      wsWith(["dashboard"]),
+    );
+    expect(second.functions).toMatchObject({ before: ["dashboard"], on: ["raid"], off: ["dashboard"] });
+  });
+
+  // Mutation: dropping `others` from the describer turns this red. Only what the write would accept is
+  // listed: `computeSettingsPatch` ignores an invalid density, so the card does too.
+  test("lists the other settings the same call changes, as the write accepts them", () => {
+    const row = only(
+      settings({ enabledModules: ["raid"], showViewHints: false, tasksViewMode: "board", dashboardDensity: "cosy" }),
+      wsWith(["raid"]),
+    );
+    expect(row.functions?.others).toEqual([
+      { key: "showViewHints", value: "false" },
+      { key: "tasksViewMode", value: "board" },
+    ]);
   });
 });

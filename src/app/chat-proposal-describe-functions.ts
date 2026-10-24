@@ -8,10 +8,11 @@
 // a value the write refuses is shown as a rejection on the `enabledModules` field, and
 // `stripRejectedFields` then keeps it out of the replayed call.
 import { carriesEnabledModules, type ProposedCall } from "./chat-proposal";
-import { judgeEnabledModules } from "./chat-settings-patch";
+import type { SettingsUpdateInput } from "./chat-tools";
+import { computeSettingsPatch, judgeEnabledModules } from "./chat-settings-patch";
 import { ALL_MODULE_IDS, sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import type { EditPlan } from "./inline-ai-edit/plan";
-import type { Workspace } from "./workspace";
+import { defaultSettings } from "./settings-types";
 
 const FIELD = "enabledModules";
 
@@ -21,15 +22,41 @@ export interface FunctionsChange {
   readonly off: readonly FeatureModuleId[];
   /** Ids the write will ignore, as its `droppedModules` reports them. */
   readonly dropped: readonly string[];
+  /** The saved list this row was described against: the project's at staging, or the list an earlier
+   *  functions row in the same plan leaves. Apply refuses the row as a conflict if the live list moved. */
+  readonly before: readonly FeatureModuleId[];
+  /** The list the write stores. */
+  readonly after: readonly FeatureModuleId[];
+  /** Every OTHER setting the same call changes, as the write accepts it (`computeSettingsPatch`'s
+   *  `applied`), key and new value. The card lists them so a "Project functions" row hides nothing. */
+  readonly others: readonly { readonly key: string; readonly value: string }[];
+}
+
+/** A settings value as one readable token: an object (`nextActionsWeights`) as its `key value` pairs. */
+function settingText(value: unknown): string {
+  if (value !== null && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k} ${String(v)}`).join(", ");
+  }
+  return String(value);
+}
+
+/** The call's other settings, judged by the write's own patch. Run against `defaultSettings`: the
+ *  describer holds no device settings, and only `nextActionsWeights` reads the current value, as the
+ *  fallback for a weight its coercer refuses. */
+function otherSettings(input: Readonly<Record<string, unknown>>): FunctionsChange["others"] {
+  const rest = Object.fromEntries(Object.entries(input).filter(([k]) => k !== FIELD)) as SettingsUpdateInput;
+  const { applied } = computeSettingsPatch(rest, defaultSettings);
+  return Object.entries(applied).map(([key, value]) => ({ key, value: settingText(value) }));
 }
 
 /** The row's functions change and plan, or null for any call that is not a functions change.
  *
- *  ★ Compared with the project's SAVED list, `ws.features`; an absent list is the legacy all-on default
- *   (`sanitizeFeatures(undefined)`), which is what `useFeaturesSync` mirrors for such a project. */
+ *  ★ Compared with `baseline`, a SAVED list: `describeProposal` passes the project's `ws.features` for
+ *   the first functions row and the previous row's `after` for each later one. An absent list is the
+ *   legacy all-on default (`sanitizeFeatures(undefined)`), which is what `useFeaturesSync` mirrors. */
 export function describeFunctionsCall(
   call: ProposedCall,
-  ws: Workspace,
+  baseline: readonly FeatureModuleId[] | undefined,
 ): { functions?: FunctionsChange; plan: EditPlan } | null {
   if (!carriesEnabledModules(call)) return null;
   const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
@@ -41,7 +68,8 @@ export function describeFunctionsCall(
     plan.rejected.push({ toolName: call.name, reason: "bad-input", detail, field: FIELD });
     return { plan };
   }
-  const saved = new Set(sanitizeFeatures(ws.features));
+  const before = sanitizeFeatures(baseline);
+  const saved = new Set(before);
   const next = new Set(judged.features);
   return {
     plan,
@@ -49,6 +77,9 @@ export function describeFunctionsCall(
       on: ALL_MODULE_IDS.filter((id) => next.has(id) && !saved.has(id)),
       off: ALL_MODULE_IDS.filter((id) => saved.has(id) && !next.has(id)),
       dropped: judged.dropped,
+      before,
+      after: judged.features,
+      others: otherSettings(call.input),
     },
   };
 }

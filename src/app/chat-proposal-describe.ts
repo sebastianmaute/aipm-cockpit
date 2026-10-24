@@ -450,6 +450,10 @@ export function describeProposal(
     );
   }
   const rows: DescribedRow[] = [];
+  // §779 — the saved functions each functions row is described against: the project's, then whatever the
+  // previous accepted functions row leaves, so two such rows in one turn are not both diffed against the
+  // pre-turn list. Apply re-checks each row against the same chain (`chat-proposal-apply.ts`).
+  let functionsSoFar = ws.features;
 
   for (let index = 0; index < calls.length; index += 1) {
     const call = calls[index];
@@ -494,8 +498,9 @@ export function describeProposal(
     }
 
     // §779 — a functions change has no descriptor either; its detail comes from the write's own judge.
-    const functionsRow = describeFunctionsCall(call, ws);
+    const functionsRow = describeFunctionsCall(call, functionsSoFar);
     if (functionsRow !== null) {
+      if (functionsRow.functions) functionsSoFar = functionsRow.functions.after;
       rows.push({ call, stamped, plan: functionsRow.plan, mintedId, ...(functionsRow.functions ? { functions: functionsRow.functions } : {}) });
       continue;
     }

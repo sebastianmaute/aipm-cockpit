@@ -152,6 +152,13 @@ function FunctionsDetail({ lang, change }: { lang: Lang; change: FunctionsChange
       {change.dropped.length > 0 && (
         <li className="text-ui-pink-strong">{t(lang, "chatProposalFunctionsDropped", change.dropped.join(", "))}</li>
       )}
+      {/* The rest of the same call: under the title "Project functions" it would otherwise be invisible.
+          No settings label table exists, so the keys are named as the tool names them. */}
+      {change.others.length > 0 && (
+        <li>{t(lang, "chatProposalFunctionsOthers", change.others.map((o) => `${o.key} = ${o.value}`).join(", "))}</li>
+      )}
+      {/* The functions write takes no undo capture, while the rest of an applied plan does. */}
+      <li>{t(lang, "chatProposalFunctionsNoUndo")}</li>
     </ul>
   );
 }

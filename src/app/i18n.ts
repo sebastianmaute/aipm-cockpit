@@ -5705,6 +5705,8 @@ const enUS = {
   chatProposalFunctionsOff: "Turns off: {0}",
   chatProposalFunctionsUnchanged: "The functions stay as they are",
   chatProposalFunctionsDropped: "Not a known function, ignored: {0}",
+  chatProposalFunctionsOthers: "Also sets {0}",
+  chatProposalFunctionsNoUndo: "Cannot be undone with Ctrl+Z.",
   chatProposalSelectAll: "Select all",
   chatProposalApplied: "{0} applied",
   chatProposalFailed: "Not applied — changed since you reviewed",
