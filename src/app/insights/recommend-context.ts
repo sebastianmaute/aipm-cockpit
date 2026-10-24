@@ -28,10 +28,13 @@ export interface RecommendContextInput {
 
 /** §782 — who a create may name: the active resources' names, then the
  *  project's task assignees (free text, so a project with no resource
- *  directory still has people). Each name once, trimmed and compared
- *  case-insensitively, the first spelling kept; blanks dropped. Resources come
- *  first because the digest caps the list (`PEOPLE_CAP`). A name in `excluded`
- *  (an archived resource) is never listed as an assignee, compared the same way. */
+ *  directory still has people). Each name once: trimmed, inner whitespace
+ *  collapsed to one space, compared case-insensitively, the first spelling
+ *  kept; blanks dropped. Resources come first because the digest caps the list
+ *  (`PEOPLE_CAP`). A name in `excluded` (an archived resource) is never listed
+ *  as an assignee, compared the same way.
+ *  ★ Advisory only: a name written differently ("Ortiz, Dana") is a different
+ *   string here, so the same person can appear twice. */
 export function recommendPeople(
   resourceNames: readonly string[],
   assignees: readonly string[],
@@ -39,18 +42,23 @@ export function recommendPeople(
 ): string[] {
   // ★ The exclusion applies to assignees only: an active resource who shares an
   //  archived one's name is still listed.
-  const barred = new Set(excluded.map((name) => name.trim().toLowerCase()));
+  const barred = new Set(excluded.map((name) => normalName(name).toLowerCase()));
   const seen = new Set<string>();
   const out: string[] = [];
   const candidates = [...resourceNames.map((n) => [n, false] as const), ...assignees.map((n) => [n, true] as const)];
   for (const [raw, isAssignee] of candidates) {
-    const name = raw.trim();
+    const name = normalName(raw);
     const key = name.toLowerCase();
     if (name === "" || seen.has(key) || (isAssignee && barred.has(key))) continue;
     seen.add(key);
     out.push(name);
   }
   return out;
+}
+
+/** A person's name as `recommendPeople` compares and lists it. */
+function normalName(raw: string): string {
+  return raw.trim().replace(/\s+/g, " ");
 }
 
 /** §782 round 3 — a bare "(none)" beside "assign only by a name listed under

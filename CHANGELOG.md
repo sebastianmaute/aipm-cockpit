@@ -78,7 +78,7 @@ longer carries its own changelog comment.
   change failed (§782).** Claude was not told which details each change needs, so a recommendation could propose
   a new task with no name or no assignee; the review showed it as a normal change and Apply then failed with
   "Some changes in this recommendation couldn't be applied" and no hint which. Claude is now given each change's
-  required details and the people it can assign, including the names tasks are already assigned to, so a project
+  required details and the people it can assign, including the names open tasks are assigned to, so a project
   without a resource list can get a new task too; with no one to name, Claude is told not to propose one. The
   review shows a change that is missing one, or that edits an item deleted since, as skipped with the reason (in
   the app's language), and such a change is not sent. When a change still fails, the message names it and why,

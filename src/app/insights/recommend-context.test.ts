@@ -159,6 +159,14 @@ describe("recommendPeople", () => {
     // An active resource sharing an archived one's name is still listed.
     expect(recommendPeople(["Kim Ito"], [], ["Kim Ito"])).toEqual(["Kim Ito"]);
   });
+
+  // Fix-all — a name typed with a doubled space is the same person, for the
+  // dedupe and for the archived-name bar alike.
+  it("collapses inner whitespace before comparing names", () => {
+    expect(recommendPeople(["Dana Ortiz"], ["dana  ortiz", "Sam\tLee"])).toEqual(["Dana Ortiz", "Sam Lee"]);
+    expect(recommendPeople([], ["Kim  Ito"], ["kim ito"])).toEqual([]);
+    expect(recommendPeople([], ["Kim Ito"], ["Kim   Ito"])).toEqual([]);
+  });
 });
 
 describe("buildRecommendSystemPrompt", () => {
