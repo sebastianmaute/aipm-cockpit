@@ -7,7 +7,8 @@ import path from 'node:path';
 import { loadBeats } from './narration/beats.mjs';
 import { MUSIC_TIERS } from './narration/mix.mjs';
 
-const TITLE_MAX = 100; // YouTube's limit
+const TITLE_MAX = 100; // YouTube's limits
+const DESCRIPTION_MAX = 5000;
 const CHAPTER_MIN_S = 10; // YouTube: each chapter at least 10 s
 const CHAPTERS_MIN = 3; // YouTube: at least three chapters, the first at 0:00
 const LABEL_MAX = 70;
@@ -70,14 +71,24 @@ export function descriptionFor(def, narration, chapters) {
   const ownOpening = typeof def.opening === 'string' && def.opening !== def.title ? def.opening : null;
   const lead = n.get('opening') ?? ownOpening ?? n.get('title') ?? def.title;
   const summary = [n.get('title'), n.get('closing')].filter((t) => t && t !== lead).join(' ');
-  const credits = [MUSIC_TIERS.includes(def.tier) ? MUSIC_CREDIT : null, narration?.size ? VOICE_CREDIT : null].filter(Boolean);
-  return [lead, summary, chapters.map((c) => `${stamp(c.at)} ${c.label}`).join('\n'), credits.join('\n')].filter(Boolean).join('\n\n');
+  const credits = [MUSIC_TIERS.includes(def.tier) ? MUSIC_CREDIT : null, narration?.size ? VOICE_CREDIT : null].filter(Boolean).join('\n');
+  const list = chapters.map((c) => `${stamp(c.at)} ${c.label}`).join('\n');
+  const join = (parts) => youtubeText(parts.filter(Boolean).join('\n\n'));
+  // Over YouTube's limit the summary goes first, then the chapters; the opening line and the credits always stay.
+  for (const parts of [[lead, summary, list, credits], [lead, list, credits], [lead, credits]]) {
+    if (join(parts).length <= DESCRIPTION_MAX) return join(parts);
+  }
+  return join([lead.slice(0, DESCRIPTION_MAX - 200), credits]);
 }
+
+/** YouTube rejects < and > in a title or a description. */
+const youtubeText = (s) => s.replace(/[<>]/g, '');
 
 /** The YouTube title: the video's own, with the product name when it fits. */
 function titleFor(def) {
-  const full = `${def.title} | AI PM Cockpit`;
-  return (full.length <= TITLE_MAX ? full : def.title).slice(0, TITLE_MAX);
+  const own = youtubeText(def.title);
+  const full = `${own} | AI PM Cockpit`;
+  return (full.length <= TITLE_MAX ? full : own).slice(0, TITLE_MAX);
 }
 
 const tagsFor = (def) => [...TAGS, ...(TIER_TAGS[def.tier] ?? [])].join(', ');
@@ -116,6 +127,16 @@ ${sections.join('\n')}
 `;
 }
 
+/** A `.beats.json` sidecar, or null when it is not one (the video is then listed without chapters). */
+function readSidecar(file) {
+  try {
+    const s = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return Number.isFinite(s?.duration) && Array.isArray(s.beats) ? s : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Rewrites `<out>/youtube-details.html` for every video not recorded by hand, in `videos` order. `pathOf(def)` is
  *  the video's WebM path (cli.mjs outPath); its .mp4, .srt and .beats.json sit beside it. */
 export function writeDetailsPage(out, videos, pathOf, { lang = 'en' } = {}) {
@@ -124,15 +145,11 @@ export function writeDetailsPage(out, videos, pathOf, { lang = 'en' } = {}) {
     return fs.existsSync(p) ? p : null;
   };
   const entries = videos.filter((v) => !v.handRecorded).map((def) => {
-    const beatsFile = sibling(def, '.beats.json');
+    const mp4 = sibling(def, '.mp4');
+    // A sidecar counts only beside its render: a stale one with no .mp4 gives no chapters.
+    const beatsFile = mp4 ? sibling(def, '.beats.json') : null;
     const narration = loadBeats(lang, def);
-    return {
-      def,
-      mp4: sibling(def, '.mp4'),
-      srt: sibling(def, '.srt'),
-      narration: narration.size ? narration : null,
-      sidecar: beatsFile ? JSON.parse(fs.readFileSync(beatsFile, 'utf8')) : null,
-    };
+    return { def, mp4, srt: mp4 ? sibling(def, '.srt') : null, narration: narration.size ? narration : null, sidecar: beatsFile ? readSidecar(beatsFile) : null };
   });
   const file = path.join(out, 'youtube-details.html');
   fs.writeFileSync(file, buildDetailsPage(entries));
