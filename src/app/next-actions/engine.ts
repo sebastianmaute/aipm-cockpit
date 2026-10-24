@@ -2,6 +2,7 @@
 import { isModuleEnabled } from "../feature-modules";
 import { applyLearnedBias, bandTier, TIER_NOW } from "./score";
 import type { ActionInput, ActionProvider, SuggestedAction } from "./types";
+import { learningKindOf } from "./learning-kind";
 
 /** Run enabled providers, dedup by id (first wins), drop dismissed, sort by
  *  score desc (id asc tiebreak), and re-band each action's tier from its score
@@ -16,7 +17,9 @@ export function computeNextActions(
     for (const a of p.provide(input)) {
       if (input.dismissed.has(a.id)) continue;
       if (!byId.has(a.id)) {
-        const kind = `${a.source}:${a.why.key}`;
+        // §778 — the LEARNING kind, so a count-variant why key ("…One") reads
+        // the bias and override of its plural sibling.
+        const kind = learningKindOf(a);
         const rawBias = input.learnedBias?.[kind] ?? 0;
         const final = applyLearnedBias(a.score, kind, input.learnedBias);
         const bias = final - a.score;

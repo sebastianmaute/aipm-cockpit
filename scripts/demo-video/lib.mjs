@@ -21,6 +21,9 @@ export function atDay(d) {
 }
 export const OUT = process.env.DEMO_VIDEO_DIR || path.join(ROOT, '.superpowers', 'tmp', 'demo-video');
 
+// The frame of every video: the browser's viewport and the screencast's size, true 1080p.
+export const VIEWPORT = Object.freeze({ width: 1920, height: 1080 });
+
 // Reads one key from the repo's .env.local. Values are returned, never printed.
 export function readEnv(key) {
   const txt = fs.readFileSync(path.join(ROOT, '.env.local'), 'utf8');

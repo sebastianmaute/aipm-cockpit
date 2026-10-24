@@ -4,7 +4,7 @@
 import { step } from './step.mjs';
 import { waitForAi } from '../ai-wait.mjs';
 import * as L from '../lib.mjs';
-import { caption, click, holdVoice, moveTo, nav, pace, type } from '../ui.mjs';
+import { caption, choose, click, holdVoice, moveTo, nav, pace, type } from '../ui.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -76,7 +76,8 @@ export async function chat(ctx, { chip, prompt }) {
     done: items.nth(before + 1),
     label: chip ?? 'chat',
   });
-  await pace(ctx, 3000);
+  // Long enough to see the reply arrive; the next beat reads it out or moves on (no silence over 8 s).
+  await pace(ctx, 2000);
 }
 
 // ---- prologue (end of chapter 2): the wizard to its last step with Claude's proposal, then cancel ----
@@ -117,20 +118,34 @@ export const PROPOSAL = {
     });
     await pace(ctx, 3000);
   },
-  // The brief names GDPR erasure: a proposal that leaves GDPR unticked is the wrong take (§715).
+  // The brief names GDPR erasure: a proposal that leaves GDPR unticked is the wrong take (§715); and the proposal
+  // fills the industry (NACE section, a section code since #853): one left empty gets the AI step's retry.
   check: async (ctx) => {
     const d = ctx.page.locator(DLG).last();
-    if (!(await d.getByRole('textbox', { name: /Project name/ }).inputValue().catch(() => ''))) return 'no proposal';
-    return (await gdprBox(d).isChecked().catch(() => false)) ? null : 'GDPR not ticked';
+    const got = {
+      name: await d.getByRole('textbox', { name: /Project name/ }).inputValue().catch(() => ''),
+      gdpr: await gdprBox(d).isChecked().catch(() => false),
+      nace: await d.getByLabel(/^NACE section/).inputValue().catch(() => ''),
+    };
+    // The name only as filled or not: a log must not carry a project's name (no project, so no id, exists yet).
+    ctx.log(`PROPOSAL name ${got.name ? 'filled' : 'empty'}, GDPR ${got.gdpr ? 'ticked' : 'not ticked'}, NACE "${got.nace}"`);
+    return proposalMissing(got);
   },
 };
+
+/** What Claude's project proposal left out, or null: a name, GDPR ticked, a NACE section. */
+export function proposalMissing({ name, gdpr, nace }) {
+  if (!name) return 'no proposal';
+  if (!gdpr) return 'GDPR not ticked';
+  return nace ? null : 'NACE section not filled';
+}
 
 export const wizardProposal = step('wizard-proposal', {
   ...PROPOSAL,
   after: async (ctx) => {
     const d = ctx.page.locator(DLG).last();
     await caption(ctx, 'From the brief, Claude ticks GDPR and fills the other key facts.', 'prologue-gdpr');
-    await moveTo(ctx, gdprBox(d));
+    await moveTo(ctx, gdprBox(d), 'GDPR');
     await pace(ctx, 2500);
     for (const what of ['template', 'functions']) await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), `Next (${what})`, 2000);
     await caption(ctx, ctx.newFromEmpty ? 'The last step creates it. Here we open the demo project instead.' : 'The last step creates it. Here we cancel and stay in the demo.', 'prologue-cancel');
@@ -179,10 +194,10 @@ export const MONDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Dashboard');
       await caption(ctx, 'Do this first: the MVP target is overdue.', 'mon-do-first');
-      await moveTo(ctx, main(ctx).getByRole('button', { name: /^Open – Do this first – / }).first());
+      await moveTo(ctx, main(ctx).getByRole('button', { name: /^Open – Do this first – / }), 'Do this first');
       await pace(ctx, 2500);
       await caption(ctx, 'Since Friday: one RAID item added, one task newly overdue.', 'mon-since-friday');
-      await moveTo(ctx, main(ctx).getByText('Since you last looked').first());
+      await moveTo(ctx, main(ctx).getByText('Since you last looked'), 'Since you last looked');
       await pace(ctx, 3000);
     },
   }),
@@ -235,7 +250,7 @@ export const MONDAY = [
       await nav(ctx, 'Knowledge');
       await caption(ctx, 'Knowledge: the CRM interface decision from design sign-off.', 'mon-knowledge-crm');
       await type(ctx, main(ctx).getByPlaceholder('Search knowledge'), 'CRM', 'search knowledge');
-      await moveTo(ctx, main(ctx).getByText('CRM interface decision (design sign-off)').first());
+      await moveTo(ctx, main(ctx).getByText('CRM interface decision (design sign-off)'), 'CRM interface decision');
       await pace(ctx, 3000);
     },
   }),
@@ -358,7 +373,7 @@ export const TUESDAY = [
       await caption(ctx, 'Work restarts with the blocker known: drag the CRM task to In Progress.', 'tue-board-crm');
       await click(ctx, main(ctx).getByRole('radio', { name: 'Board', exact: true }), 'Board', 1200);
       const card = main(ctx).getByRole('button', { name: DEMO_CRM_TASK, exact: true }).first();
-      await moveTo(ctx, card);
+      await moveTo(ctx, card, DEMO_CRM_TASK);
       await card.dragTo(main(ctx).locator('[aria-label="In Progress"]').first());
       await L.settle(ctx.page);
       await pace(ctx, 1500);
@@ -379,9 +394,9 @@ export const TUESDAY = [
       await click(ctx, main(ctx).getByRole('button', { name: '+ Add change', exact: true }), 'Add change', 1000);
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.getByRole('textbox', { name: /^Title/ }), CONNECTOR, 'change title');
-      await d.getByRole('combobox', { name: 'Type', exact: true }).selectOption('Scope');
-      await d.getByRole('combobox', { name: 'Status', exact: true }).selectOption('Under Review');
-      await d.getByRole('combobox', { name: 'Impact', exact: true }).selectOption('Medium');
+      await choose(ctx, d.getByRole('combobox', { name: 'Type', exact: true }), 'Scope', 'change type');
+      await choose(ctx, d.getByRole('combobox', { name: 'Status', exact: true }), 'Under Review', 'change status');
+      await choose(ctx, d.getByRole('combobox', { name: 'Impact', exact: true }), 'Medium', 'change impact');
       await type(ctx, d.getByRole('textbox', { name: 'Impact description', exact: true }), 'Licence cost and about one week of integration work; removes the failing custom CRM sync.', 'impact description');
       await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save change');
     },
@@ -420,7 +435,7 @@ export const TUESDAY = [
         return;
       }
       await caption(ctx, 'Review what it will change, then Apply: several items in one step.', 'tue-chat-review');
-      await moveTo(ctx, main(ctx).getByRole('region', { name: 'Proposed changes' }).last());
+      await moveTo(ctx, main(ctx).getByRole('region', { name: 'Proposed changes' }).last(), 'Proposed changes');
       await pace(ctx, 2500);
       await click(ctx, apply, 'Apply proposal', 2000);
     },
@@ -468,7 +483,7 @@ export const TUESDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Budget');
       await caption(ctx, `The bucket ${BUCKET}: planned hours per person.`, 'tue-bucket-hours');
-      await moveTo(ctx, main(ctx).getByRole('button', { name: `Edit bucket – ${BUCKET}`, exact: true }));
+      await moveTo(ctx, main(ctx).getByRole('button', { name: `Edit bucket – ${BUCKET}`, exact: true }), `Edit bucket – ${BUCKET}`);
       await pace(ctx, 3000);
     },
   }),
@@ -507,8 +522,8 @@ export const TUESDAY = [
       if (await confirm.isVisible().catch(() => false)) await click(ctx, confirm, 'confirm columns', 1500);
       // Apply stays disabled until the preview of what will be written has been shown.
       const preview = d.getByRole('button', { name: 'Show preview', exact: true });
-      if (await preview.isVisible().catch(() => false)) await click(ctx, preview, 'Show preview', 2500);
-      await click(ctx, d.getByRole('button', { name: /^Apply/ }).last(), 'Apply import', 2000);
+      if (await preview.isVisible().catch(() => false)) await click(ctx, preview, 'Show preview', 1500);
+      await click(ctx, d.getByRole('button', { name: /^Apply/ }).last(), 'Apply import', 1000);
     },
     // E's applyDemoWeek leaves the bucket's hours as they are, so the replay does too.
     replay: noop,
@@ -533,15 +548,35 @@ export async function setUtilization(ctx, who, month, value) {
   await L.settle(ctx.page);
 }
 
+/** A directory picker field (resource-picker.tsx) in dialog `d`: the name typed, then the person picked from
+ *  its list, so the item is linked to the resource rather than left as free text. Throws unless the field
+ *  then shows the name and reads as linked. */
+export async function pickPerson(ctx, d, field, who, label, { typed = who } = {}) {
+  // `typed`: the start of the name is enough to find the person, and every keystroke is screen time.
+  await type(ctx, field, typed, label);
+  // Picking closes the list itself; its option opens with the name, then the email.
+  await click(ctx, d.getByRole('option', { name: new RegExp('^' + who) }).locator('button'), `pick ${who}`, 200);
+  const shown = await field.inputValue();
+  if (shown !== who) throw new Error(`${label} shows "${shown}", not ${who}`);
+  // The field's clear button describes the link state in its title.
+  const state = await field.locator('xpath=..').getByRole('button', { name: 'Clear', exact: true }).getAttribute('title');
+  if (state !== 'Linked to a resource') throw new Error(`${label} is not linked to ${who} (${state})`);
+}
+
+/** The absence form's Assignee, the shared directory picker. */
+export const absenceAssignee = (ctx, d, who) =>
+  pickPerson(ctx, d, d.getByRole('combobox', { name: 'Assignee *', exact: true }), who, 'absence who');
+
 export const WEDNESDAY = [
   step('discipline-role', {
     run: async (ctx) => {
-      await resources(ctx, 'Manage roles');
+      // Said on the way to Manage roles: in the big video the view before it is Tuesday's import (no silence over 8 s).
       await caption(ctx, 'The connector needs an integration engineer: a new discipline, then the role.', 'wed-discipline-role');
+      await resources(ctx, 'Manage roles');
       await type(ctx, main(ctx).getByRole('textbox', { name: 'Add discipline', exact: true }), ROLE, 'discipline');
       await click(ctx, main(ctx).getByRole('button', { name: 'Add discipline', exact: true }), 'Add discipline');
-      await main(ctx).getByRole('combobox').filter({ has: ctx.page.locator('option', { hasText: /^Discipline$/ }) }).first().selectOption({ label: ROLE });
-      await main(ctx).getByRole('combobox').filter({ has: ctx.page.locator('option', { hasText: /^Grade$/ }) }).first().selectOption({ label: 'Senior' });
+      await choose(ctx, main(ctx).getByRole('combobox').filter({ has: ctx.page.locator('option', { hasText: /^Discipline$/ }) }).first(), { label: ROLE }, 'role discipline');
+      await choose(ctx, main(ctx).getByRole('combobox').filter({ has: ctx.page.locator('option', { hasText: /^Grade$/ }) }).first(), { label: 'Senior' }, 'role grade');
       await click(ctx, main(ctx).getByRole('button', { name: 'Add role', exact: true }), 'Add role');
       // The new row re-renders once it is stored; its hourly rate fields are writable once settled.
       await L.settle(ctx.page);
@@ -567,7 +602,7 @@ export const WEDNESDAY = [
       await type(ctx, d.getByRole('textbox', { name: /^Last name/ }), DEMO_NEW_MEMBER.lastName, 'last name');
       await type(ctx, d.locator('input[type=email]').first(), 'lukas.brandt@example.com', 'email');
       await click(ctx, d.getByRole('button', { name: 'Save resource' }), 'Save resource');
-      await main(ctx).getByRole('combobox', { name: `Role for ${MEMBER}`, exact: true }).selectOption({ label: `${ROLE} Senior` });
+      await choose(ctx, main(ctx).getByRole('combobox', { name: `Role for ${MEMBER}`, exact: true }), { label: `${ROLE} Senior` }, `Role for ${MEMBER}`);
       await pace(ctx, 1500);
     },
   }),
@@ -576,8 +611,7 @@ export const WEDNESDAY = [
       await caption(ctx, 'Noah, who owns the CRM integration, is on vacation next week.', 'wed-noah-vacation');
       await click(ctx, main(ctx).getByRole('button', { name: '+ Add absence', exact: true }), 'Add absence');
       const d = ctx.page.locator(DLG).last();
-      await type(ctx, d.getByPlaceholder('Name (matches existing Task assignees)'), 'Noah Bennett', 'absence who');
-      await ctx.page.keyboard.press('Tab');
+      await absenceAssignee(ctx, d, 'Noah Bennett');
       await click(ctx, d.getByText('Vacation', { exact: true }), 'Vacation', 300);
       await d.locator('input[type=date]').nth(0).fill('2026-09-28');
       await d.locator('input[type=date]').nth(1).fill('2026-10-02');
@@ -589,7 +623,7 @@ export const WEDNESDAY = [
       await resources(ctx, 'Workload');
       await caption(ctx, "Maya is over-allocated this month: bring her hours down.", 'wed-maya-util');
       const cell = main(ctx).getByRole('spinbutton', { name: 'Near-term utilization for Maya Patel', exact: true });
-      await moveTo(ctx, cell);
+      await moveTo(ctx, cell, 'Maya util');
       await pace(ctx, 1500);
       await type(ctx, cell, String(DEMO_MAYA_RELIEVED_HOURS), 'Maya util');
       await cell.press('Tab');
@@ -632,8 +666,12 @@ export const WEDNESDAY = [
       await nav(ctx, 'Open Points');
       await caption(ctx, `Swimlanes by person: give ${DEMO_NEW_MEMBER.firstName} a lane, then a CRM follow-up.`, 'wed-swimlane');
       await click(ctx, main(ctx).getByRole('radio', { name: 'Swimlanes', exact: true }), 'Swimlanes', 1200);
-      await main(ctx).getByRole('combobox', { name: 'Add person lane', exact: true }).selectOption({ label: MEMBER });
-      await L.settle(ctx.page);
+      // The select adds the lane and returns to its placeholder, so the lane itself is the check.
+      const lane = main(ctx).locator(`[aria-label="${MEMBER} – To Do"]`);
+      if (await lane.count()) throw new Error(`a lane for ${MEMBER} exists before Add person lane`);
+      await choose(ctx, main(ctx).getByRole('combobox', { name: 'Add person lane', exact: true }), { label: MEMBER }, 'Add person lane', { resets: true });
+      await lane.waitFor({ state: 'visible', timeout: 5000 })
+        .catch(() => { throw new Error(`no lane for ${MEMBER} after Add person lane`); });
       await pace(ctx, 1000);
       // Filtered to the follow-up, its card sits right under the new lane: unfiltered they are thousands of
       // pixels apart, and a drag cannot scroll on the way.
@@ -641,7 +679,7 @@ export const WEDNESDAY = [
       await type(ctx, search, 'CRM provisioning fails', 'filter');
       await L.settle(ctx.page);
       const card = main(ctx).getByRole('button', { name: DEMO_DUPLICATE_PAIRS[0][1], exact: true }).first();
-      await moveTo(ctx, card);
+      await moveTo(ctx, card, DEMO_DUPLICATE_PAIRS[0][1]);
       await card.dragTo(main(ctx).locator(`[aria-label="${MEMBER} – To Do"]`).first());
       await L.settle(ctx.page);
       await pace(ctx, 1500);
@@ -663,29 +701,35 @@ export async function openRow(ctx, view, text) {
   return ctx.page.locator(DLG).last();
 }
 
+/** Open Points' Add task: opens the new-task form and returns it. */
+export async function openNewTask(ctx) {
+  await click(ctx, main(ctx).getByRole('button', { name: 'Add task', exact: true }).first(), 'Add task', 500);
+  return ctx.page.locator(DLG).last();
+}
+
+/** Fills the open new-task form `d` with a name, an owner picked from the directory by first name, and a due
+ *  date, then saves it. Kept short (no screen time a viewer gains nothing from): a long fill is silence. */
+export async function fillNewTask(ctx, d, name, assignee, due) {
+  // The name goes in at once: typed key by key at 1080p it took about 5 s and left f-open-points 10 s without a
+  // voice (§715, the 8 s rule). The owner is still typed, so the picker is seen at work.
+  await type(ctx, d.getByPlaceholder('What needs to happen?'), name, 'task name', { slow: false });
+  await pickPerson(ctx, d, d.getByPlaceholder('Assignee', { exact: true }), assignee, 'assignee', { typed: assignee.split(' ')[0] });
+  await d.locator('input[type=date]').nth(1).fill(due);
+  await click(ctx, d.getByRole('button', { name: 'Add task – New task' }), 'save task', 300);
+}
+
 /** Open Points → Add task with a name, owner and due date. */
 async function addTask(ctx, name, assignee, due) {
   await nav(ctx, 'Open Points');
-  await click(ctx, main(ctx).getByRole('button', { name: 'Add task', exact: true }).first(), 'Add task');
-  const d = ctx.page.locator(DLG).last();
-  await type(ctx, d.getByPlaceholder('What needs to happen?'), name, 'task name');
-  await type(ctx, d.getByPlaceholder('Assignee'), assignee, 'assignee');
-  await ctx.page.keyboard.press('Escape').catch(() => {});
-  await d.locator('input[type=date]').nth(1).fill(due);
-  await click(ctx, d.getByRole('button', { name: 'Add task – New task' }), 'save task', 600);
+  await fillNewTask(ctx, await openNewTask(ctx), name, assignee, due);
 }
 
-/** The Owner picker: type the name, then pick the person from its list (Tab alone does not pick). */
-async function pickOwner(ctx, d, who) {
-  await type(ctx, d.getByRole('combobox', { name: 'Owner' }), who, 'owner');
-  const option = ctx.page.getByRole('option', { name: new RegExp('^' + who) }).first();
-  if (await option.isVisible().catch(() => false)) await click(ctx, option, `pick ${who}`, 400);
-  else await ctx.page.keyboard.press('Tab');
-}
+/** A RAID item's Owner, the shared directory picker (Tab alone does not pick). */
+const pickOwner = (ctx, d, who) => pickPerson(ctx, d, d.getByRole('combobox', { name: 'Owner' }), who, 'owner');
 
 async function approveChange(ctx, title) {
   const d = await openRow(ctx, 'Changes', title);
-  await d.getByRole('combobox', { name: 'Status', exact: true }).selectOption('Approved');
+  await choose(ctx, d.getByRole('combobox', { name: 'Status', exact: true }), 'Approved', `status of ${title}`);
   await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), `approve ${title}`);
 }
 
@@ -721,7 +765,7 @@ export const THURSDAY = [
       await click(ctx, main(ctx).getByRole('button', { name: 'Add stakeholder', exact: true }), 'Add stakeholder');
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.getByRole('combobox', { name: 'Name', exact: true }), DEMO_DPO, 'stakeholder name');
-      await d.getByRole('combobox', { name: 'Category', exact: true }).selectOption('Customer');
+      await choose(ctx, d.getByRole('combobox', { name: 'Category', exact: true }), 'Customer', 'stakeholder category');
       // An address, so Friday's Draft message goes to the mail client instead of asking for one.
       await type(ctx, d.locator('input').nth(3), 'northwind.dpo@example.com', 'email');
       await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save stakeholder');
@@ -778,7 +822,7 @@ export const THURSDAY = [
       await nav(ctx, 'Influence / Interest');
       await caption(ctx, 'High influence, high interest: the DPO is managed closely.', 'thu-map-dpo');
       const chip = main(ctx).getByRole('button', { name: `Edit – ${DEMO_DPO}`, exact: true });
-      await moveTo(ctx, chip);
+      await moveTo(ctx, chip, DEMO_DPO);
       await chip.dragTo(main(ctx).locator('div:has(> p)', { hasText: 'Manage Closely' }).last());
       await L.settle(ctx.page);
       await pace(ctx, 2000);
@@ -788,7 +832,7 @@ export const THURSDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Steering committee');
       await caption(ctx, "Thursday's steering meeting approves the connector change and the MFA change.", 'thu-steering-approve');
-      await moveTo(ctx, main(ctx).getByRole('button', { name: 'Status report – Steering — MVP slip', exact: true }));
+      await moveTo(ctx, main(ctx).getByRole('button', { name: 'Status report – Steering — MVP slip', exact: true }), 'Status report');
       await pace(ctx, 2000);
       await approveChange(ctx, CONNECTOR);
       await approveChange(ctx, MFA_CHANGE);
@@ -809,7 +853,7 @@ export const THURSDAY = [
         done: d.getByRole('button', { name: 'Draft with AI', exact: true }),
         label: 'steering report',
       });
-      await pace(ctx, 4000);
+      await pace(ctx, 2500);
     },
     check: async (ctx) => ((await ctx.page.locator(DLG).last().locator('[contenteditable="true"]').first().innerText().catch(() => '')).length > 200 ? null : 'no report'),
     after: async (ctx) => click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: 'Save', exact: true }), 'Save report', 1200),
@@ -817,8 +861,9 @@ export const THURSDAY = [
   }),
   step('connector-bucket', {
     run: async (ctx) => {
-      await nav(ctx, 'Budget');
+      // Said on the way to Budget, so the steering report's save and the nav are not silent (no silence over 8 s).
       await caption(ctx, 'The approved change gets its own budget bucket.', 'thu-connector-bucket');
+      await nav(ctx, 'Budget');
       await click(ctx, main(ctx).getByRole('button', { name: '+ Add bucket', exact: true }), 'Add bucket', 1000);
       const d = ctx.page.locator(DLG).last();
       await type(ctx, d.locator('input:not([type]), input[type=text]').first(), 'CRM connector (CR)', 'bucket name');
@@ -847,7 +892,7 @@ export const THURSDAY = [
       await caption(ctx, 'The MVP target moves to Thursday 1 October; the customer re-demo stays on the 2nd.', 'thu-gantt-mvp');
       // Project D's milestone move, by keyboard: a week (Shift) plus six days from 18 September, then Enter.
       const marker = main(ctx).getByRole('slider', { name: /^Move milestone – MVP target/ }).first();
-      await moveTo(ctx, marker);
+      await moveTo(ctx, marker, 'MVP target');
       await marker.focus();
       await ctx.page.keyboard.press('Shift+ArrowRight');
       for (let i = 0; i < 6; i++) await ctx.page.keyboard.press('ArrowRight');
@@ -859,6 +904,64 @@ export const THURSDAY = [
 ];
 
 // ---- Friday — close the week ----
+const BUDGET_INSIGHT = 'Budget off plan';
+const APPLY_REC = 'Apply recommendation';
+/** The budget insight's card on Insights. */
+const insightCard = (ctx) => main(ctx).locator('li').filter({ has: ctx.page.getByRole('button', { name: `Dismiss – ${BUDGET_INSIGHT}`, exact: true }) });
+/** The review Apply recommendation opens (insights/recommendation-review-modal.tsx). */
+const reviewDialog = (ctx) => ctx.page.getByRole('dialog', { name: 'Review recommendation', exact: true });
+/** The review's line for a plan with nothing left to apply (its confirm button is then disabled). */
+export const EMPTY_PLAN = 'This recommendation has no remaining changes to apply.';
+/** Every outcome line a recommendation shows after Apply, by its i18n key (insightRecommendation*): copies, since the
+ *  recorder runs without the app's modules; content.test.mjs pins each to src/app/i18n.ts. A `{0}` is the app's
+ *  slot for a detail and matches any text; the last two (§782) name the failure there. */
+export const REC_OUTCOMES = Object.freeze({
+  insightRecommendationApplied: 'Recommendation applied.',
+  insightRecommendationAppliedPartial: "Partly applied — some changes weren't made. Generate a new recommendation for the rest.",
+  insightRecommendationApplyFailed: "Some changes in this recommendation couldn't be applied.",
+  insightRecommendationAllRejected: 'Not applied — every change in this recommendation was rejected.',
+  insightRecommendationStale: "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.",
+  insightRecommendationCurrencyChanged: "This recommendation wasn't applied — the project's currency history changed since it was generated, so its amounts may be in a different currency. Generate a new one.",
+  insightRecommendationStalePartial: "Some changes weren't applied — the project data changed since this recommendation was generated. Generate a new one for the rest.",
+  insightRecommendationApplyFailedDetail: "Some changes in this recommendation couldn't be applied. {0}",
+  insightRecommendationStalePartialDetail: "Some changes weren't applied — the project data changed since this recommendation was generated, and others couldn't be applied ({0}). Generate a new one for the rest.",
+});
+/** One of those lines, whole: no other app string with the same opening can match. A `{0}` matches any text. */
+export const REC_STATUS = (() => {
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = (line) => esc(line).split('\\{0\\}').join('[\\s\\S]+');
+  return new RegExp(`^(${Object.values(REC_OUTCOMES).map(pattern).join('|')})$`);
+})();
+
+/** The app's outcome keys, found by prefix: an outcome key named outside these prefixes is invisible to the check. */
+export const OUTCOME_KEY = /^insightRecommendation(Applied|Apply|AllRejected|Stale|Currency)/;
+/** REC_OUTCOMES against an i18n table (`dict`, key -> text): how many of its keys are outcome keys, those REC_OUTCOMES
+ *  does not know, those whose copy differs from the table, and those absent from the table (not pinned there). */
+export function recOutcomeCheck(dict) {
+  const keys = Object.keys(dict).filter((k) => OUTCOME_KEY.test(k));
+  const known = Object.keys(REC_OUTCOMES);
+  return {
+    matched: keys.length,
+    unknown: keys.filter((k) => !known.includes(k)),
+    mismatched: known.filter((k) => k in dict && dict[k] !== REC_OUTCOMES[k]),
+    absent: known.filter((k) => !(k in dict)),
+  };
+}
+/** The outcome lines after Apply, where the app shows them: the card's note once the recommendation is applied, and
+ *  the toast (app-modals.tsx, role="status"). Both are read: a change that threw still leaves the card reading
+ *  applied while the toast says some changes couldn't be applied, and an outcome that wrote nothing has the toast only. */
+const recCardLine = (ctx) => insightCard(ctx).getByText(REC_STATUS);
+const recToastLine = (ctx) => ctx.page.getByRole('status').getByText(REC_STATUS);
+/** How long the read waits for the second of the two lines once the first shows: they need not land in one frame. */
+const REC_BOTH_MS = 3000;
+
+/** What is wrong with a recommendation's status lines after Apply, or null when there is one and every one reads
+ *  applied in full. */
+export function recommendationNotApplied(statuses) {
+  if (!statuses.length) return 'the recommendation shows no applied status';
+  const other = statuses.find((s) => s !== REC_OUTCOMES.insightRecommendationApplied);
+  return other === undefined ? null : `the recommendation was not applied in full: "${other}"`;
+}
 const SPLIT_FROM = 'Pilot feedback fixes';
 const SPLIT_NEW = 'Pilot feedback fixes – registration flow';
 
@@ -867,7 +970,7 @@ export const FRIDAY = [
     run: async (ctx) => {
       await nav(ctx, 'Open Points');
       await caption(ctx, 'Erasure verified end to end: the CRM task is done.', 'fri-crm-done');
-      await main(ctx).getByRole('combobox', { name: `Status – ${DEMO_CRM_TASK}`, exact: true }).selectOption('Done');
+      await choose(ctx, main(ctx).getByRole('combobox', { name: `Status – ${DEMO_CRM_TASK}`, exact: true }), 'Done', `Status – ${DEMO_CRM_TASK}`);
       await L.settle(ctx.page);
       await pace(ctx, 1500);
       await caption(ctx, 'And the GDPR issue is resolved.', 'fri-gdpr-resolved');
@@ -882,7 +985,7 @@ export const FRIDAY = [
       await caption(ctx, 'Friday: the first thing to do now is to tell the DPO.', 'fri-do-first');
       const hero = main(ctx).getByRole('button', { name: `Open – Do this first – Update stakeholder: ${DEMO_DPO}`, exact: true });
       if (!(await hero.isVisible().catch(() => false))) throw new Error(`the Dashboard hero is not "Update stakeholder: ${DEMO_DPO}"`);
-      await moveTo(ctx, hero);
+      await moveTo(ctx, hero, 'Do this first');
       await pace(ctx, 3000);
     },
   }),
@@ -901,37 +1004,6 @@ export const FRIDAY = [
     },
     replay: noop,
   }),
-  step('insights', {
-    run: async (ctx) => {
-      await nav(ctx, 'Dashboard');
-      await nav(ctx, 'Insights');
-      await caption(ctx, 'Insights: patterns the week left behind.', 'fri-insights');
-      await pace(ctx, 3000);
-    },
-  }),
-  step('insight-recommendation', {
-    ai: true,
-    trigger: async (ctx) => {
-      await nav(ctx, 'Dashboard'); await nav(ctx, 'Insights');
-      return main(ctx).getByRole('button', { name: 'Generate recommendation – Budget off plan', exact: true });
-    },
-    run: async (ctx) => {
-      await caption(ctx, 'A recommendation for the budget insight, to act on.', 'fri-insight-rec');
-      await click(ctx, main(ctx).getByRole('button', { name: 'Generate recommendation – Budget off plan', exact: true }), 'Generate recommendation', 300);
-      await waitForAi(ctx, {
-        busy: main(ctx).getByRole('button', { name: /^(Generating|Stop)/ }).first(),
-        done: main(ctx).getByRole('button', { name: /^(Act|Apply)/ }).first(),
-        label: 'recommendation',
-      });
-      await pace(ctx, 4000);
-    },
-    check: async (ctx) => {
-      const card = main(ctx).locator('li').filter({ has: ctx.page.getByRole('button', { name: 'Dismiss – Budget off plan', exact: true }) });
-      return (await card.getByText(/^AI suggests:/).count()) ? null : 'no recommendation';
-    },
-    after: async (ctx) => click(ctx, main(ctx).getByRole('button', { name: 'Act – Budget off plan', exact: true }), 'Act', 1500),
-    replay: noop,
-  }),
   step('split-pilot-task', {
     run: async (ctx) => {
       await caption(ctx, 'Restructure by hand: split the pilot fixes in two, linked.', 'fri-split-task');
@@ -947,7 +1019,7 @@ export const FRIDAY = [
       await click(ctx, n.getByRole('option', { name: /^Sofia Ramirez/ }).locator('button'), 'Sofia Ramirez', 500);
       await n.locator('input[type=date]').first().fill('2026-10-16');
       // The link-direction select is the dialog's last (it carries no accessible name).
-      await n.locator('select').last().selectOption({ label: 'Successor' });
+      await choose(ctx, n.locator('select').last(), { label: 'Successor' }, 'link direction');
       await click(ctx, n.getByRole('button', { name: 'Add', exact: true }), 'Add linked task', 800);
       await saveTask(ctx);
     },
@@ -969,17 +1041,93 @@ export const FRIDAY = [
         done: d.getByRole('button', { name: /^Apply/ }).first().or(failToast(ctx)),
         label: 'optimize',
       });
-      await pace(ctx, 4000);
+      await pace(ctx, 2500);
     },
     check: async (ctx) => ((await ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).isEnabled().catch(() => false)) ? null : 'no change'),
     after: async (ctx) => click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).first(), 'Apply restructure', 2000),
     replay: noop,
   }),
+  step('insights', {
+    run: async (ctx) => {
+      // Said on the way to Insights, after Optimize with AI (no silence over 8 s).
+      await caption(ctx, 'Insights: patterns the week left behind.', 'fri-insights');
+      await nav(ctx, 'Dashboard');
+      await nav(ctx, 'Insights');
+      await pace(ctx, 3000);
+    },
+  }),
+  step('insight-recommendation', {
+    ai: true,
+    trigger: async (ctx) => {
+      await nav(ctx, 'Dashboard'); await nav(ctx, 'Insights');
+      return main(ctx).getByRole('button', { name: 'Generate recommendation – Budget off plan', exact: true });
+    },
+    // The recommendation, then its review opened: an empty plan (nothing Claude could apply) fails the check,
+    // so it gets the AI step's one retry instead of a disabled confirm button after a billed call.
+    run: async (ctx) => {
+      // A retry finds the previous review still open: close it first. Its recommendation is still proposed, and a
+      // proposed one shows only Apply and Reject (insight-recommendation-controls.tsx): Reject, the app's own way
+      // to dismiss a suggestion and ask again, brings Generate back.
+      const open = reviewDialog(ctx);
+      if (await open.count()) await click(ctx, open.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel review', 500);
+      const reject = main(ctx).getByRole('button', { name: `Reject – ${BUDGET_INSIGHT}`, exact: true });
+      if (await reject.count()) await click(ctx, reject, 'Reject recommendation', 500);
+      await caption(ctx, 'A recommendation for the budget insight.', 'fri-insight-rec');
+      await click(ctx, main(ctx).getByRole('button', { name: 'Generate recommendation – Budget off plan', exact: true }), 'Generate recommendation', 300);
+      await waitForAi(ctx, {
+        busy: main(ctx).getByRole('button', { name: /^(Generating|Stop)/ }).first(),
+        // The suggestion's own Apply button: it shows only once the recommendation is on the card.
+        done: main(ctx).getByRole('button', { name: `${APPLY_REC} – ${BUDGET_INSIGHT}`, exact: true }),
+        label: 'recommendation',
+      });
+      await pace(ctx, 2500);
+      // Apply recommendation opens a review of the proposed changes. (Act only records that the insight was
+      // acted on; it applies nothing.)
+      await caption(ctx, 'Apply: review the proposed changes, then apply them.', 'fri-insight-apply');
+      await click(ctx, main(ctx).getByRole('button', { name: `${APPLY_REC} – ${BUDGET_INSIGHT}`, exact: true }), APPLY_REC, 1500);
+    },
+    check: async (ctx) => {
+      if (!(await insightCard(ctx).getByText(/^AI suggests:/).count())) return 'no recommendation';
+      const review = reviewDialog(ctx);
+      if (!(await review.count())) return 'no review';
+      const empty = (await review.getByText(EMPTY_PLAN).count()) > 0
+        || !(await review.getByRole('button', { name: APPLY_REC, exact: true }).isEnabled().catch(() => false));
+      ctx.log(`INSIGHT review open, ${empty ? 'empty plan' : 'plan with changes'}`);
+      return empty ? 'no applicable changes' : null;
+    },
+    // The review is held while its beat is spoken, then confirmed; the recommendation must then read applied.
+    after: async (ctx) => {
+      await holdVoice(ctx);
+      await click(ctx, reviewDialog(ctx).getByRole('button', { name: APPLY_REC, exact: true }), `confirm ${APPLY_REC}`, 1500);
+      // Once one line shows, the other gets a bounded wait (an outcome that wrote nothing has no card note), so a
+      // toast that lags the card is still read; then every line is classified.
+      const card = recCardLine(ctx);
+      const toast = recToastLine(ctx);
+      const lines = card.or(toast);
+      await lines.first().waitFor({ timeout: 15000 }).catch(() => {});
+      await Promise.all([card, toast].map((l) => l.first().waitFor({ timeout: REC_BOTH_MS }).catch(() => {})));
+      // A read that fails still fails the step (no status), but the log says why.
+      const statuses = await lines.allInnerTexts().catch((e) => {
+        ctx.log(`INSIGHT status read failed: ${String(e?.message ?? e).split('\n')[0]}`);
+        return [];
+      });
+      ctx.log(`INSIGHT status after Apply: ${statuses.map((s) => `"${s}"`).join(', ') || '(none)'}`);
+      // The applied changes may bring the budget back on plan, and a resolved insight leaves the list.
+      const gone = !statuses.length && !(await insightCard(ctx).count());
+      const wrong = gone ? 'the budget insight left the list before its status could be read (resolved by the changes?)' : recommendationNotApplied(statuses);
+      if (wrong) throw new Error(`${ctx.clipId}: ${wrong}`);
+      await pace(ctx, 1500);
+    },
+    // Friday is the last day: no chapter replays it. It also runs after the day's scripted steps (the split, the
+    // restructure), so what Claude changes cannot reach them.
+    replay: noop,
+  }),
   step('trends-activity-history', {
     run: async (ctx) => {
+      // Said on the way to Trends, after the insight's recommendation is applied (no silence over 8 s).
+      await caption(ctx, 'Trends: the weeks behind this one.', 'fri-trends');
       await nav(ctx, 'Dashboard');
       await nav(ctx, 'Trends');
-      await caption(ctx, 'Trends: the weeks behind this one.', 'fri-trends');
       await pace(ctx, 3000);
       // Each beat describes the view on screen: its voice ends there, before the next view opens.
       await holdVoice(ctx);
