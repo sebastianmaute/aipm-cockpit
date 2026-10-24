@@ -83,7 +83,7 @@ types through the validator was weighed and rejected.
   STORED calls — a replay never passes through `parseRecommendation`, so a check there alone would miss it. Pure engines: `insights/recommend.ts` (forced-tool `propose_insight_actions` +
   `parseRecommendation` re-grounding every entity id against the live workspace via `action-ai` `GroundingIndex`,
   allow-set = safe update/create tools only, NO delete/settings), `recommend-context.ts` (per-insight digest +
-  cacheable system prompt, i18n-free English), `recommend-plan.ts` (`describeRecommendationPlan(calls, ws)` → an
+  cacheable system prompt, i18n-free English), `recommend-plan.ts` (`describeRecommendationPlan(calls, ws, formatProblem?)` → an
   `EditPlan` preview reusing the inline-ai-edit descriptor engine, grounding each call by ITS OWN id). The call
   (`recommend-call.ts` `runInsightRecommendation`) mirrors `task-dedup-call` — ONE forced call through the shared
   never-log `runForcedToolCallWithStop`, asked once more at 8192 tokens when the 4096-token reply stopped at

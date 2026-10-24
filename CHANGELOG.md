@@ -78,9 +78,12 @@ longer carries its own changelog comment.
   change failed (§782).** Claude was not told which details each change needs, so a recommendation could propose
   a new task with no name or no assignee; the review showed it as a normal change and Apply then failed with
   "Some changes in this recommendation couldn't be applied" and no hint which. Claude is now given each change's
-  required details and the people it can assign. The review shows a change that is missing one, or that edits an
-  item deleted since, as skipped with the reason, and such a change is not sent. When a change still fails, the
-  message names it and why, and the recommendation reads "Partly applied" with the option to generate a new one,
+  required details and the people it can assign, including the names tasks are already assigned to, so a project
+  without a resource list can get a new task too; with no one to name, Claude is told not to propose one. The
+  review shows a change that is missing one, or that edits an item deleted since, as skipped with the reason (in
+  the app's language), and such a change is not sent. When a change still fails, the message names it and why,
+  also when other changes were skipped because the data moved, and the recommendation reads "Partly applied" with
+  the option to generate a new one,
   never plain "applied". Found by a rehearsal of the demo video recorder with AI.
 - **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
   against the wrong year, so the new project and its milestones could already be over on the day you created
