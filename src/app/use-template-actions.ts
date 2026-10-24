@@ -5,8 +5,8 @@
 // project menu offers: the template list (built-ins plus the user's own, via
 // `useTemplates`), capturing the live project as a template, and applying one
 // to the current project. It reads the workspace setters and the template
-// snapshot builder from context itself, so the deps are `lang`, `showToast` and
-// the project's `features`. The `useCallback`s keep the exact memoization the code had
+// snapshot builder from context itself, so the deps are `lang` and `showToast`.
+// The `useCallback`s keep the exact memoization the code had
 // inline. Move-only: no behaviour change.
 //
 // ★ Coverage-GATED on purpose (not in `coverage.exclude`): apply decides what a
@@ -27,25 +27,23 @@ import { ALL_MODULE_IDS } from "./feature-modules";
 import { sanitizeFieldVisibility } from "./field-visibility";
 import { summarizeUnsafeEmailRecords, templateSeedEmailScope } from "./sanitize";
 import { useWorkspace } from "./workspace-context";
-import type { Settings } from "./settings-types";
 
 export interface TemplateActionsDeps {
   lang: Lang;
   showToast: (kind: ToastKind, text: string) => void;
-  /** task-manager's own `settings.features`, captured into a saved template.
-   *  ★ Passed in, not read here: `useSettings` is per-instance state synced by a
-   *  post-commit broadcast, so a second instance could lag task-manager's by a
-   *  commit. */
-  features: Settings["features"];
 }
 
-export function useTemplateActions({ lang, showToast, features }: TemplateActionsDeps) {
-  const { setFieldVisibility, setFeatures, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets } =
+export function useTemplateActions({ lang, showToast }: TemplateActionsDeps) {
+  const { features: savedFeatures, setFieldVisibility, setFeatures, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets } =
     useWorkspace();
   const { templates: projectTemplates, addTemplate } = useTemplates();
   // ★ A snapshot FOR TEMPLATE USE, not the persisted workspace: it leaves out the
   // per-project config a reusable template must not carry (see its own header).
   const buildCurrentWorkspace = useCurrentWorkspace();
+  // §779 — a saved template carries the project's SAVED functions (`Workspace.features`), the same
+  // source as Settings -> Templates, not a `settings.features` mirror, which another instance can hold
+  // stale. `?? ALL_MODULE_IDS` is the legacy-project default `useFeaturesSync` mirrors.
+  const features = savedFeatures ?? ALL_MODULE_IDS;
 
   const handleSaveTemplate = useCallback(
     (input: SaveTemplateInput) => {
