@@ -44,7 +44,6 @@ import { buildGroundingIndex } from "./action-ai";
 import { runTool, type ToolDispatcher } from "./chat-tools";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { stampRecommendationTokens } from "./insights/recommend-tokens";
-import { recommendationCallProblem } from "./insights/recommend-schema";
 import { logDiag } from "./diagnostics";
 import { descriptionText } from "./rich-text-projection";
 import { effectivePersonName, resourceDisplayName } from "./resource-foundation";
@@ -231,7 +230,10 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         // §782 — create_task REQUIRES an assignee, and before this the digest
         // named nobody the model could give. Active people only: an archived
         // resource is not someone to hand new work to.
-        people: [...resourcesById.values()].filter((r) => r.active !== false).map(resourceDisplayName),
+        people: [...resourcesById.values()]
+          .filter((r) => r.active !== false)
+          .map(resourceDisplayName)
+          .filter((name) => name.trim() !== ""),
       });
     },
     [project, today, tasks, resolveInsightEntity, resourcesById],
@@ -393,10 +395,9 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // meet it; a dispatcher that gains I/O must bring `dropStaleScopeWrite` with it.
     // Per-call, NON-transactional apply. Each runTool is its own try/catch so one
     // call that THROWS (e.g. an enum/date the entity's sanitizer rejects) can't
-    // abort the remaining calls. ★ An update whose target row is GONE throws too:
-    // `runTool` reports `not found` for every `update_*` (and `recommend-tokens.ts`
-    // leaves such a call unstamped so that is the error it meets), so `failed`
-    // counts it with the other hard errors. We ALWAYS advance the insight to
+    // abort the remaining calls. (An update whose target row is GONE never gets
+    // here: the review shows it as an unknown-id rejection, so the loop refuses
+    // it below. Dispatched, `runTool` would throw `not found`.) We ALWAYS advance the insight to
     // acted/applied afterwards (even on partial failure) so a retry can never
     // re-run the calls that DID commit — that would duplicate create_* entities.
     //
@@ -422,23 +423,22 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // be applied" with no way to tell which change or why.
     const failures: string[] = [];
     for (const call of calls) {
-      // ★★ §782 — a call missing an argument its writer requires would only
-      //  throw; the review plan already showed it as rejected (same predicate,
-      //  `describeRecommendationPlan`), so like a §534 refusal it is sent nowhere.
-      //  It runs HERE, on the stored calls, because a replay never passes through
-      //  `parseRecommendation`.
-      if (recommendationCallProblem(call) !== null) {
-        refused++;
-        continue;
-      }
       // ★★★ §534 — strip against this call's OWN plan, from the SAME slices
       //  the modal's `reviewPlan` reads. That plan is the concatenation of these
       //  per-call plans (pinned in recommend-plan.test.ts), so what the modal
       //  showed as rejected is exactly what is not sent.
-      const sent = stripRejectedFields(
-        call.input,
-        describeRecommendationPlan([call], { tasks, raid, changes, milestones, stakeholders }),
-      );
+      const plan = describeRecommendationPlan([call], { tasks, raid, changes, milestones, stakeholders });
+      // ★★ §782 — a WHOLE-CALL rejection (no `field`) is refused too: a call
+      //  missing an argument its writer requires (`recommendationCallProblem`,
+      //  run inside the plan) or an update whose row is gone. Either would only
+      //  throw. It is judged HERE, on the stored calls, because a replay never
+      //  passes through `parseRecommendation`. (Chat Apply still dispatches a
+      //  whole-call rejection; `stripRejectedFields` is unchanged for it.)
+      if (plan.rejected.some((r) => r.field === undefined)) {
+        refused++;
+        continue;
+      }
+      const sent = stripRejectedFields(call.input, plan);
       if (sent.writesNothing) {
         refused++;
         continue;
@@ -488,17 +488,20 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
               actedAt: today,
               // SP3: same shared baseline capture as the manual Act path.
               ...metricAtActionPatch(i),
-              // §351: record the calls that wrote nothing, so a partly-landed
+              // §351: record the calls that did not land, so a partly-landed
               // plan stays distinguishable from a full one after the toast is
-              // gone. The early return above is deliberately NOT widened — the
-              // creates committed, so returning to `proposed` would let a
-              // re-confirm create them twice.
+              // gone. ★ §782 — a call that THREW counts too: the card must not
+              // read "applied" beside a failure. The early return above is
+              // deliberately NOT widened — a hard failure may have written, and
+              // the creates that did commit would be created twice by a
+              // re-confirm. Regenerating replaces `proposedCalls`, so the
+              // card's Generate offer replays nothing.
               recommendation: {
                 ...rec,
                 status: "applied" as const,
                 appliedAt: today,
                 appliedSummary: rec.summary,
-                ...(stale + refused > 0 ? { refusedCalls: stale + refused } : {}),
+                ...(stale + refused + failed > 0 ? { refusedCalls: stale + refused + failed } : {}),
               },
             }
           : i,

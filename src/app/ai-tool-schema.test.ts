@@ -30,6 +30,33 @@ describe("matchesSchema", () => {
   });
 });
 
+// §782 — `propose_insight_actions` offers one `anyOf` branch per tool, and both
+// helpers used to skip the keyword: a per-tool mismatch matched, and the strict
+// form left every branch object open, which the API refuses.
+describe("anyOf", () => {
+  const union = {
+    anyOf: [
+      { type: "object", properties: { name: { type: "string", enum: ["a"] }, n: { type: "number" } }, required: ["name", "n"] },
+      { type: "object", properties: { name: { type: "string", enum: ["b"] }, s: { type: "string" } }, required: ["name", "s"] },
+    ],
+  };
+
+  it("matches a value that fits one branch, and refuses one that fits none", () => {
+    expect(matchesSchema({ name: "a", n: 1 }, union)).toBe(true);
+    expect(matchesSchema({ name: "b", s: "x" }, union)).toBe(true);
+    expect(matchesSchema({ name: "a", s: "x" }, union)).toBe(false);
+    expect(matchesSchema("a", union)).toBe(false);
+  });
+
+  it("closes every branch object in the strict form", () => {
+    const [out] = withStrictTool([{ name: "t", input_schema: { type: "object", properties: { c: { type: "array", items: union } } } }], "t") as [
+      { input_schema: { properties: { c: { items: { anyOf: { additionalProperties?: unknown }[] } } } } },
+    ];
+    expect(out.input_schema.properties.c.items.anyOf.map((b) => b.additionalProperties)).toEqual([false, false]);
+    expect(union.anyOf[0]).not.toHaveProperty("additionalProperties"); // the source is not edited
+  });
+});
+
 describe("withStrictTool", () => {
   it("closes every object of the named tool, nested in properties and items, and keeps the other entries", () => {
     const named = {

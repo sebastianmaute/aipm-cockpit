@@ -4,6 +4,7 @@ import { TOOL_DEFS } from "../chat-tool-defs";
 import { RECOMMEND_TOOL } from "./recommend";
 import { ALLOWED_REC_TOOLS } from "./insight";
 import { REC_TOOL_INPUT_SCHEMAS, recommendationCallProblem } from "./recommend-schema";
+import { matchesSchema, withStrictTool } from "../ai-tool-schema";
 
 type Schema = { properties?: Record<string, unknown>; required?: readonly string[] };
 type Def = { name: string; input_schema: Schema };
@@ -96,5 +97,39 @@ describe("§782 — recommendationCallProblem judges what the dispatcher require
 
   test("a tool outside the allow-set is a problem, never a pass", () => {
     expect(recommendationCallProblem({ name: "delete_task", input: { id: 42 } })).toBe("delete_task: not allowed");
+  });
+});
+
+// §782 review I2 — the forced-call envelope re-asks a reply that breaks the
+// schema in strict form. Both halves have to see inside the per-tool union, or
+// the retry never fires and the strict request is refused for its open objects.
+describe("§782 — the strict retry works for propose_insight_actions", () => {
+  function openObjects(node: unknown): number {
+    if (Array.isArray(node)) return node.reduce((n: number, v) => n + openObjects(v), 0);
+    if (!node || typeof node !== "object") return 0;
+    const o = node as Record<string, unknown>;
+    const self = o.type === "object" && o.additionalProperties !== false ? 1 : 0;
+    return self + Object.values(o).reduce((n: number, v) => n + openObjects(v), 0);
+  }
+  function objects(node: unknown): number {
+    if (Array.isArray(node)) return node.reduce((n: number, v) => n + objects(v), 0);
+    if (!node || typeof node !== "object") return 0;
+    const o = node as Record<string, unknown>;
+    return (o.type === "object" ? 1 : 0) + Object.values(o).reduce((n: number, v) => n + objects(v), 0);
+  }
+
+  test("the strict form leaves no object open", () => {
+    const [strict] = withStrictTool([RECOMMEND_TOOL], RECOMMEND_TOOL.name) as [{ input_schema: unknown }];
+    expect(objects(strict.input_schema)).toBeGreaterThan(ALLOWED_REC_TOOLS.size * 2); // anti-vacuity: the branches are walked
+    expect(openObjects(strict.input_schema)).toBe(0);
+  });
+
+  test("a reply whose call fits its tool's branch matches; one missing a required argument does not", () => {
+    const schema = RECOMMEND_TOOL.input_schema;
+    const ok = { summary: "s", calls: [{ name: "create_task", input: { taskName: "T", assignee: "Dana Ortiz", dueDate: "2026-09-25" } }] };
+    expect(matchesSchema(ok, schema)).toBe(true);
+    expect(matchesSchema({ ...ok, calls: [{ name: "update_task", input: { id: 42, status: "Done" } }] }, schema)).toBe(true);
+    expect(matchesSchema({ ...ok, calls: [{ name: "create_task", input: { title: "T" } }] }, schema)).toBe(false);
+    expect(matchesSchema({ ...ok, calls: [{ name: "delete_task", input: { id: 42 } }] }, schema)).toBe(false);
   });
 });

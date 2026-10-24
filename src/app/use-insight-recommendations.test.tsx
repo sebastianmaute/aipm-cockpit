@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, render, screen } from "@testing-library/react";
 import * as recommendCall from "./insights/recommend-call";
 import { AiHttpError } from "./ai-errors";
 import { useInsightRecommendations, type InsightRecommendationDeps } from "./use-insight-recommendations";
@@ -8,6 +8,7 @@ import { t } from "./i18n";
 import { baselineHistoryDigest, type Insight, type InsightRecommendation } from "./insights/insight";
 import { actionGuideText, type OperatingGuide } from "./operating-guide";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
+import { InsightRecommendationControls } from "./insight-recommendation-controls";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -697,5 +698,81 @@ describe("§782 — a call the dispatcher would refuse is refused in review, and
     expect(t("en-US", "insightRecommendationApplyFailedDetail", "x")).toContain(t("en-US", "insightRecommendationApplyFailed"));
     // A hard failure may have written, so the advance rule is unchanged.
     expect(store.read()[0].recommendation?.status).toBe("applied");
+  });
+});
+
+// §782 review round 1.
+describe("§782 — a call that did not land keeps the card from reading as fully applied", () => {
+  const create = { name: "create_task", input: { taskName: "Review T&M burn", assignee: "Dana Ortiz", dueDate: "2026-09-25" } };
+  afterEach(() => clearDiagLog());
+
+  function setup(calls: InsightRecommendation["proposedCalls"], dispatcher: InsightRecommendationDeps["dispatcher"], over: Partial<InsightRecommendationDeps> = {}) {
+    const store = mkStore([mkInsight({ recommendation: { ...mkRec({}), proposedCalls: calls } })]);
+    const deps = mkDeps({ insights: store.read(), setInsights: store.setInsights, dispatcher, ...over });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    return { store, deps, result };
+  }
+
+  // I1 — a thrown call is counted with the refused ones, so the card says
+  // "Partly applied" and offers Generate, never the plain "applied" note. The
+  // insight still advances: a hard failure may have written something.
+  it("marks the card partly applied, with Generate offered, when every call threw", async () => {
+    const dispatcher = {
+      ...mkDispatcher().dispatcher,
+      createTask: vi.fn(() => { throw new Error("assignee is required"); }),
+    } as unknown as InsightRecommendationDeps["dispatcher"];
+    const { store, result } = setup([create, create], dispatcher);
+    act(() => { result.current.setReviewInsightId(1); });
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    const stored = store.read()[0];
+    expect(stored.status).toBe("acted");
+    expect(stored.recommendation?.status).toBe("applied");
+    expect(stored.recommendation?.refusedCalls).toBe(2);
+    const generate = vi.fn();
+    render(
+      <InsightRecommendationControls
+        insight={stored}
+        title="Budget off plan"
+        lang="en-US"
+        actions={{ onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(), onGenerateRecommendation: generate, onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn() }}
+      />,
+    );
+    expect(screen.getByText(t("en-US", "insightRecommendationAppliedPartial"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "insightRecommendationApplied"))).toBeNull();
+    screen.getByRole("button", { name: `${t("en-US", "insightGenerateRecommendation")} – Budget off plan` }).click();
+    expect(generate).toHaveBeenCalledWith(1);
+  });
+
+  // M2 — the review lists an update on a row that is gone as rejected; the
+  // confirm now refuses it too instead of dispatching it into "not found".
+  it("does not send an update whose target row is gone, and says nothing was applied", async () => {
+    const d = mkDispatcher();
+    const getTask = vi.fn(d.dispatcher.getTask);
+    const dispatcher = { ...d.dispatcher, getTask } as unknown as InsightRecommendationDeps["dispatcher"];
+    const { store, deps, result } = setup([{ name: "update_task", input: { id: 999, status: "Done" } }], dispatcher);
+    act(() => { result.current.setReviewInsightId(1); });
+    expect(result.current.reviewPlan?.rejected.map((r) => r.reason)).toEqual(["unknown-id"]);
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    expect(getTask).not.toHaveBeenCalled();
+    expect(store.calls).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationAllRejected"));
+    expect(readDiagLog()).toHaveLength(0);
+  });
+
+  // M5 — a resource with no first or last name has no name to assign by.
+  it("leaves a nameless resource out of the people list", async () => {
+    const spy = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42 }));
+    const people = new Map([
+      [1, { id: 1, firstName: "", lastName: " ", active: true }],
+      [2, { id: 2, firstName: "Dana", lastName: "Ortiz", active: true }],
+    ]) as unknown as InsightRecommendationDeps["resourcesById"];
+    const store = mkStore([mkInsight()]);
+    const { result } = renderHook(() =>
+      useInsightRecommendations(mkDeps({ resourcesById: people, insights: store.read(), setInsights: store.setInsights })),
+    );
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
+    const ctx: string = spy.mock.calls[0][0].context;
+    expect(ctx).toContain("## People (assign by name)\n- Dana Ortiz");
+    expect(ctx.split("\n").filter((l) => l.trim() === "-")).toHaveLength(0);
   });
 });

@@ -46,7 +46,9 @@ export const REC_TOOL_INPUT_SCHEMAS: Readonly<Record<string, InputSchema>> = Obj
 /** One `calls[]` item per allowed tool: its name and its own input schema.
  *  ★ No `type` on the union itself: `withStrictTool` closes every `type:
  *   "object"` node it meets, and a closed object with no properties would leave
- *   the model only `{}` to send. */
+ *   the model only `{}` to send. It closes each BRANCH instead (`closeObjects`
+ *   enters `anyOf`), and `matchesSchema` accepts a call that fits one branch, so
+ *   a reply breaking its tool's schema is re-asked strict (§782 review). */
 export const REC_CALL_ITEM_SCHEMA = {
   anyOf: [...ALLOWED_REC_TOOLS].map((name) => ({
     type: "object" as const,

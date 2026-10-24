@@ -85,9 +85,12 @@ export interface InsightRecommendation {
   readonly status: InsightRecommendationStatus;
   readonly appliedSummary?: string;
   readonly appliedAt?: string;
-  /** §351: calls that wrote NOTHING at apply — refused as stale (concurrency
-   *  token) or with every field rejected in review. Present (> 0) only on an
-   *  `applied` recommendation whose other calls committed, so `applied` no
+  /** §351: calls that did not land at apply — refused as stale (concurrency
+   *  token), with every field rejected in review, or refused whole in review
+   *  (§782: a missing required argument, a row that is gone); and, since §782,
+   *  calls that THREW in the dispatcher (which may have written part of their
+   *  work, hence "did not land" rather than "wrote nothing"). Present (> 0) only on an
+   *  `applied` recommendation, so `applied` no
    *  longer means both "fully landed" and "partly landed". A count, bounded by
    *  `INSIGHT_REC_MAX_CALLS`; absent ⇒ nothing was refused. Kept as a field,
    *  not a new status, so an older build's status check does not reset the
