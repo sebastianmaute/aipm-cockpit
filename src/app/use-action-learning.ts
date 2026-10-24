@@ -20,6 +20,7 @@ import {
 import type { TranslationKey } from "./i18n";
 import { logDiag } from "./diagnostics";
 import { isRetryableLearningLoadError } from "./storage-transient";
+import { tursoErrorKind } from "./storage-error";
 import type { SuggestedAction } from "./next-actions/types";
 import { learningKindOf } from "./next-actions/learning-kind";
 import type { NextActionsLearningConfig } from "./settings-types";
@@ -33,30 +34,38 @@ interface UseActionLearningArgs {
    *  true the config is the DEFAULT one, so no store is loaded or saved (§781). */
   hydrated: boolean;
   /** Called once per failure episode, for the caller to toast (guard transparency,
-   *  `reportSilentFailure`): "rejected" at once when a load fails PERMANENTLY (a
-   *  rejected token, see `isRetryableLearningLoadError`), "load" on the first write
-   *  held by a retryable load failure, "save" on the first failed save after a success. */
-  onError?: (kind: "load" | "save" | "rejected", err: unknown) => void;
+   *  `reportSilentFailure`): "rejected" at once when the Turso token is rejected,
+   *  "load" on the first write held by any other failed load, "notReady" on the first
+   *  write held while Turso is chosen but not usable, "save" on the first failed save
+   *  after a success. */
+  onError?: (kind: LearningErrorKind, err: unknown) => void;
 }
 
 interface UseActionLearningResult {
   bias: Record<string, number>;
   state: LearningState;
   overrides: LearningOverrides;
-  /** The last load of the configured store failed and none has succeeded since:
-   *  writes are kept in memory and saved once a load works. */
-  loadFailed: boolean;
+  /** Why the configured store has not been read (null once it has): writes are kept
+   *  in memory and saved once a load works. The learning view names it. */
+  loadProblem: LearningLoadProblem;
   record(action: SuggestedAction, type: OutcomeType): Promise<void>;
   setOverride(kind: string, override: LearningOverride): Promise<void>;
   reset(): Promise<void>;
 }
 
+export type LearningErrorKind = "load" | "rejected" | "notReady" | "save";
+/** "unreadable": a load failed (retried when retryable); "token-rejected": Turso
+ *  refused the token (not retried); "store-not-ready": Turso is chosen but has no
+ *  usable config yet, so nothing is loaded. */
+export type LearningLoadProblem = null | "unreadable" | "token-rejected" | "store-not-ready";
+
 /** §781 — the toast key for each failure `onError` reports, for the caller's `reportSilentFailure`. */
 export const LEARNING_ERROR_TOAST = {
   load: "learningWriteHeldToast",
   rejected: "learningLoadRejectedToast",
+  notReady: "learningStoreNotReadyToast",
   save: "learningSaveFailedToast",
-} as const satisfies Record<"load" | "rejected" | "save", TranslationKey>;
+} as const satisfies Record<LearningErrorKind, TranslationKey>;
 
 /** A failed load is retried a few times, with a growing delay (as `useScheduledJobs`
  *  retries its read), and again on the next write once those run out (§781). */
@@ -97,7 +106,7 @@ export function useActionLearning({
   onError,
 }: UseActionLearningArgs): UseActionLearningResult {
   const [snap, setSnap] = useState<LearningSnapshot>(EMPTY_SNAPSHOT);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadProblem, setLoadProblem] = useState<LearningLoadProblem>(null);
   // Decay is time-dependent, but Date.now() is banned inside useMemo (engine-purity
   // lint). We capture "now" inside the load/persist callbacks (where it is allowed)
   // and feed it to the memo as a plain dep, so the bias map stays a pure derivation.
@@ -113,14 +122,19 @@ export function useActionLearning({
   // The store whose load succeeded (saves go to this object), or null while none has.
   const loadedStoreRef = useRef<LearningStore | null>(null);
   const loadGenRef = useRef(0);
+  const storeKeyRef = useRef(storeKey);
   const queueRef = useRef<Mutation[]>([]);
   const loadInFlightRef = useRef(false);
   const retriesRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadErrorRef = useRef<unknown>(null); // set while the current load has failed
   const heldReportedRef = useRef(false);
-  // The current load failed permanently: no retries until the store or token changes.
+  // The current load failed permanently, or Turso is not ready: no retries until the
+  // store identity (URL, token) changes.
   const permanentRef = useRef(false);
+  // Unmounted: a load that fails afterwards schedules no retry. A load that SUCCEEDS
+  // afterwards still saves the queue, because the writes are the user's (see the resolve).
+  const mountedRef = useRef(true);
   const saveFailingRef = useRef(false);
   // Serializes saves so two rapid persists cannot land out-of-order on the async
   // Turso store (a slower older write reverting a newer outcome).
@@ -132,6 +146,7 @@ export function useActionLearning({
   });
   useEffect(() => {
     argsRef.current = { config, tursoConfig, isPopout, onError };
+    storeKeyRef.current = storeKey;
   });
 
   const enqueueSave = useCallback((store: LearningStore, next: LearningSnapshot) => {
@@ -179,7 +194,7 @@ export function useActionLearning({
           if (queued.length > 0) enqueueSave(store, next);
           snapRef.current = next;
           setSnap(next);
-          setLoadFailed(false);
+          setLoadProblem(null);
           setNowTick(Date.now());
         })
         .catch((err: unknown) => {
@@ -187,22 +202,26 @@ export function useActionLearning({
           loadInFlightRef.current = false;
           // Keep the in-memory snapshot and the queue; save nothing until a load works.
           loadErrorRef.current = err;
-          setLoadFailed(true);
           logDiag("warn", "learning.loadFailedSavesHeld", {
             retry: retriesRef.current,
             message: err instanceof Error ? err.message : String(err),
           });
-          if (!isRetryableLearningLoadError(err)) {
-            // Retrying cannot fix a rejected token or a SQL error: stop, and tell
-            // the user now. Fixing the token in Settings re-runs the load (below).
+          const kind = tursoErrorKind(err);
+          const tokenRejected = kind === "auth" || kind === "auth-env";
+          setLoadProblem(tokenRejected ? "token-rejected" : "unreadable");
+          if (tokenRejected || !isRetryableLearningLoadError(err)) {
+            // Retrying cannot fix a rejected token, a SQL error or a malformed
+            // response: stop. A rejected token is told to the user NOW; a new token
+            // in Settings is a new store identity, so it re-runs the load, which
+            // saves the held writes without waiting for another write.
             permanentRef.current = true;
-            if (!heldReportedRef.current) {
+            if (tokenRejected && !heldReportedRef.current) {
               heldReportedRef.current = true;
               argsRef.current.onError?.("rejected", err);
             }
             return;
           }
-          if (retriesRef.current >= MAX_LOAD_RETRIES) return;
+          if (!mountedRef.current || retriesRef.current >= MAX_LOAD_RETRIES) return;
           retriesRef.current += 1;
           retryTimerRef.current = setTimeout(() => {
             retryTimerRef.current = null;
@@ -216,28 +235,48 @@ export function useActionLearning({
     attemptLoadRef.current = attemptLoad;
   });
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // Load once settings are hydrated, and again whenever the store identity
-  // changes, or the Turso token does (a rejected token fixed in Settings). The
-  // queue is KEPT across a reload: writes made since the last successful load
-  // replay on top of the new store's rows.
-  const tursoToken = tursoConfig?.authToken;
+  // changes: the store, the Turso URL or the token (a rejected token fixed in
+  // Settings). The queue is KEPT across a reload: writes made since the last
+  // successful load replay on top of the new store's rows.
   useEffect(() => {
     if (!hydrated) return;
-    void tursoToken; // a dependency only: a new token re-runs the load
     const gen = ++loadGenRef.current;
     loadedStoreRef.current = null;
     loadInFlightRef.current = false;
     permanentRef.current = false;
     heldReportedRef.current = false;
+    loadErrorRef.current = null;
     retriesRef.current = 0;
     if (retryTimerRef.current !== null) clearTimeout(retryTimerRef.current);
     retryTimerRef.current = null;
-    attemptLoadRef.current(gen);
+    // Until the new store is read, show only this session's unsaved writes: the
+    // previous store's rows are not this store's, and an override or Reset made
+    // on them would replay into the new store.
+    const pending = queueRef.current.reduce((acc, m) => m(acc), EMPTY_SNAPSHOT);
+    snapRef.current = pending;
+    setSnap(pending);
+    if (storeKey === null) {
+      // Turso is chosen but not usable yet: load nothing, never fall back to local.
+      permanentRef.current = true;
+      loadErrorRef.current = new Error("learning: the Turso store is not ready");
+      setLoadProblem("store-not-ready");
+    } else {
+      setLoadProblem(null);
+      attemptLoadRef.current(gen);
+    }
     return () => {
       if (retryTimerRef.current !== null) clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
     };
-  }, [hydrated, storeKey, tursoToken]);
+  }, [hydrated, storeKey]);
 
   // Pure derivation of the bias map — no Date.now() here (it would trip the
   // engine-purity lint); the timestamp arrives via nowTick.
@@ -263,7 +302,7 @@ export function useActionLearning({
       if (loadErrorRef.current === null) return;
       if (!heldReportedRef.current) {
         heldReportedRef.current = true;
-        argsRef.current.onError?.("load", loadErrorRef.current);
+        argsRef.current.onError?.(storeKeyRef.current === null ? "notReady" : "load", loadErrorRef.current);
       }
       // Retries used up and none scheduled: this write starts a fresh round
       // (never after a permanent failure, which only a config change can fix).
@@ -299,5 +338,5 @@ export function useActionLearning({
     apply(() => ({ state: {}, overrides: {} }));
   }, [apply]);
 
-  return { bias, state: snap.state, overrides: snap.overrides, loadFailed, record, setOverride, reset };
+  return { bias, state: snap.state, overrides: snap.overrides, loadProblem, record, setOverride, reset };
 }

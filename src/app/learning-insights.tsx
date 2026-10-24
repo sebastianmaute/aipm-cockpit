@@ -11,6 +11,7 @@ import {
   type LearningOverride,
 } from "./action-learning";
 import { learningKindLabel } from "./learning-kind-label";
+import type { LearningLoadProblem } from "./use-action-learning";
 import { ROW_RULE_CLASS, TABLE_HEAD_CLASS } from "./table-styles";
 import { useConfirm } from "./confirm-dialog";
 import { Button } from "./button";
@@ -31,12 +32,18 @@ interface LearningInsightsProps {
   /** The learning switch (`NextActionsLearningConfig.enabled`). Off, the engine
    *  gets no bias at all, so the Adjustment column shows 0 (§780). */
   learningEnabled: boolean;
-  /** The stored learning could not be read (`useActionLearning`'s `loadFailed`): the
-   *  rows are this session's only, and nothing is saved until a read works (§781). */
-  loadFailed: boolean;
+  /** Why the stored learning has not been read (`useActionLearning`'s `loadProblem`):
+   *  the rows are this session's only, and nothing is saved until a read works (§781). */
+  loadProblem: LearningLoadProblem;
   /** Decay reference time. Defaults to Date.now(); injectable for deterministic tests. */
   now?: number;
 }
+
+const LOAD_PROBLEM_NOTICE: Record<NonNullable<LearningLoadProblem>, Parameters<typeof t>[1]> = {
+  unreadable: "learningLoadFailedNotice",
+  "token-rejected": "learningTokenRejectedNotice",
+  "store-not-ready": "learningStoreNotReadyNotice",
+};
 
 const OVERRIDE_OPTIONS: readonly LearningOverride[] = ["auto", "surface", "suppress", "off"];
 
@@ -64,7 +71,7 @@ export function LearningInsights({
   onReset,
   onBack,
   learningEnabled,
-  loadFailed,
+  loadProblem,
   now,
 }: LearningInsightsProps) {
   const kinds = Object.keys(state);
@@ -102,8 +109,8 @@ export function LearningInsights({
         </div>
       </header>
 
-      {loadFailed && (
-        <p role="status" className="mb-3 text-sm text-muted-foreground">{t(lang, "learningLoadFailedNotice")}</p>
+      {loadProblem !== null && (
+        <p role="status" className="mb-3 text-sm text-muted-foreground">{t(lang, LOAD_PROBLEM_NOTICE[loadProblem])}</p>
       )}
       {kinds.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(lang, "learningInsightsEmpty")}</p>

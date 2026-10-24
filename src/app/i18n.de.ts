@@ -3872,6 +3872,9 @@ export const de: Record<TranslationKey, string> = {
   learningLoadFailedNotice: "Die gespeicherten Lerndaten konnten nicht gelesen werden. Ihre Änderungen hier bleiben vorerst erhalten und werden gespeichert, sobald sie gelesen werden können.",
   learningWriteHeldToast: "Die Lerndaten konnten nicht geladen werden, daher ist diese Änderung noch nicht gespeichert. Sie wird gespeichert, sobald die Daten gelesen werden können.",
   learningSaveFailedToast: "Die Lerndaten konnten nicht gespeichert werden.",
+  learningTokenRejectedNotice: "Die gespeicherten Lerndaten konnten nicht gelesen werden: Die Turso-Datenbank hat das Token abgelehnt. Aktualisieren Sie das Token in den Einstellungen; Ihre Änderungen hier bleiben erhalten und werden gespeichert, sobald es funktioniert.",
+  learningStoreNotReadyNotice: "Die Lerndaten sollen in Turso gespeichert werden, aber Turso ist noch nicht verfügbar (das Token ist eventuell gesperrt oder nicht gesetzt). Ihre Änderungen hier bleiben erhalten und werden gespeichert, sobald Turso gelesen werden kann.",
+  learningStoreNotReadyToast: "Die Lerndaten sollen in Turso gespeichert werden, das noch nicht verfügbar ist; diese Änderung ist daher noch nicht gespeichert.",
   learningLoadRejectedToast: "Die Lerndaten konnten nicht geladen werden: Die Turso-Datenbank hat den Zugriff verweigert. Prüfen Sie die Turso-Einstellungen; Ihre Änderungen bleiben bis dahin erhalten.",
   // §777 — param-free reason labels for the why keys whose text takes values
   // (see `REASON_LABEL_KEY` in learning-kind-label.ts).

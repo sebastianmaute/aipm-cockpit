@@ -3940,6 +3940,9 @@ const enUS = {
   learningLoadFailedNotice: "Stored learning could not be read. Your changes here are kept for now and saved once it can be read.",
   learningWriteHeldToast: "Learning data could not be loaded, so this change is not saved yet. It is saved once the data can be read.",
   learningSaveFailedToast: "Learning data could not be saved.",
+  learningTokenRejectedNotice: "Stored learning could not be read: the Turso database rejected the token. Update the token in Settings; your changes here are kept and saved once it works.",
+  learningStoreNotReadyNotice: "Learning is set to be stored in Turso, but Turso is not available yet (its token may be locked or not set). Your changes here are kept and saved once Turso can be read.",
+  learningStoreNotReadyToast: "Learning is set to Turso, which is not available yet, so this change is not saved yet.",
   learningLoadRejectedToast: "Learning data could not be loaded: the Turso database refused access. Check the Turso settings; your changes are kept until then.",
   // §777 — param-free reason labels for the why keys whose text takes values
   // (see `REASON_LABEL_KEY` in learning-kind-label.ts).

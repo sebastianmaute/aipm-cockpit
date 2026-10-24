@@ -1678,7 +1678,7 @@ function TaskManagerInner() {
       onReset={() => { void learning.reset(); }}
       onBack={() => setActiveTab("settings")}
       learningEnabled={(settings.nextActionsLearning ?? defaultNextActionsLearning).enabled}
-      loadFailed={learning.loadFailed}
+      loadProblem={learning.loadProblem}
     />
   );
 

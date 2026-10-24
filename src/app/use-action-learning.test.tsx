@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { StrictMode } from "react";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useActionLearning, LEARNING_LOAD_RETRY_MS } from "./use-action-learning";
-import { pickLearningStore } from "./learning-store";
+import { useActionLearning, LEARNING_LOAD_RETRY_MS, type LearningErrorKind } from "./use-action-learning";
+import { learningStoreKey, pickLearningStore } from "./learning-store";
 import type { LearningSnapshot } from "./learning-store";
 import type { SuggestedAction } from "./next-actions/types";
 import { runTursoPipeline } from "./turso-pipeline";
@@ -468,13 +468,13 @@ describe("useActionLearning — store identity and authority (§781)", () => {
     expect(Object.keys(save.mock.calls[0][0].state)).toEqual(["raid:last"]);
   });
 
-  // I2 — a failed load is surfaced: `loadFailed` drives the view's notice, and the
+  // I2 — a failed load is surfaced: `loadProblem` drives the view's notice, and the
   // first write held by it is reported once (the caller toasts it).
   it("reports a failed load once, on the first write it holds", async () => {
-    const onError = vi.fn<(kind: "load" | "save" | "rejected", err: unknown) => void>();
+    const onError = vi.fn<(kind: LearningErrorKind, err: unknown) => void>();
     vi.mocked(pickLearningStore).mockReturnValue({ load: () => Promise.reject(new StorageNotReadyError("storage-unreachable")), save: vi.fn(async () => {}) });
     const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true, onError }));
-    await waitFor(() => expect(result.current.loadFailed).toBe(true));
+    await waitFor(() => expect(result.current.loadProblem).toBe("unreadable"));
     expect(onError).not.toHaveBeenCalled(); // nothing to report until the user writes
     await act(async () => { await result.current.record(action("raid", "x"), "acted"); });
     await act(async () => { await result.current.setOverride("raid:x", "suppress"); });
@@ -484,7 +484,7 @@ describe("useActionLearning — store identity and authority (§781)", () => {
 
   // M2 — save errors are reported, once per failing streak.
   it("reports a failed save once until a save succeeds", async () => {
-    const onError = vi.fn<(kind: "load" | "save" | "rejected", err: unknown) => void>();
+    const onError = vi.fn<(kind: LearningErrorKind, err: unknown) => void>();
     const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>()
       .mockRejectedValueOnce(new Error("down"))
       .mockRejectedValueOnce(new Error("down"))
@@ -508,7 +508,7 @@ describe("useActionLearning — permanent load failure (§781)", () => {
 
   it("stops retrying on a rejected token, reports it at once, and reloads when the token changes", async () => {
     vi.useFakeTimers();
-    const onError = vi.fn<(kind: "load" | "save" | "rejected", err: unknown) => void>();
+    const onError = vi.fn<(kind: LearningErrorKind, err: unknown) => void>();
     const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
     const load = vi.fn<() => Promise<LearningSnapshot>>().mockRejectedValue(new StorageNotReadyError("turso-token-rejected"));
     vi.mocked(pickLearningStore).mockReturnValue({ load, save });
@@ -518,7 +518,7 @@ describe("useActionLearning — permanent load failure (§781)", () => {
       { initialProps: { tursoConfig: { httpUrl: "https://example.test", authToken: "old" } } },
     );
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    expect(result.current.loadFailed).toBe(true);
+    expect(result.current.loadProblem).toBe("token-rejected");
     expect(onError.mock.calls.map((c) => c[0])).toEqual(["rejected"]); // shown at once, not on a later write
     await act(async () => { await vi.advanceTimersByTimeAsync(LEARNING_LOAD_RETRY_MS * 20); });
     expect(load).toHaveBeenCalledTimes(1); // no timed retries
@@ -534,6 +534,110 @@ describe("useActionLearning — permanent load failure (§781)", () => {
     expect(load).toHaveBeenCalledTimes(2);
     expect(save).toHaveBeenCalledTimes(1);
     expect(Object.keys(save.mock.calls[0][0].state).sort()).toEqual(["raid:held", "raid:stored"]);
-    expect(result.current.loadFailed).toBe(false);
+    expect(result.current.loadProblem).toBeNull();
+  });
+});
+
+// §781 (round 5) — the token in the store identity, a Turso store without a
+// usable config, the snapshot shown during a switch, and retries after unmount.
+describe("useActionLearning — token, readiness, switch view, unmount (§781)", () => {
+  beforeEach(() => {
+    vi.mocked(pickLearningStore).mockClear();
+    vi.mocked(runTursoPipeline).mockReset();
+  });
+  afterEach(() => { vi.useRealTimers(); });
+  const URL_ = "https://example.test";
+  const isSelect = (stmts: { sql: string }[]) => stmts.some((s) => s.sql.startsWith("SELECT"));
+  const isRewrite = (stmts: { sql: string }[]) => stmts.some((s) => s.sql.startsWith("DELETE") && s.sql.includes("action_learning"));
+  const emptySelect = { type: "ok" as const, response: { type: "execute", result: { cols: [{ name: "kind" }], rows: [] } } };
+  type P = { config: { enabled: boolean; store: "local" | "turso" }; tursoConfig: { httpUrl: string; authToken: string } | null };
+
+  // R-I1 (review P6) — a token rotated under the same URL: the next save must use
+  // the NEW token, after the store has been read with it.
+  it("reloads on a token rotation and saves with the new token", async () => {
+    const pipeline = vi.mocked(runTursoPipeline);
+    pipeline.mockImplementation(async (_cfg, stmts) => (isSelect(stmts) ? [{ type: "ok" } as never, emptySelect as never] : []));
+    const { result, rerender } = renderHook((p: P) => useActionLearning({ ...p, isPopout: false, hydrated: true }), {
+      initialProps: { config: { enabled: true, store: "turso" }, tursoConfig: { httpUrl: URL_, authToken: "t-old" } },
+    });
+    await waitFor(() => expect(pipeline.mock.calls.some((c) => isSelect(c[1]))).toBe(true));
+    rerender({ config: { enabled: true, store: "turso" }, tursoConfig: { httpUrl: URL_, authToken: "t-new" } });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await result.current.record(action("raid", "x"), "acted"); });
+    await waitFor(() => expect(pipeline.mock.calls.some((c) => isRewrite(c[1]))).toBe(true));
+    const rewrite = pipeline.mock.calls.find((c) => isRewrite(c[1]))!;
+    expect(rewrite[0]?.authToken).toBe("t-new");
+    const reads = pipeline.mock.calls.filter((c) => isSelect(c[1])).map((c) => c[0]?.authToken);
+    expect(reads).toEqual(["t-old", "t-new"]); // read again with the new token before saving
+  });
+
+  // The store identity carries a FINGERPRINT of the token, never the token.
+  it("keys the store by URL and a token fingerprint, without the token itself", () => {
+    const a = learningStoreKey({ enabled: true, store: "turso" }, { httpUrl: URL_, authToken: "secret-token-1" });
+    const b = learningStoreKey({ enabled: true, store: "turso" }, { httpUrl: URL_, authToken: "secret-token-2" });
+    expect(a).not.toBe(b);
+    expect(a).not.toContain("secret-token-1");
+    expect(a?.startsWith(`turso:${URL_}#`)).toBe(true);
+    expect(learningStoreKey({ enabled: true, store: "local" }, null)).toBe("local");
+    expect(learningStoreKey({ enabled: true, store: "turso" }, null)).toBeNull(); // not ready, never "local"
+  });
+
+  // Peer M1 / R-M3 — Turso chosen but no usable config yet (a passphrase-locked
+  // token, a merge timeout): queue, never fall back to the local store; the queue
+  // replays onto Turso once the config arrives.
+  it("queues writes while the Turso store is not ready, and never touches the local store", async () => {
+    const pipeline = vi.mocked(runTursoPipeline);
+    pipeline.mockImplementation(async (_cfg, stmts) => (isSelect(stmts) ? [{ type: "ok" } as never, emptySelect as never] : []));
+    const { result, rerender } = renderHook((p: P) => useActionLearning({ ...p, isPopout: false, hydrated: true }), {
+      initialProps: { config: { enabled: true, store: "turso" }, tursoConfig: null },
+    });
+    await act(async () => { await Promise.resolve(); });
+    expect(vi.mocked(pickLearningStore)).not.toHaveBeenCalled();
+    expect(result.current.loadProblem).toBe("store-not-ready");
+    await act(async () => { await result.current.record(action("raid", "locked"), "acted"); });
+    expect(localStorage.getItem("aipm-cockpit:action-learning")).toBeNull();
+    rerender({ config: { enabled: true, store: "turso" }, tursoConfig: { httpUrl: URL_, authToken: "t" } });
+    await waitFor(() => expect(pipeline.mock.calls.some((c) => isRewrite(c[1]))).toBe(true));
+    expect(result.current.loadProblem).toBeNull();
+    expect(localStorage.getItem("aipm-cockpit:action-learning")).toBeNull();
+  });
+
+  // R-M1 — while the switched-to store loads, the view must not show (and let the
+  // user edit) the OLD store's rows: only this session's unsaved writes show.
+  it("shows only unsaved writes while a switched-to store loads", async () => {
+    const load = (() => { let r!: (v: LearningSnapshot) => void; const p = new Promise<LearningSnapshot>((res) => { r = res; }); return { p, r }; })();
+    let calls = 0;
+    vi.mocked(pickLearningStore).mockImplementation(() => ({
+      load: () => (calls++ === 0 ? Promise.resolve({ state: { "raid:old": { acted: 2, snoozed: 0, dismissed: 0, lastAt: Date.now() } }, overrides: {} }) : load.p),
+      save: vi.fn(async () => {}),
+    }));
+    const { result, rerender } = renderHook((p: P) => useActionLearning({ ...p, isPopout: false, hydrated: true }), {
+      initialProps: { config: { enabled: true, store: "local" }, tursoConfig: { httpUrl: URL_, authToken: "t" } },
+    });
+    await waitFor(() => expect(Object.keys(result.current.state)).toEqual(["raid:old"]));
+    rerender({ config: { enabled: true, store: "turso" }, tursoConfig: { httpUrl: URL_, authToken: "t" } });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.state).toEqual({});
+    await act(async () => { await result.current.record(action("raid", "new"), "acted"); });
+    expect(Object.keys(result.current.state)).toEqual(["raid:new"]);
+  });
+
+  // Peer M3 / R-M2 — a load that fails after the hook unmounted schedules no retry.
+  it("does not retry after unmount", async () => {
+    vi.useFakeTimers();
+    let reject!: (e: unknown) => void;
+    const load = vi.fn<() => Promise<LearningSnapshot>>(() => new Promise((_res, rej) => { reject = rej; }));
+    vi.mocked(pickLearningStore).mockReturnValue({ load, save: vi.fn(async () => {}) });
+    const { unmount } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
+    unmount();
+    await act(async () => { reject(new StorageNotReadyError("storage-unreachable")); await vi.advanceTimersByTimeAsync(LEARNING_LOAD_RETRY_MS * 10); });
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  // R-I2 — a rejected token is named (the view's notice reads `loadProblem`).
+  it("names a rejected token as its own problem", async () => {
+    vi.mocked(pickLearningStore).mockReturnValue({ load: () => Promise.reject(new StorageNotReadyError("turso-token-rejected")), save: vi.fn(async () => {}) });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
+    await waitFor(() => expect(result.current.loadProblem).toBe("token-rejected"));
   });
 });

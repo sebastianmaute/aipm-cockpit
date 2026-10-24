@@ -22,7 +22,7 @@ const baseProps = () => ({
   onReset: vi.fn(),
   onBack: vi.fn(),
   learningEnabled: true,
-  loadFailed: false,
+  loadProblem: null,
 });
 
 const stats = (acted: number) => ({ acted, snoozed: 0, dismissed: 0, lastAt: 0 });
@@ -189,9 +189,17 @@ describe("LearningInsights", () => {
   // counts shown are this session's only, and nothing is saved until a read works.
   it("shows a notice while the stored learning cannot be read", () => {
     const { rerender } = render(<LearningInsights {...baseProps()} now={0} />);
-    expect(screen.queryByText(t("en-US", "learningLoadFailedNotice"))).toBeNull();
-    rerender(<LearningInsights {...baseProps()} loadFailed now={0} />);
+    expect(screen.queryByRole("status")).toBeNull();
+    rerender(<LearningInsights {...baseProps()} loadProblem="unreadable" now={0} />);
     expect(screen.getByRole("status").textContent).toBe(t("en-US", "learningLoadFailedNotice"));
+  });
+  // §781 — a rejected token and a Turso store without a usable config each say
+  // what is wrong and where to fix it.
+  it("names a rejected token and a store that is not ready", () => {
+    const { rerender } = render(<LearningInsights {...baseProps()} loadProblem="token-rejected" now={0} />);
+    expect(screen.getByRole("status").textContent).toBe(t("en-US", "learningTokenRejectedNotice"));
+    rerender(<LearningInsights {...baseProps()} loadProblem="store-not-ready" now={0} />);
+    expect(screen.getByRole("status").textContent).toBe(t("en-US", "learningStoreNotReadyNotice"));
   });
 
   // §777 — the view is a standard pane: the resizable card, an inner scroll
