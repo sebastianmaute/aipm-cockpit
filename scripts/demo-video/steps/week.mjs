@@ -905,6 +905,12 @@ const BUDGET_INSIGHT = 'Budget off plan';
 const APPLY_REC = 'Apply recommendation';
 /** The budget insight's card on Insights. */
 const insightCard = (ctx) => main(ctx).locator('li').filter({ has: ctx.page.getByRole('button', { name: `Dismiss – ${BUDGET_INSIGHT}`, exact: true }) });
+/** The review Apply recommendation opens (insights/recommendation-review-modal.tsx). */
+const reviewDialog = (ctx) => ctx.page.getByRole('dialog', { name: 'Review recommendation', exact: true });
+/** The review's line for a plan with nothing left to apply (its confirm button is then disabled). */
+const EMPTY_PLAN = 'This recommendation has no remaining changes to apply.';
+/** Every outcome line a recommendation shows after Apply (i18n insightRecommendation*): applied, partly, not. */
+const REC_STATUS = /^(Recommendation applied\.|Partly applied|Not applied|This recommendation wasn't applied|Some changes (in this recommendation couldn't|weren't applied))/;
 
 /** What is wrong with a recommendation's status line after Apply, or null when it reads applied in full. */
 export function recommendationNotApplied(status) {
@@ -953,50 +959,6 @@ export const FRIDAY = [
     },
     replay: noop,
   }),
-  step('insights', {
-    run: async (ctx) => {
-      // Said on the way to Insights, after the DPO chat (no silence over 8 s).
-      await caption(ctx, 'Insights: patterns the week left behind.', 'fri-insights');
-      await nav(ctx, 'Dashboard');
-      await nav(ctx, 'Insights');
-      await pace(ctx, 3000);
-    },
-  }),
-  step('insight-recommendation', {
-    ai: true,
-    trigger: async (ctx) => {
-      await nav(ctx, 'Dashboard'); await nav(ctx, 'Insights');
-      return main(ctx).getByRole('button', { name: 'Generate recommendation – Budget off plan', exact: true });
-    },
-    run: async (ctx) => {
-      await caption(ctx, 'A recommendation for the budget insight.', 'fri-insight-rec');
-      await click(ctx, main(ctx).getByRole('button', { name: 'Generate recommendation – Budget off plan', exact: true }), 'Generate recommendation', 300);
-      await waitForAi(ctx, {
-        busy: main(ctx).getByRole('button', { name: /^(Generating|Stop)/ }).first(),
-        // The suggestion's own Apply button: it shows only once the recommendation is on the card.
-        done: main(ctx).getByRole('button', { name: `${APPLY_REC} – ${BUDGET_INSIGHT}`, exact: true }),
-        label: 'recommendation',
-      });
-      await pace(ctx, 2500);
-    },
-    check: async (ctx) => ((await insightCard(ctx).getByText(/^AI suggests:/).count()) ? null : 'no recommendation'),
-    // Apply recommendation opens a review of the proposed changes: held while its beat is spoken, then confirmed;
-    // the card must then read applied. (Act only records that the insight was acted on; it applies nothing.)
-    after: async (ctx) => {
-      await caption(ctx, 'Apply: review the proposed changes, then apply them.', 'fri-insight-apply');
-      await click(ctx, main(ctx).getByRole('button', { name: `${APPLY_REC} – ${BUDGET_INSIGHT}`, exact: true }), APPLY_REC, 1500);
-      const review = ctx.page.getByRole('dialog', { name: 'Review recommendation', exact: true });
-      await holdVoice(ctx);
-      await click(ctx, review.getByRole('button', { name: APPLY_REC, exact: true }), `confirm ${APPLY_REC}`, 1500);
-      const status = await insightCard(ctx).getByText(/^(Recommendation applied\.|Partly applied|Not applied|This recommendation wasn't applied)/).first()
-        .innerText({ timeout: 15000 }).catch(() => '');
-      const wrong = recommendationNotApplied(status);
-      if (wrong) throw new Error(`${ctx.clipId}: ${wrong}`);
-      await pace(ctx, 1500);
-    },
-    // Friday is the last day: no chapter replays it, so nothing later depends on what Apply changed.
-    replay: noop,
-  }),
   step('split-pilot-task', {
     run: async (ctx) => {
       await caption(ctx, 'Restructure by hand: split the pilot fixes in two, linked.', 'fri-split-task');
@@ -1038,6 +1000,64 @@ export const FRIDAY = [
     },
     check: async (ctx) => ((await ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).isEnabled().catch(() => false)) ? null : 'no change'),
     after: async (ctx) => click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).first(), 'Apply restructure', 2000),
+    replay: noop,
+  }),
+  step('insights', {
+    run: async (ctx) => {
+      // Said on the way to Insights, after Optimize with AI (no silence over 8 s).
+      await caption(ctx, 'Insights: patterns the week left behind.', 'fri-insights');
+      await nav(ctx, 'Dashboard');
+      await nav(ctx, 'Insights');
+      await pace(ctx, 3000);
+    },
+  }),
+  step('insight-recommendation', {
+    ai: true,
+    trigger: async (ctx) => {
+      await nav(ctx, 'Dashboard'); await nav(ctx, 'Insights');
+      return main(ctx).getByRole('button', { name: 'Generate recommendation – Budget off plan', exact: true });
+    },
+    // The recommendation, then its review opened: an empty plan (nothing Claude could apply) fails the check,
+    // so it gets the AI step's one retry instead of a disabled confirm button after a billed call.
+    run: async (ctx) => {
+      // A retry finds the previous review still open: close it first.
+      const open = reviewDialog(ctx);
+      if (await open.count()) await click(ctx, open.getByRole('button', { name: 'Cancel', exact: true }), 'Cancel review', 500);
+      await caption(ctx, 'A recommendation for the budget insight.', 'fri-insight-rec');
+      await click(ctx, main(ctx).getByRole('button', { name: 'Generate recommendation – Budget off plan', exact: true }), 'Generate recommendation', 300);
+      await waitForAi(ctx, {
+        busy: main(ctx).getByRole('button', { name: /^(Generating|Stop)/ }).first(),
+        // The suggestion's own Apply button: it shows only once the recommendation is on the card.
+        done: main(ctx).getByRole('button', { name: `${APPLY_REC} – ${BUDGET_INSIGHT}`, exact: true }),
+        label: 'recommendation',
+      });
+      await pace(ctx, 2500);
+      // Apply recommendation opens a review of the proposed changes. (Act only records that the insight was
+      // acted on; it applies nothing.)
+      await caption(ctx, 'Apply: review the proposed changes, then apply them.', 'fri-insight-apply');
+      await click(ctx, main(ctx).getByRole('button', { name: `${APPLY_REC} – ${BUDGET_INSIGHT}`, exact: true }), APPLY_REC, 1500);
+    },
+    check: async (ctx) => {
+      if (!(await insightCard(ctx).getByText(/^AI suggests:/).count())) return 'no recommendation';
+      const review = reviewDialog(ctx);
+      if (!(await review.count())) return 'no review';
+      const empty = (await review.getByText(EMPTY_PLAN).count()) > 0
+        || !(await review.getByRole('button', { name: APPLY_REC, exact: true }).isEnabled().catch(() => false));
+      return empty ? 'no applicable changes' : null;
+    },
+    // The review is held while its beat is spoken, then confirmed; the recommendation must then read applied.
+    after: async (ctx) => {
+      await holdVoice(ctx);
+      await click(ctx, reviewDialog(ctx).getByRole('button', { name: APPLY_REC, exact: true }), `confirm ${APPLY_REC}`, 1500);
+      const status = await ctx.page.getByText(REC_STATUS).first().innerText({ timeout: 15000 }).catch(() => '');
+      // The applied changes may bring the budget back on plan, and a resolved insight leaves the list.
+      const gone = !status && !(await insightCard(ctx).count());
+      const wrong = gone ? 'the budget insight left the list before its status could be read (resolved by the changes?)' : recommendationNotApplied(status);
+      if (wrong) throw new Error(`${ctx.clipId}: ${wrong}`);
+      await pace(ctx, 1500);
+    },
+    // Friday is the last day: no chapter replays it. It also runs after the day's scripted steps (the split, the
+    // restructure), so what Claude changes cannot reach them.
     replay: noop,
   }),
   step('trends-activity-history', {
