@@ -83,6 +83,10 @@ export function checkFiles(files, { exists = fs.existsSync, read = (p) => fs.rea
   return { lines, failed, unverified };
 }
 
+/** The script's exit code for a checked batch: 1 when anything failed (a finding not unverified, or a file
+ *  not checked), else 3 when an unverified finding was listed, else 0. */
+export const exitCodeFor = ({ failed, unverified }) => (failed ? 1 : unverified ? 3 : 0);
+
 // Run as a script, not when a test imports checkRender.
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const files = process.argv.slice(2);
@@ -90,8 +94,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.error('usage: node scripts/demo-video/check-render.mjs <file.mp4> [...]');
     process.exitCode = 2;
   } else {
-    const { lines, failed, unverified } = checkFiles(files);
-    for (const l of lines) console.log(l);
-    process.exitCode = failed ? 1 : unverified ? 3 : 0;
+    const result = checkFiles(files);
+    for (const l of result.lines) console.log(l);
+    process.exitCode = exitCodeFor(result);
   }
 }

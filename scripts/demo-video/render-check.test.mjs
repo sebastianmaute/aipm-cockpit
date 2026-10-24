@@ -1,7 +1,7 @@
 // §715 the post-render check: a silent stretch between two voices, a long silent tail, and a caption whose
 // voice comes late, found on the finished video's timeline. Pure functions, plain numbers.
 import { describe, expect, it } from 'vitest';
-import { checkFiles, checkRender } from './check-render.mjs';
+import { checkFiles, checkRender, exitCodeFor } from './check-render.mjs';
 import { MAX_DESYNC_S, MAX_GAP_S, MAX_TAIL_S, MIN_TAIL_S, SPLASH_S, desyncFindings, gapFindings, parseSrt, parseWaits, renderFindings, tailFinding } from './render-check.mjs';
 import { SPLASH_MS } from './ui.mjs';
 
@@ -210,6 +210,14 @@ describe('review round (§715): the cut-off voice, the silence before the first 
     const r = checkFiles(['out/chapters/04-ch4.mp4'], deps);
     expect(r.failed).toBe(false);
     expect(r.unverified).toBe(true);
+  });
+
+  // The exit code itself, here as well as in check-render.cli.test.mjs, which needs ffmpeg and so skips on CI.
+  it('exitCodeFor: 1 on any failure, else 3 for unverified findings only, else 0', () => {
+    expect(exitCodeFor({ failed: false, unverified: false })).toBe(0);
+    expect(exitCodeFor({ failed: true, unverified: false })).toBe(1);
+    expect(exitCodeFor({ failed: true, unverified: true })).toBe(1);
+    expect(exitCodeFor({ failed: false, unverified: true })).toBe(3);
   });
 });
 
