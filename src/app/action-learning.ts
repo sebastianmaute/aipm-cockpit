@@ -1,7 +1,10 @@
 // src/app/action-learning.ts — pure, i18n-free learning model for the Action Center.
+import { canonicalLearningKind } from "./next-actions/learning-kind";
+
 export type OutcomeType = "acted" | "snoozed" | "dismissed";
 export type OutcomeStats = { acted: number; snoozed: number; dismissed: number; lastAt: number };
-export type LearningState = Record<string, OutcomeStats>; // key = `${source}:${why.key}`
+/** key = the learning kind, `learningKindOf` in next-actions/learning-kind.ts (§778). */
+export type LearningState = Record<string, OutcomeStats>;
 export type LearningOverride = "auto" | "surface" | "suppress" | "off";
 export type LearningOverrides = Record<string, LearningOverride>;
 
@@ -49,4 +52,52 @@ export function buildBiasMap(state: LearningState, overrides: LearningOverrides,
     if (bias !== 0) out[k] = bias;
   }
   return out;
+}
+
+/** Combine two rows of one kind: each decayed to the later `lastAt`, then summed —
+ *  the same state `recordOutcome` would have reached had every outcome been
+ *  recorded under one kind. */
+function mergeStats(a: OutcomeStats, b: OutcomeStats): OutcomeStats {
+  const at = Math.max(a.lastAt, b.lastAt);
+  const da = decayStats(a, at);
+  const db = decayStats(b, at);
+  return { acted: da.acted + db.acted, snoozed: da.snoozed + db.snoozed, dismissed: da.dismissed + db.dismissed, lastAt: at };
+}
+
+/**
+ * §778 — read-time normalisation of a stored learning snapshot: every row and
+ * override stored under a count-variant kind ("…One") moves to its canonical
+ * kind (`canonicalLearningKind`), so data written before the merge is neither
+ * lost nor left as a second row whose override no longer applies.
+ *
+ * Rows of one canonical kind are combined by `mergeStats`. Overrides: an
+ * explicit (non-"auto") override already stored under the CANONICAL kind wins;
+ * otherwise an explicit one from a variant kind is kept; otherwise the
+ * canonical kind's own value ("auto", or nothing). Idempotent: a canonical
+ * snapshot comes back equal, so the full-rewrite save that follows is safe to
+ * repeat.
+ */
+export function normalizeLearningSnapshot(snap: { state: LearningState; overrides: LearningOverrides }): {
+  state: LearningState;
+  overrides: LearningOverrides;
+} {
+  const state: LearningState = {};
+  for (const [kind, s] of Object.entries(snap.state)) {
+    const k = canonicalLearningKind(kind);
+    state[k] = Object.hasOwn(state, k) ? mergeStats(state[k], s) : s;
+  }
+  // Two passes, so the result does not depend on key order: the canonical
+  // kinds' own overrides first, then a variant's fills a gap or an "auto".
+  const overrides: LearningOverrides = {};
+  const entries = Object.entries(snap.overrides);
+  for (const [kind, ov] of entries) {
+    if (canonicalLearningKind(kind) === kind) overrides[kind] = ov;
+  }
+  for (const [kind, ov] of entries) {
+    const k = canonicalLearningKind(kind);
+    if (k === kind) continue;
+    const current = Object.hasOwn(overrides, k) ? overrides[k] : undefined;
+    if (current === undefined || current === "auto") overrides[k] = ov;
+  }
+  return { state, overrides };
 }

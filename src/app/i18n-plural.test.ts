@@ -174,6 +174,14 @@ describe("plural key pairing", () => {
       "calendarEventIntervalUnitMonthly@src/app/calendar-recurrence-labels.ts": "INTERVAL_UNIT_KEY Record; tPlural renders it",
       "redoNActions@src/app/undo/undo-control.tsx": "countKey prop; tPlural renders it",
       "actionWorkloadWhyOverload@src/app/next-actions/providers/workload.ts": "i18n-free engine emits a key",
+      // §778 — LEARNING_WHY_ALIAS names each plural why key as the learning KIND its
+      // singular sibling folds into; it is an identity table, never rendered.
+      "actionTaskWhyOverdue@src/app/next-actions/learning-kind.ts": "§778 alias table, a learning kind, not rendered",
+      "actionTaskWhySoon@src/app/next-actions/learning-kind.ts": "§778 alias table, a learning kind, not rendered",
+      "actionRaidWhyReviewOverdue@src/app/next-actions/learning-kind.ts": "§778 alias table, a learning kind, not rendered",
+      "actionRaidWhyReviewStale@src/app/next-actions/learning-kind.ts": "§778 alias table, a learning kind, not rendered",
+      "actionWorkloadWhyOverload@src/app/next-actions/learning-kind.ts": "§778 alias table, a learning kind, not rendered",
+      "actionCommitteeInfoWhy@src/app/next-actions/learning-kind.ts": "§778 alias table, a learning kind, not rendered",
       // §415 exception B — FIXED. These four entries were two, both labelled
       // LIVE DEFECT: the singulars were authored in both languages and nothing
       // selected them, because each key is reached through
