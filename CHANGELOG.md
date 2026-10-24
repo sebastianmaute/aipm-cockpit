@@ -74,13 +74,14 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **An insight recommendation proposes only changes that can be applied, and says which one failed (§782).**
-  Claude was not told which details each change needs, so a recommendation could propose a new task with no
-  name or no assignee; the review showed it as a normal change and Apply then failed with "Some changes in this
-  recommendation couldn't be applied" and no hint which. Claude is now given each change's required details and
-  the people it can assign, the review shows a change that cannot be applied as skipped with the reason, and
-  such a change is not sent. When a change still fails, the message names it and why. Found by a rehearsal of
-  the demo video recorder with AI.
+- **An insight recommendation no longer proposes a change that is missing a required detail, and says which
+  change failed (§782).** Claude was not told which details each change needs, so a recommendation could propose
+  a new task with no name or no assignee; the review showed it as a normal change and Apply then failed with
+  "Some changes in this recommendation couldn't be applied" and no hint which. Claude is now given each change's
+  required details and the people it can assign. The review shows a change that is missing one, or that edits an
+  item deleted since, as skipped with the reason, and such a change is not sent. When a change still fails, the
+  message names it and why, and the recommendation reads "Partly applied" with the option to generate a new one,
+  never plain "applied". Found by a rehearsal of the demo video recorder with AI.
 - **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
   against the wrong year, so the new project and its milestones could already be over on the day you created
   it. Claude is now told today's date and reads a month or range without a year as the next one to come (the
