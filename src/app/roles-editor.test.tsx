@@ -774,8 +774,10 @@ describe("RolesEditor rate card fits a 1280px window (§766)", () => {
 
   // The separator is read once per render, not once per rate cell: three roles
   // are twelve rate fields, and a per-cell formatter built twelve of them. The
-  // bound is "fewer than one per field", not an exact count, so another component
-  // in the tree making its own locale-less formatter does not break this test.
+  // bound is "at most 2 per render" (the editor makes 1), not an exact count, so one
+  // other locale-less formatter in the tree does not break this test, while a
+  // per-row formatter (3 rows, so 3 or 4 calls) still does.
+  const MAX_DEFAULT_FORMATTERS_PER_RENDER = 2;
   it("reads the decimal separator once per render, not per rate field", () => {
     const spy = vi.spyOn(Intl, "NumberFormat");
     try {
@@ -786,14 +788,14 @@ describe("RolesEditor rate card fits a 1280px window (§766)", () => {
       const defaultLocaleCalls = () => spy.mock.calls.filter((c) => c[0] === undefined).length;
       const firstRender = defaultLocaleCalls();
       expect(firstRender).toBeGreaterThan(0);
-      expect(firstRender).toBeLessThan(fields);
+      expect(firstRender).toBeLessThanOrEqual(MAX_DEFAULT_FORMATTERS_PER_RENDER);
       rerender(
         <RolesEditor lang="en-US" currency="EUR" workdayHours={8} roles={three} disciplines={disciplines} grades={grades}
           onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onAddDiscipline={() => 0}
           onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop} onReorderRoles={noop}
           onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop} />,
       );
-      expect(defaultLocaleCalls() - firstRender).toBeLessThan(fields);
+      expect(defaultLocaleCalls() - firstRender).toBeLessThanOrEqual(MAX_DEFAULT_FORMATTERS_PER_RENDER);
     } finally {
       spy.mockRestore();
     }
@@ -864,7 +866,17 @@ describe("RolesEditor rate card fits a 1280px window (§766)", () => {
     const radios = screen.getAllByRole("radio");
     expect(radios.length).toBeGreaterThan(0);
     for (const r of radios) {
-      expect((r.closest("td") as HTMLElement).className.split(/\s+/)).toContain("isolate");
+      const basis = (r.closest("td") as HTMLElement).className.split(/\s+/);
+      expect(basis).toContain("isolate");
+      // jsdom computes no stacking, so this pins the class-level premises the measured
+      // fix rests on. The basis cell must not be positioned with a z-index of its own:
+      // `relative z-*` there would stack it above the later pinned cell again.
+      expect(basis.filter((c) => /^(-?z-|relative$|absolute$|sticky$)/.test(c))).toEqual([]);
+      // The pinned cell stays at z auto: it covers the isolated cell by source order,
+      // and a z-index of 10 or more would also lift it over the sticky header (z-10).
+      const pin = (r.closest("tr") as HTMLElement).querySelector("td:last-child") as HTMLElement;
+      expect(pin.className.split(/\s+/)).toContain("sticky");
+      expect(pin.className.split(/\s+/).filter((c) => /^-?z-/.test(c))).toEqual([]);
     }
   });
 });
