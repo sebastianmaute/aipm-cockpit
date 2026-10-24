@@ -22,7 +22,10 @@ Or the assistant drafts it. You give it the news, and Claude writes the update f
 Insights point out patterns in the project's data, such as a budget off its plan.
 
 ## fri-insight-rec
-For the budget insight, Claude writes a recommendation: what to do about it. Act records that you acted, so the app can later check whether it helped.
+For the budget insight, Claude writes a recommendation: what to do about it.
+
+## fri-insight-apply
+Apply recommendation first shows the changes it proposes. Once you have checked them, Apply makes them in the project.
 
 ## fri-split-task
 Pilot feedback fixes, the fixes from the first trial with real users, is too big for one task. A new linked task takes the registration part, for Sofia Ramirez, set to follow the first.
