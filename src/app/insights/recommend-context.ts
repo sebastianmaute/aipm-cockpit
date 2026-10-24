@@ -30,7 +30,7 @@ export interface RecommendContextInput {
  *  project's task assignees (free text, so a project with no resource
  *  directory still has people). Each name once: trimmed, inner whitespace
  *  collapsed to one space, compared case-insensitively, the first spelling
- *  kept; blanks dropped. Resources come first because the digest caps the list
+ *  kept with its whitespace collapsed (the form listed); blanks dropped. Resources come first because the digest caps the list
  *  (`PEOPLE_CAP`). A name in `excluded` (an archived resource) is never listed
  *  as an assignee, compared the same way.
  *  ★ Advisory only: a name written differently ("Ortiz, Dana") is a different
