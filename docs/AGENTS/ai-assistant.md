@@ -199,7 +199,8 @@
   change cannot be undone with Ctrl+Z; each row is described against the list an earlier functions row in the
   same turn leaves (`functions.before`), and `applyProposal` refuses a row whose `before` no longer matches the
   live `Workspace.features` (`getFeatures`) as a conflict (`FUNCTIONS_MOVED_ERROR`), so it never overwrites a
-  change the card did not show. `get_app_state` reports `enabledModules`/`mode` from `Workspace.features`. ★★
+  change the card did not show. With two functions rows in one turn, unticking the first therefore refuses the
+  second at Apply (it was described against the first's result); that is safe, and the card cannot warn beforehand. `get_app_state` reports `enabledModules`/`mode` from `Workspace.features`. ★★
   SECURITY: secrets / API keys / storage / integration config are DELIBERATELY unreachable — never widen this
   allowlist to a raw settings setter, and every value must stay routed through a validator/coercer. Guarded by
   `chat-tools.test.ts`.
