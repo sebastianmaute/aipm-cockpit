@@ -37,7 +37,7 @@ node scripts/demo-video/discover.mjs "Resources>Planning" # list a view's contro
 
 ## What a take does
 
-1. **Cleanup.** The throwaway database is cleared of projects and of the global rows a take writes (`scheduled_jobs`, `action_learning`).
+1. **Cleanup.** The throwaway database is cleared of projects and of the global rows a take writes (`scheduled_jobs_v2`, where scheduled jobs live since §772, the legacy `scheduled_jobs`, so the app's one-time copy from it finds nothing, and `action_learning`). Scheduled reports carry a `project_id` and go with the project.
 2. **A fresh browser context**, 1920 × 1080 (`VIEWPORT` in `lib.mjs`, also the screencast's size), `en-US`, Europe/Berlin, with the page clock installed at Monday 08:30.
 3. **Setup, off camera.** The setup wizard connects Turso and the key; Finish switches the portfolio to Turso and reloads. Then **Explore the demo**, the device state for the new project (below), the weekly digest and the AI Assistant's consent. A chapter then replays the days before it. A clip's `setup` steps run last (for example `ai-scheduled` creates its job).
 4. **Preconditions.** Each one checks that the data shows what the video needs (a duplicate pair, an over-allocated person, two saved versions). A missing one skips the take before anything is recorded.
@@ -61,7 +61,7 @@ The trim also ends every video where its take ended. Playwright's recorder pads 
 After the mix, every narrated take is checked on the finished video's timeline (`render-check.mjs`). Each finding prints one `RENDER …` line and counts a warning:
 
 - `RENDER gap`: a silence longer than `MAX_GAP_S` (8 s) between one voice and the next. The owner's rule: no stretch over 8 s without a voice, typing included. The seconds a marked AI wait covers are taken out first (a wait excuses only its own seconds, so a stall next to a short kept wait still shows). This is how a stalled step, or a form filled too slowly, shows. The fix is a shorter step (fewer keystrokes, less pacing, a caption said on the way to its view) or a beat that says what is being done.
-- `RENDER gap … (after the splash)`: the same rule before the first voice. The silence is measured from the end of the splash (`SPLASH_S`, 3 s), so the first voice must start within 8 s of it (the title beat usually starts about 1.2 s after it).
+- `RENDER gap … (after the splash)`: the same rule before the first voice. The silence is measured from the end of the splash (`SPLASH_S`, 3 s), so the first voice must start within 8 s of it (the title beat usually starts about 1.2 s after it). `check-render.mjs` does the same for a render with a `.beats.json` beside it (that sidecar came with the splash); a render without one predates the splash, and its first silence is measured from 0:00 (`RENDER gap … (after the start)`).
 - `RENDER tail`: more than `MAX_TAIL_S` (2.5 s) between the last voice and the end of the video.
 - `RENDER voice cut off`: less than `MIN_TAIL_S` (1 s) between the last voice and the end, or the video ending before the last voice does (the mix lets the video set the length, so the last words would be lost).
 - `RENDER no voices`: a narrated take with no beats.
@@ -95,6 +95,7 @@ The demo week runs Monday 21 to Friday 25 September 2026 (`DEMO_WEEK_DATES` in `
 ## On screen
 
 - The frame is 1920 × 1080. The cursor is 36 px; the caption is 24 px in a centred box that ends 32 px above the bottom edge, so the app's footer tagline stays readable.
+- No on-camera target sits under the caption box: before each cursor move (`moveTo`, so every click, field and select), `placeCaption` measures the box at the bottom, and when it would cover the target the caption goes to the top of the frame for that action (logged as `CAPTION at the top for <label>: target …, caption …`); the next target clear of it brings it back, and the closing caption is always at the bottom.
 - The database address is blurred wherever it appears. The token and the key are password fields, filled in one event so no frame shows them half typed.
 - Every Turso request to a host other than the throwaway database is blocked and counts as a warning.
 - Any secret found in a take's log counts as a warning.
@@ -183,7 +184,7 @@ No rehearsal can show these, because a rehearsal has no audio. Check them on the
 - **f-swimlanes:** the starting state of "Hide finished". If it starts on, the click shows finished work while `f-swimlanes-hide-done` says the opposite.
 - **f-board:** the CRM task's status.
 - **f-history:** the order of the versions.
-- **ai-insight:** what Act shows once clicked (`fri-insight-rec` says it records that you acted).
+- **ai-insight:** the review of Apply recommendation (`fri-insight-apply`): the proposed changes readable while the beat is spoken, and the card reading "Recommendation applied." after (the take fails on anything else).
 - **ai-steering:** the report's content.
 - **ai-weights:** the view Suggest with AI shows in (`ai-weights-suggest` says Settings).
 - **Budget hours follow plan** (`tue-follow-plan-off`, in ch4-tuesday, ai-forecast-import and big): the toggle's starting state. If it is already off, no click shows while the voice says to switch it off.
@@ -225,4 +226,4 @@ No rehearsal can show these, because a rehearsal has no audio. Check them on the
 | `steps/features.mjs` | The 20 feature clips and their preconditions. |
 | `fixtures/` | The device state and the re-plan spreadsheet. |
 
-Tests: `week-story.test.ts`, `cleanup.test.mjs`, `device-state.test.ts`, `cli.test.mjs`, `videos.test.mjs`, `take.test.mjs`, `ui.test.mjs`, `ui-actions.test.mjs`, `trim.test.mjs`, `narrated.test.mjs`, `render-check.test.mjs`, `frame.test.mjs`, `youtube.test.mjs`, `replan-fixture.test.ts`.
+Tests: `week-story.test.ts`, `cleanup.test.mjs`, `device-state.test.ts`, `cli.test.mjs`, `videos.test.mjs`, `take.test.mjs`, `ui.test.mjs`, `ui-actions.test.mjs`, `trim.test.mjs`, `narrated.test.mjs`, `render-check.test.mjs`, `frame.test.mjs`, `youtube.test.mjs`, `content.test.mjs`, `check-render.cli.test.mjs` (exit codes, with ffmpeg-made fixtures; skipped without ffmpeg), `replan-fixture.test.ts`.
