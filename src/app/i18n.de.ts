@@ -3872,6 +3872,7 @@ export const de: Record<TranslationKey, string> = {
   learningLoadFailedNotice: "Die gespeicherten Lerndaten konnten nicht gelesen werden. Ihre Änderungen hier bleiben vorerst erhalten und werden gespeichert, sobald sie gelesen werden können.",
   learningWriteHeldToast: "Die Lerndaten konnten nicht geladen werden, daher ist diese Änderung noch nicht gespeichert. Sie wird gespeichert, sobald die Daten gelesen werden können.",
   learningSaveFailedToast: "Die Lerndaten konnten nicht gespeichert werden.",
+  learningLoadRejectedToast: "Die Lerndaten konnten nicht geladen werden: Die Turso-Datenbank hat den Zugriff verweigert. Prüfen Sie die Turso-Einstellungen; Ihre Änderungen bleiben bis dahin erhalten.",
   // §777 — param-free reason labels for the why keys whose text takes values
   // (see `REASON_LABEL_KEY` in learning-kind-label.ts).
   learningReasonForecastSim: "Simulierte Abschlusschance gefährdet",

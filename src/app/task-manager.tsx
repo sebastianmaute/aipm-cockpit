@@ -101,7 +101,7 @@ import { useRaidCreate } from "./raid-create-host";
 import { buildAppModalsBlock } from "./app-modals-block";
 import { SettingsView } from "./settings-view";
 import { LearningInsights } from "./learning-insights";
-import { useActionLearning } from "./use-action-learning";
+import { useActionLearning, LEARNING_ERROR_TOAST } from "./use-action-learning";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
 import { AiProviders } from "./action-guides-context";
@@ -366,8 +366,7 @@ function TaskManagerInner() {
     tursoConfig,
     isPopout,
     hydrated,
-    onError: (kind, err) =>
-      reportSilentFailure(showToast, lang, `learning.${kind}Failed`, err, kind === "load" ? "learningWriteHeldToast" : "learningSaveFailedToast"),
+    onError: (kind, err) => reportSilentFailure(showToast, lang, `learning.${kind}Failed`, err, LEARNING_ERROR_TOAST[kind]),
   });
   // Turso storage connectivity status — set when a load/save/snapshot op fails
   // with an unreachable host or rejected token, cleared on the next success.

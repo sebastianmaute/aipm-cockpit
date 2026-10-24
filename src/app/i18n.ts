@@ -3940,6 +3940,7 @@ const enUS = {
   learningLoadFailedNotice: "Stored learning could not be read. Your changes here are kept for now and saved once it can be read.",
   learningWriteHeldToast: "Learning data could not be loaded, so this change is not saved yet. It is saved once the data can be read.",
   learningSaveFailedToast: "Learning data could not be saved.",
+  learningLoadRejectedToast: "Learning data could not be loaded: the Turso database refused access. Check the Turso settings; your changes are kept until then.",
   // §777 — param-free reason labels for the why keys whose text takes values
   // (see `REASON_LABEL_KEY` in learning-kind-label.ts).
   learningReasonForecastSim: "Simulated finish chance at risk",
