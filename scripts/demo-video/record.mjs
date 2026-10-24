@@ -39,9 +39,6 @@ const ELEVENLABS_KEY = L.readEnv('ELEVENLABS_API_KEY');
 const SECRETS = [T.url, T.host, T.token, KEY, ELEVENLABS_KEY];
 const mask = (s) => SECRETS.reduce((acc, v, i) => (v ? acc.split(v).join(['<URL>', '<HOST>', '<TOKEN>', '<KEY>', '<ELEVENLABS_KEY>'][i]) : acc), String(s));
 
-/** The demo's version label, top left on every frame after the splash: read once per run from version.ts. */
-const VERSION_LABEL = L.readAppVersionLabel();
-
 /** The narration's language: English for now. */
 const NARRATION_LANG = 'en';
 
@@ -77,7 +74,7 @@ async function take(browser, def) {
   await page.addInitScript(() => {
     if (!localStorage.getItem('aipm-cockpit:settings')) localStorage.setItem('aipm-cockpit:settings', JSON.stringify({ tourSeen: true }));
   });
-  await page.addInitScript(ui.OVERLAY, { host: T.host, label: VERSION_LABEL });
+  await page.addInitScript(ui.OVERLAY, T.host);
   await L.guardTurso(context, T.host, () => { warnings++; });
   page.on('pageerror', (e) => log('PAGEERROR ' + e.message.slice(0, 200)));
   try {

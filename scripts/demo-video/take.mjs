@@ -97,6 +97,8 @@ export async function runTake(def, deps) {
   const start = async () => {
     // From here on, captions are on camera: a narrated one is checked against its beat (ui.mjs).
     ctx.onCamera = true;
+    // Up before the screencast starts: the video's first frame is the splash.
+    if (!(await ui.showSplash(ctx))) warnings++;
     if (!recording) return;
     await ctx.page.screencast.start({ path: opts.outFile, size: L.VIEWPORT });
     started = true;
@@ -126,7 +128,7 @@ export async function runTake(def, deps) {
   // The splash first (3 s, every video), then the title (3 s), then the opening line when it says more than the
   // title (a chapter's is its title).
   const intro = async (opening) => {
-    await ui.splash(ctx);
+    await ui.endSplash(ctx);
     await ui.titleCard(ctx, def.title, TITLE);
     if (opening && opening !== def.title) await ui.caption(ctx, opening, OPENING);
     // The first step may navigate first: the opening's voice ends on the screen it describes.

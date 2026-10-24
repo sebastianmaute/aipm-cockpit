@@ -25,7 +25,8 @@ function harness({ preconditionsOk = true, checks = [], days } = {}) {
     },
     ui: {
       caption: async (_c, text) => { calls.push(`caption(${text})`); },
-      splash: async () => { calls.push('splash'); },
+      showSplash: async () => { calls.push('showSplash'); return true; },
+      endSplash: async () => { calls.push('endSplash'); },
       titleCard: async (_c, title) => { calls.push(`titleCard(${title})`); },
       closingBeat: async () => { calls.push('closingBeat'); },
       holdVoice: async () => {},
@@ -50,8 +51,16 @@ describe('runTake (§715)', () => {
     expect(r.status).toBe('ok');
     expect(h.calls).toEqual([
       'connect(onCamera=false)', 'exploreDemo', 'seedDeviceState(p1)', 'enableDigest', 'enableChat', 'precondition',
-      'screencast.start', 'splash', 'titleCard(T)', 'caption(Open)', 'run(a)', 'run(b)', 'closingBeat', 'screencast.stop',
+      'showSplash', 'screencast.start', 'endSplash', 'titleCard(T)', 'caption(Open)', 'run(a)', 'run(b)', 'closingBeat', 'screencast.stop',
     ]);
+  });
+
+  it('a splash image that did not load counts a warning (§715)', async () => {
+    const h = harness();
+    h.deps.ui.showSplash = async () => false;
+    const r = await runTake(def({ steps: [h.s('a')] }), h.deps);
+    expect(r.status).toBe('ok');
+    expect(r.warnings).toBe(1);
   });
 
   it('records at the shared 1920x1080 frame, the size the browser viewport uses (§715)', async () => {
@@ -64,14 +73,14 @@ describe('runTake (§715)', () => {
   it('a first-run take asks the setup for the first-run walk-through', async () => {
     const h = harness();
     await runTake(def({ prologueOnCamera: true, firstRun: true, prologue: [h.s('wizard')], steps: [h.s('a')] }), h.deps);
-    expect(h.calls.slice(0, 6)).toEqual(['screencast.start', 'splash', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true,firstRun=true)', 'run(wizard)']);
+    expect(h.calls.slice(0, 7)).toEqual(['showSplash', 'screencast.start', 'endSplash', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true,firstRun=true)', 'run(wizard)']);
   });
 
   it('the prologue is on camera for ch2-connect and big', async () => {
     const h = harness();
     await runTake(def({ prologueOnCamera: true, prologue: [h.s('wizard')], steps: [h.s('a')] }), h.deps);
     expect(h.calls).toEqual([
-      'screencast.start', 'splash', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true)', 'run(wizard)', 'exploreDemo', 'seedDeviceState(p1)',
+      'showSplash', 'screencast.start', 'endSplash', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true)', 'run(wizard)', 'exploreDemo', 'seedDeviceState(p1)',
       'enableDigest', 'enableChat', 'run(a)', 'closingBeat', 'screencast.stop',
     ]);
   });
@@ -81,7 +90,7 @@ describe('runTake (§715)', () => {
     h.deps.ui.holdVoice = async () => { h.calls.push('holdVoice'); };
     const r = await runTake(def({ prologueOnCamera: true, prologue: [h.s('cancel')], steps: [h.s('a')] }), h.deps);
     expect(h.calls).toEqual([
-      'screencast.start', 'splash', 'titleCard(T)', 'caption(Open)', 'holdVoice', 'connect(onCamera=true)', 'run(cancel)', 'exploreDemo', 'holdVoice',
+      'showSplash', 'screencast.start', 'endSplash', 'titleCard(T)', 'caption(Open)', 'holdVoice', 'connect(onCamera=true)', 'run(cancel)', 'exploreDemo', 'holdVoice',
       'seedDeviceState(p1)', 'enableDigest', 'enableChat', 'run(a)', 'holdVoice', 'closingBeat', 'screencast.stop',
     ]);
     expect(r.cuts).toHaveLength(1);
@@ -140,7 +149,7 @@ describe('runTake (§715)', () => {
     const start = h.calls.indexOf('screencast.start');
     expect(h.calls.slice(0, start)).toEqual([
       'connect(onCamera=false)', 'exploreDemo', 'seedDeviceState(p1)', 'enableDigest', 'enableChat',
-      'goToDay(mon)', 'goToDay(tue)', 'goToDay(wed)',
+      'goToDay(mon)', 'goToDay(tue)', 'goToDay(wed)', 'showSplash',
     ]);
   });
 
@@ -227,7 +236,7 @@ describe('runTake with narration (§715)', () => {
   function narrated({ beats, own = Object.keys(beats), rehearse = false } = {}) {
     const h = harness();
     Object.assign(h.deps.ctx.page, {
-      evaluate: async () => {},
+      evaluate: async () => true,
       waitForTimeout: async (ms) => { clock += ms; },
     });
     h.deps.ctx.rehearse = rehearse;

@@ -6,11 +6,11 @@
 // imports videos.mjs, which imports the step modules, which import this file, so importing it here is a cycle.
 import * as L from './lib.mjs';
 
-// Installed in every page before it loads: an arrow cursor that follows the mouse, the caption bar, the app's
-// version label (top left, under the logo), and a blur over any text that shows the database host. Sized for the
-// 1920x1080 frame (L.VIEWPORT): the cursor 36 px, the caption 24 px in a centred box that ends 32 px above the
-// bottom edge, so the app's footer tagline stays readable under it. Serialised into the page, so self-contained.
-export const OVERLAY = ({ host, label }) => {
+// Installed in every page before it loads: an arrow cursor that follows the mouse, the caption bar, and a blur
+// over any text that shows the database host. Sized for the 1920x1080 frame (L.VIEWPORT): the cursor 36 px, the
+// caption 24 px in a centred box that ends 32 px above the bottom edge, so the app's footer tagline stays readable
+// under it. Serialised into the page, so self-contained.
+export const OVERLAY = (host) => {
   const install = () => {
     if (!document.body || document.getElementById('demo-cursor')) return;
     const c = document.createElement('div');
@@ -23,11 +23,6 @@ export const OVERLAY = ({ host, label }) => {
     b.id = 'demo-subtitle';
     b.style.cssText = 'position:fixed;bottom:32px;left:50%;transform:translateX(-50%);width:max-content;max-width:1500px;border-radius:8px;z-index:2147483646;text-align:center;padding:14px 32px;background:rgba(0,0,0,.75);color:#fff;font:500 24px/1.35 -apple-system,"Segoe UI",sans-serif;pointer-events:none;opacity:0;transition:opacity .3s';
     document.body.appendChild(b);
-    const v = document.createElement('div');
-    v.id = 'demo-version';
-    v.textContent = label;
-    v.style.cssText = 'position:fixed;top:50px;left:16px;z-index:2147483645;padding:2px 8px;border-radius:4px;background:rgba(0,0,0,.45);color:#fff;font:500 13px -apple-system,"Segoe UI",sans-serif;pointer-events:none';
-    document.body.appendChild(v);
     const s = document.createElement('style');
     s.textContent = 'input[placeholder^="libsql://"]{filter:blur(6px)}';
     document.head.appendChild(s);
@@ -131,37 +126,65 @@ export async function speak(ctx, id) {
 
 /** The app's splash (public/), served by the dev server. Shown as it is: never re-saved (it carries a C2PA manifest). */
 export const SPLASH = '/splash-aipm-cockpit.svg';
-/** How long every video opens on the splash, before its title card. */
+/** How long every video opens on the splash, before its title card, counted from the recording's first frame. */
 export const SPLASH_MS = 3000;
+/** How long the splash image may take to load before the splash goes up without it. */
+export const SPLASH_LOAD_MS = 5000;
 
-/** The splash over the whole frame, before anything else: centred at 1.5x (960x600) on the SVG's own #003459,
- *  above the caption bar, the cursor and the version label, so none of them shows on it. Rendered inside the
- *  recording, so every later time on the take's timeline (beats, captions, AI waits) includes it. A rehearsal
- *  shows it at the token pace. */
-export async function splash(ctx) {
-  await ctx.page.evaluate((src) => new Promise((resolve) => {
-    const s = document.createElement('div');
-    s.id = 'demo-splash';
-    s.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#003459;display:flex;align-items:center;justify-content:center';
-    const img = document.createElement('img');
-    img.alt = '';
-    img.style.cssText = 'width:960px;height:600px';
-    img.onload = () => resolve();
-    img.onerror = () => resolve();
-    setTimeout(resolve, 3000); // a missing image must not hold the take
+/** Puts the splash over the whole frame, before the recording starts, so its first frame is the splash: the image
+ *  is loaded first (at most `loadTimeoutMs`), then shown centred at 1.5x (960x600) on the SVG's own #003459, as
+ *  the last element at the top z-index, so it covers the caption bar and the cursor. Returns whether the image
+ *  loaded; without it the splash shows its background only, and the take counts a warning. */
+export async function showSplash(ctx, { loadTimeoutMs = SPLASH_LOAD_MS } = {}) {
+  const loaded = await ctx.page.evaluate(({ src, timeout }) => new Promise((resolve) => {
+    const img = new Image();
+    let timer = null;
+    const show = (ok) => {
+      if (!timer) return; // shown already
+      clearTimeout(timer);
+      timer = null;
+      const s = document.createElement('div');
+      s.id = 'demo-splash';
+      s.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#003459;display:flex;align-items:center;justify-content:center';
+      img.alt = '';
+      img.style.cssText = 'width:960px;height:600px';
+      s.appendChild(img);
+      document.body.appendChild(s);
+      resolve(ok);
+    };
+    timer = setTimeout(() => show(false), timeout);
+    img.onload = () => show(true);
+    img.onerror = () => show(false);
     img.src = src;
-    s.appendChild(img);
-    document.body.appendChild(s);
-  }), SPLASH);
+  }), { src: SPLASH, timeout: loadTimeoutMs });
+  if (!loaded) ctx.log(`SPLASH ${SPLASH} did not load: the splash shows its background only`);
+  return loaded;
+}
+
+/** Holds the splash SPLASH_MS (the rehearsal pace in a rehearsal), then takes it away. Throws when it is still
+ *  on the page: a splash left up would cover the whole video. Every later time on the take's timeline (beats,
+ *  captions, AI waits) includes it. */
+export async function endSplash(ctx) {
   await pace(ctx, SPLASH_MS);
-  await ctx.page.evaluate(() => document.getElementById('demo-splash')?.remove());
+  const gone = await ctx.page.evaluate(() => {
+    document.getElementById('demo-splash')?.remove();
+    return document.getElementById('demo-splash') == null;
+  });
+  if (!gone) throw new Error('the splash is still on the page after its 3 s');
 }
 
 /** At the start of a take: the Next.js dev indicator (the "N" badge, in a nextjs-portal's shadow root) must not
- *  be in the picture. Its dev server is started with DEMO_RECORDER=1 (next.config.ts). Returns the warnings to count. */
+ *  be in the picture. Its dev server is started with DEMO_RECORDER=1 (next.config.ts). Returns the warnings to
+ *  count; a probe that fails counts one too, so the check never passes silently. */
 export async function checkDevBadge(ctx) {
-  const shown = await ctx.page.evaluate(() => [...document.querySelectorAll('nextjs-portal')]
-    .some((p) => p.shadowRoot?.querySelector('[data-nextjs-dev-tools-button]') != null)).catch(() => false);
+  let shown;
+  try {
+    shown = await ctx.page.evaluate(() => [...document.querySelectorAll('nextjs-portal')]
+      .some((p) => p.shadowRoot?.querySelector('[data-nextjs-dev-tools-button]') != null));
+  } catch (e) {
+    ctx.log(`DEV BADGE check failed: ${String(e?.message ?? e).split('\n')[0]}`);
+    return 1;
+  }
   if (!shown) return 0;
   ctx.log('DEV BADGE visible — start the dev server with DEMO_RECORDER=1');
   return 1;

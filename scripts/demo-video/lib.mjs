@@ -24,20 +24,6 @@ export const OUT = process.env.DEMO_VIDEO_DIR || path.join(ROOT, '.superpowers',
 // The frame of every video: the browser's viewport and the screencast's size, true 1080p.
 export const VIEWPORT = Object.freeze({ width: 1920, height: 1080 });
 
-/** "v<APP_VERSION> <APP_MILESTONE>" from the text of src/app/version.ts, read from the two declarations (the file's
- *  prose quotes older values). Parsed as text: the recorder never imports the app's TypeScript. */
-export function appVersionLabel(text) {
-  const read = (name) => {
-    const m = new RegExp(`^export const ${name} = "([^"]+)";`, 'm').exec(text);
-    if (!m) throw new Error(`version.ts: no ${name} declaration`);
-    return m[1];
-  };
-  return `v${read('APP_VERSION')} ${read('APP_MILESTONE')}`;
-}
-
-/** The app's version label, read from src/app/version.ts at take time. */
-export const readAppVersionLabel = () => appVersionLabel(fs.readFileSync(path.join(ROOT, 'src', 'app', 'version.ts'), 'utf8'));
-
 // Reads one key from the repo's .env.local. Values are returned, never printed.
 export function readEnv(key) {
   const txt = fs.readFileSync(path.join(ROOT, '.env.local'), 'utf8');
