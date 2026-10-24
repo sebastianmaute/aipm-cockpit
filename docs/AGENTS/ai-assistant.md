@@ -188,9 +188,13 @@
   only in the settings mirror. Not undo-captured; logged once as `settings.updated` by the AI.
   `computeSettingsPatch` refuses, before any setter runs, a value that is not a list or a non-empty list naming
   no known module (`[]` is allowed and switches every function off; a mixed list keeps the known ids, echoed in
-  `applied`). ★★ The staging gate counts it: `isEntityWriteCall` (`chat-proposal.ts`) treats an `update_settings`
+  `applied`, and names the unknown ones in `applied.droppedModules`; one judge, `judgeEnabledModules`, serves
+  the write and the review card). ★★ The staging gate counts it: `isEntityWriteCall` (`chat-proposal.ts`) treats an `update_settings`
   call CARRYING the `enabledModules` key as a write, so one applies and two writes in a turn go to review (owner
-  decision 2026-10-24); a call without the key is a device-only write and stays exempt, like `set_language`. ★★
+  decision 2026-10-24); a call without the key is a device-only write and stays exempt, like `set_language`. A staged one is
+  described by `describeFunctionsCall` (`chat-proposal-describe-functions.ts`) into `DescribedRow.functions`: the
+  card titles it with `functionsRowTitle` and lists the functions it turns on and off against `Workspace.features`
+  (labels via the Functions picker's `moduleNames`), and a refused value shows as a rejection on the field. ★★
   SECURITY: secrets / API keys / storage / integration config are DELIBERATELY unreachable — never widen this
   allowlist to a raw settings setter, and every value must stay routed through a validator/coercer. Guarded by
   `chat-tools.test.ts`.
