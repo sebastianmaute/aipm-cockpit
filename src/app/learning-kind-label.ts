@@ -19,7 +19,6 @@ import { canonicalLearningKind } from "./next-actions/learning-kind";
  *  no entry here fails them. */
 const REASON_LABEL_KEY: Partial<Record<TranslationKey, TranslationKey>> = {
   actionForecastSimWhy: "learningReasonForecastSim",
-  actionForecastSimWhyBelow1: "learningReasonForecastSimBelow1",
   actionTaskWhyStale: "learningReasonTaskStale",
   actionTaskWhyBlocked: "learningReasonTaskBlocked",
   actionTaskWhyDepBlocked: "learningReasonTaskDepBlocked",

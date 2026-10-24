@@ -3868,7 +3868,6 @@ export const de: Record<TranslationKey, string> = {
   // §777 — param-free reason labels for the why keys whose text takes values
   // (see `REASON_LABEL_KEY` in learning-kind-label.ts).
   learningReasonForecastSim: "Simulierte Abschlusschance gefährdet",
-  learningReasonForecastSimBelow1: "Simulierte Abschlusschance unter 1 %",
   learningReasonTaskStale: "Länger nicht aktualisiert",
   learningReasonTaskBlocked: "Blockiert",
   learningReasonTaskDepBlocked: "Wartet auf einen Vorgänger",

@@ -3936,7 +3936,6 @@ const enUS = {
   // §777 — param-free reason labels for the why keys whose text takes values
   // (see `REASON_LABEL_KEY` in learning-kind-label.ts).
   learningReasonForecastSim: "Simulated finish chance at risk",
-  learningReasonForecastSimBelow1: "Simulated finish chance under 1%",
   learningReasonTaskStale: "No recent update",
   learningReasonTaskBlocked: "Blocked",
   learningReasonTaskDepBlocked: "Waiting on a predecessor",

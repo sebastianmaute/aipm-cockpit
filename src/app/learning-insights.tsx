@@ -148,7 +148,9 @@ export function LearningInsights({
                         // it replaced the raw `kind` this name used to
                         // carry): `learningKindLabel` gives distinct learning
                         // kinds distinct reasons, pinned by the "every why key"
-                        // tests beside this file.
+                        // tests beside this file. That holds because `state`
+                        // arrives normalised (`normalizeLearningSnapshot`, §778):
+                        // a count variant and its plural are one row, never two.
                         aria-label={rowLabel(t(lang, "learningColOverride"), `${label.source}: ${label.reason}`)}
                         size="xs"
                         value={overrides[kind] ?? "auto"}
