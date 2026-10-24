@@ -58,4 +58,4 @@ Draft message again, this time for the DPO: the erasure fix is verified.
 The digest again, this time on Friday. Claude sums up where the project stands at the end of the week.
 
 ## closing
-That is the week. The cause of the slip is fixed and verified, the plan holds the new dates, the budget has a plan to get back on track, the team's load fits its hours, and the sponsor and the DPO have heard. Each day also has a chapter video of its own.
+That is the week. The cause of the slip is fixed and verified, the re-plan holds the new dates, the connector has its specialist role and a budget of its own, and the DPO has heard. Each day also has a chapter video of its own.
