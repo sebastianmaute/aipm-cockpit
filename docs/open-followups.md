@@ -45930,7 +45930,7 @@ Size XS.
 
 ## 781. Action Center learning is rewritten from a snapshot that never read its store — CLOSED 2026-10-24
 
-**Status:** CLOSED 2026-10-24 on `fix/learning-view-pane`, owner decisions 2026-10-24 to fix it now (both the early-write race and the store switch). Verified with `npx vitest run src/app/next-actions src/app/action-learning.test.ts src/app/use-action-learning.test.tsx src/app/learning-insights.test.tsx src/app/learning-store-local.test.ts src/app/learning-store-turso.test.ts src/app/learning-store-turso.load.test.ts src/app/task-manager.learning-back.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-cpi-labels.test.ts src/app/settings-sections/next-actions-section.test.tsx` (33 files, 379 tests, green, at 31d88d707).
+**Status:** CLOSED 2026-10-24 on `fix/learning-view-pane`, owner decisions 2026-10-24 to fix it now (both the early-write race and the store switch). Verified with `npx vitest run src/app/next-actions src/app/action-learning.test.ts src/app/use-action-learning.test.tsx src/app/learning-insights.test.tsx src/app/learning-store-local.test.ts src/app/learning-store-turso.test.ts src/app/learning-store-turso.load.test.ts src/app/task-manager.learning-back.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-cpi-labels.test.ts src/app/settings-sections/next-actions-section.test.tsx src/app/storage-transient.test.ts src/app/scheduled-job-analysis.test.ts src/app/scheduled-job-run.test.ts src/app/scheduled-jobs-store.execute.test.ts src/app/scheduled-jobs-store.test.ts src/app/use-scheduled-job-runner.test.tsx src/app/use-scheduled-jobs.config.test.tsx src/app/use-scheduled-jobs.reread.test.tsx src/app/use-scheduled-jobs.test.tsx` (42 files, 558 tests, green, at 34e123be2; the scheduled-job suites ride along because their runner now imports `storage-transient.ts`).
 
 Every learning save is a full rewrite of its store. On Turso that is `DELETE FROM` the GLOBAL `action_learning` table, then re-inserts. `useActionLearning` (`use-action-learning.ts`) therefore saves only a snapshot that was loaded from that same store in this session:
 - **Hydration:** the load waits for `useSettings`' `hydrated`. Before it, the config is the default one (local, learning off).
@@ -45938,10 +45938,12 @@ Every learning save is a full rewrite of its store. On Turso that is `DELETE FRO
 - **Before a load succeeds:** writes (record, override, reset) are applied in memory and queued. The load replays the queue, in order, on top of what it read (normalised as in §778) and saves the result once, to the store object it loaded from.
 - **The queue survives a reload.** After a switch, the new store keeps its own rows plus this session's later writes. Nothing is copied from the old store, so learning does not carry over between stores; switching back reads the old store again.
 - **Authority:** only the latest load is authoritative (`loadGenRef`). A load made stale by StrictMode's second mount, or by a switch, touches neither the queue, the state nor a save.
-- **A failed load** (network, `StorageNotReadyError`, a missing SELECT result, which `tursoLearningStore.load` now treats as a failure rather than an empty table): nothing is saved, the writes are kept, and the load is retried 3 times with a growing delay (`LEARNING_LOAD_RETRY_MS`: 5, 10 and 15 s, as `useScheduledJobs` retries its read). After that, the next write starts a fresh round.
+- **A failed load:** nothing is saved, and the writes are kept. What happens next depends on the error (`isRetryableLearningLoadError` in the new `storage-transient.ts`, whose busy-database and server-blip checks the §772 scheduled-job runner now shares):
+  - **Retryable** (the store is unreachable or timed out, a Turso 429 or 5xx, a busy database): the load is retried 3 times with a growing delay (`LEARNING_LOAD_RETRY_MS`: 5, 10 and 15 s, as `useScheduledJobs` retries its read). After that, the next write starts a fresh round.
+  - **Permanent** (owner decision 2026-10-24; a rejected token, any other HTTP or SQL error, or a missing SELECT result, which `tursoLearningStore.load` now treats as a failure rather than an empty table): no retries. The user is told at once (`learningLoadRejectedToast`: the Turso database refused access, check the Turso settings). A write does not restart the load; a new Turso token, entered in Settings, does.
 - **What the user sees:**
   - The learning view shows "Stored learning could not be read. Your changes here are kept for now and saved once it can be read." (`learningLoadFailedNotice`).
-  - The first write held by the failure shows an error toast (`learningWriteHeldToast`, through `reportSilentFailure`).
+  - For a retryable failure, the first write it holds shows an error toast (`learningWriteHeldToast`, through `reportSilentFailure`). A permanent failure is toasted at once, as above.
   - Their changes are saved once a load succeeds. They are lost only if the app closes before that; the stored learning is never touched.
 - **A failed save** is logged (`learning.saveFailed`) and toasted once per failing streak (`learningSaveFailedToast`). The next save carries the whole snapshot.
 
@@ -45967,7 +45969,9 @@ Tests:
     - a failed load is retried and then saves;
     - a write after the retries run out restarts the load;
     - a failed load is reported once, on the first write held;
-    - a failed save is reported once per streak.
+    - a failed save is reported once per streak;
+    - a rejected token stops the retries, is reported at once, survives a write without a reload, and a new token reloads and saves the held write.
+- `storage-transient.test.ts`: which errors are retried.
 - `learning-insights.test.tsx`: the notice.
 - `learning-store-turso.load.test.ts`: the missing SELECT result.
 - Nine mutants, one per mechanism, were each killed by their own test:
@@ -45980,6 +45984,7 @@ Tests:
   - no notice;
   - no reload on a store change;
   - no save-error report.
+- Two more mutants, for the permanent case (every error retryable; the token not a reload trigger), each turned the rejected-token test red.
 
 **Earlier:**
 - **2026-10-24, final review of the §777/§778/§780 branch:** found a pre-existing defect. An outcome recorded before the mount `load()` resolved set `dirtyRef`. The late load was then dropped, and `persist` saved only the new outcome, so one quick snooze wiped the global table. A failed load had the same effect on the next write.

@@ -79,8 +79,9 @@ longer carries its own changelog comment.
   the app saved before it had read Turso; an outcome recorded while learning was still loading, or a switch of the
   learning store in Settings, could do the same. Learning is now saved only to a store it has read in this session: early
   changes wait for the read and are added on top of it, and after a switch the new store keeps its own data. If stored
-  learning cannot be read, the learning view says so, your changes are kept and saved once a read works, and the app
-  tries again; a failed save is reported too.
+  learning cannot be read, the learning view says so and your changes are kept and saved once a read works: the app
+  tries again after a network failure, and when the Turso database refuses access it tells you at once and waits for
+  the Turso settings to be fixed. A failed save is reported too.
 - **The learning view's Adjustment column shows what is applied (§780).** A row set to "Always suppress" could
   still read "+5", the learned value the override replaces. The column now shows the adjustment in effect (+20,
   -20 or 0 under Always surface, Always suppress and Off), with the learned value below it, marked "learned";
