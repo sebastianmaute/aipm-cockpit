@@ -220,6 +220,8 @@ longer carries its own changelog comment.
   (high, a Server Actions denial of service). `next` and `eslint-config-next` move to 16.4.2.
 - **DOMPurify 3.4.17.** The version in use, 3.4.16, fell inside three sanitiser-bypass advisories:
   GHSA-cg2g-xh64-v4q7 (critical), GHSA-mrv2-3pqr-j5jr (high) and GHSA-c6gr-qvv4-5v3f (low).
+- **Zod 4.6.7.** The version in use, 4.6.5, fell inside GHSA-mrhx-c7xc-m3w5 (high, memory exhaustion while
+  validating oversized constrained collections; fixed in 4.6.6). The app uses zod only to validate Jira responses.
 
 ### Development
 
