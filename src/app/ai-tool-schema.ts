@@ -8,12 +8,14 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** `value` against the subset of JSON Schema the app's tools use: `type` (object, array, string, number,
- *  integer, boolean), `properties` + `required`, `items` and `enum`. Keys the schema does not list are
- *  allowed, and a keyword outside that subset is not checked. */
+ *  integer, boolean), `properties` + `required`, `items`, `enum` and `anyOf` (some branch matches; §782,
+ *  `propose_insight_actions` offers one branch per tool). Keys the schema does not list are allowed, and a
+ *  keyword outside that subset is not checked. */
 export function matchesSchema(value: unknown, schema: unknown): boolean {
   if (!isPlainObject(schema)) return true;
   const s: Schema = schema;
   if (Array.isArray(s.enum) && !s.enum.includes(value)) return false;
+  if (Array.isArray(s.anyOf) && !s.anyOf.some((branch) => matchesSchema(value, branch))) return false;
   switch (s.type) {
     case "object": {
       if (!isPlainObject(value)) return false;
@@ -37,7 +39,8 @@ export function matchesSchema(value: unknown, schema: unknown): boolean {
   }
 }
 
-/** `schema` with `additionalProperties: false` on every object, which strict mode requires. */
+/** `schema` with `additionalProperties: false` on every object, which strict mode requires — including each
+ *  `anyOf` branch (§782: skipping them left 20 of the 21 objects of `propose_insight_actions` open). */
 function closeObjects(schema: unknown): unknown {
   if (!isPlainObject(schema)) return schema;
   const node: Schema = { ...schema };
@@ -47,6 +50,7 @@ function closeObjects(schema: unknown): unknown {
     node.properties = Object.fromEntries(Object.entries(props).map(([k, v]) => [k, closeObjects(v)]));
   }
   if (node.items !== undefined) node.items = closeObjects(node.items);
+  if (Array.isArray(node.anyOf)) node.anyOf = node.anyOf.map(closeObjects);
   return node;
 }
 

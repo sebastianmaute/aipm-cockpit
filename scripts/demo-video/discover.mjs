@@ -63,7 +63,7 @@ if (!paths.length) {
 await cleanup();
 // Laid out as the recorder lays out its takes (record.mjs): scrollbars shown.
 const browser = await chromium.launch({ headless: true, ignoreDefaultArgs: ['--hide-scrollbars'] });
-const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'en-US', timezoneId: 'Europe/Berlin' });
+const context = await browser.newContext({ viewport: L.VIEWPORT, locale: 'en-US', timezoneId: 'Europe/Berlin' });
 await L.guardTurso(context, T.host);
 const page = await context.newPage();
 const ctx = { page, clipId: 'discover', rehearse: true, withAi: false, log: (l) => out('[log]', l), lines: [], secrets: { url: T.url, token: T.token, key: KEY } };

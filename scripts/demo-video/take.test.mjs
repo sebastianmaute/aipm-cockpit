@@ -5,6 +5,7 @@ import { CLOSING, OPENING, TITLE } from './narration/beats.mjs';
 import { runTake, takeNarration, waitForAi } from './take.mjs';
 import * as ui from './ui.mjs';
 import { step } from './steps/step.mjs';
+import { VIEWPORT } from './lib.mjs';
 
 function harness({ preconditionsOk = true, checks = [], days } = {}) {
   const calls = [];
@@ -14,7 +15,7 @@ function harness({ preconditionsOk = true, checks = [], days } = {}) {
     const shown = args.map((a) => (a && typeof a === 'object' ? Object.entries(a).map(([k, v]) => `${k}=${v}`).join(',') : String(a)));
     calls.push(shown.length ? `${name}(${shown.join(',')})` : name);
   };
-  const page = { screencast: { start: async () => { calls.push('screencast.start'); }, stop: async () => { calls.push('screencast.stop'); } } };
+  const page = { screencast: { start: async (o) => { calls.push('screencast.start'); page.size = o?.size; }, stop: async () => { calls.push('screencast.stop'); } } };
   const ctx = { page, clipId: 'x', log: (l) => lines.push(l), lines };
   const deps = {
     ctx,
@@ -24,6 +25,8 @@ function harness({ preconditionsOk = true, checks = [], days } = {}) {
     },
     ui: {
       caption: async (_c, text) => { calls.push(`caption(${text})`); },
+      showSplash: async () => { calls.push('showSplash'); return true; },
+      endSplash: async () => { calls.push('endSplash'); },
       titleCard: async (_c, title) => { calls.push(`titleCard(${title})`); },
       closingBeat: async () => { calls.push('closingBeat'); },
       holdVoice: async () => {},
@@ -48,23 +51,58 @@ describe('runTake (§715)', () => {
     expect(r.status).toBe('ok');
     expect(h.calls).toEqual([
       'connect(onCamera=false)', 'exploreDemo', 'seedDeviceState(p1)', 'enableDigest', 'enableChat', 'precondition',
-      'screencast.start', 'titleCard(T)', 'caption(Open)', 'run(a)', 'run(b)', 'closingBeat', 'screencast.stop',
+      'showSplash', 'screencast.start', 'endSplash', 'titleCard(T)', 'caption(Open)', 'run(a)', 'run(b)', 'closingBeat', 'screencast.stop',
     ]);
+  });
+
+  it('a splash image that did not load counts a warning (§715)', async () => {
+    const h = harness();
+    h.deps.ui.showSplash = async () => false;
+    const r = await runTake(def({ steps: [h.s('a')] }), h.deps);
+    expect(r.status).toBe('ok');
+    expect(r.warnings).toBe(1);
+  });
+
+  it('records at the shared 1920x1080 frame, the size the browser viewport uses (§715)', async () => {
+    const h = harness();
+    await runTake(def({ steps: [h.s('a')] }), h.deps);
+    expect(h.deps.ctx.page.size).toEqual(VIEWPORT);
+    expect(VIEWPORT).toEqual({ width: 1920, height: 1080 });
   });
 
   it('a first-run take asks the setup for the first-run walk-through', async () => {
     const h = harness();
     await runTake(def({ prologueOnCamera: true, firstRun: true, prologue: [h.s('wizard')], steps: [h.s('a')] }), h.deps);
-    expect(h.calls.slice(0, 5)).toEqual(['screencast.start', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true,firstRun=true)', 'run(wizard)']);
+    expect(h.calls.slice(0, 7)).toEqual(['showSplash', 'screencast.start', 'endSplash', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true,firstRun=true)', 'run(wizard)']);
   });
 
   it('the prologue is on camera for ch2-connect and big', async () => {
     const h = harness();
     await runTake(def({ prologueOnCamera: true, prologue: [h.s('wizard')], steps: [h.s('a')] }), h.deps);
     expect(h.calls).toEqual([
-      'screencast.start', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true)', 'run(wizard)', 'exploreDemo', 'seedDeviceState(p1)',
+      'showSplash', 'screencast.start', 'endSplash', 'titleCard(T)', 'caption(Open)', 'connect(onCamera=true)', 'run(wizard)', 'exploreDemo', 'seedDeviceState(p1)',
       'enableDigest', 'enableChat', 'run(a)', 'closingBeat', 'screencast.stop',
     ]);
+  });
+
+  it("the demo opens during the prologue's last voice; the device setup after it is an off-camera cut (§715)", async () => {
+    const h = harness();
+    h.deps.ui.holdVoice = async () => { h.calls.push('holdVoice'); };
+    const r = await runTake(def({ prologueOnCamera: true, prologue: [h.s('cancel')], steps: [h.s('a')] }), h.deps);
+    expect(h.calls).toEqual([
+      'showSplash', 'screencast.start', 'endSplash', 'titleCard(T)', 'caption(Open)', 'holdVoice', 'connect(onCamera=true)', 'run(cancel)', 'exploreDemo', 'holdVoice',
+      'seedDeviceState(p1)', 'enableDigest', 'enableChat', 'run(a)', 'holdVoice', 'closingBeat', 'screencast.stop',
+    ]);
+    expect(r.cuts).toHaveLength(1);
+    expect(r.cuts[0].end).toBeGreaterThanOrEqual(r.cuts[0].start);
+  });
+
+  it('a recorded take returns where it ended on its timeline; a take with its demo off camera has no cuts (§715)', async () => {
+    const h = harness();
+    const r = await runTake(def({ steps: [h.s('a')] }), h.deps);
+    expect(typeof r.endAt).toBe('number');
+    expect(r.endAt).toBeGreaterThanOrEqual(0);
+    expect(r.cuts).toEqual([]);
   });
 
   it('an opening that only repeats the title is not shown twice (the chapters)', async () => {
@@ -111,7 +149,7 @@ describe('runTake (§715)', () => {
     const start = h.calls.indexOf('screencast.start');
     expect(h.calls.slice(0, start)).toEqual([
       'connect(onCamera=false)', 'exploreDemo', 'seedDeviceState(p1)', 'enableDigest', 'enableChat',
-      'goToDay(mon)', 'goToDay(tue)', 'goToDay(wed)',
+      'goToDay(mon)', 'goToDay(tue)', 'goToDay(wed)', 'showSplash',
     ]);
   });
 
@@ -198,7 +236,7 @@ describe('runTake with narration (§715)', () => {
   function narrated({ beats, own = Object.keys(beats), rehearse = false } = {}) {
     const h = harness();
     Object.assign(h.deps.ctx.page, {
-      evaluate: async () => {},
+      evaluate: async () => true,
       waitForTimeout: async (ms) => { clock += ms; },
     });
     h.deps.ctx.rehearse = rehearse;
@@ -218,6 +256,15 @@ describe('runTake with narration (§715)', () => {
     for (let i = 1; i < at.length; i++) expect(at[i]).toBeGreaterThan(at[i - 1]);
     expect(r.unusedBeats).toEqual([]);
     expect(r.warnings).toBe(0);
+  });
+
+  it('returns its captions, and ends 1.9 s after the closing voice (the pause and the hold) (§715)', async () => {
+    const h = narrated({ beats: { 'mon-a': 2.0, [CLOSING]: 1.0 } });
+    const r = await runTake(def({ opening: 'T', steps: [says('a', 'mon-a')] }), h.deps);
+    const closing = r.beats.at(-1);
+    expect(closing.id).toBe(CLOSING);
+    expect(r.endAt).toBeCloseTo(closing.at + closing.duration + 0.4 + 1.5, 3);
+    expect(r.captions.map((c) => c.id)).toEqual(['mon-a', CLOSING]);
   });
 
   // I1: a beat's voice never runs on into the next view. A step that navigates before its first caption

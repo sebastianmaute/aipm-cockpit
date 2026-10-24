@@ -77,10 +77,13 @@ types through the validator was weighed and rejected.
   silently dropped by the churn guard (the SP1 data-loss class — pinned by a test); (2) `reconcile` upsert carries
   the rec forward via `...prev`, and a re-fire DROPS it (a stale proposal no longer fits the recurring problem);
   (3) `sanitizeInsights` only shape/size-guards `proposedCalls[].input` — the real per-entity validation happens at
-  APPLY time in `runTool`. Pure engines: `insights/recommend.ts` (forced-tool `propose_insight_actions` +
+  APPLY time in `runTool`. ★★ §782 — the model is offered each allowed tool's OWN arguments
+  (`recommend-schema.ts`: the chat `TOOL_DEFS` schema minus `expectedToken`, derived, never copied), and
+  `recommendationCallProblem` judges a call's REQUIRED arguments for BOTH the review plan and the apply loop, on the
+  STORED calls — a replay never passes through `parseRecommendation`, so a check there alone would miss it. Pure engines: `insights/recommend.ts` (forced-tool `propose_insight_actions` +
   `parseRecommendation` re-grounding every entity id against the live workspace via `action-ai` `GroundingIndex`,
   allow-set = safe update/create tools only, NO delete/settings), `recommend-context.ts` (per-insight digest +
-  cacheable system prompt, i18n-free English), `recommend-plan.ts` (`describeRecommendationPlan(calls, ws)` → an
+  cacheable system prompt, i18n-free English), `recommend-plan.ts` (`describeRecommendationPlan(calls, ws, formatProblem?)` → an
   `EditPlan` preview reusing the inline-ai-edit descriptor engine, grounding each call by ITS OWN id). The call
   (`recommend-call.ts` `runInsightRecommendation`) mirrors `task-dedup-call` — ONE forced call through the shared
   never-log `runForcedToolCallWithStop`, asked once more at 8192 tokens when the 4096-token reply stopped at

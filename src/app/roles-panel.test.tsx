@@ -1,8 +1,9 @@
 import React from "react";
 import { test, expect } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, screen } from "@testing-library/react";
 import { RolesPanel } from "./roles-panel";
 import { t } from "./i18n";
+import { buttonNames, expectButtonOrder } from "../test/toolbar-order";
 
 const noop = () => {};
 
@@ -50,4 +51,26 @@ test("RolesPanel is manually resizable and the reset button clears the manual si
   fireEvent.click(getByRole("button", { name: t("en-US", "tableResetSizeHint") }));
   expect(section.style.width).toBe("");
   expect(section.style.height).toBe("");
+});
+
+// §766: half of the content area left the rate card (then a 1,013px table) a
+// 420-488px pane below a 1366px window. The pane now takes the whole content width up
+// to a cap the rate card fits in, and the cap lives in `width` so a corner drag
+// wider than it still wins (`max-w-*` would clamp the inline width).
+test("RolesPanel takes the content width up to a cap, not half of it (§766)", () => {
+  const { container } = renderPanel();
+  const classes = [...(container.querySelector("section")?.classList ?? [])];
+  expect(classes).toContain("w-[min(100%,72rem)]");
+  expect(classes).not.toContain("w-[50%]");
+  expect(classes.some((c) => c.startsWith("max-w-"))).toBe(false);
+  expect(classes).toContain("min-w-[420px]");
+});
+
+// The toolbar convention: the trailing group is Print · reset-size, contiguous
+// and last in the rate-card header. It read reset-size · Print until §766.
+test("RolesPanel rate-card toolbar ends with Print then reset-size", () => {
+  renderPanel();
+  expectButtonOrder(["printHint", "tableResetSizeHint"], { contiguous: true });
+  const header = screen.getByRole("heading", { name: t("en-US", "rolesRateCard") }).parentElement as HTMLElement;
+  expect(buttonNames(header).slice(-2)).toEqual([t("en-US", "printHint"), t("en-US", "tableResetSizeHint")]);
 });

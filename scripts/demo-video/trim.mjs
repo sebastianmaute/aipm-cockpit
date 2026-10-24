@@ -34,19 +34,25 @@ export function protectSpans(beats) {
 /** The spans of a `duration`-second video to keep, once each wait longer than `max` (by more than
  *  MIN_CUT_S) keeps only its first and last `max / 2` seconds. Waits may arrive in any order and overlap
  *  (a retry inside a longer wait). A cut never overlaps a `protect` span (a narrated beat): it is shrunk or
- *  split around it, and a piece under MIN_CUT_S is not cut. */
-export function keepRanges(waits, duration, max = MAX_AI_WAIT_S, protect = []) {
-  const cuts = waits
-    .filter((w) => isCut(w, max))
-    .flatMap((w) => splitAround([w.start + max / 2, w.end - max / 2], protect))
+ *  split around it, and a piece under MIN_CUT_S is not cut. `cuts` ({ start, end }) are spans the take ran
+ *  off camera, cut whole (still never into a beat). `end` is where the take ended: Playwright's recorder pads
+ *  the video past it (at least 1 s of the last frame, and as long again as the screen stood still before it
+ *  stopped), so everything after `end` goes. */
+export function keepRanges(waits, duration, max = MAX_AI_WAIT_S, protect = [], { cuts: offCamera = [], end } = {}) {
+  const length = Number.isFinite(end) && end > 0 ? Math.min(duration, end) : duration;
+  const cuts = [
+    ...waits.filter((w) => isCut(w, max)).map((w) => [w.start + max / 2, w.end - max / 2]),
+    ...offCamera.map((c) => [c.start, c.end]),
+  ]
+    .flatMap((span) => splitAround(span, protect))
     .sort((a, b) => a[0] - b[0]);
   const ranges = [];
   let from = 0;
   for (const [a, b] of cuts) {
-    if (a > from) ranges.push([from, Math.min(a, duration)]);
+    if (a > from) ranges.push([from, Math.min(a, length)]);
     from = Math.max(from, b);
   }
-  if (from < duration) ranges.push([from, duration]);
+  if (from < length) ranges.push([from, length]);
   return ranges.filter(([a, b]) => b > a);
 }
 
@@ -78,19 +84,28 @@ export function trimArgs(src, dst, ranges) {
   ];
 }
 
+/** A video's length in seconds, read with ffprobe; throws when it has none. `execFile` has `execFileSync`'s shape. */
+export function probeDuration(file, execFile = execFileSync) {
+  // `execFile` runs only the fixed ffprobe, with the recorder's own output path: no outside input reaches it.
+  const out = execFile('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: TRIM_TIMEOUT_MS });
+  const total = Number(String(out).trim());
+  if (!Number.isFinite(total) || total <= 0) throw new Error(`no duration for ${path.basename(file)}`);
+  return total;
+}
+
 /** Trims `file` in place. Returns the seconds cut, how many waits were capped (both 0 when no wait
  *  was over the cap) and the kept `ranges` (the whole recording when nothing is cut), which `mapTime` maps beat
  *  times through. `protect` spans (narrated beats) are never cut. A failed encode or rename throws with ffmpeg's message (or the error's) and leaves `file` untouched.
+ *  `cuts` (off-camera spans) and `end` (where the take ended) go to keepRanges.
  *  `exec` has `execFileSync`'s shape; tests pass a fake. */
-export function trimAiWaits(file, waits, outRoot, { exec = execFileSync, protect = [] } = {}) {
+export function trimAiWaits(file, waits, outRoot, { exec = execFileSync, protect = [], cuts = [], end } = {}) {
   // `exec` is execFileSync (no shell) and runs only the fixed ffprobe/ffmpeg below, with arguments built here
   // from the recorder's own output paths and numbers: no outside input reaches it.
   // nosemgrep: local-no-dynamic-code-exec
   const run = (cmd, args) => exec(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: TRIM_TIMEOUT_MS });
-  const total = Number(String(run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file])).trim());
-  if (!Number.isFinite(total) || total <= 0) throw new Error(`no duration for ${path.basename(file)}`);
+  const total = probeDuration(file, exec);
   const raw = path.join(outRoot, 'untrimmed', path.relative(outRoot, file));
-  const ranges = keepRanges(waits ?? [], total, MAX_AI_WAIT_S, protect);
+  const ranges = keepRanges(waits ?? [], total, MAX_AI_WAIT_S, protect, { cuts: cuts ?? [], end });
   if (ranges.length === 1 && ranges[0][0] === 0 && ranges[0][1] === total) {
     // An untrimmed copy from an earlier take would no longer match this one.
     fs.rmSync(raw, { force: true });

@@ -4,6 +4,7 @@
 // arrives in `deps`, so take.test.mjs drives it without a browser. A narrated take (`ctx.narration`) also
 // returns its beats on the recording's timeline and the beats of its own file it never used. See README.md.
 import { findSecrets } from './cli.mjs';
+import * as L from './lib.mjs';
 import { CLOSING, OPENING, TITLE } from './narration/beats.mjs';
 import { DAYS } from './steps/week.mjs';
 
@@ -11,8 +12,9 @@ export { waitForAi } from './ai-wait.mjs';
 
 const WEEK = ['mon', 'tue', 'wed', 'thu', 'fri'];
 
-/** An AI step: run, then check the structure of its result; an empty structure gets one more call. */
-async function runAi(ctx, s) {
+/** An AI step: run, then check the structure of its result; an empty structure gets one more call. Exported
+ *  for the step tests (insight-step.test.mjs). */
+export async function runAi(ctx, s) {
   await s.run(ctx);
   if (s.check && (await s.check(ctx)) !== null) {
     await s.run(ctx);
@@ -96,22 +98,38 @@ export async function runTake(def, deps) {
   const start = async () => {
     // From here on, captions are on camera: a narrated one is checked against its beat (ui.mjs).
     ctx.onCamera = true;
+    // Up before the screencast starts: the video's first frame is the splash.
+    if (!(await ui.showSplash(ctx))) warnings++;
     if (!recording) return;
-    await ctx.page.screencast.start({ path: opts.outFile, size: { width: 1280, height: 720 } });
+    await ctx.page.screencast.start({ path: opts.outFile, size: L.VIEWPORT });
     started = true;
     // The AI waits are timed from here (ai-wait.mjs), so the take can trim them (trim.mjs).
     ctx.recordingStartedAt = performance.now();
     ctx.aiWaits = [];
-    if (ctx.narration) ctx.beatLog = [];
+    ctx.cuts = [];
+    if (ctx.narration) {
+      ctx.beatLog = [];
+      ctx.captionLog = [];
+    }
   };
-  const openDemo = async () => {
-    await setup.exploreDemo(ctx);
+  // On camera (ch2-connect, big) a span the viewer need not see is noted on the recording's timeline and cut
+  // after the take (trim.mjs), like the middle of a long AI wait. Off camera it just runs.
+  const offCamera = async (fn) => {
+    const from = started ? performance.now() : null;
+    await fn();
+    if (from != null) ctx.cuts.push({ start: (from - ctx.recordingStartedAt) / 1000, end: (performance.now() - ctx.recordingStartedAt) / 1000 });
+  };
+  // The device state for the new project, the weekly digest and the AI Assistant's consent: setup the next
+  // videos rely on, not something a viewer follows (about 30 s of Settings and dialogs with nothing said).
+  const deviceSetup = async () => {
     await setup.seedDeviceState(ctx, await setup.currentProjectId(ctx));
     await setup.enableDigest(ctx);
     await setup.enableChat(ctx);
   };
-  // The title first (3 s), then the opening line when it says more than the title (a chapter's is its title).
+  // The splash first (3 s, every video), then the title (3 s), then the opening line when it says more than the
+  // title (a chapter's is its title).
   const intro = async (opening) => {
+    await ui.endSplash(ctx);
     await ui.titleCard(ctx, def.title, TITLE);
     if (opening && opening !== def.title) await ui.caption(ctx, opening, OPENING);
     // The first step may navigate first: the opening's voice ends on the screen it describes.
@@ -124,7 +142,7 @@ export async function runTake(def, deps) {
   const narrationResult = (status) => {
     if (!ctx.narration) return {};
     warnings += ctx.narrationMissing ?? 0;
-    const out = recording && started ? { beats: ctx.beatLog } : {};
+    const out = recording && started ? { beats: ctx.beatLog, captions: ctx.captionLog } : {};
     if (status !== 'ok') return out;
     const unusedBeats = (opts.ownBeatIds ?? []).filter((id) => !ctx.beatsUsed?.has(id) && !mayNotShow.has(id));
     for (const id of unusedBeats) ctx.log(`NARRATION unused ${id}`);
@@ -138,7 +156,8 @@ export async function runTake(def, deps) {
       extra = { ...extra, error: `narration beats never shown: ${narration.unusedBeats.join(', ')}` };
     }
     if (findSecrets(ctx.lines.join('\n'), opts.secrets ?? []) > 0) warnings++;
-    return { status, warnings, ...(recording && started ? { file: opts.outFile, aiWaits: ctx.aiWaits } : {}), ...narration, ...extra };
+    const timeline = recording && started ? { file: opts.outFile, aiWaits: ctx.aiWaits, cuts: ctx.cuts, endAt: ctx.endAt } : {};
+    return { status, warnings, ...timeline, ...narration, ...extra };
   };
 
   try {
@@ -148,11 +167,18 @@ export async function runTake(def, deps) {
       if (def.firstRun) for (const id of setup.MAY_NOT_SHOW ?? []) mayNotShow.add(id);
       await intro(await resolveOpening(ctx, def.opening));
       await setup.connect(ctx, def.firstRun ? { onCamera: true, firstRun: true } : { onCamera: true });
-      for (const s of def.prologue ?? []) await runStep(ctx, s, opts, mayNotShow, ui);
-      await openDemo();
+      // The prologue's last beat says the demo opens next, so it opens while that beat is spoken; the device
+      // setup after it waits for the voice, then is cut.
+      const prologue = def.prologue ?? [];
+      for (const s of prologue.slice(0, -1)) await runStep(ctx, s, opts, mayNotShow, ui);
+      if (prologue.length) await runStepBody(ctx, prologue.at(-1), opts, mayNotShow);
+      await setup.exploreDemo(ctx);
+      await ui.holdVoice(ctx);
+      await offCamera(deviceSetup);
     } else {
       await setup.connect(ctx, { onCamera: false });
-      await openDemo();
+      await setup.exploreDemo(ctx);
+      await deviceSetup();
       if (def.replayThrough) {
         await replayDays(ctx, def, deps);
         await setup.goToDay(ctx, def.clock);
@@ -170,6 +196,8 @@ export async function runTake(def, deps) {
     }
     for (const s of def.steps.filter((x) => !x.setup)) await runStep(ctx, s, opts, mayNotShow, ui);
     await ui.closingBeat(ctx, CLOSING);
+    // Where the take ends on the recording's timeline: the recorder pads the video past it, and the trim cuts that.
+    if (started) ctx.endAt = (performance.now() - ctx.recordingStartedAt) / 1000;
     return result('ok');
   } catch (e) {
     // The first lines of a Playwright error name the locator and what it waited for.
