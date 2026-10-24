@@ -25,9 +25,10 @@
 // STORE time; only its input moved earlier. Do not "simplify" the derivation to
 // apply time either: see the paragraph above.
 //
-// ★ A call whose target row is GONE is left unstamped on purpose. It then
-// fails at replay with the dispatcher's own "not found", which is the more
-// informative error — "changed since you read it" would send the reader
+// ★ A call whose target row is GONE is left unstamped on purpose. Since §782
+// the confirm refuses it before dispatch (the review shows it as unknown-id);
+// were it dispatched, it would fail with the dispatcher's own "not found",
+// which is the more informative error — "changed since you read it" would send the reader
 // looking for an edit to a row that no longer exists. `runTool` resolves
 // not-found before the token for the same reason.
 import { entityToken, type TokenEntity } from "../ai-entity-token";

@@ -74,6 +74,41 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **An insight recommendation no longer proposes a change that is missing a required detail, and says which
+  change failed (§782).** Claude was not told which details each change needs, so a recommendation could propose
+  a new task with no name or no assignee; the review showed it as a normal change and Apply then failed with
+  "Some changes in this recommendation couldn't be applied" and no hint which. Claude is now given each change's
+  required details and the people it can assign, including the names open tasks are assigned to, so a project
+  without a resource list can get a new task too; with no one to name, Claude is told not to propose one. The
+  review shows a change that is missing one, or that edits an item deleted since, as skipped with the reason (in
+  the app's language), and such a change is not sent. When a change still fails, the message names it and why,
+  also when other changes were skipped because the data moved, and the recommendation reads "Partly applied" with
+  the option to generate a new one,
+  never plain "applied". Found by a rehearsal of the demo video recorder with AI.
+- **Action Center learning is no longer erased by the app's own saves (§781).** With learning stored in Turso, the
+  first suggestion you acted on in a session replaced every project's stored learning with what that device held, because
+  the app saved before it had read Turso; an outcome recorded while learning was still loading, or a switch of the
+  learning store in Settings, could do the same. Learning is now saved only to a store it has read in this session: early
+  changes wait for the read and are added on top of it, and after a switch the new store keeps its own data. A changed Turso token is picked up at once, and while the
+  Turso token is locked or missing, learning waits for it instead of going to this browser's storage. If stored
+  learning cannot be read, the learning view says so and your changes are kept and saved once a read works: the app
+  tries again after a network failure, and when the Turso database rejects the token it tells you at once, and saves as
+  soon as the token is fixed in Settings. If the stored learning is unreadable for another reason, the view says the app will not try
+  again until it is reloaded, that reloading discards the changes not saved yet, and that changing the Turso URL or token in Settings saves them. A failed save is reported too.
+- **The learning view's Adjustment column shows what is applied (§780).** A row set to "Always suppress" could
+  still read "+5", the learned value the override replaces. The column now shows the adjustment in effect (+20,
+  -20 or 0 under Always surface, Always suppress and Off), with the learned value below it, marked "learned";
+  with learning switched off it shows 0, marked "learning off", because nothing is applied then.
+- **A Next-actions reason is learned once, whatever its count (§778).** "Due in 1 working day" and "Due in 3
+  working days" are one reason, but were learned and overridden as two, so "Always suppress" on "Due soon" did not
+  demote a task due in one working day. They now share one learning row and one override; rows and overrides already saved
+  under the one-day form are merged into it the next time the app loads them. If the two rows had different overrides,
+  the one set on the several-days row is kept, unless it was Auto; then the one-day row's override applies to every
+  count, as one set only on the one-day row does.
+- **The Action Center learning view looks like every other view (§777).** It sits in the standard pane card with
+  the table scrolling inside it, and Back, the title, Reset learned data, Print and reset-size share one toolbar row.
+  Each row now names its reason in words ("No recent update", "Blocked") instead of an internal id, in English and
+  German.
 - **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
   against the wrong year, so the new project and its milestones could already be over on the day you created
   it. Claude is now told today's date and reads a month or range without a year as the next one to come (the
@@ -220,6 +255,8 @@ longer carries its own changelog comment.
   (high, a Server Actions denial of service). `next` and `eslint-config-next` move to 16.4.2.
 - **DOMPurify 3.4.17.** The version in use, 3.4.16, fell inside three sanitiser-bypass advisories:
   GHSA-cg2g-xh64-v4q7 (critical), GHSA-mrv2-3pqr-j5jr (high) and GHSA-c6gr-qvv4-5v3f (low).
+- **Zod 4.6.7.** The version in use, 4.6.5, fell inside GHSA-mrhx-c7xc-m3w5 (high, memory exhaustion while
+  validating oversized constrained collections; fixed in 4.6.6). The app uses zod only to validate Jira responses.
 
 ### Development
 
