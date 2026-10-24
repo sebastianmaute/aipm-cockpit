@@ -74,6 +74,17 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **An insight recommendation no longer proposes a change that is missing a required detail, and says which
+  change failed (§782).** Claude was not told which details each change needs, so a recommendation could propose
+  a new task with no name or no assignee; the review showed it as a normal change and Apply then failed with
+  "Some changes in this recommendation couldn't be applied" and no hint which. Claude is now given each change's
+  required details and the people it can assign, including the names open tasks are assigned to, so a project
+  without a resource list can get a new task too; with no one to name, Claude is told not to propose one. The
+  review shows a change that is missing one, or that edits an item deleted since, as skipped with the reason (in
+  the app's language), and such a change is not sent. When a change still fails, the message names it and why,
+  also when other changes were skipped because the data moved, and the recommendation reads "Partly applied" with
+  the option to generate a new one,
+  never plain "applied". Found by a rehearsal of the demo video recorder with AI.
 - **Action Center learning is no longer erased by the app's own saves (§781).** With learning stored in Turso, the
   first suggestion you acted on in a session replaced every project's stored learning with what that device held, because
   the app saved before it had read Turso; an outcome recorded while learning was still loading, or a switch of the
