@@ -1,0 +1,88 @@
+// §715 Friday's insight-recommendation step, driven through the take's AI runner on a fake Insights view
+// (fake-dom.mjs) that renders the controls insight-recommendation-controls.tsx does: Generate with no
+// recommendation or a rejected one, Apply and Reject on a proposed one, a note once applied. An empty plan fails
+// the check, and the one retry must reject the suggestion before Generate can be clicked again.
+import { describe, expect, it } from 'vitest';
+import { button, el, fakePage, text } from './fake-dom.mjs';
+import { runAi } from './take.mjs';
+import { DAYS } from './steps/week.mjs';
+
+const B = 'Budget off plan';
+const EMPTY_PLAN = 'This recommendation has no remaining changes to apply.';
+const STALE = "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.";
+
+/** What the review's confirm does: applies the plan (the card's note and a toast), writes nothing (the card
+ *  stays proposed; only a toast says so), or writes nothing while another card shows an outcome line. */
+const OUTCOMES = {
+  applied: (s) => { s.rec = 'applied'; s.toast = 'Recommendation applied.'; },
+  stale: (s) => { s.toast = STALE; },
+  elsewhere: (s) => { s.otherNote = "Partly applied — some changes weren't made."; },
+};
+
+/** The Insights view for `s`: { rec: null | 'proposed' | 'rejected' | 'applied', review, empty, toast, otherNote,
+ *  plans, outcome }, where each Generate takes the next of `plans` (true: an empty plan). */
+function insights(s) {
+  return () => {
+    const controls = [];
+    if (s.rec === null || s.rec === 'rejected') {
+      if (s.rec === 'rejected') controls.push(text('Recommendation dismissed.'));
+      controls.push(button(`Generate recommendation – ${B}`, { on: () => { s.rec = 'proposed'; s.empty = s.plans.shift(); } }));
+    } else if (s.rec === 'proposed') {
+      controls.push(text('AI suggests: move budget to the pilot.'));
+      controls.push(button(`Apply recommendation – ${B}`, { on: () => { s.review = true; } }));
+      controls.push(button(`Reject – ${B}`, { on: () => { s.rec = 'rejected'; } }));
+    } else controls.push(text('Recommendation applied.'));
+    const cards = [el({ tag: 'li' }, text(B), ...controls, button(`Dismiss – ${B}`))];
+    if (s.otherNote) cards.push(el({ tag: 'li' }, text('Schedule slipping'), text(s.otherNote)));
+    const body = [el({ tag: 'main' }, el({ tag: 'ul' }, ...cards))];
+    if (s.review) {
+      body.push(el({ role: 'dialog', name: 'Review recommendation' },
+        ...(s.empty ? [text(EMPTY_PLAN)] : []),
+        button('Cancel', { on: () => { s.review = false; } }),
+        button('Apply recommendation', { enabled: !s.empty, on: () => { s.review = false; OUTCOMES[s.outcome ?? 'applied'](s); } })));
+    }
+    if (s.toast) body.push(el({ role: 'status' }, text(s.toast)));
+    return el({ tag: 'body' }, ...body);
+  };
+}
+
+const insightStep = DAYS.fri.find((x) => x.id === 'insight-recommendation');
+const start = (plans, outcome) => ({ rec: null, review: false, plans, outcome });
+const ctxFor = (s, clicks = []) => ({ page: fakePage(insights(s), clicks), rehearse: true, withAi: true, clipId: 'ch7-friday', log: () => {} });
+
+describe('the insight-recommendation step (§715)', () => {
+  it('applies a recommendation whose plan has changes, without a retry', async () => {
+    const s = start([false]);
+    const clicks = [];
+    await runAi(ctxFor(s, clicks), insightStep);
+    expect(clicks).toEqual([`Generate recommendation – ${B}`, `Apply recommendation – ${B}`, 'Apply recommendation']);
+    expect(s.rec).toBe('applied');
+  });
+
+  it('retries an empty plan: the review is closed, the suggestion rejected, then Generate is clicked again', async () => {
+    const s = start([true, false]);
+    const clicks = [];
+    await runAi(ctxFor(s, clicks), insightStep);
+    expect(clicks).toEqual([
+      `Generate recommendation – ${B}`, `Apply recommendation – ${B}`,
+      'Cancel', `Reject – ${B}`, `Generate recommendation – ${B}`, `Apply recommendation – ${B}`,
+      'Apply recommendation',
+    ]);
+    expect(s.rec).toBe('applied');
+  });
+
+  it('fails, naming the step, when the retry is empty too', async () => {
+    await expect(runAi(ctxFor(start([true, true])), insightStep))
+      .rejects.toThrow('ch7-friday: AI step insight-recommendation returned no applicable changes twice');
+  });
+
+  it('reads an outcome that wrote nothing from the toast', async () => {
+    await expect(runAi(ctxFor(start([false], 'stale')), insightStep))
+      .rejects.toThrow(`ch7-friday: the recommendation was not applied in full: "${STALE}"`);
+  });
+
+  it('does not take another card\'s outcome line for this recommendation\'s', async () => {
+    await expect(runAi(ctxFor(start([false], 'elsewhere')), insightStep))
+      .rejects.toThrow('ch7-friday: the recommendation shows no applied status');
+  });
+});

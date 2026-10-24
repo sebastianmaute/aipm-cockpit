@@ -12,8 +12,9 @@ export { waitForAi } from './ai-wait.mjs';
 
 const WEEK = ['mon', 'tue', 'wed', 'thu', 'fri'];
 
-/** An AI step: run, then check the structure of its result; an empty structure gets one more call. */
-async function runAi(ctx, s) {
+/** An AI step: run, then check the structure of its result; an empty structure gets one more call. Exported
+ *  for the step tests (insight-step.test.mjs). */
+export async function runAi(ctx, s) {
   await s.run(ctx);
   if (s.check && (await s.check(ctx)) !== null) {
     await s.run(ctx);
