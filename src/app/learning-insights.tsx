@@ -4,6 +4,7 @@ import { useState } from "react";
 import { t, type Lang } from "./i18n";
 import {
   decayStats,
+  effectiveBias,
   learnedBias,
   type LearningState,
   type LearningOverrides,
@@ -119,6 +120,7 @@ export function LearningInsights({
                 const stats = state[kind];
                 const d = decayStats(stats, nowMs);
                 const label = learningKindLabel(lang, kind);
+                const override = overrides[kind] ?? "auto";
                 return (
                   <tr key={kind} className={`${ROW_RULE_CLASS} align-top`}>
                     <td className="px-3 py-2">
@@ -128,7 +130,18 @@ export function LearningInsights({
                     <td className="px-3 py-2 text-right tabular-nums">{Math.round(d.acted)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{Math.round(d.snoozed)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{Math.round(d.dismissed)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{formatBias(learnedBias(d))}</td>
+                    {/* §780 — the APPLIED adjustment (`effectiveBias`, what
+                        `buildBiasMap` feeds the engine). Under an override the
+                        learned value stays visible, marked as learned, so
+                        "Always suppress" never reads as a learned "+5". */}
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      <div>{formatBias(effectiveBias(d, override))}</div>
+                      {override !== "auto" && (
+                        <div className="text-xs text-muted-foreground">
+                          {t(lang, "learningBiasLearned", formatBias(learnedBias(d)))}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-2">
                       <Select
                         // §248: no token map here, deliberately — `kind` is
@@ -153,7 +166,7 @@ export function LearningInsights({
                         // a count variant and its plural are one row, never two.
                         aria-label={rowLabel(t(lang, "learningColOverride"), `${label.source}: ${label.reason}`)}
                         size="xs"
-                        value={overrides[kind] ?? "auto"}
+                        value={override}
                         onChange={(e) => onSetOverride(kind, e.target.value as LearningOverride)}
                       >
                         {OVERRIDE_OPTIONS.map((opt) => (

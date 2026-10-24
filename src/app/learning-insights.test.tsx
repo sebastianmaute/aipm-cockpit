@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { LearningInsights } from "./learning-insights";
 import { learningKindLabel } from "./learning-kind-label";
 import { en, loadI18n, t, type Lang } from "./i18n";
@@ -131,6 +131,36 @@ describe("LearningInsights", () => {
     expect(container.querySelectorAll("tbody tr")).toHaveLength(1);
     expect(screen.getByText("Due soon")).toBeTruthy();
     expect(screen.getByText("3")).toBeTruthy(); // 2 + 1 acted
+  });
+
+  // §780 — the Adjustment column shows what is APPLIED (`effectiveBias`, the
+  // value `buildBiasMap` feeds the engine), not the learned bias alone: a row set
+  // to "Always suppress" used to read "+12". Under an override the learned value
+  // stays visible, marked as learned. Fixture: 4 acted + 1 dismissed → learned
+  // bias round(20 × 3/5) = +12, distinct from ±BIAS_CAP and 0, so every
+  // override's cell differs from the learned one.
+  describe("Adjustment column (§780)", () => {
+    const state = { "raid:actionRaidWhySeverity": { acted: 4, snoozed: 0, dismissed: 1, lastAt: 0 } };
+    const adjustmentCell = () => screen.getAllByRole("row")[1].querySelectorAll("td")[4] as HTMLElement;
+    const cases = [
+      ["auto", "+12", null],
+      ["surface", "+20", "learned +12"],
+      ["suppress", "-20", "learned +12"],
+      ["off", "0", "learned +12"],
+    ] as const;
+    for (const [override, applied, note] of cases) {
+      it(`shows ${applied} for "${override}"${note ? ", with the learned value marked" : ""}`, () => {
+        render(<LearningInsights {...baseProps()} state={state} overrides={{ "raid:actionRaidWhySeverity": override }} now={0} />);
+        const cell = adjustmentCell();
+        expect(cell.firstElementChild?.textContent).toBe(applied);
+        if (note) expect(within(cell).getByText(note)).toBeTruthy();
+        else expect(cell.textContent).toBe(applied);
+      });
+    }
+    it("marks the learned value in German", () => {
+      render(<LearningInsights {...baseProps()} lang="de" state={state} overrides={{ "raid:actionRaidWhySeverity": "suppress" }} now={0} />);
+      expect(within(adjustmentCell()).getByText("gelernt +12")).toBeTruthy();
+    });
   });
 
   // §777 — the view is a standard pane: the resizable card, an inner scroll
