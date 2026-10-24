@@ -7,7 +7,7 @@
 // to the current project. It reads the workspace setters and the template
 // snapshot builder from context itself, so the deps are `lang` and `showToast`.
 // The `useCallback`s keep the exact memoization the code had
-// inline. Move-only: no behaviour change.
+// inline. Move-only: no behaviour change. §779 changed the features source; see below.
 //
 // ★ Coverage-GATED on purpose (not in `coverage.exclude`): apply decides what a
 // template changes (it appends the seed only with `includeSeed`, it sets the

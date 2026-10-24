@@ -56,8 +56,8 @@ describe("useChatDispatcher — update_settings { enabledModules } writes the pr
     expect(hook.result.current.ws.features).toEqual(LEAN);
   });
 
-  // Mutation: removing the refusal in `computeSettingsPatch` turns this red (the patch sanitises to [] and
-  // switches every function off, in the mirror and the project).
+  // Mutation: removing the refusal in `computeSettingsPatch` turns this red (a different error, or with
+  // both refusals gone a sanitised [] that switches every function off).
   it("a non-array enabledModules is refused and writes nothing", () => {
     const { hook, setSettings, logActivityAs } = renderWithWorkspace();
     act(() => { hook.result.current.ws.setFeatures(LEAN); });

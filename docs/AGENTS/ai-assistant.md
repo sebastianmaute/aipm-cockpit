@@ -176,13 +176,21 @@
   lands under the wrong key in Turso portfolio mode (a caught review HIGH). The "This project" UI REUSES
   `NextActionsSection`/`Notifications`/`TimezoneSettingsSection` fed effective + an override-writing onChange (Timezone
   passes `hideDisplaySwitcher` — the device-only switcher flag can't be captured into the override).
-- **AI `update_settings` tool (safe-subset, v0.190.41):** a NON-entity write tool letting the assistant change
+- **AI `update_settings` tool (safe-subset, v0.190.41):** a write tool letting the assistant change
   a whitelisted slice of app settings on request — `dashboardDensity`, `showViewHints`, `tasksViewMode`,
   `enabledModules` (full desired set → `sanitizeFeatures`), and `nextActionsWeights` (each key coerced by the
   SAME `NEXT_ACTIONS_FIELD_COERCE` the settings UI + weight-suggestion flow use). Schema in `chat-tool-defs.ts`,
   routing in `chat-tools.ts` (`SettingsUpdateInput` + `updateSettings` on `ToolDispatcher`; the case throws if
-  NO recognized field applied), impl in `use-chat-dispatcher.ts` (reads `settingsRef.current`, applies via
-  `args.setSettings` → persists through the normal `writeSettings` effect, `isReadOnly` popout-guarded). ★★
+  NO recognized field applied), patch in `chat-settings-patch.ts` (`computeSettingsPatch`), impl in
+  `use-chat-dispatcher.ts` (reads `settingsRef.current`, applies via `args.setSettings` → persists through the
+  normal `writeSettings` effect, `isReadOnly` popout-guarded). ★★ `enabledModules` is the one PROJECT write
+  (§779): it also calls `setFeatures`, so it lands in `Workspace.features` and is saved with the project, not
+  only in the settings mirror. Not undo-captured; logged once as `settings.updated` by the AI.
+  `computeSettingsPatch` refuses, before any setter runs, a value that is not a list or a non-empty list naming
+  no known module (`[]` is allowed and switches every function off; a mixed list keeps the known ids, echoed in
+  `applied`). ★★ The staging gate counts it: `isEntityWriteCall` (`chat-proposal.ts`) treats an `update_settings`
+  call CARRYING the `enabledModules` key as a write, so one applies and two writes in a turn go to review (owner
+  decision 2026-10-24); a call without the key is a device-only write and stays exempt, like `set_language`. ★★
   SECURITY: secrets / API keys / storage / integration config are DELIBERATELY unreachable — never widen this
   allowlist to a raw settings setter, and every value must stay routed through a validator/coercer. Guarded by
   `chat-tools.test.ts`.
