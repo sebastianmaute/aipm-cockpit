@@ -25,7 +25,9 @@ export function narrationFor(def, { lang, rehearse, audio = (text) => audioFor(l
  *  warning, so the take's own warnings still reach the tally; a failed mix keeps the WebM and counts one too.
  *  The trim also cuts the take's off-camera spans (`r.cuts`) and everything after the take ended (`r.endAt`).
  *  Once mixed, the MP4 is checked (render-check.mjs): each finding is logged as a RENDER line and counts a warning.
- *  Its AI waits are written beside the MP4 as `<name>.waits.json`, for check-render.mjs.
+ *  Its AI waits are written beside the MP4 as `<name>.waits.json`, for check-render.mjs, and its beats on the
+ *  final timeline with their caption text as `<name>.beats.json` ({ duration, beats: [{ id, at, caption }] }),
+ *  for the YouTube details page (youtube.mjs).
  *  `log` must mask secrets (record.mjs passes its masking logger); `trim`, `mix`, `probe` (an MP4's length in
  *  seconds) and `write` (a file's text) are overridable for tests. */
 export function trimAndMix(def, r, { lang, log, outRoot, trim = trimAiWaits, mix = mixTake, probe = probeDuration, write = fs.writeFileSync }) {
@@ -46,16 +48,17 @@ export function trimAndMix(def, r, { lang, log, outRoot, trim = trimAiWaits, mix
   let warnings = r.warnings + (m.warning ? 1 : 0);
   if (m.mp4) {
     const waits = (r.aiWaits ?? []).map((w) => ({ start: mapTime(w.start, ranges), end: mapTime(w.end, ranges) }));
+    const captions = (r.captions ?? []).map((c) => ({ ...c, at: mapTime(c.at, ranges) }));
     let findings;
     try {
       // Beside the MP4 and its .srt, so check-render.mjs can judge the render's gaps later.
       write(m.mp4.replace(/\.mp4$/, '.waits.json'), JSON.stringify(waits));
-      findings = renderFindings({
-        beats: mapped,
-        captions: (r.captions ?? []).map((c) => ({ ...c, at: mapTime(c.at, ranges) })),
-        waits,
-        duration: probe(m.mp4),
-      });
+      const length = probe(m.mp4);
+      // The beats on the final video with the caption each first showed: youtube.mjs builds the chapters from it.
+      const captionOf = new Map(captions.map((c) => [c.id, c.text ?? null]));
+      const beats = mapped.map((b) => ({ id: b.id, at: b.at, caption: captionOf.get(b.id) ?? null }));
+      write(m.mp4.replace(/\.mp4$/, '.beats.json'), JSON.stringify({ duration: length, beats }));
+      findings = renderFindings({ beats: mapped, captions, waits, duration: length });
     } catch (e) {
       findings = [`RENDER check failed: ${String(e?.message ?? e).split('\n')[0]}`];
     }

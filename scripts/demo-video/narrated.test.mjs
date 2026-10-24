@@ -110,6 +110,15 @@ describe('trimAndMix (§715)', () => {
     expect(JSON.parse(f.written['v.waits.json'])).toEqual([{ start: 5, end: 10.5 }]);
   });
 
+  it('writes the beats on the final timeline beside the MP4, with their caption text, for the YouTube page (§715)', () => {
+    const f = fakes();
+    trimAndMix(def, take({ captions: [{ id: 'a', at: 2, text: 'Caption A' }] }), f.deps);
+    expect(JSON.parse(f.written['v.beats.json'])).toEqual({
+      duration: 12,
+      beats: [{ id: 'a', at: 2, caption: 'Caption A' }, { id: 'b', at: 8.5, caption: null }],
+    });
+  });
+
   it('the check maps the AI waits and the captions through the kept ranges (§715)', () => {
     const f = fakes({ ranges: [[0, 30]], length: 21.9 });
     const r = trimAndMix(def, take({ captions: [{ id: 'b', at: 16.5 }] }), f.deps);
