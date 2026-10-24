@@ -31,6 +31,9 @@ interface LearningInsightsProps {
   /** The learning switch (`NextActionsLearningConfig.enabled`). Off, the engine
    *  gets no bias at all, so the Adjustment column shows 0 (§780). */
   learningEnabled: boolean;
+  /** The stored learning could not be read (`useActionLearning`'s `loadFailed`): the
+   *  rows are this session's only, and nothing is saved until a read works (§781). */
+  loadFailed: boolean;
   /** Decay reference time. Defaults to Date.now(); injectable for deterministic tests. */
   now?: number;
 }
@@ -61,6 +64,7 @@ export function LearningInsights({
   onReset,
   onBack,
   learningEnabled,
+  loadFailed,
   now,
 }: LearningInsightsProps) {
   const kinds = Object.keys(state);
@@ -98,6 +102,9 @@ export function LearningInsights({
         </div>
       </header>
 
+      {loadFailed && (
+        <p role="status" className="mb-3 text-sm text-muted-foreground">{t(lang, "learningLoadFailedNotice")}</p>
+      )}
       {kinds.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(lang, "learningInsightsEmpty")}</p>
       ) : (

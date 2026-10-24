@@ -359,10 +359,15 @@ function TaskManagerInner() {
   // Action Center learning layer: records CTA/snooze outcomes and feeds a learned
   // per-kind bias back into the ranking. Inert (no-op record, empty bias) when
   // disabled or in a popout.
+  // §781 — `hydrated` gates the load (before it the config is the default, local one),
+  // and `onError` surfaces a write held by a failed load or a failed save.
   const learning = useActionLearning({
     config: settings.nextActionsLearning ?? defaultNextActionsLearning,
     tursoConfig,
     isPopout,
+    hydrated,
+    onError: (kind, err) =>
+      reportSilentFailure(showToast, lang, `learning.${kind}Failed`, err, kind === "load" ? "learningWriteHeldToast" : "learningSaveFailedToast"),
   });
   // Turso storage connectivity status — set when a load/save/snapshot op fails
   // with an unreachable host or rejected token, cleared on the next success.
@@ -1674,6 +1679,7 @@ function TaskManagerInner() {
       onReset={() => { void learning.reset(); }}
       onBack={() => setActiveTab("settings")}
       learningEnabled={(settings.nextActionsLearning ?? defaultNextActionsLearning).enabled}
+      loadFailed={learning.loadFailed}
     />
   );
 

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { StrictMode } from "react";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useActionLearning, LEARNING_LOAD_RETRY_MS } from "./use-action-learning";
 import { pickLearningStore } from "./learning-store";
@@ -32,12 +33,12 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("useActionLearning", () => {
   it("records nothing when disabled", async () => {
-    const { result } = renderHook(() => useActionLearning({ config: cfg(false), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(false), tursoConfig: null, isPopout: false, hydrated: true }));
     await act(async () => { await result.current.record(action("raid", "wk"), "dismissed"); });
     expect(result.current.bias).toEqual({});
   });
   it("records when enabled and surfaces bias after enough evidence", async () => {
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     // 4 (not 3) dismissals: time-decay applied on each record shaves accumulated
     // counts a hair below the MIN_EVIDENCE=3 threshold when wall-clock advances a
     // ms between calls, so 4 clears it deterministically. Intent unchanged.
@@ -47,7 +48,7 @@ describe("useActionLearning", () => {
     await waitFor(() => expect(result.current.bias["raid:wk"]).toBeLessThan(0));
   });
   it("setOverride pins bias; reset clears", async () => {
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     await act(async () => { await result.current.setOverride("raid:wk", "surface"); });
     await waitFor(() => expect(result.current.bias["raid:wk"]).toBeGreaterThan(0));
     await act(async () => { await result.current.reset(); });
@@ -58,7 +59,7 @@ describe("useActionLearning", () => {
   it("records nothing for a forecast-sim action", async () => {
     const save = vi.fn(async () => {});
     vi.mocked(pickLearningStore).mockReturnValue({ load: async () => ({ state: {}, overrides: {} }), save });
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     await act(async () => { await result.current.record(action("forecast-sim", "actionForecastSimWhy"), "snoozed"); });
     expect(result.current.state).toEqual({});
     expect(save).not.toHaveBeenCalled();
@@ -69,7 +70,7 @@ describe("useActionLearning", () => {
   });
 
   it("does not record in a popout", async () => {
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: true }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: true, hydrated: true }));
     await act(async () => { await result.current.record(action("raid", "wk"), "dismissed"); });
     expect(result.current.bias).toEqual({});
   });
@@ -103,7 +104,7 @@ describe("useActionLearning", () => {
     vi.mocked(pickLearningStore).mockReturnValue(store);
 
     const { result } = renderHook(() =>
-      useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }),
+      useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }),
     );
     await act(async () => {
       for (let i = 0; i < 3; i++) await result.current.record(action("raid", "wk"), "dismissed");
@@ -132,7 +133,7 @@ describe("useActionLearning — count-variant why keys (§778)", () => {
   const MANY = "task-due:actionTaskWhySoon";
 
   it("records a singular-count action under the plural kind", async () => {
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     await act(async () => { await result.current.record(action("task-due", "actionTaskWhySoonOne"), "acted"); });
     await waitFor(() => expect(Object.keys(result.current.state)).toEqual([MANY]));
   });
@@ -145,7 +146,7 @@ describe("useActionLearning — count-variant why keys (§778)", () => {
       },
       overrides: { [ONE]: "suppress" },
     }));
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     await waitFor(() => expect(result.current.state).toEqual({ [MANY]: { acted: 3, snoozed: 0, dismissed: 1, lastAt: 1000 } }));
     expect(result.current.overrides).toEqual({ [MANY]: "suppress" });
     expect(result.current.bias[MANY]).toBeLessThan(0);
@@ -181,7 +182,7 @@ describe("useActionLearning — writes before the load resolves (§781)", () => 
     const load = deferred<LearningSnapshot>();
     const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
     vi.mocked(pickLearningStore).mockReturnValue({ load: () => load.promise, save });
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     await act(async () => {
       await result.current.record(action("raid", "early"), "acted");
       await result.current.setOverride("budget:c", "surface");
@@ -214,7 +215,7 @@ describe("useActionLearning — writes before the load resolves (§781)", () => 
     };
     pipeline.mockImplementationOnce(() => load.promise).mockImplementation(async () => []);
     const { result } = renderHook(() =>
-      useActionLearning({ config: { enabled: true, store: "turso" }, tursoConfig: { httpUrl: "https://example.test", authToken: "" }, isPopout: false }),
+      useActionLearning({ config: { enabled: true, store: "turso" }, tursoConfig: { httpUrl: "https://example.test", authToken: "" }, isPopout: false, hydrated: true }),
     );
     await act(async () => { await result.current.record(action("raid", "early"), "snoozed"); });
     expect(pipeline).toHaveBeenCalledTimes(1); // only the load: no rewrite went out early
@@ -234,7 +235,7 @@ describe("useActionLearning — writes before the load resolves (§781)", () => 
     const load = deferred<LearningSnapshot>();
     const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
     vi.mocked(pickLearningStore).mockReturnValue({ load: () => load.promise, save });
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     await act(async () => { await result.current.reset(); });
     await act(async () => { load.resolve(LOADED); await load.promise; });
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
@@ -245,7 +246,7 @@ describe("useActionLearning — writes before the load resolves (§781)", () => 
   it("saves nothing while the store cannot be read, so an unread store is never overwritten", async () => {
     const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
     vi.mocked(pickLearningStore).mockReturnValue({ load: () => Promise.reject(new Error("offline")), save });
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     await act(async () => { await result.current.record(action("raid", "early"), "acted"); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     await act(async () => { await result.current.record(action("raid", "late"), "acted"); });
@@ -271,7 +272,7 @@ describe("useActionLearning — late loads and failed loads (§781)", () => {
   it("merges a late load under a newer in-memory outcome instead of replacing it", async () => {
     const load = deferred<LearningSnapshot>();
     vi.mocked(pickLearningStore).mockReturnValue({ load: () => load.promise, save: vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {}) });
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     await act(async () => { await result.current.record(action("raid", "a"), "acted"); });
     expect(result.current.state["raid:a"].acted).toBe(1); // the outcome shows before the load
     // Stored "now", so decay between the stored row and the outcome is negligible.
@@ -291,7 +292,7 @@ describe("useActionLearning — late loads and failed loads (§781)", () => {
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValue(LOADED);
     vi.mocked(pickLearningStore).mockReturnValue({ load, save });
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     await act(async () => { await vi.advanceTimersByTimeAsync(0); }); // the first load fails
     await act(async () => { await result.current.record(action("budget", "c"), "acted"); });
     expect(save).not.toHaveBeenCalled();
@@ -310,7 +311,7 @@ describe("useActionLearning — late loads and failed loads (§781)", () => {
     const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
     const load = vi.fn<() => Promise<LearningSnapshot>>().mockRejectedValue(new Error("offline"));
     vi.mocked(pickLearningStore).mockReturnValue({ load, save });
-    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false }));
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     await act(async () => { await vi.advanceTimersByTimeAsync(LEARNING_LOAD_RETRY_MS * 10); });
     const attempts = load.mock.calls.length; // the first load + every timed retry
     expect(attempts).toBeGreaterThan(1);
@@ -322,5 +323,176 @@ describe("useActionLearning — late loads and failed loads (§781)", () => {
     expect(load).toHaveBeenCalledTimes(attempts + 1);
     expect(save).toHaveBeenCalledTimes(1);
     expect(Object.keys(save.mock.calls[0][0].state).sort()).toEqual(["budget:c", "milestone:b", "raid:a"]);
+  });
+});
+
+// §781 (round 3) — the store identity, StrictMode, surfacing and replay order.
+describe("useActionLearning — store identity and authority (§781)", () => {
+  beforeEach(() => {
+    vi.mocked(pickLearningStore).mockClear();
+    vi.mocked(runTursoPipeline).mockReset();
+  });
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    const promise = new Promise<T>((res) => { resolve = res; });
+    return { promise, resolve };
+  }
+  const row = (acted: number) => ({ acted, snoozed: 0, dismissed: 0, lastAt: Date.now() });
+  const TURSO = { httpUrl: "https://example.test", authToken: "t" };
+  const selectOf = (kinds: string[]) => ({
+    type: "ok" as const,
+    response: {
+      type: "execute",
+      result: {
+        cols: [{ name: "kind" }, { name: "acted" }, { name: "snoozed" }, { name: "dismissed" }, { name: "last_at" }, { name: "override" }],
+        rows: kinds.map((k) => [{ value: k }, { value: "2" }, { value: "0" }, { value: "0" }, { value: String(Date.now()) }, { value: "auto" }]),
+      },
+    },
+  });
+  const isSelect = (stmts: { sql: string }[]) => stmts.some((s) => s.sql.startsWith("SELECT"));
+  const isRewrite = (stmts: { sql: string }[]) => stmts.some((s) => s.sql.startsWith("DELETE") && s.sql.includes("action_learning"));
+  const insertedKinds = (stmts: { sql: string; args?: unknown[] }[]) =>
+    stmts.filter((s) => s.sql.startsWith("INSERT INTO action_learning")).map((s) => (s.args?.[0] as { value: string }).value).sort();
+
+  // C1 — task-manager mounts the hook with DEFAULT settings (local, learning off)
+  // and hydrates to the user's real config later. The load must wait for that,
+  // read the store the user configured, and only then may a save rewrite it.
+  it("loads nothing before settings hydrate, then reads Turso before it ever rewrites it", async () => {
+    const pipeline = vi.mocked(runTursoPipeline);
+    pipeline.mockImplementation(async (_cfg, stmts) => (isSelect(stmts) ? [{ type: "ok" } as never, selectOf(["raid:stored"]) as never] : []));
+    localStorage.setItem("aipm-cockpit:action-learning", JSON.stringify({ state: { "raid:localonly": row(1) }, overrides: {} }));
+    type P = { config: { enabled: boolean; store: "local" | "turso" }; tursoConfig: typeof TURSO | null; hydrated: boolean };
+    const { result, rerender } = renderHook((p: P) => useActionLearning({ ...p, isPopout: false }), {
+      initialProps: { config: { enabled: false, store: "local" }, tursoConfig: null, hydrated: false },
+    });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(vi.mocked(pickLearningStore)).not.toHaveBeenCalled(); // no store is touched before hydration
+    rerender({ config: { enabled: true, store: "turso" }, tursoConfig: TURSO, hydrated: true });
+    await waitFor(() => expect(pipeline.mock.calls.some((c) => isSelect(c[1]))).toBe(true));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await result.current.record(action("raid", "new"), "acted"); });
+    await waitFor(() => expect(pipeline.mock.calls.some((c) => isRewrite(c[1]))).toBe(true));
+    const firstRead = pipeline.mock.calls.findIndex((c) => isSelect(c[1]));
+    const firstRewrite = pipeline.mock.calls.findIndex((c) => isRewrite(c[1]));
+    expect(firstRead).toBeLessThan(firstRewrite);
+    expect(insertedKinds(pipeline.mock.calls[firstRewrite][1])).toEqual(["raid:new", "raid:stored"]); // never the local-only row
+  });
+
+  // Store switch (owner: fix it now) — switching local → Turso after the load
+  // must read Turso, add only this session's later writes, and save there; the
+  // local rows are not copied over the global table.
+  it("switching the store after the load reads the target and never overwrites it", async () => {
+    const pipeline = vi.mocked(runTursoPipeline);
+    const tursoLoad = deferred<Awaited<ReturnType<typeof runTursoPipeline>>>();
+    pipeline.mockImplementation(async (_cfg, stmts) => (isSelect(stmts) ? tursoLoad.promise : []));
+    localStorage.setItem("aipm-cockpit:action-learning", JSON.stringify({ state: { "raid:local": row(1) }, overrides: {} }));
+    type P = { config: { enabled: boolean; store: "local" | "turso" }; tursoConfig: typeof TURSO | null };
+    const { result, rerender } = renderHook((p: P) => useActionLearning({ ...p, isPopout: false, hydrated: true }), {
+      initialProps: { config: { enabled: true, store: "local" }, tursoConfig: TURSO },
+    });
+    await waitFor(() => expect(Object.keys(result.current.state)).toEqual(["raid:local"]));
+    rerender({ config: { enabled: true, store: "turso" }, tursoConfig: TURSO });
+    await act(async () => { await result.current.record(action("raid", "after"), "acted"); });
+    expect(pipeline.mock.calls.some((c) => isRewrite(c[1]))).toBe(false); // nothing before Turso is read
+    await act(async () => { tursoLoad.resolve([{ type: "ok" } as never, selectOf(["raid:remote"]) as never]); await tursoLoad.promise; });
+    await waitFor(() => expect(pipeline.mock.calls.some((c) => isRewrite(c[1]))).toBe(true));
+    const rewrite = pipeline.mock.calls.find((c) => isRewrite(c[1]))!;
+    expect(insertedKinds(rewrite[1])).toEqual(["raid:after", "raid:remote"]);
+    expect(Object.keys(result.current.state).sort()).toEqual(["raid:after", "raid:remote"]);
+    // The local store keeps its own rows.
+    expect(Object.keys(JSON.parse(localStorage.getItem("aipm-cockpit:action-learning")!).state)).toEqual(["raid:local"]);
+  });
+
+  // The queued save goes to the store OBJECT whose load succeeded, never a re-pick.
+  it("saves the replayed queue to the very store it loaded from", async () => {
+    const loads: ReturnType<typeof deferred<LearningSnapshot>>[] = [];
+    const stores: { load: () => Promise<LearningSnapshot>; save: ReturnType<typeof vi.fn<(snap: LearningSnapshot) => Promise<void>>> }[] = [];
+    vi.mocked(pickLearningStore).mockImplementation(() => {
+      const d = deferred<LearningSnapshot>();
+      loads.push(d);
+      const store = { load: () => d.promise, save: vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {}) };
+      stores.push(store);
+      return store;
+    });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
+    await act(async () => { await result.current.record(action("raid", "early"), "acted"); });
+    await act(async () => { loads[0].resolve({ state: { "raid:a": row(3) }, overrides: {} }); await loads[0].promise; });
+    await waitFor(() => expect(stores[0].save).toHaveBeenCalledTimes(1));
+    expect(stores.slice(1).every((s) => s.save.mock.calls.length === 0)).toBe(true);
+  });
+
+  // I1 — under real StrictMode the mount effect runs twice and two loads start.
+  // Only the LATEST is authoritative; the stale one must not drain the queue,
+  // flip the state or save. `wrapper: StrictMode` is load-bearing
+  // (strictmode.meta.test.tsx): composed inside a wrapper it would not double-invoke.
+  it("under StrictMode, a stale load neither drains the queue nor saves", async () => {
+    const loads = [deferred<LearningSnapshot>(), deferred<LearningSnapshot>()];
+    let n = 0;
+    const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
+    vi.mocked(pickLearningStore).mockReturnValue({ load: () => loads[Math.min(n++, 1)].promise, save });
+    const { result } = renderHook(
+      () => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }),
+      { wrapper: StrictMode },
+    );
+    expect(n).toBe(2); // the double invoke really happened, or this test proves nothing
+    const LOADED: LearningSnapshot = { state: { "raid:a": row(3) }, overrides: {} };
+    await act(async () => { await result.current.record(action("raid", "early"), "acted"); });
+    await act(async () => { loads[0].resolve(LOADED); await loads[0].promise; });
+    await act(async () => { await result.current.record(action("raid", "mid"), "acted"); });
+    expect(save).not.toHaveBeenCalled(); // the stale load saved nothing and left the hook pending
+    await act(async () => { loads[1].resolve(LOADED); await loads[1].promise; });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(Object.keys(save.mock.calls[0][0].state).sort()).toEqual(["raid:a", "raid:early", "raid:mid"]);
+    await act(async () => { await result.current.record(action("raid", "late"), "acted"); });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(Object.keys(save.mock.calls[1][0].state).sort()).toEqual(["raid:a", "raid:early", "raid:late", "raid:mid"]);
+  });
+
+  // Replay order: record, reset, record — only the last record survives.
+  it("replays queued writes in the order they were made", async () => {
+    const load = deferred<LearningSnapshot>();
+    const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
+    vi.mocked(pickLearningStore).mockReturnValue({ load: () => load.promise, save });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
+    await act(async () => {
+      await result.current.record(action("raid", "first"), "acted");
+      await result.current.reset();
+      await result.current.record(action("raid", "last"), "acted");
+    });
+    await act(async () => { load.resolve({ state: { "raid:a": row(3) }, overrides: {} }); await load.promise; });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(Object.keys(save.mock.calls[0][0].state)).toEqual(["raid:last"]);
+  });
+
+  // I2 — a failed load is surfaced: `loadFailed` drives the view's notice, and the
+  // first write held by it is reported once (the caller toasts it).
+  it("reports a failed load once, on the first write it holds", async () => {
+    const onError = vi.fn<(kind: "load" | "save", err: unknown) => void>();
+    vi.mocked(pickLearningStore).mockReturnValue({ load: () => Promise.reject(new Error("offline")), save: vi.fn(async () => {}) });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true, onError }));
+    await waitFor(() => expect(result.current.loadFailed).toBe(true));
+    expect(onError).not.toHaveBeenCalled(); // nothing to report until the user writes
+    await act(async () => { await result.current.record(action("raid", "x"), "acted"); });
+    await act(async () => { await result.current.setOverride("raid:x", "suppress"); });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toBe("load");
+  });
+
+  // M2 — save errors are reported, once per failing streak.
+  it("reports a failed save once until a save succeeds", async () => {
+    const onError = vi.fn<(kind: "load" | "save", err: unknown) => void>();
+    const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>()
+      .mockRejectedValueOnce(new Error("down"))
+      .mockRejectedValueOnce(new Error("down"))
+      .mockResolvedValue(undefined);
+    vi.mocked(pickLearningStore).mockReturnValue({ load: async () => ({ state: {}, overrides: {} }), save });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true, onError }));
+    await waitFor(() => expect(vi.mocked(pickLearningStore)).toHaveBeenCalled());
+    await act(async () => { await Promise.resolve(); });
+    for (let i = 0; i < 2; i++) await act(async () => { await result.current.record(action("raid", "x"), "acted"); });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toBe("save");
   });
 });

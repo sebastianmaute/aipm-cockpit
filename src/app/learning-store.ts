@@ -11,7 +11,16 @@ import type { NextActionsLearningConfig } from "./settings-types";
 import { localLearningStore } from "./learning-store-local";
 import { tursoLearningStore } from "./learning-store-turso";
 
+const usesTurso = (cfg: NextActionsLearningConfig, tursoConfig: TursoConfig | null): tursoConfig is TursoConfig =>
+  cfg.store === "turso" && tursoConfig !== null;
+
 export function pickLearningStore(cfg: NextActionsLearningConfig, tursoConfig: TursoConfig | null): LearningStore {
-  if (cfg.store === "turso" && tursoConfig !== null) return tursoLearningStore(tursoConfig);
+  if (usesTurso(cfg, tursoConfig)) return tursoLearningStore(tursoConfig);
   return localLearningStore();
+}
+
+/** The identity of the store `pickLearningStore` picks: "local", or "turso:<url>".
+ *  `useActionLearning` reloads when it changes (§781). */
+export function learningStoreKey(cfg: NextActionsLearningConfig, tursoConfig: TursoConfig | null): string {
+  return usesTurso(cfg, tursoConfig) ? `turso:${tursoConfig.httpUrl}` : "local";
 }

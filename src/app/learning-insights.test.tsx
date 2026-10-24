@@ -22,6 +22,7 @@ const baseProps = () => ({
   onReset: vi.fn(),
   onBack: vi.fn(),
   learningEnabled: true,
+  loadFailed: false,
 });
 
 const stats = (acted: number) => ({ acted, snoozed: 0, dismissed: 0, lastAt: 0 });
@@ -182,6 +183,15 @@ describe("LearningInsights", () => {
       render(<LearningInsights {...baseProps()} lang="de" learningEnabled={false} state={state} now={0} />);
       expect(within(adjustmentCell("de")).getByText("Lernen aus")).toBeTruthy();
     });
+  });
+
+  // §781 — when the stored learning could not be read, the view says so: the
+  // counts shown are this session's only, and nothing is saved until a read works.
+  it("shows a notice while the stored learning cannot be read", () => {
+    const { rerender } = render(<LearningInsights {...baseProps()} now={0} />);
+    expect(screen.queryByText(t("en-US", "learningLoadFailedNotice"))).toBeNull();
+    rerender(<LearningInsights {...baseProps()} loadFailed now={0} />);
+    expect(screen.getByRole("status").textContent).toBe(t("en-US", "learningLoadFailedNotice"));
   });
 
   // §777 — the view is a standard pane: the resizable card, an inner scroll

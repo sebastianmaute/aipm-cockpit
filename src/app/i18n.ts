@@ -3936,6 +3936,10 @@ const enUS = {
   // §780 — under an override, the learned value beside the applied one.
   learningBiasLearned: "learned {0}",
   learningBiasDisabled: "learning off",
+  // §781 — the stored learning could not be read, or a save failed.
+  learningLoadFailedNotice: "Stored learning could not be read. Your changes here are kept for now and saved once it can be read.",
+  learningWriteHeldToast: "Learning data could not be loaded, so this change is not saved yet. It is saved once the data can be read.",
+  learningSaveFailedToast: "Learning data could not be saved.",
   // §777 — param-free reason labels for the why keys whose text takes values
   // (see `REASON_LABEL_KEY` in learning-kind-label.ts).
   learningReasonForecastSim: "Simulated finish chance at risk",

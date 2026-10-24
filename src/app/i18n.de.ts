@@ -3868,6 +3868,10 @@ export const de: Record<TranslationKey, string> = {
   // §780 — under an override, the learned value beside the applied one.
   learningBiasLearned: "gelernt {0}",
   learningBiasDisabled: "Lernen aus",
+  // §781 — the stored learning could not be read, or a save failed.
+  learningLoadFailedNotice: "Die gespeicherten Lerndaten konnten nicht gelesen werden. Ihre Änderungen hier bleiben vorerst erhalten und werden gespeichert, sobald sie gelesen werden können.",
+  learningWriteHeldToast: "Die Lerndaten konnten nicht geladen werden, daher ist diese Änderung noch nicht gespeichert. Sie wird gespeichert, sobald die Daten gelesen werden können.",
+  learningSaveFailedToast: "Die Lerndaten konnten nicht gespeichert werden.",
   // §777 — param-free reason labels for the why keys whose text takes values
   // (see `REASON_LABEL_KEY` in learning-kind-label.ts).
   learningReasonForecastSim: "Simulierte Abschlusschance gefährdet",
