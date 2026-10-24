@@ -696,7 +696,9 @@ export async function openNewTask(ctx) {
 /** Fills the open new-task form `d` with a name, an owner picked from the directory by first name, and a due
  *  date, then saves it. Kept short (no screen time a viewer gains nothing from): a long fill is silence. */
 export async function fillNewTask(ctx, d, name, assignee, due) {
-  await type(ctx, d.getByPlaceholder('What needs to happen?'), name, 'task name');
+  // The name goes in at once: typed key by key at 1080p it took about 5 s and left f-open-points 10 s without a
+  // voice (§715, the 8 s rule). The owner is still typed, so the picker is seen at work.
+  await type(ctx, d.getByPlaceholder('What needs to happen?'), name, 'task name', { slow: false });
   await pickPerson(ctx, d, d.getByPlaceholder('Assignee', { exact: true }), assignee, 'assignee', { typed: assignee.split(' ')[0] });
   await d.locator('input[type=date]').nth(1).fill(due);
   await click(ctx, d.getByRole('button', { name: 'Add task – New task' }), 'save task', 300);
