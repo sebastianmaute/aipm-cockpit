@@ -914,8 +914,7 @@ const reviewDialog = (ctx) => ctx.page.getByRole('dialog', { name: 'Review recom
 export const EMPTY_PLAN = 'This recommendation has no remaining changes to apply.';
 /** Every outcome line a recommendation shows after Apply, by its i18n key (insightRecommendation*): copies, since the
  *  recorder runs without the app's modules; content.test.mjs pins each to src/app/i18n.ts. A `{0}` is the app's
- *  slot for a detail and matches any text. The last two are §782's (fix/insight-rec-schema): known here before that
- *  branch lands, so neither branch's tests depend on which merges first. */
+ *  slot for a detail and matches any text; the last two (§782) name the failure there. */
 export const REC_OUTCOMES = Object.freeze({
   insightRecommendationApplied: 'Recommendation applied.',
   insightRecommendationAppliedPartial: "Partly applied — some changes weren't made. Generate a new recommendation for the rest.",

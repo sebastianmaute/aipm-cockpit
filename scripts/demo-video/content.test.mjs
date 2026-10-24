@@ -65,22 +65,19 @@ describe('the recommendation status after Apply (§715)', () => {
     expect(recommendationNotApplied([])).toBe('the recommendation shows no applied status');
   });
 
-  // The two lines §782 (fix/insight-rec-schema) adds: known to the step before that branch lands, so neither
-  // branch goes red whichever merges first. Each is pinned once its key is in this branch's i18n.ts.
-  // Delete this allowlist once §782 is on main.
-  const PENDING_782 = ['insightRecommendationApplyFailedDetail', 'insightRecommendationStalePartialDetail'];
+  // The two lines with a {0} slot (§782's failure toasts), each pinned to its i18n.ts key like every other line.
+  const SLOTTED = ['insightRecommendationApplyFailedDetail', 'insightRecommendationStalePartialDetail'];
   const check = recOutcomeCheck(en);
 
   it("copies the recommendation's outcome lines and the empty-plan line from the app's i18n.ts", () => {
     expect(check.mismatched).toEqual([]);
-    // A key not in i18n.ts is skipped only while it is one §782 brings.
-    expect(check.absent.filter((k) => !PENDING_782.includes(k))).toEqual([]);
+    expect(check.absent).toEqual([]);
     expect(EMPTY_PLAN).toBe(en.insightRecommendationEmptyPlan);
   });
 
   it('classifies a failure line with its {0} filled as a failure', () => {
     const slotted = Object.entries(REC_OUTCOMES).filter(([, line]) => line.includes('{0}'));
-    expect(slotted.map(([key]) => key)).toEqual(PENDING_782);
+    expect(slotted.map(([key]) => key)).toEqual(SLOTTED);
     for (const [key, line] of slotted) {
       const filled = line.replace('{0}', 'create_task: taskName, assignee required');
       expect(REC_STATUS.test(filled), key).toBe(true);
@@ -98,9 +95,8 @@ describe('the recommendation status after Apply (§715)', () => {
 
   // Every outcome key the app has must be one the step knows, or a new outcome line would fail a take as an
   // unknown status. The keys are found by prefix (OUTCOME_KEY): an outcome key named outside those prefixes is
-  // invisible to this test. It holds here and on a merge with §782, whose two {0} lines REC_OUTCOMES already has as
-  // patterns. §782's insightRecommendationCallArgsRequired, …CallArgDate and …CallNotAllowed do not match the
-  // prefixes: they are the reasons placed into those {0}, not lines of their own.
+  // invisible to this test. §782's insightRecommendationCallArgsRequired, …CallArgDate and …CallNotAllowed do not
+  // match the prefixes: they are the reasons placed into the two {0} lines, not lines of their own.
   it(`knows every outcome key of the app's i18n.ts (${check.matched} matched)`, () => {
     expect(check.matched).toBeGreaterThan(0);
     expect(check.unknown).toEqual([]);

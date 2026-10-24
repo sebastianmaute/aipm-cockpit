@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { button, el, fakePage, text } from './fake-dom.mjs';
 import { runAi } from './take.mjs';
-import { DAYS, REC_OUTCOMES } from './steps/week.mjs';
+import { DAYS } from './steps/week.mjs';
 import { en } from '../../src/app/i18n.ts';
 
 const B = 'Budget off plan';
@@ -13,8 +13,8 @@ const B = 'Budget off plan';
 const EMPTY_PLAN = en.insightRecommendationEmptyPlan;
 const APPLIED = en.insightRecommendationApplied;
 const STALE = en.insightRecommendationStale;
-// §782's line is not in this branch's i18n.ts yet: the step's own copy, pinned by content.test.mjs once it is.
-const DETAIL_FILLED = REC_OUTCOMES.insightRecommendationApplyFailedDetail.replace('{0}', 'create_task: taskName, assignee required');
+// §782's toast naming the failure, its {0} filled with a reason.
+const DETAIL_FILLED = en.insightRecommendationApplyFailedDetail.replace('{0}', 'create_task: taskName, assignee required');
 
 /** What the review's confirm does: applies the plan (the card's note and a toast), applies it with a change that
  *  threw, writes nothing (the card stays proposed; only a toast says so), or writes nothing while another card
