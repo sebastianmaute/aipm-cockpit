@@ -30,14 +30,23 @@ export interface RecommendContextInput {
  *  project's task assignees (free text, so a project with no resource
  *  directory still has people). Each name once, trimmed and compared
  *  case-insensitively, the first spelling kept; blanks dropped. Resources come
- *  first because the digest caps the list (`PEOPLE_CAP`). */
-export function recommendPeople(resourceNames: readonly string[], assignees: readonly string[]): string[] {
+ *  first because the digest caps the list (`PEOPLE_CAP`). A name in `excluded`
+ *  (an archived resource) is never listed as an assignee, compared the same way. */
+export function recommendPeople(
+  resourceNames: readonly string[],
+  assignees: readonly string[],
+  excluded: readonly string[] = [],
+): string[] {
+  // ★ The exclusion applies to assignees only: an active resource who shares an
+  //  archived one's name is still listed.
+  const barred = new Set(excluded.map((name) => name.trim().toLowerCase()));
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const raw of [...resourceNames, ...assignees]) {
+  const candidates = [...resourceNames.map((n) => [n, false] as const), ...assignees.map((n) => [n, true] as const)];
+  for (const [raw, isAssignee] of candidates) {
     const name = raw.trim();
     const key = name.toLowerCase();
-    if (name === "" || seen.has(key)) continue;
+    if (name === "" || seen.has(key) || (isAssignee && barred.has(key))) continue;
     seen.add(key);
     out.push(name);
   }

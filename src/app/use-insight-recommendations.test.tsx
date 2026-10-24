@@ -800,11 +800,32 @@ describe("§782 round 3 — people without a directory, a stale and a failed cal
       { ...task, assignee: "Sam Lee" },
       { id: 43, taskName: "Second", status: "To Do", assignee: "sam lee" },
       { id: 44, taskName: "Third", status: "To Do", assignee: " " },
-      { id: 45, taskName: "Fourth", status: "Done", assignee: "dana ortiz" },
+      { id: 45, taskName: "Fourth", status: "In Progress", assignee: "dana ortiz" },
     ] as unknown as InsightRecommendationDeps["tasks"];
     expect(await peopleSection({ tasks })).toBe("- Sam Lee\n- dana ortiz");
     const resourcesById = new Map([[1, { id: 1, firstName: "Dana", lastName: "Ortiz", active: true }]]) as unknown as InsightRecommendationDeps["resourcesById"];
     expect(await peopleSection({ tasks, resourcesById })).toBe("- Dana Ortiz\n- Sam Lee");
+  });
+
+  // Re-review Minor 1 — only someone on open work is offered for new work.
+  it("leaves out an assignee whose only tasks are closed", async () => {
+    const tasks = [
+      { ...task, assignee: "Sam Lee" },
+      { id: 43, taskName: "Shipped", status: "Done", assignee: "Kim Ito" },
+      { id: 44, taskName: "Dropped", status: "Cancelled", assignee: "Ash Roy" },
+    ] as unknown as InsightRecommendationDeps["tasks"];
+    expect(await peopleSection({ tasks })).toBe("- Sam Lee");
+  });
+
+  // Re-review Minor 1 — an archived resource stays out even when an open task
+  // still carries the name, so "Active people only" holds for the whole list.
+  it("leaves out an assignee who matches an archived resource, case-insensitively", async () => {
+    const tasks = [
+      { ...task, assignee: "Sam Lee" },
+      { id: 43, taskName: "Open", status: "To Do", assignee: "kim ito" },
+    ] as unknown as InsightRecommendationDeps["tasks"];
+    const resourcesById = new Map([[1, { id: 1, firstName: "Kim", lastName: "Ito", active: false }]]) as unknown as InsightRecommendationDeps["resourcesById"];
+    expect(await peopleSection({ tasks, resourcesById })).toBe("- Sam Lee");
   });
 
   it("says no person is known when there is no directory and no task is assigned", async () => {

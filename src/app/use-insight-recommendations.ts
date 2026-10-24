@@ -38,6 +38,7 @@ import type { ScopeEpochReader } from "./scope-epoch";
 import { useInsightRecommend } from "./use-insight-recommend";
 import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
 import { buildRecommendContext, recommendPeople } from "./insights/recommend-context";
+import { isTaskClosed } from "./task-closed";
 import { describeRecommendationPlan, type RecommendSnapshot } from "./insights/recommend-plan";
 import type { RecCallProblemFormat } from "./insights/recommend-schema";
 import { stripRejectedFields } from "./inline-ai-edit/plan";
@@ -241,11 +242,14 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         // §782 — create_task REQUIRES an assignee, and before this the digest
         // named nobody the model could give. Active people only: an archived
         // resource is not someone to hand new work to. ★ Round 3: then the
-        // tasks' own assignees, which are free text — with resources alone a
-        // project without a directory could never get a valid create_task.
+        // assignees of OPEN tasks, which are free text — with resources alone a
+        // project without a directory could never get a valid create_task. A
+        // closed task's assignee is not offered, and an archived resource's
+        // name is dropped even when an open task still carries it.
         people: recommendPeople(
           [...resourcesById.values()].filter((r) => r.active !== false).map(resourceDisplayName),
-          tasks.map((tk) => tk.assignee ?? ""),
+          tasks.filter((tk) => !isTaskClosed(tk)).map((tk) => tk.assignee ?? ""),
+          [...resourcesById.values()].filter((r) => r.active === false).map(resourceDisplayName),
         ),
       });
     },

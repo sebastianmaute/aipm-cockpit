@@ -153,6 +153,12 @@ describe("recommendPeople", () => {
     expect(recommendPeople([], ["Sam Lee"])).toEqual(["Sam Lee"]);
     expect(recommendPeople([], [])).toEqual([]);
   });
+
+  it("drops an assignee whose name is excluded, case-insensitively", () => {
+    expect(recommendPeople(["Dana Ortiz"], ["kim ito ", "Sam Lee"], ["Kim Ito"])).toEqual(["Dana Ortiz", "Sam Lee"]);
+    // An active resource sharing an archived one's name is still listed.
+    expect(recommendPeople(["Kim Ito"], [], ["Kim Ito"])).toEqual(["Kim Ito"]);
+  });
 });
 
 describe("buildRecommendSystemPrompt", () => {
