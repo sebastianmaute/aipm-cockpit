@@ -45930,13 +45930,15 @@ Size XS.
 
 ## 781. A learning write before the load resolves wipes the stored Action Center learning — CLOSED 2026-10-24
 
-**Status:** CLOSED 2026-10-24 on `fix/learning-view-pane`, owner decision 2026-10-24 to fix it now. Verified with `npx vitest run src/app/next-actions src/app/action-learning.test.ts src/app/use-action-learning.test.tsx src/app/learning-insights.test.tsx src/app/learning-store-local.test.ts src/app/learning-store-turso.test.ts src/app/task-manager.learning-back.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-cpi-labels.test.ts src/app/settings-sections/next-actions-section.test.tsx` (32 files, 367 tests, green).
+**Status:** CLOSED 2026-10-24 on `fix/learning-view-pane`, owner decision 2026-10-24 to fix it now. Verified with `npx vitest run src/app/next-actions src/app/action-learning.test.ts src/app/use-action-learning.test.tsx src/app/learning-insights.test.tsx src/app/learning-store-local.test.ts src/app/learning-store-turso.test.ts src/app/task-manager.learning-back.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-cpi-labels.test.ts src/app/settings-sections/next-actions-section.test.tsx` (32 files, 367 tests, green; re-run 2026-10-24 after the follow-up round at e420cc4d1: 32 files, 370 tests, green).
 
 `useActionLearning` (`use-action-learning.ts`) keeps every write (record, override, reset) as a function:
 - **Before the mount load resolves**, a write is applied to the in-memory snapshot, so the view and the bias react at once. It is also queued.
 - **When the load resolves**, it replays the queue on top of the snapshot it read (normalised as in §778) and saves the result once, to the store it loaded from.
 - **A queued reset** still clears everything.
-- **After a failed load**, nothing is saved for the rest of the session, and `learning.loadFailedSavesOff` is logged. The store's contents are unknown then, and its save is a full rewrite.
+- **After a failed load** (network, `StorageNotReadyError`, anything else), nothing is saved while the store cannot be read, because its save is a full rewrite and would replace rows it never read. The writes are kept. The load is retried three times with a growing delay (`LEARNING_LOAD_RETRY_MS`, 5, 10 and 15 s), as `useScheduledJobs` retries its read; once those run out, the next write starts a fresh round. The first load that succeeds replays the queue on top of the stored rows and saves once. Each failure logs `learning.loadFailedSavesHeld`.
+  - **What the user sees:** nothing is different on screen. The outcome counts, overrides and the Adjustment column show the session's writes at once (on top of the stored rows only once a load has worked), and they are saved when a load succeeds. If the app is closed before any load succeeds, the session's writes are lost, and the stored learning is untouched.
+  - Changed 2026-10-24 in the follow-up round: the first version switched saving off for the whole session after a failed load (and logged `learning.loadFailedSavesOff`), so an outcome recorded during an outage was never stored.
 
 Scope:
 - **Project scope:** learning is not project data. It lives in device storage, or in the global Turso `action_learning` table, which stays out of `TABLE_NAMES`. So a project swap has nothing to misattribute, and the scope epoch does not apply. The queued writes go to the store they were loaded from, so a store switch during the load cannot copy one store's rows into the other.
@@ -45944,11 +45946,17 @@ Scope:
 - **Two tabs, or two devices on one Turso database:** each loads once and saves a full snapshot, so the last writer wins. This is unchanged from before and is not part of this fix.
 
 Tests:
-- Four new tests in `use-action-learning.test.tsx`:
+- Four new tests in `use-action-learning.test.tsx` (first round):
   - An early outcome and override merge into a loaded snapshot of three rows. Nothing is saved before the load.
   - On the Turso path, the statements after the load re-insert both stored rows (an override included) plus the new outcome. No rewrite goes out before the load.
   - An early reset still saves an empty snapshot.
-  - A failed load saves nothing.
+  - A failed load saves nothing (now: nothing while the store cannot be read).
+- Three more in the follow-up round (2026-10-24):
+  - A load that resolves after a write merges under the newer in-memory outcome (3 stored + 1 new = 4, not 1 and not 3).
+  - An outcome kept through a failed load is saved, on top of the stored rows, after the retried load succeeds.
+  - A write after the timed retries run out starts a fresh load.
+  - Against the pre-§781 hook, all three failed (6 failed in the file). Against the first-round fix, the two retry tests failed; the late-load test already passed there, because the queue had closed that side.
+  - Mutants: dropping the timed retry turned both retry tests red; dropping the restart-on-write turned the restart test red.
 - Red on the old code: the first, second and fourth failed. The reset test passed on the old code too, because a reset was already a full clear; it guards the queue.
 - Mutants:
   - Replaying the queue onto an empty base turned the merge and Turso tests red.
