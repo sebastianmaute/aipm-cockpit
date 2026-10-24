@@ -931,7 +931,10 @@ export const REC_STATUS = (() => {
 /** The outcome lines after Apply, where the app shows them: the card's note once the recommendation is applied, and
  *  the toast (app-modals.tsx, role="status"). Both are read: a change that threw still leaves the card reading
  *  applied while the toast says some changes couldn't be applied, and an outcome that wrote nothing has the toast only. */
-const recStatusLines = (ctx) => insightCard(ctx).getByText(REC_STATUS).or(ctx.page.getByRole('status').getByText(REC_STATUS));
+const recCardLine = (ctx) => insightCard(ctx).getByText(REC_STATUS);
+const recToastLine = (ctx) => ctx.page.getByRole('status').getByText(REC_STATUS);
+/** How long the read waits for the second of the two lines once the first shows: they need not land in one frame. */
+const REC_BOTH_MS = 3000;
 
 /** What is wrong with a recommendation's status lines after Apply, or null when there is one and every one reads
  *  applied in full. */
@@ -1077,9 +1080,13 @@ export const FRIDAY = [
     after: async (ctx) => {
       await holdVoice(ctx);
       await click(ctx, reviewDialog(ctx).getByRole('button', { name: APPLY_REC, exact: true }), `confirm ${APPLY_REC}`, 1500);
-      // The card's note and the toast come with the same render: once one shows, every line is read.
-      const lines = recStatusLines(ctx);
+      // Once one line shows, the other gets a bounded wait (an outcome that wrote nothing has no card note), so a
+      // toast that lags the card is still read; then every line is classified.
+      const card = recCardLine(ctx);
+      const toast = recToastLine(ctx);
+      const lines = card.or(toast);
       await lines.first().waitFor({ timeout: 15000 }).catch(() => {});
+      await Promise.all([card, toast].map((l) => l.first().waitFor({ timeout: REC_BOTH_MS }).catch(() => {})));
       // A read that fails still fails the step (no status), but the log says why.
       const statuses = await lines.allInnerTexts().catch((e) => {
         ctx.log(`INSIGHT status read failed: ${String(e?.message ?? e).split('\n')[0]}`);

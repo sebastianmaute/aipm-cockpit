@@ -25,6 +25,8 @@ const OUTCOMES = {
   elsewhere: (s) => { s.otherNote = en.insightRecommendationAppliedPartial; },
   // Applied, but the page fails the read of its outcome lines.
   unreadable: (s) => { s.rec = 'applied'; s.unreadable = 'Target page, context or browser has been closed'; },
+  // A change threw, and its toast lags the card's note: it shows from the second wait after the confirm on.
+  lagging: (s) => { s.rec = 'applied'; s.toast = en.insightRecommendationApplyFailed; s.toastAfterWaits = 2; s.waits = 0; },
 };
 
 /** The Insights view for `s`: { rec: null | 'proposed' | 'rejected' | 'applied', review, empty, toast, otherNote,
@@ -49,14 +51,16 @@ function insights(s) {
         button('Cancel', { on: () => { s.review = false; } }),
         button('Apply recommendation', { enabled: !s.empty, on: () => { s.review = false; OUTCOMES[s.outcome ?? 'applied'](s); } })));
     }
-    if (s.toast) body.push(el({ role: 'status' }, text(s.toast)));
+    if (s.toast && (s.waits ?? 0) >= (s.toastAfterWaits ?? 0)) body.push(el({ role: 'status' }, text(s.toast)));
     return el({ tag: 'body' }, ...body);
   };
 }
 
 const insightStep = DAYS.fri.find((x) => x.id === 'insight-recommendation');
 const start = (plans, outcome) => ({ rec: null, review: false, plans, outcome });
-const ctxFor = (s, clicks = [], logs = []) => ({ page: fakePage(insights(s), clicks), rehearse: true, withAi: true, clipId: 'ch7-friday', log: (l) => logs.push(l) });
+// Every locator wait after the confirm counts as time passing (fake-dom onWait).
+const onWait = (s) => () => { if (s.waits != null) s.waits++; };
+const ctxFor = (s, clicks = [], logs = []) => ({ page: fakePage(insights(s), clicks, { onWait: onWait(s) }), rehearse: true, withAi: true, clipId: 'ch7-friday', log: (l) => logs.push(l) });
 
 describe('the insight-recommendation step (§715)', () => {
   it('applies a recommendation whose plan has changes, without a retry', async () => {
@@ -91,6 +95,11 @@ describe('the insight-recommendation step (§715)', () => {
 
   it('fails when the card reads applied but the toast says a change could not be applied', async () => {
     await expect(runAi(ctxFor(start([false], 'threw')), insightStep))
+      .rejects.toThrow(`ch7-friday: the recommendation was not applied in full: "${en.insightRecommendationApplyFailed}"`);
+  });
+
+  it('waits for a toast that lags the card, and fails on its line', async () => {
+    await expect(runAi(ctxFor(start([false], 'lagging')), insightStep))
       .rejects.toThrow(`ch7-friday: the recommendation was not applied in full: "${en.insightRecommendationApplyFailed}"`);
   });
 

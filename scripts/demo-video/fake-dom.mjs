@@ -7,7 +7,9 @@
 // - roles and names are what a test writes on its nodes, never computed from tags or content;
 // - a string name or text matches case-insensitively as a substring, or exactly with `exact`; a regex is tested;
 // - locator() knows a tag name and the visible-dialog selector only, not CSS;
-// - nothing waits: a wait or a strict call on the wrong number of elements fails at once;
+// - nothing waits: a wait or a strict call on the wrong number of elements fails at once. Time passes only as
+//   the test says: `onWait`, when given, runs at the start of every locator wait, so a test can make an element
+//   arrive after a given number of waits (a toast that lags the card);
 // - a node's `unreadable` (an error message) makes reading its text throw, as a page closed under a read does.
 
 /** An element: `tag`, `role`, accessible `name`, `text`, `enabled`, `pressed` (aria-pressed), `on` (its click). */
@@ -21,7 +23,7 @@ const matches = (value, want, exact) => value != null && (want instanceof RegExp
 /** The selectors the steps pass to locator(): a tag, or the visible-dialog one. */
 const bySelector = (sel) => (sel.startsWith('[role="dialog"]') ? (n) => n.role === 'dialog' : (n) => n.tag === sel);
 
-export function fakePage(view, clicks = []) {
+export function fakePage(view, clicks = [], { onWait } = {}) {
   const page = {
     mouse: { move: async () => {} },
     keyboard: { press: async (k) => { clicks.push(`key ${k}`); } },
@@ -52,6 +54,7 @@ export function fakePage(view, clicks = []) {
       isVisible: async () => one('isVisible') && true,
       isEnabled: async () => one('isEnabled').enabled !== false,
       waitFor: async ({ state = 'visible' } = {}) => {
+        onWait?.();
         const n = nodes().length;
         if (state === 'hidden' ? n > 0 : n !== 1) throw new Error(`Timeout waiting for ${state}`);
       },
