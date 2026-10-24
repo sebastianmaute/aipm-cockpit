@@ -8,7 +8,7 @@
 import { TursoHttpError } from "./turso-pipeline";
 import { StorageNotReadyError } from "./workspace";
 
-/** A busy or locked database (the open project's autosave holds the tenant database) is transient (spec Run step 3).
+/** A busy or locked database is transient (for the scheduled-job runner: §772 scheduled-job spec, Run step 3).
  *  SQLite reports it only as text, so this is the one place the wording is read (never stored). */
 const BUSY = /SQLITE_BUSY|SQLITE_LOCKED|database (table )?is (locked|busy)/i;
 export const isBusyDbError = (e: unknown): boolean => e instanceof Error && BUSY.test(e.message);
