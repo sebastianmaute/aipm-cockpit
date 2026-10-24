@@ -45947,12 +45947,12 @@ Every learning save is a full rewrite of its store. On Turso that is `DELETE FRO
   - **Retryable** (the store is unreachable or timed out, a Turso 429 or 5xx, a busy database): the load is retried 3 times with a growing delay (`LEARNING_LOAD_RETRY_MS`: 5, 10 and 15 s, as `useScheduledJobs` retries its read). After that, the next write starts a fresh round.
   - **Permanent** (owner decision 2026-10-24): no retries, and a write does not restart the load. This covers:
     - a rejected token (`tursoErrorKind` `auth`/`auth-env`), which is told to the user at once (`learningLoadRejectedToast`) and named in the notice (`learningTokenRejectedNotice`: update the token in Settings). A new token is a new store identity, so it reloads and saves the held writes without another write;
-    - any other HTTP or SQL error, and a missing SELECT result (which `tursoLearningStore.load` now treats as a failure rather than an empty table). These are `loadProblem` `"failed"`, final for the session: the notice (`learningLoadFailedFinalNotice`, not the retrying `learningLoadFailedNotice`) and the first held write's toast (`learningLoadFailedFinalToast`) say that the app will not try again until it is reloaded, and to reload or check the Turso settings. A malformed response can be a passing proxy glitch, so this is strict; reloading the app retries it.
+    - any other HTTP or SQL error, and a missing SELECT result (which `tursoLearningStore.load` now treats as a failure rather than an empty table). These are `loadProblem` `"failed"`, final for the session: the notice (`learningLoadFailedFinalNotice`, not the retrying `learningLoadFailedNotice`) and the first held write's toast (`learningLoadFailedFinalToast`) say that the app will not try again until it is reloaded, to reload or check the Turso settings, and that the changes are not saved YET: fixed Turso settings are a new store identity, which reads again and saves them. A malformed response can be a passing proxy glitch, so this is strict; reloading the app retries it.
   - **After an unmount**, a load that fails schedules no retry (`mountedRef`). One that succeeds still saves the queue, deliberately: the writes are the user's, and the snapshot holds every stored row.
 - **The held writes are bounded:**
   - a queued Reset drops everything queued before it;
   - past `LEARNING_QUEUE_MAX` (500) the oldest writes are dropped (never a queued Reset), logged once per episode as `learning.queueDropped`;
-  - `pendingWrites` reports the count.
+  - `pendingWrites` reports the count, and the notice shows it ("3 changes not saved yet.", `learningPendingWrites`).
 - **A reload waits for saves still in flight** (the save chain), so a token rotation or a switch back mid-save reads what that save wrote.
 - **What the user sees:**
   - The learning view shows a `role="status"` notice (`loadProblem`):
