@@ -80,7 +80,7 @@ longer carries its own changelog comment.
   Time bookings notice now starts from the same saved functions, and "Save current as template" (in Settings → Templates
   and in the project menu) stores them. When Claude switches functions on or off, the change is now saved with the
   project, so Edit project and the navigation agree and the next project load no longer undoes it. A function list from
-  Claude that is not a list, or that names no known function, is refused instead of switching every function off. If Claude changes the functions in the same reply as another edit, both now wait for you on the review card, which lists the functions the change turns on and off. Claude is also told which names in its list are not functions.
+  Claude that is not a list, or that names no known function, is refused instead of switching every function off. If Claude changes the functions in the same reply as another edit, both now wait for you on the review card, which lists the functions the change turns on and off. Claude is also told which names in its list are not functions. If you change the functions yourself before applying, that row is refused rather than undoing your change, and the card also lists any other setting the same change makes.
 - **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
   against the wrong year, so the new project and its milestones could already be over on the day you created
   it. Claude is now told today's date and reads a month or range without a year as the next one to come (the

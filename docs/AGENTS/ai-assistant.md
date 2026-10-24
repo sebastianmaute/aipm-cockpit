@@ -194,7 +194,12 @@
   decision 2026-10-24); a call without the key is a device-only write and stays exempt, like `set_language`. A staged one is
   described by `describeFunctionsCall` (`chat-proposal-describe-functions.ts`) into `DescribedRow.functions`: the
   card titles it with `functionsRowTitle` and lists the functions it turns on and off against `Workspace.features`
-  (labels via the Functions picker's `moduleNames`), and a refused value shows as a rejection on the field. ★★
+  (labels via the Functions picker's `moduleNames`), and a refused value shows as a rejection on the field.
+  The block also lists the call's other settings ("Also sets …", keys as the tool names them) and says the
+  change cannot be undone with Ctrl+Z; each row is described against the list an earlier functions row in the
+  same turn leaves (`functions.before`), and `applyProposal` refuses a row whose `before` no longer matches the
+  live `Workspace.features` (`getFeatures`) as a conflict (`FUNCTIONS_MOVED_ERROR`), so it never overwrites a
+  change the card did not show. `get_app_state` reports `enabledModules`/`mode` from `Workspace.features`. ★★
   SECURITY: secrets / API keys / storage / integration config are DELIBERATELY unreachable — never widen this
   allowlist to a raw settings setter, and every value must stay routed through a validator/coercer. Guarded by
   `chat-tools.test.ts`.
@@ -2028,8 +2033,9 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   its one row today: `grep -n -A3 "UNARMED_AI_ROUTES: Record" src/app/destructive-save-arming.test.ts`). A new
   removal tool with no row fails "has a recorded arming decision for every AI removal tool"; the save guard itself is
   in [`platform.md`](platform.md). `set_forecast_proposal` (`id`, or null to clear) and `set_forecast_target_confidence`
-  (`value`, 50/80/95) are in `ENTITY_WRITE_TOOLS` although they write `settingsOverrides`: project data, unlike
-  `update_settings`; they are logged as the AI and NOT undoable (owner decision). `set_forecast_proposal.id` and
+  (`value`, 50/80/95) are in `ENTITY_WRITE_TOOLS` although they write `settingsOverrides`: project data, like
+  `update_settings` with `enabledModules` (§779, which counts through `isEntityWriteCall` instead of by name)
+  and unlike every other `update_settings` call; they are logged as the AI and NOT undoable (owner decision). `set_forecast_proposal.id` and
   `delete_forecast_scenario.id` are `TARGET_MINTED_BY` rows minted by `create_forecast_scenario`, so
   `[create_forecast_scenario, set_forecast_proposal(<provisional>)]` proposes the scenario the create really minted,
   and refusing the create cascades the proposal call; `targetIdOf` reads `id: null` as no id, so a clear names no
