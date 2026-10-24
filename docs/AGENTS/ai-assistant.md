@@ -195,8 +195,9 @@
   described by `describeFunctionsCall` (`chat-proposal-describe-functions.ts`) into `DescribedRow.functions`: the
   card titles it with `functionsRowTitle` and lists the functions it turns on and off against `Workspace.features`
   (labels via the Functions picker's `moduleNames`), and a refused value shows as a rejection on the field.
-  The block also lists the call's other settings ("Also sets …", keys as the tool names them) and says the
-  change cannot be undone with Ctrl+Z; each row is described against the list an earlier functions row in the
+  The block also lists the call's other settings ("Also sets …", keys as the tool names them, judged by the
+  dispatcher's `previewSettings` against the live settings the write patches) and says the change cannot be
+  undone (no shortcut is named: neither Ctrl+Z/Cmd+Z nor the undo button reverses it); each row is described against the list an earlier functions row in the
   same turn leaves (`functions.before`), and `applyProposal` refuses a row whose `before` no longer matches the
   live `Workspace.features` (`getFeatures`) as a conflict (`FUNCTIONS_MOVED_ERROR`), so it never overwrites a
   change the card did not show. With two functions rows in one turn, unticking the first therefore refuses the
