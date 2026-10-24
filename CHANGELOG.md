@@ -74,11 +74,13 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **Acting on a suggestion right after the app starts no longer erases learned Action Center data (§781).** An
-  outcome, override or reset recorded before the stored learning had finished loading replaced it, so one quick
-  snooze could wipe everything learned, on Turso for every project at once. Such early changes now wait for the
-  load and are added on top of it. If the stored learning cannot be read, nothing is
-  saved until it can; the app tries again, and what you did meanwhile is saved once a read works.
+- **Action Center learning is no longer erased by the app's own saves (§781).** With learning stored in Turso, the
+  first suggestion you acted on in a session replaced every project's stored learning with what that device held, because
+  the app saved before it had read Turso; an outcome recorded while learning was still loading, or a switch of the
+  learning store in Settings, could do the same. Learning is now saved only to a store it has read in this session: early
+  changes wait for the read and are added on top of it, and after a switch the new store keeps its own data. If stored
+  learning cannot be read, the learning view says so, your changes are kept and saved once a read works, and the app
+  tries again; a failed save is reported too.
 - **The learning view's Adjustment column shows what is applied (§780).** A row set to "Always suppress" could
   still read "+5", the learned value the override replaces. The column now shows the adjustment in effect (+20,
   -20 or 0 under Always surface, Always suppress and Off), with the learned value below it, marked "learned";
