@@ -29,8 +29,8 @@ export function narrationFor(def, { lang, rehearse, audio = (text) => audioFor(l
  *  final timeline with their caption text as `<name>.beats.json` ({ duration, beats: [{ id, at, caption }] }),
  *  for the YouTube details page (youtube.mjs).
  *  `log` must mask secrets (record.mjs passes its masking logger); `trim`, `mix`, `probe` (an MP4's length in
- *  seconds) and `write` (a file's text) are overridable for tests. */
-export function trimAndMix(def, r, { lang, log, outRoot, trim = trimAiWaits, mix = mixTake, probe = probeDuration, write = fs.writeFileSync }) {
+ *  seconds), `write` (a file's text) and `remove` (a file) are overridable for tests. */
+export function trimAndMix(def, r, { lang, log, outRoot, trim = trimAiWaits, mix = mixTake, probe = probeDuration, write = fs.writeFileSync, remove = (p) => fs.rmSync(p, { force: true }) }) {
   if (r.status !== 'ok' || !r.file) return r;
   let ranges;
   try {
@@ -50,6 +50,8 @@ export function trimAndMix(def, r, { lang, log, outRoot, trim = trimAiWaits, mix
     const waits = (r.aiWaits ?? []).map((w) => ({ start: mapTime(w.start, ranges), end: mapTime(w.end, ranges) }));
     const captions = (r.captions ?? []).map((c) => ({ ...c, at: mapTime(c.at, ranges) }));
     let findings;
+    // Sidecars of an earlier render with the same name must not stand beside this one if a write below fails.
+    for (const ext of ['.waits.json', '.beats.json']) remove(m.mp4.replace(/\.mp4$/, ext));
     try {
       // Beside the MP4 and its .srt, so check-render.mjs can judge the render's gaps later.
       write(m.mp4.replace(/\.mp4$/, '.waits.json'), JSON.stringify(waits));

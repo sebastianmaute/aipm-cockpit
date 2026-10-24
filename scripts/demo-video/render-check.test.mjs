@@ -2,7 +2,8 @@
 // voice comes late, found on the finished video's timeline. Pure functions, plain numbers.
 import { describe, expect, it } from 'vitest';
 import { checkFiles, checkRender } from './check-render.mjs';
-import { MAX_DESYNC_S, MAX_GAP_S, MAX_TAIL_S, desyncFindings, gapFindings, parseSrt, renderFindings, tailFinding } from './render-check.mjs';
+import { MAX_DESYNC_S, MAX_GAP_S, MAX_TAIL_S, MIN_TAIL_S, SPLASH_S, desyncFindings, gapFindings, parseSrt, parseWaits, renderFindings, tailFinding } from './render-check.mjs';
+import { SPLASH_MS } from './ui.mjs';
 
 const span = (id, at, end) => ({ id, at, end });
 
@@ -133,5 +134,81 @@ describe('parseSrt (§715)', () => {
   it('reads each cue as { at, end } in seconds', () => {
     const srt = '1\r\n00:00:01,212 --> 00:00:05,809\r\nA short guide\r\n\r\n2\r\n00:01:39,187 --> 00:01:43,924\r\nWhen time off\r\nis on the plan\r\n';
     expect(parseSrt(srt)).toEqual([{ id: 'cue 1', at: 1.212, end: 5.809 }, { id: 'cue 2', at: 99.187, end: 103.924 }]);
+  });
+});
+
+describe('review round (§715): the cut-off voice, the silence before the first voice, the waits file', () => {
+  it('flags a closing voice that the end of the video cuts off, or nearly so', () => {
+    expect(MIN_TAIL_S).toBe(1);
+    expect(tailFinding(40, 40)).toBe('RENDER voice cut off: the video ends 0.0 s after the last voice (under 1 s)');
+    expect(tailFinding(40, 38.5)).toBe('RENDER voice cut off: the video ends 1.5 s before the last voice does');
+    expect(tailFinding(40, 41.9)).toBeNull();
+  });
+
+  it('measures the silence from the end of the splash to the first voice', () => {
+    expect(SPLASH_S).toBe(SPLASH_MS / 1000);
+    const late = [{ id: 'title', at: 12.5, duration: 3 }, { id: 'a', at: 16, duration: 2 }];
+    expect(renderFindings({ beats: late, duration: 19.9 })).toEqual(['RENDER gap 9.5 s at 0:03.0 (after the splash)']);
+    const usual = [{ id: 'title', at: 4.2, duration: 3 }, { id: 'a', at: 8, duration: 2 }];
+    expect(renderFindings({ beats: usual, duration: 11.9 })).toEqual([]);
+  });
+
+  it('says there are no voices rather than reporting an infinite tail', () => {
+    expect(renderFindings({ beats: [], duration: 30 })).toEqual(['RENDER no voices']);
+  });
+
+  it('reads cue 1 of an .srt that starts with a byte-order mark', () => {
+    expect(parseSrt('\uFEFF1\n00:00:01,000 --> 00:00:02,000\nA\n')).toEqual([{ id: 'cue 1', at: 1, end: 2 }]);
+  });
+
+  it('accepts a waits file of { start, end } seconds on the finished video', () => {
+    expect(parseWaits('[{"start":5,"end":10.5}]', 60)).toEqual([{ start: 5, end: 10.5 }]);
+    expect(parseWaits('[]', 60)).toEqual([]);
+  });
+
+  it('rejects a waits file that is not JSON, not an array, or holds a malformed entry', () => {
+    expect(() => parseWaits('[{"start":5,', 60)).toThrow(/^waits file invalid: not JSON/);
+    expect(() => parseWaits('{"start":5}', 60)).toThrow('waits file invalid: not an array');
+    expect(() => parseWaits('null', 60)).toThrow('waits file invalid: not an array');
+    expect(() => parseWaits('[{"start":"5","end":10}]', 60)).toThrow('waits file invalid: entry 1 is not { start, end } in seconds');
+    expect(() => parseWaits('[{"start":10,"end":5}]', 60)).toThrow('waits file invalid: entry 1 ends before it starts');
+  });
+
+  it('rejects a wait outside the video, so it cannot excuse every gap', () => {
+    expect(() => parseWaits('[{"start":0,"end":99999}]', 60)).toThrow('waits file invalid: entry 1 runs past the video (60.0 s)');
+    expect(() => parseWaits('[{"start":-2,"end":5}]', 60)).toThrow('waits file invalid: entry 1 starts before the video');
+  });
+
+  it('checkFiles reports a bad waits file, a missing .srt, a render with no subtitles and a non-.mp4 for that file only', () => {
+    const files = {
+      'out/ai/01-a.srt': srt, 'out/ai/01-a.waits.json': '[{"start":0,"end":99999}]',
+      'out/features/02-b.srt': '', 'out/features/04-d.srt': srt,
+    };
+    const deps = {
+      exists: (p) => p in files,
+      read: (p) => files[p],
+      probe: () => 53.9,
+    };
+    const r = checkFiles(['out/ai/01-a.mp4', 'out/features/02-b.mp4', 'out/features/03-c.mp4', 'out/features/03-c.webm', 'out/features/04-d.mp4'], deps);
+    expect(r.lines).toEqual([
+      'out/ai/01-a.mp4: waits file invalid: entry 1 runs past the video (53.9 s)',
+      'out/features/02-b.mp4: RENDER no subtitles',
+      'out/features/03-c.mp4: no .srt beside it',
+      'out/features/03-c.webm: not an .mp4',
+      'out/features/04-d.mp4: RENDER gap 28.9 s at 0:20.1 (after cue 2)',
+    ]);
+    expect(r.failed).toBe(true);
+  });
+
+  it('checkFiles reports a file it cannot read and goes on', () => {
+    const deps = { exists: (p) => !p.endsWith('.waits.json'), read: (p) => { if (p.startsWith('a')) throw new Error('EACCES: permission denied'); return srt; }, probe: () => 53.9 };
+    expect(checkFiles(['a.mp4', 'b.mp4'], deps).lines).toEqual(['a.mp4: read failed: EACCES: permission denied', 'b.mp4: RENDER gap 28.9 s at 0:20.1 (after cue 2)']);
+  });
+
+  it('checkFiles tells an all-unverified batch apart from a clean one (exit 3, not 0)', () => {
+    const deps = { exists: (p) => p.endsWith('.srt'), read: () => srt, probe: () => 53.9 };
+    const r = checkFiles(['out/chapters/04-ch4.mp4'], deps);
+    expect(r.failed).toBe(false);
+    expect(r.unverified).toBe(true);
   });
 });

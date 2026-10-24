@@ -8,6 +8,12 @@
 export const MAX_GAP_S = 8;
 /** The standard outro is 1.9 s (ui.PAUSE_MS and the closing hold): a longer tail than this is dead air. */
 export const MAX_TAIL_S = 2.5;
+/** A shorter tail than this means the end of the video cut the last voice off, or nearly (the mix pads the voice
+ *  and the video sets the length). */
+export const MIN_TAIL_S = 1;
+/** Every video opens on the splash for this long (ui.SPLASH_MS): the silence before the first voice is measured
+ *  from its end, like any other gap. */
+export const SPLASH_S = 3;
 /** A caption's voice starts with it (ui.caption); later than this, picture and voice have come apart. ui.caption
  *  logs the caption and starts the voice in the same call, so today this only guards against a future change
  *  that separates the two; a late voice after a stall shows as a gap instead. */
@@ -35,10 +41,11 @@ function covered(a, b, waits) {
 
 /** Each silence between consecutive voices ({ id, at, end }, any order) that is longer than MAX_GAP_S once the
  *  seconds a marked AI wait ({ start, end }) covers are taken out: a wait shown is not a stall, but it excuses
- *  only its own seconds. `unverified`: the waits are not known (an old render), so a long silence is reported
- *  as unverified rather than as a stall. */
-export function gapFindings(spans, waits = [], { unverified = false } = {}) {
-  const sorted = [...spans].sort((x, y) => x.at - y.at);
+ *  only its own seconds. `from`: where the first silence starts (the end of the splash), so the silence before
+ *  the first voice is measured too. `unverified`: the waits are not known (an old render), so a long silence is
+ *  reported as unverified rather than as a stall. */
+export function gapFindings(spans, waits = [], { unverified = false, from: start = null } = {}) {
+  const sorted = [...(start == null ? [] : [{ id: 'the splash', at: start, end: start }]), ...[...spans].sort((x, y) => x.at - y.at)];
   const found = [];
   for (let i = 1; i < sorted.length; i++) {
     const from = sorted[i - 1].end;
@@ -52,9 +59,12 @@ export function gapFindings(spans, waits = [], { unverified = false } = {}) {
   return found;
 }
 
-/** The tail after the last voice, when longer than MAX_TAIL_S; else null. */
+/** The tail after the last voice: too long (over MAX_TAIL_S) is dead air, too short (under MIN_TAIL_S) or negative
+ *  means the end of the video cut the last voice off. Null when it is fine. */
 export function tailFinding(lastEnd, duration) {
   const tail = duration - lastEnd;
+  if (tail < 0) return `RENDER voice cut off: the video ends ${(-tail).toFixed(1)} s before the last voice does`;
+  if (tail < MIN_TAIL_S) return `RENDER voice cut off: the video ends ${tail.toFixed(1)} s after the last voice (under ${MIN_TAIL_S} s)`;
   return tail > MAX_TAIL_S ? `RENDER tail ${tail.toFixed(1)} s after the last voice (video ${duration.toFixed(1)} s)` : null;
 }
 
@@ -70,9 +80,35 @@ export function desyncFindings(captions, beats) {
 /** Every finding for a finished take: its beats ({ id, at, duration }), captions ({ id, at }) and AI waits
  *  ({ start, end }), all on the finished video's timeline, and its length in seconds. */
 export function renderFindings({ beats, captions = [], waits = [], duration }) {
+  if (!beats.length) return ['RENDER no voices'];
   const spans = beats.map((b) => ({ id: b.id, at: b.at, end: b.at + b.duration }));
   const lastEnd = Math.max(...spans.map((s) => s.end));
-  return [...gapFindings(spans, waits), tailFinding(lastEnd, duration), ...desyncFindings(captions, beats)].filter(Boolean);
+  return [...gapFindings(spans, waits, { from: SPLASH_S }), tailFinding(lastEnd, duration), ...desyncFindings(captions, beats)].filter(Boolean);
+}
+
+/** How far past the video's end a wait may run (the probed length and the mapped times round differently). */
+const WAIT_SLACK_S = 0.5;
+
+/** The AI waits of a render from its `<name>.waits.json`: a JSON array of { start, end } in seconds on the finished
+ *  video's timeline (the trimmed one, as the take writes it), each with 0 <= start < end <= the video's length.
+ *  Throws `waits file invalid: <reason>` otherwise: a wait outside the video would excuse gaps it never covered. */
+export function parseWaits(text, duration) {
+  const bad = (why) => new Error(`waits file invalid: ${why}`);
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw bad(`not JSON (${String(e?.message ?? e).split('\n')[0]})`);
+  }
+  if (!Array.isArray(data)) throw bad('not an array');
+  return data.map((w, i) => {
+    const n = i + 1;
+    if (!w || !Number.isFinite(w.start) || !Number.isFinite(w.end)) throw bad(`entry ${n} is not { start, end } in seconds`);
+    if (w.start < 0) throw bad(`entry ${n} starts before the video`);
+    if (w.end <= w.start) throw bad(`entry ${n} ends before it starts`);
+    if (w.end > duration + WAIT_SLACK_S) throw bad(`entry ${n} runs past the video (${duration.toFixed(1)} s)`);
+    return { start: w.start, end: w.end };
+  });
 }
 
 const STAMP = String.raw`(\d+):(\d+):(\d+),(\d+)`;
@@ -81,7 +117,7 @@ const seconds = (h, m, s, ms) => Number(h) * 3600 + Number(m) * 60 + Number(s) +
 /** The cues of an .srt as { id: 'cue N', at, end } in seconds. */
 export function parseSrt(text) {
   const re = new RegExp(`^(\\d+)\\r?\\n${STAMP} --> ${STAMP}`, 'gm');
-  return [...String(text).matchAll(re)].map((m) => ({
+  return [...String(text).replace(/^\uFEFF/, '').matchAll(re)].map((m) => ({
     id: `cue ${m[1]}`,
     at: seconds(m[2], m[3], m[4], m[5]),
     end: seconds(m[6], m[7], m[8], m[9]),

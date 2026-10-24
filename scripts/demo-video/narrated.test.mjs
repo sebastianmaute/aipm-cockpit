@@ -65,15 +65,16 @@ describe('trimAndMix (§715)', () => {
     // The finished MP4's length, as ffprobe would read it.
     const probe = (file) => { calls.push({ probe: file }); return length; };
     const written = {};
-    const write = (file, text) => { written[file] = text; };
-    return { calls, lines, written, deps: { lang: 'de', outRoot: 'OUT', log: (...p) => lines.push(p.join(' ')), trim, mix, probe, write } };
+    const write = (file, text) => { written[file] = text; calls.push({ write: file }); };
+    const remove = (file) => { delete written[file]; calls.push({ remove: file }); };
+    return { calls, lines, written, deps: { lang: 'de', outRoot: 'OUT', log: (...p) => lines.push(p.join(' ')), trim, mix, probe, write, remove } };
   }
 
   it('trims around the beats, maps each beat through the kept ranges, then mixes in the take language', () => {
     const f = fakes();
     const r = trimAndMix(def, take(), f.deps);
     expect(r.warnings).toBe(0);
-    expect(f.calls.map((c) => Object.keys(c)[0])).toEqual(['trim', 'mix', 'probe']);
+    expect(f.calls.map((c) => Object.keys(c)[0])).toEqual(['trim', 'mix', 'remove', 'remove', 'write', 'probe', 'write']);
     expect(f.calls[0].trim).toEqual({ file: 'v.webm', waits: [{ start: 5, end: 20 }], outRoot: 'OUT', protect: [[2, 3], [18, 20]], end: undefined, cuts: undefined });
     const { mapped, n, d, opts } = f.calls[1].mix;
     // b at 18 s lies 2 s into the second range, which starts after 6.5 s kept.
@@ -101,6 +102,13 @@ describe('trimAndMix (§715)', () => {
       '[v] RENDER tail 10.0 s after the last voice (video 30.0 s)',
     ]);
     expect(r.warnings).toBe(3);
+  });
+
+  it("removes an earlier render's sidecars before it writes this one's (§715)", () => {
+    const f = fakes({ trimThrows: false });
+    trimAndMix(def, take(), f.deps);
+    const order = f.calls.filter((c) => c.remove || c.write).map((c) => (c.remove ? `remove ${c.remove}` : `write ${c.write}`));
+    expect(order).toEqual(['remove v.waits.json', 'remove v.beats.json', 'write v.waits.json', 'write v.beats.json']);
   });
 
   it('writes the mapped AI waits beside the MP4, so check-render can judge its gaps later (§715)', () => {
