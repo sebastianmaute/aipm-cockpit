@@ -67,16 +67,17 @@ describe("ChatProposalBlock — a functions change (§779)", () => {
 });
 
 describe("ChatProposalBlock — what else the functions block says (§779)", () => {
-  // Mutation: dropping the no-undo line from `FunctionsDetail` turns this red.
-  it("says the change cannot be undone with Ctrl+Z", () => {
+  // Mutation: dropping the no-undo line from `FunctionsDetail` turns this red. No shortcut is named:
+  // Ctrl+Z is Cmd+Z on a Mac, and the undo button cannot reverse the change either.
+  it("says the change cannot be undone", () => {
     renderCard([functionsRow({ on: ["raid"] })]);
-    expect(screen.getByText("Cannot be undone with Ctrl+Z.")).toBeInTheDocument();
+    expect(screen.getByText("Cannot be undone.")).toBeInTheDocument();
   });
 
   it("says so in German too", async () => {
     await loadI18n("de");
     renderCard([functionsRow({ on: ["raid"] })], "de");
-    expect(screen.getByText("Lässt sich nicht mit Strg+Z rückgängig machen.")).toBeInTheDocument();
+    expect(screen.getByText("Lässt sich nicht rückgängig machen.")).toBeInTheDocument();
   });
 
   // Mutation: not rendering `change.others` turns this red: a call that also changes another setting

@@ -40,12 +40,18 @@ function settingText(value: unknown): string {
   return String(value);
 }
 
-/** The call's other settings, judged by the write's own patch. Run against `defaultSettings`: the
- *  describer holds no device settings, and only `nextActionsWeights` reads the current value, as the
- *  fallback for a weight its coercer refuses. */
-function otherSettings(input: Readonly<Record<string, unknown>>): FunctionsChange["others"] {
+/** What the write would apply for a settings patch, against the live settings it patches
+ *  (`ToolDispatcher.previewSettings`). */
+export type PreviewSettings = (patch: SettingsUpdateInput) => Record<string, unknown>;
+
+/** The call's other settings, judged by the write's own patch against the LIVE settings (`preview`):
+ *  `nextActionsWeights` keeps the current value for a weight its coercer refuses, so a preview against
+ *  the defaults would show a value the write never stores. Without `preview` (a unit test's opt-out;
+ *  `chat-panel.tsx` always passes it) it falls back to `defaultSettings`. */
+function otherSettings(input: Readonly<Record<string, unknown>>, preview: PreviewSettings | undefined): FunctionsChange["others"] {
   const rest = Object.fromEntries(Object.entries(input).filter(([k]) => k !== FIELD)) as SettingsUpdateInput;
-  const { applied } = computeSettingsPatch(rest, defaultSettings);
+  if (Object.keys(rest).length === 0) return [];
+  const applied = preview !== undefined ? preview(rest) : computeSettingsPatch(rest, defaultSettings).applied;
   return Object.entries(applied).map(([key, value]) => ({ key, value: settingText(value) }));
 }
 
@@ -57,6 +63,7 @@ function otherSettings(input: Readonly<Record<string, unknown>>): FunctionsChang
 export function describeFunctionsCall(
   call: ProposedCall,
   baseline: readonly FeatureModuleId[] | undefined,
+  preview?: PreviewSettings,
 ): { functions?: FunctionsChange; plan: EditPlan } | null {
   if (!carriesEnabledModules(call)) return null;
   const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
@@ -79,7 +86,7 @@ export function describeFunctionsCall(
       dropped: judged.dropped,
       before,
       after: judged.features,
-      others: otherSettings(call.input),
+      others: otherSettings(call.input, preview),
     },
   };
 }

@@ -7,7 +7,7 @@ import { act, renderHook } from "@testing-library/react";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useWorkspace } from "./workspace-context";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
-import type { Settings } from "./settings-types";
+import { defaultSettings, resolveNextActionsConfig, type Settings } from "./settings-types";
 import { dispatcherWrapper, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
 
 const LEAN: FeatureModuleId[] = ["dashboard", "milestones", "raid"];
@@ -74,6 +74,27 @@ describe("useChatDispatcher — update_settings { enabledModules } writes the pr
     expect(() => hook.result.current.dispatcher.updateSettings({ enabledModules: LEAN })).toThrow();
     expect(hook.result.current.ws.features).toBeUndefined();
     expect(setSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe("useChatDispatcher — previewSettings (§779)", () => {
+  // Mutation: computing the preview against `defaultSettings` instead of `settingsRef.current` turns
+  // this red (5, the default, instead of the user's 9). The card's "Also sets" line reads this.
+  it("reports what updateSettings would apply, against the live settings, and writes nothing", () => {
+    const setSettings = vi.fn();
+    const logActivityAs = vi.fn();
+    const settings: Settings = {
+      ...defaultSettings,
+      nextActions: { ...resolveNextActionsConfig(undefined), scopePendingRed: 9 },
+    };
+    const { result } = renderHook(
+      () => useChatDispatcher(makeDispatcherArgs({ settings, setSettings, logActivityAs })),
+      { wrapper: dispatcherWrapper() },
+    );
+    const preview = result.current.previewSettings({ nextActionsWeights: { scopePendingRed: "junk" }, showViewHints: false });
+    expect(preview).toEqual({ showViewHints: false, nextActionsWeights: { scopePendingRed: 9 } });
+    expect(setSettings).not.toHaveBeenCalled();
+    expect(logActivityAs).not.toHaveBeenCalled();
   });
 });
 

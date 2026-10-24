@@ -157,7 +157,8 @@ function FunctionsDetail({ lang, change }: { lang: Lang; change: FunctionsChange
       {change.others.length > 0 && (
         <li>{t(lang, "chatProposalFunctionsOthers", change.others.map((o) => `${o.key} = ${o.value}`).join(", "))}</li>
       )}
-      {/* The functions write takes no undo capture, while the rest of an applied plan does. */}
+      {/* The functions write takes no undo capture, while the rest of an applied plan does: neither the
+          shortcut (Ctrl+Z, Cmd+Z on a Mac) nor the undo button reverses it, so no shortcut is named. */}
       <li>{t(lang, "chatProposalFunctionsNoUndo")}</li>
     </ul>
   );

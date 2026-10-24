@@ -3,6 +3,8 @@
 // the tool name and an empty diff, which is no review at all.
 import { describe, expect, test } from "vitest";
 import type { ProposedCall } from "./chat-proposal";
+import { computeSettingsPatch } from "./chat-settings-patch";
+import { defaultSettings, resolveNextActionsConfig, type Settings } from "./settings-types";
 import { describeProposal } from "./chat-proposal-describe";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { emptyWorkspace, type Workspace } from "./workspace";
@@ -91,5 +93,23 @@ describe("describeProposal — update_settings { enabledModules } (§779)", () =
       { key: "showViewHints", value: "false" },
       { key: "tasksViewMode", value: "board" },
     ]);
+  });
+
+  // Mutation: computing "Also sets" against `defaultSettings` instead of `previewSettings` turns this red
+  // (it shows the default 5). A weight the coercer refuses keeps the user's CURRENT value in the write, so
+  // the card must show that value, not the default.
+  test("a refused weight shows the user's current value, as the write keeps it", () => {
+    const live: Settings = {
+      ...defaultSettings,
+      nextActions: { ...resolveNextActionsConfig(undefined), scopePendingRed: 9 },
+    };
+    const preview = (patch: Parameters<typeof computeSettingsPatch>[0]) => computeSettingsPatch(patch, live).applied;
+    const [row] = describeProposal(
+      [settings({ enabledModules: ["raid"], nextActionsWeights: { scopePendingRed: "junk" } })],
+      wsWith(["raid"]),
+      undefined,
+      preview,
+    );
+    expect(row.functions?.others).toEqual([{ key: "nextActionsWeights", value: "scopePendingRed 9" }]);
   });
 });

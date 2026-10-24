@@ -868,7 +868,8 @@ function ChatPanelInner({
             // exercised on every create. See its own docstring for what a
             // peek-based mint would have made dormant.
             const planRows = buildPlanRows(calls, mintProvisionalIds(calls, ws));
-            const described = describeProposal(calls, ws, planRows);
+            // §779 — the dispatcher's live settings judge a functions row's other settings.
+            const described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch));
             const proposalId = newProposalId();
             setPendingProposal({
               id: proposalId,

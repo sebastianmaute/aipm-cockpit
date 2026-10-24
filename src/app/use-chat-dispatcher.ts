@@ -753,6 +753,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         args.onSettingsLoggedByAi?.(); // §160 — suppress the debounced duplicate.
       },
 
+      previewSettings: (patch: SettingsUpdateInput) => computeSettingsPatch(patch, settingsRef.current).applied,
+
       updateSettings: (patch: SettingsUpdateInput) => {
         if (args.isReadOnly) throw readOnlyError();
         const cur = settingsRef.current;

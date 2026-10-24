@@ -41,7 +41,7 @@ import { resolveDependencyWrite } from "./task-dependency-write";
 import type { Task, TaskDependency } from "./types";
 import { proposalIdOf } from "./forecast-target";
 import { describeProjectPlan, stampProjectCall, UPDATE_PROJECT_TOOL } from "./chat-proposal-describe-project";
-import { describeFunctionsCall, type FunctionsChange } from "./chat-proposal-describe-functions";
+import { describeFunctionsCall, type FunctionsChange, type PreviewSettings } from "./chat-proposal-describe-functions";
 
 export {
   describeProjectCall,
@@ -442,6 +442,8 @@ export function describeProposal(
   calls: readonly ProposedCall[],
   ws: Workspace,
   planRows?: readonly PlanRow[],
+  /** §779 — the dispatcher's `previewSettings`, for a functions row's other settings. */
+  previewSettings?: PreviewSettings,
 ): readonly DescribedRow[] {
   if (planRows !== undefined && planRows.length !== calls.length) {
     throw new RangeError(
@@ -498,7 +500,7 @@ export function describeProposal(
     }
 
     // §779 — a functions change has no descriptor either; its detail comes from the write's own judge.
-    const functionsRow = describeFunctionsCall(call, functionsSoFar);
+    const functionsRow = describeFunctionsCall(call, functionsSoFar, previewSettings);
     if (functionsRow !== null) {
       if (functionsRow.functions) functionsSoFar = functionsRow.functions.after;
       rows.push({ call, stamped, plan: functionsRow.plan, mintedId, ...(functionsRow.functions ? { functions: functionsRow.functions } : {}) });

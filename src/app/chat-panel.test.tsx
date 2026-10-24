@@ -3028,6 +3028,36 @@ describe("staged tool calls (the review card)", () => {
     expect(within(card).getByText(/^Turns off: Dashboard, /)).toBeInTheDocument();
   });
 
+  it("the card's other settings come from the dispatcher's live preview (§779)", async () => {
+    // Mutation: not passing `previewSettings` to `describeProposal` turns this red: the line is then
+    // computed against the defaults and shows "scopePendingRed 5".
+    const dispatcher = makeDispatcher();
+    (dispatcher as unknown as { previewSettings: unknown }).previewSettings = vi.fn(() => ({
+      nextActionsWeights: { scopePendingRed: 9 },
+    }));
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK },
+          {
+            type: "tool_use",
+            id: "t2",
+            name: "update_settings",
+            input: { enabledModules: ["raid"], nextActionsWeights: { scopePendingRed: "junk" } },
+          },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    expect(within(card).getByText("Also sets nextActionsWeights = scopePendingRed 9")).toBeInTheDocument();
+  });
+
   it("the staged result for a create carries its provisional id, and the mint ADVANCED", async () => {
     // ★★★ THE `peekMintId` MUTANT AT THE SEAM. `peekMintId` does not advance
     //   the mark, so the first create's provisional id would equal the id apply
