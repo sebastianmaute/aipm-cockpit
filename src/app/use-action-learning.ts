@@ -10,7 +10,8 @@ import {
   type LearningState,
   type OutcomeType,
 } from "./action-learning";
-import { EMPTY_SNAPSHOT, pickLearningStore, type LearningSnapshot } from "./learning-store";
+import { EMPTY_SNAPSHOT, pickLearningStore, type LearningSnapshot, type LearningStore } from "./learning-store";
+import { logDiag } from "./diagnostics";
 import type { SuggestedAction } from "./next-actions/types";
 import { learningKindOf } from "./next-actions/learning-kind";
 import type { NextActionsLearningConfig } from "./settings-types";
@@ -36,6 +37,9 @@ interface UseActionLearningResult {
  * via pickLearningStore, records outcomes (no-op when disabled or in a popout),
  * exposes a memoized bias map + overrides + reset, and persists every mutation.
  */
+/** A learning write, kept as a function so it can replay on top of a late load (§781). */
+type Mutation = (s: LearningSnapshot) => LearningSnapshot;
+
 export function useActionLearning({
   config,
   tursoConfig,
@@ -53,9 +57,17 @@ export function useActionLearning({
   // refs are refreshed before anything reads them (see use-action-notifications).
   const snapRef = useRef(snap);
   const argsRef = useRef({ config, tursoConfig, isPopout });
-  // Guards a late mount-load promise from clobbering an outcome recorded before
-  // the load resolved (load() is async even for the synchronous local store).
-  const dirtyRef = useRef(false);
+  // §781 — where the mount load stands. Until it resolves, every write is applied
+  // to the in-memory snapshot (so the view and bias react at once) AND queued; the
+  // load then replays the queue on top of what it read and saves that ONCE. A
+  // write used to mark the hook "dirty", the late load was DROPPED, and the save
+  // carried only the new write — on Turso a full rewrite of the GLOBAL
+  // `action_learning` table (`tursoLearningStore.save`), so one early snooze wiped
+  // every stored row. After a FAILED load nothing is saved for the rest of the
+  // session: the store's contents are unknown, and a full rewrite would replace
+  // them with what this session alone recorded.
+  const loadStateRef = useRef<"pending" | "loaded" | "failed">("pending");
+  const queueRef = useRef<Mutation[]>([]);
   // Serializes saves so two rapid persists cannot land out-of-order on the async
   // Turso store (a slower older write reverting a newer outcome).
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
@@ -66,28 +78,46 @@ export function useActionLearning({
     argsRef.current = { config, tursoConfig, isPopout };
   });
 
+  const enqueueSave = useCallback((store: LearningStore, next: LearningSnapshot) => {
+    // Chain saves so they run in enqueue order — the last record's snapshot is
+    // the last write even if an earlier (slower) save is still in flight.
+    saveChainRef.current = saveChainRef.current.then(() => store.save(next)).catch(() => {});
+  }, []);
+
   // Load the persisted snapshot once on mount.
   useEffect(() => {
     let live = true;
-    pickLearningStore(argsRef.current.config, argsRef.current.tursoConfig)
+    // ★ The queued writes are saved to the store they were LOADED from, so a store
+    //   switch during the load cannot write one store's rows into another.
+    const store = pickLearningStore(argsRef.current.config, argsRef.current.tursoConfig);
+    store
       .load()
       .then((s) => {
-        if (live && !dirtyRef.current) {
-          // §778 — rows and overrides stored under a count-variant kind merge
-          // into the canonical one here; the next save writes them merged.
-          setSnap(normalizeLearningSnapshot(s));
+        // §778 — rows and overrides stored under a count-variant kind merge
+        // into the canonical one here; the next save writes them merged.
+        const queued = queueRef.current;
+        queueRef.current = [];
+        loadStateRef.current = "loaded";
+        const next = queued.reduce((acc, m) => m(acc), normalizeLearningSnapshot(s));
+        // Saved even after an unmount: the queued writes are the user's, and
+        // `next` already holds every stored row.
+        if (queued.length > 0) enqueueSave(store, next);
+        if (live) {
+          snapRef.current = next;
+          setSnap(next);
           setNowTick(Date.now());
         }
       })
       .catch(() => {
-        // Degrade to empty (analytics feature). Mark dirty so a later resolve
-        // can never clobber an outcome recorded in the meantime.
-        dirtyRef.current = true;
+        // Degrade to the in-memory snapshot (analytics feature), never saved.
+        queueRef.current = [];
+        loadStateRef.current = "failed";
+        logDiag("warn", "learning.loadFailedSavesOff");
       });
     return () => {
       live = false;
     };
-  }, []);
+  }, [enqueueSave]);
 
   // Pure derivation of the bias map — no Date.now() here (it would trip the
   // engine-purity lint); the timestamp arrives via nowTick.
@@ -96,45 +126,44 @@ export function useActionLearning({
     [snap, config.enabled, nowTick],
   );
 
-  const persist = useCallback((next: LearningSnapshot) => {
-    dirtyRef.current = true;
+  const apply = useCallback((m: Mutation) => {
+    const next = m(snapRef.current);
     // Update the ref synchronously so consecutive mutations within one tick
     // (before React flushes the mirror effect) build on each other.
     snapRef.current = next;
     setSnap(next);
     setNowTick(Date.now());
-    // Chain saves so they run in enqueue order — the last record's snapshot is
-    // the last write even if an earlier (slower) save is still in flight.
-    const store = pickLearningStore(argsRef.current.config, argsRef.current.tursoConfig);
-    saveChainRef.current = saveChainRef.current.then(() => store.save(next)).catch(() => {});
-  }, []);
+    if (loadStateRef.current === "pending") {
+      queueRef.current.push(m);
+      return;
+    }
+    if (loadStateRef.current === "failed") return;
+    enqueueSave(pickLearningStore(argsRef.current.config, argsRef.current.tursoConfig), next);
+  }, [enqueueSave]);
 
   const record = useCallback(
     async (action: SuggestedAction, type: OutcomeType) => {
       if (!argsRef.current.config.enabled || argsRef.current.isPopout) return;
       // §502 — a simulated signal never teaches the learning layer (it is not measured).
       if (action.source === "forecast-sim") return;
-      persist({
-        ...snapRef.current,
-        state: recordOutcome(snapRef.current.state, learningKindOf(action), type, Date.now()),
-      });
+      // `now` is captured here, at the outcome, not when a queued write replays.
+      const kind = learningKindOf(action);
+      const now = Date.now();
+      apply((s) => ({ ...s, state: recordOutcome(s.state, kind, type, now) }));
     },
-    [persist],
+    [apply],
   );
 
   const setOverride = useCallback(
     async (kind: string, override: LearningOverride) => {
-      persist({
-        ...snapRef.current,
-        overrides: { ...snapRef.current.overrides, [kind]: override },
-      });
+      apply((s) => ({ ...s, overrides: { ...s.overrides, [kind]: override } }));
     },
-    [persist],
+    [apply],
   );
 
   const reset = useCallback(async () => {
-    persist({ state: {}, overrides: {} });
-  }, [persist]);
+    apply(() => ({ state: {}, overrides: {} }));
+  }, [apply]);
 
   return { bias, state: snap.state, overrides: snap.overrides, record, setOverride, reset };
 }
