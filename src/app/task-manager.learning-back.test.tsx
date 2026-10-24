@@ -58,4 +58,29 @@ describe("TaskManager learning insights view", () => {
     expect(await screen.findByRole("navigation", { name: "Settings" })).toBeTruthy();
     expect(screen.queryByRole("heading", { level: 2, name: "Action Center learning" })).toBeNull();
   }, 45000);
+
+  // §780 — the `learningEnabled` prop is wired from the SAME setting the learning
+  // hook reads. Seeded with learning switched off and one stored row, the view's
+  // Adjustment cell must say "learning off"; a `learningEnabled={true}` wiring
+  // would show the row's adjustment instead.
+  it("passes the learning switch to the view (learning off shows 'learning off')", async () => {
+    window.localStorage.setItem(
+      "aipm-cockpit:settings",
+      JSON.stringify({ layout: "modern", expertMode: true, nextActionsLearning: { enabled: false, store: "local" } }),
+    );
+    window.localStorage.setItem(
+      "aipm-cockpit:action-learning",
+      JSON.stringify({ state: { "raid:actionRaidWhySeverity": { acted: 4, snoozed: 0, dismissed: 1, lastAt: 0 } }, overrides: {} }),
+    );
+    window.history.replaceState(null, "", "/#raid");
+    render(<TaskManager />);
+    await screen.findByTestId("ws-section-mock", undefined, { timeout: 40000 });
+    act(() => {
+      window.location.hash = "#settings";
+    });
+    const rail = await screen.findByRole("navigation", { name: "Settings" });
+    fireEvent.click(within(rail).getByRole("button", { name: "Next actions" }));
+    fireEvent.click(await screen.findByRole("button", { name: "View learning insights" }));
+    expect(await screen.findByText("learning off")).toBeTruthy();
+  }, 45000);
 });

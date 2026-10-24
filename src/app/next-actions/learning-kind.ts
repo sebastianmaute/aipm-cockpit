@@ -9,8 +9,10 @@
 // never reach `computeNextActions`, and `record` returns early for them (§502). Keyed by the raw why key, it
 // was learned and overridden as TWO kinds: "Always suppress" on "Task — Due
 // soon" did not demote a task due in exactly 1 working day. Every place that
-// builds a kind (recording an outcome, the engine's bias lookup) and every read
-// of stored kinds (`normalizeLearningSnapshot`) goes through this module.
+// builds a kind (recording an outcome, the engine's bias lookup) goes through
+// this module. Stored kinds are normalised ONCE, when `useActionLearning` loads
+// the snapshot (`normalizeLearningSnapshot`); everything downstream (the bias
+// map, the learning view, the AI weight prompt) reads that normalised state.
 
 /** Count-variant why key → the canonical why key it is learned under.
  *  ★ `learning-kind.test.ts` derives every "…One" / "…Below1" why key from the
