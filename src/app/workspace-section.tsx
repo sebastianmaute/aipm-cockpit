@@ -37,6 +37,7 @@ import {
   subTabsFor,
 } from "./nav-config";
 import {
+  ALL_MODULE_IDS,
   isModuleEnabled,
   isViewEnabled,
 } from "./feature-modules";
@@ -264,9 +265,9 @@ export function WorkspaceSection({
   // through `liveAiKey`, and a panel already on screen would otherwise keep showing AI as unavailable.
   useSessionAiKey();
   const features = settings.features;
-  // Accept the AI consent on THIS component's settings instance — useSettings()
-  // is per-instance with no same-page sync, so writing through a parent handler
-  // (a different instance) would never reach the ChatPanel rendered here.
+  // Accept the AI consent on THIS component's settings instance, so the ChatPanel
+  // rendered here sees it at once; `useSettings` broadcasts the change to the
+  // other live instances after it commits (the registry in `use-settings.ts`).
   const handleAcceptAiConsent = useCallback(
     () => setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } })),
     [setSettings],
@@ -279,6 +280,11 @@ export function WorkspaceSection({
   //   inline row editor, which grounds through the same descriptor engine.
   const workspace = useWorkspace();
   const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights, budgetHistory, baselineHistory, forecastHistory } = workspace;
+  // §779 — every panel handed `onCommitFeatures={workspace.setFeatures}` builds the set it writes from
+  // the `features` it is handed, so it reads this slice, not `features` above: this instance's mirror
+  // starts at the all-modules default on mount, and a write built from it switches every function back
+  // on. `?? ALL_MODULE_IDS` is the legacy-project default `useFeaturesSync` mirrors.
+  const projectFeatures = workspace.features ?? ALL_MODULE_IDS;
   // Per-project EFFECTIVE settings — device folded with this project's policy
   // overrides (nextActions/notifications/timezone) AND its per-device appearance
   // overrides (density/view-hints/tasks-view-mode). Reactive: an appearance change
@@ -888,7 +894,7 @@ export function WorkspaceSection({
               timelogProjectId={currentProjectId ?? "default"} onGoToTimelog={() => setActiveTab("timelog")}
               onOpenBudgetReport={isPopout ? undefined : () => setActiveTab("budget-report")}
               onSetupGo={isPopout ? undefined : setActiveTab} onStartTour={isPopout ? undefined : onStartTour} onLoadDemo={isPopout || isLocalDemoBlocked(isTursoUsable(mode, chatTursoConfig), readBrowserProject()) ? undefined : onLoadDemo}
-              features={features} onCommitFeatures={isPopout ? undefined : workspace.setFeatures}
+              features={projectFeatures} onCommitFeatures={isPopout ? undefined : workspace.setFeatures}
               onChangeBuckets={onChangeBudgets}
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
               onRefreshFx={onRefreshFx}
@@ -1148,7 +1154,7 @@ export function WorkspaceSection({
 
         {activeTab === "timelog" && (
           <div id="panel-timelog" role="tabpanel" className={panelClass}>
-            <TimelogPanel lang={lang} isPopout={isPopout} projectKey={currentProjectId ?? "default"} onConfigureTimelog={!isPopout && onOpenSettingsSection ? () => onOpenSettingsSection("integrations") : undefined} features={settings.features} onCommitFeatures={isPopout ? undefined : workspace.setFeatures} />
+            <TimelogPanel lang={lang} isPopout={isPopout} projectKey={currentProjectId ?? "default"} onConfigureTimelog={!isPopout && onOpenSettingsSection ? () => onOpenSettingsSection("integrations") : undefined} features={projectFeatures} onCommitFeatures={isPopout ? undefined : workspace.setFeatures} />
           </div>
         )}
 
@@ -1169,9 +1175,12 @@ export function WorkspaceSection({
               onSwitch={onSwitchProject}
               onCreate={onCreateProject}
               onUpdateCurrent={(meta) => void saveProjectFromForm({ write: onUpdateCurrentProject, before: currentProject, next: meta, getScopeEpoch, logActivityAs })}
-              features={features}
+              // §779 — a Settings -> Functions request opens Edit project on this section's FIRST render,
+              // and the dialog seeds its draft once, so it must see `projectFeatures`, never the mirror.
+              features={projectFeatures}
               onCommitFeatures={workspace.setFeatures}
               simulation={isSimulationOn(workspace.settingsOverrides)}
+              // May keep reading the mirror: `isViewEnabled("forecast", …)` ignores the list (§779 in docs/open-followups.md).
               onCommitSimulation={!isPopout && isViewEnabled("forecast", features) ? (on) => workspace.setSettingsOverrides((prev) => withSimulation(prev, on)) : undefined}
               onDelete={onDeleteProject}
               onExportCurrent={onExportCurrentProject}

@@ -29,12 +29,12 @@ function setup(features: FeatureModuleId[] = ONE_MODULE) {
   const showToast = vi.fn();
   const hook = renderHook(
     () => ({
-      actions: useTemplateActions({ lang: "en-US", showToast, features }),
+      actions: useTemplateActions({ lang: "en-US", showToast }),
       ws: useWorkspace(),
     }),
     { wrapper: Wrapper },
   );
-  act(() => { hook.result.current.ws.setTasks([OWN_TASK]); });
+  act(() => { hook.result.current.ws.setTasks([OWN_TASK]); hook.result.current.ws.setFeatures(features); });
   return { hook, showToast };
 }
 
@@ -73,12 +73,24 @@ describe("useTemplateActions", () => {
     expect(showToast).not.toHaveBeenCalled();
   });
 
-  it("save captures the live project with the features it was given, and toasts", () => {
+  it("save captures the live project with its saved functions, and toasts", () => {
     const { hook, showToast } = setup(ONE_MODULE);
     act(() => { hook.result.current.actions.handleSaveTemplate({ name: "Captured", includeContent: true }); });
     const saved = hook.result.current.actions.projectTemplates.find((x) => x.name === "Captured");
     expect(saved).toBeDefined();
     expect(saved!.features).toEqual(ONE_MODULE);
     expect(showToast).toHaveBeenCalledWith("info", t("en-US", "templateSaved"));
+  });
+
+  // §779 — the project menu's save must store the project's SAVED functions (`Workspace.features`), the
+  // same source as Settings -> Templates, never a settings mirror that can lag or start all-on.
+  // Mutation: building the template from task-manager's `settings.features` again (a deps field) turns
+  // this red: the hook was handed the all-on list while the project had one function.
+  it("save captures the project's saved functions after they change, not a settings mirror (§779)", () => {
+    const { hook } = setup([...ALL_MODULE_IDS]);
+    act(() => { hook.result.current.ws.setFeatures(ONE_MODULE); });
+    act(() => { hook.result.current.actions.handleSaveTemplate({ name: "Lean", includeContent: false }); });
+    const saved = hook.result.current.actions.projectTemplates.find((x) => x.name === "Lean");
+    expect(saved!.features).toEqual(ONE_MODULE);
   });
 });

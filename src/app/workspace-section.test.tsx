@@ -17,7 +17,7 @@ import { SINGLE_TENANT_ASSET_PARTITION } from "./document-assets-schema";
 import { __resetSafeModeCache } from "./safe-mode";
 import { useEffect } from "react";
 import { saveActualsCache } from "./timelog-actuals-store";
-import type { FeatureModuleId } from "./feature-modules";
+import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import type { SuggestedAction } from "./next-actions/types";
 import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 import { t } from "./i18n";
@@ -805,9 +805,11 @@ describe("WorkspaceSection — Time bookings features wiring", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("hands TimelogPanel the live features and a callback that commits them to the workspace", async () => {
+  // §779 — the features are the workspace slice the callback writes (all modules while it is unset),
+  // not this section's settings mirror.
+  it("hands TimelogPanel the workspace features and a callback that commits them to the workspace", async () => {
     const props = await renderAtTimelog();
-    expect(props.features).toEqual(["dashboard", "trends", "gantt", "milestones", "resources", "budget", "raid", "changes", "stakeholders"]);
+    expect(props.features).toEqual(ALL_MODULE_IDS);
     expect(typeof props.onCommitFeatures).toBe("function");
     act(() => (props.onCommitFeatures as (next: FeatureModuleId[]) => void)(["timelog", "budget"]));
     expect(screen.getByTestId("ws-features")).toHaveTextContent('["timelog","budget"]');

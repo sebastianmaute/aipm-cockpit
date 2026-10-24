@@ -80,6 +80,7 @@ import {
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
 import {
   ChatProposalBlock,
+  functionsRowTitle,
   proposalRowTitle,
   type ProposalCardRow,
 } from "./chat-proposal-block";
@@ -612,6 +613,8 @@ function ChatPanelInner({
       //   all four outcomes.
       failed: p.failed.has(i),
       failedKind: p.failed.get(i),
+      // §779 — what a staged functions change switches; absent on every other row.
+      functions: row.functions,
     }));
   }, [pendingProposal]);
 
@@ -865,13 +868,14 @@ function ChatPanelInner({
             // exercised on every create. See its own docstring for what a
             // peek-based mint would have made dormant.
             const planRows = buildPlanRows(calls, mintProvisionalIds(calls, ws));
-            const described = describeProposal(calls, ws, planRows);
+            // §779 — the dispatcher's live settings judge a functions row's other settings.
+            const described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch));
             const proposalId = newProposalId();
             setPendingProposal({
               id: proposalId,
               rows: described,
               planRows,
-              titles: proposalTitles(described, ws, (r) => proposalRowTitle(r.call, r.plan)),
+              titles: proposalTitles(described, ws, (r) => functionsRowTitle(lang, r.call) ?? proposalRowTitle(r.call, r.plan)),
               // Everything starts kept: the card is a chance to REFUSE, and a
               // plan that arrives all-unchecked reads as "nothing to do here".
               selected: new Set(described.map((_, i) => i)),
@@ -1257,6 +1261,8 @@ function ChatPanelInner({
         // replay — `runTool` is awaited per row — so the same epoch is re-read
         // before every row.
         isScopeStale: () => isScopeStale(getScopeEpoch, p.scopeEpoch),
+        // §779 — the live saved functions, so a staged functions row is refused if they moved since.
+        getFeatures: () => workspaceRef.current?.features,
       });
       const failed = new Map(
         result.rows

@@ -74,6 +74,13 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Edit project shows the functions you switched off (§779).** Opened from Settings → Functions, Edit project
+  showed a function you had just switched off as still on, and saving it after changing another function switched it
+  on again. It now shows the project's saved functions. Turning a function on from Budget's setup checklist or the
+  Time bookings notice now starts from the same saved functions, and "Save current as template" (in Settings → Templates
+  and in the project menu) stores them. When Claude switches functions on or off, the change is now saved with the
+  project, so Edit project and the navigation agree and the next project load no longer undoes it. A function list from
+  Claude that is not a list, or that names no known function, is refused instead of switching every function off. If Claude changes the functions in the same reply as another edit, both now wait for you on the review card, which lists the functions the change turns on and off. Claude is also told which names in its list are not functions. If you change the functions yourself before applying, that row is refused rather than undoing your change, and the card also lists any other setting the same change makes.
 - **Manage roles has room on smaller screens (§766).** The roles pane took half the window's content area, so the
   rate card was cut off even in a 1920×1080 window, and at 1366×768 and smaller it showed only its first two or
   three columns. The pane now uses the whole width, up to a cap, and the rate columns are narrower, so with typical

@@ -638,7 +638,7 @@ function TaskManagerInner() {
     useStakeholders({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave });
 
   // Save/Apply template actions for the project menu — extracted to useTemplateActions.
-  const { projectTemplates, handleSaveTemplate, handleApplyTemplate } = useTemplateActions({ lang, showToast, features: settings.features });
+  const { projectTemplates, handleSaveTemplate, handleApplyTemplate } = useTemplateActions({ lang, showToast });
 
   // Stakeholder-comms reminder items. The banner/modal/toast surfaces moved into
   // the Action Center; `comms.items` still feeds buildActionInput (commsReminders).

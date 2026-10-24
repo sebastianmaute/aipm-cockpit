@@ -42,14 +42,20 @@ const DESTRUCTIVE_TOOLS: ReadonlySet<string> = new Set([
 
 /** Tools that write PROJECT ENTITY data.
  *
- *  ★ `set_language`, `set_filters` and `update_settings` are deliberately ABSENT.
- *   They change device-local preferences, not project data — verified:
- *   `setLanguage` and `updateSettings` write through `args.setSettings` only
- *   (`use-chat-dispatcher.ts`), touching no workspace setter and no `Workspace`
- *   slice, and persist via `writeSettings` into localStorage; `set_filters`
- *   routes to `applyFilters`, which writes the pane's filter state. None of them
- *   is in the undo stack either, so staging them would offer a review of
- *   something the rest of the app treats as ephemeral.
+ *  ★ `set_language`, `set_filters` and `update_settings` are ABSENT BY NAME.
+ *   `setLanguage` writes through `args.setSettings` only (`use-chat-dispatcher.ts`)
+ *   and persists via `writeSettings` into localStorage; `set_filters` routes to
+ *   `applyFilters`, which writes the pane's filter state. Neither is in the undo
+ *   stack, so staging them would offer a review of something the rest of the app
+ *   treats as ephemeral.
+ *  ★★ `update_settings` is the same for every DEVICE setting it accepts, with ONE
+ *   exception the name cannot see: an `enabledModules` key also calls
+ *   `setFeatures`, which writes `Workspace.features` — the project's saved
+ *   functions, saved with the project on the six write paths, with no undo
+ *   capture. That call therefore counts as a write (§779, owner decision
+ *   2026-10-24, "Count it"): one applies, two writes in a turn stage. It is a
+ *   payload check, `isEntityWriteCall` below, layered on this name-level set in
+ *   the shape of `sendsInvitations`; a call without the key stays exempt.
  *
  *  ★★★ `send_inquiry` IS here, and it is the non-obvious member. It reads like a
  *   send-an-email action, but its dispatcher handler increments
@@ -311,8 +317,29 @@ export function isDestructiveTool(name: string): boolean {
   return DESTRUCTIVE_TOOLS.has(name);
 }
 
+/** ★★ NAME-ONLY, AND THEREFORE NOT THE GATE'S OWN PREDICATE — `shouldStage`
+ *   counts through `isEntityWriteCall`, which adds the one case a name cannot
+ *   answer (`update_settings` carrying `enabledModules`). Kept exported for the
+ *   tests that partition the live tool surface by name. */
 export function isEntityWriteTool(name: string): boolean {
   return ENTITY_WRITE_TOOLS.has(name);
+}
+
+/** True when this CALL writes project data: the name-based set, plus
+ *  `update_settings` carrying an `enabledModules` key, which writes
+ *  `Workspace.features` through `setFeatures` (§779, see `ENTITY_WRITE_TOOLS`).
+ *
+ *  ★ THE KEY, NOT THE VALUE. `[]` switches every function off and is the call
+ *   that most needs counting; a malformed value is refused by the handler and
+ *   writes nothing, so counting it can at worst send a refusal to review. */
+export function isEntityWriteCall(call: ProposedCall): boolean {
+  return ENTITY_WRITE_TOOLS.has(call.name) || carriesEnabledModules(call);
+}
+
+/** The one `update_settings` shape that writes project data (§779): the `enabledModules` key is present.
+ *  Shared by the gate above and the review card's describer (`chat-proposal-describe-functions.ts`). */
+export function carriesEnabledModules(call: ProposedCall): boolean {
+  return call.name === "update_settings" && Object.hasOwn(call.input, "enabledModules");
 }
 
 /** `update_document` ops that discard blocks the model never had to read.
@@ -409,6 +436,9 @@ export function isDestructiveCall(call: ProposedCall): boolean {
  *   ★★ `set_forecast_proposal` and `set_forecast_target_confidence` (§502 part 4)
  *   are exempt the same way, with NEITHER undo nor version history: a lone one
  *   applies at once and is only logged (recorded on `ENTITY_WRITE_TOOLS` above).
+ *   ★★ So is a lone `update_settings` carrying `enabledModules` (§779): it
+ *   writes `Workspace.features` with no undo capture and is only logged; it is
+ *   counted through `isEntityWriteCall`, so a second write beside it stages.
  *
  *  ★★★ A LONE CALENDAR-EVENT WRITE IS A FOURTH EXCEPTION, and it is not merely
  *   ungated by undo — it is not gated by ANYTHING else here. `sendsInvitations`
@@ -421,7 +451,7 @@ export function shouldStage(calls: readonly ProposedCall[]): boolean {
     if (isDestructiveCall(c)) return true;
     if (sendsInvitations(c)) return true;
     if (ALWAYS_STAGED_TOOLS.has(c.name)) return true;
-    if (isEntityWriteTool(c.name)) writes += 1;
+    if (isEntityWriteCall(c)) writes += 1;
   }
   return writes > 1;
 }

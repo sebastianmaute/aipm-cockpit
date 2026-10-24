@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { TemplatesSection } from "./templates-section";
 import { FiltersProvider } from "../filters-context";
-import { WorkspaceProvider } from "../workspace-context";
+import { WorkspaceProvider, useWorkspace } from "../workspace-context";
+import { ALL_MODULE_IDS } from "../feature-modules";
 import { t } from "../i18n";
 import { SETTINGS_KEY } from "../use-settings";
 import { useTemplates } from "../use-templates";
@@ -163,5 +164,29 @@ describe("TemplatesSection rename commits via pagehide (§622)", () => {
     await waitFor(() => expect(storedNames()).toEqual(["External"]));
     pageHide();
     expect(storedNames()).toEqual(["External"]);
+  });
+});
+
+// §779 — the Settings view mounts its own settings instance, whose `features` mirror starts at the
+// all-modules default and is not the project's source of truth. A template saved from the current
+// project must carry the functions the project has saved (`Workspace.features`).
+// Mutation: building the template from `settings.features` again turns this red.
+describe("TemplatesSection — save current captures the project's functions (§779)", () => {
+  const WITHOUT_CHANGES = ALL_MODULE_IDS.filter((id) => id !== "changes");
+  function SwitchOff() {
+    const { setFeatures } = useWorkspace();
+    return <button data-testid="switch-off" onClick={() => setFeatures(WITHOUT_CHANGES)} />;
+  }
+  const storedFeatures = (): unknown[] =>
+    ((JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}") as { templates?: { features: unknown }[] }).templates ?? [])
+      .map((tpl) => tpl.features);
+
+  it("stores the workspace's functions, not the settings mirror", async () => {
+    render(<><SwitchOff /><TemplatesSection lang="en-US" /></>, { wrapper });
+    fireEvent.click(screen.getByTestId("switch-off"));
+    fireEvent.change(screen.getByLabelText(t("en-US", "templateSaveName")), { target: { value: "Lean" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "templateSaveAction") }));
+    await waitFor(() => expect(storedFeatures()).toHaveLength(1));
+    expect(storedFeatures()).toEqual([WITHOUT_CHANGES]);
   });
 });
