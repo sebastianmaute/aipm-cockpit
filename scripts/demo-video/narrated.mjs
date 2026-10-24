@@ -2,11 +2,13 @@
 // the take: its narration and the beat ids of its own file (narrationFor). After it: the AI waits trimmed around
 // the beats, each beat's time mapped onto the trimmed video, and the mix in the take's language (trimAndMix).
 // See README.md.
+import fs from 'node:fs';
 import { loadBeats, ownBeatIds } from './narration/beats.mjs';
 import { mixTake } from './narration/mix.mjs';
 import { VOICE, audioFor } from './narration/tts.mjs';
 import { takeNarration } from './take.mjs';
-import { MAX_AI_WAIT_S, mapTime, protectSpans, trimAiWaits } from './trim.mjs';
+import { renderFindings } from './render-check.mjs';
+import { MAX_AI_WAIT_S, mapTime, probeDuration, protectSpans, trimAiWaits } from './trim.mjs';
 
 /** The take's narration (take.mjs `takeNarration`) in `lang`, and the beat ids of the video's own file, which
  *  are the ones a take may report unused (for the big video, big.md's, not the chapters' it merges). A recorded
@@ -21,12 +23,18 @@ export function narrationFor(def, { lang, rehearse, audio = (text) => audioFor(l
  *  beat; a narrated take is then mixed (narration/mix.mjs) in `lang` into an MP4 with its subtitles, its beats
  *  mapped through the same kept ranges as the picture. A failed trim keeps the untrimmed take and counts a
  *  warning, so the take's own warnings still reach the tally; a failed mix keeps the WebM and counts one too.
- *  `log` must mask secrets (record.mjs passes its masking logger); `trim` and `mix` are overridable for tests. */
-export function trimAndMix(def, r, { lang, log, outRoot, trim = trimAiWaits, mix = mixTake }) {
+ *  The trim also cuts the take's off-camera spans (`r.cuts`) and everything after the take ended (`r.endAt`).
+ *  Once mixed, the MP4 is checked (render-check.mjs): each finding is logged as a RENDER line and counts a warning.
+ *  Its AI waits are written beside the MP4 as `<name>.waits.json`, for check-render.mjs, and its beats on the
+ *  final timeline with their caption text as `<name>.beats.json` ({ duration, beats: [{ id, at, caption }] }),
+ *  for the YouTube details page (youtube.mjs).
+ *  `log` must mask secrets (record.mjs passes its masking logger); `trim`, `mix`, `probe` (an MP4's length in
+ *  seconds), `write` (a file's text) and `remove` (a file) are overridable for tests. */
+export function trimAndMix(def, r, { lang, log, outRoot, trim = trimAiWaits, mix = mixTake, probe = probeDuration, write = fs.writeFileSync, remove = (p) => fs.rmSync(p, { force: true }) }) {
   if (r.status !== 'ok' || !r.file) return r;
   let ranges;
   try {
-    const t = trim(r.file, r.aiWaits, outRoot, { protect: protectSpans(r.beats) });
+    const t = trim(r.file, r.aiWaits, outRoot, { protect: protectSpans(r.beats), cuts: r.cuts, end: r.endAt });
     ranges = t.ranges;
     if (t.capped) log(`[${def.id}]`, `TRIM ${t.capped} AI wait(s) capped at ${MAX_AI_WAIT_S} s, ${t.cut.toFixed(1)} s cut`);
   } catch (e) {
@@ -37,5 +45,27 @@ export function trimAndMix(def, r, { lang, log, outRoot, trim = trimAiWaits, mix
   const mapped = r.beats.map((b) => ({ ...b, at: mapTime(b.at, ranges) }));
   const duration = ranges.reduce((sum, [a, b]) => sum + (b - a), 0);
   const m = mix(r.file, mapped, r.narration, def, { duration, lang, log });
-  return m.warning ? { ...r, warnings: r.warnings + 1 } : r;
+  let warnings = r.warnings + (m.warning ? 1 : 0);
+  if (m.mp4) {
+    const waits = (r.aiWaits ?? []).map((w) => ({ start: mapTime(w.start, ranges), end: mapTime(w.end, ranges) }));
+    const captions = (r.captions ?? []).map((c) => ({ ...c, at: mapTime(c.at, ranges) }));
+    let findings;
+    // Sidecars of an earlier render with the same name must not stand beside this one if a write below fails.
+    for (const ext of ['.waits.json', '.beats.json']) remove(m.mp4.replace(/\.mp4$/, ext));
+    try {
+      // Beside the MP4 and its .srt, so check-render.mjs can judge the render's gaps later.
+      write(m.mp4.replace(/\.mp4$/, '.waits.json'), JSON.stringify(waits));
+      const length = probe(m.mp4);
+      // The beats on the final video with the caption each first showed: youtube.mjs builds the chapters from it.
+      const captionOf = new Map(captions.map((c) => [c.id, c.text ?? null]));
+      const beats = mapped.map((b) => ({ id: b.id, at: b.at, caption: captionOf.get(b.id) ?? null }));
+      write(m.mp4.replace(/\.mp4$/, '.beats.json'), JSON.stringify({ duration: length, beats }));
+      findings = renderFindings({ beats: mapped, captions, waits, duration: length });
+    } catch (e) {
+      findings = [`RENDER check failed: ${String(e?.message ?? e).split('\n')[0]}`];
+    }
+    for (const f of findings) log(`[${def.id}]`, f);
+    warnings += findings.length;
+  }
+  return warnings === r.warnings ? r : { ...r, warnings };
 }

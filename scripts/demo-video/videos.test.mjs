@@ -74,6 +74,8 @@ describe('the video definitions (§715)', () => {
     expect(byId('f-gantt').steps.map((s) => s.id)).toEqual([
       'dedup', 'drag-bar-move', 'drag-bar-end', 'drag-bar-start', 'drag-milestone', 'filter-completed',
       'view-dependencies', 'view-absences', 'view-critical-path', 'view-milestones', 'view-inline-milestones',
+      // Off camera, before the clip starts (a setup step runs first wherever it stands).
+      'gantt-layers-off',
     ]);
   });
 

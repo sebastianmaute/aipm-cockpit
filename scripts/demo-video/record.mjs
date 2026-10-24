@@ -18,6 +18,7 @@ import { checkDayFacts } from './steps/week.mjs';
 import { runTake } from './take.mjs';
 import * as ui from './ui.mjs';
 import { VIDEOS } from './videos.mjs';
+import { writeDetailsPage } from './youtube.mjs';
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -46,15 +47,13 @@ const NARRATION_LANG = 'en';
 async function resolveOpening(ctx, opening) {
   if (typeof opening === 'string') return opening;
   for (const view of opening.banner.split('>')) await ui.nav(ctx, view);
-  // The view's callout (view-callout.tsx): its text is the <p> beside the "Dismiss hint" button.
-  const text = await ctx.page.locator('main div:has(> button[aria-label="Dismiss hint"]) > p').first().innerText().catch(() => '');
-  if (!text) throw new Error(`no banner text on ${opening.banner}`);
-  return text.trim().replace(/\s+/g, ' ');
+  // The visible callout only: a panel kept mounted while hidden (RAID) keeps its callout in the DOM.
+  return ui.viewHint(ctx, opening.banner);
 }
 
 async function take(browser, def) {
   const { narration, ownBeatIds } = narrationFor(def, { lang: NARRATION_LANG, rehearse: args.rehearse });
-  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'en-US', timezoneId: 'Europe/Berlin' });
+  const context = await browser.newContext({ viewport: L.VIEWPORT, locale: 'en-US', timezoneId: 'Europe/Berlin' });
   const page = await context.newPage();
   const lines = [];
   // The raw line is kept for the secret scan (take.mjs); the console only ever sees it masked.
@@ -80,6 +79,10 @@ async function take(browser, def) {
   page.on('pageerror', (e) => log('PAGEERROR ' + e.message.slice(0, 200)));
   try {
     await page.goto(L.BASE + '/');
+    // The Next.js dev badge would sit in every frame: its dev server must run with DEMO_RECORDER=1.
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(1500);
+    warnings += await ui.checkDevBadge(ctx);
     if (args.probe) {
       await setup.connect(ctx, { onCamera: false });
       await setup.exploreDemo(ctx);
@@ -129,6 +132,12 @@ try {
 } finally {
   await browser.close();
   await cleanup().catch((e) => console.error('cleanup failed:', mask(e.message)));
+  // Rewritten after every run, a partial one too: every video, rendered or not yet (youtube.mjs).
+  try {
+    console.log('DETAILS', mask(writeDetailsPage(L.OUT, VIDEOS, (def) => outPath(L.OUT, def, VIDEOS))));
+  } catch (e) {
+    console.error('DETAILS FAILED', mask(String(e?.message ?? e)));
+  }
 }
 for (const n of notes) console.log('NOTE', n);
 console.log(`RESULT ok ${tally.ok} skipped ${tally.skipped} failed ${tally.failed} WARNINGS ${tally.warnings}`);

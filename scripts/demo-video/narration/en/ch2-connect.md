@@ -40,7 +40,7 @@ Functions are the parts of the app, such as Budget or Stakeholders. Turn on the 
 The project now exists, saved to the database, empty and ready for its first tasks.
 
 ## first-open-demo
-To see a project in full swing, you open the demo from Projects. It is a complete sample, with a team, tasks, risks and a budget. The app also switches on two things the next chapters use: the weekly status report and the AI Assistant.
+To see a project in full swing, you open the demo from Projects. It is a complete sample, with a team, tasks, risks and a budget. The next chapters use the weekly status report and the AI Assistant: turn the report on in Settings, and accept the assistant's consent the first time it asks.
 
 ## demo-opens
 The demo is a customer identity platform for Northwind, a retailer: how its customers sign up and sign in.
