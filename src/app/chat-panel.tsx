@@ -80,6 +80,7 @@ import {
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
 import {
   ChatProposalBlock,
+  functionsRowTitle,
   proposalRowTitle,
   type ProposalCardRow,
 } from "./chat-proposal-block";
@@ -612,6 +613,8 @@ function ChatPanelInner({
       //   all four outcomes.
       failed: p.failed.has(i),
       failedKind: p.failed.get(i),
+      // §779 — what a staged functions change switches; absent on every other row.
+      functions: row.functions,
     }));
   }, [pendingProposal]);
 
@@ -871,7 +874,7 @@ function ChatPanelInner({
               id: proposalId,
               rows: described,
               planRows,
-              titles: proposalTitles(described, ws, (r) => proposalRowTitle(r.call, r.plan)),
+              titles: proposalTitles(described, ws, (r) => functionsRowTitle(lang, r.call) ?? proposalRowTitle(r.call, r.plan)),
               // Everything starts kept: the card is a chance to REFUSE, and a
               // plan that arrives all-unchecked reads as "nothing to do here".
               selected: new Set(described.map((_, i) => i)),

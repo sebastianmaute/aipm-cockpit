@@ -333,7 +333,12 @@ export function isEntityWriteTool(name: string): boolean {
  *   that most needs counting; a malformed value is refused by the handler and
  *   writes nothing, so counting it can at worst send a refusal to review. */
 export function isEntityWriteCall(call: ProposedCall): boolean {
-  if (ENTITY_WRITE_TOOLS.has(call.name)) return true;
+  return ENTITY_WRITE_TOOLS.has(call.name) || carriesEnabledModules(call);
+}
+
+/** The one `update_settings` shape that writes project data (§779): the `enabledModules` key is present.
+ *  Shared by the gate above and the review card's describer (`chat-proposal-describe-functions.ts`). */
+export function carriesEnabledModules(call: ProposedCall): boolean {
   return call.name === "update_settings" && Object.hasOwn(call.input, "enabledModules");
 }
 

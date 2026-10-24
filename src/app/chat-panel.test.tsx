@@ -2974,6 +2974,30 @@ describe("staged tool calls (the review card)", () => {
     expect(results[0].content).toContain("has NOT been applied");
   });
 
+  it("a staged functions change shows a title and the functions it switches off (§779)", async () => {
+    // Mutation: not passing `row.functions` through `proposalCardRows`, or dropping `functionsRowTitle`
+    // from the staging titles, turns this red: the row reads `update_settings` with nothing under it.
+    const dispatcher = makeDispatcher();
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK },
+          { type: "tool_use", id: "t2", name: "update_settings", input: { enabledModules: ["raid"] } },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+    expect(within(card).getByText("Project functions")).toBeInTheDocument();
+    expect(within(card).getByText(/^Turns off: Dashboard, /)).toBeInTheDocument();
+  });
+
   it("the staged result for a create carries its provisional id, and the mint ADVANCED", async () => {
     // ★★★ THE `peekMintId` MUTANT AT THE SEAM. `peekMintId` does not advance
     //   the mark, so the first create's provisional id would equal the id apply

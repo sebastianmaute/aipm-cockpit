@@ -1,0 +1,57 @@
+// §779 — a staged `update_settings { enabledModules }` row says which functions it switches on and which
+// off, against the project's saved functions (`Workspace.features`). Without it the review card showed only
+// the tool name and an empty diff, which is no review at all.
+import { describe, expect, test } from "vitest";
+import type { ProposedCall } from "./chat-proposal";
+import { describeProposal } from "./chat-proposal-describe";
+import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
+import { emptyWorkspace, type Workspace } from "./workspace";
+
+const settings = (input: Record<string, unknown>): ProposedCall => ({ name: "update_settings", input });
+const wsWith = (features: FeatureModuleId[] | undefined): Workspace => ({ ...emptyWorkspace(), features });
+const only = (call: ProposedCall, ws: Workspace) => {
+  const [row] = describeProposal([call], ws);
+  return row;
+};
+
+describe("describeProposal — update_settings { enabledModules } (§779)", () => {
+  // Mutation: dropping the update_settings branch from `describeProposal` turns this red (no `functions`).
+  test("names the functions switched on and off, compared with the saved functions", () => {
+    const row = only(settings({ enabledModules: ["dashboard", "raid"] }), wsWith(["dashboard", "milestones"]));
+    expect(row.functions).toEqual({ on: ["raid"], off: ["milestones"], dropped: [] });
+    expect(row.plan.rejected).toEqual([]);
+  });
+
+  // Mutation: comparing with `[]` instead of the legacy all-on default turns this red.
+  test("a project with no saved list starts from every function on", () => {
+    const row = only(settings({ enabledModules: ["raid"] }), wsWith(undefined));
+    expect(row.functions?.on).toEqual([]);
+    expect(row.functions?.off).toEqual(ALL_MODULE_IDS.filter((id) => id !== "raid"));
+  });
+
+  test("[] switches every saved function off", () => {
+    const row = only(settings({ enabledModules: [] }), wsWith(["budget", "raid"]));
+    expect(row.functions).toEqual({ on: [], off: ["budget", "raid"], dropped: [] });
+  });
+
+  test("an unknown id in a mixed list is listed as dropped, as the write reports it", () => {
+    const row = only(settings({ enabledModules: ["raid", "raidd"] }), wsWith([]));
+    expect(row.functions).toEqual({ on: ["raid"], off: [], dropped: ["raidd"] });
+  });
+
+  // Mutation: describing a refused value as a change turns this red. The refusal is the write's own
+  // judge (`judgeEnabledModules`), so the card cannot promise a change the write refuses.
+  test("a value the write refuses shows as rejected on the enabledModules field, with no change", () => {
+    const row = only(settings({ enabledModules: "raid" }), wsWith(["raid"]));
+    expect(row.functions).toBeUndefined();
+    expect(row.plan.rejected).toEqual([
+      expect.objectContaining({ field: "enabledModules", detail: "enabledModules must be a list of module ids" }),
+    ]);
+  });
+
+  test("an update_settings without enabledModules keeps today's empty row", () => {
+    const row = only(settings({ showViewHints: false }), wsWith(["raid"]));
+    expect(row.functions).toBeUndefined();
+    expect(row.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+  });
+});

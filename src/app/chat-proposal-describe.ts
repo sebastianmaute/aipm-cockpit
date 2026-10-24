@@ -41,6 +41,7 @@ import { resolveDependencyWrite } from "./task-dependency-write";
 import type { Task, TaskDependency } from "./types";
 import { proposalIdOf } from "./forecast-target";
 import { describeProjectPlan, stampProjectCall, UPDATE_PROJECT_TOOL } from "./chat-proposal-describe-project";
+import { describeFunctionsCall, type FunctionsChange } from "./chat-proposal-describe-functions";
 
 export {
   describeProjectCall,
@@ -122,6 +123,9 @@ export interface DescribedRow {
    *   for such a row: there is no before-image to diff against, and inventing
    *   one would show a diff from fields the create has not written yet. */
   readonly pendingOn?: number;
+  /** §779 — set only on an `update_settings` row carrying an accepted `enabledModules`: the functions it
+   *  switches on and off against the project's saved list. The card renders it; the plan stays empty. */
+  readonly functions?: FunctionsChange;
 }
 
 function emptyPlan(): EditPlan {
@@ -486,6 +490,13 @@ export function describeProposal(
 
     if (pendingOn !== undefined) {
       rows.push({ call, stamped, plan: emptyPlan(), mintedId, pendingOn });
+      continue;
+    }
+
+    // §779 — a functions change has no descriptor either; its detail comes from the write's own judge.
+    const functionsRow = describeFunctionsCall(call, ws);
+    if (functionsRow !== null) {
+      rows.push({ call, stamped, plan: functionsRow.plan, mintedId, ...(functionsRow.functions ? { functions: functionsRow.functions } : {}) });
       continue;
     }
 
