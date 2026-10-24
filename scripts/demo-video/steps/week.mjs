@@ -122,11 +122,13 @@ export const PROPOSAL = {
   // fills the industry (NACE section, a section code since #853): one left empty gets the AI step's retry.
   check: async (ctx) => {
     const d = ctx.page.locator(DLG).last();
-    return proposalMissing({
+    const got = {
       name: await d.getByRole('textbox', { name: /Project name/ }).inputValue().catch(() => ''),
       gdpr: await gdprBox(d).isChecked().catch(() => false),
       nace: await d.getByLabel(/^NACE section/).inputValue().catch(() => ''),
-    });
+    };
+    ctx.log(`PROPOSAL name "${got.name}", GDPR ${got.gdpr ? 'ticked' : 'not ticked'}, NACE "${got.nace}"`);
+    return proposalMissing(got);
   },
 };
 
@@ -1064,6 +1066,7 @@ export const FRIDAY = [
       if (!(await review.count())) return 'no review';
       const empty = (await review.getByText(EMPTY_PLAN).count()) > 0
         || !(await review.getByRole('button', { name: APPLY_REC, exact: true }).isEnabled().catch(() => false));
+      ctx.log(`INSIGHT review open, ${empty ? 'empty plan' : 'plan with changes'}`);
       return empty ? 'no applicable changes' : null;
     },
     // The review is held while its beat is spoken, then confirmed; the recommendation must then read applied.
@@ -1071,6 +1074,7 @@ export const FRIDAY = [
       await holdVoice(ctx);
       await click(ctx, reviewDialog(ctx).getByRole('button', { name: APPLY_REC, exact: true }), `confirm ${APPLY_REC}`, 1500);
       const status = await recStatus(ctx).innerText({ timeout: 15000 }).catch(() => '');
+      ctx.log(`INSIGHT status after Apply: "${status}"`);
       // The applied changes may bring the budget back on plan, and a resolved insight leaves the list.
       const gone = !status && !(await insightCard(ctx).count());
       const wrong = gone ? 'the budget insight left the list before its status could be read (resolved by the changes?)' : recommendationNotApplied(status);

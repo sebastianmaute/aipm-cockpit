@@ -302,6 +302,7 @@ const scheduledRun = step('scheduled-run', {
     const report = (await L.query(REPORT_FOR_JOB_SQL, [{ type: 'text', value: key }]))[0]?.[0]?.value;
     if (!report) throw new Error(`${ctx.clipId}: the run of ${JOB} wrote no report`);
     ctx.scheduledReportId = report;
+    ctx.log(`SCHEDULED run ok, job key ${key}, report ${report}`);
     const lastRun = main(ctx).getByText(/^Last run: /).first();
     await lastRun.waitFor({ timeout: 15000 });
     await caption(ctx, 'It ran: its suggestions are counted on the job.', 'ai-scheduled-ran');
