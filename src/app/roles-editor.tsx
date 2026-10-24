@@ -119,7 +119,15 @@ function round2(n: number): number {
  *  without grouping, so only the separator is localised. `locale` is for tests.
  *  Measured in Chromium only; Firefox may follow the page `lang` instead. */
 export function rateFieldDisplay(value: number, locale?: string): string {
-  const sep = new Intl.NumberFormat(locale).formatToParts(1.5).find((p) => p.type === "decimal")?.value ?? ".";
+  return withDecimalSeparator(value, decimalSeparator(locale));
+}
+
+/** The locale's decimal separator. The editor reads it once per render, not per cell. */
+function decimalSeparator(locale?: string): string {
+  return new Intl.NumberFormat(locale).formatToParts(1.5).find((p) => p.type === "decimal")?.value ?? ".";
+}
+
+function withDecimalSeparator(value: number, sep: string): string {
   return String(value).replace(".", sep);
 }
 
@@ -131,6 +139,8 @@ export function RolesEditor({
   onResetSize,
 }: RolesEditorProps) {
   const curSymbol = currencySymbol(currency, localeFor(lang));
+  // The browser locale's decimal separator for the rate fields' titles (rateFieldDisplay).
+  const fieldDecimalSep = decimalSeparator();
   const [newDiscipline, setNewDiscipline] = useState("");
   const [newGrade, setNewGrade] = useState("");
   const [comboDiscipline, setComboDiscipline] = useState<number | "">("");
@@ -251,7 +261,7 @@ export function RolesEditor({
               `title` for a value too long for the field (§766; see ROLES_COL_WIDTHS). */}
           <Input type="number" min={0} step={1} value={value} readOnly={!editable}
             aria-label={`${rowCtx} — ${t(lang, labelKey)}`}
-            title={rateFieldDisplay(value)}
+            title={withDecimalSeparator(value, fieldDecimalSep)}
             onChange={editable ? (e) => onChange(e.target.value) : undefined}
             size="xs" state={editable ? "default" : "muted"}
             className="w-16 text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
@@ -382,7 +392,11 @@ export function RolesEditor({
                   {rateCell(r, rowCtx, "hour", "external")}
                   {rateCell(r, rowCtx, "day", "internal")}
                   {rateCell(r, rowCtx, "day", "external")}
-                  <td className="px-3 py-2">
+                  {/* `isolate`: a focused segment is `relative z-10`, which painted over
+                      the pinned ✕ cell when the two overlap (853×480). Contained here, it
+                      stays under the later sticky cell, with no z-index raised above the
+                      sticky header's z-10. */}
+                  <td className="isolate px-3 py-2">
                     <SegmentedControl<"hour" | "day">
                       value={(r.rateBasis ?? "hour") === "day" ? "day" : "hour"}
                       options={[

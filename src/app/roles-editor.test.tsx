@@ -772,11 +772,36 @@ describe("RolesEditor rate card fits a 1280px window (§766)", () => {
     }
   });
 
-  // Guard: the 1280 fit is a budget. Measured 2026-10-24 at 1280×720: the scroller
-  // shows 916px and the table is 908px, which is the declared widths (852) plus the
-  // 48px delete column plus 8px the table spends outside its declared columns. So
-  // the declared widths may grow by 8px at most; 9px more scrolls at 1280. A new
-  // column, or a wider one, must re-measure first.
+  // The separator is read once per render, not once per rate cell: three roles
+  // are twelve rate fields, and a per-cell formatter built twelve of them.
+  it("reads the decimal separator once per render, not per rate field", () => {
+    const spy = vi.spyOn(Intl, "NumberFormat");
+    try {
+      const three: Role[] = [1, 2, 3].map((id) => ({ id, disciplineId: 1, gradeId: 1, internalRate: 100 + id, externalRate: 200 }));
+      const { rerender } = renderEditor("EUR", three);
+      expect(screen.getAllByRole("spinbutton")).toHaveLength(12);
+      const defaultLocaleCalls = () => spy.mock.calls.filter((c) => c[0] === undefined).length;
+      expect(defaultLocaleCalls()).toBe(1);
+      rerender(
+        <RolesEditor lang="en-US" currency="EUR" workdayHours={8} roles={three} disciplines={disciplines} grades={grades}
+          onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onAddDiscipline={() => 0}
+          onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop} onReorderRoles={noop}
+          onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop} />,
+      );
+      expect(defaultLocaleCalls()).toBe(2);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  // Guard over constants only: this is arithmetic on ROLES_COL_WIDTHS (pinned exactly
+  // above) plus measured numbers, so it cannot see a width change made through cell
+  // padding, the currency symbol or the input class; only the header-cell count is
+  // read from the render. Measured 2026-10-24 at 1280×720: the scroller shows 916px
+  // and the table is 908px, which is the declared widths (852) plus the 48px delete
+  // column plus 8px the table spends outside its declared columns. So the declared
+  // widths may grow by 8px at most; 9px more scrolls at 1280. A new column, or a
+  // wider one, must re-measure first.
   it("keeps the declared column widths inside the measured 1280 budget", () => {
     const SCROLLER_AT_1280 = 916;
     const DELETE_COL = 48;
@@ -822,5 +847,19 @@ describe("RolesEditor rate card fits a 1280px window (§766)", () => {
     const classes = scroller.className.split(/\s+/);
     expect(classes).toEqual(expect.arrayContaining([...INNER_TABLE_CLASS.split(/\s+/), "scroll-pr-14"]));
     expect(INNER_TABLE_CLASS).not.toMatch(/scroll-p/);
+  });
+
+  // ★ A focused Hours/Days segment is `relative z-10` (segmented-control.tsx). At
+  // 853×480, clicked where the pin half covers the control, it painted over the whole
+  // ✕ cell (measured 2026-10-24). Raising the pinned cells above z-10 would lift them
+  // over the sticky header too, so the basis cell isolates the segment's z-index
+  // instead: it then stacks at the row's level, under the later sticky cell.
+  it("isolates the Hours/Days cell so a focused segment stays under the pinned column", () => {
+    renderEditor();
+    const radios = screen.getAllByRole("radio");
+    expect(radios.length).toBeGreaterThan(0);
+    for (const r of radios) {
+      expect((r.closest("td") as HTMLElement).className.split(/\s+/)).toContain("isolate");
+    }
   });
 });
