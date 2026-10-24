@@ -21,6 +21,7 @@ const baseProps = () => ({
   onSetOverride: vi.fn(),
   onReset: vi.fn(),
   onBack: vi.fn(),
+  learningEnabled: true,
 });
 
 const stats = (acted: number) => ({ acted, snoozed: 0, dismissed: 0, lastAt: 0 });
@@ -165,6 +166,21 @@ describe("LearningInsights", () => {
     it("marks the learned value in German", () => {
       render(<LearningInsights {...baseProps()} lang="de" state={state} overrides={{ "raid:actionRaidWhySeverity": "suppress" }} now={0} />);
       expect(within(adjustmentCell("de")).getByText("gelernt +12")).toBeTruthy();
+    });
+
+    // With learning switched off the hook hands the engine NO bias (`useActionLearning`
+    // returns {} unless `config.enabled`), so 0 is applied whatever the override.
+    for (const override of ["auto", "surface", "suppress", "off"] as const) {
+      it(`shows 0, marked "learning off", when learning is disabled (${override})`, () => {
+        render(<LearningInsights {...baseProps()} learningEnabled={false} state={state} overrides={{ "raid:actionRaidWhySeverity": override }} now={0} />);
+        const cell = adjustmentCell();
+        expect(cell.firstElementChild?.textContent).toBe("0");
+        expect(within(cell).getByText("learning off")).toBeTruthy();
+      });
+    }
+    it("marks disabled learning in German", () => {
+      render(<LearningInsights {...baseProps()} lang="de" learningEnabled={false} state={state} now={0} />);
+      expect(within(adjustmentCell("de")).getByText("Lernen aus")).toBeTruthy();
     });
   });
 

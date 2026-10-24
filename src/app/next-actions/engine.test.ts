@@ -98,7 +98,7 @@ describe("learnedBias in the engine", () => {
 
 // §778 — learned bias and overrides are keyed by the LEARNING kind, which merges
 // a count-variant why key ("…One") into its plural sibling. "Always suppress" on
-// "Task — Due soon" used to let a task due in exactly 1 working day through.
+// "Task — Due soon" did not demote a task due in exactly 1 working day.
 describe("learning kind in the engine (§778)", () => {
   function stubAction(id: string, whyKey: string, score: number): SuggestedAction {
     return { id, source: "task-due", title: { key: "x" as never }, why: { key: whyKey as never }, score, tier: "monitor", cta: { kind: "snooze", actionId: id } };

@@ -3935,6 +3935,7 @@ const enUS = {
   learningOverrideOff: "Off",
   // §780 — under an override, the learned value beside the applied one.
   learningBiasLearned: "learned {0}",
+  learningBiasDisabled: "learning off",
   // §777 — param-free reason labels for the why keys whose text takes values
   // (see `REASON_LABEL_KEY` in learning-kind-label.ts).
   learningReasonForecastSim: "Simulated finish chance at risk",

@@ -1673,6 +1673,7 @@ function TaskManagerInner() {
       onSetOverride={(kind, override) => { void learning.setOverride(kind, override); }}
       onReset={() => { void learning.reset(); }}
       onBack={() => setActiveTab("settings")}
+      learningEnabled={(settings.nextActionsLearning ?? defaultNextActionsLearning).enabled}
     />
   );
 

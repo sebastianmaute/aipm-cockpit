@@ -3867,6 +3867,7 @@ export const de: Record<TranslationKey, string> = {
   learningOverrideOff: "Aus",
   // §780 — under an override, the learned value beside the applied one.
   learningBiasLearned: "gelernt {0}",
+  learningBiasDisabled: "Lernen aus",
   // §777 — param-free reason labels for the why keys whose text takes values
   // (see `REASON_LABEL_KEY` in learning-kind-label.ts).
   learningReasonForecastSim: "Simulierte Abschlusschance gefährdet",

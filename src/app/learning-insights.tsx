@@ -28,6 +28,9 @@ interface LearningInsightsProps {
   onReset: () => void;
   /** Leads the toolbar; returns to Settings, where this view is opened from. */
   onBack: () => void;
+  /** The learning switch (`NextActionsLearningConfig.enabled`). Off, the engine
+   *  gets no bias at all, so the Adjustment column shows 0 (§780). */
+  learningEnabled: boolean;
   /** Decay reference time. Defaults to Date.now(); injectable for deterministic tests. */
   now?: number;
 }
@@ -57,6 +60,7 @@ export function LearningInsights({
   onSetOverride,
   onReset,
   onBack,
+  learningEnabled,
   now,
 }: LearningInsightsProps) {
   const kinds = Object.keys(state);
@@ -130,13 +134,18 @@ export function LearningInsights({
                     <td className="px-3 py-2 text-right tabular-nums">{Math.round(d.acted)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{Math.round(d.snoozed)}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{Math.round(d.dismissed)}</td>
-                    {/* §780 — the APPLIED adjustment (`effectiveBias`, what
-                        `buildBiasMap` feeds the engine). Under an override the
-                        learned value stays visible, marked as learned, so
-                        "Always suppress" never reads as a learned "+5". */}
+                    {/* §780 — the APPLIED adjustment: `effectiveBias`, what
+                        `buildBiasMap` feeds the engine while learning is on,
+                        and 0 while it is off (`useActionLearning` then hands
+                        the engine no bias). Under an override the learned value
+                        stays visible, marked as learned, so "Always suppress"
+                        never reads as a learned "+5". The engine's now-tier
+                        floor can still move an urgent item less than shown. */}
                     <td className="px-3 py-2 text-right tabular-nums">
-                      <div>{formatBias(effectiveBias(d, override))}</div>
-                      {override !== "auto" && (
+                      <div>{formatBias(learningEnabled ? effectiveBias(d, override) : 0)}</div>
+                      {!learningEnabled ? (
+                        <div className="text-xs text-muted-foreground">{t(lang, "learningBiasDisabled")}</div>
+                      ) : override !== "auto" && (
                         <div className="text-xs text-muted-foreground">
                           {t(lang, "learningBiasLearned", formatBias(learnedBias(d)))}
                         </div>

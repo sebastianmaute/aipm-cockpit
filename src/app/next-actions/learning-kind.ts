@@ -8,7 +8,7 @@
 // a provider) is aliased for consistency only and is inert today: sim actions
 // never reach `computeNextActions`, and `record` returns early for them (§502). Keyed by the raw why key, it
 // was learned and overridden as TWO kinds: "Always suppress" on "Task — Due
-// soon" still let a task due in exactly 1 working day through. Every place that
+// soon" did not demote a task due in exactly 1 working day. Every place that
 // builds a kind (recording an outcome, the engine's bias lookup) and every read
 // of stored kinds (`normalizeLearningSnapshot`) goes through this module.
 
