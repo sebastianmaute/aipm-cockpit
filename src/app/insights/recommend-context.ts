@@ -10,6 +10,7 @@ export function buildRecommendSystemPrompt(): string {
     "You are given ONE project insight and a compact slice of the project.",
     "Call the propose_insight_actions tool exactly once with concrete, minimal actions that resolve the insight.",
     "Use only the tools offered. Reference an entity only by a numeric id shown in the digest. Prefer editing an existing item over creating a new one. Keep the summary to one line.",
+    "Give every required argument of each tool you call, and assign a person only by a name listed under People.",
   ].join(" ");
 }
 
@@ -21,9 +22,12 @@ export interface RecommendContextInput {
   readonly data: Readonly<Record<string, string | number>>;
   readonly entity?: { readonly view: string; readonly id: number; readonly title: string; readonly fields: string };
   readonly relatedTasks: readonly { readonly id: number; readonly title: string }[];
+  /** §782 — the people a create may name as its assignee or owner (display names of active resources). */
+  readonly people?: readonly string[];
 }
 
 const RELATED_TASKS_CAP = 30;
+const PEOPLE_CAP = 30;
 
 /** Compact, token-bounded per-insight digest. Volatile — sent as the user
  *  message, never in the cached system block. */
@@ -38,6 +42,9 @@ export function buildRecommendContext(input: RecommendContextInput): string {
         .map((t) => `- open-points#${t.id}: ${t.title.slice(0, 120)}`)
         .join("\n")
     : "(none)";
+  const people = input.people?.length
+    ? input.people.slice(0, PEOPLE_CAP).map((name) => `- ${name.slice(0, 120)}`).join("\n")
+    : "(none)";
   return [
     `Project: ${input.projectName}. Today: ${input.today}.`,
     `Insight: ${input.insightType} (severity ${input.severity}).`,
@@ -47,5 +54,7 @@ export function buildRecommendContext(input: RecommendContextInput): string {
     entity,
     "## Related open tasks (reference by id)",
     tasks,
+    "## People (assign by name)",
+    people,
   ].join("\n");
 }

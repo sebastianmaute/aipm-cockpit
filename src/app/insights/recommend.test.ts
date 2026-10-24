@@ -91,8 +91,9 @@ describe("parseRecommendation", () => {
     for (const t of ALLOWED_REC_TOOLS) expect(names.has(t)).toBe(true);
   });
 
+  // §782 — one schema branch per tool now; each branch's own enum names it.
   test("RECOMMEND_TOOL exposes the allowed tool names in its schema enum", () => {
-    const enumNames = RECOMMEND_TOOL.input_schema.properties.calls.items.properties.name.enum;
+    const enumNames = RECOMMEND_TOOL.input_schema.properties.calls.items.anyOf.flatMap((b) => b.properties.name.enum);
     expect(new Set(enumNames)).toEqual(ALLOWED_REC_TOOLS);
   });
 });

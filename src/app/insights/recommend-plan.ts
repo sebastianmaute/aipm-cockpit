@@ -11,6 +11,7 @@ import type { Workspace } from "../workspace";
 import { describeEntityCalls, type EditPlan, type ToolUseLike } from "../inline-ai-edit/plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "../inline-ai-edit/entity-descriptor";
 import type { InsightToolCall } from "./insight";
+import { REC_TOOL_INPUT_SCHEMAS, recommendationCallProblem } from "./recommend-schema";
 
 // The `item` shape describeEntityCalls expects, without exporting a new type
 // from plan.ts (which stays untouched — only read for this task).
@@ -81,6 +82,15 @@ export function describeRecommendationPlan(
   const merged = emptyPlan();
 
   for (const call of calls) {
+    // §782 — a call missing an argument its writer requires is shown as
+    // rejected, with the reason, and never as a change. The apply loop asks the
+    // same question, so it does not send it either. Only the recommendation
+    // tools are judged: the delete branch below previews other callers' input.
+    const problem = Object.hasOwn(REC_TOOL_INPUT_SCHEMAS, call.name) ? recommendationCallProblem(call) : null;
+    if (problem !== null) {
+      merged.rejected.push({ toolName: call.name, reason: "bad-input", detail: problem });
+      continue;
+    }
     const block: ToolUseLike = { type: "tool_use", name: call.name, input: call.input };
     const updateEntity = UPDATE_DESCRIPTOR[call.name];
     const deleteEntity = DELETE_DESCRIPTOR[call.name];

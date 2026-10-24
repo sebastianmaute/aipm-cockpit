@@ -107,7 +107,35 @@ describe("buildRecommendContext — related tasks", () => {
   });
 });
 
+// §782 — create_task requires an assignee, and the digest named no person, so
+// the model had no name it could give.
+describe("buildRecommendContext — people", () => {
+  it("lists the people a create may assign, under its own heading after the tasks", () => {
+    const out = buildRecommendContext({ ...BASE, people: ["Dana Ortiz", "Lee Park"] });
+
+    expect(out).toContain("## People (assign by name)\n- Dana Ortiz\n- Lee Park");
+    expect(out.indexOf("## People")).toBeGreaterThan(out.indexOf("## Related open tasks"));
+  });
+
+  it("caps the list at 30 and marks an empty one as none", () => {
+    const people = Array.from({ length: 40 }, (_, i) => `Person ${i + 1}`);
+
+    const out = buildRecommendContext({ ...BASE, people });
+
+    expect(out).toContain("- Person 30");
+    expect(out).not.toContain("- Person 31");
+    expect(buildRecommendContext(BASE)).toContain("## People (assign by name)\n(none)");
+  });
+});
+
 describe("buildRecommendSystemPrompt", () => {
+  it("tells the model to give every required argument and to assign only listed people", () => {
+    const p = buildRecommendSystemPrompt();
+
+    expect(p).toContain("every required argument");
+    expect(p).toContain("listed under People");
+  });
+
   it("is a stable single-line cacheable prefix", () => {
     const a = buildRecommendSystemPrompt();
     const b = buildRecommendSystemPrompt();

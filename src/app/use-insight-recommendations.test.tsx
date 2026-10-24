@@ -7,6 +7,7 @@ import { entityToken } from "./ai-entity-token";
 import { t } from "./i18n";
 import { baselineHistoryDigest, type Insight, type InsightRecommendation } from "./insights/insight";
 import { actionGuideText, type OperatingGuide } from "./operating-guide";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -600,5 +601,101 @@ describe("a pre-switch recommendation carrying money is refused after a currency
     expect(store.read()[0].recommendation, "no recommendation was stored").toBeDefined();
     expect(store.read()[0].recommendation?.historyLength).toBe(1);
     expect(store.read()[0].recommendation?.historyDigest).toBe(baselineHistoryDigest([CREATION]));
+  });
+});
+
+// §782 — found by the demo recorder's with-AI rehearsal: a "Budget off plan"
+// recommendation applied with "Some changes … couldn't be applied" and no trace
+// of which call failed or why. The model had proposed a create runTool refuses.
+describe("§782 — a call the dispatcher would refuse is refused in review, and a failure is named", () => {
+  const validCreate = { name: "create_task", input: { taskName: "Review T&M burn", assignee: "Dana Ortiz", dueDate: "2026-09-25" } };
+  const invalidCreate = { name: "create_task", input: { title: "Review T&M burn", dueDate: "2026-09-25" } };
+
+  function mkCreateDispatcher(createTask: (input: Record<string, unknown>) => unknown) {
+    const spy = vi.fn(createTask);
+    const dispatcher = { ...mkDispatcher().dispatcher, createTask: spy } as unknown as InsightRecommendationDeps["dispatcher"];
+    return { dispatcher, spy };
+  }
+  function recWith(calls: InsightRecommendation["proposedCalls"]): InsightRecommendation {
+    return { ...mkRec({}), proposedCalls: calls };
+  }
+  async function confirm(rec: InsightRecommendation, dispatcher: InsightRecommendationDeps["dispatcher"]) {
+    const store = mkStore([mkInsight({ recommendation: rec })]);
+    const deps = mkDeps({ insights: store.read(), setInsights: store.setInsights, dispatcher });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    act(() => { result.current.setReviewInsightId(1); });
+    const plan = result.current.reviewPlan;
+    await act(async () => { await result.current.confirmInsightRecommendation(); });
+    return { store, deps, plan };
+  }
+  afterEach(() => clearDiagLog());
+
+  it("gives the model the active people a create may assign, and no archived one", async () => {
+    const spy = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42 }));
+    const people = new Map([
+      [1, { id: 1, firstName: "Dana", lastName: "Ortiz", active: true }],
+      [2, { id: 2, firstName: "Lee", lastName: "Park", active: false }],
+    ]) as unknown as InsightRecommendationDeps["resourcesById"];
+    const store = mkStore([mkInsight()]);
+    const { result } = renderHook(() =>
+      useInsightRecommendations(mkDeps({ resourcesById: people, insights: store.read(), setInsights: store.setInsights })),
+    );
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
+    const ctx = spy.mock.calls[0][0].context;
+    expect(ctx).toContain("## People (assign by name)\n- Dana Ortiz");
+    expect(ctx).not.toContain("Lee Park");
+  });
+
+  // (a) + (d): the stored `proposedCalls` are what confirm replays; no parse runs
+  // on this path, so the check has to sit in the replay itself.
+  it("never sends a stored create_task missing taskName and assignee, and says nothing was applied", async () => {
+    const { dispatcher, spy } = mkCreateDispatcher((input) => ({ id: 99, ...input }));
+    const { store, deps, plan } = await confirm(recWith([invalidCreate]), dispatcher);
+    expect(plan?.creates).toHaveLength(0);
+    expect(plan?.rejected.map((r) => r.detail)).toEqual(["create_task: taskName, assignee required"]);
+    expect(spy).not.toHaveBeenCalled();
+    expect(store.calls).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationAllRejected"));
+  });
+
+  it("refuses the invalid create, applies its valid sibling, and records the refusal", async () => {
+    const { dispatcher, spy } = mkCreateDispatcher((input) => ({ id: 99, ...input }));
+    const { store, deps } = await confirm(recWith([invalidCreate, validCreate]), dispatcher);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toMatchObject({ taskName: "Review T&M burn", assignee: "Dana Ortiz" });
+    expect(store.read()[0].recommendation?.status).toBe("applied");
+    expect(store.read()[0].recommendation?.refusedCalls).toBe(1);
+    expect(deps.showToast).toHaveBeenCalledWith("error", t("en-US", "insightRecommendationApplyFailed"));
+  });
+
+  // (b)
+  it("still applies a valid create_task", async () => {
+    const { dispatcher, spy } = mkCreateDispatcher((input) => ({ id: 99, ...input }));
+    const { store, deps } = await confirm(recWith([validCreate]), dispatcher);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(store.read()[0].recommendation?.status).toBe("applied");
+    expect(deps.showToast).toHaveBeenCalledWith("info", t("en-US", "insightRecommendationApplied"));
+    expect(readDiagLog()).toHaveLength(0);
+  });
+
+  // (c) The values never reach the log: only the tool, the dispatcher's message
+  // and the argument NAMES the call carried.
+  it("logs a call that throws with its tool, message and keys, and names it in the toast", async () => {
+    const { dispatcher } = mkCreateDispatcher(() => { throw new Error("assignee is required"); });
+    const { store, deps } = await confirm(recWith([validCreate]), dispatcher);
+    const entry = readDiagLog().find((e) => e.code === "insight.recommendation.callFailed");
+    expect(entry?.level).toBe("error");
+    // ★ `keys` is a joined string: `redactFields` keeps only scalars, so an
+    //  array would be dropped from the entry without a sound.
+    expect(entry?.fields).toEqual({ tool: "create_task", message: "assignee is required", keys: "taskName,assignee,dueDate" });
+    expect(JSON.stringify(entry)).not.toContain("Dana Ortiz");
+    expect(deps.showToast).toHaveBeenCalledWith(
+      "error",
+      t("en-US", "insightRecommendationApplyFailedDetail", "create_task: assignee is required"),
+    );
+    // The new wording keeps the old sentence, so what it meant is unchanged.
+    expect(t("en-US", "insightRecommendationApplyFailedDetail", "x")).toContain(t("en-US", "insightRecommendationApplyFailed"));
+    // A hard failure may have written, so the advance rule is unchanged.
+    expect(store.read()[0].recommendation?.status).toBe("applied");
   });
 });

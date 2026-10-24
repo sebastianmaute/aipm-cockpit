@@ -5517,6 +5517,7 @@ const enUS = {
   insightRecommendationApplied: "Recommendation applied.",
   insightRecommendationAppliedPartial: "Partly applied — some changes weren't made. Generate a new recommendation for the rest.",
   insightRecommendationApplyFailed: "Some changes in this recommendation couldn't be applied.",
+  insightRecommendationApplyFailedDetail: "Some changes in this recommendation couldn't be applied. {0}",
   insightRecommendationAllRejected: "Not applied — every change in this recommendation was rejected.",
   insightRecommendationStale: "This recommendation wasn't applied — the project data changed since it was generated. Generate a new one.",
   insightRecommendationCurrencyChanged: "This recommendation wasn't applied — the project's currency history changed since it was generated, so its amounts may be in a different currency. Generate a new one.",
