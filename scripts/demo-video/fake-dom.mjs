@@ -58,6 +58,7 @@ export function fakePage(view, clicks = []) {
       boundingBox: async () => (nodes().length === 1 ? { x: 10, y: 10, width: 40, height: 20 } : null),
       getAttribute: async (a) => (a === 'aria-pressed' ? String(!!one('getAttribute').pressed) : null),
       innerText: async () => one('innerText').text ?? '',
+      allInnerTexts: async () => nodes().map((n) => n.text ?? ''),
       click: async () => {
         const n = one('click');
         if (n.enabled === false) throw new Error(`click on a disabled ${n.name}`);

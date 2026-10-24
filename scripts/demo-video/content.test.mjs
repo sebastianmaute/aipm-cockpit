@@ -56,9 +56,13 @@ describe("the proposal check (§715)", () => {
 
 describe('the recommendation status after Apply (§715)', () => {
   it('passes only "Recommendation applied."', () => {
-    expect(recommendationNotApplied('Recommendation applied.')).toBeNull();
-    expect(recommendationNotApplied("Partly applied — some changes weren't made.")).toMatch(/not applied in full/);
-    expect(recommendationNotApplied('')).toBe('the recommendation shows no applied status');
+    const applied = en.insightRecommendationApplied;
+    expect(recommendationNotApplied([applied])).toBeNull();
+    expect(recommendationNotApplied([applied, applied])).toBeNull();
+    expect(recommendationNotApplied([en.insightRecommendationAppliedPartial])).toMatch(/not applied in full/);
+    // A change that threw: the card reads applied, the toast does not.
+    expect(recommendationNotApplied([applied, en.insightRecommendationApplyFailed])).toBe(`the recommendation was not applied in full: "${en.insightRecommendationApplyFailed}"`);
+    expect(recommendationNotApplied([])).toBe('the recommendation shows no applied status');
   });
 
   it("copies the recommendation's outcome lines and the empty-plan line from the app's i18n.ts", () => {

@@ -14,11 +14,14 @@ const EMPTY_PLAN = en.insightRecommendationEmptyPlan;
 const APPLIED = en.insightRecommendationApplied;
 const STALE = en.insightRecommendationStale;
 
-/** What the review's confirm does: applies the plan (the card's note and a toast), writes nothing (the card
- *  stays proposed; only a toast says so), or writes nothing while another card shows an outcome line. */
+/** What the review's confirm does: applies the plan (the card's note and a toast), applies it with a change that
+ *  threw, writes nothing (the card stays proposed; only a toast says so), or writes nothing while another card
+ *  shows an outcome line. */
 const OUTCOMES = {
   applied: (s) => { s.rec = 'applied'; s.toast = APPLIED; },
   stale: (s) => { s.toast = STALE; },
+  // A change threw: the card still reads applied, the toast says some changes couldn't be applied.
+  threw: (s) => { s.rec = 'applied'; s.toast = en.insightRecommendationApplyFailed; },
   elsewhere: (s) => { s.otherNote = en.insightRecommendationAppliedPartial; },
 };
 
@@ -82,6 +85,11 @@ describe('the insight-recommendation step (§715)', () => {
   it('reads an outcome that wrote nothing from the toast', async () => {
     await expect(runAi(ctxFor(start([false], 'stale')), insightStep))
       .rejects.toThrow(`ch7-friday: the recommendation was not applied in full: "${STALE}"`);
+  });
+
+  it('fails when the card reads applied but the toast says a change could not be applied', async () => {
+    await expect(runAi(ctxFor(start([false], 'threw')), insightStep))
+      .rejects.toThrow(`ch7-friday: the recommendation was not applied in full: "${en.insightRecommendationApplyFailed}"`);
   });
 
   it('does not take another card\'s outcome line for this recommendation\'s', async () => {

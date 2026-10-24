@@ -927,14 +927,17 @@ export const REC_STATUS = (() => {
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(`^(${Object.values(REC_OUTCOMES).map(esc).join('|')})$`);
 })();
-/** The outcome after Apply, read where the app shows it: the card's note once the recommendation is applied, or
- *  the toast (app-modals.tsx, role="status") for an outcome that wrote nothing and left the card as it was. */
-const recStatus = (ctx) => insightCard(ctx).getByText(REC_STATUS).or(ctx.page.getByRole('status').getByText(REC_STATUS)).first();
+/** The outcome lines after Apply, where the app shows them: the card's note once the recommendation is applied, and
+ *  the toast (app-modals.tsx, role="status"). Both are read: a change that threw still leaves the card reading
+ *  applied while the toast says some changes couldn't be applied, and an outcome that wrote nothing has the toast only. */
+const recStatusLines = (ctx) => insightCard(ctx).getByText(REC_STATUS).or(ctx.page.getByRole('status').getByText(REC_STATUS));
 
-/** What is wrong with a recommendation's status line after Apply, or null when it reads applied in full. */
-export function recommendationNotApplied(status) {
-  if (status === REC_OUTCOMES.insightRecommendationApplied) return null;
-  return status ? `the recommendation was not applied in full: "${status}"` : 'the recommendation shows no applied status';
+/** What is wrong with a recommendation's status lines after Apply, or null when there is one and every one reads
+ *  applied in full. */
+export function recommendationNotApplied(statuses) {
+  if (!statuses.length) return 'the recommendation shows no applied status';
+  const other = statuses.find((s) => s !== REC_OUTCOMES.insightRecommendationApplied);
+  return other === undefined ? null : `the recommendation was not applied in full: "${other}"`;
 }
 const SPLIT_FROM = 'Pilot feedback fixes';
 const SPLIT_NEW = 'Pilot feedback fixes – registration flow';
@@ -1073,11 +1076,14 @@ export const FRIDAY = [
     after: async (ctx) => {
       await holdVoice(ctx);
       await click(ctx, reviewDialog(ctx).getByRole('button', { name: APPLY_REC, exact: true }), `confirm ${APPLY_REC}`, 1500);
-      const status = await recStatus(ctx).innerText({ timeout: 15000 }).catch(() => '');
-      ctx.log(`INSIGHT status after Apply: "${status}"`);
+      // The card's note and the toast come with the same render: once one shows, every line is read.
+      const lines = recStatusLines(ctx);
+      await lines.first().waitFor({ timeout: 15000 }).catch(() => {});
+      const statuses = await lines.allInnerTexts().catch(() => []);
+      ctx.log(`INSIGHT status after Apply: ${statuses.map((s) => `"${s}"`).join(', ') || '(none)'}`);
       // The applied changes may bring the budget back on plan, and a resolved insight leaves the list.
-      const gone = !status && !(await insightCard(ctx).count());
-      const wrong = gone ? 'the budget insight left the list before its status could be read (resolved by the changes?)' : recommendationNotApplied(status);
+      const gone = !statuses.length && !(await insightCard(ctx).count());
+      const wrong = gone ? 'the budget insight left the list before its status could be read (resolved by the changes?)' : recommendationNotApplied(statuses);
       if (wrong) throw new Error(`${ctx.clipId}: ${wrong}`);
       await pace(ctx, 1500);
     },
