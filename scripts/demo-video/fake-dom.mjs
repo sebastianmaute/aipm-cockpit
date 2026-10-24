@@ -7,7 +7,8 @@
 // - roles and names are what a test writes on its nodes, never computed from tags or content;
 // - a string name or text matches case-insensitively as a substring, or exactly with `exact`; a regex is tested;
 // - locator() knows a tag name and the visible-dialog selector only, not CSS;
-// - nothing waits: a wait or a strict call on the wrong number of elements fails at once.
+// - nothing waits: a wait or a strict call on the wrong number of elements fails at once;
+// - a node's `unreadable` (an error message) makes reading its text throw, as a page closed under a read does.
 
 /** An element: `tag`, `role`, accessible `name`, `text`, `enabled`, `pressed` (aria-pressed), `on` (its click). */
 export const el = (props, ...children) => ({ ...props, children });
@@ -58,7 +59,7 @@ export function fakePage(view, clicks = []) {
       boundingBox: async () => (nodes().length === 1 ? { x: 10, y: 10, width: 40, height: 20 } : null),
       getAttribute: async (a) => (a === 'aria-pressed' ? String(!!one('getAttribute').pressed) : null),
       innerText: async () => one('innerText').text ?? '',
-      allInnerTexts: async () => nodes().map((n) => n.text ?? ''),
+      allInnerTexts: async () => nodes().map((n) => { if (n.unreadable) throw new Error(n.unreadable); return n.text ?? ''; }),
       click: async () => {
         const n = one('click');
         if (n.enabled === false) throw new Error(`click on a disabled ${n.name}`);

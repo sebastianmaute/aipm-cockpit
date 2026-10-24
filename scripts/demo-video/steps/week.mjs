@@ -1080,7 +1080,11 @@ export const FRIDAY = [
       // The card's note and the toast come with the same render: once one shows, every line is read.
       const lines = recStatusLines(ctx);
       await lines.first().waitFor({ timeout: 15000 }).catch(() => {});
-      const statuses = await lines.allInnerTexts().catch(() => []);
+      // A read that fails still fails the step (no status), but the log says why.
+      const statuses = await lines.allInnerTexts().catch((e) => {
+        ctx.log(`INSIGHT status read failed: ${String(e?.message ?? e).split('\n')[0]}`);
+        return [];
+      });
       ctx.log(`INSIGHT status after Apply: ${statuses.map((s) => `"${s}"`).join(', ') || '(none)'}`);
       // The applied changes may bring the budget back on plan, and a resolved insight leaves the list.
       const gone = !statuses.length && !(await insightCard(ctx).count());

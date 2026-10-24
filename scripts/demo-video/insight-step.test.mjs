@@ -23,6 +23,8 @@ const OUTCOMES = {
   // A change threw: the card still reads applied, the toast says some changes couldn't be applied.
   threw: (s) => { s.rec = 'applied'; s.toast = en.insightRecommendationApplyFailed; },
   elsewhere: (s) => { s.otherNote = en.insightRecommendationAppliedPartial; },
+  // Applied, but the page fails the read of its outcome lines.
+  unreadable: (s) => { s.rec = 'applied'; s.unreadable = 'Target page, context or browser has been closed'; },
 };
 
 /** The Insights view for `s`: { rec: null | 'proposed' | 'rejected' | 'applied', review, empty, toast, otherNote,
@@ -37,7 +39,7 @@ function insights(s) {
       controls.push(text('AI suggests: move budget to the pilot.'));
       controls.push(button(`Apply recommendation – ${B}`, { on: () => { s.review = true; } }));
       controls.push(button(`Reject – ${B}`, { on: () => { s.rec = 'rejected'; } }));
-    } else controls.push(text(APPLIED));
+    } else controls.push(el({ text: APPLIED, unreadable: s.unreadable }));
     const cards = [el({ tag: 'li' }, text(B), ...controls, button(`Dismiss – ${B}`))];
     if (s.otherNote) cards.push(el({ tag: 'li' }, text('Schedule slipping'), text(s.otherNote)));
     const body = [el({ tag: 'main' }, el({ tag: 'ul' }, ...cards))];
@@ -54,7 +56,7 @@ function insights(s) {
 
 const insightStep = DAYS.fri.find((x) => x.id === 'insight-recommendation');
 const start = (plans, outcome) => ({ rec: null, review: false, plans, outcome });
-const ctxFor = (s, clicks = []) => ({ page: fakePage(insights(s), clicks), rehearse: true, withAi: true, clipId: 'ch7-friday', log: () => {} });
+const ctxFor = (s, clicks = [], logs = []) => ({ page: fakePage(insights(s), clicks), rehearse: true, withAi: true, clipId: 'ch7-friday', log: (l) => logs.push(l) });
 
 describe('the insight-recommendation step (§715)', () => {
   it('applies a recommendation whose plan has changes, without a retry', async () => {
@@ -90,6 +92,13 @@ describe('the insight-recommendation step (§715)', () => {
   it('fails when the card reads applied but the toast says a change could not be applied', async () => {
     await expect(runAi(ctxFor(start([false], 'threw')), insightStep))
       .rejects.toThrow(`ch7-friday: the recommendation was not applied in full: "${en.insightRecommendationApplyFailed}"`);
+  });
+
+  it('logs why the outcome lines could not be read, and still fails', async () => {
+    const logs = [];
+    await expect(runAi(ctxFor(start([false], 'unreadable'), [], logs), insightStep))
+      .rejects.toThrow('ch7-friday: the recommendation shows no applied status');
+    expect(logs).toContain('INSIGHT status read failed: Target page, context or browser has been closed');
   });
 
   it('does not take another card\'s outcome line for this recommendation\'s', async () => {
