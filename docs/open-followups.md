@@ -1007,6 +1007,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§772](#772-scheduled-jobs-analyse-only-the-open-project-take-no-instruction-and-keep-no-suggestions--closed-2026-10-23) | Scheduled jobs analyse only the open project, take no instruction and keep no suggestions | — | — | **CLOSED** 2026-10-23 |
 | [§777](#777-the-action-center-learning-view-is-not-a-pane-and-shows-raw-kind-ids--closed-2026-10-23) | The Action Center learning view is not a pane and shows raw kind ids | — | — | **CLOSED** 2026-10-23 |
 | [§778](#778-one-next-actions-reason-is-learned-and-overridden-as-two-rows-singularplural-why-keys--closed-2026-10-24) | One Next-actions reason is learned and overridden as two rows (singular/plural why keys) | — | — | **CLOSED** 2026-10-24 |
+| [§780](#780-the-learning-views-adjustment-column-contradicts-an-override--closed-2026-10-24) | The learning view's Adjustment column contradicts an override | — | — | **CLOSED** 2026-10-24 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -45903,3 +45904,25 @@ A derived test fails when a "…One" or "…Below1" why key in the EN dictionary
 Size S–M.
 
 **Source:** found 2026-10-23 in the §777 review (owner: fix it now).
+
+## 780. The learning view's Adjustment column contradicts an override — CLOSED 2026-10-24
+
+**Status:** CLOSED 2026-10-24 on `fix/learning-view-pane`, owner decision 2026-10-24 to fix it now. Verified with `npx vitest run src/app/learning-insights.test.tsx src/app/task-manager.learning-back.test.tsx src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-cpi-labels.test.ts src/app/action-learning.test.ts` (6 files, 76 tests, green).
+
+The Adjustment column of the Action Center learning view (`learning-insights.tsx`) now shows `effectiveBias(d, override)`, the value `buildBiasMap` feeds the engine:
+- "Always surface" shows +20 (`BIAS_CAP`).
+- "Always suppress" shows -20.
+- "Off" shows 0.
+- "Auto" shows the learned bias.
+
+Under an override, the learned value stays visible below the applied one, marked "learned +12" ("gelernt +12", new key `learningBiasLearned`). The cell holds no control, so no accessible name changed.
+
+Five new tests use a fixture with a learned bias of +12, distinct from ±20 and 0: one per override value (auto, surface, suppress, off), plus the German marking. All five failed on the old cell. Four of the failures came from the defect. The auto case failed only because the new two-line cell shape differs, since the old value was already right.
+
+A mutant that shows `learnedBias` again in the applied line turns the surface, suppress and off tests red.
+
+**Earlier:** found 2026-10-24 by the owner. The column printed `learnedBias(d)` whatever the row's override, so a row set to "Always suppress" could read "+5", contradicting the override that is actually applied.
+
+Size XS.
+
+**Source:** owner report 2026-10-24.

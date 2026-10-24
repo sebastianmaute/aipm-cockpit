@@ -74,6 +74,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The learning view's Adjustment column shows what is applied (§780).** A row set to "Always suppress" could
+  still read "+5", the learned value the override replaces. The column now shows the adjustment in effect (+20,
+  -20 or 0 under Always surface, Always suppress and Off), with the learned value below it, marked "learned".
 - **A Next-actions reason is learned once, whatever its count (§778).** "Due in 1 working day" and "Due in 3
   working days" are one reason, but were learned and overridden as two, so "Always suppress" on "Due soon" still
   showed a task due in one working day. They now share one learning row and one override; rows and overrides already saved
