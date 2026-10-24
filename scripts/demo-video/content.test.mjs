@@ -1,8 +1,12 @@
 // §715 recorder Task 4, the pure pieces of the clip content fixes: the Gantt prefs the clip opens with, the
 // workload checks, the proposal check (NACE), the recommendation status, the scheduled-jobs query and cleanup.
-import { describe, expect, it } from 'vitest';
-import { countsMoved, ganttPrefsSeed, utilMoved } from './steps/features.mjs';
-import { STORED_JOBS_SQL } from './steps/ai.mjs';
+import { DatabaseSync } from 'node:sqlite';
+import { afterEach, describe, expect, it } from 'vitest';
+import { loadPrefs } from '../../src/app/gantt-engine.ts';
+import { MIGRATED_MARKER_ID, SCHEDULED_JOBS_DDL } from '../../src/app/scheduled-jobs-store.ts';
+import { SCHEDULED_REPORTS_DDL } from '../../src/app/scheduled-reports-schema.ts';
+import { GANTT_PREFS_KEY, countsMoved, ganttPrefsSeed, utilMoved } from './steps/features.mjs';
+import { MIGRATED_MARKER, REPORT_FOR_JOB_SQL, STORED_JOBS_SQL, jobsFromRows } from './steps/ai.mjs';
 import { proposalMissing, recommendationNotApplied } from './steps/week.mjs';
 
 describe('ganttPrefsSeed (§715)', () => {
@@ -57,8 +61,51 @@ describe('the recommendation status after Apply (§715)', () => {
   });
 });
 
-describe('the scheduled jobs (§715)', () => {
-  it('reads the jobs from scheduled_jobs_v2, without its migration marker row', () => {
-    expect(STORED_JOBS_SQL).toBe("SELECT data FROM scheduled_jobs_v2 WHERE id <> '__migrated__'");
+describe('the seed, read back by the app (§715)', () => {
+  afterEach(() => localStorage.clear());
+
+  it("is what gantt-engine.ts loadPrefs reads under the recorder's key: the three layers off, milestones on and below, every status", () => {
+    localStorage.setItem(GANTT_PREFS_KEY, JSON.stringify(ganttPrefsSeed(null)));
+    const p = loadPrefs();
+    expect([p.showDependencies, p.showAbsences, p.showCriticalPath]).toEqual([false, false, false]);
+    expect([p.showMilestones, p.milestonePlacement]).toEqual([true, 'below']);
+    expect(p.statuses).toEqual(['open', 'completed', 'overdue']);
+  });
+});
+
+describe('the scheduled jobs, against the app schema (§715)', () => {
+  /** A database with the app's own scheduled-jobs and scheduled-reports tables. */
+  function db() {
+    const d = new DatabaseSync(':memory:');
+    for (const sql of [...SCHEDULED_JOBS_DDL, ...SCHEDULED_REPORTS_DDL]) d.exec(sql);
+    return d;
+  }
+  /** Rows as L.query returns them: each cell { value }. */
+  const asCells = (rows) => rows.map((r) => Object.values(r).map((v) => ({ value: v })));
+
+  it("uses the app's marker id", () => {
+    expect(MIGRATED_MARKER).toBe(MIGRATED_MARKER_ID);
+  });
+
+  it('reads the job rows of scheduled_jobs_v2, never the migration marker', () => {
+    const d = db();
+    d.prepare('INSERT INTO scheduled_jobs_v2 (id, data) VALUES (?, ?)').run(MIGRATED_MARKER_ID, '1');
+    d.prepare('INSERT INTO scheduled_jobs_v2 (id, data) VALUES (?, ?)').run('1', JSON.stringify({ name: 'Morning check', key: 'k1', history: [{ ok: true }] }));
+    const jobs = jobsFromRows(asCells(d.prepare(STORED_JOBS_SQL).all()));
+    expect(jobs).toEqual([{ name: 'Morning check', key: 'k1', history: [{ ok: true }] }]);
+  });
+
+  it("finds the report of this take's job by its key, the newest first", () => {
+    const d = db();
+    const add = d.prepare('INSERT INTO scheduled_reports (id, project_id, job_key, slot, status, ok, ran_at, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    add.run('r-old', 'p', 'k-old', 's1', 'done', 1, '2026-09-20T07:05:00Z', '{}');
+    add.run('r1', 'p', 'k1', 's1', 'done', 1, '2026-09-21T07:05:00Z', '{}');
+    add.run('r0', 'p', 'k1', 's0', 'done', 1, '2026-09-20T07:05:00Z', '{}');
+    expect(d.prepare(REPORT_FOR_JOB_SQL).all('k1').map((r) => r.id)).toEqual(['r1']);
+    expect(d.prepare(REPORT_FOR_JOB_SQL).all('k-none')).toEqual([]);
+  });
+
+  it('a row that is not JSON fails naming the table and the row', () => {
+    expect(() => jobsFromRows([[{ value: '7' }, { value: '{not json' }]])).toThrow(/^scheduled_jobs_v2 row 7 is not JSON: /);
   });
 });

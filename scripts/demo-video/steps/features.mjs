@@ -75,6 +75,8 @@ const viewToggle = (id, label, text) => step(id, {
     // A layer already on (milestones: the clip drags one before this) is switched off and on again, so the
     // toggle is seen showing its layer. The chart's re-layout may close the menu in between: it is reopened.
     if ((await toggle.getAttribute('aria-pressed')) === 'true') {
+      // Only milestones start on; any other layer on here means the gantt-layers-off seed did not take.
+      if (id !== 'view-milestones') throw new Error(`View: ${label} was already on (the gantt-layers-off seed did not apply)`);
       await click(ctx, toggle, label, 900);
       if (!(await toggle.isVisible().catch(() => false))) await click(ctx, view, 'View', 500);
     }
