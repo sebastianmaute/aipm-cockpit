@@ -111,6 +111,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     setStakeholders,
     project,
     setProject,
+    setFeatures,
     insights,
     knowledgeItems,
     budgets,
@@ -755,6 +756,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // run in the settings-save effect, exactly as for setLanguage.
           settingsRef.current = { ...cur, ...changes };
           args.setSettings((prev) => ({ ...prev, ...changes }));
+          // §779 — the functions are the PROJECT's (`Workspace.features`, the slice the panels'
+          // `onCommitFeatures` and Edit project use); `settings.features` above is only the mirror
+          // `useFeaturesSync` keeps, so writing it alone was lost on the next sync and Edit project
+          // disagreed with the navigation. The mirror write stays so a back-to-back call reads it.
+          if (changes.features) setFeatures(changes.features);
           // ★ NO ARGS — "Settings updated" has no placeholder, and the
           // user-side row omits field values too (secrets). Inside the
           // `applied` guard: a patch that changed nothing is not a change.
@@ -1068,7 +1074,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // ★ `forecastTools` is the same shape again: a useMemo'd object spread in, and read by `getSnapshot`; so is
     // `projectTools`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly, documentTools, registerTools, forecastTools, projectTools, setRaid, setAbsences, setShifts, setStakeholders, setProject],
+    [args.isReadOnly, documentTools, registerTools, forecastTools, projectTools, setRaid, setAbsences, setShifts, setStakeholders, setProject, setFeatures],
   );
 
   return dispatcher;
