@@ -76,6 +76,18 @@ describe('the recommendation status after Apply (§715)', () => {
       expect(REC_STATUS.test(other), other).toBe(false);
     }
   });
+
+  // Every outcome key the app has must be one the step knows, or a new outcome line would fail a take as an
+  // unknown status. Today it passes. It goes red when §782 merges, until REC_OUTCOMES learns that branch's
+  // insightRecommendationApplyFailedDetail and insightRecommendationStalePartialDetail. Both carry a {0}, so they
+  // need a pattern, not a copy. §782's insightRecommendationCallArgsRequired, …CallArgDate and …CallNotAllowed do
+  // not match this filter: they are the reasons placed into those {0}, not lines of their own.
+  const OUTCOME_KEY = /^insightRecommendation(Applied|Apply|AllRejected|Stale|Currency)/;
+  const outcomeKeys = Object.keys(en).filter((k) => OUTCOME_KEY.test(k));
+  it(`knows every outcome key of the app's i18n.ts (${outcomeKeys.length} matched)`, () => {
+    expect(outcomeKeys.length).toBeGreaterThan(0);
+    expect(outcomeKeys.filter((k) => !(k in REC_OUTCOMES))).toEqual([]);
+  });
 });
 
 describe('the seed, read back by the app (§715)', () => {
