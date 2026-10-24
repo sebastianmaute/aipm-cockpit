@@ -45911,7 +45911,7 @@ Size S–M.
 
 The Adjustment column of the Action Center learning view (`learning-insights.tsx`) now shows `effectiveBias(d, override)`, the value `buildBiasMap` feeds the engine:
 - "Always surface" shows +20 (`BIAS_CAP`).
-- "Always suppress" shows -20.
+- "Always suppress" shows -20; the score floor still keeps an intrinsically-now item in the now tier, whatever the shown -20 (the floor in `applyLearnedBias`, unchanged).
 - "Off" shows 0.
 - "Auto" shows the learned bias.
 

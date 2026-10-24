@@ -141,7 +141,12 @@ describe("LearningInsights", () => {
   // override's cell differs from the learned one.
   describe("Adjustment column (§780)", () => {
     const state = { "raid:actionRaidWhySeverity": { acted: 4, snoozed: 0, dismissed: 1, lastAt: 0 } };
-    const adjustmentCell = () => screen.getAllByRole("row")[1].querySelectorAll("td")[4] as HTMLElement;
+    // The first body row's cell under the Adjustment header, found by header, not position.
+    const adjustmentCell = (lang: Lang = "en-US") => {
+      const col = screen.getAllByRole("columnheader").findIndex((th) => th.textContent === t(lang, "learningColBias"));
+      expect(col).toBeGreaterThanOrEqual(0);
+      return within(screen.getAllByRole("row")[1]).getAllByRole("cell")[col];
+    };
     const cases = [
       ["auto", "+12", null],
       ["surface", "+20", "learned +12"],
@@ -159,7 +164,7 @@ describe("LearningInsights", () => {
     }
     it("marks the learned value in German", () => {
       render(<LearningInsights {...baseProps()} lang="de" state={state} overrides={{ "raid:actionRaidWhySeverity": "suppress" }} now={0} />);
-      expect(within(adjustmentCell()).getByText("gelernt +12")).toBeTruthy();
+      expect(within(adjustmentCell("de")).getByText("gelernt +12")).toBeTruthy();
     });
   });
 
