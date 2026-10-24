@@ -48,20 +48,25 @@ interface UseActionLearningResult {
   /** Why the configured store has not been read (null once it has): writes are kept
    *  in memory and saved once a load works. The learning view names it. */
   loadProblem: LearningLoadProblem;
+  /** How many writes wait for a successful load (bounded by `LEARNING_QUEUE_MAX`). */
+  pendingWrites: number;
   record(action: SuggestedAction, type: OutcomeType): Promise<void>;
   setOverride(kind: string, override: LearningOverride): Promise<void>;
   reset(): Promise<void>;
 }
 
-export type LearningErrorKind = "load" | "rejected" | "notReady" | "save";
-/** "unreadable": a load failed (retried when retryable); "token-rejected": Turso
- *  refused the token (not retried); "store-not-ready": Turso is chosen but has no
- *  usable config yet, so nothing is loaded. */
-export type LearningLoadProblem = null | "unreadable" | "token-rejected" | "store-not-ready";
+export type LearningErrorKind = "load" | "failed" | "rejected" | "notReady" | "save";
+/** "unreadable": a retryable load failure (retried); "failed": a permanent one that
+ *  is not a token rejection (a SQL error, a non-auth 4xx, a malformed response): not
+ *  retried this session, so the notice says to reload or check the settings;
+ *  "token-rejected": Turso refused the token (not retried; a new token reloads);
+ *  "store-not-ready": Turso is chosen but has no usable config yet, so nothing is loaded. */
+export type LearningLoadProblem = null | "unreadable" | "failed" | "token-rejected" | "store-not-ready";
 
 /** §781 — the toast key for each failure `onError` reports, for the caller's `reportSilentFailure`. */
 export const LEARNING_ERROR_TOAST = {
   load: "learningWriteHeldToast",
+  failed: "learningLoadFailedFinalToast",
   rejected: "learningLoadRejectedToast",
   notReady: "learningStoreNotReadyToast",
   save: "learningSaveFailedToast",
@@ -74,6 +79,12 @@ const MAX_LOAD_RETRIES = 3;
 
 /** A learning write, kept as a function so it can replay on top of a late load (§781). */
 type Mutation = (s: LearningSnapshot) => LearningSnapshot;
+/** A queued write; a reset makes every write queued before it irrelevant. */
+type QueuedWrite = { m: Mutation; reset: boolean };
+
+/** The most writes held while no load has succeeded. Past it the OLDEST are dropped
+ *  (never a queued reset), with a `learning.queueDropped` diag line (§781). */
+export const LEARNING_QUEUE_MAX = 500;
 
 /**
  * Capture hook for the Action Center learning layer. Loads a learning snapshot
@@ -107,6 +118,7 @@ export function useActionLearning({
 }: UseActionLearningArgs): UseActionLearningResult {
   const [snap, setSnap] = useState<LearningSnapshot>(EMPTY_SNAPSHOT);
   const [loadProblem, setLoadProblem] = useState<LearningLoadProblem>(null);
+  const [pendingWrites, setPendingWrites] = useState(0);
   // Decay is time-dependent, but Date.now() is banned inside useMemo (engine-purity
   // lint). We capture "now" inside the load/persist callbacks (where it is allowed)
   // and feed it to the memo as a plain dep, so the bias map stays a pure derivation.
@@ -123,7 +135,11 @@ export function useActionLearning({
   const loadedStoreRef = useRef<LearningStore | null>(null);
   const loadGenRef = useRef(0);
   const storeKeyRef = useRef(storeKey);
-  const queueRef = useRef<Mutation[]>([]);
+  const queueRef = useRef<QueuedWrite[]>([]);
+  const droppedLoggedRef = useRef(false);
+  const loadProblemRef = useRef<LearningLoadProblem>(null);
+  // Saves enqueued and not yet settled: a reload waits for them (see attemptLoad).
+  const pendingSavesRef = useRef(0);
   const loadInFlightRef = useRef(false);
   const retriesRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,13 +168,16 @@ export function useActionLearning({
   const enqueueSave = useCallback((store: LearningStore, next: LearningSnapshot) => {
     // Chain saves so they run in enqueue order — the last record's snapshot is
     // the last write even if an earlier (slower) save is still in flight.
+    pendingSavesRef.current += 1;
     saveChainRef.current = saveChainRef.current
       .then(() => store.save(next))
       .then(
         () => {
+          pendingSavesRef.current -= 1;
           saveFailingRef.current = false;
         },
         (err: unknown) => {
+          pendingSavesRef.current -= 1;
           // Reported once per failing streak; the next save carries the whole
           // snapshot, so nothing is lost while the session lasts.
           if (saveFailingRef.current) return;
@@ -174,8 +193,12 @@ export function useActionLearning({
       if (gen !== loadGenRef.current || loadInFlightRef.current) return;
       loadInFlightRef.current = true;
       const store = pickLearningStore(argsRef.current.config, argsRef.current.tursoConfig);
-      store
-        .load()
+      // A save still in flight (to this store, or to the one just switched away
+      // from) lands BEFORE the read, so the read includes it: otherwise a token
+      // rotation mid-save would read the table without the write, and the next
+      // save would rewrite it without that write too.
+      const read = pendingSavesRef.current > 0 ? saveChainRef.current.then(() => store.load()) : store.load();
+      read
         .then((s) => {
           // A stale load (StrictMode's first mount, or a store switched since) is
           // ignored entirely: it neither drains the queue nor marks the load done.
@@ -185,15 +208,18 @@ export function useActionLearning({
           // into the canonical one here; the next save writes them merged.
           const queued = queueRef.current;
           queueRef.current = [];
+          droppedLoggedRef.current = false;
+          setPendingWrites(0);
           loadedStoreRef.current = store;
           loadErrorRef.current = null;
           heldReportedRef.current = false;
-          const next = queued.reduce((acc, m) => m(acc), normalizeLearningSnapshot(s));
+          const next = queued.reduce((acc, q) => q.m(acc), normalizeLearningSnapshot(s));
           // Saved even after an unmount: the queued writes are the user's, and
           // `next` already holds every stored row.
           if (queued.length > 0) enqueueSave(store, next);
           snapRef.current = next;
           setSnap(next);
+          loadProblemRef.current = null;
           setLoadProblem(null);
           setNowTick(Date.now());
         })
@@ -208,8 +234,10 @@ export function useActionLearning({
           });
           const kind = tursoErrorKind(err);
           const tokenRejected = kind === "auth" || kind === "auth-env";
-          setLoadProblem(tokenRejected ? "token-rejected" : "unreadable");
-          if (tokenRejected || !isRetryableLearningLoadError(err)) {
+          const retryable = !tokenRejected && isRetryableLearningLoadError(err);
+          loadProblemRef.current = tokenRejected ? "token-rejected" : retryable ? "unreadable" : "failed";
+          setLoadProblem(loadProblemRef.current);
+          if (!retryable) {
             // Retrying cannot fix a rejected token, a SQL error or a malformed
             // response: stop. A rejected token is told to the user NOW; a new token
             // in Settings is a new store identity, so it re-runs the load, which
@@ -260,15 +288,17 @@ export function useActionLearning({
     // Until the new store is read, show only this session's unsaved writes: the
     // previous store's rows are not this store's, and an override or Reset made
     // on them would replay into the new store.
-    const pending = queueRef.current.reduce((acc, m) => m(acc), EMPTY_SNAPSHOT);
+    const pending = queueRef.current.reduce((acc, q) => q.m(acc), EMPTY_SNAPSHOT);
     snapRef.current = pending;
     setSnap(pending);
     if (storeKey === null) {
       // Turso is chosen but not usable yet: load nothing, never fall back to local.
       permanentRef.current = true;
       loadErrorRef.current = new Error("learning: the Turso store is not ready");
+      loadProblemRef.current = "store-not-ready";
       setLoadProblem("store-not-ready");
     } else {
+      loadProblemRef.current = null;
       setLoadProblem(null);
       attemptLoadRef.current(gen);
     }
@@ -285,8 +315,24 @@ export function useActionLearning({
     [snap, config.enabled, nowTick],
   );
 
+  const enqueue = useCallback((m: Mutation, reset: boolean) => {
+    // A reset makes everything queued before it irrelevant: drop it.
+    const queue = reset ? [] : queueRef.current;
+    queue.push({ m, reset });
+    if (queue.length > LEARNING_QUEUE_MAX) {
+      // Drop the oldest write, never a reset (it sits first once queued).
+      queue.splice(queue[0].reset ? 1 : 0, 1);
+      if (!droppedLoggedRef.current) {
+        droppedLoggedRef.current = true;
+        logDiag("warn", "learning.queueDropped", { max: LEARNING_QUEUE_MAX });
+      }
+    }
+    queueRef.current = queue;
+    setPendingWrites(queue.length);
+  }, []);
+
   const apply = useCallback(
-    (m: Mutation) => {
+    (m: Mutation, reset = false) => {
       const next = m(snapRef.current);
       // Update the ref synchronously so consecutive mutations within one tick
       // (before React flushes the mirror effect) build on each other.
@@ -298,11 +344,15 @@ export function useActionLearning({
         enqueueSave(store, next);
         return;
       }
-      queueRef.current.push(m);
+      enqueue(m, reset);
       if (loadErrorRef.current === null) return;
       if (!heldReportedRef.current) {
         heldReportedRef.current = true;
-        argsRef.current.onError?.(storeKeyRef.current === null ? "notReady" : "load", loadErrorRef.current);
+        const problem = loadProblemRef.current;
+        argsRef.current.onError?.(
+          problem === "store-not-ready" ? "notReady" : problem === "failed" ? "failed" : "load",
+          loadErrorRef.current,
+        );
       }
       // Retries used up and none scheduled: this write starts a fresh round
       // (never after a permanent failure, which only a config change can fix).
@@ -311,7 +361,7 @@ export function useActionLearning({
         attemptLoadRef.current(loadGenRef.current);
       }
     },
-    [enqueueSave],
+    [enqueueSave, enqueue],
   );
 
   const record = useCallback(
@@ -335,8 +385,8 @@ export function useActionLearning({
   );
 
   const reset = useCallback(async () => {
-    apply(() => ({ state: {}, overrides: {} }));
+    apply(() => ({ state: {}, overrides: {} }), true);
   }, [apply]);
 
-  return { bias, state: snap.state, overrides: snap.overrides, loadProblem, record, setOverride, reset };
+  return { bias, state: snap.state, overrides: snap.overrides, loadProblem, pendingWrites, record, setOverride, reset };
 }

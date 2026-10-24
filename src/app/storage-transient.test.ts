@@ -18,7 +18,7 @@ describe("storage-transient", () => {
     expect(isRetryableLearningLoadError(new Error("action_learning: the select result is missing"))).toBe(false);
     expect(isRetryableLearningLoadError("x")).toBe(false);
   });
-  it("exposes the building blocks the scheduled-job runner composes", () => {
+  it("classifies each building block on its own", () => {
     expect(isStorageUnreachable(new StorageNotReadyError("storage-unreachable"))).toBe(true);
     expect(isStorageUnreachable(new StorageNotReadyError("turso-token-rejected"))).toBe(false);
     expect(isTursoServerBlip(new TursoHttpError(500))).toBe(true);

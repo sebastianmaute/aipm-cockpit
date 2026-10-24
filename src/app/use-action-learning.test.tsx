@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { StrictMode } from "react";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useActionLearning, LEARNING_LOAD_RETRY_MS, type LearningErrorKind } from "./use-action-learning";
+import { useActionLearning, LEARNING_LOAD_RETRY_MS, LEARNING_QUEUE_MAX, type LearningErrorKind } from "./use-action-learning";
 import { learningStoreKey, pickLearningStore } from "./learning-store";
 import type { LearningSnapshot } from "./learning-store";
 import type { SuggestedAction } from "./next-actions/types";
@@ -598,6 +598,10 @@ describe("useActionLearning — token, readiness, switch view, unmount (§781)",
     expect(localStorage.getItem("aipm-cockpit:action-learning")).toBeNull();
     rerender({ config: { enabled: true, store: "turso" }, tursoConfig: { httpUrl: URL_, authToken: "t" } });
     await waitFor(() => expect(pipeline.mock.calls.some((c) => isRewrite(c[1]))).toBe(true));
+    // The write held while Turso was not ready is among the rows saved to Turso.
+    const rewrite = pipeline.mock.calls.find((c) => isRewrite(c[1]))!;
+    const inserted = rewrite[1].filter((s) => s.sql.startsWith("INSERT INTO action_learning")).map((s) => (s.args?.[0] as { value: string }).value);
+    expect(inserted).toContain("raid:locked");
     expect(result.current.loadProblem).toBeNull();
     expect(localStorage.getItem("aipm-cockpit:action-learning")).toBeNull();
   });
@@ -639,5 +643,109 @@ describe("useActionLearning — token, readiness, switch view, unmount (§781)",
     vi.mocked(pickLearningStore).mockReturnValue({ load: () => Promise.reject(new StorageNotReadyError("turso-token-rejected")), save: vi.fn(async () => {}) });
     const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
     await waitFor(() => expect(result.current.loadProblem).toBe("token-rejected"));
+  });
+});
+
+// §781 (last round) — the final review's Minors.
+describe("useActionLearning — final review (§781)", () => {
+  beforeEach(() => {
+    vi.mocked(pickLearningStore).mockClear();
+    vi.mocked(runTursoPipeline).mockReset();
+  });
+  afterEach(() => { vi.useRealTimers(); });
+  const URL_ = "https://example.test";
+  const isSelect = (stmts: { sql: string }[]) => stmts.some((s) => s.sql.startsWith("SELECT"));
+  const isRewrite = (stmts: { sql: string }[]) => stmts.some((s) => s.sql.startsWith("DELETE") && s.sql.includes("action_learning"));
+  const emptySelect = { type: "ok" as const, response: { type: "execute", result: { cols: [{ name: "kind" }], rows: [] } } };
+
+  // R2-M1 / peer M1 — a permanent failure that is not a token rejection is never
+  // retried this session, so it is named as such: no promise of a later save.
+  it("names a permanent, non-token failure as final for the session", async () => {
+    const onError = vi.fn<(kind: LearningErrorKind, err: unknown) => void>();
+    vi.mocked(pickLearningStore).mockReturnValue({ load: () => Promise.reject(new Error("action_learning: the select result is missing")), save: vi.fn(async () => {}) });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true, onError }));
+    await waitFor(() => expect(result.current.loadProblem).toBe("failed"));
+    await act(async () => { await result.current.record(action("raid", "x"), "acted"); });
+    expect(onError.mock.calls.map((c) => c[0])).toEqual(["failed"]);
+  });
+
+  // Peer M2 — the queue is bounded: a queued reset drops everything before it,
+  // and past LEARNING_QUEUE_MAX the oldest entries are dropped (with a diag line),
+  // never the reset itself.
+  it("drops writes queued before a reset", async () => {
+    let resolve!: (s: LearningSnapshot) => void;
+    const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
+    vi.mocked(pickLearningStore).mockReturnValue({ load: () => new Promise((r) => { resolve = r; }), save });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
+    await act(async () => {
+      for (let i = 0; i < 5; i++) await result.current.record(action("raid", `before${i}`), "acted");
+      await result.current.reset();
+      await result.current.record(action("raid", "after"), "acted");
+    });
+    expect(result.current.pendingWrites).toBe(2); // the reset and the write after it
+    await act(async () => { resolve({ state: { "raid:stored": { acted: 1, snoozed: 0, dismissed: 0, lastAt: Date.now() } }, overrides: {} }); await Promise.resolve(); });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(Object.keys(save.mock.calls[0][0].state)).toEqual(["raid:after"]);
+  });
+
+  it("caps the queue, dropping the oldest writes (never a reset) and logging it", async () => {
+    let resolve!: (s: LearningSnapshot) => void;
+    const save = vi.fn<(snap: LearningSnapshot) => Promise<void>>(async () => {});
+    vi.mocked(pickLearningStore).mockReturnValue({ load: () => new Promise((r) => { resolve = r; }), save });
+    const { result } = renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }));
+    await act(async () => {
+      await result.current.reset();
+      for (let i = 0; i < LEARNING_QUEUE_MAX + 3; i++) await result.current.record(action("raid", `w${i}`), "acted");
+    });
+    expect(result.current.pendingWrites).toBe(LEARNING_QUEUE_MAX);
+    const diag = JSON.parse(localStorage.getItem("aipm-cockpit:diag-log") ?? "[]") as { code: string }[];
+    expect(diag.some((d) => d.code === "learning.queueDropped")).toBe(true);
+    await act(async () => { resolve({ state: { "raid:stored": { acted: 1, snoozed: 0, dismissed: 0, lastAt: Date.now() } }, overrides: {} }); await Promise.resolve(); });
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    const kinds = Object.keys(save.mock.calls[0][0].state);
+    expect(kinds).not.toContain("raid:stored"); // the reset survived the cap
+    expect(kinds).not.toContain("raid:w0"); // the oldest writes were dropped
+    expect(kinds).toContain(`raid:w${LEARNING_QUEUE_MAX + 2}`);
+  });
+
+  // R2-M2 (review P9) — a reload after a change of store identity waits for a
+  // save still in flight, so it reads what that save wrote.
+  it("starts a reload only after an in-flight save has landed", async () => {
+    const pipeline = vi.mocked(runTursoPipeline);
+    let landSave!: () => void;
+    pipeline.mockImplementation(async (_cfg, stmts) => {
+      if (isSelect(stmts)) return [{ type: "ok" } as never, emptySelect as never];
+      return new Promise((r) => { landSave = () => r([]); });
+    });
+    type P = { tursoConfig: { httpUrl: string; authToken: string } };
+    const { result, rerender } = renderHook(
+      (p: P) => useActionLearning({ config: { enabled: true, store: "turso" }, tursoConfig: p.tursoConfig, isPopout: false, hydrated: true }),
+      { initialProps: { tursoConfig: { httpUrl: URL_, authToken: "t-old" } } },
+    );
+    await waitFor(() => expect(pipeline.mock.calls.filter((c) => isSelect(c[1]))).toHaveLength(1));
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await result.current.record(action("raid", "inflight"), "acted"); });
+    await waitFor(() => expect(pipeline.mock.calls.some((c) => isRewrite(c[1]))).toBe(true));
+    rerender({ tursoConfig: { httpUrl: URL_, authToken: "t-new" } });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(pipeline.mock.calls.filter((c) => isSelect(c[1]))).toHaveLength(1); // still waiting for the save
+    await act(async () => { landSave(); await Promise.resolve(); });
+    await waitFor(() => expect(pipeline.mock.calls.filter((c) => isSelect(c[1]))).toHaveLength(2));
+    expect(pipeline.mock.calls.filter((c) => isSelect(c[1]))[1][0]?.authToken).toBe("t-new");
+  });
+
+  // R2-M3 — under real StrictMode the simulated unmount must not leave the hook
+  // "unmounted": the mount-effect body re-sets `mountedRef`, so a retryable failed
+  // load is still retried. `wrapper: StrictMode` is load-bearing
+  // (strictmode.meta.test.tsx), and the first-load count of 2 proves the double invoke.
+  it("still retries under StrictMode (the mounted flag is re-set on remount)", async () => {
+    vi.useFakeTimers();
+    const load = vi.fn<() => Promise<LearningSnapshot>>().mockRejectedValue(new StorageNotReadyError("storage-unreachable"));
+    vi.mocked(pickLearningStore).mockReturnValue({ load, save: vi.fn(async () => {}) });
+    renderHook(() => useActionLearning({ config: cfg(true), tursoConfig: null, isPopout: false, hydrated: true }), { wrapper: StrictMode });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    const first = load.mock.calls.length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(LEARNING_LOAD_RETRY_MS * 7); });
+    expect({ first, total: load.mock.calls.length }).toEqual({ first: 2, total: 5 });
   });
 });

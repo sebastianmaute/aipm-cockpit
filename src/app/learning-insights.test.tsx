@@ -195,11 +195,13 @@ describe("LearningInsights", () => {
   });
   // §781 — a rejected token and a Turso store without a usable config each say
   // what is wrong and where to fix it.
-  it("names a rejected token and a store that is not ready", () => {
+  it("names a rejected token, a store that is not ready, and a final failure", () => {
     const { rerender } = render(<LearningInsights {...baseProps()} loadProblem="token-rejected" now={0} />);
     expect(screen.getByRole("status").textContent).toBe(t("en-US", "learningTokenRejectedNotice"));
     rerender(<LearningInsights {...baseProps()} loadProblem="store-not-ready" now={0} />);
     expect(screen.getByRole("status").textContent).toBe(t("en-US", "learningStoreNotReadyNotice"));
+    rerender(<LearningInsights {...baseProps()} loadProblem="failed" now={0} />);
+    expect(screen.getByRole("status").textContent).toBe(t("en-US", "learningLoadFailedFinalNotice"));
   });
 
   // §777 — the view is a standard pane: the resizable card, an inner scroll

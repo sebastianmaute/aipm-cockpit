@@ -41,6 +41,7 @@ interface LearningInsightsProps {
 
 const LOAD_PROBLEM_NOTICE: Record<NonNullable<LearningLoadProblem>, Parameters<typeof t>[1]> = {
   unreadable: "learningLoadFailedNotice",
+  failed: "learningLoadFailedFinalNotice",
   "token-rejected": "learningTokenRejectedNotice",
   "store-not-ready": "learningStoreNotReadyNotice",
 };
