@@ -81,8 +81,9 @@ longer carries its own changelog comment.
   stored fixed 2026 milestone dates, so a project created from one, or a template applied to a project, got milestones
   months in the past, flagged at once as overdue and at risk. Applying a template now moves its milestone dates and task
   start and due dates together, keeping the gaps between them: the first day of the month holding the earliest date
-  becomes the day you apply it. This applies to your own saved templates too. Other dates in a template (RAID, changes,
-  completion dates) are kept as stored.
+  becomes the day you apply it. This applies to your own saved templates too; in one saved from a running project, a
+  finished task's completion date and a milestone's sign-off date move by the same days. Other dates in a template
+  (RAID, changes, a task's last update and creation) are kept as stored.
 - **Edit project shows the functions you switched off (§779).** Opened from Settings → Functions, Edit project
   showed a function you had just switched off as still on, and saving it after changing another function switched it
   on again. It now shows the project's saved functions. Turning a function on from Budget's setup checklist or the

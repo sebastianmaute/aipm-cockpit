@@ -52,6 +52,20 @@ describe("applyTemplate — a seed's dates follow the day it is applied", () => 
     expect(ws.milestones?.[0].date).toBe("2026-11-03");
   });
 
+  // A template saved from a running project carries finished work: its completion and sign-off dates move
+  // with the rest, so a Done task is never completed months before its own start.
+  it("moves a task's completion date and a milestone's sign-off date by the same days", () => {
+    const seed = {
+      milestones: [{ ...ms(1, "2026-03-31"), achievedDate: "2026-03-30" }],
+      tasks: [mkTask(1, { status: "Done", startDate: "2026-03-01", dueDate: "2026-03-05", completedDate: "2026-03-10" })],
+    };
+    const ws = applyTemplate(emptyWorkspace(), tpl(seed), { includeSeed: true, today: "2026-10-01" });
+    // 2026-03-01 → 2026-10-01 is +214 days.
+    expect(ws.tasks[0].startDate).toBe("2026-10-01");
+    expect(ws.tasks[0].completedDate).toBe("2026-10-10");
+    expect(ws.milestones?.[0].achievedDate).toBe("2026-10-30");
+  });
+
   it("leaves a blank date blank", () => {
     const seed = { milestones: [ms(1, "2026-01-31")], tasks: [mkTask(1)] };
     const ws = applyTemplate(emptyWorkspace(), tpl(seed), { includeSeed: true, today: "2026-10-25" });

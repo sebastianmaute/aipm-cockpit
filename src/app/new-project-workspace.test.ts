@@ -142,7 +142,9 @@ describe("buildNewProjectWorkspace", () => {
   it("a template's milestones are dated from the project's local day", () => {
     const standard = BUILT_IN_TEMPLATES.find((x) => x.id === "builtin-standard")!;
     const nowIso = "2026-10-25T12:00:00.000Z";
-    const ws = buildNewProjectWorkspace(meta, { template: standard, includeSeed: true, baseline: { currency: "GBP", nowIso } });
+    // A fixed zone: the local day comes from it, and 12:00 UTC is already the next day east of UTC+12.
+    const berlin: ProjectMeta = { ...meta, operatingTimezone: "Europe/Berlin" };
+    const ws = buildNewProjectWorkspace(berlin, { template: standard, includeSeed: true, baseline: { currency: "GBP", nowIso } });
     expect((ws.milestones ?? []).map((m) => m.date)).toEqual(["2026-11-24", "2027-01-22", "2027-04-23"]);
   });
 });

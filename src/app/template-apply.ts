@@ -27,9 +27,11 @@ export interface ApplyTemplateOptions {
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Move a seed's milestone dates and task start and due dates together, keeping every gap between them:
- *  the first day of the month that holds the earliest of those dates becomes `today`. A blank or
- *  malformed date is left as it is. Other dates (RAID, changes, a task's completion) are not moved.
- *  Pure — returns a new seed. */
+ *  the first day of the month that holds the earliest of those dates becomes `today`. A task's completion
+ *  date and a milestone's sign-off date move by the same days (a template saved from a running project
+ *  carries finished work, which must not end before it starts); they do not set the anchor. A blank or
+ *  malformed date is left as it is. Other dates (RAID, changes, a task's last update and creation) are
+ *  not moved. Pure — returns a new seed. */
 export function shiftSeedDates(seed: TemplateSeed, today: string): TemplateSeed {
   const dates = [
     ...(seed.milestones ?? []).map((m) => m.date),
@@ -40,12 +42,19 @@ export function shiftSeedDates(seed: TemplateSeed, today: string): TemplateSeed 
   const days = calendarDaysBetween(`${earliest.slice(0, 7)}-01`, today);
   const move = (d: string) => (ISO_DAY.test(d) ? addCalendarDays(d, days) : d);
   const out: TemplateSeed = { ...seed };
-  if (seed.milestones) out.milestones = seed.milestones.map((m) => ({ ...m, date: move(m.date) }));
+  if (seed.milestones) {
+    out.milestones = seed.milestones.map((m) => ({
+      ...m,
+      date: move(m.date),
+      ...(m.achievedDate ? { achievedDate: move(m.achievedDate) } : {}),
+    }));
+  }
   if (seed.tasks) {
     out.tasks = seed.tasks.map((t) => ({
       ...t,
       dueDate: move(t.dueDate),
       ...(t.startDate ? { startDate: move(t.startDate) } : {}),
+      ...(t.completedDate ? { completedDate: move(t.completedDate) } : {}),
     }));
   }
   return out;
