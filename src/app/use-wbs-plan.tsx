@@ -320,10 +320,13 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
     setPhase("input");
   }, [enabled, loadPending, filteredSortedTasks, healthFilter, tableToday, holidaySet, showToast, lang, setPhase]);
 
-  const onPropose = useCallback(() => {
+  // The dialog hands its text over here, once: kept in the hook, every keystroke re-rendered the host (task-manager,
+  // the whole tree), 40-55 ms a key in a production build.
+  const onPropose = useCallback((text: string) => {
     if (phase !== "input" || !scope) return;
-    void propose(scope, instruction);
-  }, [phase, scope, instruction, propose]);
+    setInstruction(text);
+    void propose(scope, text);
+  }, [phase, scope, propose]);
 
   const open = useCallback(
     (req: WbsOpenRequest): WbsOpenResult => {
@@ -473,8 +476,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
     modal = (
       <WbsPlanInputDialog
         lang={lang}
-        instruction={instruction}
-        onInstruction={setInstruction}
+        initialInstruction={instruction}
         onPropose={onPropose}
         onCancel={reset}
         thinking={phase === "thinking"}
@@ -501,22 +503,24 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
 }
 
 /** The optional-instructions step, and the progress state while the call runs.
- *  Cancel stays live during `thinking` — it aborts the call. */
+ *  Cancel stays live during `thinking` — it aborts the call.
+ *  ★ The text is the dialog's own state, handed to `onPropose` once: typing re-renders this dialog alone. It starts
+ *  from `initialInstruction` (empty from the toolbar, the chat's instruction from `open`) and survives into
+ *  `thinking`, where the same element stays mounted. */
 function WbsPlanInputDialog({
   lang,
-  instruction,
-  onInstruction,
+  initialInstruction,
   onPropose,
   onCancel,
   thinking,
 }: {
   lang: Lang;
-  instruction: string;
-  onInstruction: (v: string) => void;
-  onPropose: () => void;
+  initialInstruction: string;
+  onPropose: (text: string) => void;
   onCancel: () => void;
   thinking: boolean;
 }) {
+  const [text, setText] = useState(initialInstruction);
   const title = t(lang, "wbsPlanTitle");
   return (
     <Modal open onClose={onCancel} ariaLabel={title}>
@@ -532,8 +536,8 @@ function WbsPlanInputDialog({
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-foreground">{t(lang, "wbsPlanInstructionLabel")}</span>
             <Textarea
-              value={instruction}
-              onChange={(e) => onInstruction(e.target.value)}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
               placeholder={t(lang, "wbsPlanInstructionPlaceholder")}
               disabled={thinking}
               rows={3}
@@ -545,7 +549,7 @@ function WbsPlanInputDialog({
           <Button variant="secondary" size="sm" onClick={onCancel}>
             {t(lang, "wbsPlanCancel")}
           </Button>
-          <Button variant="primary" size="sm" onClick={onPropose} disabled={thinking}>
+          <Button variant="primary" size="sm" onClick={() => onPropose(text)} disabled={thinking}>
             {thinking ? t(lang, "wbsPlanThinking") : t(lang, "wbsPlanPropose")}
           </Button>
         </div>

@@ -71,7 +71,8 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const showToast = useToastContext();
 
   const [phase, setPhase] = useState<Phase>("idle");
-  const [instruction, setInstruction] = useState("");
+  // The instruction is NOT held here: the modal keeps it and hands it to onPropose. Held here, every keystroke
+  // re-rendered the Resources panel that owns this hook, planning grid included.
   const [cells, setCells] = useState<readonly GroundedAllocCell[]>([]);
   const [skipped, setSkipped] = useState<readonly SkippedCell[]>([]);
   const [truncated, setTruncated] = useState(false);
@@ -92,7 +93,6 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const clearProposalState = useCallback(() => {
     abortRef.current?.abort();
     reqIdRef.current++;
-    setInstruction("");
     setCells([]);
     setSkipped([]);
     setTruncated(false);
@@ -116,7 +116,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   // set-state-in-effect ban.
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const onPropose = useCallback(async () => {
+  const onPropose = useCallback(async (instruction: string) => {
     if (phase !== "input" || !instruction.trim()) return;
     const reqId = ++reqIdRef.current;
     const controller = new AbortController();
@@ -180,7 +180,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       }
       setPhase("input");
     }
-  }, [phase, instruction, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, apiKey, settings.ai.model, guideText, lang, showToast]);
+  }, [phase, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, apiKey, settings.ai.model, guideText, lang, showToast]);
 
   const onToggle = useCallback((key: string) => {
     setSelected((prev) => {
@@ -315,9 +315,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       lang={lang}
       open
       stage={stage}
-      instruction={instruction}
-      onInstruction={setInstruction}
-      onPropose={() => void onPropose()}
+      onPropose={(text) => void onPropose(text)}
       cells={cells}
       skipped={skipped}
       truncated={truncated}
