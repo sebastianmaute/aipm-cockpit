@@ -31,6 +31,11 @@ describe("AddFirstItemButton", () => {
     expect(box.className).toContain("p-6");
     // The click overlay follows the box's corners.
     expect(screen.getByRole("button").className).toContain("after:rounded-xl");
+    // The WHOLE card stays the click target: the overlay must cover it. jsdom has no
+    // layout, so the classes that make it cover are the observable. Mutation: drop
+    // them → red (every other test here clicks the button element itself).
+    expect(screen.getByRole("button").className.split(/\s+/)).toEqual(expect.arrayContaining(["after:absolute","after:inset-0"]));
+    expect(box.className.split(/\s+/)).toContain("relative");
   });
 
   it("defaults to rounded-lg / p-10", () => {

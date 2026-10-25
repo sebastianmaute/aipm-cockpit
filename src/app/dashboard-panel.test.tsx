@@ -812,12 +812,19 @@ describe("DashboardPanel completion-trend card", () => {
     const onNavigate = vi.fn();
     render(<DashboardPanel {...baseProps} lang={lang} projectId={`p-trend-overlay-${lang}`} snapshots={TWO_POINTS} onNavigate={onNavigate} />, { wrapper });
     const tile = screen.getByTestId("tile-completionTrend");
-    const jump = within(tile).getByRole("button", { name: t(lang, "dashboardOpenTasksView") });
+    // Named after the tile title the user sees, then the action.
+    const jump = within(tile).getByRole("button", { name: `${t(lang, "dashboardCompletionTrend")} – ${t(lang, "dashboardOpenTasksView")}` });
+    expect(within(tile).getByText(t(lang, "dashboardCompletionTrend"))).toBeInTheDocument();
     expect(jump.textContent).toBe("");
     expect(jump.contains(within(tile).getByRole("img"))).toBe(false);
     expect(within(tile).getByText(/^55\s?%$/)).toBeInTheDocument();
     // One tab stop for the body, and the box around it draws the ring.
     expect(jump.closest("[data-activate-body]")!.className).toContain("has-[button:focus]:ring-2");
+    // The WHOLE card stays the click target: the overlay must cover it. jsdom has no
+    // layout, so the classes that make it cover are the observable. Mutation: drop
+    // them → red (every other test here clicks the button element itself).
+    expect(jump.className.split(/\s+/)).toEqual(expect.arrayContaining(["absolute","inset-0"]));
+    expect(jump.closest("[data-activate-body]")!.className.split(/\s+/)).toContain("relative");
     fireEvent.click(jump);
     expect(onNavigate).toHaveBeenCalledWith("open-points");
   });

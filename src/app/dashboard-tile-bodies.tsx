@@ -84,8 +84,11 @@ const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
  *  tasks list", which contains none of it — axe 4.14's
  *  label-content-name-mismatch, and the name hid the figures from screen
  *  readers. The tile's title lives in the arrangement chrome, outside the body,
- *  so there is no label to wrap: the body stays plain text, the overlay keeps it
- *  all clickable, and the body box draws the focus ring. One tab stop. */
+ *  so there is nothing in the body to wrap: the body stays plain text, the
+ *  overlay keeps it all clickable, and the body box draws the focus ring. One
+ *  tab stop. ★ That chrome title IS what a speech-input user sees for this
+ *  control, so callers start `ariaLabel` with it ("Completion trend – Open the
+ *  tasks list"). */
 function ActivateBody({
   onActivate, ariaLabel, className, children,
 }: {
@@ -225,7 +228,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
     trends: (
       <ActivateBody
         onActivate={a.onNavigate ? () => a.onNavigate!("trends") : undefined}
-        ariaLabel={t(lang, "dashboardOpenTrendsView")}
+        ariaLabel={`${t(lang, "dashboardTrends")} – ${t(lang, "dashboardOpenTrendsView")}`}
         className={dc.cardPad}
       >
         {a.varianceRows.length === 0 ? (
@@ -342,7 +345,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
     completionTrend: a.completionSeries.length >= 2 ? (
       <ActivateBody
         onActivate={a.onNavigate ? () => a.onNavigate!(a.tursoActive ? "trends" : "open-points") : undefined}
-        ariaLabel={t(lang, a.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
+        ariaLabel={`${t(lang, "dashboardCompletionTrend")} – ${t(lang, a.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}`}
         className={dc.cardPad}
       >
         <CompletionTrendBody lang={lang} points={a.completionSeries} today={a.model.chartDates.today} />

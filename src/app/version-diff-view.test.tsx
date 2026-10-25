@@ -135,6 +135,26 @@ describe("VersionDiffView", () => {
     for (const btn of buttons) expectLabelInName(btn);
   });
 
+  // The type badge left the button's TEXT but not its click target: it sat inside
+  // the button before, so clicking "Modified" opened the row, and still does —
+  // the button's after: overlay covers the relative wrapper that holds both.
+  // jsdom has no layout, so the structure and classes are the observable.
+  // Mutation: drop the overlay classes, or move the badge out of the wrapper → red.
+  it("keeps the type badge inside the record button's click target", () => {
+    const change: VersionChange = {
+      collection: "tasks", collectionLabel: "Tasks", kind: "list",
+      recordId: 1, recordLabel: "Design SSO", type: "modified",
+      fields: [{ field: "title", label: "Title", before: "a", after: "b" }],
+    };
+    render(<VersionDiffView lang="en-US" changes={[change]} />);
+    const btn = screen.getByRole("button", { name: /Design SSO/ });
+    const badge = screen.getByText("Modified");
+    expect(btn.contains(badge)).toBe(false);
+    expect(badge.parentElement).toBe(btn.parentElement);
+    expect(btn.parentElement!.className.split(/\s+/)).toContain("relative");
+    expect(btn.className.split(/\s+/)).toEqual(expect.arrayContaining(["after:absolute", "after:inset-0"]));
+  });
+
   it("gives two same-named records distinct checkbox names", () => {
     const row = (id: number): VersionChange => ({
       collection: "documents", collectionLabel: "Documents", kind: "list",

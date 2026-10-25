@@ -258,6 +258,11 @@ describe("Tile clickable variant", () => {
     const card = btn.closest("[data-tile-activate]")!;
     expect(card).toHaveTextContent("50%");
     expect(card).toHaveTextContent("2 of 4 completed");
+    // The WHOLE card stays the click target: the overlay must cover it. jsdom has no
+    // layout, so the classes that make it cover are the observable. Mutation: drop
+    // them → red (every other test here clicks the button element itself).
+    expect(btn.className.split(/\s+/)).toEqual(expect.arrayContaining(["after:absolute","after:inset-0"]));
+    expect(card.className.split(/\s+/)).toContain("relative");
   });
 
   it("renders a non-interactive tile without onActivate", () => {
