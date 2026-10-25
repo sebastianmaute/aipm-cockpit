@@ -153,11 +153,18 @@ describe("useTaskRowWindow over the real virtualizer (§5, no mock)", () => {
     );
     expect(result.current.enabled).toBe(true);
     // Rows 0..4 render 100px tall, against the 45px estimate.
+    // ★ Attached to the document, as a rendered row is when React calls its ref:
+    // since virtual-core 3.18 (TanStack/virtual#1293) `measureElement` skips a
+    // detached node, so a row built but never inserted is never measured.
+    const tbody = document.createElement("tbody");
+    box.append(document.createElement("table"));
+    box.querySelector("table")!.append(tbody);
     act(() => {
       for (let i = 0; i < 5; i++) {
         const tr = document.createElement("tr");
         tr.setAttribute("data-index", String(i));
         Object.defineProperty(tr, "offsetHeight", { value: 100, configurable: true });
+        tbody.append(tr);
         result.current.measure(tr);
       }
     });

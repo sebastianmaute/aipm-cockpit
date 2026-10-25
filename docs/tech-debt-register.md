@@ -71,7 +71,7 @@ seen by it at all. Order: security → tooling → runtime. Reproduce the whole 
 
 ### Exact-pinned (no action — the specifier holds them)
 
-`next` (exact `16.4.2`) · `react` · `react-dom` (exact `19.3.0`) and `eslint-config-next`
+`next` (exact `16.4.2`) · `react` · `react-dom` (exact `19.3.1`) and `eslint-config-next`
 (exact `16.4.2`) — `Wanted == Current` for all four, and the latest is outside the pinned spec
 by design.
 
