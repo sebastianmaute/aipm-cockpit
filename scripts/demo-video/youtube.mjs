@@ -15,6 +15,15 @@ const LABEL_MAX = 70;
 const RESERVED = new Set(['title', 'opening', 'closing']);
 const DAYS = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday' };
 
+/** In every description, right after its opening line (the part YouTube shows before "more"), and kept like the
+ *  credits when a description is cut to YouTube's limit (owner, 2026-10-25). The pitch is the README's own; the
+ *  licence is the repo's LICENSE. */
+export const TAGLINE = [
+  'AI PM Cockpit: the AI project-management cockpit that knows your project. Open source under the EUPL-1.2.',
+  'Project: https://github.com/sebastianmaute/aipm-cockpit',
+  'Download: https://github.com/sebastianmaute/aipm-cockpit/releases',
+].join('\n');
+
 export const MUSIC_CREDIT = 'Music: Made with ElevenMusic';
 export const VOICE_CREDIT = 'Narration: AI-generated voice (ElevenLabs)';
 const CATEGORY = 'Science & Technology';
@@ -108,11 +117,12 @@ export function descriptionFor(def, narration, chapters) {
   const credits = [MUSIC_TIERS.includes(def.tier) ? MUSIC_CREDIT : null, narration?.size ? VOICE_CREDIT : null].filter(Boolean).join('\n');
   const list = chapters.map((c) => `${stamp(c.at)} ${c.label}`).join('\n');
   const join = (parts) => youtubeText(parts.filter(Boolean).join('\n\n'));
-  // Over YouTube's limit the summary goes first, then the chapters; the opening line and the credits always stay.
-  for (const parts of [[lead, summary, list, credits], [lead, list, credits], [lead, credits]]) {
+  // Over YouTube's limit the summary goes first, then the chapters; the opening line, the tagline and the credits
+  // always stay.
+  for (const parts of [[lead, TAGLINE, summary, list, credits], [lead, TAGLINE, list, credits], [lead, TAGLINE, credits]]) {
     if (join(parts).length <= DESCRIPTION_MAX) return join(parts);
   }
-  return join([lead.slice(0, DESCRIPTION_MAX - 200), credits]);
+  return join([lead.slice(0, DESCRIPTION_MAX - 200 - TAGLINE.length), TAGLINE, credits]);
 }
 
 /** YouTube rejects < and > in a title or a description. */

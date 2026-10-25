@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { PLAYLISTS, buildDetailsPage, chaptersFor, descriptionFor, playlistDescription, writeDetailsPage } from './youtube.mjs';
+import { PLAYLISTS, TAGLINE, buildDetailsPage, chaptersFor, descriptionFor, playlistDescription, writeDetailsPage } from './youtube.mjs';
 import { VIDEOS } from './videos.mjs';
 
 /** The page's escaping, for checking that a text appears in it. */
@@ -150,6 +150,30 @@ describe("YouTube's limits (§715)", () => {
     expect(d.startsWith('Short opening.')).toBe(true);
     expect(d).toContain('Music: Made with ElevenMusic');
     expect(d).toContain('Narration: AI-generated voice (ElevenLabs)');
+    expect(d).toContain(TAGLINE);
+  });
+
+  // Mutation: dropping the tagline from the shortest fallback loses the links exactly when a description is long.
+  it('keeps the tagline in the shortest fallback too, where only the opening line and the credits are left', () => {
+    const d = descriptionFor(monday.def, new Map([['opening', 'word '.repeat(1100).trim()]]), []);
+    expect(d.length).toBeLessThanOrEqual(5000);
+    expect(d).toContain(TAGLINE);
+  });
+});
+
+describe('the tagline (§715)', () => {
+  it('links the project and its releases, and says what the app is', () => {
+    expect(TAGLINE).toContain('https://github.com/sebastianmaute/aipm-cockpit\n');
+    expect(TAGLINE).toContain('https://github.com/sebastianmaute/aipm-cockpit/releases');
+    expect(TAGLINE).toMatch(/^AI PM Cockpit: /);
+    expect(TAGLINE).not.toMatch(/[<>]/);
+  });
+
+  it("follows the opening line in every video's description, before its summary and chapters", () => {
+    const d = descriptionFor(monday.def, monday.narration, chaptersFor(monday.def, monday.sidecar));
+    // The opening line here is the narration's title beat: the fixture's opening repeats its title.
+    expect(d.startsWith(`Monday. The MVP target passed.\n\n${TAGLINE}\n\n`)).toBe(true);
+    for (const v of VIDEOS) expect(descriptionFor(v, null, []), v.id).toContain(TAGLINE);
   });
 });
 
