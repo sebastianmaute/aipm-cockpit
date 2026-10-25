@@ -63,6 +63,7 @@ import type { AppView } from "./nav-config";
 import type { ChangeStatus } from "./types";
 import { buildRowTokens } from "./row-tokens";
 import { CELL_BUTTON } from "./control-classes";
+import { TRANSITION } from "./interaction-styles";
 import type { KpiSimulation, KpiSimulationGap } from "./kpi-simulation";
 import type { AppForecast } from "./forecast/app-forecast";
 import { DashboardForecastTile, type DashboardForecastTileProps } from "./dashboard-sections/dashboard-forecast-tile";
@@ -76,7 +77,15 @@ const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
   Deferred: "changeStatusDeferred",
 };
 
-/** A card body that is also a jump-to-view button when `onActivate` is wired. */
+/** A card body that is also a jump-to-view button when `onActivate` is wired.
+ *  ★★ WCAG 2.5.3 (label in name): the button is EMPTY and laid over the body,
+ *  never wrapped around it. Wrapped, every figure in the body ("20%", "55%",
+ *  "Jun 10", the variance rows) was visible text of a button named "Open the
+ *  tasks list", which contains none of it — axe 4.14's
+ *  label-content-name-mismatch, and the name hid the figures from screen
+ *  readers. The tile's title lives in the arrangement chrome, outside the body,
+ *  so there is no label to wrap: the body stays plain text, the overlay keeps it
+ *  all clickable, and the body box draws the focus ring. One tab stop. */
 function ActivateBody({
   onActivate, ariaLabel, className, children,
 }: {
@@ -86,14 +95,19 @@ function ActivateBody({
   children: ReactNode;
 }) {
   return onActivate ? (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      onClick={onActivate}
-      className={`${CELL_BUTTON} block w-full text-left ${className}`}
+    <div
+      data-activate-body
+      className={`relative cursor-pointer rounded-md border border-transparent hover:border-ui-dark-blue hover:bg-surface-muted ${TRANSITION} has-[button:focus]:ring-2 has-[button:focus]:ring-ui-green has-[button:active]:translate-y-px ${className}`}
     >
       {children}
-    </button>
+      {/* Last in the DOM, so it paints above any positioned content in the body. */}
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        onClick={onActivate}
+        className="absolute inset-0 rounded-md focus:outline-none"
+      />
+    </div>
   ) : (
     <div className={className}>{children}</div>
   );

@@ -116,8 +116,8 @@ describe("ArrangementTile — accessible names", () => {
 
   // ★ An optional `hint` puts an info tooltip in the header beside the title.
   //   It sits in the HEADER, never in the body, because a body is often one big
-  //   button (ActivateBody) and a tooltip trigger nested in a button is an axe
-  //   nested-interactive failure.
+  //   click target (ActivateBody's overlay button) and a tooltip trigger inside
+  //   or under it would be nested-interactive or unreachable by pointer.
   it("renders a hint as an info tooltip in the header, after the title", () => {
     render(
       <ArrangementTile id="alpha" title="Alpha board" w={2} h={2} lang="en-US" readOnly={false}
