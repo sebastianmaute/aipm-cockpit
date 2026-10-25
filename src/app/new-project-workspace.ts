@@ -50,7 +50,7 @@ export function buildNewProjectWorkspace(meta: ProjectMeta, opts: NewProjectOpts
   const localDay = todayInZone(now, resolveTimezone(undefined, meta.operatingTimezone));
   let ws: Workspace = { ...emptyWorkspace(), plan: defaultResourcePlan(localDay), project: meta };
   if (opts.template) {
-    ws = applyTemplate(ws, opts.template, { includeSeed: !!opts.includeSeed });
+    ws = applyTemplate(ws, opts.template, { includeSeed: !!opts.includeSeed, today: localDay });
   } else if (opts.aiSeed && opts.includeSeed) {
     ws = appendSeed(ws, remapSeed(ws, withoutUnsafeSeedEmails(opts.aiSeed)));
   }

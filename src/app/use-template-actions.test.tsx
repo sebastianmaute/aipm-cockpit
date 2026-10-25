@@ -24,12 +24,13 @@ const STANDARD = BUILT_IN_TEMPLATES.find((x) => x.id === "builtin-standard")!;
 const OWN_TASK = { id: 900, taskName: "Mine", status: "Open" } as unknown as Task;
 
 const ONE_MODULE: FeatureModuleId[] = [ALL_MODULE_IDS[0]];
+const TODAY = "2026-10-25";
 
 function setup(features: FeatureModuleId[] = ONE_MODULE) {
   const showToast = vi.fn();
   const hook = renderHook(
     () => ({
-      actions: useTemplateActions({ lang: "en-US", showToast }),
+      actions: useTemplateActions({ lang: "en-US", showToast, today: TODAY }),
       ws: useWorkspace(),
     }),
     { wrapper: Wrapper },
@@ -64,6 +65,14 @@ describe("useTemplateActions", () => {
     expect(ids[0]).toBe(900);
     expect(ids.length).toBe(1 + (STANDARD.seed?.tasks?.length ?? 0));
     expect(ids.length).toBeGreaterThan(1);
+  });
+
+  // Mutation: dropping `today` from the apply call keeps Standard PM's stored 2026-01-31 / 03-31 / 06-30,
+  // milestones overdue the moment they land.
+  it("apply WITH the seed dates the template's milestones from today, not as stored", () => {
+    const { hook } = setup();
+    act(() => { hook.result.current.actions.handleApplyTemplate(STANDARD.id, { includeSeed: true }); });
+    expect((hook.result.current.ws.milestones ?? []).map((m) => m.date)).toEqual(["2026-11-24", "2027-01-22", "2027-04-23"]);
   });
 
   it("an unknown template id changes nothing and says nothing", () => {
