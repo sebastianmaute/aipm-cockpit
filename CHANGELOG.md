@@ -47,6 +47,7 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **React 19.3.1.** `react` and `react-dom` move to 19.3.1 together.
 - **Add task comes first in Open Points.** The Add task button is now the leftmost control in the Open Points
   toolbar, with "Optimize with AI" after it.
 - **Pick the person for an absence from a searchable list.** The new-absence and edit-absence form now uses the
