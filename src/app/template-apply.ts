@@ -26,6 +26,12 @@ export interface ApplyTemplateOptions {
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
+/** The day a template's dates start from: the project's start when it is a date later than `today`, else
+ *  `today`, so a project that begins in three months does not get milestones before it starts. */
+export function templateAnchor(today: string, projectStart: string | undefined): string {
+  return projectStart && ISO_DAY.test(projectStart) && projectStart > today ? projectStart : today;
+}
+
 /** Move a seed's milestone dates and task start and due dates together, keeping every gap between them:
  *  the first day of the month that holds the earliest of those dates becomes `today`. A task's completion
  *  date and a milestone's sign-off date move by the same days (a template saved from a running project

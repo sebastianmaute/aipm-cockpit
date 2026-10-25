@@ -147,6 +147,15 @@ describe("buildNewProjectWorkspace", () => {
     const ws = buildNewProjectWorkspace(berlin, { template: standard, includeSeed: true, baseline: { currency: "GBP", nowIso } });
     expect((ws.milestones ?? []).map((m) => m.date)).toEqual(["2026-11-24", "2027-01-22", "2027-04-23"]);
   });
+
+  // Mutation: anchoring on the local day alone puts this project's first milestone in November 2026,
+  // three months before the project starts.
+  it("a project that starts later dates the template from its start, not from today", () => {
+    const standard = BUILT_IN_TEMPLATES.find((x) => x.id === "builtin-standard")!;
+    const later: ProjectMeta = { ...meta, operatingTimezone: "Europe/Berlin", startDate: "2027-02-01" };
+    const ws = buildNewProjectWorkspace(later, { template: standard, includeSeed: true, baseline: { currency: "GBP", nowIso: "2026-10-25T12:00:00.000Z" } });
+    expect((ws.milestones ?? []).map((m) => m.date)).toEqual(["2027-03-03", "2027-05-01", "2027-07-31"]);
+  });
 });
 
 const aiSeed: TemplateSeed = {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { applyTemplate } from "./template-apply";
+import { applyTemplate, templateAnchor } from "./template-apply";
 import { __resetMintStateForTests } from "./id-mint-session";
 import { emptyWorkspace } from "./workspace";
 import { BUILT_IN_TEMPLATES } from "./templates-builtin";
@@ -90,6 +90,15 @@ describe("applyTemplate — a seed's dates follow the day it is applied", () => 
       ].filter(Boolean);
       for (const d of dates) expect(d >= today, `${t.id}: ${d}`).toBe(true);
     }
+  });
+
+  it("anchors on the project's start when it is later than today, else on today", () => {
+    expect(templateAnchor("2026-10-25", "2027-02-01")).toBe("2027-02-01");
+    expect(templateAnchor("2026-10-25", "2026-01-01")).toBe("2026-10-25");
+    expect(templateAnchor("2026-10-25", "2026-10-25")).toBe("2026-10-25");
+    expect(templateAnchor("2026-10-25", "")).toBe("2026-10-25");
+    expect(templateAnchor("2026-10-25", undefined)).toBe("2026-10-25");
+    expect(templateAnchor("2026-10-25", "next spring")).toBe("2026-10-25");
   });
 
   it("dates every built-in milestone that carries one (the check above sees real dates)", () => {

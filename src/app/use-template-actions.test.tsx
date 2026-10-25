@@ -10,7 +10,7 @@ import { useTemplateActions } from "./use-template-actions";
 import { BUILT_IN_TEMPLATES } from "./templates-builtin";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { t } from "./i18n";
-import type { Task } from "./types";
+import type { ProjectMeta, Task } from "./types";
 
 function Wrapper({ children }: { children: ReactNode }) {
   return (
@@ -73,6 +73,14 @@ describe("useTemplateActions", () => {
     const { hook } = setup();
     act(() => { hook.result.current.actions.handleApplyTemplate(STANDARD.id, { includeSeed: true }); });
     expect((hook.result.current.ws.milestones ?? []).map((m) => m.date)).toEqual(["2026-11-24", "2027-01-22", "2027-04-23"]);
+  });
+
+  // Mutation: passing `today` alone ignores the project's later start.
+  it("apply WITH the seed dates the template from the project's start when it is later than today", () => {
+    const { hook } = setup();
+    act(() => { hook.result.current.ws.setProject({ startDate: "2027-02-01" } as ProjectMeta); });
+    act(() => { hook.result.current.actions.handleApplyTemplate(STANDARD.id, { includeSeed: true }); });
+    expect((hook.result.current.ws.milestones ?? []).map((m) => m.date)).toEqual(["2027-03-03", "2027-05-01", "2027-07-31"]);
   });
 
   it("an unknown template id changes nothing and says nothing", () => {

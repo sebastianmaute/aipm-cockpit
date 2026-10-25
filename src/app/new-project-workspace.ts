@@ -1,5 +1,5 @@
 import { emptyWorkspace, type Workspace } from "./workspace";
-import { applyTemplate, appendSeed, remapSeed } from "./template-apply";
+import { applyTemplate, appendSeed, remapSeed, templateAnchor } from "./template-apply";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
 import type { BudgetCurrency, ProjectMeta } from "./types";
 import { DEFAULT_CURRENCY } from "./types";
@@ -50,7 +50,7 @@ export function buildNewProjectWorkspace(meta: ProjectMeta, opts: NewProjectOpts
   const localDay = todayInZone(now, resolveTimezone(undefined, meta.operatingTimezone));
   let ws: Workspace = { ...emptyWorkspace(), plan: defaultResourcePlan(localDay), project: meta };
   if (opts.template) {
-    ws = applyTemplate(ws, opts.template, { includeSeed: !!opts.includeSeed, today: localDay });
+    ws = applyTemplate(ws, opts.template, { includeSeed: !!opts.includeSeed, today: templateAnchor(localDay, meta.startDate) });
   } else if (opts.aiSeed && opts.includeSeed) {
     ws = appendSeed(ws, remapSeed(ws, withoutUnsafeSeedEmails(opts.aiSeed)));
   }

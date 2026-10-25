@@ -21,7 +21,7 @@ import { t, type Lang } from "./i18n";
 import type { ToastKind } from "./use-toast";
 import { useTemplates } from "./use-templates";
 import { templateFromWorkspace, type SaveTemplateInput } from "./templates";
-import { applyTemplate } from "./template-apply";
+import { applyTemplate, templateAnchor } from "./template-apply";
 import { useCurrentWorkspace } from "./use-current-workspace";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { sanitizeFieldVisibility } from "./field-visibility";
@@ -31,7 +31,8 @@ import { useWorkspace } from "./workspace-context";
 export interface TemplateActionsDeps {
   lang: Lang;
   showToast: (kind: ToastKind, text: string) => void;
-  /** The project's today (ISO date): an applied seed's dates are moved to start from it. */
+  /** The project's today (ISO date): an applied seed's dates start from it, or from the project's start when
+   *  that is later (`templateAnchor`). */
   today: string;
 }
 
@@ -66,7 +67,7 @@ export function useTemplateActions({ lang, showToast, today }: TemplateActionsDe
       const tpl = projectTemplates.find((x) => x.id === id);
       if (!tpl) return;
       const current = buildCurrentWorkspace();
-      const next = applyTemplate(current, tpl, { ...opts, today });
+      const next = applyTemplate(current, tpl, { ...opts, today: templateAnchor(today, current.project?.startDate) });
       // A template's visibility is sanitised when it is loaded or saved, but `updateTemplate` takes
       // a raw patch and this is the one place it enters the workspace: re-run the sanitiser so a
       // stored set can never hide a required field or carry an unknown id.
