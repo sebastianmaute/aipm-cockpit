@@ -35,7 +35,7 @@ const LABEL_KEY_BY_ID = Object.fromEntries(
 
 /** Two names keep the translated "{0} and {1}"; three or more are joined by the locale's own
  *  list rule (Oxford comma in en-US, "und" in de) instead of an English ", ". */
-function moduleNames(lang: Lang, ids: readonly FeatureModuleId[]): string {
+export function moduleNames(lang: Lang, ids: readonly FeatureModuleId[]): string {
   const names = ids.map((id) => t(lang, LABEL_KEY_BY_ID[id]));
   if (names.length === 2) return t(lang, "functionsUsesJoin", names[0], names[1]);
   return new Intl.ListFormat(lang, { type: "conjunction" }).format(names);

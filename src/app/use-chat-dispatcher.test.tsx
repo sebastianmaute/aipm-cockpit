@@ -880,17 +880,19 @@ describe("useChatDispatcher", () => {
     expect(after).toBe(before);
   });
 
+  // §779 — enabledModules and mode report the project's SAVED functions (`Workspace.features`), not the
+  // settings mirror: the mirror here says every function, the project saved ["raid"].
   it("snapshot exposes mode, enabledModules, and currentView", () => {
     const settings = makeSettings();
-    settings.features = ["raid"];
+    settings.features = [...ALL_MODULE_IDS];
     const setSelectedIds = vi.fn();
     const setSettings = vi.fn();
     const wrapper = ({ children }: { children: ReactNode }) => (
       <TestProviders>{children}</TestProviders>
     );
     const { result } = renderHook(
-      () =>
-        useChatDispatcher({
+      () => ({
+        dispatcher: useChatDispatcher({
           settings,
           clock: testClock("2026-05-19", "UTC"),
           setSelectedIds,
@@ -902,9 +904,12 @@ describe("useChatDispatcher", () => {
           getBudgetRollup: stubGetBudgetRollup,
           getAllocationsSnapshot: stubGetAllocationsSnapshot, getForecastInput: stubGetForecastInput, undo: stubUndo(), ...STUB_PROJECT_WRITE, openWbsPlan: stubOpenWbsPlan,
         }),
+        ws: useWorkspace(),
+      }),
       { wrapper },
     );
-    const snap = result.current.getSnapshot();
+    act(() => { result.current.ws.setFeatures(["raid"]); });
+    const snap = result.current.dispatcher.getSnapshot();
     expect(snap.enabledModules).toEqual(["raid"]);
     expect(snap.mode).toBe(deriveMode(["raid"]));
     expect(snap.currentView).toBe("milestones");

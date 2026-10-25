@@ -39,7 +39,7 @@ export interface BuildActionInputArgs {
   semiClarityBonus?: number;
   staticPenalty?: number;
   dismissed?: ReadonlySet<string>;
-  /** Learned per-kind bias (`${source}:${why.key}` -> points). Off when undefined/empty. */
+  /** Learned per-kind bias (learning kind, `learningKindOf` -> points). Off when undefined/empty. */
   learnedBias?: Record<string, number>;
   /** Current project's id + metadata for the `project-meta` provider. */
   projectId?: string;

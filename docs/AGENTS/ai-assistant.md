@@ -176,13 +176,33 @@
   lands under the wrong key in Turso portfolio mode (a caught review HIGH). The "This project" UI REUSES
   `NextActionsSection`/`Notifications`/`TimezoneSettingsSection` fed effective + an override-writing onChange (Timezone
   passes `hideDisplaySwitcher` — the device-only switcher flag can't be captured into the override).
-- **AI `update_settings` tool (safe-subset, v0.190.41):** a NON-entity write tool letting the assistant change
+- **AI `update_settings` tool (safe-subset, v0.190.41):** a write tool letting the assistant change
   a whitelisted slice of app settings on request — `dashboardDensity`, `showViewHints`, `tasksViewMode`,
   `enabledModules` (full desired set → `sanitizeFeatures`), and `nextActionsWeights` (each key coerced by the
   SAME `NEXT_ACTIONS_FIELD_COERCE` the settings UI + weight-suggestion flow use). Schema in `chat-tool-defs.ts`,
   routing in `chat-tools.ts` (`SettingsUpdateInput` + `updateSettings` on `ToolDispatcher`; the case throws if
-  NO recognized field applied), impl in `use-chat-dispatcher.ts` (reads `settingsRef.current`, applies via
-  `args.setSettings` → persists through the normal `writeSettings` effect, `isReadOnly` popout-guarded). ★★
+  NO recognized field applied), patch in `chat-settings-patch.ts` (`computeSettingsPatch`), impl in
+  `use-chat-dispatcher.ts` (reads `settingsRef.current`, applies via `args.setSettings` → persists through the
+  normal `writeSettings` effect, `isReadOnly` popout-guarded). ★★ `enabledModules` is the one PROJECT write
+  (§779): it also calls `setFeatures`, so it lands in `Workspace.features` and is saved with the project, not
+  only in the settings mirror. Not undo-captured; logged once as `settings.updated` by the AI.
+  `computeSettingsPatch` refuses, before any setter runs, a value that is not a list or a non-empty list naming
+  no known module (`[]` is allowed and switches every function off; a mixed list keeps the known ids, echoed in
+  `applied`, and names the unknown ones in `applied.droppedModules`; one judge, `judgeEnabledModules`, serves
+  the write and the review card). ★★ The staging gate counts it: `isEntityWriteCall` (`chat-proposal.ts`) treats an `update_settings`
+  call CARRYING the `enabledModules` key as a write, so one applies and two writes in a turn go to review (owner
+  decision 2026-10-24); a call without the key is a device-only write and stays exempt, like `set_language`. A staged one is
+  described by `describeFunctionsCall` (`chat-proposal-describe-functions.ts`) into `DescribedRow.functions`: the
+  card titles it with `functionsRowTitle` and lists the functions it turns on and off against `Workspace.features`
+  (labels via the Functions picker's `moduleNames`), and a refused value shows as a rejection on the field.
+  The block also lists the call's other settings ("Also sets …", keys as the tool names them, judged by the
+  dispatcher's `previewSettings` against the live settings at staging; a settings change between staging and
+  Apply is not re-checked, as settings carry no token, the same window as every untokened row) and says the change cannot be
+  undone (no shortcut is named: neither Ctrl+Z/Cmd+Z nor the undo button reverses it); each row is described against the list an earlier functions row in the
+  same turn leaves (`functions.before`), and `applyProposal` refuses a row whose `before` no longer matches the
+  live `Workspace.features` (`getFeatures`) as a conflict (`FUNCTIONS_MOVED_ERROR`), so it never overwrites a
+  change the card did not show. With two functions rows in one turn, unticking the first therefore refuses the
+  second at Apply (it was described against the first's result); that is safe, and the card cannot warn beforehand. `get_app_state` reports `enabledModules`/`mode` from `Workspace.features`. ★★
   SECURITY: secrets / API keys / storage / integration config are DELIBERATELY unreachable — never widen this
   allowlist to a raw settings setter, and every value must stay routed through a validator/coercer. Guarded by
   `chat-tools.test.ts`.
@@ -2016,8 +2036,9 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   its one row today: `grep -n -A3 "UNARMED_AI_ROUTES: Record" src/app/destructive-save-arming.test.ts`). A new
   removal tool with no row fails "has a recorded arming decision for every AI removal tool"; the save guard itself is
   in [`platform.md`](platform.md). `set_forecast_proposal` (`id`, or null to clear) and `set_forecast_target_confidence`
-  (`value`, 50/80/95) are in `ENTITY_WRITE_TOOLS` although they write `settingsOverrides`: project data, unlike
-  `update_settings`; they are logged as the AI and NOT undoable (owner decision). `set_forecast_proposal.id` and
+  (`value`, 50/80/95) are in `ENTITY_WRITE_TOOLS` although they write `settingsOverrides`: project data, like
+  `update_settings` with `enabledModules` (§779, which counts through `isEntityWriteCall` instead of by name)
+  and unlike every other `update_settings` call; they are logged as the AI and NOT undoable (owner decision). `set_forecast_proposal.id` and
   `delete_forecast_scenario.id` are `TARGET_MINTED_BY` rows minted by `create_forecast_scenario`, so
   `[create_forecast_scenario, set_forecast_proposal(<provisional>)]` proposes the scenario the create really minted,
   and refusing the create cascades the proposal call; `targetIdOf` reads `id: null` as no id, so a clear names no

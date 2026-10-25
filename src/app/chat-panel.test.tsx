@@ -24,6 +24,7 @@ import type { AppView } from "./nav-config";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
 import type { OperatingGuide } from "./operating-guide";
 import type { FeatureModuleId } from "./feature-modules";
+import { emptyWorkspace, type Workspace } from "./workspace";
 import { saveSealed } from "./secrets-store";
 import { sealPassphrase } from "./secrets";
 import { peekMintId } from "./id-mint-session";
@@ -2972,6 +2973,89 @@ describe("staged tool calls (the review card)", () => {
     const results = resultsIn(bodies[1]);
     expect(results.map((b) => b.tool_use_id).sort()).toEqual(["t1", "t2"]);
     expect(results[0].content).toContain("has NOT been applied");
+  });
+
+  it("Apply refuses a functions row as a conflict when the project's functions moved since staging (§779)", async () => {
+    // Mutation: not passing `getFeatures` to `applyProposal` turns this red: the row is replayed (the
+    // mock dispatcher has no updateSettings, so it fails as an error, not as a conflict).
+    const dispatcher = makeDispatcher();
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK },
+          { type: "tool_use", id: "t2", name: "update_settings", input: { enabledModules: ["raid"] } },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    const staged = { ...emptyWorkspace(), features: ["dashboard", "budget"] as FeatureModuleId[] };
+    const panel = (workspace: Workspace) => (
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} workspace={workspace} />
+    );
+    const { rerender } = render(panel(staged));
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    // The user turns Changes on before clicking Apply.
+    rerender(panel({ ...staged, features: ["dashboard", "budget", "changes"] }));
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() => expect(within(card).getByText(t("en-US", "chatProposalFailed"))).toBeInTheDocument());
+    expect(dispatcher.createTask).toHaveBeenCalledTimes(1);
+  });
+
+  it("a staged functions change shows a title and the functions it switches off (§779)", async () => {
+    // Mutation: not passing `row.functions` through `proposalCardRows`, or dropping `functionsRowTitle`
+    // from the staging titles, turns this red: the row reads `update_settings` with nothing under it.
+    const dispatcher = makeDispatcher();
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK },
+          { type: "tool_use", id: "t2", name: "update_settings", input: { enabledModules: ["raid"] } },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+    expect(within(card).getByText("Project functions")).toBeInTheDocument();
+    expect(within(card).getByText(/^Turns off: Dashboard, /)).toBeInTheDocument();
+  });
+
+  it("the card's other settings come from the dispatcher's live preview (§779)", async () => {
+    // Mutation: not passing `previewSettings` to `describeProposal` turns this red: the line is then
+    // computed against the defaults and shows "scopePendingRed 5".
+    const dispatcher = makeDispatcher();
+    (dispatcher as unknown as { previewSettings: unknown }).previewSettings = vi.fn(() => ({
+      nextActionsWeights: { scopePendingRed: 9 },
+    }));
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK },
+          {
+            type: "tool_use",
+            id: "t2",
+            name: "update_settings",
+            input: { enabledModules: ["raid"], nextActionsWeights: { scopePendingRed: "junk" } },
+          },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    expect(within(card).getByText("Also sets nextActionsWeights = scopePendingRed 9")).toBeInTheDocument();
   });
 
   it("the staged result for a create carries its provisional id, and the mint ADVANCED", async () => {

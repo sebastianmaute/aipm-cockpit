@@ -15,7 +15,7 @@ export const wizardCreate = step('wizard-create', {
   after: async (ctx) => {
     const d = ctx.page.locator(DLG).last();
     await caption(ctx, 'From the brief, Claude ticks GDPR and fills the other key facts.', 'first-gdpr');
-    await moveTo(ctx, gdprBox(d));
+    await moveTo(ctx, gdprBox(d), 'GDPR');
     await pace(ctx, 2500);
     await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), 'Next (template)', 500);
     await caption(ctx, 'Start from a template, or from empty.', 'first-template');

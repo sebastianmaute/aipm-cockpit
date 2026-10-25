@@ -13,7 +13,11 @@ export function tursoLearningStore(config: TursoConfig): LearningStore {
   return {
     async load(): Promise<LearningSnapshot> {
       const results = await runTursoPipeline(config, [...ddl(), ...learningSelect()]);
-      return rowsToSnapshot(results[LEARNING_DDL.length]);
+      const selected = results[LEARNING_DDL.length];
+      // §781 — a missing SELECT result is a failed load, never an empty table: the
+      // next save is a full rewrite and would replace every stored row.
+      if (!selected) throw new Error("action_learning: the select result is missing");
+      return rowsToSnapshot(selected);
     },
     async save(snap: LearningSnapshot): Promise<void> {
       const upserts = Object.entries(snap.state).flatMap(([kind, s]) =>

@@ -17,6 +17,7 @@ import type { Settings } from "./settings-types";
 import type { TursoConfig } from "./turso-config";
 import { TursoHttpError, TursoStepError } from "./turso-pipeline";
 import { StorageNotReadyError, type Workspace } from "./workspace";
+import { isBusyDbError, isTursoServerBlip } from "./storage-transient";
 
 export type RunOutcome =
   | "skipped" | "claimed-elsewhere" | "project-missing" | "project-archived" | "transient" | "failed" | "done";
@@ -62,18 +63,10 @@ export function toErrorToken(e: unknown): ReportErrorToken {
   return "error";
 }
 
-/** A busy or locked database (the open project's autosave holds the tenant database) is transient (spec Run step 3).
- *  SQLite reports it only as text, so this is the one place the wording is read (never stored). */
-const BUSY = /SQLITE_BUSY|SQLITE_LOCKED|database (table )?is (locked|busy)/i;
-const isBusy = (e: unknown): boolean => e instanceof Error && BUSY.test(e.message);
-
-/** A server blip: HTTP 429 or 5xx from Turso, by status, not by wording. */
-const isServerBlip = (e: unknown): boolean => e instanceof TursoHttpError && (e.status === 429 || e.status >= 500);
-
 /** Connectivity-class failures (`postPipeline` folds a network failure or timeout into `StorageNotReadyError`), a
  *  rate limit or server error from Turso, and a busy database are transient. Any OTHER Turso step or SQL error is NOT, or it would claim, fail and release every
  *  tick forever with no report and no history entry. */
-const isTransient = (e: unknown): boolean => e instanceof StorageNotReadyError || isServerBlip(e) || isBusy(e);
+const isTransient = (e: unknown): boolean => e instanceof StorageNotReadyError || isTursoServerBlip(e) || isBusyDbError(e);
 
 /** A rejecting store write (job deleted mid-run, write chain failure) must never fail the run. */
 async function settle(p: Promise<unknown>): Promise<void> {

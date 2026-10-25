@@ -4,11 +4,11 @@ import { useMemo, useRef, useState } from "react";
 import { type Lang, t } from "../i18n";
 import { Checkbox, Input } from "../form-controls";
 import { EmptyState } from "../empty-state";
-import { MODE_LABEL_KEY, deriveMode } from "../feature-modules";
+import { ALL_MODULE_IDS, MODE_LABEL_KEY, deriveMode } from "../feature-modules";
 import { templateFromWorkspace, type ProjectTemplate } from "../templates";
 import { useTemplates } from "../use-templates";
 import { useCurrentWorkspace } from "../use-current-workspace";
-import { useSettings } from "../use-settings";
+import { useWorkspace } from "../workspace-context";
 import { useCommitOnPageHide } from "../use-commit-on-page-hide";
 import { buildRowTokens, rowLabel } from "../row-tokens";
 import { Button } from "../button";
@@ -40,7 +40,10 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
   const { templates, userTemplates, addTemplate, updateTemplate, removeTemplate } =
     useTemplates();
   const buildCurrentWorkspace = useCurrentWorkspace();
-  const { settings } = useSettings();
+  // §779 — the project's saved functions, not this view's `settings.features` mirror, which starts at
+  // the all-modules default when the Settings view mounts. `?? ALL_MODULE_IDS` is the legacy-project
+  // default `useFeaturesSync` mirrors.
+  const projectFeatures = useWorkspace().features ?? ALL_MODULE_IDS;
   const [name, setName] = useState("");
   const [includeContent, setIncludeContent] = useState(false);
   const builtIns = templates.filter((tpl) => tpl.builtIn);
@@ -74,7 +77,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
     addTemplate(
       templateFromWorkspace(
         buildCurrentWorkspace(),
-        settings.features,
+        projectFeatures,
         { name: trimmed, includeContent },
         newTemplateId(),
       ),

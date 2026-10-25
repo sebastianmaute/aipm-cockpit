@@ -36,6 +36,11 @@ const nextConfig: NextConfig = {
   // would change the artifact shape for every job in the pipeline to serve
   // one manual job. Set NEXT_STANDALONE=1 only for desktop packaging.
   ...(process.env.NEXT_STANDALONE === "1" ? { output: "standalone" as const } : {}),
+  // ★ ENV-GATED, deliberately. The demo-video recorder (scripts/demo-video)
+  // starts its dev server with DEMO_RECORDER=1 so the Next.js dev indicator
+  // (the "N" badge, bottom left) stays out of every recorded frame. Normal
+  // development keeps the indicator; errors still surface either way.
+  ...(process.env.DEMO_RECORDER === "1" ? { devIndicators: false as const } : {}),
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

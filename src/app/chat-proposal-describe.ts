@@ -41,6 +41,7 @@ import { resolveDependencyWrite } from "./task-dependency-write";
 import type { Task, TaskDependency } from "./types";
 import { proposalIdOf } from "./forecast-target";
 import { describeProjectPlan, stampProjectCall, UPDATE_PROJECT_TOOL } from "./chat-proposal-describe-project";
+import { describeFunctionsCall, type FunctionsChange, type PreviewSettings } from "./chat-proposal-describe-functions";
 
 export {
   describeProjectCall,
@@ -122,6 +123,9 @@ export interface DescribedRow {
    *   for such a row: there is no before-image to diff against, and inventing
    *   one would show a diff from fields the create has not written yet. */
   readonly pendingOn?: number;
+  /** §779 — set only on an `update_settings` row carrying an accepted `enabledModules`: the functions it
+   *  switches on and off against the project's saved list. The card renders it; the plan stays empty. */
+  readonly functions?: FunctionsChange;
 }
 
 function emptyPlan(): EditPlan {
@@ -438,6 +442,8 @@ export function describeProposal(
   calls: readonly ProposedCall[],
   ws: Workspace,
   planRows?: readonly PlanRow[],
+  /** §779 — the dispatcher's `previewSettings`, for a functions row's other settings. */
+  previewSettings?: PreviewSettings,
 ): readonly DescribedRow[] {
   if (planRows !== undefined && planRows.length !== calls.length) {
     throw new RangeError(
@@ -446,6 +452,10 @@ export function describeProposal(
     );
   }
   const rows: DescribedRow[] = [];
+  // §779 — the saved functions each functions row is described against: the project's, then whatever the
+  // previous accepted functions row leaves, so two such rows in one turn are not both diffed against the
+  // pre-turn list. Apply re-checks each row against the same chain (`chat-proposal-apply.ts`).
+  let functionsSoFar = ws.features;
 
   for (let index = 0; index < calls.length; index += 1) {
     const call = calls[index];
@@ -486,6 +496,14 @@ export function describeProposal(
 
     if (pendingOn !== undefined) {
       rows.push({ call, stamped, plan: emptyPlan(), mintedId, pendingOn });
+      continue;
+    }
+
+    // §779 — a functions change has no descriptor either; its detail comes from the write's own judge.
+    const functionsRow = describeFunctionsCall(call, functionsSoFar, previewSettings);
+    if (functionsRow !== null) {
+      if (functionsRow.functions) functionsSoFar = functionsRow.functions.after;
+      rows.push({ call, stamped, plan: functionsRow.plan, mintedId, ...(functionsRow.functions ? { functions: functionsRow.functions } : {}) });
       continue;
     }
 

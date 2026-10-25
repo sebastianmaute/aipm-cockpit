@@ -37,13 +37,16 @@ import { metricAtActionPatch } from "./insights/outcome";
 import type { ScopeEpochReader } from "./scope-epoch";
 import { useInsightRecommend } from "./use-insight-recommend";
 import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
-import { buildRecommendContext } from "./insights/recommend-context";
+import { buildRecommendContext, recommendPeople } from "./insights/recommend-context";
+import { isTaskClosed } from "./task-closed";
 import { describeRecommendationPlan, type RecommendSnapshot } from "./insights/recommend-plan";
+import type { RecCallProblemFormat } from "./insights/recommend-schema";
 import { stripRejectedFields } from "./inline-ai-edit/plan";
 import { buildGroundingIndex } from "./action-ai";
 import { runTool, type ToolDispatcher } from "./chat-tools";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
 import { stampRecommendationTokens } from "./insights/recommend-tokens";
+import { logDiag } from "./diagnostics";
 import { descriptionText } from "./rich-text-projection";
 import { effectivePersonName, resourceDisplayName } from "./resource-foundation";
 import type { ToastKind } from "./use-toast";
@@ -55,6 +58,16 @@ import { useGuideTextFrom } from "./action-guides-context";
 // recommendation prompt — the digest rides a billed call, so an unbounded
 // description must not blow up the token count (SP3).
 const ENTITY_DIGEST_TEXT_CAP = 200;
+
+/** §782 round 3 — a refused call's reason in the UI language, for the review
+ *  modal. Tool and argument names are identifiers and stay as they are. */
+function recCallProblemText(lang: Lang): RecCallProblemFormat {
+  return (p) => {
+    if (p.kind === "required") return t(lang, "insightRecommendationCallArgsRequired", p.tool, p.args.join(", "));
+    if (p.kind === "date") return t(lang, "insightRecommendationCallArgDate", p.tool, p.arg);
+    return t(lang, "insightRecommendationCallNotAllowed", p.tool);
+  };
+}
 
 /** Live render-scope values the insight recommendation cluster reads each render. */
 export interface InsightRecommendationDeps {
@@ -134,7 +147,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // Generate/apply/reject handlers for an insight's AI recommendation. Apply
   // replays the recommendation's proposed tool calls through the SAME
   // dispatcher the chat/inline-edit tools use (runTool re-sanitizes per
-  // entity — the security boundary — and no-ops a stale id gracefully), so
+  // entity — the security boundary — and throws `not found` for a stale id), so
   // these live here, after `dispatcher` exists.
   const buildInsightGroundingIndex = useCallback(
     () => buildGroundingIndex({ tasks, raid, milestones, changes, stakeholders }),
@@ -226,9 +239,21 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         data: insight.data,
         ...(entity ? { entity } : {}),
         relatedTasks: tasks.map((tk) => ({ id: tk.id, title: tk.taskName })),
+        // §782 — create_task REQUIRES an assignee, and before this the digest
+        // named nobody the model could give. Active people only: an archived
+        // resource is not someone to hand new work to. ★ Round 3: then the
+        // assignees of OPEN tasks, which are free text — with resources alone a
+        // project without a directory could never get a valid create_task. A
+        // closed task's assignee is not offered, and an archived resource's
+        // name is dropped even when an open task still carries it.
+        people: recommendPeople(
+          [...resourcesById.values()].filter((r) => r.active !== false).map(resourceDisplayName),
+          tasks.filter((tk) => !isTaskClosed(tk)).map((tk) => tk.assignee ?? ""),
+          [...resourcesById.values()].filter((r) => r.active === false).map(resourceDisplayName),
+        ),
       });
     },
-    [project, today, tasks, resolveInsightEntity],
+    [project, today, tasks, resolveInsightEntity, resourcesById],
   );
   // ★★ THE SINGLE CHOKE POINT FOR STORING A GENERATED RECOMMENDATION — both the
   // on-demand `useInsightRecommend` and the background
@@ -349,9 +374,9 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       reviewInsight?.recommendation
         ? describeRecommendationPlan(reviewInsight.recommendation.proposedCalls, {
             tasks, raid, changes, milestones, stakeholders,
-          })
+          }, recCallProblemText(lang))
         : null,
-    [reviewInsight, tasks, raid, changes, milestones, stakeholders],
+    [reviewInsight, tasks, raid, changes, milestones, stakeholders, lang],
   );
   // ★ No plan-level entity is derived any more: every `FieldDiff`/`LinkDiff`
   // carries the register it belongs to, so the modal labels each row from the
@@ -387,9 +412,9 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // meet it; a dispatcher that gains I/O must bring `dropStaleScopeWrite` with it.
     // Per-call, NON-transactional apply. Each runTool is its own try/catch so one
     // call that THROWS (e.g. an enum/date the entity's sanitizer rejects) can't
-    // abort the remaining calls. (A stale update id does NOT throw — the
-    // dispatcher's id-based find no-ops it — so `failed` counts hard errors, not
-    // silently-skipped stale updates.) We ALWAYS advance the insight to
+    // abort the remaining calls. (An update whose target row is GONE never gets
+    // here: the review shows it as an unknown-id rejection, so the loop refuses
+    // it below. Dispatched, `runTool` would throw `not found`.) We ALWAYS advance the insight to
     // acted/applied afterwards (even on partial failure) so a retry can never
     // re-run the calls that DID commit — that would duplicate create_* entities.
     //
@@ -410,15 +435,27 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // ★★ §534 — calls whose every written field the review modal rejected. They
     //  are sent NOWHERE, so like a stale refusal they wrote nothing.
     let refused = 0;
+    // §782 — each hard failure's tool and reason, for the toast. Before this the
+    // catch below only counted, so a user (and the demo recorder) saw "couldn't
+    // be applied" with no way to tell which change or why.
+    const failures: string[] = [];
     for (const call of calls) {
       // ★★★ §534 — strip against this call's OWN plan, from the SAME slices
       //  the modal's `reviewPlan` reads. That plan is the concatenation of these
       //  per-call plans (pinned in recommend-plan.test.ts), so what the modal
       //  showed as rejected is exactly what is not sent.
-      const sent = stripRejectedFields(
-        call.input,
-        describeRecommendationPlan([call], { tasks, raid, changes, milestones, stakeholders }),
-      );
+      const plan = describeRecommendationPlan([call], { tasks, raid, changes, milestones, stakeholders });
+      // ★★ §782 — a WHOLE-CALL rejection (no `field`) is refused too: a call
+      //  missing an argument its writer requires (`recommendationCallProblem`,
+      //  run inside the plan) or an update whose row is gone. Either would only
+      //  throw. It is judged HERE, on the stored calls, because a replay never
+      //  passes through `parseRecommendation`. (Chat Apply still dispatches a
+      //  whole-call rejection; `stripRejectedFields` is unchanged for it.)
+      if (plan.rejected.some((r) => r.field === undefined)) {
+        refused++;
+        continue;
+      }
+      const sent = stripRejectedFields(call.input, plan);
       if (sent.writesNothing) {
         refused++;
         continue;
@@ -427,8 +464,16 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         await runTool(dispatcher, call.name, sent.input);
         committed++;
       } catch (e) {
-        if (e instanceof ConcurrencyTokenError) stale++;
-        else failed++;
+        if (e instanceof ConcurrencyTokenError) {
+          stale++;
+          continue;
+        }
+        failed++;
+        const message = e instanceof Error ? e.message : String(e);
+        failures.push(`${call.name}: ${message}`);
+        // Argument NAMES only, never their values. Joined, because `redactFields`
+        // keeps scalars alone and would drop an array without a sound.
+        logDiag("error", "insight.recommendation.callFailed", { tool: call.name, message, keys: Object.keys(sent.input).join(",") });
       }
     }
     // ★★★ THE ONE BEHAVIOUR CHANGE, AND IT IS DELIBERATELY THE NARROWEST THAT
@@ -460,17 +505,20 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
               actedAt: today,
               // SP3: same shared baseline capture as the manual Act path.
               ...metricAtActionPatch(i),
-              // §351: record the calls that wrote nothing, so a partly-landed
+              // §351: record the calls that did not land, so a partly-landed
               // plan stays distinguishable from a full one after the toast is
-              // gone. The early return above is deliberately NOT widened — the
-              // creates committed, so returning to `proposed` would let a
-              // re-confirm create them twice.
+              // gone. ★ §782 — a call that THREW counts too: the card must not
+              // read "applied" beside a failure. The early return above is
+              // deliberately NOT widened — a hard failure may have written, and
+              // the creates that did commit would be created twice by a
+              // re-confirm. Regenerating replaces `proposedCalls`, so the
+              // card's Generate offer replays nothing.
               recommendation: {
                 ...rec,
                 status: "applied" as const,
                 appliedAt: today,
                 appliedSummary: rec.summary,
-                ...(stale + refused > 0 ? { refusedCalls: stale + refused } : {}),
+                ...(stale + refused + failed > 0 ? { refusedCalls: stale + refused + failed } : {}),
               },
             }
           : i,
@@ -480,13 +528,27 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // ★ The stale message wins over the generic one when both kinds occurred:
     // "some of this was refused because the data moved — generate a new one" is
     // actionable, where "couldn't be applied" leaves the user with no next step.
+    // ★ §782 round 3 — when a call also THREW, its reason rides along: before
+    //  this the stale toast returned first and the reason was only logged.
     if (stale > 0) {
-      showToast("error", t(lang, "insightRecommendationStalePartial"));
+      showToast(
+        "error",
+        failed > 0
+          ? t(lang, "insightRecommendationStalePartialDetail", failures.join("; "))
+          : t(lang, "insightRecommendationStalePartial"),
+      );
+      return;
+    }
+    // §782 — a hard failure is named with the dispatcher's own reason, as the
+    // chat card's failed rows are (`chat-proposal-apply.ts`). The detail string
+    // opens with the generic sentence, so its meaning is unchanged.
+    if (failed > 0) {
+      showToast("error", t(lang, "insightRecommendationApplyFailedDetail", failures.join("; ")));
       return;
     }
     showToast(
-      failed + refused > 0 ? "error" : "info",
-      t(lang, failed + refused > 0 ? "insightRecommendationApplyFailed" : "insightRecommendationApplied"),
+      refused > 0 ? "error" : "info",
+      t(lang, refused > 0 ? "insightRecommendationApplyFailed" : "insightRecommendationApplied"),
     );
   }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivityAs, showToast, lang, tasks, raid, changes, milestones, stakeholders, baselineHistory]);
 

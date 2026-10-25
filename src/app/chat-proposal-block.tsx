@@ -40,7 +40,9 @@ import { type Lang, t, tPlural } from "./i18n";
 import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
-import type { ProposedCall } from "./chat-proposal";
+import { carriesEnabledModules, type ProposedCall } from "./chat-proposal";
+import type { FunctionsChange } from "./chat-proposal-describe-functions";
+import { moduleNames } from "./functions-picker";
 import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type DiffEntity, type EditPlan, type Rejected } from "./inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
@@ -77,6 +79,9 @@ export interface ProposalCardRow {
    *  Absent is treated as "conflict", preserving the pre-existing string for
    *  any caller that has not been updated. */
   readonly failedKind?: ProposalFailureKind;
+  /** §779 — what a staged `update_settings { enabledModules }` switches, from `DescribedRow.functions`.
+   *  Absent on every other row, which then renders exactly as before. */
+  readonly functions?: FunctionsChange;
 }
 
 export interface ChatProposalBlockProps {
@@ -128,6 +133,35 @@ export function proposalRowTitle(call: ProposedCall, plan: EditPlan): string {
     if (typeof candidate === "string" && candidate.trim() !== "") return candidate;
   }
   return call.name;
+}
+
+/** §779 — the card line for an `update_settings` call carrying `enabledModules`, or null for any other
+ *  call. Translated here, beside the card's other strings: `liveRowTitle` is i18n-free. */
+export function functionsRowTitle(lang: Lang, call: ProposedCall): string | null {
+  return carriesEnabledModules(call) ? t(lang, "chatProposalFunctionsTitle") : null;
+}
+
+/** §779 — the functions a staged row switches on and off, by the labels the Functions picker shows. */
+function FunctionsDetail({ lang, change }: { lang: Lang; change: FunctionsChange }) {
+  const unchanged = change.on.length === 0 && change.off.length === 0;
+  return (
+    <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+      {change.on.length > 0 && <li>{t(lang, "chatProposalFunctionsOn", moduleNames(lang, change.on))}</li>}
+      {change.off.length > 0 && <li>{t(lang, "chatProposalFunctionsOff", moduleNames(lang, change.off))}</li>}
+      {unchanged && <li>{t(lang, "chatProposalFunctionsUnchanged")}</li>}
+      {change.dropped.length > 0 && (
+        <li className="text-ui-pink-strong">{t(lang, "chatProposalFunctionsDropped", change.dropped.join(", "))}</li>
+      )}
+      {/* The rest of the same call: under the title "Project functions" it would otherwise be invisible.
+          No settings label table exists, so the keys are named as the tool names them. */}
+      {change.others.length > 0 && (
+        <li>{t(lang, "chatProposalFunctionsOthers", change.others.map((o) => `${o.key} = ${o.value}`).join(", "))}</li>
+      )}
+      {/* The functions write takes no undo capture, while the rest of an applied plan does: neither the
+          shortcut (Ctrl+Z, Cmd+Z on a Mac) nor the undo button reverses it, so no shortcut is named. */}
+      <li>{t(lang, "chatProposalFunctionsNoUndo")}</li>
+    </ul>
+  );
 }
 
 /** A rejection's line. A project refusal carries the bare reason and names its field here, in the project
@@ -265,6 +299,7 @@ function ProposalRow({
         </span>
       </label>
       <PlanDetail lang={lang} plan={row.plan} entity={previewEntityOf(row.call.name)} />
+      {row.functions && <FunctionsDetail lang={lang} change={row.functions} />}
       {row.cascaded && (
         <p className="mt-1 text-xs text-muted-foreground">{t(lang, "chatProposalCascaded")}</p>
       )}

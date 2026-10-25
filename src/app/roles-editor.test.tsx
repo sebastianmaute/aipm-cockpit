@@ -1,7 +1,7 @@
 import { act, render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { RolesEditor } from "./roles-editor";
+import { RolesEditor, ROLES_COL_WIDTHS, rateFieldDisplay } from "./roles-editor";
 import { t } from "./i18n";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import type { Discipline, Grade, Role } from "./types";
@@ -13,13 +13,13 @@ const disciplines: Discipline[] = [{ id: 1, name: "Engineering" }];
 const grades: Grade[] = [{ id: 1, name: "Senior" }];
 const roles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 }];
 
-function renderEditor(currency = "EUR") {
+function renderEditor(currency = "EUR", roleList: Role[] = roles) {
   return render(
     <RolesEditor
       lang="en-US"
       currency={currency}
       workdayHours={8}
-      roles={roles}
+      roles={roleList}
       disciplines={disciplines}
       grades={grades}
       onSaveRole={noop}
@@ -461,6 +461,15 @@ describe("RolesEditor sortable column headers", () => {
     expect(headerFor(t("en-US", "rolesDiscipline"))).toHaveAttribute("aria-sort", "descending");
   });
 
+  // §766: the Hours/Days control is an inline-flex that WRAPS, so in a column too
+  // narrow for both options it stacks them and every rate-card row grows from 50px
+  // to 82px. Measured in Chromium on 2026-10-23 with wrapping switched off: 152px
+  // in English, 164px in German ("Stunden" / "Tage"); the cell adds px-3 (24px).
+  // jsdom has no layout, so the width is pinned against that measurement.
+  it("gives the basis column room for both options on one line, in German too (§766)", () => {
+    expect(ROLES_COL_WIDTHS.basis).toBeGreaterThanOrEqual(164 + 24);
+  });
+
   // ROLES_COL_WIDTHS is a fixed const with no persistence and no setter, so the
   // rate card sorts but does not resize. `onResize` is therefore OMITTED rather
   // than stubbed: a no-op handler still draws a grip that looks draggable and does
@@ -674,5 +683,200 @@ describe("RolesEditor reference list row heights", () => {
     ];
     expect(fields.length).toBeGreaterThan(1);
     for (const f of fields) expect(f.className.split(/\s+/)).toEqual(expect.arrayContaining(["py-1.5", "text-xs"]));
+  });
+});
+
+// §766 review round: the whole rate card fits a 1280×720 window. Measured in Chromium
+// on 2026-10-23 against the e2e seed, in English and German, at 1920×1080, 1366×768,
+// 1280×720, 1024×576 and 853×480: with these widths and `w-16` rate inputs the table is
+// 908px at its narrowest, and the panel shows 1002px of it at 1366 and 916px at 1280, so
+// nothing scrolls sideways there (with "€"; "US$" scrolls at 1280). A 64px input
+// without a spinner shows up to 7 characters, e.g. "1166.67".
+// Below 1280 the table scrolls inside the panel, so the delete column is pinned right
+// and each row's ✕ stays in view. jsdom has no layout: these pin the measured inputs.
+describe("RolesEditor rate card fits a 1280px window (§766)", () => {
+  it("keeps the measured column widths", () => {
+    expect(ROLES_COL_WIDTHS).toEqual({
+      discipline: 160,
+      grade: 100,
+      internal: 100,
+      external: 100,
+      internalDay: 100,
+      externalDay: 100,
+      basis: 192,
+    });
+  });
+
+  it("draws every rate input 64px wide", () => {
+    renderEditor();
+    const inputs = screen.getAllByRole("spinbutton");
+    expect(inputs).toHaveLength(roles.length * 4);
+    for (const i of inputs) {
+      const classes = i.className.split(/\s+/);
+      expect(classes).toContain("w-16");
+      expect(classes).not.toContain("w-24");
+    }
+  });
+
+  // §766 peer review: the number spinner took about 15px of a 64px field. It is
+  // dropped on these inputs only, and each field, read-only derived ones included,
+  // carries its full value in `title` in case a long value still scrolls.
+  it("draws the rate inputs without a spinner and titles each with its value", () => {
+    renderEditor();
+    const inputs = screen.getAllByRole("spinbutton") as HTMLInputElement[];
+    expect(inputs.some((i) => i.readOnly)).toBe(true);
+    expect(inputs.some((i) => !i.readOnly)).toBe(true);
+    for (const i of inputs) {
+      expect(i.className.split(/\s+/)).toEqual(expect.arrayContaining([
+        "[appearance:textfield]",
+        "[&::-webkit-inner-spin-button]:appearance-none",
+        "[&::-webkit-outer-spin-button]:appearance-none",
+      ]));
+      expect(i.value).not.toBe("");
+      expect(i.title).toBe(rateFieldDisplay(Number(i.value)));
+    }
+  });
+
+  // §766: Chromium draws a number field's decimal separator in the browser's own
+  // locale, not the app language: measured 2026-10-24, "1166.67" showed as "1166,67"
+  // under `--lang=de-DE` and "1166.67" under `--lang=en-US`, whichever app language
+  // was set. The title follows the same rule, so it reads like the field.
+  it("formats the title the way the field displays it", () => {
+    expect(rateFieldDisplay(1166.67, "de-DE")).toBe("1166,67");
+    expect(rateFieldDisplay(1166.67, "en-US")).toBe("1166.67");
+    expect(rateFieldDisplay(10666.67, "de-DE")).toBe("10666,67");
+    expect(rateFieldDisplay(123456, "de-DE")).toBe("123456");
+  });
+
+  // The rendered title uses the browser's default locale. Each case forces that
+  // default, so the test means the same on a de-DE machine and an en-US CI runner:
+  // a title built with String(value) would read "133.33" under de-DE too.
+  it.each([
+    ["de-DE", "133,33"],
+    ["en-US", "133.33"],
+  ])("titles a rendered rate field in the browser locale (%s)", (locale, expected) => {
+    const RealNumberFormat = Intl.NumberFormat;
+    // A `function`, not an arrow: the code calls it with `new`.
+    const spy = vi.spyOn(Intl, "NumberFormat").mockImplementation(
+      function (loc?: string | string[], opts?: Intl.NumberFormatOptions) {
+        return new RealNumberFormat(loc ?? locale, opts);
+      } as typeof Intl.NumberFormat,
+    );
+    try {
+      renderEditor("EUR", [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 133.33, externalRate: 200 }]);
+      const hourly = screen.getAllByRole("spinbutton")[0] as HTMLInputElement;
+      expect(hourly.value).toBe("133.33");
+      expect(hourly.title).toBe(expected);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  // The separator is read once per render, not once per rate cell: three roles
+  // are twelve rate fields, and a per-cell formatter built twelve of them. The
+  // bound is "at most 2 per render" (the editor makes 1), not an exact count, so one
+  // other locale-less formatter in the tree does not break this test, while a
+  // per-row formatter (3 rows, so 3 or 4 calls) still does.
+  const MAX_DEFAULT_FORMATTERS_PER_RENDER = 2;
+  it("reads the decimal separator once per render, not per rate field", () => {
+    const spy = vi.spyOn(Intl, "NumberFormat");
+    try {
+      const three: Role[] = [1, 2, 3].map((id) => ({ id, disciplineId: 1, gradeId: 1, internalRate: 100 + id, externalRate: 200 }));
+      const { rerender } = renderEditor("EUR", three);
+      const fields = screen.getAllByRole("spinbutton").length;
+      expect(fields).toBe(12);
+      const defaultLocaleCalls = () => spy.mock.calls.filter((c) => c[0] === undefined).length;
+      const firstRender = defaultLocaleCalls();
+      expect(firstRender).toBeGreaterThan(0);
+      expect(firstRender).toBeLessThanOrEqual(MAX_DEFAULT_FORMATTERS_PER_RENDER);
+      rerender(
+        <RolesEditor lang="en-US" currency="EUR" workdayHours={8} roles={three} disciplines={disciplines} grades={grades}
+          onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onAddDiscipline={() => 0}
+          onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop} onReorderRoles={noop}
+          onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop} />,
+      );
+      expect(defaultLocaleCalls() - firstRender).toBeLessThanOrEqual(MAX_DEFAULT_FORMATTERS_PER_RENDER);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  // Guard over constants only: this is arithmetic on ROLES_COL_WIDTHS (pinned exactly
+  // above) plus measured numbers, so it cannot see a width change made through cell
+  // padding, the currency symbol or the input class; only the header-cell count is
+  // read from the render. Measured 2026-10-24 at 1280×720: the scroller shows 916px
+  // and the table is 908px, which is the declared widths (852) plus the 48px delete
+  // column plus 8px the table spends outside its declared columns. So the declared
+  // widths may grow by 8px at most; 9px more scrolls at 1280. A new column, or a
+  // wider one, must re-measure first.
+  it("keeps the declared column widths inside the measured 1280 budget", () => {
+    const SCROLLER_AT_1280 = 916;
+    const DELETE_COL = 48;
+    const OUTSIDE_DECLARED = 8;
+    renderEditor();
+    const headerCells = (document.querySelector("table") as HTMLElement).querySelectorAll("thead th");
+    expect(headerCells).toHaveLength(Object.keys(ROLES_COL_WIDTHS).length + 1);
+    const declared = Object.values(ROLES_COL_WIDTHS).reduce((a, b) => a + b, 0);
+    expect(declared + DELETE_COL + OUTSIDE_DECLARED).toBeLessThanOrEqual(SCROLLER_AT_1280);
+  });
+
+  // ★ A sticky offset is measured from the scroller's PADDING edge, and the scroller
+  // (INNER_TABLE_CLASS) has `pr-2`. At `right-0` the pinned cells stopped 8px short
+  // of the edge and the Hours/Days control scrolled through that strip, beside the ✕
+  // (measured at 1024×576, 2026-10-24). `-right-2` cancels the padding exactly.
+  it("pins the delete column to the right edge, header included, and not in print", () => {
+    expect(INNER_TABLE_CLASS.split(/\s+/)).toContain("pr-2");
+    renderEditor();
+    const table = document.querySelector("table") as HTMLElement;
+    const deletes = within(table).getAllByRole("button", { name: new RegExp(`^${t("en-US", "delete")} – `) });
+    expect(deletes).toHaveLength(roles.length);
+    for (const d of deletes) {
+      const classes = (d.closest("td") as HTMLElement).className.split(/\s+/);
+      expect(classes).toEqual(expect.arrayContaining(["sticky", "-right-2", "bg-surface", "print:hidden"]));
+      expect(classes).not.toContain("right-0");
+    }
+    const headerCells = table.querySelectorAll("thead th");
+    const last = (headerCells[headerCells.length - 1] as HTMLElement).className.split(/\s+/);
+    // In print the body cells are hidden, so the header cell is hidden too.
+    expect(last).toEqual(expect.arrayContaining(["sticky", "-right-2", "print:hidden"]));
+    expect(last).not.toContain("print:static");
+    expect(last).not.toContain("right-0");
+  });
+
+  // ★ Focus scrolling ignores a sticky overlay: at 1024×576, with the table scrolled
+  // to its start, the pinned column (48px) covered 36px of each External /d input,
+  // and Tab into one left it covered (measured 2026-10-24). Scroll padding the pin's
+  // width on THIS scroller makes focus and caret scrolling stop clear of it; the
+  // shared INNER_TABLE_CLASS stays as it is.
+  it("keeps focused cells clear of the pinned column with scroll padding (§766)", () => {
+    renderEditor();
+    const scroller = (document.querySelector("table") as HTMLElement).parentElement as HTMLElement;
+    const classes = scroller.className.split(/\s+/);
+    expect(classes).toEqual(expect.arrayContaining([...INNER_TABLE_CLASS.split(/\s+/), "scroll-pr-14"]));
+    expect(INNER_TABLE_CLASS).not.toMatch(/scroll-p/);
+  });
+
+  // ★ A focused Hours/Days segment is `relative z-10` (segmented-control.tsx). At
+  // 853×480, clicked where the pin half covers the control, it painted over the whole
+  // ✕ cell (measured 2026-10-24). Raising the pinned cells above z-10 would lift them
+  // over the sticky header too, so the basis cell isolates the segment's z-index
+  // instead: it then stacks at the row's level, under the later sticky cell.
+  it("isolates the Hours/Days cell so a focused segment stays under the pinned column", () => {
+    renderEditor();
+    const radios = screen.getAllByRole("radio");
+    expect(radios.length).toBeGreaterThan(0);
+    for (const r of radios) {
+      const basis = (r.closest("td") as HTMLElement).className.split(/\s+/);
+      expect(basis).toContain("isolate");
+      // jsdom computes no stacking, so this pins the class-level premises the measured
+      // fix rests on. The basis cell must not be positioned with a z-index of its own:
+      // `relative z-*` there would stack it above the later pinned cell again.
+      expect(basis.filter((c) => /^(-?z-|relative$|absolute$|sticky$)/.test(c))).toEqual([]);
+      // The pinned cell stays at z auto: it covers the isolated cell by source order,
+      // and a z-index of 10 or more would also lift it over the sticky header (z-10).
+      const pin = (r.closest("tr") as HTMLElement).querySelector("td:last-child") as HTMLElement;
+      expect(pin.className.split(/\s+/)).toContain("sticky");
+      expect(pin.className.split(/\s+/).filter((c) => /^-?z-/.test(c))).toEqual([]);
+    }
   });
 });

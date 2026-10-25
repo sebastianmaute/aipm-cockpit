@@ -40,14 +40,24 @@ import { Input, Select } from "./form-controls";
  *  container. Same split as `reports.tsx` and `budget-panel-bucket-card.tsx`. */
 const REORDER_HANDLE_CLASS = "cursor-move text-muted-foreground";
 
+/** §766: with these widths and `w-16` rate inputs the table is 908px at its
+ *  narrowest, which a 1280×720 window's Manage roles pane shows whole (916px) with
+ *  "€"; "US$" (en-GB) widens each rate cell by 16px and the table scrolls there.
+ *  A rate cell is px-3 + the currency symbol + a 64px spinner-less input. Measured in
+ *  Chromium on 2026-10-24, editable and read-only, EN and DE: up to 7 characters show
+ *  whole ("123456", "1166.67", "133.33"); 8 overflow by 4px, and the field's `title`
+ *  carries the full value. The real 8-character case: an INR day rate of ₹80,000 over
+ *  a 7.5-hour workday derives a read-only 10666.67 per hour. */
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
-  grade: 120,
-  internal: 120,
-  external: 120,
-  internalDay: 120,
-  externalDay: 120,
-  basis: 150,
+  grade: 100,
+  internal: 100,
+  external: 100,
+  internalDay: 100,
+  externalDay: 100,
+  // Room for the Hours/Days control on one line, German included (164px + px-3);
+  // narrower, it wraps and doubles every row's height (§766).
+  basis: 192,
 } as const;
 
 export interface RolesEditorProps {
@@ -103,6 +113,24 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** A rate as its number field shows it, for the field's `title`. Chromium draws the
+ *  decimal separator in the browser's own locale, not the app language (measured
+ *  2026-10-24: "1166,67" under `--lang=de-DE`, "1166.67" under `--lang=en-US`), and
+ *  without grouping, so only the separator is localised. `locale` is for tests.
+ *  Measured in Chromium only; Firefox may follow the page `lang` instead. */
+export function rateFieldDisplay(value: number, locale?: string): string {
+  return withDecimalSeparator(value, decimalSeparator(locale));
+}
+
+/** The locale's decimal separator. The editor reads it once per render, not per cell. */
+function decimalSeparator(locale?: string): string {
+  return new Intl.NumberFormat(locale).formatToParts(1.5).find((p) => p.type === "decimal")?.value ?? ".";
+}
+
+function withDecimalSeparator(value: number, sep: string): string {
+  return String(value).replace(".", sep);
+}
+
 export function RolesEditor({
   lang, currency, workdayHours, roles, disciplines, grades,
   onSaveRole, onDeleteRole, onResolveOrCreateRole, onReorderRoles,
@@ -111,6 +139,8 @@ export function RolesEditor({
   onResetSize,
 }: RolesEditorProps) {
   const curSymbol = currencySymbol(currency, localeFor(lang));
+  // The browser locale's decimal separator for the rate fields' titles (rateFieldDisplay).
+  const fieldDecimalSep = decimalSeparator();
   const [newDiscipline, setNewDiscipline] = useState("");
   const [newGrade, setNewGrade] = useState("");
   const [comboDiscipline, setComboDiscipline] = useState<number | "">("");
@@ -227,10 +257,14 @@ export function RolesEditor({
       <td className="px-3 py-2 text-right">
         <span className="inline-flex items-center justify-end gap-1">
           <span aria-hidden className="text-muted-foreground">{curSymbol}</span>
+          {/* No spinner (it took about 15px of the 64px field), and the full value in
+              `title` for a value too long for the field (§766; see ROLES_COL_WIDTHS). */}
           <Input type="number" min={0} step={1} value={value} readOnly={!editable}
             aria-label={`${rowCtx} — ${t(lang, labelKey)}`}
+            title={withDecimalSeparator(value, fieldDecimalSep)}
             onChange={editable ? (e) => onChange(e.target.value) : undefined}
-            size="xs" state={editable ? "default" : "muted"} className="w-24 text-right tabular-nums" />
+            size="xs" state={editable ? "default" : "muted"}
+            className="w-16 text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
         </span>
       </td>
     );
@@ -242,15 +276,17 @@ export function RolesEditor({
         <div className="mb-2 flex items-center justify-between gap-2">
           <h4 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "rolesRateCard")}</h4>
           <div className="flex flex-row flex-nowrap items-center gap-2">
-            {onResetSize && <ResetSizeButton onClick={onResetSize} lang={lang} />}
             <PrintButton lang={lang} />
+            {onResetSize && <ResetSizeButton onClick={onResetSize} lang={lang} />}
           </div>
         </div>
         {sortedRoles.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t(lang, "rolesNoRoles")}</p>
         ) : (
           <>
-          <div className={INNER_TABLE_CLASS}>
+          {/* `scroll-pr-14`: focus scrolling ignores the pinned delete column (48px), so
+              without it Tab could land in a rate input hidden under the pin (§766). */}
+          <div className={`${INNER_TABLE_CLASS} scroll-pr-14`}>
           <DataTable className="w-full text-left text-sm" head={<>
               <tr>
                 <SortResizeTh
@@ -301,7 +337,12 @@ export function RolesEditor({
                     <InfoTooltip text={t(lang, "rolesRateBasisHint")} />
                   </span>
                 </th>
-                <th className="px-3 py-2 font-medium" />
+                {/* Pinned with the row delete cells below. `-right-2` cancels the
+                    scroller's `pr-2` (INNER_TABLE_CLASS): a sticky offset counts from the
+                    padding edge, so `right-0` left an 8px strip the table scrolled through.
+                    That padding-edge rule is Chromium's, measured at 1024×576 on 2026-10-24;
+                    a browser measuring from the outer edge would clip 8px of this cell. */}
+                <th className="sticky -right-2 px-3 py-2 font-medium print:hidden" />
               </tr>
             </>} tbodyClassName="divide-y divide-line">
               {sortedRoles.map((r) => {
@@ -351,7 +392,11 @@ export function RolesEditor({
                   {rateCell(r, rowCtx, "hour", "external")}
                   {rateCell(r, rowCtx, "day", "internal")}
                   {rateCell(r, rowCtx, "day", "external")}
-                  <td className="px-3 py-2">
+                  {/* `isolate`: a focused segment is `relative z-10`, which painted over
+                      the pinned ✕ cell when the two overlap (853×480). Contained here, it
+                      stays under the later sticky cell, with no z-index raised above the
+                      sticky header's z-10. */}
+                  <td className="isolate px-3 py-2">
                     <SegmentedControl<"hour" | "day">
                       value={(r.rateBasis ?? "hour") === "day" ? "day" : "hour"}
                       options={[
@@ -364,7 +409,7 @@ export function RolesEditor({
                       title={t(lang, "rolesRateBasisHint")}
                     />
                   </td>
-                  <td className="px-3 py-2 text-right print:hidden">
+                  <td className="sticky -right-2 bg-surface px-3 py-2 text-right print:hidden">
                     <IconButton variant="danger" onClick={() => onDeleteRole(r.id)} label={`${t(lang, "delete")} – ${rowCtx}`} title={`${t(lang, "delete")} – ${rowCtx}`}>
                       <XMarkIcon aria-hidden="true" className="h-4 w-4" />
                     </IconButton>
