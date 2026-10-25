@@ -36,6 +36,10 @@ export type UnloadJournal = {
    *  `fingerprintWorkspace(loaded)` on the next load to decide whether the
    *  journal still applies cleanly. */
   baseFingerprint: string;
+  /** Fingerprints of this page's saves of the key that were still in flight when this one started, each
+   *  begun after the base: the record is built on every one of them, so a load that finds one of them
+   *  stored (it landed; this later one did not) matches as the base does. Absent on older records. */
+  ancestorFingerprints?: string[];
   /** `workspaceToJson` of the unconfirmed outgoing workspace. */
   workspace: string;
 };
@@ -173,8 +177,9 @@ export function fingerprintWorkspace(ws: Workspace): string {
  *  may be a thunk. A thunk is called only once the record WITHOUT it already fits
  *  the cap, so a record that is going to be skipped never pays for a fingerprint
  *  (§629 fix round 1 — the caller runs inside an unload handler). */
-export type UnloadJournalWrite = Omit<UnloadJournal, "v" | "baseFingerprint"> & {
+export type UnloadJournalWrite = Omit<UnloadJournal, "v" | "baseFingerprint" | "ancestorFingerprints"> & {
   baseFingerprint: string | (() => string);
+  ancestorFingerprints?: string[] | (() => string[]);
 };
 
 function logSkippedSize(projectKey: string, size: number): void {
@@ -188,8 +193,8 @@ function logSkippedSize(projectKey: string, size: number): void {
 export function writeUnloadJournal(rec: UnloadJournalWrite): boolean {
   try {
     if (typeof window === "undefined") return false;
-    const { baseFingerprint, ...rest } = rec;
-    if (typeof baseFingerprint === "function") {
+    const { baseFingerprint, ancestorFingerprints, ...rest } = rec;
+    if (typeof baseFingerprint === "function" || typeof ancestorFingerprints === "function") {
       // A fingerprint only lengthens the record, so one over the cap without it stays over.
       const withoutFingerprint = JSON.stringify({ v: 1, ...rest, baseFingerprint: "" });
       if (withoutFingerprint.length > UNLOAD_JOURNAL_MAX_CHARS) {
@@ -202,6 +207,8 @@ export function writeUnloadJournal(rec: UnloadJournalWrite): boolean {
       ...rest,
       baseFingerprint: typeof baseFingerprint === "function" ? baseFingerprint() : baseFingerprint,
     };
+    const ancestors = typeof ancestorFingerprints === "function" ? ancestorFingerprints() : ancestorFingerprints;
+    if (ancestors !== undefined && ancestors.length > 0) value.ancestorFingerprints = ancestors;
     const serialized = JSON.stringify(value);
     if (serialized.length > UNLOAD_JOURNAL_MAX_CHARS) {
       logSkippedSize(rec.projectKey, serialized.length);
@@ -237,6 +244,8 @@ function hasJournalFields(value: unknown): value is Omit<UnloadJournal, "v"> & R
     typeof rec.tabId === "string" &&
     isTimestamp(rec.savedAt) &&
     typeof rec.baseFingerprint === "string" &&
+    (rec.ancestorFingerprints === undefined ||
+      (Array.isArray(rec.ancestorFingerprints) && rec.ancestorFingerprints.every((x) => typeof x === "string"))) &&
     typeof rec.workspace === "string"
   );
 }

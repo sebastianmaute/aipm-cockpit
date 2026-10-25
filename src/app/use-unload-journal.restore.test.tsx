@@ -48,7 +48,7 @@ import * as storageMod from "./storage";
 import { TestProviders } from "./test-providers";
 import { fingerprintWorkspace, UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
 import { useStorageBackend } from "./use-storage-backend";
-import { UNLOAD_JOURNAL_TAB_ID, useUnloadJournal } from "./use-unload-journal";
+import { MAX_ANCESTORS, UNLOAD_JOURNAL_TAB_ID, useUnloadJournal } from "./use-unload-journal";
 import { emptyWorkspace, jsonToWorkspace, workspaceToJson, type Workspace } from "./workspace";
 import { isMassDeletion, workspaceRecordCount } from "./workspace-metrics";
 import { useWorkspace } from "./workspace-context";
@@ -577,6 +577,129 @@ describe("§629 — useUnloadJournal restore on its own", () => {
     expect(applied).toBeNull();
     expect(result.current.conflict).toBe(true);
   });
+
+  // §629 — two saves in flight at unload: the EARLIER one lands, the later one is lost. The journal holds the later
+  // one, built on the earlier one, so the stored version is its ancestor, not another writer's change.
+  const B0: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "One" } as unknown as Task] };
+  const S1: Workspace = { ...B0, tasks: [...B0.tasks, { id: 2, taskName: "Two" } as unknown as Task] };
+  const S2: Workspace = { ...S1, tasks: [...S1.tasks, { id: 3, taskName: "Three" } as unknown as Task] };
+
+  type Journal = ReturnType<typeof useUnloadJournal>;
+  /** A save the queue started writing: noted, then run (use-storage-backend.ts calls both). */
+  const run = (j: Journal, ws: Workspace) => j.noteSaveRunning(j.noteSaveStarted(ws));
+
+  /** One page load: the base, then each of `saves` run and none confirmed, then each of `waiting` noted but never
+   *  run (the queue replaced it), then pagehide. */
+  function unloadWithSavesInFlight(saves: readonly Workspace[], before: readonly Workspace[] = [], waiting: readonly Workspace[] = []): void {
+    const page = renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
+    act(() => {
+      for (const ws of before) run(page.result.current, ws);
+      page.result.current.setBase(B0, "p1");
+      for (const ws of saves) run(page.result.current, ws);
+      for (const ws of waiting) page.result.current.noteSaveStarted(ws);
+    });
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    window.dispatchEvent(new Event("pageshow"));
+    page.unmount();
+  }
+
+  function restoreOnNextLoad(loaded: Workspace) {
+    const next = renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
+    let applied: Workspace | null = null;
+    act(() => { applied = next.result.current.restoreOnLoad(loaded, "p1", "turso"); });
+    return { applied: applied as Workspace | null, conflict: next.result.current.conflict };
+  }
+
+  it("§629 — the earlier of two saves in flight landed: the later one is restored over it, with no conflict notice", () => {
+    unloadWithSavesInFlight([S1, S2]);
+    const { applied, conflict } = restoreOnNextLoad(S1);
+    expect(applied?.tasks.map((x) => x.id)).toEqual([1, 2, 3]);
+    expect(conflict).toBe(false);
+  });
+
+  it("§629 — a stored version no save of that page wrote is still a conflict", () => {
+    unloadWithSavesInFlight([S1, S2]);
+    const other: Workspace = { ...B0, tasks: [...B0.tasks, { id: 9, taskName: "Elsewhere" } as unknown as Task] };
+    const { applied, conflict } = restoreOnNextLoad(other);
+    expect(applied).toBeNull();
+    expect(conflict).toBe(true);
+  });
+
+  it("§629 — the applied journal is re-tagged with its ancestors kept", () => {
+    unloadWithSavesInFlight([S1, S2]);
+    restoreOnNextLoad(S1);
+    expect(readJournal(KEY)!.ancestorFingerprints).toEqual([fingerprintWorkspace(S1)]);
+  });
+
+  it("§629 — the save queue replaced the waiting saves: the RUNNING one, which may have landed, stays an ancestor", () => {
+    const chain = [S2];
+    for (let id = 4; id < 4 + MAX_ANCESTORS + 1; id++) chain.push({ ...B0, tasks: [...chain[chain.length - 1].tasks, { id, taskName: `T${id}` } as unknown as Task] });
+    unloadWithSavesInFlight([S1], [], chain); // S1 runs; every later save waits and is replaced; the last is journalled
+    expect(readJournal(KEY)!.ancestorFingerprints).toEqual([fingerprintWorkspace(S1)]);
+    const { applied, conflict } = restoreOnNextLoad(S1);
+    expect(applied?.tasks.map((x) => x.id)).toEqual(chain[chain.length - 1].tasks.map((x) => x.id));
+    expect(conflict).toBe(false);
+  });
+
+  it("§629 — a save that never ran is never an ancestor", () => {
+    unloadWithSavesInFlight([], [], [S1, S2]);
+    expect(readJournal(KEY)!.ancestorFingerprints).toBeUndefined();
+    expect(restoreOnNextLoad(S1).conflict).toBe(true);
+  });
+
+  it("§629 — only the newest MAX_ANCESTORS earlier runs are ancestors", () => {
+    const chain = [S1];
+    for (let id = 3; id <= 3 + MAX_ANCESTORS; id++) chain.push({ ...B0, tasks: [...chain[chain.length - 1].tasks, { id, taskName: `T${id}` } as unknown as Task] });
+    unloadWithSavesInFlight(chain); // all ran (failed saves); the last is journalled; the MAX_ANCESTORS before it are ancestors, S1 is not
+    expect(readJournal(KEY)!.ancestorFingerprints).toHaveLength(MAX_ANCESTORS);
+    expect(restoreOnNextLoad(S1).conflict).toBe(true);
+  });
+
+  it("§629 — a save of another project is never an ancestor", () => {
+    const page = renderHook(({ projectKey }) => useUnloadJournal({ projectKey, enabled: true, isPopout: false }), { initialProps: { projectKey: "p1" } });
+    act(() => { page.result.current.setBase(B0, "p1"); });
+    page.rerender({ projectKey: "p2" });
+    act(() => { run(page.result.current, S1); }); // keyed p2
+    page.rerender({ projectKey: "p1" });
+    act(() => { run(page.result.current, S2); });
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    window.dispatchEvent(new Event("pageshow"));
+    page.unmount();
+    expect(readJournal(KEY)!.ancestorFingerprints).toBeUndefined();
+    expect(restoreOnNextLoad(S1).conflict).toBe(true);
+  });
+
+  it("§629 — R7: with the base held for a project op, the journal names no ancestors", () => {
+    const page = renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
+    act(() => {
+      page.result.current.setBase(B0, "p1");
+      run(page.result.current, S1);
+      page.result.current.holdBase(S1);
+      run(page.result.current, S2);
+    });
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    window.dispatchEvent(new Event("pageshow"));
+    page.unmount();
+    expect(readJournal(KEY)!.ancestorFingerprints).toBeUndefined();
+    expect(restoreOnNextLoad(S1).conflict).toBe(true);
+  });
+
+  it("§629 — a record whose ancestors are not a list of strings is malformed: nothing restores, the load does not throw", () => {
+    const bad = { v: 1, projectKey: "p1", tabId: "an-earlier-page", savedAt: 1, baseFingerprint: "x", ancestorFingerprints: `pre-${fingerprintWorkspace(S1)}`, workspace: workspaceToJson(S2) };
+    localStorage.setItem(KEY, JSON.stringify(bad));
+    const { applied, conflict } = restoreOnNextLoad(S1);
+    expect(applied).toBeNull();
+    expect(conflict).toBe(false);
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("§629 — a save started before the base was set is not one the journal was built on: a conflict", () => {
+    const pre: Workspace = { ...B0, tasks: [...B0.tasks, { id: 8, taskName: "Before the load" } as unknown as Task] };
+    unloadWithSavesInFlight([S2], [pre]);
+    const { applied, conflict } = restoreOnNextLoad(pre);
+    expect(applied).toBeNull();
+    expect(conflict).toBe(true);
+  });
 });
 
 describe("§632 — journals under other keys, wired into the load", () => {
@@ -917,5 +1040,32 @@ describe("a restore resets the undo history, not the project scope", () => {
     expect(onUndoHistoryReset).toHaveBeenCalledTimes(1);
     expect(result.current.getUndoEpoch()).toBe(undoBefore + 1); // every pre-restore undo entry is now stale
     expect(result.current.getScopeEpoch()).toBe(scopeBefore); // in-flight writes for THIS project still land
+  });
+});
+
+describe("§629 — through the save queue: the earlier save landed, the one behind it did not", () => {
+  it("the next load restores the later edit over it, with no conflict notice", async () => {
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const first = render();
+    await advance(800);
+    const edit1 = JOURNALED.tasks;
+    const edit2 = [...edit1, { id: 3, taskName: "Behind it" } as unknown as Task];
+    act(() => { first.result.current.setTasks(edit1); });
+    await advance(600);
+    act(() => { first.result.current.setTasks(edit2); });
+    await advance(600);
+    expect(backend.save).toHaveBeenCalledTimes(1); // the premise: the second save waits behind the first, unrun
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    window.dispatchEvent(new Event("pageshow"));
+    first.unmount();
+
+    const landed = { ...STORED, tasks: edit1 }; // the first save reached the store; the second never ran
+    createBackendMock.mockReturnValue(makeBackend(100, "resolve", landed));
+    const { result } = render();
+    await advance(200);
+    expect(result.current.unloadJournalConflict).toBe(false);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2, 3]);
+    expect(restoredToast()).toHaveLength(1);
   });
 });

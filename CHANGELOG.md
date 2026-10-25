@@ -77,6 +77,11 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **No false "changed elsewhere" notice after a quick reload (§629).** When two saves were still on their way as the
+  page closed and only the earlier one arrived, the next load said the unsaved changes "could not be restored
+  automatically because this project was changed elsewhere since", although nothing else had changed it. Those
+  changes are now restored over the earlier save, as for any reload. A project another tab or device really changed
+  still shows the notice.
 - **Typing an instruction for Optimize with AI or Plan with AI is quick again.** Each key in Optimize with AI's
   instruction box updated state held by the app's root, so every keystroke re-rendered the whole app: 40–55 ms a key in
   a production build, three to four times the other fields. Plan with AI (Resources → Planning) did the same to the

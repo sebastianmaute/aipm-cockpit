@@ -1081,7 +1081,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       const job = (): Promise<void | "superseded"> => {
         if (mirrorLedger.isMirroredOnly(outgoing)) { unloadJournal.noteSaveRefused(journalSavedAt, null); return Promise.resolve("superseded"); }
         if (peerRevision.settle(backend, peerSeq, mirrorLedger.hasContested()) === "skip") return Promise.resolve("superseded"); // §666 — this snapshot predates a deferred peer revision; the effect run its `peerSeq` bump caused writes instead. Its journal entry STAYS until that write confirms (peer-revision-deferral.ts)
-        return conflictResolution.runSaveJob(backend, () => { baseRevision = announcedRevision(backend); return backend.save(outgoing).then(() => mirrorLedger.markWritten(outgoing)); });
+        unloadJournal.noteSaveRunning(journalSavedAt); return conflictResolution.runSaveJob(backend, () => { baseRevision = announcedRevision(backend); return backend.save(outgoing).then(() => mirrorLedger.markWritten(outgoing)); }); // §629 — running: from here this save may land, so a later journal is built on it
       };
       enqueueSave(backend, job).then((result) => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         if (result === "superseded") return;
