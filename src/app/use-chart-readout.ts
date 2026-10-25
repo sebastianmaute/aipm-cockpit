@@ -32,6 +32,14 @@ export type ChartReadoutApi = {
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
     onBlur: () => void;
   };
+  /** For an element painted OVER the trigger that must keep the pointer (a
+   *  truncated chart label with its <title>): moving onto it neither closes nor
+   *  freezes the readout, and pressing it acts as pressing the trigger. */
+  overlayProps: {
+    onPointerMove: (e: PointerEvent<Element>) => void;
+    onPointerLeave: (e: PointerEvent<Element>) => void;
+    onPointerDown: (e: PointerEvent<Element>) => void;
+  };
 };
 
 export function useChartReadout({
@@ -115,8 +123,32 @@ export function useChartReadout({
     };
   }, [close, stop]);
 
+  // ★ The trigger is an empty button laid over the chart (WCAG 2.5.3), and a few
+  // chart labels sit ABOVE it to keep their <title> tooltip. Crossing between the
+  // two is not leaving the chart: both live in the trigger's own box (its parent),
+  // so a pointer whose next target is still inside that box keeps the readout.
+  const leave = (e: PointerEvent<Element>) => {
+    const to = e.relatedTarget;
+    const box = hostRef.current?.parentElement;
+    if (box && to instanceof Node && box.contains(to)) return;
+    if (e.pointerType === "mouse" || (e.pointerType === "pen" && !justLiftedRef.current)) close();
+  };
+
   return {
     stop, anchor, close,
+    overlayProps: {
+      onPointerMove: (e) => move(e.clientX),
+      onPointerLeave: leave,
+      // Pressing the label is pressing the trigger: open at that x and give the
+      // button focus, so the readout's blur/Escape close paths still apply. The
+      // default is prevented so the press does not move focus to the page.
+      onPointerDown: (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        hostRef.current?.focus();
+        move(e.clientX);
+      },
+    },
     triggerProps: {
       ref: (el) => { hostRef.current = el; },
       onPointerMove: (e) => move(e.clientX),
@@ -130,9 +162,7 @@ export function useChartReadout({
       // tap, and an unknown or future pointerType, stay open until a tap elsewhere moves
       // focus off the button (which blurs it) or Escape — failing safe rather than making
       // the readout unusable with that device.
-      onPointerLeave: (e) => {
-        if (e.pointerType === "mouse" || (e.pointerType === "pen" && !justLiftedRef.current)) close();
-      },
+      onPointerLeave: leave,
       onPointerUp: () => {
         justLiftedRef.current = true;
         if (liftTimerRef.current !== null) clearTimeout(liftTimerRef.current);

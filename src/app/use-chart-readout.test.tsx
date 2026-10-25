@@ -13,6 +13,8 @@ function Harness() {
   return (
     <div>
       <button type="button" {...readout.triggerProps}>chart</button>
+      {/* Stands for a truncated chart label painted over the trigger (burndown-chart.tsx). */}
+      <span data-testid="overlay" {...readout.overlayProps}>label</span>
       <output>{readout.stop ?? "closed"}</output>
       <span data-testid="anchor">{readout.anchor ? `${readout.anchor.top}/${Math.round(readout.anchor.left)}` : "none"}</span>
     </div>
@@ -259,6 +261,38 @@ describe("useChartReadout", () => {
     await user.click(trigger);
     expect(screen.getByRole("status")).not.toHaveTextContent("closed");
     expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
+  });
+
+  // ★ The trigger is an empty button laid over the chart (WCAG 2.5.3), and a
+  // truncated label is painted ABOVE it to keep its <title> tooltip. A mouse
+  // crossing that label left the button, and the readout closed under it —
+  // flickering off over every truncated label. Crossing within the trigger's box
+  // keeps it; leaving the box still closes it. Mutation: drop the relatedTarget
+  // check in `leave` → the first expectation goes red.
+  it("stays open while a mouse crosses a label laid over the trigger, and closes when it leaves the chart", async () => {
+    stubRect();
+    const user = userEvent.setup();
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "chart" });
+    const overlay = screen.getByTestId("overlay");
+    await user.pointer({ target: trigger, coords: { clientX: 412, clientY: 60 } });
+    expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
+    fireEvent.pointerLeave(trigger, { pointerType: "mouse", relatedTarget: overlay });
+    expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
+    // Moving over the label still moves the readout (client 100 + 560 → the last stop).
+    fireEvent.pointerMove(overlay, { pointerType: "mouse", clientX: 660 });
+    expect(screen.getByRole("status")).toHaveTextContent("2026-03-01");
+    fireEvent.pointerLeave(overlay, { pointerType: "mouse", relatedTarget: document.body });
+    expect(screen.getByRole("status")).toHaveTextContent("closed");
+  });
+
+  it("opens at the pressed x and focuses the trigger when the label laid over it is pressed", () => {
+    stubRect();
+    render(<Harness />);
+    const overlay = screen.getByTestId("overlay");
+    fireEvent.pointerDown(overlay, { pointerType: "touch", button: 0, clientX: 412 });
+    expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
+    expect(screen.getByRole("button", { name: "chart" })).toHaveFocus();
   });
 
   it("opens at the first stop on a keyboard activation", async () => {

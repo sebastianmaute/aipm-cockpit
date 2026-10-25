@@ -315,7 +315,9 @@ function BurndownChartBody({
             chart is painted above the button but ignores the pointer, so every
             pointer event still lands on the button (same rect, so the readout's
             x-mapping is unchanged); only a truncated label's <title> catches the
-            pointer, so its full text still shows on hover. */}
+            pointer, so its full text still shows on hover — and it passes the
+            readout's pointer handling through (`overlayProps`), so crossing it
+            neither closes nor freezes the readout. */}
         <div className="relative">
           <button
             type="button"
@@ -428,6 +430,9 @@ function BurndownChartBody({
             <text
               key={label.key} {...(label.data ? { [label.data]: "" } : {})} x={placed[i].x} y={placed[i].baseline} textAnchor={label.request.anchor} {...HALO}
               className={`${label.strong ? "fill-foreground tabular-nums" : "fill-muted-foreground"} stroke-surface text-[8px]${label.title ? " pointer-events-auto" : ""}`} aria-hidden="true"
+              // A label that keeps the pointer for its <title> passes the readout's
+              // pointer handling through, so crossing it neither closes nor freezes it.
+              {...(label.title ? readout.overlayProps : {})}
             >
               {label.title && <title>{label.title}</title>}
               {label.text}
