@@ -210,7 +210,7 @@ describe('voice-only beats (§715)', () => {
 
 // ---- the guard: every caption in the step modules names its beat ----
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const MODULES = ['steps/week.mjs', 'steps/ai.mjs', 'steps/features.mjs', 'steps/first-run.mjs', 'setup.mjs'];
+const MODULES = ['steps/week.mjs', 'steps/ai.mjs', 'steps/features.mjs', 'steps/first-run.mjs', 'steps/install.mjs', 'setup.mjs'];
 const sources = MODULES.map((f) => [f, fs.readFileSync(path.join(HERE, f), 'utf8')]);
 const count = (re) => sources.reduce((n, [, s]) => n + (s.match(re) ?? []).length, 0);
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;

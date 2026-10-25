@@ -6,7 +6,7 @@
  *  (a clip's tag comes from its tier). `beat` or `at` (seconds) picks the frame when the default one is not right. */
 export const THUMBNAILS = {
   big: { headline: '{RESCUE} THE MVP', beat: 'mon-do-first' },
-  'ch1-install': { headline: 'GET IT {RUNNING}', tag: 'INSTALL 1/7' },
+  'ch1-install': { headline: 'GET IT {RUNNING}', tag: 'INSTALL 1/7', beat: 'install-download' },
   'ch2-connect': { headline: 'YOUR {FIRST} PROJECT', tag: 'GET STARTED 2/7', beat: 'first-project-lands' },
   'ch3-monday': { headline: 'MILESTONE {SLIPPED}', tag: 'MONDAY 3/7' },
   'ch4-tuesday': { headline: 'TIME TO {RE-PLAN}', tag: 'TUESDAY 4/7' },

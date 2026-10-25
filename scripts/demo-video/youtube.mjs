@@ -15,6 +15,15 @@ const LABEL_MAX = 70;
 const RESERVED = new Set(['title', 'opening', 'closing']);
 const DAYS = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday' };
 
+/** In every description, right after its opening line (the part YouTube shows before "more"), and kept like the
+ *  credits when a description is cut to YouTube's limit (owner, 2026-10-25). The pitch is the README's own; the
+ *  licence is the repo's LICENSE. */
+export const TAGLINE = [
+  'AI PM Cockpit: the AI project-management cockpit that knows your project. Open source under the EUPL-1.2.',
+  'Project: https://github.com/sebastianmaute/aipm-cockpit',
+  'Download: https://github.com/sebastianmaute/aipm-cockpit/releases',
+].join('\n');
+
 export const MUSIC_CREDIT = 'Music: Made with ElevenMusic';
 export const VOICE_CREDIT = 'Narration: AI-generated voice (ElevenLabs)';
 const CATEGORY = 'Science & Technology';
@@ -50,11 +59,12 @@ export const PLAYLISTS = {
 };
 
 /** A playlist's description: its intro, one line per video of `tier` in `defs` (hand-recorded ones too: they are
- *  uploaded like the rest), then its outro. */
+ *  uploaded like the rest), its outro, then the TAGLINE. The tagline closes it rather than following the intro,
+ *  as each intro leads into the list. */
 export function playlistDescription(tier, defs) {
   const { intro, outro } = PLAYLISTS[tier];
   const list = defs.filter((d) => d.tier === tier).map((d) => `• ${youtubeText(d.title)}`);
-  return [intro, list.join('\n'), outro].join('\n\n');
+  return [intro, list.join('\n'), outro, TAGLINE].join('\n\n');
 }
 
 const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -108,11 +118,12 @@ export function descriptionFor(def, narration, chapters) {
   const credits = [MUSIC_TIERS.includes(def.tier) ? MUSIC_CREDIT : null, narration?.size ? VOICE_CREDIT : null].filter(Boolean).join('\n');
   const list = chapters.map((c) => `${stamp(c.at)} ${c.label}`).join('\n');
   const join = (parts) => youtubeText(parts.filter(Boolean).join('\n\n'));
-  // Over YouTube's limit the summary goes first, then the chapters; the opening line and the credits always stay.
-  for (const parts of [[lead, summary, list, credits], [lead, list, credits], [lead, credits]]) {
+  // Over YouTube's limit the summary goes first, then the chapters; the opening line, the tagline and the credits
+  // always stay.
+  for (const parts of [[lead, TAGLINE, summary, list, credits], [lead, TAGLINE, list, credits], [lead, TAGLINE, credits]]) {
     if (join(parts).length <= DESCRIPTION_MAX) return join(parts);
   }
-  return join([lead.slice(0, DESCRIPTION_MAX - 200), credits]);
+  return join([lead.slice(0, DESCRIPTION_MAX - 200 - TAGLINE.length), TAGLINE, credits]);
 }
 
 /** YouTube rejects < and > in a title or a description. */
@@ -186,7 +197,7 @@ function readSidecar(file) {
 
 /** Rewrites `<out>/youtube-details.html` for every video not recorded by hand, in `videos` order. `pathOf(def)` is
  *  the video's WebM path (cli.mjs outPath); its .mp4, .srt and .beats.json sit beside it. The playlists list every
- *  video, the hand-recorded install chapter too: it is uploaded by hand into the chapters' playlist. */
+ *  video, a hand-recorded one too: it is uploaded by hand into its playlist. */
 export function writeDetailsPage(out, videos, pathOf, { lang = 'en' } = {}) {
   const sibling = (def, ext) => {
     const p = pathOf(def).replace(/\.webm$/, ext);
