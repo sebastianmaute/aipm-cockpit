@@ -15,6 +15,14 @@ describe("TrendArrow", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  // ★★ The aria-label is only HEARD on a role that allows naming: on a role-less
+  // span it is prohibited and screen readers skip it, which left the KPI trend
+  // silent once the tile's button stopped wrapping it. Mutation: drop role="img" → red.
+  test("is an img named by its sentence, so screen readers announce the trend", () => {
+    render(<TrendArrow lang="en-US" metricLabel="Completion" trend={trend({ value: 60, delta: 2, direction: "up", improved: true })} />);
+    expect(screen.getByRole("img", { name: /Completion up 2 since/i })).toBeInTheDocument();
+  });
+
   test("completion up is improved → green token, accessible 'up' label", () => {
     render(<TrendArrow lang="en-US" metricLabel="Completion" trend={trend({ value: 60, delta: 2, direction: "up", improved: true })} />);
     const el = screen.getByLabelText(/Completion up 2 since/i);

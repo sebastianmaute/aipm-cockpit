@@ -99,11 +99,12 @@ export function buildRowTokens<Id>(rows: readonly TokenRow<Id>[]): Map<Id, strin
  * select conforms while failing a prefix test ("Type for next link" sits INSIDE
  * "Predecessor type for next link").
  *
- * ★★ WHAT IS PINNED, AND WHAT IS NOT. axe's `label-content-name-mismatch` does
- * carry `wcag21a`, but it is also tagged `experimental` and axe's default
- * tagExclude drops it, so a tag-only run never executes it — verify with
+ * ★★ WHAT IS PINNED, AND WHAT IS NOT. axe's `label-content-name-mismatch`
+ * carries `wcag21a` and, since axe 4.14 dropped its `experimental` tag, the
+ * tag-only gate runs it — verify with
  *   node -e "const a=require('axe-core');const r=a.getRules().find(x=>x.ruleId==='label-content-name-mismatch');console.log(a._audit.tagExclude.join(','),'::',r.tags.join(','))"
- * A unit test is therefore the only detector that can exist. The one beside
+ * It only sees what the e2e seed renders in the scanned views, so a unit test
+ * is still the only detector for every other surface. The one beside
  * this function pins what a pure function CAN guarantee: the returned name
  * contains `verb`. It renders no control, so it does NOT pin that any call
  * site's VISIBLE text is in fact `verb` — that is a per-call-site property and

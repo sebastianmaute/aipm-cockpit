@@ -108,10 +108,11 @@ describe("AssetLibrary", () => {
   });
 
   // ★★ WCAG 2.5.3 — the accessible name must CONTAIN the visible text
-  //    (containment, case-insensitive; NOT prefix). axe ships
-  //    `label-content-name-mismatch` but it is `experimental` and excluded by
-  //    the gate's default tagExclude, so this is the only detector too. It
-  //    pins that the id/name suffix stays a SUFFIX and the verb stays first.
+  //    (containment, case-insensitive; NOT prefix). axe's
+  //    `label-content-name-mismatch` runs in the gate since 4.14, but this
+  //    surface is Turso-gated and never rendered there, so this is the only
+  //    detector too. It pins that the id/name suffix stays a SUFFIX and the
+  //    verb stays first.
   it("keeps each row control's visible text inside its accessible name", () => {
     render(<AssetLibrary {...base} onInsert={vi.fn()} />);
     // Body rows only — the header's sort buttons carry no aria-label, so
@@ -473,12 +474,10 @@ describe("AssetLibrary — image preview", () => {
   //     and the control was a straight WCAG 2.5.3 failure — a German speech-
   //     input user saying the label printed on the button could not activate
   //     it. Rendering in `de` is what makes this test able to fail at all.
-  // ★★ NO GATE AS CONFIGURED CATCHES IT. axe ships `label-content-name-mismatch` and
-  //     it carries `wcag21a`, so a rule listing reads as coverage — but it is
-  //     also tagged `experimental` and axe's default tagExclude is
-  //     `experimental,deprecated`, so the tag-only runOnly in `e2e/a11y.spec.ts`
-  //     never RUNS it. This surface is Turso-gated besides, so the gate never
-  //     renders it in any view at any seed size.
+  // ★★ NO GATE AS CONFIGURED CATCHES IT. axe's `label-content-name-mismatch`
+  //     runs in `e2e/a11y.spec.ts` since axe 4.14 (it was tagged
+  //     `experimental`, and so skipped, until then) — but this surface is
+  //     Turso-gated, so the gate never renders it in any view at any seed size.
   // ★★ 2.5.3 containment is case-INSENSITIVE and position-INDEPENDENT
   //     (Understanding SC 2.5.3, "Punctuation and capitalization"), so this
   //     asserts containment, NOT a prefix — a prefix test is STRICTER than the

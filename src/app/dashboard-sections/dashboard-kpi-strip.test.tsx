@@ -8,6 +8,7 @@ import { DashboardKpiStrip, KPI_STRIP_COLS } from "./dashboard-kpi-strip";
 import { t, loadI18n } from "../i18n";
 import { formatDayMonthYear } from "../forecast-format";
 import type { KpiSimulation } from "../kpi-simulation";
+import { expectLabelInName } from "../../test/label-in-name";
 
 const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const };
 
@@ -88,6 +89,21 @@ describe("DashboardKpiStrip", () => {
     expect(screen.getByRole("button", { name: /Open RAID –/ })).toBeInTheDocument();
   });
 
+  // WCAG 2.5.3 — axe 4.14 runs label-content-name-mismatch in the gate, and every
+  // Dashboard scan failed on these tiles while the button wrapped the whole card
+  // (visible "Complete 50% +40% 2 of 4 completed", name "Complete – Open the tasks
+  // list"). Every clickable tile, with trends AND both index tiles, both languages.
+  it.each(["en-US", "de"] as const)("names every clickable tile so it contains the tile's visible text (%s)", async (lang) => {
+    await loadI18n(lang);
+    // Both index tiles need estimates; a Cancelled task adds the R/A/G tile's ✕ marker.
+    const m = modelFor([...EVM_TASKS_BOTH, taskFixture(3, "Cancelled")]);
+    render(<DashboardKpiStrip lang={lang} model={m} trends={trendsWithPrior} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
+    const tiles = Array.from(document.querySelectorAll("[data-tile-activate] button"));
+    // Complete · R/A/G · Overdue · Open RAID · SPI · CPI.
+    expect(tiles).toHaveLength(6);
+    for (const b of tiles) expectLabelInName(b);
+  });
+
   it("renders an explanatory InfoTooltip trigger on each KPI tile", () => {
     render(
       <DashboardKpiStrip
@@ -126,8 +142,8 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
     expect(screen.getByText(t("en-US", "dashboardNoActiveScope"))).toBeInTheDocument();
     expect(screen.getByText(t("en-US", "dashboardAllCancelled", "2"))).toBeInTheDocument();
     expect(screen.queryByText("0%")).toBeNull();
-    // KpiGradientBar is the completion tile's sole role="img" element.
-    expect(screen.queryByRole("img")).toBeNull();
+    // No KpiGradientBar (by name: the other tiles' trend arrows are role="img" too).
+    expect(screen.queryByRole("img", { name: new RegExp(`^${t("en-US", "dashboardKpiComplete")}: `) })).toBeNull();
     // And the trend arrow: it would announce a delta against a percentage the
     // tile no longer shows. The control test below proves this fixture DOES
     // render an arrow, so this absence is a suppression, not a no-op.
@@ -154,7 +170,8 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
       />,
     );
     expect(screen.getByText("40%")).toBeInTheDocument();
-    expect(screen.getByRole("img")).toBeInTheDocument();
+    // The bar, by name: the trend arrows are role="img" too.
+    expect(screen.getByRole("img", { name: `${t("en-US", "dashboardKpiComplete")}: 40%` })).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "dashboardNoActiveScope"))).toBeNull();
     // The half that makes the suppression above meaningful: with the same
     // fixture, an arrow really does render here.
@@ -209,14 +226,18 @@ describe("DashboardKpiStrip — merged Progress cells", () => {
     taskFixture(5, "Cancelled"),
   ];
   const openTasks = t("en-US", "dashboardOpenTasksView");
-  const ragCell = () => screen.getByRole("button", { name: `R / A / G – ${openTasks}` });
+  // The tile CARD: the button inside it wraps the label alone (WCAG 2.5.3), so the
+  // value, the marker and the count are the card's text, not the button's.
+  const tileCard = (name: string) => screen.getByRole("button", { name }).closest("[data-tile-activate]") as HTMLElement;
+  const ragCell = () => tileCard(`R / A / G – ${openTasks}`);
 
   it("the Complete cell carries its percentage, bar, trend arrow AND the count", () => {
     render(<DashboardKpiStrip lang="en-US" model={modelFor(MIXED)} trends={trendsWithPrior} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
-    const cell = screen.getByRole("button", { name: `${t("en-US", "dashboardKpiComplete")} – ${openTasks}` });
+    const cell = tileCard(`${t("en-US", "dashboardKpiComplete")} – ${openTasks}`);
     expect(within(cell).getByText("50%")).toBeInTheDocument();
-    expect(within(cell).getByRole("img")).toBeInTheDocument();
-    expect(within(cell).getByLabelText(COMPLETE_TREND_LABEL)).toBeInTheDocument();
+    expect(within(cell).getByRole("img", { name: `${t("en-US", "dashboardKpiComplete")}: 50%` })).toBeInTheDocument();
+    // The trend is announced: an img named by its sentence (trend-arrow.tsx).
+    expect(within(cell).getByRole("img", { name: COMPLETE_TREND_LABEL })).toBeInTheDocument();
     expect(within(cell).getByText(t("en-US", "dashboardCompletedOf", "2", "4"))).toBeInTheDocument();
   });
 
@@ -326,21 +347,22 @@ describe("DashboardKpiStrip — Effort SPI and CPI (spec C)", () => {
     const { container } = render(<DashboardKpiStrip lang="en-US" model={modelFor(EVM_TASKS)} trends={trendsWithPrior} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
     // Equal rows even when the strip wraps (3 + 3, 3 + 2, 2 + 2 …).
     expect(container.querySelector(".grid")).toHaveClass("auto-rows-fr");
-    const cells = screen.getAllByRole("button", { name: / – / });
+    // The CARD stretches; the button inside it wraps the label alone (WCAG 2.5.3).
+    const cells = screen.getAllByRole("button", { name: / – / }).map((b) => b.closest("[data-tile-activate]"));
     expect(cells).toHaveLength(6);   // positive control: all six KPI cells, SPI + CPI included
     for (const cell of cells) {
       expect(cell).toHaveClass("h-full");
-      // A stretched <button> centres its content vertically unless it is a flex column.
+      // Kept a flex column so the content stays top-aligned in a stretched cell.
       expect(cell).toHaveClass("flex", "flex-col");
     }
   });
 
-  // Each index's own `<Tile>` — a `<button>` here since every render in this
+  // Each index's own `<Tile>` card — clickable here since every render in this
   // describe block passes `onNavigate`. Scoping a value to its own tile (not
   // just to the strip as a whole) is what catches a mutant that swapped the
   // SPI and CPI values under their labels.
   function tileFor(label: string): HTMLElement {
-    return screen.getByText(label).closest("button") as HTMLElement;
+    return screen.getByText(label).closest("[data-tile-activate]") as HTMLElement;
   }
 
   it("adds both index tiles with their labels, values and hints when estimates exist", () => {

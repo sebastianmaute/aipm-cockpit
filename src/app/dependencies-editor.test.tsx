@@ -136,11 +136,11 @@ describe("DependencyLinkGroup", () => {
   // ★★ WCAG 2.5.3 (label-in-name): the visible caption above the type select is
   // shared by both groups, while the accessible name must stay direction-unique
   // (2.4.6) — so the name has to CONTAIN the caption rather than equal it.
-  // ★★ Nothing else can catch a drift here. axe DOES ship
-  // `label-content-name-mismatch` tagged `wcag21a` — one of the four tags
-  // e2e/a11y.spec.ts requests — so a rule listing reads as coverage, but three
-  // separate things stop it reaching these controls, and the third means
-  // enabling the rule explicitly would not help. The measurement and its
+  // ★★ Nothing else can catch a drift here. axe's
+  // `label-content-name-mismatch` runs in e2e/a11y.spec.ts since axe 4.14, but
+  // two separate things stop it reaching these controls — the task modal is in
+  // no scanned view, and a <select> is outside the rule's roles altogether, so
+  // even a scan of the modal would not help. The measurement and its
   // reproduce command live beside the markup in dependencies-editor.tsx; this
   // test is what that comment calls the only detector.
   it("keeps each type select's accessible name containing its visible caption", () => {

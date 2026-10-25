@@ -197,82 +197,87 @@ export function VersionDiffView({
                         className="mr-2"
                       />
                     )}
-                    <button
-                      type="button"
-                      onClick={() => expandable && toggle(k)}
-                      // ★★ NAMED FROM THE TOKEN, not from its own content. This
-                      // button's name used to come from the two spans below, so
-                      // two records sharing a display name announced identically
-                      // — the same WCAG 2.4.6 fail as the checkbox, one control
-                      // over. The type badge is `aria-hidden` and folded into the
-                      // name instead, which is what keeps WCAG 2.5.3 satisfied:
-                      // axe's label-content-name-mismatch reads VISIBLE text only
-                      // (it skips aria-hidden content), so the visible label
-                      // reduces to the bare record label, and the name CONTAINS
-                      // the token — which is that label, plus an occurrence
-                      // index only when it collides. Containment therefore holds
-                      // for a colliding row AND a non-colliding one. AT still
-                      // hears the type; nothing is lost. (2.5.3 is containment,
-                      // case-insensitive and position-INdependent, so putting the
-                      // type first costs nothing here.)
-                      // ★★★ IT MUST GO THROUGH `rowLabel`, PUTTING THE TOKEN LAST,
-                      // and this line built the name by hand the other way round
-                      // until 0.260.x. `src/test/row-unique-names.ts` strips a
-                      // trailing ` (N)` (`OCCURRENCE_SUFFIX`) before checking for
-                      // a collision seed, and its docstring names the invariant it
-                      // leans on: "`rowLabel` puts the token last, so it is at the
-                      // end of the accessible name too". With the token FIRST the
-                      // index landed mid-string and never stripped, so
-                      // `requireCollisionSeed: true` THREW "the fixture seeded no
-                      // two rows sharing a display name" against a fixture that
-                      // seeded exactly that — which made the one shape that most
-                      // needs the assertion, two NON-restorable rows sharing a
-                      // title (this button is then the row's ONLY control),
-                      // impossible to write. Do not hand-roll this name again.
-                      aria-label={rowLabel(t(lang, TYPE_KEY[c.type]), tokens.get(k) ?? c.recordLabel)}
-                      // ★★ `aria-expanded` is `undefined` WHEN THE ROW HAS NO
-                      // FIELDS, and that is not tidiness: `false` would promise
-                      // a disclosure that can never open, since this button's
-                      // click handler is itself gated on `expandable`.
-                      aria-expanded={expandable ? open.has(k) : undefined}
-                      // ★★★ AND `aria-controls` IS SET ONLY WHILE THE PANEL IS
-                      // OPEN — it must never name an id that is not in the
-                      // document (axe `aria-valid-attr-value`, tag wcag2a).
-                      // ★★ THE FIRST CUT CLOSED THAT THE EXPENSIVE WAY, by
-                      // always mounting the panel and toggling `hidden` — the
-                      // pattern the next-actions reasons list uses. It is the
-                      // wrong trade HERE, and the difference is what each
-                      // hidden element COSTS: there, a bounded handful of short
-                      // reason strings per row; here, a whole record's field
-                      // list. A vs-now compare against a week-old capture can
-                      // carry hundreds of modified records, and mounting every
-                      // collapsed panel materialises each one's field rows plus,
-                      // in `selectable` mode, a `Checkbox` per field — thousands
-                      // of elements nobody can see, re-rendered on every tick of
-                      // a selection checkbox.
-                      // ★★★ THE ATTRIBUTE IS OPTIONAL AND THAT IS WHAT MAKES
-                      // THIS FREE. WAI-ARIA does not require `aria-controls` on
-                      // a disclosure button and neither does the APG pattern —
-                      // only `aria-expanded` — so the conformance story is
-                      // identical either way, and axe has no rule demanding it.
-                      // Naming the panel only while it exists is both cheaper
-                      // and more truthful than naming one that is hidden: there
-                      // is nothing to move to until it opens. Do NOT "complete
-                      // the pattern" by making this unconditional without also
-                      // restoring the always-mounted panel — an unconditional
-                      // attribute over a conditional panel is the dangling
-                      // reference this comment exists to prevent.
-                      aria-controls={expandable && open.has(k) ? panelIds.get(k) : undefined}
-                      // ★ Only for a NON-restorable row, where the hint is the
-                      // answer to "why is there no restore button here?" and
-                      // this button is the row's only control. On a restorable
-                      // row no hint renders, so there is nothing to point at.
-                      aria-describedby={revertible ? undefined : `${panelIds.get(k)}-managed`}
-                      className="flex w-full items-center justify-between text-left"
-                    >
-                      <span className="text-foreground">{tokens.get(k) ?? c.recordLabel}</span>
-                      <span aria-hidden="true" className={`text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
-                    </button>
+                    {/* The label and its type badge share ONE click target, as they
+                        did when the badge sat inside the button: the button's
+                        `after:` overlay covers this `relative` wrapper, badge
+                        included, while the badge stays outside the button's text. */}
+                    <div className="relative flex min-w-0 flex-1 items-center">
+                      <button
+                        type="button"
+                        onClick={() => expandable && toggle(k)}
+                        // ★★ NAMED FROM THE TOKEN, not from its own content. This
+                        // button's name used to come from the two spans below, so
+                        // two records sharing a display name announced identically
+                        // — the same WCAG 2.4.6 fail as the checkbox, one control
+                        // over. The type is folded into the name instead.
+                        // ★★ WCAG 2.5.3: the type BADGE sits OUTSIDE the button, so
+                        // the button's visible text is the record label alone,
+                        // which the name contains (the token is that label, plus an
+                        // occurrence index only when it collides). It used to sit
+                        // inside, `aria-hidden`, on the belief that axe skips
+                        // aria-hidden text — false since axe 4.14, which compares
+                        // ON-SCREEN text: "Design SSOModified" against "Modified –
+                        // Design SSO" failed. `aria-hidden` cannot help 2.5.3; the
+                        // badge stays hidden only because the name already says it.
+                        // ★★★ IT MUST GO THROUGH `rowLabel`, PUTTING THE TOKEN LAST,
+                        // and this line built the name by hand the other way round
+                        // until 0.260.x. `src/test/row-unique-names.ts` strips a
+                        // trailing ` (N)` (`OCCURRENCE_SUFFIX`) before checking for
+                        // a collision seed, and its docstring names the invariant it
+                        // leans on: "`rowLabel` puts the token last, so it is at the
+                        // end of the accessible name too". With the token FIRST the
+                        // index landed mid-string and never stripped, so
+                        // `requireCollisionSeed: true` THREW "the fixture seeded no
+                        // two rows sharing a display name" against a fixture that
+                        // seeded exactly that — which made the one shape that most
+                        // needs the assertion, two NON-restorable rows sharing a
+                        // title (this button is then the row's ONLY control),
+                        // impossible to write. Do not hand-roll this name again.
+                        aria-label={rowLabel(t(lang, TYPE_KEY[c.type]), tokens.get(k) ?? c.recordLabel)}
+                        // ★★ `aria-expanded` is `undefined` WHEN THE ROW HAS NO
+                        // FIELDS, and that is not tidiness: `false` would promise
+                        // a disclosure that can never open, since this button's
+                        // click handler is itself gated on `expandable`.
+                        aria-expanded={expandable ? open.has(k) : undefined}
+                        // ★★★ AND `aria-controls` IS SET ONLY WHILE THE PANEL IS
+                        // OPEN — it must never name an id that is not in the
+                        // document (axe `aria-valid-attr-value`, tag wcag2a).
+                        // ★★ THE FIRST CUT CLOSED THAT THE EXPENSIVE WAY, by
+                        // always mounting the panel and toggling `hidden` — the
+                        // pattern the next-actions reasons list uses. It is the
+                        // wrong trade HERE, and the difference is what each
+                        // hidden element COSTS: there, a bounded handful of short
+                        // reason strings per row; here, a whole record's field
+                        // list. A vs-now compare against a week-old capture can
+                        // carry hundreds of modified records, and mounting every
+                        // collapsed panel materialises each one's field rows plus,
+                        // in `selectable` mode, a `Checkbox` per field — thousands
+                        // of elements nobody can see, re-rendered on every tick of
+                        // a selection checkbox.
+                        // ★★★ THE ATTRIBUTE IS OPTIONAL AND THAT IS WHAT MAKES
+                        // THIS FREE. WAI-ARIA does not require `aria-controls` on
+                        // a disclosure button and neither does the APG pattern —
+                        // only `aria-expanded` — so the conformance story is
+                        // identical either way, and axe has no rule demanding it.
+                        // Naming the panel only while it exists is both cheaper
+                        // and more truthful than naming one that is hidden: there
+                        // is nothing to move to until it opens. Do NOT "complete
+                        // the pattern" by making this unconditional without also
+                        // restoring the always-mounted panel — an unconditional
+                        // attribute over a conditional panel is the dangling
+                        // reference this comment exists to prevent.
+                        aria-controls={expandable && open.has(k) ? panelIds.get(k) : undefined}
+                        // ★ Only for a NON-restorable row, where the hint is the
+                        // answer to "why is there no restore button here?" and
+                        // this button is the row's only control. On a restorable
+                        // row no hint renders, so there is nothing to point at.
+                        aria-describedby={revertible ? undefined : `${panelIds.get(k)}-managed`}
+                        className="min-w-0 flex-1 text-left after:absolute after:inset-0 after:content-['']"
+                      >
+                        <span className="text-foreground">{tokens.get(k) ?? c.recordLabel}</span>
+                      </button>
+                      <span aria-hidden="true" className={`ml-2 shrink-0 text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
+                    </div>
                     {!revertible && (
                       <span id={`${panelIds.get(k)}-managed`} className="ml-2 shrink-0 text-xs text-muted-foreground">
                         {t(lang, "historyNotRestorable")}

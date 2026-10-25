@@ -38,7 +38,8 @@ describe("PanelTableScaffold", () => {
       </PanelTableScaffold>,
     );
     const btn = screen.getByRole("button", { name: /add change/i });
-    expect(btn.className).toContain("border-dashed");
+    // The dashed box wraps the CTA button (WCAG 2.5.3: the button wraps the CTA line alone).
+    expect(btn.closest("[data-add-first-box]")!.className).toContain("border-dashed");
     fireEvent.click(btn);
     expect(onAdd).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("row")).toBeNull();

@@ -17,7 +17,11 @@ const GLYPH: Record<MetricTrend["direction"], string> = { up: "↑", down: "↓"
 /** Direction arrow + signed delta for a single dashboard KPI vs the last visit.
  *  Renders nothing when there is no prior to compare (first visit). The glyph and
  *  number are aria-hidden; the wrapper's aria-label carries the full meaning so a
- *  screen reader never double-reads "↑ +2" as noise. */
+ *  screen reader never double-reads "↑ +2" as noise.
+ *  ★★ `role="img"` is what makes that aria-label heard. On a role-less <span>
+ *  (role generic) `aria-label` is prohibited and screen readers skip it, so the
+ *  trend was silent — masked while the KPI tile's button name hid everything in
+ *  the tile, exposed once the button stopped wrapping it (WCAG 2.5.3). */
 export function TrendArrow({ trend, metricLabel, unit = "", lang }: TrendArrowProps) {
   // No prior to compare (first visit) ⇒ no arrow. Bail on a null delta too so the
   // magnitude below is always a real number (no masking `?? 0` fallback).
@@ -57,7 +61,7 @@ export function TrendArrow({ trend, metricLabel, unit = "", lang }: TrendArrowPr
   const signed = trend.direction === "up" ? `+${magnitudeStr}` : trend.direction === "down" ? `−${magnitudeStr}` : "";
 
   return (
-    <span aria-label={label} style={chipStyle} className={`inline-flex items-center gap-0.5 rounded-full text-xs font-medium tabular-nums ${colorClass} ${chipClass}`}>
+    <span role="img" aria-label={label} style={chipStyle} className={`inline-flex items-center gap-0.5 rounded-full text-xs font-medium tabular-nums ${colorClass} ${chipClass}`}>
       <span aria-hidden="true">{GLYPH[trend.direction]}</span>
       {signed ? <span aria-hidden="true">{signed}</span> : null}
     </span>
