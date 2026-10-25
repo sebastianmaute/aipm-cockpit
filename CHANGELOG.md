@@ -285,8 +285,8 @@ longer carries its own changelog comment.
 - **Dev dependencies undici 8.12.3 and vite 8.3.5.** `npm audit` flagged high-severity advisories in both, which
   only the test and dev tooling uses (jsdom pulls in undici; vitest, `@vitejs/plugin-react` and msw pull in vite):
   GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472 and GHSA-xjj6-f33q-929c (undici), and GHSA-9jrq-w75r-8gcw,
-  GHSA-rq7h-c2jc-7f22, GHSA-698v-4r3x-3vcv, GHSA-r825-w8mm-5pxw and GHSA-587h-7wmj-h5pm (vite and its
-  launch-editor). Only the lockfile changes; nothing the app ships moves.
+  GHSA-rq7h-c2jc-7f22, GHSA-698v-4r3x-3vcv, GHSA-r825-w8mm-5pxw and GHSA-587h-7wmj-h5pm (vite, the last three
+  in the launch-editor code vite bundles in its dist). Only the lockfile changes; nothing the app ships moves.
 
 ### Notes
 
