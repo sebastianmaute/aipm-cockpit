@@ -60,6 +60,12 @@ const chatTaskInOpenPoints = step('chat-task-in-open-points', {
   run: async (ctx) => {
     await nav(ctx, 'Open Points');
     await caption(ctx, 'The task is in Open Points, with its owner and date.', 'ai-chat-in-open-points');
+    // A rehearsal without --with-ai skips chat-create-task (an AI step), so there is no task to point at:
+    // only the task check is skipped (and said so); Open Points still opens and the caption still shows.
+    if (ctx.rehearse && !ctx.withAi) {
+      ctx.log('chat-task-in-open-points: task check skipped, chat-create-task makes no task without --with-ai');
+      return;
+    }
     await moveTo(ctx, main(ctx).locator('tbody').getByRole('row').filter({ hasText: CHAT_TASK }), CHAT_TASK);
     await pace(ctx, 2500);
   },
