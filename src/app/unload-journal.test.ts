@@ -268,6 +268,17 @@ describe("fingerprintWorkspace", () => {
     expect(fingerprintWorkspace(JSON.parse(JSON.stringify(smallWs)))).toBe(fingerprintWorkspace(smallWs));
   });
 
+  // §629 — empty and absent are one value inside an entity row, but not for a top-level slice.
+  it("a row's empty field reads as absent; a top-level slice's empty list does not", () => {
+    const task = smallWs.tasks[0];
+    const noDate = { ...task };
+    delete noDate.completedDate;
+    const withEmpty: Workspace = { ...smallWs, tasks: [{ ...task, completedDate: "" }, ...smallWs.tasks.slice(1)] };
+    const withAbsent: Workspace = { ...smallWs, tasks: [noDate, ...smallWs.tasks.slice(1)] };
+    expect(fingerprintWorkspace(withEmpty)).toBe(fingerprintWorkspace(withAbsent));
+    expect(fingerprintWorkspace({ ...smallWs, features: [] })).not.toBe(fingerprintWorkspace({ ...smallWs, features: undefined }));
+  });
+
   function bumpId(id: unknown): unknown {
     if (typeof id === "number") return id + 1_000_000;
     if (typeof id === "string") return `${id}-mutated`;
@@ -585,5 +596,22 @@ describe("fingerprint round-trip: turso (real node:sqlite engine)", () => {
     const before = fingerprintWorkspace(bigWs);
     const loaded = tursoRoundTrip(bigWs);
     expect(fingerprintWorkspace(loaded)).toBe(before);
+  });
+
+  // §629 — rows as the app writes them, not as the sample files spell them: a new task saved with
+  // `completedDate: ""`, and one with no `dependencies` or `knowledgeLinks` at all (the demo recorder's
+  // take). The Turso decoder drops the first and fills the other two, so a save that LANDED fingerprinted
+  // as a different version and the next load raised the "changed elsewhere" notice.
+  it("tasks with an empty completedDate, or no dependencies and knowledge links", () => {
+    const base = smallWs.tasks[0];
+    const bare = { ...base, id: 9002, taskName: "Confirm licence delivery" };
+    delete bare.dependencies;
+    delete bare.knowledgeLinks;
+    const ws: Workspace = {
+      ...smallWs,
+      tasks: [...smallWs.tasks, { ...base, id: 9001, taskName: "Order the connector licence", status: "To Do", completedDate: "" }, bare],
+    };
+    const loaded = tursoRoundTrip(ws);
+    expect(fingerprintWorkspace(loaded)).toBe(fingerprintWorkspace(ws));
   });
 });
