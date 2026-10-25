@@ -29,7 +29,7 @@ export const THUMBNAILS = {
   'ai-weights': { headline: '{TUNE} YOUR PRIORITIES' },
   'ai-scheduled': { headline: 'AI ON A {SCHEDULE}' },
   'f-open-points': { headline: 'EVERY {OPEN POINT}' },
-  'f-board': { headline: 'DRAG TO {DONE}' },
+  'f-board': { headline: 'DRAG, STATUS {FOLLOWS}' },
   'f-swimlanes': { headline: 'A LANE PER {PERSON}' },
   'f-gantt': { headline: 'DRAG TO {RESCHEDULE}' },
   'f-milestones': { headline: 'MILESTONES {ON TRACK?}' },
