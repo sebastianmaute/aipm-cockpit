@@ -12,8 +12,9 @@ import { type ChangeItem, type RaidItem, type Resource, type Task } from "./type
 import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { expectLabelInName } from "../test/label-in-name";
 import { buildRowTokens } from "./row-tokens";
-import { loadI18n } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { buttonClassFor } from "../test/button-variant";
 import { IconButton } from "./icon-button";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
@@ -164,7 +165,7 @@ describe("TaskRow", () => {
     expect(getByText("Correct Name")).toBeTruthy();
     expect(queryByText("Old Removed")).toBeNull();
     // Linked → the LIVE resource name renders on an editable inline button.
-    const btn = getByLabelText("Assignee – Linked task");
+    const btn = getByLabelText("Assignee – Linked task – Correct Name");
     expect(btn.tagName).toBe("BUTTON");
     expect(btn.textContent).toContain("Correct Name");
   });
@@ -181,7 +182,7 @@ describe("TaskRow", () => {
       }),
     );
     // Unlinked → the inline-edit ghost button exists and shows the cached name.
-    const btn = getByLabelText("Assignee – Freetext task");
+    const btn = getByLabelText("Assignee – Freetext task – Freetext Person");
     expect(btn).toBeTruthy();
     expect(btn.textContent).toContain("Freetext Person");
   });
@@ -1357,7 +1358,7 @@ describe("TaskRow inline cell editing", () => {
     const task = makeTask({ id: 41, taskName: "Ship it", dueDate: "2026-07-01" });
     const { getByRole, getByLabelText } = renderRow(ctx, task);
 
-    fireEvent.click(getByRole("button", { name: "Due date – Ship it" }));
+    fireEvent.click(getByRole("button", { name: "Due date – Ship it – 2026-07-01" }));
     const input = getByLabelText("Due date – Ship it") as HTMLInputElement;
     expect(input.type).toBe("date");
     fireEvent.change(input, { target: { value: "2026-07-20" } });
@@ -1372,14 +1373,14 @@ describe("TaskRow inline cell editing", () => {
     const task = makeTask({ id: 42, taskName: "Keep me", startDate: "2026-07-01" });
     const { getByRole, getByLabelText, queryByLabelText } = renderRow(ctx, task);
 
-    fireEvent.click(getByRole("button", { name: "Start date – Keep me" }));
+    fireEvent.click(getByRole("button", { name: "Start date – Keep me – 2026-07-01" }));
     const input = getByLabelText("Start date – Keep me") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "2026-07-09" } });
     fireEvent.keyDown(input, { key: "Escape" });
 
     expect(onInlinePatch).not.toHaveBeenCalled();
     // Editor closed → the labelled input is gone, the display button is back.
-    expect(queryByLabelText("Start date – Keep me")?.tagName).toBe("BUTTON");
+    expect(queryByLabelText("Start date – Keep me – 2026-07-01")?.tagName).toBe("BUTTON");
   });
 
   test("priority select commits the chosen value directly", () => {
@@ -1388,7 +1389,7 @@ describe("TaskRow inline cell editing", () => {
     const task = makeTask({ id: 43, taskName: "Rank me", priority: "Low" });
     const { getByRole } = renderRow(ctx, task);
 
-    fireEvent.click(getByRole("button", { name: "Priority – Rank me" }));
+    fireEvent.click(getByRole("button", { name: "Priority – Rank me – Low" }));
     const select = getByRole("combobox", { name: "Priority – Rank me" });
     fireEvent.change(select, { target: { value: "High" } });
 
@@ -1402,9 +1403,9 @@ describe("TaskRow inline cell editing", () => {
     const { queryByRole, getByText } = renderRow(ctx, task);
 
     // No editable buttons for the inline fields; plain display only.
-    expect(queryByRole("button", { name: "Assignee – Synced" })).toBeNull();
-    expect(queryByRole("button", { name: "Due date – Synced" })).toBeNull();
-    expect(queryByRole("button", { name: "Priority – Synced" })).toBeNull();
+    expect(queryByRole("button", { name: /^Assignee – Synced/ })).toBeNull();
+    expect(queryByRole("button", { name: /^Due date – Synced/ })).toBeNull();
+    expect(queryByRole("button", { name: /^Priority – Synced/ })).toBeNull();
     expect(getByText("Alice")).toBeTruthy();
   });
 
@@ -1414,7 +1415,7 @@ describe("TaskRow inline cell editing", () => {
     const task = makeTask({ id: 45, taskName: "Pick me", assignee: "Alice", assigneeEmail: "a@b.com" });
     const { getByRole } = renderRow(ctx, task);
 
-    fireEvent.click(getByRole("button", { name: "Assignee – Pick me" }));
+    fireEvent.click(getByRole("button", { name: "Assignee – Pick me – Alice" }));
     const combo = getByRole("combobox", { name: "Assignee – Pick me" }) as HTMLInputElement;
     fireEvent.change(combo, { target: { value: "Bob" } }); // free-text breaks any FK link
     fireEvent.blur(combo);
@@ -1446,7 +1447,7 @@ describe("TaskRow inline cell editing", () => {
     });
     const { getByRole } = renderRow(ctx, task);
 
-    fireEvent.click(getByRole("button", { name: "Assignee – Linked" }));
+    fireEvent.click(getByRole("button", { name: "Assignee – Linked – Alice Smith" }));
     const combo = getByRole("combobox", { name: "Assignee – Linked" }) as HTMLInputElement;
     expect(combo).toHaveValue("Alice Smith");
 
@@ -1530,7 +1531,7 @@ describe("TaskRow inline cell editing", () => {
       const onInlinePatch = vi.fn();
       const task = makeTask({ id: 60, taskName: "Close me", dueDate: "2026-07-01" });
       const { getByRole, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
-      fireEvent.click(getByRole("button", { name: "Due date – Close me" }));
+      fireEvent.click(getByRole("button", { name: "Due date – Close me – 2026-07-01" }));
       fireEvent.change(getByLabelText("Due date – Close me"), { target: { value: "2026-07-20" } });
       pageHide();
       expect(onInlinePatch).toHaveBeenCalledTimes(1);
@@ -1541,7 +1542,7 @@ describe("TaskRow inline cell editing", () => {
       const onInlinePatch = vi.fn();
       const task = makeTask({ id: 61, taskName: "Close me", assignee: "Alice", assigneeEmail: "a@b.com" });
       const { getByRole } = renderRow(makeContext({ onInlinePatch }), task);
-      fireEvent.click(getByRole("button", { name: "Assignee – Close me" }));
+      fireEvent.click(getByRole("button", { name: "Assignee – Close me – Alice" }));
       fireEvent.change(getByRole("combobox", { name: "Assignee – Close me" }), { target: { value: "Bob" } });
       pageHide();
       expect(onInlinePatch).toHaveBeenCalledTimes(1);
@@ -1552,12 +1553,12 @@ describe("TaskRow inline cell editing", () => {
       const onInlinePatch = vi.fn();
       const task = makeTask({ id: 62, taskName: "Stay", dueDate: "2026-07-01", assignee: "Alice" });
       const { getByRole, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
-      fireEvent.click(getByRole("button", { name: "Due date – Stay" }));
+      fireEvent.click(getByRole("button", { name: "Due date – Stay – 2026-07-01" }));
       fireEvent.change(getByLabelText("Due date – Stay"), { target: { value: "2026-07-20" } });
       tabSwitch();
       expect(getByLabelText("Due date – Stay")).toHaveValue("2026-07-20"); // still open, draft kept
       fireEvent.keyDown(getByLabelText("Due date – Stay"), { key: "Escape" });
-      fireEvent.click(getByRole("button", { name: "Assignee – Stay" }));
+      fireEvent.click(getByRole("button", { name: "Assignee – Stay – Alice" }));
       fireEvent.change(getByRole("combobox", { name: "Assignee – Stay" }), { target: { value: "Bob" } });
       tabSwitch();
       expect(onInlinePatch).not.toHaveBeenCalled();
@@ -1568,11 +1569,11 @@ describe("TaskRow inline cell editing", () => {
       const task = makeTask({ id: 63, taskName: "Idle", dueDate: "2026-07-01", assignee: "Alice" });
       const { getByRole, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
       pageHide();
-      fireEvent.click(getByRole("button", { name: "Due date – Idle" }));
+      fireEvent.click(getByRole("button", { name: "Due date – Idle – 2026-07-01" }));
       pageHide();
       expect(getByLabelText("Due date – Idle").tagName).toBe("INPUT"); // the unchanged cell was open
       fireEvent.keyDown(getByLabelText("Due date – Idle"), { key: "Escape" });
-      fireEvent.click(getByRole("button", { name: "Assignee – Idle" }));
+      fireEvent.click(getByRole("button", { name: "Assignee – Idle – Alice" }));
       pageHide();
       expect(onInlinePatch).not.toHaveBeenCalled();
     });
@@ -1583,7 +1584,7 @@ describe("TaskRow inline cell editing", () => {
       const onInlinePatch = vi.fn();
       const task = makeTask({ id: 64, taskName: "Switch", assignee: "Alice", assigneeEmail: "a@b.com" });
       const { getByRole, getByText, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
-      fireEvent.click(getByRole("button", { name: "Assignee – Switch" }));
+      fireEvent.click(getByRole("button", { name: "Assignee – Switch – Alice" }));
       fireEvent.change(getByRole("combobox", { name: "Assignee – Switch" }), { target: { value: "Bob" } });
       fireEvent.doubleClick(getByText("Switch"));
       expect(getByLabelText("Task name – Switch").tagName).toBe("INPUT"); // the name cell took over
@@ -1916,9 +1917,9 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
   // (pass an `onInlinePatch: vi.fn()` override in the context to see the
   // call) — the same happens for the priority `<Select>`. An initial cut of
   // a due-date test read as passing two open editors, but `getAllByLabelText`
-  // was matching the CLOSED row's ghost *button* (whose aria-label is the
-  // same string as its open-mode `<input>`, by design — task-row.tsx:205)
-  // rather than a second open input; filtering to actual `<input>` elements
+  // was matching the CLOSED row's ghost *button* (whose aria-label was then the
+  // same string as its open-mode `<input>`; it now also carries the cell's
+  // value, WCAG 2.5.3 — `inlineCellLabel`) rather than a second open input; filtering to actual `<input>` elements
   // showed the same single-editor-at-a-time result.
   //
   // The ONE exception is assignee's `ResourcePicker` (task-row.tsx:440-449):
@@ -1936,8 +1937,8 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
       makeTask({ id: 1, taskName: "Alpha", assignee: "Alice" }),
       makeTask({ id: 2, taskName: "Alpha", assignee: "Bob" }),
     ]);
-    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Alpha (1)" }));
-    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Alpha (2)" }));
+    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Alpha (1) – Alice" }));
+    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Alpha (2) – Bob" }));
     // Both stay open: neither ResourcePicker auto-focuses itself, so opening
     // the second never blurs (and never commits/closes) the first — measured
     // above, not assumed.
@@ -1947,6 +1948,27 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
       roles: ["combobox"],
       requireCollisionSeed: true,
     });
+  });
+
+  // WCAG 2.5.3 — an inline cell button SHOWS its value, so its name must contain
+  // it. "Priority – Stakeholder workshop" over a visible "High" failed axe 4.14's
+  // label-content-name-mismatch on every Open Points scan, for priority, start
+  // date, due date and assignee alike. Two same-named rows keep the row-unique
+  // prefix in play. Both languages (priority is translated). Mutation: drop the
+  // value from `inlineCellLabel` → every cell goes red.
+  test.each(["en-US", "de"] as const)("names every inline cell so it contains the value it shows (%s)", async (lang) => {
+    await loadI18n(lang);
+    const { container } = renderCollisionRows(makeContext({ lang }), [
+      makeTask({ id: 1, taskName: "Alpha", assignee: "Alice", startDate: "2026-07-01", priority: "High" }),
+      makeTask({ id: 2, taskName: "Alpha", assignee: "Bob", startDate: "2026-07-02", priority: "Low" }),
+    ]);
+    const prefixes = (["assignee", "startDate", "dueDate", "priority"] as const).map((k) => `${t(lang, k)} – `);
+    const cells = Array.from(container.querySelectorAll("td button")).filter((b) =>
+      prefixes.some((pre) => (b.getAttribute("aria-label") ?? "").startsWith(pre)),
+    );
+    // Assignee · Start date · Due date · Priority, on both rows.
+    expect(cells).toHaveLength(8);
+    for (const b of cells) expectLabelInName(b);
   });
 });
 
