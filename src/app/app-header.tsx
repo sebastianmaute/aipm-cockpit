@@ -2,6 +2,7 @@
 import type React from "react";
 import { BellIcon, ChatBubbleLeftRightIcon, PlusIcon } from "./icons";
 import { type Lang, t } from "./i18n";
+import { dueAlertsLabel } from "./due-alerts-label";
 import { type Command } from "./voice";
 import { type StorageKind } from "./storage";
 import { CountBadge } from "./count-badge";
@@ -152,7 +153,7 @@ export function AppHeader({
           <IconButton
             size="md"
             className="relative"
-            label={t(lang, "showDueAlerts")}
+            label={dueAlertsLabel(lang, bannerCount)}
             title={t(lang, "showDueAlerts")}
             onClick={onShowAlerts}
           >

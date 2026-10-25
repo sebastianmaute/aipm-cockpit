@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EntityLinkPicker, type LinkPickerEntry } from "./entity-link-picker";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { expectLabelInName } from "../test/label-in-name";
 
 const entry = (id: number, code: string, label: string): LinkPickerEntry => ({ id, code, label });
 
@@ -167,6 +168,16 @@ describe("EntityLinkPicker", () => {
     const chip = screen.getByRole("button", { name: /vendor delay/i });
     expect(chip.textContent).toContain("↩");
     expect(chip).toHaveAccessibleName("Risk#3 Vendor delay");
+  });
+
+  // WCAG 2.5.3 — sibling text joins with no separator, so with code and label
+  // in adjacent spans the chip SHOWED the word "Risk#3Vendor" (curated:
+  // "risk3vendor"), which the name "Risk#3 Vendor delay" does not contain.
+  // axe 4.14's label-content-name-mismatch failed every Documents scan on it.
+  // Mutation: drop the {" "} between the two spans → red.
+  it("keeps the code and the label two words in the chip's visible text", () => {
+    renderPicker({ selected: [entry(1, "#1", "Design SSO architecture")], onOpen: vi.fn() });
+    expectLabelInName(screen.getByRole("button", { name: "#1 Design SSO architecture" }));
   });
 
   it("renders a placeholder dash when nothing is linked yet", () => {

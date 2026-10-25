@@ -307,8 +307,9 @@ register's fix to another is how two of them broke. Read the note that names you
   these buttons now do, since it too carried an `aria-label` with no visible text to contain. The one
   place 2.5.3 still applies is the heading menu's ITEMS (`role="dialog"`, not the trigger) — those keep
   visible text ("Heading 2" etc.) as their accessible name, holding by construction the same way the old
-  flat toolbar text used to. Worth stating because the gate cannot see a 2.5.3 violation either (same
-  bullet above).
+  flat toolbar text used to. Worth stating because the gate sees a 2.5.3 violation only where it scans:
+  since axe 4.14 it runs `label-content-name-mismatch`, and the Notes-window scan renders this
+  toolbar (`e2e/a11y.spec.ts`), but the heading menu's items appear only once it is opened.
   ★★ EVERY BUTTON IN THE ROW SUPPRESSES THE MOUSEDOWN DEFAULT: a control that takes focus on mousedown
   blurs the contenteditable and destroys the selection the command applies to. `ToggleButton` carries an
   OPT-IN `preventFocusSteal` prop for its own call sites; the rich-text toolbar's separate

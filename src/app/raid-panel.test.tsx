@@ -176,9 +176,10 @@ describe("RaidPanel sortable column headers", () => {
 
   // WCAG 2.5.3 label-in-name: the column's VISIBLE text is "#", so "#" must be
   // CONTAINED in its accessible name. An aria-label of "ID" replaced the name
-  // outright, leaving the visible label nowhere in it. axe cannot see this —
-  // label-content-name-mismatch is experimental (excluded by default) and does
-  // not apply to this role anyway — so a unit test is the only possible detector.
+  // outright, leaving the visible label nowhere in it. axe cannot see this — its
+  // label-content-name-mismatch (run by the gate since 4.14) finds no WORD in a
+  // lone "#" and reports it incomplete, never a violation — so a unit test is the
+  // only possible detector.
   it("names the id column by its visible # label, keeping the meaning on hover", () => {
     renderPanel(makeProps({ raid: raidItems }));
     const btn = screen.getByRole("button", { name: "#" });

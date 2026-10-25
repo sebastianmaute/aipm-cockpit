@@ -7,7 +7,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import type { AppView } from "./nav-config";
 import { RaidRegisterCard } from "./dashboard-sections/registers-band";
-import { t, tPlural } from "./i18n";
+import { loadI18n, t, tPlural } from "./i18n";
 import { healthColorName } from "./health";
 import * as dashboardModule from "./dashboard";
 import * as appForecastModule from "./forecast/app-forecast";
@@ -798,6 +798,35 @@ describe("DashboardPanel completion-trend card", () => {
     }
     expect(within(tile).queryByText("Today")).toBeNull();   // the last point is not today (2026-06-21)
     expect(within(tile).queryByText(/points$/)).toBeNull(); // the bare point count is gone
+  });
+
+  // WCAG 2.5.3 — the jump-to-view button used to WRAP the body, so "20%",
+  // "55%", "Jun 10" … were visible text of a button named "Open the tasks list"
+  // (axe 4.14 label-content-name-mismatch, on any board that shows this tile).
+  // It is now an EMPTY overlay: it shows no text, so there is nothing its name
+  // must contain, and the figures are plain text again. Both languages.
+  // Mutation: put `{children}` back inside ActivateBody's button → red.
+  it.each(["en-US", "de"] as const)("lays its jump button over the body instead of wrapping it (%s)", async (lang) => {
+    await loadI18n(lang);
+    withTrendOnBoard(`p-trend-overlay-${lang}`);
+    const onNavigate = vi.fn();
+    render(<DashboardPanel {...baseProps} lang={lang} projectId={`p-trend-overlay-${lang}`} snapshots={TWO_POINTS} onNavigate={onNavigate} />, { wrapper });
+    const tile = screen.getByTestId("tile-completionTrend");
+    // Named after the tile title the user sees, then the action.
+    const jump = within(tile).getByRole("button", { name: `${t(lang, "dashboardCompletionTrend")} – ${t(lang, "dashboardOpenTasksView")}` });
+    expect(within(tile).getByText(t(lang, "dashboardCompletionTrend"))).toBeInTheDocument();
+    expect(jump.textContent).toBe("");
+    expect(jump.contains(within(tile).getByRole("img"))).toBe(false);
+    expect(within(tile).getByText(/^55\s?%$/)).toBeInTheDocument();
+    // One tab stop for the body, and the box around it draws the ring.
+    expect(jump.closest("[data-activate-body]")!.className).toContain("has-[button:focus]:ring-2");
+    // The WHOLE card stays the click target: the overlay must cover it. jsdom has no
+    // layout, so the classes that make it cover are the observable. Mutation: drop
+    // them → red (every other test here clicks the button element itself).
+    expect(jump.className.split(/\s+/)).toEqual(expect.arrayContaining(["absolute","inset-0"]));
+    expect(jump.closest("[data-activate-body]")!.className.split(/\s+/)).toContain("relative");
+    fireEvent.click(jump);
+    expect(onNavigate).toHaveBeenCalledWith("open-points");
   });
 
   // §64 — the edge values and the accessible name read the first and last

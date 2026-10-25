@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS } from "./documents-list";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
+import { expectLabelInName } from "../test/label-in-name";
 import type { ProjectDocument } from "./document-model";
 
 function doc(id: number, title: string): ProjectDocument {
@@ -39,6 +40,19 @@ describe("DocumentsList — the empty-state create box", () => {
     expect(
       screen.getByRole("button", { name: t("en-US", "documentsCreateFirst") }),
     ).toBeInTheDocument();
+  });
+
+  // WCAG 2.5.3 on a real caller that passes `text`: the box's button shows only
+  // the CTA line, which its name contains; the "No documents yet" description is
+  // plain text beside it. Both languages — the two keys are authored separately.
+  // Mutation: move the description back inside AddFirstItemButton's button → red.
+  it.each(["en-US", "de"] as const)("names the create button so it contains its visible text (%s)", async (lang) => {
+    await loadI18n(lang);
+    renderList({ lang, onCreate: vi.fn() });
+    const cta = screen.getByRole("button", { name: t(lang, "documentsCreateFirst") });
+    expectLabelInName(cta);
+    expect(cta).not.toHaveTextContent(t(lang, "documentsNoneYet"));
+    expect(screen.getByText(t(lang, "documentsNoneYet"))).toBeInTheDocument();
   });
 
   // ★★ THE CASE THE PANEL CANNOT REACH. A caller that threads `onCreate` while

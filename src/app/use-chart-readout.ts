@@ -32,6 +32,20 @@ export type ChartReadoutApi = {
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
     onBlur: () => void;
   };
+  /** For an element painted OVER the trigger that must keep the pointer (a
+   *  truncated chart label with its <title>): moving onto it neither closes nor
+   *  freezes the readout, and pressing it acts as pressing the trigger. */
+  overlayProps: {
+    onPointerMove: (e: PointerEvent<Element>) => void;
+    onPointerLeave: (e: PointerEvent<Element>) => void;
+    onPointerDown: (e: PointerEvent<Element>) => void;
+    onPointerUp: () => void;
+    onMouseDown: (e: MouseEvent<Element>) => void;
+  };
+  /** For the chart BOX that holds the trigger and every overlay: a pointer that
+   *  leaves one of them for another element inside this box has not left the
+   *  chart. Spread it on that wrapper. */
+  boxProps: { ref: (el: HTMLElement | null) => void };
 };
 
 export function useChartReadout({
@@ -42,6 +56,7 @@ export function useChartReadout({
   x0: number; x1: number; viewBoxWidth: number;
 }): ChartReadoutApi {
   const hostRef = useRef<HTMLElement | null>(null);
+  const boxRef = useRef<HTMLElement | null>(null);
   const [stop, setStop] = useState<string | null>(null);
   const [anchor, setAnchor] = useState<ReadoutAnchor | null>(null);
   /** True from a pointerup until the next task: the window in which a pen's
@@ -115,8 +130,53 @@ export function useChartReadout({
     };
   }, [close, stop]);
 
+  // ★ The trigger is an empty button laid over the chart (WCAG 2.5.3), and a few
+  // chart labels sit ABOVE it to keep their <title> tooltip. Crossing between the
+  // two is not leaving the chart: both live in the box the consumer marks with
+  // `boxProps`, so a pointer whose next target is still inside it keeps the
+  // readout. With no box marked, every leave counts, as before the overlay.
+  const leave = (e: PointerEvent<Element>) => {
+    const to = e.relatedTarget;
+    const box = boxRef.current;
+    if (box && to instanceof Node && box.contains(to)) return;
+    if (e.pointerType === "mouse" || (e.pointerType === "pen" && !justLiftedRef.current)) close();
+  };
+
+  // A pointerup opens the window in which a pen's pointerleave is a tap lifting
+  // off, not a hovering pen gliding away (see the trigger's leave comment). Shared
+  // by the trigger and the overlays: a pen tap that lands on a label must not be
+  // closed by its own lift-off either.
+  const lift = () => {
+    justLiftedRef.current = true;
+    if (liftTimerRef.current !== null) clearTimeout(liftTimerRef.current);
+    liftTimerRef.current = setTimeout(() => {
+      justLiftedRef.current = false;
+      liftTimerRef.current = null;
+    }, 0);
+  };
+
   return {
     stop, anchor, close,
+    overlayProps: {
+      onPointerMove: (e) => move(e.clientX),
+      onPointerLeave: leave,
+      // Pressing the label is pressing the trigger: open at that x and give the
+      // button focus, so the readout's blur/Escape close paths still apply. The
+      // default is prevented so the press does not move focus to the page.
+      onPointerDown: (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        hostRef.current?.focus();
+        move(e.clientX);
+      },
+      onPointerUp: lift,
+      // ★ Cancelling pointerdown suppresses the compatibility mousedown in
+      // Chromium, but Chrome and Firefox on Windows touch still run mousedown's
+      // focus handling, which would blur the trigger and close the readout. So the
+      // mousedown default is cancelled too.
+      onMouseDown: (e) => { e.preventDefault(); },
+    },
+    boxProps: { ref: (el) => { boxRef.current = el; } },
     triggerProps: {
       ref: (el) => { hostRef.current = el; },
       onPointerMove: (e) => move(e.clientX),
@@ -130,17 +190,8 @@ export function useChartReadout({
       // tap, and an unknown or future pointerType, stay open until a tap elsewhere moves
       // focus off the button (which blurs it) or Escape — failing safe rather than making
       // the readout unusable with that device.
-      onPointerLeave: (e) => {
-        if (e.pointerType === "mouse" || (e.pointerType === "pen" && !justLiftedRef.current)) close();
-      },
-      onPointerUp: () => {
-        justLiftedRef.current = true;
-        if (liftTimerRef.current !== null) clearTimeout(liftTimerRef.current);
-        liftTimerRef.current = setTimeout(() => {
-          justLiftedRef.current = false;
-          liftTimerRef.current = null;
-        }, 0);
-      },
+      onPointerLeave: leave,
+      onPointerUp: lift,
       // A tap has no preceding hover, but its pointerdown carries a real
       // coordinate on touch as well as mouse — this is what makes "tap shows
       // it" work without a click-driven toggle. Only the primary button/contact

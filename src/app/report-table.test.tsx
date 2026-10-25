@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { useRef } from "react";
 import { KpiGradientBar, ReportCard, Section, SortResizeTh, TableFilter, Tile, useSortHeaderProps } from "./report-table";
 import { t } from "./i18n";
+import { expectLabelInName, visibleText } from "../test/label-in-name";
 
 function Harness() {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -236,10 +237,32 @@ test("Tile renders a ReactNode value", () => {
 describe("Tile clickable variant", () => {
   it("renders a button with the activateLabel name and fires onActivate", () => {
     const onActivate = vi.fn();
-    render(<Tile label="Overdue" value="3" onActivate={onActivate} activateLabel="Open the tasks list" />);
-    const btn = screen.getByRole("button", { name: "Open the tasks list" });
+    render(<Tile label="Overdue" value="3" onActivate={onActivate} activateLabel="Overdue – Open the tasks list" />);
+    const btn = screen.getByRole("button", { name: "Overdue – Open the tasks list" });
     fireEvent.click(btn);
     expect(onActivate).toHaveBeenCalledTimes(1);
+  });
+
+  // WCAG 2.5.3: the button wraps the tile LABEL alone, so its visible text is
+  // the label and the activateLabel can contain it. While it wrapped the whole
+  // card, value, trend and sub were visible text of the button too, and no
+  // activateLabel contained them (axe 4.14 label-content-name-mismatch, every
+  // Dashboard scan). Mutation: wrap `inner` in the button again → the
+  // visible-text assertion and the containment both go red.
+  it("keeps the value and sub out of the button so its name contains its visible text", () => {
+    render(<Tile label="Complete" value="50%" sub="2 of 4 completed" onActivate={() => {}} activateLabel="Complete – Open the tasks list" />);
+    const btn = screen.getByRole("button", { name: "Complete – Open the tasks list" });
+    expect(visibleText(btn)).toBe("Complete");
+    expectLabelInName(btn);
+    // The value and sub still render, as text of the card the button overlays.
+    const card = btn.closest("[data-tile-activate]")!;
+    expect(card).toHaveTextContent("50%");
+    expect(card).toHaveTextContent("2 of 4 completed");
+    // The WHOLE card stays the click target: the overlay must cover it. jsdom has no
+    // layout, so the classes that make it cover are the observable. Mutation: drop
+    // them → red (every other test here clicks the button element itself).
+    expect(btn.className.split(/\s+/)).toEqual(expect.arrayContaining(["after:absolute","after:inset-0"]));
+    expect(card.className.split(/\s+/)).toContain("relative");
   });
 
   it("renders a non-interactive tile without onActivate", () => {
@@ -253,8 +276,9 @@ describe("Tile shadow token opt-in", () => {
     const { container } = render(
       <Tile label="KPI" value="7" onActivate={() => {}} activateLabel="Open view" />,
     );
-    const btn = container.querySelector("button");
-    expect(btn?.className).toContain("shadow-[var(--shadow-card)]");
+    // The card, not the label-sized button inside it, carries the elevation.
+    const card = container.querySelector("[data-tile-activate]");
+    expect(card?.className).toContain("shadow-[var(--shadow-card)]");
   });
 
   it("static div variant carries shadow-[var(--shadow-card)] class", () => {

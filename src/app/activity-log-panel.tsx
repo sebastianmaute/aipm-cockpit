@@ -467,9 +467,9 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
             every rotor. That is exactly what the prop is documented for.
             ★ The visible label stays at the FRONT of the accessible name
             ("All" ⊆ "All actors"), so WCAG 2.5.3 label-in-name holds — and no
-            axe rule would tell us if it did not (`label-content-name-mismatch`
-            is tagged `experimental`, which axe's default tagExclude drops, and
-            it cannot see a role that lacks name-from-content anyway).
+            axe rule would tell us if it did not (`label-content-name-mismatch`,
+            which the gate runs since axe 4.14, files a radio under its
+            `valueTextRoles` as incomplete, never as a violation).
             ★ The other three radios keep their plain labels — they collide with
             nothing, and qualifying them would only add noise. */}
         <SegmentedControl<ActorFilter>

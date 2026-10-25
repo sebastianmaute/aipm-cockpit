@@ -51,6 +51,22 @@ const EMPTY_CONTACTS: Contact[] = [];
 export type { RaidItem };
 
 /**
+ * The accessible name of an inline-edit cell button. ★★ WCAG 2.5.3 (label in
+ * name): the button SHOWS the cell's value ("High", "2026-08-04", "Ava
+ * Thompson"), so the name must contain it — "Priority – Stakeholder workshop"
+ * alone failed axe 4.14's `label-content-name-mismatch` on every row with a
+ * value. Shape: "Field – value – rowToken". The field stays first, so every
+ * `^Field – ` selector keeps working (2.5.3 is containment, not prefix —
+ * docs/AGENTS/accessibility.md), and the row token stays LAST, where
+ * `rowLabel` puts it and `src/test/row-unique-names.ts` strips its " (N)"
+ * occurrence suffix before looking for a collision seed. A blank cell shows
+ * "—", which is not a word, so it adds nothing.
+ */
+export function inlineCellLabel(fieldLabel: string, rowToken: string, value: string): string {
+  return value.trim() ? `${fieldLabel} – ${value} – ${rowToken}` : `${fieldLabel} – ${rowToken}`;
+}
+
+/**
  * Build the Jira browse URL only when siteUrl parses to an http(s) origin.
  * Without this guard, a user-supplied siteUrl like "javascript:..." would
  * render as an executable href.
@@ -247,7 +263,7 @@ function TaskRowImpl({
       <button
         type="button"
         onClick={() => inline.begin(field, current)}
-        aria-label={label}
+        aria-label={inlineCellLabel(t(lang, field), rowToken, current)}
         className={`${CELL_BUTTON} w-full px-2 py-0.5 text-left ${displayClass ?? ""}`}
       >
         {display}
@@ -422,7 +438,7 @@ function TaskRowImpl({
               <button
                 type="button"
                 onClick={beginAssigneeEdit}
-                aria-label={`${t(lang, "assignee")} – ${rowToken}`}
+                aria-label={inlineCellLabel(t(lang, "assignee"), rowToken, displayName)}
                 className={`${CELL_BUTTON} w-full px-2 py-0.5 text-left`}
               >
                 {displayName || "—"}
@@ -473,7 +489,7 @@ function TaskRowImpl({
             <button
               type="button"
               onClick={() => inline.begin("priority", task.priority)}
-              aria-label={`${t(lang, "priority")} – ${rowToken}`}
+              aria-label={inlineCellLabel(t(lang, "priority"), rowToken, priorityLabel(lang, task.priority))}
               className={`${CELL_BUTTON} p-0.5`}
             >
               <Badge pill className={`font-medium ${priorityStyle[task.priority]}`}>

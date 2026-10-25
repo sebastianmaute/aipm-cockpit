@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
 import { loadI18n, t, type Lang } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { expectLabelInName } from "../test/label-in-name";
 
 const OPTS: FilterOption[] = [
   { value: "a", label: "Alpha" },
@@ -24,6 +25,16 @@ describe("FilterMultiSelect", () => {
     expect(alpha).toBeChecked();
     fireEvent.click(alpha);
     expect(onToggle).toHaveBeenCalledWith("a");
+  });
+
+  // WCAG 2.5.3 — label and count sat in adjacent spans, so the trigger SHOWED
+  // the single word "Status3", which "Status – 3 selected" cannot contain; axe
+  // 4.14's label-content-name-mismatch failed every Gantt scan on it. Both
+  // languages. Mutation: drop the `{count > 0 && " "}` → red.
+  it.each(["en-US", "de"] as const)("keeps the visible label and count inside the accessible name (%s)", async (lang) => {
+    await loadI18n(lang);
+    render(<FilterMultiSelect lang={lang} label="Status" options={OPTS} selected={["a", "b"]} onToggle={vi.fn()} />);
+    expectLabelInName(screen.getByRole("button", { name: `Status – ${t(lang, "filterSelectedCount", 2)}` }));
   });
 
   it("renders a togglable checkbox for a stale selection absent from options (count stays actionable)", () => {

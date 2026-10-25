@@ -34,12 +34,13 @@ describe("RaidBadge", () => {
   // exact-name pin below, which is what holds the ordering. Both assertions are
   // load-bearing.
   //
-  // ★★ NO GATE CAN CATCH THIS. axe ships `label-content-name-mismatch` and it
-  // DOES carry `wcag21a`, one of the four tags `e2e/a11y.spec.ts` requests —
-  // but it is ALSO tagged `experimental`, and axe's default `tagExclude` is
-  // `experimental,deprecated`, so a tag-only run never executes it. Verify:
+  // ★★ THE GATE CATCHES IT ONLY WHERE IT SCANS. axe's
+  // `label-content-name-mismatch` carries `wcag21a`, one of the four tags
+  // `e2e/a11y.spec.ts` requests, and since axe 4.14 dropped its `experimental`
+  // tag the gate runs it. Verify:
   //   node -e "const a=require('axe-core');const r=a.getRules().find(x=>x.ruleId==='label-content-name-mismatch');console.log(a._audit.tagExclude.join(','),'::',r.tags.join(','))"
-  // This test is therefore the only detector that can exist for this control.
+  // It sees a badge only on a RAID-linked row the seed renders; this test
+  // covers the control wherever it is rendered.
   it("contains its visible count text inside its accessible name (WCAG 2.5.3)", () => {
     render(<RaidBadge taskId={7} refs={MIXED_REFS} lang="en-US" rowToken="Alpha" onJumpToRaid={vi.fn()} />);
     const btn = screen.getByRole("button");

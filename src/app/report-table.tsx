@@ -11,7 +11,7 @@ import {
   ResetSizeButton,
 } from "./task-manager-ui";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { INTERACTIVE, RING_ROOM } from "./interaction-styles";
+import { INTERACTIVE, RING_ROOM, TRANSITION } from "./interaction-styles";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { InfoTooltip } from "./info-tooltip";
 import { Card } from "./card";
@@ -482,9 +482,27 @@ export function Tile({
     ? "text-[var(--rag-red-text)]"
     : "text-ui-dark-blue dark:text-ui-light-grey";
   const sizeClass = size === "2xl" ? "text-2xl" : "text-xl";
+  // ★★ WCAG 2.5.3 (label in name): a clickable tile's BUTTON wraps the label
+  // ALONE. While it wrapped the whole tile, its visible text was label + value +
+  // trend + sub ("Complete 50% +3% 2 of 4 completed") but its name was
+  // `activateLabel` ("Complete – Open the tasks list"), so speech input could
+  // not reach it by what it shows, and the aria-label hid the value from screen
+  // readers outright. The `after:` overlay keeps the WHOLE card the click
+  // target; value and sub are plain text read in document order, and a trend
+  // is announced by its own sentence (`TrendArrow` is `role="img"`).
+  const labelEl = onActivate ? (
+    <button
+      type="button"
+      aria-label={activateLabel}
+      onClick={onActivate}
+      className="text-left uppercase tracking-wide after:absolute after:inset-0 after:rounded-lg after:content-[''] focus:outline-none"
+    >
+      {label}
+    </button>
+  ) : label;
   const inner = (
     <>
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{labelEl}</p>
       {/* The trend rides the value row, at its right end — so it costs no line
           of its own. `rag` and `trend` share that end; wrapped together only when
           both are present, since `justify-between` would otherwise put the
@@ -503,15 +521,15 @@ export function Tile({
     </>
   );
   const fillClass = fill ? " h-full" : "";
+  // The focus ring and the press feedback the button drew on itself are drawn
+  // on the card, keyed off the button inside it.
   const tile = onActivate ? (
-    <button
-      type="button"
-      aria-label={activateLabel}
-      onClick={onActivate}
-      className={`w-full${fill ? " flex h-full flex-col" : ""} rounded-lg border border-line bg-surface p-3 text-left${flat ? "" : " shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]"} hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+    <div
+      data-tile-activate
+      className={`relative w-full${fill ? " flex h-full flex-col" : ""} cursor-pointer rounded-lg border border-line bg-surface p-3 text-left${flat ? "" : " shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]"} hover:border-ui-dark-blue hover:bg-surface-muted ${TRANSITION} has-[button:focus]:ring-2 has-[button:focus]:ring-ui-green has-[button:active]:translate-y-px`}
     >
       {inner}
-    </button>
+    </div>
   ) : (
     <Card boxed={!flat} className={`p-3${fillClass}`}>{inner}</Card>
   );

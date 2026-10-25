@@ -160,9 +160,10 @@ describe("ChangePanel", () => {
 
   // WCAG 2.5.3 label-in-name: the column's visible text is "#", so "#" must be
   // CONTAINED in its accessible name. An aria-label of "ID" replaced the name
-  // outright and the visible label was nowhere in it. axe cannot see this —
-  // label-content-name-mismatch is experimental (excluded by default) and does
-  // not apply to this role anyway, so a unit test is the only possible detector.
+  // outright and the visible label was nowhere in it. axe cannot see this — its
+  // label-content-name-mismatch (run by the gate since 4.14) finds no WORD in a
+  // lone "#" and reports it incomplete, never a violation — so a unit test is the
+  // only possible detector.
   it("names the id column by its visible # label, keeping the meaning on hover", () => {
     const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
     const btn = getByRole("button", { name: "#" });

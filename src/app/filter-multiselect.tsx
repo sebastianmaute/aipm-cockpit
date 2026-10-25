@@ -83,6 +83,13 @@ export function FilterMultiSelect<T extends string>({
         } disabled:cursor-not-allowed disabled:opacity-50`}
       >
         <span>{label}</span>
+        {/* ★★ WCAG 2.5.3: this space is what keeps the label and the count two
+            WORDS. Sibling text joins with no separator, so without it the
+            visible text is "Status3", which no name can contain as a word —
+            axe 4.14's label-content-name-mismatch flagged exactly that. A
+            whitespace-only text node in a flex row renders nothing, so the
+            `gap-1` spacing is unchanged. */}
+        {count > 0 && " "}
         {count > 0 && (
           <span className="rounded-full bg-ui-dark-blue px-1.5 text-[10px] font-semibold leading-4 text-white">
             {count}

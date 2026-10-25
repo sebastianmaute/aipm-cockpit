@@ -668,8 +668,9 @@ describe("ActivityLogPanel", () => {
 
     // ★ WCAG 2.5.3 (label-in-name): the VISIBLE label stays "All" and must be
     //   CONTAINED in the accessible name. axe cannot check this either —
-    //   `label-content-name-mismatch` is tagged `experimental`, which axe's
-    //   default `tagExclude` drops, so a tag-only run never executes it.
+    //   `label-content-name-mismatch` (run by the gate since axe 4.14) only
+    //   applies to roles that take their name from content, and a radio's
+    //   state is reported as `valueText`, never as a violation.
     expect(actorAll.textContent).toBe(t("en-US", "activityFilterAll"));
     expect(t("en-US", "activityActorFilterAll")).toContain(
       t("en-US", "activityFilterAll"),

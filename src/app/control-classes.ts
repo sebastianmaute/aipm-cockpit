@@ -6,8 +6,11 @@ import { INTERACTIVE } from "./interaction-styles";
 /** The click-through cell (§687): a borderless box that outlines in dark blue
  *  and fills on hover, used to open an entity from a table cell, a Gantt row, a
  *  Kanban card or a dashboard tile. The caller adds padding (`px-2 py-0.5` for
- *  text), layout and text classes. */
-export const CELL_BUTTON = `cursor-pointer rounded-md border border-transparent hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`;
+ *  text), layout and text classes. `CELL_BUTTON_LOOK` is the look without the
+ *  focus ring and press, for a box that is not itself the button (the dashboard
+ *  tile body, whose overlay button is the focus target). */
+export const CELL_BUTTON_LOOK = "cursor-pointer rounded-md border border-transparent hover:border-ui-dark-blue hover:bg-surface-muted";
+export const CELL_BUTTON = `${CELL_BUTTON_LOOK} ${INTERACTIVE}`;
 
 export type MenuItemTone = "default" | "danger" | "current";
 

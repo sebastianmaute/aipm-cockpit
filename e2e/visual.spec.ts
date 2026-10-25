@@ -116,7 +116,9 @@ test("visual: Reports budget history (cumulative)", async ({ page }) => {
   // ★ Built from `page`, not `block`: a `has:` locator is resolved RELATIVE to
   // each candidate, so a `block`-prefixed one looks for the block inside the
   // candidate and matches nothing (measured: the capture timed out).
-  const chart = page.getByRole("img", { name: /Budget changes: / });
+  // ★ includeHidden: the chart svg is aria-hidden (read once, as the readout trigger's
+  // description — burndown-chart.tsx), so its role=img name is only reachable this way.
+  const chart = page.getByRole("img", { name: /Budget changes: /, includeHidden: true });
   const table = page.getByRole("table", { name: "Budget changes (€)", exact: true });
   await expect(block.locator(chart)).toHaveCount(1);
   // ★ TWO captures, each shorter than the block's scrolling body (497px

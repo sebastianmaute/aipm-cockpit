@@ -1,6 +1,7 @@
 "use client";
 import { Bars3Icon, BellIcon, ChatBubbleLeftRightIcon } from "./icons";
 import { type Lang, t } from "./i18n";
+import { dueAlertsLabel } from "./due-alerts-label";
 import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
 import { CountBadge } from "./count-badge";
 import { IconButton } from "./icon-button";
@@ -74,7 +75,7 @@ export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssista
         <IconButton
           size="md"
           className="relative"
-          label={t(lang, "showDueAlerts")}
+          label={dueAlertsLabel(lang, bannerCount)}
           title={t(lang, "showDueAlerts")}
           onClick={onShowAlerts}
         >

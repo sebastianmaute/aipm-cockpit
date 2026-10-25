@@ -612,8 +612,9 @@ function ContactPersonsControl({
    *  `<span>`. This button's only visible content is the glyph "×" (U+00D7) — an
    *  icon, not text for the name to have to contain. ★★ NOT because axe curates
    *  it: measured, `removeUnicode("×", {punctuations: true})` returns it
-   *  UNCHANGED (U+00D7 is a math symbol), and the rule is `experimental` so
-   *  `tagExclude` drops it regardless. A third revision of this paragraph. */
+   *  UNCHANGED (U+00D7 is a math symbol). Since axe 4.14 the rule runs in the
+   *  gate, and its word tokeniser replaces every non-letter, non-number, × included,
+   *  with a space — so the button has no visible WORD to compare. A fourth revision. */
   const contactNameCounts = new Map<string, number>();
   for (const cp of contactPersons) {
     const key = cp.name.trim().toLowerCase();

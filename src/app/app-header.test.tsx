@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { t } from "./i18n";
+import { expectLabelInName } from "../test/label-in-name";
 import type React from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceTabProvider } from "./workspace-tab-context";
@@ -95,9 +96,11 @@ describe("AppHeader", () => {
   // button must keep its own positioning context through the conversion.
   it("keeps the alerts button as the count badge's positioning context", () => {
     render(<AppHeader {...makeProps({ bannerCount: 2 })} />, { wrapper: Wrapper });
-    const alerts = screen.getByRole("button", { name: t("en-US", "showDueAlerts") });
+    const alerts = screen.getByRole("button", { name: t("en-US", "showDueAlertsCount", 2) });
     expect(alerts.className).toMatch(/(^|\s)relative(\s|$)/);
     expect(alerts).toContainElement(screen.getByText("2"));
+    // WCAG 2.5.3: the visible badge count is part of the name (due-alerts-label.ts).
+    expectLabelInName(alerts);
   });
 
   it("renders the Ask-Claude menu when currentView and onAskClaude are provided", () => {
