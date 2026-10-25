@@ -4,7 +4,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildDetailsPage, chaptersFor, descriptionFor, writeDetailsPage } from './youtube.mjs';
+import { PLAYLISTS, buildDetailsPage, chaptersFor, descriptionFor, playlistDescription, writeDetailsPage } from './youtube.mjs';
+import { VIDEOS } from './videos.mjs';
+
+/** The page's escaping, for checking that a text appears in it. */
+const escape = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 const monday = {
   def: { id: 'ch3-monday', tier: 'chapters', title: 'Monday — a <milestone> & more', opening: 'Monday — a <milestone> & more' },
@@ -92,6 +96,48 @@ describe('buildDetailsPage (§715)', () => {
 
   it('carries the music credit once: only the music-tier video needs it', () => {
     expect(html.split('Music: Made with ElevenMusic').length - 1).toBe(1);
+  });
+
+  it('opens with a playlist for the chapters, the AI clips and the features, each named and described', () => {
+    const playlists = html.indexOf('<h2>Playlists</h2>');
+    expect(playlists).toBeGreaterThan(-1);
+    expect(playlists).toBeLessThan(html.indexOf('<h2>ch3-monday</h2>'));
+    expect(Object.keys(PLAYLISTS)).toEqual(['chapters', 'ai', 'features']);
+    for (const [tier, { label, name }] of Object.entries(PLAYLISTS)) {
+      expect(html).toContain(`<h3>${escape(label)}</h3>`);
+      expect(html).toContain(escape(name));
+      expect(html).toContain(escape(playlistDescription(tier, [monday.def, board.def])));
+    }
+  });
+
+  it('warns on the page, not in the pasted text, that the full-video link is a placeholder', () => {
+    expect(html).toContain(`<p class="note">${escape(PLAYLISTS.chapters.note)}</p>`);
+    expect(playlistDescription('chapters', [])).not.toContain(PLAYLISTS.chapters.note);
+  });
+});
+
+describe('playlistDescription (§715)', () => {
+  // Mutation: a hand-written list (the first version) missed four of the fifteen AI clips; listing the defs cannot.
+  it("lists the tier's videos by title, in order, hand-recorded ones too, between its intro and outro", () => {
+    const defs = [
+      { id: 'ch1', tier: 'chapters', title: 'Install', handRecorded: true },
+      { id: 'f1', tier: 'features', title: 'The board' },
+      { id: 'ch2', tier: 'chapters', title: 'Monday — a <milestone>' },
+    ];
+    const d = playlistDescription('chapters', defs);
+    expect(d).toBe(`${PLAYLISTS.chapters.intro}\n\n• Install\n• Monday — a milestone\n\n${PLAYLISTS.chapters.outro}`);
+  });
+});
+
+describe("YouTube's playlist limits (§715)", () => {
+  it('keeps each playlist name within 150 characters and its description, built from the real videos, within 5000, with no angle brackets', () => {
+    for (const [tier, { name }] of Object.entries(PLAYLISTS)) {
+      const description = playlistDescription(tier, VIDEOS);
+      expect(description.split('\n• ').length - 1).toBe(VIDEOS.filter((v) => v.tier === tier).length);
+      expect(name.length).toBeLessThanOrEqual(150);
+      expect(description.length).toBeLessThanOrEqual(5000);
+      expect(`${name}${description}`).not.toMatch(/[<>]/);
+    }
   });
 });
 

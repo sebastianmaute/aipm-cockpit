@@ -1,6 +1,6 @@
-// §715 the YouTube details page: one local HTML file, <OUT>/youtube-details.html, with what to paste for each
-// video when uploading it (file, title, description with chapters and credits, captions file, tags, category,
-// audience, language). Built from the video defs, the narration files and the `<name>.beats.json` sidecar each
+// §715 the YouTube details page: one local HTML file, <OUT>/youtube-details.html, with each playlist's name and
+// description (`PLAYLISTS`), then what to paste for each video when uploading it (file, title, description with
+// chapters and credits, captions file, tags, category, audience, language). Built from the video defs, the narration files and the `<name>.beats.json` sidecar each
 // mix writes (narrated.mjs); rewritten after every record.mjs run. The builders are pure. See README.md.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,6 +22,40 @@ const AUDIENCE = "No, it's not made for kids";
 const LANGUAGE = 'English';
 const TAGS = ['AI PM Cockpit', 'project management', 'project management software', 'tutorial'];
 const TIER_TAGS = { big: ['project lead', 'week in the life'], chapters: ['getting started'], ai: ['AI', 'Claude'], features: ['features'] };
+
+/** One YouTube playlist per tier of short videos (YouTube: a name up to 150 characters, a description up to 5000).
+ *  A description is `intro`, the tier's video titles in `videos.mjs` order (`playlistDescription`, so a clip added
+ *  or renamed is listed without editing this), then `outro`. The big video is not a playlist of its own: it goes
+ *  first in the chapters' one, which links to it; `note` is shown on the page, never pasted. */
+export const PLAYLISTS = {
+  chapters: {
+    label: 'Chapters',
+    name: 'AI PM Cockpit: One Project, One Week',
+    intro: "Follow one project lead through one week on one project, from the first setup to Friday's review. The project is a customer identity platform for Northwind, a retailer. Its MVP missed its date last Friday, and this week puts it right.\n\nWatch in order. Each chapter picks up where the last one ended:",
+    outro: 'The app works on its own, with your projects kept in your browser. These videos also connect two optional services: Turso, an online database that syncs projects across devices, and Claude, the AI.\n\nThe whole week is also one video: [link to the full video]',
+    note: 'Replace [link to the full video] with the full video\'s link before you paste this.',
+  },
+  ai: {
+    label: 'AI features',
+    name: 'AI PM Cockpit: AI Features, One at a Time',
+    intro: 'Short clips, one AI feature each, all on the same demo project:',
+    outro: 'The AI features use your own Claude API key, stored encrypted on your computer. Without a key, the rest of the app works as usual. Scheduled AI jobs also need Turso, the optional online database.',
+  },
+  features: {
+    label: 'Feature tour',
+    name: 'AI PM Cockpit: Feature Tour',
+    intro: 'One short clip per part of the app, all on the same demo project:',
+    outro: 'Turn on only the functions a project needs; the rest stay out of the way. The Trends and Version history clips need Turso, the optional online database; every other clip here works with your projects kept in your browser.',
+  },
+};
+
+/** A playlist's description: its intro, one line per video of `tier` in `defs` (hand-recorded ones too: they are
+ *  uploaded like the rest), then its outro. */
+export function playlistDescription(tier, defs) {
+  const { intro, outro } = PLAYLISTS[tier];
+  const list = defs.filter((d) => d.tier === tier).map((d) => `• ${youtubeText(d.title)}`);
+  return [intro, list.join('\n'), outro].join('\n\n');
+}
 
 const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
@@ -99,8 +133,20 @@ function field(label, value, { block = false } = {}) {
   return `<div class="f"><div class="l">${escapeHtml(label)} <button type="button" class="copy">Copy</button></div>${block ? `<pre class="v">${v}</pre>` : `<div class="v">${v}</div>`}</div>`;
 }
 
-/** The whole page for `entries` ([{ def, mp4, srt, narration, sidecar }]), in their order. */
-export function buildDetailsPage(entries) {
+/** The playlists, before the videos: a name and a description to paste for each, listing the videos of `defs`. */
+function playlistsSection(defs) {
+  const lists = Object.entries(PLAYLISTS).map(([tier, { label, name, note }]) => [
+    `<h3>${escapeHtml(label)}</h3>`,
+    field('Playlist name', name),
+    field('Playlist description', playlistDescription(tier, defs), { block: true }),
+    note ? `<p class="note">${escapeHtml(note)}</p>` : '',
+  ].join('\n'));
+  return ['<section><h2>Playlists</h2>', ...lists, '</section>'].join('\n');
+}
+
+/** The whole page for `entries` ([{ def, mp4, srt, narration, sidecar }]), in their order. The playlists list the
+ *  videos of `defs`: every video, hand-recorded ones included (writeDetailsPage passes them all). */
+export function buildDetailsPage(entries, defs = entries.map((e) => e.def)) {
   const sections = entries.map(({ def, mp4, srt, narration, sidecar }) => {
     const chapters = chaptersFor(def, sidecar);
     return [
@@ -121,6 +167,7 @@ export function buildDetailsPage(entries) {
 <html lang="en"><head><meta charset="utf-8"><title>YouTube details</title>
 <style>body{font:14px system-ui,sans-serif;margin:24px;max-width:960px}section{border-top:1px solid #ccc;padding:12px 0}.f{margin:8px 0}.l{font-weight:600}.v{white-space:pre-wrap;background:#f4f4f4;padding:6px;margin:4px 0}.note{color:#666}</style></head>
 <body><h1>YouTube details</h1>
+${playlistsSection(defs)}
 ${sections.join('\n')}
 <script>document.addEventListener('click',(e)=>{const b=e.target.closest('button.copy');if(!b)return;const v=b.closest('.f').querySelector('.v');navigator.clipboard.writeText(v.textContent).then(()=>{b.textContent='Copied';setTimeout(()=>{b.textContent='Copy'},1200)})});</script>
 </body></html>
@@ -138,7 +185,8 @@ function readSidecar(file) {
 }
 
 /** Rewrites `<out>/youtube-details.html` for every video not recorded by hand, in `videos` order. `pathOf(def)` is
- *  the video's WebM path (cli.mjs outPath); its .mp4, .srt and .beats.json sit beside it. */
+ *  the video's WebM path (cli.mjs outPath); its .mp4, .srt and .beats.json sit beside it. The playlists list every
+ *  video, the hand-recorded install chapter too: it is uploaded by hand into the chapters' playlist. */
 export function writeDetailsPage(out, videos, pathOf, { lang = 'en' } = {}) {
   const sibling = (def, ext) => {
     const p = pathOf(def).replace(/\.webm$/, ext);
@@ -152,6 +200,6 @@ export function writeDetailsPage(out, videos, pathOf, { lang = 'en' } = {}) {
     return { def, mp4, srt: mp4 ? sibling(def, '.srt') : null, narration: narration.size ? narration : null, sidecar: beatsFile ? readSidecar(beatsFile) : null };
   });
   const file = path.join(out, 'youtube-details.html');
-  fs.writeFileSync(file, buildDetailsPage(entries));
+  fs.writeFileSync(file, buildDetailsPage(entries, videos));
   return file;
 }
