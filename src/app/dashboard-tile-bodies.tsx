@@ -62,7 +62,7 @@ import type { Insight, InsightActions, InsightEntityRef } from "./insights/insig
 import type { AppView } from "./nav-config";
 import type { ChangeStatus } from "./types";
 import { buildRowTokens } from "./row-tokens";
-import { CELL_BUTTON } from "./control-classes";
+import { CELL_BUTTON, CELL_BUTTON_LOOK } from "./control-classes";
 import { TRANSITION } from "./interaction-styles";
 import type { KpiSimulation, KpiSimulationGap } from "./kpi-simulation";
 import type { AppForecast } from "./forecast/app-forecast";
@@ -100,7 +100,7 @@ function ActivateBody({
   return onActivate ? (
     <div
       data-activate-body
-      className={`relative cursor-pointer rounded-md border border-transparent hover:border-ui-dark-blue hover:bg-surface-muted ${TRANSITION} has-[button:focus]:ring-2 has-[button:focus]:ring-ui-green has-[button:active]:translate-y-px ${className}`}
+      className={`relative ${CELL_BUTTON_LOOK} ${TRANSITION} has-[button:focus]:ring-2 has-[button:focus]:ring-ui-green has-[button:active]:translate-y-px ${className}`}
     >
       {children}
       {/* Last in the DOM, so it paints above any positioned content in the body. */}

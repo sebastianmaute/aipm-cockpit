@@ -173,6 +173,9 @@ describe("plural key pairing", () => {
       "calendarEventIntervalUnitWeekly@src/app/calendar-recurrence-labels.ts": "INTERVAL_UNIT_KEY Record; tPlural renders it",
       "calendarEventIntervalUnitMonthly@src/app/calendar-recurrence-labels.ts": "INTERVAL_UNIT_KEY Record; tPlural renders it",
       "redoNActions@src/app/undo/undo-control.tsx": "countKey prop; tPlural renders it",
+      // The button names: the key is a PROP too (`nameKey`, typed `PluralBaseKey`), rendered by tPlural with the depth.
+      "undoActionName@src/app/undo/undo-control.tsx": "nameKey prop; tPlural renders it",
+      "redoActionName@src/app/undo/undo-control.tsx": "nameKey prop; tPlural renders it",
       "actionWorkloadWhyOverload@src/app/next-actions/providers/workload.ts": "i18n-free engine emits a key",
       // §778 — LEARNING_WHY_ALIAS names each plural why key as the learning KIND its
       // singular sibling folds into; it is an identity table, never rendered.
