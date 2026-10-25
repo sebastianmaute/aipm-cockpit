@@ -165,7 +165,7 @@ describe("TaskRow", () => {
     expect(getByText("Correct Name")).toBeTruthy();
     expect(queryByText("Old Removed")).toBeNull();
     // Linked → the LIVE resource name renders on an editable inline button.
-    const btn = getByLabelText("Assignee – Linked task – Correct Name");
+    const btn = getByLabelText("Assignee – Correct Name – Linked task");
     expect(btn.tagName).toBe("BUTTON");
     expect(btn.textContent).toContain("Correct Name");
   });
@@ -182,7 +182,7 @@ describe("TaskRow", () => {
       }),
     );
     // Unlinked → the inline-edit ghost button exists and shows the cached name.
-    const btn = getByLabelText("Assignee – Freetext task – Freetext Person");
+    const btn = getByLabelText("Assignee – Freetext Person – Freetext task");
     expect(btn).toBeTruthy();
     expect(btn.textContent).toContain("Freetext Person");
   });
@@ -1358,7 +1358,7 @@ describe("TaskRow inline cell editing", () => {
     const task = makeTask({ id: 41, taskName: "Ship it", dueDate: "2026-07-01" });
     const { getByRole, getByLabelText } = renderRow(ctx, task);
 
-    fireEvent.click(getByRole("button", { name: "Due date – Ship it – 2026-07-01" }));
+    fireEvent.click(getByRole("button", { name: "Due date – 2026-07-01 – Ship it" }));
     const input = getByLabelText("Due date – Ship it") as HTMLInputElement;
     expect(input.type).toBe("date");
     fireEvent.change(input, { target: { value: "2026-07-20" } });
@@ -1373,14 +1373,14 @@ describe("TaskRow inline cell editing", () => {
     const task = makeTask({ id: 42, taskName: "Keep me", startDate: "2026-07-01" });
     const { getByRole, getByLabelText, queryByLabelText } = renderRow(ctx, task);
 
-    fireEvent.click(getByRole("button", { name: "Start date – Keep me – 2026-07-01" }));
+    fireEvent.click(getByRole("button", { name: "Start date – 2026-07-01 – Keep me" }));
     const input = getByLabelText("Start date – Keep me") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "2026-07-09" } });
     fireEvent.keyDown(input, { key: "Escape" });
 
     expect(onInlinePatch).not.toHaveBeenCalled();
     // Editor closed → the labelled input is gone, the display button is back.
-    expect(queryByLabelText("Start date – Keep me – 2026-07-01")?.tagName).toBe("BUTTON");
+    expect(queryByLabelText("Start date – 2026-07-01 – Keep me")?.tagName).toBe("BUTTON");
   });
 
   test("priority select commits the chosen value directly", () => {
@@ -1389,7 +1389,7 @@ describe("TaskRow inline cell editing", () => {
     const task = makeTask({ id: 43, taskName: "Rank me", priority: "Low" });
     const { getByRole } = renderRow(ctx, task);
 
-    fireEvent.click(getByRole("button", { name: "Priority – Rank me – Low" }));
+    fireEvent.click(getByRole("button", { name: "Priority – Low – Rank me" }));
     const select = getByRole("combobox", { name: "Priority – Rank me" });
     fireEvent.change(select, { target: { value: "High" } });
 
@@ -1403,9 +1403,9 @@ describe("TaskRow inline cell editing", () => {
     const { queryByRole, getByText } = renderRow(ctx, task);
 
     // No editable buttons for the inline fields; plain display only.
-    expect(queryByRole("button", { name: /^Assignee – Synced/ })).toBeNull();
-    expect(queryByRole("button", { name: /^Due date – Synced/ })).toBeNull();
-    expect(queryByRole("button", { name: /^Priority – Synced/ })).toBeNull();
+    expect(queryByRole("button", { name: /^Assignee – .*Synced$/ })).toBeNull();
+    expect(queryByRole("button", { name: /^Due date – .*Synced$/ })).toBeNull();
+    expect(queryByRole("button", { name: /^Priority – .*Synced$/ })).toBeNull();
     expect(getByText("Alice")).toBeTruthy();
   });
 
@@ -1415,7 +1415,7 @@ describe("TaskRow inline cell editing", () => {
     const task = makeTask({ id: 45, taskName: "Pick me", assignee: "Alice", assigneeEmail: "a@b.com" });
     const { getByRole } = renderRow(ctx, task);
 
-    fireEvent.click(getByRole("button", { name: "Assignee – Pick me – Alice" }));
+    fireEvent.click(getByRole("button", { name: "Assignee – Alice – Pick me" }));
     const combo = getByRole("combobox", { name: "Assignee – Pick me" }) as HTMLInputElement;
     fireEvent.change(combo, { target: { value: "Bob" } }); // free-text breaks any FK link
     fireEvent.blur(combo);
@@ -1447,7 +1447,7 @@ describe("TaskRow inline cell editing", () => {
     });
     const { getByRole } = renderRow(ctx, task);
 
-    fireEvent.click(getByRole("button", { name: "Assignee – Linked – Alice Smith" }));
+    fireEvent.click(getByRole("button", { name: "Assignee – Alice Smith – Linked" }));
     const combo = getByRole("combobox", { name: "Assignee – Linked" }) as HTMLInputElement;
     expect(combo).toHaveValue("Alice Smith");
 
@@ -1531,7 +1531,7 @@ describe("TaskRow inline cell editing", () => {
       const onInlinePatch = vi.fn();
       const task = makeTask({ id: 60, taskName: "Close me", dueDate: "2026-07-01" });
       const { getByRole, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
-      fireEvent.click(getByRole("button", { name: "Due date – Close me – 2026-07-01" }));
+      fireEvent.click(getByRole("button", { name: "Due date – 2026-07-01 – Close me" }));
       fireEvent.change(getByLabelText("Due date – Close me"), { target: { value: "2026-07-20" } });
       pageHide();
       expect(onInlinePatch).toHaveBeenCalledTimes(1);
@@ -1542,7 +1542,7 @@ describe("TaskRow inline cell editing", () => {
       const onInlinePatch = vi.fn();
       const task = makeTask({ id: 61, taskName: "Close me", assignee: "Alice", assigneeEmail: "a@b.com" });
       const { getByRole } = renderRow(makeContext({ onInlinePatch }), task);
-      fireEvent.click(getByRole("button", { name: "Assignee – Close me – Alice" }));
+      fireEvent.click(getByRole("button", { name: "Assignee – Alice – Close me" }));
       fireEvent.change(getByRole("combobox", { name: "Assignee – Close me" }), { target: { value: "Bob" } });
       pageHide();
       expect(onInlinePatch).toHaveBeenCalledTimes(1);
@@ -1553,12 +1553,12 @@ describe("TaskRow inline cell editing", () => {
       const onInlinePatch = vi.fn();
       const task = makeTask({ id: 62, taskName: "Stay", dueDate: "2026-07-01", assignee: "Alice" });
       const { getByRole, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
-      fireEvent.click(getByRole("button", { name: "Due date – Stay – 2026-07-01" }));
+      fireEvent.click(getByRole("button", { name: "Due date – 2026-07-01 – Stay" }));
       fireEvent.change(getByLabelText("Due date – Stay"), { target: { value: "2026-07-20" } });
       tabSwitch();
       expect(getByLabelText("Due date – Stay")).toHaveValue("2026-07-20"); // still open, draft kept
       fireEvent.keyDown(getByLabelText("Due date – Stay"), { key: "Escape" });
-      fireEvent.click(getByRole("button", { name: "Assignee – Stay – Alice" }));
+      fireEvent.click(getByRole("button", { name: "Assignee – Alice – Stay" }));
       fireEvent.change(getByRole("combobox", { name: "Assignee – Stay" }), { target: { value: "Bob" } });
       tabSwitch();
       expect(onInlinePatch).not.toHaveBeenCalled();
@@ -1569,11 +1569,11 @@ describe("TaskRow inline cell editing", () => {
       const task = makeTask({ id: 63, taskName: "Idle", dueDate: "2026-07-01", assignee: "Alice" });
       const { getByRole, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
       pageHide();
-      fireEvent.click(getByRole("button", { name: "Due date – Idle – 2026-07-01" }));
+      fireEvent.click(getByRole("button", { name: "Due date – 2026-07-01 – Idle" }));
       pageHide();
       expect(getByLabelText("Due date – Idle").tagName).toBe("INPUT"); // the unchanged cell was open
       fireEvent.keyDown(getByLabelText("Due date – Idle"), { key: "Escape" });
-      fireEvent.click(getByRole("button", { name: "Assignee – Idle – Alice" }));
+      fireEvent.click(getByRole("button", { name: "Assignee – Alice – Idle" }));
       pageHide();
       expect(onInlinePatch).not.toHaveBeenCalled();
     });
@@ -1584,7 +1584,7 @@ describe("TaskRow inline cell editing", () => {
       const onInlinePatch = vi.fn();
       const task = makeTask({ id: 64, taskName: "Switch", assignee: "Alice", assigneeEmail: "a@b.com" });
       const { getByRole, getByText, getByLabelText } = renderRow(makeContext({ onInlinePatch }), task);
-      fireEvent.click(getByRole("button", { name: "Assignee – Switch – Alice" }));
+      fireEvent.click(getByRole("button", { name: "Assignee – Alice – Switch" }));
       fireEvent.change(getByRole("combobox", { name: "Assignee – Switch" }), { target: { value: "Bob" } });
       fireEvent.doubleClick(getByText("Switch"));
       expect(getByLabelText("Task name – Switch").tagName).toBe("INPUT"); // the name cell took over
@@ -1937,8 +1937,8 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
       makeTask({ id: 1, taskName: "Alpha", assignee: "Alice" }),
       makeTask({ id: 2, taskName: "Alpha", assignee: "Bob" }),
     ]);
-    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Alpha (1) – Alice" }));
-    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Alpha (2) – Bob" }));
+    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Alice – Alpha (1)" }));
+    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Bob – Alpha (2)" }));
     // Both stay open: neither ResourcePicker auto-focuses itself, so opening
     // the second never blurs (and never commits/closes) the first — measured
     // above, not assumed.
@@ -1969,6 +1969,10 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
     // Assignee · Start date · Due date · Priority, on both rows.
     expect(cells).toHaveLength(8);
     for (const b of cells) expectLabelInName(b);
+    // The row token stays LAST ("Field – value – token"), where row-unique-names.ts
+    // strips the " (N)" suffix when it looks for a collision seed.
+    for (const b of cells) expect(b.getAttribute("aria-label")).toMatch(/ – Alpha \([12]\)$/);
+    expectRowUniqueNames({ minControls: 8, scope: container, roles: ["button"], requireCollisionSeed: true });
   });
 });
 

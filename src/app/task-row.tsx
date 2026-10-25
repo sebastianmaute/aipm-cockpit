@@ -55,13 +55,15 @@ export type { RaidItem };
  * name): the button SHOWS the cell's value ("High", "2026-08-04", "Ava
  * Thompson"), so the name must contain it — "Priority – Stakeholder workshop"
  * alone failed axe 4.14's `label-content-name-mismatch` on every row with a
- * value. The `field – rowToken` prefix stays first and row-unique; the value
- * rides at the end, which keeps every `^Field – ` selector working (2.5.3 is
- * containment, not prefix — docs/AGENTS/accessibility.md). A blank cell shows
+ * value. Shape: "Field – value – rowToken". The field stays first, so every
+ * `^Field – ` selector keeps working (2.5.3 is containment, not prefix —
+ * docs/AGENTS/accessibility.md), and the row token stays LAST, where
+ * `rowLabel` puts it and `src/test/row-unique-names.ts` strips its " (N)"
+ * occurrence suffix before looking for a collision seed. A blank cell shows
  * "—", which is not a word, so it adds nothing.
  */
 export function inlineCellLabel(fieldLabel: string, rowToken: string, value: string): string {
-  return value.trim() ? `${fieldLabel} – ${rowToken} – ${value}` : `${fieldLabel} – ${rowToken}`;
+  return value.trim() ? `${fieldLabel} – ${value} – ${rowToken}` : `${fieldLabel} – ${rowToken}`;
 }
 
 /**
