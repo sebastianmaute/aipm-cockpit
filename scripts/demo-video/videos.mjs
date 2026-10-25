@@ -4,11 +4,12 @@
 // video and the chapters). Opening texts are the specs' (drafts where marked there); `{ banner: <view> }`
 // is that view's own banner text, read from the page at take time. See README.md.
 //
-// Def = { id, tier, title, opening, handRecorded?, prologueOnCamera?, firstRun?, prologue?, clock?, replayThrough?,
+// Def = { id, tier, title, opening, handRecorded?, playback?, prologueOnCamera?, firstRun?, prologue?, clock?, replayThrough?,
 //         preconditions: { what, check(ctx) }[], steps: Step[] }   (Step: steps/step.mjs)
 import { AI_PRECONDITIONS, AI_STEPS } from './steps/ai.mjs';
 import { FEATURE_PRECONDITIONS, FEATURE_STEPS } from './steps/features.mjs';
 import { FIRST_RUN } from './steps/first-run.mjs';
+import { INSTALL } from './steps/install.mjs';
 import { FRIDAY, MONDAY, PROLOGUE, THURSDAY, TUESDAY, WEDNESDAY, demoOpens, goTo } from './steps/week.mjs';
 
 export const TIERS = Object.freeze(['big', 'chapters', 'ai', 'features']);
@@ -26,7 +27,9 @@ const DEFS = [
     steps: [...MONDAY, goTo.tue, ...TUESDAY, goTo.wed, ...WEDNESDAY, goTo.thu, ...THURSDAY, goTo.fri, ...FRIDAY],
   },
 
-  { id: 'ch1-install', tier: 'chapters', title: 'Install', opening: '', handRecorded: true, preconditions: [], steps: [] },
+  // Recorded by hand and played back in a take (`playback`: the cut source in <out>), so it gets every chapter's
+  // splash, captions, narration and music (owner, 2026-10-25). README.md "Playback chapters".
+  chapter('ch1-install', 'Install: download and set up the desktop app', INSTALL, { playback: 'sources/01-ch1-install.webm' }),
   // The first run: the setup wizard explained, a first project created, then the demo (owner, 2026-10-20).
   chapter('ch2-connect', 'Get started: connect and create a project', [demoOpens], { prologueOnCamera: true, firstRun: true, prologue: FIRST_RUN, clock: 'mon' }),
   chapter('ch3-monday', 'Monday — a milestone slipped', MONDAY, { clock: 'mon' }),

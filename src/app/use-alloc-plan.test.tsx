@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { AiHttpError } from "./ai-errors";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useAllocPlan } from "./use-alloc-plan";
 import { ToastProvider } from "./toast-context";
 import { useToast } from "./use-toast";
@@ -55,6 +55,9 @@ interface HarnessProps {
   externalEdit?: (resources: readonly Resource[]) => readonly Resource[];
 }
 
+/** Renders of the component that owns the hook (in the app, the Resources panel and its planning grid). */
+const harnessRenders = { count: 0 };
+
 function Harness({
   settings = AI_ON,
   isPopout = false,
@@ -63,6 +66,8 @@ function Harness({
   onResources,
   externalEdit,
 }: HarnessProps) {
+  // Counted in an effect (every committed render runs it): mutating it in the render body is refused by lint.
+  useEffect(() => { harnessRenders.count++; });
   const [resources, setResources] = useState<readonly Resource[]>([
     mkResource(1, "Alice", "Anderson"),
     mkResource(2, "Bob", "Baker"),
@@ -132,6 +137,36 @@ describe("useAllocPlan (plan-then-apply)", () => {
   });
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  // The instruction lives in the modal: a keystroke re-rendered the Resources panel that owns the hook, planning
+  // grid included. Mutation: holding the text in the hook again re-renders the host on every change.
+  it("typing the instruction re-renders the modal only, never the component that owns the hook", () => {
+    renderHarness();
+    fireEvent.click(screen.getByRole("button", { name: /plan with ai/i }));
+    const box = screen.getByPlaceholderText(/distribute 200 hours/i);
+    const before = harnessRenders.count;
+    for (const value of ["s", "sp", "spread 40 hours"]) fireEvent.change(box, { target: { value } });
+    expect(box).toHaveValue("spread 40 hours");
+    expect(harnessRenders.count).toBe(before);
+  });
+
+  it("proposes with the instruction as typed in the modal", async () => {
+    vi.mocked(call.runAllocProposal).mockImplementation(() => new Promise(() => {}));
+    renderHarness();
+    openAndType("spread 40 hours across the team");
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") }));
+    await waitFor(() => expect(call.runAllocProposal).toHaveBeenCalled());
+    expect(vi.mocked(call.runAllocProposal).mock.calls[0][2]).toBe("spread 40 hours across the team");
+  });
+
+  it("keeps the typed instruction when nothing came back, so it can be revised and sent again", async () => {
+    vi.mocked(call.runAllocProposal).mockResolvedValue(proposal([]));
+    renderHarness();
+    openAndType("spread 40 hours across the team");
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", expect.stringMatching(/no allocation changes/i)));
+    expect(screen.getByPlaceholderText(/distribute 200 hours/i)).toHaveValue("spread 40 hours across the team");
   });
 
   it("renders no button in a popout", () => {

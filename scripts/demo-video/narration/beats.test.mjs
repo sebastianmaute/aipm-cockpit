@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { parseNarration, narrationPath, loadBeats, ownBeatIds, TITLE, OPENING, CLOSING } from './beats.mjs';
 import { VIDEOS } from '../videos.mjs';
 
-const CHAPTERS = VIDEOS.filter((v) => v.tier === 'chapters' && !v.handRecorded).map((v) => v.id);
+// The big video tells the week: the played-back install chapter is not part of it.
+const CHAPTERS = VIDEOS.filter((v) => v.tier === 'chapters' && !v.handRecorded && !v.playback).map((v) => v.id);
 
 describe('parseNarration', () => {
   it('reads each heading as a beat and joins its lines with single spaces', () => {

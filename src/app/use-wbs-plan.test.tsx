@@ -266,6 +266,29 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(vi.mocked(call.runWbsProposal).mock.calls[0][2]).toBe("x".repeat(1000));
   });
 
+  // The instruction lives in the dialog: a keystroke re-rendered the component that owns the hook (in the app,
+  // task-manager, so the whole tree), measured at 40-55 ms a key in a production build against 10-15 ms in the
+  // other fields. Mutation: holding the text in the hook again re-renders the host on every change.
+  it("typing the instruction re-renders the dialog only, never the component that owns the hook", () => {
+    const api = renderHarness();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "wbsPlanButton") }));
+    const box = screen.getByRole("textbox", { name: t("en-US", "wbsPlanInstructionLabel") });
+    const before = api();
+    for (const value of ["s", "sp", "spl", "split"]) fireEvent.change(box, { target: { value } });
+    expect(box).toHaveValue("split");
+    expect(api()).toBe(before);
+  });
+
+  it("proposes with the instruction as typed in the dialog", async () => {
+    vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise(() => {}));
+    renderHarness();
+    await proposeFromButton("split anything over a week");
+    await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+    expect(vi.mocked(call.runWbsProposal).mock.calls[0][2]).toBe("split anything over a week");
+    // The dialog stays up while the call runs, still showing what was typed.
+    expect(screen.getByRole("textbox", { name: t("en-US", "wbsPlanInstructionLabel") })).toHaveValue("split anything over a week");
+  });
+
   it("an empty proposal toasts wbsPlanEmpty and resets", async () => {
     vi.mocked(call.runWbsProposal).mockResolvedValue(proposal([]));
     renderHarness();

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { PLAYLISTS, buildDetailsPage, chaptersFor, descriptionFor, playlistDescription, writeDetailsPage } from './youtube.mjs';
+import { PLAYLISTS, TAGLINE, buildDetailsPage, chaptersFor, descriptionFor, playlistDescription, writeDetailsPage } from './youtube.mjs';
 import { VIDEOS } from './videos.mjs';
 
 /** The page's escaping, for checking that a text appears in it. */
@@ -118,14 +118,15 @@ describe('buildDetailsPage (§715)', () => {
 
 describe('playlistDescription (§715)', () => {
   // Mutation: a hand-written list (the first version) missed four of the fifteen AI clips; listing the defs cannot.
-  it("lists the tier's videos by title, in order, hand-recorded ones too, between its intro and outro", () => {
+  // The tagline closes it: the intro leads into the list ("Watch in order. …:"), so it cannot sit between them.
+  it("lists the tier's videos by title, in order, hand-recorded ones too, between its intro and outro, then the tagline", () => {
     const defs = [
       { id: 'ch1', tier: 'chapters', title: 'Install', handRecorded: true },
       { id: 'f1', tier: 'features', title: 'The board' },
       { id: 'ch2', tier: 'chapters', title: 'Monday — a <milestone>' },
     ];
     const d = playlistDescription('chapters', defs);
-    expect(d).toBe(`${PLAYLISTS.chapters.intro}\n\n• Install\n• Monday — a milestone\n\n${PLAYLISTS.chapters.outro}`);
+    expect(d).toBe(`${PLAYLISTS.chapters.intro}\n\n• Install\n• Monday — a milestone\n\n${PLAYLISTS.chapters.outro}\n\n${TAGLINE}`);
   });
 });
 
@@ -150,6 +151,30 @@ describe("YouTube's limits (§715)", () => {
     expect(d.startsWith('Short opening.')).toBe(true);
     expect(d).toContain('Music: Made with ElevenMusic');
     expect(d).toContain('Narration: AI-generated voice (ElevenLabs)');
+    expect(d).toContain(TAGLINE);
+  });
+
+  // Mutation: dropping the tagline from the shortest fallback loses the links exactly when a description is long.
+  it('keeps the tagline in the shortest fallback too, where only the opening line and the credits are left', () => {
+    const d = descriptionFor(monday.def, new Map([['opening', 'word '.repeat(1100).trim()]]), []);
+    expect(d.length).toBeLessThanOrEqual(5000);
+    expect(d).toContain(TAGLINE);
+  });
+});
+
+describe('the tagline (§715)', () => {
+  it('links the project and its releases, and says what the app is', () => {
+    expect(TAGLINE).toContain('https://github.com/sebastianmaute/aipm-cockpit\n');
+    expect(TAGLINE).toContain('https://github.com/sebastianmaute/aipm-cockpit/releases');
+    expect(TAGLINE).toMatch(/^AI PM Cockpit: /);
+    expect(TAGLINE).not.toMatch(/[<>]/);
+  });
+
+  it("follows the opening line in every video's description, before its summary and chapters", () => {
+    const d = descriptionFor(monday.def, monday.narration, chaptersFor(monday.def, monday.sidecar));
+    // The opening line here is the narration's title beat: the fixture's opening repeats its title.
+    expect(d.startsWith(`Monday. The MVP target passed.\n\n${TAGLINE}\n\n`)).toBe(true);
+    for (const v of VIDEOS) expect(descriptionFor(v, null, []), v.id).toContain(TAGLINE);
   });
 });
 

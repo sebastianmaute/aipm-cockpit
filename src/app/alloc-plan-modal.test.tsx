@@ -26,8 +26,6 @@ describe("AllocPlanModal — per-cell include checkboxes (§245)", () => {
         lang="en-US"
         open
         stage="preview"
-        instruction="spread Ana over Q4"
-        onInstruction={vi.fn()}
         onPropose={vi.fn()}
         cells={cells}
         skipped={[]}

@@ -28,11 +28,12 @@ describe('the video definitions (§715)', () => {
     ]);
   });
 
-  it('only ch1-install is hand-recorded', () => {
-    expect(VIDEOS.filter((d) => d.handRecorded).map((d) => d.id)).toEqual(['ch1-install']);
+  it('ch1-install is the one playback chapter, played from its cut source; no video is left hand-recorded', () => {
+    expect(VIDEOS.filter((d) => d.playback).map((d) => [d.id, d.playback])).toEqual([['ch1-install', 'sources/01-ch1-install.webm']]);
+    expect(VIDEOS.filter((d) => d.handRecorded)).toEqual([]);
   });
 
-  it('every video but ch1-install has an opening text, a title and at least one step', () => {
+  it('every video has an opening text, a title and at least one step', () => {
     for (const d of VIDEOS.filter((v) => !v.handRecorded)) {
       expect(d.title, d.id).toBeTruthy();
       expect(d.opening, d.id).toBeTruthy();
