@@ -1011,6 +1011,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§780](#780-the-learning-views-adjustment-column-contradicts-an-override--closed-2026-10-24) | The learning view's Adjustment column contradicts an override | — | — | **CLOSED** 2026-10-24 |
 | [§781](#781-action-center-learning-is-rewritten-from-a-snapshot-that-never-read-its-store--closed-2026-10-24) | Action Center learning is rewritten from a snapshot that never read its store | — | — | **CLOSED** 2026-10-24 |
 | [§782](#782-an-insight-recommendation-can-propose-a-change-that-cannot-be-applied-and-the-failure-is-silent--closed-2026-10-24) | An insight recommendation can propose a change that cannot be applied, and the failure is silent | — | — | **CLOSED** 2026-10-24 |
+| [§783](#783-the-top-bars-bell-is-named-for-due-date-notifications-but-opens-next-actions--open) | The top bar's bell is named for due-date notifications but opens Next actions | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46070,3 +46071,17 @@ A with-AI rehearsal of the "Budget off plan" insight (Generate recommendation, r
 Size S–M.
 
 **Source:** found 2026-10-24 by the demo recorder's with-AI rehearsal (owner: fix now).
+
+## 783. The top bar's bell is named for due-date notifications but opens Next actions — OPEN
+
+**Status:** OPEN 2026-10-25, filed on the owner's word from the cold review of #892. `grep -n 'onShowAlerts=' src/app/task-manager.tsx src/app/shell-chrome.tsx` shows both top bars wiring the bell to `setActiveTab("actions")`, while `showDueAlerts` reads "Show due-date notifications".
+
+**Work item:** #893
+
+The bell's accessible name and its tooltip are `showDueAlerts`: "Show due-date notifications" (DE "Fälligkeits-Benachrichtigungen anzeigen"). The bell opens the Next actions view, and its pink badge counts the Next actions in the "Now" tier (`nowCount`), not due dates. So a screen-reader user, or anyone reading the tooltip, is told the button does something other than what it does. #892 added only the count suffix (`showDueAlertsCount` / `showDueAlertsCountOne`, " – 3 actions for now") for WCAG 2.5.3; the base name is older.
+
+Proposed: rename the base text in EN and DE (for example "Open next actions"), keep the two suffix keys in step, and update the tests that pin the old text (`grep -rln "showDueAlerts\|due-date notifications" src e2e` lists 7 files on 2026-10-25).
+
+Size S.
+
+**Source:** cold review of #892, 2026-10-25 (owner: file it).
