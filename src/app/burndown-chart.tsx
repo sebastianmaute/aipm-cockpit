@@ -307,14 +307,24 @@ function BurndownChartBody({
             </span>
           )}
         </div>
-        <button
-          type="button"
-          {...readout.triggerProps}
-          aria-label={t(lang, "burndownReadoutTrigger")}
-          aria-describedby={svgDescId}
-          className="block w-full cursor-crosshair rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green print:cursor-auto"
-        >
-          <svg id={svgDescId} viewBox={`0 0 ${W} ${height}`} className="w-full" role="img" aria-label={aria.join(" ")}>
+        {/* ★★ WCAG 2.5.3 (label in name): the readout trigger is an EMPTY button
+            laid over the chart, not a button wrapping it. Wrapped, every axis
+            figure and line label was visible text of a control named "Read the
+            chart's values: …", which contains none of them — axe 4.14's
+            label-content-name-mismatch flagged it once the readout opened. The
+            chart is painted above the button but ignores the pointer, so every
+            pointer event still lands on the button (same rect, so the readout's
+            x-mapping is unchanged); only a truncated label's <title> catches the
+            pointer, so its full text still shows on hover. */}
+        <div className="relative">
+          <button
+            type="button"
+            {...readout.triggerProps}
+            aria-label={t(lang, "burndownReadoutTrigger")}
+            aria-describedby={svgDescId}
+            className="absolute inset-0 block w-full cursor-crosshair rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green print:cursor-auto"
+          />
+          <svg id={svgDescId} viewBox={`0 0 ${W} ${height}`} className="pointer-events-none relative w-full" role="img" aria-label={aria.join(" ")}>
           {belowZero && <rect x={X0} y={zeroY} width={X1 - X0} height={yBottom - zeroY} className="fill-ui-pink/10" />}
           {/* §502 — the simulated finish band (P50–P95) and cost wedge sit behind every line. */}
           {model.simFinish && (
@@ -417,7 +427,7 @@ function BurndownChartBody({
           {plotLabels.map((label, i) => (
             <text
               key={label.key} {...(label.data ? { [label.data]: "" } : {})} x={placed[i].x} y={placed[i].baseline} textAnchor={label.request.anchor} {...HALO}
-              className={`${label.strong ? "fill-foreground tabular-nums" : "fill-muted-foreground"} stroke-surface text-[8px]`} aria-hidden="true"
+              className={`${label.strong ? "fill-foreground tabular-nums" : "fill-muted-foreground"} stroke-surface text-[8px]${label.title ? " pointer-events-auto" : ""}`} aria-hidden="true"
             >
               {label.title && <title>{label.title}</title>}
               {label.text}
@@ -448,7 +458,7 @@ function BurndownChartBody({
             </g>
           )}
           </svg>
-        </button>
+        </div>
         {active && readout.anchor && (
           <ChartReadout lang={lang} readout={active} anchor={readout.anchor} fmt={fmt} locale={locale} />
         )}
