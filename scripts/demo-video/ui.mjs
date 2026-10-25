@@ -320,14 +320,28 @@ export async function click(ctx, loc, label, after = 900) {
  *  name takes under 2 s: typing is seen, and a form filled on camera leaves no long silence (§715). */
 export const TYPE_DELAY_MS = 15;
 
-/** Types visibly; `slow: false` fills at once (credentials: never typed character by character). */
+/** The longest a field is typed on camera. A page slowed by machine load once took about a second a key, and a
+ *  90-letter description left 39 s of silence; past this budget the rest is filled at once (§715). */
+export const TYPE_BUDGET_MS = 3000;
+/** Keys typed between two looks at the clock. */
+const TYPE_CHUNK = 8;
+
+/** Types visibly, in chunks, until TYPE_BUDGET_MS has passed, then fills the whole text; `slow: false` fills at
+ *  once (credentials: never typed character by character). `ctx.now` replaces the clock in tests. */
 export async function type(ctx, loc, text, label, { slow = true } = {}) {
   await click(ctx, loc, label, 200);
   // Replace the old value without ever emptying the field: some fields act on an empty value (a role's
   // rate flips the row to the other basis when cleared). Typed over a selection, or filled at once.
   if (slow && !ctx.rehearse) {
+    const now = ctx.now ?? Date.now;
+    const start = now();
     await loc.press('Control+A');
-    await loc.pressSequentially(text, { delay: TYPE_DELAY_MS });
+    let typed = 0;
+    while (typed < text.length && now() - start < TYPE_BUDGET_MS) {
+      await loc.pressSequentially(text.slice(typed, typed + TYPE_CHUNK), { delay: TYPE_DELAY_MS });
+      typed += TYPE_CHUNK;
+    }
+    if (typed < text.length) await loc.fill(text);
   } else await loc.fill(text);
   await pace(ctx, 300);
 }

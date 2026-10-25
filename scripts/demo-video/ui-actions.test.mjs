@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { MOVE_TIMEOUT_MS, TYPE_DELAY_MS, choose, moveTo, nav, type, viewHint } from './ui.mjs';
+import { MOVE_TIMEOUT_MS, TYPE_BUDGET_MS, TYPE_DELAY_MS, choose, moveTo, nav, type, viewHint } from './ui.mjs';
 
 /** A page that records the cursor's moves and the pauses; `main` never changes, so settle() ends at once. */
 function fakePage(calls) {
@@ -189,6 +189,37 @@ describe('type (§715)', () => {
     await type({ ...ctxWith(calls), rehearse: false }, loc, 'Pilot', 'task name');
     expect(TYPE_DELAY_MS).toBeLessThanOrEqual(15);
     expect(calls).toContain(`keys(Pilot,${TYPE_DELAY_MS})`);
+  });
+
+  /** A field whose every typed chunk takes `msPerChunk` on a fake clock. */
+  function slowField(calls, msPerChunk) {
+    let t = 0;
+    const loc = {
+      ...fakeLoc(calls),
+      click: async () => {},
+      press: async () => {},
+      pressSequentially: async (text) => { calls.push(`keys(${text})`); t += msPerChunk; },
+      fill: async (text) => { calls.push(`fill(${text})`); },
+    };
+    return { loc, now: () => t };
+  }
+
+  it('types a long text in full while the page keeps up', async () => {
+    const calls = [];
+    const { loc, now } = slowField(calls, 100);
+    await type({ ...ctxWith(calls), rehearse: false, now }, loc, 'Licence cost and one week of work', 'impact');
+    const typed = calls.filter((c) => c.startsWith('keys(')).map((c) => c.slice(5, -1)).join('');
+    expect(typed).toBe('Licence cost and one week of work');
+    expect(calls.some((c) => c.startsWith('fill('))).toBe(false);
+  });
+
+  // Mutation: dropping the budget types every chunk however slow the page is, which left 39 s of dead air in a take.
+  it('stops typing once TYPE_BUDGET_MS has passed and fills the whole text, so a slow page leaves no long silence', async () => {
+    const calls = [];
+    const { loc, now } = slowField(calls, TYPE_BUDGET_MS * 0.6);
+    await type({ ...ctxWith(calls), rehearse: false, now }, loc, 'Licence cost and one week of work', 'impact');
+    const actions = calls.filter((c) => c.startsWith('keys(') || c.startsWith('fill('));
+    expect(actions).toEqual(['keys(Licence )', 'keys(cost and)', 'fill(Licence cost and one week of work)']);
   });
 });
 
