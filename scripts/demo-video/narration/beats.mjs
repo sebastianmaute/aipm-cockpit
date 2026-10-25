@@ -52,7 +52,8 @@ export function ownBeatIds(lang, videoId, { read = fs.readFileSync, exists = fs.
   return exists(file) ? parseNarration(read(file, 'utf8')).map((b) => b.id) : [];
 }
 
-const CHAPTER_IDS = VIDEOS.filter((v) => v.tier === 'chapters' && !v.handRecorded).map((v) => v.id);
+// The chapters the big video tells: a playback chapter (the install) is not part of its week.
+const CHAPTER_IDS = VIDEOS.filter((v) => v.tier === 'chapters' && !v.handRecorded && !v.playback).map((v) => v.id);
 
 /**
  * Beat id -> spoken text for a video. The big video takes every chapter file first, in order, then its own

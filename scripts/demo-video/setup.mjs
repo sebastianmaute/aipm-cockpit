@@ -6,6 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as L from './lib.mjs';
 import { caption, choose, click, holdVoice, moveTo, nav, pace, skipTour, type } from './ui.mjs';
+// A playback chapter's setup: its page instead of the app (take.mjs).
+export { openPlayback } from './playback.mjs';
 
 // Visible dialogs only: a closed modal can stay in the DOM after the one on screen.
 const DLG = '[role="dialog"]:visible';

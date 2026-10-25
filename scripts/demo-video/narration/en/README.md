@@ -31,4 +31,4 @@ Before you open a single list, the dashboard puts one thing on top.
 
 `big.md` adds to the six chapter files. If it has a part with the same name as a chapter part, the
 `big.md` text is used instead for the big video.
-`ch1-install` is recorded by hand and has no file.
+`ch1-install` (played back from a recording made by hand) is not part of the big video.

@@ -3,6 +3,7 @@
 // the preconditions. Then record: the opening caption, the steps, the closing beat. Every collaborator
 // arrives in `deps`, so take.test.mjs drives it without a browser. A narrated take (`ctx.narration`) also
 // returns its beats on the recording's timeline and the beats of its own file it never used. See README.md.
+import path from 'node:path';
 import { findSecrets } from './cli.mjs';
 import * as L from './lib.mjs';
 import { CLOSING, OPENING, TITLE } from './narration/beats.mjs';
@@ -175,6 +176,9 @@ export async function runTake(def, deps) {
       await setup.exploreDemo(ctx);
       await ui.holdVoice(ctx);
       await offCamera(deviceSetup);
+    } else if (def.playback) {
+      // A playback chapter (the install) shows a video recorded by hand: no app, no Turso, no demo.
+      await setup.openPlayback(ctx, path.join(L.OUT, def.playback));
     } else {
       await setup.connect(ctx, { onCamera: false });
       await setup.exploreDemo(ctx);

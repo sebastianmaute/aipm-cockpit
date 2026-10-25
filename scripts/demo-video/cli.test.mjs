@@ -15,10 +15,16 @@ describe('the recorder command line (§715)', () => {
     expect(() => selectVideos(VIDEOS, parseArgs(['--video', 'nope']))).toThrow('unknown video nope');
   });
 
-  it('--all skips the hand-recorded chapter', () => {
+  it('--all takes every video, the played-back install chapter included', () => {
     const all = selectVideos(VIDEOS, parseArgs(['--all']));
-    expect(all).toHaveLength(42);
-    expect(ids(all)).not.toContain('ch1-install');
+    expect(all).toHaveLength(43);
+    expect(ids(all)).toContain('ch1-install');
+  });
+
+  it('--all and --tier still skip a video recorded by hand that is not played back', () => {
+    const defs = [{ id: 'by-hand', tier: 'chapters', handRecorded: true }, { id: 'taken', tier: 'chapters' }];
+    expect(ids(selectVideos(defs, parseArgs(['--all'])))).toEqual(['taken']);
+    expect(ids(selectVideos(defs, parseArgs(['--tier', 'chapters'])))).toEqual(['taken']);
   });
 
   it('--tier ai is the 15 AI clips in order', () => {

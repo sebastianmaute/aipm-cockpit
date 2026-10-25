@@ -186,7 +186,7 @@ function readSidecar(file) {
 
 /** Rewrites `<out>/youtube-details.html` for every video not recorded by hand, in `videos` order. `pathOf(def)` is
  *  the video's WebM path (cli.mjs outPath); its .mp4, .srt and .beats.json sit beside it. The playlists list every
- *  video, the hand-recorded install chapter too: it is uploaded by hand into the chapters' playlist. */
+ *  video, a hand-recorded one too: it is uploaded by hand into its playlist. */
 export function writeDetailsPage(out, videos, pathOf, { lang = 'en' } = {}) {
   const sibling = (def, ext) => {
     const p = pathOf(def).replace(/\.webm$/, ext);

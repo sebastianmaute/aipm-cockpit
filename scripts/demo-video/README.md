@@ -1,6 +1,6 @@
 # Video guides recorder (§715)
 
-These scripts take the 43 video guides of the getting-started set, one command per video, on the app's own demo project and a throwaway Turso database. Each video is a WebM recorded with Playwright, with an injected cursor and a caption bar. The parts outside the browser are recorded by hand: chapter 1 (download and install, `ch1-install`), creating the Turso database and creating the Anthropic key.
+These scripts take the 43 video guides of the getting-started set, one command per video, on the app's own demo project and a throwaway Turso database. Each video is a WebM recorded with Playwright, with an injected cursor and a caption bar. The parts outside the browser are recorded by hand: chapter 1 (download and install, `ch1-install`), creating the Turso database and creating the Anthropic key. Chapter 1 is then played back in a take like every other chapter ("Playback chapters" below).
 
 The videos and their steps are data (`videos.mjs`, `steps/`). The specs they follow are `docs/superpowers/specs/2026-10-16-video-guides-recorder-design.md` (the clips) and `docs/superpowers/specs/2026-10-16-demo-week-story-design.md` (the big video and the chapters).
 
@@ -25,7 +25,7 @@ The videos and their steps are data (`videos.mjs`, `steps/`). The specs they fol
 node scripts/demo-video/record.mjs --list                # the 43 videos: tier, number, id, title
 node scripts/demo-video/record.mjs --video f-gantt       # one video
 node scripts/demo-video/record.mjs --tier ai             # one tier: big | chapters | ai | features
-node scripts/demo-video/record.mjs --all                 # every video but the hand-recorded one
+node scripts/demo-video/record.mjs --all                 # every video
 node scripts/demo-video/cleanup.mjs                      # clear the throwaway database by hand
 node scripts/demo-video/discover.mjs "Resources>Planning" # list a view's controls, to write a selector
 ```
@@ -78,7 +78,7 @@ After every `record.mjs` run, a partial one too, `<out>/youtube-details.html` is
 - the description: the opening line, a summary from the narration's own title and closing beats, the chapters, and the credits. A music tier (big and the chapters) always carries "Music: Made with ElevenMusic" (a licence requirement); every narrated video carries "Narration: AI-generated voice (ElevenLabs)";
 - tags, category (Science & Technology), audience (not made for kids) and language (English).
 
-Above the videos, the page lists one playlist each for the chapters, the AI clips and the features: a name (at most 150 characters) and a description to paste. A description is an intro, one line per video of that tier with its title (from `videos.mjs`, in its order, the hand-recorded install chapter included), and an outro, so a clip added or renamed is listed without further edits. The names, intros and outros are the `PLAYLISTS` constant in `youtube.mjs`; edit them there. The big video has no playlist of its own: it goes first in the chapters' one, whose description links to it. The page notes that `[link to the full video]` must be replaced before you paste it.
+Above the videos, the page lists one playlist each for the chapters, the AI clips and the features: a name (at most 150 characters) and a description to paste. A description is an intro, one line per video of that tier with its title (from `videos.mjs`, in its order), and an outro, so a clip added or renamed is listed without further edits. The names, intros and outros are the `PLAYLISTS` constant in `youtube.mjs`; edit them there. The big video has no playlist of its own: it goes first in the chapters' one, whose description links to it. The page notes that `[link to the full video]` must be replaced before you paste it.
 
 The chapters come from `<name>.beats.json`, which the mix writes beside the `.mp4`: `{ "duration": <s>, "beats": [{ "id", "at", "caption" }] }`, each beat's time on the final video and the caption it first showed (null for a voice-only beat). The mix removes an earlier render's `.waits.json` and `.beats.json` before it writes the new ones, and a sidecar with no `.mp4` beside it, or one that cannot be read, gives no chapters. Titles and descriptions drop `<` and `>` (YouTube rejects them), and a description over 5000 characters drops its summary, then its chapters; the opening line and the credits always stay. The first is 0:00 (the splash and the title), then one per caption beat; the big video uses its days. A chapter shorter than 10 s is merged into the one before it; with fewer than three left, the video gets none. A video without a sidecar is listed without chapters.
 
@@ -89,7 +89,16 @@ The chapters come from `<name>.beats.json`, which the mix writes beside the `.mp
 - The headlines, tags and frame choices are `THUMBNAILS` in `thumbnails.mjs`; edit them there. A headline marks its red part in braces: `MILESTONE {SLIPPED}`.
 - The frame is taken 2.5 s after the video's first captioned beat (its view is on screen by then). An entry's `beat` picks another beat, and `at` a fixed time in seconds, when that frame shows a wizard, a spinner or an empty view.
 - The headline is fitted to one line (down to 150 px at the 1920 layout), else two, and the frame moves below it. The renderer fits it after the font has loaded and prints the size it chose.
-- A video with no `.mp4` (the hand-recorded install chapter, until its file is in the output folder) is skipped and said so; a PNG over YouTube's 2 MB is flagged, and the run then exits 1.
+- A video with no `.mp4` is skipped and said so; a PNG over YouTube's 2 MB is flagged, and the run then exits 1.
+
+## Playback chapters
+
+Chapter 1 (`ch1-install`) happens outside the browser (the download, Windows' installer, the first start), so it is recorded by hand, then played back in a take like any other chapter: it gets the same splash, title card, captions, narration, music, subtitles, chapters and thumbnail as the rest. `playback` in `videos.mjs` names its source; `playback.mjs` serves and plays it; `steps/install.mjs` holds its steps.
+
+- The source is `<out>/sources/01-ch1-install.webm`: the hand recording cut to the steps worth seeing, cropped to the screen, the taskbar covered, without sound, as VP9 WebM (the browser Playwright drives decodes no H.264). A take without it fails at once (`playback source missing`).
+- The take serves a page on the app's own origin (the splash loads from there) that plays the source full-frame. Each step shows its caption, which starts its narration line, then plays the source to where its stretch ends (`playTo`); a line longer than its stretch holds the stretch's last frame, as every caption waits for the voice before it. The stretch ends are seconds on the source, in `steps/install.mjs`: a new cut means new stretch ends.
+- It needs the dev server for the splash only: no Turso, no Anthropic key, no demo. `--all` and `--tier chapters` take it; the big video does not tell it (`narration/beats.mjs`).
+- The recording must stop before the app shows a workspace: a real one shows its projects and its database. The 2026-10-25 recording was cut to these source times: 0:01–0:36.5, 0:44–0:46, 1:47.5–2:01, 3:18–3:26, 3:54.5–3:58, 4:05–4:10.9 (the first install window, opened and closed again, and every wait are out). Each stretch was trimmed and concatenated with ffmpeg, then `crop=1728:972:96:0` (the screen inside the recording's canvas), `scale=1920:1080:flags=lanczos`, and `drawbox=x=0:y=1030:w=1920:h=50:color=0x0d1117@1:t=fill` over the taskbar, encoded with `-c:v libvpx-vp9 -crf 20 -b:v 0 -an`.
 
 ## The week's clock and the replay
 

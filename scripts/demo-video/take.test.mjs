@@ -5,7 +5,8 @@ import { CLOSING, OPENING, TITLE } from './narration/beats.mjs';
 import { runTake, takeNarration, waitForAi } from './take.mjs';
 import * as ui from './ui.mjs';
 import { step } from './steps/step.mjs';
-import { VIEWPORT } from './lib.mjs';
+import path from 'node:path';
+import { OUT, VIEWPORT } from './lib.mjs';
 
 function harness({ preconditionsOk = true, checks = [], days } = {}) {
   const calls = [];
@@ -52,6 +53,17 @@ describe('runTake (§715)', () => {
     expect(h.calls).toEqual([
       'connect(onCamera=false)', 'exploreDemo', 'seedDeviceState(p1)', 'enableDigest', 'enableChat', 'precondition',
       'showSplash', 'screencast.start', 'endSplash', 'titleCard(T)', 'caption(Open)', 'run(a)', 'run(b)', 'closingBeat', 'screencast.stop',
+    ]);
+  });
+
+  // Mutation: a playback chapter taken like the others connects Turso and opens the demo it never shows.
+  it('a playback chapter opens its source instead of the app: no Turso, no demo, no device setup', async () => {
+    const h = harness();
+    h.deps.setup.openPlayback = async (_c, file) => { h.calls.push(`openPlayback(${path.relative(OUT, file).split(path.sep).join('/')})`); };
+    const r = await runTake(def({ tier: 'chapters', title: 'T', opening: 'T', playback: 'sources/x.webm', steps: [h.s('a')] }), h.deps);
+    expect(r.status).toBe('ok');
+    expect(h.calls).toEqual([
+      'openPlayback(sources/x.webm)', 'showSplash', 'screencast.start', 'endSplash', 'titleCard(T)', 'run(a)', 'closingBeat', 'screencast.stop',
     ]);
   });
 
