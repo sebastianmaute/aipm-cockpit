@@ -355,11 +355,10 @@ describe("AiSection", () => {
   });
 
   it("gives each recall toggle a visible label matching its accessible name", () => {
-    // WCAG 2.5.3 (label-in-name). The axe gate CANNOT see a violation here —
-    // `label-content-name-mismatch` is tagged `experimental` and axe's default
-    // tagExclude drops it, so a tag-only runOnly never runs the rule. Matching
-    // the two strings at write time is the only protection, and this is the
-    // only thing that pins it.
+    // WCAG 2.5.3 (label-in-name). The axe gate runs
+    // `label-content-name-mismatch` since 4.14, but only over what the scanned
+    // views render; this pins the pair wherever the section renders. Matching
+    // the two strings at write time is the protection.
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
     for (const key of [
       "settingsAiHistorySearch",

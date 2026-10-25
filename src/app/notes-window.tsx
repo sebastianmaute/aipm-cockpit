@@ -33,9 +33,10 @@ export function NotesWindow(props: NotesWindowProps) {
   // (`aria-label`), its visible heading, and the `dialogTitle` qualifying the
   // help trigger's own name. Spelled separately, an edit to one leaves the
   // trigger announcing "Help – <old name>" while the dialog announces the new
-  // one — a WCAG 2.5.3 label-in-name mismatch that NOTHING here can catch:
-  // axe's `label-content-name-mismatch` is tagged `experimental` and axe's
-  // default `tagExclude` drops it, so the gate never runs it in any view.
+  // one — a WCAG 2.5.3 label-in-name mismatch. axe's
+  // `label-content-name-mismatch` runs in the gate since 4.14 (it was
+  // `experimental`, and skipped, before), but only over the one Notes-window
+  // scan in `e2e/a11y.spec.ts`, for the one entity that scan opens.
   // Deriving all three from one const makes the drift unrepresentable.
   const windowTitle = `${t(lang, "noteLogTitle")} — ${entityLabel}`;
 

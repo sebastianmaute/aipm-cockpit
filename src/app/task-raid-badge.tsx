@@ -67,10 +67,10 @@ function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadge
       // position-independent; front position here is the Understanding note's
       // best practice, not the criterion. Do not "enforce" prefixing elsewhere
       // on the strength of this line.
-      // ★★ No gate can see a regression here: axe's `label-content-name-mismatch`
-      // carries `wcag21a` but is also `experimental`, which axe's default
-      // tagExclude drops, so the a11y gate never runs it. `task-raid-badge.test.tsx`
-      // is the only detector of the CONTAINMENT property specifically. The exact
+      // ★★ axe's `label-content-name-mismatch` runs in the a11y gate since
+      // 4.14, but only over the rows the e2e seed renders, so
+      // `task-raid-badge.test.tsx` is the detector of the CONTAINMENT property
+      // everywhere else. The exact
       // name, leading count included, is ALSO pinned in `task-row.test.tsx` and
       // `task-kanban-card.test.tsx`, so an ORDER mutant reddens three files.
       aria-label={rowLabel(rowLabel(countText, tPlural(lang, "raidReferencedBy", refs.length, refs.length)), rowToken)}

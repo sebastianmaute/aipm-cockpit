@@ -17,10 +17,11 @@ interface AddFirstItemButtonProps {
    * whole-node visible-text computation that reads as a 2.5.3 mismatch. We treat the CTA line as
    * the label and the sentence above it as supplementary description — 2.5.3 concerns the text
    * that IDENTIFIES the control, and axe's whole-node computation is a tool implementation, not
-   * the success criterion. The gate can't disagree: the rule is `label-content-name-mismatch`,
-   * tagged `experimental`, and axe's default `tagExclude` includes `experimental` — `e2e/a11y.spec.ts`
-   * selects rules by tag only (`withTags`, no explicit rule override), so it never runs, in any
-   * view, regardless. Two fixes were considered and REJECTED, both because this binds every
+   * the success criterion. ★★ THE GATE CAN NOW DISAGREE: until axe 4.14 the rule,
+   * `label-content-name-mismatch`, was tagged `experimental` and never ran; 4.14 dropped the tag,
+   * so `e2e/a11y.spec.ts`'s tag-only `withTags` runs it. It stays green only because no scanned
+   * view renders this button WITH `text` (the seed fills every register, so no empty state shows)
+   * — a seed or view change that does will fail the gate here. Two fixes were considered and REJECTED, both because this binds every
    * caller passing `text`, not just the one that raised it: moving the description out of the
    * button would keep containment but shrink the click target (today the whole dashed box is
    * clickable) for every calling panel; widening `ariaLabel` to contain both would be mechanically

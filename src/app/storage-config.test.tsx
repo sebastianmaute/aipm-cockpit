@@ -440,8 +440,8 @@ describe("StorageConfigSection — kind select routing", () => {
 //   case-folded text). A case-SENSITIVE DE assertion would therefore fail code that CONFORMS, and
 //   "fixing" it by capitalising the verb mid-sentence would break German orthography instead.
 // ★★ NO GATE CATCHES THIS EITHER WAY: the SharePoint block needs `auth.account` (a live MSAL cache)
-//   so axe never renders it, and axe's 2.5.3 rule is `experimental`, which its default tagExclude
-//   drops — see `docs/AGENTS/accessibility.md`. A unit test is the only possible detector.
+//   so axe never renders it, although the gate runs the 2.5.3 rule since axe 4.14 — see
+//   `docs/AGENTS/accessibility.md`. A unit test is the only possible detector.
 // ★ The DE dictionary is LAZY, so `loadI18n("de")` must run before any `t("de", …)`; without it
 //   `t` serves the EN string and every assertion below compares EN with EN, i.e. is vacuous. The
 //   `expect(visible).not.toBe(t("en-US", …))` line is the anti-vacuity check for exactly that.

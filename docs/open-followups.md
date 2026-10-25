@@ -23523,6 +23523,13 @@ node -e "const a=require('axe-core');const r=a.getRules(['wcag21a']).find(x=>x.r
 is the wrong question; it survives tagExclude only under an explicit per-rule override, which the
 spec never passes. A unit test is the only possible detector, here and everywhere else.
 
+★★ **SUPERSEDED 2026-10-25 — the paragraph above is the record of axe 4.12.1/4.13, kept as filed.**
+axe-core 4.14 dropped the `experimental` tag from `label-content-name-mismatch`, so the tag-only gate now
+RUNS it, and its first CI run failed every Dashboard, Open Points, Gantt and Documents scan (all fixed on
+the branch that took the bump). It still sees only what the seed renders in the scanned views, and never a
+`<select>`, so the unit test stays the detector everywhere else — `docs/AGENTS/accessibility.md` carries the
+current account. Reproduce: the same command now prints tags without `experimental`.
+
 ★ **Resolving it is a product call, not a mechanical one.** Options: fold the mix string into the
 name (`"2R · 1A · 0I · 0D, referenced by 2 RAID item(s) – Alpha"`, which lengthens every
 announcement); or drop the glyph string in favour of visible text the name already contains, which

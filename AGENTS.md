@@ -227,8 +227,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   interactive control (button/checkbox/input/drag handle) needs an accessible name + keyboard
   operability; `placeholder` is NOT an accessible name, and an unlabeled form control is axe-critical
   FAIL. Per-row controls in a list need a row-UNIQUE name (`buildRowTokens`/`rowLabel`).
-  ★★★ A green axe run is SILENT on duplicate accessible names, on WCAG 2.5.3 label-in-name and on
-  colour-only toggle state, in every view at every seed size — only a UNIT test catches those. Use
+  ★★★ A green axe run is SILENT on duplicate accessible names and on colour-only toggle state, in
+  every view at every seed size — only a UNIT test catches those. ★★ WCAG 2.5.3 label-in-name is
+  now HALF-covered: since axe-core 4.14 the gate runs `label-content-name-mismatch`, but only over
+  what the seed renders in the scanned views and never over a `<select>`, so a unit test
+  (`src/test/label-in-name.ts`) still owns every other surface. Use
   `ToggleButton`/`SegmentedControl`, never a hand-rolled `aria-pressed` button. Open that file before
   adding a control, a view or a toggle: what `A11Y_VIEWS` does NOT scan, and running it locally, are there.
   Before pushing an IA/UI/contrast change, run `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"`: the unit suite never runs axe, so otherwise it fails only in CI.

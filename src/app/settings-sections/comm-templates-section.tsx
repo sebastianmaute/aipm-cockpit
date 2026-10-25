@@ -263,8 +263,9 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
               // failed 2.4.6 outright on every duplicate name), it bites only a
               // duplicate-named DEFAULT row, and the alternative — a second token
               // map built over the full visible label — puts two parallel maps in
-              // this component that can drift apart. Revisit if a 2.5.3 gate ever
-              // runs; axe's rule is experimental and cannot see this today.
+              // this component that can drift apart. A 2.5.3 gate now runs (axe
+              // 4.14), but it would not flag this: its comparison drops
+              // parentheticals, so "(2)" is not there to interrupt anything.
               const rowName = tpl.isDefault ? `${token} ${t(lang, "commTplDefaultBadge")}` : token;
               return (
               <li key={tpl.id} className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 transition-colors hover:border-ui-dark-blue/40 hover:bg-surface-muted">

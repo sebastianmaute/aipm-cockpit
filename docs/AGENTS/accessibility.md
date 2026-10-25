@@ -28,7 +28,7 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   `aria-label={`${t(lang,"edit")} – ${row.name}`}`) — N identical "Edit"/"Enabled" labels is
   WCAG 2.4.6 fail. ★★★ **THE AXE GATE CANNOT CATCH THIS AT ALL — not "only when one row is seeded".**
   Measured 2026-08-08 against the installed axe-core 4.12.1, not reasoned, and re-run unchanged on
-  2026-09-25 against 4.13.0 (`docs/open-followups.md` §497), so every "4.12.1" quote here still holds: of its 105
+  2026-09-25 against 4.13.0 (`docs/open-followups.md` §497) and on 2026-10-25 against 4.14.0, so every "4.12.1" quote here still holds: of its 105
   rules, **69** carry one of the four tags `e2e/a11y.spec.ts` requests (`wcag2a wcag2aa wcag21a
   wcag21aa`), and NOT ONE of them flags two controls sharing an accessible name. ★★ THAT SENTENCE IS
   THE CLAIM — "two CONTROLS" is load-bearing, and every weaker paraphrase of it here has been false.
@@ -130,33 +130,43 @@ describe where it sat in `AGENTS.md`, not this file; `AGENTS.md` keeps a short p
   colliding, not necessarily the one under test — an unrelated real collision can mask a silently
   narrowed `roles` array. The only automatic guard is `minControls`, and only when kept at its exact
   MEASURED value for that scope; a loose floor lets the same narrowing back in unnoticed.
-  ★★★ THE GATE IS SILENT ON WCAG 2.5.3 (label-in-name) IN EVERY VIEW TOO — and here, unlike the case
-  above, THE RULE DOES EXIST, which is what makes it dangerous. axe 4.12.1 ships
-  `label-content-name-mismatch` and it DOES carry `wcag21a`, one of the four tags the spec requests, so
-  a rule listing reads as coverage. It is ALSO tagged `experimental`, and axe's default tagExclude is
-  `experimental,deprecated` — a tag-only runOnly never RUNS it, and `e2e/a11y.spec.ts` enables no rule
-  explicitly. Measured 2026-08-09 under the gate's exact four tags, not reasoned: the rule lands in NO
-  result bucket — not violations, passes, incomplete OR inapplicable — and appears only once
-  `{"label-content-name-mismatch": {enabled: true}}` is passed as an explicit rule override. Reproduce:
-  `node -e "const a=require('axe-core');const r=a.getRules(['wcag21a']).find(x=>x.ruleId==='label-content-name-mismatch');console.log(!!r, a._audit.tagExclude.join(','), r.tags.join(','))"`
-  → `true experimental,deprecated cat.semantics,wcag21a,…`. ★★ So "does `getRules(tags)` list it?" is
-  the WRONG question — ask whether it survives tagExclude. That mistake was made and corrected on
-  2026-08-09: a listing probe was read as proof the gate ran the rule. A control whose VISIBLE label is
-  not CONTAINED in its `aria-label` (2.5.3 is case-INSENSITIVE — Understanding SC 2.5.3, "Punctuation
-  and capitalization") therefore needs a UNIT test, in every view, scanned or not.
+  ★★★ THE GATE RUNS WCAG 2.5.3 (label-in-name) SINCE axe-core 4.14 — BUT ONLY WHERE IT SCANS. Up to
+  4.13 the rule, `label-content-name-mismatch`, carried `wcag21a` (one of the four tags the spec
+  requests) AND `experimental`, and axe's default tagExclude is `experimental,deprecated`, so the
+  tag-only runOnly never ran it: measured 2026-08-09, it landed in NO result bucket. 4.14 dropped the
+  `experimental` tag, and the very next CI run failed every Dashboard, Open Points, Gantt and
+  Documents scan, the Notes-window, block-editor, chart-readout and pink-count-badge scans, and the
+  two-tab conflict-banner scan (fixed in the same branch). Reproduce — the tags no longer include
+  `experimental`, so tagExclude no longer drops it:
+  `node -e "const a=require('axe-core');const r=a.getRules().find(x=>x.ruleId==='label-content-name-mismatch');console.log(a.version, a._audit.tagExclude.join(','), r.tags.join(','))"`
+  → `4.14.0 experimental,deprecated cat.semantics,wcag21a,wcag253,…`. ★★ "Does `getRules(tags)` list
+  it?" was always the WRONG question — ask whether it survives tagExclude (a listing probe was once
+  read as proof the gate ran the rule while it did not). ★★ A green run still proves nothing about a
+  control the seed does not render in a scanned view (a modal, a Turso-only surface, an empty state,
+  the Calendar sub-tab), nor about a `<select>` (below). Pin those with a UNIT test using
+  `expectLabelInName` (`src/test/label-in-name.ts`), which mirrors 4.14's comparison.
+  ★★★ 4.14 COMPARES WORDS, AND THREE OF ITS RULES BIT THIS REPO AT ONCE. Its `isLabelContainedInName`
+  curates both strings into word tokens (NFKD, parentheticals removed, every non-letter/non-number a
+  space, case-folded) and needs the visible words as one CONTIGUOUS run inside the name's. (1) Visible
+  text is joined across sibling elements with NO separator, so `<span>Status</span><span>3</span>` shows
+  the one word "Status3" — a `{" "}` text node between them fixes it and renders nothing in a flex row.
+  (2) Visible means on SCREEN: `aria-hidden` text (a count badge) still counts, so the name must carry
+  it. (3) A button WRAPPING a whole card or chart makes every figure in it part of its label — wrap the
+  label alone (the clickable `Tile`) or lay an empty button over the chart (the burn-down readout).
   ★★★ CONTAINMENT, NOT PREFIX — an earlier revision of this bullet said "prefix-preserving substring"
-  and that is a STRICTER rule than the SC, so applying it literally flags conformant code: axe ends in
-  `curatedCompareWith.includes(curatedCompare)` (position-independent, punctuation- and unicode-
-  stripped), and this repo's own dependency type select passes while failing a prefix test — visible
+  and that is a STRICTER rule than the SC, so applying it literally flags conformant code: axe up to
+  4.13 ended in `curatedCompareWith.includes(curatedCompare)` (position-independent, punctuation- and
+  unicode-stripped), 4.14 in the position-independent contiguous WORD match above, and this repo's own dependency type select passes while failing a prefix test — visible
   "Type for next link" inside accessible "Predecessor type for next link". ★★ Front-position IS a real
   best practice and WCAG says so — but in a NOTE attached to the SC ("A best practice is to have the
   text of the label at the start of the name"), not in its normative text, so enforcing it as THE rule
   flags conformant code. An earlier revision of this very paragraph cited that best practice to G208 /
   G211 "for speech input, not 2.5.3", which is backwards twice over: those two ARE 2.5.3's own
   sufficient techniques, and neither one mentions ordering. 2.5.3 IS the speech-input criterion.
-  ★★★ AND THE RULE CANNOT SEE A `<select>` AT ALL, so enabling it explicitly is not the fix it looks
-  like. Its `matches` admits only roles supporting name-from-content; a `<select>` without `multiple`
-  and size null-or-1 maps to `combobox`, which is not among them. Measured 2026-08-09, not reasoned:
+  ★★★ AND THE RULE CANNOT SEE A `<select>` AT ALL, so the gate running it now is no cover there. Its
+  `matches` admits only roles supporting name-from-content; a `<select>` without `multiple`
+  and size null-or-1 maps to `combobox`, which is not among them. Measured 2026-08-09, not reasoned,
+  and re-measured unchanged on 2026-10-25 against 4.14.0:
   `node -e 'const s=require("axe-core").commons.standards.getAriaRolesSupportingNameFromContent();console.log(s.length, "combobox:", s.includes("combobox"), "button:", s.includes("button"))'`
   → `32 combobox: false button: true`. So for every `<select>` in the app the unit test is not merely
   the best detector, it is the ONLY possible one, at any gate configuration.

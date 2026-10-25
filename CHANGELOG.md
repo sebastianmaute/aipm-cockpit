@@ -263,6 +263,15 @@ longer carries its own changelog comment.
   After the switch to Turso, the app came back with an empty workspace: no project name in the header, a
   browser-storage label, and Edit project doing nothing. Creating the demo project from there also showed a
   false "changed in another tab" warning. A create that fails now leaves the app where it was.
+- **Speech input can now reach more controls by the words they show (WCAG 2.5.3).** A voice-control user
+  says what is on screen, and these controls were named differently from what they show, so saying their
+  visible label did nothing: the Dashboard's clickable KPI tiles (Complete, R / A / G, Overdue, Open RAID, SPI,
+  CPI), the inline Assignee, Start date, Due date and Priority cells in Open Points, a filter button with a
+  count such as "Status 3", the bell while it shows a count, the Undo and Redo buttons with their count, a
+  linked item's chip in Documents ("#1 Design SSO architecture") and the budget chart's value readout.
+  Each name now contains its visible text. Screen readers hear more as well: the KPI tiles' values are
+  read again (the tile's name used to hide them), and the inline cells, the bell and Undo/Redo name their
+  value or count.
 
 ### Security
 
@@ -287,6 +296,10 @@ longer carries its own changelog comment.
   GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472 and GHSA-xjj6-f33q-929c (undici), and GHSA-9jrq-w75r-8gcw,
   GHSA-rq7h-c2jc-7f22, GHSA-698v-4r3x-3vcv, GHSA-r825-w8mm-5pxw and GHSA-587h-7wmj-h5pm (vite, the last three
   in the launch-editor code vite bundles in its dist). Only the lockfile changes; nothing the app ships moves.
+- **Playwright 1.64.1 and axe-core 4.14 (`@axe-core/playwright` 4.14.0), with the e2e CI image
+  `v1.64.1-jammy`.** axe-core 4.14 no longer marks its WCAG 2.5.3 rule, `label-content-name-mismatch`, as
+  experimental, so the a11y gate now runs it; the controls it flagged are the Fixed entry above. Unit tests
+  pin each one with the new `src/test/label-in-name.ts` helper, which mirrors the rule's word-by-word comparison.
 
 ### Notes
 
