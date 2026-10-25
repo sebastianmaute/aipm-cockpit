@@ -244,6 +244,8 @@ function hasJournalFields(value: unknown): value is Omit<UnloadJournal, "v"> & R
     typeof rec.tabId === "string" &&
     isTimestamp(rec.savedAt) &&
     typeof rec.baseFingerprint === "string" &&
+    (rec.ancestorFingerprints === undefined ||
+      (Array.isArray(rec.ancestorFingerprints) && rec.ancestorFingerprints.every((x) => typeof x === "string"))) &&
     typeof rec.workspace === "string"
   );
 }

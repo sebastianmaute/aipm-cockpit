@@ -48,7 +48,7 @@ import * as storageMod from "./storage";
 import { TestProviders } from "./test-providers";
 import { fingerprintWorkspace, UNLOAD_JOURNAL_PREFIX, type UnloadJournal } from "./unload-journal";
 import { useStorageBackend } from "./use-storage-backend";
-import { UNLOAD_JOURNAL_TAB_ID, useUnloadJournal } from "./use-unload-journal";
+import { MAX_ANCESTORS, UNLOAD_JOURNAL_TAB_ID, useUnloadJournal } from "./use-unload-journal";
 import { emptyWorkspace, jsonToWorkspace, workspaceToJson, type Workspace } from "./workspace";
 import { isMassDeletion, workspaceRecordCount } from "./workspace-metrics";
 import { useWorkspace } from "./workspace-context";
@@ -617,6 +617,58 @@ describe("§629 — useUnloadJournal restore on its own", () => {
     const { applied, conflict } = restoreOnNextLoad(other);
     expect(applied).toBeNull();
     expect(conflict).toBe(true);
+  });
+
+  it("§629 — the applied journal is re-tagged with its ancestors kept", () => {
+    unloadWithSavesInFlight([S1, S2]);
+    restoreOnNextLoad(S1);
+    expect(readJournal(KEY)!.ancestorFingerprints).toEqual([fingerprintWorkspace(S1)]);
+  });
+
+  it("§629 — only the newest MAX_ANCESTORS earlier saves are ancestors", () => {
+    const chain = [S1];
+    for (let id = 3; id <= 3 + MAX_ANCESTORS; id++) chain.push({ ...B0, tasks: [...chain[chain.length - 1].tasks, { id, taskName: `T${id}` } as unknown as Task] });
+    unloadWithSavesInFlight(chain); // the last one is journalled; the MAX_ANCESTORS before it are ancestors, S1 is not
+    expect(readJournal(KEY)!.ancestorFingerprints).toHaveLength(MAX_ANCESTORS);
+    expect(restoreOnNextLoad(S1).conflict).toBe(true);
+  });
+
+  it("§629 — a save of another project is never an ancestor", () => {
+    const page = renderHook(({ projectKey }) => useUnloadJournal({ projectKey, enabled: true, isPopout: false }), { initialProps: { projectKey: "p1" } });
+    act(() => { page.result.current.setBase(B0, "p1"); });
+    page.rerender({ projectKey: "p2" });
+    act(() => { page.result.current.noteSaveStarted(S1); }); // keyed p2
+    page.rerender({ projectKey: "p1" });
+    act(() => { page.result.current.noteSaveStarted(S2); });
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    window.dispatchEvent(new Event("pageshow"));
+    page.unmount();
+    expect(readJournal(KEY)!.ancestorFingerprints).toBeUndefined();
+    expect(restoreOnNextLoad(S1).conflict).toBe(true);
+  });
+
+  it("§629 — R7: with the base held for a project op, the journal names no ancestors", () => {
+    const page = renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
+    act(() => {
+      page.result.current.setBase(B0, "p1");
+      page.result.current.noteSaveStarted(S1);
+      page.result.current.holdBase(S1);
+      page.result.current.noteSaveStarted(S2);
+    });
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    window.dispatchEvent(new Event("pageshow"));
+    page.unmount();
+    expect(readJournal(KEY)!.ancestorFingerprints).toBeUndefined();
+    expect(restoreOnNextLoad(S1).conflict).toBe(true);
+  });
+
+  it("§629 — a record whose ancestors are not a list of strings is malformed: nothing restores, the load does not throw", () => {
+    const bad = { v: 1, projectKey: "p1", tabId: "an-earlier-page", savedAt: 1, baseFingerprint: "x", ancestorFingerprints: `pre-${fingerprintWorkspace(S1)}`, workspace: workspaceToJson(S2) };
+    localStorage.setItem(KEY, JSON.stringify(bad));
+    const { applied, conflict } = restoreOnNextLoad(S1);
+    expect(applied).toBeNull();
+    expect(conflict).toBe(false);
+    expect(localStorage.getItem(KEY)).toBeNull();
   });
 
   it("§629 — a save started before the base was set is not one the journal was built on: a conflict", () => {

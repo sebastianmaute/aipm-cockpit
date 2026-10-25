@@ -200,6 +200,13 @@ export function resolveJournalProjectKey(storageKind: StorageKind, tursoProjectI
  *  in the other writer's version) the entry is dropped: re-based, it would restore silently over it. */
 type Unconfirmed = { projectKey: string; workspace: Workspace; savedAt: number; boundToBase?: true };
 
+/** A save started and not yet confirmed. `workspace` is null once newer saves of the key push it out of the ancestor window. */
+type InFlight = { projectKey: string; workspace: Workspace | null; fingerprint: string | null };
+
+/** §629 — how many of a key's newest saves in flight a journal names as ancestors: bounds the work in pagehide and
+ *  the copies held while saves keep failing. Two saves in flight is the case seen; three leaves room. */
+export const MAX_ANCESTORS = 3;
+
 /** The record a conflict notice describes, kept IN MEMORY as the restore read it: its key, the
  *  record itself (its `tabId` + `savedAt` identify it) and its decoded workspace. Restore anyway
  *  applies this copy, so a later write to the key cannot take it away while the notice shows. */
@@ -257,11 +264,10 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   /** A project op's applied workspace, waiting for its target's key — see `holdBase`. */
   const heldBaseRef = useRef<{ workspace: Workspace; savedAt: number } | null>(null);
   const latestUnconfirmedRef = useRef<Unconfirmed | null>(null);
-  /** savedAt → projectKey of each save started and not yet confirmed, so a confirmation
-   *  clears the key its save was journaled under even after a project switch. */
-  const inFlightRef = useRef(new Map<number, string>());
-  /** savedAt → workspace of the same saves, for the journal's `ancestorFingerprints`; kept in step with `inFlightRef`. */
-  const inFlightWorkspaceRef = useRef(new Map<number, Workspace>());
+  /** savedAt → each save started and not yet confirmed: its projectKey, so a confirmation clears the key its
+   *  save was journaled under even after a project switch, and — for the newest `MAX_ANCESTORS` of a key — its
+   *  workspace and cached fingerprint, for the journal's `ancestorFingerprints`. */
+  const inFlightRef = useRef(new Map<number, InFlight>());
 
   const baseFingerprintFor = useCallback((key: string): string => {
     const base = baseRef.current;
@@ -278,10 +284,17 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   const ancestorFingerprintsFor = useCallback((key: string, savedAt: number): string[] => {
     const base = baseRef.current;
     if (base === null || base.projectKey !== key) return [];
+    // `noteSaveStarted` keeps a workspace on at most MAX_ANCESTORS earlier saves of a key, so at most that many
+    // fingerprints are computed inside pagehide, and each once (cached on the entry).
     const out: string[] = [];
-    for (const [at, k] of inFlightRef.current) {
-      const ws = inFlightWorkspaceRef.current.get(at);
-      if (k === key && at > base.savedAt && at < savedAt && ws !== undefined) out.push(fingerprintWorkspace(ws));
+    for (const [at, f] of inFlightRef.current) {
+      if (f.projectKey !== key || f.workspace === null || at <= base.savedAt || at >= savedAt) continue;
+      try {
+        f.fingerprint ??= fingerprintWorkspace(f.workspace!);
+        out.push(f.fingerprint);
+      } catch {
+        // One that does not encode is left out; the record, and its other ancestors, are still written.
+      }
     }
     return out;
   }, []);
@@ -369,8 +382,10 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
     if (!activeRef.current) return savedAt;
     const entry: Unconfirmed = { projectKey: projectKeyRef.current, workspace: outgoing, savedAt };
     latestUnconfirmedRef.current = entry;
-    inFlightRef.current.set(savedAt, entry.projectKey);
-    inFlightWorkspaceRef.current.set(savedAt, outgoing);
+    // Only the newest MAX_ANCESTORS of a key keep their workspace: a backlog of failed saves holds keys, not copies.
+    const ofKey = [...inFlightRef.current.values()].filter((f) => f.projectKey === entry.projectKey && f.workspace !== null);
+    for (const f of ofKey.slice(0, Math.max(0, ofKey.length - MAX_ANCESTORS))) { f.workspace = null; f.fingerprint = null; }
+    inFlightRef.current.set(savedAt, { projectKey: entry.projectKey, workspace: outgoing, fingerprint: null });
     if (isPageHiding() || document.visibilityState === "hidden") write(entry);
     return savedAt;
   }, [write]);
@@ -402,9 +417,8 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
    *  was started for. Returns `false` only when `refused` had to be kept and could not be (`keep`). */
   const noteSaveRefused = useCallback((savedAt: number, refused: Workspace | null): boolean => {
     if (!activeRef.current) return true;
-    const key = inFlightRef.current.get(savedAt) ?? projectKeyRef.current;
+    const key = inFlightRef.current.get(savedAt)?.projectKey ?? projectKeyRef.current;
     inFlightRef.current.delete(savedAt);
-    inFlightWorkspaceRef.current.delete(savedAt);
     if (latestUnconfirmedRef.current?.savedAt === savedAt) latestUnconfirmedRef.current = null;
     return refused === null || keep({ projectKey: key, workspace: refused, savedAt });
   }, [keep]);
@@ -416,12 +430,12 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   }, []);
 
   const noteSaveConfirmed = useCallback((savedAt: number, confirmed: Workspace): void => {
-    const key = inFlightRef.current.get(savedAt);
+    const key = inFlightRef.current.get(savedAt)?.projectKey;
     if (key === undefined) return;
     // An older save of the same project confirming later could not clear anything this one
     // has not already cleared, nor move the base (it is not newer), so its entry goes too.
-    for (const [at, k] of inFlightRef.current) {
-      if (at <= savedAt && k === key) { inFlightRef.current.delete(at); inFlightWorkspaceRef.current.delete(at); }
+    for (const [at, f] of inFlightRef.current) {
+      if (at <= savedAt && f.projectKey === key) inFlightRef.current.delete(at);
     }
     clearUnloadJournal(key, { tabId: UNLOAD_JOURNAL_TAB_ID, ifSavedAtAtMost: savedAt });
     const latest = latestUnconfirmedRef.current;
@@ -475,8 +489,8 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   const dropUnconfirmed = useCallback((key: string): void => {
     const latest = latestUnconfirmedRef.current;
     if (latest !== null && latest.projectKey === key) latestUnconfirmedRef.current = null;
-    for (const [at, k] of inFlightRef.current) {
-      if (k === key) { inFlightRef.current.delete(at); inFlightWorkspaceRef.current.delete(at); }
+    for (const [at, f] of inFlightRef.current) {
+      if (f.projectKey === key) inFlightRef.current.delete(at);
     }
     clearUnloadJournal(key, { tabId: UNLOAD_JOURNAL_TAB_ID, ifSavedAtAtMost: lastSavedAt });
   }, []);

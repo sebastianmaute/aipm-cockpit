@@ -360,7 +360,10 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
   unload, the earlier one landed, the later one (the journal's) was lost. The loaded version is then
   neither the journal's content nor its confirmed base, and the notice used to appear for a project
   nothing else had changed (seen in the demo recorder's day reload right after an edit). A save
-  started BEFORE the base was set is never an ancestor, and a held op base (R7) has none.
+  started BEFORE the base was set is never an ancestor, and a held op base (R7) has none. Only the
+  newest `MAX_ANCESTORS` earlier saves of a key keep their workspace for this (a backlog of failed
+  saves holds keys, not copies), so pagehide computes at most that many fingerprints, each cached;
+  a record whose `ancestorFingerprints` is not a list of strings is malformed (`hasJournalFields`).
   Anything else raises the `unloadJournalConflict` notice: Restore anyway (`restoreConflict`, from
   an in-memory copy) or Discard (`discardConflict`).
 - A popout never journals or restores.
