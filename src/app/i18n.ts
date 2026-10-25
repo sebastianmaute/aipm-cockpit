@@ -1669,7 +1669,8 @@ const enUS = {
     "Each reminder can be turned on or off independently. The lead time sets how many work days before a due date you are nudged (overdue and due-today are always included).",
 
   showDueAlerts: "Show due-date notifications",
-  showDueAlertsCount: "Show due-date notifications – {0} urgent",
+  showDueAlertsCount: "Show due-date notifications – {0} actions for now",
+  showDueAlertsCountOne: "Show due-date notifications – 1 action for now",
   addTaskButton: "Add task",
 
   templateSaveTitle: "Save project as a template",
@@ -3134,6 +3135,10 @@ const enUS = {
   undoToastResourceEmailPropagatedOne: "Edited 1 item and updated {0} linked record",
   redo: "Redo",
   redoTooltip: "Redo last change",
+  undoActionName: "{0} {1} – the latest of {1} changes",
+  undoActionNameOne: "{0} {1} – the latest change",
+  redoActionName: "{0} {1} – the next of {1} undone changes",
+  redoActionNameOne: "{0} {1} – the undone change",
   undoneX: "Undone: {0}",
   redoneX: "Redone: {0}",
   undoShowHistory: "Show undo history",

@@ -120,6 +120,10 @@ describe("TopBar", () => {
     const { unmount } = render(<TopBar {...base} lang={lang} bannerCount={3} />);
     expectLabelInName(screen.getByRole("button", { name: t(lang, "showDueAlertsCount", 3) }));
     unmount();
+    // Singular: one Now-tier action reads "1 action", still containing the visible "1".
+    const one = render(<TopBar {...base} lang={lang} bannerCount={1} />);
+    expectLabelInName(screen.getByRole("button", { name: t(lang, "showDueAlertsCountOne") }));
+    one.unmount();
     render(<TopBar {...base} lang={lang} bannerCount={0} />);
     expect(screen.getByRole("button", { name: t(lang, "showDueAlerts") })).toBeInTheDocument();
   });

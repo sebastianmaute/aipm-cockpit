@@ -1562,7 +1562,8 @@ export const de: Record<TranslationKey, string> = {
     "Jede Erinnerung kann unabhängig aktiviert oder deaktiviert werden. Die Vorlaufzeit legt fest, wie viele Arbeitstage vor einem Fälligkeitsdatum Sie erinnert werden (überfällige und heute fällige Aufgaben sind immer enthalten).",
 
   showDueAlerts: "Fälligkeits-Benachrichtigungen anzeigen",
-  showDueAlertsCount: "Fälligkeits-Benachrichtigungen anzeigen – {0} dringend",
+  showDueAlertsCount: "Fälligkeits-Benachrichtigungen anzeigen – {0} Aktionen für jetzt",
+  showDueAlertsCountOne: "Fälligkeits-Benachrichtigungen anzeigen – 1 Aktion für jetzt",
   addTaskButton: "Aufgabe hinzufügen",
 
   templateSaveTitle: "Projekt als Vorlage speichern",
@@ -2973,6 +2974,10 @@ export const de: Record<TranslationKey, string> = {
   activityUnknownKind: "Unbekannte Aktivität ({0})",
   redo: "Wiederholen",
   redoTooltip: "Letzte Änderung wiederholen",
+  undoActionName: "{0} {1} – die letzte von {1} Änderungen",
+  undoActionNameOne: "{0} {1} – die letzte Änderung",
+  redoActionName: "{0} {1} – die nächste von {1} rückgängig gemachten Änderungen",
+  redoActionNameOne: "{0} {1} – die rückgängig gemachte Änderung",
   undoneX: "Rückgängig gemacht: {0}",
   redoneX: "Wiederholt: {0}",
   undoShowHistory: "Rückgängig-Verlauf anzeigen",

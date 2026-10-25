@@ -63,6 +63,7 @@ function UndoRedoControl({
   onActivateThrough,
   actionLabel,
   labelKey,
+  nameKey,
   historyButtonKey,
   historyLabelKey,
   countKey,
@@ -76,6 +77,9 @@ function UndoRedoControl({
   onActivateThrough: (id: number) => void;
   actionLabel: string;
   labelKey: TranslationKey;
+  /** The action button's accessible name, a plural template over the visible
+   *  word ({0}) and the depth ({1}), so a translator owns the word order. */
+  nameKey: PluralBaseKey;
   /** Accessible name for the caret — it opens the whole history, not "the next
    *  entry" (which is what the retired "Show next undo" strings claimed). */
   historyButtonKey: TranslationKey;
@@ -271,13 +275,14 @@ function UndoRedoControl({
         // measure "the next focusable" from.
         onClick={() => { armExitFocus(); onActivate(); }}
         // ★★ WCAG 2.5.3 (label in name): the button SHOWS "Undo" and the stack
-        // depth, so the name starts with exactly those words — "Undo last
+        // depth, so the name starts with exactly those words and then says what
+        // the number counts ("Undo 3 – the latest of 3 changes") — "Undo last
         // change" alone contained neither the count nor, word for word, "Undo
         // 3" (axe 4.14 label-content-name-mismatch, the two-tab conflict scan).
         // The `{" "}` below keeps label and count two words: sibling text joins
         // with no separator, and a whitespace-only text node in this flex row
         // renders nothing.
-        aria-label={`${t(lang, labelKey)} ${depth} – ${actionLabel}`}
+        aria-label={tPlural(lang, nameKey, depth, t(lang, labelKey), depth)}
         title={actionLabel}
         className={`${BUTTON_CLASS} rounded-r-none border-r-0 ${INTERACTIVE}`}
       >
@@ -375,6 +380,7 @@ export function UndoControl({ lang, entries, onUndo, onUndoThrough, dataTourId }
       onActivateThrough={onUndoThrough}
       actionLabel={t(lang, "undoTooltip")}
       labelKey="undo"
+      nameKey="undoActionName"
       historyButtonKey="undoShowHistory"
       historyLabelKey="undoHistoryLabel"
       countKey="undoNActions"
@@ -404,6 +410,7 @@ export function RedoControl({ lang, entries, onRedo, onRedoThrough }: RedoContro
       onActivateThrough={onRedoThrough}
       actionLabel={t(lang, "redoTooltip")}
       labelKey="redo"
+      nameKey="redoActionName"
       historyButtonKey="redoShowHistory"
       historyLabelKey="redoHistoryLabel"
       countKey="redoNActions"

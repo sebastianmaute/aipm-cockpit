@@ -54,7 +54,7 @@ describe("UndoControl", () => {
     render(
       <UndoControl lang="en-US" entries={STACK} onUndo={onUndo} onUndoThrough={vi.fn()} />,
     );
-    const btn = screen.getByRole("button", { name: `${t("en-US", "undo")} 3 – ${t("en-US", "undoTooltip")}` });
+    const btn = screen.getByRole("button", { name: "Undo 3 – the latest of 3 changes" });
     expect(btn).toHaveTextContent("3");
     await userEvent.click(btn);
     expect(onUndo).toHaveBeenCalledTimes(1);
@@ -105,7 +105,7 @@ describe("RedoControl", () => {
         onRedoThrough={vi.fn()}
       />,
     );
-    const btn = screen.getByRole("button", { name: `${t("en-US", "redo")} 2 – ${t("en-US", "redoTooltip")}` });
+    const btn = screen.getByRole("button", { name: "Redo 2 – the next of 2 undone changes" });
     expect(btn).toHaveTextContent("2");
     await userEvent.click(btn);
     expect(onRedo).toHaveBeenCalledTimes(1);

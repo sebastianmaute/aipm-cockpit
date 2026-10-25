@@ -1,4 +1,4 @@
-import { t, type Lang } from "./i18n";
+import { t, tPlural, type Lang } from "./i18n";
 
 /**
  * The accessible name of the top bar's bell, shared by both top bars
@@ -10,7 +10,10 @@ import { t, type Lang } from "./i18n";
  * screen. "Show due-date notifications" did not contain "3", so axe 4.14's
  * label-content-name-mismatch failed every scan that rendered the badge. With
  * no badge the bell shows no text and keeps its plain name.
+ * ★ The count is the Next actions in the "Now" tier (`nowCount`,
+ * `use-next-actions.ts`), and the bell opens the Next actions view — so the
+ * suffix names ACTIONS, never "urgent notifications" it does not count.
  */
 export function dueAlertsLabel(lang: Lang, count: number): string {
-  return count > 0 ? t(lang, "showDueAlertsCount", count) : t(lang, "showDueAlerts");
+  return count > 0 ? tPlural(lang, "showDueAlertsCount", count, count) : t(lang, "showDueAlerts");
 }

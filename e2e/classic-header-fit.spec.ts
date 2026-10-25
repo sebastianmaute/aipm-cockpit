@@ -126,7 +126,8 @@ test.describe("classic header trailing row still fits with every sibling present
       // Waiting for the resulting Undo button proves the control actually
       // mounted (self-hides otherwise) before the width measurement below.
       await page.getByRole("combobox", { name: "Status – Frontend login flow" }).selectOption("In Progress");
-      await page.getByRole("button", { name: "Undo last change" }).waitFor();
+      // The name is "Undo <depth> – the latest of <depth> changes" (undo-control.tsx).
+      await page.getByRole("button", { name: /^Undo \d+ – / }).waitFor();
       const m = await page.evaluate(() => {
         const h1 = [...document.querySelectorAll("h1")].find((h) => h.textContent === "AI PM Cockpit")!;
         const header = h1.closest("header")!;
