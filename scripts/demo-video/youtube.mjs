@@ -59,11 +59,12 @@ export const PLAYLISTS = {
 };
 
 /** A playlist's description: its intro, one line per video of `tier` in `defs` (hand-recorded ones too: they are
- *  uploaded like the rest), then its outro. */
+ *  uploaded like the rest), its outro, then the TAGLINE. The tagline closes it rather than following the intro,
+ *  as each intro leads into the list. */
 export function playlistDescription(tier, defs) {
   const { intro, outro } = PLAYLISTS[tier];
   const list = defs.filter((d) => d.tier === tier).map((d) => `• ${youtubeText(d.title)}`);
-  return [intro, list.join('\n'), outro].join('\n\n');
+  return [intro, list.join('\n'), outro, TAGLINE].join('\n\n');
 }
 
 const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');

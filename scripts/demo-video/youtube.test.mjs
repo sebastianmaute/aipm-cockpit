@@ -118,14 +118,15 @@ describe('buildDetailsPage (§715)', () => {
 
 describe('playlistDescription (§715)', () => {
   // Mutation: a hand-written list (the first version) missed four of the fifteen AI clips; listing the defs cannot.
-  it("lists the tier's videos by title, in order, hand-recorded ones too, between its intro and outro", () => {
+  // The tagline closes it: the intro leads into the list ("Watch in order. …:"), so it cannot sit between them.
+  it("lists the tier's videos by title, in order, hand-recorded ones too, between its intro and outro, then the tagline", () => {
     const defs = [
       { id: 'ch1', tier: 'chapters', title: 'Install', handRecorded: true },
       { id: 'f1', tier: 'features', title: 'The board' },
       { id: 'ch2', tier: 'chapters', title: 'Monday — a <milestone>' },
     ];
     const d = playlistDescription('chapters', defs);
-    expect(d).toBe(`${PLAYLISTS.chapters.intro}\n\n• Install\n• Monday — a milestone\n\n${PLAYLISTS.chapters.outro}`);
+    expect(d).toBe(`${PLAYLISTS.chapters.intro}\n\n• Install\n• Monday — a milestone\n\n${PLAYLISTS.chapters.outro}\n\n${TAGLINE}`);
   });
 });
 
