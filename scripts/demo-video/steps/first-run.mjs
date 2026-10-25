@@ -19,10 +19,14 @@ export const wizardCreate = step('wizard-create', {
     await pace(ctx, 2500);
     await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), 'Next (template)', 500);
     await caption(ctx, 'Start from a template, or from empty.', 'first-template');
-    await pace(ctx, 2500);
+    // The wizard suggests a template; the chapter starts empty (its later beats say so), so it picks Blank
+    // and, on the next step, unticks the starter content Claude's proposal would otherwise add.
+    await click(ctx, d.getByRole('button', { name: /^Blank/ }), 'Blank', 1500);
     await click(ctx, d.getByRole('button', { name: 'Next', exact: true }), 'Next (functions)', 500);
     await caption(ctx, 'Turn on the features this project needs. The rest stay out of the way.', 'first-functions');
     await pace(ctx, 3000);
+    const starter = d.getByRole('checkbox', { name: /starter content/ });
+    if (await starter.count() && await starter.isChecked()) await click(ctx, starter, 'No starter content', 800);
     await click(ctx, d.getByRole('button', { name: 'Create project', exact: true }), 'Create project', 1000);
     await caption(ctx, '');
   },
