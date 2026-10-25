@@ -456,10 +456,6 @@ export const FEATURE_STEPS = Object.freeze({
         if (await box.isChecked()) await box.click();
         await ctx.page.locator(DLG).last().getByRole('button', { name: 'Save', exact: true }).click();
         await L.settle(ctx.page);
-        // Edit project seeds its list from the functions it last loaded: reopened before a reload, it still
-        // shows this one on, and the clip's click would switch it off again.
-        await ctx.page.reload();
-        await L.settle(ctx.page);
       },
     }),
     step('modules-settings', {
