@@ -268,14 +268,16 @@ longer carries its own changelog comment.
   visible label did nothing: the Dashboard's clickable KPI tiles (Complete, R / A / G, Overdue, Open RAID, SPI,
   CPI), the inline Assignee, Start date, Due date and Priority cells in Open Points, a filter button with a
   count such as "Status 3", the bell while it shows a count, the Undo and Redo buttons with their count, a
-  linked item's chip in Documents ("#1 Design SSO architecture"), the budget chart's value readout, and the
-  dashed "+ Create your first document…" box an empty register shows (Documents, RAID, the image library;
-  the box is still clickable anywhere, but its button is now just the "+ …" line).
-  The record rows in version history no longer put the change type inside the button. Each name now
-  contains its visible text. Screen readers hear more as well: the KPI tiles' values, their since-last-visit
-  arrows ("Complete up 3% since last visit") and the figures of the Completion trend and Trends tiles are
-  announced again (the click target's name used to hide them, and the arrows were never announced), and the
-  inline cells, the bell and Undo/Redo name their value or count.
+  linked item's chip in Documents ("#1 Design SSO architecture"), and the dashed "+ …" box every empty
+  register shows (the box is still clickable anywhere, but its button is now just the "+ …" line). The
+  record rows in version history no longer put the change type inside the button (the type is still part
+  of the click target), and the budget chart's value readout, the Completion trend tile and the Trends tile
+  are now named after the caption or title shown above them. Each name now contains its visible text.
+  Screen readers hear more as well: the KPI tiles' values, their since-last-visit arrows ("Complete up 3%
+  since last visit") and the figures of the Completion trend and Trends tiles are announced again (the click
+  target's name used to hide them, and the arrows were never announced); the inline cells, the bell and
+  Undo/Redo name their value or count ("Undo 3 – the latest of 3 changes"); and the budget chart's summary
+  is read once, as the readout's description, instead of twice.
 
 ### Security
 

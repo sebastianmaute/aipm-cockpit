@@ -37,7 +37,13 @@
 // not seen — keep fixtures to those mechanisms.
 import { computeAccessibleName } from "dom-accessibility-api";
 
-/** axe 4.14's `curateTokens`, minus its emoji table (no fixture here uses emoji). */
+/** axe 4.14's `curateTokens`, minus two steps: its emoji table (no fixture here
+ *  uses emoji), and its word split, which uses `Intl.Segmenter` (word
+ *  granularity) where the runtime has it and splits on whitespace only where it
+ *  does not. After every non-letter/non-number has become a space the two agree
+ *  for Latin-script text such as EN and DE; for scripts written without spaces
+ *  (CJK, Thai) the segmenter splits words this helper keeps whole, so do not use
+ *  it to certify those. */
 export function curateTokens(text: string): string[] {
   let s = text.normalize("NFKD");
   let previous: string;
