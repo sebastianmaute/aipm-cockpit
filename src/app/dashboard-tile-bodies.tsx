@@ -107,6 +107,7 @@ function ActivateBody({
       <button
         type="button"
         aria-label={ariaLabel}
+        title={ariaLabel}
         onClick={onActivate}
         className="absolute inset-0 rounded-md focus:outline-none"
       />
