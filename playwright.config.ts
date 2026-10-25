@@ -53,7 +53,7 @@ const GUIDE_SHOTS_BLANK_ENV: Record<string, string> = Object.fromEntries(
 // which `chromium` ignores; run it on its own (`npm run e2e:live-destructive`),
 // never in the same invocation as `chromium`. Both lists match WHOLE file names (anchored on a path
 // separator and the end), so `old-meta-decode-loss.spec.ts` is not caught by `meta-decode-loss`.
-const LIVE_TURSO_DESTRUCTIVE = /(?:^|[\\/])(turso-ddl-probe-live|turso-revision-live)\.spec\.ts$/;
+const LIVE_TURSO_DESTRUCTIVE = /(?:^|[\\/])(turso-ddl-probe-live|turso-revision-live|scheduled-reports-claim-live)\.spec\.ts$/;
 
 // The live-Turso specs that DRIVE THE APP, partition-scoped, so they share the throwaway database
 // safely with each other (one worker) but never with LIVE_TURSO_DESTRUCTIVE. `chromium` still

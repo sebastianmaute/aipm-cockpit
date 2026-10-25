@@ -12,7 +12,7 @@ this file covers what to do when the app needs to ship or starts misbehaving.
   no auth middleware, no session store,
   and no _server_ background jobs. "Scheduled jobs" (recurring Claude analyses,
   0.105.0+) run entirely in the browser while the app is open — there is no
-  server cron; missed runs catch up on next open. They are opt-in and off by
+  server cron; a run missed on an earlier day is skipped. They are opt-in and off by
   default (see "Disable / reset scheduled jobs" below).
 - **All user data lives in the browser** (`IndexedDB` for the workspace,
   `localStorage` for settings). Losing the server tier loses nothing about the
@@ -516,12 +516,19 @@ Scheduled jobs (0.105.0+) are **opt-in and off by default** — each run is a
 billed Anthropic call. They are gated on a configured Anthropic key **and** the
 `ai.scheduledJobs` toggle. To turn them off: Settings → "Scheduled jobs" → flip
 the master toggle off (or remove the Anthropic key). Jobs run only while the app
-is open (on load, on tab re-focus, and on a light interval), catch up missed
-runs on next open, are **advisory only** (they never write to the workspace),
-and **never run in popouts**. State persists in a global `scheduled_jobs` store
-(Turso, kept out of `TABLE_NAMES`, with a localStorage fallback) — to wipe it,
-clear the `aipm-cockpit:scheduled-jobs` localStorage key (`LOCAL_KEY` in `scheduled-jobs-store.ts`) or `DELETE FROM scheduled_jobs` on
-Turso. There is no server cron and no Periodic Background Sync, so jobs cannot
+is open (on load, on tab re-focus, and on a light interval), run on the day
+they are due (a run missed on an earlier day is skipped) and **at most once per day (daily) or per week (weekly,
+Monday to Sunday)** in the job's time zone, however its time or zone is edited, are **advisory only** (they never write to the workspace),
+and **never run in popouts**. Each job names one project, needs a Turso portfolio, and keeps a report row in `scheduled_reports` for each run that reaches its project (a run whose project was deleted,
+and a transient storage failure, write none; the newest 50 per job are kept).
+State persists in a global `scheduled_jobs_v2` store (Turso, kept out of `TABLE_NAMES`, with a localStorage fallback;
+the pre-§772 `scheduled_jobs` table is read once to migrate, its rows are then switched off, and it is never written
+again, so a device on an older build cannot strip the jobs). **Every device sharing the portfolio needs the update.**
+A job is due by the clock of the device that runs it, so a device whose clock runs fast claims a slot early (`ran_at`
+in the report is the database's time, so the report shows when it really ran). Keep device clocks right.
+To wipe the jobs, clear the `aipm-cockpit:scheduled-jobs` localStorage key (`LOCAL_KEY` in `scheduled-jobs-store.ts`)
+or `DELETE FROM scheduled_jobs_v2 WHERE id <> '__migrated__'` on Turso (keep the marker row, or the next load copies
+the old rows back in); to wipe the reports too, `DELETE FROM scheduled_reports`. There is no server cron and no Periodic Background Sync, so jobs cannot
 fire while every tab is closed.
 
 ### "Overdue / due-soon dates look wrong by a day"

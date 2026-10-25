@@ -101,8 +101,7 @@ import { useRaidCreate } from "./raid-create-host";
 import { buildAppModalsBlock } from "./app-modals-block";
 import { SettingsView } from "./settings-view";
 import { LearningInsights } from "./learning-insights";
-import { Button } from "./button";
-import { useActionLearning } from "./use-action-learning";
+import { useActionLearning, LEARNING_ERROR_TOAST } from "./use-action-learning";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
 import { AiProviders } from "./action-guides-context";
@@ -360,10 +359,14 @@ function TaskManagerInner() {
   // Action Center learning layer: records CTA/snooze outcomes and feeds a learned
   // per-kind bias back into the ranking. Inert (no-op record, empty bias) when
   // disabled or in a popout.
+  // §781 — `hydrated` gates the load (before it the config is the default, local one),
+  // and `onError` surfaces a write held by a failed load or a failed save.
   const learning = useActionLearning({
     config: settings.nextActionsLearning ?? defaultNextActionsLearning,
     tursoConfig,
     isPopout,
+    hydrated,
+    onError: (kind, err) => reportSilentFailure(showToast, lang, `learning.${kind}Failed`, err, LEARNING_ERROR_TOAST[kind]),
   });
   // Turso storage connectivity status — set when a load/save/snapshot op fails
   // with an unreachable host or rejected token, cleared on the next success.
@@ -635,7 +638,7 @@ function TaskManagerInner() {
     useStakeholders({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave });
 
   // Save/Apply template actions for the project menu — extracted to useTemplateActions.
-  const { projectTemplates, handleSaveTemplate, handleApplyTemplate } = useTemplateActions({ lang, showToast, features: settings.features });
+  const { projectTemplates, handleSaveTemplate, handleApplyTemplate } = useTemplateActions({ lang, showToast });
 
   // Stakeholder-comms reminder items. The banner/modal/toast surfaces moved into
   // the Action Center; `comms.items` still feeds buildActionInput (commsReminders).
@@ -1061,14 +1064,6 @@ function TaskManagerInner() {
   // The debounced, actor-less "settings.updated" row (§160 credits included) — see use-settings-change-log.ts.
   // ★★★ THE ONE SITE DELIBERATELY HANDED THE RAW `logActivity`, not `logActivityUser`: an effect over settings STATE cannot see its cause. Pinned through this component by task-manager.activity-actor.test.tsx.
   const { onSettingsLoggedByAi } = useSettingsChangeLog({ settings, hydrated, logActivity });
-
-  const absenceKnownAssignees = useMemo(
-    () => [
-      ...tasks.map((tk) => ({ name: tk.assignee, email: tk.assigneeEmail })),
-      ...absences.map((a) => ({ name: a.assignee, email: a.assigneeEmail })),
-    ],
-    [tasks, absences],
-  );
 
   const shiftExistingAssigneeKeys = useMemo(
     () =>
@@ -1672,19 +1667,20 @@ function TaskManagerInner() {
     />
   );
 
+  // §777 — Back lives in the pane's own toolbar row now; no wrapper here, so
+  // the pane card is the shell's direct child and fills it like every view.
   const learningInsightsEl = (
-    <div className="flex flex-col gap-4">
-      <Button variant="secondary" size="sm" onClick={() => setActiveTab("settings")} className="self-start">
-        {t(lang, "wizardBack")}
-      </Button>
-      <LearningInsights
-        lang={lang}
-        state={learning.state}
-        overrides={learning.overrides}
-        onSetOverride={(kind, override) => { void learning.setOverride(kind, override); }}
-        onReset={() => { void learning.reset(); }}
-      />
-    </div>
+    <LearningInsights
+      lang={lang}
+      state={learning.state}
+      overrides={learning.overrides}
+      onSetOverride={(kind, override) => { void learning.setOverride(kind, override); }}
+      onReset={() => { void learning.reset(); }}
+      onBack={() => setActiveTab("settings")}
+      learningEnabled={(settings.nextActionsLearning ?? defaultNextActionsLearning).enabled}
+      loadProblem={learning.loadProblem}
+      pendingWrites={learning.pendingWrites}
+    />
   );
 
   // The action-cluster menus (Voice/Export/Help/Version) shared with the classic
@@ -1805,7 +1801,7 @@ function TaskManagerInner() {
     editorLeadingActions, editorDeleteAction, editorExtrasEl, editingId, openTaskNotes, openTaskBlockers,
     budgetLink, calendarTaskEnabled, calendarAbsenceEnabled,
     jiraConflicts, handleResolveConflicts, jiraResolving, clearConflicts,
-    editingAbsence, absenceKnownAssignees, handleSaveAbsence, handleDeleteAbsence, handleCloseAbsenceModal,
+    editingAbsence, handleSaveAbsence, handleDeleteAbsence, handleCloseAbsenceModal,
     editingCalendarEvent, handleSaveCalendarEvent, handleDeleteCalendarEvent, handleCloseCalendarEventModal,
     editingShift, shiftExistingAssigneeKeys, handleSaveShift, handleDeleteShift, handleCloseShiftModal,
     today, nextId, contactsList, resources, handleCreateResource, absences, tasks, uniqueGroups, uniqueLabels,

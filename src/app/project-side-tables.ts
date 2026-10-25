@@ -7,6 +7,7 @@
 import { CHAT_THREADS_DDL } from "./chat-threads-schema";
 import { MEETING_REPORT_VERSION_DDL } from "./committee-report-versions-schema";
 import { DOCUMENT_ASSET_DATA_DDL } from "./document-assets-schema";
+import { SCHEDULED_REPORTS_DDL } from "./scheduled-reports-schema";
 import { SNAPSHOT_DDL } from "./snapshot-schema";
 import { VERSION_DDL } from "./version-schema";
 import { txt, type SqlStmt } from "./turso-schema";
@@ -17,6 +18,7 @@ export const PROJECT_SCOPED_SIDE_TABLES: readonly ProjectSideTable[] = [
   { table: "chat_threads", ddl: CHAT_THREADS_DDL },
   { table: "committee_report_versions", ddl: MEETING_REPORT_VERSION_DDL },
   { table: "document_asset_data", ddl: DOCUMENT_ASSET_DATA_DDL },
+  { table: "scheduled_reports", ddl: SCHEDULED_REPORTS_DDL },
   { table: "snapshot", ddl: SNAPSHOT_DDL },
   { table: "snapshot_series", ddl: SNAPSHOT_DDL },
   { table: "project_versions", ddl: VERSION_DDL },

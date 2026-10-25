@@ -37,7 +37,6 @@ export interface AppModalsProps {
 
   // Absence edit modal
   editingAbsence: { absence: Absence; isNew: boolean } | null;
-  absenceKnownAssignees: ReadonlyArray<{ name: string; email?: string }>;
   handleSaveAbsence: (next: Absence) => void;
   handleDeleteAbsence: (id: number) => void;
   handleCloseAbsenceModal: () => void;
@@ -123,7 +122,6 @@ export function AppModals({
   jiraResolving,
   clearConflicts,
   editingAbsence,
-  absenceKnownAssignees,
   handleSaveAbsence,
   handleDeleteAbsence,
   handleCloseAbsenceModal,
@@ -228,7 +226,9 @@ export function AppModals({
           lang={lang}
           absence={editingAbsence.absence}
           isNew={editingAbsence.isNew}
-          knownAssignees={absenceKnownAssignees}
+          resources={resources}
+          contacts={contactsList}
+          onCreateResource={onCreateResource}
           onSave={handleSaveAbsence}
           onDelete={handleDeleteAbsence}
           onClose={handleCloseAbsenceModal}

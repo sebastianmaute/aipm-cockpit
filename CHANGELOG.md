@@ -12,6 +12,17 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Scheduled reports, with a project and an instruction per job (§772).** A scheduled job now names the one project it
+  analyses and can carry an instruction of your own (what to look for, what to ignore). Each run is kept as a report
+  under Portfolio → Scheduled reports, with the summary and the suggested actions, so a run you did not watch can be
+  read later; the run history in Settings still lists the runs. The analysis sees more of the project: dates, status,
+  owner and overdue state per item, up to a size limit. A job runs on the day it is due, in its own time zone, and at most once per day (daily) or per week (weekly, Monday to
+  Sunday), even if you change its time or zone; a run whose day passed while the app was closed is skipped, not made up
+  later. Scheduled jobs now live in a table of their
+  own (`scheduled_jobs_v2`); the first load copies your existing jobs there once and switches the old rows off. **Update
+  every device that shares the portfolio:** a device on an older version neither shows nor runs these jobs, and would
+  otherwise run the old rows on whichever project it has open. "Analyze with AI" in the Action Center now sends the
+  same wider digest, so what it suggests can change as well.
 - **A deployment can switch integrations off (§762).** A new server setting, `AIPM_DISABLED_INTEGRATIONS`,
   names integrations a deployment does not offer: Jira, Confluence, TimeLog, the ECB exchange rates and cloud
   speech-to-text. Their server routes then refuse, and the app hides their settings, buttons and the TimeLog
@@ -36,6 +47,13 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **Add task comes first in Open Points.** The Add task button is now the leftmost control in the Open Points
+  toolbar, with "Optimize with AI" after it.
+- **Pick the person for an absence from a searchable list.** The new-absence and edit-absence form now uses the
+  same searchable person picker as the task editor and the shift form: type to filter the resource directory and
+  contacts, and picking a person links the absence to them and fills their email. A name typed freely is still
+  accepted.
+- Scheduled jobs now need a Turso portfolio, and each existing job needs a project chosen in Settings → Scheduled jobs before it runs again.
 - **Video guides recorder (§715).** One command per video for the 43 guides: the big video, seven chapters
   (the first is recorded by hand), 15 AI clips and 20 feature clips, taken through the app's own UI on the demo project and a throwaway
   Turso database. Each take starts clean, sets up off camera, checks that the data shows what the video needs,
@@ -56,6 +74,65 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Edit project shows the functions you switched off (§779).** Opened from Settings → Functions, Edit project
+  showed a function you had just switched off as still on, and saving it after changing another function switched it
+  on again. It now shows the project's saved functions. Turning a function on from Budget's setup checklist or the
+  Time bookings notice now starts from the same saved functions, and "Save current as template" (in Settings → Templates
+  and in the project menu) stores them. When Claude switches functions on or off, the change is now saved with the
+  project, so Edit project and the navigation agree and the next project load no longer undoes it. A function list from
+  Claude that is not a list, or that names no known function, is refused instead of switching every function off. If Claude changes the functions in the same reply as another edit, both now wait for you on the review card, which lists the functions the change turns on and off. Claude is also told which names in its list are not functions. If you change the functions yourself before applying, that row is refused rather than undoing your change, and the card also lists any other setting the same change makes.
+- **Manage roles has room on smaller screens (§766).** The roles pane took half the window's content area, so the
+  rate card was cut off even in a 1920×1080 window, and at 1366×768 and smaller it showed only its first two or
+  three columns. The pane now uses the whole width, up to a cap, and the rate columns are narrower, so with typical
+  role names and a one-character currency symbol such as € the whole rate card shows in a 1280×720 window and
+  larger (with "US$" it needs 1366×768). In smaller windows it still scrolls sideways inside the panel, each row's
+  delete button stays in view at the right edge, and moving through the fields with Tab scrolls each one clear of
+  it. The rate fields drop their up/down arrows to make room, and a value too long for its field shows in full when
+  you hover over it. The Hours/Days switch no longer wraps onto two lines, so the rows are less than two thirds as
+  tall as before. The Print button now comes before the reset-size
+  button, as in other views.
+- **An insight recommendation no longer proposes a change that is missing a required detail, and says which
+  change failed (§782).** Claude was not told which details each change needs, so a recommendation could propose
+  a new task with no name or no assignee; the review showed it as a normal change and Apply then failed with
+  "Some changes in this recommendation couldn't be applied" and no hint which. Claude is now given each change's
+  required details and the people it can assign, including the names open tasks are assigned to, so a project
+  without a resource list can get a new task too; with no one to name, Claude is told not to propose one. The
+  review shows a change that is missing one, or that edits an item deleted since, as skipped with the reason (in
+  the app's language), and such a change is not sent. When a change still fails, the message names it and why,
+  also when other changes were skipped because the data moved, and the recommendation reads "Partly applied" with
+  the option to generate a new one,
+  never plain "applied". Found by a rehearsal of the demo video recorder with AI.
+- **Action Center learning is no longer erased by the app's own saves (§781).** With learning stored in Turso, the
+  first suggestion you acted on in a session replaced every project's stored learning with what that device held, because
+  the app saved before it had read Turso; an outcome recorded while learning was still loading, or a switch of the
+  learning store in Settings, could do the same. Learning is now saved only to a store it has read in this session: early
+  changes wait for the read and are added on top of it, and after a switch the new store keeps its own data. A changed Turso token is picked up at once, and while the
+  Turso token is locked or missing, learning waits for it instead of going to this browser's storage. If stored
+  learning cannot be read, the learning view says so and your changes are kept and saved once a read works: the app
+  tries again after a network failure, and when the Turso database rejects the token it tells you at once, and saves as
+  soon as the token is fixed in Settings. If the stored learning is unreadable for another reason, the view says the app will not try
+  again until it is reloaded, that reloading discards the changes not saved yet, and that changing the Turso URL or token in Settings saves them. A failed save is reported too.
+- **The learning view's Adjustment column shows what is applied (§780).** A row set to "Always suppress" could
+  still read "+5", the learned value the override replaces. The column now shows the adjustment in effect (+20,
+  -20 or 0 under Always surface, Always suppress and Off), with the learned value below it, marked "learned";
+  with learning switched off it shows 0, marked "learning off", because nothing is applied then.
+- **A Next-actions reason is learned once, whatever its count (§778).** "Due in 1 working day" and "Due in 3
+  working days" are one reason, but were learned and overridden as two, so "Always suppress" on "Due soon" did not
+  demote a task due in one working day. They now share one learning row and one override; rows and overrides already saved
+  under the one-day form are merged into it the next time the app loads them. If the two rows had different overrides,
+  the one set on the several-days row is kept, unless it was Auto; then the one-day row's override applies to every
+  count, as one set only on the one-day row does.
+- **The Action Center learning view looks like every other view (§777).** It sits in the standard pane card with
+  the table scrolling inside it, and Back, the title, Reset learned data, Print and reset-size share one toolbar row.
+  Each row now names its reason in words ("No recent update", "Blocked") instead of an internal id, in English and
+  German.
+- **A project Claude proposes no longer starts in the past.** A brief such as "March to February" was read
+  against the wrong year, so the new project and its milestones could already be over on the day you created
+  it. Claude is now told today's date and reads a month or range without a year as the next one to come (the
+  current month counts as this month). If a proposal still ends in the past, the Details step says so.
+- **Claude's proposal fills the NACE section and the time zone.** A NACE answer like "G (retail)" was thrown
+  away without a word and the field stayed empty; Claude now picks from the section codes, and is told the time
+  zone must be a name like Europe/Berlin.
 - **"Draft with AI" writes the whole steering report (§763).** Drafting a steering committee's status report
   often failed with "Could not draft the report", because Claude's reply was cut off before the report was
   complete. It now gets more room, and asks once more with more room if the reply is still cut off; you get the
@@ -187,6 +264,17 @@ longer carries its own changelog comment.
   browser-storage label, and Edit project doing nothing. Creating the demo project from there also showed a
   false "changed in another tab" warning. A create that fails now leaves the app where it was.
 
+### Security
+
+- **Next.js 16.4.2.** The version in use, 16.4.0, fell inside three advisories, two of them critical:
+  GHSA-2464-fhr4-w9xw (critical, remote code execution in the Image Optimization API with SVG files),
+  GHSA-673q-mjm6-r5xr (critical, remote code execution in `use cache` functions) and GHSA-p3m5-59mp-jv5r
+  (high, a Server Actions denial of service). `next` and `eslint-config-next` move to 16.4.2.
+- **DOMPurify 3.4.17.** The version in use, 3.4.16, fell inside three sanitiser-bypass advisories:
+  GHSA-cg2g-xh64-v4q7 (critical), GHSA-mrv2-3pqr-j5jr (high) and GHSA-c6gr-qvv4-5v3f (low).
+- **Zod 4.6.7.** The version in use, 4.6.5, fell inside GHSA-mrhx-c7xc-m3w5 (high, memory exhaustion while
+  validating oversized constrained collections; fixed in 4.6.6). The app uses zod only to validate Jira responses.
+
 ### Development
 
 - **Demo video recorder (§715).** `scripts/demo-video/` records the browser part of the getting-started
@@ -194,6 +282,11 @@ longer carries its own changelog comment.
   on, and Help) as one WebM, against a local dev server and the throwaway Turso database. `--rehearse` runs
   the same flow without video, and `cleanup.mjs` removes the recording's projects afterwards. Setup and the
   order of commands are in its `README.md`.
+- **Dev dependencies undici 8.12.3 and vite 8.3.5.** `npm audit` flagged high-severity advisories in both, which
+  only the test and dev tooling uses (jsdom pulls in undici; vitest, `@vitejs/plugin-react` and msw pull in vite):
+  GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472 and GHSA-xjj6-f33q-929c (undici), and GHSA-9jrq-w75r-8gcw,
+  GHSA-rq7h-c2jc-7f22, GHSA-698v-4r3x-3vcv, GHSA-r825-w8mm-5pxw and GHSA-587h-7wmj-h5pm (vite, the last three
+  in the launch-editor code vite bundles in its dist). Only the lockfile changes; nothing the app ships moves.
 
 ### Notes
 

@@ -67,7 +67,6 @@ function makeProps(): AppModalsProps {
     jiraResolving: false,
     clearConflicts: vi.fn(),
     editingAbsence: null,
-    absenceKnownAssignees: [],
     handleSaveAbsence: vi.fn(),
     handleDeleteAbsence: vi.fn(),
     handleCloseAbsenceModal: vi.fn(),

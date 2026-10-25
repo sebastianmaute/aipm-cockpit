@@ -453,6 +453,10 @@ export type ToolDispatcher = {
   /** Apply a safe-subset settings patch; returns the fields actually applied
    *  (after validation/clamping). Throws in a read-only popout. */
   updateSettings(patch: SettingsUpdateInput): Record<string, unknown>;
+  /** §779 — what `updateSettings` would report as applied for `patch`, computed against the SAME live
+   *  settings it patches, writing nothing. Not a tool: the review card's "Also sets" line reads it, so a
+   *  value the coercer refuses shows the current value the write keeps, not the default. */
+  previewSettings(patch: SettingsUpdateInput): Record<string, unknown>;
   createResource(input: ResourceInput): ResourceSummary;
   getResource(id: number): ResourceSummary | null;
   /** The FULL stored resource. `getResource` above returns a SUMMARY and is

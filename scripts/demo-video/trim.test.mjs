@@ -54,6 +54,23 @@ describe('keepRanges with protected spans', () => {
   });
 });
 
+describe('keepRanges with the take end and off-camera cuts (§715)', () => {
+  it("ends at the take's end: the recorder's padding after it is dropped", () => {
+    expect(keepRanges([], 50.28, 3, [], { end: 46.57 })).toEqual([[0, 46.57]]);
+    expect(keepRanges([{ start: 5, end: 25 }], 50, 3, [], { end: 45 })).toEqual([[0, 6.5], [23.5, 45]]);
+  });
+
+  it('keeps the whole video when the end is past it, or not given', () => {
+    expect(keepRanges([], 40, 3, [], { end: 41 })).toEqual([[0, 40]]);
+    expect(keepRanges([], 40, 3, [], {})).toEqual([[0, 40]]);
+  });
+
+  it('cuts an off-camera span whole, never into a narrated beat', () => {
+    expect(keepRanges([], 60, 3, [], { cuts: [{ start: 20, end: 45 }] })).toEqual([[0, 20], [45, 60]]);
+    expect(keepRanges([], 60, 3, [[18, 22]], { cuts: [{ start: 20, end: 45 }] })).toEqual([[0, 22], [45, 60]]);
+  });
+});
+
 describe('protectSpans', () => {
   it('turns beats into [at, at + duration] spans', () => {
     expect(protectSpans([{ id: 'a', at: 20, duration: 4 }])).toEqual([[20, 24]]);
@@ -142,6 +159,19 @@ describe('trimAiWaits', () => {
     expect(trimAiWaits(t.file, [{ start: 5, end: 6 }], t.out, { exec: t.exec })).toEqual({ cut: 0, capped: 0, ranges: [[0, 40]] });
     expect(fs.readFileSync(t.file, 'utf8')).toBe('TAKE');
     expect(fs.existsSync(t.raw)).toBe(false);
+  });
+
+  it("cuts a take with no AI wait at its end: the recorder's padded tail goes (§715)", () => {
+    const t = setup();
+    const r = trimAiWaits(t.file, [], t.out, { exec: t.exec, end: 36.2 });
+    expect(r.ranges).toEqual([[0, 36.2]]);
+    expect(r.cut).toBeCloseTo(3.8);
+    expect(fs.readFileSync(t.file, 'utf8')).toBe('TRIMMED');
+  });
+
+  it('cuts an off-camera span (§715)', () => {
+    const t = setup();
+    expect(trimAiWaits(t.file, [], t.out, { exec: t.exec, cuts: [{ start: 10, end: 20 }] }).ranges).toEqual([[0, 10], [20, 40]]);
   });
 
   it('passes protected spans through, and returns the kept ranges', () => {

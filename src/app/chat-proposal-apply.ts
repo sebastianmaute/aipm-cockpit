@@ -36,6 +36,7 @@ import { stripRejectedFields } from "./inline-ai-edit/plan";
 import type { UndoBatch } from "./use-undo-batch";
 import type { TokenEntity } from "./ai-entity-token";
 import { entityToken } from "./ai-entity-token";
+import { sameFeatureSet, sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 
 /** What one selected row did. `index` is the row's position in the FULL
  *  described list — the same identity the review card's checkboxes and
@@ -112,6 +113,13 @@ export const NEW_ROW_TOKEN_UNAVAILABLE_ERROR =
  *  and a test recognise the outcome without matching prose. */
 export const ALL_FIELDS_REJECTED_ERROR =
   "every field this call writes was rejected on the review card, so nothing was sent";
+
+/** `AppliedRow.error` for a functions row (`update_settings { enabledModules }`) NOT SENT because the
+ *  project's saved functions are no longer the list the card described it against (§779). Reported as
+ *  `stale`, so the card says "changed since you reviewed", the same outcome a token conflict has: the
+ *  write takes no concurrency token of its own, so this check stands in for one. */
+export const FUNCTIONS_MOVED_ERROR =
+  "the project's functions changed since this was proposed, so this call was not sent";
 
 /** `AppliedRow.error` for a row NOT SENT because the scope epoch moved during the
  *  replay (§600) — the project it would write into is no longer the one the plan
@@ -294,6 +302,11 @@ export interface ApplyProposalArgs {
    *  ★★ PER ROW, NOT ONCE: `runTool` is awaited per row, so a swap can land
    *   between two rows of one batch. Absent = never stale (a unit test's opt-out). */
   readonly isScopeStale?: () => boolean;
+  /** §779 — the project's LIVE saved functions (`Workspace.features`), read before the first functions
+   *  row. A row whose `functions.before` no longer matches is refused with `FUNCTIONS_MOVED_ERROR`; after
+   *  a functions row lands, the next one is checked against that row's `after`, not re-read. Absent = no
+   *  check (a unit test's opt-out); `chat-panel.tsx` always passes it. */
+  readonly getFeatures?: () => readonly FeatureModuleId[] | undefined;
 }
 
 /** The real id a create tool's result carries, or `undefined` when it carries
@@ -369,7 +382,7 @@ function resolveMintedId(
  * points strictly backward, which is exactly what makes one forward pass enough.
  */
 export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyProposalResult> {
-  const { dispatcher, rows, selected, batch, isScopeStale } = args;
+  const { dispatcher, rows, selected, batch, isScopeStale, getFeatures } = args;
   const applied: AppliedRow[] = [];
 
   // create tool → (provisional id → the id the real minter handed out). Filled
@@ -403,6 +416,9 @@ export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyPropo
     // §600 — once the scope has moved it stays moved for this batch: every later
     // selected row is refused, never re-checked into a write.
     let scopeChanged = false;
+    // §779 — the saved functions as this batch has left them: unread until the first functions row,
+    // then the list each landed functions row stored.
+    let functionsNow: readonly FeatureModuleId[] | undefined;
     for (let index = 0; index < rows.length; index += 1) {
       if (!selected.has(index)) continue;
       // ★★★ FIRST, before `namesPendingMint`: a row bound for another project is
@@ -420,6 +436,16 @@ export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyPropo
       if (namesPendingMint(stamped, pending)) {
         applied.push({ index, ok: false, error: PENDING_MINT_ERROR });
         continue;
+      }
+      // §779 — a functions row replays an absolute list with no token, so it is re-judged here: if the
+      //  saved functions moved since the card described it, it would overwrite a change the card never
+      //  showed. Compared as SETS (`sameFeatureSet`): a reordered list is the same choice.
+      if (row.functions !== undefined && getFeatures !== undefined) {
+        functionsNow ??= sanitizeFeatures(getFeatures());
+        if (!sameFeatureSet(functionsNow, row.functions.before)) {
+          applied.push({ index, ok: false, stale: true, error: FUNCTIONS_MOVED_ERROR });
+          continue;
+        }
       }
       // ★★ SECOND, AND ONLY REACHABLE ONCE THE MINT RESOLVED — the check above
       //  has already claimed every row whose create did not produce an id, so a
@@ -488,6 +514,7 @@ export async function applyProposal(args: ApplyProposalArgs): Promise<ApplyPropo
         }
         const result = await runTool(dispatcher, guarded.name, sent.input);
         resolveMintedId(row, result, real, pending);
+        if (row.functions !== undefined) functionsNow = row.functions.after;
         applied.push({ index, ok: true });
       } catch (e) {
         applied.push({

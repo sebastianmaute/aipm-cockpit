@@ -5,6 +5,7 @@
 import type { GroundingIndex, GroundableView } from "../action-ai";
 import type { InsightRecommendation, InsightToolCall } from "./insight";
 import { INSIGHT_REC_MAX_CALLS, INSIGHT_REC_SUMMARY_MAX, ALLOWED_REC_TOOLS } from "./insight";
+import { REC_CALL_ITEM_SCHEMA } from "./recommend-schema";
 
 // Re-export so existing importers of `./recommend` (tests, call sites) are unchanged.
 export { ALLOWED_REC_TOOLS };
@@ -64,18 +65,9 @@ export const RECOMMEND_TOOL = {
       calls: {
         type: "array",
         description:
-          "Concrete tool calls that fix the insight. Use only the listed tools; reference only ids present in the digest.",
-        items: {
-          type: "object",
-          properties: {
-            name: { type: "string", enum: [...ALLOWED_REC_TOOLS] },
-            input: {
-              type: "object",
-              description: "Arguments for the tool. For update_*, include the numeric id shown in the digest.",
-            },
-          },
-          required: ["name", "input"],
-        },
+          "Concrete tool calls that fix the insight. Use only the listed tools; reference only ids present in the digest. Give every required argument of the tool; an update_* call names its target by the numeric id shown in the digest.",
+        // §782 — each tool with its own arguments, from the chat tool definitions.
+        items: REC_CALL_ITEM_SCHEMA,
       },
     },
     required: ["summary", "calls"],

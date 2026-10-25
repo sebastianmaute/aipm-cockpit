@@ -2,20 +2,20 @@
 // f-gantt is the owner's fixed script; its step ids are pinned by videos.test.mjs. See ../README.md.
 import { step } from './step.mjs';
 import * as L from '../lib.mjs';
-import { caption, click, moveTo, nav, pace, type } from '../ui.mjs';
+import { caption, choose, click, moveTo, nav, pace, type } from '../ui.mjs';
 import { DEMO_CRM_TASK, DEMO_DUPLICATE_PAIRS, DEMO_GDPR_ISSUE } from '../week-story.mjs';
-import { DLG, dedup, main, openRow, resources, saveVersion, setUtilization } from './week.mjs';
+import { DLG, absenceAssignee, dedup, fillNewTask, main, openNewTask, openRow, resources, saveVersion, setUtilization } from './week.mjs';
 
-const NEW_TASK = 'Draft the pilot rollout checklist';
+// Short: typed on camera, character by character.
+const NEW_TASK = 'Pilot rollout checklist';
 // Open and in the future: a Done bar is not draggable.
 const BAR_TASK = 'Load testing';
 const LATE_MILESTONE = 'Pilot Go-Live';
 const MODULE = 'Time bookings';
 
 /** A real mouse drag of `loc` by `dx` pixels: down at its centre, a stepped move, up. */
-async function drag(ctx, loc, dx) {
-  await loc.scrollIntoViewIfNeeded();
-  await moveTo(ctx, loc);
+async function drag(ctx, loc, dx, label) {
+  await moveTo(ctx, loc, label);
   const box = await loc.boundingBox();
   if (!box) throw new Error('nothing to drag');
   const x = box.x + box.width / 2;
@@ -27,16 +27,103 @@ async function drag(ctx, loc, dx) {
   await pace(ctx, 1500);
 }
 
-/** A Gantt View-menu layer: opened, toggled with its caption, closed. */
+/** The Gantt's own prefs key (gantt-engine.ts PREFS_KEY), and the prefs the clip opens the Gantt with: the stored
+ *  ones (or none) with dependencies, absences and the critical path off and milestones below the tasks, so those
+ *  toggles switch their layer ON, as the narration says. Milestones stay on: the clip drags one before its View
+ *  section, and viewToggle shows that layer off and on again. Stamped v2 (GANTT_PREFS_VERSION), with every status
+ *  shown: under v2 an empty status list means "show nothing". */
+export const GANTT_PREFS_KEY = 'aipm-cockpit:gantt-prefs';
+const GANTT_STATUSES = ['open', 'completed', 'overdue'];
+export function ganttPrefsSeed(current) {
+  const base = current && typeof current === 'object' && !Array.isArray(current) ? current : {};
+  const statuses = Array.isArray(base.statuses) && base.statuses.length ? base.statuses : GANTT_STATUSES;
+  return {
+    ...base, statuses, v: 2,
+    showDependencies: false, showAbsences: false, showCriticalPath: false, showMilestones: true, milestonePlacement: 'below',
+  };
+}
+
+/** Off camera, before the Gantt first opens: the View layers off (ganttPrefsSeed). The app reads its prefs when
+ *  the Gantt mounts, so it opens with them. */
+const ganttLayersOff = step('gantt-layers-off', {
+  setup: true,
+  run: async (ctx) => {
+    const current = await ctx.page.evaluate((k) => localStorage.getItem(k), GANTT_PREFS_KEY);
+    let parsed = null;
+    try { parsed = current ? JSON.parse(current) : null; } catch { parsed = null; }
+    await ctx.page.evaluate(([k, v]) => localStorage.setItem(k, v), [GANTT_PREFS_KEY, JSON.stringify(ganttPrefsSeed(parsed))]);
+  },
+});
+
+/** What shows a layer on the chart, where something does: the dependency arrows' marker, absence bands
+ *  (titled "<person>: <type> <from>–<to>"), milestone rows. Critical path and inline placement are checked by
+ *  their toggle's pressed state only. */
+const LAYER_SHOWS = {
+  'view-dependencies': (ctx) => main(ctx).locator('#gantt-arrow').count(),
+  'view-absences': (ctx) => main(ctx).locator('[title]').evaluateAll((els) => els.filter((e) => /: \S+ \d{4}-\d\d-\d\d/.test(e.getAttribute('title'))).length),
+  'view-milestones': (ctx) => main(ctx).getByRole('slider', { name: /^Move milestone – / }).count(),
+};
+
+/** A Gantt View-menu layer: opened, toggled on with its caption, closed, and checked: the toggle reads pressed
+ *  and, where the chart shows the layer, it is there. */
 const viewToggle = (id, label, text) => step(id, {
   run: async (ctx) => {
     await caption(ctx, text, `f-gantt-${id}`);
-    await click(ctx, main(ctx).getByRole('button', { name: 'View', exact: true }), 'View', 500);
-    await click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: label, exact: true }), label, 1800);
+    const view = main(ctx).getByRole('button', { name: 'View', exact: true });
+    await click(ctx, view, 'View', 500);
+    const toggle = ctx.page.locator(DLG).last().getByRole('button', { name: label, exact: true });
+    // A layer already on (milestones: the clip drags one before this) is switched off and on again, so the
+    // toggle is seen showing its layer. The chart's re-layout may close the menu in between: it is reopened.
+    if ((await toggle.getAttribute('aria-pressed')) === 'true') {
+      // Only milestones start on; any other layer on here means the gantt-layers-off seed did not take.
+      if (id !== 'view-milestones') throw new Error(`View: ${label} was already on (the gantt-layers-off seed did not apply)`);
+      await click(ctx, toggle, label, 900);
+      if (!(await toggle.isVisible().catch(() => false))) await click(ctx, view, 'View', 500);
+    }
+    await click(ctx, toggle, label, 1800);
+    if ((await toggle.getAttribute('aria-pressed')) !== 'true') throw new Error(`View: ${label} did not switch on`);
     await ctx.page.keyboard.press('Escape');
     await pace(ctx, 1500);
+    if (LAYER_SHOWS[id] && !(await LAYER_SHOWS[id](ctx))) throw new Error(`View: ${label} is on, but nothing on the chart shows it`);
   },
 });
+
+// ---- f-workload: the reassign moves the counts; the planned load is moved by hand ----
+const MAYA = 'Maya Patel';
+const LIAM = 'Liam Foster';
+/** Maya's and Liam's near-term planned utilisation (%) after the rebalance: down from 240, up from 0. */
+const MAYA_NOW = 100;
+const LIAM_NOW = 60;
+/** The Open column of a Workload row (Assignee, Email, Open, Overdue, …); Overdue is the next one. */
+const OPEN_CELL = 2;
+const utilCell = (ctx, who) => main(ctx).getByRole('spinbutton', { name: `Near-term utilization for ${who}`, exact: true });
+/** A person's Workload row, found by its utilisation field (a role query: RAID's hidden table also names people). */
+const workloadRow = (ctx, who) => main(ctx).locator('tbody').getByRole('row')
+  .filter({ has: ctx.page.getByRole('spinbutton', { name: `Near-term utilization for ${who}`, exact: true }) });
+async function workloadCounts(ctx, who) {
+  const cells = workloadRow(ctx, who).locator('td, th');
+  return { open: Number(await cells.nth(OPEN_CELL).innerText()), overdue: Number(await cells.nth(OPEN_CELL + 1).innerText()) };
+}
+const nearTerm = async (ctx, who) => Number(await utilCell(ctx, who).inputValue());
+
+/** What is wrong with the counts after one overdue task of Maya's went to Liam, or null: Maya one open and one
+ *  overdue fewer, Liam one of each more. */
+export function countsMoved(before, after) {
+  const want = { [MAYA]: -1, [LIAM]: 1 };
+  for (const who of [MAYA, LIAM]) {
+    for (const k of ['open', 'overdue']) {
+      if (after[who][k] - before[who][k] !== want[who]) return `${who} ${k} went from ${before[who][k]} to ${after[who][k]}`;
+    }
+  }
+  return null;
+}
+
+/** What is wrong with the planned utilisation after the rebalance, or null: Maya's lower, Liam's higher. */
+export function utilMoved(before, after) {
+  if (!(after[MAYA] < before[MAYA])) return `${MAYA} util did not come down (${before[MAYA]} → ${after[MAYA]})`;
+  if (!(after[LIAM] > before[LIAM])) return `${LIAM} util did not go up (${before[LIAM]} → ${after[LIAM]})`;
+  return null;
+}
 
 // §742: a bar's drag handles are sliders (keyboard-operable), not buttons.
 const bar = (ctx, kind) => main(ctx).getByRole('slider', { name: `${kind} – ${BAR_TASK}`, exact: true }).first();
@@ -46,14 +133,11 @@ export const FEATURE_STEPS = Object.freeze({
     step('op-add-task', {
       run: async (ctx) => {
         await nav(ctx, 'Open Points');
+        // The caption comes with the open form, so its voice runs over the filling in, not before it (§715:
+        // no stretch over 8 s without a voice).
+        const d = await openNewTask(ctx);
         await caption(ctx, 'Add a task: name, owner, due date.', 'f-open-points-add');
-        await click(ctx, main(ctx).getByRole('button', { name: 'Add task', exact: true }).first(), 'Add task');
-        const d = ctx.page.locator(DLG).last();
-        await type(ctx, d.getByPlaceholder('What needs to happen?'), NEW_TASK, 'task name');
-        await type(ctx, d.getByPlaceholder('Assignee'), 'Sofia Ramirez', 'assignee');
-        await ctx.page.keyboard.press('Escape').catch(() => {});
-        await d.locator('input[type=date]').nth(1).fill('2026-10-09');
-        await click(ctx, d.getByRole('button', { name: 'Add task – New task' }), 'save task', 600);
+        await fillNewTask(ctx, d, NEW_TASK, 'Sofia Ramirez', '2026-10-09');
       },
     }),
     step('op-sort', {
@@ -66,7 +150,7 @@ export const FEATURE_STEPS = Object.freeze({
       run: async (ctx) => {
         await caption(ctx, 'Filter by person.', 'f-open-points-filter');
         const who = main(ctx).locator('select').filter({ has: ctx.page.locator('option', { hasText: 'All assignees' }) }).first();
-        await who.selectOption({ label: 'Sofia Ramirez' });
+        await choose(ctx, who, { label: 'Sofia Ramirez' }, 'assignee filter');
         await pace(ctx, 2000);
       },
     }),
@@ -74,7 +158,7 @@ export const FEATURE_STEPS = Object.freeze({
       run: async (ctx) => {
         await caption(ctx, 'Set a status right in the row.', 'f-open-points-status');
         const status = main(ctx).getByRole('combobox', { name: `Status – ${NEW_TASK}`, exact: true });
-        await status.selectOption('In Progress');
+        await choose(ctx, status, 'In Progress', `Status – ${NEW_TASK}`);
         await pace(ctx, 1500);
       },
     }),
@@ -92,7 +176,7 @@ export const FEATURE_STEPS = Object.freeze({
       run: async (ctx) => {
         await caption(ctx, 'Drag a card to the next column: its status follows.', 'f-board-drag');
         const card = main(ctx).getByRole('button', { name: DEMO_CRM_TASK, exact: true }).first();
-        await moveTo(ctx, card);
+        await moveTo(ctx, card, DEMO_CRM_TASK);
         await card.dragTo(main(ctx).locator('[aria-label="In Progress"]').first());
         await L.settle(ctx.page);
         await pace(ctx, 2000);
@@ -127,25 +211,25 @@ export const FEATURE_STEPS = Object.freeze({
       run: async (ctx) => {
         await nav(ctx, 'Gantt');
         await caption(ctx, 'Drag a bar: start and end move together.', 'f-gantt-drag-bar');
-        await drag(ctx, bar(ctx, 'Move task (changes start and due date)'), 60);
+        await drag(ctx, bar(ctx, 'Move task (changes start and due date)'), 60, 'bar');
       },
     }),
     step('drag-bar-end', {
       run: async (ctx) => {
         await caption(ctx, 'Drag its right edge: the due date moves.', 'f-gantt-drag-end');
-        await drag(ctx, bar(ctx, 'Change due date'), 50);
+        await drag(ctx, bar(ctx, 'Change due date'), 50, 'bar end');
       },
     }),
     step('drag-bar-start', {
       run: async (ctx) => {
         await caption(ctx, 'Drag its left edge: the start moves, the duration changes.', 'f-gantt-drag-start');
-        await drag(ctx, bar(ctx, 'Change start date'), -40);
+        await drag(ctx, bar(ctx, 'Change start date'), -40, 'bar start');
       },
     }),
     step('drag-milestone', {
       run: async (ctx) => {
         await caption(ctx, 'Drag a milestone to a later date.', 'f-gantt-drag-milestone');
-        await drag(ctx, main(ctx).getByRole('slider', { name: new RegExp(`^Move milestone – ${LATE_MILESTONE}`) }).first(), 60);
+        await drag(ctx, main(ctx).getByRole('slider', { name: new RegExp(`^Move milestone – ${LATE_MILESTONE}`) }).first(), 60, LATE_MILESTONE);
       },
     }),
     step('filter-completed', {
@@ -164,6 +248,7 @@ export const FEATURE_STEPS = Object.freeze({
     viewToggle('view-critical-path', 'Critical path', 'View: the critical path.'),
     viewToggle('view-milestones', 'Milestones', 'View: milestones.'),
     viewToggle('view-inline-milestones', 'Inline milestones', 'View: milestones inline, in the task rows.'),
+    ganttLayersOff,
   ],
 
   'f-milestones': [
@@ -171,7 +256,8 @@ export const FEATURE_STEPS = Object.freeze({
       run: async (ctx) => {
         await nav(ctx, 'Milestones');
         await caption(ctx, 'Every milestone, its date and what is linked to it.', 'f-milestones-list');
-        await moveTo(ctx, main(ctx).locator('tbody tr').first());
+        // By role, which leaves out hidden rows: RAID's table stays mounted while hidden, and comes first.
+        await moveTo(ctx, main(ctx).locator('tbody').getByRole('row').first(), 'first milestone row');
         await pace(ctx, 2500);
       },
     }),
@@ -188,7 +274,7 @@ export const FEATURE_STEPS = Object.freeze({
     step('milestones-horizon', {
       run: async (ctx) => {
         await caption(ctx, 'The horizon on top: overdue, this week, the next two weeks, later.', 'f-milestones-horizon');
-        await moveTo(ctx, main(ctx).getByRole('button', { name: /^Milestone: / }).first());
+        await moveTo(ctx, main(ctx).getByRole('button', { name: /^Milestone: / }).first(), 'horizon milestone');
         await pace(ctx, 3000);
       },
     }),
@@ -205,7 +291,7 @@ export const FEATURE_STEPS = Object.freeze({
     step('changes-impact', {
       run: async (ctx) => {
         await caption(ctx, 'Its impact: rating and what it does to scope, time and cost.', 'f-changes-impact');
-        await moveTo(ctx, ctx.page.locator(DLG).last().getByRole('combobox', { name: 'Impact', exact: true }));
+        await moveTo(ctx, ctx.page.locator(DLG).last().getByRole('combobox', { name: 'Impact', exact: true }), 'Impact');
         await pace(ctx, 2500);
       },
     }),
@@ -213,7 +299,7 @@ export const FEATURE_STEPS = Object.freeze({
       run: async (ctx) => {
         await caption(ctx, 'And its status, through review to a decision.', 'f-changes-status');
         const d = ctx.page.locator(DLG).last();
-        await d.getByRole('combobox', { name: 'Status', exact: true }).selectOption('Approved');
+        await choose(ctx, d.getByRole('combobox', { name: 'Status', exact: true }), 'Approved', 'change status');
         await pace(ctx, 1200);
         await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save change');
       },
@@ -251,8 +337,7 @@ export const FEATURE_STEPS = Object.freeze({
         await caption(ctx, 'Log an absence: who, what kind, from when to when.', 'f-absences-log');
         await click(ctx, main(ctx).getByRole('button', { name: '+ Add absence', exact: true }), 'Add absence');
         const d = ctx.page.locator(DLG).last();
-        await type(ctx, d.getByPlaceholder('Name (matches existing Task assignees)'), 'Liam Foster', 'absence who');
-        await ctx.page.keyboard.press('Tab');
+        await absenceAssignee(ctx, d, 'Liam Foster');
         await click(ctx, d.getByText('Vacation', { exact: true }), 'Vacation', 300);
         await d.locator('input[type=date]').nth(0).fill('2026-09-28');
         await d.locator('input[type=date]').nth(1).fill('2026-10-02');
@@ -263,7 +348,8 @@ export const FEATURE_STEPS = Object.freeze({
       run: async (ctx) => {
         await resources(ctx, 'Calendar');
         await caption(ctx, 'It shows in the calendar, next to the meetings.', 'f-absences-calendar');
-        await moveTo(ctx, main(ctx).getByRole('button', { name: /vacation – Liam Foster$/ }).first());
+        // A day cell is named "<person> — <day>: <kind> — <from>–<to>": the absence's first day.
+        await moveTo(ctx, main(ctx).getByRole('button', { name: 'Liam Foster — 2026-09-28: Vacation — 2026-09-28–2026-10-02', exact: true }), 'Liam Foster vacation');
         await pace(ctx, 3000);
       },
     }),
@@ -286,19 +372,47 @@ export const FEATURE_STEPS = Object.freeze({
       run: async (ctx) => {
         await resources(ctx, 'Workload');
         await caption(ctx, 'Maya is booked far over capacity.', 'f-workload-over');
-        await moveTo(ctx, main(ctx).getByRole('spinbutton', { name: 'Near-term utilization for Maya Patel', exact: true }));
+        await moveTo(ctx, main(ctx).getByRole('spinbutton', { name: 'Near-term utilization for Maya Patel', exact: true }), 'Maya Patel utilization');
         await pace(ctx, 2500);
       },
     }),
     step('workload-reassign', {
       run: async (ctx) => {
         await caption(ctx, 'Reassign one of her overdue tasks.', 'f-workload-reassign');
-        await click(ctx, main(ctx).getByRole('button', { name: 'Triage overdue tasks – Maya Patel', exact: true }), 'Triage', 1000);
+        ctx.workloadBefore = { [MAYA]: await workloadCounts(ctx, MAYA), [LIAM]: await workloadCounts(ctx, LIAM) };
+        await click(ctx, main(ctx).getByRole('button', { name: `Triage overdue tasks – ${MAYA}`, exact: true }), 'Triage', 1000);
         const owner = ctx.page.getByRole('combobox', { name: /^Owner – / }).first();
-        await moveTo(ctx, owner);
-        await owner.selectOption({ label: 'Liam Foster' });
+        await choose(ctx, owner, { label: LIAM }, 'reassign owner');
         await L.settle(ctx.page);
-        await pace(ctx, 2000);
+        await pace(ctx, 1200);
+        await ctx.page.keyboard.press('Escape');
+      },
+    }),
+    step('workload-counts', {
+      run: async (ctx) => {
+        await caption(ctx, 'The counts follow the task: one open and overdue fewer for Maya, one more for Liam.', 'f-workload-counts');
+        await moveTo(ctx, workloadRow(ctx, MAYA).locator('td, th').nth(OPEN_CELL), `${MAYA} open`);
+        await pace(ctx, 1500);
+        await moveTo(ctx, workloadRow(ctx, LIAM).locator('td, th').nth(OPEN_CELL), `${LIAM} open`);
+        await pace(ctx, 1500);
+        const after = { [MAYA]: await workloadCounts(ctx, MAYA), [LIAM]: await workloadCounts(ctx, LIAM) };
+        const wrong = countsMoved(ctx.workloadBefore, after);
+        if (wrong) throw new Error(`workload: ${wrong}`);
+      },
+    }),
+    step('workload-rebalance', {
+      run: async (ctx) => {
+        await caption(ctx, "Util (now) is planned time, not tasks: lower Maya's, raise Liam's.", 'f-workload-rebalance');
+        const before = { [MAYA]: await nearTerm(ctx, MAYA), [LIAM]: await nearTerm(ctx, LIAM) };
+        for (const [who, value] of [[MAYA, MAYA_NOW], [LIAM, LIAM_NOW]]) {
+          const cell = utilCell(ctx, who);
+          await type(ctx, cell, String(value), `${who} util`);
+          await cell.press('Tab');
+          await L.settle(ctx.page);
+        }
+        await pace(ctx, 1500);
+        const wrong = utilMoved(before, { [MAYA]: await nearTerm(ctx, MAYA), [LIAM]: await nearTerm(ctx, LIAM) });
+        if (wrong) throw new Error(`workload: ${wrong}`);
       },
     }),
   ],
@@ -308,7 +422,7 @@ export const FEATURE_STEPS = Object.freeze({
       run: async (ctx) => {
         await nav(ctx, 'RAID');
         await caption(ctx, 'Risks, assumptions, issues and dependencies in one register.', 'f-raid-register');
-        await moveTo(ctx, main(ctx).getByRole('combobox', { name: 'Filter by category', exact: true }));
+        await moveTo(ctx, main(ctx).getByRole('combobox', { name: 'Filter by category', exact: true }), 'Filter by category');
         await pace(ctx, 2500);
       },
     }),
@@ -348,7 +462,7 @@ export const FEATURE_STEPS = Object.freeze({
       run: async (ctx) => {
         await caption(ctx, "Settings → Functions: this project's functions.", 'f-modules-settings');
         await openFunctions(ctx);
-        await moveTo(ctx, ctx.page.locator(DLG).last().getByRole('checkbox', { name: 'Dashboard', exact: true }));
+        await moveTo(ctx, ctx.page.locator(DLG).last().getByRole('checkbox', { name: 'Dashboard', exact: true }), 'Dashboard function');
         await pace(ctx, 2000);
       },
     }),
@@ -356,14 +470,18 @@ export const FEATURE_STEPS = Object.freeze({
       run: async (ctx) => {
         await caption(ctx, `Switch ${MODULE} on.`, 'f-modules-switch-on');
         const d = ctx.page.locator(DLG).last();
-        await click(ctx, d.getByRole('checkbox', { name: MODULE, exact: true }), MODULE, 600);
+        const box = d.getByRole('checkbox', { name: MODULE, exact: true });
+        if (await box.isChecked()) throw new Error(`${MODULE} is already on in Edit project`);
+        await click(ctx, box, MODULE, 600);
+        if (!(await box.isChecked())) throw new Error(`${MODULE} did not switch on`);
         await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save', 1200);
       },
     }),
     step('modules-nav', {
       run: async (ctx) => {
         await caption(ctx, 'It appears in the navigation.', 'f-modules-nav');
-        await moveTo(ctx, ctx.page.getByRole('navigation').getByText(MODULE, { exact: true }).first());
+        // The sidebar is scrolled down to Settings: moveTo scrolls it until the new item is in view.
+        await moveTo(ctx, ctx.page.getByRole('navigation').getByText(MODULE, { exact: true }), `nav ${MODULE}`);
         await pace(ctx, 2500);
       },
     }),
@@ -375,14 +493,14 @@ export const FEATURE_STEPS = Object.freeze({
         await nav(ctx, 'Budget');
         // The setup checklist hides once a project has buckets and booked hours, as the demo has.
         await caption(ctx, 'A budget: rates per role, people, a bucket per phase, and booked hours.', 'f-budget-setup');
-        await moveTo(ctx, main(ctx).getByRole('button', { name: 'Role – Identity Platform – T&M', exact: true }));
+        await moveTo(ctx, main(ctx).getByRole('button', { name: 'Role – Identity Platform – T&M', exact: true }), 'bucket roles');
         await pace(ctx, 3000);
       },
     }),
     step('budget-plan-vs-actual', {
       run: async (ctx) => {
         await caption(ctx, 'Plan against actual, per bucket and for the project.', 'f-budget-plan-actual');
-        await moveTo(ctx, main(ctx).getByText(/Project total/).first());
+        await moveTo(ctx, main(ctx).getByText(/Project total/), 'Project total');
         await pace(ctx, 3000);
       },
     }),
@@ -447,7 +565,7 @@ export const FEATURE_STEPS = Object.freeze({
         await nav(ctx, 'Influence / Interest');
         await caption(ctx, 'Drag a stakeholder to another quadrant.', 'f-influence-drag');
         const chip = main(ctx).getByRole('button', { name: 'Edit – Sam Rivera', exact: true });
-        await moveTo(ctx, chip);
+        await moveTo(ctx, chip, 'Sam Rivera');
         await chip.dragTo(main(ctx).locator('div:has(> p)', { hasText: 'Manage Closely' }).last());
         await L.settle(ctx.page);
         await pace(ctx, 2000);
@@ -474,7 +592,7 @@ export const FEATURE_STEPS = Object.freeze({
     step('knowledge-jump', {
       run: async (ctx) => {
         await caption(ctx, 'Each item links to the work it belongs to.', 'f-knowledge-links');
-        await moveTo(ctx, main(ctx).getByRole('button', { name: /^Unlink #\d+ Integrate CRM provisioning$/ }).first());
+        await moveTo(ctx, main(ctx).getByRole('button', { name: /^Unlink #\d+ Integrate CRM provisioning$/ }).first(), 'linked knowledge item');
         await pace(ctx, 2500);
       },
     }),
@@ -505,7 +623,7 @@ export const FEATURE_STEPS = Object.freeze({
         await saveVersion(ctx, 'Monday morning');
         await ctx.page.clock.fastForward(60 * 60 * 1000);
         const d = await openRow(ctx, 'Changes', 'Add MFA to SSO scope');
-        await d.getByRole('combobox', { name: 'Status', exact: true }).selectOption('Approved');
+        await choose(ctx, d.getByRole('combobox', { name: 'Status', exact: true }), 'Approved', 'change status');
         await click(ctx, d.getByRole('button', { name: 'Save', exact: true }), 'Save change');
         await saveVersion(ctx, 'After the MFA approval');
       },

@@ -44,6 +44,12 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     reading:
       "get_dashboard_snapshot covers the active project only — there is no tool for cross-project comparison. Say so rather than presenting single-project figures as a portfolio answer.",
   },
+  "scheduled-reports": {
+    purpose:
+      "Scheduled reports lists every stored run of the scheduled analysis jobs across the portfolio, newest first, with each report's summary and suggestions. Turso-only.",
+    reading:
+      "No tool reads these reports. Say so rather than answering from the active project's data.",
+  },
   dashboard: {
     purpose:
       "Dashboard is the landing cockpit: RAG status, completion progress, earned-value metrics, KPI tiles and the delta strip.",

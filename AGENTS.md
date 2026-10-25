@@ -527,7 +527,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   FINISHED, when it is false again, so it must also capture `getScopeEpoch()` before its first await and
   drop its write through `dropStaleScopeWrite` (`scope-epoch.ts`). Same file, same section.
   ★★★ **TWO PANELS ARE THE EXCEPTION AND THIS BULLET USED TO DENY IT** — it said flatly that
-  workspace-section "renders ONLY the active tabpanel", which is true of 28 of its 30 tabpanels and
+  workspace-section "renders ONLY the active tabpanel", which is true of 29 of its 31 tabpanels and
   FALSE for `panel-chat` and `panel-raid`: those two are mounted UNCONDITIONALLY and merely
   `hidden={activeTab !== …}`, with no `key`, so they NEVER remount on navigation and their state
   survives every tab switch. Reproduce the split rather than trusting these numbers —

@@ -26,6 +26,10 @@ export const PortfolioHealthPanel = dynamic(
   () => import("./portfolio-health-panel").then((m) => m.PortfolioHealthPanel),
   { ssr: false, loading },
 );
+export const ScheduledReportsPanel = dynamic(
+  () => import("./scheduled-reports-panel").then((m) => m.ScheduledReportsPanel),
+  { ssr: false, loading },
+);
 export const GanttView = dynamic(
   () => import("./gantt-view").then((m) => m.GanttView),
   { ssr: false, loading },

@@ -60,7 +60,13 @@ const chatTaskInOpenPoints = step('chat-task-in-open-points', {
   run: async (ctx) => {
     await nav(ctx, 'Open Points');
     await caption(ctx, 'The task is in Open Points, with its owner and date.', 'ai-chat-in-open-points');
-    await moveTo(ctx, main(ctx).locator('tbody tr', { hasText: CHAT_TASK }).first());
+    // A rehearsal without --with-ai skips chat-create-task (an AI step), so there is no task to point at:
+    // only the task check is skipped (and said so); Open Points still opens and the caption still shows.
+    if (ctx.rehearse && !ctx.withAi) {
+      ctx.log('chat-task-in-open-points: task check skipped, chat-create-task makes no task without --with-ai');
+      return;
+    }
+    await moveTo(ctx, main(ctx).locator('tbody').getByRole('row').filter({ hasText: CHAT_TASK }), CHAT_TASK);
     await pace(ctx, 2500);
   },
 });
@@ -106,7 +112,7 @@ const allocPlan = step('alloc-plan', {
   run: async (ctx) => {
     await resources(ctx, 'Planning');
     await caption(ctx, `${MAYA} is booked far over 100 % in September.`, 'ai-alloc-over');
-    await moveTo(ctx, main(ctx).getByRole('spinbutton', { name: `Utilization for ${MAYA} in 2026-09`, exact: true }));
+    await moveTo(ctx, main(ctx).getByRole('spinbutton', { name: `Utilization for ${MAYA} in 2026-09`, exact: true }), `${MAYA} in 2026-09`);
     await pace(ctx, 1500);
     if (await ctx.page.locator(DLG).count()) await ctx.page.keyboard.press('Escape');
     await click(ctx, main(ctx).getByRole('button', { name: 'Plan with AI', exact: true }), 'Plan with AI', 800);
@@ -119,13 +125,15 @@ const allocPlan = step('alloc-plan', {
       done: d.getByRole('button', { name: /^Apply/ }).first().or(failToast(ctx)),
       label: 'plan with AI',
     });
-    await pace(ctx, 3000);
+    await pace(ctx, 2000);
   },
   check: async (ctx) => ((await ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).isEnabled().catch(() => false)) ? null : 'no allocation'),
+  // The beat says "you apply it, and Workload shows the new split": said as Apply is clicked, before the two navs,
+  // so the stretch after Claude's proposal has a voice (§715, no silence over 8 s).
   after: async (ctx) => {
+    await caption(ctx, 'Workload shows the new split.', 'ai-alloc-workload');
     await click(ctx, ctx.page.locator(DLG).last().getByRole('button', { name: /^Apply/ }).first(), 'Apply plan', 1500);
     await resources(ctx, 'Workload');
-    await caption(ctx, 'Workload shows the new split.', 'ai-alloc-workload');
     await pace(ctx, 3000);
   },
   replay: noop,
@@ -133,9 +141,11 @@ const allocPlan = step('alloc-plan', {
 
 // ---- ai-weights ----
 /** Two weeks of Action Center responses with a clear pattern: single-fix items acted on, aggregate
- *  budget and schedule signals snoozed or dismissed. Kind → [acted, snoozed, dismissed], keyed
- *  `${source}:${why key}` as the engine records them (next-actions/engine.ts). With only the three
- *  snoozes below, Sonnet 5.5 found too little to go on and kept every weight (2026-10-19). */
+ *  budget and schedule signals snoozed or dismissed. Kind → [acted, snoozed, dismissed]. A kind is what the
+ *  app's learning store records for an action (use-action-learning), written `<source>:<why key>`; the six seeds
+ *  are six different kinds, none a count variant of another, so a store that folds count variants into one
+ *  canonical kind does not merge them. With only the three snoozes below, Sonnet 5.5 found too little to go on
+ *  and kept every weight (2026-10-19). */
 export const DEMO_LEARNING_HISTORY = {
   'task-attention:actionTaskWhyBlocked': [6, 0, 0],
   'task-attention:actionTaskWhyUnassigned': [4, 1, 0],
@@ -211,19 +221,42 @@ const weightsSuggest = step('weights-suggest', {
 });
 
 // ---- ai-scheduled ----
-/** The first recorded run of the stored job `name`, polled in the throwaway database. */
+/** The app's marker row in scheduled_jobs_v2 (scheduled-jobs-store.ts MIGRATED_MARKER_ID): not a job. The recorder
+ *  cannot import the app's TypeScript, so content.test.mjs pins this copy against it. */
+export const MIGRATED_MARKER = '__migrated__';
+/** §772: Turso jobs live in scheduled_jobs_v2, one JSON `data` row per job beside the marker row. */
+export const STORED_JOBS_SQL = `SELECT id, data FROM scheduled_jobs_v2 WHERE id <> '${MIGRATED_MARKER}'`;
+/** The report a job's run wrote (scheduled_reports, keyed by the job's key), the newest first. */
+export const REPORT_FOR_JOB_SQL = 'SELECT id FROM scheduled_reports WHERE job_key = ? ORDER BY ran_at DESC LIMIT 1';
+const JOB = 'Morning check';
+const JOB_INSTRUCTION = 'Look for overdue tasks and risks without an owner.';
+/** A job row's control by its label; the row token is the job's name. */
+const jobControl = (ctx, role, label) => main(ctx).getByRole(role, { name: `${label} – ${JOB}`, exact: true });
+
+/** The jobs in STORED_JOBS_SQL's rows ([{ value: id }, { value: data }]); a row that is not JSON fails naming it. */
+export function jobsFromRows(rows) {
+  return rows.map(([id, data]) => {
+    try {
+      return JSON.parse(data.value);
+    } catch (e) {
+      throw new Error(`scheduled_jobs_v2 row ${id.value} is not JSON: ${e.message}`);
+    }
+  });
+}
+
+/** The first recorded run of the stored job `name`, and the job's key, polled in the throwaway database. */
 async function storedRun(name) {
   const until = Date.now() + AI_TIMEOUT_MS;
   for (;;) {
-    const jobs = (await L.query('SELECT data FROM scheduled_jobs')).map((r) => JSON.parse(r[0].value));
-    const run = jobs.find((j) => j.name === name)?.history?.[0];
-    if (run) return run;
+    const job = jobsFromRows(await L.query(STORED_JOBS_SQL)).find((j) => j.name === name);
+    const run = job?.history?.[0];
+    if (run) return { run, key: job.key };
     if (Date.now() > until) throw new Error(`scheduled job ${name} did not run`);
     await new Promise((r) => setTimeout(r, 2000));
   }
 }
-/** Off camera: scheduled jobs on, and one daily job at 09:00 (the app's default time; the take starts at 08:30).
- *  The runner sees the new job at once (§750: one job list for the runner and Settings). */
+/** Off camera: scheduled jobs on, and a new daily job at 09:00 (the app's default time; the take starts at 08:30).
+ *  Add job names the open project; a new job (a new key) runs once today. The runner sees it at once (§750). */
 const scheduledJob = step('scheduled-job', {
   setup: true,
   run: async (ctx) => {
@@ -233,19 +266,35 @@ const scheduledJob = step('scheduled-job', {
     await click(ctx, main(ctx).getByRole('button', { name: 'Add job', exact: true }), 'Add job', 500);
     // One change event: the name field is controlled by a store round trip, so typing it character by
     // character would interleave with the saves.
-    await type(ctx, main(ctx).getByRole('textbox', { name: /^Job name – / }).last(), 'Morning check', 'job name', { slow: false });
+    await type(ctx, main(ctx).getByRole('textbox', { name: /^Job name – / }).last(), JOB, 'job name', { slow: false });
     // The row's names change only once the save resolved (the token follows the stored name).
-    await main(ctx).getByRole('checkbox', { name: 'Enabled – Morning check', exact: true }).waitFor({ timeout: 30000 });
+    await jobControl(ctx, 'checkbox', 'Enabled').waitFor({ timeout: 30000 });
+  },
+});
+/** On camera: the job's project (preselected), its own instruction typed (saved when the field loses focus), and
+ *  its time zone, pointed at: a new job takes the browser's zone (Europe/Berlin), in which 09:00 is still ahead. */
+const scheduledConfigure = step('scheduled-configure', {
+  run: async (ctx) => {
+    await settingsTab(ctx, 'AI Assistant', 'Scheduled jobs');
+    await caption(ctx, 'A daily job for this project, with its own instruction and time zone.', 'ai-scheduled-job');
+    const project = jobControl(ctx, 'combobox', 'Project');
+    await moveTo(ctx, project, 'job project');
+    if (!(await project.inputValue())) throw new Error(`${ctx.clipId}: the new job has no project`);
+    await pace(ctx, 800);
+    const instruction = jobControl(ctx, 'textbox', 'Instruction');
+    await type(ctx, instruction, JOB_INSTRUCTION, 'job instruction');
+    await instruction.press('Tab');
+    const zone = jobControl(ctx, 'combobox', 'Time zone');
+    await moveTo(ctx, zone, 'job time zone');
+    if (!(await zone.inputValue())) throw new Error(`${ctx.clipId}: the new job has no time zone`);
+    await pace(ctx, 1200);
   },
 });
 const scheduledRun = step('scheduled-run', {
   ai: true,
-  trigger: async (ctx) => { await settingsTab(ctx, 'AI Assistant', 'Scheduled jobs'); return main(ctx).getByRole('checkbox', { name: 'Enabled – Morning check', exact: true }); },
+  trigger: async (ctx) => { await settingsTab(ctx, 'AI Assistant', 'Scheduled jobs'); return jobControl(ctx, 'checkbox', 'Enabled'); },
   run: async (ctx) => {
     await settingsTab(ctx, 'AI Assistant', 'Scheduled jobs');
-    await caption(ctx, 'The morning check runs every day at 09:00.', 'ai-scheduled-daily');
-    await moveTo(ctx, main(ctx).getByRole('textbox', { name: 'Job name – Morning check', exact: true }));
-    await pace(ctx, 2000);
     // The app has no "run now": the runner checks every five minutes, so the clock jumps past 09:00
     // (fastForward fires each due timer once, not every tick in between).
     await caption(ctx, 'At 09:00 it runs by itself.', 'ai-scheduled-runs');
@@ -253,18 +302,29 @@ const scheduledRun = step('scheduled-run', {
     // The run is read from the stored job (Node, off screen) while the view stays put, and Settings shows
     // it as soon as the runner records it (§750).
     // Claude's think time on camera, timed like any AI wait so the clip can trim it.
-    const run = await timedAiWait(ctx, () => storedRun('Morning check'));
+    const { run, key } = await timedAiWait(ctx, () => storedRun(JOB));
     if (!run.ok) throw new Error(`${ctx.clipId}: the scheduled run failed (${run.error ?? 'no detail'})`);
+    // This take's report: the job's key was minted by this take's Add job, so an older report cannot match.
+    const report = (await L.query(REPORT_FOR_JOB_SQL, [{ type: 'text', value: key }]))[0]?.[0]?.value;
+    if (!report) throw new Error(`${ctx.clipId}: the run of ${JOB} wrote no report`);
+    ctx.scheduledReportId = report;
+    ctx.log(`SCHEDULED run ok, job key ${key}, report ${report}`);
     const lastRun = main(ctx).getByText(/^Last run: /).first();
     await lastRun.waitFor({ timeout: 15000 });
     await caption(ctx, 'It ran: its suggestions are counted on the job.', 'ai-scheduled-ran');
-    await moveTo(ctx, lastRun);
-    await pace(ctx, 3000);
+    await moveTo(ctx, lastRun, 'Last run');
+    await pace(ctx, 2000);
+    // The report it wrote, in Scheduled reports (Portfolio): its tab's id carries the report's id.
+    await caption(ctx, 'Its report is kept under Scheduled reports.', 'ai-scheduled-report');
+    await nav(ctx, 'Scheduled reports');
+    await click(ctx, reportTab(ctx), 'this run\'s report', 2500);
+    await pace(ctx, 2000);
   },
-  // The row reads "Last run: <time> — N suggestions" in one element.
-  check: async (ctx) => ((await main(ctx).getByText(/ — (\d+ suggestions|1 suggestion)$/).count()) ? null : 'no analysis'),
+  check: async (ctx) => ((ctx.scheduledReportId && (await reportTab(ctx).count())) ? null : 'no report'),
   replay: noop,
 });
+/** This take's report tab (scheduled-reports-list.tsx: id `<list>-tab-<report id>`). */
+const reportTab = (ctx) => main(ctx).locator(`[role="tab"][id$="-tab-${ctx.scheduledReportId}"]`);
 
 export const AI_STEPS = Object.freeze({
   'ai-proposal': [wizardProposal],
@@ -282,7 +342,7 @@ export const AI_STEPS = Object.freeze({
   // An import is refused while budget hours follow the plan (Tuesday switches it off first too).
   'ai-forecast-import': [weekStep('budget-follow-plan-off'), weekStep('forecast-import')],
   'ai-weights': [weightsHistory, weightsSuggest],
-  'ai-scheduled': [scheduledJob, scheduledRun],
+  'ai-scheduled': [scheduledJob, scheduledConfigure, scheduledRun],
 });
 
 // ---- preconditions (A's "What A needs from project E", re-checked against the reworked data) ----

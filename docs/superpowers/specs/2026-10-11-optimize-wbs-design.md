@@ -136,6 +136,8 @@ Rich descriptions go through `sanitizeAiRichText`, on the same boundary as every
 
 **Placement:** "Optimize with AI" (`AiTriggerButton`) leads the Open Points control row (`tasks-section-toolbar.tsx`). That follows the "primary action leads" rule that Planning's AI button (`resources-panel-toolbar.tsx`) and RACI's "Suggest RACI" already set.
 
+> **Superseded 2026-10-23 (owner decision):** Add task now leads the Open Points control row and "Optimize with AI" follows it.
+
 **i18n:** every string goes in both `i18n.ts` and `i18n.de.ts`, with real umlauts and a utf8 node write for the DE file.
 
 ## Testing

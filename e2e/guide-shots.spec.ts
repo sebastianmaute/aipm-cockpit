@@ -226,8 +226,8 @@ test.describe("guide", () => {
   });
 
   test("06 roles and rates, reached from the budget checklist", async ({ page }) => {
-    // Wider than the guide default: the rate card grows with the window, and below this width it
-    // clips its day-rate columns at the panel's edge.
+    // Wider than the guide default: the rate card's pane grows with the window up to its 72rem cap
+    // (§766), and narrower windows scroll its right-hand columns inside the panel.
     await page.setViewportSize({ width: 2400, height: 900 });
     await prepare(page);
     await clearEntityStore(page, IDB_ENTITY_STORES.budgets);
@@ -237,10 +237,11 @@ test.describe("guide", () => {
     await waitForViewSettled(page);
     const card = page.getByText("Rate card", { exact: true }).first();
     await expect(card).toBeVisible();
-    // The rate table is wider than its panel, which clips it: the panel's own Print button marks its right edge.
+    // The panel's reset-size button, last in its toolbar since §766 (Print · reset-size), marks its right edge.
     const print = page.locator("main").getByRole("button", { name: /print/i }).first();
+    const resetSize = page.locator("main").getByRole("button", { name: "Reset back to the default size.", exact: true }).first();
     // From the Print button, which sits higher than the heading, so the crop does not cut it.
-    await shotSpan(print, page.getByRole("button", { name: "Add role", exact: true }), `${GUIDE_DIR}/06-roles.png`, { across: [card, print] });
+    await shotSpan(print, page.getByRole("button", { name: "Add role", exact: true }), `${GUIDE_DIR}/06-roles.png`, { across: [card, print, resetSize] });
   });
 
   test("07 the resource form, email marked for Timelog", async ({ page }) => {

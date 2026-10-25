@@ -8,7 +8,7 @@ import { applyTier } from "./field-visibility";
 import { selectFieldTier } from "../test/field-tier";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 import { t } from "./i18n";
-import type { Absence } from "./types";
+import type { Absence, Resource } from "./types";
 
 // ModalFieldControls (rendered in the modal header) reads field visibility from
 // the workspace, so every render needs a WorkspaceProvider/FiltersProvider.
@@ -42,6 +42,12 @@ const base: Absence = {
   note: "Annual leave",
 };
 
+const RESOURCES: Resource[] = [
+  { id: 1, firstName: "Sofia", lastName: "Ramirez", email: "sofia@x.com", roleId: null, utilizationMode: "percent", utilization: {} },
+  { id: 2, firstName: "Liam", lastName: "Foster", email: "liam@x.com", roleId: null, utilizationMode: "percent", utilization: {} },
+  { id: 3, firstName: "Noah", lastName: "Kim", email: "", roleId: null, utilizationMode: "percent", utilization: {} },
+];
+
 type ModalProps = React.ComponentProps<typeof AbsenceEditModal>;
 
 /** Renders the modal at the Advanced default (email + note are Full-only → hidden). */
@@ -50,7 +56,9 @@ function setup(over: Partial<ModalProps> = {}) {
     lang: "en-US" as const,
     absence: base,
     isNew: false,
-    knownAssignees: [],
+    resources: RESOURCES,
+    contacts: [],
+    onCreateResource: vi.fn(() => 99),
     onSave: vi.fn(),
     onDelete: vi.fn(),
     onClose: vi.fn(),
@@ -66,7 +74,9 @@ function setupFull(over: Partial<ModalProps> = {}) {
     lang: "en-US" as const,
     absence: base,
     isNew: false,
-    knownAssignees: [],
+    resources: RESOURCES,
+    contacts: [],
+    onCreateResource: vi.fn(() => 99),
     onSave: vi.fn(),
     onDelete: vi.fn(),
     onClose: vi.fn(),
@@ -94,6 +104,75 @@ describe("AbsenceEditModal — hinted field names (§386)", () => {
       `${t("en-US", "absenceEnd")} *`,
       t("en-US", "absenceNote"),
     ]);
+  });
+});
+
+// The assignee is the shared searchable ResourcePicker (as in the task and
+// shift editors), not a free-text input with a datalist.
+describe("AbsenceEditModal — assignee ResourcePicker", () => {
+  const blank: Absence = { id: 5, assignee: "", startDate: "2026-06-01", endDate: "2026-06-05", type: "vacation" };
+
+  it("is a combobox named by its caption", () => {
+    setup({ absence: blank, isNew: true });
+    expect(screen.getByRole("combobox", { name: `${t("en-US", "absenceAssignee")} *` })).toBeInTheDocument();
+    expect(document.querySelector("datalist")).toBeNull();
+  });
+
+  it("typing filters the directory, and picking stamps the person and resourceId on save", () => {
+    const onSave = vi.fn();
+    setup({ absence: blank, isNew: true, onSave });
+    const picker = screen.getByRole("combobox", { name: `${t("en-US", "absenceAssignee")} *` });
+    fireEvent.focus(picker);
+    fireEvent.change(picker, { target: { value: "Sof" } });
+    expect(screen.queryByText("Liam Foster")).toBeNull();
+    fireEvent.mouseDown(screen.getByText("Sofia Ramirez"));
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ assignee: "Sofia Ramirez", assigneeEmail: "sofia@x.com", resourceId: 1 }),
+    );
+  });
+
+  it("retyping a linked name to one not in the directory saves it without the old resourceId", () => {
+    const onSave = vi.fn();
+    setup({ absence: { ...blank, assignee: "Sofia Ramirez", resourceId: 1 }, isNew: false, onSave });
+    const picker = screen.getByRole("combobox", { name: `${t("en-US", "absenceAssignee")} *` });
+    fireEvent.change(picker, { target: { value: "Dana Lee" } });
+    fireEvent.blur(picker);
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ assignee: "Dana Lee" });
+    expect(onSave.mock.calls[0][0].resourceId ?? null).toBeNull();
+  });
+
+  it("picking a person without an email drops the previous person's email", () => {
+    const onSave = vi.fn();
+    setup({ absence: blank, isNew: true, onSave });
+    const picker = screen.getByRole("combobox", { name: `${t("en-US", "absenceAssignee")} *` });
+    fireEvent.focus(picker);
+    fireEvent.change(picker, { target: { value: "Sof" } });
+    fireEvent.mouseDown(screen.getByText("Sofia Ramirez"));
+    fireEvent.focus(picker);
+    fireEvent.change(picker, { target: { value: "Noah" } });
+    fireEvent.mouseDown(screen.getByText("Noah Kim"));
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ assignee: "Noah Kim", resourceId: 3 });
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBeUndefined();
+  });
+
+  it("the clear button drops the email along with the name and link", () => {
+    const onSave = vi.fn();
+    setup({ absence: { ...base, resourceId: 1 }, onSave });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "clear") }));
+    const picker = screen.getByRole("combobox", { name: `${t("en-US", "absenceAssignee")} *` });
+    expect(picker).toHaveValue("");
+    fireEvent.change(picker, { target: { value: "Dana Lee" } });
+    fireEvent.blur(picker);
+    fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ assignee: "Dana Lee" });
+    expect(onSave.mock.calls[0][0].assigneeEmail).toBeUndefined();
+    expect(onSave.mock.calls[0][0].resourceId ?? null).toBeNull();
   });
 });
 

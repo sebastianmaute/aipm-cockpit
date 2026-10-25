@@ -40,7 +40,8 @@ export type AppView =
   | "learning-insights"
   | "steering-committee"
   | "timelog"
-  | "portfolio-health";
+  | "portfolio-health"
+  | "scheduled-reports";
 
 export interface NavItem {
   view: AppView;
@@ -55,7 +56,7 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "navPortfolio",
-    items: [{ view: "projects" }, { view: "portfolio-health" }],
+    items: [{ view: "projects" }, { view: "portfolio-health" }, { view: "scheduled-reports" }],
   },
   {
     labelKey: "navGroupOverview",
@@ -105,6 +106,7 @@ export const NAV_GROUPS: NavGroup[] = [
 const LABEL_KEYS: Record<Exclude<AppView, "learning-insights">, TranslationKey> = {
   projects: "navProjects",
   "portfolio-health": "navPortfolioHealth",
+  "scheduled-reports": "navScheduledReports",
   dashboard: "navDashboard",
   actions: "navActions",
   insights: "navInsights",
@@ -152,7 +154,7 @@ export function allNavViews(): AppView[] {
 /** Views that are only reachable on a Turso backend. They are pruned from the
  *  nav when `storageKind !== "turso"` so they never render a dead tab on the
  *  file backend. "history" is gated this way (version history lives in Turso). */
-export const TURSO_ONLY_VIEWS: readonly AppView[] = ["history", "portfolio-health", "trends"];
+export const TURSO_ONLY_VIEWS: readonly AppView[] = ["history", "portfolio-health", "scheduled-reports", "trends"];
 
 /** Child view -> the top-level item that owns it, derived from NAV_GROUPS. */
 const PARENT_VIEW = new Map<AppView, AppView>(

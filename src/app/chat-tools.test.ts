@@ -280,6 +280,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       throw new Error("deleteCalendarEvent not stubbed");
     }),
     updateSettings: vi.fn((patch) => ({ ...(patch as Record<string, unknown>) })),
+    previewSettings: vi.fn(() => ({})),
     listResources: vi.fn(() => [
       { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" },
     ]),

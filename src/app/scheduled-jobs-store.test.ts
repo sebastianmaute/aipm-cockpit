@@ -1,11 +1,10 @@
 // src/app/scheduled-jobs-store.test.ts
-vi.mock("./turso-pipeline", () => ({ runTursoPipeline: vi.fn(async () => []) }));
-import { runTursoPipeline } from "./turso-pipeline";
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
-  loadScheduledJobs, saveScheduledJobs, LOCAL_KEY, SCHEDULED_JOBS_TABLE,
+  loadScheduledJobs, saveScheduledJobs, LOCAL_KEY, SCHEDULED_JOBS_TABLE, SCHEDULED_JOBS_V2_TABLE,
 } from "./scheduled-jobs-store";
 import { TABLE_NAMES } from "./turso-schema";
+import { TEXTAREA_MAX } from "./sanitize-core";
 import { JOB_HISTORY_CAP, type ScheduledJob, type ScheduledJobRun } from "./scheduled-jobs/types";
 
 const job: ScheduledJob = {
@@ -14,15 +13,18 @@ const job: ScheduledJob = {
   type: "portfolioAnalysis",
   cadence: { kind: "daily", timeOfDay: "08:00" },
   enabled: true,
+  projectId: null,
+  timeZone: null,
+  key: null,
   lastRunAt: null,
   history: [],
 };
 
-const mockPipeline = () => runTursoPipeline as unknown as ReturnType<typeof vi.fn>;
 
 describe("scheduled-jobs-store: TABLE_NAMES guard", () => {
   it("keeps scheduled_jobs OUT of TABLE_NAMES (workspace save must never wipe it)", () => {
     expect(TABLE_NAMES).not.toContain(SCHEDULED_JOBS_TABLE);
+    expect(TABLE_NAMES).not.toContain(SCHEDULED_JOBS_V2_TABLE);
     expect(TABLE_NAMES).not.toContain("scheduled_jobs");
   });
 });
@@ -59,18 +61,43 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
     expect(out[0].history).toEqual([run]);
   });
 
+  it("keeps projectId, trimmed capped instruction, valid timeZone and key", async () => {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([{
+      ...job, projectId: "p1", instruction: "  focus on risks  ", timeZone: "Europe/Berlin", key: "k-1",
+    }, {
+      ...job, id: 2, projectId: "p1", instruction: "x".repeat(TEXTAREA_MAX + 50), timeZone: "Not/AZone", key: "k-2",
+    }]));
+    const out = await loadScheduledJobs(null);
+    expect(out[0]).toMatchObject({ projectId: "p1", instruction: "focus on risks", timeZone: "Europe/Berlin", key: "k-1" });
+    expect(out[1].instruction).toHaveLength(TEXTAREA_MAX);
+    expect(out[1].timeZone).toBeNull();
+  });
+
+  it("loads a legacy blob with projectId, timeZone and key null, no instruction, and mints no key", async () => {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([{
+      id: 1, name: "Old", type: "portfolioAnalysis", cadence: { kind: "daily", timeOfDay: "08:00" },
+      enabled: true, lastRunAt: null, history: [],
+    }]));
+    const out = await loadScheduledJobs(null);
+    expect(out[0].projectId).toBeNull();
+    expect(out[0].timeZone).toBeNull();
+    expect(out[0].key).toBeNull();
+    expect("instruction" in out[0]).toBe(false);
+  });
+
   it("drops malformed jobs and returns a clean array", async () => {
     localStorage.setItem(LOCAL_KEY, JSON.stringify([
       job,                                   // valid
       null,                                  // garbage
-      { id: "nope" },                        // non-numeric id -> dropped
-      { id: 3, type: "portfolioAnalysis" },  // missing/invalid cadence -> dropped
-      { id: 4, type: "other", cadence: { kind: "daily", timeOfDay: "07:00" } }, // bad type -> dropped
+      { id: "nope" },                        // non-numeric id -> kept, read-only
+      { id: 3, type: "portfolioAnalysis" },  // missing/invalid cadence -> kept, read-only
+      { id: 4, type: "other", cadence: { kind: "daily", timeOfDay: "07:00" } }, // unknown type -> kept, read-only
       "string-not-object",
     ]));
     const out = await loadScheduledJobs(null);
-    expect(out).toHaveLength(1);
-    expect(out[0].id).toBe(1);
+    expect(out.map((j) => j.foreign !== undefined)).toEqual([false, true, true, true]);
+    expect(out.filter((j) => j.foreign === undefined).map((j) => j.id)).toEqual([1]);
+    expect(out.find((j) => j.foreign?.raw.id === "nope")?.id).toBeLessThan(0); // a stable placeholder id
   });
 
   it("returns [] for non-array / garbage JSON", async () => {
@@ -90,58 +117,22 @@ describe("scheduled-jobs-store (localStorage path, config=null)", () => {
     expect(out[0].history).toHaveLength(JOB_HISTORY_CAP);
   });
 
-  it("coerces an invalid cadence kind by dropping the job", async () => {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify([
-      { ...job, cadence: { kind: "monthly", timeOfDay: "08:00" } },
-    ]));
-    expect(await loadScheduledJobs(null)).toEqual([]);
+  it("keeps a job with a cadence kind it does not know, as a foreign job carrying its stored JSON", async () => {
+    const stored = { ...job, cadence: { kind: "monthly", timeOfDay: "08:00" } };
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([stored]));
+    const [only] = await loadScheduledJobs(null);
+    expect(only.foreign?.raw).toEqual(stored);
   });
 });
 
-describe("scheduled-jobs-store (Turso path, config!=null)", () => {
-  const cfg = { databaseUrl: "libsql://x", authToken: "t" } as never;
-  beforeEach(() => mockPipeline().mockReset());
+describe("scheduled-jobs-store: the slot of a run record (§772 cr4 re-review)", () => {
+  beforeEach(() => localStorage.clear());
 
-  it("loadScheduledJobs runs DDL + SELECT and decodes the JSON data column", async () => {
-    mockPipeline().mockResolvedValueOnce([
-      { type: "ok" as const }, // DDL result
-      {
-        type: "ok" as const,
-        response: { type: "resultsOk", result: {
-          cols: [{ name: "id" }, { name: "data" }],
-          rows: [[{ value: "1" }, { value: JSON.stringify(job) }]],
-        } },
-      },
-    ]);
-    const out = await loadScheduledJobs(cfg);
-    expect(out).toHaveLength(1);
-    expect(out[0]).toMatchObject({ id: 1, name: "Daily portfolio review", enabled: true });
-  });
-
-  it("loadScheduledJobs drops a row whose data is unparseable", async () => {
-    mockPipeline().mockResolvedValueOnce([
-      { type: "ok" as const },
-      {
-        type: "ok" as const,
-        response: { type: "resultsOk", result: {
-          cols: [{ name: "id" }, { name: "data" }],
-          rows: [[{ value: "9" }, { value: "{not-json" }], [{ value: "1" }, { value: JSON.stringify(job) }]],
-        } },
-      },
-    ]);
-    const out = await loadScheduledJobs(cfg);
-    expect(out).toHaveLength(1);
-    expect(out[0].id).toBe(1);
-  });
-
-  it("saveScheduledJobs issues DDL + DELETE + an INSERT per job with id as a string arg", async () => {
-    await saveScheduledJobs(cfg, [job, { ...job, id: 2 }]);
-    const stmts = mockPipeline().mock.calls.at(-1)![1] as { sql: string; args?: { value: string }[] }[];
-    expect(stmts[0].sql).toMatch(/CREATE TABLE IF NOT EXISTS scheduled_jobs/);
-    expect(stmts.some((s) => /^DELETE FROM scheduled_jobs$/.test(s.sql))).toBe(true);
-    const inserts = stmts.filter((s) => /INSERT INTO scheduled_jobs/.test(s.sql));
-    expect(inserts).toHaveLength(2);
-    expect(inserts[0].args?.[0]?.value).toBe("1"); // id stringified
-    expect(typeof inserts[0].args?.[0]?.value).toBe("string");
+  // KILLED BY: dropping slot in sanitizeRun.
+  it("keeps a run's slot, and drops one that is not a non-empty string", async () => {
+    const run = (extra: Record<string, unknown>) => ({ ranAt: "2026-10-23T09:00:00.000Z", summary: "s", actionCount: 1, ok: true, ...extra });
+    localStorage.setItem(LOCAL_KEY, JSON.stringify([{ ...job, history: [run({ slot: "2026-10-23T08:58:00.000Z" }), run({ slot: 5 }), run({ slot: "" }), run({})] }]));
+    const [loaded] = await loadScheduledJobs(null);
+    expect(loaded.history.map((h) => h.slot)).toEqual(["2026-10-23T08:58:00.000Z", undefined, undefined, undefined]);
   });
 });

@@ -7,7 +7,7 @@ import { VIDEOS } from '../videos.mjs';
 
 export const TITLE = 'title'; // spoken over the title card
 export const OPENING = 'opening'; // the opening caption
-export const CLOSING = 'closing'; // spoken over the closing frame
+export const CLOSING = 'closing'; // the last caption, spoken over the closing frame and kept to the end
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;

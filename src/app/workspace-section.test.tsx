@@ -17,7 +17,7 @@ import { SINGLE_TENANT_ASSET_PARTITION } from "./document-assets-schema";
 import { __resetSafeModeCache } from "./safe-mode";
 import { useEffect } from "react";
 import { saveActualsCache } from "./timelog-actuals-store";
-import type { FeatureModuleId } from "./feature-modules";
+import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import type { SuggestedAction } from "./next-actions/types";
 import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 import { t } from "./i18n";
@@ -66,6 +66,14 @@ vi.mock("./chat-panel", async () => {
     },
   };
 });
+// §772 — records what the Scheduled reports branch hands the panel: the Turso config, the portfolio mode and the zone.
+const scheduledReportsMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./scheduled-reports-panel", () => ({
+  ScheduledReportsPanel: (p: Record<string, unknown>) => {
+    scheduledReportsMock.props.push(p);
+    return <div data-testid="scheduled-reports-panel" />;
+  },
+}));
 // Captures its props for the §502 budget-simulation wiring test; same stub div as before.
 const reportsPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
 vi.mock("./reports", () => ({
@@ -797,9 +805,11 @@ describe("WorkspaceSection — Time bookings features wiring", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("hands TimelogPanel the live features and a callback that commits them to the workspace", async () => {
+  // §779 — the features are the workspace slice the callback writes (all modules while it is unset),
+  // not this section's settings mirror.
+  it("hands TimelogPanel the workspace features and a callback that commits them to the workspace", async () => {
     const props = await renderAtTimelog();
-    expect(props.features).toEqual(["dashboard", "trends", "gantt", "milestones", "resources", "budget", "raid", "changes", "stakeholders"]);
+    expect(props.features).toEqual(ALL_MODULE_IDS);
     expect(typeof props.onCommitFeatures).toBe("function");
     act(() => (props.onCommitFeatures as (next: FeatureModuleId[]) => void)(["timelog", "budget"]));
     expect(screen.getByTestId("ws-features")).toHaveTextContent('["timelog","budget"]');
@@ -912,6 +922,47 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
     const props = chatPanelMock.props.at(-1)!;
     expect(props.tursoMode).toBe(true);
     expect(props.tursoConfig).not.toBeNull();
+  });
+
+  // §772 — the Scheduled reports branch. The settings here carry NO AI key and consent is off, so a branch
+  // that gated the view on AI would never mount the panel.
+  function ScheduledReportsProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-scheduled" onClick={() => setActiveTab("scheduled-reports")} />;
+  }
+  async function renderScheduledReports(props: Partial<WorkspaceSectionProps>) {
+    scheduledReportsMock.props.length = 0;
+    render(
+      <>
+        <ScheduledReportsProbe />
+        <WorkspaceSection {...makeProps(props)} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-scheduled"));
+    await screen.findByTestId("scheduled-reports-panel");
+    return scheduledReportsMock.props.at(-1)!;
+  }
+
+  it("hands the Scheduled reports panel the Turso config and portfolio mode, with the AI off", async () => {
+    vi.mocked(useSettings).mockReturnValue(tursoConfiguredSettingsBrowserStorage);
+    const panel = await renderScheduledReports({ mode: "turso" });
+    expect(panel.tursoConfig).not.toBeNull();
+    expect(panel.mode).toBe("turso");
+    expect(typeof panel.timeZone).toBe("string");
+    expect(typeof panel.onOpenSettings).toBe("function");
+  });
+
+  it("hands the Scheduled reports panel the portfolio mode, not the storage kind", async () => {
+    vi.mocked(useSettings).mockReturnValue(tursoConfiguredSettings);
+    const panel = await renderScheduledReports({ mode: "file" });
+    expect(panel.mode).toBe("file");
+  });
+
+  it("hands the Scheduled reports panel a null config when no Turso credentials are set", async () => {
+    vi.mocked(useSettings).mockReturnValue(settingsWithoutTurso);
+    const panel = await renderScheduledReports({ mode: "turso" });
+    expect(panel.tursoConfig).toBeNull();
   });
 
   it("hands ChatPanel the export footer from settings.branding, for its document card", async () => {

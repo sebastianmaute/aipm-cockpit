@@ -25,7 +25,7 @@ Before you open a single list, the dashboard puts one thing on top.
 
 - `title`: spoken while the title card is shown.
 - `opening`: spoken with the opening caption.
-- `closing`: spoken over the closing frame.
+- `closing`: shown as the last caption and spoken over the closing frame; it stays on screen to the end.
 
 ## The big video
 

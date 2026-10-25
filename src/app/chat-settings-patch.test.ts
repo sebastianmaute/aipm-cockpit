@@ -56,6 +56,46 @@ describe("computeSettingsPatch", () => {
     expect(applied.enabledModules).not.toContain("not-a-module");
   });
 
+  // §779 — a typo in a mixed list silently switched that function off; the model is now told which
+  // ids were ignored. Mutation: dropping the `droppedModules` echo turns the first red.
+  it("reports the ids a mixed list dropped as droppedModules", () => {
+    const { changes, applied } = computeSettingsPatch(
+      { enabledModules: ["budget", "raidd", 7] } as never,
+      baseSettings(),
+    );
+    expect(changes.features).toEqual(["budget"]);
+    expect(applied.enabledModules).toEqual(["budget"]);
+    expect(applied.droppedModules).toEqual(["raidd", "7"]);
+  });
+
+  it("adds no droppedModules when every id is known, the legacy documents id included", () => {
+    const { applied } = computeSettingsPatch({ enabledModules: ["budget", "documents"] } as never, baseSettings());
+    expect(applied).toEqual({ enabledModules: ["budget", "knowledge"] });
+  });
+
+  // §779 — the list now persists with the project, so a value that would read as "switch everything off"
+  // by accident is refused instead of sanitised to [].
+  // Mutation: removing the non-array refusal turns the first red; removing the all-unknown refusal, the second.
+  it("refuses a non-array enabledModules", () => {
+    for (const bad of ["budget", { budget: true }, null, 3]) {
+      expect(() => computeSettingsPatch({ enabledModules: bad } as never, baseSettings())).toThrow(
+        "enabledModules must be a list of module ids",
+      );
+    }
+  });
+
+  it("refuses a non-empty list that names no known module, naming what it got", () => {
+    expect(() => computeSettingsPatch({ enabledModules: ["Budget", "wiki"] } as never, baseSettings())).toThrow(
+      /enabledModules names no known module: Budget, wiki/,
+    );
+  });
+
+  it("accepts [] as switching every function off (the Simple preset)", () => {
+    const { changes, applied } = computeSettingsPatch({ enabledModules: [] } as never, baseSettings());
+    expect(changes.features).toEqual([]);
+    expect(applied.enabledModules).toEqual([]);
+  });
+
   it("ignores unknown nextActionsWeights keys and applies nothing for them", () => {
     const { changes, applied } = computeSettingsPatch(
       { nextActionsWeights: { bogusKey: 5 } } as never,

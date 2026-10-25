@@ -17,7 +17,9 @@ vi.mock("./use-scheduled-job-runner", () => ({
   useScheduledJobRunner: (args: unknown) => { runnerArgs.push(args); },
 }));
 
+vi.mock("./workspace-context", () => ({ useWorkspace: () => ({ ...emptyWorkspace(), budgets: [] }) }));
 import { useAiOrchestration, type AiOrchestrationDeps } from "./use-ai-orchestration";
+import { emptyWorkspace } from "./workspace";
 import { actionGuideText, type OperatingGuide } from "./operating-guide";
 import { defaultSettings } from "./settings-types";
 

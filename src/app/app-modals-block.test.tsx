@@ -49,7 +49,7 @@ function makeDeps(overrides: Partial<AppModalsBlockDeps> = {}): AppModalsBlockDe
     editingId: null, openTaskNotes: vi.fn(), openTaskBlockers: vi.fn(),
     budgetLink: { tag: "budget-link" }, calendarTaskEnabled: true, calendarAbsenceEnabled: false,
     jiraConflicts: [], handleResolveConflicts: vi.fn(), jiraResolving: false, clearConflicts: vi.fn(),
-    editingAbsence: null, absenceKnownAssignees: [], handleSaveAbsence: vi.fn(), handleDeleteAbsence: vi.fn(), handleCloseAbsenceModal: vi.fn(),
+    editingAbsence: null, handleSaveAbsence: vi.fn(), handleDeleteAbsence: vi.fn(), handleCloseAbsenceModal: vi.fn(),
     editingCalendarEvent: null, handleSaveCalendarEvent: vi.fn(), handleDeleteCalendarEvent: vi.fn(), handleCloseCalendarEventModal: vi.fn(),
     editingShift: null, shiftExistingAssigneeKeys: new Set<string>(), handleSaveShift: vi.fn(), handleDeleteShift: vi.fn(), handleCloseShiftModal: vi.fn(),
     today: "2026-10-11", nextId: 42, contactsList: [], resources: [], handleCreateResource: vi.fn(), absences: [],

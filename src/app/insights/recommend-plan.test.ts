@@ -25,8 +25,37 @@ describe("describeRecommendationPlan", () => {
   });
 
   test("previews a create as a new item", () => {
-    const plan = describeRecommendationPlan([{ name: "create_task", input: { taskName: "New" } }], ws());
+    const plan = describeRecommendationPlan(
+      [{ name: "create_task", input: { taskName: "New", assignee: "Dana Ortiz", dueDate: "2026-09-25" } }],
+      ws(),
+    );
     expect(plan.creates).toHaveLength(1);
+    expect(plan.rejected).toHaveLength(0);
+  });
+
+  // §782 — the card used to title this from `title` and show it as a normal
+  // create, while runTool refused it for want of taskName and assignee.
+  test("shows a create the dispatcher would refuse as rejected, with the missing fields, never as a create", () => {
+    const plan = describeRecommendationPlan(
+      [{ name: "create_task", input: { title: "Review T&M burn", dueDate: "2026-09-25" } }],
+      ws(),
+    );
+    expect(plan.creates).toHaveLength(0);
+    expect(plan.rejected).toEqual([
+      { toolName: "create_task", reason: "bad-input", detail: "create_task: taskName, assignee required" },
+    ]);
+  });
+
+  test("a refused create leaves its valid sibling in the plan", () => {
+    const plan = describeRecommendationPlan(
+      [
+        { name: "create_milestone", input: { name: "Budget review", targetDate: "2026-10-01" } },
+        { name: "update_task", input: { id: 12, dueDate: "2026-08-01" } },
+      ],
+      ws(),
+    );
+    expect(plan.rejected.map((r) => r.detail)).toEqual(["create_milestone: date required"]);
+    expect(plan.updates.some((u) => u.field === "dueDate")).toBe(true);
   });
 
   test("previews a delete without a false self-id rejection", () => {

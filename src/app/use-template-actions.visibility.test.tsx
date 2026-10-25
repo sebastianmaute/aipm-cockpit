@@ -33,7 +33,7 @@ describe("useTemplateActions — applied field visibility", () => {
   it("re-adds the required ids and drops unknown ones before the template reaches the workspace", () => {
     const hook = renderHook(
       () => ({
-        actions: useTemplateActions({ lang: "en-US", showToast: vi.fn(), features: [] }),
+        actions: useTemplateActions({ lang: "en-US", showToast: vi.fn() }),
         ws: useWorkspace(),
       }),
       { wrapper: Wrapper },

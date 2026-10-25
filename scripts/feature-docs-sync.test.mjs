@@ -51,6 +51,7 @@ const SECTION_TO_ROWS = {
   Insights: ["Insights"],
   "Time bookings": ["Timelog time bookings"],
   "Portfolio health": ["Portfolio health (Turso)"],
+  "Scheduled reports": ["Scheduled reports (Turso)"],
   "Version history": ["Version history (Turso)"],
   "Activity log": ["Activity log"],
 };

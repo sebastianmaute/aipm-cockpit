@@ -8,6 +8,7 @@ import {
   isCreateTool,
   isDestructiveCall,
   isDestructiveTool,
+  isEntityWriteCall,
   isEntityWriteTool,
   namesPendingMint,
   remapStagedCall,
@@ -182,6 +183,49 @@ describe("shouldStage — invitations", () => {
   // one existed) could trip this — the check is gated on the tool NAME first.
   test("a non-calendar tool carrying the same field name never stages alone", () => {
     expect(shouldStage([call("create_task", { sendInvitations: true })])).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §779 — `update_settings` carrying `enabledModules` writes the project's saved
+// functions (`Workspace.features`), so it counts as a write. Owner decision
+// 2026-10-24 ("Count it"). Every other `update_settings` call stays exempt.
+
+describe("shouldStage — update_settings { enabledModules } (§779)", () => {
+  // Mutation: dropping the `enabledModules` branch from `isEntityWriteCall` turns
+  // this red (the pair counts one write and applies at once, unreviewed).
+  test("an update_task plus switching every function off goes to review", () => {
+    expect(
+      shouldStage([call("update_task", { id: 1 }), call("update_settings", { enabledModules: [] })]),
+    ).toBe(true);
+  });
+
+  test("a non-empty functions list beside a task write goes to review too", () => {
+    expect(
+      shouldStage([call("update_task", { id: 1 }), call("update_settings", { enabledModules: ["raid"] })]),
+    ).toBe(true);
+  });
+
+  // Mutation: putting `update_settings` in `ALWAYS_STAGED_TOOLS` turns this red.
+  test("a lone functions change applies at once", () => {
+    expect(shouldStage([call("update_settings", { enabledModules: ["dashboard", "raid"] })])).toBe(false);
+    expect(shouldStage([call("update_settings", { enabledModules: [] })])).toBe(false);
+  });
+
+  // Mutation: counting every `update_settings` by name turns this red.
+  test("a device setting beside a task write still applies at once, as before", () => {
+    expect(shouldStage([call("update_task", { id: 1 }), call("update_settings", { showViewHints: false })])).toBe(false);
+  });
+
+  test("the predicate reads the key, not the value", () => {
+    expect(isEntityWriteCall(call("update_settings", { enabledModules: [] }))).toBe(true);
+    expect(isEntityWriteCall(call("update_settings", { enabledModules: "raid" }))).toBe(true);
+    expect(isEntityWriteCall(call("update_settings", { showViewHints: false }))).toBe(false);
+    expect(isEntityWriteCall(call("update_settings"))).toBe(false);
+    // Name-gated: the same key on another non-write tool counts for nothing.
+    expect(isEntityWriteCall(call("set_language", { enabledModules: [] }))).toBe(false);
+    expect(isEntityWriteCall(call("update_task", { id: 1 }))).toBe(true);
+    expect(isEntityWriteCall(call("list_tasks"))).toBe(false);
   });
 });
 

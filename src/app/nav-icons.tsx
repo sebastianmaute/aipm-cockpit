@@ -9,6 +9,7 @@ import {
   BookOpenIcon,
   BriefcaseIcon,
   BuildingLibraryIcon,
+  CalendarDaysIcon,
   CalendarIcon,
   ChartBarIcon,
   ChartBarSquareIcon,
@@ -45,6 +46,7 @@ interface NavIconProps {
 const NAV_ICON: Record<AppView, AppIcon> = {
   projects: BriefcaseIcon,
   "portfolio-health": ChartBarSquareIcon,
+  "scheduled-reports": CalendarDaysIcon,
   "open-points": ListBulletIcon,
   dashboard: Squares2X2Icon,
   actions: BellIcon,

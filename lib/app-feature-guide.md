@@ -5,7 +5,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 ## Overview
 
 - Covers portfolio and project delivery: open points (tasks), action center, insights, dashboards, trends, RAID, change control, milestones and Gantt, stakeholders and RACI, steering committee, reports, budget, resources and capacity, calendar, knowledge links, documents, time bookings, the activity log, version history, the portfolio-health rollup, and settings.
-- Established: task status model + Table/Board (Kanban) toggle, steering committee, guided tour with demo data, timezones (incl. the calendar world-clock strip), AI weight suggestions / report analysis / opt-in scheduled jobs, create-project from a description / file / SharePoint / Confluence, editable communication templates, the Timelog time-booking integration, the Turso-only portfolio-health rollup, view-aware AI, rate-card day rates, a planning capacity column with a hide-external toggle, dashboard tile tooltips, and a RACI people-column filter.
+- Established: task status model + Table/Board (Kanban) toggle, steering committee, guided tour with demo data, timezones (incl. the calendar world-clock strip), AI weight suggestions / report analysis / opt-in scheduled per-project reports, create-project from a description / file / SharePoint / Confluence, editable communication templates, the Timelog time-booking integration, the Turso-only portfolio-health rollup, view-aware AI, rate-card day rates, a planning capacity column with a hide-external toggle, dashboard tile tooltips, and a RACI people-column filter.
 - Newest: a **Documents** view that authors project documents and exports each one as a web page, Word, PowerPoint or PDF; an **Insights** view carrying the detect -> recommend -> outcome loop; **saved AI chat threads** with a sidebar, plus tools that search this project's earlier chats and its activity history; an **activity log that belongs to the project** rather than to the browser, recording who made each change; an **arrangeable dashboard** where every tile can be picked up and moved; **multi-step undo**; a **note log on changes** as well as tasks and RAID items; and one **unified rich-text editor** across every formatted field, whose headings, lists and alignment now survive export to Word, HTML and PDF.
 - Formatted text: seven fields take rich formatting — a task's description, a RAID item's description and mitigation, a change's description, impact description and resolution notes, and a milestone's description. One editor serves all seven: bold, italic, underline, strikethrough, inline code and code blocks, highlight, superscript and subscript, headings 1-4, quotes, horizontal rules, bulleted, numbered and checkable task lists, left/centre/right alignment, and links. Markdown shortcuts work while typing. Character limits count visible text, not markup. Older plain-text values stay valid and are upgraded when read, so a project can hold both shapes at once.
 - Note log: tasks, RAID items and changes each carry dated notes in a separate floating window (a `🗒 N` badge on the row). Notes are NOT the same field as the description. You can read a TASK's notes with get_task, one task at a time; they are not included in list_tasks. You cannot write a note on anything (recording a RAID escalation adds its own dated note, labelled "AI created"), and you cannot read notes on RAID items or change items at all — for those, say so and point the user at the window rather than guessing from the description.
@@ -246,6 +246,16 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - A Turso-only cross-project rollup: per-project RAG, completion, open-RAID count, and milestone health, plus aggregate portfolio KPIs.
 - Each project is loaded and run through the same health computation as the single-project dashboard.
 - AI: read-only — there is no portfolio tool. Available only on a Turso backend; on file storage the view is hidden.
+
+## Scheduled reports
+
+<!-- views: scheduled-reports -->
+
+- A Turso-only history of scheduled job runs, under Portfolio, newest first: a vertical tab list (time, project, job, state) with the selected report beside it.
+- Each report keeps one run's summary and suggested actions, the instruction the job ran with, and the device that ran it. A run still in progress or cut short is marked running or interrupted; a failed run says why. A report says so when part of the project could not be read.
+- A job runs at most once per day (daily) or per week (weekly, Monday to Sunday) in its own time zone, however its time or zone is edited, so a project gets at most one report per job per period.
+- A project filter lists every project that has reports, archived ones included. The view reloads on focus and after each run. Jobs are set up under Settings → Scheduled jobs.
+- AI: read-only — there is no reports tool. Needs a Turso portfolio; on file storage the view is hidden.
 
 ## Version history
 
