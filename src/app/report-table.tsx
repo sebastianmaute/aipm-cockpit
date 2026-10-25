@@ -488,7 +488,8 @@ export function Tile({
   // `activateLabel` ("Complete – Open the tasks list"), so speech input could
   // not reach it by what it shows, and the aria-label hid the value from screen
   // readers outright. The `after:` overlay keeps the WHOLE card the click
-  // target; value, trend and sub are plain text, read in document order.
+  // target; value and sub are plain text read in document order, and a trend
+  // is announced by its own sentence (`TrendArrow` is `role="img"`).
   const labelEl = onActivate ? (
     <button
       type="button"

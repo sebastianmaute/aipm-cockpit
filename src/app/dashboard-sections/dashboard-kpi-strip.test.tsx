@@ -142,8 +142,8 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
     expect(screen.getByText(t("en-US", "dashboardNoActiveScope"))).toBeInTheDocument();
     expect(screen.getByText(t("en-US", "dashboardAllCancelled", "2"))).toBeInTheDocument();
     expect(screen.queryByText("0%")).toBeNull();
-    // KpiGradientBar is the completion tile's sole role="img" element.
-    expect(screen.queryByRole("img")).toBeNull();
+    // No KpiGradientBar (by name: the other tiles' trend arrows are role="img" too).
+    expect(screen.queryByRole("img", { name: new RegExp(`^${t("en-US", "dashboardKpiComplete")}: `) })).toBeNull();
     // And the trend arrow: it would announce a delta against a percentage the
     // tile no longer shows. The control test below proves this fixture DOES
     // render an arrow, so this absence is a suppression, not a no-op.
@@ -170,7 +170,8 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
       />,
     );
     expect(screen.getByText("40%")).toBeInTheDocument();
-    expect(screen.getByRole("img")).toBeInTheDocument();
+    // The bar, by name: the trend arrows are role="img" too.
+    expect(screen.getByRole("img", { name: `${t("en-US", "dashboardKpiComplete")}: 40%` })).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "dashboardNoActiveScope"))).toBeNull();
     // The half that makes the suppression above meaningful: with the same
     // fixture, an arrow really does render here.
@@ -234,8 +235,9 @@ describe("DashboardKpiStrip — merged Progress cells", () => {
     render(<DashboardKpiStrip lang="en-US" model={modelFor(MIXED)} trends={trendsWithPrior} onNavigate={vi.fn()} dc={densityClasses("comfortable")} />);
     const cell = tileCard(`${t("en-US", "dashboardKpiComplete")} – ${openTasks}`);
     expect(within(cell).getByText("50%")).toBeInTheDocument();
-    expect(within(cell).getByRole("img")).toBeInTheDocument();
-    expect(within(cell).getByLabelText(COMPLETE_TREND_LABEL)).toBeInTheDocument();
+    expect(within(cell).getByRole("img", { name: `${t("en-US", "dashboardKpiComplete")}: 50%` })).toBeInTheDocument();
+    // The trend is announced: an img named by its sentence (trend-arrow.tsx).
+    expect(within(cell).getByRole("img", { name: COMPLETE_TREND_LABEL })).toBeInTheDocument();
     expect(within(cell).getByText(t("en-US", "dashboardCompletedOf", "2", "4"))).toBeInTheDocument();
   });
 
