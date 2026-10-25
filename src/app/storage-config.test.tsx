@@ -436,8 +436,8 @@ describe("StorageConfigSection — kind select routing", () => {
 // ★★ CASE-INSENSITIVE IS THE CORRECT COMPARISON HERE, NOT A WEAKENED ONE. DE differs in case by
 //   construction — "Übernehmen" standalone, "… übernehmen" inside a compound name — and SC 2.5.3
 //   matching ignores case and position (Understanding SC 2.5.3, "Punctuation and capitalization";
-//   axe's own `label-content-name-mismatch` ends in a position-independent `includes` over curated,
-//   case-folded text). A case-SENSITIVE DE assertion would therefore fail code that CONFORMS, and
+//   axe 4.14's own `label-content-name-mismatch` ends in a position-independent contiguous WORD
+//   match over curated, case-folded text). A case-SENSITIVE DE assertion would therefore fail code that CONFORMS, and
 //   "fixing" it by capitalising the verb mid-sentence would break German orthography instead.
 // ★★ NO GATE CATCHES THIS EITHER WAY: the SharePoint block needs `auth.account` (a live MSAL cache)
 //   so axe never renders it, although the gate runs the 2.5.3 rule since axe 4.14 — see

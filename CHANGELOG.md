@@ -271,9 +271,11 @@ longer carries its own changelog comment.
   linked item's chip in Documents ("#1 Design SSO architecture"), the budget chart's value readout, and the
   dashed "+ Create your first document…" box an empty register shows (Documents, RAID, the image library;
   the box is still clickable anywhere, but its button is now just the "+ …" line).
-  Each name now contains its visible text. Screen readers hear more as well: the KPI tiles' values are
-  read again (the tile's name used to hide them), and the inline cells, the bell and Undo/Redo name their
-  value or count.
+  The record rows in version history no longer put the change type inside the button. Each name now
+  contains its visible text. Screen readers hear more as well: the KPI tiles' values, their since-last-visit
+  arrows ("Complete up 3% since last visit") and the figures of the Completion trend and Trends tiles are
+  announced again (the click target's name used to hide them, and the arrows were never announced), and the
+  inline cells, the bell and Undo/Redo name their value or count.
 
 ### Security
 
