@@ -4,13 +4,13 @@
 Getting started. The app works straight away, with your projects kept in this browser. Two optional connections add more: a database for your projects, and Claude, the AI.
 
 ## setup-first-screen
-On a fresh install, the start screen offers three ways in. Each works straight away, with your projects kept in this browser. This video connects both first, to show every feature.
+On a fresh install, the start screen offers three ways in. A new project and the demo work straight away, with your projects kept in this browser. This video connects both services first, to show every feature.
 
 ## setup-connect
 Set up Turso first opens the setup, a few short steps.
 
 ## setup-turso
-Turso is an optional online database for your projects. It syncs them across your devices, and Trends and version history need it. You paste its address and access token, test the connection, and keep your portfolio there, the list of all your projects.
+Turso is an optional online database for your projects. It syncs them across your devices, and a few views need it: Trends, version history, portfolio health and scheduled reports. You paste its address and access token, test the connection, and keep your portfolio there, the list of all your projects.
 
 ## setup-key
 The key lets the app use Claude. It is optional too: without it, the AI features stay off and the rest of the app works. It is stored encrypted, on this computer only.

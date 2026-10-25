@@ -35,7 +35,8 @@ export function templateAnchor(today: string, projectStart: string | undefined):
 /** Move a seed's milestone dates and task start and due dates together, keeping every gap between them:
  *  the first day of the month that holds the earliest of those dates becomes `today`. A task's completion
  *  date and a milestone's sign-off date move by the same days (a template saved from a running project
- *  carries finished work, which must not end before it starts); they do not set the anchor. A blank or
+ *  carries finished work, which must not end before it starts); they do not set the anchor, so they can land
+ *  after today, like the rest of the moved plan. A blank or
  *  malformed date is left as it is. Other dates (RAID, changes, a task's last update and creation) are
  *  not moved. Pure — returns a new seed. */
 export function shiftSeedDates(seed: TemplateSeed, today: string): TemplateSeed {
