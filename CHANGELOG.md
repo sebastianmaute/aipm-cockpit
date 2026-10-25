@@ -268,7 +268,9 @@ longer carries its own changelog comment.
   visible label did nothing: the Dashboard's clickable KPI tiles (Complete, R / A / G, Overdue, Open RAID, SPI,
   CPI), the inline Assignee, Start date, Due date and Priority cells in Open Points, a filter button with a
   count such as "Status 3", the bell while it shows a count, the Undo and Redo buttons with their count, a
-  linked item's chip in Documents ("#1 Design SSO architecture") and the budget chart's value readout.
+  linked item's chip in Documents ("#1 Design SSO architecture"), the budget chart's value readout, and the
+  dashed "+ Create your first document…" box an empty register shows (Documents, RAID, the image library;
+  the box is still clickable anywhere, but its button is now just the "+ …" line).
   Each name now contains its visible text. Screen readers hear more as well: the KPI tiles' values are
   read again (the tile's name used to hide them), and the inline cells, the bell and Undo/Redo name their
   value or count.
