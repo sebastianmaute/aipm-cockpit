@@ -312,8 +312,11 @@ test("seeded budget history reaches the Reports change table and chart", async (
     .getByRole("radio", { name: "Cumulative", exact: true })
     .click();
   // One marker per seeded month, joined by "; " — three separate markers, in date order.
+  // ★ includeHidden: the chart svg is aria-hidden (read once, as the readout trigger's
+  // description — burndown-chart.tsx), so its role=img name is only reachable this way.
   const chart = page.getByRole("img", {
     name: /Budget changes: [^;]*Capped SOW \(rate override\); [^;]*Data Migration \(fixed price\); [^;]*Pilot Workshop removed\./,
+    includeHidden: true,
   });
   await expect(chart).toHaveCount(1);
 });

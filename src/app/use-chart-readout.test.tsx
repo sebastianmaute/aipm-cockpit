@@ -11,7 +11,7 @@ function Harness() {
     stops: STOPS, xDomain: ["2026-01-01", "2026-03-01"], x0: 64, x1: 560, viewBoxWidth: 640,
   });
   return (
-    <div>
+    <div {...readout.boxProps}>
       <button type="button" {...readout.triggerProps}>chart</button>
       {/* Stands for a truncated chart label painted over the trigger (burndown-chart.tsx). */}
       <span data-testid="overlay" {...readout.overlayProps}>label</span>
@@ -292,6 +292,33 @@ describe("useChartReadout", () => {
     const overlay = screen.getByTestId("overlay");
     fireEvent.pointerDown(overlay, { pointerType: "touch", button: 0, clientX: 412 });
     expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
+    expect(screen.getByRole("button", { name: "chart" })).toHaveFocus();
+  });
+
+  // The pen half of the overlay: a non-hovering pen fires pointerleave (with no
+  // relatedTarget) in the same task as its pointerup, so the label must open the
+  // same "just lifted" window the trigger does, or its own lift-off closes it.
+  // Mutation: drop `onPointerUp` from overlayProps → red.
+  it("stays open when a non-hovering pen taps the label laid over the trigger and lifts off", () => {
+    stubRect();
+    render(<Harness />);
+    const overlay = screen.getByTestId("overlay");
+    fireEvent.pointerDown(overlay, { pointerType: "pen", button: 0, clientX: 412 });
+    expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
+    fireEvent.pointerUp(overlay, { pointerType: "pen" });
+    fireEvent.pointerLeave(overlay, { pointerType: "pen" });
+    expect(screen.getByRole("status")).toHaveTextContent("2026-02-01");
+  });
+
+  // Windows touch in Chrome and Firefox still runs mousedown's focus handling
+  // after a cancelled pointerdown; the label cancels mousedown as well, so the
+  // trigger keeps focus. Mutation: drop `onMouseDown` from overlayProps → red.
+  it("cancels mousedown on the label, so the press cannot move focus off the trigger", () => {
+    stubRect();
+    render(<Harness />);
+    const overlay = screen.getByTestId("overlay");
+    fireEvent.pointerDown(overlay, { pointerType: "touch", button: 0, clientX: 412 });
+    expect(fireEvent.mouseDown(overlay, { button: 0 })).toBe(false); // false = default prevented
     expect(screen.getByRole("button", { name: "chart" })).toHaveFocus();
   });
 
