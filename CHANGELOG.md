@@ -77,6 +77,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Typing an instruction for Optimize with AI or Plan with AI is quick again.** Each key in Optimize with AI's
+  instruction box updated state held by the app's root, so every keystroke re-rendered the whole app: 40–55 ms a key in
+  a production build, three to four times the other fields. Plan with AI (Resources → Planning) did the same to the
+  Resources panel and its planning grid. Both dialogs now keep their own text and hand it over on Propose.
 - **A template's milestones no longer start overdue.** The built-in Standard PM and Full delivery templates
   stored fixed 2026 milestone dates, so a project created from one, or a template applied to a project, got milestones
   months in the past, flagged at once as overdue and at risk. Applying a template now moves its milestone dates and task

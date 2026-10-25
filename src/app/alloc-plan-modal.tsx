@@ -1,11 +1,15 @@
 "use client";
 
 // Presentational preview/confirm modal for AI-assisted resource-allocation
-// planning. The caller (the alloc-plan glue hook, next task) drives the
-// propose -> ground -> apply state machine and owns the instruction text, the
-// grounded cells, the per-cell selection, and the confirm/cancel handlers.
-// This component owns NO state, reaches into NO context, and performs NO
-// writes — it only renders the instruction field (stage "input") and, once
+// planning. The caller (the alloc-plan glue hook) drives the
+// propose -> ground -> apply state machine and owns the grounded cells, the
+// per-cell selection, and the confirm/cancel handlers. This component owns ONE
+// piece of state, the instruction text, handed to `onPropose` once: held by the
+// caller, every keystroke re-rendered the Resources panel that owns the hook,
+// planning grid included. It is mounted only while the plan is open, so each
+// opening starts empty, and it stays mounted back to "input" after an empty
+// proposal, so the text survives a retry. It reaches into NO context and
+// performs NO writes — it renders the instruction field (stage "input") and, once
 // grounded cells come back (stage "preview"), an itemized list the user
 // reviews cell-by-cell before anything is applied. Mirrors task-dedup-modal.tsx.
 //
@@ -16,6 +20,7 @@
 // cell here is shown with its current and next value and can be individually
 // deselected.
 
+import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
@@ -33,9 +38,8 @@ export interface AllocPlanModalProps {
   open: boolean;
   /** "input" while collecting the instruction, "preview" once cells are back. */
   stage: "input" | "preview";
-  instruction: string;
-  onInstruction: (value: string) => void;
-  onPropose: () => void;
+  /** Called with the instruction as typed. */
+  onPropose: (instruction: string) => void;
   cells: readonly GroundedAllocCell[];
   skipped: readonly SkippedCell[];
   /** True when the proposal was too large and some cells were not shown at all. */
@@ -69,8 +73,6 @@ export function AllocPlanModal({
   lang,
   open,
   stage,
-  instruction,
-  onInstruction,
   onPropose,
   cells,
   skipped,
@@ -82,6 +84,7 @@ export function AllocPlanModal({
   busy,
   canCancel,
 }: AllocPlanModalProps) {
+  const [instruction, setInstruction] = useState("");
   const title = t(lang, "allocPlanTitle");
   const isPreview = stage === "preview";
   const selectedCount = cells.reduce((n, c) => (selected.has(cellKey(c)) ? n + 1 : n), 0);
@@ -121,7 +124,7 @@ export function AllocPlanModal({
             </span>
             <Textarea
               value={instruction}
-              onChange={(e) => onInstruction(e.target.value)}
+              onChange={(e) => setInstruction(e.target.value)}
               placeholder={t(lang, "allocPlanInstructionPlaceholder")}
               disabled={busy || isPreview}
               rows={3}
@@ -202,7 +205,7 @@ export function AllocPlanModal({
               {t(lang, "allocPlanConfirm")}
             </Button>
           ) : (
-            <Button variant="primary" size="sm" onClick={onPropose} disabled={!canPropose}>
+            <Button variant="primary" size="sm" onClick={() => onPropose(instruction)} disabled={!canPropose}>
               {busy ? t(lang, "allocPlanThinking") : t(lang, "allocPlanPropose")}
             </Button>
           )}
