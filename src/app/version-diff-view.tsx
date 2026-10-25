@@ -204,17 +204,16 @@ export function VersionDiffView({
                       // button's name used to come from the two spans below, so
                       // two records sharing a display name announced identically
                       // — the same WCAG 2.4.6 fail as the checkbox, one control
-                      // over. The type badge is `aria-hidden` and folded into the
-                      // name instead, which is what keeps WCAG 2.5.3 satisfied:
-                      // axe's label-content-name-mismatch reads VISIBLE text only
-                      // (it skips aria-hidden content), so the visible label
-                      // reduces to the bare record label, and the name CONTAINS
-                      // the token — which is that label, plus an occurrence
-                      // index only when it collides. Containment therefore holds
-                      // for a colliding row AND a non-colliding one. AT still
-                      // hears the type; nothing is lost. (2.5.3 is containment,
-                      // case-insensitive and position-INdependent, so putting the
-                      // type first costs nothing here.)
+                      // over. The type is folded into the name instead.
+                      // ★★ WCAG 2.5.3: the type BADGE sits OUTSIDE the button, so
+                      // the button's visible text is the record label alone,
+                      // which the name contains (the token is that label, plus an
+                      // occurrence index only when it collides). It used to sit
+                      // inside, `aria-hidden`, on the belief that axe skips
+                      // aria-hidden text — false since axe 4.14, which compares
+                      // ON-SCREEN text: "Design SSOModified" against "Modified –
+                      // Design SSO" failed. `aria-hidden` cannot help 2.5.3; the
+                      // badge stays hidden only because the name already says it.
                       // ★★★ IT MUST GO THROUGH `rowLabel`, PUTTING THE TOKEN LAST,
                       // and this line built the name by hand the other way round
                       // until 0.260.x. `src/test/row-unique-names.ts` strips a
@@ -268,11 +267,11 @@ export function VersionDiffView({
                       // this button is the row's only control. On a restorable
                       // row no hint renders, so there is nothing to point at.
                       aria-describedby={revertible ? undefined : `${panelIds.get(k)}-managed`}
-                      className="flex w-full items-center justify-between text-left"
+                      className="min-w-0 flex-1 text-left"
                     >
                       <span className="text-foreground">{tokens.get(k) ?? c.recordLabel}</span>
-                      <span aria-hidden="true" className={`text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
                     </button>
+                    <span aria-hidden="true" className={`ml-2 shrink-0 text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
                     {!revertible && (
                       <span id={`${panelIds.get(k)}-managed`} className="ml-2 shrink-0 text-xs text-muted-foreground">
                         {t(lang, "historyNotRestorable")}

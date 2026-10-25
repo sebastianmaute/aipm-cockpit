@@ -4,6 +4,8 @@ import { VersionDiffView } from "./version-diff-view";
 import { diffWorkspaces, type VersionChange } from "./version-diff";
 import { changeKey } from "./version-restore";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { expectLabelInName } from "../test/label-in-name";
+import { loadI18n } from "./i18n";
 import { ws, roleRec, disciplineRec, gradeRec } from "../test/workspace-records";
 import { buttonClassFor } from "../test/button-variant";
 
@@ -111,36 +113,26 @@ describe("VersionDiffView", () => {
     expectRowUniqueNames({ roles: ["button"], minControls: 2, requireCollisionSeed: true });
   });
 
-  // ★★★ `aria-hidden="true"` ON THE TYPE BADGE IS LOAD-BEARING FOR WCAG 2.5.3,
-  // and nothing pinned it — the code comment beside it reads as protection and
-  // stops the audit, which is exactly the false-coverage shape. Deleting the
-  // attribute leaves every accessible name untouched (the aria-label wins), so
-  // every other test in this file stays GREEN while a colliding row breaks 2.5.3:
-  // the visible label becomes "Q3 report Modified" while the name is
-  // "Modified – Q3 report (1)", and the visible text is then no longer contained
-  // in the name. Assert the PROPERTY (containment over visible text, with
-  // aria-hidden subtrees removed as axe does), not the attribute — an attribute
-  // check passes for a name shape that violates the criterion anyway.
-  it("keeps each row's visible label contained in its accessible name (WCAG 2.5.3)", () => {
-    const changes: VersionChange[] = [1, 2].map((id) => ({
+  // ★★★ WCAG 2.5.3 — the type badge must sit OUTSIDE the record button. This
+  // test once removed `aria-hidden` subtrees before comparing, on the belief that
+  // axe does; axe 4.14 compares ON-SCREEN text, so an aria-hidden badge inside
+  // the button made its visible text "Q3 reportModified" against the name
+  // "Modified – Q3 report (1)" — a violation the old test passed. Asserted with
+  // the shared helper (on-screen text, word containment), both languages, on a
+  // colliding pair and a lone row. Mutation: move the badge back inside → red.
+  it.each(["en-US", "de"] as const)("keeps each row's visible label contained in its accessible name (WCAG 2.5.3, %s)", async (lang) => {
+    await loadI18n(lang);
+    const changes: VersionChange[] = [1, 2, 3].map((id) => ({
       collection: "documents", collectionLabel: "Documents", kind: "list" as const,
-      recordId: id, recordLabel: "Q3 report", type: "modified" as const,
+      recordId: id, recordLabel: id === 3 ? "Design SSO" : "Q3 report", type: "modified" as const,
       fields: [{ field: "title", label: "Title", before: "a", after: "b" }],
       restorable: false as const,
     }));
-    render(<VersionDiffView lang="en-US" changes={changes} selectable selection={{}}
+    render(<VersionDiffView lang={lang} changes={changes} selectable selection={{}}
       onToggleRecord={() => {}} />);
     const buttons = screen.getAllByRole("button");
-    expect(buttons).toHaveLength(2);
-    for (const btn of buttons) {
-      const clone = btn.cloneNode(true) as HTMLElement;
-      for (const hidden of clone.querySelectorAll('[aria-hidden="true"]')) hidden.remove();
-      const visible = (clone.textContent ?? "").trim();
-      const name = btn.getAttribute("aria-label") ?? "";
-      expect(visible).not.toBe(""); // a vacuous pass if the row rendered no text
-      // 2.5.3 is containment, case-INSENSITIVE and position-independent.
-      expect(name.toLowerCase()).toContain(visible.toLowerCase());
-    }
+    expect(buttons).toHaveLength(3);
+    for (const btn of buttons) expectLabelInName(btn);
   });
 
   it("gives two same-named records distinct checkbox names", () => {
