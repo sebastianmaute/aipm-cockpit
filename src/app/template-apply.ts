@@ -14,9 +14,57 @@ import { sanitizeRichHtml } from "./sanitize-html";
 import { htmlPlainProjection, sanitizeRichText, htmlTextLength } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 import { TEXTAREA_MAX } from "./sanitize";
+import { addCalendarDays, calendarDaysBetween } from "./working-days";
 
 export interface ApplyTemplateOptions {
   includeSeed: boolean;
+  /** The day the template is applied (ISO date). The seed's dates move so the first day of the month
+   *  holding its earliest date lands on this day (`shiftSeedDates`). Without it the dates stay as
+   *  stored, which puts a template's milestones in the past once that date has gone by. */
+  today?: string;
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The day a template's dates start from: the project's start when it is a date later than `today`, else
+ *  `today`, so a project that begins in three months does not get milestones before it starts. */
+export function templateAnchor(today: string, projectStart: string | undefined): string {
+  return projectStart && ISO_DAY.test(projectStart) && projectStart > today ? projectStart : today;
+}
+
+/** Move a seed's milestone dates and task start and due dates together, keeping every gap between them:
+ *  the first day of the month that holds the earliest of those dates becomes `today`. A task's completion
+ *  date and a milestone's sign-off date move by the same days (a template saved from a running project
+ *  carries finished work, which must not end before it starts); they do not set the anchor, so they can land
+ *  after today, like the rest of the moved plan. A blank or
+ *  malformed date is left as it is. Other dates (RAID, changes, a task's last update and creation) are
+ *  not moved. Pure — returns a new seed. */
+export function shiftSeedDates(seed: TemplateSeed, today: string): TemplateSeed {
+  const dates = [
+    ...(seed.milestones ?? []).map((m) => m.date),
+    ...(seed.tasks ?? []).flatMap((t) => [t.startDate ?? "", t.dueDate]),
+  ].filter((d) => ISO_DAY.test(d));
+  if (!dates.length || !ISO_DAY.test(today)) return seed;
+  const earliest = dates.reduce((a, b) => (b < a ? b : a));
+  const days = calendarDaysBetween(`${earliest.slice(0, 7)}-01`, today);
+  const move = (d: string) => (ISO_DAY.test(d) ? addCalendarDays(d, days) : d);
+  const out: TemplateSeed = { ...seed };
+  if (seed.milestones) {
+    out.milestones = seed.milestones.map((m) => ({
+      ...m,
+      date: move(m.date),
+      ...(m.achievedDate ? { achievedDate: move(m.achievedDate) } : {}),
+    }));
+  }
+  if (seed.tasks) {
+    out.tasks = seed.tasks.map((t) => ({
+      ...t,
+      dueDate: move(t.dueDate),
+      ...(t.startDate ? { startDate: move(t.startDate) } : {}),
+      ...(t.completedDate ? { completedDate: move(t.completedDate) } : {}),
+    }));
+  }
+  return out;
 }
 
 /**
@@ -412,6 +460,7 @@ export function applyTemplate(
   // ★ `sanitizeSeedTask` rebuilds a task from a fixed field list, so it drops
   //   per-row external links (`jiraKey`, `outlookEventId`, …) — cloning one
   //   is not a template — and `migrateTask` backfills `createdDate`.
-  const seed = sanitizeSeed(tpl.seed, CANONICAL_NOTE_HTML_OPS) ?? {};
+  const clean = sanitizeSeed(tpl.seed, CANONICAL_NOTE_HTML_OPS) ?? {};
+  const seed = opts.today ? shiftSeedDates(clean, opts.today) : clean;
   return appendSeed(base, remapSeed(ws, seed));
 }

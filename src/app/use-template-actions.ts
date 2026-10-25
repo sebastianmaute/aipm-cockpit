@@ -21,7 +21,7 @@ import { t, type Lang } from "./i18n";
 import type { ToastKind } from "./use-toast";
 import { useTemplates } from "./use-templates";
 import { templateFromWorkspace, type SaveTemplateInput } from "./templates";
-import { applyTemplate } from "./template-apply";
+import { applyTemplate, templateAnchor } from "./template-apply";
 import { useCurrentWorkspace } from "./use-current-workspace";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { sanitizeFieldVisibility } from "./field-visibility";
@@ -31,9 +31,12 @@ import { useWorkspace } from "./workspace-context";
 export interface TemplateActionsDeps {
   lang: Lang;
   showToast: (kind: ToastKind, text: string) => void;
+  /** The project's today (ISO date): an applied seed's dates start from it, or from the project's start when
+   *  that is later (`templateAnchor`). */
+  today: string;
 }
 
-export function useTemplateActions({ lang, showToast }: TemplateActionsDeps) {
+export function useTemplateActions({ lang, showToast, today }: TemplateActionsDeps) {
   const { features: savedFeatures, setFieldVisibility, setFeatures, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets } =
     useWorkspace();
   const { templates: projectTemplates, addTemplate } = useTemplates();
@@ -64,7 +67,7 @@ export function useTemplateActions({ lang, showToast }: TemplateActionsDeps) {
       const tpl = projectTemplates.find((x) => x.id === id);
       if (!tpl) return;
       const current = buildCurrentWorkspace();
-      const next = applyTemplate(current, tpl, opts);
+      const next = applyTemplate(current, tpl, { ...opts, today: templateAnchor(today, current.project?.startDate) });
       // A template's visibility is sanitised when it is loaded or saved, but `updateTemplate` takes
       // a raw patch and this is the one place it enters the workspace: re-run the sanitiser so a
       // stored set can never hide a required field or carry an unknown id.
@@ -85,7 +88,7 @@ export function useTemplateActions({ lang, showToast }: TemplateActionsDeps) {
       const seededEmails = opts.includeSeed ? summarizeUnsafeEmailRecords(templateSeedEmailScope(current, next)) : null;
       if (seededEmails) showToast("info", t(lang, "importUnsafeEmailsNotice", seededEmails.count, seededEmails.names));
     },
-    [projectTemplates, buildCurrentWorkspace, setFieldVisibility, setFeatures, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets, showToast, lang],
+    [projectTemplates, buildCurrentWorkspace, setFieldVisibility, setFeatures, setTasks, setMilestones, setRaid, setChanges, setStakeholders, setBudgets, showToast, lang, today],
   );
 
   return { projectTemplates, handleSaveTemplate, handleApplyTemplate };

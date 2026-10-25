@@ -3,6 +3,7 @@ import { sanitizeAiRichText } from "./ai-rich-text";
 import { aiSeedUnsafeEmails, buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
 import { appendSeed } from "./template-apply";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
+import { BUILT_IN_TEMPLATES } from "./templates-builtin";
 import type { ProjectMeta, Task } from "./types";
 import { emptyWorkspace, type Workspace } from "./workspace";
 
@@ -134,6 +135,26 @@ describe("buildNewProjectWorkspace", () => {
     const ws = buildNewProjectWorkspace(meta, {});
     expect(ws.features).toBeUndefined();
     expect(ws.fieldVisibility).toBeUndefined();
+  });
+
+  // Mutation: dropping `today: localDay` from the template apply leaves Standard PM's stored
+  // 2026-01-31 / 03-31 / 06-30 on a project created in October, all three overdue on day one.
+  it("a template's milestones are dated from the project's local day", () => {
+    const standard = BUILT_IN_TEMPLATES.find((x) => x.id === "builtin-standard")!;
+    const nowIso = "2026-10-25T12:00:00.000Z";
+    // A fixed zone: the local day comes from it, and 12:00 UTC is already the next day east of UTC+12.
+    const berlin: ProjectMeta = { ...meta, operatingTimezone: "Europe/Berlin" };
+    const ws = buildNewProjectWorkspace(berlin, { template: standard, includeSeed: true, baseline: { currency: "GBP", nowIso } });
+    expect((ws.milestones ?? []).map((m) => m.date)).toEqual(["2026-11-24", "2027-01-22", "2027-04-23"]);
+  });
+
+  // Mutation: anchoring on the local day alone puts this project's first milestone in November 2026,
+  // three months before the project starts.
+  it("a project that starts later dates the template from its start, not from today", () => {
+    const standard = BUILT_IN_TEMPLATES.find((x) => x.id === "builtin-standard")!;
+    const later: ProjectMeta = { ...meta, operatingTimezone: "Europe/Berlin", startDate: "2027-02-01" };
+    const ws = buildNewProjectWorkspace(later, { template: standard, includeSeed: true, baseline: { currency: "GBP", nowIso: "2026-10-25T12:00:00.000Z" } });
+    expect((ws.milestones ?? []).map((m) => m.date)).toEqual(["2027-03-03", "2027-05-01", "2027-07-31"]);
   });
 });
 
