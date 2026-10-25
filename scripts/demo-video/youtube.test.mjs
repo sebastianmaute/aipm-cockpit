@@ -4,7 +4,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildDetailsPage, chaptersFor, descriptionFor, writeDetailsPage } from './youtube.mjs';
+import { PLAYLISTS, buildDetailsPage, chaptersFor, descriptionFor, writeDetailsPage } from './youtube.mjs';
+
+/** The page's escaping, for checking that a text appears in it. */
+const escape = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 const monday = {
   def: { id: 'ch3-monday', tier: 'chapters', title: 'Monday — a <milestone> & more', opening: 'Monday — a <milestone> & more' },
@@ -92,6 +95,27 @@ describe('buildDetailsPage (§715)', () => {
 
   it('carries the music credit once: only the music-tier video needs it', () => {
     expect(html.split('Music: Made with ElevenMusic').length - 1).toBe(1);
+  });
+
+  it('opens with a playlist for the chapters, the AI clips and the features, each named and described', () => {
+    const playlists = html.indexOf('<h2>Playlists</h2>');
+    expect(playlists).toBeGreaterThan(-1);
+    expect(playlists).toBeLessThan(html.indexOf('<h2>ch3-monday</h2>'));
+    expect(Object.keys(PLAYLISTS)).toEqual(['chapters', 'ai', 'features']);
+    for (const { name, description } of Object.values(PLAYLISTS)) {
+      expect(html).toContain(escape(name));
+      expect(html).toContain(escape(description));
+    }
+  });
+});
+
+describe("YouTube's playlist limits (§715)", () => {
+  it('keeps each playlist name within 150 characters and its description within 5000, with no angle brackets', () => {
+    for (const { name, description } of Object.values(PLAYLISTS)) {
+      expect(name.length).toBeLessThanOrEqual(150);
+      expect(description.length).toBeLessThanOrEqual(5000);
+      expect(`${name}${description}`).not.toMatch(/[<>]/);
+    }
   });
 });
 

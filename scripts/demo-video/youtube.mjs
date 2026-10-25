@@ -1,6 +1,6 @@
-// §715 the YouTube details page: one local HTML file, <OUT>/youtube-details.html, with what to paste for each
-// video when uploading it (file, title, description with chapters and credits, captions file, tags, category,
-// audience, language). Built from the video defs, the narration files and the `<name>.beats.json` sidecar each
+// §715 the YouTube details page: one local HTML file, <OUT>/youtube-details.html, with each playlist's name and
+// description (`PLAYLISTS`), then what to paste for each video when uploading it (file, title, description with
+// chapters and credits, captions file, tags, category, audience, language). Built from the video defs, the narration files and the `<name>.beats.json` sidecar each
 // mix writes (narrated.mjs); rewritten after every record.mjs run. The builders are pure. See README.md.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,6 +22,45 @@ const AUDIENCE = "No, it's not made for kids";
 const LANGUAGE = 'English';
 const TAGS = ['AI PM Cockpit', 'project management', 'project management software', 'tutorial'];
 const TIER_TAGS = { big: ['project lead', 'week in the life'], chapters: ['getting started'], ai: ['AI', 'Claude'], features: ['features'] };
+
+/** One YouTube playlist per tier of short videos (YouTube: a name up to 150 characters, a description up to 5000).
+ *  The big video is not a playlist of its own: it goes first in the chapters' one, which links to it. */
+export const PLAYLISTS = {
+  chapters: {
+    name: 'AI PM Cockpit: One Project, One Week',
+    description: [
+      "Follow one project lead through one week on one project, from the first setup to Friday's review. The project is a customer identity platform for Northwind, a retailer. Its MVP missed its date last Friday, and this week puts it right.",
+      '',
+      'Watch in order. Each chapter picks up where the last one ended:',
+      '• Get started: connect and create a project',
+      '• Monday: a milestone slipped',
+      '• Tuesday: re-plan',
+      '• Wednesday: people',
+      '• Thursday: risks, stakeholders, money',
+      '• Friday: close the week',
+      '',
+      'The app works on its own, with your projects kept in your browser. These videos also connect two optional services: Turso, an online database that syncs projects across devices, and Claude, the AI.',
+      '',
+      'The whole week is also one video: [link to the full video]',
+    ].join('\n'),
+  },
+  ai: {
+    name: 'AI PM Cockpit: AI Features, One at a Time',
+    description: [
+      'Short clips, one AI feature each, all on the same demo project. Claude sets up a project from a short brief, answers and acts in the AI Assistant, finds follow-ups logged twice, restructures the plan, suggests allocations and RACI, drafts the steering report, imports a forecast, explains insights and next actions, and runs scheduled jobs.',
+      '',
+      'The AI features use your own Claude API key, stored encrypted on your computer. Without a key, the rest of the app works as usual.',
+    ].join('\n'),
+  },
+  features: {
+    name: 'AI PM Cockpit: Feature Tour',
+    description: [
+      'One short clip per part of the app, all on the same demo project: open points, the board and swimlanes, the Gantt chart, milestones, changes and RAID; people and planning (the directory, absences, planning and workload); budget; stakeholders, RACI and the stakeholder map; knowledge, the activity log, trends and version history.',
+      '',
+      'Turn on only the functions a project needs; the rest stay out of the way. Trends and version history need Turso, the optional online database. Everything else works with projects kept in your browser.',
+    ].join('\n'),
+  },
+};
 
 const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
@@ -99,6 +138,13 @@ function field(label, value, { block = false } = {}) {
   return `<div class="f"><div class="l">${escapeHtml(label)} <button type="button" class="copy">Copy</button></div>${block ? `<pre class="v">${v}</pre>` : `<div class="v">${v}</div>`}</div>`;
 }
 
+/** The playlists, before the videos: a name and a description to paste for each. */
+function playlistsSection() {
+  const lists = Object.entries(PLAYLISTS).map(([tier, { name, description }]) =>
+    [`<h3>${escapeHtml(tier)}</h3>`, field('Playlist name', name), field('Playlist description', description, { block: true })].join('\n'));
+  return ['<section><h2>Playlists</h2>', ...lists, '</section>'].join('\n');
+}
+
 /** The whole page for `entries` ([{ def, mp4, srt, narration, sidecar }]), in their order. */
 export function buildDetailsPage(entries) {
   const sections = entries.map(({ def, mp4, srt, narration, sidecar }) => {
@@ -121,6 +167,7 @@ export function buildDetailsPage(entries) {
 <html lang="en"><head><meta charset="utf-8"><title>YouTube details</title>
 <style>body{font:14px system-ui,sans-serif;margin:24px;max-width:960px}section{border-top:1px solid #ccc;padding:12px 0}.f{margin:8px 0}.l{font-weight:600}.v{white-space:pre-wrap;background:#f4f4f4;padding:6px;margin:4px 0}.note{color:#666}</style></head>
 <body><h1>YouTube details</h1>
+${playlistsSection()}
 ${sections.join('\n')}
 <script>document.addEventListener('click',(e)=>{const b=e.target.closest('button.copy');if(!b)return;const v=b.closest('.f').querySelector('.v');navigator.clipboard.writeText(v.textContent).then(()=>{b.textContent='Copied';setTimeout(()=>{b.textContent='Copy'},1200)})});</script>
 </body></html>
