@@ -535,7 +535,10 @@ test("a11y: harbor-light — Reports (budget chart, cumulative)", async ({ page 
   // proves the stepped line and markers are on screen when axe runs.
   // ★ includeHidden: the chart svg is aria-hidden (read once, as the readout trigger's
   // description — burndown-chart.tsx), so its role=img name is only reachable this way.
-  await expect(page.getByRole("img", { name: /Budget changes: /, includeHidden: true })).toHaveCount(1);
+  // includeHidden also matches display:none, so toBeVisible is what proves it is on screen.
+  const cumulativeChart = page.getByRole("img", { name: /Budget changes: /, includeHidden: true });
+  await expect(cumulativeChart).toHaveCount(1);
+  await expect(cumulativeChart).toBeVisible();
   await waitForViewSettled(page);
 
   const results = await new AxeBuilder({ page })
