@@ -25,7 +25,7 @@ export async function connect(ctx, { onCamera, firstRun = false }) {
   await page.getByText(/No projects yet/).first().waitFor({ timeout: 180000 });
   await L.settle(page);
   if (firstRun) await firstScreen(ctx);
-  if (onCamera) await caption(ctx, 'Connect the database and Claude.', 'setup-connect');
+  if (onCamera) await caption(ctx, 'Optional: connect a database and Claude.', 'setup-connect');
   await click(ctx, page.getByRole('button', { name: 'Set up Turso first' }), 'Set up Turso first');
   const d = page.locator(DLG).last();
   await click(ctx, d.getByRole('checkbox').nth(1), 'Turso checkbox');

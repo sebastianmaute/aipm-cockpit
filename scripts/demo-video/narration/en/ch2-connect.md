@@ -1,19 +1,19 @@
 # Get started - connect and create a project
 
 ## title
-Getting started takes two connections: a database for your projects, and Claude, the AI.
+Getting started. The app works straight away, with your projects kept in this browser. Two optional connections add more: a database for your projects, and Claude, the AI.
 
 ## setup-first-screen
-On a fresh install, the start screen offers three ways in. Each of them needs the connections first.
+On a fresh install, the start screen offers three ways in. Each works straight away, with your projects kept in this browser. This video connects both first, to show every feature.
 
 ## setup-connect
 Set up Turso first opens the setup, a few short steps.
 
 ## setup-turso
-Turso is an online database that keeps your projects. You paste its address and access token, test the connection, and keep your portfolio there, the list of all your projects.
+Turso is an optional online database for your projects. It syncs them across your devices, and Trends and version history need it. You paste its address and access token, test the connection, and keep your portfolio there, the list of all your projects.
 
 ## setup-key
-The key lets the app use Claude. It is stored encrypted, on this computer only.
+The key lets the app use Claude. It is optional too: without it, the AI features stay off and the rest of the app works. It is stored encrypted, on this computer only.
 
 ## setup-model
 Once the key works, the list of Claude models fills in. These videos use Sonnet 5.5.

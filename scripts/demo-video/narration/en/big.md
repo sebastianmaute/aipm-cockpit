@@ -4,7 +4,7 @@
 One project lead, one project, one week, from the first setup to Friday's review.
 
 ## opening
-The project in this video missed its first big date on Friday. First, the app needs two connections: a database for your projects, and Claude, the AI.
+The project in this video missed its first big date on Friday. The app works on its own, with your projects kept in this browser. This video also connects the two optional services: a database for your projects, and Claude, the AI.
 
 ## setup-model
 Once the key works, the list of Claude models fills in. This video uses Sonnet 5.5.
