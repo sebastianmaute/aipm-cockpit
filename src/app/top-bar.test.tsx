@@ -2,8 +2,9 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { TopBar } from "./top-bar";
+import { expectLabelInName } from "../test/label-in-name";
 
 describe("TopBar", () => {
   const base = {
@@ -104,9 +105,23 @@ describe("TopBar", () => {
   // button must keep its own positioning context through the conversion.
   it("keeps the alerts button as the count badge's positioning context", () => {
     render(<TopBar {...base} bannerCount={3} />);
-    const alerts = screen.getByRole("button", { name: t("en-US", "showDueAlerts") });
+    const alerts = screen.getByRole("button", { name: t("en-US", "showDueAlertsCount", 3) });
     expect(alerts.className).toMatch(/(^|\s)relative(\s|$)/);
     expect(alerts).toContainElement(screen.getByText("3"));
+  });
+
+  // WCAG 2.5.3 — the badge number is VISIBLE text of the bell (aria-hidden takes
+  // it out of the a11y tree, not off the screen), so the name carries it. Named
+  // "Show due-date notifications" alone, every axe 4.14 scan that rendered the
+  // badge failed label-content-name-mismatch. Mutation: pass the plain
+  // showDueAlerts label again → red. With no badge the plain name stays.
+  it.each(["en-US", "de"] as const)("names the bell with the visible badge count (%s)", async (lang) => {
+    await loadI18n(lang);
+    const { unmount } = render(<TopBar {...base} lang={lang} bannerCount={3} />);
+    expectLabelInName(screen.getByRole("button", { name: t(lang, "showDueAlertsCount", 3) }));
+    unmount();
+    render(<TopBar {...base} lang={lang} bannerCount={0} />);
+    expect(screen.getByRole("button", { name: t(lang, "showDueAlerts") })).toBeInTheDocument();
   });
 
   it("renders AI Assistant button before the alerts button in DOM order", () => {

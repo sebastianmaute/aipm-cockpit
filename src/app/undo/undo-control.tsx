@@ -270,12 +270,19 @@ function UndoRedoControl({
         // to zero removes THIS button, and by then there is no anchor left to
         // measure "the next focusable" from.
         onClick={() => { armExitFocus(); onActivate(); }}
-        aria-label={actionLabel}
+        // ★★ WCAG 2.5.3 (label in name): the button SHOWS "Undo" and the stack
+        // depth, so the name starts with exactly those words — "Undo last
+        // change" alone contained neither the count nor, word for word, "Undo
+        // 3" (axe 4.14 label-content-name-mismatch, the two-tab conflict scan).
+        // The `{" "}` below keeps label and count two words: sibling text joins
+        // with no separator, and a whitespace-only text node in this flex row
+        // renders nothing.
+        aria-label={`${t(lang, labelKey)} ${depth} – ${actionLabel}`}
         title={actionLabel}
         className={`${BUTTON_CLASS} rounded-r-none border-r-0 ${INTERACTIVE}`}
       >
         {icon}
-        <span>{t(lang, labelKey)}</span>
+        <span>{t(lang, labelKey)}</span>{" "}
         <CountBadge variant="grey">{depth}</CountBadge>
       </button>
       <button

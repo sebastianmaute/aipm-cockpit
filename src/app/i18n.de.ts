@@ -1562,6 +1562,7 @@ export const de: Record<TranslationKey, string> = {
     "Jede Erinnerung kann unabhängig aktiviert oder deaktiviert werden. Die Vorlaufzeit legt fest, wie viele Arbeitstage vor einem Fälligkeitsdatum Sie erinnert werden (überfällige und heute fällige Aufgaben sind immer enthalten).",
 
   showDueAlerts: "Fälligkeits-Benachrichtigungen anzeigen",
+  showDueAlertsCount: "Fälligkeits-Benachrichtigungen anzeigen – {0} dringend",
   addTaskButton: "Aufgabe hinzufügen",
 
   templateSaveTitle: "Projekt als Vorlage speichern",

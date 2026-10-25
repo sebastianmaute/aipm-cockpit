@@ -7,6 +7,7 @@ import { UndoControl, RedoControl } from "./undo-control";
 import { primitiveClassFor } from "../../test/primitive-class";
 import { CountBadge } from "../count-badge";
 import { within } from "@testing-library/react";
+import { expectLabelInName } from "../../test/label-in-name";
 
 // ★ `kind` must be a real ActivityKind member and must NOT widen to string.
 //   "task.edited" DOES NOT EXIST — the task members are task.created /
@@ -53,8 +54,7 @@ describe("UndoControl", () => {
     render(
       <UndoControl lang="en-US" entries={STACK} onUndo={onUndo} onUndoThrough={vi.fn()} />,
     );
-    const btn = screen.getByRole("button", { name: t("en-US", "undoTooltip") });
-    expect(btn).toHaveAttribute("aria-label");
+    const btn = screen.getByRole("button", { name: `${t("en-US", "undo")} 3 – ${t("en-US", "undoTooltip")}` });
     expect(btn).toHaveTextContent("3");
     await userEvent.click(btn);
     expect(onUndo).toHaveBeenCalledTimes(1);
@@ -105,8 +105,7 @@ describe("RedoControl", () => {
         onRedoThrough={vi.fn()}
       />,
     );
-    const btn = screen.getByRole("button", { name: t("en-US", "redoTooltip") });
-    expect(btn).toHaveAttribute("aria-label");
+    const btn = screen.getByRole("button", { name: `${t("en-US", "redo")} 2 – ${t("en-US", "redoTooltip")}` });
     expect(btn).toHaveTextContent("2");
     await userEvent.click(btn);
     expect(onRedo).toHaveBeenCalledTimes(1);
@@ -493,7 +492,28 @@ describe("Undo and redo history — every step has its own name (§672)", () => 
 describe("UndoControl depth count", () => {
   it("renders the shared CountBadge", () => {
     render(<UndoControl lang="en-US" entries={STACK} onUndo={vi.fn()} onUndoThrough={vi.fn()} />);
-    const btn = screen.getByRole("button", { name: t("en-US", "undoTooltip") });
+    const btn = screen.getByRole("button", { name: /^Undo 3 – / });
     expect(within(btn).getByText("3").className).toBe(primitiveClassFor(<CountBadge variant="grey">3</CountBadge>));
+  });
+});
+
+// WCAG 2.5.3 — the action button SHOWS its label and the stack depth, so its
+// name must contain both, word for word. Named "Undo last change" it failed axe
+// 4.14's label-content-name-mismatch in the two-tab conflict scan; and without
+// the space between label and badge the visible text is the single word
+// "Undo3". Mutations: restore `aria-label={actionLabel}`, or drop the {" "}
+// → red. Both languages, both controls.
+describe("UndoControl / RedoControl label in name", () => {
+  it.each(["en-US", "de"] as const)("contains the visible label and depth in the action button's name (%s)", async (lang) => {
+    await loadI18n(lang);
+    render(
+      <>
+        <UndoControl lang={lang} entries={STACK} onUndo={vi.fn()} onUndoThrough={vi.fn()} />
+        <RedoControl lang={lang} entries={STACK.slice(0, 2)} onRedo={vi.fn()} onRedoThrough={vi.fn()} />
+      </>,
+    );
+    const actions = screen.getAllByRole("button").filter((b) => b.getAttribute("aria-haspopup") === null);
+    expect(actions).toHaveLength(2);
+    for (const b of actions) expectLabelInName(b);
   });
 });

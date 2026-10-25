@@ -153,10 +153,15 @@ export function EntityLinkPicker({
                 title={entry.label}
                 // Named explicitly rather than left to name-from-content:
                 // adjacent inline spans concatenate with NO separator, so the
-                // computed name was "R#3Vendor delay". A space text node
-                // between them would fix the name but become a stray flex item
-                // in this `gap-1` row, so the name is pinned here instead
-                // (CalendarChip's `ariaLabel` precedent).
+                // computed name was "R#3Vendor delay" (CalendarChip's
+                // `ariaLabel` precedent).
+                // ★★ The SAME join reaches the VISIBLE text, which WCAG 2.5.3
+                // compares against this name word by word: "↩#1Design SSO" is
+                // the word "1Design", which "#1 Design SSO" does not contain
+                // (axe 4.14 label-content-name-mismatch, every Documents scan).
+                // Hence the space text node between code and label below. A
+                // whitespace-only text node in a flex row is not rendered (CSS
+                // Flexbox §4), so it is no stray flex item and the gap is unchanged.
                 aria-label={`${entry.code} ${entry.label}`}
                 className={`inline-flex items-center gap-1 hover:underline ${INTERACTIVE}`}
               >
@@ -167,7 +172,7 @@ export function EntityLinkPicker({
                 <span aria-hidden="true" className="font-mono">
                   ↩
                 </span>
-                <span className="font-mono">{entry.code}</span>
+                <span className="font-mono">{entry.code}</span>{" "}
                 <span className="max-w-full truncate">{entry.label}</span>
               </button>
             ) : (
