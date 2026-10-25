@@ -80,6 +80,15 @@ After every `record.mjs` run, a partial one too, `<out>/youtube-details.html` is
 
 The chapters come from `<name>.beats.json`, which the mix writes beside the `.mp4`: `{ "duration": <s>, "beats": [{ "id", "at", "caption" }] }`, each beat's time on the final video and the caption it first showed (null for a voice-only beat). The mix removes an earlier render's `.waits.json` and `.beats.json` before it writes the new ones, and a sidecar with no `.mp4` beside it, or one that cannot be read, gives no chapters. Titles and descriptions drop `<` and `>` (YouTube rejects them), and a description over 5000 characters drops its summary, then its chapters; the opening line and the credits always stay. The first is 0:00 (the splash and the title), then one per caption beat; the big video uses its days. A chapter shorter than 10 s is merged into the one before it; with fewer than three left, the video gets none. A video without a sidecar is listed without chapters.
 
+### Thumbnails
+
+`node scripts/demo-video/make-thumbnails.mjs [--video <id>]` writes a YouTube thumbnail beside every rendered video, `<name>.thumbnail.png` next to its `.mp4`: a 1280×720 PNG (the page is laid out at 1920×1080 and rendered at two-thirds scale). It reads `DEMO_VIDEO_DIR` like the recorder. Each one is the video's approved headline (two to four words, one part in red), a series tag (`AI PM COCKPIT · MONDAY 3/7`, `· AI`, `· FEATURE`, `· FULL WEEK`), and a real frame of the video, tilted below. Run it again after a re-take: the frame comes from the new render.
+
+- The headlines, tags and frame choices are `THUMBNAILS` in `thumbnails.mjs`; edit them there. A headline marks its red part in braces: `MILESTONE {SLIPPED}`.
+- The frame is taken 2.5 s after the video's first captioned beat (its view is on screen by then). An entry's `beat` picks another beat, and `at` a fixed time in seconds, when that frame shows a wizard, a spinner or an empty view.
+- The headline is fitted to one line (down to 150 px at the 1920 layout), else two, and the frame moves below it. The renderer fits it after the font has loaded and prints the size it chose.
+- A video with no `.mp4` (the hand-recorded install chapter, until its file is in the output folder) is skipped and said so; a PNG over YouTube's 2 MB is flagged, and the run then exits 1.
+
 ## The week's clock and the replay
 
 The demo week runs Monday 21 to Friday 25 September 2026 (`DEMO_WEEK_DATES` in `week-story.mjs`). A take starts at Monday 08:30 in Berlin. A chapter replays each earlier day off camera, moving the clock to 08:30 of that day and reloading first, then moves to its own day. The big video moves the clock between days on camera.
@@ -216,6 +225,8 @@ No rehearsal can show these, because a rehearsal has no audio. Check them on the
 | `narrate.mjs` | Entry: renders the narration beats of the selected videos with ElevenLabs into the cache; `--audition` renders voice samples. |
 | `narration/` | `beats.mjs` (the narration files), `tts.mjs` (voice, cache, cost cap, rendering), `mix.mjs` (the MP4 and `.srt`), and the scripts in `en/`. |
 | `lib.mjs` | `T0`, `atDay`, `VIEWPORT`, the `.env.local` reader, the Turso guard, `settle`, `query`. |
+| `thumbnails.mjs` | The thumbnails: `THUMBNAILS` (one headline per video), `headlineParts`, `tagFor`, `defaultFrameTime` and `thumbnailHtml` are pure; `fitHeadline` runs in the page. |
+| `make-thumbnails.mjs` | Renders the thumbnails: a frame of each `.mp4` (ffmpeg) in the page, screenshotted by Playwright. |
 | `youtube.mjs` | The YouTube details page: `chaptersFor`, `descriptionFor` and `buildDetailsPage` are pure; `writeDetailsPage` reads the files. |
 | `cleanup.mjs` | `cleanup()` and the pure `cleanupStatements`; also runnable on its own. |
 | `discover.mjs` | Lists the controls of a view on the fresh demo, for writing a step's selectors. |
