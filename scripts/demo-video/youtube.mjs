@@ -24,43 +24,38 @@ const TAGS = ['AI PM Cockpit', 'project management', 'project management softwar
 const TIER_TAGS = { big: ['project lead', 'week in the life'], chapters: ['getting started'], ai: ['AI', 'Claude'], features: ['features'] };
 
 /** One YouTube playlist per tier of short videos (YouTube: a name up to 150 characters, a description up to 5000).
- *  The big video is not a playlist of its own: it goes first in the chapters' one, which links to it. */
+ *  A description is `intro`, the tier's video titles in `videos.mjs` order (`playlistDescription`, so a clip added
+ *  or renamed is listed without editing this), then `outro`. The big video is not a playlist of its own: it goes
+ *  first in the chapters' one, which links to it; `note` is shown on the page, never pasted. */
 export const PLAYLISTS = {
   chapters: {
+    label: 'Chapters',
     name: 'AI PM Cockpit: One Project, One Week',
-    description: [
-      "Follow one project lead through one week on one project, from the first setup to Friday's review. The project is a customer identity platform for Northwind, a retailer. Its MVP missed its date last Friday, and this week puts it right.",
-      '',
-      'Watch in order. Each chapter picks up where the last one ended:',
-      '• Get started: connect and create a project',
-      '• Monday: a milestone slipped',
-      '• Tuesday: re-plan',
-      '• Wednesday: people',
-      '• Thursday: risks, stakeholders, money',
-      '• Friday: close the week',
-      '',
-      'The app works on its own, with your projects kept in your browser. These videos also connect two optional services: Turso, an online database that syncs projects across devices, and Claude, the AI.',
-      '',
-      'The whole week is also one video: [link to the full video]',
-    ].join('\n'),
+    intro: "Follow one project lead through one week on one project, from the first setup to Friday's review. The project is a customer identity platform for Northwind, a retailer. Its MVP missed its date last Friday, and this week puts it right.\n\nWatch in order. Each chapter picks up where the last one ended:",
+    outro: 'The app works on its own, with your projects kept in your browser. These videos also connect two optional services: Turso, an online database that syncs projects across devices, and Claude, the AI.\n\nThe whole week is also one video: [link to the full video]',
+    note: 'Replace [link to the full video] with the full video\'s link before you paste this.',
   },
   ai: {
+    label: 'AI features',
     name: 'AI PM Cockpit: AI Features, One at a Time',
-    description: [
-      'Short clips, one AI feature each, all on the same demo project. Claude sets up a project from a short brief, answers and acts in the AI Assistant, finds follow-ups logged twice, restructures the plan, suggests allocations and RACI, drafts the steering report, imports a forecast, explains insights and next actions, and runs scheduled jobs.',
-      '',
-      'The AI features use your own Claude API key, stored encrypted on your computer. Without a key, the rest of the app works as usual.',
-    ].join('\n'),
+    intro: 'Short clips, one AI feature each, all on the same demo project:',
+    outro: 'The AI features use your own Claude API key, stored encrypted on your computer. Without a key, the rest of the app works as usual. Scheduled AI jobs also need Turso, the optional online database.',
   },
   features: {
+    label: 'Feature tour',
     name: 'AI PM Cockpit: Feature Tour',
-    description: [
-      'One short clip per part of the app, all on the same demo project: open points, the board and swimlanes, the Gantt chart, milestones, changes and RAID; people and planning (the directory, absences, planning and workload); budget; stakeholders, RACI and the stakeholder map; knowledge, the activity log, trends and version history.',
-      '',
-      'Turn on only the functions a project needs; the rest stay out of the way. Trends and version history need Turso, the optional online database. Everything else works with projects kept in your browser.',
-    ].join('\n'),
+    intro: 'One short clip per part of the app, all on the same demo project:',
+    outro: 'Turn on only the functions a project needs; the rest stay out of the way. The Trends and Version history clips need Turso, the optional online database; every other clip here works with your projects kept in your browser.',
   },
 };
+
+/** A playlist's description: its intro, one line per video of `tier` in `defs` (hand-recorded ones too: they are
+ *  uploaded like the rest), then its outro. */
+export function playlistDescription(tier, defs) {
+  const { intro, outro } = PLAYLISTS[tier];
+  const list = defs.filter((d) => d.tier === tier).map((d) => `• ${youtubeText(d.title)}`);
+  return [intro, list.join('\n'), outro].join('\n\n');
+}
 
 const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
@@ -138,15 +133,20 @@ function field(label, value, { block = false } = {}) {
   return `<div class="f"><div class="l">${escapeHtml(label)} <button type="button" class="copy">Copy</button></div>${block ? `<pre class="v">${v}</pre>` : `<div class="v">${v}</div>`}</div>`;
 }
 
-/** The playlists, before the videos: a name and a description to paste for each. */
-function playlistsSection() {
-  const lists = Object.entries(PLAYLISTS).map(([tier, { name, description }]) =>
-    [`<h3>${escapeHtml(tier)}</h3>`, field('Playlist name', name), field('Playlist description', description, { block: true })].join('\n'));
+/** The playlists, before the videos: a name and a description to paste for each, listing the videos of `defs`. */
+function playlistsSection(defs) {
+  const lists = Object.entries(PLAYLISTS).map(([tier, { label, name, note }]) => [
+    `<h3>${escapeHtml(label)}</h3>`,
+    field('Playlist name', name),
+    field('Playlist description', playlistDescription(tier, defs), { block: true }),
+    note ? `<p class="note">${escapeHtml(note)}</p>` : '',
+  ].join('\n'));
   return ['<section><h2>Playlists</h2>', ...lists, '</section>'].join('\n');
 }
 
-/** The whole page for `entries` ([{ def, mp4, srt, narration, sidecar }]), in their order. */
-export function buildDetailsPage(entries) {
+/** The whole page for `entries` ([{ def, mp4, srt, narration, sidecar }]), in their order. The playlists list the
+ *  videos of `defs`: every video, hand-recorded ones included (writeDetailsPage passes them all). */
+export function buildDetailsPage(entries, defs = entries.map((e) => e.def)) {
   const sections = entries.map(({ def, mp4, srt, narration, sidecar }) => {
     const chapters = chaptersFor(def, sidecar);
     return [
@@ -167,7 +167,7 @@ export function buildDetailsPage(entries) {
 <html lang="en"><head><meta charset="utf-8"><title>YouTube details</title>
 <style>body{font:14px system-ui,sans-serif;margin:24px;max-width:960px}section{border-top:1px solid #ccc;padding:12px 0}.f{margin:8px 0}.l{font-weight:600}.v{white-space:pre-wrap;background:#f4f4f4;padding:6px;margin:4px 0}.note{color:#666}</style></head>
 <body><h1>YouTube details</h1>
-${playlistsSection()}
+${playlistsSection(defs)}
 ${sections.join('\n')}
 <script>document.addEventListener('click',(e)=>{const b=e.target.closest('button.copy');if(!b)return;const v=b.closest('.f').querySelector('.v');navigator.clipboard.writeText(v.textContent).then(()=>{b.textContent='Copied';setTimeout(()=>{b.textContent='Copy'},1200)})});</script>
 </body></html>
@@ -199,6 +199,6 @@ export function writeDetailsPage(out, videos, pathOf, { lang = 'en' } = {}) {
     return { def, mp4, srt: mp4 ? sibling(def, '.srt') : null, narration: narration.size ? narration : null, sidecar: beatsFile ? readSidecar(beatsFile) : null };
   });
   const file = path.join(out, 'youtube-details.html');
-  fs.writeFileSync(file, buildDetailsPage(entries));
+  fs.writeFileSync(file, buildDetailsPage(entries, videos));
   return file;
 }
