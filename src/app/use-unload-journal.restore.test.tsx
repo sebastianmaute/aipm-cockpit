@@ -577,6 +577,55 @@ describe("§629 — useUnloadJournal restore on its own", () => {
     expect(applied).toBeNull();
     expect(result.current.conflict).toBe(true);
   });
+
+  // §629 — two saves in flight at unload: the EARLIER one lands, the later one is lost. The journal holds the later
+  // one, built on the earlier one, so the stored version is its ancestor, not another writer's change.
+  const B0: Workspace = { ...emptyWorkspace(), tasks: [{ id: 1, taskName: "One" } as unknown as Task] };
+  const S1: Workspace = { ...B0, tasks: [...B0.tasks, { id: 2, taskName: "Two" } as unknown as Task] };
+  const S2: Workspace = { ...S1, tasks: [...S1.tasks, { id: 3, taskName: "Three" } as unknown as Task] };
+
+  /** One page load: the base, then each of `saves` started and none confirmed, then pagehide. */
+  function unloadWithSavesInFlight(saves: readonly Workspace[], before: readonly Workspace[] = []): void {
+    const page = renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
+    act(() => {
+      for (const ws of before) page.result.current.noteSaveStarted(ws);
+      page.result.current.setBase(B0, "p1");
+      for (const ws of saves) page.result.current.noteSaveStarted(ws);
+    });
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    window.dispatchEvent(new Event("pageshow"));
+    page.unmount();
+  }
+
+  function restoreOnNextLoad(loaded: Workspace) {
+    const next = renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
+    let applied: Workspace | null = null;
+    act(() => { applied = next.result.current.restoreOnLoad(loaded, "p1", "turso"); });
+    return { applied: applied as Workspace | null, conflict: next.result.current.conflict };
+  }
+
+  it("§629 — the earlier of two saves in flight landed: the later one is restored over it, with no conflict notice", () => {
+    unloadWithSavesInFlight([S1, S2]);
+    const { applied, conflict } = restoreOnNextLoad(S1);
+    expect(applied?.tasks.map((x) => x.id)).toEqual([1, 2, 3]);
+    expect(conflict).toBe(false);
+  });
+
+  it("§629 — a stored version no save of that page wrote is still a conflict", () => {
+    unloadWithSavesInFlight([S1, S2]);
+    const other: Workspace = { ...B0, tasks: [...B0.tasks, { id: 9, taskName: "Elsewhere" } as unknown as Task] };
+    const { applied, conflict } = restoreOnNextLoad(other);
+    expect(applied).toBeNull();
+    expect(conflict).toBe(true);
+  });
+
+  it("§629 — a save started before the base was set is not one the journal was built on: a conflict", () => {
+    const pre: Workspace = { ...B0, tasks: [...B0.tasks, { id: 8, taskName: "Before the load" } as unknown as Task] };
+    unloadWithSavesInFlight([S2], [pre]);
+    const { applied, conflict } = restoreOnNextLoad(pre);
+    expect(applied).toBeNull();
+    expect(conflict).toBe(true);
+  });
 });
 
 describe("§632 — journals under other keys, wired into the load", () => {

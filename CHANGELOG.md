@@ -77,6 +77,11 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **No false "changed elsewhere" notice after a quick reload (§629).** When two saves were still on their way as the
+  page closed and only the earlier one arrived, the next load said the unsaved changes "could not be restored
+  automatically because this project was changed elsewhere since", although nothing else had changed it. Those
+  changes are now restored over the earlier save, as for any reload. A project another tab or device really changed
+  still shows the notice.
 - **A template's milestones no longer start overdue.** The built-in Standard PM and Full delivery templates
   stored fixed 2026 milestone dates, so a project created from one, or a template applied to a project, got milestones
   months in the past, flagged at once as overdue and at risk. Applying a template now moves its milestone dates and task

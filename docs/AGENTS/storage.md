@@ -355,7 +355,12 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
 - **On load**, `restoreOnLoad` runs only in the load effect, after the failed-load and
   empty-refusal returns, and not at all when `lastLoadWasIncomplete` is true. A journal whose
   content fingerprints as the loaded workspace is cleared silently (its save landed). A journal
-  whose `baseFingerprint` equals the loaded one is applied and saved back through every guard.
+  whose `baseFingerprint` equals the loaded one, or one of its `ancestorFingerprints`, is applied and
+  saved back through every guard. ★★ The ancestors close a FALSE conflict: two saves in flight at
+  unload, the earlier one landed, the later one (the journal's) was lost. The loaded version is then
+  neither the journal's content nor its confirmed base, and the notice used to appear for a project
+  nothing else had changed (seen in the demo recorder's day reload right after an edit). A save
+  started BEFORE the base was set is never an ancestor, and a held op base (R7) has none.
   Anything else raises the `unloadJournalConflict` notice: Restore anyway (`restoreConflict`, from
   an in-memory copy) or Discard (`discardConflict`).
 - A popout never journals or restores.

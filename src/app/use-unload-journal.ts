@@ -80,8 +80,8 @@ function nextSavedAt(): number {
  *  counter to it as well, so that save-back is later even if the earlier page's clock ran ahead. */
 function retagToThisTab(journal: UnloadJournal): void {
   lastSavedAt = Math.max(lastSavedAt, journal.savedAt);
-  const { projectKey, savedAt, baseFingerprint, workspace } = journal;
-  writeUnloadJournal({ projectKey, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt, baseFingerprint, workspace });
+  const { projectKey, savedAt, baseFingerprint, ancestorFingerprints, workspace } = journal;
+  writeUnloadJournal({ projectKey, tabId: UNLOAD_JOURNAL_TAB_ID, savedAt, baseFingerprint, ancestorFingerprints, workspace });
 }
 
 /** §715 — slices the app appends or fetches by itself: no draft of the user's lives in them. */
@@ -260,6 +260,8 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   /** savedAt → projectKey of each save started and not yet confirmed, so a confirmation
    *  clears the key its save was journaled under even after a project switch. */
   const inFlightRef = useRef(new Map<number, string>());
+  /** savedAt → workspace of the same saves, for the journal's `ancestorFingerprints`; kept in step with `inFlightRef`. */
+  const inFlightWorkspaceRef = useRef(new Map<number, Workspace>());
 
   const baseFingerprintFor = useCallback((key: string): string => {
     const base = baseRef.current;
@@ -268,6 +270,20 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
     const fingerprint = fingerprintWorkspace(base.workspace);
     baseRef.current = { ...base, fingerprint };
     return fingerprint;
+  }, []);
+
+  /** §629 — the saves of `key` still in flight that started after its base and before `savedAt`: the record
+   *  written for `savedAt` is built on each of them, so whichever of them lands, the record still applies over it.
+   *  None without a base for the key (a held op base, R7): such a record must stay a conflict. */
+  const ancestorFingerprintsFor = useCallback((key: string, savedAt: number): string[] => {
+    const base = baseRef.current;
+    if (base === null || base.projectKey !== key) return [];
+    const out: string[] = [];
+    for (const [at, k] of inFlightRef.current) {
+      const ws = inFlightWorkspaceRef.current.get(at);
+      if (k === key && at > base.savedAt && at < savedAt && ws !== undefined) out.push(fingerprintWorkspace(ws));
+    }
+    return out;
   }, []);
 
   /** The stored version `key`'s live workspace was built on, or null when the base is another key's or unset. */
@@ -314,9 +330,10 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
       tabId: UNLOAD_JOURNAL_TAB_ID,
       savedAt: entry.savedAt,
       baseFingerprint: () => baseFingerprintFor(entry.projectKey), // a thunk: skipped over the cap
+      ancestorFingerprints: () => ancestorFingerprintsFor(entry.projectKey, entry.savedAt),
       workspace,
     });
-  }, [baseFingerprintFor, storedFor]);
+  }, [ancestorFingerprintsFor, baseFingerprintFor, storedFor]);
 
   /** §4 — writes a version the user LEFT (a switch away, or a rebuild, while its saves were refused as
    *  stale) at once to the project's KEPT slot (`keptProjectKey`). Nothing restores from that slot, so
@@ -353,6 +370,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
     const entry: Unconfirmed = { projectKey: projectKeyRef.current, workspace: outgoing, savedAt };
     latestUnconfirmedRef.current = entry;
     inFlightRef.current.set(savedAt, entry.projectKey);
+    inFlightWorkspaceRef.current.set(savedAt, outgoing);
     if (isPageHiding() || document.visibilityState === "hidden") write(entry);
     return savedAt;
   }, [write]);
@@ -386,6 +404,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
     if (!activeRef.current) return true;
     const key = inFlightRef.current.get(savedAt) ?? projectKeyRef.current;
     inFlightRef.current.delete(savedAt);
+    inFlightWorkspaceRef.current.delete(savedAt);
     if (latestUnconfirmedRef.current?.savedAt === savedAt) latestUnconfirmedRef.current = null;
     return refused === null || keep({ projectKey: key, workspace: refused, savedAt });
   }, [keep]);
@@ -402,7 +421,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
     // An older save of the same project confirming later could not clear anything this one
     // has not already cleared, nor move the base (it is not newer), so its entry goes too.
     for (const [at, k] of inFlightRef.current) {
-      if (at <= savedAt && k === key) inFlightRef.current.delete(at);
+      if (at <= savedAt && k === key) { inFlightRef.current.delete(at); inFlightWorkspaceRef.current.delete(at); }
     }
     clearUnloadJournal(key, { tabId: UNLOAD_JOURNAL_TAB_ID, ifSavedAtAtMost: savedAt });
     const latest = latestUnconfirmedRef.current;
@@ -457,7 +476,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
     const latest = latestUnconfirmedRef.current;
     if (latest !== null && latest.projectKey === key) latestUnconfirmedRef.current = null;
     for (const [at, k] of inFlightRef.current) {
-      if (k === key) inFlightRef.current.delete(at);
+      if (k === key) { inFlightRef.current.delete(at); inFlightWorkspaceRef.current.delete(at); }
     }
     clearUnloadJournal(key, { tabId: UNLOAD_JOURNAL_TAB_ID, ifSavedAtAtMost: lastSavedAt });
   }, []);
@@ -507,7 +526,8 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
       return null;
     }
     const comparable = !JOURNAL_FINGERPRINT_UNSTABLE_KINDS.includes(kind);
-    if (comparable && journal.baseFingerprint === loadedFingerprint) {
+    const matches = journal.baseFingerprint === loadedFingerprint || (journal.ancestorFingerprints ?? []).includes(loadedFingerprint);
+    if (comparable && matches) {
       retagToThisTab(journal);
       setConflictRecord(null);
       return restored;
