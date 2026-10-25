@@ -47,6 +47,8 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- **@tanstack/react-virtual 3.14.19.** The long-list virtualizer in Open Points moves up; its test now attaches
+  its rows to the page, which the library has required for measuring since virtual-core 3.18.
 - **Add task comes first in Open Points.** The Add task button is now the leftmost control in the Open Points
   toolbar, with "Optimize with AI" after it.
 - **Pick the person for an absence from a searchable list.** The new-absence and edit-absence form now uses the
