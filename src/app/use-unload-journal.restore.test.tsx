@@ -584,13 +584,19 @@ describe("§629 — useUnloadJournal restore on its own", () => {
   const S1: Workspace = { ...B0, tasks: [...B0.tasks, { id: 2, taskName: "Two" } as unknown as Task] };
   const S2: Workspace = { ...S1, tasks: [...S1.tasks, { id: 3, taskName: "Three" } as unknown as Task] };
 
-  /** One page load: the base, then each of `saves` started and none confirmed, then pagehide. */
-  function unloadWithSavesInFlight(saves: readonly Workspace[], before: readonly Workspace[] = []): void {
+  type Journal = ReturnType<typeof useUnloadJournal>;
+  /** A save the queue started writing: noted, then run (use-storage-backend.ts calls both). */
+  const run = (j: Journal, ws: Workspace) => j.noteSaveRunning(j.noteSaveStarted(ws));
+
+  /** One page load: the base, then each of `saves` run and none confirmed, then each of `waiting` noted but never
+   *  run (the queue replaced it), then pagehide. */
+  function unloadWithSavesInFlight(saves: readonly Workspace[], before: readonly Workspace[] = [], waiting: readonly Workspace[] = []): void {
     const page = renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
     act(() => {
-      for (const ws of before) page.result.current.noteSaveStarted(ws);
+      for (const ws of before) run(page.result.current, ws);
       page.result.current.setBase(B0, "p1");
-      for (const ws of saves) page.result.current.noteSaveStarted(ws);
+      for (const ws of saves) run(page.result.current, ws);
+      for (const ws of waiting) page.result.current.noteSaveStarted(ws);
     });
     act(() => { window.dispatchEvent(new Event("pagehide")); });
     window.dispatchEvent(new Event("pageshow"));
@@ -625,10 +631,26 @@ describe("§629 — useUnloadJournal restore on its own", () => {
     expect(readJournal(KEY)!.ancestorFingerprints).toEqual([fingerprintWorkspace(S1)]);
   });
 
-  it("§629 — only the newest MAX_ANCESTORS earlier saves are ancestors", () => {
+  it("§629 — the save queue replaced the waiting saves: the RUNNING one, which may have landed, stays an ancestor", () => {
+    const chain = [S2];
+    for (let id = 4; id < 4 + MAX_ANCESTORS + 1; id++) chain.push({ ...B0, tasks: [...chain[chain.length - 1].tasks, { id, taskName: `T${id}` } as unknown as Task] });
+    unloadWithSavesInFlight([S1], [], chain); // S1 runs; every later save waits and is replaced; the last is journalled
+    expect(readJournal(KEY)!.ancestorFingerprints).toEqual([fingerprintWorkspace(S1)]);
+    const { applied, conflict } = restoreOnNextLoad(S1);
+    expect(applied?.tasks.map((x) => x.id)).toEqual(chain[chain.length - 1].tasks.map((x) => x.id));
+    expect(conflict).toBe(false);
+  });
+
+  it("§629 — a save that never ran is never an ancestor", () => {
+    unloadWithSavesInFlight([], [], [S1, S2]);
+    expect(readJournal(KEY)!.ancestorFingerprints).toBeUndefined();
+    expect(restoreOnNextLoad(S1).conflict).toBe(true);
+  });
+
+  it("§629 — only the newest MAX_ANCESTORS earlier runs are ancestors", () => {
     const chain = [S1];
     for (let id = 3; id <= 3 + MAX_ANCESTORS; id++) chain.push({ ...B0, tasks: [...chain[chain.length - 1].tasks, { id, taskName: `T${id}` } as unknown as Task] });
-    unloadWithSavesInFlight(chain); // the last one is journalled; the MAX_ANCESTORS before it are ancestors, S1 is not
+    unloadWithSavesInFlight(chain); // all ran (failed saves); the last is journalled; the MAX_ANCESTORS before it are ancestors, S1 is not
     expect(readJournal(KEY)!.ancestorFingerprints).toHaveLength(MAX_ANCESTORS);
     expect(restoreOnNextLoad(S1).conflict).toBe(true);
   });
@@ -637,9 +659,9 @@ describe("§629 — useUnloadJournal restore on its own", () => {
     const page = renderHook(({ projectKey }) => useUnloadJournal({ projectKey, enabled: true, isPopout: false }), { initialProps: { projectKey: "p1" } });
     act(() => { page.result.current.setBase(B0, "p1"); });
     page.rerender({ projectKey: "p2" });
-    act(() => { page.result.current.noteSaveStarted(S1); }); // keyed p2
+    act(() => { run(page.result.current, S1); }); // keyed p2
     page.rerender({ projectKey: "p1" });
-    act(() => { page.result.current.noteSaveStarted(S2); });
+    act(() => { run(page.result.current, S2); });
     act(() => { window.dispatchEvent(new Event("pagehide")); });
     window.dispatchEvent(new Event("pageshow"));
     page.unmount();
@@ -651,9 +673,9 @@ describe("§629 — useUnloadJournal restore on its own", () => {
     const page = renderHook(() => useUnloadJournal({ projectKey: "p1", enabled: true, isPopout: false }));
     act(() => {
       page.result.current.setBase(B0, "p1");
-      page.result.current.noteSaveStarted(S1);
+      run(page.result.current, S1);
       page.result.current.holdBase(S1);
-      page.result.current.noteSaveStarted(S2);
+      run(page.result.current, S2);
     });
     act(() => { window.dispatchEvent(new Event("pagehide")); });
     window.dispatchEvent(new Event("pageshow"));
@@ -1018,5 +1040,32 @@ describe("a restore resets the undo history, not the project scope", () => {
     expect(onUndoHistoryReset).toHaveBeenCalledTimes(1);
     expect(result.current.getUndoEpoch()).toBe(undoBefore + 1); // every pre-restore undo entry is now stale
     expect(result.current.getScopeEpoch()).toBe(scopeBefore); // in-flight writes for THIS project still land
+  });
+});
+
+describe("§629 — through the save queue: the earlier save landed, the one behind it did not", () => {
+  it("the next load restores the later edit over it, with no conflict notice", async () => {
+    const backend = makeBackend(100);
+    createBackendMock.mockReturnValue(backend);
+    const first = render();
+    await advance(800);
+    const edit1 = JOURNALED.tasks;
+    const edit2 = [...edit1, { id: 3, taskName: "Behind it" } as unknown as Task];
+    act(() => { first.result.current.setTasks(edit1); });
+    await advance(600);
+    act(() => { first.result.current.setTasks(edit2); });
+    await advance(600);
+    expect(backend.save).toHaveBeenCalledTimes(1); // the premise: the second save waits behind the first, unrun
+    act(() => { window.dispatchEvent(new Event("pagehide")); });
+    window.dispatchEvent(new Event("pageshow"));
+    first.unmount();
+
+    const landed = { ...STORED, tasks: edit1 }; // the first save reached the store; the second never ran
+    createBackendMock.mockReturnValue(makeBackend(100, "resolve", landed));
+    const { result } = render();
+    await advance(200);
+    expect(result.current.unloadJournalConflict).toBe(false);
+    expect(result.current.tasks.map((x) => x.id)).toEqual([1, 2, 3]);
+    expect(restoredToast()).toHaveLength(1);
   });
 });

@@ -200,11 +200,14 @@ export function resolveJournalProjectKey(storageKind: StorageKind, tursoProjectI
  *  in the other writer's version) the entry is dropped: re-based, it would restore silently over it. */
 type Unconfirmed = { projectKey: string; workspace: Workspace; savedAt: number; boundToBase?: true };
 
-/** A save started and not yet confirmed. `workspace` is null once newer saves of the key push it out of the ancestor window. */
-type InFlight = { projectKey: string; workspace: Workspace | null; fingerprint: string | null };
+/** A save started and not yet confirmed. `ran`: its job has started writing (`noteSaveRunning`), so it may have
+ *  landed; a save the queue replaced while it waited never runs. `workspace` is kept only while it can still become
+ *  an ancestor: dropped when a newer save replaces it in the queue, or when newer runs push it out of the window. */
+type InFlight = { projectKey: string; workspace: Workspace | null; fingerprint: string | null; ran: boolean };
 
-/** §629 — how many of a key's newest saves in flight a journal names as ancestors: bounds the work in pagehide and
- *  the copies held while saves keep failing. Two saves in flight is the case seen; three leaves room. */
+/** §629 — how many of a key's newest saves that RAN and are not confirmed a journal names as ancestors: bounds the
+ *  work in pagehide and the copies held while saves keep failing. One running save is the case seen (the queue runs
+ *  one at a time, save-queue.ts); failed ones that may still have landed fill the rest. */
 export const MAX_ANCESTORS = 3;
 
 /** The record a conflict notice describes, kept IN MEMORY as the restore read it: its key, the
@@ -284,8 +287,9 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   const ancestorFingerprintsFor = useCallback((key: string, savedAt: number): string[] => {
     const base = baseRef.current;
     if (base === null || base.projectKey !== key) return [];
-    // `noteSaveStarted` keeps a workspace on at most MAX_ANCESTORS earlier saves of a key, so at most that many
-    // fingerprints are computed inside pagehide, and each once (cached on the entry).
+    // Only saves that RAN can have landed: a save never run has lost its copy to the save that replaced it
+    // (`noteSaveStarted`), and `noteSaveRunning` keeps one on at most MAX_ANCESTORS earlier runs of a key,
+    // so at most that many fingerprints are computed inside pagehide, and each once (cached on the entry).
     const out: string[] = [];
     for (const [at, f] of inFlightRef.current) {
       if (f.projectKey !== key || f.workspace === null || at <= base.savedAt || at >= savedAt) continue;
@@ -382,13 +386,23 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
     if (!activeRef.current) return savedAt;
     const entry: Unconfirmed = { projectKey: projectKeyRef.current, workspace: outgoing, savedAt };
     latestUnconfirmedRef.current = entry;
-    // Only the newest MAX_ANCESTORS of a key keep their workspace: a backlog of failed saves holds keys, not copies.
-    const ofKey = [...inFlightRef.current.values()].filter((f) => f.projectKey === entry.projectKey && f.workspace !== null);
-    for (const f of ofKey.slice(0, Math.max(0, ofKey.length - MAX_ANCESTORS))) { f.workspace = null; f.fingerprint = null; }
-    inFlightRef.current.set(savedAt, { projectKey: entry.projectKey, workspace: outgoing, fingerprint: null });
+    // A save of the key still waiting (not run) is replaced in the queue by this one and will never run: its copy goes.
+    for (const f of inFlightRef.current.values()) if (f.projectKey === entry.projectKey && !f.ran) { f.workspace = null; f.fingerprint = null; }
+    inFlightRef.current.set(savedAt, { projectKey: entry.projectKey, workspace: outgoing, fingerprint: null, ran: false });
     if (isPageHiding() || document.visibilityState === "hidden") write(entry);
     return savedAt;
   }, [write]);
+
+  /** §629 — the save `savedAt` started writing (called from inside its queue job): it may land from now on, so it can
+   *  be an ancestor. Only the newest MAX_ANCESTORS runs of a key keep their workspace — a backlog of failed saves holds
+   *  keys, not copies. */
+  const noteSaveRunning = useCallback((savedAt: number): void => {
+    const entry = inFlightRef.current.get(savedAt);
+    if (entry === undefined) return;
+    entry.ran = true;
+    const ran = [...inFlightRef.current.values()].filter((f) => f.projectKey === entry.projectKey && f.ran && f.workspace !== null);
+    for (const f of ran.slice(0, Math.max(0, ran.length - MAX_ANCESTORS - 1))) { /* +1: the newest run may be the journalled save itself */ f.workspace = null; f.fingerprint = null; }
+  }, []);
 
   /** §4 — while saving is paused on a conflict no save starts, so `noteSaveStarted` never runs: the
    *  storage hook hands the LIVE workspace here instead. It becomes the latest unconfirmed one, which
@@ -583,7 +597,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
   }, [write]);
 
   return {
-    noteSaveStarted, followLive, noteSaveRefused, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
+    noteSaveStarted, noteSaveRunning, followLive, noteSaveRefused, noteSaveConfirmed, baseFingerprint, setBase, holdBase, adoptHeldBase, dropUnconfirmed,
     restoreOnLoad, restoreConflict, discardConflict, conflict, restoredKeys, keepLive, unreadableRecords,
   };
 }
