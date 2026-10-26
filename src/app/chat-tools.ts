@@ -225,8 +225,8 @@ export type AbsenceSummary = {
   assignee: string;
   startDate: string;
   endDate: string;
-  type: string;
-  note?: string;
+  /** Always "absent" — the stored type and note never reach the model (AI-05). */
+  type: "absent";
 };
 
 /** Loose write-tool inputs for a meeting; every one of them lands in one

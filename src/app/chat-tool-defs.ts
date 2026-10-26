@@ -865,7 +865,7 @@ export const TOOL_DEFS = [
   {
     name: "list_absences",
     description:
-      "List time-off/absence entries with id, assignee, startDate, endDate, type, and note. Read-only.",
+      "List time-off/absence entries with id, assignee, startDate, endDate. Every entry reads type \"absent\"; the real type and note are withheld. Read-only.",
     input_schema: { type: "object", properties: {} },
   },
   {

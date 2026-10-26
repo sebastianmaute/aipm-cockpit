@@ -119,7 +119,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     reading:
       "Recurring events are stored once as a series; occurrences are derived from the rule. " +
       "The grid shows two things: meetings (list_calendar_events) and absences (list_absences — " +
-      "assignee, startDate, endDate, type). Read BOTH before answering a clash or availability question.",
+      "assignee, startDate, endDate; the type and note are withheld). Read BOTH before answering a clash or availability question.",
   },
   planning: {
     purpose: "Planning is the allocation grid: planned hours per person per period.",

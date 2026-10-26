@@ -2483,6 +2483,25 @@ describe("the read path hands out a token the write path accepts", () => {
   //   token is present" while the summary's token DIFFERS — so assert that
   //   separation directly rather than assuming it. `resourceId` (absence) and
   //   `sendInvitations` (meeting) are what supply it; see `makeAbsence`.
+  // AI-05: an absence is "absent" to the model, never its type, note or email.
+  it("toAbsenceSummary exposes only id, assignee, dates and type \"absent\"", () => {
+    const summary = toAbsenceSummary(
+      makeAbsence({ type: "sick", note: "flu", assigneeEmail: "ada@x.com" }),
+    );
+    expect(summary).toEqual({
+      id: 50, assignee: "Ada Lovelace", startDate: "2026-07-06", endDate: "2026-07-10", type: "absent",
+    });
+    expect("note" in summary).toBe(false);
+  });
+
+  it("masking an absence's type and note leaves its concurrency token the full row's", async () => {
+    const d = makeDispatcher();
+    const listed = ((await runTool(d, "list_absences", {})) as Record<string, unknown>[])[0];
+    expect(listed.type).toBe("absent");
+    expect(listed).not.toHaveProperty("note");
+    expect(listed.expectedToken).toBe(entityToken("absence", makeAbsence()));
+  });
+
   it.each([
     { entity: "absence" as const, full: makeAbsence(), summary: toAbsenceSummary(makeAbsence()) },
     {

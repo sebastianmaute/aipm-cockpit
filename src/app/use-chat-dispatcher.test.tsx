@@ -1505,8 +1505,29 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     // return null — the create having been invisible to it.
     const updated = result.current.updateAbsence(created.id, { note: "Approved" });
     expect(updated).not.toBeNull();
-    expect(updated?.note).toBe("Approved");
+    // The write landed on the STORED row; the summary never carries the note.
+    expect(result.current.getAbsenceRow(created.id)?.note).toBe("Approved");
+    expect(updated).not.toHaveProperty("note");
     expect(result.current.listAbsences()).toHaveLength(1);
+  });
+
+  // AI-05: the model reads an absence as "absent" only, but a write that does
+  // not name type/note must leave the STORED values alone.
+  it("an endDate-only updateAbsence keeps the stored type and note, and the model sees only \"absent\"", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createAbsence({
+      assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "sick", note: "flu",
+    });
+    expect(created).toEqual({
+      id: created.id, assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "absent",
+    });
+
+    const updated = result.current.updateAbsence(created.id, { endDate: "2026-06-08" });
+    expect(updated).toEqual({
+      id: created.id, assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-08", type: "absent",
+    });
+    expect(result.current.getAbsenceRow(created.id)).toMatchObject({ type: "sick", note: "flu", endDate: "2026-06-08" });
+    expect(result.current.listAbsences()[0]).toEqual(updated);
   });
 
   // §539 follow-up: LOAD keeps a non-calendar required date raw, but a WRITE
@@ -1570,7 +1591,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     expect(m?.date).toBe("2026-02-30");
 
     const a = result.current.updateAbsence(9, { note: "Approved" });
-    expect(a?.note).toBe("Approved");
+    expect(result.current.getAbsenceRow(9)?.note).toBe("Approved");
     expect([a?.startDate, a?.endDate]).toEqual(["2026-02-30", "2026-03-05"]);
   });
 
@@ -1710,7 +1731,7 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
     const created = result.current.createAbsence({
       assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-05", type: "vacation",
     });
-    expect(created.type).toBe("vacation");
+    expect(result.current.getAbsenceRow(created.id)?.type).toBe("vacation");
 
     const updated = result.current.updateAbsence(created.id, {
       // Not an `AbsenceType`; the cast is the point — this is what an unguarded
@@ -1718,8 +1739,8 @@ describe("useChatDispatcher – intra-turn ref freshness for absences and meetin
       type: "sabbatical" as never,
       note: "Approved",
     });
-    expect(updated?.type).toBe("vacation");
-    expect(updated?.note).toBe("Approved");
+    expect(updated).not.toBeNull();
+    expect(result.current.getAbsenceRow(created.id)).toMatchObject({ type: "vacation", note: "Approved" });
   });
 
   // §461 — the task path's rule at the absence writers' REAL call sites: a
