@@ -358,8 +358,11 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
   fingerprint treats a row field holding `""`, `null` or `[]` as absent (`dropEmptyRowFields`): the
   Turso task decoder drops `completedDate: ""` and fills absent `dependencies` / `knowledgeLinks`,
   the JSON decode keeps them, so before that a landed save of a new task fingerprinted as another
-  version and raised the conflict notice below. Measured in a demo recording; pinned by the Turso
-  round-trip test in `unload-journal.test.ts`. Top-level slices keep their empties (`features`). A journal
+  version and raised the conflict notice below; the same holds for the base comparison next. Measured
+  in a demo recording; pinned by the Turso round-trip test in `unload-journal.test.ts`. Top-level
+  slices keep their empties (`features`), and nested arrays inside a row are not normalised. ★ The
+  fingerprint carries no version, so a journal written before this change shows the notice once
+  (it fails safe: Restore anyway / Discard). A journal
   whose `baseFingerprint` equals the loaded one is applied and saved back through every guard.
   Anything else raises the `unloadJournalConflict` notice: Restore anyway (`restoreConflict`, from
   an in-memory copy) or Discard (`discardConflict`).

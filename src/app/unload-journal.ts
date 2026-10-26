@@ -148,7 +148,8 @@ function sortKeysDeep(value: unknown): unknown {
  *  `dependencies` / `knowledgeLinks` with [], the JSON decode keeps each as it was written. Every decoder reads the
  *  two spellings alike, so they are one version; left in, a save that LANDED fingerprinted as another version and
  *  the next load raised the "changed elsewhere" notice. Rows only: a top-level slice keeps its empty value (`features:
- *  []` is Simple mode, while a missing list is no choice made). */
+ *  []` is Simple mode, while a missing list is no choice made). A row's own fields only: nested arrays (dependency
+ *  entries, note-log entries, document blocks) are not normalised. */
 function dropEmptyRowFields(workspace: unknown): unknown {
   if (!workspace || typeof workspace !== "object" || Array.isArray(workspace)) return workspace;
   const out: Record<string, unknown> = {};
@@ -179,7 +180,8 @@ function dropEmptyFields(row: unknown): unknown {
  *  already-migrated workspace) — deep key sorting alone would still see a
  *  migration-only difference between a pre-migration and a post-migration
  *  workspace as a content change. Sorting object keys afterwards then makes
- *  the comparison blind to field order, and `dropEmptyRowFields` blind to how a row spells an empty field. Array order is never sorted — it is
+ *  the comparison blind to field order, and `dropEmptyRowFields` blind to
+ *  how a row spells an empty field. Array order is never sorted — it is
  *  meaningful (task order, document order, ...), and every backend here
  *  preserves it. */
 export function fingerprintWorkspace(ws: Workspace): string {

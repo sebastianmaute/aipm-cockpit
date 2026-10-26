@@ -279,6 +279,16 @@ describe("fingerprintWorkspace", () => {
     expect(fingerprintWorkspace({ ...smallWs, features: [] })).not.toBe(fingerprintWorkspace({ ...smallWs, features: undefined }));
   });
 
+  it("clearing a row field or emptying its list still changes the fingerprint", () => {
+    const rest = smallWs.tasks.slice(1);
+    const task = { ...smallWs.tasks[0], description: "x", dependencies: [{ taskId: rest[0].id, type: "FS" as const }] };
+    const base: Workspace = { ...smallWs, tasks: [task, ...rest] };
+    const cleared: Workspace = { ...smallWs, tasks: [{ ...task, description: "" }, ...rest] };
+    const noDeps: Workspace = { ...smallWs, tasks: [{ ...task, dependencies: [] }, ...rest] };
+    expect(fingerprintWorkspace(cleared)).not.toBe(fingerprintWorkspace(base));
+    expect(fingerprintWorkspace(noDeps)).not.toBe(fingerprintWorkspace(base));
+  });
+
   function bumpId(id: unknown): unknown {
     if (typeof id === "number") return id + 1_000_000;
     if (typeof id === "string") return `${id}-mutated`;
