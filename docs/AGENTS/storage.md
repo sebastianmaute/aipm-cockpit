@@ -327,8 +327,10 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
 - **Key** `UNLOAD_JOURNAL_PREFIX` + a project key from `journalProjectKey` (the Turso project id,
   else `"turso"`; otherwise the registry's current project id, else `"browser"`). It never carries
   a credential.
-- **Record** `{ v, projectKey, tabId, savedAt, baseFingerprint, workspace }`, where `workspace` is
-  `workspaceToJson` of the outgoing state. A record over `UNLOAD_JOURNAL_MAX_CHARS` is not written.
+- **Record** `{ v, projectKey, tabId, savedAt, baseFingerprint, ancestorFingerprints?, workspace }`,
+  where `workspace` is `workspaceToJson` of the outgoing state and `ancestorFingerprints` lists this
+  page's earlier saves of the key the record is built on (see "On load"). A record over
+  `UNLOAD_JOURNAL_MAX_CHARS` is not written.
 - **Written** by `noteSaveStarted` (called from `doSave`, past every guard) when the page is hiding
   or hidden, and by the hook's own `pagehide` listener for the latest unconfirmed save.
   ★ **Never for the empty default over an empty stored version** (§715, `isNothingNewToJournal`).
@@ -362,8 +364,18 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
   in a demo recording; pinned by the Turso round-trip test in `unload-journal.test.ts`. Top-level
   slices keep their empties (`features`), and nested arrays inside a row are not normalised. ★ The
   fingerprint carries no version, so a journal written before this change shows the notice once
-  (it fails safe: Restore anyway / Discard). A journal
-  whose `baseFingerprint` equals the loaded one is applied and saved back through every guard.
+  (it fails safe: Restore anyway / Discard). A journal whose `baseFingerprint` equals the loaded
+  one, or one of its `ancestorFingerprints`, is applied and
+  saved back through every guard. ★★ The ancestors close a FALSE conflict: two saves in flight at
+  unload, the earlier one landed, the later one (the journal's) was lost. The loaded version is then
+  neither the journal's content nor its confirmed base, and the notice used to appear for a project
+  nothing else had changed. Only a save that STARTED WRITING can have landed: `doSave` calls
+  `noteSaveRunning` inside its queue job, and a save the queue replaced while it waited (save-queue.ts)
+  never runs and loses its copy to the save that replaced it. A save started BEFORE the base was set
+  is never an ancestor, and a held op base (R7) has none. Only the newest `MAX_ANCESTORS` earlier runs
+  of a key keep their workspace for this (a backlog of failed saves holds keys, not copies), so
+  pagehide computes at most that many ancestor fingerprints, each cached; a record whose
+  `ancestorFingerprints` is not a list of strings is malformed (`hasJournalFields`).
   Anything else raises the `unloadJournalConflict` notice: Restore anyway (`restoreConflict`, from
   an in-memory copy) or Discard (`discardConflict`).
 - A popout never journals or restores.
