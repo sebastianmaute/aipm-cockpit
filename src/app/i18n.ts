@@ -1668,9 +1668,9 @@ const enUS = {
   notificationsHint:
     "Each reminder can be turned on or off independently. The lead time sets how many work days before a due date you are nudged (overdue and due-today are always included).",
 
-  showDueAlerts: "Show due-date notifications",
-  showDueAlertsCount: "Show due-date notifications – {0} actions for now",
-  showDueAlertsCountOne: "Show due-date notifications – 1 action for now",
+  showDueAlerts: "Open next actions",
+  showDueAlertsCount: "Open next actions – {0} actions for now",
+  showDueAlertsCountOne: "Open next actions – 1 action for now",
   addTaskButton: "Add task",
 
   templateSaveTitle: "Save project as a template",

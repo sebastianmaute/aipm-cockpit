@@ -112,7 +112,7 @@ describe("TopBar", () => {
 
   // WCAG 2.5.3 — the badge number is VISIBLE text of the bell (aria-hidden takes
   // it out of the a11y tree, not off the screen), so the name carries it. Named
-  // "Show due-date notifications" alone, every axe 4.14 scan that rendered the
+  // the plain label alone, every axe 4.14 scan that rendered the
   // badge failed label-content-name-mismatch. Mutation: pass the plain
   // showDueAlerts label again → red. With no badge the plain name stays.
   it.each(["en-US", "de"] as const)("names the bell with the visible badge count (%s)", async (lang) => {
@@ -128,12 +128,25 @@ describe("TopBar", () => {
     expect(screen.getByRole("button", { name: t(lang, "showDueAlerts") })).toBeInTheDocument();
   });
 
+  // §783 — the bell opens the Next actions view, so its name says so. It used to
+  // read "Show due-date notifications", which told a screen-reader user (and the
+  // tooltip reader) it did something else. Pinned against the view's own nav label
+  // so a rename of either keeps them in step. Mutation: restore the old string → red.
+  it.each(["en-US", "de"] as const)("names the bell after the Next actions view it opens (%s)", async (lang) => {
+    await loadI18n(lang);
+    const view = t(lang, "navActions").toLowerCase();
+    for (const key of ["showDueAlerts", "showDueAlertsCountOne"] as const) {
+      expect(t(lang, key).toLowerCase()).toContain(view);
+    }
+    expect(t(lang, "showDueAlertsCount", 3).toLowerCase()).toContain(view);
+  });
+
   it("renders AI Assistant button before the alerts button in DOM order", () => {
     const onOpenAiAssistant = vi.fn();
     render(<TopBar {...base} onOpenAiAssistant={onOpenAiAssistant} />);
     const buttons = screen.getAllByRole("button");
     const aiIdx = buttons.findIndex((b) => b.getAttribute("aria-label") === "AI Assistant");
-    const alertIdx = buttons.findIndex((b) => b.getAttribute("aria-label") === "Show due-date notifications");
+    const alertIdx = buttons.findIndex((b) => b.getAttribute("aria-label") === "Open next actions");
     expect(aiIdx).toBeGreaterThanOrEqual(0);
     expect(alertIdx).toBeGreaterThanOrEqual(0);
     expect(aiIdx).toBeLessThan(alertIdx);

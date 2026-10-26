@@ -94,6 +94,9 @@ see Scheduled reports under Added.
 
 ### Fixed
 
+- **The top bar's bell says what it does (§783).** Its name and tooltip read "Show due-date notifications", but the
+  bell opens Next actions and its badge counts the actions for now. It is now "Open next actions" (German "Nächste
+  Schritte öffnen"), still followed by the count while the badge shows.
 - **No false "changed elsewhere" notice after reloading a Turso project (§629).** Reloading while a save was still
   on its way could show "Unsaved changes from your last session could not be restored automatically because this
   project was changed elsewhere since", although that save had arrived. The check compared the two versions too
