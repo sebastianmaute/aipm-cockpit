@@ -628,7 +628,9 @@ Kept short: `AGENTS.md` owns each rule.
   effect, `doSave`, and the pre-switch flush (`flushCurrent`), which runs before the very switch or create
   that leaves the state. The `doSave` and flush skips log `storage.saveSkippedNoTursoProject`; the save-effect
   skip, the one an edit meets first, logs nothing (it runs on every edit). An edit
-  made in that state is not saved and not journalled, and picking a project replaces it. A single-project
+  made in that state is not saved and not journalled, and picking a project replaces it; since §753
+  `NoTursoProjectBanner` (mounted in `app-banners-block.tsx`, never in a popout) says so while the state
+  lasts. A single-project
   Turso setup (portfolio not on Turso) still saves.
 - **`TABLE_NAMES`** is `ENTITY_SPECS` tables plus `plan`, `fx_rates` and `meta`, and a save
   emits `DELETE FROM` for every dirty one. Non-workspace tables (snapshots, version history,

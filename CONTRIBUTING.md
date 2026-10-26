@@ -62,7 +62,7 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run followups:check` | Report which claims in docs/open-followups.md a machine can still check — REPORTING ONLY, never blocking, and it rules claims OUT rather than IN (a CLEAN entry may still be stale) |
 | `npm run followups:status:check` | Fail if an OPEN docs/open-followups.md entry, or one CLOSED on or after 2026-10-04, has no conforming `**Status:**` line (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all) |
 | `npm run followups:index:check` | Fail if docs/open-followups.md's index table disagrees with its `## <n>.` headings — a heading with no row, a row with no heading, a §number used twice on either axis, or a table that is not exactly what `node scripts/rebuild-followup-index.mjs` writes (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all) |
-| `npm run followups:workitems:check` | Fail if an OPEN docs/open-followups.md entry lacks exactly one conforming `**Work item:**` line, a closed entry carries one, or one GitLab issue is claimed by two open entries (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all) |
+| `npm run followups:workitems:check` | Fail if an OPEN docs/open-followups.md entry lacks exactly one conforming `**Work item:**` line, a closed entry carries one, or one GitHub issue is claimed by two open entries (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all) |
 | `npm run followups:github:check` | Compare docs/open-followups.md's Work item lines with the open GitHub issues in both directions — weekly in scheduled.yml (register-sync, report only); skips unless REGISTER_TRACKER=github |
 | `npm run rownames:check` | Enumerate where a per-row control's accessible name is composed and which surfaces a unit test asserts are distinct (WCAG 2.4.6) — REPORTING ONLY, never blocking, and a COVERED line is not evidence the test is non-vacuous |
 | `npm run leaks:check` | Fail if a tracked text file carries an internal identifier from the list named by LEAK_LIST_FILE (kept OUTSIDE the repo, never committed; a hit reports only path:line and the entry's class). Exit 1 = leak, exit 2 = could not scan (variable unset, list missing or empty, or fewer than 50 text files read). Runs in CI's static job from the LEAK_LIST secret; locally set LEAK_LIST_FILE |
@@ -198,7 +198,7 @@ enforce this and scan the **whole source, including comments**, so a stray raw
 `divide-ui-light-grey` is banned; use `ui-medium-grey` instead.
 
 ### State
-The orchestrator component (`task-manager.tsx`, ~3.0k LoC) owns most state.
+The orchestrator component (`task-manager.tsx`, ~2.0k LoC — `wc -l src/app/task-manager.tsx`) owns most state.
 Modal bodies live in `task-form-modal.tsx` and `bulk-edit-modal.tsx`. No
 external store (zustand / jotai / redux) is in the dep tree by design. New
 state should slot into existing context providers / `useState` hooks unless
@@ -327,7 +327,12 @@ delta shapes.
 
 **Framework-coupled packages are pinned exactly, with no range:** at the root,
 `next`, `react`, `react-dom`, `eslint-config-next`; in `desktop/`, `electron`,
-`electron-builder`, `electron-updater`. Every other dependency carries a
+`electron-builder`, `electron-updater`. One more is pinned exactly for a
+different reason: `@tanstack/react-virtual`, because the table and Gantt row
+windows rely on virtualizer behaviour that is not documented API, and the
+browser probe that checks it runs by hand only (open-followups §5 — run
+`e2e/perf-task-table.spec.ts` with `PERF=1` on any `@tanstack/*` version
+change). Every other dependency carries a
 caret so upstream fixes flow without a slice each. ★ The cost: a caret admits
 MINOR releases, not just patches — this section exists because `^16.2.11` ADMITS `16.3.2`. ★ It never resolved to it — no 16.3 tarball has
 ever entered the lock (`git log --all -S'next/-/next-16.3' -- package-lock.json` is empty). The
@@ -547,15 +552,11 @@ Browser → Local JSON file through a stubbed save picker; the other backends ar
 
 ## Working on GitHub
 
-GitHub (`sebastianmaute/aipm-cockpit`) is the only place changes land. The GitLab project is a
-read-only copy synced from GitHub once a day; never push to it, and do not open merge requests
-there. Its issues stay in use until they migrate to GitHub.
-
-Remotes in a fresh clone:
-
-    git remote -v            # origin = GitHub
-    git remote add gitlab <gitlab-url>           # only for glab (issues)
-    git remote set-url --push gitlab DISABLED    # makes an accidental push fail
+GitHub (`sebastianmaute/aipm-cockpit`, public) is the only place changes land, and issues live
+there too (`gh issue`). The GitLab project is a read-only copy synced from GitHub once a day; never
+push to it, and do not open merge requests there. A fresh clone needs only `origin` (GitHub); if you
+add a `gitlab` remote at all, disable its push URL
+(`git remote set-url --push gitlab DISABLED`) so an accidental push fails.
 
 A change lands like this:
 
@@ -563,7 +564,7 @@ A change lands like this:
    `static`, `unit`, `unit-shuffled` and `build` jobs, locally, and stops at the first failure. It
    refuses to start over uncommitted tracked changes (pass `--allow-dirty` to override), and prints
    the commit it gated. Its two vitest steps use half the logical CPUs; set `GATE_LOCAL_WORKERS=<n>`
-   to choose another count. It is REQUIRED only for the minutes-exhausted fallback below.
+   to choose another count. It is REQUIRED only for the checks-cannot-run fallback below.
 2. Push the branch to `origin` and open a pull request (`gh pr create`).
 3. Wait for the eight required checks of `.github/workflows/ci.yml` (`static` · `unit` ·
    `unit-shuffled` · `build` · `e2e` · `prod-smoke` · `semgrep` · `audit`) to go green. A red check:
@@ -572,12 +573,14 @@ A change lands like this:
    `gh pr merge --merge --match-head-commit <sha>`. Squash and rebase merging are disabled so the
    history keeps the shape the commit citations rely on. Never enable auto-merge (`--auto`).
 
-If the month's Actions minutes run out, follow [`docs/RUNBOOK.md`, "Actions minutes exhausted"](docs/RUNBOOK.md#actions-minutes-exhausted).
+If checks cannot run (Actions is down, or the repository is private again and the month's minutes
+are used up), follow [`docs/RUNBOOK.md`, "Actions minutes exhausted"](docs/RUNBOOK.md#actions-minutes-exhausted).
 
 ## Releasing
 
-Bump `src/app/version.ts`, run `npm run version:sync`, add the `CHANGELOG.md` section, merge to
-`main`, then tag the merge commit (`v<version>`, owner-only). A push of a `v*` tag runs
+Bump `src/app/version.ts`, run `npm run version:sync`, move the `[Unreleased]` entries of `CHANGELOG.md`
+into a new `## [<version>] - <date> "<milestone>"` section below it, merge to `main`, then tag the merge commit
+(`v<version>`, owner-only; tag only a commit on `main`, and push one release tag at a time). A push of a `v*` tag runs
 `.github/workflows/release.yml`: `guard` checks the tag, `build` packages the Windows installer,
 `publish` publishes the GitHub Release once the owner approves the run (see the RUNBOOK). Full steps, exit codes and withdrawing a bad release:
 [`docs/RUNBOOK.md`, "Publishing a desktop release (GitHub)"](docs/RUNBOOK.md#publishing-a-desktop-release-github).
@@ -590,7 +593,8 @@ Before opening a PR:
       lint and the build).
 - [ ] New user-facing strings have both EN and DE translations.
 - [ ] If you added a tab / popover / panel, the Help menu (`help-menu.tsx`)
-      and Version highlights (`version.ts`) reference it where appropriate.
+      references it where appropriate. (Not `APP_HIGHLIGHT_KEYS` in `version.ts`: that is a fixed
+      pitch, not a per-feature list.)
 - [ ] If you added a persisted `Workspace` field, it reaches all six write
       paths (JSON / CSV / Markdown / Turso single / Turso tenant / IndexedDB —
       see `AGENTS.md`, "Hard constraints").

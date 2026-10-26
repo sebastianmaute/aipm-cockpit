@@ -1,8 +1,8 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.19.0 "Nesbø" | Files scanned: 394 .tsx + 711 .ts under src/app (excl. 1207 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.20.0 "Indridason" | Files scanned: 451 .tsx + 861 .ts under src/app (excl. 1470 test files) | Token estimate: ~1050 -->
 
 # Frontend
 
-Single-page Next.js App Router client. One route, three layout modes, ~35 views, all state
+Single-page Next.js App Router client. One route, three layout modes, 37 views, all state
 client-side.
 
 ```
@@ -14,23 +14,29 @@ src/app/layout.tsx        root layout, security headers, globals.css,
         ├── ModernShell   default — sidebar, off-canvas drawer <1024px, topBarMenus
         ├── legacyTree    classic (AppHeader + tab strip) and popout (no header)
         ├── workspace-section.tsx   view router → tabpanel switch
-        │     └── workspace-panels.tsx  24 lazy dynamic(ssr:false) panels
+        │     └── workspace-panels.tsx  26 lazy dynamic(ssr:false) panels
+        │                               (`grep -c 'import("./' src/app/workspace-panels.tsx`)
         └── app-modals.tsx  modal stack + fixed footer
 ```
 
-## Views — `AppView` in `nav-config.ts` (35)
+## Views — `AppView` in `nav-config.ts` (37)
 
 `projects` · `open-points` · `dashboard` · `actions` · `insights` · `trends` · `history` · `chat` ·
 `gantt` · `milestones` · `resources` (`directory` · `workload` · `calendar` · `planning`) ·
 `manage-roles` · `budget` · `budget-report` · `raid` · `raid-report` · `changes` · `change-report` · `forecast` ·
 `stakeholders` · `raci` · `stakeholder-map` · `knowledge` · `documents` · `reports` · `activity` ·
 `settings` ·
-`help` · `learning-insights` · `steering-committee` · `timelog` · `portfolio-health`
+`help` · `learning-insights` · `steering-committee` · `timelog` · `portfolio-health` · `scheduled-reports`
 
-★ Adding a member forces four exhaustive-`Record` edits or tsc/runtime breaks: `CORE_VIEWS`
-(`feature-modules.ts`), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `NAV_ICON`
-(`nav-icons.tsx`), plus the i18n key. Turso-only views also go in `TURSO_ONLY_VIEWS` **and**
-`subTabsFor`.
+Count: `awk '/^export type AppView/,/;$/' src/app/nav-config.ts | grep -c '"'`. ★ `forecast` is in the union
+but release-hidden (`RELEASE_HIDDEN_VIEWS`, `feature-modules.ts`) — no route reaches it.
+
+★ Adding a member forces three exhaustive-`Record` edits or tsc breaks: `LABEL_KEYS` (+ `navLabelKey`,
+`nav-config.ts`), `NAV_ICON` (`nav-icons.tsx`) and `VIEW_AI_SCOPE` (`view-ai-scope.ts`), plus the i18n key.
+Then decide where it lives: `CORE_VIEWS` (`feature-modules.ts`, an array, not exhaustive) or a
+`FEATURE_MODULES` entry — `isViewEnabled` returns true for a view no module claims, so forgetting both
+is silent. A Turso-only view also goes in `TURSO_ONLY_VIEWS`, which the sidebar filter and `subTabsFor`
+both read.
 
 ## State
 
@@ -71,7 +77,8 @@ keep — see AGENTS.md's "task-manager decomposition map".
 `ProgressTrack` · `Field` (`form-field.tsx` — caption, required mark and hint around one control;
 shared by the task and project forms) · `FieldError` / `FieldHint` / `InfoTooltip` ·
 `EntityLinkPicker` (and `single-entity-picker.tsx`, both over `useEntityCombobox` in
-`entity-combobox.ts`) · interaction atoms `INTERACTIVE` / `FOCUS_RING` / `TRANSITION` / `PRESS`.
+`entity-combobox.ts`) · `useConfirm` / `usePrompt` / `useNotice` (`confirm-dialog.tsx` — the app's own dialogs;
+never `window.confirm`/`prompt`/`alert`, §752, see `docs/AGENTS/ui-shell.md`) · `TypeToConfirmDialog` · interaction atoms `INTERACTIVE` / `FOCUS_RING` / `TRANSITION` / `PRESS`.
 
 ★ Primitives concatenate `className` with **no** tailwind-merge — a class fighting a variant prop
 loses on source order. Only the three Button types forward `ref`.
@@ -114,14 +121,16 @@ off-palette colors, gradients or shadows except via `--shadow-*` / `--gradient-k
 
 ## a11y
 
-The 17 views of `A11Y_VIEWS` × 7 scheme combos, plus one Kanban scan per combo, one notes-window
-toolbar scan and one Documents block-editor scan. The combos are harbor, meridian and umber in BOTH light and dark, plus beacon light —
+The views of `A11Y_VIEWS` (18 listed, 17 scanned while Forecast is release-hidden) × 7 scheme combos,
+plus Kanban, pink-count-badge and RAG-letter-chip scans per combo and a handful of harbor-light-only
+scans (`grep -n 'a11y: ' e2e/a11y.spec.ts` lists every one). The combos are harbor, meridian and umber in BOTH light and dark, plus beacon light —
 beacon is light-only by design, so there is no dark combo of it to add. Umber dark was missing from
 the matrix while everything around it read as covered, and is now scanned like its
 siblings. ★ Read the totals off
 `npx playwright test e2e/a11y.spec.ts --list`, never off a doc: the spec is the only place that
 recomputes them, and two successive drafts of its own comment were wrong. **Not scanned:** Projects,
-Knowledge, Resources→Calendar, Help, tour, and anything inside a closed modal. ★★ Being IN the list
+Knowledge, Resources→Calendar, Help, tour, every Turso-only view (Trends, History, Portfolio health,
+Scheduled reports — the seed is file mode), and anything inside a closed modal. ★★ Being IN the list
 is not the same as being covered — the scan only sees what `e2e/seed.ts` seeds, so an unseeded slice
 renders its empty state and passes over a panel with no rows. Axe also has no rule for
 `aria-modal`-without-a-trap or a missing `aria-sort` — see `open-followups.md` §8–§10.

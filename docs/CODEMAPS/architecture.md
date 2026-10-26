@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-03 at bb60aa715 | App 1.19.0 "Nesbø" | Files scanned: 2347 (src/**/*.{ts,tsx}, incl. 1216 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.20.0 "Indridason" | Files scanned: 2836 (src/**/*.{ts,tsx}, incl. 1485 tests) | Token estimate: ~950 -->
 
 # Architecture
 
@@ -12,7 +12,7 @@ plus request-time middleware issuing a per-request CSP nonce.
 │  task-manager.tsx  (root orchestrator: layout, top bar, view routing) │
 │      │                                                                │
 │      ├── workspace-context ── live entity state + setters             │
-│      ├── workspace-section ── view router → 24 lazy panels           │
+│      ├── workspace-section ── view router → 26 lazy panels           │
 │      └── use-storage-backend ─ load/save debounce, broadcast sync     │
 │                    │                                                  │
 │            storage.ts (facade)                                        │
@@ -34,7 +34,7 @@ plus request-time middleware issuing a per-request CSP nonce.
 
 - **Pure engine vs React surface.** Domain logic lives in i18n-free modules and subdirectories
   (`next-actions/`, `insights/`, `alloc-plan/`, `task-dedup/`, `inline-ai-edit/`, `digest/`,
-  `scheduled-jobs/`, `undo/`, `committee-report/`, the serializers, `sanitize*`). React imports them
+  `scheduled-jobs/`, `undo/`, `committee-report/`, `forecast/`, the serializers, `sanitize*`). React imports them
   and translates. Engines take `today`/`now` as parameters — no clock reads inside (a lint purity
   rule also bans `Date.now()`/`Math.random()` in render bodies).
 - **Facade over backends.** Nothing outside `storage.ts` picks a backend. A new persisted
@@ -44,6 +44,12 @@ plus request-time middleware issuing a per-request CSP nonce.
   reuses `api/_shared/proxy-ssrf.ts` for IP-classification + host allowlisting; only normalize/auth/URL
   is per-route. Deliberately *not* factored into one parameterized helper — divergent security guards.
   ★ `ecb` is the exception and needs no guard: one hard-coded URL, no user input, no secret.
+- **A deployment can switch integrations off.** `AIPM_DISABLED_INTEGRATIONS` (§762) names any of
+  `jira` · `confluence` · `timelog` · `ecb` · `stt`; every one of the 12 routes asks
+  `refuseIfDisabled` (`api/_shared/integration-switch.ts`, reached through the jira/timelog/stt
+  `_helpers.ts` and directly in `ecb`) and answers 503 before any other work, and the root layout hands
+  the list to the client (`integration-switches.ts`), which hides the controls. Read per request, no
+  rebuild. Detail: `docs/AGENTS/platform.md`.
 - **Secrets never reach the server.** Five device-sealed `SecretId`s (AES-256-GCM under a
   non-extractable IndexedDB key). Tokens travel outbound through a proxy but are never logged or
   persisted server-side.
@@ -52,11 +58,13 @@ plus request-time middleware issuing a per-request CSP nonce.
 
 | Subsystem | Entry | Note |
 |---|---|---|
-| AI assistant | `chat-panel.tsx` + pure `chat-api.ts` | 53 tools (`TOOL_DEFS` in `chat-tool-defs.ts`, which spreads in `DOCUMENT_TOOL_DEFS`; re-count with `grep -hcE '^    name: "' src/app/chat-tool-defs.ts src/app/chat-tool-defs-documents.ts` and add the two); browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
+| AI assistant | `chat-panel.tsx` + pure `chat-api.ts` | 62 tools (`TOOL_DEFS` in `chat-tool-defs.ts`, which spreads in `DOCUMENT_TOOL_DEFS`, `FORECAST_TOOL_DEFS` and `PROJECT_TOOL_DEFS`; re-count with `grep -hcE '^    name: "' src/app/chat-tool-defs.ts src/app/chat-tool-defs-*.ts` and add the four; the six forecast tools refuse while the simulation is off); browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
 | Next actions | `next-actions/` | pure ranking engine + providers → Action Center |
 | Insights loop | `insights/` | detect → reconcile → recommend → measure outcome |
 | Undo/redo | `undo/` | `UNDO_CAP` = 25 entries, in-memory, backend-agnostic |
 | Calendar sync | `use-entity-calendar-push` / `-pull` | two-way Outlook for task · RAID · change · absence · milestone (`use-milestone-calendar-pull.ts`), wired in `use-calendar-integrations.ts` |
+| Scheduled jobs | `scheduled-jobs/` + `use-scheduled-job-runner.ts` | Turso-only; one named project per job, each run kept as a report in `scheduled_reports` and shown in the Scheduled reports view (§772) |
+| Unload journal | `unload-journal.ts` + `use-unload-journal.ts` | §629 — a synchronous localStorage copy of an unconfirmed save, written at pagehide and restored on the next load; see `docs/AGENTS/storage.md` |
 | Diagnostics | `diagnostics.ts` | capped per-device ring, two-layer secret redaction |
 
 ## Layouts
@@ -74,9 +82,10 @@ every pull request and push to `main` (not a chain — the only `needs:` edges a
 enumerate the ids from the source with
 `awk '/^jobs:/{f=1;next} f && /^  [a-z][a-zA-Z0-9_-]*:/{print}' .github/workflows/ci.yml` (lint fails
 on any warning, `--max-warnings=0`).
-E2E includes an axe pass over the 17 `A11Y_VIEWS` × 7 scheme combos plus a Kanban scan per combo, one
-notes-window toolbar scan and one Documents block-editor scan, and the print spec. ★ That last kind
-was missing from this sentence. ★ MEASURE the scan count, do not derive it — the spec
+E2E includes an axe pass over the `A11Y_VIEWS` (18 listed; 17 scanned while Forecast is release-hidden) × 7 scheme combos, plus three scans per combo (Kanban board, pink count badge, RAG letter
+chip), harbor-light-only scans (notes-window toolbar, Documents block editor, Reports cumulative chart,
+Budget currency-switch dialog, two Turso-storage Settings tests), and the print spec. List them with
+`grep -n 'a11y: ' e2e/a11y.spec.ts`. ★ MEASURE the scan count, do not derive it — the spec
 carries its own arithmetic and a draft of it has been wrong twice: `npx playwright test
 e2e/a11y.spec.ts --list` (no browsers needed). ★ Visual-regression
 is **not** in the CI run — `playwright.config.ts` puts it in a separate `visual` project that the

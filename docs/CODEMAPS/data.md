@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.19.0 "Nesbø" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.20.0 "Indridason" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
 
 # Data
 
@@ -12,11 +12,16 @@ backend is configured. Storage namespace is `aipm-cockpit`.
 
 **Optional/additive** (each defaults on load; absent ⇒ byte-identical output): `budgets` · `fxRates` ·
 `status` · `milestones` · `changes` · `stakeholders` · `project` · `fieldVisibility` · `features` ·
-`steeringCommittee` · `timelogLinks` · `knowledgeItems` · `insights` · `activityLog` · `documents` ·
-`documentVersions` · `settingsOverrides` · `calendarEvents` · `documentAssets`
+`steeringCommittee` · `timelogLinks` · `knowledgeItems` · `insights` · `activityLog` · `budgetHistory` ·
+`baselineHistory` · `forecastHistory` · `forecastScenarios` · `documents` · `documentVersions` ·
+`settingsOverrides` · `calendarEvents` · `documentAssets`
 
 ★ Do not quote that list from here — read it off the `Workspace` type, which is the only place it
-cannot rot. Four of these were added after this file was first written and three went unrecorded.
+cannot rot: `awk 'NR>=90{print} NR>=90&&/^};/{exit}' src/app/workspace.ts | grep -oE '^  [a-zA-Z]+??:'`
+(the type starts near line 90). Four of these were added after this file was first written and three went
+unrecorded; four more (`budgetHistory`, `baselineHistory`, `forecastHistory`, `forecastScenarios`) were
+missing here until 2026-10-26. The two forecast slices are persisted although the forecast is still
+release-hidden (`docs/AGENTS/forecast.md`).
 
 Entity shapes live in `types.ts`; every one has exactly one validator in the `sanitize.ts` barrel
 (`sanitize-core` primitives ← `sanitize-entities` ← `sanitize-records`). Validators never throw.
@@ -53,8 +58,10 @@ deletion goes undetected.
 `plan` + `fx_rates` + `meta`.
 
 ★ Workspace save issues a **per-table DELETE**, so any non-workspace table must stay OUT of
-`TABLE_NAMES` (guard test): snapshots, version history, comm templates, committee/comm report
-versions, learning, operating guides, scheduled jobs, color schemes. ★ `SqlArg.value` is
+`TABLE_NAMES` (guard test): snapshots, version history, comm templates, committee report versions,
+Action Center learning, operating guides, scheduled jobs (`scheduled_jobs_v2`) and scheduled reports
+(`scheduled_reports`, §772), chat threads, asset bytes, color schemes — the table names and the
+reproduce command are in [backend.md](backend.md). ★ `SqlArg.value` is
 string-only even for integers.
 
 ## Byte stability
@@ -137,7 +144,10 @@ import it from a codec, an entity sanitizer or `scripts/`.
 
 localStorage `aipm-cockpit:*` — settings, saved views (tasks / panel / reports),
 landing state, search recents, timelog actuals cache, calendar-sync baseline, view hints, tip state,
-diagnostics ring, project appearance, color schemes. Plus IndexedDB config DBs
+diagnostics ring, project appearance, color schemes, the §629 unload journal
+(`aipm-cockpit:unload-journal:<projectKey>`, `unload-journal.ts` — a synchronous copy of an unconfirmed
+save written at pagehide, see `docs/AGENTS/storage.md`), the scheduled-report device label
+(`device-label.ts`). Plus IndexedDB config DBs
 `aipm-cockpit-secrets` and `aipm-cockpit-project-handles`.
 
 ★★ The ACTIVITY LOG is no longer one of them. It moved out of localStorage and into the workspace in

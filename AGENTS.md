@@ -29,7 +29,7 @@ before your first edit — the rest is reference, reachable from here.
 |---|---|
 | [dashboard](docs/AGENTS/dashboard.md) | delta strip · KPI trends · arrangeable tile grid · coaching · density · digest |
 | [accessibility](docs/AGENTS/accessibility.md) | the axe gate · accessible + row-unique names · label-in-name · toggle state · what axe cannot see |
-| [ci](docs/AGENTS/ci.md) | the GitHub Actions jobs and required checks · `release.yml` (tag-triggered releases) · the weekly workflow · a red check, minutes exhausted |
+| [ci](docs/AGENTS/ci.md) | the GitHub Actions jobs and required checks · `release.yml` (tag-triggered releases) · the weekly workflow · a red check, Actions unavailable |
 | [ui-shell](docs/AGENTS/ui-shell.md) | Help · nav · focus/keyboard · surfaces · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal owns the Escape/Tab protocol — read it before touching any modal, popover or panel** |
 | [theming](docs/AGENTS/theming.md) | colour schemes · `--ui-*` tokens · AA derivation · branding · print · DS primitives |
 | [insights](docs/AGENTS/insights.md) | detect · reconcile · recommend · outcome · digest |
@@ -243,8 +243,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   · `audit`), and `scripts/ci-workflow.test.mjs` fails when the workflow, the gate list in
   `scripts/gate-local.mjs` and the list in `docs/AGENTS/ci.md` disagree. ★★ `gate-local.mjs` is the
   ONE gate list: a new blocking npm gate goes there with a group, never straight into the YAML.
-  `npm run gate:local` is the pre-push check, no longer the merge gate. ★★ While the repository is
-  private, Actions minutes come from GitHub Pro's allowance with a $0 budget; when they run out,
+  `npm run gate:local` is the pre-push check, no longer the merge gate. ★ The repository is public, so
+  Actions minutes no longer run out; if Actions is down (or the repository goes private again),
   checks cannot complete and merging needs the admin bypass on a `gate:local` PASS — see
   `docs/RUNBOOK.md`. Several gates split exit **1 = DRIFT** from exit **2 = could not scan**, and the
   two demand opposite responses. Releases run from `.github/workflows/release.yml` on a push of a
@@ -297,7 +297,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `CREATE TABLE IF NOT EXISTS` can't add column and save INSERTs *named* columns, so old DB
   errors on save — `turso-migrate.ts` self-heals (PRAGMA-diff → `ALTER ADD COLUMN`, run inside
   write lock before save).
-- **Turso-gated features** (Snapshots/Trends, version history, Portfolio health) must check
+- **Turso-gated features** (Snapshots/Trends, version history, Portfolio health, Scheduled reports) must check
   `tursoConfig !== null`, not just `storageConfig.kind === "turso"` (kind can be set while config
   unset/quarantined). Nav-gating: add the view to `TURSO_ONLY_VIEWS` (`nav-config.ts`) → `filterNavGroups`
   prunes it from the sidebar in file mode (so it can't render a dead tab); the panel STILL runtime-guards.
@@ -451,7 +451,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   component import and breaks its tests. Name the pure module distinctly (e.g. `action-notifications.ts`
   beside `notifications.tsx`).
 - Storage facade (`storage.ts`) over backends: JSON file, CSV, Markdown, Turso (single + multi-tenant),
-  IndexedDB. Snapshots/Trends + version history are Turso-ONLY.
+  IndexedDB. Snapshots/Trends, version history and scheduled jobs + Scheduled reports (§772) are Turso-ONLY.
 - **Sample data is JSON-only, tiered:** `sample-workspace-small.json` is the hand-curated MASTER (the
   ONLY hand-edited sample artifact); `-big.json` (3×) and `-huge.json` (10×) are GENERATED from it via
   pure `scaleWorkspace(ws, factor)` (id-offset `k*100000` + full FK remap, incl. `bucket.taskIds`;
@@ -472,9 +472,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `use-next-actions.ts` (`nextActionGroups`, called from `task-manager.tsx`), which `ActionsPanel` renders and the Dashboard takes its hero and Top-actions
   primaries from (spec C). `actions-panel.tsx` caps Now/Soon
   at `MAX_VISIBLE_PER_TIER=5` with a show-more toggle.
-- **Action-row layout (slice 2):** `action-row.tsx` shows tier as a coloured LEFT STRIPE (`TIER_STRIPE` →
-  `border-l-[var(--rag-red)]` for now, with `--rag-amber`/`--rag-green` for soon/monitor — REPLACED the dot; RAG tokens
-  switch under Mockup). ★ Write each tier's stripe token as its own concrete `var(--rag-NAME)` here; never collapse the
+- **Action-row layout (slice 2):** `action-row.tsx` shows tier as a coloured LEFT STRIPE (`TIER_RAG[tier].stripe`
+  in `next-actions/action-cta.ts` → `border-l-[var(--rag-red)]` for now, with `--rag-amber`/`--rag-green` for soon/monitor
+  — REPLACED the dot; the RAG tokens follow the colour scheme). ★ Write each tier's stripe token as its own concrete `var(--rag-NAME)` here; never collapse the
   family into one arbitrary-value bracket with a pipe or wildcard — Tailwind v4 scans AGENTS.md and an invalid char inside
   such a bracket compiles to broken CSS (globals.css 500s, e2e webserver times out). A single `⋮` overflow
   popover (Draft / Create-task / Log-as-RAID / Snooze) reuses `usePopoverDismiss`; contextual popovers (Escalate/Assign/Rebaseline/

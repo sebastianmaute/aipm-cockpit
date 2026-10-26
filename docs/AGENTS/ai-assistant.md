@@ -1279,7 +1279,8 @@
 - **View-scoped AI prompts:** before this, the assistant was told only `Current view: <name>` — a bare
   string with no meaning attached. `view-ai-scope.ts` fixes that: `VIEW_AI_SCOPE` is a **total**
   `Record<AppView, ViewScope>` (`purpose` / optional `reading` / optional `toolHints`) describing what
-  every one of the app's 34 views is for. ★ Total BY CONSTRUCTION — adding an `AppView` is a typecheck
+  every one of the app's views is for (all 37 `AppView` members today —
+  `awk '/^export type AppView/,/;$/' src/app/nav-config.ts | grep -c '"'`). ★ Total BY CONSTRUCTION — adding an `AppView` is a typecheck
   error until it is described here, which is why there is deliberately **no** "every view is present"
   test: such a test could not fail. `view-ai-scope-block.ts` formats the registry into two blocks:
   `buildViewScopeBlock` (what the surface IS — call-invariant per view) and `buildViewStateBlock` (what
@@ -1707,7 +1708,7 @@
   now measured at 13,305 tokens of byte-identical block-0 text at 1.25x (the ~9.9k figure earlier here
   was the narrower guide-text-only estimate, not this payload). Measured before the change: the
   longest common prefix of the assembled block across all 34 nav-reachable views was 9 characters
-  (`AppView` has 35 members; `learning-insights` is deep-link-only and was not probed — including it
+  (`AppView` had 35 members then, 37 now; `learning-insights` is deep-link-only and was not probed — including it
   could not raise the figure, since a common prefix only shrinks as strings are added).
   ★★ Block 1 has no marker ON PURPOSE — all four breakpoints are already committed (tools 1,
   system 1, messages 2) — and it still sits inside whatever a LATER marker covers, so it is not
@@ -1808,7 +1809,7 @@
   produce AT RUNTIME for a default install — do not reason from this prose alone.
   ★ `view-ai-digest.ts`'s `VIEW_AI_DIGEST` is a **`Partial<Record<AppView, DigestFn>>`** on purpose,
   covering exactly four views (`open-points`, `workload`, `gantt`, `budget`) fed through
-  `getSnapshot().viewDigest` in `use-chat-dispatcher.ts` — the other 30 views cost nothing and nobody
+  `getSnapshot().viewDigest` in `use-chat-dispatcher.ts` — the other views (33 of the 37 today) cost nothing and nobody
   should fill them in for symmetry. Pure, i18n-free, **clock-free** (`today` passed in, unread by all
   four digests today but kept required so the first date-based digest doesn't have to touch every call
   site to add it).

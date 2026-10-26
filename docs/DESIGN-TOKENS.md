@@ -86,12 +86,29 @@ runtime. Reproduce the fallbacks with
 
 Components never reference a scheme's hex values directly — use the role.
 
+## Structural role tokens
+
+Also declared in `globals.css :root` (and, for the colours, mapped in `@theme`); a scheme or an imported
+theme file may override each. Reproduce with
+`grep -n -E "^s*--(rag|table-head|shadow|gradient|delta|segment)[a-z-]*:" src/app/globals.css`.
+
+| Token | Fallback | Role |
+|---|---|---|
+| `--rag-red` / `--rag-amber` / `--rag-green` | #d24a4a / #cf8a1c / #2f9d70 | RAG dots and stripes (see below) |
+| `--rag-red-text` / `--rag-amber-text` / `--rag-green-text` | #b33f3f / #966414 / #227151 | RAG text companions |
+| `--table-head-bg` / `--table-head-fg` / `--table-head-accent` | `var(--ui-dark-blue)` / #ffffff / `var(--ui-green)` | table header fill, text, and active-sort / hover accent |
+| `--shadow-card` / `--shadow-control` / `--shadow-card-hover` | `none` | the ONLY sanctioned shadows, used as `shadow-[var(--shadow-card)]` and the like |
+| `--gradient-kpi` | `var(--ui-green)` | the completion-% "more = better" bar only |
+| `--rag-red-chip` / `--rag-green-chip`, `--delta-chip-pad` | `transparent`, `0` | KPI trend-pill background and padding (invisible in the fallback) |
+| `--segment-track-bg` / `--segment-active-bg` / `--segment-active-fg` | #eef2f6 / `var(--ui-dark-blue)` / #ffffff | `SegmentedControl` track and active pill |
+
 ## Rules
 
 - **Green accents, Dark Blue fills.** Solid fills (primary buttons, selected
   segmented-control pill) = `bg-ui-dark-blue text-white`. Green = focus rings,
   active/selected indicators, links, positive states.
-- **No drop shadows, no gradients.** Remove every `shadow-*` and
+- **No drop shadows, no gradients** except through the role tokens above (`shadow-[var(--shadow-card)]`,
+  `--gradient-kpi`), whose fallback is none / solid. Remove every other `shadow-*` and
   `bg-gradient`/`from-`/`via-`/`to-`. Use `border border-line` for separation.
 - **One-mode text tokens need a dark companion.** `--ui-dark-blue` is near-black navy in every dark
   scheme and `--ui-purple` sits under AA there, so `text-ui-dark-blue` takes `dark:text-ui-light-grey`
@@ -114,6 +131,10 @@ Components never reference a scheme's hex values directly — use the role.
   centre while pressed. An absolutely-positioned control takes
   `${FOCUS_RING} ${TRANSITION}` only — the same reason form fields never take
   `PRESS`.
+- **A scroll container clips the focus ring (§757).** `FOCUS_RING` draws 2px outside the control, so a
+  control flush with a scrolling box's edge loses its ring there. Append `RING_ROOM`
+  (`interaction-styles.ts`, `p-0.5`) to the scroll container, not the control; where the container's own
+  parent clips at the same edge (the sidebar), draw the ring inset instead.
 - **Icon-only controls need a 24px target.** WCAG 2.2 SC 2.5.8 sets a 24×24 CSS
   px floor, and axe does **not** check it, so it slips the gate. A 14px icon with
   `p-0.5` is ~20px and fails; give the button `flex h-6 w-6 items-center
@@ -131,7 +152,9 @@ Components never reference a scheme's hex values directly — use the role.
 - Destructive: text/border `ui-pink` (`text-ui-pink`, `border-ui-pink`, `hover:bg-ui-pink/10`)
 - Focus ring: `focus:outline-none focus:ring-2 focus:ring-ui-green`
 - Card / panel: `bg-surface border border-line`
-- Table header: `bg-ui-dark-blue text-white`
+- Table header: `TABLE_HEAD_CLASS` (`table-styles.ts`) on the `<thead>` — its `aipm-cockpit-thead` marker
+  paints each `<th>` with `--table-head-bg` / `--table-head-fg` (`globals.css`); `table-head-sweep.test.ts`
+  guards it. Never hand-colour a header.
 
 ## Calendar status colors
 

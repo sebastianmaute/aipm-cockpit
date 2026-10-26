@@ -63,7 +63,7 @@
   `InformationFlowsSection` has an optional `maxWidth` (default 480 keeps Settings byte-identical; the in-pane flows
   tab passes 720). jsdom
   lacks `IntersectionObserver`/`scrollIntoView` → global no-op stubs in `vitest.setup.ts`. ★ Adding `help` to `AppView` forced FOUR edits (tsc/runtime): `CORE_VIEWS` (`feature-modules.ts`
-  — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
+  — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `NAV_ICON` (then named `ICON_PATHS`)
   (`nav-icons.tsx`, exhaustive `Record<AppView>`), + i18n `navHelp`. NOT a popout tab. Not in `A11Y_VIEWS`
   (the sidebar entry IS scanned every view; eye-verify the page).
   • **Help body `[[label]]` markers:** a body naming a UI control writes it `[[Take the tour]]`, never in bare
@@ -904,7 +904,8 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   derive-bar) and `gantt-status-buckets.ts` (`taskStatusBuckets`/`milestoneStatusBucket` — which
   status-filter buckets an entity belongs to; `today` passed in, no clock). React pieces: hooks
   `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
-  lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar),
+  lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar; since §742 each bar
+  body and edge is also a keyboard SLIDER with the milestone handle's keys and commit timing, below),
   `use-gantt-milestone-drag.ts` (milestone drag, §715 project D — the same window-listener shape; the
   handle is a SLIDER whose arrow presses move only the preview and commit once, on a pause, Enter or blur,
   and `use-gantt-milestone-focus.ts` keeps a FOCUSED handle and its preview date in view — while arrow presses move it, when the move

@@ -1,6 +1,6 @@
 {
   "name": "aipm-cockpit",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "private": true,
   "license": "EUPL-1.2",
   "engines": {
@@ -94,7 +94,7 @@
     "followups:check": "Report which claims in docs/open-followups.md a machine can still check — REPORTING ONLY, never blocking, and it rules claims OUT rather than IN (a CLEAN entry may still be stale)",
     "followups:status:check": "Fail if an OPEN docs/open-followups.md entry, or one CLOSED on or after 2026-10-04, has no conforming `**Status:**` line (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all)",
     "followups:index:check": "Fail if docs/open-followups.md's index table disagrees with its `## <n>.` headings — a heading with no row, a row with no heading, a §number used twice on either axis, or a table that is not exactly what `node scripts/rebuild-followup-index.mjs` writes (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all)",
-    "followups:workitems:check": "Fail if an OPEN docs/open-followups.md entry lacks exactly one conforming `**Work item:**` line, a closed entry carries one, or one GitLab issue is claimed by two open entries (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all)",
+    "followups:workitems:check": "Fail if an OPEN docs/open-followups.md entry lacks exactly one conforming `**Work item:**` line, a closed entry carries one, or one GitHub issue is claimed by two open entries (BLOCKING; exit 1 = drift, exit 2 = the gate could not scan at all)",
     "followups:github:check": "Compare docs/open-followups.md's Work item lines with the open GitHub issues in both directions — weekly in scheduled.yml (register-sync, report only); skips unless REGISTER_TRACKER=github",
     "rownames:check": "Enumerate where a per-row control's accessible name is composed and which surfaces a unit test asserts are distinct (WCAG 2.4.6) — REPORTING ONLY, never blocking, and a COVERED line is not evidence the test is non-vacuous",
     "leaks:check": "Fail if a tracked text file carries an internal identifier from the list named by LEAK_LIST_FILE (kept OUTSIDE the repo, never committed; a hit reports only path:line and the entry's class). Exit 1 = leak, exit 2 = could not scan (variable unset, list missing or empty, or fewer than 50 text files read). Runs in CI's static job from the LEAK_LIST secret; locally set LEAK_LIST_FILE",

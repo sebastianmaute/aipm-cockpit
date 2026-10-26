@@ -1,6 +1,6 @@
 # AI PM Cockpit
 
-[![version](https://img.shields.io/badge/version-v1.19.0_%22Nesbø%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v1.20.0_%22Indridason%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
 > **The AI project-management cockpit that knows *your* project.**
@@ -15,18 +15,20 @@ https://github.com/user-attachments/assets/84b8ec64-25ec-4a76-91cf-9855cc346245
 
 <sub>Guided product tour (no audio): dashboard, next actions, open points, Gantt, milestones, the Claude assistant, resources, budget, RAID, changes and stakeholders. If your viewer does not play it inline, [download the clip](docs/assets/videos/demo-aipm-cockpit.webm).</sub>
 
+**Narrated video guides** are on the [AI PM Cockpit YouTube channel](https://www.youtube.com/@aipmcockpit), in three playlists: *One Project, One Week* follows one project lead through a week on one project, chapter by chapter; *AI Features, One at a Time* and *Feature Tour* are short clips, one AI feature or one part of the app each, all on the demo project.
+
 ---
 
 ## Why AI PM Cockpit
 
 **A copilot that knows *this* project.**
-The Claude assistant is grounded in your operating guides, so its advice fits this project rather than reading like a generic chatbot. Per-view "Ask Claude" prompts and one-tap starters (a risk review, a weekly status update, a stakeholder update, "prioritize all tasks") mean the tool tells you the next step and can take it, creating and updating tasks, RAID, changes, milestones, and stakeholders in natural language.
+The Claude assistant is grounded in your operating guides, so its advice fits this project rather than reading like a generic chatbot. Per-view "Ask Claude" prompts and one-tap starters (a risk review, a weekly status update, a stakeholder update, "prioritize all tasks") mean the tool tells you the next step and can take it, creating and updating tasks, RAID, changes, milestones, stakeholders and the project's own details in natural language. On a Turso portfolio, scheduled jobs analyse a project daily or weekly and keep each run as a report under Portfolio → Scheduled reports.
 
 **It tells you what it cannot see.**
 The assistant knows which view you are on. On Open Points, Workload, Gantt and Budget it also knows what your current filters are showing. Where no tool can answer it says so, by name: time bookings, the activity log, cross-project portfolio data, RACI assignments, calendar absences.
 
 **Plugs into the stack you already use.**
-Pull people in from Outlook, attach documents straight from SharePoint, push milestones to your calendar, sync a two-way Jira project (plus optional read-only monitor projects), and fold actual Timelog bookings into your budget, without re-keying the same data.
+Pull people in from Outlook, attach documents straight from SharePoint, push milestones to your calendar, sync a two-way Jira project (plus optional read-only monitor projects), and fold actual Timelog bookings into your budget, without re-keying the same data. A deployment that does not offer one of these can switch it off with a single server setting ([RUNBOOK](docs/RUNBOOK.md#switching-integrations-off-for-a-deployment-run-time-optional)).
 
 **Own your data.**
 It runs in your browser with no backend account. Bring your own API keys; they're encrypted at rest (AES-256-GCM, device-sealed).
@@ -48,6 +50,8 @@ The cockpit is in active friendly-user testing, used by project leads on real pr
 3. Open the Dashboard for health, ranked top actions, and trends, then ask the copilot "What's next?".
 4. Wire up Jira / Microsoft 365 / Timelog in Settings when you want it plugged into your stack.
 
+Prefer to watch first? The [YouTube channel](https://www.youtube.com/@aipmcockpit) has narrated guides to getting started, the AI features and the main parts of the app.
+
 ### Screenshots
 
 All taken in the desktop app on the demo project. Click any image for the full size.
@@ -58,7 +62,7 @@ All taken in the desktop app on the demo project. Click any image for the full s
 <td width="50%"><a href="docs/assets/swimlanes.png"><img src="docs/assets/swimlanes.png" alt="Open Points as swimlanes: one lane per person, one column per status"></a><br><sub><b>Swimlanes.</b> The same tasks as a board, one lane per person.</sub></td>
 </tr>
 <tr>
-<td><a href="docs/assets/gantt.png"><img src="docs/assets/gantt.png" alt="Gantt chart with milestones, dependency arrows and the chart-layer menu open"></a><br><sub><b>Gantt.</b> Tasks and milestones on a timeline; the View menu switches dependencies, holidays, absences, critical path and baseline on and off.</sub></td>
+<td><a href="docs/assets/gantt.png"><img src="docs/assets/gantt.png" alt="Gantt chart with milestones, dependency arrows and the chart-layer menu open"></a><br><sub><b>Gantt.</b> Tasks and milestones on a timeline (drag a milestone, or move it with the arrow keys, to change its date); the View menu switches dependencies, holidays, absences, critical path and baseline on and off.</sub></td>
 <td><a href="docs/assets/raid.png"><img src="docs/assets/raid.png" alt="Editing a RAID risk: category, status, owner, target date, mitigation plan and linked tasks"></a><br><sub><b>RAID.</b> A risk with its mitigation plan, owner and linked task.</sub></td>
 </tr>
 <tr>
@@ -111,7 +115,8 @@ file lives if it does not start.
 
 ### Run from source
 
-For development, or to run it without installing anything:
+For development, or to run it without installing anything. Needs Node.js 24 or
+later (`engines.node` in `package.json`):
 
 ```bash
 npm install        # install dependencies
@@ -122,7 +127,8 @@ Open [http://localhost:3000](http://localhost:3000).
 
 No environment variables are required: every integration is configured in-app
 via Settings. See [docs/security.md](docs/security.md#environment-variables)
-for the optional build-time overrides.
+for the optional build-time overrides and the run-time switch that turns
+integrations off.
 
 For a production build, and for prerequisites and the full script table, see
 [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -154,6 +160,7 @@ a second inventory to keep in sync.
 - **Testing**: Vitest 5 (unit/component, v8 coverage), Playwright (E2E)
 - **AI**: Anthropic Claude API (key entered client-side in Settings; encrypted at rest)
 - **Optional storage**: Turso (libSQL), Microsoft Graph / SharePoint
+- **Desktop**: Electron (Windows installer, per-user)
 
 ## Documentation
 
