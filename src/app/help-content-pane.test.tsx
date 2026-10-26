@@ -270,6 +270,7 @@ test.each(["en-US", "de"] as const)(
       expect(links[i]).toHaveAttribute("target", "_blank");
       expect(links[i]).toHaveAttribute("rel", "noopener noreferrer");
       expectLabelInName(links[i]);
+      expect(within(links[i]).getByText(v.title)).toHaveAttribute("lang", "en");
     }
     // An entry with no video gets no video line at all.
     const keys = document.getElementById(helpSectionId("feature-keys"))!;

@@ -56,7 +56,8 @@ function EntryActionLine({ action }: { action: HelpEntryAction }) {
 /** The entry's video guides as links that open YouTube in the browser (§715
  *  videos, `help-videos.ts`). Nothing when the entry has none.
  *  ★ The accessible name starts with the visible title (WCAG 2.5.3) and adds
- *  where the link goes; the ↗ is decorative. */
+ *  where the link goes; the ↗ is decorative. The titles are English whatever
+ *  the UI language, so they carry `lang="en"` (WCAG 3.1.2). */
 function EntryVideoLine({ lang, entryId }: { lang: Lang; entryId: string }) {
   const videos = helpEntryVideos(entryId);
   if (videos.length === 0) return null;
@@ -73,7 +74,7 @@ function EntryVideoLine({ lang, entryId }: { lang: Lang; entryId: string }) {
             aria-label={t(lang, "helpVideoLinkLabel", v.title)}
             className={`rounded font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue ${FOCUS_RING}`}
           >
-            {v.title}
+            <span lang="en">{v.title}</span>
             <span aria-hidden="true"> ↗</span>
           </a>
         </span>

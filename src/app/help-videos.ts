@@ -72,7 +72,9 @@ export type HelpVideoId = keyof typeof HELP_VIDEO_CATALOGUE;
 
 /** The videos each Help entry links, feature video first, then the AI ones.
  *  An entry absent here links none. Keyed by `HelpEntryId`, so a renamed or
- *  deleted entry fails to typecheck rather than silently losing its links. */
+ *  deleted entry fails to typecheck rather than silently losing its links.
+ *  ★ "Installing the app" (`feature-install`) is the browser install, so the
+ *  desktop installer video (`ch1-install`) is deliberately linked from no entry. */
 export const HELP_ENTRY_VIDEOS: Partial<Record<HelpEntryId, readonly HelpVideoId[]>> = {
   "concept-milestone": ["f-milestones"],
   "concept-raid": ["f-raid"],
@@ -85,7 +87,7 @@ export const HELP_ENTRY_VIDEOS: Partial<Record<HelpEntryId, readonly HelpVideoId
   "concept-task-status": ["f-board"],
   "concept-baseline": ["f-trends"],
   "concept-knowledge": ["f-knowledge"],
-  "workflow-getting-started": ["ch2-connect", "ai-forecast-import"],
+  "workflow-getting-started": ["f-budget", "ai-forecast-import"],
   "workflow-end-to-end": ["big"],
   "workflow-plan": ["f-milestones", "f-gantt"],
   "workflow-risk": ["f-raid"],
@@ -105,9 +107,9 @@ export const HELP_ENTRY_VIDEOS: Partial<Record<HelpEntryId, readonly HelpVideoId
   "feature-ai": ["ai-chat"],
   "feature-ai-advanced": ["ai-proposal", "ai-next-actions", "ai-weights", "ai-scheduled"],
   "feature-tour": ["big"],
-  "feature-projects": ["ai-proposal"],
+  "feature-projects": ["ai-proposal", "ch2-connect"],
+  "feature-setup-wizard": ["ch2-connect"],
   "feature-scheduled-reports": ["ai-scheduled"],
-  "feature-install": ["ch1-install"],
   "feature-inline-ai-edit": ["ai-inline-task", "ai-inline-entity"],
   "feature-digest": ["ai-digest"],
   "automated-insights": ["ai-insight"],
