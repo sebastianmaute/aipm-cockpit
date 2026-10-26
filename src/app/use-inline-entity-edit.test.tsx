@@ -901,3 +901,37 @@ it("sends the provider's inline-edit guides even though the caller passes no gui
   expect(captured!.guideText).not.toContain("CHAT-ONLY");
   expect(captured!.guides).toEqual([]);
 });
+
+// D7 (AI-07): an email the model sends is not written, and the token still covers the FULL stored row.
+describe("inline task edit withholds assigneeEmail", () => {
+  it("leaves the stored email unchanged and stamps the token of the full row", async () => {
+    const opened = { id: 42, taskName: "Fix login bug", status: "To Do", dueDate: "2026-08-12", assigneeEmail: "ann@example.com" };
+    let stored: Record<string, unknown> = { ...opened };
+    const patches: Record<string, unknown>[] = [];
+    const dispatcher = {
+      getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }),
+      getTask: (id: number) => (stored.id === id ? stored : null),
+      updateTask: (id: number, patch: Record<string, unknown>) => {
+        patches.push(patch);
+        stored = { ...stored, ...patch };
+        return stored;
+      },
+    } as unknown as InlineAiEditDeps["dispatcher"];
+    vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+      blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 42, status: "Done", assigneeEmail: "evil@example.com" } }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    const runToolSpy = vi.spyOn(tools, "runTool");
+    const { result } = renderHook(() => useInlineAiEdit(mkDeps({ dispatcher })));
+    act(() => result.current.openFor(opened as unknown as Task));
+    await act(async () => { await result.current.submit("mark done"); });
+    expect(result.current.phase).toBe("preview");
+    expect(result.current.plan?.updates.map((u) => u.field)).toEqual(["status"]);
+    expect(result.current.plan?.rejected).toEqual([]);
+    await act(async () => { await result.current.apply(); });
+    expect(stored.status).toBe("Done");
+    expect(stored.assigneeEmail).toBe("ann@example.com");
+    expect(runToolSpy).toHaveBeenCalledWith(dispatcher, "update_task", expect.objectContaining({ expectedToken: entityToken("task", opened) }));
+    expect(patches.every((p) => !("assigneeEmail" in p))).toBe(true);
+  });
+});
