@@ -13,11 +13,12 @@ import { stripHelpMarkers } from "./help-body-markup";
 import { HelpBodyText, Highlighted } from "./help-body-text";
 import { navLabelKey, type AppView } from "./nav-config";
 import { RELEASE_HIDDEN_VIEWS } from "./feature-modules";
-import { INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 import { TextButton } from "./text-button";
 import { smoothScrollBehavior } from "./reduced-motion";
 import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
+import { helpEntryVideos, youtubeWatchUrl } from "./help-videos";
 
 /** DOM id for an entry's content section — shared so the in-pane view's
  *  relations map + deep-link scroll can target sections this component renders. */
@@ -48,6 +49,35 @@ function EntryActionLine({ action }: { action: HelpEntryAction }) {
       ) : (
         <TextButton onClick={action.onActivate}>{action.label}</TextButton>
       )}
+    </p>
+  );
+}
+
+/** The entry's video guides as links that open YouTube in the browser (§715
+ *  videos, `help-videos.ts`). Nothing when the entry has none.
+ *  ★ The accessible name starts with the visible title (WCAG 2.5.3) and adds
+ *  where the link goes; the ↗ is decorative. */
+function EntryVideoLine({ lang, entryId }: { lang: Lang; entryId: string }) {
+  const videos = helpEntryVideos(entryId);
+  if (videos.length === 0) return null;
+  return (
+    <p className="mt-1.5 text-xs text-muted-foreground">
+      <span className="font-medium">{t(lang, "helpVideos")}:</span>{" "}
+      {videos.map((v, idx) => (
+        <span key={v.youtubeId}>
+          {idx > 0 ? ", " : ""}
+          <a
+            href={youtubeWatchUrl(v)}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t(lang, "helpVideoLinkLabel", v.title)}
+            className={`rounded font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue ${FOCUS_RING}`}
+          >
+            {v.title}
+            <span aria-hidden="true"> ↗</span>
+          </a>
+        </span>
+      ))}
     </p>
   );
 }
@@ -259,6 +289,7 @@ export function HelpContentPane({
                       )}
                     </p>
                   ) : null}
+                  <EntryVideoLine lang={lang} entryId={e.id} />
                   {entryActions?.[e.id] && <EntryActionLine action={entryActions[e.id]} />}
                 </section>
               ))}

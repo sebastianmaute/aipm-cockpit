@@ -17,7 +17,8 @@ keeps every run as a report under Portfolio → Scheduled reports. A deployment 
 `AIPM_DISABLED_INTEGRATIONS`. A forecast import lets you choose its target bucket, Claude fills every field it can
 when it proposes a project, and a Gantt milestone can be dragged to another date; Gantt task bars can now be moved
 and resized from the keyboard. Add task comes first in Open Points, and an absence's person is picked from a
-searchable list. The narrated video guides are on the project's YouTube channel, linked from the README. Fixes cover
+searchable list. The narrated video guides are on the project's YouTube channel, linked from Help and the README, and the top
+bar's bell is now named for what it opens, Next actions. Fixes cover
 false "changed elsewhere" notices after reloading a Turso project, Action Center learning erased by the app's own
 saves, templates whose milestones started overdue, the steering report draft, six flows in the desktop app, Claude's
 one-shot features on the newest models, and saves to Turso before a project is chosen. Next.js 16.4.2, DOMPurify
@@ -27,8 +28,11 @@ see Scheduled reports under Added.
 
 ### Added
 
-- **The video guides on YouTube.** The README links the project's YouTube channel,
-  [@aipmcockpit](https://www.youtube.com/@aipmcockpit), where the narrated demo videos are published.
+- **The video guides on YouTube, linked from Help.** The narrated video guides are published on the project's
+  YouTube channel, [@aipmcockpit](https://www.youtube.com/@aipmcockpit). A Help entry that a feature or AI video
+  shows now lists it under "Video guides" (37 entries link at least one), and the Help window's footer links the
+  channel; each link opens YouTube in your browser, and in the desktop app in your system browser. The videos are
+  in English. The README links the channel too.
 - **Scheduled reports, with a project and an instruction per job (§772).** A scheduled job now names the one project it
   analyses and can carry an instruction of your own (what to look for, what to ignore). Each run is kept as a report
   under Portfolio → Scheduled reports, with the summary and the suggested actions, so a run you did not watch can be

@@ -19,6 +19,12 @@
   HelpGroup `concepts`/`workflows`/`features`/`automated`, EN/DE, `relatedViews`/`relatedConcepts` for later
   SPs) GROUPED — grouped TOC + group headers (`HELP_GROUP_LABEL`, exhaustive `Record<HelpGroup>`) + per-concept
   "Related:" links. (`help-sections.ts` was renamed to `help-content.ts`.)
+  • **Video guides:** `help-videos.ts` maps entries to the published YouTube videos (`HELP_ENTRY_VIDEOS`, keyed by
+  `HelpEntryId`) and holds each video's YouTube id and title (`HELP_VIDEO_CATALOGUE`); `help-content-pane.tsx`
+  renders them as plain `target="_blank"` links, which the desktop shell hands to the system browser
+  (`decideWindowOpen`). ★ The ids and titles mirror `scripts/demo-video/videos.mjs` and
+  `scripts/help-videos-catalogue.test.mjs` fails when they drift; the YouTube ids themselves are checked by
+  nothing local — re-read them from the channel after a video is re-uploaded.
   ★★★ BOTH surfaces render EVERY group — the floating panel is NOT features-only. It was, via a
   derived `HELP_SECTIONS` slice, and this file said so long after that stopped being true while
   CONTRADICTING ITSELF six lines below ("FLOATING panel is CONTENT-PANE ONLY"). The export outlived

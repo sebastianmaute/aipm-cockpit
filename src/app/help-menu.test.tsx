@@ -82,6 +82,17 @@ describe("HelpMenu floating panel", () => {
     expect(guide.compareDocumentPosition(license) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("links the YouTube channel of video guides in a new tab, before the install guide", () => {
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    const channel = screen.getByRole("link", { name: `${t("en-US", "helpVideoChannelLink")} ↗` });
+    expect(channel).toHaveAttribute("href", "https://www.youtube.com/@aipmcockpit");
+    expect(channel).toHaveAttribute("target", "_blank");
+    expect(channel).toHaveAttribute("rel", "noopener noreferrer");
+    const guide = screen.getByRole("link", { name: "Installation & setup guide ↗" });
+    expect(channel.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("lets the footer's links wrap, so a narrow panel never scrolls sideways (§713)", () => {
     render(<HelpMenu lang="en-US" />);
     openPanel();

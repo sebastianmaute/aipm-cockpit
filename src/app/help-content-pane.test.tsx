@@ -12,6 +12,8 @@ import { TextButton } from "./text-button";
 import { navLabelKey } from "./nav-config";
 import { primitiveClassFor } from "../test/primitive-class";
 import { RELEASE_HIDDEN_VIEWS } from "./feature-modules";
+import { helpEntryVideos, youtubeWatchUrl } from "./help-videos";
+import { expectLabelInName } from "../test/label-in-name";
 
 // jsdom has no IntersectionObserver; the scroll-spy effect only needs the
 // constructor to exist (the observer path itself is not exercised without
@@ -253,3 +255,25 @@ test("an entry action with a note renders the note as text instead of a button (
   expect(screen.getByText("Needs the switch first.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Reopen it" })).toBeNull();
 });
+
+test.each(["en-US", "de"] as const)(
+  "an entry with video guides links each one to YouTube in a new tab, named title first (%s)",
+  (lang) => {
+    render(<HelpContentPane lang={lang} query="" />);
+    const section = document.getElementById(helpSectionId("feature-inline-ai-edit"))!;
+    const links = within(section).getAllByRole("link");
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(
+      helpEntryVideos("feature-inline-ai-edit").map((v) => youtubeWatchUrl(v)),
+    );
+    for (const [i, v] of helpEntryVideos("feature-inline-ai-edit").entries()) {
+      expect(links[i]).toHaveAccessibleName(t(lang, "helpVideoLinkLabel", v.title));
+      expect(links[i]).toHaveAttribute("target", "_blank");
+      expect(links[i]).toHaveAttribute("rel", "noopener noreferrer");
+      expectLabelInName(links[i]);
+    }
+    // An entry with no video gets no video line at all.
+    const keys = document.getElementById(helpSectionId("feature-keys"))!;
+    expect(within(keys).queryByRole("link")).toBeNull();
+    expect(within(keys).queryByText(`${t(lang, "helpVideos")}:`)).toBeNull();
+  },
+);

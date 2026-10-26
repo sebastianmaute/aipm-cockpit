@@ -14,6 +14,7 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
 import { usePanelInitialFocus } from "./use-panel-focus";
 import { APP_LICENSE_URL, INSTALL_GUIDE_URL } from "./version";
+import { YOUTUBE_CHANNEL_URL } from "./help-videos";
 import { useSettings } from "./use-settings";
 
 const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
@@ -242,6 +243,14 @@ export function HelpMenu({
             {onLoadDemo && (
               <Button variant="ghost" size="xs" onClick={onLoadDemo}>{t(lang, "helpExploreDemo")}</Button>
             )}
+            <a
+              href={YOUTUBE_CHANNEL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
+            >
+              {t(lang, "helpVideoChannelLink")} ↗
+            </a>
             <a
               href={INSTALL_GUIDE_URL}
               target="_blank"
