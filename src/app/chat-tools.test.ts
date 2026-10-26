@@ -609,6 +609,32 @@ describe("runTool — list_tasks / get_task", () => {
     expect(d.updateTask).toHaveBeenCalled();
   });
 
+  it("AI-08: create_task and update_task results carry no assigneeEmail; the stored row keeps it", async () => {
+    let stored = makeTask({ assigneeEmail: "alice@example.com" });
+    const d = makeDispatcher({
+      getTask: vi.fn(() => stored),
+      createTask: vi.fn((input) => makeTask({ id: 99, ...(input as object) })),
+      // Mirrors §375: a reassignment with no email given copies the directory address in.
+      updateTask: vi.fn((_id: number, patch) => {
+        stored = { ...stored, ...(patch as Partial<Task>), assigneeEmail: "directory@x.com" };
+        return stored;
+      }),
+    });
+    const created = (await runTool(d, "create_task", {
+      taskName: "T", assignee: "Bob", dueDate: "2026-07-01", assigneeEmail: "bob@x.com",
+    })) as Record<string, unknown>;
+    expect(created.id).toBe(99);
+    expect("assigneeEmail" in created).toBe(false);
+    expect(d.createTask).toHaveBeenCalledWith(expect.objectContaining({ assigneeEmail: "bob@x.com" }));
+
+    const updated = (await runTool(d, "update_task", {
+      id: 1, expectedToken: entityToken("task", stored), assignee: "Carol",
+    })) as Record<string, unknown>;
+    expect(updated.assignee).toBe("Carol");
+    expect("assigneeEmail" in updated).toBe(false);
+    expect(stored.assigneeEmail).toBe("directory@x.com");
+  });
+
   it("AI-08: stakeholder and resource summaries carry no email", () => {
     const sh = toStakeholderSummary(makeStakeholder({ email: "jane@x.com" }));
     expect("email" in sh).toBe(false);

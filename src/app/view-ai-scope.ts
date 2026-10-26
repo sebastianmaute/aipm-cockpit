@@ -143,7 +143,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   raid: {
     purpose:
       "RAID is the register of Risks, Assumptions, Issues and Dependencies, each with an owner and a category-specific status.",
-    toolHints: ["list_raid"],
+    toolHints: ["list_raid", "get_contact_email"],
     reading: "Status must match the category. Severity and the probability×impact score drive ranking.",
   },
   "raid-report": {

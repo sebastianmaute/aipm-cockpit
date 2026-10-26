@@ -768,7 +768,7 @@ export const TOOL_DEFS = [
     //  Token-guarded because `escalations` and `severity` are both token-covered,
     //  which is also what refuses a second escalation made from the same read.
     description:
-      "Record that a RAID item was escalated to a person. Appends ONE entry to the item's escalation history, adds a dated note labelled 'AI created', and — for an Issue, Assumption or Dependency below Critical — raises its severity one step (a Risk, or an item already Critical or without a severity, is recorded as notify-only). It sends NO email and contacts no one: tell the user to reach the recipient themselves. Existing history entries can never be edited or removed. Pass the expectedToken from list_raid; escalating the same item again needs a fresh read.",
+      "Record that a RAID item was escalated to a person. Appends ONE entry to the item's escalation history, adds a dated note labelled 'AI created', and — for an Issue, Assumption or Dependency below Critical — raises its severity one step (a Risk, or an item already Critical or without a severity, is recorded as notify-only). It sends NO email and contacts no one: tell the user to reach the recipient themselves. Existing history entries can never be edited or removed. Pass the expectedToken from list_raid; escalating the same item again needs a fresh read. toEmail is required: if the user did not give it, look it up with get_contact_email (stakeholder or resource), or ask.",
     input_schema: {
       type: "object",
       properties: {
@@ -776,7 +776,7 @@ export const TOOL_DEFS = [
         ...expectedTokenField,
         toEmail: {
           type: "string",
-          description: "Recipient's email address. A directory resource with this address is linked automatically.",
+          description: "Recipient's email address (look it up with get_contact_email if the user named only the person). A directory resource with this address is linked automatically.",
         },
         toName: { type: "string", description: "Recipient's display name. Omit to use the linked resource's name." },
       },

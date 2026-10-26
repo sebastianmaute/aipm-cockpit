@@ -122,8 +122,9 @@ export type MilestoneSummary = {
   linkedTaskIds: number[];
 };
 
-/** The result of `get_contact_email`: the ONE tool that returns an address (AI-08).
- *  `emails` is present for a resource only. */
+/** The result of `get_contact_email`: the ONE tool built to return an address (AI-08).
+ *  `emails` is present for a resource only. Other tools may echo an address the
+ *  model itself supplied, but no list, get or task-write result carries one. */
 export type ContactEmail = { id: number; email: string | null; emails?: string[] };
 
 export type StakeholderSummary = {
@@ -587,6 +588,12 @@ export type ToolDispatcher = {
   ProjectToolDispatcher;
 
 /** Parse the numeric `id` field, throwing if absent/non-numeric. */
+function withoutAssigneeEmail(task: Task): Omit<Task, "assigneeEmail"> {
+  const { assigneeEmail, ...rest } = task;
+  void assigneeEmail;
+  return rest;
+}
+
 function readContactEmail(input: Record<string, unknown>, d: ToolDispatcher): ContactEmail {
   const id = requireId(input);
   switch (input.entity) {
@@ -680,9 +687,7 @@ export async function runTool(
       const task = d.getTask(id);
       if (!task) throw new Error(`task #${id} not found`);
       // AI-08: the address is withheld from the result; the token still hashes the stored row.
-      const { assigneeEmail, ...withoutEmail } = task;
-      void assigneeEmail;
-      return withToken("task", withoutEmail, task);
+      return withToken("task", withoutAssigneeEmail(task), task);
     }
 
     case "get_contact_email":
@@ -695,7 +700,7 @@ export async function runTool(
       if (!taskName || !assignee || !dueDate) {
         throw new Error("taskName, assignee, and dueDate are required");
       }
-      return d.createTask({
+      return withoutAssigneeEmail(d.createTask({
         taskName,
         assignee,
         dueDate,
@@ -710,7 +715,7 @@ export async function runTool(
         labels: Array.isArray(input.labels)
           ? sanitizeLabels(input.labels)
           : undefined,
-      });
+      }));
     }
 
     case "update_task": {
@@ -731,7 +736,9 @@ export async function runTool(
       const patch = buildPatch(input);
       const updated = d.updateTask(id, patch);
       if (!updated) throw new Error(`task #${id} not found`);
-      return updated;
+      // The STORED row keeps the address (a reassignment copies the directory person's in);
+      // only the model-facing result drops it.
+      return withoutAssigneeEmail(updated);
     }
 
     case "set_task_dependencies": {
