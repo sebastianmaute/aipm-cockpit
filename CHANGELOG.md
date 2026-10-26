@@ -77,6 +77,12 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **No false "changed elsewhere" notice after reloading a Turso project (§629).** Reloading while a save was still
+  on its way could show "Unsaved changes from your last session could not be restored automatically because this
+  project was changed elsewhere since", although that save had arrived. The check compared the two versions too
+  strictly: a new task stored with an empty completion date, or without dependencies, read back in a slightly
+  different but equal form, and counted as a change. Such versions now count as equal. Unsaved changes left by
+  the previous version may still show the notice once, on the first reload after the update.
 - **No false "changed elsewhere" notice after a quick reload (§629).** When two saves were still on their way as the
   page closed and only the earlier one arrived, the next load said the unsaved changes "could not be restored
   automatically because this project was changed elsewhere since", although nothing else had changed it. Those
