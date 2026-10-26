@@ -42,25 +42,25 @@ export function ViewCallout({ view, lang, showHints, isPopout, onLearnMore }: Vi
       <p className="flex-1 text-foreground">{t(lang, callout.textKey)}</p>
       {/* The links stack on a narrow screen so the text keeps its width, and sit side by side from md up. */}
       <div className="flex shrink-0 flex-col items-end gap-0.5 md:flex-row md:gap-3">
-      <TextButton onClick={() => onLearnMore(callout.conceptId)} className="shrink-0">
-        {t(lang, "viewHintLearnMore")}
-        <span aria-hidden="true"> →</span>
-      </TextButton>
-      {video && (
-        // A real link, not a TextButton: it navigates. It opens YouTube in a new tab, and in the
-        // desktop app in the system browser (`decideWindowOpen`). Same look as the TextButton
-        // beside it; the name starts with the visible text (WCAG 2.5.3) and adds the video's title.
-        <a
-          href={youtubeWatchUrl(video)}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={t(lang, "viewHintWatchVideoLabel", video.title)}
-          className={`shrink-0 rounded-sm font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${FOCUS_RING} ${TRANSITION}`}
-        >
-          {t(lang, "viewHintWatchVideo")}
-          <span aria-hidden="true"> ↗</span>
-        </a>
-      )}
+        <TextButton onClick={() => onLearnMore(callout.conceptId)} className="shrink-0">
+          {t(lang, "viewHintLearnMore")}
+          <span aria-hidden="true"> →</span>
+        </TextButton>
+        {video && (
+          // A real link, not a TextButton: it navigates. It opens YouTube in a new tab, and in the
+          // desktop app in the system browser (`decideWindowOpen`). Same look as the TextButton
+          // beside it; the name starts with the visible text (WCAG 2.5.3) and adds the video's title.
+          <a
+            href={youtubeWatchUrl(video)}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t(lang, "viewHintWatchVideoLabel", video.title)}
+            className={`shrink-0 rounded-sm font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${FOCUS_RING} ${TRANSITION}`}
+          >
+            {t(lang, "viewHintWatchVideo")}
+            <span aria-hidden="true"> ↗</span>
+          </a>
+        )}
       </div>
       <IconButton
         size="xs"

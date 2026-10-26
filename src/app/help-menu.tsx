@@ -16,6 +16,24 @@ import { usePanelInitialFocus } from "./use-panel-focus";
 import { APP_LICENSE_URL, INSTALL_GUIDE_URL } from "./version";
 import { YOUTUBE_CHANNEL_URL } from "./help-videos";
 import { useSettings } from "./use-settings";
+import { FOCUS_RING } from "./interaction-styles";
+
+/** One footer link that opens in a new tab (the desktop app: the system browser). The ↗ is
+ *  decorative, so the accessible name is exactly the visible label, as in the Help entries'
+ *  video links. */
+function FooterLink({ href, children }: { href: string; children: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`rounded-sm text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue ${FOCUS_RING}`}
+    >
+      {children}
+      <span aria-hidden="true"> ↗</span>
+    </a>
+  );
+}
 
 const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
 const STORAGE_KEY_SIZE = "aipm-cockpit:help-size-v3";
@@ -243,30 +261,9 @@ export function HelpMenu({
             {onLoadDemo && (
               <Button variant="ghost" size="xs" onClick={onLoadDemo}>{t(lang, "helpExploreDemo")}</Button>
             )}
-            <a
-              href={YOUTUBE_CHANNEL_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
-            >
-              {t(lang, "helpVideoChannelLink")} ↗
-            </a>
-            <a
-              href={INSTALL_GUIDE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
-            >
-              {t(lang, "installGuideLink")} ↗
-            </a>
-            <a
-              href={APP_LICENSE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
-            >
-              {t(lang, "versionLicense")} ↗
-            </a>
+            <FooterLink href={YOUTUBE_CHANNEL_URL}>{t(lang, "helpVideoChannelLink")}</FooterLink>
+            <FooterLink href={INSTALL_GUIDE_URL}>{t(lang, "installGuideLink")}</FooterLink>
+            <FooterLink href={APP_LICENSE_URL}>{t(lang, "versionLicense")}</FooterLink>
           </div>
         </div>
       )}

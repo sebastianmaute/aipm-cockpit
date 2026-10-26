@@ -74,29 +74,29 @@ describe("HelpMenu floating panel", () => {
   it("links the install guide in a new tab, before the License link (§713)", () => {
     render(<HelpMenu lang="en-US" />);
     openPanel();
-    const guide = screen.getByRole("link", { name: "Installation & setup guide ↗" });
+    const guide = screen.getByRole("link", { name: "Installation & setup guide" });
     expect(guide).toHaveAttribute("href", INSTALL_GUIDE_URL);
     expect(guide).toHaveAttribute("target", "_blank");
     expect(guide).toHaveAttribute("rel", "noopener noreferrer");
-    const license = screen.getByRole("link", { name: `${t("en-US", "versionLicense")} ↗` });
+    const license = screen.getByRole("link", { name: t("en-US", "versionLicense") });
     expect(guide.compareDocumentPosition(license) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("links the YouTube channel of video guides in a new tab, before the install guide", () => {
     render(<HelpMenu lang="en-US" />);
     openPanel();
-    const channel = screen.getByRole("link", { name: `${t("en-US", "helpVideoChannelLink")} ↗` });
+    const channel = screen.getByRole("link", { name: t("en-US", "helpVideoChannelLink") });
     expect(channel).toHaveAttribute("href", "https://www.youtube.com/@aipmcockpit");
     expect(channel).toHaveAttribute("target", "_blank");
     expect(channel).toHaveAttribute("rel", "noopener noreferrer");
-    const guide = screen.getByRole("link", { name: "Installation & setup guide ↗" });
+    const guide = screen.getByRole("link", { name: "Installation & setup guide" });
     expect(channel.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("lets the footer's links wrap, so a narrow panel never scrolls sideways (§713)", () => {
     render(<HelpMenu lang="en-US" />);
     openPanel();
-    const footer = screen.getByRole("link", { name: "Installation & setup guide ↗" }).parentElement!;
+    const footer = screen.getByRole("link", { name: "Installation & setup guide" }).parentElement!;
     expect(footer.className.split(/\s+/)).toContain("flex-wrap");
   });
 

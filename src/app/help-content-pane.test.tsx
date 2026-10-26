@@ -261,6 +261,7 @@ test.each(["en-US", "de"] as const)(
   (lang) => {
     render(<HelpContentPane lang={lang} query="" />);
     const section = document.getElementById(helpSectionId("feature-inline-ai-edit"))!;
+    expect(within(section).getByText(`${t(lang, "helpVideos")}:`)).toBeInTheDocument();
     const links = within(section).getAllByRole("link");
     expect(links.map((a) => a.getAttribute("href"))).toEqual(
       helpEntryVideos("feature-inline-ai-edit").map((v) => youtubeWatchUrl(v)),
