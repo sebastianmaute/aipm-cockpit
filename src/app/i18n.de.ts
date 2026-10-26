@@ -1502,7 +1502,7 @@ export const de: Record<TranslationKey, string> = {
   scheduledReportsErrError: "Der Lauf ist fehlgeschlagen.",
   scheduledReportsNeedPortfolio: "Geplante Berichte werden in einem Turso-Portfolio gespeichert. Verbinden Sie eine Turso-Datenbank und wechseln Sie in den Portfolio-Modus, um sie zu sehen.",
 
-  aiConsentTitle: "Claude-Chat aktivieren?",
+  aiConsentTitle: "KI-Funktionen aktivieren?",
   aiConsentBullet1:
     "Ihre Nachrichten und Aufgabendaten (Namen, Zugewiesene, E-Mails, Datumsangaben, Blocker, Notizen) werden bei jeder Anfrage direkt aus diesem Browser an api.anthropic.com gesendet.",
   aiConsentBullet2:
@@ -1518,7 +1518,7 @@ export const de: Record<TranslationKey, string> = {
   aiConsentPolicyLink: "KI-Nutzungsrichtlinie von {0} öffnen",
   aiConsentPolicyCheckbox:
     "Ich habe die KI-Nutzungsrichtlinie von {0} gelesen und akzeptiere sie.",
-  aiConsentAccept: "Verstanden – Chat aktivieren",
+  aiConsentAccept: "Verstanden – KI aktivieren",
   aiPolicyOwnerFallback: "Ihrer Organisation",
   aiPolicyOrgLabel: "Herausgeber der KI-Nutzungsrichtlinie",
   aiPolicyOrgHint: "Wird im Einwilligungsdialog des KI-Assistenten genannt. Leer lassen für eine neutrale Formulierung. Es gibt weder einen eingebauten Herausgeber noch einen eingebauten Link — tragen Sie beides hier ein, oder setzen Sie die entsprechenden Build-Variablen, damit der Einwilligungsdialog einen Richtlinienschritt zeigt.",
@@ -1530,11 +1530,14 @@ export const de: Record<TranslationKey, string> = {
   aiPolicyUrlNoBuiltin: "Es gibt keinen eingebauten Link — es ist weder ein Link gespeichert noch einer über die Build-Umgebung gesetzt. Tragen Sie den Link Ihrer Organisation ein; bleibt das Feld leer, zeigt der Einwilligungsdialog keine Richtlinie zum Lesen und Akzeptieren.",
   aiPolicyUrlEnvRejected: "NEXT_PUBLIC_AI_POLICY_URL ist in dieser Installation gesetzt, aber kein vollständiger https://-Link. Er wird ignoriert und stattdessen dieses Feld verwendet.",
   aiConsentRequired:
-    "Einwilligung erforderlich. Öffnen Sie den KI-Assistenten-Tab, um sie zu prüfen und zu aktivieren.",
-  aiConsentGranted: "Chat aktiviert",
+    "Einwilligung erforderlich. Schalten Sie die KI-Funktionen unter Einstellungen → KI ein, um sie zu prüfen und zu aktivieren.",
+  aiConsentGranted: "KI aktiviert",
+  aiConsentReviewPrompt: "KI ist eingeschaltet, aber der Datenhinweis zur KI hat sich geändert. Prüfen und akzeptieren Sie ihn, um KI-Funktionen zu nutzen.",
+  aiConsentReview: "Prüfen",
+  aiConsentRevokedDuringSend: "Die KI-Einwilligung wurde widerrufen, daher wurde die Nachricht nicht gesendet.",
   aiConsentRevoke: "Einwilligung widerrufen",
   aiConsentNotAccepted:
-    "Claude-Chat ist deaktiviert. Bitte die untenstehende Einwilligung prüfen und akzeptieren.",
+    "KI-Funktionen sind deaktiviert. Bitte den untenstehenden Datenhinweis prüfen und akzeptieren.",
   credentialStorageNote:
     "Verschlüsselt in diesem Browser gespeichert (Geräteschlüssel). Wer Zugriff auf dieses Browserprofil hat, kann sie dennoch verwenden – verwenden Sie auf gemeinsam genutzten oder nicht vertrauenswürdigen Rechnern keine produktiven Zugangsdaten.",
   disclaimerTitle: "Sicherheits- und Verantwortungshinweis",

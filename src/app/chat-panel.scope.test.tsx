@@ -212,7 +212,6 @@ describe("in-flight send vs. the panel's lifetime", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={dispatcher}
-        onAcceptConsent={vi.fn()}
         getScopeEpoch={FROZEN_EPOCH}
         isSwapInFlight={() => swapInFlight}
       />,
@@ -329,7 +328,6 @@ describe("in-flight send vs. the panel's lifetime", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
         saveChatConversation={saveChatConversation}
         getScopeEpoch={FROZEN_EPOCH}
         // ★★ TRUE on purpose: StrictMode's DISCARDED first mount must fire the
@@ -387,7 +385,6 @@ describe("in-flight send vs. the storage scope", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={dispatcher}
-        onAcceptConsent={vi.fn()}
         getScopeEpoch={() => epoch}
         // FALSE throughout: no unmount happens here, and a true would only
         // muddy which guard the result is attributable to.
@@ -471,7 +468,6 @@ describe("in-flight send vs. the storage scope", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={dispatcher}
-        onAcceptConsent={vi.fn()}
         getScopeEpoch={() => epoch}
         isSwapInFlight={() => false}
       />,
@@ -524,7 +520,6 @@ describe("in-flight send vs. the storage scope", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={dispatcher}
-        onAcceptConsent={vi.fn()}
         getScopeEpoch={() => epoch}
         isSwapInFlight={() => false}
       />,
@@ -579,7 +574,6 @@ describe("staged plan vs. the storage scope", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={dispatcher}
-        onAcceptConsent={vi.fn()}
         getScopeEpoch={() => epoch}
         isSwapInFlight={() => false}
       />,

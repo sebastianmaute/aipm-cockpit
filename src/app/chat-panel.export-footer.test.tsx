@@ -39,7 +39,6 @@ function renderPanel(exportFooter: string | undefined, assetsProjectId?: string)
       lang="en-US"
       ai={{ ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-test" }}
       dispatcher={{} as unknown as ToolDispatcher}
-      onAcceptConsent={vi.fn()}
       projectId="p1"
       assetsProjectId={assetsProjectId}
       getChatConversation={() => TOOL_TURN}

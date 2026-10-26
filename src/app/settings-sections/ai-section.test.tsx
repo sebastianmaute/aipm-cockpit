@@ -19,6 +19,7 @@ import {
 // (default OFF). These tests exercise the expanded config, so flip it on.
 const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { t } from "../i18n";
+import { newConsent } from "../ai-consent";
 import { getSessionAiKey, setSessionAiKey } from "../session-ai-key";
 import { readDeviceSecret, isPassphraseLocked, loadSealed, saveSealed } from "../secrets-store";
 import * as secrets from "../secrets";
@@ -97,9 +98,11 @@ describe("AiSection", () => {
     expect(screen.getByRole("group", { name: t("en-US", "aiAssistant") })).toBeInTheDocument();
   });
 
-  it("shows the consent-required notice when consent not yet accepted", () => {
+  it("shows the review prompt and a Review button when AI is on but no consent is current", () => {
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
-    expect(screen.getByText(t("en-US", "aiConsentRequired"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "aiConsentReviewPrompt"))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentReview") }));
+    expect(screen.getByRole("dialog", { name: t("en-US", "aiConsentTitle") })).toBeInTheDocument();
   });
 
   it("renders session cap input with the default value", () => {
@@ -586,11 +589,62 @@ describe("AiSection", () => {
     expect(screen.queryByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeNull();
   });
 
-  it("ticking Enable AI calls onChange with ai.enabled true", () => {
+  it("ticking Enable AI with no consent opens the dialog and does NOT set enabled", () => {
     const onChange = vi.fn();
     render(<AiSection lang="en-US" settings={baseSettings} onChange={onChange} />);
     fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    expect(screen.getByRole("dialog", { name: t("en-US", "aiConsentTitle") })).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("Accept in the dialog sets enabled and a consent at the current disclosure version", () => {
+    const onChange = vi.fn();
+    render(<AiSection lang="en-US" settings={baseSettings} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") }));
+    const ai = onChange.mock.calls.at(-1)![0].ai;
+    expect(ai.enabled).toBe(true);
+    expect(ai.consent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1 });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("Cancel in the dialog leaves enabled false", () => {
+    const onChange = vi.fn();
+    render(<AiSection lang="en-US" settings={baseSettings} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByLabelText(t("en-US", "aiEnable"))).not.toBeChecked();
+  });
+
+  it("ticking Enable AI with a current consent enables at once, with no dialog", () => {
+    const onChange = vi.fn();
+    const withConsent = { ...baseSettings, ai: { ...baseSettings.ai, consent: newConsent(new Date(0)) } };
+    render(<AiSection lang="en-US" settings={withConsent} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(onChange.mock.calls.at(-1)![0].ai.enabled).toBe(true);
+  });
+
+  it("Revoke clears both consent records and leaves the API key", () => {
+    const onChange = vi.fn();
+    const granted = {
+      ...baseSettings,
+      ai: {
+        ...baseSettings.ai,
+        enabled: true,
+        apiKey: "sk-keep",
+        consent: newConsent(new Date(0)),
+        backgroundConsent: newConsent(new Date(0)),
+      },
+    };
+    render(<AiSection lang="en-US" settings={granted} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentRevoke") }));
+    const ai = onChange.mock.calls.at(-1)![0].ai;
+    expect(ai.consent).toBeUndefined();
+    expect(ai.backgroundConsent).toBeUndefined();
+    expect(ai.apiKey).toBe("sk-keep");
   });
 });
 

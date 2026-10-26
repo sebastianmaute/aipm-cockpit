@@ -12,7 +12,6 @@ import { useToastContext } from "./toast-context";
 import { saveProjectFromForm } from "./project-meta-edit";
 import { computeProjectForecastFacts } from "./budget-forecast";
 import {
-  useCallback,
   useMemo,
   useState,
 } from "react";
@@ -109,7 +108,6 @@ import type { WorkspaceSectionProps } from "./workspace-section-types";
 import { WorkspaceTabStrip } from "./workspace-section-chrome";
 import { useStableHandlers } from "./use-stable-handlers";
 import { exportFooterText, isAiEnabled } from "./settings-types";
-import { newConsent } from "./ai-consent";
 import { ExportExtrasProvider } from "./export-extras-context";
 import { useWorkspaceForecastDecisionSource } from "./use-forecast-decision-source";
 // Re-export so existing importers of `WorkspaceSectionProps` from
@@ -266,13 +264,6 @@ export function WorkspaceSection({
   // through `liveAiKey`, and a panel already on screen would otherwise keep showing AI as unavailable.
   useSessionAiKey();
   const features = settings.features;
-  // Accept the AI consent on THIS component's settings instance, so the ChatPanel
-  // rendered here sees it at once; `useSettings` broadcasts the change to the
-  // other live instances after it commits (the registry in `use-settings.ts`).
-  const handleAcceptAiConsent = useCallback(
-    () => setSettings((s) => ({ ...s, ai: { ...s.ai, consent: newConsent(new Date()) } })),
-    [setSettings],
-  );
   // ★ The whole context value is kept as well as the destructured slices: the
   //   chat panel grounds a STAGED plan's diffs, row titles and concurrency
   //   tokens against it, and `describeProposal` takes a full `Workspace` (six
@@ -505,7 +496,6 @@ export function WorkspaceSection({
             exportFooter={exportFooterText(settings.branding)}
             dictation={settings.dictation}
             dispatcher={dispatcher}
-            onAcceptConsent={handleAcceptAiConsent}
             onConfigureAi={
               !isPopout && onOpenSettingsSection
                 ? () => onOpenSettingsSection("ai")

@@ -4,7 +4,9 @@ import { useId, useState } from "react";
 import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
-import { isConsentCurrent } from "../ai-consent";
+import { isConsentCurrent, newConsent } from "../ai-consent";
+import { AiConsentDialog } from "../ai-consent-dialog";
+import { resolveAiPolicy } from "../ai-policy";
 import { TextButton } from "../text-button";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS } from "../settings-types";
 import {
@@ -96,6 +98,7 @@ function CapInput({
 
 export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
+  const [consentOpen, setConsentOpen] = useState(false);
   const aiHeadingId = useId();
   const behaviourHeadingId = useId();
   const apiKeyNoteId = useId();
@@ -284,6 +287,11 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         <Checkbox
           checked={settings.ai.enabled === true}
           onChange={(e) => {
+            // Switching AI on without a current consent asks first; `enabled` stays false until Accept.
+            if (e.target.checked && !isConsentCurrent(settings.ai.consent)) {
+              setConsentOpen(true);
+              return;
+            }
             if (e.target.checked) notifyEnable();
             else clearSessionAiKey(); // §717 — switching AI off also forgets a key unlocked on this page
             onChange({ ...settings, ai: { ...settings.ai, enabled: e.target.checked } });
@@ -292,6 +300,19 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         <span className="text-xs text-foreground">{t(lang, "aiEnable")}</span>
       </label>
       <FieldHint className="mt-1">{t(lang, "aiEnableHelp")}</FieldHint>
+      {consentOpen && (
+        <AiConsentDialog
+          lang={lang}
+          level="interactive"
+          policy={resolveAiPolicy(settings.ai)}
+          onCancel={() => setConsentOpen(false)}
+          onAccept={() => {
+            setConsentOpen(false);
+            notifyEnable();
+            onChange({ ...settings, ai: { ...settings.ai, enabled: true, consent: newConsent(new Date()) } });
+          }}
+        />
+      )}
       {settings.ai.enabled === true && (
         <>
       {/* ★★ The hint sits OUTSIDE the naming <label> (open-followups §386),
@@ -426,8 +447,11 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           </TextButton>
         </p>
       ) : (
-        <p className="mt-2 text-xs text-ui-purple dark:text-ui-purple-strong">
-          {t(lang, "aiConsentRequired")}
+        <p className="mt-2 flex items-center justify-between gap-2 text-xs text-ui-purple dark:text-ui-purple-strong">
+          <span>{t(lang, "aiConsentReviewPrompt")}</span>
+          <TextButton onClick={() => setConsentOpen(true)} className="text-xs">
+            {t(lang, "aiConsentReview")}
+          </TextButton>
         </p>
       )}
       <AiPolicyFields

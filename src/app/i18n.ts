@@ -1608,7 +1608,7 @@ const enUS = {
   scheduledReportsErrError: "The run failed.",
   scheduledReportsNeedPortfolio: "Scheduled reports are stored in a Turso portfolio. Connect a Turso database and switch to portfolio mode to see them.",
 
-  aiConsentTitle: "Enable Claude chat?",
+  aiConsentTitle: "Enable AI features?",
   aiConsentBullet1:
     "Your messages and task data (names, assignees, emails, dates, blockers, notes) are sent directly from this browser to api.anthropic.com whenever you chat.",
   aiConsentBullet2:
@@ -1624,7 +1624,7 @@ const enUS = {
   aiConsentPolicyLink: "Open the AI usage policy of {0}",
   aiConsentPolicyCheckbox:
     "I have read and accept the AI usage policy of {0}.",
-  aiConsentAccept: "I understand — enable chat",
+  aiConsentAccept: "I understand — enable AI",
   // {0} in the three policy strings above when no owner is configured.
   aiPolicyOwnerFallback: "your organisation",
   aiPolicyOrgLabel: "AI usage policy owner",
@@ -1637,11 +1637,14 @@ const enUS = {
   aiPolicyUrlNoBuiltin: "There is no built-in link — no link is stored and none is set by the deployment environment. Enter your organisation's link; left empty, the consent screen shows no policy to read or accept.",
   aiPolicyUrlEnvRejected: "NEXT_PUBLIC_AI_POLICY_URL is set in this deployment but is not a full https:// link, so it is ignored and this field is used instead.",
   aiConsentRequired:
-    "Consent required. Open the AI Assistant tab to review and enable.",
-  aiConsentGranted: "Chat enabled",
+    "Consent required. Switch on AI features in Settings → AI to review and enable.",
+  aiConsentGranted: "AI enabled",
+  aiConsentReviewPrompt: "AI is switched on, but the AI data disclosure has changed. Review and accept it to use AI features.",
+  aiConsentReview: "Review",
+  aiConsentRevokedDuringSend: "AI consent was withdrawn, so the message was not sent.",
   aiConsentRevoke: "Revoke consent",
   aiConsentNotAccepted:
-    "Claude chat is disabled. Review and accept the consent below to enable it.",
+    "AI features are disabled. Review and accept the disclosure below to enable them.",
   credentialStorageNote:
     "Encrypted at rest in this browser (device key). Anyone with access to this browser profile can still use it — avoid production credentials on shared or untrusted machines.",
   disclaimerTitle: "Security & responsibility disclaimer",
