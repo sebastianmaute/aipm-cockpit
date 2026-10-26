@@ -125,7 +125,10 @@ export interface EntityDescriptor {
    *  chat's own `update_*` call - and that call still writes these fields, so a card that stopped
    *  listing them would stop DISCLOSING a write. The inline editor reads `inlineDescriptor(entity)`
    *  instead, which strips these names from `diffFields`, `emailFormatFields`, `enumFields` and
-   *  `fieldSanitizers`. */
+   *  `fieldSanitizers`.
+   *  ★ INLINE CREATES ARE OUT OF SCOPE (R8): `plan.ts` plans a `create_*` with the whole descriptor and the
+   *  `create_*` schemas stay full. A create can only carry what the user's own instruction supplied (the
+   *  model cannot read the withheld values), and its card discloses every field it writes. */
   withheldFields: ReadonlySet<string>;
   /** Required fields whose value must stay non-empty (sanitizer returns null →
    *  dispatcher throws otherwise). */

@@ -1,8 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import * as chatApi from "../chat-api";
+import { callInlineEdit } from "../inline-ai-edit-call";
+import { asTimeZoneForTests } from "../timezone";
 import { INLINE_DESCRIPTORS, inlineDescriptor, type InlineEntity } from "./entity-descriptor";
 import { projectForInlineEdit } from "./projection";
 import { describeEntityCalls } from "./plan";
 import type { Workspace } from "../workspace";
+
+afterEach(() => vi.restoreAllMocks());
 
 const ENTITIES = Object.keys(INLINE_DESCRIPTORS) as InlineEntity[];
 const ws = { tasks: [], raid: [], milestones: [], changes: [], stakeholders: [], resources: [], absences: [], calendarEvents: [] } as unknown as Workspace;
@@ -88,6 +93,34 @@ describe("a model-sent withheld field is ignored, not shown as a rejected row", 
     );
     expect(plan.rejected).toEqual([]);
     expect(plan.updates.map((u) => u.field)).toEqual(["name"]);
+  });
+});
+
+describe("nested emails (D7 fix round 1)", () => {
+  const raid = { id: 4, title: "Vendor slip", escalations: [{ at: "2026-10-01T09:00:00Z", toName: "Pat", toEmail: "pat@example.com", toSeverity: "High" }] };
+
+  it("keeps the other escalation fields but drops toEmail", () => {
+    const out = projectForInlineEdit("raid", raid) as { escalations: Record<string, unknown>[] };
+    expect(out.escalations).toEqual([{ at: "2026-10-01T09:00:00Z", toName: "Pat", toSeverity: "High" }]);
+    expect(raid.escalations[0].toEmail).toBe("pat@example.com"); // input untouched
+  });
+
+  it("escalations is not a writable inline field", () => {
+    expect(inlineDescriptor("raid").diffFields).not.toContain("escalations");
+  });
+
+  it("the inline call's system text carries no escalation address", async () => {
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue({ content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } });
+    await callInlineEdit({
+      apiKey: "k", model: "m", lang: "en-US", entity: "raid", item: raid, itemLabel: "Vendor slip", instruction: "x",
+      snapshot: { today: "2026-07-03", language: "en-US", holidayCountries: [], storageKind: "browser", taskCount: 0, knownGroups: [], knownLabels: [], mode: "advanced", enabledModules: [], currentView: "raid", timezone: asTimeZoneForTests("UTC") },
+      guides: [], groundInGuides: false,
+    });
+    const text = spy.mock.calls[0][2].map((b) => b.text).join(" ");
+    expect(text).toContain("Vendor slip"); // control: the scope block is there
+    expect(text).toContain("toSeverity"); // control: the escalation is still described
+    expect(text).not.toContain("pat@example.com");
+    expect(text).not.toContain("toEmail");
   });
 });
 
