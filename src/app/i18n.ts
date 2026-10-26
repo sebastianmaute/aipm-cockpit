@@ -3345,6 +3345,8 @@ const enUS = {
   dashboardTipDismiss: "Dismiss tip",
   // Per-view contextual Help callouts (SP2)
   viewHintLearnMore: "Learn more",
+  viewHintWatchVideo: "Watch the video",
+  viewHintWatchVideoLabel: "Watch the video: {0} – on YouTube, opens in your browser",
   viewHintDismiss: "Dismiss hint",
   showViewHintsLabel: "Show tips",
   showViewHintsHint: "Show helpful tips: the tip-of-the-day card on the dashboard and a short explainer atop each working view, with a link to the matching Help topic.",

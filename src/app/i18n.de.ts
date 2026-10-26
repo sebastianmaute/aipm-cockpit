@@ -3165,6 +3165,8 @@ export const de: Record<TranslationKey, string> = {
   dashboardTipDismiss: "Tipp ausblenden",
   // Kontextbezogene Hilfe-Hinweise je Ansicht (SP2)
   viewHintLearnMore: "Mehr erfahren",
+  viewHintWatchVideo: "Video ansehen",
+  viewHintWatchVideoLabel: "Video ansehen: {0} – auf YouTube (Englisch), öffnet im Browser",
   viewHintDismiss: "Hinweis ausblenden",
   showViewHintsLabel: "Tipps anzeigen",
   showViewHintsHint: "Zeigt hilfreiche Tipps: die Tipp-des-Tages-Karte auf dem Dashboard und über jeder Arbeitsansicht eine kurze Erklärung mit Link zum passenden Hilfethema.",
