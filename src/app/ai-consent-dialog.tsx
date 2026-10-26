@@ -2,6 +2,8 @@
 
 // The AI data disclosure, asked where AI is switched on (Settings → AI) and nowhere else.
 // Built on the shared Modal: Escape, the Tab trap and focus restore are its job.
+// ★ What each path sends is NOT written here: the rows come from `AI_DATA_PATHS` (ai-disclosure.ts),
+//   filtered by `level`, so the dialog and docs/security.md read one table.
 
 import { useId, useState } from "react";
 import { Button, PRIMARY_MATCHING_BORDER } from "./button";
@@ -10,11 +12,12 @@ import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { type AiPolicy } from "./ai-policy";
+import { aiDataPathsFor, type AiConsentLevel } from "./ai-disclosure";
 
 export interface AiConsentDialogProps {
   lang: Lang;
-  /** Which switch the consent is for. Both levels show the same disclosure until the per-level texts land. */
-  level: "interactive" | "background";
+  /** Which switch the consent is for; it picks the rows of AI_DATA_PATHS (ai-disclosure.ts) the dialog lists. */
+  level: AiConsentLevel;
   policy: AiPolicy;
   onAccept: () => void;
   onCancel: () => void;
@@ -33,8 +36,12 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
   const runners: string[] = isBackground
     ? [t(lang, "aiConsentBackgroundRunner1"), t(lang, "aiConsentBackgroundRunner2"), t(lang, "aiConsentBackgroundRunner3")]
     : [];
+  const dataRows = aiDataPathsFor(level).map((row) => ({
+    id: row.id,
+    label: t(lang, row.labelKey),
+    data: t(lang, row.dataKey),
+  }));
   const bullets: string[] = [
-    t(lang, "aiConsentBullet1"),
     t(lang, "aiConsentBullet2"),
     t(lang, "aiConsentBullet3"),
     t(lang, "aiConsentBullet4"),
@@ -70,6 +77,15 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
               ))}
             </ul>
           )}
+          <p>{t(lang, isBackground ? "aiConsentBackgroundDataIntro" : "aiConsentDataIntro")}</p>
+          <dl className="space-y-2">
+            {dataRows.map((row) => (
+              <div key={row.id} data-ai-data-path={row.id}>
+                <dt className="font-medium">{row.label}</dt>
+                <dd>{row.data}</dd>
+              </div>
+            ))}
+          </dl>
           <ul className="space-y-2">
             {bullets.map((text) => (
               <li key={text} className="flex gap-2">

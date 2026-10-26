@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AiConsentDialog } from "./ai-consent-dialog";
 import { resolveAiPolicy } from "./ai-policy";
 import { t } from "./i18n";
+import { aiDataPathsFor } from "./ai-disclosure";
 
 // The organisation policy block reads `resolveAiPolicy` (ai-policy.ts): owner + link, or no block at all.
 function renderDialog(
@@ -24,7 +25,7 @@ describe("AiConsentDialog", () => {
   it("is a named modal dialog showing the disclosure bullets", () => {
     renderDialog({});
     expect(screen.getByRole("dialog", { name: t("en-US", "aiConsentTitle") })).toBeInTheDocument();
-    expect(screen.getByText(t("en-US", "aiConsentBullet1"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "aiDataChatLabel"))).toBeInTheDocument();
   });
 
   it("with a configured policy, Accept stays disabled until the policy checkbox is ticked", () => {
@@ -49,7 +50,7 @@ describe("AiConsentDialog", () => {
   it("with no policy link, drops the policy block and enables Accept on its own", () => {
     renderDialog({ policyUrl: "" });
     // Positive control: the rest of the dialog rendered.
-    expect(screen.getByText(t("en-US", "aiConsentBullet1"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "aiDataChatLabel"))).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: new RegExp(t("en-US", "aiConsentPolicyLink", "").trim()) })).toBeNull();
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") })).not.toBeDisabled();
@@ -87,6 +88,40 @@ describe("AiConsentDialog", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onCancel).toHaveBeenCalledTimes(2);
     expect(onAccept).not.toHaveBeenCalled();
+  });
+
+  it.each(["interactive", "background"] as const)("the %s dialog lists exactly its own rows of AI_DATA_PATHS, label and data", (level) => {
+    render(
+      <AiConsentDialog lang="en-US" level={level} policy={resolveAiPolicy({})} onAccept={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const own = aiDataPathsFor(level);
+    const other = aiDataPathsFor(level === "interactive" ? "background" : "interactive");
+    expect(own.length).toBeGreaterThan(0);
+    for (const row of own) {
+      expect(screen.getByText(t("en-US", row.labelKey))).toBeInTheDocument();
+      expect(screen.getAllByText(t("en-US", row.dataKey)).length).toBeGreaterThan(0);
+    }
+    for (const row of other) expect(screen.queryByText(t("en-US", row.labelKey))).toBeNull();
+    const rendered = [...document.querySelectorAll("[data-ai-data-path]")].map((el) => el.getAttribute("data-ai-data-path"));
+    expect(rendered).toEqual(own.map((row) => row.id));
+  });
+
+  it("the background dialog leads into its data rows separately from its runner list", () => {
+    render(
+      <AiConsentDialog lang="en-US" level="background" policy={resolveAiPolicy({})} onAccept={vi.fn()} onCancel={vi.fn()} />,
+    );
+    expect(screen.getByText(t("en-US", "aiConsentBackgroundIntro"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "aiConsentBackgroundDataIntro"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "aiConsentDataIntro"))).toBeNull();
+    // The key bullet is kept at both levels.
+    expect(screen.getByText(t("en-US", "aiConsentBullet2"))).toBeInTheDocument();
+  });
+
+  it("the interactive dialog opens with the consent line and its own lead-in", () => {
+    renderDialog({});
+    expect(screen.getByText(t("en-US", "aiConsentNotAccepted"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "aiConsentDataIntro"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "aiConsentBackgroundDataIntro"))).toBeNull();
   });
 
   it("names its close button with the dialog title", () => {

@@ -3,7 +3,10 @@
 // Device settings only: never in the workspace, exports, Turso or recovery.
 import type { AiConfig } from "./settings-types";
 
-/** Bump when the disclosure text changes materially: every stored consent then reads as stale. */
+/** Bump when the disclosure text changes materially: every stored consent then reads as stale.
+ *  ★★ Also bump whenever `AI_DATA_PATHS` (ai-disclosure.ts) changes — a row added, removed,
+ *  re-levelled or re-keyed — and add that version's pin in ai-disclosure.test.ts, which fails
+ *  until both are done. Stays 1 until a disclosure has shipped. */
 export const AI_DISCLOSURE_VERSION = 1;
 
 export type AiConsent = { acceptedAt: string; disclosureVersion: number };

@@ -13,8 +13,10 @@
 
 ### AI Assistant
 
-- **Consent screen policy block:** `ConsentScreen` (`chat-panel.tsx`) names an organisation AI-usage
-  policy in its sixth bullet, a link and a required checkbox. Owner and link come from ONE resolver,
+- **Consent dialog:** `AiConsentDialog` (`ai-consent-dialog.tsx`), opened from Settings → AI for the
+  interactive and the background consent level, lists that level's rows of `AI_DATA_PATHS`
+  (`ai-disclosure.ts`), the one table docs/security.md also lists. **Policy block:** it names an organisation AI-usage
+  policy in its last bullet, a link and a required checkbox. Owner and link come from ONE resolver,
   `resolveAiPolicy` (`ai-policy.ts`): a `NEXT_PUBLIC_AI_POLICY_ORG`/`_URL` build value, then
   `settings.ai.policyOrgName`/`policyUrl` (Settings → AI Assistant, `ai-policy-fields.tsx`), then
   **nothing — there is no built-in default.** `undefined` = never set, `""` = cleared: both resolve
