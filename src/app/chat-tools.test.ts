@@ -30,6 +30,7 @@ import {
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 import { entityToken, type TokenEntity } from "./ai-entity-token";
+import { slimTaskForList } from "./chat-tools-lists";
 import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
 import type { ActivitySummary } from "./history-search";
 
@@ -570,7 +571,9 @@ describe("runTool — list_tasks / get_task", () => {
     const d = makeDispatcher({ getTask: vi.fn(() => task), listTasks: vi.fn(() => [task]) });
 
     const full = (await runTool(d, "get_task", { id: 1 })) as Task;
-    expect(full).toEqual({ ...task, expectedToken: entityToken("task", task) });
+    const { assigneeEmail: withheld, ...taskWithoutEmail } = task;
+    expect(withheld).toBeTruthy();
+    expect(full).toEqual({ ...taskWithoutEmail, expectedToken: entityToken("task", task) });
     expect(full.description).toBe(RICH_DESCRIPTION);
     expect(full.noteLog?.[0].html).toBe("<p>Partner call moved to <em>Friday</em></p>");
 
@@ -583,7 +586,51 @@ describe("runTool — list_tasks / get_task", () => {
     const d = makeDispatcher();
     const result = await runTool(d, "get_task", { id: "1" });
     expect(d.getTask).toHaveBeenCalledWith(1);
-    expect(result).toEqual({ ...makeTask(), expectedToken: FRESH_TASK_TOKEN });
+    const { assigneeEmail: withheld, ...taskWithoutEmail } = makeTask();
+    expect(withheld).toBeTruthy();
+    expect(result).toEqual({ ...taskWithoutEmail, expectedToken: FRESH_TASK_TOKEN });
+  });
+
+  it("AI-08: list_tasks and get_task carry no assigneeEmail, and the tokens still hash the stored row", async () => {
+    const stored = makeTask();
+    expect(stored.assigneeEmail).toBeTruthy();
+    const d = makeDispatcher({ getTask: vi.fn(() => stored), listTasks: vi.fn(() => [stored]) });
+    const list = (await runTool(d, "list_tasks", {})) as ListEnvelope;
+    expect("assigneeEmail" in list.items[0]).toBe(false);
+    expect("assigneeEmail" in slimTaskForList(stored)).toBe(false);
+    const got = (await runTool(d, "get_task", { id: 1 })) as Record<string, unknown>;
+    expect("assigneeEmail" in got).toBe(false);
+    const token = entityToken("task", stored);
+    expect(got.expectedToken).toBe(token);
+    expect((list.items[0] as { expectedToken?: string }).expectedToken).toBe(token);
+    // The token read from the slim list still authorises an update.
+    const updated = await runTool(d, "update_task", { id: 1, expectedToken: token, status: "Done" });
+    expect(updated).toBeTruthy();
+    expect(d.updateTask).toHaveBeenCalled();
+  });
+
+  it("AI-08: stakeholder and resource summaries carry no email", () => {
+    const sh = toStakeholderSummary(makeStakeholder({ email: "jane@x.com" }));
+    expect("email" in sh).toBe(false);
+    const rs = toResourceSummary(makeResource({ email: "ada@x.com", emails: ["a2@x.com"] }));
+    expect("email" in rs).toBe(false);
+    expect("emails" in rs).toBe(false);
+  });
+
+  it("AI-08: get_contact_email returns the stored address per entity and throws for an unknown id", async () => {
+    const d = makeDispatcher({
+      getStakeholderRow: vi.fn((id: number) => (id === 40 ? makeStakeholder({ email: "jane@x.com" }) : null)),
+      getResourceRow: vi.fn((id: number) => (id === 7 ? makeResource({ email: "ada@x.com", emails: ["a2@x.com"] }) : null)),
+      getRaidRow: vi.fn((id: number) => (id === 10 ? makeRaidItem({ ownerEmail: "own@x.com" }) : null)),
+      getAbsenceRow: vi.fn((id: number) => (id === 50 ? makeAbsence({ assigneeEmail: "abs@x.com" }) : null)),
+    });
+    expect(await runTool(d, "get_contact_email", { entity: "task", id: 1 })).toEqual({ id: 1, email: "alice@example.com" });
+    expect(await runTool(d, "get_contact_email", { entity: "stakeholder", id: 40 })).toEqual({ id: 40, email: "jane@x.com" });
+    expect(await runTool(d, "get_contact_email", { entity: "resource", id: 7 })).toEqual({ id: 7, email: "ada@x.com", emails: ["a2@x.com"] });
+    expect(await runTool(d, "get_contact_email", { entity: "raid", id: 10 })).toEqual({ id: 10, email: "own@x.com" });
+    expect(await runTool(d, "get_contact_email", { entity: "absence", id: 50 })).toEqual({ id: 50, email: "abs@x.com" });
+    await expect(runTool(d, "get_contact_email", { entity: "stakeholder", id: 41 })).rejects.toThrow("not found");
+    await expect(runTool(d, "get_contact_email", { entity: "nope", id: 1 })).rejects.toThrow("entity must be");
   });
 
   it("get_task throws when id is not a finite number", async () => {
@@ -890,11 +937,13 @@ describe("runTool — update_task concurrency token", () => {
     // ★★ THE CONTROL. Without it a guard hardcoded to refuse every write —
     //    `if (true) throw` — passes both cases above.
     const d = statefulTaskDispatcher(makeTask());
-    const read = (await runTool(d, "get_task", { id: 1 })) as Task;
+    const read = (await runTool(d, "get_task", { id: 1 })) as Task & { expectedToken: string };
 
     await runTool(d, "update_task", {
       id: 1,
-      expectedToken: entityToken("task", read),
+      // The token comes from get_task and must equal the STORED row's token even
+      // though the result no longer carries assigneeEmail (AI-08).
+      expectedToken: read.expectedToken,
       taskName: "Renamed by the AI",
     });
 

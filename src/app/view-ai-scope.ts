@@ -97,7 +97,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   },
   directory: {
     purpose: "Directory is the roster of people with role, discipline, grade and contact details.",
-    toolHints: ["list_resources", "get_resource"],
+    toolHints: ["list_resources", "get_resource", "get_contact_email"],
     reading:
       "Assigning a task to a name does NOT add that person here — the directory is its own register.",
   },
@@ -169,7 +169,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   stakeholders: {
     purpose:
       "Stakeholders is the register of people and organizations with influence and interest levels.",
-    toolHints: ["list_stakeholders"],
+    toolHints: ["list_stakeholders", "get_contact_email"],
   },
   raci: {
     purpose:

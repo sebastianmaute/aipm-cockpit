@@ -302,7 +302,7 @@ export const TOOL_DEFS = [
   {
     name: "get_task",
     description:
-      "Fetch a single task by its numeric ID. Returns every field, including the original HTML of `description` and the task's full `noteLog`. The note log is READ-ONLY: no tool can add, edit or delete a note, so never offer to write one — the user does that in the task's notes window. Notes on RAID items and change items are not readable at all.",
+      "Fetch a single task by its numeric ID. Returns every field except the assignee email (use get_contact_email), including the original HTML of `description` and the task's full `noteLog`. The note log is READ-ONLY: no tool can add, edit or delete a note, so never offer to write one — the user does that in the task's notes window. Notes on RAID items and change items are not readable at all.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },
@@ -471,13 +471,13 @@ export const TOOL_DEFS = [
   {
     name: "list_stakeholders",
     description:
-      "List all stakeholders with id, name, category, influence, interest, organization, email, and raci (milestone id -> R, A, C or I; join the ids with list_milestones, ignoring an id it does not list). Read-only.",
+      "List all stakeholders with id, name, category, influence, interest, organization, and raci (milestone id -> R, A, C or I; join the ids with list_milestones, ignoring an id it does not list). Read-only.",
     input_schema: { type: "object", properties: {} },
   },
   {
     name: "list_resources",
     description:
-      "List the people in the resource directory (id, firstName, lastName, email, title, department). Read-only. Call this before creating a resource to avoid duplicates.",
+      "List the people in the resource directory (id, firstName, lastName, title, department; no email, use get_contact_email). Read-only. Call this before creating a resource to avoid duplicates.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -699,6 +699,19 @@ export const TOOL_DEFS = [
     input_schema: {
       type: "object",
       properties: resourceFields,
+    },
+  },
+  {
+    name: "get_contact_email",
+    description:
+      "Read ONE person's email address (a task's assignee, a stakeholder, a resource, a RAID item's owner or an absence's person). List and get results carry NO email addresses. Call this only when an address is needed for a write or for a message the user asked for, never to browse contacts. Read-only. Returns {id, email} (a resource also {emails}); email is null when none is on file.",
+    input_schema: {
+      type: "object",
+      properties: {
+        entity: { type: "string", enum: ["task", "stakeholder", "resource", "raid", "absence"] },
+        id: { type: "number" },
+      },
+      required: ["entity", "id"],
     },
   },
   {

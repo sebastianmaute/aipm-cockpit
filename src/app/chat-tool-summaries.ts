@@ -82,7 +82,6 @@ export function toStakeholderSummary(item: Stakeholder): StakeholderSummary {
     influence: item.influence,
     interest: item.interest,
     organization: item.organization,
-    email: item.email,
     raci: { ...item.raci },
   };
 }
@@ -103,8 +102,6 @@ export function toResourceSummary(item: Resource): ResourceSummary {
     id: item.id,
     firstName: item.firstName,
     lastName: item.lastName,
-    email: item.email,
-    emails: item.emails,
     title: item.title,
     department: item.department,
     isExternal: item.isExternal,

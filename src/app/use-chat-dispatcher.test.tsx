@@ -1931,7 +1931,9 @@ describe("useChatDispatcher – resource directory", () => {
     const created = result.current.createResource({
       firstName: "Ada", lastName: "Lovelace", email: "ada@x.com", title: "Engineer",
     });
-    expect(created).toMatchObject({ firstName: "Ada", lastName: "Lovelace", email: "ada@x.com", title: "Engineer" });
+    expect(created).toMatchObject({ firstName: "Ada", lastName: "Lovelace", title: "Engineer" });
+    expect("email" in created).toBe(false); // AI-08: the summary carries no address
+    expect(result.current.getResourceRow(created.id)?.email).toBe("ada@x.com");
     expect(created.id).toBeGreaterThan(0);
     expect(result.current.listResources().some((r) => r.id === created.id && r.firstName === "Ada")).toBe(true);
   });
@@ -1964,7 +1966,7 @@ describe("useChatDispatcher – resource directory", () => {
     const { result } = renderDispatcher();
     const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace", emails: ["ada.alt@x.com"] });
     expect(() => result.current.updateResource(created.id, { title: "Lead", emails: ["x;y@x.com"] })).toThrow(/emails/);
-    expect(result.current.getResource(created.id)).toMatchObject({ emails: ["ada.alt@x.com"] });
+    expect(result.current.getResourceRow(created.id)).toMatchObject({ emails: ["ada.alt@x.com"] });
     expect(result.current.getResource(created.id)?.title).toBeUndefined();
   });
 
@@ -1979,7 +1981,7 @@ describe("useChatDispatcher – resource directory", () => {
     };
     const { result } = renderDispatcher(seedTasks(), false, "open-points", undefined, undefined, undefined, [seeded]);
     expect(() => result.current.updateResource(1, { title: "Lead", emails: "a,b@x.com, c@y.com" as unknown as string[] })).toThrow(/emails/);
-    expect(result.current.getResource(1)).toMatchObject({ emails: ["a,b@x.com"] });
+    expect(result.current.getResourceRow(1)).toMatchObject({ emails: ["a,b@x.com"] });
     expect(result.current.getResource(1)?.title).toBeUndefined();
   });
 
@@ -1997,8 +1999,8 @@ describe("useChatDispatcher – resource directory", () => {
     expect(() => {
       updated = result.current.updateResource(1, { title: "Lead", emails: ["a,b@x.com"] });
     }).not.toThrow();
-    expect(updated).toMatchObject({ title: "Lead", emails: ["a,b@x.com"] });
-    expect(result.current.getResource(1)).toMatchObject({ title: "Lead", emails: ["a,b@x.com"] });
+    expect(updated).toMatchObject({ title: "Lead" });
+    expect(result.current.getResourceRow(1)).toMatchObject({ title: "Lead", emails: ["a,b@x.com"] });
   });
 
   it("updateResource still refuses an ARRAY carrying a genuinely NEW unsafe address (§422 fix round 1)", () => {
@@ -2009,7 +2011,7 @@ describe("useChatDispatcher – resource directory", () => {
     };
     const { result } = renderDispatcher(seedTasks(), false, "open-points", undefined, undefined, undefined, [seeded]);
     expect(() => result.current.updateResource(1, { title: "Lead", emails: ["a,b@x.com", "new;x@y.com"] })).toThrow(/emails/);
-    expect(result.current.getResource(1)).toMatchObject({ emails: ["a,b@x.com"] });
+    expect(result.current.getResourceRow(1)).toMatchObject({ emails: ["a,b@x.com"] });
     expect(result.current.getResource(1)?.title).toBeUndefined();
   });
 
@@ -2026,7 +2028,8 @@ describe("useChatDispatcher – resource directory", () => {
     const updated = result.current.updateResource(created.id, {
       title: "Lead", isExternal: true, emails: ["ada.alt@x.com"],
     });
-    expect(updated).toMatchObject({ title: "Lead", isExternal: true, emails: ["ada.alt@x.com"] });
+    expect(updated).toMatchObject({ title: "Lead", isExternal: true });
+    expect(result.current.getResourceRow(created.id)).toMatchObject({ emails: ["ada.alt@x.com"] });
     expect(result.current.getResource(created.id)).toMatchObject({ title: "Lead", isExternal: true });
     expect(result.current.updateResource(999999, { title: "X" })).toBeNull();
   });

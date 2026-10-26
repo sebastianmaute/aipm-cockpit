@@ -122,6 +122,10 @@ export type MilestoneSummary = {
   linkedTaskIds: number[];
 };
 
+/** The result of `get_contact_email`: the ONE tool that returns an address (AI-08).
+ *  `emails` is present for a resource only. */
+export type ContactEmail = { id: number; email: string | null; emails?: string[] };
+
 export type StakeholderSummary = {
   id: number;
   name: string;
@@ -129,7 +133,6 @@ export type StakeholderSummary = {
   influence: string;
   interest: string;
   organization?: string;
-  email?: string;
   /** Milestone id (as a string) -> RACI letter, copied from `Stakeholder.raci`
    *  (open-followups §237). Sparse, and a key can name a deleted milestone,
    *  which the RACI view filters at render; join with `list_milestones`. */
@@ -289,8 +292,6 @@ export type ResourceSummary = {
   id: number;
   firstName: string;
   lastName: string;
-  email?: string;
-  emails?: string[];
   title?: string;
   department?: string;
   isExternal?: boolean;
@@ -586,6 +587,39 @@ export type ToolDispatcher = {
   ProjectToolDispatcher;
 
 /** Parse the numeric `id` field, throwing if absent/non-numeric. */
+function readContactEmail(input: Record<string, unknown>, d: ToolDispatcher): ContactEmail {
+  const id = requireId(input);
+  switch (input.entity) {
+    case "task": {
+      const row = d.getTask(id);
+      if (!row) throw new Error(`task #${id} not found`);
+      return { id, email: row.assigneeEmail ?? null };
+    }
+    case "stakeholder": {
+      const row = d.getStakeholderRow(id);
+      if (!row) throw new Error(`stakeholder #${id} not found`);
+      return { id, email: row.email ?? null };
+    }
+    case "resource": {
+      const row = d.getResourceRow(id);
+      if (!row) throw new Error(`resource #${id} not found`);
+      return { id, email: row.email ?? null, emails: row.emails ?? [] };
+    }
+    case "raid": {
+      const row = d.getRaidRow(id);
+      if (!row) throw new Error(`raid item #${id} not found`);
+      return { id, email: row.ownerEmail ?? null };
+    }
+    case "absence": {
+      const row = d.getAbsenceRow(id);
+      if (!row) throw new Error(`absence #${id} not found`);
+      return { id, email: row.assigneeEmail ?? null };
+    }
+    default:
+      throw new Error("entity must be one of task, stakeholder, resource, raid, absence");
+  }
+}
+
 function requireId(input: Record<string, unknown>): number {
   const id = Number(input.id);
   if (!Number.isFinite(id)) throw new Error("id must be a number");
@@ -645,8 +679,14 @@ export async function runTool(
       if (!Number.isFinite(id)) throw new Error("id must be a number");
       const task = d.getTask(id);
       if (!task) throw new Error(`task #${id} not found`);
-      return withToken("task", task, task);
+      // AI-08: the address is withheld from the result; the token still hashes the stored row.
+      const { assigneeEmail, ...withoutEmail } = task;
+      void assigneeEmail;
+      return withToken("task", withoutEmail, task);
     }
+
+    case "get_contact_email":
+      return readContactEmail(input, d);
 
     case "create_task": {
       const taskName = asString(input.taskName);
