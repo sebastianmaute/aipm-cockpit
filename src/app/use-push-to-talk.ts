@@ -20,9 +20,11 @@ interface Args {
   onInterim: (text: string) => void;
   onError: (err: string) => void;
   dictation?: { engine: "web-speech" | "stt"; sttBaseUrl?: string; sttModel?: string; sttApiKey?: string };
+  /** Cloud STT is used only when the AI data disclosure is accepted (D9). */
+  aiConsented: boolean;
 }
 
-export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError, dictation }: Args) {
+export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError, dictation, aiConsented }: Args) {
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const supported = useMemo(() => getCtor() !== null, []);
@@ -31,13 +33,13 @@ export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError
   const wasListeningRef = useRef(false);
   const listeningRef = useRef(false);
   const pressingRef = useRef(false);
-  const cfgKey = `${lang}|${dictation?.engine ?? "web-speech"}|${dictation?.sttBaseUrl ?? ""}|${dictation?.sttModel ?? ""}|${hashKey(dictation?.sttApiKey)}`;
+  const cfgKey = `${lang}|${dictation?.engine ?? "web-speech"}|${dictation?.sttBaseUrl ?? ""}|${dictation?.sttModel ?? ""}|${hashKey(dictation?.sttApiKey)}|${aiConsented ? "c" : "n"}`;
   const cfgKeyRef = useRef(cfgKey);
 
   const engine = () => {
     if (!engineRef.current || cfgKeyRef.current !== cfgKey) {
       engineRef.current?.stop();
-      engineRef.current = resolveDictationEngine(dictation, lang);
+      engineRef.current = resolveDictationEngine(dictation, lang, aiConsented);
       cfgKeyRef.current = cfgKey;
     }
     return engineRef.current;

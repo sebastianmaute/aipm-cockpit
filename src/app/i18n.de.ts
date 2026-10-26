@@ -1200,6 +1200,7 @@ export const de: Record<TranslationKey, string> = {
   dictationEngine: "Diktier-Engine",
   dictationEngineWebSpeech: "Browser (Web Speech)",
   dictationEngineStt: "Cloud (OpenAI-kompatibel)",
+  dictationNeedsAiConsent: "Die Spracherkennung sendet dein Audio an den konfigurierten Sprachdienst. Bestätige dazu die KI-Datenschutzhinweise unter Einstellungen → KI; bis dahin wird das integrierte Diktat des Browsers verwendet.",
   dictationSttBaseUrl: "Basis-URL des Transkriptionsdienstes",
   dictationSttModel: "Modell",
   dictationSttKey: "API-Schlüssel",

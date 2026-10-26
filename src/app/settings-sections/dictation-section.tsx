@@ -13,6 +13,7 @@ import { removeSealed } from "../secrets-store";
 import { eventToCombo, eventComboFromMouse, mouseButtonToToken } from "../dictation-hotkey";
 import { Input } from "../form-controls";
 import { Button } from "../button";
+import { isConsentCurrent } from "../ai-consent";
 
 const IGNORED_MODIFIER_KEYS = ["Control", "Shift", "Alt", "Meta"];
 
@@ -119,6 +120,9 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
 
       {engine === "stt" && (
         <div className="mt-3 flex flex-col gap-2">
+          {!isConsentCurrent(settings.ai.consent) && (
+            <p role="note" className="text-xs text-muted-foreground">{t(lang, "dictationNeedsAiConsent")}</p>
+          )}
           <label className="block">
             <span className="mb-1 block text-xs text-muted-foreground">
               {t(lang, "dictationSttBaseUrl")}

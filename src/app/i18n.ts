@@ -1299,6 +1299,7 @@ const enUS = {
   dictationEngine: "Dictation engine",
   dictationEngineWebSpeech: "Browser (Web Speech)",
   dictationEngineStt: "Cloud (OpenAI-compatible)",
+  dictationNeedsAiConsent: "Speech-to-text sends your audio to the configured speech service. Accept the AI data disclosure in Settings → AI to use it; until then the browser's built-in dictation is used.",
   dictationSttBaseUrl: "Transcription endpoint base URL",
   dictationSttModel: "Model",
   dictationSttKey: "API key",

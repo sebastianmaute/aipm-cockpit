@@ -478,6 +478,7 @@ function ChatPanelInner({
   const { mic, status, registration } = useDictationMic({
     lang,
     dictation,
+    aiConsented: isConsentCurrent(ai.consent),
     enabled: true,
     label: t(lang, "chatPlaceholder"),
     padding: "px-4! py-2!", // trailing `!` required — see the prop's docstring

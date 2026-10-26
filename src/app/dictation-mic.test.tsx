@@ -30,25 +30,25 @@ beforeEach(() => {
 });
 
 function Mic({ padding }: { padding?: string }) {
-  const { mic } = useDictationMic({ lang: "en-US", label: "Notes", onAppendFinal: vi.fn(), padding });
+  const { mic } = useDictationMic({ lang: "en-US", aiConsented: true, label: "Notes", onAppendFinal: vi.fn(), padding });
   return <>{mic}</>;
 }
 
 describe("useDictationMic", () => {
   it("registers/clears the active target on focus/blur", () => {
-    const { result } = renderHook(() => useDictationMic({ lang: "en-US", label: "Notes", onAppendFinal: vi.fn() }));
+    const { result } = renderHook(() => useDictationMic({ lang: "en-US", aiConsented: true, label: "Notes", onAppendFinal: vi.fn() }));
     result.current.registration.onFocus();
     expect(getActiveDictationTarget()?.label).toBe("Notes");
     result.current.registration.onBlur();
     expect(getActiveDictationTarget()).toBeNull();
   });
   it("exposes a mic element when supported", () => {
-    const { result } = renderHook(() => useDictationMic({ lang: "en-US", label: "Notes", onAppendFinal: vi.fn() }));
+    const { result } = renderHook(() => useDictationMic({ lang: "en-US", aiConsented: true, label: "Notes", onAppendFinal: vi.fn() }));
     expect(result.current.mic).not.toBeNull();
   });
 
   it("clears the active target on unmount", () => {
-    const { result, unmount } = renderHook(() => useDictationMic({ lang: "en-US", label: "Notes", onAppendFinal: vi.fn() }));
+    const { result, unmount } = renderHook(() => useDictationMic({ lang: "en-US", aiConsented: true, label: "Notes", onAppendFinal: vi.fn() }));
     result.current.registration.onFocus();
     expect(getActiveDictationTarget()?.label).toBe("Notes");
     unmount();
@@ -57,7 +57,7 @@ describe("useDictationMic", () => {
 
   it("keeps the active target across re-renders (stable identity)", () => {
     const { result, rerender } = renderHook(
-      (props: { label: string }) => useDictationMic({ lang: "en-US", label: props.label, onAppendFinal: vi.fn() }),
+      (props: { label: string }) => useDictationMic({ lang: "en-US", aiConsented: true, label: props.label, onAppendFinal: vi.fn() }),
       { initialProps: { label: "Notes" } },
     );
     result.current.registration.onFocus();

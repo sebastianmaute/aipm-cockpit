@@ -59,6 +59,7 @@ import { RICH_SINK } from "./html-start";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { Button } from "./button";
 import { useDictationMic } from "./dictation-mic";
+import { isConsentCurrent } from "./ai-consent";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
 import { useConfirm } from "./confirm-dialog";
@@ -140,6 +141,7 @@ export function RaidEditModal({
   const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
+    aiConsented: isConsentCurrent(settings.ai.consent),
     enabled: true,
     label: t(lang, "raidDescription"),
     onAppendFinal: (txt) =>
@@ -148,6 +150,7 @@ export function RaidEditModal({
   const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
+    aiConsented: isConsentCurrent(settings.ai.consent),
     enabled: true,
     label: t(lang, "raidTitle"),
     onAppendFinal: (txt) =>

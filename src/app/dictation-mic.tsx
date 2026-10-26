@@ -14,6 +14,8 @@ import { setActiveDictationTarget, clearDictationTargetIf, type DictationTarget 
 interface UseDictationMicArgs {
   lang: Lang;
   dictation?: Settings["dictation"];
+  /** `isConsentCurrent(settings.ai.consent)`: cloud speech-to-text sends audio off-device, so it needs the AI data disclosure accepted. */
+  aiConsented: boolean;
   enabled?: boolean;
   label: string;
   onAppendFinal: (text: string) => void;
@@ -36,6 +38,7 @@ interface UseDictationMicArgs {
 export function useDictationMic({
   lang,
   dictation,
+  aiConsented,
   enabled = true,
   label,
   onAppendFinal,
@@ -48,6 +51,7 @@ export function useDictationMic({
     lang,
     enabled,
     dictation,
+    aiConsented,
     onAppendFinal: (txt) => { onAppendFinal(txt); setInterim(""); },
     onInterim: (txt) => setInterim(txt),
     onError: (err) => {

@@ -11,15 +11,15 @@ interface MockDictationHandlers {
 
 const start = vi.fn((handlers: MockDictationHandlers) => { void handlers; return true; });
 const stop = vi.fn();
-const resolveDictationEngine = vi.fn(() => ({ start, stop }));
+const resolveDictationEngine = vi.fn((...args: unknown[]) => { void args; return { start, stop }; });
 vi.mock("./web-speech-engine", () => ({ createWebSpeechEngine: () => ({ start, stop }) }));
-vi.mock("./dictation-config", () => ({ resolveDictationEngine: () => resolveDictationEngine() }));
+vi.mock("./dictation-config", () => ({ resolveDictationEngine: (...args: unknown[]) => resolveDictationEngine(...args) }));
 vi.mock("./voice", () => ({ getCtor: () => function () {}, startRecognition: () => stop }));
 
 beforeEach(() => { start.mockClear(); stop.mockClear(); resolveDictationEngine.mockClear(); start.mockReturnValue(true); vi.useFakeTimers(); });
 afterEach(() => vi.useRealTimers());
 
-const mkArgs = () => ({ lang: "en-US" as const, enabled: true, onAppendFinal: vi.fn(), onInterim: vi.fn(), onError: vi.fn() });
+const mkArgs = () => ({ lang: "en-US" as const, enabled: true, aiConsented: true, onAppendFinal: vi.fn(), onInterim: vi.fn(), onError: vi.fn() });
 type HookResult = ReturnType<typeof usePushToTalk>;
 const down = (r: { current: HookResult }) =>
   r.current.buttonHandlers.onPointerDown({ preventDefault() {} } as React.PointerEvent);
@@ -105,6 +105,17 @@ describe("usePushToTalk", () => {
     const { result } = renderHook(() => usePushToTalk(a));
     act(() => { down(result); vi.advanceTimersByTime(300); up(result); });
     expect(resolveDictationEngine).toHaveBeenCalledTimes(1);
+  });
+  it("D9 — flipping the consent flag between renders swaps the engine (consent is part of the cache key)", () => {
+    const dictation = { engine: "stt" as const, sttBaseUrl: "https://x/v1", sttApiKey: "key-A" };
+    const { result, rerender } = renderHook((p: { aiConsented: boolean }) => usePushToTalk({ ...mkArgs(), dictation, aiConsented: p.aiConsented }), { initialProps: { aiConsented: false } });
+    act(() => { down(result); vi.advanceTimersByTime(300); up(result); });
+    expect(resolveDictationEngine).toHaveBeenCalledTimes(1);
+    expect(resolveDictationEngine.mock.calls[0][2]).toBe(false);
+    rerender({ aiConsented: true });
+    act(() => { down(result); vi.advanceTimersByTime(300); up(result); });
+    expect(resolveDictationEngine).toHaveBeenCalledTimes(2);
+    expect(resolveDictationEngine.mock.calls[1][2]).toBe(true);
   });
   it("tracks the transcribing state via onStatus", () => {
     const { result } = renderHook(() => usePushToTalk(mkArgs()));
