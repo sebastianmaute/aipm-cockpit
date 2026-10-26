@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import "../test/ai-consent-live";
+import { AiConsentRevokedError, newConsent, publishAiConsentState } from "./ai-consent";
+import { defaultAiConfig } from "./settings-types";
 import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
 import { AiHttpError } from "./ai-errors";
 import { asTimeZoneForTests } from "./timezone";
@@ -526,5 +528,25 @@ describe("callClaude — §650 reports the key verdict at the envelope", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     await expect(callClaude(KEY, "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(TypeError);
     expect(getAiKeyStatus()).toBe("rejected");
+  });
+});
+
+// The file-wide live consent comes from ../test/ai-consent-live; put it back after a test revokes it.
+function restoreLiveConsent() {
+  publishAiConsentState({ ...defaultAiConfig, consent: newConsent(new Date(0)) });
+}
+
+describe("callClaude — the consent gate (AI-01)", () => {
+  afterEach(() => {
+    restoreLiveConsent();
+    vi.unstubAllGlobals();
+  });
+
+  it("rejects with AiConsentRevokedError and sends nothing when no consent is published", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    publishAiConsentState({ ...defaultAiConfig, consent: undefined });
+    await expect(callClaude("k", "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiConsentRevokedError);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
