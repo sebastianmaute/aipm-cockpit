@@ -1547,10 +1547,12 @@ function ChatPanelInner({
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {consentStale ? t(lang, "aiConsentReviewPrompt") : apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
-                </p>
-                {apiKeyMissing && onConfigureAi && (
+                {!consentStale && (
+                  <p className="text-sm text-muted-foreground">
+                    {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
+                  </p>
+                )}
+                {apiKeyMissing && !consentStale && onConfigureAi && (
                   <Button onClick={onConfigureAi}>{t(lang, "chatConfigureAi")}</Button>
                 )}
               </div>
@@ -1659,6 +1661,14 @@ function ChatPanelInner({
             onPick={(body, autoSend) => (autoSend ? submitPrompt(body) : setInput(body))}
           />
         </div>
+      )}
+
+      {/* Outside the empty state: a persisted transcript must not hide why the composer is off. */}
+      {consentStale && (
+        <Banner severity="info" role="status" className="mt-2 flex shrink-0 items-center justify-between gap-2">
+          <p className="min-w-0">{t(lang, "aiConsentReviewPrompt")}</p>
+          {onConfigureAi && <Button onClick={onConfigureAi}>{t(lang, "chatConfigureAi")}</Button>}
+        </Banner>
       )}
 
       {error && (

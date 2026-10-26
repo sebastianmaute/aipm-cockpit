@@ -156,6 +156,29 @@ describe("Without a current AI consent", () => {
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
+  it("a persisted transcript does not hide why the chat is off: the prompt and configure button show once, the composer is disabled", () => {
+    const onConfigureAi = vi.fn();
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={{ ...defaultAiConfig, consent: undefined, apiKey: "sk-test" }}
+        dispatcher={makeDispatcher()}
+        projectId="p1"
+        getChatConversation={() => ({
+          history: [{ role: "user", content: "earlier question" }],
+          display: [{ kind: "user", text: "earlier question" }],
+        })}
+        onConfigureAi={onConfigureAi}
+      />,
+    );
+    // Positive control: the transcript really is on screen, so this is not the empty state.
+    expect(screen.getByText("earlier question")).toBeInTheDocument();
+    expect(screen.getAllByText(t("en-US", "aiConsentReviewPrompt"))).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "chatConfigureAi") }));
+    expect(onConfigureAi).toHaveBeenCalledTimes(1);
+    expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeDisabled();
+  });
+
   it("the master switch off shows the no-key empty state, not the review prompt", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
