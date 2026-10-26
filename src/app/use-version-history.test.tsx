@@ -13,6 +13,10 @@ import type { Workspace } from "./workspace";
 import type { BudgetCurrency } from "./types";
 import { CAPTURE_FORMAT, readCaptureFormat } from "./version-capture-format";
 
+/** A stored payload with the current capture-format stamp leading it. Built as an object, not by
+ *  editing the JSON string, so nothing here looks like an incomplete sanitiser. */
+const stampCapture = (raw: string): string => JSON.stringify({ captureFormat: CAPTURE_FORMAT, ...JSON.parse(raw) });
+
 vi.mock("./version-store", { spy: true });
 vi.mock("./diagnostics", { spy: true });
 const cfg = { url: "x", authToken: "t" } as never;
@@ -330,7 +334,7 @@ describe("useVersionHistory", () => {
     const UTC = { timezone: { timezone: "UTC" } };
     async function restoreOverrides(version: object, now: object, stamped = true) {
       const raw = JSON.stringify({ ...base, tasks: [], ...version });
-      vi.spyOn(store, "loadVersionPayload").mockResolvedValue(stamped ? raw.replace("{", `{"captureFormat":${CAPTURE_FORMAT},`) : raw);
+      vi.spyOn(store, "loadVersionPayload").mockResolvedValue(stamped ? stampCapture(raw) : raw);
       vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
       const applyWorkspace = vi.fn();
       const nowStr = JSON.stringify({ ...base, tasks: [], ...now });
@@ -418,7 +422,7 @@ describe("useVersionHistory", () => {
     // §502 final review: the wiring pins an ABSENT settingsOverrides only on a stamped capture, so the
     // hook must tell it which kind it holds — on the vs-now compare and on the restore alike.
     it("tells prepareVersion whether the capture is stamped, on the vs-now compare and the restore", async () => {
-      const stamped = version.replace("{", `{"captureFormat":${CAPTURE_FORMAT},`);
+      const stamped = stampCapture(version);
       vi.spyOn(store, "loadVersionPayload").mockResolvedValue(stamped);
       vi.spyOn(store, "listVersionMeta").mockResolvedValue([meta]);
       const prepareVersion = vi.fn((v: Workspace) => v);
