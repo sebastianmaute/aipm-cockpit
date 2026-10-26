@@ -123,7 +123,7 @@ describe("AppHeader", () => {
   it("calls onShowAlerts when the bell button is clicked", () => {
     const onShowAlerts = vi.fn();
     render(<AppHeader {...makeProps({ onShowAlerts })} />, { wrapper: Wrapper });
-    fireEvent.click(screen.getByRole("button", { name: /show due-date notifications/i }));
+    fireEvent.click(screen.getByRole("button", { name: /open next actions/i }));
     expect(onShowAlerts).toHaveBeenCalledOnce();
   });
 

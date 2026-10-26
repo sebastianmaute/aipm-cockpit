@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 1.19.0 "Nesbø" | Files scanned: src/proxy.ts + 12 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.20.0 "Indridason" | Files scanned: src/proxy.ts + 12 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
 
 # Backend
 
@@ -8,7 +8,8 @@ on the server. Three server-side concerns only:
 1. **CSP nonce middleware** (`src/proxy.ts`) — per-request nonce; owns the `connect-src`/`frame-src`
    allowlist. ★ Host allowlisting lives HERE, not in `next.config`. A missing host fails only at
    runtime (unit tests mock `fetch`, `next build` passes), so it slips CI silently.
-2. **12 proxy routes** — CORS/SSRF/auth shims for calls the browser cannot make directly.
+2. **12 proxy routes** — CORS/SSRF/auth shims for calls the browser cannot make directly
+   (`find src/app/api -name route.ts | wc -l`).
 3. **Static asset serving.**
 
 Persistence is entirely client-side (see `data.md`).
@@ -33,7 +34,17 @@ one factory.
 
 Also enforced per route: HTTPS only, `..`/CRLF/`#` rejected in path, `@`/`:` rejected in host, 10s
 `AbortSignal.timeout`, 60/min/IP sliding window scoped per route (`jira/_rate-limit.ts`), and
-`console.error` that logs status/error only — never a token or body.
+`console.error` that logs status/error only — never a token or body (an upstream fetch failure goes
+through `describeUpstreamError`, `api/_shared/upstream-error.ts`).
+
+### Deployment switch — `api/_shared/integration-switch.ts` (§762)
+
+`refuseIfDisabled(id)` reads `AIPM_DISABLED_INTEGRATIONS` on every request and answers **503**
+`integration-disabled` before rate-limiting, parsing or any upstream call. Every route asks it: the Jira
+and Confluence routes through `parseJiraRequest` (`jira/_helpers.ts`), timelog and stt through their
+`_helpers.ts`, `ecb` directly. ★★ 503, never 401/403 — the Jira and TimeLog clients read 401/403 as a
+rejected token and would store `tokenInvalidAt`. The client half is `integration-switches.ts`; see
+`docs/AGENTS/platform.md`.
 
 ★ **`/api/stt` is the weakest by design.** The base URL is user-configured (BYO OpenAI-compatible
 endpoint), so there is no fixed apex to allowlist. It compensates with `isPrivateHost` + https-only +
@@ -69,5 +80,12 @@ before save, because save INSERTs named columns.
 
 `TABLE_NAMES` = the `ENTITY_SPECS` tables + `plan` + `fx_rates` + `meta`. Workspace save issues a
 per-table DELETE, so **any non-workspace table must stay out of that list** (guard test enforces):
-snapshots, version history, comm templates, committee/comm report versions, learning, operating
-guides, scheduled jobs, color schemes.
+`snapshot` + `snapshot_series`, `project_versions`, `comm_templates` + `comm_template_versions`,
+`committee_report_versions`, `action_learning`, `operating_guides`, `scheduled_jobs_v2` (and the
+pre-§772 `scheduled_jobs`, read once by a migration), `scheduled_reports`, `chat_threads`,
+`document_asset_data`, `color_schemes`. Enumerate with
+`grep -roE "CREATE TABLE IF NOT EXISTS [a-z_0-9]+" src/app --include=*.ts --exclude=*.test.ts | sed 's/.*EXISTS //' | sort -u` (that lists every created table, workspace ones and the legacy `workspace` blob included; the side tables are those absent from `TABLE_NAMES`)
+plus the `${...}` templated ones (`grep -rn 'CREATE TABLE IF NOT EXISTS ${' src/app`).
+★ The project-keyed ones are listed in `PROJECT_SCOPED_SIDE_TABLES` (`project-side-tables.ts`), which
+a tenant project's hard delete sweeps in a separate pipeline; `turso-side-tables.guard.test.ts` fails
+on a project-keyed table missing from it.

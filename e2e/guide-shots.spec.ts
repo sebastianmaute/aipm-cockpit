@@ -288,7 +288,7 @@ test.describe("guide", () => {
     await help.getByRole("searchbox").fill("Getting started");
     await help.getByText("Getting started: set up a budget", { exact: true }).first().click();
     await expect(help.getByText(/Turn on the functions you need/).first()).toBeVisible();
-    const guide = help.getByRole("link", { name: "Installation & setup guide ↗", exact: true });
+    const guide = help.getByRole("link", { name: "Installation & setup guide", exact: true });
     await expect(guide).toBeVisible();
     await blurActive(page);
     await markCallout(guide);

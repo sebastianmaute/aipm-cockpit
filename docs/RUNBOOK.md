@@ -191,6 +191,17 @@ Record the run in §498 (date, app version, `@azure/msal-browser` version, brows
 or desktop). A failed step is a release blocker for anything that depends on
 Microsoft 365.
 
+### Video guides (manual)
+
+The narrated video guides are hosted on YouTube (linked from the README) and are not committed. They
+are re-recorded by hand with `scripts/demo-video/`, which no CI workflow runs; its README owns the
+commands, exit codes and re-take steps. Operationally it needs a `.env.local` with the throwaway Turso
+pair (`TURSO_THROWAWAY_DATABASE_URL`, `TURSO_THROWAWAY_AUTH_TOKEN`), an `ANTHROPIC_API_KEY` and, for
+narration, an `ELEVENLABS_API_KEY` — use throwaway credentials, since recordings make billed calls —
+and a dev server started with `DEMO_RECORDER=1` (hides the Next.js dev indicator, `next.config.ts`).
+It clears the throwaway database before every take, so never point it at a database holding real
+projects, and never run it while an `e2e:live-*` run uses the same database.
+
 ## Rollback
 
 Because the server tier is stateless and user data lives in the browser:
@@ -235,7 +246,8 @@ with real user data, have users take an export before rolling back.
    in progress and a second is queued silently cancels the queued one (and a
    run paused waiting for approval occupies that same slot). A cancelled run just needs a re-run of its tag's workflow.
 4. `publish` verifies the built files (`release:verify`), attests build
-   provenance (skipped while the repository is private), drafts the GitHub
+   provenance (the step runs only while the repository is public, which it is
+   now; on a private repository it is skipped), drafts the GitHub
    Release, uploads the three files, then publishes. Check the release page:
    exactly three assets, the CHANGELOG notes, not a draft.
 5. Exit codes: `release:verify` — 0 the files are exactly right, 1 named
@@ -293,7 +305,8 @@ Integration config (storage backend, AI, Jira, Timelog, M365) can be done via th
 ### Environment variables (build-time, optional)
 
 The optional `NEXT_PUBLIC_*` build-time variables (Microsoft Entra client/tenant
-ID, Turso database URL and auth token, the AI-usage policy owner and link) and their caveats are documented in
+ID, Turso database URL and auth token, the AI-usage policy owner and link, the export
+footer, the default Timelog tenant) and their caveats are documented in
 [security.md → Environment variables](security.md#environment-variables), which
 owns that list.
 
@@ -361,11 +374,14 @@ branch's commits with
 (exit 1 names each offending short SHA and class, e.g. `class=trailer`; reword those commits).
 
 ### "Actions minutes exhausted"
-While the repository is private, Actions runs on GitHub Pro's included minutes with a $0 budget, so
-exhaustion stops jobs rather than billing. Checks cannot complete, so merging is blocked.
+The repository is public (`gh repo view --json visibility`), and GitHub-hosted standard runners are
+free for public repositories, so the minutes no longer run out. The fallback below still applies if
+the repository goes private again (Actions then runs on GitHub Pro's included minutes with a $0
+budget, so exhaustion stops jobs rather than billing) or when Actions itself is down: checks cannot
+complete, so merging is blocked.
 Fallback: run `npm run gate:local` (with `LEAK_LIST_FILE` set), merge with the admin bypass, and note
-the bypass and the gate line (`gate:local PASS at <sha>`) in the PR. The next month's first push to
-`main` re-runs everything. ★ `gate:local` runs `changelog:check` with no PR context, so the
+the bypass and the gate line (`gate:local PASS at <sha>`) in the PR. The next push to `main` once
+Actions runs again re-runs everything. ★ `gate:local` runs `changelog:check` with no PR context, so the
 `no-changelog` label cannot reach it: on a branch whose PR carries that label, run
 `CHANGELOG_OPT_OUT=1 npm run gate:local` and say so in the PR (§527).
 
@@ -495,6 +511,21 @@ Most likely causes, in order:
 We can't recover the data — there is no server-side copy. Suggest users
 periodically export to CSV / JSON / Markdown via the Export menu.
 
+### "Unsaved changes … could not be restored automatically because this project was changed elsewhere since"
+Saves are asynchronous, so a save started as the page closes can be lost. The app therefore keeps a
+copy of the last unconfirmed save in `localStorage` (the unload journal, §629) and, on the next load,
+restores it over the stored project when that project is still the version the copy was built on.
+When the stored project has moved on — another tab or device saved it in between — the app does not
+choose: the notice offers **Restore anyway** (the copy overwrites the stored version) or **Discard**.
+Ask the user which version they want before they pick.
+
+Since 1.20.0 two false notices are fixed: a reload of a Turso project while a save was still on its
+way, and a quick reload while two saves were in flight. A copy written by an older version may still
+show the notice once, on the first reload after the update; Restore anyway is safe there if nobody
+else edited the project. Drafts for other projects or storage locations are listed in a separate
+notice with Download and Discard; a downloaded draft is workspace JSON that the Step 0 import reads.
+Detail: [`docs/AGENTS/storage.md`](AGENTS/storage.md), "The unload journal (§629)".
+
 ### "Build fails with type errors after dependency bump"
 Next 16 + React 19 have moved fast. Pin the patch version and check
 `node_modules/next/dist/docs/` for changes before re-bumping. The root
@@ -609,7 +640,8 @@ knows it's a gap, not an oversight.
 
 ## Escalation
 
-This is a single-team internal tool with no on-call rotation. Report issues
-via the maintainer's issue tracker. For data-loss reports specifically:
+There is no on-call rotation. Report bugs as GitHub issues on the repository;
+report a security vulnerability privately as [SECURITY.md](../SECURITY.md)
+describes, never in a public issue. For data-loss reports specifically:
 remind the user that data is browser-local and not server-recoverable, then
 walk them through the Export menu so future incidents are recoverable.

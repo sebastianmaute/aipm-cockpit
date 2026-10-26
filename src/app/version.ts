@@ -2,8 +2,9 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "1.19.0";
-export const APP_BUILD_DATE = "2026-10-15"; // 1.19.0: a feature release — each project keeps its budget in EUR, USD, GBP or INR, chosen at creation and switchable later; an empty Budget view walks through four setup steps; Import forecast reads planned hours from a spreadsheet into a bucket; TimeLog months can be closed and later changes to them are flagged, the TimeLog connection works for any region and matches people on any of their email addresses; Help, the demo banner, the Turso setup steps and the desktop start screen make the first steps easier; the dashboard's Budget burn tile no longer scrolls and its chart labels are no longer covered by its lines; and fixes cover a day-rate role losing its hourly rate, a plan starting in the wrong month around midnight, and Ask Claude naming the page; the Monte Carlo schedule forecast is built but held back; update every device that shares a project before switching its currency (Nesbø)
+export const APP_VERSION = "1.20.0";
+export const APP_BUILD_DATE = "2026-10-26"; // 1.20.0: a feature release — a scheduled AI job analyses one named project, can carry its own instruction and keeps every run as a report under Portfolio → Scheduled reports; a deployment can switch integrations off with AIPM_DISABLED_INTEGRATIONS; a forecast import chooses its target bucket, Claude fills every field it can when it proposes a project, and Gantt milestones can be dragged and task bars moved from the keyboard; Add task comes first in Open Points and an absence's person is picked from a searchable list; the narrated video guides are on YouTube and linked from Help, and the top bar's bell is named for Next actions, which it opens; and fixes cover false "changed elsewhere" notices after a Turso reload, Action Center learning erased by the app's own saves, templates starting overdue, the steering report draft, six desktop flows, one-shot AI features on the newest models and saves before a project is chosen; Next.js 16.4.2, DOMPurify 3.4.17 and Zod 4.6.7 close advisories; the Monte Carlo schedule forecast stays held back; update every device that shares a portfolio, since older versions neither show nor run the new scheduled jobs (Indridason)
+// 1.19.0: a feature release — each project keeps its budget in EUR, USD, GBP or INR, chosen at creation and switchable later; an empty Budget view walks through four setup steps; Import forecast reads planned hours from a spreadsheet into a bucket; TimeLog months can be closed and later changes to them are flagged, the TimeLog connection works for any region and matches people on any of their email addresses; Help, the demo banner, the Turso setup steps and the desktop start screen make the first steps easier; the dashboard's Budget burn tile no longer scrolls and its chart labels are no longer covered by its lines; and fixes cover a day-rate role losing its hourly rate, a plan starting in the wrong month around midnight, and Ask Claude naming the page; the Monte Carlo schedule forecast is built but held back; update every device that shares a project before switching its currency (Nesbø)
 // 1.18.0: a feature release — Optimize with AI in Open Points proposes splits, regroups, missing tasks, estimates and links for you to pick from; operating guides reach eleven AI actions as well as the chat, with eight built-in method guides; a fifth TimeLog guardrail flags time booked while absent; and fixes cover resize-corner clicks saving a size, a Jira sync overwriting changes made while it runs, dialogs losing the cursor on open, names with $ sequences or {1}, and AI allocation planning hiding skipped changes; while older versions share the same Turso database they ignore a guide's "Applies to" choice and can reset or drop it, so every device should be updated (Larsson)
 // 1.17.0: a feature release — the start screen offers a guided demo project, which comes with a gap-free weekly Trends history when Turso is connected; Trends labels only as many points as fit the axis; the desktop update window shows formatted release notes, and installing and updating say that they take a while; icon buttons, fields, menus and badges follow the app standard; and the version-name field in History has an accessible name (Mankell)
 // 1.16.0: a feature release — long task lists, Gantt charts, swimlanes, activity logs and Kanban boards stay responsive on large projects; exports and documents gain the budget forecast, and Word files get the project branding, real lists and readable tables; the AI assistant can read RACI assignments and the budget forecast, its proposed tasks carry an owner, priority and group, and voice commands it does not know go to it; screen readers tell same-named rows apart in 32 more places; most small buttons now use the app's one standard button; Next.js 16.3.8 closes six advisories; and a large batch of defect fixes covers templates, Turso images, notes, Jira sync, Word export and the activity-log download (Rankin)
@@ -67,7 +68,16 @@ export const APP_BUILD_DATE = "2026-10-15"; // 1.19.0: a feature release — eac
 // 0.282.0: TimeLog bookings are now reviewed against four optional guardrails — a per-entry cap, a daily cap, work booked on holidays or weekends, and hours beyond a person's contracted day — each surfaced as an insight rather than blocking anything (Zamyatin)
 // 0.281.0: the assistant can now read Outlook mail you attach — .msg, .eml and saved .mhtml — pulling the real text out of the message and out of the files attached to it, instead of naming them and stopping (Womack)
 /** Minor-series milestone codename (an author's surname). The
- *  1.19.x line is "Nesbø" (Jo Nesbø, Norwegian crime novelist, author of
+ *  1.20.x line is "Indridason" (Arnaldur Indriðason, Icelandic crime novelist,
+ *  author of "Jar City", 2000, an Inspector Erlendur novel), taken by the
+ *  SELECTION procedure below as the first name in the candidate list. Swept
+ *  BEFORE the 1.20.0 header was written, in one run with its controls, all
+ *  word-bounded: `grep -ciw indridason CHANGELOG.md` 0, `grep -ciw indriðason
+ *  CHANGELOG.md` 0, 0 in `git log --all --format=%s` for both spellings and 0
+ *  files in `src`; positive control `nesbø` 1 in CHANGELOG.md, 1 in commit
+ *  subjects and 1 file in `src`, negative control `zzznotaname` 0 in
+ *  CHANGELOG.md and commit subjects.
+ *  The 1.19.x line was "Nesbø" (Jo Nesbø, Norwegian crime novelist, author of
  *  "The Bat", 1997, the first Harry Hole novel), taken by the SELECTION
  *  procedure below as the first name in the candidate list. Swept BEFORE the
  *  1.19.0 header was written, in one run with its controls, all word-bounded:
@@ -479,7 +489,7 @@ export const APP_BUILD_DATE = "2026-10-15"; // 1.19.0: a feature release — eac
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Nesbø";
+export const APP_MILESTONE = "Indridason";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Gibson"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 /** The app's public source repository, linked from the Version panel. */

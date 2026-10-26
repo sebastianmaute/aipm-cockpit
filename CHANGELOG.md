@@ -10,8 +10,30 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-10-26 "Indridason"
+
+A feature release. A scheduled AI job now analyses one project you name, can carry an instruction of your own, and
+keeps every run as a report under Portfolio → Scheduled reports. A deployment can switch integrations off with
+`AIPM_DISABLED_INTEGRATIONS`. A forecast import lets you choose its target bucket, Claude fills every field it can
+when it proposes a project, and a Gantt milestone can be dragged to another date; Gantt task bars can now be moved
+and resized from the keyboard. Add task comes first in Open Points, and an absence's person is picked from a
+searchable list. The narrated video guides are on the project's YouTube channel, linked from Help, each view's
+banner and the README, and the top bar's bell is now named for what it opens, Next actions. Fixes cover
+false "changed elsewhere" notices after reloading a Turso project, Action Center learning erased by the app's own
+saves, templates whose milestones started overdue, the steering report draft, six flows in the desktop app, Claude's
+one-shot features on the newest models, and saves to Turso before a project is chosen. Next.js 16.4.2, DOMPurify
+3.4.17 and Zod 4.6.7 close known advisories, and React moves to 19.3.1. The Monte Carlo schedule forecast is still
+held back. Update every device that shares a portfolio: older versions neither show nor run the new scheduled jobs;
+see Scheduled reports under Added.
+
 ### Added
 
+- **The video guides on YouTube, linked from Help.** The narrated video guides are published on the project's
+  YouTube channel, [@aipmcockpit](https://www.youtube.com/@aipmcockpit). A Help entry that a feature or AI video
+  shows now lists it under "Video guides" (37 entries link at least one), the banner that introduces a view has a
+  "Watch the video" link beside "Learn more" (15 of the 16 views with a banner; the Resources capacity report has
+  no video of its own), and the Help window's footer links the channel. Each link opens YouTube in your browser,
+  and in the desktop app in your system browser. The videos are in English. The README links the channel too.
 - **Scheduled reports, with a project and an instruction per job (§772).** A scheduled job now names the one project it
   analyses and can carry an instruction of your own (what to look for, what to ignore). Each run is kept as a report
   under Portfolio → Scheduled reports, with the summary and the suggested actions, so a run you did not watch can be
@@ -77,6 +99,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The top bar's bell says what it does (§783).** Its name and tooltip read "Show due-date notifications", but the
+  bell opens Next actions and its badge counts the actions for now. It is now "Open next actions" (German "Nächste
+  Schritte öffnen"), still followed by the count while the badge shows.
 - **No false "changed elsewhere" notice after reloading a Turso project (§629).** Reloading while a save was still
   on its way could show "Unsaved changes from your last session could not be restored automatically because this
   project was changed elsewhere since", although that save had arrived. The check compared the two versions too
