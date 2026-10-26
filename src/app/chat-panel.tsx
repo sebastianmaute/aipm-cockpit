@@ -9,8 +9,8 @@ import { type OperatingGuide } from "./operating-guide";
 import { ChatPromptChips } from "./chat-prompt-chips";
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
-import type { AiConfig, Settings } from "./settings-types";
-import { clampMaxChatTurns } from "./settings-types";
+import { type AiConfig, type Settings, clampMaxChatTurns } from "./settings-types";
+import { isConsentCurrent } from "./ai-consent";
 import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 import { useAiUsageContext } from "./ai-usage-context";
@@ -231,7 +231,7 @@ function ChatPanelImpl({
 } & ChatProposalProps &
   ChatConversationStoreProps &
   ChatScopeProps) {
-  if (!ai.consentAccepted) {
+  if (!isConsentCurrent(ai.consent)) {
     return <ConsentScreen lang={lang} policy={resolveAiPolicy(ai)} onAccept={onAcceptConsent} />;
   }
   return (

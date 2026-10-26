@@ -3,6 +3,8 @@
 // user SEES and can operate: row-unique pickers, a blocker that disables
 // Apply, the partial-period warning, the AI-off reason, and one commit.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import "../test/ai-consent-live";
+import { newConsent } from "./ai-consent";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { defaultSettings, type Settings } from "./settings-types";
@@ -15,7 +17,7 @@ import { buildZip } from "./zip";
 // §717 — the import takes the live AI settings as `deps.ai`; `stubSettings` sets what the next deps carry.
 let stubbedAi = defaultSettings.ai;
 
-const AI_ON: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-test", model: "claude-x" } };
+const AI_ON: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-test", model: "claude-x" } };
 const AI_OFF: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: false, apiKey: "" } };
 
 function stubSettings(settings: Settings): void {

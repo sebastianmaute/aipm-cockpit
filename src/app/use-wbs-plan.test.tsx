@@ -3,6 +3,7 @@
 // undo matters, the stack is the REAL useUndoStack — so apply, the apply-time
 // re-ground and undo are exercised end to end, not against spies.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { newConsent } from "./ai-consent";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { AiHttpError } from "./ai-errors";
@@ -30,7 +31,7 @@ vi.mock("./wbs-plan/wbs-plan", async (importOriginal) => {
 
 const AI_ON: Settings = {
   ...defaultSettings,
-  ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-test", model: "claude-x" },
+  ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-test", model: "claude-x" },
 };
 
 const task = (id: number, over: Partial<Task> = {}): Task =>

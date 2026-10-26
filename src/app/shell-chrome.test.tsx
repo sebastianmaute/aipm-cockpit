@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { newConsent } from "./ai-consent";
 import { describe, expect, it, vi } from "vitest";
 import type React from "react";
 import { FiltersProvider } from "./filters-context";
@@ -64,7 +65,7 @@ describe("buildShellChrome — AI assistant button gate", () => {
 
   it("renders the AI Assistant button in the classic AppHeader when AI is enabled with a key", () => {
     const { appHeaderEl } = buildShellChrome(
-      makeDeps({ settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, apiKey: "test-key" } } }),
+      makeDeps({ settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "test-key" } } }),
     );
     render(<>{appHeaderEl}</>, { wrapper: Wrapper });
     expect(screen.getByRole("button", { name: "AI Assistant" })).toBeInTheDocument();
@@ -78,7 +79,7 @@ describe("buildShellChrome — AI assistant button gate", () => {
 
   it("renders the Ask Claude pill in the classic AppHeader when AI is enabled with a key", () => {
     const { appHeaderEl } = buildShellChrome(
-      makeDeps({ settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, apiKey: "test-key" } } }),
+      makeDeps({ settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "test-key" } } }),
     );
     render(<>{appHeaderEl}</>, { wrapper: Wrapper });
     expect(screen.getByRole("button", { name: "Ask Claude" })).toBeInTheDocument();

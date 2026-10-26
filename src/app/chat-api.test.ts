@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import "../test/ai-consent-live";
 import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
 import { AiHttpError } from "./ai-errors";
 import { asTimeZoneForTests } from "./timezone";

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import "../../test/ai-consent-live";
 import { runMeetingReport } from "./report-call";
 import { __resetToolChoiceFallbackForTests } from "../ai-forced-call";
 import type { DashboardModel } from "../dashboard";

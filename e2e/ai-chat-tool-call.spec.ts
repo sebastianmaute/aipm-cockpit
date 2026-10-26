@@ -54,7 +54,7 @@ test("a chat turn's create_task tool call creates the task and reports its resul
         ai: {
           enabled: true,
           apiKey: "sk-ant-e2e-mocked-key-not-real-0000",
-          consentAccepted: true,
+          consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 1 },
           groundInGuides: false,
         },
       }),

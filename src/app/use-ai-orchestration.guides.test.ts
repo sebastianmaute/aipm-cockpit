@@ -3,6 +3,7 @@
 // `guides` dep and hands it to both of its callers: the on-demand "Analyze with
 // AI" hook and the scheduled-job runner. The two are mocked to capture their args.
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { newConsent } from "./ai-consent";
 import { renderHook } from "@testing-library/react";
 
 const analysisArgs = vi.hoisted(() => [] as unknown[]);
@@ -31,7 +32,7 @@ const guide: OperatingGuide = {
 function deps(groundInGuides: boolean, guidesReady = true, scheduledJobs = false): AiOrchestrationDeps {
   return {
     isPopout: false,
-    settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-k", groundInGuides, scheduledJobs } },
+    settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-k", groundInGuides, scheduledJobs } },
     guides: [guide],
     guidesReady,
     lang: "en-US",

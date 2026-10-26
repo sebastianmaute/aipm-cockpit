@@ -21,6 +21,7 @@ import { dropLegacyActivityLog } from "./activity-log";
 import { sanitizeJiraExtraProjects } from "./jira-projects";
 import { logDiag } from "./diagnostics";
 import { settingsSealedForReload } from "./settings-reload-seal";
+import { publishAiConsentState } from "./ai-consent";
 
 export const SETTINGS_KEY = "aipm-cockpit:settings";
 
@@ -592,6 +593,13 @@ export function useSettings(): {
       settingsWriteFailingRef.current = false;
     }
   }, [settings, hydrated]);
+
+  // Publish the consent state for the request path (plain functions cannot read settings). No setState.
+  // ★ Only a HYDRATED instance publishes: useSettings() runs in many components, and a fresh one still holds
+  //   defaultSettings (no consent), which would otherwise revoke a live consent until its own load finishes.
+  useEffect(() => {
+    if (hydrated) publishAiConsentState(settings.ai);
+  }, [settings.ai, hydrated]);
 
   // Sync document language attribute and ensure dict is loaded on mid-session switch.
   useEffect(() => {

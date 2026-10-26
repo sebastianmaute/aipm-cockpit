@@ -27,7 +27,7 @@ vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
     settings: {
       lang: "en-US",
-      ai: { consentAccepted: false, provider: "none" },
+      ai: { consent: undefined, provider: "none" },
       jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", issueTypes: [] },
       notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
       holidayCountries: [],

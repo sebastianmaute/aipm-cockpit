@@ -1,4 +1,6 @@
 import "fake-indexeddb/auto";
+import "../test/ai-consent-live";
+import { newConsent } from "./ai-consent";
 import { asTimeZoneForTests } from "./timezone";
 import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -21,7 +23,7 @@ import { buildSystemPrompt, systemBlocksText } from "./chat-api";
 import { appliedProposalNotice } from "./chat-proposal-stage";
 import type { ToolDispatcher } from "./chat-tools";
 import type { AppView } from "./nav-config";
-import { defaultAiConfig as baseAiConfig } from "./settings-types";
+import { defaultAiConfig as baseAiConfig, type AiConfig } from "./settings-types";
 import type { OperatingGuide } from "./operating-guide";
 import type { FeatureModuleId } from "./feature-modules";
 import { emptyWorkspace, type Workspace } from "./workspace";
@@ -132,7 +134,7 @@ function makeDispatcher(): ToolDispatcher {
 // ---------------------------------------------------------------------------
 const AI_WITH_KEY = {
   ...defaultAiConfig,
-  consentAccepted: true,
+  consent: newConsent(new Date(0)),
   apiKey: "sk-test",
 };
 
@@ -146,7 +148,7 @@ describe("Consent screen accept", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: false, ...CONFIGURED_POLICY }}
+        ai={{ ...defaultAiConfig, consent: undefined, ...CONFIGURED_POLICY }}
         dispatcher={makeDispatcher()}
         onAcceptConsent={onAcceptConsent}
       />,
@@ -164,13 +166,13 @@ describe("Consent screen accept", () => {
     // the settings instance ChatPanel actually reads. Here onAcceptConsent
     // updates the very `ai` passed to ChatPanel, and the consent screen must go.
     function Harness() {
-      const [ai, setAi] = useState({ ...defaultAiConfig, consentAccepted: false, ...CONFIGURED_POLICY });
+      const [ai, setAi] = useState<AiConfig>({ ...defaultAiConfig, ...CONFIGURED_POLICY });
       return (
         <ChatPanel {...SCOPE_PROPS}
           lang="en-US"
           ai={ai}
           dispatcher={makeDispatcher()}
-          onAcceptConsent={() => setAi((a) => ({ ...a, consentAccepted: true }))}
+          onAcceptConsent={() => setAi((a) => ({ ...a, consent: newConsent(new Date(0)) }))}
         />
       );
     }
@@ -186,7 +188,7 @@ describe("Consent screen accept", () => {
     return render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: false, ...ai }}
+        ai={{ ...defaultAiConfig, consent: undefined, ...ai }}
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
       />,
@@ -942,7 +944,7 @@ describe("SP1 seed + foundational chips", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "" }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "" }}
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
         chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }}
@@ -959,7 +961,7 @@ describe("SP1 seed + foundational chips", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "sk-test", groundInGuides: true }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "sk-test", groundInGuides: true }}
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
         guidesReady={false}
@@ -1050,7 +1052,7 @@ describe("chat panel layout", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "sk-test" }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "sk-test" }}
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
       />,
@@ -1369,7 +1371,7 @@ describe("guidesReady gate", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "sk-test", groundInGuides: true }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "sk-test", groundInGuides: true }}
         dispatcher={{
           listTasks: vi.fn(() => []),
           getTask: vi.fn(() => null),
@@ -1406,7 +1408,7 @@ describe("passphrase-locked API key unlock prompt", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "" }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "" }}
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
       />,
@@ -3960,7 +3962,7 @@ describe("§650 a passphrase-unlocked key feeds the key verdict", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "" }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "" }}
         dispatcher={makeDispatcher()}
         onAcceptConsent={vi.fn()}
       />,

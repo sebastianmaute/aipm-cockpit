@@ -6,6 +6,7 @@ import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { getSessionAiKey } from "./session-ai-key";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
+import { type AiConsent, isConsentCurrent, sanitizeConsent } from "./ai-consent";
 import { BRANDING_EXPORT_FOOTER_MAX } from "./export-footer";
 export { DEFAULT_EXPORT_FOOTER, BRANDING_EXPORT_FOOTER_MAX, exportFooterEnv, exportFooterText } from "./export-footer";
 export type { ExportFooterEnv } from "./export-footer";
@@ -41,7 +42,10 @@ export type AiConfig = {
   enabled?: boolean; // Master switch for all AI features. Default OFF (undefined = off) — must be ticked to use the assistant.
   apiKey: string;
   model: ChatModel;
-  consentAccepted: boolean;
+  /** The AI disclosure the user accepted on this device (versioned); absent or stale = AI off. */
+  consent?: AiConsent;
+  /** A second, separate consent for unattended (scheduled / background) AI runs. */
+  backgroundConsent?: AiConsent;
   sessionTokenCap?: number;
   weeklyTokenCap?: number;
   groundInGuides: boolean;
@@ -121,7 +125,6 @@ export function clampInsightRecInterval(v: unknown): number {
 export const defaultAiConfig: AiConfig = {
   apiKey: "",
   model: CHAT_MODELS[0].id,
-  consentAccepted: false,
   sessionTokenCap: DEFAULT_SESSION_TOKEN_CAP,
   weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP,
   groundInGuides: true,
@@ -147,7 +150,9 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
   return {
     apiKey: typeof obj.apiKey === "string" ? obj.apiKey : "",
     model,
-    consentAccepted: obj.consentAccepted === true,
+    // The legacy boolean consent flag is deliberately dropped (not migrated): it covered a narrower text.
+    consent: sanitizeConsent(obj.consent),
+    backgroundConsent: sanitizeConsent(obj.backgroundConsent),
     sessionTokenCap: coerceCap(obj.sessionTokenCap, DEFAULT_SESSION_TOKEN_CAP),
     weeklyTokenCap: coerceCap(obj.weeklyTokenCap, DEFAULT_WEEKLY_TOKEN_CAP),
     enabled: obj.enabled === true,
@@ -183,7 +188,12 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
  *  Master switch defaults OFF (undefined → false). The single source of truth
  *  for "may AI run" — gate every AI activation through this (or aiKeyIfEnabled). */
 export function isAiEnabled(ai: AiConfig | undefined): boolean {
-  return ai?.enabled === true && liveAiKey(ai) !== "";
+  return ai?.enabled === true && liveAiKey(ai) !== "" && isConsentCurrent(ai.consent);
+}
+
+/** Unattended AI (scheduled jobs, background recommendations): AI is enabled AND the separate background consent is current. */
+export function isAiBackgroundEnabled(ai: AiConfig | undefined): boolean {
+  return isAiEnabled(ai) && isConsentCurrent(ai?.backgroundConsent);
 }
 
 /** §717 — the key an AI call uses: the stored one, else one the user unlocked with its passphrase on this page
@@ -209,7 +219,7 @@ export function aiAssistantOpener(
 /** The trimmed API key, but only when the AI master switch is on; "" otherwise.
  *  Feeding "" downstream makes every key-presence gate treat AI as unconfigured. */
 export function aiKeyIfEnabled(ai: AiConfig | undefined): string {
-  return ai?.enabled === true ? liveAiKey(ai) : "";
+  return isAiEnabled(ai) ? liveAiKey(ai) : "";
 }
 
 export type ChannelConfig = { enabled: boolean; leadDays?: number };

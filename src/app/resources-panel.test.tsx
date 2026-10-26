@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { newConsent } from "./ai-consent";
 import { join } from "node:path";
 import { useState } from "react";
 import { describe, test, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
@@ -33,7 +34,7 @@ function stubSettings(settings: Settings) {
 
 const AI_ON: Settings = {
   ...defaultSettings,
-  ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-test", model: "claude-x" },
+  ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-test", model: "claude-x" },
 };
 
 beforeEach(() => {

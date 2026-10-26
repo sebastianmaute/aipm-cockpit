@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import "../test/ai-consent-live";
 import { __resetToolChoiceFallbackForTests, runForcedToolCall, runForcedToolCallWithStop } from "./ai-forced-call";
 import { AiHttpError } from "./ai-errors";
 import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";

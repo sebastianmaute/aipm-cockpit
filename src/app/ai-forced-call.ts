@@ -17,6 +17,7 @@
 import type { ApiMessage, SystemBlock } from "./chat-api";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
+import { assertInteractiveConsentLive } from "./ai-consent";
 import { matchesSchema, withStrictTool } from "./ai-tool-schema";
 
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -213,6 +214,7 @@ async function postOnce(
   const system = withGuideText(args.system, args.guideText, args.cacheGuides === true);
   if (system !== undefined) body.system = system;
 
+  assertInteractiveConsentLive();
   const res = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     headers: {

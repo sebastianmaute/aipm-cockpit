@@ -109,6 +109,7 @@ import type { WorkspaceSectionProps } from "./workspace-section-types";
 import { WorkspaceTabStrip } from "./workspace-section-chrome";
 import { useStableHandlers } from "./use-stable-handlers";
 import { exportFooterText, isAiEnabled } from "./settings-types";
+import { newConsent } from "./ai-consent";
 import { ExportExtrasProvider } from "./export-extras-context";
 import { useWorkspaceForecastDecisionSource } from "./use-forecast-decision-source";
 // Re-export so existing importers of `WorkspaceSectionProps` from
@@ -269,7 +270,7 @@ export function WorkspaceSection({
   // rendered here sees it at once; `useSettings` broadcasts the change to the
   // other live instances after it commits (the registry in `use-settings.ts`).
   const handleAcceptAiConsent = useCallback(
-    () => setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } })),
+    () => setSettings((s) => ({ ...s, ai: { ...s.ai, consent: newConsent(new Date()) } })),
     [setSettings],
   );
   // ★ The whole context value is kept as well as the destructured slices: the

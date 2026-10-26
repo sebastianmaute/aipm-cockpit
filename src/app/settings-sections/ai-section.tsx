@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
+import { isConsentCurrent } from "../ai-consent";
 import { TextButton } from "../text-button";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS } from "../settings-types";
 import {
@@ -408,7 +409,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       <FieldHint className="mt-2">
         {t(lang, "aiApiKeyHint")}
       </FieldHint>
-      {settings.ai.consentAccepted ? (
+      {isConsentCurrent(settings.ai.consent) ? (
         <p className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span><CheckIcon aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />{t(lang, "aiConsentGranted")}</span>
           <TextButton
@@ -416,7 +417,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
             onClick={() =>
               onChange({
                 ...settings,
-                ai: { ...settings.ai, consentAccepted: false },
+                ai: { ...settings.ai, consent: undefined, backgroundConsent: undefined },
               })
             }
             className="text-xs"

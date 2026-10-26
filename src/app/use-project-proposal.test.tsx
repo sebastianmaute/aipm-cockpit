@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import "../test/ai-consent-live";
 import { renderHook, act } from "@testing-library/react";
 import { useProjectProposal } from "./use-project-proposal";
 import type { ReactNode } from "react";

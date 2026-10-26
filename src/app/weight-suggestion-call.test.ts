@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import "../test/ai-consent-live";
 import { runWeightSuggestion } from "./weight-suggestion-call";
 import { defaultNextActionsConfig } from "./settings-types";
 import { __resetToolChoiceFallbackForTests } from "./ai-forced-call";

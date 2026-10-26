@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { newConsent } from "./ai-consent";
 import { join } from "node:path";
 import { it, expect, vi, afterEach, describe } from "vitest";
 import { renderHook, act } from "@testing-library/react";
@@ -24,7 +25,7 @@ const ws = { tasks: [task], raid: [], milestones: [], changes: [], stakeholders:
 function mkDeps(over: Partial<InlineAiEditDeps> = {}): InlineAiEditDeps {
   return {
     dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }) } as unknown as InlineAiEditDeps["dispatcher"],
-    ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineAiEditDeps["ai"],
+    ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineAiEditDeps["ai"],
     apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
     isPopout: false, lang: "en-US",
     showToast: vi.fn(), ws, guides: [], recordUsage: vi.fn(),
@@ -328,7 +329,7 @@ describe("useInlineEntityEdit — raid", () => {
     return {
       entity: "raid",
       dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }) } as unknown as InlineEntityEditDeps["dispatcher"],
-      ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
+      ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
       isPopout: false, lang: "en-US",
       showToast: vi.fn(), ws: raidWs, guides: [], recordUsage: vi.fn(),
@@ -690,7 +691,7 @@ describe("useInlineEntityEdit — a single-FK link (resource.roleId)", () => {
     return {
       entity: "resource",
       dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }) } as unknown as InlineEntityEditDeps["dispatcher"],
-      ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
+      ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
       isPopout: false, lang: "en-US",
       showToast: vi.fn(), ws: roleWs, guides: [], recordUsage: vi.fn(),

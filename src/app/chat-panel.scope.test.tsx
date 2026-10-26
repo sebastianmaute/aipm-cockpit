@@ -21,6 +21,8 @@
 // stale census of a guard is a licence to remove the part it forgot.
 
 import "fake-indexeddb/auto";
+import "../test/ai-consent-live";
+import { newConsent } from "./ai-consent";
 import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { ChatPanel } from "./chat-panel";
@@ -71,7 +73,7 @@ vi.mock("./use-push-to-talk", () => ({
 const AI_WITH_KEY = {
   ...baseAiConfig,
   enabled: true,
-  consentAccepted: true,
+  consent: newConsent(new Date(0)),
   apiKey: "sk-test",
 };
 

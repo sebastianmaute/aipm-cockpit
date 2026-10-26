@@ -91,7 +91,7 @@ function makeSettings(): Settings {
     ai: {
       apiKey: "",
       model: "claude-sonnet-4-6",
-      consentAccepted: false,
+      consent: undefined,
       groundInGuides: true,
     },
     notifications: {

@@ -2,6 +2,7 @@
 // the guides that name it, under a cap, and the forced-call envelope appends the
 // text after the fixed prompt.
 import { describe, it, expect, vi, afterEach } from "vitest";
+import "../test/ai-consent-live";
 import { readFileSync } from "node:fs";
 import {
   AI_TARGETS, ACTION_GUIDE_CHAR_CAP, actionGuideText, actionTargetsNotSentByGuide, guideTargets, selectActionGuides, selectActiveGuides,

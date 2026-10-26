@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { newConsent } from "../ai-consent";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { ScheduledJobsSection } from "./scheduled-jobs-section";
 import { defaultSettings, type Settings } from "../settings-types";
@@ -67,7 +68,7 @@ const KEY = "sk-test";
 const TURSO = { httpUrl: "https://x.example", authToken: "t" } as unknown as TursoConfig;
 
 function withKey(over: Partial<Settings["ai"]> = {}): Settings {
-  return { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY, enabled: true, ...over } };
+  return { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY, enabled: true, consent: newConsent(new Date(0)), ...over } };
 }
 
 function job(over: Partial<ScheduledJob> = {}): ScheduledJob {

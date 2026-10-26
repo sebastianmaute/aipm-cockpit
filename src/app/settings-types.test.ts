@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled } from "./settings-types";
+import { newConsent } from "./ai-consent";
+import { setSessionAiKey, clearSessionAiKey } from "./session-ai-key";
 
 const NO_FOOTER_ENV: ExportFooterEnv = { footer: undefined };
 
@@ -206,14 +208,14 @@ describe("aiAssistantOpener", () => {
 
   it("returns the opener when AI is enabled with a key", () => {
     const open = vi.fn();
-    const ai = { ...defaultAiConfig, enabled: true, apiKey: "test-key" };
+    const ai = { ...defaultAiConfig, enabled: true, apiKey: "test-key", consent: newConsent(new Date(0)) };
     const opener = aiAssistantOpener(ai, open);
     expect(opener).toBe(open);
   });
 });
 
 describe("AiConfig recall toggles", () => {
-  const base = { apiKey: "", model: "claude-sonnet-4-6", consentAccepted: false, groundInGuides: false };
+  const base = { apiKey: "", model: "claude-sonnet-4-6", groundInGuides: false };
 
   it("defaults BOTH to ON when absent", () => {
     const ai = sanitizeAiConfig(base);
@@ -265,7 +267,7 @@ describe("AiConfig recall toggles", () => {
 });
 
 describe("chatSearch", () => {
-  const base = { apiKey: "", model: "claude-sonnet-4-6", consentAccepted: false, groundInGuides: false };
+  const base = { apiKey: "", model: "claude-sonnet-4-6", groundInGuides: false };
 
   it("is enabled by absence and by true", () => {
     expect(chatSearchEnabled(undefined)).toBe(true);
@@ -371,5 +373,52 @@ describe("sanitizeAiConfig — AI policy fields", () => {
     const c = sanitizeAiConfig({ policyOrgName: "x".repeat(5000), policyUrl: "y".repeat(5000) });
     expect(c.policyOrgName).toHaveLength(MAX_AI_POLICY_FIELD);
     expect(c.policyUrl).toHaveLength(MAX_AI_POLICY_FIELD);
+  });
+});
+
+describe("AI consent gate", () => {
+  const D = new Date(0);
+  const keyed = { ...defaultAiConfig, enabled: true, apiKey: "sk-test" };
+  afterEach(() => clearSessionAiKey());
+
+  it("isAiEnabled is false with the switch and a key but no consent", () => {
+    expect(isAiEnabled(keyed)).toBe(false);
+    expect(aiKeyIfEnabled(keyed)).toBe("");
+  });
+
+  it("isAiEnabled is true with a current consent", () => {
+    const ai = { ...keyed, consent: newConsent(D) };
+    expect(isAiEnabled(ai)).toBe(true);
+    expect(aiKeyIfEnabled(ai)).toBe("sk-test");
+  });
+
+  it("isAiEnabled is false for a stale disclosure version", () => {
+    expect(isAiEnabled({ ...keyed, consent: { acceptedAt: D.toISOString(), disclosureVersion: 0 } })).toBe(false);
+  });
+
+  it("isAiEnabled is true with an empty apiKey when a session key is unlocked and consent is current", () => {
+    setSessionAiKey("sk-session");
+    const ai = { ...defaultAiConfig, enabled: true, apiKey: "", consent: newConsent(D) };
+    expect(isAiEnabled(ai)).toBe(true);
+    expect(aiKeyIfEnabled(ai)).toBe("sk-session");
+  });
+
+  it("isAiBackgroundEnabled needs the separate background consent", () => {
+    const interactive = { ...keyed, consent: newConsent(D) };
+    expect(isAiBackgroundEnabled(interactive)).toBe(false);
+    expect(isAiBackgroundEnabled({ ...interactive, backgroundConsent: newConsent(D) })).toBe(true);
+    expect(isAiBackgroundEnabled({ ...keyed, backgroundConsent: newConsent(D) })).toBe(false);
+  });
+
+  it("sanitizeAiConfig drops the legacy boolean flag: nobody is silently migrated", () => {
+    const ai = sanitizeAiConfig({ consentAccepted: true, enabled: true, apiKey: "k" });
+    expect(ai.consent).toBeUndefined();
+    expect(isAiEnabled(ai)).toBe(false);
+  });
+
+  it("sanitizeAiConfig round-trips both consent records", () => {
+    const ai = sanitizeAiConfig({ consent: newConsent(D), backgroundConsent: newConsent(D) });
+    expect(ai.consent).toEqual(newConsent(D));
+    expect(ai.backgroundConsent).toEqual(newConsent(D));
   });
 });
