@@ -123,7 +123,7 @@ off-palette colors, gradients or shadows except via `--shadow-*` / `--gradient-k
 
 The views of `A11Y_VIEWS` (18 listed, 17 scanned while Forecast is release-hidden) × 7 scheme combos,
 plus Kanban, pink-count-badge and RAG-letter-chip scans per combo and a handful of harbor-light-only
-scans (`grep -n 'a11y: ' e2e/a11y.spec.ts` lists every one). The combos are harbor, meridian and umber in BOTH light and dark, plus beacon light —
+scans (`grep -n -e 'a11y: ' -e 'chart readout open' e2e/a11y.spec.ts` lists every one; the chart-readout scan is the one whose name carries no `a11y:` prefix). The combos are harbor, meridian and umber in BOTH light and dark, plus beacon light —
 beacon is light-only by design, so there is no dark combo of it to add. Umber dark was missing from
 the matrix while everything around it read as covered, and is now scanned like its
 siblings. ★ Read the totals off

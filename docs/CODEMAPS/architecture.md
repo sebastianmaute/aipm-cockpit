@@ -84,8 +84,8 @@ enumerate the ids from the source with
 on any warning, `--max-warnings=0`).
 E2E includes an axe pass over the `A11Y_VIEWS` (18 listed; 17 scanned while Forecast is release-hidden) × 7 scheme combos, plus three scans per combo (Kanban board, pink count badge, RAG letter
 chip), harbor-light-only scans (notes-window toolbar, Documents block editor, Reports cumulative chart,
-Budget currency-switch dialog, two Turso-storage Settings tests), and the print spec. List them with
-`grep -n 'a11y: ' e2e/a11y.spec.ts`. ★ MEASURE the scan count, do not derive it — the spec
+Budget currency-switch dialog, two Turso-storage Settings tests), one Reports chart-readout scan whose name carries no `a11y:` prefix, and the print spec. List them with
+`grep -n -e 'a11y: ' -e 'chart readout open' e2e/a11y.spec.ts`. ★ MEASURE the scan count, do not derive it — the spec
 carries its own arithmetic and a draft of it has been wrong twice: `npx playwright test
 e2e/a11y.spec.ts --list` (no browsers needed). ★ Visual-regression
 is **not** in the CI run — `playwright.config.ts` puts it in a separate `visual` project that the

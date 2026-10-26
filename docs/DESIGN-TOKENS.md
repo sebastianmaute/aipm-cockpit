@@ -90,12 +90,13 @@ Components never reference a scheme's hex values directly — use the role.
 
 Also declared in `globals.css :root` (and, for the colours, mapped in `@theme`); a scheme or an imported
 theme file may override each. Reproduce with
-`grep -n -E "^s*--(rag|table-head|shadow|gradient|delta|segment)[a-z-]*:" src/app/globals.css`.
+`grep -n -E "^\s*--(rag|table-head|shadow|gradient|delta|segment)[a-z-]*:" src/app/globals.css`.
 
 | Token | Fallback | Role |
 |---|---|---|
 | `--rag-red` / `--rag-amber` / `--rag-green` | #d24a4a / #cf8a1c / #2f9d70 | RAG dots and stripes (see below) |
 | `--rag-red-text` / `--rag-amber-text` / `--rag-green-text` | #b33f3f / #966414 / #227151 | RAG text companions |
+| `--rag-badge-red` / `--rag-badge-green` / `--rag-badge-amber-ink` | #b33f3f / #28855f / #15212e | RAG letter chip (§683): red and green fills dark enough for a white letter at 4.5:1, and the dark letter the amber chip takes instead |
 | `--table-head-bg` / `--table-head-fg` / `--table-head-accent` | `var(--ui-dark-blue)` / #ffffff / `var(--ui-green)` | table header fill, text, and active-sort / hover accent |
 | `--shadow-card` / `--shadow-control` / `--shadow-card-hover` | `none` | the ONLY sanctioned shadows, used as `shadow-[var(--shadow-card)]` and the like |
 | `--gradient-kpi` | `var(--ui-green)` | the completion-% "more = better" bar only |

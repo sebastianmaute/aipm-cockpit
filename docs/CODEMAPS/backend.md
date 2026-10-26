@@ -84,7 +84,7 @@ per-table DELETE, so **any non-workspace table must stay out of that list** (gua
 `committee_report_versions`, `action_learning`, `operating_guides`, `scheduled_jobs_v2` (and the
 pre-§772 `scheduled_jobs`, read once by a migration), `scheduled_reports`, `chat_threads`,
 `document_asset_data`, `color_schemes`. Enumerate with
-`grep -rhoE "CREATE TABLE IF NOT EXISTS [a-z_0-9]+" src/app --include=*.ts | grep -v test | sort -u`
+`grep -roE "CREATE TABLE IF NOT EXISTS [a-z_0-9]+" src/app --include=*.ts --exclude=*.test.ts | sed 's/.*EXISTS //' | sort -u` (that lists every created table, workspace ones and the legacy `workspace` blob included; the side tables are those absent from `TABLE_NAMES`)
 plus the `${...}` templated ones (`grep -rn 'CREATE TABLE IF NOT EXISTS ${' src/app`).
 ★ The project-keyed ones are listed in `PROJECT_SCOPED_SIDE_TABLES` (`project-side-tables.ts`), which
 a tenant project's hard delete sweeps in a separate pipeline; `turso-side-tables.guard.test.ts` fails

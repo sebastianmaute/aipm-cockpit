@@ -17,7 +17,7 @@ backend is configured. Storage namespace is `aipm-cockpit`.
 `settingsOverrides` · `calendarEvents` · `documentAssets`
 
 ★ Do not quote that list from here — read it off the `Workspace` type, which is the only place it
-cannot rot: `awk 'NR>=90{print} NR>=90&&/^};/{exit}' src/app/workspace.ts | grep -oE '^  [a-zA-Z]+??:'`
+cannot rot: `awk 'NR>=90{print} NR>=90&&/^};/{exit}' src/app/workspace.ts | grep -oE '^  [a-zA-Z]+\??:'`
 (the type starts near line 90). Four of these were added after this file was first written and three went
 unrecorded; four more (`budgetHistory`, `baselineHistory`, `forecastHistory`, `forecastScenarios`) were
 missing here until 2026-10-26. The two forecast slices are persisted although the forecast is still

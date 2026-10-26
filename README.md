@@ -28,7 +28,7 @@ The Claude assistant is grounded in your operating guides, so its advice fits th
 The assistant knows which view you are on. On Open Points, Workload, Gantt and Budget it also knows what your current filters are showing. Where no tool can answer it says so, by name: time bookings, the activity log, cross-project portfolio data, RACI assignments, calendar absences.
 
 **Plugs into the stack you already use.**
-Pull people in from Outlook, attach documents straight from SharePoint, push milestones to your calendar, sync a two-way Jira project (plus optional read-only monitor projects), and fold actual Timelog bookings into your budget, without re-keying the same data. A deployment that does not offer one of these can switch it off with a single server setting ([RUNBOOK](docs/RUNBOOK.md#switching-integrations-off-for-a-deployment-run-time-optional)).
+Pull people in from Outlook, attach documents straight from SharePoint, push milestones to your calendar, sync a two-way Jira project (plus optional read-only monitor projects), and fold actual Timelog bookings into your budget, without re-keying the same data. A deployment that does not offer Jira or Timelog (or Confluence, the ECB exchange rates or cloud speech-to-text) can switch them off with a single server setting ([RUNBOOK](docs/RUNBOOK.md#switching-integrations-off-for-a-deployment-run-time-optional)).
 
 **Own your data.**
 It runs in your browser with no backend account. Bring your own API keys; they're encrypted at rest (AES-256-GCM, device-sealed).
