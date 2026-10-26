@@ -80,3 +80,12 @@ describe("ViewCallout Learn more", () => {
     );
   });
 });
+
+describe("ViewCallout without a video", () => {
+  it("shows Learn more and no video link when the view has no video guide", () => {
+    localStorage.clear();
+    render(<ViewCallout view="resources" lang="en-US" showHints isPopout={false} onLearnMore={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /learn more/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+});

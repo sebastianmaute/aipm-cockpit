@@ -13,9 +13,15 @@ describe("VIEW_CALLOUTS", () => {
     }
   });
 
-  // Every banner links the video of its own view; a view added without one should be a decision, not an oversight.
-  it("every callout links a published video guide", () => {
+  // Every banner links the video of its own view; a view without one is a decision recorded here, not an oversight.
+  // resources: the banner sits on the capacity report, and no video shows that view.
+  const NO_VIDEO = new Set(["resources"]);
+  it("every callout links a published video guide, outside the recorded exceptions", () => {
     for (const [view, callout] of Object.entries(VIEW_CALLOUTS)) {
+      if (NO_VIDEO.has(view)) {
+        expect(callout.videoId, view).toBeUndefined();
+        continue;
+      }
       expect(callout.videoId, view).toBeDefined();
       expect(HELP_VIDEO_CATALOGUE[callout.videoId!], `${view} → ${callout.videoId}`).toBeDefined();
     }

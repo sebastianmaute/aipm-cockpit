@@ -31,7 +31,7 @@ export const VIEW_CALLOUTS: Partial<Record<AppView, ViewCallout>> = {
   raci: { textKey: "viewHintRaci", conceptId: "concept-raci", videoId: "f-raci" },
   budget: { textKey: "viewHintBudget", conceptId: "concept-budget", videoId: "f-budget" },
   "budget-report": { textKey: "viewHintBudgetReport", conceptId: "concept-budget", videoId: "f-budget" },
-  resources: { textKey: "viewHintResources", conceptId: "concept-resource", videoId: "f-directory" },
+  resources: { textKey: "viewHintResources", conceptId: "concept-resource" }, // no video: this banner sits on the capacity report, which no video shows (the directory video is the directory view's)
   workload: { textKey: "viewHintWorkload", conceptId: "concept-resource", videoId: "f-workload" },
   planning: { textKey: "viewHintPlanning", conceptId: "concept-resource", videoId: "f-planning" },
   "steering-committee": { textKey: "viewHintSteering", conceptId: "concept-steering", videoId: "ai-steering" },

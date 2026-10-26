@@ -31,7 +31,7 @@ see Scheduled reports under Added.
 - **The video guides on YouTube, linked from Help.** The narrated video guides are published on the project's
   YouTube channel, [@aipmcockpit](https://www.youtube.com/@aipmcockpit). A Help entry that a feature or AI video
   shows now lists it under "Video guides" (37 entries link at least one), the banner that introduces a view has a
-  "Watch the video" link beside "Learn more" (all 16 views with a banner), and the Help window's footer links the
+  "Watch the video" link beside "Learn more" (15 of the 16 views with a banner; the Resources capacity report has no video of its own), and the Help window's footer links the
   channel; each link opens YouTube in your browser, and in the desktop app in your system browser. The videos are
   in English. The README links the channel too.
 - **Scheduled reports, with a project and an instruction per job (§772).** A scheduled job now names the one project it

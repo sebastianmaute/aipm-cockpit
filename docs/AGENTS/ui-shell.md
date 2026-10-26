@@ -22,7 +22,8 @@
   • **Video guides:** `help-videos.ts` maps entries to the published YouTube videos (`HELP_ENTRY_VIDEOS`, keyed by
   `HelpEntryId`) and holds each video's YouTube id and title (`HELP_VIDEO_CATALOGUE`); `help-content-pane.tsx`
   renders them as plain `target="_blank"` links, and so does the per-view banner (`ViewCallout`, from
-  `VIEW_CALLOUTS[view].videoId`, chosen per VIEW and not per concept), which the desktop shell hands to the system browser
+  `VIEW_CALLOUTS[view].videoId`, chosen per VIEW and not per concept; `resources` has none, because no video shows the
+  capacity report its banner sits on), which the desktop shell hands to the system browser
   (`decideWindowOpen`). ★ The ids and titles mirror `scripts/demo-video/videos.mjs` and
   `scripts/help-videos-catalogue.test.mjs` fails when they drift; the YouTube ids themselves are checked by
   nothing local — re-read them from the channel after a video is re-uploaded.

@@ -40,6 +40,8 @@ export function ViewCallout({ view, lang, showHints, isPopout, onLearnMore }: Vi
     <div className="mb-2 flex shrink-0 items-start gap-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs print:hidden">
       <InformationCircleIcon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-ui-dark-blue dark:text-ui-light-grey" />
       <p className="flex-1 text-foreground">{t(lang, callout.textKey)}</p>
+      {/* The links stack on a narrow screen so the text keeps its width, and sit side by side from md up. */}
+      <div className="flex shrink-0 flex-col items-end gap-0.5 md:flex-row md:gap-3">
       <TextButton onClick={() => onLearnMore(callout.conceptId)} className="shrink-0">
         {t(lang, "viewHintLearnMore")}
         <span aria-hidden="true"> →</span>
@@ -59,6 +61,7 @@ export function ViewCallout({ view, lang, showHints, isPopout, onLearnMore }: Vi
           <span aria-hidden="true"> ↗</span>
         </a>
       )}
+      </div>
       <IconButton
         size="xs"
         onClick={() => setDismissed(dismissView(view, isPopout))}
