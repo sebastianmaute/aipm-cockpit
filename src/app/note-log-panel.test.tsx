@@ -6,6 +6,7 @@ import { t } from "./i18n";
 import type { NoteLogEntry, Resource } from "./types";
 import { buttonClassFor } from "../test/button-variant";
 import { PRIMARY_MATCHING_BORDER } from "./button";
+import { newConsent, type AiConsent } from "./ai-consent";
 
 // Force the dictation mic to be "supported" so useDictationMic renders the
 // button (mirrors task-form-fields.dictation.test.tsx — jsdom has no
@@ -27,7 +28,7 @@ vi.mock("./use-push-to-talk", () => ({
 // register, so the panel's `useSettings()` has to be controllable. Default OFF,
 // which is what every pre-existing test in this file assumes (nothing extra
 // renders); the disclosure describe below sets both halves explicitly.
-const aiState = vi.hoisted(() => ({ enabled: false, apiKey: "" }));
+const aiState = vi.hoisted(() => ({ enabled: false, apiKey: "", consent: undefined as AiConsent | undefined }));
 // ★★ BUILT FROM THE REAL `defaultSettings`, not hand-assembled. A `vi.mock`
 // factory is NOT typechecked against the module it replaces, so a hand-built
 // `settings` holding only the fields this component reads today would make any
@@ -360,11 +361,13 @@ describe("NoteLogPanel — the assistant's read access", () => {
   beforeEach(() => {
     aiState.enabled = false;
     aiState.apiKey = "";
+    aiState.consent = undefined;
   });
 
   it("discloses the assistant's read access when the log is AI-readable", () => {
     aiState.enabled = true;
     aiState.apiKey = "sk-test";
+    aiState.consent = newConsent(new Date(0));
     setup({ aiReadable: true });
     expect(screen.getByText(t(EN, "noteLogAiReadOnly"))).toBeTruthy();
   });
@@ -372,6 +375,7 @@ describe("NoteLogPanel — the assistant's read access", () => {
   it("says nothing on a register the assistant cannot read", () => {
     aiState.enabled = true;
     aiState.apiKey = "sk-test";
+    aiState.consent = newConsent(new Date(0));
     setup({ aiReadable: false });
     expect(screen.queryByText(t(EN, "noteLogAiReadOnly"))).toBeNull();
   });
@@ -381,6 +385,7 @@ describe("NoteLogPanel — the assistant's read access", () => {
     // than an unconfigured assistant — `isAiEnabled` requires both.
     aiState.enabled = false;
     aiState.apiKey = "sk-test";
+    aiState.consent = newConsent(new Date(0));
     setup({ aiReadable: true });
     expect(screen.queryByText(t(EN, "noteLogAiReadOnly"))).toBeNull();
   });

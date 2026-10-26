@@ -1,3 +1,4 @@
+import "../test/ai-consent-live";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runAllocProposal } from "./alloc-plan-call";
 import { MAX_ALLOC_CELLS } from "./alloc-plan/alloc-plan";

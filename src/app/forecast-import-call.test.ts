@@ -3,6 +3,7 @@
 // (`claudeMappingOf`) and refused when it cannot be used; the hand reader imports
 // with it. The request body is read off `fetch`, so this checks what reaches
 // Anthropic.
+import "../test/ai-consent-live";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   FORECAST_MAPPING_TOOL,

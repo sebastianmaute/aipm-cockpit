@@ -2,6 +2,7 @@
 // action's guide text after their fixed system prompt, and send exactly what
 // they sent before when there is none. The request body is read off `fetch`, so
 // this checks what reaches Anthropic, not what the call was handed.
+import "../test/ai-consent-live";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { runDigestNarrative } from "./digest/digest-narrative";
 import type { DigestModel } from "./digest/digest-model";
