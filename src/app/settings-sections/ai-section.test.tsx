@@ -646,6 +646,64 @@ describe("AiSection", () => {
     expect(ai.backgroundConsent).toBeUndefined();
     expect(ai.apiKey).toBe("sk-keep");
   });
+
+  describe("background consent (AI-10)", () => {
+    const interactiveOnly = {
+      ...baseSettings,
+      ai: { ...baseSettings.ai, enabled: true, apiKey: "sk-keep", consent: newConsent(new Date(0)) },
+    };
+    const bgToggle = () => screen.getByLabelText(t("en-US", "aiBackgroundConsentToggle")) as HTMLInputElement;
+
+    it("is off by default and disables the insight-recommendations toggle with the reason", () => {
+      render(<AiSection lang="en-US" settings={interactiveOnly} onChange={vi.fn()} />);
+      expect(bgToggle().checked).toBe(false);
+      expect(screen.getByLabelText(t("en-US", "aiInsightRecommendations"))).toBeDisabled();
+      expect(screen.getByText(t("en-US", "aiBackgroundConsentNeeded"))).toBeInTheDocument();
+    });
+
+    it("ticking it opens the background dialog, which lists the three runners, and stores nothing until Accept", () => {
+      const onChange = vi.fn();
+      render(<AiSection lang="en-US" settings={interactiveOnly} onChange={onChange} />);
+      fireEvent.click(bgToggle());
+      const dialog = screen.getByRole("dialog", { name: t("en-US", "aiConsentBackgroundTitle") });
+      expect(dialog.querySelector("[data-consent-level]")).toHaveAttribute("data-consent-level", "background");
+      for (const key of ["aiConsentBackgroundRunner1", "aiConsentBackgroundRunner2", "aiConsentBackgroundRunner3"] as const) {
+        expect(within(dialog).getByText(t("en-US", key))).toBeInTheDocument();
+      }
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("Accept stores backgroundConsent at the current disclosure version and leaves the interactive consent", () => {
+      const onChange = vi.fn();
+      render(<AiSection lang="en-US" settings={interactiveOnly} onChange={onChange} />);
+      fireEvent.click(bgToggle());
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentBackgroundAccept") }));
+      const ai = onChange.mock.calls.at(-1)![0].ai;
+      expect(ai.backgroundConsent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1 });
+      expect(ai.consent).toEqual(interactiveOnly.ai.consent);
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("Cancel stores nothing", () => {
+      const onChange = vi.fn();
+      render(<AiSection lang="en-US" settings={interactiveOnly} onChange={onChange} />);
+      fireEvent.click(bgToggle());
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("with the consent granted the toggle is checked, the insight toggle is enabled, and unticking revokes it at once", () => {
+      const onChange = vi.fn();
+      const granted = { ...interactiveOnly, ai: { ...interactiveOnly.ai, backgroundConsent: newConsent(new Date(0)) } };
+      render(<AiSection lang="en-US" settings={granted} onChange={onChange} />);
+      expect(bgToggle().checked).toBe(true);
+      expect(screen.getByLabelText(t("en-US", "aiInsightRecommendations"))).toBeEnabled();
+      fireEvent.click(bgToggle());
+      const ai = onChange.mock.calls.at(-1)![0].ai;
+      expect(ai.backgroundConsent).toBeUndefined();
+      expect(ai.consent).toEqual(granted.ai.consent);
+    });
+  });
 });
 
 // open-followups §386: the hinted key field and model select are named by

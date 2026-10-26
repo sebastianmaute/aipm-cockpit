@@ -28,7 +28,11 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
   const [policyAccepted, setPolicyAccepted] = useState(false);
   const hasPolicy = policy.url !== null;
   const owner = policy.org ?? t(lang, "aiPolicyOwnerFallback");
-  const title = t(lang, "aiConsentTitle");
+  const isBackground = level === "background";
+  const title = t(lang, isBackground ? "aiConsentBackgroundTitle" : "aiConsentTitle");
+  const runners: string[] = isBackground
+    ? [t(lang, "aiConsentBackgroundRunner1"), t(lang, "aiConsentBackgroundRunner2"), t(lang, "aiConsentBackgroundRunner3")]
+    : [];
   const bullets: string[] = [
     t(lang, "aiConsentBullet1"),
     t(lang, "aiConsentBullet2"),
@@ -53,7 +57,19 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
           hideVoiceCommand
         />
         <div className="flex flex-col gap-3 overflow-y-auto p-6 text-sm text-foreground">
-          <p>{t(lang, "aiConsentNotAccepted")}</p>
+          {isBackground ? <p>{t(lang, "aiConsentBackgroundIntro")}</p> : <p>{t(lang, "aiConsentNotAccepted")}</p>}
+          {runners.length > 0 && (
+            <ul className="space-y-2">
+              {runners.map((text) => (
+                <li key={text} className="flex gap-2">
+                  <span aria-hidden className="mt-0.5">
+                    •
+                  </span>
+                  <span>{text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           <ul className="space-y-2">
             {bullets.map((text) => (
               <li key={text} className="flex gap-2">
@@ -91,7 +107,7 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
               {t(lang, "cancel")}
             </Button>
             <Button className={PRIMARY_MATCHING_BORDER} onClick={onAccept} disabled={hasPolicy && !policyAccepted}>
-              {t(lang, "aiConsentAccept")}
+              {t(lang, isBackground ? "aiConsentBackgroundAccept" : "aiConsentAccept")}
             </Button>
           </div>
         </div>

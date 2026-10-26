@@ -16,6 +16,7 @@ import { useCallback, useMemo } from "react";
 import { type Lang, t } from "./i18n";
 import {
   aiKeyIfEnabled,
+  isAiBackgroundEnabled,
   isAiEnabled,
   resolveNextActionsConfig,
   defaultNextActionsLearning,
@@ -237,7 +238,8 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     [lang],
   );
   useScheduledJobRunner({
-    enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
+    // Unattended and billed: needs the BACKGROUND consent on top of the interactive one (AI-10).
+    enabled: !isPopout && isAiBackgroundEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
     guidesReady: settings.ai?.groundInGuides !== true || guidesReady,
     jobs: scheduledJobs.jobs,
     jobsSource: scheduledJobs.jobsSource,

@@ -99,6 +99,7 @@ function CapInput({
 export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
   const [consentOpen, setConsentOpen] = useState(false);
+  const [backgroundConsentOpen, setBackgroundConsentOpen] = useState(false);
   const aiHeadingId = useId();
   const behaviourHeadingId = useId();
   const apiKeyNoteId = useId();
@@ -637,10 +638,40 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           {t(lang, "settingsAiChatSearchHelp")}
         </FieldHint>
 
+        {/* Background consent (AI-10): the unattended runners call the AI without a click, so they need their own consent. */}
+        <label className="mt-3 flex items-center gap-2">
+          <Checkbox
+            aria-label={t(lang, "aiBackgroundConsentToggle")}
+            checked={isConsentCurrent(settings.ai.backgroundConsent)}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setBackgroundConsentOpen(true);
+                return;
+              }
+              onChange({ ...settings, ai: { ...settings.ai, backgroundConsent: undefined } });
+            }}
+          />
+          <span className="text-xs text-foreground">{t(lang, "aiBackgroundConsentToggle")}</span>
+        </label>
+        <FieldHint className="mt-1">{t(lang, "aiBackgroundConsentHelp")}</FieldHint>
+        {backgroundConsentOpen && (
+          <AiConsentDialog
+            lang={lang}
+            level="background"
+            policy={resolveAiPolicy(settings.ai)}
+            onCancel={() => setBackgroundConsentOpen(false)}
+            onAccept={() => {
+              setBackgroundConsentOpen(false);
+              onChange({ ...settings, ai: { ...settings.ai, backgroundConsent: newConsent(new Date()) } });
+            }}
+          />
+        )}
+
         {/* Proactive insight recommendations (SP2). Default OFF (opt-in) — recurring billed calls. */}
         <label className="mt-3 flex items-center gap-2">
           <Checkbox
             aria-label={t(lang, "aiInsightRecommendations")}
+            disabled={!isConsentCurrent(settings.ai.backgroundConsent)}
             checked={settings.ai.insightRecommendations === true}
             onChange={() =>
               onChange({
@@ -659,6 +690,9 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         <FieldHint className="mt-1">
           {t(lang, "aiInsightRecommendationsDesc")}
         </FieldHint>
+        {!isConsentCurrent(settings.ai.backgroundConsent) && (
+          <FieldHint className="mt-1">{t(lang, "aiBackgroundConsentNeeded")}</FieldHint>
+        )}
 
         {/* Cadence for the background runner (SP4). Only meaningful while the
             feature is on, so it rides the toggle. Every value routes through

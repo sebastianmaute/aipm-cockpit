@@ -8,7 +8,7 @@ import { useSettings } from "../use-settings";
 import { useMsAuth } from "../use-ms-auth";
 import { useToastContext } from "../toast-context";
 import { type Lang } from "../i18n";
-import { aiKeyIfEnabled } from "../settings-types";
+import { aiKeyIfEnabled, isAiBackgroundEnabled } from "../settings-types";
 import { useDigest } from "../use-digest";
 import { createDigestMailSender } from "./digest-mail-sender";
 import { DigestCard } from "../dashboard-sections/digest-card";
@@ -49,6 +49,7 @@ export function DigestCardConnected({
     getRaid: () => raid,
     config: settings.digest ?? DEFAULT_DIGEST_CONFIG,
     aiKey: aiKey ? aiKey : null,
+    backgroundAiKey: aiKey && isAiBackgroundEnabled(settings.ai) ? aiKey : null,
     aiModel: settings.ai.model,
     m365Configured: m365Enabled,
     acquireToken: (scopes, opts) => msAuth.acquireToken(scopes, opts),

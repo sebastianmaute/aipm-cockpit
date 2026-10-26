@@ -29,10 +29,10 @@ const guide: OperatingGuide = {
   priority: 1, scope: { targets: ["jobAnalysis"] }, builtIn: false,
 };
 
-function deps(groundInGuides: boolean, guidesReady = true, scheduledJobs = false): AiOrchestrationDeps {
+function deps(groundInGuides: boolean, guidesReady = true, scheduledJobs = false, backgroundConsent = true): AiOrchestrationDeps {
   return {
     isPopout: false,
-    settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-k", groundInGuides, scheduledJobs } },
+    settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: backgroundConsent ? newConsent(new Date(0)) : undefined, apiKey: "sk-ant-k", groundInGuides, scheduledJobs } },
     guides: [guide],
     guidesReady,
     lang: "en-US",
@@ -76,6 +76,14 @@ describe("useAiOrchestration — operating guides (§701)", () => {
     renderHook(() => useAiOrchestration(deps(true, false, true)));
     expect(runnerArg("enabled")).toBe(true);
     expect(runnerArg("guidesReady")).toBe(false);
+  });
+  // AI-10: the runner fires without a click, so interactive consent alone leaves it disabled; its own
+  // behaviour when disabled (no claim, no run) is pinned in use-scheduled-job-runner.test.tsx.
+  it("keeps the scheduled-job runner disabled with interactive consent only, enabled with both (AI-10)", () => {
+    renderHook(() => useAiOrchestration(deps(false, true, true, false)));
+    expect(runnerArg("enabled")).toBe(false);
+    renderHook(() => useAiOrchestration(deps(false, true, true, true)));
+    expect(runnerArg("enabled")).toBe(true);
   });
   it("tells it they are ready once loaded, and always when grounding is off", () => {
     renderHook(() => useAiOrchestration(deps(true, true, true)));

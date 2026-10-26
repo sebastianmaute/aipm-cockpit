@@ -25,6 +25,7 @@ function deps(over: Partial<UseDigestDeps> = {}): UseDigestDeps {
     getRaid: () => [],
     config: { enabled: false, cadenceDays: 7 },
     aiKey: null,
+    backgroundAiKey: null,
     aiModel: "claude-sonnet-5",
     m365Configured: false,
     acquireToken: vi.fn(),
@@ -536,7 +537,7 @@ describe("useDigest operating guides (§701)", () => {
     const gated = ({ children }: { children: ReactNode }) => (
       <ActionGuidesProvider value={{ guides: [guide], groundInGuides: true, ready }}>{children}</ActionGuidesProvider>
     );
-    const d = deps({ aiKey: "sk-ant-k", runNarrative, config: { enabled: true, cadenceDays: 7 } });
+    const d = deps({ aiKey: "sk-ant-k", backgroundAiKey: "sk-ant-k", runNarrative, config: { enabled: true, cadenceDays: 7 } });
     let hook!: ReturnType<typeof renderHook>;
     await act(async () => { hook = renderHook(() => useDigest(d), { wrapper: gated }); });
     expect(runNarrative).not.toHaveBeenCalled();
@@ -551,5 +552,40 @@ describe("useDigest operating guides (§701)", () => {
     const { result } = renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", runNarrative })));
     await act(async () => { await result.current.generateNow(); });
     expect((runNarrative.mock.calls[0][1] as { guideText?: string }).guideText).toBe("");
+  });
+});
+
+// AI-10: the due auto-run is unattended, so it needs the BACKGROUND key; a click keeps the interactive one.
+describe("useDigest background consent (AI-10)", () => {
+  const dueConfig = { enabled: true, cadenceDays: 7 };
+  const seedDue = () =>
+    advanceDigestState("p1", { now: "2026-07-02T09:00:00.000Z", cadenceDays: 7, rag: "G", metrics: { overdue: 0, openRaid: 0 } });
+
+  it("the due auto-run makes no narrative call with interactive consent only, but still builds the digest", async () => {
+    seedDue();
+    const runNarrative = vi.fn().mockResolvedValue("n");
+    const fire = vi.fn();
+    const { result } = await act(async () =>
+      renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", backgroundAiKey: null, runNarrative, config: dueConfig, fireNotification: fire }))),
+    );
+    expect(runNarrative).not.toHaveBeenCalled();
+    expect(fire).toHaveBeenCalledTimes(1);
+    expect(result.current.digest).not.toBeNull();
+  });
+
+  it("the due auto-run narrates when the background key is present", async () => {
+    seedDue();
+    const runNarrative = vi.fn().mockResolvedValue("n");
+    await act(async () => {
+      renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", backgroundAiKey: "sk-ant-k", runNarrative, config: dueConfig })));
+    });
+    expect(runNarrative).toHaveBeenCalledTimes(1);
+  });
+
+  it("generateNow still narrates with interactive consent only", async () => {
+    const runNarrative = vi.fn().mockResolvedValue("n");
+    const { result } = renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", backgroundAiKey: null, runNarrative })));
+    await act(async () => { await result.current.generateNow(); });
+    expect(runNarrative).toHaveBeenCalledTimes(1);
   });
 });

@@ -1625,6 +1625,15 @@ const enUS = {
   aiConsentPolicyCheckbox:
     "I have read and accept the AI usage policy of {0}.",
   aiConsentAccept: "I understand — enable AI",
+  aiBackgroundConsentToggle: "Allow AI to run in the background",
+  aiBackgroundConsentHelp: "Scheduled jobs, automatic insight recommendations and the scheduled digest narrative call the AI on their own, without a click. They stay off until you allow this.",
+  aiBackgroundConsentNeeded: "Allow AI to run in the background in Settings → AI first.",
+  aiConsentBackgroundTitle: "Allow AI to run in the background?",
+  aiConsentBackgroundIntro: "These features call the AI on their own, without a click, and every call is billed to your API key:",
+  aiConsentBackgroundRunner1: "Scheduled jobs: recurring reports for the projects you assign.",
+  aiConsentBackgroundRunner2: "Automatic insight recommendations: a recommendation is written for new insights at the interval you set.",
+  aiConsentBackgroundRunner3: "The scheduled digest narrative: the AI summary added to the digest when it falls due.",
+  aiConsentBackgroundAccept: "I understand — allow background AI",
   // {0} in the three policy strings above when no owner is configured.
   aiPolicyOwnerFallback: "your organisation",
   aiPolicyOrgLabel: "AI usage policy owner",

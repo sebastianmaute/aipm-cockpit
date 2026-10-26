@@ -68,7 +68,7 @@ const KEY = "sk-test";
 const TURSO = { httpUrl: "https://x.example", authToken: "t" } as unknown as TursoConfig;
 
 function withKey(over: Partial<Settings["ai"]> = {}): Settings {
-  return { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY, enabled: true, consent: newConsent(new Date(0)), ...over } };
+  return { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), ...over } };
 }
 
 function job(over: Partial<ScheduledJob> = {}): ScheduledJob {
@@ -103,6 +103,18 @@ describe("ScheduledJobsSection", () => {
     const toggle = screen.getByLabelText(t("en-US", "scheduledJobsToggle")) as HTMLInputElement;
     expect(toggle.checked).toBe(true);
     expect(screen.getByText(t("en-US", "scheduledJobsCostNote"))).toBeInTheDocument();
+  });
+
+  it("disables the toggle and says why while only the interactive consent is current (AI-10)", () => {
+    setup(withKey({ scheduledJobs: false, backgroundConsent: undefined }));
+    expect(screen.getByLabelText(t("en-US", "scheduledJobsToggle"))).toBeDisabled();
+    expect(screen.getByText(t("en-US", "aiBackgroundConsentNeeded"))).toBeInTheDocument();
+  });
+
+  it("enables the toggle and shows no hint with the background consent current (AI-10)", () => {
+    setup(withKey({ scheduledJobs: false }));
+    expect(screen.getByLabelText(t("en-US", "scheduledJobsToggle"))).toBeEnabled();
+    expect(screen.queryByText(t("en-US", "aiBackgroundConsentNeeded"))).not.toBeInTheDocument();
   });
 
   it("toggling the master switch updates ai.scheduledJobs", () => {
