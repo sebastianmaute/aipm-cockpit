@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { MicrophoneIcon } from "./icons";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
@@ -10,6 +10,7 @@ import { useToastContext } from "./toast-context";
 import { PRESS, TRANSITION } from "./interaction-styles";
 import { ToggleButton } from "./toggle-button";
 import { setActiveDictationTarget, clearDictationTargetIf, type DictationTarget } from "./dictation-target";
+import { DICTATION_NEEDS_AI_CONSENT } from "./dictation-engine";
 
 interface UseDictationMicArgs {
   lang: Lang;
@@ -47,6 +48,7 @@ export function useDictationMic({
 }: UseDictationMicArgs) {
   const showToast = useToastContext();
   const [interim, setInterim] = useState("");
+  const unavailableReasonId = useId();
   const ptt = usePushToTalk({
     lang,
     enabled,
@@ -59,6 +61,7 @@ export function useDictationMic({
       if (err === "not-allowed") reportCapabilityGap(showToast, lang, "dictation.micDenied", "dictationMicDenied");
       else if (err.startsWith("stt-")) showToast("error", t(lang, "dictationTranscribeFailed"));
       else if (err === "not-supported") showToast("error", t(lang, "dictationRecordUnsupported"));
+      else if (err === DICTATION_NEEDS_AI_CONSENT) showToast("error", t(lang, "dictationUnavailableNeedsAiConsent"));
     },
   });
 
@@ -93,8 +96,14 @@ export function useDictationMic({
   //   to the ring the primitive already emits when unpressed, and the primitive
   //   additionally recolours it to match the pressed accent. Only `TRANSITION`
   //   and `PRESS` still have to come from here.
+  // AI-01 — speech-to-text chosen without the AI consent: the button is disabled, and the reason is its
+  // accessible description (a disabled button leaves the tab order, so it cannot explain itself on focus).
+  const reason = ptt.unavailable ? t(lang, "dictationUnavailableNeedsAiConsent") : null;
   const mic = ptt.supported ? (
+    <>
     <ToggleButton
+      disabled={ptt.unavailable}
+      ariaDescribedBy={ptt.unavailable ? unavailableReasonId : undefined}
       pressed={ptt.listening}
       // Push-to-talk has no click semantic: the hold is driven entirely by
       // `pressHandlers`, and their keydown calls preventDefault, which
@@ -117,13 +126,15 @@ export function useDictationMic({
       // Icon-only on screen, so the (row-unique) name rides an `sr-only`
       // child rather than an `aria-label` — name-from-content yields the same
       // string, and passing both would leave the visible-to-AT span dead.
-      title={`${t(lang, "dictationHold")} – ${label}`}
+      title={reason ?? `${t(lang, "dictationHold")} – ${label}`}
       icon={<MicrophoneIcon aria-hidden="true" className="h-4 w-4" />}
       className={`${padding ?? "px-2! py-1!"} ${TRANSITION} ${PRESS}${className ? ` ${className}` : ""}`}
       pressHandlers={ptt.buttonHandlers}
     >
       <span className="sr-only">{`${t(lang, "dictationHold")} – ${label}`}</span>
     </ToggleButton>
+    {reason && <span id={unavailableReasonId} hidden>{reason}</span>}
+    </>
   ) : null;
 
   const status = (ptt.listening || ptt.transcribing) ? (

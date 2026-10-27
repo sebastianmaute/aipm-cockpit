@@ -12,6 +12,11 @@ export interface DictationEngine {
   stop(): void;
 }
 
+/** AI-01 — the `onError` code when dictation needs the AI consent it does not have: a press while speech-to-text
+ *  is chosen without it (`dictationBlockedByConsent`), or a speech-to-text recording discarded because the consent
+ *  was withdrawn before it was sent. */
+export const DICTATION_NEEDS_AI_CONSENT = "needs-ai-consent";
+
 /** Space-aware append of a dictated segment to existing text. */
 export function appendDictation(prev: string, text: string): string {
   const seg = text.trim();

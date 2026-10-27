@@ -37,7 +37,7 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|1a29e0f163bd",
     "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51",
     "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac",
-    "dictation|interactive|aiDataDictationLabel|aiDataDictation|c2ff7295a1a7",
+    "dictation|interactive|aiDataDictationLabel|aiDataDictation|092269c425fb",
     "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|43c341548943",
     "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|5eb499ef50b6",
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998",

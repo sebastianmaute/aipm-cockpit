@@ -16,14 +16,16 @@ import { t } from "./i18n";
 // reach this; only wiring real handlers through the CONSUMER can.
 const ptt = vi.hoisted(() => ({
   listening: false,
+  unavailable: false,
   buttonHandlers: { onPointerDown: vi.fn(), onKeyDown: vi.fn() },
 }));
 vi.mock("./use-push-to-talk", () => ({
-  usePushToTalk: () => ({ listening: ptt.listening, transcribing: false, supported: true, buttonHandlers: ptt.buttonHandlers, toggle: () => {}, press: vi.fn(), release: vi.fn() }),
+  usePushToTalk: () => ({ listening: ptt.listening, transcribing: false, supported: true, unavailable: ptt.unavailable, buttonHandlers: ptt.buttonHandlers, toggle: () => {}, press: vi.fn(), release: vi.fn() }),
 }));
 
 beforeEach(() => {
   ptt.listening = false;
+  ptt.unavailable = false;
   ptt.buttonHandlers.onPointerDown.mockClear();
   ptt.buttonHandlers.onKeyDown.mockClear();
   setActiveDictationTarget(null);
@@ -33,6 +35,22 @@ function Mic({ padding }: { padding?: string }) {
   const { mic } = useDictationMic({ lang: "en-US", aiConsented: true, label: "Notes", onAppendFinal: vi.fn(), padding });
   return <>{mic}</>;
 }
+
+describe("useDictationMic — speech-to-text without the AI consent (AI-01)", () => {
+  it("disables the mic and gives the reason as its accessible description", () => {
+    ptt.unavailable = true;
+    render(<Mic />);
+    const btn = screen.getByRole("button", { name: `${t("en-US", "dictationHold")} – Notes` });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAccessibleDescription(t("en-US", "dictationUnavailableNeedsAiConsent"));
+  });
+  it("an available mic is enabled and carries no such description (control)", () => {
+    render(<Mic />);
+    const btn = screen.getByRole("button", { name: `${t("en-US", "dictationHold")} – Notes` });
+    expect(btn).not.toBeDisabled();
+    expect(btn).not.toHaveAttribute("aria-describedby");
+  });
+});
 
 describe("useDictationMic", () => {
   it("registers/clears the active target on focus/blur", () => {
