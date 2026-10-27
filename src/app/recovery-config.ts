@@ -4,7 +4,7 @@
 // "Quarantine" copies each live key to a timestamped backup key and then
 // removes the live key (so defaults load next boot) — a reversible MOVE, never
 // a delete. Restore reverses it. Export downloads the current config (secrets
-// redacted). All localStorage access is guarded; nothing throws to callers.
+// and AI consent records redacted). All localStorage access is guarded; nothing throws to callers.
 
 import { type Lang, migrateLang } from "./i18n";
 // secrets.ts is a leaf module (no imports, no React) — safe for this pure
@@ -23,6 +23,13 @@ export const CONFIG_KEYS = [SETTINGS_KEY, MODE_KEY, CURRENT_TURSO_PROJECT_KEY] a
 const BACKUP_PREFIX = "aipm-cockpit:recovery-backup:";
 const INDEX_KEY = "aipm-cockpit:recovery-backups";
 const REDACTED = "***REDACTED***";
+
+/** The device's AI consent records (when this device accepted which disclosure). They are device
+ *  settings, never part of an export, so the export redacts them like a secret. */
+const CONSENT_PATHS: readonly (readonly string[])[] = [
+  ["ai", "consent"],
+  ["ai", "backgroundConsent"],
+];
 
 export interface BackupMeta {
   id: string;
@@ -159,10 +166,13 @@ function redactSettings(raw: string): unknown {
   for (const id of SECRET_IDS) {
     out = redactPath(out, SECRET_SETTINGS_PATHS[id]);
   }
+  for (const path of CONSENT_PATHS) {
+    out = redactPath(out, path);
+  }
   return out;
 }
 
-/** JSON of the current live config keys, with secrets redacted. For download. */
+/** JSON of the current live config keys, with secrets and AI consent records redacted. For download. */
 export function exportConfig(): string {
   const store = ls();
   const out: Record<string, unknown> = {};

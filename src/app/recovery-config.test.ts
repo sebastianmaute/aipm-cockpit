@@ -105,6 +105,21 @@ describe("recovery-config", () => {
     expect(leaked).toEqual([]);
   });
 
+  it("exportConfig redacts the AI consent records and keeps the rest of the AI settings", () => {
+    const consent = { acceptedAt: "2026-10-26T09:00:00.000Z", disclosureVersion: 1 };
+    window.localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ ai: { enabled: true, model: "m", consent, backgroundConsent: consent } }),
+    );
+    const raw = exportConfig();
+    const ai = JSON.parse(raw)[SETTINGS_KEY].ai;
+    expect(ai.consent).toBe("***REDACTED***");
+    expect(ai.backgroundConsent).toBe("***REDACTED***");
+    expect(raw).not.toContain(consent.acceptedAt);
+    expect(ai.enabled).toBe(true);
+    expect(ai.model).toBe("m");
+  });
+
   it("exportConfig leaves the blank fields writeSettings already wrote alone", () => {
     // The normal case: writeSettings blanked all five, so the export must carry
     // "" — turning an empty field into ***REDACTED*** would tell a reader a
