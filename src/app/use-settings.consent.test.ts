@@ -21,13 +21,12 @@ vi.mock("./secrets-store", async (importOriginal) => {
 });
 
 import {
-  __resetConsentFailureForTests,
   __settingsBroadcastDeliveriesForTests,
-  noteConsentRevokeNotSaved,
   persistAiConsentChange,
   SETTINGS_KEY,
   useSettings,
 } from "./use-settings";
+import { __resetConsentFailureForTests, noteConsentRevokeNotSaved } from "./ai-permission-store";
 import { assertBackgroundConsentLive, isInteractiveConsentLive, newConsent, publishAiConsentState } from "./ai-consent";
 import type { Settings } from "./settings-types";
 

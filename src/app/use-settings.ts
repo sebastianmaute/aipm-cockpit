@@ -2,7 +2,7 @@
 
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
-import { defaultSettings, sanitizeIntegrations, sanitizeOutlookCalendar, sanitizeSelfResourceId, type AiConfig, type Settings, type NextActionsLearningConfig } from "./settings-types";
+import { defaultSettings, sanitizeIntegrations, sanitizeOutlookCalendar, sanitizeSelfResourceId, type Settings, type NextActionsLearningConfig } from "./settings-types";
 import { defaultTimelogConfig } from "./timelog-types";
 import { sanitizeDigestConfig } from "./digest/digest-config";
 import { defaultNotificationsConfig, resolveSnapshotSettings, resolveNextActionsConfig, sanitizeAiConfig, sanitizeExportConfig, sanitizeBranding } from "./settings-types";
@@ -21,161 +21,40 @@ import { dropLegacyActivityLog } from "./activity-log";
 import { sanitizeJiraExtraProjects } from "./jira-projects";
 import { logDiag } from "./diagnostics";
 import { settingsSealedForReload } from "./settings-reload-seal";
-import { type AiConsent, publishAiConsentState } from "./ai-consent";
+import { publishAiConsentState } from "./ai-consent";
+import {
+  type AiPermissionField,
+  type PersistedAiState,
+  aiForPublish,
+  aiPermissionToWrite,
+  isOnlyStorageAiChange,
+  isReportedRevoke,
+  pageAiState,
+  parseStoredAiState,
+  planPageAiPermissionWrite,
+  settleAiPermissionWrite,
+  withAiState,
+} from "./ai-permission-store";
 
 export const SETTINGS_KEY = "aipm-cockpit:settings";
 
-/** The AI fields a revocation or a switch-off changes: the master switch and the two consent records. */
-export type PersistedAiState = { enabled: boolean; consent: AiConsent | undefined; backgroundConsent: AiConsent | undefined };
-
-/** The AI switch and consent records as they are persisted NOW, through the load sanitizer. No settings, an
- *  unreadable blob or no storage read as switched off with no consent. */
+/** AI-01 — the AI switch and consent records as they are persisted NOW, through the load sanitizer. No
+ *  settings, an unreadable blob or no storage read as switched off with no consent. The persistence rules
+ *  themselves live in `ai-permission-store.ts`; this module only reads and writes the settings key for them. */
 export function readPersistedAiState(): PersistedAiState {
-  let ai: AiConfig;
+  let raw: string | null;
   try {
-    const raw = window.localStorage.getItem(SETTINGS_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : null;
-    ai = sanitizeAiConfig(isPlainObject(parsed) && isPlainObject(parsed.ai) ? parsed.ai : {});
+    raw = window.localStorage.getItem(SETTINGS_KEY);
   } catch {
-    ai = sanitizeAiConfig({});
+    raw = null;
   }
-  return { enabled: ai.enabled === true, consent: ai.consent, backgroundConsent: ai.backgroundConsent };
-}
-
-function sameConsent(a: AiConsent | undefined, b: AiConsent | undefined): boolean {
-  return a?.acceptedAt === b?.acceptedAt && a?.disclosureVersion === b?.disclosureVersion;
-}
-
-function sameAiState(ai: AiConfig, p: PersistedAiState): boolean {
-  return (ai.enabled === true) === p.enabled && sameConsent(ai.consent, p.consent) && sameConsent(ai.backgroundConsent, p.backgroundConsent);
-}
-
-const STORAGE_AI_FIELDS: ReadonlySet<string> = new Set(["enabled", "consent", "backgroundConsent"]);
-
-function sameKeysExcept(a: Record<string, unknown>, b: Record<string, unknown>, skip: (key: string) => boolean): boolean {
-  for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
-    if (!skip(key) && a[key] !== b[key]) return false;
-  }
-  return true;
-}
-
-/** AI-01 — true when `next` differs from `base` in nothing but the three AI fields and those equal `fromStorage`:
- *  the change was read from another tab's write, so it is neither written back nor broadcast. Any other change
- *  in the same commit (a local edit batched with it) makes this false, so that edit is still saved and sent. */
-export function isOnlyStorageAiChange(base: Settings | null, next: Settings, fromStorage: PersistedAiState | null): boolean {
-  if (base === null || fromStorage === null || !sameAiState(next.ai, fromStorage)) return false;
-  const rec = (s: unknown) => s as Record<string, unknown>;
-  return sameKeysExcept(rec(base), rec(next), (key) => key === "ai")
-    && sameKeysExcept(rec(base.ai), rec(next.ai), (key) => STORAGE_AI_FIELDS.has(key));
-}
-
-/** AI-01 — the AI slice of a revoke that could not be saved and is committed anyway, which Settings → AI has
- *  already reported (`noteConsentRevokeNotSaved`). The persist effect does not raise the generic "settings
- *  could not be saved" notice for a commit carrying THIS slice, in any instance: the revoke's own commit. A
- *  commit with any other AI slice raises it as usual, and any successful write clears the note. (A later edit
- *  that keeps the slice cannot reach that notice before a successful write: the revoke's commit already put
- *  every instance on the failing edge, and a new instance loads a slice of its own.) A failed ACCEPT notes
- *  nothing: it is not committed, so no generic notice follows it to suppress.
- *  It only steers that notice. Saving the revoke later needs nothing from it: the next ordinary write that
- *  succeeds persists the withdrawal, because a withdrawal narrows (`narrowOnlyAiState`). */
-let reportedRevokeAi: Settings["ai"] | null = null;
-
-/** AI-01 — Settings → AI reported that this revoke could not be saved; call it just before committing it. */
-export function noteConsentRevokeNotSaved(revoked: Settings): void {
-  reportedRevokeAi = revoked.ai;
-}
-
-/** Test seam: forget a noted revoke and an unsaved narrowing. */
-export function __resetConsentFailureForTests(): void {
-  reportedRevokeAi = null;
-  unsavedNarrowing = null;
-}
-
-/** One of the three AI permission fields `writeSettings` guards: the master switch and the two consent records. */
-export type AiPermissionField = "enabled" | "consent" | "backgroundConsent";
-
-/** The AI switch and consent records of `ai`, taken only where they NARROW `base` (the switch off, a consent
- *  record absent); everywhere else `base`'s. */
-function narrowOnly(ai: AiConfig, base: PersistedAiState): Pick<AiConfig, "enabled" | "consent" | "backgroundConsent"> {
-  return {
-    // `ai.enabled` itself when it is not "on" (false, or unset), so an unset switch stays unset.
-    enabled: ai.enabled === true ? base.enabled : ai.enabled,
-    consent: ai.consent === undefined ? undefined : base.consent,
-    backgroundConsent: ai.backgroundConsent === undefined ? undefined : base.backgroundConsent,
-  };
-}
-
-/** AI-01 — the AI permission an ORDINARY write persists: from `ai` only where it NARROWS what is in effect on
- *  this page (the switch off, a consent record absent), otherwise that — `readPageAiState`: what is persisted
- *  now, narrowed by a withdrawal this page could not save, which this write therefore saves too. So an instance holding an
- *  older copy (another tab, a popout, a page restored from the back/forward cache, an instance whose load
- *  finished after a change elsewhere) can never write a withdrawn consent or a switch-off back to "on", and a
- *  withdrawal that could not be saved at the time is saved by the next ordinary write that succeeds.
- *  ★ The cost is the opposite direction, deliberately: an instance that missed a WIDENING (an accept or a
- *  switch-on elsewhere) narrows it again on its next write. That fails closed, and the `storage`, `pageshow`
- *  and `visibilitychange` re-reads in `useSettings` keep the window small. */
-export function narrowOnlyAiState(ai: AiConfig): Pick<AiConfig, "enabled" | "consent" | "backgroundConsent"> {
-  return narrowOnly(ai, readPageAiState());
-}
-
-/** AI-01 — what this page withdrew from the stored AI permission and could not save (`writeSettings` failed):
- *  the switch turned off, and the stored consent records it withdrew. Null when there is none. Set when a write
- *  fails, from the narrowing that write carried; cleared when a write succeeds, since every write persists it
- *  (`narrowOnlyAiState` narrows against `readPageAiState`). A record counts only while storage still holds that
- *  same record: a different one is a newer accept made elsewhere, which this page takes. Module state, so it
- *  holds for every `useSettings` instance on the page — one mounted after the failed revoke loads the narrowed
- *  state — and for the published send-time flags, until it is saved or the page reloads. */
-type UnsavedNarrowing = { switchedOff: boolean; consent: AiConsent | undefined; backgroundConsent: AiConsent | undefined };
-let unsavedNarrowing: UnsavedNarrowing | null = null;
-
-type AiPermission = { enabled?: boolean; consent?: AiConsent; backgroundConsent?: AiConsent };
-
-/** `ai` with this page's unsaved narrowing applied: the switch off when it was switched off, and a consent record
- *  removed when it is the one this page withdrew. */
-function withUnsavedNarrowing<T extends AiPermission>(ai: T): T {
-  const n = unsavedNarrowing;
-  if (n === null) return ai;
-  const withdrawn = (held: AiConsent | undefined, gone: AiConsent | undefined) => gone !== undefined && sameConsent(held, gone);
-  return {
-    ...ai,
-    enabled: n.switchedOff ? false : ai.enabled,
-    consent: withdrawn(ai.consent, n.consent) ? undefined : ai.consent,
-    backgroundConsent: withdrawn(ai.backgroundConsent, n.backgroundConsent) ? undefined : ai.backgroundConsent,
-  };
+  return parseStoredAiState(raw);
 }
 
 /** AI-01 — the AI switch and consent records in effect on THIS page: the persisted ones, narrowed by what this
- *  page withdrew and could not save. What a load, a re-read and every write's narrow-only base read. */
+ *  page withdrew and could not save (`pageAiState`). What a load, a re-read and every write's narrow-only base read. */
 function readPageAiState(): PersistedAiState {
-  return withUnsavedNarrowing(readPersistedAiState());
-}
-
-/** A write carrying `attempted` failed: remember where it narrows what is stored, or forget it when it narrows
- *  nothing. `attempted` is narrowed against `readPageAiState`, so a narrowing noted earlier is carried on. */
-function noteUnsavedNarrowing(attempted: AiPermission): void {
-  const stored = readPersistedAiState();
-  const switchedOff = stored.enabled && attempted.enabled !== true;
-  const consent = attempted.consent === undefined ? stored.consent : undefined;
-  const backgroundConsent = attempted.backgroundConsent === undefined ? stored.backgroundConsent : undefined;
-  unsavedNarrowing = switchedOff || consent || backgroundConsent ? { switchedOff, consent, backgroundConsent } : null;
-}
-
-/** AI-01 — the AI fields `useSettings` publishes for the send-time checks: `ai` with this page's unsaved narrowing
- *  applied, so a copy that still holds a withdrawn consent (a stale object committed after the revoke) cannot
- *  re-arm the flags while the withdrawal is not saved. */
-function aiForPublish(ai: AiConfig): AiConfig {
-  return withUnsavedNarrowing(ai);
-}
-
-/** The AI permission a write persists: `narrowOnlyAiState`, except that each field in `widen` is taken from `ai`
- *  as it is. Only `persistAiConsentChange` passes a field to widen. */
-function aiPermissionToWrite(ai: AiConfig, widen: readonly AiPermissionField[]): Pick<AiConfig, AiPermissionField> {
-  const permission = narrowOnlyAiState(ai);
-  for (const field of widen) {
-    if (field === "enabled") permission.enabled = ai.enabled;
-    else permission[field] = ai[field];
-  }
-  return permission;
+  return pageAiState(readPersistedAiState());
 }
 
 /** Synchronously write settings to localStorage WITH the at-rest secrets
@@ -185,14 +64,16 @@ function aiPermissionToWrite(ai: AiConfig, widen: readonly AiPermissionField[]):
  *  disabled) so the caller can surface it — a swallowed failure silently
  *  reverts settings on the next reload.
  *  ★★ AI-01 — the AI switch and the two consent records (`ai.enabled`, `ai.consent`,
- *  `ai.backgroundConsent`) may only narrow what is stored (`narrowOnlyAiState`), except the fields named in
+ *  `ai.backgroundConsent`) may only narrow what is in effect on this page (`narrowOnly`, ai-permission-store.ts),
+ *  except the fields named in
  *  `widen`, which are written from `settings` as they are. Only `persistAiConsentChange` names any. */
 export function writeSettings(settings: Settings, widen: readonly AiPermissionField[] = []): boolean {
   if (settingsSealedForReload()) return true; // §740 — sealed for a reload: skipped, not failed
   const turso = settings.integrations?.turso;
   // A settings object without an AI slice (a partial one some callers' tests pass) says nothing about AI
-  // permission, so the persisted switch and records are kept as they are.
-  const permission = settings.ai ? aiPermissionToWrite(settings.ai, widen) : readPageAiState();
+  // permission, so the persisted switch and records are kept as they are (`planPageAiPermissionWrite`).
+  const plan = planPageAiPermissionWrite(readPersistedAiState(), settings.ai, widen);
+  const permission = plan.permission;
   const persistable: Settings = {
     ...settings,
     ai: { ...settings.ai, ...permission, apiKey: "" },
@@ -205,12 +86,11 @@ export function writeSettings(settings: Settings, widen: readonly AiPermissionFi
   };
   try {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
-    reportedRevokeAi = null;
-    unsavedNarrowing = null; // persisted with this write: `permission` was narrowed against it
+    settleAiPermissionWrite(plan, true); // the unsaved narrowing is persisted with this write
     return true;
   } catch (err) {
     // AI-01 — a failed widening is not committed by its caller, so only the narrowing this write carried counts.
-    noteUnsavedNarrowing(settings.ai ? narrowOnlyAiState(settings.ai) : readPageAiState());
+    settleAiPermissionWrite(plan, false);
     // quota exceeded / storage disabled — keep in-memory settings, but log +
     // signal so the caller can warn the user (settings silently revert on the
     // next reload otherwise).
@@ -238,7 +118,7 @@ export const SECRET_MERGE_TIMEOUT_MS = 5_000;
  *  memory only). */
 export function persistAiConsentChange(settings: Settings, widen: readonly AiPermissionField[]): Settings | null {
   if (isSafeMode()) return settings;
-  const permission = aiPermissionToWrite(settings.ai, widen);
+  const permission = aiPermissionToWrite(settings.ai, widen, readPageAiState());
   if (!writeSettings(settings, widen)) return null;
   return { ...settings, ai: { ...settings.ai, ...permission } };
 }
@@ -484,7 +364,7 @@ export function useSettings(): {
       //   a re-read cannot undo it. Only that withdrawal is held back — not "every re-read while a write failed":
       //   a page whose failed write withdrew nothing takes another tab's accept as soon as storage works again,
       //   and its next write keeps it instead of narrowing it away.
-      setSettings((prev) => (sameAiState(prev.ai, fresh) ? prev : { ...prev, ai: { ...prev.ai, ...fresh } }));
+      setSettings((prev) => withAiState(prev, fresh));
     };
     const onStorage = (e: StorageEvent) => {
       // A null key is a `clear()` of the whole storage area.
@@ -835,7 +715,7 @@ export function useSettings(): {
     if (!ok && !settingsWriteFailingRef.current) {
       settingsWriteFailingRef.current = true;
       // AI-01 — the commit of a revoke Settings → AI has already reported as not saved, more specifically.
-      if (settings.ai !== reportedRevokeAi) window.dispatchEvent(new CustomEvent("aipm-cockpit-settings-write-failed"));
+      if (!isReportedRevoke(settings.ai)) window.dispatchEvent(new CustomEvent("aipm-cockpit-settings-write-failed"));
     } else if (ok) {
       settingsWriteFailingRef.current = false;
     }
