@@ -404,10 +404,11 @@ What to know when running it:
   reload (never a key problem); the digest summary and the automatic insight
   recommendations, which fail quietly, are skipped.
 - **Rate limiting belongs to the gateway.** The relay has no per-IP limit of its own;
-  set one in the gateway's settings if you want one. When the gateway itself answers 429,
-  the relay passes it on as a rate limit, so users see the same usage-limit message
-  as for Anthropic's own rate limit (that message names Anthropic as the source). The gateway's own request logging (prompts and answers) is also configured
-  there — the relay logs nothing.
+  set one in the gateway's settings if you want one. When the gateway itself answers
+  429, users see "The organisation's AI gateway is limiting requests right now";
+  Anthropic's own rate limit, which the relay passes through unchanged, keeps its
+  usual message. The gateway's own request logging (prompts and answers) is also
+  configured there — the relay logs nothing.
 - **Residual: anyone who can reach the app server can use the gateway with their own
   Anthropic key.** The relay accepts same-origin browser calls only, which stops
   another web page from using it through a visitor's browser, but a script that
@@ -420,8 +421,8 @@ What to know when running it:
   keeping it on the organisation's network or behind its sign-in proxy.
 - **Gateway errors** appear in the chat and the other AI features that report a failure as "The
   organisation's AI gateway refused this app's token" (the gateway answered 401/403:
-  check the token) or "… returned an error" (any other non-Anthropic failure but a
-  429, including a 3xx, which the relay does not follow), never as a key problem or a
+  check the token) or "… returned an error" (any other non-Anthropic failure
+  except a 429, which is named as above, including a 3xx, which the relay does not follow), never as a key problem or a
   connection problem; a scheduled job's run history records the same message. A
   switched-off or invalid AI setting is named the same way. An error Anthropic itself
   returns, such as a rejected key, passes through unchanged.

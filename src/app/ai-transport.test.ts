@@ -158,7 +158,7 @@ describe("postAiMessages", () => {
     expect(urls(f)).toEqual(["/api/ai/status"]);
   });
 
-  it.each(["ai-gateway-rejected", "ai-gateway-error"] as const)("relay 502 %s throws AiGatewayError", async (code) => {
+  it.each(["ai-gateway-rejected", "ai-gateway-error", "ai-gateway-rate-limited"] as const)("relay 502 %s throws AiGatewayError", async (code) => {
     setAiDeploymentState(GATEWAY);
     stubFetch(GATEWAY, () => json({ error: code }, 502));
     const err = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
@@ -334,6 +334,7 @@ describe("aiTransportMessageKey", () => {
     [new AiDeploymentError("unconfirmed"), "aiDeploymentUnconfirmed"],
     [new AiGatewayError("ai-gateway-rejected"), "aiGatewayRejected"],
     [new AiGatewayError("ai-gateway-error"), "aiGatewayFailed"],
+    [new AiGatewayError("ai-gateway-rate-limited"), "aiGatewayRateLimited"],
     [new Error("x"), null],
   ] as const)("%o → %s", (err, key) => {
     expect(aiTransportMessageKey(err)).toBe(key);

@@ -30,6 +30,7 @@
 import { getAiDeploymentState, type AiDeploymentState, type AiRoute } from "./ai-deployment";
 import {
   AI_GATEWAY_ERROR,
+  AI_GATEWAY_RATE_LIMITED,
   AI_GATEWAY_REJECTED,
   AiDeploymentError,
   AiGatewayError,
@@ -88,7 +89,7 @@ const RELAY_MODELS_URL = "/api/ai/models";
 const RELAY_DISABLED = "integration-disabled";
 const RELAY_INVALID = "ai-gateway-invalid";
 
-const GATEWAY_CODES: ReadonlySet<string> = new Set([AI_GATEWAY_REJECTED, AI_GATEWAY_ERROR]);
+const GATEWAY_CODES: ReadonlySet<string> = new Set([AI_GATEWAY_REJECTED, AI_GATEWAY_ERROR, AI_GATEWAY_RATE_LIMITED]);
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;

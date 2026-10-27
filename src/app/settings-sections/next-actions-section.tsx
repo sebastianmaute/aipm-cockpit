@@ -44,8 +44,8 @@ function suggestErrorKey(error: string): TranslationKey {
   if (error === "limit") return "aiUsageLimitReached";
   // §650 — a 401/403 is a refused KEY, and a switched-off deployment or refused gateway names
   // itself, not "Could not reach the AI service".
-  const keyMsg = aiFailureMessageKeyForToken(error);
-  if (keyMsg) return keyMsg;
+  const failureKey = aiFailureMessageKeyForToken(error);
+  if (failureKey) return failureKey;
   return "weightSuggestErrorNetwork"; // "network" or another digit-status
 }
 

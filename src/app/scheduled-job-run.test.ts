@@ -332,6 +332,7 @@ describe("toErrorToken", () => {
     expect(toErrorToken(new AiDeploymentError("unconfirmed"))).toBe("ai-unconfirmed");
     expect(toErrorToken(new AiGatewayError("ai-gateway-rejected"))).toBe("ai-gateway-rejected");
     expect(toErrorToken(new AiGatewayError("ai-gateway-error"))).toBe("ai-gateway-error");
+    expect(toErrorToken(new AiGatewayError("ai-gateway-rate-limited"))).toBe("ai-gateway-rate-limited");
   });
 });
 

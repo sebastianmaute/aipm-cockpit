@@ -34,6 +34,7 @@ const MAX_ERROR_BODY_BYTES = 1024 * 1024;
 
 export const AI_GATEWAY_REJECTED = "ai-gateway-rejected";
 export const AI_GATEWAY_ERROR = "ai-gateway-error";
+export const AI_GATEWAY_RATE_LIMITED = "ai-gateway-rate-limited";
 export const AI_GATEWAY_INVALID = "ai-gateway-invalid";
 export const NOT_SAME_ORIGIN = "not-same-origin";
 export const MISSING_API_KEY = "missing-api-key";
@@ -64,12 +65,6 @@ export type RelaySend = (
 const httpsSend: RelaySend = (url, options, onResponse) => httpsRequest(url, options, onResponse);
 
 type Env = Record<string, string | undefined>;
-
-/** The answer to a gateway-generated 429 whose body is not Anthropic's. */
-const GATEWAY_RATE_LIMITED_BODY = {
-  type: "error",
-  error: { type: "rate_limit_error", message: "The organisation's AI gateway is rate-limiting requests." },
-} as const;
 
 function fail(status: number, error: string): Response {
   return Response.json({ error }, { status, headers: { "cache-control": "no-store" } });
@@ -218,9 +213,9 @@ function forward(
         return;
       }
       if (status === 429) {
-        // The gateway's own rate limit: answered in Anthropic's error shape, so the
-        // browser classifies it as a rate limit like Anthropic's own 429.
-        finish(Response.json(GATEWAY_RATE_LIMITED_BODY, { status: 429, headers: { "cache-control": "no-store" } }));
+        // The gateway's own rate limit (Anthropic's own 429 is Anthropic-shaped and passed
+        // through above): its own code, so the browser names the gateway, not Anthropic.
+        finish(fail(502, AI_GATEWAY_RATE_LIMITED));
         return;
       }
       finish(fail(502, status === 401 || status === 403 ? AI_GATEWAY_REJECTED : AI_GATEWAY_ERROR));

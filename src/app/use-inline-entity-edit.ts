@@ -235,8 +235,8 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       if (reqId !== reqIdRef.current) return; // stale failure — don't clobber current state
       const isLimit = err instanceof AiHttpError && classifyAiError(err.status, err.errorType) === "limit";
       // §650 — a refused key (401/403) says so, instead of "Couldn't reach Claude".
-      const keyMsg = aiFailureMessageKey(err);
-      setErrorText(t(deps.lang, isLimit ? "aiUsageLimitReached" : keyMsg ?? "inlineAiEditError")); setPhase("error");
+      const failureKey = aiFailureMessageKey(err);
+      setErrorText(t(deps.lang, isLimit ? "aiUsageLimitReached" : failureKey ?? "inlineAiEditError")); setPhase("error");
     }
   };
 

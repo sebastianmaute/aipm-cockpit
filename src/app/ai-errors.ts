@@ -33,7 +33,8 @@ export class AiDeploymentError extends Error {
 
 export const AI_GATEWAY_REJECTED = "ai-gateway-rejected";
 export const AI_GATEWAY_ERROR = "ai-gateway-error";
-export type AiGatewayErrorCode = typeof AI_GATEWAY_REJECTED | typeof AI_GATEWAY_ERROR;
+export const AI_GATEWAY_RATE_LIMITED = "ai-gateway-rate-limited";
+export type AiGatewayErrorCode = typeof AI_GATEWAY_REJECTED | typeof AI_GATEWAY_ERROR | typeof AI_GATEWAY_RATE_LIMITED;
 
 /** The organisation's AI gateway (reached through the same-origin relay) refused the app's
  *  gateway token or failed. Never a verdict on the user's own Anthropic key. */
@@ -50,7 +51,8 @@ export type AiTransportMessageKey =
   | "aiDeploymentChanged"
   | "aiDeploymentUnconfirmed"
   | "aiGatewayRejected"
-  | "aiGatewayFailed";
+  | "aiGatewayFailed"
+  | "aiGatewayRateLimited";
 
 const DEPLOYMENT_MESSAGE: Record<AiDeploymentErrorReason, AiTransportMessageKey> = {
   off: "aiDeploymentOff",
@@ -62,6 +64,7 @@ const DEPLOYMENT_MESSAGE: Record<AiDeploymentErrorReason, AiTransportMessageKey>
 const GATEWAY_MESSAGE: Record<AiGatewayErrorCode, AiTransportMessageKey> = {
   [AI_GATEWAY_REJECTED]: "aiGatewayRejected",
   [AI_GATEWAY_ERROR]: "aiGatewayFailed",
+  [AI_GATEWAY_RATE_LIMITED]: "aiGatewayRateLimited",
 };
 
 /** The i18n key naming a transport failure, or null for any other error. */

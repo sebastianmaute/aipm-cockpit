@@ -230,8 +230,8 @@ export function forecastImportErrorOf(e: unknown): ForecastImportError | null {
     return { key: "forecastImportErrorBadMapping" };
   }
   if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") return { key: "aiUsageLimitReached" };
-  const keyMsg = aiFailureMessageKey(e);
-  if (keyMsg) return { key: keyMsg };
+  const failureKey = aiFailureMessageKey(e);
+  if (failureKey) return { key: failureKey };
   if (e instanceof AiHttpError && e.safeMessage) return { message: e.safeMessage };
   return { key: "forecastImportErrorAi" };
 }

@@ -160,6 +160,7 @@ describe("aiFailureMessageKey", () => {
     expect(aiFailureMessageKey(new AiDeploymentError("off"))).toBe("aiDeploymentOff");
     expect(aiFailureMessageKey(new AiDeploymentError("unconfirmed"))).toBe("aiDeploymentUnconfirmed");
     expect(aiFailureMessageKey(new AiGatewayError("ai-gateway-rejected"))).toBe("aiGatewayRejected");
+    expect(aiFailureMessageKey(new AiGatewayError("ai-gateway-rate-limited"))).toBe("aiGatewayRateLimited");
     expect(aiFailureMessageKey(new AiHttpError(401))).toBe("aiKeyRejected");
     expect(aiFailureMessageKey(new AiHttpError(500))).toBeNull();
     expect(aiFailureMessageKey(new TypeError("Failed to fetch"))).toBeNull();
@@ -168,6 +169,7 @@ describe("aiFailureMessageKey", () => {
   it("maps a stored token: a transport message key stays itself, 401/403 name the key, the rest null", () => {
     expect(aiFailureMessageKeyForToken("aiDeploymentInvalid")).toBe("aiDeploymentInvalid");
     expect(aiFailureMessageKeyForToken("aiGatewayFailed")).toBe("aiGatewayFailed");
+    expect(aiFailureMessageKeyForToken("aiGatewayRateLimited")).toBe("aiGatewayRateLimited");
     expect(aiFailureMessageKeyForToken("401")).toBe("aiKeyRejected");
     expect(aiFailureMessageKeyForToken("network")).toBeNull();
     expect(aiFailureMessageKeyForToken("off")).toBeNull();

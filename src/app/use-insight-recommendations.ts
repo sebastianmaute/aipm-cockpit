@@ -310,8 +310,8 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     isPopout,
     onError: (kind, error) => {
       // §650 — a refused key (401/403) is named as the key problem.
-      const keyMsg = aiFailureMessageKey(error);
-      showToast("error", t(lang, kind === "limit" ? "aiUsageLimitReached" : keyMsg ?? "insightRecommendationError"));
+      const failureKey = aiFailureMessageKey(error);
+      showToast("error", t(lang, kind === "limit" ? "aiUsageLimitReached" : failureKey ?? "insightRecommendationError"));
     },
   });
   useInsightRecommendRunner({

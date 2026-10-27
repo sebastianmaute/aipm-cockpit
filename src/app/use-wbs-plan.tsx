@@ -284,11 +284,11 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
           return;
         }
         // §650 — a refused key (401/403) is named as the key problem.
-        const keyMsg = aiFailureMessageKey(e);
+        const failureKey = aiFailureMessageKey(e);
         if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
           showToast("error", t(lang, "aiUsageLimitReached"));
-        } else if (keyMsg) {
-          showToast("error", t(lang, keyMsg));
+        } else if (failureKey) {
+          showToast("error", t(lang, failureKey));
         } else if (e instanceof AiHttpError && e.safeMessage) {
           showToast("error", e.safeMessage);
         } else {

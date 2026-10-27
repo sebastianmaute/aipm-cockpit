@@ -156,7 +156,7 @@ export function ActionsPanel({ lang, groups, onOpen, onSnooze, onCreateTask, ass
   const hero = pickHeroGroup(groups);
   const heroKey = hero?.key;
   // §650 — a "401"/"403" analysis failure names the key, not "Analysis failed (401)".
-  const aiKeyMsg = aiFailureMessageKeyForToken(aiAnalysis?.error);
+  const aiFailureKey = aiFailureMessageKeyForToken(aiAnalysis?.error);
   return (
     <div ref={ref} className={`${VIEW_PANE_RESIZABLE_CLASS} print-root`}>
       <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
@@ -214,8 +214,8 @@ export function ActionsPanel({ lang, groups, onOpen, onSnooze, onCreateTask, ass
         <FieldError>
           {aiAnalysis.error === "limit"
             ? t(lang, "aiUsageLimitReached")
-            : aiKeyMsg
-              ? t(lang, aiKeyMsg)
+            : aiFailureKey
+              ? t(lang, aiFailureKey)
               : /^\d+$/.test(aiAnalysis.error)
               ? t(lang, "actionAiErrorStatus", aiAnalysis.error)
               : aiAnalysis.error === "network"

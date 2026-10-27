@@ -1230,6 +1230,7 @@ const enUS = {
   aiDeploymentUnconfirmed: "Could not confirm this app's AI setting, so nothing was sent. Try again.",
   aiGatewayRejected: "The organisation's AI gateway refused this app's token. Ask your administrator.",
   aiGatewayFailed: "The organisation's AI gateway returned an error. Try again later.",
+  aiGatewayRateLimited: "The organisation's AI gateway is limiting requests right now. Try again in a little while.",
   aiEnableHelp: "Turn on to use Claude chat, AI action suggestions and AI project creation; switching on asks you to accept the AI data disclosure first. Scheduled jobs and automatic insight recommendations also need the separate “Allow AI to run in the background” acceptance. Off by default.",
   // Shown by the AI sub-sections (guides, views) that are gated on the master
   // switch but do NOT contain it. `aiEnableHelp` is the switch's own field help

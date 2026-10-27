@@ -1135,6 +1135,7 @@ export const de: Record<TranslationKey, string> = {
   aiDeploymentUnconfirmed: "Die KI-Einstellung dieser App konnte nicht bestätigt werden, daher wurde nichts gesendet. Versuchen Sie es erneut.",
   aiGatewayRejected: "Das KI-Gateway Ihrer Organisation hat das Token dieser App abgelehnt. Bitte wenden Sie sich an Ihre Administration.",
   aiGatewayFailed: "Das KI-Gateway Ihrer Organisation hat einen Fehler gemeldet. Versuchen Sie es später erneut.",
+  aiGatewayRateLimited: "Das KI-Gateway Ihrer Organisation begrenzt gerade die Anfragen. Versuchen Sie es in Kürze erneut.",
   aiEnableHelp: "Aktivieren, um Claude-Chat, KI-Aktionsvorschläge und die KI-Projekterstellung zu nutzen; beim Einschalten werden Sie zuerst gebeten, den KI-Datenhinweis zu akzeptieren. Geplante Jobs und automatische Insight-Empfehlungen brauchen zusätzlich die separate Zustimmung „KI darf im Hintergrund laufen“. Standardmäßig aus.",
   aiDisabledSectionHint:
     "Der KI-Assistent ist ausgeschaltet, daher gibt es hier nichts einzustellen. Schalten Sie ihn unter Einstellungen → KI-Assistent ein.",
