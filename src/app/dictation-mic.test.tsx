@@ -17,15 +17,17 @@ import { t } from "./i18n";
 const ptt = vi.hoisted(() => ({
   listening: false,
   unavailable: false,
+  unavailableReason: null as string | null,
   buttonHandlers: { onPointerDown: vi.fn(), onKeyDown: vi.fn() },
 }));
 vi.mock("./use-push-to-talk", () => ({
-  usePushToTalk: () => ({ listening: ptt.listening, transcribing: false, supported: true, unavailable: ptt.unavailable, buttonHandlers: ptt.buttonHandlers, toggle: () => {}, press: vi.fn(), release: vi.fn() }),
+  usePushToTalk: () => ({ listening: ptt.listening, transcribing: false, supported: true, unavailable: ptt.unavailable, unavailableReason: ptt.unavailableReason, buttonHandlers: ptt.buttonHandlers, toggle: () => {}, press: vi.fn(), release: vi.fn() }),
 }));
 
 beforeEach(() => {
   ptt.listening = false;
   ptt.unavailable = false;
+  ptt.unavailableReason = null;
   ptt.buttonHandlers.onPointerDown.mockClear();
   ptt.buttonHandlers.onKeyDown.mockClear();
   setActiveDictationTarget(null);
@@ -39,10 +41,19 @@ function Mic({ padding }: { padding?: string }) {
 describe("useDictationMic — speech-to-text without the AI consent (AI-01)", () => {
   it("disables the mic and gives the reason as its accessible description", () => {
     ptt.unavailable = true;
+    ptt.unavailableReason = "needs-ai-consent";
     render(<Mic />);
     const btn = screen.getByRole("button", { name: `${t("en-US", "dictationHold")} – Notes` });
     expect(btn).toBeDisabled();
     expect(btn).toHaveAccessibleDescription(t("en-US", "dictationUnavailableNeedsAiConsent"));
+  });
+  it("speech-to-text not fully set up: disabled, with that reason as its description", () => {
+    ptt.unavailable = true;
+    ptt.unavailableReason = "speech-service-not-set-up";
+    render(<Mic />);
+    const btn = screen.getByRole("button", { name: `${t("en-US", "dictationHold")} – Notes` });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAccessibleDescription(t("en-US", "dictationUnavailableSttNotSetUp"));
   });
   it("an available mic is enabled and carries no such description (control)", () => {
     render(<Mic />);

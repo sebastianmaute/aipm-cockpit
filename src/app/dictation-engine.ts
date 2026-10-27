@@ -13,9 +13,14 @@ export interface DictationEngine {
 }
 
 /** AI-01 — the `onError` code when dictation needs the AI consent it does not have: a press while speech-to-text
- *  is chosen without it (`dictationBlockedByConsent`), or a speech-to-text recording discarded because the consent
- *  was withdrawn before it was sent. */
+ *  is chosen without it (`dictationUnavailableReason`), or a speech-to-text recording discarded because the
+ *  consent was withdrawn before it was sent. */
 export const DICTATION_NEEDS_AI_CONSENT = "needs-ai-consent";
+
+/** AI-01 — the `onError` code for a press while speech-to-text is chosen, consented to, but not usable: its
+ *  service address or key is missing, or the key is not in memory (`dictationUnavailableReason`). ★ Not `stt-`-prefixed:
+ *  that prefix is a failed transcription. */
+export const DICTATION_STT_NOT_SET_UP = "speech-service-not-set-up";
 
 /** Space-aware append of a dictated segment to existing text. */
 export function appendDictation(prev: string, text: string): string {

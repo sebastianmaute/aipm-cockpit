@@ -1301,6 +1301,7 @@ const enUS = {
   dictationEngineStt: "Cloud (OpenAI-compatible)",
   dictationNeedsAiConsent: "Speech-to-text sends your audio to the configured speech service. Switch on AI and accept the AI data disclosure in Settings → AI to use it; until then dictation is unavailable. To dictate without it, choose Browser (Web Speech) as the dictation engine.",
   dictationUnavailableNeedsAiConsent: "Dictation is unavailable: the speech-to-text service needs AI switched on and the AI data disclosure accepted in Settings → AI.",
+  dictationUnavailableSttNotSetUp: "Dictation is unavailable: speech-to-text is the chosen engine, but its service address or API key is missing, or the key cannot be read on this device. Complete the speech-to-text setup in Settings, or choose Browser (Web Speech) as the dictation engine.",
   dictationSttBaseUrl: "Transcription endpoint base URL",
   dictationSttModel: "Model",
   dictationSttKey: "API key",
@@ -1692,7 +1693,7 @@ const enUS = {
   aiDataProjectProposalLabel: "New project proposal (project wizard)",
   aiDataProjectProposal: "Only what you give the wizard: the brief you type, the files you attach (an e-mail with its body and its sender and recipient names and addresses), and the SharePoint files and Confluence pages you pick, plus your operating guide if you have one. No data from existing projects.",
   aiDataDictationLabel: "Speech-to-text dictation",
-  aiDataDictation: "When a speech-to-text service is configured, the audio you record and that service’s API key go through this app’s own server route to the speech service you configured, not to Anthropic. Without this consent, or while AI is switched off, dictation with that service is unavailable; it never switches to another engine on its own. Only when you choose browser dictation instead does it use the browser’s built-in speech recognition, which in some browsers sends audio to the browser maker’s service.",
+  aiDataDictation: "When you choose a speech-to-text service, the audio you record and that service’s API key go through this app’s own server route to the speech service you configured, not to Anthropic. Without this consent, while AI is switched off, or while that service’s address or key is missing or cannot be read on this device, dictation with that service is unavailable; it never switches to another engine on its own. Only when you choose browser dictation instead, or this deployment has switched speech-to-text off, does it use the browser’s built-in speech recognition, which in some browsers sends audio to the browser maker’s service.",
   credentialStorageNote:
     "Encrypted at rest in this browser (device key). Anyone with access to this browser profile can still use it — avoid production credentials on shared or untrusted machines.",
   disclaimerTitle: "Security & responsibility disclaimer",

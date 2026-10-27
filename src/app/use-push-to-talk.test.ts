@@ -51,6 +51,18 @@ describe("usePushToTalk — speech-to-text without the AI consent (AI-01)", () =
   it("speech-to-text with the consent is available (control)", () => {
     const { result } = renderHook(() => usePushToTalk({ ...mkArgs(), dictation: stt }));
     expect(result.current.unavailable).toBe(false);
+    expect(result.current.unavailableReason).toBeNull();
+  });
+  it("speech-to-text with the consent but no key is unavailable too: the reason, and no engine", () => {
+    const a = { ...mkArgs(), dictation: { ...stt, sttApiKey: "" } };
+    const { result } = renderHook(() => usePushToTalk(a));
+    expect(result.current.unavailable).toBe(true);
+    expect(result.current.unavailableReason).toBe("speech-service-not-set-up");
+    act(() => down(result));
+    expect(a.onError).toHaveBeenCalledWith("speech-service-not-set-up");
+    expect(start).not.toHaveBeenCalled();
+    expect(resolveDictationEngine).not.toHaveBeenCalled();
+    expect(result.current.listening).toBe(false);
   });
 });
 
@@ -130,7 +142,7 @@ describe("usePushToTalk", () => {
     expect(hashKey("")).toBe("");
   });
   it("builds the engine via resolveDictationEngine on first use (cfgKey path exercised)", () => {
-    const a = { ...mkArgs(), dictation: { engine: "stt" as const, sttApiKey: "key-A" } };
+    const a = { ...mkArgs(), dictation: { engine: "stt" as const, sttBaseUrl: "https://x/v1", sttApiKey: "key-A" } };
     const { result } = renderHook(() => usePushToTalk(a));
     act(() => { down(result); vi.advanceTimersByTime(300); up(result); });
     expect(resolveDictationEngine).toHaveBeenCalledTimes(1);

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 vi.mock("./web-speech-engine", () => ({ createWebSpeechEngine: vi.fn(() => ({ start: () => true, stop: () => {}, _kind: "ws" })) }));
 vi.mock("./stt-engine", () => ({ createSttEngine: vi.fn(() => ({ start: () => true, stop: () => {}, _kind: "stt" })) }));
-import { dictationBlockedByConsent, resolveDictationEngine } from "./dictation-config";
+import { dictationUnavailableReason, resolveDictationEngine } from "./dictation-config";
+import { DICTATION_NEEDS_AI_CONSENT, DICTATION_STT_NOT_SET_UP } from "./dictation-engine";
 import { setDisabledIntegrations } from "./integration-switches";
 import { defaultAiConfig, isAiConsentedForDictation } from "./settings-types";
 import { newConsent } from "./ai-consent";
@@ -13,8 +14,34 @@ describe("resolveDictationEngine", () => {
   it("uses stt when fully configured", () => {
     expect((resolveDictationEngine({ engine: "stt", sttBaseUrl: "https://x/v1", sttApiKey: "k" }, "en-US", true) as unknown as { _kind: string })._kind).toBe("stt");
   });
-  it("falls back to web-speech when stt is unconfigured", () => {
+});
+
+// AI-01 — speech-to-text chosen and consented to but not usable is unavailable, never a silent switch to the
+// browser's engine (which in some browsers sends the audio to the browser maker's service).
+describe("AI-01 — resolveDictationEngine with speech-to-text not fully set up", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const cases = [
+    ["no address and no key", { engine: "stt" }],
+    ["no key (missing, or not in memory: unreadable or locked)", { engine: "stt", sttBaseUrl: "https://x/v1", sttApiKey: "" }],
+    ["no address", { engine: "stt", sttApiKey: "k" }],
+    ["a blank address", { engine: "stt", sttBaseUrl: "  ", sttApiKey: "k" }],
+  ] as const;
+  for (const [what, d] of cases) {
+    it(`${what}: unavailable, with the reason`, () => {
+      expect(resolveDictationEngine(d, "en-US", true)).toBeNull();
+      expect(dictationUnavailableReason(d, true)).toBe(DICTATION_STT_NOT_SET_UP);
+    });
+  }
+  it("without the consent too, the consent is the reason given", () => {
+    expect(dictationUnavailableReason({ engine: "stt" }, false)).toBe(DICTATION_NEEDS_AI_CONSENT);
+  });
+  it("§762 — with speech-to-text switched off by this deployment, the browser's engine is used, as before", () => {
+    setDisabledIntegrations(["stt"]);
     expect((resolveDictationEngine({ engine: "stt" }, "en-US", true) as unknown as { _kind: string })._kind).toBe("ws");
+    expect(dictationUnavailableReason({ engine: "stt" }, true)).toBeNull();
+  });
+  it("fully set up and consented: available (control)", () => {
+    expect(dictationUnavailableReason({ engine: "stt", sttBaseUrl: "https://x/v1", sttApiKey: "k" }, true)).toBeNull();
   });
 });
 
@@ -37,14 +64,14 @@ describe("D9 — resolveDictationEngine requires AI consent for stt", () => {
   afterEach(() => setDisabledIntegrations([]));
   it("AI-01 — a fully configured stt engine without consent is unavailable, not web-speech", () => {
     expect(kind(false)).toBeNull();
-    expect(dictationBlockedByConsent(full, false)).toBe(true);
+    expect(dictationUnavailableReason(full, false)).toBe(DICTATION_NEEDS_AI_CONSENT);
   });
   it("AI-01 — a chosen but unconfigured stt engine without consent is unavailable too", () => {
     expect(resolveDictationEngine({ engine: "stt" }, "en-US", false)).toBeNull();
   });
   it("AI-01 — browser dictation is unaffected by the AI consent", () => {
     expect((resolveDictationEngine({ engine: "web-speech" }, "en-US", false) as unknown as { _kind: string })._kind).toBe("ws");
-    expect(dictationBlockedByConsent({ engine: "web-speech" }, false)).toBe(false);
+    expect(dictationUnavailableReason({ engine: "web-speech" }, false)).toBeNull();
   });
   it("AI-01 — with stt switched off by this deployment (§762), dictation stays on web-speech without consent", () => {
     setDisabledIntegrations(["stt"]);

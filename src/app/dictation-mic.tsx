@@ -10,7 +10,7 @@ import { useToastContext } from "./toast-context";
 import { PRESS, TRANSITION } from "./interaction-styles";
 import { ToggleButton } from "./toggle-button";
 import { setActiveDictationTarget, clearDictationTargetIf, type DictationTarget } from "./dictation-target";
-import { DICTATION_NEEDS_AI_CONSENT } from "./dictation-engine";
+import { DICTATION_NEEDS_AI_CONSENT, DICTATION_STT_NOT_SET_UP } from "./dictation-engine";
 
 interface UseDictationMicArgs {
   lang: Lang;
@@ -62,6 +62,7 @@ export function useDictationMic({
       else if (err.startsWith("stt-")) showToast("error", t(lang, "dictationTranscribeFailed"));
       else if (err === "not-supported") showToast("error", t(lang, "dictationRecordUnsupported"));
       else if (err === DICTATION_NEEDS_AI_CONSENT) showToast("error", t(lang, "dictationUnavailableNeedsAiConsent"));
+      else if (err === DICTATION_STT_NOT_SET_UP) showToast("error", t(lang, "dictationUnavailableSttNotSetUp"));
     },
   });
 
@@ -96,9 +97,12 @@ export function useDictationMic({
   //   to the ring the primitive already emits when unpressed, and the primitive
   //   additionally recolours it to match the pressed accent. Only `TRANSITION`
   //   and `PRESS` still have to come from here.
-  // AI-01 — speech-to-text chosen without the AI consent: the button is disabled, and the reason is its
-  // accessible description (a disabled button leaves the tab order, so it cannot explain itself on focus).
-  const reason = ptt.unavailable ? t(lang, "dictationUnavailableNeedsAiConsent") : null;
+  // AI-01 — speech-to-text chosen without the AI consent, or not fully set up: the button is disabled, and the
+  // reason is its accessible description (a disabled button leaves the tab order, so it cannot explain itself on
+  // focus).
+  const reason = !ptt.unavailable
+    ? null
+    : t(lang, ptt.unavailableReason === DICTATION_STT_NOT_SET_UP ? "dictationUnavailableSttNotSetUp" : "dictationUnavailableNeedsAiConsent");
   const mic = ptt.supported ? (
     <>
     <ToggleButton

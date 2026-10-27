@@ -56,7 +56,7 @@
   alongside the existing bail; never change control flow (except the recovery ignored-return fixes).
 - **Dictation (push-to-talk):** `voice.ts` gained a NON-breaking `continuous?` flag + exported `getCtor`;
   `dictation-engine.ts` = the `DictationEngine` interface + pure `appendDictation`; `resolveDictationEngine(
-  dictation, lang, aiConsented)` (`dictation-config.ts`) returns `null` when `dictationBlockedByConsent` (STT chosen, no AI consent: the mic is disabled with the reason, never a fall-back to Web Speech), else picks `web-speech-engine` (free, browser) vs `stt-engine`
+  dictation, lang, aiConsented)` (`dictation-config.ts`) returns `null` when `dictationUnavailableReason` gives one (STT chosen and not switched off by the deployment, but no AI consent, or no service address or key in memory: the mic is disabled with the reason, never a fall-back to Web Speech), else picks `web-speech-engine` (free, browser) vs `stt-engine`
   (OpenAI-compatible; `MediaRecorder` → `/api/stt`). `usePushToTalk` (hold/tap 250ms threshold; exposes
   `press`/`release`) → `useDictationMic` (shared mic button + interim/transcribing preview + centralized
   mic-denied/stt/unsupported toasts) used by chat + the 5 edit-modal prose textareas + prose single-line
