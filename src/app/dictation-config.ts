@@ -3,6 +3,7 @@ import { DICTATION_NEEDS_AI_CONSENT, DICTATION_STT_NOT_SET_UP, type DictationEng
 import { createWebSpeechEngine } from "./web-speech-engine";
 import { createSttEngine } from "./stt-engine";
 import { isIntegrationDisabled } from "./integration-switches";
+import { isAiDeploymentOn } from "./ai-deployment";
 
 interface DictationSettings { engine: "web-speech" | "stt"; sttBaseUrl?: string; sttModel?: string; sttApiKey?: string }
 
@@ -17,7 +18,7 @@ interface DictationSettings { engine: "web-speech" | "stt"; sttBaseUrl?: string;
  *  some browsers sends the audio to the browser maker's service. */
 export function dictationUnavailableReason(d: DictationSettings | undefined, aiConsented: boolean): string | null {
   if (d?.engine !== "stt" || isIntegrationDisabled("stt")) return null;
-  if (!aiConsented) return DICTATION_NEEDS_AI_CONSENT;
+  if (!aiConsented || !isAiDeploymentOn()) return DICTATION_NEEDS_AI_CONSENT;
   if (!d.sttBaseUrl?.trim() || !d.sttApiKey?.trim()) return DICTATION_STT_NOT_SET_UP;
   return null;
 }

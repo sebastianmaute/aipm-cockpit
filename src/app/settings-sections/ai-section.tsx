@@ -9,6 +9,7 @@ import { type AiPermissionField, noteConsentRevokeNotSaved } from "../ai-permiss
 import { persistAiConsentChange } from "../use-settings";
 import { AiConsentDialog } from "../ai-consent-dialog";
 import { resolveAiPolicy } from "../ai-policy";
+import { getAiDeploymentState } from "../ai-deployment";
 import { TextButton } from "../text-button";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS } from "../settings-types";
 import {
@@ -337,6 +338,8 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const keyPassphraseMismatch = keyPassphrase !== "" && keyConfirm !== "" && keyPassphrase !== keyConfirm;
   // AI-01 — the key field and its passphrase lock appear only with AI on and a current consent. Removing a
   // stored key needs neither: a user who switched AI off or withdrew the consent can still delete it.
+  const deployment = getAiDeploymentState();
+  const deploymentBlocked = deployment.off || deployment.invalid;
   const keyFieldsShown = settings.ai.enabled === true && isConsentCurrent(settings.ai.consent);
   const removeKeyButton = keyStored && (
     <Button
@@ -364,9 +367,13 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         </span>
         <InfoTooltip text={t(lang, "aiAssistantTooltip")} />
       </span>
+      {deploymentBlocked && (
+        <FieldNotice>{t(lang, deployment.invalid ? "aiDeploymentInvalid" : "aiDeploymentOff")}</FieldNotice>
+      )}
       <label className="mt-2 flex items-center gap-2">
         <Checkbox
           checked={settings.ai.enabled === true}
+          disabled={deploymentBlocked}
           onChange={(e) => {
             // Switching AI on without a current consent asks first; `enabled` stays false until Accept.
             if (e.target.checked && !isConsentCurrent(settings.ai.consent)) {

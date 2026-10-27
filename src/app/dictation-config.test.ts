@@ -6,6 +6,7 @@ import { DICTATION_NEEDS_AI_CONSENT, DICTATION_STT_NOT_SET_UP } from "./dictatio
 import { setDisabledIntegrations } from "./integration-switches";
 import { defaultAiConfig, isAiConsentedForDictation } from "./settings-types";
 import { newConsent } from "./ai-consent";
+import { setAiDeploymentState } from "./ai-deployment";
 
 describe("resolveDictationEngine", () => {
   it("uses web-speech by default", () => {
@@ -95,5 +96,15 @@ describe("R9 — isAiConsentedForDictation needs the AI switch AND a current con
   });
   it("R9 — switch on with a current consent and NO Anthropic key picks stt (positive control)", () => {
     expect(kind({ ...defaultAiConfig, enabled: true, apiKey: "", consent })).toBe("stt");
+  });
+});
+
+describe("dictation when the deployment has AI off", () => {
+  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false }));
+  it("resolves no speech-to-text engine", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    const d = { engine: "stt", sttBaseUrl: "https://x/v1", sttApiKey: "k" } as const;
+    expect(dictationUnavailableReason(d, true)).toBe(DICTATION_NEEDS_AI_CONSENT);
+    expect(resolveDictationEngine(d, "en-US", true)).toBeNull();
   });
 });

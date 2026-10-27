@@ -17,6 +17,7 @@ import {
 
 import { t } from "../i18n";
 import { newConsent } from "../ai-consent";
+import { setAiDeploymentState } from "../ai-deployment";
 // The AI config UI is gated behind the "Enable AI assistant" master switch
 // (default OFF), and the key field also behind a current consent (AI-01). These
 // tests exercise the expanded config, so flip it on with a consent.
@@ -643,7 +644,7 @@ describe("AiSection", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") }));
     const ai = onChange.mock.calls.at(-1)![0].ai;
     expect(ai.enabled).toBe(true);
-    expect(ai.consent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1 });
+    expect(ai.consent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1, route: "direct" });
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -768,7 +769,7 @@ describe("AiSection", () => {
       fireEvent.click(bgToggle());
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentBackgroundAccept") }));
       const ai = onChange.mock.calls.at(-1)![0].ai;
-      expect(ai.backgroundConsent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1 });
+      expect(ai.backgroundConsent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1, route: "direct" });
       expect(ai.consent).toEqual(interactiveOnly.ai.consent);
       expect(screen.queryByRole("dialog")).toBeNull();
     });
@@ -903,7 +904,7 @@ describe("AiSection — an action widens only its own field (AI-01)", () => {
     render(<AiSection lang="en-US" settings={shown} onChange={onChange} />);
     fireEvent.click(screen.getByLabelText(t("en-US", "aiBackgroundConsentToggle")));
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentBackgroundAccept") }));
-    expect(persistedAi().backgroundConsent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1 }); // control
+    expect(persistedAi().backgroundConsent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1, route: "direct" }); // control
     expect(persistedAi().enabled).toBe(false);
     expect(onChange.mock.calls.at(-1)![0].ai.enabled).toBe(false);
   });
@@ -915,7 +916,7 @@ describe("AiSection — an action widens only its own field (AI-01)", () => {
     render(<AiSection lang="en-US" settings={shown} onChange={onChange} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentReview") }));
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") }));
-    expect(persistedAi().consent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1 }); // control
+    expect(persistedAi().consent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1, route: "direct" }); // control
     expect(persistedAi().enabled).toBe(true);
     expect(persistedAi().backgroundConsent).toBeUndefined();
     expect(onChange.mock.calls.at(-1)![0].ai.backgroundConsent).toBeUndefined();
@@ -1212,5 +1213,23 @@ describe("AiSection — the lock's records survive a blur and an untick (§749 r
     expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}2`)).toBe(true);
     await act(async () => { releaseSeal(deviceSealed); await new Promise((r) => setTimeout(r, 0)); });
     expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}2`)).toBe(true);
+  });
+});
+
+describe("AiSection — deployment notice", () => {
+  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false }));
+  it("off: shows the notice, disables the master switch and changes nothing", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    const onChange = vi.fn();
+    const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: "sk-ant-keep" } };
+    render(<AiSection lang="en-US" settings={settings} onChange={onChange} />);
+    expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiEnable") })).toBeDisabled();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+  it("invalid: shows the invalid notice", () => {
+    setAiDeploymentState({ off: false, route: "direct", invalid: true });
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "aiDeploymentInvalid"))).toBeInTheDocument();
   });
 });

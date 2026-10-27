@@ -5,6 +5,7 @@ import type { StakeholderQuadrant } from "./stakeholders";
 import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { getSessionAiKey } from "./session-ai-key";
+import { isAiDeploymentOn } from "./ai-deployment";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
 import { type AiConsent, isConsentCurrent, sanitizeConsent } from "./ai-consent";
 import { BRANDING_EXPORT_FOOTER_MAX } from "./export-footer";
@@ -190,7 +191,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
  *  aiKeyIfEnabled). Unattended runs (scheduled jobs, automatic recommendations) gate on
  *  `isAiBackgroundEnabled` instead, which adds the background consent. */
 export function isAiEnabled(ai: AiConfig | undefined): boolean {
-  return ai?.enabled === true && liveAiKey(ai) !== "" && isConsentCurrent(ai.consent);
+  return isAiDeploymentOn() && ai?.enabled === true && liveAiKey(ai) !== "" && isConsentCurrent(ai.consent);
 }
 
 /** Unattended AI (scheduled jobs, background recommendations): AI is enabled AND the separate background consent is current. */
@@ -202,7 +203,7 @@ export function isAiBackgroundEnabled(ai: AiConfig | undefined): boolean {
  *  Deliberately NOT `isAiEnabled`: dictation sends audio to the user's speech service, not to
  *  Anthropic, so it must not depend on an Anthropic key. Every dictation caller asks HERE. */
 export function isAiConsentedForDictation(ai: AiConfig | undefined): boolean {
-  return ai?.enabled === true && isConsentCurrent(ai.consent);
+  return isAiDeploymentOn() && ai?.enabled === true && isConsentCurrent(ai.consent);
 }
 
 /** §717 — the key an AI call uses: the stored one, else one the user unlocked with its passphrase on this page

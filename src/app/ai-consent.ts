@@ -2,6 +2,7 @@
 // A versioned record of the AI disclosure the user accepted on THIS device.
 // Device settings only: never in the workspace, exports, Turso or recovery.
 import type { AiConfig } from "./settings-types";
+import { type AiRoute, currentAiRoute, isAiDeploymentOn } from "./ai-deployment";
 
 /** Bump when the disclosure text changes materially: every stored consent then reads as stale.
  *  ★★ Also bump whenever `AI_DATA_PATHS` (ai-disclosure.ts) changes WHAT IS SENT — a row added,
@@ -11,28 +12,32 @@ import type { AiConfig } from "./settings-types";
  *  disclosure has shipped. */
 export const AI_DISCLOSURE_VERSION = 1;
 
-export type AiConsent = { acceptedAt: string; disclosureVersion: number };
+/** `route` is where the AI traffic went when the user accepted; absent counts as `direct`. */
+export type AiConsent = { acceptedAt: string; disclosureVersion: number; route?: AiRoute };
 
 const MAX_ACCEPTED_AT_LENGTH = 40;
 
 export function newConsent(now: Date): AiConsent {
-  return { acceptedAt: now.toISOString(), disclosureVersion: AI_DISCLOSURE_VERSION };
+  return { acceptedAt: now.toISOString(), disclosureVersion: AI_DISCLOSURE_VERSION, route: currentAiRoute() };
 }
 
-/** True iff a consent exists and was given for the disclosure text that is current now. */
+/** True iff a consent exists and was given for the disclosure text that is current now, over the route the
+ *  deployment uses now (a consent given for another route reads as stale, so the user is asked again). */
 export function isConsentCurrent(c: AiConsent | undefined): boolean {
-  return c !== undefined && c.disclosureVersion === AI_DISCLOSURE_VERSION;
+  return c !== undefined && c.disclosureVersion === AI_DISCLOSURE_VERSION && (c.route ?? "direct") === currentAiRoute();
 }
 
 /** Load-time validation: anything that is not a well-formed record is no consent at all. */
 export function sanitizeConsent(v: unknown): AiConsent | undefined {
   if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
-  const { acceptedAt, disclosureVersion } = v as Record<string, unknown>;
+  const { acceptedAt, disclosureVersion, route } = v as Record<string, unknown>;
   if (typeof acceptedAt !== "string" || acceptedAt.length > MAX_ACCEPTED_AT_LENGTH) return undefined;
   if (Number.isNaN(Date.parse(acceptedAt))) return undefined;
   if (typeof disclosureVersion !== "number" || !Number.isInteger(disclosureVersion) || disclosureVersion < 1) {
     return undefined;
   }
+  // An unknown route is dropped, not the record: it then counts as direct.
+  if (route === "direct" || route === "gateway") return { acceptedAt, disclosureVersion, route };
   return { acceptedAt, disclosureVersion };
 }
 
@@ -57,7 +62,7 @@ let backgroundConsentLive = false;
  *  current (the key is not part of it). The published interactive flag and every request made before a send (the
  *  key check and the model list, M4) read this one rule. */
 export function isInteractiveAiAllowed(ai: Pick<AiConfig, "enabled" | "consent"> | undefined): boolean {
-  return ai?.enabled === true && isConsentCurrent(ai.consent);
+  return isAiDeploymentOn() && ai?.enabled === true && isConsentCurrent(ai.consent);
 }
 
 /** Records the two send-time flags from the current settings. Interactive: the AI master switch is on

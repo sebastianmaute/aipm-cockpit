@@ -1129,6 +1129,8 @@ export const de: Record<TranslationKey, string> = {
 
   aiAssistant: "KI-Assistent",
   aiEnable: "KI-Assistent aktivieren",
+  aiDeploymentOff: "Ihre Organisation hat KI für diese App ausgeschaltet. Ihr Schlüssel und Ihre Einwilligung bleiben erhalten und gelten wieder, sobald KI wieder eingeschaltet wird.",
+  aiDeploymentInvalid: "KI ist ausgeschaltet, weil die KI-Gateway-Einstellung dieser App ungültig ist. Bitte wenden Sie sich an Ihre Administration.",
   aiEnableHelp: "Aktivieren, um Claude-Chat, KI-Aktionsvorschläge und die KI-Projekterstellung zu nutzen; beim Einschalten werden Sie zuerst gebeten, den KI-Datenhinweis zu akzeptieren. Geplante Jobs und automatische Insight-Empfehlungen brauchen zusätzlich die separate Zustimmung „KI darf im Hintergrund laufen“. Standardmäßig aus.",
   aiDisabledSectionHint:
     "Der KI-Assistent ist ausgeschaltet, daher gibt es hier nichts einzustellen. Schalten Sie ihn unter Einstellungen → KI-Assistent ein.",

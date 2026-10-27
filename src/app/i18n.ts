@@ -1224,6 +1224,8 @@ const enUS = {
 
   aiAssistant: "AI assistant",
   aiEnable: "Enable AI assistant",
+  aiDeploymentOff: "Your organisation has switched AI off for this app. Your key and consent are kept and work again once AI is switched back on.",
+  aiDeploymentInvalid: "AI is off because this app's AI gateway setting is invalid. Ask your administrator.",
   aiEnableHelp: "Turn on to use Claude chat, AI action suggestions and AI project creation; switching on asks you to accept the AI data disclosure first. Scheduled jobs and automatic insight recommendations also need the separate “Allow AI to run in the background” acceptance. Off by default.",
   // Shown by the AI sub-sections (guides, views) that are gated on the master
   // switch but do NOT contain it. `aiEnableHelp` is the switch's own field help
