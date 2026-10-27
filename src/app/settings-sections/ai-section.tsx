@@ -104,6 +104,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const behaviourHeadingId = useId();
   const apiKeyNoteId = useId();
   const modelHintId = useId();
+  const recBackgroundHintId = useId();
   const confirm = useConfirm();
   const showToast = useToastContext();
   const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
@@ -672,6 +673,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           <Checkbox
             aria-label={t(lang, "aiInsightRecommendations")}
             disabled={!isConsentCurrent(settings.ai.backgroundConsent)}
+            aria-describedby={isConsentCurrent(settings.ai.backgroundConsent) ? undefined : recBackgroundHintId}
             checked={settings.ai.insightRecommendations === true}
             onChange={() =>
               onChange({
@@ -691,7 +693,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           {t(lang, "aiInsightRecommendationsDesc")}
         </FieldHint>
         {!isConsentCurrent(settings.ai.backgroundConsent) && (
-          <FieldHint className="mt-1">{t(lang, "aiBackgroundConsentNeeded")}</FieldHint>
+          <FieldHint id={recBackgroundHintId} className="mt-1">{t(lang, "aiBackgroundConsentNeeded")}</FieldHint>
         )}
 
         {/* Cadence for the background runner (SP4). Only meaningful while the

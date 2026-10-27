@@ -111,9 +111,17 @@ describe("ScheduledJobsSection", () => {
     expect(screen.getByText(t("en-US", "aiBackgroundConsentNeeded"))).toBeInTheDocument();
   });
 
+  it("links the reason to the disabled toggle as its accessible description (AI-10)", () => {
+    setup(withKey({ scheduledJobs: false, backgroundConsent: undefined }));
+    expect(screen.getByLabelText(t("en-US", "scheduledJobsToggle"))).toHaveAccessibleDescription(
+      t("en-US", "aiBackgroundConsentNeeded"),
+    );
+  });
+
   it("enables the toggle and shows no hint with the background consent current (AI-10)", () => {
     setup(withKey({ scheduledJobs: false }));
     expect(screen.getByLabelText(t("en-US", "scheduledJobsToggle"))).toBeEnabled();
+    expect(screen.getByLabelText(t("en-US", "scheduledJobsToggle"))).not.toHaveAttribute("aria-describedby");
     expect(screen.queryByText(t("en-US", "aiBackgroundConsentNeeded"))).not.toBeInTheDocument();
   });
 

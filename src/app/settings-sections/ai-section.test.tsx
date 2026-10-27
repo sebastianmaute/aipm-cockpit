@@ -661,6 +661,17 @@ describe("AiSection", () => {
       expect(screen.getByText(t("en-US", "aiBackgroundConsentNeeded"))).toBeInTheDocument();
     });
 
+    it("links the reason to the disabled insight-recommendations toggle as its accessible description", () => {
+      const { unmount } = render(<AiSection lang="en-US" settings={interactiveOnly} onChange={vi.fn()} />);
+      expect(screen.getByLabelText(t("en-US", "aiInsightRecommendations"))).toHaveAccessibleDescription(
+        t("en-US", "aiBackgroundConsentNeeded"),
+      );
+      unmount();
+      const granted = { ...interactiveOnly, ai: { ...interactiveOnly.ai, backgroundConsent: newConsent(new Date(0)) } };
+      render(<AiSection lang="en-US" settings={granted} onChange={vi.fn()} />);
+      expect(screen.getByLabelText(t("en-US", "aiInsightRecommendations"))).not.toHaveAttribute("aria-describedby");
+    });
+
     it("ticking it opens the background dialog, which lists the three runners, and stores nothing until Accept", () => {
       const onChange = vi.fn();
       render(<AiSection lang="en-US" settings={interactiveOnly} onChange={onChange} />);
