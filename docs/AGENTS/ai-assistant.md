@@ -636,6 +636,13 @@
   `humanizeFieldName` output ("due date"): the model WRITES with those exact names, and the humanized form
   both lowercases and splits camelCase, so it is lossy and not uniquely invertible. Do not "align" the two
   renderers — `activity-prompt.ts`'s header carries the full reasoning.
+  ★★ **`renderActivityEntry` is the MODEL BOUNDARY for logged edits (AI-05):** it leaves out every change for
+  which `withheldActivityField(kind, field)` (`ai-withheld-fields.ts`) is true — the inline editor's withheld
+  fields of the entity the kind's prefix names (`AI_WITHHELD_FIELDS`, the same table `INLINE_DESCRIPTORS`
+  builds `withheldFields` from), every field in that table when the prefix names no entity, and every e-mail
+  field under any kind — BEFORE the query is matched, so a query cannot find an entry by a withheld value.
+  Storage, the Activity panel and the internal audit download keep every change. A stored `search_history`
+  result of an older thread has its `detail` dropped on load when it names such a field (`chat-threads.ts`).
   ★★ **`truncated` means "more matched than you are seeing", NEVER "a limit was applied".** A cap that
   happened to cut nothing must report `false`; the model reads this field to decide whether it may claim a
   complete answer, and the tool description instructs it to say so out loud.

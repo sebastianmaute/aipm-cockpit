@@ -61,6 +61,7 @@ import { ABSENCE_FIELD_GUARDS, CALENDAR_EVENT_FIELD_GUARDS } from "../sanitize-a
 import { roleLabel } from "../resource-foundation";
 import { normalizeBlockerText, previewBlockersText } from "../blocker-log";
 import { str } from "./str";
+import { AI_WITHHELD_FIELDS, WITHHELD_ON_EVERY_ENTITY } from "../ai-withheld-fields";
 
 /** `sanitizeText` bound to one cap, as the apply-path sanitizers call it.
  *  Written as a factory so a `fieldSanitizers` entry can never carry a cap
@@ -104,9 +105,9 @@ export interface LinkField {
   readonly sanitize: (v: unknown) => number[];
 }
 
-/** The withheld set for one entity: its named fields plus the `noteLog` every entity shares. */
+/** The withheld set for one entity: its named fields (`AI_WITHHELD_FIELDS`, the one list) plus the `noteLog` every entity shares. */
 function withheld(...names: string[]): ReadonlySet<string> {
-  return new Set([...names, "noteLog"]);
+  return new Set([...names, WITHHELD_ON_EVERY_ENTITY]);
 }
 
 export interface EntityDescriptor {
@@ -462,7 +463,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  writer stamps implicitly on an inline edit, so an explicit change is
     //  signal rather than noise.
     diffFields: ["taskName", "assignee", "assigneeEmail", "dueDate", "status", "priority", "description", "blockers", "group", "labels", "lastUpdateDate"],
-    withheldFields: withheld("assigneeEmail"),
+    withheldFields: withheld(...AI_WITHHELD_FIELDS.task),
     requiredNonEmpty: new Set(["taskName", "dueDate"]),
     requiredNonEmptyGroups: [],
     // ★★ THE TWO TASK DATES ARE STILL NOT SYMMETRIC ON A BLANK, but both halves
@@ -524,7 +525,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // patch, so a co-changed category must already be applied when status is
     // checked. Pinned by the "co-changed category" test in plan.test.ts.
     diffFields: ["category", "title", "status", "description", "mitigation", "owner", "ownerEmail", "severity", "probability", "impact", "raisedDate", "targetDate", "closedDate"],
-    withheldFields: withheld("ownerEmail"),
+    withheldFields: withheld(...AI_WITHHELD_FIELDS.raid),
     requiredNonEmpty: new Set(["title"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(["raisedDate", "targetDate", "closedDate"]),
@@ -599,7 +600,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  `diffFields` is unreachable. It is withdrawn for consistency, so the
     //  next reader does not restore `diffFields` to "complete the pair".
     diffFields: ["title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays", "costImpact", "requestedBy", "raisedDate", "decisionBy", "resolutionNotes"],
-    withheldFields: withheld(),
+    withheldFields: withheld(...AI_WITHHELD_FIELDS.change),
     requiredNonEmpty: new Set(["title"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(["raisedDate"]),
@@ -627,7 +628,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   milestone: {
     entity: "milestone", updateTool: "update_milestone", deleteTool: "delete_milestone", createTool: "create_milestone", wsKey: "milestones",
     diffFields: ["name", "date", "description", "achievedDate"],
-    withheldFields: withheld(),
+    withheldFields: withheld(...AI_WITHHELD_FIELDS.milestone),
     requiredNonEmpty: new Set(["name", "date"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(["date", "achievedDate"]),
@@ -662,7 +663,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   stakeholder: {
     entity: "stakeholder", updateTool: "update_stakeholder", deleteTool: "delete_stakeholder", createTool: "create_stakeholder", wsKey: "stakeholders",
     diffFields: ["name", "organization", "title", "email", "category", "influence", "interest", "notes"],
-    withheldFields: withheld("email", "notes", "influence", "interest"),
+    withheldFields: withheld(...AI_WITHHELD_FIELDS.stakeholder),
     requiredNonEmpty: new Set(["name"]),
     requiredNonEmptyGroups: [],
     dateFields: new Set(),
@@ -721,7 +722,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // R10 (AI-07): a person's contact and private details stay on the device. Name, title, department,
     // company and isExternal are still sent and writable. `utilization` (planned % or hours per period)
     // is workload planning, not personal content, and stays.
-    withheldFields: withheld("email", "emails", "businessPhone", "location", "birthday", "notes", "absenceOverride"),
+    withheldFields: withheld(...AI_WITHHELD_FIELDS.resource),
     // ★★★ THE ONLY GROUP ACROSS THESE SIX DESCRIPTORS today (grep
     // `requiredNonEmptyGroups: [` — every other entry is `[]`), and the reason
     // `requiredNonEmptyGroups` exists. `sanitizeResource`'s gate is
@@ -836,7 +837,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // MERGE SITE lets through — minus `resourceId`, which is an FK and is
     // disclosed through `linkFields` by the same rule as `resource.roleId`.
     diffFields: ["assignee", "assigneeEmail", "startDate", "endDate", "type", "note"],
-    withheldFields: withheld("assigneeEmail", "type", "note"),
+    withheldFields: withheld(...AI_WITHHELD_FIELDS.absence),
     // All three make `sanitizeAbsence` return null, which `updateAbsence`
     // surfaces as a thrown "invalid absence update" — so the throw costs the
     // WHOLE patch, the same shape `task.dueDate` carries.
@@ -929,7 +930,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     // ★ `exceptions` is absent from the guard table itself and so cannot be
     //  written by the model at all — nothing to disclose.
     diffFields: ["title", "startDate", "startTime", "durationMinutes", "location", "notes", "sendInvitations", "recurrence"],
-    withheldFields: withheld(),
+    withheldFields: withheld(...AI_WITHHELD_FIELDS.calendarEvent),
     // `sanitizeCalendarEvent` returns null without either, and
     // `updateCalendarEvent` turns that into a throw that costs the whole patch.
     requiredNonEmpty: new Set(["title", "startDate"]),

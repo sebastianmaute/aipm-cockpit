@@ -25,6 +25,9 @@ longer carries its own changelog comment.
     addresses (in allocation lists a person without a name is shown to it by their number in the resource
     directory); one lookup tool reads a single address when it is needed. Chats saved before the update have the same
     data removed from their stored tool results when loaded, except addresses looked up with that tool.
+  - When the chat searches the activity history, logged edits no longer show it a change to an e-mail address or to
+    a field inline AI edit leaves out (listed below); the Activity view still shows every change. History results
+    saved in older chats lose the change details that name such a field when loaded.
   - Switching AI off or withdrawing a consent takes effect in every open tab and window, and a tab that missed it
     cannot undo it: only switching AI on or accepting a consent there again does, and each restores only what it is
     about (accepting the consent also switches AI on).

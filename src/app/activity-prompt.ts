@@ -35,6 +35,7 @@ import {
   MAX_FIELD_CHANGES,
 } from "./activity-log";
 import { activityChangeValues, activityMessage } from "./activity-message";
+import { withheldActivityField } from "./ai-withheld-fields";
 
 export interface RenderedActivity {
   /** The entry's ISO timestamp, verbatim. */
@@ -106,7 +107,12 @@ export function renderActivityEntry(entry: ActivityEntry): RenderedActivity {
     ...(actor ? { actor } : {}),
   };
 
-  const changes = entry.changes ?? [];
+  // ★★★ AI-05: THIS IS THE MODEL BOUNDARY for logged edits. A change to a field the model is never sent
+  //   (`withheldActivityField`: an absence's type and note, a person's phone, location, birthday and
+  //   notes, a stakeholder's notes, influence and interest, every e-mail field) is left out here, BEFORE
+  //   `searchHistory` matches its query against the detail — so a query cannot find an entry by a withheld
+  //   value either. Storage, the Activity panel and the audit download keep every change.
+  const changes = (entry.changes ?? []).filter((c) => !withheldActivityField(entry.kind, c.field));
   if (changes.length === 0) return base;
 
   // ★ `||`, not `??`, mirroring the panel's `c.from || "—"`: the EMPTY STRING

@@ -1,6 +1,7 @@
 // src/app/chat-threads.ts — pure, i18n-free, DOM-free engine for per-project AI
 // chat threads. No React, no Turso IO — see chat-threads-schema.ts/
 // chat-threads-store.ts for persistence. chat-panel.tsx is the sole consumer.
+import { ALL_WITHHELD_FIELDS, isEmailField } from "./ai-withheld-fields";
 import type { ApiMessage, ContentBlock, DisplayItem, TextBlock } from "./chat-api";
 
 export interface ChatThread {
@@ -102,7 +103,8 @@ export function newThreadId(): string {
 }
 
 // AI-08 / AI-05 — a thread saved before the tool results were minimised still carries, in its
-// stored API history, tool results with e-mail addresses and an absence's real type and note. Loading it would
+// stored API history, tool results with e-mail addresses, an absence's real type and note, and `search_history`
+// details with logged changes to withheld fields (`renderActivityEntry` now leaves those out). Loading it would
 // send them to the model again with the next message, so they are removed on load (`rowsToThreads`). Only
 // `tool_result` blocks are touched: the user's and the assistant's own text stays as written, and so does the
 // result of a `get_contact_email` call, the one tool built to return an address.
@@ -118,16 +120,38 @@ function isAbsenceShaped(o: Record<string, unknown>): boolean {
     && typeof o.type === "string" && ABSENCE_TYPE_VALUES.has(o.type);
 }
 
-/** A copy of `value` without the e-mail fields, every absence's type read as "absent" and its note dropped. */
+/** A `search_history` event (`renderActivityEntry`'s shape): a summary line with a field-diff `detail`. */
+function isHistoryEvent(o: Record<string, unknown>): boolean {
+  return typeof o.summary === "string" && typeof o.detail === "string";
+}
+
+/** The `field: ` header that opens each change of a rendered `detail` ("status: To Do → Done; note: a → b"). */
+const DETAIL_FIELD_HEADER = /(?:^|; )([A-Za-z_$][\w$]*): /g;
+
+/** Whether a stored `search_history` detail names a change to a withheld field. A stored event no longer carries
+ *  its activity kind, so the entity is unknown and every field of `ALL_WITHHELD_FIELDS` counts, as does every
+ *  e-mail field: such a detail is dropped whole, because its values cannot be told apart from text that merely
+ *  looks like the next header. */
+function detailNamesWithheldField(detail: string): boolean {
+  for (const m of detail.matchAll(DETAIL_FIELD_HEADER)) {
+    if (ALL_WITHHELD_FIELDS.has(m[1]) || isEmailField(m[1])) return true;
+  }
+  return false;
+}
+
+/** A copy of `value` without the e-mail fields, every absence's type read as "absent" and its note dropped, and
+ *  without the `detail` of a `search_history` event that names a change to a withheld field. */
 function minimiseValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(minimiseValue);
   if (typeof value !== "object" || value === null) return value;
   const o = value as Record<string, unknown>;
   const absence = isAbsenceShaped(o);
+  const historyEvent = isHistoryEvent(o);
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(o)) {
     if (STORED_EMAIL_KEYS.has(k)) continue;
     if (absence && k === "note") continue;
+    if (historyEvent && k === "detail" && detailNamesWithheldField(v as string)) continue;
     out[k] = absence && k === "type" ? "absent" : minimiseValue(v);
   }
   return out;
@@ -136,17 +160,21 @@ function minimiseValue(value: unknown): unknown {
 const EMAIL_ADDRESS = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 /** A `"note": "…"` member, escaped quotes inside the string included. */
 const NOTE_FIELD = /"note"\s*:\s*"(?:[^"\\]|\\.)*"/g;
+/** A `"detail": "…"` member, also one a cut result ends inside (no closing quote). */
+const DETAIL_MEMBER = /"detail"\s*:\s*"((?:[^"\\]|\\.)*)(?:"|$)/g;
 
 /** A tool result's text with the same data removed. JSON (what `stringifyResult` writes) is minimised field by
  *  field and written back the same way, and left byte-identical when nothing was removed. A JSON value that is
  *  not an object or array loses every e-mail address; text that does not parse (an error message, a cut result)
- *  also loses every `note` string and has any absence type read as "absent". */
+ *  also loses every `note` string, has any absence type read as "absent", and has every `detail` string that
+ *  names a change to a withheld field emptied. */
 export function minimiseToolResultText(text: string): string {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
     return text
+      .replace(DETAIL_MEMBER, (member: string, inner: string) => (detailNamesWithheldField(inner) ? '"detail": ""' : member))
       .replace(EMAIL_ADDRESS, "[email removed]")
       .replace(NOTE_FIELD, '"note": ""')
       .replace(/"type"\s*:\s*"(?:vacation|sick|training|other)"/g, '"type": "absent"');

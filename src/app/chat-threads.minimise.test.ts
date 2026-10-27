@@ -177,3 +177,51 @@ describe("minimiseStoredToolResults — a looked-up address is kept (AI-08)", ()
     expect(JSON.parse(toolResults([out])[1])).toEqual({ id: 1, title: "Deck", assignee: "Ada", version: "t1" }); // control
   });
 });
+
+// AI-05 — a `search_history` result stored before `renderActivityEntry` left withheld fields out still carries the
+// logged values in each event's `detail`. A stored event has no activity kind, so a detail that names any withheld
+// field (or any e-mail field) is dropped whole on load; every other detail and the summary stay.
+describe("rowsToThreads — an old stored search_history result is minimised on load (AI-05)", () => {
+  const OLD_SEARCH = {
+    events: [
+      { at: "2026-07-01T09:00:00Z", summary: "Absence #50 updated for Ada: 2026-07-06 – 2026-07-12", actor: "user",
+        detail: "assigneeEmail: ada@old.example → ada@new.example; endDate: 2026-07-10 → 2026-07-12; note: Booked; with type: x → Knee surgery; type: vacation → sick" },
+      { at: "2026-07-01T08:00:00Z", summary: "Resource #7 updated: Ada", detail: "birthday: 1815-12-10 → 1815-12-11; title: Analyst → Lead" },
+      { at: "2026-07-01T07:00:00Z", summary: "Stakeholder #3 updated: Bo", detail: "influence: Low → High" },
+      { at: "2026-07-01T06:00:00Z", summary: "Task #1 updated: Deck", detail: "status: To Do → Done" },
+    ],
+    truncated: false,
+  };
+  const history = [
+    { role: "assistant", content: [{ type: "tool_use", id: "h1", name: "search_history", input: {} }] },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "h1", content: pretty(OLD_SEARCH) }] },
+  ] as ApiMessage[];
+  const [thread] = rowsToThreads(pipelineRow(history) as Parameters<typeof rowsToThreads>[0]);
+  const [result] = toolResults(thread.history);
+
+  it("no withheld value of the logged edits is sent again", () => {
+    for (const v of ["ada@old.example", "ada@new.example", "Booked", "Knee surgery", "vacation", "sick", "1815-12-1", "High"]) {
+      expect(result).not.toContain(v);
+    }
+  });
+
+  it("drops only the details that name a withheld field and keeps every summary", () => {
+    expect(JSON.parse(result)).toEqual({
+      events: [
+        { at: "2026-07-01T09:00:00Z", summary: "Absence #50 updated for Ada: 2026-07-06 – 2026-07-12", actor: "user" },
+        { at: "2026-07-01T08:00:00Z", summary: "Resource #7 updated: Ada" },
+        { at: "2026-07-01T07:00:00Z", summary: "Stakeholder #3 updated: Bo" },
+        { at: "2026-07-01T06:00:00Z", summary: "Task #1 updated: Deck", detail: "status: To Do → Done" },
+      ],
+      truncated: false,
+    });
+  });
+
+  it("empties such a detail in a stored result that was cut and does not parse", () => {
+    const cut = '{"events":[{"summary":"S","detail":"status: a → b"},{"summary":"T","detail":"note: Knee surg';
+    const out = minimiseToolResultText(cut);
+    expect(out).not.toContain("Knee");
+    expect(out).toContain('"detail":"status: a → b"');
+    expect(out).toContain('"detail": ""');
+  });
+});
