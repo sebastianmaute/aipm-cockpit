@@ -16,39 +16,68 @@ import { t } from "./i18n";
 // reach this; only wiring real handlers through the CONSUMER can.
 const ptt = vi.hoisted(() => ({
   listening: false,
+  unavailable: false,
+  unavailableReason: null as string | null,
   buttonHandlers: { onPointerDown: vi.fn(), onKeyDown: vi.fn() },
 }));
 vi.mock("./use-push-to-talk", () => ({
-  usePushToTalk: () => ({ listening: ptt.listening, transcribing: false, supported: true, buttonHandlers: ptt.buttonHandlers, toggle: () => {}, press: vi.fn(), release: vi.fn() }),
+  usePushToTalk: () => ({ listening: ptt.listening, transcribing: false, supported: true, unavailable: ptt.unavailable, unavailableReason: ptt.unavailableReason, buttonHandlers: ptt.buttonHandlers, toggle: () => {}, press: vi.fn(), release: vi.fn() }),
 }));
 
 beforeEach(() => {
   ptt.listening = false;
+  ptt.unavailable = false;
+  ptt.unavailableReason = null;
   ptt.buttonHandlers.onPointerDown.mockClear();
   ptt.buttonHandlers.onKeyDown.mockClear();
   setActiveDictationTarget(null);
 });
 
 function Mic({ padding }: { padding?: string }) {
-  const { mic } = useDictationMic({ lang: "en-US", label: "Notes", onAppendFinal: vi.fn(), padding });
+  const { mic } = useDictationMic({ lang: "en-US", aiConsented: true, label: "Notes", onAppendFinal: vi.fn(), padding });
   return <>{mic}</>;
 }
 
+describe("useDictationMic — speech-to-text without the AI consent (AI-01)", () => {
+  it("disables the mic and gives the reason as its accessible description", () => {
+    ptt.unavailable = true;
+    ptt.unavailableReason = "needs-ai-consent";
+    render(<Mic />);
+    const btn = screen.getByRole("button", { name: `${t("en-US", "dictationHold")} – Notes` });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAccessibleDescription(t("en-US", "dictationUnavailableNeedsAiConsent"));
+  });
+  it("speech-to-text not fully set up: disabled, with that reason as its description", () => {
+    ptt.unavailable = true;
+    ptt.unavailableReason = "speech-service-not-set-up";
+    render(<Mic />);
+    const btn = screen.getByRole("button", { name: `${t("en-US", "dictationHold")} – Notes` });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAccessibleDescription(t("en-US", "dictationUnavailableSttNotSetUp"));
+  });
+  it("an available mic is enabled and carries no such description (control)", () => {
+    render(<Mic />);
+    const btn = screen.getByRole("button", { name: `${t("en-US", "dictationHold")} – Notes` });
+    expect(btn).not.toBeDisabled();
+    expect(btn).not.toHaveAttribute("aria-describedby");
+  });
+});
+
 describe("useDictationMic", () => {
   it("registers/clears the active target on focus/blur", () => {
-    const { result } = renderHook(() => useDictationMic({ lang: "en-US", label: "Notes", onAppendFinal: vi.fn() }));
+    const { result } = renderHook(() => useDictationMic({ lang: "en-US", aiConsented: true, label: "Notes", onAppendFinal: vi.fn() }));
     result.current.registration.onFocus();
     expect(getActiveDictationTarget()?.label).toBe("Notes");
     result.current.registration.onBlur();
     expect(getActiveDictationTarget()).toBeNull();
   });
   it("exposes a mic element when supported", () => {
-    const { result } = renderHook(() => useDictationMic({ lang: "en-US", label: "Notes", onAppendFinal: vi.fn() }));
+    const { result } = renderHook(() => useDictationMic({ lang: "en-US", aiConsented: true, label: "Notes", onAppendFinal: vi.fn() }));
     expect(result.current.mic).not.toBeNull();
   });
 
   it("clears the active target on unmount", () => {
-    const { result, unmount } = renderHook(() => useDictationMic({ lang: "en-US", label: "Notes", onAppendFinal: vi.fn() }));
+    const { result, unmount } = renderHook(() => useDictationMic({ lang: "en-US", aiConsented: true, label: "Notes", onAppendFinal: vi.fn() }));
     result.current.registration.onFocus();
     expect(getActiveDictationTarget()?.label).toBe("Notes");
     unmount();
@@ -57,7 +86,7 @@ describe("useDictationMic", () => {
 
   it("keeps the active target across re-renders (stable identity)", () => {
     const { result, rerender } = renderHook(
-      (props: { label: string }) => useDictationMic({ lang: "en-US", label: props.label, onAppendFinal: vi.fn() }),
+      (props: { label: string }) => useDictationMic({ lang: "en-US", aiConsented: true, label: props.label, onAppendFinal: vi.fn() }),
       { initialProps: { label: "Notes" } },
     );
     result.current.registration.onFocus();

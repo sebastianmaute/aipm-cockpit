@@ -76,6 +76,14 @@ export function resourceLabel(r: Resource): string {
   return `#${r.id}`;
 }
 
+/** AI-08 — the label a resource carries in what is SENT to the model (`buildAllocContext`,
+ *  `buildAllocationsSnapshot`): full name, else `#<id>`. Never the e-mail fallback `resourceLabel` takes for
+ *  the screen, so a person without a name is not identified to the model by their address. */
+export function aiResourceLabel(r: Resource): string {
+  const name = `${r.firstName} ${r.lastName}`.trim();
+  return name || `#${r.id}`;
+}
+
 function roleLabel(
   roleId: number | null,
   roles: readonly Role[],
@@ -145,7 +153,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
       return `${period.key}=${Math.round(current)}/${Math.round(capacityRaw)}`;
     });
     lines.push(
-      `#${r.id} ${resourceLabel(r)} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}`,
+      `#${r.id} ${aiResourceLabel(r)} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}`,
     );
   }
   if (resources.length > ALLOC_CONTEXT_MAX_RESOURCES) {
@@ -902,7 +910,7 @@ export function buildAllocationsSnapshot(args: AllocationsSnapshotArgs): Allocat
     }
     return {
       id: r.id,
-      name: resourceLabel(r),
+      name: aiResourceLabel(r),
       roleId: r.roleId,
       unit: r.utilizationMode,
       cells,

@@ -4,6 +4,8 @@
 // LIVE buckets and refuses rather than writes when the bucket changed under an
 // open preview (Review Focus 5).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import "../test/ai-consent-live";
+import { newConsent } from "./ai-consent";
 import { act, renderHook } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
 import { ActionGuidesProvider } from "./action-guides-context";
@@ -30,7 +32,7 @@ vi.mock("./budget-import/layout-detect", async (importOriginal) => {
 });
 import { detectLayout } from "./budget-import/layout-detect";
 
-const AI_ON: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-test", model: "claude-x" } };
+const AI_ON: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-test", model: "claude-x" } };
 const AI_OFF: Settings = { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: false, apiKey: "" } };
 
 function stubSettings(settings: Settings): void {

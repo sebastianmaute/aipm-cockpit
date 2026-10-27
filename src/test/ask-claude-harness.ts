@@ -15,6 +15,7 @@
 //   file, so each file declares its own counter and passes it here.
 
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { newConsent } from "../app/ai-consent";
 import { expect, vi } from "vitest";
 import { SETTINGS_KEY } from "../app/use-settings";
 import { defaultAiConfig } from "../app/settings-types";
@@ -40,7 +41,7 @@ export function seedRegistry() {
 export function seedAiSettings() {
   window.localStorage.setItem(
     SETTINGS_KEY,
-    JSON.stringify({ ai: { ...defaultAiConfig, enabled: true, consentAccepted: true, apiKey: "sk-test" } }),
+    JSON.stringify({ ai: { ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-test" } }),
   );
 }
 

@@ -2,6 +2,7 @@
 // React read of the in-memory key verdict (`ai-key-status.ts`).
 "use client";
 import { useEffect, useSyncExternalStore } from "react";
+import { isInteractiveAiAllowed } from "./ai-consent";
 import { getAiKeyStatus, subscribeAiKeyStatus, syncAiKey, type AiKeyStatus } from "./ai-key-status";
 import { fetchAnthropicModels } from "./anthropic-models";
 import { isValidAnthropicApiKey } from "./chat-models";
@@ -24,7 +25,7 @@ export function useAiKeyStatus(): AiKeyStatus {
 }
 
 export interface UseAiKeyCheckArgs {
-  ai: Pick<AiConfig, "enabled" | "apiKey"> | undefined;
+  ai: Pick<AiConfig, "enabled" | "apiKey" | "consent"> | undefined;
   hydrated: boolean;
   isPopout: boolean;
 }
@@ -35,18 +36,19 @@ export interface UseAiKeyCheckArgs {
  * 1. Keeps the store's live-key token in step with `settings.ai.apiKey` (after hydration), so a
  *    changed key resets the verdict to "unknown". Popouts sync too — harmless, and their own
  *    envelopes then report against the right key.
- * 2. When AI is enabled, settings are hydrated, this is the main window and the key is well-formed,
+ * 2. When AI is switched on with a current interactive consent (`isInteractiveAiAllowed`, M4: no request to
+ *    Anthropic before consent), settings are hydrated, this is the main window and the key is well-formed,
  *    it runs ONE `GET /v1/models` on the settled key (debounced), which reports 2xx/401/403 into
  *    the verdict via `fetchAnthropicModels`. A network error, a timeout or any other status leaves
  *    the verdict unchanged — a key is never flagged on a network failure. It runs again only when
- *    the key changes or the check becomes eligible again (AI switched back on); a re-render with
+ *    the key changes or the check becomes eligible again (AI switched back on, or the consent accepted); a re-render with
  *    the same key does not re-check, because the effect's deps do not change.
  */
 export function useAiKeyCheck({ ai, hydrated, isPopout }: UseAiKeyCheckArgs): void {
   // §717 — a passphrase key reads "" in settings; once it is unlocked on this page, that is the key checked.
   const sessionKey = useSessionAiKey();
   const key = (ai?.apiKey ?? "").trim() || sessionKey;
-  const enabled = ai?.enabled === true;
+  const enabled = isInteractiveAiAllowed(ai);
 
   useEffect(() => {
     if (hydrated) syncAiKey(key);

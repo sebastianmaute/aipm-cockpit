@@ -17,6 +17,7 @@
 import type { ApiMessage, SystemBlock } from "./chat-api";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
+import { type AiConsentLevel, assertAiConsentLive } from "./ai-consent";
 import { matchesSchema, withStrictTool } from "./ai-tool-schema";
 
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -44,6 +45,9 @@ export interface ForcedToolCallArgs {
   messages: ApiMessage[];
   maxTokens: number;
   signal?: AbortSignal;
+  /** The consent every request of this call needs (`assertAiConsentLive`), asked before EACH request, the
+   *  fallback and strict retries included. Default `interactive`; the unattended runners pass `background`. */
+  level?: AiConsentLevel;
 }
 
 /** `system` with the guide text after it as its own LAST block. With `cache`,
@@ -213,6 +217,7 @@ async function postOnce(
   const system = withGuideText(args.system, args.guideText, args.cacheGuides === true);
   if (system !== undefined) body.system = system;
 
+  assertAiConsentLive(args.level ?? "interactive");
   const res = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     headers: {

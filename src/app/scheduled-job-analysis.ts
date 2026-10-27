@@ -8,6 +8,7 @@
 // message status-only) or the token "parse".
 import { parseAnalysis, ANALYZE_TOOL, buildAnalysisSystemPrompt, type ActionAnalysis } from "./action-ai";
 import { runForcedToolCallWithStop } from "./ai-forced-call";
+import type { AiConsentLevel } from "./ai-consent";
 
 interface AiCreds {
   apiKey: string;
@@ -17,6 +18,9 @@ interface AiCreds {
   /** Cache the guide prefix: set by the scheduled-job runner, which can run
    *  several due jobs in one tick (`runForcedToolCall`'s `cacheGuides`). */
   cacheGuides?: boolean;
+  /** The consent each request needs: the scheduled-job runner passes `background`; the Action Center's
+   *  click passes nothing (interactive). */
+  level?: AiConsentLevel;
 }
 
 // The output budget, as task dedup and the project proposal use (was 2048), and the one a reply cut at
@@ -38,6 +42,7 @@ export async function runJobAnalysis(context: string, ai: AiCreds, signal?: Abor
       system: buildAnalysisSystemPrompt(),
       guideText: ai.guideText,
       cacheGuides: ai.cacheGuides,
+      level: ai.level,
       tools: [ANALYZE_TOOL],
       toolName: "report_analysis",
       messages: [{ role: "user", content: context }],

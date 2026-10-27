@@ -2,7 +2,7 @@
 
 import { useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { type Lang, t } from "../i18n";
-import { type Settings } from "../settings-types";
+import { isAiConsentedForDictation, type Settings } from "../settings-types";
 import { SegmentedControl } from "../segmented-control";
 import { isIntegrationDisabled } from "../integration-switches";
 import { InfoTooltip } from "../info-tooltip";
@@ -119,6 +119,9 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
 
       {engine === "stt" && (
         <div className="mt-3 flex flex-col gap-2">
+          {!isAiConsentedForDictation(settings.ai) && (
+            <p role="note" className="text-xs text-muted-foreground">{t(lang, "dictationNeedsAiConsent")}</p>
+          )}
           <label className="block">
             <span className="mb-1 block text-xs text-muted-foreground">
               {t(lang, "dictationSttBaseUrl")}

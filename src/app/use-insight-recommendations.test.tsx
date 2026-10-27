@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { newConsent } from "./ai-consent";
 import { renderHook, act, render, screen } from "@testing-library/react";
 import * as recommendCall from "./insights/recommend-call";
 import { AiHttpError } from "./ai-errors";
@@ -56,7 +57,7 @@ function mkDeps(over: Partial<InsightRecommendationDeps> = {}): InsightRecommend
     getScopeEpoch: () => 0,
     guides: [],
     guidesReady: true,
-    settings: { ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" } } as unknown as InsightRecommendationDeps["settings"],
+    settings: { ai: { enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" } } as unknown as InsightRecommendationDeps["settings"],
     lang: "en-US",
     today: "2026-09-03",
     project: undefined,
@@ -117,7 +118,7 @@ it("stamps the token from the rows the PROMPT was built from, not the rows at an
   const store = mkStore([mkInsight()]);
   const edited = { ...task, taskName: "Fix login bug (edited mid-flight)" };
   const runnerSettings = {
-    ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true },
+    ai: { enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true },
   } as unknown as InsightRecommendationDeps["settings"];
   const { rerender } = renderHook(
     (p: { tasks: unknown[] }) =>
@@ -311,7 +312,7 @@ function recommendationRunnerDeps(loadPending: boolean, store: ReturnType<typeof
     insights: store.read(),
     setInsights: store.setInsights,
     loadPending,
-    settings: { ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true } } as unknown as InsightRecommendationDeps["settings"],
+    settings: { ai: { enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true } } as unknown as InsightRecommendationDeps["settings"],
   });
 }
 
@@ -335,6 +336,18 @@ it("DOES invoke the background runner's tick once the project load is no longer 
   expect(generate).toHaveBeenCalled();
 });
 
+// AI-10 — the runner is unattended, so interactive consent alone must not start it. Same fixture and the
+// same mount tick as the positive control above, with the background consent removed.
+it("does not tick the background runner with interactive consent only (AI-10)", async () => {
+  const generate = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
+  const store = mkStore([mkInsight()]);
+  const deps = recommendationRunnerDeps(false, store);
+  const interactiveOnly = { ai: { ...deps.settings.ai, backgroundConsent: undefined } } as unknown as InsightRecommendationDeps["settings"];
+  renderHook(() => useInsightRecommendations({ ...deps, settings: interactiveOnly }));
+  await act(async () => {});
+  expect(generate).not.toHaveBeenCalled();
+});
+
 // §701 — the runner is unattended: while grounding is on it waits for the guide
 // library to load rather than spend a billed run without the guides. The
 // on-demand path does not wait. Grounding off means nothing to wait for.
@@ -343,7 +356,7 @@ function runnerDepsWithGuides(groundInGuides: boolean, guidesReady: boolean, sto
     insights: store.read(),
     setInsights: store.setInsights,
     guidesReady,
-    settings: { ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true, groundInGuides } } as unknown as InsightRecommendationDeps["settings"],
+    settings: { ai: { enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true, groundInGuides } } as unknown as InsightRecommendationDeps["settings"],
   });
 }
 
@@ -472,7 +485,7 @@ describe("insight recommendations carry the operating guides (§701)", () => {
   };
   const expected = actionGuideText([guide], true, "insightRecommend");
   const settings = (runner: boolean) => ({
-    ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: true, insightRecommendations: runner },
+    ai: { enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: true, insightRecommendations: runner },
   }) as unknown as InsightRecommendationDeps["settings"];
 
   it("the on-demand generate sends the guide text", async () => {
@@ -497,7 +510,7 @@ describe("insight recommendations carry the operating guides (§701)", () => {
   it("sends no guide text when grounding is off", async () => {
     const generate = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
     const store = mkStore([mkInsight()]);
-    const off = { ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } } as unknown as InsightRecommendationDeps["settings"];
+    const off = { ai: { enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } } as unknown as InsightRecommendationDeps["settings"];
     const { result } = renderHook(() => useInsightRecommendations(mkDeps({ settings: off, guides: [guide], insights: store.read(), setInsights: store.setInsights })));
     await act(async () => { result.current.insightActions.onGenerateRecommendation(1); });
     expect(generate.mock.calls[0][0].guideText).toBe("");
@@ -588,7 +601,7 @@ describe("a pre-switch recommendation carrying money is refused after a currency
     );
     const store = mkStore([mkInsight()]);
     const runnerSettings = {
-      ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true },
+      ai: { enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", insightRecommendations: true },
     } as unknown as InsightRecommendationDeps["settings"];
     const { rerender } = renderHook(
       (p: { history: InsightRecommendationDeps["baselineHistory"] }) =>

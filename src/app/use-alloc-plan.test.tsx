@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { newConsent } from "./ai-consent";
 import { AiHttpError } from "./ai-errors";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { type ReactNode, useEffect, useState } from "react";
@@ -22,7 +23,7 @@ function proposal(cells: ParsedAllocationProposal["cells"], truncated = false): 
 
 const AI_ON: Settings = {
   ...defaultSettings,
-  ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-test", model: "claude-x" },
+  ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-test", model: "claude-x" },
 };
 
 const PLAN: ResourcePlan = {

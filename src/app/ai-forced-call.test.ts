@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import "../test/ai-consent-live";
+import { AiConsentRevokedError, newConsent, publishAiConsentState } from "./ai-consent";
+import { defaultAiConfig } from "./settings-types";
 import { __resetToolChoiceFallbackForTests, runForcedToolCall, runForcedToolCallWithStop } from "./ai-forced-call";
 import { AiHttpError } from "./ai-errors";
 import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
@@ -291,5 +294,95 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
     vi.stubGlobal("fetch", fetchMock);
     await expect(runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" })).rejects.toThrow("parse");
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+// The file-wide live consent comes from ../test/ai-consent-live; put it back after a test revokes it.
+function restoreLiveConsent() {
+  publishAiConsentState(LIVE);
+}
+
+const LIVE = {
+  ...defaultAiConfig,
+  enabled: true,
+  consent: newConsent(new Date(0)),
+  backgroundConsent: newConsent(new Date(0)),
+};
+
+/** Request 1 is refused over tool_choice, which sends the call down the fallback path; `during` runs while it is
+ *  in flight. Request 2 (if it goes out) answers with the tool. */
+function stubFallbackWith(during: () => void) {
+  let n = 0;
+  const fetchMock = vi.fn().mockImplementation(async () => {
+    n += 1;
+    if (n > 1) {
+      return { ok: true, status: 200, json: async () => ({ content: [{ type: "tool_use", name: "t", input: { a: 1 } }] }) };
+    }
+    during();
+    return {
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { type: "invalid_request_error", message: "tool_choice is not supported" } }),
+    };
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+describe("runForcedToolCall — the consent gate (AI-01)", () => {
+  beforeEach(() => __resetToolChoiceFallbackForTests());
+  afterEach(() => {
+    restoreLiveConsent();
+    vi.unstubAllGlobals();
+  });
+
+  it("rejects with AiConsentRevokedError and sends nothing when no consent is published", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    publishAiConsentState({ ...defaultAiConfig, consent: undefined });
+    await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(AiConsentRevokedError);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not send the fallback request when consent is revoked between the two", async () => {
+    // Request 1 is refused over tool_choice, which sends the call down the fallback path; the user revokes
+    // consent while it is in flight, so the second request must not go out.
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      publishAiConsentState({ ...defaultAiConfig, consent: undefined });
+      return {
+        ok: false,
+        status: 400,
+        json: async () => ({ error: { type: "invalid_request_error", message: "tool_choice is not supported" } }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(AiConsentRevokedError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not send the fallback request when AI is switched off between the two, the consent kept (AI-01)", async () => {
+    const fetchMock = stubFallbackWith(() => publishAiConsentState({ ...LIVE, enabled: false }));
+    await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(AiConsentRevokedError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("a background call does not send its fallback request once the background consent is withdrawn (AI-01)", async () => {
+    const fetchMock = stubFallbackWith(() => publishAiConsentState({ ...LIVE, backgroundConsent: undefined }));
+    await expect(runForcedToolCall({ ...args(), level: "background" })).rejects.toBeInstanceOf(AiConsentRevokedError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("an interactive call is unaffected by a withdrawn background consent (AI-01)", async () => {
+    const fetchMock = stubFallbackWith(() => publishAiConsentState({ ...LIVE, backgroundConsent: undefined }));
+    await expect(runForcedToolCall(args())).resolves.toEqual({ a: 1 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("a background call sends nothing without a background consent (AI-01)", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    publishAiConsentState({ ...LIVE, backgroundConsent: undefined });
+    await expect(runForcedToolCallWithStop({ ...args(), level: "background" })).rejects.toBeInstanceOf(AiConsentRevokedError);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

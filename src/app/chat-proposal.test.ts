@@ -96,7 +96,7 @@ const NON_WRITE_NAMES = [
   "list_stakeholders", "list_resources", "list_allocations",
   "list_knowledge_items", "list_calendar_events", "list_budget_buckets",
   "search_history", "search_chats", "get_resource", "update_settings",
-  "list_documents", "get_document", "list_absences",
+  "list_documents", "get_document", "list_absences", "get_contact_email",
 ];
 
 describe("the classification covers the live tool surface", () => {
@@ -752,7 +752,14 @@ describe("target-id dependencies are scoped to the minting entity", () => {
     // Anti-vacuity: an empty derivation would pass a set comparison against an
     // empty table, and both halves are code under test here.
     expect(takesId.length).toBeGreaterThan(10);
-    expect([...takesId].sort()).toEqual(Object.keys(TARGET_MINTED_BY).sort());
+    // `get_contact_email` takes `{entity, id}` across FIVE id spaces, which this
+    // one-create-per-tool table cannot express (mapping it to one would draw a
+    // WRONG edge). It is a pure read of a stored address, so it is exempt by name.
+    const MULTI_ENTITY_READS = ["get_contact_email"];
+    expect(takesId.filter((n) => !MULTI_ENTITY_READS.includes(n)).sort()).toEqual(
+      Object.keys(TARGET_MINTED_BY).sort(),
+    );
+    expect(takesId).toContain("get_contact_email");
   });
 
   test("every id space names a live create tool", () => {

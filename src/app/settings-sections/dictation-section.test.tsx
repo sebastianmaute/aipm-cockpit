@@ -11,6 +11,7 @@ import * as secrets from "../secrets";
 import * as diagnostics from "../diagnostics";
 import { type SealedSecret, sealDevice } from "../secrets";
 import { loadSealed, readDeviceSecret, saveSealed } from "../secrets-store";
+import { newConsent } from "../ai-consent";
 import { setDisabledIntegrations } from "../integration-switches";
 
 afterEach(async () => {
@@ -227,5 +228,21 @@ describe("§762 — DictationSection with stt switched off by the deployment", (
     expect(screen.queryByLabelText(t("en-US", "dictationSttKey"))).toBeNull();
     expect(screen.getByText(t("en-US", "dictationEngineWebSpeech"))).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("D9 — DictationSection explains that stt needs AI consent", () => {
+  const sttStored = { dictation: { ...defaultSettings.dictation, engine: "stt" as const, sttBaseUrl: "https://x/v1", sttApiKey: "k" } };
+  it("D9 — shows the consent note under the stt option when consent is missing", () => {
+    setup(sttStored);
+    expect(screen.getByText(t("en-US", "dictationNeedsAiConsent"))).toBeInTheDocument();
+  });
+  it("D9 — hides the note once AI is on and a current consent is stored (positive control)", () => {
+    setup({ ...sttStored, ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date()) } });
+    expect(screen.queryByText(t("en-US", "dictationNeedsAiConsent"))).toBeNull();
+  });
+  it("R9 — still shows the note when consent is current but AI is switched off", () => {
+    setup({ ...sttStored, ai: { ...defaultSettings.ai, enabled: false, consent: newConsent(new Date()) } });
+    expect(screen.getByText(t("en-US", "dictationNeedsAiConsent"))).toBeInTheDocument();
   });
 });

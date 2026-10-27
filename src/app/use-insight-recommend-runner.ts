@@ -114,6 +114,9 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
       // landed can slip past.
       for (const insight of candidates) {
         if (controller.signal.aborted) break;
+        // AI-01: `enabled` is also the background-consent gate. A flip to false while an earlier candidate
+        // is in flight must stop the REST of this tick, not just the next one.
+        if (!enabledRef.current) break;
         // §548 — per CANDIDATE, not per tick: the calls are serial, so a swap between two of them
         // must drop only the one it invalidates.
         const startEpoch = getScopeEpochRef.current?.();
@@ -127,6 +130,8 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
             // Cache the guide prefix only when this tick sends more than one
             // request: a lone request would pay the cache write and never read it.
             cacheGuides: candidates.length > 1,
+            // An unattended run: every request also needs the background consent (asked before each send).
+            level: "background",
             context: buildContextForRef.current(insight),
             index: buildIndexRef.current(),
             today: todayRef.current,

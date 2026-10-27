@@ -1,11 +1,12 @@
 // §717 — the page-only store for an Anthropic key unlocked with its passphrase, and the gates that read it.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { newConsent } from "./ai-consent";
 import { clearSessionAiKey, getSessionAiKey, setSessionAiKey, subscribeSessionAiKey } from "./session-ai-key";
 import { aiKeyIfEnabled, defaultSettings, isAiEnabled, liveAiKey } from "./settings-types";
 
 afterEach(() => { clearSessionAiKey(); });
 
-const ON_NO_KEY = { ...defaultSettings.ai, enabled: true, apiKey: "" };
+const ON_NO_KEY = { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "" };
 
 describe("session-ai-key", () => {
   it("holds a trimmed key until it is cleared, and tells its subscribers", () => {

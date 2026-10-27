@@ -51,6 +51,7 @@ import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-p
 import { RICH_SINK } from "./html-start";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { useDictationMic } from "./dictation-mic";
+import { isAiConsentedForDictation } from "./settings-types";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
 import { CalendarOptOutCheckbox } from "./calendar-opt-out-checkbox";
@@ -154,6 +155,7 @@ export function ChangeEditModal({
   const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     label: t(lang, "changeFieldDescription"),
     onAppendFinal: (txt) => update("description", appendDictationToHtml(draftRef.current.description, txt)),
@@ -161,6 +163,7 @@ export function ChangeEditModal({
   const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     label: t(lang, "changeFieldTitle"),
     onAppendFinal: (txt) =>

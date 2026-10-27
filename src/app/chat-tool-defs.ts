@@ -302,7 +302,7 @@ export const TOOL_DEFS = [
   {
     name: "get_task",
     description:
-      "Fetch a single task by its numeric ID. Returns every field, including the original HTML of `description` and the task's full `noteLog`. The note log is READ-ONLY: no tool can add, edit or delete a note, so never offer to write one — the user does that in the task's notes window. Notes on RAID items and change items are not readable at all.",
+      "Fetch a single task by its numeric ID. Returns every field except the assignee email (use get_contact_email), including the original HTML of `description` and the task's full `noteLog`. The note log is READ-ONLY: no tool can add, edit or delete a note, so never offer to write one — the user does that in the task's notes window. Notes on RAID items and change items are not readable at all.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },
@@ -471,13 +471,13 @@ export const TOOL_DEFS = [
   {
     name: "list_stakeholders",
     description:
-      "List all stakeholders with id, name, category, influence, interest, organization, email, and raci (milestone id -> R, A, C or I; join the ids with list_milestones, ignoring an id it does not list). Read-only.",
+      "List all stakeholders with id, name, category, influence, interest, organization, and raci (milestone id -> R, A, C or I; join the ids with list_milestones, ignoring an id it does not list). Read-only.",
     input_schema: { type: "object", properties: {} },
   },
   {
     name: "list_resources",
     description:
-      "List the people in the resource directory (id, firstName, lastName, email, title, department). Read-only. Call this before creating a resource to avoid duplicates.",
+      "List the people in the resource directory (id, firstName, lastName, title, department; no email, use get_contact_email). Read-only. Call this before creating a resource to avoid duplicates.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -702,8 +702,21 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: "get_contact_email",
+    description:
+      "Read ONE person's email address (a task's assignee, a stakeholder, a resource, a RAID item's owner or an absence's person). List and get results carry NO email addresses. Call this only when an address is needed for a write or for a message the user asked for, never to browse contacts. Read-only. Returns {id, email} (a resource also {emails}); email is null when none is on file.",
+    input_schema: {
+      type: "object",
+      properties: {
+        entity: { type: "string", enum: ["task", "stakeholder", "resource", "raid", "absence"] },
+        id: { type: "number" },
+      },
+      required: ["entity", "id"],
+    },
+  },
+  {
     name: "get_resource",
-    description: "Fetch a single resource by ID (all directory fields). Read-only.",
+    description: "Fetch a single resource by ID: name, title, department, whether external, and role id. No email addresses: read one with get_contact_email. Read-only.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },
@@ -755,7 +768,7 @@ export const TOOL_DEFS = [
     //  Token-guarded because `escalations` and `severity` are both token-covered,
     //  which is also what refuses a second escalation made from the same read.
     description:
-      "Record that a RAID item was escalated to a person. Appends ONE entry to the item's escalation history, adds a dated note labelled 'AI created', and — for an Issue, Assumption or Dependency below Critical — raises its severity one step (a Risk, or an item already Critical or without a severity, is recorded as notify-only). It sends NO email and contacts no one: tell the user to reach the recipient themselves. Existing history entries can never be edited or removed. Pass the expectedToken from list_raid; escalating the same item again needs a fresh read.",
+      "Record that a RAID item was escalated to a person. Appends ONE entry to the item's escalation history, adds a dated note labelled 'AI created', and — for an Issue, Assumption or Dependency below Critical — raises its severity one step (a Risk, or an item already Critical or without a severity, is recorded as notify-only). It sends NO email and contacts no one: tell the user to reach the recipient themselves. Existing history entries can never be edited or removed. Pass the expectedToken from list_raid; escalating the same item again needs a fresh read. toEmail is required: if the user did not give it, look it up with get_contact_email (stakeholder or resource), or ask.",
     input_schema: {
       type: "object",
       properties: {
@@ -763,7 +776,7 @@ export const TOOL_DEFS = [
         ...expectedTokenField,
         toEmail: {
           type: "string",
-          description: "Recipient's email address. A directory resource with this address is linked automatically.",
+          description: "Recipient's email address (look it up with get_contact_email if the user named only the person). A directory resource with this address is linked automatically.",
         },
         toName: { type: "string", description: "Recipient's display name. Omit to use the linked resource's name." },
       },
@@ -865,7 +878,7 @@ export const TOOL_DEFS = [
   {
     name: "list_absences",
     description:
-      "List time-off/absence entries with id, assignee, startDate, endDate, type, and note. Read-only.",
+      "List time-off/absence entries with id, assignee, startDate, endDate. Every entry reads type \"absent\"; the real type and note are withheld. Read-only.",
     input_schema: { type: "object", properties: {} },
   },
   {

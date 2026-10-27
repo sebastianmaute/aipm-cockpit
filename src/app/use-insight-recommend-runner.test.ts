@@ -112,12 +112,34 @@ describe("useInsightRecommendRunner", () => {
     expect(mockRun).toHaveBeenCalledTimes(MAX_BG_RECS_PER_TICK);
   });
 
+  test("stops between candidates when enabled flips to false while the first call is pending (AI-01)", async () => {
+    let settleFirst!: (rec: InsightRecommendation) => void;
+    mockRun.mockImplementationOnce(() => new Promise<InsightRecommendation>((resolve) => { settleFirst = resolve; }));
+    mockRun.mockResolvedValue(fakeRec);
+    const insights = [makeInsight(1), makeInsight(2), makeInsight(3)];
+    const { rerender } = renderHook(
+      (p: { enabled: boolean }) => useInsightRecommendRunner({
+        enabled: p.enabled, guidesReady: true, insights, ai: { apiKey: "sk-ant-test", model: "claude-test" },
+        today: "2026-01-01", intervalMinutes: 60, buildIndex: () => emptyIndex,
+        buildContextFor: (i) => `context for ${i.id}`, applyRecommendation: vi.fn(),
+      }),
+      { initialProps: { enabled: true } },
+    );
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(1); // candidate 1 is in flight
+    rerender({ enabled: false }); // the user withdraws the background consent
+    await act(async () => { settleFirst(fakeRec); await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(1); // no second billed call
+  });
+
   test("skips insights that already have a recommendation", async () => {
     mockRun.mockResolvedValue(fakeRec);
     const insights = [makeInsight(1, { recommendation: fakeRec }), makeInsight(2)];
     const { applyRecommendation } = renderRunner({ insights });
     await act(async () => { await flushMicrotasks(); });
     expect(mockRun).toHaveBeenCalledTimes(1);
+    // AI-01 — an unattended run: every request asks the background consent.
+    expect(mockRun.mock.calls[0][0]).toMatchObject({ level: "background" });
     expect(applyRecommendation).toHaveBeenCalledWith(2, fakeRec, undefined);
     expect(applyRecommendation).not.toHaveBeenCalledWith(1, expect.anything());
   });

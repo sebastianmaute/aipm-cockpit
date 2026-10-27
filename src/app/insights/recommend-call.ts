@@ -7,6 +7,7 @@
 // (the shared runForcedToolCallWithStop envelope guarantees it). Thrown errors carry
 // only the HTTP status (AiHttpError) or the token "parse".
 import { runForcedToolCallWithStop } from "../ai-forced-call";
+import type { AiConsentLevel } from "../ai-consent";
 import { RECOMMEND_TOOL, parseRecommendation } from "./recommend";
 import { buildRecommendSystemPrompt } from "./recommend-context";
 import type { GroundingIndex } from "../action-ai";
@@ -24,6 +25,9 @@ export interface RecommendCallArgs {
   /** Cache the guide prefix: set by the recommendation runner, which works
    *  through several insights in one tick (`runForcedToolCall`'s `cacheGuides`). */
   cacheGuides?: boolean;
+  /** The consent each request needs: the background runner passes `background`; a click passes nothing
+   *  (interactive). */
+  level?: AiConsentLevel;
 }
 
 // §763 — a model asked with `auto` tool choice (one that refuses a forced choice) thinks first, on the
@@ -51,6 +55,7 @@ export async function runInsightRecommendation(
       system: buildRecommendSystemPrompt(),
       guideText: args.guideText,
       cacheGuides: args.cacheGuides,
+      level: args.level,
       tools: [RECOMMEND_TOOL],
       toolName: RECOMMEND_TOOL.name,
       messages: [{ role: "user", content: args.context }],

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { newConsent } from "./ai-consent";
 import { AiHttpError } from "./ai-errors";
 import { t } from "./i18n";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -15,7 +16,7 @@ vi.mock("./task-dedup-call");
 
 const AI_ON: Settings = {
   ...defaultSettings,
-  ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-test", model: "claude-x" },
+  ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-test", model: "claude-x" },
 };
 
 function mkTask(id: number, name: string): Task {

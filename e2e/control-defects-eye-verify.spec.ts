@@ -113,8 +113,9 @@ test.describe("control-defects eye-verify (§414)", () => {
   //
   // `task-row.tsx`'s leading `<Td className="w-7" padding="tight">` only ever
   // mounts the inline "Ask Claude" trigger when `aiEditEnabled(task)` is true,
-  // which requires the AI master switch ON *and* a non-blank API key
-  // (`isAiEnabled` in settings-types.ts) — both OFF by default, and `./seed`
+  // which requires the AI master switch ON, a non-blank API key *and* a consent
+  // record for the current disclosure (`isAiEnabled` in settings-types.ts) — all
+  // absent by default, and `./seed`
   // seeds no AI settings at all. So the control this item is about does not
   // mount under the plain fixture; a minimal settings seed (mirroring the
   // house pattern `installAssetByteStore` uses for Turso integration) is
@@ -131,7 +132,7 @@ test.describe("control-defects eye-verify (§414)", () => {
     await page.addInitScript(() => {
       localStorage.setItem(
         "aipm-cockpit:settings",
-        JSON.stringify({ tourSeen: true, ai: { enabled: true, apiKey: "e2e-eye-verify-key" } }),
+        JSON.stringify({ tourSeen: true, ai: { enabled: true, apiKey: "e2e-eye-verify-key", consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 1 } } }),
       );
     });
 

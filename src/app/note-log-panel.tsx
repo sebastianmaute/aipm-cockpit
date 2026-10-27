@@ -30,7 +30,7 @@ import { browserTimeZone } from "./timezone";
 import { resourceDisplayName } from "./resource-foundation";
 import { useDictationMic } from "./dictation-mic";
 import { useSettings } from "./use-settings";
-import { isAiEnabled } from "./settings-types";
+import { isAiConsentedForDictation, isAiEnabled } from "./settings-types";
 import type { Settings } from "./settings-types";
 import type { NoteLogEntry, Resource } from "./types";
 import { Button, PRIMARY_MATCHING_BORDER } from "./button";
@@ -51,6 +51,7 @@ interface NoteEntryRowProps {
   tz: string;
   lang: Lang;
   dictation: Settings["dictation"];
+  aiConsented: boolean;
   /** Appended to this row's control names when two surfaces are mounted at
    *  once. Required (open-followups §142): `null` is the explicit "no
    *  suffix" sentinel, so a future third mount site cannot silently collide
@@ -64,7 +65,7 @@ interface NoteEntryRowProps {
 }
 
 function NoteEntryRow(props: NoteEntryRowProps) {
-  const { entry, editing, self, resources, tz, lang, labelSuffix, dictation } = props;
+  const { entry, editing, self, resources, tz, lang, labelSuffix, dictation, aiConsented } = props;
   const canEdit = canEditNote(entry, self);
   const suffix = labelSuffix ? ` – ${labelSuffix}` : "";
   // ★★ ONE expression for the mic AND the editor beside it. They were spelled
@@ -86,6 +87,7 @@ function NoteEntryRow(props: NoteEntryRowProps) {
   const { mic: editMic, registration: editDictationReg } = useDictationMic({
     lang,
     dictation,
+    aiConsented,
     enabled: true,
     // Carries the same `suffix` the Edit/Delete buttons above do: two
     // NoteLogPanels can be mounted at once (the task editor once mounted one
@@ -216,6 +218,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
   const { mic: composerMic, registration: composerDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     // Qualified for the same reason the Add button below is: with both the
     // floating notes window and a second panel open, two composer mics would be
@@ -306,6 +309,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
             tz={tz}
             lang={lang}
             dictation={settings.dictation}
+            aiConsented={isAiConsentedForDictation(settings.ai)}
             labelSuffix={labelSuffix}
             onStartEdit={startEdit}
             onChangeEditHtml={setEditHtml}

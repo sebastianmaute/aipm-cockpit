@@ -21,21 +21,62 @@ import { dropLegacyActivityLog } from "./activity-log";
 import { sanitizeJiraExtraProjects } from "./jira-projects";
 import { logDiag } from "./diagnostics";
 import { settingsSealedForReload } from "./settings-reload-seal";
+import { publishAiConsentState } from "./ai-consent";
+import {
+  type AiPermissionField,
+  type PersistedAiState,
+  aiForPublish,
+  aiPermissionToWrite,
+  isOnlyStorageAiChange,
+  isReportedRevoke,
+  pageAiState,
+  parseStoredAiState,
+  planPageAiPermissionWrite,
+  settleAiPermissionWrite,
+  withAiState,
+} from "./ai-permission-store";
 
 export const SETTINGS_KEY = "aipm-cockpit:settings";
+
+/** AI-01 — the AI switch and consent records as they are persisted NOW, through the load sanitizer. No
+ *  settings, an unreadable blob or no storage read as switched off with no consent. The persistence rules
+ *  themselves live in `ai-permission-store.ts`; this module only reads and writes the settings key for them. */
+export function readPersistedAiState(): PersistedAiState {
+  let raw: string | null;
+  try {
+    raw = window.localStorage.getItem(SETTINGS_KEY);
+  } catch {
+    raw = null;
+  }
+  return parseStoredAiState(raw);
+}
+
+/** AI-01 — the AI switch and consent records in effect on THIS page: the persisted ones, narrowed by what this
+ *  page withdrew and could not save (`pageAiState`). What a load, a re-read and every write's narrow-only base read. */
+function readPageAiState(): PersistedAiState {
+  return pageAiState(readPersistedAiState());
+}
 
 /** Synchronously write settings to localStorage WITH the at-rest secrets
  *  blanked. Secret ciphertext is persisted separately (secrets-store) on change;
  *  see the useSettings mount-load for the decrypt+merge back into memory.
  *  Returns true on success, false when the write failed (quota / storage
  *  disabled) so the caller can surface it — a swallowed failure silently
- *  reverts settings on the next reload. */
-export function writeSettings(settings: Settings): boolean {
+ *  reverts settings on the next reload.
+ *  ★★ AI-01 — the AI switch and the two consent records (`ai.enabled`, `ai.consent`,
+ *  `ai.backgroundConsent`) may only narrow what is in effect on this page (`narrowOnly`, ai-permission-store.ts),
+ *  except the fields named in
+ *  `widen`, which are written from `settings` as they are. Only `persistAiConsentChange` names any. */
+export function writeSettings(settings: Settings, widen: readonly AiPermissionField[] = []): boolean {
   if (settingsSealedForReload()) return true; // §740 — sealed for a reload: skipped, not failed
   const turso = settings.integrations?.turso;
+  // A settings object without an AI slice (a partial one some callers' tests pass) says nothing about AI
+  // permission, so the persisted switch and records are kept as they are (`planPageAiPermissionWrite`).
+  const plan = planPageAiPermissionWrite(readPersistedAiState(), settings.ai, widen);
+  const permission = plan.permission;
   const persistable: Settings = {
     ...settings,
-    ai: { ...settings.ai, apiKey: "" },
+    ai: { ...settings.ai, ...permission, apiKey: "" },
     integrations: turso
       ? { ...settings.integrations, turso: { ...turso, authToken: "" } }
       : settings.integrations,
@@ -45,8 +86,11 @@ export function writeSettings(settings: Settings): boolean {
   };
   try {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
+    settleAiPermissionWrite(plan, true); // the unsaved narrowing is persisted with this write
     return true;
   } catch (err) {
+    // AI-01 — a failed widening is not committed by its caller, so only the narrowing this write carried counts.
+    settleAiPermissionWrite(plan, false);
     // quota exceeded / storage disabled — keep in-memory settings, but log +
     // signal so the caller can warn the user (settings silently revert on the
     // next reload otherwise).
@@ -60,6 +104,30 @@ export function writeSettings(settings: Settings): boolean {
  *  `hydrated` is false, so a merge that never settles would lock the app. The merge is local (IndexedDB
  *  + WebCrypto) and normally takes well under a second. */
 export const SECRET_MERGE_TIMEOUT_MS = 5_000;
+
+/** AI-01 — persist an accept or a revoke of an AI consent, or switching AI on, at once. Each field in `widen`
+ *  is written as `settings` holds it; the rest of the AI switch and consent records may only narrow what is
+ *  stored, as in every ordinary write. So an action widens only what it is about — switching on `["enabled"]`,
+ *  an accept `["enabled", "consent"]` (accepting switches AI on), a background accept `["backgroundConsent"]`,
+ *  a revoke nothing — and a copy that missed a change made elsewhere cannot write its stale value of another
+ *  field back. The one caller of `writeSettings` that names a field to widen, and so the only way AI permission
+ *  is WIDENED in storage. Call it with the settings the action commits, before committing them.
+ *  Returns the settings to commit — `settings` with the switch and both records as this write stores them — or null when
+ *  the write failed: the caller owns the message (an accept or a switch-on is then not committed; a revoke still
+ *  is, in memory only). Safe mode writes nothing and returns `settings` (its settings are the defaults, held in
+ *  memory only). */
+export function persistAiConsentChange(settings: Settings, widen: readonly AiPermissionField[]): Settings | null {
+  if (isSafeMode()) return settings;
+  const permission = aiPermissionToWrite(settings.ai, widen, readPageAiState());
+  if (!writeSettings(settings, widen)) return null;
+  return { ...settings, ai: { ...settings.ai, ...permission } };
+}
+
+/** `settings` with the AI switch and consent records replaced by the ones in effect on this page
+ *  (`readPageAiState`: the persisted ones, narrowed by a withdrawal this page could not save). */
+function withPersistedAiState(settings: Settings): Settings {
+  return { ...settings, ai: { ...settings.ai, ...readPageAiState() } };
+}
 
 /** Merge device-wrapped secrets into an in-memory Settings (passphrase-wrapped
  *  ones stay blank until an explicit unlock). Reads the secret store. */
@@ -273,12 +341,60 @@ export function useSettings(): {
     };
   }, []);
 
+  // AI-01 — another tab or popout persisted settings: take its AI switch and consent records at once, so a
+  // revocation or a switch-off there stops AI here too (the publish effect below then updates the send-time
+  // flags). Only those three fields are taken, as in effect on this page (`readPageAiState`: a withdrawal this page
+  // could not save stays applied); the rest of this instance's settings is left alone. The value
+  // came FROM storage, so a commit that changes nothing else is neither written back nor broadcast to this
+  // tab's other instances (each of them gets the same `storage` event) — `isOnlyStorageAiChange`, checked by
+  // the broadcast and persist effects below. The persist effect clears `fromStorageRef` once it has run.
+  // ★★ A FUNCTIONAL update over the latest state, never one built from `committedRef`: a local edit made just
+  //   before the event (committed or queued, and not yet in `committedRef`) is kept, and because that commit
+  //   then differs in more than the three AI fields, it is still written and broadcast.
+  // ★ The same re-read runs when a page comes back from the back/forward cache (`pageshow` with `persisted`),
+  //   which receives no `storage` event for what changed while it was frozen, and when the page becomes
+  //   visible again.
+  const fromStorageRef = useRef<PersistedAiState | null>(null);
+  useEffect(() => {
+    if (isSafeMode()) return;
+    const applyPersistedAiState = () => {
+      const fresh = readPageAiState();
+      fromStorageRef.current = fresh;
+      // ★★ `readPageAiState`, not storage alone: a revoke or switch-off this page could not save stays applied, so
+      //   a re-read cannot undo it. Only that withdrawal is held back — not "every re-read while a write failed":
+      //   a page whose failed write withdrew nothing takes another tab's accept as soon as storage works again,
+      //   and its next write keeps it instead of narrowing it away.
+      setSettings((prev) => withAiState(prev, fresh));
+    };
+    const onStorage = (e: StorageEvent) => {
+      // A null key is a `clear()` of the whole storage area.
+      if (e.key !== null && e.key !== SETTINGS_KEY) return;
+      applyPersistedAiState();
+    };
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) applyPersistedAiState();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") applyPersistedAiState();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
   // After a LOCAL change commits, notify every other live instance. Skips
   // pre-hydration (load/defaults) and values that arrived via a broadcast.
   useEffect(() => {
     if (!hydrated) return;
     if (lastSyncedRef.current === settings) return;
+    const fromStorageOnly = isOnlyStorageAiChange(lastSyncedRef.current, settings, fromStorageRef.current);
     lastSyncedRef.current = settings;
+    if (fromStorageOnly) return; // AI-01 — every instance gets the same `storage` event
     for (const l of settingsListeners) {
       if (l === listenerRef.current) continue;
       broadcastDeliveries += 1;
@@ -507,7 +623,12 @@ export function useSettings(): {
             ]);
             clearTimeout(mergeTimer);
             if (mergeOutcome === null) logDiag("warn", "settings.secretMergeTimedOut", { ms: SECRET_MERGE_TIMEOUT_MS });
-            const committed = mergeOutcome ?? merged;
+            // ★★ AI-01 — the switch and consent records are read AGAIN here, not taken from the mount-time
+            //   parse: a revoke or a switch-off made by another instance while this merge ran is already
+            //   persisted, and this instance must not publish (or hold) the copy it read before it. A withdrawal this
+            //   page could not save is applied too (`readPageAiState`), so an instance mounted after a failed revoke
+            //   does not load storage's wider consent and re-arm the send-time flags with it.
+            const committed = withPersistedAiState(mergeOutcome ?? merged);
             try {
               if (!cancelled) {
                 // Load applies locally only — every instance reads the same
@@ -579,19 +700,34 @@ export function useSettings(): {
   // of truth, and a hardcoded copy of them drifting out of step is the exact
   // rot §560 was filed to kill in redactSettings.
   const settingsWriteFailingRef = useRef(false);
+  const persistBaseRef = useRef<Settings | null>(null);
   useEffect(() => {
+    const fromStorage = fromStorageRef.current;
+    fromStorageRef.current = null;
     if (!hydrated || isSafeMode()) return;
+    const base = persistBaseRef.current;
+    persistBaseRef.current = settings;
+    if (isOnlyStorageAiChange(base, settings, fromStorage)) return; // AI-01 — just read from storage
     const ok = writeSettings(settings);
     // Notify once on the healthy→failing edge (useSettings has no toast
     // context, so bridge to whoever does via a window event). writeSettings
     // already logged the diagnostic.
     if (!ok && !settingsWriteFailingRef.current) {
       settingsWriteFailingRef.current = true;
-      window.dispatchEvent(new CustomEvent("aipm-cockpit-settings-write-failed"));
+      // AI-01 — the commit of a revoke Settings → AI has already reported as not saved, more specifically.
+      if (!isReportedRevoke(settings.ai)) window.dispatchEvent(new CustomEvent("aipm-cockpit-settings-write-failed"));
     } else if (ok) {
       settingsWriteFailingRef.current = false;
     }
   }, [settings, hydrated]);
+
+  // Publish the consent state for the request path (plain functions cannot read settings). No setState.
+  // ★ Only a HYDRATED instance publishes: useSettings() runs in many components, and a fresh one still holds
+  //   defaultSettings (no consent), which would otherwise revoke a live consent until its own load finishes.
+  // ★ AI-01 — published with this page's unsaved withdrawal applied (`aiForPublish`).
+  useEffect(() => {
+    if (hydrated) publishAiConsentState(aiForPublish(settings.ai));
+  }, [settings.ai, hydrated]);
 
   // Sync document language attribute and ensure dict is loaded on mid-session switch.
   useEffect(() => {

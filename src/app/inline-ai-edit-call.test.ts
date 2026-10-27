@@ -386,3 +386,31 @@ describe("toolsNamed (§715 D1)", () => {
     expect(a.filter((t) => "cache_control" in t)).toHaveLength(1);
   });
 });
+
+describe("what the inline request carries (D7, AI-07)", () => {
+  const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
+  type Tool = { name: string; input_schema: { properties?: Record<string, unknown> } };
+
+  it("sends no stakeholder email, notes, influence, interest or noteLog, but keeps the name", async () => {
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    const row = { id: 9, name: "Ada Lovelace", email: "x@example.com", notes: "secret note", influence: "High", interest: "Low", noteLog: [{ text: "log-entry-text" }] };
+    await callInlineEdit({ apiKey: "k", model: "m", lang: "en-US", entity: "stakeholder", item: row, itemLabel: "Ada Lovelace", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    const text = spy.mock.calls[0][2].map((b) => b.text).join("\n");
+    expect(text).toContain("Ada Lovelace"); // positive control: the scope block is there
+    for (const hidden of ["x@example.com", "secret note", "log-entry-text", "\"influence\"", "\"interest\""]) expect(text).not.toContain(hidden);
+  });
+
+  it("drops the withheld properties from the entity's update tool", async () => {
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
+    await callInlineEdit({ apiKey: "k", model: "m", lang: "en-US", entity: "stakeholder", item: { id: 9, name: "Ada" }, itemLabel: "Ada", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    const tools = spy.mock.calls[0][6] as Tool[];
+    const props = (name: string) => Object.keys(tools.find((d) => d.name === name)?.input_schema.properties ?? {});
+    const full = Object.keys((chatApi.toolsFor({}).find((d) => d.name === "update_stakeholder") as unknown as Tool).input_schema.properties ?? {});
+    for (const f of ["email", "notes", "influence", "interest"]) expect(full, "control: the chat schema has " + f).toContain(f);
+    expect(props("update_stakeholder")).toContain("name");
+    for (const f of ["email", "notes", "influence", "interest"]) expect(props("update_stakeholder")).not.toContain(f);
+    expect(props("update_task")).not.toContain("assigneeEmail");
+    expect(props("update_absence")).not.toContain("type");
+    expect(props("update_absence")).not.toContain("note");
+  });
+});

@@ -1,4 +1,6 @@
 import "fake-indexeddb/auto";
+import "../test/ai-consent-live";
+import { newConsent, publishAiConsentState } from "./ai-consent";
 import { asTimeZoneForTests } from "./timezone";
 import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -7,7 +9,6 @@ import { __resetAiKeyStatusForTests, getAiKeyStatus, syncAiKey } from "./ai-key-
 import { clearSessionAiKey } from "./session-ai-key";
 // §717 — an unlocked key lives in a page-wide store now, not in one panel: forget it after every test.
 afterEach(() => { clearSessionAiKey(); });
-import { useState } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
@@ -132,113 +133,86 @@ function makeDispatcher(): ToolDispatcher {
 // ---------------------------------------------------------------------------
 const AI_WITH_KEY = {
   ...defaultAiConfig,
-  consentAccepted: true,
+  consent: newConsent(new Date(0)),
   apiKey: "sk-test",
 };
 
-describe("Consent screen accept", () => {
-  // A configured owner + link is required for the policy block (and its checkbox)
-  // to render at all — there is no built-in default any more.
-  const CONFIGURED_POLICY = { policyOrgName: "Acme GmbH", policyUrl: "https://acme.example/ai-policy" };
-
-  it("clicking I understand after ticking the policy fires onAcceptConsent", () => {
-    const onAcceptConsent = vi.fn();
+describe("Without a current AI consent", () => {
+  // The consent form no longer lives in the chat: Settings → AI asks (ai-consent-dialog.test.tsx).
+  it("an enabled switch with a stale disclosure shows the review prompt and the configure button, and no consent form", () => {
+    const onConfigureAi = vi.fn();
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: false, ...CONFIGURED_POLICY }}
+        ai={{ ...defaultAiConfig, consent: undefined, apiKey: "sk-test" }}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={onAcceptConsent}
+        onConfigureAi={onConfigureAi}
       />,
     );
-    const button = screen.getByRole("button", { name: /I understand/i });
-    expect(button).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox"));
-    expect(button).not.toBeDisabled();
-    fireEvent.click(button);
-    expect(onAcceptConsent).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(t("en-US", "aiConsentReviewPrompt"))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "chatConfigureAi") }));
+    expect(onConfigureAi).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /I understand/i })).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
-  it("clears the consent screen once onAcceptConsent flips the SAME ai instance", () => {
-    // Regression for the cross-instance bug: the consent handler must write to
-    // the settings instance ChatPanel actually reads. Here onAcceptConsent
-    // updates the very `ai` passed to ChatPanel, and the consent screen must go.
-    function Harness() {
-      const [ai, setAi] = useState({ ...defaultAiConfig, consentAccepted: false, ...CONFIGURED_POLICY });
-      return (
-        <ChatPanel {...SCOPE_PROPS}
-          lang="en-US"
-          ai={ai}
-          dispatcher={makeDispatcher()}
-          onAcceptConsent={() => setAi((a) => ({ ...a, consentAccepted: true }))}
-        />
-      );
-    }
-    render(<Harness />);
-    fireEvent.click(screen.getByRole("checkbox"));
-    fireEvent.click(screen.getByRole("button", { name: /I understand/i }));
-    // Consent screen gone → the chat composer is shown.
-    expect(screen.queryByRole("button", { name: /I understand/i })).toBeNull();
-    expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeInTheDocument();
-  });
-  // The organisation policy block reads `resolveAiPolicy` (ai-policy.ts).
-  function renderConsent(ai: Partial<typeof defaultAiConfig>) {
-    return render(
+  it("a persisted transcript does not hide why the chat is off: the prompt and configure button show once, the composer is disabled", () => {
+    const onConfigureAi = vi.fn();
+    render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: false, ...ai }}
+        ai={{ ...defaultAiConfig, consent: undefined, apiKey: "sk-test" }}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
+        projectId="p1"
+        getChatConversation={() => ({
+          history: [{ role: "user", content: "earlier question" }],
+          display: [{ kind: "user", text: "earlier question" }],
+        })}
+        onConfigureAi={onConfigureAi}
       />,
     );
-  }
-
-  it("names the configured policy owner in the bullet, the link and the checkbox, and links the configured URL", () => {
-    renderConsent({ policyOrgName: "Acme GmbH", policyUrl: "https://acme.example/ai-policy" });
-    expect(screen.getByText(t("en-US", "aiConsentBullet6", "Acme GmbH"))).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: new RegExp(t("en-US", "aiConsentPolicyLink", "Acme GmbH")) });
-    expect(link).toHaveAttribute("href", "https://acme.example/ai-policy");
-    expect(screen.getByText(t("en-US", "aiConsentPolicyCheckbox", "Acme GmbH"))).toBeInTheDocument();
+    // Positive control: the transcript really is on screen, so this is not the empty state.
+    expect(screen.getByText("earlier question")).toBeInTheDocument();
+    expect(screen.getAllByText(t("en-US", "aiConsentReviewPrompt"))).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "chatConfigureAi") }));
+    expect(onConfigureAi).toHaveBeenCalledTimes(1);
+    expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeDisabled();
   });
 
-  it("with default settings and no env, renders no policy link or checkbox, and Accept is enabled", () => {
-    renderConsent({});
-    // Positive control: the consent screen itself rendered — otherwise the two
-    // absence checks below would also pass on an empty document.
-    expect(screen.getByRole("heading", { name: t("en-US", "aiConsentTitle") })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: new RegExp(t("en-US", "aiConsentPolicyLink", "").trim()) })).toBeNull();
-    expect(screen.queryByRole("checkbox")).toBeNull();
-    expect(screen.getByRole("button", { name: /I understand/i })).not.toBeDisabled();
+  it("the master switch off shows the no-key empty state, not the review prompt", () => {
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={{ ...defaultAiConfig, enabled: false, consent: undefined }}
+        dispatcher={makeDispatcher()}
+        onConfigureAi={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(t("en-US", "chatNoApiKey"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
   });
 
-  it("uses neutral wording when the owner is cleared", () => {
-    renderConsent({ policyOrgName: "", policyUrl: "https://acme.example/ai-policy" });
-    expect(screen.getByText(t("en-US", "aiConsentPolicyCheckbox", t("en-US", "aiPolicyOwnerFallback")))).toBeInTheDocument();
-  });
-
-  it("with no policy link, drops the policy block and enables Accept on its own", () => {
-    renderConsent({ policyUrl: "" });
-    expect(screen.queryByRole("link", { name: new RegExp(t("en-US", "aiConsentPolicyLink", "").trim()) })).toBeNull();
-    expect(screen.queryByRole("checkbox")).toBeNull();
-    // Positive control: the rest of the screen still rendered.
-    expect(screen.getByText(t("en-US", "aiConsentBullet1"))).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /I understand/i })).not.toBeDisabled();
-  });
-
-  it("never renders an unsafe link as an href", () => {
-    renderConsent({ policyUrl: "javascript:alert(1)" });
-    expect(document.querySelector('a[href^="javascript:"]')).toBeNull();
-    expect(screen.queryByRole("checkbox")).toBeNull();
-  });
-
-  it("lets a deployment environment value override Settings", () => {
-    vi.stubEnv("NEXT_PUBLIC_AI_POLICY_ORG", "Globex");
-    vi.stubEnv("NEXT_PUBLIC_AI_POLICY_URL", "https://globex.example/policy");
+  // M3 — one neutral message for both causes: the published flag the request path reads is off after a withdrawn
+  // consent and after a switch-off alike, so the message cannot name only one of them.
+  it.each([
+    ["consent was withdrawn", { ...AI_WITH_KEY, enabled: true, consent: undefined }],
+    ["AI was switched off", { ...AI_WITH_KEY, enabled: false }],
+  ])("a send stopped because %s names both causes and sends nothing", async (_cause, published) => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
+    );
+    // The props still carry a consent; the PUBLISHED state (what the request path reads) no longer allows a send.
+    publishAiConsentState(published);
     try {
-      renderConsent({ policyOrgName: "Acme GmbH", policyUrl: "https://acme.example/ai-policy" });
-      expect(screen.getByRole("link", { name: /Globex/ })).toHaveAttribute("href", "https://globex.example/policy");
+      fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "hi" } });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+      await screen.findByText("AI was switched off or its consent was withdrawn, so the request was stopped.");
+      expect(screen.queryByText(/AI consent was revoked/)).toBeNull();
+      expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
-      vi.unstubAllEnvs();
+      // Back to what ../test/ai-consent-live published (the published flag needs the switch on).
+      publishAiConsentState({ ...AI_WITH_KEY, enabled: true });
     }
   });
 });
@@ -255,7 +229,6 @@ describe("Attachment guidance", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
   }
@@ -448,7 +421,6 @@ describe("Attachment guidance", () => {
         lang="en-US"
         ai={{ ...AI_WITH_KEY, groundInGuides: true }}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
         guidesReady={false}
       />,
     );
@@ -497,7 +469,6 @@ describe("Stop button", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
 
@@ -532,7 +503,6 @@ describe("Stop button", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
 
@@ -560,7 +530,7 @@ describe("Stop button", () => {
   it("renders a second Stop inside the Thinking bubble while busy (discoverability)", async () => {
     setupNeverResolvingFetch();
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(textarea, { target: { value: "list tasks" } });
@@ -577,7 +547,7 @@ describe("Stop button", () => {
   it("Escape interrupts the in-flight response (keyboard path)", async () => {
     const rejectWithAbort = setupNeverResolvingFetch();
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(textarea, { target: { value: "list tasks" } });
@@ -597,7 +567,7 @@ describe("Stop button", () => {
   it("Escape does NOT interrupt the chat while a modal is open (modal owns Escape)", async () => {
     const rejectWithAbort = setupNeverResolvingFetch();
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "list tasks" } });
@@ -633,7 +603,6 @@ describe("suggested prompt chips", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
   }
@@ -721,7 +690,6 @@ describe("SP1 seed + foundational chips", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
         chatSeed={{ prompt: "Summarize risks", autoSend: false, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
       />,
@@ -736,7 +704,7 @@ describe("SP1 seed + foundational chips", () => {
 
   it("adds a prefill after a draft the user is typing, never replacing it (§519)", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
-    const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: AI_WITH_KEY, dispatcher: makeDispatcher(), onAcceptConsent: vi.fn(), onChatSeedConsumed: vi.fn() };
+    const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: AI_WITH_KEY, dispatcher: makeDispatcher(), onChatSeedConsumed: vi.fn() };
     const { rerender } = render(<ChatPanel {...props} chatSeed={null} />);
     const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: "half-typed question" } });
@@ -747,7 +715,7 @@ describe("SP1 seed + foundational chips", () => {
   it("applies a prefill present at mount once, under StrictMode's double effect run", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()}
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()}
         chatSeed={{ prompt: "Plan the kickoff", autoSend: false, originView: "dashboard" }} onChatSeedConsumed={vi.fn()} />,
       { reactStrictMode: true },
     );
@@ -763,7 +731,6 @@ describe("SP1 seed + foundational chips", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={dispatcher}
-        onAcceptConsent={vi.fn()}
         chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
       />,
@@ -785,7 +752,7 @@ describe("SP1 seed + foundational chips", () => {
     it("names the page when the seed waited for the guides and is sent unchanged", async () => {
       const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
-      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: GUIDES_AI, dispatcher, onAcceptConsent: vi.fn(), onChatSeedConsumed: vi.fn(), chatSeed: seed };
+      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: GUIDES_AI, dispatcher, onChatSeedConsumed: vi.fn(), chatSeed: seed };
       const { rerender } = render(<ChatPanel {...props} guidesReady={false} />);
       expect(fetchSpy).not.toHaveBeenCalled();
       rerender(<ChatPanel {...props} guidesReady />);
@@ -798,7 +765,7 @@ describe("SP1 seed + foundational chips", () => {
       const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
       render(
-        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher}
           chatSeed={{ ...seed, autoSend: false, originView: "gantt" }} onChatSeedConsumed={vi.fn()} />,
       );
       sendBox();
@@ -810,7 +777,7 @@ describe("SP1 seed + foundational chips", () => {
       const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
       render(
-        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher}
           chatSeed={{ ...seed, autoSend: false }} onChatSeedConsumed={vi.fn()} />,
       );
       fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "What's next for me?" } });
@@ -824,7 +791,7 @@ describe("SP1 seed + foundational chips", () => {
     it("sends a seed appended after a draft as a typed message, with no page", async () => {
       const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
-      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: AI_WITH_KEY, dispatcher, onAcceptConsent: vi.fn(), onChatSeedConsumed: vi.fn() };
+      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: AI_WITH_KEY, dispatcher, onChatSeedConsumed: vi.fn() };
       const { rerender } = render(<ChatPanel {...props} chatSeed={null} />);
       fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "my draft" } });
       rerender(<ChatPanel {...props} chatSeed={{ ...seed, autoSend: false }} />);
@@ -837,7 +804,7 @@ describe("SP1 seed + foundational chips", () => {
       const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
       render(
-        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher}
           chatSeed={{ ...seed, autoSend: false }} onChatSeedConsumed={vi.fn()} />,
       );
       const box = screen.getByPlaceholderText("Ask Claude about your tasks…");
@@ -855,7 +822,7 @@ describe("SP1 seed + foundational chips", () => {
     it("keeps the page through a send that returned early", async () => {
       const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
       const dispatcher = makeDispatcher();
-      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: GUIDES_AI, dispatcher, onAcceptConsent: vi.fn(), onChatSeedConsumed: vi.fn(), chatSeed: seed };
+      const props = { ...SCOPE_PROPS, lang: "en-US" as const, ai: GUIDES_AI, dispatcher, onChatSeedConsumed: vi.fn(), chatSeed: seed };
       const { rerender } = render(<ChatPanel {...props} guidesReady={false} />);
       fireEvent.keyDown(screen.getByPlaceholderText("Loading operating guides…"), { key: "Enter" });
       expect(fetchSpy).not.toHaveBeenCalled();
@@ -870,7 +837,7 @@ describe("SP1 seed + foundational chips", () => {
       const dispatcher = makeDispatcher();
       let epoch = 0;
       render(
-        <ChatPanel {...SCOPE_PROPS} getScopeEpoch={() => epoch} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()}
+        <ChatPanel {...SCOPE_PROPS} getScopeEpoch={() => epoch} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher}
           chatSeed={{ ...seed, autoSend: false }} onChatSeedConsumed={vi.fn()} />,
       );
       epoch = 1;
@@ -916,7 +883,7 @@ describe("SP1 seed + foundational chips", () => {
       const bodies: string[] = [];
       toolTurnFetch(bodies);
       render(
-        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={viewDispatcher()} onAcceptConsent={vi.fn()}
+        <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={viewDispatcher()}
           chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }} onChatSeedConsumed={vi.fn()} />,
       );
       await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
@@ -927,7 +894,7 @@ describe("SP1 seed + foundational chips", () => {
     it("answers with the chat tab for a typed message", async () => {
       const bodies: string[] = [];
       toolTurnFetch(bodies);
-      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={viewDispatcher()} onAcceptConsent={vi.fn()} />);
+      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={viewDispatcher()} />);
       fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "where am I?" } });
       fireEvent.click(screen.getByRole("button", { name: "Send" }));
       await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
@@ -942,9 +909,8 @@ describe("SP1 seed + foundational chips", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "" }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "" }}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
         chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
       />,
@@ -959,9 +925,8 @@ describe("SP1 seed + foundational chips", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "sk-test", groundInGuides: true }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "sk-test", groundInGuides: true }}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
         guidesReady={false}
         chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }}
         onChatSeedConsumed={onChatSeedConsumed}
@@ -984,7 +949,6 @@ describe("SP1 seed + foundational chips", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Weekly status" }));
@@ -1009,7 +973,6 @@ describe("SP1 seed + foundational chips", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiPromptProcessAttachmentLabel") }));
@@ -1050,9 +1013,8 @@ describe("chat panel layout", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "sk-test" }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "sk-test" }}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
 
@@ -1177,7 +1139,6 @@ describe("prompt caching", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
 
@@ -1250,7 +1211,6 @@ describe("prompt cache layout wiring", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
         tursoMode={true}
         tursoConfig={{} as never}
       />,
@@ -1292,7 +1252,6 @@ describe("prompt cache layout wiring", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), {
@@ -1343,7 +1302,7 @@ describe("prompt cache layout wiring", () => {
     });
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), {
       target: { value: "list my tasks" },
@@ -1369,7 +1328,7 @@ describe("guidesReady gate", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "sk-test", groundInGuides: true }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "sk-test", groundInGuides: true }}
         dispatcher={{
           listTasks: vi.fn(() => []),
           getTask: vi.fn(() => null),
@@ -1384,7 +1343,6 @@ describe("guidesReady gate", () => {
           listDocuments: vi.fn(() => []),
           getSnapshot: vi.fn(() => null),
         } as unknown as Parameters<typeof ChatPanel>[0]["dispatcher"]}
-        onAcceptConsent={vi.fn()}
         guidesReady={false}
       />,
     );
@@ -1406,9 +1364,8 @@ describe("passphrase-locked API key unlock prompt", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "" }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "" }}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
   }
@@ -1467,7 +1424,6 @@ describe("document attachments", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
   }
@@ -1688,7 +1644,6 @@ describe("history budget wiring (§575)", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
         projectId="p1"
         getChatConversation={() => stored}
       />,
@@ -1729,7 +1684,6 @@ describe("attach and dictate button sizing", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
   }
@@ -1776,7 +1730,7 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
     });
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "create all entries" } });
@@ -1852,7 +1806,7 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
     });
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "what is open?" } });
@@ -1894,7 +1848,7 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
     });
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "write a lot" } });
@@ -1927,7 +1881,7 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
     });
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "endless" } });
@@ -1974,7 +1928,7 @@ describe("conversation persistence across navigation (in-memory per-project stor
       lang: "en-US" as const,
       ai: AI_WITH_KEY,
       dispatcher: makeDispatcher(),
-      onAcceptConsent: vi.fn(),
+     
       projectId: "p1",
       getChatConversation: store.get,
       saveChatConversation: store.save,
@@ -2004,7 +1958,7 @@ describe("conversation persistence across navigation (in-memory per-project stor
       lang: "en-US" as const,
       ai: AI_WITH_KEY,
       dispatcher: makeDispatcher(),
-      onAcceptConsent: vi.fn(),
+     
       getChatConversation: store.get,
       saveChatConversation: store.save,
     };
@@ -2040,7 +1994,7 @@ describe("conversation persistence across navigation (in-memory per-project stor
       lang: "en-US" as const,
       ai: AI_WITH_KEY,
       dispatcher: makeDispatcher(),
-      onAcceptConsent: vi.fn(),
+     
       getChatConversation: store.get,
       saveChatConversation: store.save,
     };
@@ -2073,7 +2027,6 @@ describe("ChatPanel — Turso thread persistence", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
         {...extra}
       />,
     );
@@ -2405,13 +2358,11 @@ describe("ChatPanel — Turso thread persistence", () => {
     // tursoConfig dependency).
     const tursoConfig = {} as never;
     const dispatcher = makeDispatcher();
-    const onAcceptConsent = vi.fn();
     const panel = (tursoMode: boolean) => (
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={dispatcher}
-        onAcceptConsent={onAcceptConsent}
         tursoMode={tursoMode}
         tursoConfig={tursoConfig}
       />
@@ -2459,7 +2410,7 @@ describe("usage-limit notice", () => {
     } as unknown as Response);
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "list tasks" } });
@@ -2489,7 +2440,7 @@ describe("closable error banner", () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("boom"));
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "list tasks" } });
@@ -2527,7 +2478,7 @@ describe("400 response message surfacing", () => {
     } as unknown as Response);
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "list tasks" } });
@@ -2549,7 +2500,7 @@ describe("400 response message surfacing", () => {
     } as unknown as Response);
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "list tasks" } });
@@ -2653,7 +2604,6 @@ describe("historySearch reaches the request body", () => {
         lang="en-US"
         ai={ai}
         dispatcher={activityViewDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
@@ -2725,7 +2675,7 @@ describe("the forecast flag reaches the request body", () => {
         }),
       } as unknown as Response));
     const view = render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />,
     );
     fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "when do we finish" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -2793,7 +2743,6 @@ describe("single-flight submitPrompt", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
         projectId="p1"
       />,
     );
@@ -2916,7 +2865,7 @@ describe("staged tool calls (the review card)", () => {
     );
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />,
     );
     send();
 
@@ -2949,7 +2898,7 @@ describe("staged tool calls (the review card)", () => {
     );
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />,
     );
     send();
 
@@ -2991,7 +2940,7 @@ describe("staged tool calls (the review card)", () => {
     );
     const staged = { ...emptyWorkspace(), features: ["dashboard", "budget"] as FeatureModuleId[] };
     const panel = (workspace: Workspace) => (
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} workspace={workspace} />
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} workspace={workspace} />
     );
     const { rerender } = render(panel(staged));
     send();
@@ -3019,7 +2968,7 @@ describe("staged tool calls (the review card)", () => {
       [],
     );
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />,
     );
     send();
     const card = await screen.findByRole("region", CARD);
@@ -3051,7 +3000,7 @@ describe("staged tool calls (the review card)", () => {
       [],
     );
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />,
     );
     send();
     const card = await screen.findByRole("region", CARD);
@@ -3083,7 +3032,6 @@ describe("staged tool calls (the review card)", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     send();
@@ -3125,7 +3073,6 @@ describe("staged tool calls (the review card)", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={dispatcher}
-        onAcceptConsent={vi.fn()}
       />,
     );
     send();
@@ -3206,7 +3153,6 @@ describe("staged tool calls (the review card)", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={dispatcher}
-        onAcceptConsent={vi.fn()}
         runBatched={runBatched}
       />,
     );
@@ -3244,7 +3190,7 @@ describe("staged tool calls (the review card)", () => {
     );
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />,
     );
     send();
 
@@ -3321,7 +3267,6 @@ describe("staged tool calls (the review card)", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     send();
@@ -3369,7 +3314,6 @@ describe("staged tool calls (the review card)", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     send();
@@ -3418,7 +3362,6 @@ describe("staged tool calls (the review card)", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     send();
@@ -3455,7 +3398,7 @@ describe("staged tool calls (the review card)", () => {
       lang: "en-US" as const,
       ai: AI_WITH_KEY,
       dispatcher: makeDispatcher(),
-      onAcceptConsent: vi.fn(),
+     
       getChatConversation: (id: string) => store.get(id),
       saveChatConversation: (id: string, conv: ChatConversation) => {
         store.set(id, conv);
@@ -3505,7 +3448,6 @@ describe("staged tool calls (the review card)", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
         projectId="p1"
         getChatConversation={() => stored}
       />,
@@ -3599,7 +3541,7 @@ describe("cache-token usage recording", () => {
     });
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "hi" } });
@@ -3663,7 +3605,6 @@ describe("cache-token usage recording", () => {
         ai={{ ...AI_WITH_KEY, groundInGuides: true }}
         guides={[viewGuide]}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
@@ -3726,7 +3667,6 @@ describe("cache-token usage recording", () => {
         lang="en-US"
         ai={AI_WITH_KEY}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "q" } });
@@ -3762,7 +3702,6 @@ describe("cache-token usage recording", () => {
         ai={{ ...AI_WITH_KEY, groundInGuides: true }}
         guides={[viewGuide]}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "hi" } });
@@ -3922,7 +3861,7 @@ describe("§650 a refused key shows the key message", () => {
     } as unknown as Response);
 
     render(
-      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "list tasks" } });
@@ -3960,9 +3899,8 @@ describe("§650 a passphrase-unlocked key feeds the key verdict", () => {
     render(
       <ChatPanel {...SCOPE_PROPS}
         lang="en-US"
-        ai={{ ...defaultAiConfig, consentAccepted: true, apiKey: "" }}
+        ai={{ ...defaultAiConfig, consent: newConsent(new Date(0)), apiKey: "" }}
         dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
       />,
     );
     fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });

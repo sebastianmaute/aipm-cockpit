@@ -27,6 +27,8 @@ export interface UseDigestDeps {
   getRaid: () => readonly RaidItem[];
   config: DigestConfig;
   aiKey: string | null;
+  /** The key for the UNATTENDED auto-run: non-null only while the background consent is current (AI-10). */
+  backgroundAiKey: string | null;
   aiModel: string;
   m365Configured: boolean;
   acquireToken: (scopes: readonly string[], opts?: { interactive?: boolean }) => Promise<string | null>;
@@ -75,7 +77,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
   // be one (`advance`), which made emailing reschedule the next digest just to
   // get its narrative; all-false is a DISPLAY-ONLY render for a remount.
   const generate = useCallback(
-    async (opts: { notify: boolean; advance: boolean; narrative: boolean }): Promise<DigestModel | null> => {
+    async (opts: { notify: boolean; advance: boolean; narrative: boolean; background?: boolean }): Promise<DigestModel | null> => {
       if (deps.isPopout) return null;
       userStoppedRef.current = false;
       setBusy(true);
@@ -103,7 +105,9 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
         // Its OWN flag, NOT `advance`: emailing needs the narrative but must not
         // reschedule the next digest, and a not-due remount needs neither (this
         // is a BILLED call — never let it ride along with something else).
-        if (opts.narrative && deps.aiKey) {
+        // The auto-run is unattended, so it rides the background key; a click rides the interactive one.
+        const narrativeKey = opts.background ? deps.backgroundAiKey : deps.aiKey;
+        if (opts.narrative && narrativeKey) {
           const ctrl = new AbortController();
           narrativeCtrlRef.current = ctrl;
           setGenerating(true);
@@ -111,7 +115,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
           try {
             const runner = deps.runNarrative ?? runDigestNarrative;
             // runDigestNarrative already sanitizes + caps its return value.
-            const narrative = await runner(d, { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang, guideText }, ctrl.signal);
+            const narrative = await runner(d, { apiKey: narrativeKey, model: deps.aiModel, lang: deps.lang, guideText, level: opts.background ? "background" : "interactive" }, ctrl.signal);
             // A Stop (or the timeout) that lost the race to the response still
             // means "don't use it".
             if (narrative && !ctrl.signal.aborted) {
@@ -144,7 +148,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
     const due = state ? isDigestDue(state, deps.now()) : true;
     // Due → full generate; not due → display-only (card still renders after a
     // remount). Deferred off the effect's sync phase (setState-in-effect banned).
-    void Promise.resolve().then(() => generate({ notify: due, advance: due, narrative: due }));
+    void Promise.resolve().then(() => generate({ notify: due, advance: due, narrative: due, background: true }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deps.projectId, deps.config.enabled, guidesReady]);
 

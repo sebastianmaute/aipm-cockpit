@@ -1,5 +1,5 @@
-// The organisation AI-usage policy the AI Assistant's consent screen points to.
-// Pure and i18n-free: the consent screen and Settings → AI both read `resolveAiPolicy`.
+// The organisation AI-usage policy the AI consent screen in Settings → AI points to.
+// Pure and i18n-free: the consent dialog and the rest of Settings → AI both read `resolveAiPolicy`.
 //
 // ★ Precedence: a build-time `NEXT_PUBLIC_AI_POLICY_*` value, then Settings, then
 //   nothing — there is no built-in default. A deployment that wants a policy step

@@ -72,10 +72,14 @@ export function clearChatThreads(): void {
 /**
  * Drop the slot only if it is still the one `projectId` published.
  *
- * ★★ This is the UNMOUNT path, and it must be scoped. Withdrawing AI consent
- *   unmounts the chat panel (it renders a consent screen instead) while nothing
- *   else clears the store, so the last payload would otherwise stay readable
- *   with `available: true` forever. Scoping it means a publisher that has since
+ * ★★ This is the UNMOUNT path, and it must be scoped. The chat panel unmounts
+ *   whenever the main-window tree does (a project swap or any other load hold)
+ *   while nothing else clears the store, so the last payload would otherwise
+ *   stay readable with `available: true` forever. ★ Withdrawing AI consent does
+ *   NOT unmount the panel (it stays mounted with a review banner), so this path
+ *   does not run then: the slot's only readers, the chat pointer and
+ *   `search_chats`, run inside a chat send, and every request asks
+ *   `assertInteractiveConsentLive` before it goes out. Scoping it means a publisher that has since
  *   moved to another project cannot have its fresh value wiped by a late
  *   cleanup for the old one.
  */

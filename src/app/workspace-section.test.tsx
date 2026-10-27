@@ -30,7 +30,7 @@ vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
     settings: {
       lang: "en-US",
-      ai: { consentAccepted: false, provider: "none" },
+      ai: { consent: undefined, provider: "none" },
       jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", issueTypes: [] },
       notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
       holidayCountries: [],
@@ -390,7 +390,7 @@ describe("WorkspaceSection", () => {
     vi.mocked(useSettings).mockReturnValue({
       settings: {
         language: "en-US",
-        ai: { consentAccepted: false, apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true },
+        ai: { consent: undefined, apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true },
         jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", projectName: "", extraProjects: [], issueTypes: [], assigneeMode: "currentUser", assigneeAccountId: "", assigneeDisplayName: "", tokenExpiresAt: "" },
         notifications: { reminderLeadDays: 7, useGlobalLeadDays: true, birthday: { enabled: false }, raidReview: { enabled: false }, raidReviewIntervalDays: 14, dueSoonWorkdays: 3, stakeholderComms: { enabled: false }, stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 }, jiraTokenError: { enabled: false }, desktopUrgent: { enabled: false } },
         holidayCountries: [],
@@ -428,7 +428,7 @@ describe("WorkspaceSection", () => {
     vi.mocked(useSettings).mockReturnValue({
       settings: {
         language: "en-US",
-        ai: { consentAccepted: false, apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true },
+        ai: { consent: undefined, apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true },
         jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", projectName: "", extraProjects: [], issueTypes: [], assigneeMode: "currentUser", assigneeAccountId: "", assigneeDisplayName: "", tokenExpiresAt: "" },
         notifications: { reminderLeadDays: 7, useGlobalLeadDays: true, birthday: { enabled: false }, raidReview: { enabled: false }, raidReviewIntervalDays: 14, dueSoonWorkdays: 3, stakeholderComms: { enabled: false }, stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 }, jiraTokenError: { enabled: false }, desktopUrgent: { enabled: false } },
         holidayCountries: [],
@@ -835,7 +835,7 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
   const tursoConfiguredSettings = {
     settings: {
       language: "en-US" as const,
-      ai: { consentAccepted: false, apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true },
+      ai: { consent: undefined, apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true },
       jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", projectName: "", extraProjects: [], issueTypes: [], assigneeMode: "currentUser" as const, assigneeAccountId: "", assigneeDisplayName: "", tokenExpiresAt: "" },
       notifications: { reminderLeadDays: 7, useGlobalLeadDays: true, birthday: { enabled: false }, raidReview: { enabled: false }, raidReviewIntervalDays: 14, dueSoonWorkdays: 3, stakeholderComms: { enabled: false }, stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 }, jiraTokenError: { enabled: false }, desktopUrgent: { enabled: false } },
       holidayCountries: [],
@@ -890,7 +890,7 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
   const defaultUseSettingsReturn = {
     settings: {
       language: "en-US" as const,
-      ai: { consentAccepted: false, apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true },
+      ai: { consent: undefined, apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true },
       jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", projectName: "", extraProjects: [], issueTypes: [], assigneeMode: "currentUser" as const, assigneeAccountId: "", assigneeDisplayName: "", tokenExpiresAt: "" },
       notifications: { reminderLeadDays: 7, useGlobalLeadDays: true, birthday: { enabled: false }, raidReview: { enabled: false }, raidReviewIntervalDays: 14, dueSoonWorkdays: 3, stakeholderComms: { enabled: false }, stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 }, jiraTokenError: { enabled: false }, desktopUrgent: { enabled: false } },
       holidayCountries: [],

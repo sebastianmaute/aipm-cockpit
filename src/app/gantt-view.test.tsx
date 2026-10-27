@@ -6,6 +6,7 @@
 // real; only ./use-settings and ./task-dedup-call are mocked (mirrors
 // use-tasks-dedup.test.tsx + knowledge-panel.test.tsx conventions).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { newConsent } from "./ai-consent";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -30,7 +31,7 @@ const mockUseSettings = useSettings as ReturnType<typeof vi.fn>;
 
 const AI_ON: Settings = {
   ...defaultSettings,
-  ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-test", model: "claude-x" },
+  ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-test", model: "claude-x" },
 };
 
 function stubSettings(settings: Settings) {

@@ -1,5 +1,6 @@
 import type { Lang } from "./i18n";
-import type { DictationEngine, DictationHandlers } from "./dictation-engine";
+import { DICTATION_NEEDS_AI_CONSENT, type DictationEngine, type DictationHandlers } from "./dictation-engine";
+import { isInteractiveConsentLive } from "./ai-consent";
 
 export interface SttConfig { lang: Lang; baseUrl: string; model: string; apiKey: string; }
 
@@ -16,6 +17,13 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
   const cleanupStream = () => { stream?.getTracks().forEach((t) => t.stop()); stream = null; };
 
   const transcribe = async (blob: Blob) => {
+    // AI-01 — the send-time check: a recording finished after AI was switched off or the consent withdrawn
+    // is discarded here, never uploaded.
+    if (!isInteractiveConsentLive()) {
+      handlers?.onStatus?.("idle");
+      handlers?.onError(DICTATION_NEEDS_AI_CONSENT);
+      return;
+    }
     handlers?.onStatus?.("transcribing");
     try {
       const form = new FormData();

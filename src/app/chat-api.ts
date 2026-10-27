@@ -6,6 +6,7 @@ import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
 import { DOCUMENT_TOOL_DEFS_WITHOUT_DECISION } from "./chat-tool-defs-documents";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
+import { assertInteractiveConsentLive } from "./ai-consent";
 import type { Lang } from "./i18n";
 import { selectActiveGuides, assembleGuideBlocks, type OperatingGuide } from "./operating-guide";
 import type { AttachmentBlock } from "./chat-attachments";
@@ -680,6 +681,7 @@ export async function callClaude(
   stop_reason: string;
   usage: ApiUsage;
 }> {
+  assertInteractiveConsentLive();
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {

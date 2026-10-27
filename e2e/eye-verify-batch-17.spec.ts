@@ -93,7 +93,7 @@ test.describe("eye-verify kit, batch 17", () => {
 
   test("§41 AI Assistant: the attach and dictate buttons", async ({ page }) => {
     // Consent only, no key: the composer renders, and nothing is sent anywhere.
-    await open(page, { settings: { ai: { consentAccepted: true } } });
+    await open(page, { settings: { ai: { consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 1 } } } });
     await openView(page, "AI Assistant");
     await expect(page.getByRole("button", { name: "Attach documents", exact: true })).toBeVisible();
     await shoot(page, "04-ai-assistant-composer");

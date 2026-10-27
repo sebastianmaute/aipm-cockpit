@@ -1224,7 +1224,7 @@ const enUS = {
 
   aiAssistant: "AI assistant",
   aiEnable: "Enable AI assistant",
-  aiEnableHelp: "Turn on to use Claude chat, AI action suggestions, scheduled jobs, and AI project creation. Off by default.",
+  aiEnableHelp: "Turn on to use Claude chat, AI action suggestions and AI project creation; switching on asks you to accept the AI data disclosure first. Scheduled jobs and automatic insight recommendations also need the separate “Allow AI to run in the background” acceptance. Off by default.",
   // Shown by the AI sub-sections (guides, views) that are gated on the master
   // switch but do NOT contain it. `aiEnableHelp` is the switch's own field help
   // ("Turn on to use …") — an instruction the reader cannot follow from here,
@@ -1299,6 +1299,9 @@ const enUS = {
   dictationEngine: "Dictation engine",
   dictationEngineWebSpeech: "Browser (Web Speech)",
   dictationEngineStt: "Cloud (OpenAI-compatible)",
+  dictationNeedsAiConsent: "Speech-to-text sends your audio to the configured speech service. Switch on AI and accept the AI data disclosure in Settings → AI to use it; until then dictation is unavailable. To dictate without it, choose Browser (Web Speech) as the dictation engine.",
+  dictationUnavailableNeedsAiConsent: "Dictation is unavailable: the speech-to-text service needs AI switched on and the AI data disclosure accepted in Settings → AI.",
+  dictationUnavailableSttNotSetUp: "Dictation is unavailable: speech-to-text is the chosen engine, but its service address or API key is missing, or the key cannot be read on this device. Complete the speech-to-text setup in Settings, or choose Browser (Web Speech) as the dictation engine.",
   dictationSttBaseUrl: "Transcription endpoint base URL",
   dictationSttModel: "Model",
   dictationSttKey: "API key",
@@ -1608,27 +1611,34 @@ const enUS = {
   scheduledReportsErrError: "The run failed.",
   scheduledReportsNeedPortfolio: "Scheduled reports are stored in a Turso portfolio. Connect a Turso database and switch to portfolio mode to see them.",
 
-  aiConsentTitle: "Enable Claude chat?",
-  aiConsentBullet1:
-    "Your messages and task data (names, assignees, emails, dates, blockers, notes) are sent directly from this browser to api.anthropic.com whenever you chat.",
+  aiConsentTitle: "Enable AI features?",
   aiConsentBullet2:
     "Your Anthropic API key is encrypted at rest in this browser (AES-256-GCM, under a non-extractable device key) and sent directly from this browser to api.anthropic.com. Anyone with access to this browser profile can read and use it, and Anthropic will bill any usage to that key — use a dedicated API key with a spend limit.",
   aiConsentBullet3:
     "Anthropic's handling of your data is governed by their Privacy Policy and Usage Policy. Review them before enabling.",
   aiConsentBullet4:
-    "Do not paste confidential client information, credentials, personal data of third parties, or anything covered by an NDA into chat or task fields while chat is enabled.",
+      "Do not paste confidential client information, credentials, personal data of third parties, or anything covered by an NDA into any field while AI is enabled.",
   aiConsentBullet5:
-    "You can revoke consent at any time in Settings, which disables the chat without deleting your tasks or API key.",
+      "You can revoke consent at any time in Settings, which switches off every AI feature without deleting your tasks or API key.",
   aiConsentBullet6:
-    "The AI usage policy of {0} applies to this feature. You must read it before enabling chat.",
+    "The AI usage policy of {0} applies to this feature. You must read it before enabling the AI features.",
   aiConsentPolicyLink: "Open the AI usage policy of {0}",
   aiConsentPolicyCheckbox:
     "I have read and accept the AI usage policy of {0}.",
-  aiConsentAccept: "I understand — enable chat",
+  aiConsentAccept: "I understand — enable AI",
+  aiBackgroundConsentToggle: "Allow AI to run in the background",
+  aiBackgroundConsentHelp: "Scheduled jobs, automatic insight recommendations and the scheduled digest narrative call the AI on their own, without a click. They stay off until you allow this.",
+  aiBackgroundConsentNeeded: "Allow AI to run in the background in Settings → AI first.",
+  aiConsentBackgroundTitle: "Allow AI to run in the background?",
+  aiConsentBackgroundIntro: "These features call the AI on their own, without a click, and every call is billed to your API key:",
+  aiConsentBackgroundRunner1: "Scheduled jobs: recurring reports for the projects you assign.",
+  aiConsentBackgroundRunner2: "Automatic insight recommendations: a recommendation is written for new insights at the interval you set.",
+  aiConsentBackgroundRunner3: "The scheduled digest narrative: the AI summary added to the digest when it falls due.",
+  aiConsentBackgroundAccept: "I understand — allow background AI",
   // {0} in the three policy strings above when no owner is configured.
   aiPolicyOwnerFallback: "your organisation",
   aiPolicyOrgLabel: "AI usage policy owner",
-  aiPolicyOrgHint: "Named on the AI Assistant's consent screen. Leave empty for neutral wording. There is no built-in policy owner or link — enter both here, or set the matching build variables, for the consent screen to show a policy step.",
+  aiPolicyOrgHint: "Named on the AI consent screen in Settings → AI. The owner name is optional: a policy link alone makes the consent screen show a policy step, and with no name the wording stays neutral. There is no built-in policy owner or link — enter a link here (and, if you like, the owner), or set the matching build variables.",
   aiPolicyOrgFromEnv: "Set by NEXT_PUBLIC_AI_POLICY_ORG in this deployment, which overrides this setting.",
   aiPolicyUrlLabel: "AI usage policy link",
   aiPolicyUrlHint: "An https:// link the consent screen asks people to read and accept. Leave empty if there is no policy.",
@@ -1636,19 +1646,62 @@ const enUS = {
   aiPolicyUrlFromEnv: "Set by NEXT_PUBLIC_AI_POLICY_URL in this deployment, which overrides this setting.",
   aiPolicyUrlNoBuiltin: "There is no built-in link — no link is stored and none is set by the deployment environment. Enter your organisation's link; left empty, the consent screen shows no policy to read or accept.",
   aiPolicyUrlEnvRejected: "NEXT_PUBLIC_AI_POLICY_URL is set in this deployment but is not a full https:// link, so it is ignored and this field is used instead.",
-  aiConsentRequired:
-    "Consent required. Open the AI Assistant tab to review and enable.",
-  aiConsentGranted: "Chat enabled",
+  aiConsentGranted: "AI enabled",
+  aiConsentReviewPrompt: "AI is switched on, but the AI data disclosure is not accepted. Review and accept it to use AI features.",
+  aiConsentReview: "Review",
+  aiConsentRevokedDuringSend: "AI was switched off or its consent was withdrawn, so the request was stopped.",
   aiConsentRevoke: "Revoke consent",
+  // AI-01 — an accept or a revoke that could not be written to this browser's storage (Settings → AI).
+  aiConsentAcceptNotSaved: "Your consent could not be saved because this browser's storage is full or unavailable, so AI stays off. Free up storage or allow it for this site, then try again.",
+  aiEnableNotSaved: "AI could not be switched on because this browser's storage is full or unavailable, so it stays off. Free up storage or allow it for this site, then try again.",
+  aiBackgroundConsentAcceptNotSaved: "Your consent to running AI in the background could not be saved because this browser's storage is full or unavailable, so AI does not run in the background. Free up storage or allow it for this site, then try again.",
+  aiConsentRevokeNotSaved: "Your withdrawal applies here now, but it could not be saved because this browser's storage is full or unavailable. Until it is saved, a reload undoes it and it does not reach other tabs or windows.",
+  aiConsentRevokeRetry: "Save again",
+  aiConsentRevokeSaved: "Your withdrawal has been saved.",
   aiConsentNotAccepted:
-    "Claude chat is disabled. Review and accept the consent below to enable it.",
+    "AI features stay off until you accept this disclosure. It lists what each feature sends, and where.",
+  // The AI data disclosure table (ai-disclosure.ts AI_DATA_PATHS): one label + one data text per path.
+  aiConsentDataIntro: "What each feature sends, and only when you use it. Everything except dictation goes directly from this browser to api.anthropic.com:",
+  aiConsentBackgroundDataIntro: "What these features send directly from this browser to api.anthropic.com, each time they run:",
+  aiDataChatLabel: "AI Assistant chat",
+  aiDataChat: "Your messages; the files and e-mails you attach (an e-mail with its body and its sender and recipient names and addresses); your operating guides; and the project data the assistant reads to answer: tasks with their descriptions and note logs, milestones, RAID items, changes, stakeholders, people in the resource directory, absences (only as “absent”, with the person and the dates), budget figures, calendar events, documents and project details, and, when it searches them, the activity history and your other chats in this project. With every message it also gets the number of your other chats in this project and the titles and last-activity times of up to three of the most recent ones (an unnamed chat is titled with the start of its first message; chats are kept only with a Turso database), and the project’s open insights: up to ten current ones and up to five you acted on with their measured result, one line each. An insight from Timelog names one person (or their Timelog user number when no one in the resource directory is linked) with their logged working time: on how many days a single entry or a day’s total went over a limit, they logged more than their defined hours, they logged time on a non-working day or on a day they were absent (vacation, sick or training), or time in a closed month was changed, with the worst hours, the limit where there is one, and for a closed month the net change. People’s names are included. List results carry no e-mail addresses: the assistant reads one address at a time, only when it needs it, though addresses can still appear in attachments, documents and logged edits. The whole conversation is sent again with every new message.",
+  aiDataInlineEditLabel: "Inline AI edit on a row",
+  aiDataInlineEdit: "Your instruction, the one row you edit and a short project context (today’s date, task count, groups and labels, and the same open-insight lines the chat gets, so a Timelog insight can name a person with their logged working time), plus your operating guide for inline edits if you have one. The row includes names, dates and descriptions, and for a task its blocker log with the name of whoever logged each entry; for a person in the resource directory their name, job title, department, company, role, whether they are external, whether they are active, and their planned workload per period and whether it is planned in percent or hours. Never sent: e-mail addresses, note logs, a person’s phone number, location, birthday, notes and absence hours, a stakeholder’s notes, influence and interest, and an absence’s type and note.",
+  aiDataCommitteeReportLabel: "Steering committee report draft",
+  aiDataCommitteeReport: "The meeting agenda you typed, your operating guide for this report if you have one, and a status summary: overall status (RAG), task counts, overdue and due-soon counts, RAID and change counts, up to five change titles, and the names and dates of overdue, at-risk and due-soon milestones. No people’s names or e-mail addresses, unless they are in a title or the agenda.",
+  aiDataDigestNarrativeLabel: "Digest summary, on request",
+  aiDataDigestNarrativeScheduledLabel: "Digest summary, scheduled",
+  aiDataDigestNarrative: "Overall status (RAG), the number of overdue tasks, the numbers of open and high-severity RAID items, and the names and dates of milestones due soon, plus your operating guide for the digest if you have one. No people’s names, notes or e-mail addresses, unless they are in a milestone name.",
+  aiDataForecastImportLabel: "Forecast import from a spreadsheet",
+  aiDataForecastImport: "The sheet you choose, with its name (for a CSV file, the file name without its extension), as a table of its non-empty cells (a sheet too large for one request is not sent), plus your operating guide for the import if you have one. Whatever the sheet holds is sent: usually people’s names and planned hours, and their e-mail addresses and hourly rates when the sheet has them. No other project data.",
+  aiDataInsightRecommendationLabel: "Insight recommendation, on request",
+  aiDataInsightRecommendationAutoLabel: "Automatic insight recommendations",
+  aiDataInsightRecommendation: "The project name, today’s date, the insight’s type, severity and figures, the titles of up to 30 tasks, the names of up to 30 people (active resources and assignees of open tasks), and the item the insight is about: a milestone with its description, a RAID item with its owner and mitigation, or a person’s job title, department and company. For a working-time insight from Timelog the figures are about one person: their name and Timelog user number, on how many days a single entry or a day’s total went over a limit, they logged more than their defined hours, they logged time on a non-working day or on a day they were absent (vacation, sick or training), or time in a closed month was changed, with the worst hours, the limit where there is one and, for a closed month, the net change, and the first and last dates concerned. Also your operating guide for recommendations if you have one. No e-mail addresses and no resource notes.",
+  aiDataActionAnalysisLabel: "Analyze next actions with AI",
+  aiDataActionAnalysis: "The project name, today’s date, planned, actual and forecast budget, the next-actions queue (titles and reasons), open tasks (title, status, priority, assignee, due date), active RAID items (category, severity, status, owner, target date), milestones, pending changes, and stakeholder names with their title or organisation, plus your operating guide for analyses if you have one. No descriptions, notes or e-mail addresses.",
+  aiDataScheduledJobLabel: "Scheduled job analysis",
+  aiDataScheduledJob: "The job’s instruction and, for the project it covers, the same summary as “Analyze next actions with AI”: budget figures, the next-actions queue, open tasks with assignees and due dates, active RAID items with owners, milestones, pending changes and stakeholder names with their title or organisation, plus your operating guide for analyses if you have one. No descriptions, notes or e-mail addresses.",
+  aiDataAllocPlanLabel: "Allocation plan proposal",
+  aiDataAllocPlan: "Your request, your operating guide if you have one, the plan window and periods, and for each person in the resource directory: their name (or their number in the resource directory if no name is set), role, whether they are external, and their planned and available hours per period. Absences are used to work out available hours and are not sent.",
+  aiDataRaciSuggestLabel: "RACI suggestion",
+  aiDataRaciSuggest: "Stakeholder names, titles, organisations, categories, influence and interest; milestone names, dates and descriptions; the existing RACI assignments; and your operating guide if you have one. No e-mail addresses.",
+  aiDataTaskDedupLabel: "Duplicate task check",
+  aiDataTaskDedup: "For each task: its number, status, due date, title, assignee and the first 200 characters of its description, plus your operating guide if you have one. No e-mail addresses or note logs.",
+  aiDataWbsPlanLabel: "Work breakdown (WBS) proposal",
+  aiDataWbsPlan: "Your instruction, your operating guide if you have one, the project name and window, groups, milestones, and for each task: name, group, status, start and due dates, estimate, dependencies, assignee and a shortened description. No e-mail addresses or note logs.",
+  aiDataWeightSuggestionLabel: "Next-actions weight suggestion",
+  aiDataWeightSuggestion: "The project name, the titles of tasks, RAID items, milestones and changes, the next-actions queue, your current weights and learning counts, a trend summary, and stakeholder names, plus your operating guide for weight suggestions if you have one. No descriptions, notes or e-mail addresses.",
+  aiDataProjectProposalLabel: "New project proposal (project wizard)",
+  aiDataProjectProposal: "Only what you give the wizard: the brief you type, the files you attach (an e-mail with its body and its sender and recipient names and addresses), and the SharePoint files and Confluence pages you pick, plus your operating guide if you have one. No data from existing projects.",
+  aiDataDictationLabel: "Speech-to-text dictation",
+  aiDataDictation: "When you choose a speech-to-text service, the audio you record and that service’s API key go through this app’s own server route to the speech service you configured, not to Anthropic. Without this consent, while AI is switched off, or while that service’s address or key is missing or cannot be read on this device, dictation with that service is unavailable; it never switches to another engine on its own. Only when you choose browser dictation instead, or this deployment has switched speech-to-text off, does it use the browser’s built-in speech recognition, which in some browsers sends audio to the browser maker’s service.",
   credentialStorageNote:
     "Encrypted at rest in this browser (device key). Anyone with access to this browser profile can still use it — avoid production credentials on shared or untrusted machines.",
   disclaimerTitle: "Security & responsibility disclaimer",
   disclaimerIntro:
-    "The API keys and access tokens you configure here (Anthropic, Jira, Microsoft 365, Turso) grant full access on your behalf. Every action the app or the AI assistant takes is executed as you — there is no separate identity or audit trail distinguishing it from your own actions.",
+      "The API keys and access tokens you configure here (Anthropic, Jira, Microsoft 365, Turso) grant full access on your behalf. Towards Anthropic, Jira, Microsoft and Turso, every action the app or the AI assistant takes runs with your credentials, so those services cannot tell it apart from your own. Inside the app, most AI changes are logged in the activity log with the actor \"AI assistant\": changes made through the chat, inline AI edits, the AI planning features (allocation plan, work breakdown, RACI suggestions, duplicate task removal) and insight recommendations. The project wizard's AI draft is not logged.",
   disclaimerResponsibility:
-    "You are solely responsible for everything done with these credentials. Treat each token with the same care as a password. If the assistant or an integration creates, modifies, or deletes data, it is indistinguishable from you having done it manually.",
+      "You are solely responsible for everything done with these credentials. Treat each token with the same care as a password. If the assistant or an integration creates, modifies, or deletes data, those services see it as done by you; only this app's activity log marks most AI changes with the actor \"AI assistant\".",
   disclaimerTipsHeading: "Tips to stay in control:",
   disclaimerTipReview:
     "Review before you act — ask the assistant to show or list records before asking it to create, update, or delete anything.",
@@ -1990,7 +2043,7 @@ const enUS = {
     "When the storage backend is Turso and the History module is enabled, every project keeps an append-only history of full-workspace versions. Captures happen automatically a few minutes after your edits settle (rapid autosaves coalesce into one version; identical payloads are skipped), and you can take a named checkpoint anytime with \"Save version now\". Open the History view to compare a version with the current data or tick two versions to diff them against each other — a field-level diff grouped by entity type, each record expandable before → after. From a \"compared with current\" view, tick whole records or individual fields and click \"Restore selected\" to revert just those — a non-destructive change that is itself captured as a new version and recorded in the activity log. Auto-versions are pruned to the limit in Settings → \"Version history: keep N versions\" (minimum 50, in steps of 10); named checkpoints are never pruned.",
   helpSecAiTitle: "AI chat",
   helpSecAiBody:
-    "Add an Anthropic API key in Settings → AI, then accept the consent screen on the AI Assistant tab. Messages and task data are sent directly from your browser to api.anthropic.com — your organisation's AI usage policy applies. The key is encrypted at rest in this browser (AES-256-GCM under a non-extractable device key) and is never written to disk in plain text. Claude can list, create, update, and delete tasks on your behalf via tool calls. It can also read and change the open project's details, such as its dates, sponsor or regulatory requirements; such a change always appears as a card to review before anything is written, is recorded in the activity log and can be undone. Claude is also told which view you are on and what that view is for, and on Open Points what your current filters are showing, while Workload, Gantt and Budget report project-wide totals rather than the rows on screen — so ask about “what I am looking at” and it answers from the screen. Settings → AI lists, read-only, exactly what it is told about each view. On a Turso project your conversations are kept as named threads in a sidebar you can resize; on file storage the panel holds a single unsaved conversation. Claude can also search this project's earlier chats and its activity history, and is given a short recap of the last seven days — each of those three is its own switch in Settings → AI, on by default. Switching a search off removes that tool from Claude outright rather than hiding its results; switching the recap off simply stops supplying it. If your key is protected by a passphrase, unlock it once and every AI feature uses it until you reload the page; the unlocked key is kept in memory only.",
+    "Switch AI on in Settings → AI, accept the AI data disclosure that opens (in that order: master switch, accept the disclosure, key), then add an Anthropic API key — the key field appears once the disclosure is accepted. Every interactive AI feature listed in that disclosure sends its data directly from your browser to api.anthropic.com when you use it; dictation is the exception and goes to the speech service you configure. The background features (scheduled jobs, automatic insight recommendations, the scheduled digest summary) run on their own, only after a second, separate acceptance — your organisation's AI usage policy applies. The key is encrypted at rest in this browser (AES-256-GCM under a non-extractable device key) and is never written to disk in plain text. Claude can list, create, update, and delete tasks on your behalf via tool calls. It can also read and change the open project's details, such as its dates, sponsor or regulatory requirements; such a change always appears as a card to review before anything is written, is recorded in the activity log and can be undone. Claude is also told which view you are on and what that view is for, and on Open Points what your current filters are showing, while Workload, Gantt and Budget report project-wide totals rather than the rows on screen — so ask about “what I am looking at” and it answers from the screen. Settings → AI lists, read-only, exactly what it is told about each view. On a Turso project your conversations are kept as named threads in a sidebar you can resize; on file storage the panel holds a single unsaved conversation. Claude can also search this project's earlier chats and its activity history, and is given a short recap of the last seven days — each of those three is its own switch in Settings → AI, on by default. Switching a search off removes that tool from Claude outright rather than hiding its results; switching the recap off simply stops supplying it. If your key is protected by a passphrase, unlock it once and every AI feature uses it until you reload the page; the unlocked key is kept in memory only.",
   helpSecAiAdvancedTitle: "AI assistance (advanced)",
   helpSecAiAdvancedBody:
     "Beyond the chat, an Anthropic key unlocks several optional, advisory AI helpers. Create project with AI: in the new-project wizard, describe the project in plain words or import a source — upload a file, pick a SharePoint document, or paste a Confluence page URL — and Claude pre-fills the form for you to review. Analyze with AI: the Action Center's button runs one analysis pass over your reports and suggests where to focus; it never edits your data, and the deterministic next-action engine is untouched. Suggest with AI: in the next-actions settings, Claude proposes tweaks to the ranking weights that you accept per row. Scheduled jobs: opt in (Settings → Scheduled jobs) to analyse a project you name on a daily or weekly cadence, with an instruction of your own — the scheduler runs due jobs while the app is open, skips a run whose day has passed, and keeps each result as a report under Portfolio → Scheduled reports (it needs a Turso portfolio) and shows it as a notification. Each scheduled run is a billed API call, so it is off by default. None of these features run in pop-out windows.",
@@ -2910,7 +2963,7 @@ const enUS = {
   aiGuideSave: "Save",
   aiGuideCancel: "Cancel",
   aiGuideBuiltInBadge: "Built-in",
-  aiGuideBudgetWarning: "All enabled guides together exceed the recommended size. Each message sends only the overview plus the current view's guide (cached after the first send), so actual token cost is usually lower — disable guides you don't need to reduce it.",
+  aiGuideBudgetWarning: "All enabled guides together exceed the recommended size. Every enabled guide without a view scope is sent with every message and cached after the first send; a view-scoped guide is sent only on its view and has no cache marker of its own, so it is cached only where a later cache breakpoint covers it. Actual token cost is usually lower — disable guides you don't need to reduce it.",
   aiGuideScopeModes: "Modes",
   aiGuideScopeModules: "Modules",
   aiGuideScopeViews: "Views",
@@ -4139,7 +4192,7 @@ const enUS = {
   settingsAiActionSuggestionsHelp: "Show an “Analyze with AI” button in the Action Center.",
   settingsAiHistorySearch: "Let the assistant search project history",
   settingsAiHistorySearchHelp:
-    "Adds a tool the assistant can call to read the activity log. Costs nothing until it is used.",
+      "Adds a tool the assistant can call to read the activity log. The tool definition is sent with every chat request while this is on (a small cost); searching itself costs more only when the assistant uses it.",
   settingsAiActivityRecap: "Tell the assistant how much changed recently",
   settingsAiActivityRecapHelp:
     "Adds one line to every message with a count of the last 7 days' changes, so the assistant knows history exists.",

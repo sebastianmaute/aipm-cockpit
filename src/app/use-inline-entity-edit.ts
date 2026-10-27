@@ -20,7 +20,7 @@ import { type ApiUsage } from "./chat-api";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError } from "./ai-key-status";
 import { describeEntityCalls, isEmptyPlan, type EditPlan, type FieldDiff, type LinkDiff } from "./inline-ai-edit/plan";
-import { INLINE_DESCRIPTORS, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
+import { inlineDescriptor, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 
 export type InlinePhase = "idle" | "thinking" | "preview" | "clarify" | "rejected" | "applying" | "error";
 type EntityItem = { id: number; [k: string]: unknown };
@@ -62,7 +62,7 @@ export interface InlineEntityEditApi {
 }
 
 export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEditApi {
-  const d = INLINE_DESCRIPTORS[deps.entity];
+  const d = inlineDescriptor(deps.entity); // D7: the withheld fields are not writable here
   const [activeItem, setActiveItem] = useState<EntityItem | null>(null);
   const [phase, setPhase] = useState<InlinePhase>("idle");
   const [plan, setPlan] = useState<EditPlan | null>(null);
@@ -185,8 +185,10 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     if (!activeItem || !instruction.trim() || phase === "thinking" || phase === "applying") return;
     const reqId = ++reqIdRef.current;
     const target = activeItem;
-    // Derived from the SAME object that goes into the prompt below, before the
-    // await — see tokenRef's comment for why the derivation point is the design.
+    // Derived from the FULL stored row (`target`), before the await — see
+    // tokenRef's comment for why the derivation point is the design. The prompt
+    // below gets only its projection (`projectForInlineEdit`, withheld fields
+    // dropped), so the token covers fields the model never sees.
     const readToken = entityToken(deps.entity, target);
     const controller = new AbortController();
     abortRef.current = controller;

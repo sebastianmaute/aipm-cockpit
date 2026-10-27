@@ -13,8 +13,10 @@
 
 ### AI Assistant
 
-- **Consent screen policy block:** `ConsentScreen` (`chat-panel.tsx`) names an organisation AI-usage
-  policy in its sixth bullet, a link and a required checkbox. Owner and link come from ONE resolver,
+- **Consent dialog:** `AiConsentDialog` (`ai-consent-dialog.tsx`), opened from Settings → AI for the
+  interactive and the background consent level, lists that level's rows of `AI_DATA_PATHS`
+  (`ai-disclosure.ts`), the one table docs/security.md also lists. **Policy block:** it names an organisation AI-usage
+  policy in its last bullet, a link and a required checkbox. Owner and link come from ONE resolver,
   `resolveAiPolicy` (`ai-policy.ts`): a `NEXT_PUBLIC_AI_POLICY_ORG`/`_URL` build value, then
   `settings.ai.policyOrgName`/`policyUrl` (Settings → AI Assistant, `ai-policy-fields.tsx`), then
   **nothing — there is no built-in default.** `undefined` = never set, `""` = cleared: both resolve
@@ -110,8 +112,9 @@
   chat guides only.
 - **AI model picker:** `CHAT_MODELS` (`settings-types.ts`) is the SINGLE source for the dropdown; `ChatModel` is widened to
   `string` (open — pick any live model), sanitized on load by `/^claude-[\w.-]+$/` (≤64 chars, else `defaultAiConfig.model`).
-  `use-chat-models.ts` `useChatModels(apiKey, enabled, currentId)` → `{options, loaded}` fetches Anthropic
-  `GET /v1/models?limit=1000` browser-direct through `fetchAnthropicModels` (`anthropic-models.ts`, shared with
+  `use-chat-models.ts` `useChatModels(apiKey, ai, currentId)` → `{options, loaded}` fetches Anthropic
+  `GET /v1/models?limit=1000` (only while `isInteractiveAiAllowed(ai)` — switch on AND current interactive consent;
+  no request reaches Anthropic before consent) browser-direct through `fetchAnthropicModels` (`anthropic-models.ts`, shared with
   the §650 start-up key check; live `claude-*` newest-first; key never logged). ★★ v0.165: NO
   offline pre-fill — `buildModelOptions(reg, live, currentId, {registryAsBase:false})` keeps the dropdown EMPTY
   (bar the current selection, still registry-labelled) until a live poll SUCCEEDS; `loaded` gates the
@@ -125,7 +128,7 @@
   unless `classifyAiError` says limit) — and by `fetchAnthropicModels`, so a new AI feature routed through
   either envelope feeds it with no extra code. `useAiKeyCheck` (`use-ai-key-check.ts`, mounted once in
   `task-manager.tsx`) syncs the live key and runs one debounced `/v1/models` check per settled key in the main
-  window; a network failure never flags a key. The §567 probe reports an unreadable Anthropic key to the
+  window, only while `isInteractiveAiAllowed(ai)` holds (switch on and a current interactive consent); a network failure never flags a key. The §567 probe reports an unreadable Anthropic key to the
   verdict instead of the generic toast. ★★ §717 — the chat's passphrase unlock puts the key in `session-ai-key.ts`, a page-only memory store, and
   `liveAiKey` (`settings-types.ts`) falls back to it, so every AI feature runs with it. A NEW AI feature gets its key
   from `aiKeyIfEnabled` (and gates on `isAiEnabled`), never from `settings.ai.apiKey`, or it reads "" behind a
@@ -634,6 +637,13 @@
   `humanizeFieldName` output ("due date"): the model WRITES with those exact names, and the humanized form
   both lowercases and splits camelCase, so it is lossy and not uniquely invertible. Do not "align" the two
   renderers — `activity-prompt.ts`'s header carries the full reasoning.
+  ★★ **`renderActivityEntry` is the MODEL BOUNDARY for logged edits (AI-05):** it leaves out every change for
+  which `withheldActivityField(kind, field)` (`ai-withheld-fields.ts`) is true — the inline editor's withheld
+  fields of the entity the kind's prefix names (`AI_WITHHELD_FIELDS`, the same table `INLINE_DESCRIPTORS`
+  builds `withheldFields` from), every field in that table when the prefix names no entity, and every e-mail
+  field under any kind — BEFORE the query is matched, so a query cannot find an entry by a withheld value.
+  Storage, the Activity panel and the internal audit download keep every change. A stored `search_history`
+  result of an older thread has its `detail` dropped on load when it names such a field (`chat-threads.ts`).
   ★★ **`truncated` means "more matched than you are seeing", NEVER "a limit was applied".** A cap that
   happened to cut nothing must report `false`; the model reads this field to decide whether it may claim a
   complete answer, and the tool description instructs it to say so out loud.
@@ -1977,6 +1987,10 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   pair, because `runTursoPipeline` only opens a transaction when the first statement is literal `BEGIN`.
   `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
   requires `projectId` (not just an id) so a delete can never reach across projects.
+  ★★ `rowsToThreads` runs `minimiseStoredToolResults` (`chat-threads.ts`) over a loaded history: a thread saved
+  before the tool results were minimised still holds e-mail fields and an absence's real type and note in its stored
+  `tool_result` blocks, which the next message would re-send. Only `tool_result` blocks change; the user's and the
+  assistant's own text stays as written.
 - **Forecast tools (§502) — `get_forecast`, `create_forecast_scenario`, `update_forecast_scenario`, and part 4's
   `delete_forecast_scenario`, `set_forecast_proposal`, `set_forecast_target_confidence`.** Defined in
   `chat-tool-defs-forecast.ts` (`FORECAST_TOOL_DEFS`), run by `runForecastTool` (`chat-tools-forecast.ts`), bound to

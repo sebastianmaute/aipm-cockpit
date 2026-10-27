@@ -25,6 +25,8 @@ import { type Lang } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
 import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 import { PLANNABLE_TOOL_NAMES } from "./inline-ai-edit/plan";
+import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
+import { projectForInlineEdit } from "./inline-ai-edit/projection";
 
 export interface InlineEditArgs {
   apiKey: string;
@@ -57,6 +59,11 @@ export interface InlineEditResult {
 type InlineTools = ReturnType<typeof toolsNamed>;
 let inlineToolsCache: InlineTools | null = null;
 
+/** The `update_*` tool name -> the fields the inline editor withholds from it (D7). */
+function withheldByUpdateTool(): ReadonlyMap<string, ReadonlySet<string>> {
+  return new Map(Object.values(INLINE_DESCRIPTORS).map((d) => [d.updateTool, d.withheldFields]));
+}
+
 /** The plannable tools, without `expectedToken` (§715 D1). Its schema text says "REQUIRED. The token
  *  returned when you read this record", but this path has no read tools and the app stamps the
  *  stored row's token itself at apply (`use-inline-entity-edit.ts`). A model that follows the schema
@@ -64,17 +71,21 @@ let inlineToolsCache: InlineTools | null = null;
  *  that mocks `toolsNamed` after the first inline call in its file never reaches this path. */
 function inlineTools(): InlineTools {
   if (inlineToolsCache) return inlineToolsCache;
+  const withheld = withheldByUpdateTool();
   inlineToolsCache = toolsNamed(PLANNABLE_TOOL_NAMES).map((def) => {
     const schema = def.input_schema as { properties?: Record<string, unknown>; required?: readonly string[] };
-    if (!schema.properties || !("expectedToken" in schema.properties)) return def;
-    const { expectedToken: _dropped, ...properties } = schema.properties;
-    void _dropped;
+    if (!schema.properties) return def;
+    // D7: the entity's update tool also loses the withheld properties - a schema the model cannot see
+    // is a field it cannot be asked to set (and `plan.ts` ignores one it sends anyway).
+    const drop = new Set(["expectedToken", ...(withheld.get(def.name) ?? [])]);
+    if (!Object.keys(schema.properties).some((k) => drop.has(k))) return def;
+    const properties = Object.fromEntries(Object.entries(schema.properties).filter(([k]) => !drop.has(k)));
     return {
       ...def,
       input_schema: {
         ...def.input_schema,
         properties,
-        ...(schema.required ? { required: schema.required.filter((r) => r !== "expectedToken") } : {}),
+        ...(schema.required ? { required: schema.required.filter((r) => !drop.has(r)) } : {}),
       },
     };
   }) as InlineTools;
@@ -82,7 +93,7 @@ function inlineTools(): InlineTools {
 }
 
 function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLabel: string): SystemBlock {
-  const fields = JSON.stringify(item);
+  const fields = JSON.stringify(projectForInlineEdit(entity, item));
   return {
     type: "text",
     text:

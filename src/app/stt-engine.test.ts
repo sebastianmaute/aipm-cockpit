@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import "../test/ai-consent-live";
 import { createSttEngine } from "./stt-engine";
+import { newConsent, publishAiConsentState } from "./ai-consent";
+import { defaultAiConfig } from "./settings-types";
 
 class FakeRecorder {
   state = "inactive"; mimeType = "audio/webm";
@@ -21,6 +24,33 @@ beforeEach(() => {
 });
 
 const cfg = { lang: "en-US" as const, baseUrl: "https://api.openai.com/v1", model: "whisper-1", apiKey: "sk-test" };
+
+describe("stt-engine — the send-time consent check (AI-01)", () => {
+  const live = { ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) };
+  it.each([
+    ["the consent withdrawn", { ...live, consent: undefined }],
+    ["AI switched off", { ...live, enabled: false }],
+  ])("discards a recording stopped after %s: nothing is uploaded", async (_name, after) => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const h = { onInterim: vi.fn(), onFinal: vi.fn(), onError: vi.fn(), onStatus: vi.fn() };
+    const eng = createSttEngine(cfg);
+    try {
+      eng.start(h);
+      await Promise.resolve(); await Promise.resolve();
+      publishAiConsentState(after); // withdrawn while recording
+      eng.stop();
+      await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(h.onFinal).not.toHaveBeenCalled();
+      expect(h.onError).toHaveBeenCalledWith("needs-ai-consent");
+      expect(h.onStatus).toHaveBeenLastCalledWith("idle");
+      expect(track.stop).toHaveBeenCalled(); // the microphone is released
+    } finally {
+      publishAiConsentState(live);
+    }
+  });
+});
 
 describe("stt-engine", () => {
   it("records, transcribes on stop, emits final + status", async () => {

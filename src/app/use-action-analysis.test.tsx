@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import "../test/ai-consent-live";
 import { renderHook, act } from "@testing-library/react";
 import { useActionAnalysis } from "./use-action-analysis";
 

@@ -10,10 +10,10 @@
 // It reads the project lists itself (never through usePortfolioProjects, which
 // follows the OPEN portfolio) so the picker works from any view.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { type Lang, t } from "../i18n";
 import { FieldHint } from "../field-hint";
-import { isAiEnabled, type Settings } from "../settings-types";
+import { isAiBackgroundEnabled, isAiEnabled, type Settings } from "../settings-types";
 import type { TursoConfig } from "../turso-config";
 import { useScheduledJobs } from "../use-scheduled-jobs";
 import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
@@ -86,6 +86,8 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
 
   const enabled = settings.ai.scheduledJobs === true;
   const hasKey = isAiEnabled(settings.ai);
+  const hasBackgroundConsent = isAiBackgroundEnabled(settings.ai);
+  const backgroundHintId = useId();
   // A LEGACY job predates §772: it carries no permanent key. A job added now has one (createJob mints it) and
   // only lacks a project, which its own row says.
   const hasLegacyJob = jobs.some((j) => j.foreign === undefined && j.key === null);
@@ -135,10 +137,14 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
             <Checkbox
               aria-label={t(lang, "scheduledJobsToggle")}
               checked={enabled}
+              // AI-01 — only switching ON needs the background consent: a job left on from before can always be switched off.
+              disabled={!hasBackgroundConsent && !enabled}
+              aria-describedby={!hasBackgroundConsent && !enabled ? backgroundHintId : undefined}
               onChange={toggleEnabled}
             />
             <span className="text-xs text-foreground">{t(lang, "scheduledJobsToggle")}</span>
           </label>
+          {!hasBackgroundConsent && <FieldHint id={backgroundHintId}>{t(lang, "aiBackgroundConsentNeeded")}</FieldHint>}
           <FieldHint>{t(lang, "scheduledJobsCostNote")}</FieldHint>
 
           {enabled && (

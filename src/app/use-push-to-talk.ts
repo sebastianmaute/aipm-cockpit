@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Lang } from "./i18n";
 import { getCtor } from "./voice";
-import { resolveDictationEngine } from "./dictation-config";
+import { dictationUnavailableReason, resolveDictationEngine } from "./dictation-config";
 import type { DictationEngine } from "./dictation-engine";
 
 const TAP_MS = 250;
@@ -20,9 +20,12 @@ interface Args {
   onInterim: (text: string) => void;
   onError: (err: string) => void;
   dictation?: { engine: "web-speech" | "stt"; sttBaseUrl?: string; sttModel?: string; sttApiKey?: string };
+  /** Cloud STT is used only when the AI data disclosure is accepted (D9); with STT chosen and no consent, or
+   *  not fully set up, dictation is unavailable (`unavailableReason`), never switched to another engine. */
+  aiConsented: boolean;
 }
 
-export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError, dictation }: Args) {
+export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError, dictation, aiConsented }: Args) {
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const supported = useMemo(() => getCtor() !== null, []);
@@ -31,13 +34,15 @@ export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError
   const wasListeningRef = useRef(false);
   const listeningRef = useRef(false);
   const pressingRef = useRef(false);
-  const cfgKey = `${lang}|${dictation?.engine ?? "web-speech"}|${dictation?.sttBaseUrl ?? ""}|${dictation?.sttModel ?? ""}|${hashKey(dictation?.sttApiKey)}`;
+  const cfgKey = `${lang}|${dictation?.engine ?? "web-speech"}|${dictation?.sttBaseUrl ?? ""}|${dictation?.sttModel ?? ""}|${hashKey(dictation?.sttApiKey)}|${aiConsented ? "c" : "n"}`;
   const cfgKeyRef = useRef(cfgKey);
 
-  const engine = () => {
+  const unavailableReason = dictationUnavailableReason(dictation, aiConsented);
+
+  const engine = (): DictationEngine | null => {
     if (!engineRef.current || cfgKeyRef.current !== cfgKey) {
       engineRef.current?.stop();
-      engineRef.current = resolveDictationEngine(dictation, lang);
+      engineRef.current = resolveDictationEngine(dictation, lang, aiConsented);
       cfgKeyRef.current = cfgKey;
     }
     return engineRef.current;
@@ -66,10 +71,14 @@ export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError
   const startHold = useCallback(() => {
     if (!enabled) { onError("disabled"); return; }
     if (listeningRef.current) return;
-    const ok = engine().start({ onFinal: onAppendFinal, onInterim, onError: handleError, onStatus: (s) => setTranscribing(s === "transcribing") });
+    // AI-01 — speech-to-text without its consent, or not fully set up: unavailable, never another engine.
+    if (unavailableReason !== null) { onError(unavailableReason); return; }
+    const current = engine();
+    if (!current) return;
+    const ok = current.start({ onFinal: onAppendFinal, onInterim, onError: handleError, onStatus: (s) => setTranscribing(s === "transcribing") });
     if (ok) { listeningRef.current = true; setListening(true); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, lang, onAppendFinal, onInterim, onError, handleError]);
+  }, [enabled, unavailableReason, lang, onAppendFinal, onInterim, onError, handleError]);
 
   const press = useCallback(() => {
     pressedAtRef.current = Date.now();
@@ -95,5 +104,5 @@ export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError
     onKeyUp: (e: React.KeyboardEvent) => { if (e.key === " " || e.key === "Enter") release(); },
   }), [press, release]);
 
-  return { listening, transcribing, supported, buttonHandlers, toggle, press, release };
+  return { listening, transcribing, supported, unavailable: unavailableReason !== null, unavailableReason, buttonHandlers, toggle, press, release };
 }

@@ -4,13 +4,12 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, t } from "./i18n";
-import { resolveAiPolicy, type AiPolicy } from "./ai-policy";
 import { type OperatingGuide } from "./operating-guide";
 import { ChatPromptChips } from "./chat-prompt-chips";
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
-import type { AiConfig, Settings } from "./settings-types";
-import { clampMaxChatTurns } from "./settings-types";
+import { type AiConfig, type Settings, clampMaxChatTurns, isAiConsentedForDictation } from "./settings-types";
+import { AiConsentRevokedError, isConsentCurrent } from "./ai-consent";
 import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 import { useAiUsageContext } from "./ai-usage-context";
@@ -19,10 +18,10 @@ import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
 import { useChatModels } from "./use-chat-models";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { INTERACTIVE, FOCUS_RING, TRANSITION, PRESS } from "./interaction-styles";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Button } from "./button";
 import { IconButton } from "./icon-button";
-import { Checkbox, Input, Select } from "./form-controls";
+import { Input, Select } from "./form-controls";
 import { Banner } from "./banner";
 import { FieldError } from "./field-feedback";
 import { unlockSecret } from "./use-secrets";
@@ -189,7 +188,6 @@ function ChatPanelImpl({
   ai,
   dictation,
   dispatcher,
-  onAcceptConsent,
   onChangeModel,
   guides = [],
   guidesReady = true,
@@ -212,7 +210,6 @@ function ChatPanelImpl({
   ai: AiConfig;
   dictation?: Settings["dictation"];
   dispatcher: ToolDispatcher;
-  onAcceptConsent: () => void;
   onChangeModel?: (model: string) => void;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
@@ -231,9 +228,6 @@ function ChatPanelImpl({
 } & ChatProposalProps &
   ChatConversationStoreProps &
   ChatScopeProps) {
-  if (!ai.consentAccepted) {
-    return <ConsentScreen lang={lang} policy={resolveAiPolicy(ai)} onAccept={onAcceptConsent} />;
-  }
   return (
     <ChatPanelInner
       lang={lang}
@@ -344,9 +338,8 @@ interface ChatConversationStoreProps {
   saveChatConversation?: (projectId: string, conv: ChatConversation) => void;
 }
 
-// Memoized export: with the dispatcher's stable identity (slice 5) and an
-// upstream useCallback for onAcceptConsent, all four props are reference-
-// stable across parent renders that don't touch lang/ai. ChatPanel now
+// Memoized export: with the dispatcher's stable identity (slice 5) the props
+// are reference-stable across parent renders that don't touch lang/ai. ChatPanel now
 // skips re-renders triggered by, e.g., task-form keystrokes.
 export const ChatPanel = memo(ChatPanelImpl);
 
@@ -481,10 +474,11 @@ function ChatPanelInner({
   const { record: recordUsage, recordChatSend, noteUnbilledChatSend } = useAiUsageContext();
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.
-  const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai.enabled === true, ai.model);
+  const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai, ai.model);
   const { mic, status, registration } = useDictationMic({
     lang,
     dictation,
+    aiConsented: isAiConsentedForDictation(ai),
     enabled: true,
     label: t(lang, "chatPlaceholder"),
     padding: "px-4! py-2!", // trailing `!` required — see the prop's docstring
@@ -621,7 +615,8 @@ function ChatPanelInner({
   const guidesPending = ai.groundInGuides && !guidesReady;
   // Master switch: when AI is disabled in Settings, the assistant is fully off
   // regardless of any stored key — force the no-key path so send is blocked.
-  const masterOn = ai.enabled === true;
+  const consentStale = ai.enabled === true && !isConsentCurrent(ai.consent);
+  const masterOn = ai.enabled === true && !consentStale;
   // The key actually used for calls/gating: a plaintext settings key wins,
   // else the inline-unlocked passphrase key (if any).
   const effectiveApiKey = masterOn ? (ai.apiKey.trim() ? ai.apiKey : (unlockedKey ?? "")) : "";
@@ -1122,6 +1117,8 @@ function ChatPanelInner({
             ...prev,
             { kind: "notice", text: t(lang, "aiUsageLimitReached") },
           ]);
+        } else if (err instanceof AiConsentRevokedError) {
+          setError(t(lang, "aiConsentRevokedDuringSend"));
         } else if (keyMsg) {
           // §650 — a refused key (401/403) is named as the KEY problem, with the way out,
           // instead of "Chat failed: 401 — invalid x-api-key".
@@ -1551,10 +1548,12 @@ function ChatPanelInner({
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
-                </p>
-                {apiKeyMissing && onConfigureAi && (
+                {!consentStale && (
+                  <p className="text-sm text-muted-foreground">
+                    {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
+                  </p>
+                )}
+                {apiKeyMissing && !consentStale && onConfigureAi && (
                   <Button onClick={onConfigureAi}>{t(lang, "chatConfigureAi")}</Button>
                 )}
               </div>
@@ -1663,6 +1662,14 @@ function ChatPanelInner({
             onPick={(body, autoSend) => (autoSend ? submitPrompt(body) : setInput(body))}
           />
         </div>
+      )}
+
+      {/* Outside the empty state: a persisted transcript must not hide why the composer is off. */}
+      {consentStale && (
+        <Banner severity="info" role="status" className="mt-2 flex shrink-0 items-center justify-between gap-2">
+          <p className="min-w-0">{t(lang, "aiConsentReviewPrompt")}</p>
+          {onConfigureAi && <Button onClick={onConfigureAi}>{t(lang, "chatConfigureAi")}</Button>}
+        </Banner>
       )}
 
       {error && (
@@ -1781,83 +1788,6 @@ function ChatPanelInner({
       <p className="mt-1 text-xs text-muted-foreground">{t(lang, "chatAttachmentHint")}</p>
       </div>
     </div>
-    </div>
-  );
-}
-
-/** ★ The organisation policy block (bullet 6, the link and the checkbox) comes from
- *  `resolveAiPolicy`: the owner fills all three strings, and with no link there is no
- *  policy to read or accept, so the block drops out and Accept is enabled on its own. */
-function ConsentScreen({
-  lang,
-  policy,
-  onAccept,
-}: {
-  lang: Lang;
-  policy: AiPolicy;
-  onAccept: () => void;
-}) {
-  const [policyAccepted, setPolicyAccepted] = useState(false);
-  const hasPolicy = policy.url !== null;
-  const owner = policy.org ?? t(lang, "aiPolicyOwnerFallback");
-  const bullets: string[] = [
-    t(lang, "aiConsentBullet1"),
-    t(lang, "aiConsentBullet2"),
-    t(lang, "aiConsentBullet3"),
-    t(lang, "aiConsentBullet4"),
-    t(lang, "aiConsentBullet5"),
-    ...(hasPolicy ? [t(lang, "aiConsentBullet6", owner)] : []),
-  ];
-  return (
-    <div className="rounded-lg border border-ui-purple/40 bg-ui-purple/10 p-5 dark:border-ui-purple/50 dark:bg-ui-purple/15">
-      <h3 className="text-base font-semibold text-ui-purple-strong">
-        {t(lang, "aiConsentTitle")}
-      </h3>
-      <p className="mt-2 text-sm text-ui-purple-strong">
-        {t(lang, "aiConsentNotAccepted")}
-      </p>
-      <ul className="mt-3 space-y-2 text-sm text-ui-purple-strong">
-        {bullets.map((text) => (
-          <li key={text} className="flex gap-2">
-            <span aria-hidden className="mt-0.5">
-              •
-            </span>
-            <span>{text}</span>
-          </li>
-        ))}
-      </ul>
-      {hasPolicy && (
-      <>
-      <p className="mt-3 text-sm">
-        <a
-          href={policy.url!}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium text-ui-purple-strong underline underline-offset-2 hover:decoration-2"
-        >
-          {t(lang, "aiConsentPolicyLink", owner)} ↗
-        </a>
-      </p>
-      <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-ui-purple-strong">
-        <Checkbox
-          checked={policyAccepted}
-          onChange={(e) => setPolicyAccepted(e.target.checked)}
-          className="mt-0.5 cursor-pointer"
-        />
-        <span>{t(lang, "aiConsentPolicyCheckbox", owner)}</span>
-      </label>
-      </>
-      )}
-      <div className="mt-5 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onAccept}
-          disabled={hasPolicy && !policyAccepted}
-          className={`rounded-md bg-ui-purple px-4 py-2 text-sm font-medium text-white hover:bg-ui-purple/90 focus:outline-none focus:ring-2 focus:ring-ui-purple focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${TRANSITION} ${PRESS}`}
-        >
-          {t(lang, "aiConsentAccept")}
-        </button>
-      </div>
     </div>
   );
 }

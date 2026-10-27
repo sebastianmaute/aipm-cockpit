@@ -1,6 +1,7 @@
 // src/app/chat-threads.ts — pure, i18n-free, DOM-free engine for per-project AI
 // chat threads. No React, no Turso IO — see chat-threads-schema.ts/
 // chat-threads-store.ts for persistence. chat-panel.tsx is the sole consumer.
+import { ALL_WITHHELD_FIELDS, isEmailField } from "./ai-withheld-fields";
 import type { ApiMessage, ContentBlock, DisplayItem, TextBlock } from "./chat-api";
 
 export interface ChatThread {
@@ -99,4 +100,121 @@ export function newThreadId(): string {
     return crypto.randomUUID();
   }
   return `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// AI-08 / AI-05 — a thread saved before the tool results were minimised still carries, in its
+// stored API history, tool results with e-mail addresses, an absence's real type and note, and `search_history`
+// details with logged changes to withheld fields (`renderActivityEntry` now leaves those out). Loading it would
+// send them to the model again with the next message, so they are removed on load (`rowsToThreads`). Only
+// `tool_result` blocks are touched: the user's and the assistant's own text stays as written, and so does the
+// result of a `get_contact_email` call, the one tool built to return an address.
+
+/** The e-mail fields of the pre-upgrade tool results: task `assigneeEmail`, stakeholder `email`, resource
+ *  `email`/`emails`, RAID `ownerEmail`, an escalation's `toEmail`, absence `assigneeEmail`. */
+const STORED_EMAIL_KEYS: ReadonlySet<string> = new Set(["assigneeEmail", "ownerEmail", "toEmail", "email", "emails"]);
+const ABSENCE_TYPE_VALUES: ReadonlySet<string> = new Set(["vacation", "sick", "training", "other", "absent"]);
+
+/** An absence row or summary: an assignee, a start and end date and an absence type. */
+function isAbsenceShaped(o: Record<string, unknown>): boolean {
+  return typeof o.assignee === "string" && typeof o.startDate === "string" && typeof o.endDate === "string"
+    && typeof o.type === "string" && ABSENCE_TYPE_VALUES.has(o.type);
+}
+
+/** A `search_history` event (`renderActivityEntry`'s shape): a summary line with a field-diff `detail`. */
+function isHistoryEvent(o: Record<string, unknown>): boolean {
+  return typeof o.summary === "string" && typeof o.detail === "string";
+}
+
+/** The `field: ` header that opens each change of a rendered `detail` ("status: To Do → Done; note: a → b"). */
+const DETAIL_FIELD_HEADER = /(?:^|; )([A-Za-z_$][\w$]*): /g;
+
+/** Whether a stored `search_history` detail names a change to a withheld field. A stored event no longer carries
+ *  its activity kind, so the entity is unknown and every field of `ALL_WITHHELD_FIELDS` counts, as does every
+ *  e-mail field: such a detail is dropped whole, because its values cannot be told apart from text that merely
+ *  looks like the next header. */
+function detailNamesWithheldField(detail: string): boolean {
+  for (const m of detail.matchAll(DETAIL_FIELD_HEADER)) {
+    if (ALL_WITHHELD_FIELDS.has(m[1]) || isEmailField(m[1])) return true;
+  }
+  return false;
+}
+
+/** A copy of `value` without the e-mail fields, every absence's type read as "absent" and its note dropped, and
+ *  without the `detail` of a `search_history` event that names a change to a withheld field. */
+function minimiseValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(minimiseValue);
+  if (typeof value !== "object" || value === null) return value;
+  const o = value as Record<string, unknown>;
+  const absence = isAbsenceShaped(o);
+  const historyEvent = isHistoryEvent(o);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (STORED_EMAIL_KEYS.has(k)) continue;
+    if (absence && k === "note") continue;
+    if (historyEvent && k === "detail" && detailNamesWithheldField(v as string)) continue;
+    out[k] = absence && k === "type" ? "absent" : minimiseValue(v);
+  }
+  return out;
+}
+
+const EMAIL_ADDRESS = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+/** A `"note": "…"` member, escaped quotes inside the string included. */
+const NOTE_FIELD = /"note"\s*:\s*"(?:[^"\\]|\\.)*"/g;
+/** A `"detail": "…"` member, also one a cut result ends inside (no closing quote). */
+const DETAIL_MEMBER = /"detail"\s*:\s*"((?:[^"\\]|\\.)*)(?:"|$)/g;
+
+/** A tool result's text with the same data removed. JSON (what `stringifyResult` writes) is minimised field by
+ *  field and written back the same way, and left byte-identical when nothing was removed. A JSON value that is
+ *  not an object or array loses every e-mail address; text that does not parse (an error message, a cut result)
+ *  also loses every `note` string, has any absence type read as "absent", and has every `detail` string that
+ *  names a change to a withheld field emptied. */
+export function minimiseToolResultText(text: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return text
+      .replace(DETAIL_MEMBER, (member: string, inner: string) => (detailNamesWithheldField(inner) ? '"detail": ""' : member))
+      .replace(EMAIL_ADDRESS, "[email removed]")
+      .replace(NOTE_FIELD, '"note": ""')
+      .replace(/"type"\s*:\s*"(?:vacation|sick|training|other)"/g, '"type": "absent"');
+  }
+  if (typeof parsed !== "object" || parsed === null) return text.replace(EMAIL_ADDRESS, "[email removed]");
+  const minimised = minimiseValue(parsed);
+  return JSON.stringify(minimised) === JSON.stringify(parsed) ? text : JSON.stringify(minimised, null, 2);
+}
+
+/** The one tool whose result IS an address (AI-08): what it returned was asked for, one person at a time. */
+const KEPT_RESULT_TOOL = "get_contact_email";
+
+/** The ids of every `tool_use` block in `history` that called `KEPT_RESULT_TOOL`. Only a string id counts: a
+ *  malformed block without one must not pair with a result that has no `tool_use_id` either. */
+function keptToolUseIds(history: readonly ApiMessage[]): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const msg of history) {
+    if (!Array.isArray(msg.content)) continue;
+    for (const block of msg.content) {
+      if (block && block.type === "tool_use" && block.name === KEPT_RESULT_TOOL && typeof block.id === "string") ids.add(block.id);
+    }
+  }
+  return ids;
+}
+
+/** `history` with every stored `tool_result` minimised (`minimiseToolResultText`), except the result of a
+ *  `get_contact_email` call — matched by its string `tool_use_id` to a `tool_use` of that name in the same history —
+ *  which keeps the address it was called for; a result without a string `tool_use_id` is always minimised. Other blocks and string messages are returned as they are. Never
+ *  mutates its input. */
+export function minimiseStoredToolResults(history: readonly ApiMessage[]): ApiMessage[] {
+  const kept = keptToolUseIds(history);
+  return history.map((msg): ApiMessage => {
+    if (typeof msg.content === "string" || !Array.isArray(msg.content)) return msg;
+    return {
+      ...msg,
+      content: msg.content.map((block) =>
+        block && block.type === "tool_result" && typeof block.content === "string"
+          && !(typeof block.tool_use_id === "string" && kept.has(block.tool_use_id))
+          ? { ...block, content: minimiseToolResultText(block.content) }
+          : block),
+    };
+  });
 }

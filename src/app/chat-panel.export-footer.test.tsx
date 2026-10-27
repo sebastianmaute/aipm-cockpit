@@ -4,6 +4,7 @@
 //   back with tsc and every other test green. ToolBlock is stubbed to record its
 //   props; the conversation is seeded with one tool turn so it renders.
 import "fake-indexeddb/auto";
+import { newConsent } from "./ai-consent";
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -36,9 +37,8 @@ function renderPanel(exportFooter: string | undefined, assetsProjectId?: string)
   render(
     <ChatPanel
       lang="en-US"
-      ai={{ ...defaultAiConfig, enabled: true, consentAccepted: true, apiKey: "sk-test" }}
+      ai={{ ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-test" }}
       dispatcher={{} as unknown as ToolDispatcher}
-      onAcceptConsent={vi.fn()}
       projectId="p1"
       assetsProjectId={assetsProjectId}
       getChatConversation={() => TOOL_TURN}

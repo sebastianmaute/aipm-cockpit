@@ -35,6 +35,7 @@ import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-c
 import { MODAL_HELP } from "./help-content";
 import { FieldGroup, HintedLabel, Input, Select, Textarea } from "./form-controls";
 import { useDictationMic } from "./dictation-mic";
+import { isAiConsentedForDictation } from "./settings-types";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
 import { useRowTokens } from "./use-row-tokens";
@@ -132,6 +133,7 @@ export function StakeholderEditModal({
   const { mic: notesMic, status: notesDictationStatus, registration: notesDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     label: t(lang, "stakeholderFieldNotes"),
     onAppendFinal: (txt) => update("notes", appendDictation(draftRef.current.notes ?? "", txt)),
@@ -139,6 +141,7 @@ export function StakeholderEditModal({
   const { mic: nameMic, status: nameDictationStatus, registration: nameDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     label: t(lang, "stakeholderFieldName"),
     onAppendFinal: (txt) =>
@@ -147,6 +150,7 @@ export function StakeholderEditModal({
   const { mic: orgMic, status: orgDictationStatus, registration: orgDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     label: t(lang, "stakeholderFieldOrganization"),
     onAppendFinal: (txt) =>
@@ -155,6 +159,7 @@ export function StakeholderEditModal({
   const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     label: t(lang, "stakeholderFieldTitle"),
     onAppendFinal: (txt) =>

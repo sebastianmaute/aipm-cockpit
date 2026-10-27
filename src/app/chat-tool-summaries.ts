@@ -82,7 +82,6 @@ export function toStakeholderSummary(item: Stakeholder): StakeholderSummary {
     influence: item.influence,
     interest: item.interest,
     organization: item.organization,
-    email: item.email,
     raci: { ...item.raci },
   };
 }
@@ -103,8 +102,6 @@ export function toResourceSummary(item: Resource): ResourceSummary {
     id: item.id,
     firstName: item.firstName,
     lastName: item.lastName,
-    email: item.email,
-    emails: item.emails,
     title: item.title,
     department: item.department,
     isExternal: item.isExternal,
@@ -122,7 +119,8 @@ export function toKnowledgeSummary(item: KnowledgeItem): KnowledgeSummary {
   };
 }
 
-/** ★ Drops `localModifiedAt`, `outlookEventId` and `calendarOptOut` — the
+/** ★ Drops the real `type` and the `note` (AI-05, see below), plus
+ *  `localModifiedAt`, `outlookEventId` and `calendarOptOut` — the
  *  `TOKEN_EXCLUDED` fields for this entity. Bookkeeping the model neither chooses nor needs, and
  *  keeping them out is why `getAbsenceRow` (the FULL row) exists separately for
  *  the concurrency token. */
@@ -132,8 +130,12 @@ export function toAbsenceSummary(absence: Absence): AbsenceSummary {
     assignee: absence.assignee,
     startDate: absence.startDate,
     endDate: absence.endDate,
-    type: absence.type,
-    note: absence.note,
+    // ★★ AI-05: an absence reaches the model as "absent" and nothing more. Its
+    //  type (sick, parental…) and note are health and personal data the model
+    //  needs no part of to answer a clash or availability question. Writes are
+    //  unaffected: `create_absence`/`update_absence` still accept both, and the
+    //  update merges onto the STORED row, so a partial patch cannot lose them.
+    type: "absent",
   };
 }
 

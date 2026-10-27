@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { newConsent } from "./ai-consent";
 import { join } from "node:path";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -542,7 +543,7 @@ describe("CreateProjectWizard AI Step 0", () => {
   ) {
     const settings = {
       ...defaultSettings,
-      ai: { ...defaultSettings.ai, apiKey: "sk-test", enabled: true },
+      ai: { ...defaultSettings.ai, apiKey: "sk-test", enabled: true, consent: newConsent(new Date(0)) },
     };
     const onCreate = vi.fn<CreateFn>();
     const onCancel = vi.fn();

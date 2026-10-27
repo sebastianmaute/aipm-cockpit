@@ -1,8 +1,9 @@
 // src/app/use-chat-models.ts
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { isInteractiveAiAllowed } from "./ai-consent";
 import { fetchAnthropicModels } from "./anthropic-models";
-import { CHAT_MODELS } from "./settings-types";
+import { CHAT_MODELS, type AiConfig } from "./settings-types";
 import {
   buildModelOptions,
   isValidAnthropicApiKey,
@@ -11,13 +12,14 @@ import {
 } from "./chat-models";
 
 /** Live model list for the picker. Fetches Anthropic /v1/models browser-direct
- *  when AI is enabled and the key is well-formed. Until a poll SUCCEEDS the
+ *  when AI is switched on with a current interactive consent (`isInteractiveAiAllowed`, M4: no
+ *  request to Anthropic before consent) and the key is well-formed. Until a poll SUCCEEDS the
  *  option list is NOT pre-filled from the offline registry — it holds only the
  *  current selection, and `loaded` is false (callers show a "enter a valid key"
  *  hint). Never logs the key or response body. */
 export function useChatModels(
   apiKey: string,
-  enabled: boolean,
+  ai: Pick<AiConfig, "enabled" | "consent">,
   currentId: string,
 ): { options: ModelOption[]; loaded: boolean } {
   // Carry the source key alongside the models so a valid A->B key switch can't
@@ -27,7 +29,7 @@ export function useChatModels(
     models: [],
   });
   const key = apiKey.trim();
-  const shouldFetch = enabled && isValidAnthropicApiKey(key);
+  const shouldFetch = isInteractiveAiAllowed(ai) && isValidAnthropicApiKey(key);
 
   useEffect(() => {
     if (!shouldFetch) return;

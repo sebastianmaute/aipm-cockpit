@@ -1,9 +1,14 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
+import { type AiConsent, isConsentCurrent, newConsent } from "../ai-consent";
+import { type AiPermissionField, noteConsentRevokeNotSaved } from "../ai-permission-store";
+import { persistAiConsentChange } from "../use-settings";
+import { AiConsentDialog } from "../ai-consent-dialog";
+import { resolveAiPolicy } from "../ai-policy";
 import { TextButton } from "../text-button";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS } from "../settings-types";
 import {
@@ -28,7 +33,7 @@ import { Button } from "../button";
 import { Checkbox, HintedLabel, Input, Select } from "../form-controls";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { useConfirm } from "../confirm-dialog";
-import { useToastContext } from "../toast-context";
+import { useToastAction, useToastContext } from "../toast-context";
 import { useChatModels } from "../use-chat-models";
 import { isValidAnthropicApiKey } from "../chat-models";
 import { clearSessionAiKey } from "../session-ai-key";
@@ -93,15 +98,81 @@ function CapInput({
   );
 }
 
+type ConsentChange = "accept" | "acceptBackground" | "enable" | "revoke";
+
+/** AI-01 — the AI permission fields each explicit action widens in storage; it may only narrow the rest. An
+ *  accept also switches AI on; a revoke (of either consent) only narrows. */
+const CONSENT_CHANGE_WIDENS: Record<ConsentChange, readonly AiPermissionField[]> = {
+  accept: ["enabled", "consent"],
+  acceptBackground: ["backgroundConsent"],
+  enable: ["enabled"],
+  revoke: [],
+};
+
+function sameRecord(a: AiConsent | undefined, b: AiConsent | undefined): boolean {
+  return a?.acceptedAt === b?.acceptedAt && a?.disclosureVersion === b?.disclosureVersion;
+}
+
 export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [backgroundConsentOpen, setBackgroundConsentOpen] = useState(false);
   const aiHeadingId = useId();
   const behaviourHeadingId = useId();
   const apiKeyNoteId = useId();
   const modelHintId = useId();
+  const recBackgroundHintId = useId();
+  const backgroundOk = isConsentCurrent(settings.ai.backgroundConsent);
+  // AI-01 — only switching ON needs the background consent: a toggle left on from before can always be switched off.
+  const recToggleLocked = !backgroundOk && settings.ai.insightRecommendations !== true;
   const confirm = useConfirm();
   const showToast = useToastContext();
-  const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
+  const showToastAction = useToastAction();
+  // The latest settings, for the toast's "Save again" action, which runs after later renders.
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  });
+  // AI-01 — a revoke that could not be written stays in effect here; say so, and offer to save it again.
+  const reportRevokeNotSaved = (revoked: Settings) => {
+    showToastAction("error", t(lang, "aiConsentRevokeNotSaved"), {
+      labelKey: "aiConsentRevokeRetry",
+      run: () => {
+        const current = settingsRef.current;
+        // A later accept or revoke replaced this one; it was saved, or reported, on its own.
+        if (!sameRecord(current.ai.consent, revoked.ai.consent) || !sameRecord(current.ai.backgroundConsent, revoked.ai.backgroundConsent)) return;
+        if (persistAiConsentChange(current, [])) showToast("success", t(lang, "aiConsentRevokeSaved"));
+        else reportRevokeNotSaved(revoked);
+      },
+    });
+  };
+  // AI-01 — an accept, a revoke or switching AI on is persisted at once (`persistAiConsentChange`). Each widens
+  // only the field(s) it is about (`CONSENT_CHANGE_WIDENS`) and may only narrow the others, as every other
+  // settings write may only narrow all three; so a stale copy cannot switch AI back on or write a withdrawn
+  // consent back. What is committed carries the switch and records as persisted.
+  // ★★ When that write fails, an ACCEPT or a switch-on is not committed (AI stays off: a widening that is not
+  //   saved would be narrowed again by every later write and by a reload), while a REVOKE is (it stops AI here
+  //   at once, and it is only the persisted copy that lags until a later write succeeds). Each says so.
+  //   Returns whether the change was committed.
+  const commitConsent = (next: Settings, change: ConsentChange): boolean => {
+    const saved = persistAiConsentChange(next, CONSENT_CHANGE_WIDENS[change]);
+    if (saved) {
+      onChange(saved);
+      return true;
+    }
+    if (change === "revoke") {
+      noteConsentRevokeNotSaved(next);
+      onChange(next);
+      reportRevokeNotSaved(next);
+      return true;
+    }
+    const messageKey = change === "accept" ? "aiConsentAcceptNotSaved"
+      : change === "enable" ? "aiEnableNotSaved"
+      : "aiBackgroundConsentAcceptNotSaved";
+    showToast("error", t(lang, messageKey));
+    return false;
+  };
+  const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai, settings.ai.model);
   // §650 — the in-memory key verdict (rejected / forbidden / unreadable), shown beside the key field
   // and, for a key that IS present but was refused, in place of the "enter a valid key" model hint.
   const apiKeyStatusId = useId();
@@ -264,6 +335,20 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   }
 
   const keyPassphraseMismatch = keyPassphrase !== "" && keyConfirm !== "" && keyPassphrase !== keyConfirm;
+  // AI-01 — the key field and its passphrase lock appear only with AI on and a current consent. Removing a
+  // stored key needs neither: a user who switched AI off or withdrew the consent can still delete it.
+  const keyFieldsShown = settings.ai.enabled === true && isConsentCurrent(settings.ai.consent);
+  const removeKeyButton = keyStored && (
+    <Button
+      size="xs"
+      variant="destructive"
+      className="mt-2"
+      onClick={handleRemoveSecret}
+      title={t(lang, "secretPassphraseRemoveHint")}
+    >
+      {t(lang, "secretPassphraseRemove")}
+    </Button>
+  );
 
   return (
     <div className="mb-4" role="group" aria-labelledby={aiHeadingId}>
@@ -283,15 +368,45 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         <Checkbox
           checked={settings.ai.enabled === true}
           onChange={(e) => {
-            if (e.target.checked) notifyEnable();
-            else clearSessionAiKey(); // §717 — switching AI off also forgets a key unlocked on this page
-            onChange({ ...settings, ai: { ...settings.ai, enabled: e.target.checked } });
+            // Switching AI on without a current consent asks first; `enabled` stays false until Accept.
+            if (e.target.checked && !isConsentCurrent(settings.ai.consent)) {
+              setConsentOpen(true);
+              return;
+            }
+            const next = { ...settings, ai: { ...settings.ai, enabled: e.target.checked } };
+            // AI-01 — switching ON widens AI permission, which only an explicit action persists.
+            if (e.target.checked) {
+              if (commitConsent(next, "enable")) notifyEnable();
+              return;
+            }
+            clearSessionAiKey(); // §717 — switching AI off also forgets a key unlocked on this page
+            onChange(next);
           }}
         />
         <span className="text-xs text-foreground">{t(lang, "aiEnable")}</span>
       </label>
       <FieldHint className="mt-1">{t(lang, "aiEnableHelp")}</FieldHint>
+      {!keyFieldsShown && removeKeyButton && <div>{removeKeyButton}</div>}
+      {consentOpen && (
+        <AiConsentDialog
+          lang={lang}
+          level="interactive"
+          policy={resolveAiPolicy(settings.ai)}
+          onCancel={() => setConsentOpen(false)}
+          onAccept={() => {
+            setConsentOpen(false);
+            if (commitConsent({ ...settings, ai: { ...settings.ai, enabled: true, consent: newConsent(new Date()) } }, "accept")) {
+              notifyEnable();
+            }
+          }}
+        />
+      )}
       {settings.ai.enabled === true && (
+        <>
+      {/* AI-01 — the key field and its passphrase lock appear only once the disclosure is accepted at the current
+          version (as the Help text says); with the switch on and no current consent the review prompt below is
+          shown instead. "Remove stored secret" sits here with them, and under the switch whenever they are hidden. */}
+      {keyFieldsShown && (
         <>
       {/* ★★ The hint sits OUTSIDE the naming <label> (open-followups §386),
           and so does the storage notice: inside the label it joined the
@@ -358,18 +473,10 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
             <FieldHint>{t(lang, "secretLockWarning")}</FieldHint>
           </div>
         )}
-        {keyStored && (
-          <Button
-            size="xs"
-            variant="destructive"
-            className="mt-2"
-            onClick={handleRemoveSecret}
-            title={t(lang, "secretPassphraseRemoveHint")}
-          >
-            {t(lang, "secretPassphraseRemove")}
-          </Button>
-        )}
+        {removeKeyButton}
       </div>
+        </>
+      )}
       {/* ★★ Hint outside the naming <label> (open-followups §386). The
           needs-a-key hint below moved out too: inside the label it joined the
           select's accessible NAME. It is now the select's description. */}
@@ -408,16 +515,16 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       <FieldHint className="mt-2">
         {t(lang, "aiApiKeyHint")}
       </FieldHint>
-      {settings.ai.consentAccepted ? (
+      {isConsentCurrent(settings.ai.consent) ? (
         <p className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span><CheckIcon aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />{t(lang, "aiConsentGranted")}</span>
           <TextButton
             tone="danger"
             onClick={() =>
-              onChange({
-                ...settings,
-                ai: { ...settings.ai, consentAccepted: false },
-              })
+              commitConsent(
+                { ...settings, ai: { ...settings.ai, consent: undefined, backgroundConsent: undefined } },
+                "revoke",
+              )
             }
             className="text-xs"
           >
@@ -425,8 +532,11 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           </TextButton>
         </p>
       ) : (
-        <p className="mt-2 text-xs text-ui-purple dark:text-ui-purple-strong">
-          {t(lang, "aiConsentRequired")}
+        <p className="mt-2 flex items-center justify-between gap-2 text-xs text-ui-purple dark:text-ui-purple-strong">
+          <span>{t(lang, "aiConsentReviewPrompt")}</span>
+          <TextButton onClick={() => setConsentOpen(true)} className="text-xs">
+            {t(lang, "aiConsentReview")}
+          </TextButton>
         </p>
       )}
       <AiPolicyFields
@@ -612,10 +722,41 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           {t(lang, "settingsAiChatSearchHelp")}
         </FieldHint>
 
+        {/* Background consent (AI-10): the unattended runners call the AI without a click, so they need their own consent. */}
+        <label className="mt-3 flex items-center gap-2">
+          <Checkbox
+            aria-label={t(lang, "aiBackgroundConsentToggle")}
+            checked={isConsentCurrent(settings.ai.backgroundConsent)}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setBackgroundConsentOpen(true);
+                return;
+              }
+              commitConsent({ ...settings, ai: { ...settings.ai, backgroundConsent: undefined } }, "revoke");
+            }}
+          />
+          <span className="text-xs text-foreground">{t(lang, "aiBackgroundConsentToggle")}</span>
+        </label>
+        <FieldHint className="mt-1">{t(lang, "aiBackgroundConsentHelp")}</FieldHint>
+        {backgroundConsentOpen && (
+          <AiConsentDialog
+            lang={lang}
+            level="background"
+            policy={resolveAiPolicy(settings.ai)}
+            onCancel={() => setBackgroundConsentOpen(false)}
+            onAccept={() => {
+              setBackgroundConsentOpen(false);
+              commitConsent({ ...settings, ai: { ...settings.ai, backgroundConsent: newConsent(new Date()) } }, "acceptBackground");
+            }}
+          />
+        )}
+
         {/* Proactive insight recommendations (SP2). Default OFF (opt-in) — recurring billed calls. */}
         <label className="mt-3 flex items-center gap-2">
           <Checkbox
             aria-label={t(lang, "aiInsightRecommendations")}
+            disabled={recToggleLocked}
+            aria-describedby={recToggleLocked ? recBackgroundHintId : undefined}
             checked={settings.ai.insightRecommendations === true}
             onChange={() =>
               onChange({
@@ -634,6 +775,9 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         <FieldHint className="mt-1">
           {t(lang, "aiInsightRecommendationsDesc")}
         </FieldHint>
+        {!backgroundOk && (
+          <FieldHint id={recBackgroundHintId} className="mt-1">{t(lang, "aiBackgroundConsentNeeded")}</FieldHint>
+        )}
 
         {/* Cadence for the background runner (SP4). Only meaningful while the
             feature is on, so it rides the toggle. Every value routes through

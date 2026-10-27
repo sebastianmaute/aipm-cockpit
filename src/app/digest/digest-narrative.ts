@@ -8,6 +8,7 @@
 import type { Lang } from "../i18n";
 import type { DigestModel } from "./digest-model";
 import { runForcedToolCall } from "../ai-forced-call";
+import type { AiConsentLevel } from "../ai-consent";
 
 // Shared control-char scrub (hex escapes — never literal control bytes).
 const CONTROL_CHARS = /[\x00-\x1f]/g;
@@ -51,6 +52,8 @@ export interface DigestNarrativeCtx {
   lang: Lang;
   /** The user's guides for this action (§701), from `actionGuideText`. */
   guideText?: string;
+  /** The consent the request needs: `background` for the scheduled auto-run, interactive (the default) for a click. */
+  level?: AiConsentLevel;
 }
 
 /** Run one forced write_digest_narrative tool call and return the parsed
@@ -66,6 +69,7 @@ export async function runDigestNarrative(
     apiKey: ctx.apiKey,
     model: ctx.model,
     guideText: ctx.guideText,
+    level: ctx.level,
     tools: [NARRATIVE_TOOL],
     toolName: "write_digest_narrative",
     messages: [{ role: "user", content: buildDigestNarrativePrompt(digest, ctx.lang) }],

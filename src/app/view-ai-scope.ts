@@ -97,7 +97,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   },
   directory: {
     purpose: "Directory is the roster of people with role, discipline, grade and contact details.",
-    toolHints: ["list_resources", "get_resource"],
+    toolHints: ["list_resources", "get_resource", "get_contact_email"],
     reading:
       "Assigning a task to a name does NOT add that person here — the directory is its own register.",
   },
@@ -119,7 +119,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     reading:
       "Recurring events are stored once as a series; occurrences are derived from the rule. " +
       "The grid shows two things: meetings (list_calendar_events) and absences (list_absences — " +
-      "assignee, startDate, endDate, type). Read BOTH before answering a clash or availability question.",
+      "assignee, startDate, endDate; the type and note are withheld). Read BOTH before answering a clash or availability question.",
   },
   planning: {
     purpose: "Planning is the allocation grid: planned hours per person per period.",
@@ -143,7 +143,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   raid: {
     purpose:
       "RAID is the register of Risks, Assumptions, Issues and Dependencies, each with an owner and a category-specific status.",
-    toolHints: ["list_raid"],
+    toolHints: ["list_raid", "get_contact_email"],
     reading: "Status must match the category. Severity and the probability×impact score drive ranking.",
   },
   "raid-report": {
@@ -169,7 +169,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   stakeholders: {
     purpose:
       "Stakeholders is the register of people and organizations with influence and interest levels.",
-    toolHints: ["list_stakeholders"],
+    toolHints: ["list_stakeholders", "get_contact_email"],
   },
   raci: {
     purpose:

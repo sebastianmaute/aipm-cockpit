@@ -1,3 +1,4 @@
+import "../test/ai-consent-live";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runDedupProposal } from "./task-dedup-call";
 

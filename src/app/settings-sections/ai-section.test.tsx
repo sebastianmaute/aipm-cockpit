@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { useState } from "react";
-import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiSection } from "./ai-section";
 import { hasUnsealedPassphraseSecret } from "../turso-token-marker";
@@ -15,10 +15,15 @@ import {
   clampInsightRecInterval,
 } from "../settings-types";
 
-// The AI config UI is gated behind the "Enable AI assistant" master switch
-// (default OFF). These tests exercise the expanded config, so flip it on.
-const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { t } from "../i18n";
+import { newConsent } from "../ai-consent";
+// The AI config UI is gated behind the "Enable AI assistant" master switch
+// (default OFF), and the key field also behind a current consent (AI-01). These
+// tests exercise the expanded config, so flip it on with a consent.
+const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: newConsent(new Date(0)) } };
+/** AI on, but the disclosure not accepted (or accepted at an older version). */
+const onWithoutConsent = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
+import { SETTINGS_KEY } from "../use-settings";
 import { getSessionAiKey, setSessionAiKey } from "../session-ai-key";
 import { readDeviceSecret, isPassphraseLocked, loadSealed, saveSealed } from "../secrets-store";
 import * as secrets from "../secrets";
@@ -97,9 +102,46 @@ describe("AiSection", () => {
     expect(screen.getByRole("group", { name: t("en-US", "aiAssistant") })).toBeInTheDocument();
   });
 
-  it("shows the consent-required notice when consent not yet accepted", () => {
-    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
-    expect(screen.getByText(t("en-US", "aiConsentRequired"))).toBeInTheDocument();
+  it("shows the review prompt and a Review button when AI is on but no consent is current", () => {
+    render(<AiSection lang="en-US" settings={onWithoutConsent} onChange={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "aiConsentReviewPrompt"))).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentReview") }));
+    expect(screen.getByRole("dialog", { name: t("en-US", "aiConsentTitle") })).toBeInTheDocument();
+  });
+
+  // AI-01 — the key field appears once the disclosure is accepted, as the Help text says.
+  it("with AI on and no current consent shows the review prompt, not the key field", () => {
+    render(<AiSection lang="en-US" settings={onWithoutConsent} onChange={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "aiConsentReviewPrompt"))).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeNull();
+    expect(screen.queryByLabelText(t("en-US", "secretLockPassphrase"))).toBeNull();
+    const outdated = { ...onWithoutConsent, ai: { ...onWithoutConsent.ai, consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 0 } } };
+    cleanup();
+    render(<AiSection lang="en-US" settings={outdated} onChange={vi.fn()} />);
+    expect(screen.queryByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeNull();
+    cleanup();
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />); // control: consent current
+    expect(screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeInTheDocument();
+  });
+
+  // AI-01 — deleting a stored key needs no consent: after a revoke or a switch-off it is still one click away.
+  it("offers Remove stored secret, and only it, while a key is stored and the key field is hidden", async () => {
+    saveSealed(await sealDevice("anthropicApiKey", "sk-ant-api03-stored000000000000"));
+    const removeButton = () => screen.queryByRole("button", { name: t("en-US", "secretPassphraseRemove") });
+    for (const settings of [onWithoutConsent, baseSettings]) {
+      cleanup();
+      render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+      expect(screen.queryByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeNull();
+      expect(screen.queryByLabelText(t("en-US", "secretLockPassphrase"))).toBeNull();
+      expect(screen.queryByLabelText(/^passphrase$/i)).toBeNull();
+      expect(removeButton()).toBeInTheDocument();
+    }
+    fireEvent.click(removeButton()!);
+    await waitFor(() => expect(loadSealed("anthropicApiKey")).toBeNull());
+    expect(removeButton()).toBeNull();
+    cleanup();
+    render(<AiSection lang="en-US" settings={onWithoutConsent} onChange={vi.fn()} />); // control: nothing stored
+    expect(removeButton()).toBeNull();
   });
 
   it("renders session cap input with the default value", () => {
@@ -586,11 +628,309 @@ describe("AiSection", () => {
     expect(screen.queryByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeNull();
   });
 
-  it("ticking Enable AI calls onChange with ai.enabled true", () => {
+  it("ticking Enable AI with no consent opens the dialog and does NOT set enabled", () => {
     const onChange = vi.fn();
     render(<AiSection lang="en-US" settings={baseSettings} onChange={onChange} />);
     fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    expect(screen.getByRole("dialog", { name: t("en-US", "aiConsentTitle") })).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("Accept in the dialog sets enabled and a consent at the current disclosure version", () => {
+    const onChange = vi.fn();
+    render(<AiSection lang="en-US" settings={baseSettings} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") }));
+    const ai = onChange.mock.calls.at(-1)![0].ai;
+    expect(ai.enabled).toBe(true);
+    expect(ai.consent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1 });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("Cancel in the dialog leaves enabled false", () => {
+    const onChange = vi.fn();
+    render(<AiSection lang="en-US" settings={baseSettings} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByLabelText(t("en-US", "aiEnable"))).not.toBeChecked();
+  });
+
+  it("ticking Enable AI with a current consent enables at once, with no dialog", () => {
+    const onChange = vi.fn();
+    const withConsent = { ...baseSettings, ai: { ...baseSettings.ai, consent: newConsent(new Date(0)) } };
+    render(<AiSection lang="en-US" settings={withConsent} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(onChange.mock.calls.at(-1)![0].ai.enabled).toBe(true);
+    // AI-01 — switching on widens AI permission, so the action itself persists it (an ordinary write cannot).
+    expect((JSON.parse(localStorage.getItem(SETTINGS_KEY)!) as Settings).ai.enabled).toBe(true);
+  });
+
+  it("Revoke clears both consent records and leaves the API key", () => {
+    const onChange = vi.fn();
+    const granted = {
+      ...baseSettings,
+      ai: {
+        ...baseSettings.ai,
+        enabled: true,
+        apiKey: "sk-keep",
+        consent: newConsent(new Date(0)),
+        backgroundConsent: newConsent(new Date(0)),
+      },
+    };
+    render(<AiSection lang="en-US" settings={granted} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentRevoke") }));
+    const ai = onChange.mock.calls.at(-1)![0].ai;
+    expect(ai.consent).toBeUndefined();
+    expect(ai.backgroundConsent).toBeUndefined();
+    expect(ai.apiKey).toBe("sk-keep");
+  });
+
+  it("Revoke and Accept persist the consent records at once (AI-01: other writes may only narrow them)", () => {
+    const granted = {
+      ...baseSettings,
+      ai: { ...baseSettings.ai, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: granted.ai }));
+    const { unmount } = render(<AiSection lang="en-US" settings={granted} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentRevoke") }));
+    const revoked = (JSON.parse(localStorage.getItem(SETTINGS_KEY)!) as Settings).ai;
+    expect(revoked.consent).toBeUndefined();
+    expect(revoked.backgroundConsent).toBeUndefined();
+    expect(revoked.apiKey).toBe(""); // the at-rest key is blanked, as on every settings write
+    unmount();
+    render(<AiSection lang="en-US" settings={{ ...baseSettings }} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") }));
+    const accepted = (JSON.parse(localStorage.getItem(SETTINGS_KEY)!) as Settings).ai;
+    expect(accepted.enabled).toBe(true);
+    expect(accepted.consent?.disclosureVersion).toBe(newConsent(new Date(0)).disclosureVersion);
+  });
+
+  describe("background consent (AI-10)", () => {
+    const interactiveOnly = {
+      ...baseSettings,
+      ai: { ...baseSettings.ai, enabled: true, apiKey: "sk-keep", consent: newConsent(new Date(0)) },
+    };
+    const bgToggle = () => screen.getByLabelText(t("en-US", "aiBackgroundConsentToggle")) as HTMLInputElement;
+    /** What a hydrated instance has already persisted: the AI switch and records the section is shown with. */
+    const storeAi = (s: Settings) => localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: { ...s.ai, apiKey: "" } }));
+
+    it("is off by default and disables the insight-recommendations toggle with the reason", () => {
+      render(<AiSection lang="en-US" settings={interactiveOnly} onChange={vi.fn()} />);
+      expect(bgToggle().checked).toBe(false);
+      expect(screen.getByLabelText(t("en-US", "aiInsightRecommendations"))).toBeDisabled();
+      expect(screen.getByText(t("en-US", "aiBackgroundConsentNeeded"))).toBeInTheDocument();
+    });
+
+    it("a recommendations toggle left on from before can be switched off without the background consent (AI-01)", () => {
+      const onChange = vi.fn();
+      const leftOn = { ...interactiveOnly, ai: { ...interactiveOnly.ai, insightRecommendations: true } };
+      render(<AiSection lang="en-US" settings={leftOn} onChange={onChange} />);
+      const toggle = screen.getByLabelText(t("en-US", "aiInsightRecommendations")) as HTMLInputElement;
+      expect(toggle).toBeEnabled();
+      expect(toggle.checked).toBe(true);
+      expect(toggle).not.toHaveAttribute("aria-describedby");
+      expect(screen.getByText(t("en-US", "aiBackgroundConsentNeeded"))).toBeInTheDocument(); // why it will not run
+      fireEvent.click(toggle);
+      expect(onChange.mock.calls.at(-1)![0].ai.insightRecommendations).toBe(false);
+    });
+
+    it("links the reason to the disabled insight-recommendations toggle as its accessible description", () => {
+      const { unmount } = render(<AiSection lang="en-US" settings={interactiveOnly} onChange={vi.fn()} />);
+      expect(screen.getByLabelText(t("en-US", "aiInsightRecommendations"))).toHaveAccessibleDescription(
+        t("en-US", "aiBackgroundConsentNeeded"),
+      );
+      unmount();
+      const granted = { ...interactiveOnly, ai: { ...interactiveOnly.ai, backgroundConsent: newConsent(new Date(0)) } };
+      render(<AiSection lang="en-US" settings={granted} onChange={vi.fn()} />);
+      expect(screen.getByLabelText(t("en-US", "aiInsightRecommendations"))).not.toHaveAttribute("aria-describedby");
+    });
+
+    it("ticking it opens the background dialog, which lists the three runners, and stores nothing until Accept", () => {
+      const onChange = vi.fn();
+      render(<AiSection lang="en-US" settings={interactiveOnly} onChange={onChange} />);
+      fireEvent.click(bgToggle());
+      const dialog = screen.getByRole("dialog", { name: t("en-US", "aiConsentBackgroundTitle") });
+      expect(dialog.querySelector("[data-consent-level]")).toHaveAttribute("data-consent-level", "background");
+      for (const key of ["aiConsentBackgroundRunner1", "aiConsentBackgroundRunner2", "aiConsentBackgroundRunner3"] as const) {
+        expect(within(dialog).getByText(t("en-US", key))).toBeInTheDocument();
+      }
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("Accept stores backgroundConsent at the current disclosure version and leaves the interactive consent", () => {
+      const onChange = vi.fn();
+      storeAi(interactiveOnly);
+      render(<AiSection lang="en-US" settings={interactiveOnly} onChange={onChange} />);
+      fireEvent.click(bgToggle());
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentBackgroundAccept") }));
+      const ai = onChange.mock.calls.at(-1)![0].ai;
+      expect(ai.backgroundConsent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1 });
+      expect(ai.consent).toEqual(interactiveOnly.ai.consent);
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("Cancel stores nothing", () => {
+      const onChange = vi.fn();
+      render(<AiSection lang="en-US" settings={interactiveOnly} onChange={onChange} />);
+      fireEvent.click(bgToggle());
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("with the consent granted the toggle is checked, the insight toggle is enabled, and unticking revokes it at once", () => {
+      const onChange = vi.fn();
+      const granted = { ...interactiveOnly, ai: { ...interactiveOnly.ai, backgroundConsent: newConsent(new Date(0)) } };
+      storeAi(granted);
+      render(<AiSection lang="en-US" settings={granted} onChange={onChange} />);
+      expect(bgToggle().checked).toBe(true);
+      expect(screen.getByLabelText(t("en-US", "aiInsightRecommendations"))).toBeEnabled();
+      fireEvent.click(bgToggle());
+      const ai = onChange.mock.calls.at(-1)![0].ai;
+      expect(ai.backgroundConsent).toBeUndefined();
+      expect(ai.consent).toEqual(granted.ai.consent);
+    });
+  });
+});
+
+// AI-01 — an accept or a revoke whose write fails (storage full or unavailable) is never silent: a revoke still
+// applies in memory and says it was not saved, with a "Save again"; an accept is not committed and says so.
+describe("AiSection — a consent change that cannot be saved (AI-01)", () => {
+  const C = newConsent(new Date(0));
+  const granted = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: C, backgroundConsent: C } };
+  const interactiveOnly = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: C } };
+  const realSetItem = Storage.prototype.setItem;
+  const failSettingsWrites = () =>
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === SETTINGS_KEY) throw new DOMException("full", "QuotaExceededError");
+      realSetItem.call(this, key, value);
+    });
+  const persistedAi = () => (JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Settings).ai;
+
+  function renderWith(initial: Settings) {
+    const onChange = vi.fn();
+    const showToast = vi.fn();
+    const showToastAction = vi.fn();
+    function Harness() {
+      const [s, setS] = useState<Settings>(initial);
+      return (
+        <ToastProvider value={{ showToast, showToastAction }}>
+          <AiSection lang="en-US" settings={s} onChange={(next) => { onChange(next); setS(next); }} />
+        </ToastProvider>
+      );
+    }
+    render(<Harness />);
+    return { onChange, showToast, showToastAction };
+  }
+
+  it("a revoke that cannot be saved still applies, says so, and can be saved again", () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: granted.ai }));
+    const { onChange, showToast, showToastAction } = renderWith(granted);
+    const spy = failSettingsWrites();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentRevoke") }));
+    expect(onChange.mock.calls.at(-1)![0].ai.consent).toBeUndefined(); // in effect here
+    expect(persistedAi().consent).toEqual(C); // control: the write did fail
+    expect(showToast).not.toHaveBeenCalled();
+    expect(showToastAction).toHaveBeenCalledTimes(1);
+    const [kind, text, action] = showToastAction.mock.calls[0] as [string, string, { labelKey: string; run: () => void }];
+    expect([kind, text, action.labelKey]).toEqual(["error", t("en-US", "aiConsentRevokeNotSaved"), "aiConsentRevokeRetry"]);
+
+    act(() => action.run()); // still failing: reported again
+    expect(showToastAction).toHaveBeenCalledTimes(2);
+
+    spy.mockRestore();
+    act(() => action.run());
+    expect(persistedAi().consent).toBeUndefined();
+    expect(persistedAi().backgroundConsent).toBeUndefined();
+    expect(showToast).toHaveBeenCalledWith("success", t("en-US", "aiConsentRevokeSaved"));
+  });
+
+  it("a background revoke that cannot be saved still applies and says so", () => {
+    const { onChange, showToastAction } = renderWith(granted);
+    failSettingsWrites();
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiBackgroundConsentToggle")));
+    expect(onChange.mock.calls.at(-1)![0].ai.backgroundConsent).toBeUndefined();
+    expect(showToastAction.mock.calls[0]?.[1]).toBe(t("en-US", "aiConsentRevokeNotSaved"));
+  });
+
+  it("an accept that cannot be saved does not switch AI on, and says so", () => {
+    const { onChange, showToast, showToastAction } = renderWith(baseSettings);
+    failSettingsWrites();
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(t("en-US", "aiEnable"))).not.toBeChecked();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiConsentAcceptNotSaved"));
+    expect(showToastAction).not.toHaveBeenCalled();
+  });
+
+  it("a switch-on that cannot be saved leaves AI off, and says so", () => {
+    const { onChange, showToast, showToastAction } = renderWith({ ...baseSettings, ai: { ...baseSettings.ai, consent: C } });
+    failSettingsWrites();
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(t("en-US", "aiEnable"))).not.toBeChecked();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiEnableNotSaved"));
+    expect(showToastAction).not.toHaveBeenCalled();
+  });
+
+  it("a background accept that cannot be saved stores nothing, and says so", () => {
+    const { onChange, showToast } = renderWith(interactiveOnly);
+    failSettingsWrites();
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiBackgroundConsentToggle")));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentBackgroundAccept") }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiBackgroundConsentAcceptNotSaved"));
+  });
+});
+
+// AI-01 — each action in Settings → AI widens only its own field in storage: a section shown with values that
+// another tab has since narrowed (it missed that change) cannot write them back by accepting something else.
+describe("AiSection — an action widens only its own field (AI-01)", () => {
+  const C = newConsent(new Date(0));
+  const OLD = { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 0 };
+  const persistedAi = () => (JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Settings).ai;
+  const storeAi = (ai: Partial<Settings["ai"]>) => localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai }));
+
+  it("a background accept does not switch AI back on", () => {
+    const shown = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: C } };
+    storeAi({ enabled: false, consent: C }); // switched off elsewhere
+    const onChange = vi.fn();
+    render(<AiSection lang="en-US" settings={shown} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiBackgroundConsentToggle")));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentBackgroundAccept") }));
+    expect(persistedAi().backgroundConsent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1 }); // control
+    expect(persistedAi().enabled).toBe(false);
+    expect(onChange.mock.calls.at(-1)![0].ai.enabled).toBe(false);
+  });
+
+  it("an accept does not bring back a background consent revoked elsewhere", () => {
+    const shown = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: OLD, backgroundConsent: C } };
+    storeAi({ enabled: true, consent: OLD }); // background consent revoked elsewhere
+    const onChange = vi.fn();
+    render(<AiSection lang="en-US" settings={shown} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentReview") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") }));
+    expect(persistedAi().consent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1 }); // control
+    expect(persistedAi().enabled).toBe(true);
+    expect(persistedAi().backgroundConsent).toBeUndefined();
+    expect(onChange.mock.calls.at(-1)![0].ai.backgroundConsent).toBeUndefined();
+  });
+
+  it("switching on does not write back a consent revoked elsewhere", () => {
+    const shown = { ...baseSettings, ai: { ...baseSettings.ai, enabled: false, consent: C, backgroundConsent: C } };
+    storeAi({ enabled: false }); // both consents revoked elsewhere
+    const onChange = vi.fn();
+    render(<AiSection lang="en-US" settings={shown} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    expect(persistedAi().enabled).toBe(true); // control: the switch-on was saved
+    expect(persistedAi().consent).toBeUndefined();
+    expect(persistedAi().backgroundConsent).toBeUndefined();
+    expect(onChange.mock.calls.at(-1)![0].ai.consent).toBeUndefined();
   });
 });
 

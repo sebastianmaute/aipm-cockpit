@@ -132,7 +132,7 @@ export function withRowTokens<T extends { id: number }>(
  *  at all" and by the get_task control beside it — both are needed.
  *  ★ The other five list tools already project to `*Summary` types that carry
  *  no rich HTML at all, which is why only this one needed narrowing. */
-export type TaskListItem = Omit<Task, "description" | "noteLog"> & {
+export type TaskListItem = Omit<Task, "description" | "noteLog" | "assigneeEmail"> & {
   description: string;
 };
 
@@ -153,8 +153,12 @@ export function slimTaskForList(task: Task): TaskListItem {
   // eslint config sets no `ignoreRestSiblings` (verified: `--print-config`
   // shows the rule with no options object), so the binding needs a real read
   // to satisfy `no-unused-vars` — `void` is that read, not a workaround.
-  const { description, noteLog, ...rest } = task;
+  // `assigneeEmail` is dropped too (AI-08): a bulk list must not ship every
+  // address; `get_contact_email` is the one narrow read. The token is unaffected,
+  // `withToken` hashes the FULL stored row.
+  const { description, noteLog, assigneeEmail, ...rest } = task;
   void noteLog;
+  void assigneeEmail;
   return {
     ...rest,
     description: description ? htmlToPlainText(description) : "",

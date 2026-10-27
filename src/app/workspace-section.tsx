@@ -12,7 +12,6 @@ import { useToastContext } from "./toast-context";
 import { saveProjectFromForm } from "./project-meta-edit";
 import { computeProjectForecastFacts } from "./budget-forecast";
 import {
-  useCallback,
   useMemo,
   useState,
 } from "react";
@@ -260,18 +259,11 @@ export function WorkspaceSection({
   getScopeEpoch,
   isSwapInFlight,
 }: WorkspaceSectionProps) {
-  const { settings, setSettings, lang } = useSettings();
+  const { settings, setSettings, hydrated, lang } = useSettings();
   // §717 — re-render when a passphrase key is unlocked (or cleared) in the chat: the AI gates below read it
   // through `liveAiKey`, and a panel already on screen would otherwise keep showing AI as unavailable.
   useSessionAiKey();
   const features = settings.features;
-  // Accept the AI consent on THIS component's settings instance, so the ChatPanel
-  // rendered here sees it at once; `useSettings` broadcasts the change to the
-  // other live instances after it commits (the registry in `use-settings.ts`).
-  const handleAcceptAiConsent = useCallback(
-    () => setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } })),
-    [setSettings],
-  );
   // ★ The whole context value is kept as well as the destructured slices: the
   //   chat panel grounds a STAGED plan's diffs, row titles and concurrency
   //   tokens against it, and `describeProposal` takes a full `Workspace` (six
@@ -504,7 +496,6 @@ export function WorkspaceSection({
             exportFooter={exportFooterText(settings.branding)}
             dictation={settings.dictation}
             dispatcher={dispatcher}
-            onAcceptConsent={handleAcceptAiConsent}
             onConfigureAi={
               !isPopout && onOpenSettingsSection
                 ? () => onOpenSettingsSection("ai")
@@ -513,7 +504,8 @@ export function WorkspaceSection({
             onChangeModel={(model) => setSettings((s) => ({ ...s, ai: { ...s.ai, model } }))}
             guides={guides}
             guidesReady={guidesReady}
-            chatSeed={pendingChatSeed}
+            // ★ Held until the settings hydrate: a seed applied to the DEFAULT config (no key, switch off) only prefills.
+            chatSeed={hydrated ? pendingChatSeed : null}
             onChatSeedConsumed={clearChatSeed}
             projectId={currentProjectId ?? "default"}
             // §207: image bytes for the chat card's document download, under the SAME

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.20.0 "Indridason" | Files scanned: 451 .tsx + 861 .ts under src/app (excl. 1470 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.20.1 "Indridason" | Files scanned: 451 .tsx + 861 .ts under src/app (excl. 1470 test files) | Token estimate: ~1050 -->
 
 # Frontend
 
