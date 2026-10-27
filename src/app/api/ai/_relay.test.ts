@@ -170,6 +170,50 @@ describe("relay — refusals before any upstream call", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it.each([
+    ["missing", undefined],
+    ["empty", ""],
+    ["whitespace-only", "   "],
+  ])("an x-api-key that is %s → 400 missing-api-key without calling send", async (_name, key) => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const headers: Record<string, string> = { "sec-fetch-site": "same-origin", "content-type": "application/json" };
+    if (key !== undefined) headers["x-api-key"] = key;
+    const req = new Request("http://localhost:3000/api/ai/messages", { method: "POST", headers, body: "{}" });
+    const res = await relay(req, "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "missing-api-key" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("models without a key → 400 missing-api-key without calling send", async () => {
+    const { send, calls } = fakeSend(respondWith(200, "{}"));
+    const req = new Request("http://localhost:3000/api/ai/models", { headers: { "sec-fetch-site": "same-origin" } });
+    const res = await relay(req, "models", GATEWAY_ENV, send);
+    expect(res.status).toBe(400);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("the key check comes before the body cap (no key + oversized → 400, not 413)", async () => {
+    const { send } = fakeSend();
+    const req = post();
+    Object.defineProperty(req, "headers", {
+      value: new Headers({ "sec-fetch-site": "same-origin", "content-length": String(33 * 1024 * 1024) }),
+    });
+    const res = await relay(req, "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(400);
+  });
+
+  it("the same-origin check comes before the key check (cross-site, no key → 403)", async () => {
+    const { send } = fakeSend();
+    const req = new Request("http://localhost:3000/api/ai/messages", {
+      method: "POST",
+      headers: { "sec-fetch-site": "cross-site" },
+      body: "{}",
+    });
+    const res = await relay(req, "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(403);
+  });
+
   it("a content-length over 32 MB → 413 without calling send", async () => {
     expect(RELAY_MAX_BODY_BYTES).toBe(32 * 1024 * 1024);
     const { send, calls } = fakeSend();
@@ -315,6 +359,36 @@ describe("relay — what comes back", () => {
     expect(calls[0].destroyed).toBe(true);
     expect(res.status).toBe(504);
     expect(await res.json()).toEqual({ error: "ai-gateway-error" });
+  });
+
+  it.each([304, 600, 199])(
+    "upstream status %i (not a passable error status) → 502 ai-gateway-error, even with an Anthropic-shaped body",
+    async (status) => {
+      const body = JSON.stringify({ type: "error", error: { type: "api_error", message: "m" } });
+      const { send } = fakeSend(respondWith(status, body));
+      const res = await relay(post(), "messages", GATEWAY_ENV, send);
+      expect(res.status).toBe(502);
+      expect(await res.json()).toEqual({ error: "ai-gateway-error" });
+    },
+  );
+
+  it("passes back only content-type and cache-control, never set-cookie or gateway headers", async () => {
+    const { send } = fakeSend((call) =>
+      call.respond(
+        Object.assign(Readable.from([Buffer.from(ANTHROPIC_OK)]), {
+          statusCode: 200,
+          headers: {
+            "content-type": "application/json",
+            "set-cookie": "gw=1; Path=/",
+            "cf-ray": "abc123-FRA",
+            "cf-aig-log-id": "log-1",
+          },
+        }),
+      ),
+    );
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect([...res.headers.keys()].sort()).toEqual(["cache-control", "content-type"]);
+    expect(res.headers.get("cache-control")).toBe("no-store");
   });
 });
 

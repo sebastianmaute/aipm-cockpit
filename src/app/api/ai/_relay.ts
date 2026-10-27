@@ -36,6 +36,7 @@ export const AI_GATEWAY_REJECTED = "ai-gateway-rejected";
 export const AI_GATEWAY_ERROR = "ai-gateway-error";
 export const AI_GATEWAY_INVALID = "ai-gateway-invalid";
 export const NOT_SAME_ORIGIN = "not-same-origin";
+export const MISSING_API_KEY = "missing-api-key";
 
 export type RelayOp = "messages" | "models";
 
@@ -71,10 +72,15 @@ function fail(status: number, error: string): Response {
 /**
  * A browser call from this app's own pages. `Sec-Fetch-Site` decides when the browser
  * sent it (every current browser does); otherwise a present `Origin` must equal this
- * request's own origin, taken from `request.url`. Forwarded host headers are never
- * consulted: they are set by whoever sends the request, so they cannot grant access.
- * A call with neither header (not a browser) passes; it still needs a valid API key
- * upstream.
+ * request's own origin, taken from `request.url`. Next builds that URL from the
+ * incoming `Host` header and protocol. That is acceptable here because a browser
+ * cannot forge `Host` for a cross-site request, and this comparison is only the
+ * fallback for a browser that sent no `Sec-Fetch-Site`. Behind a TLS-terminating
+ * ingress the protocol may read `http:` while `Origin` reads `https:`; such an old
+ * browser is then refused (fails closed). `X-Forwarded-Host` and its peers are never
+ * consulted: whoever sends the request sets them, so they cannot grant access.
+ * A call with neither header (not a browser) passes; `relay` still requires an
+ * `x-api-key` of the caller's own.
  */
 function isSameOrigin(request: Request): boolean {
   const site = request.headers.get("sec-fetch-site");
@@ -191,6 +197,14 @@ function forward(
         finish(new Response(status === 204 || status === 205 ? null : streamOf(res), { status, headers }));
         return;
       }
+      if (status < 400 || status > 599) {
+        // 1xx/3xx or out of range: never passed through (a 304 cannot carry a body,
+        // and the Response constructor rejects anything outside 200–599).
+        cleanup();
+        upstream?.destroy();
+        finish(fail(502, AI_GATEWAY_ERROR));
+        return;
+      }
       const bytes = await readCapped(res, MAX_ERROR_BODY_BYTES);
       cleanup();
       if (bytes && isAnthropicError(bytes)) {
@@ -225,7 +239,14 @@ function forward(
     };
 
     try {
-      upstream = send(url, options, (res) => void onResponse(res));
+      upstream = send(url, options, (res) => {
+        onResponse(res).catch(() => {
+          // A response that cannot be built must still settle the call.
+          cleanup();
+          upstream?.destroy();
+          finish(fail(502, AI_GATEWAY_ERROR));
+        });
+      });
     } catch {
       // e.g. a token with characters a header cannot carry; never echo the error.
       finish(fail(502, AI_GATEWAY_ERROR));
@@ -258,6 +279,10 @@ export async function relay(
   if (config.kind === "invalid") return fail(503, AI_GATEWAY_INVALID);
   if (config.kind === "direct") return new Response(null, { status: 404 });
   if (!isSameOrigin(request)) return fail(403, NOT_SAME_ORIGIN);
+  // The gateway token is attached to every relayed call, and a gateway can hold a
+  // stored provider key; a call without a key of its own must never reach it.
+  // 400, never 401/403: the client reads those as a rejected key.
+  if (!request.headers.get("x-api-key")?.trim()) return fail(400, MISSING_API_KEY);
 
   let body: Uint8Array | null = null;
   if (op === "messages") {
