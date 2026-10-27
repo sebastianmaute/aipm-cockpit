@@ -1678,6 +1678,13 @@ function ChatPanelInner({
       )}
 
       {/* Outside the empty state: a persisted transcript must not hide why the composer is off. */}
+      {/* Same place for a switched-off deployment, without a link: nothing in Settings turns it back on. */}
+      {!deploymentOn && display.length > 0 && (
+        <Banner severity="info" role="status" className="mt-2 shrink-0">
+          <p className="min-w-0">{t(lang, getAiDeploymentState().invalid ? "aiDeploymentInvalid" : "aiDeploymentOff")}</p>
+        </Banner>
+      )}
+
       {consentStale && deploymentOn && (
         <Banner severity="info" role="status" className="mt-2 flex shrink-0 items-center justify-between gap-2">
           <p className="min-w-0">{t(lang, "aiConsentReviewPrompt")}</p>

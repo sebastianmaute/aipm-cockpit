@@ -219,6 +219,36 @@ describe("Without a current AI consent", () => {
     }
   });
 
+  it.each([
+    ["off", { off: true, route: "direct", invalid: false }, "aiDeploymentOff"],
+    ["invalid", { off: false, route: "gateway", invalid: true }, "aiDeploymentInvalid"],
+  ] as const)("a deployment %s with a conversation on screen names it beside the disabled composer, with no consent banner", (_n, state, key) => {
+    setAiDeploymentState(state);
+    try {
+      render(
+        <ChatPanel {...SCOPE_PROPS}
+          lang="en-US"
+          ai={{ ...defaultAiConfig, consent: undefined, apiKey: "sk-test" }}
+          dispatcher={makeDispatcher()}
+          projectId="p1"
+          getChatConversation={() => ({
+            history: [{ role: "user", content: "earlier question" }],
+            display: [{ kind: "user", text: "earlier question" }],
+          })}
+          onConfigureAi={vi.fn()}
+        />,
+      );
+      // Positive control: the transcript is on screen, so this is not the empty state.
+      expect(screen.getByText("earlier question")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(t("en-US", key));
+      expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
+      expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeDisabled();
+    } finally {
+      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+    }
+  });
+
   it("an invalid gateway setting names the invalid setting in the empty state", () => {
     setAiDeploymentState({ off: false, route: "gateway", invalid: true });
     try {

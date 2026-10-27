@@ -111,7 +111,16 @@ export function useDictationMic({
   // focus).
   const reason = !ptt.unavailable
     ? null
-    : t(lang, ptt.unavailableReason === DICTATION_STT_NOT_SET_UP ? "dictationUnavailableSttNotSetUp" : "dictationUnavailableNeedsAiConsent");
+    : t(
+        lang,
+        ptt.unavailableReason === DICTATION_STT_NOT_SET_UP
+          ? "dictationUnavailableSttNotSetUp"
+          : ptt.unavailableReason === DICTATION_AI_DEPLOYMENT_OFF
+            ? "aiDeploymentOff"
+            : ptt.unavailableReason === DICTATION_AI_DEPLOYMENT_INVALID
+              ? "aiDeploymentInvalid"
+              : "dictationUnavailableNeedsAiConsent",
+      );
   const mic = ptt.supported ? (
     <>
     <ToggleButton

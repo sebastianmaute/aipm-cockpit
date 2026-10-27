@@ -57,6 +57,17 @@ describe("useDictationMic — speech-to-text without the AI consent (AI-01)", ()
     expect(btn).toBeDisabled();
     expect(btn).toHaveAccessibleDescription(t("en-US", "dictationUnavailableSttNotSetUp"));
   });
+  it.each([
+    ["ai-deployment-off", "aiDeploymentOff"],
+    ["ai-deployment-invalid", "aiDeploymentInvalid"],
+  ] as const)("deployment reason %s: disabled, described with %s", (code, key) => {
+    ptt.unavailable = true;
+    ptt.unavailableReason = code;
+    render(<Mic />);
+    const btn = screen.getByRole("button", { name: `${t("en-US", "dictationHold")} – Notes` });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAccessibleDescription(t("en-US", key));
+  });
   it("an available mic is enabled and carries no such description (control)", () => {
     render(<Mic />);
     const btn = screen.getByRole("button", { name: `${t("en-US", "dictationHold")} – Notes` });

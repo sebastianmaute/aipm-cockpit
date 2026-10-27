@@ -22,8 +22,9 @@ export const DICTATION_NEEDS_AI_CONSENT = "needs-ai-consent";
  *  that prefix is a failed transcription. */
 export const DICTATION_STT_NOT_SET_UP = "speech-service-not-set-up";
 
-/** The `onError` codes for a speech-to-text recording discarded by the deployment's AI setting, asked before the
- *  upload: switched off by the organisation, an invalid gateway setting, or a setting that could not be confirmed.
+/** The deployment's AI setting stops speech-to-text: switched off by the organisation, an invalid gateway setting,
+ *  or (for a recording, asked before the upload) a setting that could not be confirmed. The first two are also
+ *  `dictationUnavailableReason`'s reasons for a disabled mic.
  *  ★ Not `stt-`-prefixed: that prefix is a failed transcription. */
 export const DICTATION_AI_DEPLOYMENT_OFF = "ai-deployment-off";
 export const DICTATION_AI_DEPLOYMENT_INVALID = "ai-deployment-invalid";
