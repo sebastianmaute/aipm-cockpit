@@ -177,7 +177,7 @@ const DESTINATION_PIN: readonly string[] = [
   "direct|keySecurity|aiConsentBullet2|7cb475af8600",
   "direct|help|helpSecAiBody|0709ff5576e1",
   "gateway|interactive|aiConsentDataIntroGateway|2b068f0d6388",
-  "gateway|background|aiConsentBackgroundDataIntroGateway|a19cd3c56a74",
+  "gateway|background|aiConsentBackgroundDataIntroGateway|da1bf190a9fa",
   "gateway|keyNote|aiApiKeyHintGateway|2c08dbf37646",
   "gateway|keySecurity|aiConsentBullet2Gateway|fd7f7d5bdfdb",
   "gateway|help|helpSecAiBodyGateway|f1aba1b243af",

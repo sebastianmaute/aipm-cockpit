@@ -355,16 +355,22 @@ what an invalid value does are in
 [security.md → Environment variables](security.md#environment-variables), which owns
 that list.
 
-1. **Create the gateway** in the Cloudflare dashboard (AI → AI Gateway) and turn on
-   **Authenticated Gateway** in its settings.
-2. **Create the token** there ("Create authentication token"), with the **AI Gateway
-   Run** permission. ★ The token is **account-wide**: it can call every gateway in that
-   Cloudflare account, not only this one. Use a dedicated Cloudflare account for this
-   app, or accept that scope.
-3. ★★ **Do NOT enable stored provider keys** (BYOK, "Provider keys") on this gateway.
-   The relay requires each user's own `x-api-key` and refuses a call without one
-   (`400 missing-api-key`), but a stored key on the gateway would let any caller that
-   reaches it spend the organisation's Anthropic account.
+1. **Create the gateway** in the Cloudflare dashboard (AI → AI Gateway).
+2. **Create the token** in the gateway's settings ("Create authentication token"), with
+   the **AI Gateway Run** permission, then turn on **Authenticated Gateway** there.
+   ★ The token is **account-wide**: it can send requests through EVERY gateway in that
+   Cloudflare account, not only this one — including any gateway that holds stored
+   provider keys.
+3. ★★ **No gateway in that Cloudflare account may hold stored provider keys** (BYOK,
+   "Provider keys") — or use a dedicated Cloudflare account for this app. A gateway
+   uses a stored key only when a request carries no provider key of its own. The relay
+   always forwards the caller's own `x-api-key` and refuses a call without one
+   (`400 missing-api-key`), so nobody calling through this app can make a gateway fall
+   back to a stored key. The risk is the token itself: whoever obtains it (a
+   compromised or leaked server environment) can send requests without a provider key
+   to any BYOK gateway in the account and spend the organisation's stored
+   credentials. If you keep stored keys in the same account anyway, you accept that
+   this app's server-held token can spend them.
 4. **Set the server environment** and restart:
    ```
    AIPM_AI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_id>/anthropic
@@ -378,13 +384,13 @@ that list.
    Anthropic answers; the relay itself gives up only after 15 minutes without data.
    Any ingress, load balancer or reverse proxy in front of the app must allow a
    **read timeout of at least 15 minutes** on `/api/ai/messages`, or long answers
-   fail at the proxy. On the App Hub, the hub-app chart's values reference documents
-   no key for the route's timeout (checked 2026-10-27): ask the platform team to
-   raise it rather than guessing a key.
+   fail at the proxy. If your ingress or route configuration exposes no per-route
+   read-timeout setting, ask whoever operates it to set at least 15 minutes for
+   `/api/ai/messages`.
 6. **Check it.** Open Settings → AI: every user is asked to accept the AI data
    disclosure again, and the dialog and the key note now say the data goes through
    this app's server and the organisation's AI gateway. Send one chat message and
-   find it in the gateway's logs.
+   find it in the gateway's logs (if logging is on).
 
 What to know when running it:
 
@@ -399,8 +405,10 @@ What to know when running it:
   Anthropic key.** The relay accepts same-origin browser calls only, which stops
   another web page from using it through a visitor's browser, but a script that
   sends no browser headers is not a browser and is not stopped. It still has to
-  bring a working Anthropic key, which is billed, so the exposure is the gateway's
-  capacity, not the organisation's money — as long as step 3 holds.
+  bring a working Anthropic key, which is billed to that key and always forwarded, so
+  it cannot trigger a stored provider key; the exposure is the gateway's capacity.
+  The organisation's money is at risk only through the token itself, on a gateway in
+  the same Cloudflare account that holds stored keys (step 3).
 - **Gateway errors** reach the user as "The organisation's AI gateway refused this
   app's token" (the gateway answered 401/403: check the token) or "… returned an
   error" (any other non-Anthropic failure, including a 3xx, which the relay does not
