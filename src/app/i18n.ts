@@ -1224,7 +1224,7 @@ const enUS = {
 
   aiAssistant: "AI assistant",
   aiEnable: "Enable AI assistant",
-  aiEnableHelp: "Turn on to use Claude chat, AI action suggestions, scheduled jobs, and AI project creation. Off by default.",
+  aiEnableHelp: "Turn on to use Claude chat, AI action suggestions and AI project creation; switching on asks you to accept the AI data disclosure first. Scheduled jobs and automatic insight recommendations also need the separate “Allow AI to run in the background” acceptance. Off by default.",
   // Shown by the AI sub-sections (guides, views) that are gated on the master
   // switch but do NOT contain it. `aiEnableHelp` is the switch's own field help
   // ("Turn on to use …") — an instruction the reader cannot follow from here,
@@ -1619,7 +1619,7 @@ const enUS = {
   aiConsentBullet5:
       "You can revoke consent at any time in Settings, which switches off every AI feature without deleting your tasks or API key.",
   aiConsentBullet6:
-    "The AI usage policy of {0} applies to this feature. You must read it before enabling chat.",
+    "The AI usage policy of {0} applies to this feature. You must read it before enabling the AI features.",
   aiConsentPolicyLink: "Open the AI usage policy of {0}",
   aiConsentPolicyCheckbox:
     "I have read and accept the AI usage policy of {0}.",
@@ -1636,7 +1636,7 @@ const enUS = {
   // {0} in the three policy strings above when no owner is configured.
   aiPolicyOwnerFallback: "your organisation",
   aiPolicyOrgLabel: "AI usage policy owner",
-  aiPolicyOrgHint: "Named on the AI Assistant's consent screen. The owner name is optional: a policy link alone makes the consent screen show a policy step, and with no name the wording stays neutral. There is no built-in policy owner or link — enter a link here (and, if you like, the owner), or set the matching build variables.",
+  aiPolicyOrgHint: "Named on the AI consent screen in Settings → AI. The owner name is optional: a policy link alone makes the consent screen show a policy step, and with no name the wording stays neutral. There is no built-in policy owner or link — enter a link here (and, if you like, the owner), or set the matching build variables.",
   aiPolicyOrgFromEnv: "Set by NEXT_PUBLIC_AI_POLICY_ORG in this deployment, which overrides this setting.",
   aiPolicyUrlLabel: "AI usage policy link",
   aiPolicyUrlHint: "An https:// link the consent screen asks people to read and accept. Leave empty if there is no policy.",

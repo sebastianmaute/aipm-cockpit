@@ -1129,7 +1129,7 @@ export const de: Record<TranslationKey, string> = {
 
   aiAssistant: "KI-Assistent",
   aiEnable: "KI-Assistent aktivieren",
-  aiEnableHelp: "Aktivieren, um Claude-Chat, KI-Aktionsvorschläge, geplante Jobs und die KI-Projekterstellung zu nutzen. Standardmäßig aus.",
+  aiEnableHelp: "Aktivieren, um Claude-Chat, KI-Aktionsvorschläge und die KI-Projekterstellung zu nutzen; beim Einschalten werden Sie zuerst gebeten, den KI-Datenhinweis zu akzeptieren. Geplante Jobs und automatische Insight-Empfehlungen brauchen zusätzlich die separate Zustimmung „KI darf im Hintergrund laufen“. Standardmäßig aus.",
   aiDisabledSectionHint:
     "Der KI-Assistent ist ausgeschaltet, daher gibt es hier nichts einzustellen. Schalten Sie ihn unter Einstellungen → KI-Assistent ein.",
   openAiAssistant: "KI-Assistent",
@@ -1513,7 +1513,7 @@ export const de: Record<TranslationKey, string> = {
   aiConsentBullet5:
       "Die Einwilligung kann jederzeit in den Einstellungen widerrufen werden; dabei werden alle KI-Funktionen ausgeschaltet, Ihre Aufgaben und der API-Schlüssel bleiben erhalten.",
   aiConsentBullet6:
-    "Die KI-Nutzungsrichtlinie von {0} gilt für diese Funktion. Bitte vor der Aktivierung des Chats lesen.",
+    "Die KI-Nutzungsrichtlinie von {0} gilt für diese Funktion. Bitte lesen Sie sie, bevor Sie die KI-Funktionen aktivieren.",
   aiConsentPolicyLink: "KI-Nutzungsrichtlinie von {0} öffnen",
   aiConsentPolicyCheckbox:
     "Ich habe die KI-Nutzungsrichtlinie von {0} gelesen und akzeptiere sie.",
@@ -1529,7 +1529,7 @@ export const de: Record<TranslationKey, string> = {
   aiConsentBackgroundAccept: "Verstanden – Hintergrund-KI erlauben",
   aiPolicyOwnerFallback: "Ihrer Organisation",
   aiPolicyOrgLabel: "Herausgeber der KI-Nutzungsrichtlinie",
-  aiPolicyOrgHint: "Wird im Einwilligungsdialog des KI-Assistenten genannt. Der Name des Herausgebers ist optional: Schon ein Richtlinien-Link allein lässt den Einwilligungsdialog einen Richtlinienschritt zeigen, ohne Namen bleibt die Formulierung neutral. Es gibt weder einen eingebauten Herausgeber noch einen eingebauten Link — tragen Sie hier einen Link ein (und, wenn Sie möchten, den Herausgeber), oder setzen Sie die entsprechenden Build-Variablen.",
+  aiPolicyOrgHint: "Wird im KI-Einwilligungsdialog unter Einstellungen → KI genannt. Der Name des Herausgebers ist optional: Schon ein Richtlinien-Link allein lässt den Einwilligungsdialog einen Richtlinienschritt zeigen, ohne Namen bleibt die Formulierung neutral. Es gibt weder einen eingebauten Herausgeber noch einen eingebauten Link — tragen Sie hier einen Link ein (und, wenn Sie möchten, den Herausgeber), oder setzen Sie die entsprechenden Build-Variablen.",
   aiPolicyOrgFromEnv: "Wird in dieser Installation über NEXT_PUBLIC_AI_POLICY_ORG gesetzt und hat Vorrang vor dieser Einstellung.",
   aiPolicyUrlLabel: "Link zur KI-Nutzungsrichtlinie",
   aiPolicyUrlHint: "Ein https://-Link, den der Einwilligungsdialog zum Lesen und Akzeptieren anbietet. Leer lassen, wenn es keine Richtlinie gibt.",

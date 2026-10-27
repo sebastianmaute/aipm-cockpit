@@ -53,6 +53,9 @@ const FIXES: Fix[] = [
   { key: "disclaimerIntro", enHas: ["most AI changes are logged", "insight recommendations", "wizard's AI draft is not logged"], enNot: ["every AI write", "applying an insight recommendation", "through its chat tools"], deHas: ["die meisten KI-Änderungen", "Insight-Empfehlungen", "nicht protokolliert"], deNot: ["jeder KI-Schreibvorgang", "Übernehmen einer Insight-Empfehlung"] },
   { key: "disclaimerResponsibility", enHas: ["marks most AI changes"], enNot: ["marks AI writes", "chat-tool changes"], deHas: ["die meisten KI-Änderungen"], deNot: ["KI-Schreibvorgänge mit dem Akteur", "Chat-Werkzeuge"] },
   { key: "helpSecAiBody", enHas: ["master switch, accept the disclosure, key", "run on their own"], enNot: ["master switch, key, accept the disclosure", "and only when you use it"], deHas: ["Hauptschalter, Datenhinweis, Schlüssel", "von selbst"], deNot: ["Hauptschalter, Schlüssel, Datenhinweis", "nur bei Nutzung"] },
+  { key: "aiConsentBullet6", enHas: ["before enabling the AI features"], enNot: ["enabling chat"], deHas: ["bevor Sie die KI-Funktionen aktivieren"], deNot: ["des Chats"] },
+  { key: "aiPolicyOrgHint", enHas: ["AI consent screen in Settings → AI"], enNot: ["AI Assistant's consent screen"], deHas: ["KI-Einwilligungsdialog unter Einstellungen → KI"], deNot: ["Einwilligungsdialog des KI-Assistenten"] },
+  { key: "aiEnableHelp", enHas: ["separate “Allow AI to run in the background” acceptance"], enNot: ["suggestions, scheduled jobs, and"], deHas: ["separate Zustimmung „KI darf im Hintergrund laufen“"], deNot: ["KI-Aktionsvorschläge, geplante Jobs"] },
   { key: "aiGuideBudgetWarning", enHas: ["no cache marker of its own"], enNot: ["Both are cached"], deHas: ["keine eigene Cache-Markierung"], deNot: ["Beide werden nach dem ersten Senden zwischengespeichert"] },
 ];
 

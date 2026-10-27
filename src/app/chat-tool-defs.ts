@@ -716,7 +716,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "get_resource",
-    description: "Fetch a single resource by ID (all directory fields). Read-only.",
+    description: "Fetch a single resource by ID: name, title, department, whether external, and role id. No email addresses: read one with get_contact_email. Read-only.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },
