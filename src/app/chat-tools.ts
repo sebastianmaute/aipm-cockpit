@@ -588,7 +588,11 @@ export type ToolDispatcher = {
   ProjectToolDispatcher;
 
 /** Parse the numeric `id` field, throwing if absent/non-numeric. */
+// ★ Tolerates a non-object: the staged-plan apply path deliberately survives a create whose
+// dispatcher returned no row ("a create with no usable id stays ok: true"), and a bare
+// destructure would turn that into a thrown, refused create.
 function withoutAssigneeEmail(task: Task): Omit<Task, "assigneeEmail"> {
+  if (typeof task !== "object" || task === null) return task;
   const { assigneeEmail, ...rest } = task;
   void assigneeEmail;
   return rest;
