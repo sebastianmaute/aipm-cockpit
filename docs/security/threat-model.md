@@ -36,7 +36,7 @@
 |---|---|---|---|---|
 | I | API key exposed in browser memory / network tab | Inherent to direct-browser calls; key is the user's own, entered by them; encrypted at rest (`secrets.ts`), blanked on disk by `writeSettings` | User with devtools sees their own key (accepted — it's theirs) | none |
 | T | Malicious model output drives a write tool | AI tool outputs re-validated: `parseAnalysis`/`groundEntity` (`action-ai.ts`), per-entity `sanitizeX`, `parseWeightSuggestions`→`NEXT_ACTIONS_FIELD_COERCE` | model can't reach a raw state setter | keep validators mandatory (Phase 2 Task 9) |
-| D | Runaway agentic loop bills the user | Action-analysis / scheduled-jobs / weight-suggest are single forced-tool calls (no loop); scheduled jobs fail-once-per-slot | — | none |
+| D | Runaway agentic loop bills the user | The chat is a tool loop, capped by `clampMaxChatTurns` (`settings-types.ts`, 1–50, default 12); the background runners (scheduled jobs, automatic insight recommendations, scheduled digest narrative) need the separate background consent and scheduled jobs fail once per slot; action-analysis / weight-suggest are single forced-tool calls (no loop) | — | none |
 
 ### B2 — Browser ↔ MS Graph / MSAL
 
@@ -86,7 +86,7 @@ The strongest surface — this is where the server makes outbound calls on the u
 - **Rate limiting:** `jira/_rate-limit.ts` — 60/min/IP sliding window, per-route scope, amortized eviction.
 - **Input validation:** `sanitize.ts` barrel at every entity boundary; `sanitizeIssueFields` server-side field allowlist for Jira writes.
 - **AI output validation:** `parseAnalysis` / `groundEntity` / `parseWeightSuggestions` / `NEXT_ACTIONS_FIELD_COERCE` re-validate untrusted model output before any state write or deep-link.
-- **URL sinks:** `isSafeHttpUrl` (`document-link.ts`, `ai-project-proposal.ts`, `sanitize-html.ts`).
+- **URL sinks:** `isSafeHttpUrl` (`document-link.ts`); the guard for AI project proposals is `judgeProjectField` (`project-ai-fields.ts`), which calls it.
 - **Raw-HTML sinks — 11, re-derived 2026-09-18.** Do not quote this number; re-run the commands.
 
   ```bash

@@ -1615,9 +1615,9 @@ const enUS = {
   aiConsentBullet3:
     "Anthropic's handling of your data is governed by their Privacy Policy and Usage Policy. Review them before enabling.",
   aiConsentBullet4:
-    "Do not paste confidential client information, credentials, personal data of third parties, or anything covered by an NDA into chat or task fields while chat is enabled.",
+      "Do not paste confidential client information, credentials, personal data of third parties, or anything covered by an NDA into any field while AI is enabled.",
   aiConsentBullet5:
-    "You can revoke consent at any time in Settings, which disables the chat without deleting your tasks or API key.",
+      "You can revoke consent at any time in Settings, which switches off every AI feature without deleting your tasks or API key.",
   aiConsentBullet6:
     "The AI usage policy of {0} applies to this feature. You must read it before enabling chat.",
   aiConsentPolicyLink: "Open the AI usage policy of {0}",
@@ -1636,7 +1636,7 @@ const enUS = {
   // {0} in the three policy strings above when no owner is configured.
   aiPolicyOwnerFallback: "your organisation",
   aiPolicyOrgLabel: "AI usage policy owner",
-  aiPolicyOrgHint: "Named on the AI Assistant's consent screen. Leave empty for neutral wording. There is no built-in policy owner or link — enter both here, or set the matching build variables, for the consent screen to show a policy step.",
+  aiPolicyOrgHint: "Named on the AI Assistant's consent screen. The owner name is optional: a policy link alone makes the consent screen show a policy step, and with no name the wording stays neutral. There is no built-in policy owner or link — enter a link here (and, if you like, the owner), or set the matching build variables.",
   aiPolicyOrgFromEnv: "Set by NEXT_PUBLIC_AI_POLICY_ORG in this deployment, which overrides this setting.",
   aiPolicyUrlLabel: "AI usage policy link",
   aiPolicyUrlHint: "An https:// link the consent screen asks people to read and accept. Leave empty if there is no policy.",
@@ -1644,10 +1644,8 @@ const enUS = {
   aiPolicyUrlFromEnv: "Set by NEXT_PUBLIC_AI_POLICY_URL in this deployment, which overrides this setting.",
   aiPolicyUrlNoBuiltin: "There is no built-in link — no link is stored and none is set by the deployment environment. Enter your organisation's link; left empty, the consent screen shows no policy to read or accept.",
   aiPolicyUrlEnvRejected: "NEXT_PUBLIC_AI_POLICY_URL is set in this deployment but is not a full https:// link, so it is ignored and this field is used instead.",
-  aiConsentRequired:
-    "Consent required. Switch on AI features in Settings → AI to review and enable.",
   aiConsentGranted: "AI enabled",
-  aiConsentReviewPrompt: "AI is switched on, but the AI data disclosure has changed. Review and accept it to use AI features.",
+  aiConsentReviewPrompt: "AI is switched on, but the AI data disclosure is not accepted. Review and accept it to use AI features.",
   aiConsentReview: "Review",
   aiConsentRevokedDuringSend: "AI consent was withdrawn, so the message was not sent.",
   aiConsentRevoke: "Revoke consent",
@@ -1692,9 +1690,9 @@ const enUS = {
     "Encrypted at rest in this browser (device key). Anyone with access to this browser profile can still use it — avoid production credentials on shared or untrusted machines.",
   disclaimerTitle: "Security & responsibility disclaimer",
   disclaimerIntro:
-    "The API keys and access tokens you configure here (Anthropic, Jira, Microsoft 365, Turso) grant full access on your behalf. Every action the app or the AI assistant takes is executed as you — there is no separate identity or audit trail distinguishing it from your own actions.",
+      "The API keys and access tokens you configure here (Anthropic, Jira, Microsoft 365, Turso) grant full access on your behalf. Towards Anthropic, Jira, Microsoft and Turso, every action the app or the AI assistant takes runs with your credentials, so those services cannot tell it apart from your own. Inside the app, every AI write is logged in the activity log with the actor \"AI assistant\".",
   disclaimerResponsibility:
-    "You are solely responsible for everything done with these credentials. Treat each token with the same care as a password. If the assistant or an integration creates, modifies, or deletes data, it is indistinguishable from you having done it manually.",
+      "You are solely responsible for everything done with these credentials. Treat each token with the same care as a password. If the assistant or an integration creates, modifies, or deletes data, those services see it as done by you; only this app's activity log marks AI writes with the actor \"AI assistant\".",
   disclaimerTipsHeading: "Tips to stay in control:",
   disclaimerTipReview:
     "Review before you act — ask the assistant to show or list records before asking it to create, update, or delete anything.",
@@ -2036,7 +2034,7 @@ const enUS = {
     "When the storage backend is Turso and the History module is enabled, every project keeps an append-only history of full-workspace versions. Captures happen automatically a few minutes after your edits settle (rapid autosaves coalesce into one version; identical payloads are skipped), and you can take a named checkpoint anytime with \"Save version now\". Open the History view to compare a version with the current data or tick two versions to diff them against each other — a field-level diff grouped by entity type, each record expandable before → after. From a \"compared with current\" view, tick whole records or individual fields and click \"Restore selected\" to revert just those — a non-destructive change that is itself captured as a new version and recorded in the activity log. Auto-versions are pruned to the limit in Settings → \"Version history: keep N versions\" (minimum 50, in steps of 10); named checkpoints are never pruned.",
   helpSecAiTitle: "AI chat",
   helpSecAiBody:
-    "Add an Anthropic API key in Settings → AI, then accept the consent screen on the AI Assistant tab. Messages and task data are sent directly from your browser to api.anthropic.com — your organisation's AI usage policy applies. The key is encrypted at rest in this browser (AES-256-GCM under a non-extractable device key) and is never written to disk in plain text. Claude can list, create, update, and delete tasks on your behalf via tool calls. It can also read and change the open project's details, such as its dates, sponsor or regulatory requirements; such a change always appears as a card to review before anything is written, is recorded in the activity log and can be undone. Claude is also told which view you are on and what that view is for, and on Open Points what your current filters are showing, while Workload, Gantt and Budget report project-wide totals rather than the rows on screen — so ask about “what I am looking at” and it answers from the screen. Settings → AI lists, read-only, exactly what it is told about each view. On a Turso project your conversations are kept as named threads in a sidebar you can resize; on file storage the panel holds a single unsaved conversation. Claude can also search this project's earlier chats and its activity history, and is given a short recap of the last seven days — each of those three is its own switch in Settings → AI, on by default. Switching a search off removes that tool from Claude outright rather than hiding its results; switching the recap off simply stops supplying it. If your key is protected by a passphrase, unlock it once and every AI feature uses it until you reload the page; the unlocked key is kept in memory only.",
+    "Switch AI on in Settings → AI, add an Anthropic API key, then accept the AI data disclosure (in that order: master switch, key, accept the disclosure). Every AI feature listed in that disclosure sends its data directly from your browser to api.anthropic.com, and only when you use it; dictation is the exception and goes to the speech service you configure. The automatic features (scheduled jobs, automatic insight recommendations, the scheduled digest summary) need a second, separate acceptance — your organisation's AI usage policy applies. The key is encrypted at rest in this browser (AES-256-GCM under a non-extractable device key) and is never written to disk in plain text. Claude can list, create, update, and delete tasks on your behalf via tool calls. It can also read and change the open project's details, such as its dates, sponsor or regulatory requirements; such a change always appears as a card to review before anything is written, is recorded in the activity log and can be undone. Claude is also told which view you are on and what that view is for, and on Open Points what your current filters are showing, while Workload, Gantt and Budget report project-wide totals rather than the rows on screen — so ask about “what I am looking at” and it answers from the screen. Settings → AI lists, read-only, exactly what it is told about each view. On a Turso project your conversations are kept as named threads in a sidebar you can resize; on file storage the panel holds a single unsaved conversation. Claude can also search this project's earlier chats and its activity history, and is given a short recap of the last seven days — each of those three is its own switch in Settings → AI, on by default. Switching a search off removes that tool from Claude outright rather than hiding its results; switching the recap off simply stops supplying it. If your key is protected by a passphrase, unlock it once and every AI feature uses it until you reload the page; the unlocked key is kept in memory only.",
   helpSecAiAdvancedTitle: "AI assistance (advanced)",
   helpSecAiAdvancedBody:
     "Beyond the chat, an Anthropic key unlocks several optional, advisory AI helpers. Create project with AI: in the new-project wizard, describe the project in plain words or import a source — upload a file, pick a SharePoint document, or paste a Confluence page URL — and Claude pre-fills the form for you to review. Analyze with AI: the Action Center's button runs one analysis pass over your reports and suggests where to focus; it never edits your data, and the deterministic next-action engine is untouched. Suggest with AI: in the next-actions settings, Claude proposes tweaks to the ranking weights that you accept per row. Scheduled jobs: opt in (Settings → Scheduled jobs) to analyse a project you name on a daily or weekly cadence, with an instruction of your own — the scheduler runs due jobs while the app is open, skips a run whose day has passed, and keeps each result as a report under Portfolio → Scheduled reports (it needs a Turso portfolio) and shows it as a notification. Each scheduled run is a billed API call, so it is off by default. None of these features run in pop-out windows.",
@@ -2956,7 +2954,7 @@ const enUS = {
   aiGuideSave: "Save",
   aiGuideCancel: "Cancel",
   aiGuideBuiltInBadge: "Built-in",
-  aiGuideBudgetWarning: "All enabled guides together exceed the recommended size. Each message sends only the overview plus the current view's guide (cached after the first send), so actual token cost is usually lower — disable guides you don't need to reduce it.",
+  aiGuideBudgetWarning: "All enabled guides together exceed the recommended size. Every enabled guide without a view scope is sent with every message; a view-scoped guide is sent only on its view. Both are cached after the first send, so actual token cost is usually lower — disable guides you don't need to reduce it.",
   aiGuideScopeModes: "Modes",
   aiGuideScopeModules: "Modules",
   aiGuideScopeViews: "Views",
@@ -4185,7 +4183,7 @@ const enUS = {
   settingsAiActionSuggestionsHelp: "Show an “Analyze with AI” button in the Action Center.",
   settingsAiHistorySearch: "Let the assistant search project history",
   settingsAiHistorySearchHelp:
-    "Adds a tool the assistant can call to read the activity log. Costs nothing until it is used.",
+      "Adds a tool the assistant can call to read the activity log. The tool definition is sent with every chat request while this is on (a small cost); searching itself costs more only when the assistant uses it.",
   settingsAiActivityRecap: "Tell the assistant how much changed recently",
   settingsAiActivityRecapHelp:
     "Adds one line to every message with a count of the last 7 days' changes, so the assistant knows history exists.",
