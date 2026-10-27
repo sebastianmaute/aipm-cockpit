@@ -134,12 +134,14 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       },
     });
   };
-  // AI-01 — an accept or revoke is persisted at once, consent records included (`persistAiConsentChange`); every
-  // other settings write keeps the persisted records, so a stale copy elsewhere cannot write a withdrawn one back.
-  // ★★ When that write fails, an ACCEPT is not committed (AI stays off: a consent that is not saved would be
-  //   dropped by every later write and by a reload), while a REVOKE is (it stops AI here at once, and it is
-  //   only the persisted copy that lags). Both say so. Returns whether `next` was committed.
-  const commitConsent = (next: Settings, change: "accept" | "acceptBackground" | "revoke"): boolean => {
+  // AI-01 — an accept, a revoke or switching AI on is persisted at once, switch and consent records included
+  // (`persistAiConsentChange`); every other settings write may only narrow them, so a stale copy elsewhere cannot
+  // switch AI back on or write a withdrawn consent back.
+  // ★★ When that write fails, an ACCEPT or a switch-on is not committed (AI stays off: a widening that is not
+  //   saved would be narrowed again by every later write and by a reload), while a REVOKE is (it stops AI here
+  //   at once, and it is only the persisted copy that lags until a later write succeeds). Each says so.
+  //   Returns whether `next` was committed.
+  const commitConsent = (next: Settings, change: "accept" | "acceptBackground" | "enable" | "revoke"): boolean => {
     if (persistAiConsentChange(next)) {
       onChange(next);
       return true;
@@ -150,7 +152,10 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       reportRevokeNotSaved(next);
       return true;
     }
-    showToast("error", t(lang, change === "accept" ? "aiConsentAcceptNotSaved" : "aiBackgroundConsentAcceptNotSaved"));
+    const messageKey = change === "accept" ? "aiConsentAcceptNotSaved"
+      : change === "enable" ? "aiEnableNotSaved"
+      : "aiBackgroundConsentAcceptNotSaved";
+    showToast("error", t(lang, messageKey));
     return false;
   };
   const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
@@ -340,9 +345,14 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
               setConsentOpen(true);
               return;
             }
-            if (e.target.checked) notifyEnable();
-            else clearSessionAiKey(); // §717 — switching AI off also forgets a key unlocked on this page
-            onChange({ ...settings, ai: { ...settings.ai, enabled: e.target.checked } });
+            const next = { ...settings, ai: { ...settings.ai, enabled: e.target.checked } };
+            // AI-01 — switching ON widens AI permission, which only an explicit action persists.
+            if (e.target.checked) {
+              if (commitConsent(next, "enable")) notifyEnable();
+              return;
+            }
+            clearSessionAiKey(); // §717 — switching AI off also forgets a key unlocked on this page
+            onChange(next);
           }}
         />
         <span className="text-xs text-foreground">{t(lang, "aiEnable")}</span>

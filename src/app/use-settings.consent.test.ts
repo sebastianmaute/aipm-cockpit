@@ -1,5 +1,6 @@
-// AI-01 — a revocation reaches every instance and cannot be undone by a stale copy:
-// the two-instance hydration race, the cross-tab `storage` event, a stale instance's unrelated write, and the
+// AI-01 — a revocation or a switch-off reaches every instance and cannot be undone by a stale copy:
+// the two-instance hydration race, the cross-tab `storage` event, the back/forward-cache and visibility re-reads,
+// a stale instance's unrelated write (narrow-only persistence), a revoke saved later by an ordinary write, and the
 // publish wiring (`if (hydrated)` guard + publish effect) that the request path reads.
 import "fake-indexeddb/auto";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -168,6 +169,64 @@ describe("useSettings — revocation reaches every instance (AI-01)", () => {
     expect(persistedAi().backgroundConsent).toBeUndefined();
   });
 
+  it("a stale instance's unrelated settings change does not switch AI back on", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    // Another tab switches AI off, and this tab has not heard of it yet.
+    otherTabWrites({ expertMode: true, ai: { enabled: false, model: "claude-sonnet-5", consent: C, backgroundConsent: C } }, true);
+    expect(a.result.current.settings.ai.enabled).toBe(true); // control: this instance is stale
+
+    act(() => { a.result.current.setSettings((s) => ({ ...s, expertMode: false })); });
+    const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as { expertMode?: boolean };
+    expect(stored.expertMode).toBe(false); // control: the unrelated change was written
+    expect(persistedAi().enabled).toBe(false);
+  });
+
+  it("an ordinary write cannot switch AI on; the explicit switch-on persists it", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: { enabled: false, model: "claude-sonnet-5", consent: C } }));
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    act(() => { a.result.current.setSettings((s) => ({ ...s, ai: { ...s.ai, enabled: true } })); });
+    expect(persistedAi().enabled).toBe(false);
+    act(() => {
+      a.result.current.setSettings((s) => {
+        const next = { ...s, ai: { ...s.ai, enabled: true } };
+        persistAiConsentChange(next);
+        return next;
+      });
+    });
+    expect(persistedAi().enabled).toBe(true);
+  });
+
+  it("a page restored from the back/forward cache applies a switch-off made elsewhere while it was frozen", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    otherTabWrites({ expertMode: true, ai: { enabled: false, model: "claude-sonnet-5", consent: C, backgroundConsent: C } }, true);
+    act(() => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: false })); });
+    expect(a.result.current.settings.ai.enabled).toBe(true); // control: an ordinary page load is not a restore
+    act(() => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
+    expect(a.result.current.settings.ai.enabled).toBe(false);
+    expect(isInteractiveConsentLive()).toBe(false);
+  });
+
+  it("a page that becomes visible again applies a revocation made elsewhere", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    otherTabWrites({ expertMode: true, ai: { enabled: true, model: "claude-sonnet-5" } }, true);
+    const visibility = vi.spyOn(document, "visibilityState", "get");
+    visibility.mockReturnValue("hidden");
+    act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+    expect(a.result.current.settings.ai.consent).toBeDefined(); // control: hiding is not a re-read
+    visibility.mockReturnValue("visible");
+    act(() => { document.dispatchEvent(new Event("visibilitychange")); });
+    visibility.mockRestore();
+    expect(a.result.current.settings.ai.consent).toBeUndefined();
+    expect(isInteractiveConsentLive()).toBe(false);
+  });
+
   it("a local edit made just before another tab's revocation arrives is kept and saved", async () => {
     storeConsented();
     const a = renderHook(() => useSettings());
@@ -265,6 +324,33 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     expect(isInteractiveConsentLive()).toBe(false);
     expect(persistedAi().consent).toBeDefined(); // control: nothing was saved
     expect(notices.seen.n).toBe(0);
+  });
+
+  it("a revoke that could not be saved is saved by the next ordinary write once storage works again", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const spy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => revokeNotSaved(s)); });
+    spy.mockRestore(); // storage works again
+    expect(persistedAi().consent).toBeDefined(); // control: the revoke itself was not saved
+    act(() => { a.result.current.setSettings((s) => ({ ...s, expertMode: false })); });
+    expect(persistedAi().consent).toBeUndefined();
+    expect(persistedAi().backgroundConsent).toBeUndefined();
+    expect(persistedAi().enabled).toBe(true); // control: a revoke leaves the switch as it was
+  });
+
+  it("while writes fail, a re-read does not undo a revoke that could not be saved", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const spy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => revokeNotSaved(s)); });
+    act(() => { window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })); });
+    spy.mockRestore();
+    expect(persistedAi().consent).toBeDefined(); // control: storage still holds the consent
+    expect(a.result.current.settings.ai.consent).toBeUndefined();
+    expect(isInteractiveConsentLive()).toBe(false);
   });
 
   it("an ordinary write that fails still raises the generic notice", async () => {

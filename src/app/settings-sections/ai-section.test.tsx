@@ -626,6 +626,8 @@ describe("AiSection", () => {
     fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(onChange.mock.calls.at(-1)![0].ai.enabled).toBe(true);
+    // AI-01 — switching on widens AI permission, so the action itself persists it (an ordinary write cannot).
+    expect((JSON.parse(localStorage.getItem(SETTINGS_KEY)!) as Settings).ai.enabled).toBe(true);
   });
 
   it("Revoke clears both consent records and leaves the API key", () => {
@@ -648,7 +650,7 @@ describe("AiSection", () => {
     expect(ai.apiKey).toBe("sk-keep");
   });
 
-  it("Revoke and Accept persist the consent records at once (AI-01: other writes keep the persisted ones)", () => {
+  it("Revoke and Accept persist the consent records at once (AI-01: other writes may only narrow them)", () => {
     const granted = {
       ...baseSettings,
       ai: { ...baseSettings.ai, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) },
@@ -821,6 +823,16 @@ describe("AiSection — a consent change that cannot be saved (AI-01)", () => {
     expect(screen.getByLabelText(t("en-US", "aiEnable"))).not.toBeChecked();
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiConsentAcceptNotSaved"));
+    expect(showToastAction).not.toHaveBeenCalled();
+  });
+
+  it("a switch-on that cannot be saved leaves AI off, and says so", () => {
+    const { onChange, showToast, showToastAction } = renderWith({ ...baseSettings, ai: { ...baseSettings.ai, consent: C } });
+    failSettingsWrites();
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(t("en-US", "aiEnable"))).not.toBeChecked();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiEnableNotSaved"));
     expect(showToastAction).not.toHaveBeenCalled();
   });
 

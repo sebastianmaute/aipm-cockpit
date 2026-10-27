@@ -75,7 +75,9 @@ export function isOnlyStorageAiChange(base: Settings | null, next: Settings, fro
  *  commit with any other AI slice raises it as usual, and any successful write clears the note. (A later edit
  *  that keeps the slice cannot reach that notice before a successful write: the revoke's commit already put
  *  every instance on the failing edge, and a new instance loads a slice of its own.) A failed ACCEPT notes
- *  nothing: it is not committed, so no generic notice follows it to suppress. */
+ *  nothing: it is not committed, so no generic notice follows it to suppress.
+ *  It only steers that notice. Saving the revoke later needs nothing from it: the next ordinary write that
+ *  succeeds persists the withdrawal, because a withdrawal narrows (`narrowOnlyAiState`). */
 let reportedRevokeAi: Settings["ai"] | null = null;
 
 /** AI-01 — Settings → AI reported that this revoke could not be saved; call it just before committing it. */
@@ -83,13 +85,43 @@ export function noteConsentRevokeNotSaved(revoked: Settings): void {
   reportedRevokeAi = revoked.ai;
 }
 
-/** Test seam: forget a noted revoke. */
+/** Test seam: forget a noted revoke and a failed write. */
 export function __resetConsentFailureForTests(): void {
   reportedRevokeAi = null;
+  lastSettingsWriteFailed = false;
 }
 
-/** Where `writeSettings` takes the two AI consent records from. */
-export type ConsentSource = "persisted" | "settings";
+/** How `writeSettings` writes the AI switch and the two consent records: `"narrow-only"` (every ordinary
+ *  write) or `"as-given"` (only `persistAiConsentChange`, the explicit accept / switch-on / revoke). */
+export type AiPermissionWrite = "narrow-only" | "as-given";
+
+/** The AI switch and consent records of `ai`, taken only where they NARROW `base` (the switch off, a consent
+ *  record absent); everywhere else `base`'s. */
+function narrowOnly(ai: AiConfig, base: PersistedAiState): Pick<AiConfig, "enabled" | "consent" | "backgroundConsent"> {
+  return {
+    // `ai.enabled` itself when it is not "on" (false, or unset), so an unset switch stays unset.
+    enabled: ai.enabled === true ? base.enabled : ai.enabled,
+    consent: ai.consent === undefined ? undefined : base.consent,
+    backgroundConsent: ai.backgroundConsent === undefined ? undefined : base.backgroundConsent,
+  };
+}
+
+/** AI-01 — the AI permission an ORDINARY write persists: from `ai` only where it NARROWS what is persisted
+ *  (the switch off, a consent record absent), otherwise what is persisted now. So an instance holding an
+ *  older copy (another tab, a popout, a page restored from the back/forward cache, an instance whose load
+ *  finished after a change elsewhere) can never write a withdrawn consent or a switch-off back to "on", and a
+ *  withdrawal that could not be saved at the time is saved by the next ordinary write that succeeds.
+ *  ★ The cost is the opposite direction, deliberately: an instance that missed a WIDENING (an accept or a
+ *  switch-on elsewhere) narrows it again on its next write. That fails closed, and the `storage`, `pageshow`
+ *  and `visibilitychange` re-reads in `useSettings` keep the window small. */
+export function narrowOnlyAiState(ai: AiConfig): Pick<AiConfig, "enabled" | "consent" | "backgroundConsent"> {
+  return narrowOnly(ai, readPersistedAiState());
+}
+
+/** Whether the last settings write on this page failed (`writeSettings`; a sealed-for-reload skip leaves it).
+ *  While it is true, what this page holds may narrow AI permission further than storage does, because that
+ *  narrowing could not be saved — so the re-reads in `useSettings` then only narrow too. */
+let lastSettingsWriteFailed = false;
 
 /** Synchronously write settings to localStorage WITH the at-rest secrets
  *  blanked. Secret ciphertext is persisted separately (secrets-store) on change;
@@ -97,20 +129,19 @@ export type ConsentSource = "persisted" | "settings";
  *  Returns true on success, false when the write failed (quota / storage
  *  disabled) so the caller can surface it — a swallowed failure silently
  *  reverts settings on the next reload.
- *  ★★ AI-01 — the two consent records (`ai.consent`, `ai.backgroundConsent`) are written from `settings`
- *  ONLY when `consentSource` is `"settings"`, which only `persistAiConsentChange` passes (the accept and
- *  revoke actions in Settings → AI). Every other write keeps the records already persisted, so an instance
- *  holding an older copy (another tab, a popout, an instance whose load finished after a revoke) can never
- *  write a withdrawn consent back. */
-export function writeSettings(settings: Settings, consentSource: ConsentSource = "persisted"): boolean {
+ *  ★★ AI-01 — the AI switch and the two consent records (`ai.enabled`, `ai.consent`,
+ *  `ai.backgroundConsent`) are written from `settings` as they are ONLY with `"as-given"`, which only
+ *  `persistAiConsentChange` passes. Every other write may only narrow them (`narrowOnlyAiState`). */
+export function writeSettings(settings: Settings, aiPermission: AiPermissionWrite = "narrow-only"): boolean {
   if (settingsSealedForReload()) return true; // §740 — sealed for a reload: skipped, not failed
   const turso = settings.integrations?.turso;
-  const consents = consentSource === "settings"
-    ? { consent: settings.ai.consent, backgroundConsent: settings.ai.backgroundConsent }
-    : (({ consent, backgroundConsent }) => ({ consent, backgroundConsent }))(readPersistedAiState());
+  // A settings object without an AI slice (a partial one some callers' tests pass) says nothing about AI
+  // permission, so the persisted switch and records are kept as they are.
+  const permission = aiPermission === "as-given" ? {}
+    : settings.ai ? narrowOnlyAiState(settings.ai) : readPersistedAiState();
   const persistable: Settings = {
     ...settings,
-    ai: { ...settings.ai, ...consents, apiKey: "" },
+    ai: { ...settings.ai, ...permission, apiKey: "" },
     integrations: turso
       ? { ...settings.integrations, turso: { ...turso, authToken: "" } }
       : settings.integrations,
@@ -121,8 +152,10 @@ export function writeSettings(settings: Settings, consentSource: ConsentSource =
   try {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
     reportedRevokeAi = null;
+    lastSettingsWriteFailed = false;
     return true;
   } catch (err) {
+    lastSettingsWriteFailed = true;
     // quota exceeded / storage disabled — keep in-memory settings, but log +
     // signal so the caller can warn the user (settings silently revert on the
     // next reload otherwise).
@@ -137,14 +170,15 @@ export function writeSettings(settings: Settings, consentSource: ConsentSource =
  *  + WebCrypto) and normally takes well under a second. */
 export const SECRET_MERGE_TIMEOUT_MS = 5_000;
 
-/** AI-01 — persist an accept or a revoke of an AI consent at once, consent records included. The one caller
- *  of `writeSettings` with `consentSource: "settings"`. Call it with the settings the action commits, before
+/** AI-01 — persist an accept or a revoke of an AI consent, or switching AI on, at once: the AI switch and both
+ *  consent records exactly as `settings` holds them. The one caller of `writeSettings` with `"as-given"`, and
+ *  so the only way AI permission is WIDENED in storage. Call it with the settings the action commits, before
  *  committing them. Safe mode writes nothing (its settings are the defaults, held in memory only).
- *  Returns false when the write failed: the caller owns the message (an accept is then not committed; a
- *  revoke still is, in memory only). */
+ *  Returns false when the write failed: the caller owns the message (an accept or a switch-on is then not
+ *  committed; a revoke still is, in memory only). */
 export function persistAiConsentChange(settings: Settings): boolean {
   if (isSafeMode()) return true;
-  return writeSettings(settings, "settings");
+  return writeSettings(settings, "as-given");
 }
 
 /** `settings` with the AI switch and consent records replaced by the persisted ones. */
@@ -373,18 +407,42 @@ export function useSettings(): {
   // ★★ A FUNCTIONAL update over the latest state, never one built from `committedRef`: a local edit made just
   //   before the event (committed or queued, and not yet in `committedRef`) is kept, and because that commit
   //   then differs in more than the three AI fields, it is still written and broadcast.
+  // ★ The same re-read runs when a page comes back from the back/forward cache (`pageshow` with `persisted`),
+  //   which receives no `storage` event for what changed while it was frozen, and when the page becomes
+  //   visible again.
   const fromStorageRef = useRef<PersistedAiState | null>(null);
   useEffect(() => {
     if (isSafeMode()) return;
+    const applyPersistedAiState = () => {
+      const fresh = readPersistedAiState();
+      fromStorageRef.current = fresh;
+      setSettings((prev) => {
+        // ★★ While writes fail, this page may hold a narrowing storage never got (a revoke or switch-off that
+        //   could not be saved); taking storage's wider value would undo it here, so only narrow then.
+        const ai = { ...prev.ai, ...(lastSettingsWriteFailed ? narrowOnly(prev.ai, fresh) : fresh) };
+        const taken = { enabled: ai.enabled === true, consent: ai.consent, backgroundConsent: ai.backgroundConsent };
+        return sameAiState(prev.ai, taken) ? prev : { ...prev, ai };
+      });
+    };
     const onStorage = (e: StorageEvent) => {
       // A null key is a `clear()` of the whole storage area.
       if (e.key !== null && e.key !== SETTINGS_KEY) return;
-      const fresh = readPersistedAiState();
-      fromStorageRef.current = fresh;
-      setSettings((prev) => (sameAiState(prev.ai, fresh) ? prev : { ...prev, ai: { ...prev.ai, ...fresh } }));
+      applyPersistedAiState();
+    };
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) applyPersistedAiState();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") applyPersistedAiState();
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   // After a LOCAL change commits, notify every other live instance. Skips

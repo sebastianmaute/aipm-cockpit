@@ -1653,6 +1653,7 @@ const enUS = {
   aiConsentRevoke: "Revoke consent",
   // AI-01 — an accept or a revoke that could not be written to this browser's storage (Settings → AI).
   aiConsentAcceptNotSaved: "Your consent could not be saved because this browser's storage is full or unavailable, so AI stays off. Free up storage or allow it for this site, then try again.",
+  aiEnableNotSaved: "AI could not be switched on because this browser's storage is full or unavailable, so it stays off. Free up storage or allow it for this site, then try again.",
   aiBackgroundConsentAcceptNotSaved: "Your consent to running AI in the background could not be saved because this browser's storage is full or unavailable, so AI does not run in the background. Free up storage or allow it for this site, then try again.",
   aiConsentRevokeNotSaved: "Your withdrawal applies here now, but it could not be saved because this browser's storage is full or unavailable. Until it is saved, a reload undoes it and it does not reach other tabs or windows.",
   aiConsentRevokeRetry: "Save again",

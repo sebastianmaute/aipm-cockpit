@@ -1546,6 +1546,7 @@ export const de: Record<TranslationKey, string> = {
   aiConsentRevoke: "Einwilligung widerrufen",
   // AI-01 — an accept or a revoke that could not be written to this browser's storage (Settings → AI).
   aiConsentAcceptNotSaved: "Ihre Einwilligung konnte nicht gespeichert werden, weil der Speicher dieses Browsers voll oder nicht verfügbar ist. Die KI bleibt daher aus. Geben Sie Speicher frei oder erlauben Sie ihn für diese Website und versuchen Sie es dann erneut.",
+  aiEnableNotSaved: "Die KI konnte nicht eingeschaltet werden, weil der Speicher dieses Browsers voll oder nicht verfügbar ist, und bleibt daher aus. Geben Sie Speicher frei oder erlauben Sie ihn für diese Website und versuchen Sie es dann erneut.",
   aiBackgroundConsentAcceptNotSaved: "Ihre Einwilligung, dass die KI im Hintergrund läuft, konnte nicht gespeichert werden, weil der Speicher dieses Browsers voll oder nicht verfügbar ist. Die KI läuft daher nicht im Hintergrund. Geben Sie Speicher frei oder erlauben Sie ihn für diese Website und versuchen Sie es dann erneut.",
   aiConsentRevokeNotSaved: "Ihr Widerruf gilt hier ab sofort, konnte aber nicht gespeichert werden, weil der Speicher dieses Browsers voll oder nicht verfügbar ist. Solange er nicht gespeichert ist, macht ein Neuladen ihn rückgängig und er erreicht keine anderen Tabs oder Fenster.",
   aiConsentRevokeRetry: "Erneut speichern",
