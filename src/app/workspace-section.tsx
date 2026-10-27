@@ -259,7 +259,7 @@ export function WorkspaceSection({
   getScopeEpoch,
   isSwapInFlight,
 }: WorkspaceSectionProps) {
-  const { settings, setSettings, lang } = useSettings();
+  const { settings, setSettings, hydrated, lang } = useSettings();
   // §717 — re-render when a passphrase key is unlocked (or cleared) in the chat: the AI gates below read it
   // through `liveAiKey`, and a panel already on screen would otherwise keep showing AI as unavailable.
   useSessionAiKey();
@@ -504,7 +504,8 @@ export function WorkspaceSection({
             onChangeModel={(model) => setSettings((s) => ({ ...s, ai: { ...s.ai, model } }))}
             guides={guides}
             guidesReady={guidesReady}
-            chatSeed={pendingChatSeed}
+            // ★ Held until the settings hydrate: a seed applied to the DEFAULT config (no key, switch off) only prefills.
+            chatSeed={hydrated ? pendingChatSeed : null}
             onChatSeedConsumed={clearChatSeed}
             projectId={currentProjectId ?? "default"}
             // §207: image bytes for the chat card's document download, under the SAME
