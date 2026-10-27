@@ -118,6 +118,18 @@ describe("ScheduledJobsSection", () => {
     );
   });
 
+  it("a toggle left on from before can be switched off without the background consent (AI-01)", () => {
+    const onChange = vi.fn();
+    setup(withKey({ scheduledJobs: true, backgroundConsent: undefined }), onChange);
+    const toggle = screen.getByLabelText(t("en-US", "scheduledJobsToggle")) as HTMLInputElement;
+    expect(toggle).toBeEnabled();
+    expect(toggle.checked).toBe(true);
+    expect(toggle).not.toHaveAttribute("aria-describedby");
+    expect(screen.getByText(t("en-US", "aiBackgroundConsentNeeded"))).toBeInTheDocument(); // why it will not run
+    fireEvent.click(toggle);
+    expect((onChange.mock.calls.at(-1)?.[0] as Settings).ai.scheduledJobs).toBe(false);
+  });
+
   it("enables the toggle and shows no hint with the background consent current (AI-10)", () => {
     setup(withKey({ scheduledJobs: false }));
     expect(screen.getByLabelText(t("en-US", "scheduledJobsToggle"))).toBeEnabled();

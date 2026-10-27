@@ -137,8 +137,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
             <Checkbox
               aria-label={t(lang, "scheduledJobsToggle")}
               checked={enabled}
-              disabled={!hasBackgroundConsent}
-              aria-describedby={hasBackgroundConsent ? undefined : backgroundHintId}
+              // AI-01 — only switching ON needs the background consent: a job left on from before can always be switched off.
+              disabled={!hasBackgroundConsent && !enabled}
+              aria-describedby={!hasBackgroundConsent && !enabled ? backgroundHintId : undefined}
               onChange={toggleEnabled}
             />
             <span className="text-xs text-foreground">{t(lang, "scheduledJobsToggle")}</span>

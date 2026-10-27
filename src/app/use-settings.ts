@@ -2,7 +2,7 @@
 
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
-import { defaultSettings, sanitizeIntegrations, sanitizeOutlookCalendar, sanitizeSelfResourceId, type Settings, type NextActionsLearningConfig } from "./settings-types";
+import { defaultSettings, sanitizeIntegrations, sanitizeOutlookCalendar, sanitizeSelfResourceId, type AiConfig, type Settings, type NextActionsLearningConfig } from "./settings-types";
 import { defaultTimelogConfig } from "./timelog-types";
 import { sanitizeDigestConfig } from "./digest/digest-config";
 import { defaultNotificationsConfig, resolveSnapshotSettings, resolveNextActionsConfig, sanitizeAiConfig, sanitizeExportConfig, sanitizeBranding } from "./settings-types";
@@ -21,22 +21,58 @@ import { dropLegacyActivityLog } from "./activity-log";
 import { sanitizeJiraExtraProjects } from "./jira-projects";
 import { logDiag } from "./diagnostics";
 import { settingsSealedForReload } from "./settings-reload-seal";
-import { publishAiConsentState } from "./ai-consent";
+import { type AiConsent, publishAiConsentState } from "./ai-consent";
 
 export const SETTINGS_KEY = "aipm-cockpit:settings";
+
+/** The AI fields a revocation or a switch-off changes: the master switch and the two consent records. */
+export type PersistedAiState = { enabled: boolean; consent: AiConsent | undefined; backgroundConsent: AiConsent | undefined };
+
+/** The AI switch and consent records as they are persisted NOW, through the load sanitizer. No settings, an
+ *  unreadable blob or no storage read as switched off with no consent. */
+export function readPersistedAiState(): PersistedAiState {
+  let ai: AiConfig;
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    ai = sanitizeAiConfig(isPlainObject(parsed) && isPlainObject(parsed.ai) ? parsed.ai : {});
+  } catch {
+    ai = sanitizeAiConfig({});
+  }
+  return { enabled: ai.enabled === true, consent: ai.consent, backgroundConsent: ai.backgroundConsent };
+}
+
+function sameConsent(a: AiConsent | undefined, b: AiConsent | undefined): boolean {
+  return a?.acceptedAt === b?.acceptedAt && a?.disclosureVersion === b?.disclosureVersion;
+}
+
+function sameAiState(ai: AiConfig, p: PersistedAiState): boolean {
+  return (ai.enabled === true) === p.enabled && sameConsent(ai.consent, p.consent) && sameConsent(ai.backgroundConsent, p.backgroundConsent);
+}
+
+/** Where `writeSettings` takes the two AI consent records from. */
+export type ConsentSource = "persisted" | "settings";
 
 /** Synchronously write settings to localStorage WITH the at-rest secrets
  *  blanked. Secret ciphertext is persisted separately (secrets-store) on change;
  *  see the useSettings mount-load for the decrypt+merge back into memory.
  *  Returns true on success, false when the write failed (quota / storage
  *  disabled) so the caller can surface it — a swallowed failure silently
- *  reverts settings on the next reload. */
-export function writeSettings(settings: Settings): boolean {
+ *  reverts settings on the next reload.
+ *  ★★ AI-01 — the two consent records (`ai.consent`, `ai.backgroundConsent`) are written from `settings`
+ *  ONLY when `consentSource` is `"settings"`, which only `persistAiConsentChange` passes (the accept and
+ *  revoke actions in Settings → AI). Every other write keeps the records already persisted, so an instance
+ *  holding an older copy (another tab, a popout, an instance whose load finished after a revoke) can never
+ *  write a withdrawn consent back. */
+export function writeSettings(settings: Settings, consentSource: ConsentSource = "persisted"): boolean {
   if (settingsSealedForReload()) return true; // §740 — sealed for a reload: skipped, not failed
   const turso = settings.integrations?.turso;
+  const consents = consentSource === "settings"
+    ? { consent: settings.ai.consent, backgroundConsent: settings.ai.backgroundConsent }
+    : (({ consent, backgroundConsent }) => ({ consent, backgroundConsent }))(readPersistedAiState());
   const persistable: Settings = {
     ...settings,
-    ai: { ...settings.ai, apiKey: "" },
+    ai: { ...settings.ai, ...consents, apiKey: "" },
     integrations: turso
       ? { ...settings.integrations, turso: { ...turso, authToken: "" } }
       : settings.integrations,
@@ -61,6 +97,19 @@ export function writeSettings(settings: Settings): boolean {
  *  `hydrated` is false, so a merge that never settles would lock the app. The merge is local (IndexedDB
  *  + WebCrypto) and normally takes well under a second. */
 export const SECRET_MERGE_TIMEOUT_MS = 5_000;
+
+/** AI-01 — persist an accept or a revoke of an AI consent at once, consent records included. The one caller
+ *  of `writeSettings` with `consentSource: "settings"`. Call it with the settings the action commits, before
+ *  committing them. Safe mode writes nothing (its settings are the defaults, held in memory only). */
+export function persistAiConsentChange(settings: Settings): boolean {
+  if (isSafeMode()) return true;
+  return writeSettings(settings, "settings");
+}
+
+/** `settings` with the AI switch and consent records replaced by the persisted ones. */
+function withPersistedAiState(settings: Settings): Settings {
+  return { ...settings, ai: { ...settings.ai, ...readPersistedAiState() } };
+}
 
 /** Merge device-wrapped secrets into an in-memory Settings (passphrase-wrapped
  *  ones stay blank until an explicit unlock). Reads the secret store. */
@@ -272,6 +321,29 @@ export function useSettings(): {
       settingsListeners.delete(listener);
       listenerRef.current = null;
     };
+  }, []);
+
+  // AI-01 — another tab or popout persisted settings: take its AI switch and consent records at once, so a
+  // revocation or a switch-off there stops AI here too (the publish effect below then updates the send-time
+  // flags). Only those three fields are taken; the rest of this instance's settings is left alone. The value
+  // came FROM storage, so it is neither written back (`fromStorageRef`) nor broadcast to this tab's other
+  // instances (`lastSyncedRef`): each of them gets the same `storage` event.
+  const fromStorageRef = useRef<Settings | null>(null);
+  useEffect(() => {
+    if (isSafeMode()) return;
+    const onStorage = (e: StorageEvent) => {
+      // A null key is a `clear()` of the whole storage area.
+      if (e.key !== null && e.key !== SETTINGS_KEY) return;
+      const fresh = readPersistedAiState();
+      const prev = committedRef.current;
+      if (sameAiState(prev.ai, fresh)) return;
+      const applied: Settings = { ...prev, ai: { ...prev.ai, ...fresh } };
+      lastSyncedRef.current = applied;
+      fromStorageRef.current = applied;
+      setSettings(applied);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   // After a LOCAL change commits, notify every other live instance. Skips
@@ -508,7 +580,10 @@ export function useSettings(): {
             ]);
             clearTimeout(mergeTimer);
             if (mergeOutcome === null) logDiag("warn", "settings.secretMergeTimedOut", { ms: SECRET_MERGE_TIMEOUT_MS });
-            const committed = mergeOutcome ?? merged;
+            // ★★ AI-01 — the switch and consent records are read AGAIN here, not taken from the mount-time
+            //   parse: a revoke or a switch-off made by another instance while this merge ran is already
+            //   persisted, and this instance must not publish (or hold) the copy it read before it.
+            const committed = withPersistedAiState(mergeOutcome ?? merged);
             try {
               if (!cancelled) {
                 // Load applies locally only — every instance reads the same
@@ -582,6 +657,7 @@ export function useSettings(): {
   const settingsWriteFailingRef = useRef(false);
   useEffect(() => {
     if (!hydrated || isSafeMode()) return;
+    if (fromStorageRef.current === settings) return; // AI-01 — just read from storage; nothing to write
     const ok = writeSettings(settings);
     // Notify once on the healthy→failing edge (useSettings has no toast
     // context, so bridge to whoever does via a window event). writeSettings

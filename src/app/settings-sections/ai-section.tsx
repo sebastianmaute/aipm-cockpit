@@ -5,6 +5,7 @@ import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { isConsentCurrent, newConsent } from "../ai-consent";
+import { persistAiConsentChange } from "../use-settings";
 import { AiConsentDialog } from "../ai-consent-dialog";
 import { resolveAiPolicy } from "../ai-policy";
 import { TextButton } from "../text-button";
@@ -105,6 +106,15 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const apiKeyNoteId = useId();
   const modelHintId = useId();
   const recBackgroundHintId = useId();
+  // AI-01 — an accept or revoke is persisted at once, consent records included (`persistAiConsentChange`); every
+  // other settings write keeps the persisted records, so a stale copy elsewhere cannot write a withdrawn one back.
+  const commitConsent = (next: Settings) => {
+    persistAiConsentChange(next);
+    onChange(next);
+  };
+  const backgroundOk = isConsentCurrent(settings.ai.backgroundConsent);
+  // AI-01 — only switching ON needs the background consent: a toggle left on from before can always be switched off.
+  const recToggleLocked = !backgroundOk && settings.ai.insightRecommendations !== true;
   const confirm = useConfirm();
   const showToast = useToastContext();
   const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
@@ -311,7 +321,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           onAccept={() => {
             setConsentOpen(false);
             notifyEnable();
-            onChange({ ...settings, ai: { ...settings.ai, enabled: true, consent: newConsent(new Date()) } });
+            commitConsent({ ...settings, ai: { ...settings.ai, enabled: true, consent: newConsent(new Date()) } });
           }}
         />
       )}
@@ -438,7 +448,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           <TextButton
             tone="danger"
             onClick={() =>
-              onChange({
+              commitConsent({
                 ...settings,
                 ai: { ...settings.ai, consent: undefined, backgroundConsent: undefined },
               })
@@ -649,7 +659,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
                 setBackgroundConsentOpen(true);
                 return;
               }
-              onChange({ ...settings, ai: { ...settings.ai, backgroundConsent: undefined } });
+              commitConsent({ ...settings, ai: { ...settings.ai, backgroundConsent: undefined } });
             }}
           />
           <span className="text-xs text-foreground">{t(lang, "aiBackgroundConsentToggle")}</span>
@@ -663,7 +673,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
             onCancel={() => setBackgroundConsentOpen(false)}
             onAccept={() => {
               setBackgroundConsentOpen(false);
-              onChange({ ...settings, ai: { ...settings.ai, backgroundConsent: newConsent(new Date()) } });
+              commitConsent({ ...settings, ai: { ...settings.ai, backgroundConsent: newConsent(new Date()) } });
             }}
           />
         )}
@@ -672,8 +682,8 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         <label className="mt-3 flex items-center gap-2">
           <Checkbox
             aria-label={t(lang, "aiInsightRecommendations")}
-            disabled={!isConsentCurrent(settings.ai.backgroundConsent)}
-            aria-describedby={isConsentCurrent(settings.ai.backgroundConsent) ? undefined : recBackgroundHintId}
+            disabled={recToggleLocked}
+            aria-describedby={recToggleLocked ? recBackgroundHintId : undefined}
             checked={settings.ai.insightRecommendations === true}
             onChange={() =>
               onChange({
@@ -692,7 +702,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         <FieldHint className="mt-1">
           {t(lang, "aiInsightRecommendationsDesc")}
         </FieldHint>
-        {!isConsentCurrent(settings.ai.backgroundConsent) && (
+        {!backgroundOk && (
           <FieldHint id={recBackgroundHintId} className="mt-1">{t(lang, "aiBackgroundConsentNeeded")}</FieldHint>
         )}
 

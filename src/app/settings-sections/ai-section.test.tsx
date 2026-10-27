@@ -20,6 +20,7 @@ import {
 const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { t } from "../i18n";
 import { newConsent } from "../ai-consent";
+import { SETTINGS_KEY } from "../use-settings";
 import { getSessionAiKey, setSessionAiKey } from "../session-ai-key";
 import { readDeviceSecret, isPassphraseLocked, loadSealed, saveSealed } from "../secrets-store";
 import * as secrets from "../secrets";
@@ -647,6 +648,27 @@ describe("AiSection", () => {
     expect(ai.apiKey).toBe("sk-keep");
   });
 
+  it("Revoke and Accept persist the consent records at once (AI-01: other writes keep the persisted ones)", () => {
+    const granted = {
+      ...baseSettings,
+      ai: { ...baseSettings.ai, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) },
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: granted.ai }));
+    const { unmount } = render(<AiSection lang="en-US" settings={granted} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentRevoke") }));
+    const revoked = (JSON.parse(localStorage.getItem(SETTINGS_KEY)!) as Settings).ai;
+    expect(revoked.consent).toBeUndefined();
+    expect(revoked.backgroundConsent).toBeUndefined();
+    expect(revoked.apiKey).toBe(""); // the at-rest key is blanked, as on every settings write
+    unmount();
+    render(<AiSection lang="en-US" settings={{ ...baseSettings }} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") }));
+    const accepted = (JSON.parse(localStorage.getItem(SETTINGS_KEY)!) as Settings).ai;
+    expect(accepted.enabled).toBe(true);
+    expect(accepted.consent?.disclosureVersion).toBe(newConsent(new Date(0)).disclosureVersion);
+  });
+
   describe("background consent (AI-10)", () => {
     const interactiveOnly = {
       ...baseSettings,
@@ -659,6 +681,19 @@ describe("AiSection", () => {
       expect(bgToggle().checked).toBe(false);
       expect(screen.getByLabelText(t("en-US", "aiInsightRecommendations"))).toBeDisabled();
       expect(screen.getByText(t("en-US", "aiBackgroundConsentNeeded"))).toBeInTheDocument();
+    });
+
+    it("a recommendations toggle left on from before can be switched off without the background consent (AI-01)", () => {
+      const onChange = vi.fn();
+      const leftOn = { ...interactiveOnly, ai: { ...interactiveOnly.ai, insightRecommendations: true } };
+      render(<AiSection lang="en-US" settings={leftOn} onChange={onChange} />);
+      const toggle = screen.getByLabelText(t("en-US", "aiInsightRecommendations")) as HTMLInputElement;
+      expect(toggle).toBeEnabled();
+      expect(toggle.checked).toBe(true);
+      expect(toggle).not.toHaveAttribute("aria-describedby");
+      expect(screen.getByText(t("en-US", "aiBackgroundConsentNeeded"))).toBeInTheDocument(); // why it will not run
+      fireEvent.click(toggle);
+      expect(onChange.mock.calls.at(-1)![0].ai.insightRecommendations).toBe(false);
     });
 
     it("links the reason to the disabled insight-recommendations toggle as its accessible description", () => {
