@@ -104,7 +104,8 @@ export function newThreadId(): string {
 // AI-08 / AI-05 — a thread saved before the tool results were minimised still carries, in its
 // stored API history, tool results with e-mail addresses and an absence's real type and note. Loading it would
 // send them to the model again with the next message, so they are removed on load (`rowsToThreads`). Only
-// `tool_result` blocks are touched: the user's and the assistant's own text stays as written.
+// `tool_result` blocks are touched: the user's and the assistant's own text stays as written, and so does the
+// result of a `get_contact_email` call, the one tool built to return an address.
 
 /** The e-mail fields of the pre-upgrade tool results: task `assigneeEmail`, stakeholder `email`, resource
  *  `email`/`emails`, RAID `ownerEmail`, an escalation's `toEmail`, absence `assigneeEmail`. */
@@ -155,15 +156,33 @@ export function minimiseToolResultText(text: string): string {
   return JSON.stringify(minimised) === JSON.stringify(parsed) ? text : JSON.stringify(minimised, null, 2);
 }
 
-/** `history` with every stored `tool_result` minimised (`minimiseToolResultText`); other blocks and string
- *  messages are returned as they are. Never mutates its input. */
+/** The one tool whose result IS an address (AI-08): what it returned was asked for, one person at a time. */
+const KEPT_RESULT_TOOL = "get_contact_email";
+
+/** The ids of every `tool_use` block in `history` that called `KEPT_RESULT_TOOL`. */
+function keptToolUseIds(history: readonly ApiMessage[]): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const msg of history) {
+    if (!Array.isArray(msg.content)) continue;
+    for (const block of msg.content) {
+      if (block && block.type === "tool_use" && block.name === KEPT_RESULT_TOOL) ids.add(block.id);
+    }
+  }
+  return ids;
+}
+
+/** `history` with every stored `tool_result` minimised (`minimiseToolResultText`), except the result of a
+ *  `get_contact_email` call — matched by its `tool_use_id` to a `tool_use` of that name in the same history —
+ *  which keeps the address it was called for. Other blocks and string messages are returned as they are. Never
+ *  mutates its input. */
 export function minimiseStoredToolResults(history: readonly ApiMessage[]): ApiMessage[] {
+  const kept = keptToolUseIds(history);
   return history.map((msg): ApiMessage => {
     if (typeof msg.content === "string" || !Array.isArray(msg.content)) return msg;
     return {
       ...msg,
       content: msg.content.map((block) =>
-        block && block.type === "tool_result" && typeof block.content === "string"
+        block && block.type === "tool_result" && typeof block.content === "string" && !kept.has(block.tool_use_id)
           ? { ...block, content: minimiseToolResultText(block.content) }
           : block),
     };

@@ -123,3 +123,46 @@ describe("minimiseToolResultText", () => {
     expect(JSON.stringify(history)).toBe(before);
   });
 });
+
+// AI-08 — `get_contact_email` is the one tool built to return an address, one person at a time, when asked: its
+// stored result keeps it on load, matched by the `tool_use_id` to a `tool_use` of that name in the same history.
+describe("minimiseStoredToolResults — a looked-up address is kept (AI-08)", () => {
+  const LOOKED_UP = pretty({ id: 3, email: "cy@example.com", emails: ["cy2@example.com"] });
+  function historyWithLookup(): ApiMessage[] {
+    return [
+      { role: "user", content: "What is Cy's address?" },
+      {
+        role: "assistant",
+        content: [
+          { type: "tool_use", id: "c1", name: "get_contact_email", input: { kind: "resource", id: 3 } },
+          { type: "tool_use", id: "c2", name: "get_task", input: { id: 1 } },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          { type: "tool_result", tool_use_id: "c1", content: LOOKED_UP },
+          { type: "tool_result", tool_use_id: "c2", content: pretty(OLD_TASK) },
+        ],
+      },
+    ] as ApiMessage[];
+  }
+
+  it("keeps a get_contact_email result as stored", () => {
+    const [, , carrier] = minimiseStoredToolResults(historyWithLookup());
+    expect(toolResults([carrier])[0]).toBe(LOOKED_UP);
+  });
+
+  it("still strips every other tool result in the same history", () => {
+    const [, , carrier] = minimiseStoredToolResults(historyWithLookup());
+    expect(JSON.parse(toolResults([carrier])[1])).toEqual({ id: 1, title: "Deck", assignee: "Ada", version: "t1" });
+  });
+
+  it("a result whose tool_use_id names no get_contact_email call is stripped, address-shaped or not", () => {
+    const history = historyWithLookup();
+    const carrier = history[2].content as { type: string; tool_use_id?: string }[];
+    carrier[0].tool_use_id = "c9"; // answers no call in this history
+    const [, , out] = minimiseStoredToolResults(history);
+    expect(JSON.parse(toolResults([out])[0])).toEqual({ id: 3 });
+  });
+});
