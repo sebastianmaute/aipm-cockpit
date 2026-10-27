@@ -19,7 +19,7 @@ vi.mock("./secrets-store", async (importOriginal) => {
   };
 });
 
-import { persistAiConsentChange, SETTINGS_KEY, useSettings } from "./use-settings";
+import { __settingsBroadcastDeliveriesForTests, persistAiConsentChange, SETTINGS_KEY, useSettings } from "./use-settings";
 import { assertBackgroundConsentLive, isInteractiveConsentLive, newConsent, publishAiConsentState } from "./ai-consent";
 import type { Settings } from "./settings-types";
 
@@ -159,6 +159,46 @@ describe("useSettings — revocation reaches every instance (AI-01)", () => {
     expect(stored.expertMode).toBe(false); // control: the unrelated change was written
     expect(persistedAi().consent).toBeUndefined();
     expect(persistedAi().backgroundConsent).toBeUndefined();
+  });
+
+  it("a local edit made just before another tab's revocation arrives is kept and saved", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const b = renderHook(() => useSettings()); // a second instance in this tab
+    await waitFor(() => expect(b.result.current.hydrated).toBe(true));
+    // Another tab revokes; its `storage` event lands right after this tab's edit, before that edit's effects.
+    otherTabWrites({ expertMode: true, ai: { enabled: true, model: "claude-sonnet-5" } }, true);
+    act(() => {
+      a.result.current.setSettings((s) => ({ ...s, expertMode: false }));
+      window.dispatchEvent(new StorageEvent("storage", { key: SETTINGS_KEY }));
+    });
+    expect(a.result.current.settings.expertMode).toBe(false); // the local edit is kept…
+    expect(a.result.current.settings.ai.consent).toBeUndefined(); // …and the revocation applied with it
+    expect(isInteractiveConsentLive()).toBe(false);
+    const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as { expertMode?: boolean };
+    expect(stored.expertMode).toBe(false); // …and saved
+    expect(persistedAi().consent).toBeUndefined();
+    expect(persistedAi().backgroundConsent).toBeUndefined();
+    expect(b.result.current.settings.expertMode).toBe(false); // …and sent to this tab's other instance
+  });
+
+  it("a revocation from another tab after this tab's edit was saved is neither written back nor broadcast", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const b = renderHook(() => useSettings());
+    await waitFor(() => expect(b.result.current.hydrated).toBe(true));
+    act(() => { a.result.current.setSettings((s) => ({ ...s, expertMode: false })); });
+    const deliveriesBefore = __settingsBroadcastDeliveriesForTests();
+    const spy = vi.spyOn(Storage.prototype, "setItem");
+    otherTabWrites({ language: "de", ai: { enabled: true, model: "claude-sonnet-5" } });
+    const writesAfterEvent = spy.mock.calls.filter(([key]) => key === SETTINGS_KEY).length;
+    spy.mockRestore();
+    expect(a.result.current.settings.ai.consent).toBeUndefined();
+    expect(b.result.current.settings.ai.consent).toBeUndefined(); // each instance took it from its own event
+    expect(writesAfterEvent).toBe(1); // control: the other tab's own write, and none from this tab
+    expect(__settingsBroadcastDeliveriesForTests() - deliveriesBefore).toBe(0);
   });
 
   it("an accept is persisted by the accept action itself", async () => {

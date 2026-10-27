@@ -50,6 +50,25 @@ function sameAiState(ai: AiConfig, p: PersistedAiState): boolean {
   return (ai.enabled === true) === p.enabled && sameConsent(ai.consent, p.consent) && sameConsent(ai.backgroundConsent, p.backgroundConsent);
 }
 
+const STORAGE_AI_FIELDS: ReadonlySet<string> = new Set(["enabled", "consent", "backgroundConsent"]);
+
+function sameKeysExcept(a: Record<string, unknown>, b: Record<string, unknown>, skip: (key: string) => boolean): boolean {
+  for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (!skip(key) && a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
+/** AI-01 — true when `next` differs from `base` in nothing but the three AI fields and those equal `fromStorage`:
+ *  the change was read from another tab's write, so it is neither written back nor broadcast. Any other change
+ *  in the same commit (a local edit batched with it) makes this false, so that edit is still saved and sent. */
+export function isOnlyStorageAiChange(base: Settings | null, next: Settings, fromStorage: PersistedAiState | null): boolean {
+  if (base === null || fromStorage === null || !sameAiState(next.ai, fromStorage)) return false;
+  const rec = (s: unknown) => s as Record<string, unknown>;
+  return sameKeysExcept(rec(base), rec(next), (key) => key === "ai")
+    && sameKeysExcept(rec(base.ai), rec(next.ai), (key) => STORAGE_AI_FIELDS.has(key));
+}
+
 /** Where `writeSettings` takes the two AI consent records from. */
 export type ConsentSource = "persisted" | "settings";
 
@@ -326,21 +345,21 @@ export function useSettings(): {
   // AI-01 — another tab or popout persisted settings: take its AI switch and consent records at once, so a
   // revocation or a switch-off there stops AI here too (the publish effect below then updates the send-time
   // flags). Only those three fields are taken; the rest of this instance's settings is left alone. The value
-  // came FROM storage, so it is neither written back (`fromStorageRef`) nor broadcast to this tab's other
-  // instances (`lastSyncedRef`): each of them gets the same `storage` event.
-  const fromStorageRef = useRef<Settings | null>(null);
+  // came FROM storage, so a commit that changes nothing else is neither written back nor broadcast to this
+  // tab's other instances (each of them gets the same `storage` event) — `isOnlyStorageAiChange`, checked by
+  // the broadcast and persist effects below. The persist effect clears `fromStorageRef` once it has run.
+  // ★★ A FUNCTIONAL update over the latest state, never one built from `committedRef`: a local edit made just
+  //   before the event (committed or queued, and not yet in `committedRef`) is kept, and because that commit
+  //   then differs in more than the three AI fields, it is still written and broadcast.
+  const fromStorageRef = useRef<PersistedAiState | null>(null);
   useEffect(() => {
     if (isSafeMode()) return;
     const onStorage = (e: StorageEvent) => {
       // A null key is a `clear()` of the whole storage area.
       if (e.key !== null && e.key !== SETTINGS_KEY) return;
       const fresh = readPersistedAiState();
-      const prev = committedRef.current;
-      if (sameAiState(prev.ai, fresh)) return;
-      const applied: Settings = { ...prev, ai: { ...prev.ai, ...fresh } };
-      lastSyncedRef.current = applied;
-      fromStorageRef.current = applied;
-      setSettings(applied);
+      fromStorageRef.current = fresh;
+      setSettings((prev) => (sameAiState(prev.ai, fresh) ? prev : { ...prev, ai: { ...prev.ai, ...fresh } }));
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -351,7 +370,9 @@ export function useSettings(): {
   useEffect(() => {
     if (!hydrated) return;
     if (lastSyncedRef.current === settings) return;
+    const fromStorageOnly = isOnlyStorageAiChange(lastSyncedRef.current, settings, fromStorageRef.current);
     lastSyncedRef.current = settings;
+    if (fromStorageOnly) return; // AI-01 — every instance gets the same `storage` event
     for (const l of settingsListeners) {
       if (l === listenerRef.current) continue;
       broadcastDeliveries += 1;
@@ -655,9 +676,14 @@ export function useSettings(): {
   // of truth, and a hardcoded copy of them drifting out of step is the exact
   // rot §560 was filed to kill in redactSettings.
   const settingsWriteFailingRef = useRef(false);
+  const persistBaseRef = useRef<Settings | null>(null);
   useEffect(() => {
+    const fromStorage = fromStorageRef.current;
+    fromStorageRef.current = null;
     if (!hydrated || isSafeMode()) return;
-    if (fromStorageRef.current === settings) return; // AI-01 — just read from storage; nothing to write
+    const base = persistBaseRef.current;
+    persistBaseRef.current = settings;
+    if (isOnlyStorageAiChange(base, settings, fromStorage)) return; // AI-01 — just read from storage
     const ok = writeSettings(settings);
     // Notify once on the healthy→failing edge (useSettings has no toast
     // context, so bridge to whoever does via a window event). writeSettings
