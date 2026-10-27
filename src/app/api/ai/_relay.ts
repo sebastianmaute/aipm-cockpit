@@ -70,7 +70,9 @@ export type RelaySend = (
   onResponse: (res: UpstreamResponse) => void,
 ) => UpstreamRequest;
 
-const httpsSend: RelaySend = (url, options, onResponse) => httpsRequest(url, options, onResponse);
+/** The production send. Exported only so the loopback test (`_relay.https.test.ts`) can wrap it
+ *  with the one TLS option a self-signed local server needs; `relay` itself never adds options. */
+export const httpsSend: RelaySend = (url, options, onResponse) => httpsRequest(url, options, onResponse);
 
 type Env = Record<string, string | undefined>;
 
@@ -263,7 +265,8 @@ function forward(
         });
       });
     } catch {
-      // e.g. a token with characters a header cannot carry; never echo the error.
+      // e.g. a header value Node refuses (a token with such characters is already an
+      // invalid setting, refused by `relay` before any send); never echo the error.
       finish(fail(502, AI_GATEWAY_ERROR));
       return;
     }
