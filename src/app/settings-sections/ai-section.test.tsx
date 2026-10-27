@@ -124,6 +124,26 @@ describe("AiSection", () => {
     expect(screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeInTheDocument();
   });
 
+  // AI-01 — deleting a stored key needs no consent: after a revoke or a switch-off it is still one click away.
+  it("offers Remove stored secret, and only it, while a key is stored and the key field is hidden", async () => {
+    saveSealed(await sealDevice("anthropicApiKey", "sk-ant-api03-stored000000000000"));
+    const removeButton = () => screen.queryByRole("button", { name: t("en-US", "secretPassphraseRemove") });
+    for (const settings of [onWithoutConsent, baseSettings]) {
+      cleanup();
+      render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+      expect(screen.queryByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeNull();
+      expect(screen.queryByLabelText(t("en-US", "secretLockPassphrase"))).toBeNull();
+      expect(screen.queryByLabelText(/^passphrase$/i)).toBeNull();
+      expect(removeButton()).toBeInTheDocument();
+    }
+    fireEvent.click(removeButton()!);
+    await waitFor(() => expect(loadSealed("anthropicApiKey")).toBeNull());
+    expect(removeButton()).toBeNull();
+    cleanup();
+    render(<AiSection lang="en-US" settings={onWithoutConsent} onChange={vi.fn()} />); // control: nothing stored
+    expect(removeButton()).toBeNull();
+  });
+
   it("renders session cap input with the default value", () => {
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
     const input = screen.getByLabelText(t("en-US", "aiSessionCap")) as HTMLInputElement;

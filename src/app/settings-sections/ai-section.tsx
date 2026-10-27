@@ -321,6 +321,20 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   }
 
   const keyPassphraseMismatch = keyPassphrase !== "" && keyConfirm !== "" && keyPassphrase !== keyConfirm;
+  // AI-01 — the key field and its passphrase lock appear only with AI on and a current consent. Removing a
+  // stored key needs neither: a user who switched AI off or withdrew the consent can still delete it.
+  const keyFieldsShown = settings.ai.enabled === true && isConsentCurrent(settings.ai.consent);
+  const removeKeyButton = keyStored && (
+    <Button
+      size="xs"
+      variant="destructive"
+      className="mt-2"
+      onClick={handleRemoveSecret}
+      title={t(lang, "secretPassphraseRemoveHint")}
+    >
+      {t(lang, "secretPassphraseRemove")}
+    </Button>
+  );
 
   return (
     <div className="mb-4" role="group" aria-labelledby={aiHeadingId}>
@@ -358,6 +372,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         <span className="text-xs text-foreground">{t(lang, "aiEnable")}</span>
       </label>
       <FieldHint className="mt-1">{t(lang, "aiEnableHelp")}</FieldHint>
+      {!keyFieldsShown && removeKeyButton && <div>{removeKeyButton}</div>}
       {consentOpen && (
         <AiConsentDialog
           lang={lang}
@@ -374,10 +389,10 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       )}
       {settings.ai.enabled === true && (
         <>
-      {/* AI-01 — the key field, its passphrase lock and "Remove stored secret" appear only once the disclosure is
-          accepted at the current version (as the Help text says); with the switch on and no current consent the
-          review prompt below is shown instead. */}
-      {isConsentCurrent(settings.ai.consent) && (
+      {/* AI-01 — the key field and its passphrase lock appear only once the disclosure is accepted at the current
+          version (as the Help text says); with the switch on and no current consent the review prompt below is
+          shown instead. "Remove stored secret" sits here with them, and under the switch whenever they are hidden. */}
+      {keyFieldsShown && (
         <>
       {/* ★★ The hint sits OUTSIDE the naming <label> (open-followups §386),
           and so does the storage notice: inside the label it joined the
@@ -444,17 +459,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
             <FieldHint>{t(lang, "secretLockWarning")}</FieldHint>
           </div>
         )}
-        {keyStored && (
-          <Button
-            size="xs"
-            variant="destructive"
-            className="mt-2"
-            onClick={handleRemoveSecret}
-            title={t(lang, "secretPassphraseRemoveHint")}
-          >
-            {t(lang, "secretPassphraseRemove")}
-          </Button>
-        )}
+        {removeKeyButton}
       </div>
         </>
       )}
