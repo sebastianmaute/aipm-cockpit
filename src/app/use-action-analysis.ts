@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type ActionAnalysis } from "./action-ai";
 import { runJobAnalysis } from "./scheduled-job-analysis";
-import { AiHttpError, classifyAiError } from "./ai-errors";
+import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
 import { isAbortError } from "./abort-error";
 
 interface AiCreds { apiKey: string; model: string; guideText?: string }
@@ -36,6 +36,12 @@ export function useActionAnalysis(ai: AiCreds) {
         // Anthropic's own rate/usage limit → a distinct "limit" token.
         if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
           setError("limit");
+          return null;
+        }
+        // A switched-off deployment or a refused gateway → its own message key, never "network".
+        const transportKey = aiTransportMessageKey(e);
+        if (transportKey) {
+          setError(transportKey);
           return null;
         }
         const msg = e instanceof Error ? e.message : "error";

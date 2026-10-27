@@ -7,7 +7,7 @@
 import { useCallback, useState } from "react";
 import { parseProposal, PROPOSAL_TOOL, buildProposalSystemPrompt, type ProjectProposal } from "./ai-project-proposal";
 import { type AttachmentBlock } from "./chat-attachments";
-import { AiHttpError, classifyAiError } from "./ai-errors";
+import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
 import { runForcedToolCall } from "./ai-forced-call";
 import { useActionGuideText } from "./action-guides-context";
 import { isAbortError } from "./abort-error";
@@ -64,7 +64,8 @@ export function useProjectProposal(ai: AiCreds) {
           setError("limit");
           return null;
         }
-        setError(e instanceof Error ? e.message : "error");
+        // A switched-off deployment or a refused gateway → its own message key (step0 renders it).
+        setError(aiTransportMessageKey(e) ?? (e instanceof Error ? e.message : "error"));
         return null;
       } finally {
         setBusy(false);

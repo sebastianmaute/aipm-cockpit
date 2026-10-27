@@ -235,6 +235,8 @@ describe("§650 weight suggestions — a refused key is not a network problem", 
   afterEach(() => { suggestState.error = null; });
 
   it.each([
+    ["aiDeploymentUnconfirmed", "aiDeploymentUnconfirmed"],
+    ["aiGatewayRejected", "aiGatewayRejected"],
     ["401", "aiKeyRejected"],
     ["403", "aiKeyForbidden"],
   ] as const)("a %s shows %s, not the network message", (token, key) => {

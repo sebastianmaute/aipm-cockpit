@@ -448,6 +448,12 @@ describe("§650 Analyze with AI — a refused key shows the key message", () => 
     expect(screen.getByText(t("en-US", key))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "actionAiErrorStatus", token))).toBeNull();
   });
+
+  it.each(["aiDeploymentOff", "aiGatewayRejected"] as const)("a transport failure %s shows its own message, not the generic one", (key) => {
+    render(<ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={{ enabled: true, busy: false, error: key, result: null, onAnalyze: vi.fn(), onCancel: vi.fn(), onClear: vi.fn(), onActAi: vi.fn() }} />);
+    expect(screen.getByText(t("en-US", key))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "actionAiErrorGeneric"))).toBeNull();
+  });
 });
 
 // §102 (batch 23): the expert-only learning pill is the shared Button, secondary at xs.

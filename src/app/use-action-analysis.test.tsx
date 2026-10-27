@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import "../test/ai-consent-live";
 import { renderHook, act } from "@testing-library/react";
 import { useActionAnalysis } from "./use-action-analysis";
+import { __setAiStatusRequestForTests } from "./ai-status-request";
 
 const ok = (body: unknown) => ({ ok: true, json: async () => body }) as unknown as Response;
 
@@ -61,6 +62,15 @@ describe("useActionAnalysis", () => {
     await act(async () => { await result.current.analyze("ctx"); });
     expect(result.current.error).toBe("network");
     expect(result.current.error).not.toContain("anthropic");
+  });
+
+  it("names a switched-off deployment, not a network problem", async () => {
+    __setAiStatusRequestForTests(async () => new Response(JSON.stringify({ off: true, invalid: false, route: "direct" }), { status: 200 }));
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const { result } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));
+    await act(async () => { await result.current.analyze("ctx"); });
+    expect(result.current.error).toBe("aiDeploymentOff");
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("clear() resets result and error", async () => {

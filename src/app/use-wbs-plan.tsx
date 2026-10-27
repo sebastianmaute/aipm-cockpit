@@ -40,7 +40,7 @@ import { useWorkspace } from "./workspace-context";
 import { useFilters } from "./filters-context";
 import { filterTasksByHealth } from "./health";
 import { AiHttpError, classifyAiError } from "./ai-errors";
-import { aiKeyMessageKeyForError } from "./ai-key-status";
+import { aiFailureMessageKey } from "./ai-key-status";
 import { runWbsProposal } from "./wbs-plan-call";
 import { useGuideTextFrom } from "./action-guides-context";
 import type { OperatingGuide } from "./operating-guide";
@@ -284,7 +284,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
           return;
         }
         // §650 — a refused key (401/403) is named as the key problem.
-        const keyMsg = aiKeyMessageKeyForError(e);
+        const keyMsg = aiFailureMessageKey(e);
         if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
           showToast("error", t(lang, "aiUsageLimitReached"));
         } else if (keyMsg) {

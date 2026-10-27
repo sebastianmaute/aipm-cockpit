@@ -45,7 +45,7 @@ import { detectLayout, questionsFor, type LayoutDetection } from "./budget-impor
 import { readSheetFile, type NumberOrigin, type SheetGrid } from "./budget-import/sheet-grid";
 import { runForecastImportCall } from "./forecast-import-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
-import { aiKeyMessageKeyForError } from "./ai-key-status";
+import { aiFailureMessageKey } from "./ai-key-status";
 import { useActionGuideText } from "./action-guides-context";
 import { checkAttachmentSize, MAX_ATTACHMENT_BYTES } from "./chat-attachments";
 import type { TranslationKey } from "./i18n";
@@ -230,7 +230,7 @@ export function forecastImportErrorOf(e: unknown): ForecastImportError | null {
     return { key: "forecastImportErrorBadMapping" };
   }
   if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") return { key: "aiUsageLimitReached" };
-  const keyMsg = aiKeyMessageKeyForError(e);
+  const keyMsg = aiFailureMessageKey(e);
   if (keyMsg) return { key: keyMsg };
   if (e instanceof AiHttpError && e.safeMessage) return { message: e.safeMessage };
   return { key: "forecastImportErrorAi" };

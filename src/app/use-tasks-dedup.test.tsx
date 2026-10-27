@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { newConsent } from "./ai-consent";
-import { AiHttpError } from "./ai-errors";
+import { AiDeploymentError, AiGatewayError, AiHttpError } from "./ai-errors";
 import { t } from "./i18n";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useState } from "react";
@@ -269,6 +269,17 @@ describe("useTasksDedup — §650 a refused key shows the key message", () => {
     fireEvent.click(screen.getByRole("button", { name: "Deduplicate & unify" }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
     expect(showToast).not.toHaveBeenCalledWith("error", "invalid x-api-key");
+  });
+
+  it.each([
+    [new AiDeploymentError("off"), "aiDeploymentOff"],
+    [new AiGatewayError("ai-gateway-rejected"), "aiGatewayRejected"],
+  ] as const)("a transport failure toasts %s's own message, not the dedup error", async (err, key) => {
+    vi.mocked(call.runDedupProposal).mockRejectedValue(err);
+    renderHarness();
+    fireEvent.click(screen.getByRole("button", { name: "Deduplicate & unify" }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
+    expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "taskDedupError"));
   });
 });
 

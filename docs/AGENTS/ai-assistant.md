@@ -174,9 +174,13 @@
   BOTH shells, by different routes: modern navigates to the Settings view at the AI section; classic has no
   Settings view (the classic-fallback effect bounces `"settings"` to chat), so `onOpenSettingsSection` opens
   the classic header's `SettingsMenu` popover instead (at the top — the popover has no sections). See
-  `docs/AGENTS/ui-shell.md`'s settings deep-link bullet. ★ A new per-feature error surface should check `aiKeyMessageKeyForError(err)` (or
-  `aiKeyMessageKeyForStatusToken` where a hook stores the status digits) BEFORE its generic message, as every
-  existing site now does — otherwise a 401 reads as "couldn't reach Claude" again.
+  `docs/AGENTS/ui-shell.md`'s settings deep-link bullet. ★ A new per-feature error surface should check `aiFailureMessageKey(err)` (`ai-key-status.ts`; or
+  `aiFailureMessageKeyForToken` where a hook stores a string token, and then stores `aiTransportMessageKey(err)`
+  itself as the token) BEFORE its generic or network message — otherwise a 401 reads as "couldn't reach Claude"
+  again, and a switched-off deployment or a refused gateway reads as a connection problem. It returns the
+  transport message ahead of the key message and never turns a transport failure into a key verdict. The chat
+  (`chat-panel.tsx`) asks `aiTransportMessageKey` and `aiKeyMessageKeyForError` separately; scheduled jobs record
+  the transport failure as its own `ReportErrorToken` (`toErrorToken`).
 - **Per-project setting overrides (`Workspace.settingsOverrides`, v0.190.42):** a "This project" Settings section
   (`settings-sections/project-overrides-section.tsx`, SectionId `projectOverrides`, hidden in popouts) overrides
   otherwise-per-device settings. SPLIT storage: POLICY overrides (nextActions/notifications/timezone) travel WITH

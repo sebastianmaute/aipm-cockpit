@@ -18,7 +18,7 @@ import { callInlineEdit } from "./inline-ai-edit-call";
 import { useActionGuideText } from "./action-guides-context";
 import { type ApiUsage } from "./chat-api";
 import { AiHttpError, classifyAiError } from "./ai-errors";
-import { aiKeyMessageKeyForError } from "./ai-key-status";
+import { aiFailureMessageKey } from "./ai-key-status";
 import { describeEntityCalls, isEmptyPlan, type EditPlan, type FieldDiff, type LinkDiff } from "./inline-ai-edit/plan";
 import { inlineDescriptor, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 
@@ -235,7 +235,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       if (reqId !== reqIdRef.current) return; // stale failure — don't clobber current state
       const isLimit = err instanceof AiHttpError && classifyAiError(err.status, err.errorType) === "limit";
       // §650 — a refused key (401/403) says so, instead of "Couldn't reach Claude".
-      const keyMsg = aiKeyMessageKeyForError(err);
+      const keyMsg = aiFailureMessageKey(err);
       setErrorText(t(deps.lang, isLimit ? "aiUsageLimitReached" : keyMsg ?? "inlineAiEditError")); setPhase("error");
     }
   };

@@ -13,7 +13,9 @@
 // ai-forced-call.ts), the `/v1/models` fetch (`anthropic-models.ts`, shared by the model picker and
 // the start-up check), and the §567 mount probe in use-settings.ts (unreadable). Who syncs the live
 // key: `useAiKeyCheck`, mounted once in task-manager.tsx.
-import { AiHttpError, classifyAiError } from "./ai-errors";
+import {
+  AiHttpError, aiTransportMessageKey, classifyAiError, isAiTransportMessageKey, type AiTransportMessageKey,
+} from "./ai-errors";
 
 export type AiKeyStatus = "unknown" | "ok" | "rejected" | "forbidden" | "unreadable";
 
@@ -106,6 +108,23 @@ export function aiKeyMessageKeyForStatusToken(token: string | undefined | null):
   if (token === "401") return "aiKeyRejected";
   if (token === "403") return "aiKeyForbidden";
   return null;
+}
+
+/** The message for a thrown AI failure that is not the feature's own: the transport's (a
+ *  switched-off or changed deployment, a refused or failing gateway) ahead of a refused key, or
+ *  null. A surface asks this BEFORE its own network or generic fallback. Reading it records no key
+ *  verdict, and a transport failure never maps to a key message. */
+export function aiFailureMessageKey(err: unknown): AiTransportMessageKey | AiKeyMessageKey | null {
+  return aiTransportMessageKey(err) ?? aiKeyMessageKeyForError(err);
+}
+
+/** `aiFailureMessageKey` for a stored token: a transport message key is its own message (the
+ *  token-keeping hooks store it as the token), "401"/"403" name the key, anything else is null. */
+export function aiFailureMessageKeyForToken(
+  token: string | undefined | null,
+): AiTransportMessageKey | AiKeyMessageKey | null {
+  if (isAiTransportMessageKey(token)) return token;
+  return aiKeyMessageKeyForStatusToken(token);
 }
 
 /** Test-only: forget the key token and the verdict. */

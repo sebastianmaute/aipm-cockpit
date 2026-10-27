@@ -71,6 +71,17 @@ export function aiTransportMessageKey(err: unknown): AiTransportMessageKey | nul
   return null;
 }
 
+const TRANSPORT_MESSAGE_KEYS: ReadonlySet<string> = new Set<AiTransportMessageKey>([
+  ...Object.values(DEPLOYMENT_MESSAGE),
+  ...Object.values(GATEWAY_MESSAGE),
+]);
+
+/** True when a hook's stored error token is a transport message key (the features that keep a
+ *  string token store `aiTransportMessageKey(e)` itself as the token). */
+export function isAiTransportMessageKey(token: unknown): token is AiTransportMessageKey {
+  return typeof token === "string" && TRANSPORT_MESSAGE_KEYS.has(token);
+}
+
 /** Strip ASCII control chars from untrusted text (hex escapes — never literal
  *  control bytes). Shared regex form used across the app's sanitizers. */
 const CONTROL_CHARS = /[\x00-\x1f]/g;

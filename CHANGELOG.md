@@ -23,6 +23,8 @@ longer carries its own changelog comment.
   - The AI data disclosure, the key note in Settings → AI and Help say which way the data goes on this deployment,
     and turning the gateway on or off asks everyone to accept the disclosure again.
   - Setup, the token's scope and the proxy timeout the relay needs are in `docs/RUNBOOK.md`.
+  - Every AI feature that reports a failure, and a scheduled job's run history, names a switched-off AI setting or
+    a gateway error as such, never as a key or connection problem.
 
 ## [1.20.1] - 2026-10-27 "Indridason"
 

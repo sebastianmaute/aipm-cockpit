@@ -3,7 +3,7 @@ import type { Task } from "./types";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import type { Workspace } from "./workspace";
 import { StorageNotReadyError, emptyWorkspace } from "./workspace";
-import { AiHttpError } from "./ai-errors";
+import { AiDeploymentError, AiGatewayError, AiHttpError } from "./ai-errors";
 import { TursoHttpError, TursoStepError } from "./turso-pipeline";
 import type { ReportData } from "./scheduled-reports-store";
 import { defaultSettings } from "./settings-types";
@@ -323,6 +323,15 @@ describe("toErrorToken", () => {
     expect(toErrorToken(new Error("Turso error: boom"))).toBe("turso");
     expect(toErrorToken(new Error("anything else"))).toBe("error");
     expect(toErrorToken("nope")).toBe("error");
+  });
+
+  it("records a transport failure as its own token, never the generic one or a key verdict", () => {
+    expect(toErrorToken(new AiDeploymentError("off"))).toBe("ai-off");
+    expect(toErrorToken(new AiDeploymentError("invalid"))).toBe("ai-invalid");
+    expect(toErrorToken(new AiDeploymentError("route-changed"))).toBe("ai-route-changed");
+    expect(toErrorToken(new AiDeploymentError("unconfirmed"))).toBe("ai-unconfirmed");
+    expect(toErrorToken(new AiGatewayError("ai-gateway-rejected"))).toBe("ai-gateway-rejected");
+    expect(toErrorToken(new AiGatewayError("ai-gateway-error"))).toBe("ai-gateway-error");
   });
 });
 

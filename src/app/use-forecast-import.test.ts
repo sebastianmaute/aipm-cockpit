@@ -13,7 +13,7 @@ import type { OperatingGuide } from "./operating-guide";
 import { useBudgetBuckets } from "./use-budget-buckets";
 import { defaultSettings, type Settings } from "./settings-types";
 import type { BudgetBucket, Resource, ResourcePlan, Role } from "./types";
-import { AiHttpError } from "./ai-errors";
+import { AiDeploymentError, AiGatewayError, AiHttpError } from "./ai-errors";
 import { MAX_ATTACHMENT_BYTES } from "./chat-attachments";
 import { buildZip } from "./zip";
 import { columnLetters, gridToForecastRows } from "./budget-import/forecast-rows";
@@ -745,6 +745,8 @@ describe("forecastImportErrorOf", () => {
     expect(forecastImportErrorOf(new Error("bad-mapping"))).toEqual({ key: "forecastImportErrorBadMapping" });
     expect(forecastImportErrorOf(new AiHttpError(429))).toEqual({ key: "aiUsageLimitReached" });
     expect(forecastImportErrorOf(new AiHttpError(401))).toEqual({ key: "aiKeyRejected" });
+    expect(forecastImportErrorOf(new AiDeploymentError("off"))).toEqual({ key: "aiDeploymentOff" });
+    expect(forecastImportErrorOf(new AiGatewayError("ai-gateway-error"))).toEqual({ key: "aiGatewayFailed" });
     expect(forecastImportErrorOf(new AiHttpError(500, "api_error", "Overloaded"))).toEqual({ message: "Overloaded" });
     expect(forecastImportErrorOf(new Error("parse"))).toEqual({ key: "forecastImportErrorAi" });
     expect(forecastImportErrorOf(new DOMException("Aborted", "AbortError"))).toBeNull();

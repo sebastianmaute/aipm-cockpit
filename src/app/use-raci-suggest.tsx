@@ -37,7 +37,7 @@ import { type Milestone, type Stakeholder } from "./types";
 import { type LogActivityAsFn } from "./activity-log-context";
 import { useToastContext } from "./toast-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
-import { aiKeyMessageKeyForError } from "./ai-key-status";
+import { aiFailureMessageKey } from "./ai-key-status";
 import { runRaciSuggestion } from "./raci-suggest-call";
 import { useActionGuideText } from "./action-guides-context";
 import {
@@ -211,7 +211,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       }
       // §650 — a refused key (401/403) is named as the key problem, ahead of the response's own
       // message ("invalid x-api-key"), which does not say what to do.
-      const keyMsg = aiKeyMessageKeyForError(e);
+      const keyMsg = aiFailureMessageKey(e);
       if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
         showToast("error", t(lang, "aiUsageLimitReached"));
       } else if (keyMsg) {

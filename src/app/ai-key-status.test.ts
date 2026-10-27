@@ -4,6 +4,8 @@ import {
   aiKeyMessageKey,
   aiKeyMessageKeyForError,
   aiKeyMessageKeyForStatusToken,
+  aiFailureMessageKey,
+  aiFailureMessageKeyForToken,
   getAiKeyStatus,
   isAiKeyStatusBad,
   reportAiKeyResponse,
@@ -11,7 +13,7 @@ import {
   subscribeAiKeyStatus,
   syncAiKey,
 } from "./ai-key-status";
-import { AiHttpError } from "./ai-errors";
+import { AiDeploymentError, AiGatewayError, AiHttpError } from "./ai-errors";
 
 const KEY_A = "sk-ant-api03-AAAAAAAAAAAAAAAAAAAA";
 const KEY_B = "sk-ant-api03-BBBBBBBBBBBBBBBBBBBB";
@@ -149,5 +151,27 @@ describe("ai-key-status message helpers", () => {
     expect(aiKeyMessageKeyForStatusToken("500")).toBeNull();
     expect(aiKeyMessageKeyForStatusToken("network")).toBeNull();
     expect(aiKeyMessageKeyForStatusToken(undefined)).toBeNull();
+  });
+});
+
+// A transport failure (switched-off deployment, refused gateway) is named before the key, and never as the key.
+describe("aiFailureMessageKey", () => {
+  it("names a transport failure by its own message, a refused key by the key message, anything else null", () => {
+    expect(aiFailureMessageKey(new AiDeploymentError("off"))).toBe("aiDeploymentOff");
+    expect(aiFailureMessageKey(new AiDeploymentError("unconfirmed"))).toBe("aiDeploymentUnconfirmed");
+    expect(aiFailureMessageKey(new AiGatewayError("ai-gateway-rejected"))).toBe("aiGatewayRejected");
+    expect(aiFailureMessageKey(new AiHttpError(401))).toBe("aiKeyRejected");
+    expect(aiFailureMessageKey(new AiHttpError(500))).toBeNull();
+    expect(aiFailureMessageKey(new TypeError("Failed to fetch"))).toBeNull();
+  });
+
+  it("maps a stored token: a transport message key stays itself, 401/403 name the key, the rest null", () => {
+    expect(aiFailureMessageKeyForToken("aiDeploymentInvalid")).toBe("aiDeploymentInvalid");
+    expect(aiFailureMessageKeyForToken("aiGatewayFailed")).toBe("aiGatewayFailed");
+    expect(aiFailureMessageKeyForToken("401")).toBe("aiKeyRejected");
+    expect(aiFailureMessageKeyForToken("network")).toBeNull();
+    expect(aiFailureMessageKeyForToken("off")).toBeNull();
+    expect(aiFailureMessageKeyForToken("toString")).toBeNull();
+    expect(aiFailureMessageKeyForToken(null)).toBeNull();
   });
 });
