@@ -7,6 +7,7 @@ import { IDB_DB_NAME, IDB_ENTITY_STORES } from "../src/app/idb-layout";
 import { splashMessages, splashScript } from "../desktop/src/lib/splash-status";
 import { clearCallouts, markCallout } from "./guide-callouts";
 import { cropClip } from "../scripts/guide-crop.mjs";
+import { t } from "../src/app/i18n";
 
 // The install guide's screenshots (docs/assets/guide/) and the README gallery
 // (docs/assets/*.png), §713. Run with `npm run docs:guide-shots` — the
@@ -104,10 +105,15 @@ async function openSettingsSection(page: Page, section: string): Promise<void> {
   await waitForViewSettled(page);
 }
 
-/** Tick an integration's switch, accepting the one-time credentials notice if it appears. */
+/** Tick an integration's switch, accepting the AI consent dialog (the AI switch stays unchecked until it is
+ *  accepted) and then the one-time credentials notice, each only if it appears. */
 async function enableIntegration(page: Page, checkbox: Locator): Promise<void> {
   if (await checkbox.isChecked()) return;
-  await checkbox.check();
+  await checkbox.click();
+  const consent = page.getByRole("button", { name: t("en-US", "aiConsentAccept"), exact: true });
+  // The switch either turns on at once or opens the consent dialog; wait for one of the two.
+  await expect.poll(async () => (await checkbox.isChecked()) || (await consent.isVisible())).toBe(true);
+  if (await consent.isVisible()) await consent.click();
   const ack = page.getByRole("button", { name: "I understand", exact: true });
   if (await ack.isVisible()) await ack.click();
 }

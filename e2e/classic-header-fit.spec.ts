@@ -24,8 +24,9 @@ test.describe("classic header fits from lg up (§618)", () => {
     // row under the title carries just the project switcher + search — never
     // wide enough to overflow at any of WIDTHS (measured, see the file
     // comment above). `expertMode: true` adds the Save/Apply-template icons
-    // to that row (action-menus.tsx); `ai: {enabled, apiKey}` (the sole gate
-    // `isAiEnabled` checks, settings-types.ts) adds the AI-assistant icon
+    // to that row (action-menus.tsx); `ai: {enabled, apiKey, consent}` (the
+    // three things `isAiEnabled` checks, settings-types.ts: the switch, a key
+    // and a consent record for the current disclosure) adds the AI-assistant icon
     // AND the Ask-Claude pill beside the project switcher. Together they
     // reproduce the original §618 report ("project picker, sync, Ask-Claude
     // and eight trailing icon buttons") closely enough to measure the real
@@ -36,7 +37,7 @@ test.describe("classic header fits from lg up (§618)", () => {
         JSON.stringify({
           layout: "classic",
           expertMode: true,
-          ai: { enabled: true, apiKey: "e2e-probe-key" },
+          ai: { enabled: true, apiKey: "e2e-probe-key", consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 1 } },
         }),
       );
     });
@@ -106,7 +107,7 @@ test.describe("classic header trailing row still fits with every sibling present
         JSON.stringify({
           layout: "classic",
           expertMode: true,
-          ai: { enabled: true, apiKey: "e2e-probe-key" },
+          ai: { enabled: true, apiKey: "e2e-probe-key", consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 1 } },
           showDisplayTzSwitcher: true,
         }),
       );
