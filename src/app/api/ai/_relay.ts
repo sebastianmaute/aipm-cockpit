@@ -65,6 +65,12 @@ const httpsSend: RelaySend = (url, options, onResponse) => httpsRequest(url, opt
 
 type Env = Record<string, string | undefined>;
 
+/** The answer to a gateway-generated 429 whose body is not Anthropic's. */
+const GATEWAY_RATE_LIMITED_BODY = {
+  type: "error",
+  error: { type: "rate_limit_error", message: "The organisation's AI gateway is rate-limiting requests." },
+} as const;
+
 function fail(status: number, error: string): Response {
   return Response.json({ error }, { status, headers: { "cache-control": "no-store" } });
 }
@@ -209,6 +215,12 @@ function forward(
       cleanup();
       if (bytes && isAnthropicError(bytes)) {
         finish(new Response(new Uint8Array(bytes), { status, headers }));
+        return;
+      }
+      if (status === 429) {
+        // The gateway's own rate limit: answered in Anthropic's error shape, so the
+        // browser classifies it as a rate limit like Anthropic's own 429.
+        finish(Response.json(GATEWAY_RATE_LIMITED_BODY, { status: 429, headers: { "cache-control": "no-store" } }));
         return;
       }
       finish(fail(502, status === 401 || status === 403 ? AI_GATEWAY_REJECTED : AI_GATEWAY_ERROR));

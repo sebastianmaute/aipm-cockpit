@@ -332,6 +332,21 @@ describe("relay — what comes back", () => {
     expect(await res.json()).toEqual({ error: "ai-gateway-rejected" });
   });
 
+  it.each([
+    ["an HTML", "<html>Too many requests</html>", "text/html"],
+    ["a non-Anthropic JSON", JSON.stringify({ error: "rate limited" }), "application/json"],
+  ])("the gateway's own 429 with %s body → 429 with an Anthropic-shaped rate_limit_error", async (_n, body, type) => {
+    const { send } = fakeSend(respondWith(429, body, type));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(429);
+    expect(res.headers.get("content-type")).toBe("application/json");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.json()).toEqual({
+      type: "error",
+      error: { type: "rate_limit_error", message: "The organisation's AI gateway is rate-limiting requests." },
+    });
+  });
+
   it.each([503, 500, 404, 302])("upstream %i with a non-Anthropic body → 502 ai-gateway-error", async (status) => {
     const { send } = fakeSend(respondWith(status, "<html>Bad gateway</html>", "text/html"));
     const res = await relay(post(), "messages", GATEWAY_ENV, send);
