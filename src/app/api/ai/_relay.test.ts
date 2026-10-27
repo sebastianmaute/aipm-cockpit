@@ -125,6 +125,14 @@ describe("relay — refusals before any upstream call", () => {
     expect(res.status).toBe(503);
   });
 
+  it("a token a header cannot carry is invalid → 503, nothing sent", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", { AIPM_AI_GATEWAY_URL: `${BASE}/`, AIPM_AI_GATEWAY_TOKEN: "to ken" }, send);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "ai-gateway-invalid" });
+    expect(calls).toHaveLength(0);
+  });
+
   it("direct deployment → 404, no relay", async () => {
     const { send, calls } = fakeSend();
     const res = await relay(post(), "messages", {}, send);

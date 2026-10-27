@@ -75,6 +75,27 @@ describe("readAiGatewayConfig", () => {
   it("fails closed on a token without a URL", () => {
     expect(readAiGatewayConfig({ AIPM_AI_GATEWAY_TOKEN: "t" })).toEqual({ kind: "invalid", reason: "token-without-url" });
   });
+
+  // KILLED BY: dropping the token character check (the relay would build a header Node refuses to send).
+  it.each([
+    ["a space inside", "abc def"],
+    ["a tab inside", "abc\tdef"],
+    ["a line break inside", "abc\r\nX-Injected: 1"],
+    ["a non-ASCII character", "t\u00f6ken"],
+    ["a control character", "abc\u0007"],
+    ["DEL", "abc\u007f"],
+  ])("fails closed on a token a header cannot carry: %s", (_name, token) => {
+    expect(readAiGatewayConfig({ AIPM_AI_GATEWAY_URL: GW, AIPM_AI_GATEWAY_TOKEN: token })).toEqual({ kind: "invalid", reason: "token" });
+  });
+
+  it("accepts every visible ASCII character in a token, and trims the ends", () => {
+    const visible = Array.from({ length: 0x7e - 0x21 + 1 }, (_, i) => String.fromCharCode(0x21 + i)).join("");
+    expect(readAiGatewayConfig({ AIPM_AI_GATEWAY_URL: GW, AIPM_AI_GATEWAY_TOKEN: ` ${visible}\n` })).toEqual({
+      kind: "gateway",
+      baseUrl: GW,
+      token: visible,
+    });
+  });
 });
 
 describe("ai-gateway-config stays on the server", () => {

@@ -27,6 +27,11 @@ describe("aiDeploymentStateFrom", () => {
     const bad = aiDeploymentStateFrom({ AIPM_AI_GATEWAY_URL: "http://x" });
     expect(bad).toEqual({ off: false, route: "direct", invalid: true });
     expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_TOKEN: "t" }).invalid).toBe(true);
+    expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_URL: URL_, AIPM_AI_GATEWAY_TOKEN: "a b" })).toEqual({
+      off: false,
+      route: "direct",
+      invalid: true,
+    });
   });
 
   it("combines off and gateway", () => {

@@ -16,9 +16,12 @@ export const AI_GATEWAY_TOKEN_ENV = "AIPM_AI_GATEWAY_TOKEN";
 export type AiGatewayConfig =
   | { kind: "direct" }
   | { kind: "gateway"; baseUrl: string; token: string | null }
-  | { kind: "invalid"; reason: "url" | "token-without-url" };
+  | { kind: "invalid"; reason: "url" | "token-without-url" | "token" };
 
 type Env = Record<string, string | undefined>;
+
+/** Visible ASCII only (0x21–0x7E): anything else, a space included, is a character the token's header cannot carry. */
+const HEADER_SAFE_TOKEN = /^[\x21-\x7e]+$/;
 
 /** The base URL the Messages path is appended to: https, no credentials/query/fragment, no API path. */
 function normalizeGatewayUrl(raw: string): string | null {
@@ -42,6 +45,7 @@ export function readAiGatewayConfig(env: Env): AiGatewayConfig {
   if (!url) return token ? { kind: "invalid", reason: "token-without-url" } : { kind: "direct" };
   const baseUrl = normalizeGatewayUrl(url);
   if (!baseUrl) return { kind: "invalid", reason: "url" };
+  if (token !== null && !HEADER_SAFE_TOKEN.test(token)) return { kind: "invalid", reason: "token" };
   return { kind: "gateway", baseUrl, token };
 }
 

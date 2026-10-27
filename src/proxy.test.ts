@@ -168,6 +168,10 @@ describe("proxy CSP — follows the AI deployment", () => {
     vi.unstubAllEnvs();
     vi.stubEnv("AIPM_AI_GATEWAY_TOKEN", "orphan");
     expect(cspFor()).not.toContain("api.anthropic.com");
+    vi.unstubAllEnvs();
+    vi.stubEnv("AIPM_AI_GATEWAY_URL", "https://gateway.example.net/v1/acct/gw/anthropic");
+    vi.stubEnv("AIPM_AI_GATEWAY_TOKEN", "two words");
+    expect(cspFor()).not.toContain("api.anthropic.com");
   });
 });
 

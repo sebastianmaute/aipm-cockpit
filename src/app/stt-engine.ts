@@ -24,14 +24,18 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
 
   const cleanupStream = () => { stream?.getTracks().forEach((t) => t.stop()); stream = null; };
 
+  /** True (and the clip discarded) when AI is off or the consent withdrawn. */
+  const consentGone = (): boolean => {
+    if (isInteractiveConsentLive()) return false;
+    handlers?.onStatus?.("idle");
+    handlers?.onError(DICTATION_NEEDS_AI_CONSENT);
+    return true;
+  };
+
   const transcribe = async (blob: Blob) => {
     // AI-01 — the send-time check: a recording finished after AI was switched off or the consent withdrawn
     // is discarded here, never uploaded.
-    if (!isInteractiveConsentLive()) {
-      handlers?.onStatus?.("idle");
-      handlers?.onError(DICTATION_NEEDS_AI_CONSENT);
-      return;
-    }
+    if (consentGone()) return;
     handlers?.onStatus?.("transcribing");
     try {
       // The deployment's AI setting, asked before the upload as before every AI send: switched off or
@@ -53,6 +57,8 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
           return;
         }
       }
+      // Asked again: the consent may have been withdrawn during the status round trip.
+      if (consentGone()) return;
       const form = new FormData();
       form.append("file", blob, "audio.webm");
       form.append("model", cfg.model);

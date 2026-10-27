@@ -76,6 +76,30 @@ describe("stt-engine — the deployment status check before the upload", () => {
     expect(h.onStatus).toHaveBeenLastCalledWith("idle");
   });
 
+  // KILLED BY: dropping the consent re-check after the status await (the clip would be uploaded after a revocation).
+  it("consent withdrawn while the status check is in flight: nothing is uploaded", async () => {
+    const live = { ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) };
+    __setAiStatusRequestForTests(async () => {
+      publishAiConsentState({ ...live, consent: undefined }); // withdrawn during the status round trip
+      return aiStatusResponse({ off: false, route: "direct", invalid: false });
+    });
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const h = { onInterim: vi.fn(), onFinal: vi.fn(), onError: vi.fn(), onStatus: vi.fn() };
+    const eng = createSttEngine(cfg);
+    try {
+      eng.start(h);
+      await Promise.resolve(); await Promise.resolve();
+      eng.stop();
+      await vi.waitFor(() => expect(h.onError).toHaveBeenCalledWith("needs-ai-consent"));
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(h.onFinal).not.toHaveBeenCalled();
+      expect(h.onStatus).toHaveBeenLastCalledWith("idle");
+    } finally {
+      publishAiConsentState(live);
+    }
+  });
+
   it("a changed AI route does not block dictation: STT never uses the Anthropic route", async () => {
     __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse({ off: false, route: "gateway", invalid: false })));
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) }));
