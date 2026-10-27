@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { useState } from "react";
-import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiSection } from "./ai-section";
 import { hasUnsealedPassphraseSecret } from "../turso-token-marker";
@@ -15,11 +15,14 @@ import {
   clampInsightRecInterval,
 } from "../settings-types";
 
-// The AI config UI is gated behind the "Enable AI assistant" master switch
-// (default OFF). These tests exercise the expanded config, so flip it on.
-const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { t } from "../i18n";
 import { newConsent } from "../ai-consent";
+// The AI config UI is gated behind the "Enable AI assistant" master switch
+// (default OFF), and the key field also behind a current consent (AI-01). These
+// tests exercise the expanded config, so flip it on with a consent.
+const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: newConsent(new Date(0)) } };
+/** AI on, but the disclosure not accepted (or accepted at an older version). */
+const onWithoutConsent = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { SETTINGS_KEY } from "../use-settings";
 import { getSessionAiKey, setSessionAiKey } from "../session-ai-key";
 import { readDeviceSecret, isPassphraseLocked, loadSealed, saveSealed } from "../secrets-store";
@@ -100,10 +103,25 @@ describe("AiSection", () => {
   });
 
   it("shows the review prompt and a Review button when AI is on but no consent is current", () => {
-    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    render(<AiSection lang="en-US" settings={onWithoutConsent} onChange={vi.fn()} />);
     expect(screen.getByText(t("en-US", "aiConsentReviewPrompt"))).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentReview") }));
     expect(screen.getByRole("dialog", { name: t("en-US", "aiConsentTitle") })).toBeInTheDocument();
+  });
+
+  // AI-01 — the key field appears once the disclosure is accepted, as the Help text says.
+  it("with AI on and no current consent shows the review prompt, not the key field", () => {
+    render(<AiSection lang="en-US" settings={onWithoutConsent} onChange={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "aiConsentReviewPrompt"))).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeNull();
+    expect(screen.queryByLabelText(t("en-US", "secretLockPassphrase"))).toBeNull();
+    const outdated = { ...onWithoutConsent, ai: { ...onWithoutConsent.ai, consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 0 } } };
+    cleanup();
+    render(<AiSection lang="en-US" settings={outdated} onChange={vi.fn()} />);
+    expect(screen.queryByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeNull();
+    cleanup();
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />); // control: consent current
+    expect(screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeInTheDocument();
   });
 
   it("renders session cap input with the default value", () => {

@@ -374,6 +374,11 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       )}
       {settings.ai.enabled === true && (
         <>
+      {/* AI-01 — the key field, its passphrase lock and "Remove stored secret" appear only once the disclosure is
+          accepted at the current version (as the Help text says); with the switch on and no current consent the
+          review prompt below is shown instead. */}
+      {isConsentCurrent(settings.ai.consent) && (
+        <>
       {/* ★★ The hint sits OUTSIDE the naming <label> (open-followups §386),
           and so does the storage notice: inside the label it joined the
           key field's accessible NAME. It is now the field's description. */}
@@ -451,6 +456,8 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           </Button>
         )}
       </div>
+        </>
+      )}
       {/* ★★ Hint outside the naming <label> (open-followups §386). The
           needs-a-key hint below moved out too: inside the label it joined the
           select's accessible NAME. It is now the select's description. */}
