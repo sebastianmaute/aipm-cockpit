@@ -130,6 +130,8 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
             // Cache the guide prefix only when this tick sends more than one
             // request: a lone request would pay the cache write and never read it.
             cacheGuides: candidates.length > 1,
+            // An unattended run: every request also needs the background consent (asked before each send).
+            level: "background",
             context: buildContextForRef.current(insight),
             index: buildIndexRef.current(),
             today: todayRef.current,

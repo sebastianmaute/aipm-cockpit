@@ -206,7 +206,8 @@ describe("Without a current AI consent", () => {
       expect(screen.queryByText(/AI consent was revoked/)).toBeNull();
       expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
-      publishAiConsentState(AI_WITH_KEY);
+      // Back to what ../test/ai-consent-live published (the published flag needs the switch on).
+      publishAiConsentState({ ...AI_WITH_KEY, enabled: true });
     }
   });
 });

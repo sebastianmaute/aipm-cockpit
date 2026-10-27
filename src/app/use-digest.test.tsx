@@ -580,6 +580,8 @@ describe("useDigest background consent (AI-10)", () => {
       renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", backgroundAiKey: "sk-ant-k", runNarrative, config: dueConfig })));
     });
     expect(runNarrative).toHaveBeenCalledTimes(1);
+    // AI-01 — the unattended run asks the background consent before its request.
+    expect(runNarrative.mock.calls[0][1]).toMatchObject({ level: "background" });
   });
 
   it("generateNow still narrates with interactive consent only", async () => {
@@ -587,5 +589,6 @@ describe("useDigest background consent (AI-10)", () => {
     const { result } = renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", backgroundAiKey: null, runNarrative })));
     await act(async () => { await result.current.generateNow(); });
     expect(runNarrative).toHaveBeenCalledTimes(1);
+    expect(runNarrative.mock.calls[0][1]).toMatchObject({ level: "interactive" });
   });
 });

@@ -43,16 +43,41 @@ export class AiConsentRevokedError extends Error {
   }
 }
 
+/** Which consent a request needs: `interactive` for a request the user started, `background` for an
+ *  unattended run (the scheduled-job analysis, the automatic insight recommendation run, the scheduled
+ *  digest narrative), which also needs the separate background consent. */
+export type AiConsentLevel = "interactive" | "background";
+
 // Module state (the integration-switches.ts pattern): plain functions on the request path
 // ask here without a prop being threaded through. Default: not live.
 let interactiveConsentLive = false;
+let backgroundConsentLive = false;
 
-/** Records whether the current settings carry a current interactive consent. */
+/** Records the two send-time flags from the current settings. Interactive: the AI master switch is on
+ *  and the interactive consent is current (the key is not part of it). Background: interactive, and the
+ *  background consent is current too. */
 export function publishAiConsentState(ai: AiConfig | undefined): void {
-  interactiveConsentLive = isConsentCurrent(ai?.consent);
+  interactiveConsentLive = ai?.enabled === true && isConsentCurrent(ai.consent);
+  backgroundConsentLive = interactiveConsentLive && isConsentCurrent(ai?.backgroundConsent);
 }
 
-/** Throws unless the published settings carry a current interactive consent. Call before every send. */
+/** The published interactive flag: what speech-to-text asks before it uploads a finished recording. */
+export function isInteractiveConsentLive(): boolean {
+  return interactiveConsentLive;
+}
+
+/** Throws unless the published settings have AI switched on with a current interactive consent. Call before every send. */
 export function assertInteractiveConsentLive(): void {
   if (!interactiveConsentLive) throw new AiConsentRevokedError();
+}
+
+/** Throws unless the published settings also carry a current background consent. Call before every unattended send. */
+export function assertBackgroundConsentLive(): void {
+  if (!backgroundConsentLive) throw new AiConsentRevokedError();
+}
+
+/** The assertion for `level`. */
+export function assertAiConsentLive(level: AiConsentLevel): void {
+  if (level === "background") assertBackgroundConsentLive();
+  else assertInteractiveConsentLive();
 }

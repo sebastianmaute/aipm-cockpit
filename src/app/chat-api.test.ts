@@ -532,8 +532,9 @@ describe("callClaude — §650 reports the key verdict at the envelope", () => {
 });
 
 // The file-wide live consent comes from ../test/ai-consent-live; put it back after a test revokes it.
+const LIVE = { ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)) };
 function restoreLiveConsent() {
-  publishAiConsentState({ ...defaultAiConfig, consent: newConsent(new Date(0)) });
+  publishAiConsentState(LIVE);
 }
 
 describe("callClaude — the consent gate (AI-01)", () => {
@@ -548,5 +549,17 @@ describe("callClaude — the consent gate (AI-01)", () => {
     publishAiConsentState({ ...defaultAiConfig, consent: undefined });
     await expect(callClaude("k", "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("switching AI off between two round trips of a chat loop stops the next request, the consent kept (AI-01)", async () => {
+    // The chat loop calls callClaude once per round trip; the switch goes off while the first is answered.
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      publishAiConsentState({ ...LIVE, enabled: false });
+      return { ok: true, json: async () => ({ content: [{ type: "text", text: "hi" }], stop_reason: "tool_use" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await callClaude("k", "claude-sonnet-5", [], [], {});
+    await expect(callClaude("k", "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiConsentRevokedError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

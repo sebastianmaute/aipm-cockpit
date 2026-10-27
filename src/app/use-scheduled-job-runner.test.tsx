@@ -217,6 +217,8 @@ describe("useScheduledJobRunner: jobs are judged on a fresh read of the store (Â
     await settle();
     expect(vi.mocked(slotStatus)).toHaveBeenCalledTimes(2);
     expect(mockRun).toHaveBeenCalledTimes(1);
+    // AI-01 â€” an unattended run: every request asks the background consent.
+    expect(mockRun.mock.calls[0][1]).toMatchObject({ level: "background" });
   });
 
   // KILLED BY: remembering "claimed-elsewhere" (that claim may be released as transient).

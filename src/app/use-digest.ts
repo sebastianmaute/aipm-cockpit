@@ -115,7 +115,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
           try {
             const runner = deps.runNarrative ?? runDigestNarrative;
             // runDigestNarrative already sanitizes + caps its return value.
-            const narrative = await runner(d, { apiKey: narrativeKey, model: deps.aiModel, lang: deps.lang, guideText }, ctrl.signal);
+            const narrative = await runner(d, { apiKey: narrativeKey, model: deps.aiModel, lang: deps.lang, guideText, level: opts.background ? "background" : "interactive" }, ctrl.signal);
             // A Stop (or the timeout) that lost the race to the response still
             // means "don't use it".
             if (narrative && !ctrl.signal.aborted) {

@@ -138,6 +138,8 @@ describe("useInsightRecommendRunner", () => {
     const { applyRecommendation } = renderRunner({ insights });
     await act(async () => { await flushMicrotasks(); });
     expect(mockRun).toHaveBeenCalledTimes(1);
+    // AI-01 — an unattended run: every request asks the background consent.
+    expect(mockRun.mock.calls[0][0]).toMatchObject({ level: "background" });
     expect(applyRecommendation).toHaveBeenCalledWith(2, fakeRec, undefined);
     expect(applyRecommendation).not.toHaveBeenCalledWith(1, expect.anything());
   });

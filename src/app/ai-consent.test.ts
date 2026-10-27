@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   AI_DISCLOSURE_VERSION,
   AiConsentRevokedError,
+  assertAiConsentLive,
+  assertBackgroundConsentLive,
   assertInteractiveConsentLive,
+  isInteractiveConsentLive,
   isConsentCurrent,
   newConsent,
   publishAiConsentState,
@@ -50,9 +53,40 @@ describe("assertInteractiveConsentLive", () => {
     expect(() => assertInteractiveConsentLive()).toThrow("AI consent was revoked");
   });
   it("does not throw after a current consent is published, and throws again on revoke", () => {
-    publishAiConsentState({ ...defaultAiConfig, consent: newConsent(D) });
+    publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: newConsent(D) });
     expect(() => assertInteractiveConsentLive()).not.toThrow();
-    publishAiConsentState({ ...defaultAiConfig, consent: undefined });
+    publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: undefined });
     expect(() => assertInteractiveConsentLive()).toThrow(AiConsentRevokedError);
+  });
+  it("throws while AI is switched off, the consent kept (AI-01)", () => {
+    publishAiConsentState({ ...defaultAiConfig, enabled: false, consent: newConsent(D) });
+    expect(() => assertInteractiveConsentLive()).toThrow(AiConsentRevokedError);
+    expect(isInteractiveConsentLive()).toBe(false);
+  });
+  it("does not need a key: the flag is the switch and the consent only", () => {
+    publishAiConsentState({ ...defaultAiConfig, enabled: true, apiKey: "", consent: newConsent(D) });
+    expect(isInteractiveConsentLive()).toBe(true);
+  });
+});
+
+describe("assertBackgroundConsentLive (AI-01)", () => {
+  const live = { ...defaultAiConfig, enabled: true, consent: newConsent(D), backgroundConsent: newConsent(D) };
+  it("passes with the switch on and both consents current", () => {
+    publishAiConsentState(live);
+    expect(() => assertBackgroundConsentLive()).not.toThrow();
+    expect(() => assertAiConsentLive("background")).not.toThrow();
+  });
+  it.each([
+    ["the background consent withdrawn", { ...live, backgroundConsent: undefined }],
+    ["the interactive consent withdrawn", { ...live, consent: undefined }],
+    ["AI switched off", { ...live, enabled: false }],
+  ])("throws with %s", (_name, ai) => {
+    publishAiConsentState(ai);
+    expect(() => assertBackgroundConsentLive()).toThrow(AiConsentRevokedError);
+    expect(() => assertAiConsentLive("background")).toThrow(AiConsentRevokedError);
+  });
+  it("a withdrawn background consent leaves the interactive level live", () => {
+    publishAiConsentState({ ...live, backgroundConsent: undefined });
+    expect(() => assertAiConsentLive("interactive")).not.toThrow();
   });
 });
