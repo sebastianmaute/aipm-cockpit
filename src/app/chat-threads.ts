@@ -159,21 +159,22 @@ export function minimiseToolResultText(text: string): string {
 /** The one tool whose result IS an address (AI-08): what it returned was asked for, one person at a time. */
 const KEPT_RESULT_TOOL = "get_contact_email";
 
-/** The ids of every `tool_use` block in `history` that called `KEPT_RESULT_TOOL`. */
+/** The ids of every `tool_use` block in `history` that called `KEPT_RESULT_TOOL`. Only a string id counts: a
+ *  malformed block without one must not pair with a result that has no `tool_use_id` either. */
 function keptToolUseIds(history: readonly ApiMessage[]): ReadonlySet<string> {
   const ids = new Set<string>();
   for (const msg of history) {
     if (!Array.isArray(msg.content)) continue;
     for (const block of msg.content) {
-      if (block && block.type === "tool_use" && block.name === KEPT_RESULT_TOOL) ids.add(block.id);
+      if (block && block.type === "tool_use" && block.name === KEPT_RESULT_TOOL && typeof block.id === "string") ids.add(block.id);
     }
   }
   return ids;
 }
 
 /** `history` with every stored `tool_result` minimised (`minimiseToolResultText`), except the result of a
- *  `get_contact_email` call — matched by its `tool_use_id` to a `tool_use` of that name in the same history —
- *  which keeps the address it was called for. Other blocks and string messages are returned as they are. Never
+ *  `get_contact_email` call — matched by its string `tool_use_id` to a `tool_use` of that name in the same history —
+ *  which keeps the address it was called for; a result without a string `tool_use_id` is always minimised. Other blocks and string messages are returned as they are. Never
  *  mutates its input. */
 export function minimiseStoredToolResults(history: readonly ApiMessage[]): ApiMessage[] {
   const kept = keptToolUseIds(history);
@@ -182,7 +183,8 @@ export function minimiseStoredToolResults(history: readonly ApiMessage[]): ApiMe
     return {
       ...msg,
       content: msg.content.map((block) =>
-        block && block.type === "tool_result" && typeof block.content === "string" && !kept.has(block.tool_use_id)
+        block && block.type === "tool_result" && typeof block.content === "string"
+          && !(typeof block.tool_use_id === "string" && kept.has(block.tool_use_id))
           ? { ...block, content: minimiseToolResultText(block.content) }
           : block),
     };

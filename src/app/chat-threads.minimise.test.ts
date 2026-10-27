@@ -165,4 +165,15 @@ describe("minimiseStoredToolResults — a looked-up address is kept (AI-08)", ()
     const [, , out] = minimiseStoredToolResults(history);
     expect(JSON.parse(toolResults([out])[0])).toEqual({ id: 3 });
   });
+
+  it("a result without a tool_use_id is stripped, even beside a get_contact_email call without an id", () => {
+    const history = historyWithLookup();
+    const calls = history[1].content as { id?: string }[];
+    delete calls[0].id; // a malformed get_contact_email call: no id
+    const carrier = history[2].content as { tool_use_id?: string }[];
+    delete carrier[0].tool_use_id; // a malformed result: no tool_use_id
+    const [, , out] = minimiseStoredToolResults(history);
+    expect(JSON.parse(toolResults([out])[0])).toEqual({ id: 3 });
+    expect(JSON.parse(toolResults([out])[1])).toEqual({ id: 1, title: "Deck", assignee: "Ada", version: "t1" }); // control
+  });
 });
