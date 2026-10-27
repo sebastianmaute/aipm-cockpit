@@ -351,6 +351,12 @@ section there.
   (`/api/stt` refuses too). To check it took effect, open Settings → AI: it says the
   organisation switched AI off, and the master switch cannot be ticked. Users' keys and
   consents are kept and work again once `ai` is removed.
+  ★ **Tabs opened before this release ignore `ai` until reloaded; have users reload.** A
+  page loaded from a release without the `ai` switch never asks the server before an AI
+  call and keeps the content security policy it loaded with, which still allows
+  `api.anthropic.com`, so on the first deploy that sets `ai` it goes on calling Anthropic
+  directly from the browser. Only the server's own routes (`/api/stt`) are refused at
+  once.
 
 ### Routing AI through a gateway (run-time, optional)
 
@@ -398,6 +404,11 @@ that list.
    before the relay sees it, so the user sees a gateway error. If your ingress or
    route configuration exposes no per-route setting for either, ask whoever operates
    it to set both for `/api/ai/messages`.
+   ★ **Uploading the request has its own limit.** The app server must receive the
+   whole request body within Node's default request timeout of 5 minutes (`next start`
+   does not change it), so the largest allowed chat (32 MB) needs an upload of roughly
+   110 KB/s from the user's browser; on a slower link a large chat fails before it is
+   relayed. Smaller requests are rarely affected.
 6. **Check it.** Open Settings → AI: every user is asked to accept the AI data
    disclosure again, and the dialog and the key note now say the data goes through
    this app's server and the organisation's AI gateway. Send one chat message and
@@ -411,6 +422,13 @@ What to know when running it:
   nothing: the chat and the other AI features that report a failure ask for a
   reload (never a key problem); the digest summary and the automatic insight
   recommendations, which fail quietly, are skipped.
+  ★ **Tabs opened before this release ignore both settings until reloaded; have users
+  reload.** A page loaded from a release without the gateway relay never asks the server
+  before an AI call and keeps the content security policy it loaded with, which still
+  allows `api.anthropic.com`. On the first deploy that sets the gateway (or the `ai`
+  switch, see [Switching integrations off](#switching-integrations-off-for-a-deployment-run-time-optional)),
+  such a tab goes on sending directly to Anthropic, under its old consent, until it is
+  reloaded. Announce the change and ask users to reload every open tab.
 - **Rate limiting belongs to the gateway.** The relay has no per-IP limit of its own;
   set one in the gateway's settings if you want one. When the gateway itself answers
   429, users see "The organisation's AI gateway is limiting requests right now";
