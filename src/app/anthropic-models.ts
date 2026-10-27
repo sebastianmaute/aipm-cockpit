@@ -11,8 +11,6 @@ import { getAiModels } from "./ai-transport";
 import type { LiveModel } from "./chat-models";
 import { reportAiKeyResponse } from "./ai-key-status";
 
-export { ANTHROPIC_MODELS_URL } from "./ai-transport";
-
 export type ModelsFetchResult =
   | { kind: "ok"; models: readonly LiveModel[] }
   | { kind: "http"; status: number };

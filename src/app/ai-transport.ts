@@ -21,7 +21,9 @@
 // No response body is logged.
 //
 // Usage tap: `subscribeAiUsage` listeners hear the normalised `usage` of every 2xx Messages response,
-// read from `res.clone()` so the caller's body is untouched. Every Messages call in the app today is
+// read from `res.clone()` so the caller's body is untouched. The read runs in the background: the
+// Response is handed to the caller at once, and the listeners hear the usage when the clone has been
+// parsed, so a send is never held up by the tap. Every Messages call in the app today is
 // non-streaming JSON (`callClaude` and `postOnce` both `await res.json()`), so the clone parses as
 // JSON. A streamed (SSE) response would fail that parse, which is swallowed: no usage is reported for
 // it, and streaming usage is left to the code that adds streaming. With no listener, nothing is cloned.
@@ -77,7 +79,7 @@ export const ANTHROPIC_VERSION = "2023-06-01";
 export type AiPathId = string;
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
-export const ANTHROPIC_MODELS_URL = "https://api.anthropic.com/v1/models?limit=1000";
+const ANTHROPIC_MODELS_URL = "https://api.anthropic.com/v1/models?limit=1000";
 const RELAY_MESSAGES_URL = "/api/ai/messages";
 const RELAY_MODELS_URL = "/api/ai/models";
 
@@ -162,8 +164,12 @@ async function throwIfRelayOwnError(res: Response): Promise<void> {
   if (res.status === 503 && code === RELAY_INVALID) throw new AiDeploymentError("invalid");
   // 404: the relay answers that this deployment is direct, so the route changed under the page.
   if (res.status === 404 || res.status === 503) throw new AiDeploymentError("route-changed");
-  // The relay's own 400/403 (bad request, not same-origin) and anything else unshaped: never a key
-  // verdict, so never handed back as a plain 401/403.
+  // The relay's own 400 (`bad-request`, `missing-api-key`) is a client error, not a gateway failure, and
+  // never a key verdict: it reaches the caller as it is, whose usual non-2xx handling shows its error.
+  // (The relay's 413 is Anthropic-shaped, so it already returned above, like a direct 413.)
+  if (res.status === 400) return;
+  // The relay's own 403 (not same-origin) and anything else unshaped: never a key verdict, so never
+  // handed back as a plain 401/403.
   throw new AiGatewayError(AI_GATEWAY_ERROR);
 }
 
@@ -225,7 +231,8 @@ export async function postAiMessages({ apiKey, body, path, signal }: PostAiMessa
     signal,
   });
   if (gateway && !res.ok) await throwIfRelayOwnError(res);
-  if (res.ok) await tapUsage(path, res);
+  // Fire and forget: `tapUsage` swallows its own failures.
+  if (res.ok) void tapUsage(path, res);
   return res;
 }
 

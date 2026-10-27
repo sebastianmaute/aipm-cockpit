@@ -38,22 +38,41 @@ function isStringish(node: ts.Node): node is ts.StringLiteral | ts.NoSubstitutio
     || ts.isTemplateMiddle(node) || ts.isTemplateTail(node);
 }
 
+/** `fetch(…)`, or `fetch` reached through a global object (`globalThis.fetch`, `window.fetch`, `self.fetch`). */
+function isFetchCallee(callee: ts.Expression): boolean {
+  if (ts.isIdentifier(callee)) return callee.text === "fetch";
+  return ts.isPropertyAccessExpression(callee) && callee.name.text === "fetch";
+}
+
+/** What one source file does: names the host in a string, and/or fetches with an Anthropic URL. */
+function sitesIn(sf: ts.SourceFile): { host: boolean; anthropicFetch: boolean } {
+  const out = { host: false, anthropicFetch: false };
+  const visit = (node: ts.Node): void => {
+    if (isStringish(node) && node.text.includes(HOST)) out.host = true;
+    if (
+      ts.isCallExpression(node) && isFetchCallee(node.expression)
+      && node.arguments.length > 0 && /anthropic/i.test(node.arguments[0].getText(sf))
+    ) out.anthropicFetch = true;
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return out;
+}
+
 function scan(): { hostIn: string[]; anthropicFetchIn: string[] } {
   const hostIn = new Set<string>();
   const anthropicFetchIn = new Set<string>();
   for (const file of sourceFiles(APP)) {
     const rel = relative(APP, file).replaceAll("\\", "/");
-    const visit = (node: ts.Node): void => {
-      if (isStringish(node) && node.text.includes(HOST)) hostIn.add(rel);
-      if (
-        ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "fetch"
-        && node.arguments.length > 0 && /anthropic/i.test(node.arguments[0].getText())
-      ) anthropicFetchIn.add(rel);
-      ts.forEachChild(node, visit);
-    };
-    visit(parse(file));
+    const found = sitesIn(parse(file));
+    if (found.host) hostIn.add(rel);
+    if (found.anthropicFetch) anthropicFetchIn.add(rel);
   }
   return { hostIn: [...hostIn].sort(), anthropicFetchIn: [...anthropicFetchIn].sort() };
+}
+
+function sitesInText(text: string) {
+  return sitesIn(ts.createSourceFile("probe.ts", text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS));
 }
 
 describe("AI transport sites", () => {
@@ -69,6 +88,15 @@ describe("AI transport sites", () => {
 
   it("the named developer-script exclusions still exist (drop a gone one from the list)", () => {
     for (const f of EXCLUDED_DEV_SCRIPTS) expect(existsSync(join(process.cwd(), f)), f).toBe(true);
+  });
+
+  it.each(["fetch", "globalThis.fetch", "window.fetch", "self.fetch"])("the fetch rule sees %s(ANTHROPIC_URL)", (callee) => {
+    expect(sitesInText(`${callee}(ANTHROPIC_URL, {});`).anthropicFetch).toBe(true);
+    expect(sitesInText(`${callee}("/api/stt", {});`).anthropicFetch).toBe(false);
+  });
+
+  it("a comment naming the host is not a site", () => {
+    expect(sitesInText("// see https://api.anthropic.com/v1/messages\nconst x = 1;").host).toBe(false);
   });
 
   it("the scan sees a real site (not vacuous)", () => {

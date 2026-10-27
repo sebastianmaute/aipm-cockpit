@@ -28,13 +28,16 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
     handlers?.onStatus?.("transcribing");
     try {
       // The deployment's AI setting, asked before the upload as before every AI send: switched off or
-      // invalid discards the clip like a withdrawn consent; unconfirmed (or a changed route) sends nothing.
+      // invalid discards the clip like a withdrawn consent; unconfirmed sends nothing. A changed route
+      // does not matter here: STT goes through `/api/stt`, never the Anthropic route.
       try {
         await confirmAiDeployment();
       } catch (e) {
-        const consentLike = e instanceof AiDeploymentError && (e.reason === "off" || e.reason === "invalid");
-        handlers?.onError(consentLike ? DICTATION_NEEDS_AI_CONSENT : "stt-unconfirmed");
-        return;
+        const reason = e instanceof AiDeploymentError ? e.reason : "unconfirmed";
+        if (reason !== "route-changed") {
+          handlers?.onError(reason === "off" || reason === "invalid" ? DICTATION_NEEDS_AI_CONSENT : "stt-unconfirmed");
+          return;
+        }
       }
       const form = new FormData();
       form.append("file", blob, "audio.webm");

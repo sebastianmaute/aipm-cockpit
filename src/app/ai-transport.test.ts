@@ -11,6 +11,8 @@ import { setAiDeploymentState, type AiDeploymentState } from "./ai-deployment";
 import { fetchAnthropicModels } from "./anthropic-models";
 import { __resetAiKeyStatusForTests, getAiKeyStatus, syncAiKey } from "./ai-key-status";
 import { aiTransportMessageKey } from "./ai-errors";
+import * as transport from "./ai-transport";
+import * as models from "./anthropic-models";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
 
@@ -47,6 +49,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
   setAiDeploymentState(DIRECT_AI_STATUS);
   __resetAiKeyStatusForTests();
+});
+
+describe("the Anthropic URLs stay inside the transport", () => {
+  it("neither the transport nor anthropic-models exports an Anthropic URL", () => {
+    const exported = [...Object.values(transport), ...Object.values(models)];
+    expect(exported.filter((v) => typeof v === "string" && v.includes("api.anthropic.com"))).toEqual([]);
+  });
 });
 
 describe("confirmAiDeployment", () => {
@@ -164,6 +173,23 @@ describe("postAiMessages", () => {
     expect((err as AiGatewayError).code).toBe("ai-gateway-error");
   });
 
+  it("relay 413 (request too large, Anthropic-shaped) reaches the caller unchanged, like a direct 413", async () => {
+    setAiDeploymentState(GATEWAY);
+    const tooLarge = { type: "error", error: { type: "request_too_large", message: "Request exceeds the maximum allowed size." } };
+    stubFetch(GATEWAY, () => json(tooLarge, 413));
+    const res = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual(tooLarge);
+  });
+
+  it.each(["bad-request", "missing-api-key"])("relay 400 %s reaches the caller as a plain 400, never a gateway error", async (code) => {
+    setAiDeploymentState(GATEWAY);
+    stubFetch(GATEWAY, () => json({ error: code }, 400));
+    const res = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: code });
+  });
+
   it("relay's own 403 is a gateway error, never a key verdict", async () => {
     setAiDeploymentState(GATEWAY);
     stubFetch(GATEWAY, () => json({ error: "not-same-origin" }, 403));
@@ -259,9 +285,22 @@ describe("subscribeAiUsage", () => {
     stubFetch(DIRECT_AI_STATUS, () => json({ content: [], usage: { input_tokens: 7, output_tokens: 3 } }));
     const res = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
     expect(await res.json()).toEqual({ content: [], usage: { input_tokens: 7, output_tokens: 3 } });
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
     expect(seen).toEqual([
       ["chat", { input_tokens: 7, output_tokens: 3, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }],
     ]);
+    off();
+  });
+
+  it("never holds the send while the usage is read", async () => {
+    const off = subscribeAiUsage(() => {});
+    // A 2xx whose body never finishes: reading the clone never resolves.
+    stubFetch(DIRECT_AI_STATUS, () => new Response(new ReadableStream({ start() {} }), { status: 200 }));
+    const outcome = await Promise.race([
+      postAiMessages({ apiKey: KEY, body: "{}", path: "chat" }).then(() => "sent"),
+      new Promise((r) => setTimeout(() => r("held"), 200)),
+    ]);
+    expect(outcome).toBe("sent");
     off();
   });
 

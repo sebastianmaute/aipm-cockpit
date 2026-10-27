@@ -3,7 +3,6 @@ import { act, renderHook } from "@testing-library/react";
 import { AI_KEY_CHECK_DEBOUNCE_MS, AI_KEY_CHECK_TIMEOUT_MS, useAiKeyCheck, useAiKeyStatus } from "./use-ai-key-check";
 import { AI_DISCLOSURE_VERSION, newConsent, type AiConsent } from "./ai-consent";
 import { __resetAiKeyStatusForTests, getAiKeyStatus, reportAiKeyResponse } from "./ai-key-status";
-import { ANTHROPIC_MODELS_URL } from "./anthropic-models";
 import { clearSessionAiKey, setSessionAiKey } from "./session-ai-key";
 
 const KEY_A = "sk-ant-api03-StartupCheckKeyAAAAAAAA";
@@ -79,7 +78,7 @@ describe("useAiKeyCheck — §650 start-up and on-save key check", () => {
     await settle();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(ANTHROPIC_MODELS_URL);
+    expect(url).toBe("https://api.anthropic.com/v1/models?limit=1000");
     expect(url).not.toContain(KEY_A);
     expect((init.headers as Record<string, string>)["x-api-key"]).toBe(KEY_A);
     expect(getAiKeyStatus()).toBe("ok");

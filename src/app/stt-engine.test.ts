@@ -75,6 +75,20 @@ describe("stt-engine — the deployment status check before the upload", () => {
     expect(h.onFinal).not.toHaveBeenCalled();
     expect(h.onStatus).toHaveBeenLastCalledWith("idle");
   });
+
+  it("a changed AI route does not block dictation: STT never uses the Anthropic route", async () => {
+    __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse({ off: false, route: "gateway", invalid: false })));
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const h = { onInterim: vi.fn(), onFinal: vi.fn(), onError: vi.fn(), onStatus: vi.fn() };
+    const eng = createSttEngine(cfg);
+    eng.start(h);
+    await Promise.resolve(); await Promise.resolve();
+    eng.stop();
+    await vi.waitFor(() => expect(h.onFinal).toHaveBeenCalledWith("hello"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(h.onError).not.toHaveBeenCalled();
+  });
 });
 
 describe("stt-engine", () => {
