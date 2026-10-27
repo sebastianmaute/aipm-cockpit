@@ -63,6 +63,8 @@ describe("readAiGatewayConfig", () => {
     "https://host/x#f",
     "https://host/x/v1",
     "https://host/x/v1/messages",
+    "https://host/x/v1/models",
+    "https://host/x/V1/Models/",
     "https://host/x/V1",
     "https://@host/x",
     "https://host/x y",

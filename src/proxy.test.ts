@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { proxy } from "./proxy";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
+import { config, proxy } from "./proxy";
 
 function cspFor(url = "http://localhost:3000/"): string {
   const res = proxy(new NextRequest(new Request(url)));
@@ -167,5 +168,17 @@ describe("proxy CSP — follows the AI deployment", () => {
     vi.unstubAllEnvs();
     vi.stubEnv("AIPM_AI_GATEWAY_TOKEN", "orphan");
     expect(cspFor()).not.toContain("api.anthropic.com");
+  });
+});
+
+describe("proxy matcher — API routes stay outside the proxy", () => {
+  // A matched request has its body buffered by Next up to its proxyClientMaxBodySize setting (10 MB by
+  // default), which would cut off the AI relay's larger bodies before its own 32 MB cap applies.
+  it.each(["/api/ai/messages", "/api/ai/models", "/api/ai/status"])("does not match %s", (path) => {
+    expect(unstable_doesMiddlewareMatch({ config, url: `http://localhost:3000${path}` })).toBe(false);
+  });
+
+  it("still matches a page (the matcher is not vacuous)", () => {
+    expect(unstable_doesMiddlewareMatch({ config, url: "http://localhost:3000/" })).toBe(true);
   });
 });

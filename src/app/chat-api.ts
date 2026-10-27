@@ -660,6 +660,8 @@ export async function callClaude(
     }),
     path: "chat",
     signal,
+    // Asked again after the deployment status: consent can be revoked while it is asked.
+    beforeSend: assertInteractiveConsentLive,
   });
   if (!res.ok) {
     // Parse the RESPONSE body ONCE for two safe reads: the `error.type` token

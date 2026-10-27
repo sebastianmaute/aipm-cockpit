@@ -20,6 +20,7 @@ import { request as httpsRequest } from "node:https";
 import type { RequestOptions } from "node:http";
 import { refuseIfDisabled } from "../_shared/integration-switch";
 import { readAiGatewayConfig } from "../../ai-gateway-config";
+import { AI_GATEWAY_ERROR, AI_GATEWAY_INVALID, AI_GATEWAY_RATE_LIMITED, AI_GATEWAY_REJECTED } from "../../ai-errors";
 
 // Anthropic's documented maximum request size for Messages and Token Counting is
 // 32 MB; larger requests get 413 `request_too_large`. Source (checked 2026-10-27):
@@ -32,10 +33,9 @@ export const RELAY_TIMEOUT_MS = 15 * 60 * 1000;
 // bodies are small, so anything larger is treated as not Anthropic-shaped.
 const MAX_ERROR_BODY_BYTES = 1024 * 1024;
 
-export const AI_GATEWAY_REJECTED = "ai-gateway-rejected";
-export const AI_GATEWAY_ERROR = "ai-gateway-error";
-export const AI_GATEWAY_RATE_LIMITED = "ai-gateway-rate-limited";
-export const AI_GATEWAY_INVALID = "ai-gateway-invalid";
+// The gateway codes come from the client's own module, so the two sides cannot drift; the
+// remaining codes are pinned against the client by `_relay.wire.test.ts`.
+export { AI_GATEWAY_ERROR, AI_GATEWAY_INVALID, AI_GATEWAY_RATE_LIMITED, AI_GATEWAY_REJECTED };
 export const NOT_SAME_ORIGIN = "not-same-origin";
 export const MISSING_API_KEY = "missing-api-key";
 
@@ -54,7 +54,15 @@ export interface UpstreamRequest {
 export type UpstreamResponse = AsyncIterable<Uint8Array> & {
   statusCode?: number;
   headers: Record<string, string | string[] | undefined>;
+  on(event: "error", listener: (err: Error) => void): unknown;
 };
+
+/** An answer the relay drops unread: destroying the upstream request makes it emit 'error'
+ *  (ECONNRESET), which with no listener would be thrown as an uncaught exception. */
+function discard(res: UpstreamResponse, upstream: UpstreamRequest | null): void {
+  res.on("error", () => {});
+  upstream?.destroy();
+}
 
 export type RelaySend = (
   url: URL,
@@ -202,7 +210,7 @@ function forward(
         // 1xx/3xx or out of range: never passed through (a 304 cannot carry a body,
         // and the Response constructor rejects anything outside 200–599).
         cleanup();
-        upstream?.destroy();
+        discard(res, upstream);
         finish(fail(502, AI_GATEWAY_ERROR));
         return;
       }
@@ -250,7 +258,7 @@ function forward(
         onResponse(res).catch(() => {
           // A response that cannot be built must still settle the call.
           cleanup();
-          upstream?.destroy();
+          discard(res, upstream);
           finish(fail(502, AI_GATEWAY_ERROR));
         });
       });

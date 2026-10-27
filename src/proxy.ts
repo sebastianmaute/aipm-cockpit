@@ -145,6 +145,11 @@ export function proxy(request: NextRequest): NextResponse {
 // Skip static assets, image optimization, API routes, the favicon, and
 // router prefetches — none of them render HTML, so they don't need a CSP
 // and re-running this for every prefetch wastes work.
+// `/api` must stay excluded: Next buffers the body of every request the proxy
+// matches, up to its proxyClientMaxBodySize setting (10 MB by default), and passes on only
+// that much. The AI relay (`api/ai/_relay.ts`) accepts bodies up to its own
+// 32 MB cap, which relies on its route receiving the body unbuffered.
+// `proxy.test.ts` pins that the API routes are not matched.
 export const config = {
   matcher: [
     {

@@ -34,6 +34,8 @@ export class AiDeploymentError extends Error {
 export const AI_GATEWAY_REJECTED = "ai-gateway-rejected";
 export const AI_GATEWAY_ERROR = "ai-gateway-error";
 export const AI_GATEWAY_RATE_LIMITED = "ai-gateway-rate-limited";
+/** The relay's 503 body when the deployment's gateway setting is invalid (not a gateway failure). */
+export const AI_GATEWAY_INVALID = "ai-gateway-invalid";
 export type AiGatewayErrorCode = typeof AI_GATEWAY_REJECTED | typeof AI_GATEWAY_ERROR | typeof AI_GATEWAY_RATE_LIMITED;
 
 /** The organisation's AI gateway (reached through the same-origin relay) refused the app's

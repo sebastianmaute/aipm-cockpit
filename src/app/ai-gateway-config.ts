@@ -32,7 +32,7 @@ function normalizeGatewayUrl(raw: string): string | null {
   if (parsed.protocol !== "https:") return null;
   if (parsed.username || parsed.password) return null;
   const path = parsed.pathname.replace(/\/+$/, "");
-  if (/\/v1(\/messages)?$/i.test(path)) return null;
+  if (/\/v1(\/messages|\/models)?$/i.test(path)) return null;
   return parsed.origin + path;
 }
 

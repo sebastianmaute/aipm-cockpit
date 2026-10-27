@@ -213,6 +213,45 @@ describe("postAiMessages", () => {
     expect((err as AiDeploymentError).reason).toBe("route-changed");
   });
 
+  it.each([
+    ["an empty body", () => new Response(null, { status: 503 })],
+    ["a non-JSON body", () => new Response("Service Unavailable", { status: 503 })],
+    ["JSON without a relay code", () => json({ error: "something-else" }, 503)],
+  ])("an uncoded relay 503 (%s) is unconfirmed, never route-changed", async (_label, reply) => {
+    setAiDeploymentState(GATEWAY);
+    stubFetch(GATEWAY, reply);
+    const err = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiDeploymentError);
+    expect((err as AiDeploymentError).reason).toBe("unconfirmed");
+  });
+
+  it.each(["direct", "gateway"] as const)("%s: beforeSend runs after the status answer and can stop the send", async (r) => {
+    const state: AiDeploymentState = { off: false, route: r, invalid: false };
+    setAiDeploymentState(state);
+    const order: string[] = [];
+    const f = vi.fn(async (input: string): Promise<Response> => {
+      order.push(input);
+      return input === "/api/ai/status" ? aiStatusResponse(state) : json({});
+    });
+    vi.stubGlobal("fetch", f);
+    const stop = new Error("stopped");
+    const beforeSend = vi.fn(() => {
+      order.push("beforeSend");
+      throw stop;
+    });
+    const err = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat", beforeSend }).catch((e: unknown) => e);
+    expect(err).toBe(stop);
+    expect(order).toEqual(["/api/ai/status", "beforeSend"]);
+  });
+
+  it("beforeSend that returns lets the send go out once", async () => {
+    const f = stubFetch(DIRECT_AI_STATUS);
+    const beforeSend = vi.fn();
+    await postAiMessages({ apiKey: KEY, body: "{}", path: "chat", beforeSend });
+    expect(beforeSend).toHaveBeenCalledTimes(1);
+    expect(urls(f)).toEqual(["/api/ai/status", "https://api.anthropic.com/v1/messages"]);
+  });
+
   it("an Anthropic-shaped error through the relay reaches the caller unchanged", async () => {
     setAiDeploymentState(GATEWAY);
     const anthropic = { type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } };

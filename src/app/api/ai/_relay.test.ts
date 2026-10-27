@@ -443,6 +443,53 @@ describe("relay — the browser goes away", () => {
   });
 });
 
+describe("relay — an upstream answer it drops never raises an unhandled error", () => {
+  /** A send whose `destroy` makes the unread upstream answer emit 'error', as a reset socket does.
+   *  `emit("error")` with no listener throws, so `threw` records an error nobody handles. */
+  function resettingSend(res: UpstreamResponse & Readable) {
+    const seen = { destroyed: false, threw: false };
+    const send: RelaySend = (_url, _options, onResponse) => ({
+      on() {
+        return this;
+      },
+      end() {
+        queueMicrotask(() => onResponse(res));
+        return this;
+      },
+      destroy() {
+        seen.destroyed = true;
+        try {
+          res.emit("error", Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }));
+        } catch {
+          seen.threw = true;
+        }
+        return this;
+      },
+    });
+    return { send, seen };
+  }
+
+  const answer = (status: number, contentType: string) =>
+    Object.assign(new Readable({ read() {} }), { statusCode: status, headers: { "content-type": contentType } });
+
+  it.each([302, 304, 600, 199])("upstream %i: the answer is dropped with an error listener attached", async (status) => {
+    const { send, seen } = resettingSend(answer(status, "application/json"));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(502);
+    expect(seen.destroyed).toBe(true);
+    expect(seen.threw).toBe(false);
+  });
+
+  it("an answer whose response cannot be built is dropped with an error listener attached", async () => {
+    // A content-type a Headers object refuses makes building the response throw.
+    const { send, seen } = resettingSend(answer(200, "text/plain\r\nx-injected: 1"));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(502);
+    expect(seen.destroyed).toBe(true);
+    expect(seen.threw).toBe(false);
+  });
+});
+
 describe("relay — logs nothing secret", () => {
   const spies: Array<ReturnType<typeof vi.spyOn>> = [];
   beforeEach(() => {

@@ -216,12 +216,15 @@ async function postOnce(
   const system = withGuideText(args.system, args.guideText, args.cacheGuides === true);
   if (system !== undefined) body.system = system;
 
-  assertAiConsentLive(args.level ?? "interactive");
+  const level = args.level ?? "interactive";
+  assertAiConsentLive(level);
   const res = await postAiMessages({
     apiKey: args.apiKey,
     body: JSON.stringify(body),
     path: args.toolName,
     signal: args.signal,
+    // Asked again after the deployment status: consent can be revoked while it is asked.
+    beforeSend: () => assertAiConsentLive(level),
   });
 
   if (!res.ok) {

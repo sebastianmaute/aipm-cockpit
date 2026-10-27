@@ -30,6 +30,7 @@
 import { getAiDeploymentState, type AiDeploymentState, type AiRoute } from "./ai-deployment";
 import {
   AI_GATEWAY_ERROR,
+  AI_GATEWAY_INVALID,
   AI_GATEWAY_RATE_LIMITED,
   AI_GATEWAY_REJECTED,
   AiDeploymentError,
@@ -84,10 +85,9 @@ const ANTHROPIC_MODELS_URL = "https://api.anthropic.com/v1/models?limit=1000";
 const RELAY_MESSAGES_URL = "/api/ai/messages";
 const RELAY_MODELS_URL = "/api/ai/models";
 
-/** The relay's 503 bodies (`refuseIfDisabled`, `relay` in `api/ai/_relay.ts`), duplicated here
- *  because that module is server-only. */
+/** The relay's switched-off 503 body (`refuseIfDisabled`), duplicated here because that module is
+ *  server-only; `api/ai/_relay.wire.test.ts` pins it against the relay's real answer. */
 const RELAY_DISABLED = "integration-disabled";
-const RELAY_INVALID = "ai-gateway-invalid";
 
 const GATEWAY_CODES: ReadonlySet<string> = new Set([AI_GATEWAY_REJECTED, AI_GATEWAY_ERROR, AI_GATEWAY_RATE_LIMITED]);
 
@@ -162,9 +162,13 @@ async function throwIfRelayOwnError(res: Response): Promise<void> {
   const code = isRecord(body) && typeof body.error === "string" ? body.error : undefined;
   if (code !== undefined && GATEWAY_CODES.has(code)) throw new AiGatewayError(code as AiGatewayErrorCode);
   if (res.status === 503 && code === RELAY_DISABLED) throw new AiDeploymentError("off");
-  if (res.status === 503 && code === RELAY_INVALID) throw new AiDeploymentError("invalid");
-  // 404: the relay answers that this deployment is direct, so the route changed under the page.
-  if (res.status === 404 || res.status === 503) throw new AiDeploymentError("route-changed");
+  if (res.status === 503 && code === AI_GATEWAY_INVALID) throw new AiDeploymentError("invalid");
+  // 404: the relay answers a direct deployment with an empty 404 (it has no code to send), and only
+  // the relay answers 404 at this URL, so the route changed under the page.
+  if (res.status === 404) throw new AiDeploymentError("route-changed");
+  // A 503 without the relay's code is not the relay's answer (e.g. a proxy in front of the app):
+  // nothing says what the deployment's setting is, so it is unconfirmed, never a route change.
+  if (res.status === 503) throw new AiDeploymentError("unconfirmed");
   // The relay's own 400 (`bad-request`, `missing-api-key`) is a client error, not a gateway failure, and
   // never a key verdict: it reaches the caller as it is, whose usual non-2xx handling shows its error.
   // (The relay's 413 is Anthropic-shaped, so it already returned above, like a direct 413.)
@@ -218,12 +222,17 @@ export interface PostAiMessagesArgs {
   body: string;
   path: AiPathId;
   signal?: AbortSignal;
+  /** Runs after the deployment status is confirmed and immediately before the request is sent; a
+   *  throw stops the send. Callers pass their consent assertion here, because the consent can be
+   *  revoked while the status is asked. */
+  beforeSend?: () => void;
 }
 
 /** POST a Messages request on this deployment's route, after `confirmAiDeployment`. */
-export async function postAiMessages({ apiKey, body, path, signal }: PostAiMessagesArgs): Promise<Response> {
+export async function postAiMessages({ apiKey, body, path, signal, beforeSend }: PostAiMessagesArgs): Promise<Response> {
   await confirmAiDeployment(signal);
   throwIfAborted(signal);
+  beforeSend?.();
   const gateway = route() === "gateway";
   const res = await fetch(gateway ? RELAY_MESSAGES_URL : ANTHROPIC_MESSAGES_URL, {
     method: "POST",
