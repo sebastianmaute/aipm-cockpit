@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { readAiGatewayConfig } from "./app/ai-gateway-config";
+import { DISABLED_INTEGRATIONS_ENV, parseDisabledIntegrations } from "./app/integration-switches";
 
 // Per-request nonce-based Content-Security-Policy.
 //
@@ -55,7 +57,11 @@ import { type NextRequest, NextResponse } from "next/server";
 //                    security note that overstates the mitigation is the
 //                    kind that stops a reviewer checking the real one.
 //   connect-src      api.anthropic.com — chat panel calls Anthropic from
-//                    the browser. Jira goes through /api/jira/* (self).
+//                    the browser, ONLY in direct mode. It is dropped when the
+//                    ai switch is off or the gateway setting is invalid, and in
+//                    gateway mode the browser calls same-origin /api/ai/*
+//                    ('self'), so the gateway host never appears here. Read
+//                    per request from the environment. Jira goes through /api/jira/* (self).
 //                    *.turso.io — the Turso storage backend and snapshot
 //                    store call the libSQL HTTP /v2/pipeline API directly
 //                    from the browser. http://localhost|127.0.0.1 cover a
@@ -79,7 +85,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
-function buildCsp(nonce: string): string {
+function buildCsp(nonce: string, allowAnthropic: boolean): string {
   const scriptExtras = IS_DEV ? " 'unsafe-eval'" : "";
   // Dev: omit the nonce from style-src-elem so 'unsafe-inline' actually works.
   // When a nonce is present the browser ignores 'unsafe-inline' (CSP Level 2),
@@ -111,7 +117,7 @@ function buildCsp(nonce: string): string {
     // can only ever decode an image.
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    "connect-src 'self' https://api.anthropic.com https://*.turso.io https://graph.microsoft.com https://*.sharepoint.com https://*.files.1drv.com https://login.microsoftonline.com http://localhost:* http://127.0.0.1:*",
+    `connect-src 'self'${allowAnthropic ? " https://api.anthropic.com" : ""} https://*.turso.io https://graph.microsoft.com https://*.sharepoint.com https://*.files.1drv.com https://login.microsoftonline.com http://localhost:* http://127.0.0.1:*`,
     "frame-src https://login.microsoftonline.com",
     "frame-ancestors 'none'",
     "object-src 'none'",
@@ -122,7 +128,10 @@ function buildCsp(nonce: string): string {
 
 export function proxy(request: NextRequest): NextResponse {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-  const csp = buildCsp(nonce);
+  const allowAnthropic =
+    readAiGatewayConfig(process.env).kind === "direct" &&
+    !parseDisabledIntegrations(process.env[DISABLED_INTEGRATIONS_ENV]).includes("ai");
+  const csp = buildCsp(nonce, allowAnthropic);
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);

@@ -133,3 +133,39 @@ describe("proxy CSP — frame-src", () => {
     expect(frame).not.toContain("'none'");
   });
 });
+
+describe("proxy CSP — follows the AI deployment", () => {
+  const ANTHROPIC = " https://api.anthropic.com";
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("direct mode keeps api.anthropic.com", () => {
+    expect(directive(cspFor(), "connect-src")).toContain("https://api.anthropic.com");
+  });
+
+  it("drops api.anthropic.com when the ai switch is off, and nothing else changes", () => {
+    const direct = cspFor();
+    vi.stubEnv("AIPM_DISABLED_INTEGRATIONS", "ai");
+    const off = cspFor();
+    expect(off).not.toContain("api.anthropic.com");
+    expect(off.replace(/nonce-[^']+/g, "N")).toBe(direct.replace(ANTHROPIC, "").replace(/nonce-[^']+/g, "N"));
+  });
+
+  it("drops it in gateway mode without ever naming the gateway host", () => {
+    const direct = cspFor();
+    vi.stubEnv("AIPM_AI_GATEWAY_URL", "https://gateway.example.net/v1/acct/gw/anthropic");
+    vi.stubEnv("AIPM_AI_GATEWAY_TOKEN", "secret-token");
+    const gw = cspFor();
+    expect(gw).not.toContain("api.anthropic.com");
+    expect(gw).not.toContain("gateway.example.net");
+    expect(gw).not.toContain("secret-token");
+    expect(gw.replace(/nonce-[^']+/g, "N")).toBe(direct.replace(ANTHROPIC, "").replace(/nonce-[^']+/g, "N"));
+  });
+
+  it("drops it for an invalid gateway setting (fails closed)", () => {
+    vi.stubEnv("AIPM_AI_GATEWAY_URL", "http://not-https.example.net");
+    expect(cspFor()).not.toContain("api.anthropic.com");
+    vi.unstubAllEnvs();
+    vi.stubEnv("AIPM_AI_GATEWAY_TOKEN", "orphan");
+    expect(cspFor()).not.toContain("api.anthropic.com");
+  });
+});
