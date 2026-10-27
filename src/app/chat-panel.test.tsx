@@ -7,6 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { __resetAiKeyStatusForTests, getAiKeyStatus, syncAiKey } from "./ai-key-status";
 import { clearSessionAiKey } from "./session-ai-key";
+import { setAiDeploymentState } from "./ai-deployment";
 // §717 — an unlocked key lives in a page-wide store now, not in one panel: forget it after every test.
 afterEach(() => { clearSessionAiKey(); });
 import { readFileSync } from "node:fs";
@@ -190,6 +191,17 @@ describe("Without a current AI consent", () => {
     );
     expect(screen.getByText(t("en-US", "chatNoApiKey"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
+  });
+
+  it("a deployment with AI off leaves the composer in the AI-disabled state", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    try {
+      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
+      expect(screen.getByText(t("en-US", "chatNoApiKey"))).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeDisabled();
+    } finally {
+      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+    }
   });
 
   // M3 — one neutral message for both causes: the published flag the request path reads is off after a withdrawn

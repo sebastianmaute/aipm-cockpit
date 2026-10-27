@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { aiDeploymentStateFrom } from "./ai-gateway-config";
 import {
   currentAiRoute,
@@ -63,5 +63,21 @@ describe("the client store", () => {
     expect(isAiDeploymentOn()).toBe(false);
     setAiDeploymentState({ off: false, route: "direct", invalid: true });
     expect(isAiDeploymentOn()).toBe(false);
+  });
+});
+
+describe("invalid state diagnostics", () => {
+  it("logs ai.gateway.invalid once per page load, with no fields", async () => {
+    vi.resetModules();
+    localStorage.clear();
+    const dep = await import("./ai-deployment");
+    const diag = await import("./diagnostics");
+    dep.setAiDeploymentState({ off: false, route: "direct", invalid: true });
+    dep.setAiDeploymentState({ off: false, route: "direct", invalid: true });
+    const hits = diag.readDiagLog().filter((e) => e.code === "ai.gateway.invalid");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].level).toBe("warn");
+    expect(hits[0].fields ?? {}).toEqual({});
+    dep.setAiDeploymentState({ off: false, route: "direct", invalid: false });
   });
 });

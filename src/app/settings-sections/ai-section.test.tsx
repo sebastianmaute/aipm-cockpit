@@ -1221,11 +1221,17 @@ describe("AiSection — deployment notice", () => {
   it("off: shows the notice, disables the master switch and changes nothing", () => {
     setAiDeploymentState({ off: true, route: "direct", invalid: false });
     const onChange = vi.fn();
-    const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: "sk-ant-keep" } };
+    const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: "sk-ant-keep", backgroundConsent: newConsent(new Date(0)) } };
+    const before = structuredClone(settings.ai);
     render(<AiSection lang="en-US" settings={settings} onChange={onChange} />);
     expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: t("en-US", "aiEnable") })).toBeDisabled();
+    const master = screen.getByRole("checkbox", { name: t("en-US", "aiEnable") });
+    expect(master).toBeDisabled();
+    fireEvent.click(master);
     expect(onChange).not.toHaveBeenCalled();
+    expect(settings.ai.apiKey).toBe(before.apiKey);
+    expect(settings.ai.consent).toEqual(before.consent);
+    expect(settings.ai.backgroundConsent).toEqual(before.backgroundConsent);
   });
   it("invalid: shows the invalid notice", () => {
     setAiDeploymentState({ off: false, route: "direct", invalid: true });

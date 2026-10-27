@@ -10,6 +10,7 @@ import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import { type AiConfig, type Settings, clampMaxChatTurns, isAiConsentedForDictation } from "./settings-types";
 import { AiConsentRevokedError, isConsentCurrent } from "./ai-consent";
+import { isAiDeploymentOn } from "./ai-deployment";
 import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 import { useAiUsageContext } from "./ai-usage-context";
@@ -616,7 +617,7 @@ function ChatPanelInner({
   // Master switch: when AI is disabled in Settings, the assistant is fully off
   // regardless of any stored key — force the no-key path so send is blocked.
   const consentStale = ai.enabled === true && !isConsentCurrent(ai.consent);
-  const masterOn = ai.enabled === true && !consentStale;
+  const masterOn = isAiDeploymentOn() && ai.enabled === true && !consentStale;
   // The key actually used for calls/gating: a plaintext settings key wins,
   // else the inline-unlocked passphrase key (if any).
   const effectiveApiKey = masterOn ? (ai.apiKey.trim() ? ai.apiKey : (unlockedKey ?? "")) : "";

@@ -375,6 +375,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           checked={settings.ai.enabled === true}
           disabled={deploymentBlocked}
           onChange={(e) => {
+            if (deploymentBlocked) return; // the deployment decides; the stored switch stays as it is
             // Switching AI on without a current consent asks first; `enabled` stays false until Accept.
             if (e.target.checked && !isConsentCurrent(settings.ai.consent)) {
               setConsentOpen(true);
