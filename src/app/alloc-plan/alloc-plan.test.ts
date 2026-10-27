@@ -69,6 +69,34 @@ describe("resourceLabel", () => {
   });
 });
 
+// AI-08 — what is SENT to the model labels a person without a name by `#<id>`, never by their address.
+describe("AI-facing resource labels (AI-08)", () => {
+  const nameless = resource(9, { firstName: "", lastName: "", email: "ada@example.com", utilizationMode: "hours", utilization: { "2026-08": 8 } });
+  const ctx = { plan, absences: [], workdayHours: 8, holidaySet: new Set<string>() };
+
+  it("the allocation-plan context carries #<id>, never the address", () => {
+    const text = buildAllocContext({ resources: [nameless], roles: [], disciplines: [], grades: [], ...ctx });
+    expect(text).toContain("#9 #9 [hours]");
+    expect(text).not.toContain("ada@example.com");
+  });
+
+  it("the list_allocations snapshot carries #<id>, never the address", () => {
+    const snap = buildAllocationsSnapshot({ resources: [nameless], ...ctx });
+    expect(snap.resources[0]?.name).toBe("#9");
+    expect(JSON.stringify(snap)).not.toContain("ada@example.com");
+  });
+
+  it("a named person keeps their name in both (control)", () => {
+    const named = { ...nameless, firstName: "Ada", lastName: "Lovelace" };
+    expect(buildAllocContext({ resources: [named], roles: [], disciplines: [], grades: [], ...ctx })).toContain("#9 Ada Lovelace");
+    expect(buildAllocationsSnapshot({ resources: [named], ...ctx }).resources[0]?.name).toBe("Ada Lovelace");
+  });
+
+  it("the screen label still falls back to the address (control)", () => {
+    expect(resourceLabel(nameless)).toBe("ada@example.com");
+  });
+});
+
 describe("buildAllocContext", () => {
   it("lists each resource with its mode, role and per-period capacity", () => {
     const roles: Role[] = [{ id: 5, disciplineId: 1, gradeId: 2, internalRate: 50, externalRate: 100 }];

@@ -1682,7 +1682,7 @@ const enUS = {
   aiDataScheduledJobLabel: "Scheduled job analysis",
   aiDataScheduledJob: "The job’s instruction and, for the project it covers, the same summary as “Analyze next actions with AI”: budget figures, the next-actions queue, open tasks with assignees and due dates, active RAID items with owners, milestones, pending changes and stakeholder names with their title or organisation, plus your operating guide for analyses if you have one. No descriptions, notes or e-mail addresses.",
   aiDataAllocPlanLabel: "Allocation plan proposal",
-  aiDataAllocPlan: "Your request, your operating guide if you have one, the plan window and periods, and for each person in the resource directory: their name (or their e-mail address if no name is set), role, whether they are external, and their planned and available hours per period. Absences are used to work out available hours and are not sent.",
+  aiDataAllocPlan: "Your request, your operating guide if you have one, the plan window and periods, and for each person in the resource directory: their name (or their number in the resource directory if no name is set), role, whether they are external, and their planned and available hours per period. Absences are used to work out available hours and are not sent.",
   aiDataRaciSuggestLabel: "RACI suggestion",
   aiDataRaciSuggest: "Stakeholder names, titles, organisations, categories, influence and interest; milestone names, dates and descriptions; the existing RACI assignments; and your operating guide if you have one. No e-mail addresses.",
   aiDataTaskDedupLabel: "Duplicate task check",

@@ -31,7 +31,7 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|77d3b27235a2",
     "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|dd308831307b",
     "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|8454d8b056cd",
-    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|0daca179cd94",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|1d90c54d0111",
     "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f",
     "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653",
     "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|1a29e0f163bd",
