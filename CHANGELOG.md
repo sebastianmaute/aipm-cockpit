@@ -10,6 +10,13 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+## [1.20.1] - 2026-10-27 "Indridason"
+
+A maintenance release about what the AI may see and when it may run. AI features now need one consent, given on the
+AI master switch, which lists every AI feature and what it sends; everyone is asked once after updating. Background
+AI needs its own acceptance, dictation to a speech service needs AI on and the consent, and the AI no longer sees an
+absence's type or note, e-mail addresses in its lists, or the personal fields inline AI edit leaves out.
+
 ### Changed
 
 - **AI features need one consent, given on the AI master switch.** Settings → AI now lists every AI feature and what

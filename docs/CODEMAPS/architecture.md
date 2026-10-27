@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.20.0 "Indridason" | Files scanned: 2836 (src/**/*.{ts,tsx}, incl. 1485 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-10-26 at 816097a87 | App 1.20.1 "Indridason" | Files scanned: 2836 (src/**/*.{ts,tsx}, incl. 1485 tests) | Token estimate: ~950 -->
 
 # Architecture
 
