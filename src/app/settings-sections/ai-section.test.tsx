@@ -752,6 +752,88 @@ describe("AiSection", () => {
   });
 });
 
+// AI-01 — an accept or a revoke whose write fails (storage full or unavailable) is never silent: a revoke still
+// applies in memory and says it was not saved, with a "Save again"; an accept is not committed and says so.
+describe("AiSection — a consent change that cannot be saved (AI-01)", () => {
+  const C = newConsent(new Date(0));
+  const granted = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: C, backgroundConsent: C } };
+  const interactiveOnly = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: C } };
+  const realSetItem = Storage.prototype.setItem;
+  const failSettingsWrites = () =>
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === SETTINGS_KEY) throw new DOMException("full", "QuotaExceededError");
+      realSetItem.call(this, key, value);
+    });
+  const persistedAi = () => (JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Settings).ai;
+
+  function renderWith(initial: Settings) {
+    const onChange = vi.fn();
+    const showToast = vi.fn();
+    const showToastAction = vi.fn();
+    function Harness() {
+      const [s, setS] = useState<Settings>(initial);
+      return (
+        <ToastProvider value={{ showToast, showToastAction }}>
+          <AiSection lang="en-US" settings={s} onChange={(next) => { onChange(next); setS(next); }} />
+        </ToastProvider>
+      );
+    }
+    render(<Harness />);
+    return { onChange, showToast, showToastAction };
+  }
+
+  it("a revoke that cannot be saved still applies, says so, and can be saved again", () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: granted.ai }));
+    const { onChange, showToast, showToastAction } = renderWith(granted);
+    const spy = failSettingsWrites();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentRevoke") }));
+    expect(onChange.mock.calls.at(-1)![0].ai.consent).toBeUndefined(); // in effect here
+    expect(persistedAi().consent).toEqual(C); // control: the write did fail
+    expect(showToast).not.toHaveBeenCalled();
+    expect(showToastAction).toHaveBeenCalledTimes(1);
+    const [kind, text, action] = showToastAction.mock.calls[0] as [string, string, { labelKey: string; run: () => void }];
+    expect([kind, text, action.labelKey]).toEqual(["error", t("en-US", "aiConsentRevokeNotSaved"), "aiConsentRevokeRetry"]);
+
+    act(() => action.run()); // still failing: reported again
+    expect(showToastAction).toHaveBeenCalledTimes(2);
+
+    spy.mockRestore();
+    act(() => action.run());
+    expect(persistedAi().consent).toBeUndefined();
+    expect(persistedAi().backgroundConsent).toBeUndefined();
+    expect(showToast).toHaveBeenCalledWith("success", t("en-US", "aiConsentRevokeSaved"));
+  });
+
+  it("a background revoke that cannot be saved still applies and says so", () => {
+    const { onChange, showToastAction } = renderWith(granted);
+    failSettingsWrites();
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiBackgroundConsentToggle")));
+    expect(onChange.mock.calls.at(-1)![0].ai.backgroundConsent).toBeUndefined();
+    expect(showToastAction.mock.calls[0]?.[1]).toBe(t("en-US", "aiConsentRevokeNotSaved"));
+  });
+
+  it("an accept that cannot be saved does not switch AI on, and says so", () => {
+    const { onChange, showToast, showToastAction } = renderWith(baseSettings);
+    failSettingsWrites();
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(t("en-US", "aiEnable"))).not.toBeChecked();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiConsentAcceptNotSaved"));
+    expect(showToastAction).not.toHaveBeenCalled();
+  });
+
+  it("a background accept that cannot be saved stores nothing, and says so", () => {
+    const { onChange, showToast } = renderWith(interactiveOnly);
+    failSettingsWrites();
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiBackgroundConsentToggle")));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentBackgroundAccept") }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiBackgroundConsentAcceptNotSaved"));
+  });
+});
+
 // open-followups §386: the hinted key field and model select are named by
 // their captions alone; the storage notice is the key field's description.
 describe("AiSection — hinted field names (§386)", () => {

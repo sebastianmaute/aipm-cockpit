@@ -219,3 +219,48 @@ describe("useSettings — revocation reaches every instance (AI-01)", () => {
     expect(persistedAi().consent).toEqual(C);
   });
 });
+
+// AI-01 — Settings → AI reports a failed consent write itself (a revoke that is in effect but not saved), so the
+// generic "settings could not be saved" notice that the next ordinary write would raise is not shown over it.
+describe("useSettings — a consent write that failed (AI-01)", () => {
+  const realSetItem = Storage.prototype.setItem;
+  function failSettingsWrites() {
+    return vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === SETTINGS_KEY) throw new DOMException("full", "QuotaExceededError");
+      realSetItem.call(this, key, value);
+    });
+  }
+  function countGenericNotices() {
+    const seen = { n: 0 };
+    const on = () => { seen.n += 1; };
+    window.addEventListener("aipm-cockpit-settings-write-failed", on);
+    return { seen, stop: () => window.removeEventListener("aipm-cockpit-settings-write-failed", on) };
+  }
+
+  it("a revoke whose write failed raises no generic notice; the revoke is in effect", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const spy = failSettingsWrites();
+    const notices = countGenericNotices();
+    act(() => { a.result.current.setSettings((s) => revoke(s)); });
+    notices.stop();
+    spy.mockRestore();
+    expect(a.result.current.settings.ai.consent).toBeUndefined();
+    expect(isInteractiveConsentLive()).toBe(false);
+    expect(persistedAi().consent).toBeDefined(); // control: nothing was saved
+    expect(notices.seen.n).toBe(0);
+  });
+
+  it("an ordinary write that fails still raises the generic notice", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const spy = failSettingsWrites();
+    const notices = countGenericNotices();
+    act(() => { a.result.current.setSettings((s) => ({ ...s, expertMode: false })); });
+    notices.stop();
+    spy.mockRestore();
+    expect(notices.seen.n).toBe(1);
+  });
+});

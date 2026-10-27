@@ -1,10 +1,10 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
-import { isConsentCurrent, newConsent } from "../ai-consent";
+import { type AiConsent, isConsentCurrent, newConsent } from "../ai-consent";
 import { persistAiConsentChange } from "../use-settings";
 import { AiConsentDialog } from "../ai-consent-dialog";
 import { resolveAiPolicy } from "../ai-policy";
@@ -32,7 +32,7 @@ import { Button } from "../button";
 import { Checkbox, HintedLabel, Input, Select } from "../form-controls";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { useConfirm } from "../confirm-dialog";
-import { useToastContext } from "../toast-context";
+import { useToastAction, useToastContext } from "../toast-context";
 import { useChatModels } from "../use-chat-models";
 import { isValidAnthropicApiKey } from "../chat-models";
 import { clearSessionAiKey } from "../session-ai-key";
@@ -97,6 +97,10 @@ function CapInput({
   );
 }
 
+function sameRecord(a: AiConsent | undefined, b: AiConsent | undefined): boolean {
+  return a?.acceptedAt === b?.acceptedAt && a?.disclosureVersion === b?.disclosureVersion;
+}
+
 export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
   const [consentOpen, setConsentOpen] = useState(false);
@@ -106,17 +110,48 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const apiKeyNoteId = useId();
   const modelHintId = useId();
   const recBackgroundHintId = useId();
-  // AI-01 — an accept or revoke is persisted at once, consent records included (`persistAiConsentChange`); every
-  // other settings write keeps the persisted records, so a stale copy elsewhere cannot write a withdrawn one back.
-  const commitConsent = (next: Settings) => {
-    persistAiConsentChange(next);
-    onChange(next);
-  };
   const backgroundOk = isConsentCurrent(settings.ai.backgroundConsent);
   // AI-01 — only switching ON needs the background consent: a toggle left on from before can always be switched off.
   const recToggleLocked = !backgroundOk && settings.ai.insightRecommendations !== true;
   const confirm = useConfirm();
   const showToast = useToastContext();
+  const showToastAction = useToastAction();
+  // The latest settings, for the toast's "Save again" action, which runs after later renders.
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  });
+  // AI-01 — a revoke that could not be written stays in effect here; say so, and offer to save it again.
+  const reportRevokeNotSaved = (revoked: Settings) => {
+    showToastAction("error", t(lang, "aiConsentRevokeNotSaved"), {
+      labelKey: "aiConsentRevokeRetry",
+      run: () => {
+        const current = settingsRef.current;
+        // A later accept or revoke replaced this one; it was saved, or reported, on its own.
+        if (!sameRecord(current.ai.consent, revoked.ai.consent) || !sameRecord(current.ai.backgroundConsent, revoked.ai.backgroundConsent)) return;
+        if (persistAiConsentChange(current)) showToast("success", t(lang, "aiConsentRevokeSaved"));
+        else reportRevokeNotSaved(revoked);
+      },
+    });
+  };
+  // AI-01 — an accept or revoke is persisted at once, consent records included (`persistAiConsentChange`); every
+  // other settings write keeps the persisted records, so a stale copy elsewhere cannot write a withdrawn one back.
+  // ★★ When that write fails, an ACCEPT is not committed (AI stays off: a consent that is not saved would be
+  //   dropped by every later write and by a reload), while a REVOKE is (it stops AI here at once, and it is
+  //   only the persisted copy that lags). Both say so. Returns whether `next` was committed.
+  const commitConsent = (next: Settings, change: "accept" | "acceptBackground" | "revoke"): boolean => {
+    if (persistAiConsentChange(next)) {
+      onChange(next);
+      return true;
+    }
+    if (change === "revoke") {
+      onChange(next);
+      reportRevokeNotSaved(next);
+      return true;
+    }
+    showToast("error", t(lang, change === "accept" ? "aiConsentAcceptNotSaved" : "aiBackgroundConsentAcceptNotSaved"));
+    return false;
+  };
   const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
   // §650 — the in-memory key verdict (rejected / forbidden / unreadable), shown beside the key field
   // and, for a key that IS present but was refused, in place of the "enter a valid key" model hint.
@@ -320,8 +355,9 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           onCancel={() => setConsentOpen(false)}
           onAccept={() => {
             setConsentOpen(false);
-            notifyEnable();
-            commitConsent({ ...settings, ai: { ...settings.ai, enabled: true, consent: newConsent(new Date()) } });
+            if (commitConsent({ ...settings, ai: { ...settings.ai, enabled: true, consent: newConsent(new Date()) } }, "accept")) {
+              notifyEnable();
+            }
           }}
         />
       )}
@@ -448,10 +484,10 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           <TextButton
             tone="danger"
             onClick={() =>
-              commitConsent({
-                ...settings,
-                ai: { ...settings.ai, consent: undefined, backgroundConsent: undefined },
-              })
+              commitConsent(
+                { ...settings, ai: { ...settings.ai, consent: undefined, backgroundConsent: undefined } },
+                "revoke",
+              )
             }
             className="text-xs"
           >
@@ -659,7 +695,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
                 setBackgroundConsentOpen(true);
                 return;
               }
-              commitConsent({ ...settings, ai: { ...settings.ai, backgroundConsent: undefined } });
+              commitConsent({ ...settings, ai: { ...settings.ai, backgroundConsent: undefined } }, "revoke");
             }}
           />
           <span className="text-xs text-foreground">{t(lang, "aiBackgroundConsentToggle")}</span>
@@ -673,7 +709,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
             onCancel={() => setBackgroundConsentOpen(false)}
             onAccept={() => {
               setBackgroundConsentOpen(false);
-              commitConsent({ ...settings, ai: { ...settings.ai, backgroundConsent: newConsent(new Date()) } });
+              commitConsent({ ...settings, ai: { ...settings.ai, backgroundConsent: newConsent(new Date()) } }, "acceptBackground");
             }}
           />
         )}

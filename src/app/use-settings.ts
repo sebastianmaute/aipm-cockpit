@@ -69,6 +69,10 @@ export function isOnlyStorageAiChange(base: Settings | null, next: Settings, fro
     && sameKeysExcept(rec(base.ai), rec(next.ai), (key) => STORAGE_AI_FIELDS.has(key));
 }
 
+/** AI-01 — set when `persistAiConsentChange` could not write; Settings → AI shows its own message for that, so the
+ *  generic "settings could not be saved" notice is not raised over it. Any successful write clears it. */
+let consentWriteFailureReported = false;
+
 /** Where `writeSettings` takes the two AI consent records from. */
 export type ConsentSource = "persisted" | "settings";
 
@@ -101,6 +105,7 @@ export function writeSettings(settings: Settings, consentSource: ConsentSource =
   };
   try {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
+    consentWriteFailureReported = false;
     return true;
   } catch (err) {
     // quota exceeded / storage disabled — keep in-memory settings, but log +
@@ -119,10 +124,14 @@ export const SECRET_MERGE_TIMEOUT_MS = 5_000;
 
 /** AI-01 — persist an accept or a revoke of an AI consent at once, consent records included. The one caller
  *  of `writeSettings` with `consentSource: "settings"`. Call it with the settings the action commits, before
- *  committing them. Safe mode writes nothing (its settings are the defaults, held in memory only). */
+ *  committing them. Safe mode writes nothing (its settings are the defaults, held in memory only).
+ *  Returns false when the write failed: the caller owns the message (an accept is then not committed; a
+ *  revoke still is, in memory only). */
 export function persistAiConsentChange(settings: Settings): boolean {
   if (isSafeMode()) return true;
-  return writeSettings(settings, "settings");
+  const ok = writeSettings(settings, "settings");
+  if (!ok) consentWriteFailureReported = true;
+  return ok;
 }
 
 /** `settings` with the AI switch and consent records replaced by the persisted ones. */
@@ -690,7 +699,8 @@ export function useSettings(): {
     // already logged the diagnostic.
     if (!ok && !settingsWriteFailingRef.current) {
       settingsWriteFailingRef.current = true;
-      window.dispatchEvent(new CustomEvent("aipm-cockpit-settings-write-failed"));
+      // AI-01 — after a failed consent write Settings → AI has already said so, more specifically.
+      if (!consentWriteFailureReported) window.dispatchEvent(new CustomEvent("aipm-cockpit-settings-write-failed"));
     } else if (ok) {
       settingsWriteFailingRef.current = false;
     }
