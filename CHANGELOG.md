@@ -26,7 +26,8 @@ longer carries its own changelog comment.
     directory); one lookup tool reads a single address when it is needed. Chats saved before the update have the same
     data removed from their stored tool results when loaded, except addresses looked up with that tool.
   - Switching AI off or withdrawing a consent takes effect in every open tab and window, and a tab that missed it
-    cannot switch AI back on.
+    cannot undo it: only switching AI on or accepting a consent there again does, and each restores only what it is
+    about (accepting the consent also switches AI on).
   - Inline AI edit no longer sends or changes e-mail addresses, note logs, a stakeholder's notes, influence and
     interest, an absence's type and note, or a person's phone, location, birthday, notes and absence hours. Edit
     those by hand.

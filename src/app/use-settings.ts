@@ -91,9 +91,8 @@ export function __resetConsentFailureForTests(): void {
   lastSettingsWriteFailed = false;
 }
 
-/** How `writeSettings` writes the AI switch and the two consent records: `"narrow-only"` (every ordinary
- *  write) or `"as-given"` (only `persistAiConsentChange`, the explicit accept / switch-on / revoke). */
-export type AiPermissionWrite = "narrow-only" | "as-given";
+/** One of the three AI permission fields `writeSettings` guards: the master switch and the two consent records. */
+export type AiPermissionField = "enabled" | "consent" | "backgroundConsent";
 
 /** The AI switch and consent records of `ai`, taken only where they NARROW `base` (the switch off, a consent
  *  record absent); everywhere else `base`'s. */
@@ -118,6 +117,17 @@ export function narrowOnlyAiState(ai: AiConfig): Pick<AiConfig, "enabled" | "con
   return narrowOnly(ai, readPersistedAiState());
 }
 
+/** The AI permission a write persists: `narrowOnlyAiState`, except that each field in `widen` is taken from `ai`
+ *  as it is. Only `persistAiConsentChange` passes a field to widen. */
+function aiPermissionToWrite(ai: AiConfig, widen: readonly AiPermissionField[]): Pick<AiConfig, AiPermissionField> {
+  const permission = narrowOnlyAiState(ai);
+  for (const field of widen) {
+    if (field === "enabled") permission.enabled = ai.enabled;
+    else permission[field] = ai[field];
+  }
+  return permission;
+}
+
 /** Whether the last settings write on this page failed (`writeSettings`; a sealed-for-reload skip leaves it).
  *  While it is true, what this page holds may narrow AI permission further than storage does, because that
  *  narrowing could not be saved — so the re-reads in `useSettings` then only narrow too. */
@@ -130,15 +140,14 @@ let lastSettingsWriteFailed = false;
  *  disabled) so the caller can surface it — a swallowed failure silently
  *  reverts settings on the next reload.
  *  ★★ AI-01 — the AI switch and the two consent records (`ai.enabled`, `ai.consent`,
- *  `ai.backgroundConsent`) are written from `settings` as they are ONLY with `"as-given"`, which only
- *  `persistAiConsentChange` passes. Every other write may only narrow them (`narrowOnlyAiState`). */
-export function writeSettings(settings: Settings, aiPermission: AiPermissionWrite = "narrow-only"): boolean {
+ *  `ai.backgroundConsent`) may only narrow what is stored (`narrowOnlyAiState`), except the fields named in
+ *  `widen`, which are written from `settings` as they are. Only `persistAiConsentChange` names any. */
+export function writeSettings(settings: Settings, widen: readonly AiPermissionField[] = []): boolean {
   if (settingsSealedForReload()) return true; // §740 — sealed for a reload: skipped, not failed
   const turso = settings.integrations?.turso;
   // A settings object without an AI slice (a partial one some callers' tests pass) says nothing about AI
   // permission, so the persisted switch and records are kept as they are.
-  const permission = aiPermission === "as-given" ? {}
-    : settings.ai ? narrowOnlyAiState(settings.ai) : readPersistedAiState();
+  const permission = settings.ai ? aiPermissionToWrite(settings.ai, widen) : readPersistedAiState();
   const persistable: Settings = {
     ...settings,
     ai: { ...settings.ai, ...permission, apiKey: "" },
@@ -170,15 +179,22 @@ export function writeSettings(settings: Settings, aiPermission: AiPermissionWrit
  *  + WebCrypto) and normally takes well under a second. */
 export const SECRET_MERGE_TIMEOUT_MS = 5_000;
 
-/** AI-01 — persist an accept or a revoke of an AI consent, or switching AI on, at once: the AI switch and both
- *  consent records exactly as `settings` holds them. The one caller of `writeSettings` with `"as-given"`, and
- *  so the only way AI permission is WIDENED in storage. Call it with the settings the action commits, before
- *  committing them. Safe mode writes nothing (its settings are the defaults, held in memory only).
- *  Returns false when the write failed: the caller owns the message (an accept or a switch-on is then not
- *  committed; a revoke still is, in memory only). */
-export function persistAiConsentChange(settings: Settings): boolean {
-  if (isSafeMode()) return true;
-  return writeSettings(settings, "as-given");
+/** AI-01 — persist an accept or a revoke of an AI consent, or switching AI on, at once. Each field in `widen`
+ *  is written as `settings` holds it; the rest of the AI switch and consent records may only narrow what is
+ *  stored, as in every ordinary write. So an action widens only what it is about — switching on `["enabled"]`,
+ *  an accept `["enabled", "consent"]` (accepting switches AI on), a background accept `["backgroundConsent"]`,
+ *  a revoke nothing — and a copy that missed a change made elsewhere cannot write its stale value of another
+ *  field back. The one caller of `writeSettings` that names a field to widen, and so the only way AI permission
+ *  is WIDENED in storage. Call it with the settings the action commits, before committing them.
+ *  Returns the settings to commit — `settings` with the switch and both records as this write stores them — or null when
+ *  the write failed: the caller owns the message (an accept or a switch-on is then not committed; a revoke still
+ *  is, in memory only). Safe mode writes nothing and returns `settings` (its settings are the defaults, held in
+ *  memory only). */
+export function persistAiConsentChange(settings: Settings, widen: readonly AiPermissionField[]): Settings | null {
+  if (isSafeMode()) return settings;
+  const permission = aiPermissionToWrite(settings.ai, widen);
+  if (!writeSettings(settings, widen)) return null;
+  return { ...settings, ai: { ...settings.ai, ...permission } };
 }
 
 /** `settings` with the AI switch and consent records replaced by the persisted ones. */

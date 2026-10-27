@@ -55,7 +55,7 @@ function otherTabWrites(blob: Record<string, unknown> | null, silent = false) {
 /** The revoke button in Settings → AI, as `AiSection` commits it. */
 function revoke(settings: Settings): Settings {
   const next = { ...settings, ai: { ...settings.ai, consent: undefined, backgroundConsent: undefined } };
-  persistAiConsentChange(next);
+  persistAiConsentChange(next, []);
   return next;
 }
 
@@ -191,9 +191,7 @@ describe("useSettings — revocation reaches every instance (AI-01)", () => {
     expect(persistedAi().enabled).toBe(false);
     act(() => {
       a.result.current.setSettings((s) => {
-        const next = { ...s, ai: { ...s.ai, enabled: true } };
-        persistAiConsentChange(next);
-        return next;
+        return persistAiConsentChange({ ...s, ai: { ...s.ai, enabled: true } }, ["enabled"]) ?? s;
       });
     });
     expect(persistedAi().enabled).toBe(true);
@@ -273,9 +271,7 @@ describe("useSettings — revocation reaches every instance (AI-01)", () => {
     await waitFor(() => expect(a.result.current.hydrated).toBe(true));
     act(() => {
       a.result.current.setSettings((s) => {
-        const next = { ...s, ai: { ...s.ai, enabled: true, consent: C } };
-        persistAiConsentChange(next);
-        return next;
+        return persistAiConsentChange({ ...s, ai: { ...s.ai, enabled: true, consent: C } }, ["enabled", "consent"]) ?? s;
       });
     });
     expect(persistedAi().consent).toEqual(C);
@@ -283,6 +279,59 @@ describe("useSettings — revocation reaches every instance (AI-01)", () => {
     // An ordinary write afterwards keeps it.
     act(() => { a.result.current.setSettings((s) => ({ ...s, expertMode: true })); });
     expect(persistedAi().consent).toEqual(C);
+  });
+});
+
+// AI-01 — an explicit action widens only its own field(s); in a tab that missed a change made elsewhere, the
+// stale values it holds for the other fields can only narrow what is stored.
+describe("useSettings — an explicit action widens only its own field (AI-01)", () => {
+  const OLD = { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 0 }; // accepted at an older version
+
+  it("a background accept in a tab that missed a switch-off elsewhere does not switch AI back on", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: { enabled: true, model: "claude-sonnet-5", consent: C } }));
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    otherTabWrites({ ai: { enabled: false, model: "claude-sonnet-5", consent: C } }, true);
+    expect(a.result.current.settings.ai.enabled).toBe(true); // control: this tab is stale
+    act(() => {
+      a.result.current.setSettings((s) =>
+        persistAiConsentChange({ ...s, ai: { ...s.ai, backgroundConsent: C } }, ["backgroundConsent"]) ?? s);
+    });
+    expect(persistedAi().backgroundConsent).toEqual(C); // control: the accept itself was saved
+    expect(persistedAi().enabled).toBe(false);
+    expect(a.result.current.settings.ai.enabled).toBe(false); // what is committed is what was stored
+    expect(isInteractiveConsentLive()).toBe(false);
+  });
+
+  it("an accept in a tab that missed a background revoke elsewhere does not bring the background consent back", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: { enabled: true, model: "claude-sonnet-5", consent: OLD, backgroundConsent: C } }));
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    otherTabWrites({ ai: { enabled: true, model: "claude-sonnet-5", consent: OLD } }, true);
+    expect(a.result.current.settings.ai.backgroundConsent).toEqual(C); // control: this tab is stale
+    act(() => {
+      a.result.current.setSettings((s) =>
+        persistAiConsentChange({ ...s, ai: { ...s.ai, enabled: true, consent: C } }, ["enabled", "consent"]) ?? s);
+    });
+    expect(persistedAi().consent).toEqual(C); // control: the accept itself was saved
+    expect(persistedAi().backgroundConsent).toBeUndefined();
+    expect(a.result.current.settings.ai.backgroundConsent).toBeUndefined();
+    expect(isInteractiveConsentLive()).toBe(true);
+    expect(() => assertBackgroundConsentLive()).toThrow();
+  });
+
+  it("a switch-on in a tab that missed a revoke elsewhere does not write the withdrawn consent back", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: { enabled: false, model: "claude-sonnet-5", consent: C, backgroundConsent: C } }));
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    otherTabWrites({ ai: { enabled: false, model: "claude-sonnet-5" } }, true);
+    act(() => {
+      a.result.current.setSettings((s) => persistAiConsentChange({ ...s, ai: { ...s.ai, enabled: true } }, ["enabled"]) ?? s);
+    });
+    expect(persistedAi().enabled).toBe(true); // control: the switch-on itself was saved
+    expect(persistedAi().consent).toBeUndefined();
+    expect(persistedAi().backgroundConsent).toBeUndefined();
+    expect(isInteractiveConsentLive()).toBe(false);
   });
 });
 
@@ -305,7 +354,7 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
   /** The revoke in Settings → AI, as `AiSection` commits it when the write fails: noted, then committed anyway. */
   function revokeNotSaved(settings: Settings): Settings {
     const next = { ...settings, ai: { ...settings.ai, consent: undefined, backgroundConsent: undefined } };
-    if (!persistAiConsentChange(next)) noteConsentRevokeNotSaved(next);
+    if (!persistAiConsentChange(next, [])) noteConsentRevokeNotSaved(next);
     return next;
   }
   // Each test starts with no noted revoke, whatever an earlier test left behind.
@@ -373,7 +422,7 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     const notices = countGenericNotices();
     // The accept in Settings → AI: its write fails, so it is not committed (Settings → AI says so itself).
     const accepted = { ...a.result.current.settings, ai: { ...a.result.current.settings.ai, enabled: true, consent: C } };
-    expect(persistAiConsentChange(accepted)).toBe(false);
+    expect(persistAiConsentChange(accepted, ["enabled", "consent"])).toBeNull();
     expect(notices.seen.n).toBe(0); // control: nothing committed, nothing raised yet
     // Later, with storage still failing, an unrelated edit.
     act(() => { a.result.current.setSettings((s) => ({ ...s, language: "de" })); });

@@ -5,7 +5,7 @@ import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { type AiConsent, isConsentCurrent, newConsent } from "../ai-consent";
-import { noteConsentRevokeNotSaved, persistAiConsentChange } from "../use-settings";
+import { type AiPermissionField, noteConsentRevokeNotSaved, persistAiConsentChange } from "../use-settings";
 import { AiConsentDialog } from "../ai-consent-dialog";
 import { resolveAiPolicy } from "../ai-policy";
 import { TextButton } from "../text-button";
@@ -97,6 +97,17 @@ function CapInput({
   );
 }
 
+type ConsentChange = "accept" | "acceptBackground" | "enable" | "revoke";
+
+/** AI-01 — the AI permission fields each explicit action widens in storage; it may only narrow the rest. An
+ *  accept also switches AI on; a revoke (of either consent) only narrows. */
+const CONSENT_CHANGE_WIDENS: Record<ConsentChange, readonly AiPermissionField[]> = {
+  accept: ["enabled", "consent"],
+  acceptBackground: ["backgroundConsent"],
+  enable: ["enabled"],
+  revoke: [],
+};
+
 function sameRecord(a: AiConsent | undefined, b: AiConsent | undefined): boolean {
   return a?.acceptedAt === b?.acceptedAt && a?.disclosureVersion === b?.disclosureVersion;
 }
@@ -129,21 +140,23 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         const current = settingsRef.current;
         // A later accept or revoke replaced this one; it was saved, or reported, on its own.
         if (!sameRecord(current.ai.consent, revoked.ai.consent) || !sameRecord(current.ai.backgroundConsent, revoked.ai.backgroundConsent)) return;
-        if (persistAiConsentChange(current)) showToast("success", t(lang, "aiConsentRevokeSaved"));
+        if (persistAiConsentChange(current, [])) showToast("success", t(lang, "aiConsentRevokeSaved"));
         else reportRevokeNotSaved(revoked);
       },
     });
   };
-  // AI-01 — an accept, a revoke or switching AI on is persisted at once, switch and consent records included
-  // (`persistAiConsentChange`); every other settings write may only narrow them, so a stale copy elsewhere cannot
-  // switch AI back on or write a withdrawn consent back.
+  // AI-01 — an accept, a revoke or switching AI on is persisted at once (`persistAiConsentChange`). Each widens
+  // only the field(s) it is about (`CONSENT_CHANGE_WIDENS`) and may only narrow the others, as every other
+  // settings write may only narrow all three; so a stale copy cannot switch AI back on or write a withdrawn
+  // consent back. What is committed carries the switch and records as persisted.
   // ★★ When that write fails, an ACCEPT or a switch-on is not committed (AI stays off: a widening that is not
   //   saved would be narrowed again by every later write and by a reload), while a REVOKE is (it stops AI here
   //   at once, and it is only the persisted copy that lags until a later write succeeds). Each says so.
-  //   Returns whether `next` was committed.
-  const commitConsent = (next: Settings, change: "accept" | "acceptBackground" | "enable" | "revoke"): boolean => {
-    if (persistAiConsentChange(next)) {
-      onChange(next);
+  //   Returns whether the change was committed.
+  const commitConsent = (next: Settings, change: ConsentChange): boolean => {
+    const saved = persistAiConsentChange(next, CONSENT_CHANGE_WIDENS[change]);
+    if (saved) {
+      onChange(saved);
       return true;
     }
     if (change === "revoke") {
