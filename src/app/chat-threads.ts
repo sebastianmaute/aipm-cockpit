@@ -100,3 +100,72 @@ export function newThreadId(): string {
   }
   return `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
+
+// AI-08 / AI-05 — a thread saved before the tool results were minimised still carries, in its
+// stored API history, tool results with e-mail addresses and an absence's real type and note. Loading it would
+// send them to the model again with the next message, so they are removed on load (`rowsToThreads`). Only
+// `tool_result` blocks are touched: the user's and the assistant's own text stays as written.
+
+/** The e-mail fields of the pre-upgrade tool results: task `assigneeEmail`, stakeholder `email`, resource
+ *  `email`/`emails`, RAID `ownerEmail`, an escalation's `toEmail`, absence `assigneeEmail`. */
+const STORED_EMAIL_KEYS: ReadonlySet<string> = new Set(["assigneeEmail", "ownerEmail", "toEmail", "email", "emails"]);
+const ABSENCE_TYPE_VALUES: ReadonlySet<string> = new Set(["vacation", "sick", "training", "other", "absent"]);
+
+/** An absence row or summary: an assignee, a start and end date and an absence type. */
+function isAbsenceShaped(o: Record<string, unknown>): boolean {
+  return typeof o.assignee === "string" && typeof o.startDate === "string" && typeof o.endDate === "string"
+    && typeof o.type === "string" && ABSENCE_TYPE_VALUES.has(o.type);
+}
+
+/** A copy of `value` without the e-mail fields, every absence's type read as "absent" and its note dropped. */
+function minimiseValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(minimiseValue);
+  if (typeof value !== "object" || value === null) return value;
+  const o = value as Record<string, unknown>;
+  const absence = isAbsenceShaped(o);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (STORED_EMAIL_KEYS.has(k)) continue;
+    if (absence && k === "note") continue;
+    out[k] = absence && k === "type" ? "absent" : minimiseValue(v);
+  }
+  return out;
+}
+
+const EMAIL_ADDRESS = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+/** A `"note": "…"` member, escaped quotes inside the string included. */
+const NOTE_FIELD = /"note"\s*:\s*"(?:[^"\\]|\\.)*"/g;
+
+/** A tool result's text with the same data removed. JSON (what `stringifyResult` writes) is minimised field by
+ *  field and written back the same way, and left byte-identical when nothing was removed. A JSON value that is
+ *  not an object or array loses every e-mail address; text that does not parse (an error message, a cut result)
+ *  also loses every `note` string and has any absence type read as "absent". */
+export function minimiseToolResultText(text: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return text
+      .replace(EMAIL_ADDRESS, "[email removed]")
+      .replace(NOTE_FIELD, '"note": ""')
+      .replace(/"type"\s*:\s*"(?:vacation|sick|training|other)"/g, '"type": "absent"');
+  }
+  if (typeof parsed !== "object" || parsed === null) return text.replace(EMAIL_ADDRESS, "[email removed]");
+  const minimised = minimiseValue(parsed);
+  return JSON.stringify(minimised) === JSON.stringify(parsed) ? text : JSON.stringify(minimised, null, 2);
+}
+
+/** `history` with every stored `tool_result` minimised (`minimiseToolResultText`); other blocks and string
+ *  messages are returned as they are. Never mutates its input. */
+export function minimiseStoredToolResults(history: readonly ApiMessage[]): ApiMessage[] {
+  return history.map((msg): ApiMessage => {
+    if (typeof msg.content === "string" || !Array.isArray(msg.content)) return msg;
+    return {
+      ...msg,
+      content: msg.content.map((block) =>
+        block && block.type === "tool_result" && typeof block.content === "string"
+          ? { ...block, content: minimiseToolResultText(block.content) }
+          : block),
+    };
+  });
+}

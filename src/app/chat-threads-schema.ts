@@ -5,7 +5,7 @@
 // touches it — chat threads are Turso-only, not a Workspace field, and need no
 // CSV/MD/JSON codec. Mirrors committee-report-versions-schema.ts.
 import { rowObjects, txt, int, type PipelineResultLike, type SqlStmt } from "./turso-schema";
-import type { ChatThread } from "./chat-threads";
+import { minimiseStoredToolResults, type ChatThread } from "./chat-threads";
 
 export const CHAT_THREADS_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS chat_threads (id TEXT PRIMARY KEY, project_id TEXT, name TEXT, created_at TEXT, updated_at TEXT, history_json TEXT, display_json TEXT)`,
@@ -80,7 +80,8 @@ export function rowsToThreads(res: PipelineResultLike | undefined): ChatThread[]
       name: r.name ?? "",
       createdAt: r.created_at ?? "",
       updatedAt: r.updated_at ?? "",
-      history: parseJsonArray(r.history_json),
+      // AI-08 / AI-05 — a thread saved before the tool results were minimised is minimised here, before it can be re-sent.
+      history: minimiseStoredToolResults(parseJsonArray(r.history_json)),
       display: parseJsonArray(r.display_json),
     }));
 }

@@ -1979,6 +1979,10 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   pair, because `runTursoPipeline` only opens a transaction when the first statement is literal `BEGIN`.
   `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
   requires `projectId` (not just an id) so a delete can never reach across projects.
+  ★★ `rowsToThreads` runs `minimiseStoredToolResults` (`chat-threads.ts`) over a loaded history: a thread saved
+  before the tool results were minimised still holds e-mail fields and an absence's real type and note in its stored
+  `tool_result` blocks, which the next message would re-send. Only `tool_result` blocks change; the user's and the
+  assistant's own text stays as written.
 - **Forecast tools (§502) — `get_forecast`, `create_forecast_scenario`, `update_forecast_scenario`, and part 4's
   `delete_forecast_scenario`, `set_forecast_proposal`, `set_forecast_target_confidence`.** Defined in
   `chat-tool-defs-forecast.ts` (`FORECAST_TOOL_DEFS`), run by `runForecastTool` (`chat-tools-forecast.ts`), bound to
