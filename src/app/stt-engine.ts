@@ -1,5 +1,12 @@
 import type { Lang } from "./i18n";
-import { DICTATION_NEEDS_AI_CONSENT, type DictationEngine, type DictationHandlers } from "./dictation-engine";
+import {
+  DICTATION_AI_DEPLOYMENT_INVALID,
+  DICTATION_AI_DEPLOYMENT_OFF,
+  DICTATION_AI_DEPLOYMENT_UNCONFIRMED,
+  DICTATION_NEEDS_AI_CONSENT,
+  type DictationEngine,
+  type DictationHandlers,
+} from "./dictation-engine";
 import { isInteractiveConsentLive } from "./ai-consent";
 import { AiDeploymentError, confirmAiDeployment } from "./ai-transport";
 
@@ -28,14 +35,21 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
     handlers?.onStatus?.("transcribing");
     try {
       // The deployment's AI setting, asked before the upload as before every AI send: switched off or
-      // invalid discards the clip like a withdrawn consent; unconfirmed sends nothing. A changed route
-      // does not matter here: STT goes through `/api/stt`, never the Anthropic route.
+      // invalid discards the clip; unconfirmed sends nothing. Each has its own code, because the user
+      // cannot turn the deployment back on. A changed route does not matter here: STT goes through
+      // `/api/stt`, never the Anthropic route.
       try {
         await confirmAiDeployment();
       } catch (e) {
         const reason = e instanceof AiDeploymentError ? e.reason : "unconfirmed";
         if (reason !== "route-changed") {
-          handlers?.onError(reason === "off" || reason === "invalid" ? DICTATION_NEEDS_AI_CONSENT : "stt-unconfirmed");
+          handlers?.onError(
+            reason === "off"
+              ? DICTATION_AI_DEPLOYMENT_OFF
+              : reason === "invalid"
+                ? DICTATION_AI_DEPLOYMENT_INVALID
+                : DICTATION_AI_DEPLOYMENT_UNCONFIRMED,
+          );
           return;
         }
       }

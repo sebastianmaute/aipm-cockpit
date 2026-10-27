@@ -58,9 +58,9 @@ describe("stt-engine — the deployment status check before the upload", () => {
   afterEach(() => __setAiStatusRequestForTests(answerAiStatusDirect));
 
   it.each([
-    ["AI switched off for the deployment", () => Promise.resolve(aiStatusResponse({ off: true, route: "direct", invalid: false })), "needs-ai-consent"],
-    ["an invalid AI setting", () => Promise.resolve(aiStatusResponse({ off: false, route: "direct", invalid: true })), "needs-ai-consent"],
-    ["the server down", () => Promise.reject(new TypeError("Failed to fetch")), "stt-unconfirmed"],
+    ["AI switched off for the deployment", () => Promise.resolve(aiStatusResponse({ off: true, route: "direct", invalid: false })), "ai-deployment-off"],
+    ["an invalid AI setting", () => Promise.resolve(aiStatusResponse({ off: false, route: "direct", invalid: true })), "ai-deployment-invalid"],
+    ["the server down", () => Promise.reject(new TypeError("Failed to fetch")), "ai-deployment-unconfirmed"],
   ] as const)("uploads nothing with %s", async (_name, status, code) => {
     __setAiStatusRequestForTests(status);
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) }));

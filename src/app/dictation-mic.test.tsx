@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, render, screen, fireEvent } from "@testing-library/react";
+import { renderHook, render, screen, fireEvent, act } from "@testing-library/react";
+import { ToastProvider } from "./toast-context";
 import { useDictationMic } from "./dictation-mic";
 import { getActiveDictationTarget, setActiveDictationTarget } from "./dictation-target";
 import { t } from "./i18n";
@@ -19,9 +20,10 @@ const ptt = vi.hoisted(() => ({
   unavailable: false,
   unavailableReason: null as string | null,
   buttonHandlers: { onPointerDown: vi.fn(), onKeyDown: vi.fn() },
+  onError: null as ((err: string) => void) | null,
 }));
 vi.mock("./use-push-to-talk", () => ({
-  usePushToTalk: () => ({ listening: ptt.listening, transcribing: false, supported: true, unavailable: ptt.unavailable, unavailableReason: ptt.unavailableReason, buttonHandlers: ptt.buttonHandlers, toggle: () => {}, press: vi.fn(), release: vi.fn() }),
+  usePushToTalk: (args: { onError: (err: string) => void }) => (ptt.onError = args.onError, { listening: ptt.listening, transcribing: false, supported: true, unavailable: ptt.unavailable, unavailableReason: ptt.unavailableReason, buttonHandlers: ptt.buttonHandlers, toggle: () => {}, press: vi.fn(), release: vi.fn() }),
 }));
 
 beforeEach(() => {
@@ -60,6 +62,23 @@ describe("useDictationMic — speech-to-text without the AI consent (AI-01)", ()
     const btn = screen.getByRole("button", { name: `${t("en-US", "dictationHold")} – Notes` });
     expect(btn).not.toBeDisabled();
     expect(btn).not.toHaveAttribute("aria-describedby");
+  });
+});
+
+// A recording discarded because the organisation switched AI off (or its setting is invalid, or could not be
+// confirmed) says that, never "switch AI on in Settings" or a generic transcription failure.
+describe("useDictationMic — the deployment's AI setting after a recording", () => {
+  it.each([
+    ["ai-deployment-off", "aiDeploymentOff"],
+    ["ai-deployment-invalid", "aiDeploymentInvalid"],
+    ["ai-deployment-unconfirmed", "aiDeploymentUnconfirmed"],
+    ["needs-ai-consent", "dictationUnavailableNeedsAiConsent"],
+    ["stt-500", "dictationTranscribeFailed"],
+  ] as const)("%s shows %s", (code, key) => {
+    const showToast = vi.fn();
+    render(<ToastProvider value={{ showToast, showToastAction: vi.fn() }}><Mic /></ToastProvider>);
+    act(() => ptt.onError?.(code));
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", key));
   });
 });
 

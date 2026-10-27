@@ -199,8 +199,46 @@ describe("Without a current AI consent", () => {
     setAiDeploymentState({ off: true, route: "direct", invalid: false });
     try {
       render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
-      expect(screen.getByText(t("en-US", "chatNoApiKey"))).toBeInTheDocument();
+      expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
       expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeDisabled();
+    } finally {
+      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+    }
+  });
+
+  // The organisation switched AI off: no key or consent the user could supply would turn it on.
+  it("a deployment with AI off says so instead of asking for a key", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    try {
+      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={{ ...defaultAiConfig, apiKey: "" }} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
+      expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "chatNoApiKey"))).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
+    } finally {
+      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+    }
+  });
+
+  it("an invalid gateway setting names the invalid setting in the empty state", () => {
+    setAiDeploymentState({ off: false, route: "gateway", invalid: true });
+    try {
+      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
+      expect(screen.getByText(t("en-US", "aiDeploymentInvalid"))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "chatNoApiKey"))).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
+    } finally {
+      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+    }
+  });
+
+  it("a deployment with AI off shows no consent review banner for a stale consent", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    try {
+      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={{ ...defaultAiConfig, consent: undefined, apiKey: "sk-test" }} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
+      // Positive control: the deployment message is on screen.
+      expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
     } finally {
       setAiDeploymentState({ off: false, route: "direct", invalid: false });
     }

@@ -10,7 +10,7 @@ import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import { type AiConfig, type Settings, clampMaxChatTurns, isAiConsentedForDictation } from "./settings-types";
 import { AiConsentRevokedError, isConsentCurrent } from "./ai-consent";
-import { isAiDeploymentOn } from "./ai-deployment";
+import { getAiDeploymentState, isAiDeploymentOn } from "./ai-deployment";
 import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 import { useAiUsageContext } from "./ai-usage-context";
@@ -617,7 +617,10 @@ function ChatPanelInner({
   // Master switch: when AI is disabled in Settings, the assistant is fully off
   // regardless of any stored key — force the no-key path so send is blocked.
   const consentStale = ai.enabled === true && !isConsentCurrent(ai.consent);
-  const masterOn = isAiDeploymentOn() && ai.enabled === true && !consentStale;
+  // The organisation switched AI off for the deployment (or its gateway setting is invalid): nothing the user
+  // sets here turns it on, so the chat says that instead of asking for a key or a consent.
+  const deploymentOn = isAiDeploymentOn();
+  const masterOn = deploymentOn && ai.enabled === true && !consentStale;
   // The key actually used for calls/gating: a plaintext settings key wins,
   // else the inline-unlocked passphrase key (if any).
   const effectiveApiKey = masterOn ? (ai.apiKey.trim() ? ai.apiKey : (unlockedKey ?? "")) : "";
@@ -1552,6 +1555,10 @@ function ChatPanelInner({
                   <FieldError>{t(lang, "secretUnlockFailed")}</FieldError>
                 )}
               </div>
+            ) : !deploymentOn ? (
+              <p className="text-sm text-muted-foreground">
+                {t(lang, getAiDeploymentState().invalid ? "aiDeploymentInvalid" : "aiDeploymentOff")}
+              </p>
             ) : (
               <div className="space-y-2">
                 {!consentStale && (
@@ -1671,7 +1678,7 @@ function ChatPanelInner({
       )}
 
       {/* Outside the empty state: a persisted transcript must not hide why the composer is off. */}
-      {consentStale && (
+      {consentStale && deploymentOn && (
         <Banner severity="info" role="status" className="mt-2 flex shrink-0 items-center justify-between gap-2">
           <p className="min-w-0">{t(lang, "aiConsentReviewPrompt")}</p>
           {onConfigureAi && <Button onClick={onConfigureAi}>{t(lang, "chatConfigureAi")}</Button>}

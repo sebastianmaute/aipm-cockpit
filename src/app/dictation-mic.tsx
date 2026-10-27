@@ -10,7 +10,13 @@ import { useToastContext } from "./toast-context";
 import { PRESS, TRANSITION } from "./interaction-styles";
 import { ToggleButton } from "./toggle-button";
 import { setActiveDictationTarget, clearDictationTargetIf, type DictationTarget } from "./dictation-target";
-import { DICTATION_NEEDS_AI_CONSENT, DICTATION_STT_NOT_SET_UP } from "./dictation-engine";
+import {
+  DICTATION_AI_DEPLOYMENT_INVALID,
+  DICTATION_AI_DEPLOYMENT_OFF,
+  DICTATION_AI_DEPLOYMENT_UNCONFIRMED,
+  DICTATION_NEEDS_AI_CONSENT,
+  DICTATION_STT_NOT_SET_UP,
+} from "./dictation-engine";
 
 interface UseDictationMicArgs {
   lang: Lang;
@@ -63,6 +69,9 @@ export function useDictationMic({
       else if (err === "not-supported") showToast("error", t(lang, "dictationRecordUnsupported"));
       else if (err === DICTATION_NEEDS_AI_CONSENT) showToast("error", t(lang, "dictationUnavailableNeedsAiConsent"));
       else if (err === DICTATION_STT_NOT_SET_UP) showToast("error", t(lang, "dictationUnavailableSttNotSetUp"));
+      else if (err === DICTATION_AI_DEPLOYMENT_OFF) showToast("error", t(lang, "aiDeploymentOff"));
+      else if (err === DICTATION_AI_DEPLOYMENT_INVALID) showToast("error", t(lang, "aiDeploymentInvalid"));
+      else if (err === DICTATION_AI_DEPLOYMENT_UNCONFIRMED) showToast("error", t(lang, "aiDeploymentUnconfirmed"));
     },
   });
 

@@ -22,6 +22,13 @@ export const DICTATION_NEEDS_AI_CONSENT = "needs-ai-consent";
  *  that prefix is a failed transcription. */
 export const DICTATION_STT_NOT_SET_UP = "speech-service-not-set-up";
 
+/** The `onError` codes for a speech-to-text recording discarded by the deployment's AI setting, asked before the
+ *  upload: switched off by the organisation, an invalid gateway setting, or a setting that could not be confirmed.
+ *  ★ Not `stt-`-prefixed: that prefix is a failed transcription. */
+export const DICTATION_AI_DEPLOYMENT_OFF = "ai-deployment-off";
+export const DICTATION_AI_DEPLOYMENT_INVALID = "ai-deployment-invalid";
+export const DICTATION_AI_DEPLOYMENT_UNCONFIRMED = "ai-deployment-unconfirmed";
+
 /** Space-aware append of a dictated segment to existing text. */
 export function appendDictation(prev: string, text: string): string {
   const seg = text.trim();

@@ -6,6 +6,8 @@
 
 import { isPrivateHost } from "../_shared/proxy-ssrf";
 import { refuseIfDisabled } from "../_shared/integration-switch";
+import { readAiGatewayConfig } from "../../ai-gateway-config";
+import { AI_GATEWAY_INVALID } from "../ai/_relay";
 
 const TIMEOUT_MS = 30_000;
 // 25MB — short recordings only. Checked twice: once via content-length before
@@ -27,6 +29,10 @@ export async function parseSttRequest(
   // §762 — dictation sends speech to a model provider, so the AI switch closes it too.
   const refused = refuseIfDisabled("stt") ?? refuseIfDisabled("ai");
   if (refused) return { error: refused };
+  // An invalid AI gateway setting turns AI off for the deployment, so it closes dictation the same way: 503.
+  if (readAiGatewayConfig(process.env).kind === "invalid") {
+    return { error: Response.json({ error: AI_GATEWAY_INVALID }, { status: 503, headers: { "cache-control": "no-store" } }) };
+  }
   const key = request.headers.get("x-stt-key") ?? "";
   if (!key) return { error: new Response("missing key", { status: 400 }) };
 

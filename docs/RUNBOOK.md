@@ -380,13 +380,16 @@ that list.
    An invalid value switches AI off for the whole deployment instead of falling back
    to a direct call: Settings → AI says the gateway setting is invalid, and the
    browser's diagnostic log records `ai.gateway.invalid`.
-5. **Allow long responses on the front proxy.** A relayed call is held open until
-   Anthropic answers; the relay itself gives up only after 15 minutes without data.
-   Any ingress, load balancer or reverse proxy in front of the app must allow a
-   **read timeout of at least 15 minutes** on `/api/ai/messages`, or long answers
-   fail at the proxy. If your ingress or route configuration exposes no per-route
-   read-timeout setting, ask whoever operates it to set at least 15 minutes for
-   `/api/ai/messages`.
+5. **Allow long responses and large requests on the front proxy.** A relayed call is
+   held open until Anthropic answers; the relay itself gives up only after 15 minutes
+   without data. Any ingress, load balancer or reverse proxy in front of the app must
+   allow a **read timeout of at least 15 minutes** on `/api/ai/messages`, or long
+   answers fail at the proxy. It must also allow a **request body of at least 32 MB**
+   on `/api/ai/messages` (the relay's own cap, Anthropic's Messages limit): common
+   ingress defaults are around 1 MB, and a chat with attachments above that is refused
+   before the relay sees it, so the user sees a gateway error. If your ingress or
+   route configuration exposes no per-route setting for either, ask whoever operates
+   it to set both for `/api/ai/messages`.
 6. **Check it.** Open Settings → AI: every user is asked to accept the AI data
    disclosure again, and the dialog and the key note now say the data goes through
    this app's server and the organisation's AI gateway. Send one chat message and
@@ -396,8 +399,9 @@ What to know when running it:
 
 - **Consent follows the route.** A consent records whether it was given for a direct
   or a gateway deployment, so turning the gateway on — or off again — asks every
-  user to accept the disclosure again. A tab left open across the change asks for a
-  reload before it sends anything.
+  user to accept the disclosure again. A tab left open across the change sends
+  nothing: the chat asks for a reload, and other AI features show their usual
+  failure message (never a key problem).
 - **Rate limiting belongs to the gateway.** The relay has no per-IP limit of its own;
   set one in the gateway's settings if you want one. The gateway's own request
   logging (prompts and answers) is also configured there — the relay logs nothing.
@@ -409,10 +413,11 @@ What to know when running it:
   it cannot trigger a stored provider key; the exposure is the gateway's capacity.
   The organisation's money is at risk only through the token itself, on a gateway in
   the same Cloudflare account that holds stored keys (step 3).
-- **Gateway errors** reach the user as "The organisation's AI gateway refused this
-  app's token" (the gateway answered 401/403: check the token) or "… returned an
-  error" (any other non-Anthropic failure, including a 3xx, which the relay does not
-  follow). An error Anthropic itself returns, such as a rejected key, passes through
+- **Gateway errors** appear in the chat as "The organisation's AI gateway refused
+  this app's token" (the gateway answered 401/403: check the token) or "… returned
+  an error" (any other non-Anthropic failure, including a 3xx, which the relay does
+  not follow); other AI features show their usual failure message (never a key
+  problem). An error Anthropic itself returns, such as a rejected key, passes through
   unchanged.
 
 ### Microsoft 365 integration setup
