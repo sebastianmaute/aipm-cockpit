@@ -22,7 +22,7 @@ type Env = Record<string, string | undefined>;
 
 /** The base URL the Messages path is appended to: https, no credentials/query/fragment, no API path. */
 function normalizeGatewayUrl(raw: string): string | null {
-  if (raw.includes("?") || raw.includes("#")) return null;
+  if (/[?#@\s]/.test(raw)) return null;
   let parsed: URL;
   try {
     parsed = new URL(raw);
@@ -31,10 +31,9 @@ function normalizeGatewayUrl(raw: string): string | null {
   }
   if (parsed.protocol !== "https:") return null;
   if (parsed.username || parsed.password) return null;
-  const base = raw.replace(/\/+$/, "");
   const path = parsed.pathname.replace(/\/+$/, "");
-  if (/\/v1(\/messages)?$/.test(path)) return null;
-  return base;
+  if (/\/v1(\/messages)?$/i.test(path)) return null;
+  return parsed.origin + path;
 }
 
 export function readAiGatewayConfig(env: Env): AiGatewayConfig {

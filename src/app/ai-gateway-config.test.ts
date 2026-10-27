@@ -29,6 +29,19 @@ describe("readAiGatewayConfig", () => {
     expect(readAiGatewayConfig({ AIPM_AI_GATEWAY_URL: GW + "/" })).toEqual({ kind: "gateway", baseUrl: GW, token: null });
   });
 
+  it("builds the base URL from the parsed URL", () => {
+    expect(readAiGatewayConfig({ AIPM_AI_GATEWAY_URL: "https://Gateway.Example.com/x/" })).toEqual({
+      kind: "gateway",
+      baseUrl: "https://gateway.example.com/x",
+      token: null,
+    });
+    expect(readAiGatewayConfig({ AIPM_AI_GATEWAY_URL: "https://host" })).toEqual({
+      kind: "gateway",
+      baseUrl: "https://host",
+      token: null,
+    });
+  });
+
   it("carries the token, and treats a whitespace-only token as none", () => {
     expect(readAiGatewayConfig({ AIPM_AI_GATEWAY_URL: GW, AIPM_AI_GATEWAY_TOKEN: "t" })).toEqual({
       kind: "gateway",
@@ -50,6 +63,9 @@ describe("readAiGatewayConfig", () => {
     "https://host/x#f",
     "https://host/x/v1",
     "https://host/x/v1/messages",
+    "https://host/x/V1",
+    "https://@host/x",
+    "https://host/x y",
   ])("fails closed on an invalid URL: %s", (url) => {
     expect(readAiGatewayConfig({ AIPM_AI_GATEWAY_URL: url })).toEqual({ kind: "invalid", reason: "url" });
   });
@@ -73,7 +89,7 @@ describe("ai-gateway-config stays on the server", () => {
     const src = join(process.cwd(), "src");
     const offenders = walk(src)
       .filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f))
-      .filter((f) => /from\s+["'][^"']*ai-gateway-config["']/.test(readFileSync(f, "utf8")))
+      .filter((f) => /(?:from\s*|import\s*\(?\s*|require\s*\(\s*)["'][^"']*ai-gateway-config["']/.test(readFileSync(f, "utf8")))
       .map((f) => relative(src, f))
       .filter((rel) => !ALLOWED.some((a) => rel === a || (a.endsWith(sep) && rel.startsWith(a))));
     expect(offenders).toEqual([]);
