@@ -24,12 +24,12 @@ import { AI_ACTIVATION_SITES, AI_BACKGROUND_SITES } from "../test/ai-activation-
 // hashed: they translate the English, which is the reference text.
 const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
   1: [
-    "chat|interactive|aiDataChatLabel|aiDataChat|519b39b01089",
-    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|ddf595ddc45b",
+    "chat|interactive|aiDataChatLabel|aiDataChat|0ab2b52cc0f9",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6",
     "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|ec731819812b",
     "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793",
-    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|7c62a3db181e",
-    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|b1964a69f00e",
+    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|77d3b27235a2",
+    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|dd308831307b",
     "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|8454d8b056cd",
     "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|0daca179cd94",
     "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f",
@@ -39,7 +39,7 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac",
     "dictation|interactive|aiDataDictationLabel|aiDataDictation|c2ff7295a1a7",
     "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|43c341548943",
-    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|583a60bae1ed",
+    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|5eb499ef50b6",
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998",
   ],
 };
@@ -70,8 +70,9 @@ const SITE_ROWS: Readonly<Record<string, readonly string[]>> = {
   "app/workspace-section.tsx": ["chat", "insight-recommendation"],
 };
 
-// Dictation is gated on the consent record in `resolveDictationEngine` (dictation-config.ts), not
-// on one of the three activation predicates, so no activation site leads to it.
+// Dictation is gated by a fourth predicate, `isAiConsentedForDictation` (settings-types.ts: the AI switch
+// and the interactive consent, no Anthropic key), whose result its callers pass to `resolveDictationEngine`
+// (dictation-config.ts). The activation-site table lists only the three AI predicates, so no site leads to it.
 const ROWS_WITHOUT_A_SITE = new Set(["dictation"]);
 
 // Where the three predicates are DEFINED (each calls the next); every path reads them through this
