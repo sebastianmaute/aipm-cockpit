@@ -1,0 +1,394 @@
+// @vitest-environment node
+//
+// The relay runs on the server only; undici's Request/ReadableStream are the real ones
+// under the node environment. Every upstream call goes through a fake `send`, so no
+// test reaches the network.
+import { Readable } from "node:stream";
+import type { RequestOptions } from "node:http";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../diagnostics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../diagnostics")>();
+  return { ...actual, logDiag: vi.fn() };
+});
+
+import { logDiag } from "../../diagnostics";
+import {
+  relay,
+  RELAY_MAX_BODY_BYTES,
+  RELAY_TIMEOUT_MS,
+  type RelaySend,
+  type UpstreamResponse,
+} from "./_relay";
+
+const KEY = "sk-ant-secret-key";
+const TOKEN = "gateway-secret-token";
+const PROMPT = "a-secret-prompt";
+const BASE = "https://gateway.example.com/acct/gw/anthropic";
+
+const GATEWAY_ENV = { AIPM_AI_GATEWAY_URL: `${BASE}/`, AIPM_AI_GATEWAY_TOKEN: TOKEN };
+
+type Call = {
+  url: URL;
+  options: RequestOptions;
+  body: Buffer | undefined;
+  destroyed: boolean;
+  fire: (event: "error" | "timeout", err?: Error) => void;
+  respond: (res: UpstreamResponse) => void;
+};
+
+/** A fake `https.request`: records the call; `onEnd` decides what upstream does. */
+function fakeSend(onEnd: (call: Call) => void = () => {}): { send: RelaySend; calls: Call[] } {
+  const calls: Call[] = [];
+  const send: RelaySend = (url, options, onResponse) => {
+    const listeners = new Map<string, (err?: Error) => void>();
+    const call: Call = {
+      url,
+      options,
+      body: undefined,
+      destroyed: false,
+      fire: (event, err) => listeners.get(event)?.(err),
+      respond: onResponse,
+    };
+    calls.push(call);
+    return {
+      on(event, cb) {
+        listeners.set(event, cb);
+        return this;
+      },
+      end(body) {
+        call.body = body ? Buffer.from(body) : undefined;
+        queueMicrotask(() => onEnd(call));
+        return this;
+      },
+      destroy() {
+        call.destroyed = true;
+        return this;
+      },
+    };
+  };
+  return { send, calls };
+}
+
+function upstream(status: number, body: string, contentType = "application/json"): UpstreamResponse {
+  return Object.assign(Readable.from([Buffer.from(body)]), {
+    statusCode: status,
+    headers: { "content-type": contentType },
+  });
+}
+
+const respondWith = (status: number, body: string, contentType?: string) => (call: Call) =>
+  call.respond(upstream(status, body, contentType));
+
+function post(headers: Record<string, string> = {}, body = JSON.stringify({ prompt: PROMPT })): Request {
+  return new Request("http://localhost:3000/api/ai/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": KEY,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+      "sec-fetch-site": "same-origin",
+      ...headers,
+    },
+    body,
+  });
+}
+
+function getModels(headers: Record<string, string> = {}): Request {
+  return new Request("http://localhost:3000/api/ai/models", {
+    headers: { "x-api-key": KEY, "anthropic-version": "2023-06-01", "sec-fetch-site": "same-origin", ...headers },
+  });
+}
+
+const ANTHROPIC_OK = JSON.stringify({ id: "msg_1", type: "message", content: [{ type: "text", text: "hi" }] });
+
+describe("relay — refusals before any upstream call", () => {
+  it("switched off → 503 integration-disabled", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", { ...GATEWAY_ENV, AIPM_DISABLED_INTEGRATIONS: "ai" }, send);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "integration-disabled" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("invalid setting → 503 ai-gateway-invalid", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", { AIPM_AI_GATEWAY_URL: "http://insecure.example.com" }, send);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "ai-gateway-invalid" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a token without a URL is invalid too → 503", async () => {
+    const { send } = fakeSend();
+    const res = await relay(post(), "messages", { AIPM_AI_GATEWAY_TOKEN: TOKEN }, send);
+    expect(res.status).toBe(503);
+  });
+
+  it("direct deployment → 404, no relay", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", {}, send);
+    expect(res.status).toBe(404);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("Sec-Fetch-Site: cross-site → 403 not-same-origin", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post({ "sec-fetch-site": "cross-site" }), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "not-same-origin" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("Sec-Fetch-Site: same-site → 403 (a sibling subdomain is not this origin)", async () => {
+    const { send } = fakeSend();
+    const res = await relay(post({ "sec-fetch-site": "same-site" }), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(403);
+  });
+
+  it("no Sec-Fetch-Site and a foreign Origin → 403", async () => {
+    const { send, calls } = fakeSend();
+    const req = new Request("http://localhost:3000/api/ai/messages", {
+      method: "POST",
+      headers: { "x-api-key": KEY, origin: "https://evil.example.com" },
+      body: "{}",
+    });
+    const res = await relay(req, "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(403);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("no Sec-Fetch-Site and the request's own Origin → relayed", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const req = new Request("http://localhost:3000/api/ai/messages", {
+      method: "POST",
+      headers: { "x-api-key": KEY, origin: "http://localhost:3000" },
+      body: "{}",
+    });
+    const res = await relay(req, "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(200);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("a content-length over 32 MB → 413 without calling send", async () => {
+    expect(RELAY_MAX_BODY_BYTES).toBe(32 * 1024 * 1024);
+    const { send, calls } = fakeSend();
+    const req = post();
+    Object.defineProperty(req, "headers", {
+      value: new Headers({
+        "x-api-key": KEY,
+        "sec-fetch-site": "same-origin",
+        "content-length": String(33 * 1024 * 1024),
+      }),
+    });
+    const res = await relay(req, "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(413);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a body over 32 MB with no content-length → 413 while reading, without calling send", async () => {
+    const { send, calls } = fakeSend();
+    const big = new Uint8Array(RELAY_MAX_BODY_BYTES + 1);
+    const req = new Request("http://localhost:3000/api/ai/messages", {
+      method: "POST",
+      headers: { "x-api-key": KEY, "sec-fetch-site": "same-origin" },
+      body: new Blob([big]).stream(),
+      duplex: "half",
+    } as RequestInit);
+    expect(req.headers.get("content-length")).toBeNull();
+    const res = await relay(req, "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(413);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("relay — what is forwarded", () => {
+  it("forwards exactly the four Anthropic headers plus the gateway token", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    await relay(
+      post({
+        "anthropic-beta": "files-api-2025-04-14",
+        cookie: "session=abc",
+        "anthropic-dangerous-direct-browser-access": "true",
+        authorization: "Bearer other",
+      }),
+      "messages",
+      GATEWAY_ENV,
+      send,
+    );
+    const headers = calls[0].options.headers as Record<string, string>;
+    const { "content-length": length, ...rest } = headers;
+    expect(rest).toEqual({
+      "x-api-key": KEY,
+      "anthropic-version": "2023-06-01",
+      "anthropic-beta": "files-api-2025-04-14",
+      "content-type": "application/json",
+      "cf-aig-authorization": `Bearer ${TOKEN}`,
+    });
+    expect(length).toBe(String(calls[0].body?.length));
+  });
+
+  it("omits anthropic-beta when not sent and the token header when no token is set", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    await relay(post(), "messages", { AIPM_AI_GATEWAY_URL: BASE }, send);
+    const headers = calls[0].options.headers as Record<string, string>;
+    expect(Object.keys(headers).sort()).toEqual(
+      ["anthropic-version", "content-length", "content-type", "x-api-key"].sort(),
+    );
+  });
+
+  it("messages → POST <base>/v1/messages with the body bytes unchanged, timeout 15 min", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const body = JSON.stringify({ model: "m", messages: [{ role: "user", content: PROMPT }] });
+    await relay(post({}, body), "messages", GATEWAY_ENV, send);
+    expect(calls[0].url.href).toBe(`${BASE}/v1/messages`);
+    expect(calls[0].options.method).toBe("POST");
+    expect(calls[0].options.timeout).toBe(RELAY_TIMEOUT_MS);
+    expect(RELAY_TIMEOUT_MS).toBe(15 * 60 * 1000);
+    expect(calls[0].body?.toString("utf8")).toBe(body);
+  });
+
+  it("models → GET <base>/v1/models?limit=1000 with no body", async () => {
+    const { send, calls } = fakeSend(respondWith(200, JSON.stringify({ data: [] })));
+    const res = await relay(getModels(), "models", GATEWAY_ENV, send);
+    expect(res.status).toBe(200);
+    expect(calls[0].url.href).toBe(`${BASE}/v1/models?limit=1000`);
+    expect(calls[0].options.method).toBe("GET");
+    expect(calls[0].body).toBeUndefined();
+  });
+});
+
+describe("relay — what comes back", () => {
+  it("upstream 200 → same status, bytes and content-type", async () => {
+    const sse = "event: message_start\ndata: {}\n\n";
+    const { send } = fakeSend(respondWith(200, sse, "text/event-stream"));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/event-stream");
+    expect(await res.text()).toBe(sse);
+  });
+
+  it.each([
+    [429, "rate_limit_error"],
+    [401, "authentication_error"],
+    [413, "request_too_large"],
+    [529, "overloaded_error"],
+  ])("upstream %i Anthropic-shaped → passed through unchanged", async (status, type) => {
+    const body = JSON.stringify({ type: "error", error: { type, message: "m" } });
+    const { send } = fakeSend(respondWith(status, body));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(status);
+    expect(await res.text()).toBe(body);
+  });
+
+  it.each([401, 403])("upstream %i with an HTML body → 502 ai-gateway-rejected", async (status) => {
+    const { send } = fakeSend(respondWith(status, "<html>Unauthorized</html>", "text/html"));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "ai-gateway-rejected" });
+  });
+
+  it.each([503, 500, 404, 302])("upstream %i with a non-Anthropic body → 502 ai-gateway-error", async (status) => {
+    const { send } = fakeSend(respondWith(status, "<html>Bad gateway</html>", "text/html"));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "ai-gateway-error" });
+  });
+
+  it("JSON that is not Anthropic-shaped (error.type not a string) → 502 ai-gateway-error", async () => {
+    const { send } = fakeSend(respondWith(500, JSON.stringify({ type: "error", error: { type: 5 } })));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "ai-gateway-error" });
+  });
+
+  it("a network error before any response → 502 ai-gateway-error", async () => {
+    const { send } = fakeSend((call) => call.fire("error", new Error(`connect failed ${KEY}`)));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "ai-gateway-error" });
+  });
+
+  it("an upstream timeout → the upstream request is destroyed and 504 ai-gateway-error", async () => {
+    const { send, calls } = fakeSend((call) => call.fire("timeout"));
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    expect(calls[0].destroyed).toBe(true);
+    expect(res.status).toBe(504);
+    expect(await res.json()).toEqual({ error: "ai-gateway-error" });
+  });
+});
+
+describe("relay — the browser goes away", () => {
+  it("an abort before upstream answers destroys the upstream request", async () => {
+    const controller = new AbortController();
+    const { send, calls } = fakeSend(() => controller.abort());
+    const req = new Request(post(), { signal: controller.signal });
+    await relay(req, "messages", GATEWAY_ENV, send);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].destroyed).toBe(true);
+  });
+
+  it("an abort mid-stream destroys the upstream request", async () => {
+    const controller = new AbortController();
+    // A stream that sends one chunk and then never ends.
+    const endless = new Readable({ read() {} });
+    endless.push(Buffer.from("event: ping\n\n"));
+    const { send, calls } = fakeSend((call) =>
+      call.respond(Object.assign(endless, { statusCode: 200, headers: { "content-type": "text/event-stream" } })),
+    );
+    const req = new Request(post(), { signal: controller.signal });
+    const res = await relay(req, "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(200);
+    const reader = res.body!.getReader();
+    await reader.read();
+    expect(calls[0].destroyed).toBe(false);
+    controller.abort();
+    expect(calls[0].destroyed).toBe(true);
+  });
+
+  it("cancelling the response stream destroys the upstream request", async () => {
+    const endless = new Readable({ read() {} });
+    endless.push(Buffer.from("event: ping\n\n"));
+    const { send, calls } = fakeSend((call) =>
+      call.respond(Object.assign(endless, { statusCode: 200, headers: { "content-type": "text/event-stream" } })),
+    );
+    const res = await relay(post(), "messages", GATEWAY_ENV, send);
+    await res.body!.cancel();
+    expect(calls[0].destroyed).toBe(true);
+  });
+});
+
+describe("relay — logs nothing secret", () => {
+  const spies: Array<ReturnType<typeof vi.spyOn>> = [];
+  beforeEach(() => {
+    for (const m of ["log", "info", "warn", "error", "debug"] as const) {
+      spies.push(vi.spyOn(console, m).mockImplementation(() => {}));
+    }
+  });
+  afterEach(() => {
+    spies.splice(0).forEach((s) => s.mockRestore());
+    vi.mocked(logDiag).mockClear();
+  });
+
+  it("no console or diagnostics output carries the key, token, body or URL", async () => {
+    const scenarios: Array<(call: Call) => void> = [
+      respondWith(200, ANTHROPIC_OK),
+      respondWith(401, "<html>no</html>", "text/html"),
+      respondWith(503, "<html>down</html>", "text/html"),
+      (call) => call.fire("error", new Error(`boom ${KEY} ${TOKEN}`)),
+      (call) => call.fire("timeout"),
+    ];
+    for (const onEnd of scenarios) {
+      const { send } = fakeSend(onEnd);
+      const res = await relay(post(), "messages", GATEWAY_ENV, send);
+      await res.text();
+    }
+    const logged = JSON.stringify([
+      ...spies.map((s) => s.mock.calls),
+      vi.mocked(logDiag).mock.calls,
+    ]);
+    for (const secret of [KEY, TOKEN, PROMPT, "gateway.example.com"]) {
+      expect(logged).not.toContain(secret);
+    }
+  });
+});

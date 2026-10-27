@@ -84,4 +84,18 @@ describe("POST /api/stt", () => {
     const res = await POST(r);
     expect(res.status).toBe(413);
   });
+
+  // Dictation sends recorded speech to a model provider, so the deployment's AI
+  // switch closes it as well as its own `stt` switch.
+  it("refuses with 503 integration-disabled when AI is switched off, calling nothing upstream", async () => {
+    vi.stubEnv("AIPM_DISABLED_INTEGRATIONS", "ai");
+    try {
+      const res = await POST(req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" }));
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ error: "integration-disabled" });
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

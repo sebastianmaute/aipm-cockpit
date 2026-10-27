@@ -24,7 +24,8 @@ export interface SttForward {
 export async function parseSttRequest(
   request: Request,
 ): Promise<{ fwd: SttForward } | { error: Response }> {
-  const refused = refuseIfDisabled("stt"); // §762
+  // §762 — dictation sends speech to a model provider, so the AI switch closes it too.
+  const refused = refuseIfDisabled("stt") ?? refuseIfDisabled("ai");
   if (refused) return { error: refused };
   const key = request.headers.get("x-stt-key") ?? "";
   if (!key) return { error: new Response("missing key", { status: 400 }) };
