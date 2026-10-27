@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
-import { AI_CONSENT_LEVELS, AI_DATA_PATHS, aiDataPathsFor } from "./ai-disclosure";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { AI_CONSENT_LEVELS, AI_DATA_PATHS, AI_DESTINATION_KEYS, aiDataPathsFor } from "./ai-disclosure";
+import { type AiRoute, setAiDeploymentState } from "./ai-deployment";
+import { helpEntryBody } from "./help-content";
 import { AI_DISCLOSURE_VERSION } from "./ai-consent";
-import { loadI18n, t } from "./i18n";
+import { loadI18n, t, type TranslationKey } from "./i18n";
 import { de } from "./i18n.de";
 import { AI_ACTIVATION_SITES, AI_BACKGROUND_SITES } from "../test/ai-activation-sites";
 
@@ -159,5 +161,88 @@ describe("AI_DATA_PATHS", () => {
       if (row.level === "interactive") expect(at < backgroundAt, label).toBe(true);
       else expect(at > backgroundAt, label).toBe(true);
     }
+  });
+});
+
+// ★ THE DESTINATION PIN. The texts that say WHERE the data goes — one set per AI route (direct to
+// Anthropic, or through this app's server and the organisation's AI gateway) — are pinned here by a
+// hash of their English text (first 12 hex digits of SHA-256), so a wording change is red until it is
+// re-pinned. They do NOT bump `AI_DISCLOSURE_VERSION`: they describe the route, not what is sent, and
+// a consent already records the route it was given for (`ai-consent.ts`), so a deployment that changes
+// route asks every user again by itself.
+const DESTINATION_PIN: readonly string[] = [
+  "direct|interactive|aiConsentDataIntro|ef4b607923f8",
+  "direct|background|aiConsentBackgroundDataIntro|9208fd9b4f5b",
+  "direct|keyNote|aiApiKeyHint|98fd123e2e5d",
+  "direct|keySecurity|aiConsentBullet2|7cb475af8600",
+  "direct|help|helpSecAiBody|0709ff5576e1",
+  "gateway|interactive|aiConsentDataIntroGateway|2b068f0d6388",
+  "gateway|background|aiConsentBackgroundDataIntroGateway|a19cd3c56a74",
+  "gateway|keyNote|aiApiKeyHintGateway|2c08dbf37646",
+  "gateway|keySecurity|aiConsentBullet2Gateway|fd7f7d5bdfdb",
+  "gateway|help|helpSecAiBodyGateway|f1aba1b243af",
+];
+
+const destinationFingerprint = () =>
+  Object.entries(AI_DESTINATION_KEYS).flatMap(([route, keys]) =>
+    Object.entries(keys).map(([kind, key]) =>
+      `${route}|${kind}|${key}|${createHash("sha256").update(t("en-US", key)).digest("hex").slice(0, 12)}`,
+    ),
+  );
+
+const routeKeys = (route: AiRoute): TranslationKey[] => Object.values(AI_DESTINATION_KEYS[route]);
+
+describe("AI_DESTINATION_KEYS", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false }));
+
+  it("is pinned by its English texts (re-pin a wording change; the version stays)", () => {
+    expect(destinationFingerprint()).toEqual(DESTINATION_PIN);
+  });
+
+  it("direct keeps the keys the app has always shown", () => {
+    expect(AI_DESTINATION_KEYS.direct).toEqual({
+      interactive: "aiConsentDataIntro",
+      background: "aiConsentBackgroundDataIntro",
+      keyNote: "aiApiKeyHint",
+      keySecurity: "aiConsentBullet2",
+      help: "helpSecAiBody",
+    });
+  });
+
+  it("every text exists in English and German, and German is translated", () => {
+    for (const key of [...routeKeys("direct"), ...routeKeys("gateway")]) {
+      expect(t("en-US", key), key).not.toBe(key);
+      expect(de[key]?.trim(), key).toBeTruthy();
+      expect(de[key], key).not.toBe(t("en-US", key));
+    }
+  });
+
+  it("gateway texts name the app's server and the gateway, and never a direct call", () => {
+    for (const key of routeKeys("gateway")) {
+      const en = t("en-US", key);
+      expect(en, key).toContain("this app's server and your organisation's AI gateway");
+      expect(en, key).not.toMatch(/directly|api\.anthropic\.com/);
+      expect(de[key], key).toContain("Gateway");
+      expect(de[key], key).not.toMatch(/direkt|api\.anthropic\.com/);
+    }
+    // Positive control: the direct texts are the ones that say "directly … api.anthropic.com".
+    expect(t("en-US", AI_DESTINATION_KEYS.direct.interactive)).toMatch(/directly from this browser to api\.anthropic\.com/);
+  });
+
+  it("the key texts say the key goes the same way and is not stored on the server", () => {
+    for (const key of [AI_DESTINATION_KEYS.gateway.keyNote, AI_DESTINATION_KEYS.gateway.keySecurity, AI_DESTINATION_KEYS.gateway.help]) {
+      expect(t("en-US", key), key).toContain("not stored on the server");
+    }
+  });
+
+  it("Help's AI entry follows the route", () => {
+    const entry = { bodyKey: "helpSecAiBody" } as const;
+    expect(helpEntryBody("en-US", entry)).toBe(t("en-US", "helpSecAiBody"));
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false });
+    expect(helpEntryBody("en-US", entry)).toBe(t("en-US", AI_DESTINATION_KEYS.gateway.help));
+    expect(helpEntryBody("de", entry)).toBe(de[AI_DESTINATION_KEYS.gateway.help]);
   });
 });

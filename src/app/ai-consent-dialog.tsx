@@ -4,6 +4,8 @@
 // Built on the shared Modal: Escape, the Tab trap and focus restore are its job.
 // ★ What each path sends is NOT written here: the rows come from `AI_DATA_PATHS` (ai-disclosure.ts),
 //   filtered by `level`, so the dialog and docs/security.md read one table.
+// ★ Where it goes (the data lead-in and the key bullet) follows the deployment's AI route through
+//   `aiDestinationKey`: direct to Anthropic, or through this app's server and the organisation's gateway.
 
 import { useId, useState } from "react";
 import { Button, PRIMARY_MATCHING_BORDER } from "./button";
@@ -12,7 +14,7 @@ import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { type AiPolicy } from "./ai-policy";
-import { aiDataPathsFor, type AiConsentLevel } from "./ai-disclosure";
+import { aiDataPathsFor, aiDestinationKey, type AiConsentLevel } from "./ai-disclosure";
 
 export interface AiConsentDialogProps {
   lang: Lang;
@@ -42,7 +44,7 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
     data: t(lang, row.dataKey),
   }));
   const bullets: string[] = [
-    t(lang, "aiConsentBullet2"),
+    t(lang, aiDestinationKey("keySecurity")),
     t(lang, "aiConsentBullet3"),
     t(lang, "aiConsentBullet4"),
     t(lang, "aiConsentBullet5"),
@@ -77,7 +79,7 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
               ))}
             </ul>
           )}
-          <p>{t(lang, isBackground ? "aiConsentBackgroundDataIntro" : "aiConsentDataIntro")}</p>
+          <p>{t(lang, aiDestinationKey(level))}</p>
           <dl className="space-y-2">
             {dataRows.map((row) => (
               <div key={row.id} data-ai-data-path={row.id}>

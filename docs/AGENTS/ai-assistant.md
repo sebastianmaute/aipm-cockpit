@@ -29,6 +29,14 @@
   reported (`urlEnvRejected`).
   ★★ The link becomes an `href`, so only an `https:` URL ever leaves the resolver (`isSafePolicyUrl`);
   the sanitizer only length-caps, so do not judge the URL anywhere else.
+- **Where the data goes follows the route.** The texts that name the destination — the dialog's two
+  data lead-ins, its key bullet, the key note in Settings → AI and the AI Help entry — come from
+  `AI_DESTINATION_KEYS` (`ai-disclosure.ts`), one set per `AiRoute`, read through `aiDestinationKey`
+  (`currentAiRoute()`); Help swaps the body in `helpEntryBody`. ★★ Never render one of those keys
+  directly: on a gateway deployment the direct text ("directly from this browser to api.anthropic.com")
+  would be false. A wording change re-pins `DESTINATION_PIN` (`ai-disclosure.test.ts`) and does NOT
+  bump `AI_DISCLOSURE_VERSION`: consent already records its route (`isConsentCurrent`), so a route
+  change re-asks by itself. Deployment-side settings: `docs/security.md`; operating: `docs/RUNBOOK.md`.
 - **Wire layer:** `chat-panel.tsx` is the React surface; the non-React WIRE LAYER (Anthropic protocol types
   `TextBlock`/`ContentBlock`/`SystemBlock`/`ApiMessage`/`DisplayItem`, `callClaude`, `buildSystemPrompt`,
   `systemBlocksText`, `stringifyResult`) lives in pure i18n-free `chat-api.ts` — import

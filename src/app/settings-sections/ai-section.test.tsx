@@ -1239,3 +1239,18 @@ describe("AiSection — deployment notice", () => {
     expect(screen.getByText(t("en-US", "aiDeploymentInvalid"))).toBeInTheDocument();
   });
 });
+
+describe("AiSection — the key note follows the AI route", () => {
+  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false }));
+  it("direct: says calls go directly to api.anthropic.com (control)", () => {
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "aiApiKeyHint"))).toBeInTheDocument();
+  });
+  it("gateway: names the app's server and the gateway instead", () => {
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false });
+    const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, consent: { ...newConsent(new Date(0)), route: "gateway" as const } } };
+    render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "aiApiKeyHintGateway"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "aiApiKeyHint"))).toBeNull();
+  });
+});

@@ -10,6 +10,20 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Added
+
+- **A deployment can switch AI off.** The server setting `AIPM_DISABLED_INTEGRATIONS` takes a new name, `ai`, which
+  switches every AI feature off for that deployment, dictation to a speech service included. Settings → AI says so,
+  nothing is sent, and users' keys and consents are kept for when AI is switched back on.
+- **AI requests can go through the organisation's AI gateway.** Two new server settings, `AIPM_AI_GATEWAY_URL` and
+  `AIPM_AI_GATEWAY_TOKEN`, send AI requests through this app's server and a Cloudflare AI Gateway instead of straight
+  from the browser to Anthropic. Each user still uses their own Anthropic key, which the server passes on without
+  storing or logging it. An invalid setting switches AI off rather than falling back to a direct call. With neither
+  setting, AI works exactly as before.
+  - The AI data disclosure, the key note in Settings → AI and Help say which way the data goes on this deployment,
+    and turning the gateway on or off asks everyone to accept the disclosure again.
+  - Setup, the token's scope and the proxy timeout the relay needs are in `docs/RUNBOOK.md`.
+
 ## [1.20.1] - 2026-10-27 "Indridason"
 
 A maintenance release about what the AI may see and when it may run. AI features now need one consent, given on the

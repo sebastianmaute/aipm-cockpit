@@ -114,15 +114,22 @@
 ### Deployment integration switch (§762)
 
 `AIPM_DISABLED_INTEGRATIONS` (a server run-time setting, see `docs/security.md`) switches `jira`, `confluence`,
-`timelog`, `ecb` and `stt` off for one deployment. Two halves, one id list (`INTEGRATION_IDS` in
+`timelog`, `ecb`, `stt` and `ai` off for one deployment. Two halves, one id list (`INTEGRATION_IDS` in
 `integration-switches.ts`):
 - **Server:** `refuseIfDisabled` (`api/_shared/integration-switch.ts`) reads the setting on EVERY request and answers
   503 `integration-disabled` before rate-limiting or any upstream call. ★★ 503, never 401/403: the Jira and TimeLog
   clients read those as a rejected token and write `tokenInvalidAt` into the stored settings. It sits in `parseJiraRequest` (which takes
-  `"confluence"` for the Confluence route), `parseTimelogRequest`, `parseSttRequest` and the ECB `GET`.
+  `"confluence"` for the Confluence route), `parseTimelogRequest`, `parseSttRequest` (which refuses on `ai` too:
+  dictation sends speech to a model provider), the ECB `GET` and the AI relay's `relay`.
 - **Client:** the root layout reads the setting per request (it is dynamic already, for the nonce) and
   `IntegrationSwitchesSync` records it with `setDisabledIntegrations` during render, before any child renders.
   Plain functions then ask `isIntegrationDisabled` / `isJiraOn` / `isModuleSwitchedOff` with no prop threaded.
+- ★ **`ai` is read through its own record, not `isIntegrationDisabled`.** The layout also computes
+  `aiDeploymentStateFrom` (`ai-gateway-config.ts`, server only) — `{ off, route, invalid }`, folding in the AI gateway
+  settings (`AIPM_AI_GATEWAY_URL`/`_TOKEN`) — and `IntegrationSwitchesSync` records it with `setAiDeploymentState`
+  (`ai-deployment.ts`). AI gates ask `isAiDeploymentOn`; the disclosure texts ask `currentAiRoute`. An invalid gateway
+  setting closes AI exactly like `ai` (fail closed, no fallback to a direct call). The transport itself is in
+  [ai-assistant.md](ai-assistant.md) "Wire layer".
 
 ★★ **Gates ask; stored settings are never rewritten.** Many call sites save settings by spreading the current
 `settings` object (`grep -rnE "(setSettings|onChange)\(\{ *\.\.\.settings" src/app --include=*.tsx --include=*.ts | grep -v test`), so an "effective settings" layer that coerced `jira.enabled` would persist the coercion and

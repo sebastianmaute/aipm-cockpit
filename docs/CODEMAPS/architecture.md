@@ -45,9 +45,11 @@ plus request-time middleware issuing a per-request CSP nonce.
   is per-route. Deliberately *not* factored into one parameterized helper — divergent security guards.
   ★ `ecb` is the exception and needs no guard: one hard-coded URL, no user input, no secret.
 - **A deployment can switch integrations off.** `AIPM_DISABLED_INTEGRATIONS` (§762) names any of
-  `jira` · `confluence` · `timelog` · `ecb` · `stt`; every one of the 12 routes asks
+  `jira` · `confluence` · `timelog` · `ecb` · `stt` · `ai`; every one of the 12 integration routes, and
+  the AI relay's `ai/messages` and `ai/models`, asks
   `refuseIfDisabled` (`api/_shared/integration-switch.ts`, reached through the jira/timelog/stt
-  `_helpers.ts` and directly in `ecb`) and answers 503 before any other work, and the root layout hands
+  `_helpers.ts`, directly in `ecb`, and in the relay's `relay`) and answers 503 before any other work
+  (`ai/status` always answers, so the client can learn why AI is off), and the root layout hands
   the list to the client (`integration-switches.ts`), which hides the controls. Read per request, no
   rebuild. Detail: `docs/AGENTS/platform.md`.
 - **Secrets never reach the server.** Five device-sealed `SecretId`s (AES-256-GCM under a

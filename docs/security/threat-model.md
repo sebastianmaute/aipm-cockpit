@@ -5,6 +5,8 @@
 > `/api/stt` proxy route (browser → same-origin `/api/stt` → a user-configured OpenAI-compatible host)
 > were added after it and are **unreviewed** here — the review-cadence trigger below has fired for both.
 > Line-number citations and counts below are as of the date on each, not current.
+> **Added 2026-10-27:** the optional AI gateway relay (`/api/ai/*`, B6 below) and the `ai` deployment switch.
+> B6 records the boundary as built; it is not a re-run of the whole pass.
 
 **Date:** 2026-07-02 · **Scope:** v0.164 "Cixin" · **Author role:** Senior software architect
 **Review cadence:** re-run this STRIDE pass on every new trust boundary — a new external host in the CSP `connect-src`/`frame-src` allowlist (`src/proxy.ts`), a new `SecretId` (`src/app/secrets.ts:8`), or a new `/api/*` route. Owner: security-lead; enforced in MR review via the CSP + SecretId lockstep lists.
@@ -17,7 +19,8 @@
 
 | Asset | At rest | In transit | Notes |
 |---|---|---|---|
-| Anthropic API key | `aipm-cockpit:secrets` — AES-256-GCM, non-extractable device key in IndexedDB `aipm-cockpit-secrets` (`secrets.ts:47-49,113-117`) | browser → `api.anthropic.com` (CSP `connect-src` in `proxy.ts`) | `SecretId="anthropicApiKey"` |
+| Anthropic API key | `aipm-cockpit:secrets` — AES-256-GCM, non-extractable device key in IndexedDB `aipm-cockpit-secrets` (`secrets.ts:47-49,113-117`) | browser → `api.anthropic.com` (CSP `connect-src` in `proxy.ts`); on a gateway deployment browser → same-origin `/api/ai/*` → the configured AI gateway (B6) | `SecretId="anthropicApiKey"` |
+| AI gateway token | server environment `AIPM_AI_GATEWAY_TOKEN` only, read by `readAiGatewayConfig` (`ai-gateway-config.ts`, which a test keeps out of every client module) | server → AI gateway as `cf-aig-authorization: Bearer` (B6) | optional; the only server-side secret; never in a page, a status answer or a log |
 | Turso authToken | same | browser → `*.turso.io` (CSP `connect-src` in `proxy.ts`) | `SecretId="tursoAuthToken"` |
 | Jira apiToken | same | browser → `/api/jira/*` → `*.atlassian.net` (Basic auth built server-side, `jira/_helpers.ts:140-142`) | `SecretId="jiraApiToken"`; per-request in body, never persisted server-side (`jira/_helpers.ts:1-4`) |
 | Timelog apiToken | same | browser → `/api/timelog/*` → `*.timelog.com` (Bearer, `timelog/_helpers.ts:173`) | `SecretId="timelogApiToken"` |
@@ -75,6 +78,19 @@ The strongest surface — this is where the server makes outbound calls on the u
 | I | Secret exported / synced to Turso | `aipm-cockpit:secrets` ciphertext excluded from exports, Turso, and recovery `CONFIG_KEYS` (`recovery-config.ts`) | — | Phase 1 Task 7 pins it |
 | T | Tampered ciphertext | AES-GCM auth tag → `SecretUnlockError` on tamper (`secrets.ts:137-148`); `isSealedSecret` validates shape from untrusted storage (`secrets.ts:23-36`) | — | none |
 | I | XSS reads localStorage | Every raw-HTML sink either sanitizes or renders an app-authored constant — **11 sinks: 8 `dangerouslySetInnerHTML` + 3 `document.write(`**, of which 2 are static literals (see "Raw-HTML sinks" below for the reproduce commands and the breakdown); branding logo/favicon raster-only, SVG excluded; rich text via `sanitize-html.ts`; strict nonce-based CSP, no `unsafe-inline` script (corrected 2026-08-09: this cell previously read "No `dangerouslySetInnerHTML` anywhere", which was false, and cited a `proxy.ts` comment that said the same. Corrected again 2026-09-18: it then read "6 sites", also false — re-derived, not restated) | `style-src-attr 'unsafe-inline'` required for React inline styles (documented low-risk, `proxy.ts`) | none |
+
+### B6 — Browser ↔ `/api/ai/*` relay ↔ the organisation's AI gateway (optional, `AIPM_AI_GATEWAY_URL`)
+
+Only on a deployment that sets `AIPM_AI_GATEWAY_URL`; otherwise the relay answers 404 and B1 applies. A **new server-side trust boundary**: the app server now sees every prompt, answer and Anthropic key in transit. The host is the operator's, never the user's, so there is no SSRF surface. Code: `relay` (`src/app/api/ai/_relay.ts`), `readAiGatewayConfig` (`src/app/ai-gateway-config.ts`), `confirmAiDeployment` (`src/app/ai-transport.ts`). Operating notes: `docs/RUNBOOK.md` "Routing AI through a gateway".
+
+| STRIDE | Threat | Existing mitigation | Residual | Action |
+|---|---|---|---|---|
+| I | Prompts, answers and keys disclosed by the server | The relay logs nothing — not the key, the token, the URL or the body (`_relay.ts` header); forwards only `x-api-key`, `anthropic-version`, `anthropic-beta`, `content-type` (`FORWARDED_HEADERS`), so cookies stay on the server; the consent dialog and Help say the data passes through this app's server and the gateway (`AI_DESTINATION_KEYS`, `ai-disclosure.ts`), and a consent records its route (`isConsentCurrent`, `ai-consent.ts`) | the operator's host and the gateway's own logging see the traffic; disclosed to the user, configured by the organisation | none |
+| I | Gateway token leaks to a browser | Read only in server modules; the client gets `{ off, route, invalid }` (`aiDeploymentStateFrom`) and nothing else, in the page and from `/api/ai/status` | — | none |
+| S/E | Another site, or a caller with no key, spends through the gateway | Same-origin check (`isSameOrigin`: `Sec-Fetch-Site`, else `Origin`); a call without its own `x-api-key` is refused with 400 `missing-api-key` before anything is sent | a non-browser client that sends neither header passes the same-origin check and can use the gateway with **its own** Anthropic key (billed to that key); stored provider keys (BYOK) on the gateway would turn this into spending the organisation's account — the RUNBOOK forbids enabling them | keep BYOK off |
+| T | Misconfigured URL sends requests somewhere unintended, or silently falls back to a direct call | `https` only; no credentials, `@`, whitespace, query or fragment; no `/v1` or `/v1/messages` suffix; an invalid value **fails closed** (AI off for the deployment, 503 `ai-gateway-invalid`), never a fallback to `api.anthropic.com`; `https.request` follows no redirect | — | none |
+| D | Large or slow requests tie up the server | 32 MB body cap (Anthropic's own Messages limit, answered as an Anthropic-shaped 413); 15-minute idle timeout (`RELAY_TIMEOUT_MS`); no per-IP limit by design | rate limiting belongs to the gateway | configure it on the gateway |
+| I | Client's direct-call allowance outlives the route | CSP `connect-src` drops `api.anthropic.com` when AI is switched off, invalid or relayed (`proxy.ts`); the client asks `/api/ai/status` before every send and stops on a changed route (`confirmAiDeployment`) | — | none |
 
 ---
 

@@ -9,6 +9,7 @@ import { type AiPermissionField, noteConsentRevokeNotSaved } from "../ai-permiss
 import { persistAiConsentChange } from "../use-settings";
 import { AiConsentDialog } from "../ai-consent-dialog";
 import { resolveAiPolicy } from "../ai-policy";
+import { aiDestinationKey } from "../ai-disclosure";
 import { getAiDeploymentState } from "../ai-deployment";
 import { TextButton } from "../text-button";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS } from "../settings-types";
@@ -521,7 +522,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       )}
       </div>
       <FieldHint className="mt-2">
-        {t(lang, "aiApiKeyHint")}
+        {t(lang, aiDestinationKey("keyNote"))}
       </FieldHint>
       {isConsentCurrent(settings.ai.consent) ? (
         <p className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">

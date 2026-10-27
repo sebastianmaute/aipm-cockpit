@@ -14,6 +14,7 @@
 import { t, type Lang, type TranslationKey } from "./i18n";
 import type { AppView } from "./nav-config";
 import { FORECAST_AXIS_EXTENSION_DAYS } from "./gantt-engine";
+import { AI_DESTINATION_KEYS, aiDestinationKey } from "./ai-disclosure";
 
 export type HelpGroup = "concepts" | "workflows" | "features" | "automated";
 
@@ -40,9 +41,11 @@ const HELP_BODY_ARGS: Partial<Record<TranslationKey, readonly number[]>> = {
   helpConceptForecastSimBody: [FORECAST_AXIS_EXTENSION_DAYS],
 };
 
-/** An entry's body text, with its interpolated values filled in. */
+/** An entry's body text, with its interpolated values filled in. The AI entry says where the data goes,
+ *  so it is read for this deployment's AI route (`aiDestinationKey`, ai-disclosure.ts). */
 export function helpEntryBody(lang: Lang, entry: Pick<HelpEntry, "bodyKey">): string {
-  return t(lang, entry.bodyKey, ...(HELP_BODY_ARGS[entry.bodyKey] ?? []));
+  const key = entry.bodyKey === AI_DESTINATION_KEYS.direct.help ? aiDestinationKey("help") : entry.bodyKey;
+  return t(lang, key, ...(HELP_BODY_ARGS[key] ?? []));
 }
 
 /** Render order of the groups (TOC + content). */
