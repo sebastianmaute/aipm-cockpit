@@ -85,10 +85,9 @@ export function noteConsentRevokeNotSaved(revoked: Settings): void {
   reportedRevokeAi = revoked.ai;
 }
 
-/** Test seam: forget a noted revoke, a failed write and an unsaved narrowing. */
+/** Test seam: forget a noted revoke and an unsaved narrowing. */
 export function __resetConsentFailureForTests(): void {
   reportedRevokeAi = null;
-  lastSettingsWriteFailed = false;
   unsavedNarrowing = null;
 }
 
@@ -178,11 +177,6 @@ function aiPermissionToWrite(ai: AiConfig, widen: readonly AiPermissionField[]):
   return permission;
 }
 
-/** Whether the last settings write on this page failed (`writeSettings`; a sealed-for-reload skip leaves it).
- *  While it is true, what this page holds may narrow AI permission further than storage does, because that
- *  narrowing could not be saved — so the re-reads in `useSettings` then only narrow too. */
-let lastSettingsWriteFailed = false;
-
 /** Synchronously write settings to localStorage WITH the at-rest secrets
  *  blanked. Secret ciphertext is persisted separately (secrets-store) on change;
  *  see the useSettings mount-load for the decrypt+merge back into memory.
@@ -211,11 +205,9 @@ export function writeSettings(settings: Settings, widen: readonly AiPermissionFi
   try {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
     reportedRevokeAi = null;
-    lastSettingsWriteFailed = false;
     unsavedNarrowing = null; // persisted with this write: `permission` was narrowed against it
     return true;
   } catch (err) {
-    lastSettingsWriteFailed = true;
     // AI-01 — a failed widening is not committed by its caller, so only the narrowing this write carried counts.
     noteUnsavedNarrowing(settings.ai ? narrowOnlyAiState(settings.ai) : readPageAiState());
     // quota exceeded / storage disabled — keep in-memory settings, but log +
@@ -487,13 +479,11 @@ export function useSettings(): {
     const applyPersistedAiState = () => {
       const fresh = readPageAiState();
       fromStorageRef.current = fresh;
-      setSettings((prev) => {
-        // ★★ While writes fail, this page may hold a narrowing storage never got (a revoke or switch-off that
-        //   could not be saved); taking storage's wider value would undo it here, so only narrow then.
-        const ai = { ...prev.ai, ...(lastSettingsWriteFailed ? narrowOnly(prev.ai, fresh) : fresh) };
-        const taken = { enabled: ai.enabled === true, consent: ai.consent, backgroundConsent: ai.backgroundConsent };
-        return sameAiState(prev.ai, taken) ? prev : { ...prev, ai };
-      });
+      // ★★ `readPageAiState`, not storage alone: a revoke or switch-off this page could not save stays applied, so
+      //   a re-read cannot undo it. Only that withdrawal is held back — not "every re-read while a write failed":
+      //   a page whose failed write withdrew nothing takes another tab's accept as soon as storage works again,
+      //   and its next write keeps it instead of narrowing it away.
+      setSettings((prev) => (sameAiState(prev.ai, fresh) ? prev : { ...prev, ai: { ...prev.ai, ...fresh } }));
     };
     const onStorage = (e: StorageEvent) => {
       // A null key is a `clear()` of the whole storage area.

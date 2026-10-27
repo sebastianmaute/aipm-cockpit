@@ -456,6 +456,42 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     expect(() => assertBackgroundConsentLive()).toThrow();
   });
 
+  // Both tabs' writes failed; storage recovers; the other tab accepts; this tab then edits something else.
+  it("a write that failed here does not stop this tab taking another tab's accept once storage works again", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: { enabled: false, model: "claude-sonnet-5" } }));
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const spy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => ({ ...s, expertMode: true })); }); // fails, withdraws nothing
+    spy.mockRestore(); // storage works again
+    otherTabWrites({ ai: { enabled: true, model: "claude-sonnet-5", consent: C } }); // the other tab accepts
+    expect(a.result.current.settings.ai.consent).toEqual(C);
+    expect(a.result.current.settings.ai.enabled).toBe(true);
+    expect(isInteractiveConsentLive()).toBe(true);
+    act(() => { a.result.current.setSettings((s) => ({ ...s, language: "de" })); });
+    expect((JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as { language?: string }).language).toBe("de"); // control
+    expect(persistedAi().consent).toEqual(C);
+    expect(persistedAi().enabled).toBe(true);
+  });
+
+  it("a revoke this tab could not save survives another tab's ordinary write, and yields to a new accept there", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const spy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => revokeNotSaved(s)); });
+    spy.mockRestore();
+    // The other tab saves an unrelated edit, still carrying the consent this tab withdrew.
+    otherTabWrites({ language: "de", ai: { enabled: true, model: "claude-sonnet-5", consent: C, backgroundConsent: C } });
+    expect(a.result.current.settings.ai.consent).toBeUndefined();
+    expect(isInteractiveConsentLive()).toBe(false);
+    // The other tab accepts again: a new record, given after this tab's revoke.
+    const again = newConsent(new Date(1000));
+    otherTabWrites({ ai: { enabled: true, model: "claude-sonnet-5", consent: again } });
+    expect(a.result.current.settings.ai.consent).toEqual(again);
+    expect(isInteractiveConsentLive()).toBe(true);
+  });
+
   it("an ordinary write that fails still raises the generic notice", async () => {
     storeConsented();
     const a = renderHook(() => useSettings());
