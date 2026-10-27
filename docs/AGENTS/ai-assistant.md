@@ -35,8 +35,19 @@
   from there, NOT chat-panel. File-attachment reading/classifying/extracting is a separate pipeline,
   `ingestFile`/`ingestBytes` in `attachment-ingest.ts`, shared by chat-panel and the wizard's
   Step0ImportPanel (`readAttachmentData` used to live in `chat-api.ts`; it was retired when that
-  pipeline was unified). Calls Anthropic directly (browser,
-  `anthropic-dangerous-direct-browser-access`). `buildSystemPrompt` returns `SystemBlock[]`, NOT a string.
+  pipeline was unified). `buildSystemPrompt` returns `SystemBlock[]`, NOT a string.
+  ★★ **Every Anthropic request leaves through `ai-transport.ts`** (`postAiMessages` for Messages — `callClaude`
+  and the forced-call envelope `postOnce`; `getAiModels` for the model list). Before EACH send it asks
+  `GET /api/ai/status` (`confirmAiDeployment`): off, invalid, a route other than the page loaded with, or no
+  answer at all throws `AiDeploymentError` and NOTHING is sent — an unconfirmed setting never falls back to a
+  direct call. Route `direct` is the browser calling Anthropic as before (incl.
+  `anthropic-dangerous-direct-browser-access`); route `gateway` posts to the same-origin relay
+  (`/api/ai/messages`, `/api/ai/models`). The relay's own non-Anthropic-shaped failures become
+  `AiGatewayError` / `AiDeploymentError` there, so they are never read as a key verdict; `aiTransportMessageKey`
+  (`ai-errors.ts`) names them. `ai-transport-sites.test.ts` fails when another `src/app` file names the
+  Anthropic host in code or fetches it. ★ Tests: `vitest.setup.ts` answers the status request with the
+  direct state through `__setAiStatusRequestForTests` (`ai-status-request.ts`), so a fetch stub sees only the
+  Anthropic call; a test of the check itself passes `null` to restore the real request.
   ★★ Anthropic checks the prompt-cache prefix in the fixed order **`tools` → `system` → `messages`**, and an
   entry is reusable only while the prefix is byte-identical from the very start — so per-turn content placed
   ANYWHERE before `messages` makes the WHOLE transcript uncacheable, not merely the one segment it sits in.

@@ -726,6 +726,8 @@ describe("useForecastImport — the Claude route", () => {
       pending = result.current.askClaude();
     });
     expect(result.current.busy).toBe(true);
+    // The request leaves after the deployment status check; cancel once it is in flight.
+    await act(() => vi.waitFor(() => expect(seenSignal).toBeDefined()));
     await act(async () => {
       result.current.cancel();
       await pending;

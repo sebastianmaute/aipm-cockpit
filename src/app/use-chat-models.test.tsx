@@ -53,11 +53,13 @@ describe("useChatModels", () => {
 
   it("aborts the in-flight request on unmount", async () => {
     let aborted = false;
-    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
       (init?.signal as AbortSignal).addEventListener("abort", () => { aborted = true; });
       return new Promise(() => {}); // never resolves
     });
     const { unmount } = renderHook(() => useChatModels(KEY, ALLOWED, "claude-sonnet-4-6"));
+    // The request leaves after the deployment status check, so wait until it is in flight.
+    await waitFor(() => expect(spy).toHaveBeenCalled());
     unmount();
     expect(aborted).toBe(true);
   });

@@ -8,6 +8,8 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { __resetAiKeyStatusForTests, getAiKeyStatus, syncAiKey } from "./ai-key-status";
 import { clearSessionAiKey } from "./session-ai-key";
 import { setAiDeploymentState } from "./ai-deployment";
+import { __setAiStatusRequestForTests } from "./ai-status-request";
+import { answerAiStatusDirect } from "../test/ai-status-fetch";
 // §717 — an unlocked key lives in a page-wide store now, not in one panel: forget it after every test.
 afterEach(() => { clearSessionAiKey(); });
 import { readFileSync } from "node:fs";
@@ -2177,13 +2179,16 @@ describe("ChatPanel — Turso thread persistence", () => {
     const pendingFetch = new Promise<Response>((_res, rej) => {
       rejectFetch = rej;
     });
-    vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
 
     renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
     await screen.findByText("thread A content");
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "stale question 2" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    // The request leaves after the deployment status check; switch threads once it is in flight, so the
+    // rejection below reaches the send's catch block as a network error, not as an abort.
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
 
     fireEvent.click(screen.getByRole("button", { name: 'Open "Thread B"' }));
     await screen.findByText("thread B content");
@@ -3883,6 +3888,29 @@ describe("§650 a refused key shows the key message", () => {
     expect(alert).toHaveTextContent(copy);
     expect(alert).not.toHaveTextContent(/Chat failed/i);
     expect(alert).not.toHaveTextContent(/invalid x-api-key/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AI-17 — the transport's own failures are named as what they are, never as a key problem.
+// ---------------------------------------------------------------------------
+describe("AI-17 a transport failure shows its own message", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    __setAiStatusRequestForTests(answerAiStatusDirect);
+  });
+
+  it("an unconfirmed AI setting sends nothing and says so", async () => {
+    __setAiStatusRequestForTests(() => Promise.reject(new TypeError("Failed to fetch")));
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />);
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Could not confirm this app's AI setting, so nothing was sent. Try again.");
+    expect(alert).not.toHaveTextContent(/Chat failed/i);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 

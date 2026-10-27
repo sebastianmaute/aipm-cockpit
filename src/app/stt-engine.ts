@@ -1,6 +1,7 @@
 import type { Lang } from "./i18n";
 import { DICTATION_NEEDS_AI_CONSENT, type DictationEngine, type DictationHandlers } from "./dictation-engine";
 import { isInteractiveConsentLive } from "./ai-consent";
+import { AiDeploymentError, confirmAiDeployment } from "./ai-transport";
 
 export interface SttConfig { lang: Lang; baseUrl: string; model: string; apiKey: string; }
 
@@ -26,6 +27,15 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
     }
     handlers?.onStatus?.("transcribing");
     try {
+      // The deployment's AI setting, asked before the upload as before every AI send: switched off or
+      // invalid discards the clip like a withdrawn consent; unconfirmed (or a changed route) sends nothing.
+      try {
+        await confirmAiDeployment();
+      } catch (e) {
+        const consentLike = e instanceof AiDeploymentError && (e.reason === "off" || e.reason === "invalid");
+        handlers?.onError(consentLike ? DICTATION_NEEDS_AI_CONSENT : "stt-unconfirmed");
+        return;
+      }
       const form = new FormData();
       form.append("file", blob, "audio.webm");
       form.append("model", cfg.model);

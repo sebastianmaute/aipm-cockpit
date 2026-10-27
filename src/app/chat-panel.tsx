@@ -60,7 +60,7 @@ import {
   type ToolFlags,
 } from "./chat-api";
 import { buildWireMessages } from "./chat-cache-layout";
-import { AiHttpError, classifyAiError } from "./ai-errors";
+import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError, syncAiKey } from "./ai-key-status";
 import { setSessionAiKey } from "./session-ai-key";
 import { useSessionAiKey } from "./use-session-ai-key";
@@ -1103,6 +1103,7 @@ function ChatPanelInner({
       // error belongs to the old conversation, not the one now on screen).
       if (projectIdRef.current === sendProjectId && chatThreads.threadIdRef.current === sendThreadId) {
         const keyMsg = aiKeyMessageKeyForError(err);
+        const transportMsg = aiTransportMessageKey(err);
         if (errName === "AbortError") {
           setDisplay((prev) => [
             ...prev,
@@ -1120,6 +1121,10 @@ function ChatPanelInner({
           ]);
         } else if (err instanceof AiConsentRevokedError) {
           setError(t(lang, "aiConsentRevokedDuringSend"));
+        } else if (transportMsg) {
+          // The deployment's AI setting refused or could not confirm the send, or the organisation's
+          // gateway failed: nothing about the user's key, so it is named as what it is.
+          setError(t(lang, transportMsg));
         } else if (keyMsg) {
           // §650 — a refused key (401/403) is named as the KEY problem, with the way out,
           // instead of "Chat failed: 401 — invalid x-api-key".

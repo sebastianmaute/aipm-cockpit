@@ -102,8 +102,9 @@ describe("runAllocProposal", () => {
   });
 
   it("forwards the abort signal to the underlying fetch call", async () => {
+    // Not aborted up front: an already-aborted signal now stops at the deployment status check, before
+    // this fetch (as the real status request would). The point here is only that the signal is passed on.
     const controller = new AbortController();
-    controller.abort();
     const spy = vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
       const signal = (init as RequestInit | undefined)?.signal;
       if (signal?.aborted) return Promise.reject(new DOMException("Aborted", "AbortError"));

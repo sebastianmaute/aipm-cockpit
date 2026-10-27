@@ -19,6 +19,58 @@ export class AiHttpError extends Error {
   }
 }
 
+/** Why the AI transport (`ai-transport.ts`) sent nothing: the deployment's AI setting, asked
+ *  before every send, is switched off or invalid, differs from the route this page loaded with,
+ *  or could not be confirmed (server down, non-200, unreadable answer). Never a key problem. */
+export type AiDeploymentErrorReason = "off" | "invalid" | "route-changed" | "unconfirmed";
+
+export class AiDeploymentError extends Error {
+  constructor(public readonly reason: AiDeploymentErrorReason) {
+    super(reason);
+    this.name = "AiDeploymentError";
+  }
+}
+
+export const AI_GATEWAY_REJECTED = "ai-gateway-rejected";
+export const AI_GATEWAY_ERROR = "ai-gateway-error";
+export type AiGatewayErrorCode = typeof AI_GATEWAY_REJECTED | typeof AI_GATEWAY_ERROR;
+
+/** The organisation's AI gateway (reached through the same-origin relay) refused the app's
+ *  gateway token or failed. Never a verdict on the user's own Anthropic key. */
+export class AiGatewayError extends Error {
+  constructor(public readonly code: AiGatewayErrorCode) {
+    super(code);
+    this.name = "AiGatewayError";
+  }
+}
+
+export type AiTransportMessageKey =
+  | "aiDeploymentOff"
+  | "aiDeploymentInvalid"
+  | "aiDeploymentChanged"
+  | "aiDeploymentUnconfirmed"
+  | "aiGatewayRejected"
+  | "aiGatewayFailed";
+
+const DEPLOYMENT_MESSAGE: Record<AiDeploymentErrorReason, AiTransportMessageKey> = {
+  off: "aiDeploymentOff",
+  invalid: "aiDeploymentInvalid",
+  "route-changed": "aiDeploymentChanged",
+  unconfirmed: "aiDeploymentUnconfirmed",
+};
+
+const GATEWAY_MESSAGE: Record<AiGatewayErrorCode, AiTransportMessageKey> = {
+  [AI_GATEWAY_REJECTED]: "aiGatewayRejected",
+  [AI_GATEWAY_ERROR]: "aiGatewayFailed",
+};
+
+/** The i18n key naming a transport failure, or null for any other error. */
+export function aiTransportMessageKey(err: unknown): AiTransportMessageKey | null {
+  if (err instanceof AiDeploymentError) return DEPLOYMENT_MESSAGE[err.reason];
+  if (err instanceof AiGatewayError) return GATEWAY_MESSAGE[err.code];
+  return null;
+}
+
 /** Strip ASCII control chars from untrusted text (hex escapes — never literal
  *  control bytes). Shared regex form used across the app's sanitizers. */
 const CONTROL_CHARS = /[\x00-\x1f]/g;
