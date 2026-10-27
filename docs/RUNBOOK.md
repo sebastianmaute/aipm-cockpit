@@ -225,6 +225,14 @@ risk is forward compatibility: data saved by a newer build can carry
 fields or a schema version the older build does not know. In environments
 with real user data, have users take an export before rolling back.
 
+A release from before the AI gateway relay ignores `AIPM_AI_GATEWAY_URL`
+and the route a consent records, so its browsers send AI requests directly
+to `api.anthropic.com`, under a consent given for the gateway. On a gateway
+deployment, unset the gateway settings before rolling back (users are then
+asked to accept the direct-route disclosure), or accept that users' requests
+go direct. That older release also ignores the `ai` value of
+`AIPM_DISABLED_INTEGRATIONS`, so it cannot be used to keep AI off.
+
 ## Publishing a desktop release (GitHub)
 
 1. Bump `src/app/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, milestone), run
