@@ -324,10 +324,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       activeThreadId: tursoMode && threadsMatchProject ? activeThreadId : null,
       available: tursoMode && threadsMatchProject && !loadFailed,
     });
-    // ★★ Clearing on unmount is not optional: withdrawing AI consent unmounts
-    // the chat panel (it renders a consent screen instead) and nothing else in
-    // the app ever clears the slot, so the last payload stayed readable with
-    // `available: true`. Scoped to the id THIS run published, so an ordinary
+    // ★★ Clearing on unmount is not optional: nothing else in the app ever
+    // clears the slot, so the last payload would stay readable with
+    // `available: true` after the panel unmounts (a project swap or any other
+    // load hold). ★ Withdrawing AI consent does NOT unmount the panel (it stays
+    // mounted with a review banner) and does not clear the slot; what keeps its
+    // rows from the model then is that they are read only inside a chat send,
+    // and every request asks `assertInteractiveConsentLive` first. Scoped to the id THIS run published, so an ordinary
     // re-publish (cleanup runs, then the body re-publishes, in one commit) and
     // a project switch both end with the live value in the slot.
     return () => clearChatThreadsFor(projectId);

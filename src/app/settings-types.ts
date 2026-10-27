@@ -184,9 +184,11 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
   };
 }
 
-/** True only when the AI master switch is ON and a usable key is present.
- *  Master switch defaults OFF (undefined → false). The single source of truth
- *  for "may AI run" — gate every AI activation through this (or aiKeyIfEnabled). */
+/** True only when the AI master switch is ON, a usable key is present and the interactive consent
+ *  is current (`isConsentCurrent`). Master switch defaults OFF (undefined → false). The source of truth
+ *  for "may AI run on a user action" — gate every interactive AI activation through this (or
+ *  aiKeyIfEnabled). Unattended runs (scheduled jobs, automatic recommendations) gate on
+ *  `isAiBackgroundEnabled` instead, which adds the background consent. */
 export function isAiEnabled(ai: AiConfig | undefined): boolean {
   return ai?.enabled === true && liveAiKey(ai) !== "" && isConsentCurrent(ai.consent);
 }
@@ -223,8 +225,9 @@ export function aiAssistantOpener(
   return isAiEnabled(ai) ? open : undefined;
 }
 
-/** The trimmed API key, but only when the AI master switch is on; "" otherwise.
- *  Feeding "" downstream makes every key-presence gate treat AI as unconfigured. */
+/** The live API key, but only when `isAiEnabled` holds (switch on, a key, current interactive consent);
+ *  "" otherwise. Feeding "" downstream makes every key-presence gate treat AI as unconfigured.
+ *  Not a background gate: an unattended run checks `isAiBackgroundEnabled`. */
 export function aiKeyIfEnabled(ai: AiConfig | undefined): string {
   return isAiEnabled(ai) ? liveAiKey(ai) : "";
 }

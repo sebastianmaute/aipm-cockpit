@@ -587,7 +587,6 @@ export type ToolDispatcher = {
   ForecastToolDispatcher &
   ProjectToolDispatcher;
 
-/** Parse the numeric `id` field, throwing if absent/non-numeric. */
 // ★ Tolerates a non-object: the staged-plan apply path deliberately survives a create whose
 // dispatcher returned no row ("a create with no usable id stays ok: true"), and a bare
 // destructure would turn that into a thrown, refused create.
@@ -631,6 +630,7 @@ function readContactEmail(input: Record<string, unknown>, d: ToolDispatcher): Co
   }
 }
 
+/** Parse the numeric `id` field, throwing if absent/non-numeric. */
 function requireId(input: Record<string, unknown>): number {
   const id = Number(input.id);
   if (!Number.isFinite(id)) throw new Error("id must be a number");

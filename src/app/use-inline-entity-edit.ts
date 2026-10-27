@@ -185,8 +185,10 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     if (!activeItem || !instruction.trim() || phase === "thinking" || phase === "applying") return;
     const reqId = ++reqIdRef.current;
     const target = activeItem;
-    // Derived from the SAME object that goes into the prompt below, before the
-    // await — see tokenRef's comment for why the derivation point is the design.
+    // Derived from the FULL stored row (`target`), before the await — see
+    // tokenRef's comment for why the derivation point is the design. The prompt
+    // below gets only its projection (`projectForInlineEdit`, withheld fields
+    // dropped), so the token covers fields the model never sees.
     const readToken = entityToken(deps.entity, target);
     const controller = new AbortController();
     abortRef.current = controller;
