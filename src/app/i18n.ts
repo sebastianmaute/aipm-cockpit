@@ -1690,9 +1690,9 @@ const enUS = {
     "Encrypted at rest in this browser (device key). Anyone with access to this browser profile can still use it — avoid production credentials on shared or untrusted machines.",
   disclaimerTitle: "Security & responsibility disclaimer",
   disclaimerIntro:
-      "The API keys and access tokens you configure here (Anthropic, Jira, Microsoft 365, Turso) grant full access on your behalf. Towards Anthropic, Jira, Microsoft and Turso, every action the app or the AI assistant takes runs with your credentials, so those services cannot tell it apart from your own. Inside the app, changes the assistant makes through its chat tools are logged in the activity log with the actor \"AI assistant\"; some other AI-assisted changes, such as applying an insight recommendation or the project wizard's AI draft, are not.",
+      "The API keys and access tokens you configure here (Anthropic, Jira, Microsoft 365, Turso) grant full access on your behalf. Towards Anthropic, Jira, Microsoft and Turso, every action the app or the AI assistant takes runs with your credentials, so those services cannot tell it apart from your own. Inside the app, most AI changes are logged in the activity log with the actor \"AI assistant\": changes made through the chat, inline AI edits, the AI planning features (allocation plan, work breakdown, RACI suggestions, duplicate task removal) and insight recommendations. The project wizard's AI draft is not logged.",
   disclaimerResponsibility:
-      "You are solely responsible for everything done with these credentials. Treat each token with the same care as a password. If the assistant or an integration creates, modifies, or deletes data, those services see it as done by you; only this app's activity log marks the assistant's chat-tool changes with the actor \"AI assistant\".",
+      "You are solely responsible for everything done with these credentials. Treat each token with the same care as a password. If the assistant or an integration creates, modifies, or deletes data, those services see it as done by you; only this app's activity log marks most AI changes with the actor \"AI assistant\".",
   disclaimerTipsHeading: "Tips to stay in control:",
   disclaimerTipReview:
     "Review before you act — ask the assistant to show or list records before asking it to create, update, or delete anything.",

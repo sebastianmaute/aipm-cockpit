@@ -10,7 +10,7 @@ import { join } from "node:path";
 type Row = { key: keyof typeof de; enHas: string[]; oldDe: string };
 const ROWS: Row[] = [
   { key: "disclaimerIntro", enHas: ["runs with your credentials", "actor \"AI assistant\""], oldDe: "Protokollspur" },
-  { key: "disclaimerResponsibility", enHas: ["activity log marks the assistant"], oldDe: "nicht davon zu unterscheiden, als hätten Sie es manuell getan" },
+  { key: "disclaimerResponsibility", enHas: ["activity log marks most AI changes"], oldDe: "nicht davon zu unterscheiden, als hätten Sie es manuell getan" },
   { key: "aiGuideBudgetWarning", enHas: ["without a view scope is sent with every message", "only on its view"], oldDe: "nur die Übersicht und der Leitfaden der aktuellen Ansicht" },
   { key: "settingsAiHistorySearchHelp", enHas: ["sent with every chat request", "only when the assistant uses it"], oldDe: "Verursacht erst bei Nutzung Kosten" },
   { key: "aiPolicyOrgHint", enHas: ["owner name is optional", "policy link alone"], oldDe: "tragen Sie beides hier ein" },
@@ -50,8 +50,8 @@ describe("corrected AI copy (AI-20)", () => {
 // Fix round 1: sentences the first correction still got wrong for this branch.
 type Fix = { key: keyof typeof de; enHas: string[]; enNot: string[]; deHas: string[]; deNot: string[] };
 const FIXES: Fix[] = [
-  { key: "disclaimerIntro", enHas: ["through its chat tools", "are not"], enNot: ["every AI write"], deHas: ["Chat-Werkzeuge"], deNot: ["jeder KI-Schreibvorgang"] },
-  { key: "disclaimerResponsibility", enHas: ["chat-tool changes"], enNot: ["marks AI writes"], deHas: ["Chat-Werkzeuge"], deNot: ["KI-Schreibvorgänge mit dem Akteur"] },
+  { key: "disclaimerIntro", enHas: ["most AI changes are logged", "insight recommendations", "wizard's AI draft is not logged"], enNot: ["every AI write", "applying an insight recommendation", "through its chat tools"], deHas: ["die meisten KI-Änderungen", "Insight-Empfehlungen", "nicht protokolliert"], deNot: ["jeder KI-Schreibvorgang", "Übernehmen einer Insight-Empfehlung"] },
+  { key: "disclaimerResponsibility", enHas: ["marks most AI changes"], enNot: ["marks AI writes", "chat-tool changes"], deHas: ["die meisten KI-Änderungen"], deNot: ["KI-Schreibvorgänge mit dem Akteur", "Chat-Werkzeuge"] },
   { key: "helpSecAiBody", enHas: ["master switch, accept the disclosure, key", "run on their own"], enNot: ["master switch, key, accept the disclosure", "and only when you use it"], deHas: ["Hauptschalter, Datenhinweis, Schlüssel", "von selbst"], deNot: ["Hauptschalter, Schlüssel, Datenhinweis", "nur bei Nutzung"] },
   { key: "aiGuideBudgetWarning", enHas: ["no cache marker of its own"], enNot: ["Both are cached"], deHas: ["keine eigene Cache-Markierung"], deNot: ["Beide werden nach dem ersten Senden zwischengespeichert"] },
 ];
