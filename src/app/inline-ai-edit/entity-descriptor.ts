@@ -718,7 +718,10 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     //  (`sanitize-core.ts`): `describeEntityCalls` refuses the FIELD and the
     //  dispatcher refuses the call for exactly the same inputs.
     diffFields: ["firstName", "lastName", "title", "email", "department", "company", "location", "businessPhone", "isExternal", "notes", "emails"],
-    withheldFields: withheld("email", "emails"),
+    // R10 (AI-07): a person's contact and private details stay on the device. Name, title, department,
+    // company and isExternal are still sent and writable. `utilization` (planned % or hours per period)
+    // is workload planning, not personal content, and stays.
+    withheldFields: withheld("email", "emails", "businessPhone", "location", "birthday", "notes", "absenceOverride"),
     // ★★★ THE ONLY GROUP ACROSS THESE SIX DESCRIPTORS today (grep
     // `requiredNonEmptyGroups: [` — every other entry is `[]`), and the reason
     // `requiredNonEmptyGroups` exists. `sanitizeResource`'s gate is

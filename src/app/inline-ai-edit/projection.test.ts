@@ -36,7 +36,7 @@ describe("withheldFields (D7)", () => {
     expect(named("task")).toEqual(["assigneeEmail"]);
     expect(named("raid")).toEqual(["ownerEmail"]);
     expect(named("stakeholder")).toEqual(["email", "influence", "interest", "notes"]);
-    expect(named("resource")).toEqual(["email", "emails"]);
+    expect(named("resource")).toEqual(["absenceOverride", "birthday", "businessPhone", "email", "emails", "location", "notes"]);
     expect(named("absence")).toEqual(["assigneeEmail", "note", "type"]);
     expect(named("change")).toEqual([]);
     expect(named("milestone")).toEqual([]);
@@ -55,6 +55,11 @@ describe("projectForInlineEdit", () => {
   it("drops an absence's type, note and email", () => {
     const out = projectForInlineEdit("absence", { id: 2, assignee: "Bo", type: "sick", note: "surgery", assigneeEmail: "b@example.com", startDate: "2026-01-01" });
     expect(out).toEqual({ id: 2, assignee: "Bo", startDate: "2026-01-01" });
+  });
+
+  it("drops a resource's phone, location, birthday, notes and absence hours but keeps name, title, department and company (R10)", () => {
+    const row = { id: 4, firstName: "Cy", lastName: "Doe", title: "Lead", department: "Ops", company: "Example Co", isExternal: false, businessPhone: "+1 555 0100", location: "Springfield", birthday: "01-02", notes: "private", absenceOverride: { "2026-01": 8 }, utilization: { "2026-01": 50 } };
+    expect(projectForInlineEdit("resource", row)).toEqual({ id: 4, firstName: "Cy", lastName: "Doe", title: "Lead", department: "Ops", company: "Example Co", isExternal: false, utilization: { "2026-01": 50 } });
   });
 
   it("drops a resource's email and emails", () => {
