@@ -4,9 +4,11 @@
 import type { AiConfig } from "./settings-types";
 
 /** Bump when the disclosure text changes materially: every stored consent then reads as stale.
- *  ★★ Also bump whenever `AI_DATA_PATHS` (ai-disclosure.ts) changes — a row added, removed,
- *  re-levelled or re-keyed — and add that version's pin in ai-disclosure.test.ts, which fails
- *  until both are done. Stays 1 until a disclosure has shipped. */
+ *  ★★ Also bump whenever `AI_DATA_PATHS` (ai-disclosure.ts) changes WHAT IS SENT — a row added,
+ *  removed or re-levelled, or a data text naming more or fewer fields — and add that version's pin in
+ *  ai-disclosure.test.ts, which hashes every English label and data text and fails until the pin
+ *  matches. A wording-only text change re-pins the current version instead. Stays 1 until a
+ *  disclosure has shipped. */
 export const AI_DISCLOSURE_VERSION = 1;
 
 export type AiConsent = { acceptedAt: string; disclosureVersion: number };

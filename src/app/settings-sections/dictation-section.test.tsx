@@ -237,8 +237,12 @@ describe("D9 — DictationSection explains that stt needs AI consent", () => {
     setup(sttStored);
     expect(screen.getByText(t("en-US", "dictationNeedsAiConsent"))).toBeInTheDocument();
   });
-  it("D9 — hides the note once a current consent is stored (positive control)", () => {
-    setup({ ...sttStored, ai: { ...defaultSettings.ai, consent: newConsent(new Date()) } });
+  it("D9 — hides the note once AI is on and a current consent is stored (positive control)", () => {
+    setup({ ...sttStored, ai: { ...defaultSettings.ai, enabled: true, consent: newConsent(new Date()) } });
     expect(screen.queryByText(t("en-US", "dictationNeedsAiConsent"))).toBeNull();
+  });
+  it("R9 — still shows the note when consent is current but AI is switched off", () => {
+    setup({ ...sttStored, ai: { ...defaultSettings.ai, enabled: false, consent: newConsent(new Date()) } });
+    expect(screen.getByText(t("en-US", "dictationNeedsAiConsent"))).toBeInTheDocument();
   });
 });

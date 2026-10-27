@@ -3,6 +3,8 @@ vi.mock("./web-speech-engine", () => ({ createWebSpeechEngine: vi.fn(() => ({ st
 vi.mock("./stt-engine", () => ({ createSttEngine: vi.fn(() => ({ start: () => true, stop: () => {}, _kind: "stt" })) }));
 import { resolveDictationEngine } from "./dictation-config";
 import { setDisabledIntegrations } from "./integration-switches";
+import { defaultAiConfig, isAiConsentedForDictation } from "./settings-types";
+import { newConsent } from "./ai-consent";
 
 describe("resolveDictationEngine", () => {
   it("uses web-speech by default", () => {
@@ -37,5 +39,21 @@ describe("D9 — resolveDictationEngine requires AI consent for stt", () => {
   });
   it("D9 — the same configuration picks stt once consent is current (positive control)", () => {
     expect(kind(true)).toBe("stt");
+  });
+});
+
+describe("R9 — isAiConsentedForDictation needs the AI switch AND a current consent, not a key", () => {
+  const full = { engine: "stt", sttBaseUrl: "https://x/v1", sttApiKey: "k" } as const;
+  const consent = newConsent(new Date("2026-10-27T00:00:00Z"));
+  const kind = (ai: Parameters<typeof isAiConsentedForDictation>[0]) =>
+    (resolveDictationEngine(full, "en-US", isAiConsentedForDictation(ai)) as unknown as { _kind: string })._kind;
+  it("R9 — switch off with a current consent gives web-speech", () => {
+    expect(kind({ ...defaultAiConfig, enabled: false, consent })).toBe("ws");
+  });
+  it("R9 — switch on with no consent gives web-speech", () => {
+    expect(kind({ ...defaultAiConfig, enabled: true, consent: undefined })).toBe("ws");
+  });
+  it("R9 — switch on with a current consent and NO Anthropic key picks stt (positive control)", () => {
+    expect(kind({ ...defaultAiConfig, enabled: true, apiKey: "", consent })).toBe("stt");
   });
 });

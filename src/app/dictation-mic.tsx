@@ -14,7 +14,7 @@ import { setActiveDictationTarget, clearDictationTargetIf, type DictationTarget 
 interface UseDictationMicArgs {
   lang: Lang;
   dictation?: Settings["dictation"];
-  /** `isConsentCurrent(settings.ai.consent)`: cloud speech-to-text sends audio off-device, so it needs the AI data disclosure accepted. */
+  /** `isAiConsentedForDictation(settings.ai)`: cloud speech-to-text sends audio off-device, so it needs the AI switch on and the AI data disclosure accepted. */
   aiConsented: boolean;
   enabled?: boolean;
   label: string;

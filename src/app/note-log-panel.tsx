@@ -29,9 +29,8 @@ import { formatDisplayTimestamp } from "./tz-display";
 import { browserTimeZone } from "./timezone";
 import { resourceDisplayName } from "./resource-foundation";
 import { useDictationMic } from "./dictation-mic";
-import { isConsentCurrent } from "./ai-consent";
 import { useSettings } from "./use-settings";
-import { isAiEnabled } from "./settings-types";
+import { isAiConsentedForDictation, isAiEnabled } from "./settings-types";
 import type { Settings } from "./settings-types";
 import type { NoteLogEntry, Resource } from "./types";
 import { Button, PRIMARY_MATCHING_BORDER } from "./button";
@@ -219,7 +218,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
   const { mic: composerMic, registration: composerDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
-    aiConsented: isConsentCurrent(settings.ai.consent),
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     // Qualified for the same reason the Add button below is: with both the
     // floating notes window and a second panel open, two composer mics would be
@@ -310,7 +309,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
             tz={tz}
             lang={lang}
             dictation={settings.dictation}
-            aiConsented={isConsentCurrent(settings.ai.consent)}
+            aiConsented={isAiConsentedForDictation(settings.ai)}
             labelSuffix={labelSuffix}
             onStartEdit={startEdit}
             onChangeEditHtml={setEditHtml}

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -7,35 +8,39 @@ import { loadI18n, t } from "./i18n";
 import { de } from "./i18n.de";
 import { AI_ACTIVATION_SITES, AI_BACKGROUND_SITES } from "../test/ai-activation-sites";
 
-// ★★ THE VERSION GUARD. Consent is recorded against `AI_DISCLOSURE_VERSION`; a table change that
-// keeps the version would leave every existing consent "current" for a disclosure the user never saw.
-// Each version's table is pinned below as `id|level|labelKey|dataKey`, and the test requires the
-// pin for the CURRENT version to equal the live table. To change the table: bump
-// `AI_DISCLOSURE_VERSION` in ai-consent.ts and ADD a pin for the new version; never edit an
-// existing version's pin (it is the record of what that version's users accepted). A reviewer sees
-// the version bump and the new pin side by side in the diff.
-// It pins ids, levels and keys, not the texts: a wording fix to a key's text does not re-ask, so a
-// text change that changes WHAT a path is said to send must also bump the version (rename the key,
-// which this pin then catches).
+// ★★ THE VERSION GUARD. Consent is recorded against `AI_DISCLOSURE_VERSION`; a disclosure change that
+// keeps the version would leave every existing consent "current" for a text the user never saw.
+// Each version's table is pinned below, one line per row: `id|level|labelKey|dataKey|hash`, where
+// `hash` is the first 12 hex digits of SHA-256 over the row's ENGLISH label, a newline, and its
+// ENGLISH data text (`textHash` below). The test requires the highest pinned version to be
+// `AI_DISCLOSURE_VERSION` and its pin to equal the live table, so ANY change to a row, a level, a key
+// or an English text is red until someone decides which of the two cases it is:
+//   • WHAT A PATH SENDS changed (a field added or dropped, a path added, removed or re-levelled):
+//     bump `AI_DISCLOSURE_VERSION` in ai-consent.ts and ADD a pin for the new version. Never edit an
+//     older version's pin; it records what that version's users accepted.
+//   • WORDING ONLY (a typo, a clearer phrase, the same facts): re-pin the changed hash in the CURRENT
+//     version's line and say "wording only" in the commit message. Existing consents stay valid.
+// Print the live lines with `fingerprint()` (the failure diff shows them). German texts are not
+// hashed: they translate the English, which is the reference text.
 const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
   1: [
-    "chat|interactive|aiDataChatLabel|aiDataChat",
-    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit",
-    "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport",
-    "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative",
-    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport",
-    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation",
-    "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis",
-    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan",
-    "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest",
-    "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup",
-    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan",
-    "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion",
-    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal",
-    "dictation|interactive|aiDataDictationLabel|aiDataDictation",
-    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob",
-    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation",
-    "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative",
+    "chat|interactive|aiDataChatLabel|aiDataChat|519b39b01089",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|ddf595ddc45b",
+    "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|ec731819812b",
+    "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793",
+    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|7c62a3db181e",
+    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|b1964a69f00e",
+    "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|8454d8b056cd",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|0daca179cd94",
+    "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f",
+    "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653",
+    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|1a29e0f163bd",
+    "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51",
+    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac",
+    "dictation|interactive|aiDataDictationLabel|aiDataDictation|c2ff7295a1a7",
+    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|43c341548943",
+    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|583a60bae1ed",
+    "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998",
   ],
 };
 
@@ -73,7 +78,11 @@ const ROWS_WITHOUT_A_SITE = new Set(["dictation"]);
 // file, so it maps to no single row and is left out of the mapping on purpose.
 const PREDICATE_DEFINITIONS = new Set(["app/settings-types.ts"]);
 
-const fingerprint = () => AI_DATA_PATHS.map((row) => `${row.id}|${row.level}|${row.labelKey}|${row.dataKey}`);
+const textHash = (row: (typeof AI_DATA_PATHS)[number]) =>
+  createHash("sha256").update(`${t("en-US", row.labelKey)}
+${t("en-US", row.dataKey)}`).digest("hex").slice(0, 12);
+const fingerprint = () =>
+  AI_DATA_PATHS.map((row) => `${row.id}|${row.level}|${row.labelKey}|${row.dataKey}|${textHash(row)}`);
 const ids = new Set(AI_DATA_PATHS.map((row) => row.id));
 
 describe("AI_DATA_PATHS", () => {
@@ -107,7 +116,7 @@ describe("AI_DATA_PATHS", () => {
     }
   });
 
-  it("is pinned for the current AI_DISCLOSURE_VERSION (bump the version to change the table)", () => {
+  it("is pinned, texts included, for the current AI_DISCLOSURE_VERSION (bump it, or re-pin a wording-only change)", () => {
     const versions = Object.keys(DISCLOSED_TABLES).map(Number);
     expect(Math.max(...versions)).toBe(AI_DISCLOSURE_VERSION);
     expect(fingerprint()).toEqual(DISCLOSED_TABLES[AI_DISCLOSURE_VERSION]);

@@ -8,8 +8,9 @@
 //    reading the request builder it describes, and change it in the SAME commit as a builder change.
 // ★★ `AI_DISCLOSURE_VERSION` (`ai-consent.ts`) must be bumped whenever this table changes (a row
 //    added, removed, re-levelled or re-keyed): consent was given to the table as it was, so a changed
-//    table must be asked again. `ai-disclosure.test.ts` pins the table per version and fails on a
-//    change that keeps the old version.
+//    table must be asked again. `ai-disclosure.test.ts` pins the table per version, with a hash of
+//    each row's English label and data text, and fails on any change until it is re-pinned (wording
+//    only) or the version is bumped (what is sent changed).
 import type { TranslationKey } from "./i18n";
 
 export const AI_CONSENT_LEVELS = ["interactive", "background"] as const;

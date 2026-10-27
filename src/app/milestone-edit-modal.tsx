@@ -19,7 +19,7 @@ import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { useModalVisibility } from "./use-modal-visibility";
 import { ToggleButton } from "./toggle-button";
 import { useDictationMic } from "./dictation-mic";
-import { isConsentCurrent } from "./ai-consent";
+import { isAiConsentedForDictation } from "./settings-types";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
 import { useConfirm } from "./confirm-dialog";
@@ -72,7 +72,7 @@ export function MilestoneEditModal({
   const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
-    aiConsented: isConsentCurrent(settings.ai.consent),
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     label: t(lang, "milestoneDescription"),
     onAppendFinal: (txt) =>
@@ -81,7 +81,7 @@ export function MilestoneEditModal({
   const { mic: nameMic, status: nameDictationStatus, registration: nameDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
-    aiConsented: isConsentCurrent(settings.ai.consent),
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     label: t(lang, "milestoneName"),
     onAppendFinal: (txt) =>

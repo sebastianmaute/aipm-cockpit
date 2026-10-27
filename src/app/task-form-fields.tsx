@@ -13,7 +13,7 @@ import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 import { Field } from "./form-field";
 import { TaskFormSection } from "./task-form-layout";
 import { useDictationMic } from "./dictation-mic";
-import { isConsentCurrent } from "./ai-consent";
+import { isAiConsentedForDictation } from "./settings-types";
 import { appendDictation } from "./dictation-engine";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 import { appendDictationToHtml } from "./rich-text-projection";
@@ -143,7 +143,7 @@ export function TaskFormFields({
   const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
-    aiConsented: isConsentCurrent(settings.ai.consent),
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     label: t(lang, "description"),
     onAppendFinal: (txt) =>
@@ -155,7 +155,7 @@ export function TaskFormFields({
   const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
-    aiConsented: isConsentCurrent(settings.ai.consent),
+    aiConsented: isAiConsentedForDictation(settings.ai),
     enabled: true,
     label: t(lang, "taskName"),
     onAppendFinal: (txt) =>

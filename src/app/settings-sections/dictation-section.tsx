@@ -2,7 +2,7 @@
 
 import { useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { type Lang, t } from "../i18n";
-import { type Settings } from "../settings-types";
+import { isAiConsentedForDictation, type Settings } from "../settings-types";
 import { SegmentedControl } from "../segmented-control";
 import { isIntegrationDisabled } from "../integration-switches";
 import { InfoTooltip } from "../info-tooltip";
@@ -13,7 +13,6 @@ import { removeSealed } from "../secrets-store";
 import { eventToCombo, eventComboFromMouse, mouseButtonToToken } from "../dictation-hotkey";
 import { Input } from "../form-controls";
 import { Button } from "../button";
-import { isConsentCurrent } from "../ai-consent";
 
 const IGNORED_MODIFIER_KEYS = ["Control", "Shift", "Alt", "Meta"];
 
@@ -120,7 +119,7 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
 
       {engine === "stt" && (
         <div className="mt-3 flex flex-col gap-2">
-          {!isConsentCurrent(settings.ai.consent) && (
+          {!isAiConsentedForDictation(settings.ai) && (
             <p role="note" className="text-xs text-muted-foreground">{t(lang, "dictationNeedsAiConsent")}</p>
           )}
           <label className="block">

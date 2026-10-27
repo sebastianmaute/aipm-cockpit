@@ -196,6 +196,13 @@ export function isAiBackgroundEnabled(ai: AiConfig | undefined): boolean {
   return isAiEnabled(ai) && isConsentCurrent(ai?.backgroundConsent);
 }
 
+/** Cloud speech-to-text (R9, D9): the AI master switch is ON and the interactive consent is current.
+ *  Deliberately NOT `isAiEnabled`: dictation sends audio to the user's speech service, not to
+ *  Anthropic, so it must not depend on an Anthropic key. Every dictation caller asks HERE. */
+export function isAiConsentedForDictation(ai: AiConfig | undefined): boolean {
+  return ai?.enabled === true && isConsentCurrent(ai.consent);
+}
+
 /** §717 — the key an AI call uses: the stored one, else one the user unlocked with its passphrase on this page
  *  (`session-ai-key.ts`; a passphrase-sealed key reads "" in settings). Ignores the master switch: gate with
  *  `isAiEnabled`, or read `aiKeyIfEnabled`, which applies it. */
