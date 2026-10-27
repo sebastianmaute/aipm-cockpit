@@ -1,6 +1,8 @@
 import "../test/ai-consent-live";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runJobAnalysis } from "./scheduled-job-analysis";
+import { AiConsentRevokedError, newConsent, publishAiConsentState } from "./ai-consent";
+import { defaultAiConfig } from "./settings-types";
 
 const ok = (body: unknown) => ({ ok: true, json: async () => body }) as unknown as Response;
 
@@ -78,5 +80,24 @@ describe("runJobAnalysis", () => {
   it("throws 'parse' on malformed tool output", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(ok({ content: [{ type: "text", text: "nope" }] }));
     await expect(runJobAnalysis("ctx", { apiKey: "k", model: "m" })).rejects.toThrow("parse");
+  });
+});
+
+// AI-01 — the runner's `level` reaches the forced call: with an interactive consent only, a background
+// analysis is refused before any request, while an interactive one (no level) is sent.
+describe("runJobAnalysis — the consent level", () => {
+  const both = { ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) };
+  beforeEach(() => publishAiConsentState({ ...both, backgroundConsent: undefined }));
+  afterEach(() => publishAiConsentState(both));
+
+  it("a background analysis needs the background consent", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      ok({ content: [{ type: "tool_use", name: "report_analysis", input: { summary: "s", actions: [] } }] }),
+    );
+    await expect(runJobAnalysis("ctx", { apiKey: "k", model: "m", level: "background" })).rejects.toBeInstanceOf(AiConsentRevokedError);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    // control: the same consent lets an interactive analysis through
+    await expect(runJobAnalysis("ctx", { apiKey: "k", model: "m" })).resolves.toEqual({ summary: "s", actions: [] });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

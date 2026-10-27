@@ -51,6 +51,17 @@ describe("runInsightRecommendation output budget (§763)", () => {
     expect(budgets(m)).toEqual([4096, 8192]);
   });
 
+  // AI-01 — the background runner's `level` reaches every forced call, the retry included; a click passes none.
+  test("passes the caller's consent level to the call and to the retry", async () => {
+    const m = await withStop();
+    m.mockResolvedValueOnce({ input: {}, stopReason: "max_tokens" });
+    await runInsightRecommendation({ ...args, level: "background" });
+    expect(m.mock.calls.map((c) => (c[0] as { level?: string }).level)).toEqual(["background", "background"]);
+    m.mockClear();
+    await runInsightRecommendation(args);
+    expect(m.mock.calls.map((c) => (c[0] as { level?: string }).level)).toEqual([undefined]);
+  });
+
   test("passes the caller's signal to the retry too", async () => {
     const m = await withStop();
     const controller = new AbortController();
