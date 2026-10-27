@@ -4,7 +4,7 @@
 // publish wiring (`if (hydrated)` guard + publish effect) that the request path reads.
 import "fake-indexeddb/auto";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // A merge that waits for `release()` when `hold` is set, so a second instance can be kept loading.
 const gate = vi.hoisted(() => ({ hold: false, release: () => {} }));
@@ -359,6 +359,8 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
   }
   // Each test starts with no noted revoke, whatever an earlier test left behind.
   beforeEach(() => __resetConsentFailureForTests());
+  // A failing test must not leave storage failing for the next one.
+  afterEach(() => { vi.restoreAllMocks(); });
 
   it("a revoke whose write failed raises no generic notice; the revoke is in effect", async () => {
     storeConsented();
@@ -400,6 +402,58 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     expect(persistedAi().consent).toBeDefined(); // control: storage still holds the consent
     expect(a.result.current.settings.ai.consent).toBeUndefined();
     expect(isInteractiveConsentLive()).toBe(false);
+  });
+
+  it("after a revoke that could not be saved, an instance mounted later loads no consent and keeps the flags off", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const spy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => revokeNotSaved(s)); });
+    const b = renderHook(() => useSettings()); // mounted after the failed revoke, while writes still fail
+    await waitFor(() => expect(b.result.current.hydrated).toBe(true));
+    expect(persistedAi().consent).toBeDefined(); // control: storage still holds the consent
+    expect(b.result.current.settings.expertMode).toBe(true); // control: B's load did commit
+    expect(b.result.current.settings.ai.consent).toBeUndefined();
+    expect(b.result.current.settings.ai.backgroundConsent).toBeUndefined();
+    expect(isInteractiveConsentLive()).toBe(false);
+    expect(() => assertBackgroundConsentLive()).toThrow();
+
+    spy.mockRestore(); // storage works again
+    const c = renderHook(() => useSettings()); // mounted before any write has succeeded
+    await waitFor(() => expect(c.result.current.hydrated).toBe(true));
+    expect(c.result.current.settings.ai.consent).toBeUndefined();
+    // C's own first write saved the withdrawal; everything agrees now.
+    expect(persistedAi().consent).toBeUndefined();
+    expect(persistedAi().backgroundConsent).toBeUndefined();
+    expect(isInteractiveConsentLive()).toBe(false);
+    for (const h of [a, b, c]) expect(h.result.current.settings.ai.consent).toBeUndefined();
+
+    // Saved, it no longer holds anything back: a later accept is persisted, published, and loaded by a new instance.
+    act(() => {
+      a.result.current.setSettings((s) => persistAiConsentChange({ ...s, ai: { ...s.ai, enabled: true, consent: C } }, ["enabled", "consent"]) ?? s);
+    });
+    expect(persistedAi().consent).toEqual(C);
+    expect(isInteractiveConsentLive()).toBe(true);
+    const d = renderHook(() => useSettings());
+    await waitFor(() => expect(d.result.current.hydrated).toBe(true));
+    expect(d.result.current.settings.ai.consent).toEqual(C);
+    expect(isInteractiveConsentLive()).toBe(true);
+  });
+
+  it("after a revoke that could not be saved, a stale copy committed later does not re-arm the flags", async () => {
+    storeConsented();
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const stale = a.result.current.settings; // still holds both consents
+    const spy = failSettingsWrites();
+    act(() => { a.result.current.setSettings((s) => revokeNotSaved(s)); });
+    expect(isInteractiveConsentLive()).toBe(false);
+    act(() => { a.result.current.setSettings({ ...stale, expertMode: false }); }); // a caller spreading an old object
+    spy.mockRestore();
+    expect(a.result.current.settings.ai.consent).toBeDefined(); // control: the stale copy was committed
+    expect(isInteractiveConsentLive()).toBe(false);
+    expect(() => assertBackgroundConsentLive()).toThrow();
   });
 
   it("an ordinary write that fails still raises the generic notice", async () => {
