@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { AI_KEY_CHECK_DEBOUNCE_MS, AI_KEY_CHECK_TIMEOUT_MS, useAiKeyCheck, useAiKeyStatus } from "./use-ai-key-check";
+import { AI_DISCLOSURE_VERSION, newConsent, type AiConsent } from "./ai-consent";
 import { __resetAiKeyStatusForTests, getAiKeyStatus, reportAiKeyResponse } from "./ai-key-status";
 import { ANTHROPIC_MODELS_URL } from "./anthropic-models";
 import { clearSessionAiKey, setSessionAiKey } from "./session-ai-key";
@@ -8,11 +9,14 @@ import { clearSessionAiKey, setSessionAiKey } from "./session-ai-key";
 const KEY_A = "sk-ant-api03-StartupCheckKeyAAAAAAAA";
 const KEY_B = "sk-ant-api03-StartupCheckKeyBBBBBBBB";
 
-type Props = { apiKey: string; enabled: boolean; hydrated: boolean; isPopout: boolean };
-const BASE: Props = { apiKey: KEY_A, enabled: true, hydrated: true, isPopout: false };
+/** A current interactive consent (M4: the check needs it). */
+const CONSENT = newConsent(new Date("2026-10-01T00:00:00Z"));
+
+type Props = { apiKey: string; enabled: boolean; hydrated: boolean; isPopout: boolean; consent?: AiConsent };
+const BASE: Props = { apiKey: KEY_A, enabled: true, hydrated: true, isPopout: false, consent: CONSENT };
 
 function mount(initial: Partial<Props> = {}) {
-  return renderHook((p: Props) => useAiKeyCheck({ ai: { enabled: p.enabled, apiKey: p.apiKey }, hydrated: p.hydrated, isPopout: p.isPopout }), {
+  return renderHook((p: Props) => useAiKeyCheck({ ai: { enabled: p.enabled, apiKey: p.apiKey, consent: p.consent }, hydrated: p.hydrated, isPopout: p.isPopout }), {
     initialProps: { ...BASE, ...initial },
   });
 }
@@ -39,12 +43,26 @@ afterEach(() => {
 });
 
 describe("useAiKeyCheck — §650 start-up and on-save key check", () => {
+  // M4 — no request to Anthropic before the interactive consent: the switch on and a valid key are not enough.
+  it("runs no check while the consent is missing or stale, and runs once it is accepted", async () => {
+    const fetchMock = stubStatus(200);
+    const { rerender } = mount({ consent: undefined });
+    await settle();
+    rerender({ ...BASE, consent: { acceptedAt: "2026-01-01T00:00:00.000Z", disclosureVersion: AI_DISCLOSURE_VERSION + 1 } });
+    await settle();
+    expect(fetchMock).not.toHaveBeenCalled();
+    rerender(BASE);
+    await settle();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+
   // §717 — a passphrase key reads "" in settings; once it is unlocked on this page, that key is checked.
   it("checks a key unlocked on this page when the stored key reads blank", async () => {
     const fetchMock = stubStatus(200);
     setSessionAiKey(KEY_A);
     try {
-      renderHook(() => useAiKeyCheck({ ai: { enabled: true, apiKey: "" }, hydrated: true, isPopout: false }));
+      renderHook(() => useAiKeyCheck({ ai: { enabled: true, apiKey: "", consent: CONSENT }, hydrated: true, isPopout: false }));
       await settle();
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];

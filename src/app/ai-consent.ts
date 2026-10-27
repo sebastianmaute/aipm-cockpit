@@ -53,11 +53,18 @@ export type AiConsentLevel = "interactive" | "background";
 let interactiveConsentLive = false;
 let backgroundConsentLive = false;
 
+/** Whether interactive AI may run under these settings: the AI master switch is on and the interactive consent is
+ *  current (the key is not part of it). The published interactive flag and every request made before a send (the
+ *  key check and the model list, M4) read this one rule. */
+export function isInteractiveAiAllowed(ai: Pick<AiConfig, "enabled" | "consent"> | undefined): boolean {
+  return ai?.enabled === true && isConsentCurrent(ai.consent);
+}
+
 /** Records the two send-time flags from the current settings. Interactive: the AI master switch is on
  *  and the interactive consent is current (the key is not part of it). Background: interactive, and the
  *  background consent is current too. */
 export function publishAiConsentState(ai: AiConfig | undefined): void {
-  interactiveConsentLive = ai?.enabled === true && isConsentCurrent(ai.consent);
+  interactiveConsentLive = isInteractiveAiAllowed(ai);
   backgroundConsentLive = interactiveConsentLive && isConsentCurrent(ai?.backgroundConsent);
 }
 

@@ -171,7 +171,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
     showToast("error", t(lang, messageKey));
     return false;
   };
-  const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
+  const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai, settings.ai.model);
   // §650 — the in-memory key verdict (rejected / forbidden / unreadable), shown beside the key field
   // and, for a key that IS present but was refused, in place of the "enter a valid key" model hint.
   const apiKeyStatusId = useId();

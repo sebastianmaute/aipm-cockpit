@@ -474,7 +474,7 @@ function ChatPanelInner({
   const { record: recordUsage, recordChatSend, noteUnbilledChatSend } = useAiUsageContext();
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.
-  const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai.enabled === true, ai.model);
+  const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai, ai.model);
   const { mic, status, registration } = useDictationMic({
     lang,
     dictation,

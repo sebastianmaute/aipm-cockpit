@@ -112,8 +112,9 @@
   chat guides only.
 - **AI model picker:** `CHAT_MODELS` (`settings-types.ts`) is the SINGLE source for the dropdown; `ChatModel` is widened to
   `string` (open — pick any live model), sanitized on load by `/^claude-[\w.-]+$/` (≤64 chars, else `defaultAiConfig.model`).
-  `use-chat-models.ts` `useChatModels(apiKey, enabled, currentId)` → `{options, loaded}` fetches Anthropic
-  `GET /v1/models?limit=1000` browser-direct through `fetchAnthropicModels` (`anthropic-models.ts`, shared with
+  `use-chat-models.ts` `useChatModels(apiKey, ai, currentId)` → `{options, loaded}` fetches Anthropic
+  `GET /v1/models?limit=1000` (only while `isInteractiveAiAllowed(ai)` — switch on AND current interactive consent;
+  no request reaches Anthropic before consent) browser-direct through `fetchAnthropicModels` (`anthropic-models.ts`, shared with
   the §650 start-up key check; live `claude-*` newest-first; key never logged). ★★ v0.165: NO
   offline pre-fill — `buildModelOptions(reg, live, currentId, {registryAsBase:false})` keeps the dropdown EMPTY
   (bar the current selection, still registry-labelled) until a live poll SUCCEEDS; `loaded` gates the
@@ -127,7 +128,7 @@
   unless `classifyAiError` says limit) — and by `fetchAnthropicModels`, so a new AI feature routed through
   either envelope feeds it with no extra code. `useAiKeyCheck` (`use-ai-key-check.ts`, mounted once in
   `task-manager.tsx`) syncs the live key and runs one debounced `/v1/models` check per settled key in the main
-  window; a network failure never flags a key. The §567 probe reports an unreadable Anthropic key to the
+  window, only while `isInteractiveAiAllowed(ai)` holds (switch on and a current interactive consent); a network failure never flags a key. The §567 probe reports an unreadable Anthropic key to the
   verdict instead of the generic toast. ★★ §717 — the chat's passphrase unlock puts the key in `session-ai-key.ts`, a page-only memory store, and
   `liveAiKey` (`settings-types.ts`) falls back to it, so every AI feature runs with it. A NEW AI feature gets its key
   from `aiKeyIfEnabled` (and gates on `isAiEnabled`), never from `settings.ai.apiKey`, or it reads "" behind a
