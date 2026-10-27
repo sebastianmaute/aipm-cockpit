@@ -105,8 +105,9 @@ function narrowOnly(ai: AiConfig, base: PersistedAiState): Pick<AiConfig, "enabl
   };
 }
 
-/** AI-01 — the AI permission an ORDINARY write persists: from `ai` only where it NARROWS what is persisted
- *  (the switch off, a consent record absent), otherwise what is persisted now. So an instance holding an
+/** AI-01 — the AI permission an ORDINARY write persists: from `ai` only where it NARROWS what is in effect on
+ *  this page (the switch off, a consent record absent), otherwise that — `readPageAiState`: what is persisted
+ *  now, narrowed by a withdrawal this page could not save, which this write therefore saves too. So an instance holding an
  *  older copy (another tab, a popout, a page restored from the back/forward cache, an instance whose load
  *  finished after a change elsewhere) can never write a withdrawn consent or a switch-off back to "on", and a
  *  withdrawal that could not be saved at the time is saved by the next ordinary write that succeeds.
