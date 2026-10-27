@@ -59,6 +59,7 @@ function deps(overrides: Partial<RunDeps> = {}): RunDeps {
     config: CONFIG,
     listProjects: vi.fn().mockResolvedValue({ active: [{ id: "p1", name: "Apollo" }], archived: [] }),
     stillRunnable: vi.fn().mockReturnValue(true),
+    confirmDeployment: vi.fn().mockResolvedValue(undefined),
     loadWorkspace: vi.fn().mockResolvedValue(workspace()),
     analyse: vi.fn().mockResolvedValue({ summary: "Looks fine", actions: [] }),
     deviceSettings: defaultSettings,
@@ -500,5 +501,38 @@ describe("runScheduledJob: every run record carries the slot it ran for (§772 c
   it("the claim is given the period start", async () => {
     await runScheduledJob(job(), SLOT, deps());
     expect(mClaim.mock.calls[0][1]).toMatchObject({ slot: slotIso, periodStart: "2026-10-22T22:00:00.000Z" });
+  });
+});
+
+describe("runScheduledJob: a send that never happened spends nothing", () => {
+  // KILLED BY: deleting the pre-claim `confirmDeployment` check (the slot would be claimed, then failed for every device).
+  it.each(["off", "invalid", "route-changed", "unconfirmed"] as const)(
+    "a deployment that cannot be confirmed (%s) is never claimed: nothing is finished, recorded or analysed",
+    async (reason) => {
+      const d = deps({ confirmDeployment: vi.fn().mockRejectedValue(new AiDeploymentError(reason)) });
+      expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+      expect(mClaim).not.toHaveBeenCalled();
+      expect(mFinish).not.toHaveBeenCalled();
+      expect(mRelease).not.toHaveBeenCalled();
+      expect(d.recordRun).not.toHaveBeenCalled();
+      expect(d.analyse).not.toHaveBeenCalled();
+    },
+  );
+
+  it("the deployment is confirmed before the claim", async () => {
+    const order: string[] = [];
+    mClaim.mockImplementation(async () => { order.push("claim"); return true; });
+    const d = deps({ confirmDeployment: vi.fn(async () => { order.push("confirm"); }) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("done");
+    expect(order).toEqual(["confirm", "claim"]);
+  });
+
+  // KILLED BY: dropping the AiDeploymentError branch of the analyse catch (the run would be failed and the period spent).
+  it("a deployment error during analyse releases the claim as transient: nothing is finished or recorded", async () => {
+    const d = deps({ analyse: vi.fn().mockRejectedValue(new AiDeploymentError("route-changed")) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+    expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
+    expect(mFinish).not.toHaveBeenCalled();
+    expect(d.recordRun).not.toHaveBeenCalled();
   });
 });

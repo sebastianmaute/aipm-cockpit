@@ -31,6 +31,9 @@ export interface RunDeps {
   /** Re-read the LIVE state right before a claim: the job still exists, is enabled and has the same key and project,
    *  scheduled jobs and AI are still on with a key, and the portfolio is still the one the tick began on. */
   stillRunnable(job: ScheduledJob): boolean | Promise<boolean>;
+  /** Asks the server whether AI is on and on the route this page loaded with (`confirmAiDeployment`); rejects when
+   *  not. Asked right before the claim, so a tab that cannot send never claims (and fails) the shared slot. */
+  confirmDeployment(): Promise<void>;
   loadWorkspace(projectId: string): Promise<Workspace>;
   /** After a load: true when part of the project failed to decode or was truncated (the report then says so). */
   lastLoadPartial?(): boolean;
@@ -110,6 +113,14 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
     return "project-missing";
   }
   const projectName = (activeHit ?? archivedHit)?.name ?? "";
+
+  // The slot is shared by every device: a tab whose AI is off, invalid, on a stale route or unreachable would claim it
+  // and fail it for all of them. Nothing was sent, so nothing is claimed and the next tick retries.
+  try {
+    await deps.confirmDeployment();
+  } catch {
+    return "transient";
+  }
 
   // 2. Claim. Name and instruction are captured NOW; a later rename of the job never rewrites this report.
   const reportId = deps.newId();
@@ -192,6 +203,12 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
       return grounded ? { ...rest, entity: { view: grounded.view, id: String(grounded.id) } } : rest;
     });
   } catch (e) {
+    // The transport throws `AiDeploymentError` before it sends anything (the setting changed since the check above):
+    // nothing was billed, so, as for the load, the claim is released and the next tick retries.
+    if (e instanceof AiDeploymentError) {
+      await settle(releaseClaim(config, reportId));
+      return "transient";
+    }
     return failRun(job, reportId, jobKey, reportBase, toErrorToken(e), deps, slotIso);
   }
 
