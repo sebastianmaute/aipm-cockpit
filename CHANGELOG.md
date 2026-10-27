@@ -10,6 +10,22 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+### Changed
+
+- **AI features need one consent, given on the AI master switch.** Settings → AI now lists every AI feature and what
+  each one sends, and the AI works only after you accept. Everyone is asked once after updating, including people who
+  accepted the earlier chat consent.
+  - Background AI (scheduled jobs, automatic insight recommendations, the scheduled digest summary) needs a separate
+    acceptance, which is off by default.
+  - Speech-to-text dictation to a configured speech service needs AI switched on and the consent accepted; otherwise
+    the browser's own dictation is used.
+  - The AI sees an absence only as "absent", with no type and no note, and its list results carry no e-mail
+    addresses; one lookup tool reads a single address when it is needed.
+  - Inline AI edit no longer sends or changes e-mail addresses, note logs, a stakeholder's notes, influence and
+    interest, an absence's type and note, or a person's phone, location, birthday, notes and absence hours. Edit
+    those by hand.
+  - The Help and settings texts now describe correctly what the AI sends and what is logged.
+
 ## [1.20.0] - 2026-10-26 "Indridason"
 
 A feature release. A scheduled AI job now analyses one project you name, can carry an instruction of your own, and
