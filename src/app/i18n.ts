@@ -1649,7 +1649,7 @@ const enUS = {
   aiConsentGranted: "AI enabled",
   aiConsentReviewPrompt: "AI is switched on, but the AI data disclosure is not accepted. Review and accept it to use AI features.",
   aiConsentReview: "Review",
-  aiConsentRevokedDuringSend: "AI consent was withdrawn, so the message was not sent.",
+  aiConsentRevokedDuringSend: "AI consent was withdrawn, so the request was stopped.",
   aiConsentRevoke: "Revoke consent",
   // AI-01 — an accept or a revoke that could not be written to this browser's storage (Settings → AI).
   aiConsentAcceptNotSaved: "Your consent could not be saved because this browser's storage is full or unavailable, so AI stays off. Free up storage or allow it for this site, then try again.",

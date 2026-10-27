@@ -16,11 +16,17 @@ longer carries its own changelog comment.
   each one sends, and the AI works only after you accept. Everyone is asked once after updating, including people who
   accepted the earlier chat consent.
   - Background AI (scheduled jobs, automatic insight recommendations, the scheduled digest summary) needs a separate
-    acceptance, which is off by default.
-  - Speech-to-text dictation to a configured speech service needs AI switched on and the consent accepted; otherwise
-    the browser's own dictation is used.
+    acceptance, which is off by default. Background AI that was on before the update stays off until that acceptance is
+    given; a switch left on can still be turned off without it.
+  - Dictation with a speech-to-text service is unavailable until AI is switched on and the consent accepted, and
+    while that service is not set up; it never switches to another engine on its own. Browser dictation, and
+    dictation on a deployment that has switched speech-to-text off, still use the browser's built-in recognition.
   - The AI sees an absence only as "absent", with no type and no note, and its list results carry no e-mail
-    addresses; one lookup tool reads a single address when it is needed.
+    addresses (in allocation lists a person without a name is shown to it by their number in the resource
+    directory); one lookup tool reads a single address when it is needed. Chats saved before the update have the same
+    data removed from their stored tool results when loaded, except addresses looked up with that tool.
+  - Switching AI off or withdrawing a consent takes effect in every open tab and window, and a tab that missed it
+    cannot switch AI back on.
   - Inline AI edit no longer sends or changes e-mail addresses, note logs, a stakeholder's notes, influence and
     interest, an absence's type and note, or a person's phone, location, birthday, notes and absence hours. Edit
     those by hand.
