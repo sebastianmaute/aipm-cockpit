@@ -25,8 +25,8 @@ describe("parseDisabledIntegrations", () => {
     expect(parseDisabledIntegrations("")).toEqual([]);
   });
 
-  it("names the five integrations and the setting", () => {
-    expect(INTEGRATION_IDS).toEqual(["jira", "confluence", "timelog", "ecb", "stt"]);
+  it("names the six integrations and the setting", () => {
+    expect(INTEGRATION_IDS).toEqual(["jira", "confluence", "timelog", "ecb", "stt", "ai"]);
     expect(DISABLED_INTEGRATIONS_ENV).toBe("AIPM_DISABLED_INTEGRATIONS");
   });
 });

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { IntegrationSwitchesSync } from "./integration-switches-sync";
+import type { AiDeploymentState } from "./ai-deployment";
 import { isIntegrationDisabled, setDisabledIntegrations } from "./integration-switches";
 
 // What the child saw at ITS render, i.e. whether the record was already set before children render.
@@ -20,23 +21,25 @@ afterEach(() => {
   seen.length = 0;
 });
 
+const AI: AiDeploymentState = { off: false, route: "direct", invalid: false };
+
 describe("§762 — IntegrationSwitchesSync", () => {
   it("§762 — disabled={[]} leaves jira enabled for the child (positive control)", () => {
-    render(<IntegrationSwitchesSync disabled={[]}><Probe record={record} /></IntegrationSwitchesSync>);
+    render(<IntegrationSwitchesSync disabled={[]} ai={AI}><Probe record={record} /></IntegrationSwitchesSync>);
     expect(lastSeen()).toBe(false);
     expect(screen.getByTestId("probe").textContent).toBe("false");
   });
 
   it("§762 — disabled={[\"jira\"]} is recorded BEFORE the child renders", () => {
-    render(<IntegrationSwitchesSync disabled={["jira"]}><Probe record={record} /></IntegrationSwitchesSync>);
+    render(<IntegrationSwitchesSync disabled={["jira"]} ai={AI}><Probe record={record} /></IntegrationSwitchesSync>);
     expect(lastSeen()).toBe(true);
     expect(screen.getByTestId("probe").textContent).toBe("true");
   });
 
   it("§762 — a later disabled={[]} clears what an earlier render recorded", () => {
-    const { rerender } = render(<IntegrationSwitchesSync disabled={["jira"]}><Probe record={record} /></IntegrationSwitchesSync>);
+    const { rerender } = render(<IntegrationSwitchesSync disabled={["jira"]} ai={AI}><Probe record={record} /></IntegrationSwitchesSync>);
     expect(isIntegrationDisabled("jira")).toBe(true);
-    rerender(<IntegrationSwitchesSync disabled={[]}><Probe record={record} /></IntegrationSwitchesSync>);
+    rerender(<IntegrationSwitchesSync disabled={[]} ai={AI}><Probe record={record} /></IntegrationSwitchesSync>);
     expect(isIntegrationDisabled("jira")).toBe(false);
     expect(lastSeen()).toBe(false);
   });
@@ -51,7 +54,7 @@ describe("§762 — layout.tsx wiring (source pin)", () => {
     expect(fn).toMatch(/const disabledIntegrations = parseDisabledIntegrations\(process\.env\[DISABLED_INTEGRATIONS_ENV\]\);/);
   });
   it("§762 — wraps {children} in IntegrationSwitchesSync fed that parsed list", () => {
-    const m = layout.match(/<IntegrationSwitchesSync disabled=\{disabledIntegrations\}>([\s\S]*?)<\/IntegrationSwitchesSync>/);
+    const m = layout.match(/<IntegrationSwitchesSync disabled=\{disabledIntegrations\} ai=\{aiDeployment\}>([\s\S]*?)<\/IntegrationSwitchesSync>/);
     expect(m).not.toBeNull();
     expect(m![1]).toContain("{children}");
   });
