@@ -192,17 +192,22 @@ describe("Without a current AI consent", () => {
     expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
   });
 
-  it("a send stopped because consent was withdrawn says so in the user's language and sends nothing", async () => {
+  // M3 — one neutral message for both causes: the published flag the request path reads is off after a withdrawn
+  // consent and after a switch-off alike, so the message cannot name only one of them.
+  it.each([
+    ["consent was withdrawn", { ...AI_WITH_KEY, enabled: true, consent: undefined }],
+    ["AI was switched off", { ...AI_WITH_KEY, enabled: false }],
+  ])("a send stopped because %s names both causes and sends nothing", async (_cause, published) => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     render(
       <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />,
     );
-    // The props still carry a consent; the PUBLISHED state (what the request path reads) no longer does.
-    publishAiConsentState(undefined);
+    // The props still carry a consent; the PUBLISHED state (what the request path reads) no longer allows a send.
+    publishAiConsentState(published);
     try {
       fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "hi" } });
       fireEvent.click(screen.getByRole("button", { name: "Send" }));
-      await screen.findByText(t("en-US", "aiConsentRevokedDuringSend"));
+      await screen.findByText("AI was switched off or its consent was withdrawn, so the request was stopped.");
       expect(screen.queryByText(/AI consent was revoked/)).toBeNull();
       expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
