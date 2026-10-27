@@ -19,7 +19,14 @@ vi.mock("./secrets-store", async (importOriginal) => {
   };
 });
 
-import { __settingsBroadcastDeliveriesForTests, persistAiConsentChange, SETTINGS_KEY, useSettings } from "./use-settings";
+import {
+  __resetConsentFailureForTests,
+  __settingsBroadcastDeliveriesForTests,
+  noteConsentRevokeNotSaved,
+  persistAiConsentChange,
+  SETTINGS_KEY,
+  useSettings,
+} from "./use-settings";
 import { assertBackgroundConsentLive, isInteractiveConsentLive, newConsent, publishAiConsentState } from "./ai-consent";
 import type { Settings } from "./settings-types";
 
@@ -236,6 +243,14 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     window.addEventListener("aipm-cockpit-settings-write-failed", on);
     return { seen, stop: () => window.removeEventListener("aipm-cockpit-settings-write-failed", on) };
   }
+  /** The revoke in Settings → AI, as `AiSection` commits it when the write fails: noted, then committed anyway. */
+  function revokeNotSaved(settings: Settings): Settings {
+    const next = { ...settings, ai: { ...settings.ai, consent: undefined, backgroundConsent: undefined } };
+    if (!persistAiConsentChange(next)) noteConsentRevokeNotSaved(next);
+    return next;
+  }
+  // Each test starts with no noted revoke, whatever an earlier test left behind.
+  beforeEach(() => __resetConsentFailureForTests());
 
   it("a revoke whose write failed raises no generic notice; the revoke is in effect", async () => {
     storeConsented();
@@ -243,7 +258,7 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     await waitFor(() => expect(a.result.current.hydrated).toBe(true));
     const spy = failSettingsWrites();
     const notices = countGenericNotices();
-    act(() => { a.result.current.setSettings((s) => revoke(s)); });
+    act(() => { a.result.current.setSettings((s) => revokeNotSaved(s)); });
     notices.stop();
     spy.mockRestore();
     expect(a.result.current.settings.ai.consent).toBeUndefined();
@@ -261,6 +276,24 @@ describe("useSettings — a consent write that failed (AI-01)", () => {
     act(() => { a.result.current.setSettings((s) => ({ ...s, expertMode: false })); });
     notices.stop();
     spy.mockRestore();
+    expect(notices.seen.n).toBe(1);
+  });
+
+  it("a failed accept does not hide the generic notice of a later, unrelated failed write", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: { model: "claude-sonnet-5" } }));
+    const a = renderHook(() => useSettings());
+    await waitFor(() => expect(a.result.current.hydrated).toBe(true));
+    const spy = failSettingsWrites();
+    const notices = countGenericNotices();
+    // The accept in Settings → AI: its write fails, so it is not committed (Settings → AI says so itself).
+    const accepted = { ...a.result.current.settings, ai: { ...a.result.current.settings.ai, enabled: true, consent: C } };
+    expect(persistAiConsentChange(accepted)).toBe(false);
+    expect(notices.seen.n).toBe(0); // control: nothing committed, nothing raised yet
+    // Later, with storage still failing, an unrelated edit.
+    act(() => { a.result.current.setSettings((s) => ({ ...s, language: "de" })); });
+    notices.stop();
+    spy.mockRestore();
+    expect(a.result.current.settings.ai.consent).toBeUndefined(); // control: the accept stayed out
     expect(notices.seen.n).toBe(1);
   });
 });

@@ -5,7 +5,7 @@ import { CheckIcon } from "../icons";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { type AiConsent, isConsentCurrent, newConsent } from "../ai-consent";
-import { persistAiConsentChange } from "../use-settings";
+import { noteConsentRevokeNotSaved, persistAiConsentChange } from "../use-settings";
 import { AiConsentDialog } from "../ai-consent-dialog";
 import { resolveAiPolicy } from "../ai-policy";
 import { TextButton } from "../text-button";
@@ -145,6 +145,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       return true;
     }
     if (change === "revoke") {
+      noteConsentRevokeNotSaved(next);
       onChange(next);
       reportRevokeNotSaved(next);
       return true;

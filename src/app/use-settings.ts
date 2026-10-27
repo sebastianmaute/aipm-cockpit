@@ -69,9 +69,24 @@ export function isOnlyStorageAiChange(base: Settings | null, next: Settings, fro
     && sameKeysExcept(rec(base.ai), rec(next.ai), (key) => STORAGE_AI_FIELDS.has(key));
 }
 
-/** AI-01 — set when `persistAiConsentChange` could not write; Settings → AI shows its own message for that, so the
- *  generic "settings could not be saved" notice is not raised over it. Any successful write clears it. */
-let consentWriteFailureReported = false;
+/** AI-01 — the AI slice of a revoke that could not be saved and is committed anyway, which Settings → AI has
+ *  already reported (`noteConsentRevokeNotSaved`). The persist effect does not raise the generic "settings
+ *  could not be saved" notice for a commit carrying THIS slice, in any instance: the revoke's own commit. A
+ *  commit with any other AI slice raises it as usual, and any successful write clears the note. (A later edit
+ *  that keeps the slice cannot reach that notice before a successful write: the revoke's commit already put
+ *  every instance on the failing edge, and a new instance loads a slice of its own.) A failed ACCEPT notes
+ *  nothing: it is not committed, so no generic notice follows it to suppress. */
+let reportedRevokeAi: Settings["ai"] | null = null;
+
+/** AI-01 — Settings → AI reported that this revoke could not be saved; call it just before committing it. */
+export function noteConsentRevokeNotSaved(revoked: Settings): void {
+  reportedRevokeAi = revoked.ai;
+}
+
+/** Test seam: forget a noted revoke. */
+export function __resetConsentFailureForTests(): void {
+  reportedRevokeAi = null;
+}
 
 /** Where `writeSettings` takes the two AI consent records from. */
 export type ConsentSource = "persisted" | "settings";
@@ -105,7 +120,7 @@ export function writeSettings(settings: Settings, consentSource: ConsentSource =
   };
   try {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
-    consentWriteFailureReported = false;
+    reportedRevokeAi = null;
     return true;
   } catch (err) {
     // quota exceeded / storage disabled — keep in-memory settings, but log +
@@ -129,9 +144,7 @@ export const SECRET_MERGE_TIMEOUT_MS = 5_000;
  *  revoke still is, in memory only). */
 export function persistAiConsentChange(settings: Settings): boolean {
   if (isSafeMode()) return true;
-  const ok = writeSettings(settings, "settings");
-  if (!ok) consentWriteFailureReported = true;
-  return ok;
+  return writeSettings(settings, "settings");
 }
 
 /** `settings` with the AI switch and consent records replaced by the persisted ones. */
@@ -699,8 +712,8 @@ export function useSettings(): {
     // already logged the diagnostic.
     if (!ok && !settingsWriteFailingRef.current) {
       settingsWriteFailingRef.current = true;
-      // AI-01 — after a failed consent write Settings → AI has already said so, more specifically.
-      if (!consentWriteFailureReported) window.dispatchEvent(new CustomEvent("aipm-cockpit-settings-write-failed"));
+      // AI-01 — the commit of a revoke Settings → AI has already reported as not saved, more specifically.
+      if (settings.ai !== reportedRevokeAi) window.dispatchEvent(new CustomEvent("aipm-cockpit-settings-write-failed"));
     } else if (ok) {
       settingsWriteFailingRef.current = false;
     }
