@@ -5,6 +5,7 @@ import { resolveAiPolicy } from "./ai-policy";
 import { t } from "./i18n";
 import { AI_DESTINATION_KEYS, aiDataPathsFor } from "./ai-disclosure";
 import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 
 // The organisation policy block reads `resolveAiPolicy` (ai-policy.ts): owner + link, or no block at all.
 function renderDialog(
@@ -134,7 +135,7 @@ describe("AiConsentDialog", () => {
 });
 
 describe("AiConsentDialog — where the data goes follows the deployment's AI route", () => {
-  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false }));
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
   const renderLevel = (level: "interactive" | "background") =>
     render(<AiConsentDialog lang="en-US" level={level} policy={resolveAiPolicy({})} onAccept={vi.fn()} onCancel={vi.fn()} />);
 

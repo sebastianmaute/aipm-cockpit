@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { newConsent } from "../ai-consent";
 import { setAiDeploymentState } from "../ai-deployment";
+import { DIRECT_AI_STATUS } from "../../test/ai-status-fetch";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { ScheduledJobsSection } from "./scheduled-jobs-section";
 import { defaultSettings, type Settings } from "../settings-types";
@@ -103,7 +104,7 @@ describe("ScheduledJobsSection — the deployment's AI setting", () => {
       expect(screen.queryByText(t("en-US", "emptyStateConfigAi"))).toBeNull();
       expect(screen.queryByLabelText(t("en-US", "scheduledJobsToggle"))).not.toBeInTheDocument();
     } finally {
-      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+      setAiDeploymentState(DIRECT_AI_STATUS);
     }
   });
 });

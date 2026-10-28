@@ -9,7 +9,7 @@ import { __resetAiKeyStatusForTests, getAiKeyStatus, syncAiKey } from "./ai-key-
 import { clearSessionAiKey } from "./session-ai-key";
 import { setAiDeploymentState } from "./ai-deployment";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
-import { answerAiStatusDirect } from "../test/ai-status-fetch";
+import { answerAiStatusDirect, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 // §717 — an unlocked key lives in a page-wide store now, not in one panel: forget it after every test.
 afterEach(() => { clearSessionAiKey(); });
 import { readFileSync } from "node:fs";
@@ -202,7 +202,7 @@ describe("Without a current AI consent", () => {
       expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
       expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeDisabled();
     } finally {
-      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+      setAiDeploymentState(DIRECT_AI_STATUS);
     }
   });
 
@@ -215,7 +215,7 @@ describe("Without a current AI consent", () => {
       expect(screen.queryByText(t("en-US", "chatNoApiKey"))).toBeNull();
       expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
     } finally {
-      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+      setAiDeploymentState(DIRECT_AI_STATUS);
     }
   });
 
@@ -245,7 +245,7 @@ describe("Without a current AI consent", () => {
       expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
       expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeDisabled();
     } finally {
-      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+      setAiDeploymentState(DIRECT_AI_STATUS);
     }
   });
 
@@ -257,7 +257,7 @@ describe("Without a current AI consent", () => {
       expect(screen.queryByText(t("en-US", "chatNoApiKey"))).toBeNull();
       expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
     } finally {
-      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+      setAiDeploymentState(DIRECT_AI_STATUS);
     }
   });
 
@@ -290,7 +290,7 @@ describe("Without a current AI consent", () => {
         expect(document.getElementById(id ?? "")).toHaveTextContent(t("en-US", "aiDeploymentOff"));
       }
     } finally {
-      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+      setAiDeploymentState(DIRECT_AI_STATUS);
     }
   });
 
@@ -309,7 +309,7 @@ describe("Without a current AI consent", () => {
       expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
       expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
     } finally {
-      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+      setAiDeploymentState(DIRECT_AI_STATUS);
     }
   });
 

@@ -1,4 +1,7 @@
-// src/app/ai-errors.ts — pure, i18n-free classification of Anthropic API failures.
+// src/app/ai-errors.ts — pure, i18n-free classification of AI failures: Anthropic's own HTTP
+// errors (`AiHttpError`, `classifyAiError`) and the AI transport's errors — the deployment's AI
+// setting (`AiDeploymentError`) and the organisation's gateway (`AiGatewayError`, the relay's
+// error codes) — with the message key that names each transport error (`aiTransportMessageKey`).
 // No fetch, no logging, no React. The ONLY thing ever read from a response body is
 // the safe token `error.type` (e.g. "rate_limit_error"); the body's human message
 // text is never surfaced or logged (semgrep/security constraint).

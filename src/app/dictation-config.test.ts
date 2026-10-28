@@ -12,6 +12,7 @@ import { setDisabledIntegrations } from "./integration-switches";
 import { defaultAiConfig, isAiConsentedForDictation } from "./settings-types";
 import { newConsent } from "./ai-consent";
 import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 
 describe("resolveDictationEngine", () => {
   it("uses web-speech by default", () => {
@@ -105,7 +106,7 @@ describe("R9 — isAiConsentedForDictation needs the AI switch AND a current con
 });
 
 describe("dictation when the deployment has AI off", () => {
-  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false }));
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
   it("resolves no speech-to-text engine", () => {
     setAiDeploymentState({ off: true, route: "direct", invalid: false });
     const d = { engine: "stt", sttBaseUrl: "https://x/v1", sttApiKey: "k" } as const;

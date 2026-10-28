@@ -318,9 +318,21 @@ describe("the key check never reads a gateway or deployment failure as a key ver
 });
 
 describe("subscribeAiUsage", () => {
+  // Every subscription is undone after its test, whether or not it passed: a listener left behind
+  // would hear later tests' sends.
+  const subscriptions: (() => void)[] = [];
+  afterEach(() => {
+    for (const unsubscribe of subscriptions.splice(0)) unsubscribe();
+  });
+  function subscribe(listener: Parameters<typeof subscribeAiUsage>[0]): () => void {
+    const unsubscribe = subscribeAiUsage(listener);
+    subscriptions.push(unsubscribe);
+    return unsubscribe;
+  }
+
   it("notifies once per 2xx with the normalised usage, leaving the caller's body readable", async () => {
     const seen: unknown[] = [];
-    const off = subscribeAiUsage((path, usage) => seen.push([path, usage]));
+    subscribe((path, usage) => seen.push([path, usage]));
     stubFetch(DIRECT_AI_STATUS, () => json({ content: [], usage: { input_tokens: 7, output_tokens: 3 } }));
     const res = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
     expect(await res.json()).toEqual({ content: [], usage: { input_tokens: 7, output_tokens: 3 } });
@@ -328,11 +340,10 @@ describe("subscribeAiUsage", () => {
     expect(seen).toEqual([
       ["chat", { input_tokens: 7, output_tokens: 3, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }],
     ]);
-    off();
   });
 
   it("never holds the send while the usage is read", async () => {
-    const off = subscribeAiUsage(() => {});
+    subscribe(() => {});
     // A 2xx whose body never finishes: reading the clone never resolves.
     stubFetch(DIRECT_AI_STATUS, () => new Response(new ReadableStream({ start() {} }), { status: 200 }));
     const outcome = await Promise.race([
@@ -340,12 +351,11 @@ describe("subscribeAiUsage", () => {
       new Promise((r) => setTimeout(() => r("held"), 200)),
     ]);
     expect(outcome).toBe("sent");
-    off();
   });
 
   it("does not notify on an error response, nor after unsubscribing", async () => {
     const listener = vi.fn();
-    const off = subscribeAiUsage(listener);
+    const off = subscribe(listener);
     stubFetch(DIRECT_AI_STATUS, () => json({ type: "error", error: { type: "invalid_request_error" } }, 400));
     await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
     expect(listener).not.toHaveBeenCalled();
@@ -356,12 +366,11 @@ describe("subscribeAiUsage", () => {
   });
 
   it("a throwing listener never breaks the send", async () => {
-    const off = subscribeAiUsage(() => {
+    subscribe(() => {
       throw new Error("listener");
     });
     stubFetch(DIRECT_AI_STATUS, () => json({ usage: { input_tokens: 1 } }));
     await expect(postAiMessages({ apiKey: KEY, body: "{}", path: "x" })).resolves.toBeInstanceOf(Response);
-    off();
   });
 });
 

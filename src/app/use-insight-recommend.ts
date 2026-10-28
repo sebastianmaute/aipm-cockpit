@@ -30,7 +30,7 @@ export interface UseInsightRecommendArgs {
   snapshotEntities?: () => RecommendSnapshot;
   isPopout?: boolean;
   /** Caller surfaces the toast for a failed generate. */
-  /** `error` is the thrown value, so a caller can name a refused key (§650, `aiKeyMessageKeyForError`). */
+  /** `error` is the thrown value, so a caller can name a refused key or a transport failure (§650, `aiFailureMessageKey`). */
   onError?: (kind: AiErrorClass, error: unknown) => void;
   /** §548 — `useStorageBackend`'s scope-epoch reader. Captured before the billed call and re-read
    *  before `applyRecommendation`, so a generate started in one project cannot store its result in

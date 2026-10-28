@@ -7,7 +7,7 @@
 import { isPrivateHost } from "../_shared/proxy-ssrf";
 import { refuseIfDisabled } from "../_shared/integration-switch";
 import { readAiGatewayConfig } from "../../ai-gateway-config";
-import { AI_GATEWAY_INVALID } from "../ai/_relay";
+import { AI_GATEWAY_INVALID } from "../../ai-errors";
 
 const TIMEOUT_MS = 30_000;
 // 25MB — short recordings only. Checked twice: once via content-length before

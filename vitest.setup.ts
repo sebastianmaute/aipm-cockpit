@@ -113,6 +113,9 @@ afterAll(() => server.close());
 // Every AI send first asks the status route for the deployment's AI setting (ai-transport.ts). Answer
 // it with the direct state here, once, so a test stubbing fetch for one Anthropic call sees only that
 // call. ai-transport.test.ts restores the real request to test the check itself.
+// ★ The stub always answers route "direct": a test that sets the page to route "gateway" and then sends
+// is refused as a changed route, so it must answer the status request itself (pass `null` to
+// `__setAiStatusRequestForTests` and stub the status fetch, as ai-transport.test.ts does).
 beforeEach(() => __setAiStatusRequestForTests(answerAiStatusDirect));
 
 // §615 hedge: `@tiptap/react` destroys the editor in a real `setTimeout(…, 1)` on

@@ -27,7 +27,7 @@
 // non-streaming JSON (`callClaude` and `postOnce` both `await res.json()`), so the clone parses as
 // JSON. A streamed (SSE) response would fail that parse, which is swallowed: no usage is reported for
 // it, and streaming usage is left to the code that adds streaming. With no listener, nothing is cloned.
-import { getAiDeploymentState, type AiDeploymentState, type AiRoute } from "./ai-deployment";
+import { currentAiRoute, type AiDeploymentState } from "./ai-deployment";
 import {
   AI_GATEWAY_ERROR,
   AI_GATEWAY_INVALID,
@@ -120,28 +120,25 @@ export async function confirmAiDeployment(signal?: AbortSignal): Promise<void> {
   if (!isDeploymentState(state)) throw new AiDeploymentError("unconfirmed");
   if (state.off) throw new AiDeploymentError("off");
   if (state.invalid) throw new AiDeploymentError("invalid");
-  if (state.route !== getAiDeploymentState().route) throw new AiDeploymentError("route-changed");
+  if (state.route !== currentAiRoute()) throw new AiDeploymentError("route-changed");
+}
+
+const JSON_BODY: Readonly<Record<string, string>> = { "content-type": "application/json" };
+
+function baseHeaders(apiKey: string): Record<string, string> {
+  return { "x-api-key": apiKey, "anthropic-version": ANTHROPIC_VERSION };
 }
 
 function directHeaders(apiKey: string, withBody: boolean): Record<string, string> {
-  return withBody
-    ? {
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "anthropic-dangerous-direct-browser-access": "true",
-        "content-type": "application/json",
-      }
-    : {
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "anthropic-dangerous-direct-browser-access": "true",
-      };
+  return {
+    ...baseHeaders(apiKey),
+    "anthropic-dangerous-direct-browser-access": "true",
+    ...(withBody ? JSON_BODY : {}),
+  };
 }
 
 function relayHeaders(apiKey: string, withBody: boolean): Record<string, string> {
-  return withBody
-    ? { "x-api-key": apiKey, "anthropic-version": ANTHROPIC_VERSION, "content-type": "application/json" }
-    : { "x-api-key": apiKey, "anthropic-version": ANTHROPIC_VERSION };
+  return { ...baseHeaders(apiKey), ...(withBody ? JSON_BODY : {}) };
 }
 
 /** `{ type: "error", error: { type: <string> } }` — Anthropic's own error, passed through. */
@@ -212,10 +209,6 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
 }
 
-function route(): AiRoute {
-  return getAiDeploymentState().route;
-}
-
 export interface PostAiMessagesArgs {
   apiKey: string;
   /** The JSON request body, already serialised. */
@@ -233,7 +226,7 @@ export async function postAiMessages({ apiKey, body, path, signal, beforeSend }:
   await confirmAiDeployment(signal);
   throwIfAborted(signal);
   beforeSend?.();
-  const gateway = route() === "gateway";
+  const gateway = currentAiRoute() === "gateway";
   const res = await fetch(gateway ? RELAY_MESSAGES_URL : ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     headers: gateway ? relayHeaders(apiKey, true) : directHeaders(apiKey, true),
@@ -250,7 +243,7 @@ export async function postAiMessages({ apiKey, body, path, signal, beforeSend }:
 export async function getAiModels(apiKey: string, signal?: AbortSignal): Promise<Response> {
   await confirmAiDeployment(signal);
   throwIfAborted(signal);
-  const gateway = route() === "gateway";
+  const gateway = currentAiRoute() === "gateway";
   const res = await fetch(gateway ? RELAY_MODELS_URL : ANTHROPIC_MODELS_URL, {
     headers: gateway ? relayHeaders(apiKey, false) : directHeaders(apiKey, false),
     signal,

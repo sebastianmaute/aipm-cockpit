@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { AI_CONSENT_LEVELS, AI_DATA_PATHS, AI_DESTINATION_KEYS, aiDataPathsFor } from "./ai-disclosure";
 import { type AiRoute, setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { helpEntryBody } from "./help-content";
 import { AI_DISCLOSURE_VERSION } from "./ai-consent";
 import { loadI18n, t, type TranslationKey } from "./i18n";
@@ -196,7 +197,7 @@ describe("AI_DESTINATION_KEYS", () => {
   beforeAll(async () => {
     await loadI18n("de");
   });
-  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false }));
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
 
   it("is pinned by its English texts (re-pin a wording change; the version stays)", () => {
     expect(destinationFingerprint()).toEqual(DESTINATION_PIN);

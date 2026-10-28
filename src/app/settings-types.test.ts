@@ -3,6 +3,7 @@ import { MAX_AI_POLICY_FIELD } from "./ai-policy";
 import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled, isAiConsentedForDictation } from "./settings-types";
 import { newConsent, isInteractiveAiAllowed } from "./ai-consent";
 import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { setSessionAiKey, clearSessionAiKey } from "./session-ai-key";
 
 const NO_FOOTER_ENV: ExportFooterEnv = { footer: undefined };
@@ -425,7 +426,7 @@ describe("AI consent gate", () => {
 });
 
 describe("deployment closes the AI gate", () => {
-  afterEach(() => { setAiDeploymentState({ off: false, route: "direct", invalid: false }); clearSessionAiKey(); });
+  afterEach(() => { setAiDeploymentState(DIRECT_AI_STATUS); clearSessionAiKey(); });
   const allowed = { ...defaultAiConfig, enabled: true, apiKey: "sk-ant-x", consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) };
   it("is open by default", () => {
     expect(isInteractiveAiAllowed(allowed)).toBe(true);
