@@ -342,7 +342,10 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   // stored key needs neither: a user who switched AI off or withdrew the consent can still delete it.
   const deployment = getAiDeploymentState();
   const deploymentBlocked = deployment.off || deployment.invalid;
-  const keyFieldsShown = settings.ai.enabled === true && isConsentCurrent(settings.ai.consent);
+  // While the deployment blocks AI the switch reads off, so nothing under it is shown either (no key field,
+  // behaviour toggles, caps, consent review or background consent); "Remove stored secret" stays under the switch.
+  const aiControlsShown = !deploymentBlocked && settings.ai.enabled === true;
+  const keyFieldsShown = aiControlsShown && isConsentCurrent(settings.ai.consent);
   const removeKeyButton = keyStored && (
     <Button
       size="xs"
@@ -413,7 +416,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           }}
         />
       )}
-      {settings.ai.enabled === true && (
+      {aiControlsShown && (
         <>
       {/* AI-01 — the key field and its passphrase lock appear only once the disclosure is accepted at the current
           version (as the Help text says); with the switch on and no current consent the review prompt below is
@@ -543,9 +546,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
             {t(lang, "aiConsentRevoke")}
           </TextButton>
         </p>
-      ) : deploymentBlocked ? null : (
-        // No review while the deployment blocks AI (as in the chat): its texts would describe a route that
-        // is not in use, and an accept would record a consent for it.
+      ) : (
         <p className="mt-2 flex items-center justify-between gap-2 text-xs text-ui-purple dark:text-ui-purple-strong">
           <span>{t(lang, "aiConsentReviewPrompt")}</span>
           <TextButton onClick={() => setConsentOpen(true)} className="text-xs">
@@ -741,12 +742,8 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           <Checkbox
             aria-label={t(lang, "aiBackgroundConsentToggle")}
             checked={backgroundOk}
-            // No accept while the deployment blocks AI; a current consent can still be withdrawn.
-            disabled={deploymentBlocked && !backgroundOk}
-            aria-describedby={deploymentBlocked && !backgroundOk ? deploymentNoticeId : undefined}
             onChange={(e) => {
               if (e.target.checked) {
-                if (deploymentBlocked) return;
                 setBackgroundConsentOpen(true);
                 return;
               }

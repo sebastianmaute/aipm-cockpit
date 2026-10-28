@@ -130,8 +130,9 @@
   (`ai-deployment.ts`). AI gates ask `isAiDeploymentOn`; the disclosure texts ask `currentAiRoute`. An invalid gateway
   setting closes AI exactly like `ai` (fail closed, no fallback to a direct call). ★ It still reports `route: "gateway"`
   when the URL is set (only a token with no URL reads `"direct"`), so a stored gateway consent stays current and no
-  surface shows the direct texts; nothing reads `route` to SEND while `invalid` is true. Settings → AI offers no consent
-  review or accept while the deployment is off or invalid (the chat's `consentStale && deploymentOn` rule). The transport itself is in
+  surface shows the direct texts; nothing reads `route` to SEND while `invalid` is true. While the deployment is off or invalid,
+  Settings → AI shows the master switch unticked and nothing under it but "Remove stored secret": no key field, consent
+  review or background consent (the chat's `consentStale && deploymentOn` rule). The transport itself is in
   [ai-assistant.md](ai-assistant.md) "Wire layer".
 
 ★★ **Gates ask; stored settings are never rewritten.** Many call sites save settings by spreading the current

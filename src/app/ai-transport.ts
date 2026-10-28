@@ -246,13 +246,10 @@ export async function postAiMessages({ apiKey, body, path, signal, beforeSend }:
   return res;
 }
 
-/** GET the model list on this deployment's route, after `confirmAiDeployment`. `beforeSend` runs
- *  as in `postAiMessages`; the model-list callers (`fetchAnthropicModels`) pass none today, since
- *  they check the consent before they ask, as the model list always has. */
-export async function getAiModels(apiKey: string, signal?: AbortSignal, beforeSend?: () => void): Promise<Response> {
+/** GET the model list on this deployment's route, after `confirmAiDeployment`. */
+export async function getAiModels(apiKey: string, signal?: AbortSignal): Promise<Response> {
   await confirmAiDeployment(signal);
   throwIfAborted(signal);
-  beforeSend?.();
   const gateway = route() === "gateway";
   const res = await fetch(gateway ? RELAY_MODELS_URL : ANTHROPIC_MODELS_URL, {
     headers: gateway ? relayHeaders(apiKey, false) : directHeaders(apiKey, false),

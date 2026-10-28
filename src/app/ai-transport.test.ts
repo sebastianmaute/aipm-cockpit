@@ -287,32 +287,6 @@ describe("getAiModels", () => {
     expect(urls(f)).toEqual(["/api/ai/status", "/api/ai/models"]);
     expect(f.mock.calls[1][1]?.headers).toEqual({ "x-api-key": KEY, "anthropic-version": "2023-06-01" });
   });
-
-  it.each(["direct", "gateway"] as const)("%s: beforeSend runs after the status answer and can stop the request", async (r) => {
-    const state: AiDeploymentState = { off: false, route: r, invalid: false };
-    setAiDeploymentState(state);
-    const order: string[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (input: string): Promise<Response> => {
-      order.push(input);
-      return input === "/api/ai/status" ? aiStatusResponse(state) : json({});
-    }));
-    const stop = new Error("stopped");
-    const beforeSend = vi.fn(() => {
-      order.push("beforeSend");
-      throw stop;
-    });
-    const err = await getAiModels(KEY, undefined, beforeSend).catch((e: unknown) => e);
-    expect(err).toBe(stop);
-    expect(order).toEqual(["/api/ai/status", "beforeSend"]);
-  });
-
-  it("beforeSend that returns lets the request go out once", async () => {
-    const f = stubFetch(DIRECT_AI_STATUS);
-    const beforeSend = vi.fn();
-    await getAiModels(KEY, undefined, beforeSend);
-    expect(beforeSend).toHaveBeenCalledTimes(1);
-    expect(urls(f)).toEqual(["/api/ai/status", "https://api.anthropic.com/v1/models?limit=1000"]);
-  });
 });
 
 describe("the key check never reads a gateway or deployment failure as a key verdict", () => {

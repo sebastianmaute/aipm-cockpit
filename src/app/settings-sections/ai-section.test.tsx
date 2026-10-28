@@ -1263,30 +1263,27 @@ describe("AiSection — deployment notice", () => {
   const GATEWAY_CONSENT = { ...newConsent(new Date(0)), route: "gateway" as const };
   const DIRECT_KEYS = ["aiApiKeyHint", "aiConsentDataIntro", "aiConsentBackgroundDataIntro", "aiConsentBullet2"] as const;
 
-  it("invalid gateway setting with a stored gateway consent: the consent stays current, no review, no direct text", () => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: true, invalidReason: "url" });
-    const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, consent: GATEWAY_CONSENT, backgroundConsent: GATEWAY_CONSENT } };
-    const { container } = render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: t("en-US", "aiConsentReview") })).toBeNull();
-    expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
-    expect(screen.getByText(t("en-US", "aiConsentGranted"))).toBeInTheDocument();
-    expect(screen.getByText(t("en-US", "aiApiKeyHintGateway"))).toBeInTheDocument();
-    for (const key of DIRECT_KEYS) expect(container.textContent).not.toContain(t("en-US", key));
-  });
-
   it.each([
-    ["off", { off: true, route: "direct" as const, invalid: false }],
-    ["invalid", { off: false, route: "direct" as const, invalid: true }],
-  ])("%s with a consent for the other route: no review and no accept entry point", (_label, state) => {
+    ["invalid, gateway consent current", { off: false, route: "gateway" as const, invalid: true, invalidReason: "url" as const }],
+    ["off, consent for the other route", { off: true, route: "direct" as const, invalid: false }],
+    ["invalid, consent for the other route", { off: false, route: "direct" as const, invalid: true }],
+  ])("blocked (%s) with AI stored on and a key: no AI controls, no review, no direct text; Remove stays", async (_label, state) => {
+    saveSealed(await sealDevice("anthropicApiKey", "sk-ant-api03-stored000000000000"));
     setAiDeploymentState(state);
+    const onChange = vi.fn();
     const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, consent: GATEWAY_CONSENT, backgroundConsent: undefined } };
-    render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    const before = structuredClone(settings);
+    const { container } = render(<AiSection lang="en-US" settings={settings} onChange={onChange} />);
+    expect(screen.getByRole("button", { name: t("en-US", "secretPassphraseRemove") })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeNull();
+    expect(screen.queryByLabelText(t("en-US", "aiGroundInGuides"))).toBeNull();
+    expect(screen.queryByLabelText(t("en-US", "aiSessionCap"))).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toBeNull();
     expect(screen.queryByRole("button", { name: t("en-US", "aiConsentReview") })).toBeNull();
     expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
-    const background = screen.getByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") });
-    expect(background).toBeDisabled();
-    fireEvent.click(background);
-    expect(screen.queryByRole("dialog")).toBeNull();
+    for (const key of DIRECT_KEYS) expect(container.textContent).not.toContain(t("en-US", key));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(settings).toEqual(before);
   });
 
   it("on with a stale consent: the review entry point is there (control)", () => {
