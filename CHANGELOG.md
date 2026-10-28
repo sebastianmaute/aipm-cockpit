@@ -14,15 +14,20 @@ longer carries its own changelog comment.
 
 - **A deployment can switch AI off.** The server setting `AIPM_DISABLED_INTEGRATIONS` takes a new name, `ai`, which
   switches every AI feature off for that deployment, dictation to a speech service included. Settings → AI says so,
-  nothing is sent, and users' keys and consents are kept for when AI is switched back on.
+  nothing is sent, and users' keys and consents are kept for when AI is switched back on. Dictation with the browser's
+  own speech recognition is not affected: it stays available and, in some browsers (for example Chrome and Edge), sends
+  the audio to the browser maker's service. No deployment setting switches it off. Browser tabs opened before this
+  release keep calling Anthropic directly, under their old consent, until they are reloaded; ask users to reload every
+  open tab when you first set `ai` or the gateway.
 - **AI requests can go through the organisation's AI gateway.** Two new server settings, `AIPM_AI_GATEWAY_URL` and
   `AIPM_AI_GATEWAY_TOKEN`, send AI requests through this app's server and a Cloudflare AI Gateway instead of straight
   from the browser to Anthropic. Each user still uses their own Anthropic key, which the server passes on without
   storing or logging it. An invalid setting switches AI off rather than falling back to a direct call; the server log
   and the browser's diagnostics name which part is invalid, never its value. With neither setting, AI works exactly as
-  before.
-  - The AI data disclosure, the key note in Settings → AI and Help say which way the data goes on this deployment,
-    and turning the gateway on or off asks everyone to accept the disclosure again and to tick background AI again,
+  before. Browser tabs opened before this release keep calling Anthropic directly, under their old consent, until they
+  are reloaded; ask users to reload every open tab when you first set `ai` or the gateway.
+  - The AI data disclosure, the key note in Settings → AI and Help say which way the data goes on this deployment;
+    on a gateway deployment the disclosure also names the gateway and the provider that runs it as recipients. Turning the gateway on or off asks everyone to accept the disclosure again and to tick background AI again,
     separately. Moving from one gateway address to another asks nothing.
   - Setup, the token's scope and the proxy timeout the relay needs are in `docs/RUNBOOK.md`.
   - Every AI feature that reports a failure names a switched-off AI setting or a gateway error as such, never as a

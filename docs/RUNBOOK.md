@@ -350,7 +350,11 @@ section there.
 - **`ai` switches every AI feature off**, and dictation to a speech service with it
   (`/api/stt` refuses too). To check it took effect, open Settings → AI: it says the
   organisation switched AI off, and the master switch cannot be ticked. Users' keys and
-  consents are kept and work again once `ai` is removed.
+  consents are kept and work again once `ai` is removed (unless the AI route changed
+  meanwhile; then users are asked again).
+  Dictation with the browser's own speech recognition is not affected: it stays
+  available and, in some browsers (for example Chrome and Edge), sends the audio to the
+  browser maker's service. No deployment setting switches it off.
   ★ **Tabs opened before this release ignore `ai` until reloaded; have users reload.** A
   page loaded from a release without the `ai` switch never asks the server before an AI
   call and keeps the content security policy it loaded with, which still allows
@@ -416,7 +420,13 @@ that list.
    does not change it), so the largest allowed chat (32 MB) needs an upload of roughly
    110 KB/s from the user's browser; on a slower link a large chat fails before it is
    relayed. Smaller requests are rarely affected.
-6. **Check it.** Open Settings → AI: every user is asked to accept the AI data
+6. **Decide the gateway's logging before go-live.** If it is on, the gateway stores
+   every prompt and answer, which include personal data from the project: set its
+   retention, record the gateway provider as a processor, and name it in the AI usage
+   policy the consent screen links to (`NEXT_PUBLIC_AI_POLICY_URL`). The consent screen
+   tells users the gateway and its provider receive their requests and that the
+   organisation decides what it logs.
+7. **Check it.** Open Settings → AI: every user is asked to accept the AI data
    disclosure again, and the dialog and the key note now say the data goes through
    this app's server and the organisation's AI gateway. Send one chat message and
    find it in the gateway's logs (if logging is on).
@@ -430,6 +440,8 @@ What to know when running it:
   same change, and each user has to tick background AI in Settings → AI again,
   separately from accepting the disclosure; until then those features do not run.
   Changing from one gateway URL to another is not a route change and asks nothing.
+  If the new gateway belongs to a different provider or account, or logs differently,
+  tell users yourself; the app does not ask them again.
   A tab left open across the change sends
   nothing: the chat and the other AI features that report a failure ask for a
   reload (never a key problem); the digest summary and the automatic insight
