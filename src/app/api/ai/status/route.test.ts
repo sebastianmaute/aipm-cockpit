@@ -36,7 +36,16 @@ describe("GET /api/ai/status", () => {
       { AIPM_DISABLED_INTEGRATIONS: "ai", AIPM_AI_GATEWAY_URL: URL_SETTING },
       { off: true, route: "gateway", invalid: false },
     ],
-    ["invalid", { AIPM_AI_GATEWAY_TOKEN: TOKEN }, { off: false, route: "direct", invalid: true }],
+    [
+      "invalid (token without URL)",
+      { AIPM_AI_GATEWAY_TOKEN: TOKEN },
+      { off: false, route: "direct", invalid: true, invalidReason: "token-without-url" },
+    ],
+    [
+      "invalid (URL)",
+      { AIPM_AI_GATEWAY_URL: "http://gateway.example.com/gw", AIPM_AI_GATEWAY_TOKEN: TOKEN },
+      { off: false, route: "gateway", invalid: true, invalidReason: "url" },
+    ],
   ])("%s → 200 with the state, no-store", async (_name, env, expected) => {
     const { res, text } = await status(env);
     expect(res.status).toBe(200);

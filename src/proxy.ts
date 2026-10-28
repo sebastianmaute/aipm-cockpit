@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { readAiGatewayConfig } from "./app/ai-gateway-config";
+import { parseAiGatewayConfig } from "./app/ai-gateway-config";
 import { DISABLED_INTEGRATIONS_ENV, parseDisabledIntegrations } from "./app/integration-switches";
 
 // Per-request nonce-based Content-Security-Policy.
@@ -129,7 +129,7 @@ function buildCsp(nonce: string, allowAnthropic: boolean): string {
 export function proxy(request: NextRequest): NextResponse {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const allowAnthropic =
-    readAiGatewayConfig(process.env).kind === "direct" &&
+    parseAiGatewayConfig(process.env).kind === "direct" &&
     !parseDisabledIntegrations(process.env[DISABLED_INTEGRATIONS_ENV]).includes("ai");
   const csp = buildCsp(nonce, allowAnthropic);
 

@@ -23,14 +23,25 @@ describe("aiDeploymentStateFrom", () => {
     expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_URL: URL_ })).toEqual({ off: false, route: "gateway", invalid: false });
   });
 
-  it("marks an invalid setting invalid, never gateway", () => {
-    const bad = aiDeploymentStateFrom({ AIPM_AI_GATEWAY_URL: "http://x" });
-    expect(bad).toEqual({ off: false, route: "direct", invalid: true });
-    expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_TOKEN: "t" }).invalid).toBe(true);
+  it("marks an invalid setting invalid; a set URL keeps the gateway route the operator meant", () => {
+    expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_URL: "http://x" })).toEqual({
+      off: false,
+      route: "gateway",
+      invalid: true,
+      invalidReason: "url",
+    });
     expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_URL: URL_, AIPM_AI_GATEWAY_TOKEN: "a b" })).toEqual({
+      off: false,
+      route: "gateway",
+      invalid: true,
+      invalidReason: "token",
+    });
+    // A token with no URL names no gateway: the route stays direct.
+    expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_TOKEN: "t" })).toEqual({
       off: false,
       route: "direct",
       invalid: true,
+      invalidReason: "token-without-url",
     });
   });
 
@@ -72,17 +83,19 @@ describe("the client store", () => {
 });
 
 describe("invalid state diagnostics", () => {
-  it("logs ai.gateway.invalid once per page load, with no fields", async () => {
+  it("logs ai.gateway.invalid once per page load, with the reason code only", async () => {
     vi.resetModules();
     localStorage.clear();
     const dep = await import("./ai-deployment");
     const diag = await import("./diagnostics");
-    dep.setAiDeploymentState({ off: false, route: "direct", invalid: true });
-    dep.setAiDeploymentState({ off: false, route: "direct", invalid: true });
+    dep.setAiDeploymentState({ off: false, route: "gateway", invalid: true, invalidReason: "token" });
+    dep.setAiDeploymentState({ off: false, route: "gateway", invalid: true, invalidReason: "token" });
     const hits = diag.readDiagLog().filter((e) => e.code === "ai.gateway.invalid");
     expect(hits).toHaveLength(1);
     expect(hits[0].level).toBe("warn");
-    expect(hits[0].fields ?? {}).toEqual({});
+    expect(hits[0].fields).toEqual({ reason: "token" });
+    expect(dep.getAiDeploymentState().invalidReason).toBe("token");
     dep.setAiDeploymentState({ off: false, route: "direct", invalid: false });
+    expect(dep.getAiDeploymentState().invalidReason).toBeUndefined();
   });
 });

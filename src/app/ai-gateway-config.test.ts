@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import {
@@ -95,6 +95,38 @@ describe("readAiGatewayConfig", () => {
       baseUrl: GW,
       token: visible,
     });
+  });
+});
+
+describe("an invalid setting is reported on the server", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("warns once per reason per process, naming only the reason code", async () => {
+    vi.resetModules();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { readAiGatewayConfig: read, parseAiGatewayConfig: parse } = await import("./ai-gateway-config");
+    const badUrl = "http://secret-host.example/gw";
+    const badToken = "sekret token";
+    // The proxy's side-effect-free parse logs nothing and does not use up the once.
+    expect(parse({ AIPM_AI_GATEWAY_URL: badUrl })).toEqual({ kind: "invalid", reason: "url" });
+    expect(warn).not.toHaveBeenCalled();
+    read({ AIPM_AI_GATEWAY_URL: badUrl });
+    read({ AIPM_AI_GATEWAY_URL: badUrl });
+    read({ AIPM_AI_GATEWAY_URL: GW, AIPM_AI_GATEWAY_TOKEN: badToken });
+    read({ AIPM_AI_GATEWAY_URL: GW, AIPM_AI_GATEWAY_TOKEN: badToken });
+    read({ AIPM_AI_GATEWAY_TOKEN: "only-a-token" });
+    read({ AIPM_AI_GATEWAY_URL: GW });
+    read({});
+    const lines = warn.mock.calls.map((c) => c.map(String).join(" "));
+    expect(lines).toEqual([
+      "ai gateway setting invalid: url",
+      "ai gateway setting invalid: token",
+      "ai gateway setting invalid: token-without-url",
+    ]);
+    const all = lines.join(" | ");
+    for (const value of ["secret-host", "sekret", "only-a-token", "cloudflare"]) expect(all).not.toContain(value);
   });
 });
 
