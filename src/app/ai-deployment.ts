@@ -47,3 +47,11 @@ export function currentAiRoute(): AiRoute {
 export function isAiDeploymentOn(): boolean {
   return !state.off && !state.invalid;
 }
+
+/** The message naming why the deployment blocks AI (an invalid setting before a switch-off), or
+ *  `null` while AI is usable. Every surface that names the block asks here. */
+export function aiDeploymentBlockedMessageKey(): "aiDeploymentOff" | "aiDeploymentInvalid" | null {
+  if (state.invalid) return "aiDeploymentInvalid";
+  if (state.off) return "aiDeploymentOff";
+  return null;
+}

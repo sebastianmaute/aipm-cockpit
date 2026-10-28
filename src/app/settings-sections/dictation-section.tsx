@@ -5,7 +5,7 @@ import { type Lang, t } from "../i18n";
 import { isAiConsentedForDictation, type Settings } from "../settings-types";
 import { SegmentedControl } from "../segmented-control";
 import { isIntegrationDisabled } from "../integration-switches";
-import { getAiDeploymentState } from "../ai-deployment";
+import { aiDeploymentBlockedMessageKey } from "../ai-deployment";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { saveSecretValue } from "../use-secrets";
@@ -31,8 +31,7 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
   // the stored choice is not rewritten unless the user picks again.
   const sttOff = isIntegrationDisabled("stt");
   const engine: DictationEngineId = sttOff ? "web-speech" : (dictation?.engine ?? "web-speech");
-  const deployment = getAiDeploymentState();
-  const deploymentBlocked = deployment.off || deployment.invalid;
+  const blockedMessageKey = aiDeploymentBlockedMessageKey();
   const [hotkeyArmed, setHotkeyArmed] = useState(false);
   const hotkey = dictation?.hotkey ?? "F4";
 
@@ -123,9 +122,9 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
       {engine === "stt" && (
         <div className="mt-3 flex flex-col gap-2">
           {/* The deployment's AI setting first, as in `dictationUnavailableReason`: no consent changes it. */}
-          {deploymentBlocked ? (
+          {blockedMessageKey !== null ? (
             <p role="note" className="text-xs text-muted-foreground">
-              {t(lang, deployment.invalid ? "aiDeploymentInvalid" : "aiDeploymentOff")}
+              {t(lang, blockedMessageKey)}
             </p>
           ) : !isAiConsentedForDictation(settings.ai) && (
             <p role="note" className="text-xs text-muted-foreground">{t(lang, "dictationNeedsAiConsent")}</p>

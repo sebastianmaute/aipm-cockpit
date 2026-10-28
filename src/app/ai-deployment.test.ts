@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { aiDeploymentStateFrom } from "./ai-gateway-config";
 import {
+  aiDeploymentBlockedMessageKey,
   currentAiRoute,
   getAiDeploymentState,
   isAiDeploymentOn,
@@ -72,6 +73,16 @@ describe("the client store", () => {
   it("records the route", () => {
     setAiDeploymentState({ off: false, route: "gateway", invalid: false });
     expect(currentAiRoute()).toBe("gateway");
+  });
+
+  it("names the block: invalid before off, null while AI is usable", () => {
+    expect(aiDeploymentBlockedMessageKey()).toBeNull();
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    expect(aiDeploymentBlockedMessageKey()).toBe("aiDeploymentOff");
+    setAiDeploymentState({ off: true, route: "gateway", invalid: true, invalidReason: "url" });
+    expect(aiDeploymentBlockedMessageKey()).toBe("aiDeploymentInvalid");
+    setAiDeploymentState({ off: false, route: "gateway", invalid: true, invalidReason: "token" });
+    expect(aiDeploymentBlockedMessageKey()).toBe("aiDeploymentInvalid");
   });
 
   it("is off when switched off or invalid", () => {

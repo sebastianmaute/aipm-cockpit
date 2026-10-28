@@ -14,7 +14,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { type Lang, t } from "../i18n";
 import { FieldHint } from "../field-hint";
 import { isAiBackgroundEnabled, isAiEnabled, type Settings } from "../settings-types";
-import { getAiDeploymentState } from "../ai-deployment";
+import { aiDeploymentBlockedMessageKey } from "../ai-deployment";
 import type { TursoConfig } from "../turso-config";
 import { useScheduledJobs } from "../use-scheduled-jobs";
 import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
@@ -88,8 +88,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const enabled = settings.ai.scheduledJobs === true;
   const hasKey = isAiEnabled(settings.ai);
   // The deployment's AI setting outranks the key: no key the user adds turns it on.
-  const deployment = getAiDeploymentState();
-  const deploymentBlocked = deployment.off || deployment.invalid;
+  const blockedMessageKey = aiDeploymentBlockedMessageKey();
   const hasBackgroundConsent = isAiBackgroundEnabled(settings.ai);
   const backgroundHintId = useId();
   // A LEGACY job predates §772: it carries no permanent key. A job added now has one (createJob mints it) and
@@ -130,9 +129,9 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
         <p className="rounded-md border border-line bg-surface p-3 text-xs text-muted-foreground">
           {t(lang, "scheduledJobsNeedPortfolio")}
         </p>
-      ) : deploymentBlocked ? (
+      ) : blockedMessageKey !== null ? (
         <p className="rounded-md border border-line bg-surface p-3 text-xs text-muted-foreground">
-          {t(lang, deployment.invalid ? "aiDeploymentInvalid" : "aiDeploymentOff")}
+          {t(lang, blockedMessageKey)}
         </p>
       ) : !hasKey ? (
         <p className="rounded-md border border-line bg-surface p-3 text-xs text-muted-foreground">

@@ -127,12 +127,16 @@
 - ★ **`ai` is read through its own record, not `isIntegrationDisabled`.** The layout also computes
   `aiDeploymentStateFrom` (`ai-gateway-config.ts`, server only) — `{ off, route, invalid, invalidReason? }`, folding in the AI gateway
   settings (`AIPM_AI_GATEWAY_URL`/`_TOKEN`) — and `IntegrationSwitchesSync` records it with `setAiDeploymentState`
-  (`ai-deployment.ts`). AI gates ask `isAiDeploymentOn`; the disclosure texts ask `currentAiRoute`. An invalid gateway
+  (`ai-deployment.ts`). AI gates ask `isAiDeploymentOn`; the disclosure texts ask `currentAiRoute`; every surface that
+  names the block asks `aiDeploymentBlockedMessageKey` (invalid before off, `null` while AI is usable). An invalid gateway
   setting closes AI exactly like `ai` (fail closed, no fallback to a direct call). ★ It still reports `route: "gateway"`
   when the URL is set (only a token with no URL reads `"direct"`), so a stored gateway consent stays current and no
   surface shows the direct texts; nothing reads `route` to SEND while `invalid` is true. While the deployment is off or invalid,
-  Settings → AI shows the master switch unticked and nothing under it but "Remove stored secret": no key field, consent
-  review or background consent (the chat's `consentStale && deploymentOn` rule). The transport itself is in
+  Settings → AI shows the master switch unticked and, under it, only what WITHDRAWS: "Remove stored secret", Revoke for a
+  CURRENT interactive consent and the (ticked) background checkbox for a CURRENT background consent. Nothing accepts or
+  reviews a consent (the chat's `consentStale && deploymentOn` rule), and no key field, toggle or cap is shown. ★★ The
+  withdraw controls must stay: `aiDeploymentOff` tells the user the consent is kept and works again once AI is switched
+  back on, so a consent that could not be withdrawn while blocked would revive unseen. The transport itself is in
   [ai-assistant.md](ai-assistant.md) "Wire layer".
 
 ★★ **Gates ask; stored settings are never rewritten.** Many call sites save settings by spreading the current

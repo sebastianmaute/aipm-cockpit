@@ -18,6 +18,7 @@ import {
 import { t } from "../i18n";
 import { newConsent } from "../ai-consent";
 import { setAiDeploymentState } from "../ai-deployment";
+import { DIRECT_AI_STATUS } from "../../test/ai-status-fetch";
 // The AI config UI is gated behind the "Enable AI assistant" master switch
 // (default OFF), and the key field also behind a current consent (AI-01). These
 // tests exercise the expanded config, so flip it on with a consent.
@@ -1217,7 +1218,7 @@ describe("AiSection — the lock's records survive a blur and an untick (§749 r
 });
 
 describe("AiSection — deployment notice", () => {
-  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false }));
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
   it("off: shows the notice, disables the master switch and changes nothing", () => {
     setAiDeploymentState({ off: true, route: "direct", invalid: false });
     const onChange = vi.fn();
@@ -1287,7 +1288,7 @@ describe("AiSection — deployment notice", () => {
   });
 
   it("on with a stale consent: the review entry point is there (control)", () => {
-    setAiDeploymentState({ off: false, route: "direct", invalid: false });
+    setAiDeploymentState(DIRECT_AI_STATUS);
     const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, consent: GATEWAY_CONSENT } };
     render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
     expect(screen.getByRole("button", { name: t("en-US", "aiConsentReview") })).toBeInTheDocument();
@@ -1296,7 +1297,7 @@ describe("AiSection — deployment notice", () => {
 });
 
 describe("AiSection — the key note follows the AI route", () => {
-  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false }));
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
   it("direct: says calls go directly to api.anthropic.com (control)", () => {
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
     expect(screen.getByText(t("en-US", "aiApiKeyHint"))).toBeInTheDocument();
@@ -1307,5 +1308,67 @@ describe("AiSection — the key note follows the AI route", () => {
     render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
     expect(screen.getByText(t("en-US", "aiApiKeyHintGateway"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "aiApiKeyHint"))).toBeNull();
+  });
+});
+
+describe("AiSection — withdrawing while the deployment blocks AI", () => {
+  const C = newConsent(new Date(0));
+  const persistedAi = () => (JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Settings).ai;
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
+
+  function renderWith(initial: Settings) {
+    const onChange = vi.fn();
+    function Harness() {
+      const [s, setS] = useState<Settings>(initial);
+      return (
+        <ToastProvider value={{ showToast: vi.fn(), showToastAction: vi.fn() }}>
+          <AiSection lang="en-US" settings={s} onChange={(next) => { onChange(next); setS(next); }} />
+        </ToastProvider>
+      );
+    }
+    render(<Harness />);
+    return { onChange };
+  }
+
+  it.each([
+    ["off", { off: true, route: "direct" as const, invalid: false }],
+    ["invalid", { off: false, route: "direct" as const, invalid: true }],
+  ])("%s: a current interactive consent can be withdrawn, and nothing can be accepted", (_label, state) => {
+    setAiDeploymentState(state);
+    const granted = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: C, backgroundConsent: C } };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: granted.ai }));
+    renderWith(granted);
+    expect(screen.queryByRole("button", { name: t("en-US", "aiConsentReview") })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentRevoke") }));
+    expect(persistedAi().consent).toBeUndefined();
+    expect(persistedAi().backgroundConsent).toBeUndefined();
+    // Withdrawn: neither withdraw control remains, and no accept or review control takes its place.
+    expect(screen.queryByRole("button", { name: t("en-US", "aiConsentRevoke") })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "aiConsentReview") })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("off: a current background consent can be withdrawn on its own", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    const granted = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: C, backgroundConsent: C } };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: granted.ai }));
+    renderWith(granted);
+    const background = screen.getByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") });
+    expect(background).toBeChecked();
+    fireEvent.click(background);
+    expect(persistedAi().backgroundConsent).toBeUndefined();
+    expect(persistedAi().consent).toEqual(C);
+    expect(screen.queryByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toBeNull();
+    expect(screen.getByRole("button", { name: t("en-US", "aiConsentRevoke") })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("off with no current consent: no withdraw and no accept control (control)", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    renderWith({ ...baseSettings, ai: { ...baseSettings.ai, enabled: true } });
+    expect(screen.queryByRole("button", { name: t("en-US", "aiConsentRevoke") })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "aiConsentReview") })).toBeNull();
   });
 });

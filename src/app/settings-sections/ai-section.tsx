@@ -10,7 +10,7 @@ import { persistAiConsentChange } from "../use-settings";
 import { AiConsentDialog } from "../ai-consent-dialog";
 import { resolveAiPolicy } from "../ai-policy";
 import { aiDestinationKey } from "../ai-disclosure";
-import { getAiDeploymentState } from "../ai-deployment";
+import { aiDeploymentBlockedMessageKey } from "../ai-deployment";
 import { TextButton } from "../text-button";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS } from "../settings-types";
 import {
@@ -340,12 +340,47 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const keyPassphraseMismatch = keyPassphrase !== "" && keyConfirm !== "" && keyPassphrase !== keyConfirm;
   // AI-01 — the key field and its passphrase lock appear only with AI on and a current consent. Removing a
   // stored key needs neither: a user who switched AI off or withdrew the consent can still delete it.
-  const deployment = getAiDeploymentState();
-  const deploymentBlocked = deployment.off || deployment.invalid;
+  const blockedMessageKey = aiDeploymentBlockedMessageKey();
+  const deploymentBlocked = blockedMessageKey !== null;
+  const consentCurrent = isConsentCurrent(settings.ai.consent);
   // While the deployment blocks AI the switch reads off, so nothing under it is shown either (no key field,
-  // behaviour toggles, caps, consent review or background consent); "Remove stored secret" stays under the switch.
+  // behaviour toggles, caps, consent review or accepting a consent). Withdrawing stays as available as giving:
+  // "Remove stored secret" and the withdraw controls for a CURRENT consent stay under the switch.
   const aiControlsShown = !deploymentBlocked && settings.ai.enabled === true;
-  const keyFieldsShown = aiControlsShown && isConsentCurrent(settings.ai.consent);
+  const keyFieldsShown = aiControlsShown && consentCurrent;
+  const consentGrantedRow = (
+    <p className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+      <span><CheckIcon aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />{t(lang, "aiConsentGranted")}</span>
+      <TextButton
+        tone="danger"
+        onClick={() =>
+          commitConsent(
+            { ...settings, ai: { ...settings.ai, consent: undefined, backgroundConsent: undefined } },
+            "revoke",
+          )
+        }
+        className="text-xs"
+      >
+        {t(lang, "aiConsentRevoke")}
+      </TextButton>
+    </p>
+  );
+  const backgroundConsentToggle = (
+    <label className="mt-3 flex items-center gap-2">
+      <Checkbox
+        aria-label={t(lang, "aiBackgroundConsentToggle")}
+        checked={backgroundOk}
+        onChange={(e) => {
+          if (e.target.checked) {
+            setBackgroundConsentOpen(true);
+            return;
+          }
+          commitConsent({ ...settings, ai: { ...settings.ai, backgroundConsent: undefined } }, "revoke");
+        }}
+      />
+      <span className="text-xs text-foreground">{t(lang, "aiBackgroundConsentToggle")}</span>
+    </label>
+  );
   const removeKeyButton = keyStored && (
     <Button
       size="xs"
@@ -372,8 +407,8 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         </span>
         <InfoTooltip text={t(lang, "aiAssistantTooltip")} />
       </span>
-      {deploymentBlocked && (
-        <FieldNotice id={deploymentNoticeId}>{t(lang, deployment.invalid ? "aiDeploymentInvalid" : "aiDeploymentOff")}</FieldNotice>
+      {blockedMessageKey !== null && (
+        <FieldNotice id={deploymentNoticeId}>{t(lang, blockedMessageKey)}</FieldNotice>
       )}
       <label className="mt-2 flex items-center gap-2">
         <Checkbox
@@ -402,6 +437,9 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       </label>
       <FieldHint className="mt-1">{t(lang, "aiEnableHelp")}</FieldHint>
       {!keyFieldsShown && removeKeyButton && <div>{removeKeyButton}</div>}
+      {/* Blocked: a current consent can still be withdrawn (never accepted), so it does not revive unseen. */}
+      {deploymentBlocked && consentCurrent && consentGrantedRow}
+      {deploymentBlocked && backgroundOk && backgroundConsentToggle}
       {consentOpen && (
         <AiConsentDialog
           lang={lang}
@@ -530,22 +568,8 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       <FieldHint className="mt-2">
         {t(lang, aiDestinationKey("keyNote"))}
       </FieldHint>
-      {isConsentCurrent(settings.ai.consent) ? (
-        <p className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span><CheckIcon aria-hidden="true" className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />{t(lang, "aiConsentGranted")}</span>
-          <TextButton
-            tone="danger"
-            onClick={() =>
-              commitConsent(
-                { ...settings, ai: { ...settings.ai, consent: undefined, backgroundConsent: undefined } },
-                "revoke",
-              )
-            }
-            className="text-xs"
-          >
-            {t(lang, "aiConsentRevoke")}
-          </TextButton>
-        </p>
+      {consentCurrent ? (
+        consentGrantedRow
       ) : (
         <p className="mt-2 flex items-center justify-between gap-2 text-xs text-ui-purple dark:text-ui-purple-strong">
           <span>{t(lang, "aiConsentReviewPrompt")}</span>
@@ -738,20 +762,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         </FieldHint>
 
         {/* Background consent (AI-10): the unattended runners call the AI without a click, so they need their own consent. */}
-        <label className="mt-3 flex items-center gap-2">
-          <Checkbox
-            aria-label={t(lang, "aiBackgroundConsentToggle")}
-            checked={backgroundOk}
-            onChange={(e) => {
-              if (e.target.checked) {
-                setBackgroundConsentOpen(true);
-                return;
-              }
-              commitConsent({ ...settings, ai: { ...settings.ai, backgroundConsent: undefined } }, "revoke");
-            }}
-          />
-          <span className="text-xs text-foreground">{t(lang, "aiBackgroundConsentToggle")}</span>
-        </label>
+        {backgroundConsentToggle}
         <FieldHint className="mt-1">{t(lang, "aiBackgroundConsentHelp")}</FieldHint>
         {backgroundConsentOpen && (
           <AiConsentDialog

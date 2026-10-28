@@ -10,7 +10,7 @@ import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import { type AiConfig, type Settings, clampMaxChatTurns, isAiConsentedForDictation } from "./settings-types";
 import { AiConsentRevokedError, isConsentCurrent } from "./ai-consent";
-import { getAiDeploymentState, isAiDeploymentOn } from "./ai-deployment";
+import { aiDeploymentBlockedMessageKey } from "./ai-deployment";
 import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 import { useAiUsageContext } from "./ai-usage-context";
@@ -619,7 +619,8 @@ function ChatPanelInner({
   const consentStale = ai.enabled === true && !isConsentCurrent(ai.consent);
   // The organisation switched AI off for the deployment (or its gateway setting is invalid): nothing the user
   // sets here turns it on, so the chat says that instead of asking for a key or a consent.
-  const deploymentOn = isAiDeploymentOn();
+  const blockedMessageKey = aiDeploymentBlockedMessageKey();
+  const deploymentOn = blockedMessageKey === null;
   // The visible deployment notice (empty state or banner) describes the composer it disables.
   const deploymentNoticeId = useId();
   const composerDescribedBy = deploymentOn ? undefined : deploymentNoticeId;
@@ -1560,7 +1561,7 @@ function ChatPanelInner({
               </div>
             ) : !deploymentOn ? (
               <p id={deploymentNoticeId} className="text-sm text-muted-foreground">
-                {t(lang, getAiDeploymentState().invalid ? "aiDeploymentInvalid" : "aiDeploymentOff")}
+                {blockedMessageKey !== null && t(lang, blockedMessageKey)}
               </p>
             ) : (
               <div className="space-y-2">
@@ -1684,7 +1685,7 @@ function ChatPanelInner({
       {/* Same place for a switched-off deployment, without a link: nothing in Settings turns it back on. */}
       {!deploymentOn && display.length > 0 && (
         <Banner severity="info" role="status" className="mt-2 shrink-0">
-          <p id={deploymentNoticeId} className="min-w-0">{t(lang, getAiDeploymentState().invalid ? "aiDeploymentInvalid" : "aiDeploymentOff")}</p>
+          <p id={deploymentNoticeId} className="min-w-0">{blockedMessageKey !== null && t(lang, blockedMessageKey)}</p>
         </Banner>
       )}
 
