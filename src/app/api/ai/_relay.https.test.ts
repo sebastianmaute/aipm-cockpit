@@ -6,9 +6,9 @@
 // tears the upstream connection down without an unhandled error.
 //
 // The certificate is self-signed and made in-process for each run (node:crypto has no
-// certificate builder, so a minimal X.509 is DER-encoded below); nothing is committed. The
-// test's `send` adds `rejectUnauthorized: false` around the production `httpsSend` — the
-// relay itself never sets it.
+// certificate builder, so a minimal X.509 is DER-encoded below); nothing is committed. It
+// names 127.0.0.1 and localhost, and the test's `send` passes it as the only trusted CA
+// (`ca`) around the production `httpsSend`, so certificate verification stays on.
 import { createServer, type Server } from "node:https";
 import type { IncomingMessage, RequestOptions, ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -62,6 +62,12 @@ function selfSignedCert(): { key: string; cert: string } {
     seq(utcTime(new Date(Date.now() - day)), utcTime(new Date(Date.now() + day))),
     name,
     publicKey.export({ type: "spki", format: "der" }),
+    // extensions [3]: subjectAltName = DNS:localhost, IP:127.0.0.1, so the client verifies the
+    // loopback server's identity against this certificate instead of skipping verification.
+    der(0xa3, seq(seq(
+      oid("2.5.29.17"),
+      der(0x04, seq(der(0x82, Buffer.from("localhost", "ascii")), der(0x87, Buffer.from([127, 0, 0, 1])))),
+    ))),
   );
   const signature = sign("sha256", tbs, privateKey);
   const cert = seq(tbs, ecdsaSha256, der(0x03, Buffer.from([0]), signature));
@@ -71,9 +77,13 @@ function selfSignedCert(): { key: string; cert: string } {
 
 // ── The loopback gateway ──
 let server: Server | null = null;
+/** The running gateway's certificate, which the test client trusts as its only CA. */
+let gatewayCert: string | null = null;
 
 async function startGateway(handler: (req: IncomingMessage, res: ServerResponse) => void): Promise<string> {
-  const s = createServer(selfSignedCert(), handler);
+  const credentials = selfSignedCert();
+  gatewayCert = credentials.cert;
+  const s = createServer(credentials, handler);
   server = s;
   await new Promise<void>((resolve) => s.listen(0, "127.0.0.1", resolve));
   return `https://127.0.0.1:${(s.address() as AddressInfo).port}/acct/gw/anthropic`;
@@ -82,15 +92,18 @@ async function startGateway(handler: (req: IncomingMessage, res: ServerResponse)
 afterEach(async () => {
   const s = server;
   server = null;
+  gatewayCert = null;
   if (!s) return;
   s.closeAllConnections();
   await new Promise<void>((resolve) => s.close(() => resolve()));
 });
 
-/** The production send, with the one option a self-signed loopback server needs. Test-only. */
+/** The production send, trusting the loopback gateway's own certificate as its only CA. Verification
+ *  stays on: the certificate names 127.0.0.1. Test-only. */
 const loopbackSend: RelaySend = (url, options, onResponse) => {
+  if (gatewayCert === null) throw new Error("no gateway running");
   // `RelaySend` is typed with node:http's options; node:https reads the TLS one from the same object.
-  const withTls: RequestOptions & { rejectUnauthorized: boolean } = { ...options, rejectUnauthorized: false };
+  const withTls: RequestOptions & { ca: string } = { ...options, ca: gatewayCert };
   return httpsSend(url, withTls, onResponse);
 };
 
@@ -130,6 +143,20 @@ async function collectUnhandled(run: () => Promise<void>): Promise<unknown[]> {
 }
 
 describe("relay over real https (loopback)", () => {
+  // Verification is on: without the test's certificate as a trusted CA the production send refuses the
+  // self-signed gateway, and the relay answers with its own gateway error. (Control for `loopbackSend`.)
+  it("the production send refuses the untrusted self-signed gateway", async () => {
+    let reached = false;
+    const base = await startGateway((_req, res) => {
+      reached = true;
+      res.end();
+    });
+    const res = await relay(browserPost(), "messages", { AIPM_AI_GATEWAY_URL: base, AIPM_AI_GATEWAY_TOKEN: TOKEN }, httpsSend);
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "ai-gateway-error" });
+    expect(reached).toBe(false);
+  });
+
   it("forwards only the allowed headers plus the gateway token, and streams the answer back", async () => {
     let received: IncomingMessage["headers"] = {};
     let receivedPath = "";

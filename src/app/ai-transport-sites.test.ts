@@ -15,7 +15,9 @@ import ts from "typescript";
 // policy entry, not a call.
 
 const APP = join(process.cwd(), "src", "app");
-const HOST = "api.anthropic.com";
+/** The Anthropic host as a whole host name in text: not part of a longer name on either side
+ *  (`xapi.anthropic.com`, `api.anthropic.com.evil`), but allowed before a path, a port or a sentence's full stop. */
+const HOST_IN_TEXT = /(^|[^A-Za-z0-9.-])api\.anthropic\.com(?![A-Za-z0-9-]|\.[A-Za-z0-9])/;
 const TRANSPORT = "ai-transport.ts";
 const TEXT_FILES = ["i18n.ts", "i18n.de.ts"];
 const EXCLUDED_DEV_SCRIPTS = ["scripts/ai-eval.ts"];
@@ -48,7 +50,7 @@ function isFetchCallee(callee: ts.Expression): boolean {
 function sitesIn(sf: ts.SourceFile): { host: boolean; anthropicFetch: boolean } {
   const out = { host: false, anthropicFetch: false };
   const visit = (node: ts.Node): void => {
-    if (isStringish(node) && node.text.includes(HOST)) out.host = true;
+    if (isStringish(node) && HOST_IN_TEXT.test(node.text)) out.host = true;
     if (
       ts.isCallExpression(node) && isFetchCallee(node.expression)
       && node.arguments.length > 0 && /anthropic/i.test(node.arguments[0].getText(sf))
@@ -93,6 +95,16 @@ describe("AI transport sites", () => {
   it.each(["fetch", "globalThis.fetch", "window.fetch", "self.fetch"])("the fetch rule sees %s(ANTHROPIC_URL)", (callee) => {
     expect(sitesInText(`${callee}(ANTHROPIC_URL, {});`).anthropicFetch).toBe(true);
     expect(sitesInText(`${callee}("/api/stt", {});`).anthropicFetch).toBe(false);
+  });
+
+  it.each([
+    ['"https://api.anthropic.com/v1/messages"', true],
+    ['"goes directly to api.anthropic.com."', true],
+    ['"api.anthropic.com:443"', true],
+    ['"https://xapi.anthropic.com/v1"', false],
+    ['"https://api.anthropic.com.evil.example/v1"', false],
+  ] as const)("the host rule matches the whole host name only: %s → %s", (literal, named) => {
+    expect(sitesInText(`const u = ${literal};`).host).toBe(named);
   });
 
   it("a comment naming the host is not a site", () => {

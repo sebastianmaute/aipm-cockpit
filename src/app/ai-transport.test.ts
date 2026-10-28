@@ -51,10 +51,29 @@ afterEach(() => {
   __resetAiKeyStatusForTests();
 });
 
+/** The URL's host is exactly Anthropic's, read as a full URL or as a scheme-less host and path. */
+function hasAnthropicHost(value: string): boolean {
+  const hostOf = (candidate: string): string | null => {
+    try {
+      return new URL(candidate).host;
+    } catch {
+      return null;
+    }
+  };
+  return [hostOf(value), hostOf(`https://${value}`)].some((host) => host === "api.anthropic.com");
+}
+
 describe("the Anthropic URLs stay inside the transport", () => {
   it("neither the transport nor anthropic-models exports an Anthropic URL", () => {
     const exported = [...Object.values(transport), ...Object.values(models)];
-    expect(exported.filter((v) => typeof v === "string" && v.includes("api.anthropic.com"))).toEqual([]);
+    expect(exported.filter((v) => typeof v === "string" && hasAnthropicHost(v))).toEqual([]);
+  });
+
+  it("the host check sees an Anthropic URL in either form, and only the exact host (not vacuous)", () => {
+    expect(hasAnthropicHost("https://api.anthropic.com/v1/messages")).toBe(true);
+    expect(hasAnthropicHost("api.anthropic.com/v1/models")).toBe(true);
+    expect(hasAnthropicHost("https://api.anthropic.com.evil.example/v1")).toBe(false);
+    expect(hasAnthropicHost("/api/ai/messages")).toBe(false);
   });
 });
 
