@@ -45,7 +45,7 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
   }));
   const bullets: string[] = [
     t(lang, aiDestinationKey("keySecurity")),
-    t(lang, "aiConsentBullet3"),
+    t(lang, aiDestinationKey("thirdParty")),
     t(lang, "aiConsentBullet4"),
     t(lang, "aiConsentBullet5"),
     ...(hasPolicy ? [t(lang, "aiConsentBullet6", owner)] : []),

@@ -67,6 +67,9 @@ export interface AiDestinationKeys {
   keyNote: TranslationKey;
   /** The consent dialog's bullet on how the key is kept and where it is sent. */
   keySecurity: TranslationKey;
+  /** The consent dialog's bullet naming who else receives the data: Anthropic, and on a gateway
+   *  deployment also the organisation's AI gateway and the provider that runs it. */
+  thirdParty: TranslationKey;
   /** The AI chat Help entry's body. */
   help: TranslationKey;
 }
@@ -77,6 +80,7 @@ export const AI_DESTINATION_KEYS: Readonly<Record<AiRoute, AiDestinationKeys>> =
     background: "aiConsentBackgroundDataIntro",
     keyNote: "aiApiKeyHint",
     keySecurity: "aiConsentBullet2",
+    thirdParty: "aiConsentBullet3",
     help: "helpSecAiBody",
   },
   gateway: {
@@ -84,6 +88,7 @@ export const AI_DESTINATION_KEYS: Readonly<Record<AiRoute, AiDestinationKeys>> =
     background: "aiConsentBackgroundDataIntroGateway",
     keyNote: "aiApiKeyHintGateway",
     keySecurity: "aiConsentBullet2Gateway",
+    thirdParty: "aiConsentBullet3Gateway",
     help: "helpSecAiBodyGateway",
   },
 };

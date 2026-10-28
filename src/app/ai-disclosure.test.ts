@@ -171,17 +171,23 @@ describe("AI_DATA_PATHS", () => {
 // re-pinned. They do NOT bump `AI_DISCLOSURE_VERSION`: they describe the route, not what is sent, and
 // a consent already records the route it was given for (`ai-consent.ts`), so a deployment that changes
 // route asks every user again by itself.
+// Re-pinned for the AI-06/AI-20 data-protection wording: a new `thirdParty` text per route (the gateway one
+// names the gateway and its provider as recipients), and the gateway key note, key bullet and Help now say
+// the app's server neither stores nor logs the key while the gateway receives it, and that the gateway may
+// keep its own log.
 const DESTINATION_PIN: readonly string[] = [
   "direct|interactive|aiConsentDataIntro|ef4b607923f8",
   "direct|background|aiConsentBackgroundDataIntro|9208fd9b4f5b",
   "direct|keyNote|aiApiKeyHint|98fd123e2e5d",
   "direct|keySecurity|aiConsentBullet2|7cb475af8600",
+  "direct|thirdParty|aiConsentBullet3|29b307012a9b",
   "direct|help|helpSecAiBody|0709ff5576e1",
   "gateway|interactive|aiConsentDataIntroGateway|2b068f0d6388",
   "gateway|background|aiConsentBackgroundDataIntroGateway|da1bf190a9fa",
-  "gateway|keyNote|aiApiKeyHintGateway|2c08dbf37646",
-  "gateway|keySecurity|aiConsentBullet2Gateway|fd7f7d5bdfdb",
-  "gateway|help|helpSecAiBodyGateway|f1aba1b243af",
+  "gateway|keyNote|aiApiKeyHintGateway|206769a38c0e",
+  "gateway|keySecurity|aiConsentBullet2Gateway|eb11512a84f3",
+  "gateway|thirdParty|aiConsentBullet3Gateway|e271fb1ba1f5",
+  "gateway|help|helpSecAiBodyGateway|843ff1deb718",
 ];
 
 const destinationFingerprint = () =>
@@ -209,6 +215,7 @@ describe("AI_DESTINATION_KEYS", () => {
       background: "aiConsentBackgroundDataIntro",
       keyNote: "aiApiKeyHint",
       keySecurity: "aiConsentBullet2",
+      thirdParty: "aiConsentBullet3",
       help: "helpSecAiBody",
     });
   });
@@ -222,7 +229,8 @@ describe("AI_DESTINATION_KEYS", () => {
   });
 
   it("gateway texts name the app's server and the gateway, and never a direct call", () => {
-    for (const key of routeKeys("gateway")) {
+    // `thirdParty` names the gateway and its provider as recipients; it says nothing about the path.
+    for (const key of routeKeys("gateway").filter((k) => k !== AI_DESTINATION_KEYS.gateway.thirdParty)) {
       const en = t("en-US", key);
       expect(en, key).toContain("this app's server and your organisation's AI gateway");
       expect(en, key).not.toMatch(/directly|api\.anthropic\.com/);
@@ -233,10 +241,31 @@ describe("AI_DESTINATION_KEYS", () => {
     expect(t("en-US", AI_DESTINATION_KEYS.direct.interactive)).toMatch(/directly from this browser to api\.anthropic\.com/);
   });
 
-  it("the key texts say the key goes the same way and is not stored on the server", () => {
+  it("the key texts say the app's server neither stores nor logs the key, and the gateway receives it", () => {
     for (const key of [AI_DESTINATION_KEYS.gateway.keyNote, AI_DESTINATION_KEYS.gateway.keySecurity, AI_DESTINATION_KEYS.gateway.help]) {
-      expect(t("en-US", key), key).toContain("not stored on the server");
+      expect(t("en-US", key), key).toContain("this app's server neither stores nor logs it, but your organisation's AI gateway receives it with every request");
+      expect(t("en-US", key), key).not.toContain("not stored on the server");
+      expect(de[key]?.toLowerCase(), key).toContain("der server dieser app speichert und protokolliert ihn nicht, das ki-gateway ihrer organisation erhält ihn jedoch mit jeder anfrage");
     }
+  });
+
+  it("gateway: the third-party bullet names the gateway and its provider as recipients", () => {
+    const key = AI_DESTINATION_KEYS.gateway.thirdParty;
+    expect(t("en-US", key)).toContain("your organisation's AI gateway and the provider that runs it");
+    expect(t("en-US", key)).toContain("Your organisation decides what the gateway logs and for how long");
+    // It keeps the direct bullet's Anthropic sentence word for word.
+    expect(t("en-US", key)).toContain(t("en-US", "aiConsentBullet3"));
+    expect(de[key]).toContain("das KI-Gateway Ihrer Organisation und den Anbieter, der es betreibt");
+    expect(de[key]).toContain(de.aiConsentBullet3);
+  });
+
+  it("gateway Help says the gateway may keep its own log", () => {
+    expect(t("en-US", AI_DESTINATION_KEYS.gateway.help)).toContain(
+      "to Anthropic when you use it; the gateway may keep its own log under your organisation's settings",
+    );
+    expect(de[AI_DESTINATION_KEYS.gateway.help]).toContain(
+      "das Gateway kann nach den Einstellungen Ihrer Organisation ein eigenes Protokoll führen",
+    );
   });
 
   it("Help's AI entry follows the route", () => {

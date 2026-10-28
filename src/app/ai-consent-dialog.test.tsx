@@ -143,6 +143,7 @@ describe("AiConsentDialog — where the data goes follows the deployment's AI ro
     renderLevel(level);
     expect(screen.getByText(t("en-US", AI_DESTINATION_KEYS.direct[level]))).toBeInTheDocument();
     expect(screen.getByText(t("en-US", "aiConsentBullet2"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "aiConsentBullet3"))).toBeInTheDocument();
     expect(document.body.textContent).toContain("directly from this browser");
   });
 
@@ -151,6 +152,9 @@ describe("AiConsentDialog — where the data goes follows the deployment's AI ro
     renderLevel(level);
     expect(screen.getByText(t("en-US", AI_DESTINATION_KEYS.gateway[level]))).toBeInTheDocument();
     expect(screen.getByText(t("en-US", AI_DESTINATION_KEYS.gateway.keySecurity))).toBeInTheDocument();
+    // The gateway and its provider are named as recipients, in place of the direct bullet.
+    expect(screen.getByText(t("en-US", "aiConsentBullet3Gateway"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "aiConsentBullet3"))).toBeNull();
     expect(screen.queryByText(t("en-US", AI_DESTINATION_KEYS.direct[level]))).toBeNull();
     expect(document.body.textContent).not.toContain("directly from this browser");
     expect(document.body.textContent).not.toContain("api.anthropic.com");
