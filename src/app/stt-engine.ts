@@ -1,6 +1,14 @@
 import type { Lang } from "./i18n";
-import { DICTATION_NEEDS_AI_CONSENT, type DictationEngine, type DictationHandlers } from "./dictation-engine";
+import {
+  DICTATION_AI_DEPLOYMENT_INVALID,
+  DICTATION_AI_DEPLOYMENT_OFF,
+  DICTATION_AI_DEPLOYMENT_UNCONFIRMED,
+  DICTATION_NEEDS_AI_CONSENT,
+  type DictationEngine,
+  type DictationHandlers,
+} from "./dictation-engine";
 import { isInteractiveConsentLive } from "./ai-consent";
+import { AiDeploymentError, confirmAiDeployment } from "./ai-transport";
 
 export interface SttConfig { lang: Lang; baseUrl: string; model: string; apiKey: string; }
 
@@ -16,16 +24,41 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
 
   const cleanupStream = () => { stream?.getTracks().forEach((t) => t.stop()); stream = null; };
 
+  /** True (and the clip discarded) when AI is off or the consent withdrawn. */
+  const consentGone = (): boolean => {
+    if (isInteractiveConsentLive()) return false;
+    handlers?.onStatus?.("idle");
+    handlers?.onError(DICTATION_NEEDS_AI_CONSENT);
+    return true;
+  };
+
   const transcribe = async (blob: Blob) => {
     // AI-01 — the send-time check: a recording finished after AI was switched off or the consent withdrawn
     // is discarded here, never uploaded.
-    if (!isInteractiveConsentLive()) {
-      handlers?.onStatus?.("idle");
-      handlers?.onError(DICTATION_NEEDS_AI_CONSENT);
-      return;
-    }
+    if (consentGone()) return;
     handlers?.onStatus?.("transcribing");
     try {
+      // The deployment's AI setting, asked before the upload as before every AI send: switched off or
+      // invalid discards the clip; unconfirmed sends nothing. Each has its own code, because the user
+      // cannot turn the deployment back on. A changed route does not matter here: STT goes through
+      // `/api/stt`, never the Anthropic route.
+      try {
+        await confirmAiDeployment();
+      } catch (e) {
+        const reason = e instanceof AiDeploymentError ? e.reason : "unconfirmed";
+        if (reason !== "route-changed") {
+          handlers?.onError(
+            reason === "off"
+              ? DICTATION_AI_DEPLOYMENT_OFF
+              : reason === "invalid"
+                ? DICTATION_AI_DEPLOYMENT_INVALID
+                : DICTATION_AI_DEPLOYMENT_UNCONFIRMED,
+          );
+          return;
+        }
+      }
+      // Asked again: the consent may have been withdrawn during the status round trip.
+      if (consentGone()) return;
       const form = new FormData();
       form.append("file", blob, "audio.webm");
       form.append("model", cfg.model);

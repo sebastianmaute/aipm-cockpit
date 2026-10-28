@@ -16,7 +16,7 @@ import { isIntegrationDisabled } from "./integration-switches";
 import { useRef, useState } from "react";
 import { t, type Lang, tPlural } from "./i18n";
 import { SegmentedControl } from "./segmented-control";
-import { aiKeyMessageKeyForStatusToken } from "./ai-key-status";
+import { aiFailureMessageKeyForToken } from "./ai-key-status";
 import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
 import { type ProposalContent } from "./use-project-proposal";
@@ -417,7 +417,7 @@ export function Step0ImportPanel({
                   : aiError === "limit"
                     ? "aiUsageLimitReached"
                     // §650 — a "401"/"403" status token names the key.
-                    : aiKeyMessageKeyForStatusToken(aiError) ?? "aiCreateError",
+                    : aiFailureMessageKeyForToken(aiError) ?? "aiCreateError",
               )}
           </FieldError>
         )}

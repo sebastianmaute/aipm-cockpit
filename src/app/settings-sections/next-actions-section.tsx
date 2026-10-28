@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { type Lang, type TranslationKey, t } from "../i18n";
-import { aiKeyMessageKeyForStatusToken } from "../ai-key-status";
+import { aiFailureMessageKeyForToken } from "../ai-key-status";
 import { FieldError } from "../field-feedback";
 import {
   type NextActionsConfig,
@@ -42,9 +42,10 @@ function suggestErrorKey(error: string): TranslationKey {
   if (error === "no-key") return "weightSuggestErrorKey";
   if (error === "parse") return "weightSuggestErrorParse";
   if (error === "limit") return "aiUsageLimitReached";
-  // §650 — a 401/403 is a refused KEY, not "Could not reach the AI service".
-  const keyMsg = aiKeyMessageKeyForStatusToken(error);
-  if (keyMsg) return keyMsg;
+  // §650 — a 401/403 is a refused KEY, and a switched-off deployment or refused gateway names
+  // itself, not "Could not reach the AI service".
+  const failureKey = aiFailureMessageKeyForToken(error);
+  if (failureKey) return failureKey;
   return "weightSuggestErrorNetwork"; // "network" or another digit-status
 }
 

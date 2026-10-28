@@ -42,7 +42,8 @@ through `describeUpstreamError`, `api/_shared/upstream-error.ts`).
 `refuseIfDisabled(id)` reads `AIPM_DISABLED_INTEGRATIONS` on every request and answers **503**
 `integration-disabled` before rate-limiting, parsing or any upstream call. Every route asks it: the Jira
 and Confluence routes through `parseJiraRequest` (`jira/_helpers.ts`), timelog and stt through their
-`_helpers.ts`, `ecb` directly. ★★ 503, never 401/403 — the Jira and TimeLog clients read 401/403 as a
+`_helpers.ts` (stt refuses on `ai` too), `ecb` directly, and the AI relay (`api/ai/_relay.ts`) for `ai`;
+`api/ai/status` alone always answers, since it reports the switch. ★★ 503, never 401/403 — the Jira and TimeLog clients read 401/403 as a
 rejected token and would store `tokenInvalidAt`. The client half is `integration-switches.ts`; see
 `docs/AGENTS/platform.md`.
 

@@ -22,7 +22,10 @@ export const RUNNING_STALE_MS = 30 * 60_000;
  *  run's callers catch that error first, as transient, so no row the runner writes carries it today. */
 export type ReportErrorToken =
   | "limit" | "401" | "403" | "parse" | "storage-unreachable" | "turso"
-  | "project-archived" | "project-missing" | "interrupted" | "error";
+  | "project-archived" | "project-missing" | "interrupted" | "error"
+  // The organisation's AI gateway refused, failed or rate-limited the run. A switched-off, invalid, changed or
+  // unconfirmed AI setting is not recorded: the run treats it as transient and retries on its next check.
+  | "ai-gateway-rejected" | "ai-gateway-error" | "ai-gateway-rate-limited";
 
 /** The one token -> message map, shared by the reports view and the Settings run history. */
 export const REPORT_ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
@@ -36,6 +39,9 @@ export const REPORT_ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
   "project-missing": "scheduledReportsErrProjectMissing",
   interrupted: "scheduledReportsErrInterrupted",
   error: "scheduledReportsErrError",
+  "ai-gateway-rejected": "aiGatewayRejected",
+  "ai-gateway-error": "aiGatewayFailed",
+  "ai-gateway-rate-limited": "aiGatewayRateLimited",
 };
 
 export type ReportData = {
@@ -173,10 +179,8 @@ export async function finishReport(
   ]));
 }
 
-const ERROR_TOKENS: ReadonlySet<string> = new Set<ReportErrorToken>([
-  "limit", "401", "403", "parse", "storage-unreachable", "turso",
-  "project-archived", "project-missing", "interrupted", "error",
-]);
+// Derived from the total message map, so a token added to the union cannot be decoded away as "error".
+const ERROR_TOKENS: ReadonlySet<string> = new Set(Object.keys(REPORT_ERROR_KEY));
 const SEVERITIES: ReadonlySet<string> = new Set<AiActionSeverity>(["now", "soon", "monitor"]);
 const GROUNDABLE: ReadonlySet<string> = new Set(GROUNDABLE_VIEWS);
 const str = (v: unknown): string => (typeof v === "string" ? v : "");

@@ -4,6 +4,8 @@ import { AiConsentRevokedError, newConsent, publishAiConsentState } from "./ai-c
 import { defaultAiConfig } from "./settings-types";
 import { __resetToolChoiceFallbackForTests, runForcedToolCall, runForcedToolCallWithStop } from "./ai-forced-call";
 import { AiHttpError } from "./ai-errors";
+import { __setAiStatusRequestForTests } from "./ai-status-request";
+import { aiStatusResponse } from "../test/ai-status-fetch";
 import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
 import { RECOMMEND_TOOL } from "./insights/recommend";
 
@@ -343,6 +345,20 @@ describe("runForcedToolCall — the consent gate (AI-01)", () => {
     await expect(runForcedToolCall(args())).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it.each(["interactive", "background"] as const)(
+    "a %s consent revoked while the deployment status is asked stops the request before it is sent",
+    async (level) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      __setAiStatusRequestForTests(async () => {
+        publishAiConsentState(level === "background" ? { ...LIVE, backgroundConsent: undefined } : { ...defaultAiConfig, consent: undefined });
+        return aiStatusResponse();
+      });
+      await expect(runForcedToolCall({ ...args(), level })).rejects.toBeInstanceOf(AiConsentRevokedError);
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not send the fallback request when consent is revoked between the two", async () => {
     // Request 1 is refused over tool_choice, which sends the call down the fallback path; the user revokes

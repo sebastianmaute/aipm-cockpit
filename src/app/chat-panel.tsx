@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, t } from "./i18n";
@@ -10,6 +10,7 @@ import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import { type AiConfig, type Settings, clampMaxChatTurns, isAiConsentedForDictation } from "./settings-types";
 import { AiConsentRevokedError, isConsentCurrent } from "./ai-consent";
+import { aiDeploymentBlockedMessageKey } from "./ai-deployment";
 import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 import { useAiUsageContext } from "./ai-usage-context";
@@ -59,7 +60,7 @@ import {
   type ToolFlags,
 } from "./chat-api";
 import { buildWireMessages } from "./chat-cache-layout";
-import { AiHttpError, classifyAiError } from "./ai-errors";
+import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
 import { aiKeyMessageKeyForError, syncAiKey } from "./ai-key-status";
 import { setSessionAiKey } from "./session-ai-key";
 import { useSessionAiKey } from "./use-session-ai-key";
@@ -616,7 +617,14 @@ function ChatPanelInner({
   // Master switch: when AI is disabled in Settings, the assistant is fully off
   // regardless of any stored key — force the no-key path so send is blocked.
   const consentStale = ai.enabled === true && !isConsentCurrent(ai.consent);
-  const masterOn = ai.enabled === true && !consentStale;
+  // The organisation switched AI off for the deployment (or its gateway setting is invalid): nothing the user
+  // sets here turns it on, so the chat says that instead of asking for a key or a consent.
+  const blockedMessageKey = aiDeploymentBlockedMessageKey();
+  const deploymentOn = blockedMessageKey === null;
+  // The visible deployment notice (empty state or banner) describes the composer it disables.
+  const deploymentNoticeId = useId();
+  const composerDescribedBy = deploymentOn ? undefined : deploymentNoticeId;
+  const masterOn = deploymentOn && ai.enabled === true && !consentStale;
   // The key actually used for calls/gating: a plaintext settings key wins,
   // else the inline-unlocked passphrase key (if any).
   const effectiveApiKey = masterOn ? (ai.apiKey.trim() ? ai.apiKey : (unlockedKey ?? "")) : "";
@@ -1102,6 +1110,7 @@ function ChatPanelInner({
       // error belongs to the old conversation, not the one now on screen).
       if (projectIdRef.current === sendProjectId && chatThreads.threadIdRef.current === sendThreadId) {
         const keyMsg = aiKeyMessageKeyForError(err);
+        const transportMsg = aiTransportMessageKey(err);
         if (errName === "AbortError") {
           setDisplay((prev) => [
             ...prev,
@@ -1119,6 +1128,10 @@ function ChatPanelInner({
           ]);
         } else if (err instanceof AiConsentRevokedError) {
           setError(t(lang, "aiConsentRevokedDuringSend"));
+        } else if (transportMsg) {
+          // The deployment's AI setting refused or could not confirm the send, or the organisation's
+          // gateway failed: nothing about the user's key, so it is named as what it is.
+          setError(t(lang, transportMsg));
         } else if (keyMsg) {
           // §650 — a refused key (401/403) is named as the KEY problem, with the way out,
           // instead of "Chat failed: 401 — invalid x-api-key".
@@ -1546,6 +1559,10 @@ function ChatPanelInner({
                   <FieldError>{t(lang, "secretUnlockFailed")}</FieldError>
                 )}
               </div>
+            ) : !deploymentOn ? (
+              <p id={deploymentNoticeId} className="text-sm text-muted-foreground">
+                {blockedMessageKey !== null && t(lang, blockedMessageKey)}
+              </p>
             ) : (
               <div className="space-y-2">
                 {!consentStale && (
@@ -1665,7 +1682,14 @@ function ChatPanelInner({
       )}
 
       {/* Outside the empty state: a persisted transcript must not hide why the composer is off. */}
-      {consentStale && (
+      {/* Same place for a switched-off deployment, without a link: nothing in Settings turns it back on. */}
+      {!deploymentOn && display.length > 0 && (
+        <Banner severity="info" role="status" className="mt-2 shrink-0">
+          <p id={deploymentNoticeId} className="min-w-0">{blockedMessageKey !== null && t(lang, blockedMessageKey)}</p>
+        </Banner>
+      )}
+
+      {consentStale && deploymentOn && (
         <Banner severity="info" role="status" className="mt-2 flex shrink-0 items-center justify-between gap-2">
           <p className="min-w-0">{t(lang, "aiConsentReviewPrompt")}</p>
           {onConfigureAi && <Button onClick={onConfigureAi}>{t(lang, "chatConfigureAi")}</Button>}
@@ -1742,6 +1766,7 @@ function ChatPanelInner({
           onBlur={registration.onBlur}
           placeholder={guidesPending ? t(lang, "chatGuidesLoading") : t(lang, "chatPlaceholder")}
           disabled={busy || apiKeyMissing || guidesPending}
+          aria-describedby={composerDescribedBy}
           className={`min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
         />
         <div className="flex flex-col gap-2">
@@ -1769,6 +1794,7 @@ function ChatPanelInner({
             <Button
               onClick={() => submitPrompt()}
               disabled={(!input.trim() && attachments.length === 0) || apiKeyMissing || guidesPending}
+              aria-describedby={composerDescribedBy}
             >
               {t(lang, "chatSend")}
             </Button>

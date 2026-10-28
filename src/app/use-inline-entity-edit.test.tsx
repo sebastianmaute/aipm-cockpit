@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { it, expect, vi, afterEach, describe } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import * as call from "./inline-ai-edit-call";
-import { AiHttpError } from "./ai-errors";
+import { AiDeploymentError, AiHttpError } from "./ai-errors";
 import * as tools from "./chat-tools";
 import * as planMod from "./inline-ai-edit/plan";
 import { useInlineAiEdit, type InlineAiEditDeps } from "./use-inline-ai-edit";
@@ -865,6 +865,15 @@ describe("§650 inline AI edit — a refused key shows the key message", () => {
     await act(async () => { await result.current.submit("x"); });
     expect(result.current.phase).toBe("error");
     expect(result.current.errorText).toBe(t("en-US", key));
+  });
+
+  it("a switched-off deployment names itself, not 'Couldn't reach Claude'", async () => {
+    vi.spyOn(call, "callInlineEdit").mockRejectedValue(new AiDeploymentError("route-changed"));
+    const { result } = renderHook(() => useInlineAiEdit(mkDeps()));
+    act(() => result.current.openFor(task));
+    await act(async () => { await result.current.submit("x"); });
+    expect(result.current.phase).toBe("error");
+    expect(result.current.errorText).toBe(t("en-US", "aiDeploymentChanged"));
   });
 
   it("a non-key failure keeps the generic text (control)", async () => {

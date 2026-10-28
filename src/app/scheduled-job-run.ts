@@ -3,7 +3,9 @@
 // deps (no React, no globals) so every branch is testable with fakes. Spec "Run" steps 1–8.
 // ★ Errors are stored ONLY as `ReportErrorToken`s, never `e.message` (Turso errors carry server text).
 import { groundEntity, type ActionAnalysis } from "./action-ai";
-import { AiHttpError, classifyAiError } from "./ai-errors";
+import {
+  AiDeploymentError, AiGatewayError, AiHttpError, classifyAiError,
+} from "./ai-errors";
 import { buildProjectAnalysisInput } from "./project-analysis-input";
 import { periodStartFor } from "./scheduled-jobs/schedule";
 import { buildProjectDigest, DIGEST_MAX_CHARS } from "./project-digest";
@@ -29,6 +31,9 @@ export interface RunDeps {
   /** Re-read the LIVE state right before a claim: the job still exists, is enabled and has the same key and project,
    *  scheduled jobs and AI are still on with a key, and the portfolio is still the one the tick began on. */
   stillRunnable(job: ScheduledJob): boolean | Promise<boolean>;
+  /** Asks the server whether AI is on and on the route this page loaded with (`confirmAiDeployment`); rejects when
+   *  not. Asked right before the claim, so a tab that cannot send never claims (and fails) the shared slot. */
+  confirmDeployment(): Promise<void>;
   loadWorkspace(projectId: string): Promise<Workspace>;
   /** After a load: true when part of the project failed to decode or was truncated (the report then says so). */
   lastLoadPartial?(): boolean;
@@ -46,7 +51,8 @@ export interface RunDeps {
 }
 
 /** Maps any failure to the closed token set, stored instead of a message. It reads the error's type and status. The only
- *  text it reads: the literal "parse" `runJobAnalysis` throws, and the `Turso` prefix of the pipeline's plain errors. */
+ *  text it reads: the literal "parse" `runJobAnalysis` throws, and the `Turso` prefix of the pipeline's plain errors.
+ *  An `AiDeploymentError` never reaches it: the run catches it first as transient and waits for its next check. */
 export function toErrorToken(e: unknown): ReportErrorToken {
   if (e instanceof AiHttpError) {
     if (classifyAiError(e.status, e.errorType) === "limit") return "limit";
@@ -54,6 +60,7 @@ export function toErrorToken(e: unknown): ReportErrorToken {
     if (e.status === 403) return "403";
     return "error";
   }
+  if (e instanceof AiGatewayError) return e.code;
   if (e instanceof StorageNotReadyError) return "storage-unreachable";
   if (e instanceof TursoStepError || e instanceof TursoHttpError) return "turso";
   if (e instanceof Error) {
@@ -98,6 +105,14 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
     return "project-missing";
   }
   const projectName = (activeHit ?? archivedHit)?.name ?? "";
+
+  // The slot is shared by every device: a tab whose AI is off, invalid, on a stale route or unreachable would claim it
+  // and fail it for all of them. Nothing was sent, so nothing is claimed and the next tick retries.
+  try {
+    await deps.confirmDeployment();
+  } catch {
+    return "transient";
+  }
 
   // 2. Claim. Name and instruction are captured NOW; a later rename of the job never rewrites this report.
   const reportId = deps.newId();
@@ -180,6 +195,12 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
       return grounded ? { ...rest, entity: { view: grounded.view, id: String(grounded.id) } } : rest;
     });
   } catch (e) {
+    // The transport throws `AiDeploymentError` before it sends anything (the setting changed since the check above):
+    // nothing was billed, so, as for the load, the claim is released and the next tick retries.
+    if (e instanceof AiDeploymentError) {
+      await settle(releaseClaim(config, reportId));
+      return "transient";
+    }
     return failRun(job, reportId, jobKey, reportBase, toErrorToken(e), deps, slotIso);
   }
 

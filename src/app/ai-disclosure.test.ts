@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
-import { AI_CONSENT_LEVELS, AI_DATA_PATHS, aiDataPathsFor } from "./ai-disclosure";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { AI_CONSENT_LEVELS, AI_DATA_PATHS, AI_DESTINATION_KEYS, aiDataPathsFor } from "./ai-disclosure";
+import { type AiRoute, setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
+import { helpEntryBody } from "./help-content";
 import { AI_DISCLOSURE_VERSION } from "./ai-consent";
-import { loadI18n, t } from "./i18n";
+import { loadI18n, t, type TranslationKey } from "./i18n";
 import { de } from "./i18n.de";
 import { AI_ACTIVATION_SITES, AI_BACKGROUND_SITES } from "../test/ai-activation-sites";
 
@@ -159,5 +162,118 @@ describe("AI_DATA_PATHS", () => {
       if (row.level === "interactive") expect(at < backgroundAt, label).toBe(true);
       else expect(at > backgroundAt, label).toBe(true);
     }
+  });
+});
+
+// ★ THE DESTINATION PIN. The texts that say WHERE the data goes — one set per AI route (direct to
+// Anthropic, or through this app's server and the organisation's AI gateway) — are pinned here by a
+// hash of their English AND German text (first 12 hex digits of SHA-256 over EN, a NUL, then DE), so a
+// wording change in either language is red until it is re-pinned. They do NOT bump `AI_DISCLOSURE_VERSION`: they describe the route, not what is sent, and
+// a consent already records the route it was given for (`ai-consent.ts`), so a deployment that changes
+// route asks every user again by itself.
+// Re-pinned for the AI-06/AI-20 data-protection wording: a new `thirdParty` text per route (the gateway one
+// names the gateway and its provider as recipients), and the gateway key note, key bullet and Help now say
+// the app's server neither stores nor logs the key while the gateway receives it, and that the gateway may
+// keep its own log. Re-pinned again when the hash took in the German text, and the gateway Help's log
+// clause moved into brackets.
+const DESTINATION_PIN: readonly string[] = [
+  "direct|interactive|aiConsentDataIntro|83b84643e133",
+  "direct|background|aiConsentBackgroundDataIntro|f5a79b78f629",
+  "direct|keyNote|aiApiKeyHint|52324fad6918",
+  "direct|keySecurity|aiConsentBullet2|d509cd229b54",
+  "direct|thirdParty|aiConsentBullet3|e5f450536dea",
+  "direct|help|helpSecAiBody|b798afe12238",
+  "gateway|interactive|aiConsentDataIntroGateway|7ebfc37003e9",
+  "gateway|background|aiConsentBackgroundDataIntroGateway|687e1f3265c0",
+  "gateway|keyNote|aiApiKeyHintGateway|28c8960cc576",
+  "gateway|keySecurity|aiConsentBullet2Gateway|16b9a79fc098",
+  "gateway|thirdParty|aiConsentBullet3Gateway|0412e7b4a6e5",
+  "gateway|help|helpSecAiBodyGateway|c788c6e74b8c",
+];
+
+const destinationFingerprint = () =>
+  Object.entries(AI_DESTINATION_KEYS).flatMap(([route, keys]) =>
+    Object.entries(keys).map(([kind, key]) =>
+      `${route}|${kind}|${key}|${createHash("sha256").update(`${t("en-US", key)}\u0000${de[key as TranslationKey]}`).digest("hex").slice(0, 12)}`,
+    ),
+  );
+
+const routeKeys = (route: AiRoute): TranslationKey[] => Object.values(AI_DESTINATION_KEYS[route]);
+
+describe("AI_DESTINATION_KEYS", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
+
+  it("is pinned by its English and German texts (re-pin a wording change; the version stays)", () => {
+    expect(destinationFingerprint()).toEqual(DESTINATION_PIN);
+  });
+
+  it("direct keeps the keys the app has always shown", () => {
+    expect(AI_DESTINATION_KEYS.direct).toEqual({
+      interactive: "aiConsentDataIntro",
+      background: "aiConsentBackgroundDataIntro",
+      keyNote: "aiApiKeyHint",
+      keySecurity: "aiConsentBullet2",
+      thirdParty: "aiConsentBullet3",
+      help: "helpSecAiBody",
+    });
+  });
+
+  it("every text exists in English and German, and German is translated", () => {
+    for (const key of [...routeKeys("direct"), ...routeKeys("gateway")]) {
+      expect(t("en-US", key), key).not.toBe(key);
+      expect(de[key]?.trim(), key).toBeTruthy();
+      expect(de[key], key).not.toBe(t("en-US", key));
+    }
+  });
+
+  it("gateway texts name the app's server and the gateway, and never a direct call", () => {
+    // `thirdParty` names the gateway and its provider as recipients; it says nothing about the path.
+    for (const key of routeKeys("gateway").filter((k) => k !== AI_DESTINATION_KEYS.gateway.thirdParty)) {
+      const en = t("en-US", key);
+      expect(en, key).toContain("this app's server and your organisation's AI gateway");
+      expect(en, key).not.toMatch(/directly|api\.anthropic\.com/);
+      expect(de[key], key).toContain("Gateway");
+      expect(de[key], key).not.toMatch(/direkt|api\.anthropic\.com/);
+    }
+    // Positive control: the direct texts are the ones that say "directly … api.anthropic.com".
+    expect(t("en-US", AI_DESTINATION_KEYS.direct.interactive)).toMatch(/directly from this browser to api\.anthropic\.com/);
+  });
+
+  it("the key texts say the app's server neither stores nor logs the key, and the gateway receives it", () => {
+    for (const key of [AI_DESTINATION_KEYS.gateway.keyNote, AI_DESTINATION_KEYS.gateway.keySecurity, AI_DESTINATION_KEYS.gateway.help]) {
+      expect(t("en-US", key), key).toContain("this app's server neither stores nor logs it, but your organisation's AI gateway receives it with every request");
+      expect(t("en-US", key), key).not.toContain("not stored on the server");
+      expect(de[key]?.toLowerCase(), key).toContain("der server dieser app speichert und protokolliert ihn nicht, das ki-gateway ihrer organisation erhält ihn jedoch mit jeder anfrage");
+    }
+  });
+
+  it("gateway: the third-party bullet names the gateway and its provider as recipients", () => {
+    const key = AI_DESTINATION_KEYS.gateway.thirdParty;
+    expect(t("en-US", key)).toContain("your organisation's AI gateway and the provider that runs it");
+    expect(t("en-US", key)).toContain("Your organisation decides what the gateway logs and for how long");
+    // It keeps the direct bullet's Anthropic sentence word for word.
+    expect(t("en-US", key)).toContain(t("en-US", "aiConsentBullet3"));
+    expect(de[key]).toContain("das KI-Gateway Ihrer Organisation und den Anbieter, der es betreibt");
+    expect(de[key]).toContain(de.aiConsentBullet3);
+  });
+
+  it("gateway Help says the gateway may keep its own log", () => {
+    expect(t("en-US", AI_DESTINATION_KEYS.gateway.help)).toContain(
+      "to Anthropic when you use it (the gateway may keep its own log under your organisation's settings); dictation is the exception",
+    );
+    expect(de[AI_DESTINATION_KEYS.gateway.help]).toContain(
+      "an Anthropic (das Gateway kann nach den Einstellungen Ihrer Organisation ein eigenes Protokoll führen); ausgenommen ist das Diktat",
+    );
+  });
+
+  it("Help's AI entry follows the route", () => {
+    const entry = { bodyKey: "helpSecAiBody" } as const;
+    expect(helpEntryBody("en-US", entry)).toBe(t("en-US", "helpSecAiBody"));
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false });
+    expect(helpEntryBody("en-US", entry)).toBe(t("en-US", AI_DESTINATION_KEYS.gateway.help));
+    expect(helpEntryBody("de", entry)).toBe(de[AI_DESTINATION_KEYS.gateway.help]);
   });
 });

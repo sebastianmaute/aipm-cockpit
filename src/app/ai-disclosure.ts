@@ -12,6 +12,7 @@
 //    each row's English label and data text, and fails on any change until it is re-pinned (wording
 //    only) or the version is bumped (what is sent changed).
 import type { TranslationKey } from "./i18n";
+import { type AiRoute, currentAiRoute } from "./ai-deployment";
 
 export const AI_CONSENT_LEVELS = ["interactive", "background"] as const;
 export type AiConsentLevel = (typeof AI_CONSENT_LEVELS)[number];
@@ -49,4 +50,50 @@ export const AI_DATA_PATHS: readonly AiDataPath[] = [
 /** The rows one consent level discloses, in table order. */
 export function aiDataPathsFor(level: AiConsentLevel): readonly AiDataPath[] {
   return AI_DATA_PATHS.filter((row) => row.level === level);
+}
+
+/** The texts that say WHERE the data and the key go, one set per AI route: `direct` (this browser
+ *  calls Anthropic) or `gateway` (this browser calls this app's server, which relays through the
+ *  organisation's AI gateway). The consent dialog, the key note in Settings → AI and the AI Help entry
+ *  read them through `aiDestinationKey`, so each says the route the deployment actually uses.
+ *  ★ Changing one is a wording change, pinned by `DESTINATION_PIN` in ai-disclosure.test.ts; it does
+ *  not bump `AI_DISCLOSURE_VERSION`, because a consent already records the route it was given for. */
+export interface AiDestinationKeys {
+  /** Lead-in to the interactive consent dialog's data rows. */
+  interactive: TranslationKey;
+  /** Lead-in to the background consent dialog's data rows. */
+  background: TranslationKey;
+  /** The note under the key field in Settings → AI. */
+  keyNote: TranslationKey;
+  /** The consent dialog's bullet on how the key is kept and where it is sent. */
+  keySecurity: TranslationKey;
+  /** The consent dialog's bullet naming who else receives the data: Anthropic, and on a gateway
+   *  deployment also the organisation's AI gateway and the provider that runs it. */
+  thirdParty: TranslationKey;
+  /** The AI chat Help entry's body. */
+  help: TranslationKey;
+}
+
+export const AI_DESTINATION_KEYS: Readonly<Record<AiRoute, AiDestinationKeys>> = {
+  direct: {
+    interactive: "aiConsentDataIntro",
+    background: "aiConsentBackgroundDataIntro",
+    keyNote: "aiApiKeyHint",
+    keySecurity: "aiConsentBullet2",
+    thirdParty: "aiConsentBullet3",
+    help: "helpSecAiBody",
+  },
+  gateway: {
+    interactive: "aiConsentDataIntroGateway",
+    background: "aiConsentBackgroundDataIntroGateway",
+    keyNote: "aiApiKeyHintGateway",
+    keySecurity: "aiConsentBullet2Gateway",
+    thirdParty: "aiConsentBullet3Gateway",
+    help: "helpSecAiBodyGateway",
+  },
+};
+
+/** The text for `kind` on this deployment's AI route. */
+export function aiDestinationKey(kind: keyof AiDestinationKeys): TranslationKey {
+  return AI_DESTINATION_KEYS[currentAiRoute()][kind];
 }

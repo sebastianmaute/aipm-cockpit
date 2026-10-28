@@ -4,7 +4,7 @@ import { useMeetingReportActions, type MeetingReportActionsDeps } from "./use-me
 import type { SteeringCommittee, Resource } from "./types";
 import type { DashboardModel } from "./dashboard";
 import { defaultSettings } from "./settings-types";
-import { AiHttpError } from "./ai-errors";
+import { AiGatewayError, AiHttpError } from "./ai-errors";
 import { t } from "./i18n";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 
@@ -251,6 +251,15 @@ describe("§650 a refused key shows the key message on the report draft toast", 
     const { result } = renderHook(() => useMeetingReportActions(makeDeps({ showToast })));
     await act(async () => { result.current!.onGenerateReport(10); });
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
+    expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "reportGenerateFailed"));
+  });
+
+  it("a refused gateway toasts the gateway message instead of 'Could not draft the report'", async () => {
+    runMeetingReport.mockRejectedValueOnce(new AiGatewayError("ai-gateway-rejected"));
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ showToast })));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiGatewayRejected")));
     expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "reportGenerateFailed"));
   });
 });

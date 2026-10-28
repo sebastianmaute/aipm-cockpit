@@ -1,9 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AiConsentDialog } from "./ai-consent-dialog";
 import { resolveAiPolicy } from "./ai-policy";
 import { t } from "./i18n";
-import { aiDataPathsFor } from "./ai-disclosure";
+import { AI_DESTINATION_KEYS, aiDataPathsFor } from "./ai-disclosure";
+import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 
 // The organisation policy block reads `resolveAiPolicy` (ai-policy.ts): owner + link, or no block at all.
 function renderDialog(
@@ -129,5 +131,32 @@ describe("AiConsentDialog", () => {
     expect(
       screen.getByRole("button", { name: `${t("en-US", "alertModalClose")} – ${t("en-US", "aiConsentTitle")}` }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("AiConsentDialog — where the data goes follows the deployment's AI route", () => {
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
+  const renderLevel = (level: "interactive" | "background") =>
+    render(<AiConsentDialog lang="en-US" level={level} policy={resolveAiPolicy({})} onAccept={vi.fn()} onCancel={vi.fn()} />);
+
+  it.each(["interactive", "background"] as const)("direct: the %s dialog says directly from this browser (control)", (level) => {
+    renderLevel(level);
+    expect(screen.getByText(t("en-US", AI_DESTINATION_KEYS.direct[level]))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "aiConsentBullet2"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "aiConsentBullet3"))).toBeInTheDocument();
+    expect(document.body.textContent).toContain("directly from this browser");
+  });
+
+  it.each(["interactive", "background"] as const)("gateway: the %s dialog names the gateway route and no direct call", (level) => {
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false });
+    renderLevel(level);
+    expect(screen.getByText(t("en-US", AI_DESTINATION_KEYS.gateway[level]))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", AI_DESTINATION_KEYS.gateway.keySecurity))).toBeInTheDocument();
+    // The gateway and its provider are named as recipients, in place of the direct bullet.
+    expect(screen.getByText(t("en-US", "aiConsentBullet3Gateway"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "aiConsentBullet3"))).toBeNull();
+    expect(screen.queryByText(t("en-US", AI_DESTINATION_KEYS.direct[level]))).toBeNull();
+    expect(document.body.textContent).not.toContain("directly from this browser");
+    expect(document.body.textContent).not.toContain("api.anthropic.com");
   });
 });

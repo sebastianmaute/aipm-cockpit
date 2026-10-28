@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled } from "./settings-types";
-import { newConsent } from "./ai-consent";
+import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled, isAiConsentedForDictation } from "./settings-types";
+import { newConsent, isInteractiveAiAllowed } from "./ai-consent";
+import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { setSessionAiKey, clearSessionAiKey } from "./session-ai-key";
 
 const NO_FOOTER_ENV: ExportFooterEnv = { footer: undefined };
@@ -421,4 +423,25 @@ describe("AI consent gate", () => {
     expect(ai.consent).toEqual(newConsent(D));
     expect(ai.backgroundConsent).toEqual(newConsent(D));
   });
+});
+
+describe("deployment closes the AI gate", () => {
+  afterEach(() => { setAiDeploymentState(DIRECT_AI_STATUS); clearSessionAiKey(); });
+  const allowed = { ...defaultAiConfig, enabled: true, apiKey: "sk-ant-x", consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) };
+  it("is open by default", () => {
+    expect(isInteractiveAiAllowed(allowed)).toBe(true);
+    expect(isAiEnabled(allowed)).toBe(true);
+    expect(isAiBackgroundEnabled(allowed)).toBe(true);
+    expect(aiKeyIfEnabled(allowed)).toBe("sk-ant-x");
+    expect(isAiConsentedForDictation(allowed)).toBe(true);
+  });
+  it.each([["off", { off: true, route: "direct", invalid: false }], ["invalid", { off: false, route: "direct", invalid: true }]] as const)(
+    "is closed when the deployment is %s", (_n, st) => {
+      setAiDeploymentState(st);
+      expect(isInteractiveAiAllowed(allowed)).toBe(false);
+      expect(isAiEnabled(allowed)).toBe(false);
+      expect(isAiBackgroundEnabled(allowed)).toBe(false);
+      expect(aiKeyIfEnabled(allowed)).toBe("");
+      expect(isAiConsentedForDictation(allowed)).toBe(false);
+    });
 });

@@ -3,6 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 vi.mock("./weight-suggestion-call", () => ({ runWeightSuggestion: vi.fn() }));
 import { runWeightSuggestion } from "./weight-suggestion-call";
 import { useWeightSuggestions } from "./use-weight-suggestions";
+import { AiGatewayError } from "./ai-errors";
 import { defaultNextActionsConfig } from "./settings-types";
 import type { ReactNode } from "react";
 import { ActionGuidesProvider } from "./action-guides-context";
@@ -29,6 +30,12 @@ describe("useWeightSuggestions", () => {
     const { result } = renderHook(() => useWeightSuggestions({ apiKey: "k", model: "claude-x" }));
     await act(async () => { await result.current.run("ctx", defaultNextActionsConfig, "weights"); });
     expect(result.current.error).toBe("429");
+  });
+  it("names a transport failure by its message key, not 'network'", async () => {
+    vi.mocked(runWeightSuggestion).mockRejectedValueOnce(new AiGatewayError("ai-gateway-rejected"));
+    const { result } = renderHook(() => useWeightSuggestions({ apiKey: "k", model: "claude-x" }));
+    await act(async () => { await result.current.run("ctx", defaultNextActionsConfig, "weights"); });
+    expect(result.current.error).toBe("aiGatewayRejected");
   });
 });
 

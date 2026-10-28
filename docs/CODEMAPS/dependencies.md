@@ -46,12 +46,12 @@ CSS and `globals.css` fails, 500-ing the app.
 ## External services (runtime, none required)
 
 Every integration is opt-in; the app is fully functional with all of them off.
-A deployment can also withhold the five proxied ones (`jira`, `confluence`, `timelog`, `ecb`, `stt`) with the
-server setting `AIPM_DISABLED_INTEGRATIONS` (§762, `integration-switches.ts`; see `docs/AGENTS/platform.md`).
+A deployment can also withhold the five proxied ones (`jira`, `confluence`, `timelog`, `ecb`, `stt`) and the AI
+(`ai`) with the server setting `AIPM_DISABLED_INTEGRATIONS` (§762, `integration-switches.ts`; see `docs/AGENTS/platform.md`).
 
 | Service | Reached | Secret |
 |---|---|---|
-| Anthropic | browser-direct, `api.anthropic.com` | `anthropicApiKey` |
+| Anthropic | browser-direct, `api.anthropic.com`; or, when `AIPM_AI_GATEWAY_URL` is set, through the same-origin `/api/ai/*` relay and the organisation's AI gateway | `anthropicApiKey` (+ the server-only gateway token, `AIPM_AI_GATEWAY_TOKEN`) |
 | Turso (libSQL) | browser-direct, `*.turso.io` | `tursoAuthToken` |
 | Microsoft Graph / MSAL | browser-direct | none stored (MSAL owns its cache) |
 | Jira + Confluence | `/api/jira/*`, `/api/confluence/page` | `jiraApiToken` |

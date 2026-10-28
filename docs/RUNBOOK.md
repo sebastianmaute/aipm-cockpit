@@ -6,9 +6,12 @@ this file covers what to do when the app needs to ship or starts misbehaving.
 
 ## What this app is, operationally
 
-- **Pure client-side app** with twelve thin Next.js route handlers that exist
+- **Pure client-side app** with fifteen thin Next.js route handlers that exist
   only to add CORS/SSRF/auth guards to calls the browser cannot make directly:
-  `jira/*` (eight), `confluence/page`, `timelog`, `stt` and `ecb`. No database,
+  `jira/*` (eight), `confluence/page`, `timelog`, `stt`, `ecb`, and `ai/status`,
+  `ai/messages`, `ai/models` (the optional AI gateway relay, see
+  [Routing AI through a gateway](#routing-ai-through-a-gateway-run-time-optional)).
+  Count them with `find src/app/api -name route.ts | wc -l`. No database,
   no auth middleware, no session store,
   and no _server_ background jobs. "Scheduled jobs" (recurring Claude analyses,
   0.105.0+) run entirely in the browser while the app is open — there is no
@@ -37,11 +40,15 @@ this file covers what to do when the app needs to ship or starts misbehaving.
   **user-supplied** OpenAI-compatible host — the one route with no vendor apex
   to pin, compensating with a private-IP block, https-only, `redirect:
   "manual"` and a size cap — and `/api/ecb` reaches one hard-coded ECB URL with
-  no user input and no secret, which is why it is the only route that needs no
-  SSRF guard. All go out only with credentials forwarded from the request
-  body. The browser calls `api.anthropic.com` (Claude), `*.turso.io` (Turso),
-  `graph.microsoft.com` (M365 Graph), and `login.microsoftonline.com` (MSAL)
-  directly (no server proxy).
+  no user input and no secret, which is why it needs no SSRF guard. All of these
+  go out only with credentials forwarded from the request body. The browser calls
+  `api.anthropic.com` (Claude), `*.turso.io` (Turso), `graph.microsoft.com`
+  (M365 Graph), and `login.microsoftonline.com` (MSAL) directly (no server
+  proxy) — except on a deployment that routes AI through a gateway: there the
+  browser calls the same-origin `/api/ai/*` relay instead of `api.anthropic.com`,
+  and the server calls the one gateway URL the operator configured (no user
+  input reaches the host, so it needs no SSRF guard either), adding the
+  deployment's gateway token — the only server-side secret this app can have.
 
 This shape means most "incidents" are either build failures, browser-side
 errors visible only in DevTools, or Atlassian / Anthropic outages we cannot
@@ -123,7 +130,8 @@ keeps `'unsafe-inline'` because React renders `style={{...}}` props as the
 that has been sanitized (`sanitize-html.ts` / DOMPurify) or is an app-authored
 constant, and script execution stays nonce-strict — which is why the
 attribute allowance is treated as low-risk. `connect-src` allows the browser-called
-origins (`api.anthropic.com`, `*.turso.io`, `graph.microsoft.com`,
+origins (`api.anthropic.com` only while AI is on and not routed through a gateway, see
+[Routing AI through a gateway](#routing-ai-through-a-gateway-run-time-optional); `*.turso.io`, `graph.microsoft.com`,
 `login.microsoftonline.com`, the SharePoint download hosts `*.sharepoint.com` and
 `*.files.1drv.com` — the backend's load fetches the file bytes from the pre-authenticated
 `@microsoft.graph.downloadUrl` — plus `http://localhost:*` and `http://127.0.0.1:*`
@@ -217,6 +225,14 @@ risk is forward compatibility: data saved by a newer build can carry
 fields or a schema version the older build does not know. In environments
 with real user data, have users take an export before rolling back.
 
+A release from before the AI gateway relay ignores `AIPM_AI_GATEWAY_URL`
+and the route a consent records, so its browsers send AI requests directly
+to `api.anthropic.com`, under a consent given for the gateway. On a gateway
+deployment, unset the gateway settings before rolling back (users are then
+asked to accept the direct-route disclosure), or accept that users' requests
+go direct. That older release also ignores the `ai` value of
+`AIPM_DISABLED_INTEGRATIONS`, so it cannot be used to keep AI off.
+
 ## Publishing a desktop release (GitHub)
 
 1. Bump `src/app/version.ts` (`APP_VERSION`, `APP_BUILD_DATE`, milestone), run
@@ -271,11 +287,12 @@ unrelated to the desktop release pipeline.
 
 ## Secrets
 
-The repo contains **no production secrets**. Multiple credential paths, all browser-local:
+The repo contains **no production secrets**. Multiple credential paths, all browser-local except the optional AI gateway token:
 
 | Credential | Stored | Sent to | Rotation path |
 |---|---|---|---|
-| Anthropic API key | Browser, encrypted (AES-256-GCM ciphertext in `localStorage["aipm-cockpit:secrets"]`, device key in IndexedDB; optional passphrase) | `api.anthropic.com` (direct from browser) | User edits Settings → AI |
+| Anthropic API key | Browser, encrypted (AES-256-GCM ciphertext in `localStorage["aipm-cockpit:secrets"]`, device key in IndexedDB; optional passphrase) | `api.anthropic.com` (direct from browser); on a gateway deployment, the same-origin `/api/ai/*` relay, which forwards it to the organisation's AI gateway and **never persists or logs it** | User edits Settings → AI |
+| AI gateway token (`AIPM_AI_GATEWAY_TOKEN`, optional) | Server environment only; never sent to a browser | The configured AI gateway, as `cf-aig-authorization: Bearer <token>` on every relayed call | Create a new token in Cloudflare, set it, restart, then revoke the old one |
 | Jira site URL + email + API token | Site URL + email: browser `localStorage`, unencrypted. Token: encrypted like the Anthropic key (device key only) | Forwarded to Atlassian via `/api/jira/*` route handlers; **never persisted server-side** | User edits Settings → Jira |
 | Timelog host + tenant + email + API token | Host, tenant, email: browser `localStorage`, unencrypted. Token: encrypted (device key only) | Forwarded to the user's `*.timelog.com` host via `/api/timelog`; never persisted server-side | User edits Settings → Integrations → Timelog |
 | Dictation (STT) base URL + API key | Base URL: browser `localStorage` (settings). Key: encrypted (device key only) | Forwarded to the user-configured endpoint via `/api/stt`; never persisted server-side | User edits Settings → Dictation engine |
@@ -295,8 +312,10 @@ stored where, and the build-time env vars, are owned by
 [security.md](security.md#security-model).
 
 If a deployment-host compromise is suspected, **no server-side secret needs
-rotation** because the server holds none. Users may want to rotate their own
-Atlassian tokens and Anthropic keys defensively.
+rotation** because the server holds none — unless the deployment sets
+`AIPM_AI_GATEWAY_TOKEN`: rotate that token in Cloudflare. Users may want to rotate
+their own Atlassian tokens and Anthropic keys defensively; on a gateway deployment
+the Anthropic keys passed through the server, so recommend it more strongly there.
 
 ## Setup & Integration Configuration
 
@@ -328,6 +347,137 @@ section there.
 - **Confluence has its own name.** The Confluence import uses the Jira credentials, but
   switching off `jira` alone leaves it offered to users who stored Jira credentials
   earlier. Name `confluence` too to switch it off.
+- **`ai` switches every AI feature off**, and dictation to a speech service with it
+  (`/api/stt` refuses too). To check it took effect, open Settings → AI: it says the
+  organisation switched AI off, and the master switch cannot be ticked. Users' keys and
+  consents are kept and work again once `ai` is removed (unless the AI route changed
+  meanwhile; then users are asked again).
+  Dictation with the browser's own speech recognition is not affected: it stays
+  available and, in some browsers (for example Chrome and Edge), sends the audio to the
+  browser maker's service. No deployment setting switches it off.
+  ★ **Tabs opened before this release ignore `ai` until reloaded; have users reload.** A
+  page loaded from a release without the `ai` switch never asks the server before an AI
+  call and keeps the content security policy it loaded with, which still allows
+  `api.anthropic.com`, so on the first deploy that sets `ai` it goes on calling Anthropic
+  directly from the browser. Only the server's own routes (`/api/stt`) are refused at
+  once.
+
+### Routing AI through a gateway (run-time, optional)
+
+By default every AI request goes from the user's browser straight to
+`api.anthropic.com`. A deployment can instead send them through this app's server
+and the organisation's AI gateway (Cloudflare AI Gateway), for example to see usage
+in one place or to enforce a rate limit. Each user still enters their own Anthropic
+key; the server only relays the request. The two settings, their exact rules and
+what an invalid value does are in
+[security.md → Environment variables](security.md#environment-variables), which owns
+that list.
+
+1. **Create the gateway** in the Cloudflare dashboard (AI → AI Gateway).
+2. **Create the token** in the gateway's settings ("Create authentication token"), with
+   the **AI Gateway Run** permission, then turn on **Authenticated Gateway** there.
+   ★ The token is **account-wide**: it can send requests through EVERY gateway in that
+   Cloudflare account, not only this one — including any gateway that holds stored
+   provider keys.
+3. ★★ **No gateway in that Cloudflare account may hold stored provider keys** (BYOK,
+   "Provider keys") — or use a dedicated Cloudflare account for this app. A gateway
+   uses a stored key only when a request carries no provider key of its own. The relay
+   always forwards the caller's own `x-api-key` and refuses a call without one
+   (`400 missing-api-key`), so nobody calling through this app can make a gateway fall
+   back to a stored key. The risk is the token itself: whoever obtains it (a
+   compromised or leaked server environment) can send requests without a provider key
+   to any BYOK gateway in the account and spend the organisation's stored
+   credentials. If you keep stored keys in the same account anyway, you accept that
+   this app's server-held token can spend them.
+4. **Set the server environment** and restart:
+   ```
+   AIPM_AI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_id>/anthropic
+   AIPM_AI_GATEWAY_TOKEN=<the token from step 2>
+   ```
+   The server reads both on every request, so a restart applies a change; no rebuild.
+   An invalid value switches AI off for the whole deployment instead of falling back
+   to a direct call: Settings → AI says the gateway setting is invalid, and
+   `GET /api/ai/status` answers `invalid: true`. Which part is invalid is named by a
+   reason code (`url`, `token` or `token-without-url`), never by the value, in two
+   places: the server log, once per server process, as
+   `ai gateway setting invalid: <reason>`, and the browser's diagnostic log, as
+   `ai.gateway.invalid` with the field `reason`. (The status answer carries the same
+   code as `invalidReason`.)
+5. **Allow long responses and large requests on the front proxy.** A relayed call is
+   held open until Anthropic answers; the relay itself gives up only after 15 minutes
+   without data (an idle timeout: a call that keeps receiving data is never cut off by
+   it). Any ingress, load balancer or reverse proxy in front of the app must allow an
+   **idle (read) timeout of at least 15 minutes** on `/api/ai/messages`, and must set
+   **no total request timeout shorter than the longest answer you expect**, or long
+   answers fail at the proxy. It must also allow a **request body of at least 32 MB**
+   on `/api/ai/messages` (the relay's own cap, Anthropic's Messages limit): common
+   ingress defaults are around 1 MB, and a chat with attachments above that is refused
+   before the relay sees it, so the user sees a gateway error. If your ingress or
+   route configuration exposes no per-route setting for either, ask whoever operates
+   it to set both for `/api/ai/messages`.
+   ★ **Uploading the request has its own limit.** The app server must receive the
+   whole request body within Node's default request timeout of 5 minutes (`next start`
+   does not change it), so the largest allowed chat (32 MB) needs an upload of roughly
+   110 KB/s from the user's browser; on a slower link a large chat fails before it is
+   relayed. Smaller requests are rarely affected.
+6. **Decide the gateway's logging before go-live.** If it is on, the gateway stores
+   every prompt and answer, which include personal data from the project: set its
+   retention, record the gateway provider as a processor, and name it in the AI usage
+   policy the consent screen links to (`NEXT_PUBLIC_AI_POLICY_URL`). The consent screen
+   tells users the gateway and its provider receive their requests and that the
+   organisation decides what it logs.
+7. **Check it.** Open Settings → AI: every user is asked to accept the AI data
+   disclosure again, and the dialog and the key note now say the data goes through
+   this app's server and the organisation's AI gateway. Send one chat message and
+   find it in the gateway's logs (if logging is on).
+
+What to know when running it:
+
+- **Consent follows the route.** A consent records whether it was given for a direct
+  or a gateway deployment, so turning the gateway on — or off again — asks every
+  user to accept the disclosure again. The background consent (for the scheduled jobs
+  and the automatic insight recommendations) follows the route too: it lapses at the
+  same change, and each user has to tick background AI in Settings → AI again,
+  separately from accepting the disclosure; until then those features do not run.
+  Changing from one gateway URL to another is not a route change and asks nothing.
+  If the new gateway belongs to a different provider or account, or logs differently,
+  tell users yourself; the app does not ask them again.
+  A tab left open across the change sends
+  nothing: the chat and the other AI features that report a failure ask for a
+  reload (never a key problem); the digest summary and the automatic insight
+  recommendations, which fail quietly, are skipped.
+  ★ **Tabs opened before this release ignore both settings until reloaded; have users
+  reload.** A page loaded from a release without the gateway relay never asks the server
+  before an AI call and keeps the content security policy it loaded with, which still
+  allows `api.anthropic.com`. On the first deploy that sets the gateway (or the `ai`
+  switch, see [Switching integrations off](#switching-integrations-off-for-a-deployment-run-time-optional)),
+  such a tab goes on sending directly to Anthropic, under its old consent, until it is
+  reloaded. Announce the change and ask users to reload every open tab.
+- **Rate limiting belongs to the gateway.** The relay has no per-IP limit of its own;
+  set one in the gateway's settings if you want one. When the gateway itself answers
+  429, users see "Your organisation's AI gateway is limiting requests right now";
+  Anthropic's own rate limit, which the relay passes through unchanged, keeps its
+  usual message. The gateway's own request logging (prompts and answers) is also
+  configured there — the relay logs nothing.
+- **Residual: anyone who can reach the app server can use the gateway with their own
+  Anthropic key.** The relay accepts same-origin browser calls only, which stops
+  another web page from using it through a visitor's browser, but a script that
+  sends no browser headers is not a browser and is not stopped. It still has to
+  bring a working Anthropic key, which is billed to that key and always forwarded, so
+  it cannot trigger a stored provider key; the exposure is the gateway's capacity.
+  The organisation's money is at risk only through the token itself, on a gateway in
+  the same Cloudflare account that holds stored keys (step 3). Network access to the
+  app is the control here: restrict who can reach the app server, for example by
+  keeping it on the organisation's network or behind its sign-in proxy.
+- **Gateway errors** appear in the chat and the other AI features that report a failure as "Your
+  organisation's AI gateway refused this app (check the gateway token)" (the gateway
+  answered 401/403) or "… could not be reached or returned an error" (the gateway was
+  unreachable, or any other non-Anthropic failure, including a 3xx, which the relay
+  does not follow; a 429 is named as above), never as a problem with the user's key or
+  with the browser's own connection; a scheduled job's run history records the same
+  message. A switched-off, invalid or changed AI setting is named the same way in the
+  features; a scheduled job does not record it but waits and retries on its next check.
+  An error Anthropic itself returns, such as a rejected key, passes through unchanged.
 
 ### Microsoft 365 integration setup
 
@@ -434,7 +584,11 @@ page references a chunk the server no longer has) — reload the page.
 The Anthropic key the user saved in Settings → AI (held encrypted in the browser) is invalid, expired, revoked, or
 rate-limited. Users must regenerate at
 <https://console.anthropic.com/settings/keys>. The server does not see this
-traffic, so server-side logs will be silent.
+traffic, so server-side logs will be silent. On a gateway deployment the relay
+passes Anthropic's answer through unchanged and logs nothing either; a 401/403
+from the gateway itself shows as "your organisation's AI gateway refused this app
+(check the gateway token)" instead (see
+[Routing AI through a gateway](#routing-ai-through-a-gateway-run-time-optional)).
 
 ### "Outlook import fails with 401 / permission error"
 Cause: M365 toggle is OFF, invalid M365 credentials, or insufficient Graph scopes. 
@@ -493,7 +647,11 @@ for existing users. If chat, action suggestions, scheduled jobs, weight
 suggestions, or AI project proposal don't appear, open Settings → AI assistant
 and tick **"Enable AI assistant"** — the rest of the AI configuration UI stays
 collapsed until it is enabled (a valid Anthropic key is still required on top of
-the switch).
+the switch). If Settings → AI says the organisation switched AI off, or that the
+AI gateway setting is invalid, the switch cannot be ticked: the deployment's
+`AIPM_DISABLED_INTEGRATIONS` names `ai`, or `AIPM_AI_GATEWAY_URL` /
+`AIPM_AI_GATEWAY_TOKEN` is invalid (see
+[security.md → Environment variables](security.md#environment-variables)).
 
 ### "Local file storage doesn't work in Firefox / Safari"
 The File System Access API is Chromium-only. Users on Firefox or Safari

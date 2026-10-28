@@ -1,14 +1,23 @@
 import type { Lang } from "./i18n";
-import { DICTATION_NEEDS_AI_CONSENT, DICTATION_STT_NOT_SET_UP, type DictationEngine } from "./dictation-engine";
+import {
+  DICTATION_AI_DEPLOYMENT_INVALID,
+  DICTATION_AI_DEPLOYMENT_OFF,
+  DICTATION_NEEDS_AI_CONSENT,
+  DICTATION_STT_NOT_SET_UP,
+  type DictationEngine,
+} from "./dictation-engine";
 import { createWebSpeechEngine } from "./web-speech-engine";
 import { createSttEngine } from "./stt-engine";
 import { isIntegrationDisabled } from "./integration-switches";
+import { getAiDeploymentState } from "./ai-deployment";
 
 interface DictationSettings { engine: "web-speech" | "stt"; sttBaseUrl?: string; sttModel?: string; sttApiKey?: string }
 
 /** Why dictation is unavailable, or `null` when it is available. Only speech-to-text can be unavailable, and
  *  only while it is the chosen engine and this deployment has not switched it off (§762; then the browser's
  *  engine is used, the one Settings → Dictation then shows):
+ *  - `DICTATION_AI_DEPLOYMENT_OFF` / `DICTATION_AI_DEPLOYMENT_INVALID` — the organisation switched AI off for this
+ *    deployment, or its AI gateway setting is invalid. Checked first: no consent the user gives changes it;
  *  - AI-01 `DICTATION_NEEDS_AI_CONSENT` — AI is off or the AI data disclosure is not accepted (D9: the audio
  *    leaves the device);
  *  - AI-01 `DICTATION_STT_NOT_SET_UP` — the service address or key is missing. A key that is not in memory
@@ -17,6 +26,9 @@ interface DictationSettings { engine: "web-speech" | "stt"; sttBaseUrl?: string;
  *  some browsers sends the audio to the browser maker's service. */
 export function dictationUnavailableReason(d: DictationSettings | undefined, aiConsented: boolean): string | null {
   if (d?.engine !== "stt" || isIntegrationDisabled("stt")) return null;
+  const deployment = getAiDeploymentState();
+  if (deployment.invalid) return DICTATION_AI_DEPLOYMENT_INVALID;
+  if (deployment.off) return DICTATION_AI_DEPLOYMENT_OFF;
   if (!aiConsented) return DICTATION_NEEDS_AI_CONSENT;
   if (!d.sttBaseUrl?.trim() || !d.sttApiKey?.trim()) return DICTATION_STT_NOT_SET_UP;
   return null;

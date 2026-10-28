@@ -29,14 +29,38 @@
   reported (`urlEnvRejected`).
   ★★ The link becomes an `href`, so only an `https:` URL ever leaves the resolver (`isSafePolicyUrl`);
   the sanitizer only length-caps, so do not judge the URL anywhere else.
+- **Where the data goes follows the route.** The texts that name the destination — the dialog's two
+  data lead-ins, its key bullet, the key note in Settings → AI and the AI Help entry — come from
+  `AI_DESTINATION_KEYS` (`ai-disclosure.ts`), one set per `AiRoute`, read through `aiDestinationKey`
+  (`currentAiRoute()`); Help swaps the body in `helpEntryBody`. ★★ Never render one of those keys
+  directly: on a gateway deployment the direct text ("directly from this browser to api.anthropic.com")
+  would be false. A wording change re-pins `DESTINATION_PIN` (`ai-disclosure.test.ts`) and does NOT
+  bump `AI_DISCLOSURE_VERSION`: consent already records its route (`isConsentCurrent`), so a route
+  change re-asks by itself. Deployment-side settings: `docs/security.md`; operating: `docs/RUNBOOK.md`.
 - **Wire layer:** `chat-panel.tsx` is the React surface; the non-React WIRE LAYER (Anthropic protocol types
   `TextBlock`/`ContentBlock`/`SystemBlock`/`ApiMessage`/`DisplayItem`, `callClaude`, `buildSystemPrompt`,
   `systemBlocksText`, `stringifyResult`) lives in pure i18n-free `chat-api.ts` — import
   from there, NOT chat-panel. File-attachment reading/classifying/extracting is a separate pipeline,
   `ingestFile`/`ingestBytes` in `attachment-ingest.ts`, shared by chat-panel and the wizard's
   Step0ImportPanel (`readAttachmentData` used to live in `chat-api.ts`; it was retired when that
-  pipeline was unified). Calls Anthropic directly (browser,
-  `anthropic-dangerous-direct-browser-access`). `buildSystemPrompt` returns `SystemBlock[]`, NOT a string.
+  pipeline was unified). `buildSystemPrompt` returns `SystemBlock[]`, NOT a string.
+  ★★ **Every Anthropic request leaves through `ai-transport.ts`** (`postAiMessages` for Messages — `callClaude`
+  and the forced-call envelope `postOnce`; `getAiModels` for the model list). Before EACH send it asks
+  `GET /api/ai/status` (`confirmAiDeployment`): off, invalid, a route other than the page loaded with, or no
+  answer at all throws `AiDeploymentError` and NOTHING is sent — an unconfirmed setting never falls back to a
+  direct call. ★ One status request per send, so: the chat makes one per `callClaude` round (a reply with tool
+  calls takes up to `maxChatTurns` rounds, `DEFAULT_MAX_CHAT_TURNS` by default); a forced call one per `postOnce`
+  (more than one when it falls back); a scheduled job two in the usual case (its `confirmDeployment` before the run,
+  then its analysis's `postOnce`). Reproduce the call sites:
+  `grep -rnE "postAiMessages\(|confirmAiDeployment\(|postOnce\(" src/app --include=*.ts | grep -v test`.
+  Route `direct` is the browser calling Anthropic as before (incl.
+  `anthropic-dangerous-direct-browser-access`); route `gateway` posts to the same-origin relay
+  (`/api/ai/messages`, `/api/ai/models`). The relay's own non-Anthropic-shaped failures become
+  `AiGatewayError` / `AiDeploymentError` there, so they are never read as a key verdict; `aiTransportMessageKey`
+  (`ai-errors.ts`) names them. `ai-transport-sites.test.ts` fails when another `src/app` file names the
+  Anthropic host in code or fetches it. ★ Tests: `vitest.setup.ts` answers the status request with the
+  direct state through `__setAiStatusRequestForTests` (`ai-status-request.ts`), so a fetch stub sees only the
+  Anthropic call; a test of the check itself passes `null` to restore the real request.
   ★★ Anthropic checks the prompt-cache prefix in the fixed order **`tools` → `system` → `messages`**, and an
   entry is reusable only while the prefix is byte-identical from the very start — so per-turn content placed
   ANYWHERE before `messages` makes the WHOLE transcript uncacheable, not merely the one segment it sits in.
@@ -155,9 +179,15 @@
   BOTH shells, by different routes: modern navigates to the Settings view at the AI section; classic has no
   Settings view (the classic-fallback effect bounces `"settings"` to chat), so `onOpenSettingsSection` opens
   the classic header's `SettingsMenu` popover instead (at the top — the popover has no sections). See
-  `docs/AGENTS/ui-shell.md`'s settings deep-link bullet. ★ A new per-feature error surface should check `aiKeyMessageKeyForError(err)` (or
-  `aiKeyMessageKeyForStatusToken` where a hook stores the status digits) BEFORE its generic message, as every
-  existing site now does — otherwise a 401 reads as "couldn't reach Claude" again.
+  `docs/AGENTS/ui-shell.md`'s settings deep-link bullet. ★ A new per-feature error surface should check `aiFailureMessageKey(err)` (`ai-key-status.ts`; or
+  `aiFailureMessageKeyForToken` where a hook stores a string token, and then stores `aiTransportMessageKey(err)`
+  itself as the token) BEFORE its generic or network message — otherwise a 401 reads as "couldn't reach Claude"
+  again, and a switched-off deployment or a refused gateway reads as a connection problem. It returns the
+  transport message ahead of the key message and never turns a transport failure into a key verdict. The chat
+  (`chat-panel.tsx`) asks `aiTransportMessageKey` and `aiKeyMessageKeyForError` separately. Scheduled jobs record only a
+  GATEWAY failure as its own `ReportErrorToken` (`toErrorToken`: `ai-gateway-rejected`, `ai-gateway-error`,
+  `ai-gateway-rate-limited`); a deployment error (`AiDeploymentError`: off, invalid, changed route, unconfirmed) is
+  transient — the run records nothing, keeps its period and retries on its next check.
 - **Per-project setting overrides (`Workspace.settingsOverrides`, v0.190.42):** a "This project" Settings section
   (`settings-sections/project-overrides-section.tsx`, SectionId `projectOverrides`, hidden in popouts) overrides
   otherwise-per-device settings. SPLIT storage: POLICY overrides (nextActions/notifications/timezone) travel WITH

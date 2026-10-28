@@ -1,4 +1,7 @@
-// src/app/ai-errors.ts — pure, i18n-free classification of Anthropic API failures.
+// src/app/ai-errors.ts — pure, i18n-free classification of AI failures: Anthropic's own HTTP
+// errors (`AiHttpError`, `classifyAiError`) and the AI transport's errors — the deployment's AI
+// setting (`AiDeploymentError`) and the organisation's gateway (`AiGatewayError`, the relay's
+// error codes) — with the message key that names each transport error (`aiTransportMessageKey`).
 // No fetch, no logging, no React. The ONLY thing ever read from a response body is
 // the safe token `error.type` (e.g. "rate_limit_error"); the body's human message
 // text is never surfaced or logged (semgrep/security constraint).
@@ -17,6 +20,74 @@ export class AiHttpError extends Error {
     super(String(status));
     this.name = "AiHttpError";
   }
+}
+
+/** Why the AI transport (`ai-transport.ts`) sent nothing: the deployment's AI setting, asked
+ *  before every send, is switched off or invalid, differs from the route this page loaded with,
+ *  or could not be confirmed (server down, non-200, unreadable answer). Never a key problem. */
+export type AiDeploymentErrorReason = "off" | "invalid" | "route-changed" | "unconfirmed";
+
+export class AiDeploymentError extends Error {
+  constructor(public readonly reason: AiDeploymentErrorReason) {
+    super(reason);
+    this.name = "AiDeploymentError";
+  }
+}
+
+export const AI_GATEWAY_REJECTED = "ai-gateway-rejected";
+export const AI_GATEWAY_ERROR = "ai-gateway-error";
+export const AI_GATEWAY_RATE_LIMITED = "ai-gateway-rate-limited";
+/** The relay's 503 body when the deployment's gateway setting is invalid (not a gateway failure). */
+export const AI_GATEWAY_INVALID = "ai-gateway-invalid";
+export type AiGatewayErrorCode = typeof AI_GATEWAY_REJECTED | typeof AI_GATEWAY_ERROR | typeof AI_GATEWAY_RATE_LIMITED;
+
+/** The organisation's AI gateway (reached through the same-origin relay) refused the app's
+ *  gateway token or failed. Never a verdict on the user's own Anthropic key. */
+export class AiGatewayError extends Error {
+  constructor(public readonly code: AiGatewayErrorCode) {
+    super(code);
+    this.name = "AiGatewayError";
+  }
+}
+
+export type AiTransportMessageKey =
+  | "aiDeploymentOff"
+  | "aiDeploymentInvalid"
+  | "aiDeploymentChanged"
+  | "aiDeploymentUnconfirmed"
+  | "aiGatewayRejected"
+  | "aiGatewayFailed"
+  | "aiGatewayRateLimited";
+
+const DEPLOYMENT_MESSAGE: Record<AiDeploymentErrorReason, AiTransportMessageKey> = {
+  off: "aiDeploymentOff",
+  invalid: "aiDeploymentInvalid",
+  "route-changed": "aiDeploymentChanged",
+  unconfirmed: "aiDeploymentUnconfirmed",
+};
+
+const GATEWAY_MESSAGE: Record<AiGatewayErrorCode, AiTransportMessageKey> = {
+  [AI_GATEWAY_REJECTED]: "aiGatewayRejected",
+  [AI_GATEWAY_ERROR]: "aiGatewayFailed",
+  [AI_GATEWAY_RATE_LIMITED]: "aiGatewayRateLimited",
+};
+
+/** The i18n key naming a transport failure, or null for any other error. */
+export function aiTransportMessageKey(err: unknown): AiTransportMessageKey | null {
+  if (err instanceof AiDeploymentError) return DEPLOYMENT_MESSAGE[err.reason];
+  if (err instanceof AiGatewayError) return GATEWAY_MESSAGE[err.code];
+  return null;
+}
+
+const TRANSPORT_MESSAGE_KEYS: ReadonlySet<string> = new Set<AiTransportMessageKey>([
+  ...Object.values(DEPLOYMENT_MESSAGE),
+  ...Object.values(GATEWAY_MESSAGE),
+]);
+
+/** True when a hook's stored error token is a transport message key (the features that keep a
+ *  string token store `aiTransportMessageKey(e)` itself as the token). */
+export function isAiTransportMessageKey(token: unknown): token is AiTransportMessageKey {
+  return typeof token === "string" && TRANSPORT_MESSAGE_KEYS.has(token);
 }
 
 /** Strip ASCII control chars from untrusted text (hex escapes — never literal

@@ -1,16 +1,15 @@
-// src/app/anthropic-models.ts — the ONE `GET /v1/models` fetch, shared by the model picker
+// src/app/anthropic-models.ts — the ONE model-list request (sent by `getAiModels` in `ai-transport.ts`), shared by the model picker
 // (`use-chat-models.ts`) and the §650 start-up key check (`use-ai-key-check.ts`).
 //
 // SECURITY: the key goes only into the request header; it is never logged, echoed, or put in a
 // URL. The response body is read only on success (the model list). Every answer the server gives
 // feeds the in-memory key verdict (`ai-key-status.ts`): 2xx → ok, 401 → rejected, 403 → forbidden,
-// anything else unchanged. A network failure or an abort THROWS before any report — a key is never
-// flagged on a network failure.
-import { ANTHROPIC_VERSION } from "./chat-api";
+// anything else unchanged. A network failure, an abort, an unconfirmed or changed AI setting
+// (`AiDeploymentError`) and a failure of the organisation's AI gateway (`AiGatewayError`) all THROW
+// before any report — a key is never flagged on any of them.
+import { getAiModels } from "./ai-transport";
 import type { LiveModel } from "./chat-models";
 import { reportAiKeyResponse } from "./ai-key-status";
-
-export const ANTHROPIC_MODELS_URL = "https://api.anthropic.com/v1/models?limit=1000";
 
 export type ModelsFetchResult =
   | { kind: "ok"; models: readonly LiveModel[] }
@@ -18,16 +17,9 @@ export type ModelsFetchResult =
 
 /** Fetch the live model list with `key`. Resolves `{kind:"ok"}` on 2xx and `{kind:"http"}` on any
  *  other status (both reported to the key verdict); rejects on a network error, a parse error of a
- *  2xx body, or an abort. */
+ *  2xx body, an abort, or a transport error (`AiDeploymentError`, `AiGatewayError`). */
 export async function fetchAnthropicModels(key: string, signal?: AbortSignal): Promise<ModelsFetchResult> {
-  const res = await fetch(ANTHROPIC_MODELS_URL, {
-    headers: {
-      "x-api-key": key,
-      "anthropic-version": ANTHROPIC_VERSION,
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    signal,
-  });
+  const res = await getAiModels(key, signal);
   if (!res.ok) {
     reportAiKeyResponse(key, res.status);
     return { kind: "http", status: res.status };

@@ -7,9 +7,19 @@
 // value is the same on the server render and on hydration.
 
 import type { ReactNode } from "react";
+import { setAiDeploymentState, type AiDeploymentState } from "./ai-deployment";
 import { setDisabledIntegrations, type IntegrationId } from "./integration-switches";
 
-export function IntegrationSwitchesSync({ disabled, children }: { disabled: readonly IntegrationId[]; children: ReactNode }) {
+export function IntegrationSwitchesSync({
+  disabled,
+  ai,
+  children,
+}: {
+  disabled: readonly IntegrationId[];
+  ai: AiDeploymentState;
+  children: ReactNode;
+}) {
   setDisabledIntegrations(disabled);
+  setAiDeploymentState(ai);
   return children;
 }

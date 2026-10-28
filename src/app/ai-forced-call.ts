@@ -1,4 +1,4 @@
-// src/app/ai-forced-call.ts — the ONE audited fetch envelope for every one-shot,
+// src/app/ai-forced-call.ts — the ONE audited request envelope (sent through `ai-transport.ts`) for every one-shot,
 // forced-tool Anthropic call in the app (enumerate them with
 // `grep -rlnE "runForcedToolCall(WithStop)?\(" src/app --include=*.ts | grep -v -e test -e ai-forced-call`). Each caller keeps its OWN parse/ground/coerce/validation; only the
 // wire call + error throw are shared here, so a leak fix lives in ONE place.
@@ -9,7 +9,8 @@
 // (classification) and the sanitized `error.message` (surfaceable, NOT logged)
 // are read via ai-errors helpers; the thrown AiHttpError.message stays
 // status-only. There is NO console.* anywhere in this file. Thrown errors carry
-// only the HTTP status (AiHttpError) or the token "parse" for absent tool output.
+// only the HTTP status (AiHttpError) or the token "parse" for absent tool output;
+// the transport adds AiDeploymentError / AiGatewayError, which carry only a reason code.
 //
 // This is a SINGLE forced call — NO agentic loop, NO streaming. The multi-turn
 // chat tool loop stays in chat-api.ts (callClaude), which is deliberately NOT
@@ -19,9 +20,7 @@ import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
 import { type AiConsentLevel, assertAiConsentLive } from "./ai-consent";
 import { matchesSchema, withStrictTool } from "./ai-tool-schema";
-
-const ANTHROPIC_VERSION = "2023-06-01";
-const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
+import { postAiMessages } from "./ai-transport";
 
 export interface ForcedToolCallArgs {
   apiKey: string;
@@ -217,17 +216,15 @@ async function postOnce(
   const system = withGuideText(args.system, args.guideText, args.cacheGuides === true);
   if (system !== undefined) body.system = system;
 
-  assertAiConsentLive(args.level ?? "interactive");
-  const res = await fetch(ANTHROPIC_MESSAGES_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": args.apiKey,
-      "anthropic-version": ANTHROPIC_VERSION,
-      "anthropic-dangerous-direct-browser-access": "true",
-      "content-type": "application/json",
-    },
+  const level = args.level ?? "interactive";
+  assertAiConsentLive(level);
+  const res = await postAiMessages({
+    apiKey: args.apiKey,
     body: JSON.stringify(body),
+    path: args.toolName,
     signal: args.signal,
+    // Asked again after the deployment status: consent can be revoked while it is asked.
+    beforeSend: () => assertAiConsentLive(level),
   });
 
   if (!res.ok) {

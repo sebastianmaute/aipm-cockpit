@@ -114,15 +114,30 @@
 ### Deployment integration switch (§762)
 
 `AIPM_DISABLED_INTEGRATIONS` (a server run-time setting, see `docs/security.md`) switches `jira`, `confluence`,
-`timelog`, `ecb` and `stt` off for one deployment. Two halves, one id list (`INTEGRATION_IDS` in
+`timelog`, `ecb`, `stt` and `ai` off for one deployment. Two halves, one id list (`INTEGRATION_IDS` in
 `integration-switches.ts`):
 - **Server:** `refuseIfDisabled` (`api/_shared/integration-switch.ts`) reads the setting on EVERY request and answers
   503 `integration-disabled` before rate-limiting or any upstream call. ★★ 503, never 401/403: the Jira and TimeLog
   clients read those as a rejected token and write `tokenInvalidAt` into the stored settings. It sits in `parseJiraRequest` (which takes
-  `"confluence"` for the Confluence route), `parseTimelogRequest`, `parseSttRequest` and the ECB `GET`.
+  `"confluence"` for the Confluence route), `parseTimelogRequest`, `parseSttRequest` (which refuses on `ai` too:
+  dictation sends speech to a model provider), the ECB `GET` and the AI relay's `relay`.
 - **Client:** the root layout reads the setting per request (it is dynamic already, for the nonce) and
   `IntegrationSwitchesSync` records it with `setDisabledIntegrations` during render, before any child renders.
   Plain functions then ask `isIntegrationDisabled` / `isJiraOn` / `isModuleSwitchedOff` with no prop threaded.
+- ★ **`ai` is read through its own record, not `isIntegrationDisabled`.** The layout also computes
+  `aiDeploymentStateFrom` (`ai-gateway-config.ts`, server only) — `{ off, route, invalid, invalidReason? }`, folding in the AI gateway
+  settings (`AIPM_AI_GATEWAY_URL`/`_TOKEN`) — and `IntegrationSwitchesSync` records it with `setAiDeploymentState`
+  (`ai-deployment.ts`). AI gates ask `isAiDeploymentOn`; the disclosure texts ask `currentAiRoute`; every surface that
+  names the block asks `aiDeploymentBlockedMessageKey` (invalid before off, `null` while AI is usable). An invalid gateway
+  setting closes AI exactly like `ai` (fail closed, no fallback to a direct call). ★ It still reports `route: "gateway"`
+  when the URL is set (only a token with no URL reads `"direct"`), so a stored gateway consent stays current and no
+  surface shows the direct texts; nothing reads `route` to SEND while `invalid` is true. While the deployment is off or invalid,
+  Settings → AI shows the master switch unticked and, under it, only what WITHDRAWS: "Remove stored secret", Revoke for a
+  CURRENT interactive consent and the (ticked) background checkbox for a CURRENT background consent. Nothing accepts or
+  reviews a consent (the chat's `consentStale && deploymentOn` rule), and no key field, toggle or cap is shown. ★★ The
+  withdraw controls must stay: `aiDeploymentOff` tells the user the consent is kept and works again once AI is switched
+  back on, so a consent that could not be withdrawn while blocked would revive unseen. The transport itself is in
+  [ai-assistant.md](ai-assistant.md) "Wire layer".
 
 ★★ **Gates ask; stored settings are never rewritten.** Many call sites save settings by spreading the current
 `settings` object (`grep -rnE "(setSettings|onChange)\(\{ *\.\.\.settings" src/app --include=*.tsx --include=*.ts | grep -v test`), so an "effective settings" layer that coerced `jira.enabled` would persist the coercion and

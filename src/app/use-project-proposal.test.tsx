@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import "../test/ai-consent-live";
 import { renderHook, act } from "@testing-library/react";
 import { useProjectProposal } from "./use-project-proposal";
+import { __setAiStatusRequestForTests } from "./ai-status-request";
 import type { ReactNode } from "react";
 import { ActionGuidesProvider } from "./action-guides-context";
 
@@ -40,6 +41,17 @@ describe("useProjectProposal", () => {
     await act(async () => { p = await result.current.generate("x"); });
     expect(p).toBeNull();
     expect(result.current.error).toBe("401");
+  });
+
+  it("names a switched-off deployment by its message key", async () => {
+    __setAiStatusRequestForTests(async () => new Response(JSON.stringify({ off: true, invalid: false, route: "direct" }), { status: 200 }));
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: unknown = "x";
+    await act(async () => { p = await result.current.generate("x"); });
+    expect(p).toBeNull();
+    expect(result.current.error).toBe("aiDeploymentOff");
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("refuses with no-key when the API key is blank", async () => {

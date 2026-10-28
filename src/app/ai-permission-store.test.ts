@@ -17,12 +17,13 @@ import {
   parseStoredAiState,
   planAiPermissionWrite,
   planPageAiPermissionWrite,
+  sameAiState,
   settleAiPermissionWrite,
   withAiState,
   type AiPermissionStore,
   type PersistedAiState,
 } from "./ai-permission-store";
-import { newConsent } from "./ai-consent";
+import { newConsent, type AiConsent } from "./ai-consent";
 import { defaultSettings, type AiConfig, type Settings } from "./settings-types";
 
 const C1 = newConsent(new Date("2026-10-01T00:00:00Z"));
@@ -176,5 +177,17 @@ describe("the page store", () => {
     settleAiPermissionWrite(planPageAiPermissionWrite(ON, ai({ enabled: false }), []), false);
     __resetConsentFailureForTests();
     expect(pageAiState(ON)).toEqual(ON);
+  });
+});
+
+describe("sameAiState — the route is part of a consent record", () => {
+  const base = { acceptedAt: new Date(0).toISOString(), disclosureVersion: 1 };
+  const state = (c: AiConsent | undefined) => ({ enabled: true, consent: c, backgroundConsent: undefined });
+  it("treats an absent route as direct", () => {
+    expect(sameAiState({ enabled: true, consent: { ...base, route: "direct" } }, state(base))).toBe(true);
+  });
+  it("tells a gateway record from a direct one", () => {
+    expect(sameAiState({ enabled: true, consent: { ...base, route: "gateway" } }, state(base))).toBe(false);
+    expect(sameAiState({ enabled: true, consent: base }, state({ ...base, route: "gateway" }))).toBe(false);
   });
 });

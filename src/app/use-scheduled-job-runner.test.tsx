@@ -8,6 +8,10 @@ import type { ScheduledJob, ScheduledJobRun } from "./scheduled-jobs/types";
 vi.mock("./scheduled-job-analysis", () => ({
   runJobAnalysis: vi.fn(),
 }));
+// The deployment check asks the server; here it answers "on, same route" unless a test says otherwise.
+vi.mock("./ai-transport", () => ({
+  confirmAiDeployment: vi.fn(),
+}));
 vi.mock("./turso-portfolio", () => ({
   listProjectRefs: vi.fn(),
 }));
@@ -41,6 +45,8 @@ vi.mock("./scheduled-reports-store", () => ({
   finishReport: vi.fn(),
 }));
 import { runJobAnalysis } from "./scheduled-job-analysis";
+import { confirmAiDeployment } from "./ai-transport";
+import { AiDeploymentError } from "./ai-errors";
 import { listProjectRefs } from "./turso-portfolio";
 import { hasReportAtOrAfter, slotStatus, claimReport, finishReport, releaseClaim } from "./scheduled-reports-store";
 import { emptyWorkspace } from "./workspace";
@@ -91,6 +97,7 @@ function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJob
 }
 
 function resetStore(): void {
+  vi.mocked(confirmAiDeployment).mockReset().mockResolvedValue(undefined);
   vi.mocked(hasReportAtOrAfter).mockReset().mockResolvedValue(false);
   vi.mocked(slotStatus).mockReset().mockResolvedValue("none");
   mClaim.mockReset().mockResolvedValue(true);
@@ -743,5 +750,19 @@ describe("useScheduledJobRunner: the period guard judges by the run's slot, not 
     const rec = record({ ranAt: slot, slot });
     await runAt([dailyJob({ timeZone: "America/Santiago", lastRunAt: slot, history: [rec] })], "2026-09-06T15:00:00.000Z");
     expect(mockRun).toHaveBeenCalledTimes(runs);
+  });
+});
+
+describe("useScheduledJobRunner: the deployment is confirmed before the claim", () => {
+  // KILLED BY: dropping the hook's confirmDeployment wiring (a tab whose AI is off would claim and fail the slot).
+  it("a tab that cannot confirm the AI deployment neither claims nor analyses", async () => {
+    mockRun.mockReset().mockResolvedValue({ summary: "s", actions: [] });
+    resetStore();
+    vi.mocked(confirmAiDeployment).mockRejectedValue(new AiDeploymentError("route-changed"));
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
+    expect(vi.mocked(confirmAiDeployment)).toHaveBeenCalled();
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(mockRun).not.toHaveBeenCalled();
   });
 });

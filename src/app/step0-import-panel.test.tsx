@@ -396,6 +396,8 @@ describe("Step0ImportPanel SharePoint import", () => {
 
 describe("§650 AI project proposal — a refused key shows the key message", () => {
   it.each([
+    ["aiDeploymentOff", "aiDeploymentOff"],
+    ["aiGatewayFailed", "aiGatewayFailed"],
     ["401", "aiKeyRejected"],
     ["403", "aiKeyForbidden"],
   ] as const)("aiError %s shows %s, not the generic proposal error", (token, key) => {

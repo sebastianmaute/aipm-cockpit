@@ -7,6 +7,9 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { __resetAiKeyStatusForTests, getAiKeyStatus, syncAiKey } from "./ai-key-status";
 import { clearSessionAiKey } from "./session-ai-key";
+import { setAiDeploymentState } from "./ai-deployment";
+import { __setAiStatusRequestForTests } from "./ai-status-request";
+import { answerAiStatusDirect, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 // §717 — an unlocked key lives in a page-wide store now, not in one panel: forget it after every test.
 afterEach(() => { clearSessionAiKey(); });
 import { readFileSync } from "node:fs";
@@ -190,6 +193,124 @@ describe("Without a current AI consent", () => {
     );
     expect(screen.getByText(t("en-US", "chatNoApiKey"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
+  });
+
+  it("a deployment with AI off leaves the composer in the AI-disabled state", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    try {
+      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
+      expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeDisabled();
+    } finally {
+      setAiDeploymentState(DIRECT_AI_STATUS);
+    }
+  });
+
+  // The organisation switched AI off: no key or consent the user could supply would turn it on.
+  it("a deployment with AI off says so instead of asking for a key", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    try {
+      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={{ ...defaultAiConfig, apiKey: "" }} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
+      expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "chatNoApiKey"))).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
+    } finally {
+      setAiDeploymentState(DIRECT_AI_STATUS);
+    }
+  });
+
+  it.each([
+    ["off", { off: true, route: "direct", invalid: false }, "aiDeploymentOff"],
+    ["invalid", { off: false, route: "gateway", invalid: true }, "aiDeploymentInvalid"],
+  ] as const)("a deployment %s with a conversation on screen names it beside the disabled composer, with no consent banner", (_n, state, key) => {
+    setAiDeploymentState(state);
+    try {
+      render(
+        <ChatPanel {...SCOPE_PROPS}
+          lang="en-US"
+          ai={{ ...defaultAiConfig, consent: undefined, apiKey: "sk-test" }}
+          dispatcher={makeDispatcher()}
+          projectId="p1"
+          getChatConversation={() => ({
+            history: [{ role: "user", content: "earlier question" }],
+            display: [{ kind: "user", text: "earlier question" }],
+          })}
+          onConfigureAi={vi.fn()}
+        />,
+      );
+      // Positive control: the transcript is on screen, so this is not the empty state.
+      expect(screen.getByText("earlier question")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(t("en-US", key));
+      expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
+      expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toBeDisabled();
+    } finally {
+      setAiDeploymentState(DIRECT_AI_STATUS);
+    }
+  });
+
+  it("an invalid gateway setting names the invalid setting in the empty state", () => {
+    setAiDeploymentState({ off: false, route: "gateway", invalid: true });
+    try {
+      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
+      expect(screen.getByText(t("en-US", "aiDeploymentInvalid"))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "chatNoApiKey"))).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
+    } finally {
+      setAiDeploymentState(DIRECT_AI_STATUS);
+    }
+  });
+
+  it.each([
+    ["the empty state", false],
+    ["the banner beside a transcript", true],
+  ] as const)("the disabled composer is described by the deployment notice in %s", (_where, withTranscript) => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    try {
+      render(
+        <ChatPanel {...SCOPE_PROPS}
+          lang="en-US"
+          ai={AI_WITH_KEY}
+          dispatcher={makeDispatcher()}
+          projectId="p1"
+          getChatConversation={withTranscript ? () => ({
+            history: [{ role: "user", content: "earlier question" }],
+            display: [{ kind: "user", text: "earlier question" }],
+          }) : undefined}
+          onConfigureAi={vi.fn()}
+        />,
+      );
+      if (withTranscript) expect(screen.getByText("earlier question")).toBeInTheDocument();
+      const box = screen.getByPlaceholderText("Ask Claude about your tasks…");
+      const send = screen.getByRole("button", { name: t("en-US", "chatSend") });
+      for (const control of [box, send]) {
+        expect(control).toBeDisabled();
+        const id = control.getAttribute("aria-describedby");
+        expect(id).toBeTruthy();
+        expect(document.getElementById(id ?? "")).toHaveTextContent(t("en-US", "aiDeploymentOff"));
+      }
+    } finally {
+      setAiDeploymentState(DIRECT_AI_STATUS);
+    }
+  });
+
+  it("an AI-on composer carries no deployment description (control)", () => {
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
+    expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).not.toHaveAttribute("aria-describedby");
+    expect(screen.getByRole("button", { name: t("en-US", "chatSend") })).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("a deployment with AI off shows no consent review banner for a stale consent", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    try {
+      render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={{ ...defaultAiConfig, consent: undefined, apiKey: "sk-test" }} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
+      // Positive control: the deployment message is on screen.
+      expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
+      expect(screen.queryByRole("button", { name: t("en-US", "chatConfigureAi") })).toBeNull();
+    } finally {
+      setAiDeploymentState(DIRECT_AI_STATUS);
+    }
   });
 
   // M3 — one neutral message for both causes: the published flag the request path reads is off after a withdrawn
@@ -2165,13 +2286,16 @@ describe("ChatPanel — Turso thread persistence", () => {
     const pendingFetch = new Promise<Response>((_res, rej) => {
       rejectFetch = rej;
     });
-    vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
 
     renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
     await screen.findByText("thread A content");
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "stale question 2" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    // The request leaves after the deployment status check; switch threads once it is in flight, so the
+    // rejection below reaches the send's catch block as a network error, not as an abort.
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
 
     fireEvent.click(screen.getByRole("button", { name: 'Open "Thread B"' }));
     await screen.findByText("thread B content");
@@ -3871,6 +3995,29 @@ describe("§650 a refused key shows the key message", () => {
     expect(alert).toHaveTextContent(copy);
     expect(alert).not.toHaveTextContent(/Chat failed/i);
     expect(alert).not.toHaveTextContent(/invalid x-api-key/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AI-17 — the transport's own failures are named as what they are, never as a key problem.
+// ---------------------------------------------------------------------------
+describe("AI-17 a transport failure shows its own message", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    __setAiStatusRequestForTests(answerAiStatusDirect);
+  });
+
+  it("an unconfirmed AI setting sends nothing and says so", async () => {
+    __setAiStatusRequestForTests(() => Promise.reject(new TypeError("Failed to fetch")));
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} />);
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Could not confirm this app's AI setting, so nothing was sent. Try again.");
+    expect(alert).not.toHaveTextContent(/Chat failed/i);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 

@@ -4,6 +4,8 @@ import { AiConsentRevokedError, newConsent, publishAiConsentState } from "./ai-c
 import { defaultAiConfig } from "./settings-types";
 import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
 import { AiHttpError } from "./ai-errors";
+import { __setAiStatusRequestForTests } from "./ai-status-request";
+import { aiStatusResponse } from "../test/ai-status-fetch";
 import { asTimeZoneForTests } from "./timezone";
 import {
   buildSystemPrompt,
@@ -561,5 +563,16 @@ describe("callClaude — the consent gate (AI-01)", () => {
     await callClaude("k", "claude-sonnet-5", [], [], {});
     await expect(callClaude("k", "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("a consent revoked while the deployment status is asked stops the request before it is sent", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    __setAiStatusRequestForTests(async () => {
+      publishAiConsentState({ ...defaultAiConfig, consent: undefined });
+      return aiStatusResponse();
+    });
+    await expect(callClaude("k", "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiConsentRevokedError);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

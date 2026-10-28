@@ -2,10 +2,17 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 vi.mock("./web-speech-engine", () => ({ createWebSpeechEngine: vi.fn(() => ({ start: () => true, stop: () => {}, _kind: "ws" })) }));
 vi.mock("./stt-engine", () => ({ createSttEngine: vi.fn(() => ({ start: () => true, stop: () => {}, _kind: "stt" })) }));
 import { dictationUnavailableReason, resolveDictationEngine } from "./dictation-config";
-import { DICTATION_NEEDS_AI_CONSENT, DICTATION_STT_NOT_SET_UP } from "./dictation-engine";
+import {
+  DICTATION_AI_DEPLOYMENT_INVALID,
+  DICTATION_AI_DEPLOYMENT_OFF,
+  DICTATION_NEEDS_AI_CONSENT,
+  DICTATION_STT_NOT_SET_UP,
+} from "./dictation-engine";
 import { setDisabledIntegrations } from "./integration-switches";
 import { defaultAiConfig, isAiConsentedForDictation } from "./settings-types";
 import { newConsent } from "./ai-consent";
+import { setAiDeploymentState } from "./ai-deployment";
+import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 
 describe("resolveDictationEngine", () => {
   it("uses web-speech by default", () => {
@@ -95,5 +102,30 @@ describe("R9 — isAiConsentedForDictation needs the AI switch AND a current con
   });
   it("R9 — switch on with a current consent and NO Anthropic key picks stt (positive control)", () => {
     expect(kind({ ...defaultAiConfig, enabled: true, apiKey: "", consent })).toBe("stt");
+  });
+});
+
+describe("dictation when the deployment has AI off", () => {
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
+  it("resolves no speech-to-text engine", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    const d = { engine: "stt", sttBaseUrl: "https://x/v1", sttApiKey: "k" } as const;
+    expect(dictationUnavailableReason(d, true)).toBe(DICTATION_AI_DEPLOYMENT_OFF);
+    expect(resolveDictationEngine(d, "en-US", true)).toBeNull();
+  });
+  // The organisation's setting comes first: no consent the user could give would make dictation available.
+  it("names the switched-off deployment even without a consent", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    expect(dictationUnavailableReason({ engine: "stt" }, false)).toBe(DICTATION_AI_DEPLOYMENT_OFF);
+  });
+  it("names an invalid gateway setting", () => {
+    setAiDeploymentState({ off: false, route: "gateway", invalid: true });
+    const d = { engine: "stt", sttBaseUrl: "https://x/v1", sttApiKey: "k" } as const;
+    expect(dictationUnavailableReason(d, true)).toBe(DICTATION_AI_DEPLOYMENT_INVALID);
+    expect(resolveDictationEngine(d, "en-US", true)).toBeNull();
+  });
+  it("the browser's engine is unaffected by the deployment (control)", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    expect(dictationUnavailableReason({ engine: "web-speech" }, true)).toBeNull();
   });
 });

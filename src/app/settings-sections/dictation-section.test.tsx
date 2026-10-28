@@ -13,6 +13,8 @@ import { type SealedSecret, sealDevice } from "../secrets";
 import { loadSealed, readDeviceSecret, saveSealed } from "../secrets-store";
 import { newConsent } from "../ai-consent";
 import { setDisabledIntegrations } from "../integration-switches";
+import { setAiDeploymentState } from "../ai-deployment";
+import { DIRECT_AI_STATUS } from "../../test/ai-status-fetch";
 
 afterEach(async () => {
   // Let any un-awaited seal from a test land before the store is wiped (see ai-section.test).
@@ -244,5 +246,19 @@ describe("D9 — DictationSection explains that stt needs AI consent", () => {
   it("R9 — still shows the note when consent is current but AI is switched off", () => {
     setup({ ...sttStored, ai: { ...defaultSettings.ai, enabled: false, consent: newConsent(new Date()) } });
     expect(screen.getByText(t("en-US", "dictationNeedsAiConsent"))).toBeInTheDocument();
+  });
+});
+
+describe("DictationSection — the deployment's AI setting comes before the consent note", () => {
+  const sttStored = { dictation: { ...defaultSettings.dictation, engine: "stt" as const, sttBaseUrl: "https://x/v1", sttApiKey: "k" } };
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
+  it.each([
+    ["off", { off: true, route: "direct" as const, invalid: false }, "aiDeploymentOff"],
+    ["invalid", { off: false, route: "direct" as const, invalid: true }, "aiDeploymentInvalid"],
+  ] as const)("%s: shows the deployment notice instead of asking for a consent", (_label, state, key) => {
+    setAiDeploymentState(state);
+    setup(sttStored);
+    expect(screen.getByText(t("en-US", key))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "dictationNeedsAiConsent"))).toBeNull();
   });
 });

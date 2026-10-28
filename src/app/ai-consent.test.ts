@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { setAiDeploymentState } from "./ai-deployment";
 import {
   AI_DISCLOSURE_VERSION,
   AiConsentRevokedError,
@@ -89,4 +90,63 @@ describe("assertBackgroundConsentLive (AI-01)", () => {
     publishAiConsentState({ ...live, backgroundConsent: undefined });
     expect(() => assertAiConsentLive("interactive")).not.toThrow();
   });
+});
+
+const GATEWAY = { off: false, route: "gateway", invalid: false } as const;
+const DIRECT = { off: false, route: "direct", invalid: false } as const;
+
+describe("route-bound consent", () => {
+  afterEach(() => { setAiDeploymentState(DIRECT); publishAiConsentState(undefined); });
+  it("a record without a route is current for direct only", () => {
+    const c = { acceptedAt: D.toISOString(), disclosureVersion: AI_DISCLOSURE_VERSION };
+    expect(isConsentCurrent(c)).toBe(true);
+    setAiDeploymentState(GATEWAY);
+    expect(isConsentCurrent(c)).toBe(false);
+  });
+  it("a gateway record is current only in gateway mode, at both levels", () => {
+    setAiDeploymentState(GATEWAY);
+    const g = newConsent(D);
+    expect(g.route).toBe("gateway");
+    const ai = { ...defaultAiConfig, enabled: true, consent: g, backgroundConsent: g };
+    publishAiConsentState(ai);
+    expect(() => assertAiConsentLive("background")).not.toThrow();
+    setAiDeploymentState(DIRECT);
+    expect(isConsentCurrent(g)).toBe(false);
+    publishAiConsentState(ai);
+    expect(() => assertAiConsentLive("interactive")).toThrow(AiConsentRevokedError);
+    expect(() => assertAiConsentLive("background")).toThrow(AiConsentRevokedError);
+  });
+  it("a direct background consent is not live after the interactive consent is given again on the gateway", () => {
+    setAiDeploymentState(DIRECT);
+    const d = newConsent(D);
+    expect(d.route).toBe("direct");
+    setAiDeploymentState(GATEWAY);
+    const g = newConsent(D);
+    publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: g, backgroundConsent: d });
+    expect(() => assertAiConsentLive("interactive")).not.toThrow();
+    expect(() => assertAiConsentLive("background")).toThrow(AiConsentRevokedError);
+  });
+  it("a legacy background record without a route is not live on the gateway either", () => {
+    setAiDeploymentState(GATEWAY);
+    const g = newConsent(D);
+    const legacy = { acceptedAt: D.toISOString(), disclosureVersion: AI_DISCLOSURE_VERSION };
+    publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: g, backgroundConsent: legacy });
+    expect(() => assertAiConsentLive("interactive")).not.toThrow();
+    expect(() => assertAiConsentLive("background")).toThrow(AiConsentRevokedError);
+  });
+  it("sanitizeConsent keeps a valid route and drops an invalid one", () => {
+    expect(sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: 1, route: "gateway" })?.route).toBe("gateway");
+    const bad = sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: 1, route: "x" });
+    expect(bad).toEqual({ acceptedAt: D.toISOString(), disclosureVersion: 1 });
+  });
+  it.each([["off", { off: true, route: "direct", invalid: false }], ["invalid", { off: false, route: "direct", invalid: true }]] as const)(
+    "a deployment that is %s blocks the published state", (_n, st) => {
+      const ai = { ...defaultAiConfig, enabled: true, consent: newConsent(D), backgroundConsent: newConsent(D) };
+      publishAiConsentState(ai);
+      expect(() => assertAiConsentLive("interactive")).not.toThrow();
+      setAiDeploymentState(st);
+      publishAiConsentState(ai);
+      expect(() => assertAiConsentLive("interactive")).toThrow(AiConsentRevokedError);
+      expect(() => assertAiConsentLive("background")).toThrow(AiConsentRevokedError);
+    });
 });

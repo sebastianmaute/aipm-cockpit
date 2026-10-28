@@ -11,6 +11,7 @@ import { isRunnable, periodStartFor, sameSchedule, slotFor } from "./scheduled-j
 import { loadScheduledJobs } from "./scheduled-jobs-store";
 import { slotStatus } from "./scheduled-reports-store";
 import { runJobAnalysis } from "./scheduled-job-analysis";
+import { confirmAiDeployment } from "./ai-transport";
 import { runScheduledJob, type RunDeps, type RunOutcome } from "./scheduled-job-run";
 import { getDeviceLabel } from "./device-label";
 import { listProjectRefs } from "./turso-portfolio";
@@ -110,6 +111,7 @@ function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, con
       const live = list.find((j) => j.key !== null && j.key === job.key);
       return live !== undefined && isRunnable(live) && live.projectId === job.projectId && sameSchedule(live, job);
     },
+    confirmDeployment: () => confirmAiDeployment(),
     loadWorkspace: async (projectId) => {
       lastPartial = false;
       const backend = new TursoBackend(config, projectId);

@@ -6,6 +6,8 @@ import { parseClockOffsetDays, registerClockOffset } from "./src/test/clock-offs
 import { __resetSettingsReloadSeal } from "./src/app/settings-reload-seal";
 import { __resetTursoTokenState } from "./src/app/turso-token-marker";
 import { __resetMoveToTursoGuard } from "./src/app/move-to-turso-guard";
+import { __setAiStatusRequestForTests } from "./src/app/ai-status-request";
+import { answerAiStatusDirect } from "./src/test/ai-status-fetch";
 
 // §149 — off unless VITEST_CLOCK_OFFSET_DAYS is set (the weekly
 // `unit-future-clock` job); then every test runs with `Date` moved that many
@@ -107,6 +109,14 @@ afterEach(() => {
 });
 
 afterAll(() => server.close());
+
+// Every AI send first asks the status route for the deployment's AI setting (ai-transport.ts). Answer
+// it with the direct state here, once, so a test stubbing fetch for one Anthropic call sees only that
+// call. ai-transport.test.ts restores the real request to test the check itself.
+// ★ The stub always answers route "direct": a test that sets the page to route "gateway" and then sends
+// is refused as a changed route, so it must answer the status request itself (pass `null` to
+// `__setAiStatusRequestForTests` and stub the status fetch, as ai-transport.test.ts does).
+beforeEach(() => __setAiStatusRequestForTests(answerAiStatusDirect));
 
 // §615 hedge: `@tiptap/react` destroys the editor in a real `setTimeout(…, 1)` on
 // unmount, and jsdom is torn down per file. If that timer is still pending when

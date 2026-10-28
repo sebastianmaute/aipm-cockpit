@@ -7,7 +7,7 @@ import { type NextActionsConfig } from "./settings-types";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { runWeightSuggestion } from "./weight-suggestion-call";
 import { type SuggestionResult } from "./weight-suggestion-ai";
-import { AiHttpError, classifyAiError } from "./ai-errors";
+import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
 import { useActionGuideText } from "./action-guides-context";
 
 interface AiCreds { apiKey: string; model: string }
@@ -32,6 +32,12 @@ export function useWeightSuggestions(ai: AiCreds) {
         // Anthropic's own rate/usage limit → a distinct "limit" token.
         if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
           setError("limit");
+          return null;
+        }
+        // A switched-off deployment or a refused gateway → its own message key, never "network".
+        const transportKey = aiTransportMessageKey(e);
+        if (transportKey) {
+          setError(transportKey);
           return null;
         }
         const msg = e instanceof Error ? e.message : "error";
