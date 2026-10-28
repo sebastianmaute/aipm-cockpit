@@ -27,8 +27,10 @@ longer carries its own changelog comment.
   before. Browser tabs opened before this release keep calling Anthropic directly, under their old consent, until they
   are reloaded; ask users to reload every open tab when you first set `ai` or the gateway.
   - The AI data disclosure, the key note in Settings → AI and Help say which way the data goes on this deployment;
-    on a gateway deployment the disclosure also names the gateway and the provider that runs it as recipients. Turning the gateway on or off asks everyone to accept the disclosure again and to tick background AI again,
-    separately. Moving from one gateway address to another asks nothing.
+    on a gateway deployment the disclosure also says that the gateway and the provider that runs it receive the
+    requests and the key, and that the organisation's AI usage policy should name that provider. Turning the gateway
+    on or off asks everyone to accept the disclosure again and to tick background AI again, separately. Moving from one
+    gateway address to another asks nothing.
   - Setup, the token's scope and the proxy timeout the relay needs are in `docs/RUNBOOK.md`.
   - Every AI feature that reports a failure names a switched-off AI setting or a gateway error as such, never as a
     key or connection problem; a scheduled job's run history records gateway errors, and a job whose AI setting is

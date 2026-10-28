@@ -167,33 +167,34 @@ describe("AI_DATA_PATHS", () => {
 
 // ★ THE DESTINATION PIN. The texts that say WHERE the data goes — one set per AI route (direct to
 // Anthropic, or through this app's server and the organisation's AI gateway) — are pinned here by a
-// hash of their English text (first 12 hex digits of SHA-256), so a wording change is red until it is
-// re-pinned. They do NOT bump `AI_DISCLOSURE_VERSION`: they describe the route, not what is sent, and
+// hash of their English AND German text (first 12 hex digits of SHA-256 over EN, a NUL, then DE), so a
+// wording change in either language is red until it is re-pinned. They do NOT bump `AI_DISCLOSURE_VERSION`: they describe the route, not what is sent, and
 // a consent already records the route it was given for (`ai-consent.ts`), so a deployment that changes
 // route asks every user again by itself.
 // Re-pinned for the AI-06/AI-20 data-protection wording: a new `thirdParty` text per route (the gateway one
 // names the gateway and its provider as recipients), and the gateway key note, key bullet and Help now say
 // the app's server neither stores nor logs the key while the gateway receives it, and that the gateway may
-// keep its own log.
+// keep its own log. Re-pinned again when the hash took in the German text, and the gateway Help's log
+// clause moved into brackets.
 const DESTINATION_PIN: readonly string[] = [
-  "direct|interactive|aiConsentDataIntro|ef4b607923f8",
-  "direct|background|aiConsentBackgroundDataIntro|9208fd9b4f5b",
-  "direct|keyNote|aiApiKeyHint|98fd123e2e5d",
-  "direct|keySecurity|aiConsentBullet2|7cb475af8600",
-  "direct|thirdParty|aiConsentBullet3|29b307012a9b",
-  "direct|help|helpSecAiBody|0709ff5576e1",
-  "gateway|interactive|aiConsentDataIntroGateway|2b068f0d6388",
-  "gateway|background|aiConsentBackgroundDataIntroGateway|da1bf190a9fa",
-  "gateway|keyNote|aiApiKeyHintGateway|206769a38c0e",
-  "gateway|keySecurity|aiConsentBullet2Gateway|eb11512a84f3",
-  "gateway|thirdParty|aiConsentBullet3Gateway|e271fb1ba1f5",
-  "gateway|help|helpSecAiBodyGateway|843ff1deb718",
+  "direct|interactive|aiConsentDataIntro|83b84643e133",
+  "direct|background|aiConsentBackgroundDataIntro|f5a79b78f629",
+  "direct|keyNote|aiApiKeyHint|52324fad6918",
+  "direct|keySecurity|aiConsentBullet2|d509cd229b54",
+  "direct|thirdParty|aiConsentBullet3|e5f450536dea",
+  "direct|help|helpSecAiBody|b798afe12238",
+  "gateway|interactive|aiConsentDataIntroGateway|7ebfc37003e9",
+  "gateway|background|aiConsentBackgroundDataIntroGateway|687e1f3265c0",
+  "gateway|keyNote|aiApiKeyHintGateway|28c8960cc576",
+  "gateway|keySecurity|aiConsentBullet2Gateway|16b9a79fc098",
+  "gateway|thirdParty|aiConsentBullet3Gateway|0412e7b4a6e5",
+  "gateway|help|helpSecAiBodyGateway|c788c6e74b8c",
 ];
 
 const destinationFingerprint = () =>
   Object.entries(AI_DESTINATION_KEYS).flatMap(([route, keys]) =>
     Object.entries(keys).map(([kind, key]) =>
-      `${route}|${kind}|${key}|${createHash("sha256").update(t("en-US", key)).digest("hex").slice(0, 12)}`,
+      `${route}|${kind}|${key}|${createHash("sha256").update(`${t("en-US", key)}\u0000${de[key as TranslationKey]}`).digest("hex").slice(0, 12)}`,
     ),
   );
 
@@ -205,7 +206,7 @@ describe("AI_DESTINATION_KEYS", () => {
   });
   afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
 
-  it("is pinned by its English texts (re-pin a wording change; the version stays)", () => {
+  it("is pinned by its English and German texts (re-pin a wording change; the version stays)", () => {
     expect(destinationFingerprint()).toEqual(DESTINATION_PIN);
   });
 
@@ -261,10 +262,10 @@ describe("AI_DESTINATION_KEYS", () => {
 
   it("gateway Help says the gateway may keep its own log", () => {
     expect(t("en-US", AI_DESTINATION_KEYS.gateway.help)).toContain(
-      "to Anthropic when you use it; the gateway may keep its own log under your organisation's settings",
+      "to Anthropic when you use it (the gateway may keep its own log under your organisation's settings); dictation is the exception",
     );
     expect(de[AI_DESTINATION_KEYS.gateway.help]).toContain(
-      "das Gateway kann nach den Einstellungen Ihrer Organisation ein eigenes Protokoll führen",
+      "an Anthropic (das Gateway kann nach den Einstellungen Ihrer Organisation ein eigenes Protokoll führen); ausgenommen ist das Diktat",
     );
   });
 
