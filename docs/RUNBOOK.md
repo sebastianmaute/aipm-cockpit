@@ -401,8 +401,10 @@ that list.
    code as `invalidReason`.)
 5. **Allow long responses and large requests on the front proxy.** A relayed call is
    held open until Anthropic answers; the relay itself gives up only after 15 minutes
-   without data. Any ingress, load balancer or reverse proxy in front of the app must
-   allow a **read timeout of at least 15 minutes** on `/api/ai/messages`, or long
+   without data (an idle timeout: a call that keeps receiving data is never cut off by
+   it). Any ingress, load balancer or reverse proxy in front of the app must allow an
+   **idle (read) timeout of at least 15 minutes** on `/api/ai/messages`, and must set
+   **no total request timeout shorter than the longest answer you expect**, or long
    answers fail at the proxy. It must also allow a **request body of at least 32 MB**
    on `/api/ai/messages` (the relay's own cap, Anthropic's Messages limit): common
    ingress defaults are around 1 MB, and a chat with attachments above that is refused
@@ -441,7 +443,7 @@ What to know when running it:
   reloaded. Announce the change and ask users to reload every open tab.
 - **Rate limiting belongs to the gateway.** The relay has no per-IP limit of its own;
   set one in the gateway's settings if you want one. When the gateway itself answers
-  429, users see "The organisation's AI gateway is limiting requests right now";
+  429, users see "Your organisation's AI gateway is limiting requests right now";
   Anthropic's own rate limit, which the relay passes through unchanged, keeps its
   usual message. The gateway's own request logging (prompts and answers) is also
   configured there — the relay logs nothing.
@@ -455,7 +457,7 @@ What to know when running it:
   the same Cloudflare account that holds stored keys (step 3). Network access to the
   app is the control here: restrict who can reach the app server, for example by
   keeping it on the organisation's network or behind its sign-in proxy.
-- **Gateway errors** appear in the chat and the other AI features that report a failure as "The
+- **Gateway errors** appear in the chat and the other AI features that report a failure as "Your
   organisation's AI gateway refused this app (check the gateway token)" (the gateway
   answered 401/403) or "… could not be reached or returned an error" (the gateway was
   unreachable, or any other non-Anthropic failure, including a 3xx, which the relay
@@ -572,7 +574,7 @@ rate-limited. Users must regenerate at
 <https://console.anthropic.com/settings/keys>. The server does not see this
 traffic, so server-side logs will be silent. On a gateway deployment the relay
 passes Anthropic's answer through unchanged and logs nothing either; a 401/403
-from the gateway itself shows as "the organisation's AI gateway refused this app
+from the gateway itself shows as "your organisation's AI gateway refused this app
 (check the gateway token)" instead (see
 [Routing AI through a gateway](#routing-ai-through-a-gateway-run-time-optional)).
 
