@@ -1238,6 +1238,64 @@ describe("AiSection — deployment notice", () => {
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
     expect(screen.getByText(t("en-US", "aiDeploymentInvalid"))).toBeInTheDocument();
   });
+
+  it("blocked: the master switch reads unticked, names the notice, and the stored switch is untouched", () => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    const onChange = vi.fn();
+    const settings = { ...defaultSettings, ai: { ...defaultSettings.ai } };
+    render(<AiSection lang="en-US" settings={settings} onChange={onChange} />);
+    const master = screen.getByRole("checkbox", { name: t("en-US", "aiEnable") });
+    expect(master).not.toBeChecked();
+    const describedBy = master.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy ?? "")).toHaveTextContent(t("en-US", "aiDeploymentOff"));
+    expect(settings.ai.enabled).toBe(true);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("not blocked: the master switch carries no deployment description (control)", () => {
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    const master = screen.getByRole("checkbox", { name: t("en-US", "aiEnable") });
+    expect(master).toBeChecked();
+    expect(master).not.toHaveAttribute("aria-describedby");
+  });
+
+  const GATEWAY_CONSENT = { ...newConsent(new Date(0)), route: "gateway" as const };
+  const DIRECT_KEYS = ["aiApiKeyHint", "aiConsentDataIntro", "aiConsentBackgroundDataIntro", "aiConsentBullet2"] as const;
+
+  it("invalid gateway setting with a stored gateway consent: the consent stays current, no review, no direct text", () => {
+    setAiDeploymentState({ off: false, route: "gateway", invalid: true, invalidReason: "url" });
+    const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, consent: GATEWAY_CONSENT, backgroundConsent: GATEWAY_CONSENT } };
+    const { container } = render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: t("en-US", "aiConsentReview") })).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
+    expect(screen.getByText(t("en-US", "aiConsentGranted"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "aiApiKeyHintGateway"))).toBeInTheDocument();
+    for (const key of DIRECT_KEYS) expect(container.textContent).not.toContain(t("en-US", key));
+  });
+
+  it.each([
+    ["off", { off: true, route: "direct" as const, invalid: false }],
+    ["invalid", { off: false, route: "direct" as const, invalid: true }],
+  ])("%s with a consent for the other route: no review and no accept entry point", (_label, state) => {
+    setAiDeploymentState(state);
+    const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, consent: GATEWAY_CONSENT, backgroundConsent: undefined } };
+    render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: t("en-US", "aiConsentReview") })).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiConsentReviewPrompt"))).toBeNull();
+    const background = screen.getByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") });
+    expect(background).toBeDisabled();
+    fireEvent.click(background);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("on with a stale consent: the review entry point is there (control)", () => {
+    setAiDeploymentState({ off: false, route: "direct", invalid: false });
+    const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, consent: GATEWAY_CONSENT } };
+    render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    expect(screen.getByRole("button", { name: t("en-US", "aiConsentReview") })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toBeEnabled();
+  });
 });
 
 describe("AiSection — the key note follows the AI route", () => {

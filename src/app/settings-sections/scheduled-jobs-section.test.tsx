@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { newConsent } from "../ai-consent";
+import { setAiDeploymentState } from "../ai-deployment";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { ScheduledJobsSection } from "./scheduled-jobs-section";
 import { defaultSettings, type Settings } from "../settings-types";
@@ -89,6 +90,23 @@ function setup(settings: Settings, onChange = vi.fn()) {
   render(<ScheduledJobsSection lang="en-US" settings={settings} onChange={onChange} config={TURSO} />);
   return { onChange };
 }
+
+describe("ScheduledJobsSection — the deployment's AI setting", () => {
+  it.each([
+    ["off", { off: true, route: "direct" as const, invalid: false }, "aiDeploymentOff"],
+    ["invalid", { off: false, route: "direct" as const, invalid: true }, "aiDeploymentInvalid"],
+  ] as const)("%s: says so instead of asking to configure the assistant", (_label, state, key) => {
+    setAiDeploymentState(state);
+    try {
+      setup(withKey({ scheduledJobs: true }));
+      expect(screen.getByText(t("en-US", key))).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "emptyStateConfigAi"))).toBeNull();
+      expect(screen.queryByLabelText(t("en-US", "scheduledJobsToggle"))).not.toBeInTheDocument();
+    } finally {
+      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+    }
+  });
+});
 
 describe("ScheduledJobsSection", () => {
   it("renders the no-key empty-state when no API key is configured", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, t } from "./i18n";
@@ -620,6 +620,9 @@ function ChatPanelInner({
   // The organisation switched AI off for the deployment (or its gateway setting is invalid): nothing the user
   // sets here turns it on, so the chat says that instead of asking for a key or a consent.
   const deploymentOn = isAiDeploymentOn();
+  // The visible deployment notice (empty state or banner) describes the composer it disables.
+  const deploymentNoticeId = useId();
+  const composerDescribedBy = deploymentOn ? undefined : deploymentNoticeId;
   const masterOn = deploymentOn && ai.enabled === true && !consentStale;
   // The key actually used for calls/gating: a plaintext settings key wins,
   // else the inline-unlocked passphrase key (if any).
@@ -1556,7 +1559,7 @@ function ChatPanelInner({
                 )}
               </div>
             ) : !deploymentOn ? (
-              <p className="text-sm text-muted-foreground">
+              <p id={deploymentNoticeId} className="text-sm text-muted-foreground">
                 {t(lang, getAiDeploymentState().invalid ? "aiDeploymentInvalid" : "aiDeploymentOff")}
               </p>
             ) : (
@@ -1681,7 +1684,7 @@ function ChatPanelInner({
       {/* Same place for a switched-off deployment, without a link: nothing in Settings turns it back on. */}
       {!deploymentOn && display.length > 0 && (
         <Banner severity="info" role="status" className="mt-2 shrink-0">
-          <p className="min-w-0">{t(lang, getAiDeploymentState().invalid ? "aiDeploymentInvalid" : "aiDeploymentOff")}</p>
+          <p id={deploymentNoticeId} className="min-w-0">{t(lang, getAiDeploymentState().invalid ? "aiDeploymentInvalid" : "aiDeploymentOff")}</p>
         </Banner>
       )}
 
@@ -1762,6 +1765,7 @@ function ChatPanelInner({
           onBlur={registration.onBlur}
           placeholder={guidesPending ? t(lang, "chatGuidesLoading") : t(lang, "chatPlaceholder")}
           disabled={busy || apiKeyMissing || guidesPending}
+          aria-describedby={composerDescribedBy}
           className={`min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
         />
         <div className="flex flex-col gap-2">
@@ -1789,6 +1793,7 @@ function ChatPanelInner({
             <Button
               onClick={() => submitPrompt()}
               disabled={(!input.trim() && attachments.length === 0) || apiKeyMissing || guidesPending}
+              aria-describedby={composerDescribedBy}
             >
               {t(lang, "chatSend")}
             </Button>

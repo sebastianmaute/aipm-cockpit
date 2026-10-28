@@ -261,6 +261,45 @@ describe("Without a current AI consent", () => {
     }
   });
 
+  it.each([
+    ["the empty state", false],
+    ["the banner beside a transcript", true],
+  ] as const)("the disabled composer is described by the deployment notice in %s", (_where, withTranscript) => {
+    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    try {
+      render(
+        <ChatPanel {...SCOPE_PROPS}
+          lang="en-US"
+          ai={AI_WITH_KEY}
+          dispatcher={makeDispatcher()}
+          projectId="p1"
+          getChatConversation={withTranscript ? () => ({
+            history: [{ role: "user", content: "earlier question" }],
+            display: [{ kind: "user", text: "earlier question" }],
+          }) : undefined}
+          onConfigureAi={vi.fn()}
+        />,
+      );
+      if (withTranscript) expect(screen.getByText("earlier question")).toBeInTheDocument();
+      const box = screen.getByPlaceholderText("Ask Claude about your tasks…");
+      const send = screen.getByRole("button", { name: t("en-US", "chatSend") });
+      for (const control of [box, send]) {
+        expect(control).toBeDisabled();
+        const id = control.getAttribute("aria-describedby");
+        expect(id).toBeTruthy();
+        expect(document.getElementById(id ?? "")).toHaveTextContent(t("en-US", "aiDeploymentOff"));
+      }
+    } finally {
+      setAiDeploymentState({ off: false, route: "direct", invalid: false });
+    }
+  });
+
+  it("an AI-on composer carries no deployment description (control)", () => {
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
+    expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).not.toHaveAttribute("aria-describedby");
+    expect(screen.getByRole("button", { name: t("en-US", "chatSend") })).not.toHaveAttribute("aria-describedby");
+  });
+
   it("a deployment with AI off shows no consent review banner for a stale consent", () => {
     setAiDeploymentState({ off: true, route: "direct", invalid: false });
     try {
