@@ -23,9 +23,9 @@ export const RUNNING_STALE_MS = 30 * 60_000;
 export type ReportErrorToken =
   | "limit" | "401" | "403" | "parse" | "storage-unreachable" | "turso"
   | "project-archived" | "project-missing" | "interrupted" | "error"
-  // The AI transport sent nothing (deployment switched off, invalid, changed or unconfirmed) or the gateway refused or failed.
-  | "ai-off" | "ai-invalid" | "ai-route-changed" | "ai-unconfirmed" | "ai-gateway-rejected" | "ai-gateway-error"
-  | "ai-gateway-rate-limited";
+  // The organisation's AI gateway refused, failed or rate-limited the run. A switched-off, invalid, changed or
+  // unconfirmed AI setting is not recorded: the run treats it as transient and retries on its next check.
+  | "ai-gateway-rejected" | "ai-gateway-error" | "ai-gateway-rate-limited";
 
 /** The one token -> message map, shared by the reports view and the Settings run history. */
 export const REPORT_ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
@@ -39,10 +39,6 @@ export const REPORT_ERROR_KEY: Record<ReportErrorToken, TranslationKey> = {
   "project-missing": "scheduledReportsErrProjectMissing",
   interrupted: "scheduledReportsErrInterrupted",
   error: "scheduledReportsErrError",
-  "ai-off": "aiDeploymentOff",
-  "ai-invalid": "aiDeploymentInvalid",
-  "ai-route-changed": "aiDeploymentChanged",
-  "ai-unconfirmed": "aiDeploymentUnconfirmed",
   "ai-gateway-rejected": "aiGatewayRejected",
   "ai-gateway-error": "aiGatewayFailed",
   "ai-gateway-rate-limited": "aiGatewayRateLimited",

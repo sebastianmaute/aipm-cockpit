@@ -326,11 +326,7 @@ describe("toErrorToken", () => {
     expect(toErrorToken("nope")).toBe("error");
   });
 
-  it("records a transport failure as its own token, never the generic one or a key verdict", () => {
-    expect(toErrorToken(new AiDeploymentError("off"))).toBe("ai-off");
-    expect(toErrorToken(new AiDeploymentError("invalid"))).toBe("ai-invalid");
-    expect(toErrorToken(new AiDeploymentError("route-changed"))).toBe("ai-route-changed");
-    expect(toErrorToken(new AiDeploymentError("unconfirmed"))).toBe("ai-unconfirmed");
+  it("records a gateway failure as its own token, never the generic one or a key verdict", () => {
     expect(toErrorToken(new AiGatewayError("ai-gateway-rejected"))).toBe("ai-gateway-rejected");
     expect(toErrorToken(new AiGatewayError("ai-gateway-error"))).toBe("ai-gateway-error");
     expect(toErrorToken(new AiGatewayError("ai-gateway-rate-limited"))).toBe("ai-gateway-rate-limited");

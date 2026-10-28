@@ -4,7 +4,7 @@
 // ★ Errors are stored ONLY as `ReportErrorToken`s, never `e.message` (Turso errors carry server text).
 import { groundEntity, type ActionAnalysis } from "./action-ai";
 import {
-  AiDeploymentError, AiGatewayError, AiHttpError, classifyAiError, type AiDeploymentErrorReason,
+  AiDeploymentError, AiGatewayError, AiHttpError, classifyAiError,
 } from "./ai-errors";
 import { buildProjectAnalysisInput } from "./project-analysis-input";
 import { periodStartFor } from "./scheduled-jobs/schedule";
@@ -50,16 +50,9 @@ export interface RunDeps {
   notify(title: string, body: string): void;
 }
 
-/** The AI transport sent nothing: the deployment's AI setting, by reason. */
-const DEPLOYMENT_TOKEN: Record<AiDeploymentErrorReason, ReportErrorToken> = {
-  off: "ai-off",
-  invalid: "ai-invalid",
-  "route-changed": "ai-route-changed",
-  unconfirmed: "ai-unconfirmed",
-};
-
 /** Maps any failure to the closed token set, stored instead of a message. It reads the error's type and status. The only
- *  text it reads: the literal "parse" `runJobAnalysis` throws, and the `Turso` prefix of the pipeline's plain errors. */
+ *  text it reads: the literal "parse" `runJobAnalysis` throws, and the `Turso` prefix of the pipeline's plain errors.
+ *  An `AiDeploymentError` never reaches it: the run catches it first as transient and waits for its next check. */
 export function toErrorToken(e: unknown): ReportErrorToken {
   if (e instanceof AiHttpError) {
     if (classifyAiError(e.status, e.errorType) === "limit") return "limit";
@@ -67,7 +60,6 @@ export function toErrorToken(e: unknown): ReportErrorToken {
     if (e.status === 403) return "403";
     return "error";
   }
-  if (e instanceof AiDeploymentError) return DEPLOYMENT_TOKEN[e.reason];
   if (e instanceof AiGatewayError) return e.code;
   if (e instanceof StorageNotReadyError) return "storage-unreachable";
   if (e instanceof TursoStepError || e instanceof TursoHttpError) return "turso";

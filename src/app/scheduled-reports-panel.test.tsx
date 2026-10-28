@@ -367,7 +367,6 @@ describe("ScheduledReportsPanel", () => {
     ["a missing project", { status: "done" as const, ok: false }, { error: "project-missing" as const }, "scheduledReportsErrProjectMissing"],
     ["a rate limit", { status: "done" as const, ok: false }, { error: "limit" as const }, "scheduledReportsErrLimit"],
     ["an unreadable answer", { status: "done" as const, ok: false }, { error: "parse" as const }, "scheduledReportsErrParse"],
-    ["a switched-off deployment", { status: "done" as const, ok: false }, { error: "ai-off" as const }, "aiDeploymentOff"],
     ["a refused gateway", { status: "done" as const, ok: false }, { error: "ai-gateway-rejected" as const }, "aiGatewayRejected"],
     ["a rate-limiting gateway", { status: "done" as const, ok: false }, { error: "ai-gateway-rate-limited" as const }, "aiGatewayRateLimited"],
     ["a failure without a token", { status: "done" as const, ok: false }, {}, "scheduledReportsErrError"],

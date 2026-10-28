@@ -140,13 +140,13 @@ describe("scheduled_reports store (§772)", () => {
     ]);
   });
 
-  it("listReports keeps a transport-failure token, so the run names the switched-off deployment", async () => {
+  it("listReports keeps a gateway-failure token, so the run names the gateway's error", async () => {
     await claimReport(CONFIG, row("a", "k", "2026-01-01"));
     db.prepare("UPDATE scheduled_reports SET data = ? WHERE id = 'a'").run(JSON.stringify({
-      jobName: "J", projectName: "P", summary: "", error: "ai-off", actions: [],
+      jobName: "J", projectName: "P", summary: "", error: "ai-gateway-error", actions: [],
     }));
     const list = await listReports(CONFIG);
-    expect(list[0].data.error).toBe("ai-off");
+    expect(list[0].data.error).toBe("ai-gateway-error");
   });
 
   it("isInterrupted is true for a running row older than 30 minutes only", () => {

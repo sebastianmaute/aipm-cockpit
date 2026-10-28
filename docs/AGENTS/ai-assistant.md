@@ -48,7 +48,12 @@
   and the forced-call envelope `postOnce`; `getAiModels` for the model list). Before EACH send it asks
   `GET /api/ai/status` (`confirmAiDeployment`): off, invalid, a route other than the page loaded with, or no
   answer at all throws `AiDeploymentError` and NOTHING is sent — an unconfirmed setting never falls back to a
-  direct call. Route `direct` is the browser calling Anthropic as before (incl.
+  direct call. ★ One status request per send, so: the chat makes one per `callClaude` round (a reply with tool
+  calls takes up to `maxChatTurns` rounds, `DEFAULT_MAX_CHAT_TURNS` by default); a forced call one per `postOnce`
+  (more than one when it falls back); a scheduled job two in the usual case (its `confirmDeployment` before the run,
+  then its analysis's `postOnce`). Reproduce the call sites:
+  `grep -rnE "postAiMessages\(|confirmAiDeployment\(|postOnce\(" src/app --include=*.ts | grep -v test`.
+  Route `direct` is the browser calling Anthropic as before (incl.
   `anthropic-dangerous-direct-browser-access`); route `gateway` posts to the same-origin relay
   (`/api/ai/messages`, `/api/ai/models`). The relay's own non-Anthropic-shaped failures become
   `AiGatewayError` / `AiDeploymentError` there, so they are never read as a key verdict; `aiTransportMessageKey`
@@ -179,8 +184,10 @@
   itself as the token) BEFORE its generic or network message — otherwise a 401 reads as "couldn't reach Claude"
   again, and a switched-off deployment or a refused gateway reads as a connection problem. It returns the
   transport message ahead of the key message and never turns a transport failure into a key verdict. The chat
-  (`chat-panel.tsx`) asks `aiTransportMessageKey` and `aiKeyMessageKeyForError` separately; scheduled jobs record
-  the transport failure as its own `ReportErrorToken` (`toErrorToken`).
+  (`chat-panel.tsx`) asks `aiTransportMessageKey` and `aiKeyMessageKeyForError` separately. Scheduled jobs record only a
+  GATEWAY failure as its own `ReportErrorToken` (`toErrorToken`: `ai-gateway-rejected`, `ai-gateway-error`,
+  `ai-gateway-rate-limited`); a deployment error (`AiDeploymentError`: off, invalid, changed route, unconfirmed) is
+  transient — the run records nothing, keeps its period and retries on its next check.
 - **Per-project setting overrides (`Workspace.settingsOverrides`, v0.190.42):** a "This project" Settings section
   (`settings-sections/project-overrides-section.tsx`, SectionId `projectOverrides`, hidden in popouts) overrides
   otherwise-per-device settings. SPLIT storage: POLICY overrides (nextActions/notifications/timezone) travel WITH
