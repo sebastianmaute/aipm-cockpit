@@ -392,8 +392,13 @@ that list.
    ```
    The server reads both on every request, so a restart applies a change; no rebuild.
    An invalid value switches AI off for the whole deployment instead of falling back
-   to a direct call: Settings → AI says the gateway setting is invalid, and the
-   browser's diagnostic log records `ai.gateway.invalid`.
+   to a direct call: Settings → AI says the gateway setting is invalid, and
+   `GET /api/ai/status` answers `invalid: true`. Which part is invalid is named by a
+   reason code (`url`, `token` or `token-without-url`), never by the value, in two
+   places: the server log, once per server process, as
+   `ai gateway setting invalid: <reason>`, and the browser's diagnostic log, as
+   `ai.gateway.invalid` with the field `reason`. (The status answer carries the same
+   code as `invalidReason`.)
 5. **Allow long responses and large requests on the front proxy.** A relayed call is
    held open until Anthropic answers; the relay itself gives up only after 15 minutes
    without data. Any ingress, load balancer or reverse proxy in front of the app must
@@ -418,7 +423,12 @@ What to know when running it:
 
 - **Consent follows the route.** A consent records whether it was given for a direct
   or a gateway deployment, so turning the gateway on — or off again — asks every
-  user to accept the disclosure again. A tab left open across the change sends
+  user to accept the disclosure again. The background consent (for the scheduled jobs
+  and the automatic insight recommendations) follows the route too: it lapses at the
+  same change, and each user has to tick background AI in Settings → AI again,
+  separately from accepting the disclosure; until then those features do not run.
+  Changing from one gateway URL to another is not a route change and asks nothing.
+  A tab left open across the change sends
   nothing: the chat and the other AI features that report a failure ask for a
   reload (never a key problem); the digest summary and the automatic insight
   recommendations, which fail quietly, are skipped.
@@ -446,10 +456,11 @@ What to know when running it:
   app is the control here: restrict who can reach the app server, for example by
   keeping it on the organisation's network or behind its sign-in proxy.
 - **Gateway errors** appear in the chat and the other AI features that report a failure as "The
-  organisation's AI gateway refused this app's token" (the gateway answered 401/403:
-  check the token) or "… returned an error" (any other non-Anthropic failure, including
-  a 3xx, which the relay does not follow; a 429 is named as above), never as a key
-  problem or a connection problem; a scheduled job's run history records the same
+  organisation's AI gateway refused this app (check the gateway token)" (the gateway
+  answered 401/403) or "… could not be reached or returned an error" (the gateway was
+  unreachable, or any other non-Anthropic failure, including a 3xx, which the relay
+  does not follow; a 429 is named as above), never as a problem with the user's key or
+  with the browser's own connection; a scheduled job's run history records the same
   message. A switched-off, invalid or changed AI setting is named the same way in the
   features; a scheduled job does not record it but waits and retries on its next check.
   An error Anthropic itself returns, such as a rejected key, passes through unchanged.
@@ -561,8 +572,8 @@ rate-limited. Users must regenerate at
 <https://console.anthropic.com/settings/keys>. The server does not see this
 traffic, so server-side logs will be silent. On a gateway deployment the relay
 passes Anthropic's answer through unchanged and logs nothing either; a 401/403
-from the gateway itself shows as "the organisation's AI gateway refused this app's
-token" instead (see
+from the gateway itself shows as "the organisation's AI gateway refused this app
+(check the gateway token)" instead (see
 [Routing AI through a gateway](#routing-ai-through-a-gateway-run-time-optional)).
 
 ### "Outlook import fails with 401 / permission error"

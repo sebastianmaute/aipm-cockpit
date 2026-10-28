@@ -18,10 +18,12 @@ longer carries its own changelog comment.
 - **AI requests can go through the organisation's AI gateway.** Two new server settings, `AIPM_AI_GATEWAY_URL` and
   `AIPM_AI_GATEWAY_TOKEN`, send AI requests through this app's server and a Cloudflare AI Gateway instead of straight
   from the browser to Anthropic. Each user still uses their own Anthropic key, which the server passes on without
-  storing or logging it. An invalid setting switches AI off rather than falling back to a direct call. With neither
-  setting, AI works exactly as before.
+  storing or logging it. An invalid setting switches AI off rather than falling back to a direct call; the server log
+  and the browser's diagnostics name which part is invalid, never its value. With neither setting, AI works exactly as
+  before.
   - The AI data disclosure, the key note in Settings → AI and Help say which way the data goes on this deployment,
-    and turning the gateway on or off asks everyone to accept the disclosure again.
+    and turning the gateway on or off asks everyone to accept the disclosure again and to tick background AI again,
+    separately. Moving from one gateway address to another asks nothing.
   - Setup, the token's scope and the proxy timeout the relay needs are in `docs/RUNBOOK.md`.
   - Every AI feature that reports a failure names a switched-off AI setting or a gateway error as such, never as a
     key or connection problem; a scheduled job's run history records gateway errors, and a job whose AI setting is

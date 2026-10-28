@@ -125,10 +125,13 @@
   `IntegrationSwitchesSync` records it with `setDisabledIntegrations` during render, before any child renders.
   Plain functions then ask `isIntegrationDisabled` / `isJiraOn` / `isModuleSwitchedOff` with no prop threaded.
 - ★ **`ai` is read through its own record, not `isIntegrationDisabled`.** The layout also computes
-  `aiDeploymentStateFrom` (`ai-gateway-config.ts`, server only) — `{ off, route, invalid }`, folding in the AI gateway
+  `aiDeploymentStateFrom` (`ai-gateway-config.ts`, server only) — `{ off, route, invalid, invalidReason? }`, folding in the AI gateway
   settings (`AIPM_AI_GATEWAY_URL`/`_TOKEN`) — and `IntegrationSwitchesSync` records it with `setAiDeploymentState`
   (`ai-deployment.ts`). AI gates ask `isAiDeploymentOn`; the disclosure texts ask `currentAiRoute`. An invalid gateway
-  setting closes AI exactly like `ai` (fail closed, no fallback to a direct call). The transport itself is in
+  setting closes AI exactly like `ai` (fail closed, no fallback to a direct call). ★ It still reports `route: "gateway"`
+  when the URL is set (only a token with no URL reads `"direct"`), so a stored gateway consent stays current and no
+  surface shows the direct texts; nothing reads `route` to SEND while `invalid` is true. Settings → AI offers no consent
+  review or accept while the deployment is off or invalid (the chat's `consentStale && deploymentOn` rule). The transport itself is in
   [ai-assistant.md](ai-assistant.md) "Wire layer".
 
 ★★ **Gates ask; stored settings are never rewritten.** Many call sites save settings by spreading the current
