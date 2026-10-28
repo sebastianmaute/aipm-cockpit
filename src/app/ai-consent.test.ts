@@ -116,6 +116,24 @@ describe("route-bound consent", () => {
     expect(() => assertAiConsentLive("interactive")).toThrow(AiConsentRevokedError);
     expect(() => assertAiConsentLive("background")).toThrow(AiConsentRevokedError);
   });
+  it("a direct background consent is not live after the interactive consent is given again on the gateway", () => {
+    setAiDeploymentState(DIRECT);
+    const d = newConsent(D);
+    expect(d.route).toBe("direct");
+    setAiDeploymentState(GATEWAY);
+    const g = newConsent(D);
+    publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: g, backgroundConsent: d });
+    expect(() => assertAiConsentLive("interactive")).not.toThrow();
+    expect(() => assertAiConsentLive("background")).toThrow(AiConsentRevokedError);
+  });
+  it("a legacy background record without a route is not live on the gateway either", () => {
+    setAiDeploymentState(GATEWAY);
+    const g = newConsent(D);
+    const legacy = { acceptedAt: D.toISOString(), disclosureVersion: AI_DISCLOSURE_VERSION };
+    publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: g, backgroundConsent: legacy });
+    expect(() => assertAiConsentLive("interactive")).not.toThrow();
+    expect(() => assertAiConsentLive("background")).toThrow(AiConsentRevokedError);
+  });
   it("sanitizeConsent keeps a valid route and drops an invalid one", () => {
     expect(sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: 1, route: "gateway" })?.route).toBe("gateway");
     const bad = sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: 1, route: "x" });

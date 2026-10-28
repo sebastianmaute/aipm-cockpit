@@ -149,9 +149,11 @@ describe("relay — refusals before any upstream call", () => {
   });
 
   it("Sec-Fetch-Site: same-site → 403 (a sibling subdomain is not this origin)", async () => {
-    const { send } = fakeSend();
+    // The fake answers if called, so a regression fails on the status, not on a hung send.
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
     const res = await relay(post({ "sec-fetch-site": "same-site" }), "messages", GATEWAY_ENV, send);
     expect(res.status).toBe(403);
+    expect(calls).toHaveLength(0);
   });
 
   it("no Sec-Fetch-Site and a foreign Origin → 403", async () => {
@@ -224,7 +226,7 @@ describe("relay — refusals before any upstream call", () => {
 
   it("a content-length over 32 MB → 413 without calling send", async () => {
     expect(RELAY_MAX_BODY_BYTES).toBe(32 * 1024 * 1024);
-    const { send, calls } = fakeSend();
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
     const req = post();
     Object.defineProperty(req, "headers", {
       value: new Headers({
@@ -239,7 +241,7 @@ describe("relay — refusals before any upstream call", () => {
   });
 
   it("a body over 32 MB with no content-length → 413 while reading, without calling send", async () => {
-    const { send, calls } = fakeSend();
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
     const big = new Uint8Array(RELAY_MAX_BODY_BYTES + 1);
     const req = new Request("http://localhost:3000/api/ai/messages", {
       method: "POST",
