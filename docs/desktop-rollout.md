@@ -1,5 +1,7 @@
 # Installing AI PM Cockpit on your laptop
 
+Prefer to watch? The video [Install: download and set up the desktop app](https://www.youtube.com/watch?v=7RTinVBf5a8) walks through every step below.
+
 ## Installing
 
 1. Download the installer from the project's [**Releases**](https://github.com/sebastianmaute/aipm-cockpit/releases)
