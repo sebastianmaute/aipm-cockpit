@@ -14,7 +14,7 @@ import {
   parseWbsProposal,
   type ParsedWbsProposal,
 } from "./wbs-plan/wbs-plan";
-import { runForcedToolCall } from "./ai-forced-call";
+import { runForcedToolCallWithRetry } from "./ai-forced-call";
 
 interface AiCreds {
   apiKey: string;
@@ -24,8 +24,10 @@ interface AiCreds {
 }
 
 /** Run one forced propose_wbs_changes tool call and return the parsed result
- *  (`{items, truncated}`). Throws AiHttpError on a non-OK response and
- *  Error("parse") on absent/malformed tool output. The api key is NEVER
+ *  (`{items, truncated}`). A reply cut at the output budget is asked for once
+ *  more at 16384 (§764). Throws AiHttpError on a non-OK response and
+ *  Error("parse") on absent/malformed tool output, or when the retry is cut
+ *  too. The api key is NEVER
  *  included in a thrown error. */
 export async function runWbsProposal(
   context: string,
@@ -38,7 +40,7 @@ export async function runWbsProposal(
   // written without per-item human confirmation.
   const userMessage = `${context}\n\n---\nUSER REQUEST: ${instruction}`;
 
-  const input = await runForcedToolCall({
+  const reply = await runForcedToolCallWithRetry({
     apiKey: ai.apiKey,
     model: ai.model,
     system: buildWbsSystemPrompt(),
@@ -59,11 +61,15 @@ export async function runWbsProposal(
     // requests. NOT raised instead: the app sends any live `claude-*` id
     // (settings-types.ts), and a model whose output cap is 8192 would refuse a
     // larger `max_tokens` on EVERY call, turning a rare overflow into a
-    // permanent failure. alloc-plan-call.ts uses the same ceiling.
+    // permanent failure. alloc-plan-call.ts uses the same ceiling. Only a reply
+    // cut at 8192 is asked for once more at 16384 (§764); such a model refuses
+    // that one request, and the cut reply is the parse error, as before.
     maxTokens: 8192,
     signal,
-  });
-  const parsed = parseWbsProposal(input);
+  }, 16_384);
+  // A reply cut at the retry budget too is never read (§764): its input may be partial yet still parse.
+  if (reply.stopReason === "max_tokens") throw new Error("parse");
+  const parsed = parseWbsProposal(reply.input);
   if (!parsed) throw new Error("parse");
   return parsed;
 }

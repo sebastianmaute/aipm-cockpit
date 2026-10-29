@@ -3,7 +3,7 @@
 // (from URL), file type (icon + i18n key), and list filter/sort/counts for the
 // Documents card grid. Deterministic — no Date/Math.random.
 
-import { linkKindOf } from "./document-link";
+import { isSafeHttpUrl, linkKindOf } from "./document-link";
 import type { DocRef, DocSourceKind } from "./knowledge";
 
 /** Host label from a URL: known SaaS hosts mapped to a stable name, else the
@@ -81,17 +81,32 @@ const SOURCE_RANK: Record<DocSourceKind, number> = {
   project: 0, milestone: 1, task: 2, raid: 3, change: 4, stakeholder: 5,
 };
 
-/** The Knowledge search: a name contains the query, case-insensitive; a blank query matches all. One
- *  rule for the attached documents (`filterDocs`) and the library cards, so the box narrows both. */
+/** The Knowledge search's one comparison: a text contains the query, case-insensitive; a blank query
+ *  matches all. One rule for the attached documents (`filterDocs`) and the library cards (their name),
+ *  so the box narrows both. */
 export function matchesDocQuery(name: string, query: string): boolean {
   const q = query.trim().toLowerCase();
   return q === "" || name.toLowerCase().includes(q);
 }
 
-export function filterDocs(refs: readonly DocRef[], sourceKind: DocSourceKind | "all", query: string): DocRef[] {
-  return refs.filter(
-    (r) => (sourceKind === "all" || r.source.kind === sourceKind) && matchesDocQuery(r.link.name, query),
-  );
+/** Attached documents narrowed by source chip and search (§775). The search matches what each card
+ *  shows: the document's name, its source item's name, its source type (`sourceLabel` supplies the
+ *  translated label, which keeps this module i18n-free) and its host. The host only when the card
+ *  shows one, i.e. for a safe http(s) link; where `hostLabel` finds none, the card shows `webLabel`
+ *  (translated, like the source label) and that is matched instead. */
+export function filterDocs(
+  refs: readonly DocRef[],
+  sourceKind: DocSourceKind | "all",
+  query: string,
+  sourceLabel?: (kind: DocSourceKind) => string,
+  webLabel = "",
+): DocRef[] {
+  return refs.filter((r) => {
+    if (sourceKind !== "all" && r.source.kind !== sourceKind) return false;
+    const host = isSafeHttpUrl(r.link.url) ? hostLabel(r.link.url) || webLabel : "";
+    const texts = [r.link.name, r.source.name, sourceLabel?.(r.source.kind) ?? "", host];
+    return texts.some((text) => matchesDocQuery(text, query));
+  });
 }
 
 /** Sort a doc list. For `"type"`, an optional `typeLabel` resolver supplies the

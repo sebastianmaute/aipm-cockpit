@@ -3,9 +3,19 @@ import { runInsightRecommendation } from "./recommend-call";
 import { buildGroundingIndex } from "../action-ai";
 
 const WHOLE = vi.hoisted(() => ({ summary: "reschedule 12", calls: [{ name: "update_task", input: { id: 12, dueDate: "2026-08-01" } }] }));
-vi.mock("../ai-forced-call", () => ({
-  runForcedToolCallWithStop: vi.fn(async () => ({ input: WHOLE, stopReason: "tool_use" })),
-}));
+// One mocked request per reply; `runForcedToolCallWithRetry` keeps its contract over it (one retry at the
+// larger budget when a reply is cut — ai-forced-call.test.ts pins the real one), so these tests see every
+// request the caller makes.
+vi.mock("../ai-forced-call", () => {
+  type Args = { maxTokens: number };
+  type Reply = { input: Record<string, unknown>; stopReason: string | undefined };
+  const runForcedToolCallWithStop = vi.fn<(args: Args) => Promise<Reply>>(async () => ({ input: WHOLE, stopReason: "tool_use" }));
+  const runForcedToolCallWithRetry = vi.fn(async (args: Args, retryMaxTokens: number) => {
+    const first = await runForcedToolCallWithStop(args);
+    return first.stopReason === "max_tokens" ? runForcedToolCallWithStop({ ...args, maxTokens: retryMaxTokens }) : first;
+  });
+  return { runForcedToolCallWithStop, runForcedToolCallWithRetry };
+});
 
 beforeEach(() => vi.clearAllMocks());
 

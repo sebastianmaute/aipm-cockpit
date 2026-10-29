@@ -20,6 +20,27 @@ import { changeKey, type RestoreSelection } from "./version-restore";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { Button } from "./button";
+import { ChevronRightIcon } from "./icons";
+import { formatDiffPair } from "./version-diff-format";
+
+/** Modified records whose fields the inline layout shows without a click (§776).
+ *  Capped for the cost the `aria-controls` note below describes: a vs-now
+ *  compare can carry hundreds of modified records. The rest keep the toggle. */
+export const INLINE_OPEN_LIMIT = 25;
+
+/** The changes grouped by collection, in first-appearance order: the order both
+ *  layouts render, so the open rows below are the first ones on screen. */
+function groupByCollection(changes: readonly VersionChange[]): Map<string, VersionChange[]> {
+  const groups = new Map<string, VersionChange[]>();
+  for (const c of changes) groups.set(c.collectionLabel, [...(groups.get(c.collectionLabel) ?? []), c]);
+  return groups;
+}
+
+/** Shown after a field whose before and after read the same once shown as text:
+ *  only the markup or the whitespace changed (bold added, a line break). */
+function FormattingOnly({ lang }: { lang: Lang }) {
+  return <span className="italic text-muted-foreground">({t(lang, "historyFormattingOnly")})</span>;
+}
 
 const TYPE_KEY: Record<ChangeType, "historyAdded" | "historyRemoved" | "historyModified"> = {
   added: "historyAdded", removed: "historyRemoved", modified: "historyModified",
@@ -27,12 +48,6 @@ const TYPE_KEY: Record<ChangeType, "historyAdded" | "historyRemoved" | "historyM
 const TYPE_CLASS: Record<ChangeType, string> = {
   added: "text-ui-green-strong", removed: "text-ui-pink-strong", modified: "text-muted-foreground",
 };
-
-function fmt(v: unknown): string {
-  if (v === null || v === undefined || v === "") return "—";
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
-}
 
 export function VersionDiffView({
   lang,
@@ -67,7 +82,18 @@ export function VersionDiffView({
   leftLabel?: string;
   rightLabel?: string;
 }) {
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  // §776 — the first INLINE_OPEN_LIMIT modified records start open, so a compare
+  // shows what changed without a click. Added and removed records list every
+  // field against a dash, so they start closed. Seeded once per mount, in the
+  // order the rows render: `HistoryPanel` remounts this view for every compare
+  // (`key={compareNonce}`).
+  const [open, setOpen] = useState<Set<string>>(() => new Set(
+    [...groupByCollection(changes).values()]
+      .flat()
+      .filter((c) => c.type === "modified" && c.fields.length > 0)
+      .slice(0, INLINE_OPEN_LIMIT)
+      .map((c) => changeKey(c.collection, c.recordId)),
+  ));
   // ★★ THE PANEL IDS CANNOT BE DERIVED FROM `changeKey`, which is what the
   // obvious version of this did. That key is `JSON.stringify([collection, id])`
   // — quotes, brackets and a comma are all legal in an HTML5 id, but a SPACE is
@@ -79,8 +105,7 @@ export function VersionDiffView({
   if (changes.length === 0) {
     return <p className="text-sm text-muted-foreground">{t(lang, "historyNoChanges")}</p>;
   }
-  const groups = new Map<string, VersionChange[]>();
-  for (const c of changes) groups.set(c.collectionLabel, [...(groups.get(c.collectionLabel) ?? []), c]);
+  const groups = groupByCollection(changes);
 
   const keyOf = (c: VersionChange) => changeKey(c.collection, c.recordId);
   const toggle = (k: string) => setOpen((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
@@ -149,18 +174,22 @@ export function VersionDiffView({
                     </span>
                   </div>
                   <ul className="flex flex-col gap-0.5">
-                    {c.fields.map((f) => (
+                    {c.fields.map((f) => {
+                      const [before, after] = formatDiffPair(f.before, f.after);
+                      return (
                       <li key={f.field} className="grid grid-cols-2 gap-3 text-xs">
                         <span className="flex flex-wrap items-baseline gap-1">
                           <span className="font-medium text-muted-foreground">{f.label}:</span>
-                          <span className="text-foreground">{fmt(f.before)}</span>
+                          <span className="text-foreground">{before}</span>
                         </span>
                         <span className="flex flex-wrap items-baseline gap-1">
                           <span className="font-medium text-muted-foreground">{f.label}:</span>
-                          <span className="text-foreground">{fmt(f.after)}</span>
+                          <span className="text-foreground">{after}</span>
+                          {before === after && <FormattingOnly lang={lang} />}
                         </span>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 </li>
                 );
@@ -272,11 +301,26 @@ export function VersionDiffView({
                         // this button is the row's only control. On a restorable
                         // row no hint renders, so there is nothing to point at.
                         aria-describedby={revertible ? undefined : `${panelIds.get(k)}-managed`}
-                        className="min-w-0 flex-1 text-left after:absolute after:inset-0 after:content-['']"
+                        className={`flex min-w-0 flex-1 items-center text-left after:absolute after:inset-0 after:content-[''] ${expandable ? "cursor-pointer" : ""}`}
                       >
+                        {/* §776 — the chevron is what tells a sighted user the row
+                            opens; it carries no text, so the name is unchanged. */}
+                        {expandable && (
+                          <ChevronRightIcon
+                            aria-hidden="true"
+                            className={`mr-1 h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${open.has(k) ? "rotate-90" : ""}`}
+                          />
+                        )}
                         <span className="text-foreground">{tokens.get(k) ?? c.recordLabel}</span>
                       </button>
                       <span aria-hidden="true" className={`ml-2 shrink-0 text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
+                      {/* Modified rows only: an added or removed row's fields all
+                          "change" against a dash, so a count says nothing there. */}
+                      {expandable && c.type === "modified" && (
+                        <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                          {t(lang, "historyChangedFieldCount", c.fields.length)}
+                        </span>
+                      )}
                     </div>
                     {!revertible && (
                       <span id={`${panelIds.get(k)}-managed`} className="ml-2 shrink-0 text-xs text-muted-foreground">
@@ -304,7 +348,9 @@ export function VersionDiffView({
                       id={panelIds.get(k)}
                       className="mt-1 flex flex-col gap-0.5 border-t border-line pt-1"
                     >
-                      {c.fields.map((f) => (
+                      {c.fields.map((f) => {
+                        const [before, after] = formatDiffPair(f.before, f.after);
+                        return (
                         <li key={f.field} className="flex flex-wrap items-center gap-1 text-xs">
                           {selectable && revertible && (
                             <Checkbox
@@ -322,11 +368,13 @@ export function VersionDiffView({
                             />
                           )}
                           <span className="font-medium text-muted-foreground">{f.label}:</span>
-                          <span className="text-ui-pink-strong line-through">{fmt(f.before)}</span>
+                          <span className="text-ui-pink-strong line-through">{before}</span>
                           <span className="text-muted-foreground">→</span>
-                          <span className="text-ui-green-strong">{fmt(f.after)}</span>
+                          <span className="text-ui-green-strong">{after}</span>
+                          {before === after && <FormattingOnly lang={lang} />}
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   )}
                 </li>

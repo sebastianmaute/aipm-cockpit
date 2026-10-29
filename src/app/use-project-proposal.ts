@@ -8,7 +8,7 @@ import { useCallback, useState } from "react";
 import { parseProposal, PROPOSAL_TOOL, buildProposalSystemPrompt, type ProjectProposal } from "./ai-project-proposal";
 import { type AttachmentBlock } from "./chat-attachments";
 import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
-import { runForcedToolCall } from "./ai-forced-call";
+import { runForcedToolCallWithRetry } from "./ai-forced-call";
 import { useActionGuideText } from "./action-guides-context";
 import { isAbortError } from "./abort-error";
 import { browserTimeZone, todayInZone } from "./timezone";
@@ -41,8 +41,9 @@ export function useProjectProposal(ai: AiCreds) {
       setBusy(true);
       setError(null);
       try {
-        // Shared one-shot forced-tool envelope: never logs/echoes the key or body.
-        const toolInput = await runForcedToolCall({
+        // Shared one-shot forced-tool envelope: never logs/echoes the key or body. A reply
+        // cut at 4096 is asked for once more at 8192 (§764).
+        const reply = await runForcedToolCallWithRetry({
           apiKey: key,
           model: ai.model,
           // The user's local day, computed the same way as the one the wizard stamps on the seed
@@ -54,8 +55,9 @@ export function useProjectProposal(ai: AiCreds) {
           messages: [{ role: "user", content: input }],
           maxTokens: 4096,
           signal,
-        });
-        const parsed = parseProposal(toolInput);
+        }, 8192);
+        // A reply cut at the retry budget too is never read: its input may be partial yet still parse.
+        const parsed = reply.stopReason === "max_tokens" ? null : parseProposal(reply.input);
         if (!parsed) throw new Error("parse");
         return parsed;
       } catch (e) {

@@ -174,6 +174,20 @@
   "Schema is too complex." after 108 s). On any 400 to a strict request the plain reply stands for the caller's own
   validation and that tool is never asked strict again (`nonStrictTools`). A reply without the tool call is still the
   `"parse"` error. Any other 400 is thrown as before. Don't add a model list: the API's own refusal is the signal.
+  ★★ A reply cut at the output budget (`stop_reason: "max_tokens"`) is NOT a schema failure (§764): `postAuto`
+  returns it as it is, with no strict re-ask and no `strictTools` flag, because its `{}` or partial input says
+  nothing about the schema and a strict re-ask at the same budget is just as likely to be cut. The budget retry
+  is `runForcedToolCallWithRetry(args, retryMaxTokens)`: on a cut it asks once more at the larger budget (a cut
+  reply without the tool call included) and returns the last reply, whose `stopReason` the caller must still
+  read — a second cut is that caller's `"parse"` failure, never a half answer. A 400 `invalid_request_error` on
+  the retry (a model whose output cap is below the retry budget) leaves the first, cut reply as the result, and
+  never marks a strict tool non-strict: that 400 says nothing about the strict form. Every
+  forced caller whose answer can outgrow its budget is on it: committee report, insight recommendation, weight
+  suggestion and scheduled-job analysis (4096 → 8192), RACI, task dedup and project proposal (4096 → 8192), WBS
+  and allocation plans (8192 → 16384), and the digest narrative (1024 → 2048: its three sentences fit 1024, but a
+  model asked with auto choice thinks first and can run out, as §763 measured). One is deliberately not: the
+  forecast import (`forecast-import-call.ts` reports a cut as "too-large").
+  Enumerate: `grep -rln "runForcedToolCallWithRetry(" src/app --include=*.ts | grep -v -e test -e ai-forced-call`.
   `AiKeyBanner` (`notifications.tsx`) and the Settings → AI notice read it through `useAiKeyStatus`; the
   banner's dismissal is cleared when the verdict leaves the bad states. ★★ Its "Open AI settings" action works in
   BOTH shells, by different routes: modern navigates to the Settings view at the AI section; classic has no
@@ -1302,7 +1316,7 @@
   Turso-only. Its live probe, `e2e/scheduled-reports-claim-live.spec.ts`, has NOT yet been run against a real database.
 - **AI weight suggestions:** "Suggest with AI" in the next-actions settings → ONE forced-tool call
   (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (the fetch now routes through the shared
-  `runForcedToolCallWithStop` (`ai-forced-call.ts`) — the single never-log envelope; a 4096-token reply cut at
+  `runForcedToolCallWithRetry` (`ai-forced-call.ts`) — the single never-log envelope; a 4096-token reply cut at
   `max_tokens` is asked once more at 8192 and never read, since `{}` would parse as "no change" (§763); never logs/echoes apiKey or body; thrown
   errors carry only HTTP-status digits or `"parse"`). Pure contract `next-actions-tuning.ts` + `weight-suggestion-ai.ts`; hook
   `use-weight-suggestions.ts`. ★★ EVERY model-proposed value reaching `settings.nextActions` MUST pass

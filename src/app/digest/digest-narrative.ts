@@ -7,12 +7,16 @@
 // thrown message and would leak it.)
 import type { Lang } from "../i18n";
 import type { DigestModel } from "./digest-model";
-import { runForcedToolCall } from "../ai-forced-call";
+import { runForcedToolCallWithRetry } from "../ai-forced-call";
 import type { AiConsentLevel } from "../ai-consent";
 
 // Shared control-char scrub (hex escapes — never literal control bytes).
 const CONTROL_CHARS = /[\x00-\x1f]/g;
 const MAX_NARRATIVE = 2000;
+/** Output budgets. Three sentences fit the first, but a model asked with auto choice can think first
+ *  and run out (§763, §764), so a cut reply is asked for once more at the second. */
+const NARRATIVE_MAX_TOKENS = 1024;
+const NARRATIVE_RETRY_MAX_TOKENS = 2048;
 
 /** Forced tool: the model must return the paragraph as a single string field. */
 const NARRATIVE_TOOL = {
@@ -58,14 +62,15 @@ export interface DigestNarrativeCtx {
 
 /** Run one forced write_digest_narrative tool call and return the parsed
  *  paragraph. Throws AiHttpError(status) on a non-OK response (message
- *  status-only) and Error("parse") on absent/malformed/empty tool output. The
+ *  status-only) and Error("parse") on absent/malformed/empty tool output, and on
+ *  a reply cut at the output budget twice (a partial paragraph is never shown). The
  *  api key and response body are NEVER included in the thrown message. */
 export async function runDigestNarrative(
   digest: DigestModel,
   ctx: DigestNarrativeCtx,
   signal?: AbortSignal,
 ): Promise<string> {
-  const input = await runForcedToolCall({
+  const { input, stopReason } = await runForcedToolCallWithRetry({
     apiKey: ctx.apiKey,
     model: ctx.model,
     guideText: ctx.guideText,
@@ -73,9 +78,10 @@ export async function runDigestNarrative(
     tools: [NARRATIVE_TOOL],
     toolName: "write_digest_narrative",
     messages: [{ role: "user", content: buildDigestNarrativePrompt(digest, ctx.lang) }],
-    maxTokens: 1024,
+    maxTokens: NARRATIVE_MAX_TOKENS,
     signal,
-  });
+  }, NARRATIVE_RETRY_MAX_TOKENS);
+  if (stopReason === "max_tokens") throw new Error("parse");
   const narrative = parseDigestNarrative((input as { narrative?: unknown }).narrative);
   if (!narrative) throw new Error("parse");
   return narrative;

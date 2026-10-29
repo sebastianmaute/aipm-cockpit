@@ -28,6 +28,7 @@ import {
   workdaysInRange,
 } from "../resource-capacity";
 import { HOURS_MAP_MAX } from "../sanitize";
+import { oneLine } from "../rich-text-plain";
 
 /** A raw cell as parsed from the model tool input (shape-validated only —
  *  resourceId/periodKey are NOT yet checked against the live workspace). */
@@ -144,7 +145,8 @@ export function buildAllocContext(args: AllocContextArgs): string {
   const shown = resources.slice(0, ALLOC_CONTEXT_MAX_RESOURCES);
   for (const r of shown) {
     const resourceAbsences = absencesForResource(absences, r);
-    const role = roleLabel(r.roleId, roles, disciplines, grades);
+    // Names are free text: one line each, so a line break cannot start a fake resource row (§770).
+    const role = oneLine(roleLabel(r.roleId, roles, disciplines, grades));
     const external = r.isExternal ? " external" : "";
     const cells = periods.map((period) => {
       const capacityRaw = availableCapacityHours(r, period, resourceAbsences, workdayHours, holidaySet);
@@ -153,7 +155,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
       return `${period.key}=${Math.round(current)}/${Math.round(capacityRaw)}`;
     });
     lines.push(
-      `#${r.id} ${aiResourceLabel(r)} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}`,
+      `#${r.id} ${oneLine(aiResourceLabel(r))} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}`,
     );
   }
   if (resources.length > ALLOC_CONTEXT_MAX_RESOURCES) {

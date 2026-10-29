@@ -9,7 +9,7 @@ import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { KnowledgePanel } from "./knowledge-panel";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import type { KnowledgeItem, KnowledgeLink } from "./document-link";
 import type { Task } from "./types";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
@@ -314,6 +314,13 @@ describe("KnowledgePanel", () => {
     expect(screen.getByText(/CRM interface decision/)).toBeInTheDocument();
   });
 
+  // §775 — a library card shows no host, so the host is not searched there.
+  it("does not keep a library card for a host it does not show", () => {
+    renderLibrary([{ ...libraryItem("k1", "Cutover runbook"), url: "https://contoso.sharepoint.com/k1" }]);
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: "sharepoint" } });
+    expect(screen.queryByText(/Cutover runbook/)).not.toBeInTheDocument();
+  });
+
   it("shows the no-match text when search excludes every library item", () => {
     renderLibrary([libraryItem("k1", "Cutover runbook")]);
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: "zzz" } });
@@ -327,6 +334,32 @@ describe("KnowledgePanel", () => {
     fireEvent.click(screen.getByRole("radio", { name: new RegExp(t("en-US", "documentsSourceTask")) }));
     expect(screen.queryByText(/Cutover runbook/)).not.toBeInTheDocument();
     expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
+  });
+
+  // §775 — the search finds a document by its source item's name, its source type and its host.
+  // LINK ("Spec.docx" on example.sharepoint.com) sits on the task "Write spec"; each query below
+  // matches only one of those, never the document's own name.
+  it.each([
+    ["the source item's name", "write"],
+    ["the source type", "task"],
+    ["the host", "sharepoint"],
+  ])("finds a document by %s", (_what, query) => {
+    renderWithTasks([seededTask([LINK])]);
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: query } });
+    expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "documentsNoneForSource"))).not.toBeInTheDocument();
+  });
+
+  it("finds a document by its source type in German", async () => {
+    await loadI18n("de");
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, language: "de" }));
+    renderWithTasks([seededTask([LINK])]);
+    // Settings load after the first render, so wait for the German panel.
+    const box = await screen.findByLabelText(t("de", "documentsSearchDocs"));
+    fireEvent.change(box, { target: { value: "aufgabe" } });
+    expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
+    fireEvent.change(box, { target: { value: "zzz" } });
+    expect(screen.queryByText(/Spec\.docx/)).not.toBeInTheDocument();
   });
 
   it("shows the no-match text when search excludes everything", () => {

@@ -166,8 +166,9 @@ describe("runMeetingReport output budget (§763)", () => {
 });
 
 // §763 — the path the defect ran on: a model that refuses a forced tool_choice is asked with `auto`, plain
-// first; a plain reply cut to `{}` breaks the schema, so the envelope re-asks it strict at the SAME budget
-// and marks the tool strict; only a cut strict reply reaches this caller's retry, which then goes strict.
+// first. Since §764 a plain reply cut to `{}` comes back as it is (it used to be re-asked strict at the
+// SAME budget, marking the tool strict), so this caller's retry asks plain at 8192. A plain reply that
+// breaks the schema WITHOUT being cut is still re-asked strict.
 describe("runMeetingReport on a model that refuses a forced tool_choice (§763)", () => {
   beforeEach(() => __resetToolChoiceFallbackForTests());
   afterEach(() => {
@@ -190,23 +191,7 @@ describe("runMeetingReport on a model that refuses a forced tool_choice (§763)"
       return [b.tool_choice.type, b.tools[0]?.strict === true, b.max_tokens];
     });
 
-  it("forced refused, plain cut to {}, strict cut too: the retry asks strict at 8192 and returns that report", async () => {
-    const m = vi.fn()
-      .mockResolvedValueOnce(refused())
-      .mockResolvedValueOnce(reply("max_tokens", {}))
-      .mockResolvedValueOnce(reply("max_tokens", { html: "<p>half</p>" }))
-      .mockResolvedValueOnce(reply("tool_use", { html: "<p>whole</p>" }));
-    vi.stubGlobal("fetch", m);
-    await expect(runMeetingReport(MODEL, "Agenda", CTX)).resolves.toBe("<p>whole</p>");
-    expect(shape(m)).toEqual([
-      ["tool", false, 4096],
-      ["auto", false, 4096],
-      ["auto", true, 4096],
-      ["auto", true, 8192],
-    ]);
-  });
-
-  it("forced refused, plain cut to {}, strict whole: the strict reply is the report and there is no retry", async () => {
+  it("forced refused, plain cut to {}: the retry asks plain at 8192 and returns that report, nothing strict (§764)", async () => {
     const m = vi.fn()
       .mockResolvedValueOnce(refused())
       .mockResolvedValueOnce(reply("max_tokens", {}))
@@ -216,18 +201,31 @@ describe("runMeetingReport on a model that refuses a forced tool_choice (§763)"
     expect(shape(m)).toEqual([
       ["tool", false, 4096],
       ["auto", false, 4096],
+      ["auto", false, 8192],
+    ]);
+  });
+
+  it("forced refused, plain {} NOT cut: the schema failure is re-asked strict and there is no budget retry", async () => {
+    const m = vi.fn()
+      .mockResolvedValueOnce(refused())
+      .mockResolvedValueOnce(reply("tool_use", {}))
+      .mockResolvedValueOnce(reply("tool_use", { html: "<p>whole</p>" }));
+    vi.stubGlobal("fetch", m);
+    await expect(runMeetingReport(MODEL, "Agenda", CTX)).resolves.toBe("<p>whole</p>");
+    expect(shape(m)).toEqual([
+      ["tool", false, 4096],
+      ["auto", false, 4096],
       ["auto", true, 4096],
     ]);
   });
 
-  it("ends in the parse error, never half a report, when the strict retry at 8192 is cut too", async () => {
+  it("ends in the parse error, never half a report, when the retry at 8192 is cut too", async () => {
     const m = vi.fn()
       .mockResolvedValueOnce(refused())
       .mockResolvedValueOnce(reply("max_tokens", {}))
-      .mockResolvedValueOnce(reply("max_tokens", { html: "<p>half</p>" }))
-      .mockResolvedValueOnce(reply("max_tokens", { html: "<p>half again</p>" }));
+      .mockResolvedValueOnce(reply("max_tokens", { html: "<p>half</p>" }));
     vi.stubGlobal("fetch", m);
     await expect(runMeetingReport(MODEL, "Agenda", CTX)).rejects.toThrow(/^parse$/);
-    expect(m).toHaveBeenCalledTimes(4);
+    expect(m).toHaveBeenCalledTimes(3);
   });
 });

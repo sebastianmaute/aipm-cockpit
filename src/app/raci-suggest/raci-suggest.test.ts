@@ -7,6 +7,7 @@ import {
   MAX_RACI_CELLS,
   MAX_CONTEXT_STAKEHOLDERS,
   MAX_CONTEXT_MILESTONES,
+  RACI_CONTEXT_DESCRIPTION_CHARS,
 } from "./raci-suggest";
 import type { Milestone, Stakeholder } from "../types";
 
@@ -224,6 +225,37 @@ describe("buildRaciContext", () => {
     const withAssignments = [sh(1, "Ada", { raci: { "10": "A" } }), sh(2, "Bo")];
     const ctx = buildRaciContext(withAssignments, milestones);
     expect(ctx.text).toContain("1 | 10 | A");
+  });
+
+  it("keeps every stakeholder and milestone on ONE row of plain text (§770)", () => {
+    // A rich description is HTML with block tags; a legacy one is plain text
+    // with line breaks; a free-text field can hold the column separator. Each
+    // used to split its row or carry markup into the table the model reads.
+    const people = [
+      sh(1, "Ada\nLovelace", { title: "Sponsor | Board", organization: "Org\r\nWest" }),
+      sh(2, "Bo"),
+    ];
+    const rich = { ...ms(10, "Design\nfreeze"), description: "<p>First para</p><ul><li>one</li><li>two</li></ul><p>a &amp; b</p>" } as Milestone;
+    const legacy = { ...ms(11, "Go live"), description: "line one\nline two | three" } as Milestone;
+    const long = { ...ms(12, "Long"), description: `<p>${"x".repeat(400)}</p>` } as Milestone;
+    const ctx = buildRaciContext(people, [rich, legacy, long]);
+    const rows = ctx.text.split("\n");
+
+    for (const id of [1, 2, 10, 11, 12]) {
+      expect(rows.filter((r) => r.startsWith(`${id} | `))).toHaveLength(1);
+    }
+    // Seven stakeholder columns and four milestone columns, so six and three separators.
+    expect(rows.find((r) => r.startsWith("1 | "))!.split(" | ")).toHaveLength(7);
+    for (const id of [10, 11, 12]) {
+      expect(rows.find((r) => r.startsWith(`${id} | `))!.split(" | ")).toHaveLength(4);
+    }
+    expect(ctx.text).not.toMatch(/<\/?(p|ul|li)>/);
+    expect(ctx.text).toContain("1 | Ada Lovelace | Sponsor / Board | Org West |");
+    expect(ctx.text).toContain("10 | Design freeze | 2026-03-01 | First para one two a & b");
+    expect(ctx.text).toContain("11 | Go live | 2026-03-01 | line one line two / three");
+    const longRow = rows.find((r) => r.startsWith("12 | "))!;
+    expect(longRow).toContain(`${"x".repeat(RACI_CONTEXT_DESCRIPTION_CHARS)}…`);
+    expect(longRow).not.toContain("x".repeat(RACI_CONTEXT_DESCRIPTION_CHARS + 1));
   });
 });
 

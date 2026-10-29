@@ -21,6 +21,13 @@ import { isHtmlStart, type RichTextSink } from "./html-start";
 import { logDiag } from "./diagnostics";
 import { ASSET_IMG_TAG_RE } from "./document-asset-patterns";
 
+/** Collapse newlines and control characters to one space, so free text sent to the model as one line
+ *  of a list or table cannot start a line of its own. The WBS grounding also normalises a ref with it,
+ *  so its preview matches refs the same way. */
+export function oneLine(v: string): string {
+  return v.replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ").trim();
+}
+
 /** Whitespace control characters — TAB (0x09), vertical tab and form feed —
  *  collapse to a SINGLE SPACE instead of being deleted.
  *

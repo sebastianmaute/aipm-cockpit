@@ -53,3 +53,35 @@ describe("runDigestNarrative — the consent level", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });
+
+// §764 — a reply cut at the output budget is asked for once more at the larger budget; a second cut is
+// a "parse" failure, never a partial paragraph shown as the whole.
+describe("runDigestNarrative — a reply cut at max_tokens (§764)", () => {
+  const cut = (narrative: string) => ({
+    ok: true,
+    json: async () => ({ stop_reason: "max_tokens", content: [{ type: "tool_use", name: "write_digest_narrative", input: { narrative } }] }),
+  }) as unknown as Response;
+  const done = (narrative: string) => ({
+    ok: true,
+    json: async () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "write_digest_narrative", input: { narrative } }] }),
+  }) as unknown as Response;
+  const budgets = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.map((c) => (JSON.parse((c[1] as { body: string }).body) as { max_tokens: number }).max_tokens);
+  const ctx = { apiKey: "k", model: "m", lang: "en-US" as const };
+  beforeEach(() => publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)) }));
+  afterEach(() => {
+    vi.restoreAllMocks();
+    publishAiConsentState(undefined);
+  });
+
+  it("asks once more at the larger budget and returns the full paragraph", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cut("The project")).mockResolvedValueOnce(done("The project is on track."));
+    await expect(runDigestNarrative(MODEL, ctx)).resolves.toBe("The project is on track.");
+    expect(budgets(fetchSpy)).toEqual([1024, 2048]);
+  });
+
+  it("fails with parse when the retry is cut too", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(cut("The project"));
+    await expect(runDigestNarrative(MODEL, ctx)).rejects.toThrow("parse");
+  });
+});

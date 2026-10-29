@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "../test/ai-consent-live";
 import { AiConsentRevokedError, newConsent, publishAiConsentState } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
-import { __resetToolChoiceFallbackForTests, runForcedToolCall, runForcedToolCallWithStop } from "./ai-forced-call";
+import { __resetToolChoiceFallbackForTests, runForcedToolCall, runForcedToolCallWithRetry, runForcedToolCallWithStop } from "./ai-forced-call";
 import { AiHttpError } from "./ai-errors";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
 import { aiStatusResponse } from "../test/ai-status-fetch";
@@ -296,6 +296,133 @@ describe("runForcedToolCall — a model that refuses a forced tool_choice", () =
     vi.stubGlobal("fetch", fetchMock);
     await expect(runForcedToolCall({ ...args(), model: "claude-sonnet-5-5" })).rejects.toThrow("parse");
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+// §764 — a reply cut at the output budget is a budget problem, not a schema failure.
+describe("a reply cut at max_tokens (§764)", () => {
+  const TOOL = {
+    name: "t",
+    description: "d",
+    input_schema: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] },
+  };
+  const REFUSAL = {
+    ok: false,
+    status: 400,
+    json: async () => ({ error: { type: "invalid_request_error", message: 'tool_choice: type "tool" is not supported for this model.' } }),
+  };
+  const reply = (stopReason: string, input?: unknown) => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      stop_reason: stopReason,
+      content: input === undefined ? [{ type: "text", text: "partial" }] : [{ type: "tool_use", name: "t", input }],
+    }),
+  });
+  const sent = (fetchMock: ReturnType<typeof vi.fn>) =>
+    fetchMock.mock.calls.map((c: unknown[]) => {
+      const b = JSON.parse((c[1] as { body: string }).body) as { tool_choice: { type: string }; tools: { strict?: boolean }[]; max_tokens: number };
+      return [b.tool_choice.type, b.tools[0]?.strict === true, b.max_tokens];
+    });
+  const call = (model = "claude-sonnet-5") => ({ ...args(), model, tools: [TOOL] });
+
+  beforeEach(() => __resetToolChoiceFallbackForTests());
+
+  it("returns a cut auto reply as it is: no strict re-ask, and the tool does not go strict", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(REFUSAL)
+      .mockResolvedValueOnce(reply("max_tokens", {}))
+      .mockResolvedValue(reply("tool_use", { summary: "s" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCallWithStop(call("claude-sonnet-5-5"))).resolves.toEqual({ input: {}, stopReason: "max_tokens" });
+    await expect(runForcedToolCallWithStop(call("claude-sonnet-5-5"))).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
+    expect(sent(fetchMock)).toEqual([["tool", false, 10], ["auto", false, 10], ["auto", false, 10]]);
+  });
+
+  it("runForcedToolCallWithRetry asks once more at the retry budget when the reply is cut", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(reply("max_tokens", {}))
+      .mockResolvedValueOnce(reply("tool_use", { summary: "s" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCallWithRetry(call(), 20)).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
+    expect(sent(fetchMock)).toEqual([["tool", false, 10], ["tool", false, 20]]);
+  });
+
+  it("runForcedToolCallWithRetry sends one request when the reply is not cut", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reply("tool_use", { summary: "s" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCallWithRetry(call(), 20)).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("runForcedToolCallWithRetry retries a cut reply that carries no tool call yet", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(reply("max_tokens"))
+      .mockResolvedValueOnce(reply("tool_use", { summary: "s" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCallWithRetry(call(), 20)).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
+  });
+
+  it("runForcedToolCallWithRetry reports a second cut as max_tokens, for the caller to fail on", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reply("max_tokens", { summary: "par" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCallWithRetry(call(), 20)).resolves.toEqual({ input: { summary: "par" }, stopReason: "max_tokens" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("runForcedToolCallWithRetry keeps the first reply when the API refuses the retry budget", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(reply("max_tokens", { summary: "par" }))
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: { type: "invalid_request_error", message: "max_tokens: 20 > 10, which is the maximum allowed" } }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCallWithRetry(call(), 20)).resolves.toEqual({ input: { summary: "par" }, stopReason: "max_tokens" });
+  });
+
+  it("a strict tool stays strict when the API refuses the retry budget", async () => {
+    const CAP = {
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { type: "invalid_request_error", message: "max_tokens: 20 > 10, which is the maximum allowed" } }),
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(REFUSAL)
+      .mockResolvedValueOnce(reply("tool_use", { summary: 5 }))
+      .mockResolvedValueOnce(reply("tool_use", { summary: "s" }))
+      .mockResolvedValueOnce(reply("max_tokens", { summary: "par" }))
+      .mockResolvedValueOnce(CAP)
+      .mockResolvedValue(reply("tool_use", { summary: "s" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const model = "claude-sonnet-5-5";
+    await runForcedToolCallWithStop(call(model));
+    await expect(runForcedToolCallWithRetry(call(model), 20)).resolves.toEqual({ input: { summary: "par" }, stopReason: "max_tokens" });
+    await runForcedToolCallWithStop(call(model));
+    expect(sent(fetchMock)).toEqual([
+      ["tool", false, 10], ["auto", false, 10], ["auto", true, 10],
+      ["auto", true, 10], ["auto", true, 20],
+      ["auto", true, 10],
+    ]);
+  });
+
+  it("runForcedToolCallWithRetry passes any other failure of the retry through", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(reply("max_tokens", {}))
+      .mockResolvedValueOnce({ ok: false, status: 529, json: async () => ({ error: { type: "overloaded_error", message: "Overloaded" } }) });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCallWithRetry(call(), 20)).rejects.toBeInstanceOf(AiHttpError);
+  });
+
+  it("on the auto-model path, a cut reply is retried plain at the larger budget, never strict", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(REFUSAL)
+      .mockResolvedValueOnce(reply("max_tokens", {}))
+      .mockResolvedValueOnce(reply("tool_use", { summary: "s" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runForcedToolCallWithRetry(call("claude-sonnet-5-5"), 20)).resolves.toEqual({ input: { summary: "s" }, stopReason: "tool_use" });
+    expect(sent(fetchMock)).toEqual([["tool", false, 10], ["auto", false, 10], ["auto", false, 20]]);
   });
 });
 

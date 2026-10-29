@@ -15,7 +15,7 @@ import {
   parseMergeProposal,
   type RawMergeGroup,
 } from "./task-dedup/dedup";
-import { runForcedToolCall } from "./ai-forced-call";
+import { runForcedToolCallWithRetry } from "./ai-forced-call";
 
 interface AiCreds {
   apiKey: string;
@@ -25,15 +25,17 @@ interface AiCreds {
 }
 
 /** Run one forced propose_task_merges tool call and return the raw parsed groups.
+ *  A reply cut at the output budget is asked for once more at 8192 (§764).
  *  Throws AiHttpError(status, errorType?, safeMessage?) on a non-OK response and
- *  Error("parse") on absent/malformed tool output. The api key is NEVER included
+ *  Error("parse") on absent/malformed tool output, or when the retry is cut too.
+ *  The api key is NEVER included
  *  in the thrown error — only the status + safe body tokens. */
 export async function runDedupProposal(
   context: string,
   ai: AiCreds,
   signal?: AbortSignal,
 ): Promise<RawMergeGroup[]> {
-  const input = await runForcedToolCall({
+  const reply = await runForcedToolCallWithRetry({
     apiKey: ai.apiKey,
     model: ai.model,
     system: buildDedupSystemPrompt(),
@@ -43,8 +45,10 @@ export async function runDedupProposal(
     messages: [{ role: "user", content: context }],
     maxTokens: 4096,
     signal,
-  });
-  const parsed = parseMergeProposal(input);
+  }, 8192);
+  // A reply cut at the retry budget too is never read (§764): its input may be partial yet still parse.
+  if (reply.stopReason === "max_tokens") throw new Error("parse");
+  const parsed = parseMergeProposal(reply.input);
   if (!parsed) throw new Error("parse");
   return parsed;
 }

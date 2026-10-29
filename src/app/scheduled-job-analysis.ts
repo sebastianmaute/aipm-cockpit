@@ -7,7 +7,7 @@
 // or the raw response body — thrown errors carry only the HTTP status (AiHttpError,
 // message status-only) or the token "parse".
 import { parseAnalysis, ANALYZE_TOOL, buildAnalysisSystemPrompt, type ActionAnalysis } from "./action-ai";
-import { runForcedToolCallWithStop } from "./ai-forced-call";
+import { runForcedToolCallWithRetry } from "./ai-forced-call";
 import type { AiConsentLevel } from "./ai-consent";
 
 interface AiCreds {
@@ -35,8 +35,8 @@ const RETRY_MAX_TOKENS = 8192;
  *  Error("parse") on absent/malformed tool output, or when the retry is cut too. The api key and
  *  response body are NEVER included in the thrown error — only the status + safe tokens. */
 export async function runJobAnalysis(context: string, ai: AiCreds, signal?: AbortSignal): Promise<ActionAnalysis> {
-  const call = (maxTokens: number) =>
-    runForcedToolCallWithStop({
+  const reply = await runForcedToolCallWithRetry(
+    {
       apiKey: ai.apiKey,
       model: ai.model,
       system: buildAnalysisSystemPrompt(),
@@ -46,11 +46,11 @@ export async function runJobAnalysis(context: string, ai: AiCreds, signal?: Abor
       tools: [ANALYZE_TOOL],
       toolName: "report_analysis",
       messages: [{ role: "user", content: context }],
-      maxTokens,
+      maxTokens: MAX_TOKENS,
       signal,
-    });
-  let reply = await call(MAX_TOKENS);
-  if (reply.stopReason === "max_tokens") reply = await call(RETRY_MAX_TOKENS);
+    },
+    RETRY_MAX_TOKENS,
+  );
   const parsed = reply.stopReason === "max_tokens" ? null : parseAnalysis(reply.input);
   if (!parsed) throw new Error("parse");
   return parsed;

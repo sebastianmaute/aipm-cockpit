@@ -53,9 +53,9 @@ describe("runWeightSuggestion output budget (§763)", () => {
   });
 });
 
-// The path the defect ran on: forced tool_choice refused, a plain auto reply cut to `{}` (which breaks
-// the schema, so the envelope re-asks strict at the same budget), that strict reply cut too, and only
-// then this caller's retry, which goes straight to strict at 8192.
+// The path the defect ran on: forced tool_choice refused, then a plain auto reply cut to `{}`. Since
+// §764 the envelope returns that cut reply as it is (it used to re-ask it strict at the same budget), so
+// this caller's retry asks plain at 8192.
 describe("runWeightSuggestion on a model that refuses a forced tool_choice (§763)", () => {
   beforeEach(() => __resetToolChoiceFallbackForTests());
   afterEach(() => {
@@ -69,11 +69,10 @@ describe("runWeightSuggestion on a model that refuses a forced tool_choice (§76
       json: async () => ({ error: { type: "invalid_request_error", message: 'tool_choice: type "tool" and "any" are not supported for this model.' } }),
     }) as unknown as Response;
 
-  it("asks forced, plain, strict at 4096, then strict at 8192, and returns that answer", async () => {
+  it("asks forced, plain at 4096, then plain at 8192, never strict, and returns that answer (§764)", async () => {
     const spy = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(refused())
       .mockResolvedValueOnce(reply("max_tokens", {}))
-      .mockResolvedValueOnce(reply("max_tokens", WHOLE))
       .mockResolvedValueOnce(reply("tool_use", WHOLE));
     const out = await run();
     expect(out.suggestions.map((s) => s.field)).toEqual(["clarityBonus"]);
@@ -84,8 +83,7 @@ describe("runWeightSuggestion on a model that refuses a forced tool_choice (§76
     expect(shape).toEqual([
       ["tool", false, 4096],
       ["auto", false, 4096],
-      ["auto", true, 4096],
-      ["auto", true, 8192],
+      ["auto", false, 8192],
     ]);
   });
 });

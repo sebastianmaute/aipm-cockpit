@@ -1,14 +1,15 @@
 // The steering-committee status report: one call through the shared forced-tool envelope, and a second
 // with a larger budget when the first reply is cut. Mirrors scheduled-job-analysis.ts. Each call can be
-// several requests inside the envelope (the forced→auto fallback and its strict re-ask, see below).
-// Routes through the shared runForcedToolCallWithStop envelope (a DIRECT one-shot fetch,
+// several requests inside the envelope: a model that refuses a forced tool_choice is asked with `auto`,
+// and an auto reply that breaks the schema WITHOUT being cut is re-asked strict.
+// Routes through the shared runForcedToolCallWithRetry envelope (a DIRECT one-shot fetch,
 // NOT chat-api's callClaude, which embeds the response body in its thrown message
 // and would leak it); the api key and response body are NEVER logged or echoed —
 // thrown errors carry only the HTTP status (AiHttpError, message status-only) or
 // the token "parse".
 import type { Lang } from "../i18n";
 import type { DashboardModel } from "../dashboard";
-import { runForcedToolCallWithStop } from "../ai-forced-call";
+import { runForcedToolCallWithRetry } from "../ai-forced-call";
 import { REPORT_TOOL, buildMeetingReportPrompt, parseMeetingReport } from "./report-draft";
 
 export interface MeetingReportCtx {
@@ -23,12 +24,10 @@ export interface MeetingReportCtx {
 // §763 — the report is about 1.8–2.0k tokens, and a model asked with `auto` tool choice (one that refuses a
 // forced choice) thinks first, on the same budget: at 2048 two of three plain replies stopped at max_tokens
 // with the tool input `{}`. As `scheduled-job-analysis.ts`: 4096, and a cut reply is asked for once more
-// with 8192. ★ What a cut costs depends on the model. On a model that takes a forced choice: two billed
-// replies (4096, 8192). On an `auto` model (ai-forced-call.ts `postAuto`): a plain reply cut to `{}` breaks
-// the schema, so the envelope re-asks it strict at the same 4096 and marks the tool strict for the session;
-// if that is cut too, the retry goes straight to strict at 8192 — up to three billed replies (plain 4096,
-// strict 4096, strict 8192), plus the unbilled forced-choice 400 on that model's first call of a session. Billing counts
-// the tokens each reply used.
+// with 8192. ★ A cut costs at least two billed replies (4096, then 8192): since §764 the envelope returns a cut
+// reply as it is, never re-asking it strict (`runForcedToolCallWithRetry`, ai-forced-call.ts). On an `auto`
+// model the 8192 reply can still come back whole but off-schema and be re-asked strict, a third. Billing
+// counts the tokens each reply used.
 const MAX_TOKENS = 4096;
 const RETRY_MAX_TOKENS = 8192;
 
@@ -45,19 +44,19 @@ export async function runMeetingReport(
   signal?: AbortSignal,
 ): Promise<string> {
   const content = buildMeetingReportPrompt(model, agenda, ctx.lang);
-  const call = (maxTokens: number) =>
-    runForcedToolCallWithStop({
+  const reply = await runForcedToolCallWithRetry(
+    {
       apiKey: ctx.apiKey,
       model: ctx.model,
       guideText: ctx.guideText,
       tools: [REPORT_TOOL],
       toolName: "write_status_report",
       messages: [{ role: "user", content }],
-      maxTokens,
+      maxTokens: MAX_TOKENS,
       signal,
-    });
-  let reply = await call(MAX_TOKENS);
-  if (reply.stopReason === "max_tokens") reply = await call(RETRY_MAX_TOKENS);
+    },
+    RETRY_MAX_TOKENS,
+  );
   const html =
     reply.stopReason === "max_tokens" ? null : parseMeetingReport((reply.input as { html?: unknown }).html);
   if (html === null) throw new Error("parse");

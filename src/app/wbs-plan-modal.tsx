@@ -20,10 +20,10 @@ import { useResizable } from "./use-resizable";
 import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
-import { htmlPlainProjection } from "./rich-text-plain";
+import { htmlPlainProjection, oneLine } from "./rich-text-plain";
 import { sanitizeMultiline, sanitizeTaskName } from "./sanitize-core";
 import type { Task } from "./types";
-import { oneLine, type GroundedWbsItem, type RawWbsItem, type SkippedWbsItem, type WbsSkipReason, type WbsTarget } from "./wbs-plan/wbs-plan";
+import { type GroundedWbsItem, type RawWbsItem, type SkippedWbsItem, type WbsSkipReason, type WbsTarget } from "./wbs-plan/wbs-plan";
 
 export interface WbsPlanModalProps {
   lang: Lang;

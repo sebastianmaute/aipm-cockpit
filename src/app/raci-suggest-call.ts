@@ -1,7 +1,7 @@
 // ONE forced tool call for "Suggest RACI". Mirrors task-dedup-call.ts: no
 // agentic loop, and the api key goes to the shared never-log envelope only —
 // it is a request HEADER there and is never logged or echoed.
-import { runForcedToolCall } from "./ai-forced-call";
+import { runForcedToolCallWithRetry } from "./ai-forced-call";
 import {
   parseRaciProposal,
   RACI_SUGGEST_TOOL,
@@ -9,6 +9,8 @@ import {
 } from "./raci-suggest/raci-suggest";
 
 const MAX_TOKENS = 4096;
+/** A reply cut at MAX_TOKENS is asked for once more with this budget (§764). */
+const RETRY_MAX_TOKENS = 8192;
 
 const SYSTEM =
   "You assign RACI roles for project milestones. Use the stakeholder's title, " +
@@ -21,7 +23,7 @@ export async function runRaciSuggestion(
   ai: { apiKey: string; model: string; guideText?: string },
   signal?: AbortSignal,
 ): Promise<{ cells: ProposedCell[]; truncated: boolean }> {
-  const raw = await runForcedToolCall({
+  const reply = await runForcedToolCallWithRetry({
     apiKey: ai.apiKey,
     model: ai.model,
     system: SYSTEM,
@@ -31,6 +33,9 @@ export async function runRaciSuggestion(
     messages: [{ role: "user", content: context.text }],
     maxTokens: MAX_TOKENS,
     signal,
-  });
-  return parseRaciProposal(raw);
+  }, RETRY_MAX_TOKENS);
+  // A reply cut at the retry budget too is never read (§764): parseRaciProposal
+  // keeps whatever cells a cut reply carries, so it would pass as a whole answer.
+  if (reply.stopReason === "max_tokens") throw new Error("parse");
+  return parseRaciProposal(reply.input);
 }

@@ -3,6 +3,7 @@
 // transforms that build its context and ground its entity refs. No React, no
 // fetch, no i18n.
 import type { AppView } from "./nav-config";
+import { oneLine } from "./rich-text-plain";
 
 export type AiActionSeverity = "now" | "soon" | "monitor";
 const SEVERITIES: ReadonlySet<string> = new Set<AiActionSeverity>(["now", "soon", "monitor"]);
@@ -89,7 +90,8 @@ export interface AnalysisContextInput {
 
 function capList(view: GroundableView, rows: readonly { id: number; title?: string; name?: string }[]): string {
   const shown = rows.slice(0, CONTEXT_CAP_PER_CATEGORY);
-  const lines = shown.map((r) => `- ${view}#${r.id}: ${(r.title ?? r.name ?? "").slice(0, 120)}`);
+  // One line per row: a line break in a title would start a fake row (§770).
+  const lines = shown.map((r) => `- ${view}#${r.id}: ${oneLine(r.title ?? r.name ?? "").slice(0, 120)}`);
   const withTrunc =
     rows.length > CONTEXT_CAP_PER_CATEGORY
       ? [...lines, `- …(${rows.length - CONTEXT_CAP_PER_CATEGORY} more truncated)`]
@@ -101,10 +103,10 @@ function capList(view: GroundableView, rows: readonly { id: number; title?: stri
  *  Volatile data — sent as the user message, never in the cached system block. */
 export function buildAnalysisContext(input: AnalysisContextInput): string {
   const queue = input.queue.length
-    ? input.queue.map((q) => `- [${q.tier}] ${q.title} — ${q.why}`).join("\n")
+    ? input.queue.map((q) => `- [${q.tier}] ${oneLine(q.title)} — ${oneLine(q.why)}`).join("\n")
     : "(none)";
   return [
-    `Project: ${input.projectName}. Today: ${input.today}. Mode: ${input.mode}.`,
+    `Project: ${oneLine(input.projectName)}. Today: ${input.today}. Mode: ${input.mode}.`,
     `Enabled modules: ${input.enabledModules.join(", ") || "(none)"}. Open task count: ${input.taskCount}.`,
     `Entities are listed as "view#id: title"; reference an entity only by an id shown here. Lists are capped at ${CONTEXT_CAP_PER_CATEGORY} per category.`,
     "",

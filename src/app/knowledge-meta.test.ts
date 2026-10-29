@@ -67,6 +67,50 @@ describe("filterDocs", () => {
   it("substring-matches the name case-insensitively", () => {
     expect(filterDocs(docs, "all", "alph")).toHaveLength(1);
   });
+
+  // §775 — a document is found by where it sits, not only by its own name.
+  const bySource = [
+    ref({ name: "Erasure flow.docx", url: "https://contoso.sharepoint.com/e.docx" }, "raid", "GDPR erasure requests do not reach the CRM"),
+    ref({ name: "Plan.pdf", url: "https://example.com/plan.pdf" }, "task", "Write the cutover plan"),
+  ];
+  const names = (rs: { link: { name: string } }[]) => rs.map((r) => r.link.name);
+  const label = (k: string) => ({ raid: "RAID", task: "Aufgabe" })[k] ?? k;
+
+  it("finds a document by its source item's name", () => {
+    expect(names(filterDocs(bySource, "all", "crm"))).toEqual(["Erasure flow.docx"]);
+  });
+
+  it("finds a document by its source type, as the caller labels it", () => {
+    expect(names(filterDocs(bySource, "all", "aufgabe", label))).toEqual(["Plan.pdf"]);
+    // Without a label resolver the type is not searched.
+    expect(filterDocs(bySource, "all", "aufgabe")).toEqual([]);
+  });
+
+  it("finds a document by its host", () => {
+    expect(names(filterDocs(bySource, "all", "sharepoint", label))).toEqual(["Erasure flow.docx"]);
+    expect(names(filterDocs(bySource, "all", "example.com", label))).toEqual(["Plan.pdf"]);
+  });
+
+  it("still applies the source chip, and still matches nothing for an unknown query", () => {
+    expect(filterDocs(bySource, "task", "crm", label)).toEqual([]);
+    expect(filterDocs(bySource, "all", "zzz", label)).toEqual([]);
+  });
+
+  it("matches the host only when the card shows one (a safe http(s) link)", () => {
+    const unsafe = [ref({ name: "Odd", url: "ftp://files.sharepoint.com/x" }, "task", "T")];
+    expect(filterDocs(unsafe, "all", "sharepoint")).toEqual([]);
+    expect(names(filterDocs(unsafe, "all", "odd"))).toEqual(["Odd"]);
+  });
+
+  it("matches the Web label a safe link without a host name shows", () => {
+    // `hostLabel` strips "www.", which leaves nothing of this host; the card shows the Web label.
+    const nameless = [ref({ name: "Odd", url: "https://www./x" }, "task", "T")];
+    expect(names(filterDocs(nameless, "all", "web", label, "Web"))).toEqual(["Odd"]);
+    expect(filterDocs(nameless, "all", "web", label)).toEqual([]);
+    // An unsafe link shows no host at all, so not the Web label either.
+    const unsafe = [ref({ name: "Odd", url: "ftp://www./x" }, "task", "T")];
+    expect(filterDocs(unsafe, "all", "web", label, "Web")).toEqual([]);
+  });
 });
 
 describe("sortDocs", () => {

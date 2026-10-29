@@ -6,7 +6,7 @@
 // shape-validates it, and `groundWbsProposal` judges every id, ref, piece and
 // value against the live workspace. No React, no fetch, no i18n, no side effects.
 import { DEFAULT_TASK_STATUS, type Milestone, type ProjectMeta, type Task } from "../types";
-import { htmlPlainProjection } from "../rich-text-plain";
+import { htmlPlainProjection, oneLine } from "../rich-text-plain";
 import { sanitizeAiRichText } from "../ai-rich-text";
 import {
   sanitizeAssignee,
@@ -66,12 +66,6 @@ export interface WbsContextArgs {
   scopeIds: ReadonlySet<number>;
   milestones: readonly Milestone[];
   project: ProjectMeta | undefined;
-}
-
-/** Collapse newlines/control chars so a name cannot inject extra digest lines.
- *  Also how grounding normalises a ref, so the preview matches refs with it. */
-export function oneLine(v: string): string {
-  return v.replace(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, " ").trim();
 }
 
 function plainDescription(html: string | undefined): string {
