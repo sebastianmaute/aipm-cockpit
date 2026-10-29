@@ -382,6 +382,31 @@ describe("a reply cut at max_tokens (§764)", () => {
     await expect(runForcedToolCallWithRetry(call(), 20)).resolves.toEqual({ input: { summary: "par" }, stopReason: "max_tokens" });
   });
 
+  it("a strict tool stays strict when the API refuses the retry budget", async () => {
+    const CAP = {
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { type: "invalid_request_error", message: "max_tokens: 20 > 10, which is the maximum allowed" } }),
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(REFUSAL)
+      .mockResolvedValueOnce(reply("tool_use", { summary: 5 }))
+      .mockResolvedValueOnce(reply("tool_use", { summary: "s" }))
+      .mockResolvedValueOnce(reply("max_tokens", { summary: "par" }))
+      .mockResolvedValueOnce(CAP)
+      .mockResolvedValue(reply("tool_use", { summary: "s" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const model = "claude-sonnet-5-5";
+    await runForcedToolCallWithStop(call(model));
+    await expect(runForcedToolCallWithRetry(call(model), 20)).resolves.toEqual({ input: { summary: "par" }, stopReason: "max_tokens" });
+    await runForcedToolCallWithStop(call(model));
+    expect(sent(fetchMock)).toEqual([
+      ["tool", false, 10], ["auto", false, 10], ["auto", true, 10],
+      ["auto", true, 10], ["auto", true, 20],
+      ["auto", true, 10],
+    ]);
+  });
+
   it("runForcedToolCallWithRetry passes any other failure of the retry through", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(reply("max_tokens", {}))

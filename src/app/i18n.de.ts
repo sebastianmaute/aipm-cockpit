@@ -5002,6 +5002,7 @@ export const de: Record<TranslationKey, string> = {
   historyRemoved: "Entfernt",
   historyModified: "Geändert",
   historyChangedFieldCount: "Geänderte Felder: {0}",
+  historyFormattingOnly: "nur Formatierung",
   historyCompareVsNow: "Mit aktuellem Stand verglichen",
   historyCompareSelect: "Zum Vergleich auswählen",
   historyCompareSelected: "Auswahl vergleichen",

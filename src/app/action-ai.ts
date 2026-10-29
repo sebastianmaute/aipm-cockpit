@@ -3,7 +3,7 @@
 // transforms that build its context and ground its entity refs. No React, no
 // fetch, no i18n.
 import type { AppView } from "./nav-config";
-import { oneLine } from "./wbs-plan/wbs-plan";
+import { oneLine } from "./rich-text-plain";
 
 export type AiActionSeverity = "now" | "soon" | "monitor";
 const SEVERITIES: ReadonlySet<string> = new Set<AiActionSeverity>(["now", "soon", "monitor"]);
@@ -106,7 +106,7 @@ export function buildAnalysisContext(input: AnalysisContextInput): string {
     ? input.queue.map((q) => `- [${q.tier}] ${oneLine(q.title)} — ${oneLine(q.why)}`).join("\n")
     : "(none)";
   return [
-    `Project: ${input.projectName}. Today: ${input.today}. Mode: ${input.mode}.`,
+    `Project: ${oneLine(input.projectName)}. Today: ${input.today}. Mode: ${input.mode}.`,
     `Enabled modules: ${input.enabledModules.join(", ") || "(none)"}. Open task count: ${input.taskCount}.`,
     `Entities are listed as "view#id: title"; reference an entity only by an id shown here. Lists are capped at ${CONTEXT_CAP_PER_CATEGORY} per category.`,
     "",

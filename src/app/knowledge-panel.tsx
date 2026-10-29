@@ -319,8 +319,8 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
     () =>
       sortDocs(
         // §775 — the search also finds a document by its source item's name, its source type as the
-        // card shows it ("Task: …"), and its host.
-        filterDocs(docs, effFilter, query, (kind) => t(lang, SOURCE_LABEL[kind])),
+        // card shows it ("Task: …"), and its host as the card shows it ("Web" when it has no name).
+        filterDocs(docs, effFilter, query, (kind) => t(lang, SOURCE_LABEL[kind]), t(lang, "documentsHostWeb")),
         sort,
         (r) => t(lang, DOC_TYPE_LABEL[fileTypeOf(r.link).labelKey]),
       ),

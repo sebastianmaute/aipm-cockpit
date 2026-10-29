@@ -3,8 +3,7 @@
 // re-grounded against the live stakeholders/milestones before anything can be
 // shown or applied.
 import { RACI_ROLES, type Milestone, type RaciRole, type Stakeholder } from "../types";
-import { descriptionHtml, htmlPlainProjection } from "../rich-text-plain";
-import { oneLine } from "../wbs-plan/wbs-plan";
+import { descriptionHtml, htmlPlainProjection, oneLine } from "../rich-text-plain";
 
 export const MAX_RACI_CELLS = 200;
 export const MAX_CONTEXT_STAKEHOLDERS = 120;

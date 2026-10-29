@@ -180,11 +180,13 @@
   is `runForcedToolCallWithRetry(args, retryMaxTokens)`: on a cut it asks once more at the larger budget (a cut
   reply without the tool call included) and returns the last reply, whose `stopReason` the caller must still
   read — a second cut is that caller's `"parse"` failure, never a half answer. A 400 `invalid_request_error` on
-  the retry (a model whose output cap is below the retry budget) leaves the first, cut reply as the result. Every
+  the retry (a model whose output cap is below the retry budget) leaves the first, cut reply as the result, and
+  never marks a strict tool non-strict: that 400 says nothing about the strict form. Every
   forced caller whose answer can outgrow its budget is on it: committee report, insight recommendation, weight
   suggestion and scheduled-job analysis (4096 → 8192), RACI, task dedup and project proposal (4096 → 8192), WBS
-  and allocation plans (8192 → 16384). Two are deliberately not: the digest narrative (three sentences at 1024
-  cannot outgrow it) and the forecast import (`forecast-import-call.ts` reports a cut as "too-large").
+  and allocation plans (8192 → 16384), and the digest narrative (1024 → 2048: its three sentences fit 1024, but a
+  model asked with auto choice thinks first and can run out, as §763 measured). One is deliberately not: the
+  forecast import (`forecast-import-call.ts` reports a cut as "too-large").
   Enumerate: `grep -rln "runForcedToolCallWithRetry(" src/app --include=*.ts | grep -v -e test -e ai-forced-call`.
   `AiKeyBanner` (`notifications.tsx`) and the Settings → AI notice read it through `useAiKeyStatus`; the
   banner's dismissal is cleared when the verdict leaves the bad states. ★★ Its "Open AI settings" action works in

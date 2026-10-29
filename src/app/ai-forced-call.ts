@@ -161,8 +161,9 @@ export interface ForcedToolCallResult {
  * result is the last reply, so its `stopReason` is still `"max_tokens"` when
  * the retry was cut too; the caller treats that as its failure. A 400
  * `invalid_request_error` on the retry (a model whose output cap is below
- * `retryMaxTokens`) leaves the first reply as the result. Same throws as
- * `runForcedToolCall` otherwise.
+ * `retryMaxTokens`) leaves the first reply as the result, and on the retry such
+ * a 400 never marks the tool non-strict: it says nothing about the strict form.
+ * Same throws as `runForcedToolCall` otherwise.
  */
 export async function runForcedToolCallWithRetry(
   args: ForcedToolCallArgs,
@@ -172,16 +173,17 @@ export async function runForcedToolCallWithRetry(
   if (first.stop_reason !== "max_tokens") return toolResult(first, args);
   let reply = first;
   try {
-    reply = await requestReply({ ...args, maxTokens: retryMaxTokens });
+    reply = await requestReply({ ...args, maxTokens: retryMaxTokens }, true);
   } catch (e) {
     if (!refusesRequest(e)) throw e;
   }
   return toolResult(reply, args);
 }
 
-/** The reply to one call: forced, or auto for a model that refuses a forced choice. */
-async function requestReply(args: ForcedToolCallArgs): Promise<ReplyBody> {
-  if (autoChoiceModels.has(args.model)) return postAuto(args);
+/** The reply to one call: forced, or auto for a model that refuses a forced choice. `isRetry` marks the
+ *  larger-budget retry, whose 400 may be the budget rather than the strict form (`postStrict`). */
+async function requestReply(args: ForcedToolCallArgs, isRetry = false): Promise<ReplyBody> {
+  if (autoChoiceModels.has(args.model)) return postAuto(args, isRetry);
   try {
     return await postOnce(args, "forced");
   } catch (e) {
@@ -189,7 +191,7 @@ async function requestReply(args: ForcedToolCallArgs): Promise<ReplyBody> {
     // With "auto" and a single tool the model still calls it; a reply without the call is
     // the same "parse" failure as before.
     autoChoiceModels.add(args.model);
-    return postAuto(args);
+    return postAuto(args, isRetry);
   }
 }
 
@@ -211,22 +213,29 @@ function toolResult(json: ReplyBody, args: ForcedToolCallArgs): ForcedToolCallRe
  *  A reply without the tool call is returned as it is: strict cannot make the model call it. Nor is a
  *  reply cut at the output budget a schema failure (§764): it is returned as it is, for the caller's
  *  retry with a larger budget (`runForcedToolCallWithRetry`), and the tool does not go strict. */
-async function postAuto(args: ForcedToolCallArgs): Promise<ReplyBody> {
+async function postAuto(args: ForcedToolCallArgs, isRetry: boolean): Promise<ReplyBody> {
   const tool = args.toolName;
-  if (strictTools.has(tool) && !nonStrictTools.has(tool)) return postStrict(args, null);
+  if (strictTools.has(tool) && !nonStrictTools.has(tool)) return postStrict(args, null, isRetry);
   const plain = await postOnce(args, "auto");
   if (plain.stop_reason === "max_tokens") return plain;
   if (nonStrictTools.has(tool) || replyMatches(plain, args)) return plain;
   strictTools.add(tool);
-  return postStrict(args, plain);
+  return postStrict(args, plain, isRetry);
 }
 
-/** The strict request; on its refusal, `fallback` (or a plain request when there is none). */
-async function postStrict(args: ForcedToolCallArgs, fallback: ReplyBody | null): Promise<ReplyBody> {
+/** The strict request; on its refusal, `fallback` (or a plain request when there is none). On the
+ *  larger-budget retry a 400 can be the budget (a model whose output cap is lower), so it does not mark
+ *  the tool non-strict there: with no fallback it is thrown, for `runForcedToolCallWithRetry` to keep
+ *  the first reply. */
+async function postStrict(args: ForcedToolCallArgs, fallback: ReplyBody | null, isRetry: boolean): Promise<ReplyBody> {
   try {
     return await postOnce(args, "strict");
   } catch (e) {
     if (!refusesRequest(e)) throw e;
+    if (isRetry) {
+      if (fallback === null) throw e;
+      return fallback;
+    }
     nonStrictTools.add(args.toolName);
     return fallback ?? postOnce(args, "auto");
   }

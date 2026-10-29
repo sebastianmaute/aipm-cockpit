@@ -5263,6 +5263,7 @@ const enUS = {
   historyRemoved: "Removed",
   historyModified: "Modified",
   historyChangedFieldCount: "Fields changed: {0}",
+  historyFormattingOnly: "formatting only",
   historyCompareVsNow: "Compared with current",
   historyCompareSelect: "Select to compare",
   historyCompareSelected: "Compare selected",

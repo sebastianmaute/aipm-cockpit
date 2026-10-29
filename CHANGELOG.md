@@ -43,18 +43,20 @@ longer carries its own changelog comment.
   their fields as before → after straight away; the rest, and added or removed records, open with the chevron beside
   the record's name, and each modified row says how many fields changed. A long value is shortened around the
   change, so the difference stays visible. Rich text shows as plain text and lists and objects as readable values,
-  in both layouts. The panel's heading is now "Comparison" (German "Vergleich").
+  in both layouts, and a change to formatting alone says "formatting only". The panel's heading is now "Comparison"
+  (German "Vergleich").
 - **Knowledge search finds a document by where it is attached (§775).** Besides the document's name, the search
   now matches the name of the task, RAID item, change, milestone or stakeholder it is attached to, that item's type
   as the card shows it, and the link's host, for example SharePoint or Confluence.
 - **An AI answer cut off for length is asked for again with more room (§764).** Suggest RACI, task de-duplication,
-  the project proposal, the WBS plan and the allocation plan now ask once more with a larger output budget when the
+  the project proposal, the WBS plan, the allocation plan and the digest summary now ask once more with a larger output budget when the
   answer stops at the limit, as the steering report, insight recommendations, weight suggestions and scheduled jobs
   already did. A cut answer is no longer asked again in a stricter form at the same budget, which cost one more billed
   reply that could be cut just the same, and kept that feature on the stricter form for the rest of the session.
 - **Suggest RACI reads milestone descriptions as text (§770).** Descriptions were sent to Claude as formatted HTML in
   a table whose rows and columns a line break or a "|" could break, so a description could be read as belonging to
-  the wrong milestone. Every value is now one line of plain text, and long descriptions are shortened.
+  the wrong milestone. Every value is now one line of plain text, and long descriptions are shortened. The
+  allocation plan and the Action Center's "Analyze with AI" now send names on one line too.
 
 ## [1.20.1] - 2026-10-27 "Indridason"
 

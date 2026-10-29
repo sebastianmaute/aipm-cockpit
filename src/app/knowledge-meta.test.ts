@@ -101,6 +101,16 @@ describe("filterDocs", () => {
     expect(filterDocs(unsafe, "all", "sharepoint")).toEqual([]);
     expect(names(filterDocs(unsafe, "all", "odd"))).toEqual(["Odd"]);
   });
+
+  it("matches the Web label a safe link without a host name shows", () => {
+    // `hostLabel` strips "www.", which leaves nothing of this host; the card shows the Web label.
+    const nameless = [ref({ name: "Odd", url: "https://www./x" }, "task", "T")];
+    expect(names(filterDocs(nameless, "all", "web", label, "Web"))).toEqual(["Odd"]);
+    expect(filterDocs(nameless, "all", "web", label)).toEqual([]);
+    // An unsafe link shows no host at all, so not the Web label either.
+    const unsafe = [ref({ name: "Odd", url: "ftp://www./x" }, "task", "T")];
+    expect(filterDocs(unsafe, "all", "web", label, "Web")).toEqual([]);
+  });
 });
 
 describe("sortDocs", () => {

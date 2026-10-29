@@ -92,16 +92,18 @@ export function matchesDocQuery(name: string, query: string): boolean {
 /** Attached documents narrowed by source chip and search (§775). The search matches what each card
  *  shows: the document's name, its source item's name, its source type (`sourceLabel` supplies the
  *  translated label, which keeps this module i18n-free) and its host. The host only when the card
- *  shows one, i.e. for a safe http(s) link. */
+ *  shows one, i.e. for a safe http(s) link; where `hostLabel` finds none, the card shows `webLabel`
+ *  (translated, like the source label) and that is matched instead. */
 export function filterDocs(
   refs: readonly DocRef[],
   sourceKind: DocSourceKind | "all",
   query: string,
   sourceLabel?: (kind: DocSourceKind) => string,
+  webLabel = "",
 ): DocRef[] {
   return refs.filter((r) => {
     if (sourceKind !== "all" && r.source.kind !== sourceKind) return false;
-    const host = isSafeHttpUrl(r.link.url) ? hostLabel(r.link.url) : "";
+    const host = isSafeHttpUrl(r.link.url) ? hostLabel(r.link.url) || webLabel : "";
     const texts = [r.link.name, r.source.name, sourceLabel?.(r.source.kind) ?? "", host];
     return texts.some((text) => matchesDocQuery(text, query));
   });

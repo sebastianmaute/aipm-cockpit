@@ -36,6 +36,12 @@ function groupByCollection(changes: readonly VersionChange[]): Map<string, Versi
   return groups;
 }
 
+/** Shown after a field whose before and after read the same once shown as text:
+ *  only the markup or the whitespace changed (bold added, a line break). */
+function FormattingOnly({ lang }: { lang: Lang }) {
+  return <span className="italic text-muted-foreground">({t(lang, "historyFormattingOnly")})</span>;
+}
+
 const TYPE_KEY: Record<ChangeType, "historyAdded" | "historyRemoved" | "historyModified"> = {
   added: "historyAdded", removed: "historyRemoved", modified: "historyModified",
 };
@@ -179,6 +185,7 @@ export function VersionDiffView({
                         <span className="flex flex-wrap items-baseline gap-1">
                           <span className="font-medium text-muted-foreground">{f.label}:</span>
                           <span className="text-foreground">{after}</span>
+                          {before === after && <FormattingOnly lang={lang} />}
                         </span>
                       </li>
                       );
@@ -364,6 +371,7 @@ export function VersionDiffView({
                           <span className="text-ui-pink-strong line-through">{before}</span>
                           <span className="text-muted-foreground">→</span>
                           <span className="text-ui-green-strong">{after}</span>
+                          {before === after && <FormattingOnly lang={lang} />}
                         </li>
                         );
                       })}

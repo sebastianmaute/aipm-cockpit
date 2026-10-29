@@ -124,6 +124,22 @@ describe("VersionDiffView", () => {
       unmount();
     }
   });
+
+  it("marks a change whose text reads the same on both sides as formatting only, in both layouts", () => {
+    const markupOnly: VersionChange[] = [{
+      collection: "milestones", collectionLabel: "Milestones", kind: "list", recordId: 5, recordLabel: "Go-live",
+      type: "modified", fields: [
+        { field: "description", label: "Description", before: "<p>Final scope</p>", after: "<p><strong>Final</strong> scope</p>" },
+        { field: "name", label: "Name", before: "Go-live", after: "Go live" },
+      ],
+    }];
+    for (const layout of ["inline", "sideBySide"] as const) {
+      const { unmount } = render(<VersionDiffView lang="en-US" changes={markupOnly} layout={layout} />);
+      // One note, on the description only: the name's text did change.
+      expect(screen.getAllByText("(formatting only)")).toHaveLength(1);
+      unmount();
+    }
+  });
   it("shows an empty state when there are no changes", () => {
     render(<VersionDiffView lang="en-US" changes={[]} />);
     expect(screen.getByText(/No differences/)).toBeInTheDocument();
