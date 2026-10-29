@@ -3,10 +3,14 @@
 // re-grounded against the live stakeholders/milestones before anything can be
 // shown or applied.
 import { RACI_ROLES, type Milestone, type RaciRole, type Stakeholder } from "../types";
+import { descriptionHtml, htmlPlainProjection } from "../rich-text-plain";
+import { oneLine } from "../wbs-plan/wbs-plan";
 
 export const MAX_RACI_CELLS = 200;
 export const MAX_CONTEXT_STAKEHOLDERS = 120;
 export const MAX_CONTEXT_MILESTONES = 60;
+/** Visible characters of a milestone description the model is shown; the rest is cut with "…". */
+export const RACI_CONTEXT_DESCRIPTION_CHARS = 300;
 
 export interface ProposedCell {
   stakeholderId: number;
@@ -171,6 +175,21 @@ export function groundRaciCells(
   return { cells, skipped, truncated: proposed.length > MAX_RACI_CELLS, noOp };
 }
 
+/** One table cell: a single line, with the column separator replaced, so a value
+ *  can never split its row or add a column (§770). */
+function cell(v: string | undefined): string {
+  return oneLine(v ?? "").replace(/\s+/g, " ").replace(/\|/g, "/");
+}
+
+/** A milestone description as one capped plain-text cell. A legacy plain value
+ *  is escaped first (`descriptionHtml`), so a literal "<" in it survives. */
+function descriptionCell(stored: string | undefined): string {
+  const text = cell(htmlPlainProjection(descriptionHtml(stored, "rich")));
+  return text.length > RACI_CONTEXT_DESCRIPTION_CHARS
+    ? `${text.slice(0, RACI_CONTEXT_DESCRIPTION_CHARS)}…`
+    : text;
+}
+
 /** Compact English digest for the model. Capped, and reports the cap — a silent
  *  truncation reads as "covered everything". */
 export function buildRaciContext(
@@ -182,12 +201,12 @@ export function buildRaciContext(
   const lines: string[] = ["STAKEHOLDERS (id | name | title | organization | category | influence | interest)"];
   for (const p of s) {
     lines.push(
-      [p.id, p.name, p.title ?? "", p.organization ?? "", p.category, p.influence, p.interest].join(" | "),
+      [p.id, cell(p.name), cell(p.title), cell(p.organization), p.category, p.influence, p.interest].join(" | "),
     );
   }
   lines.push("", "MILESTONES (id | name | date | description)");
   for (const x of m) {
-    lines.push([x.id, x.name, x.date ?? "", x.description ?? ""].join(" | "));
+    lines.push([x.id, cell(x.name), x.date ?? "", descriptionCell(x.description)].join(" | "));
   }
   lines.push("", "EXISTING ASSIGNMENTS (stakeholderId | milestoneId | role)");
   // Restricted to the milestones actually listed above. Emitting an assignment

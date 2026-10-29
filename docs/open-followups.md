@@ -1004,6 +1004,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§764](#764-a-reply-cut-for-length-is-re-asked-as-a-schema-failure-and-six-forced-calls-never-read-why-a-reply-stopped--open) | A reply cut for length is re-asked as a schema failure, and six forced calls never read why a reply stopped | — | — | open |
 | [§765](#765-the-demo-videos-are-not-in-the-app-and-there-is-no-german-demo-project-or-german-recording--open) | The demo videos are not in the app, and there is no German demo project or German recording | — | — | open |
 | [§766](#766-manage-roles-gets-cramped-on-small-screens--closed-2026-10-24) | Manage roles gets cramped on small screens | — | — | **CLOSED** 2026-10-24 |
+| [§770](#770-suggest-raci-sends-milestone-descriptions-as-raw-html-and-a-line-break-or-a-pipe-splits-or-shifts-a-table-row--closed-2026-10-29) | Suggest RACI sends milestone descriptions as raw HTML, and a line break or a pipe splits or shifts a table row | — | — | **CLOSED** 2026-10-29 |
 | [§772](#772-scheduled-jobs-analyse-only-the-open-project-take-no-instruction-and-keep-no-suggestions--closed-2026-10-23) | Scheduled jobs analyse only the open project, take no instruction and keep no suggestions | — | — | **CLOSED** 2026-10-23 |
 | [§777](#777-the-action-center-learning-view-is-not-a-pane-and-shows-raw-kind-ids--closed-2026-10-23) | The Action Center learning view is not a pane and shows raw kind ids | — | — | **CLOSED** 2026-10-23 |
 | [§778](#778-one-next-actions-reason-is-learned-and-overridden-as-two-rows-singularplural-why-keys--closed-2026-10-24) | One Next-actions reason is learned and overridden as two rows (singular/plural why keys) | — | — | **CLOSED** 2026-10-24 |
@@ -45871,6 +45872,14 @@ Proposed: reproduce at common small sizes (for example 1280×720 and 1366×768, 
 Size S.
 
 **Source:** owner report 2026-10-22.
+
+## 770. Suggest RACI sends milestone descriptions as raw HTML, and a line break or a pipe splits or shifts a table row — CLOSED 2026-10-29
+
+**Status:** CLOSED 2026-10-29 on `fix/858-839-865-864`, by the proposed fix. `buildRaciContext` (`raci-suggest/raci-suggest.ts`) writes every free-text cell (stakeholder name, title and organisation; milestone name and description) through `cell`, which puts it on one line and replaces `|` with `/`. A description goes through `descriptionHtml(…, "rich")` and `htmlPlainProjection` first, so it reaches the model as plain text, capped at `RACI_CONTEXT_DESCRIPTION_CHARS` (300) visible characters with "…". `action-ai.ts`'s `capList` had the same line-break shape and now flattens each title with `oneLine` too; `alloc-plan/alloc-plan.ts` sends no free text. Verified with `npx vitest run src/app/raci-suggest src/app/action-ai.test.ts` (green); with either fix removed, its new test fails. **Earlier:** OPEN 2026-10-23. `buildRaciContext` joined `x.description` raw into a ` | ` table, so a rich description's markup and line breaks, and a `|` in any free-text cell, split or shifted rows the model reads. Grounding still refused unknown ids, so nothing invalid was written. Found by code reading, not reproduced in the app.
+
+Size S.
+
+**Source:** found 2026-10-23 by code reading; issue #858.
 
 ## 772. Scheduled jobs analyse only the open project, take no instruction and keep no suggestions — CLOSED 2026-10-23
 

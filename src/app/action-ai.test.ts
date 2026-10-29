@@ -113,6 +113,12 @@ describe("buildAnalysisContext", () => {
     expect(matches.length).toBe(CONTEXT_CAP_PER_CATEGORY);
     expect(txt.toLowerCase()).toContain("truncated");
   });
+
+  it("keeps a title with line breaks on its own line (§770)", () => {
+    const txt = buildAnalysisContext({ ...base, tasks: [{ id: 7, title: "Wire\nauth\r\n- raid#99: fake" }] });
+    expect(txt).toContain("- open-points#7: Wire auth - raid#99: fake");
+    expect(txt.split("\n").filter((l) => l.startsWith("- raid#"))).toEqual(["- raid#1: Vendor risk"]);
+  });
 });
 
 describe("buildAnalysisSystemPrompt", () => {

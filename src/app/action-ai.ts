@@ -3,6 +3,7 @@
 // transforms that build its context and ground its entity refs. No React, no
 // fetch, no i18n.
 import type { AppView } from "./nav-config";
+import { oneLine } from "./wbs-plan/wbs-plan";
 
 export type AiActionSeverity = "now" | "soon" | "monitor";
 const SEVERITIES: ReadonlySet<string> = new Set<AiActionSeverity>(["now", "soon", "monitor"]);
@@ -89,7 +90,8 @@ export interface AnalysisContextInput {
 
 function capList(view: GroundableView, rows: readonly { id: number; title?: string; name?: string }[]): string {
   const shown = rows.slice(0, CONTEXT_CAP_PER_CATEGORY);
-  const lines = shown.map((r) => `- ${view}#${r.id}: ${(r.title ?? r.name ?? "").slice(0, 120)}`);
+  // One line per row: a line break in a title would start a fake row (§770).
+  const lines = shown.map((r) => `- ${view}#${r.id}: ${oneLine(r.title ?? r.name ?? "").slice(0, 120)}`);
   const withTrunc =
     rows.length > CONTEXT_CAP_PER_CATEGORY
       ? [...lines, `- …(${rows.length - CONTEXT_CAP_PER_CATEGORY} more truncated)`]
