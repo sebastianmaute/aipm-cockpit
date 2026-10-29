@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter } from "./knowledge-meta";
+import { hostLabel, fileTypeOf, filterDocs, linkMatchesQuery, sortDocs, sourceCounts, effectiveSourceFilter } from "./knowledge-meta";
 import type { DocRef } from "./knowledge";
 
 describe("hostLabel", () => {
@@ -66,6 +66,46 @@ describe("filterDocs", () => {
   });
   it("substring-matches the name case-insensitively", () => {
     expect(filterDocs(docs, "all", "alph")).toHaveLength(1);
+  });
+
+  // §775 — a document is found by where it sits, not only by its own name.
+  const bySource = [
+    ref({ name: "Erasure flow.docx", url: "https://contoso.sharepoint.com/e.docx" }, "raid", "GDPR erasure requests do not reach the CRM"),
+    ref({ name: "Plan.pdf", url: "https://example.com/plan.pdf" }, "task", "Write the cutover plan"),
+  ];
+  const names = (rs: { link: { name: string } }[]) => rs.map((r) => r.link.name);
+  const label = (k: string) => ({ raid: "RAID", task: "Aufgabe" })[k] ?? k;
+
+  it("finds a document by its source item's name", () => {
+    expect(names(filterDocs(bySource, "all", "crm"))).toEqual(["Erasure flow.docx"]);
+  });
+
+  it("finds a document by its source type, as the caller labels it", () => {
+    expect(names(filterDocs(bySource, "all", "aufgabe", label))).toEqual(["Plan.pdf"]);
+    // Without a label resolver the type is not searched.
+    expect(filterDocs(bySource, "all", "aufgabe")).toEqual([]);
+  });
+
+  it("finds a document by its host", () => {
+    expect(names(filterDocs(bySource, "all", "sharepoint", label))).toEqual(["Erasure flow.docx"]);
+    expect(names(filterDocs(bySource, "all", "example.com", label))).toEqual(["Plan.pdf"]);
+  });
+
+  it("still applies the source chip, and still matches nothing for an unknown query", () => {
+    expect(filterDocs(bySource, "task", "crm", label)).toEqual([]);
+    expect(filterDocs(bySource, "all", "zzz", label)).toEqual([]);
+  });
+});
+
+describe("linkMatchesQuery (§775)", () => {
+  it("matches the name, the host and any extra text, and a blank query matches all", () => {
+    const link = { name: "Runbook", url: "https://acme.atlassian.net/wiki/x" };
+    expect(linkMatchesQuery(link, "runb")).toBe(true);
+    expect(linkMatchesQuery(link, "confluence")).toBe(true);
+    expect(linkMatchesQuery(link, "cutover", ["Cutover milestone"])).toBe(true);
+    expect(linkMatchesQuery(link, "cutover")).toBe(false);
+    expect(linkMatchesQuery(link, "  ")).toBe(true);
+    expect(linkMatchesQuery({ name: "x", url: "not a url" }, "url")).toBe(false);
   });
 });
 

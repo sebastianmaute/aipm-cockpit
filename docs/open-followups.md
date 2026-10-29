@@ -1006,6 +1006,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§766](#766-manage-roles-gets-cramped-on-small-screens--closed-2026-10-24) | Manage roles gets cramped on small screens | — | — | **CLOSED** 2026-10-24 |
 | [§770](#770-suggest-raci-sends-milestone-descriptions-as-raw-html-and-a-line-break-or-a-pipe-splits-or-shifts-a-table-row--closed-2026-10-29) | Suggest RACI sends milestone descriptions as raw HTML, and a line break or a pipe splits or shifts a table row | — | — | **CLOSED** 2026-10-29 |
 | [§772](#772-scheduled-jobs-analyse-only-the-open-project-take-no-instruction-and-keep-no-suggestions--closed-2026-10-23) | Scheduled jobs analyse only the open project, take no instruction and keep no suggestions | — | — | **CLOSED** 2026-10-23 |
+| [§775](#775-knowledge-search-finds-a-document-by-its-own-name-only-not-by-its-source-or-host--closed-2026-10-29) | Knowledge search finds a document by its own name only, not by its source or host | — | — | **CLOSED** 2026-10-29 |
 | [§776](#776-historys-comparison-hides-the-before-and-after-values-behind-an-unmarked-toggle--closed-2026-10-29) | History's comparison hides the before and after values behind an unmarked toggle | — | — | **CLOSED** 2026-10-29 |
 | [§777](#777-the-action-center-learning-view-is-not-a-pane-and-shows-raw-kind-ids--closed-2026-10-23) | The Action Center learning view is not a pane and shows raw kind ids | — | — | **CLOSED** 2026-10-23 |
 | [§778](#778-one-next-actions-reason-is-learned-and-overridden-as-two-rows-singularplural-why-keys--closed-2026-10-24) | One Next-actions reason is learned and overridden as two rows (singular/plural why keys) | — | — | **CLOSED** 2026-10-24 |
@@ -45887,6 +45888,14 @@ Behaviour now: a job runs on the day it is due, in its own time zone. `slotFor` 
 Size M.
 
 **Source:** owner request 2026-10-23.
+
+## 775. Knowledge search finds a document by its own name only, not by its source or host — CLOSED 2026-10-29
+
+**Status:** CLOSED 2026-10-29 on `fix/858-839-865-864`, by the proposed fix. `filterDocs` (`knowledge-meta.ts`) matches the query against the document's name, its host (`hostLabel`: "SharePoint", "Confluence", "example.com"), its source item's name and its source type as the card shows it. The panel passes that translated label in (`knowledge-panel.tsx`), so `knowledge-meta.ts` stays i18n-free. The source filter is unchanged. The new `linkMatchesQuery` is the one rule for both grids, so the library cards match their host too. Verified with `npx vitest run src/app/knowledge-meta.test.ts src/app/knowledge-panel.test.tsx` (green): a document is found by its source's name, by its source type in English and in German, and by its host, and a query that matches nothing still shows the empty state. Mutants that pass no source label from the panel, drop the source name or drop the host each fail a test. **Earlier:** OPEN 2026-10-23, the owner's request: `filterDocs` called `matchesDocQuery(r.link.name, query)` alone, so searching "CRM" found nothing when the documents sat on a RAID item about the CRM but were named, say, "Erasure flow.docx".
+
+Size S.
+
+**Source:** owner request 2026-10-23; issue #864.
 
 ## 776. History's comparison hides the before and after values behind an unmarked toggle — CLOSED 2026-10-29
 

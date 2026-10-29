@@ -81,16 +81,37 @@ const SOURCE_RANK: Record<DocSourceKind, number> = {
   project: 0, milestone: 1, task: 2, raid: 3, change: 4, stakeholder: 5,
 };
 
-/** The Knowledge search: a name contains the query, case-insensitive; a blank query matches all. One
- *  rule for the attached documents (`filterDocs`) and the library cards, so the box narrows both. */
+/** The Knowledge search's one comparison: a text contains the query, case-insensitive; a blank query
+ *  matches all. `linkMatchesQuery` applies it to the attached documents (`filterDocs`) and the library
+ *  cards alike, so the box narrows both. */
 export function matchesDocQuery(name: string, query: string): boolean {
   const q = query.trim().toLowerCase();
   return q === "" || name.toLowerCase().includes(q);
 }
 
-export function filterDocs(refs: readonly DocRef[], sourceKind: DocSourceKind | "all", query: string): DocRef[] {
+/** The Knowledge search over one link (§775): its name or its host (`hostLabel`, so "SharePoint" or
+ *  "example.com"), plus any `extra` texts the caller adds. A blank query matches all. */
+export function linkMatchesQuery(
+  link: { name: string; url?: string },
+  query: string,
+  extra: readonly string[] = [],
+): boolean {
+  return [link.name, hostLabel(link.url ?? ""), ...extra].some((text) => matchesDocQuery(text, query));
+}
+
+/** Attached documents narrowed by source chip and search. Beyond the link, the search matches the
+ *  source item's name and its source type as the panel shows it (§775); `sourceLabel` supplies that
+ *  translated label, which keeps this module i18n-free. */
+export function filterDocs(
+  refs: readonly DocRef[],
+  sourceKind: DocSourceKind | "all",
+  query: string,
+  sourceLabel?: (kind: DocSourceKind) => string,
+): DocRef[] {
   return refs.filter(
-    (r) => (sourceKind === "all" || r.source.kind === sourceKind) && matchesDocQuery(r.link.name, query),
+    (r) =>
+      (sourceKind === "all" || r.source.kind === sourceKind) &&
+      linkMatchesQuery(r.link, query, [r.source.name, sourceLabel?.(r.source.kind) ?? ""]),
   );
 }
 
