@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { VersionDiffView } from "./version-diff-view";
+import { INLINE_OPEN_LIMIT, VersionDiffView } from "./version-diff-view";
 import { diffWorkspaces, type VersionChange } from "./version-diff";
 import { changeKey } from "./version-restore";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -23,18 +23,85 @@ describe("VersionDiffView", () => {
     expect(screen.getByText("Design sign-off")).toBeInTheDocument();
     expect(screen.getByText("Vendor delay")).toBeInTheDocument();
   });
-  // ★★ THE BEFORE-CLICK ASSERTION IS THE LOAD-BEARING ONE. Without it this test
-  // passes with `toggle()` deleted, because it only ever looks after the click.
-  // It survived a round trip through a `hidden`-toggled panel (where it had to
-  // be `not.toBeVisible()`); the panel is conditionally rendered again, so
-  // absence is the right claim — but keep SOME before-click assertion whichever
-  // shape the panel takes.
-  it("reveals field before/after when a modified record is expanded", () => {
+  // §776 — a compare must show what changed without a click. ★★ THE BEFORE-CLICK
+  // ASSERTION IS THE LOAD-BEARING ONE: it is the owner's request. The click half
+  // pins that the toggle still works (it fails with `toggle()` deleted); the
+  // panel is conditionally rendered, so a closed row has no field text at all.
+  it("shows a modified record's before and after with no click, and the toggle hides them", () => {
     render(<VersionDiffView lang="en-US" changes={changes} />);
-    expect(screen.queryByText(/Old/)).toBeNull();
+    expect(screen.getByText("Old")).toBeVisible();
+    expect(screen.getByText("New")).toBeVisible();
+    expect(screen.getByText("Fields changed: 1")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Design sign-off"));
-    expect(screen.getByText(/Old/)).toBeVisible();
-    expect(screen.getByText(/New/)).toBeVisible();
+    expect(screen.queryByText("Old")).toBeNull();
+    fireEvent.click(screen.getByText("Design sign-off"));
+    expect(screen.getByText("Old")).toBeVisible();
+  });
+
+  it("keeps added and removed records closed, each with its toggle (§776)", () => {
+    const mixed: VersionChange[] = [
+      { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 2, recordLabel: "New task",
+        type: "added", fields: [{ field: "title", label: "Title", before: undefined, after: "Fresh" }] },
+      { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 3, recordLabel: "Old task",
+        type: "removed", fields: [{ field: "title", label: "Title", before: "Gone", after: undefined }] },
+    ];
+    render(<VersionDiffView lang="en-US" changes={mixed} />);
+    expect(screen.getByText("Added")).toBeInTheDocument();
+    expect(screen.getByText("Removed")).toBeInTheDocument();
+    expect(screen.queryByText("Fresh")).toBeNull();
+    expect(screen.queryByText("Gone")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Added – New task" }));
+    expect(screen.getByText("Fresh")).toBeVisible();
+    expect(screen.getByText("—")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Removed – Old task" }));
+    expect(screen.getByText("Gone")).toBeVisible();
+  });
+
+  it(`opens only the first ${INLINE_OPEN_LIMIT} modified records; the rest open on a click (§776)`, () => {
+    const many: VersionChange[] = Array.from({ length: INLINE_OPEN_LIMIT + 1 }, (_, i) => ({
+      collection: "tasks", collectionLabel: "Tasks", kind: "list" as const, recordId: i + 1,
+      recordLabel: `Task ${i + 1}`, type: "modified" as const,
+      fields: [{ field: "title", label: "Title", before: `old ${i + 1}`, after: `new ${i + 1}` }],
+    }));
+    render(<VersionDiffView lang="en-US" changes={many} />);
+    expect(screen.getAllByText(/^Title:$/)).toHaveLength(INLINE_OPEN_LIMIT);
+    expect(screen.getByText(`new ${INLINE_OPEN_LIMIT}`)).toBeVisible();
+    const last = screen.getByRole("button", { name: `Modified – Task ${INLINE_OPEN_LIMIT + 1}` });
+    expect(last).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(`new ${INLINE_OPEN_LIMIT + 1}`)).toBeNull();
+    fireEvent.click(last);
+    expect(screen.getByText(`new ${INLINE_OPEN_LIMIT + 1}`)).toBeVisible();
+  });
+
+  it("draws a chevron in an expandable record's button only, turned while open (§776)", () => {
+    render(<VersionDiffView lang="en-US" changes={changes} />);
+    const open = screen.getByRole("button", { name: "Modified – Design sign-off" });
+    const chevron = open.querySelector("svg");
+    expect(chevron).not.toBeNull();
+    expect(chevron!.getAttribute("aria-hidden")).toBe("true");
+    expect(chevron!.getAttribute("class")!.split(/\s+/)).toContain("rotate-90");
+    fireEvent.click(open);
+    expect(open.querySelector("svg")!.getAttribute("class")!.split(/\s+/)).not.toContain("rotate-90");
+    expect(screen.getByRole("button", { name: "Removed – Vendor delay" }).querySelector("svg")).toBeNull();
+  });
+
+  it("shows rich text and object values readably in both layouts (§776)", () => {
+    const rich: VersionChange[] = [{
+      collection: "milestones", collectionLabel: "Milestones", kind: "list", recordId: 5, recordLabel: "Go-live",
+      type: "modified", fields: [
+        { field: "description", label: "Description", before: "<p>Draft <strong>scope</strong></p>", after: "<p>Final scope</p>" },
+        { field: "raci", label: "RACI", before: { "10": "R" }, after: { "10": "A", "11": "C" } },
+      ],
+    }];
+    for (const layout of ["inline", "sideBySide"] as const) {
+      const { unmount, container } = render(<VersionDiffView lang="en-US" changes={rich} layout={layout} />);
+      expect(screen.getByText("Draft scope")).toBeVisible();
+      expect(screen.getByText("Final scope")).toBeVisible();
+      expect(screen.getByText("10: R")).toBeVisible();
+      expect(screen.getByText("10: A, 11: C")).toBeVisible();
+      expect(container.textContent).not.toMatch(/<p>|\{"10"/);
+      unmount();
+    }
   });
   it("shows an empty state when there are no changes", () => {
     render(<VersionDiffView lang="en-US" changes={[]} />);
@@ -84,9 +151,8 @@ describe("VersionDiffView", () => {
     // Expanding must not reintroduce what the collapsed row correctly withheld:
     // a per-FIELD tick on a skipped collection is the same silent no-op, and a
     // row whose expansion contradicts its own "managed per document" hint is
-    // worse than either alone.
-    fireEvent.click(screen.getByText("Q3 report"));
-    expect(screen.getByText(/Title:/)).toBeVisible(); // the row really expanded
+    // worse than either alone. A modified row starts open (§776).
+    expect(screen.getByText(/Title:/)).toBeVisible(); // the row really is expanded
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 
@@ -236,9 +302,7 @@ describe("VersionDiffView", () => {
     });
     render(<VersionDiffView lang="en-US" changes={[row(1, "Alpha"), row(2, "Beta")]}
       selectable selection={{}} onToggleRecord={() => {}} onToggleField={() => {}} />);
-    fireEvent.click(screen.getByText("Alpha"));
-    fireEvent.click(screen.getByText("Beta"));
-    // Both really expanded: 2 record checkboxes + 2 field checkboxes.
+    // Both really expanded (modified rows start open, §776): 2 record checkboxes + 2 field checkboxes.
     expect(screen.getAllByRole("checkbox")).toHaveLength(4);
     expectRowUniqueNames({ roles: ["checkbox"], minControls: 4 });
     // ...and named from their OWN row, not merely made unique some other way.
@@ -351,9 +415,11 @@ describe("VersionDiffView disclosure semantics", () => {
     recordLabel: "Vendor delay", type: "removed", fields: [],
   };
 
-  it("marks the disclosure expanded only once it is open", () => {
+  it("marks the disclosure expanded while it is open (a modified row starts open, §776)", () => {
     render(<VersionDiffView lang="en-US" changes={[expandable]} />);
     const btn = screen.getByRole("button", { name: /Design sign-off/ });
+    expect(btn).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(btn);
     expect(btn).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(btn);
     expect(btn).toHaveAttribute("aria-expanded", "true");
@@ -367,6 +433,8 @@ describe("VersionDiffView disclosure semantics", () => {
   it("names the panel in aria-controls only while it exists", () => {
     render(<VersionDiffView lang="en-US" changes={[expandable]} />);
     const btn = screen.getByRole("button", { name: /Design sign-off/ });
+    // Starts open (§776); closed, the attribute goes; open again, it returns.
+    fireEvent.click(btn);
     expect(btn).not.toHaveAttribute("aria-controls");
     fireEvent.click(btn);
     const id = btn.getAttribute("aria-controls");
@@ -387,7 +455,7 @@ describe("VersionDiffView disclosure semantics", () => {
     render(<VersionDiffView lang="en-US" changes={[row(1), row(2)]} />);
     const btns = screen.getAllByRole("button");
     expect(btns).toHaveLength(2);
-    btns.forEach((b) => fireEvent.click(b));
+    // Both start open (§776).
     const ids = btns.map((b) => b.getAttribute("aria-controls"));
     expect(ids.every(Boolean)).toBe(true);
     expect(new Set(ids).size).toBe(2);
@@ -429,8 +497,7 @@ describe("VersionDiffView disclosure semantics", () => {
     const withFields: VersionChange = { ...expandable, recordId: 7 };
     const { rerender } = render(<VersionDiffView lang="en-US" changes={[withFields]} />);
     const btn = screen.getByRole("button", { name: /Design sign-off/ });
-    fireEvent.click(btn);
-    expect(btn).toHaveAttribute("aria-controls");
+    expect(btn).toHaveAttribute("aria-controls"); // starts open (§776)
 
     // Same recordId, so the same `changeKey` — the row stays in `open`.
     rerender(<VersionDiffView lang="en-US" changes={[{ ...withFields, fields: [] }]} />);

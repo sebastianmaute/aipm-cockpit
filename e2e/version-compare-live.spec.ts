@@ -207,7 +207,7 @@ test.describe("version compare and restore — live Turso", () => {
 
     // Compared with current: the baseline differs from now in both tasks.
     await page.getByRole("button", { name: `Compared with current – ${BASELINE}`, exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Changes", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Comparison", exact: true })).toBeVisible();
     await expect(page.getByText(TASK_NAME, { exact: false }).first()).toBeVisible();
     await shot("02-compared-with-current");
     const diffNames = await controlNames(page, "main");
@@ -231,7 +231,7 @@ test.describe("version compare and restore — live Turso", () => {
     await page.getByRole("checkbox", { name: `Select to compare – ${BASELINE}`, exact: true }).check();
     await page.getByRole("checkbox", { name: `Select to compare – ${AFTER}`, exact: true }).check();
     await page.getByRole("button", { name: "Compare selected", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Changes", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Comparison", exact: true })).toBeVisible();
     await shot("04-compare-selected");
     expect(duplicates(await controlNames(page, "main")), "duplicate accessible names in the version-to-version diff").toEqual([]);
     // The side-by-side layout heads each column with its version's label (CSS upper-cases it).

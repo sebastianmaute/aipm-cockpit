@@ -432,8 +432,10 @@ it("disables the row's restore control while its restore is running, and re-enab
 // remounting left stale keys behind, and `changeKey("tasks", 1)` is the same
 // string in every compare — so a row expanded in one comparison came back
 // pre-expanded in the next. The × button already unmounts the whole block; this
-// covers compare→compare, which does not.
-it("collapses expanded rows when a second compare replaces the first", async () => {
+// covers compare→compare, which does not. Since §776 a modified row starts OPEN,
+// so the stale state to catch is the other way round: a row the user CLOSED in
+// one compare must come back open in the next.
+it("starts each compare from the default open rows, not the last compare's toggles", async () => {
   const versions = [
     { id: "v2", projectId: "p1", capturedAt: "2026-06-11T12:00:00.000Z", trigger: "manual", label: "Later", summary: null },
     { id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null },
@@ -449,17 +451,16 @@ it("collapses expanded rows when a second compare replaces the first", async () 
 
   fireEvent.click(screen.getByRole("button", { name: "Compared with current – Baseline" }));
   await waitFor(() => expect(screen.getByText("T1")).toBeInTheDocument());
-  fireEvent.click(screen.getByText("T1"));
   expect(screen.getByText(/Title:/)).toBeVisible();
+  fireEvent.click(screen.getByText("T1"));
+  // The panel is conditionally rendered, so a collapsed row has no field text at
+  // all — `queryByText(...) === null` is the assertion.
+  expect(screen.queryByText(/Title:/)).toBeNull();
 
   // A second compare, WITHOUT closing the first.
   fireEvent.click(screen.getByRole("button", { name: "Compared with current – Later" }));
   await waitFor(() => expect(loadDiff).toHaveBeenCalledTimes(2));
-  // The panel is conditionally rendered, so a collapsed row has no field text at
-  // all — `queryByText(...) === null` is the assertion, and `getByText` would
-  // throw rather than fail. If the panel ever goes back to being hidden-toggled,
-  // this becomes `not.toBeVisible()`.
-  expect(screen.queryByText(/Title:/)).toBeNull();
+  await waitFor(() => expect(screen.getByText(/Title:/)).toBeVisible());
 });
 
 // ★★ THE THREE COMPARE GATES, which shipped with no coverage: a mutant deleting

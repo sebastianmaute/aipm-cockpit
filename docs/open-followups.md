@@ -1006,6 +1006,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§766](#766-manage-roles-gets-cramped-on-small-screens--closed-2026-10-24) | Manage roles gets cramped on small screens | — | — | **CLOSED** 2026-10-24 |
 | [§770](#770-suggest-raci-sends-milestone-descriptions-as-raw-html-and-a-line-break-or-a-pipe-splits-or-shifts-a-table-row--closed-2026-10-29) | Suggest RACI sends milestone descriptions as raw HTML, and a line break or a pipe splits or shifts a table row | — | — | **CLOSED** 2026-10-29 |
 | [§772](#772-scheduled-jobs-analyse-only-the-open-project-take-no-instruction-and-keep-no-suggestions--closed-2026-10-23) | Scheduled jobs analyse only the open project, take no instruction and keep no suggestions | — | — | **CLOSED** 2026-10-23 |
+| [§776](#776-historys-comparison-hides-the-before-and-after-values-behind-an-unmarked-toggle--closed-2026-10-29) | History's comparison hides the before and after values behind an unmarked toggle | — | — | **CLOSED** 2026-10-29 |
 | [§777](#777-the-action-center-learning-view-is-not-a-pane-and-shows-raw-kind-ids--closed-2026-10-23) | The Action Center learning view is not a pane and shows raw kind ids | — | — | **CLOSED** 2026-10-23 |
 | [§778](#778-one-next-actions-reason-is-learned-and-overridden-as-two-rows-singularplural-why-keys--closed-2026-10-24) | One Next-actions reason is learned and overridden as two rows (singular/plural why keys) | — | — | **CLOSED** 2026-10-24 |
 | [§779](#779-edit-project-shows-a-switched-off-function-as-still-on--closed-2026-10-24) | Edit project shows a switched-off function as still on | — | — | **CLOSED** 2026-10-24 |
@@ -45886,6 +45887,14 @@ Behaviour now: a job runs on the day it is due, in its own time zone. `slotFor` 
 Size M.
 
 **Source:** owner request 2026-10-23.
+
+## 776. History's comparison hides the before and after values behind an unmarked toggle — CLOSED 2026-10-29
+
+**Status:** CLOSED 2026-10-29 on `fix/858-839-865-864`, by the proposed fix. In the inline layout (`version-diff-view.tsx`) the first `INLINE_OPEN_LIMIT` (25) modified records start open, so their fields show `Label: before → after` with no click; the rest, and every added or removed record (whose fields all read against "—"), start closed. Each expandable record's button draws a chevron, turned while open, and the row shows "Fields changed: N"; the button's accessible name, `aria-expanded` and `aria-controls` are unchanged. Values go through `formatDiffValue` (`version-diff-format.ts`) in both layouts: rich text as its plain text, a list as its items, a plain object as `key: value` pairs, anything deeper as JSON, each capped at `DIFF_VALUE_MAX` (200) characters. The panel's title is "Comparison" (German "Vergleich"), so a change-log record no longer sits under two "Changes" headings. Verified with `npx vitest run src/app/version-diff-view.test.tsx src/app/version-diff-format.test.ts src/app/history-panel.test.tsx` (green). Mutants that open no record at the start, open added and removed records too, open one record past the limit, or format every object as JSON each fail a test. The disclosure tests that started from a closed row now start from an open one, and the history-panel test for stale open state now checks that a row closed in one compare starts open in the next. **Earlier:** OPEN 2026-10-23, the owner's request after the demo recording (20-f-history): comparing two versions showed only "Add MFA to SSO scope · Modified", and the status change between them appeared only after clicking the "Modified" label, which read as plain text. `fmt` printed objects as raw JSON and rich text as markup.
+
+Size S.
+
+**Source:** owner request 2026-10-23; issue #865.
 
 ## 777. The Action Center learning view is not a pane and shows raw kind ids — CLOSED 2026-10-23
 
