@@ -6,7 +6,7 @@
 // Grounding happens in parseRecommendation; the api key/body are NEVER logged
 // (the shared runForcedToolCallWithStop envelope guarantees it). Thrown errors carry
 // only the HTTP status (AiHttpError) or the token "parse".
-import { runForcedToolCallWithStop } from "../ai-forced-call";
+import { runForcedToolCallWithRetry } from "../ai-forced-call";
 import type { AiConsentLevel } from "../ai-consent";
 import { RECOMMEND_TOOL, parseRecommendation } from "./recommend";
 import { buildRecommendSystemPrompt } from "./recommend-context";
@@ -33,9 +33,8 @@ export interface RecommendCallArgs {
 // §763 — a model asked with `auto` tool choice (one that refuses a forced choice) thinks first, on the
 // same output budget, so up to five proposed calls could overrun 2048; a reply cut there carries `{}` or
 // only its first calls, and the latter grounds and parses. As `scheduled-job-analysis.ts`: 4096, a cut
-// reply asked for once more with 8192, and a cut reply never read. On an `auto` model a cut can cost up to
-// three billed replies (plain 4096, strict 4096, strict 8192) and marks the tool strict for the session;
-// see report-call.ts.
+// reply asked for once more with 8192, and a cut reply never read. A cut costs two billed replies; see
+// report-call.ts.
 const MAX_TOKENS = 4096;
 const RETRY_MAX_TOKENS = 8192;
 
@@ -48,8 +47,8 @@ const RETRY_MAX_TOKENS = 8192;
 export async function runInsightRecommendation(
   args: RecommendCallArgs,
 ): Promise<InsightRecommendation> {
-  const call = (maxTokens: number) =>
-    runForcedToolCallWithStop({
+  const reply = await runForcedToolCallWithRetry(
+    {
       apiKey: args.apiKey,
       model: args.model,
       system: buildRecommendSystemPrompt(),
@@ -59,11 +58,11 @@ export async function runInsightRecommendation(
       tools: [RECOMMEND_TOOL],
       toolName: RECOMMEND_TOOL.name,
       messages: [{ role: "user", content: args.context }],
-      maxTokens,
+      maxTokens: MAX_TOKENS,
       signal: args.signal,
-    });
-  let reply = await call(MAX_TOKENS);
-  if (reply.stopReason === "max_tokens") reply = await call(RETRY_MAX_TOKENS);
+    },
+    RETRY_MAX_TOKENS,
+  );
   const parsed = reply.stopReason === "max_tokens" ? null : parseRecommendation(reply.input, args.index);
   if (!parsed) throw new Error("parse");
   return { ...parsed, generatedAt: args.today };

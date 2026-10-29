@@ -138,3 +138,25 @@ describe("runAllocProposal guide text", () => {
     expect(system).not.toContain("GUIDE-MARK");
   });
 });
+
+// §764 — a reply cut at the output budget is asked for once more at a larger one, and never read.
+describe("runAllocProposal output budget (§764)", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const cutOr = (stop: string, input: unknown) =>
+    ({ ok: true, json: async () => ({ stop_reason: stop, content: [{ type: "tool_use", name: "propose_allocations", input }] }) }) as unknown as Response;
+  const budgets = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)).max_tokens as number);
+  const CELLS = { cells: [{ resourceId: 1, periodKey: "2026-08", hours: 40 }] };
+
+  it("asks once more at 16384 when the reply was cut at 8192, and returns that answer", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cutOr("max_tokens", {})).mockResolvedValueOnce(cutOr("tool_use", CELLS));
+    await expect(runAllocProposal("ctx", { apiKey: "k", model: "m" }, "x")).resolves.toMatchObject(CELLS);
+    expect(budgets(spy)).toEqual([8192, 16_384]);
+  });
+
+  it("never reads a reply cut at the retry budget too, even one that parses", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(cutOr("max_tokens", CELLS));
+    await expect(runAllocProposal("ctx", { apiKey: "k", model: "m" }, "x")).rejects.toThrow(/^parse$/);
+    expect(budgets(spy)).toEqual([8192, 16_384]);
+  });
+});

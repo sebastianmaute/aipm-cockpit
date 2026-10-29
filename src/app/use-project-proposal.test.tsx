@@ -146,3 +146,31 @@ describe("useProjectProposal guide text", () => {
     expect(system).not.toContain("CHAT-ONLY");
   });
 });
+
+// §764 — a reply cut at the output budget is asked for once more at a larger one, and never read.
+describe("useProjectProposal output budget (§764)", () => {
+  const cutOr = (stop: string, input: unknown) =>
+    ({ ok: true, json: async () => ({ stop_reason: stop, content: [{ type: "tool_use", name: "propose_project", input }] }) }) as unknown as Response;
+  const budgets = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)).max_tokens as number);
+  const WHOLE = { meta: { name: "Alpha" }, features: [] };
+
+  it("asks once more at 8192 when the reply was cut at 4096, and returns that proposal", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cutOr("max_tokens", {})).mockResolvedValueOnce(cutOr("tool_use", WHOLE));
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: unknown;
+    await act(async () => { p = await result.current.generate("a CRM project"); });
+    expect((p as { meta: { name: string } }).meta.name).toBe("Alpha");
+    expect(budgets(spy)).toEqual([4096, 8192]);
+  });
+
+  it("never reads a reply cut at the retry budget too, even one that parses", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(cutOr("max_tokens", WHOLE));
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: unknown = "unset";
+    await act(async () => { p = await result.current.generate("a CRM project"); });
+    expect(p).toBeNull();
+    expect(result.current.error).toBe("parse");
+    expect(budgets(spy)).toEqual([4096, 8192]);
+  });
+});

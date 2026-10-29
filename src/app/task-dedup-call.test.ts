@@ -58,3 +58,25 @@ describe("runDedupProposal", () => {
     await expect(runDedupProposal("ctx", { apiKey: "k", model: "m" })).rejects.toThrow("parse");
   });
 });
+
+// §764 — a reply cut at the output budget is asked for once more at a larger one, and never read.
+describe("runDedupProposal output budget (§764)", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const cutOr = (stop: string, input: unknown) =>
+    ({ ok: true, json: async () => ({ stop_reason: stop, content: [{ type: "tool_use", name: "propose_task_merges", input }] }) }) as unknown as Response;
+  const budgets = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)).max_tokens as number);
+  const GROUPS = { groups: [{ keepId: 1, mergeIds: [2], rationale: "dup" }] };
+
+  it("asks once more at 8192 when the reply was cut at 4096, and returns that answer", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cutOr("max_tokens", {})).mockResolvedValueOnce(cutOr("tool_use", GROUPS));
+    await expect(runDedupProposal("ctx", { apiKey: "k", model: "m" })).resolves.toHaveLength(1);
+    expect(budgets(spy)).toEqual([4096, 8192]);
+  });
+
+  it("never reads a reply cut at the retry budget too, even one that parses", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(cutOr("max_tokens", GROUPS));
+    await expect(runDedupProposal("ctx", { apiKey: "k", model: "m" })).rejects.toThrow(/^parse$/);
+    expect(budgets(spy)).toEqual([4096, 8192]);
+  });
+});

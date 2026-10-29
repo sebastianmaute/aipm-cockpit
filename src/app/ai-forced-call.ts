@@ -1,6 +1,6 @@
 // src/app/ai-forced-call.ts — the ONE audited request envelope (sent through `ai-transport.ts`) for every one-shot,
 // forced-tool Anthropic call in the app (enumerate them with
-// `grep -rlnE "runForcedToolCall(WithStop)?\(" src/app --include=*.ts | grep -v -e test -e ai-forced-call`). Each caller keeps its OWN parse/ground/coerce/validation; only the
+// `grep -rlnE "runForcedToolCall(WithStop|WithRetry)?\(" src/app --include=*.ts | grep -v -e test -e ai-forced-call`). Each caller keeps its OWN parse/ground/coerce/validation; only the
 // wire call + error throw are shared here, so a leak fix lives in ONE place.
 //
 // SECURITY INVARIANT (never regress): this module NEVER logs or echoes the api
@@ -144,21 +144,57 @@ export async function runForcedToolCall(
  */
 export async function runForcedToolCallWithStop(
   args: ForcedToolCallArgs,
-): Promise<{ input: Record<string, unknown>; stopReason: string | undefined }> {
-  let json: ReplyBody;
-  if (autoChoiceModels.has(args.model)) {
-    json = await postAuto(args);
-  } else {
-    try {
-      json = await postOnce(args, "forced");
-    } catch (e) {
-      if (!refusesForcedChoice(e)) throw e;
-      // With "auto" and a single tool the model still calls it; a reply without the call is
-      // the same "parse" failure as before.
-      autoChoiceModels.add(args.model);
-      json = await postAuto(args);
-    }
+): Promise<ForcedToolCallResult> {
+  return toolResult(await requestReply(args), args);
+}
+
+/** The forced tool's input and the reply's `stop_reason`. */
+export interface ForcedToolCallResult {
+  input: Record<string, unknown>;
+  stopReason: string | undefined;
+}
+
+/**
+ * `runForcedToolCallWithStop` with one retry for a reply cut at the output
+ * budget (§764): when the reply stops at `"max_tokens"` it is asked for once
+ * more with `retryMaxTokens`, a cut reply without the tool call included. The
+ * result is the last reply, so its `stopReason` is still `"max_tokens"` when
+ * the retry was cut too; the caller treats that as its failure. A 400
+ * `invalid_request_error` on the retry (a model whose output cap is below
+ * `retryMaxTokens`) leaves the first reply as the result. Same throws as
+ * `runForcedToolCall` otherwise.
+ */
+export async function runForcedToolCallWithRetry(
+  args: ForcedToolCallArgs,
+  retryMaxTokens: number,
+): Promise<ForcedToolCallResult> {
+  const first = await requestReply(args);
+  if (first.stop_reason !== "max_tokens") return toolResult(first, args);
+  let reply = first;
+  try {
+    reply = await requestReply({ ...args, maxTokens: retryMaxTokens });
+  } catch (e) {
+    if (!refusesRequest(e)) throw e;
   }
+  return toolResult(reply, args);
+}
+
+/** The reply to one call: forced, or auto for a model that refuses a forced choice. */
+async function requestReply(args: ForcedToolCallArgs): Promise<ReplyBody> {
+  if (autoChoiceModels.has(args.model)) return postAuto(args);
+  try {
+    return await postOnce(args, "forced");
+  } catch (e) {
+    if (!refusesForcedChoice(e)) throw e;
+    // With "auto" and a single tool the model still calls it; a reply without the call is
+    // the same "parse" failure as before.
+    autoChoiceModels.add(args.model);
+    return postAuto(args);
+  }
+}
+
+/** The forced tool's input and the stop reason; `Error("parse")` when the reply has no such call. */
+function toolResult(json: ReplyBody, args: ForcedToolCallArgs): ForcedToolCallResult {
   const toolUse = (json.content ?? []).find(
     (b) => b.type === "tool_use" && b.name === args.toolName,
   );
@@ -172,11 +208,14 @@ export async function runForcedToolCallWithStop(
 /** The auto request. Plain first; a reply whose tool input does not match the tool's schema is asked
  *  once more in strict form, and that tool goes strict for the session. If the API refuses the strict
  *  form, the plain reply stands (the caller's own validation decides) and that tool never goes strict.
- *  A reply without the tool call is returned as it is: strict cannot make the model call it. */
+ *  A reply without the tool call is returned as it is: strict cannot make the model call it. Nor is a
+ *  reply cut at the output budget a schema failure (§764): it is returned as it is, for the caller's
+ *  retry with a larger budget (`runForcedToolCallWithRetry`), and the tool does not go strict. */
 async function postAuto(args: ForcedToolCallArgs): Promise<ReplyBody> {
   const tool = args.toolName;
   if (strictTools.has(tool) && !nonStrictTools.has(tool)) return postStrict(args, null);
   const plain = await postOnce(args, "auto");
+  if (plain.stop_reason === "max_tokens") return plain;
   if (nonStrictTools.has(tool) || replyMatches(plain, args)) return plain;
   strictTools.add(tool);
   return postStrict(args, plain);

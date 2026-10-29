@@ -15,7 +15,7 @@ import {
   parseAllocationProposal,
   type ParsedAllocationProposal,
 } from "./alloc-plan/alloc-plan";
-import { runForcedToolCall } from "./ai-forced-call";
+import { runForcedToolCallWithRetry } from "./ai-forced-call";
 
 interface AiCreds {
   apiKey: string;
@@ -27,8 +27,10 @@ interface AiCreds {
 /** Run one forced propose_allocations tool call and return the parsed result
  *  (`{cells, truncated}` — see `parseAllocationProposal`'s doc comment for
  *  why `truncated` must be read from HERE, not only from the later
- *  grounding step). Throws AiHttpError(status, errorType?, safeMessage?) on a
- *  non-OK response and Error("parse") on absent/malformed tool output. The
+ *  grounding step). A reply cut at the output budget is asked for once more
+ *  with RETRY_MAX_TOKENS (§764). Throws AiHttpError(status, errorType?, safeMessage?) on a
+ *  non-OK response and Error("parse") on absent/malformed tool output, or when
+ *  the retry is cut too. The
  *  api key is NEVER included in the thrown error — only the status + safe
  *  body tokens. */
 export async function runAllocProposal(
@@ -44,7 +46,7 @@ export async function runAllocProposal(
   // isn't real, and nothing is written without per-cell human confirmation.
   const userMessage = `${context}\n\n---\nUSER REQUEST: ${instruction}`;
 
-  const input = await runForcedToolCall({
+  const reply = await runForcedToolCallWithRetry({
     apiKey: ai.apiKey,
     model: ai.model,
     system: buildAllocSystemPrompt(),
@@ -57,11 +59,15 @@ export async function runAllocProposal(
     // headroom for a broad request and a truncated response surfaced as an
     // undifferentiated Error("parse"). 8192 gives real room; the system
     // prompt also asks the model to prioritise rather than enumerate
-    // exhaustively when a request is very broad.
+    // exhaustively when a request is very broad. A reply cut there is asked
+    // for once more at 16384 (§764); a model whose output cap is lower refuses
+    // that, and the cut reply is the parse error, as before the retry existed.
     maxTokens: 8192,
     signal,
-  });
-  const parsed = parseAllocationProposal(input);
+  }, 16_384);
+  // A reply cut at the retry budget too is never read (§764): its input may be partial yet still parse.
+  if (reply.stopReason === "max_tokens") throw new Error("parse");
+  const parsed = parseAllocationProposal(reply.input);
   if (!parsed) throw new Error("parse");
   return parsed;
 }
