@@ -184,10 +184,11 @@ function cell(v: string | undefined): string {
 /** A milestone description as one capped plain-text cell. A legacy plain value
  *  is escaped first (`descriptionHtml`), so a literal "<" in it survives. */
 function descriptionCell(stored: string | undefined): string {
-  const text = cell(htmlPlainProjection(descriptionHtml(stored, "rich")));
-  return text.length > RACI_CONTEXT_DESCRIPTION_CHARS
-    ? `${text.slice(0, RACI_CONTEXT_DESCRIPTION_CHARS)}…`
-    : text;
+  // Code points, not UTF-16 units, so the cut never splits an emoji.
+  const chars = [...cell(htmlPlainProjection(descriptionHtml(stored, "rich")))];
+  return chars.length > RACI_CONTEXT_DESCRIPTION_CHARS
+    ? `${chars.slice(0, RACI_CONTEXT_DESCRIPTION_CHARS).join("")}…`
+    : chars.join("");
 }
 
 /** Compact English digest for the model. Capped, and reports the cap — a silent

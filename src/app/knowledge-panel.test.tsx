@@ -314,6 +314,13 @@ describe("KnowledgePanel", () => {
     expect(screen.getByText(/CRM interface decision/)).toBeInTheDocument();
   });
 
+  // §775 — a library card shows no host, so the host is not searched there.
+  it("does not keep a library card for a host it does not show", () => {
+    renderLibrary([{ ...libraryItem("k1", "Cutover runbook"), url: "https://contoso.sharepoint.com/k1" }]);
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: "sharepoint" } });
+    expect(screen.queryByText(/Cutover runbook/)).not.toBeInTheDocument();
+  });
+
   it("shows the no-match text when search excludes every library item", () => {
     renderLibrary([libraryItem("k1", "Cutover runbook")]);
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: "zzz" } });

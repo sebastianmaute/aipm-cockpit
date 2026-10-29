@@ -3,7 +3,7 @@
 // (from URL), file type (icon + i18n key), and list filter/sort/counts for the
 // Documents card grid. Deterministic — no Date/Math.random.
 
-import { linkKindOf } from "./document-link";
+import { isSafeHttpUrl, linkKindOf } from "./document-link";
 import type { DocRef, DocSourceKind } from "./knowledge";
 
 /** Host label from a URL: known SaaS hosts mapped to a stable name, else the
@@ -82,37 +82,29 @@ const SOURCE_RANK: Record<DocSourceKind, number> = {
 };
 
 /** The Knowledge search's one comparison: a text contains the query, case-insensitive; a blank query
- *  matches all. `linkMatchesQuery` applies it to the attached documents (`filterDocs`) and the library
- *  cards alike, so the box narrows both. */
+ *  matches all. One rule for the attached documents (`filterDocs`) and the library cards (their name),
+ *  so the box narrows both. */
 export function matchesDocQuery(name: string, query: string): boolean {
   const q = query.trim().toLowerCase();
   return q === "" || name.toLowerCase().includes(q);
 }
 
-/** The Knowledge search over one link (§775): its name or its host (`hostLabel`, so "SharePoint" or
- *  "example.com"), plus any `extra` texts the caller adds. A blank query matches all. */
-export function linkMatchesQuery(
-  link: { name: string; url?: string },
-  query: string,
-  extra: readonly string[] = [],
-): boolean {
-  return [link.name, hostLabel(link.url ?? ""), ...extra].some((text) => matchesDocQuery(text, query));
-}
-
-/** Attached documents narrowed by source chip and search. Beyond the link, the search matches the
- *  source item's name and its source type as the panel shows it (§775); `sourceLabel` supplies that
- *  translated label, which keeps this module i18n-free. */
+/** Attached documents narrowed by source chip and search (§775). The search matches what each card
+ *  shows: the document's name, its source item's name, its source type (`sourceLabel` supplies the
+ *  translated label, which keeps this module i18n-free) and its host. The host only when the card
+ *  shows one, i.e. for a safe http(s) link. */
 export function filterDocs(
   refs: readonly DocRef[],
   sourceKind: DocSourceKind | "all",
   query: string,
   sourceLabel?: (kind: DocSourceKind) => string,
 ): DocRef[] {
-  return refs.filter(
-    (r) =>
-      (sourceKind === "all" || r.source.kind === sourceKind) &&
-      linkMatchesQuery(r.link, query, [r.source.name, sourceLabel?.(r.source.kind) ?? ""]),
-  );
+  return refs.filter((r) => {
+    if (sourceKind !== "all" && r.source.kind !== sourceKind) return false;
+    const host = isSafeHttpUrl(r.link.url) ? hostLabel(r.link.url) : "";
+    const texts = [r.link.name, r.source.name, sourceLabel?.(r.source.kind) ?? "", host];
+    return texts.some((text) => matchesDocQuery(text, query));
+  });
 }
 
 /** Sort a doc list. For `"type"`, an optional `typeLabel` resolver supplies the

@@ -24,7 +24,7 @@ import { SegmentedControl } from "./segmented-control";
 import { IconButton } from "./icon-button";
 import { Card } from "./card";
 import { AddFirstItemButton } from "./add-first-item-button";
-import { hostLabel, fileTypeOf, filterDocs, linkMatchesQuery, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
+import { hostLabel, fileTypeOf, filterDocs, matchesDocQuery, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
 import { formatExpiryDate } from "./date-format";
 import { ViewCallout } from "./view-callout";
 
@@ -329,7 +329,7 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
   // The library cards under the same search. They belong to no source, so a source chip other than All
   // hides them. Each keeps its index in `kItems`, which its remove and linked-tasks writes address.
   const shownItems = useMemo(
-    () => (effFilter === "all" ? kItems.map((it, idx) => ({ it, idx })).filter(({ it }) => linkMatchesQuery(it, query)) : []),
+    () => (effFilter === "all" ? kItems.map((it, idx) => ({ it, idx })).filter(({ it }) => matchesDocQuery(it.name, query)) : []),
     [kItems, effFilter, query],
   );
   // §316 — two cards can carry the same document name, in one grid or across

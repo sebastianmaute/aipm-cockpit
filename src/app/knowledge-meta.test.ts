@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hostLabel, fileTypeOf, filterDocs, linkMatchesQuery, sortDocs, sourceCounts, effectiveSourceFilter } from "./knowledge-meta";
+import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter } from "./knowledge-meta";
 import type { DocRef } from "./knowledge";
 
 describe("hostLabel", () => {
@@ -95,17 +95,11 @@ describe("filterDocs", () => {
     expect(filterDocs(bySource, "task", "crm", label)).toEqual([]);
     expect(filterDocs(bySource, "all", "zzz", label)).toEqual([]);
   });
-});
 
-describe("linkMatchesQuery (§775)", () => {
-  it("matches the name, the host and any extra text, and a blank query matches all", () => {
-    const link = { name: "Runbook", url: "https://acme.atlassian.net/wiki/x" };
-    expect(linkMatchesQuery(link, "runb")).toBe(true);
-    expect(linkMatchesQuery(link, "confluence")).toBe(true);
-    expect(linkMatchesQuery(link, "cutover", ["Cutover milestone"])).toBe(true);
-    expect(linkMatchesQuery(link, "cutover")).toBe(false);
-    expect(linkMatchesQuery(link, "  ")).toBe(true);
-    expect(linkMatchesQuery({ name: "x", url: "not a url" }, "url")).toBe(false);
+  it("matches the host only when the card shows one (a safe http(s) link)", () => {
+    const unsafe = [ref({ name: "Odd", url: "ftp://files.sharepoint.com/x" }, "task", "T")];
+    expect(filterDocs(unsafe, "all", "sharepoint")).toEqual([]);
+    expect(names(filterDocs(unsafe, "all", "odd"))).toEqual(["Odd"]);
   });
 });
 

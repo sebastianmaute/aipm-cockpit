@@ -21,12 +21,20 @@ import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { Button } from "./button";
 import { ChevronRightIcon } from "./icons";
-import { formatDiffValue } from "./version-diff-format";
+import { formatDiffPair } from "./version-diff-format";
 
 /** Modified records whose fields the inline layout shows without a click (§776).
  *  Capped for the cost the `aria-controls` note below describes: a vs-now
  *  compare can carry hundreds of modified records. The rest keep the toggle. */
 export const INLINE_OPEN_LIMIT = 25;
+
+/** The changes grouped by collection, in first-appearance order: the order both
+ *  layouts render, so the open rows below are the first ones on screen. */
+function groupByCollection(changes: readonly VersionChange[]): Map<string, VersionChange[]> {
+  const groups = new Map<string, VersionChange[]>();
+  for (const c of changes) groups.set(c.collectionLabel, [...(groups.get(c.collectionLabel) ?? []), c]);
+  return groups;
+}
 
 const TYPE_KEY: Record<ChangeType, "historyAdded" | "historyRemoved" | "historyModified"> = {
   added: "historyAdded", removed: "historyRemoved", modified: "historyModified",
@@ -70,10 +78,12 @@ export function VersionDiffView({
 }) {
   // §776 — the first INLINE_OPEN_LIMIT modified records start open, so a compare
   // shows what changed without a click. Added and removed records list every
-  // field against a dash, so they start closed. Seeded once per mount:
-  // `HistoryPanel` remounts this view for every compare (`key={compareNonce}`).
+  // field against a dash, so they start closed. Seeded once per mount, in the
+  // order the rows render: `HistoryPanel` remounts this view for every compare
+  // (`key={compareNonce}`).
   const [open, setOpen] = useState<Set<string>>(() => new Set(
-    changes
+    [...groupByCollection(changes).values()]
+      .flat()
       .filter((c) => c.type === "modified" && c.fields.length > 0)
       .slice(0, INLINE_OPEN_LIMIT)
       .map((c) => changeKey(c.collection, c.recordId)),
@@ -89,8 +99,7 @@ export function VersionDiffView({
   if (changes.length === 0) {
     return <p className="text-sm text-muted-foreground">{t(lang, "historyNoChanges")}</p>;
   }
-  const groups = new Map<string, VersionChange[]>();
-  for (const c of changes) groups.set(c.collectionLabel, [...(groups.get(c.collectionLabel) ?? []), c]);
+  const groups = groupByCollection(changes);
 
   const keyOf = (c: VersionChange) => changeKey(c.collection, c.recordId);
   const toggle = (k: string) => setOpen((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
@@ -159,18 +168,21 @@ export function VersionDiffView({
                     </span>
                   </div>
                   <ul className="flex flex-col gap-0.5">
-                    {c.fields.map((f) => (
+                    {c.fields.map((f) => {
+                      const [before, after] = formatDiffPair(f.before, f.after);
+                      return (
                       <li key={f.field} className="grid grid-cols-2 gap-3 text-xs">
                         <span className="flex flex-wrap items-baseline gap-1">
                           <span className="font-medium text-muted-foreground">{f.label}:</span>
-                          <span className="text-foreground">{formatDiffValue(f.before)}</span>
+                          <span className="text-foreground">{before}</span>
                         </span>
                         <span className="flex flex-wrap items-baseline gap-1">
                           <span className="font-medium text-muted-foreground">{f.label}:</span>
-                          <span className="text-foreground">{formatDiffValue(f.after)}</span>
+                          <span className="text-foreground">{after}</span>
                         </span>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 </li>
                 );
@@ -295,7 +307,9 @@ export function VersionDiffView({
                         <span className="text-foreground">{tokens.get(k) ?? c.recordLabel}</span>
                       </button>
                       <span aria-hidden="true" className={`ml-2 shrink-0 text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
-                      {expandable && (
+                      {/* Modified rows only: an added or removed row's fields all
+                          "change" against a dash, so a count says nothing there. */}
+                      {expandable && c.type === "modified" && (
                         <span className="ml-2 shrink-0 text-xs text-muted-foreground">
                           {t(lang, "historyChangedFieldCount", c.fields.length)}
                         </span>
@@ -327,7 +341,9 @@ export function VersionDiffView({
                       id={panelIds.get(k)}
                       className="mt-1 flex flex-col gap-0.5 border-t border-line pt-1"
                     >
-                      {c.fields.map((f) => (
+                      {c.fields.map((f) => {
+                        const [before, after] = formatDiffPair(f.before, f.after);
+                        return (
                         <li key={f.field} className="flex flex-wrap items-center gap-1 text-xs">
                           {selectable && revertible && (
                             <Checkbox
@@ -345,11 +361,12 @@ export function VersionDiffView({
                             />
                           )}
                           <span className="font-medium text-muted-foreground">{f.label}:</span>
-                          <span className="text-ui-pink-strong line-through">{formatDiffValue(f.before)}</span>
+                          <span className="text-ui-pink-strong line-through">{before}</span>
                           <span className="text-muted-foreground">→</span>
-                          <span className="text-ui-green-strong">{formatDiffValue(f.after)}</span>
+                          <span className="text-ui-green-strong">{after}</span>
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   )}
                 </li>

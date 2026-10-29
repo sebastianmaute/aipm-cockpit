@@ -41,8 +41,9 @@ longer carries its own changelog comment.
 - **History's comparison shows what changed without a click (§776).** *Compare selected* used to list each changed
   record collapsed behind its "Modified" label, which read as plain text. The first 25 modified records now show
   their fields as before → after straight away; the rest, and added or removed records, open with the chevron beside
-  the record's name, and each row says how many fields changed. Rich text shows as plain text and lists and objects
-  as readable values, in both layouts. The panel's heading is now "Comparison" (German "Vergleich").
+  the record's name, and each modified row says how many fields changed. A long value is shortened around the
+  change, so the difference stays visible. Rich text shows as plain text and lists and objects as readable values,
+  in both layouts. The panel's heading is now "Comparison" (German "Vergleich").
 - **Knowledge search finds a document by where it is attached (§775).** Besides the document's name, the search
   now matches the name of the task, RAID item, change, milestone or stakeholder it is attached to, that item's type
   as the card shows it, and the link's host, for example SharePoint or Confluence.

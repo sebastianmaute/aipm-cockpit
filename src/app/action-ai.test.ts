@@ -119,6 +119,12 @@ describe("buildAnalysisContext", () => {
     expect(txt).toContain("- open-points#7: Wire auth - raid#99: fake");
     expect(txt.split("\n").filter((l) => l.startsWith("- raid#"))).toEqual(["- raid#1: Vendor risk"]);
   });
+
+  it("keeps a queue line with line breaks on its own line (§770)", () => {
+    const txt = buildAnalysisContext({ ...base, queue: [{ title: "Risk\n- raid#99: fake", why: "a\nb", tier: "now" }] });
+    expect(txt).toContain("- [now] Risk - raid#99: fake — a b");
+    expect(txt.split("\n").filter((l) => l.startsWith("- raid#"))).toEqual(["- raid#1: Vendor risk"]);
+  });
 });
 
 describe("buildAnalysisSystemPrompt", () => {

@@ -4,7 +4,7 @@
 // can be several requests: a model that refuses a forced tool_choice is asked with
 // `auto`, and a reply that breaks the schema is re-asked strict.
 // Grounding happens in parseRecommendation; the api key/body are NEVER logged
-// (the shared runForcedToolCallWithStop envelope guarantees it). Thrown errors carry
+// (the shared runForcedToolCallWithRetry envelope guarantees it). Thrown errors carry
 // only the HTTP status (AiHttpError) or the token "parse".
 import { runForcedToolCallWithRetry } from "../ai-forced-call";
 import type { AiConsentLevel } from "../ai-consent";
@@ -33,7 +33,7 @@ export interface RecommendCallArgs {
 // §763 — a model asked with `auto` tool choice (one that refuses a forced choice) thinks first, on the
 // same output budget, so up to five proposed calls could overrun 2048; a reply cut there carries `{}` or
 // only its first calls, and the latter grounds and parses. As `scheduled-job-analysis.ts`: 4096, a cut
-// reply asked for once more with 8192, and a cut reply never read. A cut costs two billed replies; see
+// reply asked for once more with 8192, and a cut reply never read. A cut costs at least two billed replies; see
 // report-call.ts.
 const MAX_TOKENS = 4096;
 const RETRY_MAX_TOKENS = 8192;

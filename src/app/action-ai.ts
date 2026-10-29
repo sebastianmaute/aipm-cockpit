@@ -103,7 +103,7 @@ function capList(view: GroundableView, rows: readonly { id: number; title?: stri
  *  Volatile data — sent as the user message, never in the cached system block. */
 export function buildAnalysisContext(input: AnalysisContextInput): string {
   const queue = input.queue.length
-    ? input.queue.map((q) => `- [${q.tier}] ${q.title} — ${q.why}`).join("\n")
+    ? input.queue.map((q) => `- [${q.tier}] ${oneLine(q.title)} — ${oneLine(q.why)}`).join("\n")
     : "(none)";
   return [
     `Project: ${input.projectName}. Today: ${input.today}. Mode: ${input.mode}.`,

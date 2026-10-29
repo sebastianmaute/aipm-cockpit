@@ -1,5 +1,5 @@
 // src/app/weight-suggestion-call.ts - non-hook forced suggest_weights call. The
-// shared runForcedToolCallWithStop envelope NEVER logs/echoes the api key or response
+// shared runForcedToolCallWithRetry envelope NEVER logs/echoes the api key or response
 // body; thrown errors carry only HTTP status (AiHttpError, message status-only)
 // or "parse". Mirrors scheduled-job-analysis.ts.
 import { type NextActionsConfig } from "./settings-types";
@@ -18,7 +18,7 @@ interface AiCreds {
 // same output budget. A reply cut there carries `{}` or only its first suggestions, and
 // parseSuggestionResponse reads either without an error (`{}` as "no change suggested"). As
 // scheduled-job-analysis.ts: 4096, a cut reply asked for once more with 8192, and a cut reply never read.
-// A cut costs two billed replies; see committee-report/report-call.ts.
+// A cut costs at least two billed replies; see committee-report/report-call.ts.
 const MAX_TOKENS = 4096;
 const RETRY_MAX_TOKENS = 8192;
 

@@ -73,6 +73,27 @@ describe("VersionDiffView", () => {
     expect(screen.getByText(`new ${INLINE_OPEN_LIMIT + 1}`)).toBeVisible();
   });
 
+  it("opens the first records in the order they render, grouped by collection (§776)", () => {
+    // Interleaved input: rendering groups Tasks before Milestones, so the open
+    // rows must be the first Tasks rows, not the first items of `changes`.
+    const row = (collection: "tasks" | "milestones", id: number): VersionChange => ({
+      collection, collectionLabel: collection === "tasks" ? "Tasks" : "Milestones", kind: "list", recordId: id,
+      recordLabel: `${collection} ${id}`, type: "modified",
+      fields: [{ field: "title", label: "Title", before: `b${collection}${id}`, after: `a${collection}${id}` }],
+    });
+    const interleaved = Array.from({ length: INLINE_OPEN_LIMIT }, (_, i) => [row("tasks", i + 1), row("milestones", i + 1)]).flat();
+    render(<VersionDiffView lang="en-US" changes={interleaved} />);
+    for (let i = 1; i <= INLINE_OPEN_LIMIT; i += 1) expect(screen.getByText(`atasks${i}`)).toBeVisible();
+    expect(screen.queryByText("amilestones1")).toBeNull();
+  });
+
+  it("counts changed fields on modified rows only (§776)", () => {
+    const added: VersionChange = { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 2,
+      recordLabel: "New task", type: "added", fields: [{ field: "title", label: "Title", before: undefined, after: "x" }] };
+    render(<VersionDiffView lang="en-US" changes={[...changes, added]} />);
+    expect(screen.getAllByText(/^Fields changed:/)).toHaveLength(1);
+  });
+
   it("draws a chevron in an expandable record's button only, turned while open (§776)", () => {
     render(<VersionDiffView lang="en-US" changes={changes} />);
     const open = screen.getByRole("button", { name: "Modified – Design sign-off" });
