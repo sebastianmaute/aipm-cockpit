@@ -36,6 +36,25 @@ longer carries its own changelog comment.
     key or connection problem; a scheduled job's run history records gateway errors, and a job whose AI setting is
     switched off or changed waits and retries instead of using up its run.
 
+### Fixed
+
+- **History's comparison shows what changed without a click (§776).** *Compare selected* used to list each changed
+  record collapsed behind its "Modified" label, which read as plain text. The first 25 modified records now show
+  their fields as before → after straight away; the rest, and added or removed records, open with the chevron beside
+  the record's name, and each row says how many fields changed. Rich text shows as plain text and lists and objects
+  as readable values, in both layouts. The panel's heading is now "Comparison" (German "Vergleich").
+- **Knowledge search finds a document by where it is attached (§775).** Besides the document's name, the search
+  now matches the name of the task, RAID item, change, milestone or stakeholder it is attached to, that item's type
+  as the card shows it, and the link's host, for example SharePoint or Confluence.
+- **An AI answer cut off for length is asked for again with more room (§764).** Suggest RACI, task de-duplication,
+  the project proposal, the WBS plan and the allocation plan now ask once more with a larger output budget when the
+  answer stops at the limit, as the steering report, insight recommendations, weight suggestions and scheduled jobs
+  already did. A cut answer is no longer asked again in a stricter form at the same budget, which cost one more billed
+  reply that could be cut just the same, and kept that feature on the stricter form for the rest of the session.
+- **Suggest RACI reads milestone descriptions as text (§770).** Descriptions were sent to Claude as formatted HTML in
+  a table whose rows and columns a line break or a "|" could break, so a description could be read as belonging to
+  the wrong milestone. Every value is now one line of plain text, and long descriptions are shortened.
+
 ## [1.20.1] - 2026-10-27 "Indridason"
 
 A maintenance release about what the AI may see and when it may run. AI features now need one consent, given on the
