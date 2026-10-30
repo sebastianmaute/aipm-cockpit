@@ -1984,8 +1984,9 @@
   cannot go stale when a published rate moves. ★★ The one thing that would make the design wrong is a future
   model breaking the ratio; at that point the basis has to become model-aware.
   ★★ THE WEIGHTS ARE APPLIED AT COMPARISON TIME, NEVER BEFORE PERSISTENCE — buckets store the API's own raw
-  counts and are priced on read. ★ The record path (where `record()` writes those raw counts), the advisory
-  notices and the retired write-time multiplier setting are owned by [`platform.md`](platform.md)'s
+  counts and are priced on read. ★ The record path (the transport tap `subscribeAiUsage` → `recordPathUsage`, which persists those raw
+  counts per AI path), the advisory notices, the background-only weekly hard cap and the retired write-time
+  multiplier setting are owned by [`platform.md`](platform.md)'s
   "Usage-limit notices + counting knobs" bullet; this one owns only the basis.
   ★★★ THE OLD UNWEIGHTED SUM WAS DELETED RATHER THAN RE-BODIED. It added the four fields flat, so a cached
   turn — billed at a tenth — consumed exactly as much of a cap as a fresh one, which is the over-counting this

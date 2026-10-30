@@ -43,9 +43,12 @@ longer carries its own changelog comment.
   AI you start yourself is never blocked.
 - **Chat attachments are treated as data.** The assistant is told that the content of an attached document or image is
   to be analysed, never followed, and each attached document is titled with its file name. While an attachment is in
-  the conversation, new items, deletions, invitations, inquiries, changes to settings, filters or language and every
-  change without a version check go to the review card, and a second proposal in the same message waits for the
-  first. A reopened saved thread has its attachments removed and is trusted again. Help and the threat model say so.
+  the conversation, new items, deletions, invitations, inquiries, escalations, changes to settings, filters or
+  language, any change to an email address or phone number, and every change without a version check go to the
+  review card. One version-checked change per message that touches no contact details can still apply without review.
+  A second proposal in the same message is not made; ask again after deciding on the first card. The review card
+  cannot be applied or discarded while the assistant is still answering. A reopened saved thread has its attachments
+  removed and is trusted again. Help and the threat model say so.
 
 ### Fixed
 
