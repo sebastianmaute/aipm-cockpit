@@ -6,6 +6,7 @@ import { isPureReadTool, openSendRecord, stagesWhenUntrusted, UNTRUSTED_CONTACT_
 import { shouldStage, type ProposedCall } from "./chat-proposal";
 import { TOKEN_REQUIRED_TOOLS } from "./chat-proposal-apply";
 import { PERSON_FIELDS } from "./person-reassign";
+import { RESOURCE_MATCH_FIELDS } from "./resource-foundation";
 
 const call = (name: string, input: Record<string, unknown> = {}): ProposedCall => ({ name, input });
 
@@ -116,6 +117,12 @@ describe("stagesWhenUntrusted", () => {
     ["update_raid_item", { owner: "Mallory Jones" }, { title: "Vendor down" }],
     ["update_absence", { assignee: "Mallory Jones" }, { type: "vacation" }],
     ["update_absence", { resourceId: 3 }, { endDate: "2030-01-02" }],
+    // A directory person's matching fields: the load-time linker resolves unlinked names (and addresses) against
+    // them, so a rename can relink a same-name assignee to this person and redirect its inquiries.
+    ["update_resource", { firstName: "Bob" }, { company: "Acme" }],
+    ["update_resource", { lastName: "Smith" }, { notes: "met" }],
+    ["update_resource", { name: "Bob Smith" }, { roleId: 2 }],
+    ["update_resource", { isExternal: false }, { title: "Lead" }],
   ] as const;
 
   test.each(CONTACT_CASES)("%s stages when it sets a contact field, and applies when it does not", (name, contact, plain) => {
@@ -160,6 +167,26 @@ describe("stagesWhenUntrusted", () => {
       ["assignee", "assigneeEmail", "businessPhone", "email", "emails", "owner", "ownerEmail", "resourceId", "toEmail"],
     );
     expect([...collected].filter((k) => !UNTRUSTED_CONTACT_KEYS.has(k))).toEqual([]);
+  });
+
+  // ★★ The directory fields the person linker matches on (`RESOURCE_MATCH_FIELDS`, which types the linker's own
+  // input in `resource-foundation.ts`) plus the `name` write alias: each one `update_resource` accepts stages.
+  // Mutation: dropping the match keys from the gate turns this red.
+  test("every field update_resource takes that the person linker matches on stages", () => {
+    const def = (TOOL_DEFS as ReadonlyArray<{ name: string; input_schema?: { properties?: Record<string, unknown> } }>)
+      .find((d) => d.name === "update_resource");
+    const keys = Object.keys(def?.input_schema?.properties ?? {}).filter(
+      (k) => (RESOURCE_MATCH_FIELDS as readonly string[]).includes(k) || k === "name",
+    );
+    expect(keys.sort()).toEqual(["email", "firstName", "isExternal", "lastName", "name"]);
+    const unstaged = keys.filter((k) => !stagesWhenUntrusted(call("update_resource", { id: 1, expectedToken: "t", [k]: "x" })));
+    expect(unstaged).toEqual([]);
+  });
+
+  // A stakeholder's name resolves nobody (the linker reads resources only), so a tokened stakeholder rename is the
+  // documented residual and still applies.
+  test("a tokened stakeholder rename does not stage by this rule", () => {
+    expect(stagesWhenUntrusted(call("update_stakeholder", { id: 1, expectedToken: "t", name: "Bob Smith" }))).toBe(false);
   });
 
   // ★★★ THE GUARD FOR FUTURE TOOLS: every live tool is in exactly one list.

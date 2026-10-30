@@ -192,9 +192,12 @@ export interface ResourceLookupIndexes {
  * it treats an external's name: not indexed at all. The default stays `true`,
  * so `backfillTaskResourceFks` is unchanged. See `laneResourceIdOf` for why the
  * display side needs the stricter rule.
+ *
+ * ★★ The input is typed to `RESOURCE_MATCH_FIELDS`, so reading another
+ * resource field here is a type error until that list names it.
  */
 export function buildResourceLookupIndexes(
-  resources: Iterable<Resource>,
+  resources: Iterable<ResourceMatchInput>,
   { emailMatchesExternals = true }: { emailMatchesExternals?: boolean } = {},
 ): ResourceLookupIndexes {
   const index = (key: string, id: number, into: Map<string, number | null>) => {
@@ -412,6 +415,14 @@ export function splitName(name: string): { firstName: string; lastName: string }
   if (idx === -1) return { firstName: trimmed, lastName: "" };
   return { firstName: trimmed.slice(0, idx), lastName: trimmed.slice(idx + 1) };
 }
+
+/** Every resource field the person linker (`buildResourceLookupIndexes`) matches on. A change to any of them can
+ *  link a stored name or address to a different person on the next load, so the chat's attachment gate
+ *  (`chat-send-record.ts`) stages a tokened `update_resource` that carries one. */
+export const RESOURCE_MATCH_FIELDS = ["firstName", "lastName", "email", "isExternal"] as const;
+
+/** The part of a resource the person linker reads. */
+export type ResourceMatchInput = Pick<Resource, "id" | (typeof RESOURCE_MATCH_FIELDS)[number]>;
 
 /** Display name for a resource: "First Last", trimmed when last name is empty. */
 export function resourceDisplayName(r: Pick<Resource, "firstName" | "lastName">): string {

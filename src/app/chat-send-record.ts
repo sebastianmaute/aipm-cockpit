@@ -7,6 +7,7 @@ import type { ApiMessage } from "./chat-api";
 import { ALWAYS_STAGED_TOOLS, isDestructiveCall, sendsInvitations, type ProposedCall } from "./chat-proposal";
 import { TOKEN_REQUIRED_TOOLS } from "./chat-proposal-apply";
 import { PERSON_FIELDS } from "./person-reassign";
+import { RESOURCE_MATCH_FIELDS } from "./resource-foundation";
 
 /** One user send, as the staging gate sees it.
  *  - `appliedWrites`: entity writes that already ran directly in an earlier turn of this send, so
@@ -72,17 +73,28 @@ function touchesContactField(call: ProposedCall): boolean {
   return Object.keys(call.input).some((key) => UNTRUSTED_CONTACT_KEYS.has(key));
 }
 
+/** The `update_resource` keys that change who a stored name or address resolves to: every field the person
+ *  linker matches on (`RESOURCE_MATCH_FIELDS`), plus `name`, the write alias the dispatcher splits into
+ *  `firstName`/`lastName`. A rename can relink an unlinked same-name assignee on the next load and redirect
+ *  its inquiries. Scoped to that tool: a stakeholder's or a scenario's `name` resolves nobody. */
+const RESOURCE_MATCH_KEYS: ReadonlySet<string> = new Set([...RESOURCE_MATCH_FIELDS, "name"]);
+
+function changesDirectoryMatch(call: ProposedCall): boolean {
+  return call.name === "update_resource" && Object.keys(call.input).some((key) => RESOURCE_MATCH_KEYS.has(key));
+}
+
 /** True when this call goes to the review card in an untrusted send. FAIL CLOSED: everything stages
  *  except a pure read (`isPureReadTool`), `optimize_wbs` (it proposes, it does not write) and a tokened
  *  update (`TOKEN_REQUIRED_TOOLS`) — the token pins the write to the row the model read, and a lone one
  *  applies as it does in a trusted send. A tool this module does not know stages.
  *  A tokened update still stages when it is destructive, would send invitations, edits the project
  *  record (`ALWAYS_STAGED_TOOLS`), is `escalate_raid_item` (it records a recipient address), or carries
- *  a contact, person-name or person-link key (`UNTRUSTED_CONTACT_KEYS`). */
+ *  a contact, person-name or person-link key (`UNTRUSTED_CONTACT_KEYS`), or renames a directory person
+ *  (`RESOURCE_MATCH_KEYS`). */
 export function stagesWhenUntrusted(call: ProposedCall): boolean {
   if (isPureReadTool(call.name) || call.name === "optimize_wbs") return false;
   if (!TOKEN_REQUIRED_TOOLS.has(call.name)) return true;
   if (isDestructiveCall(call) || sendsInvitations(call) || ALWAYS_STAGED_TOOLS.has(call.name)) return true;
   if (call.name === "escalate_raid_item") return true;
-  return touchesContactField(call);
+  return touchesContactField(call) || changesDirectoryMatch(call);
 }

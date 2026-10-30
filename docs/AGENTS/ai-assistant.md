@@ -246,7 +246,9 @@
   tool it does not know stages. A tokened update still stages when it is destructive, sends invitations, is
   `update_project` or `escalate_raid_item`, or its input carries a key in `UNTRUSTED_CONTACT_KEYS` — an address
   field, a person name or its address from `PERSON_FIELDS` (the writer derives the address from a new name through
-  `withReassignFields`), or the `resourceId` link. The residual is a lone tokened update that touches none of these;
+  `withReassignFields`), or the `resourceId` link — or it is an `update_resource` carrying a field the person linker
+  matches on (`RESOURCE_MATCH_FIELDS`, which types `buildResourceLookupIndexes`' input) or the `name` alias, because
+  a rename can relink an unlinked same-name assignee on the next load. The residual is a lone tokened update that touches none of these;
   and once a turn of the send has staged, a later turn stages
   nothing: its reads (`isPureReadTool`, `chat-send-record.ts`) run, every other call runs nothing and is answered with
   `PROPOSAL_PENDING_RESULT`, and the loop continues so the model can reply; the card is never replaced unseen. A staged
