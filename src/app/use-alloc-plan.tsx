@@ -35,6 +35,8 @@ import {
   type GroundedAllocCell,
   type SkippedCell,
 } from "./alloc-plan/alloc-plan";
+import { alternativeEffect } from "./alloc-plan/alloc-effect";
+import { type GroundedAlternative } from "./alloc-plan/alloc-ground-moves";
 import { AllocPlanModal } from "./alloc-plan-modal";
 import { AiTriggerButton } from "./ai-trigger-button";
 
@@ -64,6 +66,11 @@ export interface AllocPlan {
   button: ReactNode;
   /** The preview/confirm modal element (null while the feature is idle). */
   modal: ReactNode;
+}
+
+/** Today as an ISO date; a function so no render body calls `new Date()`. */
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
@@ -310,16 +317,34 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     />
   ) : null;
 
+  // Bridge until alternatives state lands (§769 task 6): today's cells/skipped are ONE alternative with no moves.
+  const alternatives: readonly GroundedAlternative[] = [
+    { summary: "", moves: [], skippedMoves: [], cells: [...cells], skipped: [...skipped], truncated },
+  ];
+  const effect = alternativeEffect(alternatives[0], selected, {
+    resources,
+    roles,
+    plan,
+    absences,
+    workdayHours,
+    holidaySet,
+    tasks: [],
+    today: todayIso(),
+  });
+
   const modal = phase !== "idle" ? (
     <AllocPlanModal
       lang={lang}
       open
       stage={stage}
       onPropose={(text) => void onPropose(text)}
-      cells={cells}
-      skipped={skipped}
+      alternatives={alternatives}
+      activeIndex={0}
+      onSelectAlternative={() => {}}
       truncated={truncated}
       selected={selected}
+      effect={effect}
+      currency={plan.currency}
       onToggle={onToggle}
       onConfirm={onConfirm}
       onCancel={reset}

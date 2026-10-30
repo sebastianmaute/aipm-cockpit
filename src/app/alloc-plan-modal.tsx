@@ -25,10 +25,12 @@ import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
 import { Checkbox, Textarea } from "./form-controls";
+import { SegmentedControl } from "./segmented-control";
+import { AllocPlanEffect, AllocPlanMoveRows } from "./alloc-plan-moves";
+import { type AltEffect } from "./alloc-plan/alloc-effect";
+import { type GroundedAlternative, type MoveSkipReason } from "./alloc-plan/alloc-ground-moves";
 import {
-  type GroundedAllocCell,
   type SkipReason,
-  type SkippedCell,
   cellKey,
   formatAllocValue,
 } from "./alloc-plan/alloc-plan";
@@ -40,12 +42,18 @@ export interface AllocPlanModalProps {
   stage: "input" | "preview";
   /** Called with the instruction as typed. */
   onPropose: (instruction: string) => void;
-  cells: readonly GroundedAllocCell[];
-  skipped: readonly SkippedCell[];
+  /** Every grounded alternative; the picker shows only with two or more. */
+  alternatives: readonly GroundedAlternative[];
+  activeIndex: number;
+  onSelectAlternative: (index: number) => void;
   /** True when the proposal was too large and some cells were not shown at all. */
   truncated: boolean;
-  /** cellKey()s the user has selected to apply. */
+  /** The ACTIVE alternative's ticks: cellKey()s and moveKey()s the user has selected to apply. */
   selected: ReadonlySet<string>;
+  /** What applying the ticked rows of the active alternative would do. */
+  effect: AltEffect;
+  /** The project's baseline currency, for the cost line. */
+  currency: string;
   onToggle: (key: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
@@ -70,15 +78,27 @@ const SKIP_REASON_KEY: Record<SkipReason, TranslationKey> = {
   "covered-by-move": "allocPlanSkipCoveredByMove",
 };
 
+const MOVE_SKIP_REASON_KEY: Record<MoveSkipReason, TranslationKey> = {
+  "unknown-task": "allocPlanSkipMoveUnknownTask",
+  closed: "allocPlanSkipMoveClosed",
+  jira: "allocPlanSkipMoveJira",
+  "same-owner": "allocPlanSkipMoveSameOwner",
+  "unknown-resource": "allocPlanSkipMoveUnknownResource",
+  duplicate: "allocPlanSkipMoveDuplicate",
+};
+
 export function AllocPlanModal({
   lang,
   open,
   stage,
   onPropose,
-  cells,
-  skipped,
+  alternatives,
+  activeIndex,
+  onSelectAlternative,
   truncated,
   selected,
+  effect,
+  currency,
   onToggle,
   onConfirm,
   onCancel,
@@ -88,7 +108,24 @@ export function AllocPlanModal({
   const [instruction, setInstruction] = useState("");
   const title = t(lang, "allocPlanTitle");
   const isPreview = stage === "preview";
-  const selectedCount = cells.reduce((n, c) => (selected.has(cellKey(c)) ? n + 1 : n), 0);
+  const active: GroundedAlternative | undefined = alternatives[activeIndex] ?? alternatives[0];
+  const cells = active?.cells ?? [];
+  const moves = active?.moves ?? [];
+  const skipped = active?.skipped ?? [];
+  const skippedMoves = active?.skippedMoves ?? [];
+  const selectedCount =
+    cells.reduce((n, c) => (selected.has(cellKey(c)) ? n + 1 : n), 0) +
+    moves.reduce((n, m) => (selected.has(m.key) ? n + 1 : n), 0);
+  const names = new Map<number, string>();
+  for (const alt of alternatives) {
+    for (const c of alt.cells) names.set(c.resourceId, c.resourceName);
+    for (const m of alt.moves) {
+      if (m.fromResourceId !== undefined) names.set(m.fromResourceId, m.fromLabel);
+      names.set(m.toResourceId, m.toLabel);
+    }
+  }
+  const nameOf = (id: number): string => names.get(id) ?? `#${id}`;
+  const hasRows = cells.length > 0 || moves.length > 0;
   const canPropose = instruction.trim().length > 0 && !busy;
   const canConfirm = !busy && selectedCount > 0;
   // Modal's Escape/backdrop-click call onClose unconditionally — they know
@@ -138,7 +175,33 @@ export function AllocPlanModal({
               {truncated && (
                 <p className="mt-4 text-xs text-muted-foreground">{t(lang, "allocPlanTruncated")}</p>
               )}
-              <ul className="mt-4 space-y-2">
+              {alternatives.length > 1 && (
+                <SegmentedControl
+                  className="mt-4"
+                  ariaLabel={t(lang, "allocPlanAlternatives")}
+                  value={String(activeIndex)}
+                  onChange={(v) => onSelectAlternative(Number(v))}
+                  disabled={busy}
+                  options={alternatives.map((_, i) => ({ value: String(i), label: t(lang, "allocPlanAlternativeN", i + 1) }))}
+                />
+              )}
+              {active && active.summary !== "" && (
+                <p className="mt-3 text-sm font-medium text-foreground">{active.summary}</p>
+              )}
+              {active?.rationale && <p className="mt-1 text-xs text-muted-foreground">{active.rationale}</p>}
+              {!hasRows && <p className="mt-3 text-sm text-muted-foreground">{t(lang, "allocPlanAlternativeEmpty")}</p>}
+              {hasRows && <AllocPlanEffect lang={lang} effect={effect} currency={currency} nameOf={nameOf} />}
+              {moves.length > 0 && (
+                <>
+                  <h3 className="mt-4 text-xs font-semibold uppercase text-muted-foreground">{t(lang, "allocPlanMovesHeading")}</h3>
+                  <AllocPlanMoveRows lang={lang} moves={moves} selected={selected} onToggle={onToggle} busy={busy} />
+                </>
+              )}
+              {cells.length > 0 && moves.length > 0 && (
+                <h3 className="mt-4 text-xs font-semibold uppercase text-muted-foreground">{t(lang, "allocPlanCellsHeading")}</h3>
+              )}
+              {cells.length > 0 && (
+              <ul className="mt-2 space-y-2">
                 {cells.map((c) => {
                   const key = cellKey(c);
                   const on = selected.has(key);
@@ -178,8 +241,9 @@ export function AllocPlanModal({
                   );
                 })}
               </ul>
+              )}
 
-              {skipped.length > 0 && (
+              {(skipped.length > 0 || skippedMoves.length > 0) && (
                 <div className="mt-4 border-t border-line pt-3">
                   <h3 className="text-xs font-semibold uppercase text-muted-foreground">
                     {t(lang, "allocPlanSkippedTitle")}
@@ -188,6 +252,11 @@ export function AllocPlanModal({
                     {skipped.map((s, i) => (
                       <li key={`${cellKey(s)}:${s.reason}:${i}`} className="text-xs text-muted-foreground">
                         #{s.resourceId} · {s.periodKey} — {t(lang, SKIP_REASON_KEY[s.reason])}
+                      </li>
+                    ))}
+                    {skippedMoves.map((s, i) => (
+                      <li key={`move:${s.taskId}:${s.reason}:${i}`} className="text-xs text-muted-foreground">
+                        #{s.taskId} → {nameOf(s.toResourceId)} — {t(lang, MOVE_SKIP_REASON_KEY[s.reason])}
                       </li>
                     ))}
                   </ul>
