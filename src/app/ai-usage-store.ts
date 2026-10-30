@@ -36,11 +36,13 @@ function sanitizePathBuckets(v: unknown): PathBuckets {
   return out;
 }
 
-function write(storage: Storage, b: PathBuckets): void {
+/** False when storage refused the write (quota, private browsing). */
+function write(storage: Storage, b: PathBuckets): boolean {
   try {
     storage.setItem(AI_USAGE_BY_PATH_KEY, JSON.stringify(b));
+    return true;
   } catch {
-    // non-fatal: storage quota or private browsing
+    return false;
   }
 }
 
@@ -72,8 +74,11 @@ export function readPathBuckets(storage: Storage): PathBuckets {
 
 /** Reads the stored value, adds, writes, returns the result: a caller's cached copy is never
  *  written, so a second tab's recording is not overwritten. `addToBuckets` applies no day
- *  retention, so none is applied here. */
-export function recordPathUsage(storage: Storage, when: Date, path: string, usage: Usage): PathBuckets {
+ *  retention, so none is applied here. `persisted` is false when storage refused the write: the
+ *  next read would return the old value, so the caller must keep `buckets` somewhere else. */
+export function recordPathUsage(
+  storage: Storage, when: Date, path: string, usage: Usage,
+): { readonly buckets: PathBuckets; readonly persisted: boolean } {
   const current = readPathBuckets(storage);
   const day = isoDate(when);
   const prev = normalizeUsage(current[day]?.[path]);
@@ -90,8 +95,7 @@ export function recordPathUsage(storage: Storage, when: Date, path: string, usag
       },
     },
   };
-  write(storage, next);
-  return next;
+  return { buckets: next, persisted: write(storage, next) };
 }
 
 function sum(list: Usage[]): Usage {

@@ -252,6 +252,8 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
   const sessionTotalRef = useRef(0);
   const sessionUsageRef = useRef<Usage>(EMPTY_SESSION_USAGE);
   const fallbackStorageRef = useRef<Storage | null>(null);
+  // Set once a usage write to localStorage failed: this tab then counts in `fallbackStorageRef` alone.
+  const storageFailedRef = useRef(false);
 
   // Per-scope "already warned this session" flags — booleans in a ref so they
   // never trigger re-renders and are never reset within the provider lifetime
@@ -275,7 +277,7 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
   useEffect(() => {
     return subscribeAiUsage((path, apiUsage) => {
       fallbackStorageRef.current ??= memoryStorage();
-      const storage = usageStorage(fallbackStorageRef.current);
+      const storage = storageFailedRef.current ? fallbackStorageRef.current : usageStorage(fallbackStorageRef.current);
       const normalized = normalizeUsage({
         input: apiUsage.input_tokens,
         output: apiUsage.output_tokens,
@@ -288,7 +290,14 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       const prevSession = sessionTotalRef.current;
       const prevSessionUsage = sessionUsageRef.current;
       const prevWeek = weekToDate(totalsByDay(readPathBuckets(storage)), now);
-      const nextBuckets = recordPathUsage(storage, now, path, normalized);
+      const recorded = recordPathUsage(storage, now, path, normalized);
+      const nextBuckets = recorded.buckets;
+      // ★ A refused write (quota, private mode) would lose this tap: the next one re-reads the old value. From
+      //   then on this tab counts in memory, seeded with what it has just added, so the caps can still trip.
+      if (!recorded.persisted && storage !== fallbackStorageRef.current) {
+        fallbackStorageRef.current.setItem(AI_USAGE_BY_PATH_KEY, JSON.stringify(nextBuckets));
+        storageFailedRef.current = true;
+      }
       const nextWeek = weekToDate(totalsByDay(nextBuckets), now);
       const nextSession = prevSession + tokens;
       const nextSessionUsage: Usage = {
@@ -351,7 +360,8 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
   useEffect(() => {
     const onStorage = (e: StorageEvent): void => {
       if (e.key !== null && e.key !== AI_USAGE_BY_PATH_KEY) return;
-      setPathBuckets(readPathBuckets(usageStorage(fallbackStorageRef.current ?? memoryStorage())));
+      const fallback = fallbackStorageRef.current ?? memoryStorage();
+      setPathBuckets(readPathBuckets(storageFailedRef.current ? fallback : usageStorage(fallback)));
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);

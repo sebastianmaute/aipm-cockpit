@@ -658,6 +658,24 @@ describe("AiUsageProvider — the tap is the recorder", () => {
     expect(result.current.weekTotal).toBe(610);
   });
 
+  it("keeps counting in this tab when storage refuses the write (quota, private mode)", async () => {
+    // Mutation: dropping the switch to the in-memory store turns this red: every tap re-reads the old value.
+    const { result } = renderProvider();
+    await act(async () => {});
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    try {
+      act(() => { emitUsage("chat", { input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+      act(() => { emitUsage("chat", { input: 30, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+      expect(setItem).toHaveBeenCalled();
+      expect(result.current.weekTotal).toBe(130);
+      expect(result.current.sessionTotal).toBe(130);
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
   it("the soft cap counts every path: a background recording alone crosses 80 %", async () => {
     const showToast = vi.fn();
     const { result } = renderProvider(showToast, { ...defaultAiConfig, sessionTokenCap: 10_000_000, weeklyTokenCap: 1_000 });

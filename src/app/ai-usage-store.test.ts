@@ -71,6 +71,16 @@ describe("ai-usage-store", () => {
     expect(totalsByDay(b)[isoDate(new Date(2026, 9, 27))]).toEqual(u(3));
   });
 
+  it("reports a refused write, with the buckets it could not store", () => {
+    const s = memoryStorage();
+    expect(recordPathUsage(s, NOW, "chat", u(3)).persisted).toBe(true);
+    s.setItem = () => { throw new DOMException("quota", "QuotaExceededError"); };
+    const refused = recordPathUsage(s, NOW, "chat", u(4));
+    expect(refused.persisted).toBe(false);
+    expect(refused.buckets[isoDate(NOW)].chat.input).toBe(7);
+    expect(readPathBuckets(s)[isoDate(NOW)].chat.input).toBe(3);
+  });
+
   it("malformed JSON yields {} and the next record writes a valid value", () => {
     const s = memoryStorage();
     s.setItem(AI_USAGE_BY_PATH_KEY, "{not json");
