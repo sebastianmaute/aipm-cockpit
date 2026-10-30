@@ -44,8 +44,10 @@ longer carries its own changelog comment.
 - **Chat attachments are treated as data.** The assistant is told that the content of an attached document or image is
   to be analysed, never followed, and each attached document is titled with its file name. While an attachment is in
   the conversation, new items, deletions, invitations, inquiries, escalations, changes to settings, filters or
-  language, any change to an email address or phone number, and every change without a version check go to the
-  review card. One version-checked change per message that touches no contact details can still apply without review.
+  language, any change to an email address or phone number, any reassignment to another person (which can change the
+  address on file), and every change without a version check go to the review card. One version-checked change per
+  message that touches neither contact details nor the person can still apply without review. No message can be
+  sent while an approved card is still being applied.
   A second proposal in the same message is not made; ask again after deciding on the first card. The review card
   cannot be applied or discarded while the assistant is still answering. A reopened saved thread has its attachments
   removed and is trusted again. Help and the threat model say so.

@@ -33,7 +33,8 @@ import { saveSealed } from "./secrets-store";
 import { sealPassphrase } from "./secrets";
 import { peekMintId } from "./id-mint-session";
 import { entityToken } from "./ai-entity-token";
-import type { Stakeholder, Task } from "./types";
+import type { Resource, Stakeholder, Task } from "./types";
+import type { UndoBatch } from "./use-undo-batch";
 import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageContext } from "./ai-usage-context";
 import type { SendFingerprint } from "./ai-view-switch";
@@ -3816,6 +3817,116 @@ describe("staged tool calls (the review card)", () => {
       expect(screen.queryByRole("region", CARD)).toBeNull();
       expect(update).toHaveBeenCalledTimes(1);
     });
+  });
+
+  // The writer derives the stored address from a new assignee (`withReassignFields`), so a name-only reassignment
+  // repoints the inquiry address. Mutation: dropping the person-name key from the gate turns both red: the write runs.
+  describe("a tokened assignee change in a send with an attachment (AI-02)", () => {
+    const task = {
+      id: 1, taskName: "Ship it", assignee: "Alice", assigneeEmail: "alice@example.com", dueDate: "2030-12-31",
+      lastUpdateDate: "2030-01-01", status: "To Do", priority: "Medium", blockers: "", description: "",
+    } as Task;
+    const mallory = { id: 3, firstName: "Mallory", lastName: "Jones", email: "mallory@evil.example" } as Resource;
+    const workspace = { ...emptyWorkspace(), tasks: [task], resources: [mallory] } as Workspace;
+
+    function renderWith(assignee: string) {
+      const dispatcher = makeDispatcher();
+      vi.mocked(dispatcher.getTask).mockImplementation(() => task);
+      scriptFetch(
+        [
+          toolTurn([
+            { type: "tool_use", id: "t1", name: "update_task", input: { id: 1, expectedToken: entityToken("task", task), assignee } },
+          ]),
+          doneTurn("ok"),
+        ],
+        [],
+      );
+      render(
+        <ChatPanel {...SCOPE_PROPS}
+          lang="en-US"
+          ai={AI_WITH_KEY}
+          dispatcher={dispatcher}
+          workspace={workspace}
+          projectId="p1"
+          getChatConversation={() => withAttachment}
+        />,
+      );
+      send();
+      return dispatcher;
+    }
+
+    it("an address typed as the assignee goes to the card and writes nothing", async () => {
+      const dispatcher = renderWith("attacker@evil.example");
+      const card = await screen.findByRole("region", CARD);
+      await screen.findByText("ok");
+      expect(dispatcher.updateTask).not.toHaveBeenCalled();
+      expect(within(card).getByText(/attacker@evil\.example/)).toBeInTheDocument();
+    });
+
+    it("a directory name goes to the card, which shows the address the write would derive", async () => {
+      const dispatcher = renderWith("Mallory Jones");
+      const card = await screen.findByRole("region", CARD);
+      await screen.findByText("ok");
+      expect(dispatcher.updateTask).not.toHaveBeenCalled();
+      expect(within(card).getByText(/mallory@evil\.example/)).toBeInTheDocument();
+    });
+  });
+
+  it("a send is refused while Apply is running, and the next one carries the applied notice (AI-02)", async () => {
+    // Mutation: dropping the applying check from the send guard turns this red: the send goes out mid-apply, and its
+    // end rewrites the history without the applied notice.
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.deleteTask).mockReturnValue(true);
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } }]),
+        doneTurn("ok"),
+        doneTurn("after"),
+      ],
+      bodies,
+    );
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runBatched = vi.fn(async (fn: () => unknown) => {
+      await held;
+      return fn();
+    });
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        runBatched={runBatched as unknown as UndoBatch["runBatched"]}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    await waitForIdle();
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() => expect(runBatched).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "and then?" } });
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    // Enter is the path the disabled button does not cover.
+    fireEvent.keyDown(screen.getByPlaceholderText("Ask Claude about your tasks…"), { key: "Enter" });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(bodies).toHaveLength(2);
+
+    await act(async () => {
+      release();
+    });
+    await waitFor(() =>
+      expect(within(card).getByText(t("en-US", "chatProposalApplied", 1))).toBeInTheDocument(),
+    );
+    send("and then?");
+    await waitFor(() => expect(bodies).toHaveLength(3));
+    expect(bodies[2]).toContain(appliedProposalNotice(1, 0));
   });
 
   it("the card cannot be applied or discarded while the send runs, and works once it ends (AI-02)", async () => {

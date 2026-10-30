@@ -619,6 +619,9 @@ function ChatPanelInner({
   }, [pendingProposal]);
 
   const guidesPending = ai.groundInGuides && !guidesReady;
+  // AI-02 — no send starts while Apply runs: its end would rewrite `history` without the applied notice the
+  // apply appends when it settles (the reverse of the card's `busy`).
+  const proposalApplying = pendingProposal?.applying === true;
   // Master switch: when AI is disabled in Settings, the assistant is fully off
   // regardless of any stored key — force the no-key path so send is blocked.
   const consentStale = ai.enabled === true && !isConsentCurrent(ai.consent);
@@ -653,7 +656,7 @@ function ChatPanelInner({
     //   render-closure read, so two dispatches in one tick both see it false;
     //   the ref is set synchronously below and cleared only by the owning
     //   send's `finally`, so it reads true for the whole life of a send.
-    if ((!text && atts.length === 0) || busy || abortRef.current !== null || guidesPending) return;
+    if ((!text && atts.length === 0) || busy || abortRef.current !== null || guidesPending || proposalApplying) return;
     if (!effectiveApiKey.trim()) {
       setError(t(lang, "chatNoApiKey"));
       return;
@@ -1369,7 +1372,7 @@ function ChatPanelInner({
   });
   useEffect(() => {
     sendGateRef.current = {
-      blocked: guidesPending || apiKeyMissing || busy,
+      blocked: guidesPending || apiKeyMissing || busy || proposalApplying,
       submit: submitPrompt,
       consume: () => onChatSeedConsumed?.(),
       epoch: getScopeEpoch,
@@ -1825,7 +1828,7 @@ function ChatPanelInner({
           ) : (
             <Button
               onClick={() => submitPrompt()}
-              disabled={(!input.trim() && attachments.length === 0) || apiKeyMissing || guidesPending}
+              disabled={(!input.trim() && attachments.length === 0) || apiKeyMissing || guidesPending || proposalApplying}
               aria-describedby={composerDescribedBy}
             >
               {t(lang, "chatSend")}
