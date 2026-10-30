@@ -23,7 +23,7 @@ export interface MeetingReportPreviousProps {
 
 export function MeetingReportPrevious({ lang, previous, draft, onRestore }: MeetingReportPreviousProps) {
   const [comparing, setComparing] = useState(false);
-  // M-6 — the save time in the app's display zone (the browser's outside the provider, e.g. in tests).
+  // the save time in the app's display zone (the browser's outside the provider, e.g. in tests).
   const tz = useDisplayTzOrBrowser();
   const previousHtml = previous.html;
   const diff = useMemo(

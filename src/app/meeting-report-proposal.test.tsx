@@ -77,7 +77,7 @@ describe("MeetingReportProposal", () => {
   });
 });
 
-// Review item 1 — each row can be read before it is taken: a closed-by-default, read-only preview.
+// each row can be read before it is taken: a closed-by-default, read-only preview.
 describe("MeetingReportProposal — section preview", () => {
   const previews = (c: HTMLElement) => [...c.querySelectorAll<HTMLDetailsElement>("details[data-section-preview]")];
   const summaryOf = (d: HTMLDetailsElement) => d.querySelector("summary") as HTMLElement;

@@ -76,9 +76,9 @@ interface StoredProposal extends ReportProposal {
 /** Identity of a meeting beyond its id: ids are max + 1, so a deleted newest meeting's id is reused by the
  *  next one. `CommitteeMeeting` carries no creation stamp (and a new persisted field is a six-path change),
  *  so the date is the only field that survives the ordinary edits. The title and the Outlook id are left out on
- *  purpose (a title edit, or the push to Outlook that sets `outlookEventId`, must keep a held draft). Residual: the
- *  same id + the same date counts as the same meeting, so a meeting re-created like that shows the old draft; a date
- *  change hides the proposal (hidden, not deleted: reverting the date shows it again). */
+ *  purpose (a title edit, or the push to Outlook that sets `outlookEventId`, must keep a held draft). A date change
+ *  hides the proposal (hidden, not deleted: reverting the date shows it again); a meeting that is GONE from the
+ *  committee drops its proposal outright (the render-time prune below), so a re-created one never inherits it. */
 function meetingFingerprint(m: CommitteeMeeting): string {
   return JSON.stringify([m.date]);
 }
@@ -151,6 +151,16 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
   useEffect(() => {
     committeeRef.current = deps.committee;
   }, [deps.committee]);
+  // Render-time reconcile (set-state-in-effect is banned): a proposal whose meeting is gone from the committee, or
+  // that was drafted in another project scope, is dropped for good.
+  const gone = [...proposals].filter(([id, p]) => p.epoch !== deps.getScopeEpoch() || !deps.committee?.meetings.some((m) => m.id === id));
+  if (gone.length > 0) {
+    setProposals((prev) => {
+      const next = new Map(prev);
+      for (const [id] of gone) next.delete(id);
+      return next;
+    });
+  }
   const guideText = useGuideTextFrom(deps.guides, deps.settings.ai.groundInGuides, "committeeReport");
   if (deps.isPopout) return undefined;
 

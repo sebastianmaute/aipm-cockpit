@@ -160,7 +160,7 @@ describe("useMeetingReportActions", () => {
       expect(h.report().previous).toEqual({ html: "<p>old</p>", savedAt: "t1" });
     });
 
-    // Review item 5 — an unchanged save is not a change: it writes nothing, so the sent stamp and the body's own
+    // an unchanged save is not a change: it writes nothing, so the sent stamp and the body's own
     // stamp survive, and there is nothing to undo.
     it("saving text identical to the current html writes nothing: sentAt and updatedAt stay, no undo entry", () => {
       const captureComposite = vi.fn();
@@ -840,6 +840,21 @@ describe("AI-04 the draft is a proposal held per meeting", () => {
   });
 });
 
+describe("AI-04 a proposal of a deleted meeting is pruned", () => {
+  it("deleting the meeting and creating one with the same id and date shows no proposal", async () => {
+    runMeetingReport.mockResolvedValueOnce("<h2>Status</h2><p>ok</p>");
+    const withMeeting = committee();
+    const { result, rerender } = renderHook(({ c }: { c: SteeringCommittee }) => useMeetingReportActions(makeDeps({ committee: c })), {
+      initialProps: { c: withMeeting },
+    });
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.getProposal(10)).toBeDefined());
+    rerender({ c: { ...withMeeting, meetings: [] } }); // deleted
+    rerender({ c: { ...withMeeting, meetings: [{ id: 10, date: "2026-06-01", title: "New one" }] } }); // re-created: same id, same date
+    expect(result.current!.getProposal(10)).toBeUndefined();
+  });
+});
+
 describe("AI-04 a proposal is tied to its meeting, not only its id", () => {
   // Meeting ids are max + 1, so deleting the newest meeting and adding another reuses its id.
   const withMeeting = (title: string, date = "2026-07-01"): SteeringCommittee => ({
@@ -944,7 +959,7 @@ describe("AI-04 a proposal is tied to its meeting, not only its id", () => {
 });
 
 describe("AI-04 final review — a report save on the real undo stack", () => {
-  // Item 1 — the stack refuses a push whose `readEpoch` differs from ITS reader, which in the app is the UNDO
+  // the stack refuses a push whose `readEpoch` differs from ITS reader, which in the app is the UNDO
   // epoch (scope + restore + denomination), not the scope epoch this hook is given. The two differ after any
   // currency/baseline change or version restore; the report save must still land on the stack.
   function composed(scopeEpoch: number, undoEpoch: number) {
@@ -986,7 +1001,7 @@ describe("AI-04 final review — a report save on the real undo stack", () => {
 });
 
 describe("AI-04 final review — an empty body carries its previous forward", () => {
-  // Item 5 — clear → Save → type → Save must keep A as previous (the empty body is not worth keeping, A is).
+  // clear → Save → type → Save must keep A as previous (the empty body is not worth keeping, A is).
   it("clear, save, type, save keeps the text before the clear as previous", () => {
     let state: SteeringCommittee | undefined = {
       ...committee(false),

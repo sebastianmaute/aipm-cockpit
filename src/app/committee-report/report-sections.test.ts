@@ -208,6 +208,47 @@ describe("an AI opening that sits inside a user intro", () => {
   });
 });
 
+describe("splitProposalSections splits an AI draft at its TOP heading level", () => {
+  it("keeps nested sub-headings inside their parent section", () => {
+    const sections = splitProposalSections("<h2>A</h2><p>a</p><h3>A1</h3><p>x</p><h2>B</h2><p>b</p>");
+    expect(sections.map((x) => x.heading)).toEqual(["A", "B"]);
+    expect(sections[0].html).toBe("<h2>A</h2><p>a</p><h3>A1</h3><p>x</p>");
+    expect(sections[1].html).toBe("<h2>B</h2><p>b</p>");
+  });
+  it("a draft whose top level is h3 splits at h3", () => {
+    const sections = splitProposalSections("<h3>A</h3><p>a</p><h4>A1</h4><p>x</p><h3>B</h3>");
+    expect(sections.map((x) => x.heading)).toEqual(["A", "B"]);
+    expect(sections[0].html).toContain("<h4>A1</h4>");
+  });
+  it("loses nothing: the sections concatenate back to the draft", () => {
+    const html = "<p>intro</p><h2>A</h2><h3>A1</h3><p>x</p><h2>B</h2>";
+    expect(splitProposalSections(html).map((x) => x.html).join("")).toBe(html);
+  });
+  it("a Replace of the parent brings its sub-section along", () => {
+    const AI = splitProposalSections("<h2>A</h2><p>new</p><h3>A1</h3><p>x</p>");
+    expect(applyTake("<h2>A</h2><p>old</p>", AI, [0], true)).toBe("<h2>A</h2><p>new</p><h3>A1</h3><p>x</p>");
+  });
+});
+
+describe("an unmatched section keeps AI order against the sections that FOLLOW it", () => {
+  const AI = ai("<h2>A</h2><p>aA</p><h2>B</h2><p>aB</p>");
+  it("Take all with Replace on a text that holds only B gives A then B", () => {
+    expect(applyTake("<h2>B</h2><p>b</p>", AI, [0, 1], true)).toBe("<h2>A</h2><p>aA</p><h2>B</h2><p>aB</p>");
+  });
+  it("A alone goes before the following AI section the text has", () => {
+    expect(applyTake("<h2>C</h2><p>c</p><h2>B</h2><p>b</p>", AI, [0], true)).toBe("<h2>C</h2><p>c</p><h2>A</h2><p>aA</p><h2>B</h2><p>b</p>");
+  });
+  it("with nothing following in the text it still goes to the end", () => {
+    expect(applyTake("<h2>C</h2><p>c</p>", AI, [0], true)).toBe("<h2>C</h2><p>c</p><h2>A</h2><p>aA</p>");
+  });
+  it("the preceding anchor still wins over a following one", () => {
+    const three = ai("<h2>A</h2><p>aA</p><h2>B</h2><p>aB</p><h2>C</h2><p>aC</p>");
+    expect(applyTake("<h2>A</h2><p>a</p><h2>X</h2><p>x</p><h2>C</h2><p>c</p>", three, [1], true)).toBe(
+      "<h2>A</h2><p>a</p><h2>B</h2><p>aB</p><h2>X</h2><p>x</p><h2>C</h2><p>c</p>",
+    );
+  });
+});
+
 describe("a blank AI opening is not a section", () => {
   it("splitProposalSections leaves no opening row for whitespace or an empty paragraph", () => {
     for (const html of ["\n<h2>Summary</h2><p>S</p>", "<p></p><h2>Summary</h2><p>S</p>"]) {

@@ -4,6 +4,7 @@ import { useReportUndoGuard } from "./use-report-undo-guard";
 import type { UndoMeta } from "./undo/undo-stack";
 import type { AppDialogs } from "./confirm-dialog";
 import { confirmReportUndo } from "./use-report-undo-guard";
+import { readDiagLog } from "./diagnostics";
 
 function meta(id: number, kind: UndoMeta["kind"]): UndoMeta {
   return { id, kind, count: 1, timestamp: "2026-10-30T09:00:00.000Z", label: `entry ${id}` };
@@ -183,6 +184,19 @@ describe("a through-op acts only on what it asked about (AI-04)", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(b.api.redoThrough).not.toHaveBeenCalled();
+  });
+});
+
+describe("a guard confirm that rejects (AI-04)", () => {
+  it("undoes nothing and is logged instead of left unhandled", async () => {
+    openDirtyReport();
+    const api = { undo: vi.fn(), undoById: vi.fn(), undoThrough: vi.fn(), redo: vi.fn(), redoThrough: vi.fn(), stack: [meta(2, "meetingReport.updated")], redoStack: [] as UndoMeta[] };
+    const dialogsRef: { current: AppDialogs } = { current: { confirm: vi.fn(() => Promise.reject(new Error("gone"))), prompt: vi.fn(async () => null), notice: vi.fn(async () => {}) } };
+    const { result } = renderHook(() => useReportUndoGuard({ api, dialogsRef, lang: "en-US" }));
+    result.current.undo();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(api.undoById).not.toHaveBeenCalled();
+    expect(readDiagLog().some((e) => e.code === "undo.confirmRejected")).toBe(true);
   });
 });
 

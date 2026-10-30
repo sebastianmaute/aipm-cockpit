@@ -60,7 +60,7 @@ nothing when the epoch moved, so a project change drops it). `markTaken`/`discar
 marked until the Save lands. ★ A taken row keeps its visible Taken label but its Take stays ENABLED (an undone or
 restored-over take must stay takeable; Take all still skips taken rows), so the panel's focus move after a take reads
 `data-taken`, not `disabled`. A draft that resolves after its meeting's date changed is dropped with the
-`reportDraftMeetingChanged` toast. Pure split/merge is `report-sections.ts` (`splitSections`, `planTake`, `applyTake`,
+`reportDraftMeetingChanged` toast. Pure split/merge is `report-sections.ts` (`splitSections` for the user's text, `splitProposalSections` for the AI draft: it splits only at the draft's TOP heading level and drops a blank opening; `planTake`, `applyTake`, an unmatched AI section goes after the nearest preceding AI section the text has, else before the nearest following one, else at the end;
 and `isBlankReport`, the one blank-body rule the send refusal and the panel's disabled Send share); the proposal list
 (`meeting-report-proposal.tsx`) sits ABOVE the editor, each row with a closed-by-default `<details>` preview rendered
 through `RichTextView`; a matching heading asks Replace or Keep both in `meeting-report-panel.tsx`'s `take()`. `onSaveReport(id, html, {fromAi})`
@@ -78,8 +78,8 @@ keeps its own version list. It lives in the committee blob, so it reaches each b
 Markdown (`steering-committee-persistence.test.ts`, which also covers a blank `html`), Turso single-tenant and tenant
 (`turso-tenant-schema.test.ts`) and IndexedDB (`browser-backend.test.ts`); `sanitize-records.test.ts` pins the validator.
 ★ Parked residuals: the proposal is tied to the meeting's id and DATE only (`meetingFingerprint`; the title and the Outlook
-id are left out so an edit or a push keeps it), so a meeting deleted and re-created with the same id and date shows the old
-proposal; a date change hides it (hidden, not deleted: the old date shows it again), and deleting the meeting drops it.
+id are left out so an edit or a push keeps it), so a date change hides it (hidden, not deleted: the old date shows it again), while a meeting that is gone from the
+committee drops its proposal outright (a render-time prune in the hook), so a meeting re-created with the same id and date never inherits it.
 
 ### Calendar write-back engine (generic — milestones/committee + tasks)
 

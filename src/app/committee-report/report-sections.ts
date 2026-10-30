@@ -66,7 +66,18 @@ export function normalizeHeading(text: string): string {
 /** The sections of an AI draft as the proposal shows them: a BLANK opening (whitespace, an empty paragraph) is not a
  *  section. (The user's own text goes through splitSections whole, so a blank preamble there still round-trips.) */
 export function splitProposalSections(html: string): ReportSection[] {
-  return splitSections(html).filter((s) => !(s.level === 0 && isBlankHtml(s.html)));
+  const all = splitSections(html).filter((s) => !(s.level === 0 && isBlankHtml(s.html)));
+  const levels = all.filter((s) => s.level !== 0).map((s) => s.level);
+  const top = levels.length > 0 ? Math.min(...levels) : 0;
+  // Only the draft's TOP heading level splits it: a deeper heading stays inside the section above it, so a Replace of
+  // the parent brings its sub-sections along. (A deeper heading with nothing above it keeps its own section.)
+  const out: ReportSection[] = [];
+  for (const s of all) {
+    const prev = out[out.length - 1];
+    if (s.level > top && prev) out[out.length - 1] = { ...prev, html: prev.html + s.html };
+    else out.push(s);
+  }
+  return out;
 }
 
 export function splitSections(html: string): ReportSection[] {
@@ -149,6 +160,13 @@ function insertionPoint(
                 ai[j].key !== "",
             );
     if (at !== -1) return rangeEnd(items, at);
+  }
+  // No preceding anchor: go BEFORE the nearest FOLLOWING AI section the text has (or one placed in this call), so the
+  // AI order holds; only with neither does it go to the end.
+  for (let j = aiIndex + 1; j < ai.length; j++) {
+    if (ai[j].level === 0) continue;
+    const at = items.findIndex((it) => it.section === ai[j] || (ai[j].key !== "" && it.section.level !== 0 && it.section.key === ai[j].key));
+    if (at !== -1) return at;
   }
   return items.length;
 }

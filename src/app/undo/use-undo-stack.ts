@@ -1125,7 +1125,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
         const entryMeta = stackRef.current.find((e) => e.meta.id === id)?.meta;
         const ok = entryMeta ? depsRef.current.confirmBeforeUndo?.(entryMeta) ?? true : true;
         if (ok === true) undoById(id);
-        else void ok.then((go) => { if (go) undoById(id); });
+        else void ok.then((go) => { if (go) undoById(id); }).catch((e: unknown) => logDiag("warn", "undo.confirmRejected", { message: e instanceof Error ? e.message : String(e) }));
       },
     });
   }, [undoById]);

@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { useUndoStack, type CaptureCompositeOpts } from "./use-undo-stack";
 import type { UndoMeta } from "./undo-stack";
 import type { ToastAction } from "../use-toast";
+import { readDiagLog } from "../diagnostics";
 
 // AI-04 — the save toast's Undo asks (confirmBeforeUndo) before it runs, like the top bar and the hotkey do.
 function setup(confirmBeforeUndo?: (m: UndoMeta) => true | Promise<boolean>) {
@@ -21,6 +22,16 @@ function setup(confirmBeforeUndo?: (m: UndoMeta) => true | Promise<boolean>) {
   const toastUndo = () => showToastAction.mock.calls[0][2].run();
   return { result, restore, toastUndo };
 }
+
+describe("a confirm that rejects", () => {
+  it("is logged, not left as an unhandled rejection, and undoes nothing", async () => {
+    const h = setup(() => Promise.reject(new Error("dialog gone")));
+    act(() => h.toastUndo());
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(h.restore).not.toHaveBeenCalled();
+    expect(readDiagLog().some((e) => e.code === "undo.confirmRejected")).toBe(true);
+  });
+});
 
 describe("the save toast's Undo and confirmBeforeUndo", () => {
   it("asks first with the entry it would undo; a no leaves the entry on the stack and runs nothing", async () => {

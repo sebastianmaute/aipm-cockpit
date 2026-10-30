@@ -384,7 +384,7 @@ describe("SteeringCommitteePanel", () => {
   });
 
   // AI-04 — the proposal lives in the report hook, not in the dialog: closing and reopening the
-  // dialog shows the same proposal. A section counts as taken once its text is SAVED (I-1).
+  // dialog shows the same proposal. A section counts as taken once its text is SAVED.
   function renderWithStatefulProposal() {
     const sections = splitSections("<h2>Risks</h2><p>ai risks</p><h2>Next steps</h2><p>ai next</p>");
     let taken = new Set<number>();

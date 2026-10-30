@@ -87,7 +87,7 @@ function takeConfirmMessage(lang: Lang, plan: TakePlan): string {
   return [...lines, "", t(lang, "reportTakeConfirmHint")].join("\n");
 }
 
-/** I-2 (WCAG 2.4.3) — after a take, focus goes to the next untaken row's Take (wrapping to an earlier
+/** WCAG 2.4.3: after a take, focus goes to the next untaken row's Take (wrapping to an earlier
  *  one), else Take all, else Discard, else the proposal heading. */
 function focusAfterTake(root: HTMLElement | null, after: number): void {
   if (!root) return;
@@ -141,7 +141,7 @@ export function MeetingReportPanel({
   // Panel-local: whether the draft holds text taken from the proposal since the last save. Not
   // persisted — closing the dialog with unsaved taken text loses it with the rest of the draft.
   const [tookFromProposal, setTookFromProposal] = useState(false);
-  // I-1 — sections taken into the draft but not saved yet. They show as Taken here at once, and reach
+  // sections taken into the draft but not saved yet. They show as Taken here at once, and reach
   // the proposal (onTaken) only with the Save that stores their text; a draft closed unsaved leaves
   // the proposal untouched.
   const [pendingTaken, setPendingTaken] = useState<ReadonlySet<number>>(() => new Set());
@@ -153,14 +153,14 @@ export function MeetingReportPanel({
     setSeenProposalAt(proposal?.createdAt);
     setPendingTaken(new Set());
   }
-  // M-1 — the stored body's stamp and the proposal's as last committed, read after the take's confirm resolves.
+  // the stored body's stamp and the proposal's as last committed, read after the take's confirm resolves.
   const updatedAtRef = useRef(report?.updatedAt);
   const proposalAtRef = useRef(proposal?.createdAt);
   useEffect(() => {
     updatedAtRef.current = report?.updatedAt;
     proposalAtRef.current = proposal?.createdAt;
   });
-  // I-2 — the last proposal index a take just applied; the effect below moves focus on from its
+  // the last proposal index a take just applied; the effect below moves focus on from its
   // now-taken row once the take has rendered.
   const focusAfterTakeRef = useRef<number | null>(null);
   const proposalRef = useRef<HTMLDivElement | null>(null);
@@ -182,6 +182,12 @@ export function MeetingReportPanel({
   // Unsaved edits: what a restore or an undo of this report would overwrite.
   const dirty = draft !== (report?.html ?? "");
 
+  // Invariants of take / save (each one pinned in meeting-report-panel.test.tsx):
+  //  - A taken mark reaches the hook (onTaken) only with a Save that stored the text, or a settled no-op save (the text
+  //    was already stored); unsaved marks live here and are dropped by the render-time reconciles.
+  //  - A real write re-seeds the editor and the draft through the stored body's updatedAt; a take re-seeds the editor
+  //    through seedNonce. Typing never does either.
+  //  - A take is dropped (with a notice) when the stored body or the proposal changed while its confirm was open.
   async function take(indices: number[]): Promise<void> {
     if (!proposal || indices.length === 0) return;
     const base = draft;
@@ -199,7 +205,7 @@ export function MeetingReportPanel({
         confirmLabel: t(lang, "reportTakeReplace"),
         cancelLabel: t(lang, "reportTakeKeepBoth"),
       }));
-    // M-1 — a write (save, restore, undo) landed while the confirm was open: `base` is stale and the
+    // a write (save, restore, undo) landed while the confirm was open: `base` is stale and the
     // editor now shows the new stored body, so the take is dropped rather than applied to old text. Likewise
     // a new draft (or a discard) replaced the proposal: `indices` point into a proposal that is gone.
     if (updatedAtRef.current !== startedAt || proposalAtRef.current !== proposalAt) {
@@ -247,7 +253,7 @@ export function MeetingReportPanel({
     onRestorePrevious();
   }
 
-  // Review item 2 — the Turso version list restores through onSaveReport, which re-seeds the editor from the new
+  // the Turso version list restores through onSaveReport, which re-seeds the editor from the new
   // stored body: without this ask, unsaved typing was replaced without a word.
   async function restoreVersion(versionId: string): Promise<void> {
     if (!onRestore) return;

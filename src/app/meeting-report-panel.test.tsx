@@ -126,7 +126,7 @@ describe("MeetingReportPanel", () => {
     expect(onRestore).toHaveBeenCalledWith("v1");
   });
 
-  // Review item 2 — the version list's Restore asks over unsaved typing, like the previous version's Restore.
+  // the version list's Restore asks over unsaved typing, like the previous version's Restore.
   describe("version-list Restore over unsaved changes", () => {
     function renderVersions() {
       const onRestore = vi.fn();
@@ -315,7 +315,7 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Take – Risks" }));
     fireEvent.click(await screen.findByRole("button", { name: "Replace" }));
     await waitFor(() => expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>ai risks</p>"));
-    // Taken shows at once, but is reported only when the text is saved (I-1).
+    // Taken shows at once, but is reported only when the text is saved.
     expect(rowOf("Take – Risks")).toHaveTextContent("Taken");
     // A taken row keeps its Take enabled: the text can be taken again (it asks Replace / Keep both).
     expect(screen.getByRole("button", { name: "Take – Risks" })).toBeEnabled();
@@ -360,7 +360,7 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     expect(p.onTaken).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(p.onSave).toHaveBeenLastCalledWith("<h2>Risks</h2><p>mine</p><h2>Next steps</h2><p>ai next</p>", { fromAi: true });
-    // I-1 — the take is reported to the proposal with the save that stores its text.
+    // the take is reported to the proposal with the save that stores its text.
     expect(p.onTaken).toHaveBeenCalledTimes(1);
     expect(p.onTaken).toHaveBeenCalledWith([2]);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -400,7 +400,7 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     expect(p.onTaken).not.toHaveBeenCalled();
   });
 
-  // I-2 (WCAG 2.4.3) — the row that was taken is done for now, so focus moves on to the next untaken one.
+  // WCAG 2.4.3: the row that was taken is done for now, so focus moves on to the next untaken one.
   it("after a plain take, focus moves to the next untaken row's Take", async () => {
     renderWithProposal();
     await screen.findByLabelText("Report");
@@ -438,7 +438,7 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     expect(screen.getByRole("button", { name: "Take all" })).toBeDisabled();
   });
 
-  // M-1 — a write that lands while the confirm is open makes the take's base stale: it is dropped.
+  // a write that lands while the confirm is open makes the take's base stale: it is dropped.
   it("drops a take whose confirm was answered after the stored body changed", async () => {
     const p = renderWithProposal();
     await screen.findByLabelText("Report");
@@ -506,7 +506,7 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
   });
 
   // Final review item 4 — a new draft that replaces the proposal while the confirm is open makes the take's
-  // indices point into a different proposal: dropped like a stale body (M-1).
+  // indices point into a different proposal: dropped like a stale body.
   it("drops a take whose confirm was answered after a new draft replaced the proposal", async () => {
     const p = renderWithProposal();
     await screen.findByLabelText("Report");
@@ -555,7 +555,7 @@ describe("MeetingReportPanel — the previous version (AI-04)", () => {
     return onRestorePrevious;
   }
 
-  it("names the previous version with its save time, formatted for display (M-6)", async () => {
+  it("names the previous version with its save time, formatted for display", async () => {
     renderPrev();
     await screen.findByLabelText("Report");
     // Outside a DisplayTimezoneProvider the panel shows the browser's zone (useDisplayTzOrBrowser).
@@ -611,7 +611,7 @@ describe("MeetingReportPanel — the previous version (AI-04)", () => {
     expect(container.querySelector('[data-report-dirty="true"]')).not.toBeNull();
   });
 
-  // Review item 5 — a save whose sanitized text equals the stored body writes nothing (no new updatedAt, so no
+  // a save whose sanitized text equals the stored body writes nothing (no new updatedAt, so no
   // reconcile): the panel settles the draft itself, so it does not stay dirty after Save.
   it("a Save that differs from the stored body only by what the sanitizer strips leaves the panel clean", async () => {
     const onSave = vi.fn();

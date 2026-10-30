@@ -26,6 +26,7 @@
 // Handlers are deliberately NOT memoized (deps-object convention): each reads the live stacks.
 import { useEffect, useRef } from "react";
 import { t, type Lang } from "./i18n";
+import { logDiag } from "./diagnostics";
 import type { AppDialogs } from "./confirm-dialog";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import type { UndoMeta } from "./undo/undo-stack";
@@ -91,9 +92,11 @@ export function useReportUndoGuard({ api, dialogsRef, lang, showToast }: ReportU
       runNow();
       return;
     }
-    void ok.then((go) => {
-      if (go) runAfterAsk();
-    });
+    void ok
+      .then((go) => {
+        if (go) runAfterAsk();
+      })
+      .catch((e: unknown) => logDiag("warn", "undo.confirmRejected", { message: e instanceof Error ? e.message : String(e) }));
   };
   return {
     undo: () => {
