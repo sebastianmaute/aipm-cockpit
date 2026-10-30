@@ -90,6 +90,7 @@ export function inertReassignHours(): ReassignHours {
     prepare: () => ({ resourcesPart: null, commit: () => {}, notice: null, plan: { moves: [], nextResources: [], edits: [], overCapacity: [] } }),
     reassignTasks: vi.fn(),
     record: () => false,
+    isLoadHeld: () => false,
   };
 }
 

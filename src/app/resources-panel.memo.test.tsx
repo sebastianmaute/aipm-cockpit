@@ -50,6 +50,7 @@ const base = {
   milestones: [] as never[],
   stakeholders: [] as never[],
   onReassignTasks: () => 0,
+  onIsLoadHeld: () => false,
   onRescheduleTask: noop,
   onSetAllUtilizationMode: noop,
   onSetAbsenceOverride: noop,

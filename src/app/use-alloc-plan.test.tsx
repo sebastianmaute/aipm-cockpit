@@ -105,6 +105,7 @@ function Harness({
     stakeholders: [],
     today: "2026-08-01",
     reassignTasks: () => 0,
+    isLoadHeld: () => false,
   });
   return (
     <div>
@@ -402,7 +403,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
     });
     // ONE toast the user sees, carrying both counts.
     expect(screen.getByTestId("toast")).toHaveTextContent(
-      "Allocation changes applied: 1. 1 change was skipped because the plan changed.",
+      "Applied 1 allocation change. 1 change was skipped because the plan changed.",
     );
     // The applied count (1) — not the original selection count (2) — is what
     // gets logged, since the two diverge exactly in this window.
@@ -549,14 +550,16 @@ interface FullProps {
   wrapReassign?: (real: ReassignHours["reassignTasks"]) => ReassignHours["reassignTasks"];
   externalTasks?: (tasks: readonly Task[]) => readonly Task[];
   externalResources?: (resources: readonly Resource[]) => readonly Resource[];
+  /** The load hold as §774's step sees it (§548). */
+  loadPending?: boolean;
 }
 
-function FullHarness({ initialTasks, initialResources, wrapReassign, externalTasks, externalResources }: FullProps) {
+function FullHarness({ initialTasks, initialResources, wrapReassign, externalTasks, externalResources, loadPending = false }: FullProps) {
   const [tasks, setTasks] = useState<readonly Task[]>(initialTasks);
   const [resources, setResources] = useState<readonly Resource[]>(initialResources ?? [MAYA, LIAM, ZOE]);
   const undo = useUndoStack({ lang: "en-US", logActivity: noopLog, showToast: fullToast, showToastAction: fullToast });
   const reassign = useReassignHours({
-    lang: "en-US", today: TODAY_SD, isPopout: false, loadPending: false,
+    lang: "en-US", today: TODAY_SD, isPopout: false, loadPending,
     tasks, setTasks, resources, setResources,
     plan: PLAN_SD, absences: [], workdayHours: 8, holidaySet: NO_HOLIDAYS,
     captureComposite: undo.captureComposite, logActivityAs: fullLog, showToast: fullToast,
@@ -567,6 +570,7 @@ function FullHarness({ initialTasks, initialResources, wrapReassign, externalTas
     plan: PLAN_SD, absences: [], workdayHours: 8, holidaySet: NO_HOLIDAYS,
     tasks, milestones: [], stakeholders: [], today: TODAY_SD,
     reassignTasks: wrapReassign ? wrapReassign(reassign.reassignTasks) : reassign.reassignTasks,
+    isLoadHeld: reassign.isLoadHeld,
     capture: undo.capture, captureComposite: undo.captureComposite,
     logActivityAs: fullLog,
   });
@@ -643,7 +647,7 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     await waitFor(() => expect(readUtil()[3]).toEqual({ "2026-11": 12 }));
     expect(readOwners()[10]).toBe(1);
     expect(readUtil()[1]).toEqual({ "2026-09": 40, "2026-10": 40 });
-    expect(lastToast()).toBe(tPlural("en-US", "allocPlanAppliedSkipped", 1, 1, 1));
+    expect(lastToast()).toBe(`${tPlural("en-US", "allocPlanApplied", 1, 1)} ${tPlural("en-US", "allocPlanSkippedStale", 1, 1)}`);
   });
 
   it("a move whose giver's planned hours changed is skipped as stale", async () => {
@@ -657,7 +661,7 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     expect(readOwners()[10]).toBe(1);
     expect(readUtil()[1]).toEqual({ "2026-09": 40, "2026-10": 30 });
     expect(readUtil()[2]).toEqual({});
-    expect(lastToast()).toBe(tPlural("en-US", "allocPlanAppliedSkipped", 1, 1, 1));
+    expect(lastToast()).toBe(`${tPlural("en-US", "allocPlanApplied", 1, 1)} ${tPlural("en-US", "allocPlanSkippedStale", 1, 1)}`);
   });
 
   // Review Focus 2. Mutation: one shared tick set for every alternative, or apply reading alternative 0.
@@ -726,7 +730,7 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
   it("a moves-only apply that §774 applies none of toasts the skipped count", async () => {
     await proposeWith(answer(alt("", [{ taskId: 10, toResourceId: 2 }], [])), { initialTasks: [DESIGN], wrapReassign: () => () => 0 });
     apply();
-    await waitFor(() => expect(fullToast).toHaveBeenCalledWith("info", tPlural("en-US", "allocPlanSkippedStale", 1, 1)));
+    await waitFor(() => expect(fullToast).toHaveBeenCalledWith("info", tPlural("en-US", "allocPlanSkippedUnchanged", 1, 1)));
     expect(readOwners()[10]).toBe(1);
     expect(readStack()).toEqual([]);
     expect(fullLog).not.toHaveBeenCalled();
@@ -741,7 +745,8 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     apply();
     await waitFor(() => expect(readOwners()[10]).toBe(2));
     expect(readOwners()[12]).toBe(1);
-    expect(lastToast().startsWith(tPlural("en-US", "allocPlanAppliedSkipped", 1, 2, 1))).toBe(true);
+    expect(lastToast().startsWith(`${tPlural("en-US", "allocPlanApplied", 2, 2)} ${tPlural("en-US", "allocPlanSkippedUnchanged", 1, 1)}`)).toBe(true);
+    expect(lastToast()).not.toContain(tPlural("en-US", "allocPlanSkippedStale", 1, 1));
     expect(fullLog).toHaveBeenCalledWith("ai", "ai.allocationPlanAlt", 1, 1, 1);
     expect(readStack()).toEqual([{ kind: "bulk.edit", count: 2, label: expect.any(String) }]);
   });
@@ -816,7 +821,10 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
       const sep = (u: Record<string, Record<string, number>>) => [1, 2, 3].reduce((n, id) => n + (u[id]["2026-09"] ?? 0), 0);
       expect(sep(util)).toBe(sep(Object.fromEntries(people.map((r) => [r.id, r.utilization]))));
       expect(fullToast).toHaveBeenCalledTimes(1);
-      expect(lastToast().startsWith(tPlural("en-US", "allocPlanAppliedSkipped", 1, 2, 1))).toBe(true);
+      // Second wave, 1 — the cell is named for what it is. Mutation: fold `covered` into `stale` and the toast says
+      // the plan changed.
+      expect(lastToast().startsWith(`${tPlural("en-US", "allocPlanApplied", 2, 2)} ${tPlural("en-US", "allocPlanSkippedCovered", 1, 1)}`)).toBe(true);
+      expect(lastToast()).not.toContain(tPlural("en-US", "allocPlanSkippedStale", 1, 1));
     });
   });
 
@@ -847,6 +855,31 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     await proposeWith(answer(alt("", [{ taskId: 12, toResourceId: 2 }, { taskId: 99, toResourceId: 3 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])), { initialTasks: [done] });
     expect(screen.getByText(`#12 Sep only → Liam Foster — ${t("en-US", "allocPlanSkipMoveClosed")}`)).toBeTruthy();
     expect(screen.getByText(`#99 → Zoe Kim — ${t("en-US", "allocPlanSkipMoveUnknownTask")}`)).toBeTruthy();
+  });
+
+  // Second wave, 7. Mutation: compare only the stored values and a changed absence override goes unseen.
+  it("a move whose receiver's absence override changed in its period is skipped as stale", async () => {
+    await proposeWith(
+      answer(alt("", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])),
+      { initialTasks: [DESIGN], externalResources: (rs) => rs.map((r) => (r.id === 2 ? { ...r, absenceOverride: { "2026-09": 16 } } : r)) },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "edit-resources" }));
+    apply();
+    await waitFor(() => expect(readUtil()[3]).toEqual({ "2026-11": 12 }));
+    expect(readOwners()[10]).toBe(1);
+    expect(readUtil()[2]).toEqual({});
+    expect(lastToast()).toBe(`${tPlural("en-US", "allocPlanApplied", 1, 1)} ${tPlural("en-US", "allocPlanSkippedStale", 1, 1)}`);
+  });
+
+  // Second wave, 8 — under the load hold §774 refuses the moves; the hour edits must not be written alone.
+  // Mutation: drop the guard and the Zoe cell is written while the task stays with Maya.
+  it("writes nothing while the load hold is up", async () => {
+    await proposeWith(answer(alt("", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])), { initialTasks: [DESIGN], loadPending: true });
+    apply();
+    expect(readUtil()).toEqual({ 1: { "2026-09": 40, "2026-10": 40 }, 2: {}, 3: {} });
+    expect(readOwners()[10]).toBe(1);
+    expect(readStack()).toEqual([]);
+    expect(fullLog).not.toHaveBeenCalled();
   });
 
   it("only cells ticked: captures one bulk.edit entry as today", async () => {

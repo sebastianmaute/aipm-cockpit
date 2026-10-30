@@ -76,6 +76,13 @@ describe("buildProjectDigest", () => {
     expect(lines[2]).toContain('owner=name:"Zed #7" ');
   });
 
+  // Second wave, 3. Mutation: drop the token and a Jira task's line reads like any other.
+  it("marks a Jira-synced task with a jira token, and only that task", () => {
+    const lines = taskLines(digest({ tasks: [task(1, { jiraKey: "ABC-1" }), task(2)] }));
+    expect(lines[0]).toMatch(/ status=To Do jira( |$)/);
+    expect(lines[1]).not.toMatch(/ jira( |$)/);
+  });
+
   it("lists only open FS predecessors", () => {
     const lines = taskLines(digest({
       tasks: [
@@ -123,6 +130,26 @@ describe("buildProjectDigest", () => {
     expect(lines).toContain("…(10 more tasks truncated)");
   });
 
+  // Second wave, 4 — "help Maya" names her by first name alone. Mutation: match the full name only and her five
+  // late-due tasks are truncated away.
+  it("keeps the tasks of a person named by first or last name alone, as a whole word", () => {
+    const all: Task[] = [];
+    for (let i = 1; i <= 160; i++) {
+      const maya = i % 32 === 0;
+      all.push(task(i, { resourceId: maya ? 3 : 1, dueDate: maya ? "2026-10-30" : "2026-09-10" }));
+    }
+    const mayasShown = (instruction: string) => taskLines(digest({
+      tasks: all,
+      resources: [resource(1, "Ana", "Silva"), resource(3, "Maya", "Patel")],
+      instruction,
+    })).filter((l) => l.includes("owner=#3 ")).length;
+    expect(mayasShown("help Maya")).toBe(5);
+    expect(mayasShown("move work off PATEL in October")).toBe(5);
+    // Whole words only: "Mayan" and "Patelli" name nobody.
+    expect(mayasShown("the Mayan calendar")).toBe(0);
+    expect(mayasShown("ask Patelli")).toBe(0);
+  });
+
   it("orders remaining tasks by due date", () => {
     const all: Task[] = [];
     for (let i = 1; i <= 160; i++) {
@@ -143,6 +170,15 @@ describe("buildProjectDigest", () => {
     for (let i = 156; i <= 160; i++) all.push(task(i, { resourceId: 1, startDate: "2026-10-02", dueDate: "2026-10-20" }));
     const shown = taskLines(digest({ tasks: all, instruction: "plan 2026-10 carefully" }));
     for (let i = 156; i <= 160; i++) expect(shown.some((l) => l.startsWith(`#${i} `))).toBe(true);
+  });
+
+  // Second wave, 5 (found by the size test): a task's hours list named every plan period, while the model may use
+  // only the listed ones. Mutation: drop the filter and October appears.
+  it("lists a task's hours only for the periods the digest shows", () => {
+    const t = task(10, { resourceId: 1, startDate: "2026-09-01", dueDate: "2026-10-30" });
+    const line = taskLines(digest({ tasks: [t], shownPeriodKeys: new Set(["2026-09"]) }))[0];
+    expect(line).toMatch(/ hours=2026-09=[0-9.]+$/);
+    expect(line).not.toContain("2026-10=");
   });
 
   it("hours per period match the workday split", () => {
@@ -167,7 +203,9 @@ describe("buildProjectDigest", () => {
     expect(lines.find((l) => l.startsWith("#2 "))).toBe('#2 "M2" date=2026-10-15 open');
   });
 
-  it("names an owner who is not in the shown resources by name, and drops them from RACI", () => {
+  // Second wave, 2: a linked owner the RESOURCES list does not show is not a typed name — moving the task carries
+  // its hours. Mutation: render `name:` for them again and the prompt tells the model they carry none.
+  it("names a linked owner who is not in the shown resources as hidden, and drops them from RACI", () => {
     const resources = Array.from({ length: 121 }, (_, i) => resource(i + 1, "First", `Last${i + 1}`));
     const lines = digest({
       resources,
@@ -180,7 +218,7 @@ describe("buildProjectDigest", () => {
       ],
     });
     const tl = taskLines(lines);
-    expect(tl.find((l) => l.startsWith("#1 "))).toContain('owner=name:"First Last121" ');
+    expect(tl.find((l) => l.startsWith("#1 "))).toContain('owner=hidden:"First Last121" ');
     expect(tl.find((l) => l.startsWith("#2 "))).toContain("owner=#5 ");
     expect(lines).toContain("milestone #5: A=#5");
   });

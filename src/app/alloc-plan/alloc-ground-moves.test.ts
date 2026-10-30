@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groundAlternative, moveKey, planTickedMoves, type MoveGroundContext } from "./alloc-ground-moves";
+import { groundAlternative, isMoveStale, moveKey, planTickedMoves, type MoveGroundContext } from "./alloc-ground-moves";
 import { type RawAllocAlternative } from "./alloc-alternatives";
 import { type Resource, type ResourcePlan, type Task } from "../types";
 
@@ -126,6 +126,46 @@ describe("groundAlternative: moves", () => {
     expect(s.status).toBe("In Progress");
     expect(s.utilization[1]["2026-09"]).toBe(120);
     expect(s.utilization[2]["2026-09"]).toBe(10);
+  });
+});
+
+// Second wave, 7 — what else decides the hours a move's people show in its periods: the unit, an absence override,
+// and an Absence record. Mutation: drop the fingerprint comparison from `isMoveStale` and each "stale" case reads fresh.
+describe("isMoveStale", () => {
+  const grounded = () => {
+    const c = ctxOf([maya(), liam()], [task()]);
+    return { c, move: groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), c).moves[0] };
+  };
+  const withLiam = (c: MoveGroundContext, over: Partial<Resource>): MoveGroundContext =>
+    ({ ...c, resources: c.resources.map((r) => (r.id === 2 ? { ...r, ...over } : r)) });
+  const absence = (over: Record<string, unknown>) =>
+    ({ id: 1, assignee: "Liam Foster", startDate: "2026-09-22", endDate: "2026-09-23", type: "vacation", ...over }) as never;
+
+  it("is fresh when nothing changed", () => {
+    const { c, move } = grounded();
+    expect(isMoveStale(move, c)).toBe(false);
+  });
+  it("the receiver's absence override in a period the move touches makes it stale; another period does not", () => {
+    const { c, move } = grounded();
+    expect(isMoveStale(move, withLiam(c, { absenceOverride: { "2026-09": 16 } }))).toBe(true);
+    expect(isMoveStale(move, withLiam(c, { absenceOverride: { "2026-10": 16 } }))).toBe(false);
+  });
+  it("a changed unit makes it stale", () => {
+    const { c, move } = grounded();
+    expect(isMoveStale(move, withLiam(c, { utilizationMode: "percent" }))).toBe(true);
+  });
+  it("a new Absence record for the giver or receiver in the move's periods makes it stale; one outside them does not", () => {
+    const { c, move } = grounded();
+    expect(isMoveStale(move, { ...c, absences: [absence({})] })).toBe(true);
+    expect(isMoveStale(move, { ...c, absences: [absence({ assignee: "", resourceId: 1 })] })).toBe(true);
+    expect(isMoveStale(move, { ...c, absences: [absence({ startDate: "2026-10-05", endDate: "2026-10-06" })] })).toBe(false);
+    expect(isMoveStale(move, { ...c, absences: [absence({ assignee: "Someone Else" })] })).toBe(false);
+  });
+  it("a moved Absence record makes it stale", () => {
+    const c0 = { ...ctxOf([maya(), liam()], [task()]), absences: [absence({})] };
+    const move = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), c0).moves[0];
+    expect(isMoveStale(move, c0)).toBe(false);
+    expect(isMoveStale(move, { ...c0, absences: [absence({ endDate: "2026-09-25" })] })).toBe(true);
   });
 });
 

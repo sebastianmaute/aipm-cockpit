@@ -101,19 +101,21 @@ export function buildWorkloadTriageHandlers({
   return { onReassignTask, onRescheduleTask, onClearUnlinked };
 }
 
-/** The Resources pane's workload props: each triage handler behind the popout guard, plus §774's reassign step and
- *  the undo stack Plan with AI records its ONE entry on (§769), the same stack as every other edit. */
+/** The Resources pane's workload props: each triage handler behind the popout guard, plus §774's reassign step (and
+ *  its load-hold signal, which Plan with AI asks before it writes) and the undo stack Plan with AI records its ONE
+ *  entry on (§769), the same stack as every other edit. */
 export function workloadPaneProps(
   triage: ReturnType<typeof buildWorkloadTriageHandlers>,
   guardEdit: ReturnType<typeof makeEditGuard>,
-  reassignTasks: ReassignHours["reassignTasks"],
+  reassign: Pick<ReassignHours, "reassignTasks" | "isLoadHeld">,
   captureComposite: UndoStackApi["captureComposite"],
 ) {
   return {
     onReassignTask: guardEdit(triage.onReassignTask),
     onRescheduleTask: guardEdit(triage.onRescheduleTask),
     onClearUnlinked: guardEdit(triage.onClearUnlinked),
-    onReassignTasks: reassignTasks,
+    onReassignTasks: reassign.reassignTasks,
+    onIsLoadHeld: reassign.isLoadHeld,
     onCaptureComposite: captureComposite,
   };
 }

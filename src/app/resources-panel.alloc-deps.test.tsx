@@ -27,6 +27,7 @@ describe("ResourcesPanel → useAllocPlan (§769)", () => {
   test("passes the real tasks, milestones, stakeholders, reassign step and composite capture", () => {
     allocMock.deps.length = 0;
     const onReassignTasks = vi.fn(() => 2);
+    const onIsLoadHeld = vi.fn(() => false);
     const onCaptureComposite = vi.fn();
     render(
       <ResourcesPanel
@@ -39,7 +40,7 @@ describe("ResourcesPanel → useAllocPlan (§769)", () => {
         onReassignTask={noop} onRescheduleTask={noop} onSetAllUtilizationMode={noop}
         onSetAbsenceOverride={noop} onSetPlanWindow={noop} onEditResource={noop} onAddResource={noop}
         milestones={milestones} stakeholders={stakeholders}
-        onReassignTasks={onReassignTasks} onCaptureComposite={onCaptureComposite}
+        onReassignTasks={onReassignTasks} onIsLoadHeld={onIsLoadHeld} onCaptureComposite={onCaptureComposite}
       />,
     );
     const deps = allocMock.deps.at(-1) as AllocPlanDeps;
@@ -48,6 +49,8 @@ describe("ResourcesPanel → useAllocPlan (§769)", () => {
     expect(deps.stakeholders).toBe(stakeholders);
     expect(deps.today).toBe("2026-05-23");
     expect(deps.reassignTasks).toBe(onReassignTasks);
+    // Second wave, 8: the load-hold signal reaches the hook as the same function.
+    expect(deps.isLoadHeld).toBe(onIsLoadHeld);
     expect(deps.captureComposite).toBe(onCaptureComposite);
   });
 });

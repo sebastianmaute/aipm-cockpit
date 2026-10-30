@@ -72,6 +72,7 @@ const baseProps = {
   milestones: [] as never[],
   stakeholders: [] as never[],
   onReassignTasks: () => 0,
+  onIsLoadHeld: () => false,
   onRescheduleTask: () => {},
   onSetAllUtilizationMode: () => {},
   onSetAbsenceOverride: () => {},

@@ -30,6 +30,9 @@ export interface ProjectDigestArgs {
   /** Ids of the resources the RESOURCES section actually lists; only these can be an `owner=#id` or in RACI.
    *  Default: all of `resources`. */
   shownResourceIds?: ReadonlySet<number>;
+  /** Period keys the PERIOD KEYS line lists (the plan is cut at `ALLOC_CONTEXT_MAX_PERIODS`); a task's hours list
+   *  names only these, since the model may use no other key. Default: every plan period. */
+  shownPeriodKeys?: ReadonlySet<string>;
   /** The user's free-text request: names and periods in it decide which tasks survive truncation. */
   instruction: string;
   hoursCtx: HoursMoveCtx;
@@ -68,35 +71,65 @@ function effectiveRange(task: Task, today: string): DateRange {
   return { start: start > due ? due : start, end: due };
 }
 
-function ownerOf(
-  task: Task,
-  all: ReadonlyMap<number, Resource>,
-  shown: ReadonlySet<number>,
-): { token: string; name: string } {
-  const resource = task.resourceId === undefined ? undefined : all.get(task.resourceId);
-  if (resource && shown.has(resource.id)) return { token: `#${resource.id}`, name: resourceDisplayName(resource) };
-  const name = resource ? resourceDisplayName(resource) : oneLine(task.assignee ?? "");
-  if (name) return { token: `name:${quoted(name)}`, name };
-  return { token: "unassigned", name: "" };
+interface Owner {
+  token: string;
+  name: string;
+  /** First and last name, each matched alone as a whole word ("help Maya"). */
+  parts: readonly string[];
 }
 
-function formatTaskLine(task: Task, owner: string, openIds: ReadonlySet<number>, milestoneIds: readonly number[], ctx: HoursMoveCtx): string {
+/** The owner token: `#id` for a listed person; `hidden:"…"` for a LINKED person the RESOURCES list does not show
+ *  (moving the task still carries their hours, so it must not read as a typed name); `name:"…"` for a typed name,
+ *  which carries none; else `unassigned`. */
+function ownerOf(task: Task, all: ReadonlyMap<number, Resource>, shown: ReadonlySet<number>): Owner {
+  const resource = task.resourceId === undefined ? undefined : all.get(task.resourceId);
+  if (resource) {
+    const name = resourceDisplayName(resource);
+    const parts = [resource.firstName, resource.lastName].map((x) => x.trim());
+    return { token: shown.has(resource.id) ? `#${resource.id}` : `hidden:${quoted(name)}`, name, parts };
+  }
+  const name = oneLine(task.assignee ?? "").trim();
+  if (!name) return { token: "unassigned", name: "", parts: [] };
+  const words = name.split(/\s+/);
+  return { token: `name:${quoted(name)}`, name, parts: [words[0], words[words.length - 1]] };
+}
+
+function formatTaskLine(
+  task: Task,
+  owner: string,
+  openIds: ReadonlySet<number>,
+  milestoneIds: readonly number[],
+  ctx: HoursMoveCtx,
+  shownPeriodKeys: ReadonlySet<string> | undefined,
+): string {
   const minutes = task.remainingEstimateMinutes;
   const remaining = minutes !== undefined && minutes > 0 ? `${Math.round((minutes / 60) * 10) / 10}h` : "-";
   const parts = [`#${task.id} ${quoted(task.taskName)}`, `owner=${owner}`, `remaining=${remaining}`];
   if (task.startDate) parts.push(`start=${task.startDate}`);
   parts.push(`due=${task.dueDate || "-"}`, `status=${task.status}`);
+  if (task.jiraKey) parts.push("jira"); // read-only: grounding refuses to move it
   const after = (task.dependencies ?? []).filter((d) => d.type === "FS" && d.taskId !== task.id && openIds.has(d.taskId));
   if (after.length > 0) parts.push(`after=${after.map((d) => `#${d.taskId}`).join(",")}`);
   if (milestoneIds.length > 0) parts.push(`milestones=${milestoneIds.map((id) => `#${id}`).join(",")}`);
-  const hours = splitTaskHoursByPeriod(task, ctx);
+  // Only the listed periods: the rest of the estimate is still in `remaining`, and a key the model may not use
+  // would only cost tokens (a long task in a long weekly plan listed every week of it).
+  const hours = splitTaskHoursByPeriod(task, ctx).filter((h) => !shownPeriodKeys || shownPeriodKeys.has(h.periodKey));
   if (hours.length > 0) parts.push(`hours=${hours.map((h) => `${h.periodKey}=${h.hours}`).join(" ")}`);
   return parts.join(" ");
 }
 
-/** Lower is shown first: owner named in the instruction, then overlapping a named period, then the rest. */
-function relevanceTier(task: Task, ownerName: string, instruction: string, ranges: readonly DateRange[], today: string): number {
-  if (ownerName && instruction.toLowerCase().includes(ownerName.toLowerCase())) return 0;
+/** Whether `word` appears in `text` as a whole word, ignoring case ("Maya" in "help Maya", not in "Mayan"). */
+function mentionsWord(text: string, word: string): boolean {
+  if (word.length < 2) return false;
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "iu").test(text);
+}
+
+/** Lower is shown first: owner named in the instruction (full name, or first or last name alone), then overlapping a
+ *  named period, then the rest. */
+function relevanceTier(task: Task, owner: Owner, instruction: string, ranges: readonly DateRange[], today: string): number {
+  if (owner.name && instruction.toLowerCase().includes(owner.name.toLowerCase())) return 0;
+  if (owner.parts.some((part) => mentionsWord(instruction, part))) return 0;
   const span = effectiveRange(task, today);
   return ranges.some((r) => span.start <= r.end && span.end >= r.start) ? 1 : 2;
 }
@@ -125,12 +158,12 @@ function taskSection(args: ProjectDigestArgs, all: ReadonlyMap<number, Resource>
   const ranked = open
     .map((task) => {
       const owner = ownerOf(task, all, shown);
-      return { task, owner: owner.token, tier: relevanceTier(task, owner.name, instruction, ranges, hoursCtx.today) };
+      return { task, owner: owner.token, tier: relevanceTier(task, owner, instruction, ranges, hoursCtx.today) };
     })
     .sort((a, b) => a.tier - b.tier || compareDue(a.task, b.task) || a.task.id - b.task.id);
   const lines = ["TASKS (open only):"];
   for (const { task, owner } of ranked.slice(0, ALLOC_CONTEXT_MAX_TASKS)) {
-    lines.push(formatTaskLine(task, owner, openIds, links.get(task.id) ?? [], hoursCtx));
+    lines.push(formatTaskLine(task, owner, openIds, links.get(task.id) ?? [], hoursCtx, args.shownPeriodKeys));
   }
   if (ranked.length > ALLOC_CONTEXT_MAX_TASKS) {
     lines.push(`…(${ranked.length - ALLOC_CONTEXT_MAX_TASKS} more tasks truncated)`);

@@ -135,7 +135,7 @@ describe("buildAllocContext", () => {
     });
 
     expect(text.split("\n").filter((l) => l.startsWith("#"))).toHaveLength(1);
-    expect(text).toContain('#3 "Ada #98 Lovelace" [percent] role=Design #99 Fake [hours] / Senior');
+    expect(text).toContain('#3 "Ada #98 Lovelace" [percent] role="Design #99 Fake [hours] / Senior"');
   });
 
   it("names the plan window and granularity so the model uses valid period keys", () => {
@@ -232,8 +232,8 @@ describe("buildAllocContext", () => {
       absences: [], workdayHours: 8, holidaySet: new Set<string>(),
     });
 
-    expect(text).toContain("role=Design / ? ::");
-    expect(text).toContain("role=? / Senior ::");
+    expect(text).toContain('role="Design / ?" ::');
+    expect(text).toContain('role="? / Senior" ::');
   });
 
   it("marks an external resource in its digest line", () => {
@@ -1386,6 +1386,26 @@ describe("buildAllocContext project digest (§769)", () => {
     expect(outsideStrings.match(/rate=[^ ]*/g)).toEqual(["rate=50.5/h"]);
   });
 
+  // Second wave, 9. Mutation: leave the role label unquoted and the discipline's "rate=0/h" sits outside any string.
+  it("a discipline or grade name cannot pose as one of the resource line's tokens", () => {
+    const text = buildAllocContext({
+      ...NO_PROJECT,
+      ...base,
+      disciplines: [{ id: 1, name: "x rate=0/h" }],
+      grades: [{ id: 2, name: "Senior" }],
+      resources: [resource(3, { firstName: "Ada", lastName: "Lovelace", roleId: 5 })],
+    });
+    const line = text.split(String.fromCharCode(10)).find((l) => l.startsWith("#3 ")) ?? "";
+    expect(line).toContain('role="x rate=0/h / Senior"');
+    expect(line.replace(/"[^"]*"/g, "").match(/rate=[^ ]*/g)).toEqual(["rate=50.5/h"]);
+  });
+
+  // Second wave, 2 and 3: the two new digest tokens are explained to the model.
+  it("the system prompt explains owner=hidden and the jira flag", () => {
+    expect(buildAllocSystemPrompt()).toContain("owner=hidden means a linked person not listed above: moving the task carries its hours.");
+    expect(buildAllocSystemPrompt()).toContain("Never move a task marked jira: it is read-only.");
+  });
+
   it("plan line names the currency", () => {
     expect(buildAllocContext({ ...NO_PROJECT, ...base, resources: [] })).toContain("workday=8h currency=EUR");
   });
@@ -1397,7 +1417,7 @@ describe("buildAllocContext project digest (§769)", () => {
     const mk = (id: number, resourceId: number) =>
       ({ id, taskName: `T${id}`, assignee: "", assigneeEmail: "", dueDate: "2026-09-20", lastUpdateDate: "", priority: "Medium", status: "To Do", blockers: "", description: "", resourceId, remainingEstimateMinutes: 480 }) as Task;
     const text = buildAllocContext({ ...NO_PROJECT, ...base, resources, tasks: [mk(1, ALLOC_CONTEXT_MAX_RESOURCES + 1), mk(2, 1)] });
-    expect(text).toContain('"T1" owner=name:"First Last121" ');
+    expect(text).toContain('"T1" owner=hidden:"First Last121" ');
     expect(text).toContain('"T2" owner=#1 ');
   });
 

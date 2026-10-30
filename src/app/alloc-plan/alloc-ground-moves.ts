@@ -8,6 +8,7 @@
 import { type Resource, type Task } from "../types";
 import { isTaskClosed } from "../task-closed";
 import { resourceDisplayName } from "../resource-foundation";
+import { absencesForResource, generatePeriods } from "../resource-capacity";
 import { planHoursMoves, splitTaskHoursByPeriod, type HoursMovePlan, type OwnerChange } from "../reassign-hours";
 import { type RawAllocAlternative } from "./alloc-alternatives";
 import {
@@ -36,6 +37,8 @@ export interface MoveSnapshot {
   /** Stored utilization (missing key = 0) of the receiver and, when linked, the giver, over every period the task
    *  splits into plus the plan's shortfall and receiver-cap periods: a period that moved nothing is still watched. */
   utilization: Record<number, Record<string, number>>;
+  /** `capacityFingerprint` of the same people and periods: what else decides the hours they show there. */
+  capacity: string;
 }
 
 export interface GroundedMove {
@@ -89,6 +92,7 @@ function snapshotOf(task: Task, plan: HoursMovePlan, ownerIds: readonly number[]
     utilization[id] = Object.fromEntries([...keys].map((k) => [k, stored[k] ?? 0]));
   }
   return {
+    capacity: capacityFingerprint(ownerIds, [...keys], ctx),
     owner: { assignee: task.assignee, assigneeEmail: task.assigneeEmail, resourceId: task.resourceId },
     remainingEstimateMinutes: task.remainingEstimateMinutes,
     startDate: task.startDate,
@@ -96,6 +100,49 @@ function snapshotOf(task: Task, plan: HoursMovePlan, ownerIds: readonly number[]
     status: task.status,
     utilization,
   };
+}
+
+/** What decides the hours `ownerIds` show in `periodKeys` besides the stored value: each person's unit, their
+ *  absence override per period, and the Absence records that apply to them (by link, else by name, as
+ *  `absencesForResource` decides) and overlap those periods. A missing person fingerprints as null. */
+export function capacityFingerprint(
+  ownerIds: readonly number[],
+  periodKeys: readonly string[],
+  ctx: Pick<MoveGroundContext, "resources" | "absences" | "plan">,
+): string {
+  const keys = [...new Set(periodKeys)].sort();
+  const wanted = new Set(keys);
+  const periods = generatePeriods(ctx.plan.startDate, ctx.plan.endDate, ctx.plan.granularity).filter((p) => wanted.has(p.key));
+  const people = [...new Set(ownerIds)].sort((a, b) => a - b).map((id) => {
+    const r = ctx.resources.find((x) => x.id === id);
+    if (!r) return [id, null];
+    const absences = absencesForResource(ctx.absences, r)
+      .filter((a) => periods.some((p) => a.startDate <= p.end && a.endDate >= p.start))
+      .map((a) => `${a.id}:${a.type}:${a.startDate}:${a.endDate}`)
+      .sort();
+    return [id, r.utilizationMode, keys.map((k) => r.absenceOverride?.[k] ?? null), absences];
+  });
+  return JSON.stringify(people);
+}
+
+/** §769 "Apply" 1 — a move is stale when its task's owner, remaining estimate, dates or status changed since it was
+ *  grounded, or anything that decides the planned hours of its giver and receiver in the periods it touches did: the
+ *  stored value (missing = 0), the unit, an absence override, or an Absence record (`capacityFingerprint`). */
+export function isMoveStale(move: GroundedMove, live: MoveGroundContext): boolean {
+  const task = live.tasks.find((t) => t.id === move.taskId);
+  if (!task) return true;
+  const snap = move.snapshot;
+  if (task.assignee !== snap.owner.assignee || task.assigneeEmail !== snap.owner.assigneeEmail || task.resourceId !== snap.owner.resourceId) return true;
+  if (task.remainingEstimateMinutes !== snap.remainingEstimateMinutes || task.startDate !== snap.startDate) return true;
+  if (task.dueDate !== snap.dueDate || task.status !== snap.status) return true;
+  const ownerIds = Object.keys(snap.utilization).map(Number);
+  const changedValue = Object.entries(snap.utilization).some(([id, watched]) => {
+    const person = live.resources.find((r) => r.id === Number(id));
+    return !person || Object.entries(watched).some(([key, value]) => (person.utilization[key] ?? 0) !== value);
+  });
+  if (changedValue) return true;
+  const periodKeys = Object.keys(snap.utilization[ownerIds[0]] ?? {});
+  return capacityFingerprint(ownerIds, periodKeys, live) !== snap.capacity;
 }
 
 /** The owner change the apply path (§774) plans for `task` handed to `receiver`; shared with the effect so both plan the same input. */

@@ -162,6 +162,8 @@ interface Props {
   stakeholders: readonly Stakeholder[];
   /** §769 — applies the model's task moves through the §774 step; returns the edits applied. */
   onReassignTasks: ReassignHours["reassignTasks"];
+  /** §548 — the reassign step's load-hold signal, asked by Plan with AI before it writes. */
+  onIsLoadHeld: ReassignHours["isLoadHeld"];
   /** §769 — the SAME undo stack the §774 step uses, so moves and hour edits form one entry. */
   onCaptureComposite?: UndoStackApi["captureComposite"];
   /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
@@ -240,6 +242,7 @@ function ResourcesPanelInner({
   milestones,
   stakeholders,
   onReassignTasks,
+  onIsLoadHeld,
   onCaptureComposite,
   logActivityAs,
 }: Props) {
@@ -319,6 +322,7 @@ function ResourcesPanelInner({
     stakeholders,
     today,
     reassignTasks: onReassignTasks,
+    isLoadHeld: onIsLoadHeld,
     captureComposite: onCaptureComposite,
     capture: onCaptureUndo,
     logActivityAs,

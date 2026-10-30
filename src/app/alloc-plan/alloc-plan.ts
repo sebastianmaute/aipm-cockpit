@@ -103,13 +103,13 @@ function roleLabel(
   roles: readonly Role[],
   disciplines: readonly Discipline[],
   grades: readonly Grade[],
-): string {
-  if (roleId == null) return "-";
+): string | null {
+  if (roleId == null) return null;
   const role = roles.find((r) => r.id === roleId);
-  if (!role) return "-";
+  if (!role) return null;
   const discipline = disciplines.find((d) => d.id === role.disciplineId)?.name;
   const grade = grades.find((g) => g.id === role.gradeId)?.name;
-  if (!discipline && !grade) return "-";
+  if (!discipline && !grade) return null;
   return `${discipline ?? "?"} / ${grade ?? "?"}`;
 }
 
@@ -138,9 +138,11 @@ export function buildAllocContext(args: AllocContextArgs): string {
   const shown = resources.slice(0, ALLOC_CONTEXT_MAX_RESOURCES);
   for (const r of shown) {
     const resourceAbsences = absencesForResource(absences, r);
-    // Names are free text: one line each, so a line break cannot start a fake resource row (§770), and the name is a
-    // JSON string, so a `key=value` inside it ("Eve rate=0/h") cannot pose as one of the line's own tokens.
-    const role = oneLine(roleLabel(r.roleId, roles, disciplines, grades));
+    // Names are free text: one line each, so a line break cannot start a fake resource row (§770), and the name and
+    // the role label (discipline and grade names) are JSON strings, so a `key=value` inside one ("Eve rate=0/h")
+    // cannot pose as one of the line's own tokens. No role stays a bare `-`.
+    const label = roleLabel(r.roleId, roles, disciplines, grades);
+    const role = label === null ? "-" : JSON.stringify(oneLine(label));
     const external = r.isExternal ? " external" : "";
     const rate = hourlyRate(r, roles);
     const cells = periods.map((period) => {
@@ -166,6 +168,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
       stakeholders: args.stakeholders,
       resources,
       shownResourceIds: new Set(shown.map((r) => r.id)),
+      shownPeriodKeys: new Set(periodKeys),
       instruction: args.instruction,
       hoursCtx: { plan, absences, workdayHours, holidaySet, today: args.today },
     }),
@@ -187,6 +190,8 @@ export function buildAllocSystemPrompt(): string {
     "For a very broad request (many resources across many periods), prioritise the most impactful cells rather than exhaustively enumerating every resource and period.",
     "A task move carries that task's hours automatically, as shown in its hours= list: never also return cells for those hours.",
     "A task whose owner is unassigned or a typed name carries no hours when moved; you may add cells for the new owner for that work.",
+    "owner=hidden means a linked person not listed above: moving the task carries its hours.",
+    "Never move a task marked jira: it is read-only.",
     "Return more than one alternative only when they are genuinely different ways (moving tasks versus shifting hours, or different people); at most three.",
     "Prefer people with R or A on a task's milestone.",
     "A task not listed may still exist when the TASKS list is truncated.",

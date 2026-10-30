@@ -179,6 +179,18 @@ describe("AllocPlanModal — review window (§769)", () => {
     expect(screen.queryByText(t("en-US", "hoursSkipUnlinked"))).toBeNull();
   });
 
+  // Second wave, 1 — a ticked hour edit the ticked moves already write is not applied, so it does not make Apply
+  // available. Mutation: count it and Apply is enabled with nothing to apply.
+  it("Apply stays disabled when every ticked row is covered by the moves", () => {
+    const cells = [cell(1, "Ana Lee", "2026-11")];
+    const selected = new Set(cells.map(cellKey));
+    const covered = render(<AllocPlanModal {...props({ alternatives: [alt({ cells })], selected, effect: { ...noEffect, coveredCells: 1 } })} />);
+    expect(screen.getByRole("button", { name: t("en-US", "allocPlanConfirm") })).toBeDisabled();
+    covered.unmount();
+    render(<AllocPlanModal {...props({ alternatives: [alt({ cells })], selected, effect: { ...noEffect, editedCells: 1 } })} />);
+    expect(screen.getByRole("button", { name: t("en-US", "allocPlanConfirm") })).toBeEnabled();
+  });
+
   it("over-capacity warning is text, not colour alone", () => {
     const effect: AltEffect = {
       ...noEffect,

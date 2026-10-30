@@ -120,6 +120,9 @@ export interface ReassignHours {
    *  toast is the notice (in a popout, or with no undo, it shows the notice alone). Returns false and records
    *  nothing when the step neither moved hours nor has a notice: the caller then keeps its own capture. */
   record(step: HoursMoveStep, entry: StepEntry): boolean;
+  /** §548 — whether the load hold is up, as this step sees it: while true, `prepare` is inert and `reassignTasks`
+   *  writes nothing. A caller that writes beside the step (Plan with AI's hour edits) asks this first. */
+  isLoadHeld(): boolean;
 }
 
 /** The caller's half of the ONE undo entry a save records: its own task fragment and label. */
@@ -331,5 +334,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     return true;
   };
 
-  return { prepare, reassignTasks, record };
+  const isLoadHeld = (): boolean => loadPending;
+
+  return { prepare, reassignTasks, record, isLoadHeld };
 }

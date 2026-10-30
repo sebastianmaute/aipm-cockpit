@@ -180,12 +180,13 @@ describe("onClearUnlinked", () => {
 describe("workloadPaneProps", () => {
   const triage = () => ({ onReassignTask: vi.fn(), onRescheduleTask: vi.fn(), onClearUnlinked: vi.fn() });
   const reassignTasks = vi.fn();
+  const isLoadHeld = vi.fn(() => false);
   const captureComposite = vi.fn();
 
   it("guards every triage handler: read-only, each one notifies and writes nothing", () => {
     const t = triage();
     const notify = vi.fn();
-    const props = workloadPaneProps(t, makeEditGuard(true, notify), reassignTasks as never, captureComposite as never);
+    const props = workloadPaneProps(t, makeEditGuard(true, notify), { reassignTasks, isLoadHeld } as never, captureComposite as never);
     props.onReassignTask(1, null);
     props.onRescheduleTask(1, "2026-09-01");
     props.onClearUnlinked({ display: "Ghost", email: "" } as UnlinkedWorkloadRow);
@@ -197,12 +198,13 @@ describe("workloadPaneProps", () => {
 
   it("editable, each handler runs; the reassign step and the undo stack pass through as they are", () => {
     const t = triage();
-    const props = workloadPaneProps(t, makeEditGuard(false, vi.fn()), reassignTasks as never, captureComposite as never);
+    const props = workloadPaneProps(t, makeEditGuard(false, vi.fn()), { reassignTasks, isLoadHeld } as never, captureComposite as never);
     props.onReassignTask(1, null);
     props.onRescheduleTask(2, "2026-09-01");
     expect(t.onReassignTask).toHaveBeenCalledWith(1, null);
     expect(t.onRescheduleTask).toHaveBeenCalledWith(2, "2026-09-01");
     expect(props.onReassignTasks).toBe(reassignTasks);
+    expect(props.onIsLoadHeld).toBe(isLoadHeld);
     expect(props.onCaptureComposite).toBe(captureComposite);
   });
 });

@@ -139,7 +139,9 @@ export function AllocPlanModal({
   };
   const hasRows = cells.length > 0 || moves.length > 0;
   const canPropose = instruction.trim().length > 0 && !busy;
-  const canConfirm = !busy && selectedCount > 0;
+  // A ticked hour edit the ticked moves already write is not applied (its count shows under the effect), so it does
+  // not count here: with only such rows ticked there is nothing to apply.
+  const canConfirm = !busy && selectedCount - effect.coveredCells > 0;
   // Modal's Escape/backdrop-click call onClose unconditionally — they know
   // nothing about canCancel — so during an apply (the one moment every other
   // control is disabled) they would be the ONLY remaining way to dismiss.

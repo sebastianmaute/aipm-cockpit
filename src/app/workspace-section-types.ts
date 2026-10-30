@@ -313,6 +313,8 @@ export interface WorkspaceSectionProps {
   onReassignTask: (taskId: number, resource: Resource | null) => void;
   /** §769 — Plan with AI task moves, through the §774 step (returns the edits applied). */
   onReassignTasks: import("./use-reassign-hours").ReassignHours["reassignTasks"];
+  /** §548 — the reassign step's load-hold signal; Plan with AI writes nothing while it is true. */
+  onIsLoadHeld: import("./use-reassign-hours").ReassignHours["isLoadHeld"];
   /** §769 — composite undo capture from the same stack as `onReassignTasks`. */
   onCaptureComposite?: import("./undo/use-undo-stack").UndoStackApi["captureComposite"];
   onRescheduleTask: (taskId: number, iso: string) => void;

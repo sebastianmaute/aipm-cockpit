@@ -1444,7 +1444,7 @@ function TaskManagerInner() {
     // highlight fires exactly when the alert does (#24 review).
     overAllocatedPct: effectiveNextActions?.workloadAllocatedPct ?? 100,
     // Workload triage (#24), clear-unlinked, and §769's reassign step on ONE undo stack: `workload-triage-handlers.ts`.
-    ...workloadPaneProps(workloadTriage, guardEdit, reassignHours.reassignTasks, undoApi.captureComposite),
+    ...workloadPaneProps(workloadTriage, guardEdit, reassignHours, undoApi.captureComposite),
     onSetAllUtilizationMode: guardEdit(handleSetAllUtilizationMode),
     onSetAbsenceOverride: guardEdit(handleSetAbsenceOverride),
     onSetPlanWindow: guardEdit(handleSetPlanWindow),
