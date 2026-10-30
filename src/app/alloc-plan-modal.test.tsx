@@ -129,16 +129,19 @@ describe("AllocPlanModal — review window (§769)", () => {
         {...props({ alternatives: [alt({ summary: "Balance", rationale: "Even load" }), alt({ summary: "Speed" })] })}
       />,
     );
-    expect(screen.getByRole("radio", { name: "Alternative 1" })).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "Alternative 2" })).toBeTruthy();
+    // Label-in-name: each name starts with the visible "Alternative N" and also carries its summary.
+    expect(screen.getByRole("radio", { name: /^Alternative 1/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /^Alternative 2/ })).toBeTruthy();
+    // Both summaries are visible at once, so the alternatives can be compared without clicking through.
     expect(screen.getByText("Balance")).toBeTruthy();
+    expect(screen.getByText("Speed")).toBeTruthy();
     expect(screen.getByText("Even load")).toBeTruthy();
   });
 
   it("switches the picker through onSelectAlternative", () => {
     const onSelectAlternative = vi.fn();
     render(<AllocPlanModal {...props({ alternatives: [alt(), alt()], onSelectAlternative })} />);
-    screen.getByRole("radio", { name: "Alternative 2" }).click();
+    screen.getByRole("radio", { name: /^Alternative 2/ }).click();
     expect(onSelectAlternative).toHaveBeenCalledWith(1);
   });
 
@@ -167,7 +170,9 @@ describe("AllocPlanModal — review window (§769)", () => {
     render(<AllocPlanModal {...props({ alternatives: [alt({ moves: [move(5, "Plan", false)] })] })} />);
     expect(screen.getByText(t("en-US", "allocPlanMoveUnlinked"))).toBeTruthy();
     // §774 shows no reason for an unlinked owner, so none is rendered here either.
-    expect(screen.queryByText(/not linked to a resource/i)).toBeNull();
+    expect(screen.queryByText(t("en-US", "hoursMovedUnlinked", "Plan"))).toBeNull();
+    expect(screen.queryByText(/without a linked resource/)).toBeNull();
+    expect(screen.queryByText(t("en-US", "hoursSkipUnlinked"))).toBeNull();
   });
 
   it("over-capacity warning is text, not colour alone", () => {
@@ -191,9 +196,31 @@ describe("AllocPlanModal — review window (§769)", () => {
       noRateCount: 2,
     };
     render(<AllocPlanModal {...props({ alternatives: [alt({ moves: [move(42, "Design review", true)] })], effect })} />);
-    expect(screen.getByText(/Moves 2 tasks \(24 h\) · edits 3 cells · .*1,200.* internal/)).toBeTruthy();
+    expect(screen.getByText(/^Moves 2 tasks [(]24 h[)] · edits 3 cells · [+].*1,200.* internal$/)).toBeTruthy();
     expect(screen.getByText("8 h to or from externals, not costed")).toBeTruthy();
     expect(screen.getByText("2 people have no rate")).toBeTruthy();
+  });
+
+  it("pluralises the cell count and leaves the moves part out of a cells-only plan", () => {
+    const effect: AltEffect = { ...noEffect, editedCells: 1, costDelta: -300 };
+    render(<AllocPlanModal {...props({ alternatives: [alt({ cells: [cell(1, "Ana Lee", "2026-11")] })], effect })} />);
+    const line = screen.getByText(/edits 1 cell · /);
+    expect(line.textContent).not.toMatch(/Moves/);
+    expect(line.textContent).not.toMatch(/cells/);
+    expect(line.textContent).toMatch(/-.*300.* internal/);
+  });
+
+  it("says there is no cost change when the cost rounds to zero", () => {
+    const effect: AltEffect = { ...noEffect, movedTasks: 1, movedHours: 4, costDelta: 0.2 };
+    render(<AllocPlanModal {...props({ alternatives: [alt({ moves: [move(42, "Design review", true)] })], effect })} />);
+    expect(screen.getByText("Moves 1 task (4 h) · no cost change")).toBeTruthy();
+  });
+
+  it("clamps an out-of-range activeIndex for the picker and the shown alternative", () => {
+    const a = alt({ moves: [move(42, "Design review", true)] });
+    render(<AllocPlanModal {...props({ alternatives: [alt(), a], activeIndex: 5 })} />);
+    expect(screen.getByRole("checkbox", { name: /#42 Design review/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /^Alternative 2/ }).getAttribute("aria-checked")).toBe("true");
   });
 
   it("skipped list names covered-by-move and each move reason", () => {
@@ -231,8 +258,13 @@ describe("AllocPlanModal — review window (§769)", () => {
   });
 
   it("renders the effect line in German", () => {
-    const de = t("de", "allocPlanEffect", 2, "24", 3, "x");
-    expect(de).toContain("Aufgaben");
-    expect(de).not.toBe(t("en-US", "allocPlanEffect", 2, "24", 3, "x"));
+    const effect: AltEffect = { ...noEffect, movedTasks: 2, movedHours: 24, editedCells: 1, costDelta: 1200, noRateCount: 2 };
+    render(
+      <AllocPlanModal
+        {...props({ lang: "de", alternatives: [alt({ moves: [move(42, "Design review", true)] })], effect })}
+      />,
+    );
+    expect(screen.getByText(/^Verschiebt 2 Aufgaben [(]24 Std[.][)] · ändert 1 Zelle · [+].*1[.]200.* intern$/)).toBeTruthy();
+    expect(screen.getByText("2 Personen haben keinen Stundensatz")).toBeTruthy();
   });
 });

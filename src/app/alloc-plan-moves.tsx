@@ -88,13 +88,25 @@ export interface AllocPlanEffectProps {
   nameOf: (resourceId: number) => string;
 }
 
+/** The cost segment: signed (+ for an increase), and "no cost change" when it rounds to nothing in whole currency units. */
+function costSegment(lang: Lang, costDelta: number, currency: string): string {
+  if (Math.round(costDelta) === 0) return t(lang, "allocPlanCostNone");
+  const amount = formatCurrency(costDelta, currency, localeFor(lang));
+  return t(lang, "allocPlanCostInternal", costDelta > 0 ? `+${amount}` : amount);
+}
+
 /** What ticking part of the alternative would do. Warnings are text with an icon, never colour alone. */
 export function AllocPlanEffect({ lang, effect, currency, nameOf }: AllocPlanEffectProps) {
-  const cost = t(lang, "allocPlanCostInternal", formatCurrency(effect.costDelta, currency, localeFor(lang)));
+  const segments: string[] = [];
+  if (effect.movedTasks > 0) {
+    segments.push(tPlural(lang, "allocPlanEffectMoves", effect.movedTasks, effect.movedTasks, formatMovedHours(effect.movedHours, lang)));
+  }
+  if (effect.editedCells > 0) segments.push(tPlural(lang, "allocPlanEffectCells", effect.editedCells, effect.editedCells));
+  segments.push(costSegment(lang, effect.costDelta, currency));
   return (
     <div className="mt-4 rounded-md border border-line px-3 py-2">
       <p className="text-sm text-foreground">
-        {tPlural(lang, "allocPlanEffect", effect.movedTasks, effect.movedTasks, formatMovedHours(effect.movedHours, lang), effect.editedCells, cost)}
+        {segments.join(" · ")}
       </p>
       {effect.externalHours > 0 && (
         <p className="mt-1 text-xs text-muted-foreground">

@@ -68,9 +68,10 @@ export interface AllocPlan {
   modal: ReactNode;
 }
 
-/** Today as an ISO date; a function so no render body calls `new Date()`. */
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+/** The local calendar date as YYYY-MM-DD (not UTC: late evening must not read as tomorrow). */
+function localIsoDate(now: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
 export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
@@ -84,6 +85,9 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const [skipped, setSkipped] = useState<readonly SkippedCell[]>([]);
   const [truncated, setTruncated] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  // Today, captured once when a proposal arrives (an async handler, so no render reads the clock). Bridge only:
+  // §769 task 6 passes `today` in the hook's deps and this state goes away.
+  const [today, setToday] = useState("");
   // Monotonic request generation: a slow proposal that resolves after cancel /
   // a new open is discarded (can't land a stale proposal or a stale error toast).
   const reqIdRef = useRef(0);
@@ -137,6 +141,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       // before anything can be shown or applied. A hallucinated resource or an
       // out-of-window period key is dropped here.
       const grounded = groundAllocationCells(parsed.alternatives[0]?.cells ?? [], { resources, plan, absences, workdayHours, holidaySet });
+      setToday(localIsoDate(new Date()));
       setCells(grounded.cells);
       setSkipped(grounded.skipped);
       // parsed.truncated is where an over-large proposal ACTUALLY gets cut
@@ -321,18 +326,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const alternatives: readonly GroundedAlternative[] = [
     { summary: "", moves: [], skippedMoves: [], cells: [...cells], skipped: [...skipped], truncated },
   ];
-  const effect = alternativeEffect(alternatives[0], selected, {
-    resources,
-    roles,
-    plan,
-    absences,
-    workdayHours,
-    holidaySet,
-    tasks: [],
-    today: todayIso(),
-  });
-
-  const modal = phase !== "idle" ? (
+  const buildModal = (): ReactNode => (
     <AllocPlanModal
       lang={lang}
       open
@@ -343,7 +337,16 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       onSelectAlternative={() => {}}
       truncated={truncated}
       selected={selected}
-      effect={effect}
+      effect={alternativeEffect(alternatives[0], selected, {
+        resources,
+        roles,
+        plan,
+        absences,
+        workdayHours,
+        holidaySet,
+        tasks: [],
+        today,
+      })}
       currency={plan.currency}
       onToggle={onToggle}
       onConfirm={onConfirm}
@@ -351,7 +354,9 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       busy={busy}
       canCancel={canCancel}
     />
-  ) : null;
+  );
+  // The effect is computed inside buildModal, so it runs only while the modal is open.
+  const modal = phase !== "idle" ? buildModal() : null;
 
   return { button, modal };
 }

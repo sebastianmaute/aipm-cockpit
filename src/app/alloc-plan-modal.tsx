@@ -108,7 +108,9 @@ export function AllocPlanModal({
   const [instruction, setInstruction] = useState("");
   const title = t(lang, "allocPlanTitle");
   const isPreview = stage === "preview";
-  const active: GroundedAlternative | undefined = alternatives[activeIndex] ?? alternatives[0];
+  // One clamped index drives both the picker's value and the alternative shown.
+  const safeIndex = Math.min(Math.max(activeIndex, 0), Math.max(alternatives.length - 1, 0));
+  const active: GroundedAlternative | undefined = alternatives[safeIndex];
   const cells = active?.cells ?? [];
   const moves = active?.moves ?? [];
   const skipped = active?.skipped ?? [];
@@ -179,13 +181,21 @@ export function AllocPlanModal({
                 <SegmentedControl
                   className="mt-4"
                   ariaLabel={t(lang, "allocPlanAlternatives")}
-                  value={String(activeIndex)}
+                  value={String(safeIndex)}
                   onChange={(v) => onSelectAlternative(Number(v))}
                   disabled={busy}
-                  options={alternatives.map((_, i) => ({ value: String(i), label: t(lang, "allocPlanAlternativeN", i + 1) }))}
+                  options={alternatives.map((alt, i) => ({
+                    value: String(i),
+                    label: (
+                      <span className="flex flex-col items-start text-left">
+                        <span>{t(lang, "allocPlanAlternativeN", i + 1)}</span>
+                        {alt.summary !== "" && <span className="text-xs font-normal">{alt.summary}</span>}
+                      </span>
+                    ),
+                  }))}
                 />
               )}
-              {active && active.summary !== "" && (
+              {alternatives.length === 1 && active && active.summary !== "" && (
                 <p className="mt-3 text-sm font-medium text-foreground">{active.summary}</p>
               )}
               {active?.rationale && <p className="mt-1 text-xs text-muted-foreground">{active.rationale}</p>}
