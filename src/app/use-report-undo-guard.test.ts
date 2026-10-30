@@ -5,6 +5,7 @@ import type { UndoMeta } from "./undo/undo-stack";
 import type { AppDialogs } from "./confirm-dialog";
 import { confirmReportUndo } from "./use-report-undo-guard";
 import { readDiagLog } from "./diagnostics";
+import { loadI18n, t } from "./i18n";
 
 function meta(id: number, kind: UndoMeta["kind"]): UndoMeta {
   return { id, kind, count: 1, timestamp: "2026-10-30T09:00:00.000Z", label: `entry ${id}` };
@@ -197,6 +198,17 @@ describe("a guard confirm that rejects (AI-04)", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(api.undoById).not.toHaveBeenCalled();
     expect(readDiagLog().some((e) => e.code === "undo.confirmRejected")).toBe(true);
+  });
+});
+
+describe("the list-changed wording names the redo list and the redo verb (AI-04)", () => {
+  it("English", () => {
+    expect(t("en-US", "reportRedoListChanged")).toBe("The redo list changed while you were deciding, so nothing was redone.");
+    expect(t("en-US", "reportUndoListChanged")).toContain("undo list");
+  });
+  it("German, in the app's own redo verb", async () => {
+    await loadI18n("de");
+    expect(t("de", "reportRedoListChanged")).toBe("Die Liste zum Wiederholen hat sich geändert, während Sie entschieden haben. Es wurde nichts wiederholt.");
   });
 });
 

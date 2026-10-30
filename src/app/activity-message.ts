@@ -111,12 +111,15 @@ function displayMovedHours(lang: Lang, stored: string): string {
  * ★ `plan.currencySwitched` stores `[from, to, rate, ECB date]` with the rate a
  *   number and the date ISO; the viewer reads both in their locale (DE "0,852",
  *   "13. Okt. 2026"). A value that does not parse is left as stored.
+ * ★ `ai.reportDraft` stores the meeting date (ISO); the panel shows it in the viewer's locale, and anything that is not
+ *   an ISO date (a title) as it is.
  */
 const ACTIVITY_ARG_DISPLAY: Partial<Record<ActivityKind, (lang: Lang, args: (string | number)[]) => (string | number)[]>> = {
   "resource.hoursMoved": (lang, args) => args.map((a, i) => (i === 0 && typeof a === "string" ? displayMovedHours(lang, a) : a)),
   "project.updated": (lang, args) => args.map((a, i) => (
     i === 0 && typeof a === "string" ? a.split(", ").map((k) => (Object.hasOwn(PROJECT_META_LABEL_KEY, k) ? t(lang, PROJECT_META_LABEL_KEY[k as keyof typeof PROJECT_META_LABEL_KEY]) : k)).join(", ") : a
   )),
+  "ai.reportDraft": (lang, args) => args.map((a, i) => (i === 0 && typeof a === "string" && /^\d{4}-\d{2}-\d{2}$/.test(a) ? formatExpiryDate(a, lang) : a)),
   "plan.currencySwitched": (lang, args) => args.map((a, i) => {
     if (i === 2) {
       const n = typeof a === "number" ? a : typeof a === "string" && a.trim() !== "" ? Number(a) : NaN;

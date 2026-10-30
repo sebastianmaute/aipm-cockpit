@@ -301,6 +301,32 @@ describe("an AI section SHALLOWER than the user section it matches keeps the use
   });
 });
 
+describe("a shallower AI heading over a FLAT report (no parent heading) is placed in situ", () => {
+  const FLAT = "<h3>Status</h3><p>s</p><h3>Risks</h3><p>r</p><h3>Notes</h3><p>n</p>";
+  it("Replace swaps the matched section where it stands", () => {
+    expect(applyTake(FLAT, ai("<h2>Risks</h2><p>x</p>"), [0], true)).toBe("<h3>Status</h3><p>s</p><h2>Risks</h2><p>x</p><h3>Notes</h3><p>n</p>");
+  });
+  it("Keep both adds right after the matched range", () => {
+    expect(applyTake(FLAT, ai("<h2>Risks</h2><p>x</p>"), [0], false)).toBe("<h3>Status</h3><p>s</p><h3>Risks</h3><p>r</p><h2>Risks</h2><p>x</p><h3>Notes</h3><p>n</p>");
+  });
+  it("Take all with Replace keeps the user's order", () => {
+    const two = ai("<h2>Status</h2><p>xs</p><h2>Risks</h2><p>xr</p>");
+    expect(applyTake(FLAT, two, [0, 1], true)).toBe("<h2>Status</h2><p>xs</p><h2>Risks</h2><p>xr</p><h3>Notes</h3><p>n</p>");
+    expect(applyTake(FLAT, two, [0, 1], false)).toBe("<h3>Status</h3><p>s</p><h2>Status</h2><p>xs</p><h3>Risks</h3><p>r</p><h2>Risks</h2><p>xr</p><h3>Notes</h3><p>n</p>");
+  });
+});
+
+describe("the AI opening goes under a bare leading title, not above it", () => {
+  const OPEN = ai("<p>Intro</p><h2>Plan</h2><p>p</p>");
+  it("after a leading h1 that has no text of its own", () => {
+    expect(applyTake("<h1>Title</h1><h2>Status</h2><p>s</p>", OPEN, [0], true)).toBe("<h1>Title</h1><p>Intro</p><h2>Status</h2><p>s</p>");
+  });
+  it("unchanged when the h1 carries text, or the report starts with another heading", () => {
+    expect(applyTake("<h1>T</h1><p>t</p><h2>S</h2>", OPEN, [0], true)).toBe("<p>Intro</p><h1>T</h1><p>t</p><h2>S</h2>");
+    expect(applyTake("<h2>S</h2><p>s</p>", OPEN, [0], true)).toBe("<p>Intro</p><h2>S</h2><p>s</p>");
+  });
+});
+
 describe("a DEEPER AI heading never matches a shallower user section", () => {
   const USER = "<h2>A</h2><p>a</p><h2>Risks</h2><p>r</p><h3>R1</h3><p>x</p>";
   const AI = ai("<h3>Risks</h3><p>new</p>");

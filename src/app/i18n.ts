@@ -4406,7 +4406,7 @@ const enUS = {
   reportUnsavedTitle: "Unsaved changes",
   reportRestoreUnsavedBody: "Restoring the previous version replaces your unsaved changes in the editor.",
   reportRestoreVersionUnsavedBody: "Restoring this version replaces your unsaved changes in the editor.",
-  reportRedoListChanged: "The undo list changed while you were deciding, so nothing was redone.",
+  reportRedoListChanged: "The redo list changed while you were deciding, so nothing was redone.",
   reportUndoListChanged: "The undo list changed while you were deciding, so nothing was undone.",
   reportUndoUnsavedBody: "This replaces the text in the open report dialog, including your unsaved changes.",
   reportTakeDroppedTitle: "Take not applied",

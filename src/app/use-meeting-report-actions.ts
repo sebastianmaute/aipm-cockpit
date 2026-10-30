@@ -114,7 +114,8 @@ export interface MeetingReportBag {
 }
 
 /** The undo label's name for a meeting: its title, else its date (what the steering panel lists it by). The activity
- *  log keeps the RAW date (`ai.reportDraft`): its args are persisted and formatted at render, like `plan.currencySwitched`'s. */
+ *  log keeps the RAW date (`ai.reportDraft`): its args are persisted, and the activity panel formats an ISO date at
+ *  render (`ACTIVITY_ARG_DISPLAY`, like `plan.currencySwitched`'s date). */
 function meetingName(m: CommitteeMeeting): string {
   return m.title || m.date;
 }
@@ -244,13 +245,13 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
 
   function captureReportChange(
     meetingId: number,
-    date: string,
+    name: string,
     seen: { before: () => MeetingReport | undefined | null; after: () => MeetingReport | undefined | null },
   ): void {
     deps.captureComposite({
       kind: "meetingReport.updated",
       primaryCount: 1,
-      name: date,
+      name,
       parts: [meetingReportUndoFragment({ setSteeringCommittee: deps.setSteeringCommittee, meetingId, before: seen.before, after: seen.after })],
       // ★ No `readEpoch`: this capture is synchronous, so the stack stamps the entry with ITS OWN reader (in the
       // app the UNDO epoch: scope + restore + denomination). Passing `deps.getScopeEpoch()` here compared the plain

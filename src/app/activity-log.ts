@@ -78,7 +78,7 @@ export type ActivityKind =
   // §715 — one project-record edit (args: the changed field keys joined by ", "), from the project form (actor
   // user, not undoable) or from Claude (actor ai, one undo entry).
   | "project.updated"
-  // AI-04 — a steering-committee meeting report save (args: the meeting date). Only the undo label uses it; the
+  // AI-04 — a steering-committee meeting report save (args: the meeting name, its title else its date). Only the undo label uses it; the
   // save itself is not logged (an AI-drafted one is, as `ai.reportDraft`).
   | "meetingReport.updated"
   | "discipline.deleted"

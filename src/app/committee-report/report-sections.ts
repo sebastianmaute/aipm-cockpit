@@ -15,6 +15,8 @@
 //  | Keep both adds after the matched range, AI sections keeping AI order       | "declining Replace on Take all lands Risks before Vendor, after the user's range" |
 //  | a DEEPER AI heading never matches a shallower user section (it is added)  | "the plan reports an addition, no replacement, and the user's Risks range stays intact" |
 //  | a SHALLOWER AI section goes to the end of the enclosing range at its level | "Replace removes the user's h3 and places the h2 after the whole Status range" |
+//  | ... but only inside a parent heading; a flat report is taken in situ       | "Take all with Replace keeps the user's order"                                |
+//  | the opening goes under a bare leading h1 title, not above it               | "after a leading h1 that has no text of its own"                              |
 //  | ... and keeps AI order across several of them                              | "Take all with Replace over two shallower matches under one parent keeps AI order" |
 //  | unmatched: after the nearest PRECEDING anchor (extended past deeper items) | "a preceding anchor deeper than the inserted section extends to the end of the enclosing range" |
 //  | unmatched, no preceding anchor: BEFORE the nearest following one, level <= | "A alone goes before the following AI section the text has"                   |
@@ -196,8 +198,13 @@ function insertionPoint(
   aiIndex: number,
 ): number {
   const level0 = items.findIndex((it) => it.section.level === 0);
-  if (ai[aiIndex].level === 0)
-    return level0 === -1 ? 0 : rangeEnd(items, level0);
+  if (ai[aiIndex].level === 0) {
+    if (level0 !== -1) return rangeEnd(items, level0);
+    // No text before the first heading: the opening goes first, but UNDER a bare leading title (an h1 that has no
+    // text of its own), never above it.
+    const first = items[0]?.section;
+    return first?.level === 1 && isBlankHtml(sectionBodyHtml(first.html)) ? 1 : 0;
+  }
   for (let j = aiIndex - 1; j >= 0; j--) {
     // Deliberately includes AI items placed in this call (keeps AI order in take-all); matching skips them.
     const placedAt = items.findIndex((it) => it.section === ai[j]);
@@ -277,7 +284,9 @@ function run(
     // An AI section SHALLOWER than the user section it matches (an h2 matching a user h3 inside an h2) must not land
     // before that parent's later sub-sections, or they would fall under it: it goes to the end of the enclosing range
     // at ITS level. Same level or deeper: the user's range as before.
-    const shallower = sec.level < items[m].section.level;
+    // Only when the matched section sits inside a PARENT heading (some heading above it is shallower than it):
+    // in a flat report there is no enclosing range to move to, and the take stays where the match is.
+    const shallower = sec.level < items[m].section.level && items.slice(0, m).some((it) => !it.placed && it.section.level > 0 && it.section.level < items[m].section.level);
     if (confirmReplace) items.splice(m, end - m);
     let at = confirmReplace ? m : end;
     if (shallower) while (at < items.length && items[at].section.level > sec.level) at++;
