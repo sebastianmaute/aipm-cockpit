@@ -55,7 +55,7 @@ re-created next push (committee + milestone hooks self-heal by clearing the stal
 
 ★★ **Meeting report: the AI draft is a PROPOSAL, not a write (AI-04).** `useMeetingReportActions`
 (`use-meeting-report-actions.ts`) owns it in hook state, one per meeting, never persisted: the draft is sanitized BEFORE
-the split, tied to the meeting's date + Outlook event id (`fingerprint`) and to the scope epoch (`getProposal` returns
+the split, tied to the meeting's date (`fingerprint`) and to the scope epoch (`getProposal` returns
 nothing when the epoch moved, so a project change drops it). `markTaken`/`discardProposal` change the marks; a take is not
 marked until the Save lands. Pure split/merge is `report-sections.ts` (`splitSections`, `planTake`, `applyTake`); a
 matching heading asks Replace or Keep both in the panel (`meeting-report-proposal.tsx`). `onSaveReport(id, html, {fromAi})`
@@ -64,10 +64,13 @@ computes from live state, is undoable through the composite fragment in `meeting
 `onRestorePrevious` swaps current and previous and is undoable; `use-report-undo-guard.ts` asks first when the top-bar
 undo would reverse a report change over unsaved edits. ★★ `MeetingReport.previous` (`{html, savedAt}`, one slot) rides
 the same blob as the report and is validated in the sanitizer (a malformed one is dropped, the report kept); Turso still
-keeps its own version list. It lives in the committee blob, so it reaches each backend with the blob; `sanitize-records.test.ts` pins the validator,
-but no test round-trips `previous` through each backend's codec, so check that yourself. ★ Parked residuals: a meeting deleted and re-created on the
-same date can show the old proposal, and a meeting deleted between render and click can leave one extra `ai.reportDraft`
-row.
+keeps its own version list. It lives in the committee blob, so it reaches each backend with the blob. Six paths, counted here: JSON, CSV and
+Markdown (`steering-committee-persistence.test.ts`, which also covers a blank `html`), Turso single-tenant and tenant
+(`turso-tenant-schema.test.ts`) and IndexedDB (`browser-backend.test.ts`); `sanitize-records.test.ts` pins the validator.
+★ Parked residuals: the proposal is tied to the meeting's id and DATE only (`meetingFingerprint`; the title and the Outlook
+id are left out so an edit or a push keeps it), so a meeting deleted and re-created with the same id and date shows the old
+proposal; a date change hides it (hidden, not deleted: the old date shows it again), and deleting the meeting drops it. A
+meeting deleted between render and click can leave one extra `ai.reportDraft` row.
 
 ### Calendar write-back engine (generic — milestones/committee + tasks)
 

@@ -15,12 +15,14 @@ longer carries its own changelog comment.
 - **Draft with AI in the meeting report is now a proposal, and the report keeps a previous version (AI-04).** The draft
   no longer overwrites your report. It appears as a list of sections beside the editor, and you take one section or all of
   them. When a section's heading matches one in your report, you choose Replace or Keep both; otherwise the section is
-  added. Nothing is saved until you press Save, and a section shows as Taken only after that. The proposal stays with the
-  meeting when you close the window until you discard it, draft again, switch project or reload the app; closing the window
-  drops unsaved typing. Every save now keeps one previous version, on every storage type, which you can compare with the
-  current report or restore. Taking, saving and restoring can be undone, and Ctrl+Z inside the report editor no longer
-  triggers the app's undo. An AI-drafted report is logged in the activity log as written by the AI. Sending a blank report
-  is refused.
+  added. A section you take shows as Taken in the list at once, but nothing is saved until you press Save; closing the
+  window without saving leaves the proposal as it was. The proposal stays with the meeting when you close the window until
+  you discard it, draft again, switch project, reload the app or delete the meeting; it is hidden while the meeting's date
+  differs from the date when it was drafted, and returns if you change the date back. Closing the window drops unsaved
+  typing. Saving a changed report keeps one previous version, on every storage type, which you can compare with the
+  current report or restore. Saving (a take included) and restoring can be undone; a take on its own is not undoable.
+  Ctrl+Z and redo anywhere in the report dialog, its buttons and root included, no longer trigger the app's undo. An
+  AI-drafted report is logged in the activity log as written by the AI. Sending a blank report is refused.
 - **A deployment can switch AI off.** The server setting `AIPM_DISABLED_INTEGRATIONS` takes a new name, `ai`, which
   switches every AI feature off for that deployment, dictation to a speech service included. Settings → AI says so,
   nothing is sent, and users' keys and consents are kept for when AI is switched back on. Dictation with the browser's
