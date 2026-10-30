@@ -8,7 +8,7 @@ import { ToastProvider } from "./toast-context";
 import { useToast } from "./use-toast";
 import { defaultSettings, type Settings } from "./settings-types";
 import { type Resource, type ResourcePlan, type Task } from "./types";
-import { useUndoStack } from "./undo/use-undo-stack";
+import { buildUndoLabel, useUndoStack } from "./undo/use-undo-stack";
 import { useReassignHours, type ReassignHours } from "./use-reassign-hours";
 import { planHoursMoves } from "./reassign-hours";
 import { groundAlternative, ownerChangeFor } from "./alloc-plan/alloc-ground-moves";
@@ -776,6 +776,15 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     for (const r of together.nextResources) expect(util[r.id], `resource ${r.id}`).toEqual(r.utilization);
     const sep = (u: Record<string, Record<string, number>>) => [1, 2, 3].reduce((n, id) => n + (u[id]["2026-09"] ?? 0), 0);
     expect(sep(util)).toBe(sep(Object.fromEntries(people.map((r) => [r.id, r.utilization]))));
+    // Two moves are ONE undo entry and ONE toast. Mutation: apply each move through its own reassignTasks call and
+    // the stack holds two entries, the screen two toasts.
+    expect(readStack()).toEqual([{ kind: "bulk.edit", count: 2, label: buildUndoLabel("en-US", "bulk.edit", 2, { entityKey: "task" }) }]);
+    expect(fullToast).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "undo-now" }));
+    await waitFor(() => expect(readOwners()[14]).toBe(2));
+    expect(readOwners()[12]).toBe(1);
+    expect(readUtil()).toEqual(Object.fromEntries(people.map((r) => [r.id, r.utilization])));
+    expect(readStack()).toEqual([]);
   });
 
   it("only cells ticked: captures one bulk.edit entry as today", async () => {
