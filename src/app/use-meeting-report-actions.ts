@@ -3,6 +3,7 @@
 // committee blob, and email it to the committee members via Graph. Non-memoized
 // handlers read live deps each call. Returns undefined in popouts (read-only).
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { t, type Lang, tPlural } from "./i18n";
 import { aiFailureMessageKey } from "./ai-key-status";
 import type { SteeringCommittee, CommitteeMeeting, Resource, MeetingReport } from "./types";
@@ -148,16 +149,14 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
   // overwritten (manual save / AI draft / restore all route through onSaveReport,
   // so this is the single snapshot point). Best-effort — a snapshot failure never
   // blocks the write.
-  async function snapshotCurrent(meetingId: number): Promise<void> {
+  async function snapshotCurrent(meetingId: number, priorHtml: string): Promise<void> {
     if (!deps.tursoConfig) return;
-    const meeting = deps.committee?.meetings.find((m) => m.id === meetingId);
-    if (!meeting?.report) return;
     try {
       await saveVersion(deps.tursoConfig, {
         id: crypto.randomUUID(),
         projectId: deps.projectId,
         meetingId,
-        html: meeting.report.html,
+        html: priorHtml,
         isAuto: true,
         capturedAt: nowIso(),
       });
@@ -175,24 +174,16 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     // (manual save, AI draft, restore) routes through here. A NEW body is
     // unsent, so `sentAt` is intentionally dropped.
     const clean = sanitizeRichHtml(html);
-    // An unchanged body is not a change: no snapshot, nothing to undo and nothing to log. ★ Judged on the RENDER-scope
-    // meeting, while the write below is judged on the LIVE one (its updater writes nothing for an identical body). The
-    // two can disagree only when the committee changed between the last render and this click, and neither can be
-    // made live at call time: a setState updater runs at the next render, and `committeeRef` is just the last
-    // COMMITTED committee (the same value this closure holds). The write always follows the live state; the residuals:
-    //  - render changed / live already identical: a redundant Turso version row and an undo entry whose thunks read null;
-    //  - render identical / live differs: a real write with no version row, no undo entry and no ai.reportDraft log.
-    // Both are narrow (a concurrent writer inside one render) and lose no text: the live body is the base `previous`.
-    const unchanged = meeting.report?.html === clean;
-    if (!unchanged) void snapshotCurrent(meetingId); // snapshot the prior before we overwrite it
     const stamp = nowIso();
     const seen = writeLiveReport(meetingId, (old) => replacedReport(old, clean, stamp));
-    if (unchanged) return;
+    // ★ Everything below is decided on what the updater SAW, not on this render's meeting: `writeLiveReport` flushes
+    // the setter (§476, baseline-currency-control `confirm`), so the stash is final here. An unchanged body (the live
+    // report already holds it, or the meeting is gone) is not a change: no version row, nothing to undo, nothing to log.
+    if (seen.after() === null) return;
+    // Turso: keep the live text we just overwrote as a version (best-effort, never blocks the write).
+    const prior = seen.before();
+    if (prior) void snapshotCurrent(meetingId, prior.html);
     captureReportChange(meeting.id, meeting.date, seen);
-    // ★ Deliberately NOT gated on the stash: a React setState updater does not run inside the call (it runs at the
-    // next render), so `seen.after()` is still null here for nearly every real save and gating on it would never log.
-    // Accepted residual: if the meeting was deleted between render and click the row is logged though nothing was
-    // written (the undo entry is harmless, its thunks read null).
     if (opts?.fromAi) deps.logActivityAs("ai", "ai.reportDraft", meeting.date);
   }
 
@@ -208,7 +199,9 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     let wrote = false;
     let before: MeetingReport | undefined;
     let after: MeetingReport | undefined;
-    deps.setSteeringCommittee((c) => {
+    // flushSync runs the updater now, after every update queued before it (this runs from event handlers and after an
+    // await, never during render or in an effect), so `seen` is readable the moment this returns.
+    flushSync(() => deps.setSteeringCommittee((c) => {
       // A re-run (rebase) starts clean: it must not keep an earlier run's pair when it writes nothing.
       wrote = false;
       before = undefined;
@@ -226,7 +219,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
           return { ...m, report: r };
         }),
       };
-    });
+    }));
     return { before: () => (wrote ? before : null), after: () => (wrote ? after : null) };
   }
 
@@ -263,6 +256,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
         ...(live.html !== "" ? { previous: { html: live.html, savedAt: live.updatedAt } } : {}),
       };
     });
+    if (seen.after() === null) return;
     captureReportChange(meeting.id, meeting.date, seen);
   }
 

@@ -329,7 +329,7 @@ describe("useMeetingReportActions", () => {
         expect(f.report()).toEqual(afterTwo);
       });
 
-      it("a restore the live state refuses (no previous there) leaves the report alone, and so does its undo", () => {
+      it("a restore the live state refuses (no previous there) leaves the report alone and records no undo entry", () => {
         const captureComposite = vi.fn();
         const withPrev: SteeringCommittee = { ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>b</p>", updatedAt: "t2", previous: { html: "<p>a</p>", savedAt: "t1" } } }] };
         const f = frozen(withPrev, { captureComposite });
@@ -337,11 +337,7 @@ describe("useMeetingReportActions", () => {
         f.set({ ...withPrev, meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: live }] });
         act(() => f.result.current!.onRestorePrevious(10));
         expect(f.report()).toEqual(live);
-        expect(captureComposite).toHaveBeenCalledTimes(1);
-        const redo = (captureComposite.mock.calls[0][0] as CaptureCompositeOpts).parts[0]!.restore({ current: new Map() }, false);
-        expect(f.report()).toEqual(live);
-        redo();
-        expect(f.report()).toEqual(live);
+        expect(captureComposite).not.toHaveBeenCalled();
       });
 
       // A REAL useState setter: its updater runs at the next render, not inside the call, so anything that reads the
@@ -368,21 +364,35 @@ describe("useMeetingReportActions", () => {
         expect(result.current.c!.meetings[0].report).toEqual(prior);
       });
 
-      // The "unchanged" decision (snapshot / undo entry / AI log) is made on the RENDER-scope meeting; the write on the
-      // LIVE one. The two can disagree between a render and a click. Pinned: the WRITE always follows the live state.
-      it("render says changed but live already holds the body: nothing is rewritten (no previous, same stamp)", () => {
-        const f = frozen(committee());
+      // Undo entry, Turso version row and AI log are decided on what the LIVE write did (writeLiveReport flushes the
+      // setter), not on this render's meeting, which a concurrent writer can have made stale.
+      it("render says changed but live already holds the body: no write, no undo entry, no version row, no log", () => {
+        const captureComposite = vi.fn();
+        const logActivityAs = vi.fn();
+        const f = frozen(committee(), { captureComposite, logActivityAs, tursoConfig: TURSO });
         f.set({ ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>new</p>", updatedAt: "t9" } }] });
-        act(() => f.result.current!.onSaveReport(10, "<p>new</p>"));
+        act(() => f.result.current!.onSaveReport(10, "<p>new</p>", { fromAi: true }));
         expect(f.report()).toEqual({ html: "<p>new</p>", updatedAt: "t9" });
+        expect(captureComposite).not.toHaveBeenCalled();
+        expect(logActivityAs).not.toHaveBeenCalled();
+        expect(saveVersion).not.toHaveBeenCalled();
       });
 
-      it("render says unchanged but live differs: the body is still written onto the live report", () => {
-        const f = frozen({ ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>new</p>", updatedAt: "t0" } }] });
+      it("render says unchanged but live differs: the write lands with its undo entry, version row (of the LIVE text) and log", async () => {
+        const captureComposite = vi.fn();
+        const logActivityAs = vi.fn();
+        const f = frozen(
+          { ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>new</p>", updatedAt: "t0" } }] },
+          { captureComposite, logActivityAs, tursoConfig: TURSO },
+        );
         f.set(committee());
-        act(() => f.result.current!.onSaveReport(10, "<p>new</p>"));
+        act(() => f.result.current!.onSaveReport(10, "<p>new</p>", { fromAi: true }));
         expect(f.report().html).toBe("<p>new</p>");
         expect(f.report().previous?.html).toBe("<p>x</p>");
+        expect(captureComposite).toHaveBeenCalledTimes(1);
+        expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.reportDraft", "2026-06-01");
+        await waitFor(() => expect(saveVersion).toHaveBeenCalledTimes(1));
+        expect(saveVersion.mock.calls[0] as unknown[]).toContainEqual(expect.objectContaining({ html: "<p>x</p>" }));
       });
 
       it("two restore-previous calls in one act swap back to where they started", () => {
@@ -529,9 +539,12 @@ describe("useMeetingReportActions", () => {
   });
 
   it("snapshots the prior report before an overwrite when Turso is active", async () => {
-    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ tursoConfig: TURSO })));
+    let state: SteeringCommittee | undefined = committee();
+    const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => { state = u(state); });
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ tursoConfig: TURSO, setSteeringCommittee })));
     await act(async () => { result.current!.onSaveReport(10, "<p>new</p>"); });
     await waitFor(() => expect(saveVersion).toHaveBeenCalledTimes(1));
+    expect(state!.meetings[0].report?.html).toBe("<p>new</p>");
   });
 
   it("does NOT snapshot on file backends (tursoConfig null)", () => {

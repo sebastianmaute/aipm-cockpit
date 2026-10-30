@@ -65,7 +65,7 @@ and `isBlankReport`, the one blank-body rule the send refusal and the panel's di
 (`meeting-report-proposal.tsx`) sits ABOVE the editor, each row with a closed-by-default `<details>` preview rendered
 through `RichTextView`; a matching heading asks Replace or Keep both in `meeting-report-panel.tsx`'s `take()`. `onSaveReport(id, html, {fromAi})`
 computes from live state, writes NOTHING for a body identical to the live one (`replacedReport` returns undefined, so
-`updatedAt` and `sentAt` stay, and no snapshot, undo entry or log row is made), is undoable through the composite fragment in `meeting-report-undo.ts`
+`updatedAt` and `sentAt` stay, and no snapshot, undo entry or log row is made — decided on what the updater SAW: `writeLiveReport` wraps the setter in `flushSync` (§476 pattern) so the stash is final on return), is undoable through the composite fragment in `meeting-report-undo.ts`
 (`meetingReportUndoFragment`), and logs `ai.reportDraft` (actor ai) only when `fromAi`. ★★ Its `captureComposite` passes
 NO `readEpoch`: the capture is synchronous, so the stack stamps its own (UNDO) epoch. Passing the plain scope epoch made
 the stack refuse every report save once a currency change or version restore moved the undo epoch.
