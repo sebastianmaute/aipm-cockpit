@@ -75,10 +75,11 @@ interface StoredProposal extends ReportProposal {
 
 /** Identity of a meeting beyond its id: ids are max + 1, so a deleted newest meeting's id is reused by the
  *  next one. `CommitteeMeeting` carries no creation stamp (and a new persisted field is a six-path change),
- *  so this is the strongest available fingerprint. Residual: a re-created meeting with the same date, title
- *  and Outlook id is indistinguishable; editing the date or title discards a held draft (fails safe). */
+ *  so this is the strongest fingerprint that survives an ordinary edit. The title is left out on purpose (a title
+ *  edit must keep a held draft). Residual: the same id + the same date + the same Outlook id is treated as the
+ *  same meeting, so a meeting re-created like that shows the old draft; a date change discards the proposal. */
 function meetingFingerprint(m: CommitteeMeeting): string {
-  return JSON.stringify([m.date, m.title, m.outlookEventId ?? ""]);
+  return JSON.stringify([m.date, m.outlookEventId ?? ""]);
 }
 
 export interface MeetingReportBag {

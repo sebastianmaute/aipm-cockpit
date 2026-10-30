@@ -707,8 +707,23 @@ describe("AI-04 the draft is a proposal held per meeting", () => {
 
 describe("AI-04 a proposal is tied to its meeting, not only its id", () => {
   // Meeting ids are max + 1, so deleting the newest meeting and adding another reuses its id.
-  const meeting3 = (title: string) => ({ id: 3, date: "2026-07-01", title });
-  const withMeeting = (title: string): SteeringCommittee => ({ ...committee(false), meetings: [meeting3(title)] });
+  const withMeeting = (title: string, date = "2026-07-01"): SteeringCommittee => ({
+    ...committee(false),
+    meetings: [{ id: 3, date, title }],
+  });
+
+  it("a held proposal survives an ordinary title edit", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const deps = makeDeps();
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    runMeetingReport.mockResolvedValueOnce("<h2>A</h2><p>1</p>");
+    await act(async () => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.getProposal(3)).toBeDefined());
+    live = withMeeting("Renamed");
+    rerender();
+    expect(result.current!.getProposal(3)).toBeDefined();
+  });
 
   it("a held proposal is not served on a different meeting that reuses the id", async () => {
     let live: SteeringCommittee | undefined = withMeeting("Original");
@@ -720,7 +735,7 @@ describe("AI-04 a proposal is tied to its meeting, not only its id", () => {
     await waitFor(() => expect(result.current!.getProposal(3)).toBeDefined());
     live = { ...live!, meetings: [] };
     rerender();
-    live = withMeeting("Replacement");
+    live = withMeeting("Replacement", "2026-08-01");
     rerender();
     expect(result.current!.getProposal(3)).toBeUndefined();
   });
@@ -734,7 +749,7 @@ describe("AI-04 a proposal is tied to its meeting, not only its id", () => {
     runMeetingReport.mockImplementationOnce(() => new Promise<string>((r) => { release = r; }));
     act(() => { result.current!.onGenerateReport(3); });
     await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(3));
-    live = withMeeting("Replacement");
+    live = withMeeting("Replacement", "2026-08-01");
     rerender();
     await act(async () => { release("<h2>A</h2><p>1</p>"); });
     await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
