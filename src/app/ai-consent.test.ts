@@ -3,7 +3,10 @@ import { setAiDeploymentState } from "./ai-deployment";
 import {
   AI_DISCLOSURE_VERSION,
   AiConsentRevokedError,
+  AiWeeklyCapReachedError,
   assertAiConsentLive,
+  isBackgroundCapReached,
+  publishBackgroundCapState,
   assertBackgroundConsentLive,
   assertInteractiveConsentLive,
   isInteractiveConsentLive,
@@ -89,6 +92,34 @@ describe("assertBackgroundConsentLive (AI-01)", () => {
   it("a withdrawn background consent leaves the interactive level live", () => {
     publishAiConsentState({ ...live, backgroundConsent: undefined });
     expect(() => assertAiConsentLive("interactive")).not.toThrow();
+  });
+});
+
+describe("the weekly hard cap (AI-03)", () => {
+  const live = { ...defaultAiConfig, enabled: true, consent: newConsent(D), backgroundConsent: newConsent(D) };
+  afterEach(() => { publishBackgroundCapState(false); publishAiConsentState(undefined); });
+  it("blocks the background level with AiWeeklyCapReachedError and leaves the interactive level live", () => {
+    publishAiConsentState(live);
+    publishBackgroundCapState(true);
+    expect(isBackgroundCapReached()).toBe(true);
+    expect(() => assertAiConsentLive("background")).toThrow(AiWeeklyCapReachedError);
+    expect(() => assertAiConsentLive("interactive")).not.toThrow();
+  });
+  it("names the error", () => {
+    expect(new AiWeeklyCapReachedError().name).toBe("AiWeeklyCapReachedError");
+  });
+  it("passes again once the cap state is cleared", () => {
+    publishAiConsentState(live);
+    publishBackgroundCapState(true);
+    publishBackgroundCapState(false);
+    expect(() => assertAiConsentLive("background")).not.toThrow();
+  });
+  it("a revoked consent throws AiConsentRevokedError whatever the cap", () => {
+    publishAiConsentState({ ...live, backgroundConsent: undefined });
+    for (const reached of [true, false]) {
+      publishBackgroundCapState(reached);
+      expect(() => assertAiConsentLive("background")).toThrow(AiConsentRevokedError);
+    }
   });
 });
 

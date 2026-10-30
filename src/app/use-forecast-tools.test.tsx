@@ -6,8 +6,9 @@ import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatch
 import { showForecastView } from "../test/forecast-view";
 import { entityToken } from "./ai-entity-token";
 import { buildPlanRows, shouldStage, type ProposedCall } from "./chat-proposal";
-import { forecastScenarioRowTitle, type DescribedRow } from "./chat-proposal-describe";
+import { forecastRowLine, type DescribedRow } from "./chat-proposal-describe";
 import { liveRowTitle, proposalTitles } from "./chat-proposal-stage";
+import { cardRowTitle } from "./chat-proposal-block";
 import { runTool } from "./chat-tools";
 import { FORECAST_OFF_MESSAGE } from "./chat-tools-forecast";
 import type { Workspace } from "./workspace";
@@ -15,7 +16,7 @@ import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
 import { DEFAULT_HISTORY_WINDOW } from "./forecast/constants";
 import type { ForecastReportInput } from "./forecast-ai-report";
 import type { ForecastScenario, ScenarioChange } from "./forecast-scenarios";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { __resetMintStateForTests } from "./id-mint-session";
 import { defaultSettings } from "./settings-types";
 import type { TestSeed } from "./test-providers";
@@ -644,17 +645,38 @@ describe("staging", () => {
     expect(rows[1].dependsOn).toBe(0);
   });
 
+  // The card line is data from `forecastRowLine` (i18n-free), translated by `cardRowTitle`; `liveRowTitle` leaves
+  // forecast rows to it.
+  const titleOf = (c: ProposedCall, ws: Workspace, lang: "en-US" | "de" = "en-US"): string =>
+    cardRowTitle(lang, { call: c } as unknown as DescribedRow, ws);
+
   test("the card names the scenario and counts the rows", () => {
     const ws = { forecastScenarios: [SAVED] } as unknown as Workspace;
-    expect(liveRowTitle(call("create_forecast_scenario", { name: "Hire", changes: [AVAIL, SCOPE, AVAIL] }), ws))
-      .toBe('Save scenario "Hire" (3 changes)');
-    expect(liveRowTitle(call("update_forecast_scenario", { id: 1, changes: [AVAIL] }), ws))
-      .toBe('Edit scenario "Contractor in January" (2 → 1 changes)');
-    expect(liveRowTitle(call("update_forecast_scenario", { id: 1, name: "Renamed" }), ws))
-      .toBe('Edit scenario "Contractor in January" → "Renamed"');
+    expect(liveRowTitle(call("create_forecast_scenario", { name: "Hire", changes: [] }), ws)).toBeNull();
+    expect(titleOf(call("create_forecast_scenario", { name: "Hire", changes: [AVAIL, SCOPE, AVAIL] }), ws))
+      .toBe("Save scenario “Hire” (3 changes)");
+    expect(titleOf(call("update_forecast_scenario", { id: 1, changes: [AVAIL] }), ws))
+      .toBe("Edit scenario “Contractor in January” (2 → 1 changes)");
+    expect(titleOf(call("update_forecast_scenario", { id: 1, name: "Renamed" }), ws))
+      .toBe("Edit scenario “Contractor in January” → “Renamed”");
     // A target minted earlier in the same plan is not stored yet: the call's own name labels it.
-    expect(liveRowTitle(call("update_forecast_scenario", { id: 900, name: "B", changes: [] }), ws))
-      .toBe('Edit scenario "B" (0 changes)');
+    expect(titleOf(call("update_forecast_scenario", { id: 900, name: "B", changes: [] }), ws))
+      .toBe("Edit scenario “B” (0 changes)");
+  });
+
+  test("the card lines are German in German (AI-02)", async () => {
+    await loadI18n("de");
+    const ws = { forecastScenarios: [SAVED], settingsOverrides: { forecast: { proposalScenarioId: 1 } } } as unknown as Workspace;
+    expect(titleOf(call("create_forecast_scenario", { name: "Hire", changes: [AVAIL] }), ws, "de"))
+      .toBe("Szenario „Hire“ speichern (1 Änderung)");
+    expect(titleOf(call("update_forecast_scenario", { id: 1, name: "Neu", changes: [] }), ws, "de"))
+      .toBe("Szenario „Contractor in January“ bearbeiten (neuer Name „Neu“) (2 → 0 Änderungen)");
+    expect(titleOf(call("delete_forecast_scenario", { id: 1 }), ws, "de"))
+      .toBe("Szenario „Contractor in January“ löschen (der aktuelle Vorschlag)");
+    expect(titleOf(call("set_forecast_proposal", { id: 1 }), ws, "de")).toBe("Szenario „Contractor in January“ vorschlagen");
+    expect(titleOf(call("set_forecast_proposal", { id: null }), ws, "de")).toBe("Vorschlag aufheben");
+    expect(titleOf(call("set_forecast_target_confidence", { value: 95 }), ws, "de"))
+      .toBe("Zielwahrscheinlichkeit des Projekts auf 95 % setzen");
   });
 
   test("a delete stages alone; one decision write applies, two stage (§502 part 4)", () => {
@@ -667,24 +689,25 @@ describe("staging", () => {
 
   test("the card names the decision writes (§502 part 4)", () => {
     const ws = { forecastScenarios: [SAVED] } as unknown as Workspace;
-    expect(liveRowTitle(call("delete_forecast_scenario", { id: 1 }), ws)).toBe('Delete scenario "Contractor in January"');
+    expect(titleOf(call("delete_forecast_scenario", { id: 1 }), ws)).toBe("Delete scenario “Contractor in January”");
     // Deleting the current proposal clears it too, so the card says so.
     const proposed = { ...ws, settingsOverrides: { forecast: { proposalScenarioId: 1 } } } as unknown as Workspace;
-    expect(liveRowTitle(call("delete_forecast_scenario", { id: 1 }), proposed))
-      .toBe('Delete scenario "Contractor in January" (the proposal)');
-    expect(liveRowTitle(call("set_forecast_proposal", { id: 1 }), ws)).toBe('Propose scenario "Contractor in January"');
+    expect(titleOf(call("delete_forecast_scenario", { id: 1 }), proposed))
+      .toBe("Delete scenario “Contractor in January” (the proposal)");
+    expect(titleOf(call("set_forecast_proposal", { id: 1 }), ws)).toBe("Propose scenario “Contractor in January”");
     // A scenario this plan creates is not stored yet: the card names it by the create's name (`proposalTitles`
     // collects the plan's creates); only with no create in the plan does the provisional id remain.
     const create = call("create_forecast_scenario", { name: " Draft ", changes: [] });
     const propose = call("set_forecast_proposal", { id: 900 });
     const rows = [{ call: create, mintedId: 900 }, { call: propose }] as unknown as DescribedRow[];
-    expect(proposalTitles(rows, ws, () => "fallback")).toEqual(['Save scenario "Draft" (0 changes)', 'Propose scenario "Draft"']);
-    expect(liveRowTitle(propose, ws)).toBe("Propose scenario #900");
-    expect(liveRowTitle(call("set_forecast_proposal", { id: null }), ws)).toBe("Clear the proposal");
-    // The target is a project setting, not a scenario: its own titler, and the scenario one declines it.
+    expect(proposalTitles(rows, ws, (r, pending) => cardRowTitle("en-US", r, ws, pending)))
+      .toEqual(["Save scenario “Draft” (0 changes)", "Propose scenario “Draft”"]);
+    expect(titleOf(propose, ws)).toBe("Propose scenario #900");
+    expect(titleOf(call("set_forecast_proposal", { id: null }), ws)).toBe("Clear the proposal");
+    // The target is a project setting, not a scenario: it names none.
     const target = call("set_forecast_target_confidence", { value: 95 });
-    expect(liveRowTitle(target, ws)).toBe("Set the project's target confidence to 95%");
-    expect(forecastScenarioRowTitle(target, ws)).toBeNull();
+    expect(titleOf(target, ws)).toBe("Set the project's target confidence to 95%");
+    expect(forecastRowLine(target, ws)).toEqual({ kind: "target", value: "95" });
   });
 
   // ★ A replace that drops rows must show it: the stored count beside the new one.
@@ -692,11 +715,11 @@ describe("staging", () => {
     const three: ForecastScenario = { id: 2, name: "Three", changes: [AVAIL, SCOPE, AVAIL] };
     const one: ForecastScenario = { id: 3, name: "One", changes: [AVAIL] };
     const ws = { forecastScenarios: [three, one] } as unknown as Workspace;
-    expect(liveRowTitle(call("update_forecast_scenario", { id: 2, changes: [SCOPE] }), ws))
-      .toBe('Edit scenario "Three" (3 → 1 changes)');
-    expect(liveRowTitle(call("update_forecast_scenario", { id: 3, changes: [SCOPE] }), ws))
-      .toBe('Edit scenario "One" (1 → 1 change)');
-    expect(liveRowTitle(call("update_forecast_scenario", { id: 2, name: "Renamed", changes: [] }), ws))
-      .toBe('Edit scenario "Three" → "Renamed" (3 → 0 changes)');
+    expect(titleOf(call("update_forecast_scenario", { id: 2, changes: [SCOPE] }), ws))
+      .toBe("Edit scenario “Three” (3 → 1 changes)");
+    expect(titleOf(call("update_forecast_scenario", { id: 3, changes: [SCOPE] }), ws))
+      .toBe("Edit scenario “One” (1 → 1 change)");
+    expect(titleOf(call("update_forecast_scenario", { id: 2, name: "Renamed", changes: [] }), ws))
+      .toBe("Edit scenario “Three” → “Renamed” (3 → 0 changes)");
   });
 });

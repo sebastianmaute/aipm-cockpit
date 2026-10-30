@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { MAX_AI_POLICY_FIELD } from "./ai-policy";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled, isAiConsentedForDictation } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, hasAnyBrandingField, BRANDING_LOGO_MAX_LEN, BRANDING_EXPORT_FOOTER_MAX, DEFAULT_EXPORT_FOOTER, exportFooterText, type ExportFooterEnv, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled, isAiEnabled, isAiBackgroundEnabled, aiKeyIfEnabled, isAiConsentedForDictation, coerceHardCap } from "./settings-types";
 import { newConsent, isInteractiveAiAllowed } from "./ai-consent";
 import { setAiDeploymentState } from "./ai-deployment";
 import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
@@ -116,6 +116,24 @@ describe("sanitizeAiConfig maxChatTurns", () => {
   });
   it("keeps an in-range integer", () => {
     expect(sanitizeAiConfig({ maxChatTurns: 20 }).maxChatTurns).toBe(20);
+  });
+});
+
+describe("coerceHardCap (AI-03)", () => {
+  it.each([undefined, 0, -5, NaN, "x", Infinity, null])("reads %s as no cap", (v) => {
+    expect(coerceHardCap(v)).toBeUndefined();
+  });
+  it("floors a positive finite number", () => {
+    expect(coerceHardCap(1500000.7)).toBe(1500000);
+  });
+  it("is absent by default and survives sanitizeAiConfig", () => {
+    expect(sanitizeAiConfig({}).weeklyHardCap).toBeUndefined();
+    expect(sanitizeAiConfig({ weeklyHardCap: 900.4 }).weeklyHardCap).toBe(900);
+    expect(sanitizeAiConfig({ weeklyHardCap: 0 }).weeklyHardCap).toBeUndefined();
+  });
+  it("survives a settings round-trip through JSON", () => {
+    const stored = JSON.parse(JSON.stringify({ ...defaultAiConfig, weeklyHardCap: 1_000_000 }));
+    expect(sanitizeAiConfig(stored).weeklyHardCap).toBe(1_000_000);
   });
 });
 

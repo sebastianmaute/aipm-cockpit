@@ -129,6 +129,19 @@ describe("ingestBytes", () => {
     expect(src.data).not.toMatch(/^[A-Za-z0-9+/=\s]+$/);
   });
 
+  it("titles each document block with the file name, mail children included, and leaves images untitled", async () => {
+    const eml = ["Subject: x", "Content-Type: text/plain", "", "body"].join("\r\n");
+    const r = await ingestBytes(enc(eml), "message/rfc822", "status.eml");
+    if (!r.ok) throw new Error("ingest failed");
+    expect((r.node.block as { title?: string }).title).toBe("Attachment: status.eml");
+    const t = await ingestBytes(enc("hello"), "text/plain", "notes.txt");
+    if (!t.ok) throw new Error("ingest failed");
+    expect((t.node.block as { title?: string }).title).toBe("Attachment: notes.txt");
+    const img = await ingestBytes(new Uint8Array([1, 2, 3]), "image/png", "a.png");
+    if (!img.ok) throw new Error("ingest failed");
+    expect("title" in img.node.block).toBe(false);
+  });
+
   it("reports no children for a flat mail message", async () => {
     const eml = ["Subject: x", "", "body"].join("\r\n");
     const r = await ingestBytes(enc(eml), "message/rfc822", "x.eml");

@@ -13,7 +13,8 @@
 // "omits exactly the stageable write tools the descriptor engine cannot diff" in
 // `chat-proposal-describe.test.ts` — read it there rather than restating it here; a copy of
 // that list in this comment went stale once already (it named a tool that had since gained
-// a describer). Those rows carry only `call.name` and `call.input`, and they are the rows
+// a describer). Those rows carry only `call.name` and `call.input` (a document write also carries
+// `document`, what it writes, AI-02), and they are the rows
 // that most need to be VISIBLE: document writes take no
 // undo capture at all (`use-document-tools.ts` says so at three sites), so this
 // card is the only thing between the model and an unreviewed multi-document
@@ -36,18 +37,30 @@
 // is the one `requireCollisionSeed` can certify.
 
 import { useMemo, useState } from "react";
-import { type Lang, t, tPlural } from "./i18n";
+import { type Lang, type TranslationKey, t, tPlural } from "./i18n";
 import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { carriesEnabledModules, type ProposedCall } from "./chat-proposal";
 import type { FunctionsChange } from "./chat-proposal-describe-functions";
+import type { DeviceChange } from "./chat-proposal-describe-device";
+import type { DocOpKind, DocumentChange } from "./chat-proposal-describe-document";
+import type { Filters } from "./chat-tools";
 import { moduleNames } from "./functions-picker";
 import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type DiffEntity, type EditPlan, type Rejected } from "./inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { CreateFieldsList } from "./create-fields-list";
-import { previewEntityOf } from "./chat-proposal-describe";
+import {
+  forecastRowLine,
+  previewEntityOf,
+  projectRowName,
+  type DescribedRow,
+  type ForecastChangeCount,
+  type ForecastLine,
+  type ForecastScenarioRef,
+} from "./chat-proposal-describe";
+import type { Workspace } from "./workspace";
 
 /** Rows shown before the disclosure collapses the rest. */
 export const PROPOSAL_COLLAPSE_AFTER = 5;
@@ -82,6 +95,9 @@ export interface ProposalCardRow {
   /** §779 — what a staged `update_settings { enabledModules }` switches, from `DescribedRow.functions`.
    *  Absent on every other row, which then renders exactly as before. */
   readonly functions?: FunctionsChange;
+  /** AI-02 — what a staged `create_document` or `update_document` writes, from `DescribedRow.document`. Absent
+   *  on every other row. */
+  readonly document?: DocumentChange;
 }
 
 export interface ChatProposalBlockProps {
@@ -141,6 +157,142 @@ export function functionsRowTitle(lang: Lang, call: ProposedCall): string | null
   return carriesEnabledModules(call) ? t(lang, "chatProposalFunctionsTitle") : null;
 }
 
+/** AI-02 — the card line for an `escalate_raid_item` call, or null for any other call. The describer emits no
+ *  diff for it, so this line is where the user sees the RAID item and the recipient ADDRESS the escalation would
+ *  record. `raid` is the live register; an item it does not hold is named by its id. */
+export function escalationRowTitle(
+  lang: Lang,
+  call: ProposedCall,
+  raid: readonly { readonly id: number; readonly title?: string }[],
+): string | null {
+  if (call.name !== "escalate_raid_item") return null;
+  const input = call.input as { id?: unknown; toEmail?: unknown; toName?: unknown };
+  const id = Number(input.id);
+  const found = raid.find((r) => r.id === id)?.title;
+  const item = typeof found === "string" && found.trim() !== "" ? found : `#${String(input.id)}`;
+  const email = typeof input.toEmail === "string" ? input.toEmail : "";
+  const name = typeof input.toName === "string" ? input.toName.trim() : "";
+  return t(lang, "chatProposalEscalateTitle", item, name !== "" ? `${name} <${email}>` : email);
+}
+
+/** AI-02 — the card line for the three task tools the describer gives no title: `delete_all_tasks` (with the
+ *  live task count), `send_inquiry` and `set_task_dependencies` (each naming the live task, or its id). Null for
+ *  any other call. */
+export function taskToolRowTitle(
+  lang: Lang,
+  call: ProposedCall,
+  tasks: readonly { readonly id: number; readonly taskName?: string }[],
+): string | null {
+  if (call.name === "delete_all_tasks") return t(lang, "chatProposalDeleteAllTasksTitle", tasks.length);
+  const key: TranslationKey | null =
+    call.name === "send_inquiry" ? "chatProposalInquiryTitle"
+    : call.name === "set_task_dependencies" ? "chatProposalDependenciesTitle"
+    : null;
+  if (key === null) return null;
+  const rawId = (call.input as { id?: unknown }).id;
+  const found = tasks.find((task) => task.id === Number(rawId))?.taskName;
+  return t(lang, key, typeof found === "string" && found.trim() !== "" ? found : `#${String(rawId)}`);
+}
+
+/** The card line for a row `liveRowTitle` (`chat-proposal-stage.ts`) could not title from the live workspace: the
+ *  translated lines first, the call's own title-ish input last. The panel passes it to `proposalTitles`; the
+ *  coverage test in `chat-proposal-describe.test.ts` runs every stageable tool through the same pair.
+ *  `pendingScenarios` names the forecast scenarios the same plan creates (`pendingScenarioNames`). */
+export function cardRowTitle(
+  lang: Lang,
+  row: DescribedRow,
+  ws: Workspace,
+  pendingScenarios: ReadonlyMap<number, string> = new Map(),
+): string {
+  const forecast = forecastRowLine(row.call, ws, pendingScenarios);
+  const projectName = projectRowName(row.call, ws.project);
+  return (
+    (forecast === null ? null : forecastRowTitle(lang, forecast)) ??
+    (projectName === null ? null : t(lang, "chatProposalProjectTitle", t(lang, "chatProposalQuoted", projectName))) ??
+    functionsRowTitle(lang, row.call) ??
+    escalationRowTitle(lang, row.call, ws.raid ?? []) ??
+    taskToolRowTitle(lang, row.call, ws.tasks ?? []) ??
+    deviceRowTitle(lang, row.device) ??
+    proposalRowTitle(row.call, row.plan)
+  );
+}
+
+function scenarioText(lang: Lang, ref: ForecastScenarioRef): string {
+  return ref.kind === "named" ? t(lang, "chatProposalQuoted", ref.name) : `#${ref.id}`;
+}
+
+function changeCountText(lang: Lang, changes: ForecastChangeCount): string {
+  if (changes.kind === "rows") return tPlural(lang, "chatProposalForecastChanges", changes.count, changes.count);
+  // Singular only when both counts are 1.
+  const key = changes.before === 1 && changes.after === 1 ? "chatProposalForecastReplaceSingular" : "chatProposalForecastReplace";
+  return t(lang, key, changes.before, changes.after);
+}
+
+/** §502 — a staged forecast write's card line, translated from the data `forecastRowLine` returns. */
+export function forecastRowTitle(lang: Lang, line: ForecastLine): string {
+  const withCount = (base: string, changes: ForecastChangeCount | null): string =>
+    changes === null ? base : `${base} (${changeCountText(lang, changes)})`;
+  switch (line.kind) {
+    case "target":
+      return t(lang, "chatProposalForecastTarget", line.value);
+    case "save":
+      return withCount(t(lang, "chatProposalForecastSave", t(lang, "chatProposalQuoted", line.name)), line.changes);
+    case "clearProposal":
+      return t(lang, "chatProposalForecastClear");
+    case "propose":
+      return t(lang, "chatProposalForecastPropose", scenarioText(lang, line.scenario));
+    case "delete":
+      return t(lang, line.isProposal ? "chatProposalForecastDeleteProposal" : "chatProposalForecastDelete", scenarioText(lang, line.scenario));
+    case "edit": {
+      const base = line.rename === null
+        ? t(lang, "chatProposalForecastEdit", scenarioText(lang, line.scenario))
+        : t(lang, "chatProposalForecastEditRenamed", scenarioText(lang, line.scenario), t(lang, "chatProposalQuoted", line.rename));
+      return withCount(base, line.changes);
+    }
+  }
+}
+
+/** Settings as the tool names them, `key = value`; no settings label table exists. */
+function settingPairs(settings: readonly { readonly key: string; readonly value: string }[]): string {
+  return settings.map((o) => `${o.key} = ${o.value}`).join(", ");
+}
+
+/** The languages' own names, as the language picker in Settings shows them. */
+const LANGUAGE_NAMES: Readonly<Record<string, string>> = { "en-US": "English (US)", "en-GB": "English (UK)", de: "Deutsch" };
+
+/** Each filter's label, in the order the task list's toolbar shows them. */
+const FILTER_LABEL_KEY: Readonly<Record<keyof Filters, TranslationKey>> = {
+  search: "chatProposalFilterSearch",
+  priority: "priority",
+  assignee: "assignee",
+  group: "group",
+  label: "labels",
+};
+
+function filterPairs(lang: Lang, filters: Filters): string {
+  const pairs = (Object.keys(FILTER_LABEL_KEY) as (keyof Filters)[])
+    .filter((k) => filters[k] !== undefined)
+    .map((k) => {
+      const value = filters[k];
+      return `${t(lang, FILTER_LABEL_KEY[k])} = ${value === "" || value === "All" ? t(lang, "chatProposalFilterAll") : value}`;
+    });
+  return pairs.length > 0 ? pairs.join(", ") : "—";
+}
+
+/** AI-02 — the card line for a staged `set_language`, `set_filters` or device-only `update_settings`, built from
+ *  what the call changes (`DescribedRow.device`), or null for any other row. */
+export function deviceRowTitle(lang: Lang, device: DeviceChange | undefined): string | null {
+  if (device === undefined) return null;
+  switch (device.kind) {
+    case "language":
+      return t(lang, "chatProposalLanguageTitle", LANGUAGE_NAMES[device.language] ?? device.language);
+    case "filters":
+      return t(lang, "chatProposalFiltersTitle", filterPairs(lang, device.filters));
+    case "settings":
+      return t(lang, "chatProposalSettingsTitle", device.settings.length > 0 ? settingPairs(device.settings) : "—");
+  }
+}
+
 /** §779 — the functions a staged row switches on and off, by the labels the Functions picker shows. */
 function FunctionsDetail({ lang, change }: { lang: Lang; change: FunctionsChange }) {
   const unchanged = change.on.length === 0 && change.off.length === 0;
@@ -155,11 +307,39 @@ function FunctionsDetail({ lang, change }: { lang: Lang; change: FunctionsChange
       {/* The rest of the same call: under the title "Project functions" it would otherwise be invisible.
           No settings label table exists, so the keys are named as the tool names them. */}
       {change.others.length > 0 && (
-        <li>{t(lang, "chatProposalFunctionsOthers", change.others.map((o) => `${o.key} = ${o.value}`).join(", "))}</li>
+        <li>{t(lang, "chatProposalFunctionsOthers", settingPairs(change.others))}</li>
       )}
       {/* The functions write takes no undo capture, while the rest of an applied plan does: neither the
           shortcut (Ctrl+Z, Cmd+Z on a Mac) nor the undo button reverses it, so no shortcut is named. */}
       <li>{t(lang, "chatProposalFunctionsNoUndo")}</li>
+    </ul>
+  );
+}
+
+/** Each `update_document` op kind's label. */
+const DOC_OP_LABEL_KEY: Readonly<Record<DocOpKind, TranslationKey>> = {
+  append: "chatProposalDocOpAppend",
+  insert: "chatProposalDocOpInsert",
+  replace: "chatProposalDocOpReplace",
+  replaceAll: "chatProposalDocOpReplaceAll",
+  move: "chatProposalDocOpMove",
+  delete: "chatProposalDocOpDelete",
+};
+
+/** AI-02 — what a staged document write puts into the document: a new document's block count, an update's op
+ *  kinds and new title, and the opening text either writes. The text is a plain-text projection rendered as a
+ *  React text node, so markup in it is shown, never interpreted. */
+function DocumentDetail({ lang, change }: { lang: Lang; change: DocumentChange }) {
+  return (
+    <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+      {change.kind === "create" && <li>{t(lang, "chatProposalDocBlocks", change.blockCount)}</li>}
+      {change.kind === "update" && change.ops.length > 0 && (
+        <li>
+          {t(lang, "chatProposalDocOps", change.ops.map((o) => `${t(lang, DOC_OP_LABEL_KEY[o.op])} × ${o.count}`).join(", "))}
+        </li>
+      )}
+      {change.kind === "update" && change.rename !== null && <li>{t(lang, "chatProposalDocRename", change.rename)}</li>}
+      {change.excerpt !== "" && <li>{t(lang, "chatProposalDocText", change.excerpt)}</li>}
     </ul>
   );
 }
@@ -300,6 +480,7 @@ function ProposalRow({
       </label>
       <PlanDetail lang={lang} plan={row.plan} entity={previewEntityOf(row.call.name)} />
       {row.functions && <FunctionsDetail lang={lang} change={row.functions} />}
+      {row.document && <DocumentDetail lang={lang} change={row.document} />}
       {row.cascaded && (
         <p className="mt-1 text-xs text-muted-foreground">{t(lang, "chatProposalCascaded")}</p>
       )}

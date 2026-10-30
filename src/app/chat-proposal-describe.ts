@@ -42,11 +42,13 @@ import type { Task, TaskDependency } from "./types";
 import { proposalIdOf } from "./forecast-target";
 import { describeProjectPlan, stampProjectCall, UPDATE_PROJECT_TOOL } from "./chat-proposal-describe-project";
 import { describeFunctionsCall, type FunctionsChange, type PreviewSettings } from "./chat-proposal-describe-functions";
+import { describeDeviceCall, type DeviceChange } from "./chat-proposal-describe-device";
+import { describeDocumentCall, type DocumentChange } from "./chat-proposal-describe-document";
 
 export {
   describeProjectCall,
   projectFieldText,
-  projectRowTitle,
+  projectRowName,
   type ProjectCallDescription,
   type ProjectCallRow,
 } from "./chat-proposal-describe-project";
@@ -126,30 +128,49 @@ export interface DescribedRow {
   /** §779 — set only on an `update_settings` row carrying an accepted `enabledModules`: the functions it
    *  switches on and off against the project's saved list. The card renders it; the plan stays empty. */
   readonly functions?: FunctionsChange;
+  /** AI-02 — set only on a `set_language`, `set_filters` or device-only `update_settings` row: what it changes,
+   *  for the card's line. The plan stays empty. */
+  readonly device?: DeviceChange;
+  /** AI-02 — set only on a `create_document` or `update_document` row: what the write puts into the document,
+   *  for the card. The plan stays empty. */
+  readonly document?: DocumentChange;
 }
 
 function emptyPlan(): EditPlan {
   return { updates: [], creates: [], deletes: [], rejected: [], links: [] };
 }
 
-function changeCount(raw: unknown): string | null {
-  if (!Array.isArray(raw)) return null;
-  return raw.length === 1 ? "1 change" : `${raw.length} changes`;
+/** A forecast scenario as a card line names it: by its name, or by its id when nothing names it. */
+export type ForecastScenarioRef = { readonly kind: "named"; readonly name: string } | { readonly kind: "id"; readonly id: string };
+
+/** How many `changes` a forecast write carries. `replace` is an update of a STORED scenario that sends
+ *  `changes`: it replaces the whole list, so the stored count stands beside the new one and a replace that
+ *  drops rows says so. */
+export type ForecastChangeCount =
+  | { readonly kind: "rows"; readonly count: number }
+  | { readonly kind: "replace"; readonly before: number; readonly after: number };
+
+/** What a staged forecast write (§502) does, as data. This module is i18n-free: the card translates it
+ *  (`forecastRowTitle` in `chat-proposal-block.tsx`). Scenarios have no `INLINE_DESCRIPTORS` entry, so without
+ *  it a staged forecast write would be titled by its tool name. */
+export type ForecastLine =
+  | { readonly kind: "target"; readonly value: string }
+  | { readonly kind: "save"; readonly name: string; readonly changes: ForecastChangeCount | null }
+  | { readonly kind: "clearProposal" }
+  | { readonly kind: "propose"; readonly scenario: ForecastScenarioRef }
+  | { readonly kind: "delete"; readonly scenario: ForecastScenarioRef; readonly isProposal: boolean }
+  | {
+      readonly kind: "edit";
+      readonly scenario: ForecastScenarioRef;
+      readonly rename: string | null;
+      readonly changes: ForecastChangeCount | null;
+    };
+
+function rowCount(raw: unknown): ForecastChangeCount | null {
+  return Array.isArray(raw) ? { kind: "rows", count: raw.length } : null;
 }
 
-/** "3 → 1 changes"; singular only when both counts are 1. */
-function replaceCount(before: number, after: number): string {
-  return `${before} → ${after} ${before === 1 && after === 1 ? "change" : "changes"}`;
-}
-
-/** The card line for `set_forecast_target_confidence` (§502 part 4), or null for any other tool. A project
- *  setting, not a scenario. English, like `forecastScenarioRowTitle`: this module is i18n-free. */
-export function forecastTargetRowTitle(call: ProposedCall): string | null {
-  if (call.name !== "set_forecast_target_confidence") return null;
-  return `Set the project's target confidence to ${detailOf((call.input as { value?: unknown }).value)}%`;
-}
-
-/** Provisional id → name of every `create_forecast_scenario` row in the plan, for `forecastScenarioRowTitle`. */
+/** Provisional id → name of every `create_forecast_scenario` row in the plan, for `forecastRowLine`. */
 export function pendingScenarioNames(rows: readonly Pick<DescribedRow, "call" | "mintedId">[]): ReadonlyMap<number, string> {
   const names = new Map<number, string>();
   for (const row of rows) {
@@ -161,47 +182,42 @@ export function pendingScenarioNames(rows: readonly Pick<DescribedRow, "call" | 
   return names;
 }
 
-/** The card line for a forecast scenario write (§502), or null for any other tool. Scenarios have no
- *  `INLINE_DESCRIPTORS` entry, so without this a staged update would be titled by its tool name. The row
- *  count is part of the line because an update that sends `changes` REPLACES the whole list; for a stored
- *  scenario it reads "stored → new", so a replace that drops rows says so.
- *  ★ English, like the tool-name fallback it replaces: this module is i18n-free.
- *  Part 4's delete and proposal (§502) name a scenario and are titled here too; the target write names none and has
- *  its own title, `forecastTargetRowTitle`.
- *  `pending` maps the provisional id of each scenario created earlier in the same plan to its name
- *  (`pendingScenarioNames`), so a later write to it reads by that name, never by the provisional number. */
-export function forecastScenarioRowTitle(
+/** The card line for a forecast write (§502), as data, or null for any other tool.
+ *  - `set_forecast_target_confidence` is a project setting and names no scenario.
+ *  - Part 4's delete and proposal (§502) name a scenario; deleting the current proposal also clears it, so the
+ *    line says so.
+ *  - `pending` maps the provisional id of each scenario created earlier in the same plan to its name
+ *    (`pendingScenarioNames`), so a later write to it reads by that name, never by the provisional number. */
+export function forecastRowLine(
   call: ProposedCall,
   ws: Workspace,
   pending: ReadonlyMap<number, string> = new Map(),
-): string | null {
-  const input = call.input as { id?: unknown; name?: unknown; changes?: unknown };
+): ForecastLine | null {
+  const input = call.input as { id?: unknown; name?: unknown; changes?: unknown; value?: unknown };
+  if (call.name === "set_forecast_target_confidence") return { kind: "target", value: detailOf(input.value) };
   const newName = typeof input.name === "string" && input.name.trim() !== "" ? input.name.trim() : null;
-  const rows = changeCount(input.changes);
-  if (call.name === "create_forecast_scenario") {
-    return `Save scenario "${newName ?? ""}"${rows === null ? "" : ` (${rows})`}`;
-  }
-  if (call.name === "set_forecast_proposal" && input.id === null) return "Clear the proposal";
+  if (call.name === "create_forecast_scenario") return { kind: "save", name: newName ?? "", changes: rowCount(input.changes) };
+  if (call.name === "set_forecast_proposal" && input.id === null) return { kind: "clearProposal" };
   const id = Number(input.id);
   const stored = ws.forecastScenarios?.find((s) => s.id === id);
   // A scenario created earlier in the same plan is not stored yet: it reads by the create's name, and by its
   // provisional id only when no create in the plan names it.
   const pendingName = stored === undefined ? pending.get(id) : undefined;
-  const named = stored !== undefined ? `"${stored.name}"` : pendingName !== undefined ? `"${pendingName}"` : `#${detailOf(input.id)}`;
-  if (call.name === "set_forecast_proposal") return `Propose scenario ${named}`;
+  const byId: ForecastScenarioRef = { kind: "id", id: detailOf(input.id) };
+  const known = stored?.name ?? pendingName;
+  const named: ForecastScenarioRef = known !== undefined ? { kind: "named", name: known } : byId;
+  if (call.name === "set_forecast_proposal") return { kind: "propose", scenario: named };
   if (call.name === "delete_forecast_scenario") {
-    // ★ Deleting the proposal also clears it (and changes the Reports verdict), so the card says so.
     const isProposal = proposalIdOf(ws.settingsOverrides, ws.forecastScenarios ?? []) === id;
-    return `Delete scenario ${named}${isProposal ? " (the proposal)" : ""}`;
+    return { kind: "delete", scenario: named, isProposal };
   }
   if (call.name !== "update_forecast_scenario") return null;
-  const label = stored?.name ?? pendingName ?? newName ?? `#${detailOf(input.id)}`;
-  const rename = newName !== null && stored !== undefined && newName !== stored.name ? ` → "${newName}"` : "";
-  // ★ A replace that drops rows must show it, so the stored count stands beside the new one.
-  const count = stored !== undefined && Array.isArray(input.changes)
-    ? replaceCount(stored.changes.length, input.changes.length)
-    : rows;
-  return `Edit scenario "${label}"${rename}${count === null ? "" : ` (${count})`}`;
+  const label: ForecastScenarioRef = known !== undefined || newName === null ? named : { kind: "named", name: newName };
+  const rename = newName !== null && stored !== undefined && newName !== stored.name ? newName : null;
+  const changes: ForecastChangeCount | null = stored !== undefined && Array.isArray(input.changes)
+    ? { kind: "replace", before: stored.changes.length, after: input.changes.length }
+    : rowCount(input.changes);
+  return { kind: "edit", scenario: label, rename, changes };
 }
 
 /** `plan.ts`'s own `str`, for the one rejection this file has to raise itself.
@@ -494,8 +510,12 @@ export function describeProposal(
     const stamped: ProposedCall =
       pendingOn !== undefined || supplied != null ? call : stampCall(call, ws);
 
+    // AI-02 — what a document write puts into the document; carried on the pending and the empty-plan rows.
+    const document = describeDocumentCall(call);
+    const documentDetail = document === null ? {} : { document };
+
     if (pendingOn !== undefined) {
-      rows.push({ call, stamped, plan: emptyPlan(), mintedId, pendingOn });
+      rows.push({ call, stamped, plan: emptyPlan(), mintedId, pendingOn, ...documentDetail });
       continue;
     }
 
@@ -504,6 +524,14 @@ export function describeProposal(
     if (functionsRow !== null) {
       if (functionsRow.functions) functionsSoFar = functionsRow.functions.after;
       rows.push({ call, stamped, plan: functionsRow.plan, mintedId, ...(functionsRow.functions ? { functions: functionsRow.functions } : {}) });
+      continue;
+    }
+
+    // AI-02 — a language, filter or device-settings change has no descriptor either; the card's line comes from
+    // the call's own input.
+    const device = describeDeviceCall(call, previewSettings);
+    if (device !== null) {
+      rows.push({ call, stamped, plan: emptyPlan(), mintedId, device });
       continue;
     }
 
@@ -526,7 +554,7 @@ export function describeProposal(
     const op = toolOp[call.name];
 
     if (entity === undefined || op === undefined) {
-      rows.push({ call, stamped, plan: emptyPlan(), mintedId });
+      rows.push({ call, stamped, plan: emptyPlan(), mintedId, ...documentDetail });
       continue;
     }
 

@@ -12,7 +12,7 @@ import { resolveAiPolicy } from "../ai-policy";
 import { aiDestinationKey } from "../ai-disclosure";
 import { aiDeploymentBlockedMessageKey } from "../ai-deployment";
 import { TextButton } from "../text-button";
-import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS } from "../settings-types";
+import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS, coerceHardCap } from "../settings-types";
 import {
   DEFAULT_INSIGHT_REC_INTERVAL_MIN,
   MIN_INSIGHT_REC_INTERVAL_MIN,
@@ -100,6 +100,41 @@ function CapInput({
   );
 }
 
+/** The weekly hard cap field. It keeps a draft and commits on blur or Enter: a half-typed number must not pause
+ *  background AI. Blank (or anything that is no positive number) clears the cap. */
+function HardCapInput({ label, help, helpId, value, onCommit }: {
+  label: string;
+  help: string;
+  helpId: string;
+  value: number | undefined;
+  onCommit: (n: number | undefined) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = (): void => {
+    if (draft === null) return;
+    setDraft(null);
+    onCommit(coerceHardCap(draft));
+  };
+  return (
+    <div className="mt-2 block">
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
+      <Input
+        type="number"
+        aria-label={label}
+        aria-describedby={helpId}
+        min={1}
+        step={1}
+        value={draft ?? value ?? ""}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") commit(); }}
+        className="w-full"
+      />
+      <p id={helpId} className="mt-1 text-xs text-muted-foreground">{help}</p>
+    </div>
+  );
+}
+
 type ConsentChange = "accept" | "acceptBackground" | "enable" | "revoke";
 
 /** AI-01 — the AI permission fields each explicit action widens in storage; it may only narrow the rest. An
@@ -122,6 +157,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const aiHeadingId = useId();
   const behaviourHeadingId = useId();
   const apiKeyNoteId = useId();
+  const hardCapHelpId = useId();
   const modelHintId = useId();
   const recBackgroundHintId = useId();
   const deploymentNoticeId = useId();
@@ -602,6 +638,13 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
         onChange={(n) =>
           onChange({ ...settings, ai: { ...settings.ai, weeklyTokenCap: n } })
         }
+      />
+      <HardCapInput
+        label={t(lang, "aiWeeklyHardCap")}
+        help={t(lang, "aiWeeklyHardCapHelp")}
+        helpId={hardCapHelpId}
+        value={settings.ai.weeklyHardCap}
+        onCommit={(n) => onChange({ ...settings, ai: { ...settings.ai, weeklyHardCap: n } })}
       />
       <CapInput
         label={t(lang, "aiMaxTurns")}

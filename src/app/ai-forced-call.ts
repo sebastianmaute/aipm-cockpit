@@ -21,6 +21,7 @@ import { reportAiKeyResponse } from "./ai-key-status";
 import { type AiConsentLevel, assertAiConsentLive } from "./ai-consent";
 import { matchesSchema, withStrictTool } from "./ai-tool-schema";
 import { postAiMessages } from "./ai-transport";
+import { forcedPathId } from "./ai-usage-paths";
 
 export interface ForcedToolCallArgs {
   apiKey: string;
@@ -269,7 +270,7 @@ async function postOnce(
   const res = await postAiMessages({
     apiKey: args.apiKey,
     body: JSON.stringify(body),
-    path: args.toolName,
+    path: forcedPathId(args.toolName, level),
     signal: args.signal,
     // Asked again after the deployment status: consent can be revoked while it is asked.
     beforeSend: () => assertAiConsentLive(level),

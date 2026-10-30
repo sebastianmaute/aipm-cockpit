@@ -5,6 +5,7 @@ import {
   isCascadedRow,
   liveRowTitle,
   mintProvisionalIds,
+  PROPOSAL_PENDING_RESULT,
   proposalTitles,
   stagedToolResult,
   STAGED_TOOL_RESULT,
@@ -137,6 +138,15 @@ describe("stagedToolResult", () => {
     // The "do not re-issue" half must survive on BOTH branches — a model told
     // only that nothing happened re-calls the tool and stages a duplicate row.
     expect(text).toContain("Do not call this tool again");
+  });
+});
+
+// AI-02 — the pending rule holds within one send only: in the next message a trusted lone write applies and an
+// untrusted one stages a new card. So the model must not be told the block lasts until the user decides.
+describe("PROPOSAL_PENDING_RESULT", () => {
+  it("limits the block to the current reply", () => {
+    expect(PROPOSAL_PENDING_RESULT).toContain("in this reply");
+    expect(PROPOSAL_PENDING_RESULT).not.toMatch(/until they have decided/);
   });
 });
 

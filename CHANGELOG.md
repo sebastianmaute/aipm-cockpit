@@ -35,6 +35,22 @@ longer carries its own changelog comment.
   - Every AI feature that reports a failure names a switched-off AI setting or a gateway error as such, never as a
     key or connection problem; a scheduled job's run history records gateway errors, and a job whose AI setting is
     switched off or changed waits and retries instead of using up its run.
+- **AI usage counts every feature, with an optional weekly hard cap.** The usage panel in Settings → AI now
+  counts the chat, inline edits and the eleven one-shot features, interactive or in the background, with a breakdown per
+  feature and a line for background AI. Its weekly token figures are shared by all tabs of the browser; its session
+  figure counts the tab alone, and its view-switch cache lines are not kept in step across tabs. The session and weekly warnings therefore appear sooner. A new optional weekly hard cap pauses only background AI (insight
+  recommendations, scheduled job analysis and the digest narrative) until the week resets, with one warning per week;
+  AI you start yourself is never blocked.
+- **Chat attachments are treated as data.** The assistant is told that the content of an attached document or image is
+  to be analysed, never followed, and each attached document is titled with its file name. While an attachment is in
+  the conversation, every change the assistant wants to make goes to the review card, a single version-checked edit
+  included; only reads run without it, and the work-breakdown proposal keeps its own preview. Every such card line
+  names what it changes; a document write also shows its block count or changes and the opening text it writes (not
+  the whole text, nor which blocks a delete or move targets). In a turn that goes to the card, the work-breakdown
+  proposal opens its own preview beside the card instead of becoming a card row. No message can be sent while an approved card is still being applied.
+  A second proposal in the same message is not made; ask again after deciding on the first card. The review card
+  cannot be applied or discarded while the assistant is still answering. A reopened saved thread has its attachments
+  removed and is trusted again. Help and the threat model say so.
 
 ### Fixed
 

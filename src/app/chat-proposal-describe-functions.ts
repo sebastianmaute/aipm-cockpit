@@ -44,11 +44,11 @@ function settingText(value: unknown): string {
  *  (`ToolDispatcher.previewSettings`). */
 export type PreviewSettings = (patch: SettingsUpdateInput) => Record<string, unknown>;
 
-/** The call's other settings, judged by the write's own patch against the LIVE settings (`preview`):
+/** The call's settings other than `enabledModules`, judged by the write's own patch against the LIVE settings (`preview`):
  *  `nextActionsWeights` keeps the current value for a weight its coercer refuses, so a preview against
  *  the defaults would show a value the write never stores. Without `preview` (a unit test's opt-out;
  *  `chat-panel.tsx` always passes it) it falls back to `defaultSettings`. */
-function otherSettings(input: Readonly<Record<string, unknown>>, preview: PreviewSettings | undefined): FunctionsChange["others"] {
+export function previewedSettings(input: Readonly<Record<string, unknown>>, preview: PreviewSettings | undefined): FunctionsChange["others"] {
   const rest = Object.fromEntries(Object.entries(input).filter(([k]) => k !== FIELD)) as SettingsUpdateInput;
   if (Object.keys(rest).length === 0) return [];
   const applied = preview !== undefined ? preview(rest) : computeSettingsPatch(rest, defaultSettings).applied;
@@ -86,7 +86,7 @@ export function describeFunctionsCall(
       dropped: judged.dropped,
       before,
       after: judged.features,
-      others: otherSettings(call.input, preview),
+      others: previewedSettings(call.input, preview),
     },
   };
 }

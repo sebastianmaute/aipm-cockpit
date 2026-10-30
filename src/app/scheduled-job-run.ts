@@ -6,6 +6,7 @@ import { groundEntity, type ActionAnalysis } from "./action-ai";
 import {
   AiDeploymentError, AiGatewayError, AiHttpError, classifyAiError,
 } from "./ai-errors";
+import { AiConsentRevokedError, AiWeeklyCapReachedError } from "./ai-consent";
 import { buildProjectAnalysisInput } from "./project-analysis-input";
 import { periodStartFor } from "./scheduled-jobs/schedule";
 import { buildProjectDigest, DIGEST_MAX_CHARS } from "./project-digest";
@@ -34,6 +35,10 @@ export interface RunDeps {
   /** Asks the server whether AI is on and on the route this page loaded with (`confirmAiDeployment`); rejects when
    *  not. Asked right before the claim, so a tab that cannot send never claims (and fails) the shared slot. */
   confirmDeployment(): Promise<void>;
+  /** Throws when an unattended run may not send on this device: the background consent is gone or the weekly hard
+   *  cap is reached. Synchronous and free, so it is asked first, before any server read, and again beside
+   *  `confirmDeployment`, for the same reason: a device that cannot send never claims. */
+  confirmBackgroundGate(): void;
   loadWorkspace(projectId: string): Promise<Workspace>;
   /** After a load: true when part of the project failed to decode or was truncated (the report then says so). */
   lastLoadPartial?(): boolean;
@@ -87,6 +92,14 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   if (projectId === null || jobKey === null) return "skipped";
   const slotIso = slot.toISOString();
 
+  // A device that may not send (a capped week, a revoked consent) does no server work at all: the same outcome as the
+  // check beside `confirmDeployment` below, without a read of the server on every tick.
+  try {
+    deps.confirmBackgroundGate();
+  } catch {
+    return "transient";
+  }
+
   // At most one run per cadence period (day or ISO week, in the job's current zone): any report since the period began
   // spends it, so a later edit of the time or zone cannot bill again. The UNIQUE claim still guards the exact slot.
   const periodStart = (periodStartFor(job, slot) ?? slot).toISOString();
@@ -110,6 +123,7 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   // and fail it for all of them. Nothing was sent, so nothing is claimed and the next tick retries.
   try {
     await deps.confirmDeployment();
+    deps.confirmBackgroundGate();
   } catch {
     return "transient";
   }
@@ -196,8 +210,11 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
     });
   } catch (e) {
     // The transport throws `AiDeploymentError` before it sends anything (the setting changed since the check above):
-    // nothing was billed, so, as for the load, the claim is released and the next tick retries.
-    if (e instanceof AiDeploymentError) {
+    // nothing was billed, so, as for the load, the claim is released and the next tick retries. A consent withdrawn or
+    // a weekly hard cap reached since the check above is refused the same way, before a send. With the max-tokens
+    // retry the first reply may already have been billed when the second send is refused: that spend stays recorded
+    // in the usage store, and the released slot is retried once the gate allows it.
+    if (e instanceof AiDeploymentError || e instanceof AiWeeklyCapReachedError || e instanceof AiConsentRevokedError) {
       await settle(releaseClaim(config, reportId));
       return "transient";
     }

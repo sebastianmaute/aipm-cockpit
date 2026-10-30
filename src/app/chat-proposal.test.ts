@@ -49,6 +49,40 @@ describe("shouldStage", () => {
   });
 });
 
+// AI-02 — the send record: the write count runs across the whole send, and an attachment anywhere in
+// the history stages every risky write.
+describe("shouldStage — with a send record", () => {
+  const trusted = { appliedWrites: 0, untrusted: false, staged: false };
+  const untrusted = { appliedWrites: 0, untrusted: true, staged: false };
+
+  test("a write after one already applied in this send stages", () => {
+    expect(shouldStage([call("update_task", { id: 1 })], { ...trusted, appliedWrites: 1 })).toBe(true);
+  });
+
+  test("a lone write with nothing applied before it does not stage", () => {
+    expect(shouldStage([call("update_task", { id: 1 })], trusted)).toBe(false);
+  });
+
+  // Owner decision (AI-02): with an attachment in the history every change stages, a lone tokened update included.
+  test("a lone tokened update stages in an untrusted send", () => {
+    expect(shouldStage([call("update_task", { id: 1 })], untrusted)).toBe(true);
+  });
+
+  test("a lone create stages in an untrusted send", () => {
+    expect(shouldStage([call("create_task")], untrusted)).toBe(true);
+    expect(shouldStage([call("create_task")], trusted)).toBe(false);
+  });
+
+  test("set_language stages in an untrusted send and applies in a trusted one", () => {
+    expect(shouldStage([call("set_language", { language: "de" })], untrusted)).toBe(true);
+    expect(shouldStage([call("set_language", { language: "de" })], trusted)).toBe(false);
+  });
+
+  test("reads never stage, trusted or not", () => {
+    expect(shouldStage([call("list_tasks"), call("get_task", { id: 1 })], untrusted)).toBe(false);
+  });
+});
+
 // ★★ The four lists below are LITERALS, deliberately NOT derived from the
 //    module under test — deriving them would make every assertion here
 //    tautological. They are the second, independent copy of the classification,
