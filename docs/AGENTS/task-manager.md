@@ -49,7 +49,9 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   `getDashboardModel` read-tool getters), `use-storage-banner-reshow.ts` (the render-time reconciles that re-show a dismissed
   saving-paused banner on a NEW cause),
   `workload-triage-handlers.ts` (`buildWorkloadTriageHandlers` — a plain builder, coverage-GATED and tested: the Resources
-  workload reassign/reschedule and clear-unlinked handlers, the last with its destructive-save arming), `shell-chrome.tsx`
+  workload reassign/reschedule and clear-unlinked handlers, the last with its destructive-save arming; and
+  `workloadPaneProps`, which wraps each in `guardEdit` and adds §769's reassign step and undo stack, spread into
+  `workspaceProps`, its test pinning all three guards), `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), `buildTaskEditorChrome` in
   `task-editor-actions.tsx` (a plain builder for the task editor footer slots), `buildAppModalsBlock` in
   `app-modals-block.tsx` (a plain builder for `modalsBlock`, the overlay layer every returned tree renders once; its

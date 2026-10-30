@@ -94,18 +94,35 @@ export interface OwnerEdit {
   resourceId: number | undefined;
 }
 
+/** Options for `reassignTasks`. `extraParts` join the SAME undo entry after the task and hours parts (§769: Plan
+ *  with AI's hour edits); `kind` / `primaryCount` / `entityKey` replace the defaults ("task.updated", the task count).
+ *  `toastText` and `primaryCount` may be functions of the number of edits that actually apply (a no-op edit is
+ *  dropped), so a caller's counts say what was written, not what it asked for. */
+export interface ReassignTasksOpts {
+  toastText?: string | ((applied: number) => string);
+  extraParts?: readonly (CompositeFragment | null)[];
+  kind?: ActivityKind;
+  primaryCount?: number | ((applied: number) => number);
+  entityKey?: UndoEntityKey;
+}
+
 export interface ReassignHours {
   /** For a path that already records its own undo entry for this save.
    *  ★ Commit each step before the next `prepare`: two `prepare` calls before either commits plan from the same state. */
   prepare(changes: readonly OwnerChange[]): HoursMoveStep;
   /** For a path that records nothing today: writes the task owner fields AND the hours, one undo entry, one notice.
    *  `opts.toastText` is the caller's own confirmation; it leads the entry's toast (before any hours notice), so the
-   *  confirmation keeps the Undo button instead of replacing the undo toast with a second one. */
-  reassignTasks(edits: readonly OwnerEdit[], actor: ActivityActor, opts?: { toastText?: string }): void;
+   *  confirmation keeps the Undo button instead of replacing the undo toast with a second one.
+   *  Returns how many task edits it applied (an entry was recorded, or its notice shown in a popout). 0 when no edit
+   *  changed anything, or while loading: then nothing was written and the caller records its own parts. */
+  reassignTasks(edits: readonly OwnerEdit[], actor: ActivityActor, opts?: ReassignTasksOpts): number;
   /** For a `prepare` caller: records `entry.taskPart` plus the step's resources part as ONE undo entry whose
    *  toast is the notice (in a popout, or with no undo, it shows the notice alone). Returns false and records
    *  nothing when the step neither moved hours nor has a notice: the caller then keeps its own capture. */
   record(step: HoursMoveStep, entry: StepEntry): boolean;
+  /** §548 — whether the load hold is up, as this step sees it: while true, `prepare` is inert and `reassignTasks`
+   *  writes nothing. A caller that writes beside the step (Plan with AI's hour edits) asks this first. */
+  isLoadHeld(): boolean;
 }
 
 /** The caller's half of the ONE undo entry a save records: its own task fragment and label. */
@@ -260,8 +277,8 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     };
   };
 
-  const reassignTasks = (edits: readonly OwnerEdit[], actor: ActivityActor, opts?: { toastText?: string }): void => {
-    if (loadPending) return;
+  const reassignTasks = (edits: readonly OwnerEdit[], actor: ActivityActor, opts?: ReassignTasksOpts): number => {
+    if (loadPending) return 0;
     const byId = new Map(tasksRef.current.map((x) => [x.id, x]));
     const taskEdits: { id: number; before: OwnerFields; after: OwnerFields }[] = [];
     const changes: OwnerChange[] = [];
@@ -276,7 +293,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
       taskEdits.push({ id: task.id, before, after });
       changes.push({ task: { ...task, ...after }, fromResourceId: task.resourceId, toResourceId: e.resourceId, fromAssignee: task.assignee });
     }
-    if (taskEdits.length === 0) return;
+    if (taskEdits.length === 0) return 0;
 
     const step = prepare(changes);
     const afterById = new Map(taskEdits.map((x) => [x.id, x.after]));
@@ -290,23 +307,25 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     step.commit(actor);
 
     captureOrNotify(step, {
-      leadText: opts?.toastText,
-      kind: "task.updated",
-      primaryCount: taskEdits.length,
+      leadText: typeof opts?.toastText === "function" ? opts.toastText(taskEdits.length) : opts?.toastText,
+      kind: opts?.kind ?? "task.updated",
+      primaryCount: typeof opts?.primaryCount === "function" ? opts.primaryCount(taskEdits.length) : opts?.primaryCount ?? taskEdits.length,
+      entityKey: opts?.entityKey,
       taskPart: captureFieldPart<Task>({ setter: setTasks, edits: taskEdits, stampField: "localModifiedAt" }),
       // A name describes one row; several fall back to the count label.
       name: taskEdits.length === 1 ? byId.get(taskEdits[0].id)?.taskName : undefined,
-    });
+    }, opts?.extraParts);
+    return taskEdits.length;
   };
 
   // No undo in a popout (or for a caller without one): the notice is shown on its own.
-  function captureOrNotify(step: HoursMoveStep, { taskPart, leadText, ...label }: StepEntry & { leadText?: string }): void {
+  function captureOrNotify(step: HoursMoveStep, { taskPart, leadText, ...label }: StepEntry & { leadText?: string }, extraParts: readonly (CompositeFragment | null)[] = []): void {
     const text = [leadText, step.notice].filter((x): x is string => !!x).join(" ") || undefined;
     if (isPopout || !captureComposite) {
       if (text) showToast("info", text);
       return;
     }
-    captureComposite({ ...label, parts: [taskPart, step.resourcesPart], toastText: text });
+    captureComposite({ ...label, parts: [taskPart, step.resourcesPart, ...extraParts], toastText: text });
   }
 
   const record = (step: HoursMoveStep, entry: StepEntry): boolean => {
@@ -315,5 +334,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     return true;
   };
 
-  return { prepare, reassignTasks, record };
+  const isLoadHeld = (): boolean => loadPending;
+
+  return { prepare, reassignTasks, record, isLoadHeld };
 }

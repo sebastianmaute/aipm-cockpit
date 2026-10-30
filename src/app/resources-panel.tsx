@@ -32,12 +32,14 @@ import {
   DEFAULT_WEEK_HOURS,
   type Discipline,
   type Grade,
+  type Milestone,
   type PlanGranularity,
   type RaidItem,
   type Resource,
   type ResourcePlan,
   type Role,
   type Shift,
+  type Stakeholder,
   type Task,
   type WeekHours,
 } from "./types";
@@ -55,6 +57,7 @@ import { useSettings } from "./use-settings";
 import { useAllocPlan } from "./use-alloc-plan";
 import { type LogActivityAsFn } from "./activity-log-context";
 import { type UndoStackApi } from "./undo/use-undo-stack";
+import { type ReassignHours } from "./use-reassign-hours";
 import { useColumnResize } from "./use-column-resize";
 import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { EmptyState } from "./empty-state";
@@ -154,6 +157,15 @@ interface Props {
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
   onCaptureUndo?: UndoStackApi["capture"];
+  /** §769 — Plan with AI context: milestones and RACI stakeholders for the digest. */
+  milestones: readonly Milestone[];
+  stakeholders: readonly Stakeholder[];
+  /** §769 — applies the model's task moves through the §774 step; returns the edits applied. */
+  onReassignTasks: ReassignHours["reassignTasks"];
+  /** §548 — the reassign step's load-hold signal, asked by Plan with AI before it writes. */
+  onIsLoadHeld: ReassignHours["isLoadHeld"];
+  /** §769 — the SAME undo stack the §774 step uses, so moves and hour edits form one entry. */
+  onCaptureComposite?: UndoStackApi["captureComposite"];
   /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
    *  names its own actor — see the rule on `useActivityLog`. */
   logActivityAs?: LogActivityAsFn;
@@ -227,6 +239,11 @@ function ResourcesPanelInner({
   isPopout,
   onLearnMore,
   onCaptureUndo,
+  milestones,
+  stakeholders,
+  onReassignTasks,
+  onIsLoadHeld,
+  onCaptureComposite,
   logActivityAs,
 }: Props) {
   const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
@@ -300,6 +317,13 @@ function ResourcesPanelInner({
     absences,
     workdayHours,
     holidaySet,
+    tasks,
+    milestones,
+    stakeholders,
+    today,
+    reassignTasks: onReassignTasks,
+    isLoadHeld: onIsLoadHeld,
+    captureComposite: onCaptureComposite,
     capture: onCaptureUndo,
     logActivityAs,
   });

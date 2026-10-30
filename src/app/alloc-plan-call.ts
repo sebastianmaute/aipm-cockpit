@@ -2,8 +2,8 @@
 //
 // Non-hook single forced-tool Anthropic call for AI allocation planning.
 // Mirrors task-dedup-call.ts: ONE request, tool_choice forced, NO agentic loop.
-// Returns the RAW parsed cells (plus whether parsing itself had to truncate
-// an over-large proposal) — grounding against the live workspace happens in
+// Returns the RAW parsed alternatives (§769: each with task moves and cells, plus whether
+// parsing itself had to truncate an over-large proposal) — grounding against the live workspace happens in
 // the caller (groundAllocationCells), never here.
 //
 // SECURITY: the shared runForcedToolCall envelope never logs or echoes the api
@@ -12,9 +12,8 @@
 import {
   PROPOSE_ALLOCATIONS_TOOL,
   buildAllocSystemPrompt,
-  parseAllocationProposal,
-  type ParsedAllocationProposal,
 } from "./alloc-plan/alloc-plan";
+import { parseAllocationAlternatives, type ParsedAllocAlternatives } from "./alloc-plan/alloc-alternatives";
 import { runForcedToolCallWithRetry } from "./ai-forced-call";
 
 interface AiCreds {
@@ -25,9 +24,9 @@ interface AiCreds {
 }
 
 /** Run one forced propose_allocations tool call and return the parsed result
- *  (`{cells, truncated}` — see `parseAllocationProposal`'s doc comment for
- *  why `truncated` must be read from HERE, not only from the later
- *  grounding step). A reply cut at the output budget is asked for once more
+ *  (`{alternatives, truncated}` — `truncated` must be read from HERE, not only
+ *  from the later grounding step, because this parse is where an over-large
+ *  proposal is actually cut). A reply cut at the output budget is asked for once more
  *  with RETRY_MAX_TOKENS (§764). Throws AiHttpError(status, errorType?, safeMessage?) on a
  *  non-OK response and Error("parse") on absent/malformed tool output, or when
  *  the retry is cut too. The
@@ -38,7 +37,7 @@ export async function runAllocProposal(
   ai: AiCreds,
   instruction: string,
   signal?: AbortSignal,
-): Promise<ParsedAllocationProposal> {
+): Promise<ParsedAllocAlternatives> {
   // The context digest is `#`/newline-formatted data; the instruction is free
   // user text. A labeled separator keeps the two visually distinct for
   // readability — it is NOT the security boundary. That boundary is
@@ -55,7 +54,8 @@ export async function runAllocProposal(
     toolName: PROPOSE_ALLOCATIONS_TOOL.name,
     messages: [{ role: "user", content: userMessage }],
     // A worst-case MAX_ALLOC_CELLS=200 proposal serializes to roughly
-    // 2,900-3,300 tokens of tool-use JSON alone; 4096 left too little
+    // 2,900-3,300 tokens of tool-use JSON alone (§769: 50 task moves and three
+    // summaries add about 1,000 more, so the worst case stays near 4,500 and 8192 holds); 4096 left too little
     // headroom for a broad request and a truncated response surfaced as an
     // undifferentiated Error("parse"). 8192 gives real room; the system
     // prompt also asks the model to prioritise rather than enumerate
@@ -67,7 +67,7 @@ export async function runAllocProposal(
   }, 16_384);
   // A reply cut at the retry budget too is never read (§764): its input may be partial yet still parse.
   if (reply.stopReason === "max_tokens") throw new Error("parse");
-  const parsed = parseAllocationProposal(reply.input);
+  const parsed = parseAllocationAlternatives(reply.input);
   if (!parsed) throw new Error("parse");
   return parsed;
 }
