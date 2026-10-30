@@ -32,12 +32,14 @@ import {
   DEFAULT_WEEK_HOURS,
   type Discipline,
   type Grade,
+  type Milestone,
   type PlanGranularity,
   type RaidItem,
   type Resource,
   type ResourcePlan,
   type Role,
   type Shift,
+  type Stakeholder,
   type Task,
   type WeekHours,
 } from "./types";
@@ -179,6 +181,10 @@ const DEFAULT_WEEKLY_HOURS_TOTAL = sumHours(DEFAULT_WEEK_HOURS);
 // One shared empty list: a `= []` default is a new array each render, which would defeat the
 // memoized `onMoveOccurrence` and ResourceCalendar's memo whenever the prop is omitted (§1).
 const NO_CALENDAR_EVENTS: readonly CalendarEvent[] = [];
+// §769 placeholders until Task 7 threads the real values into this panel (shared, so the memo bail holds).
+const NO_MILESTONES: readonly Milestone[] = [];
+const NO_STAKEHOLDERS: readonly Stakeholder[] = [];
+const NO_REASSIGN = (): boolean => false;
 
 function ResourcesPanelInner({
   lang,
@@ -300,6 +306,12 @@ function ResourcesPanelInner({
     absences,
     workdayHours,
     holidaySet,
+    // §769 Task 7 threads the real milestones, RACI, captureComposite and §774 step; until then a move applies nothing.
+    tasks,
+    milestones: NO_MILESTONES,
+    stakeholders: NO_STAKEHOLDERS,
+    today,
+    reassignTasks: NO_REASSIGN,
     capture: onCaptureUndo,
     logActivityAs,
   });

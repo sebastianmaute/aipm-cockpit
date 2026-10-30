@@ -7,7 +7,9 @@ import { useAllocPlan } from "./use-alloc-plan";
 import { ToastProvider } from "./toast-context";
 import { useToast } from "./use-toast";
 import { defaultSettings, type Settings } from "./settings-types";
-import { type Resource, type ResourcePlan } from "./types";
+import { type Resource, type ResourcePlan, type Task } from "./types";
+import { useUndoStack } from "./undo/use-undo-stack";
+import { useReassignHours } from "./use-reassign-hours";
 import * as call from "./alloc-plan-call";
 import { type RawAllocCell } from "./alloc-plan/alloc-plan";
 import { type ParsedAllocAlternatives } from "./alloc-plan/alloc-alternatives";
@@ -94,6 +96,11 @@ function Harness({
     holidaySet: new Set<string>(),
     capture: captureSpy as never,
     logActivityAs: logActivitySpy as never,
+    tasks: [],
+    milestones: [],
+    stakeholders: [],
+    today: "2026-08-01",
+    reassignTasks: () => false,
   });
   return (
     <div>
@@ -493,5 +500,225 @@ describe("useAllocPlan guide text", () => {
     const text = vi.mocked(call.runAllocProposal).mock.calls[0][1].guideText ?? "";
     expect(text).toContain("TARGET-MARK");
     expect(text).not.toContain("CHAT-ONLY");
+  });
+});
+
+// §769 Task 6 — task moves plus hour edits, applied through the REAL §774 step and the REAL undo stack.
+// Sep 1 – Dec 31, monthly. Every month from Sep to Dec has 22 workdays or more, so a hand cell never hits capacity.
+const PLAN_SD: ResourcePlan = { startDate: "2026-09-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
+const TODAY_SD = "2026-09-01";
+const NO_HOLIDAYS: ReadonlySet<string> = new Set<string>();
+
+const MAYA: Resource = {
+  id: 1, firstName: "Maya", lastName: "Patel", email: "maya@x.com", roleId: null, utilizationMode: "hours",
+  utilization: { "2026-09": 40, "2026-10": 40 },
+};
+const LIAM: Resource = { id: 2, firstName: "Liam", lastName: "Foster", email: "liam@x.com", roleId: null, utilizationMode: "hours", utilization: {} };
+const ZOE: Resource = { id: 3, firstName: "Zoe", lastName: "Kim", roleId: null, utilizationMode: "hours", utilization: {} };
+
+// 16 h over Sep 1 – Oct 30: 8 h in each month.
+const DESIGN: Task = {
+  id: 10, taskName: "Design review", assignee: "Maya Patel", assigneeEmail: "maya@x.com", resourceId: 1,
+  startDate: "2026-09-01", dueDate: "2026-10-30", remainingEstimateMinutes: 16 * 60,
+  lastUpdateDate: "2026-09-01", priority: "Medium", status: "To Do",
+} as Task;
+// 8 h in September only.
+const SEP_TASK: Task = { ...DESIGN, id: 12, taskName: "Sep only", dueDate: "2026-09-30", remainingEstimateMinutes: 8 * 60 } as Task;
+// No owner at all.
+const UNOWNED: Task = { ...SEP_TASK, id: 13, taskName: "Nobody's", assignee: "", assigneeEmail: "", resourceId: undefined } as Task;
+
+const fullToast = vi.fn();
+const fullLog = vi.fn();
+const noopLog = () => {};
+
+function alt(summary: string, taskMoves: { taskId: number; toResourceId: number }[], cells: RawAllocCell[]) {
+  return { summary, taskMoves, cells };
+}
+function answer(...alternatives: ReturnType<typeof alt>[]): ParsedAllocAlternatives {
+  return { alternatives, truncated: false };
+}
+
+interface FullProps {
+  initialTasks: readonly Task[];
+  externalTasks?: (tasks: readonly Task[]) => readonly Task[];
+  externalResources?: (resources: readonly Resource[]) => readonly Resource[];
+}
+
+function FullHarness({ initialTasks, externalTasks, externalResources }: FullProps) {
+  const [tasks, setTasks] = useState<readonly Task[]>(initialTasks);
+  const [resources, setResources] = useState<readonly Resource[]>([MAYA, LIAM, ZOE]);
+  const undo = useUndoStack({ lang: "en-US", logActivity: noopLog, showToast: fullToast, showToastAction: fullToast });
+  const reassign = useReassignHours({
+    lang: "en-US", today: TODAY_SD, isPopout: false, loadPending: false,
+    tasks, setTasks, resources, setResources,
+    plan: PLAN_SD, absences: [], workdayHours: 8, holidaySet: NO_HOLIDAYS,
+    captureComposite: undo.captureComposite, logActivityAs: fullLog, showToast: fullToast,
+  });
+  const alloc = useAllocPlan({
+    settings: AI_ON, isPopout: false, lang: "en-US",
+    resources, setResources, roles: [], disciplines: [], grades: [],
+    plan: PLAN_SD, absences: [], workdayHours: 8, holidaySet: NO_HOLIDAYS,
+    tasks, milestones: [], stakeholders: [], today: TODAY_SD,
+    reassignTasks: reassign.reassignTasks,
+    capture: undo.capture, captureComposite: undo.captureComposite,
+    logActivityAs: fullLog,
+  });
+  return (
+    <ToastProvider value={{ showToast: fullToast, showToastAction: fullToast }}>
+      {alloc.button}
+      {alloc.modal}
+      <button type="button" onClick={() => undo.undo()}>undo-now</button>
+      {externalTasks && <button type="button" onClick={() => setTasks(externalTasks)}>edit-tasks</button>}
+      {externalResources && <button type="button" onClick={() => setResources(externalResources)}>edit-resources</button>}
+      <output data-testid="full-util">{JSON.stringify(Object.fromEntries(resources.map((r) => [r.id, r.utilization])))}</output>
+      <output data-testid="full-owners">{JSON.stringify(Object.fromEntries(tasks.map((x) => [x.id, x.resourceId ?? null])))}</output>
+      <output data-testid="full-assignees">{JSON.stringify(Object.fromEntries(tasks.map((x) => [x.id, [x.assignee, x.assigneeEmail]])))}</output>
+      <output data-testid="full-stack">{JSON.stringify(undo.stack.map((e) => ({ kind: e.kind, count: e.count })))}</output>
+    </ToastProvider>
+  );
+}
+
+const readUtil = (): Record<string, Record<string, number>> => JSON.parse(screen.getByTestId("full-util").textContent ?? "{}");
+const readOwners = (): Record<string, number | null> => JSON.parse(screen.getByTestId("full-owners").textContent ?? "{}");
+const readStack = (): { kind: string; count: number }[] => JSON.parse(screen.getByTestId("full-stack").textContent ?? "[]");
+const lastToast = (): string => String(fullToast.mock.calls.at(-1)?.[1] ?? "");
+const moveBox = (taskId: number) => screen.getByRole("checkbox", { name: new RegExp(`#${taskId} `) });
+const cellBox = (resourceId: number, periodKey: string) => screen.getByRole("checkbox", { name: new RegExp(`\\(#${resourceId}\\) – ${periodKey}`) });
+
+async function proposeWith(parsed: ParsedAllocAlternatives, props: FullProps) {
+  vi.mocked(call.runAllocProposal).mockResolvedValue(parsed);
+  render(<FullHarness {...props} />);
+  openAndType("bring Maya under 100 % in September");
+  fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
+  await waitFor(() => expect(screen.getByRole("button", { name: /apply selected/i })).toBeTruthy());
+}
+
+const apply = () => fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
+
+describe("useAllocPlan — task moves and hour edits (§769)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it("applying one move and one cell is one undo entry; undo restores owner, hours and cell", async () => {
+    await proposeWith(answer(alt("", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])), { initialTasks: [DESIGN] });
+    apply();
+    await waitFor(() => expect(readOwners()[10]).toBe(2));
+    expect(readUtil()).toEqual({ 1: { "2026-09": 32, "2026-10": 32 }, 2: { "2026-09": 8, "2026-10": 8 }, 3: { "2026-11": 12 } });
+    expect(JSON.parse(screen.getByTestId("full-assignees").textContent ?? "{}")[10]).toEqual(["Liam Foster", "liam@x.com"]);
+    expect(readStack()).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "undo-now" }));
+    await waitFor(() => expect(readOwners()[10]).toBe(1));
+    expect(readUtil()).toEqual({ 1: { "2026-09": 40, "2026-10": 40 }, 2: {}, 3: {} });
+    expect(readStack()).toHaveLength(0);
+  });
+
+  // Mutation: write the cells from the render snapshot (`setResources(() => …)`) and Maya's September comes back to 40.
+  it("a cell write does not clobber the hours a move wrote in the same apply", async () => {
+    await proposeWith(answer(alt("", [{ taskId: 12, toResourceId: 2 }], [{ resourceId: 2, periodKey: "2026-10", hours: 20 }])), { initialTasks: [SEP_TASK] });
+    apply();
+    await waitFor(() => expect(readOwners()[12]).toBe(2));
+    expect(readUtil()[1]).toEqual({ "2026-09": 32, "2026-10": 40 });
+    expect(readUtil()[2]).toEqual({ "2026-09": 8, "2026-10": 20 });
+  });
+
+  it("a move whose task changed while the window was open is skipped as stale", async () => {
+    await proposeWith(
+      answer(alt("", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])),
+      { initialTasks: [DESIGN], externalTasks: (ts) => ts.map((x) => (x.id === 10 ? { ...x, dueDate: "2026-10-15" } : x)) },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "edit-tasks" }));
+    apply();
+    await waitFor(() => expect(readUtil()[3]).toEqual({ "2026-11": 12 }));
+    expect(readOwners()[10]).toBe(1);
+    expect(readUtil()[1]).toEqual({ "2026-09": 40, "2026-10": 40 });
+    expect(lastToast()).toBe(tPlural("en-US", "allocPlanAppliedSkipped", 1, 1, 1));
+  });
+
+  it("a move whose giver's planned hours changed is skipped as stale", async () => {
+    await proposeWith(
+      answer(alt("", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])),
+      { initialTasks: [DESIGN], externalResources: (rs) => rs.map((r) => (r.id === 1 ? { ...r, utilization: { ...r.utilization, "2026-10": 30 } } : r)) },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "edit-resources" }));
+    apply();
+    await waitFor(() => expect(readUtil()[3]).toEqual({ "2026-11": 12 }));
+    expect(readOwners()[10]).toBe(1);
+    expect(readUtil()[1]).toEqual({ "2026-09": 40, "2026-10": 30 });
+    expect(readUtil()[2]).toEqual({});
+    expect(lastToast()).toBe(tPlural("en-US", "allocPlanAppliedSkipped", 1, 1, 1));
+  });
+
+  // Review Focus 2. Mutation: one shared tick set for every alternative, or apply reading alternative 0.
+  it("switching alternatives keeps each one's ticks; applying alternative 2 writes only its rows", async () => {
+    await proposeWith(answer(
+      alt("Move the review", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }]),
+      alt("Shift hours", [], [{ resourceId: 3, periodKey: "2026-12", hours: 5 }, { resourceId: 2, periodKey: "2026-11", hours: 6 }]),
+    ), { initialTasks: [DESIGN] });
+    fireEvent.click(cellBox(3, "2026-11"));
+    fireEvent.click(screen.getByRole("radio", { name: /Alternative 2/ }));
+    expect(cellBox(3, "2026-12")).toBeChecked();
+    fireEvent.click(cellBox(2, "2026-11"));
+    fireEvent.click(screen.getByRole("radio", { name: /Alternative 1/ }));
+    expect(cellBox(3, "2026-11")).not.toBeChecked();
+    expect(moveBox(10)).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: /Alternative 2/ }));
+    expect(cellBox(2, "2026-11")).not.toBeChecked();
+    expect(cellBox(3, "2026-12")).toBeChecked();
+    apply();
+    await waitFor(() => expect(readUtil()[3]).toEqual({ "2026-12": 5 }));
+    expect(readUtil()[2]).toEqual({});
+    expect(readUtil()[1]).toEqual({ "2026-09": 40, "2026-10": 40 });
+    expect(readOwners()[10]).toBe(1);
+  });
+
+  // Review Focus 1. Mutation: put covered-by-move cells back into the alternative's rows when their move is unticked.
+  it("unticking a move does not bring back a covered-by-move cell", async () => {
+    await proposeWith(answer(alt("", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 2, periodKey: "2026-09", hours: 30 }])), { initialTasks: [DESIGN] });
+    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+    fireEvent.click(moveBox(10));
+    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+    expect(screen.queryByRole("checkbox", { name: /\(#2\) – 2026-09/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /apply selected/i })).toBeDisabled();
+    expect(readUtil()[2]).toEqual({});
+  });
+
+  it("an unlinked move assigns the owner and its cells add the hours", async () => {
+    await proposeWith(answer(alt("", [{ taskId: 13, toResourceId: 2 }], [{ resourceId: 2, periodKey: "2026-09", hours: 8 }])), { initialTasks: [UNOWNED] });
+    expect(cellBox(2, "2026-09")).toBeChecked();
+    apply();
+    await waitFor(() => expect(readOwners()[13]).toBe(2));
+    expect(readUtil()[2]).toEqual({ "2026-09": 8 });
+    expect(readUtil()[1]).toEqual({ "2026-09": 40, "2026-10": 40 });
+    expect(readStack()).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "undo-now" }));
+    await waitFor(() => expect(readOwners()[13]).toBeNull());
+    expect(readUtil()[2]).toEqual({});
+  });
+
+  it("logs ai.allocationPlanAlt with the alternative number, never the summary", async () => {
+    await proposeWith(answer(
+      alt("FIRST-SUMMARY", [], [{ resourceId: 3, periodKey: "2026-12", hours: 5 }]),
+      alt("SECRET-SUMMARY", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }]),
+    ), { initialTasks: [DESIGN] });
+    fireEvent.click(screen.getByRole("radio", { name: /Alternative 2/ }));
+    apply();
+    await waitFor(() => expect(readOwners()[10]).toBe(2));
+    expect(fullLog).toHaveBeenCalledWith("ai", "ai.allocationPlanAlt", 2, 1, 1);
+    for (const args of fullLog.mock.calls) {
+      for (const a of args) expect(String(a)).not.toMatch(/SUMMARY/);
+    }
+  });
+
+  it("only cells ticked: captures one bulk.edit entry as today", async () => {
+    await proposeWith(answer(alt("", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])), { initialTasks: [DESIGN] });
+    fireEvent.click(moveBox(10));
+    apply();
+    await waitFor(() => expect(readUtil()[3]).toEqual({ "2026-11": 12 }));
+    expect(readOwners()[10]).toBe(1);
+    expect(readStack()).toEqual([{ kind: "bulk.edit", count: 1 }]);
+    expect(fullLog).toHaveBeenCalledWith("ai", "ai.allocationPlan", 1);
+    expect(fullLog.mock.calls.some((c) => c[1] === "ai.allocationPlanAlt")).toBe(false);
+    expect(lastToast()).toBe(tPlural("en-US", "allocPlanApplied", 1, 1));
+    fireEvent.click(screen.getByRole("button", { name: "undo-now" }));
+    await waitFor(() => expect(readUtil()[3]).toEqual({}));
   });
 });

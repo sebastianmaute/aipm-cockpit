@@ -5833,6 +5833,7 @@ const enUS = {
   wbsPlanAppliedSkippedOne: "Work-breakdown changes applied: {0}. 1 change was skipped because the task list changed after the proposal.",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
   activityAiAllocationPlanOne: "AI planned 1 allocation cell",
+  activityAiAllocationPlanAlt: "AI applied alternative {0}: {1} task moves, {2} hour edits",
   activityAiWbsPlan: "AI applied {0} work-breakdown changes",
   activityAiWbsPlanOne: "AI applied 1 work-breakdown change",
   activityAiDocumentWrite: "Assistant edited a document",

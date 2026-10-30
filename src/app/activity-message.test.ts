@@ -126,6 +126,12 @@ describe("activityMessage", () => {
     expect(activityMessage("de", "ai.wbsPlan", [5])).toBe("KI hat 5 Änderungen an den Arbeitspaketen übernommen");
   });
 
+  // §769 — an applied alternative is logged by its NUMBER and counts only, never the model's summary.
+  it("renders an applied Plan with AI alternative by number and counts", () => {
+    expect(activityMessage("en-US", "ai.allocationPlanAlt", [2, 3, 4])).toBe("AI applied alternative 2: 3 task moves, 4 hour edits");
+    expect(activityMessage("de", "ai.allocationPlanAlt", [2, 3, 4])).toBe("KI hat Alternative 2 übernommen: 3 Aufgabenverschiebungen, 4 Stundenänderungen");
+  });
+
   /**
    * A count that is not a number must not throw and must not render
    * singular text.
