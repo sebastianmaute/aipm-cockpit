@@ -1406,6 +1406,13 @@ describe("buildAllocContext project digest (§769)", () => {
     expect(buildAllocSystemPrompt()).toContain("Never move a task marked jira: it is read-only.");
   });
 
+  // The hours= list covers only the listed periods; a move carries the whole remaining estimate.
+  it("the system prompt says hours= lists only the listed periods and a move carries all remaining hours", () => {
+    const prompt = buildAllocSystemPrompt();
+    expect(prompt).toContain("A task's hours= list shows only the listed PERIOD KEYS; remaining= is its whole estimate, and a move carries all of it, also the hours outside the listed periods.");
+    expect(prompt).not.toContain("as shown in its hours= list");
+  });
+
   it("plan line names the currency", () => {
     expect(buildAllocContext({ ...NO_PROJECT, ...base, resources: [] })).toContain("workday=8h currency=EUR");
   });
