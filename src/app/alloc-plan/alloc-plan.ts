@@ -189,7 +189,7 @@ export function buildAllocSystemPrompt(): string {
     "Return more than one alternative only when they are genuinely different ways (moving tasks versus shifting hours, or different people); at most three.",
     "Prefer people with R or A on a task's milestone.",
     "A task not listed may still exist when the TASKS list is truncated.",
-    "Call the propose_allocations tool exactly once. Keep `rationale` to one short line.",
+    "Call the propose_allocations tool exactly once. Keep each alternative's `rationale` to one short line.",
   ].join(" ");
 }
 
@@ -210,6 +210,7 @@ export const PROPOSE_ALLOCATIONS_TOOL = {
           type: "object",
           properties: {
             summary: { type: "string", description: "One short line (at most 200 characters) saying what this alternative does." },
+            rationale: { type: "string", description: "One short line explaining this alternative." },
             taskMoves: {
               type: "array",
               description: "Tasks to hand to another resource; a moved task carries its hours automatically.",
@@ -253,41 +254,6 @@ export function toInt(v: unknown): number | null {
 function toFiniteNumber(v: unknown): number | null {
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
   return Number.isFinite(n) ? n : null;
-}
-
-/** Result of parsing the model's raw tool input: the shape-validated cells
- *  (ids/keys are grounded later, by `groundAllocationCells`) plus whether the
- *  raw `cells` array itself had to be cut short at `MAX_ALLOC_CELLS`. THIS is
- *  where a too-large proposal actually gets cut — `groundAllocationCells`'s
- *  own cap is defense in depth for a caller that skips this parse step, and
- *  in the real Anthropic-tool-response path never fires, so a caller MUST
- *  read `truncated` from here (and OR it with the ground-level flag) to
- *  learn that anything was dropped. */
-export interface ParsedAllocationProposal {
-  cells: RawAllocCell[];
-  truncated: boolean;
-}
-
-/** Parse the untrusted model tool input into raw cells (shape only — ids/keys
- *  are grounded later). Returns null only when the overall shape is unusable
- *  (no `cells` array); individual malformed cells are dropped, not fatal.
- *  Stops at MAX_ALLOC_CELLS, and reports that stop via `truncated` — see
- *  `ParsedAllocationProposal`. */
-export function parseAllocationProposal(input: unknown): ParsedAllocationProposal | null {
-  if (!input || typeof input !== "object") return null;
-  const cellsRaw = (input as { cells?: unknown }).cells;
-  if (!Array.isArray(cellsRaw)) return null;
-  const out: RawAllocCell[] = [];
-  let truncated = false;
-  for (const raw of cellsRaw) {
-    if (out.length >= MAX_ALLOC_CELLS) {
-      truncated = true;
-      break;
-    }
-    const cell = parseRawCell(raw);
-    if (cell) out.push(cell);
-  }
-  return { cells: out, truncated };
 }
 
 /** Shape-validate ONE untrusted cell (§769: shared by every alternative's cells); null when malformed. */
@@ -450,10 +416,10 @@ function resolveNextValue(
  * still a real change (how a user clears a cell) and is always kept.
  *
  * Stops accumulating once `cells.length` reaches MAX_ALLOC_CELLS. This is
- * DEFENSE IN DEPTH ONLY: `parseAllocationProposal` already caps the raw
+ * DEFENSE IN DEPTH ONLY: `parseAllocationAlternatives` already caps the raw
  * input to the same count before this function ever sees it, so on the real
  * Anthropic-tool-response path this branch cannot fire — a caller MUST read
- * `truncated` from `parseAllocationProposal`'s own result too (and OR the two
+ * `truncated` from `parseAllocationAlternatives`'s own result too (and OR the two
  * together) to learn that a too-large proposal was cut. The `truncated`
  * returned here is set precisely when THIS function's own cap is hit WITH
  * input still unconsumed — never when `raw` was simply exhausted at or under

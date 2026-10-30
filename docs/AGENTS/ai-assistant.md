@@ -1030,7 +1030,7 @@
   `HOURS_MAP_MAX`) with a `clamped` flag, and a percent cell with ZERO capacity skipped — never written as 0
   or 100. ★ Writes are SET, NAMED CELLS ONLY (never window-ownership — that is the `timelog-apply` defect
   class), applied in ONE functional `setResources` with ONE `bulk.edit` undo entry, and confirm drops any cell
-  whose live value moved since propose. ★ Every cap that can hide data reports it: `parseAllocationProposal`
+  whose live value moved since propose. ★ Every cap that can hide data reports it: `parseAllocationAlternatives`
   returns `truncated` (the cap that actually fires — the ground-level one is defence in depth and cannot),
   `buildAllocContext` caps periods (`ALLOC_CONTEXT_MAX_PERIODS`; 120 resources × 104 weekly periods was ~52k
   input tokens per click), and `list_allocations` carries a PER-RESOURCE `truncated` so an omitted resource is

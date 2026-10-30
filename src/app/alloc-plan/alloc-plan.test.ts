@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseAllocationAlternatives } from "./alloc-alternatives";
 import {
   ALLOC_CONTEXT_MAX_PERIODS,
   ALLOC_CONTEXT_MAX_RESOURCES,
@@ -16,7 +17,7 @@ import {
   formatAllocValue,
   groundAllocationCells,
   makeAllocationsSnapshotGetter,
-  parseAllocationProposal,
+  parseRawCell,
   pickAllocationsScope,
   resourceLabel,
   type GroundedAllocCell,
@@ -366,99 +367,31 @@ describe("buildAllocSystemPrompt", () => {
   });
 });
 
-describe("parseAllocationProposal", () => {
-  it("returns null when the shape is unusable", () => {
-    expect(parseAllocationProposal(null)).toBeNull();
-    expect(parseAllocationProposal({})).toBeNull();
-    expect(parseAllocationProposal({ cells: "nope" })).toBeNull();
-  });
-
-  it("keeps well-formed cells and drops malformed ones without failing", () => {
-    const parsed = parseAllocationProposal({
-      cells: [
-        { resourceId: 1, periodKey: "2026-08", hours: 40 },
-        { resourceId: "nope", periodKey: "2026-08", hours: 10 },
-        { resourceId: 2, periodKey: 7, hours: 10 },
-        { resourceId: 3, periodKey: "2026-09", hours: "12.5" },
-      ],
-      rationale: "spread the design load",
+describe("parseRawCell", () => {
+  it("keeps a well-formed cell and coerces numeric strings", () => {
+    expect(parseRawCell({ resourceId: 3, periodKey: " 2026-09 ", hours: "12.5" })).toEqual({
+      resourceId: 3,
+      periodKey: "2026-09",
+      hours: 12.5,
     });
-
-    expect(parsed?.cells).toEqual([
-      { resourceId: 1, periodKey: "2026-08", hours: 40 },
-      { resourceId: 3, periodKey: "2026-09", hours: 12.5 },
-    ]);
-    expect(parsed?.truncated).toBe(false);
   });
 
-  it("caps the number of cells it will parse AND reports truncated: true", () => {
-    // THIS is where a too-large proposal actually gets cut in the real
-    // Anthropic-tool-response path — groundAllocationCells's own cap never
-    // sees the overflow, because it never receives more than this many cells.
-    const cells = Array.from({ length: MAX_ALLOC_CELLS + 10 }, (_, i) => ({
-      resourceId: 1,
-      periodKey: `2026-${String((i % 12) + 1).padStart(2, "0")}`,
-      hours: 1,
-    }));
-
-    const parsed = parseAllocationProposal({ cells });
-
-    expect(parsed?.cells).toHaveLength(MAX_ALLOC_CELLS);
-    expect(parsed?.truncated).toBe(true);
-  });
-
-  it("does not report truncated when the raw proposal fits under the cap", () => {
-    const parsed = parseAllocationProposal({
-      cells: [{ resourceId: 1, periodKey: "2026-08", hours: 10 }],
-    });
-    expect(parsed?.truncated).toBe(false);
-  });
-
-  it("does not report truncated when raw input lands exactly at the cap with nothing left over", () => {
-    const cells = Array.from({ length: MAX_ALLOC_CELLS }, (_, i) => ({
-      resourceId: 1,
-      periodKey: `2026-${String((i % 12) + 1).padStart(2, "0")}`,
-      hours: 1,
-    }));
-
-    const parsed = parseAllocationProposal({ cells });
-
-    expect(parsed?.cells).toHaveLength(MAX_ALLOC_CELLS);
-    expect(parsed?.truncated).toBe(false);
-  });
-
-  it("drops a non-object cell entry (falsy, and truthy-but-not-an-object)", () => {
-    const parsed = parseAllocationProposal({
-      cells: [null, 42, { resourceId: 9, periodKey: "2026-08", hours: 5 }],
-    });
-
-    expect(parsed?.cells).toEqual([{ resourceId: 9, periodKey: "2026-08", hours: 5 }]);
-  });
-
-  it("drops a cell whose resourceId is neither a number nor a string", () => {
-    const parsed = parseAllocationProposal({
-      cells: [
-        { resourceId: null, periodKey: "2026-08", hours: 5 },
-        { resourceId: 9, periodKey: "2026-08", hours: 5 },
-      ],
-    });
-
-    expect(parsed?.cells).toEqual([{ resourceId: 9, periodKey: "2026-08", hours: 5 }]);
-  });
-
-  it("drops a cell whose hours is neither a finite number nor a numeric string", () => {
-    const parsed = parseAllocationProposal({
-      cells: [
-        { resourceId: 9, periodKey: "2026-08", hours: null },
-        { resourceId: 9, periodKey: "2026-09", hours: 5 },
-      ],
-    });
-
-    expect(parsed?.cells).toEqual([{ resourceId: 9, periodKey: "2026-09", hours: 5 }]);
+  it("returns null for a malformed cell", () => {
+    for (const bad of [
+      null,
+      42,
+      { resourceId: "nope", periodKey: "2026-08", hours: 10 },
+      { resourceId: null, periodKey: "2026-08", hours: 5 },
+      { resourceId: 2, periodKey: 7, hours: 10 },
+      { resourceId: 2, periodKey: "  ", hours: 10 },
+      { resourceId: 9, periodKey: "2026-08", hours: null },
+    ]) {
+      expect(parseRawCell(bad)).toBeNull();
+    }
   });
 });
 
-describe("parseAllocationProposal -> groundAllocationCells (real production pipeline)", () => {
+describe("parseAllocationAlternatives -> groundAllocationCells (real production pipeline)", () => {
   it("surfaces truncation only when the caller ORs BOTH functions' flags — grounded.truncated alone misses a parse-level drop", () => {
     // A proposal 50 cells over the cap, one distinct resource per cell so
     // every cell that survives parsing grounds cleanly (nothing else gets
@@ -473,14 +406,14 @@ describe("parseAllocationProposal -> groundAllocationCells (real production pipe
       hours: 10,
     }));
 
-    const parsed = parseAllocationProposal({ cells: raw });
+    const parsed = parseAllocationAlternatives({ cells: raw });
     expect(parsed).not.toBeNull();
-    const grounded = groundAllocationCells(parsed!.cells, groundCtx(resources));
+    const grounded = groundAllocationCells(parsed!.alternatives[0].cells, groundCtx(resources));
 
-    // parseAllocationProposal already cut 50 cells before grounding ever ran,
+    // parseAllocationAlternatives already cut 50 cells before grounding ever ran,
     // so grounding receives exactly MAX_ALLOC_CELLS cells and never hits its
     // OWN cap — grounded.truncated is false even though real cells were lost.
-    expect(parsed!.cells).toHaveLength(MAX_ALLOC_CELLS);
+    expect(parsed!.alternatives[0].cells).toHaveLength(MAX_ALLOC_CELLS);
     expect(parsed!.truncated).toBe(true);
     expect(grounded.truncated).toBe(false);
 
@@ -491,11 +424,11 @@ describe("parseAllocationProposal -> groundAllocationCells (real production pipe
 
   it("reports no truncation anywhere when a proposal fits comfortably under the cap", () => {
     const resources = [resource(1, { utilizationMode: "hours" })];
-    const parsed = parseAllocationProposal({
+    const parsed = parseAllocationAlternatives({
       cells: [{ resourceId: 1, periodKey: "2026-08", hours: 10 }],
     });
     expect(parsed).not.toBeNull();
-    const grounded = groundAllocationCells(parsed!.cells, groundCtx(resources));
+    const grounded = groundAllocationCells(parsed!.alternatives[0].cells, groundCtx(resources));
 
     expect(parsed!.truncated).toBe(false);
     expect(grounded.truncated).toBe(false);
@@ -693,12 +626,12 @@ describe("groundAllocationCells", () => {
 
   it("[defense in depth] stops accumulating once MAX_ALLOC_CELLS accepted cells are reached, and reports truncated", () => {
     // This calls groundAllocationCells DIRECTLY with 220 raw cells — a state
-    // parseAllocationProposal's own MAX_ALLOC_CELLS cap never lets through in
+    // parseAllocationAlternatives's own MAX_ALLOC_CELLS cap never lets through in
     // the real Anthropic-tool-response path (see the
-    // "parseAllocationProposal -> groundAllocationCells" describe above for
+    // "parseAllocationAlternatives -> groundAllocationCells" describe above for
     // the real production pipeline). This test exercises ONLY the
     // defense-in-depth branch documented on groundAllocationCells, for a
-    // hypothetical caller that skips parseAllocationProposal.
+    // hypothetical caller that skips parseAllocationAlternatives.
     const resourceCount = Math.ceil((MAX_ALLOC_CELLS + 20) / 2);
     const resources = Array.from({ length: resourceCount }, (_, i) =>
       resource(i + 1, { utilizationMode: "hours" }),

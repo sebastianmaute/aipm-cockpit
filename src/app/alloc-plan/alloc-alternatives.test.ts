@@ -79,6 +79,44 @@ describe("parseAllocationAlternatives", () => {
     expect(s.length).toBe(200);
   });
 
+  it("does not set truncated for an empty or non-object fourth entry, but does for one with a valid cell", () => {
+    const base = [alt("A", 0, 1), alt("B", 0, 1), alt("C", 0, 1)];
+    expect(parseAllocationAlternatives({ alternatives: [...base, {}] })?.truncated).toBe(false);
+    expect(parseAllocationAlternatives({ alternatives: [...base, "x"] })?.truncated).toBe(false);
+    expect(parseAllocationAlternatives({ alternatives: [...base, { cells: [null] }] })?.truncated).toBe(false);
+    expect(parseAllocationAlternatives({ alternatives: [...base, alt("D", 0, 1)] })?.truncated).toBe(true);
+    expect(parseAllocationAlternatives({ alternatives: [...base, alt("D", 1, 0)] })?.truncated).toBe(true);
+  });
+
+  it("keeps a later alternative with zero cells when the cap is used up", () => {
+    const r = parseAllocationAlternatives({ alternatives: [alt("A", 0, 100), alt("B", 0, 100), alt("C", 0, 100)] });
+    expect(r?.alternatives.map((a) => a.cells.length)).toEqual([100, 100, 0]);
+    expect(r?.alternatives[2].summary).toBe("C");
+  });
+
+  it("does not split a surrogate pair when clipping the summary", () => {
+    const s = parseAllocationAlternatives({
+      alternatives: [{ summary: `${"x".repeat(199)}😀tail`, taskMoves: [], cells: [] }],
+    })?.alternatives[0].summary;
+    expect(Array.from(s ?? "")).toHaveLength(200);
+    expect(s?.endsWith("😀")).toBe(true);
+  });
+
+  it("reads rationale as one clipped line and omits it when blank or not a string", () => {
+    const r = parseAllocationAlternatives({
+      alternatives: [
+        { summary: "A", rationale: "why\nbecause", taskMoves: [], cells: [] },
+        { summary: "B", rationale: "   ", taskMoves: [], cells: [] },
+        { summary: "C", rationale: 4, taskMoves: [], cells: [] },
+      ],
+    });
+    expect(r?.alternatives[0].rationale).toBe("why because");
+    expect("rationale" in (r?.alternatives[1] ?? {})).toBe(false);
+    expect("rationale" in (r?.alternatives[2] ?? {})).toBe(false);
+    const long = parseAllocationAlternatives({ alternatives: [{ rationale: "y".repeat(300), taskMoves: [], cells: [] }] });
+    expect(long?.alternatives[0].rationale).toHaveLength(200);
+  });
+
   it("treats a missing or non-string summary as empty", () => {
     const r = parseAllocationAlternatives({ alternatives: [{ summary: 5, cells: [cell(0)] }] });
     expect(r?.alternatives[0]).toEqual({ summary: "", taskMoves: [], cells: [cell(0)] });
@@ -100,5 +138,7 @@ describe("PROPOSE_ALLOCATIONS_TOOL schema", () => {
     };
     expect(s.required).toEqual(["alternatives"]);
     expect(s.properties.alternatives.items.required).toEqual(["summary", "taskMoves", "cells"]);
+    const props = (s.properties.alternatives.items as unknown as { properties: Record<string, unknown> }).properties;
+    expect(props.rationale).toBeDefined();
   });
 });

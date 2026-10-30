@@ -11,8 +11,12 @@ import { MAX_ALLOC_CELLS, parseRawCell, toInt, type RawAllocCell } from "./alloc
 export const MAX_ALLOC_ALTERNATIVES = 3;
 /** Bound on task moves across ALL alternatives together (blast radius + token budget). */
 export const MAX_ALLOC_MOVES = 50;
-/** Longest summary kept, after collapsing it to one line. */
-const MAX_SUMMARY_CHARS = 200;
+/** Longest summary or rationale kept (in characters, not UTF-16 units), after collapsing it to one line. */
+const MAX_LINE_CHARS = 200;
+
+function clipLine(v: unknown): string {
+  return typeof v === "string" ? Array.from(oneLine(v)).slice(0, MAX_LINE_CHARS).join("") : "";
+}
 
 export interface RawTaskMove {
   taskId: number;
@@ -21,6 +25,8 @@ export interface RawTaskMove {
 
 export interface RawAllocAlternative {
   summary: string;
+  /** One short line; absent when the model gave none. */
+  rationale?: string;
   taskMoves: RawTaskMove[];
   cells: RawAllocCell[];
 }
@@ -54,7 +60,10 @@ function takeValid<T>(raw: unknown, parse: (r: unknown) => T | null, room: numbe
 /** Parse the untrusted tool input. Accepts `alternatives`, or the pre-§769 top-level
  *  `cells` as ONE alternative. Null only when neither is an array; malformed alternatives,
  *  moves and cells are dropped, not fatal. Cells and moves are capped across all
- *  alternatives together (`MAX_ALLOC_CELLS`, `MAX_ALLOC_MOVES`). */
+ *  alternatives together (`MAX_ALLOC_CELLS`, `MAX_ALLOC_MOVES`), so a later alternative can
+ *  come back EMPTY (no moves, no cells) once earlier ones used the room: later stages must
+ *  handle an empty alternative. `truncated` is set only when something usable was dropped
+ *  (a fourth alternative counts only if it holds a valid move or cell). */
 export function parseAllocationAlternatives(input: unknown): ParsedAllocAlternatives | null {
   if (!input || typeof input !== "object") return null;
   const { alternatives, cells } = input as { alternatives?: unknown; cells?: unknown };
@@ -69,19 +78,25 @@ export function parseAllocationAlternatives(input: unknown): ParsedAllocAlternat
   let moveCount = 0;
   for (const raw of rawAlts) {
     if (!raw || typeof raw !== "object") continue;
+    const a = raw as { summary?: unknown; rationale?: unknown; taskMoves?: unknown; cells?: unknown };
     if (out.length >= MAX_ALLOC_ALTERNATIVES) {
-      truncated = true;
-      break;
+      // Room 0: reports whether the dropped alternative held anything usable.
+      if (takeValid(a.taskMoves, parseMove, 0, []) || takeValid(a.cells, parseRawCell, 0, [])) truncated = true;
+      continue;
     }
-    const a = raw as { summary?: unknown; taskMoves?: unknown; cells?: unknown };
     const taskMoves: RawTaskMove[] = [];
     const altCells: RawAllocCell[] = [];
     if (takeValid(a.taskMoves, parseMove, MAX_ALLOC_MOVES - moveCount, taskMoves)) truncated = true;
     if (takeValid(a.cells, parseRawCell, MAX_ALLOC_CELLS - cellCount, altCells)) truncated = true;
     moveCount += taskMoves.length;
     cellCount += altCells.length;
-    const summary = typeof a.summary === "string" ? oneLine(a.summary).slice(0, MAX_SUMMARY_CHARS) : "";
-    out.push({ summary, taskMoves, cells: altCells });
+    const rationale = clipLine(a.rationale);
+    out.push({
+      summary: clipLine(a.summary),
+      ...(rationale ? { rationale } : {}),
+      taskMoves,
+      cells: altCells,
+    });
   }
   return { alternatives: out, truncated };
 }

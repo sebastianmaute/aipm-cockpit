@@ -133,7 +133,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       setCells(grounded.cells);
       setSkipped(grounded.skipped);
       // parsed.truncated is where an over-large proposal ACTUALLY gets cut
-      // (parseAllocationProposal caps at the same MAX_ALLOC_CELLS grounding
+      // (parseAllocationAlternatives caps cells at the same MAX_ALLOC_CELLS grounding
       // does, so grounded.truncated alone can never fire on this real path —
       // it stays as defense in depth for a caller that skips parsing). OR
       // both so neither omission goes unreported.

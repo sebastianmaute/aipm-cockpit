@@ -271,7 +271,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
   });
 
   it("shows the truncated notice from the PARSE-level flag alone (grounding itself is not truncated)", async () => {
-    // The real production path: parseAllocationProposal is where a too-large
+    // The real production path: parseAllocationAlternatives is where a too-large
     // proposal actually gets cut, so the mock returns truncated: true even
     // though only ONE cell is present here — grounding this single cell can
     // never hit its own cap. If the hook read only groundAllocationCells's
