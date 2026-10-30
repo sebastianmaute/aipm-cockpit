@@ -5741,6 +5741,8 @@ const enUS = {
   allocPlanEffectMovesOne: "Moves 1 task ({1} h)",
   allocPlanEffectCells: "edits {0} cells",
   allocPlanEffectCellsOne: "edits 1 cell",
+  allocPlanEffectCovered: "{0} hour edits already covered by the ticked task moves",
+  allocPlanEffectCoveredOne: "1 hour edit already covered by the ticked task moves",
   allocPlanCostNone: "no cost change",
   allocPlanCostInternal: "{0} internal",
   allocPlanCostExternals: "{0} h to or from externals, not costed",

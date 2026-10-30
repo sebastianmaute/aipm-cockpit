@@ -4,10 +4,10 @@
 // internally. Pure, i18n-free. Everything is in SHOWN hours, so percent-mode people compare like hours-mode ones.
 import { type Resource, type Role } from "../types";
 import { absencesForResource, generatePeriods, periodCapacityHours, type Period } from "../resource-capacity";
-import { OVER_CAPACITY_TOLERANCE_HOURS, planHoursMoves, plannedShownDeltas } from "../reassign-hours";
+import { OVER_CAPACITY_TOLERANCE_HOURS, plannedShownDeltas, type HoursMovePlan } from "../reassign-hours";
 import { periodCost } from "../resource-cost";
 import { cellKey, availableCapacityHours } from "./alloc-plan";
-import { ownerChangeFor, type GroundedAlternative, type MoveGroundContext } from "./alloc-ground-moves";
+import { planTickedMoves, type GroundedAlternative, type MoveGroundContext } from "./alloc-ground-moves";
 
 export interface OverCapacity {
   resourceId: number;
@@ -19,7 +19,12 @@ export interface OverCapacity {
 export interface AltEffect {
   movedTasks: number;
   movedHours: number;
+  /** Ticked hour edits that count: the ones the ticked moves do not already change. */
   editedCells: number;
+  /** Ticked hour edits the ticked moves, planned together, already change: they add nothing and are not written. */
+  coveredCells: number;
+  /** The ticked linked moves planned together; a ticked move's row shows its own share of it. */
+  movePlan: HoursMovePlan;
   costDelta: number;
   externalHours: number;
   noRateCount: number;
@@ -27,7 +32,6 @@ export interface AltEffect {
 }
 
 const NO_CHANGE = 1e-9;
-
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -63,14 +67,8 @@ export function alternativeEffect(
   const shownNow = (r: Resource, periodKey: string): number => shownAt(r, periodKey, r.utilization[periodKey] ?? 0);
 
   // Ticked linked moves are planned TOGETHER, as the apply path does: a giver shared by two moves is taken once.
-  const taskById = new Map(ctx.tasks.map((t) => [t.id, t]));
   const tickedMoves = alt.moves.filter((m) => selected.has(m.key));
-  const changes = tickedMoves.flatMap((m) => {
-    const task = taskById.get(m.taskId);
-    const receiver = resourceById.get(m.toResourceId);
-    return m.linked && task && receiver ? [ownerChangeFor(task, receiver)] : [];
-  });
-  const combined = planHoursMoves(changes, ctx.resources, ctx);
+  const { plan: combined, changedCells } = planTickedMoves(alt.moves, selected, ctx);
 
   const deltas = new Map<string, { resourceId: number; periodKey: string; delta: number }>();
   const addDelta = (resourceId: number, periodKey: string, delta: number): void => {
@@ -82,7 +80,9 @@ export function alternativeEffect(
     for (const [periodKey, delta] of byPeriod) addDelta(resourceId, periodKey, delta);
   }
 
-  const tickedCells = alt.cells.filter((c) => selected.has(cellKey(c)));
+  const ticked = alt.cells.filter((c) => selected.has(cellKey(c)));
+  // A cell the moves already change is not written on apply, so it adds nothing here either.
+  const tickedCells = ticked.filter((c) => !changedCells.has(cellKey(c)));
   for (const cell of tickedCells) {
     const r = resourceById.get(cell.resourceId);
     // What apply WRITES (whole percent, capped), not what was asked.
@@ -113,6 +113,8 @@ export function alternativeEffect(
     movedTasks: tickedMoves.length,
     movedHours: round2(combined.moves.reduce((s, m) => s + m.movedHours, 0)),
     editedCells: tickedCells.length,
+    coveredCells: ticked.length - tickedCells.length,
+    movePlan: combined,
     costDelta,
     externalHours,
     noRateCount: noRate.size,

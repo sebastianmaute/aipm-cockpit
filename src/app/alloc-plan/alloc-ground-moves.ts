@@ -1,8 +1,9 @@
 // src/app/alloc-plan/alloc-ground-moves.ts
 //
 // Grounds ONE model alternative against the live workspace (§769). The model's task moves are UNTRUSTED:
-// every task id and target is re-checked, each kept move is planned on its own with §774's planner (so
-// ticking moves independently is exact), and any hour edit a linked move already covers is dropped.
+// every task id and target is re-checked, each kept move is planned on its own with §774's planner, and any
+// hour edit a linked move planned alone already covers is dropped. Moves can chain (A→B, then B→C), so what the
+// TICKED moves do together is planned again by `planTickedMoves`, for the preview and at apply.
 // Pure and deterministic; no React, no i18n.
 import { type Resource, type Task } from "../types";
 import { isTaskClosed } from "../task-closed";
@@ -146,17 +147,44 @@ function groundMoves(raw: RawAllocAlternative, ctx: MoveGroundContext): { moves:
   return { moves, skippedMoves };
 }
 
-/** Grounds one alternative: its moves first, then its hour edits, minus the edits a move already covers. */
+/** The keys (`cellKey`) of every stored cell a plan changes. */
+function changedCellKeys(plan: HoursMovePlan): Set<string> {
+  const keys = new Set<string>();
+  for (const edit of plan.edits) {
+    for (const periodKey of changedKeys(edit)) keys.add(cellKey({ resourceId: edit.id, periodKey }));
+  }
+  return keys;
+}
+
+export interface TickedMovesPlan {
+  /** The ticked linked moves planned TOGETHER, in the alternative's order, exactly as §774 plans them on apply: a
+   *  giver shared by two moves is taken once, and a receiver can pass on what an earlier move gave them. */
+  plan: HoursMovePlan;
+  /** Cell keys whose stored value that plan changes. A ticked hour edit on one of them must not be written: it
+   *  would overwrite the moved hours with an absolute value planned without them. */
+  changedCells: ReadonlySet<string>;
+}
+
+/** Plans the ticked linked moves together against `ctx` (the propose-time state for the preview, the live state on
+ *  apply). Unticked and unlinked moves take no part: an unlinked one moves no hours. */
+export function planTickedMoves(moves: readonly GroundedMove[], selected: ReadonlySet<string>, ctx: MoveGroundContext): TickedMovesPlan {
+  const taskById = new Map(ctx.tasks.map((t) => [t.id, t]));
+  const resourceById = new Map(ctx.resources.map((r) => [r.id, r]));
+  const changes = moves.flatMap((m) => {
+    const task = taskById.get(m.taskId);
+    const receiver = resourceById.get(m.toResourceId);
+    return selected.has(m.key) && m.linked && task && receiver ? [ownerChangeFor(task, receiver)] : [];
+  });
+  const plan = planHoursMoves(changes, ctx.resources, ctx);
+  return { plan, changedCells: changedCellKeys(plan) };
+}
+
+/** Grounds one alternative: its moves first, then its hour edits, minus the edits a move planned alone covers. */
 export function groundAlternative(raw: RawAllocAlternative, ctx: MoveGroundContext): GroundedAlternative {
   const { moves, skippedMoves } = groundMoves(raw, ctx);
   const grounded = groundAllocationCells(raw.cells, ctx);
 
-  const covered = new Set<string>();
-  for (const move of moves) {
-    for (const edit of move.plan.edits) {
-      for (const periodKey of changedKeys(edit)) covered.add(cellKey({ resourceId: edit.id, periodKey }));
-    }
-  }
+  const covered = new Set(moves.flatMap((move) => [...changedCellKeys(move.plan)]));
   const cells: GroundedAllocCell[] = [];
   const skipped: SkippedCell[] = [...grounded.skipped];
   for (const cell of grounded.cells) {

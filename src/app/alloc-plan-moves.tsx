@@ -10,6 +10,7 @@ import { formatCurrency } from "./resource-cost";
 import { defaultPeriodLabel, formatMovedHours, hoursMoveNotice, movedHoursNotes, type HoursMoveNoticeCtx } from "./reassign-hours-notice";
 import { type GroundedMove } from "./alloc-plan/alloc-ground-moves";
 import { type AltEffect } from "./alloc-plan/alloc-effect";
+import { type HoursMovePlan } from "./reassign-hours";
 
 function noticeCtx(move: GroundedMove, lang: Lang): HoursMoveNoticeCtx {
   return {
@@ -20,12 +21,20 @@ function noticeCtx(move: GroundedMove, lang: Lang): HoursMoveNoticeCtx {
   };
 }
 
+/** The plan a move's row reads: while ticked, its own share of the ticked moves planned TOGETHER (`combined`), which
+ *  is what apply moves — a move that passes on hours an earlier ticked move gave carries them; unticked, its plan
+ *  alone. Falls back to that too when the combined plan has no entry for it (its task is gone from the live tasks). */
+function planFor(move: GroundedMove, ticked: boolean, combined: HoursMovePlan): HoursMovePlan {
+  const own = ticked ? combined.moves.filter((m) => m.taskId === move.taskId) : [];
+  return own.length > 0 ? { ...combined, moves: own, overCapacity: [] } : move.plan;
+}
+
 /** The hours a move carries, as §774 words them: "16 h: Sep 8 h, Oct 8 h", then its notes; for a move that moves
  *  nothing, §774's own reason. An UNLINKED owner gets the fixed line instead of a reason (see `GroundedMove.linked`). */
-function MoveHours({ lang, move }: { lang: Lang; move: GroundedMove }) {
+function MoveHours({ lang, move, plan }: { lang: Lang; move: GroundedMove; plan: HoursMovePlan }) {
   if (!move.linked) return <p className="mt-1 text-xs text-muted-foreground">{t(lang, "allocPlanMoveUnlinked")}</p>;
   const ctx = noticeCtx(move, lang);
-  const own = move.plan.moves.find((m) => m.taskId === move.taskId);
+  const own = plan.moves.find((m) => m.taskId === move.taskId);
   if (own && own.movedHours > 0) {
     const periods = own.perPeriod
       .map((p) => t(lang, "allocPlanMovePeriod", ctx.periodLabel(p.periodKey), formatMovedHours(p.hours, lang)))
@@ -42,7 +51,7 @@ function MoveHours({ lang, move }: { lang: Lang; move: GroundedMove }) {
       </>
     );
   }
-  const reason = hoursMoveNotice(move.plan, ctx);
+  const reason = hoursMoveNotice(plan, ctx);
   return reason ? <p className="mt-1 text-xs text-muted-foreground">{reason}</p> : null;
 }
 
@@ -50,12 +59,16 @@ export interface AllocPlanMoveRowsProps {
   lang: Lang;
   moves: readonly GroundedMove[];
   selected: ReadonlySet<string>;
+  /** The ticked linked moves planned together (`AltEffect.movePlan`). */
+  movePlan: HoursMovePlan;
   onToggle: (key: string) => void;
   busy: boolean;
 }
 
-export function AllocPlanMoveRows({ lang, moves, selected, onToggle, busy }: AllocPlanMoveRowsProps) {
-  const rowText = (m: GroundedMove) => t(lang, "allocPlanMoveRow", m.taskId, m.taskName, m.fromLabel, m.toLabel);
+export function AllocPlanMoveRows({ lang, moves, selected, movePlan, onToggle, busy }: AllocPlanMoveRowsProps) {
+  // A task with no owner at all has an empty label: it reads as unassigned, never as a blank before the arrow.
+  const fromText = (m: GroundedMove) => (m.fromLabel.trim() === "" ? t(lang, "workloadTriageUnassigned") : m.fromLabel);
+  const rowText = (m: GroundedMove) => t(lang, "allocPlanMoveRow", m.taskId, m.taskName, fromText(m), m.toLabel);
   const tokens = buildRowTokens(moves.map((m) => ({ id: m.key, name: rowText(m) })));
   return (
     <ul className="mt-2 space-y-2">
@@ -71,7 +84,7 @@ export function AllocPlanMoveRows({ lang, moves, selected, onToggle, busy }: All
             />
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium text-foreground">{rowText(m)}</span>
-              <MoveHours lang={lang} move={m} />
+              <MoveHours lang={lang} move={m} plan={planFor(m, selected.has(m.key), movePlan)} />
             </span>
           </label>
         </li>
@@ -108,6 +121,11 @@ export function AllocPlanEffect({ lang, effect, currency, nameOf }: AllocPlanEff
       <p className="text-sm text-foreground">
         {segments.join(" · ")}
       </p>
+      {effect.coveredCells > 0 && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {tPlural(lang, "allocPlanEffectCovered", effect.coveredCells, effect.coveredCells)}
+        </p>
+      )}
       {effect.externalHours > 0 && (
         <p className="mt-1 text-xs text-muted-foreground">
           {t(lang, "allocPlanCostExternals", formatMovedHours(effect.externalHours, lang))}

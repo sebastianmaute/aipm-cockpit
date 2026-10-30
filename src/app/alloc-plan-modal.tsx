@@ -54,6 +54,10 @@ export interface AllocPlanModalProps {
   effect: AltEffect;
   /** The project's baseline currency, for the cost line. */
   currency: string;
+  /** Live task name and person name for an id; undefined when there is none. A skipped move names its task and
+   *  person by them, since it carries ids only. */
+  liveTaskName: (taskId: number) => string | undefined;
+  liveResourceName: (resourceId: number) => string | undefined;
   onToggle: (key: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
@@ -99,6 +103,8 @@ export function AllocPlanModal({
   selected,
   effect,
   currency,
+  liveTaskName,
+  liveResourceName,
   onToggle,
   onConfirm,
   onCancel,
@@ -126,7 +132,11 @@ export function AllocPlanModal({
       names.set(m.toResourceId, m.toLabel);
     }
   }
-  const nameOf = (id: number): string => names.get(id) ?? `#${id}`;
+  const nameOf = (id: number): string => names.get(id) ?? liveResourceName(id) ?? `#${id}`;
+  const skippedMoveText = (taskId: number, toResourceId: number): string => {
+    const name = liveTaskName(taskId);
+    return `#${taskId}${name ? ` ${name}` : ""} → ${nameOf(toResourceId)}`;
+  };
   const hasRows = cells.length > 0 || moves.length > 0;
   const canPropose = instruction.trim().length > 0 && !busy;
   const canConfirm = !busy && selectedCount > 0;
@@ -204,7 +214,7 @@ export function AllocPlanModal({
               {moves.length > 0 && (
                 <>
                   <h3 className="mt-4 text-xs font-semibold uppercase text-muted-foreground">{t(lang, "allocPlanMovesHeading")}</h3>
-                  <AllocPlanMoveRows lang={lang} moves={moves} selected={selected} onToggle={onToggle} busy={busy} />
+                  <AllocPlanMoveRows lang={lang} moves={moves} selected={selected} movePlan={effect.movePlan} onToggle={onToggle} busy={busy} />
                 </>
               )}
               {cells.length > 0 && moves.length > 0 && (
@@ -266,7 +276,7 @@ export function AllocPlanModal({
                     ))}
                     {skippedMoves.map((s, i) => (
                       <li key={`move:${s.taskId}:${s.reason}:${i}`} className="text-xs text-muted-foreground">
-                        #{s.taskId} → {nameOf(s.toResourceId)} — {t(lang, MOVE_SKIP_REASON_KEY[s.reason])}
+                        {skippedMoveText(s.taskId, s.toResourceId)} — {t(lang, MOVE_SKIP_REASON_KEY[s.reason])}
                       </li>
                     ))}
                   </ul>

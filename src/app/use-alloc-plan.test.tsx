@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { newConsent } from "./ai-consent";
 import { AiHttpError } from "./ai-errors";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
+import { defaultPeriodLabel, formatMovedHours } from "./reassign-hours-notice";
 import { type ReactNode, useEffect, useState } from "react";
 import { useAllocPlan } from "./use-alloc-plan";
 import { ToastProvider } from "./toast-context";
@@ -785,6 +786,67 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     expect(readOwners()[12]).toBe(1);
     expect(readUtil()).toEqual(Object.fromEntries(people.map((r) => [r.id, r.utilization])));
     expect(readStack()).toEqual([]);
+  });
+
+  // Final review, Important 1 — the same chain plus a model cell on Zoe's September. Planned alone, Liam's move
+  // carries nothing, so grounding keeps the cell; planned with Maya's, it writes Zoe's September, and the absolute
+  // cell would then overwrite 8 h with 4. Mutation: judge `covered` per move only and Zoe ends at 4, the preview
+  // counts 12 h for her and task 14's row reads §774's "nothing moved" reason.
+  describe("a cell the ticked moves planned together already write", () => {
+    const liamTask = { ...SEP_TASK, id: 14, taskName: "Liam's", assignee: "Liam Foster", assigneeEmail: "liam@x.com", resourceId: 2 } as Task;
+    const people = [MAYA, LIAM, ZOE];
+    const raw = alt("", [{ taskId: 12, toResourceId: 2 }, { taskId: 14, toResourceId: 3 }], [{ resourceId: 3, periodKey: "2026-09", hours: 4 }]);
+    const propose = () => proposeWith(answer(raw), { initialTasks: [SEP_TASK, liamTask], initialResources: people });
+
+    it("the preview counts it as covered and task 14's row shows the hours the moves carry together", async () => {
+      await propose();
+      expect(cellBox(3, "2026-09")).toBeChecked();
+      expect(screen.getByText(tPlural("en-US", "allocPlanEffectCovered", 1, 1))).toBeTruthy();
+      const row = moveBox(14).closest("li") as HTMLElement;
+      const period = t("en-US", "allocPlanMovePeriod", defaultPeriodLabel("2026-09", "en-US"), formatMovedHours(8, "en-US"));
+      expect(within(row).getByText(t("en-US", "allocPlanMoveHours", formatMovedHours(8, "en-US"), period))).toBeTruthy();
+    });
+
+    it("apply leaves Zoe at the moved hours, conserves September and counts the cell as skipped", async () => {
+      await propose();
+      apply();
+      await waitFor(() => expect(readOwners()[14]).toBe(3));
+      const util = readUtil();
+      expect(util[3]).toEqual({ "2026-09": 8 });
+      const sep = (u: Record<string, Record<string, number>>) => [1, 2, 3].reduce((n, id) => n + (u[id]["2026-09"] ?? 0), 0);
+      expect(sep(util)).toBe(sep(Object.fromEntries(people.map((r) => [r.id, r.utilization]))));
+      expect(fullToast).toHaveBeenCalledTimes(1);
+      expect(lastToast().startsWith(tPlural("en-US", "allocPlanAppliedSkipped", 1, 2, 1))).toBe(true);
+    });
+  });
+
+  // Review Focus 2, the other half: the SAME task moved to a different person in each alternative.
+  // Mutation: apply alternative 0's moves and task 10 goes to Liam.
+  it("the same task moved differently in two alternatives: applying alternative 2 writes only its owner", async () => {
+    await proposeWith(answer(
+      alt("To Liam", [{ taskId: 10, toResourceId: 2 }], []),
+      alt("To Zoe", [{ taskId: 10, toResourceId: 3 }], []),
+    ), { initialTasks: [DESIGN] });
+    fireEvent.click(screen.getByRole("radio", { name: /Alternative 2/ }));
+    apply();
+    await waitFor(() => expect(readOwners()[10]).toBe(3));
+    expect(readUtil()[2]).toEqual({});
+    expect(readUtil()[3]).toEqual({ "2026-09": 8, "2026-10": 8 });
+  });
+
+  // Final review, Minor 3. Mutation: render `fromLabel` as is and the row reads "#13 Nobody's:  → Liam Foster".
+  it("a move of an unassigned task names the owner as unassigned", async () => {
+    await proposeWith(answer(alt("", [{ taskId: 13, toResourceId: 2 }], [])), { initialTasks: [UNOWNED] });
+    const expected = t("en-US", "allocPlanMoveRow", 13, "Nobody's", t("en-US", "workloadTriageUnassigned"), "Liam Foster");
+    expect(screen.getByText(expected)).toBeTruthy();
+  });
+
+  // Final review, Minor 4. Mutation: print ids alone and the row reads "#12 → #2 — task is closed".
+  it("a skipped move names the task and the person from the live workspace", async () => {
+    const done = { ...SEP_TASK, status: "Done" } as Task;
+    await proposeWith(answer(alt("", [{ taskId: 12, toResourceId: 2 }, { taskId: 99, toResourceId: 3 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])), { initialTasks: [done] });
+    expect(screen.getByText(`#12 Sep only → Liam Foster — ${t("en-US", "allocPlanSkipMoveClosed")}`)).toBeTruthy();
+    expect(screen.getByText(`#99 → Zoe Kim — ${t("en-US", "allocPlanSkipMoveUnknownTask")}`)).toBeTruthy();
   });
 
   it("only cells ticked: captures one bulk.edit entry as today", async () => {

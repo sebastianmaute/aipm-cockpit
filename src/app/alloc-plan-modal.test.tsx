@@ -76,6 +76,8 @@ const noEffect: AltEffect = {
   movedTasks: 0,
   movedHours: 0,
   editedCells: 0,
+  coveredCells: 0,
+  movePlan: emptyPlan,
   costDelta: 0,
   externalHours: 0,
   noRateCount: 0,
@@ -100,6 +102,8 @@ function props(over: Partial<AllocPlanModalProps> = {}): AllocPlanModalProps {
     canCancel: true,
     truncated: false,
     currency: "EUR",
+    liveTaskName: () => undefined,
+    liveResourceName: () => undefined,
     ...over,
   };
 }

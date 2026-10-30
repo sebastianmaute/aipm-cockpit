@@ -37,7 +37,7 @@ import {
   type GroundedAllocCell,
 } from "./alloc-plan/alloc-plan";
 import { alternativeEffect } from "./alloc-plan/alloc-effect";
-import { groundAlternative, moveKey, type GroundedAlternative, type GroundedMove } from "./alloc-plan/alloc-ground-moves";
+import { groundAlternative, moveKey, planTickedMoves, type GroundedAlternative, type GroundedMove } from "./alloc-plan/alloc-ground-moves";
 import { AllocPlanModal } from "./alloc-plan-modal";
 import { AiTriggerButton } from "./ai-trigger-button";
 
@@ -287,9 +287,13 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     const resourceById = new Map(resources.map((r) => [r.id, r]));
     const taskById = new Map(tasks.map((x) => [x.id, x]));
     const freshMoves = chosenMoves.filter((m) => !isMoveStale(m, taskById, resourceById));
+    // Grounding dropped the cells a move planned ALONE covers; moves can chain (A→B, then B→C), so the fresh moves are
+    // planned again here TOGETHER, on the live state, as §774 is about to plan them. A cell that plan changes is
+    // skipped and counted: its absolute value was planned without the moved hours and would overwrite them.
+    const moveWrites = planTickedMoves(freshMoves, selected, { resources, plan, absences, workdayHours, holidaySet, tasks, today }).changedCells;
     const freshCells = chosenCells.filter((c) => {
       const live = resourceById.get(c.resourceId);
-      return live !== undefined && (live.utilization[c.periodKey] ?? 0) === c.currentValue;
+      return live !== undefined && (live.utilization[c.periodKey] ?? 0) === c.currentValue && !moveWrites.has(cellKey(c));
     });
     const staleCount = chosenMoves.length - freshMoves.length + chosenCells.length - freshCells.length;
     const patches = cellPatches(resources, freshCells);
@@ -314,7 +318,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     const cellCount = patches.reduce((n, p) => n + Object.keys(p.after.utilization).length, 0);
     // ★ Moves first: §774 writes owners and hours through its own functional setters. The cells then write through a
     //   FUNCTIONAL setter on `prev`, so they land on top of the moved hours instead of a render snapshot that would
-    //   clobber them. `covered-by-move` guarantees no ticked cell touches a key a ticked move writes.
+    //   clobber them. No cell left here touches a key a fresh move writes (`moveWrites` above).
     // A fresh move §774 does not apply (a no-op edit, or the load hold) is counted as skipped, never dropped silently:
     // the toast and the count are functions of what it actually applied.
     const applied = ownerEdits.length === 0 ? 0 : reassignTasks(ownerEdits, "ai", {
@@ -360,7 +364,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     }
     logActivityAs?.("ai", "ai.allocationPlan", cellCount);
     reset();
-  }, [phase, alternatives, activeIndex, selectedByAlt, resources, tasks, setResources, reassignTasks, capture, captureComposite, logActivityAs, showToast, lang, reset]);
+  }, [phase, alternatives, activeIndex, selectedByAlt, resources, tasks, plan, absences, workdayHours, holidaySet, today, setResources, reassignTasks, capture, captureComposite, logActivityAs, showToast, lang, reset]);
 
   const stage: "input" | "preview" = phase === "preview" || phase === "applying" ? "preview" : "input";
   // The `"applying"` phase never actually commits a render (see the NOTE in
@@ -395,6 +399,12 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const buildModal = (): ReactNode => {
     const active = alternatives[activeIndex];
     const selected = selectedByAlt.get(activeIndex) ?? NO_KEYS;
+    const taskById = new Map(tasks.map((x) => [x.id, x]));
+    const resourceById = new Map(resources.map((r) => [r.id, r]));
+    const liveResourceName = (id: number): string | undefined => {
+      const r = resourceById.get(id);
+      return r ? resourceDisplayName(r) : undefined;
+    };
     return (
       <AllocPlanModal
         lang={lang}
@@ -417,6 +427,8 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
           today,
         })}
         currency={plan.currency}
+        liveTaskName={(id) => taskById.get(id)?.taskName}
+        liveResourceName={liveResourceName}
         onToggle={onToggle}
         onConfirm={onConfirm}
         onCancel={reset}

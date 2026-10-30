@@ -1042,10 +1042,16 @@
   (`buildAllocContext`, from the role; none for an external). Free text is one line per item. The answer is up to `MAX_ALLOC_ALTERNATIVES` (3) alternatives, each with `taskMoves` and `cells`
   (`parseAllocationAlternatives`, which still reads a bare top-level `cells` as one alternative); the caps count across
   ALL alternatives. `groundAlternative` (`alloc-ground-moves.ts`) drops a move for an unknown task, a closed task, a
-  Jira-synced task, an unchanged owner, an unknown receiver or a repeated task, and plans each kept move with the
-  §774 planner so the review shows exactly what will move. ★★★ A cell on a resource and period that a kept move in the
-  SAME alternative touches is dropped as `covered-by-move`: the move carries those hours, and an absolute cell on top
-  would count them twice (and be wrong the moment the user unticks the move). Receivers are always linked people
+  Jira-synced task, an unchanged owner, an unknown receiver or a repeated task, and plans each kept move ALONE with the
+  §774 planner. ★★★ A cell on a resource and period that a kept move in the SAME alternative, planned alone, touches is
+  dropped as `covered-by-move`: the move carries those hours, and an absolute cell on top would count them twice (and
+  be wrong the moment the user unticks the move). ★★★ THAT CHECK ALONE IS NOT ENOUGH, because moves chain: Maya→Liam
+  plus Liam→Zoe, where Liam holds no hours of his own, moves nothing for the second move planned alone, so a Zoe cell
+  survives grounding — but apply plans the ticked moves TOGETHER and writes Zoe's hours, and the absolute cell then
+  overwrote them (final review). `planTickedMoves` (`alloc-ground-moves.ts`) plans the ticked linked moves together,
+  as §774 does; `alternativeEffect` drops any ticked cell that plan changes from the preview (`coveredCells`, shown as
+  "already covered by the ticked task moves"), `onConfirm` skips and counts it on the LIVE state, and each ticked
+  move's row shows its share of the combined plan (an unticked one its plan alone). Receivers are always linked people
   (grounding refuses an unknown receiver). A task whose CURRENT owner is not a linked person (unassigned, or a typed
   name) carries no hours in the §774 step, so the move touches no giver cells and the model may add hour edits for the
   new owner's work.

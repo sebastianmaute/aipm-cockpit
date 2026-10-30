@@ -116,12 +116,16 @@ Per alternative, against the LIVE tasks, resources and plan at propose time:
   answer, not per alternative: `MAX_ALLOC_CELLS` (200) cells and a moves cap (builder sets it; start near 50) across
   all alternatives, so three alternatives cannot overflow the response. The builder raises the call's `max_tokens`
   (8192 today, `alloc-plan-call.ts`) if a test answer at the caps needs it.
-- **Each kept move is planned with `planHoursMoves`** on the live state, so the review window shows exactly what §774
-  will move, including its shortfall and cap notes.
+- **Each kept move is planned with `planHoursMoves`** on the live state, including its shortfall and cap notes. Moves
+  can chain (A→B, then B→C), so the review window shows each TICKED move's hours from the ticked moves planned
+  together (`planTickedMoves`), which is what §774 moves on apply; an unticked move shows its plan alone.
 - **Cells** go through today's `groundAllocationCells` unchanged, plus one new skip reason, **`covered-by-move`**: a
-  cell whose resource and period is touched by any kept move in the same alternative is dropped. This is the rule
+  cell whose resource and period is touched by any kept move in the same alternative, planned alone, is dropped, and
+  at apply against the ticked moves planned together: a ticked cell that plan changes adds nothing to the preview
+  (counted as "already covered by the ticked task moves") and is skipped and counted on apply. This is the rule
   that makes double counting impossible. (Builder's call recorded below: an absolute cell value on top of a delta move
-  would be wrong as soon as the user unticks the move.)
+  would be wrong as soon as the user unticks the move.) Final review: the first version checked each move alone, so
+  a chained move's receiver cell stayed ticked and its absolute value overwrote the moved hours.
 - An alternative left with no move and no cell after grounding still shows, with its skipped list, as today's
   skipped-only preview does; an answer with no alternatives at all is today's "nothing was proposed" toast.
 
@@ -157,8 +161,8 @@ One click, one undo entry, one activity entry:
    always makes an entry of its own; to get ONE undo entry, `useAllocPlan` calls `captureComposite` itself with the
    task part, the step's resources part and the cells part. `captureComposite` is threaded to `ResourcesPanel`
    through `workspace-section` like `onCaptureUndo` today.
-3. **Cells** apply as today (`applyAllocationCells`) on top of the post-move state; `covered-by-move` guarantees no
-   ticked cell touches a moved cell.
+3. **Cells** apply as today (`applyAllocationCells`) on top of the post-move state; a ticked cell that the fresh
+   moves, planned together on the live state, change is skipped and counted, so no cell written touches a moved cell.
 4. Undo reverses tasks, hours and cells together. The activity log gets §774's own `resource.hoursMoved` entry (the
    step's `commit` writes it, unchanged) plus one Plan-with-AI entry with the alternative's NUMBER and its counts,
    language-neutral. The model's `summary` text is never stored: it is untrusted, and the activity log is later read

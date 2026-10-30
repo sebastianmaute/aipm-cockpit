@@ -74,7 +74,8 @@ describe("alternativeEffect", () => {
     expect(on.overCapacity).toHaveLength(1);
     expect(on.overCapacity[0]).toMatchObject({ resourceId: 2, periodKey: "2026-09", hours: 186, capacityHours: 176 });
     const off = alternativeEffect(alt, ticked(), c);
-    expect(off).toEqual({ movedTasks: 0, movedHours: 0, editedCells: 0, costDelta: 0, externalHours: 0, noRateCount: 0, overCapacity: [] });
+    expect(off).toMatchObject({ movedTasks: 0, movedHours: 0, editedCells: 0, coveredCells: 0, costDelta: 0, externalHours: 0, noRateCount: 0, overCapacity: [] });
+    expect(off.movePlan.moves).toEqual([]);
   });
 
   it("a ticked move plus a ticked cell on another period of the same receiver are both counted toward over-capacity", () => {
@@ -144,5 +145,45 @@ describe("alternativeEffect", () => {
     expect(e.movedTasks).toBe(1);
     expect(e.movedHours).toBe(0);
     expect(e.costDelta).toBe(0);
+  });
+
+  // Final review, Important 1. Maya→Liam then Liam→Zoe: planned alone, Liam's move carries nothing, so grounding keeps
+  // the model's Zoe cell; planned together, the moves write Zoe's September, and apply would then overwrite it.
+  describe("a cell the ticked moves planned together already change", () => {
+    const zoe = () => resource(3, { firstName: "Zoe", lastName: "Kim", roleId: 2 });
+    const liamsTask = () => task({ id: 14, taskName: "Liam's", assignee: "Liam Foster", assigneeEmail: "liam@x.io", resourceId: 2 });
+    const setup = () => {
+      const c = ctxOf([maya(), liam(), zoe()], [task(), liamsTask()]);
+      const alt = ground({ taskMoves: [move(7, 2), move(14, 3)], cells: [{ resourceId: 3, periodKey: "2026-09", hours: 4 }] }, c);
+      return { c, alt };
+    };
+
+    it("is kept by grounding (the moves alone do not cover it)", () => {
+      expect(setup().alt.cells.map(cellKey)).toEqual(["3:2026-09"]);
+    });
+
+    it("adds nothing to the preview and is counted as covered", () => {
+      const { c, alt } = setup();
+      const e = alternativeEffect(alt, ticked(...alt.moves.map((m) => m.key), cellKey(alt.cells[0])), c);
+      expect(e.movedHours).toBe(32);
+      // Maya -16 h at €50, Zoe +16 h at €80; Liam gives what he receives. The 4 h cell would add €320 on top.
+      expect(e.costDelta).toBeCloseTo(-800 + 1280, 6);
+      expect(e.coveredCells).toBe(1);
+      expect(e.editedCells).toBe(0);
+    });
+
+    it("counts again once a move it depends on is unticked", () => {
+      const { c, alt } = setup();
+      const e = alternativeEffect(alt, ticked(moveKey({ taskId: 14 }), cellKey(alt.cells[0])), c);
+      expect(e.coveredCells).toBe(0);
+      expect(e.editedCells).toBe(1);
+      expect(e.costDelta).toBeCloseTo(4 * 80, 6);
+    });
+
+    it("exposes the combined plan, so each move row reads its own share of it", () => {
+      const { c, alt } = setup();
+      const e = alternativeEffect(alt, ticked(...alt.moves.map((m) => m.key)), c);
+      expect(e.movePlan.moves.find((m) => m.taskId === 14)?.movedHours).toBe(16);
+    });
   });
 });

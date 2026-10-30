@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groundAlternative, moveKey, type MoveGroundContext } from "./alloc-ground-moves";
+import { groundAlternative, moveKey, planTickedMoves, type MoveGroundContext } from "./alloc-ground-moves";
 import { type RawAllocAlternative } from "./alloc-alternatives";
 import { type Resource, type ResourcePlan, type Task } from "../types";
 
@@ -158,5 +158,41 @@ describe("groundAlternative: cells", () => {
   it("carries summary and rationale; an empty alternative stays empty", () => {
     const g = groundAlternative(alt({ summary: "Sum", rationale: "Why" }), ctxOf([maya(), liam()], [task()]));
     expect(g).toMatchObject({ summary: "Sum", rationale: "Why", moves: [], skippedMoves: [], cells: [], skipped: [], truncated: false });
+  });
+});
+
+// Final review, Important 1 — Maya→Liam then Liam→Zoe. Liam holds no September hours, so the second move planned
+// alone moves nothing and covers no Zoe cell; planned with the first, it carries Maya's 16 h on to Zoe.
+describe("planTickedMoves", () => {
+  const zoe = () => resource(3, { firstName: "Zoe", lastName: "Kim" });
+  const liamsTask = () => task({ id: 14, taskName: "Liam's", assignee: "Liam Foster", assigneeEmail: "liam@x.io", resourceId: 2 });
+  const chained = () => {
+    const c = ctxOf([maya(), liam(), zoe()], [task(), liamsTask()]);
+    return { c, g: groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }, { taskId: 14, toResourceId: 3 }] }), c) };
+  };
+
+  it("plans the ticked linked moves together and names every cell that plan changes", () => {
+    const { c, g } = chained();
+    expect(g.moves.find((m) => m.taskId === 14)?.plan.moves[0].movedHours).toBe(0);
+    const p = planTickedMoves(g.moves, new Set(g.moves.map((m) => m.key)), c);
+    expect(p.plan.moves.map((m) => [m.taskId, m.movedHours])).toEqual([[7, 16], [14, 16]]);
+    // Liam receives and gives the same 16 h: his stored September does not change, so it is not covered.
+    expect([...p.changedCells].sort()).toEqual(["1:2026-09", "3:2026-09"]);
+  });
+
+  it("leaves an unticked move out", () => {
+    const { c, g } = chained();
+    const p = planTickedMoves(g.moves, new Set([moveKey({ taskId: 14 })]), c);
+    expect(p.plan.moves.map((m) => [m.taskId, m.movedHours])).toEqual([[14, 0]]);
+    expect([...p.changedCells]).toEqual([]);
+  });
+
+  it("an unlinked move plans no hours", () => {
+    const t = task({ assignee: "", assigneeEmail: "", resourceId: undefined });
+    const c = ctxOf([maya(), liam()], [t]);
+    const g = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), c);
+    const p = planTickedMoves(g.moves, new Set(g.moves.map((m) => m.key)), c);
+    expect(p.plan.moves).toEqual([]);
+    expect(p.changedCells.size).toBe(0);
   });
 });

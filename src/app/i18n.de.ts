@@ -5455,6 +5455,8 @@ export const de: Record<TranslationKey, string> = {
   allocPlanEffectMovesOne: "Verschiebt 1 Aufgabe ({1} Std.)",
   allocPlanEffectCells: "ändert {0} Zellen",
   allocPlanEffectCellsOne: "ändert 1 Zelle",
+  allocPlanEffectCovered: "{0} Stundenänderungen sind durch die ausgewählten Aufgabenverschiebungen bereits abgedeckt",
+  allocPlanEffectCoveredOne: "1 Stundenänderung ist durch die ausgewählten Aufgabenverschiebungen bereits abgedeckt",
   allocPlanCostNone: "keine Kostenänderung",
   allocPlanCostInternal: "{0} intern",
   allocPlanCostExternals: "{0} Std. zu oder von Externen, nicht bewertet",
