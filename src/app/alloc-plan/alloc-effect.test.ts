@@ -90,14 +90,36 @@ describe("alternativeEffect", () => {
     expect(moveOnly.overCapacity.map((o) => o.periodKey)).toEqual(["2026-09"]);
   });
 
-  it("percent-mode resources are compared in shown hours", () => {
-    // 50 % of 176 h = 88 h shown; an edit to 200 h is over, an edit to 150 h is not.
+  it("a percent cell is judged by what apply writes: whole percent, capped at 100", () => {
+    // 50 % of 176 h = 88 h shown. A 200 h ask is capped at 100 % = 176 h: no warning, cost on 176 - 88.
     const c = ctxOf([maya(), liam({ utilizationMode: "percent", utilization: { "2026-09": 50 } })], [task()]);
-    const alt = ground({ cells: [{ resourceId: 2, periodKey: "2026-09", hours: 200 }, { resourceId: 2, periodKey: "2026-10", hours: 150 }] }, c);
+    const alt = ground({ cells: [{ resourceId: 2, periodKey: "2026-09", hours: 200 }] }, c);
     const e = alternativeEffect(alt, ticked(...alt.cells.map(cellKey)), c);
-    expect(e.overCapacity).toEqual([{ resourceId: 2, periodKey: "2026-09", hours: 200, capacityHours: 176 }]);
-    // Cost moves with the shown-hour change: (200-88) + 150 h at EUR 80.
-    expect(e.costDelta).toBeCloseTo((112 + 150) * 80, 6);
+    expect(e.overCapacity).toEqual([]);
+    expect(e.costDelta).toBeCloseTo((176 - 88) * 80, 6);
+  });
+
+  it("a percent cell's hours are rounded to the whole percent apply writes", () => {
+    // 100 h of 176 h = 56.8 % -> written as 57 % = 100.32 h.
+    const c = ctxOf([maya(), liam({ utilizationMode: "percent", utilization: { "2026-09": 0 } })], [task()]);
+    const alt = ground({ cells: [{ resourceId: 2, periodKey: "2026-09", hours: 100 }] }, c);
+    const e = alternativeEffect(alt, ticked(...alt.cells.map(cellKey)), c);
+    expect(e.costDelta).toBeCloseTo(((alt.cells[0].nextValue / 100) * 176) * 80, 6);
+    expect(e.costDelta).not.toBeCloseTo(100 * 80, 3);
+  });
+
+  it("an hours-mode person's shown level subtracts absences", () => {
+    // 2 workdays of absence in Sep: available 160 h. Stored 150 h shows 134 h; +16 h = 150 h, no warning.
+    const absence = { id: 1, assignee: "Liam Foster", resourceId: 2, startDate: "2026-09-01", endDate: "2026-09-02", type: "vacation" };
+    const mk = (stored: number) => {
+      const c = { ...ctxOf([maya(), liam({ utilization: { "2026-09": stored } })], [task()]), absences: [absence] as never };
+      return { c, alt: ground({ taskMoves: [move(7, 2)] }, c) };
+    };
+    const ok = mk(150);
+    expect(alternativeEffect(ok.alt, ticked(moveKey({ taskId: 7 })), ok.c).overCapacity).toEqual([]);
+    const over = mk(180);
+    const e = alternativeEffect(over.alt, ticked(moveKey({ taskId: 7 })), over.c);
+    expect(e.overCapacity).toEqual([{ resourceId: 2, periodKey: "2026-09", hours: 180, capacityHours: 160 }]);
   });
 
   it("two ticked moves from one giver are planned together, not summed", () => {

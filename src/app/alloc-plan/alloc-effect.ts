@@ -3,8 +3,8 @@
 // What ticking part of ONE alternative would do (§769): which people end up over capacity and what the plan costs
 // internally. Pure, i18n-free. Everything is in SHOWN hours, so percent-mode people compare like hours-mode ones.
 import { type Resource, type Role } from "../types";
-import { absencesForResource, generatePeriods, type Period } from "../resource-capacity";
-import { planHoursMoves, plannedShownDeltas } from "../reassign-hours";
+import { absencesForResource, generatePeriods, periodCapacityHours, type Period } from "../resource-capacity";
+import { OVER_CAPACITY_TOLERANCE_HOURS, planHoursMoves, plannedShownDeltas } from "../reassign-hours";
 import { periodCost } from "../resource-cost";
 import { cellKey, availableCapacityHours } from "./alloc-plan";
 import { ownerChangeFor, type GroundedAlternative, type MoveGroundContext } from "./alloc-ground-moves";
@@ -26,14 +26,8 @@ export interface AltEffect {
   overCapacity: OverCapacity[];
 }
 
-/** Shown hours are tenths; anything under this is rounding, not an overrun. */
-const CAPACITY_TOLERANCE = 0.05;
 const NO_CHANGE = 1e-9;
 
-function shownHours(r: Resource, capacityHours: number, periodKey: string): number {
-  const stored = r.utilization[periodKey] ?? 0;
-  return r.utilizationMode === "percent" ? (stored / 100) * capacityHours : stored;
-}
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -46,10 +40,27 @@ export function alternativeEffect(
   const periodByKey = new Map<string, Period>(
     generatePeriods(ctx.plan.startDate, ctx.plan.endDate, ctx.plan.granularity).map((p) => [p.key, p]),
   );
+  const roleById = new Map(ctx.roles.map((x) => [x.id, x]));
+  const absencesById = new Map<number, ReturnType<typeof absencesForResource>>();
+  const absencesOf = (r: Resource) => {
+    const known = absencesById.get(r.id);
+    if (known) return known;
+    const mine = absencesForResource(ctx.absences, r);
+    absencesById.set(r.id, mine);
+    return mine;
+  };
   const capacityOf = (r: Resource, periodKey: string): number => {
     const period = periodByKey.get(periodKey);
-    return period ? availableCapacityHours(r, period, absencesForResource(ctx.absences, r), ctx.workdayHours, ctx.holidaySet) : 0;
+    return period ? availableCapacityHours(r, period, absencesOf(r), ctx.workdayHours, ctx.holidaySet) : 0;
   };
+  /** Shown hours when the stored value is `value`: the quantity §774's over-capacity check uses (absences subtracted). */
+  const shownAt = (r: Resource, periodKey: string, value: number): number => {
+    const period = periodByKey.get(periodKey);
+    if (!period) return 0;
+    const at = { ...r, utilization: { ...r.utilization, [periodKey]: value } };
+    return periodCapacityHours(at, period, absencesOf(r), ctx.workdayHours, ctx.holidaySet);
+  };
+  const shownNow = (r: Resource, periodKey: string): number => shownAt(r, periodKey, r.utilization[periodKey] ?? 0);
 
   // Ticked linked moves are planned TOGETHER, as the apply path does: a giver shared by two moves is taken once.
   const taskById = new Map(ctx.tasks.map((t) => [t.id, t]));
@@ -74,7 +85,8 @@ export function alternativeEffect(
   const tickedCells = alt.cells.filter((c) => selected.has(cellKey(c)));
   for (const cell of tickedCells) {
     const r = resourceById.get(cell.resourceId);
-    if (r) addDelta(cell.resourceId, cell.periodKey, cell.hours - shownHours(r, capacityOf(r, cell.periodKey), cell.periodKey));
+    // What apply WRITES (whole percent, capped), not what was asked.
+    if (r) addDelta(cell.resourceId, cell.periodKey, shownAt(r, cell.periodKey, cell.nextValue) - shownNow(r, cell.periodKey));
   }
 
   let costDelta = 0;
@@ -87,13 +99,13 @@ export function alternativeEffect(
     if (r.isExternal) {
       externalHours += Math.abs(delta);
     } else {
-      const role = r.roleId == null ? undefined : ctx.roles.find((x) => x.id === r.roleId);
+      const role = r.roleId == null ? undefined : roleById.get(r.roleId);
       if (role) costDelta += periodCost(delta, role).internal;
       else noRate.add(resourceId);
     }
     const capacityHours = capacityOf(r, periodKey);
-    const hours = shownHours(r, capacityHours, periodKey) + delta;
-    if (hours > capacityHours + CAPACITY_TOLERANCE) overCapacity.push({ resourceId, periodKey, hours: round2(hours), capacityHours });
+    const hours = shownNow(r, periodKey) + delta;
+    if (capacityHours > 0 && hours > capacityHours + OVER_CAPACITY_TOLERANCE_HOURS) overCapacity.push({ resourceId, periodKey, hours: round2(hours), capacityHours });
   }
   overCapacity.sort((a, b) => a.resourceId - b.resourceId || a.periodKey.localeCompare(b.periodKey));
 

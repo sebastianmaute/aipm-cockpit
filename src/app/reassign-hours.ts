@@ -42,7 +42,7 @@ export interface HoursMovePlan { moves: TaskHoursMove[]; nextResources: Resource
 const MAX_PERCENT = 100;
 const EPSILON = 1e-9;
 /** A receiver within this many hours of capacity is not reported as over it. */
-const OVER_CAPACITY_TOLERANCE_HOURS = 0.05;
+export const OVER_CAPACITY_TOLERANCE_HOURS = 0.05;
 
 const round1 = (n: number): number => Math.round(n * 10 + EPSILON) / 10;
 const floor1 = (n: number): number => Math.floor(n * 10 + EPSILON) / 10;
