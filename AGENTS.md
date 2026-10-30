@@ -436,6 +436,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      until then the update mapped over nothing and the edit vanished in silence.
      ★ TEST TRAP: the race only reproduces when the id is taken BETWEEN open and save. A test that saves
      against an untouched list passes whichever way the handler decides — seed the collision explicitly.
+     ★★ **A `useState` updater may or may not have run when `setX(...)` returns.** React sometimes computes
+     it eagerly and usually later, during the next render, so code must never rely on it either way: anything the
+     updater stashed may read stale right after the call. A handler that must decide on what the updater actually
+     wrote wraps the setter in `flushSync` (the §476 pattern, `grep -n flushSync src/app/baseline-currency-control.tsx`).
+     A test with a synchronous fake setter cannot see this, and a real `useState` after a prior commit does not by
+     itself force the deferral either (the first update in a handler often still runs eagerly), so a passing test does
+     not prove the code survives a deferred updater. The robust fix is `flushSync`, or not reading the updater's result
+     at all. It cost two fix rounds.
   4. **Shared SSRF core, per-route normalize.** A new external-API proxy REUSES `api/_shared/proxy-ssrf.ts`
      for the IP-classification + host-allowlist checks and hand-rolls only its route-specific
      normalize/auth/URL. Do NOT parameterize the divergent guard chains into one `createProxyHelpers`
@@ -561,6 +569,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   with a mechanism of its own, so "completing the pattern" by routing one through another is the
   recurring defect here — and the invariant is held by those WRITERS, not at load, which leaves a
   valid-but-inconsistent pair split on every backend.
+- **★★ A task's owner is changed ONLY through `useReassignHours` (§774)** — `prepare` + `record`, or
+  `reassignTasks` — because a reassignment moves the task's planned hours with it (Plan with AI, §769,
+  passes its hour edits as `extraParts` so it all stays one undo entry). `reassign-hours.guard.test.ts`
+  fails on a file that writes `assignee` with `resourceId` and is in neither its `ROUTED` nor its
+  `EXEMPT` list (`grep -n "^const ROUTED|^const EXEMPT" src/app/reassign-hours.guard.test.ts`; both
+  names are SCREAMING_CASE, so the docs gate cannot see them). Detail: [`docs/AGENTS/undo.md`](docs/AGENTS/undo.md)
+  and [`docs/AGENTS/task-manager.md`](docs/AGENTS/task-manager.md).
+- **★★ An undo capture's `readEpoch` is the UNDO epoch, never `getScopeEpoch`.** The stack's reader is
+  `useStorageBackend`'s `getUndoEpoch` (scope + one per restore + one per money-denomination change;
+  `grep -n getUndoEpoch src/app/task-manager.tsx`). A `readEpoch` from the raw scope epoch is already
+  stale after any currency or baseline switch or version restore, so the push guard refuses the entry
+  and undo silently does not exist, with no toast. A synchronous capture passes NO `readEpoch`. It bit
+  the meeting-report save and the AI `update_project` tool; detail in [`docs/AGENTS/undo.md`](docs/AGENTS/undo.md).
 - **Open Points + Milestones toolbars = ONE flat wrapping row** (`flex flex-wrap items-center gap-2`, no
   `<h2>` heading/count) with the search input `flex-1` so it expands and pushes trailing controls right
   (mirrors the changes-panel toolbar). ★ Tasks "Clear all" opens a

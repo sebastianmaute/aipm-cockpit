@@ -25,6 +25,7 @@ const ROUTED: Readonly<Record<string, string>> = {
   "task-row.tsx": "the table's inline assignee patch, applied by tasks-section.tsx onInlinePatch → prepare + record",
   "bulk-operations-helpers.ts": "bulk edit's owner resolution (resolveBulkOwner), applied by use-bulk-operations.ts → prepare",
   "use-chat-dispatcher.ts": "Claude's update_task (chat, inline AI edit, staged plans) → prepare; its create_task is a create",
+  "alloc-plan/alloc-apply.ts": "Plan with AI task moves: planApply builds the owner edits, which use-alloc-plan.tsx hands to reassignTasks",
 };
 
 /** Files that hold the shape but are not a reassignment, each with why. */
@@ -44,6 +45,7 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "absence-edit-modal.tsx": "an absence's person, not a task owner",
   "shift-edit-modal.tsx": "a shift's person, not a task owner",
   "calendar-drag.ts": "moves an absence or shift between people, not a task owner",
+  "alloc-plan/alloc-ground-moves.ts": "builds the OwnerChange a Plan with AI move would plan (read-only); the write is routed through reassignTasks in the review window",
 };
 
 function sourceFiles(dir: string, out: string[] = []): string[] {

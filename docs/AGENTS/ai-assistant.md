@@ -1030,12 +1030,58 @@
   `HOURS_MAP_MAX`) with a `clamped` flag, and a percent cell with ZERO capacity skipped — never written as 0
   or 100. ★ Writes are SET, NAMED CELLS ONLY (never window-ownership — that is the `timelog-apply` defect
   class), applied in ONE functional `setResources` with ONE `bulk.edit` undo entry, and confirm drops any cell
-  whose live value moved since propose. ★ Every cap that can hide data reports it: `parseAllocationProposal`
+  whose live value moved since propose. ★ Every cap that can hide data reports it: `parseAllocationAlternatives`
   returns `truncated` (the cap that actually fires — the ground-level one is defence in depth and cannot),
   `buildAllocContext` caps periods (`ALLOC_CONTEXT_MAX_PERIODS`; 120 resources × 104 weekly periods was ~52k
   input tokens per click), and `list_allocations` carries a PER-RESOURCE `truncated` so an omitted resource is
   distinguishable from a genuinely idle one — kept after §12 added the scope, because a scoped query can still
   overflow.
+  ★★ **§769: it also sees the project and may move tasks.** `buildProjectDigest` (`alloc-plan/alloc-project-digest.ts`)
+  appends open tasks (capped at `ALLOC_CONTEXT_MAX_TASKS`, with a truncation line), milestones
+  (`ALLOC_CONTEXT_MAX_MILESTONES`) and the R/A holders per milestone; each resource line carries its internal rate
+  (`buildAllocContext`, from the role; none for an external). Free text is one line per item, and every free-text value
+  on a line — the resource name, the role label (discipline and grade names), a task or milestone name, an owner name —
+  is a JSON string, so a `key=value` inside one ("Eve rate=0/h") cannot pose as one of the line's tokens. Owner tokens:
+  `owner=#id` for a listed person, `owner=hidden:"…"` for a LINKED person beyond the resource cap (moving the task still
+  carries their hours — the prompt says so), `owner=name:"…"` for a typed name (carries none), `owner=unassigned`. A
+  Jira-synced task carries a `jira` token and the prompt forbids moving it (grounding refuses it anyway). A task's
+  `hours=` list names only the LISTED periods (`ALLOC_CONTEXT_MAX_PERIODS`): listing every plan period made a long
+  weekly plan's digest ≈55k tokens, found by `alloc-plan-size.test.ts`, which pins the worst case under a stated
+  budget. Truncation keeps first the tasks whose owner the instruction names — the full name, or the first or last
+  name alone as a whole word ("help Maya"). The answer is up to `MAX_ALLOC_ALTERNATIVES` (3) alternatives, each with `taskMoves` and `cells`
+  (`parseAllocationAlternatives`, which still reads a bare top-level `cells` as one alternative); the caps count across
+  ALL alternatives. `groundAlternative` (`alloc-ground-moves.ts`) drops a move for an unknown task, a closed task, a
+  Jira-synced task, an unchanged owner, an unknown receiver or a repeated task, and plans each kept move ALONE with the
+  §774 planner. ★★★ A cell on a resource and period that a kept move in the SAME alternative, planned alone, touches is
+  dropped as `covered-by-move`: the move carries those hours, and an absolute cell on top would count them twice (and
+  be wrong the moment the user unticks the move). ★★★ THAT CHECK ALONE IS NOT ENOUGH, because moves chain: Maya→Liam
+  plus Liam→Zoe, where Liam holds no hours of his own, moves nothing for the second move planned alone, so a Zoe cell
+  survives grounding — but apply plans the ticked moves TOGETHER and writes Zoe's hours, and the absolute cell then
+  overwrote them (final review). `planTickedMoves` (`alloc-ground-moves.ts`) plans the ticked linked moves together,
+  as §774 does; `alternativeEffect` drops any ticked cell that plan changes from the preview (`coveredCells`, shown as
+  "already covered by the ticked task moves"; it does not count toward Apply, so Apply stays disabled when only such
+  rows are ticked), `onConfirm` skips and counts it on the LIVE state, and each ticked
+  move's row shows its share of the combined plan (an unticked one its plan alone). Receivers are always linked people
+  (grounding refuses an unknown receiver). A task whose CURRENT owner is not a linked person (unassigned, or a typed
+  name) carries no hours in the §774 step, so the move touches no giver cells and the model may add hour edits for the
+  new owner's work.
+  `alternativeEffect` (`alloc-effect.ts`) gives the review window its per-alternative effect: over-capacity rows and
+  the internal cost (an external carries no cost and is named instead). Unlike §774's own notice, it also warns when hours land on someone with 0 h available ("Liam Foster: 16 h of 0 h in Sep"). Apply is ONE undo entry: the moves go
+  through `reassignTasks` (the step's write path, ROUTED in `reassign-hours.guard.test.ts`) with the cells part passed
+  as `extraParts`, so the §774 step records the single entry for tasks, hours and cells. With no move applied,
+  `use-alloc-plan.tsx` records the cells part itself through `captureComposite`. ★★★ `captureComposite` and
+  `reassignTasks` MUST come from the same undo stack in `task-manager.tsx` (`undoApi`), or the hook's own entry and
+  the step's land in different stacks and undo history splits. Both reach `ResourcesPanel` as function props through `resourcesHandlers` (`useStableHandlers`), never
+  the `reassignHours` object and never `useWorkspace()` in the panel: it is `memo()`'d. Grounding uses the state
+  captured when the call was SENT, so apply re-checks every row on the LIVE state: a move is skipped as stale
+  (`isMoveStale`) when its task's owner, estimate, dates or status changed, or anything that decides its giver's and
+  receiver's hours in its periods did — the stored value, the unit, an absence override, or an Absence record
+  (`capacityFingerprint`); a cell is stale when its stored value changed. The review window runs the same check while open: a stale move is marked "Changed since proposed", cannot be ticked, and leaves the effect, the combined plan and the Apply count. The accounting lives in the pure `planApply` (`alloc-plan/alloc-apply.ts`); `onConfirm` only writes what it returns. ★★ The ONE apply toast names each skip
+  reason apart (`applyToastText`): stale ("because the plan changed"), covered ("already covered by the task moves")
+  and unchanged (a no-op move or cell, "they change nothing") — folding the last two into "plan changed" was a false
+  reason (second review). ★ While the load hold is up (`isLoadHeld`, §774's step's own `loadPending`, threaded as
+  `onIsLoadHeld`) apply writes nothing: the step would refuse the moves and the hour edits must not go alone. The
+  activity log stores only the alternative's number and counts, never the model's summary text.
 - **Forecast import, Claude route (§500):** ONE forced `propose_forecast_mapping` call in
   `forecast-import-call.ts` (`runForecastImportCall`, through the shared never-log `runForcedToolCallWithStop`)
   reads one sheet and returns a COLUMN MAPPING, never a value. `claudeMappingOf` converts it or refuses it

@@ -191,6 +191,71 @@ describe("useReassignHours.reassignTasks", () => {
     expect(showToast).toHaveBeenCalledWith("info", expectedNotice());
   });
 
+  // §769 — Plan with AI adds its hour edits to the SAME entry. Mutation: drop `opts.extraParts` from the parts and
+  // the undo leaves Zoe's December cell written.
+  it("reassignTasks appends extraParts to the same undo entry", () => {
+    const { hook } = setup();
+    let recorded: number | undefined;
+    act(() => {
+      const { setResources } = hook.result.current;
+      const cellsPart = captureFieldPart<Resource>({
+        setter: setResources,
+        edits: [{ id: 3, before: { utilization: {} }, after: { utilization: { "2026-12": 7 } } }],
+        stampField: "localModifiedAt",
+      });
+      setResources((prev) => prev.map((r) => (r.id === 3 ? { ...r, utilization: { ...r.utilization, "2026-12": 7 } } : r)));
+      recorded = hook.result.current.reassign.reassignTasks([TO_LIAM], "ai", { extraParts: [cellsPart], kind: "bulk.edit", entityKey: "task", primaryCount: 2 });
+    });
+    expect(recorded).toBe(1);
+    let r = hook.result.current;
+    expect(r.undo.stack).toHaveLength(1);
+    expect(r.undo.stack[0].kind).toBe("bulk.edit");
+    expect(r.undo.stack[0].count).toBe(2);
+    expect(util(r.resources, 3)).toEqual({ "2026-12": 7 });
+    expect(util(r.resources, 2)).toEqual(MOVED_LIAM);
+    act(() => { hook.result.current.undo.undo(); });
+    r = hook.result.current;
+    expect(owner(r.tasks)).toEqual(MAYA_OWNS);
+    expect(util(r.resources, 1)).toEqual(MAYA.utilization);
+    expect(util(r.resources, 2)).toEqual({});
+    expect(util(r.resources, 3)).toEqual({});
+    expect(r.undo.stack).toHaveLength(0);
+  });
+
+  it("returns 0 and records nothing when no task changes", () => {
+    const { hook, showToast, showToastAction } = setup();
+    let recorded: number | undefined;
+    act(() => { recorded = hook.result.current.reassign.reassignTasks([{ taskId: 10, ...MAYA_OWNS }, { taskId: 999, ...LIAM_OWNS }], "ai"); });
+    expect(recorded).toBe(0);
+    expect(hook.result.current.undo.stack).toHaveLength(0);
+    expect(owner(hook.result.current.tasks)).toEqual(MAYA_OWNS);
+    expect(showToast).not.toHaveBeenCalled();
+    expect(showToastAction).not.toHaveBeenCalled();
+  });
+
+  // §769 — the caller's toast and count can depend on how many edits actually applied (a no-op edit is dropped).
+  it("returns the applied count and hands it to a toastText or primaryCount function", () => {
+    const { hook, showToastAction } = setup({ tasks: [TASK, SMALL] });
+    let applied: number | undefined;
+    act(() => {
+      applied = hook.result.current.reassign.reassignTasks([TO_LIAM, { taskId: 12, ...MAYA_OWNS }], "ai", {
+        toastText: (n) => `applied ${n}`,
+        primaryCount: (n) => n + 5,
+        kind: "bulk.edit",
+      });
+    });
+    expect(applied).toBe(1);
+    expect(hook.result.current.undo.stack[0].count).toBe(6);
+    expect(String(showToastAction.mock.calls.at(-1)?.[1])).toMatch(/^applied 1 /);
+  });
+
+  it("returns 0 while loadPending", () => {
+    const { hook } = setup({ loadPending: true });
+    let applied: number | undefined;
+    act(() => { applied = hook.result.current.reassign.reassignTasks([TO_LIAM], "user"); });
+    expect(applied).toBe(0);
+  });
+
   it("does nothing while loadPending", () => {
     const { hook, logActivityAs, showToast, showToastAction } = setup({ loadPending: true });
     act(() => { hook.result.current.reassign.reassignTasks([TO_LIAM], "user"); });

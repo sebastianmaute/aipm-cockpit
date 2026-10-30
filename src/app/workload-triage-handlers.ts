@@ -9,10 +9,10 @@
 // inline arrows were. Move-only at extraction; since §774 reassign goes through
 // the shared reassign step, so it also moves the task's planned hours and is undoable.
 //
-// ★ task-manager still wraps each handler in `guardEdit` at the call site, so
-// the popout read-only guard did not move; nothing here knows about popouts.
-// No test pins that these three are wrapped (`task-manager.popout-guard.test.tsx`
-// covers budget edits only).
+// ★ The handlers themselves know nothing about popouts: task-manager wraps each
+// one in its `guardEdit` through `workloadPaneProps` below, which also carries
+// §769's reassign step and undo stack to the pane. Its test pins that all three
+// are wrapped.
 //
 // ★ Coverage-GATED on purpose: clear-unlinked deletes records, and its arming
 // rule is real logic. `workload-triage-handlers.test.ts` pins it, and
@@ -21,6 +21,8 @@ import type { Dispatch, SetStateAction } from "react";
 import { resourceDisplayName } from "./resource-foundation";
 import type { Absence, RaidItem, Resource, Shift, Task } from "./types";
 import type { ReassignHours } from "./use-reassign-hours";
+import type { makeEditGuard } from "./read-only-guard";
+import type { UndoStackApi } from "./undo/use-undo-stack";
 
 /** The identity of an unlinked workload row, as `ResourceWorkload` hands it over. */
 export interface UnlinkedWorkloadRow {
@@ -97,4 +99,23 @@ export function buildWorkloadTriageHandlers({
   };
 
   return { onReassignTask, onRescheduleTask, onClearUnlinked };
+}
+
+/** The Resources pane's workload props: each triage handler behind the popout guard, plus §774's reassign step (and
+ *  its load-hold signal, which Plan with AI asks before it writes) and the undo stack Plan with AI records its ONE
+ *  entry on (§769), the same stack as every other edit. */
+export function workloadPaneProps(
+  triage: ReturnType<typeof buildWorkloadTriageHandlers>,
+  guardEdit: ReturnType<typeof makeEditGuard>,
+  reassign: Pick<ReassignHours, "reassignTasks" | "isLoadHeld">,
+  captureComposite: UndoStackApi["captureComposite"],
+) {
+  return {
+    onReassignTask: guardEdit(triage.onReassignTask),
+    onRescheduleTask: guardEdit(triage.onRescheduleTask),
+    onClearUnlinked: guardEdit(triage.onClearUnlinked),
+    onReassignTasks: reassign.reassignTasks,
+    onIsLoadHeld: reassign.isLoadHeld,
+    onCaptureComposite: captureComposite,
+  };
 }

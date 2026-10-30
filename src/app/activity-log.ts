@@ -105,6 +105,10 @@ export type ActivityKind =
   | "ai.taskDedup"
   | "ai.insightRecommendation"
   | "ai.allocationPlan"
+  /** §769 — Plan with AI applied one alternative: (alternative number, task moves, hour edits). ★ Never the model's
+   *  summary text: it is untrusted, and the log is read back into AI prompts. A cells-only apply still logs
+   *  `ai.allocationPlan` (one arg: the cells), which old entries also carry. */
+  | "ai.allocationPlanAlt"
   | "ai.wbsPlan"
   | "ai.raciSuggest"
   | "ai.documentWrite"
@@ -379,6 +383,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "ai.taskDedup": "activityAiTaskDedup",
   "ai.insightRecommendation": "activityAiInsightRecommendation",
   "ai.allocationPlan": "activityAiAllocationPlan",
+  "ai.allocationPlanAlt": "activityAiAllocationPlanAlt",
   "ai.wbsPlan": "activityAiWbsPlan",
   "ai.raciSuggest": "activityAiRaciSuggest",
   "ai.documentWrite": "activityAiDocumentWrite",

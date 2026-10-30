@@ -162,19 +162,17 @@ describe("work-breakdown notices name their real cause (§3)", () => {
   });
 });
 
-describe("the allocation plan's combined applied-and-skipped notice", () => {
-  it("has a plural and a singular form in EN and DE", () => {
-    expect(tPlural("en-US", "allocPlanAppliedSkipped", 2, 3, 2)).toBe(
-      "Allocation changes applied: 3. 2 changes were skipped because the plan changed.",
-    );
-    expect(tPlural("en-US", "allocPlanAppliedSkipped", 1, 3, 1)).toBe(
-      "Allocation changes applied: 3. 1 change was skipped because the plan changed.",
-    );
-    expect(de.allocPlanAppliedSkipped).toBe(
-      "Angewendete Planungsänderungen: {0}. {1} Änderungen wurden übersprungen, weil sich die Planung geändert hat.",
-    );
-    expect(de.allocPlanAppliedSkippedOne).toBe(
-      "Angewendete Planungsänderungen: {0}. 1 Änderung wurde übersprungen, weil sich die Planung geändert hat.",
-    );
+// §769 second wave: each skip reason has its own sentence, so a covered or unchanged row is never reported as a
+// plan change.
+describe("the allocation plan's skip reasons", () => {
+  it("each has a plural and a singular form in EN and DE", () => {
+    expect(tPlural("en-US", "allocPlanSkippedCovered", 2, 2)).toBe("2 hour edits were skipped: already covered by the task moves.");
+    expect(tPlural("en-US", "allocPlanSkippedCovered", 1, 1)).toBe("1 hour edit was skipped: already covered by the task moves.");
+    expect(tPlural("en-US", "allocPlanSkippedUnchanged", 2, 2)).toBe("2 changes were skipped: they change nothing.");
+    expect(tPlural("en-US", "allocPlanSkippedUnchanged", 1, 1)).toBe("1 change was skipped: it changes nothing.");
+    expect(de.allocPlanSkippedCovered).toBe("{0} Stundenänderungen wurden übersprungen: bereits durch die Aufgabenverschiebungen abgedeckt.");
+    expect(de.allocPlanSkippedCoveredOne).toBe("1 Stundenänderung wurde übersprungen: bereits durch die Aufgabenverschiebungen abgedeckt.");
+    expect(de.allocPlanSkippedUnchanged).toBe("{0} Änderungen wurden übersprungen: sie ändern nichts.");
+    expect(de.allocPlanSkippedUnchangedOne).toBe("1 Änderung wurde übersprungen: sie ändert nichts.");
   });
 });

@@ -15,20 +15,25 @@ import {
   type Absence,
   type Discipline,
   type Grade,
+  type Milestone,
   type Resource,
   type ResourcePlan,
   type Role,
+  type Stakeholder,
+  type Task,
 } from "../types";
 import {
-  type Period,
-  absenceWorkdays,
   absencesForResource,
+  availableCapacityHours,
   generatePeriods,
   periodKeyForDate,
-  workdaysInRange,
 } from "../resource-capacity";
 import { HOURS_MAP_MAX } from "../sanitize";
 import { oneLine } from "../rich-text-plain";
+import { periodCost } from "../resource-cost";
+import { buildProjectDigest } from "./alloc-project-digest";
+
+export { availableCapacityHours };
 
 /** A raw cell as parsed from the model tool input (shape-validated only —
  *  resourceId/periodKey are NOT yet checked against the live workspace). */
@@ -67,6 +72,14 @@ export interface AllocContextArgs {
   absences: readonly Absence[];
   workdayHours: number;
   holidaySet: ReadonlySet<string>;
+  /** §769 project context: the open tasks, milestones and R/A holders the digest describes. */
+  tasks: readonly Task[];
+  milestones: readonly Milestone[];
+  stakeholders: readonly Stakeholder[];
+  /** The user's request; names and periods in it decide which tasks survive truncation. */
+  instruction: string;
+  /** YYYY-MM-DD the task hours are split from (§774's split). */
+  today: string;
 }
 
 /** Display label for a resource: full name, else email, else `#<id>`. */
@@ -90,42 +103,22 @@ function roleLabel(
   roles: readonly Role[],
   disciplines: readonly Discipline[],
   grades: readonly Grade[],
-): string {
-  if (roleId == null) return "-";
+): string | null {
+  if (roleId == null) return null;
   const role = roles.find((r) => r.id === roleId);
-  if (!role) return "-";
+  if (!role) return null;
   const discipline = disciplines.find((d) => d.id === role.disciplineId)?.name;
   const grade = grades.find((g) => g.id === role.gradeId)?.name;
-  if (!discipline && !grade) return "-";
+  if (!discipline && !grade) return null;
   return `${discipline ?? "?"} / ${grade ?? "?"}`;
 }
 
-/** Hours a resource could actually work in a period: gross workdays minus
- *  holidays and absences, with NO utilization applied.
- *
- *  Deliberately NOT `periodCapacityHours` (in "../resource-capacity") —
- *  despite its name that function multiplies by the resource's OWN STORED
- *  utilization (`percent: (util/100) × possible`, `hours: util − absence`),
- *  so it answers "hours already allocated", not "hours available". Feeding it
- *  to the planner told the model every unallocated resource had ZERO
- *  capacity. Absence resolution mirrors `periodCapacityHours` EXACTLY
- *  (`absenceOverride[key]` wins when set, else computed absence workdays) —
- *  if that precedence ever diverges between the two functions, the planner
- *  and the resource grid would disagree about the same person's capacity. */
-export function availableCapacityHours(
-  resource: Resource,
-  period: Period,
-  resourceAbsences: readonly Absence[],
-  workdayHours: number,
-  holidaySet: ReadonlySet<string>,
-): number {
-  const possibleHours = workdaysInRange(period.start, period.end, holidaySet) * workdayHours;
-  const override = resource.absenceOverride?.[period.key];
-  const absenceHours =
-    override != null
-      ? override
-      : absenceWorkdays(resourceAbsences, period.start, period.end, holidaySet) * workdayHours;
-  return Math.max(0, possibleHours - absenceHours);
+/** " rate=<internal hourly rate>/h" from the resource's role; empty for an external or a resource without a role. */
+function hourlyRate(r: Resource, roles: readonly Role[]): string {
+  if (r.isExternal || r.roleId == null) return "";
+  const role = roles.find((x) => x.id === r.roleId);
+  if (!role) return "";
+  return ` rate=${Math.round(periodCost(1, role).internal * 100) / 100}/h`;
 }
 
 /** Compact, token-bounded digest of resources + their per-period capacity and
@@ -138,16 +131,20 @@ export function buildAllocContext(args: AllocContextArgs): string {
   const periodKeys = periods.map((p) => p.key);
 
   const lines: string[] = [];
-  lines.push(`PLAN: ${plan.startDate} .. ${plan.endDate} granularity=${plan.granularity} workday=${workdayHours}h`);
+  lines.push(`PLAN: ${plan.startDate} .. ${plan.endDate} granularity=${plan.granularity} workday=${workdayHours}h currency=${plan.currency}`);
   lines.push(`PERIOD KEYS (use ONLY these): ${periodKeys.join(", ")}`);
   lines.push("RESOURCES (capacity and current load are in HOURS):");
 
   const shown = resources.slice(0, ALLOC_CONTEXT_MAX_RESOURCES);
   for (const r of shown) {
     const resourceAbsences = absencesForResource(absences, r);
-    // Names are free text: one line each, so a line break cannot start a fake resource row (§770).
-    const role = oneLine(roleLabel(r.roleId, roles, disciplines, grades));
+    // Names are free text: one line each, so a line break cannot start a fake resource row (§770), and the name and
+    // the role label (discipline and grade names) are JSON strings, so a `key=value` inside one ("Eve rate=0/h")
+    // cannot pose as one of the line's own tokens. No role stays a bare `-`.
+    const label = roleLabel(r.roleId, roles, disciplines, grades);
+    const role = label === null ? "-" : JSON.stringify(oneLine(label));
     const external = r.isExternal ? " external" : "";
+    const rate = hourlyRate(r, roles);
     const cells = periods.map((period) => {
       const capacityRaw = availableCapacityHours(r, period, resourceAbsences, workdayHours, holidaySet);
       const stored = r.utilization[period.key] ?? 0;
@@ -155,7 +152,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
       return `${period.key}=${Math.round(current)}/${Math.round(capacityRaw)}`;
     });
     lines.push(
-      `#${r.id} ${oneLine(aiResourceLabel(r))} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}`,
+      `#${r.id} ${JSON.stringify(oneLine(aiResourceLabel(r)))} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}${rate}`,
     );
   }
   if (resources.length > ALLOC_CONTEXT_MAX_RESOURCES) {
@@ -164,6 +161,18 @@ export function buildAllocContext(args: AllocContextArgs): string {
   if (allPeriods.length > ALLOC_CONTEXT_MAX_PERIODS) {
     lines.push(`…(${allPeriods.length - ALLOC_CONTEXT_MAX_PERIODS} more periods truncated)`);
   }
+  lines.push(
+    ...buildProjectDigest({
+      tasks: args.tasks,
+      milestones: args.milestones,
+      stakeholders: args.stakeholders,
+      resources,
+      shownResourceIds: new Set(shown.map((r) => r.id)),
+      shownPeriodKeys: new Set(periodKeys),
+      instruction: args.instruction,
+      hoursCtx: { plan, absences, workdayHours, holidaySet, today: args.today },
+    }),
+  );
   return lines.join("\n");
 }
 
@@ -172,46 +181,79 @@ export function buildAllocSystemPrompt(): string {
   return [
     "You are a senior project/resource manager helping plan resource allocation.",
     "You always plan in HOURS, regardless of how a resource stores its utilization internally.",
-    "Each cell you return REPLACES that resource's value for that period — only the cells you return change; every other period on every other resource is left untouched.",
+    "Each cell you return REPLACES that resource's value for that period. A task move also changes the hours of its old and new owner in the periods its hours= list names; nothing else changes.",
     "Use ONLY the period keys and resource ids listed in the digest — never invent a resource or a period key.",
     "The digest may be truncated for a large resource count or a long plan window — a trailing '…(N more … truncated)' line means your view is partial, so say so rather than asserting something is unplanned when it may simply be out of view.",
     "Respect the shown per-period capacity unless the user explicitly asks to overload a resource.",
     "When asked to spread work across a role, split it across the resources holding that role, preferring whoever has spare capacity (current well below capacity).",
-    "If you cannot honor the request without inventing a resource or period, return an empty `cells` array rather than guessing.",
+    "If you cannot honor the request without inventing a resource or period, return one alternative with empty `taskMoves` and `cells` rather than guessing.",
     "For a very broad request (many resources across many periods), prioritise the most impactful cells rather than exhaustively enumerating every resource and period.",
-    "Call the propose_allocations tool exactly once. Keep `rationale` to one short line.",
+    "A task move carries that task's hours automatically: never also return cells for those hours.",
+    "A task's hours= list shows only the listed PERIOD KEYS; remaining= is its whole estimate, and a move carries all of it, also the hours outside the listed periods.",
+    "A task whose owner is unassigned or a typed name carries no hours when moved; you may add cells for the new owner for that work.",
+    "owner=hidden means a linked person not listed above: moving the task carries its hours.",
+    "Never move a task marked jira: it is read-only.",
+    "Return more than one alternative only when they are genuinely different ways (moving tasks versus shifting hours, or different people); at most three.",
+    "Prefer people with R or A on a task's milestone.",
+    "A task not listed may still exist when the TASKS list is truncated.",
+    "Call the propose_allocations tool exactly once. Keep each alternative's `rationale` to one short line.",
   ].join(" ");
 }
 
 /** Anthropic tool definition. Forced via tool_choice so the model always emits
- *  one structured tool_use block. */
+ *  one structured tool_use block. §769: the answer is up to three ALTERNATIVES
+ *  (limits mirrored from `alloc-alternatives.ts`, which imports this file). */
 export const PROPOSE_ALLOCATIONS_TOOL = {
   name: "propose_allocations",
   description:
-    "Propose resource-allocation cells (resource × period × hours). Call exactly once; return an empty cells array when the request cannot be honored with the listed resources/periods.",
+    "Propose up to three alternative plans, each with task moves and allocation cells (resource × period × hours). Call exactly once; return one alternative with empty taskMoves and cells when the request cannot be honored with the listed resources/periods.",
   input_schema: {
     type: "object" as const,
     properties: {
-      cells: {
+      alternatives: {
         type: "array",
-        description: "Allocation cells. Each REPLACES the named resource's value for that period.",
+        description: "One to three genuinely different ways to meet the request.",
         items: {
           type: "object",
           properties: {
-            resourceId: { type: "integer", description: "Id of the resource (must appear in the digest)." },
-            periodKey: { type: "string", description: "Period key (must appear in the digest's PERIOD KEYS list)." },
-            hours: { type: "number", description: "Hours allocated to this resource for this period." },
+            summary: { type: "string", description: "One short line (at most 200 characters) saying what this alternative does." },
+            rationale: { type: "string", description: "One short line explaining this alternative." },
+            taskMoves: {
+              type: "array",
+              description: "Tasks to hand to another resource; a moved task carries its hours automatically.",
+              items: {
+                type: "object",
+                properties: {
+                  taskId: { type: "integer", description: "Id of the task (must appear in the digest)." },
+                  toResourceId: { type: "integer", description: "Id of the resource taking the task (must appear in the digest)." },
+                },
+                required: ["taskId", "toResourceId"],
+              },
+            },
+            cells: {
+              type: "array",
+              description: "Allocation cells. Each REPLACES the named resource's value for that period.",
+              items: {
+                type: "object",
+                properties: {
+                  resourceId: { type: "integer", description: "Id of the resource (must appear in the digest)." },
+                  periodKey: { type: "string", description: "Period key (must appear in the digest's PERIOD KEYS list)." },
+                  hours: { type: "number", description: "Hours allocated to this resource for this period." },
+                },
+                required: ["resourceId", "periodKey", "hours"],
+              },
+            },
           },
-          required: ["resourceId", "periodKey", "hours"],
+          required: ["summary", "taskMoves", "cells"],
         },
       },
-      rationale: { type: "string", description: "One short line explaining the distribution." },
     },
-    required: ["cells"],
+    required: ["alternatives"],
   },
 };
 
-function toInt(v: unknown): number | null {
+/** Integer from a number or numeric string, else null (also used by `alloc-alternatives.ts`). */
+export function toInt(v: unknown): number | null {
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
   return Number.isInteger(n) ? n : null;
 }
@@ -221,46 +263,17 @@ function toFiniteNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Result of parsing the model's raw tool input: the shape-validated cells
- *  (ids/keys are grounded later, by `groundAllocationCells`) plus whether the
- *  raw `cells` array itself had to be cut short at `MAX_ALLOC_CELLS`. THIS is
- *  where a too-large proposal actually gets cut — `groundAllocationCells`'s
- *  own cap is defense in depth for a caller that skips this parse step, and
- *  in the real Anthropic-tool-response path never fires, so a caller MUST
- *  read `truncated` from here (and OR it with the ground-level flag) to
- *  learn that anything was dropped. */
-export interface ParsedAllocationProposal {
-  cells: RawAllocCell[];
-  truncated: boolean;
-}
-
-/** Parse the untrusted model tool input into raw cells (shape only — ids/keys
- *  are grounded later). Returns null only when the overall shape is unusable
- *  (no `cells` array); individual malformed cells are dropped, not fatal.
- *  Stops at MAX_ALLOC_CELLS, and reports that stop via `truncated` — see
- *  `ParsedAllocationProposal`. */
-export function parseAllocationProposal(input: unknown): ParsedAllocationProposal | null {
-  if (!input || typeof input !== "object") return null;
-  const cellsRaw = (input as { cells?: unknown }).cells;
-  if (!Array.isArray(cellsRaw)) return null;
-  const out: RawAllocCell[] = [];
-  let truncated = false;
-  for (const raw of cellsRaw) {
-    if (out.length >= MAX_ALLOC_CELLS) {
-      truncated = true;
-      break;
-    }
-    if (!raw || typeof raw !== "object") continue;
-    const c = raw as { resourceId?: unknown; periodKey?: unknown; hours?: unknown };
-    const resourceId = toInt(c.resourceId);
-    if (resourceId === null) continue;
-    const periodKey = typeof c.periodKey === "string" ? c.periodKey.trim() : "";
-    if (!periodKey) continue;
-    const hours = toFiniteNumber(c.hours);
-    if (hours === null) continue;
-    out.push({ resourceId, periodKey, hours });
-  }
-  return { cells: out, truncated };
+/** Shape-validate ONE untrusted cell (§769: shared by every alternative's cells); null when malformed. */
+export function parseRawCell(raw: unknown): RawAllocCell | null {
+  if (!raw || typeof raw !== "object") return null;
+  const c = raw as { resourceId?: unknown; periodKey?: unknown; hours?: unknown };
+  const resourceId = toInt(c.resourceId);
+  if (resourceId === null) return null;
+  const periodKey = typeof c.periodKey === "string" ? c.periodKey.trim() : "";
+  if (!periodKey) return null;
+  const hours = toFiniteNumber(c.hours);
+  if (hours === null) return null;
+  return { resourceId, periodKey, hours };
 }
 
 /** Why a proposed cell was refused instead of turned into a change. */
@@ -271,7 +284,8 @@ export type SkipReason =
   | "bad-hours"
   | "duplicate"
   | "below-resolution"
-  | "already-set";
+  | "already-set"
+  | "covered-by-move";
 
 export interface SkippedCell {
   resourceId: number;
@@ -410,10 +424,10 @@ function resolveNextValue(
  * still a real change (how a user clears a cell) and is always kept.
  *
  * Stops accumulating once `cells.length` reaches MAX_ALLOC_CELLS. This is
- * DEFENSE IN DEPTH ONLY: `parseAllocationProposal` already caps the raw
+ * DEFENSE IN DEPTH ONLY: `parseAllocationAlternatives` already caps the raw
  * input to the same count before this function ever sees it, so on the real
  * Anthropic-tool-response path this branch cannot fire — a caller MUST read
- * `truncated` from `parseAllocationProposal`'s own result too (and OR the two
+ * `truncated` from `parseAllocationAlternatives`'s own result too (and OR the two
  * together) to learn that a too-large proposal was cut. The `truncated`
  * returned here is set precisely when THIS function's own cap is hit WITH
  * input still unconsumed — never when `raw` was simply exhausted at or under

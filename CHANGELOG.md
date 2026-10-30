@@ -26,6 +26,14 @@ longer carries its own changelog comment.
   Ctrl+Z and redo anywhere in the report dialog, its buttons and root included, and in the questions it asks (Replace or Keep both, unsaved changes), no longer trigger the app's undo. An
   AI-drafted report is logged in the activity log as written by the AI. Sending a blank report is refused.
 
+- **Plan with AI understands the project (§769).** Resources → Planning → Plan with AI now sees open tasks, milestones,
+  who is responsible or accountable for each milestone, and each person's internal rate. It can move tasks to other
+  people as well as edit hours, and it may offer up to three alternatives: you pick one in the review window, then tick
+  or untick its individual changes. A moved task carries its remaining estimate with it, as in §774, and an hour edit on
+  the same person and period is dropped so no hours are counted twice. The window shows each move with its hours, warns
+  in words when someone ends above their available hours, and shows the internal cost effect (work moved to or from an
+  external is named and not costed). Apply is one undo step for the owner changes, the moved hours and the edits.
+
 - **Reassigning a task moves its planned hours (§774).** When a task changes owner, in the Workload triage, the task
   editor, the table, the Kanban board, bulk edit, Next actions or through Claude, its remaining estimate moves from
   the old owner's planned hours to the new owner's, across the periods between its start (or today) and its due date.

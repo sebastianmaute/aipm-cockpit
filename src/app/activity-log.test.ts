@@ -123,7 +123,7 @@ describe("isDeleteKind", () => {
     const ALL_KINDS = Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[];
 
     test("classifies every member exactly as declared", () => {
-      expect(ALL_KINDS).toHaveLength(69); // tripwire — see the note above; raid.escalated added (§515), ai.wbsPlan (optimize_wbs), plan.currencySwitched (§476, not a delete), forecastScenario.created/updated/deleted (§502), forecast.targetChanged/proposalSet/proposalCleared (§502), project.updated (§715, not a delete), resource.hoursMoved (§774, not a delete), meetingReport.updated + ai.reportDraft (AI-04, not deletes)
+      expect(ALL_KINDS).toHaveLength(70); // tripwire — see the note above; ai.allocationPlanAlt (§769, not a delete), raid.escalated added (§515), ai.wbsPlan (optimize_wbs), plan.currencySwitched (§476, not a delete), forecastScenario.created/updated/deleted (§502), forecast.targetChanged/proposalSet/proposalCleared (§502), project.updated (§715, not a delete), resource.hoursMoved (§774, not a delete), meetingReport.updated + ai.reportDraft (AI-04)
       expect(ALL_KINDS.filter(isDeleteKind).sort()).toEqual([...DELETE_KINDS].sort());
     });
 

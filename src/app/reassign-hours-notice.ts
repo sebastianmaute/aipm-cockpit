@@ -174,3 +174,21 @@ export function hoursMoveNotice(plan: HoursMovePlan, ctx: HoursMoveNoticeCtx): s
   }
   return sentences.length > 0 ? sentences.join(" ") : null;
 }
+
+/** The notes for ONE move that did move hours — what the giver lacked, where the receiver ran out of room, what fell
+ *  outside the window — each a sentence of its own, as in `pairSentence`. The review window shows them under the move. */
+export function movedHoursNotes(move: TaskHoursMove, ctx: HoursMoveNoticeCtx): string[] {
+  if (move.movedHours <= 0 || move.fromResourceId === undefined || move.toResourceId === undefined) return [];
+  const { lang } = ctx;
+  const from = ctx.resourceName(move.fromResourceId);
+  const to = ctx.resourceName(move.toResourceId);
+  const notes: string[] = [];
+  if (move.shortfallHours > 0) {
+    notes.push(t(lang, "hoursMovedShortfall", formatMovedHours(move.shortfallHours, lang), from, periodList(move.shortfallPeriods, ctx)));
+  }
+  if (move.receiverCapHours > 0) {
+    notes.push(capSentence(move.receiverCapLimit, [formatMovedHours(move.receiverCapHours, lang), from], to, periodList(move.receiverCapPeriods, ctx), lang, false));
+  }
+  if (move.outsideWindowHours > 0) notes.push(t(lang, "hoursMovedOutsideWindowNote", formatMovedHours(move.outsideWindowHours, lang)));
+  return notes;
+}
