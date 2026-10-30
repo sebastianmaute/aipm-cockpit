@@ -257,12 +257,29 @@ describe("usage-limits help on tabs (AI-03)", () => {
   it("says the weekly figures are shared and the session figure is per tab, in English and German", async () => {
     await loadI18n("de");
     const en = t("en-US", "helpSecUsageLimitsBody");
-    expect(en).toContain("weekly figures are shared by all open tabs");
+    expect(en).toContain("weekly token figures are shared by all open tabs");
+    expect(en).toContain("view-switch cache lines are not kept in step across tabs");
+    expect(en).toContain("in the background — and shows a breakdown");
     expect(en).toContain("session figure counts this tab only");
     expect(en).not.toContain("and is shared by all open tabs");
     const de = t("de", "helpSecUsageLimitsBody");
-    expect(de).toContain("Wochenwerte gelten für alle geöffneten Tabs");
+    expect(de).toContain("wöchentlichen Token-Werte gelten für alle geöffneten Tabs");
+    expect(de).toContain("Cache-Zeilen zu Ansichtswechseln werden zwischen Tabs nicht abgeglichen");
+    expect(de).toContain("im Hintergrund laufen — und zeigt eine Aufschlüsselung");
     expect(de).toContain("Sitzungswert zählt nur diesen Tab");
     expect(de).not.toContain("und gilt für alle geöffneten Tabs");
+  });
+});
+
+// AI-02 — the card shows a document write's counts and opening text only; Help says so, and how to undo an applied one.
+describe("attachment help on document cards (AI-02)", () => {
+  it("states what the card shows of a document write, and the version history, in English and German", async () => {
+    await loadI18n("de");
+    const en = t("en-US", "helpSecUsageLimitsBody");
+    expect(en).toContain("the card shows the number of blocks or changes and the opening text");
+    expect(en).toContain("version history");
+    const de = t("de", "helpSecUsageLimitsBody");
+    expect(de).toContain("zeigt die Karte die Anzahl der Blöcke oder Änderungen und den Textanfang");
+    expect(de).toContain("Versionsverlauf");
   });
 });
