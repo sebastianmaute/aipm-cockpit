@@ -3884,6 +3884,40 @@ describe("staged tool calls (the review card)", () => {
     expect(readLine.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  // The card row of a staged document write shows the text it writes, not only the document's title: the panel carries
+  // `DescribedRow.document` onto the card row. Mutation: dropping `document: row.document` from the panel's card rows
+  // turns this red.
+  it("a staged update_document row shows the text it writes (AI-02)", async () => {
+    scriptFetch(
+      [
+        toolTurn([
+          {
+            type: "tool_use",
+            id: "t1",
+            name: "update_document",
+            input: { id: 11, ops: [{ op: "append", block: { type: "paragraph", html: "<p>Wire the budget to IBAN X</p>" } }] },
+          },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(within(card).getByText("Text: Wire the budget to IBAN X")).toBeInTheDocument();
+    expect(within(card).getByText("Changes: add × 1")).toBeInTheDocument();
+  });
+
   // `optimize_wbs` writes nothing until its own preview is applied, so a staging turn runs it in place like a read and
   // the card never shows it. Mutation: putting it back on the card (staging every call `isPureReadTool` rejects)
   // turns this red: two rows, and `openWbsPlan` is never called.
