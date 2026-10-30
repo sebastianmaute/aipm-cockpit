@@ -16,6 +16,7 @@ import { computeNextActions } from "./next-actions";
 import { buildActionInput } from "./next-actions-input";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { ProjectDigestInput } from "./project-digest";
+import { isPeopleProtected } from "./ai-people-protection";
 import { resolveEffectiveSettings } from "./settings-effective";
 import { resolveNextActionsConfig, type Settings } from "./settings-types";
 import { getStakeholderCommsItems } from "./stakeholder-comms";
@@ -56,7 +57,11 @@ export function buildProjectAnalysisInput(args: {
 
   const milestones = ws.milestones ?? [];
   const changes = ws.changes ?? [];
-  const stakeholders = ws.stakeholders ?? [];
+  // AI people protection (layer 1): THIS workspace's setting decides — the open project's for "Analyze with
+  // AI", the TARGET project's for a scheduled job. Protected, the digest lists no stakeholder, and the derived
+  // queue carries no per-person workload alert or stakeholder-comms reminder.
+  const peopleProtected = isPeopleProtected(ws.settingsOverrides);
+  const stakeholders = peopleProtected ? [] : ws.stakeholders ?? [];
   const budgets = ws.budgets ?? [];
 
   const dashboard = queue === undefined || budgets.length > 0 ? computeDashboard(
@@ -71,7 +76,7 @@ export function buildProjectAnalysisInput(args: {
   ) : null;
 
   const deriveQueue = (dash: NonNullable<typeof dashboard>): ProjectDigestInput["queue"] => {
-    const commsReminders = notifications.stakeholderComms.enabled
+    const commsReminders = notifications.stakeholderComms.enabled && !peopleProtected
       ? getStakeholderCommsItems({
           stakeholders, milestones, raid: ws.raid, changes, today,
           flags: {
@@ -84,7 +89,7 @@ export function buildProjectAnalysisInput(args: {
         })
       : [];
 
-    const workloadAlerts = buildWorkloadAlerts({
+    const workloadAlerts = peopleProtected ? [] : buildWorkloadAlerts({
       resources: ws.resources, tasks: ws.tasks, absences: ws.absences, shifts: ws.shifts, raid: ws.raid,
       plan: ws.plan, today, workdayHours, holidaySet: NO_HOLIDAYS,
       overdueThreshold: naCfg.workloadOverdueThreshold, overAllocatedPct: naCfg.workloadAllocatedPct,
@@ -134,6 +139,7 @@ export function buildProjectAnalysisInput(args: {
       tasks: ws.tasks, raid: ws.raid, milestones, changes, stakeholders,
       ...(budget ? { budget } : {}),
       queue: queue ?? (dashboard ? deriveQueue(dashboard) : []),
+      ...(peopleProtected ? { peopleProtected } : {}),
     },
     grounding: buildGroundingIndex({ tasks: ws.tasks, raid: ws.raid, milestones, changes, stakeholders }),
     effectiveSettings,

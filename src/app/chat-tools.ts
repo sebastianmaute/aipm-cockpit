@@ -58,6 +58,7 @@ import { runChatSearch } from "./chat-search-tool";
 import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
 export { TOOL_DEFS } from "./chat-tool-defs";
+import { PEOPLE_TOOLS, PEOPLE_TOOL_REFUSAL, peopleToolsLive } from "./chat-tool-defs";
 
 type TaskInput = {
   taskName: string;
@@ -586,6 +587,11 @@ export type ToolDispatcher = {
    *  enforcement-not-advertisement reasoning as `isHistorySearchEnabled`
    *  above — `runTool` is reached by NAME. */
   isChatSearchEnabled(): boolean;
+  /** Does the open project protect its people from the AI? (AI people protection, layer 1.)
+   *  ★★★ THE EXECUTOR ASKS, LIVE, for the reason `isHistorySearchEnabled` does: `runTool` is reached by
+   *  NAME, and a thread that ran `list_resources` before protection was switched on still carries that
+   *  call in its history. Read from the same source as the transport's privacy (`ai-privacy-context`). */
+  isPeopleProtected(): boolean;
   /** The project's effective IANA zone — the SAME value behind `getSnapshot().today`,
    *  so a day bound and the `Today is …` date the model is given cannot disagree.
    *  ★ NOT the ephemeral display-tz override the top bar can set: that is a
@@ -696,6 +702,10 @@ export async function runTool(
     string,
     unknown
   >;
+
+  // ★★ AI people protection: ENFORCEMENT, not advertisement. `toolsFor` stops offering these under the same
+  //   predicate; this refuses to SERVE them, before any handler can read or write a row.
+  if (PEOPLE_TOOLS.has(name) && !peopleToolsLive(d.isPeopleProtected())) throw new Error(PEOPLE_TOOL_REFUSAL);
 
   const forecast = runForecastTool(name, input, d);
   if (forecast !== NOT_FORECAST_TOOL) return forecast;

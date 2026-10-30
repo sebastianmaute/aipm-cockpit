@@ -41,6 +41,7 @@ import { useScheduledJobRunner } from "./use-scheduled-job-runner";
 import { loadPortfolioMode } from "./portfolio-mode";
 import { type OperatingGuide } from "./operating-guide";
 import { useGuideTextFrom } from "./action-guides-context";
+import { useOpenProjectPeopleProtected } from "./ai-privacy-context";
 import { actionText } from "./action-text";
 
 const MAX_LEARNING_SUMMARY_ENTRIES = 20;
@@ -115,9 +116,12 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
   );
   // The compact, title-only workspace digest. Its one caller is the weight-suggestion context below;
   // "Analyze with AI" sends the wide digest (`buildWideContext`), as the scheduled runner does.
+  // AI people protection: asked when the context is built, from the transport's own source.
+  const peopleProtectedNow = useOpenProjectPeopleProtected();
   const buildAiContext = useCallback(
     () =>
       buildAnalysisContext({
+        peopleProtected: peopleProtectedNow(),
         projectName: project?.name ?? "",
         today,
         mode: deriveMode(settings.features),
@@ -134,7 +138,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
           tier: a.tier,
         })),
       }),
-    [project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang],
+    [project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang, peopleProtectedNow],
   );
   // §772 — "Analyze with AI" sends the WIDE per-project digest a scheduled report sends, built by the SAME
   // `buildProjectAnalysisInput` over the live workspace (status and dates per line, plus the budget line). This

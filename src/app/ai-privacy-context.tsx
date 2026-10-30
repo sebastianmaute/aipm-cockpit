@@ -12,7 +12,8 @@
 // on a stored project) builds its privacy from THAT project's workspace (`scheduled-job-run.ts`).
 // ★ FAIL CLOSED: outside the provider, or before task-manager has registered its source, the getter
 // THROWS. Sending unprotected because a source was missing is the bypass the spec forbids.
-import { createContext, useCallback, useContext, useLayoutEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { isPeopleProtected } from "./ai-people-protection";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
 import type { Workspace } from "./workspace";
 
@@ -24,15 +25,33 @@ interface PrivacySource {
 interface SourceStore {
   set(source: PrivacySource): void;
   get(): PrivacySource | null;
+  /** For `usePeopleProtected`: told after every `set`, so a render-reactive reader follows the setting. */
+  subscribe(listener: () => void): () => void;
 }
 
 function createSourceStore(): SourceStore {
   let current: PrivacySource | null = null;
+  const listeners = new Set<() => void>();
   return {
-    set: (source) => { current = source; },
+    set: (source) => {
+      current = source;
+      for (const l of listeners) l();
+    },
     get: () => current,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
   };
 }
+
+/** The people protection of the store's open project; true (protected) when no source is registered. */
+function protectedNow(store: SourceStore | null): boolean {
+  const source = store?.get() ?? null;
+  return source === null || isPeopleProtected(source.read().settingsOverrides);
+}
+
+const NO_SUBSCRIPTION = () => () => undefined;
 
 const SourceContext = createContext<SourceStore | null>(null);
 
@@ -56,6 +75,25 @@ export function useAiPrivacySource(key: string, read: () => Workspace): void {
   useLayoutEffect(() => {
     store?.set({ key, read });
   });
+}
+
+/** AI people protection, layer 1: a stable getter for whether the open project protects its people, asked
+ *  at SEND time (the chat's `ToolFlags.peopleProtected`, the executor gate, the context builders). It reads
+ *  the SAME source as `useOpenProjectAiPrivacy`, so the tool list and the redaction cannot disagree about
+ *  the setting. FAIL CLOSED: true when no source is registered. */
+export function useOpenProjectPeopleProtected(): () => boolean {
+  const store = useContext(SourceContext);
+  return useCallback(() => protectedNow(store), [store]);
+}
+
+/** The same answer, render-reactive: for UI that hides a people feature (Plan with AI, RACI suggestions,
+ *  the dictation mic). A boolean subscription, so a consumer re-renders only when the answer flips — safe
+ *  inside the `memo()`'d panels, unlike `useWorkspace()`. FAIL CLOSED: true outside the provider and
+ *  before task-manager has registered its source. */
+export function usePeopleProtected(): boolean {
+  const store = useContext(SourceContext);
+  const getSnapshot = () => protectedNow(store);
+  return useSyncExternalStore(store ? store.subscribe : NO_SUBSCRIPTION, getSnapshot, getSnapshot);
 }
 
 /** A stable getter for the open project's privacy; it throws `AiPrivacyUnavailableError` when no

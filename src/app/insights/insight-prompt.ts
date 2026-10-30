@@ -106,7 +106,13 @@ function outcomeLine(insight: MeasuredInsight): string {
  * — including one that changed nothing. Returns "" when both are empty (the
  * caller omits the block entirely).
  */
-export function buildInsightsPromptBlock(insights: readonly Insight[]): string {
+export function buildInsightsPromptBlock(
+  all: readonly Insight[],
+  /** AI people protection: `withPeople: false` drops every insight about one person (its data names a
+   *  `person`, as the TimeLog violations do). Absent, all are kept. */
+  opts: { withPeople?: boolean } = {},
+): string {
+  const insights = opts.withPeople === false ? all.filter((i) => !("person" in i.data)) : all;
   const surfaced = insights
     .filter((i) => SURFACED_STATUSES.has(i.status))
     .sort((a, b) => INSIGHT_SEVERITY_RANK[a.severity] - INSIGHT_SEVERITY_RANK[b.severity])

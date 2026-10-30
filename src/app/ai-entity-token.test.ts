@@ -193,6 +193,7 @@ describe("the exclusion set is disjoint from what the AI can write", () => {
     const dispatcher = {
       [method]: spy,
       [getter]: vi.fn(() => current),
+      isPeopleProtected: () => false,
     } as unknown as ToolDispatcher;
     // Inject every excluded field for this entity as raw tool input, which is
     // exactly what a model could emit -- the schema does not constrain what

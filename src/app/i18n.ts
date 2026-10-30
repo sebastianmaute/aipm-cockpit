@@ -1312,6 +1312,7 @@ const enUS = {
   dictationEngineStt: "Cloud (OpenAI-compatible)",
   dictationNeedsAiConsent: "Speech-to-text sends your audio to the configured speech service. Switch on AI and accept the AI data disclosure in Settings → AI to use it; until then dictation is unavailable. To dictate without it, choose Browser (Web Speech) as the dictation engine.",
   dictationUnavailableNeedsAiConsent: "Dictation is unavailable: the speech-to-text service needs AI switched on and the AI data disclosure accepted in Settings → AI.",
+  dictationUnavailablePeopleProtected: "Dictation is off: people protection is on for this project, and audio cannot be checked for names.",
   dictationUnavailableSttNotSetUp: "Dictation is unavailable: speech-to-text is the chosen engine, but its service address or API key is missing, or the key cannot be read on this device. Complete the speech-to-text setup in Settings, or choose Browser (Web Speech) as the dictation engine.",
   dictationSttBaseUrl: "Transcription endpoint base URL",
   dictationSttModel: "Model",

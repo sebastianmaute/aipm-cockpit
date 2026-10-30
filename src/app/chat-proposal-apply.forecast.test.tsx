@@ -3,6 +3,8 @@
 // must take the scenario row with it. The REAL dispatcher and undo batch, as in chat-proposal-apply.test.tsx.
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+// AI people protection, Task 5: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
 import { showForecastView } from "../test/forecast-view";
 import { applyProposal } from "./chat-proposal-apply";

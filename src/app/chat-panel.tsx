@@ -1,7 +1,7 @@
 "use client";
 
 import { AiPeopleProtectedContentError } from "./ai-privacy";
-import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
+import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected } from "./ai-privacy-context";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
 import { type ToolDispatcher, runTool } from "./chat-tools";
@@ -467,6 +467,7 @@ function ChatPanelInner({
   // reads. Written in an effect, never during render.
   const workspaceRef = useRef(workspace);
   const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3): asked per request
+  const peopleProtectedNow = useOpenProjectPeopleProtected(); // same source, asked once per send (layer 1)
   useEffect(() => {
     workspaceRef.current = workspace;
   }, [workspace]);
@@ -746,6 +747,9 @@ function ChatPanelInner({
       historySearch: ai.historySearch,
       chatSearch: ai.chatSearch,
       forecast: snapshot.forecastSimulation === true,
+      // AI people protection (Review Focus 4): read at SEND time from the transport's own source, so a switch
+      // mid-thread drops the people tools on the next send. Once per send: the list must stay one identity.
+      peopleProtected: peopleProtectedNow(),
     };
     // Runs one tool, shows it in the transcript and returns its `tool_result`, plus whether it ran without
     // throwing. Used by the ordinary path and by a staging turn's reads, which run in place (AI-02).

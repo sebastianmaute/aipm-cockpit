@@ -53,6 +53,7 @@ import type { ToastKind } from "./use-toast";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { type OperatingGuide } from "./operating-guide";
 import { useGuideTextFrom } from "./action-guides-context";
+import { useOpenProjectPeopleProtected } from "./ai-privacy-context";
 
 // Cap on any free-text field folded into the linked-entity digest of an insight
 // recommendation prompt — the digest rides a billed call, so an unbounded
@@ -228,10 +229,14 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     },
     [milestones, raid, resourcesById],
   );
+  // AI people protection: read when the context is BUILT (on demand or by the background runner), so the
+  // project's setting at run time decides.
+  const peopleProtectedNow = useOpenProjectPeopleProtected();
   const buildInsightRecommendContext = useCallback(
     (insight: Insight) => {
       const entity = resolveInsightEntity(insight);
       return buildRecommendContext({
+        peopleProtected: peopleProtectedNow(),
         projectName: project?.name ?? "",
         today,
         insightType: insight.type,
@@ -253,7 +258,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         ),
       });
     },
-    [project, today, tasks, resolveInsightEntity, resourcesById],
+    [project, today, tasks, resolveInsightEntity, resourcesById, peopleProtectedNow],
   );
   // ★★ THE SINGLE CHOKE POINT FOR STORING A GENERATED RECOMMENDATION — both the
   // on-demand `useInsightRecommend` and the background

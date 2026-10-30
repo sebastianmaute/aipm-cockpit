@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// AI people protection, Task 5: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { asTimeZoneForTests, createProjectClock } from "./timezone";

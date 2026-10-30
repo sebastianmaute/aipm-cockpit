@@ -17,7 +17,9 @@
 //
 // Together: OFFERED ⟺ WRITABLE.
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+// AI people protection, Task 5: this file tests the write path, not the protection (`ai-people-gates.test.tsx`).
+vi.mock("../ai-privacy-context", () => import("../../test/ai-privacy-unprotected"));
 
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
 import {

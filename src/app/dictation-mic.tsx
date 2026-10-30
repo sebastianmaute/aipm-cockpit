@@ -10,6 +10,7 @@ import { useToastContext } from "./toast-context";
 import { PRESS, TRANSITION } from "./interaction-styles";
 import { ToggleButton } from "./toggle-button";
 import { setActiveDictationTarget, clearDictationTargetIf, type DictationTarget } from "./dictation-target";
+import { usePeopleProtected } from "./ai-privacy-context";
 import {
   DICTATION_AI_DEPLOYMENT_INVALID,
   DICTATION_AI_DEPLOYMENT_OFF,
@@ -55,11 +56,15 @@ export function useDictationMic({
   const showToast = useToastContext();
   const [interim, setInterim] = useState("");
   const unavailableReasonId = useId();
+  // AI people protection (P9): with protection on, dictation is OFF — both engines send audio to a third
+  // party and audio cannot be redacted. Read HERE, once for every mic in the app, so a new dictation site is
+  // covered without anyone remembering to. `enabled: false` also stops the focused-field hotkey (`target.press`).
+  const peopleProtected = usePeopleProtected();
   const ptt = usePushToTalk({
     lang,
-    enabled,
+    enabled: enabled && !peopleProtected,
     dictation,
-    aiConsented,
+    aiConsented: aiConsented && !peopleProtected,
     onAppendFinal: (txt) => { onAppendFinal(txt); setInterim(""); },
     onInterim: (txt) => setInterim(txt),
     onError: (err) => {
@@ -121,7 +126,10 @@ export function useDictationMic({
               ? "aiDeploymentInvalid"
               : "dictationUnavailableNeedsAiConsent",
       );
-  const mic = ptt.supported ? (
+  const mic = peopleProtected ? (
+    // The control's replacement says why, in place of the button (spec layer 1: "its control explains why").
+    <span data-dictation-off className="text-xs text-muted-foreground">{t(lang, "dictationUnavailablePeopleProtected")}</span>
+  ) : ptt.supported ? (
     <>
     <ToggleButton
       disabled={ptt.unavailable}

@@ -16,3 +16,16 @@ const getUnprotected = (): AiPrivacy => UNPROTECTED;
 export function useOpenProjectAiPrivacy(): () => AiPrivacy {
   return getUnprotected;
 }
+
+// AI people protection, Task 5: the same "no project" answer for the people gates — never protected, so a
+// feature's own tests see its people controls and tools. What protection does is pinned in
+// `ai-people-gates.test.tsx` and `chat-tool-defs.people.test.ts`, under the real provider.
+const notProtected = (): boolean => false;
+
+export function useOpenProjectPeopleProtected(): () => boolean {
+  return notProtected;
+}
+
+export function usePeopleProtected(): boolean {
+  return false;
+}

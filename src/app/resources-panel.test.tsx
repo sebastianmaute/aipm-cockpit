@@ -3,6 +3,8 @@ import { newConsent } from "./ai-consent";
 import { join } from "node:path";
 import { useState } from "react";
 import { describe, test, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
+// AI people protection, Task 5: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
 import { loadI18n, t } from "./i18n";
