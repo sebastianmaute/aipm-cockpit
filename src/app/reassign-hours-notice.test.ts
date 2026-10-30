@@ -156,6 +156,20 @@ describe("hoursMoveNotice (EN)", () => {
       "Moved 16 h from Maya Patel to Liam Foster (Sep: 8 h, Oct: 8 h). UI is closed, so no planned hours moved.",
     );
   });
+  it("gives a zero-moved task with both a shortfall and a full receiver both sentences", () => {
+    const m = move({
+      perPeriod: [], movedHours: 0,
+      shortfallHours: 4, shortfallPeriods: ["2026-09"],
+      receiverCapHours: 4, receiverCapPeriods: ["2026-10"], receiverCapLimit: "percent",
+    });
+    expect(hoursMoveNotice(plan([m]), ctx("en-US"))).toBe(
+      "No planned hours moved for Data migration: Maya Patel has no planned hours in Sep. No planned hours moved for Data migration: Liam Foster is at 100 % in Oct.",
+    );
+  });
+  it("returns null for a zero-moved entry whose giver is unknown", () => {
+    const m = move({ fromResourceId: undefined, perPeriod: [], movedHours: 0, shortfallHours: 4, shortfallPeriods: ["2026-09"] });
+    expect(hoursMoveNotice(plan([m]), ctx("en-US"))).toBeNull();
+  });
   it("returns null when everything is silent", () => {
     expect(hoursMoveNotice(plan([]), ctx("en-US"))).toBeNull();
     expect(hoursMoveNotice(plan([move({ perPeriod: [], movedHours: 0 })]), ctx("en-US"))).toBeNull();
@@ -209,6 +223,16 @@ describe("hoursMoveNotice (DE)", () => {
     );
     expect(hoursMoveNotice(plan([move({ perPeriod: [], movedHours: 0, shortfallHours: 8, shortfallPeriods: ["2026-09"] })]), ctx("de"))).toBe(
       "Für Data migration wurden keine geplanten Stunden verschoben: Maya Patel hat in Sep keine geplanten Stunden.",
+    );
+  });
+  it("renders a zero-moved full receiver, at 100 % and at the hours limit", () => {
+    const pct = move({ perPeriod: [], movedHours: 0, receiverCapHours: 8, receiverCapPeriods: ["2026-09"], receiverCapLimit: "percent" });
+    expect(hoursMoveNotice(plan([pct]), ctx("de"))).toBe(
+      "Für Data migration wurden keine geplanten Stunden verschoben: Liam Foster ist in Sep bei 100 %.",
+    );
+    const hrs = move({ perPeriod: [], movedHours: 0, receiverCapHours: 8, receiverCapPeriods: ["2026-09"], receiverCapLimit: "hours" });
+    expect(hoursMoveNotice(plan([hrs]), ctx("de"))).toBe(
+      "Für Data migration wurden keine geplanten Stunden verschoben: Liam Foster ist in Sep an der Grenze von 1.000 Std.",
     );
   });
   it("summarises several skipped tasks by reason", () => {

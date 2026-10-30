@@ -113,6 +113,8 @@ describe("useReassignHours.reassignTasks", () => {
     const { hook } = setup();
     act(() => { hook.result.current.reassign.reassignTasks([TO_LIAM], "user"); });
     act(() => { hook.result.current.undo.undo(); });
+    expect(owner(hook.result.current.tasks)).toEqual(MAYA_OWNS);
+    expect(util(hook.result.current.resources, 2)).toEqual({});
     act(() => { hook.result.current.undo.redo(); });
     const r = hook.result.current;
     expect(owner(r.tasks)).toEqual(LIAM_OWNS);
@@ -141,6 +143,12 @@ describe("useReassignHours.reassignTasks", () => {
     expect(moved[0][0]).toBe("user");
     expect(String(moved[0][2])).toContain("Maya Patel");
     expect(String(moved[0][2])).toContain("Liam Foster");
+  });
+
+  it("stores the moved hours language-neutrally in the activity entry", () => {
+    const { hook, logActivityAs } = setup();
+    act(() => { hook.result.current.reassign.reassignTasks([TO_LIAM], "user"); });
+    expect(logActivityAs).toHaveBeenLastCalledWith("user", "resource.hoursMoved", "Maya Patel -16; Liam Foster +16");
   });
 
   it("logs no resource.hoursMoved entry when no hours moved", () => {
@@ -374,5 +382,42 @@ describe("useReassignHours: two moves in one tick", () => {
     expect(util(r.resources, 1)).toEqual(MOVED_MAYA);
     expect(util(r.resources, 2)).toEqual({ "2026-09": 0, "2026-10": 0 });
     expect(util(r.resources, 3)).toEqual(MOVED_LIAM);
+  });
+
+  it("redo after undoing the second call re-applies only that move", () => {
+    const { hook } = setup({ tasks: [TASK, SMALL] });
+    act(() => {
+      hook.result.current.reassign.reassignTasks([TO_LIAM], "user");
+      hook.result.current.reassign.reassignTasks([SMALL_TO_ZOE], "user");
+    });
+    act(() => { hook.result.current.undo.undo(); });
+    act(() => { hook.result.current.undo.redo(); });
+    CONSERVED(hook.result.current.resources);
+    expect(owner(hook.result.current.tasks, 12)).toEqual({ assignee: "Zoe Kim", assigneeEmail: "zoe@x.com", resourceId: 3 });
+  });
+
+  it("gives the receiver only what the giver actually had when a same-tick write lowered the giver", () => {
+    const { hook } = setup();
+    act(() => {
+      hook.result.current.setResources((prev) => prev.map((r) => (r.id === 1 ? { ...r, utilization: { ...r.utilization, "2026-09": 2 } } : r)));
+      hook.result.current.reassign.reassignTasks([TO_LIAM], "user");
+    });
+    // Planned from 40 (8 h a month), but Sep held only 2 by write time: 2 move, and no hours are created.
+    expect(util(hook.result.current.resources, 1)).toEqual({ "2026-09": 0, "2026-10": 32, "2026-11": 20 });
+    expect(util(hook.result.current.resources, 2)).toEqual({ "2026-09": 2, "2026-10": 8 });
+  });
+
+  it("a prepare().commit() advances the hook's task copy, so a later reassignTasks reads the new owner", () => {
+    const { hook } = setup({ tasks: [TASK] });
+    act(() => {
+      const { prepare, reassignTasks } = hook.result.current.reassign;
+      // The path writes the owner through its own setter, then commits the hours step.
+      hook.result.current.setTasks((prev) => prev.map((t) => (t.id === 10 ? { ...t, ...LIAM_OWNS } : t)));
+      prepare([{ task: { ...TASK, ...LIAM_OWNS } as Task, fromResourceId: 1, toResourceId: 2, fromAssignee: "Maya Patel" }]).commit("user");
+      reassignTasks([{ taskId: 10, ...MAYA_OWNS }], "user");
+    });
+    // Liam → Maya again in the same tick: the hours come back.
+    expect(util(hook.result.current.resources, 1)).toEqual(MAYA.utilization);
+    expect(util(hook.result.current.resources, 2)).toEqual({ "2026-09": 0, "2026-10": 0 });
   });
 });

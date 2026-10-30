@@ -377,11 +377,6 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       const after = patchRow(row);
       return { task: after, fromResourceId: row.resourceId, toResourceId: after.resourceId, fromAssignee: row.assignee };
     }));
-    // With hours (or a no-move notice) the entry is a composite: task patches first, then the resources.
-    if (tasksPart !== null && !bucketsChanged
-      && !reassign.record(step, { kind: "bulk.edit", entityKey: "task", primaryCount: taskEdits.length, taskPart: tasksPart })) {
-      captureFieldRowsRef.current({ setter: setTasks, kind: "bulk.edit", edits: taskEdits, entityKey: "task", stampField: "localModifiedAt" });
-    }
     // `editedIds` is a subset of the VISIBLE targets, so this also keeps a
     // fully-hidden selection from producing a fresh (identical) tasks array,
     // which would dirty the workspace for nothing — the guard the old
@@ -389,6 +384,12 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     if (editedIds.size > 0) {
       setTasks((prev) => prev.map((row) => (editedIds.has(row.id) ? patchRow(row) : row)));
       step.commit("user");
+      // Recorded AFTER the write, like every other path (commit, then record): with hours (or a no-move
+      // notice) the entry is a composite, task patches first, then the resources.
+      if (tasksPart !== null && !bucketsChanged
+        && !reassign.record(step, { kind: "bulk.edit", entityKey: "task", primaryCount: taskEdits.length, taskPart: tasksPart })) {
+        captureFieldRowsRef.current({ setter: setTasks, kind: "bulk.edit", edits: taskEdits, entityKey: "task", stampField: "localModifiedAt" });
+      }
       // PER ROW, not once per batch: `activityTaskCompleted` is "Task #{0}
       // marked complete: {1}", which names ONE task and has no room for a
       // count. (An earlier revision added "and neither completion kind is in

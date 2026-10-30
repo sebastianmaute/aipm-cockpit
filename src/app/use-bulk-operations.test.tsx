@@ -1667,16 +1667,24 @@ describe("useBulkOperations", () => {
 describe("useBulkOperations — §774 bulk owner change", () => {
   function renderBulkWithHours() {
     const spies = rigSpies();
+    const showToast = vi.fn();
     const { result } = renderHook(
       () => {
         const workspace = useWorkspace();
         const rig = useReassignRigOver(spies, workspace);
-        const args = makeArgs({ capture: rig.undo.capture, captureFieldRows: rig.undo.captureFieldRows, reassignHours: rig.reassignHours });
+        const { commitBuckets } = useBudgetBuckets({
+          budgets: workspace.budgets, setBudgets: workspace.setBudgets,
+          capture: rig.undo.capture, captureComposite: rig.undo.captureComposite, logActivity: vi.fn(),
+        });
+        const args = makeArgs({
+          capture: rig.undo.capture, captureFieldRows: rig.undo.captureFieldRows, reassignHours: rig.reassignHours,
+          commitBuckets, showToast,
+        });
         return { bulk: useBulkOperations(args), workspace, taskForm: useTaskForm(), rig };
       },
       { wrapper: Wrapper },
     );
-    return { result, spies };
+    return { result, spies, showToast };
   }
   type R = ReturnType<typeof renderBulkWithHours>["result"];
   function bulkAssign(result: R, tasks: Task[], assignee: string, labels?: string[]) {
@@ -1702,6 +1710,39 @@ describe("useBulkOperations — §774 bulk owner change", () => {
     expect(spies.logActivityAs.mock.calls.filter((c) => c[1] === "resource.hoursMoved")).toHaveLength(1);
     act(() => { result.current.rig.undo.undo(); });
     expect(result.current.workspace.tasks.every((tk) => tk.resourceId === 1 && tk.assignee === "Maya Patel")).toBe(true);
+    expect(utilOf(result.current.workspace.resources, 1)).toEqual(MAYA.utilization);
+    expect(utilOf(result.current.workspace.resources, 2)).toEqual({});
+  });
+
+  it("the closing toast carries the hours notice", () => {
+    const { result, showToast } = renderBulkWithHours();
+    bulkAssign(result, [{ ...RIG_TASK, id: 1 }], "Liam Foster");
+    const last = String(showToast.mock.calls.at(-1)?.[1] ?? "");
+    expect(last).toContain("Moved 16 h from Maya Patel to Liam Foster");
+  });
+
+  it("an owner change plus a bucket move is ONE entry that undoes owners, the bucket link and the hours", () => {
+    const { result } = renderBulkWithHours();
+    act(() => {
+      result.current.workspace.setBudgets([
+        { id: 10, name: "Design", taskIds: [1] },
+        { id: 20, name: "Build", taskIds: [] },
+      ] as unknown as BudgetBucket[]);
+    });
+    act(() => { result.current.workspace.setResources([MAYA, LIAM]); result.current.workspace.setTasks([{ ...RIG_TASK, id: 1 }]); });
+    act(() => { result.current.bulk.onToggleSelect(1); });
+    act(() => { result.current.taskForm.setBulkEdit((prev) => ({
+      ...prev, enabled: { ...prev.enabled, assignee: true, budgetBucket: true }, assignee: "Liam Foster", budgetBucket: "20",
+    })); });
+    act(() => { result.current.bulk.applyBulkEdit(); });
+    expect(result.current.workspace.tasks[0].resourceId).toBe(2);
+    expect(bucketIdForTask(result.current.workspace.budgets, 1)).toBe(20);
+    expect(utilOf(result.current.workspace.resources, 2)).toEqual({ "2026-09": 8, "2026-10": 8 });
+    expect(result.current.rig.undo.stack).toHaveLength(1);
+
+    act(() => { result.current.rig.undo.undo(); });
+    expect(result.current.workspace.tasks[0].resourceId).toBe(1);
+    expect(bucketIdForTask(result.current.workspace.budgets, 1)).toBe(10);
     expect(utilOf(result.current.workspace.resources, 1)).toEqual(MAYA.utilization);
     expect(utilOf(result.current.workspace.resources, 2)).toEqual({});
   });

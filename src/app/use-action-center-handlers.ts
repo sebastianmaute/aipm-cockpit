@@ -143,12 +143,13 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
               if (action.cta.kind !== "open") return;
               const id = Number(action.cta.id);
               if (action.cta.view === "open-points") {
+                // The confirmation rides the undo entry's toast (§774), so it keeps its Undo button.
                 reassignHoursRef.current.reassignTasks(
                   [{ taskId: id, assignee: v.name, assigneeEmail: v.email, resourceId: v.resourceId ?? undefined }],
                   "user",
+                  { toastText: t(lang, "actionOwnerAssigned", id) },
                 );
                 void recordLearning(action, "acted");
-                showToast("info", t(lang, "actionOwnerAssigned", id));
                 return;
               }
               const next = applyOwnerAssignment(raid, id, v);

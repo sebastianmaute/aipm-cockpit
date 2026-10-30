@@ -30,10 +30,11 @@
 import { useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { ActivityActor, ActivityKind } from "./activity-log";
 import type { LogActivityAsFn } from "./activity-log-context";
-import { t, type Lang } from "./i18n";
+import { type Lang } from "./i18n";
 import { planHoursMoves, type HoursMovePlan, type OwnerChange, type ResourceUtilEdit } from "./reassign-hours";
-import { defaultPeriodLabel, formatHours, hoursMoveNotice } from "./reassign-hours-notice";
+import { defaultPeriodLabel, hoursMoveNotice } from "./reassign-hours-notice";
 import { linkPersonForWrite, resourceDisplayName } from "./resource-foundation";
+import { HOURS_MAP_MAX } from "./sanitize-entities";
 import type { Absence, Resource, ResourcePlan, Task } from "./types";
 import { captureFieldPart, type CaptureCompositeOpts, type CompositeFragment, type UndoEntityKey } from "./undo/use-undo-stack";
 
@@ -78,8 +79,10 @@ export interface ReassignHours {
   /** For a path that already records its own undo entry for this save.
    *  ★ Commit each step before the next `prepare`: two `prepare` calls before either commits plan from the same state. */
   prepare(changes: readonly OwnerChange[]): HoursMoveStep;
-  /** For a path that records nothing today: writes the task owner fields AND the hours, one undo entry, one notice. */
-  reassignTasks(edits: readonly OwnerEdit[], actor: ActivityActor): void;
+  /** For a path that records nothing today: writes the task owner fields AND the hours, one undo entry, one notice.
+   *  `opts.toastText` is the caller's own confirmation; it leads the entry's toast (before any hours notice), so the
+   *  confirmation keeps the Undo button instead of replacing the undo toast with a second one. */
+  reassignTasks(edits: readonly OwnerEdit[], actor: ActivityActor, opts?: { toastText?: string }): void;
   /** For a `prepare` caller: records `entry.taskPart` plus the step's resources part as ONE undo entry whose
    *  toast is the notice (in a popout, or with no undo, it shows the notice alone). Returns false and records
    *  nothing when the step neither moved hours nor has a notice: the caller then keeps its own capture. */
@@ -110,19 +113,20 @@ function movesSilently(change: OwnerChange, resources: readonly Resource[]): boo
   return change.task.assignee.trim() === "" && change.toResourceId === undefined;
 }
 
-/** Net moved hours per resource, e.g. "Maya Patel -16 h, Liam Foster +16 h" — the activity entry's argument. */
-function activitySummary(plan: HoursMovePlan, name: (id: number) => string, lang: Lang): string {
+/** Net moved hours per resource, language-neutral ("Maya Patel -16; Liam Foster +16"): the stored activity
+ *  argument. The activity panel formats it for the viewer (`ACTIVITY_ARG_DISPLAY` in activity-message.ts); the
+ *  audit download and the AI prompt read it as stored. */
+function activitySummary(plan: HoursMovePlan, name: (id: number) => string): string {
   const net = new Map<number, number>();
   for (const move of plan.moves) {
     if (move.movedHours <= 0 || move.fromResourceId === undefined || move.toResourceId === undefined) continue;
     net.set(move.fromResourceId, (net.get(move.fromResourceId) ?? 0) - move.movedHours);
     net.set(move.toResourceId, (net.get(move.toResourceId) ?? 0) + move.movedHours);
   }
-  const unit = t(lang, "hoursMovedUnit");
   return [...net]
     .filter(([, hours]) => hours !== 0)
-    .map(([id, hours]) => `${name(id)} ${hours > 0 ? "+" : "-"}${formatHours(Math.abs(hours), lang)} ${unit}`)
-    .join(", ");
+    .map(([id, hours]) => `${name(id)} ${hours > 0 ? "+" : "-"}${Math.round(Math.abs(hours) * 10) / 10}`)
+    .join("; ");
 }
 
 function emptyPlan(resources: readonly Resource[]): HoursMovePlan {
@@ -132,7 +136,8 @@ function emptyPlan(resources: readonly Resource[]): HoursMovePlan {
 type UtilDeltas = ReadonlyMap<number, ReadonlyMap<string, number>>;
 
 const MAX_PERCENT = 100; // `sanitizeResource` clamps percent-mode utilization to this
-const round2 = (n: number) => Math.round(n * 100) / 100;
+const EPSILON = 1e-9;
+const round2 = (n: number) => Math.round(n * 100 + EPSILON) / 100;
 
 /** Per resource, per period: the stored-value change the plan made (keys it left alone are absent). */
 function utilDeltas(edits: readonly ResourceUtilEdit[]): UtilDeltas {
@@ -148,15 +153,34 @@ function utilDeltas(edits: readonly ResourceUtilEdit[]): UtilDeltas {
   return out;
 }
 
-/** Add each delta to the row's CURRENT value — pure, so it serves both the ref advance and the setter updater. */
+/** The part of `d` that fits `r`'s stored range for `key` right now (0..100 % or 0..HOURS_MAP_MAX). */
+function fittingDelta(r: Resource, key: string, d: number): number {
+  const cur = r.utilization[key] ?? 0;
+  if (d < 0) return Math.max(d, -cur);
+  return Math.min(d, Math.max(0, (r.utilizationMode === "percent" ? MAX_PERCENT : HOURS_MAP_MAX) - cur));
+}
+
+/** Add each delta to the row's CURRENT value — pure, so it serves both the ref advance and the setter updater.
+ *  ★ Conservation when the live state moved under the plan (a same-tick write lowered the giver, or filled the
+ *  receiver): every delta for a period is scaled by the smallest fraction that still fits each side's stored
+ *  range, so the receiver never gains more than the giver lost. Each side's shown hours are linear in its stored
+ *  value inside that range, so one shared fraction keeps the two sides' hours equal. With the plan's own state
+ *  (the ref advance) every fraction is 1. */
 function applyUtilDeltas(rows: readonly Resource[], deltas: UtilDeltas, stamp?: string): Resource[] {
+  const scale = new Map<string, number>();
+  for (const r of rows) {
+    for (const [k, d] of deltas.get(r.id) ?? []) {
+      if (d === 0) continue;
+      scale.set(k, Math.min(scale.get(k) ?? 1, fittingDelta(r, k, d) / d));
+    }
+  }
   return rows.map((r) => {
     const keys = deltas.get(r.id);
     if (!keys) return r;
     const utilization = { ...r.utilization };
     for (const [k, d] of keys) {
-      const next = Math.max(0, round2((utilization[k] ?? 0) + d));
-      utilization[k] = r.utilizationMode === "percent" ? Math.min(MAX_PERCENT, next) : next;
+      const next = Math.max(0, round2((utilization[k] ?? 0) + d * (scale.get(k) ?? 1)));
+      utilization[k] = Math.min(r.utilizationMode === "percent" ? MAX_PERCENT : HOURS_MAP_MAX, next);
     }
     return stamp ? { ...r, utilization, localModifiedAt: stamp } : { ...r, utilization };
   });
@@ -200,18 +224,25 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
       commit: (actor) => {
         if (committed) return; // a second call would apply the patch twice and log twice
         committed = true;
+        // The caller wrote the owner through its own setter; advance this hook's copy too, so a reassignTasks
+        // later in the same tick reads the new owner, not the render snapshot's.
+        const owners = new Map(moving.map((c) => [c.task.id, c.task]));
+        tasksRef.current = tasksRef.current.map((row) => {
+          const next = owners.get(row.id);
+          return next ? { ...row, assignee: next.assignee, assigneeEmail: next.assigneeEmail, resourceId: next.resourceId } : row;
+        });
         const deltas = utilDeltas(hoursPlan.edits);
         if (deltas.size > 0) {
           resourcesRef.current = applyUtilDeltas(resourcesRef.current, deltas);
           const stamp = new Date().toISOString();
           setResources((prev) => applyUtilDeltas(prev, deltas, stamp));
         }
-        if (moved) logActivityAs?.(actor, "resource.hoursMoved", activitySummary(hoursPlan, resourceName, lang));
+        if (moved) logActivityAs?.(actor, "resource.hoursMoved", activitySummary(hoursPlan, resourceName));
       },
     };
   };
 
-  const reassignTasks = (edits: readonly OwnerEdit[], actor: ActivityActor): void => {
+  const reassignTasks = (edits: readonly OwnerEdit[], actor: ActivityActor, opts?: { toastText?: string }): void => {
     if (loadPending) return;
     const byId = new Map(tasksRef.current.map((x) => [x.id, x]));
     const taskEdits: { id: number; before: OwnerFields; after: OwnerFields }[] = [];
@@ -241,6 +272,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     step.commit(actor);
 
     captureOrNotify(step, {
+      leadText: opts?.toastText,
       kind: "task.updated",
       primaryCount: taskEdits.length,
       taskPart: captureFieldPart<Task>({ setter: setTasks, edits: taskEdits, stampField: "localModifiedAt" }),
@@ -250,12 +282,13 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
   };
 
   // No undo in a popout (or for a caller without one): the notice is shown on its own.
-  function captureOrNotify(step: HoursMoveStep, { taskPart, ...label }: StepEntry): void {
+  function captureOrNotify(step: HoursMoveStep, { taskPart, leadText, ...label }: StepEntry & { leadText?: string }): void {
+    const text = [leadText, step.notice].filter((x): x is string => !!x).join(" ") || undefined;
     if (isPopout || !captureComposite) {
-      if (step.notice) showToast("info", step.notice);
+      if (text) showToast("info", text);
       return;
     }
-    captureComposite({ ...label, parts: [taskPart, step.resourcesPart], toastText: step.notice ?? undefined });
+    captureComposite({ ...label, parts: [taskPart, step.resourcesPart], toastText: text });
   }
 
   const record = (step: HoursMoveStep, entry: StepEntry): boolean => {

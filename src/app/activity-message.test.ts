@@ -262,3 +262,25 @@ describe("activityChangeValues", () => {
     expect(activityChangeValues("en-US", "forecastScenario.updated", rows("1 rows", "2 rows"))).toEqual({ from: "1 rows", to: "2 rows" });
   });
 });
+
+// §774 — the hours-moved entry stores a language-neutral "name ±hours" list; the panel formats it for the viewer.
+describe("activityMessage — resource.hoursMoved formats its hours (§774)", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+  const args = ["Maya Patel -16; Liam Foster +16.5"];
+  it("renders hours with the viewer's unit and decimal mark", () => {
+    expect(activityMessage("de", "resource.hoursMoved", args, { display: true })).toBe(
+      "Geplante Stunden verschoben: Maya Patel -16 Std., Liam Foster +16,5 Std.",
+    );
+    expect(activityMessage("en-US", "resource.hoursMoved", args, { display: true })).toBe(
+      "Planned hours moved: Maya Patel -16 h, Liam Foster +16.5 h",
+    );
+  });
+  it("keeps the stored text for the audit download and the AI prompt", () => {
+    expect(activityMessage("en-US", "resource.hoursMoved", args)).toBe("Planned hours moved: Maya Patel -16; Liam Foster +16.5");
+  });
+  it("leaves a part it cannot read as stored", () => {
+    expect(activityMessage("en-US", "resource.hoursMoved", ["odd"], { display: true })).toBe("Planned hours moved: odd");
+  });
+});

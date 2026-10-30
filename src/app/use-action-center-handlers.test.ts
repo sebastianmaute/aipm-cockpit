@@ -447,8 +447,9 @@ describe("useActionCenterHandlers — Assign-owner goes through the reassign ste
     // "unlinked" (R14: a task that had no owner gains one silently).
     expect(spies.showToastAction).toHaveBeenCalledTimes(1);
     expect(spies.showToastAction.mock.calls[0][1]).not.toMatch(/planned hours/);
-    // Unchanged around the write: the learning record and the confirmation toast.
     expect(recordLearning).toHaveBeenCalledWith(action, "acted");
-    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "actionOwnerAssigned", 10));
+    // The confirmation IS the undo toast, so its Undo button stays: no second toast replaces it.
+    expect(spies.showToastAction.mock.calls[0][1]).toBe(t("en-US", "actionOwnerAssigned", 10));
+    expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "actionOwnerAssigned", 10));
   });
 });
