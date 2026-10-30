@@ -15,6 +15,9 @@ export type ImageBlock = {
 
 export type DocumentBlock = {
   type: "document";
+  /** The Messages API's document `title`: "Attachment: <file name>" for a
+   *  block built from a named file, so the model sees where the text came from. */
+  title?: string;
   source:
     | { type: "base64"; media_type: string; data: string }
     | { type: "text"; media_type: "text/plain"; data: string };
@@ -189,15 +192,20 @@ export function checkAttachmentSize(
  * - pdf / image: `data` is base64 (no data: URI prefix).
  * - text: `data` is the decoded UTF-8 string.
  * All returned objects are new (immutable).
+ * A document block carries `title: "Attachment: <fileName>"` when `fileName` is
+ * given; an image block has no title field.
  */
 export function buildAttachmentBlock(
   kind: AttachmentKind,
   mimeType: string,
-  data: string
+  data: string,
+  fileName?: string
 ): AttachmentBlock {
+  const title = fileName === undefined ? {} : { title: `Attachment: ${fileName}` };
   if (kind === "pdf") {
     return {
       type: "document",
+      ...title,
       source: { type: "base64", media_type: "application/pdf", data },
     };
   }
@@ -215,6 +223,7 @@ export function buildAttachmentBlock(
     // `data` is already the extracted Markdown (produced by the file reader).
     return {
       type: "document",
+      ...title,
       source: { type: "text", media_type: "text/plain", data },
     };
   }
@@ -223,6 +232,7 @@ export function buildAttachmentBlock(
     // `data` is already extracted Markdown, produced by the ingest orchestrator.
     return {
       type: "document",
+      ...title,
       source: { type: "text", media_type: "text/plain", data },
     };
   }
@@ -230,6 +240,7 @@ export function buildAttachmentBlock(
   // kind === "text"
   return {
     type: "document",
+    ...title,
     source: { type: "text", media_type: "text/plain", data },
   };
 }
