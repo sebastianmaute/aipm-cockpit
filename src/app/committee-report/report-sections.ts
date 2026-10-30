@@ -20,33 +20,36 @@
 //  | ... a deeper following anchor is skipped                                   | "a following anchor deeper than the inserted section is skipped: Plan goes to the end, Risks stays under Status" |
 //  | unmatched, no anchor at all: the end                                       | "appends an unmatched section at the end when there is no anchor"             |
 //  | the AI opening (level 0) is never matched, only added after the user's     | "never replaces the user's level-0 text and adds the AI's after it"           |
-//  | the opening is recognised by its TEXT (whitespace-collapsed, whole words)  | "a taken-and-saved opening, re-serialised by the editor without the newline, is not added again" |
+//  | the opening is recognised by its TEXT as WHOLE BLOCKS (a contiguous run)   | "a taken-and-saved opening, re-serialised by the editor without the newline, is not added again" |
+//  | ... a mere mention inside a sentence is not the opening                    | "an opening that only occurs INSIDE a user sentence is added, and does not anchor" |
 //  | a blank opening is dropped from a proposal and ignored by the engine       | "splitProposalSections leaves no opening row for whitespace or an empty paragraph" |
 //  | a proposal splits only at the draft's TOP heading level                    | "keeps nested sub-headings inside their parent section"                       |
 //  | ... and a deeper heading never folds into the opening                      | "a deeper heading is not folded into the level-0 opening: it keeps its own row" |
 //  | the user's own text splits at every heading and loses no byte              | "a user text with a blank preamble round-trips byte for byte"                 |
 import { htmlToPlainText, isBlankHtml } from "../html-to-text";
 
-/** The text of `html` with whitespace collapsed: how an AI opening is recognised (the model puts newlines between
- *  blocks that the editor drops when the user types, so the markup differs while the words are the same). */
-function collapsedText(html: string): string {
-  return htmlToPlainText(html).replace(/\s+/g, " ").trim();
+/** The block texts of `html` (paragraphs, list items, headings, quotes, code), each whitespace-collapsed, empties
+ *  dropped. The model puts newlines between blocks that the editor drops when the user types, so the markup of an
+ *  opening differs from its saved form while its blocks are the same. */
+function blockTexts(html: string): string[] {
+  const BREAK = "\uE000";
+  const marked = html.replace(/<\/\s*(?:p|li|h[1-6]|blockquote|pre|div|tr|ul|ol)\s*>/gi, (m) => m + BREAK);
+  return htmlToPlainText(marked)
+    .split(BREAK)
+    .map((b) => b.replace(/\s+/g, " ").trim())
+    .filter((b) => b !== "");
 }
 
-/** True when `hay` holds `needle` as whole words (bounded by the ends or a space), so "OK" is not found in "book". */
-function holdsText(hay: string, needle: string): boolean {
-  if (needle === "") return false;
-  for (let i = hay.indexOf(needle); i !== -1; i = hay.indexOf(needle, i + 1)) {
-    const before = i === 0 || hay[i - 1] === " ";
-    const after = i + needle.length === hay.length || hay[i + needle.length] === " ";
-    if (before && after) return true;
-  }
+/** True when `run` appears in `blocks` as a contiguous run of whole blocks. */
+function holdsRun(blocks: readonly string[], run: readonly string[]): boolean {
+  if (run.length === 0) return false;
+  for (let i = 0; i + run.length <= blocks.length; i++) if (run.every((b, k) => blocks[i + k] === b)) return true;
   return false;
 }
 
 /** Whether the level-0 section `user` already holds the AI opening `opening` (never for a blank one). */
 function holdsOpening(user: ReportSection | undefined, opening: ReportSection): boolean {
-  return user !== undefined && !isBlankHtml(opening.html) && holdsText(collapsedText(user.html), collapsedText(opening.html));
+  return user !== undefined && !isBlankHtml(opening.html) && holdsRun(blockTexts(user.html), blockTexts(opening.html));
 }
 
 // The ONE blank rule (the hook refuses to send a blank body, the panel disables Send on it, the sanitizer drops a

@@ -335,6 +335,18 @@ describe("the AI opening is recognised by its TEXT, not its markup", () => {
   it("and it still anchors: Summary lands right after that opening", () => {
     expect(applyTake("<p>A</p><p>B</p><h2>Notes</h2><p>n</p>", AI, [1], true)).toBe("<p>A</p><p>B</p><h2>Summary</h2><p>S</p><h2>Notes</h2><p>n</p>");
   });
+  it("an opening that only occurs INSIDE a user sentence is added, and does not anchor", () => {
+    const one = ai("<p>Summary</p><h2>Plan</h2><p>p</p>");
+    const user = "<p>See the Summary below.</p><h2>Notes</h2><p>n</p>";
+    expect(applyTake(user, one, [0], true)).toBe("<p>See the Summary below.</p><p>Summary</p><h2>Notes</h2><p>n</p>");
+    expect(applyTake(user, one, [1], true)).toBe("<p>See the Summary below.</p><h2>Notes</h2><p>n</p><h2>Plan</h2><p>p</p>");
+  });
+  it("an opening equal to one whole user paragraph is already there", () => {
+    const one = ai("<p>Summary</p><h2>Plan</h2><p>p</p>");
+    const user = "<p>Summary</p><h2>Notes</h2><p>n</p>";
+    expect(applyTake(user, one, [0], true)).toBe(user);
+    expect(applyTake("<p>x</p><p>Summary</p><p>y</p><h2>Notes</h2>", one, [0], true)).toBe("<p>x</p><p>Summary</p><p>y</p><h2>Notes</h2>");
+  });
   it("a short opening does not match inside a longer word", () => {
     const short = ai("<p>OK</p><h2>S</h2><p>s</p>");
     expect(applyTake("<p>a book</p><h2>Notes</h2>", short, [0], true)).toBe("<p>a book</p><p>OK</p><h2>Notes</h2>");
