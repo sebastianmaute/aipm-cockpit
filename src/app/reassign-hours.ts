@@ -1,8 +1,8 @@
 // src/app/reassign-hours.ts — the pure planner for "reassigning a task moves its
 // planned hours" (§774). No React, no i18n, no Date: `today` is passed in.
-import { availableCapacityHours } from "./alloc-plan/alloc-plan";
 import {
   absenceWorkdays,
+  availableCapacityHours,
   absencesForResource,
   generatePeriods,
   periodCapacityHours,

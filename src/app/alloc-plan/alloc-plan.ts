@@ -23,12 +23,9 @@ import {
   type Task,
 } from "../types";
 import {
-  type Period,
-  absenceWorkdays,
   absencesForResource,
   generatePeriods,
   periodKeyForDate,
-  workdaysInRange,
 } from "../resource-capacity";
 import { HOURS_MAP_MAX } from "../sanitize";
 import { oneLine } from "../rich-text-plain";
@@ -113,33 +110,8 @@ function roleLabel(
   return `${discipline ?? "?"} / ${grade ?? "?"}`;
 }
 
-/** Hours a resource could actually work in a period: gross workdays minus
- *  holidays and absences, with NO utilization applied.
- *
- *  Deliberately NOT `periodCapacityHours` (in "../resource-capacity") —
- *  despite its name that function multiplies by the resource's OWN STORED
- *  utilization (`percent: (util/100) × possible`, `hours: util − absence`),
- *  so it answers "hours already allocated", not "hours available". Feeding it
- *  to the planner told the model every unallocated resource had ZERO
- *  capacity. Absence resolution mirrors `periodCapacityHours` EXACTLY
- *  (`absenceOverride[key]` wins when set, else computed absence workdays) —
- *  if that precedence ever diverges between the two functions, the planner
- *  and the resource grid would disagree about the same person's capacity. */
-export function availableCapacityHours(
-  resource: Resource,
-  period: Period,
-  resourceAbsences: readonly Absence[],
-  workdayHours: number,
-  holidaySet: ReadonlySet<string>,
-): number {
-  const possibleHours = workdaysInRange(period.start, period.end, holidaySet) * workdayHours;
-  const override = resource.absenceOverride?.[period.key];
-  const absenceHours =
-    override != null
-      ? override
-      : absenceWorkdays(resourceAbsences, period.start, period.end, holidaySet) * workdayHours;
-  return Math.max(0, possibleHours - absenceHours);
-}
+import { availableCapacityHours } from "../resource-capacity";
+export { availableCapacityHours };
 
 /** " rate=<internal hourly rate>/h" from the resource's role; empty for an external or a resource without a role. */
 function hourlyRate(r: Resource, roles: readonly Role[]): string {
@@ -192,6 +164,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
       milestones: args.milestones ?? [],
       stakeholders: args.stakeholders ?? [],
       resources,
+      shownResourceIds: new Set(shown.map((r) => r.id)),
       instruction: args.instruction ?? "",
       hoursCtx: { plan, absences, workdayHours, holidaySet, today: args.today ?? plan.startDate },
     }),

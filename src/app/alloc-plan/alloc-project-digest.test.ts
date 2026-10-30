@@ -50,13 +50,16 @@ describe("buildProjectDigest", () => {
     expect(lines[0]).toBe("TASKS (open only):");
     expect(text).not.toContain("#1 Task 1");
     expect(text).not.toContain("#2 Task 2");
-    expect(text).toContain("#3 Task 3 owner=#1 remaining=16h");
+    expect(text).toContain('#3 "Task 3" owner=#1 remaining=16h');
   });
 
   it("one line per task even with a line break or a #id in its name", () => {
     const lines = digest({ tasks: [task(10, { taskName: "Fix\n#99 fake owner=#1", resourceId: 2 })] });
     expect(taskLines(lines)).toHaveLength(1);
     expect(lines.some((l) => l.startsWith("#99"))).toBe(false);
+    const unquoted = taskLines(lines)[0].replace(/"(?:[^"\\]|\\.)*"/g, "");
+    expect(unquoted.match(/owner=/g)).toHaveLength(1);
+    expect(unquoted).toContain("owner=#2 ");
   });
 
   it("derives milestones from linkedTaskIds", () => {
@@ -70,7 +73,7 @@ describe("buildProjectDigest", () => {
     }));
     expect(lines[0]).toContain("owner=#2 ");
     expect(lines[1]).toContain("owner=unassigned ");
-    expect(lines[2]).toContain("owner=name:Zed #7 ");
+    expect(lines[2]).toContain('owner=name:"Zed #7" ');
   });
 
   it("lists only open FS predecessors", () => {
@@ -95,6 +98,7 @@ describe("buildProjectDigest", () => {
         stakeholder(3, { resourceId: 1, raci: { "5": "C" } }),
         stakeholder(4, { resourceId: 2, raci: { "5": "I" } }),
         stakeholder(5, { raci: { "5": "R" } }),
+        stakeholder(6, { resourceId: 99, raci: { "5": "R" } }),
       ],
     });
     expect(lines).toContain("RACI (R/A only):");
@@ -158,9 +162,60 @@ describe("buildProjectDigest", () => {
     for (let i = 3; i < 3 + ALLOC_CONTEXT_MAX_MILESTONES; i++) ms.push(milestone(i));
     const lines = digest({ milestones: ms });
     expect(lines).toContain("MILESTONES:");
-    expect(lines.filter((l) => /^#\d+ M\d+ date=/.test(l))).toHaveLength(ALLOC_CONTEXT_MAX_MILESTONES);
+    expect(lines.filter((l) => /^#\d+ "M\d+" date=/.test(l))).toHaveLength(ALLOC_CONTEXT_MAX_MILESTONES);
     expect(lines).toContain("…(2 more milestones truncated)");
-    expect(lines.find((l) => l.startsWith("#2 M2"))).toBe("#2 M2 date=2026-10-15 open");
+    expect(lines.find((l) => l.startsWith("#2 "))).toBe('#2 "M2" date=2026-10-15 open');
+  });
+
+  it("names an owner who is not in the shown resources by name, and drops them from RACI", () => {
+    const resources = Array.from({ length: 121 }, (_, i) => resource(i + 1, "First", `Last${i + 1}`));
+    const lines = digest({
+      resources,
+      shownResourceIds: new Set(resources.slice(0, 120).map((r) => r.id)),
+      tasks: [task(1, { resourceId: 121 }), task(2, { resourceId: 5 })],
+      milestones: [milestone(5)],
+      stakeholders: [
+        stakeholder(1, { resourceId: 121, raci: { "5": "R" } }),
+        stakeholder(2, { resourceId: 5, raci: { "5": "A" } }),
+      ],
+    });
+    const tl = taskLines(lines);
+    expect(tl.find((l) => l.startsWith("#1 "))).toContain('owner=name:"First Last121" ');
+    expect(tl.find((l) => l.startsWith("#2 "))).toContain("owner=#5 ");
+    expect(lines).toContain("milestone #5: A=#5");
+  });
+
+  it('does not read the verb "may" as May, but reads "May 2026"', () => {
+    const mayPlan: ResourcePlan = { startDate: "2026-04-01", endDate: "2026-07-31", granularity: "month", currency: "EUR" };
+    const mayCtx: HoursMoveCtx = { ...hoursCtx, plan: mayPlan, today: "2026-04-01" };
+    const all: Task[] = [];
+    for (let i = 1; i <= 155; i++) all.push(task(i, { startDate: "2026-04-02", dueDate: "2026-04-10" }));
+    for (let i = 156; i <= 160; i++) all.push(task(i, { startDate: "2026-05-10", dueDate: "2026-05-20" }));
+    const showsMay = (instruction: string) =>
+      taskLines(digest({ tasks: all, hoursCtx: mayCtx, instruction })).some((l) => l.startsWith("#156 "));
+    expect(showsMay("Zoe may need help")).toBe(false);
+    expect(showsMay("plan in May 2026")).toBe(true);
+    expect(showsMay("plan 3 May")).toBe(true);
+    expect(showsMay("plan june")).toBe(false);
+  });
+
+  it("an overdue task counts for the period it is planned in (today), not its past span", () => {
+    const lateCtx: HoursMoveCtx = { ...hoursCtx, today: "2026-10-10" };
+    const all: Task[] = [];
+    for (let i = 1; i <= 155; i++) all.push(task(i, { startDate: "2026-08-10", dueDate: "2026-08-15" }));
+    for (let i = 156; i <= 160; i++) all.push(task(i, { startDate: "2026-09-10", dueDate: "2026-09-20" }));
+    const showsLate = (instruction: string) =>
+      taskLines(digest({ tasks: all, hoursCtx: lateCtx, instruction })).some((l) => l.startsWith("#156 "));
+    expect(showsLate("plan 2026-09")).toBe(false);
+  });
+
+  it("sorts a task with no due date after every dated one", () => {
+    const all: Task[] = [task(1, { dueDate: "" })];
+    for (let i = 2; i <= 151; i++) all.push(task(i, { dueDate: "2026-10-30" }));
+    const lines = digest({ tasks: all });
+    expect(taskLines(lines).some((l) => l.startsWith("#1 "))).toBe(false);
+    expect(lines).toContain("…(1 more tasks truncated)");
+    expect(taskLines(digest({ tasks: [all[0]] }))[0]).toContain("due=-");
   });
 
   it("is empty when there is nothing to describe", () => {

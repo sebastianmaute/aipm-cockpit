@@ -1426,6 +1426,17 @@ describe("buildAllocContext project digest (§769)", () => {
     expect(buildAllocContext({ ...base, resources: [] })).toContain("workday=8h currency=EUR");
   });
 
+  it("a task owner beyond the resource cap is named, not given a #id that RESOURCES does not list", () => {
+    const resources = Array.from({ length: ALLOC_CONTEXT_MAX_RESOURCES + 1 }, (_, i) =>
+      resource(i + 1, { firstName: "First", lastName: `Last${i + 1}` }),
+    );
+    const mk = (id: number, resourceId: number) =>
+      ({ id, taskName: `T${id}`, assignee: "", assigneeEmail: "", dueDate: "2026-09-20", lastUpdateDate: "", priority: "Medium", status: "To Do", blockers: "", description: "", resourceId, remainingEstimateMinutes: 480 }) as Task;
+    const text = buildAllocContext({ ...base, resources, tasks: [mk(1, ALLOC_CONTEXT_MAX_RESOURCES + 1), mk(2, 1)] });
+    expect(text).toContain('"T1" owner=name:"First Last121" ');
+    expect(text).toContain('"T2" owner=#1 ');
+  });
+
   it("appends the TASKS section after RESOURCES and the new rules to the system prompt", () => {
     const text = buildAllocContext({
       ...base,
