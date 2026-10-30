@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ChatProposalBlock, deviceRowTitle, escalationRowTitle, proposalRowTitle, type ProposalCardRow } from "./chat-proposal-block";
+import { ChatProposalBlock, deviceRowTitle, escalationRowTitle, proposalRowTitle, taskToolRowTitle, type ProposalCardRow } from "./chat-proposal-block";
 import type { EditPlan } from "./inline-ai-edit/plan";
 import type { InlineEntity } from "./inline-ai-edit/entity-descriptor";
 import type { ProposedCall } from "./chat-proposal";
@@ -634,6 +634,34 @@ describe("escalationRowTitle", () => {
     await loadI18n("de");
     expect(escalationRowTitle("de", esc({ id: 7, toEmail: "x@evil.example" }), raid)).toBe(
       "„Vendor down“ an x@evil.example eskalieren",
+    );
+  });
+});
+
+// AI-02 — every change stages in a send with an attachment, so the three task tools the describer leaves untitled
+// get a line of their own. Mutation: returning null for one of them turns this red.
+describe("taskToolRowTitle", () => {
+  const tasks = [{ id: 1, taskName: "Ship it" }, { id: 2, taskName: "Test it" }];
+
+  it("names the count or the task, in English", () => {
+    expect(taskToolRowTitle("en-US", { name: "delete_all_tasks", input: {} }, tasks)).toBe("Delete all tasks (2)");
+    expect(taskToolRowTitle("en-US", { name: "send_inquiry", input: { id: 1 } }, tasks)).toBe(
+      "Send a status inquiry about “Ship it”",
+    );
+    expect(taskToolRowTitle("en-US", { name: "set_task_dependencies", input: { id: 9, dependencies: [] } }, tasks)).toBe(
+      "Replace the dependencies of “#9”",
+    );
+    expect(taskToolRowTitle("en-US", { name: "update_task", input: { id: 1 } }, tasks)).toBeNull();
+  });
+
+  it("translates the lines in German", async () => {
+    await loadI18n("de");
+    expect(taskToolRowTitle("de", { name: "delete_all_tasks", input: {} }, tasks)).toBe("Alle Aufgaben löschen (2)");
+    expect(taskToolRowTitle("de", { name: "send_inquiry", input: { id: 2 } }, tasks)).toBe(
+      "Statusanfrage zu „Test it“ senden",
+    );
+    expect(taskToolRowTitle("de", { name: "set_task_dependencies", input: { id: 1, dependencies: [] } }, tasks)).toBe(
+      "Abhängigkeiten von „Ship it“ ersetzen",
     );
   });
 });

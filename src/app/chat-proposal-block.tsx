@@ -49,7 +49,8 @@ import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type DiffEntity, type EditPlan, type Rejected } from "./inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { CreateFieldsList } from "./create-fields-list";
-import { previewEntityOf } from "./chat-proposal-describe";
+import { previewEntityOf, type DescribedRow } from "./chat-proposal-describe";
+import type { Workspace } from "./workspace";
 
 /** Rows shown before the disclosure collapses the rest. */
 export const PROPOSAL_COLLAPSE_AFTER = 5;
@@ -159,6 +160,38 @@ export function escalationRowTitle(
   const email = typeof input.toEmail === "string" ? input.toEmail : "";
   const name = typeof input.toName === "string" ? input.toName.trim() : "";
   return t(lang, "chatProposalEscalateTitle", item, name !== "" ? `${name} <${email}>` : email);
+}
+
+/** AI-02 — the card line for the three task tools the describer gives no title: `delete_all_tasks` (with the
+ *  live task count), `send_inquiry` and `set_task_dependencies` (each naming the live task, or its id). Null for
+ *  any other call. */
+export function taskToolRowTitle(
+  lang: Lang,
+  call: ProposedCall,
+  tasks: readonly { readonly id: number; readonly taskName?: string }[],
+): string | null {
+  if (call.name === "delete_all_tasks") return t(lang, "chatProposalDeleteAllTasksTitle", tasks.length);
+  const key: TranslationKey | null =
+    call.name === "send_inquiry" ? "chatProposalInquiryTitle"
+    : call.name === "set_task_dependencies" ? "chatProposalDependenciesTitle"
+    : null;
+  if (key === null) return null;
+  const rawId = (call.input as { id?: unknown }).id;
+  const found = tasks.find((task) => task.id === Number(rawId))?.taskName;
+  return t(lang, key, typeof found === "string" && found.trim() !== "" ? found : `#${String(rawId)}`);
+}
+
+/** The card line for a row `liveRowTitle` (`chat-proposal-stage.ts`) could not title from the live workspace: the
+ *  translated lines first, the call's own title-ish input last. The panel passes it to `proposalTitles`; the
+ *  coverage test in `chat-proposal-describe.test.ts` runs every stageable tool through the same pair. */
+export function cardRowTitle(lang: Lang, row: DescribedRow, ws: Workspace): string {
+  return (
+    functionsRowTitle(lang, row.call) ??
+    escalationRowTitle(lang, row.call, ws.raid ?? []) ??
+    taskToolRowTitle(lang, row.call, ws.tasks ?? []) ??
+    deviceRowTitle(lang, row.device) ??
+    proposalRowTitle(row.call, row.plan)
+  );
 }
 
 /** Settings as the tool names them, `key = value`; no settings label table exists. */

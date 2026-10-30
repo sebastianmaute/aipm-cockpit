@@ -2,7 +2,10 @@ import { describe, expect, test } from "vitest";
 import { describeProposal, TOOL_ENTITY } from "./chat-proposal-describe";
 import { buildPlanRows, isEntityWriteTool, type ProposedCall } from "./chat-proposal";
 import { TOOL_DEFS } from "./chat-tool-defs";
-import { stagesWhenUntrusted } from "./chat-send-record";
+import { isPureReadTool, stagesWhenUntrusted } from "./chat-send-record";
+import { proposalTitles } from "./chat-proposal-stage";
+import { cardRowTitle } from "./chat-proposal-block";
+import { loadI18n, type Lang } from "./i18n";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 import { entityToken } from "./ai-entity-token";
 import type { Workspace } from "./workspace";
@@ -689,5 +692,89 @@ describe("mintedId is carried onto the described row", () => {
     const rows = describeProposal(calls, ws, buildPlanRows(calls, [101, 7]));
     expect(rows.map((r) => r.mintedId)).toEqual([101, 7, undefined]);
     expect(rows[2].pendingOn).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AI-02 — with an attachment in the history every call that is not a read stages, so every one of them must reach
+// the card as a DESCRIBED line: the panel's title chain (`proposalTitles` with `cardRowTitle`) must give it more
+// than its bare tool name, in English and in German.
+// ★★ The sample list is checked against the derived stageable set, so a new tool that can stage goes red here
+// until it has a sample, and then red again until the card can name what it does.
+
+describe("every tool that can stage gets a described card line (AI-02)", () => {
+  const full = {
+    tasks: [{ id: 1, taskName: "Ship it", status: "To Do", dueDate: "2026-08-12", dependencies: [] }],
+    raid: [{ id: 7, category: "I", title: "Vendor down", status: "Open", severity: "High", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [] }],
+    changes: [{ id: 5, title: "Scope change", status: "Open", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] }],
+    milestones: [{ id: 9, name: "Go live", date: "2026-09-01", linkedTaskIds: [] }],
+    stakeholders: [{ id: 6, name: "Dana Reed", category: "Other", influence: "Medium", interest: "Medium", raci: {} }],
+    resources: [{ id: 4, firstName: "Ada", lastName: "Lovelace", title: "Engineer" }],
+    absences: [{ id: 8, assignee: "Ada Lovelace", startDate: "2026-08-01", endDate: "2026-08-02", type: "vacation" }],
+    calendarEvents: [{ id: 10, title: "Standup", startDate: "2026-08-03", attendeeResourceIds: [] }],
+    documents: [{ id: 11, title: "Charter", blocks: [] }],
+    forecastScenarios: [{ id: 12, name: "Base", changes: [] }],
+    project: { name: "Apollo", code: "AP" },
+  } as unknown as Workspace;
+
+  const SAMPLES: Record<string, Record<string, unknown>> = {
+    create_task: { taskName: "New task", dueDate: "2026-10-01" },
+    create_raid_item: { title: "New risk" },
+    create_change: { title: "New change" },
+    create_milestone: { name: "New milestone", date: "2026-10-01" },
+    create_stakeholder: { name: "New person" },
+    create_resource: { firstName: "New", lastName: "Person" },
+    create_document: { title: "New doc", blocks: [] },
+    create_absence: { assignee: "Ada Lovelace", startDate: "2026-10-01", endDate: "2026-10-02" },
+    create_calendar_event: { title: "Kickoff", startDate: "2026-10-01" },
+    create_forecast_scenario: { name: "Plan B", changes: [] },
+    delete_task: { id: 1 },
+    delete_all_tasks: {},
+    delete_raid_item: { id: 7 },
+    delete_change: { id: 5 },
+    delete_milestone: { id: 9 },
+    delete_stakeholder: { id: 6 },
+    delete_resource: { id: 4 },
+    delete_document: { id: 11 },
+    delete_absence: { id: 8 },
+    delete_calendar_event: { id: 10 },
+    delete_forecast_scenario: { id: 12 },
+    send_inquiry: { id: 1 },
+    update_project: { name: "Apollo 2" },
+    update_settings: { showViewHints: false },
+    set_filters: { search: "late" },
+    set_language: { language: "de" },
+    update_document: { id: 11, ops: [] },
+    set_forecast_proposal: { id: 12 },
+    set_forecast_target_confidence: { value: 80 },
+    escalate_raid_item: { id: 7, toEmail: "jane@example.com" },
+    update_task: { id: 1, status: "Done" },
+    set_task_dependencies: { id: 1, dependencies: [] },
+    update_raid_item: { id: 7, severity: "Critical" },
+    update_change: { id: 5, title: "Scope change v2" },
+    update_milestone: { id: 9, name: "Go live v2" },
+    update_stakeholder: { id: 6, name: "Dana Reed-Smith" },
+    update_resource: { id: 4, title: "Lead" },
+    update_absence: { id: 8, endDate: "2026-08-03" },
+    update_calendar_event: { id: 10, title: "Daily standup" },
+    update_forecast_scenario: { id: 12, name: "Base v2" },
+  };
+
+  test("the samples cover exactly the tools that can stage", () => {
+    const stageable = (TOOL_DEFS as ReadonlyArray<{ name: string }>)
+      .map((d) => d.name)
+      .filter((n) => stagesWhenUntrusted(call(n, { id: 1 })));
+    expect(stageable.filter(isPureReadTool)).toEqual([]);
+    expect(Object.keys(SAMPLES).sort()).toEqual(stageable.sort());
+  });
+
+  test.each(["en-US", "de"] as const)("in %s, no sample is titled by its bare tool name", async (lang: Lang) => {
+    await loadI18n("de");
+    const bare = Object.entries(SAMPLES).filter(([name, input]) => {
+      const rows = describeProposal([call(name, input)], full);
+      const [title] = proposalTitles(rows, full, (r) => cardRowTitle(lang, r, full));
+      return title.trim() === "" || title === name;
+    });
+    expect(bare.map(([name]) => name)).toEqual([]);
   });
 });
