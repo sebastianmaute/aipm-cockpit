@@ -1036,6 +1036,26 @@
   input tokens per click), and `list_allocations` carries a PER-RESOURCE `truncated` so an omitted resource is
   distinguishable from a genuinely idle one — kept after §12 added the scope, because a scoped query can still
   overflow.
+  ★★ **§769: it also sees the project and may move tasks.** `buildProjectDigest` (`alloc-plan/alloc-project-digest.ts`)
+  appends open tasks (capped at `ALLOC_CONTEXT_MAX_TASKS`, with a truncation line), milestones
+  (`ALLOC_CONTEXT_MAX_MILESTONES`), the R/A holders per milestone and each resource's internal rate; free text is one line
+  per item. The answer is up to `MAX_ALLOC_ALTERNATIVES` (3) alternatives, each with `taskMoves` and `cells`
+  (`parseAllocationAlternatives`, which still reads a bare top-level `cells` as one alternative); the caps count across
+  ALL alternatives. `groundAlternative` (`alloc-ground-moves.ts`) drops a move for an unknown task, a closed task, a
+  Jira-synced task, an unchanged owner, an unknown receiver or a repeated task, and plans each kept move with the
+  §774 planner so the review shows exactly what will move. ★★★ A cell on a resource and period that a kept move in the
+  SAME alternative touches is dropped as `covered-by-move`: the move carries those hours, and an absolute cell on top
+  would count them twice (and be wrong the moment the user unticks the move). A move to an owner with no linked person
+  touches no cells, so the rule does not apply to it and the model may add hour edits for that work.
+  `alternativeEffect` (`alloc-effect.ts`) gives the review window its per-alternative effect: over-capacity rows and
+  the internal cost (an external carries no cost and is named instead). Apply is ONE undo entry: `use-alloc-plan.tsx`
+  calls `captureComposite` itself with the task part, the §774 step's hours part and the cells part, and the moves go
+  through `reassignTasks` (the step's write path, ROUTED in `reassign-hours.guard.test.ts`). ★★★ `captureComposite`
+  and `reassignTasks` MUST come from the same undo stack in `task-manager.tsx` (`undoApi`), or hour edits are written
+  with no undo. Both reach `ResourcesPanel` as function props through `resourcesHandlers` (`useStableHandlers`), never
+  the `reassignHours` object and never `useWorkspace()` in the panel: it is `memo()`'d. A move is skipped as stale when
+  its task or the planned hours in its periods changed while the window was open. The activity log stores only the
+  alternative's number and counts, never the model's summary text.
 - **Forecast import, Claude route (§500):** ONE forced `propose_forecast_mapping` call in
   `forecast-import-call.ts` (`runForecastImportCall`, through the shared never-log `runForcedToolCallWithStop`)
   reads one sheet and returns a COLUMN MAPPING, never a value. `claudeMappingOf` converts it or refuses it
