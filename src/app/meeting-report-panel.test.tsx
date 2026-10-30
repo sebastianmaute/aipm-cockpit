@@ -260,7 +260,8 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     await waitFor(() => expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>ai risks</p>"));
     // Taken shows at once, but is reported only when the text is saved (I-1).
     expect(rowOf("Take – Risks")).toHaveTextContent("Taken");
-    expect(screen.getByRole("button", { name: "Take – Risks" })).toBeDisabled();
+    // A taken row keeps its Take enabled: the text can be taken again (it asks Replace / Keep both).
+    expect(screen.getByRole("button", { name: "Take – Risks" })).toBeEnabled();
     expect(p.onTaken).not.toHaveBeenCalled();
   });
 
@@ -298,7 +299,7 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     const p = renderWithProposal();
     await screen.findByLabelText("Report");
     fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
+    await waitFor(() => expect(rowOf("Take – Next steps")).toHaveTextContent("Taken"));
     expect(p.onTaken).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(p.onSave).toHaveBeenLastCalledWith("<h2>Risks</h2><p>mine</p><h2>Next steps</h2><p>ai next</p>", { fromAi: true });
@@ -314,14 +315,14 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     const p = renderWithProposal();
     await screen.findByLabelText("Report");
     fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
+    await waitFor(() => expect(rowOf("Take – Next steps")).toHaveTextContent("Taken"));
     p.rerenderWith({ report: { html: "<p>restored</p>", updatedAt: "2026-10-30T09:30:00.000Z" } });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeEnabled());
+    await waitFor(() => expect(rowOf("Take – Next steps")).not.toHaveTextContent("Taken"));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(p.onTaken).not.toHaveBeenCalled();
   });
 
-  // I-2 (WCAG 2.4.3) — the Take that was pressed becomes disabled, so focus moves on explicitly.
+  // I-2 (WCAG 2.4.3) — the row that was taken is done for now, so focus moves on to the next untaken one.
   it("after a plain take, focus moves to the next untaken row's Take", async () => {
     renderWithProposal();
     await screen.findByLabelText("Report");
@@ -331,7 +332,7 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Take – Risks" })));
   });
 
-  it("after a confirmed take, focus moves to the next untaken row's Take, not the disabled one", async () => {
+  it("after a confirmed take, focus moves to the next untaken row's Take, not the taken one", async () => {
     renderWithProposal();
     await screen.findByLabelText("Report");
     const risks = screen.getByRole("button", { name: "Take – Risks" });
@@ -383,9 +384,9 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     const p = renderWithProposal();
     await screen.findByLabelText("Report");
     fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
+    await waitFor(() => expect(rowOf("Take – Next steps")).toHaveTextContent("Taken"));
     p.rerenderWith({ proposal: { sections: AI, taken: new Set<number>(), createdAt: "2026-10-30T10:00:00.000Z" } });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeEnabled());
+    await waitFor(() => expect(rowOf("Take – Next steps")).not.toHaveTextContent("Taken"));
     expect(rowOf("Take – Next steps")).not.toHaveTextContent("Taken");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(p.onTaken).not.toHaveBeenCalled();
@@ -395,9 +396,53 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     const p = renderWithProposal();
     await screen.findByLabelText("Report");
     fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
+    await waitFor(() => expect(rowOf("Take – Next steps")).toHaveTextContent("Taken"));
     fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(p.onTaken).not.toHaveBeenCalled();
+  });
+
+  // Final review item 2 — a saved take that is undone (or restored over) leaves the proposal's Taken mark,
+  // and the AI text must still be takeable again.
+  it("after a saved take is undone, the row still says Taken and its Take takes the text again", async () => {
+    const p = renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
+    await waitFor(() => expect(rowOf("Take – Next steps")).toHaveTextContent("Taken"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    const takenProposal = { sections: AI, taken: new Set<number>([2]), createdAt: "2026-10-30T09:01:00.000Z" };
+    p.rerenderWith({
+      report: { html: "<h2>Risks</h2><p>mine</p><h2>Next steps</h2><p>ai next</p>", updatedAt: "2026-10-30T09:10:00.000Z" },
+      proposal: takenProposal,
+    });
+    // Undo writes the whole earlier report back, its stamp included.
+    p.rerenderWith({ report: STORED, proposal: takenProposal });
+    await waitFor(() => expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>mine</p>"));
+    expect(rowOf("Take – Next steps")).toHaveTextContent("Taken");
+    const again = screen.getByRole("button", { name: "Take – Next steps" });
+    expect(again).toBeEnabled();
+    fireEvent.click(again);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>mine</p><h2>Next steps</h2><p>ai next</p>"),
+    );
+  });
+
+  // Final review item 4 — a new draft that replaces the proposal while the confirm is open makes the take's
+  // indices point into a different proposal: dropped like a stale body (M-1).
+  it("drops a take whose confirm was answered after a new draft replaced the proposal", async () => {
+    const p = renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Risks" }));
+    await screen.findByRole("dialog", { name: "Replace sections?" });
+    p.rerenderWith({ proposal: { sections: AI, taken: new Set<number>(), createdAt: "2026-10-30T10:00:00.000Z" } });
+    fireEvent.click(screen.getByRole("button", { name: "Replace" }));
+    const notice = await screen.findByRole("dialog", { name: "Take not applied" });
+    fireEvent.click(within(notice).getByRole("button", { name: t("en-US", "dialogOk") }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>mine</p>");
+    expect(rowOf("Take – Risks")).not.toHaveTextContent("Taken");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(p.onSave).toHaveBeenLastCalledWith("<h2>Risks</h2><p>mine</p>", { fromAi: false });
     expect(p.onTaken).not.toHaveBeenCalled();
   });
 

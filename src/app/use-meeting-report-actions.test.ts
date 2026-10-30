@@ -8,7 +8,7 @@ import { defaultSettings } from "./settings-types";
 import { AiGatewayError, AiHttpError } from "./ai-errors";
 import { t } from "./i18n";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
-import type { CaptureCompositeOpts } from "./undo/use-undo-stack";
+import { useUndoStack, type CaptureCompositeOpts } from "./undo/use-undo-stack";
 
 const sendMail = vi.fn<(token: string, msg: unknown) => Promise<void>>(async () => {});
 const runMeetingReport = vi.fn<() => Promise<string>>(async () => "<p>ai draft</p>");
@@ -769,5 +769,108 @@ describe("AI-04 a proposal is tied to its meeting, not only its id", () => {
     live = withMeeting("Original");
     rerender();
     expect(result.current!.getProposal(3)).toBeUndefined();
+  });
+
+  // Final-review item 7 — the date-change drop used to be silent.
+  it("a draft dropped because the meeting's date changed while it was written says so", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const showToast = vi.fn();
+    const deps = makeDeps({ showToast });
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    let release!: (v: string) => void;
+    runMeetingReport.mockImplementationOnce(() => new Promise<string>((r) => { release = r; }));
+    act(() => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(3));
+    live = withMeeting("Original", "2026-08-15");
+    rerender();
+    await act(async () => { release("<h2>A</h2><p>1</p>"); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+    expect(result.current!.getProposal(3)).toBeUndefined();
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "reportDraftMeetingChanged"));
+  });
+
+  it("a draft for a meeting deleted while it was written shows no date-change notice", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const showToast = vi.fn();
+    const deps = makeDeps({ showToast });
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    let release!: (v: string) => void;
+    runMeetingReport.mockImplementationOnce(() => new Promise<string>((r) => { release = r; }));
+    act(() => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(3));
+    live = { ...live!, meetings: [] };
+    rerender();
+    await act(async () => { release("<h2>A</h2><p>1</p>"); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+    expect(showToast).not.toHaveBeenCalled();
+  });
+});
+
+describe("AI-04 final review — a report save on the real undo stack", () => {
+  // Item 1 — the stack refuses a push whose `readEpoch` differs from ITS reader, which in the app is the UNDO
+  // epoch (scope + restore + denomination), not the scope epoch this hook is given. The two differ after any
+  // currency/baseline change or version restore; the report save must still land on the stack.
+  function composed(scopeEpoch: number, undoEpoch: number) {
+    let state: SteeringCommittee | undefined = committee();
+    const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
+      state = u(state);
+    });
+    const { result } = renderHook(() => {
+      const undo = useUndoStack({
+        lang: "en-US",
+        logActivity: vi.fn(),
+        showToast: vi.fn(),
+        showToastAction: vi.fn(),
+        getScopeEpoch: () => undoEpoch,
+      });
+      const deps = makeDeps({ setSteeringCommittee, getScopeEpoch: () => scopeEpoch, captureComposite: undo.captureComposite });
+      Object.defineProperty(deps, "committee", { get: () => state });
+      return { undo, actions: useMeetingReportActions(deps) };
+    });
+    return { result, report: () => state!.meetings[0].report };
+  }
+
+  it("a save is undoable when the undo epoch differs from the scope epoch", () => {
+    const h = composed(0, 3);
+    act(() => h.result.current.actions!.onSaveReport(10, "<p>new</p>"));
+    expect(h.result.current.undo.stack).toHaveLength(1);
+    act(() => h.result.current.undo.undo());
+    expect(h.report()?.html).toBe("<p>x</p>");
+  });
+
+  it("a restore of the previous version is undoable when the undo epoch differs from the scope epoch", () => {
+    const h = composed(0, 3);
+    act(() => h.result.current.actions!.onSaveReport(10, "<p>new</p>"));
+    act(() => h.result.current.actions!.onRestorePrevious(10));
+    expect(h.result.current.undo.stack).toHaveLength(2);
+    act(() => h.result.current.undo.undo());
+    expect(h.report()?.html).toBe("<p>new</p>");
+  });
+});
+
+describe("AI-04 final review — an empty body carries its previous forward", () => {
+  // Item 5 — clear → Save → type → Save must keep A as previous (the empty body is not worth keeping, A is).
+  it("clear, save, type, save keeps the text before the clear as previous", () => {
+    let state: SteeringCommittee | undefined = {
+      ...committee(false),
+      meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>A</p>", updatedAt: "t0" } }],
+    };
+    const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
+      state = u(state);
+    });
+    const deps = makeDeps({ setSteeringCommittee });
+    Object.defineProperty(deps, "committee", { get: () => state });
+    const { result } = renderHook(() => useMeetingReportActions(deps));
+    act(() => result.current!.onSaveReport(10, ""));
+    expect(state!.meetings[0].report).toMatchObject({ html: "", previous: { html: "<p>A</p>", savedAt: "t0" } });
+    act(() => result.current!.onSaveReport(10, "<p>B</p>"));
+    expect(state!.meetings[0].report?.html).toBe("<p>B</p>");
+    expect(state!.meetings[0].report?.previous).toEqual({ html: "<p>A</p>", savedAt: "t0" });
+    // Restore stays consistent: B and A swap, and no empty body is ever kept as previous.
+    act(() => result.current!.onRestorePrevious(10));
+    expect(state!.meetings[0].report?.html).toBe("<p>A</p>");
+    expect(state!.meetings[0].report?.previous?.html).toBe("<p>B</p>");
   });
 });

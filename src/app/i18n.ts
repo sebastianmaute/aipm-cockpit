@@ -4376,6 +4376,7 @@ const enUS = {
   reportSentToastOne: "Status report sent to 1 recipient",
   reportSendFailed: "Could not send the status report",
   reportGenerateFailed: "Could not draft the report",
+  reportDraftMeetingChanged: "The meeting's date changed while the report was being drafted, so the draft was not kept. Draft it again if you still want it.",
   reportVersions: "Versions",
   reportRestore: "Restore",
   reportRestored: "Report version restored",

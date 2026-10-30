@@ -187,10 +187,7 @@ function TaskManagerInner() {
   //   `loadPending` comes from `useStorageBackend` further down, so it is read through a ref (the same
   //   forward-ref pattern as `allowDestructiveSaveRef`). The call stays HERE so the document keydown
   //   listeners keep their registration order.
-  useUndoHotkey(
-    () => { if (!loadPendingRef.current) reportUndo.undo(); },
-    () => { if (!loadPendingRef.current) reportUndo.redo(); },
-  );
+  useUndoHotkey(() => { if (!loadPendingRef.current) reportUndo.undo(); }, () => { if (!loadPendingRef.current) reportUndo.redo(); });
   // ★★★ ONE INSTANCE, TWO CONSUMERS, AND THEY MUST BE THE SAME ONE. `.undo`
   // goes in as the chat dispatcher's `undo` prop (below) so the AI capture
   // sites are intercepted (count them with the `kind: "` grep in use-undo-batch.ts); `.runBatched` goes down to `ChatPanel` so an

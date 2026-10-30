@@ -580,15 +580,15 @@ export function SteeringCommitteePanel({
             if (!m) return null;
             const title = `${t(lang, "reportStatusReport")} – ${meetingToken(m)}`;
             return (
-              <Modal open onClose={closeReport} ariaLabel={title} align="center">
+              // appUndoOff: the app undo hotkey stays out of the WHOLE report dialog, its root included (AI-04) —
+              // a Ctrl+Z on one of its buttons, or on the root a click focuses, would otherwise undo a stored
+              // report under the draft.
+              <Modal open onClose={closeReport} ariaLabel={title} align="center" appUndoOff>
                 {/* print-root so @media print isn't blank; the panel behind drops
                     its own print-root while this modal is open (see root div) so
                     only the report prints. Resizable + reset/print/cancel chrome. */}
-                {/* data-app-undo="off": the app undo hotkey stays out of the report editor (AI-04) —
-                    a Ctrl+Z on one of its buttons would otherwise undo a stored report under the draft. */}
                 <div
                   ref={reportPaneRef}
-                  data-app-undo="off"
                   className="print-root flex h-[600px] min-h-[320px] max-h-[85vh] min-w-[320px] w-[min(90vw,720px)] resize flex-col overflow-auto rounded-lg border border-line bg-surface p-4"
                 >
                   <div className="mb-3 flex shrink-0 items-center justify-between gap-2">

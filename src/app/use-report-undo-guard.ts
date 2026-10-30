@@ -3,13 +3,13 @@
 // open in its dialog with unsaved changes (the panel re-seeds its draft from every stored write, so the
 // typed text would be replaced without a word).
 //
-// ★ Why this exists at all: `Modal` does NOT make the page behind it inert. Its root (modal.tsx:336-381)
-//   sets `role="dialog"` + `aria-modal="true"` (modal.tsx:338-339) and a `fixed inset-0` backdrop
-//   (modal.tsx:376), and traps Tab — but no `inert` attribute is set anywhere in modal.tsx, the report
-//   modal is not portalled (`portal = false`, modal.tsx:128 → modal.tsx:389), and `aria-modal` is a hint
-//   that not every screen reader's virtual cursor honours. So the top bar is out of reach for the mouse
-//   and the Tab key, but not provably for everything; and the Ctrl+Z hotkey fires whenever focus sits on
-//   the dialog root itself (`tabIndex={-1}`), which is OUTSIDE the content's `data-app-undo="off"` zone.
+// ★ Why this exists at all: `Modal` does NOT make the page behind it inert. Its root `div` sets
+//   `role="dialog"` + `aria-modal="true"` and a `fixed inset-0` backdrop, and traps Tab — but no `inert`
+//   attribute is set anywhere in modal.tsx, the report modal is not portalled (`portal` defaults to false),
+//   and `aria-modal` is a hint that not every screen reader's virtual cursor honours. So the top bar is out
+//   of reach for the mouse and the Tab key, but not provably for everything. (The Ctrl+Z HOTKEY is not the
+//   gap: the report modal passes `appUndoOff`, which puts `data-app-undo="off"` on the dialog root itself,
+//   so the hotkey is off everywhere in the dialog, the `tabIndex={-1}` root included.)
 //
 // ★ Matching is by kind, not by meeting: `UndoMeta` carries no meeting id, so ANY `meetingReport.updated`
 //   entry asks while an open report is dirty. Only one report dialog is open at a time, so the over-ask is

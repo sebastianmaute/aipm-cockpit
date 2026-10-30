@@ -4157,6 +4157,7 @@ export const de: Record<TranslationKey, string> = {
   reportSentToastOne: "Statusbericht an 1 Empfänger gesendet",
   reportSendFailed: "Statusbericht konnte nicht gesendet werden",
   reportGenerateFailed: "Bericht konnte nicht entworfen werden",
+  reportDraftMeetingChanged: "Das Datum der Sitzung hat sich geändert, während der Bericht entworfen wurde, daher wurde der Entwurf nicht behalten. Entwerfen Sie ihn erneut, falls Sie ihn weiterhin möchten.",
   reportVersions: "Versionen",
   reportRestore: "Wiederherstellen",
   reportRestored: "Berichtsversion wiederhergestellt",

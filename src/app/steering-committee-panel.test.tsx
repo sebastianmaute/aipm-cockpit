@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
+import { render, renderHook, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { SteeringCommitteePanel } from "./steering-committee-panel";
+import { Modal } from "./modal";
+import { useUndoHotkey } from "./use-undo-hotkey";
 import { loadI18n, t } from "./i18n";
 import type { Resource, SteeringCommittee } from "./types";
 import type { MeetingReportBag } from "./use-meeting-report-actions";
@@ -411,7 +413,7 @@ describe("SteeringCommitteePanel", () => {
     const { markTaken, open } = renderWithStatefulProposal();
     let dialog = await open();
     fireEvent.click(within(dialog).getByRole("button", { name: "Take – Next steps" }));
-    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
+    await waitFor(() => expect(within(dialog).getAllByRole("listitem")[1]).toHaveTextContent("Taken"));
     fireEvent.click(within(dialog).getByRole("button", { name: t("en-US", "cancel") }));
     expect(screen.queryByRole("dialog")).toBeNull();
     dialog = await open();
@@ -424,7 +426,7 @@ describe("SteeringCommitteePanel", () => {
     const { markTaken, open } = renderWithStatefulProposal();
     let dialog = await open();
     fireEvent.click(within(dialog).getByRole("button", { name: "Take – Next steps" }));
-    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
+    await waitFor(() => expect(within(dialog).getAllByRole("listitem")[1]).toHaveTextContent("Taken"));
     expect(markTaken).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole("button", { name: t("en-US", "reportSave") }));
     expect(markTaken).toHaveBeenCalledWith(1, [1]);
@@ -434,7 +436,8 @@ describe("SteeringCommitteePanel", () => {
     const rows = within(dialog).getAllByRole("listitem");
     expect(rows[0]).not.toHaveTextContent("Taken");
     expect(rows[1]).toHaveTextContent("Taken");
-    expect(within(dialog).getByRole("button", { name: "Take – Next steps" })).toBeDisabled();
+    // Taken, but still takeable again (final review item 2).
+    expect(within(dialog).getByRole("button", { name: "Take – Next steps" })).toBeEnabled();
   });
 
   it("the report dialog's content switches the app undo hotkey off", async () => {
@@ -452,6 +455,48 @@ describe("SteeringCommitteePanel", () => {
     const dialog = await screen.findByRole("dialog");
     const save = within(dialog).getByRole("button", { name: t("en-US", "reportSave") });
     expect(save.closest('[data-app-undo="off"]')).not.toBeNull();
+  });
+
+  // Final review item 3 — the dialog ROOT (tabIndex -1, focused by a click on non-focusable content) is in the
+  // zone too, so Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y there never run the app undo or redo.
+  it("Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y on the report dialog root do not run the app undo or redo", async () => {
+    const undo = vi.fn();
+    const redo = vi.fn();
+    renderHook(() => useUndoHotkey(undo, redo));
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        report={reportBag}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "reportStatusReport")} – Kickoff` }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.keyDown(dialog, { key: "z", ctrlKey: true });
+    fireEvent.keyDown(dialog, { key: "Z", ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(dialog, { key: "y", ctrlKey: true });
+    expect(undo).not.toHaveBeenCalled();
+    expect(redo).not.toHaveBeenCalled();
+  });
+
+  it("another modal's root is not in the zone: Ctrl+Z and Ctrl+Y there still run the app undo and redo", () => {
+    const undo = vi.fn();
+    const redo = vi.fn();
+    renderHook(() => useUndoHotkey(undo, redo));
+    render(
+      <Modal open onClose={() => {}} ariaLabel="Other">
+        <button type="button">Inside</button>
+      </Modal>,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Other" });
+    expect(dialog.closest('[data-app-undo="off"]')).toBeNull();
+    fireEvent.keyDown(dialog, { key: "z", ctrlKey: true });
+    fireEvent.keyDown(dialog, { key: "y", ctrlKey: true });
+    expect(undo).toHaveBeenCalledTimes(1);
+    expect(redo).toHaveBeenCalledTimes(1);
   });
 });
 

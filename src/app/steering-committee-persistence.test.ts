@@ -39,4 +39,7 @@ describe("steeringCommittee persistence - a blank report with a previous version
     expect(jsonToWorkspace(wsBlank).steeringCommittee?.meetings[0].report).toEqual(BLANK);
     expect(csvToWorkspace(workspaceToCsv(jsonToWorkspace(wsBlank))).steeringCommittee?.meetings[0].report).toEqual(BLANK);
   });
+  it("Markdown keeps html empty beside previous", () => {
+    expect(markdownToWorkspace(workspaceToMarkdown(jsonToWorkspace(wsBlank))).steeringCommittee?.meetings[0].report).toEqual(BLANK);
+  });
 });

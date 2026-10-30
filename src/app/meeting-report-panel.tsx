@@ -90,7 +90,10 @@ function takeConfirmMessage(lang: Lang, plan: TakePlan): string {
  *  one), else Take all, else Discard, else the proposal heading. */
 function focusAfterTake(root: HTMLElement | null, after: number): void {
   if (!root) return;
-  const takes = [...root.querySelectorAll<HTMLButtonElement>("button[data-take-index]")].filter((b) => !b.disabled);
+  // A taken row's Take stays enabled (it can be taken again), so "untaken" is read off `data-taken`.
+  const takes = [...root.querySelectorAll<HTMLButtonElement>("button[data-take-index]")].filter(
+    (b) => !b.disabled && b.dataset.taken !== "true",
+  );
   const next =
     takes.find((b) => Number(b.dataset.takeIndex) > after) ??
     takes[0] ??
@@ -149,13 +152,15 @@ export function MeetingReportPanel({
     setSeenProposalAt(proposal?.createdAt);
     setPendingTaken(new Set());
   }
-  // M-1 — the stored body's stamp as last committed, read after the take's confirm resolves.
+  // M-1 — the stored body's stamp and the proposal's as last committed, read after the take's confirm resolves.
   const updatedAtRef = useRef(report?.updatedAt);
+  const proposalAtRef = useRef(proposal?.createdAt);
   useEffect(() => {
     updatedAtRef.current = report?.updatedAt;
+    proposalAtRef.current = proposal?.createdAt;
   });
-  // I-2 — the last proposal index a take just applied; the effect below moves focus off its
-  // now-disabled Take button once the take has rendered.
+  // I-2 — the last proposal index a take just applied; the effect below moves focus on from its
+  // now-taken row once the take has rendered.
   const focusAfterTakeRef = useRef<number | null>(null);
   const proposalRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -180,6 +185,7 @@ export function MeetingReportPanel({
     if (!proposal || indices.length === 0) return;
     const base = draft;
     const startedAt = report?.updatedAt;
+    const proposalAt = proposal.createdAt;
     const plan = planTake(base, proposal.sections, indices);
     // A section the report already has asks first: Replace swaps it (and its sub-sections) for the
     // AI text; Keep both — or dismissing the dialog — adds the AI text after it.
@@ -192,8 +198,9 @@ export function MeetingReportPanel({
         cancelLabel: t(lang, "reportTakeKeepBoth"),
       }));
     // M-1 — a write (save, restore, undo) landed while the confirm was open: `base` is stale and the
-    // editor now shows the new stored body, so the take is dropped rather than applied to old text.
-    if (updatedAtRef.current !== startedAt) {
+    // editor now shows the new stored body, so the take is dropped rather than applied to old text. Likewise
+    // a new draft (or a discard) replaced the proposal: `indices` point into a proposal that is gone.
+    if (updatedAtRef.current !== startedAt || proposalAtRef.current !== proposalAt) {
       void notice({ title: t(lang, "reportTakeDroppedTitle"), message: t(lang, "reportTakeDroppedBody") });
       return;
     }

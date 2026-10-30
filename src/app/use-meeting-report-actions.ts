@@ -122,11 +122,12 @@ function isBlankReport(html: string): boolean {
 }
 
 /** The report after a save: the new text, with the replaced text kept as `previous`
- *  when it was non-empty. A new body is unsent, so `sentAt` is not carried. */
+ *  when it was non-empty. An empty replaced body is not worth keeping, so ITS previous is carried forward
+ *  (clear → Save → type → Save keeps the text before the clear). A new body is unsent, so `sentAt` is not carried. */
 function replacedReport(old: MeetingReport | undefined, html: string, stamp: string): MeetingReport {
   const report: MeetingReport = { html, updatedAt: stamp };
-  if (old && old.html === html) return { ...report, ...(old.previous ? { previous: old.previous } : {}) };
-  if (old && old.html !== "") report.previous = { html: old.html, savedAt: old.updatedAt };
+  if (old && (old.html === html || old.html === "")) return { ...report, ...(old.previous ? { previous: old.previous } : {}) };
+  if (old) report.previous = { html: old.html, savedAt: old.updatedAt };
   return report;
 }
 
@@ -236,7 +237,9 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       primaryCount: 1,
       name: date,
       parts: [meetingReportUndoFragment({ setSteeringCommittee: deps.setSteeringCommittee, meetingId, before: seen.before, after: seen.after })],
-      readEpoch: deps.getScopeEpoch(),
+      // ★ No `readEpoch`: this capture is synchronous, so the stack stamps the entry with ITS OWN reader (in the
+      // app the UNDO epoch: scope + restore + denomination). Passing `deps.getScopeEpoch()` here compared the plain
+      // scope epoch against that reader, so after a currency change or a version restore every save was refused.
     });
   }
 
@@ -331,7 +334,12 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       // A meeting deleted while the model was answering has nothing to hold the draft for.
       // ... or deleted and re-created under the same id (ids are max + 1).
       const liveMeeting = committeeRef.current?.meetings.find((m) => m.id === meetingId);
-      if (!liveMeeting || meetingFingerprint(liveMeeting) !== startFingerprint) return;
+      if (!liveMeeting) return;
+      // The meeting's date changed (or it was re-created under the same id): the draft is dropped, and said so.
+      if (meetingFingerprint(liveMeeting) !== startFingerprint) {
+        deps.showToast("info", t(deps.lang, "reportDraftMeetingChanged"));
+        return;
+      }
       // AI output is untrusted: sanitize BEFORE splitting, so the held sections are already clean.
       const clean = sanitizeRichHtml(html);
       const sections = isBlankReport(clean) ? [] : splitSections(clean);

@@ -59,14 +59,16 @@ export function MeetingReportProposal({ lang, sections, taken, onTake, onDiscard
             <li key={i} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
               <span className={INDENT[s.level]}>{name}</span>
               <div className="flex items-center gap-2">
-                {/* The taken state is TEXT, not colour alone (WCAG 1.4.1). */}
+                {/* The taken state is TEXT, not colour alone (WCAG 1.4.1). A taken row's Take stays ENABLED: a
+                    saved take can be undone or restored over, and the text must stay takeable (a second take of a
+                    heading the report has asks Replace / Keep both). Take all still skips taken rows. */}
                 {isTaken ? <span className="text-muted-foreground">{t(lang, "reportProposalTaken")}</span> : null}
                 <Button
                   variant="secondary"
                   size="xs"
                   onClick={() => onTake([i])}
-                  disabled={isTaken}
                   data-take-index={i}
+                  data-taken={isTaken ? "true" : undefined}
                   aria-label={rowLabel(takeLabel, tokens.get(i) ?? name)}
                 >
                   {takeLabel}

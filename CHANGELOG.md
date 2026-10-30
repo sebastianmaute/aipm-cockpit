@@ -16,7 +16,8 @@ longer carries its own changelog comment.
   no longer overwrites your report. It appears as a list of sections beside the editor, and you take one section or all of
   them. When a section's heading matches one in your report, you choose Replace or Keep both; otherwise the section is
   added. A section you take shows as Taken in the list at once, but nothing is saved until you press Save; closing the
-  window without saving leaves the proposal as it was. The proposal stays with the meeting when you close the window until
+  window without saving leaves the proposal as it was. A taken section can be taken again (for example after you undo the
+  save that stored it). A draft that finishes after the meeting's date changed is not kept, and a message says so. The proposal stays with the meeting when you close the window until
   you discard it, draft again, switch project, reload the app or delete the meeting; it is hidden while the meeting's date
   differs from the date when it was drafted, and returns if you change the date back. Closing the window drops unsaved
   typing. Saving a changed report keeps one previous version, on every storage type, which you can compare with the

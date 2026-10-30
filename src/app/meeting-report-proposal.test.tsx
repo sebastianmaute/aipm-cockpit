@@ -54,13 +54,13 @@ describe("MeetingReportProposal", () => {
     expect(p.onTake).toHaveBeenCalledWith([0, 2, 3]);
   });
 
-  it("a taken row says Taken in text and its Take is disabled; Take all is disabled once all are taken", () => {
+  it("a taken row says Taken in text and its Take stays enabled; Take all is disabled once all are taken", () => {
     const { rerender } = render(
       <MeetingReportProposal lang="en-US" sections={SECTIONS} taken={new Set([1])} onTake={vi.fn()} onDiscard={vi.fn()} />,
     );
     const row = screen.getAllByRole("listitem")[1];
     expect(within(row).getByText("Taken")).toBeInTheDocument();
-    expect(within(row).getByRole("button", { name: "Take – Risks (1)" })).toBeDisabled();
+    expect(within(row).getByRole("button", { name: "Take – Risks (1)" })).toBeEnabled();
     expect(within(screen.getAllByRole("listitem")[2]).queryByText("Taken")).toBeNull();
     expect(screen.getByRole("button", { name: "Take – Risks (2)" })).toBeEnabled();
     rerender(
