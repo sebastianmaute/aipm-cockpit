@@ -1,8 +1,11 @@
 // src/app/ai-usage-context.test.tsx
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type ReactNode } from "react";
+import { isBackgroundCapReached, publishBackgroundCapState } from "./ai-consent";
+import type { AiConfig } from "./settings-types";
 import {
+  AI_HARD_CAP_WARNED_KEY,
   AI_CAP_BASIS_NOTICE_KEY,
   AI_COST_BASIS_NOTICE_KEY,
   AI_VIEW_SWITCH_KEY,
@@ -12,8 +15,8 @@ import {
 import { defaultAiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
 import { t } from "./i18n";
-import { isoDate, usageCostEquivalent, type Usage } from "./ai-usage";
-import { AI_USAGE_BY_PATH_KEY, AI_USAGE_KEY } from "./ai-usage-store";
+import { isoDate, mondayOf, usageCostEquivalent, type Usage } from "./ai-usage";
+import { AI_USAGE_BY_PATH_KEY, AI_USAGE_KEY, recordPathUsage } from "./ai-usage-store";
 import { emitUsage, tapListenerCount } from "../test/usage-tap";
 
 // The provider records what the transport's tap reports, so the tests drive that tap directly.
@@ -36,6 +39,105 @@ function makeWrapper(showToast: (kind: "info" | "error", text: string) => void) 
     );
   };
 }
+
+describe("AiUsageProvider weekly hard cap (AI-03)", () => {
+  const seedWeek = (cost: number) =>
+    recordPathUsage(localStorage, new Date(), "chat", { input: cost, output: 0, cacheWrite: 0, cacheRead: 0 });
+  const hardWrapper = (showToast: (kind: "info" | "error", text: string) => void) =>
+    function Wrapper({ children, ai }: { children: ReactNode; ai: AiConfig }) {
+      return <AiUsageProvider lang="en-US" ai={ai} showToast={showToast}>{children}</AiUsageProvider>;
+    };
+  const render = (showToast: (kind: "info" | "error", text: string) => void, ai: AiConfig) => {
+    const W = hardWrapper(showToast);
+    return renderHook(() => useAiUsageContext(), {
+      wrapper: ({ children }: { children: ReactNode }) => <W ai={ai}>{children}</W>,
+    });
+  };
+  const withCap = (weeklyHardCap?: number): AiConfig => ({ ...defaultAiConfig, weeklyHardCap });
+  afterEach(() => publishBackgroundCapState(false));
+
+  it("publishes the cap state on a settings change, with no new recording", async () => {
+    seedWeek(900);
+    const W = hardWrapper(vi.fn());
+    const ai = { current: withCap(1000) };
+    const view = renderHook(() => useAiUsageContext(), {
+      wrapper: ({ children }: { children: ReactNode }) => <W ai={ai.current}>{children}</W>,
+    });
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(false);
+    ai.current = withCap(800);
+    view.rerender();
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(true);
+    ai.current = withCap(undefined);
+    view.rerender();
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(false);
+  });
+
+  it("is not reached without a hard cap, however much is used", async () => {
+    seedWeek(5_000_000);
+    render(vi.fn(), withCap(undefined));
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(false);
+  });
+
+  it("publishes reached when another tab's storage event raises the week total", async () => {
+    render(vi.fn(), withCap(1000));
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(false);
+    act(() => {
+      seedWeek(1200);
+      window.dispatchEvent(new StorageEvent("storage", { key: AI_USAGE_BY_PATH_KEY }));
+    });
+    expect(isBackgroundCapReached()).toBe(true);
+  });
+
+  it("warns once per week on an interactive tap while reached, and keeps the key", async () => {
+    seedWeek(900);
+    const showToast = vi.fn();
+    render(showToast, withCap(1000));
+    await act(async () => {});
+    const hardCalls = () => showToast.mock.calls.filter((c) => c[1] === t("en-US", "aiHardCapPausedToast"));
+    act(() => { emitUsage("chat", { input: 50, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(hardCalls()).toHaveLength(0); // 950: not yet reached
+    act(() => { emitUsage("chat", { input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(hardCalls()).toHaveLength(1);
+    expect(localStorage.getItem(AI_HARD_CAP_WARNED_KEY)).toBe(isoDate(mondayOf(new Date())));
+    act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(hardCalls()).toHaveLength(1);
+  });
+
+  it("does not warn for a background tap", async () => {
+    seedWeek(900);
+    const showToast = vi.fn();
+    render(showToast, withCap(1000));
+    await act(async () => {});
+    act(() => { emitUsage("report_analysis:background", { input: 500, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(showToast.mock.calls.some((c) => c[1] === t("en-US", "aiHardCapPausedToast"))).toBe(false);
+    expect(localStorage.getItem(AI_HARD_CAP_WARNED_KEY)).toBeNull();
+  });
+
+  it("does not warn again when this week was already warned on this device", async () => {
+    seedWeek(2000);
+    localStorage.setItem(AI_HARD_CAP_WARNED_KEY, isoDate(mondayOf(new Date())));
+    const showToast = vi.fn();
+    render(showToast, withCap(1000));
+    await act(async () => {});
+    act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(showToast.mock.calls.some((c) => c[1] === t("en-US", "aiHardCapPausedToast"))).toBe(false);
+  });
+
+  it("warns again in a later week (a stale key is not this week)", async () => {
+    seedWeek(2000);
+    localStorage.setItem(AI_HARD_CAP_WARNED_KEY, "2000-01-03");
+    const showToast = vi.fn();
+    render(showToast, withCap(1000));
+    await act(async () => {});
+    act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(showToast.mock.calls.filter((c) => c[1] === t("en-US", "aiHardCapPausedToast"))).toHaveLength(1);
+  });
+});
 
 describe("AiUsageProvider", () => {
   it("starts with sessionTotal = 0 and weekTotal = 0", async () => {

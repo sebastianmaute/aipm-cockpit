@@ -49,6 +49,9 @@ export type AiConfig = {
   backgroundConsent?: AiConsent;
   sessionTokenCap?: number;
   weeklyTokenCap?: number;
+  /** Optional hard stop for BACKGROUND AI only (insight recommendations, scheduled jobs, the digest narrative):
+   *  once this week's usage reaches it, those runs pause until the week resets. Absent means no hard cap. */
+  weeklyHardCap?: number;
   groundInGuides: boolean;
   actionSuggestions?: boolean; // Action Center "Analyze with AI" button. Default ON (undefined = on).
   scheduledJobs?: boolean; // Scheduled Claude jobs (SP5). Default OFF (opt-in) — recurring billed calls.
@@ -133,6 +136,12 @@ export const defaultAiConfig: AiConfig = {
   insightRecommendationIntervalMinutes: DEFAULT_INSIGHT_REC_INTERVAL_MIN,
 };
 
+/** The optional weekly hard cap: a positive finite number, floored; anything else is no cap. */
+export function coerceHardCap(v: unknown): number | undefined {
+  const n = typeof v === "number" || typeof v === "string" ? Number(v) : NaN;
+  return Number.isFinite(n) && n > 0 && Math.floor(n) > 0 ? Math.floor(n) : undefined;
+}
+
 export function sanitizeAiConfig(raw: unknown): AiConfig {
   const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const coerceCap = (v: unknown, def: number): number => {
@@ -156,6 +165,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     backgroundConsent: sanitizeConsent(obj.backgroundConsent),
     sessionTokenCap: coerceCap(obj.sessionTokenCap, DEFAULT_SESSION_TOKEN_CAP),
     weeklyTokenCap: coerceCap(obj.weeklyTokenCap, DEFAULT_WEEKLY_TOKEN_CAP),
+    weeklyHardCap: coerceHardCap(obj.weeklyHardCap),
     enabled: obj.enabled === true,
     groundInGuides: obj.groundInGuides !== false,
     scheduledJobs: obj.scheduledJobs === true,

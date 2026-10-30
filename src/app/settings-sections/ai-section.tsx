@@ -12,7 +12,7 @@ import { resolveAiPolicy } from "../ai-policy";
 import { aiDestinationKey } from "../ai-disclosure";
 import { aiDeploymentBlockedMessageKey } from "../ai-deployment";
 import { TextButton } from "../text-button";
-import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS } from "../settings-types";
+import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS, coerceHardCap } from "../settings-types";
 import {
   DEFAULT_INSIGHT_REC_INTERVAL_MIN,
   MIN_INSIGHT_REC_INTERVAL_MIN,
@@ -122,6 +122,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const aiHeadingId = useId();
   const behaviourHeadingId = useId();
   const apiKeyNoteId = useId();
+  const hardCapHelpId = useId();
   const modelHintId = useId();
   const recBackgroundHintId = useId();
   const deploymentNoticeId = useId();
@@ -603,6 +604,22 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           onChange({ ...settings, ai: { ...settings.ai, weeklyTokenCap: n } })
         }
       />
+      <div className="mt-2 block">
+        <span className="mb-1 block text-xs text-muted-foreground">{t(lang, "aiWeeklyHardCap")}</span>
+        <Input
+          type="number"
+          aria-label={t(lang, "aiWeeklyHardCap")}
+          aria-describedby={hardCapHelpId}
+          min={1}
+          step={1}
+          value={settings.ai.weeklyHardCap ?? ""}
+          onChange={(e) =>
+            onChange({ ...settings, ai: { ...settings.ai, weeklyHardCap: coerceHardCap(e.target.value) } })
+          }
+          className="w-full"
+        />
+        <p id={hardCapHelpId} className="mt-1 text-xs text-muted-foreground">{t(lang, "aiWeeklyHardCapHelp")}</p>
+      </div>
       <CapInput
         label={t(lang, "aiMaxTurns")}
         hint={t(lang, "aiMaxTurnsHint")}

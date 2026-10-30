@@ -13,6 +13,8 @@ import {
   type ReactNode,
 } from "react";
 import {
+  isoDate,
+  mondayOf,
   nextWeekReset,
   normalizeUsage,
   usageCostEquivalent,
@@ -20,6 +22,7 @@ import {
   type Usage,
 } from "./ai-usage";
 import { subscribeAiUsage } from "./ai-transport";
+import { publishBackgroundCapState } from "./ai-consent";
 import { parseAiPathId, type AiFeature } from "./ai-usage-paths";
 import {
   AI_USAGE_BY_PATH_KEY,
@@ -77,6 +80,9 @@ export const AI_CAP_BASIS_NOTICE_KEY = "aipm-cockpit:ai-cap-basis-notice";
  *  threshold`, so a device already at or above its cap at mount never crossed
  *  anything. A panel line beside the numbers depends on no edge at all. */
 export const AI_COST_BASIS_NOTICE_KEY = "aipm-cockpit:ai-cost-basis-notice";
+/** The ISO date of the Monday of the week in which this device last showed the hard-cap warning: once per
+ *  week per device. localStorage, so a reload or another tab does not repeat it. */
+export const AI_HARD_CAP_WARNED_KEY = "aipm-cockpit:ai-hard-cap-warned";
 
 export type AiUsageContextValue = {
   sessionTotal: number;
@@ -87,6 +93,8 @@ export type AiUsageContextValue = {
   weekByFeature: ReadonlyArray<{ feature: AiFeature; usage: Usage; cost: number }>;
   /** The part of `weekTotal` spent by background (unattended) calls. */
   backgroundWeekCost: number;
+  /** This week's usage has reached the weekly hard cap, so background AI is paused. */
+  weekHardCapReached: boolean;
   /** This week's chat sends and warm view switches (§702). */
   viewSwitchWeek: ViewSwitchStats;
   /** Records one finished chat send: classifies it against the previous send
@@ -106,6 +114,7 @@ const AiUsageContext = createContext<AiUsageContextValue>({
   nextReset: new Date(),
   weekByFeature: [],
   backgroundWeekCost: 0,
+  weekHardCapReached: false,
   viewSwitchWeek: EMPTY_VIEW_SWITCH_STATS,
   recordChatSend: () => {},
   noteUnbilledChatSend: () => {},
@@ -189,6 +198,23 @@ function summariseWeek(b: PathBuckets, now: Date): { rows: FeatureRow[]; backgro
   return { rows, background };
 }
 
+/** Whether the hard-cap warning was already shown this week; true on a storage failure (never nag blind). */
+function hardCapWarnedThisWeek(storage: Storage, now: Date): boolean {
+  try {
+    return storage.getItem(AI_HARD_CAP_WARNED_KEY) === isoDate(mondayOf(now));
+  } catch {
+    return true;
+  }
+}
+
+function markHardCapWarned(storage: Storage, now: Date): void {
+  try {
+    storage.setItem(AI_HARD_CAP_WARNED_KEY, isoDate(mondayOf(now)));
+  } catch {
+    // non-fatal: the warning may repeat
+  }
+}
+
 function loadViewSwitchBuckets(): ViewSwitchBuckets {
   if (typeof window === "undefined") return {};
   try {
@@ -237,6 +263,7 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
 
   const sessionCap = ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
+  const hardCap = ai.weeklyHardCap;
 
   // ★★★ THE TRANSPORT'S TAP IS THE ONLY RECORDER. Every Messages response of every path (chat,
   // inline edit, forced calls, background jobs) reaches here, so nothing else records usage.
@@ -279,6 +306,8 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       setSessionUsage(nextSessionUsage);
       setPathBuckets(nextBuckets);
 
+      // Set by a toast below so the hard-cap warning waits for a tap of its own (see the end of this handler).
+      let toasted = false;
       // ★ EXACTLY ONE showToast per crossing. `useToast` holds a single
       //   `Toast | null` slot with no queue, so two calls in one tick leave
       //   only the second painted — see AI_COST_BASIS_NOTICE_KEY above for the
@@ -286,10 +315,12 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       if (!warnedRef.current.session && crossed80(prevSession, nextSession, sessionCap)) {
         warnedRef.current.session = true;
         showToast("error", t(lang, "usage80Toast"));
+        toasted = true;
       }
       if (!warnedRef.current.week && crossed80(prevWeek, nextWeek, weeklyCap)) {
         warnedRef.current.week = true;
         showToast("error", t(lang, "usage80Toast"));
+        toasted = true;
       }
       // Crossing 100 % of a self-imposed cap: ADVISORY notice only — nothing is
       // blocked, the assistant keeps working. It is a separate pair of flags
@@ -299,13 +330,22 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       if (!warned100Ref.current.session && crossed100(prevSession, nextSession, sessionCap)) {
         warned100Ref.current.session = true;
         showToast("error", t(lang, "aiSelfLimitReached"));
+        toasted = true;
       }
       if (!warned100Ref.current.week && crossed100(prevWeek, nextWeek, weeklyCap)) {
         warned100Ref.current.week = true;
         showToast("error", t(lang, "aiSelfLimitReached"));
+        toasted = true;
+      }
+      // The weekly HARD cap pauses background AI only; an interactive tap while it is reached is how the user
+      // hears of it, once a week per device. A tap that already toasted leaves the warning for the next one.
+      if (!toasted && hardCap !== undefined && nextWeek >= hardCap && parseAiPathId(path).level === "interactive"
+        && !hardCapWarnedThisWeek(storage, now)) {
+        markHardCapWarned(storage, now);
+        showToast("error", t(lang, "aiHardCapPausedToast"));
       }
     });
-  }, [lang, sessionCap, weeklyCap, showToast]);
+  }, [lang, sessionCap, weeklyCap, hardCap, showToast]);
 
   // Another tab's recording: re-read the shared store. Week figures only; the session is this tab's.
   useEffect(() => {
@@ -346,6 +386,14 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
   const weekTotal = weekToDate(totalsByDay(pathBuckets), now);
   const { rows: weekByFeature, background: backgroundWeekCost } = summariseWeek(pathBuckets, now);
   const nextReset = nextWeekReset(now);
+  const weekHardCapReached = hardCap !== undefined && weekTotal >= hardCap;
+
+  // The transport asks this flag before every unattended send. Keyed on the verdict, so a settings change or
+  // another tab's recording that flips it publishes at once; the module setter is not React state.
+  useEffect(() => {
+    publishBackgroundCapState(weekHardCapReached);
+    return () => publishBackgroundCapState(false);
+  }, [weekHardCapReached]);
   const viewSwitchWeek = weekViewSwitchStats(viewSwitchBuckets, now);
 
   const value: AiUsageContextValue = {
@@ -355,6 +403,7 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
     nextReset,
     weekByFeature,
     backgroundWeekCost,
+    weekHardCapReached,
     viewSwitchWeek,
     recordChatSend,
     noteUnbilledChatSend: rememberSend,

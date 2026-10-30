@@ -151,8 +151,10 @@ type AiUsagePanelProps = {
 };
 
 export function AiUsagePanel({ lang, sessionCap, weeklyCap, guidesOn = true }: AiUsagePanelProps) {
-  const { sessionTotal, weekTotal, nextReset, sessionUsage, viewSwitchWeek, weekByFeature, backgroundWeekCost } =
-    useAiUsageContext();
+  const {
+    sessionTotal, weekTotal, nextReset, sessionUsage, viewSwitchWeek, weekByFeature, backgroundWeekCost,
+    weekHardCapReached,
+  } = useAiUsageContext();
 
   // ★★★ NOT a state setter in an effect (`react-hooks/set-state-in-effect` is
   //     fatal here, and re-rendering would only make the line vanish mid-read).
@@ -225,6 +227,9 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap, guidesOn = true }: A
       <p className="mt-1 text-xs text-muted-foreground">
         {t(lang, "aiUsageResetAt", resetLabel)}
       </p>
+      {weekHardCapReached && (
+        <p className="mt-1 text-xs font-medium text-foreground">{t(lang, "aiHardCapPausedNotice", resetLabel)}</p>
+      )}
       <p className="mt-1 text-xs text-muted-foreground">{t(lang, "aiUsageCoversAllFeatures")}</p>
       {weekByFeature.length > 0 && (
         <dl aria-label={t(lang, "aiUsageByFeature")} className="mt-2 space-y-0.5 text-xs text-muted-foreground">

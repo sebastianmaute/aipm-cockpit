@@ -48,6 +48,15 @@ export class AiConsentRevokedError extends Error {
   }
 }
 
+/** An unattended request stopped because this week's usage reached the user's weekly hard cap. Only the
+ *  background level is ever stopped by it. */
+export class AiWeeklyCapReachedError extends Error {
+  constructor() {
+    super("The weekly AI hard cap was reached");
+    this.name = "AiWeeklyCapReachedError";
+  }
+}
+
 /** Which consent a request needs: `interactive` for a request the user started, `background` for an
  *  unattended run (the scheduled-job analysis, the automatic insight recommendation run, the scheduled
  *  digest narrative), which also needs the separate background consent. */
@@ -57,6 +66,17 @@ export type AiConsentLevel = "interactive" | "background";
 // ask here without a prop being threaded through. Default: not live.
 let interactiveConsentLive = false;
 let backgroundConsentLive = false;
+// Published by the usage provider (the only reader of the week's total): this week's usage reached the hard cap.
+let backgroundCapReached = false;
+
+/** Records whether this week's usage has reached the weekly hard cap. It pauses background AI only. */
+export function publishBackgroundCapState(reached: boolean): void {
+  backgroundCapReached = reached;
+}
+
+export function isBackgroundCapReached(): boolean {
+  return backgroundCapReached;
+}
 
 /** Whether interactive AI may run under these settings: the AI master switch is on and the interactive consent is
  *  current (the key is not part of it). The published interactive flag and every request made before a send (the
@@ -83,9 +103,11 @@ export function assertInteractiveConsentLive(): void {
   if (!interactiveConsentLive) throw new AiConsentRevokedError();
 }
 
-/** Throws unless the published settings also carry a current background consent. Call before every unattended send. */
+/** Throws unless the published settings also carry a current background consent, and while the weekly hard cap is
+ *  reached. A missing consent wins over the cap. Call before every unattended send. */
 export function assertBackgroundConsentLive(): void {
   if (!backgroundConsentLive) throw new AiConsentRevokedError();
+  if (backgroundCapReached) throw new AiWeeklyCapReachedError();
 }
 
 /** The assertion for `level`. */

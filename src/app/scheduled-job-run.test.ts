@@ -4,6 +4,7 @@ import type { ScheduledJob } from "./scheduled-jobs/types";
 import type { Workspace } from "./workspace";
 import { StorageNotReadyError, emptyWorkspace } from "./workspace";
 import { AiDeploymentError, AiGatewayError, AiHttpError } from "./ai-errors";
+import { AiConsentRevokedError, AiWeeklyCapReachedError } from "./ai-consent";
 import { TursoHttpError, TursoStepError } from "./turso-pipeline";
 import type { ReportData } from "./scheduled-reports-store";
 import { defaultSettings } from "./settings-types";
@@ -60,6 +61,7 @@ function deps(overrides: Partial<RunDeps> = {}): RunDeps {
     listProjects: vi.fn().mockResolvedValue({ active: [{ id: "p1", name: "Apollo" }], archived: [] }),
     stillRunnable: vi.fn().mockReturnValue(true),
     confirmDeployment: vi.fn().mockResolvedValue(undefined),
+    confirmBackgroundGate: vi.fn(),
     loadWorkspace: vi.fn().mockResolvedValue(workspace()),
     analyse: vi.fn().mockResolvedValue({ summary: "Looks fine", actions: [] }),
     deviceSettings: defaultSettings,
@@ -512,6 +514,27 @@ describe("runScheduledJob: a send that never happened spends nothing", () => {
       expect(mRelease).not.toHaveBeenCalled();
       expect(d.recordRun).not.toHaveBeenCalled();
       expect(d.analyse).not.toHaveBeenCalled();
+    },
+  );
+
+  // KILLED BY: deleting the `confirmBackgroundGate` call (a capped device would claim the shared slot, then fail it).
+  it("a capped device leaves the slot unclaimed (AI-03)", async () => {
+    const d = deps({ confirmBackgroundGate: vi.fn(() => { throw new AiWeeklyCapReachedError(); }) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(mFinish).not.toHaveBeenCalled();
+    expect(d.recordRun).not.toHaveBeenCalled();
+    expect(d.analyse).not.toHaveBeenCalled();
+  });
+
+  it.each([["a cap", () => new AiWeeklyCapReachedError()], ["a revoked consent", () => new AiConsentRevokedError()]])(
+    "%s error after the claim releases it as transient: nothing is finished or recorded (AI-03)",
+    async (_n, make) => {
+      const d = deps({ analyse: vi.fn().mockRejectedValue(make()) });
+      expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+      expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
+      expect(mFinish).not.toHaveBeenCalled();
+      expect(d.recordRun).not.toHaveBeenCalled();
     },
   );
 

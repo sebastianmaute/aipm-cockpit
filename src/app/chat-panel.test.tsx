@@ -74,6 +74,7 @@ const { DEFAULT_AI_USAGE_CONTEXT } = vi.hoisted(() => ({
     nextReset: new Date(),
     weekByFeature: [],
     backgroundWeekCost: 0,
+    weekHardCapReached: false,
     viewSwitchWeek: { sends: 0, requests: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
     recordChatSend: vi.fn(),
     noteUnbilledChatSend: vi.fn(),

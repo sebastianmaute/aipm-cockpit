@@ -13,8 +13,8 @@ import {
 import { AI_USAGE_KEY } from "../ai-usage-store";
 import { emitUsage } from "../../test/usage-tap";
 import { defaultAiConfig } from "../settings-types";
-import { t, loadI18n, type Lang } from "../i18n";
-import type { Usage } from "../ai-usage";
+import { t, loadI18n, localeFor, type Lang } from "../i18n";
+import { nextWeekReset, type Usage } from "../ai-usage";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "../settings-types";
 
 // The provider records what the transport's tap reports, so the tests drive that tap directly.
@@ -568,6 +568,37 @@ const THREE_SENDS: SendSeed[] = [
   { viewText: "B", startedAt: 61_000, cacheWrite: 9_000, requests: 2 },
   { viewText: "B", startedAt: 121_000, cacheWrite: 600, requests: 3 },
 ];
+
+describe("AiUsagePanel — weekly hard cap notice (AI-03)", () => {
+  function hardCapWrapper(weeklyHardCap: number | undefined) {
+    const ai = { ...defaultAiConfig, weeklyHardCap };
+    return function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <Seed usage={CACHE_USAGE}>
+          <AiUsageProvider lang="en-US" ai={ai} showToast={vi.fn()}>
+            {children}
+          </AiUsageProvider>
+        </Seed>
+      );
+    };
+  }
+
+  it("shows the paused notice with the reset date once the cap is reached", () => {
+    render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, { wrapper: hardCapWrapper(100) });
+    const reset = nextWeekReset(new Date()).toLocaleString(localeFor("en-US"), { dateStyle: "medium", timeStyle: "short" });
+    expect(screen.getByText(t("en-US", "aiHardCapPausedNotice", reset))).toBeInTheDocument();
+  });
+
+  it("shows no notice below the cap or without one", () => {
+    const { unmount } = render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, {
+      wrapper: hardCapWrapper(10_000_000),
+    });
+    expect(screen.queryByText(/background AI is paused/i)).toBeNull();
+    unmount();
+    render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, { wrapper: hardCapWrapper(undefined) });
+    expect(screen.queryByText(/background AI is paused/i)).toBeNull();
+  });
+});
 
 describe("AiUsagePanel — view-switch counter (§702)", () => {
   beforeEach(() => {

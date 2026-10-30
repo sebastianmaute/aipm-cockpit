@@ -5023,6 +5023,10 @@ const enUS = {
   aiWeeklyCap: "Weekly token cap",
   aiSessionCapHint: "Your own advisory per-session token limit. You'll see a notice near and at the limit; calls are never blocked. Resets each session.",
   aiWeeklyCapHint: "Your own advisory weekly token limit. Advisory only — you'll be notified, not blocked. Resets weekly.",
+  aiWeeklyHardCap: "Weekly hard cap (background AI)",
+  aiWeeklyHardCapHelp: "Optional. Once this week's usage reaches this number, background AI pauses until the week resets: automatic insight recommendations, scheduled job analysis and the scheduled digest narrative. Anything you start yourself keeps working. Leave blank for no hard cap.",
+  aiHardCapPausedNotice: "Weekly hard cap reached: background AI is paused until {0}. Anything you start yourself keeps working.",
+  aiHardCapPausedToast: "Your weekly hard cap is reached. Background AI is paused until the week resets; the assistant keeps working.",
   aiMaxTurns: "Max assistant turns per message",
   aiMaxTurnsHint: "How many tool/continuation round-trips the assistant may take to answer one message (1–50). Higher allows more complex multi-step work but costs more tokens.",
 

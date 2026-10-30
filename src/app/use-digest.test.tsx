@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { AI_TIMEOUT_MS, useDigest, type UseDigestDeps } from "./use-digest";
 import { t } from "./i18n";
+import { AiWeeklyCapReachedError } from "./ai-consent";
 import { advanceDigestState } from "./digest/digest-state";
 import type { DashboardModel } from "./dashboard";
 import type { ReactNode } from "react";
@@ -582,6 +583,16 @@ describe("useDigest background consent (AI-10)", () => {
     expect(runNarrative).toHaveBeenCalledTimes(1);
     // AI-01 — the unattended run asks the background consent before its request.
     expect(runNarrative.mock.calls[0][1]).toMatchObject({ level: "background" });
+  });
+
+  it("a background narrative stopped by the weekly hard cap leaves the deterministic digest (AI-03)", async () => {
+    seedDue();
+    const runNarrative = vi.fn().mockRejectedValue(new AiWeeklyCapReachedError());
+    const { result } = renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", backgroundAiKey: "sk-ant-k", runNarrative, config: dueConfig })));
+    await act(async () => {});
+    expect(runNarrative).toHaveBeenCalledTimes(1);
+    expect(result.current.digest).not.toBeNull();
+    expect(result.current.digest?.narrative).toBeUndefined();
   });
 
   it("generateNow still narrates with interactive consent only", async () => {

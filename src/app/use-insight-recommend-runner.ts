@@ -12,6 +12,7 @@
 import { useEffect, useRef } from "react";
 import { runInsightRecommendation } from "./insights/recommend-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
+import { AiWeeklyCapReachedError } from "./ai-consent";
 import { clampInsightRecInterval } from "./settings-types";
 import { MAX_BG_RECS_PER_TICK, type Insight, type InsightRecommendation } from "./insights/insight";
 import type { GroundingIndex } from "./action-ai";
@@ -151,6 +152,8 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
           // burning budget. Any OTHER failure (parse/network/one-off) is
           // swallowed so the next candidate still gets a try.
           if (controller.signal.aborted) break;
+          // The weekly hard cap is just as global: every remaining candidate would be refused the same way.
+          if (e instanceof AiWeeklyCapReachedError) break;
           if (e instanceof AiHttpError) {
             const cls = classifyAiError(e.status, e.errorType);
             if (cls === "limit" || cls === "auth") break;
