@@ -49,6 +49,38 @@ describe("shouldStage", () => {
   });
 });
 
+// §773 — a lone date write that clashes with an absence stages, so the user sees the warning before it lands.
+describe("shouldStage — an absence clash (§773)", () => {
+  const trusted = { appliedWrites: 0, untrusted: false, staged: false };
+  const lone = [call("update_task", { id: 1, dueDate: "2026-11-05" })];
+
+  test("a lone write the predicate flags stages", () => {
+    expect(shouldStage(lone, trusted, () => true)).toBe(true);
+    expect(shouldStage(lone, undefined, () => true)).toBe(true);
+  });
+
+  test("a lone write the predicate clears applies, as today", () => {
+    expect(shouldStage(lone, trusted, () => false)).toBe(false);
+  });
+
+  test("no predicate keeps today's behaviour", () => {
+    expect(shouldStage(lone, trusted)).toBe(false);
+    expect(shouldStage(lone)).toBe(false);
+  });
+
+  test("the predicate is asked only about entity writes", () => {
+    const asked: string[] = [];
+    const hasClash = (c: ProposedCall) => { asked.push(c.name); return true; };
+    expect(shouldStage([call("list_tasks"), call("set_language", { language: "de" })], trusted, hasClash)).toBe(false);
+    expect(asked).toEqual([]);
+  });
+
+  test("a predicate that flags only one call of a turn still stages the turn", () => {
+    const calls = [call("list_tasks"), call("update_task", { id: 2, dueDate: "2026-11-05" })];
+    expect(shouldStage(calls, trusted, (c) => c.input.id === 2)).toBe(true);
+  });
+});
+
 // AI-02 — the send record: the write count runs across the whole send, and an attachment anywhere in
 // the history stages every risky write.
 describe("shouldStage — with a send record", () => {

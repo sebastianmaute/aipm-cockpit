@@ -29,6 +29,7 @@ import {
   type ProjectMeta,
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import type { AbsenceClash } from "./absence-clash";
 import { entityToken, type TokenEntity } from "./ai-entity-token";
 import { slimTaskForList } from "./chat-tools-lists";
 import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
@@ -853,6 +854,67 @@ describe("runTool — update_task reports moved planned hours (§774)", () => {
     const d = makeDispatcher({ getTask: vi.fn(() => stored), updateTask: vi.fn(() => stored), takePlannedHoursNote: vi.fn(() => null) });
     const out = (await runTool(d, "update_task", { id: 1, expectedToken: entityToken("task", stored), priority: "High" })) as Record<string, unknown>;
     expect("plannedHours" in out).toBe(false);
+  });
+});
+
+// §773 — a date-setting write that lands someone's work on their absence tells the model so, so it can offer
+// another date. The dispatcher judges the call BEFORE the write (the state the review card judged).
+describe("runTool — the four date tools report absence clashes (§773)", () => {
+  const CLASH: AbsenceClash = {
+    person: "Maya Patel", resourceId: 1, reason: "date-on-absence", which: "due", date: "2026-11-05",
+    ranges: [{ start: "2026-11-03", end: "2026-11-07" }],
+  };
+  const SPAN: AbsenceClash = { person: "Liam Foster", reason: "absent-most-of-span", ranges: [{ start: "2026-11-02", end: "2026-11-06" }] };
+  const RESULT = { person: "Maya Patel", reason: "date-on-absence", date: "2026-11-05", ranges: [{ start: "2026-11-03", end: "2026-11-07" }] };
+  const CALLS: readonly [string, Record<string, unknown>][] = [
+    ["create_task", { taskName: "Draft", assignee: "Maya Patel", dueDate: "2026-11-05" }],
+    ["update_task", { id: 1, expectedToken: entityToken("task", makeTask()), dueDate: "2026-11-05" }],
+    ["create_milestone", { name: "Beta", date: "2026-11-05", linkedTaskIds: [1] }],
+    ["update_milestone", { id: 30, expectedToken: FRESH_MILESTONE_TOKEN, date: "2026-11-05" }],
+  ];
+
+  it.each(CALLS)("%s carries absenceClashes in the person/reason/date/ranges shape", async (name, input) => {
+    const absenceClashesFor = vi.fn(() => [CLASH, SPAN]);
+    const out = (await runTool(makeDispatcher({ absenceClashesFor }), name, input)) as Record<string, unknown>;
+    expect(absenceClashesFor).toHaveBeenCalledWith(name, input);
+    expect(out.absenceClashes).toEqual([RESULT, { person: "Liam Foster", reason: "absent-most-of-span", ranges: SPAN.ranges }]);
+  });
+
+  it.each(CALLS)("%s omits absenceClashes when nothing clashes", async (name, input) => {
+    const out = (await runTool(makeDispatcher({ absenceClashesFor: vi.fn(() => []) }), name, input)) as Record<string, unknown>;
+    expect("absenceClashes" in out).toBe(false);
+  });
+
+  it.each(CALLS)("%s omits absenceClashes when the dispatcher cannot judge", async (name, input) => {
+    const out = (await runTool(makeDispatcher(), name, input)) as Record<string, unknown>;
+    expect("absenceClashes" in out).toBe(false);
+  });
+
+  it("judges BEFORE the write, so a moved date is still a change when it is judged", async () => {
+    const d = makeDispatcher({ absenceClashesFor: vi.fn(() => [CLASH]) });
+    await runTool(d, "update_task", CALLS[1][1]);
+    const judged = vi.mocked(d.absenceClashesFor!).mock.invocationCallOrder[0];
+    const written = vi.mocked(d.updateTask).mock.invocationCallOrder[0];
+    expect(judged).toBeLessThan(written);
+  });
+
+  it("a refused write reports no clash, it throws", async () => {
+    const d = makeDispatcher({ absenceClashesFor: vi.fn(() => [CLASH]), updateTask: vi.fn(() => null) });
+    await expect(runTool(d, "update_task", CALLS[1][1])).rejects.toThrow("task #1 not found");
+  });
+
+  it("an update_task reassignment carries both the hours note and the clashes", async () => {
+    const d = makeDispatcher({ absenceClashesFor: vi.fn(() => [CLASH]), takePlannedHoursNote: vi.fn(() => "Moved 8 h") });
+    const out = (await runTool(d, "update_task", CALLS[1][1])) as Record<string, unknown>;
+    expect(out.plannedHours).toBe("Moved 8 h");
+    expect(out.absenceClashes).toEqual([RESULT]);
+  });
+
+  it("another write tool is never judged", async () => {
+    const absenceClashesFor = vi.fn(() => [CLASH]);
+    const out = (await runTool(makeDispatcher({ absenceClashesFor }), "create_raid_item", { category: "Risk", title: "R" })) as Record<string, unknown>;
+    expect(absenceClashesFor).not.toHaveBeenCalled();
+    expect("absenceClashes" in out).toBe(false);
   });
 });
 

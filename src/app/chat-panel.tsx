@@ -81,6 +81,7 @@ import {
 import { isPureReadTool, openSendRecord, runsInPlaceWhenStaging } from "./chat-send-record";
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
 import { NO_HOLIDAYS } from "./absence-clash";
+import { callAbsenceClashes } from "./chat-absence-clashes";
 import {
   cardRowTitle,
   ChatProposalBlock,
@@ -894,7 +895,8 @@ function ChatPanelInner({
           // staged, even alone: `ALWAYS_STAGED_TOOLS`); when its entity writes plus
           // those this send already applied (`sendRecord.appliedWrites`) come to
           // more than one; or, in an untrusted send (an attachment in the
-          // history), when it holds any call `stagesWhenUntrusted` names. Staged:
+          // history), when it holds any call `stagesWhenUntrusted` names; or when an
+          // entity write would land someone's work on their absence (§773). Staged:
           // no write runs, the turn's reads (`isPureReadTool`) run in place, the
           // other calls go on a review card in the transcript, and every `tool_use`
           // id is still answered. A turn that
@@ -906,9 +908,14 @@ function ChatPanelInner({
           // it): it takes the path below, where its reads (`isPureReadTool`) run and every other call
           // is answered with `PROPOSAL_PENDING_RESULT` and runs nothing. The loop then continues, so
           // the model can still write its reply; the turn cap bounds it as it bounds any send.
-          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord)) {
+          // ★★ §773 — a lone date write that lands someone's work on their absence stages too, judged by the
+          // same plan the card below shows (`callAbsenceClashes`), so the card always carries the warning.
+          const gateWs = stagingWorkspace(workspaceRef.current);
+          const gateAbsence = { absences: gateWs.absences, resources: gateWs.resources, holidaySet: holidaySetRef.current ?? NO_HOLIDAYS };
+          const hasClash = (c: ProposedCall) => callAbsenceClashes(c, gateWs, gateAbsence).length > 0;
+          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord, hasClash)) {
             sendRecord = { ...sendRecord, staged: true };
-            const ws = stagingWorkspace(workspaceRef.current);
+            const ws = gateWs;
             // AI-02 — a read changes nothing, so it runs in place and gets its real result; so does `optimize_wbs`,
             // whose own preview writes nothing until applied (`runsInPlaceWhenStaging`). Only the turn's other
             // calls go on the card. These run FIRST, so the transcript keeps the turn's order: their lines, then
@@ -934,8 +941,8 @@ function ChatPanelInner({
             const planRows = scopeMoved ? [] : buildPlanRows(calls, mintProvisionalIds(calls, ws));
             if (!scopeMoved) {
               // §779 — the dispatcher's live settings judge a functions row's other settings.
-              const absence = { absences: ws.absences, resources: ws.resources, holidaySet: holidaySetRef.current ?? NO_HOLIDAYS };
-              const described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch), absence);
+              // §773 — the gate's own absence context, so the card judges exactly what staged it.
+              const described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch), gateAbsence);
               const proposalId = newProposalId();
               setPendingProposal({
                 id: proposalId,

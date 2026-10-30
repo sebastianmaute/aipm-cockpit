@@ -57,6 +57,7 @@ import { NOT_PROJECT_TOOL, runProjectTool, type ProjectToolDispatcher } from "./
 import { runChatSearch } from "./chat-search-tool";
 import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
+import type { AbsenceClash, AbsenceRange, ClashReason } from "./absence-clash";
 export { TOOL_DEFS } from "./chat-tool-defs";
 
 type TaskInput = {
@@ -398,6 +399,9 @@ export type ToolDispatcher = {
   updateTask(id: number, patch: Partial<Task>): Task | null;
   /** §774 — what the last `updateTask` did to planned hours (the notice text), read once; null when nothing to say. */
   takePlannedHoursNote?(): string | null;
+  /** §773 — the absence clashes a date-tool call would cause, judged against the CURRENT workspace, so
+   *  `runTool` asks BEFORE the write (`chat-absence-clashes.ts` says why). Absent = no judgment. */
+  absenceClashesFor?(name: string, input: Readonly<Record<string, unknown>>): readonly AbsenceClash[];
   /** Replace task `id`'s predecessor-link list wholesale. `raw` is untrusted
    *  model output; `resolveDependencyWrite` sanitizes + cycle-checks it.
    *  Returns null when the task doesn't exist. `removed` is every link that
@@ -618,6 +622,25 @@ function withoutAssigneeEmail(task: Task): Omit<Task, "assigneeEmail"> {
   return rest;
 }
 
+/** §773 — one clash as the model reads it: who, why, the date when one fell on the absence, and the
+ *  absence ranges. Only "absent" and the dates — never the absence's type or note. */
+interface AbsenceClashResult { person: string; reason: ClashReason; date?: string; ranges: AbsenceRange[] }
+
+/** `result` with the clashes the dispatcher judged BEFORE the write; unchanged when there are none.
+ *  ★ Tolerates a non-array, as `withoutAssigneeEmail` tolerates a non-object: the method is optional, and a
+ *   dispatcher that does not judge must leave the result exactly as it was. */
+function withAbsenceClashes<T>(
+  result: T,
+  clashes: readonly AbsenceClash[] | undefined,
+): T | (T & { absenceClashes: AbsenceClashResult[] }) {
+  if (!Array.isArray(clashes) || clashes.length === 0 || typeof result !== "object" || result === null) return result;
+  const judged: readonly AbsenceClash[] = clashes;
+  const absenceClashes = judged.map(({ person, reason, date, ranges }): AbsenceClashResult => ({
+    person, reason, ...(date !== undefined ? { date } : {}), ranges: ranges.map((r) => ({ ...r })),
+  }));
+  return { ...result, absenceClashes };
+}
+
 function readContactEmail(input: Record<string, unknown>, d: ToolDispatcher): ContactEmail {
   const id = requireId(input);
   switch (input.entity) {
@@ -725,7 +748,8 @@ export async function runTool(
       if (!taskName || !assignee || !dueDate) {
         throw new Error("taskName, assignee, and dueDate are required");
       }
-      return withoutAssigneeEmail(d.createTask({
+      const clashes = d.absenceClashesFor?.(name, input);
+      return withAbsenceClashes(withoutAssigneeEmail(d.createTask({
         taskName,
         assignee,
         dueDate,
@@ -740,7 +764,7 @@ export async function runTool(
         labels: Array.isArray(input.labels)
           ? sanitizeLabels(input.labels)
           : undefined,
-      }));
+      })), clashes);
     }
 
     case "update_task": {
@@ -759,13 +783,16 @@ export async function runTool(
       // block.
       requireToken("task", current, input, `task #${id}`);
       const patch = buildPatch(input);
+      // §773 — judged against the row as it stands, before the write moves its date.
+      const clashes = d.absenceClashesFor?.(name, input);
       const updated = d.updateTask(id, patch);
       if (!updated) throw new Error(`task #${id} not found`);
       // The STORED row keeps the address (a reassignment copies the directory person's in);
       // only the model-facing result drops it.
       // §774 — a reassignment moved (or could not move) planned hours: say so, so the model can tell the user.
       const plannedHours = d.takePlannedHoursNote?.() ?? null;
-      return plannedHours ? { ...withoutAssigneeEmail(updated), plannedHours } : withoutAssigneeEmail(updated);
+      const result = plannedHours ? { ...withoutAssigneeEmail(updated), plannedHours } : withoutAssigneeEmail(updated);
+      return withAbsenceClashes(result, clashes);
     }
 
     case "set_task_dependencies": {
@@ -968,17 +995,20 @@ export async function runTool(
       return { deleted: id };
     }
 
-    case "create_milestone":
-      return d.createMilestone(createInputWithoutId<MilestoneInput>(input, "milestone"));
+    case "create_milestone": {
+      const clashes = d.absenceClashesFor?.(name, input);
+      return withAbsenceClashes(d.createMilestone(createInputWithoutId<MilestoneInput>(input, "milestone")), clashes);
+    }
 
     case "update_milestone": {
       const id = requireId(input);
       const current = d.getMilestoneRow(id);
       if (!current) throw new Error(`milestone #${id} not found`);
       requireToken("milestone", current, input, `milestone #${id}`);
+      const clashes = d.absenceClashesFor?.(name, input);
       const updated = d.updateMilestone(id, patchWithoutId(input, "milestone"));
       if (!updated) throw new Error(`milestone #${id} not found`);
-      return updated;
+      return withAbsenceClashes(updated, clashes);
     }
 
     case "delete_milestone": {
