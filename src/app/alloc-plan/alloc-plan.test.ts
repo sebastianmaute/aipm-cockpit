@@ -28,6 +28,7 @@ import {
   type Resource,
   type ResourcePlan,
   type Role,
+  type Task,
 } from "../types";
 import { generatePeriods, periodCapacityHours } from "../resource-capacity";
 
@@ -1399,5 +1400,42 @@ describe("pickAllocationsScope", () => {
       periodFrom: undefined,
       periodTo: "2026-09",
     });
+  });
+});
+
+describe("buildAllocContext project digest (§769)", () => {
+  const roles: Role[] = [{ id: 5, disciplineId: 1, gradeId: 2, internalRate: 50.5, externalRate: 100 }];
+  const base = { roles, disciplines: [], grades: [], plan, absences: [], workdayHours: 8, holidaySet: new Set<string>() };
+
+  it("resource line carries the internal rate, none for an external", () => {
+    const text = buildAllocContext({
+      ...base,
+      resources: [
+        resource(3, { firstName: "Ada", lastName: "Lovelace", roleId: 5 }),
+        resource(4, { firstName: "Ext", lastName: "Person", roleId: 5, isExternal: true }),
+        resource(6, { firstName: "No", lastName: "Role" }),
+      ],
+    });
+    const line = (id: number) => text.split(String.fromCharCode(10)).find((l) => l.startsWith("#" + id + " ")) ?? "";
+    expect(line(3)).toContain("rate=50.5/h");
+    expect(line(4)).not.toContain("rate=");
+    expect(line(6)).not.toContain("rate=");
+  });
+
+  it("plan line names the currency", () => {
+    expect(buildAllocContext({ ...base, resources: [] })).toContain("workday=8h currency=EUR");
+  });
+
+  it("appends the TASKS section after RESOURCES and the new rules to the system prompt", () => {
+    const text = buildAllocContext({
+      ...base,
+      resources: [resource(3, { firstName: "Ada", lastName: "Lovelace" })],
+      tasks: [{ id: 1, taskName: "Build", assignee: "", assigneeEmail: "", dueDate: "2026-09-20", lastUpdateDate: "", priority: "Medium", status: "To Do", blockers: "", description: "", resourceId: 3, remainingEstimateMinutes: 480 } as Task],
+      instruction: "",
+      today: "2026-09-01",
+    });
+    expect(text.indexOf("TASKS (open only):")).toBeGreaterThan(text.indexOf("RESOURCES"));
+    expect(buildAllocSystemPrompt()).toContain("Prefer people with R or A on a task's milestone.");
+    expect(buildAllocSystemPrompt()).toContain("A task not listed may still exist when the TASKS list is truncated.");
   });
 });

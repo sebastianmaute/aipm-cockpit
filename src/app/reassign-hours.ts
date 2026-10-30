@@ -255,6 +255,16 @@ export function applyShownDeltas(rows: readonly Resource[], deltas: ShownDeltas,
   });
 }
 
+/** The remaining estimate of `task` split by workdays across the plan's periods, in tenths of an hour
+ *  (the same figures `planHoursMoves` starts from, before the giver's and receiver's caps). Empty for no
+ *  estimate or when the whole span lies outside the plan window. */
+export function splitTaskHoursByPeriod(task: Task, ctx: HoursMoveCtx): { periodKey: string; hours: number }[] {
+  const minutes = task.remainingEstimateMinutes;
+  if (minutes === undefined || !(minutes > 0)) return [];
+  const periods = generatePeriods(ctx.plan.startDate, ctx.plan.endDate, ctx.plan.granularity);
+  return splitAcrossPeriods(task, minutes / 60, periods, ctx).shares.map((x) => ({ periodKey: x.period.key, hours: round1(x.hours) }));
+}
+
 export function planHoursMoves(
   changes: readonly OwnerChange[],
   resources: readonly Resource[],

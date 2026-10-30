@@ -15,9 +15,12 @@ import {
   type Absence,
   type Discipline,
   type Grade,
+  type Milestone,
   type Resource,
   type ResourcePlan,
   type Role,
+  type Stakeholder,
+  type Task,
 } from "../types";
 import {
   type Period,
@@ -29,6 +32,8 @@ import {
 } from "../resource-capacity";
 import { HOURS_MAP_MAX } from "../sanitize";
 import { oneLine } from "../rich-text-plain";
+import { periodCost } from "../resource-cost";
+import { buildProjectDigest } from "./alloc-project-digest";
 
 /** A raw cell as parsed from the model tool input (shape-validated only —
  *  resourceId/periodKey are NOT yet checked against the live workspace). */
@@ -67,6 +72,14 @@ export interface AllocContextArgs {
   absences: readonly Absence[];
   workdayHours: number;
   holidaySet: ReadonlySet<string>;
+  /** §769 project context — all optional so a caller without it still gets the hours digest. */
+  tasks?: readonly Task[];
+  milestones?: readonly Milestone[];
+  stakeholders?: readonly Stakeholder[];
+  /** The user's request; names and periods in it decide which tasks survive truncation. Default "". */
+  instruction?: string;
+  /** YYYY-MM-DD the task hours are split from. Default: the plan start. */
+  today?: string;
 }
 
 /** Display label for a resource: full name, else email, else `#<id>`. */
@@ -128,6 +141,14 @@ export function availableCapacityHours(
   return Math.max(0, possibleHours - absenceHours);
 }
 
+/** " rate=<internal hourly rate>/h" from the resource's role; empty for an external or a resource without a role. */
+function hourlyRate(r: Resource, roles: readonly Role[]): string {
+  if (r.isExternal || r.roleId == null) return "";
+  const role = roles.find((x) => x.id === r.roleId);
+  if (!role) return "";
+  return ` rate=${Math.round(periodCost(1, role).internal * 100) / 100}/h`;
+}
+
 /** Compact, token-bounded digest of resources + their per-period capacity and
  *  current load (both in HOURS regardless of the resource's stored unit). Sent
  *  as the (volatile) user message — never in the cached system block. */
@@ -138,7 +159,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
   const periodKeys = periods.map((p) => p.key);
 
   const lines: string[] = [];
-  lines.push(`PLAN: ${plan.startDate} .. ${plan.endDate} granularity=${plan.granularity} workday=${workdayHours}h`);
+  lines.push(`PLAN: ${plan.startDate} .. ${plan.endDate} granularity=${plan.granularity} workday=${workdayHours}h currency=${plan.currency}`);
   lines.push(`PERIOD KEYS (use ONLY these): ${periodKeys.join(", ")}`);
   lines.push("RESOURCES (capacity and current load are in HOURS):");
 
@@ -148,6 +169,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
     // Names are free text: one line each, so a line break cannot start a fake resource row (§770).
     const role = oneLine(roleLabel(r.roleId, roles, disciplines, grades));
     const external = r.isExternal ? " external" : "";
+    const rate = hourlyRate(r, roles);
     const cells = periods.map((period) => {
       const capacityRaw = availableCapacityHours(r, period, resourceAbsences, workdayHours, holidaySet);
       const stored = r.utilization[period.key] ?? 0;
@@ -155,7 +177,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
       return `${period.key}=${Math.round(current)}/${Math.round(capacityRaw)}`;
     });
     lines.push(
-      `#${r.id} ${oneLine(aiResourceLabel(r))} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}`,
+      `#${r.id} ${oneLine(aiResourceLabel(r))} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}${rate}`,
     );
   }
   if (resources.length > ALLOC_CONTEXT_MAX_RESOURCES) {
@@ -164,6 +186,16 @@ export function buildAllocContext(args: AllocContextArgs): string {
   if (allPeriods.length > ALLOC_CONTEXT_MAX_PERIODS) {
     lines.push(`…(${allPeriods.length - ALLOC_CONTEXT_MAX_PERIODS} more periods truncated)`);
   }
+  lines.push(
+    ...buildProjectDigest({
+      tasks: args.tasks ?? [],
+      milestones: args.milestones ?? [],
+      stakeholders: args.stakeholders ?? [],
+      resources,
+      instruction: args.instruction ?? "",
+      hoursCtx: { plan, absences, workdayHours, holidaySet, today: args.today ?? plan.startDate },
+    }),
+  );
   return lines.join("\n");
 }
 
@@ -179,6 +211,11 @@ export function buildAllocSystemPrompt(): string {
     "When asked to spread work across a role, split it across the resources holding that role, preferring whoever has spare capacity (current well below capacity).",
     "If you cannot honor the request without inventing a resource or period, return an empty `cells` array rather than guessing.",
     "For a very broad request (many resources across many periods), prioritise the most impactful cells rather than exhaustively enumerating every resource and period.",
+    "A task move carries that task's hours automatically, as shown in its hours= list: never also return cells for those hours.",
+    "A task whose owner is unassigned or a typed name carries no hours when moved; you may add cells for the new owner for that work.",
+    "Return more than one alternative only when they are genuinely different ways (moving tasks versus shifting hours, or different people); at most three.",
+    "Prefer people with R or A on a task's milestone.",
+    "A task not listed may still exist when the TASKS list is truncated.",
     "Call the propose_allocations tool exactly once. Keep `rationale` to one short line.",
   ].join(" ");
 }
