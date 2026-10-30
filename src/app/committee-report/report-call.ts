@@ -19,6 +19,8 @@ export interface MeetingReportCtx {
   /** The user's guides for this action (§701), from `actionGuideText`. This
    *  call has no fixed system prompt, so the guides are the whole of it. */
   guideText?: string;
+  /** §773 — the "who is away" lines (`buildAwaySummary`) for the report prompt; omitted when nobody is. */
+  away?: readonly string[];
 }
 
 // §763 — the report is about 1.8–2.0k tokens, and a model asked with `auto` tool choice (one that refuses a
@@ -43,7 +45,7 @@ export async function runMeetingReport(
   ctx: MeetingReportCtx,
   signal?: AbortSignal,
 ): Promise<string> {
-  const content = buildMeetingReportPrompt(model, agenda, ctx.lang);
+  const content = buildMeetingReportPrompt(model, agenda, ctx.lang, ctx.away);
   const reply = await runForcedToolCallWithRetry(
     {
       apiKey: ctx.apiKey,

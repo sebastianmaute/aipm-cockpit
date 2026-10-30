@@ -104,6 +104,19 @@ describe("runMeetingReport guide text", () => {
     await runMeetingReport(MODEL, "Agenda", { ...CTX, guideText: "GUIDE-MARK" });
     expect(sys(m)).toEqual([{ type: "text", text: "GUIDE-MARK" }]);
   });
+  const userText = (m: ReturnType<typeof stub>) =>
+    JSON.parse(((m.mock.calls[0] as unknown[])[1] as RequestInit).body as string).messages[0].content as string;
+  it("puts ctx.away into the prompt, and nothing when it is omitted or empty", async () => {
+    const a = stub();
+    await runMeetingReport(MODEL, "Agenda", { ...CTX, away: ["AWAY (x):", "- Ann: 2026-06-03"] });
+    expect(userText(a)).toContain("- Ann: 2026-06-03");
+    const b = stub();
+    await runMeetingReport(MODEL, "Agenda", CTX);
+    const c = stub();
+    await runMeetingReport(MODEL, "Agenda", { ...CTX, away: [] });
+    expect(userText(c)).toBe(userText(b));
+    expect(userText(b)).not.toContain("AWAY");
+  });
   it("sends no system prompt without one", async () => {
     const m = stub();
     await runMeetingReport(MODEL, "Agenda", CTX);

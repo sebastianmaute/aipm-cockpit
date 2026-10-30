@@ -883,7 +883,7 @@ function TaskManagerInner() {
     isPopout,
     settings,
     committee: steeringCommittee,
-    resources,
+    resources, absences, today,
     setSteeringCommittee,
     tursoConfig,
     m365Configured: m365Enabled,

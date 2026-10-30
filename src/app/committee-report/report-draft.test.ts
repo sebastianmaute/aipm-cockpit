@@ -107,3 +107,16 @@ describe("no-active-scope completion line (open-followups §64)", () => {
     expect(p).not.toContain("no active scope");
   });
 });
+
+describe("buildMeetingReportPrompt away block (§773)", () => {
+  const base = buildMeetingReportPrompt(MODEL, "Agenda", "en-US");
+  it("adds the away lines between the facts and the agenda", () => {
+    const p = buildMeetingReportPrompt(MODEL, "Agenda", "en-US", ["AWAY (absent days):", "- Ann #1: 2026-06-03"]);
+    expect(p).toContain("AWAY (absent days):\n- Ann #1: 2026-06-03\n\nThe upcoming meeting agenda");
+    expect(p.indexOf("AWAY")).toBeGreaterThan(p.indexOf("Milestones due soon"));
+  });
+  it("is byte-identical when away is omitted or empty", () => {
+    expect(buildMeetingReportPrompt(MODEL, "Agenda", "en-US", [])).toBe(base);
+    expect(base).not.toContain("AWAY");
+  });
+});

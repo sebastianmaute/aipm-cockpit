@@ -61,6 +61,8 @@ function makeDeps(over: Partial<MeetingReportActionsDeps> = {}): MeetingReportAc
     settings: defaultSettings,
     committee: committee(),
     resources,
+    absences: [],
+    today: "2026-06-01",
     setSteeringCommittee: vi.fn(),
     tursoConfig: null,
     m365Configured: true,
@@ -528,6 +530,26 @@ describe("useMeetingReportActions", () => {
     const ctx = (runMeetingReport.mock.calls[0] as unknown[])[2] as { guideText?: string };
     expect(ctx.guideText).toContain("Lead with the decision.");
     expect(ctx.guideText).not.toContain("Chat-only rule.");
+  });
+
+  it("generate passes the who-is-away lines to the report call", async () => {
+    const absences = [{ id: 1, assignee: "A", resourceId: 1, startDate: "2026-06-03", endDate: "2026-06-05", type: "vacation", note: "SECRET-NOTE" }] as unknown as MeetingReportActionsDeps["absences"];
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ absences })));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(runMeetingReport).toHaveBeenCalledTimes(1));
+    const ctx = (runMeetingReport.mock.calls[0] as unknown[])[2] as { away?: string[] };
+    const text = (ctx.away ?? []).join("\n");
+    expect(text).toContain("AWAY");
+    expect(text).toContain("2026-06-03..2026-06-05");
+    expect(text).not.toContain("SECRET-NOTE");
+  });
+
+  it("generate passes no away lines when nobody is away", async () => {
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps()));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(runMeetingReport).toHaveBeenCalledTimes(1));
+    const ctx = (runMeetingReport.mock.calls[0] as unknown[])[2] as { away?: string[] };
+    expect(ctx.away ?? []).toEqual([]);
   });
 
   // §125: the AI draft is a billed Anthropic call and must be stoppable.
