@@ -712,6 +712,19 @@ describe("AI-04 a proposal is tied to its meeting, not only its id", () => {
     meetings: [{ id: 3, date, title }],
   });
 
+  it("a held proposal survives the meeting being pushed to Outlook (gains an outlookEventId)", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const deps = makeDeps();
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    runMeetingReport.mockResolvedValueOnce("<h2>A</h2><p>1</p>");
+    await act(async () => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.getProposal(3)).toBeDefined());
+    live = { ...live!, meetings: [{ ...live!.meetings[0], outlookEventId: "evt-1" }] };
+    rerender();
+    expect(result.current!.getProposal(3)).toBeDefined();
+  });
+
   it("a held proposal survives an ordinary title edit", async () => {
     let live: SteeringCommittee | undefined = withMeeting("Original");
     const deps = makeDeps();
