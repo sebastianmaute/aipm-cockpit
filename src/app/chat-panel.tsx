@@ -795,8 +795,8 @@ function ChatPanelInner({
         );
         // §702: the counter takes the request and its cache write together,
         // BEFORE the stale check — a request counted without its write would
-        // record a switch as free. The cap totals below keep their own rule and
-        // skip a response that landed after the send went stale.
+        // record a switch as free. Token usage is not counted here: the transport's
+        // tap counts every response that arrived, a stale one included.
         lastRequestAt = sentAt;
         firstRequestAt ??= sentAt;
         requests += 1;
@@ -1074,7 +1074,8 @@ function ChatPanelInner({
         // arrives, a turn that landed before Stop included.
         recordChatSend(sendFingerprint(), counterCacheWrite, requests);
       } else if (requests > 0) {
-        // Stopped after a response: not billed, but the prefix is cached.
+        // Stopped after a response: not counted as a send (the view-switch counter),
+        // but the prefix is cached; the tap still counts its usage.
         noteUnbilledChatSend(sendFingerprint());
       }
 

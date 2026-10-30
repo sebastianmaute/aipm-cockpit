@@ -461,10 +461,12 @@ describe("AiUsageProvider — the tap is the recorder", () => {
   it("a background tap also raises backgroundWeekCost", async () => {
     const { result } = renderProvider();
     await act(async () => {});
-    act(() => { emitUsage("report_analysis:background", U); });
-    expect(result.current.backgroundWeekCost).toBeCloseTo(usageCostEquivalent(U), 6);
-    expect(result.current.weekByFeature.map((r) => r.feature)).toEqual(["job-analysis"]);
+    // The smaller feature is tapped first, so largest-first differs from insertion order.
     act(() => { emitUsage("chat", { input: 1, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("report_analysis:background", U); });
+    // A tap that cost nothing leaves no row.
+    act(() => { emitUsage("propose_raci", { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(result.current.backgroundWeekCost).toBeCloseTo(usageCostEquivalent(U), 6);
     expect(result.current.weekByFeature.map((r) => r.feature)).toEqual(["job-analysis", "chat"]);
   });
 
@@ -483,6 +485,13 @@ describe("AiUsageProvider — the tap is the recorder", () => {
     expect(result.current.weekTotal).toBe(1000);
     expect(result.current.sessionTotal).toBe(100);
     expect(result.current.backgroundWeekCost).toBe(900);
+    // An unrelated key's event is ignored: change storage again and only that event arrives.
+    localStorage.setItem(AI_USAGE_BY_PATH_KEY, JSON.stringify({ [day]: { chat: { input: 5000, output: 0, cacheWrite: 0, cacheRead: 0 } } }));
+    act(() => { window.dispatchEvent(new StorageEvent("storage", { key: "aipm-cockpit:something-else" })); });
+    expect(result.current.weekTotal).toBe(1000);
+    // A cleared storage (null key) re-reads.
+    act(() => { window.dispatchEvent(new StorageEvent("storage", { key: null })); });
+    expect(result.current.weekTotal).toBe(5000);
   });
 
   it("persists through the store, so another tab's recording between two taps survives", async () => {
@@ -517,6 +526,8 @@ describe("AiUsageProvider — the tap is the recorder", () => {
     expect(tapListenerCount()).toBe(1);
     unmount();
     expect(tapListenerCount()).toBe(0);
+    emitUsage("chat", { input: 5, output: 0, cacheWrite: 0, cacheRead: 0 });
+    expect(localStorage.getItem(AI_USAGE_BY_PATH_KEY)).toBeNull();
   });
 });
 

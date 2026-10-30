@@ -3768,8 +3768,8 @@ describe("cache-token usage recording", () => {
   // A send that goes stale WITHOUT being cancelled — a workspace scope change;
   // a project or thread switch cancels instead. The view-switch counter must
   // get the request together with its cache write, or a switch would be
-  // recorded with a write of 0; the token caps keep their old rule and never
-  // see a response that landed after the send went stale.
+  // recorded with a write of 0. Token usage is the transport tap's, which counts
+  // every response that arrived, a stale one included.
   it("gives the counter the cache write of a response that landed after a scope change", async () => {
     const recordChatSendSpy = vi.fn();
     vi.mocked(useAiUsageContext).mockReturnValue({
@@ -3825,8 +3825,9 @@ describe("cache-token usage recording", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
   }
 
-  // A send that fails AFTER a response is not billed, but its prefix reached
-  // the cache — so the counter must still learn it as the thread's baseline.
+  // A send that fails AFTER a response is not counted as a send (the view-switch
+  // counter; the tap still counts its usage), but its prefix reached the cache —
+  // so the counter must still learn it as the thread's baseline.
   it("notes, without counting, a send that failed after a response", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();
