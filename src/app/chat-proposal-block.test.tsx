@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ChatProposalBlock, deviceRowTitle, proposalRowTitle, type ProposalCardRow } from "./chat-proposal-block";
+import { ChatProposalBlock, deviceRowTitle, escalationRowTitle, proposalRowTitle, type ProposalCardRow } from "./chat-proposal-block";
 import type { EditPlan } from "./inline-ai-edit/plan";
 import type { InlineEntity } from "./inline-ai-edit/entity-descriptor";
 import type { ProposedCall } from "./chat-proposal";
@@ -607,6 +607,33 @@ describe("deviceRowTitle", () => {
     );
     expect(deviceRowTitle("de", { kind: "settings", settings: [{ key: "showViewHints", value: "false" }] })).toBe(
       "Einstellungen ändern: showViewHints = false",
+    );
+  });
+});
+
+// AI-02 — an escalation staged in a send with an attachment shows its recipient address, so the user sees where it
+// would point. Mutation: falling back to the tool name turns this red.
+describe("escalationRowTitle", () => {
+  const raid = [{ id: 7, title: "Vendor down" }];
+  const esc = (input: Record<string, unknown>) => ({ name: "escalate_raid_item", input });
+
+  it("names the item and the recipient address, in English", () => {
+    expect(escalationRowTitle("en-US", esc({ id: 7, toEmail: "x@evil.example" }), raid)).toBe(
+      "Escalate “Vendor down” to x@evil.example",
+    );
+    expect(escalationRowTitle("en-US", esc({ id: 7, toEmail: "x@evil.example", toName: "Max" }), raid)).toBe(
+      "Escalate “Vendor down” to Max <x@evil.example>",
+    );
+    expect(escalationRowTitle("en-US", esc({ id: 9, toEmail: "x@evil.example" }), raid)).toBe(
+      "Escalate “#9” to x@evil.example",
+    );
+    expect(escalationRowTitle("en-US", { name: "update_raid_item", input: { id: 7 } }, raid)).toBeNull();
+  });
+
+  it("translates the line in German", async () => {
+    await loadI18n("de");
+    expect(escalationRowTitle("de", esc({ id: 7, toEmail: "x@evil.example" }), raid)).toBe(
+      "„Vendor down“ an x@evil.example eskalieren",
     );
   });
 });

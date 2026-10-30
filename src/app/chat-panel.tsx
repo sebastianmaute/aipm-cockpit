@@ -83,6 +83,7 @@ import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
 import {
   ChatProposalBlock,
   deviceRowTitle,
+  escalationRowTitle,
   functionsRowTitle,
   proposalRowTitle,
   type ProposalCardRow,
@@ -891,7 +892,11 @@ function ChatPanelInner({
               planRows,
               titles: proposalTitles(
                 described, ws,
-                (r) => functionsRowTitle(lang, r.call) ?? deviceRowTitle(lang, r.device) ?? proposalRowTitle(r.call, r.plan),
+                (r) =>
+                  functionsRowTitle(lang, r.call) ??
+                  escalationRowTitle(lang, r.call, ws.raid) ??
+                  deviceRowTitle(lang, r.device) ??
+                  proposalRowTitle(r.call, r.plan),
               ),
               // Everything starts kept: the card is a chance to REFUSE, and a
               // plan that arrives all-unchecked reads as "nothing to do here".

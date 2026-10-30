@@ -4,14 +4,7 @@
 // several turns, so the gate also needs what earlier turns of the SAME send did and what the
 // conversation holds. `chat-panel.tsx` opens one record per send and carries it through its tool loop.
 import type { ApiMessage } from "./chat-api";
-import {
-  ALWAYS_STAGED_TOOLS,
-  isCreateTool,
-  isDestructiveCall,
-  isEntityWriteCall,
-  sendsInvitations,
-  type ProposedCall,
-} from "./chat-proposal";
+import { ALWAYS_STAGED_TOOLS, isDestructiveCall, sendsInvitations, type ProposedCall } from "./chat-proposal";
 import { TOKEN_REQUIRED_TOOLS } from "./chat-proposal-apply";
 
 /** One user send, as the staging gate sees it.
@@ -58,21 +51,28 @@ export function isPureReadTool(name: string): boolean {
   return READ_TOOLS.has(name);
 }
 
-/** Tools that change device or view state rather than an entity, and still stage in an untrusted send:
- *  an attachment must not be able to switch the language, hide rows behind a filter or turn settings
- *  off unseen. */
-const UNTRUSTED_STAGED_NON_ENTITY: ReadonlySet<string> = new Set(["update_settings", "set_filters", "set_language"]);
+/** The input fields that say where a person is reached, across every update tool's schema
+ *  (`chat-tool-defs.ts`). An attachment must not repoint an address unseen, even with a valid token.
+ *  `attendeeResourceIds` is absent on purpose: it names directory rows, not addresses. */
+const CONTACT_FIELDS: readonly string[] = ["email", "emails", "assigneeEmail", "ownerEmail", "toEmail", "businessPhone"];
 
-/** True when this call goes to the review card in an untrusted send: a create, a destructive call, an
- *  invitation or inquiry, a project, settings, filter or language write, and every entity write whose
- *  schema takes no `expectedToken` (`TOKEN_REQUIRED_TOOLS`). False for reads, `optimize_wbs` (it
- *  proposes, it does not write) and a tokened update — the token pins the write to the row the model
- *  read, and a lone one applies as it does in a trusted send. */
+/** True when the call's input sets a contact field. The key decides, not the value: clearing an
+ *  address is a contact change too. */
+function touchesContactField(call: ProposedCall): boolean {
+  return CONTACT_FIELDS.some((field) => Object.hasOwn(call.input, field));
+}
+
+/** True when this call goes to the review card in an untrusted send. FAIL CLOSED: everything stages
+ *  except a pure read (`isPureReadTool`), `optimize_wbs` (it proposes, it does not write) and a tokened
+ *  update (`TOKEN_REQUIRED_TOOLS`) — the token pins the write to the row the model read, and a lone one
+ *  applies as it does in a trusted send. A tool this module does not know stages.
+ *  A tokened update still stages when it is destructive, would send invitations, edits the project
+ *  record (`ALWAYS_STAGED_TOOLS`), is `escalate_raid_item` (it records a recipient address), or sets a
+ *  contact field (`CONTACT_FIELDS`). */
 export function stagesWhenUntrusted(call: ProposedCall): boolean {
-  if (isCreateTool(call.name)) return true;
-  if (isDestructiveCall(call)) return true;
-  if (sendsInvitations(call)) return true;
-  if (ALWAYS_STAGED_TOOLS.has(call.name)) return true;
-  if (UNTRUSTED_STAGED_NON_ENTITY.has(call.name)) return true;
-  return isEntityWriteCall(call) && !TOKEN_REQUIRED_TOOLS.has(call.name);
+  if (isPureReadTool(call.name) || call.name === "optimize_wbs") return false;
+  if (!TOKEN_REQUIRED_TOOLS.has(call.name)) return true;
+  if (isDestructiveCall(call) || sendsInvitations(call) || ALWAYS_STAGED_TOOLS.has(call.name)) return true;
+  if (call.name === "escalate_raid_item") return true;
+  return touchesContactField(call);
 }

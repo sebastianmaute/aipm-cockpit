@@ -33,7 +33,7 @@ import { saveSealed } from "./secrets-store";
 import { sealPassphrase } from "./secrets";
 import { peekMintId } from "./id-mint-session";
 import { entityToken } from "./ai-entity-token";
-import type { Task } from "./types";
+import type { Stakeholder, Task } from "./types";
 import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageContext } from "./ai-usage-context";
 import type { SendFingerprint } from "./ai-view-switch";
@@ -3758,6 +3758,64 @@ describe("staged tool calls (the review card)", () => {
     await screen.findByRole("region", CARD);
     await screen.findByText("ok");
     expect(dispatcher.createTask).not.toHaveBeenCalled();
+  });
+
+  describe("a tokened stakeholder update in a send with an attachment (AI-02)", () => {
+    const stakeholder = {
+      id: 5, name: "Dana Reed", email: "dana@example.com", category: "Other",
+      influence: "Medium", interest: "Medium", raci: {},
+    } as Stakeholder;
+    const workspace = { ...emptyWorkspace(), stakeholders: [stakeholder] } as Workspace;
+
+    function renderWith(input: Record<string, unknown>) {
+      const dispatcher = makeDispatcher();
+      const extra = dispatcher as unknown as { getStakeholderRow: unknown; updateStakeholder: unknown };
+      extra.getStakeholderRow = vi.fn(() => stakeholder);
+      extra.updateStakeholder = vi.fn(() => ({ ...stakeholder, ...input }));
+      scriptFetch(
+        [
+          toolTurn([
+            {
+              type: "tool_use",
+              id: "t1",
+              name: "update_stakeholder",
+              input: { id: 5, expectedToken: entityToken("stakeholder", stakeholder), ...input },
+            },
+          ]),
+          doneTurn("ok"),
+        ],
+        [],
+      );
+      render(
+        <ChatPanel {...SCOPE_PROPS}
+          lang="en-US"
+          ai={AI_WITH_KEY}
+          dispatcher={dispatcher}
+          workspace={workspace}
+          projectId="p1"
+          getChatConversation={() => withAttachment}
+        />,
+      );
+      send();
+      return extra.updateStakeholder as ReturnType<typeof vi.fn>;
+    }
+
+    // Mutation: dropping the contact-field check in `stagesWhenUntrusted` turns this red: the email write runs.
+    it("changing the email goes to the card, shows the new address and writes nothing", async () => {
+      const update = renderWith({ email: "attacker@evil.example" });
+      const card = await screen.findByRole("region", CARD);
+      await screen.findByText("ok");
+      expect(update).not.toHaveBeenCalled();
+      expect(within(card).getByText(/attacker@evil\.example/)).toBeInTheDocument();
+    });
+
+    // The control: the same tokened call without a contact field applies, so the card above is the gate's doing.
+    it("a change that leaves the email alone applies directly", async () => {
+      const update = renderWith({ notes: "met at the review" });
+      await screen.findByText("ok");
+      expect(screen.queryByRole("region", CARD)).toBeNull();
+      expect(update).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("a write after a staged turn runs nothing and keeps the card, and the model still replies (AI-02)", async () => {

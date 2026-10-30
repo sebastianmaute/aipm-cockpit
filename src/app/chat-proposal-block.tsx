@@ -143,6 +143,24 @@ export function functionsRowTitle(lang: Lang, call: ProposedCall): string | null
   return carriesEnabledModules(call) ? t(lang, "chatProposalFunctionsTitle") : null;
 }
 
+/** AI-02 — the card line for an `escalate_raid_item` call, or null for any other call. The describer emits no
+ *  diff for it, so this line is where the user sees the RAID item and the recipient ADDRESS the escalation would
+ *  record. `raid` is the live register; an item it does not hold is named by its id. */
+export function escalationRowTitle(
+  lang: Lang,
+  call: ProposedCall,
+  raid: readonly { readonly id: number; readonly title?: string }[],
+): string | null {
+  if (call.name !== "escalate_raid_item") return null;
+  const input = call.input as { id?: unknown; toEmail?: unknown; toName?: unknown };
+  const id = Number(input.id);
+  const found = raid.find((r) => r.id === id)?.title;
+  const item = typeof found === "string" && found.trim() !== "" ? found : `#${String(input.id)}`;
+  const email = typeof input.toEmail === "string" ? input.toEmail : "";
+  const name = typeof input.toName === "string" ? input.toName.trim() : "";
+  return t(lang, "chatProposalEscalateTitle", item, name !== "" ? `${name} <${email}>` : email);
+}
+
 /** Settings as the tool names them, `key = value`; no settings label table exists. */
 function settingPairs(settings: readonly { readonly key: string; readonly value: string }[]): string {
   return settings.map((o) => `${o.key} = ${o.value}`).join(", ");

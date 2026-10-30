@@ -3,7 +3,7 @@ import type { ApiMessage } from "./chat-api";
 import { buildAttachmentBlock } from "./chat-attachments";
 import { TOOL_DEFS } from "./chat-tool-defs";
 import { isPureReadTool, openSendRecord, stagesWhenUntrusted } from "./chat-send-record";
-import type { ProposedCall } from "./chat-proposal";
+import { shouldStage, type ProposedCall } from "./chat-proposal";
 
 const call = (name: string, input: Record<string, unknown> = {}): ProposedCall => ({ name, input });
 
@@ -66,11 +66,14 @@ const STAGED_WHEN_UNTRUSTED = [
   "send_inquiry", "update_project", "update_settings", "set_filters", "set_language",
   // entity writes with no `expectedToken`
   "update_document", "set_forecast_proposal", "set_forecast_target_confidence",
+  // tokened, but it records a recipient address
+  "escalate_raid_item",
 ];
 
+// Applies when the input touches no contact field; these samples carry only `id`.
 const APPLIES_WHEN_UNTRUSTED = [
   // tokened updates
-  "update_task", "set_task_dependencies", "update_raid_item", "escalate_raid_item", "update_change",
+  "update_task", "set_task_dependencies", "update_raid_item", "update_change",
   "update_milestone", "update_stakeholder", "update_resource", "update_absence",
   "update_calendar_event", "update_forecast_scenario",
   // proposes, writes nothing itself
@@ -94,6 +97,43 @@ describe("stagesWhenUntrusted", () => {
 
   test("a tokened calendar update that would send invitations stages", () => {
     expect(stagesWhenUntrusted(call("update_calendar_event", { id: 1, sendInvitations: true }))).toBe(true);
+  });
+
+  // A contact field is judged by the call's INPUT: the same tokened tool applies when it leaves the
+  // addresses alone. Mutation: dropping the contact-field check turns every row here red.
+  const CONTACT_CASES = [
+    ["update_stakeholder", { email: "x@evil.example" }, { notes: "met" }],
+    ["update_resource", { email: "x@evil.example" }, { title: "Lead" }],
+    ["update_resource", { emails: ["x@evil.example"] }, { department: "Ops" }],
+    ["update_resource", { businessPhone: "+1 555 0100" }, { location: "Berlin" }],
+    ["update_task", { assigneeEmail: "x@evil.example" }, { status: "Done" }],
+    ["update_raid_item", { ownerEmail: "x@evil.example" }, { severity: "High" }],
+    ["update_absence", { assigneeEmail: "x@evil.example" }, { note: "moved" }],
+  ] as const;
+
+  test.each(CONTACT_CASES)("%s stages when it sets a contact field, and applies when it does not", (name, contact, plain) => {
+    expect(stagesWhenUntrusted(call(name, { id: 1, expectedToken: "t", ...contact }))).toBe(true);
+    expect(stagesWhenUntrusted(call(name, { id: 1, expectedToken: "t", ...plain }))).toBe(false);
+  });
+
+  test("an escalation stages whatever it carries", () => {
+    expect(stagesWhenUntrusted(call("escalate_raid_item", { id: 1, expectedToken: "t", toEmail: "x@evil.example" }))).toBe(true);
+  });
+
+  // The rule is the untrusted gate only: in a trusted send a lone contact update or escalation still applies.
+  test("a trusted send does not stage them by this rule", () => {
+    const trusted = { appliedWrites: 0, untrusted: false, staged: false };
+    for (const [name, contact] of CONTACT_CASES) {
+      expect(shouldStage([call(name, { id: 1, expectedToken: "t", ...contact })], trusted)).toBe(false);
+    }
+    expect(shouldStage([call("escalate_raid_item", { id: 1, expectedToken: "t", toEmail: "x@evil.example" })], trusted)).toBe(false);
+  });
+
+  // Fail closed: a tool this module does not know (a flag-gated list, a tool added outside `TOOL_DEFS`)
+  // goes to the card. Mutation: returning false for an unknown name turns this red.
+  test("a tool it does not know stages", () => {
+    expect(stagesWhenUntrusted(call("rename_everything", { id: 1 }))).toBe(true);
+    expect(stagesWhenUntrusted(call("list_tasks_and_delete", {}))).toBe(true);
   });
 
   // ★★★ THE GUARD FOR FUTURE TOOLS: every live tool is in exactly one list.
