@@ -21,7 +21,7 @@ import { buildCfbf } from "./__fixtures__/cfbf-writer";
 import { loadThreads, saveThread } from "./chat-threads-store";
 import { fitHistoryToBudget, type ChatThread } from "./chat-threads";
 import { t } from "./i18n";
-import { buildSystemPrompt, systemBlocksText } from "./chat-api";
+import { buildSystemPrompt, INTERRUPTED_TOOL_RESULT, systemBlocksText } from "./chat-api";
 import { appliedProposalNotice, PROPOSAL_PENDING_RESULT } from "./chat-proposal-stage";
 import type { ToolDispatcher } from "./chat-tools";
 import type { AppView } from "./nav-config";
@@ -3840,6 +3840,62 @@ describe("staged tool calls (the review card)", () => {
     const read = resultsIn(bodies[1]).find((b) => b.tool_use_id === "t1");
     expect(read?.content).toContain("Vendor down");
     expect(resultsIn(bodies[1]).find((b) => b.tool_use_id === "t2")?.content).toContain("staged");
+    // The transcript keeps the turn's order: the read's line comes before the card it was staged beside.
+    // Mutation: adding the card before running the reads turns this red.
+    const readLine = screen.getByText(/Used list_raid/);
+    expect(readLine.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // §596 — the staging turn checks the scope before each read, as the ordinary loop does before each tool. A read that
+  // would run after the scope moved runs nothing, and it and every id after it are answered as interrupted, once each.
+  // Mutation: dropping that check turns this red: list_tasks runs in the next project.
+  it("a staging turn stops its reads when the scope moves, and still answers every id once (AI-02)", async () => {
+    let epoch = 1;
+    const dispatcher = makeDispatcher();
+    const extra = dispatcher as unknown as { listRaid: unknown; getRaidRow: unknown };
+    extra.listRaid = vi.fn(() => {
+      epoch = 2;
+      return [];
+    });
+    extra.getRaidRow = vi.fn(() => null);
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "list_raid", input: {} },
+          { type: "tool_use", id: "t2", name: "list_tasks", input: {} },
+          { type: "tool_use", id: "t3", name: "update_task", input: { id: 1, status: "Done" } },
+        ]),
+        doneTurn("after"),
+      ],
+      bodies,
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        getScopeEpoch={() => epoch}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    await waitFor(() => expect(extra.listRaid).toHaveBeenCalledTimes(1));
+    await waitForIdle();
+    expect(dispatcher.listTasks).not.toHaveBeenCalled();
+    expect(dispatcher.updateTask).not.toHaveBeenCalled();
+    // The turn's answers reach the model with the next send.
+    send("still there?");
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    const answers = (JSON.parse(bodies[1]) as { messages: { content: unknown }[] }).messages
+      .flatMap((m) => (Array.isArray(m.content) ? (m.content as { type: string; tool_use_id?: string; content?: string }[]) : []))
+      .filter((b) => b.type === "tool_result");
+    expect(answers.map((b) => b.tool_use_id).sort()).toEqual(["t1", "t2", "t3"]);
+    expect(answers.filter((b) => b.tool_use_id !== "t1").map((b) => b.content)).toEqual([
+      INTERRUPTED_TOOL_RESULT,
+      INTERRUPTED_TOOL_RESULT,
+    ]);
   });
 
   it("an automatic send waits while Apply is running, and the next one carries the applied notice (AI-02)", async () => {

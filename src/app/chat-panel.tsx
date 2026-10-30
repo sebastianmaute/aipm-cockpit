@@ -895,49 +895,64 @@ function ChatPanelInner({
           if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord)) {
             sendRecord = { ...sendRecord, staged: true };
             const ws = stagingWorkspace(workspaceRef.current);
-            // AI-02 — a read changes nothing, so it runs in place below and gets its real result; only the
-            // turn's other calls go on the card. The card never shows a read row.
+            // AI-02 — a read changes nothing, so it runs in place and gets its real result; only the turn's
+            // other calls go on the card, which never shows a read row. The reads run FIRST, so the transcript
+            // keeps the turn's order: their lines, then the card.
             const staged = proposed.filter((p) => !isPureReadTool(p.call.name));
+            const readAnswers = new Map<string, ToolResultBlock>();
+            let scopeMoved = false;
+            for (const p of proposed) {
+              if (staged.includes(p)) continue;
+              // §596 — re-checked per read, as the ordinary loop below checks per tool. Once the scope has
+              // moved, no read runs in the next project, and no card is staged for it.
+              if (dropStaleScopeWrite(getScopeEpoch, sendEpoch, "chat-panel.stagedRead", { tool: p.call.name })) {
+                scopeMoved = true;
+                break;
+              }
+              readAnswers.set(p.useId, (await runAndRecord(p.useId, p.call.name, p.call.input)).result);
+            }
             const calls = staged.map((p) => p.call);
             // ★★★ `mintProvisionalIds` ADVANCES the session mark, so every
             // provisional id differs from the one apply mints and the remap is
             // exercised on every create. See its own docstring for what a
             // peek-based mint would have made dormant.
-            const planRows = buildPlanRows(calls, mintProvisionalIds(calls, ws));
-            // §779 — the dispatcher's live settings judge a functions row's other settings.
-            const described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch));
-            const proposalId = newProposalId();
-            setPendingProposal({
-              id: proposalId,
-              rows: described,
-              planRows,
-              titles: proposalTitles(described, ws, (r, pending) => cardRowTitle(lang, r, ws, pending)),
-              // Everything starts kept: the card is a chance to REFUSE, and a
-              // plan that arrives all-unchecked reads as "nothing to do here".
-              selected: new Set(described.map((_, i) => i)),
-              applying: false,
-              failed: new Map<number, ProposalFailureKind>(),
-              applied: null,
-              scopeEpoch: sendEpoch,
-            });
-            setDisplay((prev) => [
-              ...prev,
-              { kind: "proposal", id: proposalId, count: described.length },
-            ]);
-            // ★★★ EVERY `tool_use` ID IS ANSWERED, staged or not. An unanswered
+            const planRows = scopeMoved ? [] : buildPlanRows(calls, mintProvisionalIds(calls, ws));
+            if (!scopeMoved) {
+              // §779 — the dispatcher's live settings judge a functions row's other settings.
+              const described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch));
+              const proposalId = newProposalId();
+              setPendingProposal({
+                id: proposalId,
+                rows: described,
+                planRows,
+                titles: proposalTitles(described, ws, (r, pending) => cardRowTitle(lang, r, ws, pending)),
+                // Everything starts kept: the card is a chance to REFUSE, and a
+                // plan that arrives all-unchecked reads as "nothing to do here".
+                selected: new Set(described.map((_, i) => i)),
+                applying: false,
+                failed: new Map<number, ProposalFailureKind>(),
+                applied: null,
+                scopeEpoch: sendEpoch,
+              });
+              setDisplay((prev) => [
+                ...prev,
+                { kind: "proposal", id: proposalId, count: described.length },
+              ]);
+            }
+            // ★★★ EVERY `tool_use` ID IS ANSWERED EXACTLY ONCE, staged or not. An unanswered
             // id makes the NEXT request a 400 and wedges the chat for good —
             // `closeDanglingToolUses` exists because of exactly that. The
             // result also carries the create's provisional id, so a later call
-            // in this same turn can name the row the plan will create.
-            const answers: ToolResultBlock[] = [];
-            for (const p of proposed) {
+            // in this same turn can name the row the plan will create. After a scope move every id
+            // without an answer gets the interrupted result, as a truncated turn's calls do.
+            const answers = proposed.map((p): ToolResultBlock => {
+              const read = readAnswers.get(p.useId);
+              if (read !== undefined) return read;
               const at = staged.indexOf(p);
-              answers.push(
-                at === -1
-                  ? (await runAndRecord(p.useId, p.call.name, p.call.input)).result
-                  : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId) },
-              );
-            }
+              return scopeMoved || at === -1
+                ? { type: "tool_result", tool_use_id: p.useId, content: INTERRUPTED_TOOL_RESULT, is_error: true }
+                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId) };
+            });
             messages.push({ role: "user", content: answers });
             continueBubble = false;
             continue;
