@@ -77,6 +77,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **An AI project update can be undone after a currency change or a restore (§715).** After a change of the
+  project currency or baseline, or a restore of an earlier version, a project change made by Claude was not added to
+  the undo list, with no message. It is undoable again.
 - **Next actions names a task as a task (§774).** Assigning an owner to a task from Next actions said "Owner assigned to
   RAID #10". It now says "Owner assigned to task #10", and the confirmation keeps its Undo button.
 - **Bulk edit links the owner it names (§774).** Changing the owner of several tasks at once wrote only the typed name
