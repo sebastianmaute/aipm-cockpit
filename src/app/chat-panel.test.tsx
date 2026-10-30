@@ -3761,6 +3761,43 @@ describe("staged tool calls (the review card)", () => {
     expect(dispatcher.createTask).not.toHaveBeenCalled();
   });
 
+  // The gate reads the FULL history, not the copy trimmed for the request budget (§575): an attachment the trim
+  // replaced with a placeholder was still shown to the model in an earlier request. `fitHistoryToBudget` is mocked
+  // to trim every earlier attachment, as it does for a long thread of large PDFs.
+  // Mutation: `openSendRecord(messages)` instead of `openSendRecord(newHistory)` in `chat-panel.tsx` turns this red:
+  // the trimmed copy holds no attachment, so the lone create applies at once.
+  it("an attachment the request budget trimmed still stages a lone create (AI-02)", async () => {
+    vi.mocked(fitHistoryToBudget).mockImplementationOnce((history) =>
+      history.map((m) =>
+        Array.isArray(m.content)
+          ? { ...m, content: m.content.map((b) => (b.type === "document" ? { type: "text" as const, text: "[attachment: document]" } : b)) }
+          : m,
+      ),
+    );
+    const dispatcher = makeDispatcher();
+    const bodies: string[] = [];
+    scriptFetch(
+      [toolTurn([{ type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK }]), doneTurn("ok")],
+      bodies,
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    // The request really went out without the attachment, so only the full history can have staged the create.
+    expect(bodies[0]).toContain("[attachment: document]");
+    expect(bodies[0]).not.toContain("Add a task.");
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+  });
+
   // Owner decision: with an attachment in the history every change goes to the card, a version-checked one included.
   // Mutation: restoring the token exemption in `stagesWhenUntrusted` turns this red: the status change applies at once.
   it("a lone version-checked status change in a send with an attachment goes to the card, and Apply writes it (AI-02)", async () => {
