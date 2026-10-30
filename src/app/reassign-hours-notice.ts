@@ -21,7 +21,8 @@ export function defaultPeriodLabel(key: string, lang: Lang): string {
     return new Intl.DateTimeFormat(lang, { month: "short", timeZone: "UTC" }).format(date);
   }
   const week = WEEK_KEY.exec(key);
-  return week ? week[1] : key;
+  if (!week) return key;
+  return lang === "de" ? `KW ${week[1].slice(1)}` : week[1];
 }
 
 /** Whole hours, or one decimal under 1 (Rounding rule). */
@@ -74,7 +75,7 @@ function pairSentence(group: PairGroup, ctx: HoursMoveNoticeCtx): string {
   }
   const periods = [...byPeriod.keys()]
     .sort()
-    .map((key) => `${ctx.periodLabel(key)} ${formatHours(byPeriod.get(key) ?? 0, lang)} h`)
+    .map((key) => `${ctx.periodLabel(key)} ${formatHours(byPeriod.get(key) ?? 0, lang)} ${t(lang, "hoursMovedUnit")}`)
     .join(", ");
   const from = ctx.resourceName(group.from);
   const to = ctx.resourceName(group.to);
@@ -90,19 +91,33 @@ function pairSentence(group: PairGroup, ctx: HoursMoveNoticeCtx): string {
   return notes.length > 0 ? `${base} ${notes.join(" ")}` : base;
 }
 
+/** Why one task moved no hours: its reason, or (no reason set) a giver with nothing planned or a receiver with no room. */
+function nothingMovedSentences(move: TaskHoursMove, ctx: HoursMoveNoticeCtx): string[] {
+  const task = ctx.taskName(move.taskId);
+  if (move.reason) return [t(ctx.lang, REASON_KEY[move.reason], task)];
+  const out: string[] = [];
+  if (move.shortfallHours > 0 && move.fromResourceId !== undefined) {
+    out.push(t(ctx.lang, "hoursMovedNoneShortfall", task, ctx.resourceName(move.fromResourceId)));
+  }
+  if (move.receiverCapHours > 0 && move.toResourceId !== undefined) {
+    out.push(t(ctx.lang, "hoursMovedNoneReceiverCap", task, ctx.resourceName(move.toResourceId)));
+  }
+  return out;
+}
+
 /** The notice for a plan, or null when nothing moved and nothing needs saying. */
 export function hoursMoveNotice(plan: HoursMovePlan, ctx: HoursMoveNoticeCtx): string | null {
   const moved = plan.moves.filter((m) => m.movedHours > 0);
-  const skipped = plan.moves.filter((m) => m.movedHours <= 0 && m.reason !== undefined);
+  const skipped = plan.moves.filter(
+    (m) => m.movedHours <= 0 && (m.reason !== undefined || m.shortfallHours > 0 || m.receiverCapHours > 0),
+  );
   if (moved.length === 0 && skipped.length === 0) return null;
   const sentences: string[] = groupByPair(moved).map((g) => `${pairSentence(g, ctx)}.`);
-  for (const move of skipped) {
-    if (move.reason) sentences.push(t(ctx.lang, REASON_KEY[move.reason], ctx.taskName(move.taskId)));
-  }
+  for (const move of skipped) sentences.push(...nothingMovedSentences(move, ctx));
   for (const over of plan.overCapacity) {
     sentences.push(
       t(ctx.lang, "hoursMovedOverCapacity", ctx.resourceName(over.resourceId), over.percent, ctx.periodLabel(over.periodKey)),
     );
   }
-  return sentences.join(" ");
+  return sentences.length > 0 ? sentences.join(" ") : null;
 }

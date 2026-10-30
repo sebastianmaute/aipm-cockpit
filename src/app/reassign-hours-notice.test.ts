@@ -44,6 +44,8 @@ describe("defaultPeriodLabel", () => {
     expect(defaultPeriodLabel("2026-09", "en-US")).toBe("Sep");
     expect(defaultPeriodLabel("2026-01", "en-US")).toBe("Jan");
     expect(defaultPeriodLabel("2026-W38", "en-US")).toBe("W38");
+    expect(defaultPeriodLabel("2026-W38", "de")).toBe("KW 38");
+    expect(defaultPeriodLabel("2026-10", "de")).toBe("Okt");
     expect(defaultPeriodLabel("odd", "en-US")).toBe("odd");
   });
 });
@@ -94,6 +96,24 @@ describe("hoursMoveNotice (EN)", () => {
       "Moved 16 h from Maya Patel to Liam Foster (Sep 8 h, Oct 8 h). Moved 0.5 h from Ana to Liam Foster (Sep 0.5 h). UI is closed, so no planned hours moved.",
     );
   });
+  it("says why when the giver has nothing planned (all shortfall)", () => {
+    const m = move({ perPeriod: [], movedHours: 0, shortfallHours: 8 });
+    expect(hoursMoveNotice(plan([m]), ctx("en-US"))).toBe(
+      "No planned hours moved for Data migration: Maya Patel has no planned hours in that period.",
+    );
+  });
+  it("says why when the receiver has no room (all receiver cap)", () => {
+    const m = move({ perPeriod: [], movedHours: 0, receiverCapHours: 8 });
+    expect(hoursMoveNotice(plan([m]), ctx("en-US"))).toBe(
+      "No planned hours moved for Data migration: Liam Foster is at 100 %.",
+    );
+  });
+  it("shows a moved entry and a zero-moved entry of the same pair", () => {
+    const zero = move({ taskId: 11, perPeriod: [], movedHours: 0, shortfallHours: 3 });
+    expect(hoursMoveNotice(plan([move(), zero]), ctx("en-US"))).toBe(
+      "Moved 16 h from Maya Patel to Liam Foster (Sep 8 h, Oct 8 h). No planned hours moved for API: Maya Patel has no planned hours in that period.",
+    );
+  });
   it("returns null when everything is silent", () => {
     expect(hoursMoveNotice(plan([]), ctx("en-US"))).toBeNull();
     expect(hoursMoveNotice(plan([move({ perPeriod: [], movedHours: 0 })]), ctx("en-US"))).toBeNull();
@@ -104,17 +124,39 @@ describe("hoursMoveNotice (DE)", () => {
   beforeAll(async () => {
     await loadI18n("de");
   });
-  it("renders German, with a German month label", () => {
+  it("renders one task with Std. and German month labels", () => {
     expect(hoursMoveNotice(plan([move()]), ctx("de"))).toBe(
-      `${"16 Std. von Maya Patel auf Liam Foster verschoben"} (${defaultPeriodLabel("2026-09", "de")} 8 h, ${defaultPeriodLabel("2026-10", "de")} 8 h).`,
+      "16 Std. von Maya Patel auf Liam Foster verschoben (Sep 8 Std., Okt 8 Std.).",
     );
   });
-  it("renders a reason", () => {
+  it("renders a batch", () => {
+    const moves = [
+      move({ taskId: 10, movedHours: 8, perPeriod: [{ periodKey: "2026-09", hours: 8 }] }),
+      move({ taskId: 11, movedHours: 8, perPeriod: [{ periodKey: "2026-10", hours: 8 }] }),
+    ];
+    expect(hoursMoveNotice(plan(moves), ctx("de"))).toBe(
+      "16 Std. für 2 Aufgaben von Maya Patel auf Liam Foster verschoben (Sep 8 Std., Okt 8 Std.).",
+    );
+  });
+  it("renders over capacity with a week label", () => {
+    const p = plan([move({ perPeriod: [{ periodKey: "2026-W38", hours: 16 }] })], [
+      { resourceId: 2, periodKey: "2026-W38", percent: 130 },
+    ]);
+    expect(hoursMoveNotice(p, ctx("de"))).toBe(
+      "16 Std. von Maya Patel auf Liam Foster verschoben (KW 38 16 Std.). Liam Foster ist jetzt bei 130 % in KW 38.",
+    );
+  });
+  it("renders a shortfall", () => {
+    expect(hoursMoveNotice(plan([move({ shortfallHours: 4 })]), ctx("de"))).toBe(
+      "16 Std. von Maya Patel auf Liam Foster verschoben (Sep 8 Std., Okt 8 Std.) (4 Std. nicht im Plan von Maya Patel).",
+    );
+  });
+  it("renders a reason and a zero-moved shortfall", () => {
     expect(hoursMoveNotice(plan([move({ perPeriod: [], movedHours: 0, reason: "noEstimate" })]), ctx("de"))).toBe(
       "Data migration hat keine Restschätzung, daher wurden keine geplanten Stunden verschoben.",
     );
-  });
-  it("pins the German month labels", () => {
-    expect(defaultPeriodLabel("2026-09", "de")).toBe("Sep");
+    expect(hoursMoveNotice(plan([move({ perPeriod: [], movedHours: 0, shortfallHours: 8 })]), ctx("de"))).toBe(
+      "Für Data migration wurden keine geplanten Stunden verschoben: Maya Patel hat in diesem Zeitraum keine geplanten Stunden.",
+    );
   });
 });
