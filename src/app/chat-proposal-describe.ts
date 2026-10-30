@@ -45,6 +45,7 @@ import { describeFunctionsCall, type FunctionsChange, type PreviewSettings } fro
 import { describeDeviceCall, type DeviceChange } from "./chat-proposal-describe-device";
 import { describeDocumentCall, type DocumentChange } from "./chat-proposal-describe-document";
 import type { AbsenceCtx } from "./absence-clash";
+import { turnClashes } from "./chat-proposal-turn-clashes";
 
 export {
   describeProjectCall,
@@ -475,6 +476,9 @@ export function describeProposal(
   // previous accepted functions row leaves, so two such rows in one turn are not both diffed against the
   // pre-turn list. Apply re-checks each row against the same chain (`chat-proposal-apply.ts`).
   let functionsSoFar = ws.features;
+  // §773 — every row's absence clashes, judged against the turn as it will land: a row whose target an
+  // earlier call of this turn creates is otherwise judged against nothing (`chat-proposal-turn-clashes.ts`).
+  const turn = absence ? turnClashes(ws, absence) : null;
 
   for (let index = 0; index < calls.length; index += 1) {
     const call = calls[index];
@@ -518,7 +522,9 @@ export function describeProposal(
     const documentDetail = document === null ? {} : { document };
 
     if (pendingOn !== undefined) {
-      rows.push({ call, stamped, plan: emptyPlan(), mintedId, pendingOn, ...documentDetail });
+      const clashes = turn?.judge(call, pendingOn) ?? [];
+      turn?.record(index, call, mintedId, pendingOn);
+      rows.push({ call, stamped, plan: { ...emptyPlan(), clashes }, mintedId, pendingOn, ...documentDetail });
       continue;
     }
 
@@ -588,12 +594,13 @@ export function describeProposal(
 
     const d = INLINE_DESCRIPTORS[entity];
     const block: ToolUseLike = { type: "tool_use", name: call.name, input: call.input };
-    const plan = describeEntityCalls([block], {
+    const described = describeEntityCalls([block], {
       descriptor: d,
       item: seedItem(op, d, call.input, ws),
       ws,
-      absence,
     });
+    const plan = turn ? { ...described, clashes: turn.judge(call, undefined) } : described;
+    turn?.record(index, call, mintedId, undefined);
     rows.push({ call, stamped, plan, mintedId });
   }
 

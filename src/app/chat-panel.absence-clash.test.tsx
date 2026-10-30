@@ -9,6 +9,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { ChatPanel } from "./chat-panel";
 import type { ToolDispatcher } from "./chat-tools";
 import { STAGED_TOOL_RESULT } from "./chat-proposal-stage";
+import { peekMintId } from "./id-mint-session";
 import { callAbsenceClashes } from "./chat-absence-clashes";
 import { entityToken } from "./ai-entity-token";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
@@ -172,5 +173,48 @@ describe("a lone chat date write that clashes with an absence (§773)", () => {
     const results = resultsIn(bodies[1]);
     expect(results.get("t1")).toContain(`absenceClashes: ${CLASH_JSON}`);
     expect(results.get("t2")).toBe(STAGED_TOOL_RESULT);
+  });
+});
+
+// §773 — a change to a task created earlier in the same turn: its target is in no workspace yet.
+describe("a chat change to a task created earlier in the same turn (§773)", () => {
+  /** `create_task` (no date), then `update_task` on the id the staging will provisionally mint for it. */
+  function createThenMove(dueDate: string) {
+    const provisional = peekMintId("task", WORKSPACE.tasks);
+    return {
+      content: [
+        { type: "tool_use", id: "t1", name: "create_task", input: { taskName: "Draft", assignee: "Maya Patel" } },
+        { type: "tool_use", id: "t2", name: "update_task", input: { id: provisional, dueDate } },
+      ],
+      stop_reason: "tool_use",
+      usage,
+    };
+  }
+
+  it("a move onto the owner's absence shows the warning and tells Claude in that call's staged result", async () => {
+    // Mutation: describing a pending row with an empty plan (no turn judgment) turns this red.
+    const bodies: string[] = [];
+    scriptFetch([createThenMove("2026-11-05"), doneTurn], bodies);
+    mountAndSend(makeDispatcher());
+
+    const card = await screen.findByRole("region", CARD);
+    expect(within(card).getByText(/Maya Patel is absent on the due date/)).toBeInTheDocument();
+    await screen.findByText("done");
+    const results = resultsIn(bodies[1]);
+    expect(results.get("t2")).toContain(`absenceClashes: ${CLASH_JSON}`);
+    expect(results.get("t1")).not.toContain("absenceClashes");
+  });
+
+  it("a move onto a free day warns nowhere and the staged results are unchanged", async () => {
+    const bodies: string[] = [];
+    scriptFetch([createThenMove("2026-11-13"), doneTurn], bodies);
+    mountAndSend(makeDispatcher());
+
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("done");
+    expect(within(card).queryByText(/is absent/)).toBeNull();
+    const results = resultsIn(bodies[1]);
+    expect(results.get("t2")).toBe(STAGED_TOOL_RESULT);
+    expect(results.get("t1")).not.toContain("absenceClashes");
   });
 });

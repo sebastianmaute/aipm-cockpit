@@ -408,7 +408,8 @@ function PlanDetail({
    *   buy nothing and leave the file reading as a half-finished edit. */
   entity: DiffEntity | undefined;
 }) {
-  if (isEmptyPlan(plan) && plan.rejected.length === 0) return null;
+  // §773 — a pending row's plan is empty but for its clashes (`chat-proposal-turn-clashes.ts`), so they count.
+  if (isEmptyPlan(plan) && plan.rejected.length === 0 && plan.clashes.length === 0) return null;
   return (
     <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
       {plan.updates.map((d, i) => (
