@@ -7,7 +7,7 @@
 import { type Resource, type Task } from "../types";
 import { isTaskClosed } from "../task-closed";
 import { resourceDisplayName } from "../resource-foundation";
-import { planHoursMoves, type HoursMovePlan, type OwnerChange } from "../reassign-hours";
+import { planHoursMoves, splitTaskHoursByPeriod, type HoursMovePlan, type OwnerChange } from "../reassign-hours";
 import { type RawAllocAlternative } from "./alloc-alternatives";
 import {
   cellKey,
@@ -32,7 +32,8 @@ export interface MoveSnapshot {
   startDate?: string;
   dueDate: string;
   status: Task["status"];
-  /** Stored utilization of the giver and receiver for every period key the plan edits. */
+  /** Stored utilization (missing key = 0) of the receiver and, when linked, the giver, over every period the task
+   *  splits into plus the plan's shortfall and receiver-cap periods: a period that moved nothing is still watched. */
   utilization: Record<number, Record<string, number>>;
 }
 
@@ -44,7 +45,8 @@ export interface GroundedMove {
   fromLabel: string;
   toResourceId: number;
   toLabel: string;
-  /** The task's live owner is a listed resource. */
+  /** The task's live owner is a listed resource. ★ When false, a UI must NOT render `plan.moves[].reason`
+   *  (noEstimate / unlinked): §774 never shows a reason for an unlinked owner, so it would be a new message. */
   linked: boolean;
   plan: HoursMovePlan;
   snapshot: MoveSnapshot;
@@ -75,12 +77,15 @@ function changedKeys(edit: HoursMovePlan["edits"][number]): string[] {
   return [...keys].filter((k) => (edit.before.utilization[k] ?? 0) !== (edit.after.utilization[k] ?? 0));
 }
 
-function snapshotOf(task: Task, plan: HoursMovePlan): MoveSnapshot {
+function snapshotOf(task: Task, plan: HoursMovePlan, ownerIds: readonly number[], ctx: MoveGroundContext): MoveSnapshot {
+  const keys = new Set(splitTaskHoursByPeriod(task, ctx).map((x) => x.periodKey));
+  for (const move of plan.moves) {
+    for (const k of [...move.shortfallPeriods, ...move.receiverCapPeriods, ...move.perPeriod.map((p) => p.periodKey)]) keys.add(k);
+  }
   const utilization: Record<number, Record<string, number>> = {};
-  for (const edit of plan.edits) {
-    const stored: Record<string, number> = {};
-    for (const k of changedKeys(edit)) stored[k] = edit.before.utilization[k] ?? 0;
-    utilization[edit.id] = stored;
+  for (const id of ownerIds) {
+    const stored = ctx.resources.find((r) => r.id === id)?.utilization ?? {};
+    utilization[id] = Object.fromEntries([...keys].map((k) => [k, stored[k] ?? 0]));
   }
   return {
     owner: { assignee: task.assignee, assigneeEmail: task.assigneeEmail, resourceId: task.resourceId },
@@ -97,20 +102,21 @@ function groundMoves(raw: RawAllocAlternative, ctx: MoveGroundContext): { moves:
   const resourceById = new Map<number, Resource>(ctx.resources.map((r) => [r.id, r]));
   const moves: GroundedMove[] = [];
   const skippedMoves: SkippedMove[] = [];
-  const kept = new Set<number>();
+  const seen = new Set<number>();
 
   for (const { taskId, toResourceId } of raw.taskMoves) {
     const skip = (reason: MoveSkipReason): void => { skippedMoves.push({ taskId, toResourceId, reason }); };
     const task = taskById.get(taskId);
     const receiver = resourceById.get(toResourceId);
     if (!task) { skip("unknown-task"); continue; }
+    // The first mention of a task wins, even when it is itself skipped below.
+    if (seen.has(taskId)) { skip("duplicate"); continue; }
+    seen.add(taskId);
     if (isTaskClosed(task)) { skip("closed"); continue; }
     if (task.jiraKey) { skip("jira"); continue; }
     if (!receiver) { skip("unknown-resource"); continue; }
     const giver = task.resourceId === undefined ? undefined : resourceById.get(task.resourceId);
     if (giver && task.resourceId === toResourceId) { skip("same-owner"); continue; }
-    if (kept.has(taskId)) { skip("duplicate"); continue; }
-    kept.add(taskId);
 
     const toLabel = resourceDisplayName(receiver);
     const after = { assignee: toLabel, assigneeEmail: receiver.email ?? "", resourceId: toResourceId };
@@ -131,7 +137,7 @@ function groundMoves(raw: RawAllocAlternative, ctx: MoveGroundContext): { moves:
       toLabel,
       linked: giver !== undefined,
       plan,
-      snapshot: snapshotOf(task, plan),
+      snapshot: snapshotOf(task, plan, giver ? [giver.id, toResourceId] : [toResourceId], ctx),
     });
   }
   return { moves, skippedMoves };

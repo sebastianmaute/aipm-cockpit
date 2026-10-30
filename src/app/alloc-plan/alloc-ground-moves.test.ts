@@ -37,6 +37,10 @@ describe("groundAlternative: moves", () => {
     const g = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), ctxOf([maya(), liam()], [task({ status: "Done" })]));
     expect(reasons(g)).toEqual(["closed"]);
   });
+  it("skips a Cancelled task", () => {
+    const g = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), ctxOf([maya(), liam()], [task({ status: "Cancelled" })]));
+    expect(reasons(g)).toEqual(["closed"]);
+  });
   it("skips a Jira task", () => {
     const g = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), ctxOf([maya(), liam()], [task({ jiraKey: "ABC-1" })]));
     expect(reasons(g)).toEqual(["jira"]);
@@ -56,6 +60,18 @@ describe("groundAlternative: moves", () => {
     );
     expect(g.moves.map((m) => m.toResourceId)).toEqual([2]);
     expect(g.skippedMoves).toEqual([{ taskId: 7, toResourceId: 3, reason: "duplicate" }]);
+  });
+  it("the first mention of a task wins, whichever order the checks would fail in", () => {
+    const c = ctxOf([maya(), liam()], [task()]);
+    const a = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 42 }, { taskId: 7, toResourceId: 2 }] }), c);
+    expect(a.skippedMoves).toEqual([
+      { taskId: 7, toResourceId: 42, reason: "unknown-resource" },
+      { taskId: 7, toResourceId: 2, reason: "duplicate" },
+    ]);
+    expect(a.moves).toEqual([]);
+    const b = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }, { taskId: 7, toResourceId: 42 }] }), c);
+    expect(b.moves.map((m) => m.toResourceId)).toEqual([2]);
+    expect(b.skippedMoves).toEqual([{ taskId: 7, toResourceId: 42, reason: "duplicate" }]);
   });
   it("a linked move carries its planned hours", () => {
     const g = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), ctxOf([maya(), liam()], [task()]));
@@ -91,6 +107,14 @@ describe("groundAlternative: moves", () => {
     const g = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), ctxOf([maya(), full], [task()]));
     expect(g.moves).toHaveLength(1);
     expect(g.moves[0].plan.moves[0].receiverCapPeriods).toContain("2026-09");
+    expect(g.moves[0].snapshot.utilization[2]["2026-09"]).toBe(100);
+    expect(g.moves[0].snapshot.utilization[1]["2026-09"]).toBe(120);
+  });
+  it("a giver shortfall period is in the snapshot with its stored value", () => {
+    const thin = resource(1, { firstName: "Maya", lastName: "Patel", utilization: { "2026-10": 80 } });
+    const g = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), ctxOf([thin, liam()], [task()]));
+    expect(g.moves[0].plan.moves[0].shortfallPeriods).toContain("2026-09");
+    expect(g.moves[0].snapshot.utilization[1]["2026-09"]).toBe(0);
   });
   it("snapshot holds owner, estimate, dates, status and the touched utilization", () => {
     const g = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), ctxOf([maya(), liam({ utilization: { "2026-09": 10 } })], [task()]));
