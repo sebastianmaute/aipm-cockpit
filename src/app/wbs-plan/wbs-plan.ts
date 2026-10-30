@@ -5,7 +5,7 @@
 // via one forced tool call. Its output is UNTRUSTED: `parseWbsProposal` only
 // shape-validates it, and `groundWbsProposal` judges every id, ref, piece and
 // value against the live workspace. No React, no fetch, no i18n, no side effects.
-import { DEFAULT_TASK_STATUS, type Milestone, type ProjectMeta, type Task } from "../types";
+import { DEFAULT_TASK_STATUS, type Absence, type Milestone, type ProjectMeta, type Resource, type Task } from "../types";
 import { htmlPlainProjection, oneLine } from "../rich-text-plain";
 import { sanitizeAiRichText } from "../ai-rich-text";
 import {
@@ -17,6 +17,8 @@ import {
   wouldCreateDependencyCycle,
 } from "../sanitize-core";
 import { isTaskClosed } from "../task-closed";
+import { isoAddDays } from "../due-dates";
+import { NO_HOLIDAYS, buildAwaySummary, taskClashes, type AbsenceClash, type AbsenceCtx } from "../absence-clash";
 
 /** Bound on how many items one proposal may carry (blast radius + token budget). */
 export const MAX_WBS_ITEMS = 60;
@@ -66,6 +68,19 @@ export interface WbsContextArgs {
   scopeIds: ReadonlySet<number>;
   milestones: readonly Milestone[];
   project: ProjectMeta | undefined;
+  /** §773 — who is away, so the model schedules a new task's due date around it. */
+  absences: readonly Absence[];
+  resources: readonly Resource[];
+  /** The fallback window start when the project has no dates (today..today+28). */
+  today: string;
+}
+
+/** Days past today the AWAY window reaches when the project has no start and end date. */
+const AWAY_FALLBACK_DAYS = 28;
+
+function awayWindow(project: ProjectMeta | undefined, today: string): { from: string; to: string } {
+  if (project?.startDate && project.endDate) return { from: project.startDate, to: project.endDate };
+  return { from: today, to: isoAddDays(today, AWAY_FALLBACK_DAYS) };
 }
 
 function plainDescription(html: string | undefined): string {
@@ -98,7 +113,7 @@ function taskLine(t: Task, inScope: boolean): string {
 /** Compact, token-bounded digest of the project's tasks, groups and milestones.
  *  Sent as the (volatile) user message — never in the cached system block. */
 export function buildWbsContext(args: WbsContextArgs): string {
-  const { tasks, scopeIds, milestones, project } = args;
+  const { tasks, scopeIds, milestones, project, absences, resources, today } = args;
   const lines: string[] = [];
   if (project) {
     lines.push(`PROJECT: ${oneLine(project.name)} ${project.startDate || "?"} .. ${project.endDate || "?"}`);
@@ -120,6 +135,7 @@ export function buildWbsContext(args: WbsContextArgs): string {
   if (ordered.length > WBS_CONTEXT_MAX_TASKS) {
     lines.push(`…(${ordered.length - WBS_CONTEXT_MAX_TASKS} more tasks omitted)`);
   }
+  lines.push(...buildAwaySummary({ absences, resources, ...awayWindow(project, today) }));
   return lines.join("\n");
 }
 
@@ -131,6 +147,7 @@ export function buildWbsSystemPrompt(): string {
     "This tool never deletes or cancels a task and never overwrites an existing estimate, except that a split's piece 1 rewrites the original row: its name, and its description and estimate when you give them (omit them to keep the original's). It only proposes additions and fixes to what is missing or unclear; the user reviews every item before anything changes.",
     "Use ONLY the task ids listed in the digest. Reference a task you are adding in the same proposal by its `ref`, and a piece of a split by `taskId` plus a 1-based `piece` (piece 1 is the original row).",
     "Focus on tasks marked [in scope]; use the rest only as context.",
+    "Schedule a new task's due date outside its assignee's absences listed under AWAY.",
     "Estimates are in minutes. A link `from` → `to` means `from` must finish before `to` starts.",
     `Return at most ${MAX_WBS_ITEMS} items, at most ${MAX_SPLIT_PIECES} pieces per split. For a broad request, prioritise the most valuable changes rather than enumerating every task.`,
     "The digest may be truncated — a trailing '…(N more tasks omitted)' line means your view is partial.",
@@ -373,6 +390,8 @@ export interface GroundedWbsItem {
    *  piece ≥ 2's split). Piece 1 is the original row and needs nothing: it is
    *  stored as `{kind:"task"}`, so it survives the split being unticked. */
   requires: readonly string[];
+  /** §773 — a newTask only (never a split piece): its due date lands on an absence of its assignee. */
+  clashes?: readonly AbsenceClash[];
 }
 
 export interface WbsScope {
@@ -572,7 +591,7 @@ function groundRegroup(item: RegroupItem, key: string, st: GroundState): Verdict
   return { key, item: { kind: "regroup", taskId: live.id, group, why: oneLine(item.why) }, baseRows: [live], requires: [] };
 }
 
-function groundNewTask(item: NewTaskItem, key: string, st: GroundState): Verdict {
+function groundNewTask(item: NewTaskItem, key: string, st: GroundState, absence: AbsenceCtx): Verdict {
   const ref = oneLine(item.ref);
   if (ref === "") return "emptyRef";
   if (st.refClaims.has(ref)) return "duplicateRef";
@@ -598,7 +617,8 @@ function groundNewTask(item: NewTaskItem, key: string, st: GroundState): Verdict
     why: oneLine(item.why),
   };
   if (clean.group !== undefined) rememberGroup(clean.group, st);
-  return { key, item: clean, baseRows: [], requires: [] };
+  const clashes = taskClashes({ assignee: clean.assignee ?? "", dueDate: clean.dueDate }, absence);
+  return { key, item: clean, baseRows: [], requires: [], ...(clashes.length > 0 ? { clashes } : {}) };
 }
 
 function groundEstimate(item: EstimateItem, key: string, st: GroundState): Verdict {
@@ -646,6 +666,7 @@ export function groundWbsProposal(
   raw: ParsedWbsProposal,
   liveTasks: readonly Task[],
   scope: WbsScope,
+  absence: AbsenceCtx = { absences: [], resources: [], holidaySet: NO_HOLIDAYS },
 ): GroundedWbsProposal {
   const live = new Map(liveTasks.map((t) => [t.id, t] as const));
   const st: GroundState = {
@@ -667,7 +688,7 @@ export function groundWbsProposal(
     const key = `i${i}`;
     if (item.kind === "split") verdicts.set(i, groundSplit(item, key, st));
     else if (item.kind === "regroup") verdicts.set(i, groundRegroup(item, key, st));
-    else if (item.kind === "newTask") verdicts.set(i, groundNewTask(item, key, st));
+    else if (item.kind === "newTask") verdicts.set(i, groundNewTask(item, key, st, absence));
   });
   raw.items.forEach((item, i) => {
     const key = `i${i}`;

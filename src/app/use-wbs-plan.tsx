@@ -130,7 +130,7 @@ const isEditable = (task: Task): boolean => !isTaskClosed(task) && !task.jiraKey
 
 export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const { settings, isPopout, lang, capture, logActivityAs, getScopeEpoch, loadPending, today: tableToday, holidaySet } = deps;
-  const { tasks, setTasks, milestones, project, filteredSortedTasks } = useWorkspace();
+  const { tasks, setTasks, milestones, project, filteredSortedTasks, absences, resources } = useWorkspace();
   const { healthFilter } = useFilters();
   const showToast = useToastContext();
 
@@ -246,7 +246,9 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       epochRef.current = startEpoch;
       try {
         const live = liveTasks ?? tasksRef.current;
-        const context = buildWbsContext({ tasks: live, scopeIds: runScope.taskIds, milestones, project });
+        const context = buildWbsContext({
+          tasks: live, scopeIds: runScope.taskIds, milestones, project, absences, resources, today: tableToday,
+        });
         const parsed = await runWbsProposal(
           context,
           { apiKey, model: settings.ai.model, guideText },
@@ -260,7 +262,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
           return;
         }
         // Ground against the tasks as they are NOW, not as they were sent.
-        const grounded = groundWbsProposal(parsed, tasksRef.current, runScope);
+        const grounded = groundWbsProposal(parsed, tasksRef.current, runScope, { absences, resources, holidaySet });
         // Only a proposal with NOTHING in it is "no changes proposed". When the
         // model proposed items and grounding refused them all, the preview
         // still opens, showing just the "Not applied" list with its reasons.
@@ -297,7 +299,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         reset();
       }
     },
-    [milestones, project, apiKey, settings.ai.model, guideText, lang, showToast, reset, setPhase, getScopeEpoch],
+    [milestones, project, absences, resources, tableToday, holidaySet, apiKey, settings.ai.model, guideText, lang, showToast, reset, setPhase, getScopeEpoch],
   );
 
   const onOpen = useCallback(() => {

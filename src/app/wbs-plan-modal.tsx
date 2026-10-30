@@ -23,6 +23,8 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 import { htmlPlainProjection, oneLine } from "./rich-text-plain";
 import { sanitizeMultiline, sanitizeTaskName } from "./sanitize-core";
 import type { Task } from "./types";
+import { formatAbsenceClash } from "./absence-clash-notice";
+import { ExclamationTriangleIcon } from "./icons";
 import { type GroundedWbsItem, type RawWbsItem, type SkippedWbsItem, type WbsSkipReason, type WbsTarget } from "./wbs-plan/wbs-plan";
 
 export interface WbsPlanModalProps {
@@ -276,6 +278,7 @@ export function WbsPlanModal({
                       info ? partId("info") : null,
                       newTaskDescription !== null ? partId("desc") : null,
                       ...(split ? split.pieces.map((_, i) => partId(`p${i}`)) : []),
+                      ...(g.clashes ?? []).map((_, i) => partId(`c${i}`)),
                       g.item.why ? partId("why") : null,
                       disabled ? partId("off") : null,
                     ]
@@ -300,6 +303,12 @@ export function WbsPlanModal({
                                 {t(lang, "wbsPlanDescriptionExcerpt", descriptionExcerpt(newTaskDescription))}
                               </span>
                             )}
+                            {g.clashes?.map((c, i) => (
+                              <span key={i} id={partId(`c${i}`)} className="mt-1 flex items-start gap-1.5 text-xs text-foreground">
+                                <ExclamationTriangleIcon aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                <span>{formatAbsenceClash(c, lang)}</span>
+                              </span>
+                            ))}
                             {split && (
                               <ul
                                 className="mt-1 list-disc pl-5 text-sm text-foreground"

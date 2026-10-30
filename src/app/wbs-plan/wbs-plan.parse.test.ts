@@ -193,6 +193,9 @@ describe("buildWbsContext", () => {
       scopeIds: new Set([2]),
       milestones,
       project: { name: "Apollo", startDate: "2026-01-01", endDate: "2026-12-31" } as never,
+      absences: [],
+      resources: [],
+      today: "2026-11-01",
     });
     expect(out).toContain("Apollo");
     expect(out).toContain("2026-01-01");
@@ -215,6 +218,9 @@ describe("buildWbsContext", () => {
       scopeIds: new Set(),
       milestones: [],
       project: undefined,
+      absences: [],
+      resources: [],
+      today: "2026-11-01",
     });
     expect(out).toContain("x".repeat(300) + "…");
     expect(out).not.toContain("x".repeat(301));
@@ -223,7 +229,7 @@ describe("buildWbsContext", () => {
 
   test("caps a 401-task list and says how many were omitted", () => {
     const tasks = Array.from({ length: 401 }, (_, i) => task(i + 1));
-    const out = buildWbsContext({ tasks, scopeIds: new Set([401]), milestones: [], project: undefined });
+    const out = buildWbsContext({ tasks, scopeIds: new Set([401]), milestones: [], project: undefined, absences: [], resources: [], today: "2026-11-01" });
     expect(out).toContain("…(1 more tasks omitted)");
     expect(out).toMatch(/#401 \[in scope\]/);
     expect(out).not.toMatch(/^#400 /m);
@@ -237,6 +243,9 @@ describe("buildWbsContext line injection", () => {
       scopeIds: new Set(),
       milestones: [{ id: 1, name: "M\r\nline", date: "2026-12-15", linkedTaskIds: [] }],
       project: { name: "P\nQ", startDate: "", endDate: "" } as never,
+      absences: [],
+      resources: [],
+      today: "2026-11-01",
     });
     expect(out).not.toMatch(/^#99/m);
     expect(out).toContain("P Q");
@@ -265,5 +274,60 @@ describe("tool and prompt", () => {
     const p = buildWbsSystemPrompt();
     expect(p).toContain("Keep any description to one short sentence");
     expect(p).toContain("omit descriptions entirely when you propose many items");
+  });
+});
+
+describe("buildWbsContext — AWAY block (§773)", () => {
+  const away = [{ id: 1, assignee: "Maya Patel", resourceId: 7, type: "Vacation", startDate: "2026-11-03", endDate: "2026-11-07" }] as never;
+  const resources = [{ id: 7, firstName: "Maya", lastName: "Patel" }] as never;
+  const base = {
+    tasks: [task(1)],
+    scopeIds: new Set<number>(),
+    milestones: [],
+    project: { name: "Apollo", startDate: "2026-11-01", endDate: "2026-12-31" } as never,
+    today: "2026-11-01",
+  };
+
+  test("lists who is away inside the project window", () => {
+    const out = buildWbsContext({ ...base, absences: away, resources });
+    expect(out).toContain("AWAY (absent days");
+    expect(out).toContain("2026-11-03..2026-11-07");
+  });
+
+  test("adds nothing when nobody is away", () => {
+    const out = buildWbsContext({ ...base, absences: [], resources });
+    expect(out).not.toContain("AWAY");
+  });
+
+  test("a project without dates uses today..today+28 via the supplied window fallback", () => {
+    const out = buildWbsContext({ ...base, project: undefined, today: "2026-11-01", absences: away, resources });
+    expect(out).toContain("AWAY");
+  });
+
+  test("the system prompt tells the model to schedule around the absences", () => {
+    expect(buildWbsSystemPrompt()).toContain(
+      "Schedule a new task's due date outside its assignee's absences listed under AWAY.",
+    );
+  });
+
+  // Estimate rule: tokens ~= characters / 3.5 (a conservative bound; wbs-plan-call.ts estimates ~4).
+  // The call's existing INPUT guard is the digest cap (WBS_CONTEXT_MAX_TASKS tasks of at most
+  // 300 description chars); the AWAY block must add less than one task line's worth per away line
+  // and stay far inside the model's context. We assert the 60-line block adds under 4,000 tokens
+  // on top of the worst-case task digest, and the whole digest stays under 60,000 tokens.
+  test("60 away lines on top of the worst-case digest stay within budget", () => {
+    const people = Array.from({ length: 60 }, (_, i) => ({ id: 100 + i, firstName: `P${i}`, lastName: "Longsurname" }));
+    const manyAway = people.map((p, i) => ({
+      id: 500 + i, assignee: `P${i} Longsurname`, resourceId: p.id, type: "Vacation",
+      startDate: "2026-11-03", endDate: "2026-11-07",
+    })) as never;
+    const tasks = Array.from({ length: 400 }, (_, i) =>
+      task(i + 1, { description: "x".repeat(500), group: "G", assignee: "A".repeat(40) }),
+    );
+    const args = { ...base, tasks, absences: manyAway, resources: people as never };
+    const withAway = buildWbsContext(args).length;
+    const without = buildWbsContext({ ...args, absences: [] }).length;
+    expect((withAway - without) / 3.5).toBeLessThan(4000);
+    expect(withAway / 3.5).toBeLessThan(60_000);
   });
 });
