@@ -78,7 +78,7 @@ import {
   type PlanRow,
   type ProposedCall,
 } from "./chat-proposal";
-import { openSendRecord } from "./chat-send-record";
+import { isPureReadTool, openSendRecord } from "./chat-send-record";
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
 import {
   ChatProposalBlock,
@@ -868,20 +868,11 @@ function ChatPanelInner({
           // equivalence is pinned by a test, because "one extra branch" is how
           // a working path acquires a condition nobody meant to add.
           // ★★ AI-02 — A CARD IS NEVER REPLACED UNSEEN. Once a turn of this send has staged, a later
-          // turn's calls run nothing and stage nothing (a second `setPendingProposal` would swap the
-          // card before the user saw it); each `tool_use` id is still answered, and the send ends
-          // after this turn. Text the model wrote in this turn was already shown above.
-          if (sendRecord.staged && proposed.length > 0) {
-            messages.push({
-              role: "user",
-              content: proposed.map(
-                (p): ToolResultBlock => ({ type: "tool_result", tool_use_id: p.useId, content: PROPOSAL_PENDING_RESULT }),
-              ),
-            });
-            completed = true;
-            break;
-          }
-          if (shouldStage(proposed.map((p) => p.call), sendRecord)) {
+          // turn stages nothing (a second `setPendingProposal` would swap the card before the user saw
+          // it): it takes the path below, where its reads (`isPureReadTool`) run and every other call
+          // is answered with `PROPOSAL_PENDING_RESULT` and runs nothing. The loop then continues, so
+          // the model can still write its reply; the turn cap bounds it as it bounds any send.
+          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord)) {
             sendRecord = { ...sendRecord, staged: true };
             const ws = stagingWorkspace(workspaceRef.current);
             const calls = proposed.map((p) => p.call);
@@ -936,6 +927,11 @@ function ChatPanelInner({
           let directWrites = 0;
           for (const block of response.content) {
             if (block.type !== "tool_use") continue;
+            // AI-02 — a card of this send is waiting: only a read runs; anything else is answered and skipped.
+            if (sendRecord.staged && !isPureReadTool(block.name)) {
+              results.push({ type: "tool_result", tool_use_id: block.id, content: PROPOSAL_PENDING_RESULT });
+              continue;
+            }
             // ★★★ §596 — RE-CHECKED PER TOOL, NOT PER TURN, and no `stale()` call
             // site can stand in for this one: all three run BEFORE this loop. A
             // turn can carry several `tool_use` blocks, so a scope move landing

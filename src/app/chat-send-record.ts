@@ -20,9 +20,9 @@ import { TOKEN_REQUIRED_TOOLS } from "./chat-proposal-apply";
  *  - `untrusted`: an attachment (an `image` or `document` block) is somewhere in the history. Its
  *    text reaches the model as input it may follow, so risky writes go to the review card
  *    (`stagesWhenUntrusted`) — the prompt-injection gate.
- *  - `staged`: a turn of this send already staged a card. A later turn's tool calls then run
- *    nothing and get `PROPOSAL_PENDING_RESULT` (`chat-proposal-stage.ts`), so that card is never
- *    replaced before the user saw it. */
+ *  - `staged`: a turn of this send already staged a card. A later turn's reads still run
+ *    (`isPureReadTool`); every other call runs nothing and gets `PROPOSAL_PENDING_RESULT`
+ *    (`chat-proposal-stage.ts`), so that card is never replaced before the user saw it. */
 export type SendRecord = {
   readonly appliedWrites: number;
   readonly untrusted: boolean;
@@ -39,6 +39,23 @@ export function openSendRecord(history: readonly ApiMessage[]): SendRecord {
     (m) => Array.isArray(m.content) && m.content.some((b) => b.type === "image" || b.type === "document"),
   );
   return { appliedWrites: 0, untrusted, staged: false };
+}
+
+/** The tools that only read: they write no entity, setting, filter or language and propose nothing. */
+const READ_TOOLS: ReadonlySet<string> = new Set([
+  "get_app_state", "get_contact_email", "get_dashboard_snapshot", "get_document", "get_forecast", "get_project",
+  "get_resource", "get_task",
+  "list_absences", "list_allocations", "list_budget_buckets", "list_calendar_events", "list_changes",
+  "list_documents", "list_knowledge_items", "list_milestones", "list_raid", "list_resources", "list_stakeholders",
+  "list_tasks",
+  "search_chats", "search_history",
+]);
+
+/** True for a tool that only reads. Once a turn of the send has staged, these still run, so the model can
+ *  look things up and write its reply; every other call (a write, `optimize_wbs`, a settings, filter or
+ *  language change, or a tool this list does not name) is answered with `PROPOSAL_PENDING_RESULT`. */
+export function isPureReadTool(name: string): boolean {
+  return READ_TOOLS.has(name);
 }
 
 /** Tools that change device or view state rather than an entity, and still stage in an untrusted send:

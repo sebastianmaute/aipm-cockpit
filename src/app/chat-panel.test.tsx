@@ -3758,9 +3758,8 @@ describe("staged tool calls (the review card)", () => {
     expect(dispatcher.createTask).not.toHaveBeenCalled();
   });
 
-  it("a tool call after a staged turn runs nothing, keeps the card, and ends the send (AI-02)", async () => {
-    // Mutation: removing the pending-proposal rule turns this red: the create runs or replaces the card,
-    // and a third request goes out.
+  it("a write after a staged turn runs nothing and keeps the card, and the model still replies (AI-02)", async () => {
+    // Mutation: removing the pending-proposal rule turns this red: the create runs or replaces the card.
     const dispatcher = makeDispatcher();
     const bodies: string[] = [];
     scriptFetch(
@@ -3770,31 +3769,62 @@ describe("staged tool calls (the review card)", () => {
           { type: "text", text: "Adding one more as well." },
           { type: "tool_use", id: "t2", name: "create_task", input: NEW_TASK },
         ]),
-        doneTurn("never sent"),
+        doneTurn("Both wait for your review."),
       ],
       bodies,
     );
     render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />);
     send();
-    await screen.findByText("Adding one more as well.");
+    await screen.findByText("Both wait for your review.");
     await waitForIdle();
-    expect(bodies).toHaveLength(2);
+    expect(bodies).toHaveLength(3);
     expect(dispatcher.createTask).not.toHaveBeenCalled();
     expect(dispatcher.deleteTask).not.toHaveBeenCalled();
     const cards = screen.getAllByRole("region", CARD);
     expect(cards).toHaveLength(1);
     expect(rowBoxes(cards[0])).toHaveLength(1);
-    expect(screen.queryByText("never sent")).toBeNull();
     expect(screen.queryByText(t("en-US", "chatTruncatedNote"))).toBeNull();
-
-    // The stored history answered t2, so the next send carries the pending notice and no dangling id.
-    send("next");
-    await waitFor(() => expect(bodies).toHaveLength(3));
-    const sent = JSON.parse(bodies[2]) as { messages: { content: unknown }[] };
-    const answers = sent.messages
+    const answers = (JSON.parse(bodies[2]) as { messages: { content: unknown }[] }).messages
       .flatMap((m) => (Array.isArray(m.content) ? (m.content as { type: string; tool_use_id?: string; content?: string }[]) : []))
       .filter((b) => b.type === "tool_result" && b.tool_use_id === "t2");
     expect(answers.map((b) => b.content)).toEqual([PROPOSAL_PENDING_RESULT]);
+  });
+
+  it("a read after a staged turn runs, a write beside it waits, and the model replies (AI-02)", async () => {
+    // Mutation: answering every call of the turn with the pending notice (or ending the send there) turns
+    // this red: list_tasks does not run, or the closing text never arrives.
+    const dispatcher = makeDispatcher();
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } }]),
+        toolTurn([
+          { type: "tool_use", id: "t2", name: "list_tasks", input: {} },
+          { type: "tool_use", id: "t3", name: "update_task", input: { id: 1, status: "Done" } },
+        ]),
+        doneTurn("Checked the list; the rest waits for you."),
+      ],
+      bodies,
+    );
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />);
+    send();
+    await screen.findByText("Checked the list; the rest waits for you.");
+    await waitForIdle();
+    expect(bodies).toHaveLength(3);
+    expect(dispatcher.listTasks).toHaveBeenCalled();
+    expect(dispatcher.updateTask).not.toHaveBeenCalled();
+    expect(dispatcher.deleteTask).not.toHaveBeenCalled();
+    const cards = screen.getAllByRole("region", CARD);
+    expect(cards).toHaveLength(1);
+    expect(rowBoxes(cards[0])).toHaveLength(1);
+    const results = (JSON.parse(bodies[2]) as { messages: { content: unknown }[] }).messages
+      .flatMap((m) => (Array.isArray(m.content) ? (m.content as { type: string; tool_use_id?: string; content?: string }[]) : []))
+      .filter((b) => b.type === "tool_result");
+    const read = results.find((b) => b.tool_use_id === "t2");
+    expect(read?.content).toBeDefined();
+    expect(read?.content).not.toBe(PROPOSAL_PENDING_RESULT);
+    expect(read?.content).not.toMatch(/proposal/i);
+    expect(results.filter((b) => b.tool_use_id === "t3").map((b) => b.content)).toEqual([PROPOSAL_PENDING_RESULT]);
   });
 
   it("the card describes and applies set_filters, set_language and a plain update_settings (AI-02)", async () => {

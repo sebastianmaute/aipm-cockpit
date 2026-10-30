@@ -243,8 +243,9 @@
   `chat-send-record.ts`, opened by `openSendRecord` from the full history); while an `image` or `document` block is
   anywhere in that history the send is untrusted and every call `stagesWhenUntrusted` names stages alone (creates,
   deletes, invitations, `send_inquiry`, `update_project`, `update_settings`, `set_filters`, `set_language`, and every
-  entity write outside `TOKEN_REQUIRED_TOOLS`); and once a turn of the send has staged, a later turn's calls run
-  nothing and are answered with `PROPOSAL_PENDING_RESULT`, so the card is never replaced unseen. A staged one is
+  entity write outside `TOKEN_REQUIRED_TOOLS`); and once a turn of the send has staged, a later turn stages
+  nothing: its reads (`isPureReadTool`, `chat-send-record.ts`) run, every other call runs nothing and is answered with
+  `PROPOSAL_PENDING_RESULT`, and the loop continues so the model can reply; the card is never replaced unseen. A staged one is
   described by `describeFunctionsCall` (`chat-proposal-describe-functions.ts`) into `DescribedRow.functions`: the
   card titles it with `functionsRowTitle` and lists the functions it turns on and off against `Workspace.features`
   (labels via the Functions picker's `moduleNames`), and a refused value shows as a rejection on the field.

@@ -44,11 +44,11 @@ export const STAGED_TOOL_RESULT =
   "Do not call this tool again for the same change. Tell the user the proposed " +
   "changes are waiting for their approval.";
 
-/** What the model is told about a tool call made AFTER a turn of the same send staged (AI-02). The
- *  call ran nothing and the send ends after this turn: staging it would replace the card the user has
- *  not seen yet. Model-facing and English, like `STAGED_TOOL_RESULT`. */
+/** What the model is told about a call that is not a read (`isPureReadTool`), made AFTER a turn of the
+ *  same send staged (AI-02). The call ran nothing: staging it would replace the card the user has not
+ *  seen yet. Reads still run. Model-facing and English, like `STAGED_TOOL_RESULT`. */
 export const PROPOSAL_PENDING_RESULT =
-  "Not run: a proposal is waiting for the user's review, and nothing else can run or be proposed " +
+  "Not run: a proposal is waiting for the user's review, and no other change can be made or proposed " +
   "until they have decided on it. Tell the user the proposed changes are waiting for their approval; " +
   "they can ask again afterwards.";
 
