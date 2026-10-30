@@ -21,8 +21,8 @@ describe("openSendRecord", () => {
     expect(openSendRecord([{ role: "user", content: [image] }]).untrusted).toBe(true);
   });
 
-  // D16: a saved thread replaces every attachment with this placeholder, and the model never sees the
-  // content again, so the placeholder alone is not untrusted input.
+  // A saved thread replaces every attachment with this placeholder, and the model never sees the
+  // content again, so a placeholder left by saving a thread does not make a send untrusted.
   test("the attachment placeholder text alone keeps the send trusted", () => {
     const record = openSendRecord([
       { role: "user", content: [{ type: "text", text: "[attachment: document]" }] },
