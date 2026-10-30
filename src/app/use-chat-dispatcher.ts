@@ -407,6 +407,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         return note;
       },
       // §773 — the live slices, judged by the same function as the staging gate and the review card.
+      // ★ For the four date tools that path reads only tasks, milestones, resources and absences (read
+      //  2026-10-30: `describeProposal` → `describeEntityCalls` → `plan-clashes.ts`), so the rest stays empty.
       absenceClashesFor: (name, input) => {
         const resources = resourcesRef.current;
         const absences = absencesRef.current;

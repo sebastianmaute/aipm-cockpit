@@ -57,7 +57,7 @@ import { NOT_PROJECT_TOOL, runProjectTool, type ProjectToolDispatcher } from "./
 import { runChatSearch } from "./chat-search-tool";
 import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
-import type { AbsenceClash, AbsenceRange, ClashReason } from "./absence-clash";
+import { clashesForAi, type AbsenceClash, type AbsenceClashForAi } from "./absence-clash";
 export { TOOL_DEFS } from "./chat-tool-defs";
 
 type TaskInput = {
@@ -622,23 +622,14 @@ function withoutAssigneeEmail(task: Task): Omit<Task, "assigneeEmail"> {
   return rest;
 }
 
-/** §773 — one clash as the model reads it: who, why, the date when one fell on the absence, and the
- *  absence ranges. Only "absent" and the dates — never the absence's type or note. */
-interface AbsenceClashResult { person: string; reason: ClashReason; date?: string; ranges: AbsenceRange[] }
-
-/** `result` with the clashes the dispatcher judged BEFORE the write; unchanged when there are none.
- *  ★ Tolerates a non-array, as `withoutAssigneeEmail` tolerates a non-object: the method is optional, and a
- *   dispatcher that does not judge must leave the result exactly as it was. */
+/** `result` with the clashes the dispatcher judged BEFORE the write, in the shape Claude reads everywhere
+ *  (`clashesForAi`); unchanged when there are none or the dispatcher does not judge. */
 function withAbsenceClashes<T>(
   result: T,
   clashes: readonly AbsenceClash[] | undefined,
-): T | (T & { absenceClashes: AbsenceClashResult[] }) {
-  if (!Array.isArray(clashes) || clashes.length === 0 || typeof result !== "object" || result === null) return result;
-  const judged: readonly AbsenceClash[] = clashes;
-  const absenceClashes = judged.map(({ person, reason, date, ranges }): AbsenceClashResult => ({
-    person, reason, ...(date !== undefined ? { date } : {}), ranges: ranges.map((r) => ({ ...r })),
-  }));
-  return { ...result, absenceClashes };
+): T | (T & { absenceClashes: AbsenceClashForAi[] }) {
+  if (clashes === undefined || clashes.length === 0 || typeof result !== "object" || result === null) return result;
+  return { ...result, absenceClashes: clashesForAi(clashes) };
 }
 
 function readContactEmail(input: Record<string, unknown>, d: ToolDispatcher): ContactEmail {

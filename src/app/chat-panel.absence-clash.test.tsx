@@ -1,24 +1,19 @@
 // src/app/chat-panel.absence-clash.test.tsx — §773 Task 4: a lone chat write that lands someone's work on
-// their absence goes to the review card instead of being written, and once approved it is written and its
-// tool result still tells the model about the clash.
+// their absence goes to the review card instead of being written; the staged tool result tells Claude about
+// the clash while the card waits, and once approved the write lands.
 import "fake-indexeddb/auto";
 import "../test/ai-consent-live";
 import { newConsent } from "./ai-consent";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { ChatPanel } from "./chat-panel";
-import { runTool, type ToolDispatcher } from "./chat-tools";
+import type { ToolDispatcher } from "./chat-tools";
+import { STAGED_TOOL_RESULT } from "./chat-proposal-stage";
 import { callAbsenceClashes } from "./chat-absence-clashes";
 import { entityToken } from "./ai-entity-token";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { Absence, Resource, Task } from "./types";
-
-// Pass-through spy: lets a test read what a tool returned on the apply path, which feeds nothing back.
-vi.mock("./chat-tools", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./chat-tools")>();
-  return { ...actual, runTool: vi.fn(actual.runTool) };
-});
 
 vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
@@ -86,11 +81,21 @@ function makeDispatcher(): ToolDispatcher {
 }
 
 const usage = { input_tokens: 1, output_tokens: 1 };
-const toolTurn = (input: Record<string, unknown>) => ({
-  content: [{ type: "tool_use", id: "t1", name: "update_task", input }],
+const toolTurn = (...inputs: Record<string, unknown>[]) => ({
+  content: inputs.map((input, i) => ({ type: "tool_use", id: `t${i + 1}`, name: "update_task", input })),
   stop_reason: "tool_use",
   usage,
 });
+const CLASH_JSON = JSON.stringify([
+  { person: "Maya Patel", reason: "date-on-absence", date: "2026-11-05", ranges: [{ start: "2026-11-03", end: "2026-11-07" }] },
+]);
+
+/** The `tool_result` blocks a request body carries back to the model, by id. */
+function resultsIn(body: string): Map<string, string> {
+  const sent = JSON.parse(body) as { messages: { content: unknown }[] };
+  const last = sent.messages[sent.messages.length - 1].content as { type: string; tool_use_id: string; content: string }[];
+  return new Map(last.filter((b) => b.type === "tool_result").map((b) => [b.tool_use_id, b.content]));
+}
 const doneTurn = { content: [{ type: "text", text: "done" }], stop_reason: "end_turn", usage };
 
 function scriptFetch(turns: unknown[], bodies: string[]) {
@@ -137,22 +142,35 @@ describe("a lone chat date write that clashes with an absence (§773)", () => {
     expect(bodies[1]).not.toContain("has NOT been applied");
   });
 
-  it("approving the card writes the task, and its tool result carries absenceClashes", async () => {
+  it("the staged tool result tells Claude about the clash, and approving the card writes the task", async () => {
+    // Mutation: staging with `stagedToolResult(mintedId)` alone (no clashes) turns this red — Claude is told
+    // only that the write waits, with no word of the absence.
     const dispatcher = makeDispatcher();
-    scriptFetch([toolTurn({ id: 1, dueDate: "2026-11-05" }), doneTurn], []);
+    const bodies: string[] = [];
+    scriptFetch([toolTurn({ id: 1, dueDate: "2026-11-05" }), doneTurn], bodies);
     mountAndSend(dispatcher);
 
     const card = await screen.findByRole("region", CARD);
     await screen.findByText("done");
-    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    const staged = resultsIn(bodies[1]).get("t1") ?? "";
+    expect(staged.startsWith(STAGED_TOOL_RESULT)).toBe(true);
+    expect(staged).toContain(`absenceClashes: ${CLASH_JSON}`);
 
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
     await waitFor(() => expect(dispatcher.updateTask).toHaveBeenCalledTimes(1));
     expect(dispatcher.getTask(1)?.dueDate).toBe("2026-11-05");
-    const run = vi.mocked(runTool).mock.calls.findIndex(([, name]) => name === "update_task");
-    expect(run).toBeGreaterThanOrEqual(0);
-    const result = (await vi.mocked(runTool).mock.results[run].value) as Record<string, unknown>;
-    expect(result.absenceClashes).toEqual([
-      { person: "Maya Patel", reason: "date-on-absence", date: "2026-11-05", ranges: [{ start: "2026-11-03", end: "2026-11-07" }] },
-    ]);
+  });
+
+  it("in a staged turn only the clashing call's result names a clash; the other keeps today's text", async () => {
+    const dispatcher = makeDispatcher();
+    const bodies: string[] = [];
+    scriptFetch([toolTurn({ id: 1, dueDate: "2026-11-05" }, { id: 1, priority: "High" }), doneTurn], bodies);
+    mountAndSend(dispatcher);
+
+    await screen.findByRole("region", CARD);
+    await screen.findByText("done");
+    const results = resultsIn(bodies[1]);
+    expect(results.get("t1")).toContain(`absenceClashes: ${CLASH_JSON}`);
+    expect(results.get("t2")).toBe(STAGED_TOOL_RESULT);
   });
 });

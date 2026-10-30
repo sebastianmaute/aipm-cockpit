@@ -26,6 +26,17 @@ export interface AbsenceClash {
   ranges: AbsenceRange[];
 }
 
+/** One clash as the AI reads it (§773): who, why, the date when one fell on the absence, and the absence
+ *  ranges — only "absent" and the dates, never the absence's type or note. The chat's date-tool results and
+ *  its staged results both use it, so Claude sees one shape. */
+export interface AbsenceClashForAi { person: string; reason: ClashReason; date?: string; ranges: AbsenceRange[] }
+
+export function clashesForAi(clashes: readonly AbsenceClash[]): AbsenceClashForAi[] {
+  return clashes.map(({ person, reason, date, ranges }) => ({
+    person, reason, ...(date !== undefined ? { date } : {}), ranges: ranges.map((r) => ({ ...r })),
+  }));
+}
+
 export const AWAY_SUMMARY_MAX_LINES = 60;
 /** Ranges listed on one person's line; the rest are summarised as " +K more". */
 export const AWAY_SUMMARY_MAX_RANGES = 10;
