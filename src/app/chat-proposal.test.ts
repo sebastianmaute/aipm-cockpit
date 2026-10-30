@@ -63,8 +63,9 @@ describe("shouldStage — with a send record", () => {
     expect(shouldStage([call("update_task", { id: 1 })], trusted)).toBe(false);
   });
 
-  test("a lone tokened update applies in an untrusted send", () => {
-    expect(shouldStage([call("update_task", { id: 1 })], untrusted)).toBe(false);
+  // Owner decision (AI-02): with an attachment in the history every change stages, a lone tokened update included.
+  test("a lone tokened update stages in an untrusted send", () => {
+    expect(shouldStage([call("update_task", { id: 1 })], untrusted)).toBe(true);
   });
 
   test("a lone create stages in an untrusted send", () => {

@@ -33,7 +33,7 @@ import { saveSealed } from "./secrets-store";
 import { sealPassphrase } from "./secrets";
 import { peekMintId } from "./id-mint-session";
 import { entityToken } from "./ai-entity-token";
-import type { Resource, Stakeholder, Task } from "./types";
+import type { Task } from "./types";
 import type { UndoBatch } from "./use-undo-batch";
 import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageContext } from "./ai-usage-context";
@@ -3761,135 +3761,21 @@ describe("staged tool calls (the review card)", () => {
     expect(dispatcher.createTask).not.toHaveBeenCalled();
   });
 
-  describe("a tokened stakeholder update in a send with an attachment (AI-02)", () => {
-    const stakeholder = {
-      id: 5, name: "Dana Reed", email: "dana@example.com", category: "Other",
-      influence: "Medium", interest: "Medium", raci: {},
-    } as Stakeholder;
-    const workspace = { ...emptyWorkspace(), stakeholders: [stakeholder] } as Workspace;
-
-    function renderWith(input: Record<string, unknown>) {
-      const dispatcher = makeDispatcher();
-      const extra = dispatcher as unknown as { getStakeholderRow: unknown; updateStakeholder: unknown };
-      extra.getStakeholderRow = vi.fn(() => stakeholder);
-      extra.updateStakeholder = vi.fn(() => ({ ...stakeholder, ...input }));
-      scriptFetch(
-        [
-          toolTurn([
-            {
-              type: "tool_use",
-              id: "t1",
-              name: "update_stakeholder",
-              input: { id: 5, expectedToken: entityToken("stakeholder", stakeholder), ...input },
-            },
-          ]),
-          doneTurn("ok"),
-        ],
-        [],
-      );
-      render(
-        <ChatPanel {...SCOPE_PROPS}
-          lang="en-US"
-          ai={AI_WITH_KEY}
-          dispatcher={dispatcher}
-          workspace={workspace}
-          projectId="p1"
-          getChatConversation={() => withAttachment}
-        />,
-      );
-      send();
-      return extra.updateStakeholder as ReturnType<typeof vi.fn>;
-    }
-
-    // Mutation: dropping the contact-field check in `stagesWhenUntrusted` turns this red: the email write runs.
-    it("changing the email goes to the card, shows the new address and writes nothing", async () => {
-      const update = renderWith({ email: "attacker@evil.example" });
-      const card = await screen.findByRole("region", CARD);
-      await screen.findByText("ok");
-      expect(update).not.toHaveBeenCalled();
-      expect(within(card).getByText(/attacker@evil\.example/)).toBeInTheDocument();
-    });
-
-    // The control: the same tokened call without a contact field applies, so the card above is the gate's doing.
-    it("a change that leaves the email alone applies directly", async () => {
-      const update = renderWith({ notes: "met at the review" });
-      await screen.findByText("ok");
-      expect(screen.queryByRole("region", CARD)).toBeNull();
-      expect(update).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  // The writer derives the stored address from a new assignee (`withReassignFields`), so a name-only reassignment
-  // repoints the inquiry address. Mutation: dropping the person-name key from the gate turns both red: the write runs.
-  describe("a tokened assignee change in a send with an attachment (AI-02)", () => {
+  // Owner decision: with an attachment in the history every change goes to the card, a version-checked one included.
+  // Mutation: restoring the token exemption in `stagesWhenUntrusted` turns this red: the status change applies at once.
+  it("a lone version-checked status change in a send with an attachment goes to the card, and Apply writes it (AI-02)", async () => {
     const task = {
-      id: 1, taskName: "Ship it", assignee: "Alice", assigneeEmail: "alice@example.com", dueDate: "2030-12-31",
-      lastUpdateDate: "2030-01-01", status: "To Do", priority: "Medium", blockers: "", description: "",
+      id: 1, taskName: "Ship it", assignee: "Alice", dueDate: "2030-12-31", lastUpdateDate: "2030-01-01",
+      status: "To Do", priority: "Medium", blockers: "", description: "",
     } as Task;
-    const mallory = { id: 3, firstName: "Mallory", lastName: "Jones", email: "mallory@evil.example" } as Resource;
-    const workspace = { ...emptyWorkspace(), tasks: [task], resources: [mallory] } as Workspace;
-
-    function renderWith(assignee: string) {
-      const dispatcher = makeDispatcher();
-      vi.mocked(dispatcher.getTask).mockImplementation(() => task);
-      scriptFetch(
-        [
-          toolTurn([
-            { type: "tool_use", id: "t1", name: "update_task", input: { id: 1, expectedToken: entityToken("task", task), assignee } },
-          ]),
-          doneTurn("ok"),
-        ],
-        [],
-      );
-      render(
-        <ChatPanel {...SCOPE_PROPS}
-          lang="en-US"
-          ai={AI_WITH_KEY}
-          dispatcher={dispatcher}
-          workspace={workspace}
-          projectId="p1"
-          getChatConversation={() => withAttachment}
-        />,
-      );
-      send();
-      return dispatcher;
-    }
-
-    it("an address typed as the assignee goes to the card and writes nothing", async () => {
-      const dispatcher = renderWith("attacker@evil.example");
-      const card = await screen.findByRole("region", CARD);
-      await screen.findByText("ok");
-      expect(dispatcher.updateTask).not.toHaveBeenCalled();
-      expect(within(card).getByText(/attacker@evil\.example/)).toBeInTheDocument();
-    });
-
-    it("a directory name goes to the card, which shows the address the write would derive", async () => {
-      const dispatcher = renderWith("Mallory Jones");
-      const card = await screen.findByRole("region", CARD);
-      await screen.findByText("ok");
-      expect(dispatcher.updateTask).not.toHaveBeenCalled();
-      expect(within(card).getByText(/mallory@evil\.example/)).toBeInTheDocument();
-    });
-  });
-
-  // The load-time linker resolves unlinked assignees by a directory person's name, so a rename can redirect a
-  // same-name assignee's inquiries. Mutation: dropping the resource match keys from the gate turns this red.
-  it("a tokened directory rename in a send with an attachment goes to the card and writes nothing (AI-02)", async () => {
-    const resource = { id: 3, firstName: "Mallory", lastName: "Jones", email: "mallory@evil.example" } as Resource;
-    const workspace = { ...emptyWorkspace(), resources: [resource] } as Workspace;
+    const workspace = { ...emptyWorkspace(), tasks: [task] } as Workspace;
     const dispatcher = makeDispatcher();
-    const extra = dispatcher as unknown as { getResourceRow: unknown; updateResource: unknown };
-    extra.getResourceRow = vi.fn(() => resource);
-    extra.updateResource = vi.fn(() => ({ ...resource, firstName: "Bob", lastName: "Smith" }));
+    vi.mocked(dispatcher.getTask).mockImplementation(() => task);
+    vi.mocked(dispatcher.updateTask).mockImplementation(() => ({ ...task, status: "Done" }));
     scriptFetch(
       [
         toolTurn([
-          {
-            type: "tool_use",
-            id: "t1",
-            name: "update_resource",
-            input: { id: 3, expectedToken: entityToken("resource", resource), firstName: "Bob", lastName: "Smith" },
-          },
+          { type: "tool_use", id: "t1", name: "update_task", input: { id: 1, expectedToken: entityToken("task", task), status: "Done" } },
         ]),
         doneTurn("ok"),
       ],
@@ -3908,8 +3794,13 @@ describe("staged tool calls (the review card)", () => {
     send();
     const card = await screen.findByRole("region", CARD);
     await screen.findByText("ok");
-    expect(extra.updateResource).not.toHaveBeenCalled();
-    expect(within(card).getAllByText(/Smith/).length).toBeGreaterThan(0);
+    await waitForIdle();
+    expect(dispatcher.updateTask).not.toHaveBeenCalled();
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() =>
+      expect(within(card).getByText(t("en-US", "chatProposalApplied", 1))).toBeInTheDocument(),
+    );
+    expect(dispatcher.updateTask).toHaveBeenCalledTimes(1);
   });
 
   it("an automatic send waits while Apply is running, and the next one carries the applied notice (AI-02)", async () => {

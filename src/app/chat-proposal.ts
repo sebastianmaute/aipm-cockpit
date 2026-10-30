@@ -7,10 +7,7 @@
 //   Everything here is a function of the CALL LIST alone, which is what makes
 //   the gate testable without a fixture workspace. `MintKind` and `SendRecord`
 //   are TYPE-ONLY imports. The one runtime import is `stagesWhenUntrusted`
-//   (AI-02): it reads `TOKEN_REQUIRED_TOOLS`, which is derived from the tool
-//   definitions, so it lives in `chat-send-record.ts`. That module imports this
-//   one back; the cycle is safe because neither side reads the other at module
-//   load, only inside functions.
+//   (AI-02), from `chat-send-record.ts`, which imports only types from here.
 import type { MintKind } from "./id-mint-session";
 import { stagesWhenUntrusted, type SendRecord } from "./chat-send-record";
 
