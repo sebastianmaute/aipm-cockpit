@@ -316,14 +316,55 @@ describe("a shallower AI heading over a FLAT report (no parent heading) is place
   });
 });
 
-describe("the AI opening goes under a bare leading title, not above it", () => {
+describe("the AI opening goes under a leading title, not above it", () => {
   const OPEN = ai("<p>Intro</p><h2>Plan</h2><p>p</p>");
+  const OPEN_SUMMARY = ai("<p>Intro</p><h2>Summary</h2><p>S</p>");
   it("after a leading h1 that has no text of its own", () => {
     expect(applyTake("<h1>Title</h1><h2>Status</h2><p>s</p>", OPEN, [0], true)).toBe("<h1>Title</h1><p>Intro</p><h2>Status</h2><p>s</p>");
   });
-  it("unchanged when the h1 carries text, or the report starts with another heading", () => {
-    expect(applyTake("<h1>T</h1><p>t</p><h2>S</h2>", OPEN, [0], true)).toBe("<p>Intro</p><h1>T</h1><p>t</p><h2>S</h2>");
+  it("also under a title that has text of its own (after that text, before the first sub-heading)", () => {
+    expect(applyTake("<h1>T</h1><p>t</p><h2>S</h2>", OPEN, [0], true)).toBe("<h1>T</h1><p>t</p><p>Intro</p><h2>S</h2>");
+  });
+  it("unchanged when the report starts with another heading", () => {
     expect(applyTake("<h2>S</h2><p>s</p>", OPEN, [0], true)).toBe("<p>Intro</p><h2>S</h2><p>s</p>");
+  });
+  it("an opening taken under the title is counted once: a re-take adds nothing", () => {
+    const once = applyTake("<h1>Board</h1><h2>Status</h2><p>s</p>", OPEN, [0], true);
+    expect(once).toBe("<h1>Board</h1><p>Intro</p><h2>Status</h2><p>s</p>");
+    expect(applyTake(once, OPEN, [0], true)).toBe(once);
+    expect(applyTake(once, OPEN, [0], false)).toBe(once);
+    expect(planTake(once, OPEN, [0])).toEqual({ replacements: [], additions: [] });
+  });
+  it("a second draft's opening lands under the title, after the first opening, never above it", () => {
+    const once = "<h1>Board</h1><p>Intro</p><h2>Status</h2><p>s</p>";
+    expect(applyTake(once, ai("<p>Other</p><h2>Plan</h2>"), [0], true)).toBe("<h1>Board</h1><p>Intro</p><p>Other</p><h2>Status</h2><p>s</p>");
+  });
+  it("and it anchors an unmatched section: Summary lands right after the opening held under the title", () => {
+    expect(applyTake("<h1>Board</h1><p>Intro</p><h2>Notes</h2><p>n</p>", OPEN_SUMMARY, [1], true)).toBe(
+      "<h1>Board</h1><p>Intro</p><h2>Summary</h2><p>S</p><h2>Notes</h2><p>n</p>",
+    );
+  });
+});
+
+describe("a shallower AI heading over a TITLED flat report is placed in situ (only an h2 parent cuts an h2 range)", () => {
+  const TITLED = "<h1>Title</h1><h3>Status</h3><p>s</p><h3>Risks</h3><p>r</p><h3>Notes</h3><p>n</p>";
+  it("Replace keeps the user's order", () => {
+    expect(applyTake(TITLED, ai("<h2>Status</h2><p>x</p>"), [0], true)).toBe("<h1>Title</h1><h2>Status</h2><p>x</p><h3>Risks</h3><p>r</p><h3>Notes</h3><p>n</p>");
+  });
+  it("Take all with Replace keeps the user's order", () => {
+    expect(applyTake(TITLED, ai("<h2>Status</h2><p>xs</p><h2>Risks</h2><p>xr</p>"), [0, 1], true)).toBe(
+      "<h1>Title</h1><h2>Status</h2><p>xs</p><h2>Risks</h2><p>xr</p><h3>Notes</h3><p>n</p>",
+    );
+  });
+});
+
+describe("a placed AI anchor owns no user items", () => {
+  it("Take all over a flat report with an unmatched AI section between two matched ones keeps AI order and the user's order", () => {
+    const FLAT = "<h3>Status</h3><p>s</p><h3>Risks</h3><p>r</p><h3>Notes</h3><p>n</p>";
+    const three = ai("<h2>Status</h2><p>xs</p><h2>Decisions</h2><p>xd</p><h2>Notes</h2><p>xn</p>");
+    expect(applyTake(FLAT, three, [0, 1, 2], true)).toBe(
+      "<h2>Status</h2><p>xs</p><h2>Decisions</h2><p>xd</p><h3>Risks</h3><p>r</p><h2>Notes</h2><p>xn</p>",
+    );
   });
 });
 
