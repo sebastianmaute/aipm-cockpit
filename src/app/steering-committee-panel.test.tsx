@@ -13,7 +13,7 @@ const reportBag: MeetingReportBag = {
   m365Configured: false,
   aiConfigured: false,
   tursoActive: false,
-  onSaveReport: () => {},
+  onSaveReport: () => true,
   onRestorePrevious: () => {},
   onSendReport: () => {},
   sendBusyMeetingId: null,

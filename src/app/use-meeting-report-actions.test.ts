@@ -288,7 +288,7 @@ describe("useMeetingReportActions", () => {
         });
         const deps = makeDeps({ setSteeringCommittee, committee: initial, ...extra });
         const { result } = renderHook(() => useMeetingReportActions(deps));
-        return { result, report: () => state!.meetings[0].report!, set: (s: SteeringCommittee) => { state = s; } };
+        return { result, state: () => state, report: () => state!.meetings[0].report!, set: (s: SteeringCommittee) => { state = s; } };
       }
 
       it("two saves in one act compose: the second's previous is the first text", () => {
@@ -393,6 +393,14 @@ describe("useMeetingReportActions", () => {
         expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.reportDraft", "2026-06-01");
         await waitFor(() => expect(saveVersion).toHaveBeenCalledTimes(1));
         expect(saveVersion.mock.calls[0] as unknown[]).toContainEqual(expect.objectContaining({ html: "<p>x</p>" }));
+      });
+
+      it("a save the live report already holds hands the setter back the SAME committee object", () => {
+        const start: SteeringCommittee = { ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>new</p>", updatedAt: "t9" } }] };
+        const f = frozen(committee());
+        f.set(start);
+        act(() => f.result.current!.onSaveReport(10, "<p>new</p>"));
+        expect(f.state()).toBe(start);
       });
 
       it("two restore-previous calls in one act swap back to where they started", () => {
@@ -565,6 +573,32 @@ describe("useMeetingReportActions", () => {
     await waitFor(() => expect(setSteeringCommittee).toHaveBeenCalled());
     const updater = setSteeringCommittee.mock.calls.at(-1)![0] as (c: SteeringCommittee) => SteeringCommittee;
     expect(updater(committee()).meetings[0].report?.html).toBe("<p>old version</p>");
+  });
+
+  it("a restore whose meeting is deleted during the version load writes nothing and does not say Restored", async () => {
+    loadVersionsFn.mockResolvedValueOnce([
+      { id: "v1", projectId: "p1", meetingId: 10, html: "<p>old version</p>", isAuto: true, capturedAt: "t" },
+    ]);
+    let state: SteeringCommittee | undefined = committee();
+    const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => { state = u(state); });
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ tursoConfig: TURSO, setSteeringCommittee, showToast })));
+    state = { ...committee(), meetings: [] }; // deleted while the versions load
+    await act(async () => { await result.current!.onRestore(10, "v1"); });
+    expect(showToast).not.toHaveBeenCalledWith("info", expect.anything());
+  });
+
+  it("a restore that writes says Restored", async () => {
+    loadVersionsFn.mockResolvedValueOnce([
+      { id: "v1", projectId: "p1", meetingId: 10, html: "<p>old version</p>", isAuto: true, capturedAt: "t" },
+    ]);
+    let state: SteeringCommittee | undefined = committee();
+    const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => { state = u(state); });
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ tursoConfig: TURSO, setSteeringCommittee, showToast })));
+    await act(async () => { await result.current!.onRestore(10, "v1"); });
+    expect(showToast).toHaveBeenCalledWith("info", expect.anything());
+    expect(state!.meetings[0].report?.html).toBe("<p>old version</p>");
   });
 
   it("loadVersions returns [] on file backends", async () => {

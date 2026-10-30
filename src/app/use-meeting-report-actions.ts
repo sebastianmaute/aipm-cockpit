@@ -87,7 +87,8 @@ export interface MeetingReportBag {
   m365Configured: boolean;
   aiConfigured: boolean;
   tursoActive: boolean;
-  onSaveReport: (meetingId: number, html: string, opts?: { fromAi?: boolean }) => void;
+  /** Returns whether the live report was actually written (false: identical body, or the meeting is gone). */
+  onSaveReport: (meetingId: number, html: string, opts?: { fromAi?: boolean }) => boolean;
   /** Swap a report with its previous version (new `updatedAt`, `sentAt` dropped);
    *  a no-op when there is no previous. Calling it again swaps back. */
   onRestorePrevious: (meetingId: number) => void;
@@ -167,9 +168,9 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
 
   // Functional committee setter — writes the report onto the meeting, built from the LIVE report. A changed body
   // drops `sentAt` and moves the old text into `previous`; an identical body writes nothing at all.
-  function onSaveReport(meetingId: number, html: string, opts?: { fromAi?: boolean }): void {
+  function onSaveReport(meetingId: number, html: string, opts?: { fromAi?: boolean }): boolean {
     const meeting = deps.committee?.meetings.find((m) => m.id === meetingId);
-    if (!meeting) return;
+    if (!meeting) return false;
     // Uniform write-time sanitization (defense-in-depth) — every body write
     // (manual save, AI draft, restore) routes through here. A NEW body is
     // unsent, so `sentAt` is intentionally dropped.
@@ -179,12 +180,13 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     // ★ Everything below is decided on what the updater SAW, not on this render's meeting: `writeLiveReport` flushes
     // the setter (§476, baseline-currency-control `confirm`), so the stash is final here. An unchanged body (the live
     // report already holds it, or the meeting is gone) is not a change: no version row, nothing to undo, nothing to log.
-    if (seen.after() === null) return;
+    if (seen.after() === null) return false;
     // Turso: keep the live text we just overwrote as a version (best-effort, never blocks the write).
     const prior = seen.before();
     if (prior) void snapshotCurrent(meetingId, prior.html);
     captureReportChange(meeting.id, meeting.date, seen);
     if (opts?.fromAi) deps.logActivityAs("ai", "ai.reportDraft", meeting.date);
+    return true;
   }
 
   /** Rewrites ONE meeting's report inside a functional setter, from the LIVE `m.report` (N saves in one tick
@@ -207,18 +209,17 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       before = undefined;
       after = undefined;
       if (!c) return c;
-      return {
-        ...c,
-        meetings: c.meetings.map((m) => {
-          if (m.id !== meetingId) return m;
-          const r = next(m.report);
-          if (r === undefined) return m;
-          wrote = true;
-          before = m.report;
-          after = r;
-          return { ...m, report: r };
-        }),
-      };
+      const meetings = c.meetings.map((m) => {
+        if (m.id !== meetingId) return m;
+        const r = next(m.report);
+        if (r === undefined) return m;
+        wrote = true;
+        before = m.report;
+        after = r;
+        return { ...m, report: r };
+      });
+      // Nothing written: hand back the SAME object, so React bails out and no autosave fires for identical data.
+      return wrote ? { ...c, meetings } : c;
     }));
     return { before: () => (wrote ? before : null), after: () => (wrote ? after : null) };
   }
@@ -410,8 +411,9 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       if (dropStaleScopeWrite(deps.getScopeEpoch, startEpoch, "useMeetingReportActions.restore", { meetingId })) return;
       // onSaveReport snapshots the current (pre-restore) report, then writes the
       // restored body — so a restore is itself undoable via a new version.
-      onSaveReport(meetingId, v.html);
-      deps.showToast("info", t(deps.lang, "reportRestored"));
+      // The toast only follows a write that happened (not a version identical to the live text, nor a meeting deleted
+      // while the versions loaded).
+      if (onSaveReport(meetingId, v.html)) deps.showToast("info", t(deps.lang, "reportRestored"));
     } catch {
       deps.showToast("error", t(deps.lang, "reportGenerateFailed"));
     } finally {
