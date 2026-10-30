@@ -36,7 +36,7 @@ import { entityToken } from "./ai-entity-token";
 import type { Task } from "./types";
 import type { UndoBatch } from "./use-undo-batch";
 import type { ChatConversation } from "./workspace-tab-context";
-import { useAiUsageContext } from "./ai-usage-context";
+import { useAiUsageActions } from "./ai-usage-context";
 import type { SendFingerprint } from "./ai-view-switch";
 
 // §548/§596 — `ChatPanel`'s two scope readers are REQUIRED props (see
@@ -68,8 +68,8 @@ vi.mock("./chat-threads-store", () => ({
 // `noteUnbilledChatSend`, matching the real context's own default value
 // (chat-panel is rendered directly in this file with no <AiUsageProvider>, so
 // it was already reading that default). Token usage is not the panel's to
-// record (the transport's tap does it). Individual tests override the return
-// value to spy on `recordChatSend`.
+// record (the transport's tap does it). The panel reads the two callbacks through
+// `useAiUsageActions` (AI-03); individual tests override its return value to spy on `recordChatSend`.
 //
 // Hoisted (vi.hoisted) so this object can be shared between the factory below
 // and the per-test beforeEach in the "cache-token usage recording" describe
@@ -93,6 +93,7 @@ const { DEFAULT_AI_USAGE_CONTEXT } = vi.hoisted(() => ({
 }));
 
 vi.mock("./ai-usage-context", () => ({
+  useAiUsageActions: vi.fn(() => DEFAULT_AI_USAGE_CONTEXT),
   useAiUsageContext: vi.fn(() => DEFAULT_AI_USAGE_CONTEXT),
 }));
 
@@ -4282,16 +4283,16 @@ describe("cache-token usage recording", () => {
   // reads whatever this block's last test left behind. The override must also
   // be undone in afterEach so nothing outside this block can ever observe it.
   beforeEach(() => {
-    vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
+    vi.mocked(useAiUsageActions).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
   });
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
+    vi.mocked(useAiUsageActions).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
   });
 
   it("hands the view-switch counter the cache writes of every turn of a send", async () => {
     const recordChatSendSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
     });
@@ -4367,7 +4368,7 @@ describe("cache-token usage recording", () => {
   // of one conversation or no send could ever count as a switch.
   it("hands each finished send's system blocks, thread and cache writes to the view-switch counter", async () => {
     const recordChatSendSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
     });
@@ -4447,7 +4448,7 @@ describe("cache-token usage recording", () => {
   // every response that arrived, a stale one included.
   it("gives the counter the cache write of a response that landed after a scope change", async () => {
     const recordChatSendSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
     });
@@ -4506,7 +4507,7 @@ describe("cache-token usage recording", () => {
   it("notes, without counting, a send that failed after a response", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
       noteUnbilledChatSend: noteSpy,
@@ -4543,7 +4544,7 @@ describe("cache-token usage recording", () => {
   it("tells the counter nothing about a send whose first request failed", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
       noteUnbilledChatSend: noteSpy,
@@ -4564,7 +4565,7 @@ describe("cache-token usage recording", () => {
   it("notes, without counting, a send stopped after its request answered", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
       noteUnbilledChatSend: noteSpy,
@@ -4600,7 +4601,7 @@ describe("cache-token usage recording", () => {
   it("notes a send whose second request was aborted, dated from the last request that answered", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
       noteUnbilledChatSend: noteSpy,

@@ -39,6 +39,7 @@ vi.mock("./chat-threads-store", () => ({
 }));
 
 vi.mock("./ai-usage-context", () => ({
+  useAiUsageActions: vi.fn(() => ({ recordChatSend: vi.fn(), noteUnbilledChatSend: vi.fn() })),
   useAiUsageContext: vi.fn(() => ({
     sessionTotal: 0,
     sessionUsage: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 },

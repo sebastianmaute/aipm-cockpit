@@ -13,7 +13,7 @@ import { AiConsentRevokedError, isConsentCurrent } from "./ai-consent";
 import { aiDeploymentBlockedMessageKey } from "./ai-deployment";
 import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
-import { useAiUsageContext } from "./ai-usage-context";
+import { useAiUsageActions } from "./ai-usage-context";
 import type { SendFingerprint } from "./ai-view-switch";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
@@ -474,7 +474,8 @@ function ChatPanelInner({
     tursoMode, tursoConfig, projectId, lang, busy, history, display, setHistory, setDisplay, cancelledRef, abortRef, confirm,
   });
   const { ref: chatRef, reset: resetChatSize } = useResizable("aipm-cockpit:chat-size-v2");
-  const { recordChatSend, noteUnbilledChatSend } = useAiUsageContext();
+  // AI-03 — the callbacks alone: the full usage context changes on every usage event (`useAiUsageActions`).
+  const { recordChatSend, noteUnbilledChatSend } = useAiUsageActions();
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.
   const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai, ai.model);

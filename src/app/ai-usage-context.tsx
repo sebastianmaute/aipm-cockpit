@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -106,6 +107,17 @@ export type AiUsageContextValue = {
 };
 
 const EMPTY_SESSION_USAGE: Usage = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 };
+
+/** The chat panel's two callbacks, apart from the usage figures (AI-03). */
+export type AiUsageActions = Pick<AiUsageContextValue, "recordChatSend" | "noteUnbilledChatSend">;
+
+// ★★ ITS OWN CONTEXT, with a value that keeps its identity. The provider re-renders on every tap from any path,
+//  background included, and on every other tab's recording; a consumer of the full context re-renders with it,
+//  whatever `memo` its parent has. The memoised `ChatPanel` needs only these callbacks, so it reads this context.
+const AiUsageActionsContext = createContext<AiUsageActions>({
+  recordChatSend: () => {},
+  noteUnbilledChatSend: () => {},
+});
 
 const AiUsageContext = createContext<AiUsageContextValue>({
   sessionTotal: 0,
@@ -299,6 +311,9 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
         storageFailedRef.current = true;
       }
       const nextWeek = weekToDate(totalsByDay(nextBuckets), now);
+      // ★ The cap verdict is published HERE as well as by the effect below: the effect runs only after React
+      //  commits, so a background request started in this same tick would still pass the consent check.
+      if (hardCap !== undefined && nextWeek >= hardCap) publishBackgroundCapState(true);
       const nextSession = prevSession + tokens;
       const nextSessionUsage: Usage = {
         input: prevSessionUsage.input + normalized.input,
@@ -413,6 +428,11 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
   }, [weekHardCapReached]);
   const viewSwitchWeek = weekViewSwitchStats(viewSwitchBuckets, now);
 
+  const actions = useMemo<AiUsageActions>(
+    () => ({ recordChatSend, noteUnbilledChatSend: rememberSend }),
+    [recordChatSend, rememberSend],
+  );
+
   const value: AiUsageContextValue = {
     sessionTotal,
     sessionUsage,
@@ -426,10 +446,19 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
     noteUnbilledChatSend: rememberSend,
   };
 
-  return <AiUsageContext.Provider value={value}>{children}</AiUsageContext.Provider>;
+  return (
+    <AiUsageActionsContext.Provider value={actions}>
+      <AiUsageContext.Provider value={value}>{children}</AiUsageContext.Provider>
+    </AiUsageActionsContext.Provider>
+  );
 }
 
 /** Consumes the shared usage state. Must be used inside <AiUsageProvider>. */
 export function useAiUsageContext(): AiUsageContextValue {
   return useContext(AiUsageContext);
+}
+
+/** The chat-send callbacks alone, stable across usage events. Use it where the figures are not needed. */
+export function useAiUsageActions(): AiUsageActions {
+  return useContext(AiUsageActionsContext);
 }

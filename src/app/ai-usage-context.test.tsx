@@ -1,7 +1,7 @@
 // src/app/ai-usage-context.test.tsx
-import { act, renderHook } from "@testing-library/react";
+import { act, render as renderTree, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { isBackgroundCapReached, publishBackgroundCapState } from "./ai-consent";
 import type { AiConfig } from "./settings-types";
 import {
@@ -10,6 +10,7 @@ import {
   AI_COST_BASIS_NOTICE_KEY,
   AI_VIEW_SWITCH_KEY,
   AiUsageProvider,
+  useAiUsageActions,
   useAiUsageContext,
 } from "./ai-usage-context";
 import { defaultAiConfig } from "./settings-types";
@@ -182,6 +183,35 @@ describe("AiUsageProvider weekly hard cap (AI-03)", () => {
     await act(async () => {});
     act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
     expect(showToast.mock.calls.filter((c) => c[1] === t("en-US", "aiHardCapPausedToast"))).toHaveLength(1);
+  });
+
+  // AI-03 — the verdict is published inside the tap that reaches the cap, not only by the effect after the next commit,
+  // so a background request started in the same tick is already refused.
+  // Mutation: dropping the synchronous `publishBackgroundCapState(true)` from the tap listener turns this red.
+  it("publishes reached inside the tap that reaches the cap, before React commits", async () => {
+    seedWeek(900);
+    render(vi.fn(), withCap(1000));
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(false);
+    let inTick: boolean | undefined;
+    act(() => {
+      emitUsage("chat", { input: 150, output: 0, cacheWrite: 0, cacheRead: 0 });
+      inTick = isBackgroundCapReached();
+    });
+    expect(inTick).toBe(true);
+    expect(isBackgroundCapReached()).toBe(true);
+  });
+
+  it("a tap below the cap publishes nothing in its tick", async () => {
+    seedWeek(100);
+    render(vi.fn(), withCap(1000));
+    await act(async () => {});
+    let inTick: boolean | undefined;
+    act(() => {
+      emitUsage("chat", { input: 150, output: 0, cacheWrite: 0, cacheRead: 0 });
+      inTick = isBackgroundCapReached();
+    });
+    expect(inTick).toBe(false);
   });
 });
 
@@ -818,5 +848,30 @@ describe("AiUsageProvider — view-switch counter (§702)", () => {
       switchCacheWrite: 0,
       warmCacheWrite: 0,
     });
+  });
+});
+
+// AI-03 — every tap from any path, background included, re-renders the provider. A consumer that needs only the
+// chat-send callbacks (the memoised `ChatPanel`) reads them from `useAiUsageActions`, whose value keeps its identity,
+// so it does not re-render on a usage event.
+// Mutation: `useAiUsageActions` reading the full usage context turns this red: the child renders again per tap.
+describe("useAiUsageActions", () => {
+  it("does not re-render a memoised consumer on a usage event, and keeps the callbacks' identity", async () => {
+    const seen: unknown[] = [];
+    const Child = memo(function Child() {
+      seen.push(useAiUsageActions());
+      return null;
+    });
+    renderTree(
+      <AiUsageProvider lang="en-US" ai={{ ...defaultAiConfig }} showToast={vi.fn()}>
+        <Child />
+      </AiUsageProvider>,
+    );
+    await act(async () => {});
+    const before = seen.length;
+    act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("report_analysis:background", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(seen.length).toBe(before);
+    expect(new Set(seen).size).toBe(1);
   });
 });
