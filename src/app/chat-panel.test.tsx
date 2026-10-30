@@ -3872,6 +3872,107 @@ describe("staged tool calls (the review card)", () => {
     });
   });
 
+  // The load-time linker resolves unlinked assignees by a directory person's name, so a rename can redirect a
+  // same-name assignee's inquiries. Mutation: dropping the resource match keys from the gate turns this red.
+  it("a tokened directory rename in a send with an attachment goes to the card and writes nothing (AI-02)", async () => {
+    const resource = { id: 3, firstName: "Mallory", lastName: "Jones", email: "mallory@evil.example" } as Resource;
+    const workspace = { ...emptyWorkspace(), resources: [resource] } as Workspace;
+    const dispatcher = makeDispatcher();
+    const extra = dispatcher as unknown as { getResourceRow: unknown; updateResource: unknown };
+    extra.getResourceRow = vi.fn(() => resource);
+    extra.updateResource = vi.fn(() => ({ ...resource, firstName: "Bob", lastName: "Smith" }));
+    scriptFetch(
+      [
+        toolTurn([
+          {
+            type: "tool_use",
+            id: "t1",
+            name: "update_resource",
+            input: { id: 3, expectedToken: entityToken("resource", resource), firstName: "Bob", lastName: "Smith" },
+          },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        workspace={workspace}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(extra.updateResource).not.toHaveBeenCalled();
+    expect(within(card).getAllByText(/Smith/).length).toBeGreaterThan(0);
+  });
+
+  it("an automatic send waits while Apply is running, and the next one carries the applied notice (AI-02)", async () => {
+    // Mutation: dropping the applying term from `sendGateRef.blocked` turns this red: the seed goes out mid-apply.
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.deleteTask).mockReturnValue(true);
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } }]),
+        doneTurn("ok"),
+        doneTurn("after"),
+      ],
+      bodies,
+    );
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runBatched = vi.fn(async (fn: () => unknown) => {
+      await held;
+      return fn();
+    });
+    const props = {
+      ...SCOPE_PROPS,
+      lang: "en-US" as const,
+      ai: AI_WITH_KEY,
+      dispatcher,
+      runBatched: runBatched as unknown as UndoBatch["runBatched"],
+      onChatSeedConsumed: vi.fn(),
+    };
+    const { rerender } = render(<ChatPanel {...props} chatSeed={null} />);
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    await waitForIdle();
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() => expect(runBatched).toHaveBeenCalledTimes(1));
+
+    rerender(<ChatPanel {...props} chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(bodies).toHaveLength(2);
+    // Held back, the seed is a prefill, not lost.
+    expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toHaveValue("What's next?");
+
+    await act(async () => {
+      release();
+    });
+    await waitFor(() =>
+      expect(within(card).getByText(t("en-US", "chatProposalApplied", 1))).toBeInTheDocument(),
+    );
+    // The held seed is sent as a prefill: unchanged, it still carries the page it was asked from. ★ This is what
+    // tells the gate's own term apart from the `submitPrompt` guard behind it: without the term the seed is
+    // submitted, refused by that guard, and its origin is dropped, so the send below would come from the chat.
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(bodies).toHaveLength(3));
+    expect(bodies[2]).toContain(appliedProposalNotice(1, 0));
+    expect(bodies[2]).toContain("What's next?");
+    expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: "dashboard" });
+  });
+
   it("a send is refused while Apply is running, and the next one carries the applied notice (AI-02)", async () => {
     // Mutation: dropping the applying check from the send guard turns this red: the send goes out mid-apply, and its
     // end rewrites the history without the applied notice.
