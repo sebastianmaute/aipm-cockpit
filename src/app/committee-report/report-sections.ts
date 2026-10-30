@@ -1,6 +1,10 @@
 // Pure section split and merge for the AI meeting-report draft (AI-04). DOM-free:
 // the input is already-sanitized rich-text HTML, so a string split on h1-h4 is
 // enough; never call DOMPurify here (docs/AGENTS/rich-text.md).
+//
+// ★ Splitting assumes TOP-LEVEL headings. HEADING_RE is markup-blind, so a heading nested in a container (a
+// blockquote, a list item) splits that element mid-way: the pieces are unbalanced fragments that still concatenate
+// back to the input, and the save re-sanitizes the joined text (pinned in report-sections.test.ts).
 import { htmlToPlainText } from "../html-to-text";
 
 // The ONE blank rule (the hook refuses to send a blank body, the panel disables Send on it, the sanitizer drops a
@@ -129,7 +133,9 @@ function insertionPoint(
       placedAt !== -1
         ? placedAt
         : ai[j].level === 0
-          ? level0
+          ? // The AI's opening is an anchor only when the user's text really holds it (same html); the user's OWN
+            // intro is not the AI's opening, so keep walking back (to the end if nothing else anchors).
+            (items[level0]?.section.html === ai[j].html ? level0 : -1)
           : items.findIndex(
               (it) =>
                 it.section.level !== 0 &&
@@ -158,6 +164,8 @@ function run(
   for (const aiIndex of order) {
     const sec = ai[aiIndex];
     const placed: Item = { section: sec, placed: true };
+    // An opening the text already holds, word for word, is already there: neither a replacement nor an addition.
+    if (sec.level === 0 && items.some((it) => it.section.level === 0 && it.section.html === sec.html)) continue;
     const m = sec.level === 0 ? -1 : findUserMatch(items, sec.key);
     if (m === -1) {
       plan.additions.push(aiIndex);

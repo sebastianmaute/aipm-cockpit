@@ -98,6 +98,58 @@ describe("useReportUndoGuard (AI-04)", () => {
   });
 });
 
+describe("a through-op acts only on what it asked about (AI-04)", () => {
+  function deferred(stack: UndoMeta[], redoStack: UndoMeta[]) {
+    const api = { undo: vi.fn(), undoById: vi.fn(), undoThrough: vi.fn(), redo: vi.fn(), redoThrough: vi.fn(), stack, redoStack };
+    let answer: (ok: boolean) => void = () => {};
+    const confirm = vi.fn(() => new Promise<boolean>((r) => { answer = r; }));
+    const dialogsRef: { current: AppDialogs } = { current: { confirm, prompt: vi.fn(async () => null), notice: vi.fn(async () => {}) } };
+    const { result } = renderHook(() => useReportUndoGuard({ api, dialogsRef, lang: "en-US" }));
+    return { api, guarded: result.current, answer: (ok: boolean) => answer(ok) };
+  }
+
+  it("undoThrough does nothing when a capture landed on top while the dialog was open", async () => {
+    openDirtyReport();
+    const stack = [meta(1, "meetingReport.updated")];
+    const h = deferred(stack, []);
+    h.guarded.undoThrough(1);
+    stack.push(meta(2, "task.updated"));
+    h.answer(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(h.api.undoThrough).not.toHaveBeenCalled();
+  });
+
+  it("undoThrough runs when the top is still the one it asked about", async () => {
+    openDirtyReport();
+    const stack = [meta(1, "meetingReport.updated"), meta(2, "task.updated")];
+    const h = deferred(stack, []);
+    h.guarded.undoThrough(1);
+    h.answer(true);
+    await vi.waitFor(() => expect(h.api.undoThrough).toHaveBeenCalledWith(1));
+  });
+
+  it("redoThrough and redo do nothing when the redo stack grew meanwhile", async () => {
+    openDirtyReport();
+    const redoStack = [meta(3, "meetingReport.updated")];
+    const a = deferred([], redoStack);
+    a.guarded.redoThrough(3);
+    redoStack.push(meta(4, "task.updated"));
+    a.answer(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(a.api.redoThrough).not.toHaveBeenCalled();
+    const redo2 = [meta(5, "meetingReport.updated")];
+    const b = deferred([], redo2);
+    b.guarded.redo();
+    redo2.push(meta(6, "task.updated"));
+    b.answer(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(b.api.redoThrough).not.toHaveBeenCalled();
+  });
+});
+
 describe("confirmReportUndo (AI-04)", () => {
   const dialogs = (answer: boolean): { d: AppDialogs; confirm: ReturnType<typeof vi.fn> } => {
     const confirm = vi.fn(async () => answer);

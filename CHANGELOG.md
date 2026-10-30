@@ -23,7 +23,7 @@ longer carries its own changelog comment.
   typing. Saving a changed report keeps one previous version, on every storage type, which you can compare with the
   current report or restore; saving an unchanged report changes nothing, so it keeps its sent date. Restoring the
   previous version, or one from the Turso version list, asks first when the editor has unsaved changes. Saving (a take included) and restoring can be undone; a take on its own is not undoable.
-  Ctrl+Z and redo anywhere in the report dialog, its buttons and root included, no longer trigger the app's undo. An
+  Ctrl+Z and redo anywhere in the report dialog, its buttons and root included, and in the questions it asks (Replace or Keep both, unsaved changes), no longer trigger the app's undo. An
   AI-drafted report is logged in the activity log as written by the AI. Sending a blank report is refused.
 
 - **Reassigning a task moves its planned hours (§774).** When a task changes owner, in the Workload triage, the task

@@ -164,6 +164,46 @@ describe("applyTake", () => {
   });
 });
 
+describe("an unmatched section goes after the nearest preceding AI section the text also holds, else at the end", () => {
+  const AI = ai("<p>AI intro</p><h2>Summary</h2><p>S</p><h2>Risks</h2><p>R</p>");
+
+  it("the user's own intro is not the AI's opening: Summary goes to the end", () => {
+    expect(applyTake("<p>my intro</p><h2>Notes</h2><p>n</p>", AI, [1], true)).toBe(
+      "<p>my intro</p><h2>Notes</h2><p>n</p><h2>Summary</h2><p>S</p>",
+    );
+  });
+
+  it("with no intro at all it is the end too (the same answer either way)", () => {
+    expect(applyTake("<h2>Notes</h2><p>n</p>", AI, [1], true)).toBe("<h2>Notes</h2><p>n</p><h2>Summary</h2><p>S</p>");
+  });
+
+  it("take all: the opening is placed, and Summary lands right after it", () => {
+    expect(applyTake("<h2>Notes</h2><p>n</p>", AI, [0, 1], true)).toBe(
+      "<p>AI intro</p><h2>Summary</h2><p>S</p><h2>Notes</h2><p>n</p>",
+    );
+    expect(applyTake("<p>my intro</p><h2>Notes</h2><p>n</p>", AI, [0, 1], true)).toBe(
+      "<p>my intro</p><p>AI intro</p><h2>Summary</h2><p>S</p><h2>Notes</h2><p>n</p>",
+    );
+  });
+
+  it("an opening the text already holds word for word IS an anchor", () => {
+    expect(applyTake("<p>AI intro</p><h2>Notes</h2><p>n</p>", AI, [1], true)).toBe(
+      "<p>AI intro</p><h2>Summary</h2><p>S</p><h2>Notes</h2><p>n</p>",
+    );
+  });
+});
+
+describe("taking the AI opening twice", () => {
+  const AI = ai("<p>AI intro</p><h2>Summary</h2><p>S</p>");
+  it("leaves one copy, and the plan reports neither a replacement nor an addition the second time", () => {
+    const once = applyTake("<h2>Notes</h2><p>n</p>", AI, [0], true);
+    expect(once).toBe("<p>AI intro</p><h2>Notes</h2><p>n</p>");
+    expect(applyTake(once, AI, [0], true)).toBe(once);
+    expect(applyTake(once, AI, [0], false)).toBe(once);
+    expect(planTake(once, AI, [0])).toEqual({ replacements: [], additions: [] });
+  });
+});
+
 describe("Keep both keeps the AI sections in AI order", () => {
   const USER = "<h2>Risks</h2><p>r</p><h3>Vendor</h3><p>v</p><h2>Next</h2><p>n</p>";
   const AI = ai("<h2>Risks</h2><p>R</p><h2>Vendor</h2><p>V</p>");

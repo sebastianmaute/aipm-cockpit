@@ -10,6 +10,8 @@
 //         "the hotkey calls the guarded ops" is red.
 //   MW3 — `useReportUndoGuard({ api: undoApi, … })` handed anything but the undo stack:
 //         "the guard wraps the real undo stack" is red.
+//   MW4 — delete `confirmBeforeUndo: …` from the `useUndoStack({ … })` call (the save toast's Undo then skips the
+//         guard): "the save toast's Undo asks through confirmReportUndo" is red.
 import { describe, expect, it, beforeAll, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
@@ -22,6 +24,8 @@ const captured = vi.hoisted(() => ({
   hotkeyUndo: undefined as (() => void) | undefined,
   hotkeyRedo: undefined as (() => void) | undefined,
   undoControl: undefined as ReactNode,
+  undoDeps: undefined as import("./undo/use-undo-stack").UseUndoStackDeps | undefined,
+  confirmReportUndo: vi.fn(() => true as const),
 }));
 
 vi.mock("./use-report-undo-guard", () => ({
@@ -30,6 +34,7 @@ vi.mock("./use-report-undo-guard", () => ({
     captured.guardDialogs = deps.dialogsRef;
     return captured.guarded;
   },
+  confirmReportUndo: (...args: unknown[]) => (captured.confirmReportUndo as (...a: unknown[]) => unknown)(...args),
 }));
 
 vi.mock("./undo/use-undo-stack", async (importOriginal) => {
@@ -37,6 +42,7 @@ vi.mock("./undo/use-undo-stack", async (importOriginal) => {
   function useUndoStack(deps: Parameters<typeof actual.useUndoStack>[0]) {
     const api = actual.useUndoStack(deps);
     captured.undoApi = api;
+    captured.undoDeps = deps;
     return api;
   }
   return { ...actual, useUndoStack };
@@ -94,6 +100,17 @@ describe("AI-04 task-manager routes undo through the report guard", () => {
     expect(captured.undoApi).toBeDefined(); // anti-vacuity
     expect(captured.guardApi).toBe(captured.undoApi);
     expect(typeof (captured.guardDialogs as { current: { confirm: unknown } }).current.confirm).toBe("function");
+  });
+
+  it("the save toast's Undo asks through confirmReportUndo (MW4)", () => {
+    expect(typeof captured.undoDeps?.confirmBeforeUndo).toBe("function"); // anti-vacuity
+    const entry = { id: 7, kind: "meetingReport.updated", count: 1, timestamp: "t", label: "l" };
+    expect(captured.undoDeps!.confirmBeforeUndo!(entry as import("./undo/undo-stack").UndoMeta)).toBe(true);
+    expect(captured.confirmReportUndo).toHaveBeenCalledTimes(1);
+    const args = captured.confirmReportUndo.mock.calls[0] as unknown as unknown[];
+    expect(args[0]).toEqual([entry]);
+    expect(args[1]).toBe((captured.guardDialogs as { current: unknown }).current);
+    expect(args[3]).toBe("undo");
   });
 
   it("the top-bar controls call the guarded ops (MW1)", () => {

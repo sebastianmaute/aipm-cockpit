@@ -18,10 +18,13 @@
 // ★ The save toast's Undo does not need to be unreachable: `useUndoStack` asks `confirmBeforeUndo` (task-manager wires
 //   it to `confirmReportUndo` below) before running a toast Undo, so it asks exactly like the top bar.
 //
-// ★ After the confirm the op runs on the entry that was on top when it was ASKED (`undoById` / `redoThrough`), never
-//   on whatever is on top by then: a capture that lands while the dialog is open must not be the one undone.
+// ★ After the confirm the op runs only on what was ASKED about. A plain undo runs `undoById` on the entry that was on
+//   top; a through-undo / redo runs only if the top of that stack is STILL the one it asked about (read live, from the
+//   latest committed `api`), else it does nothing: a capture that lands while the dialog is open must not be undone
+//   with it. Redo has no by-id op, so it takes the same do-nothing rule.
 //
 // Handlers are deliberately NOT memoized (deps-object convention): each reads the live stacks.
+import { useEffect, useRef } from "react";
 import { t, type Lang } from "./i18n";
 import type { AppDialogs } from "./confirm-dialog";
 import type { UndoStackApi } from "./undo/use-undo-stack";
@@ -67,6 +70,12 @@ export function confirmReportUndo(
 }
 
 export function useReportUndoGuard({ api, dialogsRef, lang }: ReportUndoGuardDeps): GuardedOps {
+  // The latest committed api: the stacks as they are when the confirm resolves, not as they were when it was asked.
+  const liveApi = useRef(api);
+  useEffect(() => {
+    liveApi.current = api;
+  });
+  const topId = (which: "stack" | "redoStack"): number | undefined => liveApi.current[which].at(-1)?.id;
   /** `runNow` when nothing needs asking; `runAfterAsk` (bound to the entries as they were ASKED) once confirmed. */
   const guard = (entries: readonly UndoMeta[], confirmKey: "undo" | "redo", runNow: () => void, runAfterAsk: () => void): void => {
     const ok = confirmReportUndo(entries, dialogsRef.current, lang, confirmKey);
@@ -83,11 +92,25 @@ export function useReportUndoGuard({ api, dialogsRef, lang }: ReportUndoGuardDep
       const top = api.stack[api.stack.length - 1];
       guard(top ? [top] : [], "undo", api.undo, () => api.undoById(top.id));
     },
-    undoThrough: (id) => guard(throughTop(api.stack, id), "undo", () => api.undoThrough(id), () => api.undoThrough(id)),
+    undoThrough: (id) => {
+      const entries = throughTop(api.stack, id);
+      const asked = entries.at(-1)?.id;
+      guard(entries, "undo", () => api.undoThrough(id), () => {
+        if (topId("stack") === asked) api.undoThrough(id);
+      });
+    },
     redo: () => {
       const top = api.redoStack[api.redoStack.length - 1];
-      guard(top ? [top] : [], "redo", api.redo, () => api.redoThrough(top.id));
+      guard(top ? [top] : [], "redo", api.redo, () => {
+        if (topId("redoStack") === top.id) api.redoThrough(top.id);
+      });
     },
-    redoThrough: (id) => guard(throughTop(api.redoStack, id), "redo", () => api.redoThrough(id), () => api.redoThrough(id)),
+    redoThrough: (id) => {
+      const entries = throughTop(api.redoStack, id);
+      const asked = entries.at(-1)?.id;
+      guard(entries, "redo", () => api.redoThrough(id), () => {
+        if (topId("redoStack") === asked) api.redoThrough(id);
+      });
+    },
   };
 }

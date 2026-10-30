@@ -81,6 +81,13 @@ describe("isBlankHtml", () => {
   it.each(["<p>word</p>", "x", "<ul><li>item</li></ul>", "<p><br>a</p>"])("counts %j as text", (html) =>
     expect(isBlankHtml(html)).toBe(false),
   );
+  it.each(["<p>&#160;</p>", "<p>&#xA0;</p>", "<p>&#xa0;&#32;&nbsp;</p>", "&#9;"])("counts the numeric whitespace in %j as blank", (html) =>
+    expect(isBlankHtml(html)).toBe(true),
+  );
+  it("does not read other numeric references as blank", () => {
+    expect(isBlankHtml("<p>&#65;</p>")).toBe(false);
+    expect(isBlankHtml("<p>&#0;&#99999999;</p>")).toBe(false);
+  });
   it("leaves htmlToPlainText's own output alone (the list marker is still added there)", () => {
     expect(htmlToPlainText("<ul><li></li></ul>")).toBe("-");
   });

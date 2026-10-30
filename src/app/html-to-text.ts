@@ -20,9 +20,17 @@ export function htmlToPlainText(html: string): string {
   return s.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/** Numeric references that are whitespace (`&#160;`, `&#xA0;`, `&#32;`) read as a space; other references are left. */
+function numericWhitespaceToSpace(html: string): string {
+  return html.replace(/&#(x[0-9a-f]+|[0-9]+);/gi, (whole, body: string) => {
+    const n = body[0].toLowerCase() === "x" ? Number.parseInt(body.slice(1), 16) : Number.parseInt(body, 10);
+    return Number.isFinite(n) && n > 0 && n <= 0x10ffff && /\s/.test(String.fromCodePoint(n)) ? " " : whole;
+  });
+}
+
 /** True when `html` shows no text at all: empty, only tags and whitespace (an emptied editor emits `<p></p>`, a
  *  lone `<p><br></p>` or an empty list), with the dash markers htmlToPlainText adds for a list item NOT counted as
  *  text. Its own check, so htmlToPlainText's output for every other caller stays as it was. */
 export function isBlankHtml(html: string): boolean {
-  return htmlToPlainText(replaceOpenTags(html, "<\\s*[Ll][Ii]", "")) === "";
+  return htmlToPlainText(replaceOpenTags(numericWhitespaceToSpace(html), "<\\s*[Ll][Ii]", "")) === "";
 }

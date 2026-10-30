@@ -193,6 +193,7 @@ export function MeetingReportPanel({
     const replace =
       plan.replacements.length > 0 &&
       (await confirm({
+        appUndoOff: true,
         title: t(lang, "reportTakeConfirmTitle"),
         message: takeConfirmMessage(lang, plan),
         confirmLabel: t(lang, "reportTakeReplace"),
@@ -202,7 +203,7 @@ export function MeetingReportPanel({
     // editor now shows the new stored body, so the take is dropped rather than applied to old text. Likewise
     // a new draft (or a discard) replaced the proposal: `indices` point into a proposal that is gone.
     if (updatedAtRef.current !== startedAt || proposalAtRef.current !== proposalAt) {
-      void notice({ title: t(lang, "reportTakeDroppedTitle"), message: t(lang, "reportTakeDroppedBody") });
+      void notice({ appUndoOff: true, title: t(lang, "reportTakeDroppedTitle"), message: t(lang, "reportTakeDroppedBody") });
       return;
     }
     focusAfterTakeRef.current = Math.max(...indices);
@@ -233,6 +234,7 @@ export function MeetingReportPanel({
    *  dirty: a clean restore stays synchronous (no await on its path). */
   function confirmRestoreOverUnsaved(messageKey: "reportRestoreUnsavedBody" | "reportRestoreVersionUnsavedBody"): Promise<boolean> {
     return confirm({
+      appUndoOff: true,
       title: t(lang, "reportUnsavedTitle"),
       message: t(lang, messageKey),
       confirmLabel: t(lang, "reportRestore"),

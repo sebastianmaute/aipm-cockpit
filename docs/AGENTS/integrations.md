@@ -72,7 +72,7 @@ the stack refuse every report save once a currency change or version restore mov
 `onRestorePrevious` swaps current and previous, is undoable, sanitizes the body it writes and (Turso) snapshots the text it replaced; "blank" everywhere means `isBlankReport` (an emptied editor emits `<p></p>`, not ""), so a blank replaced body is never kept as `previous` and the sanitizer drops a blank `previous`; both it and the Turso version list's Restore ask first
 in the panel over unsaved editor text; `use-report-undo-guard.ts` asks first when the top-bar
 undo would reverse a report change over unsaved edits. The report `Modal` passes `appUndoOff`, which puts
-`data-app-undo="off"` on the dialog ROOT, so the Ctrl+Z / redo hotkey is off on the `tabIndex={-1}` root as well. ★★ `MeetingReport.previous` (`{html, savedAt}`, one slot) rides
+`data-app-undo="off"` on the dialog ROOT, so the Ctrl+Z / redo hotkey is off on the `tabIndex={-1}` root as well; the confirms and the notice the panel opens pass `appUndoOff` too (`ConfirmOptions` / `NoticeOptions`), because `ConfirmProvider` renders at the app root, outside that subtree. ★★ `MeetingReport.previous` (`{html, savedAt}`, one slot) rides
 the same blob as the report and is validated in the sanitizer (a malformed one is dropped, the report kept); Turso still
 keeps its own version list. It lives in the committee blob, so it reaches each backend with the blob. Six paths, counted here: JSON, CSV and
 Markdown (`steering-committee-persistence.test.ts`, which also covers a blank `html`), Turso single-tenant and tenant
