@@ -779,19 +779,49 @@ describe("every tool that can stage gets a described card line (AI-02)", () => {
   });
 
   // ★★ A line the German card shows in English. A title may read the same in both languages only when it is pure
-  // data — a row's own name, as the sample or the fixture spells it. Anything with words of its own must be
-  // translated. Mutation: a forecast line rendered from an English string in German turns this red.
+  // data: made of nothing but whole VALUES of the sample's own input and of the fixture row it addresses (the
+  // fixture's ids are distinct, so `id` finds that one row). Keys and other rows do not count, so an English word
+  // such as "name", "Open" or "To" passes only as a real value of that row. Mutation: a forecast line rendered from
+  // an English string in German turns this red.
+  const valuesOf = (input: Record<string, unknown>): string[] => {
+    const out: string[] = [];
+    const walk = (v: unknown): void => {
+      if (typeof v === "string" || typeof v === "number") out.push(String(v));
+      else if (Array.isArray(v)) v.forEach(walk);
+      else if (v !== null && typeof v === "object") Object.values(v).forEach(walk);
+    };
+    walk(input);
+    for (const list of Object.values(full)) {
+      if (!Array.isArray(list)) continue;
+      for (const row of list as { id?: unknown }[]) if (row.id === input.id) walk(row);
+    }
+    return out.filter((v) => v.trim() !== "");
+  };
+  const escapeRe = (v: string): string => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const isPureData = (title: string, values: readonly string[]): boolean => {
+    let rest = title;
+    for (const v of [...values].sort((a, b) => b.length - a.length)) {
+      rest = rest.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(v)}(?![\\p{L}\\p{N}])`, "gu"), " ");
+    }
+    return rest.replace(/[\s\p{P}\p{S}]/gu, "") === "";
+  };
+
+  test("the pure-data check accepts only whole values of the row", () => {
+    expect(isPureData("Ship it", valuesOf({ id: 1 }))).toBe(true);
+    expect(isPureData("New Person", valuesOf({ firstName: "New", lastName: "Person" }))).toBe(true);
+    // "Open" is a value of RAID item 7, not of task 1; "To" is only part of the value "To Do".
+    expect(isPureData("Open", valuesOf({ id: 1 }))).toBe(false);
+    expect(isPureData("To", valuesOf({ id: 1 }))).toBe(false);
+    expect(isPureData("name", valuesOf({ id: 6, name: "Dana Reed-Smith" }))).toBe(false);
+  });
+
   test("every line with words of its own is translated into German", async () => {
     await loadI18n("de");
-    const values = JSON.stringify(full);
     const english = Object.entries(SAMPLES).filter(([name, input]) => {
       const rows = describeProposal([call(name, input)], full);
       const [en] = proposalTitles(rows, full, (r, pending) => cardRowTitle("en-US", r, full, pending));
       const [de] = proposalTitles(rows, full, (r, pending) => cardRowTitle("de", r, full, pending));
-      // Pure data: every word of the title occurs in the fixture or in the sample's own input.
-      const hay = values + JSON.stringify(input);
-      const isData = en.split(/[^\p{L}\p{N}]+/u).filter(Boolean).every((word) => hay.includes(word));
-      return en === de && !isData;
+      return en === de && !isPureData(en, valuesOf(input));
     });
     expect(english.map(([name]) => name)).toEqual([]);
   });
