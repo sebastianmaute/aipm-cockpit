@@ -328,6 +328,12 @@ describe("the AI opening goes under a leading title, not above it", () => {
   it("unchanged when the report starts with another heading", () => {
     expect(applyTake("<h2>S</h2><p>s</p>", OPEN, [0], true)).toBe("<p>Intro</p><h2>S</h2><p>s</p>");
   });
+  it("a report of several h1 sections has no title: the opening goes first and the user's h1 sections stay intact", () => {
+    const user = "<h1>Status</h1><p>u-st</p><h1>Risks</h1><p>u-risk</p>";
+    const draft = ai("<p>Intro</p><h2>Plan</h2><p>p</p><h2>Notes</h2><p>n</p>");
+    expect(applyTake(user, draft, [0], true)).toBe("<p>Intro</p>" + user);
+    expect(applyTake(user, draft, [0, 1, 2], true)).toBe("<p>Intro</p><h2>Plan</h2><p>p</p><h2>Notes</h2><p>n</p>" + user);
+  });
   it("an opening taken under the title is counted once: a re-take adds nothing", () => {
     const once = applyTake("<h1>Board</h1><h2>Status</h2><p>s</p>", OPEN, [0], true);
     expect(once).toBe("<h1>Board</h1><p>Intro</p><h2>Status</h2><p>s</p>");

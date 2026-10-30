@@ -16,7 +16,8 @@
 //  | a DEEPER AI heading never matches a shallower user section (it is added)  | "the plan reports an addition, no replacement, and the user's Risks range stays intact" |
 //  | a SHALLOWER AI section goes to the end of the enclosing range at its level | "Replace removes the user's h3 and places the h2 after the whole Status range" |
 //  | ... but only inside a parent heading; a flat report is taken in situ       | "Take all with Replace keeps the user's order"                                |
-//  | the opening goes under a leading h1 title, not above it                    | "after a leading h1 that has no text of its own" |
+//  | the opening goes under a leading h1 TITLE (the only h1), not above it      | "after a leading h1 that has no text of its own" |
+//  | ... several h1 sections are not a title: the opening goes first            | "a report of several h1 sections has no title: the opening goes first and the user's h1 sections stay intact" |
 //  | ... an opening held under the title is counted once, and anchors           | "an opening taken under the title is counted once: a re-take adds nothing" |
 //  | a titled flat report is taken in situ (only an h2 parent cuts an h2 range) | "Take all with Replace keeps the user's order" |
 //  | a placed AI anchor owns no user items                                      | "Take all over a flat report with an unmatched AI section between two matched ones keeps AI order and the user's order" |
@@ -56,9 +57,15 @@ function holdsRun(blocks: readonly string[], run: readonly string[]): boolean {
 /** Whether the level-0 section `user` already holds the AI opening `opening` (never for a blank one). */
 /** With no text before the first heading, a leading h1 TITLE's own body is where an opening lives once taken (the
  *  editor and the splitter see it as part of the h1 section): that body, as a level-0 stand-in, else undefined. */
+/** The first h1 is a TITLE only when it is the only h1 of the report (several h1 are sections, not a title). */
+function hasLeadingTitle(items: readonly Item[]): boolean {
+  return items[0]?.section.level === 1 && items.filter((it) => !it.placed && it.section.level === 1).length === 1;
+}
+
 function titleBody(items: readonly Item[]): ReportSection | undefined {
   const first = items[0]?.section;
-  if (first?.level !== 1 || items.some((it) => it.section.level === 0)) return undefined;
+  if (!hasLeadingTitle(items) || items.some((it) => it.section.level === 0)) return undefined;
+  if (!first) return undefined;
   return { level: 0, heading: "", key: "", html: sectionBodyHtml(first.html) };
 }
 
@@ -213,7 +220,7 @@ function insertionPoint(
     if (level0 !== -1) return rangeEnd(items, level0);
     // No text before the first heading: the opening goes first, but UNDER a leading h1 title (after the title's own
     // text, before its first sub-heading: index 1), never above it.
-    return items[0]?.section.level === 1 ? 1 : 0;
+    return hasLeadingTitle(items) ? 1 : 0;
   }
   for (let j = aiIndex - 1; j >= 0; j--) {
     // Deliberately includes AI items placed in this call (keeps AI order in take-all); matching skips them.
