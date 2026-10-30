@@ -250,9 +250,12 @@ describe("AiUsageProvider", () => {
     // A fixture seeded on today's key is therefore normalised by addToBuckets
     // on the way past regardless of what that read does, and cannot tell
     // the normalising read apart from a raw `as UsageBuckets` cast — that
-    // shape was measured vacuous against the cast mutant. A day far in the
-    // past guarantees it is never "today", however long this fixture lives.
-    const other = "2000-01-01";
+    // shape was measured vacuous against the cast mutant. Yesterday is never
+    // "today", and it is inside the store's retention window
+    // (`USAGE_RETENTION_DAYS`), which drops older days on write and on migration.
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const other = isoDate(yesterday);
     localStorage.setItem(
       AI_USAGE_KEY,
       JSON.stringify({ [other]: { input: 100, output: 50 } }),

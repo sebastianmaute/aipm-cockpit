@@ -10,6 +10,24 @@ export const AI_USAGE_KEY = "aipm-cockpit:ai-usage";
 /** day `YYYY-MM-DD` -> path id -> usage */
 export type PathBuckets = Record<string, Record<string, Usage>>;
 
+/** Days the store keeps: today and the days before it, back to this many days in all. Every reader reads the
+ *  current week only (`weekToDate`, `weekByPath`: Monday through today, at most seven days), so a day before
+ *  this window is never read again. Pruned on every write and on the one-time migration, since the store holds
+ *  a row per path per day. */
+export const USAGE_RETENTION_DAYS = 7;
+
+/** `b` without the days before the retention window that ends on `now`'s day, and without keys that are not a
+ *  day (no reader can place them in a week). */
+function pruneOldDays(b: PathBuckets, now: Date): PathBuckets {
+  const first = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (USAGE_RETENTION_DAYS - 1));
+  const out: PathBuckets = {};
+  for (const [day, paths] of Object.entries(b)) {
+    const d = new Date(`${day}T00:00:00`);
+    if (!Number.isNaN(d.getTime()) && d >= first) out[day] = paths;
+  }
+  return out;
+}
+
 function parseJson(raw: string | null): unknown {
   if (!raw) return undefined;
   try {
@@ -46,7 +64,8 @@ function write(storage: Storage, b: PathBuckets): boolean {
   }
 }
 
-export function readPathBuckets(storage: Storage): PathBuckets {
+/** `now` dates the retention window the one-time migration prunes to. */
+export function readPathBuckets(storage: Storage, now: Date = new Date()): PathBuckets {
   let raw: string | null = null;
   try {
     raw = storage.getItem(AI_USAGE_BY_PATH_KEY);
@@ -64,22 +83,23 @@ export function readPathBuckets(storage: Storage): PathBuckets {
     })(),
   );
   if (!isRecord(old)) return {};
-  const migrated: PathBuckets = {};
+  const all: PathBuckets = {};
   for (const [day, u] of Object.entries(old)) {
-    migrated[day] = { [LEGACY_PATH]: normalizeUsage(isRecord(u) ? (u as Partial<Usage>) : undefined) };
+    all[day] = { [LEGACY_PATH]: normalizeUsage(isRecord(u) ? (u as Partial<Usage>) : undefined) };
   }
+  const migrated = pruneOldDays(all, now);
   write(storage, migrated); // so migration runs once
   return migrated;
 }
 
 /** Reads the stored value, adds, writes, returns the result: a caller's cached copy is never
- *  written, so a second tab's recording is not overwritten. `addToBuckets` applies no day
- *  retention, so none is applied here. `persisted` is false when storage refused the write: the
+ *  written, so a second tab's recording is not overwritten. Days before the retention window
+ *  (`USAGE_RETENTION_DAYS`) are dropped. `persisted` is false when storage refused the write: the
  *  next read would return the old value, so the caller must keep `buckets` somewhere else. */
 export function recordPathUsage(
   storage: Storage, when: Date, path: string, usage: Usage,
 ): { readonly buckets: PathBuckets; readonly persisted: boolean } {
-  const current = readPathBuckets(storage);
+  const current = pruneOldDays(readPathBuckets(storage, when), when);
   const day = isoDate(when);
   const prev = normalizeUsage(current[day]?.[path]);
   const add = normalizeUsage(usage);
