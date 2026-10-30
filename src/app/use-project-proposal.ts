@@ -6,7 +6,8 @@
 
 import { aiPrivacyFor } from "./ai-privacy";
 import { useCallback, useState } from "react";
-import { parseProposal, PROPOSAL_TOOL, buildProposalSystemPrompt, type ProjectProposal } from "./ai-project-proposal";
+import { parseProposal, PROPOSAL_TOOL, buildProposalSystemPrompt, withoutProposalPeople, type ProjectProposal } from "./ai-project-proposal";
+import { isPeopleProtected } from "./ai-people-protection";
 import { type AttachmentBlock } from "./chat-attachments";
 import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
 import { runForcedToolCallWithRetry } from "./ai-forced-call";
@@ -63,7 +64,9 @@ export function useProjectProposal(ai: AiCreds) {
         // A reply cut at the retry budget too is never read: its input may be partial yet still parse.
         const parsed = reply.stopReason === "max_tokens" ? null : parseProposal(reply.input);
         if (!parsed) throw new Error("parse");
-        return parsed;
+        // AI people protection (R4): the project this creates carries no override yet, so it protects its
+        // people (P6) — the proposal reaches the wizard's review with no person in it.
+        return withoutProposalPeople(parsed, isPeopleProtected(undefined));
       } catch (e) {
         if (signal?.aborted || isAbortError(e)) return null;
         if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {

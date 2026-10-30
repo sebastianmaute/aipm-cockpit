@@ -25,6 +25,23 @@ function mockFetchToolUse(input: unknown) {
 }
 
 describe("useProjectProposal", () => {
+  // AI people protection, Task 6 (R4): the project "Use AI" creates carries no override, so it protects its
+  // people by default; the proposal reaches the wizard with no person in it. The positive control (allowed)
+  // is in ai-project-proposal.people.test.ts.
+  it("returns the proposal without its people, for a project that protects them by default", async () => {
+    mockFetchToolUse({
+      meta: { name: "Alpha", sponsor: "Zelda Quartz" }, features: [],
+      seed: { tasks: [{ taskName: "Kick-off", dueDate: "2026-11-05", assignee: "Yuri Pell" }], resources: [{ firstName: "Yuri", lastName: "Pell" }] },
+    });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: { meta: Record<string, unknown>; seed?: { tasks?: Record<string, unknown>[]; resources?: unknown[] } } | null = null;
+    await act(async () => { p = (await result.current.generate("a CRM project")) as typeof p; });
+    expect(p!.meta.name).toBe("Alpha");
+    expect(p!.meta).not.toHaveProperty("sponsor");
+    expect(p!.seed!.tasks![0]).toEqual({ taskName: "Kick-off", dueDate: "2026-11-05" });
+    expect(p!.seed!.resources).toBeUndefined();
+  });
+
   it("returns a parsed proposal on a forced tool_use response", async () => {
     mockFetchToolUse({ meta: { name: "Alpha" }, features: [] });
     const { result } = renderHook(() => useProjectProposal(ai));

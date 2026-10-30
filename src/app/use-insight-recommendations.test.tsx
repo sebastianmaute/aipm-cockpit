@@ -48,6 +48,7 @@ function mkDispatcher() {
         stored = { ...stored, ...patch };
         return stored;
       },
+      isPeopleProtected: () => false, // AI people protection: the executor asks on every write
     } as unknown as InsightRecommendationDeps["dispatcher"],
   };
 }
@@ -536,7 +537,7 @@ describe("a pre-switch recommendation carrying money is refused after a currency
     const createTask = vi.fn(() => ({ id: 99 }));
     const deps = mkDeps({
       insights: store.read(), setInsights: store.setInsights, baselineHistory,
-      dispatcher: { createChange, createTask } as unknown as InsightRecommendationDeps["dispatcher"],
+      dispatcher: { createChange, createTask, isPeopleProtected: () => false } as unknown as InsightRecommendationDeps["dispatcher"],
     });
     const { result } = renderHook(() => useInsightRecommendations(deps));
     act(() => { result.current.setReviewInsightId(1); });

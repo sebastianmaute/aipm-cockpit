@@ -13,6 +13,7 @@
 //  argument name, so it proposed a `create_task` without `taskName`/`assignee`;
 //  the review showed it as a normal create and `runTool` threw at apply.
 import { PEOPLE_TOOLS, TOOL_DEFS } from "../chat-tool-defs";
+import { PERSON_FIELDS_BY_TOOL } from "../ai-person-fields";
 import { sanitizeIsoDate } from "../sanitize-core";
 import { ALLOWED_REC_TOOLS, type InsightToolCall } from "./insight";
 
@@ -114,20 +115,24 @@ export const formatRecCallProblemEn: RecCallProblemFormat = (p) => {
  *  `format` words it), or null when it would not. Judges only what the WRITERS
  *  require; a field-level refusal is the plan's job (`describeEntityCalls`).
  *  ★★ The review plan and the apply loop both call this, so a call the review
- *   shows as refused is exactly a call the apply does not send. */
+ *   shows as refused is exactly a call the apply does not send.
+ *  ★ AI people protection (R4): with `peopleProtected`, a person field is never required — it was
+ *   stripped, and the writer then creates the row without it ("creates it unassigned"). */
 export function recommendationCallProblem(
   call: InsightToolCall,
   format: RecCallProblemFormat = formatRecCallProblemEn,
+  peopleProtected = false,
 ): string | null {
-  const problem = recCallProblemOf(call);
+  const problem = recCallProblemOf(call, peopleProtected);
   return problem === null ? null : format(problem);
 }
 
-function recCallProblemOf(call: InsightToolCall): RecCallProblem | null {
+function recCallProblemOf(call: InsightToolCall, peopleProtected: boolean): RecCallProblem | null {
   const tool = call.name;
   const schema = REC_TOOL_INPUT_SCHEMAS[tool];
   if (!Object.hasOwn(REC_TOOL_INPUT_SCHEMAS, tool) || !schema) return { kind: "not-allowed", tool };
-  const missing = schema.required.filter((k) => !isGiven(schema.properties[k], call.input[k]));
+  const stripped = peopleProtected ? (PERSON_FIELDS_BY_TOOL[tool] ?? []) : [];
+  const missing = schema.required.filter((k) => !stripped.includes(k) && !isGiven(schema.properties[k], call.input[k]));
   if (missing.length > 0) return { kind: "required", tool, args: missing };
   const dateArg = REQUIRED_DATE_ARGS[tool];
   if (dateArg !== undefined && sanitizeIsoDate(call.input[dateArg]) === "") return { kind: "date", tool, arg: dateArg };

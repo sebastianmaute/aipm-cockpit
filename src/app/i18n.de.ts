@@ -3030,6 +3030,8 @@ export const de: Record<TranslationKey, string> = {
   inlineAiEditPartial: "Einige Änderungen wurden angewendet, aber ein späterer Schritt ist fehlgeschlagen.",
   inlineAiEditStale: "Es wurde nichts geändert — dieser Datensatz hat sich geändert, seit Claude ihn gelesen hat. Führen Sie die Bearbeitung erneut aus, um den neuen Stand zu übernehmen.",
   inlineAiEditNoChanges: "Keine Änderungen anzuwenden.",
+  inlineAiEditPeopleRecord: "Für dieses Projekt ist der Personenschutz aktiv, daher kann Claude keine Personendatensätze bearbeiten.",
+  inlineAiEditPeopleWithheld: "Für dieses Projekt ist der Personenschutz aktiv, daher darf Claude keine Personen zuweisen oder ändern; sonst wurde nichts vorgeschlagen.",
   inlineAiEditClarify: "Claude braucht mehr Details:",
   inlineAiEditError: "Claude nicht erreichbar. Bitte erneut versuchen.",
   inlineAiEditApplied: "„{0}“ aktualisiert",

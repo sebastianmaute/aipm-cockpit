@@ -105,6 +105,7 @@ function makeDispatcher(): ToolDispatcher {
       enabledModules: [] as string[],
       currentView: "open-points" as const,
     })),
+    isPeopleProtected: () => false, // AI people protection: the executor asks on every write
   } as unknown as ToolDispatcher;
 }
 

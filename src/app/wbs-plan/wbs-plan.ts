@@ -343,6 +343,21 @@ export function parseWbsProposal(input: unknown): ParsedWbsProposal | null {
   return { items, truncated };
 }
 
+/** AI people protection (R4): the proposal without the assignees the model chose for its new tasks, when the
+ *  project protects its people, so the preview shows, and Apply writes, every new task unassigned. Unchanged
+ *  otherwise. A split piece's people are the ORIGINAL row's (`applySplit`), which the model did not choose,
+ *  so nothing else names a person. Never mutates `parsed`. */
+export function withoutWbsAssignees(parsed: ParsedWbsProposal, peopleProtected: boolean): ParsedWbsProposal {
+  if (!peopleProtected) return parsed;
+  const items = parsed.items.map((item): RawWbsItem => {
+    if (item.kind !== "newTask" || item.assignee === undefined) return item;
+    const kept = { ...item };
+    delete kept.assignee;
+    return kept;
+  });
+  return { ...parsed, items };
+}
+
 // ---------------------------------------------------------------------------
 // Grounding: judge every parsed VALUE against the live task list. Each item
 // is either kept (sanitized) or skipped with a reason the preview lists.

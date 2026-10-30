@@ -778,6 +778,7 @@ describe("optimistic concurrency across the submit → apply window", () => {
         stored = { ...stored, ...patch };
         return stored;
       },
+      isPeopleProtected: () => false, // AI people protection: the executor asks on every write
     } as unknown as InlineAiEditDeps["dispatcher"];
     return {
       opened,
@@ -927,6 +928,7 @@ describe("inline task edit withholds assigneeEmail", () => {
         stored = { ...stored, ...patch };
         return stored;
       },
+      isPeopleProtected: () => false, // AI people protection: the executor asks on every write
     } as unknown as InlineAiEditDeps["dispatcher"];
     vi.spyOn(call, "callInlineEdit").mockResolvedValue({
       blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 42, status: "Done", assigneeEmail: "evil@example.com" } }],

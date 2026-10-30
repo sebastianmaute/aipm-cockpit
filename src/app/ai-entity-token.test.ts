@@ -293,7 +293,7 @@ describe("the model cannot write Task.blockerLog", () => {
   it("update_task drops a model-supplied blockerLog but keeps blockers", async () => {
     const spy = vi.fn((id: number, patch: Record<string, unknown>) => ({ id, patch }));
     const current = task();
-    const dispatcher = { updateTask: spy, getTask: vi.fn(() => current) } as unknown as ToolDispatcher;
+    const dispatcher = { updateTask: spy, getTask: vi.fn(() => current), isPeopleProtected: () => false } as unknown as ToolDispatcher;
     await runTool(dispatcher, "update_task", {
       id: 1, expectedToken: entityToken("task", current), blockers: "typed", blockerLog: LOG,
     });
@@ -305,7 +305,7 @@ describe("the model cannot write Task.blockerLog", () => {
 
   it("create_task drops a model-supplied blockerLog", async () => {
     const spy = vi.fn((input: Record<string, unknown>) => ({ id: 9, ...input }));
-    const dispatcher = { createTask: spy } as unknown as ToolDispatcher;
+    const dispatcher = { createTask: spy, isPeopleProtected: () => false } as unknown as ToolDispatcher;
     await runTool(dispatcher, "create_task", {
       taskName: "T", assignee: "A", dueDate: "2030-01-01", blockers: "typed", blockerLog: LOG,
     });

@@ -3184,6 +3184,8 @@ const enUS = {
   inlineAiEditRejected: "Not applied: {0}",
   inlineAiEditApply: "Apply",
   inlineAiEditNoChanges: "No changes to apply.",
+  inlineAiEditPeopleRecord: "People protection is on for this project, so Claude cannot edit people records.",
+  inlineAiEditPeopleWithheld: "People protection is on for this project, so Claude may not assign or change people; nothing else was proposed.",
   inlineAiEditApplyFailed: "Could not apply the change.",
   inlineAiEditPartial: "Some changes were applied, but a later step failed.",
   inlineAiEditStale: "Nothing was changed — this record changed since Claude read it. Run the edit again to pick up the new state.",

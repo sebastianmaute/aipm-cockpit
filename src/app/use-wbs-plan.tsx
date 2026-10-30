@@ -43,13 +43,14 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { runWbsProposal } from "./wbs-plan-call";
 import { useGuideTextFrom } from "./action-guides-context";
-import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
+import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected } from "./ai-privacy-context";
 import type { OperatingGuide } from "./operating-guide";
 import {
   applyWbsProposal,
   buildWbsContext,
   countNewRows,
   groundWbsProposal,
+  withoutWbsAssignees,
   type GroundedWbsItem,
   type SkippedWbsItem,
   type WbsApplyResult,
@@ -185,6 +186,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
   const guideText = useGuideTextFrom(deps.guides, settings.ai.groundInGuides, "wbs");
   const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
+  const peopleProtectedNow = useOpenProjectPeopleProtected(); // the same source; R4 strips new-task assignees
   const enabled = aiReady && !isPopout;
 
   // The flow's STATE back to idle — state setters only, so the load-hold
@@ -262,7 +264,8 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
           return;
         }
         // Ground against the tasks as they are NOW, not as they were sent.
-        const grounded = groundWbsProposal(parsed, tasksRef.current, runScope);
+        // R4: the model's assignees go BEFORE grounding, so the preview shows what Apply writes.
+        const grounded = groundWbsProposal(withoutWbsAssignees(parsed, peopleProtectedNow()), tasksRef.current, runScope);
         // Only a proposal with NOTHING in it is "no changes proposed". When the
         // model proposed items and grounding refused them all, the preview
         // still opens, showing just the "Not applied" list with its reasons.
@@ -299,7 +302,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         reset();
       }
     },
-    [milestones, project, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast, reset, setPhase, getScopeEpoch],
+    [milestones, project, apiKey, settings.ai.model, guideText, aiPrivacy, peopleProtectedNow, lang, showToast, reset, setPhase, getScopeEpoch],
   );
 
   const onOpen = useCallback(() => {

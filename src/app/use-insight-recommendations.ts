@@ -39,7 +39,7 @@ import { useInsightRecommend } from "./use-insight-recommend";
 import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
 import { buildRecommendContext, recommendPeople } from "./insights/recommend-context";
 import { isTaskClosed } from "./task-closed";
-import { describeRecommendationPlan, type RecommendSnapshot } from "./insights/recommend-plan";
+import { describeRecommendationPlan, recommendationCallsToApply, type RecommendSnapshot } from "./insights/recommend-plan";
 import type { RecCallProblemFormat } from "./insights/recommend-schema";
 import { stripRejectedFields } from "./inline-ai-edit/plan";
 import { buildGroundingIndex } from "./action-ai";
@@ -381,9 +381,9 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       reviewInsight?.recommendation
         ? describeRecommendationPlan(reviewInsight.recommendation.proposedCalls, {
             tasks, raid, changes, milestones, stakeholders,
-          }, recCallProblemText(lang))
+          }, recCallProblemText(lang), peopleProtectedNow())
         : null,
-    [reviewInsight, tasks, raid, changes, milestones, stakeholders, lang],
+    [reviewInsight, tasks, raid, changes, milestones, stakeholders, lang, peopleProtectedNow],
   );
   // ★ No plan-level entity is derived any more: every `FieldDiff`/`LinkDiff`
   // carries the register it belongs to, so the modal labels each row from the
@@ -402,7 +402,10 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // Security: re-enforce the allow-set at apply — a persisted/imported blob must
     // never drive a destructive tool (delete_*/update_settings) through runTool,
     // even if it slipped a stale load path. Load-time sanitize also strips these.
-    const calls = rec.proposedCalls.filter((c) => ALLOWED_REC_TOOLS.has(c.name));
+    // AI people protection (R4): the SAME calls the review showed — person fields stripped when the project
+    // protects its people (`recommendationCallsToApply`), so a create lands unassigned.
+    const peopleProtected = peopleProtectedNow();
+    const calls = recommendationCallsToApply(rec.proposedCalls.filter((c) => ALLOWED_REC_TOOLS.has(c.name)), peopleProtected);
     // §476 — a recommendation generated before a baseline-currency switch holds money in the
     // OLD currency; replayed now it would write `costImpact: 5000` as 5000 of the new one. The
     // whole apply is refused (nothing written, the insight stays `proposed`) like the stale
@@ -451,7 +454,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       //  the modal's `reviewPlan` reads. That plan is the concatenation of these
       //  per-call plans (pinned in recommend-plan.test.ts), so what the modal
       //  showed as rejected is exactly what is not sent.
-      const plan = describeRecommendationPlan([call], { tasks, raid, changes, milestones, stakeholders });
+      const plan = describeRecommendationPlan([call], { tasks, raid, changes, milestones, stakeholders }, undefined, peopleProtected);
       // ★★ §782 — a WHOLE-CALL rejection (no `field`) is refused too: a call
       //  missing an argument its writer requires (`recommendationCallProblem`,
       //  run inside the plan) or an update whose row is gone. Either would only
@@ -564,7 +567,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       refused > 0 ? "error" : "info",
       t(lang, refused > 0 ? "insightRecommendationApplyFailed" : "insightRecommendationApplied"),
     );
-  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivityAs, showToast, lang, tasks, raid, changes, milestones, stakeholders, baselineHistory]);
+  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivityAs, showToast, lang, tasks, raid, changes, milestones, stakeholders, baselineHistory, peopleProtectedNow]);
 
   return {
     insightActions,

@@ -411,7 +411,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const assignee = sanitizeAssignee(input.assignee);
         const dueDate = sanitizeIsoDate(input.dueDate);
         if (!taskName) throw new Error("taskName is required");
-        if (!assignee) throw new Error("assignee is required");
+        // AI people protection (R4): `runTool` stripped the assignee, so the task is created unassigned.
+        if (!assignee && !peopleProtectedNow()) throw new Error("assignee is required");
         if (!dueDate) throw new Error("dueDate must be YYYY-MM-DD");
         const email = sanitizeLoadedEmail(input.assigneeEmail); // ★ M1: the unwrapped address, as every AI email write stores
         refuseEmailWrite("assigneeEmail", email, undefined);

@@ -103,6 +103,8 @@ import {
   PROPOSAL_PENDING_RESULT,
   stagedToolResult,
 } from "./chat-proposal-stage";
+import { peopleToolsLive } from "./chat-tool-defs";
+import { PERSON_FIELDS_REMOVED_NOTE, stripPersonFields } from "./ai-person-fields";
 import type { UndoBatch } from "./use-undo-batch";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { buildRowTokens } from "./row-tokens";
@@ -874,17 +876,20 @@ function ChatPanelInner({
         // model can use them.
         if (response.stop_reason === "tool_use") {
           // The turn's calls, paired with the ids their results must answer.
-          const proposed: { readonly useId: string; readonly call: ProposedCall }[] = [];
+          const proposed: { readonly useId: string; readonly call: ProposedCall; readonly removed: readonly string[] }[] = [];
           for (const block of response.content) {
             if (block.type !== "tool_use") continue;
-            proposed.push({
-              useId: block.id,
-              // `ToolUseBlock.input` is `unknown` (the API's own shape). The
-              // gate, the plan builder and `runTool` all treat it as a bag of
-              // keys, exactly as the immediate path below does when it hands
-              // `block.input` straight to `runTool`.
-              call: { name: block.name, input: block.input as Readonly<Record<string, unknown>> },
-            });
+            // `ToolUseBlock.input` is `unknown` (the API's own shape). The
+            // gate, the plan builder and `runTool` all treat it as a bag of
+            // keys, exactly as the immediate path below does when it hands
+            // `block.input` straight to `runTool`.
+            const sentInput = block.input as Readonly<Record<string, unknown>>;
+            // ★★ AI people protection (R4): a staged call's person fields go BEFORE the gate and the card, so
+            //  the card shows what Apply writes. The immediate path below hands `runTool` the raw input, and
+            //  `runTool` strips it there and says so in the result.
+            const people = peopleToolsLive(toolFlags.peopleProtected) ? null : stripPersonFields(block.name, sentInput);
+            const removed = people?.removed ?? [];
+            proposed.push({ useId: block.id, call: { name: block.name, input: people && removed.length > 0 ? people.input : sentInput }, removed });
           }
 
           // ★★★ THE GATE. A turn is STAGED when it holds a destructive call, an
@@ -964,7 +969,7 @@ function ChatPanelInner({
               const at = staged.indexOf(p);
               return scopeMoved || at === -1
                 ? { type: "tool_result", tool_use_id: p.useId, content: INTERRUPTED_TOOL_RESULT, is_error: true }
-                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId) };
+                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId) + (p.removed.length > 0 ? ` ${PERSON_FIELDS_REMOVED_NOTE(p.removed)}` : "") };
             });
             messages.push({ role: "user", content: answers });
             continueBubble = false;

@@ -59,6 +59,7 @@ import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
 export { TOOL_DEFS } from "./chat-tool-defs";
 import { PEOPLE_TOOLS, PeopleToolRefusedError, peopleToolsLive } from "./chat-tool-defs";
+import { PERSON_FIELDS_BY_TOOL, PERSON_FIELDS_REMOVED_NOTE, stripPersonFields, withPersonFieldsNote } from "./ai-person-fields";
 
 type TaskInput = {
   taskName: string;
@@ -707,6 +708,35 @@ export async function runTool(
   //   predicate; this refuses to SERVE them, before any handler can read or write a row.
   if (PEOPLE_TOOLS.has(name) && !peopleToolsLive(d.isPeopleProtected())) throw new PeopleToolRefusedError();
 
+  // ★★ AI people protection, R4: STRIP AND APPLY. A write's person fields (`PERSON_FIELDS_BY_TOOL`) are
+  //   removed before any handler sees the call, the rest applies, and the result (or the error) tells the
+  //   model what was dropped. Every AI path that replays a call ends here, so this is the guarantee; a path
+  //   with a review card strips its calls BEFORE the card as well, so the card shows what lands.
+  // ★ The note rides on `.then`: `chat-panel.tsx`'s §596 comment counts on this file never suspending.
+  const personFields = Object.hasOwn(PERSON_FIELDS_BY_TOOL, name) ? PERSON_FIELDS_BY_TOOL[name]! : [];
+  if (personFields.length === 0 || peopleToolsLive(d.isPeopleProtected())) return runToolAsSent(d, name, input, false);
+  const { input: kept, removed } = stripPersonFields(name, input);
+  return runToolAsSent(d, name, kept, true).then(
+    (result) => withPersonFieldsNote(result, removed),
+    (e: unknown) => {
+      // A plain `Error` is the model-facing validation message, so it gains the reason. A typed error
+      // (`ConcurrencyTokenError`, …) is matched on its TYPE by callers and passes through untouched.
+      if (removed.length > 0 && e instanceof Error && e.constructor === Error) {
+        throw new Error(`${e.message} ${PERSON_FIELDS_REMOVED_NOTE(removed)}`);
+      }
+      throw e;
+    },
+  );
+}
+
+/** `runTool` past the people gates: the call exactly as it is applied. `peopleStripped` is true when the
+ *  person fields were removed under protection, so a create may then go without its assignee. */
+async function runToolAsSent(
+  d: ToolDispatcher,
+  name: string,
+  input: Record<string, unknown>,
+  peopleStripped: boolean,
+): Promise<unknown> {
   const forecast = runForecastTool(name, input, d);
   if (forecast !== NOT_FORECAST_TOOL) return forecast;
   const project = runProjectTool(name, input, d);
@@ -732,12 +762,13 @@ export async function runTool(
       const taskName = asString(input.taskName);
       const assignee = asString(input.assignee);
       const dueDate = asString(input.dueDate);
-      if (!taskName || !assignee || !dueDate) {
+      // Under people protection the assignee was stripped (R4): the task is created unassigned.
+      if (!taskName || (!assignee && !peopleStripped) || !dueDate) {
         throw new Error("taskName, assignee, and dueDate are required");
       }
       return withoutAssigneeEmail(d.createTask({
         taskName,
-        assignee,
+        assignee: assignee ?? "",
         dueDate,
         assigneeEmail: asString(input.assigneeEmail),
         lastUpdateDate: asString(input.lastUpdateDate),

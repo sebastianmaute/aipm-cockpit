@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 // AI people protection, Task 5: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
-vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
+// Task 6: one describe at the end flips `people.on` to show a stripped create lands unassigned; the getter
+// stays one identity, as the real one is, so the dispatcher's memo does not churn.
+const people = vi.hoisted(() => {
+  const state = { on: false };
+  return { state, get: () => state.on };
+});
+vi.mock("./ai-privacy-context", async () => ({
+  ...(await import("../test/ai-privacy-unprotected")),
+  useOpenProjectPeopleProtected: () => people.get,
+}));
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { asTimeZoneForTests, createProjectClock } from "./timezone";
@@ -4710,5 +4719,34 @@ describe("AI person writes keep the resource link in step with the name", () => 
     });
     const row = result.current.ws.absences.find((a) => a.id === id)!;
     expect(row).toMatchObject({ resourceId: ids.bob, assigneeEmail: "bob@x.com" });
+  });
+});
+
+// AI people protection, Task 6 (R4): `runTool` strips a create's assignee under protection, so the
+// dispatcher must then create the task unassigned instead of refusing it for the missing assignee.
+describe("create_task under people protection", () => {
+  it("creates the task with its title and no assignee", async () => {
+    people.state.on = true;
+    try {
+      const { result } = renderDispatcher();
+      let created: unknown;
+      await act(async () => {
+        created = await runTool(result.current, "create_task", { taskName: "Kick-off", assignee: "Alice", dueDate: "2026-06-04" });
+      });
+      expect(created).toMatchObject({ taskName: "Kick-off", assignee: "" });
+      const row = result.current.listTasks().find((tk) => tk.taskName === "Kick-off")!;
+      expect(row.assignee).toBe("");
+      expect(row.resourceId).toBeUndefined();
+    } finally {
+      people.state.on = false;
+    }
+  });
+
+  it("protection off: the same call is assigned (positive control)", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_task", { taskName: "Kick-off", assignee: "Alice", dueDate: "2026-06-04" });
+    });
+    expect(result.current.listTasks().find((tk) => tk.taskName === "Kick-off")!.assignee).toBe("Alice");
   });
 });
