@@ -63,10 +63,12 @@ vi.mock("./chat-threads-store", () => ({
   deleteThread: vi.fn(async () => undefined),
 }));
 
-// Default double of the shared usage context — a no-op record, matching the
-// real context's own default value (chat-panel is rendered directly in this
-// file with no <AiUsageProvider>, so it was already reading that default).
-// Individual tests override the return value to spy on `record`.
+// Default double of the shared usage context — no-op `recordChatSend` and
+// `noteUnbilledChatSend`, matching the real context's own default value
+// (chat-panel is rendered directly in this file with no <AiUsageProvider>, so
+// it was already reading that default). Token usage is not the panel's to
+// record (the transport's tap does it). Individual tests override the return
+// value to spy on `recordChatSend`.
 //
 // Hoisted (vi.hoisted) so this object can be shared between the factory below
 // and the per-test beforeEach in the "cache-token usage recording" describe
@@ -3872,12 +3874,12 @@ describe("staged tool calls (the review card)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Cache-token usage recording (AI-cost roadmap, Task 4): the meter must sum
-// cache_read/cache_creation tokens across every turn of a send, not just the
-// last one. `record` is the observable here (not the request body — this
-// asserts what gets RECORDED, not what gets SENT), so a spy on the usage
-// context is the right seam, per the file's own request-body convention for
-// send-side assertions elsewhere.
+// Cache-write recording (§702): the view-switch counter must be handed the
+// cache writes of every turn of a send, not just the last one. Token usage
+// itself is recorded by the transport's tap, not by the panel. The
+// `recordChatSend` spy on the usage context is the observable here (not the
+// request body — this asserts what gets RECORDED, not what gets SENT), per the
+// file's own request-body convention for send-side assertions elsewhere.
 // ---------------------------------------------------------------------------
 describe("cache-token usage recording", () => {
   // ★★ RE-APPLY THE DEFAULT BOTH BEFORE AND AFTER EACH TEST. vi.restoreAllMocks()
