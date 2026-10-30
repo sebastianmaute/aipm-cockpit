@@ -217,13 +217,16 @@ export function MeetingReportPanel({
     // Takes are marked when the text is in the stored report: it was just written, or the body was already stored
     // (an unchanged save). A save that wrote nothing for any other reason (the meeting is gone) marks nothing.
     const stored = report?.html ?? "";
-    const inReport = wrote || sanitizeRichHtml(draft) === stored;
+    // Settled: the draft is what is stored, or it is a blank first save (an emptied editor emits <p></p> and the hook
+    // writes no report for it, so the stored body stays "").
+    const settled = sanitizeRichHtml(draft) === stored || (stored === "" && isBlankReport(draft));
+    const inReport = wrote || settled;
     if (inReport && pendingTaken.size > 0) onTaken?.([...pendingTaken].sort((a, b) => a - b));
     setTookFromProposal(false);
     setPendingTaken(new Set());
     // A save whose sanitized text equals the stored body writes nothing (no new updatedAt, so no reconcile
     // below): settle the draft on the stored body here, so a sanitizer-only difference does not stay dirty.
-    if (draft !== stored && sanitizeRichHtml(draft) === stored) setDraft(stored);
+    if (draft !== stored && settled) setDraft(stored);
   }
 
   /** A restore replaces the editor text, so over unsaved changes both restore paths ask first. Called only while

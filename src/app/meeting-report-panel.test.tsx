@@ -661,3 +661,19 @@ describe("MeetingReportPanel on the real save hook — clearing the editor (AI-0
     expect(latest?.previous?.html).toBe("<p>before clear</p>");
   });
 });
+
+describe("MeetingReportPanel — a blank first save (AI-04)", () => {
+  it("leaves the draft clean: no unsaved-changes mark, so a later restore or undo does not ask", async () => {
+    const onSave = vi.fn(() => false); // the hook writes nothing for a blank first save
+    const { container } = render(
+      <ConfirmProvider lang="en-US">
+        <MeetingReportPanel lang="en-US" report={undefined} recipients={[]} onSave={onSave} onSend={vi.fn()} m365Configured />
+      </ConfirmProvider>,
+    );
+    fireEvent.change(await screen.findByLabelText("Report"), { target: { value: "<p></p>" } });
+    expect(container.querySelector('[data-report-dirty="true"]')).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledWith("<p></p>", { fromAi: false });
+    expect(container.querySelector('[data-report-dirty="true"]')).toBeNull();
+  });
+});

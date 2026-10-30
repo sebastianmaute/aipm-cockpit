@@ -10,8 +10,6 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
-- A stored meeting report with no text and no previous version (for instance the empty paragraph an emptied editor leaves) is no longer kept when a workspace loads.
-
 ### Added
 
 - **Draft with AI in the meeting report is now a proposal, and the report keeps a previous version (AI-04).** The draft
@@ -77,6 +75,10 @@ longer carries its own changelog comment.
   A second proposal in the same message is not made; ask again after deciding on the first card. The review card
   cannot be applied or discarded while the assistant is still answering. A reopened saved thread has its attachments
   removed and is trusted again. Help and the threat model say so.
+
+### Changed
+
+- A stored meeting report with no text and no previous version (for instance the empty paragraph an emptied editor leaves) is no longer kept when a workspace loads.
 
 ### Fixed
 
