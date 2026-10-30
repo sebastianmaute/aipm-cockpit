@@ -64,6 +64,8 @@ export type ActivityKind =
   | "resource.created"
   | "resource.updated"
   | "resource.deleted"
+  // §774 — a reassignment moved a task's planned hours (arg: the per-person net hours). Logged, never a capture kind.
+  | "resource.hoursMoved"
   | "role.created"
   | "role.updated"
   | "role.deleted"
@@ -351,6 +353,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "resource.created": "activityResourceCreated",
   "resource.updated": "activityResourceUpdated",
   "resource.deleted": "activityResourceDeleted",
+  "resource.hoursMoved": "activityResourceHoursMoved",
   "role.created": "activityRoleCreated",
   "role.updated": "activityRoleUpdated",
   "role.deleted": "activityRoleDeleted",

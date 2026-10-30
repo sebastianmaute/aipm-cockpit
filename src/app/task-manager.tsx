@@ -16,6 +16,7 @@ import { disabledViewRedirect, isModuleEnabled, deriveMode } from "./feature-mod
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
+import { useReassignHours } from "./use-reassign-hours";
 import { useBulkOperations } from "./use-bulk-operations";
 import { useColumnManager } from "./use-column-manager";
 import { useContacts } from "./use-contacts";
@@ -613,6 +614,9 @@ function TaskManagerInner() {
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
   } = useResourcePlanner({ lang, today, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave, dialogsRef: appDialogsRef, getScopeEpoch });
+  // §774 — reassigning a task moves its planned hours (one undo entry, one notice). Unbound until the reassign
+  // paths consume it (an unused const fails `--max-warnings=0`); the call stays unconditional either way.
+  useReassignHours({ lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours: settings.resources.workdayHours, holidaySet, captureComposite: undoApi.captureComposite, logActivityAs, showToast });
 
   // Day rates are the rate card's source of truth; the hourly cost rate every
   // budget/EVM consumer reads is DERIVED from workday hours. When that setting

@@ -26,7 +26,7 @@ export function defaultPeriodLabel(key: string, lang: Lang): string {
 }
 
 /** Whole hours, or one decimal under 1 (Rounding rule). */
-function formatHours(hours: number, lang: Lang): string {
+export function formatHours(hours: number, lang: Lang): string {
   const fractionDigits = hours < 1 ? 1 : 0;
   return new Intl.NumberFormat(lang, {
     minimumFractionDigits: fractionDigits,
