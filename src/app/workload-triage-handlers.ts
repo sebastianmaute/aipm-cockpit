@@ -6,7 +6,8 @@
 // from every record that carries it. A plain builder, not a hook: nothing here
 // calls a hook, so it takes the live render-scope values in a typed `deps`
 // object and returns fresh, non-memoized handlers each render, exactly as the
-// inline arrows were. Move-only: no behaviour change.
+// inline arrows were. Move-only at extraction; since §774 reassign goes through
+// the shared reassign step, so it also moves the task's planned hours and is undoable.
 //
 // ★ task-manager still wraps each handler in `guardEdit` at the call site, so
 // the popout read-only guard did not move; nothing here knows about popouts.
@@ -19,6 +20,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { resourceDisplayName } from "./resource-foundation";
 import type { Absence, RaidItem, Resource, Shift, Task } from "./types";
+import type { ReassignHours } from "./use-reassign-hours";
 
 /** The identity of an unlinked workload row, as `ResourceWorkload` hands it over. */
 export interface UnlinkedWorkloadRow {
@@ -36,6 +38,8 @@ export interface WorkloadTriageDeps {
   setAbsences: Dispatch<SetStateAction<readonly Absence[]>>;
   setShifts: Dispatch<SetStateAction<readonly Shift[]>>;
   allowDestructiveSave: (() => void) | undefined;
+  /** §774 — the reassign writes the owner AND moves the planned hours, as one undo entry. */
+  reassignTasks: ReassignHours["reassignTasks"];
 }
 
 export function buildWorkloadTriageHandlers({
@@ -46,22 +50,18 @@ export function buildWorkloadTriageHandlers({
   setAbsences,
   setShifts,
   allowDestructiveSave,
+  reassignTasks,
 }: WorkloadTriageDeps) {
-  // Functional setter so bulk edits from the popover compose; reassign copies
-  // the resource's identity onto the task.
+  // Reassign copies the resource's identity onto the task through the shared
+  // reassign step (§774), which writes with a functional setter so bulk edits
+  // from the popover compose, and moves the task's planned hours with it.
   const onReassignTask = (taskId: number, resource: Resource | null) =>
-    setTasks((prev) =>
-      prev.map((tk) =>
-        tk.id === taskId
-          ? {
-              ...tk,
-              assignee: resource ? resourceDisplayName(resource) : "",
-              assigneeEmail: resource?.email ?? "",
-              resourceId: resource?.id ?? undefined,
-            }
-          : tk,
-      ),
-    );
+    reassignTasks([{
+      taskId,
+      assignee: resource ? resourceDisplayName(resource) : "",
+      assigneeEmail: resource?.email ?? "",
+      resourceId: resource?.id ?? undefined,
+    }], "user");
 
   const onRescheduleTask = (taskId: number, iso: string) =>
     setTasks((prev) => prev.map((tk) => (tk.id === taskId ? { ...tk, dueDate: iso } : tk)));

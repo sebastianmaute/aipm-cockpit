@@ -22,6 +22,7 @@ import { useActionCenterHandlers, type ActionCenterHandlerDeps } from "./use-act
 import { t } from "./i18n";
 import type { SuggestedAction } from "./next-actions";
 import type { RaidItem, Task } from "./types";
+import { inertReassignHours, LIAM, MAYA, RIG_TASK, rigSpies, useReassignRig, utilOf } from "../test/reassign-hours-rig";
 
 const TODAY = "2026-08-30";
 
@@ -87,6 +88,7 @@ function makeDeps(overrides: Partial<ActionCenterHandlerDeps> = {}): ActionCente
     showToast: vi.fn(),
     logActivity: vi.fn(),
     selfResourceId: null,
+    reassignHours: inertReassignHours(),
     ...overrides,
   } as ActionCenterHandlerDeps;
 }
@@ -413,5 +415,42 @@ describe("useActionCenterHandlers — Escalate records on the item (§515)", () 
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "errorEmailDelimiter"));
     expect(setRaid).not.toHaveBeenCalled();
     expect(logActivity).not.toHaveBeenCalled();
+  });
+});
+
+// §774 — Assign-owner routes through the shared reassign step for the one rule;
+// an UNASSIGNED task has no giver, so no hours move and no hours notice shows.
+describe("useActionCenterHandlers — Assign-owner goes through the reassign step", () => {
+  it("assigning an unassigned task moves nothing and shows no hours notice", () => {
+    const spies = rigSpies();
+    const unassigned: Task = { ...RIG_TASK, assignee: "", assigneeEmail: "", resourceId: undefined };
+    const showToast = vi.fn();
+    const recordLearning = vi.fn(async () => {});
+    const { result } = renderHook(() => {
+      const rig = useReassignRig(spies, [unassigned]);
+      const handlers = useActionCenterHandlers(makeDeps({
+        tasks: rig.tasks, setTasks: rig.setTasks, resources: rig.resources, reassignHours: rig.reassignHours, showToast, recordLearning,
+      }));
+      return { rig, handlers };
+    });
+    const action = markDoneAction(10);
+    act(() => result.current.handlers.assignOwnerBundle!.onAssign(action, { name: "Liam Foster", email: "liam@x.com", resourceId: 2 }));
+    const { rig } = result.current;
+    expect(rig.tasks[0]).toMatchObject({ assignee: "Liam Foster", assigneeEmail: "liam@x.com", resourceId: 2 });
+    expect(utilOf(rig.resources, 2)).toEqual(LIAM.utilization);
+    expect(utilOf(rig.resources, 1)).toEqual(MAYA.utilization);
+    // Routed through the reassign step: the owner write is now ONE undo entry.
+    expect(rig.undo.stack).toHaveLength(1);
+    expect(spies.logActivityAs).not.toHaveBeenCalled();
+    expect(spies.showToast).not.toHaveBeenCalled();
+    // The undo toast carries the generic edit label, not an hours notice — not even
+    // "unlinked" (R14: a task that had no owner gains one silently).
+    expect(spies.showToastAction).toHaveBeenCalledTimes(1);
+    expect(spies.showToastAction.mock.calls[0][1]).not.toMatch(/planned hours/);
+    expect(recordLearning).toHaveBeenCalledWith(action, "acted");
+    // The confirmation IS the undo toast, so its Undo button stays: no second toast replaces it.
+    // A task is named as a task, not as a RAID item (the RAID branch keeps its own message).
+    expect(spies.showToastAction.mock.calls[0][1]).toBe("Owner assigned to task #10");
+    expect(showToast).not.toHaveBeenCalled();
   });
 });

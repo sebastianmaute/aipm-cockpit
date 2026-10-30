@@ -11,6 +11,7 @@ import { setDisabledIntegrations } from "./integration-switches";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import type { Task, Resource } from "./types";
+import { expectedNotice, inertReassignHours, LIAM, MAYA, RIG_TASK, RIG_TODAY, rigSpies, useReassignRig, utilOf } from "../test/reassign-hours-rig";
 
 /** §752 — the dialogs every `makeArgs` hands the hook; unbridged (every answer "no") until a test scripts one. */
 const testDialogsRef: { current: AppDialogs } = { current: unbridgedDialogs() };
@@ -110,6 +111,7 @@ function makeArgs(
       typeof useTaskRowHandlers
     >[0]["logActivity"],
     captureComposite: vi.fn() as Parameters<typeof useTaskRowHandlers>[0]["captureComposite"],
+    reassignHours: inertReassignHours(),
     dialogsRef: testDialogsRef,
     ...overrides,
   };
@@ -906,6 +908,75 @@ describe("onSwimlaneDrop — explicit assign from a card", () => {
     );
     act(() => result.current.onSwimlaneDrop(1, ownLane, "To Do", "assign"));
     expect(setTasks).not.toHaveBeenCalled();
+  });
+});
+
+// §774 — the Kanban card's assignee select (and a drag to another person's lane)
+// shares onSwimlaneDrop; the hours move in the same undo entry as the owner.
+describe("onSwimlaneDrop — §774 a reassignment moves the planned hours", () => {
+  const resourcesById: ReadonlyMap<number, Resource> = new Map([MAYA, LIAM].map((r) => [r.id, r]));
+  const liamLane = { key: "res:2", label: "Liam Foster", resourceId: 2 };
+
+  function setup() {
+    const spies = rigSpies();
+    const hook = renderHook(() => {
+      const rig = useReassignRig(spies);
+      const handlers = useTaskRowHandlers(makeArgs({
+        tasksRef: rig.tasksRef as { current: Task[] }, setTasks: rig.setTasks, today: RIG_TODAY, resourcesById,
+        captureFieldEdit: rig.undo.captureFieldEdit, captureComposite: rig.undo.captureComposite, reassignHours: rig.reassignHours,
+      }));
+      return { rig, handlers };
+    });
+    return { hook, spies };
+  }
+
+  it("inline assignee moves the hours — the Kanban card's pick", () => {
+    const { hook, spies } = setup();
+    act(() => hook.result.current.handlers.onSwimlaneDrop(10, liamLane, "To Do", "assign"));
+    const { rig } = hook.result.current;
+    expect(rig.tasks[0]).toMatchObject({ assignee: "Liam Foster", resourceId: 2 });
+    expect(utilOf(rig.resources, 2)).toEqual({ "2026-09": 8, "2026-10": 8 });
+    expect(rig.undo.stack).toHaveLength(1);
+    const notice = expectedNotice({ task: { ...RIG_TASK, assignee: "Liam Foster", resourceId: 2 }, fromResourceId: 1, toResourceId: 2 });
+    expect(spies.showToastAction).toHaveBeenLastCalledWith("info", notice, expect.anything());
+    act(() => rig.undo.undo());
+    expect(hook.result.current.rig.tasks[0]).toMatchObject({ assignee: "Maya Patel", resourceId: 1, status: "To Do" });
+    expect(utilOf(hook.result.current.rig.resources, 1)).toEqual(MAYA.utilization);
+  });
+
+  // R17 — a same-lane status drag on a name-only card stamps the link to the person
+  // it already names: not a reassignment, so no hours move and no hours notice.
+  it("a same-lane status drag that adds the link is silent", () => {
+    const spies = rigSpies();
+    const nameOnly: Task = { ...RIG_TASK, resourceId: undefined };
+    const hook = renderHook(() => {
+      const rig = useReassignRig(spies, [nameOnly]);
+      const handlers = useTaskRowHandlers(makeArgs({
+        tasksRef: rig.tasksRef as { current: Task[] }, setTasks: rig.setTasks, today: RIG_TODAY, resourcesById,
+        captureFieldEdit: rig.undo.captureFieldEdit, captureComposite: rig.undo.captureComposite, reassignHours: rig.reassignHours,
+      }));
+      return { rig, handlers };
+    });
+    act(() => hook.result.current.handlers.onSwimlaneDrop(10, { key: "res:1", label: "Maya Patel", resourceId: 1 }, "In Progress"));
+    const { rig } = hook.result.current;
+    expect(rig.tasks[0]).toMatchObject({ resourceId: 1, status: "In Progress" });
+    expect(utilOf(rig.resources, 1)).toEqual(MAYA.utilization);
+    expect(spies.logActivityAs).not.toHaveBeenCalled();
+    expect(spies.showToast).not.toHaveBeenCalled();
+    expect(spies.showToastAction).toHaveBeenCalledTimes(1);
+    expect(spies.showToastAction.mock.calls[0][1]).not.toMatch(/planned hours/);
+  });
+
+  it("a drag into another person's Done lane moves nothing and says why", () => {
+    const { hook, spies } = setup();
+    act(() => hook.result.current.handlers.onSwimlaneDrop(10, liamLane, "Done"));
+    const { rig } = hook.result.current;
+    expect(rig.tasks[0]).toMatchObject({ resourceId: 2, status: "Done" });
+    expect(utilOf(rig.resources, 2)).toEqual({});
+    expect(rig.undo.stack).toHaveLength(1);
+    const notice = expectedNotice({ task: { ...RIG_TASK, assignee: "Liam Foster", resourceId: 2, status: "Done", completedDate: RIG_TODAY }, fromResourceId: 1, toResourceId: 2 });
+    expect(notice).not.toBeNull();
+    expect(spies.showToastAction).toHaveBeenLastCalledWith("info", notice, expect.anything());
   });
 });
 

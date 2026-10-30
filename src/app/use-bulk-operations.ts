@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { BudgetBucket, Task, Resource } from "./types";
@@ -18,7 +18,8 @@ import {
   sanitizeVoiceTranscript,
 } from "./sanitize";
 import { typedEmailRefusalKey } from "./email-refusal-i18n";
-import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
+import { buildBulkEditUpdates, buildInquiryMessage, resolveBulkOwner } from "./bulk-operations-helpers";
+import type { ReassignHours } from "./use-reassign-hours";
 import { applyTaskPatch, selfBlockerActor } from "./blocker-log";
 import { applyStatusChange, statusActivityKind } from "./task-status";
 import { todayInZone, resolveTimezone } from "./timezone";
@@ -105,6 +106,8 @@ export interface UseBulkOperationsArgs {
   dialogsRef?: { readonly current: AppDialogs };
   /** §752 — the bulk send awaits its dialogs; it writes and sends nothing if the project scope moved meanwhile. */
   getScopeEpoch?: ScopeEpochReader;
+  /** §774 — a bulk owner change moves every changed task's planned hours, in the apply's ONE undo entry. */
+  reassignHours: ReassignHours;
 }
 
 export function useBulkOperations(args: UseBulkOperationsArgs) {
@@ -138,6 +141,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   const captureFieldRowsRef = useRef(args.captureFieldRows);
   const dialogsRefRef = useRef(args.dialogsRef ?? UNBRIDGED);
   const getScopeEpochRef = useRef(args.getScopeEpoch ?? NO_EPOCH);
+  const reassignHoursRef = useRef(args.reassignHours);
   useEffect(() => { langRef.current = args.lang; }, [args.lang]);
   useEffect(() => { showToastRef.current = args.showToast; }, [args.showToast]);
   useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
@@ -151,6 +155,9 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   useEffect(() => { captureFieldRowsRef.current = args.captureFieldRows; }, [args.captureFieldRows]);
   useEffect(() => { dialogsRefRef.current = args.dialogsRef ?? UNBRIDGED; }, [args.dialogsRef]);
   useEffect(() => { getScopeEpochRef.current = args.getScopeEpoch ?? NO_EPOCH; }, [args.getScopeEpoch]);
+  // §774 — a layout effect, like every other consumer of the reassign step (ruling R12): a click right after a
+  // non-discrete update must not reach the previous render's step.
+  useLayoutEffect(() => { reassignHoursRef.current = args.reassignHours; }, [args.reassignHours]);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -252,7 +259,8 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       );
       return;
     }
-    const updates = built.updates;
+    // §774 R13 — an owner change links the person it strictly names (or unlinks), never a stale FK.
+    const updates = resolveBulkOwner(built.updates, fields.assigneeEmail, resources);
     // A row selected while visible and hidden by a LATER filter change must not
     // be edited from under the user. `visibleIds` is what they can see now, so
     // this is a second, independent guard: the first stops select-all REACHING a
@@ -273,7 +281,8 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     // reverted / pushed otherwise); local-only fields still apply. Non-synced rows
     // get everything.
     const managedEnabled = statusEnabled || JIRA_MANAGED_BULK_FIELDS.some((f) => f in updates);
-    const jiraSafeUpdates: Partial<Task> = { ...updates };
+    // From the UNRESOLVED patch: a synced row keeps exactly today's treatment (no owner, no link).
+    const jiraSafeUpdates: Partial<Task> = { ...built.updates };
     for (const f of JIRA_MANAGED_BULK_FIELDS) delete jiraSafeUpdates[f];
     // Local changes a synced row still receives (status never is — it's applied
     // via applyStatusChange only on non-synced rows below).
@@ -361,15 +370,26 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     const tasksPart = taskEdits.length > 0
       ? captureFieldPart<Task>({ setter: setTasks, edits: taskEdits, stampField: "localModifiedAt" })
       : null;
-    if (tasksPart !== null && !bucketsChanged) {
-      captureFieldRowsRef.current({ setter: setTasks, kind: "bulk.edit", edits: taskEdits, entityKey: "task", stampField: "localModifiedAt" });
-    }
+    // §774 — ONE plan over every written row (a batch must never be two prepares), from
+    // the rows AFTER the patch. Synced rows keep their owner, so they plan nothing.
+    const reassign = reassignHoursRef.current;
+    const step = reassign.prepare(beforeRows.filter((row) => editedIds.has(row.id)).map((row) => {
+      const after = patchRow(row);
+      return { task: after, fromResourceId: row.resourceId, toResourceId: after.resourceId, fromAssignee: row.assignee };
+    }));
     // `editedIds` is a subset of the VISIBLE targets, so this also keeps a
     // fully-hidden selection from producing a fresh (identical) tasks array,
     // which would dirty the workspace for nothing — the guard the old
     // `targetIds.length > 0` test carried, now implied by construction.
     if (editedIds.size > 0) {
       setTasks((prev) => prev.map((row) => (editedIds.has(row.id) ? patchRow(row) : row)));
+      step.commit("user");
+      // Recorded AFTER the write, like every other path (commit, then record): with hours (or a no-move
+      // notice) the entry is a composite, task patches first, then the resources.
+      if (tasksPart !== null && !bucketsChanged
+        && !reassign.record(step, { kind: "bulk.edit", entityKey: "task", primaryCount: taskEdits.length, taskPart: tasksPart })) {
+        captureFieldRowsRef.current({ setter: setTasks, kind: "bulk.edit", edits: taskEdits, entityKey: "task", stampField: "localModifiedAt" });
+      }
       // PER ROW, not once per batch: `activityTaskCompleted` is "Task #{0}
       // marked complete: {1}", which names ONE task and has no room for a
       // count. (An earlier revision added "and neither completion kind is in
@@ -391,7 +411,10 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       }
     }
     if (bucketsChanged) {
-      commitBuckets(nextBuckets, { kind: "bulk.edit", primaryCount: count, tasksPart, callerLogs: true });
+      commitBuckets(nextBuckets, {
+        kind: "bulk.edit", primaryCount: count, tasksPart, callerLogs: true,
+        extraParts: [step.resourcesPart], toastText: step.notice ?? undefined,
+      });
     }
     if (skippedSynced > 0) {
       showToastRef.current("info", tPlural(lang, "jiraBulkManagedFieldsSkipped", skippedSynced, skippedSynced));
@@ -405,10 +428,9 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     // pre-existing managed-fields-only path drives `count` to 0 for the same
     // reason; this one cannot, because the rows ARE selectable targets.
     if (count > 0 && (taskFieldsEnabled || bucketsChanged)) {
-      showToastRef.current(
-        "info",
-        tPlural(lang, "bulkEditDone", count, count),
-      );
+      // §774 R15 — this toast replaces the undo entry's, so it carries the hours notice too.
+      const done = tPlural(lang, "bulkEditDone", count, count);
+      showToastRef.current("info", step.notice ? `${done} ${step.notice}` : done);
       logActivityRef.current("bulk.edit", count);
     } else if (targetIds.length > 0 && skippedHidden === 0 && skippedSynced === 0) {
       // The GENUINE no-change apply: rows were targeted, none was withheld, and

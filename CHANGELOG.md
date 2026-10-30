@@ -12,6 +12,16 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Reassigning a task moves its planned hours (§774).** When a task changes owner, in the Workload triage, the task
+  editor, the table, the Kanban board, bulk edit, Next actions or through Claude, its remaining estimate moves from
+  the old owner's planned hours to the new owner's, across the periods between its start (or today) and its due date.
+  A notice says what moved, for example "Moved 16 h from Maya Patel to Liam Foster (Sep: 8 h, Oct: 8 h)", and its Undo
+  reverses the owner change and the hours together. When nothing can move, the notice says why: no remaining
+  estimate, a done or cancelled task, an owner who is not a linked person, or nothing planned in that period. A person
+  planned in percent can receive up to 100 % of a period; the rest stays with the old owner. A person planned in hours
+  can be pushed over capacity, up to 1,000 h in a period, and the notice says so. A bulk edit that skips several
+  tasks says so once, counted by reason.
+
 - **A deployment can switch AI off.** The server setting `AIPM_DISABLED_INTEGRATIONS` takes a new name, `ai`, which
   switches every AI feature off for that deployment, dictation to a speech service included. Settings → AI says so,
   nothing is sent, and users' keys and consents are kept for when AI is switched back on. Dictation with the browser's
@@ -54,6 +64,11 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Next actions names a task as a task (§774).** Assigning an owner to a task from Next actions said "Owner assigned to
+  RAID #10". It now says "Owner assigned to task #10", and the confirmation keeps its Undo button.
+- **Bulk edit links the owner it names (§774).** Changing the owner of several tasks at once wrote only the typed name
+  and kept the old link, so a task could read "Liam" while still linked to Maya. Bulk edit now links the person the
+  name matches, or clears the link when the name matches no one or more than one person.
 - **History's comparison shows what changed without a click (§776).** *Compare selected* used to list each changed
   record collapsed behind its "Modified" label, which read as plain text. The first 25 modified records now show
   their fields as before → after straight away; the rest, and added or removed records, open with the chevron beside

@@ -13,6 +13,7 @@ import { useUndoStack } from "./undo/use-undo-stack";
 import { useBudgetBuckets } from "./use-budget-buckets";
 import { bucketIdForTask } from "./budget-task-link";
 import { sanitizeVoiceTranscript } from "./sanitize";
+import { inertReassignHours, LIAM, MAYA, RIG_TASK, rigSpies, useReassignRigOver, utilOf } from "../test/reassign-hours-rig";
 import {
   useBulkOperations,
   type UseBulkOperationsArgs,
@@ -48,6 +49,7 @@ function makeArgs(
     showToast: vi.fn(),
     today: "2026-08-03",
     holidaySet: new Set<string>(),
+    reassignHours: inertReassignHours(),
     ...overrides,
   };
 }
@@ -1657,5 +1659,122 @@ describe("useBulkOperations", () => {
       expect(meta.kind).toBe("bulk.edit");
       expect(meta.tasksPart).not.toBeNull();
     });
+  });
+});
+
+// §774 R13 — the bulk owner change links the directory person it STRICTLY names,
+// so name and link never disagree, and moves every changed task's hours in ONE entry.
+describe("useBulkOperations — §774 bulk owner change", () => {
+  function renderBulkWithHours() {
+    const spies = rigSpies();
+    const showToast = vi.fn();
+    const { result } = renderHook(
+      () => {
+        const workspace = useWorkspace();
+        const rig = useReassignRigOver(spies, workspace);
+        const { commitBuckets } = useBudgetBuckets({
+          budgets: workspace.budgets, setBudgets: workspace.setBudgets,
+          capture: rig.undo.capture, captureComposite: rig.undo.captureComposite, logActivity: vi.fn(),
+        });
+        const args = makeArgs({
+          capture: rig.undo.capture, captureFieldRows: rig.undo.captureFieldRows, reassignHours: rig.reassignHours,
+          commitBuckets, showToast,
+        });
+        return { bulk: useBulkOperations(args), workspace, taskForm: useTaskForm(), rig };
+      },
+      { wrapper: Wrapper },
+    );
+    return { result, spies, showToast };
+  }
+  type R = ReturnType<typeof renderBulkWithHours>["result"];
+  function bulkAssign(result: R, tasks: Task[], assignee: string, labels?: string[]) {
+    act(() => { result.current.workspace.setResources([MAYA, LIAM]); result.current.workspace.setTasks(tasks); });
+    for (const tk of tasks) act(() => { result.current.bulk.onToggleSelect(tk.id); });
+    act(() => { result.current.taskForm.setBulkEdit((prev) => ({
+      ...prev, enabled: { ...prev.enabled, assignee: true, labels: labels !== undefined }, assignee, labels: labels ?? prev.labels,
+    })); });
+    act(() => { result.current.bulk.applyBulkEdit(); });
+  }
+  // Three of Maya's tasks, 32 h each over Sep–Oct (16 h a month): 48 h a month, but she plans only 40.
+  const big = (id: number): Task => ({ ...RIG_TASK, id, taskName: `Big ${id}`, remainingEstimateMinutes: 32 * 60 });
+
+  it("bulk edit moves every task's hours in one entry", () => {
+    const { result, spies } = renderBulkWithHours();
+    bulkAssign(result, [big(1), big(2), big(3)], "Liam Foster");
+    const { workspace, rig } = result.current;
+    for (const tk of workspace.tasks) expect(tk).toMatchObject({ assignee: "Liam Foster", assigneeEmail: "liam@x.com", resourceId: 2 });
+    // The running cap: Maya gives what she has (40 a month), never going negative.
+    expect(utilOf(workspace.resources, 1)).toEqual({ "2026-09": 0, "2026-10": 0, "2026-11": 20 });
+    expect(utilOf(workspace.resources, 2)).toEqual({ "2026-09": 40, "2026-10": 40 });
+    expect(rig.undo.stack).toHaveLength(1);
+    expect(spies.logActivityAs.mock.calls.filter((c) => c[1] === "resource.hoursMoved")).toHaveLength(1);
+    act(() => { result.current.rig.undo.undo(); });
+    expect(result.current.workspace.tasks.every((tk) => tk.resourceId === 1 && tk.assignee === "Maya Patel")).toBe(true);
+    expect(utilOf(result.current.workspace.resources, 1)).toEqual(MAYA.utilization);
+    expect(utilOf(result.current.workspace.resources, 2)).toEqual({});
+  });
+
+  it("the closing toast carries the hours notice", () => {
+    const { result, showToast } = renderBulkWithHours();
+    bulkAssign(result, [{ ...RIG_TASK, id: 1 }], "Liam Foster");
+    const last = String(showToast.mock.calls.at(-1)?.[1] ?? "");
+    expect(last).toContain("Moved 16 h from Maya Patel to Liam Foster");
+  });
+
+  it("an owner change plus a bucket move is ONE entry that undoes owners, the bucket link and the hours", () => {
+    const { result } = renderBulkWithHours();
+    act(() => {
+      result.current.workspace.setBudgets([
+        { id: 10, name: "Design", taskIds: [1] },
+        { id: 20, name: "Build", taskIds: [] },
+      ] as unknown as BudgetBucket[]);
+    });
+    act(() => { result.current.workspace.setResources([MAYA, LIAM]); result.current.workspace.setTasks([{ ...RIG_TASK, id: 1 }]); });
+    act(() => { result.current.bulk.onToggleSelect(1); });
+    act(() => { result.current.taskForm.setBulkEdit((prev) => ({
+      ...prev, enabled: { ...prev.enabled, assignee: true, budgetBucket: true }, assignee: "Liam Foster", budgetBucket: "20",
+    })); });
+    act(() => { result.current.bulk.applyBulkEdit(); });
+    expect(result.current.workspace.tasks[0].resourceId).toBe(2);
+    expect(bucketIdForTask(result.current.workspace.budgets, 1)).toBe(20);
+    expect(utilOf(result.current.workspace.resources, 2)).toEqual({ "2026-09": 8, "2026-10": 8 });
+    expect(result.current.rig.undo.stack).toHaveLength(1);
+
+    act(() => { result.current.rig.undo.undo(); });
+    expect(result.current.workspace.tasks[0].resourceId).toBe(1);
+    expect(bucketIdForTask(result.current.workspace.budgets, 1)).toBe(10);
+    expect(utilOf(result.current.workspace.resources, 1)).toEqual(MAYA.utilization);
+    expect(utilOf(result.current.workspace.resources, 2)).toEqual({});
+  });
+
+  it("bulk edit links the picked person", () => {
+    const { result } = renderBulkWithHours();
+    // Typed in another case: the strict match folds case and writes the directory identity.
+    bulkAssign(result, [{ ...RIG_TASK, id: 1 }], "liam foster");
+    expect(result.current.workspace.tasks[0]).toMatchObject({ assignee: "Liam Foster", assigneeEmail: "liam@x.com", resourceId: 2 });
+  });
+
+  // Review fix: a Jira-synced row keeps its owner AND its link — the resolved owner
+  // patch must never reach it (`jiraSafeUpdates` is built from the UNRESOLVED patch).
+  it("a linked Jira-synced row keeps its link and its hours when a local field rides along", () => {
+    const { result, spies } = renderBulkWithHours();
+    bulkAssign(result, [{ ...RIG_TASK, id: 1, jiraKey: "LOP-1" }], "Liam Foster", ["urgent"]);
+    const [tk] = result.current.workspace.tasks;
+    expect(tk.labels).toEqual(["urgent"]); // the local field applied, so the row WAS written
+    expect(tk).toMatchObject({ assignee: "Maya Patel", resourceId: 1 });
+    expect(utilOf(result.current.workspace.resources, 1)).toEqual(MAYA.utilization);
+    expect(utilOf(result.current.workspace.resources, 2)).toEqual(LIAM.utilization);
+    expect(spies.logActivityAs.mock.calls.filter((c) => c[1] === "resource.hoursMoved")).toHaveLength(0);
+  });
+
+  it("an unmatched bulk owner clears the link", () => {
+    const { result, spies } = renderBulkWithHours();
+    bulkAssign(result, [{ ...RIG_TASK, id: 1 }], "Contractor Jo");
+    const [tk] = result.current.workspace.tasks;
+    expect(tk.assignee).toBe("Contractor Jo");
+    expect(tk.resourceId).toBeUndefined();
+    expect(utilOf(result.current.workspace.resources, 1)).toEqual(MAYA.utilization);
+    // Linked → unlinked: no hours move, and the notice says why.
+    expect(spies.showToastAction.mock.calls.at(-1)?.[1]).toMatch(/planned hours/);
   });
 });

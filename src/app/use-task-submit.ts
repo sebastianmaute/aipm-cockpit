@@ -1,6 +1,6 @@
 "use client";
 import { isJiraOn } from "./integration-switches";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { emptyForm, type TaskFormDraft } from "./task-form-context";
 import { upsertContact, type ContactsMap } from "./contacts";
@@ -12,7 +12,8 @@ import { type Settings } from "./settings-types";
 import { type Task, type RaidItem, type Resource } from "./types";
 import { applyStatusChange, statusActivityKind } from "./task-status";
 import { captureFieldChanges } from "./undo/capture-field-changes";
-import { TASK_UNDO_GROUPS } from "./undo/field-groups";
+import { changedFieldGroups, TASK_UNDO_GROUPS } from "./undo/field-groups";
+import type { ReassignHours } from "./use-reassign-hours";
 import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
 import {
   ASSIGNEE_MAX,
@@ -77,6 +78,8 @@ export interface UseTaskSubmitArgs {
   /** Groups the successor-target edits into ONE undo entry — see
    *  `recordSuccessorEdits`. */
   captureComposite?: UndoStackApi["captureComposite"];
+  /** §774 — a save that changes the linked owner moves the task's planned hours, in the save's undo entry. */
+  reassignHours: ReassignHours;
 }
 
 export function useTaskSubmit(args: UseTaskSubmitArgs): {
@@ -112,7 +115,11 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     captureFieldEdit,
     captureComposite,
     dialogsRef,
+    reassignHours,
   } = args;
+  // A fresh object every render (deps-object hook): read through a ref so handleSubmit stays memoized.
+  const reassignHoursRef = useRef(reassignHours);
+  useLayoutEffect(() => { reassignHoursRef.current = reassignHours; }, [reassignHours]);
 
   // `submitted` flips true on the first submit attempt so per-field errors can
   // reveal even for fields the user never blurred. Live `fieldErrors` also gate
@@ -282,7 +289,9 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
 
       // ★ Called AFTER each branch's own-task captures, so the target entries
       // land on top of the stack and a bare undo() peels the successor links
-      // first (the most recently-intended act). ★★ There is NOT always an
+      // first (the most recently-intended act). ★ Except a save that moved
+      // planned hours (§774 R15): there the hours entry goes on top, so its notice
+      // is the toast the user ends on. ★★ There is NOT always an
       // own-task entry to unwind from: `captureFieldChanges` pushes nothing when
       // no own field changed, so a successors-only save leaves ONLY these
       // entries, and a create pushes none at all (creates are not undoable
@@ -410,6 +419,18 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         if (successors.skipped > 0) {
           showToast("info", tPlural(lang, "depSuccessorsSkipped", successors.skipped, successors.skipped));
         }
+        // Single-item edit, so tasksRef's row equals the mapped row — compute the
+        // same next value to diff prev→next for the undo capture + audit detail.
+        const nextTask = prevTask && applyStatusChange(
+          { ...prevTask, ...payload, localModifiedAt: stamp },
+          form.status,
+          today,
+        );
+        // §774 — planned from the task AFTER this save, so an estimate saved
+        // together with the new owner is the estimate that moves.
+        const step = prevTask && nextTask
+          ? reassignHoursRef.current.prepare([{ task: nextTask, fromResourceId: prevTask.resourceId, toResourceId: nextTask.resourceId, fromAssignee: prevTask.assignee }])
+          : undefined;
         // ONE functional setter for the edited task AND every successor target:
         // they all live in the same array, so a second setTasks would be a
         // second pass over it for no benefit.
@@ -429,18 +450,32 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             return edit ? addSuccessorLinks(row, edit, liveIds, stamp) : row;
           });
         });
+        step?.commit("user");
         setEditingId(null);
+        // §774 R15 — the toast is ONE slot and each entry shows its own. When this
+        // save moved hours (or has a no-move notice), the successor entry is pushed
+        // FIRST so the hours entry lands on top: the user ends on the notice, and
+        // that toast's Undo reverses what it describes. This flips the usual
+        // "successor links on top" order for such a save only.
+        const hoursOnTop = step !== undefined && (step.resourcesPart !== null || step.notice !== null);
+        if (hoursOnTop) recordSuccessorEdits(successors, tasksRef.current);
         // Always found: the guard at the top of this handler returned for a task
         // deleted elsewhere. The `if` only narrows the type.
-        if (prevTask) {
-          // Single-item edit, so tasksRef's row equals the mapped row — recompute
-          // the same next value to diff prev→next for the undo capture + audit detail.
-          const nextTask = applyStatusChange(
-            { ...prevTask, ...payload, localModifiedAt: stamp },
-            form.status,
-            today,
-          );
-          captureFieldChanges(captureFieldEdit, {
+        if (prevTask && nextTask && step) {
+          // §774 — when hours moved (or a no-move notice applies), the whole save is
+          // ONE entry: every changed field group plus the resources, toast = notice.
+          const groups = changedFieldGroups(prevTask, nextTask, TASK_UNDO_GROUPS);
+          const recorded = reassignHoursRef.current.record(step, {
+            kind: "task.updated",
+            primaryCount: 1,
+            name: taskName,
+            taskPart: captureFieldPart<Task>({
+              setter: setTasks,
+              edits: [{ id: updatedId, before: Object.assign({}, ...groups.map((g) => g.before)), after: Object.assign({}, ...groups.map((g) => g.after)) }],
+              stampField: "localModifiedAt",
+            }),
+          });
+          if (!recorded) captureFieldChanges(captureFieldEdit, {
             setter: setTasks,
             kind: "task.updated",
             id: updatedId,
@@ -462,7 +497,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           const transition = statusActivityKind(prevTask, nextTask);
           if (transition) logActivity(transition, updatedId, taskName);
         }
-        recordSuccessorEdits(successors, tasksRef.current);
+        if (!hoursOnTop) recordSuccessorEdits(successors, tasksRef.current);
       } else {
         // A new task starts with no blockers and no log; the Blockers button
         // is disabled until the task is saved (as Notes), then the window adds.

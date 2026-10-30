@@ -171,8 +171,20 @@ export function collapseCaptures(
   // No `name`: a label names ONE entity, and a plan is not one entity. Letting a
   // single row's title stand for the whole plan is the same wrong-label failure
   // the entityKey note above rejects.
-  return { kind, primaryCount, parts, entityKey };
+  // §774 — a capture with its own toast text (a reassignment that moved planned
+  // hours) keeps saying so in the ONE collapsed entry; plans whose captures carry
+  // none keep the generic "Edited N items". At most two texts are shown, then a
+  // count of the rest ("(+3)"), so a large plan's toast stays one short line.
+  const texts = contributing.map((o) => o.toastText).filter((x): x is string => !!x);
+  const extra = texts.length - MAX_COLLAPSED_TOAST_TEXTS;
+  const toastText = texts.length === 0
+    ? undefined
+    : [...texts.slice(0, MAX_COLLAPSED_TOAST_TEXTS), ...(extra > 0 ? [`(+${extra})`] : [])].join(" ");
+  return { kind, primaryCount, parts, entityKey, toastText };
 }
+
+/** Toast texts a collapsed entry shows in full before it counts the rest (§774). */
+const MAX_COLLAPSED_TOAST_TEXTS = 2;
 
 /**
  * A stable capture surface plus the batch control that collapses it.

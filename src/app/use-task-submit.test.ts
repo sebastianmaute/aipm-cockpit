@@ -1,5 +1,6 @@
 // src/app/use-task-submit.test.ts
 import { fakeDialogs } from "../test/fake-dialogs";
+import { expectedNotice, inertReassignHours, LIAM_OWNS, RIG_TASK, RIG_TODAY, rigSpies, useReassignRig, utilOf } from "../test/reassign-hours-rig";
 import { act, renderHook } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -89,6 +90,7 @@ function makeArgs(overrides: Partial<Parameters<typeof useTaskSubmit>[0]> = {}) 
     raid: [] as readonly RaidItem[],
     setRaid: vi.fn(),
     pendingLinkRaidIdRef: { current: null as number | null },
+    reassignHours: inertReassignHours(),
     ...overrides,
   };
 }
@@ -1471,6 +1473,75 @@ describe("useTaskSubmit — staged successor links", () => {
     const reset = setForm.mock.calls.at(-1)?.[0] as TaskFormDraft;
     expect(reset.successorLinks).toEqual([]);
     expect(reset.successorLinks).not.toEqual(staged.successorLinks);
+  });
+});
+
+describe("useTaskSubmit — §774 a reassignment moves the planned hours", () => {
+  // Review Focus 4: one save changes the owner AND the estimate; the move uses the NEW estimate.
+  it("the editor moves the estimate after the edit", () => {
+    const spies = rigSpies();
+    const form: TaskFormDraft = {
+      ...validForm(), taskName: RIG_TASK.taskName, startDate: RIG_TASK.startDate ?? "", dueDate: RIG_TASK.dueDate,
+      lastUpdateDate: RIG_TASK.lastUpdateDate, ...LIAM_OWNS, remainingEstimateMinutes: 8 * 60,
+    };
+    const { result } = renderHook(() => {
+      const rig = useReassignRig(spies);
+      const submit = useTaskSubmit(makeArgs({
+        form, editingId: 10, today: RIG_TODAY, tasks: rig.tasks, tasksRef: rig.tasksRef, setTasks: rig.setTasks,
+        captureFieldEdit: rig.undo.captureFieldEdit, captureComposite: rig.undo.captureComposite, reassignHours: rig.reassignHours,
+      }));
+      return { rig, submit };
+    });
+    act(() => result.current.submit.handleSubmit(fakeSubmitEvent()));
+    const { rig } = result.current;
+    expect(rig.tasks[0]).toMatchObject({ ...LIAM_OWNS, remainingEstimateMinutes: 480 });
+    // 8 h, not the stored 16 h: 4 h in each month.
+    expect(utilOf(rig.resources, 2)).toEqual({ "2026-09": 4, "2026-10": 4 });
+    expect(utilOf(rig.resources, 1)).toEqual({ "2026-09": 36, "2026-10": 36, "2026-11": 20 });
+    // ONE entry for the save: owner, estimate and hours undo together.
+    expect(rig.undo.stack).toHaveLength(1);
+    const notice = expectedNotice({ task: { ...RIG_TASK, ...LIAM_OWNS, remainingEstimateMinutes: 480 }, fromResourceId: 1, toResourceId: 2 });
+    expect(notice).toContain("8");
+    expect(spies.showToastAction).toHaveBeenLastCalledWith("info", notice, expect.anything());
+    expect(spies.logActivityAs).toHaveBeenCalledWith("user", "resource.hoursMoved", expect.any(String));
+
+    act(() => rig.undo.undo());
+    expect(result.current.rig.tasks[0]).toMatchObject({ assignee: "Maya Patel", resourceId: 1, remainingEstimateMinutes: 960 });
+    expect(utilOf(result.current.rig.resources, 2)).toEqual({});
+  });
+});
+
+// R15 — the same save also links a successor, which pushes its own entry. The toast
+// the user ends on must still carry the hours notice: the hours entry is recorded LAST.
+describe("useTaskSubmit — §774 R15 the hours notice survives a successor-link entry", () => {
+  it("ends on the hours notice when the save also links a successor", () => {
+    const spies = rigSpies();
+    const target: Task = { ...RIG_TASK, id: 11, taskName: "Follow-up", resourceId: undefined, assignee: "", assigneeEmail: "" };
+    const form: TaskFormDraft = {
+      ...validForm(), taskName: RIG_TASK.taskName, startDate: RIG_TASK.startDate ?? "", dueDate: RIG_TASK.dueDate,
+      lastUpdateDate: RIG_TASK.lastUpdateDate, ...LIAM_OWNS, remainingEstimateMinutes: RIG_TASK.remainingEstimateMinutes,
+      successorLinks: [{ taskId: 11, type: "FS" as const }],
+    };
+    const { result } = renderHook(() => {
+      const rig = useReassignRig(spies, [RIG_TASK, target]);
+      const submit = useTaskSubmit(makeArgs({
+        form, editingId: 10, today: RIG_TODAY, tasks: rig.tasks, tasksRef: rig.tasksRef, setTasks: rig.setTasks,
+        captureFieldEdit: rig.undo.captureFieldEdit, captureComposite: rig.undo.captureComposite, reassignHours: rig.reassignHours,
+      }));
+      return { rig, submit };
+    });
+    act(() => result.current.submit.handleSubmit(fakeSubmitEvent()));
+    const { rig } = result.current;
+    expect(rig.tasks.find((x) => x.id === 11)?.dependencies).toEqual([{ taskId: 10, type: "FS" }]);
+    expect(utilOf(rig.resources, 2)).toEqual({ "2026-09": 8, "2026-10": 8 });
+    expect(rig.undo.stack).toHaveLength(2);
+    const notice = expectedNotice({ task: { ...RIG_TASK, ...LIAM_OWNS }, fromResourceId: 1, toResourceId: 2 });
+    expect(spies.showToastAction).toHaveBeenLastCalledWith("info", notice, expect.anything());
+    // The Undo on that toast reverses what it describes: owner and hours, not the link.
+    act(() => rig.undo.undo());
+    expect(result.current.rig.tasks[0]).toMatchObject({ assignee: "Maya Patel", resourceId: 1 });
+    expect(utilOf(result.current.rig.resources, 2)).toEqual({});
+    expect(result.current.rig.tasks.find((x) => x.id === 11)?.dependencies).toEqual([{ taskId: 10, type: "FS" }]);
   });
 });
 

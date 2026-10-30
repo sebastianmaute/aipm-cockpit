@@ -40,6 +40,12 @@ or the load hold (`docs/AGENTS/platform.md`). One fact, one doc.
   ★ The AI allocation plan (`useAllocPlan`, logged `ai.allocationPlan`) is undoable too, but not
   through a chat tool handler: it records one `capture` with `kind: "bulk.edit"` and
   `entityKey: "resource"`.
+  ★ A reassignment that moves planned hours (§774, `use-reassign-hours.ts`) is ONE entry over TWO
+  collections: the path's own task fragment first (a `captureFieldPart`, or on the chat `update_task`
+  path its whole-row `capturePart`, flagged `isPrimary`), then a `captureFieldPart` over the touched
+  resources' `utilization`, with the hours notice as `toastText`. A path that already captures its own
+  entry folds the resources part in (`prepare`, then `record`); `collapseCaptures` keeps the captures'
+  `toastText` (the first two in full, then a count of the rest), so a staged chat plan still shows it.
 - **Not undoable:** creates (below), `send_inquiry` (an AI update: its handler in
   `use-chat-dispatcher.ts` bumps `Task.inquiriesSent` with no capture — see the `shouldStage`
   docstring in `chat-proposal.ts`), project delete (`handleDeleteProject` takes no capture — §6 (a)),

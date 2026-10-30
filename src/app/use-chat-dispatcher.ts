@@ -159,6 +159,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
   const getForecastInputRef = useRef(args.getForecastInput);
   const undoRef = useRef(args.undo);
+  // §774 — ref-routed like `undoRef`, so the dispatcher memo below never goes stale on it.
+  const reassignHoursRef = useRef(args.reassignHours);
+  /** The last `updateTask`'s planned-hours notice, until `takePlannedHoursNote` reads it. */
+  const plannedHoursNoteRef = useRef<string | null>(null);
   // ★★ Ref-routed like its siblings: the memo below is built once, and
   // `useWbsPlan().open` changes identity whenever its settings, key or scope
   // do — a captured `args.openWbsPlan` would freeze the first render's
@@ -253,6 +257,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     undoRef.current = args.undo;
   }, [args.undo]);
+  useEffect(() => {
+    reassignHoursRef.current = args.reassignHours;
+  }, [args.reassignHours]);
   useEffect(() => {
     openWbsPlanRef.current = args.openWbsPlan;
   }, [args.openWbsPlan]);
@@ -386,6 +393,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       ...documentTools,
       listTasks: () => tasksRef.current,
       getTask: (id) => tasksRef.current.find((row) => row.id === id) ?? null,
+      takePlannedHoursNote: () => {
+        const note = plannedHoursNoteRef.current;
+        plannedHoursNoteRef.current = null;
+        return note;
+      },
       createTask: (input) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const list = tasksRef.current;
@@ -497,6 +509,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         //   that is the contract `buildBeforeImages` documents.
         // §299 — decided before the capture so the undo entry can carry it.
         const transition = statusActivityKind(existing, merged);
+        // §774 — an owner change moves the planned hours too, in THIS entry (the batch wrapper collapses a
+        //  staged plan's entries, hours included). `prepare` is silent when the owner is unchanged.
+        const hoursStep = reassignHoursRef.current?.prepare([
+          { task: merged, fromResourceId: existing.resourceId, toResourceId: merged.resourceId, fromAssignee: existing.assignee },
+        ]);
+        plannedHoursNoteRef.current = hoursStep?.notice ?? null;
         // ★ Skipped when only write-through keys changed (a blockers-only
         //   update): undo would keep the live pair and revert nothing.
         if (!changedOnlyWriteThrough(existing, merged)) {
@@ -508,15 +526,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
               edited: [existing],
               fromArray: tasksRef.current,
               isPrimary: true,
-            })],
+            }), hoursStep?.resourcesPart ?? null],
             name: existing.taskName,
             entityKey: "task",
+            toastText: hoursStep?.notice ?? undefined,
             completionFlips: transition === "task.completed" ? { completed: 1, reopened: 0 }
               : transition === "task.reopened" ? { completed: 0, reopened: 1 } : undefined,
           });
         }
         tasksRef.current = next;
         setTasks(next);
+        hoursStep?.commit("ai");
         args.logActivityAs?.("ai", "task.updated", merged.id, merged.taskName);
         // ★ The `"ai"` actor is required: this file logs MODEL writes, and
         // threading the user actor here would misattribute them.

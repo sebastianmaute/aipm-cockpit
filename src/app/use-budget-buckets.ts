@@ -24,6 +24,11 @@ export interface BucketCommitMeta {
   tasksPart?: CompositeFragment | null;
   /** User-facing row count for a composite entry's toast. */
   primaryCount?: number;
+  /** §774 — further FIELD fragments for the same composite entry (the bulk edit's planned-hours
+   *  move on `resources`). Only used with `tasksPart`. */
+  extraParts?: readonly (CompositeFragment | null)[];
+  /** Replaces the composite entry's generic Undo toast text (the hours notice). */
+  toastText?: string;
   /** The caller already writes its own activity row for this commit (the tasks
    *  bulk edit logs one `bulk.edit` for the rows it touched). Without this the
    *  same apply produces TWO rows, the second counting BUCKETS while claiming
@@ -117,7 +122,8 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
       captureComposite({
         kind,
         primaryCount: meta.primaryCount ?? (deleted.length + editedBefore.length),
-        parts: [meta.tasksPart, budgetsPart, bucketEditsPart],
+        parts: [meta.tasksPart, budgetsPart, bucketEditsPart, ...(meta.extraParts ?? [])],
+        toastText: meta.toastText,
         name,
         // ★★ "task", NOT "budget" — and this literal is safe only under BOTH
         // halves of a coupling that nothing here enforces. `buildUndoLabel`
