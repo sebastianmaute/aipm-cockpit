@@ -472,7 +472,7 @@ function ChatPanelInner({
     tursoMode, tursoConfig, projectId, lang, busy, history, display, setHistory, setDisplay, cancelledRef, abortRef, confirm,
   });
   const { ref: chatRef, reset: resetChatSize } = useResizable("aipm-cockpit:chat-size-v2");
-  const { record: recordUsage, recordChatSend, noteUnbilledChatSend } = useAiUsageContext();
+  const { recordChatSend, noteUnbilledChatSend } = useAiUsageContext();
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.
   const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai, ai.model);
@@ -769,11 +769,6 @@ function ChatPanelInner({
     });
 
     try {
-      // Accumulate token usage across all turns for this send.
-      let totalInput = 0;
-      let totalOutput = 0;
-      let totalCacheWrite = 0;
-      let totalCacheRead = 0;
       // When the previous turn was a max_tokens continuation, the next turn's
       // text is appended to the SAME bubble (a split mid code-fence/table would
       // otherwise render as two broken blocks). `completed` distinguishes a clean
@@ -809,10 +804,6 @@ function ChatPanelInner({
         // A cancel or a project switch may have landed while awaiting — bail
         // before writing this turn onto (possibly) another project's state.
         if (stale()) break;
-        totalInput += response.usage.input_tokens;
-        totalOutput += response.usage.output_tokens;
-        totalCacheWrite += response.usage.cache_creation_input_tokens;
-        totalCacheRead += response.usage.cache_read_input_tokens;
 
         const assistantMsg: ApiMessage = {
           role: "assistant",
@@ -1079,14 +1070,8 @@ function ChatPanelInner({
         }
       }
       if (!cancelledRef.current) {
-        // Record summed token usage for the entire send (all turns combined).
-        // Skipped on cancel — no complete turn to bill.
-        recordUsage({
-          input: totalInput,
-          output: totalOutput,
-          cacheWrite: totalCacheWrite,
-          cacheRead: totalCacheRead,
-        });
+        // Token usage is not recorded here: the transport's usage tap counts every response as it
+        // arrives, a turn that landed before Stop included.
         recordChatSend(sendFingerprint(), counterCacheWrite, requests);
       } else if (requests > 0) {
         // Stopped after a response: not billed, but the prefix is cached.

@@ -28,7 +28,7 @@ function mkDeps(over: Partial<InlineAiEditDeps> = {}): InlineAiEditDeps {
     ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineAiEditDeps["ai"],
     apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
     isPopout: false, lang: "en-US",
-    showToast: vi.fn(), ws, guides: [], recordUsage: vi.fn(),
+    showToast: vi.fn(), ws, guides: [],
     ...over,
   };
 }
@@ -332,7 +332,7 @@ describe("useInlineEntityEdit — raid", () => {
       ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
       isPopout: false, lang: "en-US",
-      showToast: vi.fn(), ws: raidWs, guides: [], recordUsage: vi.fn(),
+      showToast: vi.fn(), ws: raidWs, guides: [],
       ...over,
     };
   }
@@ -694,7 +694,7 @@ describe("useInlineEntityEdit — a single-FK link (resource.roleId)", () => {
       ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
       isPopout: false, lang: "en-US",
-      showToast: vi.fn(), ws: roleWs, guides: [], recordUsage: vi.fn(),
+      showToast: vi.fn(), ws: roleWs, guides: [],
     };
   }
 

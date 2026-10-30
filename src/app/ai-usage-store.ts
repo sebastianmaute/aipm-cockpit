@@ -4,9 +4,8 @@ import { isoDate, mondayOf, normalizeUsage } from "./ai-usage";
 
 /** The per-path store. The pre-path key is read once for migration and never written again. */
 export const AI_USAGE_BY_PATH_KEY = "aipm-cockpit:ai-usage-by-path";
-// Retyped, not imported: the constant lives in `ai-usage-context.tsx`, which pulls React into this
-// pure module. `ai-usage-store.test.ts` writes the old shape under this literal.
-const OLD_USAGE_KEY = "aipm-cockpit:ai-usage";
+/** The pre-path key (day -> one usage): read once for migration, never written again. */
+export const AI_USAGE_KEY = "aipm-cockpit:ai-usage";
 
 /** day `YYYY-MM-DD` -> path id -> usage */
 export type PathBuckets = Record<string, Record<string, Usage>>;
@@ -56,7 +55,7 @@ export function readPathBuckets(storage: Storage): PathBuckets {
   const old = parseJson(
     (() => {
       try {
-        return storage.getItem(OLD_USAGE_KEY);
+        return storage.getItem(AI_USAGE_KEY);
       } catch {
         return null;
       }

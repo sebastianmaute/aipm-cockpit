@@ -72,7 +72,8 @@ const { DEFAULT_AI_USAGE_CONTEXT } = vi.hoisted(() => ({
     sessionUsage: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 },
     weekTotal: 0,
     nextReset: new Date(),
-    record: vi.fn(),
+    weekByFeature: [],
+    backgroundWeekCost: 0,
     viewSwitchWeek: { sends: 0, requests: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
     recordChatSend: vi.fn(),
     noteUnbilledChatSend: vi.fn(),
@@ -3613,12 +3614,10 @@ describe("cache-token usage recording", () => {
     vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
   });
 
-  it("records cache tokens from every turn of a send", async () => {
-    const recordSpy = vi.fn();
+  it("hands the view-switch counter the cache writes of every turn of a send", async () => {
     const recordChatSendSpy = vi.fn();
     vi.mocked(useAiUsageContext).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
-      record: recordSpy,
       recordChatSend: recordChatSendSpy,
     });
 
@@ -3673,9 +3672,7 @@ describe("cache-token usage recording", () => {
 
     await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
 
-    expect(recordSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ cacheRead: 2000, cacheWrite: 500 }),
-    );
+    // Token usage is the transport tap's to record (ai-usage-context.test.tsx); the panel reports none.
     // §702: one send, two API requests — the counter is told both numbers.
     expect(recordChatSendSpy).toHaveBeenCalledTimes(1);
     expect(recordChatSendSpy).toHaveBeenCalledWith(expect.anything(), 500, 2);
@@ -3773,12 +3770,10 @@ describe("cache-token usage recording", () => {
   // get the request together with its cache write, or a switch would be
   // recorded with a write of 0; the token caps keep their old rule and never
   // see a response that landed after the send went stale.
-  it("gives the counter the cache write of a response that landed after a scope change, and the caps none of it", async () => {
-    const recordSpy = vi.fn();
+  it("gives the counter the cache write of a response that landed after a scope change", async () => {
     const recordChatSendSpy = vi.fn();
     vi.mocked(useAiUsageContext).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
-      record: recordSpy,
       recordChatSend: recordChatSendSpy,
     });
     let resolveFetch!: (r: Response) => void;
@@ -3810,8 +3805,6 @@ describe("cache-token usage recording", () => {
 
     await waitFor(() => expect(recordChatSendSpy).toHaveBeenCalledTimes(1));
     expect(recordChatSendSpy).toHaveBeenCalledWith(expect.anything(), 800, 1);
-    expect(recordSpy).toHaveBeenCalledTimes(1);
-    expect(recordSpy).toHaveBeenCalledWith({ input: 0, output: 0, cacheWrite: 0, cacheRead: 0 });
   });
 
   function renderGuidedPanel() {

@@ -16,7 +16,6 @@ import { type AiConfig, isAiEnabled } from "./settings-types";
 import { type OperatingGuide } from "./operating-guide";
 import { callInlineEdit } from "./inline-ai-edit-call";
 import { useActionGuideText } from "./action-guides-context";
-import { type ApiUsage } from "./chat-api";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { describeEntityCalls, isEmptyPlan, type EditPlan, type FieldDiff, type LinkDiff } from "./inline-ai-edit/plan";
@@ -35,7 +34,6 @@ export interface InlineEntityEditDeps {
   showToast: (kind: "info" | "error", text: string) => void;
   ws: Workspace;
   guides: readonly OperatingGuide[];
-  recordUsage?: (u: ApiUsage) => void;
   /** Extra per-entity enable clause (task: !jiraKey). MUST be a stable
    *  reference (useCallback / module fn): it feeds the `aiEditEnabled`/`openFor`
    *  useCallbacks, which a caller threads into the task row context value — an
@@ -194,7 +192,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     abortRef.current = controller;
     setPhase("thinking"); setErrorText(""); setClarifyText("");
     try {
-      const { blocks, text, usage } = await callInlineEdit({
+      const { blocks, text } = await callInlineEdit({
         apiKey: deps.apiKey, model: deps.ai.model, lang: deps.lang,
         entity: deps.entity, item: target, itemLabel: d.titleOf(target),
         instruction, snapshot: deps.dispatcher.getSnapshot(),
@@ -206,7 +204,6 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         signal: controller.signal,
       });
       if (reqId !== reqIdRef.current) return; // superseded — discard
-      deps.recordUsage?.(usage);
       const next = describeEntityCalls(blocks, { descriptor: d, item: target, ws: deps.ws });
       // ★★★ A REFUSAL IS NOT "NO CHANGES" (§392). `isEmptyPlan` counts what the
       //  plan would WRITE and deliberately does not count `rejected`, so a plan

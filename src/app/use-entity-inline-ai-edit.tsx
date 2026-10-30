@@ -10,7 +10,6 @@ import { type Settings, aiKeyIfEnabled } from "./settings-types";
 import { type ToolDispatcher } from "./chat-tools";
 import { useWorkspace } from "./workspace-context";
 import { useToastContext } from "./toast-context";
-import { useAiUsageContext } from "./ai-usage-context";
 import { useInlineEntityEdit } from "./use-inline-entity-edit";
 import { InlineAiEditPopover } from "./inline-ai-edit-popover";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
@@ -76,7 +75,6 @@ export const INLINE_EDIT_TITLE_KEY: Record<InlineEntity, TranslationKey> = {
 
 export function useEntityInlineAiEdit(entity: InlineEntity, deps: EntityInlineAiEditDeps): EntityInlineAiEdit {
   const showToast = useToastContext();
-  const { record } = useAiUsageContext();
   const ws = useWorkspace();
   const edit = useInlineEntityEdit({
     entity,
@@ -88,12 +86,6 @@ export function useEntityInlineAiEdit(entity: InlineEntity, deps: EntityInlineAi
     showToast,
     ws,
     guides: [],
-    recordUsage: (u) => record({
-      input: u.input_tokens,
-      output: u.output_tokens,
-      cacheWrite: u.cache_creation_input_tokens,
-      cacheRead: u.cache_read_input_tokens,
-    }),
     active: deps.active,
   });
   // Hoisted locals (not `edit.member`) so the caller's useMemo dep arrays stay

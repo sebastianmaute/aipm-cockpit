@@ -9,6 +9,7 @@ import {
   useAiUsageContext,
 } from "../ai-usage-context";
 import { nextWeekReset } from "../ai-usage";
+import { AI_FEATURE_LABEL } from "../ai-usage-paths";
 import { G2_BREAK_EVEN_REQUESTS_PER_SWITCH, type ViewSwitchStats } from "../ai-view-switch";
 import { ProgressTrack } from "../progress-track";
 import { type Lang, t, localeFor } from "../i18n";
@@ -150,7 +151,8 @@ type AiUsagePanelProps = {
 };
 
 export function AiUsagePanel({ lang, sessionCap, weeklyCap, guidesOn = true }: AiUsagePanelProps) {
-  const { sessionTotal, weekTotal, nextReset, sessionUsage, viewSwitchWeek } = useAiUsageContext();
+  const { sessionTotal, weekTotal, nextReset, sessionUsage, viewSwitchWeek, weekByFeature, backgroundWeekCost } =
+    useAiUsageContext();
 
   // ★★★ NOT a state setter in an effect (`react-hooks/set-state-in-effect` is
   //     fatal here, and re-rendering would only make the line vanish mid-read).
@@ -223,6 +225,23 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap, guidesOn = true }: A
       <p className="mt-1 text-xs text-muted-foreground">
         {t(lang, "aiUsageResetAt", resetLabel)}
       </p>
+      <p className="mt-1 text-xs text-muted-foreground">{t(lang, "aiUsageCoversAllFeatures")}</p>
+      {weekByFeature.length > 0 && (
+        <dl aria-label={t(lang, "aiUsageByFeature")} className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+          {weekByFeature.map((row) => (
+            <div key={row.feature} className="flex justify-between gap-2">
+              <dt>{t(lang, AI_FEATURE_LABEL[row.feature])}</dt>
+              <dd className="tabular-nums">{Math.round(row.cost).toLocaleString(locale)}</dd>
+            </div>
+          ))}
+          {backgroundWeekCost > 0 && (
+            <div className="flex justify-between gap-2">
+              <dt>{t(lang, "aiUsageBackgroundWeek")}</dt>
+              <dd className="tabular-nums">{Math.round(backgroundWeekCost).toLocaleString(locale)}</dd>
+            </div>
+          )}
+        </dl>
+      )}
       <ViewSwitchLines lang={lang} locale={locale} stats={viewSwitchWeek} guidesOn={guidesOn} />
     </div>
   );

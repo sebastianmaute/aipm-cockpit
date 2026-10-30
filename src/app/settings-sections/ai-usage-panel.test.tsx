@@ -1,19 +1,27 @@
 // src/app/settings-sections/ai-usage-panel.test.tsx
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { useEffect, useRef, type ReactNode } from "react";
+import { AI_FEATURE_LABEL } from "../ai-usage-paths";
 import { AiUsagePanel } from "./ai-usage-panel";
 import {
   AI_CAP_BASIS_NOTICE_KEY,
   AI_COST_BASIS_NOTICE_KEY,
-  AI_USAGE_KEY,
   AiUsageProvider,
   useAiUsageContext,
 } from "../ai-usage-context";
+import { AI_USAGE_KEY } from "../ai-usage-store";
+import { emitUsage } from "../../test/usage-tap";
 import { defaultAiConfig } from "../settings-types";
 import { t, loadI18n, type Lang } from "../i18n";
 import type { Usage } from "../ai-usage";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "../settings-types";
+
+// The provider records what the transport's tap reports, so the tests drive that tap directly.
+vi.mock("../ai-transport", async (orig) => ({
+  ...(await orig<typeof import("../ai-transport")>()),
+  subscribeAiUsage: (await import("../../test/usage-tap")).fakeSubscribeAiUsage,
+}));
 
 // AiUsagePanel reads from AiUsageContext via useAiUsageContext().
 // Wrap with the real AiUsageProvider seeded with zero usage (clean localStorage).
@@ -25,17 +33,16 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
-// Records ONE Usage sample into the provider on mount (a ref guard keeps it
-// firing once even under StrictMode's double-invoke) before its children
-// render, so the panel below reads an already-populated sessionUsage.
+// Taps ONE Usage sample on mount (a ref guard keeps it firing once even under
+// StrictMode's double-invoke). It sits OUTSIDE the provider: effects run child
+// first, so only a parent's effect runs after the provider has subscribed.
 function Seed({ usage, children }: { usage: Usage; children: ReactNode }) {
-  const { record } = useAiUsageContext();
   const firedRef = useRef(false);
   useEffect(() => {
     if (firedRef.current) return;
     firedRef.current = true;
-    record(usage);
-  }, [record, usage]);
+    emitUsage("chat", usage);
+  }, [usage]);
   return <>{children}</>;
 }
 
@@ -45,9 +52,11 @@ function seededWrapper(lang: Lang, usage: Usage) {
   const ai = { ...defaultAiConfig };
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <AiUsageProvider lang={lang} ai={ai} showToast={vi.fn()}>
-        <Seed usage={usage}>{children}</Seed>
-      </AiUsageProvider>
+      <Seed usage={usage}>
+        <AiUsageProvider lang={lang} ai={ai} showToast={vi.fn()}>
+          {children}
+        </AiUsageProvider>
+      </Seed>
     );
   };
 }
@@ -75,6 +84,29 @@ beforeEach(() => {
   // The flags live in localStorage, which jsdom keeps for the whole FILE —
   // without this, whichever test ran first would decide every later one.
   localStorage.clear();
+});
+
+describe("AiUsagePanel — per-feature breakdown", () => {
+  const input = (n: number): Usage => ({ input: n, output: 0, cacheWrite: 0, cacheRead: 0 });
+
+  it("renders one row per feature with its label, the background line and the coverage label", () => {
+    render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, { wrapper });
+    act(() => {
+      emitUsage("chat", input(300));
+      emitUsage("propose_wbs_changes:background", input(200));
+    });
+    expect(screen.getByText(t("en-US", AI_FEATURE_LABEL.chat))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", AI_FEATURE_LABEL.wbs))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", AI_FEATURE_LABEL.digest))).toBeNull();
+    expect(screen.getByText(t("en-US", "aiUsageBackgroundWeek"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "aiUsageCoversAllFeatures"))).toBeInTheDocument();
+  });
+
+  it("shows no breakdown before any usage", () => {
+    render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, { wrapper });
+    expect(screen.queryByText(t("en-US", AI_FEATURE_LABEL.chat))).toBeNull();
+    expect(screen.queryByText(t("en-US", "aiUsageBackgroundWeek"))).toBeNull();
+  });
 });
 
 describe("AiUsagePanel", () => {
