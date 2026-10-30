@@ -1,10 +1,17 @@
-import { describe, expect, test } from "vitest";
-import { DOCUMENT_EXCERPT_CHARS, describeDocumentCall } from "./chat-proposal-describe-document";
+import { describe, expect, expectTypeOf, test } from "vitest";
+import { DOCUMENT_EXCERPT_CHARS, describeDocumentCall, type DocOpKind } from "./chat-proposal-describe-document";
+import type { DocOp } from "./document-ops";
 import type { ProposedCall } from "./chat-proposal";
 
 const call = (name: string, input: Record<string, unknown>): ProposedCall => ({ name, input });
 
 describe("describeDocumentCall (AI-02)", () => {
+  // Checked by tsc, both directions: an engine op kind the card does not list, or a listed kind the engine lacks.
+  // Mutation: removing "move" from `DOC_OP_KINDS` fails `npx tsc --noEmit` here.
+  test("lists exactly the engine's op kinds", () => {
+    expectTypeOf<DocOpKind>().toEqualTypeOf<DocOp["op"]>();
+  });
+
   test("a create names its block count and opening text", () => {
     const change = describeDocumentCall(call("create_document", {
       title: "Charter",

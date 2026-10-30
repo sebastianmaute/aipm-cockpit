@@ -10,14 +10,16 @@
 //  `sanitizeAiDocBlocks`), so a block the write drops is not counted. The text is a plain-text projection
 //  (`htmlPlainProjection`) and the card renders it as text, never as markup.
 import type { ProposedCall } from "./chat-proposal";
+import type { DocOp } from "./document-ops";
 import { sanitizeProjectDocuments, type DocBlock } from "./document-model";
 import { htmlPlainProjection, oneLine } from "./rich-text-plain";
 
 /** How much of the written text the card shows. */
 export const DOCUMENT_EXCERPT_CHARS = 160;
 
-/** The `update_document` op kinds, in the order the card lists them. */
-export const DOC_OP_KINDS = ["append", "insert", "replace", "replaceAll", "move", "delete"] as const;
+/** The `update_document` op kinds, in the order the card lists them. `satisfies` refuses a kind the engine does not
+ *  have; the test file's `expectTypeOf` refuses an engine kind missing here. */
+export const DOC_OP_KINDS = ["append", "insert", "replace", "replaceAll", "move", "delete"] as const satisfies readonly DocOp["op"][];
 export type DocOpKind = (typeof DOC_OP_KINDS)[number];
 
 /** What a staged document write puts into the document. `excerpt` is plain text, "" when the write adds none. */
