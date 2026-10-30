@@ -250,3 +250,19 @@ describe("MODAL_HELP", () => {
     }
   });
 });
+
+// AI-03 — the usage panel's weekly figures come from the shared store, its session figure from this tab alone, so
+// Help must not say the whole panel is shared by all tabs.
+describe("usage-limits help on tabs (AI-03)", () => {
+  it("says the weekly figures are shared and the session figure is per tab, in English and German", async () => {
+    await loadI18n("de");
+    const en = t("en-US", "helpSecUsageLimitsBody");
+    expect(en).toContain("weekly figures are shared by all open tabs");
+    expect(en).toContain("session figure counts this tab only");
+    expect(en).not.toContain("and is shared by all open tabs");
+    const de = t("de", "helpSecUsageLimitsBody");
+    expect(de).toContain("Wochenwerte gelten für alle geöffneten Tabs");
+    expect(de).toContain("Sitzungswert zählt nur diesen Tab");
+    expect(de).not.toContain("und gilt für alle geöffneten Tabs");
+  });
+});
