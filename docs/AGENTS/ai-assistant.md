@@ -245,7 +245,12 @@
   deletes, invitations, `send_inquiry`, `update_project`, `update_settings`, `set_filters`, `set_language`, and every
   entity write outside `TOKEN_REQUIRED_TOOLS`); and once a turn of the send has staged, a later turn stages
   nothing: its reads (`isPureReadTool`, `chat-send-record.ts`) run, every other call runs nothing and is answered with
-  `PROPOSAL_PENDING_RESULT`, and the loop continues so the model can reply; the card is never replaced unseen. A staged one is
+  `PROPOSAL_PENDING_RESULT`, and the loop continues so the model can reply; the card is never replaced unseen. A staged
+  `set_language`, `set_filters` or device-only `update_settings` is described by `describeDeviceCall`
+  (`chat-proposal-describe-device.ts`) into `DescribedRow.device` and titled by `deviceRowTitle`: the language by its own
+  name, the filters as `filtersFromInput` (the write's own reader) leaves them, the settings as `previewSettings` judges
+  them; "describes every stageable tool that is not an entity write" (`chat-proposal-describe.test.ts`) fails for a
+  stageable tool with no description. A staged functions change is
   described by `describeFunctionsCall` (`chat-proposal-describe-functions.ts`) into `DescribedRow.functions`: the
   card titles it with `functionsRowTitle` and lists the functions it turns on and off against `Workspace.features`
   (labels via the Functions picker's `moduleNames`), and a refused value shows as a rejection on the field.

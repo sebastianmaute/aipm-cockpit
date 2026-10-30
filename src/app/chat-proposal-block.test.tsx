@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ChatProposalBlock, proposalRowTitle, type ProposalCardRow } from "./chat-proposal-block";
+import { ChatProposalBlock, deviceRowTitle, proposalRowTitle, type ProposalCardRow } from "./chat-proposal-block";
 import type { EditPlan } from "./inline-ai-edit/plan";
 import type { InlineEntity } from "./inline-ai-edit/entity-descriptor";
 import type { ProposedCall } from "./chat-proposal";
@@ -582,5 +582,31 @@ describe("ChatProposalBlock — the applied notice", () => {
   it("reports a zero rather than falling silent", () => {
     renderCard(ROWS, { applied: 0 });
     expect(screen.getByText(appliedText(0))).toBeInTheDocument();
+  });
+});
+
+// AI-02 — a staged language, filter or device-settings change is titled by what it changes, never by the tool name.
+describe("deviceRowTitle", () => {
+  it("names the language, the filters and the settings, in English", () => {
+    expect(deviceRowTitle("en-US", { kind: "language", language: "de" })).toBe("Switch the app language to Deutsch");
+    expect(deviceRowTitle("en-US", { kind: "filters", filters: { assignee: "Ann", priority: "All", search: "" } })).toBe(
+      "Filter the task list: Search = all, Priority = all, Assignee = Ann",
+    );
+    expect(deviceRowTitle("en-US", { kind: "settings", settings: [{ key: "dashboardDensity", value: "compact" }] })).toBe(
+      "Change settings: dashboardDensity = compact",
+    );
+    expect(deviceRowTitle("en-US", { kind: "settings", settings: [] })).toBe("Change settings: —");
+    expect(deviceRowTitle("en-US", undefined)).toBeNull();
+  });
+
+  it("translates the line and the filter labels in German", async () => {
+    await loadI18n("de");
+    expect(deviceRowTitle("de", { kind: "language", language: "en-GB" })).toBe("Sprache der App auf English (UK) umstellen");
+    expect(deviceRowTitle("de", { kind: "filters", filters: { priority: "High", group: "" } })).toBe(
+      "Aufgabenliste filtern: Priorität = High, Gruppe = alle",
+    );
+    expect(deviceRowTitle("de", { kind: "settings", settings: [{ key: "showViewHints", value: "false" }] })).toBe(
+      "Einstellungen ändern: showViewHints = false",
+    );
   });
 });

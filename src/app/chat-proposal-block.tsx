@@ -36,12 +36,14 @@
 // is the one `requireCollisionSeed` can certify.
 
 import { useMemo, useState } from "react";
-import { type Lang, t, tPlural } from "./i18n";
+import { type Lang, type TranslationKey, t, tPlural } from "./i18n";
 import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { carriesEnabledModules, type ProposedCall } from "./chat-proposal";
 import type { FunctionsChange } from "./chat-proposal-describe-functions";
+import type { DeviceChange } from "./chat-proposal-describe-device";
+import type { Filters } from "./chat-tools";
 import { moduleNames } from "./functions-picker";
 import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type DiffEntity, type EditPlan, type Rejected } from "./inline-ai-edit/plan";
@@ -141,6 +143,47 @@ export function functionsRowTitle(lang: Lang, call: ProposedCall): string | null
   return carriesEnabledModules(call) ? t(lang, "chatProposalFunctionsTitle") : null;
 }
 
+/** Settings as the tool names them, `key = value`; no settings label table exists. */
+function settingPairs(settings: readonly { readonly key: string; readonly value: string }[]): string {
+  return settings.map((o) => `${o.key} = ${o.value}`).join(", ");
+}
+
+/** The languages' own names, as the language picker in Settings shows them. */
+const LANGUAGE_NAMES: Readonly<Record<string, string>> = { "en-US": "English (US)", "en-GB": "English (UK)", de: "Deutsch" };
+
+/** Each filter's label, in the order the task list's toolbar shows them. */
+const FILTER_LABEL_KEY: Readonly<Record<keyof Filters, TranslationKey>> = {
+  search: "chatProposalFilterSearch",
+  priority: "priority",
+  assignee: "assignee",
+  group: "group",
+  label: "labels",
+};
+
+function filterPairs(lang: Lang, filters: Filters): string {
+  const pairs = (Object.keys(FILTER_LABEL_KEY) as (keyof Filters)[])
+    .filter((k) => filters[k] !== undefined)
+    .map((k) => {
+      const value = filters[k];
+      return `${t(lang, FILTER_LABEL_KEY[k])} = ${value === "" || value === "All" ? t(lang, "chatProposalFilterAll") : value}`;
+    });
+  return pairs.length > 0 ? pairs.join(", ") : "—";
+}
+
+/** AI-02 — the card line for a staged `set_language`, `set_filters` or device-only `update_settings`, built from
+ *  what the call changes (`DescribedRow.device`), or null for any other row. */
+export function deviceRowTitle(lang: Lang, device: DeviceChange | undefined): string | null {
+  if (device === undefined) return null;
+  switch (device.kind) {
+    case "language":
+      return t(lang, "chatProposalLanguageTitle", LANGUAGE_NAMES[device.language] ?? device.language);
+    case "filters":
+      return t(lang, "chatProposalFiltersTitle", filterPairs(lang, device.filters));
+    case "settings":
+      return t(lang, "chatProposalSettingsTitle", device.settings.length > 0 ? settingPairs(device.settings) : "—");
+  }
+}
+
 /** §779 — the functions a staged row switches on and off, by the labels the Functions picker shows. */
 function FunctionsDetail({ lang, change }: { lang: Lang; change: FunctionsChange }) {
   const unchanged = change.on.length === 0 && change.off.length === 0;
@@ -155,7 +198,7 @@ function FunctionsDetail({ lang, change }: { lang: Lang; change: FunctionsChange
       {/* The rest of the same call: under the title "Project functions" it would otherwise be invisible.
           No settings label table exists, so the keys are named as the tool names them. */}
       {change.others.length > 0 && (
-        <li>{t(lang, "chatProposalFunctionsOthers", change.others.map((o) => `${o.key} = ${o.value}`).join(", "))}</li>
+        <li>{t(lang, "chatProposalFunctionsOthers", settingPairs(change.others))}</li>
       )}
       {/* The functions write takes no undo capture, while the rest of an applied plan does: neither the
           shortcut (Ctrl+Z, Cmd+Z on a Mac) nor the undo button reverses it, so no shortcut is named. */}

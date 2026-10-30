@@ -82,6 +82,7 @@ import { isPureReadTool, openSendRecord } from "./chat-send-record";
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
 import {
   ChatProposalBlock,
+  deviceRowTitle,
   functionsRowTitle,
   proposalRowTitle,
   type ProposalCardRow,
@@ -888,7 +889,10 @@ function ChatPanelInner({
               id: proposalId,
               rows: described,
               planRows,
-              titles: proposalTitles(described, ws, (r) => functionsRowTitle(lang, r.call) ?? proposalRowTitle(r.call, r.plan)),
+              titles: proposalTitles(
+                described, ws,
+                (r) => functionsRowTitle(lang, r.call) ?? deviceRowTitle(lang, r.device) ?? proposalRowTitle(r.call, r.plan),
+              ),
               // Everything starts kept: the card is a chance to REFUSE, and a
               // plan that arrives all-unchecked reads as "nothing to do here".
               selected: new Set(described.map((_, i) => i)),

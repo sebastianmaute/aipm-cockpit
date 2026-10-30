@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { describeProposal, TOOL_ENTITY } from "./chat-proposal-describe";
 import { buildPlanRows, isEntityWriteTool, type ProposedCall } from "./chat-proposal";
 import { TOOL_DEFS } from "./chat-tool-defs";
+import { stagesWhenUntrusted } from "./chat-send-record";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 import { entityToken } from "./ai-entity-token";
 import type { Workspace } from "./workspace";
@@ -595,6 +596,37 @@ describe("TOOL_ENTITY", () => {
     expect(deps.plan.links).toEqual([
       { entity: "task", target: "row", field: "dependencies", subject: "A", before: "", after: "B (FS)", rawIds: [2] },
     ]);
+  });
+
+  // AI-02 — the stageable tools that are no entity write change this device or its view. In an untrusted send
+  // they stage, so the card must say what each one does: a stageable tool the card cannot describe lands here.
+  test("describes every stageable tool that is not an entity write", () => {
+    const samples: Record<string, Record<string, unknown>> = {
+      set_language: { language: "de" },
+      set_filters: { search: "late", priority: "High", label: "" },
+      update_settings: { showViewHints: false },
+    };
+    const derived = (TOOL_DEFS as ReadonlyArray<{ name: string }>)
+      .map((d) => d.name)
+      .filter((n) => stagesWhenUntrusted(call(n, {})) && !isEntityWriteTool(n));
+    expect(derived.sort()).toEqual(Object.keys(samples).sort());
+    const rows = describeProposal(Object.entries(samples).map(([n, input]) => call(n, input)), ws);
+    expect(rows.map((r) => r.device)).toEqual([
+      { kind: "language", language: "de" },
+      { kind: "filters", filters: { search: "late", priority: "High", label: "" } },
+      { kind: "settings", settings: [{ key: "showViewHints", value: "false" }] },
+    ]);
+    for (const r of rows) expect(r.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+  });
+
+  test("a functions change is not a device row, and a priority the write drops is not shown", () => {
+    const [functions, filters] = describeProposal(
+      [call("update_settings", { enabledModules: ["raid"] }), call("set_filters", { priority: "Urgent!" })],
+      ws,
+    );
+    expect(functions.device).toBeUndefined();
+    expect(functions.functions).toBeDefined();
+    expect(filters.device).toEqual({ kind: "filters", filters: {} });
   });
 
   test("stamps escalate_raid_item with the live RAID row's token and describes no diff (§515)", () => {

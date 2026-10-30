@@ -3831,7 +3831,7 @@ describe("staged tool calls (the review card)", () => {
     const dispatcher = makeDispatcher();
     const extra = dispatcher as unknown as { updateSettings: unknown; previewSettings: unknown };
     extra.updateSettings = vi.fn(() => ({ showViewHints: false }));
-    extra.previewSettings = vi.fn(() => ({}));
+    extra.previewSettings = vi.fn(() => ({ showViewHints: false }));
     scriptFetch(
       [
         toolTurn([
@@ -3858,7 +3858,12 @@ describe("staged tool calls (the review card)", () => {
     expect(dispatcher.setFilters).not.toHaveBeenCalled();
     const rows = Array.from(card.querySelectorAll("[data-proposal-row]"));
     expect(rows).toHaveLength(3);
-    for (const row of rows) expect(row.textContent?.trim()).not.toBe("");
+    // Mutation: titling these rows with the tool name turns this red.
+    expect(rows.map((r) => r.querySelector(".text-sm")?.textContent)).toEqual([
+      "Filter the task list: Search = late",
+      "Switch the app language to Deutsch",
+      "Change settings: showViewHints = false",
+    ]);
     fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
     await waitFor(() => expect(extra.updateSettings).toHaveBeenCalledTimes(1));
     expect(dispatcher.setFilters).toHaveBeenCalledTimes(1);

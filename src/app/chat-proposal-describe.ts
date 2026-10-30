@@ -42,6 +42,7 @@ import type { Task, TaskDependency } from "./types";
 import { proposalIdOf } from "./forecast-target";
 import { describeProjectPlan, stampProjectCall, UPDATE_PROJECT_TOOL } from "./chat-proposal-describe-project";
 import { describeFunctionsCall, type FunctionsChange, type PreviewSettings } from "./chat-proposal-describe-functions";
+import { describeDeviceCall, type DeviceChange } from "./chat-proposal-describe-device";
 
 export {
   describeProjectCall,
@@ -126,6 +127,9 @@ export interface DescribedRow {
   /** §779 — set only on an `update_settings` row carrying an accepted `enabledModules`: the functions it
    *  switches on and off against the project's saved list. The card renders it; the plan stays empty. */
   readonly functions?: FunctionsChange;
+  /** AI-02 — set only on a `set_language`, `set_filters` or device-only `update_settings` row: what it changes,
+   *  for the card's line. The plan stays empty. */
+  readonly device?: DeviceChange;
 }
 
 function emptyPlan(): EditPlan {
@@ -504,6 +508,14 @@ export function describeProposal(
     if (functionsRow !== null) {
       if (functionsRow.functions) functionsSoFar = functionsRow.functions.after;
       rows.push({ call, stamped, plan: functionsRow.plan, mintedId, ...(functionsRow.functions ? { functions: functionsRow.functions } : {}) });
+      continue;
+    }
+
+    // AI-02 — a language, filter or device-settings change has no descriptor either; the card's line comes from
+    // the call's own input.
+    const device = describeDeviceCall(call, previewSettings);
+    if (device !== null) {
+      rows.push({ call, stamped, plan: emptyPlan(), mintedId, device });
       continue;
     }
 
