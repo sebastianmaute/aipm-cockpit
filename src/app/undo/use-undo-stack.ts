@@ -38,7 +38,7 @@ const UNDO_CAP = 25;
 export type UndoEntityKey =
   | "task" | "milestone" | "raid" | "change" | "stakeholder"
   | "resource" | "absence" | "shift" | "role" | "discipline" | "grade"
-  | "calendarEvent" | "budget" | "forecastScenario" | "project";
+  | "calendarEvent" | "budget" | "forecastScenario" | "project" | "meetingReport";
 
 type I18nKey = Parameters<typeof t>[1];
 
@@ -58,6 +58,7 @@ const ENTITY_SINGULAR: Record<UndoEntityKey, I18nKey> = {
   budget: "undoEntityBudget",
   forecastScenario: "undoEntityForecastScenario",
   project: "undoEntityProject",
+  meetingReport: "undoEntityMeetingReport",
 };
 // §132 — a plural for EVERY entity, and a total record so tsc demands the next one: an unnamed
 // multi-row edit now names its entity with a count ("Edit 3 absences"), so the old "only named,
@@ -78,6 +79,7 @@ const ENTITY_PLURAL: Record<UndoEntityKey, I18nKey> = {
   budget: "undoEntityBudgets",
   forecastScenario: "undoEntityForecastScenarios",
   project: "undoEntityProjects",
+  meetingReport: "undoEntityMeetingReports",
 };
 
 // ★ Must stay in lockstep with the entity prefixes in ACTIVITY_KIND_TO_KEY: a
@@ -89,7 +91,7 @@ const ENTITY_PLURAL: Record<UndoEntityKey, I18nKey> = {
 const ENTITY_KEY_SET: ReadonlySet<string> = new Set<UndoEntityKey>([
   "task", "milestone", "raid", "change", "stakeholder",
   "resource", "absence", "shift", "role", "discipline", "grade",
-  "calendarEvent", "budget", "forecastScenario", "project",
+  "calendarEvent", "budget", "forecastScenario", "project", "meetingReport",
 ]);
 
 function entityKeyFromKind(kind: ActivityKind): UndoEntityKey | null {
@@ -798,6 +800,9 @@ export interface UseUndoStackDeps {
    *  restore entry point return early, so their stacks stay empty — not because
    *  the reader is absent. */
   getScopeEpoch?: ScopeEpochReader;
+  /** AI-04 — asked before the save toast's Undo runs, with the entry it would undo: `true` goes ahead, a promise
+   *  resolves to the answer (the report-dirty guard, which the top bar and hotkey already go through). Read LAZILY. */
+  confirmBeforeUndo?: (meta: UndoMeta) => true | Promise<boolean>;
 }
 
 /** One entry on either stack: display meta + the impure directional runner.
@@ -1114,7 +1119,15 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // saying "Edited" over a mass deletion.
     const isDelete = isDeleteKind(kind);
     const text = toastText ?? tPlural(lang, isDelete ? "undoToastDelete" : "undoToastEdit", primaryCount, primaryCount);
-    showToastAction("info", text, { labelKey: "undo", run: () => undoById(id) });
+    showToastAction("info", text, {
+      labelKey: "undo",
+      run: () => {
+        const entryMeta = stackRef.current.find((e) => e.meta.id === id)?.meta;
+        const ok = entryMeta ? depsRef.current.confirmBeforeUndo?.(entryMeta) ?? true : true;
+        if (ok === true) undoById(id);
+        else void ok.then((go) => { if (go) undoById(id); }).catch((e: unknown) => logDiag("warn", "undo.confirmRejected", { message: e instanceof Error ? e.message : String(e) }));
+      },
+    });
   }, [undoById]);
 
   const capture = useCallback(<T extends { id: number }>(opts: CaptureOpts<T>) => {

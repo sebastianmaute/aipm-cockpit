@@ -381,6 +381,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     undoRef,
     projectWriterRef: args.projectWriterRef,
     getScopeEpoch: args.getScopeEpoch,
+    getUndoEpoch: args.getUndoEpoch,
     showToast: args.showToast,
   });
   // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`

@@ -144,6 +144,29 @@ describe("turso-tenant-schema", () => {
     expect(decoded.steeringCommittee?.infoSchedules[0].leadDays).toBe(3);
   });
 
+  const REPORT_WS = {
+    ...emptyWorkspace(),
+    steeringCommittee: {
+      name: "Board",
+      memberResourceIds: [1],
+      meetings: [{
+        id: 1, date: "2026-07-10", title: "July",
+        report: { html: "<p>now</p>", updatedAt: "t2", previous: { html: "<p>before</p>", savedAt: "t1" } },
+      }],
+      infoSchedules: [],
+    },
+  };
+
+  it("round-trips a meeting report previous version through the tenant path (AI-04)", () => {
+    const decoded = rowsToWorkspace(simulateSelect(tenantWorkspaceToStatements(REPORT_WS, "p1")));
+    expect(decoded.steeringCommittee?.meetings[0].report).toEqual(REPORT_WS.steeringCommittee.meetings[0].report);
+  });
+
+  it("round-trips a meeting report previous version through the single-tenant path (AI-04)", () => {
+    const decoded = rowsToWorkspace(simulateSelect(workspaceToStatements(REPORT_WS)));
+    expect(decoded.steeringCommittee?.meetings[0].report).toEqual(REPORT_WS.steeringCommittee.meetings[0].report);
+  });
+
   it("persists an empty features array (not dropped) through the tenant path", () => {
     const ws = { ...emptyWorkspace(), features: [] as const };
     const results = simulateSelect(tenantWorkspaceToStatements(ws, "p1"));

@@ -9,6 +9,12 @@ function isEditableTarget(el: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
 }
 
+/** AI-04 — a surface that switches the app undo off (the meeting-report dialog), so a Ctrl+Z on one of
+ *  its buttons cannot undo a stored report under the open, unsaved draft. */
+function isAppUndoOff(el: EventTarget | null): boolean {
+  return el instanceof Element && el.closest('[data-app-undo="off"]') !== null;
+}
+
 /**
  * Global undo/redo keyboard shortcuts, skipped inside a text field so native
  * field-undo is untouched. Mirrors the app's ⌘K search shortcut; both callbacks
@@ -26,7 +32,7 @@ export function useUndoHotkey(undo: () => void, redo?: () => void): void {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return;
-      if (isEditableTarget(e.target)) return;
+      if (isEditableTarget(e.target) || isAppUndoOff(e.target)) return;
       const key = e.key.toLowerCase();
       // Redo: mod+Shift+Z or mod+Y.
       if ((e.shiftKey && key === "z") || (!e.shiftKey && key === "y")) {

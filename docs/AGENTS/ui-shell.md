@@ -287,6 +287,10 @@
   (task-manager's hooks) takes a `dialogsRef` that the provider fills (`dialogsRef={appDialogsRef}`); until
   then every question answers "no" and logs `dialog.noBridge`. `no-native-dialogs.sweep.test.ts` fails on any
   `window.`/`globalThis.`/`self.` call of the three, and on a bare `alert(`.
+  ★ The provider renders at the APP ROOT, outside any `data-app-undo="off"` zone, so Ctrl+Z / redo inside one of
+  its dialogs reaches the app undo hotkey (`useUndoHotkey`). A surface that switches app undo off for itself must
+  also pass `appUndoOff: true` in `ConfirmOptions` / `NoticeOptions` for every dialog it opens — the meeting
+  report does (`grep -n "appUndoOff: true" src/app/meeting-report-panel.tsx`).
   ★★ AN AWAITED DIALOG IS A WINDOW THE OLD ONE NEVER OPENED. The native ones froze the page, so nothing ran
   while they were up; the app's do not, so autosave, a settings rebuild, a project swap and background
   writers can all land while one is open. After every awaited answer, re-check what the op stands on: the

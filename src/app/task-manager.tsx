@@ -72,6 +72,7 @@ import { useTursoProjectList } from "./use-turso-project-list";
 import { useStorageBannerReshow } from "./use-storage-banner-reshow";
 import { useVersionHistoryWiring } from "./use-version-history-wiring";
 import { useUndoHotkey } from "./use-undo-hotkey";
+import { useReportUndoGuard, confirmReportUndo } from "./use-report-undo-guard";
 import { useUndoBatch } from "./use-undo-batch";
 import { UndoControl, RedoControl } from "./undo/undo-control";
 import { buildMoveAbsenceHandler } from "./absence-move-handler";
@@ -179,16 +180,14 @@ function TaskManagerInner() {
   // §628 — same forward-ref shape; filled below with `useStorageBackend`'s stable reader, and `usePruneUndoOnScopeChange` sits after that call for the same ordering reason.
   const getScopeEpochRef = useRef<() => number>(() => 0); // holds useStorageBackend's UNDO epoch (getUndoEpoch: the scope epoch + one per restore), filled below
   const readScopeEpochForUndo = useCallback(() => getScopeEpochRef.current(), []);
-  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo, getScopeEpoch: readScopeEpochForUndo });
+  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo, getScopeEpoch: readScopeEpochForUndo, confirmBeforeUndo: (m) => confirmReportUndo([m], appDialogsRef.current, lang, "undo") });
+  const reportUndo = useReportUndoGuard({ api: undoApi, dialogsRef: appDialogsRef, lang, showToast }); // AI-04 — the hotkey + top bar ask before rewriting an open report's unsaved text
   // ★★ §548 — the one undo path that does NOT unmount with the app tree during the load hold (a document
   //   keydown listener), and an undo applied then is replaced when the load lands, so it is dropped.
   //   `loadPending` comes from `useStorageBackend` further down, so it is read through a ref (the same
   //   forward-ref pattern as `allowDestructiveSaveRef`). The call stays HERE so the document keydown
   //   listeners keep their registration order.
-  useUndoHotkey(
-    () => { if (!loadPendingRef.current) undoApi.undo(); },
-    () => { if (!loadPendingRef.current) undoApi.redo(); },
-  );
+  useUndoHotkey(() => { if (!loadPendingRef.current) reportUndo.undo(); }, () => { if (!loadPendingRef.current) reportUndo.redo(); });
   // ★★★ ONE INSTANCE, TWO CONSUMERS, AND THEY MUST BE THE SAME ONE. `.undo`
   // goes in as the chat dispatcher's `undo` prop (below) so the AI capture
   // sites are intercepted (count them with the `kind: "` grep in use-undo-batch.ts); `.runBatched` goes down to `ChatPanel` so an
@@ -893,6 +892,7 @@ function TaskManagerInner() {
     getDashboardModel: () => dashboardModel,
     aiKey: aiKeyIfEnabled(settings.ai),
     aiModel: settings.ai.model, guides: operatingGuides.guides,
+    captureComposite: undoApi.captureComposite, logActivityAs,
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "", getScopeEpoch, // §763: no late write into the next project
   });
   // Stable callback (its own useCallback) — depend on this, not the whole hook
@@ -1088,7 +1088,7 @@ function TaskManagerInner() {
     // ★ ONE field, not `today` + `timezone` (§159); `onSettingsLoggedByAi` is §160.
     clock,
     onSettingsLoggedByAi, setSelectedIds, setSettings,
-    isReadOnly: isPopout, openWbsPlan: wbsPlan.open, projectWriterRef, getScopeEpoch, showToast, reassignHours,
+    isReadOnly: isPopout, openWbsPlan: wbsPlan.open, projectWriterRef, getScopeEpoch, getUndoEpoch: readScopeEpochForUndo, showToast, reassignHours,
     currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, holidaysReady, logActivityAs,
     // ★ `delete_document` is a second removal route into a COUNTED slice — see
     //   the arming site in `use-document-tools.ts`.
@@ -1739,14 +1739,14 @@ function TaskManagerInner() {
         dataTourId={TOUR_ANCHORS.undo}
         lang={lang}
         entries={undoApi.stack}
-        onUndo={undoApi.undo}
-        onUndoThrough={undoApi.undoThrough}
+        onUndo={reportUndo.undo}
+        onUndoThrough={reportUndo.undoThrough}
       />
       <RedoControl
         lang={lang}
         entries={undoApi.redoStack}
-        onRedo={undoApi.redo}
-        onRedoThrough={undoApi.redoThrough}
+        onRedo={reportUndo.redo}
+        onRedoThrough={reportUndo.redoThrough}
       />
     </>
   );

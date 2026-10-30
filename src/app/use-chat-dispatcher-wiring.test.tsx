@@ -117,6 +117,7 @@ function makeDeps(over: Partial<ChatDispatcherWiringDeps> = {}): ChatDispatcherW
     openWbsPlan: vi.fn(() => ({ opened: true, tasksInScope: 1 })),
     projectWriterRef: { current: vi.fn(async () => true) },
     getScopeEpoch: vi.fn(() => 0),
+    getUndoEpoch: vi.fn(() => 0),
     showToast: vi.fn(),
     dashboardModel: MODEL,
     holidaysReady: true,
@@ -161,6 +162,7 @@ describe("useChatDispatcherWiring — the useChatDispatcher args", () => {
     expect(args().openWbsPlan).toBe(d.openWbsPlan);
     expect(args().projectWriterRef).toBe(d.projectWriterRef);
     expect(args().getScopeEpoch).toBe(d.getScopeEpoch);
+    expect(args().getUndoEpoch).toBe(d.getUndoEpoch);
     expect(args().showToast).toBe(d.showToast);
   });
 

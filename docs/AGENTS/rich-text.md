@@ -686,3 +686,8 @@ register's fix to another is how two of them broke. Read the note that names you
   ★ They are four ONE-ARGUMENT functions on purpose: every call site is `.map(fn)`, which passes the
   INDEX as the second argument, so a `(entity, fields)` signature would be fed `0, 1, 2…`, normalise
   nothing, and leave every `.map`-based test green.
+- **★★ An emptied editor is `<p></p>`, never `""`.** `RichTextEditor` emits `sanitizeRichHtml(editor.getHTML())`, and an
+  empty document serialises as an empty paragraph, which `sanitizeRichHtml` keeps. A blank check written as
+  `html === ""` therefore never fires for text the user cleared (it bit the meeting report's previous-version slot,
+  AI-04). Use `isBlankHtml` (`html-to-text.ts`, DOM-free): it treats empty paragraphs, `<br>`, empty list items,
+  `<hr>` and whitespace entities as blank. Test fixtures for this case must use `<p></p>`, not `""`.
