@@ -282,6 +282,16 @@ describe("planHoursMoves", () => {
     expect(capped.receiverCapPeriods).toEqual(["2026-09"]);
   });
 
+  it("keeps a stored value that is not a whole tenth exact on both sides", () => {
+    const t = task({ remainingEstimateMinutes: 60, startDate: "2026-09-21", dueDate: "2026-09-30" }); // 1 h, all in Sep
+    const giver = resource(1, { utilization: { "2026-09": 8.25 } });
+    const receiver = liam({ "2026-09": 8.25 });
+    const { moves, nextResources } = planHoursMoves([change(t, 1, 2)], [giver, receiver], ctx);
+    expect(moves[0].movedHours).toBe(1);
+    expect(nextResources[0].utilization["2026-09"]).toBe(7.25);
+    expect(nextResources[1].utilization["2026-09"]).toBe(9.25);
+  });
+
   it("skips an unchanged owner without a move", () => {
     expect(planHoursMoves([change(task(), 1, 1)], [maya()], ctx).moves).toEqual([]);
     expect(planHoursMoves([change(task(), undefined, undefined)], [maya()], ctx).moves).toEqual([]);
@@ -320,8 +330,25 @@ describe("applyShownDeltas", () => {
     expect(gained).toBeGreaterThan(0);
     // No hours created beyond the 0.01 % percent rounding; giver 1 never goes below what it showed.
     expect(gained).toBeLessThanOrEqual(lost + 0.02);
-    expect(shown(live[0], sep, c) - shown(out[0], sep, c)).toBeLessThanOrEqual(shown(live[0], sep, c) + 1e-9);
+    // Giver 1's share is floored to the tenth below what it showed (0.55 h → at most 0.5 h).
+    expect(shown(live[0], sep, c) - shown(out[0], sep, c)).toBeLessThanOrEqual(0.5 + 1e-9);
     expect(out[0].utilization["2026-09"]).toBeGreaterThan(0);
+  });
+
+  it("moves nothing for a period whose giver was deleted in the same tick", () => {
+    const deltas = new Map([[1, new Map([["2026-09", -2]])], [2, new Map([["2026-09", 2]])]]);
+    const live = [resource(2, {})]; // the giver (1) is gone
+    const out = applyShownDeltas(live, deltas, c);
+    expect(out[0].utilization["2026-09"] ?? 0).toBe(0);
+  });
+
+  it("rounds a percent value once, so a pair stays within 0.01 h", () => {
+    const net = 22 * 8; // September's capacity at 8 h a day
+    const rec = resource(2, { utilizationMode: "percent", utilization: { "2026-09": 10.006 } });
+    const deltas = new Map([[1, new Map([["2026-09", -1.3]])], [2, new Map([["2026-09", 1.3]])]]);
+    const out = applyShownDeltas([resource(1, { utilization: { "2026-09": 40 } }), rec], deltas, c);
+    const gained = ((out[1].utilization["2026-09"] - 10.006) / 100) * net;
+    expect(Math.abs(gained - 1.3)).toBeLessThanOrEqual(0.0088 + 1e-9); // half of 0.01 % of 176 h
   });
 
   it("conserves hours for a percent-mode giver with an absence lowered in the same tick", () => {

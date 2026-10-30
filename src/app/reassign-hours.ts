@@ -47,6 +47,8 @@ const OVER_CAPACITY_TOLERANCE_HOURS = 0.05;
 const round1 = (n: number): number => Math.round(n * 10 + EPSILON) / 10;
 const floor1 = (n: number): number => Math.floor(n * 10 + EPSILON) / 10;
 const round2 = (n: number): number => Math.round(n * 100 + EPSILON) / 100;
+/** Strips float noise (8.25 - 1 = 7.25, never 7.249999…) without rounding a real fraction away. */
+const cleanFloat = (n: number): number => Math.round(n * 1e6) / 1e6;
 
 function emptyMove(change: OwnerChange, reason?: NoMoveReason, outsideWindowHours = 0): TaskHoursMove {
   const move: TaskHoursMove = {
@@ -129,11 +131,13 @@ function shiftedStoredValue(r: Resource, p: Period, delta: number, abs: readonly
   if (r.utilizationMode === "percent") {
     const net = availableCapacityHours(r, p, abs, ctx.workdayHours, ctx.holidaySet);
     if (net <= 0) return util;
-    // Shown hours match the moved hours only to about 0.01 h: stored percent rounds to 0.01.
-    return Math.min(MAX_PERCENT, Math.max(0, round2(util + round2((delta / net) * 100))));
+    // Shown hours match the moved hours to about 0.01 h: stored percent rounds (once) to 0.01.
+    return Math.min(MAX_PERCENT, Math.max(0, round2(util + (delta / net) * 100)));
   }
-  if (delta < 0) return Math.max(0, round1(util + delta));
-  return round1(Math.max(util, absenceHoursFor(r, p, abs, ctx)) + delta);
+  // Hours are NOT rounded to a tenth: the delta already is one, and rounding the result would rewrite a stored value
+  // the user typed (8.25 → 7.3) and create hours. Only float noise is stripped.
+  if (delta < 0) return Math.max(0, cleanFloat(util + delta));
+  return cleanFloat(Math.max(util, absenceHoursFor(r, p, abs, ctx)) + delta);
 }
 
 /** The most the receiver can take in one period without leaving the stored range. */
@@ -218,6 +222,9 @@ function scaledShares(rows: readonly Resource[], deltas: ShownDeltas, scale: Rea
 export function applyShownDeltas(rows: readonly Resource[], deltas: ShownDeltas, ctx: HoursMoveCtx): Resource[] {
   const periods = new Map(generatePeriods(ctx.plan.startDate, ctx.plan.endDate, ctx.plan.granularity).map((p) => [p.key, p]));
   const scale = new Map<string, number>();
+  // A giver or receiver deleted in the same tick takes no part: its periods move nothing, so nobody gains from it.
+  const present = new Set(rows.map((r) => r.id));
+  for (const [id, keys] of deltas) if (!present.has(id)) for (const key of keys.keys()) scale.set(key, 0);
   for (const r of rows) {
     const abs = absencesForResource(ctx.absences, r);
     for (const [key, d] of deltas.get(r.id) ?? []) {

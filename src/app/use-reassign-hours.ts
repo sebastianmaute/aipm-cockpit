@@ -32,6 +32,15 @@
 //   move's result — but an external write to the SAME cell in the same tick, before
 //   the move, is NOT preserved by undo (or redo). Pinned as a known limit by the
 //   "same-key write" test.
+// ★★ TWO MORE KNOWN LIMITS of the same kind (owner decision 2026-10-30, both rare):
+//   - Redo replays the PLAN. When a same-tick write changed a giver's absences (or unit)
+//     and the forward write was scaled, undo restores the plan's `before` and redo then
+//     writes the plan's unscaled `after`, which was computed under the old absences.
+//   - `matchesPlanned` checks the utilization, absences and unit, not the display name.
+//     An absence without a `resourceId` is matched by name, so a same-tick rename that
+//     changes which absences apply still takes the fast path.
+//   Recording what was WRITTEN (not what was planned) in the undo entry would close all
+//   three; it was considered and left for later.
 import { useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { ActivityActor, ActivityKind } from "./activity-log";
 import type { LogActivityAsFn } from "./activity-log-context";
