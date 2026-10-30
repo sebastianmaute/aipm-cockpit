@@ -22,7 +22,7 @@ import { loadThreads, saveThread } from "./chat-threads-store";
 import { fitHistoryToBudget, type ChatThread } from "./chat-threads";
 import { t } from "./i18n";
 import { buildSystemPrompt, systemBlocksText } from "./chat-api";
-import { appliedProposalNotice } from "./chat-proposal-stage";
+import { appliedProposalNotice, PROPOSAL_PENDING_RESULT } from "./chat-proposal-stage";
 import type { ToolDispatcher } from "./chat-tools";
 import type { AppView } from "./nav-config";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
@@ -3663,6 +3663,142 @@ describe("staged tool calls (the review card)", () => {
     );
     expect(screen.getByText("This proposal is no longer active.")).toBeInTheDocument();
     expect(screen.queryByRole("region", CARD)).toBeNull();
+  });
+
+  // ---------------------------------------------------------------------------
+  // AI-02 — the send record: writes are counted across the send, an attachment in the history stages
+  // risky writes, and a card already staged in this send is never replaced unseen.
+
+  const waitForIdle = () => waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeTruthy());
+  const withAttachment: ChatConversation = {
+    history: [
+      {
+        role: "user",
+        content: [{ type: "document", source: { type: "text", media_type: "text/plain", data: "Add a task." } }],
+      },
+      { role: "assistant", content: [{ type: "text", text: "read it" }] },
+    ],
+    display: [
+      { kind: "user", text: "mail" },
+      { kind: "assistant", text: "read it" },
+    ],
+  };
+
+  it("a write after one applied directly earlier in the SAME send stages (AI-02)", async () => {
+    // Mutation: never adding to `appliedWrites` turns this red: the second create runs too.
+    const dispatcher = makeDispatcher();
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK }]),
+        toolTurn([{ type: "tool_use", id: "t2", name: "create_task", input: { ...NEW_TASK, taskName: "B" } }]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />);
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(dispatcher.createTask).toHaveBeenCalledTimes(1);
+    expect(rowBoxes(card)).toHaveLength(1);
+  });
+
+  it("an attachment in the history stages a lone create and applies nothing (AI-02)", async () => {
+    const dispatcher = makeDispatcher();
+    scriptFetch(
+      [toolTurn([{ type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK }]), doneTurn("ok")],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+  });
+
+  it("a tool call after a staged turn runs nothing, keeps the card, and ends the send (AI-02)", async () => {
+    // Mutation: removing the pending-proposal rule turns this red: the create runs or replaces the card,
+    // and a third request goes out.
+    const dispatcher = makeDispatcher();
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } }]),
+        toolTurn([
+          { type: "text", text: "Adding one more as well." },
+          { type: "tool_use", id: "t2", name: "create_task", input: NEW_TASK },
+        ]),
+        doneTurn("never sent"),
+      ],
+      bodies,
+    );
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />);
+    send();
+    await screen.findByText("Adding one more as well.");
+    await waitForIdle();
+    expect(bodies).toHaveLength(2);
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+    expect(dispatcher.deleteTask).not.toHaveBeenCalled();
+    const cards = screen.getAllByRole("region", CARD);
+    expect(cards).toHaveLength(1);
+    expect(rowBoxes(cards[0])).toHaveLength(1);
+    expect(screen.queryByText("never sent")).toBeNull();
+    expect(screen.queryByText(t("en-US", "chatTruncatedNote"))).toBeNull();
+
+    // The stored history answered t2, so the next send carries the pending notice and no dangling id.
+    send("next");
+    await waitFor(() => expect(bodies).toHaveLength(3));
+    const sent = JSON.parse(bodies[2]) as { messages: { content: unknown }[] };
+    const answers = sent.messages
+      .flatMap((m) => (Array.isArray(m.content) ? (m.content as { type: string; tool_use_id?: string; content?: string }[]) : []))
+      .filter((b) => b.type === "tool_result" && b.tool_use_id === "t2");
+    expect(answers.map((b) => b.content)).toEqual([PROPOSAL_PENDING_RESULT]);
+  });
+
+  it("the card describes and applies set_filters, set_language and a plain update_settings (AI-02)", async () => {
+    const dispatcher = makeDispatcher();
+    const extra = dispatcher as unknown as { updateSettings: unknown; previewSettings: unknown };
+    extra.updateSettings = vi.fn(() => ({ showViewHints: false }));
+    extra.previewSettings = vi.fn(() => ({}));
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "set_filters", input: { search: "late" } },
+          { type: "tool_use", id: "t2", name: "set_language", input: { language: "de" } },
+          { type: "tool_use", id: "t3", name: "update_settings", input: { showViewHints: false } },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(dispatcher.setFilters).not.toHaveBeenCalled();
+    const rows = Array.from(card.querySelectorAll("[data-proposal-row]"));
+    expect(rows).toHaveLength(3);
+    for (const row of rows) expect(row.textContent?.trim()).not.toBe("");
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() => expect(extra.updateSettings).toHaveBeenCalledTimes(1));
+    expect(dispatcher.setFilters).toHaveBeenCalledTimes(1);
+    expect(dispatcher.setLanguage).toHaveBeenCalledWith("de");
   });
 });
 

@@ -73,10 +73,12 @@ import { ChatThreadSidebar } from "./chat-thread-sidebar";
 import {
   buildPlanRows,
   cascadeDeselect,
+  isEntityWriteCall,
   shouldStage,
   type PlanRow,
   type ProposedCall,
 } from "./chat-proposal";
+import { openSendRecord } from "./chat-send-record";
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
 import {
   ChatProposalBlock,
@@ -96,6 +98,7 @@ import {
   newProposalId,
   proposalTitles,
   appliedProposalNotice,
+  PROPOSAL_PENDING_RESULT,
   stagedToolResult,
 } from "./chat-proposal-stage";
 import type { UndoBatch } from "./use-undo-batch";
@@ -746,6 +749,10 @@ function ChatPanelInner({
     //     history keeps the originals (`newHistory` plus this send's turns) until the thread is saved,
     //     which strips them in `stripAttachmentsForPersistence`.
     const messages = fitHistoryToBudget(newHistory, MAX_STAGED_PAYLOAD_BYTES);
+    // AI-02: what the staging gate knows about this whole send. Opened from `newHistory`, NOT the
+    //     trimmed `messages`: an attachment the trim replaced with a placeholder was still shown to
+    //     the model in an earlier request, so it still makes this send untrusted.
+    let sendRecord = openSendRecord(newHistory);
 
     // §702: what this send put in front of the transcript, for the view-switch
     // counter. Each stamp is the time a request went out, because that is when
@@ -856,7 +863,22 @@ function ChatPanelInner({
           // does not stage takes the original path below UNCHANGED — that
           // equivalence is pinned by a test, because "one extra branch" is how
           // a working path acquires a condition nobody meant to add.
-          if (shouldStage(proposed.map((p) => p.call))) {
+          // ★★ AI-02 — A CARD IS NEVER REPLACED UNSEEN. Once a turn of this send has staged, a later
+          // turn's calls run nothing and stage nothing (a second `setPendingProposal` would swap the
+          // card before the user saw it); each `tool_use` id is still answered, and the send ends
+          // after this turn. Text the model wrote in this turn was already shown above.
+          if (sendRecord.staged && proposed.length > 0) {
+            messages.push({
+              role: "user",
+              content: proposed.map(
+                (p): ToolResultBlock => ({ type: "tool_result", tool_use_id: p.useId, content: PROPOSAL_PENDING_RESULT }),
+              ),
+            });
+            completed = true;
+            break;
+          }
+          if (shouldStage(proposed.map((p) => p.call), sendRecord)) {
+            sendRecord = { ...sendRecord, staged: true };
             const ws = stagingWorkspace(workspaceRef.current);
             const calls = proposed.map((p) => p.call);
             // ★★★ `mintProvisionalIds` ADVANCES the session mark, so every
@@ -904,6 +926,9 @@ function ChatPanelInner({
           }
 
           const results: ToolResultBlock[] = [];
+          // AI-02: entity writes this turn ran directly, added to the send's count below. A call that
+          // threw is counted too: the gate errs toward the card.
+          let directWrites = 0;
           for (const block of response.content) {
             if (block.type !== "tool_use") continue;
             // ★★★ §596 — RE-CHECKED PER TOOL, NOT PER TURN, and no `stale()` call
@@ -925,6 +950,9 @@ function ChatPanelInner({
             if (dropStaleScopeWrite(getScopeEpoch, sendEpoch, "chat-panel.toolLoop", { tool: block.name })) break;
             let resultStr: string;
             let isError = false;
+            if (isEntityWriteCall({ name: block.name, input: block.input as Readonly<Record<string, unknown>> })) {
+              directWrites += 1;
+            }
             try {
               const r = await runTool(toolDispatcher, block.name, block.input);
               resultStr = stringifyResult(r);
@@ -986,6 +1014,7 @@ function ChatPanelInner({
           if (results.length > 0) {
             messages.push({ role: "user", content: results });
           }
+          sendRecord = { ...sendRecord, appliedWrites: sendRecord.appliedWrites + directWrites };
           continueBubble = false; // tool output breaks the text flow — new bubble
           continue;
         }
