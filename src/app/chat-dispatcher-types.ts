@@ -14,6 +14,7 @@ import type { WbsOpenRequest, WbsOpenResult } from "./use-wbs-plan";
 import type { ForecastReportInput } from "./forecast-ai-report";
 import type { ScopeEpochReader } from "./scope-epoch";
 import type { ProjectWriter } from "./use-project-tools";
+import type { ReassignHours } from "./use-reassign-hours";
 
 export interface ChatDispatcherArgs {
   settings: Settings;
@@ -146,6 +147,10 @@ export interface ChatDispatcherArgs {
    *  (`src/test/chat-dispatcher-fixture.tsx`) supplies an inert default, so only
    *  a fixture that asserts on capture has to pass one. */
   undo: Pick<UndoStackApi, "captureComposite">;
+  /** §774 — the shared reassign step. `update_task` hands it the owner change and folds the hours move into
+   *  its own undo entry (the batch wrapper above, so a staged plan collapses it too). Optional: a fixture that
+   *  does not exercise reassignment leaves it out, and then no hours move. */
+  reassignHours?: Pick<ReassignHours, "prepare">;
   /** Opens the WBS proposal flow (`useWbsPlan().open`); the `optimize_wbs` tool writes nothing itself.
    *  The dispatcher adds its own `liveTasks`, so the flow sees this turn's creates. */
   openWbsPlan(req: WbsOpenRequest): WbsOpenResult;

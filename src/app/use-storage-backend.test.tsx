@@ -149,6 +149,7 @@ vi.mock("./turso-backend", () => ({
 }));
 import { TursoLockTimeoutError } from "./turso-backend";
 import { SaveLockTimeoutError } from "./storage-error";
+import { inertReassignHours } from "../test/reassign-hours-rig";
 
 // portfolio-mode is a pure module backed by jsdom localStorage — use it for real
 // so saveCurrentTursoProjectId / loadCurrentTursoProjectId round-trip as in prod.
@@ -298,6 +299,7 @@ function makeUndoProbe(args: Parameters<typeof useStorageBackend>[0]) {
       capture: undoApi.capture,
       captureFieldRows: undoApi.captureFieldRows,
       commitBuckets: () => {},
+      reassignHours: inertReassignHours(),
       showToast,
       allowDestructiveSave,
       today: "2026-01-01",

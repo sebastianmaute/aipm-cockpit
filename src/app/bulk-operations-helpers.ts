@@ -4,8 +4,9 @@
 
 import { type Lang, t } from "./i18n";
 import type { BulkEditDraft } from "./task-form-context";
-import type { Task } from "./types";
+import type { Resource, Task } from "./types";
 import { greetingName } from "./contacts";
+import { linkPersonForWrite, resourceDisplayName } from "./resource-foundation";
 import {
   emailWriteRefusal,
   sanitizeAssignee,
@@ -54,6 +55,34 @@ export function buildBulkEditUpdates(
   if (fields.group) updates.group = sanitizeGroup(bulkEdit.group);
   if (fields.labels) updates.labels = sanitizeLabels(bulkEdit.labels);
   return { ok: true, updates };
+}
+
+/** §774 R13 — the bulk owner change resolves the typed owner to a directory person with
+ *  the same STRICT match every other owner write uses (`linkPersonForWrite`: email, then a
+ *  UNIQUE case-folded name; disagreeing or ambiguous references link nobody), so name and
+ *  link never disagree again.
+ *  - Unique match: the person's display name, email (the typed one when the email field is
+ *    enabled, else the directory's) and `resourceId`, written together.
+ *  - No or ambiguous match: the typed name, email as today, and `resourceId: undefined`.
+ *  No owner field enabled → `updates` unchanged. */
+export function resolveBulkOwner(
+  updates: Partial<Task>,
+  emailEnabled: boolean,
+  resources: readonly Resource[],
+): Partial<Task> {
+  if (updates.assignee === undefined) return updates;
+  const id = linkPersonForWrite(
+    { assignee: updates.assignee, assigneeEmail: emailEnabled ? updates.assigneeEmail : undefined },
+    resources,
+  );
+  const person = id === null ? undefined : resources.find((r) => r.id === id);
+  if (!person) return { ...updates, resourceId: undefined };
+  return {
+    ...updates,
+    assignee: resourceDisplayName(person),
+    assigneeEmail: emailEnabled ? updates.assigneeEmail : (person.email ?? ""),
+    resourceId: person.id,
+  };
 }
 
 /** Build the inquiry email subject + body for a group of tasks sharing one

@@ -34,7 +34,9 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   composition), `use-next-actions.ts` (the workload alerts, the next-actions engine run, its grouping and the
   group-aware snooze), `use-task-editor-create.ts` (the task editor's create-RAID and new-linked-task wiring and
   the create-mode buffer they stage into), `use-resource-quick-create.ts` (creating a resource from the picker or the
-  task editor's address-book button), `use-settings-navigation.ts` ("open settings" routed by layout: the modern
+  task editor's address-book button), `use-reassign-hours.ts` (§774: the shared reassign step that moves a task's
+  planned hours with its owner, threaded into the editor, inline, Kanban, bulk, Action Center, triage and chat
+  paths; coverage-gated, with its own test), `use-settings-navigation.ts` ("open settings" routed by layout: the modern
   deep-link request, the classic header popover), `use-settings-change-log.ts` (the debounced, actor-less
   `settings.updated` row and its §160 AI credits), `use-turso-project-list.ts` (the Turso portfolio's active and
   archived project lists, their load-once flag and `refreshTursoProjects`), `use-version-history-wiring.ts` (the Turso

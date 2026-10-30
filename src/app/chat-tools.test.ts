@@ -835,6 +835,27 @@ const FRESH_RESOURCE_TOKEN = entityToken("resource", makeResource());
 const FRESH_ABSENCE_TOKEN = entityToken("absence", makeAbsence());
 const FRESH_EVENT_TOKEN = entityToken("calendarEvent", makeCalendarEvent());
 
+// §774 — a reassignment by Claude moves the planned hours; the model is told what moved.
+describe("runTool — update_task reports moved planned hours (§774)", () => {
+  it("adds the dispatcher's hours note to the result", async () => {
+    const stored = makeTask();
+    const d = makeDispatcher({
+      getTask: vi.fn(() => stored),
+      updateTask: vi.fn(() => stored),
+      takePlannedHoursNote: vi.fn(() => "Moved 16 h from Maya Patel to Liam Foster (Sep 8 h, Oct 8 h)"),
+    });
+    const out = (await runTool(d, "update_task", { id: 1, expectedToken: entityToken("task", stored), assignee: "Liam" })) as Record<string, unknown>;
+    expect(out.plannedHours).toBe("Moved 16 h from Maya Patel to Liam Foster (Sep 8 h, Oct 8 h)");
+  });
+
+  it("adds nothing when no hours note was left", async () => {
+    const stored = makeTask();
+    const d = makeDispatcher({ getTask: vi.fn(() => stored), updateTask: vi.fn(() => stored), takePlannedHoursNote: vi.fn(() => null) });
+    const out = (await runTool(d, "update_task", { id: 1, expectedToken: entityToken("task", stored), priority: "High" })) as Record<string, unknown>;
+    expect("plannedHours" in out).toBe(false);
+  });
+});
+
 describe("runTool — update_task / buildPatch", () => {
   it("builds a partial patch from only the provided fields", async () => {
     const d = makeDispatcher();

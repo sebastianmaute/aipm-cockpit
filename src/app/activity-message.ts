@@ -2,6 +2,7 @@ import { type ActivityKind, activityMessageKey } from "./activity-log";
 import { type Lang, type PluralBaseKey, localeFor, t, tPlural } from "./i18n";
 import { formatExpiryDate } from "./date-format";
 import { PROJECT_META_LABEL_KEY } from "./project-field-labels";
+import { formatMovedHours } from "./reassign-hours-notice";
 
 /**
  * The count-bearing activity kinds, and the `args` slot the count sits in.
@@ -89,6 +90,15 @@ export function activityPluralBase(kind: ActivityKind): PluralBaseKey | undefine
   return ACTIVITY_PLURAL[kind]?.base;
 }
 
+/** §774 — "Maya Patel -16; Liam Foster +16.5" → "Maya Patel -16 h, Liam Foster +16.5 h" in the viewer's language. */
+const HOURS_PART = /^(.*) ([+-])(\d+(?:\.\d+)?)$/;
+function displayMovedHours(lang: Lang, stored: string): string {
+  return stored.split("; ").map((part) => {
+    const m = HOURS_PART.exec(part);
+    return m ? `${m[1]} ${m[2]}${formatMovedHours(Number(m[3]), lang)} ${t(lang, "hoursMovedUnit")}` : part;
+  }).join(", ");
+}
+
 /**
  * §476 — per-kind DISPLAY formatting of stored args, applied by `activityMessage`
  * ONLY when the caller passes `{ display: true }` (the activity panel: a person reads
@@ -103,6 +113,7 @@ export function activityPluralBase(kind: ActivityKind): PluralBaseKey | undefine
  *   "13. Okt. 2026"). A value that does not parse is left as stored.
  */
 const ACTIVITY_ARG_DISPLAY: Partial<Record<ActivityKind, (lang: Lang, args: (string | number)[]) => (string | number)[]>> = {
+  "resource.hoursMoved": (lang, args) => args.map((a, i) => (i === 0 && typeof a === "string" ? displayMovedHours(lang, a) : a)),
   "project.updated": (lang, args) => args.map((a, i) => (
     i === 0 && typeof a === "string" ? a.split(", ").map((k) => (Object.hasOwn(PROJECT_META_LABEL_KEY, k) ? t(lang, PROJECT_META_LABEL_KEY[k as keyof typeof PROJECT_META_LABEL_KEY]) : k)).join(", ") : a
   )),
