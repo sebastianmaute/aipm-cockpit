@@ -51,6 +51,11 @@ describe("MeetingReportPanel", () => {
     expect(screen.getByText(/No committee members have an email address/)).toBeInTheDocument();
   });
 
+  it("disables Send when the stored report body is blank", () => {
+    renderPanel({ report: { html: "<p> </p>", updatedAt: "t2", previous: { html: "<p>b</p>", savedAt: "t1" } } });
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
+
   it("Send fires when configured with recipients", () => {
     const onSend = vi.fn();
     renderPanel({ onSend });

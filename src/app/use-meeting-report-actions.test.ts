@@ -1,7 +1,7 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useMeetingReportActions, type MeetingReportActionsDeps } from "./use-meeting-report-actions";
-import type { SteeringCommittee, Resource } from "./types";
+import type { SteeringCommittee, Resource, MeetingReport } from "./types";
 import type { DashboardModel } from "./dashboard";
 import { defaultSettings } from "./settings-types";
 import { AiGatewayError, AiHttpError } from "./ai-errors";
@@ -97,14 +97,18 @@ describe("useMeetingReportActions", () => {
   });
 
   describe("previous version", () => {
-    function harness() {
-      let state: SteeringCommittee | undefined = committee();
+    function harness(initial: SteeringCommittee = committee()) {
+      let state: SteeringCommittee | undefined = initial;
       const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
         state = u(state);
       });
       const { result } = renderHook(() => useMeetingReportActions(makeDeps({ setSteeringCommittee })));
-      return { result, report: () => state!.meetings[0].report! };
+      return { result, report: () => state!.meetings[0].report!, meetings: () => state!.meetings };
     }
+    const withReport = (report: MeetingReport): SteeringCommittee => ({
+      ...committee(false),
+      meetings: [{ id: 10, date: "2026-06-01", title: "M1", report }],
+    });
 
     it("a save keeps the replaced text as previous, dated by its updatedAt", () => {
       const h = harness();
@@ -140,6 +144,34 @@ describe("useMeetingReportActions", () => {
       expect(h.report().previous?.html).toBe("<p>x</p>");
     });
 
+    it("saving text identical to the current html keeps the existing previous", () => {
+      const h = harness(withReport({ html: "<p>x</p>", updatedAt: "t5", previous: { html: "<p>old</p>", savedAt: "t1" } }));
+      act(() => h.result.current!.onSaveReport(10, "<p>x</p>"));
+      expect(h.report().html).toBe("<p>x</p>");
+      expect(h.report().previous).toEqual({ html: "<p>old</p>", savedAt: "t1" });
+    });
+
+    it("a save drops sentAt", () => {
+      const h = harness(withReport({ html: "<p>x</p>", updatedAt: "t0", sentAt: "t9" }));
+      act(() => h.result.current!.onSaveReport(10, "<p>y</p>"));
+      expect(h.report().sentAt).toBeUndefined();
+    });
+
+    it("restoring when the current html is empty omits previous (what persists)", () => {
+      const h = harness(withReport({ html: "", updatedAt: "t2", previous: { html: "<p>before</p>", savedAt: "t1" } }));
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report().html).toBe("<p>before</p>");
+      expect(h.report().previous).toBeUndefined();
+    });
+
+    it("onRestorePrevious for another meeting id leaves this one untouched", () => {
+      const base = withReport({ html: "<p>x</p>", updatedAt: "t0", previous: { html: "<p>old</p>", savedAt: "t-1" } });
+      const h = harness({ ...base, meetings: [...base.meetings, { id: 11, date: "2026-06-02", title: "M2" }] });
+      act(() => h.result.current!.onRestorePrevious(11));
+      expect(h.meetings()[0].report).toEqual({ html: "<p>x</p>", updatedAt: "t0", previous: { html: "<p>old</p>", savedAt: "t-1" } });
+      expect(h.meetings()[1].report).toBeUndefined();
+    });
+
     it("onRestorePrevious on a report with no previous is a no-op", () => {
       const h = harness();
       act(() => h.result.current!.onRestorePrevious(10));
@@ -153,6 +185,18 @@ describe("useMeetingReportActions", () => {
     await act(async () => { result.current!.onSendReport(10, []); });
     expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
     expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("does not send a report whose html is blank, even with a previous kept", async () => {
+    const committeeBlank: SteeringCommittee = {
+      ...committee(false),
+      meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p> </p>", updatedAt: "t2", previous: { html: "<p>b</p>", savedAt: "t1" } } }],
+    };
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ committee: committeeBlank, setSteeringCommittee })));
+    await act(async () => { result.current!.onSendReport(10, ["a@x.com"]); });
+    expect(sendMail).not.toHaveBeenCalled();
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
   });
 
   it("happy path sends to the given recipients, stamps sentAt, success toast", async () => {

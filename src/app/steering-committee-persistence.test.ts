@@ -28,3 +28,15 @@ describe("steeringCommittee persistence - a report previous version (AI-04)", ()
   it("CSV: survives", () => { expect(csvToWorkspace(workspaceToCsv(jsonToWorkspace(wsWithReport))).steeringCommittee?.meetings[0].report).toEqual(REPORT); });
   it("Markdown: survives", () => { expect(markdownToWorkspace(workspaceToMarkdown(jsonToWorkspace(wsWithReport))).steeringCommittee?.meetings[0].report).toEqual(REPORT); });
 });
+
+const BLANK = { html: "", updatedAt: "2026-07-11T10:00:00.000Z", previous: { html: "<p>before</p>", savedAt: "2026-07-10T09:00:00.000Z" } };
+const wsBlank = JSON.stringify({
+  tasks: [], raid: [],
+  steeringCommittee: { name: "Board", memberResourceIds: [1], meetings: [{ id: 1, date: "2026-07-10", title: "July", report: BLANK }], infoSchedules: [] },
+});
+describe("steeringCommittee persistence - a blank report with a previous version (AI-04)", () => {
+  it("JSON and CSV keep html empty beside previous", () => {
+    expect(jsonToWorkspace(wsBlank).steeringCommittee?.meetings[0].report).toEqual(BLANK);
+    expect(csvToWorkspace(workspaceToCsv(jsonToWorkspace(wsBlank))).steeringCommittee?.meetings[0].report).toEqual(BLANK);
+  });
+});

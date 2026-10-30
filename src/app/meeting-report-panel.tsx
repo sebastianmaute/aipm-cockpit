@@ -99,6 +99,8 @@ export function MeetingReportPanel({
   const [toList, setToList] = useState(recipients.join(", "));
   const parsedRecipients = parseRecipients(toList);
   const noRecipients = parsedRecipients.length === 0;
+  // What Send mails is the STORED body, so a blank one (e.g. cleared, with a previous kept) cannot be sent.
+  const blankReport = htmlToPlainText(report?.html ?? "").trim() === "";
 
   // Version-diff: compare the CURRENT draft against a selected version's snapshot.
   const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
@@ -234,7 +236,7 @@ export function MeetingReportPanel({
           <Button
             size="xs"
             onClick={() => onSend(parsedRecipients)}
-            disabled={!m365Configured || sendBusy || noRecipients}
+            disabled={!m365Configured || sendBusy || noRecipients || blankReport}
           >
             {t(lang, sendBusy ? "reportSending" : "reportSend")}
           </Button>

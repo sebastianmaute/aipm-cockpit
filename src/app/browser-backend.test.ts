@@ -353,6 +353,16 @@ describe("BrowserBackend parallel IDB save/load", () => {
     expect(loaded.steeringCommittee?.meetings[0].report).toEqual(report);
   });
 
+  it("save and fresh load keep an empty-html report beside its previous version (AI-04)", async () => {
+    const report = { html: "", updatedAt: "t2", previous: { html: "<p>before</p>", savedAt: "t1" } };
+    await forcedSave({
+      ...emptyWorkspace(),
+      steeringCommittee: { name: "Board", memberResourceIds: [1], meetings: [{ id: 1, date: "2026-07-10", title: "July", report }], infoSchedules: [] },
+    });
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.steeringCommittee?.meetings[0].report).toEqual(report);
+  });
+
   it("§542: a stored calendar-invalid meeting survives a fresh IndexedDB load", async () => {
     const ws = {
       ...emptyWorkspace(),

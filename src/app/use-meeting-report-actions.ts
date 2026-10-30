@@ -10,6 +10,7 @@ import type { Settings } from "./settings-types";
 import { isAiEnabled } from "./settings-types";
 import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
 import { sanitizeRichHtml } from "./sanitize-html";
+import { htmlToPlainText } from "./html-to-text";
 import { runMeetingReport } from "./committee-report/report-call";
 import { useGuideTextFrom } from "./action-guides-context";
 import type { OperatingGuide } from "./operating-guide";
@@ -75,10 +76,16 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+/** True when a body has no visible text (empty, or only tags and whitespace). */
+function isBlankReport(html: string): boolean {
+  return htmlToPlainText(html).trim() === "";
+}
+
 /** The report after a save: the new text, with the replaced text kept as `previous`
  *  when it was non-empty. A new body is unsent, so `sentAt` is not carried. */
 function replacedReport(old: MeetingReport | undefined, html: string): MeetingReport {
   const report: MeetingReport = { html, updatedAt: nowIso() };
+  if (old && old.html === html) return { ...report, ...(old.previous ? { previous: old.previous } : {}) };
   if (old && old.html !== "") report.previous = { html: old.html, savedAt: old.updatedAt };
   return report;
 }
@@ -147,7 +154,8 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
                 report: {
                   html: prev.html,
                   updatedAt: nowIso(),
-                  previous: { html: m.report.html, savedAt: m.report.updatedAt },
+                  // An empty current body is not kept (the load sanitizer would drop it).
+                  ...(m.report.html !== "" ? { previous: { html: m.report.html, savedAt: m.report.updatedAt } } : {}),
                 },
               };
             }),
@@ -160,7 +168,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     const committee = deps.committee;
     if (!committee || !deps.m365Configured) return;
     const meeting = committee.meetings.find((m) => m.id === meetingId);
-    if (!meeting?.report) return;
+    if (!meeting?.report || isBlankReport(meeting.report.html)) return;
     const emails = recipients.map((e) => e.trim()).filter((e) => e !== "");
     if (emails.length === 0) {
       deps.showToast("info", t(deps.lang, "reportNoRecipients"));
