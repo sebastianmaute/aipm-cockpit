@@ -4,7 +4,9 @@
 // The arming rule's wiring through the real TaskManager stays pinned by
 // `task-manager.clear-unlinked-arming.test.tsx`; this file pins the rule itself.
 import type { Dispatch, SetStateAction } from "react";
+import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { expectedNotice, LIAM, LIAM_OWNS, RIG_TASK, rigSpies, useReassignRig, utilOf } from "../test/reassign-hours-rig";
 import type { Absence, RaidItem, Resource, Shift, Task } from "./types";
 import { buildWorkloadTriageHandlers, type UnlinkedWorkloadRow } from "./workload-triage-handlers";
 
@@ -31,6 +33,7 @@ function setup(seed: { tasks?: Task[]; raid?: RaidItem[]; absences?: Absence[]; 
   const absences = cell(seed.absences ?? []);
   const shifts = cell(seed.shifts ?? []);
   const arm = vi.fn();
+  const reassignTasks = vi.fn();
   const handlers = buildWorkloadTriageHandlers({
     absences: absences.get(),
     shifts: shifts.get(),
@@ -39,22 +42,48 @@ function setup(seed: { tasks?: Task[]; raid?: RaidItem[]; absences?: Absence[]; 
     setAbsences: absences.set,
     setShifts: shifts.set,
     allowDestructiveSave: arm,
+    reassignTasks,
   });
-  return { handlers, tasks, raid, absences, shifts, arm };
+  return { handlers, tasks, raid, absences, shifts, arm, reassignTasks };
 }
 
 describe("onReassignTask", () => {
-  it("copies the resource's name, email and id onto that task only", () => {
-    const { handlers, tasks } = setup({ tasks: [task(1, "Old"), task(2, "Other")] });
+  // §774 — the owner write goes through the shared reassign step, which writes
+  // the owner fields itself; the handler only names the new owner.
+  it("hands the resource's name, email and id for that task to the reassign step", () => {
+    const { handlers, tasks, reassignTasks } = setup({ tasks: [task(1, "Old"), task(2, "Other")] });
     handlers.onReassignTask(1, { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" } as Resource);
-    expect(tasks.get()[0]).toMatchObject({ assignee: "Ada Lovelace", assigneeEmail: "ada@x.com", resourceId: 7 });
-    expect(tasks.get()[1]).toMatchObject({ assignee: "Other" });
+    expect(reassignTasks).toHaveBeenCalledTimes(1);
+    expect(reassignTasks).toHaveBeenCalledWith([{ taskId: 1, assignee: "Ada Lovelace", assigneeEmail: "ada@x.com", resourceId: 7 }], "user");
+    expect(tasks.get().map((t) => t.assignee)).toEqual(["Old", "Other"]); // no second, direct write
   });
 
   it("unassigns on a null resource, blanking the email and the link", () => {
-    const { handlers, tasks } = setup({ tasks: [{ ...task(1, "Old", "old@x.com"), resourceId: 3 }] });
+    const { handlers, reassignTasks } = setup({ tasks: [{ ...task(1, "Old", "old@x.com"), resourceId: 3 }] });
     handlers.onReassignTask(1, null);
-    expect(tasks.get()[0]).toMatchObject({ assignee: "", assigneeEmail: "", resourceId: undefined });
+    expect(reassignTasks).toHaveBeenCalledWith([{ taskId: 1, assignee: "", assigneeEmail: "", resourceId: undefined }], "user");
+  });
+
+  it("triage reassign moves the hours", () => {
+    const spies = rigSpies();
+    const { result } = renderHook(() => {
+      const rig = useReassignRig(spies);
+      const noop = () => {};
+      const handlers = buildWorkloadTriageHandlers({
+        absences: [], shifts: [], setTasks: rig.setTasks, setRaid: noop, setAbsences: noop, setShifts: noop,
+        allowDestructiveSave: undefined, reassignTasks: rig.reassignHours.reassignTasks,
+      });
+      return { rig, handlers };
+    });
+    act(() => { result.current.handlers.onReassignTask(10, LIAM); });
+    const { rig } = result.current;
+    expect(rig.tasks[0]).toMatchObject(LIAM_OWNS);
+    expect(utilOf(rig.resources, 2)).toEqual({ "2026-09": 8, "2026-10": 8 });
+    expect(utilOf(rig.resources, 1)).toEqual({ "2026-09": 32, "2026-10": 32, "2026-11": 20 });
+    expect(rig.undo.stack).toHaveLength(1);
+    const notice = expectedNotice({ task: { ...RIG_TASK, ...LIAM_OWNS }, fromResourceId: 1, toResourceId: 2 });
+    expect(notice).toContain("16");
+    expect(spies.showToastAction).toHaveBeenLastCalledWith("info", notice, expect.anything());
   });
 });
 
@@ -138,7 +167,7 @@ describe("onClearUnlinked", () => {
     const { onClearUnlinked } = buildWorkloadTriageHandlers({
       absences: absences.get(), shifts: [],
       setTasks: noop.set, setRaid: cell<RaidItem>([]).set, setAbsences: absences.set, setShifts: cell<Shift>([]).set,
-      allowDestructiveSave: undefined,
+      allowDestructiveSave: undefined, reassignTasks: vi.fn(),
     });
     expect(() => onClearUnlinked(row("Ghost"))).not.toThrow();
     expect(absences.get()).toEqual([]);

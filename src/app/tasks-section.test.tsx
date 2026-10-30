@@ -1,6 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act, waitFor, within } from "@testing-library/react";
+import { render, renderHook, screen, fireEvent, act, waitFor, within } from "@testing-library/react";
+import { expectedNotice, inertReassignHours, LIAM, LIAM_OWNS, MAYA, RIG_TASK, rigSpies, useReassignRig, utilOf } from "../test/reassign-hours-rig";
 import { t, loadI18n } from "./i18n";
 import { ToastProvider } from "./toast-context";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
@@ -305,6 +306,7 @@ function makeProps(): TasksSectionProps {
     // §548 — required, so every render here proves the prop exists; the scope-epoch
     // describe below overrides it with a reader it can move mid-flight.
     getScopeEpoch: () => 0,
+    reassignHours: inertReassignHours(),
   };
 }
 
@@ -1369,6 +1371,26 @@ describe("TasksSection", () => {
       after: { taskName: "T2" },
       stampField: "localModifiedAt",
     });
+  });
+
+  // §774 — the inline assignee cell writes the owner triple; the hours move with it
+  // in the SAME undo entry, whose toast is the notice.
+  it("inline assignee moves the hours", () => {
+    const spies = rigSpies();
+    const rig = renderHook(() => useReassignRig(spies));
+    stubWorkspace([RIG_TASK], [RIG_TASK], [MAYA, LIAM], rig.result.current.setTasks);
+    render(<TasksSection {...makeProps()} captureFieldEdit={rig.result.current.undo.captureFieldEdit} reassignHours={rig.result.current.reassignHours} />);
+    const ctx = capturedRowContext.current as { onInlinePatch: (id: number, patch: Record<string, unknown>) => void };
+    act(() => { ctx.onInlinePatch(10, { ...LIAM_OWNS }); });
+    const after = rig.result.current;
+    expect(after.tasks[0]).toMatchObject(LIAM_OWNS);
+    expect(utilOf(after.resources, 2)).toEqual({ "2026-09": 8, "2026-10": 8 });
+    expect(after.undo.stack).toHaveLength(1);
+    const notice = expectedNotice({ task: { ...RIG_TASK, ...LIAM_OWNS }, fromResourceId: 1, toResourceId: 2 });
+    expect(spies.showToastAction).toHaveBeenLastCalledWith("info", notice, expect.anything());
+    act(() => after.undo.undo());
+    expect(rig.result.current.tasks[0]).toMatchObject({ assignee: "Maya Patel", resourceId: 1 });
+    expect(utilOf(rig.result.current.resources, 2)).toEqual({});
   });
 
   // The blockers cell is a badge opening the blocker window now; the inline

@@ -27,14 +27,14 @@
 //   the move, is NOT preserved by undo (or redo). Pinned as a known limit by the
 //   "same-key write" test.
 import { useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
-import type { ActivityActor } from "./activity-log";
+import type { ActivityActor, ActivityKind } from "./activity-log";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { t, type Lang } from "./i18n";
 import { planHoursMoves, type HoursMovePlan, type OwnerChange, type ResourceUtilEdit } from "./reassign-hours";
 import { defaultPeriodLabel, formatHours, hoursMoveNotice } from "./reassign-hours-notice";
 import { resourceDisplayName } from "./resource-foundation";
 import type { Absence, Resource, ResourcePlan, Task } from "./types";
-import { captureFieldPart, type CaptureCompositeOpts, type CompositeFragment } from "./undo/use-undo-stack";
+import { captureFieldPart, type CaptureCompositeOpts, type CompositeFragment, type UndoEntityKey } from "./undo/use-undo-stack";
 
 export interface ReassignHoursDeps {
   lang: Lang;
@@ -79,6 +79,19 @@ export interface ReassignHours {
   prepare(changes: readonly OwnerChange[]): HoursMoveStep;
   /** For a path that records nothing today: writes the task owner fields AND the hours, one undo entry, one notice. */
   reassignTasks(edits: readonly OwnerEdit[], actor: ActivityActor): void;
+  /** For a `prepare` caller: records `entry.taskPart` plus the step's resources part as ONE undo entry whose
+   *  toast is the notice (in a popout, or with no undo, it shows the notice alone). Returns false and records
+   *  nothing when the step neither moved hours nor has a notice: the caller then keeps its own capture. */
+  record(step: HoursMoveStep, entry: StepEntry): boolean;
+}
+
+/** The caller's half of the ONE undo entry a save records: its own task fragment and label. */
+export interface StepEntry {
+  kind: ActivityKind;
+  primaryCount: number;
+  name?: string;
+  entityKey?: UndoEntityKey;
+  taskPart: CompositeFragment | null;
 }
 
 type OwnerFields = Pick<Task, "assignee" | "assigneeEmail" | "resourceId">;
@@ -219,19 +232,29 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     setTasks(withOwners);
     step.commit(actor);
 
+    captureOrNotify(step, {
+      kind: "task.updated",
+      primaryCount: taskEdits.length,
+      taskPart: captureFieldPart<Task>({ setter: setTasks, edits: taskEdits, stampField: "localModifiedAt" }),
+      // A name describes one row; several fall back to the count label.
+      name: taskEdits.length === 1 ? byId.get(taskEdits[0].id)?.taskName : undefined,
+    });
+  };
+
+  // No undo in a popout (or for a caller without one): the notice is shown on its own.
+  function captureOrNotify(step: HoursMoveStep, { taskPart, ...label }: StepEntry): void {
     if (isPopout || !captureComposite) {
       if (step.notice) showToast("info", step.notice);
       return;
     }
-    captureComposite({
-      kind: "task.updated",
-      primaryCount: taskEdits.length,
-      parts: [captureFieldPart<Task>({ setter: setTasks, edits: taskEdits, stampField: "localModifiedAt" }), step.resourcesPart],
-      // A name describes one row; several fall back to the count label.
-      name: taskEdits.length === 1 ? byId.get(taskEdits[0].id)?.taskName : undefined,
-      toastText: step.notice ?? undefined,
-    });
+    captureComposite({ ...label, parts: [taskPart, step.resourcesPart], toastText: step.notice ?? undefined });
+  }
+
+  const record = (step: HoursMoveStep, entry: StepEntry): boolean => {
+    if (step.resourcesPart === null && step.notice === null) return false;
+    captureOrNotify(step, entry);
+    return true;
   };
 
-  return { prepare, reassignTasks };
+  return { prepare, reassignTasks, record };
 }

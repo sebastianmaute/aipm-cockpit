@@ -616,7 +616,7 @@ function TaskManagerInner() {
   } = useResourcePlanner({ lang, today, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave, dialogsRef: appDialogsRef, getScopeEpoch });
   // §774 — reassigning a task moves its planned hours (one undo entry, one notice). Unbound until the reassign
   // paths consume it (an unused const fails `--max-warnings=0`); the call stays unconditional either way.
-  useReassignHours({ lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours: settings.resources.workdayHours, holidaySet, captureComposite: undoApi.captureComposite, logActivityAs, showToast });
+  const reassignHours = useReassignHours({ lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours: settings.resources.workdayHours, holidaySet, captureComposite: undoApi.captureComposite, logActivityAs, showToast });
 
   // Day rates are the rate card's source of truth; the hourly cost rate every
   // budget/EVM consumer reads is DERIVED from workday hours. When that setting
@@ -840,7 +840,7 @@ function TaskManagerInner() {
     editingId,
     setEditingId,
     setTaskModalOpen,
-    tasks, resources,
+    tasks, resources, reassignHours,
     today,
     lang,
     settings,
@@ -916,7 +916,7 @@ function TaskManagerInner() {
     handleClearChangeTaskFilter,
     handleJumpToTaskFromRaid,
   } = useTaskRowHandlers({
-    tasksRef, dialogsRef: appDialogsRef,
+    tasksRef, dialogsRef: appDialogsRef, reassignHours,
     resourcesById,
     settings,
     lang,
@@ -963,7 +963,7 @@ function TaskManagerInner() {
     rebaselineBundle,
     rescheduleBundle,
   } = useActionCenterHandlers({
-    isPopout, dialogsRef: appDialogsRef, getScopeEpoch,
+    isPopout, dialogsRef: appDialogsRef, getScopeEpoch, reassignHours,
     lang,
     today,
     resources,
@@ -1313,7 +1313,7 @@ function TaskManagerInner() {
   const demoBoot = useDemoIntentOnBoot({ lang, weeks: demoHistoryWeeks(today), showEmptyState: showEmptyState && !isPopout, settled: !isPopout && hydrated && !loadPending, listLoaded: portfolioMode !== "turso" || tursoListLoaded, tursoUsable: isTursoUsable(portfolioMode, tursoConfig), showToast, showToastAction, loadDemo }); // the demo's one-shot boot notices; above every early return
   if (!i18nReady) return null;
 
-  const workloadTriage = buildWorkloadTriageHandlers({ absences, shifts, setTasks, setRaid, setAbsences, setShifts, allowDestructiveSave });
+  const workloadTriage = buildWorkloadTriageHandlers({ absences, shifts, setTasks, setRaid, setAbsences, setShifts, allowDestructiveSave, reassignTasks: reassignHours.reassignTasks });
   // Shared props for WorkspaceSection. Spread into both the classic (no
   // fullBleed) and modern (fullBleed) renders so the long prop list lives once.
   const workspaceProps = {
@@ -1566,7 +1566,7 @@ function TaskManagerInner() {
       getScopeEpoch={getScopeEpoch}
       dispatcher={dispatcher}
       logActivityAs={logActivityAs}
-      captureFieldEdit={undoApi.captureFieldEdit}
+      captureFieldEdit={undoApi.captureFieldEdit} reassignHours={reassignHours}
       captureMerge={undoApi.capture} aiOptimizeButton={wbsPlan.button}
       jiraSiteUrl={settings.jira.siteUrl}
       jiraExtraProjects={settings.jira.extraProjects ?? NO_JIRA_EXTRA_PROJECTS}

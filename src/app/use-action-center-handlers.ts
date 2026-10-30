@@ -13,7 +13,7 @@
 // task-manager. The pre-existing early handlers (assign/create/mark/clear) are
 // only consumed later in the ActionHandlers bundle, so moving them down here is
 // behavior-preserving.
-import { type Dispatch, type SetStateAction, type MutableRefObject, useCallback, useMemo } from "react";
+import { type Dispatch, type SetStateAction, type MutableRefObject, useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import { type Lang, t } from "./i18n";
 import type { Resource, Task, RaidItem, Milestone, ProjectMeta, Stakeholder } from "./types";
 import type { SuggestedAction } from "./next-actions";
@@ -47,6 +47,7 @@ import {
 } from "./action-escalate";
 import { resourceDisplayName } from "./resource-foundation";
 import { applyMilestoneRebaseline, isValidIsoDate } from "./action-rebaseline";
+import type { ReassignHours } from "./use-reassign-hours";
 
 /** Live render-scope values the Action-Center handlers read each render. */
 export interface ActionCenterHandlerDeps {
@@ -86,6 +87,9 @@ export interface ActionCenterHandlerDeps {
   /** The user's own resource id — authors the Escalate note-log echo (§515),
    *  the same attribution the notes window uses. */
   selfResourceId: number | null | undefined;
+  /** §774 — Assign-owner writes the task owner through the shared reassign step (one rule for every
+   *  owner change). The task is unassigned, so no hours move and no hours notice shows. */
+  reassignHours: ReassignHours;
 }
 
 export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
@@ -118,7 +122,12 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
     selfResourceId,
     dialogsRef,
     getScopeEpoch,
+    reassignHours,
   } = deps;
+
+  // A fresh object every render (deps-object hook), so read through a ref to keep the bundle memoized.
+  const reassignHoursRef = useRef(reassignHours);
+  useLayoutEffect(() => { reassignHoursRef.current = reassignHours; }, [reassignHours]);
 
   const assignOwnerBundle = useMemo<AssignOwnerBundle | undefined>(
     () =>
@@ -134,10 +143,10 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
               if (action.cta.kind !== "open") return;
               const id = Number(action.cta.id);
               if (action.cta.view === "open-points") {
-                setTasks((prev) => prev.map((tk) =>
-                  tk.id === id
-                    ? { ...tk, assignee: v.name, assigneeEmail: v.email, resourceId: v.resourceId ?? undefined }
-                    : tk));
+                reassignHoursRef.current.reassignTasks(
+                  [{ taskId: id, assignee: v.name, assigneeEmail: v.email, resourceId: v.resourceId ?? undefined }],
+                  "user",
+                );
                 void recordLearning(action, "acted");
                 showToast("info", t(lang, "actionOwnerAssigned", id));
                 return;
@@ -149,7 +158,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
               showToast("info", t(lang, "actionOwnerAssigned", id));
             },
           },
-    [isPopout, resources, handleCreateResource, raid, setRaid, setTasks, showToast, lang, recordLearning],
+    [isPopout, resources, handleCreateResource, raid, setRaid, showToast, lang, recordLearning],
   );
 
   const handleCreateTaskFromAction = useCallback(

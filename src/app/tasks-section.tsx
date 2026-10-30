@@ -1,7 +1,7 @@
 "use client";
 import { isIntegrationDisabled } from "./integration-switches";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { type ChangeItem, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import type { ProjectDocument } from "./document-model";
@@ -33,7 +33,8 @@ import { useRowTokens } from "./use-row-tokens";
 import { inlineAssigneeEmailRefusal, sanitizeInlinePatch } from "./task-inline-patch";
 import { useToastContext } from "./toast-context";
 import { EMAIL_REFUSAL_KEY } from "./email-refusal-i18n";
-import type { UndoStackApi } from "./undo/use-undo-stack";
+import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
+import type { ReassignHours } from "./use-reassign-hours";
 import { differs } from "./undo/field-groups";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
@@ -177,6 +178,8 @@ export interface TasksSectionProps {
   logActivityAs?: LogActivityAsFn; // ★ ACTOR-AWARE — its consumer (dedup) writes an `ai.*` kind and stamps its own actor.
   /** Capture a field-level undo entry for an inline cell edit. */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  /** §774 — an inline assignee edit that changes the linked owner moves the task's planned hours. */
+  reassignHours: ReassignHours;
   /** Capture a single (removed + edited) undo entry for an AI dedup merge. */
   captureMerge?: UndoStackApi["capture"];
   /** The optimize_wbs toolbar trigger, built by `useWbsPlan` in task-manager (null in a popout). */
@@ -244,9 +247,13 @@ export function TasksSection({
   dispatcher,
   logActivityAs,
   captureFieldEdit,
+  reassignHours,
   captureMerge,
   aiOptimizeButton,
 }: TasksSectionProps) {
+  // A fresh object every render (deps-object hook): read through a ref so onInlinePatch stays memoized.
+  const reassignHoursRef = useRef(reassignHours);
+  useLayoutEffect(() => { reassignHoursRef.current = reassignHours; }, [reassignHours]);
   // §762 — the user switched Jira on AND this deployment allows it.
   const jiraEnabled = jiraSwitchedOn && !isIntegrationDisabled("jira");
   const {
@@ -508,6 +515,9 @@ export function TasksSection({
       // drops them): the blockers cell is a badge opening the blocker window,
       // which is the only writer of the log, so a plain spread is safe here.
       const clean = sanitizeInlinePatch(patch, patchCtx);
+      // §774 — planned from the row after the edit; inert unless the linked owner changed.
+      const afterRow = { ...beforeRow, ...clean };
+      const step = reassignHoursRef.current.prepare([{ task: afterRow, fromResourceId: beforeRow.resourceId, toResourceId: afterRow.resourceId }]);
       setTasks((prev) =>
         prev.map((row) =>
           row.id === taskId && !row.jiraKey
@@ -515,6 +525,7 @@ export function TasksSection({
             : row,
         ),
       );
+      step.commit("user");
       const cleanKeys = Object.keys(clean) as (keyof Task)[];
       const anyChanged = cleanKeys.some((k) => differs(beforeRow[k], clean[k]));
       if (cleanKeys.length > 0 && anyChanged) {
@@ -522,14 +533,22 @@ export function TasksSection({
         for (const k of cleanKeys) {
           (before as Record<string, unknown>)[k] = beforeRow[k];
         }
-        captureFieldEdit?.({
-          setter: setTasks,
+        // With hours (or a no-move notice) the entry is a composite: task fields, then the resources.
+        const recorded = reassignHoursRef.current.record(step, {
           kind: "task.updated",
-          id: taskId,
-          before,
-          after: clean,
-          stampField: "localModifiedAt",
+          primaryCount: 1,
+          taskPart: captureFieldPart<Task>({ setter: setTasks, edits: [{ id: taskId, before, after: clean }], stampField: "localModifiedAt" }),
         });
+        if (!recorded) {
+          captureFieldEdit?.({
+            setter: setTasks,
+            kind: "task.updated",
+            id: taskId,
+            before,
+            after: clean,
+            stampField: "localModifiedAt",
+          });
+        }
       }
     },
     [tasks, setTasks, resourcesById, captureFieldEdit, showToast, lang],

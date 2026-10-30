@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useState } from "react";
 import { useReassignHours, type ReassignHoursDeps } from "./use-reassign-hours";
-import { useUndoStack } from "./undo/use-undo-stack";
+import { captureFieldPart, useUndoStack } from "./undo/use-undo-stack";
 import { planHoursMoves, type OwnerChange } from "./reassign-hours";
 import { defaultPeriodLabel, hoursMoveNotice } from "./reassign-hours-notice";
 import type { Resource, ResourcePlan, Task } from "./types";
@@ -53,7 +53,7 @@ function setup(opts: Opts = {}) {
         captureComposite: opts.withUndo === false ? undefined : isPopout ? captureSpy : undo.captureComposite,
         logActivityAs, showToast,
       };
-      return { reassign: useReassignHours(deps), undo, tasks, resources, setResources };
+      return { reassign: useReassignHours(deps), undo, tasks, setTasks, resources, setResources };
     },
     { initialProps: { isPopout: opts.isPopout ?? false, loadPending: opts.loadPending ?? false } },
   );
@@ -212,6 +212,49 @@ describe("useReassignHours.prepare", () => {
     }
     expect(util(hook.result.current.resources, 1)).toEqual(MAYA.utilization);
     expect(logActivityAs).not.toHaveBeenCalled();
+  });
+});
+
+// §774 Task 4 — `record`: the prepare paths' one-entry capture.
+describe("useReassignHours.record", () => {
+  const MOVE = { task: { ...TASK, ...LIAM_OWNS } as Task, fromResourceId: 1, toResourceId: 2 };
+  const fieldPart = (setTasks: Parameters<typeof captureFieldPart<Task>>[0]["setter"]) =>
+    captureFieldPart<Task>({ setter: setTasks, edits: [{ id: 10, before: MAYA_OWNS, after: LIAM_OWNS }], stampField: "localModifiedAt" });
+
+  it("records nothing and returns false when the step neither moved hours nor has a notice", () => {
+    const { hook, showToast, showToastAction } = setup();
+    const step = hook.result.current.reassign.prepare([{ task: TASK, fromResourceId: 1, toResourceId: 1 }]);
+    let recorded = true;
+    act(() => { recorded = hook.result.current.reassign.record(step, { kind: "task.updated", primaryCount: 1, taskPart: null }); });
+    expect(recorded).toBe(false);
+    expect(hook.result.current.undo.stack).toHaveLength(0);
+    expect(showToast).not.toHaveBeenCalled();
+    expect(showToastAction).not.toHaveBeenCalled();
+  });
+
+  it("records the task part and the hours as ONE entry whose toast is the notice", () => {
+    const { hook, showToastAction } = setup();
+    const step = hook.result.current.reassign.prepare([MOVE]);
+    act(() => {
+      hook.result.current.setTasks((prev) => prev.map((x) => (x.id === 10 ? { ...x, ...LIAM_OWNS } : x)));
+      step.commit("user");
+      expect(hook.result.current.reassign.record(step, { kind: "task.updated", primaryCount: 1, name: "Design review", taskPart: fieldPart(hook.result.current.setTasks) })).toBe(true);
+    });
+    expect(hook.result.current.undo.stack).toHaveLength(1);
+    expect(showToastAction).toHaveBeenLastCalledWith("info", expectedNotice(), expect.anything());
+    act(() => { hook.result.current.undo.undo(); });
+    expect(owner(hook.result.current.tasks)).toEqual(MAYA_OWNS);
+    expect(util(hook.result.current.resources, 2)).toEqual({});
+  });
+
+  it("in a popout shows the notice alone and captures nothing", () => {
+    const { hook, showToast, captureSpy } = setup({ isPopout: true });
+    const step = hook.result.current.reassign.prepare([MOVE]);
+    let recorded = false;
+    act(() => { recorded = hook.result.current.reassign.record(step, { kind: "task.updated", primaryCount: 1, taskPart: null }); });
+    expect(recorded).toBe(true);
+    expect(captureSpy).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("info", expectedNotice());
   });
 });
 

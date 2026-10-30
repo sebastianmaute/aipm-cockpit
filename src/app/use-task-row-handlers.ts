@@ -1,6 +1,6 @@
 "use client";
 import { isJiraOn } from "./integration-switches";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type React from "react";
 import { t, type Lang } from "./i18n";
 import { isWriteSafeEmail, sanitizeLoadedEmail } from "./sanitize";
@@ -21,6 +21,7 @@ import { useWorkspaceTab } from "./workspace-tab-context";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
 import type { AppDialogs } from "./confirm-dialog";
 import { captureFieldPart, capturePart, type UndoStackApi } from "./undo/use-undo-stack";
+import type { ReassignHours } from "./use-reassign-hours";
 
 const EMPTY_RESOURCE_MAP: ReadonlyMap<number, Resource> = new Map();
 
@@ -60,6 +61,8 @@ export interface UseTaskRowHandlersArgs {
    *  cannot call the dialog hooks: the provider fills this ref (`dialogsRef`), and until then every
    *  question answers "no" and is logged (`unbridgedDialogs`). */
   dialogsRef: { readonly current: AppDialogs };
+  /** §774 — a swimlane drop / card pick that changes the linked owner moves the task's planned hours. */
+  reassignHours: ReassignHours;
 }
 
 export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
@@ -87,6 +90,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     resolveTemplateBody,
     sendCommTemplate,
     dialogsRef,
+    reassignHours,
   } = args;
 
   const { setActiveTab } = useWorkspaceTab();
@@ -107,6 +111,11 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   useEffect(() => {
     handleCancelEditRef.current = handleCancelEdit;
   }, [handleCancelEdit]);
+  // A fresh object every render (deps-object hook); a layout effect so it is current before any input event.
+  const reassignHoursRef = useRef(reassignHours);
+  useLayoutEffect(() => {
+    reassignHoursRef.current = reassignHours;
+  }, [reassignHours]);
 
   const onJumpToRaid = useCallback(
     (id: number) => {
@@ -364,28 +373,34 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         next,
         today,
       );
+      // §774 — planned from the row AFTER the drop, so a drop into a Done lane is judged closed.
+      const step = reassignHoursRef.current.prepare([{ task: after, fromResourceId: prevRow.resourceId, toResourceId: nextResourceId }]);
       setTasks((prev) =>
         prev.map((row) => (row.id === id ? { ...after, localModifiedAt: stamp } : row)),
       );
-      captureFieldEdit?.({
-        setter: setTasks,
+      step.commit("user");
+      const before = {
+        assignee: prevRow.assignee,
+        resourceId: prevRow.resourceId,
+        status: prevRow.status,
+        completedDate: prevRow.completedDate,
+      };
+      const written = {
+        assignee: after.assignee,
+        resourceId: after.resourceId,
+        status: after.status,
+        completedDate: after.completedDate,
+      };
+      // One undo entry either way: with hours (or a no-move notice) it is a composite.
+      const recorded = reassignHoursRef.current.record(step, {
         kind: "task.updated",
-        id,
-        before: {
-          assignee: prevRow.assignee,
-          resourceId: prevRow.resourceId,
-          status: prevRow.status,
-          completedDate: prevRow.completedDate,
-        },
-        after: {
-          assignee: after.assignee,
-          resourceId: after.resourceId,
-          status: after.status,
-          completedDate: after.completedDate,
-        },
-        stampField: "localModifiedAt",
+        primaryCount: 1,
         name: prevRow.taskName,
+        taskPart: captureFieldPart<Task>({ setter: setTasks, edits: [{ id, before, after: written }], stampField: "localModifiedAt" }),
       });
+      if (!recorded) {
+        captureFieldEdit?.({ setter: setTasks, kind: "task.updated", id, before, after: written, stampField: "localModifiedAt", name: prevRow.taskName });
+      }
       const kind = statusActivityKind(prevRow, after);
       if (kind) logActivityRef.current(kind, id, prevRow.taskName);
     },
