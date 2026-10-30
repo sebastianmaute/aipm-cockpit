@@ -99,12 +99,12 @@ describe("useReportUndoGuard (AI-04)", () => {
 });
 
 describe("a through-op acts only on what it asked about (AI-04)", () => {
-  function deferred(stack: UndoMeta[], redoStack: UndoMeta[]) {
+  function deferred(stack: UndoMeta[], redoStack: UndoMeta[], showToast?: (k: "info" | "error", text: string) => void) {
     const api = { undo: vi.fn(), undoById: vi.fn(), undoThrough: vi.fn(), redo: vi.fn(), redoThrough: vi.fn(), stack, redoStack };
     let answer: (ok: boolean) => void = () => {};
     const confirm = vi.fn(() => new Promise<boolean>((r) => { answer = r; }));
     const dialogsRef: { current: AppDialogs } = { current: { confirm, prompt: vi.fn(async () => null), notice: vi.fn(async () => {}) } };
-    const { result } = renderHook(() => useReportUndoGuard({ api, dialogsRef, lang: "en-US" }));
+    const { result } = renderHook(() => useReportUndoGuard({ api, dialogsRef, lang: "en-US", showToast }));
     return { api, guarded: result.current, answer: (ok: boolean) => answer(ok) };
   }
 
@@ -118,6 +118,40 @@ describe("a through-op acts only on what it asked about (AI-04)", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(h.api.undoThrough).not.toHaveBeenCalled();
+  });
+
+  it("says so when nothing was undone because the list changed, in all three ops", async () => {
+    openDirtyReport();
+    const showToast = vi.fn();
+    const stack = [meta(1, "meetingReport.updated")];
+    const a = deferred(stack, [], showToast);
+    a.guarded.undoThrough(1);
+    stack.push(meta(2, "task.updated"));
+    a.answer(true);
+    await vi.waitFor(() => expect(showToast).toHaveBeenCalledTimes(1));
+    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("nothing was undone"));
+    const r1 = [meta(3, "meetingReport.updated")];
+    const b = deferred([], r1, showToast);
+    b.guarded.redo();
+    r1.push(meta(4, "task.updated"));
+    b.answer(true);
+    await vi.waitFor(() => expect(showToast).toHaveBeenCalledTimes(2));
+    const r2 = [meta(5, "meetingReport.updated")];
+    const c = deferred([], r2, showToast);
+    c.guarded.redoThrough(5);
+    r2.push(meta(6, "task.updated"));
+    c.answer(true);
+    await vi.waitFor(() => expect(showToast).toHaveBeenCalledTimes(3));
+  });
+
+  it("stays silent when the op ran", async () => {
+    openDirtyReport();
+    const showToast = vi.fn();
+    const h = deferred([meta(1, "meetingReport.updated")], [], showToast);
+    h.guarded.undoThrough(1);
+    h.answer(true);
+    await vi.waitFor(() => expect(h.api.undoThrough).toHaveBeenCalledWith(1));
+    expect(showToast).not.toHaveBeenCalled();
   });
 
   it("undoThrough runs when the top is still the one it asked about", async () => {

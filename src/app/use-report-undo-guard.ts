@@ -40,6 +40,8 @@ export interface ReportUndoGuardDeps {
   api: GuardApi;
   dialogsRef: { readonly current: AppDialogs };
   lang: Lang;
+  /** Says when a confirmed op did nothing because the stack changed under the dialog. Optional (tests). */
+  showToast?: (kind: "info" | "error", text: string) => void;
 }
 
 /** True when running `entries` (the slice an op would apply) would overwrite an open report's unsaved text. */
@@ -66,16 +68,22 @@ export function confirmReportUndo(
     title: t(lang, "reportUnsavedTitle"),
     message: t(lang, "reportUndoUnsavedBody"),
     confirmLabel: t(lang, confirmKey),
+    appUndoOff: true, // the provider renders at the app root: without this Ctrl+Z inside it would open a second question
   });
 }
 
-export function useReportUndoGuard({ api, dialogsRef, lang }: ReportUndoGuardDeps): GuardedOps {
+export function useReportUndoGuard({ api, dialogsRef, lang, showToast }: ReportUndoGuardDeps): GuardedOps {
   // The latest committed api: the stacks as they are when the confirm resolves, not as they were when it was asked.
   const liveApi = useRef(api);
   useEffect(() => {
     liveApi.current = api;
   });
   const topId = (which: "stack" | "redoStack"): number | undefined => liveApi.current[which].at(-1)?.id;
+  /** Runs `run` only if the top of `which` is still `asked`; otherwise nothing is undone, and the user is told. */
+  const ifTopUnchanged = (which: "stack" | "redoStack", asked: number | undefined, run: () => void): void => {
+    if (topId(which) === asked) run();
+    else showToast?.("info", t(lang, "reportUndoListChanged"));
+  };
   /** `runNow` when nothing needs asking; `runAfterAsk` (bound to the entries as they were ASKED) once confirmed. */
   const guard = (entries: readonly UndoMeta[], confirmKey: "undo" | "redo", runNow: () => void, runAfterAsk: () => void): void => {
     const ok = confirmReportUndo(entries, dialogsRef.current, lang, confirmKey);
@@ -95,22 +103,16 @@ export function useReportUndoGuard({ api, dialogsRef, lang }: ReportUndoGuardDep
     undoThrough: (id) => {
       const entries = throughTop(api.stack, id);
       const asked = entries.at(-1)?.id;
-      guard(entries, "undo", () => api.undoThrough(id), () => {
-        if (topId("stack") === asked) api.undoThrough(id);
-      });
+      guard(entries, "undo", () => api.undoThrough(id), () => ifTopUnchanged("stack", asked, () => api.undoThrough(id)));
     },
     redo: () => {
       const top = api.redoStack[api.redoStack.length - 1];
-      guard(top ? [top] : [], "redo", api.redo, () => {
-        if (topId("redoStack") === top.id) api.redoThrough(top.id);
-      });
+      guard(top ? [top] : [], "redo", api.redo, () => ifTopUnchanged("redoStack", top.id, () => api.redoThrough(top.id)));
     },
     redoThrough: (id) => {
       const entries = throughTop(api.redoStack, id);
       const asked = entries.at(-1)?.id;
-      guard(entries, "redo", () => api.redoThrough(id), () => {
-        if (topId("redoStack") === asked) api.redoThrough(id);
-      });
+      guard(entries, "redo", () => api.redoThrough(id), () => ifTopUnchanged("redoStack", asked, () => api.redoThrough(id)));
     },
   };
 }

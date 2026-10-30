@@ -181,7 +181,7 @@ function TaskManagerInner() {
   const getScopeEpochRef = useRef<() => number>(() => 0); // holds useStorageBackend's UNDO epoch (getUndoEpoch: the scope epoch + one per restore), filled below
   const readScopeEpochForUndo = useCallback(() => getScopeEpochRef.current(), []);
   const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo, getScopeEpoch: readScopeEpochForUndo, confirmBeforeUndo: (m) => confirmReportUndo([m], appDialogsRef.current, lang, "undo") });
-  const reportUndo = useReportUndoGuard({ api: undoApi, dialogsRef: appDialogsRef, lang }); // AI-04 — the hotkey + top bar ask before rewriting an open report's unsaved text
+  const reportUndo = useReportUndoGuard({ api: undoApi, dialogsRef: appDialogsRef, lang, showToast }); // AI-04 — the hotkey + top bar ask before rewriting an open report's unsaved text
   // ★★ §548 — the one undo path that does NOT unmount with the app tree during the load hold (a document
   //   keydown listener), and an undo applied then is replaced when the load lands, so it is dropped.
   //   `loadPending` comes from `useStorageBackend` further down, so it is read through a ref (the same

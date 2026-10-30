@@ -193,6 +193,20 @@ describe("an unmatched section goes after the nearest preceding AI section the t
   });
 });
 
+describe("an AI opening that sits inside a user intro", () => {
+  const AI = ai("<p>AI intro</p><h2>Summary</h2><p>S</p>");
+  const WITH_INTRO = "<p>my intro</p><p>AI intro</p><h2>Notes</h2><p>n</p>";
+
+  it("taking the opening again leaves one copy", () => {
+    expect(applyTake(WITH_INTRO, AI, [0], true)).toBe(WITH_INTRO);
+    expect(planTake(WITH_INTRO, AI, [0])).toEqual({ replacements: [], additions: [] });
+  });
+
+  it("an unmatched section lands after the level-0 section (before the first user heading)", () => {
+    expect(applyTake(WITH_INTRO, AI, [1], true)).toBe("<p>my intro</p><p>AI intro</p><h2>Summary</h2><p>S</p><h2>Notes</h2><p>n</p>");
+  });
+});
+
 describe("taking the AI opening twice", () => {
   const AI = ai("<p>AI intro</p><h2>Summary</h2><p>S</p>");
   it("leaves one copy, and the plan reports neither a replacement nor an addition the second time", () => {

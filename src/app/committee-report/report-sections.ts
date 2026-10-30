@@ -133,9 +133,9 @@ function insertionPoint(
       placedAt !== -1
         ? placedAt
         : ai[j].level === 0
-          ? // The AI's opening is an anchor only when the user's text really holds it (same html); the user's OWN
+          ? // The AI's opening is an anchor only when the user's text really holds it (its html sits inside the level-0 section, which may have grown a user intro around it); the user's OWN
             // intro is not the AI's opening, so keep walking back (to the end if nothing else anchors).
-            (items[level0]?.section.html === ai[j].html ? level0 : -1)
+            (items[level0]?.section.html.includes(ai[j].html) ? level0 : -1)
           : items.findIndex(
               (it) =>
                 it.section.level !== 0 &&
@@ -165,7 +165,7 @@ function run(
     const sec = ai[aiIndex];
     const placed: Item = { section: sec, placed: true };
     // An opening the text already holds, word for word, is already there: neither a replacement nor an addition.
-    if (sec.level === 0 && items.some((it) => it.section.level === 0 && it.section.html === sec.html)) continue;
+    if (sec.level === 0 && items.some((it) => it.section.level === 0 && it.section.html.includes(sec.html))) continue;
     const m = sec.level === 0 ? -1 : findUserMatch(items, sec.key);
     if (m === -1) {
       plan.additions.push(aiIndex);
