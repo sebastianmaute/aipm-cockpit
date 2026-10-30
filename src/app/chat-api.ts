@@ -87,6 +87,7 @@ export type DisplayItem =
    */
   | { kind: "proposal"; id: string; count: number };
 
+import { CHAT_PATH } from "./ai-usage-paths";
 import { normalizeApiUsage, postAiMessages, type ApiUsage, type WireUsage } from "./ai-transport";
 export { ANTHROPIC_VERSION, normalizeApiUsage, type ApiUsage } from "./ai-transport";
 
@@ -643,6 +644,8 @@ export async function callClaude(
   signal?: AbortSignal,
   /** A narrower tool list than the flags give (`toolsNamed`); absent, the flags' list. */
   tools?: ReturnType<typeof withCacheBreakpoint>,
+  /** The usage path the request is recorded under. */
+  path: string = CHAT_PATH,
 ): Promise<{
   content: ContentBlock[];
   stop_reason: string;
@@ -658,7 +661,7 @@ export async function callClaude(
       messages,
       tools: tools ?? toolsFor(toolFlags),
     }),
-    path: "chat",
+    path,
     signal,
     // Asked again after the deployment status: consent can be revoked while it is asked.
     beforeSend: assertInteractiveConsentLive,

@@ -25,6 +25,7 @@ import { type Lang } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
 import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 import { PLANNABLE_TOOL_NAMES } from "./inline-ai-edit/plan";
+import { INLINE_EDIT_PATH } from "./ai-usage-paths";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 import { projectForInlineEdit } from "./inline-ai-edit/projection";
 
@@ -197,6 +198,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     NO_RECALL_TOOLS,
     args.signal,
     tools,
+    INLINE_EDIT_PATH,
   );
   const blocks = res.content.filter(
     (b: ContentBlock): b is ToolUseBlock => b.type === "tool_use",
