@@ -12,7 +12,7 @@
 // ★★ Before §782 the model was sent `input: {type:"object"}` and never told an
 //  argument name, so it proposed a `create_task` without `taskName`/`assignee`;
 //  the review showed it as a normal create and `runTool` threw at apply.
-import { TOOL_DEFS } from "../chat-tool-defs";
+import { PEOPLE_TOOLS, TOOL_DEFS } from "../chat-tool-defs";
 import { sanitizeIsoDate } from "../sanitize-core";
 import { ALLOWED_REC_TOOLS, type InsightToolCall } from "./insight";
 
@@ -54,16 +54,28 @@ export const REC_TOOL_INPUT_SCHEMAS: Readonly<Record<string, InputSchema>> = Obj
  *   re-asked strict, one extra request. Deliberate: `matchesSchema` is shared by
  *   every forced-call tool, and loosening its number check would accept strings
  *   for tools whose writers do not take them; the strict reply sends a number. */
-export const REC_CALL_ITEM_SCHEMA = {
-  anyOf: [...ALLOWED_REC_TOOLS].map((name) => ({
-    type: "object" as const,
-    properties: {
-      name: { type: "string" as const, enum: [name] },
-      input: REC_TOOL_INPUT_SCHEMAS[name],
-    },
-    required: ["name", "input"],
-  })),
-};
+function recCallItemSchema(names: readonly string[]) {
+  return {
+    anyOf: names.map((name) => ({
+      type: "object" as const,
+      properties: {
+        name: { type: "string" as const, enum: [name] },
+        input: REC_TOOL_INPUT_SCHEMAS[name],
+      },
+      required: ["name", "input"],
+    })),
+  };
+}
+
+export const REC_CALL_ITEM_SCHEMA = recCallItemSchema([...ALLOWED_REC_TOOLS]);
+
+/** AI people protection (layer 1): the same union without the people tools (the stakeholder writers), for a
+ *  request about a project that protects its people. ★ `ALLOWED_REC_TOOLS` itself is NOT narrowed — it is the
+ *  confirm path's security allowlist; only what the model is OFFERED changes, by the executor's own
+ *  predicate (`peopleToolsLive`), so offering and serving cannot disagree. */
+export const REC_CALL_ITEM_SCHEMA_PEOPLE_PROTECTED = recCallItemSchema(
+  [...ALLOWED_REC_TOOLS].filter((name) => !PEOPLE_TOOLS.has(name)),
+);
 
 /** Required arguments a writer also parses as a date: the dispatcher's
  *  `createTask` (`use-chat-dispatcher.ts`) and `sanitizeMilestone` both read

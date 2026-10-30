@@ -9,7 +9,7 @@
 import type { AiPrivacy } from "../ai-privacy";
 import { runForcedToolCallWithRetry } from "../ai-forced-call";
 import type { AiConsentLevel } from "../ai-consent";
-import { RECOMMEND_TOOL, parseRecommendation } from "./recommend";
+import { RECOMMEND_TOOL, parseRecommendation, recommendToolFor } from "./recommend";
 import { buildRecommendSystemPrompt } from "./recommend-context";
 import type { GroundingIndex } from "../action-ai";
 import type { InsightRecommendation } from "./insight";
@@ -59,7 +59,8 @@ export async function runInsightRecommendation(
       guideText: args.guideText,
       cacheGuides: args.cacheGuides,
       level: args.level,
-      tools: [RECOMMEND_TOOL],
+      // AI people protection: the request's OWN privacy decides — the same value the transport redacts by.
+      tools: [recommendToolFor(args.privacy.protected)],
       toolName: RECOMMEND_TOOL.name,
       messages: [{ role: "user", content: args.context }],
       maxTokens: MAX_TOKENS,

@@ -42,6 +42,7 @@ import { loadPortfolioMode } from "./portfolio-mode";
 import { type OperatingGuide } from "./operating-guide";
 import { useGuideTextFrom } from "./action-guides-context";
 import { useOpenProjectPeopleProtected } from "./ai-privacy-context";
+import { actionsForAi } from "./next-actions/people-signals";
 import { actionText } from "./action-text";
 
 const MAX_LEARNING_SUMMARY_ENTRIES = 20;
@@ -118,10 +119,13 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
   // "Analyze with AI" sends the wide digest (`buildWideContext`), as the scheduled runner does.
   // AI people protection: asked when the context is built, from the transport's own source.
   const peopleProtectedNow = useOpenProjectPeopleProtected();
+  // ★ Review round 1 (I4): the live queue too — its people signals (workload, stakeholder comms) are
+  //   dropped by the ONE shared predicate (`actionsForAi`), in both builders below.
   const buildAiContext = useCallback(
-    () =>
-      buildAnalysisContext({
-        peopleProtected: peopleProtectedNow(),
+    () => {
+      const peopleProtected = peopleProtectedNow();
+      return buildAnalysisContext({
+        peopleProtected,
         projectName: project?.name ?? "",
         today,
         mode: deriveMode(settings.features),
@@ -132,12 +136,13 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
         milestones: milestones.map((x) => ({ id: x.id, title: x.name })),
         changes: changes.map((x) => ({ id: x.id, title: x.title })),
         stakeholders: stakeholders.map((x) => ({ id: x.id, name: x.name })),
-        queue: nextActions.map((a) => ({
+        queue: actionsForAi(nextActions, peopleProtected).map((a) => ({
           title: actionText(lang, a.title),
           why: actionText(lang, a.why),
           tier: a.tier,
         })),
-      }),
+      });
+    },
     [project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang, peopleProtectedNow],
   );
   // §772 — "Analyze with AI" sends the WIDE per-project digest a scheduled report sends, built by the SAME
@@ -150,7 +155,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     features: projectFeatures, steeringCommittee, settingsOverrides,
   } = useWorkspace();
   const buildWideContext = useCallback(() => {
-    const queue = nextActions.map((a) => ({
+    const queue = actionsForAi(nextActions, peopleProtectedNow()).map((a) => ({
       title: actionText(lang, a.title),
       why: actionText(lang, a.why),
       tier: a.tier,
@@ -169,7 +174,7 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
   }, [
     tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status,
     project, milestones, changes, stakeholders, projectFeatures, steeringCommittee, settingsOverrides,
-    settings, lang, nextActions,
+    settings, lang, nextActions, peopleProtectedNow,
   ]);
   const runActionAnalysis = useCallback(() => {
     void aiAnalyze(buildWideContext());

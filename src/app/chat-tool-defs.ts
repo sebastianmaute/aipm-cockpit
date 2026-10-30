@@ -1045,3 +1045,13 @@ export function peopleToolsLive(protectedFlag: boolean | undefined): boolean {
  *  like every other tool error. It says why, so the model does not retry. */
 export const PEOPLE_TOOL_REFUSAL =
   "This project protects its people from the AI, so tools that read or change people (resources, stakeholders, absences, allocations, contacts, history and chat search) are switched off. Do not retry; do not assign, move or rate anyone. The user can allow it in Settings for this project.";
+
+/** What `runTool` throws for a people tool under protection. Its own TYPE, so a caller that replays stored
+ *  calls (an insight recommendation's confirm) can tell "refused before anything was written" from a hard
+ *  failure that may have written — matched on the type, never the message, like `ConcurrencyTokenError`. */
+export class PeopleToolRefusedError extends Error {
+  constructor() {
+    super(PEOPLE_TOOL_REFUSAL);
+    this.name = "PeopleToolRefusedError";
+  }
+}

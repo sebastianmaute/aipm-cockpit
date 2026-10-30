@@ -45,6 +45,7 @@ import { stripRejectedFields } from "./inline-ai-edit/plan";
 import { buildGroundingIndex } from "./action-ai";
 import { runTool, type ToolDispatcher } from "./chat-tools";
 import { ConcurrencyTokenError } from "./chat-tools-updates";
+import { PeopleToolRefusedError } from "./chat-tool-defs";
 import { stampRecommendationTokens } from "./insights/recommend-tokens";
 import { logDiag } from "./diagnostics";
 import { descriptionText } from "./rich-text-projection";
@@ -472,6 +473,13 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       } catch (e) {
         if (e instanceof ConcurrencyTokenError) {
           stale++;
+          continue;
+        }
+        // AI people protection: a people tool refused by the executor's gate wrote NOTHING (it throws before
+        // any handler), so it is a refusal like a review-rejected call, never a hard failure that would mark
+        // the insight applied. Matched on the TYPE, as the stale refusal above is.
+        if (e instanceof PeopleToolRefusedError) {
+          refused++;
           continue;
         }
         failed++;

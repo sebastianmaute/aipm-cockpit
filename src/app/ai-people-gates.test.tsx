@@ -184,13 +184,16 @@ describe("dictation under protection", () => {
     delete (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
   });
 
-  it("replaces the mic with the reason, and shows the mic when allowed", () => {
+  it("replaces the mic with a compact marker whose tooltip gives the reason, and shows the mic when allowed", () => {
     (window as unknown as Record<string, unknown>).webkitSpeechRecognition = class {};
     const flip = renderWithSource(allowed(base()), <MicHarness />);
     expect(screen.getByRole("button", { name: /hold to dictate/i })).toBeTruthy();
     flip(protectedWs(base()));
     expect(screen.queryByRole("button", { name: /hold to dictate/i })).toBeNull();
-    expect(screen.getByTestId("mic-slot").textContent).toBe(t("en-US", "dictationUnavailablePeopleProtected"));
+    const off = screen.getByTestId("mic-slot").querySelector("[data-dictation-off]");
+    expect(off?.getAttribute("title")).toBe(t("en-US", "dictationUnavailablePeopleProtected"));
+    // Review round 1 (I2): no body text, so it adds nothing to a surrounding label's name.
+    expect(screen.getByTestId("mic-slot").textContent).toBe("");
   });
 });
 
@@ -229,5 +232,21 @@ describe("context builders under protection", () => {
     const prot = digestOf(protectedWs(base()));
     expect(prot).not.toContain("## Stakeholders");
     expect(prot).not.toContain("Alice Anderson");
+  });
+
+  // Review round 1 (I5): the scheduled-job path passes NO queue, so the queue is DERIVED from the target
+  // workspace — workload alerts included. Protected, no workload signal reaches the digest.
+  it("a scheduled job's derived queue carries no workload signal for a protected target", () => {
+    const tasks = [1, 2, 3, 4].map((id) => ({
+      id, taskName: `Overdue ${id}`, assignee: "Alice Anderson", assigneeEmail: "", resourceId: 1, dueDate: "2026-01-0" + id,
+      lastUpdateDate: "2026-01-01", priority: "High", status: "To Do", blockers: "", notes: "",
+    })) as unknown as Workspace["tasks"];
+    const target = (ws: Workspace): Workspace => ({ ...ws, resources: [RESOURCE], tasks, plan: PLAN });
+    const digestOf = (ws: Workspace) =>
+      buildProjectDigest(buildProjectAnalysisInput({ workspace: ws, deviceSettings: defaultSettings, lang: "en-US", now: new Date("2026-10-30T12:00:00Z") }).digestInput);
+    const why = t("en-US", "actionWorkloadWhyOverload", 4);
+    // The control: allowed, the derived queue names the overloaded person.
+    expect(digestOf(target(allowed(base())))).toContain(why);
+    expect(digestOf(target(protectedWs(base())))).not.toContain(why);
   });
 });

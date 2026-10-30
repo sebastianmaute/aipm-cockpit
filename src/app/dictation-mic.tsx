@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { MicrophoneIcon } from "./icons";
+import { MicrophoneIcon, MicrophoneSlashIcon } from "./icons";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { Settings } from "./settings-types";
@@ -126,10 +126,20 @@ export function useDictationMic({
               ? "aiDeploymentInvalid"
               : "dictationUnavailableNeedsAiConsent",
       );
-  const mic = peopleProtected ? (
-    // The control's replacement says why, in place of the button (spec layer 1: "its control explains why").
-    <span data-dictation-off className="text-xs text-muted-foreground">{t(lang, "dictationUnavailablePeopleProtected")}</span>
-  ) : ptt.supported ? (
+  // ★★ Review round 1 (I2): only where a mic WOULD render (`ptt.supported`), and compact — an icon whose
+  //   reason is its `title` tooltip. It is `aria-hidden` because several callers place the mic INSIDE a
+  //   field's <label> (the milestone name), where any exposed text — even an `aria-label` — joins that
+  //   input's accessible name. To assistive tech, dictation is simply absent, as in a browser without it.
+  const mic = !ptt.supported ? null : peopleProtected ? (
+    <span
+      data-dictation-off
+      aria-hidden="true"
+      title={t(lang, "dictationUnavailablePeopleProtected")}
+      className="inline-flex items-center px-1 text-muted-foreground"
+    >
+      <MicrophoneSlashIcon aria-hidden="true" className="h-4 w-4" />
+    </span>
+  ) : (
     <>
     <ToggleButton
       disabled={ptt.unavailable}
@@ -165,7 +175,7 @@ export function useDictationMic({
     </ToggleButton>
     {reason && <span id={unavailableReasonId} hidden>{reason}</span>}
     </>
-  ) : null;
+  );
 
   const status = (ptt.listening || ptt.transcribing) ? (
     <span className="text-xs text-muted-foreground" aria-live="polite">

@@ -58,7 +58,7 @@ import { runChatSearch } from "./chat-search-tool";
 import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
 export { TOOL_DEFS } from "./chat-tool-defs";
-import { PEOPLE_TOOLS, PEOPLE_TOOL_REFUSAL, peopleToolsLive } from "./chat-tool-defs";
+import { PEOPLE_TOOLS, PeopleToolRefusedError, peopleToolsLive } from "./chat-tool-defs";
 
 type TaskInput = {
   taskName: string;
@@ -705,7 +705,7 @@ export async function runTool(
 
   // ★★ AI people protection: ENFORCEMENT, not advertisement. `toolsFor` stops offering these under the same
   //   predicate; this refuses to SERVE them, before any handler can read or write a row.
-  if (PEOPLE_TOOLS.has(name) && !peopleToolsLive(d.isPeopleProtected())) throw new Error(PEOPLE_TOOL_REFUSAL);
+  if (PEOPLE_TOOLS.has(name) && !peopleToolsLive(d.isPeopleProtected())) throw new PeopleToolRefusedError();
 
   const forecast = runForecastTool(name, input, d);
   if (forecast !== NOT_FORECAST_TOOL) return forecast;
