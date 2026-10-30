@@ -741,6 +741,23 @@ function ChatPanelInner({
       chatSearch: ai.chatSearch,
       forecast: snapshot.forecastSimulation === true,
     };
+    // Runs one tool, shows it in the transcript and returns its `tool_result`, plus whether it ran without
+    // throwing. Used by the ordinary path and by a staging turn's reads, which run in place (AI-02).
+    const runAndRecord = async (useId: string, name: string, input: unknown): Promise<{ result: ToolResultBlock; ok: boolean }> => {
+      let resultStr: string;
+      let isError = false;
+      try {
+        resultStr = stringifyResult(await runTool(toolDispatcher, name, input));
+      } catch (err) {
+        isError = true;
+        resultStr = err instanceof Error ? err.message : String(err);
+      }
+      setDisplay((prev) => [...prev, { kind: "tool", name, input, result: resultStr, error: isError }]);
+      return {
+        result: { type: "tool_result", tool_use_id: useId, content: resultStr, is_error: isError ? true : undefined },
+        ok: !isError,
+      };
+    };
     const system = buildStableSystemBlocks(lang, snapshot, guides, ai.groundInGuides, toolFlags);
     const turnContext = buildTurnContext(lang, snapshot, guides, ai.groundInGuides, toolFlags);
     // ★★★ WIRE-ONLY. `messages` stays the PERSISTED history; the turn context is
@@ -864,8 +881,9 @@ function ChatPanelInner({
           // those this send already applied (`sendRecord.appliedWrites`) come to
           // more than one; or, in an untrusted send (an attachment in the
           // history), when it holds any call `stagesWhenUntrusted` names. Staged:
-          // nothing runs, a review card goes into the
-          // transcript, and every `tool_use` id is still answered. A turn that
+          // no write runs, the turn's reads (`isPureReadTool`) run in place, the
+          // other calls go on a review card in the transcript, and every `tool_use`
+          // id is still answered. A turn that
           // does not stage takes the original path below UNCHANGED — that
           // equivalence is pinned by a test, because "one extra branch" is how
           // a working path acquires a condition nobody meant to add.
@@ -877,7 +895,10 @@ function ChatPanelInner({
           if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord)) {
             sendRecord = { ...sendRecord, staged: true };
             const ws = stagingWorkspace(workspaceRef.current);
-            const calls = proposed.map((p) => p.call);
+            // AI-02 — a read changes nothing, so it runs in place below and gets its real result; only the
+            // turn's other calls go on the card. The card never shows a read row.
+            const staged = proposed.filter((p) => !isPureReadTool(p.call.name));
+            const calls = staged.map((p) => p.call);
             // ★★★ `mintProvisionalIds` ADVANCES the session mark, so every
             // provisional id differs from the one apply mints and the remap is
             // exercised on every create. See its own docstring for what a
@@ -890,7 +911,7 @@ function ChatPanelInner({
               id: proposalId,
               rows: described,
               planRows,
-              titles: proposalTitles(described, ws, (r) => cardRowTitle(lang, r, ws)),
+              titles: proposalTitles(described, ws, (r, pending) => cardRowTitle(lang, r, ws, pending)),
               // Everything starts kept: the card is a chance to REFUSE, and a
               // plan that arrives all-unchecked reads as "nothing to do here".
               selected: new Set(described.map((_, i) => i)),
@@ -908,16 +929,16 @@ function ChatPanelInner({
             // `closeDanglingToolUses` exists because of exactly that. The
             // result also carries the create's provisional id, so a later call
             // in this same turn can name the row the plan will create.
-            messages.push({
-              role: "user",
-              content: proposed.map(
-                (p, i): ToolResultBlock => ({
-                  type: "tool_result",
-                  tool_use_id: p.useId,
-                  content: stagedToolResult(planRows[i].mintedId),
-                }),
-              ),
-            });
+            const answers: ToolResultBlock[] = [];
+            for (const p of proposed) {
+              const at = staged.indexOf(p);
+              answers.push(
+                at === -1
+                  ? (await runAndRecord(p.useId, p.call.name, p.call.input)).result
+                  : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId) },
+              );
+            }
+            messages.push({ role: "user", content: answers });
             continueBubble = false;
             continue;
           }
@@ -951,34 +972,11 @@ function ChatPanelInner({
             // changed". The rest is cheap insurance for the day a handler becomes
             // genuinely async.
             if (dropStaleScopeWrite(getScopeEpoch, sendEpoch, "chat-panel.toolLoop", { tool: block.name })) break;
-            let resultStr: string;
-            let isError = false;
-            try {
-              const r = await runTool(toolDispatcher, block.name, block.input);
-              resultStr = stringifyResult(r);
-              if (isEntityWriteCall({ name: block.name, input: block.input as Readonly<Record<string, unknown>> })) {
-                directWrites += 1;
-              }
-            } catch (err) {
-              isError = true;
-              resultStr = err instanceof Error ? err.message : String(err);
+            const { result, ok } = await runAndRecord(block.id, block.name, block.input);
+            if (ok && isEntityWriteCall({ name: block.name, input: block.input as Readonly<Record<string, unknown>> })) {
+              directWrites += 1;
             }
-            setDisplay((prev) => [
-              ...prev,
-              {
-                kind: "tool",
-                name: block.name,
-                input: block.input,
-                result: resultStr,
-                error: isError,
-              },
-            ]);
-            results.push({
-              type: "tool_result",
-              tool_use_id: block.id,
-              content: resultStr,
-              is_error: isError ? true : undefined,
-            });
+            results.push(result);
           }
 
           // ★★★ NEVER PUSH AN EMPTY CARRIER. `content: []` is not "a carrier with

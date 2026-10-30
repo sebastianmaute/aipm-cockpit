@@ -3803,6 +3803,45 @@ describe("staged tool calls (the review card)", () => {
     expect(dispatcher.updateTask).toHaveBeenCalledTimes(1);
   });
 
+  // A read changes nothing, so a staging turn runs it in place and the model gets its real result; only the change
+  // goes on the card. Mutation: putting the turn's reads back on the card turns this red: two rows, no listRaid call.
+  it("a read in a staging turn runs in place, and the card holds only the change (AI-02)", async () => {
+    const raid = { id: 7, category: "I", title: "Vendor down", status: "Open", severity: "High" };
+    const dispatcher = makeDispatcher();
+    const extra = dispatcher as unknown as { listRaid: unknown; getRaidRow: unknown };
+    extra.listRaid = vi.fn(() => [raid]);
+    extra.getRaidRow = vi.fn(() => raid);
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "list_raid", input: {} },
+          { type: "tool_use", id: "t2", name: "update_task", input: { id: 1, status: "Done" } },
+        ]),
+        doneTurn("ok"),
+      ],
+      bodies,
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(extra.listRaid).toHaveBeenCalledTimes(1);
+    expect(dispatcher.updateTask).not.toHaveBeenCalled();
+    expect(rowBoxes(card)).toHaveLength(1);
+    const read = resultsIn(bodies[1]).find((b) => b.tool_use_id === "t1");
+    expect(read?.content).toContain("Vendor down");
+    expect(resultsIn(bodies[1]).find((b) => b.tool_use_id === "t2")?.content).toContain("staged");
+  });
+
   it("an automatic send waits while Apply is running, and the next one carries the applied notice (AI-02)", async () => {
     // Mutation: dropping the applying term from `sendGateRef.blocked` turns this red: the seed goes out mid-apply.
     const dispatcher = makeDispatcher();
