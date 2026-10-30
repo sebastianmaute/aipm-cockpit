@@ -85,6 +85,48 @@ describe("sanitizeSteeringCommittee — per-meeting report", () => {
     });
   });
 
+  const withReport = (report: unknown) =>
+    sanitizeSteeringCommittee({
+      name: "Board",
+      memberResourceIds: [],
+      meetings: [{ id: 1, date: "2026-07-11", title: "Kickoff", report }],
+      infoSchedules: [],
+    })!.meetings[0].report;
+
+  it("keeps a previous version beside the current one", () => {
+    expect(withReport({ html: "<p>now</p>", updatedAt: "t2", previous: { html: "<p>before</p>", savedAt: "t1" } })).toEqual({
+      html: "<p>now</p>",
+      updatedAt: "t2",
+      previous: { html: "<p>before</p>", savedAt: "t1" },
+    });
+  });
+
+  it("drops a previous without a string savedAt or html, keeping the report", () => {
+    expect(withReport({ html: "<p>now</p>", updatedAt: "t2", previous: { html: "<p>b</p>" } })).toEqual({ html: "<p>now</p>", updatedAt: "t2" });
+    expect(withReport({ html: "<p>now</p>", updatedAt: "t2", previous: { html: 5, savedAt: "t1" } })).toEqual({ html: "<p>now</p>", updatedAt: "t2" });
+    expect(withReport({ html: "<p>now</p>", updatedAt: "t2", previous: "junk" })).toEqual({ html: "<p>now</p>", updatedAt: "t2" });
+  });
+
+  it("caps previous.html like html", () => {
+    const big = "<p>" + "x".repeat(150_000) + "</p>";
+    const r = withReport({ html: "<p>now</p>", updatedAt: "t2", previous: { html: big, savedAt: "t1" } });
+    expect(r?.previous).toBeDefined();
+    expect(r!.previous!.html.length).toBeLessThan(big.length);
+  });
+
+  it("keeps a report with empty html when a valid previous exists", () => {
+    expect(withReport({ html: "", updatedAt: "t2", previous: { html: "<p>before</p>", savedAt: "t1" } })).toEqual({
+      html: "",
+      updatedAt: "t2",
+      previous: { html: "<p>before</p>", savedAt: "t1" },
+    });
+  });
+
+  it("still drops a report with empty html and no previous", () => {
+    expect(withReport({ html: "", updatedAt: "t2" })).toBeUndefined();
+    expect(withReport({ html: "", updatedAt: "t2", previous: { html: "", savedAt: "t1" } })).toBeUndefined();
+  });
+
   it("drops a report with no html", () => {
     const out = sanitizeSteeringCommittee({
       name: "Board",

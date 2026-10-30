@@ -1494,15 +1494,31 @@ const REPORT_HTML_MAX = 100_000;
  *  instead of escaped (RENDER_SINK's accepted cost, html-start.ts) — reachable
  *  only via a hand-edited/foreign report, since `onSaveReport` runs
  *  sanitizeRichHtml first and entity-escapes any typed tag; no text is lost. */
+function capReportHtml(raw: string): string {
+  return raw.length <= REPORT_HTML_MAX ? raw : sanitizeRichText(raw, REPORT_HTML_MAX, RENDER_SINK);
+}
+
+/** `previous` needs a non-empty html string and a string `savedAt`, else it is dropped. */
+function sanitizePreviousReport(raw: unknown): MeetingReport["previous"] {
+  if (!raw || typeof raw !== "object") return undefined;
+  const pr = raw as Record<string, unknown>;
+  if (typeof pr.html !== "string" || typeof pr.savedAt !== "string") return undefined;
+  const html = capReportHtml(pr.html);
+  return html ? { html, savedAt: pr.savedAt } : undefined;
+}
+
 function sanitizeMeetingReport(raw: unknown): MeetingReport | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const rr = raw as Record<string, unknown>;
-  if (typeof rr.html !== "string" || rr.html.length === 0) return undefined;
+  if (typeof rr.html !== "string") return undefined;
   if (typeof rr.updatedAt !== "string") return undefined;
-  const html = rr.html.length <= REPORT_HTML_MAX ? rr.html : sanitizeRichText(rr.html, REPORT_HTML_MAX, RENDER_SINK);
-  if (!html) return undefined;
+  const previous = sanitizePreviousReport(rr.previous);
+  // An empty body survives only beside a previous version (a report cleared after a save).
+  const html = capReportHtml(rr.html);
+  if (!html && !previous) return undefined;
   const out: MeetingReport = { html, updatedAt: rr.updatedAt };
   if (typeof rr.sentAt === "string") out.sentAt = rr.sentAt;
+  if (previous) out.previous = previous;
   return out;
 }
 

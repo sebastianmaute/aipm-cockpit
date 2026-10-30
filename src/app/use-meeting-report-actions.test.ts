@@ -96,6 +96,57 @@ describe("useMeetingReportActions", () => {
     expect(next.meetings[0].report?.html).toBe("<p>new</p>");
   });
 
+  describe("previous version", () => {
+    function harness() {
+      let state: SteeringCommittee | undefined = committee();
+      const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
+        state = u(state);
+      });
+      const { result } = renderHook(() => useMeetingReportActions(makeDeps({ setSteeringCommittee })));
+      return { result, report: () => state!.meetings[0].report! };
+    }
+
+    it("a save keeps the replaced text as previous, dated by its updatedAt", () => {
+      const h = harness();
+      act(() => h.result.current!.onSaveReport(10, "<p>second</p>"));
+      expect(h.report().html).toBe("<p>second</p>");
+      expect(h.report().previous).toEqual({ html: "<p>x</p>", savedAt: "t0" });
+      act(() => h.result.current!.onSaveReport(10, "<p>third</p>"));
+      expect(h.report().previous?.html).toBe("<p>second</p>");
+    });
+
+    it("sets no previous when there was no report, or the old html was empty", () => {
+      let state: SteeringCommittee | undefined = committee(false);
+      const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
+        state = u(state);
+      });
+      const { result } = renderHook(() => useMeetingReportActions(makeDeps({ setSteeringCommittee })));
+      act(() => result.current!.onSaveReport(10, "<p>first</p>"));
+      expect(state!.meetings[0].report?.previous).toBeUndefined();
+      state = { ...state!, meetings: [{ ...state!.meetings[0], report: { html: "", updatedAt: "t0" } }] };
+      act(() => result.current!.onSaveReport(10, "<p>second</p>"));
+      expect(state!.meetings[0].report?.previous).toBeUndefined();
+    });
+
+    it("onRestorePrevious swaps current and previous, and a second call swaps back", () => {
+      const h = harness();
+      act(() => h.result.current!.onSaveReport(10, "<p>second</p>"));
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report().html).toBe("<p>x</p>");
+      expect(h.report().previous?.html).toBe("<p>second</p>");
+      expect(h.report().sentAt).toBeUndefined();
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report().html).toBe("<p>second</p>");
+      expect(h.report().previous?.html).toBe("<p>x</p>");
+    });
+
+    it("onRestorePrevious on a report with no previous is a no-op", () => {
+      const h = harness();
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report()).toEqual({ html: "<p>x</p>", updatedAt: "t0" });
+    });
+  });
+
   it("send with an empty recipient list shows the no-recipients toast and does NOT send", async () => {
     const showToast = vi.fn();
     const { result } = renderHook(() => useMeetingReportActions(makeDeps({ showToast })));

@@ -11,6 +11,7 @@ const reportBag: MeetingReportBag = {
   aiConfigured: false,
   tursoActive: false,
   onSaveReport: () => {},
+  onRestorePrevious: () => {},
   onSendReport: () => {},
   sendBusyMeetingId: null,
   onGenerateReport: () => {},

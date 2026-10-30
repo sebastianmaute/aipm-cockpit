@@ -5,7 +5,7 @@
 import { useRef, useState } from "react";
 import { t, type Lang, tPlural } from "./i18n";
 import { aiFailureMessageKey } from "./ai-key-status";
-import type { SteeringCommittee, Resource } from "./types";
+import type { SteeringCommittee, Resource, MeetingReport } from "./types";
 import type { Settings } from "./settings-types";
 import { isAiEnabled } from "./settings-types";
 import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
@@ -54,6 +54,9 @@ export interface MeetingReportBag {
   aiConfigured: boolean;
   tursoActive: boolean;
   onSaveReport: (meetingId: number, html: string) => void;
+  /** Swap a report with its previous version (new `updatedAt`, `sentAt` dropped);
+   *  a no-op when there is no previous. Calling it again swaps back. */
+  onRestorePrevious: (meetingId: number) => void;
   onSendReport: (meetingId: number, recipients: readonly string[]) => void;
   sendBusyMeetingId: number | null;
   onGenerateReport: (meetingId: number) => void;
@@ -70,6 +73,14 @@ export interface MeetingReportBag {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+/** The report after a save: the new text, with the replaced text kept as `previous`
+ *  when it was non-empty. A new body is unsent, so `sentAt` is not carried. */
+function replacedReport(old: MeetingReport | undefined, html: string): MeetingReport {
+  const report: MeetingReport = { html, updatedAt: nowIso() };
+  if (old && old.html !== "") report.previous = { html: old.html, savedAt: old.updatedAt };
+  return report;
 }
 
 export function useMeetingReportActions(deps: MeetingReportActionsDeps): MeetingReportBag | undefined {
@@ -116,8 +127,30 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
         ? {
             ...c,
             meetings: c.meetings.map((m) =>
-              m.id === meetingId ? { ...m, report: { html: clean, updatedAt: nowIso() } } : m,
+              m.id === meetingId ? { ...m, report: replacedReport(m.report, clean) } : m,
             ),
+          }
+        : c,
+    );
+  }
+
+  function onRestorePrevious(meetingId: number): void {
+    deps.setSteeringCommittee((c) =>
+      c
+        ? {
+            ...c,
+            meetings: c.meetings.map((m) => {
+              const prev = m.report?.previous;
+              if (m.id !== meetingId || !m.report || !prev) return m;
+              return {
+                ...m,
+                report: {
+                  html: prev.html,
+                  updatedAt: nowIso(),
+                  previous: { html: m.report.html, savedAt: m.report.updatedAt },
+                },
+              };
+            }),
           }
         : c,
     );
@@ -243,6 +276,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     aiConfigured: isAiEnabled(deps.settings.ai),
     tursoActive: deps.tursoConfig !== null,
     onSaveReport,
+    onRestorePrevious,
     onSendReport: (meetingId: number, recipients: readonly string[]) => {
       void onSendReport(meetingId, recipients);
     },
