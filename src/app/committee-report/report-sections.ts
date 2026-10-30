@@ -9,7 +9,7 @@
 //
 //  | rule                                                                       | pinned by                                                                     |
 //  | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-//  | a section matches a user section of the same heading at ANY level          | "matches an h3 inside another h2, replaces only that block and keeps the h3 sibling under its parent" |
+//  | a section matches a user section of the same heading at its level or DEEPER | "matches an h3 inside another h2, replaces only that block and keeps the h3 sibling under its parent" |
 //  | only the first of duplicate user headings is matched                       | "replaces only the first of duplicate user headings"                          |
 //  | Replace swaps the matched range (to the next same-or-higher heading)       | "removes sub-headings with a replaced section and reports them"               |
 //  | Keep both adds after the matched range, AI sections keeping AI order       | "declining Replace on Take all lands Risks before Vendor, after the user's range" |
