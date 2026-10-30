@@ -159,14 +159,22 @@ function insertionPoint(
                 it.section.key === ai[j].key &&
                 ai[j].key !== "",
             );
-    if (at !== -1) return rangeEnd(items, at);
+    if (at !== -1) {
+      // An anchor DEEPER than the inserted section (a user h3 inside an h2) ends its own range, not the parent's: go on
+      // to the end of the enclosing range at this level, or the parent's later sub-sections would fall under the new one.
+      let e = rangeEnd(items, at);
+      while (e < items.length && items[e].section.level > ai[aiIndex].level) e++;
+      return e;
+    }
   }
   // No preceding anchor: go BEFORE the nearest FOLLOWING AI section the text has (or one placed in this call), so the
   // AI order holds; only with neither does it go to the end.
   for (let j = aiIndex + 1; j < ai.length; j++) {
     if (ai[j].level === 0) continue;
     const at = items.findIndex((it) => it.section === ai[j] || (ai[j].key !== "" && it.section.level !== 0 && it.section.key === ai[j].key));
-    if (at !== -1) return at;
+    // A following anchor deeper than the inserted section is no place to go before (it would pull the user's
+    // sub-section out from under its parent): keep looking, else the end.
+    if (at !== -1 && items[at].section.level <= ai[aiIndex].level) return at;
   }
   return items.length;
 }

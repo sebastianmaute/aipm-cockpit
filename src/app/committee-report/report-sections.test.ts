@@ -249,6 +249,22 @@ describe("an unmatched section keeps AI order against the sections that FOLLOW i
   });
 });
 
+describe("anchors respect heading levels: a user's sub-sections stay under their parent", () => {
+  it("a following anchor deeper than the inserted section is skipped: Plan goes to the end, Risks stays under Status", () => {
+    const AI = ai("<h2>Plan</h2><p>p</p><h2>Risks</h2><p>r</p>");
+    expect(applyTake("<h2>Status</h2><p>s</p><h3>Risks</h3><p>mine</p>", AI, [0], true)).toBe(
+      "<h2>Status</h2><p>s</p><h3>Risks</h3><p>mine</p><h2>Plan</h2><p>p</p>",
+    );
+  });
+
+  it("a preceding anchor deeper than the inserted section extends to the end of the enclosing range", () => {
+    const AI = ai("<h2>Plan</h2><p>aP</p><h2>Extra</h2><p>e</p>");
+    expect(applyTake("<h2>Status</h2><h3>Plan</h3><p>p</p><h3>Later</h3><p>l</p><h2>Next</h2>", AI, [1], true)).toBe(
+      "<h2>Status</h2><h3>Plan</h3><p>p</p><h3>Later</h3><p>l</p><h2>Extra</h2><p>e</p><h2>Next</h2>",
+    );
+  });
+});
+
 describe("a blank AI opening is not a section", () => {
   it("splitProposalSections leaves no opening row for whitespace or an empty paragraph", () => {
     for (const html of ["\n<h2>Summary</h2><p>S</p>", "<p></p><h2>Summary</h2><p>S</p>"]) {
