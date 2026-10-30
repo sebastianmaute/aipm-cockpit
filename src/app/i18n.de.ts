@@ -5447,6 +5447,7 @@ export const de: Record<TranslationKey, string> = {
   allocPlanSkipDuplicate: "doppelte Zelle",
   allocPlanSkipBelowResolution: "keine Änderung am gespeicherten Wert",
   allocPlanSkipAlreadySet: "bereits auf diesem Wert",
+  allocPlanSkipCoveredByMove: "bereits durch eine Aufgabenverschiebung abgedeckt",
   wbsPlanTitle: "Arbeitspakete mit KI optimieren",
   wbsPlanInclude: "Diese Änderung übernehmen",
   wbsPlanCancel: "Abbrechen",

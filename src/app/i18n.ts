@@ -5733,6 +5733,7 @@ const enUS = {
   allocPlanSkipDuplicate: "duplicate cell",
   allocPlanSkipBelowResolution: "no change to the stored value",
   allocPlanSkipAlreadySet: "already at that value",
+  allocPlanSkipCoveredByMove: "already covered by a task move",
   wbsPlanTitle: "Optimize work breakdown with AI",
   wbsPlanInclude: "Include this change",
   wbsPlanCancel: "Cancel",

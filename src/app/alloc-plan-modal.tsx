@@ -67,6 +67,7 @@ const SKIP_REASON_KEY: Record<SkipReason, TranslationKey> = {
   duplicate: "allocPlanSkipDuplicate",
   "below-resolution": "allocPlanSkipBelowResolution",
   "already-set": "allocPlanSkipAlreadySet",
+  "covered-by-move": "allocPlanSkipCoveredByMove",
 };
 
 export function AllocPlanModal({

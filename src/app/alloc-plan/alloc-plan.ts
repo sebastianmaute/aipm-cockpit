@@ -277,7 +277,8 @@ export type SkipReason =
   | "bad-hours"
   | "duplicate"
   | "below-resolution"
-  | "already-set";
+  | "already-set"
+  | "covered-by-move";
 
 export interface SkippedCell {
   resourceId: number;
