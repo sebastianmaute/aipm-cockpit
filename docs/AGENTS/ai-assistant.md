@@ -241,16 +241,14 @@
   decision 2026-10-24); a call without the key is a device-only write and stays exempt, like `set_language` — in a
   trusted send. ★★ AI-02: the count runs across the whole user send, not per model turn (`SendRecord.appliedWrites`,
   `chat-send-record.ts`, opened by `openSendRecord` from the full history); while an `image` or `document` block is
-  anywhere in that history the send is untrusted and every call `stagesWhenUntrusted` names stages alone. It FAILS
-  CLOSED: only a read (`isPureReadTool`), `optimize_wbs` and a tokened update (`TOKEN_REQUIRED_TOOLS`) pass, so a
-  tool it does not know stages. A tokened update still stages when it is destructive, sends invitations, is
-  `update_project` or `escalate_raid_item`, or its input carries a key in `UNTRUSTED_CONTACT_KEYS` — an address
-  field, a person name or its address from `PERSON_FIELDS` (the writer derives the address from a new name through
-  `withReassignFields`), or the `resourceId` link — or it is an `update_resource` carrying a field the person linker
-  matches on (`RESOURCE_MATCH_FIELDS`, which types `buildResourceLookupIndexes`' input) or the `name` alias, because
-  a rename can relink an unlinked same-name assignee on the next load. The residual is a lone tokened update that
-  touches none of these, a stakeholder rename included (the linker reads resources only, so `update_stakeholder`'s
-  `name` is not staged); and once a turn of the send has staged, a later turn stages nothing:
+  anywhere in that history the send is untrusted and EVERY call that is not a pure read (`isPureReadTool`) stages
+  alone, a version-checked update included (owner decision; `stagesWhenUntrusted`). The one exemption is
+  `optimize_wbs`: it writes nothing and opens the WBS preview, which is its own per-item review. It FAILS CLOSED: a
+  tool it does not know stages. ★★ Every tool that can stage must reach the card as a described line, never its bare
+  tool name: the panel titles rows through `proposalTitles` with `cardRowTitle`, and the coverage test in
+  `chat-proposal-describe.test.ts` runs a sample of every stageable tool through that pair in English and German; a
+  new stageable tool goes red there until it has a sample and a line. And once a turn of the send has staged, a later
+  turn stages nothing:
   its reads (`isPureReadTool`, `chat-send-record.ts`) run, every other call runs nothing and is answered with
   `PROPOSAL_PENDING_RESULT`, and the loop continues so the model can reply; the card is never replaced unseen. A staged
   `set_language`, `set_filters` or device-only `update_settings` is described by `describeDeviceCall`
