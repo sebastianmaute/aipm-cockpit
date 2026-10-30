@@ -9,7 +9,8 @@ import { useToast } from "./use-toast";
 import { defaultSettings, type Settings } from "./settings-types";
 import { type Resource, type ResourcePlan } from "./types";
 import * as call from "./alloc-plan-call";
-import { type ParsedAllocationProposal } from "./alloc-plan/alloc-plan";
+import { type RawAllocCell } from "./alloc-plan/alloc-plan";
+import { type ParsedAllocAlternatives } from "./alloc-plan/alloc-alternatives";
 import { t, tPlural } from "./i18n";
 import { ActionGuidesProvider } from "./action-guides-context";
 
@@ -17,8 +18,8 @@ vi.mock("./alloc-plan-call");
 
 /** Test-only shorthand — most propose-mock responses are a fully fresh cell
  *  set (nothing dropped at parse). */
-function proposal(cells: ParsedAllocationProposal["cells"], truncated = false): ParsedAllocationProposal {
-  return { cells, truncated };
+function proposal(cells: RawAllocCell[], truncated = false): ParsedAllocAlternatives {
+  return { alternatives: [{ summary: "", taskMoves: [], cells }], truncated };
 }
 
 const AI_ON: Settings = {
@@ -181,7 +182,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
   });
 
   it("a proposal that resolves AFTER cancel does not apply anything and leaves the hook idle", async () => {
-    let resolveProposal!: (v: ParsedAllocationProposal) => void;
+    let resolveProposal!: (v: ParsedAllocAlternatives) => void;
     vi.mocked(call.runAllocProposal).mockImplementation(
       () => new Promise((resolve) => { resolveProposal = resolve; }),
     );

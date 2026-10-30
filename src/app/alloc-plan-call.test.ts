@@ -9,42 +9,44 @@ describe("runAllocProposal", () => {
   beforeEach(() => vi.restoreAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it("returns the parsed cells (plus truncated: false) from a forced tool_use response", async () => {
+  it("returns the parsed alternatives (plus truncated: false) from a forced tool_use response", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       ok({
         content: [
           {
             type: "tool_use",
             name: "propose_allocations",
-            input: { cells: [{ resourceId: 1, periodKey: "2026-08", hours: 40 }] },
+            input: { alternatives: [{ summary: "s", taskMoves: [{ taskId: 4, toResourceId: 2 }], cells: [{ resourceId: 1, periodKey: "2026-08", hours: 40 }] }] },
           },
         ],
       }),
     );
     const result = await runAllocProposal("ctx", { apiKey: "k", model: "m" }, "spread the work");
     expect(result).toEqual({
-      cells: [{ resourceId: 1, periodKey: "2026-08", hours: 40 }],
+      alternatives: [
+        { summary: "s", taskMoves: [{ taskId: 4, toResourceId: 2 }], cells: [{ resourceId: 1, periodKey: "2026-08", hours: 40 }] },
+      ],
       truncated: false,
     });
   });
 
-  it("propagates parseAllocationProposal's truncated: true when the tool response over-fills cells", async () => {
+  it("propagates truncated: true when the tool response over-fills cells", async () => {
     const cells = Array.from({ length: MAX_ALLOC_CELLS + 10 }, (_, i) => ({
       resourceId: 1,
       periodKey: `2026-${String((i % 12) + 1).padStart(2, "0")}`,
       hours: 1,
     }));
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { cells } }] }),
+      ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { alternatives: [{ summary: "", taskMoves: [], cells }] } }] }),
     );
     const result = await runAllocProposal("ctx", { apiKey: "k", model: "m" }, "spread the work");
     expect(result.truncated).toBe(true);
-    expect(result.cells).toHaveLength(MAX_ALLOC_CELLS);
+    expect(result.alternatives[0].cells).toHaveLength(MAX_ALLOC_CELLS);
   });
 
   it("sends the forced tool_choice and the propose tool", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { cells: [] } }] }),
+      ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { alternatives: [] } }] }),
     );
     await runAllocProposal("ctx", { apiKey: "k", model: "m" }, "spread the work");
     const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
@@ -54,7 +56,7 @@ describe("runAllocProposal", () => {
 
   it("sends a user message with the exact context-then-instruction template", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { cells: [] } }] }),
+      ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { alternatives: [] } }] }),
     );
     const context = "PLAN: 2026-08-01 .. 2026-09-30\n#1 Jane Doe :: 2026-08=0/160";
     const instruction = "put 40 hours on Jane in August";
@@ -92,7 +94,7 @@ describe("runAllocProposal", () => {
     }
   });
 
-  it("throws 'parse' on malformed tool output (no cells array)", async () => {
+  it("throws 'parse' on malformed tool output (no alternatives or cells array)", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { nope: true } }] }),
     );
@@ -122,7 +124,7 @@ describe("runAllocProposal", () => {
 // §701 — the user's guides for Plan with AI follow the fixed system prompt.
 describe("runAllocProposal guide text", () => {
   afterEach(() => vi.restoreAllMocks());
-  const reply = () => ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { cells: [] } }] });
+  const reply = () => ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { alternatives: [] } }] });
   it("appends the guide text after the fixed system prompt", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply());
     await runAllocProposal("ctx", { apiKey: "k", model: "m", guideText: "GUIDE-MARK" }, "x");
@@ -146,11 +148,11 @@ describe("runAllocProposal output budget (§764)", () => {
     ({ ok: true, json: async () => ({ stop_reason: stop, content: [{ type: "tool_use", name: "propose_allocations", input }] }) }) as unknown as Response;
   const budgets = (spy: { mock: { calls: unknown[][] } }) =>
     spy.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)).max_tokens as number);
-  const CELLS = { cells: [{ resourceId: 1, periodKey: "2026-08", hours: 40 }] };
+  const CELLS = { alternatives: [{ summary: "", taskMoves: [], cells: [{ resourceId: 1, periodKey: "2026-08", hours: 40 }] }] };
 
   it("asks once more at 16384 when the reply was cut at 8192, and returns that answer", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cutOr("max_tokens", {})).mockResolvedValueOnce(cutOr("tool_use", CELLS));
-    await expect(runAllocProposal("ctx", { apiKey: "k", model: "m" }, "x")).resolves.toMatchObject(CELLS);
+    await expect(runAllocProposal("ctx", { apiKey: "k", model: "m" }, "x")).resolves.toMatchObject({ alternatives: CELLS.alternatives });
     expect(budgets(spy)).toEqual([8192, 16_384]);
   });
 

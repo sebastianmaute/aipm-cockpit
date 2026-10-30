@@ -129,7 +129,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       // Re-ground UNTRUSTED model ids/keys against the LIVE resources/plan
       // before anything can be shown or applied. A hallucinated resource or an
       // out-of-window period key is dropped here.
-      const grounded = groundAllocationCells(parsed.cells, { resources, plan, absences, workdayHours, holidaySet });
+      const grounded = groundAllocationCells(parsed.alternatives[0]?.cells ?? [], { resources, plan, absences, workdayHours, holidaySet });
       setCells(grounded.cells);
       setSkipped(grounded.skipped);
       // parsed.truncated is where an over-large proposal ACTUALLY gets cut

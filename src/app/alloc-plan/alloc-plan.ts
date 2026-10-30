@@ -194,34 +194,58 @@ export function buildAllocSystemPrompt(): string {
 }
 
 /** Anthropic tool definition. Forced via tool_choice so the model always emits
- *  one structured tool_use block. */
+ *  one structured tool_use block. §769: the answer is up to three ALTERNATIVES
+ *  (limits mirrored from `alloc-alternatives.ts`, which imports this file). */
 export const PROPOSE_ALLOCATIONS_TOOL = {
   name: "propose_allocations",
   description:
-    "Propose resource-allocation cells (resource × period × hours). Call exactly once; return an empty cells array when the request cannot be honored with the listed resources/periods.",
+    "Propose up to three alternative plans, each with task moves and allocation cells (resource × period × hours). Call exactly once; return one alternative with empty taskMoves and cells when the request cannot be honored with the listed resources/periods.",
   input_schema: {
     type: "object" as const,
     properties: {
-      cells: {
+      alternatives: {
         type: "array",
-        description: "Allocation cells. Each REPLACES the named resource's value for that period.",
+        description: "One to three genuinely different ways to meet the request.",
         items: {
           type: "object",
           properties: {
-            resourceId: { type: "integer", description: "Id of the resource (must appear in the digest)." },
-            periodKey: { type: "string", description: "Period key (must appear in the digest's PERIOD KEYS list)." },
-            hours: { type: "number", description: "Hours allocated to this resource for this period." },
+            summary: { type: "string", description: "One short line (at most 200 characters) saying what this alternative does." },
+            taskMoves: {
+              type: "array",
+              description: "Tasks to hand to another resource; a moved task carries its hours automatically.",
+              items: {
+                type: "object",
+                properties: {
+                  taskId: { type: "integer", description: "Id of the task (must appear in the digest)." },
+                  toResourceId: { type: "integer", description: "Id of the resource taking the task (must appear in the digest)." },
+                },
+                required: ["taskId", "toResourceId"],
+              },
+            },
+            cells: {
+              type: "array",
+              description: "Allocation cells. Each REPLACES the named resource's value for that period.",
+              items: {
+                type: "object",
+                properties: {
+                  resourceId: { type: "integer", description: "Id of the resource (must appear in the digest)." },
+                  periodKey: { type: "string", description: "Period key (must appear in the digest's PERIOD KEYS list)." },
+                  hours: { type: "number", description: "Hours allocated to this resource for this period." },
+                },
+                required: ["resourceId", "periodKey", "hours"],
+              },
+            },
           },
-          required: ["resourceId", "periodKey", "hours"],
+          required: ["summary", "taskMoves", "cells"],
         },
       },
-      rationale: { type: "string", description: "One short line explaining the distribution." },
     },
-    required: ["cells"],
+    required: ["alternatives"],
   },
 };
 
-function toInt(v: unknown): number | null {
+/** Integer from a number or numeric string, else null (also used by `alloc-alternatives.ts`). */
+export function toInt(v: unknown): number | null {
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
   return Number.isInteger(n) ? n : null;
 }
@@ -260,17 +284,23 @@ export function parseAllocationProposal(input: unknown): ParsedAllocationProposa
       truncated = true;
       break;
     }
-    if (!raw || typeof raw !== "object") continue;
-    const c = raw as { resourceId?: unknown; periodKey?: unknown; hours?: unknown };
-    const resourceId = toInt(c.resourceId);
-    if (resourceId === null) continue;
-    const periodKey = typeof c.periodKey === "string" ? c.periodKey.trim() : "";
-    if (!periodKey) continue;
-    const hours = toFiniteNumber(c.hours);
-    if (hours === null) continue;
-    out.push({ resourceId, periodKey, hours });
+    const cell = parseRawCell(raw);
+    if (cell) out.push(cell);
   }
   return { cells: out, truncated };
+}
+
+/** Shape-validate ONE untrusted cell (§769: shared by every alternative's cells); null when malformed. */
+export function parseRawCell(raw: unknown): RawAllocCell | null {
+  if (!raw || typeof raw !== "object") return null;
+  const c = raw as { resourceId?: unknown; periodKey?: unknown; hours?: unknown };
+  const resourceId = toInt(c.resourceId);
+  if (resourceId === null) return null;
+  const periodKey = typeof c.periodKey === "string" ? c.periodKey.trim() : "";
+  if (!periodKey) return null;
+  const hours = toFiniteNumber(c.hours);
+  if (hours === null) return null;
+  return { resourceId, periodKey, hours };
 }
 
 /** Why a proposed cell was refused instead of turned into a change. */

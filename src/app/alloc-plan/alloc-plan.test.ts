@@ -52,9 +52,9 @@ function resource(id: number, over: Partial<Resource> = {}): Resource {
 }
 
 describe("PROPOSE_ALLOCATIONS_TOOL", () => {
-  it("requires a cells array", () => {
+  it("requires an alternatives array (§769)", () => {
     expect(PROPOSE_ALLOCATIONS_TOOL.name).toBe("propose_allocations");
-    expect(PROPOSE_ALLOCATIONS_TOOL.input_schema.required).toContain("cells");
+    expect(PROPOSE_ALLOCATIONS_TOOL.input_schema.required).toEqual(["alternatives"]);
   });
 });
 
