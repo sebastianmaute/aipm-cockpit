@@ -40,7 +40,8 @@ export interface MeetingReportPanelProps {
   /** Initial recipients (committee members' emails) — editable before send. */
   recipients: readonly string[];
   /** `fromAi` is true when the saved text contains sections taken from the AI proposal. */
-  onSave: (html: string, opts?: { fromAi?: boolean }) => void;
+  /** Returns whether the report was actually written (false: identical body, or the meeting is gone). */
+  onSave: (html: string, opts?: { fromAi?: boolean }) => boolean;
   onSend: (recipients: readonly string[]) => void;
   m365Configured: boolean;
   sendBusy?: boolean;
@@ -212,14 +213,16 @@ export function MeetingReportPanel({
   }
 
   function save(): void {
-    onSave(draft, { fromAi: tookFromProposal });
-    // Pending takes on an unchanged body are marked too: their text is already in the stored report.
-    if (pendingTaken.size > 0) onTaken?.([...pendingTaken].sort((a, b) => a - b));
+    const wrote = onSave(draft, { fromAi: tookFromProposal });
+    // Takes are marked when the text is in the stored report: it was just written, or the body was already stored
+    // (an unchanged save). A save that wrote nothing for any other reason (the meeting is gone) marks nothing.
+    const stored = report?.html ?? "";
+    const inReport = wrote || sanitizeRichHtml(draft) === stored;
+    if (inReport && pendingTaken.size > 0) onTaken?.([...pendingTaken].sort((a, b) => a - b));
     setTookFromProposal(false);
     setPendingTaken(new Set());
     // A save whose sanitized text equals the stored body writes nothing (no new updatedAt, so no reconcile
     // below): settle the draft on the stored body here, so a sanitizer-only difference does not stay dirty.
-    const stored = report?.html ?? "";
     if (draft !== stored && sanitizeRichHtml(draft) === stored) setDraft(stored);
   }
 

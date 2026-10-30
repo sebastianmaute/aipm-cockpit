@@ -69,7 +69,7 @@ computes from live state, writes NOTHING for a body identical to the live one (`
 (`meetingReportUndoFragment`), and logs `ai.reportDraft` (actor ai) only when `fromAi`. ★★ Its `captureComposite` passes
 NO `readEpoch`: the capture is synchronous, so the stack stamps its own (UNDO) epoch. Passing the plain scope epoch made
 the stack refuse every report save once a currency change or version restore moved the undo epoch.
-`onRestorePrevious` swaps current and previous and is undoable; both it and the Turso version list's Restore ask first
+`onRestorePrevious` swaps current and previous, is undoable, sanitizes the body it writes and (Turso) snapshots the text it replaced; "blank" everywhere means `isBlankReport` (an emptied editor emits `<p></p>`, not ""), so a blank replaced body is never kept as `previous` and the sanitizer drops a blank `previous`; both it and the Turso version list's Restore ask first
 in the panel over unsaved editor text; `use-report-undo-guard.ts` asks first when the top-bar
 undo would reverse a report change over unsaved edits. The report `Modal` passes `appUndoOff`, which puts
 `data-app-undo="off"` on the dialog ROOT, so the Ctrl+Z / redo hotkey is off on the `tabIndex={-1}` root as well. ★★ `MeetingReport.previous` (`{html, savedAt}`, one slot) rides
@@ -79,8 +79,7 @@ Markdown (`steering-committee-persistence.test.ts`, which also covers a blank `h
 (`turso-tenant-schema.test.ts`) and IndexedDB (`browser-backend.test.ts`); `sanitize-records.test.ts` pins the validator.
 ★ Parked residuals: the proposal is tied to the meeting's id and DATE only (`meetingFingerprint`; the title and the Outlook
 id are left out so an edit or a push keeps it), so a meeting deleted and re-created with the same id and date shows the old
-proposal; a date change hides it (hidden, not deleted: the old date shows it again), and deleting the meeting drops it. A
-meeting deleted between render and click can leave one extra `ai.reportDraft` row.
+proposal; a date change hides it (hidden, not deleted: the old date shows it again), and deleting the meeting drops it.
 
 ### Calendar write-back engine (generic — milestones/committee + tasks)
 

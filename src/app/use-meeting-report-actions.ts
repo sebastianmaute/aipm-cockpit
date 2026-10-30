@@ -118,13 +118,13 @@ function nowIso(): string {
 }
 
 /** The report after a save: the new text, with the replaced text kept as `previous`
- *  when it was non-empty. An empty replaced body is not worth keeping, so ITS previous is carried forward
+ *  when it had text. A BLANK replaced body (isBlankReport: "" or an emptied editor's `<p></p>`) is not worth keeping, so ITS previous is carried forward
  *  (clear → Save → type → Save keeps the text before the clear). A new body is unsent, so `sentAt` is not carried.
  *  An UNCHANGED body is no write at all (undefined): `updatedAt`, `sentAt` and `previous` all stay. */
 function replacedReport(old: MeetingReport | undefined, html: string, stamp: string): MeetingReport | undefined {
   if (old && old.html === html) return undefined;
   const report: MeetingReport = { html, updatedAt: stamp };
-  if (old && old.html === "") return { ...report, ...(old.previous ? { previous: old.previous } : {}) };
+  if (old && isBlankReport(old.html)) return { ...report, ...(old.previous ? { previous: old.previous } : {}) };
   if (old) report.previous = { html: old.html, savedAt: old.updatedAt };
   return report;
 }
@@ -147,8 +147,8 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
   if (deps.isPopout) return undefined;
 
   // Turso-only: snapshot the meeting's CURRENT report as a version before it's
-  // overwritten (manual save / AI draft / restore all route through onSaveReport,
-  // so this is the single snapshot point). Best-effort — a snapshot failure never
+  // overwritten (manual save / AI draft / version restore route through onSaveReport,
+  // restore-previous through onRestorePrevious: the only two snapshot points). Best-effort — a snapshot failure never
   // blocks the write.
   async function snapshotCurrent(meetingId: number, priorHtml: string): Promise<void> {
     if (!deps.tursoConfig) return;
@@ -251,13 +251,18 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       const p = live?.previous;
       if (!live || !p) return undefined;
       return {
-        html: p.html,
+        // Every body write is sanitized, this one included (a hand-edited or foreign `previous` is untrusted).
+        html: sanitizeRichHtml(p.html),
         updatedAt: stamp,
-        // An empty current body is not kept (the load sanitizer would drop it).
-        ...(live.html !== "" ? { previous: { html: live.html, savedAt: live.updatedAt } } : {}),
+        // A blank current body is not kept (the load sanitizer would drop it).
+        ...(!isBlankReport(live.html) ? { previous: { html: live.html, savedAt: live.updatedAt } } : {}),
       };
     });
     if (seen.after() === null) return;
+    // The text this swap replaced would otherwise exist nowhere in the Turso history (the next save snapshots the NEW
+    // live text, not it): keep it as a version, like onSaveReport does.
+    const replaced = seen.before();
+    if (replaced) void snapshotCurrent(meetingId, replaced.html);
     captureReportChange(meeting.id, meeting.date, seen);
   }
 

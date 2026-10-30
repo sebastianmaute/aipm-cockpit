@@ -127,6 +127,13 @@ describe("sanitizeSteeringCommittee — per-meeting report", () => {
     expect(withReport({ html: "", updatedAt: "t2", previous: { html: "", savedAt: "t1" } })).toBeUndefined();
   });
 
+  it("treats an emptied editor's <p></p> as blank: dropped alone, kept beside a previous, never kept AS a previous", () => {
+    expect(withReport({ html: "<p></p>", updatedAt: "t2" })).toBeUndefined();
+    expect(withReport({ html: "<p></p>", updatedAt: "t2", previous: { html: "<p></p>", savedAt: "t1" } })).toBeUndefined();
+    expect(withReport({ html: "<p>now</p>", updatedAt: "t2", previous: { html: "<p> </p>", savedAt: "t1" } })).toEqual({ html: "<p>now</p>", updatedAt: "t2" });
+    expect(withReport({ html: "<p></p>", updatedAt: "t2", previous: { html: "<p>before</p>", savedAt: "t1" } })?.previous?.html).toBe("<p>before</p>");
+  });
+
   it("drops a report with no html", () => {
     const out = sanitizeSteeringCommittee({
       name: "Board",

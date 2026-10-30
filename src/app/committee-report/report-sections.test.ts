@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { sanitizeRichHtml } from "../sanitize-html";
 import {
   applyTake,
   normalizeHeading,
@@ -196,4 +197,21 @@ describe("sectionBodyHtml", () => {
   it("does not strip a heading that does not open the html", () => {
     expect(sectionBodyHtml("<p>x</p><h2>A</h2>")).toBe("<p>x</p><h2>A</h2>");
   });
+});
+
+
+describe("splitSections — a heading nested in a list item or blockquote", () => {
+  // PINNED, not endorsed: HEADING_RE is markup-blind, so a nested heading IS a section boundary. The pieces are
+  // unbalanced fragments, but they concatenate back to the input byte for byte and the sanitizer repairs the
+  // join, so nothing is lost or crashes. Only top-level splitting would need a tag-depth parser.
+  for (const html of ["<ul><li><h2>Nested</h2>text</li></ul><p>after</p>", "<blockquote><h3>Quoted</h3><p>q</p></blockquote>"]) {
+    it(`does not throw, loses no byte and stays sanitizable: ${html}`, () => {
+      const sections = splitSections(html);
+      expect(sections.map((x) => x.html).join("")).toBe(html);
+      expect(sections.some((x) => x.heading !== "")).toBe(true);
+      const clean = sanitizeRichHtml(applyTake("", sections, sections.map((_, i) => i), true));
+      expect(clean).toMatch(/Nested|Quoted/);
+      expect(clean).not.toMatch(/<script/i);
+    });
+  }
 });

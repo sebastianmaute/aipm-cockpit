@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { MeetingReportPanel } from "./meeting-report-panel";
 import { expectRowUniqueNames } from "../test/row-unique-names";
@@ -6,6 +7,10 @@ import { ConfirmProvider } from "./confirm-dialog";
 import { splitSections } from "./committee-report/report-sections";
 import { formatDisplayTimestamp } from "./tz-display";
 import { t } from "./i18n";
+import { useMeetingReportActions } from "./use-meeting-report-actions";
+import { defaultSettings } from "./settings-types";
+import type { SteeringCommittee, MeetingReport } from "./types";
+import type { DashboardModel } from "./dashboard";
 
 // Stub the dynamically-imported Tiptap editor with a plain textarea so the test
 // exercises the pane's buttons/logic, not the browser-only editor. ★ UNCONTROLLED
@@ -271,7 +276,7 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
       lang: "en-US" as const,
       report: STORED,
       recipients: ["a@x.com"],
-      onSave: vi.fn(),
+      onSave: vi.fn(() => true),
       onSend: vi.fn(),
       m365Configured: true,
       proposal: { sections: AI, taken: new Set<number>(), createdAt: "2026-10-30T09:01:00.000Z" },
@@ -361,6 +366,27 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(p.onSave).toHaveBeenLastCalledWith("<h2>Risks</h2><p>mine</p><h2>Next steps</h2><p>ai next</p>", { fromAi: false });
     expect(p.onTaken).toHaveBeenCalledTimes(1);
+  });
+
+  it("a save that wrote nothing and left the text out of the report marks no section taken", async () => {
+    const p = renderWithProposal({ onSave: vi.fn(() => false) });
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
+    await waitFor(() => expect(rowOf("Take – Next steps")).toHaveTextContent("Taken"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(p.onSave).toHaveBeenCalledTimes(1);
+    expect(p.onTaken).not.toHaveBeenCalled();
+  });
+
+  it("an unchanged save still marks the take: the text is already in the stored report", async () => {
+    const same = "<h2>Risks</h2><p>mine</p><h2>Next steps</h2><p>ai next</p>";
+    const p = renderWithProposal({ onSave: vi.fn(() => false), report: { html: same, updatedAt: "2026-10-30T09:00:00.000Z" } });
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Replace" }));
+    await waitFor(() => expect(screen.getByLabelText("Report")).toHaveValue(same));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(p.onTaken).toHaveBeenCalledWith([2]);
   });
 
   it("a new stored body clears the unsaved taken marks (the §763 reconcile)", async () => {
@@ -598,5 +624,40 @@ describe("MeetingReportPanel — the previous version (AI-04)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(container.querySelector('[data-report-dirty="true"]')).toBeNull();
+  });
+});
+
+
+describe("MeetingReportPanel on the real save hook — clearing the editor (AI-04)", () => {
+  it("clear, save, type, save keeps the pre-clear text as the previous version (an emptied editor emits <p></p>)", async () => {
+    let latest: MeetingReport | undefined;
+    function Harness() {
+      const [c, setC] = useState<SteeringCommittee | undefined>({
+        name: "SC", memberResourceIds: [], infoSchedules: [],
+        meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>before clear</p>", updatedAt: "2026-06-01T09:00:00.000Z" } }],
+      });
+      const bag = useMeetingReportActions({
+        lang: "en-US", isPopout: false, settings: defaultSettings, committee: c, resources: [], setSteeringCommittee: setC,
+        tursoConfig: null, m365Configured: true, acquireToken: async () => "t", showToast: vi.fn(),
+        getDashboardModel: () => ({}) as DashboardModel, aiKey: "", aiModel: "m", guides: [], projectId: "p1",
+        getScopeEpoch: () => 0, captureComposite: vi.fn(), logActivityAs: vi.fn(),
+      });
+      latest = c?.meetings[0].report;
+      return (
+        <ConfirmProvider lang="en-US">
+          <MeetingReportPanel lang="en-US" report={latest} recipients={[]} onSave={(h, o) => bag!.onSaveReport(10, h, o)} onSend={vi.fn()} m365Configured />
+        </ConfirmProvider>
+      );
+    }
+    render(<Harness />);
+    fireEvent.change(await screen.findByLabelText("Report"), { target: { value: "<p></p>" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(latest?.html).toBe("<p></p>"));
+    expect(latest?.previous?.html).toBe("<p>before clear</p>");
+    await waitFor(() => expect(screen.getByLabelText("Report")).toHaveValue("<p></p>"));
+    fireEvent.change(screen.getByLabelText("Report"), { target: { value: "<p>typed after</p>" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(latest?.html).toBe("<p>typed after</p>"));
+    expect(latest?.previous?.html).toBe("<p>before clear</p>");
   });
 });

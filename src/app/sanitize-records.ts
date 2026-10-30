@@ -65,6 +65,7 @@ import {
 } from "./sanitize-load-date";
 import { sanitizeRichText } from "./rich-text-plain";
 import { RENDER_SINK, RICH_SINK } from "./html-start";
+import { isBlankReport } from "./committee-report/report-sections";
 
 /** The milestone's linked-task rule. ★★ It USED to be deliberately different
  *  from `sanitizeIdList` — array-only and non-deduping — which meant
@@ -1498,13 +1499,13 @@ function capReportHtml(raw: string): string {
   return raw.length <= REPORT_HTML_MAX ? raw : sanitizeRichText(raw, REPORT_HTML_MAX, RENDER_SINK);
 }
 
-/** `previous` needs a non-empty html string and a string `savedAt`, else it is dropped. */
+/** `previous` needs a non-blank html string and a string `savedAt`, else it is dropped. */
 function sanitizePreviousReport(raw: unknown): MeetingReport["previous"] {
   if (!raw || typeof raw !== "object") return undefined;
   const pr = raw as Record<string, unknown>;
   if (typeof pr.html !== "string" || typeof pr.savedAt !== "string") return undefined;
   const html = capReportHtml(pr.html);
-  return html ? { html, savedAt: pr.savedAt } : undefined;
+  return html && !isBlankReport(html) ? { html, savedAt: pr.savedAt } : undefined;
 }
 
 function sanitizeMeetingReport(raw: unknown): MeetingReport | undefined {
@@ -1513,9 +1514,10 @@ function sanitizeMeetingReport(raw: unknown): MeetingReport | undefined {
   if (typeof rr.html !== "string") return undefined;
   if (typeof rr.updatedAt !== "string") return undefined;
   const previous = sanitizePreviousReport(rr.previous);
-  // An empty body survives only beside a previous version (a report cleared after a save).
+  // A blank body ("" or an emptied editor's `<p></p>`) survives only beside a previous version (a report cleared
+  // after a save).
   const html = capReportHtml(rr.html);
-  if (!html && !previous) return undefined;
+  if (isBlankReport(html) && !previous) return undefined;
   const out: MeetingReport = { html, updatedAt: rr.updatedAt };
   if (typeof rr.sentAt === "string") out.sentAt = rr.sentAt;
   if (previous) out.previous = previous;

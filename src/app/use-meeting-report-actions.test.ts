@@ -35,7 +35,8 @@ vi.mock("./graph-mail", () => ({
 // function this test needs to avoid is stubbed.
 vi.mock("./sanitize-html", async (importActual) => ({
   ...(await importActual<typeof import("./sanitize-html")>()),
-  sanitizeRichHtml: (h: string) => h,
+  // Identity but for a script element, so a test can tell whether a body went THROUGH the sanitizer.
+  sanitizeRichHtml: (h: string) => h.replace(/<script[\s\S]*?<\/script>/gi, ""),
 }));
 
 const resources: Resource[] = [
@@ -135,7 +136,7 @@ describe("useMeetingReportActions", () => {
       const { result } = renderHook(() => useMeetingReportActions(deps));
       act(() => result.current!.onSaveReport(10, "<p>first</p>"));
       expect(state!.meetings[0].report?.previous).toBeUndefined();
-      state = { ...state!, meetings: [{ ...state!.meetings[0], report: { html: "", updatedAt: "t0" } }] };
+      state = { ...state!, meetings: [{ ...state!.meetings[0], report: { html: "<p></p>", updatedAt: "t0" } }] };
       act(() => result.current!.onSaveReport(10, "<p>second</p>"));
       expect(state!.meetings[0].report?.previous).toBeUndefined();
     });
@@ -189,6 +190,33 @@ describe("useMeetingReportActions", () => {
       act(() => h.result.current!.onRestorePrevious(10));
       expect(h.report().html).toBe("<p>before</p>");
       expect(h.report().previous).toBeUndefined();
+    });
+
+    it("restoring when the current html is a blank paragraph omits previous too", () => {
+      const h = harness(withReport({ html: "<p></p>", updatedAt: "t2", previous: { html: "<p>before</p>", savedAt: "t1" } }));
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report().html).toBe("<p>before</p>");
+      expect(h.report().previous).toBeUndefined();
+    });
+
+    it("restore-previous writes a Turso version row holding the text it replaced", async () => {
+      const h = harness(withReport({ html: "<p>live</p>", updatedAt: "t2", previous: { html: "<p>before</p>", savedAt: "t1" } }), { tursoConfig: TURSO });
+      act(() => h.result.current!.onRestorePrevious(10));
+      await waitFor(() => expect(saveVersion).toHaveBeenCalledTimes(1));
+      expect(saveVersion.mock.calls[0] as unknown[]).toContainEqual(expect.objectContaining({ html: "<p>live</p>", meetingId: 10 }));
+    });
+
+    it("a refused restore-previous (no previous on the live report) writes no version row", () => {
+      const h = harness(withReport({ html: "<p>live</p>", updatedAt: "t2" }), { tursoConfig: TURSO });
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(saveVersion).not.toHaveBeenCalled();
+    });
+
+    it("restore-previous sanitizes the previous body it writes", () => {
+      const h = harness(withReport({ html: "<p>live</p>", updatedAt: "t2", previous: { html: "<p>ok</p><script>alert(1)</script>", savedAt: "t1" } }));
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report().html).toContain("<p>ok</p>");
+      expect(h.report().html).toBe("<p>ok</p>");
     });
 
     it("onRestorePrevious for another meeting id leaves this one untouched", () => {
@@ -946,8 +974,8 @@ describe("AI-04 final review — an empty body carries its previous forward", ()
     const deps = makeDeps({ setSteeringCommittee });
     Object.defineProperty(deps, "committee", { get: () => state });
     const { result } = renderHook(() => useMeetingReportActions(deps));
-    act(() => result.current!.onSaveReport(10, ""));
-    expect(state!.meetings[0].report).toMatchObject({ html: "", previous: { html: "<p>A</p>", savedAt: "t0" } });
+    act(() => result.current!.onSaveReport(10, "<p></p>")); // what an emptied editor emits
+    expect(state!.meetings[0].report).toMatchObject({ html: "<p></p>", previous: { html: "<p>A</p>", savedAt: "t0" } });
     act(() => result.current!.onSaveReport(10, "<p>B</p>"));
     expect(state!.meetings[0].report?.html).toBe("<p>B</p>");
     expect(state!.meetings[0].report?.previous).toEqual({ html: "<p>A</p>", savedAt: "t0" });
