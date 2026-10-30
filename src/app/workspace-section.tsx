@@ -177,6 +177,8 @@ export function WorkspaceSection({
   onSetUtilization,
   overAllocatedPct,
   onReassignTask,
+  onReassignTasks,
+  onCaptureComposite,
   onClearUnlinked,
   onRescheduleTask,
   onSetAllUtilizationMode,
@@ -403,6 +405,8 @@ export function WorkspaceSection({
     onEditShift: handleOpenShiftEditor,
     onSetUtilization,
     onReassignTask,
+    onReassignTasks,
+    onCaptureComposite,
     onRescheduleTask,
     onClearUnlinked,
     onSetAllUtilizationMode,
@@ -706,6 +710,8 @@ export function WorkspaceSection({
               today={today}
               holidaySet={holidaySet}
               calendarEvents={calendarEvents}
+              milestones={milestones}
+              stakeholders={stakeholders}
               roles={roles}
               disciplines={disciplines}
               grades={grades}

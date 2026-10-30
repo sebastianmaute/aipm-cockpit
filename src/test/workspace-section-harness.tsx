@@ -61,6 +61,7 @@ export function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): Works
     onSetUtilization: vi.fn(),
     overAllocatedPct: 100,
     onReassignTask: vi.fn(),
+    onReassignTasks: vi.fn(() => 0),
     onRescheduleTask: vi.fn(),
     onSetAllUtilizationMode: vi.fn(),
     onSetAbsenceOverride: vi.fn(),

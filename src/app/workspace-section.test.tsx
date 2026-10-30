@@ -1461,6 +1461,44 @@ describe("§1 — ResourcesPanel receives stable handler identities", () => {
     for (const k of fnKeys) expect(after[k], k).toBe(before[k]);
   });
 
+  it("ResourcesPanel keeps its memo bail with the new handlers (§769)", async () => {
+    resourcesPanelMock.props.length = 0;
+    const withPlan = () => ({ ...handlers(), onReassignTasks: vi.fn(() => 0), onCaptureComposite: vi.fn() });
+    const { rerender } = await renderAtCalendar(withPlan());
+    const before = resourcesPanelMock.props.at(-1)!;
+    rerender(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps(withPlan() as Partial<WorkspaceSectionProps>)} />
+      </>,
+    );
+    const after = resourcesPanelMock.props.at(-1)!;
+    expect(after).not.toBe(before);
+    // Both reach the panel, as stable wrappers, and the data props ride along.
+    for (const k of ["onReassignTasks", "onCaptureComposite"]) {
+      expect(typeof after[k], k).toBe("function");
+      expect(after[k], k).toBe(before[k]);
+    }
+    expect(Array.isArray(after.milestones)).toBe(true);
+    expect(Array.isArray(after.stakeholders)).toBe(true);
+  });
+
+  it("forwards the held plan handlers to the parent's LATEST ones (§769)", async () => {
+    resourcesPanelMock.props.length = 0;
+    const first = { ...handlers(), onReassignTasks: vi.fn(() => 0), onCaptureComposite: vi.fn() };
+    const { rerender } = await renderAtCalendar(first);
+    const held = resourcesPanelMock.props.at(-1)!.onReassignTasks as () => number;
+    const second = { ...handlers(), onReassignTasks: vi.fn(() => 3), onCaptureComposite: vi.fn() };
+    rerender(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps(second as Partial<WorkspaceSectionProps>)} />
+      </>,
+    );
+    expect(held()).toBe(3);
+    expect(first.onReassignTasks).not.toHaveBeenCalled();
+  });
+
   it("forwards a held handler to the parent's LATEST handler", async () => {
     resourcesPanelMock.props.length = 0;
     const first = handlers();

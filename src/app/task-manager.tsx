@@ -1445,6 +1445,7 @@ function TaskManagerInner() {
     overAllocatedPct: effectiveNextActions?.workloadAllocatedPct ?? 100,
     // Workload triage (#24) and clear-unlinked: `workload-triage-handlers.ts`.
     onReassignTask: guardEdit(workloadTriage.onReassignTask),
+    onReassignTasks: reassignHours.reassignTasks, onCaptureComposite: undoApi.captureComposite, // §769 — one undo stack for both
     onRescheduleTask: guardEdit(workloadTriage.onRescheduleTask),
     onClearUnlinked: guardEdit(workloadTriage.onClearUnlinked),
     onSetAllUtilizationMode: guardEdit(handleSetAllUtilizationMode),

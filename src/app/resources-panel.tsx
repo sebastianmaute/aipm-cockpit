@@ -57,6 +57,7 @@ import { useSettings } from "./use-settings";
 import { useAllocPlan } from "./use-alloc-plan";
 import { type LogActivityAsFn } from "./activity-log-context";
 import { type UndoStackApi } from "./undo/use-undo-stack";
+import { type ReassignHours } from "./use-reassign-hours";
 import { useColumnResize } from "./use-column-resize";
 import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { EmptyState } from "./empty-state";
@@ -156,6 +157,13 @@ interface Props {
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
   onCaptureUndo?: UndoStackApi["capture"];
+  /** §769 — Plan with AI context: milestones and RACI stakeholders for the digest. */
+  milestones: readonly Milestone[];
+  stakeholders: readonly Stakeholder[];
+  /** §769 — applies the model's task moves through the §774 step; returns the edits applied. */
+  onReassignTasks: ReassignHours["reassignTasks"];
+  /** §769 — the SAME undo stack the §774 step uses, so moves and hour edits form one entry. */
+  onCaptureComposite?: UndoStackApi["captureComposite"];
   /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
    *  names its own actor — see the rule on `useActivityLog`. */
   logActivityAs?: LogActivityAsFn;
@@ -181,12 +189,6 @@ const DEFAULT_WEEKLY_HOURS_TOTAL = sumHours(DEFAULT_WEEK_HOURS);
 // One shared empty list: a `= []` default is a new array each render, which would defeat the
 // memoized `onMoveOccurrence` and ResourceCalendar's memo whenever the prop is omitted (§1).
 const NO_CALENDAR_EVENTS: readonly CalendarEvent[] = [];
-// §769 placeholders until Task 7 threads the real values into this panel (shared, so the memo bail holds).
-const NO_MILESTONES: readonly Milestone[] = [];
-const NO_STAKEHOLDERS: readonly Stakeholder[] = [];
-const NO_REASSIGN = (): number => 0;
-// No tasks either: the model must not be offered moves this panel cannot apply yet.
-const NO_TASKS: readonly Task[] = [];
 
 function ResourcesPanelInner({
   lang,
@@ -235,6 +237,10 @@ function ResourcesPanelInner({
   isPopout,
   onLearnMore,
   onCaptureUndo,
+  milestones,
+  stakeholders,
+  onReassignTasks,
+  onCaptureComposite,
   logActivityAs,
 }: Props) {
   const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
@@ -308,13 +314,12 @@ function ResourcesPanelInner({
     absences,
     workdayHours,
     holidaySet,
-    // Task 7 threads the real values (tasks, milestones, RACI, captureComposite, the §774 step). Until then no task
-    // reaches the digest, so the model proposes hour edits only.
-    tasks: NO_TASKS,
-    milestones: NO_MILESTONES,
-    stakeholders: NO_STAKEHOLDERS,
+    tasks,
+    milestones,
+    stakeholders,
     today,
-    reassignTasks: NO_REASSIGN,
+    reassignTasks: onReassignTasks,
+    captureComposite: onCaptureComposite,
     capture: onCaptureUndo,
     logActivityAs,
   });
