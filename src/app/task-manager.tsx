@@ -614,8 +614,8 @@ function TaskManagerInner() {
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
   } = useResourcePlanner({ lang, today, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave, dialogsRef: appDialogsRef, getScopeEpoch });
-  // §774 — reassigning a task moves its planned hours (one undo entry, one notice). Unbound until the reassign
-  // paths consume it (an unused const fails `--max-warnings=0`); the call stays unconditional either way.
+  // §774 — reassigning a task moves its planned hours (one undo entry, one notice). Threaded into the editor,
+  // inline, Kanban, bulk and Action Center hooks, TasksSection and the Workload triage builder below.
   const reassignHours = useReassignHours({ lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours: settings.resources.workdayHours, holidaySet, captureComposite: undoApi.captureComposite, logActivityAs, showToast });
 
   // Day rates are the rate card's source of truth; the hourly cost rate every

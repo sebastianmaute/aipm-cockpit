@@ -32,7 +32,7 @@ import type { LogActivityAsFn } from "./activity-log-context";
 import { t, type Lang } from "./i18n";
 import { planHoursMoves, type HoursMovePlan, type OwnerChange, type ResourceUtilEdit } from "./reassign-hours";
 import { defaultPeriodLabel, formatHours, hoursMoveNotice } from "./reassign-hours-notice";
-import { resourceDisplayName } from "./resource-foundation";
+import { linkPersonForWrite, resourceDisplayName } from "./resource-foundation";
 import type { Absence, Resource, ResourcePlan, Task } from "./types";
 import { captureFieldPart, type CaptureCompositeOpts, type CompositeFragment, type UndoEntityKey } from "./undo/use-undo-stack";
 
@@ -97,10 +97,15 @@ export interface StepEntry {
 type OwnerFields = Pick<Task, "assignee" | "assigneeEmail" | "resourceId">;
 
 /** Constraint "No move, no notice": the linked owner is unchanged, the owner was cleared to nobody,
- *  or (R14) the task had no owner at all — blank name, no link — and is now assigned. */
-function movesSilently(change: OwnerChange): boolean {
+ *  (R14) the task had no owner at all — blank name, no link — and is now assigned, or (R17) an
+ *  unlinked name gains the link of the SAME person: the old name strictly names `to` by the match
+ *  `linkPersonForWrite` uses (a same-lane Kanban status drag stamps the link this way). */
+function movesSilently(change: OwnerChange, resources: readonly Resource[]): boolean {
   if (change.fromResourceId === change.toResourceId) return true;
-  if (change.fromResourceId === undefined && change.fromAssignee !== undefined && change.fromAssignee.trim() === "") return true;
+  if (change.fromResourceId === undefined && change.fromAssignee !== undefined) {
+    if (change.fromAssignee.trim() === "") return true;
+    if (change.toResourceId !== undefined && linkPersonForWrite({ assignee: change.fromAssignee }, resources) === change.toResourceId) return true;
+  }
   return change.task.assignee.trim() === "" && change.toResourceId === undefined;
 }
 
@@ -175,7 +180,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
 
   const prepare = (changes: readonly OwnerChange[]): HoursMoveStep => {
     if (loadPending) return inert();
-    const moving = changes.filter((c) => !movesSilently(c));
+    const moving = changes.filter((c) => !movesSilently(c, resourcesRef.current));
     if (moving.length === 0) return inert();
     const hoursPlan = planHoursMoves(moving, resourcesRef.current, { plan, absences, workdayHours, holidaySet, today });
     const taskNames = new Map(moving.map((c) => [c.task.id, c.task.taskName]));

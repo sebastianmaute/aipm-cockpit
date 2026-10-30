@@ -202,6 +202,20 @@ describe("useReassignHours: assigning a task that had no owner", () => {
     expect(step.notice).not.toBeNull();
     expect(step.plan.moves[0]?.reason).toBe("unlinked");
   });
+  // R17 — no link → a link for the SAME person (the old name strictly names `to`) is not a reassignment.
+  it("prepare is silent when the old free-text name strictly names the new resource", () => {
+    const { hook } = setup();
+    const step = hook.result.current.reassign.prepare([{ ...fromNobody, fromAssignee: " liam FOSTER " }]);
+    expect(step.resourcesPart).toBeNull();
+    expect(step.notice).toBeNull();
+    expect(step.plan.moves).toEqual([]);
+  });
+  it("prepare still says unlinked when the old name strictly names a DIFFERENT person", () => {
+    const { hook } = setup();
+    const step = hook.result.current.reassign.prepare([{ ...fromNobody, fromAssignee: "Maya Patel" }]);
+    expect(step.notice).not.toBeNull();
+    expect(step.plan.moves[0]?.reason).toBe("unlinked");
+  });
   it("reassignTasks on an unowned task shows no hours notice", () => {
     const blank = { ...TASK, assignee: "", assigneeEmail: "", resourceId: undefined } as Task;
     const { hook, showToast, showToastAction, logActivityAs } = setup({ tasks: [blank] });

@@ -944,6 +944,29 @@ describe("onSwimlaneDrop — §774 a reassignment moves the planned hours", () =
     expect(utilOf(hook.result.current.rig.resources, 1)).toEqual(MAYA.utilization);
   });
 
+  // R17 — a same-lane status drag on a name-only card stamps the link to the person
+  // it already names: not a reassignment, so no hours move and no hours notice.
+  it("a same-lane status drag that adds the link is silent", () => {
+    const spies = rigSpies();
+    const nameOnly: Task = { ...RIG_TASK, resourceId: undefined };
+    const hook = renderHook(() => {
+      const rig = useReassignRig(spies, [nameOnly]);
+      const handlers = useTaskRowHandlers(makeArgs({
+        tasksRef: rig.tasksRef as { current: Task[] }, setTasks: rig.setTasks, today: RIG_TODAY, resourcesById,
+        captureFieldEdit: rig.undo.captureFieldEdit, captureComposite: rig.undo.captureComposite, reassignHours: rig.reassignHours,
+      }));
+      return { rig, handlers };
+    });
+    act(() => hook.result.current.handlers.onSwimlaneDrop(10, { key: "res:1", label: "Maya Patel", resourceId: 1 }, "In Progress"));
+    const { rig } = hook.result.current;
+    expect(rig.tasks[0]).toMatchObject({ resourceId: 1, status: "In Progress" });
+    expect(utilOf(rig.resources, 1)).toEqual(MAYA.utilization);
+    expect(spies.logActivityAs).not.toHaveBeenCalled();
+    expect(spies.showToast).not.toHaveBeenCalled();
+    expect(spies.showToastAction).toHaveBeenCalledTimes(1);
+    expect(spies.showToastAction.mock.calls[0][1]).not.toMatch(/planned hours/);
+  });
+
   it("a drag into another person's Done lane moves nothing and says why", () => {
     const { hook, spies } = setup();
     act(() => hook.result.current.handlers.onSwimlaneDrop(10, liamLane, "Done"));

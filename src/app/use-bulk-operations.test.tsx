@@ -1679,10 +1679,12 @@ describe("useBulkOperations — §774 bulk owner change", () => {
     return { result, spies };
   }
   type R = ReturnType<typeof renderBulkWithHours>["result"];
-  function bulkAssign(result: R, tasks: Task[], assignee: string) {
+  function bulkAssign(result: R, tasks: Task[], assignee: string, labels?: string[]) {
     act(() => { result.current.workspace.setResources([MAYA, LIAM]); result.current.workspace.setTasks(tasks); });
     for (const tk of tasks) act(() => { result.current.bulk.onToggleSelect(tk.id); });
-    act(() => { result.current.taskForm.setBulkEdit((prev) => ({ ...prev, enabled: { ...prev.enabled, assignee: true }, assignee })); });
+    act(() => { result.current.taskForm.setBulkEdit((prev) => ({
+      ...prev, enabled: { ...prev.enabled, assignee: true, labels: labels !== undefined }, assignee, labels: labels ?? prev.labels,
+    })); });
     act(() => { result.current.bulk.applyBulkEdit(); });
   }
   // Three of Maya's tasks, 32 h each over Sep–Oct (16 h a month): 48 h a month, but she plans only 40.
@@ -1709,6 +1711,19 @@ describe("useBulkOperations — §774 bulk owner change", () => {
     // Typed in another case: the strict match folds case and writes the directory identity.
     bulkAssign(result, [{ ...RIG_TASK, id: 1 }], "liam foster");
     expect(result.current.workspace.tasks[0]).toMatchObject({ assignee: "Liam Foster", assigneeEmail: "liam@x.com", resourceId: 2 });
+  });
+
+  // Review fix: a Jira-synced row keeps its owner AND its link — the resolved owner
+  // patch must never reach it (`jiraSafeUpdates` is built from the UNRESOLVED patch).
+  it("a linked Jira-synced row keeps its link and its hours when a local field rides along", () => {
+    const { result, spies } = renderBulkWithHours();
+    bulkAssign(result, [{ ...RIG_TASK, id: 1, jiraKey: "LOP-1" }], "Liam Foster", ["urgent"]);
+    const [tk] = result.current.workspace.tasks;
+    expect(tk.labels).toEqual(["urgent"]); // the local field applied, so the row WAS written
+    expect(tk).toMatchObject({ assignee: "Maya Patel", resourceId: 1 });
+    expect(utilOf(result.current.workspace.resources, 1)).toEqual(MAYA.utilization);
+    expect(utilOf(result.current.workspace.resources, 2)).toEqual(LIAM.utilization);
+    expect(spies.logActivityAs.mock.calls.filter((c) => c[1] === "resource.hoursMoved")).toHaveLength(0);
   });
 
   it("an unmatched bulk owner clears the link", () => {
