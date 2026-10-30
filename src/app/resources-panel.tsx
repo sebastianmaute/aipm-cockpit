@@ -184,7 +184,9 @@ const NO_CALENDAR_EVENTS: readonly CalendarEvent[] = [];
 // §769 placeholders until Task 7 threads the real values into this panel (shared, so the memo bail holds).
 const NO_MILESTONES: readonly Milestone[] = [];
 const NO_STAKEHOLDERS: readonly Stakeholder[] = [];
-const NO_REASSIGN = (): boolean => false;
+const NO_REASSIGN = (): number => 0;
+// No tasks either: the model must not be offered moves this panel cannot apply yet.
+const NO_TASKS: readonly Task[] = [];
 
 function ResourcesPanelInner({
   lang,
@@ -306,8 +308,9 @@ function ResourcesPanelInner({
     absences,
     workdayHours,
     holidaySet,
-    // §769 Task 7 threads the real milestones, RACI, captureComposite and §774 step; until then a move applies nothing.
-    tasks,
+    // Task 7 threads the real values (tasks, milestones, RACI, captureComposite, the §774 step). Until then no task
+    // reaches the digest, so the model proposes hour edits only.
+    tasks: NO_TASKS,
     milestones: NO_MILESTONES,
     stakeholders: NO_STAKEHOLDERS,
     today,

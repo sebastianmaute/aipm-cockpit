@@ -293,15 +293,13 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     });
     const staleCount = chosenMoves.length - freshMoves.length + chosenCells.length - freshCells.length;
     const patches = cellPatches(resources, freshCells);
-    const ownerEdits = freshMoves.flatMap((m) => {
-      const receiver = resourceById.get(m.toResourceId);
-      return receiver ? [ownerEditFor(m, receiver)] : [];
-    });
+    // A fresh move's receiver exists: its snapshot watches the receiver, so the stale check refused it otherwise.
+    const ownerEdits = freshMoves.map((m) => ownerEditFor(m, resourceById.get(m.toResourceId) as Resource));
     // ★ ONE toast per apply: there is a single toast slot, so a second call in this handler replaces the first. A
-    // partial apply reports both counts in one message; the stale count alone is shown only when nothing applied.
-    const appliedText = (applied: number): string => (
-      staleCount > 0
-        ? tPlural(lang, "allocPlanAppliedSkipped", staleCount, applied, staleCount)
+    // partial apply reports both counts in one message; the skipped count alone is shown only when nothing applied.
+    const appliedText = (applied: number, skipped: number): string => (
+      skipped > 0
+        ? tPlural(lang, "allocPlanAppliedSkipped", skipped, applied, skipped)
         : tPlural(lang, "allocPlanApplied", applied, applied)
     );
     if (ownerEdits.length === 0 && patches.length === 0) {
@@ -317,31 +315,35 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     // ★ Moves first: §774 writes owners and hours through its own functional setters. The cells then write through a
     //   FUNCTIONAL setter on `prev`, so they land on top of the moved hours instead of a render snapshot that would
     //   clobber them. `covered-by-move` guarantees no ticked cell touches a key a ticked move writes.
-    const moved = ownerEdits.length > 0 && reassignTasks(ownerEdits, "ai", {
-      toastText: appliedText(ownerEdits.length + cellCount),
+    // A fresh move §774 does not apply (a no-op edit, or the load hold) is counted as skipped, never dropped silently:
+    // the toast and the count are functions of what it actually applied.
+    const applied = ownerEdits.length === 0 ? 0 : reassignTasks(ownerEdits, "ai", {
+      toastText: (n) => appliedText(n + cellCount, staleCount + ownerEdits.length - n),
       extraParts: [cellsPart],
       kind: "bulk.edit",
-      entityKey: "task",
-      primaryCount: ownerEdits.length + cellCount,
+      // Moves AND hour edits name no single entity: the label falls back to "Edited N items".
+      entityKey: cellCount > 0 ? undefined : "task",
+      primaryCount: (n) => n + cellCount,
     });
+    const skipped = staleCount + ownerEdits.length - applied;
     const nowIso = new Date().toISOString();
     if (patches.length > 0) setResources((prev) => applyAllocationCells(prev, freshCells, nowIso).nextResources);
-    if (moved) {
+    if (applied > 0) {
       // §774 recorded the ONE entry (tasks, moved hours and these cells) and showed its toast.
       // The alternative's NUMBER, never its summary: model text is untrusted and the log is read back into prompts.
-      logActivityAs?.("ai", "ai.allocationPlanAlt", activeIndex + 1, ownerEdits.length, cellCount);
+      logActivityAs?.("ai", "ai.allocationPlanAlt", activeIndex + 1, applied, cellCount);
       reset();
       return;
     }
     if (cellCount === 0) {
-      // The moves turned out to change nothing (their owners were already written) and there are no cells.
-      if (staleCount > 0) showToast("info", tPlural(lang, "allocPlanSkippedStale", staleCount, staleCount));
+      // No move applied and there are no cells: say how many were skipped.
+      if (skipped > 0) showToast("info", tPlural(lang, "allocPlanSkippedStale", skipped, skipped));
       reset();
       return;
     }
     if (captureComposite) {
       // The entry's toast carries the counts, so it keeps its Undo button.
-      captureComposite({ kind: "bulk.edit", entityKey: "resource", primaryCount: cellCount, parts: [cellsPart], toastText: appliedText(cellCount) });
+      captureComposite({ kind: "bulk.edit", entityKey: "resource", primaryCount: cellCount, parts: [cellsPart], toastText: appliedText(cellCount, skipped) });
     } else {
       const { nextResources, editedBefore } = applyAllocationCells(resources, freshCells, nowIso);
       capture?.({
@@ -354,7 +356,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
         fromArray: resources,
         entityKey: "resource",
       });
-      showToast("info", appliedText(cellCount));
+      showToast("info", appliedText(cellCount, skipped));
     }
     logActivityAs?.("ai", "ai.allocationPlan", cellCount);
     reset();

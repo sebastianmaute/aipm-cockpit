@@ -5547,7 +5547,7 @@ export const de: Record<TranslationKey, string> = {
   wbsPlanAppliedSkippedOne: "Übernommene Änderungen an den Arbeitspaketen: {0}. 1 Änderung wurde übersprungen, weil sich die Aufgabenliste seit dem Vorschlag geändert hat.",
   activityAiAllocationPlan: "KI hat {0} Planungszellen geplant",
   activityAiAllocationPlanOne: "KI hat 1 Planungszelle geplant",
-  activityAiAllocationPlanAlt: "KI hat Alternative {0} übernommen: {1} Aufgabenverschiebungen, {2} Stundenänderungen",
+  activityAiAllocationPlanAlt: "KI hat Alternative {0} übernommen: Aufgabenverschiebungen {1}, Stundenänderungen {2}",
   activityAiWbsPlan: "KI hat {0} Änderungen an den Arbeitspaketen übernommen",
   activityAiWbsPlanOne: "KI hat 1 Änderung an den Arbeitspaketen übernommen",
   activityAiDocumentWrite: "Assistent hat ein Dokument bearbeitet",

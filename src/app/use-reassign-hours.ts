@@ -95,12 +95,14 @@ export interface OwnerEdit {
 }
 
 /** Options for `reassignTasks`. `extraParts` join the SAME undo entry after the task and hours parts (§769: Plan
- *  with AI's hour edits); `kind` / `primaryCount` / `entityKey` replace the defaults ("task.updated", the task count). */
+ *  with AI's hour edits); `kind` / `primaryCount` / `entityKey` replace the defaults ("task.updated", the task count).
+ *  `toastText` and `primaryCount` may be functions of the number of edits that actually apply (a no-op edit is
+ *  dropped), so a caller's counts say what was written, not what it asked for. */
 export interface ReassignTasksOpts {
-  toastText?: string;
+  toastText?: string | ((applied: number) => string);
   extraParts?: readonly (CompositeFragment | null)[];
   kind?: ActivityKind;
-  primaryCount?: number;
+  primaryCount?: number | ((applied: number) => number);
   entityKey?: UndoEntityKey;
 }
 
@@ -111,9 +113,9 @@ export interface ReassignHours {
   /** For a path that records nothing today: writes the task owner fields AND the hours, one undo entry, one notice.
    *  `opts.toastText` is the caller's own confirmation; it leads the entry's toast (before any hours notice), so the
    *  confirmation keeps the Undo button instead of replacing the undo toast with a second one.
-   *  Returns true when a task owner changed (an entry was recorded, or its notice shown in a popout); false when no
-   *  edit changed anything, or while loading: then nothing was written and the caller records its own parts. */
-  reassignTasks(edits: readonly OwnerEdit[], actor: ActivityActor, opts?: ReassignTasksOpts): boolean;
+   *  Returns how many task edits it applied (an entry was recorded, or its notice shown in a popout). 0 when no edit
+   *  changed anything, or while loading: then nothing was written and the caller records its own parts. */
+  reassignTasks(edits: readonly OwnerEdit[], actor: ActivityActor, opts?: ReassignTasksOpts): number;
   /** For a `prepare` caller: records `entry.taskPart` plus the step's resources part as ONE undo entry whose
    *  toast is the notice (in a popout, or with no undo, it shows the notice alone). Returns false and records
    *  nothing when the step neither moved hours nor has a notice: the caller then keeps its own capture. */
@@ -272,8 +274,8 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     };
   };
 
-  const reassignTasks = (edits: readonly OwnerEdit[], actor: ActivityActor, opts?: ReassignTasksOpts): boolean => {
-    if (loadPending) return false;
+  const reassignTasks = (edits: readonly OwnerEdit[], actor: ActivityActor, opts?: ReassignTasksOpts): number => {
+    if (loadPending) return 0;
     const byId = new Map(tasksRef.current.map((x) => [x.id, x]));
     const taskEdits: { id: number; before: OwnerFields; after: OwnerFields }[] = [];
     const changes: OwnerChange[] = [];
@@ -288,7 +290,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
       taskEdits.push({ id: task.id, before, after });
       changes.push({ task: { ...task, ...after }, fromResourceId: task.resourceId, toResourceId: e.resourceId, fromAssignee: task.assignee });
     }
-    if (taskEdits.length === 0) return false;
+    if (taskEdits.length === 0) return 0;
 
     const step = prepare(changes);
     const afterById = new Map(taskEdits.map((x) => [x.id, x.after]));
@@ -302,15 +304,15 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     step.commit(actor);
 
     captureOrNotify(step, {
-      leadText: opts?.toastText,
+      leadText: typeof opts?.toastText === "function" ? opts.toastText(taskEdits.length) : opts?.toastText,
       kind: opts?.kind ?? "task.updated",
-      primaryCount: opts?.primaryCount ?? taskEdits.length,
+      primaryCount: typeof opts?.primaryCount === "function" ? opts.primaryCount(taskEdits.length) : opts?.primaryCount ?? taskEdits.length,
       entityKey: opts?.entityKey,
       taskPart: captureFieldPart<Task>({ setter: setTasks, edits: taskEdits, stampField: "localModifiedAt" }),
       // A name describes one row; several fall back to the count label.
       name: taskEdits.length === 1 ? byId.get(taskEdits[0].id)?.taskName : undefined,
     }, opts?.extraParts);
-    return true;
+    return taskEdits.length;
   };
 
   // No undo in a popout (or for a caller without one): the notice is shown on its own.

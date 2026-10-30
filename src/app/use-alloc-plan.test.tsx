@@ -9,7 +9,10 @@ import { useToast } from "./use-toast";
 import { defaultSettings, type Settings } from "./settings-types";
 import { type Resource, type ResourcePlan, type Task } from "./types";
 import { useUndoStack } from "./undo/use-undo-stack";
-import { useReassignHours } from "./use-reassign-hours";
+import { useReassignHours, type ReassignHours } from "./use-reassign-hours";
+import { planHoursMoves } from "./reassign-hours";
+import { groundAlternative, ownerChangeFor } from "./alloc-plan/alloc-ground-moves";
+import { alternativeEffect } from "./alloc-plan/alloc-effect";
 import * as call from "./alloc-plan-call";
 import { type RawAllocCell } from "./alloc-plan/alloc-plan";
 import { type ParsedAllocAlternatives } from "./alloc-plan/alloc-alternatives";
@@ -100,7 +103,7 @@ function Harness({
     milestones: [],
     stakeholders: [],
     today: "2026-08-01",
-    reassignTasks: () => false,
+    reassignTasks: () => 0,
   });
   return (
     <div>
@@ -540,13 +543,16 @@ function answer(...alternatives: ReturnType<typeof alt>[]): ParsedAllocAlternati
 
 interface FullProps {
   initialTasks: readonly Task[];
+  initialResources?: readonly Resource[];
+  /** Stands in for §774's step: receives the real `reassignTasks` and returns what the hook gets. */
+  wrapReassign?: (real: ReassignHours["reassignTasks"]) => ReassignHours["reassignTasks"];
   externalTasks?: (tasks: readonly Task[]) => readonly Task[];
   externalResources?: (resources: readonly Resource[]) => readonly Resource[];
 }
 
-function FullHarness({ initialTasks, externalTasks, externalResources }: FullProps) {
+function FullHarness({ initialTasks, initialResources, wrapReassign, externalTasks, externalResources }: FullProps) {
   const [tasks, setTasks] = useState<readonly Task[]>(initialTasks);
-  const [resources, setResources] = useState<readonly Resource[]>([MAYA, LIAM, ZOE]);
+  const [resources, setResources] = useState<readonly Resource[]>(initialResources ?? [MAYA, LIAM, ZOE]);
   const undo = useUndoStack({ lang: "en-US", logActivity: noopLog, showToast: fullToast, showToastAction: fullToast });
   const reassign = useReassignHours({
     lang: "en-US", today: TODAY_SD, isPopout: false, loadPending: false,
@@ -559,12 +565,12 @@ function FullHarness({ initialTasks, externalTasks, externalResources }: FullPro
     resources, setResources, roles: [], disciplines: [], grades: [],
     plan: PLAN_SD, absences: [], workdayHours: 8, holidaySet: NO_HOLIDAYS,
     tasks, milestones: [], stakeholders: [], today: TODAY_SD,
-    reassignTasks: reassign.reassignTasks,
+    reassignTasks: wrapReassign ? wrapReassign(reassign.reassignTasks) : reassign.reassignTasks,
     capture: undo.capture, captureComposite: undo.captureComposite,
     logActivityAs: fullLog,
   });
   return (
-    <ToastProvider value={{ showToast: fullToast, showToastAction: fullToast }}>
+    <>
       {alloc.button}
       {alloc.modal}
       <button type="button" onClick={() => undo.undo()}>undo-now</button>
@@ -573,21 +579,22 @@ function FullHarness({ initialTasks, externalTasks, externalResources }: FullPro
       <output data-testid="full-util">{JSON.stringify(Object.fromEntries(resources.map((r) => [r.id, r.utilization])))}</output>
       <output data-testid="full-owners">{JSON.stringify(Object.fromEntries(tasks.map((x) => [x.id, x.resourceId ?? null])))}</output>
       <output data-testid="full-assignees">{JSON.stringify(Object.fromEntries(tasks.map((x) => [x.id, [x.assignee, x.assigneeEmail]])))}</output>
-      <output data-testid="full-stack">{JSON.stringify(undo.stack.map((e) => ({ kind: e.kind, count: e.count })))}</output>
-    </ToastProvider>
+      <output data-testid="full-stack">{JSON.stringify(undo.stack.map((e) => ({ kind: e.kind, count: e.count, label: e.label })))}</output>
+    </>
   );
 }
 
 const readUtil = (): Record<string, Record<string, number>> => JSON.parse(screen.getByTestId("full-util").textContent ?? "{}");
 const readOwners = (): Record<string, number | null> => JSON.parse(screen.getByTestId("full-owners").textContent ?? "{}");
-const readStack = (): { kind: string; count: number }[] => JSON.parse(screen.getByTestId("full-stack").textContent ?? "[]");
+const readStack = (): { kind: string; count: number; label: string }[] => JSON.parse(screen.getByTestId("full-stack").textContent ?? "[]");
 const lastToast = (): string => String(fullToast.mock.calls.at(-1)?.[1] ?? "");
 const moveBox = (taskId: number) => screen.getByRole("checkbox", { name: new RegExp(`#${taskId} `) });
 const cellBox = (resourceId: number, periodKey: string) => screen.getByRole("checkbox", { name: new RegExp(`\\(#${resourceId}\\) – ${periodKey}`) });
 
 async function proposeWith(parsed: ParsedAllocAlternatives, props: FullProps) {
   vi.mocked(call.runAllocProposal).mockResolvedValue(parsed);
-  render(<FullHarness {...props} />);
+  // The provider sits ABOVE the harness: the hook reads the toast context of the component that calls it.
+  render(<ToastProvider value={{ showToast: fullToast, showToastAction: fullToast }}><FullHarness {...props} /></ToastProvider>);
   openAndType("bring Maya under 100 % in September");
   fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
   await waitFor(() => expect(screen.getByRole("button", { name: /apply selected/i })).toBeTruthy());
@@ -618,6 +625,11 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     await waitFor(() => expect(readOwners()[12]).toBe(2));
     expect(readUtil()[1]).toEqual({ "2026-09": 32, "2026-10": 40 });
     expect(readUtil()[2]).toEqual({ "2026-09": 8, "2026-10": 20 });
+    // Liam carries §774's September hours AND the October cell; one undo returns both people to their exact before-map.
+    fireEvent.click(screen.getByRole("button", { name: "undo-now" }));
+    await waitFor(() => expect(readOwners()[12]).toBe(1));
+    expect(readUtil()[2]).toEqual({});
+    expect(readUtil()[1]).toEqual({ "2026-09": 40, "2026-10": 40 });
   });
 
   it("a move whose task changed while the window was open is skipped as stale", async () => {
@@ -708,13 +720,71 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     }
   });
 
+  // Fix round 1 — a fresh move §774 did not apply is counted as skipped, never dropped without a word.
+  // Mutation: count only stale rows and this apply closes with no toast at all.
+  it("a moves-only apply that §774 applies none of toasts the skipped count", async () => {
+    await proposeWith(answer(alt("", [{ taskId: 10, toResourceId: 2 }], [])), { initialTasks: [DESIGN], wrapReassign: () => () => 0 });
+    apply();
+    await waitFor(() => expect(fullToast).toHaveBeenCalledWith("info", tPlural("en-US", "allocPlanSkippedStale", 1, 1)));
+    expect(readOwners()[10]).toBe(1);
+    expect(readStack()).toEqual([]);
+    expect(fullLog).not.toHaveBeenCalled();
+  });
+
+  // Fix round 1. Mutation: count the edits handed over (`ownerEdits.length`) and the toast says 3 applied, 0 skipped.
+  it("counts what was written when one move's edit is a no-op", async () => {
+    await proposeWith(
+      answer(alt("", [{ taskId: 10, toResourceId: 2 }, { taskId: 12, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])),
+      { initialTasks: [DESIGN, SEP_TASK], wrapReassign: (real) => (edits, actor, opts) => real(edits.slice(0, 1), actor, opts) },
+    );
+    apply();
+    await waitFor(() => expect(readOwners()[10]).toBe(2));
+    expect(readOwners()[12]).toBe(1);
+    expect(lastToast().startsWith(tPlural("en-US", "allocPlanAppliedSkipped", 1, 2, 1))).toBe(true);
+    expect(fullLog).toHaveBeenCalledWith("ai", "ai.allocationPlanAlt", 1, 1, 1);
+    expect(readStack()).toEqual([{ kind: "bulk.edit", count: 2, label: expect.any(String) }]);
+  });
+
+  // Fix round 2 — an entry of task moves AND hour edits names no single entity. Mutation: keep `entityKey: "task"`
+  // and the label reads "Bulk edit 2 tasks", one of which is an hour cell.
+  it("labels an entry of moves and hour edits by its item count", async () => {
+    await proposeWith(answer(alt("", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])), { initialTasks: [DESIGN] });
+    apply();
+    await waitFor(() => expect(readStack()).toHaveLength(1));
+    expect(readStack()[0].label).toBe(tPlural("en-US", "undoToastEdit", 2, 2));
+  });
+
+  // Fix round 4 — A→B and B→C in the same period, ticked together, are planned TOGETHER on apply exactly as the
+  // preview plans them: the result is the preview's plan, and no hour is created or lost. Liam holds no September
+  // hours of his own, so only a JOINT plan lets his task carry the 8 h he receives (planned alone, it moves 0 h).
+  it("chained moves apply the preview's plan and conserve the hours", async () => {
+    const liamTask = { ...SEP_TASK, id: 14, taskName: "Liam's", assignee: "Liam Foster", assigneeEmail: "liam@x.com", resourceId: 2 } as Task;
+    const people = [MAYA, LIAM, ZOE];
+    const raw = alt("", [{ taskId: 12, toResourceId: 2 }, { taskId: 14, toResourceId: 3 }], []);
+    const ctx = { resources: people, plan: PLAN_SD, absences: [], workdayHours: 8, holidaySet: NO_HOLIDAYS, tasks: [SEP_TASK, liamTask], today: TODAY_SD };
+    const grounded = groundAlternative(raw, ctx);
+    const preview = alternativeEffect(grounded, new Set(grounded.moves.map((m) => m.key)), { ...ctx, roles: [] });
+    const together = planHoursMoves([ownerChangeFor(SEP_TASK, LIAM), ownerChangeFor(liamTask, ZOE)], people, ctx);
+    expect(preview.movedHours).toBe(Math.round(together.moves.reduce((n, m) => n + m.movedHours, 0) * 100) / 100);
+    expect(preview.movedHours).toBeGreaterThan(0);
+
+    await proposeWith(answer(raw), { initialTasks: [SEP_TASK, liamTask], initialResources: people });
+    apply();
+    await waitFor(() => expect(readOwners()[14]).toBe(3));
+    expect(readOwners()[12]).toBe(2);
+    const util = readUtil();
+    for (const r of together.nextResources) expect(util[r.id], `resource ${r.id}`).toEqual(r.utilization);
+    const sep = (u: Record<string, Record<string, number>>) => [1, 2, 3].reduce((n, id) => n + (u[id]["2026-09"] ?? 0), 0);
+    expect(sep(util)).toBe(sep(Object.fromEntries(people.map((r) => [r.id, r.utilization]))));
+  });
+
   it("only cells ticked: captures one bulk.edit entry as today", async () => {
     await proposeWith(answer(alt("", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])), { initialTasks: [DESIGN] });
     fireEvent.click(moveBox(10));
     apply();
     await waitFor(() => expect(readUtil()[3]).toEqual({ "2026-11": 12 }));
     expect(readOwners()[10]).toBe(1);
-    expect(readStack()).toEqual([{ kind: "bulk.edit", count: 1 }]);
+    expect(readStack()).toEqual([{ kind: "bulk.edit", count: 1, label: expect.any(String) }]);
     expect(fullLog).toHaveBeenCalledWith("ai", "ai.allocationPlan", 1);
     expect(fullLog.mock.calls.some((c) => c[1] === "ai.allocationPlanAlt")).toBe(false);
     expect(lastToast()).toBe(tPlural("en-US", "allocPlanApplied", 1, 1));
