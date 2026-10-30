@@ -6,6 +6,7 @@ import { runTool, type ToolDispatcher } from "./chat-tools";
 import { entityToken } from "./ai-entity-token";
 import { PERSON_FIELDS_NOTE_KEY, PERSON_FIELDS_REMOVED_NOTE } from "./ai-person-fields";
 import type { RaidItem, Task } from "./types";
+import type { ForecastScenario } from "./forecast-scenarios";
 
 const TASK: Task = {
   id: 3, taskName: "Draft", assignee: "Marco", assigneeEmail: "", dueDate: "2026-11-01", lastUpdateDate: "2026-10-30",
@@ -82,5 +83,49 @@ describe("escalate_raid_item under people protection", () => {
     const { d, escalateRaid } = dispatcher(false);
     await runTool(d, "escalate_raid_item", { id: 5, expectedToken: entityToken("raid", RISK), toEmail: "boss@x.io", toName: "Boss" });
     expect(escalateRaid).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Fix round 1 (I1): `changes` REPLACES the whole list, so an edit of a scenario must be able to re-send the
+// user's own named-person row. A row naming a person already in the stored scenario passes; a row naming
+// a person the AI chose is dropped (the note names it) and the rest applies.
+describe("update_forecast_scenario under people protection", () => {
+  const USER_ROW = { kind: "addPeople", who: { resourceId: 7, hoursPerWeek: 20 }, from: "2026-11-01", until: "", rampWeeks: 4 };
+  const NEW_PERSON_ROW = { kind: "addPeople", who: { resourceId: 9, hoursPerWeek: 40 }, from: "2026-11-01", until: "", rampWeeks: 4 };
+  const AVAILABILITY = { kind: "availability", percent: 80, from: "2026-11-01", until: "" };
+  const STORED = { id: 2, name: "Plan B", changes: [USER_ROW] } as unknown as ForecastScenario;
+
+  function forecastDispatcher(peopleProtected: boolean) {
+    const updateForecastScenario = vi.fn((id: number, patch: Record<string, unknown>) => ({ id, ...patch }));
+    const d = {
+      isPeopleProtected: () => peopleProtected,
+      isForecastEnabled: () => true,
+      getForecastScenarioRow: (id: number) => (id === STORED.id ? STORED : null),
+      updateForecastScenario,
+    } as unknown as ToolDispatcher;
+    return { d, updateForecastScenario };
+  }
+  const call = (changes: unknown[]) => ({ id: 2, expectedToken: entityToken("forecastScenario", STORED), changes });
+  const sentChanges = (spy: ReturnType<typeof vi.fn>) => (spy.mock.calls[0]![1] as { changes: { kind: string; who?: { resourceId?: number } }[] }).changes;
+
+  it("re-sending the user's own named-person row keeps it, and the other change applies", async () => {
+    const { d, updateForecastScenario } = forecastDispatcher(true);
+    const result = await runTool(d, "update_forecast_scenario", call([USER_ROW, AVAILABILITY]));
+    expect(sentChanges(updateForecastScenario).map((c) => c.kind)).toEqual(["addPeople", "availability"]);
+    expect(sentChanges(updateForecastScenario)[0]!.who!.resourceId).toBe(7);
+    expect(result).not.toHaveProperty(PERSON_FIELDS_NOTE_KEY);
+  });
+
+  it("a row naming a person the AI chose is dropped with a note, and the rest applies", async () => {
+    const { d, updateForecastScenario } = forecastDispatcher(true);
+    const result = await runTool(d, "update_forecast_scenario", call([USER_ROW, NEW_PERSON_ROW, AVAILABILITY]));
+    expect(sentChanges(updateForecastScenario).map((c) => c.who?.resourceId ?? c.kind)).toEqual([7, "availability"]);
+    expect((result as Record<string, unknown>)[PERSON_FIELDS_NOTE_KEY]).toBe(PERSON_FIELDS_REMOVED_NOTE(["changes[].who.resourceId"]));
+  });
+
+  it("protection off: the AI's named-person row is applied (positive control)", async () => {
+    const { d, updateForecastScenario } = forecastDispatcher(false);
+    await runTool(d, "update_forecast_scenario", call([USER_ROW, NEW_PERSON_ROW, AVAILABILITY]));
+    expect(sentChanges(updateForecastScenario).map((c) => c.who?.resourceId ?? c.kind)).toEqual([7, 9, "availability"]);
   });
 });

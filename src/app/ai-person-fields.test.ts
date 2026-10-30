@@ -37,6 +37,7 @@ function paths(s: Schema | undefined, prefix = ""): string[] {
 const PERSON_LIKE = /assignee|owner|requested|decision|attendee|sponsor|manager|stakeholder|email|^to[A-Z]|invitation|who/i;
 const NOT_A_PERSON: Readonly<Record<string, string>> = {
   "update_project:stakeholderCount": "a number, not a person",
+  "set_filters:assignee": "a view filter, not a record write (controller ruling, fix round 1)",
   "create_forecast_scenario:changes[].who": "its placeholder half names nobody; the person half is `who.resourceId`",
   "update_forecast_scenario:changes[].who": "its placeholder half names nobody; the person half is `who.resourceId`",
 };
@@ -79,6 +80,7 @@ describe("PERSON_FIELDS_BY_TOOL classification", () => {
     expect(PERSON_FIELDS_BY_TOOL.create_calendar_event).toEqual(expect.arrayContaining(["attendeeResourceIds", "sendInvitations"]));
     expect(PERSON_FIELDS_BY_TOOL.escalate_raid_item).toEqual(expect.arrayContaining(["toEmail", "toName"]));
     expect(PERSON_FIELDS_BY_TOOL.update_settings).toEqual([]);
+    expect(PERSON_FIELDS_BY_TOOL.set_filters).toEqual([]);
   });
 });
 
@@ -96,19 +98,26 @@ describe("stripPersonFields", () => {
     expect(stripPersonFields("update_raid_item", { id: 3, owner: null }).removed).toEqual(["owner"]);
   });
 
-  it("walks an array path and keeps the rows' other keys", () => {
-    const input = {
-      name: "Hire",
-      changes: [
-        { kind: "addPeople", who: { resourceId: 4, hoursPerWeek: 40 }, from: "2026-11-01" },
-        { kind: "addPeople", who: { label: "Dev", count: 1, rate: 1, currency: "EUR", hoursPerWeek: 40 }, from: "2026-11-01" },
-      ],
-    };
+  // Fix round 1 (I1): a scenario row without its person is invalid and would refuse the whole call, so the
+  // ROW naming a person the AI chose is dropped and the rest applies; a person already stored passes.
+  const PERSON_ROW = { kind: "addPeople", who: { resourceId: 4, hoursPerWeek: 40 }, from: "2026-11-01" };
+  const PLACEHOLDER_ROW = { kind: "addPeople", who: { label: "Dev", count: 1, rate: 1, currency: "EUR", hoursPerWeek: 40 }, from: "2026-11-01" };
+
+  it("drops a scenario row naming a person the AI chose, keeps the other rows, and names what it removed", () => {
+    const input = { name: "Hire", changes: [PERSON_ROW, PLACEHOLDER_ROW] };
     const r = stripPersonFields("create_forecast_scenario", input);
     expect(r.removed).toEqual(["changes[].who.resourceId"]);
-    expect((r.input.changes as { who: object }[])[0]!.who).toEqual({ hoursPerWeek: 40 });
-    expect((r.input.changes as { who: object }[])[1]).toEqual(input.changes[1]);
-    expect(input.changes[0]!.who).toEqual({ resourceId: 4, hoursPerWeek: 40 });
+    expect(r.input.changes).toEqual([PLACEHOLDER_ROW]);
+    expect(input.changes).toEqual([PERSON_ROW, PLACEHOLDER_ROW]); // never mutated
+  });
+
+  it("keeps a scenario row whose person is already stored in the scenario (the AI chose no one)", () => {
+    const input = { id: 1, changes: [PERSON_ROW, PLACEHOLDER_ROW] };
+    const r = stripPersonFields("update_forecast_scenario", input, { keepIds: new Set([4]) });
+    expect(r).toEqual({ input, removed: [] });
+    const other = stripPersonFields("update_forecast_scenario", input, { keepIds: new Set([5]) });
+    expect(other.input.changes).toEqual([PLACEHOLDER_ROW]);
+    expect(other.removed).toEqual(["changes[].who.resourceId"]);
   });
 
   it("returns the input unchanged for a tool without person fields or an unknown tool", () => {

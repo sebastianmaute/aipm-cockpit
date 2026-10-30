@@ -24,8 +24,8 @@ export const PERSON_FIELDS_BY_TOOL: Readonly<Record<string, readonly string[]>> 
   delete_all_tasks: [],
   // The WBS preview strips its own new-task assignees (`withoutWbsAssignees`); this tool only opens it.
   optimize_wbs: [],
-  // Filtering the task list by a person is choosing whose work to look at.
-  set_filters: ["assignee"],
+  // A view filter, not a record write (controller ruling, fix round 1): filtering by a person sets no one.
+  set_filters: [],
   set_language: [],
   update_settings: [],
   // RAID: the owner, the address, the derived directory link, and the linked stakeholders.
@@ -49,6 +49,7 @@ export const PERSON_FIELDS_BY_TOOL: Readonly<Record<string, readonly string[]>> 
   update_document: [],
   delete_document: [],
   // Forecast: an `addPeople` row may name a person on the resource list; a placeholder row names nobody.
+  // A ROW path (`PERSON_ROW_PATHS`): the row is dropped, not emptied, unless its person is already stored.
   create_forecast_scenario: ["changes[].who.resourceId"],
   update_forecast_scenario: ["changes[].who.resourceId"],
   delete_forecast_scenario: [],
@@ -57,6 +58,17 @@ export const PERSON_FIELDS_BY_TOOL: Readonly<Record<string, readonly string[]>> 
   // The project record: its sponsor and project manager are people.
   update_project: ["sponsor", "projectManager"],
 };
+
+/** Paths whose array ROW goes when it names a person the AI chose. A row without its person reference fails
+ *  validation and would refuse the whole call (`changes` REPLACES the list); dropping the row lets the rest
+ *  apply (R4). A row naming a person in `keepIds` (already stored in that record) passes unchanged: the AI
+ *  chose no one. */
+const PERSON_ROW_PATHS: ReadonlySet<string> = new Set(["changes[].who.resourceId"]);
+
+/** What the caller knows about the record the call writes: the person references it ALREADY holds. */
+export interface PersonStripContext {
+  readonly keepIds?: ReadonlySet<unknown>;
+}
 
 /** What the model is told when person fields were removed from its call. English and i18n-free: the model
  *  reads it, like every tool error. It names the fields and says why, so the model does not retry. */
@@ -101,17 +113,40 @@ function stripPath(value: unknown, segs: readonly string[]): { value: unknown; h
   return r.hit ? { value: { ...value, [key]: r.value }, hit: true } : { value, hit: false };
 }
 
+/** `value` without the rows of its first `[]` array whose leaf names a person not in `keep`. */
+function dropPersonRows(value: Record<string, unknown>, path: string, keep: ReadonlySet<unknown>): { value: Record<string, unknown>; hit: boolean } {
+  const [head, ...rest] = path.split(".") as [string, ...string[]];
+  const key = head.slice(0, -2);
+  const rows = value[key];
+  if (!Array.isArray(rows)) return { value, hit: false };
+  const named = (row: unknown): { present: boolean; id: unknown } => {
+    let node: unknown = row;
+    for (const seg of rest.slice(0, -1)) node = isRecord(node) ? node[seg] : undefined;
+    const leaf = rest[rest.length - 1]!;
+    return isRecord(node) && Object.hasOwn(node, leaf) ? { present: true, id: node[leaf] } : { present: false, id: undefined };
+  };
+  const kept = rows.filter((row) => {
+    const n = named(row);
+    return !n.present || keep.has(n.id);
+  });
+  return kept.length === rows.length ? { value, hit: false } : { value: { ...value, [key]: kept }, hit: true };
+}
+
 /** The tool's input with every person field removed, and the fields (paths) that were present. A tool with
- *  no entry, or an empty one, comes back unchanged. Never mutates `input`. */
+ *  no entry, or an empty one, comes back unchanged. Never mutates `input`. `ctx.keepIds` names the person
+ *  references the written record already holds, which a ROW path keeps (`PERSON_ROW_PATHS`). */
 export function stripPersonFields(
   toolName: string,
   input: Readonly<Record<string, unknown>>,
+  ctx: PersonStripContext = {},
 ): { input: Record<string, unknown>; removed: string[] } {
   const fields = Object.hasOwn(PERSON_FIELDS_BY_TOOL, toolName) ? PERSON_FIELDS_BY_TOOL[toolName]! : [];
   let current: Record<string, unknown> = { ...input };
   const removed: string[] = [];
   for (const path of fields) {
-    const r = stripPath(current, path.split("."));
+    const r = PERSON_ROW_PATHS.has(path)
+      ? dropPersonRows(current, path, ctx.keepIds ?? new Set())
+      : stripPath(current, path.split("."));
     if (r.hit) {
       current = r.value as Record<string, unknown>;
       removed.push(path);

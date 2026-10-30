@@ -59,7 +59,7 @@ import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
 export { TOOL_DEFS } from "./chat-tool-defs";
 import { PEOPLE_TOOLS, PeopleToolRefusedError, peopleToolsLive } from "./chat-tool-defs";
-import { PERSON_FIELDS_BY_TOOL, PERSON_FIELDS_REMOVED_NOTE, stripPersonFields, withPersonFieldsNote } from "./ai-person-fields";
+import { PERSON_FIELDS_BY_TOOL, PERSON_FIELDS_REMOVED_NOTE, stripPersonFields, withPersonFieldsNote, type PersonStripContext } from "./ai-person-fields";
 
 type TaskInput = {
   taskName: string;
@@ -715,7 +715,7 @@ export async function runTool(
   // ★ The note rides on `.then`: `chat-panel.tsx`'s §596 comment counts on this file never suspending.
   const personFields = Object.hasOwn(PERSON_FIELDS_BY_TOOL, name) ? PERSON_FIELDS_BY_TOOL[name]! : [];
   if (personFields.length === 0 || peopleToolsLive(d.isPeopleProtected())) return runToolAsSent(d, name, input, false);
-  const { input: kept, removed } = stripPersonFields(name, input);
+  const { input: kept, removed } = stripPersonFields(name, input, personStripContext(d, name, input));
   return runToolAsSent(d, name, kept, true).then(
     (result) => withPersonFieldsNote(result, removed),
     (e: unknown) => {
@@ -727,6 +727,22 @@ export async function runTool(
       throw e;
     },
   );
+}
+
+/** The person references the record a call writes ALREADY holds, so the strip keeps them (fix round 1, I1):
+ *  an edit of a forecast scenario re-sends the user's own named-person rows, because `changes` replaces the
+ *  whole list. Every other tool has none. Shared with the chat's staging strip, so the card and the write agree. */
+export function personStripContext(
+  d: Pick<ToolDispatcher, "getForecastScenarioRow">,
+  name: string,
+  input: Readonly<Record<string, unknown>>,
+): PersonStripContext {
+  if (name !== "update_forecast_scenario") return {};
+  const id = Number(input.id);
+  const row = Number.isFinite(id) ? d.getForecastScenarioRow(id) : null;
+  const keepIds = new Set<unknown>();
+  for (const c of row?.changes ?? []) if (c.kind === "addPeople" && "resourceId" in c.who) keepIds.add(c.who.resourceId);
+  return { keepIds };
 }
 
 /** `runTool` past the people gates: the call exactly as it is applied. `peopleStripped` is true when the

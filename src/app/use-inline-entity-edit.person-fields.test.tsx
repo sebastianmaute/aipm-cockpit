@@ -95,3 +95,35 @@ describe("inline edit of a person record under people protection", () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 });
+
+// Fix round 1 (I2): the STORED row after Apply, through the real `runTool` into a dispatcher that keeps
+// what it is given.
+describe("applying an inline task edit under people protection", () => {
+  async function applyOnTask(peopleProtected: boolean) {
+    people.state.on = peopleProtected;
+    let stored: Record<string, unknown> = { ...task };
+    const dispatcher = {
+      getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }),
+      isPeopleProtected: () => peopleProtected,
+      getTask: (id: number) => (id === task.id ? stored : null),
+      updateTask: (id: number, patch: Record<string, unknown>) => (id === task.id ? (stored = { ...stored, ...patch }) : null),
+    } as unknown as InlineEntityEditDeps["dispatcher"];
+    modelProposes({ id: 42, assignee: "Marco", priority: "High" });
+    const { result } = renderHook(() => useInlineEntityEdit({ ...mkDeps("task"), dispatcher }));
+    act(() => result.current.openFor(task));
+    await act(async () => { await result.current.submit("reassign and raise it"); });
+    await act(async () => { await result.current.apply(); });
+    return stored;
+  }
+
+  it("stores the other change and no person change", async () => {
+    const stored = await applyOnTask(true);
+    expect(stored.priority).toBe("High");
+    expect(stored.assignee).toBe("Ann");
+  });
+
+  it("protection off: the reassignment is stored (positive control)", async () => {
+    const stored = await applyOnTask(false);
+    expect(stored).toMatchObject({ priority: "High", assignee: "Marco" });
+  });
+});

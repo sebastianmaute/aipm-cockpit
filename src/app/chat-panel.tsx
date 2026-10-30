@@ -4,7 +4,7 @@ import { AiPeopleProtectedContentError } from "./ai-privacy";
 import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected } from "./ai-privacy-context";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
-import { type ToolDispatcher, runTool } from "./chat-tools";
+import { type ToolDispatcher, personStripContext, runTool } from "./chat-tools";
 import { type Lang, t } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
 import { ChatPromptChips } from "./chat-prompt-chips";
@@ -887,7 +887,7 @@ function ChatPanelInner({
             // ★★ AI people protection (R4): a staged call's person fields go BEFORE the gate and the card, so
             //  the card shows what Apply writes. The immediate path below hands `runTool` the raw input, and
             //  `runTool` strips it there and says so in the result.
-            const people = peopleToolsLive(toolFlags.peopleProtected) ? null : stripPersonFields(block.name, sentInput);
+            const people = peopleToolsLive(toolFlags.peopleProtected) ? null : stripPersonFields(block.name, sentInput, personStripContext(dispatcher, block.name, sentInput));
             const removed = people?.removed ?? [];
             proposed.push({ useId: block.id, call: { name: block.name, input: people && removed.length > 0 ? people.input : sentInput }, removed });
           }

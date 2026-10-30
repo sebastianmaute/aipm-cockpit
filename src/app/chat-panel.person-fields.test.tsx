@@ -11,6 +11,8 @@ import { newConsent } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { ToolDispatcher } from "./chat-tools";
+import { entityToken } from "./ai-entity-token";
+import type { Task } from "./types";
 
 // AI people protection, Task 6 (R4): a staged turn's person fields are stripped BEFORE the review card is
 // built, so the card shows what Apply will write, and the model is told which fields were dropped.
@@ -111,5 +113,75 @@ describe("a staged turn under people protection", () => {
     expect(within(card).getAllByText(/Zelda Quartz/).length).toBeGreaterThan(0);
     await waitFor(() => expect(bodies).toHaveLength(2));
     expect(stagedResults(bodies[1]!).some((r) => r.content.includes("protects its people"))).toBe(false);
+  });
+});
+
+// Fix round 1 (I2): the WRITTEN state behind the card, not only the card. Apply replays the staged calls
+// through the real `runTool` into a dispatcher that stores what it is given.
+describe("applying a staged turn under people protection", () => {
+  const TASK: Task = {
+    id: 1, taskName: "Draft", assignee: "Ann", assigneeEmail: "", dueDate: "2026-06-10", lastUpdateDate: "2026-06-01",
+    priority: "Medium", status: "To Do", blockers: "", description: "", inquiriesSent: 0, group: "", labels: [],
+  };
+
+  function storingDispatcher(peopleProtected: boolean) {
+    let stored: Task = TASK;
+    const base = makeDispatcher() as unknown as Record<string, unknown>;
+    const d = {
+      ...base,
+      isPeopleProtected: () => peopleProtected,
+      getTask: (id: number) => (id === stored.id ? stored : null),
+      updateTask: (id: number, patch: Partial<Task>) => (id === stored.id ? (stored = { ...stored, ...patch }) : null),
+      createTask: (input: Partial<Task>) => ({ ...TASK, ...input, id: 2 }),
+    } as unknown as ToolDispatcher;
+    return { d, read: () => stored };
+  }
+
+  async function applyRenameAndReassign(ws: Workspace, peopleProtected: boolean) {
+    const { d, read } = storingDispatcher(peopleProtected);
+    const turns = [
+      {
+        content: [
+          { type: "tool_use", id: "t1", name: "update_task", input: { id: 1, expectedToken: entityToken("task", TASK), taskName: "Renamed", assignee: "Zelda Quartz" } },
+          { type: "tool_use", id: "t2", name: "create_task", input: { taskName: "Other", assignee: "Ann", dueDate: "2026-06-11" } },
+        ],
+        stop_reason: "tool_use", usage,
+      },
+      { content: [{ type: "text", text: "Staged." }], stop_reason: "end_turn", usage },
+    ];
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      const body = turns[Math.min(call, turns.length - 1)];
+      call += 1;
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+    });
+    function Source({ children }: { children: ReactNode }) {
+      useAiPrivacySource("p1", () => ws);
+      return <>{children}</>;
+    }
+    render(
+      <AiPrivacyProvider>
+        <Source>
+          <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI} dispatcher={d} projectId="p1" workspace={ws} />
+        </Source>
+      </AiPrivacyProvider>,
+    );
+    send("Rename it and give it to Zelda");
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("Staged.");
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() => expect(read().taskName).toBe("Renamed"));
+    return read();
+  }
+
+  it("writes the rename and keeps the stored assignee", async () => {
+    const written = await applyRenameAndReassign({ ...emptyWorkspace(), tasks: [TASK] }, true);
+    expect(written.assignee).toBe("Ann");
+  });
+
+  it("protection off: the reassignment is written too (positive control)", async () => {
+    const ws = { ...emptyWorkspace(), tasks: [TASK], settingsOverrides: withPeopleAllowed(undefined, true) };
+    const written = await applyRenameAndReassign(ws, false);
+    expect(written.assignee).toBe("Zelda Quartz");
   });
 });
