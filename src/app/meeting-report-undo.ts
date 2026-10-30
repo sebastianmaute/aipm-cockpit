@@ -11,15 +11,23 @@ import type { CompositeFragment } from "./undo/use-undo-stack";
 
 type CommitteeSetter = (updater: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => void;
 
-/** The meeting's report becomes `report` (absent when `undefined`); every other meeting keeps its identity. */
 /** A report value, or a thunk read when the fragment runs; `null` = nothing was written, so do nothing. */
 export type ReportRef = MeetingReport | undefined | null | (() => MeetingReport | undefined | null);
 
-function writeReport(setCommittee: CommitteeSetter, meetingId: number, ref: ReportRef): void {
+/** The meeting's report becomes `ref` (absent when `undefined`); every other meeting keeps its identity. `onLive` sees
+ *  the report that was live just before the write (inside the updater, so it must stay pure). */
+function writeReport(
+  setCommittee: CommitteeSetter,
+  meetingId: number,
+  ref: ReportRef,
+  onLive?: (live: MeetingReport | undefined) => void,
+): void {
   const report = typeof ref === "function" ? ref() : ref;
   if (report === null) return;
   setCommittee((c) => {
-    if (!c || !c.meetings.some((m) => m.id === meetingId)) return c;
+    const target = c?.meetings.find((m) => m.id === meetingId);
+    if (!c || !target) return c;
+    onLive?.(target.report);
     return {
       ...c,
       meetings: c.meetings.map((m) => {
@@ -44,8 +52,18 @@ export function meetingReportUndoFragment(args: {
     isPrimary: false,
     followsPrimary: false, // one meeting by id, nothing a re-mint could move
     restore: () => {
-      writeReport(setSteeringCommittee, meetingId, before);
-      return () => writeReport(setSteeringCommittee, meetingId, after);
+      // A report mailed after this save carries a `sentAt` that `after` (captured at the save) lacks. Undo notes it when
+      // the live text is still the saved text, and redo puts it back: the mailed text keeps its sent date.
+      let sentAt: string | undefined;
+      writeReport(setSteeringCommittee, meetingId, before, (live) => {
+        const saved = typeof after === "function" ? after() : after;
+        sentAt = live && saved && live.html === saved.html ? live.sentAt : undefined; // reset on every run (StrictMode)
+      });
+      return () =>
+        writeReport(setSteeringCommittee, meetingId, () => {
+          const saved = typeof after === "function" ? after() : after;
+          return saved && sentAt ? { ...saved, sentAt } : saved;
+        });
     },
   };
 }

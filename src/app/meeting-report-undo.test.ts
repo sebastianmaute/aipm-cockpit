@@ -76,3 +76,21 @@ describe("meetingReport.updated undo label", () => {
     expect(label).toContain("report");
   });
 });
+
+describe("redo after a send keeps the sent stamp (AI-04)", () => {
+  it("undo of a save over a report that was then mailed, then redo, re-applies the sentAt the mailed text carried", () => {
+    const mailed: MeetingReport = { ...AFTER, sentAt: "2026-11-03T09:00:00.000Z" }; // Save -> Send stamped the live report
+    const h = run({ ...committee(), meetings: [{ id: 1, date: "2026-11-02", title: "A", report: mailed }] }, 1, BEFORE, AFTER);
+    const redo = h.fragment.restore({ current: new Map() }, false);
+    expect(h.get().meetings[0].report).toEqual(BEFORE);
+    redo();
+    expect(h.get().meetings[0].report).toEqual(mailed);
+  });
+  it("a live report whose text has moved on does not lend its stamp to the redo", () => {
+    const edited: MeetingReport = { html: "<p>later</p>", updatedAt: "t9", sentAt: "s" };
+    const h = run({ ...committee(), meetings: [{ id: 1, date: "2026-11-02", title: "A", report: edited }] }, 1, BEFORE, AFTER);
+    const redo = h.fragment.restore({ current: new Map() }, false);
+    redo();
+    expect(h.get().meetings[0].report).toEqual(AFTER);
+  });
+});

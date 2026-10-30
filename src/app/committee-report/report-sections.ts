@@ -5,7 +5,49 @@
 // ★ Splitting assumes TOP-LEVEL headings. HEADING_RE is markup-blind, so a heading nested in a container (a
 // blockquote, a list item) splits that element mid-way: the pieces are unbalanced fragments that still concatenate
 // back to the input, and the save re-sanitizes the joined text (pinned in report-sections.test.ts).
+// Placement and matching rules, each beside the test (in report-sections.test.ts) that pins it:
+//
+//  | rule                                                                       | pinned by                                                                     |
+//  | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+//  | a section matches a user section of the same heading at ANY level          | "matches an h3 inside another h2, replaces only that block and keeps the h3 sibling under its parent" |
+//  | only the first of duplicate user headings is matched                       | "replaces only the first of duplicate user headings"                          |
+//  | Replace swaps the matched range (to the next same-or-higher heading)       | "removes sub-headings with a replaced section and reports them"               |
+//  | Keep both adds after the matched range, AI sections keeping AI order       | "declining Replace on Take all lands Risks before Vendor, after the user's range" |
+//  | a SHALLOWER AI section goes to the end of the enclosing range at its level | "Replace removes the user's h3 and places the h2 after the whole Status range" |
+//  | ... and keeps AI order across several of them                              | "Take all with Replace over two shallower matches under one parent keeps AI order" |
+//  | unmatched: after the nearest PRECEDING anchor (extended past deeper items) | "a preceding anchor deeper than the inserted section extends to the end of the enclosing range" |
+//  | unmatched, no preceding anchor: BEFORE the nearest following one, level <= | "A alone goes before the following AI section the text has"                   |
+//  | ... a deeper following anchor is skipped                                   | "a following anchor deeper than the inserted section is skipped: Plan goes to the end, Risks stays under Status" |
+//  | unmatched, no anchor at all: the end                                       | "appends an unmatched section at the end when there is no anchor"             |
+//  | the AI opening (level 0) is never matched, only added after the user's     | "never replaces the user's level-0 text and adds the AI's after it"           |
+//  | the opening is recognised by its TEXT (whitespace-collapsed, whole words)  | "a taken-and-saved opening, re-serialised by the editor without the newline, is not added again" |
+//  | a blank opening is dropped from a proposal and ignored by the engine       | "splitProposalSections leaves no opening row for whitespace or an empty paragraph" |
+//  | a proposal splits only at the draft's TOP heading level                    | "keeps nested sub-headings inside their parent section"                       |
+//  | ... and a deeper heading never folds into the opening                      | "a deeper heading is not folded into the level-0 opening: it keeps its own row" |
+//  | the user's own text splits at every heading and loses no byte              | "a user text with a blank preamble round-trips byte for byte"                 |
 import { htmlToPlainText, isBlankHtml } from "../html-to-text";
+
+/** The text of `html` with whitespace collapsed: how an AI opening is recognised (the model puts newlines between
+ *  blocks that the editor drops when the user types, so the markup differs while the words are the same). */
+function collapsedText(html: string): string {
+  return htmlToPlainText(html).replace(/\s+/g, " ").trim();
+}
+
+/** True when `hay` holds `needle` as whole words (bounded by the ends or a space), so "OK" is not found in "book". */
+function holdsText(hay: string, needle: string): boolean {
+  if (needle === "") return false;
+  for (let i = hay.indexOf(needle); i !== -1; i = hay.indexOf(needle, i + 1)) {
+    const before = i === 0 || hay[i - 1] === " ";
+    const after = i + needle.length === hay.length || hay[i + needle.length] === " ";
+    if (before && after) return true;
+  }
+  return false;
+}
+
+/** Whether the level-0 section `user` already holds the AI opening `opening` (never for a blank one). */
+function holdsOpening(user: ReportSection | undefined, opening: ReportSection): boolean {
+  return user !== undefined && !isBlankHtml(opening.html) && holdsText(collapsedText(user.html), collapsedText(opening.html));
+}
 
 // The ONE blank rule (the hook refuses to send a blank body, the panel disables Send on it, the sanitizer drops a
 // blank `previous`); it lives beside htmlToPlainText so the shared sanitizer need not import this feature module.
@@ -74,7 +116,8 @@ export function splitProposalSections(html: string): ReportSection[] {
   const out: ReportSection[] = [];
   for (const s of all) {
     const prev = out[out.length - 1];
-    if (s.level > top && prev) out[out.length - 1] = { ...prev, html: prev.html + s.html };
+    // A deeper heading never joins the level-0 opening (it would be re-taken with it), nor a sibling at its own depth.
+    if (s.level > top && prev && prev.level !== 0 && s.level > prev.level) out[out.length - 1] = { ...prev, html: prev.html + s.html };
     else out.push(s);
   }
   return out;
@@ -158,7 +201,7 @@ function insertionPoint(
         : ai[j].level === 0
           ? // The AI's opening is an anchor only when the user's text really holds it (its html sits inside the level-0 section, which may have grown a user intro around it); the user's OWN
             // intro is not the AI's opening, so keep walking back (to the end if nothing else anchors).
-            (!isBlankHtml(ai[j].html) && items[level0]?.section.html.includes(ai[j].html) ? level0 : -1)
+            (holdsOpening(items[level0]?.section, ai[j]) ? level0 : -1)
           : items.findIndex(
               (it) =>
                 it.section.level !== 0 &&
@@ -209,7 +252,7 @@ function run(
     // A blank opening is nothing to take (it would also "match" almost any intro by containment).
     if (sec.level === 0 && isBlankHtml(sec.html)) continue;
     // An opening the text already holds, word for word, is already there: neither a replacement nor an addition.
-    if (sec.level === 0 && items.some((it) => it.section.level === 0 && it.section.html.includes(sec.html))) continue;
+    if (sec.level === 0 && items.some((it) => it.section.level === 0 && holdsOpening(it.section, sec))) continue;
     const m = sec.level === 0 ? -1 : findUserMatch(items, sec.key);
     if (m === -1) {
       plan.additions.push(aiIndex);

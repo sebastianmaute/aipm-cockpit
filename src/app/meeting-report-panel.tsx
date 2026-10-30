@@ -39,8 +39,8 @@ export interface MeetingReportPanelProps {
   report: MeetingReport | undefined;
   /** Initial recipients (committee members' emails) — editable before send. */
   recipients: readonly string[];
-  /** `fromAi` is true when the saved text contains sections taken from the AI proposal. */
-  /** Returns whether the report was actually written (false: identical body, or the meeting is gone). */
+  /** Saves the draft. `fromAi` is true when the saved text contains sections taken from the AI proposal. Returns
+   *  whether the report was actually written (false: identical body, or the meeting is gone). */
   onSave: (html: string, opts?: { fromAi?: boolean }) => boolean;
   onSend: (recipients: readonly string[]) => void;
   m365Configured: boolean;

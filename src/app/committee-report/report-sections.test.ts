@@ -220,6 +220,11 @@ describe("splitProposalSections splits an AI draft at its TOP heading level", ()
     expect(sections.map((x) => x.heading)).toEqual(["A", "B"]);
     expect(sections[0].html).toContain("<h4>A1</h4>");
   });
+  it("a deeper heading is not folded into the level-0 opening: it keeps its own row", () => {
+    const rows = splitProposalSections("<p>open</p><h3>Note</h3><p>n</p><h2>A</h2><p>a</p>");
+    expect(rows.map((x) => [x.level, x.heading])).toEqual([[0, ""], [3, "Note"], [2, "A"]]);
+    expect(rows.map((x) => x.html).join("")).toBe("<p>open</p><h3>Note</h3><p>n</p><h2>A</h2><p>a</p>");
+  });
   it("loses nothing: the sections concatenate back to the draft", () => {
     const html = "<p>intro</p><h2>A</h2><h3>A1</h3><p>x</p><h2>B</h2>";
     expect(splitProposalSections(html).map((x) => x.html).join("")).toBe(html);
@@ -317,6 +322,22 @@ describe("a blank AI opening is not a section", () => {
       expect(splitSections(user).map((x) => x.html).join("")).toBe(user);
       expect(applyTake(user, [], [], true)).toBe(user);
     }
+  });
+});
+
+describe("the AI opening is recognised by its TEXT, not its markup", () => {
+  const AI = ai("<p>A</p>\n<p>B</p><h2>Summary</h2><p>S</p>"); // the model puts a newline between blocks
+  it("a taken-and-saved opening, re-serialised by the editor without the newline, is not added again", () => {
+    const saved = "<p>A</p><p>B</p><h2>Notes</h2><p>n</p>";
+    expect(applyTake(saved, AI, [0], true)).toBe(saved);
+    expect(planTake(saved, AI, [0])).toEqual({ replacements: [], additions: [] });
+  });
+  it("and it still anchors: Summary lands right after that opening", () => {
+    expect(applyTake("<p>A</p><p>B</p><h2>Notes</h2><p>n</p>", AI, [1], true)).toBe("<p>A</p><p>B</p><h2>Summary</h2><p>S</p><h2>Notes</h2><p>n</p>");
+  });
+  it("a short opening does not match inside a longer word", () => {
+    const short = ai("<p>OK</p><h2>S</h2><p>s</p>");
+    expect(applyTake("<p>a book</p><h2>Notes</h2>", short, [0], true)).toBe("<p>a book</p><p>OK</p><h2>Notes</h2>");
   });
 });
 
