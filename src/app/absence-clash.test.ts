@@ -31,6 +31,7 @@ describe("taskClashes: rule (a), a date on an absence day", () => {
         person: "Maya Patel",
         resourceId: 1,
         reason: "date-on-absence",
+        which: "due",
         date: "2026-11-05",
         ranges: [{ start: "2026-11-03", end: "2026-11-07" }],
       },
@@ -52,6 +53,34 @@ describe("taskClashes: rule (a), a date on an absence day", () => {
 
   it("returns nothing when the date is outside every absence", () => {
     expect(taskClashes({ assignee: "Maya Patel", resourceId: 1, startDate: undefined, dueDate: "2026-11-09" }, ctx([MAYA_WEEK]))).toEqual([]);
+  });
+});
+
+describe("taskClashes: which date clashes", () => {
+  const c = ctx([MAYA_WEEK]);
+  it("says due when the due date is inside the absence", () => {
+    expect(taskClashes({ assignee: "Maya Patel", resourceId: 1, startDate: undefined, dueDate: "2026-11-05" }, c)[0].which).toBe("due");
+  });
+  it("says start when only the START date is inside the absence", () => {
+    const out = taskClashes({ assignee: "Maya Patel", resourceId: 1, startDate: "2026-11-04", dueDate: "2026-11-20" }, c);
+    expect(out[0]).toMatchObject({ reason: "date-on-absence", which: "start", date: "2026-11-04" });
+  });
+  it("says milestone for a milestone date", () => {
+    const out = milestoneClashes({ date: "2026-11-05", linkedTaskIds: [1] }, [{ id: 1, assignee: "Maya Patel", resourceId: 1 } as Task], c);
+    expect(out[0].which).toBe("milestone");
+  });
+  it("sets no `which` on a span clash", () => {
+    const out = taskClashes({ assignee: "Liam Foster", resourceId: 2, startDate: "2026-11-07", dueDate: "2026-11-12" },
+      ctx([absence({ assignee: "Liam Foster", resourceId: 2, startDate: "2026-11-09", endDate: "2026-11-11" })]));
+    expect(out[0].which).toBeUndefined();
+  });
+});
+
+describe("clash person name", () => {
+  it("is one line, so it is safe in a tool result", () => {
+    const a = absence({ assignee: "x\n#9 away", startDate: "2026-11-03", endDate: "2026-11-07" });
+    const out = taskClashes({ assignee: " x\n#9 away ", resourceId: undefined, startDate: undefined, dueDate: "2026-11-04" }, ctx([a]));
+    expect(out[0].person).toBe("x #9 away");
   });
 });
 
@@ -108,9 +137,9 @@ describe("matcher: linked and unlinked people", () => {
     expect(taskClashes({ assignee: "", resourceId: 1, startDate: undefined, dueDate: "2026-11-04" }, ctx([a]))).toHaveLength(1);
   });
 
-  it("does NOT match a linked absence (another person's id) to an unlinked task by name", () => {
+  it("an unlinked task matches a linked absence by its typed assignee", () => {
     const a = absence({ assignee: "Maya Patel", resourceId: 2, startDate: "2026-11-03", endDate: "2026-11-07" });
-    // An unlinked task typed "Maya Patel" matches on Absence.assignee, the documented rule for an unlinked task.
+    // The unlinked task matches on Absence.assignee, whatever that absence's resourceId says.
     expect(taskClashes({ assignee: "  MAYA patel ", resourceId: undefined, startDate: undefined, dueDate: "2026-11-04" }, ctx([a]))).toHaveLength(1);
   });
 
@@ -142,8 +171,10 @@ describe("degenerate input: no warning, no crash", () => {
   });
 
   it("an absence whose end is before its start", () => {
+    // Reversed absence 07 -> 03 sits between the task's dates; read as a range it would cover 04..06.
     const bad = absence({ assignee: "Maya Patel", resourceId: 1, startDate: "2026-11-07", endDate: "2026-11-03" });
-    expect(taskClashes({ assignee: "Maya Patel", resourceId: 1, startDate: "2026-11-03", dueDate: "2026-11-05" }, ctx([bad]))).toEqual([]);
+    expect(taskClashes({ assignee: "Maya Patel", resourceId: 1, startDate: "2026-11-02", dueDate: "2026-11-09" }, ctx([bad]))).toEqual([]);
+    expect(buildAwaySummary({ absences: [bad], resources: [maya], from: "2026-11-02", to: "2026-11-30" })).toEqual([]);
   });
 
   it("a task whose due date is before its start date", () => {
@@ -235,6 +266,13 @@ describe("buildAwaySummary", () => {
     expect(AWAY_SUMMARY_MAX_LINES).toBe(60);
     expect(lines).toHaveLength(1 + 60 + 1);
     expect(lines[lines.length - 1]).toBe("…(5 more people truncated)");
+  });
+
+  it("returns [] for a malformed or reversed window", () => {
+    const base = { absences: [MAYA_WEEK], resources: [maya] };
+    expect(buildAwaySummary({ ...base, from: "2026-11-30", to: "2026-11-02" })).toEqual([]);
+    expect(buildAwaySummary({ ...base, from: "soon", to: "2026-11-30" })).toEqual([]);
+    expect(buildAwaySummary({ ...base, from: "2026-11-02", to: "" })).toEqual([]);
   });
 
   it("honours a smaller maxLines", () => {

@@ -15,10 +15,13 @@ export interface AbsenceCtx {
 export interface PersonRef { resourceId?: number | null; name: string }
 export interface AbsenceRange { start: string; end: string }
 export type ClashReason = "date-on-absence" | "absent-most-of-span";
+/** Which date of the work fell on the absence (set for `date-on-absence` only). */
+export type ClashDate = "due" | "start" | "milestone";
 export interface AbsenceClash {
   person: string;
   resourceId?: number;
   reason: ClashReason;
+  which?: ClashDate;
   date?: string;
   ranges: AbsenceRange[];
 }
@@ -69,17 +72,17 @@ function mergeRanges(ranges: readonly AbsenceRange[]): AbsenceRange[] {
 function baseClash(p: PersonRef, ctx: AbsenceCtx): Pick<AbsenceClash, "person" | "resourceId"> {
   const resource = linkedResource(p, ctx);
   return resource
-    ? { person: resourceDisplayName(resource), resourceId: resource.id }
-    : { person: p.name.trim() };
+    ? { person: oneLine(resourceDisplayName(resource)), resourceId: resource.id }
+    : { person: oneLine(p.name) };
 }
 
-function dateClash(p: PersonRef, date: string | undefined, ctx: AbsenceCtx): AbsenceClash | null {
+function dateClash(p: PersonRef, date: string | undefined, which: ClashDate, ctx: AbsenceCtx): AbsenceClash | null {
   if (!isIsoDay(date)) return null;
   const hits = absencesOfPerson(p, ctx)
     .map(usableRange)
     .filter((r): r is AbsenceRange => r !== null && r.start <= date && date <= r.end);
   if (hits.length === 0) return null;
-  return { ...baseClash(p, ctx), reason: "date-on-absence", date, ranges: mergeRanges(hits) };
+  return { ...baseClash(p, ctx), reason: "date-on-absence", which, date, ranges: mergeRanges(hits) };
 }
 
 function spanClash(
@@ -120,8 +123,8 @@ export function taskClashes(
   const person: PersonRef = { resourceId: t.resourceId ?? null, name: t.assignee ?? "" };
   if (!linkedResource(person, ctx) && !person.name.trim()) return [];
   const clash =
-    dateClash(person, t.dueDate, ctx) ??
-    dateClash(person, t.startDate, ctx) ??
+    dateClash(person, t.dueDate, "due", ctx) ??
+    dateClash(person, t.startDate, "start", ctx) ??
     spanClash(person, t.startDate, t.dueDate, ctx);
   return clash ? [clash] : [];
 }
@@ -146,7 +149,7 @@ export function milestoneClashes(
     const key = resource ? `r${resource.id}` : `n${name}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const clash = dateClash(person, m.date, ctx);
+    const clash = dateClash(person, m.date, "milestone", ctx);
     if (clash) out.push(clash);
   }
   return out;
@@ -211,10 +214,12 @@ export function buildAwaySummary(args: {
   maxLines?: number;
 }): string[] {
   const { absences, resources, from, to, maxLines = AWAY_SUMMARY_MAX_LINES } = args;
+  if (!isIsoDay(from) || !isIsoDay(to) || from > to) return [];
   const people = collectAway(absences, resources, from, to).sort((a, b) => {
     const x = a.ranges[0].start;
     const y = b.ranges[0].start;
-    return x === y ? a.name.localeCompare(b.name) : x < y ? -1 : 1;
+    if (x !== y) return x < y ? -1 : 1;
+    return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
   });
   if (people.length === 0) return [];
   const shown = people.slice(0, Math.max(0, maxLines));

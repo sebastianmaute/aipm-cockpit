@@ -4,6 +4,7 @@ import type { AbsenceClash } from "./absence-clash";
 import { loadI18n } from "./i18n";
 
 const onDate: AbsenceClash = {
+  which: "due",
   person: "Maya Patel",
   resourceId: 1,
   reason: "date-on-absence",
@@ -24,8 +25,13 @@ describe("formatAbsenceClash", () => {
     await loadI18n("de");
   });
 
-  it("says the person is absent on the date (EN)", () => {
-    expect(formatAbsenceClash(onDate, "en-US")).toBe("Maya Patel is absent on the date (Nov 03–Nov 07).");
+  it("names the due date (EN)", () => {
+    expect(formatAbsenceClash(onDate, "en-US")).toBe("Maya Patel is absent on the due date, Nov 05 (Nov 03–Nov 07).");
+  });
+
+  it("names the start date and the milestone date (EN)", () => {
+    expect(formatAbsenceClash({ ...onDate, which: "start" }, "en-US")).toBe("Maya Patel is absent on the start date, Nov 05 (Nov 03–Nov 07).");
+    expect(formatAbsenceClash({ ...onDate, which: "milestone" }, "en-US")).toBe("Maya Patel is absent on the milestone date, Nov 05 (Nov 03–Nov 07).");
   });
 
   it("says the person is away for most of this task's working days, listing every range (EN)", () => {
@@ -35,7 +41,9 @@ describe("formatAbsenceClash", () => {
   });
 
   it("is written in German (DE)", () => {
-    expect(formatAbsenceClash(onDate, "de")).toBe("Maya Patel ist am Termin abwesend (03. Nov.–07. Nov.).");
+    expect(formatAbsenceClash(onDate, "de")).toBe("Maya Patel ist am Fälligkeitsdatum, 05. Nov., abwesend (03. Nov.–07. Nov.).");
+    expect(formatAbsenceClash({ ...onDate, which: "start" }, "de")).toBe("Maya Patel ist am Startdatum, 05. Nov., abwesend (03. Nov.–07. Nov.).");
+    expect(formatAbsenceClash({ ...onDate, which: "milestone" }, "de")).toBe("Maya Patel ist am Meilensteintermin, 05. Nov., abwesend (03. Nov.–07. Nov.).");
     expect(formatAbsenceClash(span, "de")).toBe(
       "Maya Patel ist an den meisten Arbeitstagen dieser Aufgabe abwesend (03. Nov.–07. Nov., 20. Nov.).",
     );
