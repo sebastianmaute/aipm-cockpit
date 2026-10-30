@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { SteeringCommitteePanel } from "./steering-committee-panel";
 import { loadI18n, t } from "./i18n";
 import type { Resource, SteeringCommittee } from "./types";
 import type { MeetingReportBag } from "./use-meeting-report-actions";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { splitSections } from "./committee-report/report-sections";
 
 const reportBag: MeetingReportBag = {
   m365Configured: false,
@@ -378,6 +379,58 @@ describe("SteeringCommitteePanel", () => {
     expect(panel.className).toContain("h-[600px]");
     expect(panel.className).toContain("min-h-[320px]");
     expect(panel.className).toContain("max-h-[85vh]");
+  });
+
+  // AI-04 — the proposal lives in the report hook, not in the dialog: closing and reopening the
+  // dialog shows the same proposal with the sections already taken still marked.
+  it("closing and reopening the report dialog shows the same proposal with its taken marks", async () => {
+    const sections = splitSections("<h2>Risks</h2><p>ai risks</p><h2>Next steps</h2><p>ai next</p>");
+    let taken = new Set<number>();
+    const markTaken = vi.fn((_id: number, indices: readonly number[]) => {
+      taken = new Set([...taken, ...indices]);
+    });
+    const getProposal = vi.fn((id: number) => (id === 1 ? { sections, taken, createdAt: "2026-10-30T09:00:00.000Z" } : undefined));
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        report={{ ...reportBag, getProposal, markTaken }}
+      />,
+    );
+    const open = () =>
+      fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "reportStatusReport")} – Kickoff` }));
+    open();
+    let dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Take – Next steps" }));
+    await waitFor(() => expect(markTaken).toHaveBeenCalledWith(1, [1]));
+    fireEvent.click(within(dialog).getByRole("button", { name: t("en-US", "cancel") }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    open();
+    dialog = await screen.findByRole("dialog");
+    const rows = within(dialog).getAllByRole("listitem");
+    expect(rows[0]).not.toHaveTextContent("Taken");
+    expect(rows[1]).toHaveTextContent("Taken");
+    expect(within(dialog).getByRole("button", { name: "Take – Next steps" })).toBeDisabled();
+  });
+
+  it("the report dialog's content switches the app undo hotkey off", async () => {
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        report={reportBag}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "reportStatusReport")} – Kickoff` }));
+    const dialog = await screen.findByRole("dialog");
+    const save = within(dialog).getByRole("button", { name: t("en-US", "reportSave") });
+    expect(save.closest('[data-app-undo="off"]')).not.toBeNull();
   });
 });
 

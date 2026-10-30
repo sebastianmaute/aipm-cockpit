@@ -4,6 +4,9 @@
 // and this renders inside a shared Modal (see steering-committee-panel). The rich
 // editor comes from rich-text-editor-lazy (Tiptap is browser-only). Save/send/generate/
 // restore are all no-ops in popouts (read-only).
+// AI-04 — an AI draft arrives as a PROPOSAL (held by use-meeting-report-actions, passed in as
+// `proposal`), taken into the editor text by section; the stored previous version can be
+// compared and restored.
 import { useState, useMemo } from "react";
 import { t, type Lang } from "./i18n";
 import type { MeetingReport } from "./types";
@@ -16,6 +19,11 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 import { AiTriggerButton } from "./ai-trigger-button";
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
+import { useConfirm } from "./confirm-dialog";
+import { planTake, applyTake, type TakePlan } from "./committee-report/report-sections";
+import type { ReportProposal } from "./use-meeting-report-actions";
+import { MeetingReportProposal } from "./meeting-report-proposal";
+import { MeetingReportPrevious } from "./meeting-report-previous";
 
 /** UI-facing subset of a stored MeetingReportVersion (Slice 3). */
 export interface MeetingReportVersionUi {
@@ -31,7 +39,8 @@ export interface MeetingReportPanelProps {
   report: MeetingReport | undefined;
   /** Initial recipients (committee members' emails) — editable before send. */
   recipients: readonly string[];
-  onSave: (html: string) => void;
+  /** `fromAi` is true when the saved text contains sections taken from the AI proposal. */
+  onSave: (html: string, opts?: { fromAi?: boolean }) => void;
   onSend: (recipients: readonly string[]) => void;
   m365Configured: boolean;
   sendBusy?: boolean;
@@ -46,6 +55,12 @@ export interface MeetingReportPanelProps {
   versions?: readonly MeetingReportVersionUi[];
   onRestore?: (versionId: string) => void;
   restoreBusyId?: string | null;
+  // AI-04:
+  proposal?: ReportProposal;
+  onTaken?: (indices: readonly number[]) => void;
+  onDiscardProposal?: () => void;
+  /** Swap the stored report with its previous version. */
+  onRestorePrevious?: () => void;
 }
 
 function parseRecipients(raw: string): string[] {
@@ -59,6 +74,16 @@ function parseRecipients(raw: string): string[] {
     }
   }
   return out;
+}
+
+/** The replace confirm's message: one line per user section a take would replace. */
+function takeConfirmMessage(lang: Lang, plan: TakePlan): string {
+  const lines = plan.replacements.map((r) =>
+    r.removedSubheadings.length > 0
+      ? t(lang, "reportTakeConfirmBody", r.userHeading, r.removedSubheadings.join(", "))
+      : t(lang, "reportTakeConfirmBodyNoSub", r.userHeading),
+  );
+  return [...lines, "", t(lang, "reportTakeConfirmHint")].join("\n");
 }
 
 /** A version row's visible text, which is also its row token's name (§669). */
@@ -82,16 +107,64 @@ export function MeetingReportPanel({
   versions,
   onRestore,
   restoreBusyId,
+  proposal,
+  onTaken,
+  onDiscardProposal,
+  onRestorePrevious,
 }: MeetingReportPanelProps) {
   const readOnly = !!isPopout;
+  const confirm = useConfirm();
   const [draft, setDraft] = useState(report?.html ?? "");
   const [seenUpdatedAt, setSeenUpdatedAt] = useState(report?.updatedAt);
+  // AI-04 — a take rewrites the draft, and the editor binds its content once at mount, so a take
+  // bumps this to remount it (the key below). Typing never does.
+  const [seedNonce, setSeedNonce] = useState(0);
+  // Panel-local: whether the draft holds text taken from the proposal since the last save. Not
+  // persisted — closing the dialog with unsaved taken text loses it with the rest of the draft.
+  const [tookFromProposal, setTookFromProposal] = useState(false);
   // Render-time reconcile (NOT an effect — set-state-in-effect is banned): when a
   // NEW report body arrives (AI draft or a restore bumps updatedAt), re-seed the
   // draft. A plain user edit leaves updatedAt unchanged, so typing isn't clobbered.
   if (report?.updatedAt !== seenUpdatedAt) {
     setSeenUpdatedAt(report?.updatedAt);
     setDraft(report?.html ?? "");
+    setTookFromProposal(false);
+  }
+  // Unsaved edits: what a restore or an undo of this report would overwrite.
+  const dirty = draft !== (report?.html ?? "");
+
+  async function take(indices: number[]): Promise<void> {
+    if (!proposal || indices.length === 0) return;
+    const base = draft;
+    const plan = planTake(base, proposal.sections, indices);
+    // A section the report already has asks first: Replace swaps it (and its sub-sections) for the
+    // AI text; Keep both — or dismissing the dialog — adds the AI text after it.
+    const replace =
+      plan.replacements.length > 0 &&
+      (await confirm({
+        title: t(lang, "reportTakeConfirmTitle"),
+        message: takeConfirmMessage(lang, plan),
+        confirmLabel: t(lang, "reportTakeReplace"),
+        cancelLabel: t(lang, "reportTakeKeepBoth"),
+      }));
+    setDraft(applyTake(base, proposal.sections, indices, replace));
+    setSeedNonce((n) => n + 1);
+    setTookFromProposal(true);
+    onTaken?.(indices);
+  }
+
+  async function restorePrevious(): Promise<void> {
+    if (!onRestorePrevious) return;
+    if (
+      dirty &&
+      !(await confirm({
+        title: t(lang, "reportUnsavedTitle"),
+        message: t(lang, "reportRestoreUnsavedBody"),
+        confirmLabel: t(lang, "reportRestore"),
+      }))
+    )
+      return;
+    onRestorePrevious();
   }
 
   // Recipients are seeded from the committee members but EDITABLE before send
@@ -127,7 +200,8 @@ export function MeetingReportPanel({
   const compareToken = compareVersionId === null ? undefined : versionTokens.get(compareVersionId);
 
   return (
-    <div className="flex flex-col gap-3">
+    // data-report-dirty is read by the top-bar undo guard (use-report-undo-guard.ts).
+    <div className="flex flex-col gap-3" data-report-dirty={dirty ? "true" : undefined}>
       {aiConfigured && onGenerate && !readOnly && (
         <div className="flex flex-wrap items-center gap-2">
           {/* ★ The shared trigger: while busy it reads "Stop" and aborts (§125).
@@ -148,6 +222,16 @@ export function MeetingReportPanel({
         </div>
       )}
 
+      {proposal && proposal.sections.length > 0 && !readOnly ? (
+        <MeetingReportProposal
+          lang={lang}
+          sections={proposal.sections}
+          taken={proposal.taken}
+          onTake={(indices) => void take(indices)}
+          onDiscard={() => onDiscardProposal?.()}
+        />
+      ) : null}
+
       {readOnly ? (
         <div
           className="min-h-40 rounded-md border border-line bg-surface p-3 text-sm"
@@ -158,14 +242,24 @@ export function MeetingReportPanel({
         <RichTextEditor
           // §763 — the editor binds `content` once at mount, so the re-seeded draft above
           // reaches it only through a remount: key it on the stored body's stamp, which
-          // every write (manual save, AI draft, restore) bumps and typing never touches.
-          key={report?.updatedAt ?? "new"}
+          // every write (manual save, restore, undo) bumps and typing never touches. AI-04: a take
+          // rewrites the draft without a write, so it bumps `seedNonce` instead.
+          key={`${report?.updatedAt ?? "new"}:${seedNonce}`}
           value={draft}
           onChange={setDraft}
           label={t(lang, "reportBody")}
           lang={lang}
         />
       )}
+
+      {report?.previous && onRestorePrevious && !readOnly ? (
+        <MeetingReportPrevious
+          lang={lang}
+          previous={report.previous}
+          draft={draft}
+          onRestore={() => void restorePrevious()}
+        />
+      ) : null}
 
       {versions && versions.length > 0 && onRestore && !readOnly && (
         <details className="rounded-md border border-line">
@@ -230,7 +324,10 @@ export function MeetingReportPanel({
 
       {!readOnly && (
         <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" size="xs" onClick={() => onSave(draft)}>
+          <Button variant="secondary" size="xs" onClick={() => {
+              onSave(draft, { fromAi: tookFromProposal });
+              setTookFromProposal(false);
+            }}>
             {t(lang, "reportSave")}
           </Button>
           <Button

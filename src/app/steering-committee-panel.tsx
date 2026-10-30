@@ -584,8 +584,11 @@ export function SteeringCommitteePanel({
                 {/* print-root so @media print isn't blank; the panel behind drops
                     its own print-root while this modal is open (see root div) so
                     only the report prints. Resizable + reset/print/cancel chrome. */}
+                {/* data-app-undo="off": the app undo hotkey stays out of the report editor (AI-04) —
+                    a Ctrl+Z on one of its buttons would otherwise undo a stored report under the draft. */}
                 <div
                   ref={reportPaneRef}
+                  data-app-undo="off"
                   className="print-root flex h-[600px] min-h-[320px] max-h-[85vh] min-w-[320px] w-[min(90vw,720px)] resize flex-col overflow-auto rounded-lg border border-line bg-surface p-4"
                 >
                   <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
@@ -639,7 +642,7 @@ export function SteeringCommitteePanel({
                       lang={lang}
                       report={m.report}
                       recipients={committeeMemberEmails(c, resources)}
-                      onSave={(html) => report.onSaveReport(m.id, html)}
+                      onSave={(html, opts) => report.onSaveReport(m.id, html, opts)}
                       onSend={(recips) => report.onSendReport(m.id, recips)}
                       m365Configured={report.m365Configured}
                       sendBusy={report.sendBusyMeetingId === m.id}
@@ -651,6 +654,11 @@ export function SteeringCommitteePanel({
                       versions={reportVersions}
                       onRestore={(versionId) => report.onRestore(m.id, versionId)}
                       restoreBusyId={report.restoreBusyId}
+                      // AI-04 — the proposal is held by the report hook, so it survives this dialog closing.
+                      proposal={report.getProposal(m.id)}
+                      onTaken={(indices) => report.markTaken(m.id, indices)}
+                      onDiscardProposal={() => report.discardProposal(m.id)}
+                      onRestorePrevious={() => report.onRestorePrevious(m.id)}
                     />
                   </div>
                 </div>

@@ -65,4 +65,24 @@ describe("useUndoHotkey", () => {
     expect(undo).not.toHaveBeenCalled();
     input.remove();
   });
+  // AI-04 — the report editor's dialog switches the app undo off: a Ctrl+Z on one of its buttons must
+  // not undo a stored report under the open draft.
+  it("does NOT fire undo on a button inside [data-app-undo=\"off\"], and still does outside it", () => {
+    const undo = vi.fn();
+    const zone = document.createElement("div");
+    zone.setAttribute("data-app-undo", "off");
+    const inside = document.createElement("button");
+    zone.appendChild(inside);
+    const outside = document.createElement("button");
+    document.body.append(zone, outside);
+    renderHook(() => useUndoHotkey(undo));
+    const evIn = new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true });
+    inside.dispatchEvent(evIn);
+    expect(undo).not.toHaveBeenCalled();
+    expect(evIn.defaultPrevented).toBe(false);
+    outside.dispatchEvent(new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(undo).toHaveBeenCalledTimes(1);
+    zone.remove();
+    outside.remove();
+  });
 });

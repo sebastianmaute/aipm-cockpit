@@ -1,7 +1,9 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { MeetingReportPanel } from "./meeting-report-panel";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { ConfirmProvider } from "./confirm-dialog";
+import { splitSections } from "./committee-report/report-sections";
 
 // Stub the dynamically-imported Tiptap editor with a plain textarea so the test
 // exercises the pane's buttons/logic, not the browser-only editor. ★ UNCONTROLLED
@@ -37,7 +39,7 @@ describe("MeetingReportPanel", () => {
     const onSave = vi.fn();
     renderPanel({ onSave });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(onSave).toHaveBeenCalledWith("<p>hi</p>");
+    expect(onSave).toHaveBeenCalledWith("<p>hi</p>", { fromAi: false });
   });
 
   it("disables Send when M365 is not configured", () => {
@@ -184,7 +186,7 @@ describe("MeetingReportPanel — a new report body reaches the open editor (§76
     expect(editor).toHaveFocus();
     expect(editor).toHaveValue("<p>typed</p>");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(onSave).toHaveBeenCalledWith("<p>typed</p>");
+    expect(onSave).toHaveBeenCalledWith("<p>typed</p>", { fromAi: false });
   });
 
   // The key is the stored body's STAMP, not its html: a restore (or a draft) that writes the html the
@@ -201,6 +203,175 @@ describe("MeetingReportPanel — a new report body reaches the open editor (§76
     );
     expect(await screen.findByLabelText("Report")).toHaveValue("<p>stored</p>");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(onSave).toHaveBeenCalledWith("<p>stored</p>");
+    expect(onSave).toHaveBeenCalledWith("<p>stored</p>", { fromAi: false });
+  });
+});
+
+// AI-04 — the AI draft is a proposal taken by section; the previous version can be compared and restored.
+describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
+  const AI = splitSections("<p>ai intro</p><h2>Risks</h2><p>ai risks</p><h2>Next steps</h2><p>ai next</p>");
+  const STORED = { html: "<h2>Risks</h2><p>mine</p>", updatedAt: "2026-10-30T09:00:00.000Z" };
+
+  function renderWithProposal(overrides: Record<string, unknown> = {}) {
+    const props = {
+      lang: "en-US" as const,
+      report: STORED,
+      recipients: ["a@x.com"],
+      onSave: vi.fn(),
+      onSend: vi.fn(),
+      m365Configured: true,
+      proposal: { sections: AI, taken: new Set<number>(), createdAt: "2026-10-30T09:01:00.000Z" },
+      onTaken: vi.fn(),
+      onDiscardProposal: vi.fn(),
+      ...overrides,
+    };
+    render(
+      <ConfirmProvider lang="en-US">
+        <MeetingReportPanel {...props} />
+      </ConfirmProvider>,
+    );
+    return props;
+  }
+
+  it("Take on a heading the report already has asks first, naming that heading", async () => {
+    const p = renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Risks" }));
+    const dialog = await screen.findByRole("dialog", { name: "Replace sections?" });
+    expect(dialog).toHaveTextContent("Risks");
+    expect(p.onTaken).not.toHaveBeenCalled();
+  });
+
+  it("confirming replaces the section in the editor text", async () => {
+    const p = renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Risks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Replace" }));
+    await waitFor(() => expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>ai risks</p>"));
+    expect(p.onTaken).toHaveBeenCalledWith([1]);
+  });
+
+  it("cancelling keeps the user's section and adds the AI one after it", async () => {
+    const p = renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Risks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Keep both" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>mine</p><h2>Risks</h2><p>ai risks</p>"),
+    );
+    expect(p.onTaken).toHaveBeenCalledWith([1]);
+  });
+
+  it("unsaved typing before the take is still in the result", async () => {
+    renderWithProposal();
+    fireEvent.change(await screen.findByLabelText("Report"), { target: { value: "<h2>Risks</h2><p>typed</p>" } });
+    fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>typed</p><h2>Next steps</h2><p>ai next</p>"),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("Discard calls onDiscardProposal and leaves the editor text alone", async () => {
+    const p = renderWithProposal();
+    fireEvent.change(await screen.findByLabelText("Report"), { target: { value: "<p>typed</p>" } });
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+    expect(p.onDiscardProposal).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("Report")).toHaveValue("<p>typed</p>");
+  });
+
+  it("Save after a take is marked fromAi; a later plain save is not", async () => {
+    const p = renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
+    await waitFor(() => expect(p.onTaken).toHaveBeenCalledWith([2]));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(p.onSave).toHaveBeenLastCalledWith("<h2>Risks</h2><p>mine</p><h2>Next steps</h2><p>ai next</p>", { fromAi: true });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(p.onSave).toHaveBeenLastCalledWith("<h2>Risks</h2><p>mine</p><h2>Next steps</h2><p>ai next</p>", { fromAi: false });
+  });
+
+  it("shows no proposal block without a proposal", async () => {
+    renderWithProposal({ proposal: undefined });
+    await screen.findByLabelText("Report");
+    expect(screen.queryByRole("button", { name: "Take all" })).toBeNull();
+  });
+});
+
+describe("MeetingReportPanel — the previous version (AI-04)", () => {
+  const WITH_PREVIOUS = {
+    html: "<p>current</p>",
+    updatedAt: "2026-10-30T09:00:00.000Z",
+    previous: { html: "<p>older</p>", savedAt: "2026-10-29T08:00:00.000Z" },
+  };
+
+  function renderPrev(onRestorePrevious = vi.fn()) {
+    render(
+      <ConfirmProvider lang="en-US">
+        <MeetingReportPanel
+          lang="en-US"
+          report={WITH_PREVIOUS}
+          recipients={["a@x.com"]}
+          onSave={vi.fn()}
+          onSend={vi.fn()}
+          m365Configured
+          onRestorePrevious={onRestorePrevious}
+        />
+      </ConfirmProvider>,
+    );
+    return onRestorePrevious;
+  }
+
+  it("names the previous version with its save time", async () => {
+    renderPrev();
+    await screen.findByLabelText("Report");
+    expect(screen.getByText("Previous version (saved 2026-10-29T08:00:00.000Z)")).toBeInTheDocument();
+  });
+
+  it("Compare shows a line diff of the previous version against the draft", async () => {
+    renderPrev();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Compare – Previous version" }));
+    expect(screen.getByLabelText("Previous version: older")).toBeInTheDocument();
+    expect(screen.getByLabelText("Current: current")).toBeInTheDocument();
+  });
+
+  it("Restore without unsaved changes restores at once", async () => {
+    const onRestorePrevious = renderPrev();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Restore – Previous version" }));
+    await waitFor(() => expect(onRestorePrevious).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("Restore with unsaved changes asks first", async () => {
+    const onRestorePrevious = renderPrev();
+    fireEvent.change(await screen.findByLabelText("Report"), { target: { value: "<p>typed</p>" } });
+    fireEvent.click(screen.getByRole("button", { name: "Restore – Previous version" }));
+    const dialog = await screen.findByRole("dialog", { name: "Unsaved changes" });
+    expect(onRestorePrevious).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Restore" }));
+    await waitFor(() => expect(onRestorePrevious).toHaveBeenCalledTimes(1));
+  });
+
+  it("Restore with unsaved changes, cancelled, restores nothing", async () => {
+    const onRestorePrevious = renderPrev();
+    fireEvent.change(await screen.findByLabelText("Report"), { target: { value: "<p>typed</p>" } });
+    fireEvent.click(screen.getByRole("button", { name: "Restore – Previous version" }));
+    const dialog = await screen.findByRole("dialog", { name: "Unsaved changes" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Unsaved changes" })).toBeNull());
+    expect(onRestorePrevious).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Report")).toHaveValue("<p>typed</p>");
+  });
+
+  it("marks the panel dirty for the top-bar undo guard only while the draft differs from the stored body", async () => {
+    const { container } = render(
+      <MeetingReportPanel lang="en-US" report={WITH_PREVIOUS} recipients={[]} onSave={vi.fn()} onSend={vi.fn()} m365Configured />,
+    );
+    const editor = await screen.findByLabelText("Report");
+    expect(container.querySelector('[data-report-dirty="true"]')).toBeNull();
+    fireEvent.change(editor, { target: { value: "<p>typed</p>" } });
+    expect(container.querySelector('[data-report-dirty="true"]')).not.toBeNull();
   });
 });
