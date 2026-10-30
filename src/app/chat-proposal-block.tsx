@@ -49,7 +49,15 @@ import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type DiffEntity, type EditPlan, type Rejected } from "./inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { CreateFieldsList } from "./create-fields-list";
-import { previewEntityOf, type DescribedRow } from "./chat-proposal-describe";
+import {
+  forecastRowLine,
+  previewEntityOf,
+  projectRowName,
+  type DescribedRow,
+  type ForecastChangeCount,
+  type ForecastLine,
+  type ForecastScenarioRef,
+} from "./chat-proposal-describe";
 import type { Workspace } from "./workspace";
 
 /** Rows shown before the disclosure collapses the rest. */
@@ -183,15 +191,60 @@ export function taskToolRowTitle(
 
 /** The card line for a row `liveRowTitle` (`chat-proposal-stage.ts`) could not title from the live workspace: the
  *  translated lines first, the call's own title-ish input last. The panel passes it to `proposalTitles`; the
- *  coverage test in `chat-proposal-describe.test.ts` runs every stageable tool through the same pair. */
-export function cardRowTitle(lang: Lang, row: DescribedRow, ws: Workspace): string {
+ *  coverage test in `chat-proposal-describe.test.ts` runs every stageable tool through the same pair.
+ *  `pendingScenarios` names the forecast scenarios the same plan creates (`pendingScenarioNames`). */
+export function cardRowTitle(
+  lang: Lang,
+  row: DescribedRow,
+  ws: Workspace,
+  pendingScenarios: ReadonlyMap<number, string> = new Map(),
+): string {
+  const forecast = forecastRowLine(row.call, ws, pendingScenarios);
+  const projectName = projectRowName(row.call, ws.project);
   return (
+    (forecast === null ? null : forecastRowTitle(lang, forecast)) ??
+    (projectName === null ? null : t(lang, "chatProposalProjectTitle", t(lang, "chatProposalQuoted", projectName))) ??
     functionsRowTitle(lang, row.call) ??
     escalationRowTitle(lang, row.call, ws.raid ?? []) ??
     taskToolRowTitle(lang, row.call, ws.tasks ?? []) ??
     deviceRowTitle(lang, row.device) ??
     proposalRowTitle(row.call, row.plan)
   );
+}
+
+function scenarioText(lang: Lang, ref: ForecastScenarioRef): string {
+  return ref.kind === "named" ? t(lang, "chatProposalQuoted", ref.name) : `#${ref.id}`;
+}
+
+function changeCountText(lang: Lang, changes: ForecastChangeCount): string {
+  if (changes.kind === "rows") return tPlural(lang, "chatProposalForecastChanges", changes.count, changes.count);
+  // Singular only when both counts are 1.
+  const key = changes.before === 1 && changes.after === 1 ? "chatProposalForecastReplaceSingular" : "chatProposalForecastReplace";
+  return t(lang, key, changes.before, changes.after);
+}
+
+/** §502 — a staged forecast write's card line, translated from the data `forecastRowLine` returns. */
+export function forecastRowTitle(lang: Lang, line: ForecastLine): string {
+  const withCount = (base: string, changes: ForecastChangeCount | null): string =>
+    changes === null ? base : `${base} (${changeCountText(lang, changes)})`;
+  switch (line.kind) {
+    case "target":
+      return t(lang, "chatProposalForecastTarget", line.value);
+    case "save":
+      return withCount(t(lang, "chatProposalForecastSave", t(lang, "chatProposalQuoted", line.name)), line.changes);
+    case "clearProposal":
+      return t(lang, "chatProposalForecastClear");
+    case "propose":
+      return t(lang, "chatProposalForecastPropose", scenarioText(lang, line.scenario));
+    case "delete":
+      return t(lang, line.isProposal ? "chatProposalForecastDeleteProposal" : "chatProposalForecastDelete", scenarioText(lang, line.scenario));
+    case "edit": {
+      const base = line.rename === null
+        ? t(lang, "chatProposalForecastEdit", scenarioText(lang, line.scenario))
+        : t(lang, "chatProposalForecastEditRenamed", scenarioText(lang, line.scenario), t(lang, "chatProposalQuoted", line.rename));
+      return withCount(base, line.changes);
+    }
+  }
 }
 
 /** Settings as the tool names them, `key = value`; no settings label table exists. */

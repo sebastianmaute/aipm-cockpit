@@ -551,10 +551,10 @@ describe("TOOL_ENTITY", () => {
       "delete_all_tasks", "send_inquiry", "set_task_dependencies",
       "escalate_raid_item",
       // §502 — no descriptor, so no field diff; the card line itself carries the scenario name and the
-      // row count (`forecastScenarioRowTitle`, pinned in `use-forecast-tools.test.tsx`).
+      // row count (`forecastRowLine`, translated by `forecastRowTitle`, pinned in `use-forecast-tools.test.tsx`).
       "create_forecast_scenario", "update_forecast_scenario",
-      // §502 part 4 — the same: the decision writes' card lines come from `forecastScenarioRowTitle` (delete,
-      // proposal) and `forecastTargetRowTitle` (target confidence).
+      // §502 part 4 — the same: the decision writes' card lines (delete, proposal, target confidence) come from
+      // `forecastRowLine` too.
       "delete_forecast_scenario", "set_forecast_proposal", "set_forecast_target_confidence",
       // §715 — the project record has no create/update/delete triple, so it has no descriptor in the map.
       // Like `set_task_dependencies` it has a describer of its own (`describeProjectCall`, pinned in
@@ -776,5 +776,23 @@ describe("every tool that can stage gets a described card line (AI-02)", () => {
       return title.trim() === "" || title === name;
     });
     expect(bare.map(([name]) => name)).toEqual([]);
+  });
+
+  // ★★ A line the German card shows in English. A title may read the same in both languages only when it is pure
+  // data — a row's own name, as the sample or the fixture spells it. Anything with words of its own must be
+  // translated. Mutation: a forecast line rendered from an English string in German turns this red.
+  test("every line with words of its own is translated into German", async () => {
+    await loadI18n("de");
+    const values = JSON.stringify(full);
+    const english = Object.entries(SAMPLES).filter(([name, input]) => {
+      const rows = describeProposal([call(name, input)], full);
+      const [en] = proposalTitles(rows, full, (r, pending) => cardRowTitle("en-US", r, full, pending));
+      const [de] = proposalTitles(rows, full, (r, pending) => cardRowTitle("de", r, full, pending));
+      // Pure data: every word of the title occurs in the fixture or in the sample's own input.
+      const hay = values + JSON.stringify(input);
+      const isData = en.split(/[^\p{L}\p{N}]+/u).filter(Boolean).every((word) => hay.includes(word));
+      return en === de && !isData;
+    });
+    expect(english.map(([name]) => name)).toEqual([]);
   });
 });
