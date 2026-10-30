@@ -3,6 +3,7 @@
 // Caller is responsible for reading file bytes; this module is synchronous.
 
 import { officeKindOf } from "./office-extract";
+import { truncateField } from "./mail-extract";
 
 // ---------------------------------------------------------------------------
 // Exported types — chat-panel.tsx imports these to extend its ContentBlock union
@@ -187,13 +188,22 @@ export function checkAttachmentSize(
 // buildAttachmentBlock
 // ---------------------------------------------------------------------------
 
+/** C0 and C1 control characters, DEL, and the Unicode line and paragraph separators. */
+const TITLE_CONTROL_CHARS = /[\x00-\x1F\x7F-\x9F\u2028\u2029]/g;
+
+function titleFileName(name: string): string {
+  return truncateField(name.replace(TITLE_CONTROL_CHARS, ""));
+}
+
 /**
  * Build the Anthropic content block for the given attachment kind.
  * - pdf / image: `data` is base64 (no data: URI prefix).
  * - text: `data` is the decoded UTF-8 string.
  * All returned objects are new (immutable).
  * A document block carries `title: "Attachment: <fileName>"` when `fileName` is
- * given; an image block has no title field.
+ * given; an image block has no title field. The name is sender-chosen for a mail's
+ * attachments, so control characters (line breaks included) are stripped and its
+ * length is bounded with `truncateField`, as the mail's own header fields are.
  */
 export function buildAttachmentBlock(
   kind: AttachmentKind,
@@ -201,7 +211,7 @@ export function buildAttachmentBlock(
   data: string,
   fileName?: string
 ): AttachmentBlock {
-  const title = fileName === undefined ? {} : { title: `Attachment: ${fileName}` };
+  const title = fileName === undefined ? {} : { title: `Attachment: ${titleFileName(fileName)}` };
   if (kind === "pdf") {
     return {
       type: "document",
