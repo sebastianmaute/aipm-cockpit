@@ -19,6 +19,9 @@ import type { MeetingReportVersionUi } from "./meeting-report-panel";
 import type { DashboardModel } from "./dashboard";
 import type { TursoConfig } from "./turso-config";
 import { dropStaleScopeWrite, type ScopeEpochReader } from "./scope-epoch";
+import type { UndoStackApi } from "./undo/use-undo-stack";
+import type { LogActivityAsFn } from "./activity-log-context";
+import { meetingReportUndoFragment } from "./meeting-report-undo";
 
 export interface MeetingReportActionsDeps {
   lang: Lang;
@@ -48,13 +51,17 @@ export interface MeetingReportActionsDeps {
    *  await and drops its write when it moved: meeting ids restart at 1 in every project, so a late
    *  write would otherwise land on the next project's meeting with the same id. */
   getScopeEpoch: ScopeEpochReader;
+  /** AI-04 — a report save / swap is ONE undo entry (restores `html` and `previous` together). */
+  captureComposite: UndoStackApi["captureComposite"];
+  /** AI-04 — a save that contains AI-drafted text is logged as actor "ai". */
+  logActivityAs: LogActivityAsFn;
 }
 
 export interface MeetingReportBag {
   m365Configured: boolean;
   aiConfigured: boolean;
   tursoActive: boolean;
-  onSaveReport: (meetingId: number, html: string) => void;
+  onSaveReport: (meetingId: number, html: string, opts?: { fromAi?: boolean }) => void;
   /** Swap a report with its previous version (new `updatedAt`, `sentAt` dropped);
    *  a no-op when there is no previous. Calling it again swaps back. */
   onRestorePrevious: (meetingId: number) => void;
@@ -123,45 +130,53 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
 
   // Functional committee setter — writes the report onto the meeting; the prior
   // sentAt survives (a re-save doesn't clear the last-sent stamp).
-  function onSaveReport(meetingId: number, html: string): void {
+  function onSaveReport(meetingId: number, html: string, opts?: { fromAi?: boolean }): void {
+    const meeting = deps.committee?.meetings.find((m) => m.id === meetingId);
+    if (!meeting) return;
     void snapshotCurrent(meetingId); // snapshot the prior before we overwrite it
     // Uniform write-time sanitization (defense-in-depth) — every body write
     // (manual save, AI draft, restore) routes through here. A NEW body is
     // unsent, so `sentAt` is intentionally dropped.
     const clean = sanitizeRichHtml(html);
+    const after = replacedReport(meeting.report, clean);
     deps.setSteeringCommittee((c) =>
       c
-        ? {
-            ...c,
-            meetings: c.meetings.map((m) =>
-              m.id === meetingId ? { ...m, report: replacedReport(m.report, clean) } : m,
-            ),
-          }
+        ? { ...c, meetings: c.meetings.map((m) => (m.id === meetingId ? { ...m, report: after } : m)) }
         : c,
     );
+    // An unchanged body is not a change: nothing to undo and nothing to log.
+    if (meeting.report?.html === clean) return;
+    captureReportChange(meeting.id, meeting.date, meeting.report, after);
+    if (opts?.fromAi) deps.logActivityAs("ai", "ai.reportDraft", meeting.date);
+  }
+
+  function captureReportChange(meetingId: number, date: string, before: MeetingReport | undefined, after: MeetingReport): void {
+    deps.captureComposite({
+      kind: "meetingReport.updated",
+      primaryCount: 1,
+      name: date,
+      parts: [meetingReportUndoFragment({ setSteeringCommittee: deps.setSteeringCommittee, meetingId, before, after })],
+      readEpoch: deps.getScopeEpoch(),
+    });
   }
 
   function onRestorePrevious(meetingId: number): void {
+    const meeting = deps.committee?.meetings.find((m) => m.id === meetingId);
+    const current = meeting?.report;
+    const prev = current?.previous;
+    if (!meeting || !current || !prev) return;
+    const after: MeetingReport = {
+      html: prev.html,
+      updatedAt: nowIso(),
+      // An empty current body is not kept (the load sanitizer would drop it).
+      ...(current.html !== "" ? { previous: { html: current.html, savedAt: current.updatedAt } } : {}),
+    };
     deps.setSteeringCommittee((c) =>
       c
-        ? {
-            ...c,
-            meetings: c.meetings.map((m) => {
-              const prev = m.report?.previous;
-              if (m.id !== meetingId || !m.report || !prev) return m;
-              return {
-                ...m,
-                report: {
-                  html: prev.html,
-                  updatedAt: nowIso(),
-                  // An empty current body is not kept (the load sanitizer would drop it).
-                  ...(m.report.html !== "" ? { previous: { html: m.report.html, savedAt: m.report.updatedAt } } : {}),
-                },
-              };
-            }),
-          }
+        ? { ...c, meetings: c.meetings.map((m) => (m.id === meetingId ? { ...m, report: after } : m)) }
         : c,
     );
+    captureReportChange(meeting.id, meeting.date, current, after);
   }
 
   async function onSendReport(meetingId: number, recipients: readonly string[]): Promise<void> {

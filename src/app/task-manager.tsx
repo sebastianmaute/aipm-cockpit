@@ -889,6 +889,7 @@ function TaskManagerInner() {
     getDashboardModel: () => dashboardModel,
     aiKey: aiKeyIfEnabled(settings.ai),
     aiModel: settings.ai.model, guides: operatingGuides.guides,
+    captureComposite: undoApi.captureComposite, logActivityAs,
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "", getScopeEpoch, // §763: no late write into the next project
   });
   // Stable callback (its own useCallback) — depend on this, not the whole hook

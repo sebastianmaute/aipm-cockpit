@@ -38,7 +38,7 @@ const UNDO_CAP = 25;
 export type UndoEntityKey =
   | "task" | "milestone" | "raid" | "change" | "stakeholder"
   | "resource" | "absence" | "shift" | "role" | "discipline" | "grade"
-  | "calendarEvent" | "budget" | "forecastScenario" | "project";
+  | "calendarEvent" | "budget" | "forecastScenario" | "project" | "meetingReport";
 
 type I18nKey = Parameters<typeof t>[1];
 
@@ -58,6 +58,7 @@ const ENTITY_SINGULAR: Record<UndoEntityKey, I18nKey> = {
   budget: "undoEntityBudget",
   forecastScenario: "undoEntityForecastScenario",
   project: "undoEntityProject",
+  meetingReport: "undoEntityMeetingReport",
 };
 // §132 — a plural for EVERY entity, and a total record so tsc demands the next one: an unnamed
 // multi-row edit now names its entity with a count ("Edit 3 absences"), so the old "only named,
@@ -78,6 +79,7 @@ const ENTITY_PLURAL: Record<UndoEntityKey, I18nKey> = {
   budget: "undoEntityBudgets",
   forecastScenario: "undoEntityForecastScenarios",
   project: "undoEntityProjects",
+  meetingReport: "undoEntityMeetingReports",
 };
 
 // ★ Must stay in lockstep with the entity prefixes in ACTIVITY_KIND_TO_KEY: a
@@ -89,7 +91,7 @@ const ENTITY_PLURAL: Record<UndoEntityKey, I18nKey> = {
 const ENTITY_KEY_SET: ReadonlySet<string> = new Set<UndoEntityKey>([
   "task", "milestone", "raid", "change", "stakeholder",
   "resource", "absence", "shift", "role", "discipline", "grade",
-  "calendarEvent", "budget", "forecastScenario", "project",
+  "calendarEvent", "budget", "forecastScenario", "project", "meetingReport",
 ]);
 
 function entityKeyFromKind(kind: ActivityKind): UndoEntityKey | null {

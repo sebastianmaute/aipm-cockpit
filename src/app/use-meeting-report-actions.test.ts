@@ -7,6 +7,7 @@ import { defaultSettings } from "./settings-types";
 import { AiGatewayError, AiHttpError } from "./ai-errors";
 import { t } from "./i18n";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
+import type { CaptureCompositeOpts } from "./undo/use-undo-stack";
 
 const sendMail = vi.fn<(token: string, msg: unknown) => Promise<void>>(async () => {});
 const runMeetingReport = vi.fn<() => Promise<string>>(async () => "<p>ai draft</p>");
@@ -68,6 +69,8 @@ function makeDeps(over: Partial<MeetingReportActionsDeps> = {}): MeetingReportAc
     guides: [],
     projectId: "p1",
     getScopeEpoch: () => 0,
+    captureComposite: vi.fn(),
+    logActivityAs: vi.fn(),
     ...over,
   };
 }
@@ -97,12 +100,14 @@ describe("useMeetingReportActions", () => {
   });
 
   describe("previous version", () => {
-    function harness(initial: SteeringCommittee = committee()) {
+    function harness(initial: SteeringCommittee = committee(), extra: Partial<MeetingReportActionsDeps> = {}) {
       let state: SteeringCommittee | undefined = initial;
       const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
         state = u(state);
       });
-      const { result } = renderHook(() => useMeetingReportActions(makeDeps({ setSteeringCommittee })));
+      const deps = makeDeps({ setSteeringCommittee, ...extra });
+      Object.defineProperty(deps, "committee", { get: () => state });
+      const { result } = renderHook(() => useMeetingReportActions(deps));
       return { result, report: () => state!.meetings[0].report!, meetings: () => state!.meetings };
     }
     const withReport = (report: MeetingReport): SteeringCommittee => ({
@@ -124,7 +129,9 @@ describe("useMeetingReportActions", () => {
       const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
         state = u(state);
       });
-      const { result } = renderHook(() => useMeetingReportActions(makeDeps({ setSteeringCommittee })));
+      const deps = makeDeps({ setSteeringCommittee });
+      Object.defineProperty(deps, "committee", { get: () => state });
+      const { result } = renderHook(() => useMeetingReportActions(deps));
       act(() => result.current!.onSaveReport(10, "<p>first</p>"));
       expect(state!.meetings[0].report?.previous).toBeUndefined();
       state = { ...state!, meetings: [{ ...state!.meetings[0], report: { html: "", updatedAt: "t0" } }] };
@@ -176,6 +183,63 @@ describe("useMeetingReportActions", () => {
       const h = harness();
       act(() => h.result.current!.onRestorePrevious(10));
       expect(h.report()).toEqual({ html: "<p>x</p>", updatedAt: "t0" });
+    });
+
+    describe("undo and activity (AI-04)", () => {
+      const run = (c: ReturnType<typeof vi.fn>, i = 0) => (c.mock.calls[i][0] as CaptureCompositeOpts);
+
+      it("a save captures ONE meetingReport composite named by the meeting date", () => {
+        const captureComposite = vi.fn();
+        const h = harness(committee(), { captureComposite });
+        act(() => h.result.current!.onSaveReport(10, "<p>second</p>"));
+        expect(captureComposite).toHaveBeenCalledTimes(1);
+        expect(run(captureComposite)).toMatchObject({ kind: "meetingReport.updated", primaryCount: 1, name: "2026-06-01" });
+        expect(run(captureComposite).parts).toHaveLength(1);
+      });
+
+      it("undo restores html AND previous together; redo re-applies both", () => {
+        const captureComposite = vi.fn();
+        const h = harness(committee(), { captureComposite });
+        act(() => h.result.current!.onSaveReport(10, "<p>second</p>"));
+        const saved = h.report();
+        expect(saved.previous?.html).toBe("<p>x</p>");
+        const redo = run(captureComposite).parts[0]!.restore({ current: new Map() }, false);
+        expect(h.report()).toEqual({ html: "<p>x</p>", updatedAt: "t0" });
+        redo();
+        expect(h.report()).toEqual(saved);
+      });
+
+      it("a restore-previous is one entry too, and undo brings the swapped pair back", () => {
+        const captureComposite = vi.fn();
+        const h = harness(committee(), { captureComposite });
+        act(() => h.result.current!.onSaveReport(10, "<p>second</p>"));
+        const before = h.report();
+        act(() => h.result.current!.onRestorePrevious(10));
+        expect(captureComposite).toHaveBeenCalledTimes(2);
+        run(captureComposite, 1).parts[0]!.restore({ current: new Map() }, false);
+        expect(h.report()).toEqual(before);
+      });
+
+      it("fromAi logs exactly one ai.reportDraft as actor ai; a plain save logs nothing", () => {
+        const logActivityAs = vi.fn();
+        const h = harness(committee(), { logActivityAs });
+        act(() => h.result.current!.onSaveReport(10, "<p>plain</p>"));
+        expect(logActivityAs).not.toHaveBeenCalled();
+        act(() => h.result.current!.onSaveReport(10, "<p>drafted</p>", { fromAi: true }));
+        expect(logActivityAs).toHaveBeenCalledTimes(1);
+        expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.reportDraft", "2026-06-01");
+      });
+
+      it("captures and logs nothing for an unknown meeting, a restore without previous, or an unchanged body", () => {
+        const captureComposite = vi.fn();
+        const logActivityAs = vi.fn();
+        const h = harness(committee(), { captureComposite, logActivityAs });
+        act(() => h.result.current!.onSaveReport(99, "<p>z</p>", { fromAi: true }));
+        act(() => h.result.current!.onRestorePrevious(10));
+        act(() => h.result.current!.onSaveReport(10, "<p>x</p>", { fromAi: true }));
+        expect(captureComposite).not.toHaveBeenCalled();
+        expect(logActivityAs).not.toHaveBeenCalled();
+      });
     });
   });
 
