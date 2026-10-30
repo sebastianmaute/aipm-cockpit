@@ -90,8 +90,8 @@ function isBlankReport(html: string): boolean {
 
 /** The report after a save: the new text, with the replaced text kept as `previous`
  *  when it was non-empty. A new body is unsent, so `sentAt` is not carried. */
-function replacedReport(old: MeetingReport | undefined, html: string): MeetingReport {
-  const report: MeetingReport = { html, updatedAt: nowIso() };
+function replacedReport(old: MeetingReport | undefined, html: string, stamp: string): MeetingReport {
+  const report: MeetingReport = { html, updatedAt: stamp };
   if (old && old.html === html) return { ...report, ...(old.previous ? { previous: old.previous } : {}) };
   if (old && old.html !== "") report.previous = { html: old.html, savedAt: old.updatedAt };
   return report;
@@ -138,24 +138,55 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     // (manual save, AI draft, restore) routes through here. A NEW body is
     // unsent, so `sentAt` is intentionally dropped.
     const clean = sanitizeRichHtml(html);
-    const after = replacedReport(meeting.report, clean);
-    deps.setSteeringCommittee((c) =>
-      c
-        ? { ...c, meetings: c.meetings.map((m) => (m.id === meetingId ? { ...m, report: after } : m)) }
-        : c,
-    );
-    // An unchanged body is not a change: nothing to undo and nothing to log.
+    const stamp = nowIso();
+    const seen = writeLiveReport(meetingId, (old) => replacedReport(old, clean, stamp));
+    // An unchanged body is not a change: nothing to undo and nothing to log. (Judged on the render-scope
+    // meeting, which is enough for a capture decision; the write above is judged on the live one.)
     if (meeting.report?.html === clean) return;
-    captureReportChange(meeting.id, meeting.date, meeting.report, after);
+    captureReportChange(meeting.id, meeting.date, seen);
     if (opts?.fromAi) deps.logActivityAs("ai", "ai.reportDraft", meeting.date);
   }
 
-  function captureReportChange(meetingId: number, date: string, before: MeetingReport | undefined, after: MeetingReport): void {
+  /** Rewrites ONE meeting's report inside a functional setter, from the LIVE `m.report` (N saves in one tick
+   *  compose; a write between render and click is not clobbered). `next` returning undefined skips the write.
+   *  Returns what the updater actually saw and wrote, for the undo fragment to read later: the updater is
+   *  deterministic in (live state, args) — the timestamp is taken by the caller — so a StrictMode double-run
+   *  stores the same pair. The undo entry itself is captured OUTSIDE the updater (no side effect in it). */
+  function writeLiveReport(
+    meetingId: number,
+    next: (old: MeetingReport | undefined) => MeetingReport | undefined,
+  ): { before: () => MeetingReport | undefined | null; after: () => MeetingReport | undefined | null } {
+    let wrote = false;
+    let before: MeetingReport | undefined;
+    let after: MeetingReport | undefined;
+    deps.setSteeringCommittee((c) => {
+      if (!c) return c;
+      return {
+        ...c,
+        meetings: c.meetings.map((m) => {
+          if (m.id !== meetingId) return m;
+          const r = next(m.report);
+          if (r === undefined) return m;
+          wrote = true;
+          before = m.report;
+          after = r;
+          return { ...m, report: r };
+        }),
+      };
+    });
+    return { before: () => (wrote ? before : null), after: () => (wrote ? after : null) };
+  }
+
+  function captureReportChange(
+    meetingId: number,
+    date: string,
+    seen: { before: () => MeetingReport | undefined | null; after: () => MeetingReport | undefined | null },
+  ): void {
     deps.captureComposite({
       kind: "meetingReport.updated",
       primaryCount: 1,
       name: date,
-      parts: [meetingReportUndoFragment({ setSteeringCommittee: deps.setSteeringCommittee, meetingId, before, after })],
+      parts: [meetingReportUndoFragment({ setSteeringCommittee: deps.setSteeringCommittee, meetingId, before: seen.before, after: seen.after })],
       readEpoch: deps.getScopeEpoch(),
     });
   }
@@ -165,18 +196,19 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     const current = meeting?.report;
     const prev = current?.previous;
     if (!meeting || !current || !prev) return;
-    const after: MeetingReport = {
-      html: prev.html,
-      updatedAt: nowIso(),
-      // An empty current body is not kept (the load sanitizer would drop it).
-      ...(current.html !== "" ? { previous: { html: current.html, savedAt: current.updatedAt } } : {}),
-    };
-    deps.setSteeringCommittee((c) =>
-      c
-        ? { ...c, meetings: c.meetings.map((m) => (m.id === meetingId ? { ...m, report: after } : m)) }
-        : c,
-    );
-    captureReportChange(meeting.id, meeting.date, current, after);
+    const stamp = nowIso();
+    const seen = writeLiveReport(meetingId, (live) => {
+      // Judged on the LIVE report: no previous there (a concurrent swap or save) means nothing to swap.
+      const p = live?.previous;
+      if (!live || !p) return undefined;
+      return {
+        html: p.html,
+        updatedAt: stamp,
+        // An empty current body is not kept (the load sanitizer would drop it).
+        ...(live.html !== "" ? { previous: { html: live.html, savedAt: live.updatedAt } } : {}),
+      };
+    });
+    captureReportChange(meeting.id, meeting.date, seen);
   }
 
   async function onSendReport(meetingId: number, recipients: readonly string[]): Promise<void> {

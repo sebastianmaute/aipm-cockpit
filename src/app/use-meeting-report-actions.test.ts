@@ -230,15 +230,94 @@ describe("useMeetingReportActions", () => {
         expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.reportDraft", "2026-06-01");
       });
 
-      it("captures and logs nothing for an unknown meeting, a restore without previous, or an unchanged body", () => {
+      function quiet() {
         const captureComposite = vi.fn();
         const logActivityAs = vi.fn();
-        const h = harness(committee(), { captureComposite, logActivityAs });
-        act(() => h.result.current!.onSaveReport(99, "<p>z</p>", { fromAi: true }));
-        act(() => h.result.current!.onRestorePrevious(10));
-        act(() => h.result.current!.onSaveReport(10, "<p>x</p>", { fromAi: true }));
-        expect(captureComposite).not.toHaveBeenCalled();
-        expect(logActivityAs).not.toHaveBeenCalled();
+        return { captureComposite, logActivityAs, h: harness(committee(), { captureComposite, logActivityAs }) };
+      }
+
+      it("captures and logs nothing for an unknown meeting", () => {
+        const q = quiet();
+        act(() => q.h.result.current!.onSaveReport(99, "<p>z</p>", { fromAi: true }));
+        expect(q.captureComposite).not.toHaveBeenCalled();
+        expect(q.logActivityAs).not.toHaveBeenCalled();
+      });
+
+      it("captures and logs nothing for a restore without a previous", () => {
+        const q = quiet();
+        act(() => q.h.result.current!.onRestorePrevious(10));
+        expect(q.captureComposite).not.toHaveBeenCalled();
+        expect(q.logActivityAs).not.toHaveBeenCalled();
+      });
+
+      it("captures and logs nothing for an unchanged body", () => {
+        const q = quiet();
+        act(() => q.h.result.current!.onSaveReport(10, "<p>x</p>", { fromAi: true }));
+        expect(q.captureComposite).not.toHaveBeenCalled();
+        expect(q.logActivityAs).not.toHaveBeenCalled();
+      });
+    });
+
+    // The deps committee is FROZEN at the first render (not a live getter): the writes must compute from the
+    // setter's live state, as a real render-scope closure goes stale between clicks.
+    describe("live state, not the render-scope committee (AI-04)", () => {
+      function frozen(initial: SteeringCommittee, extra: Partial<MeetingReportActionsDeps> = {}) {
+        let state: SteeringCommittee | undefined = initial;
+        const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
+          state = u(state);
+        });
+        const deps = makeDeps({ setSteeringCommittee, committee: initial, ...extra });
+        const { result } = renderHook(() => useMeetingReportActions(deps));
+        return { result, report: () => state!.meetings[0].report!, set: (s: SteeringCommittee) => { state = s; } };
+      }
+
+      it("two saves in one act compose: the second's previous is the first text", () => {
+        const f = frozen(committee());
+        act(() => {
+          f.result.current!.onSaveReport(10, "<p>one</p>");
+          f.result.current!.onSaveReport(10, "<p>two</p>");
+        });
+        expect(f.report().html).toBe("<p>two</p>");
+        expect(f.report().previous?.html).toBe("<p>one</p>");
+      });
+
+      it("a write between render and save is the base: its text becomes previous and sentAt is dropped (a new body is unsent)", () => {
+        const f = frozen(committee());
+        f.set({
+          ...committee(),
+          meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>live</p>", updatedAt: "t3", sentAt: "t4" } }],
+        });
+        act(() => f.result.current!.onSaveReport(10, "<p>new</p>"));
+        expect(f.report().html).toBe("<p>new</p>");
+        expect(f.report().previous).toEqual({ html: "<p>live</p>", savedAt: "t3" });
+        expect(f.report().sentAt).toBeUndefined();
+      });
+
+      it("undoing the second of two same-tick saves restores exactly the state before it; redo re-applies it", () => {
+        const captureComposite = vi.fn();
+        const f = frozen(committee(), { captureComposite });
+        act(() => {
+          f.result.current!.onSaveReport(10, "<p>one</p>");
+          f.result.current!.onSaveReport(10, "<p>two</p>");
+        });
+        const afterOne = { ...f.report(), html: "<p>one</p>" };
+        const afterTwo = f.report();
+        expect(captureComposite).toHaveBeenCalledTimes(2);
+        const redo = (captureComposite.mock.calls[1][0] as CaptureCompositeOpts).parts[0]!.restore({ current: new Map() }, false);
+        expect(f.report().html).toBe(afterOne.html);
+        expect(f.report().previous).toEqual({ html: "<p>x</p>", savedAt: "t0" });
+        redo();
+        expect(f.report()).toEqual(afterTwo);
+      });
+
+      it("two restore-previous calls in one act swap back to where they started", () => {
+        const f = frozen({ ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>b</p>", updatedAt: "t2", previous: { html: "<p>a</p>", savedAt: "t1" } } }] });
+        act(() => {
+          f.result.current!.onRestorePrevious(10);
+          f.result.current!.onRestorePrevious(10);
+        });
+        expect(f.report().html).toBe("<p>b</p>");
+        expect(f.report().previous?.html).toBe("<p>a</p>");
       });
     });
   });
