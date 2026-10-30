@@ -100,6 +100,41 @@ function CapInput({
   );
 }
 
+/** The weekly hard cap field. It keeps a draft and commits on blur or Enter: a half-typed number must not pause
+ *  background AI. Blank (or anything that is no positive number) clears the cap. */
+function HardCapInput({ label, help, helpId, value, onCommit }: {
+  label: string;
+  help: string;
+  helpId: string;
+  value: number | undefined;
+  onCommit: (n: number | undefined) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = (): void => {
+    if (draft === null) return;
+    setDraft(null);
+    onCommit(coerceHardCap(draft));
+  };
+  return (
+    <div className="mt-2 block">
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
+      <Input
+        type="number"
+        aria-label={label}
+        aria-describedby={helpId}
+        min={1}
+        step={1}
+        value={draft ?? value ?? ""}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") commit(); }}
+        className="w-full"
+      />
+      <p id={helpId} className="mt-1 text-xs text-muted-foreground">{help}</p>
+    </div>
+  );
+}
+
 type ConsentChange = "accept" | "acceptBackground" | "enable" | "revoke";
 
 /** AI-01 — the AI permission fields each explicit action widens in storage; it may only narrow the rest. An
@@ -604,22 +639,13 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           onChange({ ...settings, ai: { ...settings.ai, weeklyTokenCap: n } })
         }
       />
-      <div className="mt-2 block">
-        <span className="mb-1 block text-xs text-muted-foreground">{t(lang, "aiWeeklyHardCap")}</span>
-        <Input
-          type="number"
-          aria-label={t(lang, "aiWeeklyHardCap")}
-          aria-describedby={hardCapHelpId}
-          min={1}
-          step={1}
-          value={settings.ai.weeklyHardCap ?? ""}
-          onChange={(e) =>
-            onChange({ ...settings, ai: { ...settings.ai, weeklyHardCap: coerceHardCap(e.target.value) } })
-          }
-          className="w-full"
-        />
-        <p id={hardCapHelpId} className="mt-1 text-xs text-muted-foreground">{t(lang, "aiWeeklyHardCapHelp")}</p>
-      </div>
+      <HardCapInput
+        label={t(lang, "aiWeeklyHardCap")}
+        help={t(lang, "aiWeeklyHardCapHelp")}
+        helpId={hardCapHelpId}
+        value={settings.ai.weeklyHardCap}
+        onCommit={(n) => onChange({ ...settings, ai: { ...settings.ai, weeklyHardCap: n } })}
+      />
       <CapInput
         label={t(lang, "aiMaxTurns")}
         hint={t(lang, "aiMaxTurnsHint")}

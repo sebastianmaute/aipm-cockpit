@@ -390,9 +390,16 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
 
   // The transport asks this flag before every unattended send. Keyed on the verdict, so a settings change or
   // another tab's recording that flips it publishes at once; the module setter is not React state.
+  // An idle tab never renders on Monday, so while reached a timer lifts the flag at the reset.
   useEffect(() => {
     publishBackgroundCapState(weekHardCapReached);
-    return () => publishBackgroundCapState(false);
+    const lift = weekHardCapReached
+      ? setTimeout(() => publishBackgroundCapState(false), Math.max(0, nextWeekReset(new Date()).getTime() - Date.now()))
+      : undefined;
+    return () => {
+      if (lift !== undefined) clearTimeout(lift);
+      publishBackgroundCapState(false);
+    };
   }, [weekHardCapReached]);
   const viewSwitchWeek = weekViewSwitchStats(viewSwitchBuckets, now);
 

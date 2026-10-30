@@ -201,8 +201,10 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
     });
   } catch (e) {
     // The transport throws `AiDeploymentError` before it sends anything (the setting changed since the check above):
-    // nothing was billed, so, as for the load, the claim is released and the next tick retries. The same holds for a
-    // consent withdrawn or a weekly hard cap reached since the check above: the gate runs before each send.
+    // nothing was billed, so, as for the load, the claim is released and the next tick retries. A consent withdrawn or
+    // a weekly hard cap reached since the check above is refused the same way, before a send. With the max-tokens
+    // retry the first reply may already have been billed when the second send is refused: that spend stays recorded
+    // in the usage store, and the released slot is retried once the gate allows it.
     if (e instanceof AiDeploymentError || e instanceof AiWeeklyCapReachedError || e instanceof AiConsentRevokedError) {
       await settle(releaseClaim(config, reportId));
       return "transient";

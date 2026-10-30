@@ -75,6 +75,52 @@ describe("AiUsageProvider weekly hard cap (AI-03)", () => {
     expect(isBackgroundCapReached()).toBe(false);
   });
 
+  it("is reached when the week total equals the cap exactly", async () => {
+    seedWeek(1000);
+    render(vi.fn(), withCap(1000));
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(true);
+  });
+
+  it("clears the published cap state on unmount", async () => {
+    seedWeek(2000);
+    const view = render(vi.fn(), withCap(1000));
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(true);
+    view.unmount();
+    expect(isBackgroundCapReached()).toBe(false);
+  });
+
+  it("lifts the published cap state at the week reset in a tab that never renders again", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 9, 28, 12, 0, 0)); // a Wednesday
+      seedWeek(2000);
+      render(vi.fn(), withCap(1000));
+      await act(async () => {});
+      expect(isBackgroundCapReached()).toBe(true);
+      act(() => { vi.advanceTimersByTime(5 * 24 * 3600 * 1000); });
+      expect(isBackgroundCapReached()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("defers the hard-cap warning past a tap that fired a soft-cap toast, without marking the week", async () => {
+    seedWeek(900);
+    const showToast = vi.fn();
+    // soft weekly cap 1000 crossed at 100 % by the same tap that reaches the hard cap of 1000
+    render(showToast, { ...defaultAiConfig, weeklyTokenCap: 1000, weeklyHardCap: 1000 });
+    await act(async () => {});
+    const hard = t("en-US", "aiHardCapPausedToast");
+    act(() => { emitUsage("chat", { input: 150, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiSelfLimitReached"));
+    expect(showToast.mock.calls.some((c) => c[1] === hard)).toBe(false);
+    expect(localStorage.getItem(AI_HARD_CAP_WARNED_KEY)).toBeNull();
+    act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(showToast.mock.calls.filter((c) => c[1] === hard)).toHaveLength(1);
+  });
+
   it("is not reached without a hard cap, however much is used", async () => {
     seedWeek(5_000_000);
     render(vi.fn(), withCap(undefined));
