@@ -232,8 +232,9 @@ function run(
     if (confirmReplace) items.splice(m, end - m);
     let at = confirmReplace ? m : end;
     if (shallower) while (at < items.length && items[at].section.level > sec.level) at++;
-    // Keep both also goes past AI items already placed there, so the AI sections keep AI order.
-    if (!confirmReplace) while (at < items.length && items[at].placed) at++;
+    // Keep both, and a shallower Replace (which lands away from the matched spot), go past AI items already placed
+    // there, so the AI sections keep AI order.
+    if (!confirmReplace || shallower) while (at < items.length && items[at].placed) at++;
     items.splice(at, 0, placed);
   }
   return { plan, html: items.map((it) => it.section.html).join("") };

@@ -286,6 +286,11 @@ describe("an AI section SHALLOWER than the user section it matches keeps the use
       "<h2>Status</h2><p>s</p><h3>Risks</h3><p>r</p><h3>After</h3><p>a</p><h2>Risks</h2><p>ai</p><h2>Z</h2>",
     );
   });
+  it("Take all with Replace over two shallower matches under one parent keeps AI order", () => {
+    const user = "<h2>S</h2><h3>A</h3><p>a</p><h3>B</h3><p>b</p><h3>C</h3><p>c</p>";
+    const two = ai("<h2>A</h2><p>xa</p><h2>B</h2><p>xb</p>");
+    expect(applyTake(user, two, [0, 1], true)).toBe("<h2>S</h2><h3>C</h3><p>c</p><h2>A</h2><p>xa</p><h2>B</h2><p>xb</p>");
+  });
   it("a same-level match is unchanged", () => {
     expect(applyTake("<h2>Risks</h2><p>r</p><h3>Sub</h3><p>x</p><h2>Z</h2>", AI, [0], true)).toBe("<h2>Risks</h2><p>ai</p><h2>Z</h2>");
   });
