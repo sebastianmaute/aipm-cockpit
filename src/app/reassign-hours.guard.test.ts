@@ -5,6 +5,9 @@
 // ★ What the scan cannot see: an owner written through a patch object built elsewhere (the table's inline cell
 // sends `{ assignee, assigneeEmail, resourceId }` from `task-row.tsx` to `tasks-section.tsx`'s `onInlinePatch`,
 // so the literal sits in `task-row.tsx`). The lists name the file that holds the literal.
+// ★★ The check is per FILE, not per write: once a file is listed, a second, unrouted owner write added to
+// the same file passes. `use-chat-dispatcher.ts` is listed because of its `create_task` literal; its routed
+// `update_task` builds the owner through `withReassignFields`, which this scan cannot see at all.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import ts from "typescript";

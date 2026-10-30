@@ -105,6 +105,31 @@ function nothingMovedSentences(move: TaskHoursMove, ctx: HoursMoveNoticeCtx): st
   return out;
 }
 
+type SkipKind = NoMoveReason | "shortfall" | "receiverCap";
+
+const SKIP_LABEL_KEY = {
+  noEstimate: "hoursSkipNoEstimate",
+  closed: "hoursSkipClosed",
+  unlinked: "hoursSkipUnlinked",
+  outsideWindow: "hoursSkipOutsideWindow",
+  shortfall: "hoursSkipShortfall",
+  receiverCap: "hoursSkipReceiverCap",
+} as const satisfies Record<SkipKind, string>;
+const SKIP_ORDER: readonly SkipKind[] = ["noEstimate", "closed", "unlinked", "outsideWindow", "shortfall", "receiverCap"];
+
+/** Why a skipped task moved nothing, as one kind: its reason, else a giver with nothing planned, else a full receiver. */
+function skipKind(move: TaskHoursMove): SkipKind {
+  return move.reason ?? (move.shortfallHours > 0 ? "shortfall" : "receiverCap");
+}
+
+/** "No planned hours moved for 8 tasks: no remaining estimate (5), closed (3)." */
+function skippedSummary(skipped: readonly TaskHoursMove[], lang: Lang): string {
+  const counts = new Map<SkipKind, number>();
+  for (const move of skipped) counts.set(skipKind(move), (counts.get(skipKind(move)) ?? 0) + 1);
+  const parts = SKIP_ORDER.filter((k) => counts.has(k)).map((k) => `${t(lang, SKIP_LABEL_KEY[k])} (${counts.get(k)})`);
+  return t(lang, "hoursMovedSkippedSummary", skipped.length, parts.join(", "));
+}
+
 /** The notice for a plan, or null when nothing moved and nothing needs saying. */
 export function hoursMoveNotice(plan: HoursMovePlan, ctx: HoursMoveNoticeCtx): string | null {
   const moved = plan.moves.filter((m) => m.movedHours > 0);
@@ -113,7 +138,10 @@ export function hoursMoveNotice(plan: HoursMovePlan, ctx: HoursMoveNoticeCtx): s
   );
   if (moved.length === 0 && skipped.length === 0) return null;
   const sentences: string[] = groupByPair(moved).map((g) => `${pairSentence(g, ctx)}.`);
-  for (const move of skipped) sentences.push(...nothingMovedSentences(move, ctx));
+  // One skipped task keeps its own sentence; several are summarised by reason, so a bulk edit over many
+  // unestimated or closed tasks still gives one short notice (final review).
+  if (skipped.length === 1) sentences.push(...nothingMovedSentences(skipped[0], ctx));
+  else if (skipped.length > 1) sentences.push(skippedSummary(skipped, ctx.lang));
   for (const over of plan.overCapacity) {
     sentences.push(
       t(ctx.lang, "hoursMovedOverCapacity", ctx.resourceName(over.resourceId), over.percent, ctx.periodLabel(over.periodKey)),

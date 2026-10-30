@@ -5,10 +5,11 @@
 // It glues the pure planner (`reassign-hours.ts`) and notice (`reassign-hours-notice.ts`)
 // to the setters, the undo stack and the activity log.
 //
-// ★ Undo is ONE entry per action: every fragment is a `captureFieldPart`, so the
-//   composite has no whole-row `capturePart` and no id-remap to follow, and undo /
-//   redo merge `utilization` PER KEY (`mergeFieldPatch`) — a later edit to a period
-//   the move did not touch survives the undo.
+// ★ Undo is ONE entry per action. The resources fragment is a `captureFieldPart` and
+//   is never primary, so undo / redo merge `utilization` PER KEY (`mergeFieldPatch`) —
+//   a later edit to a period the move did not touch survives the undo. The task
+//   fragment is the caller's own: a `captureFieldPart` here and on the Task 4 paths,
+//   a whole-row `capturePart` flagged `isPrimary` on the chat `update_task` path.
 // ★★ TWO MOVES IN ONE TICK (R10). The render snapshot of `resources`/`tasks` is
 //   stale for a second call made before React re-renders — planning both from it
 //   double-spends the giver's hours (or creates hours out of nothing). So planning

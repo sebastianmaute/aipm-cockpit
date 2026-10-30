@@ -39,6 +39,13 @@ const plan = (moves: TaskHoursMove[], overCapacity: HoursMovePlan["overCapacity"
   overCapacity,
 });
 
+const skippedBatch = (): TaskHoursMove[] => [
+  ...Array.from({ length: 5 }, (_, i) => move({ taskId: 100 + i, perPeriod: [], movedHours: 0, reason: "noEstimate" })),
+  ...Array.from({ length: 3 }, (_, i) => move({ taskId: 200 + i, perPeriod: [], movedHours: 0, reason: "closed" })),
+  move({ taskId: 300, perPeriod: [], movedHours: 0, shortfallHours: 4 }),
+  move({ taskId: 301, perPeriod: [], movedHours: 0, receiverCapHours: 2 }),
+];
+
 describe("defaultPeriodLabel", () => {
   it("labels months and weeks (R1)", () => {
     expect(defaultPeriodLabel("2026-09", "en-US")).toBe("Sep");
@@ -114,6 +121,16 @@ describe("hoursMoveNotice (EN)", () => {
       "Moved 16 h from Maya Patel to Liam Foster (Sep 8 h, Oct 8 h). No planned hours moved for API: Maya Patel has no planned hours in that period.",
     );
   });
+  it("summarises several skipped tasks by reason, once (final review)", () => {
+    expect(hoursMoveNotice(plan([move(), ...skippedBatch()]), ctx("en-US"))).toBe(
+      "Moved 16 h from Maya Patel to Liam Foster (Sep 8 h, Oct 8 h). No planned hours moved for 10 tasks: no remaining estimate (5), closed (3), nothing planned in that period (1), receiver at 100 % (1).",
+    );
+  });
+  it("keeps the per-task sentence when only one task is skipped", () => {
+    expect(hoursMoveNotice(plan([move(), move({ taskId: 12, perPeriod: [], movedHours: 0, reason: "closed" })]), ctx("en-US"))).toBe(
+      "Moved 16 h from Maya Patel to Liam Foster (Sep 8 h, Oct 8 h). UI is closed, so no planned hours moved.",
+    );
+  });
   it("returns null when everything is silent", () => {
     expect(hoursMoveNotice(plan([]), ctx("en-US"))).toBeNull();
     expect(hoursMoveNotice(plan([move({ perPeriod: [], movedHours: 0 })]), ctx("en-US"))).toBeNull();
@@ -157,6 +174,11 @@ describe("hoursMoveNotice (DE)", () => {
     );
     expect(hoursMoveNotice(plan([move({ perPeriod: [], movedHours: 0, shortfallHours: 8 })]), ctx("de"))).toBe(
       "Für Data migration wurden keine geplanten Stunden verschoben: Maya Patel hat in diesem Zeitraum keine geplanten Stunden.",
+    );
+  });
+  it("summarises several skipped tasks by reason", () => {
+    expect(hoursMoveNotice(plan(skippedBatch()), ctx("de"))).toBe(
+      "Für 10 Aufgaben wurden keine geplanten Stunden verschoben: keine Restschätzung (5), abgeschlossen (3), in diesem Zeitraum nichts geplant (1), Empfänger bei 100 % (1).",
     );
   });
 });
