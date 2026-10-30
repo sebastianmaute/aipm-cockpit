@@ -3883,6 +3883,43 @@ describe("staged tool calls (the review card)", () => {
     expect(readLine.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  // `optimize_wbs` writes nothing until its own preview is applied, so a staging turn runs it in place like a read and
+  // the card never shows it. Mutation: putting it back on the card (staging every call `isPureReadTool` rejects)
+  // turns this red: two rows, and `openWbsPlan` is never called.
+  it("optimize_wbs in a staging turn opens its own preview and stays off the card (AI-02)", async () => {
+    const dispatcher = makeDispatcher();
+    const extra = dispatcher as unknown as { openWbsPlan: unknown };
+    extra.openWbsPlan = vi.fn(() => ({ opened: true, tasksInScope: 3 }));
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "optimize_wbs", input: {} },
+          { type: "tool_use", id: "t2", name: "update_task", input: { id: 1, status: "Done" } },
+        ]),
+        doneTurn("ok"),
+      ],
+      bodies,
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(extra.openWbsPlan).toHaveBeenCalledTimes(1);
+    expect(dispatcher.updateTask).not.toHaveBeenCalled();
+    expect(rowBoxes(card)).toHaveLength(1);
+    expect(within(card).queryByText("optimize_wbs")).toBeNull();
+    expect(resultsIn(bodies[1]).find((b) => b.tool_use_id === "t1")?.content).toContain("tasksInScope");
+  });
+
   // §596 — the staging turn checks the scope before each read, as the ordinary loop does before each tool. A read that
   // would run after the scope moved runs nothing, and it and every id after it are answered as interrupted, once each.
   // Mutation: dropping that check turns this red: list_tasks runs in the next project.

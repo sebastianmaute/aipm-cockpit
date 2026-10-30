@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { ApiMessage } from "./chat-api";
 import { buildAttachmentBlock } from "./chat-attachments";
 import { TOOL_DEFS } from "./chat-tool-defs";
-import { isPureReadTool, openSendRecord, stagesWhenUntrusted } from "./chat-send-record";
+import { isPureReadTool, openSendRecord, runsInPlaceWhenStaging, stagesWhenUntrusted } from "./chat-send-record";
 import { shouldStage, type ProposedCall } from "./chat-proposal";
 
 const call = (name: string, input: Record<string, unknown> = {}): ProposedCall => ({ name, input });
@@ -141,5 +141,16 @@ describe("isPureReadTool", () => {
     expect(live).toHaveLength(63);
     expect(READS.filter((n) => NOT_READS.includes(n))).toEqual([]);
     expect([...READS, ...NOT_READS].sort()).toEqual([...live].sort());
+  });
+});
+
+describe("runsInPlaceWhenStaging", () => {
+  // In a staging turn these run and get their real result; everything else goes on the card.
+  test("is exactly the tools that never stage", () => {
+    const live = (TOOL_DEFS as ReadonlyArray<{ name: string }>).map((d) => d.name);
+    expect(live.filter(runsInPlaceWhenStaging)).toEqual(live.filter((n) => !stagesWhenUntrusted({ name: n, input: {} })));
+    expect(runsInPlaceWhenStaging("optimize_wbs")).toBe(true);
+    expect(runsInPlaceWhenStaging("list_tasks")).toBe(true);
+    expect(runsInPlaceWhenStaging("create_task")).toBe(false);
   });
 });

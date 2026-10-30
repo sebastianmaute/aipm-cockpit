@@ -78,7 +78,7 @@ import {
   type PlanRow,
   type ProposedCall,
 } from "./chat-proposal";
-import { isPureReadTool, openSendRecord } from "./chat-send-record";
+import { isPureReadTool, openSendRecord, runsInPlaceWhenStaging } from "./chat-send-record";
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
 import {
   cardRowTitle,
@@ -897,10 +897,11 @@ function ChatPanelInner({
           if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord)) {
             sendRecord = { ...sendRecord, staged: true };
             const ws = stagingWorkspace(workspaceRef.current);
-            // AI-02 — a read changes nothing, so it runs in place and gets its real result; only the turn's
-            // other calls go on the card, which never shows a read row. The reads run FIRST, so the transcript
-            // keeps the turn's order: their lines, then the card.
-            const staged = proposed.filter((p) => !isPureReadTool(p.call.name));
+            // AI-02 — a read changes nothing, so it runs in place and gets its real result; so does `optimize_wbs`,
+            // whose own preview writes nothing until applied (`runsInPlaceWhenStaging`). Only the turn's other
+            // calls go on the card. These run FIRST, so the transcript keeps the turn's order: their lines, then
+            // the card.
+            const staged = proposed.filter((p) => !runsInPlaceWhenStaging(p.call.name));
             const readAnswers = new Map<string, ToolResultBlock>();
             let scopeMoved = false;
             for (const p of proposed) {

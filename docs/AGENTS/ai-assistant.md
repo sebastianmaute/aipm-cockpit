@@ -250,10 +250,11 @@
   new stageable tool goes red there until it has a sample and a line. ★ The forecast and project lines are DATA from
   the i18n-free describer (`forecastRowLine`, `projectRowName`) and translated in `chat-proposal-block.tsx`
   (`forecastRowTitle`); the same test fails a line that reads the same in German as in English unless every word of
-  it is the row's own data. ★ A staging turn's reads run in place and get their real result: the card holds only the
-  turn's other calls, never a read row. And once a turn of the send has staged, a later turn stages nothing:
+  it is the row's own data. ★ A staging turn's reads run in place and get their real result, and so does
+  `optimize_wbs` (`runsInPlaceWhenStaging`): the card holds only the turn's other calls, never a read row or the WBS
+  call. And once a turn of the send has staged, a later turn stages nothing:
   its reads (`isPureReadTool`, `chat-send-record.ts`) run, every other call runs nothing and is answered with
-  `PROPOSAL_PENDING_RESULT`, and the loop continues so the model can reply; the card is never replaced unseen. A staged
+  `PROPOSAL_PENDING_RESULT` (which speaks of the current reply only, since the rule is per send), and the loop continues so the model can reply; the card is never replaced unseen. A staged
   `set_language`, `set_filters` or device-only `update_settings` is described by `describeDeviceCall`
   (`chat-proposal-describe-device.ts`) into `DescribedRow.device` and titled by `deviceRowTitle`: the language by its own
   name, the filters as `filtersFromInput` (the write's own reader) leaves them, the settings as `previewSettings` judges

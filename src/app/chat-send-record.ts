@@ -60,5 +60,11 @@ const OPENS_ITS_OWN_REVIEW: ReadonlySet<string> = new Set(["optimize_wbs"]);
  *  proves the model read the row, not that the user wanted the change. FAIL CLOSED: a tool this module does not
  *  know stages. */
 export function stagesWhenUntrusted(call: ProposedCall): boolean {
-  return !isPureReadTool(call.name) && !OPENS_ITS_OWN_REVIEW.has(call.name);
+  return !runsInPlaceWhenStaging(call.name);
+}
+
+/** True for a call a staging turn runs in place rather than putting on the card: a pure read, or `optimize_wbs`,
+ *  whose own preview writes nothing until the user applies it there. */
+export function runsInPlaceWhenStaging(name: string): boolean {
+  return isPureReadTool(name) || OPENS_ITS_OWN_REVIEW.has(name);
 }
