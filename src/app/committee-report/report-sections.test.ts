@@ -65,11 +65,11 @@ describe("applyTake", () => {
     );
   });
 
-  it("matches an h3 inside another h2 and replaces only that block", () => {
+  it("matches an h3 inside another h2, replaces only that block and keeps the h3 sibling under its parent", () => {
     const u =
       "<h2>Status</h2><p>s</p><h3>Risks</h3><p>r</p><h3>Other</h3><p>o</p>";
     expect(applyTake(u, ai("<h2>Risks</h2><p>new</p>"), [0], true)).toBe(
-      "<h2>Status</h2><p>s</p><h2>Risks</h2><p>new</p><h3>Other</h3><p>o</p>",
+      "<h2>Status</h2><p>s</p><h3>Other</h3><p>o</p><h2>Risks</h2><p>new</p>",
     );
   });
 
@@ -262,6 +262,32 @@ describe("anchors respect heading levels: a user's sub-sections stay under their
     expect(applyTake("<h2>Status</h2><h3>Plan</h3><p>p</p><h3>Later</h3><p>l</p><h2>Next</h2>", AI, [1], true)).toBe(
       "<h2>Status</h2><h3>Plan</h3><p>p</p><h3>Later</h3><p>l</p><h2>Extra</h2><p>e</p><h2>Next</h2>",
     );
+  });
+});
+
+describe("the following anchor is the first MATCH at a usable level", () => {
+  it("skips a deeper same-key section and uses the h2 one after it", () => {
+    const AI = ai("<h2>A</h2><p>aA</p><h2>B</h2><p>aB</p>");
+    expect(applyTake("<h2>X</h2><h3>B</h3><p>b</p><h2>B</h2><p>B</p>", AI, [0], true)).toBe(
+      "<h2>X</h2><h3>B</h3><p>b</p><h2>A</h2><p>aA</p><h2>B</h2><p>B</p>",
+    );
+  });
+});
+
+describe("an AI section SHALLOWER than the user section it matches keeps the user's later siblings in place", () => {
+  const USER = "<h2>Status</h2><p>s</p><h3>Risks</h3><p>r</p><h3>After</h3><p>a</p><h2>Z</h2>";
+  const AI = ai("<h2>Risks</h2><p>ai</p>");
+  it("Replace removes the user's h3 and places the h2 after the whole Status range", () => {
+    expect(applyTake(USER, AI, [0], true)).toBe("<h2>Status</h2><p>s</p><h3>After</h3><p>a</p><h2>Risks</h2><p>ai</p><h2>Z</h2>");
+    expect(planTake(USER, AI, [0])).toEqual({ replacements: [{ aiIndex: 0, userHeading: "Risks", removedSubheadings: [] }], additions: [] });
+  });
+  it("Keep both adds the h2 at the same point and removes nothing", () => {
+    expect(applyTake(USER, AI, [0], false)).toBe(
+      "<h2>Status</h2><p>s</p><h3>Risks</h3><p>r</p><h3>After</h3><p>a</p><h2>Risks</h2><p>ai</p><h2>Z</h2>",
+    );
+  });
+  it("a same-level match is unchanged", () => {
+    expect(applyTake("<h2>Risks</h2><p>r</p><h3>Sub</h3><p>x</p><h2>Z</h2>", AI, [0], true)).toBe("<h2>Risks</h2><p>ai</p><h2>Z</h2>");
   });
 });
 

@@ -134,7 +134,13 @@ function findUserMatch(items: readonly Item[], key: string): number {
   );
 }
 
-/** Where an unmatched AI section goes: after the nearest preceding AI section the working text also has, else the end. */
+/** Where an unmatched AI section goes, in this order:
+ *  1. after the nearest PRECEDING AI section the working text also has (or one placed in this call), at the end of that
+ *     anchor's range, extended past anything deeper than the inserted section so a parent's later sub-sections stay put;
+ *  2. else BEFORE the nearest FOLLOWING AI section the text has (or one placed in this call), counting only an anchor
+ *     whose level is at most the inserted section's;
+ *  3. else the end.
+ *  The AI opening (level 0) goes after the text's own level-0 section, or first. */
 function insertionPoint(
   items: readonly Item[],
   ai: readonly ReportSection[],
@@ -171,10 +177,14 @@ function insertionPoint(
   // AI order holds; only with neither does it go to the end.
   for (let j = aiIndex + 1; j < ai.length; j++) {
     if (ai[j].level === 0) continue;
-    const at = items.findIndex((it) => it.section === ai[j] || (ai[j].key !== "" && it.section.level !== 0 && it.section.key === ai[j].key));
-    // A following anchor deeper than the inserted section is no place to go before (it would pull the user's
-    // sub-section out from under its parent): keep looking, else the end.
-    if (at !== -1 && items[at].section.level <= ai[aiIndex].level) return at;
+    const at = items.findIndex(
+      (it) =>
+        (it.section === ai[j] || (ai[j].key !== "" && it.section.level !== 0 && it.section.key === ai[j].key)) &&
+        it.section.level <= ai[aiIndex].level,
+    );
+    // (A following anchor deeper than the inserted section is no place to go before, it would pull the user's
+    // sub-section out from under its parent: the predicate above skips it and the search goes on, else the end.)
+    if (at !== -1) return at;
   }
   return items.length;
 }
@@ -215,13 +225,16 @@ function run(
         .filter((it) => it.section.level !== 0)
         .map((it) => it.section.heading),
     });
-    if (confirmReplace) items.splice(m, end - m, placed);
-    else {
-      // Keep both: after the user's range, and past AI items already placed there, so the AI sections keep AI order.
-      let at = end;
-      while (at < items.length && items[at].placed) at++;
-      items.splice(at, 0, placed);
-    }
+    // An AI section SHALLOWER than the user section it matches (an h2 matching a user h3 inside an h2) must not land
+    // before that parent's later sub-sections, or they would fall under it: it goes to the end of the enclosing range
+    // at ITS level. Same level or deeper: the user's range as before.
+    const shallower = sec.level < items[m].section.level;
+    if (confirmReplace) items.splice(m, end - m);
+    let at = confirmReplace ? m : end;
+    if (shallower) while (at < items.length && items[at].section.level > sec.level) at++;
+    // Keep both also goes past AI items already placed there, so the AI sections keep AI order.
+    if (!confirmReplace) while (at < items.length && items[at].placed) at++;
+    items.splice(at, 0, placed);
   }
   return { plan, html: items.map((it) => it.section.html).join("") };
 }
