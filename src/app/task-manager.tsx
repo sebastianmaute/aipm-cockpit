@@ -34,7 +34,7 @@ import { type RaidItem, type ChangeItem } from "./types";
 import { useNotesWindow } from "./use-notes-window";
 import { useBlockersWindow } from "./use-blockers-window";
 import { useFxRates } from "./use-fx-rates";
-import { buildWorkloadTriageHandlers } from "./workload-triage-handlers";
+import { buildWorkloadTriageHandlers, workloadPaneProps } from "./workload-triage-handlers";
 import { peekMintId } from "./id-mint-session";
 import { buildRaidByTaskIndex } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
@@ -1443,10 +1443,8 @@ function TaskManagerInner() {
     // Same threshold the over-allocation ALERT uses so the workload cell's pink
     // highlight fires exactly when the alert does (#24 review).
     overAllocatedPct: effectiveNextActions?.workloadAllocatedPct ?? 100,
-    // Workload triage (#24) and clear-unlinked: `workload-triage-handlers.ts`.
-    onReassignTask: guardEdit(workloadTriage.onReassignTask), onReassignTasks: reassignHours.reassignTasks, onCaptureComposite: undoApi.captureComposite, // §769 — ONE undo stack for both
-    onRescheduleTask: guardEdit(workloadTriage.onRescheduleTask),
-    onClearUnlinked: guardEdit(workloadTriage.onClearUnlinked),
+    // Workload triage (#24), clear-unlinked, and §769's reassign step on ONE undo stack: `workload-triage-handlers.ts`.
+    ...workloadPaneProps(workloadTriage, guardEdit, reassignHours.reassignTasks, undoApi.captureComposite),
     onSetAllUtilizationMode: guardEdit(handleSetAllUtilizationMode),
     onSetAbsenceOverride: guardEdit(handleSetAbsenceOverride),
     onSetPlanWindow: guardEdit(handleSetPlanWindow),

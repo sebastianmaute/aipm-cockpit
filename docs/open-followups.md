@@ -46124,7 +46124,7 @@ Size S.
 
 ## 784. Plan with AI does not see the load a person carries in other projects
 
-**Status:** OPEN 2026-10-30, filed when §769 shipped. `grep -rniE "otherProject|portfolio|elsewhere" src/app/alloc-plan src/app/use-alloc-plan.tsx` → no output: Plan with AI sees this project's tasks, milestones, RACI and rates (`buildProjectDigest`, `buildAllocContext`), but not what a person is already booked for in other projects. A person shown at 60 % here may be at 120 % in total, so a proposal can move work onto someone who has no room. Out of scope for §769 by owner decision 2026-10-30.
+**Status:** OPEN 2026-10-30, filed when §769 shipped. `grep -rniE --exclude='*.test.*' "otherProject|portfolio|elsewhere" src/app/alloc-plan src/app/use-alloc-plan.tsx` → no output (the tests are left out: a test title in `alloc-plan.test.ts` says "elsewhere" about another period): Plan with AI sees this project's tasks, milestones, RACI and rates (`buildProjectDigest`, `buildAllocContext`), but not what a person is already booked for in other projects. A person shown at 60 % here may be at 120 % in total, so a proposal can move work onto someone who has no room. Out of scope for §769 by owner decision 2026-10-30.
 
 **Work item:** #921
 

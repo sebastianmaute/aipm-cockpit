@@ -209,6 +209,19 @@ describe("buildProjectDigest", () => {
     expect(showsLate("plan 2026-09")).toBe(false);
   });
 
+  // Final review, Deferred 1. Mutation: let a task that is NOT overdue start at its own start date even when that is
+  // before today, and the five tasks below rank as overlapping September and survive the truncation.
+  it("a task already started counts from today, not from its past start date", () => {
+    const all: Task[] = [];
+    for (let i = 1; i <= 155; i++) all.push(task(i, { startDate: "2026-10-11", dueDate: "2026-10-15" }));
+    for (let i = 156; i <= 160; i++) all.push(task(i, { startDate: "2026-09-10", dueDate: "2026-10-20" }));
+    const shows = (today: string) =>
+      taskLines(digest({ tasks: all, hoursCtx: { ...hoursCtx, today }, instruction: "plan 2026-09" })).some((l) => l.startsWith("#156 "));
+    expect(shows("2026-10-10")).toBe(false);
+    // Control: with today before the start date, the span does overlap September and the task is lifted.
+    expect(shows("2026-09-01")).toBe(true);
+  });
+
   it("sorts a task with no due date after every dated one", () => {
     const all: Task[] = [task(1, { dueDate: "" })];
     for (let i = 2; i <= 151; i++) all.push(task(i, { dueDate: "2026-10-30" }));

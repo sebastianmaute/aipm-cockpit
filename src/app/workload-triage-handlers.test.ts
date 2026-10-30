@@ -8,7 +8,8 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { expectedNotice, LIAM, LIAM_OWNS, RIG_TASK, rigSpies, useReassignRig, utilOf } from "../test/reassign-hours-rig";
 import type { Absence, RaidItem, Resource, Shift, Task } from "./types";
-import { buildWorkloadTriageHandlers, type UnlinkedWorkloadRow } from "./workload-triage-handlers";
+import { buildWorkloadTriageHandlers, workloadPaneProps, type UnlinkedWorkloadRow } from "./workload-triage-handlers";
+import { makeEditGuard } from "./read-only-guard";
 
 function cell<T>(initial: readonly T[]) {
   let value = initial;
@@ -171,5 +172,37 @@ describe("onClearUnlinked", () => {
     });
     expect(() => onClearUnlinked(row("Ghost"))).not.toThrow();
     expect(absences.get()).toEqual([]);
+  });
+});
+
+// Final review, Minor 6 — the Resources pane's workload props, as task-manager spreads them. Mutation: pass a triage
+// handler through unguarded and a popout writes; drop the reassign step or the undo stack and §769 loses its one entry.
+describe("workloadPaneProps", () => {
+  const triage = () => ({ onReassignTask: vi.fn(), onRescheduleTask: vi.fn(), onClearUnlinked: vi.fn() });
+  const reassignTasks = vi.fn();
+  const captureComposite = vi.fn();
+
+  it("guards every triage handler: read-only, each one notifies and writes nothing", () => {
+    const t = triage();
+    const notify = vi.fn();
+    const props = workloadPaneProps(t, makeEditGuard(true, notify), reassignTasks as never, captureComposite as never);
+    props.onReassignTask(1, null);
+    props.onRescheduleTask(1, "2026-09-01");
+    props.onClearUnlinked({ display: "Ghost", email: "" } as UnlinkedWorkloadRow);
+    expect(notify).toHaveBeenCalledTimes(3);
+    expect(t.onReassignTask).not.toHaveBeenCalled();
+    expect(t.onRescheduleTask).not.toHaveBeenCalled();
+    expect(t.onClearUnlinked).not.toHaveBeenCalled();
+  });
+
+  it("editable, each handler runs; the reassign step and the undo stack pass through as they are", () => {
+    const t = triage();
+    const props = workloadPaneProps(t, makeEditGuard(false, vi.fn()), reassignTasks as never, captureComposite as never);
+    props.onReassignTask(1, null);
+    props.onRescheduleTask(2, "2026-09-01");
+    expect(t.onReassignTask).toHaveBeenCalledWith(1, null);
+    expect(t.onRescheduleTask).toHaveBeenCalledWith(2, "2026-09-01");
+    expect(props.onReassignTasks).toBe(reassignTasks);
+    expect(props.onCaptureComposite).toBe(captureComposite);
   });
 });

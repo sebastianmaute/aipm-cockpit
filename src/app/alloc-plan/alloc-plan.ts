@@ -24,6 +24,7 @@ import {
 } from "../types";
 import {
   absencesForResource,
+  availableCapacityHours,
   generatePeriods,
   periodKeyForDate,
 } from "../resource-capacity";
@@ -31,6 +32,8 @@ import { HOURS_MAP_MAX } from "../sanitize";
 import { oneLine } from "../rich-text-plain";
 import { periodCost } from "../resource-cost";
 import { buildProjectDigest } from "./alloc-project-digest";
+
+export { availableCapacityHours };
 
 /** A raw cell as parsed from the model tool input (shape-validated only —
  *  resourceId/periodKey are NOT yet checked against the live workspace). */
@@ -69,14 +72,14 @@ export interface AllocContextArgs {
   absences: readonly Absence[];
   workdayHours: number;
   holidaySet: ReadonlySet<string>;
-  /** §769 project context — all optional so a caller without it still gets the hours digest. */
-  tasks?: readonly Task[];
-  milestones?: readonly Milestone[];
-  stakeholders?: readonly Stakeholder[];
-  /** The user's request; names and periods in it decide which tasks survive truncation. Default "". */
-  instruction?: string;
-  /** YYYY-MM-DD the task hours are split from. Default: the plan start. */
-  today?: string;
+  /** §769 project context: the open tasks, milestones and R/A holders the digest describes. */
+  tasks: readonly Task[];
+  milestones: readonly Milestone[];
+  stakeholders: readonly Stakeholder[];
+  /** The user's request; names and periods in it decide which tasks survive truncation. */
+  instruction: string;
+  /** YYYY-MM-DD the task hours are split from (§774's split). */
+  today: string;
 }
 
 /** Display label for a resource: full name, else email, else `#<id>`. */
@@ -110,9 +113,6 @@ function roleLabel(
   return `${discipline ?? "?"} / ${grade ?? "?"}`;
 }
 
-import { availableCapacityHours } from "../resource-capacity";
-export { availableCapacityHours };
-
 /** " rate=<internal hourly rate>/h" from the resource's role; empty for an external or a resource without a role. */
 function hourlyRate(r: Resource, roles: readonly Role[]): string {
   if (r.isExternal || r.roleId == null) return "";
@@ -138,7 +138,8 @@ export function buildAllocContext(args: AllocContextArgs): string {
   const shown = resources.slice(0, ALLOC_CONTEXT_MAX_RESOURCES);
   for (const r of shown) {
     const resourceAbsences = absencesForResource(absences, r);
-    // Names are free text: one line each, so a line break cannot start a fake resource row (§770).
+    // Names are free text: one line each, so a line break cannot start a fake resource row (§770), and the name is a
+    // JSON string, so a `key=value` inside it ("Eve rate=0/h") cannot pose as one of the line's own tokens.
     const role = oneLine(roleLabel(r.roleId, roles, disciplines, grades));
     const external = r.isExternal ? " external" : "";
     const rate = hourlyRate(r, roles);
@@ -149,7 +150,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
       return `${period.key}=${Math.round(current)}/${Math.round(capacityRaw)}`;
     });
     lines.push(
-      `#${r.id} ${oneLine(aiResourceLabel(r))} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}${rate}`,
+      `#${r.id} ${JSON.stringify(oneLine(aiResourceLabel(r)))} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}${rate}`,
     );
   }
   if (resources.length > ALLOC_CONTEXT_MAX_RESOURCES) {
@@ -160,13 +161,13 @@ export function buildAllocContext(args: AllocContextArgs): string {
   }
   lines.push(
     ...buildProjectDigest({
-      tasks: args.tasks ?? [],
-      milestones: args.milestones ?? [],
-      stakeholders: args.stakeholders ?? [],
+      tasks: args.tasks,
+      milestones: args.milestones,
+      stakeholders: args.stakeholders,
       resources,
       shownResourceIds: new Set(shown.map((r) => r.id)),
-      instruction: args.instruction ?? "",
-      hoursCtx: { plan, absences, workdayHours, holidaySet, today: args.today ?? plan.startDate },
+      instruction: args.instruction,
+      hoursCtx: { plan, absences, workdayHours, holidaySet, today: args.today },
     }),
   );
   return lines.join("\n");
