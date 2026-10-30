@@ -18,7 +18,7 @@ import {
 } from "../sanitize-core";
 import { isTaskClosed } from "../task-closed";
 import { isoAddDays } from "../due-dates";
-import { NO_HOLIDAYS, buildAwaySummary, taskClashes, type AbsenceClash, type AbsenceCtx } from "../absence-clash";
+import { AWAY_WINDOW_DAYS, NO_HOLIDAYS, buildAwaySummary, taskClashes, type AbsenceClash, type AbsenceCtx } from "../absence-clash";
 
 /** Bound on how many items one proposal may carry (blast radius + token budget). */
 export const MAX_WBS_ITEMS = 60;
@@ -75,15 +75,12 @@ export interface WbsContextArgs {
   today: string;
 }
 
-/** Days past today the AWAY window reaches when the project has no start and end date. */
-const AWAY_FALLBACK_DAYS = 28;
-
 /** From today (or the project start, if later) to the project end; today..today+28 when the project has
  *  no end date or has already ended. */
 function awayWindow(project: ProjectMeta | undefined, today: string): { from: string; to: string } {
   const from = project?.startDate && project.startDate > today ? project.startDate : today;
   if (project?.endDate && project.endDate >= from) return { from, to: project.endDate };
-  return { from: today, to: isoAddDays(today, AWAY_FALLBACK_DAYS) };
+  return { from: today, to: isoAddDays(today, AWAY_WINDOW_DAYS) };
 }
 
 function plainDescription(html: string | undefined): string {

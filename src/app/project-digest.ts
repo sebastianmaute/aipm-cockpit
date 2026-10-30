@@ -6,7 +6,7 @@
 // at `CONTEXT_CAP_PER_CATEGORY` lines (the rest is counted in a "…(N more)" line), and the whole is bounded
 // by `DIGEST_MAX_CHARS`, dropping whole lines from the END so a cut never splits a line.
 // Lines keep the `view#id: title` grounding format the analysis reply is validated against.
-import { buildAwaySummary } from "./absence-clash";
+import { AWAY_WINDOW_DAYS, buildAwaySummary } from "./absence-clash";
 import { CONTEXT_CAP_PER_CATEGORY } from "./action-ai";
 import { isoAddDays } from "./due-dates";
 import type { AppMode } from "./feature-modules";
@@ -19,8 +19,6 @@ import type { Absence, ChangeItem, Milestone, RaidItem, Resource, Stakeholder, T
 export const DIGEST_MAX_CHARS = 24_000;
 const TITLE_MAX_CHARS = 120;
 const TRUNCATION_LINE = "…(truncated)";
-/** How far ahead the AWAY block looks (§773). */
-export const DIGEST_AWAY_DAYS = 28;
 
 export interface ProjectDigestInput {
   projectName: string;
@@ -126,7 +124,7 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
   const instruction = input.instruction?.slice(0, TEXTAREA_MAX);
   const away = buildAwaySummary({
     absences: input.absences, resources: input.resources,
-    from: input.today, to: isoAddDays(input.today, DIGEST_AWAY_DAYS),
+    from: input.today, to: isoAddDays(input.today, AWAY_WINDOW_DAYS),
   });
   const body = [
     `Project: ${clip(input.projectName)}. Today: ${input.today}. Mode: ${input.mode}.`,

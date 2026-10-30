@@ -40,6 +40,8 @@ export function clashesForAi(clashes: readonly AbsenceClash[]): AbsenceClashForA
 export const AWAY_SUMMARY_MAX_LINES = 60;
 /** Ranges listed on one person's line; the rest are summarised as " +K more". */
 export const AWAY_SUMMARY_MAX_RANGES = 10;
+/** Days past today a "who is away" window reaches: the readers' window, and the WBS plan's fallback. */
+export const AWAY_WINDOW_DAYS = 28;
 /** The holiday set for a caller that has none to thread: no day is a holiday. Shared so every caller
  *  falls back to the same (frozen-by-convention) instance. */
 export const NO_HOLIDAYS: ReadonlySet<string> = new Set();
