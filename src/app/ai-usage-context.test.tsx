@@ -202,6 +202,29 @@ describe("AiUsageProvider weekly hard cap (AI-03)", () => {
     expect(isBackgroundCapReached()).toBe(true);
   });
 
+  // AI-03 — a tap just before the week reset can publish "reached" in its own tick while the render after it already
+  // sees the new, empty week. The rendered verdict is then re-asserted, so background AI is not left paused all week.
+  // Mutation: keying the publish effect on the verdict alone (`[weekHardCapReached]`) turns this red: nothing
+  // publishes false, because the rendered verdict never changed.
+  it("does not stay reached when the tap lands before the week reset and the render after it", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 10, 1, 23, 59, 59, 990)); // a Sunday, 10 ms before the reset
+      seedWeek(900);
+      render(vi.fn(), withCap(1000));
+      await act(async () => {});
+      expect(isBackgroundCapReached()).toBe(false);
+      act(() => {
+        emitUsage("chat", { input: 150, output: 0, cacheWrite: 0, cacheRead: 0 });
+        expect(isBackgroundCapReached()).toBe(true);
+        vi.setSystemTime(new Date(2026, 10, 2, 0, 0, 0, 10)); // Monday: the render runs in the new week
+      });
+      expect(isBackgroundCapReached()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("a tap below the cap publishes nothing in its tick", async () => {
     seedWeek(100);
     render(vi.fn(), withCap(1000));
