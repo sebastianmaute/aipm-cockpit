@@ -13,7 +13,8 @@
 // "omits exactly the stageable write tools the descriptor engine cannot diff" in
 // `chat-proposal-describe.test.ts` — read it there rather than restating it here; a copy of
 // that list in this comment went stale once already (it named a tool that had since gained
-// a describer). Those rows carry only `call.name` and `call.input`, and they are the rows
+// a describer). Those rows carry only `call.name` and `call.input` (a document write also carries
+// `document`, what it writes, AI-02), and they are the rows
 // that most need to be VISIBLE: document writes take no
 // undo capture at all (`use-document-tools.ts` says so at three sites), so this
 // card is the only thing between the model and an unreviewed multi-document
@@ -43,6 +44,7 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 import { carriesEnabledModules, type ProposedCall } from "./chat-proposal";
 import type { FunctionsChange } from "./chat-proposal-describe-functions";
 import type { DeviceChange } from "./chat-proposal-describe-device";
+import type { DocOpKind, DocumentChange } from "./chat-proposal-describe-document";
 import type { Filters } from "./chat-tools";
 import { moduleNames } from "./functions-picker";
 import type { ProposalFailureKind } from "./chat-proposal-apply";
@@ -93,6 +95,9 @@ export interface ProposalCardRow {
   /** §779 — what a staged `update_settings { enabledModules }` switches, from `DescribedRow.functions`.
    *  Absent on every other row, which then renders exactly as before. */
   readonly functions?: FunctionsChange;
+  /** AI-02 — what a staged `create_document` or `update_document` writes, from `DescribedRow.document`. Absent
+   *  on every other row. */
+  readonly document?: DocumentChange;
 }
 
 export interface ChatProposalBlockProps {
@@ -311,6 +316,34 @@ function FunctionsDetail({ lang, change }: { lang: Lang; change: FunctionsChange
   );
 }
 
+/** Each `update_document` op kind's label. */
+const DOC_OP_LABEL_KEY: Readonly<Record<DocOpKind, TranslationKey>> = {
+  append: "chatProposalDocOpAppend",
+  insert: "chatProposalDocOpInsert",
+  replace: "chatProposalDocOpReplace",
+  replaceAll: "chatProposalDocOpReplaceAll",
+  move: "chatProposalDocOpMove",
+  delete: "chatProposalDocOpDelete",
+};
+
+/** AI-02 — what a staged document write puts into the document: a new document's block count, an update's op
+ *  kinds and new title, and the opening text either writes. The text is a plain-text projection rendered as a
+ *  React text node, so markup in it is shown, never interpreted. */
+function DocumentDetail({ lang, change }: { lang: Lang; change: DocumentChange }) {
+  return (
+    <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+      {change.kind === "create" && <li>{t(lang, "chatProposalDocBlocks", change.blockCount)}</li>}
+      {change.kind === "update" && change.ops.length > 0 && (
+        <li>
+          {t(lang, "chatProposalDocOps", change.ops.map((o) => `${t(lang, DOC_OP_LABEL_KEY[o.op])} × ${o.count}`).join(", "))}
+        </li>
+      )}
+      {change.kind === "update" && change.rename !== null && <li>{t(lang, "chatProposalDocRename", change.rename)}</li>}
+      {change.excerpt !== "" && <li>{t(lang, "chatProposalDocText", change.excerpt)}</li>}
+    </ul>
+  );
+}
+
 /** A rejection's line. A project refusal carries the bare reason and names its field here, in the project
  *  form's label (§715); every other rejection's detail already names its field or target. */
 function rejectedText(lang: Lang, entity: DiffEntity | undefined, r: Rejected): string {
@@ -447,6 +480,7 @@ function ProposalRow({
       </label>
       <PlanDetail lang={lang} plan={row.plan} entity={previewEntityOf(row.call.name)} />
       {row.functions && <FunctionsDetail lang={lang} change={row.functions} />}
+      {row.document && <DocumentDetail lang={lang} change={row.document} />}
       {row.cascaded && (
         <p className="mt-1 text-xs text-muted-foreground">{t(lang, "chatProposalCascaded")}</p>
       )}

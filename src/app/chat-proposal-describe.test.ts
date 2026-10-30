@@ -724,7 +724,7 @@ describe("every tool that can stage gets a described card line (AI-02)", () => {
     create_milestone: { name: "New milestone", date: "2026-10-01" },
     create_stakeholder: { name: "New person" },
     create_resource: { firstName: "New", lastName: "Person" },
-    create_document: { title: "New doc", blocks: [] },
+    create_document: { title: "New doc", blocks: [{ type: "paragraph", html: "<p>Opening text</p>" }] },
     create_absence: { assignee: "Ada Lovelace", startDate: "2026-10-01", endDate: "2026-10-02" },
     create_calendar_event: { title: "Kickoff", startDate: "2026-10-01" },
     create_forecast_scenario: { name: "Plan B", changes: [] },
@@ -744,7 +744,7 @@ describe("every tool that can stage gets a described card line (AI-02)", () => {
     update_settings: { showViewHints: false },
     set_filters: { search: "late" },
     set_language: { language: "de" },
-    update_document: { id: 11, ops: [] },
+    update_document: { id: 11, ops: [{ op: "append", block: { type: "heading", level: 1, text: "Appended" } }] },
     set_forecast_proposal: { id: 12 },
     set_forecast_target_confidence: { value: 80 },
     escalate_raid_item: { id: 7, toEmail: "jane@example.com" },
@@ -776,6 +776,19 @@ describe("every tool that can stage gets a described card line (AI-02)", () => {
       return title.trim() === "" || title === name;
     });
     expect(bare.map(([name]) => name)).toEqual([]);
+  });
+
+  // ★★ A document write's title names only the document, so the card must also show what it writes
+  // (`DescribedRow.document`). Every stageable document tool but the delete must carry it, with its text.
+  // Mutation: dropping `document` from the empty-plan branch of `describeProposal` turns this red.
+  test("every document write that stages carries what it writes", () => {
+    const writes = Object.keys(SAMPLES).filter((n) => n.endsWith("_document") && n !== "delete_document");
+    expect(writes.sort()).toEqual(["create_document", "update_document"]);
+    const missing = writes.filter((name) => {
+      const [row] = describeProposal([call(name, SAMPLES[name])], full);
+      return row.document === undefined || row.document.excerpt === "";
+    });
+    expect(missing).toEqual([]);
   });
 
   // ★★ A line the German card shows in English. A title may read the same in both languages only when it is pure

@@ -612,6 +612,8 @@ function ChatPanelInner({
       failedKind: p.failed.get(i),
       // §779 — what a staged functions change switches; absent on every other row.
       functions: row.functions,
+      // AI-02 — what a staged document write puts into the document; absent on every other row.
+      document: row.document,
     }));
   }, [pendingProposal]);
 

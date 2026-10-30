@@ -258,7 +258,12 @@
   (`chat-proposal-describe-device.ts`) into `DescribedRow.device` and titled by `deviceRowTitle`: the language by its own
   name, the filters as `filtersFromInput` (the write's own reader) leaves them, the settings as `previewSettings` judges
   them; "describes every stageable tool that is not an entity write" (`chat-proposal-describe.test.ts`) fails for a
-  stageable tool with no description. A staged functions change is
+  stageable tool with no description. A staged `create_document` or `update_document` is described by
+  `describeDocumentCall` (`chat-proposal-describe-document.ts`) into `DescribedRow.document`, because its title
+  alone cannot show an injected rewrite: the new document's block count, or the update's op kinds with counts and
+  new title, plus the first `DOCUMENT_EXCERPT_CHARS` characters of the text it writes, as plain text the card renders
+  as text. "every document write that stages carries what it writes" (`chat-proposal-describe.test.ts`) pins it. A
+  staged functions change is
   described by `describeFunctionsCall` (`chat-proposal-describe-functions.ts`) into `DescribedRow.functions`: the
   card titles it with `functionsRowTitle` and lists the functions it turns on and off against `Workspace.features`
   (labels via the Functions picker's `moduleNames`), and a refused value shows as a rejection on the field.

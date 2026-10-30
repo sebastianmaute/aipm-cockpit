@@ -45,7 +45,7 @@ longer carries its own changelog comment.
   to be analysed, never followed, and each attached document is titled with its file name. While an attachment is in
   the conversation, every change the assistant wants to make goes to the review card, a single version-checked edit
   included; only reads run without it, and the work-breakdown proposal keeps its own preview. Every such card line
-  names what it changes. No message can be sent while an approved card is still being applied.
+  names what it changes; a document write also shows its block count or changes and the opening text it writes. No message can be sent while an approved card is still being applied.
   A second proposal in the same message is not made; ask again after deciding on the first card. The review card
   cannot be applied or discarded while the assistant is still answering. A reopened saved thread has its attachments
   removed and is trusted again. Help and the threat model say so.

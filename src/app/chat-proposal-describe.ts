@@ -43,6 +43,7 @@ import { proposalIdOf } from "./forecast-target";
 import { describeProjectPlan, stampProjectCall, UPDATE_PROJECT_TOOL } from "./chat-proposal-describe-project";
 import { describeFunctionsCall, type FunctionsChange, type PreviewSettings } from "./chat-proposal-describe-functions";
 import { describeDeviceCall, type DeviceChange } from "./chat-proposal-describe-device";
+import { describeDocumentCall, type DocumentChange } from "./chat-proposal-describe-document";
 
 export {
   describeProjectCall,
@@ -130,6 +131,9 @@ export interface DescribedRow {
   /** AI-02 — set only on a `set_language`, `set_filters` or device-only `update_settings` row: what it changes,
    *  for the card's line. The plan stays empty. */
   readonly device?: DeviceChange;
+  /** AI-02 — set only on a `create_document` or `update_document` row: what the write puts into the document,
+   *  for the card. The plan stays empty. */
+  readonly document?: DocumentChange;
 }
 
 function emptyPlan(): EditPlan {
@@ -506,8 +510,12 @@ export function describeProposal(
     const stamped: ProposedCall =
       pendingOn !== undefined || supplied != null ? call : stampCall(call, ws);
 
+    // AI-02 — what a document write puts into the document; carried on the pending and the empty-plan rows.
+    const document = describeDocumentCall(call);
+    const documentDetail = document === null ? {} : { document };
+
     if (pendingOn !== undefined) {
-      rows.push({ call, stamped, plan: emptyPlan(), mintedId, pendingOn });
+      rows.push({ call, stamped, plan: emptyPlan(), mintedId, pendingOn, ...documentDetail });
       continue;
     }
 
@@ -546,7 +554,7 @@ export function describeProposal(
     const op = toolOp[call.name];
 
     if (entity === undefined || op === undefined) {
-      rows.push({ call, stamped, plan: emptyPlan(), mintedId });
+      rows.push({ call, stamped, plan: emptyPlan(), mintedId, ...documentDetail });
       continue;
     }
 
