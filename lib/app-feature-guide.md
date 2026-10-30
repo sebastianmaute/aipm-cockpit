@@ -11,6 +11,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - Note log: tasks, RAID items and changes each carry dated notes in a separate floating window (a `🗒 N` badge on the row). Notes are NOT the same field as the description. You can read a TASK's notes with get_task, one task at a time; they are not included in list_tasks. You cannot write a note on anything (recording a RAID escalation adds its own dated note, labelled "AI created"), and you cannot read notes on RAID items or change items at all — for those, say so and point the user at the window rather than guessing from the description.
 - Video guides: narrated videos in English on the project's YouTube channel (youtube.com/@aipmcockpit). A Help entry that a feature or AI video shows lists it under "Video guides", the banner at the top of a view has a "Watch the video" link beside "Learn more", and the Help window's footer links the channel; the links open YouTube in the browser. AI: can point the user to the matching video by its title.
 - Guided tours: eleven of them (Getting started, Working faster, Managing risks, Reporting & dashboards, Planning, Stakeholders, Resources, Budget & changes, Documents, AI assistant, Help yourself), started or replayed from Help → Guided tours, modern layout only. A tour skips views the current storage backend cannot show, such as the Turso-only ones on a file project.
+- Availability: Before you set or move a date for someone's work, or give work to someone, check their absences with `list_absences` (and the calendar events for a clash). A clash or availability answer needs both lists.
 - Tip for the user: most views have an "Ask Claude" button (and an "Explain this" prompt) that opens this assistant with a view-aware question.
 
 ## Open Points
@@ -152,7 +153,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - Resource calendar plus a live multi-timezone world-clock strip (the default zone and any additional zones the user adds).
 - Zones for the strip are configured in Settings.
-- AI: can explain the calendar and timezone strip, and can read both things the grid shows: meetings (`list_calendar_events` returns each series definition plus its skip/move exceptions, never an expanded occurrence list) and absences (`list_absences`, which shows each as "absent" with its dates; the type and note are never shown to the AI). A clash or availability answer needs BOTH lists. It can also create, update and delete meetings and absences (`*_calendar_event`, `*_absence`). It cannot change the timezone zones.
+- AI: can explain the calendar and timezone strip, and can read both things the grid shows: meetings (`list_calendar_events` returns each series definition plus its skip/move exceptions, never an expanded occurrence list) and absences (`list_absences`, which shows each as "absent" with its dates; the type and note are never shown to the AI). It can also create, update and delete meetings and absences (`*_calendar_event`, `*_absence`). It cannot change the timezone zones.
 
 ## Settings
 

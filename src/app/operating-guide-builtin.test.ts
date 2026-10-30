@@ -43,3 +43,16 @@ describe("selectActiveGuides view scoping", () => {
     expect(ids).not.toContain("builtin-feature-open-points");
   });
 });
+
+describe("availability rule reaches every view (§773)", () => {
+  it("the Open Points guide set carries the rule, not only the Calendar section", () => {
+    const active = selectActiveGuides(builtinSeeds(), { mode: "advanced", modules: [], view: "open-points" });
+    const text = active.map((g) => g.content).join(" ");
+    expect(text).toContain("check their absences with `list_absences`");
+    expect(text).toContain("A clash or availability answer needs both lists.");
+  });
+  it("the rule is stated once, in the Overview", () => {
+    const src = readFileSync(join(process.cwd(), "lib", "app-feature-guide.md"), "utf8");
+    expect(src.split("A clash or availability answer needs both lists.").length - 1).toBe(1);
+  });
+});

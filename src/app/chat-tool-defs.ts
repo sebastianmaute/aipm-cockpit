@@ -327,7 +327,7 @@ export const TOOL_DEFS = [
   {
     name: "create_task",
     description:
-      "Create a new task. Required: taskName, assignee, dueDate. Optional fields default sensibly.",
+      "Create a new task. Required: taskName, assignee, dueDate. Optional fields default sensibly. Check the assignee's absences with list_absences first; a result may list absenceClashes to mention to the user, offering another date.",
     input_schema: {
       type: "object",
       // ★ Own `blockers` wording: the shared one describes REPLACING open
@@ -345,7 +345,7 @@ export const TOOL_DEFS = [
   {
     name: "update_task",
     description:
-      "Update one or more fields on an existing task. Only the fields you specify are changed.",
+      "Update one or more fields on an existing task. Only the fields you specify are changed. Before changing the dates or the assignee, check list_absences; a result may list absenceClashes to mention to the user, offering another date.",
     input_schema: {
       type: "object",
       properties: {
@@ -822,7 +822,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "create_milestone",
-    description: "Create a project milestone. Required: name and date (YYYY-MM-DD).",
+    description: "Create a project milestone. Required: name and date (YYYY-MM-DD). Check list_absences for the people involved first; a result may list absenceClashes to mention to the user.",
     input_schema: {
       type: "object",
       properties: milestoneFields,
@@ -831,7 +831,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "update_milestone",
-    description: "Update fields on an existing milestone. Only the fields you pass change. linkedTaskIds REPLACES the whole list: read it from list_milestones first, and send every id to keep.",
+    description: "Update fields on an existing milestone. Only the fields you pass change. Before moving the date, check list_absences; a result may list absenceClashes to mention to the user. linkedTaskIds REPLACES the whole list: read it from list_milestones first, and send every id to keep.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" }, ...expectedTokenField, ...milestoneFields },
@@ -878,7 +878,7 @@ export const TOOL_DEFS = [
   {
     name: "list_absences",
     description:
-      "List time-off/absence entries with id, assignee, startDate, endDate. Every entry reads type \"absent\"; the real type and note are withheld. Read-only.",
+      "List time-off/absence entries (call list_absences before setting or moving a date for someone, or giving them work) with id, assignee, startDate, endDate. Every entry reads type \"absent\"; the real type and note are withheld. Read-only.",
     input_schema: { type: "object", properties: {} },
   },
   {

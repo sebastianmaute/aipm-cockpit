@@ -106,3 +106,12 @@ describe("the assistant can learn the project's currency", () => {
     for (const d of withCost) expect(d).toContain("the `currency` code get_dashboard_snapshot returns");
   });
 });
+
+describe("absence check is named in the date and assignment tools (§773)", () => {
+  it.each(["create_task", "update_task", "create_milestone", "update_milestone", "list_absences"])(
+    "%s description mentions list_absences",
+    (name) => {
+      expect(TOOL_DEFS.find((d) => d.name === name)!.description).toContain("list_absences");
+    },
+  );
+});
