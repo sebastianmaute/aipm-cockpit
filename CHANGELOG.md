@@ -12,6 +12,15 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Draft with AI in the meeting report is now a proposal, and the report keeps a previous version (AI-04).** The draft
+  no longer overwrites your report. It appears as a list of sections beside the editor, and you take one section or all of
+  them. When a section's heading matches one in your report, you choose Replace or Keep both; otherwise the section is
+  added. Nothing is saved until you press Save, and a section shows as Taken only after that. The proposal stays with the
+  meeting when you close the window until you discard it, draft again, switch project or reload the app; closing the window
+  drops unsaved typing. Every save now keeps one previous version, on every storage type, which you can compare with the
+  current report or restore. Taking, saving and restoring can be undone, and Ctrl+Z inside the report editor no longer
+  triggers the app's undo. An AI-drafted report is logged in the activity log as written by the AI. Sending a blank report
+  is refused.
 - **A deployment can switch AI off.** The server setting `AIPM_DISABLED_INTEGRATIONS` takes a new name, `ai`, which
   switches every AI feature off for that deployment, dictation to a speech service included. Settings → AI says so,
   nothing is sent, and users' keys and consents are kept for when AI is switched back on. Dictation with the browser's

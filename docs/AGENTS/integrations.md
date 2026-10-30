@@ -53,6 +53,22 @@ clear (info-instances ARE map-tracked so they prune automatically). ★★ `outl
 tolerates 404 ONLY for DELETE; PATCH/POST THROW `GraphCalendarError(404)` so an event deleted in Outlook gets
 re-created next push (committee + milestone hooks self-heal by clearing the stale id).
 
+★★ **Meeting report: the AI draft is a PROPOSAL, not a write (AI-04).** `useMeetingReportActions`
+(`use-meeting-report-actions.ts`) owns it in hook state, one per meeting, never persisted: the draft is sanitized BEFORE
+the split, tied to the meeting's date + Outlook event id (`fingerprint`) and to the scope epoch (`getProposal` returns
+nothing when the epoch moved, so a project change drops it). `markTaken`/`discardProposal` change the marks; a take is not
+marked until the Save lands. Pure split/merge is `report-sections.ts` (`splitSections`, `planTake`, `applyTake`); a
+matching heading asks Replace or Keep both in the panel (`meeting-report-proposal.tsx`). `onSaveReport(id, html, {fromAi})`
+computes from live state, is undoable through the composite fragment in `meeting-report-undo.ts`
+(`meetingReportUndoFragment`), and logs `ai.reportDraft` (actor ai) only when `fromAi`.
+`onRestorePrevious` swaps current and previous and is undoable; `use-report-undo-guard.ts` asks first when the top-bar
+undo would reverse a report change over unsaved edits. ★★ `MeetingReport.previous` (`{html, savedAt}`, one slot) rides
+the same blob as the report and is validated in the sanitizer (a malformed one is dropped, the report kept); Turso still
+keeps its own version list. It lives in the committee blob, so it reaches each backend with the blob; `sanitize-records.test.ts` pins the validator,
+but no test round-trips `previous` through each backend's codec, so check that yourself. ★ Parked residuals: a meeting deleted and re-created on the
+same date can show the old proposal, and a meeting deleted between render and click can leave one extra `ai.reportDraft`
+row.
+
 ### Calendar write-back engine (generic — milestones/committee + tasks)
 
 Milestone + committee push use the BARE category `categoryFor(projectId)` = `AIPM:${projectId}` and are LIST-BASED
