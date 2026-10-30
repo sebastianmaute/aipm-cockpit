@@ -43,11 +43,13 @@ export const STAGED_TOOL_RESULT =
 
 /** What the model is told about a call that is not a read (`isPureReadTool`), made AFTER a turn of the
  *  same send staged (AI-02). The call ran nothing: staging it would replace the card the user has not
- *  seen yet. Reads still run. Model-facing and English, like `STAGED_TOOL_RESULT`. */
+ *  seen yet. Reads still run. Model-facing and English, like `STAGED_TOOL_RESULT`.
+ *  ★ It speaks of THIS reply only: the rule is per send (`SendRecord.staged`), so in the next message a
+ *  lone write can apply again, or stage a new card. */
 export const PROPOSAL_PENDING_RESULT =
-  "Not run: a proposal is waiting for the user's review, and no other change can be made or proposed " +
-  "until they have decided on it. Tell the user the proposed changes are waiting for their approval; " +
-  "they can ask again afterwards.";
+  "Not run: a proposal from this reply is waiting for the user's review, so no other change can be made or " +
+  "proposed in this reply. Tell the user the proposed changes are waiting for their approval; they can ask " +
+  "for further changes after deciding on them.";
 
 /**
  * What the model is told once the user has approved a staged batch.
