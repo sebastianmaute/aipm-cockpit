@@ -10,6 +10,8 @@ longer carries its own changelog comment.
 
 ## [Unreleased]
 
+- A stored meeting report with no text and no previous version (for instance the empty paragraph an emptied editor leaves) is no longer kept when a workspace loads.
+
 ### Added
 
 - **Draft with AI in the meeting report is now a proposal, and the report keeps a previous version (AI-04).** The draft

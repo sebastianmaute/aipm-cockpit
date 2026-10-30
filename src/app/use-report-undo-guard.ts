@@ -15,8 +15,11 @@
 //   entry asks while an open report is dirty. Only one report dialog is open at a time, so the over-ask is
 //   an undo of a DIFFERENT meeting's report while this one has unsaved text — rare, and a question, not a loss.
 //
-// ★ Parked: the save toast's Undo action does not pass through this guard; it is unreachable while the report
-//   modal is open (the toast sits under the modal), so it cannot reach a dirty draft today.
+// ★ The save toast's Undo does not need to be unreachable: `useUndoStack` asks `confirmBeforeUndo` (task-manager wires
+//   it to `confirmReportUndo` below) before running a toast Undo, so it asks exactly like the top bar.
+//
+// ★ After the confirm the op runs on the entry that was on top when it was ASKED (`undoById` / `redoThrough`), never
+//   on whatever is on top by then: a capture that lands while the dialog is open must not be the one undone.
 //
 // Handlers are deliberately NOT memoized (deps-object convention): each reads the live stacks.
 import { t, type Lang } from "./i18n";
@@ -28,9 +31,10 @@ import type { UndoMeta } from "./undo/undo-stack";
 const DIRTY_REPORT_SELECTOR = '[data-report-dirty="true"]';
 
 type GuardedOps = Pick<UndoStackApi, "undo" | "undoThrough" | "redo" | "redoThrough">;
+type GuardApi = GuardedOps & Pick<UndoStackApi, "undoById" | "stack" | "redoStack">;
 
 export interface ReportUndoGuardDeps {
-  api: GuardedOps & Pick<UndoStackApi, "stack" | "redoStack">;
+  api: GuardApi;
   dialogsRef: { readonly current: AppDialogs };
   lang: Lang;
 }
@@ -47,26 +51,43 @@ function throughTop(stack: readonly UndoMeta[], id: number): readonly UndoMeta[]
   return idx === -1 ? [] : stack.slice(idx);
 }
 
+/** Resolves true to go ahead: at once when no open report would lose unsaved text, else after asking. */
+export function confirmReportUndo(
+  entries: readonly UndoMeta[],
+  dialogs: AppDialogs,
+  lang: Lang,
+  confirmKey: "undo" | "redo",
+): true | Promise<boolean> {
+  if (!wouldOverwriteDirtyReport(entries)) return true;
+  return dialogs.confirm({
+    title: t(lang, "reportUnsavedTitle"),
+    message: t(lang, "reportUndoUnsavedBody"),
+    confirmLabel: t(lang, confirmKey),
+  });
+}
+
 export function useReportUndoGuard({ api, dialogsRef, lang }: ReportUndoGuardDeps): GuardedOps {
-  const guard = (entries: readonly UndoMeta[], confirmKey: "undo" | "redo", run: () => void): void => {
-    if (!wouldOverwriteDirtyReport(entries)) {
-      run();
+  /** `runNow` when nothing needs asking; `runAfterAsk` (bound to the entries as they were ASKED) once confirmed. */
+  const guard = (entries: readonly UndoMeta[], confirmKey: "undo" | "redo", runNow: () => void, runAfterAsk: () => void): void => {
+    const ok = confirmReportUndo(entries, dialogsRef.current, lang, confirmKey);
+    if (ok === true) {
+      runNow();
       return;
     }
-    void dialogsRef.current
-      .confirm({
-        title: t(lang, "reportUnsavedTitle"),
-        message: t(lang, "reportUndoUnsavedBody"),
-        confirmLabel: t(lang, confirmKey),
-      })
-      .then((ok) => {
-        if (ok) run();
-      });
+    void ok.then((go) => {
+      if (go) runAfterAsk();
+    });
   };
   return {
-    undo: () => guard(api.stack.slice(-1), "undo", api.undo),
-    undoThrough: (id) => guard(throughTop(api.stack, id), "undo", () => api.undoThrough(id)),
-    redo: () => guard(api.redoStack.slice(-1), "redo", api.redo),
-    redoThrough: (id) => guard(throughTop(api.redoStack, id), "redo", () => api.redoThrough(id)),
+    undo: () => {
+      const top = api.stack[api.stack.length - 1];
+      guard(top ? [top] : [], "undo", api.undo, () => api.undoById(top.id));
+    },
+    undoThrough: (id) => guard(throughTop(api.stack, id), "undo", () => api.undoThrough(id), () => api.undoThrough(id)),
+    redo: () => {
+      const top = api.redoStack[api.redoStack.length - 1];
+      guard(top ? [top] : [], "redo", api.redo, () => api.redoThrough(top.id));
+    },
+    redoThrough: (id) => guard(throughTop(api.redoStack, id), "redo", () => api.redoThrough(id), () => api.redoThrough(id)),
   };
 }

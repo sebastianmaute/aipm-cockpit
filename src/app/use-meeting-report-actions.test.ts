@@ -236,12 +236,12 @@ describe("useMeetingReportActions", () => {
     describe("undo and activity (AI-04)", () => {
       const run = (c: ReturnType<typeof vi.fn>, i = 0) => (c.mock.calls[i][0] as CaptureCompositeOpts);
 
-      it("a save captures ONE meetingReport composite named by the meeting date", () => {
+      it("a save captures ONE meetingReport composite named by the meeting (title, else date)", () => {
         const captureComposite = vi.fn();
         const h = harness(committee(), { captureComposite });
         act(() => h.result.current!.onSaveReport(10, "<p>second</p>"));
         expect(captureComposite).toHaveBeenCalledTimes(1);
-        expect(run(captureComposite)).toMatchObject({ kind: "meetingReport.updated", primaryCount: 1, name: "2026-06-01" });
+        expect(run(captureComposite)).toMatchObject({ kind: "meetingReport.updated", primaryCount: 1, name: "M1" });
         expect(run(captureComposite).parts).toHaveLength(1);
       });
 
@@ -429,6 +429,22 @@ describe("useMeetingReportActions", () => {
         f.set(start);
         act(() => f.result.current!.onSaveReport(10, "<p>new</p>"));
         expect(f.state()).toBe(start);
+      });
+
+      it("a first save with nothing in it writes nothing: no report, no undo entry, false", () => {
+        const captureComposite = vi.fn();
+        const f = frozen(committee(false), { captureComposite });
+        let wrote = true;
+        act(() => { wrote = f.result.current!.onSaveReport(10, "<p></p>"); });
+        expect(wrote).toBe(false);
+        expect(f.state()!.meetings[0].report).toBeUndefined();
+        expect(captureComposite).not.toHaveBeenCalled();
+      });
+
+      it("a blank body that is overwritten is not stored as a Turso version", () => {
+        const f = frozen({ ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p></p>", updatedAt: "t0" } }] }, { tursoConfig: TURSO });
+        act(() => f.result.current!.onSaveReport(10, "<p>text</p>"));
+        expect(saveVersion).not.toHaveBeenCalled();
       });
 
       it("two restore-previous calls in one act swap back to where they started", () => {

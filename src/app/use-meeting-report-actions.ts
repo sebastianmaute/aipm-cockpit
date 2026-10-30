@@ -1,4 +1,4 @@
-// Deps-object hook (render-scope UI glue, coverage-excluded) that builds the
+// Deps-object hook (coverage-GATED: it decides what a save writes, snapshots, undoes and logs) that builds the
 // steering-committee "report" bag: save a meeting's status report into the
 // committee blob, and email it to the committee members via Graph. Non-memoized
 // handlers read live deps each call. Returns undefined in popouts (read-only).
@@ -113,6 +113,12 @@ export interface MeetingReportBag {
   restoreBusyId: string | null;
 }
 
+/** The undo label's name for a meeting: its title, else its date (what the steering panel lists it by). The activity
+ *  log keeps the RAW date (`ai.reportDraft`): its args are persisted and formatted at render, like `plan.currencySwitched`'s. */
+function meetingName(m: CommitteeMeeting): string {
+  return m.title || m.date;
+}
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -123,6 +129,8 @@ function nowIso(): string {
  *  An UNCHANGED body is no write at all (undefined): `updatedAt`, `sentAt` and `previous` all stay. */
 function replacedReport(old: MeetingReport | undefined, html: string, stamp: string): MeetingReport | undefined {
   if (old && old.html === html) return undefined;
+  // A first save with nothing in it is no report: no row, no undo entry, no toast.
+  if (!old && isBlankReport(html)) return undefined;
   const report: MeetingReport = { html, updatedAt: stamp };
   if (old && isBlankReport(old.html)) return { ...report, ...(old.previous ? { previous: old.previous } : {}) };
   if (old) report.previous = { html: old.html, savedAt: old.updatedAt };
@@ -183,8 +191,8 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     if (seen.after() === null) return false;
     // Turso: keep the live text we just overwrote as a version (best-effort, never blocks the write).
     const prior = seen.before();
-    if (prior) void snapshotCurrent(meetingId, prior.html);
-    captureReportChange(meeting.id, meeting.date, seen);
+    if (prior && !isBlankReport(prior.html)) void snapshotCurrent(meetingId, prior.html); // a blank body is no version
+    captureReportChange(meeting.id, meetingName(meeting), seen);
     if (opts?.fromAi) deps.logActivityAs("ai", "ai.reportDraft", meeting.date);
     return true;
   }
@@ -262,8 +270,8 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     // The text this swap replaced would otherwise exist nowhere in the Turso history (the next save snapshots the NEW
     // live text, not it): keep it as a version, like onSaveReport does.
     const replaced = seen.before();
-    if (replaced) void snapshotCurrent(meetingId, replaced.html);
-    captureReportChange(meeting.id, meeting.date, seen);
+    if (replaced && !isBlankReport(replaced.html)) void snapshotCurrent(meetingId, replaced.html);
+    captureReportChange(meeting.id, meetingName(meeting), seen);
   }
 
   async function onSendReport(meetingId: number, recipients: readonly string[]): Promise<void> {

@@ -65,7 +65,7 @@ import {
 } from "./sanitize-load-date";
 import { sanitizeRichText } from "./rich-text-plain";
 import { RENDER_SINK, RICH_SINK } from "./html-start";
-import { isBlankReport } from "./committee-report/report-sections";
+import { isBlankHtml as isBlankReport } from "./html-to-text";
 
 /** The milestone's linked-task rule. ★★ It USED to be deliberately different
  *  from `sanitizeIdList` — array-only and non-deduping — which meant

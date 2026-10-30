@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import fc from "fast-check";
-import { htmlToPlainText } from "./html-to-text";
+import { htmlToPlainText, isBlankHtml } from "./html-to-text";
 import { expectLinearScaling } from "../test/scaling";
 
 describe("htmlToPlainText", () => {
@@ -70,5 +70,18 @@ describe("htmlToPlainText — linear tag passes (§578)", () => {
       check: (out, n) => expect(out).toBe("<li ".repeat(n).trim()),
       n: 5_000,
     });
+  });
+});
+
+describe("isBlankHtml", () => {
+  it.each(["", "   ", "<p></p>", "<p><br></p>", "<p> </p><p>&nbsp;</p>", "<ul><li><p></p></li></ul>", "<ol><li></li><li></li></ol>", "<hr>"])(
+    "counts %j as blank",
+    (html) => expect(isBlankHtml(html)).toBe(true),
+  );
+  it.each(["<p>word</p>", "x", "<ul><li>item</li></ul>", "<p><br>a</p>"])("counts %j as text", (html) =>
+    expect(isBlankHtml(html)).toBe(false),
+  );
+  it("leaves htmlToPlainText's own output alone (the list marker is still added there)", () => {
+    expect(htmlToPlainText("<ul><li></li></ul>")).toBe("-");
   });
 });

@@ -3,6 +3,10 @@
 // enough; never call DOMPurify here (docs/AGENTS/rich-text.md).
 import { htmlToPlainText } from "../html-to-text";
 
+// The ONE blank rule (the hook refuses to send a blank body, the panel disables Send on it, the sanitizer drops a
+// blank `previous`); it lives beside htmlToPlainText so the shared sanitizer need not import this feature module.
+export { isBlankHtml as isBlankReport } from "../html-to-text";
+
 export interface ReportSection {
   level: 0 | 1 | 2 | 3 | 4;
   heading: string;
@@ -48,12 +52,6 @@ function headingText(inner: string): string {
     },
   );
   return htmlToPlainText(numeric).replace(/\s+/g, " ").trim();
-}
-
-/** True when a report body has no visible text (empty, or only tags and whitespace). The ONE blank rule: the
- *  hook refuses to send such a body and the panel disables Send on it. */
-export function isBlankReport(html: string): boolean {
-  return htmlToPlainText(html).trim() === "";
 }
 
 /** Match key for heading text; the input may contain inline markup and entities. */
@@ -176,17 +174,26 @@ function run(
         .map((it) => it.section.heading),
     });
     if (confirmReplace) items.splice(m, end - m, placed);
-    else items.splice(end, 0, placed);
+    else {
+      // Keep both: after the user's range, and past AI items already placed there, so the AI sections keep AI order.
+      let at = end;
+      while (at < items.length && items[at].placed) at++;
+      items.splice(at, 0, placed);
+    }
   }
   return { plan, html: items.map((it) => it.section.html).join("") };
 }
 
+/** What taking `take` would do. `confirmReplace` picks the answer the plan describes: Replace (default, what the
+ *  confirm dialog lists) or Keep both, which matches the same headings but removes nothing, so a later section the
+ *  Replace path would call an addition can be a match here. Same engine as applyTake, so they cannot disagree. */
 export function planTake(
   currentHtml: string,
   ai: readonly ReportSection[],
   take: readonly number[],
+  confirmReplace = true,
 ): TakePlan {
-  return run(currentHtml, ai, take, true).plan;
+  return run(currentHtml, ai, take, confirmReplace).plan;
 }
 
 export function applyTake(

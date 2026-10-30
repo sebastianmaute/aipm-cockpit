@@ -72,7 +72,7 @@ import { useTursoProjectList } from "./use-turso-project-list";
 import { useStorageBannerReshow } from "./use-storage-banner-reshow";
 import { useVersionHistoryWiring } from "./use-version-history-wiring";
 import { useUndoHotkey } from "./use-undo-hotkey";
-import { useReportUndoGuard } from "./use-report-undo-guard";
+import { useReportUndoGuard, confirmReportUndo } from "./use-report-undo-guard";
 import { useUndoBatch } from "./use-undo-batch";
 import { UndoControl, RedoControl } from "./undo/undo-control";
 import { buildMoveAbsenceHandler } from "./absence-move-handler";
@@ -180,7 +180,7 @@ function TaskManagerInner() {
   // §628 — same forward-ref shape; filled below with `useStorageBackend`'s stable reader, and `usePruneUndoOnScopeChange` sits after that call for the same ordering reason.
   const getScopeEpochRef = useRef<() => number>(() => 0); // holds useStorageBackend's UNDO epoch (getUndoEpoch: the scope epoch + one per restore), filled below
   const readScopeEpochForUndo = useCallback(() => getScopeEpochRef.current(), []);
-  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo, getScopeEpoch: readScopeEpochForUndo });
+  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction, allowDestructiveSave: armDestructiveForUndo, isReadOnly: readOnlyForUndo, getScopeEpoch: readScopeEpochForUndo, confirmBeforeUndo: (m) => confirmReportUndo([m], appDialogsRef.current, lang, "undo") });
   const reportUndo = useReportUndoGuard({ api: undoApi, dialogsRef: appDialogsRef, lang }); // AI-04 — the hotkey + top bar ask before rewriting an open report's unsaved text
   // ★★ §548 — the one undo path that does NOT unmount with the app tree during the load hold (a document
   //   keydown listener), and an undo applied then is replaced when the load lands, so it is dropped.

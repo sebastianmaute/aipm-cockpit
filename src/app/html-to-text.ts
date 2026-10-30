@@ -19,3 +19,10 @@ export function htmlToPlainText(html: string): string {
   s = s.replace(/&amp;|&lt;|&gt;|&quot;|&#39;|&nbsp;/g, (e) => ENT[e]);
   return s.replace(/\n{3,}/g, "\n\n").trim();
 }
+
+/** True when `html` shows no text at all: empty, only tags and whitespace (an emptied editor emits `<p></p>`, a
+ *  lone `<p><br></p>` or an empty list), with the dash markers htmlToPlainText adds for a list item NOT counted as
+ *  text. Its own check, so htmlToPlainText's output for every other caller stays as it was. */
+export function isBlankHtml(html: string): boolean {
+  return htmlToPlainText(replaceOpenTags(html, "<\\s*[Ll][Ii]", "")) === "";
+}

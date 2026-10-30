@@ -164,6 +164,37 @@ describe("applyTake", () => {
   });
 });
 
+describe("Keep both keeps the AI sections in AI order", () => {
+  const USER = "<h2>Risks</h2><p>r</p><h3>Vendor</h3><p>v</p><h2>Next</h2><p>n</p>";
+  const AI = ai("<h2>Risks</h2><p>R</p><h2>Vendor</h2><p>V</p>");
+
+  it("declining Replace on Take all lands Risks before Vendor, after the user's range", () => {
+    expect(applyTake(USER, AI, [0, 1], false)).toBe(
+      "<h2>Risks</h2><p>r</p><h3>Vendor</h3><p>v</p><h2>Risks</h2><p>R</p><h2>Vendor</h2><p>V</p><h2>Next</h2><p>n</p>",
+    );
+  });
+
+  it("confirming Replace is unchanged: the AI Risks replaces the range, Vendor follows it", () => {
+    expect(applyTake(USER, AI, [0, 1], true)).toBe(
+      "<h2>Risks</h2><p>R</p><h2>Vendor</h2><p>V</p><h2>Next</h2><p>n</p>",
+    );
+  });
+
+  it("planTake describes the answer it is asked about, with the same engine as applyTake", () => {
+    expect(planTake(USER, AI, [0, 1])).toEqual({
+      replacements: [{ aiIndex: 0, userHeading: "Risks", removedSubheadings: ["Vendor"] }],
+      additions: [1],
+    });
+    expect(planTake(USER, AI, [0, 1], false)).toEqual({
+      replacements: [
+        { aiIndex: 0, userHeading: "Risks", removedSubheadings: ["Vendor"] },
+        { aiIndex: 1, userHeading: "Vendor", removedSubheadings: [] },
+      ],
+      additions: [],
+    });
+  });
+});
+
 describe("planTake", () => {
   it("reports replacements and additions without changing anything", () => {
     const u = "<h2>Risks</h2><p>old</p>";
