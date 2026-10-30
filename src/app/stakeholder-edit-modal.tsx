@@ -130,7 +130,7 @@ export function StakeholderEditModal({
   const { settings } = useSettings();
   const draftRef = useRef(draft);
   useEffect(() => { draftRef.current = draft; });
-  const { mic: notesMic, status: notesDictationStatus, registration: notesDictationReg } = useDictationMic({
+  const { mic: notesMic, status: notesDictationStatus, registration: notesDictationReg, describedById: notesDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -138,7 +138,7 @@ export function StakeholderEditModal({
     label: t(lang, "stakeholderFieldNotes"),
     onAppendFinal: (txt) => update("notes", appendDictation(draftRef.current.notes ?? "", txt)),
   });
-  const { mic: nameMic, status: nameDictationStatus, registration: nameDictationReg } = useDictationMic({
+  const { mic: nameMic, status: nameDictationStatus, registration: nameDictationReg, describedById: nameDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -147,7 +147,7 @@ export function StakeholderEditModal({
     onAppendFinal: (txt) =>
       update("name", describeTextCap(appendDictation(draftRef.current.name ?? "", txt), BUDGET_NAME_MAX).value),
   });
-  const { mic: orgMic, status: orgDictationStatus, registration: orgDictationReg } = useDictationMic({
+  const { mic: orgMic, status: orgDictationStatus, registration: orgDictationReg, describedById: orgDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -156,7 +156,7 @@ export function StakeholderEditModal({
     onAppendFinal: (txt) =>
       update("organization", describeTextCap(appendDictation(draftRef.current.organization ?? "", txt), BUDGET_NAME_MAX).value),
   });
-  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
+  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg, describedById: titleDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -264,7 +264,7 @@ export function StakeholderEditModal({
                 }}
                 maxLength={BUDGET_NAME_MAX}
                 aria-required
-                aria-describedby="stakeholder-name-counter"
+                aria-describedby={joinDescribedBy("stakeholder-name-counter", nameDictationDesc)}
               />
             </div>
             <CharCounter value={draft.name} max={BUDGET_NAME_MAX} id="stakeholder-name-counter" lang={lang} />
@@ -293,7 +293,7 @@ export function StakeholderEditModal({
                   update("organization", normalizeStakeholderShortText(e.target.value));
                   orgDictationReg.onBlur();
                 }}
-                aria-describedby="stakeholder-organization-counter"
+                aria-describedby={joinDescribedBy("stakeholder-organization-counter", orgDictationDesc)}
               />
               <CharCounter value={draft.organization ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-organization-counter" lang={lang} />
               {orgDictationStatus}
@@ -322,7 +322,7 @@ export function StakeholderEditModal({
                     update("title", normalizeStakeholderShortText(e.target.value));
                     titleDictationReg.onBlur();
                   }}
-                  aria-describedby="stakeholder-title-counter"
+                  aria-describedby={joinDescribedBy("stakeholder-title-counter", titleDictationDesc)}
                 />
                 <CharCounter value={draft.title ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-title-counter" lang={lang} />
                 {titleDictationStatus}
@@ -427,7 +427,7 @@ export function StakeholderEditModal({
                   update("notes", normalizeStakeholderNotes(e.target.value));
                   notesDictationReg.onBlur();
                 }}
-                aria-describedby="stakeholder-notes-counter"
+                aria-describedby={joinDescribedBy("stakeholder-notes-counter", notesDictationDesc)}
               />
               <CharCounter value={draft.notes ?? ""} max={TEXTAREA_MAX} id="stakeholder-notes-counter" lang={lang} />
               {notesDictationStatus}

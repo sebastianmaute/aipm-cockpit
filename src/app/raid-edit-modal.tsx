@@ -45,7 +45,7 @@ import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX, sanitizeLoadedEmail } from "./sanitize";
 import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
-import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, linkedResourceEmail } from "./editor-email-rule";
+import { emailFlagDescribedBy, emailFlagVisible, editorEmailRefusalMessage, joinDescribedBy, linkedResourceEmail } from "./editor-email-rule";
 import { filterPickerOptions } from "./picker-filter";
 import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
@@ -138,7 +138,7 @@ export function RaidEditModal({
   const confirm = useConfirm();
   const draftRef = useRef(draft);
   useEffect(() => { draftRef.current = draft; });
-  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
+  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg, describedById: descriptionDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -147,7 +147,7 @@ export function RaidEditModal({
     onAppendFinal: (txt) =>
       onChange({ ...draftRef.current, description: appendDictationToHtml(draftRef.current.description, txt) || undefined }),
   });
-  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
+  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg, describedById: titleDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -475,7 +475,7 @@ export function RaidEditModal({
               onFocus={titleDictationReg.onFocus}
               onBlur={(e) => { onChange({ ...draft, title: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() }); titleDictationReg.onBlur(); }}
               placeholder={t(lang, "raidPlaceholderTitle")}
-              aria-describedby="raid-title-counter"
+              aria-describedby={joinDescribedBy("raid-title-counter", titleDictationDesc)}
             />
             <CharCounter value={draft.title} max={TASK_NAME_MAX} id="raid-title-counter" lang={lang} />
             {titleDictationStatus}
@@ -511,6 +511,7 @@ export function RaidEditModal({
                 onChange={(html) => onChange({ ...draft, description: html || undefined })}
                 label={t(lang, "raidDescription")}
                 lang={lang}
+                ariaDescribedBy={descriptionDictationDesc}
               />
             </div>
             {/* CharCounter measures `.length`, and the cap measures VISIBLE

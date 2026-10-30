@@ -31,6 +31,7 @@ import { unlockSecret } from "./use-secrets";
 import { useConfirm } from "./confirm-dialog";
 import { isPassphraseLocked } from "./secrets-store";
 import { useDictationMic } from "./dictation-mic";
+import { joinDescribedBy } from "./editor-email-rule";
 import { appendDictation } from "./dictation-engine";
 import {
   type AttachmentBlock,
@@ -483,7 +484,7 @@ function ChatPanelInner({
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.
   const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai, ai.model);
-  const { mic, status, registration } = useDictationMic({
+  const { mic, status, registration, describedById: dictationDesc } = useDictationMic({
     lang,
     dictation,
     aiConsented: isAiConsentedForDictation(ai),
@@ -635,7 +636,8 @@ function ChatPanelInner({
   const deploymentOn = blockedMessageKey === null;
   // The visible deployment notice (empty state or banner) describes the composer it disables.
   const deploymentNoticeId = useId();
-  const composerDescribedBy = deploymentOn ? undefined : deploymentNoticeId;
+  // AI people protection: the dictation-off reason (when it applies) describes the composer too.
+  const composerDescribedBy = joinDescribedBy(deploymentOn ? undefined : deploymentNoticeId, dictationDesc);
   const masterOn = deploymentOn && ai.enabled === true && !consentStale;
   // The key actually used for calls/gating: a plaintext settings key wins,
   // else the inline-unlocked passphrase key (if any).

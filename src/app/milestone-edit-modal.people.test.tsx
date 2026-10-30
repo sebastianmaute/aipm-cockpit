@@ -62,16 +62,20 @@ function renderModal(ws: Workspace) {
 }
 
 describe("dictation replacement under people protection (I2)", () => {
-  it("keeps the milestone name's accessible name unchanged, and gives the reason as a tooltip", () => {
+  it("keeps the milestone name's accessible name unchanged, and gives the reason as its description", () => {
     (window as unknown as Record<string, unknown>).webkitSpeechRecognition = class {};
     const { container } = renderModal(emptyWorkspace()); // no override: protected
-    expect(screen.getByRole("textbox", { name: NAME })).toBeTruthy();
+    const name = screen.getByRole("textbox", { name: NAME });
+    // Review round 2: the reason reaches assistive tech as the field's DESCRIPTION, never its name.
+    expect(name).toHaveAccessibleDescription(expect.stringContaining(REASON));
     expect(screen.queryByRole("button", { name: /hold to dictate/i })).toBeNull();
     const off = container.querySelectorAll("[data-dictation-off]");
     expect(off.length).toBeGreaterThan(0);
     expect(off[0]!.getAttribute("title")).toBe(REASON);
-    // Compact: the sentence is never body text.
-    expect(container.textContent).not.toContain(REASON);
+    // Compact: the sentence is never VISIBLE text — every element carrying it is hidden.
+    const carriers = [...container.querySelectorAll("*")].filter((el) => el.children.length === 0 && el.textContent === REASON);
+    expect(carriers.length).toBeGreaterThan(0);
+    expect(carriers.every((el) => (el as HTMLElement).hidden)).toBe(true);
   });
 
   // The control: allowed, the mic is a real button.
@@ -82,6 +86,9 @@ describe("dictation replacement under people protection (I2)", () => {
     const { container } = renderModal({ ...emptyWorkspace(), settingsOverrides: withPeopleAllowed(undefined, true) });
     expect(screen.getAllByRole("button", { name: /hold to dictate/i }).length).toBeGreaterThan(0);
     expect(container.querySelector("[data-dictation-off]")).toBeNull();
+    // Neither the reason nor any description from it appears with protection off.
+    expect(screen.getByRole("textbox", { name: /^Name \*/ })).not.toHaveAccessibleDescription(expect.stringContaining(REASON));
+    expect(container.textContent).not.toContain(REASON);
   });
 
   it("renders nothing where no mic is supported", () => {

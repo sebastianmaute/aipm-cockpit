@@ -13,6 +13,7 @@ import { EmailFieldError, emailFieldInvalid } from "./email-field-error";
 import { Field } from "./form-field";
 import { TaskFormSection } from "./task-form-layout";
 import { useDictationMic } from "./dictation-mic";
+import { joinDescribedBy } from "./editor-email-rule";
 import { isAiConsentedForDictation } from "./settings-types";
 import { appendDictation } from "./dictation-engine";
 import { RichTextEditor } from "./rich-text-editor-lazy";
@@ -140,7 +141,7 @@ export function TaskFormFields({
   // owns that round-trip (and documents the formatting-flatten trade-off). The
   // functional setter is what lets it read the latest state on each of the
   // repeated onFinal calls Web Speech fires per hold.
-  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
+  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg, describedById: descriptionDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -152,7 +153,7 @@ export function TaskFormFields({
         description: appendDictationToHtml(prev.description ?? "", txt),
       })),
   });
-  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
+  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg, describedById: titleDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -250,7 +251,7 @@ export function TaskFormFields({
             }}
             placeholder={t(lang, "placeholderTaskName")}
             invalid={errorFor("taskName") ? true : undefined}
-            aria-describedby={describedBy("taskName", "taskName-counter")}
+            aria-describedby={joinDescribedBy(describedBy("taskName", "taskName-counter"), titleDictationDesc)}
             className="w-full"
           />
           <CharCounter value={form.taskName} max={TASK_NAME_MAX} id="taskName-counter" lang={lang} />
@@ -532,6 +533,7 @@ export function TaskFormFields({
               onChange={(html) => setForm((p) => ({ ...p, description: html }))}
               label={t(lang, "description")}
               lang={lang}
+              ariaDescribedBy={descriptionDictationDesc}
             />
           </div>
           {descriptionDictationStatus}

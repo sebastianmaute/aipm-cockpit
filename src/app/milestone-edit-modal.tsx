@@ -69,7 +69,7 @@ export function MilestoneEditModal({
   const { isVisible } = useModalVisibility("milestone");
   const { settings } = useSettings();
   const confirm = useConfirm();
-  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
+  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg, describedById: descriptionDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -78,7 +78,7 @@ export function MilestoneEditModal({
     onAppendFinal: (txt) =>
       setDraft((p) => (p ? { ...p, description: appendDictationToHtml(p.description, txt) } : p)),
   });
-  const { mic: nameMic, status: nameDictationStatus, registration: nameDictationReg } = useDictationMic({
+  const { mic: nameMic, status: nameDictationStatus, registration: nameDictationReg, describedById: nameDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -192,6 +192,7 @@ export function MilestoneEditModal({
               onChange={(e) => update("name", e.target.value)}
               onFocus={nameDictationReg.onFocus}
               onBlur={nameDictationReg.onBlur}
+              aria-describedby={nameDictationDesc}
             />
             {nameDictationStatus}
           </label>
@@ -247,6 +248,7 @@ export function MilestoneEditModal({
                 onChange={(html) => update("description", html || undefined)}
                 label={t(lang, "milestoneDescription")}
                 lang={lang}
+                ariaDescribedBy={descriptionDictationDesc}
               />
             </div>
             {descriptionDictationStatus}

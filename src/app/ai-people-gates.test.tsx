@@ -192,8 +192,11 @@ describe("dictation under protection", () => {
     expect(screen.queryByRole("button", { name: /hold to dictate/i })).toBeNull();
     const off = screen.getByTestId("mic-slot").querySelector("[data-dictation-off]");
     expect(off?.getAttribute("title")).toBe(t("en-US", "dictationUnavailablePeopleProtected"));
-    // Review round 1 (I2): no body text, so it adds nothing to a surrounding label's name.
-    expect(screen.getByTestId("mic-slot").textContent).toBe("");
+    // Review rounds 1–2 (I2): no VISIBLE text — the reason rides only in a hidden element a field names in its
+    // aria-describedby, so it adds nothing to a surrounding label's name.
+    const carrier = screen.getByTestId("mic-slot").querySelector("[hidden]");
+    expect(carrier?.textContent).toBe(t("en-US", "dictationUnavailablePeopleProtected"));
+    expect(screen.getByTestId("mic-slot").textContent).toBe(carrier?.textContent);
   });
 });
 
