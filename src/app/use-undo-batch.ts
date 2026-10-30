@@ -171,7 +171,12 @@ export function collapseCaptures(
   // No `name`: a label names ONE entity, and a plan is not one entity. Letting a
   // single row's title stand for the whole plan is the same wrong-label failure
   // the entityKey note above rejects.
-  return { kind, primaryCount, parts, entityKey };
+  // §774 — a capture with its own toast text (a reassignment that moved planned
+  // hours) keeps saying so in the ONE collapsed entry; plans whose captures carry
+  // none keep the generic "Edited N items".
+  const texts = contributing.map((o) => o.toastText).filter((x): x is string => !!x);
+  const toastText = texts.length > 0 ? texts.join(" ") : undefined;
+  return { kind, primaryCount, parts, entityKey, toastText };
 }
 
 /**

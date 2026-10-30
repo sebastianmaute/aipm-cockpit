@@ -377,6 +377,8 @@ export type ToolDispatcher = {
   getTask(id: number): Task | null;
   createTask(input: TaskInput): Task;
   updateTask(id: number, patch: Partial<Task>): Task | null;
+  /** §774 — what the last `updateTask` did to planned hours (the notice text), read once; null when nothing to say. */
+  takePlannedHoursNote?(): string | null;
   /** Replace task `id`'s predecessor-link list wholesale. `raw` is untrusted
    *  model output; `resolveDependencyWrite` sanitizes + cycle-checks it.
    *  Returns null when the task doesn't exist. `removed` is every link that
@@ -742,7 +744,9 @@ export async function runTool(
       if (!updated) throw new Error(`task #${id} not found`);
       // The STORED row keeps the address (a reassignment copies the directory person's in);
       // only the model-facing result drops it.
-      return withoutAssigneeEmail(updated);
+      // §774 — a reassignment moved (or could not move) planned hours: say so, so the model can tell the user.
+      const plannedHours = d.takePlannedHoursNote?.() ?? null;
+      return plannedHours ? { ...withoutAssigneeEmail(updated), plannedHours } : withoutAssigneeEmail(updated);
     }
 
     case "set_task_dependencies": {
