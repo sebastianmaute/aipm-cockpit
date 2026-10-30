@@ -2,8 +2,10 @@ import { describe, expect, test } from "vitest";
 import type { ApiMessage } from "./chat-api";
 import { buildAttachmentBlock } from "./chat-attachments";
 import { TOOL_DEFS } from "./chat-tool-defs";
-import { isPureReadTool, openSendRecord, stagesWhenUntrusted } from "./chat-send-record";
+import { isPureReadTool, openSendRecord, stagesWhenUntrusted, UNTRUSTED_CONTACT_KEYS } from "./chat-send-record";
 import { shouldStage, type ProposedCall } from "./chat-proposal";
+import { TOKEN_REQUIRED_TOOLS } from "./chat-proposal-apply";
+import { PERSON_FIELDS } from "./person-reassign";
 
 const call = (name: string, input: Record<string, unknown> = {}): ProposedCall => ({ name, input });
 
@@ -109,6 +111,11 @@ describe("stagesWhenUntrusted", () => {
     ["update_task", { assigneeEmail: "x@evil.example" }, { status: "Done" }],
     ["update_raid_item", { ownerEmail: "x@evil.example" }, { severity: "High" }],
     ["update_absence", { assigneeEmail: "x@evil.example" }, { note: "moved" }],
+    // A person name or link: the writer derives the stored address from it (`withReassignFields`).
+    ["update_task", { assignee: "x@evil.example" }, { priority: "High" }],
+    ["update_raid_item", { owner: "Mallory Jones" }, { title: "Vendor down" }],
+    ["update_absence", { assignee: "Mallory Jones" }, { type: "vacation" }],
+    ["update_absence", { resourceId: 3 }, { endDate: "2030-01-02" }],
   ] as const;
 
   test.each(CONTACT_CASES)("%s stages when it sets a contact field, and applies when it does not", (name, contact, plain) => {
@@ -134,6 +141,25 @@ describe("stagesWhenUntrusted", () => {
   test("a tool it does not know stages", () => {
     expect(stagesWhenUntrusted(call("rename_everything", { id: 1 }))).toBe(true);
     expect(stagesWhenUntrusted(call("list_tasks_and_delete", {}))).toBe(true);
+  });
+
+  // ★★ DERIVED FROM THE SCHEMAS, so a new address field on a tokened tool goes red here until the gate names it.
+  // Collected: every property of a tokened tool whose name says email or phone, every person-name key in
+  // `PERSON_FIELDS`, and the person link `resourceId`. Mutation: deleting any key from the gate's set turns this red.
+  test("every address, person-name and person-link field of a tokened tool is a gate key", () => {
+    const personNames = new Set<string>(Object.values(PERSON_FIELDS).map((f) => f.name));
+    const collected = new Set<string>();
+    for (const def of TOOL_DEFS as ReadonlyArray<{ name: string; input_schema?: { properties?: Record<string, unknown> } }>) {
+      if (!TOKEN_REQUIRED_TOOLS.has(def.name)) continue;
+      for (const key of Object.keys(def.input_schema?.properties ?? {})) {
+        if (/email|phone/i.test(key) || personNames.has(key) || key === "resourceId") collected.add(key);
+      }
+    }
+    // The population beside the verdict, so an empty walk cannot pass.
+    expect([...collected].sort()).toEqual(
+      ["assignee", "assigneeEmail", "businessPhone", "email", "emails", "owner", "ownerEmail", "resourceId", "toEmail"],
+    );
+    expect([...collected].filter((k) => !UNTRUSTED_CONTACT_KEYS.has(k))).toEqual([]);
   });
 
   // ★★★ THE GUARD FOR FUTURE TOOLS: every live tool is in exactly one list.

@@ -6,6 +6,7 @@
 import type { ApiMessage } from "./chat-api";
 import { ALWAYS_STAGED_TOOLS, isDestructiveCall, sendsInvitations, type ProposedCall } from "./chat-proposal";
 import { TOKEN_REQUIRED_TOOLS } from "./chat-proposal-apply";
+import { PERSON_FIELDS } from "./person-reassign";
 
 /** One user send, as the staging gate sees it.
  *  - `appliedWrites`: entity writes that already ran directly in an earlier turn of this send, so
@@ -51,15 +52,24 @@ export function isPureReadTool(name: string): boolean {
   return READ_TOOLS.has(name);
 }
 
-/** The input fields that say where a person is reached, across every update tool's schema
- *  (`chat-tool-defs.ts`). An attachment must not repoint an address unseen, even with a valid token.
- *  `attendeeResourceIds` is absent on purpose: it names directory rows, not addresses. */
-const CONTACT_FIELDS: readonly string[] = ["email", "emails", "assigneeEmail", "ownerEmail", "toEmail", "businessPhone"];
+/** The input keys that change where a person is reached, across every update tool's schema
+ *  (`chat-tool-defs.ts`). An attachment must not repoint a stored address unseen, even with a valid token.
+ *  - the address fields themselves;
+ *  - each person-name key and its paired address key in `PERSON_FIELDS`: a new name makes the writer
+ *    derive the stored address (`withReassignFields`), so a name-only reassignment repoints it too;
+ *  - `resourceId`, the person link, which decides the address an absence resolves to.
+ *  `attendeeResourceIds` is absent on purpose: it names attendees, not an address on file.
+ *  `chat-send-record.test.ts` walks the tokened tools' schemas and goes red for a key missing here. */
+export const UNTRUSTED_CONTACT_KEYS: ReadonlySet<string> = new Set([
+  "email", "emails", "toEmail", "businessPhone",
+  ...Object.values(PERSON_FIELDS).flatMap((f) => [f.name, f.email]),
+  "resourceId",
+]);
 
-/** True when the call's input sets a contact field. The key decides, not the value: clearing an
- *  address is a contact change too. */
+/** True when the call's input carries a contact key. The key decides, not the value: clearing an
+ *  address, or naming the same person again, still goes to the card. */
 function touchesContactField(call: ProposedCall): boolean {
-  return CONTACT_FIELDS.some((field) => Object.hasOwn(call.input, field));
+  return Object.keys(call.input).some((key) => UNTRUSTED_CONTACT_KEYS.has(key));
 }
 
 /** True when this call goes to the review card in an untrusted send. FAIL CLOSED: everything stages
@@ -67,8 +77,8 @@ function touchesContactField(call: ProposedCall): boolean {
  *  update (`TOKEN_REQUIRED_TOOLS`) — the token pins the write to the row the model read, and a lone one
  *  applies as it does in a trusted send. A tool this module does not know stages.
  *  A tokened update still stages when it is destructive, would send invitations, edits the project
- *  record (`ALWAYS_STAGED_TOOLS`), is `escalate_raid_item` (it records a recipient address), or sets a
- *  contact field (`CONTACT_FIELDS`). */
+ *  record (`ALWAYS_STAGED_TOOLS`), is `escalate_raid_item` (it records a recipient address), or carries
+ *  a contact, person-name or person-link key (`UNTRUSTED_CONTACT_KEYS`). */
 export function stagesWhenUntrusted(call: ProposedCall): boolean {
   if (isPureReadTool(call.name) || call.name === "optimize_wbs") return false;
   if (!TOKEN_REQUIRED_TOOLS.has(call.name)) return true;
