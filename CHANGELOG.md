@@ -26,6 +26,15 @@ longer carries its own changelog comment.
   Ctrl+Z and redo anywhere in the report dialog, its buttons and root included, and in the questions it asks (Replace or Keep both, unsaved changes), no longer trigger the app's undo. An
   AI-drafted report is logged in the activity log as written by the AI. Sending a blank report is refused.
 
+- **Claude respects absences in every AI feature (§773).** Before, only Plan with AI knew who was away, so Claude could
+  set a due date in someone's vacation. Now the chat checks absences before it sets or moves a date or gives work to
+  someone, and a date it sets on an absence day, or on a task the person is away for more than half of, is flagged: the
+  inline edit preview, the chat's review card and the insight review window show the clash, and a lone chat change that
+  clashes waits on the review card instead of applying at once. Nothing is refused or moved for you. Plan the WBS with AI,
+  Analyze with AI, scheduled analysis, insight recommendations and the steering report draft are told who is away in the
+  next 28 days (days only, never the type or the note), and the WBS plan marks a new task whose due date clashes. Manual
+  edits are not warned.
+
 - **Plan with AI understands the project (§769).** Resources → Planning → Plan with AI now sees open tasks, milestones,
   who is responsible or accountable for each milestone, and each person's internal rate. It can move tasks to other
   people as well as edit hours, and it may offer up to three alternatives: you pick one in the review window, then tick

@@ -2060,6 +2060,19 @@
   `normalizeUsage` is one shared helper rather than a defaulting step repeated at each call site. Never
   replace it with a plain object cast.
 
+### AI Assistant — absences (§773)
+
+One rule, one matcher, one summary, read by every AI feature that sets or reads a date (`src/app/absence-clash.ts`).
+
+- **The rule.** `taskClashes` / `milestoneClashes`: a date clashes when it falls on an absence day, or when the person is absent on MORE than half the task's working days (weekends and holidays excluded, `holidaySet` from `AbsenceCtx`). The matcher `absencesOfPerson` links by `resourceId` as `absencesForResource` does and falls back to the typed name. Non-goals: no warning on manual edits, never refuse or shift a date, and the model never sees an absence's type or note (`buildAwaySummary` prints absent days only; `formatAbsenceClash` in `absence-clash-notice.ts` is the user-facing text).
+- **Previews.** `EditPlan.clashes` (`inline-ai-edit/plan.ts`, built by `plan-clashes.ts`) is REQUIRED on the type, so a merging producer cannot drop it. Ruling R2: a date-only move judges the changed dates plus the span rule; an owner change or a new link judges the whole item. Shown by the inline edit popover, the chat's staged card and the insight review modal.
+- **Chat.** The four date tools (`DATE_WRITE_TOOLS`, `chat-absence-clashes.ts`) return `absenceClashes` in their result (dispatcher hook `absenceClashesFor`). `shouldStage(calls, send, hasClash)` takes a third, data-dependent predicate: a lone clashing write is staged, and the staged result also lists the clash for Claude. A change to an item created earlier in the same turn is judged through `chat-proposal-turn-clashes.ts`.
+- **Prompts.** The availability rule is in `## Overview` of `lib/app-feature-guide.md` and in the descriptions of `create_task`, `update_task`, `create_milestone`, `update_milestone` and `list_absences`. `buildAwaySummary` feeds the WBS plan (`wbs-plan.ts`, window max(project start, today)..project end, fallback today..today+`AWAY_WINDOW_DAYS`; it marks a new task, never a split piece), `buildProjectDigest` (`project-digest.ts`, Analyze with AI and scheduled analysis), `buildRecommendContext` and the steering report (`buildMeetingReportPrompt`, `MeetingReportCtx.away`). The block is capped by `AWAY_SUMMARY_MAX_LINES` and `AWAY_SUMMARY_MAX_RANGES` and is empty when nobody is away.
+- ★★ **One predicate for the card and the tool result.** `callAbsenceClashes` reads the plan `describeProposal` builds for the card, never a rule of its own, so the staging gate, the card and the tool result judge one thing. Ask it BEFORE the write: a trigger is a CHANGE against the stored row, and after the write the row already holds the new date, so the same call judges nothing.
+- ★ `shouldStage` stays a function of the call list: the caller builds `hasClash` (`chat-panel.tsx`), and it is asked only about entity writes.
+
+Reproduce the readers: `grep -rln "buildAwaySummary" src/app --include=*.ts --include=*.tsx | grep -v test` (seven files: the rule's own file, the WBS plan, the digest, the recommend context, and the steering report's call, draft and action hook).
+
 ### AI Assistant — the chat-thread sidebar (Turso-only)
 
 Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps the ★★★ rule.
