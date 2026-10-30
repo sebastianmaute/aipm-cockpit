@@ -9,7 +9,7 @@ import { Button } from "./button";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { RichTextView } from "./rich-text-view";
 import { FOCUS_RING } from "./interaction-styles";
-import type { ReportSection } from "./committee-report/report-sections";
+import { isBlankReport, sectionBodyHtml, type ReportSection } from "./committee-report/report-sections";
 
 export interface MeetingReportProposalProps {
   lang: Lang;
@@ -60,6 +60,8 @@ export function MeetingReportProposal({ lang, sections, taken, onTake, onDiscard
           const isTaken = taken.has(i);
           const name = sectionName(lang, s);
           const token = tokens.get(i) ?? name;
+          // The row already names the section, so the preview shows its body only (no nested, repeated heading).
+          const body = sectionBodyHtml(s.html);
           return (
             <li key={i} className="px-3 py-1.5 text-xs">
               <div className="flex items-center justify-between gap-2">
@@ -93,7 +95,11 @@ export function MeetingReportProposal({ lang, sections, taken, onTake, onDiscard
                   {previewLabel}
                 </summary>
                 <div data-section-preview-body className="mt-1 rounded-sm border border-line bg-surface p-2">
-                  <RichTextView html={s.html} />
+                  {isBlankReport(body) ? (
+                    <p className="text-muted-foreground">{t(lang, "reportProposalPreviewEmpty")}</p>
+                  ) : (
+                    <RichTextView html={body} />
+                  )}
                 </div>
               </details>
             </li>

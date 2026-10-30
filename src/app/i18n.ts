@@ -4394,6 +4394,7 @@ const enUS = {
   reportProposalUntitled: "Untitled section",
   reportProposalTaken: "Taken",
   reportProposalPreview: "Preview",
+  reportProposalPreviewEmpty: "This section has no text of its own.",
   reportTakeConfirmTitle: "Replace sections?",
   reportTakeConfirmBody: "Your section \"{0}\" will be replaced, together with its sub-sections: {1}.",
   reportTakeConfirmBodyNoSub: "Your section \"{0}\" will be replaced.",

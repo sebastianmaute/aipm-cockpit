@@ -87,6 +87,13 @@ export function splitSections(html: string): ReportSection[] {
   return out;
 }
 
+/** A section's html WITHOUT its own leading heading element (h1-h4), for a preview shown under a row that already
+ *  names it. Only the first heading is dropped, and only when it opens the html (a level-0 opening section has none). */
+export function sectionBodyHtml(html: string): string {
+  const m = /^\s*<h([1-4])\b[^>]*>(?:[^<]|<(?!\/?h[1-4]\b))*<\/h\1>/i.exec(html);
+  return m ? html.slice(m[0].length) : html;
+}
+
 interface Item {
   section: ReportSection;
   placed: boolean; // came from the AI: never a match target, may anchor an insertion

@@ -142,6 +142,26 @@ describe("MeetingReportProposal — section preview", () => {
   });
 });
 
+describe("MeetingReportProposal — preview omits the section heading", () => {
+  it("an opened preview holds no heading element and does not repeat the row heading", () => {
+    const { container } = render(
+      <MeetingReportProposal lang="en-US" sections={SECTIONS} taken={new Set()} onTake={vi.fn()} onDiscard={vi.fn()} />,
+    );
+    const bodies = [...container.querySelectorAll<HTMLElement>("[data-section-preview-body]")];
+    for (const b of bodies) expect(b.querySelector("h1,h2,h3,h4")).toBeNull();
+    expect(bodies[1].textContent).toBe("a");
+    expect(bodies[3].textContent).toBe("c");
+  });
+
+  it("a section that is only a heading shows the muted no-text line", () => {
+    const { container } = render(
+      <MeetingReportProposal lang="en-US" sections={splitSections("<h2>Empty</h2>")} taken={new Set()} onTake={vi.fn()} onDiscard={vi.fn()} />,
+    );
+    const body = container.querySelector("[data-section-preview-body]") as HTMLElement;
+    expect(body.textContent).toBe(t("en-US", "reportProposalPreviewEmpty"));
+  });
+});
+
 describe("MeetingReportProposal (DE)", () => {
   beforeAll(async () => {
     await loadI18n("de");

@@ -3,6 +3,7 @@ import {
   applyTake,
   normalizeHeading,
   planTake,
+  sectionBodyHtml,
   splitSections,
 } from "./report-sections";
 
@@ -173,5 +174,26 @@ describe("planTake", () => {
       additions: [1],
     });
     expect(u).toBe("<h2>Risks</h2><p>old</p>");
+  });
+});
+
+describe("sectionBodyHtml", () => {
+  it("drops the leading heading and keeps the body", () => {
+    expect(sectionBodyHtml("<h2>Risks</h2><p>a</p>")).toBe("<p>a</p>");
+  });
+  it("leaves a level-0 opening section untouched", () => {
+    expect(sectionBodyHtml("<p>intro</p>")).toBe("<p>intro</p>");
+  });
+  it("drops a heading with inline markup and entities", () => {
+    expect(sectionBodyHtml("<h3 class=\"x\">R&amp;D <em>plan</em> &#8211; Q1</h3><p>b</p>")).toBe("<p>b</p>");
+  });
+  it("a section that is only a heading has an empty body", () => {
+    expect(sectionBodyHtml("<h2>Next steps</h2>")).toBe("");
+  });
+  it("drops only the first heading, not a later one", () => {
+    expect(sectionBodyHtml("<h2>A</h2><p>x</p><h4>B</h4>")).toBe("<p>x</p><h4>B</h4>");
+  });
+  it("does not strip a heading that does not open the html", () => {
+    expect(sectionBodyHtml("<p>x</p><h2>A</h2>")).toBe("<p>x</p><h2>A</h2>");
   });
 });

@@ -368,6 +368,23 @@ describe("useMeetingReportActions", () => {
         expect(result.current.c!.meetings[0].report).toEqual(prior);
       });
 
+      // The "unchanged" decision (snapshot / undo entry / AI log) is made on the RENDER-scope meeting; the write on the
+      // LIVE one. The two can disagree between a render and a click. Pinned: the WRITE always follows the live state.
+      it("render says changed but live already holds the body: nothing is rewritten (no previous, same stamp)", () => {
+        const f = frozen(committee());
+        f.set({ ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>new</p>", updatedAt: "t9" } }] });
+        act(() => f.result.current!.onSaveReport(10, "<p>new</p>"));
+        expect(f.report()).toEqual({ html: "<p>new</p>", updatedAt: "t9" });
+      });
+
+      it("render says unchanged but live differs: the body is still written onto the live report", () => {
+        const f = frozen({ ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>new</p>", updatedAt: "t0" } }] });
+        f.set(committee());
+        act(() => f.result.current!.onSaveReport(10, "<p>new</p>"));
+        expect(f.report().html).toBe("<p>new</p>");
+        expect(f.report().previous?.html).toBe("<p>x</p>");
+      });
+
       it("two restore-previous calls in one act swap back to where they started", () => {
         const f = frozen({ ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>b</p>", updatedAt: "t2", previous: { html: "<p>a</p>", savedAt: "t1" } } }] });
         act(() => {

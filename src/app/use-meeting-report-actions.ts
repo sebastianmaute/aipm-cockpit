@@ -175,9 +175,14 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     // (manual save, AI draft, restore) routes through here. A NEW body is
     // unsent, so `sentAt` is intentionally dropped.
     const clean = sanitizeRichHtml(html);
-    // An unchanged body is not a change: no snapshot, nothing to undo and nothing to log. (Judged on the
-    // render-scope meeting, which is enough for these decisions; the write below is judged on the live one, whose
-    // updater writes nothing for an identical body.)
+    // An unchanged body is not a change: no snapshot, nothing to undo and nothing to log. ★ Judged on the RENDER-scope
+    // meeting, while the write below is judged on the LIVE one (its updater writes nothing for an identical body). The
+    // two can disagree only when the committee changed between the last render and this click, and neither can be
+    // made live at call time: a setState updater runs at the next render, and `committeeRef` is just the last
+    // COMMITTED committee (the same value this closure holds). The write always follows the live state; the residuals:
+    //  - render changed / live already identical: a redundant Turso version row and an undo entry whose thunks read null;
+    //  - render identical / live differs: a real write with no version row, no undo entry and no ai.reportDraft log.
+    // Both are narrow (a concurrent writer inside one render) and lose no text: the live body is the base `previous`.
     const unchanged = meeting.report?.html === clean;
     if (!unchanged) void snapshotCurrent(meetingId); // snapshot the prior before we overwrite it
     const stamp = nowIso();

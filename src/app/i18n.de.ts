@@ -4176,6 +4176,7 @@ export const de: Record<TranslationKey, string> = {
   reportProposalUntitled: "Abschnitt ohne Titel",
   reportProposalTaken: "Übernommen",
   reportProposalPreview: "Vorschau",
+  reportProposalPreviewEmpty: "Dieser Abschnitt enthält keinen eigenen Text.",
   reportTakeConfirmTitle: "Abschnitte ersetzen?",
   reportTakeConfirmBody: "Ihr Abschnitt „{0}“ wird ersetzt, zusammen mit seinen Unterabschnitten: {1}.",
   reportTakeConfirmBodyNoSub: "Ihr Abschnitt „{0}“ wird ersetzt.",
