@@ -704,3 +704,42 @@ describe("AI-04 the draft is a proposal held per meeting", () => {
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "reportGenerateFailed"));
   });
 });
+
+describe("AI-04 a proposal is tied to its meeting, not only its id", () => {
+  // Meeting ids are max + 1, so deleting the newest meeting and adding another reuses its id.
+  const meeting3 = (title: string) => ({ id: 3, date: "2026-07-01", title });
+  const withMeeting = (title: string): SteeringCommittee => ({ ...committee(false), meetings: [meeting3(title)] });
+
+  it("a held proposal is not served on a different meeting that reuses the id", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const deps = makeDeps();
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    runMeetingReport.mockResolvedValueOnce("<h2>A</h2><p>1</p>");
+    await act(async () => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.getProposal(3)).toBeDefined());
+    live = { ...live!, meetings: [] };
+    rerender();
+    live = withMeeting("Replacement");
+    rerender();
+    expect(result.current!.getProposal(3)).toBeUndefined();
+  });
+
+  it("a draft in flight is dropped when its meeting is deleted and re-created with the same id", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const deps = makeDeps();
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    let release!: (v: string) => void;
+    runMeetingReport.mockImplementationOnce(() => new Promise<string>((r) => { release = r; }));
+    act(() => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(3));
+    live = withMeeting("Replacement");
+    rerender();
+    await act(async () => { release("<h2>A</h2><p>1</p>"); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+    live = withMeeting("Original");
+    rerender();
+    expect(result.current!.getProposal(3)).toBeUndefined();
+  });
+});

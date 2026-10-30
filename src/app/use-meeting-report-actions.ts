@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { t, type Lang, tPlural } from "./i18n";
 import { aiFailureMessageKey } from "./ai-key-status";
-import type { SteeringCommittee, Resource, MeetingReport } from "./types";
+import type { SteeringCommittee, CommitteeMeeting, Resource, MeetingReport } from "./types";
 import type { Settings } from "./settings-types";
 import { isAiEnabled } from "./settings-types";
 import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
@@ -66,9 +66,19 @@ export interface ReportProposal {
   createdAt: string;
 }
 
-/** A stored proposal plus the project scope it was drafted in. */
+/** A stored proposal plus the project scope and the meeting it was drafted for. */
 interface StoredProposal extends ReportProposal {
   epoch: number;
+  /** `meetingFingerprint` at the time the draft started. */
+  fingerprint: string;
+}
+
+/** Identity of a meeting beyond its id: ids are max + 1, so a deleted newest meeting's id is reused by the
+ *  next one. `CommitteeMeeting` carries no creation stamp (and a new persisted field is a six-path change),
+ *  so this is the strongest available fingerprint. Residual: a re-created meeting with the same date, title
+ *  and Outlook id is indistinguishable; editing the date or title discards a held draft (fails safe). */
+function meetingFingerprint(m: CommitteeMeeting): string {
+  return JSON.stringify([m.date, m.title, m.outlookEventId ?? ""]);
 }
 
 export interface MeetingReportBag {
@@ -302,6 +312,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     setGenerateBusyMeetingId(meetingId);
     // §548 / §763 — the project this draft is read from and will be written into.
     const startEpoch = deps.getScopeEpoch();
+    const startFingerprint = meetingFingerprint(meeting);
     try {
       const html = await runMeetingReport(
         deps.getDashboardModel(),
@@ -316,7 +327,9 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       // render's stale deps). Dropped, not queued.
       if (dropStaleScopeWrite(deps.getScopeEpoch, startEpoch, "useMeetingReportActions.generate", { meetingId })) return;
       // A meeting deleted while the model was answering has nothing to hold the draft for.
-      if (!committeeRef.current?.meetings.some((m) => m.id === meetingId)) return;
+      // ... or deleted and re-created under the same id (ids are max + 1).
+      const liveMeeting = committeeRef.current?.meetings.find((m) => m.id === meetingId);
+      if (!liveMeeting || meetingFingerprint(liveMeeting) !== startFingerprint) return;
       // AI output is untrusted: sanitize BEFORE splitting, so the held sections are already clean.
       const clean = sanitizeRichHtml(html);
       const sections = isBlankReport(clean) ? [] : splitSections(clean);
@@ -325,7 +338,9 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
         return;
       }
       const createdAt = nowIso();
-      setProposals((prev) => new Map(prev).set(meetingId, { sections, taken: new Set<number>(), createdAt, epoch: startEpoch }));
+      setProposals((prev) =>
+        new Map(prev).set(meetingId, { sections, taken: new Set<number>(), createdAt, epoch: startEpoch, fingerprint: startFingerprint }),
+      );
     } catch (e) {
       // A user stop is not a failure — no toast (§125).
       if (ctrl.signal.aborted) return;
@@ -341,7 +356,8 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
   function getProposal(meetingId: number): ReportProposal | undefined {
     const p = proposals.get(meetingId);
     if (!p || p.epoch !== deps.getScopeEpoch()) return undefined;
-    if (!deps.committee?.meetings.some((m) => m.id === meetingId)) return undefined;
+    const meeting = deps.committee?.meetings.find((m) => m.id === meetingId);
+    if (!meeting || meetingFingerprint(meeting) !== p.fingerprint) return undefined;
     return { sections: p.sections, taken: p.taken, createdAt: p.createdAt };
   }
 
