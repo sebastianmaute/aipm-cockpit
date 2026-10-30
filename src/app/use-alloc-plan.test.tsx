@@ -664,7 +664,6 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     expect(lastToast()).toBe(`${tPlural("en-US", "allocPlanApplied", 1, 1)} ${tPlural("en-US", "allocPlanSkippedStale", 1, 1)}`);
   });
 
-  // Review Focus 2. Mutation: one shared tick set for every alternative, or apply reading alternative 0.
   // Third wave, 1 — a move whose task changed while the window is open is marked, cannot be ticked, and leaves the
   // effect and the Apply count. Mutation: drop the preview's stale check and the row stays ticked, the effect still
   // counts the move.
@@ -688,6 +687,7 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     expect(readUtil()[2]).toEqual({});
   });
 
+  // Review Focus 2. Mutation: one shared tick set for every alternative, or apply reading alternative 0.
   it("switching alternatives keeps each one's ticks; applying alternative 2 writes only its rows", async () => {
     await proposeWith(answer(
       alt("Move the review", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }]),

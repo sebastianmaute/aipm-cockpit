@@ -195,7 +195,9 @@ export function AllocPlanModal({
               {alternatives.length > 1 && (
                 <SegmentedControl
                   className="mt-4 max-w-full flex-col sm:flex-row"
-                  optionClassName="min-w-0 whitespace-normal break-words text-left"
+                  // Stacked below sm: ends rounded top and bottom, options divided by top borders; the shared row
+                  // classes (left/right corners, left borders) still apply from sm up.
+                  optionClassName="min-w-0 whitespace-normal break-words text-left max-sm:rounded-none max-sm:first:rounded-t-md max-sm:last:rounded-b-md max-sm:border-l-0 max-sm:not-first:border-t"
                   ariaLabel={t(lang, "allocPlanAlternatives")}
                   value={String(safeIndex)}
                   onChange={(v) => onSelectAlternative(Number(v))}

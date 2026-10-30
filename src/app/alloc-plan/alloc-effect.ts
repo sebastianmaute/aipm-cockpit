@@ -105,9 +105,10 @@ export function alternativeEffect(
     }
     const capacityHours = capacityOf(r, periodKey);
     const hours = shownNow(r, periodKey) + delta;
-    // No `capacityHours > 0` guard (unlike §774's own notice): hours landing on someone with nothing available — a
-    // whole month absent — are exactly what the review window must warn about.
-    if (hours > capacityHours + OVER_CAPACITY_TOLERANCE_HOURS) overCapacity.push({ resourceId, periodKey, hours: round2(hours), capacityHours });
+    // Warn only where the ticked changes ADD hours and the result ends above available: a giver already over whose
+    // hours drop was not put there by this plan. No `capacityHours > 0` guard (unlike §774's own notice): hours landing
+    // on someone with nothing available — a whole month absent — are exactly what the review window must warn about.
+    if (delta > NO_CHANGE && hours > capacityHours + OVER_CAPACITY_TOLERANCE_HOURS) overCapacity.push({ resourceId, periodKey, hours: round2(hours), capacityHours });
   }
   overCapacity.sort((a, b) => a.resourceId - b.resourceId || a.periodKey.localeCompare(b.periodKey));
 

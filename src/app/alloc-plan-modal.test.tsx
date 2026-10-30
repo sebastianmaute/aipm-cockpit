@@ -214,6 +214,17 @@ describe("AllocPlanModal — review window (§769)", () => {
     for (const cls of ["min-w-0", "whitespace-normal", "break-words"]) expect(summary.className.split(" ")).toContain(cls);
   });
 
+  // Fourth wave, 2 — stacked below sm, the row's left/right corners and left borders would look wrong: the first option
+  // gets the top corners, the last the bottom ones, and options are divided by top borders. From sm up the row look
+  // stays (the shared classes are untouched). Mutation: drop any of these and the assertion names it.
+  it("the stacked picker rounds its ends top and bottom and divides options with top borders", () => {
+    render(<AllocPlanModal {...props({ alternatives: [alt(), alt(), alt()] })} />);
+    for (const radio of screen.getAllByRole("radio")) {
+      const cls = radio.className.split(" ");
+      for (const c of ["max-sm:rounded-none", "max-sm:first:rounded-t-md", "max-sm:last:rounded-b-md", "max-sm:border-l-0", "max-sm:not-first:border-t"]) expect(cls, c).toContain(c);
+    }
+  });
+
   it("over-capacity warning is text, not colour alone", () => {
     const effect: AltEffect = {
       ...noEffect,

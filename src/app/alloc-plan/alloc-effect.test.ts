@@ -40,6 +40,24 @@ const ticked = (...keys: string[]) => new Set(keys);
 describe("alternativeEffect", () => {
   // Third wave, 2 — a receiver with no available hours at all (absent the whole month) still gets a warning.
   // Mutation: keep the `capacityHours > 0` guard and the warning disappears.
+  // Fourth wave, 3 — a giver already above available whose hours the move REDUCES is not warned about: the change did
+  // not cause it. Mutation: drop the increase condition and Maya's 184 h of 176 h is listed.
+  it("does not warn for a giver the move reduces, even when still above available", () => {
+    const c = ctxOf([maya({ utilization: { "2026-09": 200, "2026-10": 80 } }), liam()], [task()]);
+    const alt = ground({ taskMoves: [move(7, 2)] }, c);
+    const e = alternativeEffect(alt, ticked(moveKey({ taskId: 7 })), c);
+    expect(e.movedHours).toBe(16);
+    expect(e.overCapacity).toEqual([]);
+  });
+
+  it("warns for a receiver the move takes above available", () => {
+    const c = ctxOf([maya(), liam({ utilization: { "2026-09": 170 } })], [task()]);
+    const alt = ground({ taskMoves: [move(7, 2)] }, c);
+    expect(alternativeEffect(alt, ticked(moveKey({ taskId: 7 })), c).overCapacity).toEqual([
+      { resourceId: 2, periodKey: "2026-09", hours: 186, capacityHours: 176 },
+    ]);
+  });
+
   it("warns when hours land on a person with 0 h available", () => {
     const c = ctxOf([maya(), liam({ absenceOverride: { "2026-09": 176 } })], [task()]);
     const alt = ground({ taskMoves: [move(7, 2)] }, c);

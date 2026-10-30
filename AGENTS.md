@@ -440,8 +440,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      it eagerly and usually later, during the next render, so code must never rely on it either way: anything the
      updater stashed may read stale right after the call. A handler that must decide on what the updater actually
      wrote wraps the setter in `flushSync` (the §476 pattern, `grep -n flushSync src/app/baseline-currency-control.tsx`).
-     A test with a synchronous fake setter cannot see this — use a real `useState` after a prior commit, and know that
-     a passing test does not prove the updater ran: it may have run eagerly this time. It cost two fix rounds.
+     A test with a synchronous fake setter cannot see this, and a real `useState` after a prior commit does not by
+     itself force the deferral either (the first update in a handler often still runs eagerly), so a passing test does
+     not prove the code survives a deferred updater. The robust fix is `flushSync`, or not reading the updater's result
+     at all. It cost two fix rounds.
   4. **Shared SSRF core, per-route normalize.** A new external-API proxy REUSES `api/_shared/proxy-ssrf.ts`
      for the IP-classification + host-allowlist checks and hand-rolls only its route-specific
      normalize/auth/URL. Do NOT parameterize the divergent guard chains into one `createProxyHelpers`
