@@ -585,7 +585,10 @@ describe("useDigest background consent (AI-10)", () => {
     expect(runNarrative.mock.calls[0][1]).toMatchObject({ level: "background" });
   });
 
-  it("a background narrative stopped by the weekly hard cap leaves the deterministic digest (AI-03)", async () => {
+  // ★ A CHARACTERISATION, not a pin of the cap: `useDigest` swallows every narrative rejection, so any error class
+  // gives this outcome. The cap itself is enforced in `assertBackgroundConsentLive` and pinned in ai-consent.test.ts; this
+  // only shows the cap's error reaching the digest the same fail-soft way.
+  it("a narrative that fails, the weekly hard cap's error included, leaves the deterministic digest (AI-03)", async () => {
     seedDue();
     const runNarrative = vi.fn().mockRejectedValue(new AiWeeklyCapReachedError());
     const { result } = renderHook(() => useDigest(deps({ aiKey: "sk-ant-k", backgroundAiKey: "sk-ant-k", runNarrative, config: dueConfig })));
