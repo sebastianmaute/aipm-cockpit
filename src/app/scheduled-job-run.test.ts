@@ -517,14 +517,30 @@ describe("runScheduledJob: a send that never happened spends nothing", () => {
     },
   );
 
-  // KILLED BY: deleting the `confirmBackgroundGate` call (a capped device would claim the shared slot, then fail it).
-  it("a capped device leaves the slot unclaimed (AI-03)", async () => {
+  // KILLED BY: deleting the `confirmBackgroundGate` call (a capped device would claim the shared slot, then fail it),
+  // or asking it after the server reads (a capped device would query the server on every tick).
+  it("a capped device leaves the slot unclaimed and asks the server nothing (AI-03)", async () => {
     const d = deps({ confirmBackgroundGate: vi.fn(() => { throw new AiWeeklyCapReachedError(); }) });
     expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
     expect(mClaim).not.toHaveBeenCalled();
     expect(mFinish).not.toHaveBeenCalled();
     expect(d.recordRun).not.toHaveBeenCalled();
     expect(d.analyse).not.toHaveBeenCalled();
+    expect(mHas).not.toHaveBeenCalled();
+    expect(d.listProjects).not.toHaveBeenCalled();
+    expect(d.stillRunnable).not.toHaveBeenCalled();
+    expect(d.confirmDeployment).not.toHaveBeenCalled();
+    expect(d.clearProject).not.toHaveBeenCalled();
+  });
+
+  it("a gate that closes while the server is read still leaves the slot unclaimed (AI-03)", async () => {
+    let open = true;
+    const d = deps({
+      confirmBackgroundGate: vi.fn(() => { if (!open) throw new AiWeeklyCapReachedError(); }),
+      confirmDeployment: vi.fn(async () => { open = false; }),
+    });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+    expect(mClaim).not.toHaveBeenCalled();
   });
 
   it.each([["a cap", () => new AiWeeklyCapReachedError()], ["a revoked consent", () => new AiConsentRevokedError()]])(

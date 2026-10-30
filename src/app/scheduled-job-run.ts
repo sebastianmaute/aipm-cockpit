@@ -36,7 +36,8 @@ export interface RunDeps {
    *  not. Asked right before the claim, so a tab that cannot send never claims (and fails) the shared slot. */
   confirmDeployment(): Promise<void>;
   /** Throws when an unattended run may not send on this device: the background consent is gone or the weekly hard
-   *  cap is reached. Asked beside `confirmDeployment`, for the same reason: a device that cannot send never claims. */
+   *  cap is reached. Synchronous and free, so it is asked first, before any server read, and again beside
+   *  `confirmDeployment`, for the same reason: a device that cannot send never claims. */
   confirmBackgroundGate(): void;
   loadWorkspace(projectId: string): Promise<Workspace>;
   /** After a load: true when part of the project failed to decode or was truncated (the report then says so). */
@@ -90,6 +91,14 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
   const jobKey = job.key;
   if (projectId === null || jobKey === null) return "skipped";
   const slotIso = slot.toISOString();
+
+  // A device that may not send (a capped week, a revoked consent) does no server work at all: the same outcome as the
+  // check beside `confirmDeployment` below, without a read of the server on every tick.
+  try {
+    deps.confirmBackgroundGate();
+  } catch {
+    return "transient";
+  }
 
   // At most one run per cadence period (day or ISO week, in the job's current zone): any report since the period began
   // spends it, so a later edit of the time or zone cannot bill again. The UNIQUE claim still guards the exact slot.
