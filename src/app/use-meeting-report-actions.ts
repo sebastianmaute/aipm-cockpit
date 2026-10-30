@@ -2,7 +2,7 @@
 // steering-committee "report" bag: save a meeting's status report into the
 // committee blob, and email it to the committee members via Graph. Non-memoized
 // handlers read live deps each call. Returns undefined in popouts (read-only).
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { t, type Lang, tPlural } from "./i18n";
 import { aiFailureMessageKey } from "./ai-key-status";
 import type { SteeringCommittee, Resource, MeetingReport } from "./types";
@@ -12,6 +12,7 @@ import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { htmlToPlainText } from "./html-to-text";
 import { runMeetingReport } from "./committee-report/report-call";
+import { splitSections, type ReportSection } from "./committee-report/report-sections";
 import { useGuideTextFrom } from "./action-guides-context";
 import type { OperatingGuide } from "./operating-guide";
 import { loadVersions, saveVersion } from "./committee-report-versions-store";
@@ -57,6 +58,19 @@ export interface MeetingReportActionsDeps {
   logActivityAs: LogActivityAsFn;
 }
 
+/** AI-04 — an AI draft held per meeting until the user takes sections from it (or discards it). */
+export interface ReportProposal {
+  sections: readonly ReportSection[];
+  /** Indices into `sections` already taken into the report. */
+  taken: ReadonlySet<number>;
+  createdAt: string;
+}
+
+/** A stored proposal plus the project scope it was drafted in. */
+interface StoredProposal extends ReportProposal {
+  epoch: number;
+}
+
 export interface MeetingReportBag {
   m365Configured: boolean;
   aiConfigured: boolean;
@@ -67,7 +81,14 @@ export interface MeetingReportBag {
   onRestorePrevious: (meetingId: number) => void;
   onSendReport: (meetingId: number, recipients: readonly string[]) => void;
   sendBusyMeetingId: number | null;
+  /** Drafts a report with the AI and holds it as that meeting's proposal; it does NOT save. */
   onGenerateReport: (meetingId: number) => void;
+  /** The meeting's held proposal; undefined when none, when it was drafted in another project
+   *  scope, or when the meeting no longer exists. */
+  getProposal: (meetingId: number) => ReportProposal | undefined;
+  /** Marks proposal sections (by index) as taken; accumulates. */
+  markTaken: (meetingId: number, indices: readonly number[]) => void;
+  discardProposal: (meetingId: number) => void;
   /** Stop the in-flight AI draft (§125). Aborting stops the WAIT, not the bill:
    *  a request already sent is still charged. A user stop shows no error toast. */
   onCancelGenerateReport: () => void;
@@ -103,6 +124,14 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
   const [restoreBusyId, setRestoreBusyId] = useState<string | null>(null);
   /** The in-flight AI draft's controller — a ref so Stop can reach it (§125). */
   const generateCtrlRef = useRef<AbortController | null>(null);
+  /** AI-04 — held drafts by meeting id. Hook state so they survive the modal closing. */
+  const [proposals, setProposals] = useState<ReadonlyMap<number, StoredProposal>>(() => new Map());
+  /** The committee as of the last commit, for the resolve-time "meeting still exists" check (the closure's
+   *  `deps` is the render the draft started in). */
+  const committeeRef = useRef<SteeringCommittee | undefined>(deps.committee);
+  useEffect(() => {
+    committeeRef.current = deps.committee;
+  }, [deps.committee]);
   const guideText = useGuideTextFrom(deps.guides, deps.settings.ai.groundInGuides, "committeeReport");
   if (deps.isPopout) return undefined;
 
@@ -286,8 +315,17 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       // meeting, and onSaveReport would overwrite its report (and snapshot the OLD project's, from this
       // render's stale deps). Dropped, not queued.
       if (dropStaleScopeWrite(deps.getScopeEpoch, startEpoch, "useMeetingReportActions.generate", { meetingId })) return;
-      // onSaveReport sanitizes (AI output is untrusted) before it lands.
-      onSaveReport(meetingId, html);
+      // A meeting deleted while the model was answering has nothing to hold the draft for.
+      if (!committeeRef.current?.meetings.some((m) => m.id === meetingId)) return;
+      // AI output is untrusted: sanitize BEFORE splitting, so the held sections are already clean.
+      const clean = sanitizeRichHtml(html);
+      const sections = isBlankReport(clean) ? [] : splitSections(clean);
+      if (sections.length === 0) {
+        deps.showToast("error", t(deps.lang, "reportGenerateFailed"));
+        return;
+      }
+      const createdAt = nowIso();
+      setProposals((prev) => new Map(prev).set(meetingId, { sections, taken: new Set<number>(), createdAt, epoch: startEpoch }));
     } catch (e) {
       // A user stop is not a failure — no toast (§125).
       if (ctrl.signal.aborted) return;
@@ -298,6 +336,30 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       if (generateCtrlRef.current === ctrl) generateCtrlRef.current = null;
       setGenerateBusyMeetingId(null);
     }
+  }
+
+  function getProposal(meetingId: number): ReportProposal | undefined {
+    const p = proposals.get(meetingId);
+    if (!p || p.epoch !== deps.getScopeEpoch()) return undefined;
+    if (!deps.committee?.meetings.some((m) => m.id === meetingId)) return undefined;
+    return { sections: p.sections, taken: p.taken, createdAt: p.createdAt };
+  }
+
+  function markTaken(meetingId: number, indices: readonly number[]): void {
+    setProposals((prev) => {
+      const p = prev.get(meetingId);
+      if (!p) return prev;
+      return new Map(prev).set(meetingId, { ...p, taken: new Set([...p.taken, ...indices]) });
+    });
+  }
+
+  function discardProposal(meetingId: number): void {
+    setProposals((prev) => {
+      if (!prev.has(meetingId)) return prev;
+      const next = new Map(prev);
+      next.delete(meetingId);
+      return next;
+    });
   }
 
   function onCancelGenerateReport(): void {
@@ -347,6 +409,9 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     onGenerateReport: (meetingId: number) => {
       void onGenerateReport(meetingId);
     },
+    getProposal,
+    markTaken,
+    discardProposal,
     onCancelGenerateReport,
     generateBusyMeetingId,
     loadVersions: loadVersionsUi,

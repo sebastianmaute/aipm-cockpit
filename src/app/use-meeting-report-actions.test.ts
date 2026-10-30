@@ -396,13 +396,17 @@ describe("useMeetingReportActions", () => {
     expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
   });
 
-  it("generate drafts via AI and saves the sanitized result", async () => {
+  it("generate drafts via AI and holds the split result as a proposal, saving nothing", async () => {
     const setSteeringCommittee = vi.fn();
+    runMeetingReport.mockResolvedValueOnce("<h2>Status</h2><p>ok</p><h2>Risks</h2><p>none</p>");
     const { result } = renderHook(() => useMeetingReportActions(makeDeps({ setSteeringCommittee })));
     await act(async () => { result.current!.onGenerateReport(10); });
-    await waitFor(() => expect(runMeetingReport).toHaveBeenCalledTimes(1));
-    const updater = setSteeringCommittee.mock.calls.at(-1)![0] as (c: SteeringCommittee) => SteeringCommittee;
-    expect(updater(committee()).meetings[0].report?.html).toBe("<p>ai draft</p>");
+    await waitFor(() => expect(result.current!.getProposal(10)).toBeDefined());
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
+    const p = result.current!.getProposal(10)!;
+    expect(p.sections.map((x) => x.heading)).toEqual(["Status", "Risks"]);
+    expect(p.taken.size).toBe(0);
+    expect(p.createdAt).not.toBe("");
   });
 
   // §701 — the guides that target the committee report reach its call.
@@ -443,6 +447,7 @@ describe("useMeetingReportActions", () => {
     await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
     expect(showToast).not.toHaveBeenCalled();
     expect(setSteeringCommittee).not.toHaveBeenCalled();
+    expect(result.current!.getProposal(10)).toBeUndefined();
   });
 
   it("does not save a draft that resolves after the user stopped it", async () => {
@@ -458,6 +463,7 @@ describe("useMeetingReportActions", () => {
     await act(async () => { release!("<p>late</p>"); });
     await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
     expect(setSteeringCommittee).not.toHaveBeenCalled();
+    expect(result.current!.getProposal(10)).toBeUndefined();
   });
 
   it("generate is a no-op with no AI key", async () => {
@@ -572,21 +578,31 @@ describe("§763 a report write that resolves after a project swap is dropped", (
     expect(setSteeringCommittee).not.toHaveBeenCalled();
     expect(saveVersion).not.toHaveBeenCalled();
     expect(showToast).not.toHaveBeenCalled();
+    epoch = 1; // even back on the start epoch nothing was stored
+    expect(result.current!.getProposal(10)).toBeUndefined();
     expect(dropped("useMeetingReportActions.generate")).toEqual([
       expect.objectContaining({ fields: expect.objectContaining({ writer: "useMeetingReportActions.generate", meetingId: 10 }) }),
     ]);
   });
 
-  it("a draft with no swap still writes, and logs no drop", async () => {
+  it("a draft with no swap is held as a proposal, writes nothing, and logs no drop", async () => {
     const setSteeringCommittee = vi.fn();
     const { result } = renderHook(() =>
       useMeetingReportActions(makeDeps({ setSteeringCommittee, getScopeEpoch: () => 7 })),
     );
     await act(async () => { result.current!.onGenerateReport(10); });
-    await waitFor(() => expect(setSteeringCommittee).toHaveBeenCalledTimes(1));
-    const updater = setSteeringCommittee.mock.calls[0][0] as (c: SteeringCommittee) => SteeringCommittee;
-    expect(updater(committee()).meetings[0].report?.html).toBe("<p>ai draft</p>");
+    await waitFor(() => expect(result.current!.getProposal(10)).toBeDefined());
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
     expect(dropped("useMeetingReportActions.generate")).toEqual([]);
+  });
+
+  it("a proposal made in one project is not served after the epoch moves", async () => {
+    let epoch = 1;
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ getScopeEpoch: () => epoch })));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.getProposal(10)).toBeDefined());
+    epoch = 2;
+    expect(result.current!.getProposal(10)).toBeUndefined();
   });
 
   it("a restore whose versions load after the swap writes nothing and does not say Restored", async () => {
@@ -628,5 +644,63 @@ describe("§763 a report write that resolves after a project swap is dropped", (
     expect(dropped("useMeetingReportActions.send")).toHaveLength(1);
     // The mail did go out, so the user is still told it was sent.
     expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
+  });
+});
+
+describe("AI-04 the draft is a proposal held per meeting", () => {
+  const draft = (html: string) => runMeetingReport.mockResolvedValueOnce(html);
+  async function generate(result: { current: ReturnType<typeof useMeetingReportActions> }) {
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+  }
+
+  it("a second draft replaces the first and clears what was taken", async () => {
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps()));
+    draft("<h2>A</h2><p>1</p><h2>B</h2><p>2</p>");
+    await generate(result);
+    act(() => result.current!.markTaken(10, [0]));
+    draft("<h2>C</h2><p>3</p>");
+    await generate(result);
+    const p = result.current!.getProposal(10)!;
+    expect(p.sections.map((x) => x.heading)).toEqual(["C"]);
+    expect(p.taken.size).toBe(0);
+  });
+
+  it("markTaken accumulates indices, and discardProposal clears the proposal", async () => {
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps()));
+    draft("<h2>A</h2><p>1</p><h2>B</h2><p>2</p><h2>C</h2><p>3</p>");
+    await generate(result);
+    act(() => result.current!.markTaken(10, [0]));
+    act(() => result.current!.markTaken(10, [2]));
+    expect([...result.current!.getProposal(10)!.taken].sort()).toEqual([0, 2]);
+    act(() => result.current!.discardProposal(10));
+    expect(result.current!.getProposal(10)).toBeUndefined();
+  });
+
+  it("a draft for a meeting deleted before it resolves leaves no proposal", async () => {
+    let live: SteeringCommittee | undefined = committee();
+    const deps = makeDeps();
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    let release!: (v: string) => void;
+    runMeetingReport.mockImplementationOnce(() => new Promise<string>((r) => { release = r; }));
+    act(() => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(10));
+    live = { ...committee(), meetings: [] };
+    rerender();
+    await act(async () => { release("<h2>A</h2><p>1</p>"); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+    live = committee(); // even if a meeting with that id returns, no proposal was stored for it
+    rerender();
+    expect(result.current!.getProposal(10)).toBeUndefined();
+  });
+
+  it("an empty draft stores no proposal and shows the draft-failed toast", async () => {
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ showToast })));
+    draft("<p> </p>");
+    await generate(result);
+    expect(result.current!.getProposal(10)).toBeUndefined();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "reportGenerateFailed"));
   });
 });
