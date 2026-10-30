@@ -5756,6 +5756,7 @@ const enUS = {
   allocPlanMoveHours: "{0} h: {1}",
   allocPlanMovePeriod: "{0} {1} h",
   allocPlanMoveUnlinked: "No planned hours move with this task; any hours come from the hour edits.",
+  allocPlanMoveChanged: "Changed since proposed: this move will not be applied.",
   allocPlanOverCapacity: "{0}: {1} h of {2} h in {3}",
   allocPlanSkipMoveUnknownTask: "task not found",
   allocPlanSkipMoveClosed: "task is closed",

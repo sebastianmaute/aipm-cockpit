@@ -66,10 +66,11 @@ function takeValid<T>(raw: unknown, parse: (r: unknown) => T | null, room: numbe
  *  (a fourth alternative counts only if it holds a valid move or cell). */
 export function parseAllocationAlternatives(input: unknown): ParsedAllocAlternatives | null {
   if (!input || typeof input !== "object") return null;
-  const { alternatives, cells } = input as { alternatives?: unknown; cells?: unknown };
+  const { alternatives, cells, rationale } = input as { alternatives?: unknown; cells?: unknown; rationale?: unknown };
   let rawAlts: unknown[];
   if (Array.isArray(alternatives)) rawAlts = alternatives;
-  else if (Array.isArray(cells)) rawAlts = [{ cells }];
+  // The pre-§769 answer: top-level cells and, beside them, the rationale, which the review window still shows.
+  else if (Array.isArray(cells)) rawAlts = [{ cells, rationale }];
   else return null;
 
   const out: RawAllocAlternative[] = [];

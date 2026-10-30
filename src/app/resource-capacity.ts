@@ -261,7 +261,7 @@ export function displayCapacityHours(
 /** Hours a resource could actually work in a period: gross workdays minus
  *  holidays and absences, with NO utilization applied.
  *
- *  Deliberately NOT `periodCapacityHours` (in "../resource-capacity") —
+ *  Deliberately NOT `periodCapacityHours` (above in this file) —
  *  despite its name that function multiplies by the resource's OWN STORED
  *  utilization (`percent: (util/100) × possible`, `hours: util − absence`),
  *  so it answers "hours already allocated", not "hours available". Feeding it

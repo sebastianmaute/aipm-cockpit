@@ -25,7 +25,7 @@ const ROUTED: Readonly<Record<string, string>> = {
   "task-row.tsx": "the table's inline assignee patch, applied by tasks-section.tsx onInlinePatch → prepare + record",
   "bulk-operations-helpers.ts": "bulk edit's owner resolution (resolveBulkOwner), applied by use-bulk-operations.ts → prepare",
   "use-chat-dispatcher.ts": "Claude's update_task (chat, inline AI edit, staged plans) → prepare; its create_task is a create",
-  "use-alloc-plan.tsx": "Plan with AI task moves → reassignTasks",
+  "alloc-plan/alloc-apply.ts": "Plan with AI task moves: planApply builds the owner edits, which use-alloc-plan.tsx hands to reassignTasks",
 };
 
 /** Files that hold the shape but are not a reassignment, each with why. */

@@ -381,6 +381,16 @@ describe("buildAllocSystemPrompt", () => {
     expect(prompt.length).toBeGreaterThan(0);
     expect(prompt).toContain("propose_allocations");
   });
+
+  // Third wave, 3. Mutation: restore the old sentences and the prompt again says only cells change anything, and asks
+  // for an empty `cells` array that drops the alternative's moves.
+  it("says task moves change hours too, and how to answer when nothing can be done", () => {
+    const prompt = buildAllocSystemPrompt();
+    expect(prompt).not.toContain("every other period on every other resource is left untouched");
+    expect(prompt).toContain("A task move also changes the hours of its old and new owner");
+    expect(prompt).toContain("return one alternative with empty `taskMoves` and `cells`");
+    expect(prompt).not.toContain("return an empty `cells` array");
+  });
 });
 
 describe("parseRawCell", () => {

@@ -24,8 +24,8 @@ import { type Lang, t, tPlural } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Absence, type Discipline, type Grade, type Milestone, type Resource, type ResourcePlan, type Role, type Stakeholder, type Task } from "./types";
 import { type LogActivityAsFn } from "./activity-log-context";
-import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
-import { type OwnerEdit, type ReassignHours } from "./use-reassign-hours";
+import { captureFieldPart, type CompositeFragment, type UndoStackApi } from "./undo/use-undo-stack";
+import { type ReassignHours } from "./use-reassign-hours";
 import { resourceDisplayName } from "./resource-foundation";
 import { useToastContext } from "./toast-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -39,7 +39,8 @@ import {
   type GroundedAllocCell,
 } from "./alloc-plan/alloc-plan";
 import { alternativeEffect } from "./alloc-plan/alloc-effect";
-import { groundAlternative, isMoveStale, moveKey, planTickedMoves, type GroundedAlternative, type GroundedMove } from "./alloc-plan/alloc-ground-moves";
+import { groundAlternative, isMoveStale, moveKey, type GroundedAlternative } from "./alloc-plan/alloc-ground-moves";
+import { planApply } from "./alloc-plan/alloc-apply";
 import { AllocPlanModal } from "./alloc-plan-modal";
 import { AiTriggerButton } from "./ai-trigger-button";
 
@@ -112,33 +113,6 @@ function applyToastText(lang: Lang, c: ApplyCounts): string {
     c.covered > 0 ? tPlural(lang, "allocPlanSkippedCovered", c.covered, c.covered) : "",
     c.unchanged > 0 ? tPlural(lang, "allocPlanSkippedUnchanged", c.unchanged, c.unchanged) : "",
   ].filter((x) => x !== "").join(" ");
-}
-
-type UtilPatch = { id: number; before: Pick<Resource, "utilization">; after: Pick<Resource, "utilization"> };
-
-/** One field patch per resource holding ONLY the cell keys the apply writes (a key that was absent stays absent in
- *  `before`, so undo removes it again). Undo merges `utilization` per key, so §774's resources part and this part
- *  share one entry without either reverting the other's keys. */
-function cellPatches(resources: readonly Resource[], cells: readonly GroundedAllocCell[]): UtilPatch[] {
-  const byId = new Map(resources.map((r) => [r.id, r]));
-  const patches = new Map<number, UtilPatch>();
-  for (const c of cells) {
-    const r = byId.get(c.resourceId);
-    if (!r || (r.utilization[c.periodKey] ?? 0) === c.nextValue) continue;
-    const prev = patches.get(r.id) ?? { id: r.id, before: { utilization: {} }, after: { utilization: {} } };
-    const had = Object.hasOwn(r.utilization, c.periodKey);
-    patches.set(r.id, {
-      id: r.id,
-      before: { utilization: had ? { ...prev.before.utilization, [c.periodKey]: r.utilization[c.periodKey] } : prev.before.utilization },
-      after: { utilization: { ...prev.after.utilization, [c.periodKey]: c.nextValue } },
-    });
-  }
-  return [...patches.values()];
-}
-
-/** The owner a move writes: the receiver's display name, e-mail and link. */
-function ownerEditFor(move: GroundedMove, receiver: Resource): OwnerEdit {
-  return { taskId: move.taskId, assignee: resourceDisplayName(receiver), assigneeEmail: receiver.email ?? "", resourceId: receiver.id };
 }
 
 export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
@@ -269,6 +243,20 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     });
   }, [activeIndex]);
 
+  // A cells-only apply records its own ONE entry: through `captureComposite` when there is one (its toast keeps the
+  // Undo button), else through the plain `capture` as before §769.
+  const recordCellsOnly = useCallback((cells: readonly GroundedAllocCell[], count: number, cellsPart: CompositeFragment | null, toastText: string) => {
+    if (captureComposite) {
+      captureComposite({ kind: "bulk.edit", entityKey: "resource", primaryCount: count, parts: [cellsPart], toastText });
+      return;
+    }
+    const { nextResources, editedBefore } = applyAllocationCells(resources, cells, new Date().toISOString());
+    // §177b — undo reverts only the utilization cells the plan wrote (a per-key merge), so a concurrent edit to
+    // another period survives.
+    capture?.({ setter: setResources, kind: "bulk.edit", edited: editedBefore, editedAfter: nextResources, fromArray: resources, entityKey: "resource" });
+    showToast("info", toastText);
+  }, [captureComposite, capture, resources, setResources, showToast]);
+
   const onConfirm = useCallback(() => {
     if (phase !== "preview") return;
     // §548 — while the load hold is up nothing is written: §774's step refuses the moves then, and the hour edits must
@@ -277,109 +265,49 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     const alt = alternatives[activeIndex];
     const selected = selectedByAlt.get(activeIndex);
     if (!alt || !selected) return;
-    const chosenMoves = alt.moves.filter((m) => selected.has(m.key));
-    const chosenCells = alt.cells.filter((c) => selected.has(cellKey(c)));
-    if (chosenMoves.length + chosenCells.length === 0) return;
-    // NOTE: this whole handler body runs SYNCHRONOUSLY to its final
-    // `reset()` — there is no `await` between here and the end of the
-    // function — so React 19's automatic batching coalesces this
-    // `setPhase("applying")` with every state update that follows in the same
-    // tick and NEVER commits an intermediate "applying" render. `phase ===
-    // "applying"` therefore cannot currently be observed by the modal:
-    // `busy`/`canCancel` below never see it, and neither does the `stage`
-    // derivation. It is kept anyway as defence-in-depth for the day this body
-    // grows an `await` (e.g. a server round-trip on apply) — at that point the
-    // batching boundary breaks and "applying" becomes real without anyone
-    // having to remember to re-add it. Don't delete it as "dead code": the
-    // `AllocPlanModal`'s busy-disabling and the `handleClose` neutering in
-    // `alloc-plan-modal.tsx` are correct FOR that future, just unreachable now.
+    // What to write, judged against the LIVE state, and every skip under its own reason (alloc-apply.ts).
+    const p = planApply(alt, selected, { resources, plan, absences, workdayHours, holidaySet, tasks, today });
+    if (p.chosen === 0) return;
+    // NOTE: this body is synchronous to its final reset(), so React batches "applying" away and the modal never sees
+    // it today; it is kept for the day apply grows an await (the modal busy state and handleClose guard are ready for
+    // that future). Do not delete it as dead code.
     setPhase("applying");
-
-    // Every row was grounded at PROPOSE time; confirm applies against these CONFIRM-time tasks and resources. A row
-    // whose inputs moved while the window was open (another edit, a background sync, ...) is skipped and counted:
-    // writing it anyway would silently overwrite a value the user never saw or approved (the same silent-overwrite
-    // class timelog-apply.ts had to close).
-    const live = { resources, plan, absences, workdayHours, holidaySet, tasks, today };
-    const resourceById = new Map(resources.map((r) => [r.id, r]));
-    const freshMoves = chosenMoves.filter((m) => !isMoveStale(m, live));
-    const freshCells = chosenCells.filter((c) => {
-      const person = resourceById.get(c.resourceId);
-      return person !== undefined && (person.utilization[c.periodKey] ?? 0) === c.currentValue;
-    });
-    // Grounding dropped the cells a move planned ALONE covers; moves can chain (A→B, then B→C), so the fresh moves are
-    // planned again here TOGETHER, on the live state, as §774 is about to plan them. A cell that plan changes is
-    // skipped and counted as covered: its absolute value was planned without the moved hours and would overwrite them.
-    const moveWrites = planTickedMoves(freshMoves, selected, live).changedCells;
-    const writable = freshCells.filter((c) => !moveWrites.has(cellKey(c)));
-    const patches = cellPatches(resources, writable);
-    const cellCount = patches.reduce((n, p) => n + Object.keys(p.after.utilization).length, 0);
-    const stale = chosenMoves.length - freshMoves.length + chosenCells.length - freshCells.length;
-    const covered = freshCells.length - writable.length;
-    // `cellPatches` leaves out a cell whose live value already is its next value: it changes nothing.
-    const unchangedCells = writable.length - cellCount;
-    // A fresh move's receiver exists: its snapshot watches the receiver, so the stale check refused it otherwise.
-    const ownerEdits = freshMoves.map((m) => ownerEditFor(m, resourceById.get(m.toResourceId) as Resource));
-    // A fresh move §774 does not apply (its owner edit is a no-op) changes nothing; it is counted, never dropped.
+    // A move §774 does not apply after all (its edit is a no-op there) changes nothing; it is counted, never dropped.
     const toastFor = (applied: number, unchangedMoves: number): string =>
-      applyToastText(lang, { applied, stale, covered, unchanged: unchangedCells + unchangedMoves });
-    if (ownerEdits.length === 0 && patches.length === 0) {
-      // Nothing left to apply — say why.
+      applyToastText(lang, { applied, stale: p.stale, covered: p.covered, unchanged: p.unchanged + unchangedMoves });
+    if (p.ownerEdits.length === 0 && p.patches.length === 0) {
       const text = toastFor(0, 0);
       if (text) showToast("info", text);
       reset();
       return;
     }
-
     // The hour edits' undo fragment: per-key, so it shares one entry with §774's resources part.
-    const cellsPart = captureFieldPart<Resource>({ setter: setResources, edits: patches, stampField: "localModifiedAt" });
-    // ★ Moves first: §774 writes owners and hours through its own functional setters. The cells then write through a
-    //   FUNCTIONAL setter on `prev`, so they land on top of the moved hours instead of a render snapshot that would
-    //   clobber them. No cell left here touches a key a fresh move writes (`moveWrites` above).
-    const applied = ownerEdits.length === 0 ? 0 : reassignTasks(ownerEdits, "ai", {
-      toastText: (n) => toastFor(n + cellCount, ownerEdits.length - n),
+    const cellsPart = captureFieldPart<Resource>({ setter: setResources, edits: p.patches, stampField: "localModifiedAt" });
+    // ★ Moves first: §774 writes owners and hours through its own functional setters; the cells then write through a
+    //   FUNCTIONAL setter on `prev`, on top of the moved hours. No cell left touches a key a fresh move writes.
+    const applied = p.ownerEdits.length === 0 ? 0 : reassignTasks(p.ownerEdits, "ai", {
+      toastText: (n) => toastFor(n + p.cellCount, p.ownerEdits.length - n),
       extraParts: [cellsPart],
       kind: "bulk.edit",
       // Moves AND hour edits name no single entity: the label falls back to "Edited N items".
-      entityKey: cellCount > 0 ? undefined : "task",
-      primaryCount: (n) => n + cellCount,
+      entityKey: p.cellCount > 0 ? undefined : "task",
+      primaryCount: (n) => n + p.cellCount,
     });
-    const unchangedMoves = ownerEdits.length - applied;
     const nowIso = new Date().toISOString();
-    if (patches.length > 0) setResources((prev) => applyAllocationCells(prev, writable, nowIso).nextResources);
+    if (p.patches.length > 0) setResources((prev) => applyAllocationCells(prev, p.cells, nowIso).nextResources);
     if (applied > 0) {
-      // §774 recorded the ONE entry (tasks, moved hours and these cells) and showed its toast.
-      // The alternative's NUMBER, never its summary: model text is untrusted and the log is read back into prompts.
-      logActivityAs?.("ai", "ai.allocationPlanAlt", activeIndex + 1, applied, cellCount);
-      reset();
-      return;
-    }
-    if (cellCount === 0) {
-      // No move applied and there are no cells: say why.
-      const text = toastFor(0, unchangedMoves);
+      // §774 recorded the ONE entry (tasks, moved hours and these cells) and showed its toast. The alternative's
+      // NUMBER, never its summary: model text is untrusted and the log is read back into prompts.
+      logActivityAs?.("ai", "ai.allocationPlanAlt", activeIndex + 1, applied, p.cellCount);
+    } else if (p.cellCount === 0) {
+      const text = toastFor(0, p.ownerEdits.length);
       if (text) showToast("info", text);
-      reset();
-      return;
-    }
-    if (captureComposite) {
-      // The entry's toast carries the counts, so it keeps its Undo button.
-      captureComposite({ kind: "bulk.edit", entityKey: "resource", primaryCount: cellCount, parts: [cellsPart], toastText: toastFor(cellCount, unchangedMoves) });
     } else {
-      const { nextResources, editedBefore } = applyAllocationCells(resources, writable, nowIso);
-      capture?.({
-        setter: setResources,
-        kind: "bulk.edit",
-        edited: editedBefore,
-        // §177b — undo reverts only the utilization cells the plan wrote (a
-        // per-key merge), so a concurrent edit to another period survives.
-        editedAfter: nextResources,
-        fromArray: resources,
-        entityKey: "resource",
-      });
-      showToast("info", toastFor(cellCount, unchangedMoves));
+      recordCellsOnly(p.cells, p.cellCount, cellsPart, toastFor(p.cellCount, p.ownerEdits.length));
+      logActivityAs?.("ai", "ai.allocationPlan", p.cellCount);
     }
-    logActivityAs?.("ai", "ai.allocationPlan", cellCount);
     reset();
-  }, [phase, isLoadHeld, alternatives, activeIndex, selectedByAlt, resources, tasks, plan, absences, workdayHours, holidaySet, today, setResources, reassignTasks, capture, captureComposite, logActivityAs, showToast, lang, reset]);
+  }, [phase, isLoadHeld, alternatives, activeIndex, selectedByAlt, resources, tasks, plan, absences, workdayHours, holidaySet, today, setResources, reassignTasks, recordCellsOnly, logActivityAs, showToast, lang, reset]);
 
   const stage: "input" | "preview" = phase === "preview" || phase === "applying" ? "preview" : "input";
   // The `"applying"` phase never actually commits a render (see the NOTE in
@@ -413,7 +341,12 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
 
   const buildModal = (): ReactNode => {
     const active = alternatives[activeIndex];
-    const selected = selectedByAlt.get(activeIndex) ?? NO_KEYS;
+    const live = { resources, plan, absences, workdayHours, holidaySet, tasks, today };
+    // A move whose inputs changed while the window is open is marked and cannot be applied (onConfirm would skip it as
+    // stale), so it leaves the selection the effect, the move rows' combined plan and the Apply count are built from.
+    const staleMoves = new Set((active?.moves ?? []).filter((m) => isMoveStale(m, live)).map((m) => m.key));
+    const ticked = selectedByAlt.get(activeIndex) ?? NO_KEYS;
+    const selected = staleMoves.size === 0 ? ticked : new Set([...ticked].filter((k) => !staleMoves.has(k)));
     const taskById = new Map(tasks.map((x) => [x.id, x]));
     const resourceById = new Map(resources.map((r) => [r.id, r]));
     const liveResourceName = (id: number): string | undefined => {
@@ -431,6 +364,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
         onSelectAlternative={setActiveIndex}
         truncated={truncated}
         selected={selected}
+        staleMoves={staleMoves}
         effect={alternativeEffect(active ?? EMPTY_ALTERNATIVE, selected, {
           resources,
           roles,

@@ -396,6 +396,7 @@ export function WorkspaceSection({
   // render (each `guardEdit(handler)` mints one), so the memo never bailed. Stable wrappers that
   // forward to the LATEST handler let it bail without the stale closures a useCallback sweep
   // over the deps-object hooks would bring. Its non-function props are state or primitives.
+  // §769 added `milestones` and `stakeholders` (Plan with AI's digest): a milestone or stakeholder edit re-renders it by design.
   const resourcesHandlers = useStableHandlers({
     onAddAbsence: handleOpenAddAbsence,
     onEditAbsence: handleEditAbsence,

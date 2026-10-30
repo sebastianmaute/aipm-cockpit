@@ -94,6 +94,7 @@ function props(over: Partial<AllocPlanModalProps> = {}): AllocPlanModalProps {
     activeIndex: 0,
     onSelectAlternative: vi.fn(),
     selected: new Set<string>(),
+    staleMoves: new Set<string>(),
     effect: noEffect,
     onToggle: vi.fn(),
     onConfirm: vi.fn(),
@@ -189,6 +190,28 @@ describe("AllocPlanModal — review window (§769)", () => {
     covered.unmount();
     render(<AllocPlanModal {...props({ alternatives: [alt({ cells })], selected, effect: { ...noEffect, editedCells: 1 } })} />);
     expect(screen.getByRole("button", { name: t("en-US", "allocPlanConfirm") })).toBeEnabled();
+  });
+
+  // Third wave, 2: the wording with no capacity at all.
+  it("an over-capacity warning against 0 h reads as such", () => {
+    const effect: AltEffect = { ...noEffect, overCapacity: [{ resourceId: 2, periodKey: "2026-09", hours: 16, capacityHours: 0 }] };
+    render(<AllocPlanModal {...props({ alternatives: [alt({ moves: [move(42, "Design review", true)] })], effect })} />);
+    expect(screen.getByText("Liam Foster: 16 h of 0 h in Sep")).toBeTruthy();
+  });
+
+  // Third wave, 6 — at phone width the picker stacks and each summary wraps inside its option.
+  // Mutation: drop the wrapping classes and the long summary forces the page wider than the screen.
+  it("the alternative picker stacks below sm and wraps each summary", () => {
+    const long = "Move the design review and the data migration to the platform team and shift October hours";
+    render(<AllocPlanModal {...props({ alternatives: [alt({ summary: long }), alt({ summary: long })] })} />);
+    const group = screen.getByRole("radiogroup", { name: t("en-US", "allocPlanAlternatives") });
+    expect(group.className).toMatch(/(^| )flex-col( |$)/);
+    expect(group.className).toMatch(/(^| )sm:flex-row( |$)/);
+    expect(group.className).toMatch(/(^| )max-w-full( |$)/);
+    const radio = screen.getByRole("radio", { name: /Alternative 2/ });
+    for (const cls of ["min-w-0", "whitespace-normal", "break-words"]) expect(radio.className.split(" ")).toContain(cls);
+    const summary = within(radio).getByText(long);
+    for (const cls of ["min-w-0", "whitespace-normal", "break-words"]) expect(summary.className.split(" ")).toContain(cls);
   });
 
   it("over-capacity warning is text, not colour alone", () => {

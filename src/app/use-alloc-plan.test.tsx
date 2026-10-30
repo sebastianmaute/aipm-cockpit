@@ -665,6 +665,29 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
   });
 
   // Review Focus 2. Mutation: one shared tick set for every alternative, or apply reading alternative 0.
+  // Third wave, 1 — a move whose task changed while the window is open is marked, cannot be ticked, and leaves the
+  // effect and the Apply count. Mutation: drop the preview's stale check and the row stays ticked, the effect still
+  // counts the move.
+  it("a move whose task changed while the window is open is marked and leaves the preview", async () => {
+    await proposeWith(
+      answer(alt("", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])),
+      { initialTasks: [DESIGN], externalTasks: (ts) => ts.map((x) => (x.id === 10 ? { ...x, assignee: "Zoe Kim", assigneeEmail: "", resourceId: 3 } : x)) },
+    );
+    const moves = tPlural("en-US", "allocPlanEffectMoves", 1, 1, formatMovedHours(16, "en-US"));
+    expect(screen.getByText(new RegExp(moves.replace(/[()]/g, ".")))).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "edit-tasks" }));
+    expect(moveBox(10)).not.toBeChecked();
+    expect(moveBox(10)).toBeDisabled();
+    const row = moveBox(10).closest("li") as HTMLElement;
+    expect(within(row).getByText(t("en-US", "allocPlanMoveChanged"))).toBeTruthy();
+    expect(screen.queryByText(new RegExp(moves.replace(/[()]/g, ".")))).toBeNull();
+    // The cell still counts, so Apply stays available — and applying writes the cell only.
+    apply();
+    await waitFor(() => expect(readUtil()[3]).toEqual({ "2026-11": 12 }));
+    expect(readOwners()[10]).toBe(3);
+    expect(readUtil()[2]).toEqual({});
+  });
+
   it("switching alternatives keeps each one's ticks; applying alternative 2 writes only its rows", async () => {
     await proposeWith(answer(
       alt("Move the review", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }]),

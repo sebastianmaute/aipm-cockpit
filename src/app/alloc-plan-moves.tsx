@@ -59,13 +59,15 @@ export interface AllocPlanMoveRowsProps {
   lang: Lang;
   moves: readonly GroundedMove[];
   selected: ReadonlySet<string>;
+  /** Moves whose inputs changed since they were proposed: marked, unticked and not tickable. */
+  staleMoves: ReadonlySet<string>;
   /** The ticked linked moves planned together (`AltEffect.movePlan`). */
   movePlan: HoursMovePlan;
   onToggle: (key: string) => void;
   busy: boolean;
 }
 
-export function AllocPlanMoveRows({ lang, moves, selected, movePlan, onToggle, busy }: AllocPlanMoveRowsProps) {
+export function AllocPlanMoveRows({ lang, moves, selected, staleMoves, movePlan, onToggle, busy }: AllocPlanMoveRowsProps) {
   // A task with no owner at all has an empty label: it reads as unassigned, never as a blank before the arrow.
   const fromText = (m: GroundedMove) => (m.fromLabel.trim() === "" ? t(lang, "workloadTriageUnassigned") : m.fromLabel);
   const rowText = (m: GroundedMove) => t(lang, "allocPlanMoveRow", m.taskId, m.taskName, fromText(m), m.toLabel);
@@ -76,15 +78,19 @@ export function AllocPlanMoveRows({ lang, moves, selected, movePlan, onToggle, b
         <li key={m.key} className="rounded-md border border-line bg-surface-muted px-3 py-2">
           <label className="flex cursor-pointer items-start gap-2">
             <Checkbox
-              checked={selected.has(m.key)}
-              disabled={busy}
+              checked={selected.has(m.key) && !staleMoves.has(m.key)}
+              disabled={busy || staleMoves.has(m.key)}
               onChange={() => onToggle(m.key)}
               aria-label={rowLabel(t(lang, "allocPlanInclude"), tokens.get(m.key) ?? rowText(m))}
               className="mt-0.5 shrink-0"
             />
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium text-foreground">{rowText(m)}</span>
-              <MoveHours lang={lang} move={m} plan={planFor(m, selected.has(m.key), movePlan)} />
+              {staleMoves.has(m.key) ? (
+                <p className="mt-1 text-xs text-muted-foreground">{t(lang, "allocPlanMoveChanged")}</p>
+              ) : (
+                <MoveHours lang={lang} move={m} plan={planFor(m, selected.has(m.key), movePlan)} />
+              )}
             </span>
           </label>
         </li>

@@ -105,7 +105,9 @@ export function alternativeEffect(
     }
     const capacityHours = capacityOf(r, periodKey);
     const hours = shownNow(r, periodKey) + delta;
-    if (capacityHours > 0 && hours > capacityHours + OVER_CAPACITY_TOLERANCE_HOURS) overCapacity.push({ resourceId, periodKey, hours: round2(hours), capacityHours });
+    // No `capacityHours > 0` guard (unlike §774's own notice): hours landing on someone with nothing available — a
+    // whole month absent — are exactly what the review window must warn about.
+    if (hours > capacityHours + OVER_CAPACITY_TOLERANCE_HOURS) overCapacity.push({ resourceId, periodKey, hours: round2(hours), capacityHours });
   }
   overCapacity.sort((a, b) => a.resourceId - b.resourceId || a.periodKey.localeCompare(b.periodKey));
 

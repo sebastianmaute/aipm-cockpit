@@ -47,6 +47,8 @@ export interface SegmentedControlProps<T extends string> {
   ariaDescribedBy?: string;
   /** Extra classes for the wrapper (e.g. `w-full` to span its column). */
   className?: string;
+  /** Extra classes for every option (e.g. letting a long label wrap). */
+  optionClassName?: string;
   /** Guided-tour anchor, placed on the radiogroup root. */
   dataTourId?: string;
 }
@@ -61,6 +63,7 @@ export function SegmentedControl<T extends string>({
   title,
   ariaDescribedBy,
   className = "",
+  optionClassName = "",
   dataTourId,
 }: SegmentedControlProps<T>) {
   // APG radiogroup roving — the shared implementation, so every radio group in
@@ -108,6 +111,7 @@ export function SegmentedControl<T extends string>({
               selected
                 ? "bg-[var(--segment-active-bg)] text-[var(--segment-active-fg)] shadow-[var(--shadow-control)]"
                 : "text-foreground enabled:hover:bg-surface-muted disabled:cursor-not-allowed",
+              optionClassName,
             ]
               .filter(Boolean)
               .join(" ")}

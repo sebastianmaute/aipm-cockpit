@@ -1066,7 +1066,7 @@
   name) carries no hours in the §774 step, so the move touches no giver cells and the model may add hour edits for the
   new owner's work.
   `alternativeEffect` (`alloc-effect.ts`) gives the review window its per-alternative effect: over-capacity rows and
-  the internal cost (an external carries no cost and is named instead). Apply is ONE undo entry: the moves go
+  the internal cost (an external carries no cost and is named instead). Unlike §774's own notice, it also warns when hours land on someone with 0 h available ("Liam Foster: 16 h of 0 h in Sep"). Apply is ONE undo entry: the moves go
   through `reassignTasks` (the step's write path, ROUTED in `reassign-hours.guard.test.ts`) with the cells part passed
   as `extraParts`, so the §774 step records the single entry for tasks, hours and cells. With no move applied,
   `use-alloc-plan.tsx` records the cells part itself through `captureComposite`. ★★★ `captureComposite` and
@@ -1076,7 +1076,7 @@
   captured when the call was SENT, so apply re-checks every row on the LIVE state: a move is skipped as stale
   (`isMoveStale`) when its task's owner, estimate, dates or status changed, or anything that decides its giver's and
   receiver's hours in its periods did — the stored value, the unit, an absence override, or an Absence record
-  (`capacityFingerprint`); a cell is stale when its stored value changed. ★★ The ONE apply toast names each skip
+  (`capacityFingerprint`); a cell is stale when its stored value changed. The review window runs the same check while open: a stale move is marked "Changed since proposed", cannot be ticked, and leaves the effect, the combined plan and the Apply count. The accounting lives in the pure `planApply` (`alloc-plan/alloc-apply.ts`); `onConfirm` only writes what it returns. ★★ The ONE apply toast names each skip
   reason apart (`applyToastText`): stale ("because the plan changed"), covered ("already covered by the task moves")
   and unchanged (a no-op move or cell, "they change nothing") — folding the last two into "plan changed" was a false
   reason (second review). ★ While the load hold is up (`isLoadHeld`, §774's step's own `loadPending`, threaded as

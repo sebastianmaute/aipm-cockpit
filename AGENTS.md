@@ -436,11 +436,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      until then the update mapped over nothing and the edit vanished in silence.
      ★ TEST TRAP: the race only reproduces when the id is taken BETWEEN open and save. A test that saves
      against an untouched list passes whichever way the handler decides — seed the collision explicitly.
-     ★★ **A `useState` updater may NOT have run when `setX(...)` returns.** After the first commit React
-     defers it to the next render, so anything the updater stashed reads stale right after the call. A
-     handler that must decide on what the updater actually wrote wraps the setter in `flushSync` (the §476
-     pattern, `grep -n flushSync src/app/baseline-currency-control.tsx`). A test with a synchronous fake
-     setter cannot see this — use a real `useState` after a prior commit. It cost two fix rounds.
+     ★★ **A `useState` updater may or may not have run when `setX(...)` returns.** React sometimes computes
+     it eagerly and usually later, during the next render, so code must never rely on it either way: anything the
+     updater stashed may read stale right after the call. A handler that must decide on what the updater actually
+     wrote wraps the setter in `flushSync` (the §476 pattern, `grep -n flushSync src/app/baseline-currency-control.tsx`).
+     A test with a synchronous fake setter cannot see this — use a real `useState` after a prior commit, and know that
+     a passing test does not prove the updater ran: it may have run eagerly this time. It cost two fix rounds.
   4. **Shared SSRF core, per-route normalize.** A new external-API proxy REUSES `api/_shared/proxy-ssrf.ts`
      for the IP-classification + host-allowlist checks and hand-rolls only its route-specific
      normalize/auth/URL. Do NOT parameterize the divergent guard chains into one `createProxyHelpers`

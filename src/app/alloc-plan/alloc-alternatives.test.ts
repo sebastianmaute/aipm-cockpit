@@ -38,6 +38,12 @@ describe("parseAllocationAlternatives", () => {
     expect(r).toEqual({ alternatives: [{ summary: "", taskMoves: [], cells: [cell(0)] }], truncated: false });
   });
 
+  // Third wave, 8. Mutation: build the legacy alternative from `cells` alone and the rationale is lost.
+  it("carries the old top-level rationale into that alternative", () => {
+    const r = parseAllocationAlternatives({ cells: [cell(0)], rationale: "Spread\nevenly" });
+    expect(r?.alternatives[0]).toEqual({ summary: "", rationale: "Spread evenly", taskMoves: [], cells: [cell(0)] });
+  });
+
   it("caps cells and moves across all alternatives", () => {
     const cells = parseAllocationAlternatives({
       alternatives: [alt("A", 0, 100), alt("B", 0, 100), alt("C", 0, 100)],

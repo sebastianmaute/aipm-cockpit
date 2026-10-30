@@ -38,6 +38,15 @@ const move = (taskId: number, toResourceId: number) => ({ taskId, toResourceId }
 const ticked = (...keys: string[]) => new Set(keys);
 
 describe("alternativeEffect", () => {
+  // Third wave, 2 — a receiver with no available hours at all (absent the whole month) still gets a warning.
+  // Mutation: keep the `capacityHours > 0` guard and the warning disappears.
+  it("warns when hours land on a person with 0 h available", () => {
+    const c = ctxOf([maya(), liam({ absenceOverride: { "2026-09": 176 } })], [task()]);
+    const alt = ground({ taskMoves: [move(7, 2)] }, c);
+    const e = alternativeEffect(alt, ticked(moveKey({ taskId: 7 })), c);
+    expect(e.overCapacity).toEqual([{ resourceId: 2, periodKey: "2026-09", hours: 16, capacityHours: 0 }]);
+  });
+
   it("moving 16 h from a €50/h to a €80/h person costs +€480", () => {
     const c = ctxOf([maya(), liam()], [task()]);
     const alt = ground({ taskMoves: [move(7, 2)] }, c);

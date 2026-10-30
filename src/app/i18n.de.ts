@@ -5470,6 +5470,7 @@ export const de: Record<TranslationKey, string> = {
   allocPlanMoveHours: "{0} Std.: {1}",
   allocPlanMovePeriod: "{0} {1} Std.",
   allocPlanMoveUnlinked: "Mit dieser Aufgabe werden keine geplanten Stunden verschoben; etwaige Stunden stammen aus den Stundenänderungen.",
+  allocPlanMoveChanged: "Seit dem Vorschlag geändert: diese Verschiebung wird nicht angewendet.",
   allocPlanOverCapacity: "{0}: {1} Std. von {2} Std. im Zeitraum {3}",
   allocPlanSkipMoveUnknownTask: "Aufgabe nicht gefunden",
   allocPlanSkipMoveClosed: "Aufgabe ist abgeschlossen",

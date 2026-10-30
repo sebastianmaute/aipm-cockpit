@@ -48,8 +48,10 @@ export interface AllocPlanModalProps {
   onSelectAlternative: (index: number) => void;
   /** True when the proposal was too large and some cells were not shown at all. */
   truncated: boolean;
-  /** The ACTIVE alternative's ticks: cellKey()s and moveKey()s the user has selected to apply. */
+  /** The ACTIVE alternative's ticks: cellKey()s and moveKey()s the user has selected to apply (stale moves excluded). */
   selected: ReadonlySet<string>;
+  /** The active alternative's moves whose inputs changed since they were proposed: marked and not applied. */
+  staleMoves: ReadonlySet<string>;
   /** What applying the ticked rows of the active alternative would do. */
   effect: AltEffect;
   /** The project's baseline currency, for the cost line. */
@@ -101,6 +103,7 @@ export function AllocPlanModal({
   onSelectAlternative,
   truncated,
   selected,
+  staleMoves,
   effect,
   currency,
   liveTaskName,
@@ -191,7 +194,8 @@ export function AllocPlanModal({
               )}
               {alternatives.length > 1 && (
                 <SegmentedControl
-                  className="mt-4"
+                  className="mt-4 max-w-full flex-col sm:flex-row"
+                  optionClassName="min-w-0 whitespace-normal break-words text-left"
                   ariaLabel={t(lang, "allocPlanAlternatives")}
                   value={String(safeIndex)}
                   onChange={(v) => onSelectAlternative(Number(v))}
@@ -199,9 +203,9 @@ export function AllocPlanModal({
                   options={alternatives.map((alt, i) => ({
                     value: String(i),
                     label: (
-                      <span className="flex flex-col items-start text-left">
+                      <span className="flex min-w-0 flex-col items-start text-left">
                         <span>{t(lang, "allocPlanAlternativeN", i + 1)}</span>
-                        {alt.summary !== "" && <span className="text-xs font-normal">{alt.summary}</span>}
+                        {alt.summary !== "" && <span className="min-w-0 whitespace-normal break-words text-xs font-normal">{alt.summary}</span>}
                       </span>
                     ),
                   }))}
@@ -216,7 +220,7 @@ export function AllocPlanModal({
               {moves.length > 0 && (
                 <>
                   <h3 className="mt-4 text-xs font-semibold uppercase text-muted-foreground">{t(lang, "allocPlanMovesHeading")}</h3>
-                  <AllocPlanMoveRows lang={lang} moves={moves} selected={selected} movePlan={effect.movePlan} onToggle={onToggle} busy={busy} />
+                  <AllocPlanMoveRows lang={lang} moves={moves} selected={selected} staleMoves={staleMoves} movePlan={effect.movePlan} onToggle={onToggle} busy={busy} />
                 </>
               )}
               {cells.length > 0 && moves.length > 0 && (
