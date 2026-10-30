@@ -2071,7 +2071,7 @@ One rule, one matcher, one summary, read by every AI feature that sets or reads 
 - ★★ **One predicate for the card and the tool result.** `callAbsenceClashes` reads the plan `describeProposal` builds for the card, never a rule of its own, so the staging gate, the card and the tool result judge one thing. Ask it BEFORE the write: a trigger is a CHANGE against the stored row, and after the write the row already holds the new date, so the same call judges nothing.
 - ★ `shouldStage` stays a function of the call list: the caller builds `hasClash` (`chat-panel.tsx`), and it is asked only about entity writes.
 
-Reproduce the readers: `grep -rln "buildAwaySummary" src/app --include=*.ts --include=*.tsx | grep -v test` (seven files: the rule's own file, the WBS plan, the digest, the recommend context, and the steering report's call, draft and action hook).
+Reproduce the callers: `grep -rl "buildAwaySummary(" src/app --include=*.ts --include=*.tsx | grep -v "test|absence-clash.ts"` prints 4 files (the WBS plan, the digest, the recommend context and the steering report's action hook); `report-call.ts` and `report-draft.ts` only receive the block and pass it through.
 
 ### AI Assistant — the chat-thread sidebar (Turso-only)
 
