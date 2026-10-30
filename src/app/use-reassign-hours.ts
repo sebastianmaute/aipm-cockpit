@@ -18,11 +18,11 @@
 //   ★ That covers prepare→commit→prepare→commit. Two `prepare`s before either
 //   commits still plan from the same state: commit each step before the next prepare.
 // ★ The forward resources write applies the planned moves in SHOWN hours to `prev`
-//   (`applyShownDeltas`, never the absolute `after`), so a same-key write by another
+//   (`applyShownDeltas`) when the live rows moved under the plan, so a same-key write by another
 //   writer in the same tick is kept by the FORWARD write; when that write left a giver
 //   less (or a receiver less room) than planned, the period's moves are scaled down and
-//   converted with the planner's own rule, absences included (receiver shares floored to
-//   a tenth, givers give their sum), so no hours are created; a percent value rounds to
+//   converted with the planner's own rule, absences included (every scaled share floored
+//   to a tenth on both sides, both sides moving the same total), so no hours are created; a percent value rounds to
 //   0.01 %. When nothing moved under the plan, it writes the plan's own `after` values, so
 //   the forward write, undo and redo agree exactly.
 // ★★ UNDO IS ABSOLUTE PER KEY (ruling R11, the codebase convention for every
@@ -145,12 +145,18 @@ function sameUtil(a: Readonly<Record<string, number>>, b: Readonly<Record<string
   return true;
 }
 
-/** True when every resource the plan edits still holds the utilization the plan started from. */
-function matchesPlanned(rows: readonly Resource[], edits: readonly ResourceUtilEdit[]): boolean {
+/** True when every resource the plan edits is still as the plan saw it: the whole utilization map, and the
+ *  absences and unit the conversion reads. Anything else moved means the plan's `after` may be wrong now. */
+function matchesPlanned(rows: readonly Resource[], edits: readonly ResourceUtilEdit[], base: readonly Resource[]): boolean {
   const byId = new Map(rows.map((r) => [r.id, r]));
+  const baseById = new Map(base.map((r) => [r.id, r]));
   return edits.every((e) => {
     const r = byId.get(e.id);
-    return r !== undefined && sameUtil(r.utilization, e.before.utilization);
+    const b = baseById.get(e.id);
+    return r !== undefined && b !== undefined
+      && sameUtil(r.utilization, e.before.utilization)
+      && r.utilizationMode === b.utilizationMode
+      && sameUtil(r.absenceOverride ?? {}, b.absenceOverride ?? {});
   });
 }
 
@@ -184,7 +190,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
   };
 
   // The caller wrote the owner through its own setter; advance this hook's copy too, so a reassignTasks later in
-  // the same tick reads the new owner, not the render snapshot's. Every change, the silent ones included.
+  // the same tick reads the new owner, not the render snapshot's. Every owner-changing change, the silent ones included.
   const advanceTaskCopy = (changes: readonly OwnerChange[]): void => {
     // Only changes that change the owner: a rename built from the render snapshot carries that snapshot's owner,
     // which may be older than this copy (a reassignTasks earlier in the same tick).
@@ -201,7 +207,8 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     if (loadPending) return inert();
     const moving = changes.filter((c) => !movesSilently(c, resourcesRef.current));
     if (moving.length === 0) return { ...inert(), commit: () => advanceTaskCopy(changes) };
-    const hoursPlan = planHoursMoves(moving, resourcesRef.current, { plan, absences, workdayHours, holidaySet, today });
+    const base = resourcesRef.current; // the state the plan is computed from
+    const hoursPlan = planHoursMoves(moving, base, { plan, absences, workdayHours, holidaySet, today });
     const taskNames = new Map(moving.map((c) => [c.task.id, c.task.taskName]));
     const notice = hoursMoveNotice(hoursPlan, {
       lang,
@@ -227,7 +234,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
           const stamp = new Date().toISOString();
           setResources((prev) => {
             // Unchanged since planning: write the plan's own values. Moved under the plan in the same tick: scale.
-            const next = matchesPlanned(prev, hoursPlan.edits) ? withPlannedAfter(prev, hoursPlan.edits) : applyShownDeltas(prev, deltas, ctx);
+            const next = matchesPlanned(prev, hoursPlan.edits, base) ? withPlannedAfter(prev, hoursPlan.edits) : applyShownDeltas(prev, deltas, ctx);
             // Stamp only the people whose stored hours actually changed.
             return next.map((r, i) => (sameUtil(r.utilization, prev[i].utilization) ? r : { ...r, localModifiedAt: stamp }));
           });

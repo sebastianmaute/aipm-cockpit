@@ -307,6 +307,23 @@ describe("applyShownDeltas", () => {
     expect(shown(out[1], sep, c) + shown(out[2], sep, c)).toBeCloseTo(shown(live[0], sep, c) - shown(out[0], sep, c), 5);
   });
 
+  it("never asks a giver for more than it shows when several givers share a scaled period", () => {
+    // Giver 1 (percent) shows 0.55 h and limits the scale; giver 2 (percent) has plenty; the receiver takes 2 h.
+    const g1 = resource(1, { utilizationMode: "percent", utilization: { "2026-09": 0.3125 } });
+    const g2 = resource(2, { utilizationMode: "percent", utilization: { "2026-09": 50 } });
+    const rec = resource(3, {});
+    const deltas = new Map([[1, new Map([["2026-09", -1]])], [2, new Map([["2026-09", -1]])], [3, new Map([["2026-09", 2]])]]);
+    const live = [g1, g2, rec];
+    const out = applyShownDeltas(live, deltas, c);
+    const lost = shown(live[0], sep, c) - shown(out[0], sep, c) + (shown(live[1], sep, c) - shown(out[1], sep, c));
+    const gained = shown(out[2], sep, c) - shown(live[2], sep, c);
+    expect(gained).toBeGreaterThan(0);
+    // No hours created beyond the 0.01 % percent rounding; giver 1 never goes below what it showed.
+    expect(gained).toBeLessThanOrEqual(lost + 0.02);
+    expect(shown(live[0], sep, c) - shown(out[0], sep, c)).toBeLessThanOrEqual(shown(live[0], sep, c) + 1e-9);
+    expect(out[0].utilization["2026-09"]).toBeGreaterThan(0);
+  });
+
   it("conserves hours for a percent-mode giver with an absence lowered in the same tick", () => {
     const giver = (util: number) => resource(1, { utilizationMode: "percent", utilization: { "2026-09": util }, absenceOverride: { "2026-09": 40 } });
     const p = planHoursMoves([change(sepTask(1, 1, 8 * 60), 1, 2)], [giver(50), resource(2, {})], c);

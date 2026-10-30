@@ -169,19 +169,9 @@ export function plannedShownDeltas(plan: HoursMovePlan): ShownDeltas {
   return out;
 }
 
-/**
- * Apply planned shown-hour moves to `rows` as they are NOW — for a live state that moved under the plan in the same
- * tick (the hook writes the plan's own `after` values when nothing moved, so undo, redo and the forward write agree).
- * ★ Conservation: per period, every move is scaled by the smallest fraction that still fits — a giver can give at most
- * the hours it shows now, a receiver can take at most its room now (100 % or HOURS_MAP_MAX). A scaled receiver share is
- * FLOORED to a tenth and the givers give exactly the sum of those shares (largest remainder), so rounding never creates
- * an hour. Each person's stored value is then converted from SHOWN hours with the planner's own rule
- * (`shiftedStoredValue`), absences included; a percent value rounds to 0.01 %, so the two sides agree to about
- * 0.01 h. The fraction is one per period across the whole plan, so in a batch one constrained pair scales the others
- * in that period too (total still conserved); the notice keeps the plan's numbers.
- */
-/** Per (resource, period): the shown hours to apply. Unscaled moves are the plan's own tenths; a scaled period floors
- *  each receiver's share and lets the givers give exactly their sum. */
+/** Per (resource, period): the shown hours to apply. Unscaled moves are the plan's own tenths. In a scaled period
+ *  every share is FLOORED to a tenth on both sides (no giver is ever asked for more than it shows, even when it shows
+ *  a non-tenth amount), the moved total is the smaller side's sum, and each side splits it within its caps. */
 function scaledShares(rows: readonly Resource[], deltas: ShownDeltas, scale: ReadonlyMap<string, number>): (id: number, key: string) => number {
   const out = new Map<string, number>();
   const at = (id: number, key: string) => `${id}|${key}`;
@@ -197,19 +187,34 @@ function scaledShares(rows: readonly Resource[], deltas: ShownDeltas, scale: Rea
     }
     const receivers = entries.filter((e) => e.d > 0);
     const givers = entries.filter((e) => e.d < 0);
-    let total = 0;
-    for (const { id, d } of receivers) {
-      const h = floor1(d * f);
-      out.set(at(id, key), h);
-      total += h;
-    }
-    const giverSum = givers.reduce((s, e) => s + e.d, 0);
-    const parts = giverSum === 0 ? givers.map(() => 0) : toTenths(givers.map((e) => (e.d / giverSum) * total), total);
-    givers.forEach((e, i) => out.set(at(e.id, key), -parts[i]));
+    const tenthsCap = (d: number) => Math.floor(Math.abs(d) * f * 10 + EPSILON);
+    const recCaps = receivers.map((e) => tenthsCap(e.d));
+    const giverCaps = givers.map((e) => tenthsCap(e.d));
+    const total = Math.min(recCaps.reduce((a, b) => a + b, 0), giverCaps.reduce((a, b) => a + b, 0));
+    // Each side splits `total` in proportion to its caps by largest remainder. No share exceeds its cap: a share's raw
+    // value is cap × total / sum ≤ cap (total ≤ sum), and only a share with a fractional raw value — so below its cap —
+    // gets the extra tenth.
+    const split = (caps: number[]) => {
+      const sum = caps.reduce((x, y) => x + y, 0);
+      return sum === 0 ? caps.map(() => 0) : toTenths(caps.map((cap) => (cap / sum) * total / 10), total / 10);
+    };
+    split(recCaps).forEach((h, i) => out.set(at(receivers[i].id, key), h));
+    split(giverCaps).forEach((h, i) => out.set(at(givers[i].id, key), -h));
   }
   return (id, key) => out.get(at(id, key)) ?? 0;
 }
 
+/**
+ * Apply planned shown-hour moves to `rows` as they are NOW — for a live state that moved under the plan in the same
+ * tick (the hook writes the plan's own `after` values when nothing moved, so undo, redo and the forward write agree).
+ * ★ Conservation: per period, every move is scaled by the smallest fraction that still fits — a giver can give at most
+ * the hours it shows now, a receiver can take at most its room now (100 % or HOURS_MAP_MAX). Every scaled share is
+ * FLOORED to a tenth on both sides and both sides move the same total (`scaledShares`), so rounding never creates an
+ * hour. Each person's stored value is then converted from SHOWN hours with the planner's own rule
+ * (`shiftedStoredValue`), absences included; a percent value rounds to 0.01 %, so the two sides agree to about
+ * 0.01 h. The fraction is one per period across the whole plan, so in a batch one constrained pair scales the others
+ * in that period too (total still conserved); the notice keeps the plan's numbers.
+ */
 export function applyShownDeltas(rows: readonly Resource[], deltas: ShownDeltas, ctx: HoursMoveCtx): Resource[] {
   const periods = new Map(generatePeriods(ctx.plan.startDate, ctx.plan.endDate, ctx.plan.granularity).map((p) => [p.key, p]));
   const scale = new Map<string, number>();
