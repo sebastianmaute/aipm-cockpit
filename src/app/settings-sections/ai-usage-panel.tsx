@@ -2,7 +2,7 @@
 // src/app/settings-sections/ai-usage-panel.tsx
 // Usage bars sub-component for AiSection. Reads from the shared AiUsageProvider.
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   AI_CAP_BASIS_NOTICE_KEY,
   AI_COST_BASIS_NOTICE_KEY,
@@ -155,6 +155,7 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap, guidesOn = true }: A
     sessionTotal, weekTotal, nextReset, sessionUsage, viewSwitchWeek, weekByFeature, backgroundWeekCost,
     weekHardCapReached,
   } = useAiUsageContext();
+  const byFeatureId = useId();
 
   // ★★★ NOT a state setter in an effect (`react-hooks/set-state-in-effect` is
   //     fatal here, and re-rendering would only make the line vanish mid-read).
@@ -232,20 +233,24 @@ export function AiUsagePanel({ lang, sessionCap, weeklyCap, guidesOn = true }: A
       )}
       <p className="mt-1 text-xs text-muted-foreground">{t(lang, "aiUsageCoversAllFeatures")}</p>
       {weekByFeature.length > 0 && (
-        <dl aria-label={t(lang, "aiUsageByFeature")} className="mt-2 space-y-0.5 text-xs text-muted-foreground">
-          {weekByFeature.map((row) => (
-            <div key={row.feature} className="flex justify-between gap-2">
-              <dt>{t(lang, AI_FEATURE_LABEL[row.feature])}</dt>
-              <dd className="tabular-nums">{Math.round(row.cost).toLocaleString(locale)}</dd>
-            </div>
-          ))}
-          {backgroundWeekCost > 0 && (
-            <div className="flex justify-between gap-2">
-              <dt>{t(lang, "aiUsageBackgroundWeek")}</dt>
-              <dd className="tabular-nums">{Math.round(backgroundWeekCost).toLocaleString(locale)}</dd>
-            </div>
-          )}
-        </dl>
+        // A `dl` has no role, so an `aria-label` on it may be ignored; the group is named by its visible caption.
+        <div role="group" aria-labelledby={byFeatureId} className="mt-2">
+          <p id={byFeatureId} className="text-xs font-medium text-foreground">{t(lang, "aiUsageByFeature")}</p>
+          <dl className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
+            {weekByFeature.map((row) => (
+              <div key={row.feature} className="flex justify-between gap-2">
+                <dt>{t(lang, AI_FEATURE_LABEL[row.feature])}</dt>
+                <dd className="tabular-nums">{Math.round(row.cost).toLocaleString(locale)}</dd>
+              </div>
+            ))}
+            {backgroundWeekCost > 0 && (
+              <div className="flex justify-between gap-2">
+                <dt>{t(lang, "aiUsageBackgroundWeek")}</dt>
+                <dd className="tabular-nums">{Math.round(backgroundWeekCost).toLocaleString(locale)}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
       )}
       <ViewSwitchLines lang={lang} locale={locale} stats={viewSwitchWeek} guidesOn={guidesOn} />
     </div>

@@ -102,6 +102,18 @@ describe("AiUsagePanel — per-feature breakdown", () => {
     expect(screen.getByText(t("en-US", "aiUsageCoversAllFeatures"))).toBeInTheDocument();
   });
 
+  // A `dl` has no role, so an `aria-label` on it may be ignored or flagged (axe never renders this panel: the e2e
+  // seed has no usage). The breakdown is a named group whose name is its visible caption.
+  // Mutation: restoring `<dl aria-label>` without the group turns this red.
+  it("names the breakdown by a visible caption, as a group", () => {
+    const { container } = render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, { wrapper });
+    act(() => { emitUsage("chat", input(300)); });
+    const group = screen.getByRole("group", { name: t("en-US", "aiUsageByFeature") });
+    expect(group).toContainElement(screen.getByText(t("en-US", AI_FEATURE_LABEL.chat)));
+    expect(screen.getByText(t("en-US", "aiUsageByFeature"))).toBeVisible();
+    expect(container.querySelector("dl[aria-label]")).toBeNull();
+  });
+
   it("shows no breakdown before any usage", () => {
     render(<AiUsagePanel lang="en-US" sessionCap={100_000} weeklyCap={500_000} />, { wrapper });
     expect(screen.queryByText(t("en-US", AI_FEATURE_LABEL.chat))).toBeNull();
