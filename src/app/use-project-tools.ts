@@ -52,10 +52,13 @@ export interface ProjectToolsDeps {
   /** Filled by task-manager once `handleUpdateCurrentProjectByMode` exists; null before that. */
   projectWriterRef: RefObject<ProjectWriter | null>;
   getScopeEpoch: ScopeEpochReader;
+  /** The UNDO epoch (scope + restores + denomination): the undo stack's push guard compares against it, so the
+   *  capture is stamped with this reader, never `getScopeEpoch` — the two differ after a currency change or restore. */
+  getUndoEpoch: ScopeEpochReader;
 }
 
 export function useProjectTools(deps: ProjectToolsDeps): ProjectToolDispatcher {
-  const { isReadOnly, settingsRef, undoRef, projectWriterRef, getScopeEpoch, logActivityAs, showToast } = deps;
+  const { isReadOnly, settingsRef, undoRef, projectWriterRef, getScopeEpoch, getUndoEpoch, logActivityAs, showToast } = deps;
   const { project } = useWorkspace();
 
   const projectRef = useRef(project);
@@ -67,6 +70,10 @@ export function useProjectTools(deps: ProjectToolsDeps): ProjectToolDispatcher {
   useEffect(() => {
     getScopeEpochRef.current = getScopeEpoch;
   }, [getScopeEpoch]);
+  const getUndoEpochRef = useRef(getUndoEpoch);
+  useEffect(() => {
+    getUndoEpochRef.current = getUndoEpoch;
+  }, [getUndoEpoch]);
   const sinksRef = useRef({ logActivityAs, showToast });
   useEffect(() => {
     sinksRef.current = { logActivityAs, showToast };
@@ -82,6 +89,7 @@ export function useProjectTools(deps: ProjectToolsDeps): ProjectToolDispatcher {
         if (write === null) throw new Error(PROJECT_SAVE_FAILED_MESSAGE);
         const readEpoch = () => getScopeEpochRef.current();
         const startEpoch = readEpoch();
+        const startUndoEpoch = getUndoEpochRef.current(); // read before the await, like `startEpoch`
         const before = projectRef.current;
         const written = await write(next);
         if (dropStaleScopeWrite(readEpoch, startEpoch, "ai.updateProject")) throw new Error(PROJECT_SCOPE_MOVED_MESSAGE);
@@ -97,7 +105,7 @@ export function useProjectTools(deps: ProjectToolsDeps): ProjectToolDispatcher {
             getWriter: () => projectWriterRef.current, getLive: () => projectRef.current ?? null, before, next, fields, onThrow,
           });
           undoRef.current?.captureComposite({
-            kind: "project.updated", entityKey: "project", primaryCount: 1, name: next.name, parts: [part], readEpoch: startEpoch,
+            kind: "project.updated", entityKey: "project", primaryCount: 1, name: next.name, parts: [part], readEpoch: startUndoEpoch,
           });
         }
         return next;
