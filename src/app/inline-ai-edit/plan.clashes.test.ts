@@ -153,3 +153,47 @@ describe("describeEntityCalls — absence clashes (§773)", () => {
     expect(plan.clashes).toEqual([]);
   });
 });
+
+describe("describeEntityCalls — what a trigger judges (§773 R2)", () => {
+  it("a relink on the old date judges only the newly linked owners", () => {
+    // Maya (task 43) is away on the date but already linked; Liam (task 42) is newly linked and free.
+    const linkedToMaya = { ...milestone, linkedTaskIds: [43] };
+    const plan = describeEntityCalls([block("update_milestone", { id: 7, linkedTaskIds: [43, 42] })], {
+      ...milestoneCtx, item: linkedToMaya as unknown as Item,
+    });
+    expect(plan.links).toHaveLength(1);
+    expect(plan.clashes).toEqual([]);
+  });
+
+  // Maya's task starts inside her absence (stored) and is due later.
+  const startsAway = {
+    ...task, assignee: "Maya Patel", assigneeEmail: "maya@example.com", resourceId: 1,
+    startDate: "2026-11-04", dueDate: "2026-11-30",
+  };
+
+  it("a due-only move does not warn about an unchanged start date on an absence", () => {
+    const plan = describeEntityCalls([block("update_task", { id: 42, dueDate: "2026-11-27" })], {
+      ...taskCtx, item: startsAway as unknown as Item,
+    });
+    expect(plan.updates).toHaveLength(1);
+    expect(plan.clashes).toEqual([]);
+  });
+
+  it("a due-only move still judges the span the move changes", () => {
+    // Start Tue 11-03, due moved to Mon 11-09: five working days, four of them away.
+    const plan = describeEntityCalls([block("update_task", { id: 42, dueDate: "2026-11-09" })], {
+      ...taskCtx, item: { ...startsAway, startDate: "2026-11-03" } as unknown as Item,
+    });
+    expect(plan.clashes).toEqual([expect.objectContaining({ clash: expect.objectContaining({ reason: "absent-most-of-span" }) })]);
+  });
+
+  it("an owner change judges the whole task, its stored start date included", () => {
+    const onLiam = { ...startsAway, assignee: "Liam Foster", assigneeEmail: "liam@example.com", resourceId: 2 };
+    const plan = describeEntityCalls([block("update_task", { id: 42, assignee: "Maya Patel" })], {
+      ...taskCtx, item: onLiam as unknown as Item,
+    });
+    expect(plan.clashes).toEqual([
+      expect.objectContaining({ entity: "task", id: 42, clash: expect.objectContaining({ which: "start", date: "2026-11-04" }) }),
+    ]);
+  });
+});

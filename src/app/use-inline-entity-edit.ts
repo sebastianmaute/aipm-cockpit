@@ -20,7 +20,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { describeEntityCalls, isEmptyPlan, type EditPlan, type FieldDiff, type LinkDiff } from "./inline-ai-edit/plan";
 import { inlineDescriptor, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
-import type { AbsenceCtx } from "./absence-clash";
+import { NO_HOLIDAYS, type AbsenceCtx } from "./absence-clash";
 
 export type InlinePhase = "idle" | "thinking" | "preview" | "clarify" | "rejected" | "applying" | "error";
 type EntityItem = { id: number; [k: string]: unknown };
@@ -62,8 +62,6 @@ export interface InlineEntityEditApi {
   apply: () => Promise<void>;
   cancel: () => void;
 }
-
-const NO_HOLIDAYS: ReadonlySet<string> = new Set();
 
 /** §773 — what the preview's absence clashes are judged against: the workspace's absences and people, the
  *  caller's holidays. ★ `Array.isArray`: a partial workspace (a popout mirror, a test seed) may lack a slice. */

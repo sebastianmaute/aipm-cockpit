@@ -80,6 +80,7 @@ import {
 } from "./chat-proposal";
 import { isPureReadTool, openSendRecord, runsInPlaceWhenStaging } from "./chat-send-record";
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
+import { NO_HOLIDAYS } from "./absence-clash";
 import {
   cardRowTitle,
   ChatProposalBlock,
@@ -176,9 +177,6 @@ const RUN_UNBATCHED: UndoBatch["runBatched"] = (fn) => fn();
  *  ★★ NEVER CALLED DURING RENDER — `emptyWorkspace()` reads the clock, which
  *   the react-hooks purity rule bans in a component body. Every call site here
  *   is inside the async send. */
-/** §773 — the holiday set a staged row's absence clashes are judged with when the caller threads none. */
-const NO_HOLIDAYS: ReadonlySet<string> = new Set();
-
 function stagingWorkspace(ws: Workspace | undefined): Workspace {
   return ws ?? emptyWorkspace();
 }

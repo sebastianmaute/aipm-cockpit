@@ -6,6 +6,9 @@
 //  one clash rule (`absence-clash.ts`).
 // ★ Only a trigger asks the question (owner-approved): a new or moved date, a new task owner, a task newly
 //  linked to a milestone. An update changing none of those yields nothing, even on an already-clashing row.
+// ★★ A trigger judges only what it makes newly the owner's (ruling R2): a date-only move asks about the
+//  moved date and the span it changes, never an unchanged stored start date; a new owner or a new link
+//  hands over the whole item, so every date is judged.
 import { milestoneClashes, taskClashes, type AbsenceClash, type AbsenceCtx } from "../absence-clash";
 import { linkPersonForWrite } from "../resource-foundation";
 import { sanitizeAssignee, sanitizeIsoDate, sanitizeLoadedEmail } from "../sanitize";
@@ -48,8 +51,10 @@ function taskAfter(item: Row, changed: ReadonlyMap<string, string>, absence: Abs
 
 function updateTaskNotes(one: EditPlan, item: Row, absence: AbsenceCtx): ClashNote[] {
   const changed = new Map(one.updates.filter((u) => u.entity === "task").map((u) => [u.field, u.raw ?? u.after]));
-  if (!changed.has("dueDate") && !TASK_PERSON_FIELDS.some((f) => changed.has(f))) return [];
-  return notes("task", item.id, str(item.taskName), taskClashes(taskAfter(item, changed, absence), absence));
+  const personChanged = TASK_PERSON_FIELDS.some((f) => changed.has(f));
+  if (!changed.has("dueDate") && !personChanged) return [];
+  const clashes = taskClashes(taskAfter(item, changed, absence), absence, { ignoreStart: !personChanged });
+  return notes("task", item.id, str(item.taskName), clashes);
 }
 
 function updateMilestoneNotes(one: EditPlan, item: Row, ws: Workspace, absence: AbsenceCtx): ClashNote[] {

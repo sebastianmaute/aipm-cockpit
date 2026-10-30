@@ -3192,6 +3192,40 @@ describe("staged tool calls (the review card)", () => {
     expect(within(card).getByText(/^Turns off: Dashboard, /)).toBeInTheDocument();
   });
 
+  it("a staged update that lands a due date on the owner's absence shows the warning under its row (§773)", async () => {
+    // Mutation: dropping the `absence` argument to `describeProposal` turns this red — the row still
+    // shows its due-date change, with no warning under it.
+    const dispatcher = makeDispatcher();
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "update_task", input: { id: 1, dueDate: "2026-11-05" } },
+          { type: "tool_use", id: "t2", name: "update_task", input: { id: 2, status: "Done" } },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    const workspace = {
+      ...emptyWorkspace(),
+      tasks: [
+        { id: 1, taskName: "Ship the release", assignee: "Maya Patel", resourceId: 1, dueDate: "2026-11-12", status: "To Do", priority: "Medium" },
+        { id: 2, taskName: "Write the notes", assignee: "Liam Foster", dueDate: "2026-11-20", status: "To Do", priority: "Medium" },
+      ],
+      resources: [{ id: 1, firstName: "Maya", lastName: "Patel" }],
+      absences: [{ id: 1, assignee: "Maya Patel", resourceId: 1, type: "vacation", startDate: "2026-11-03", endDate: "2026-11-07" }],
+    } as unknown as Workspace;
+    render(
+      <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} workspace={workspace} />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    expect(dispatcher.updateTask).not.toHaveBeenCalled();
+    const note = within(card).getByText(/Maya Patel is absent on the due date/).closest("li")!;
+    expect(note.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    expect(within(card).getAllByText(/is absent on/)).toHaveLength(1);
+  });
+
   it("the card's other settings come from the dispatcher's live preview (§779)", async () => {
     // Mutation: not passing `previewSettings` to `describeProposal` turns this red: the line is then
     // computed against the defaults and shows "scopePendingRed 5".

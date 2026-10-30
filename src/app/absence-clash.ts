@@ -27,6 +27,9 @@ export interface AbsenceClash {
 }
 
 export const AWAY_SUMMARY_MAX_LINES = 60;
+/** The holiday set for a caller that has none to thread: no day is a holiday. Shared so every caller
+ *  falls back to the same (frozen-by-convention) instance. */
+export const NO_HOLIDAYS: ReadonlySet<string> = new Set();
 /** Same bound as `absenceDayMap`: an absence counts for its first 366 days only. */
 const ABSENCE_MAX_DAYS = 366;
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -115,16 +118,19 @@ function spanClash(
 
 /** A task's clash for its owner, at most one: a date on an absence day (due date first, then start),
  *  else absent on more than half of its working days (stored start AND due date; exactly half is not
- *  a clash). Rule (a) wins when both hold, as the more specific statement. */
+ *  a clash). Rule (a) wins when both hold, as the more specific statement.
+ *  `ignoreStart` (§773 R2): the start date is not newly the owner's (a due-only move), so rule (a) is not
+ *  asked of it — it still bounds the span for rule (b). */
 export function taskClashes(
   t: Pick<Task, "assignee" | "resourceId" | "startDate" | "dueDate">,
   ctx: AbsenceCtx,
+  opts: { ignoreStart?: boolean } = {},
 ): AbsenceClash[] {
   const person: PersonRef = { resourceId: t.resourceId ?? null, name: t.assignee ?? "" };
   if (!linkedResource(person, ctx) && !person.name.trim()) return [];
   const clash =
     dateClash(person, t.dueDate, "due", ctx) ??
-    dateClash(person, t.startDate, "start", ctx) ??
+    (opts.ignoreStart ? null : dateClash(person, t.startDate, "start", ctx)) ??
     spanClash(person, t.startDate, t.dueDate, ctx);
   return clash ? [clash] : [];
 }
