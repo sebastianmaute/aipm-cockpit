@@ -173,11 +173,18 @@ export function collapseCaptures(
   // the entityKey note above rejects.
   // §774 — a capture with its own toast text (a reassignment that moved planned
   // hours) keeps saying so in the ONE collapsed entry; plans whose captures carry
-  // none keep the generic "Edited N items".
+  // none keep the generic "Edited N items". At most two texts are shown, then a
+  // count of the rest ("(+3)"), so a large plan's toast stays one short line.
   const texts = contributing.map((o) => o.toastText).filter((x): x is string => !!x);
-  const toastText = texts.length > 0 ? texts.join(" ") : undefined;
+  const extra = texts.length - MAX_COLLAPSED_TOAST_TEXTS;
+  const toastText = texts.length === 0
+    ? undefined
+    : [...texts.slice(0, MAX_COLLAPSED_TOAST_TEXTS), ...(extra > 0 ? [`(+${extra})`] : [])].join(" ");
   return { kind, primaryCount, parts, entityKey, toastText };
 }
+
+/** Toast texts a collapsed entry shows in full before it counts the rest (§774). */
+const MAX_COLLAPSED_TOAST_TEXTS = 2;
 
 /**
  * A stable capture surface plus the batch control that collapses it.

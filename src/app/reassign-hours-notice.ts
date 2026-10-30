@@ -2,6 +2,7 @@
 // moves planned hours (§774). Pure: names and period labels are passed in.
 import { type Lang, t, tPlural } from "./i18n";
 import { type HoursMovePlan, type NoMoveReason, type TaskHoursMove } from "./reassign-hours";
+import { HOURS_MAP_MAX } from "./sanitize-entities";
 
 export interface HoursMoveNoticeCtx {
   lang: Lang;
@@ -25,9 +26,11 @@ export function defaultPeriodLabel(key: string, lang: Lang): string {
   return lang === "de" ? `KW ${week[1].slice(1)}` : week[1];
 }
 
-/** Whole hours, or one decimal under 1 (Rounding rule). */
+/** Whole hours when the value is whole, else one decimal: the planner moves tenths, so a period list
+ *  written this way adds up to its total ("10 h (Sep: 3.3 h, Oct: 3.3 h, Nov: 3.4 h)"). */
 export function formatHours(hours: number, lang: Lang): string {
-  const fractionDigits = hours < 1 ? 1 : 0;
+  const tenths = Math.round(hours * 10);
+  const fractionDigits = tenths % 10 === 0 ? 0 : 1;
   return new Intl.NumberFormat(lang, {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
@@ -59,6 +62,20 @@ function groupByPair(moved: readonly TaskHoursMove[]): PairGroup[] {
   return [...groups.values()];
 }
 
+/** "Sep, Oct": period labels in plan order. */
+function periodList(keys: Iterable<string>, ctx: HoursMoveNoticeCtx): string {
+  return [...new Set(keys)].sort().map((key) => ctx.periodLabel(key)).join(", ");
+}
+
+/** "Liam Foster is at 100 % in Sep" / "… at the 1,000 h limit in Sep" — the receiver-cap sentence's key and args. */
+function capSentence(limit: TaskHoursMove["receiverCapLimit"], lead: string[], receiver: string, periods: string, lang: Lang, none: boolean): string {
+  if (limit === "hours") {
+    const key = none ? "hoursMovedNoneReceiverLimit" : "hoursMovedReceiverLimit";
+    return t(lang, key, ...lead, receiver, formatHours(HOURS_MAP_MAX, lang), periods);
+  }
+  return t(lang, none ? "hoursMovedNoneReceiverCap" : "hoursMovedReceiverCap", ...lead, receiver, periods);
+}
+
 function pairSentence(group: PairGroup, ctx: HoursMoveNoticeCtx): string {
   const { lang } = ctx;
   const byPeriod = new Map<string, number>();
@@ -66,16 +83,23 @@ function pairSentence(group: PairGroup, ctx: HoursMoveNoticeCtx): string {
   let shortfall = 0;
   let capped = 0;
   let outside = 0;
+  const shortKeys: string[] = [];
+  const capKeys: string[] = [];
+  let limit: TaskHoursMove["receiverCapLimit"];
   for (const move of group.moves) {
     total += move.movedHours;
     shortfall += move.shortfallHours;
     capped += move.receiverCapHours;
     outside += move.outsideWindowHours;
+    shortKeys.push(...move.shortfallPeriods);
+    capKeys.push(...move.receiverCapPeriods);
+    limit = limit ?? move.receiverCapLimit;
     for (const p of move.perPeriod) byPeriod.set(p.periodKey, (byPeriod.get(p.periodKey) ?? 0) + p.hours);
   }
+  // "Sep: 8 h" — a colon between label and amount, so a week ("KW 38: 16 Std.") never reads as two numbers.
   const periods = [...byPeriod.keys()]
     .sort()
-    .map((key) => `${ctx.periodLabel(key)} ${formatHours(byPeriod.get(key) ?? 0, lang)} ${t(lang, "hoursMovedUnit")}`)
+    .map((key) => `${ctx.periodLabel(key)}: ${formatHours(byPeriod.get(key) ?? 0, lang)} ${t(lang, "hoursMovedUnit")}`)
     .join(", ");
   const from = ctx.resourceName(group.from);
   const to = ctx.resourceName(group.to);
@@ -84,11 +108,12 @@ function pairSentence(group: PairGroup, ctx: HoursMoveNoticeCtx): string {
     group.moves.length === 1
       ? t(lang, "hoursMoved", hours, from, to, periods)
       : tPlural(lang, "hoursMovedBatch", group.moves.length, hours, group.moves.length, from, to, periods);
-  const notes: string[] = [];
-  if (shortfall > 0) notes.push(t(lang, "hoursMovedShortfall", formatHours(shortfall, lang), from));
-  if (capped > 0) notes.push(t(lang, "hoursMovedReceiverCap", formatHours(capped, lang), to));
-  if (outside > 0) notes.push(t(lang, "hoursMovedOutsideWindowNote", formatHours(outside, lang)));
-  return notes.length > 0 ? `${base} ${notes.join(" ")}` : base;
+  // Each note is a sentence of its own that names its periods, never a run of parentheses.
+  const sentences = [`${base}.`];
+  if (shortfall > 0) sentences.push(t(lang, "hoursMovedShortfall", formatHours(shortfall, lang), from, periodList(shortKeys, ctx)));
+  if (capped > 0) sentences.push(capSentence(limit, [formatHours(capped, lang), from], to, periodList(capKeys, ctx), lang, false));
+  if (outside > 0) sentences.push(t(lang, "hoursMovedOutsideWindowNote", formatHours(outside, lang)));
+  return sentences.join(" ");
 }
 
 /** Why one task moved no hours: its reason, or (no reason set) a giver with nothing planned or a receiver with no room. */
@@ -97,10 +122,10 @@ function nothingMovedSentences(move: TaskHoursMove, ctx: HoursMoveNoticeCtx): st
   if (move.reason) return [t(ctx.lang, REASON_KEY[move.reason], task)];
   const out: string[] = [];
   if (move.shortfallHours > 0 && move.fromResourceId !== undefined) {
-    out.push(t(ctx.lang, "hoursMovedNoneShortfall", task, ctx.resourceName(move.fromResourceId)));
+    out.push(t(ctx.lang, "hoursMovedNoneShortfall", task, ctx.resourceName(move.fromResourceId), periodList(move.shortfallPeriods, ctx)));
   }
   if (move.receiverCapHours > 0 && move.toResourceId !== undefined) {
-    out.push(t(ctx.lang, "hoursMovedNoneReceiverCap", task, ctx.resourceName(move.toResourceId)));
+    out.push(capSentence(move.receiverCapLimit, [task], ctx.resourceName(move.toResourceId), periodList(move.receiverCapPeriods, ctx), ctx.lang, true));
   }
   return out;
 }
@@ -137,7 +162,7 @@ export function hoursMoveNotice(plan: HoursMovePlan, ctx: HoursMoveNoticeCtx): s
     (m) => m.movedHours <= 0 && (m.reason !== undefined || m.shortfallHours > 0 || m.receiverCapHours > 0),
   );
   if (moved.length === 0 && skipped.length === 0) return null;
-  const sentences: string[] = groupByPair(moved).map((g) => `${pairSentence(g, ctx)}.`);
+  const sentences: string[] = groupByPair(moved).map((g) => pairSentence(g, ctx));
   // One skipped task keeps its own sentence; several are summarised by reason, so a bulk edit over many
   // unestimated or closed tasks still gives one short notice (final review).
   if (skipped.length === 1) sentences.push(...nothingMovedSentences(skipped[0], ctx));

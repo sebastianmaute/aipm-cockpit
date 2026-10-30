@@ -10,6 +10,7 @@ import {
   workdaysInRange,
   type Period,
 } from "./resource-capacity";
+import { HOURS_MAP_MAX } from "./sanitize-entities";
 import { isTaskClosed } from "./task-closed";
 import { type Absence, type Resource, type ResourcePlan, type Task } from "./types";
 
@@ -27,6 +28,12 @@ export interface TaskHoursMove {
   perPeriod: PeriodMove[];          // moved, > 0 only
   movedHours: number; shortfallHours: number; receiverCapHours: number; outsideWindowHours: number;
   reason?: NoMoveReason;            // set when movedHours === 0 for one of the listed reasons
+  /** Periods where the old owner's plan held less than the share. */
+  shortfallPeriods: string[];
+  /** Periods where the receiver had no room left, and which limit stopped it: 100 % for a percent-mode
+   *  receiver, the stored maximum (`HOURS_MAP_MAX`) for an hours-mode one (the limit only when capped). */
+  receiverCapPeriods: string[];
+  receiverCapLimit?: "percent" | "hours";
 }
 export interface OverCapacity { resourceId: number; periodKey: string; percent: number }
 export interface ResourceUtilEdit { id: number; before: { utilization: Record<string, number> }; after: { utilization: Record<string, number> } }
@@ -49,6 +56,8 @@ function emptyMove(change: OwnerChange, reason?: NoMoveReason, outsideWindowHour
     shortfallHours: 0,
     receiverCapHours: 0,
     outsideWindowHours,
+    shortfallPeriods: [],
+    receiverCapPeriods: [],
   };
   if (change.fromResourceId !== undefined) move.fromResourceId = change.fromResourceId;
   if (change.toResourceId !== undefined) move.toResourceId = change.toResourceId;
@@ -61,13 +70,27 @@ interface SpanSplit { shares: Share[]; outsideWindowHours: number }
 
 /** Split `hours` across plan periods by workdays inside the span (Span/Split, R2).
  *  A task with no due date is treated like an overdue one: today's period. */
+/** Round `raw` to tenths so they still sum to `total` (rounded to a tenth): largest remainder first. */
+function toTenths(raw: readonly number[], total: number): number[] {
+  const tenths = raw.map((x) => x * 10);
+  const floors = tenths.map((x) => Math.floor(x + EPSILON));
+  let rest = Math.round(total * 10 + EPSILON) - floors.reduce((a, b) => a + b, 0);
+  const order = tenths.map((x, i) => ({ i, frac: x - floors[i] })).sort((a, b) => b.frac - a.frac || a.i - b.i);
+  for (const { i } of order) {
+    if (rest <= 0) break;
+    floors[i] += 1;
+    rest -= 1;
+  }
+  return floors.map((f) => f / 10);
+}
+
 function splitAcrossPeriods(task: Task, hours: number, periods: readonly Period[], ctx: HoursMoveCtx): SpanSplit {
   const { today, holidaySet, plan } = ctx;
   const due = task.dueDate;
   const allIn = (date: string): SpanSplit => {
     const key = periodKeyForDate(date, plan.granularity);
     const p = periods.find((x) => x.key === key && x.start <= date && date <= x.end);
-    return p ? { shares: [{ period: p, hours }], outsideWindowHours: 0 } : { shares: [], outsideWindowHours: hours };
+    return p ? { shares: [{ period: p, hours: round1(hours) }], outsideWindowHours: 0 } : { shares: [], outsideWindowHours: round1(hours) };
   };
   if (!due || due < today) return allIn(today);
   const rawStart = task.startDate && task.startDate > today ? task.startDate : today;
@@ -83,7 +106,12 @@ function splitAcrossPeriods(task: Task, hours: number, periods: readonly Period[
       shares.push({ period: p, hours: (hours * wd) / totalWorkdays });
     }
   }
-  return { shares, outsideWindowHours: (hours * (totalWorkdays - insideWorkdays)) / totalWorkdays };
+  const outsideRaw = (hours * (totalWorkdays - insideWorkdays)) / totalWorkdays;
+  const rounded = toTenths([...shares.map((x) => x.hours), outsideRaw], hours);
+  return {
+    shares: shares.map((x, i) => ({ period: x.period, hours: rounded[i] })).filter((x) => x.hours > 0),
+    outsideWindowHours: rounded[rounded.length - 1],
+  };
 }
 
 function absenceHoursFor(r: Resource, p: Period, abs: readonly Absence[], ctx: HoursMoveCtx): number {
@@ -110,7 +138,11 @@ function shiftedStoredValue(r: Resource, p: Period, delta: number, abs: readonly
 
 /** The most the receiver can take in one period without leaving the stored range. */
 function receiverRoomHours(r: Resource, p: Period, abs: readonly Absence[], ctx: HoursMoveCtx): number {
-  if (r.utilizationMode !== "percent") return Infinity;
+  if (r.utilizationMode !== "percent") {
+    // `sanitizeResource` clamps hours to HOURS_MAP_MAX on load; more would vanish on the next reload.
+    const util = r.utilization[p.key] ?? 0;
+    return floor1(Math.max(0, HOURS_MAP_MAX - Math.max(util, absenceHoursFor(r, p, abs, ctx))));
+  }
   const net = availableCapacityHours(r, p, abs, ctx.workdayHours, ctx.holidaySet);
   const util = r.utilization[p.key] ?? 0;
   return floor1((Math.max(0, MAX_PERCENT - util) / 100) * net);
@@ -147,6 +179,8 @@ export function planHoursMoves(
     const perPeriod: PeriodMove[] = [];
     let shortfall = 0;
     let receiverCap = 0;
+    const shortfallPeriods: string[] = [];
+    const receiverCapPeriods: string[] = [];
     let giverNext = giver;
     let receiverNext = receiver;
     for (const { period, hours } of split.shares) {
@@ -154,8 +188,10 @@ export function planHoursMoves(
       const giverShown = floor1(periodCapacityHours(giverNext, period, giverAbs, ctx.workdayHours, ctx.holidaySet));
       const taken = Math.min(want, giverShown);
       shortfall += want - taken;
+      if (want - taken > EPSILON) shortfallPeriods.push(period.key);
       const moved = Math.max(0, Math.min(taken, receiverRoomHours(receiverNext, period, receiverAbs, ctx)));
       receiverCap += taken - moved;
+      if (taken - moved > EPSILON) receiverCapPeriods.push(period.key);
       if (moved <= 0) continue;
       giverNext = withUtil(giverNext, period.key, shiftedStoredValue(giverNext, period, -moved, giverAbs, ctx));
       receiverNext = withUtil(receiverNext, period.key, shiftedStoredValue(receiverNext, period, moved, receiverAbs, ctx));
@@ -177,6 +213,11 @@ export function planHoursMoves(
       movedHours,
       shortfallHours: round1(shortfall),
       receiverCapHours: round1(receiverCap),
+      shortfallPeriods,
+      receiverCapPeriods,
+      ...(receiverCapPeriods.length > 0
+        ? { receiverCapLimit: receiver.utilizationMode === "percent" ? ("percent" as const) : ("hours" as const) }
+        : {}),
     });
   }
 

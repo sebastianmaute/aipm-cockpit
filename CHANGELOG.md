@@ -15,11 +15,12 @@ longer carries its own changelog comment.
 - **Reassigning a task moves its planned hours (§774).** When a task changes owner, in the Workload triage, the task
   editor, the table, the Kanban board, bulk edit, Next actions or through Claude, its remaining estimate moves from
   the old owner's planned hours to the new owner's, across the periods between its start (or today) and its due date.
-  A notice says what moved, for example "Moved 16 h from Maya Patel to Liam Foster (Sep 8 h, Oct 8 h)", and its Undo
+  A notice says what moved, for example "Moved 16 h from Maya Patel to Liam Foster (Sep: 8 h, Oct: 8 h)", and its Undo
   reverses the owner change and the hours together. When nothing can move, the notice says why: no remaining
   estimate, a done or cancelled task, an owner who is not a linked person, or nothing planned in that period. A person
   planned in percent can receive up to 100 % of a period; the rest stays with the old owner. A person planned in hours
-  can be pushed over capacity, and the notice says so.
+  can be pushed over capacity, up to 1,000 h in a period, and the notice says so. A bulk edit that skips several
+  tasks says so once, counted by reason.
 
 - **A deployment can switch AI off.** The server setting `AIPM_DISABLED_INTEGRATIONS` takes a new name, `ai`, which
   switches every AI feature off for that deployment, dictation to a speech service included. Settings → AI says so,

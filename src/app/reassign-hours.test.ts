@@ -247,6 +247,41 @@ describe("planHoursMoves", () => {
     expect(nextResources[0].utilization["2026-09"]).toBe(100);
   });
 
+  it("rounds the shares so the moved hours sum to the estimate exactly", () => {
+    // 1 h over three full weeks of 5 workdays: rounding each third alone gives 0.3 × 3 = 0.9.
+    const q: ResourcePlan = { startDate: "2026-09-07", endDate: "2026-09-27", granularity: "week", currency: "EUR" };
+    const c: HoursMoveCtx = { ...ctx, plan: q, today: "2026-09-07" };
+    const weeks = generatePeriods(q.startDate, q.endDate, q.granularity);
+    expect(weeks).toHaveLength(3);
+    const t = task({ remainingEstimateMinutes: 60, startDate: "2026-09-07", dueDate: "2026-09-25" });
+    const giver = resource(1, { utilization: Object.fromEntries(weeks.map((w) => [w.key, 40])) });
+    const { moves } = planHoursMoves([change(t, 1, 2)], [giver, liam()], c);
+    const parts = moves[0].perPeriod.map((m) => m.hours);
+    expect(parts).toHaveLength(3);
+    expect(Math.round(parts.reduce((x, y) => x + y, 0) * 10) / 10).toBe(1);
+    expect(moves[0].movedHours).toBe(1);
+  });
+
+  it("caps an hours-mode receiver at the stored maximum (1000 h) and names the period", () => {
+    const t = task({ startDate: "2026-09-21", dueDate: "2026-09-30" }); // 24 h, all in September
+    const full = liam({ "2026-09": 995 });
+    const { moves, nextResources } = planHoursMoves([change(t, 1, 2)], [maya(), full], ctx);
+    expect(moves[0].movedHours).toBe(5);
+    expect(moves[0].receiverCapHours).toBe(19);
+    expect(moves[0].receiverCapLimit).toBe("hours");
+    expect(moves[0].receiverCapPeriods).toEqual(["2026-09"]);
+    expect(nextResources[1].utilization["2026-09"]).toBe(1000);
+  });
+
+  it("names the periods a shortfall and a percent cap came from", () => {
+    const giver = resource(1, { utilization: { "2026-09": 4 } });
+    const short = planHoursMoves([change(task(), 1, 2)], [giver, liam()], ctx).moves[0];
+    expect(short.shortfallPeriods).toEqual(["2026-09", "2026-10"]);
+    const capped = planHoursMoves([change(task({ dueDate: "2026-09-30" }), 1, 3)], [maya(), ana()], ctx).moves[0];
+    expect(capped.receiverCapLimit).toBe("percent");
+    expect(capped.receiverCapPeriods).toEqual(["2026-09"]);
+  });
+
   it("skips an unchanged owner without a move", () => {
     expect(planHoursMoves([change(task(), 1, 1)], [maya()], ctx).moves).toEqual([]);
     expect(planHoursMoves([change(task(), undefined, undefined)], [maya()], ctx).moves).toEqual([]);

@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import type { Settings } from "./settings-types";
 import type { BudgetBucket, Task, Resource } from "./types";
@@ -155,7 +155,9 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   useEffect(() => { captureFieldRowsRef.current = args.captureFieldRows; }, [args.captureFieldRows]);
   useEffect(() => { dialogsRefRef.current = args.dialogsRef ?? UNBRIDGED; }, [args.dialogsRef]);
   useEffect(() => { getScopeEpochRef.current = args.getScopeEpoch ?? NO_EPOCH; }, [args.getScopeEpoch]);
-  useEffect(() => { reassignHoursRef.current = args.reassignHours; }, [args.reassignHours]);
+  // §774 — a layout effect, like every other consumer of the reassign step (ruling R12): a click right after a
+  // non-discrete update must not reach the previous render's step.
+  useLayoutEffect(() => { reassignHoursRef.current = args.reassignHours; }, [args.reassignHours]);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 

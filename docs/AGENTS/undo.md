@@ -44,8 +44,8 @@ or the load hold (`docs/AGENTS/platform.md`). One fact, one doc.
   collections: the path's own task fragment first (a `captureFieldPart`, or on the chat `update_task`
   path its whole-row `capturePart`, flagged `isPrimary`), then a `captureFieldPart` over the touched
   resources' `utilization`, with the hours notice as `toastText`. A path that already captures its own
-  entry folds the resources part in (`prepare`, then `record`); `collapseCaptures` keeps each capture's
-  `toastText`, so a staged chat plan still shows it.
+  entry folds the resources part in (`prepare`, then `record`); `collapseCaptures` keeps the captures'
+  `toastText` (the first two in full, then a count of the rest), so a staged chat plan still shows it.
 - **Not undoable:** creates (below), `send_inquiry` (an AI update: its handler in
   `use-chat-dispatcher.ts` bumps `Task.inquiriesSent` with no capture — see the `shouldStage`
   docstring in `chat-proposal.ts`), project delete (`handleDeleteProject` takes no capture — §6 (a)),
