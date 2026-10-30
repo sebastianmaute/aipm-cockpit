@@ -13,7 +13,7 @@ import { AiConsentRevokedError, isConsentCurrent } from "./ai-consent";
 import { aiDeploymentBlockedMessageKey } from "./ai-deployment";
 import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
-import { useAiUsageContext } from "./ai-usage-context";
+import { useAiUsageActions } from "./ai-usage-context";
 import type { SendFingerprint } from "./ai-view-switch";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
@@ -73,15 +73,16 @@ import { ChatThreadSidebar } from "./chat-thread-sidebar";
 import {
   buildPlanRows,
   cascadeDeselect,
+  isEntityWriteCall,
   shouldStage,
   type PlanRow,
   type ProposedCall,
 } from "./chat-proposal";
+import { isPureReadTool, openSendRecord, runsInPlaceWhenStaging } from "./chat-send-record";
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
 import {
+  cardRowTitle,
   ChatProposalBlock,
-  functionsRowTitle,
-  proposalRowTitle,
   type ProposalCardRow,
 } from "./chat-proposal-block";
 import {
@@ -96,6 +97,7 @@ import {
   newProposalId,
   proposalTitles,
   appliedProposalNotice,
+  PROPOSAL_PENDING_RESULT,
   stagedToolResult,
 } from "./chat-proposal-stage";
 import type { UndoBatch } from "./use-undo-batch";
@@ -472,7 +474,8 @@ function ChatPanelInner({
     tursoMode, tursoConfig, projectId, lang, busy, history, display, setHistory, setDisplay, cancelledRef, abortRef, confirm,
   });
   const { ref: chatRef, reset: resetChatSize } = useResizable("aipm-cockpit:chat-size-v2");
-  const { record: recordUsage, recordChatSend, noteUnbilledChatSend } = useAiUsageContext();
+  // AI-03 — the callbacks alone: the full usage context changes on every usage event (`useAiUsageActions`).
+  const { recordChatSend, noteUnbilledChatSend } = useAiUsageActions();
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.
   const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai, ai.model);
@@ -610,10 +613,15 @@ function ChatPanelInner({
       failedKind: p.failed.get(i),
       // §779 — what a staged functions change switches; absent on every other row.
       functions: row.functions,
+      // AI-02 — what a staged document write puts into the document; absent on every other row.
+      document: row.document,
     }));
   }, [pendingProposal]);
 
   const guidesPending = ai.groundInGuides && !guidesReady;
+  // AI-02 — no send starts while Apply runs: its end would rewrite `history` without the applied notice the
+  // apply appends when it settles (the reverse of the card's `busy`).
+  const proposalApplying = pendingProposal?.applying === true;
   // Master switch: when AI is disabled in Settings, the assistant is fully off
   // regardless of any stored key — force the no-key path so send is blocked.
   const consentStale = ai.enabled === true && !isConsentCurrent(ai.consent);
@@ -648,7 +656,7 @@ function ChatPanelInner({
     //   render-closure read, so two dispatches in one tick both see it false;
     //   the ref is set synchronously below and cleared only by the owning
     //   send's `finally`, so it reads true for the whole life of a send.
-    if ((!text && atts.length === 0) || busy || abortRef.current !== null || guidesPending) return;
+    if ((!text && atts.length === 0) || busy || abortRef.current !== null || guidesPending || proposalApplying) return;
     if (!effectiveApiKey.trim()) {
       setError(t(lang, "chatNoApiKey"));
       return;
@@ -736,14 +744,37 @@ function ChatPanelInner({
       chatSearch: ai.chatSearch,
       forecast: snapshot.forecastSimulation === true,
     };
+    // Runs one tool, shows it in the transcript and returns its `tool_result`, plus whether it ran without
+    // throwing. Used by the ordinary path and by a staging turn's reads, which run in place (AI-02).
+    const runAndRecord = async (useId: string, name: string, input: unknown): Promise<{ result: ToolResultBlock; ok: boolean }> => {
+      let resultStr: string;
+      let isError = false;
+      try {
+        resultStr = stringifyResult(await runTool(toolDispatcher, name, input));
+      } catch (err) {
+        isError = true;
+        resultStr = err instanceof Error ? err.message : String(err);
+      }
+      setDisplay((prev) => [...prev, { kind: "tool", name, input, result: resultStr, error: isError }]);
+      return {
+        result: { type: "tool_result", tool_use_id: useId, content: resultStr, is_error: isError ? true : undefined },
+        ok: !isError,
+      };
+    };
     const system = buildStableSystemBlocks(lang, snapshot, guides, ai.groundInGuides, toolFlags);
     const turnContext = buildTurnContext(lang, snapshot, guides, ai.groundInGuides, toolFlags);
     // ★★★ WIRE-ONLY. `messages` stays the PERSISTED history; the turn context is
     //     injected into the outgoing copy alone. Persisting it would leave stale
     //     "Today is ..." down the transcript AND rewrite history's tail on every
     //     send, which destroys the byte-identical prefix the cache depends on.
-    // §575: earlier turns' attachments are budgeted here too — the stored history keeps them.
+    // §575: earlier turns' attachments are budgeted here too, on the outgoing copy only — the stored
+    //     history keeps the originals (`newHistory` plus this send's turns) until the thread is saved,
+    //     which strips them in `stripAttachmentsForPersistence`.
     const messages = fitHistoryToBudget(newHistory, MAX_STAGED_PAYLOAD_BYTES);
+    // AI-02: what the staging gate knows about this whole send. Opened from `newHistory`, NOT the
+    //     trimmed `messages`: an attachment the trim replaced with a placeholder was still shown to
+    //     the model in an earlier request, so it still makes this send untrusted.
+    let sendRecord = openSendRecord(newHistory);
 
     // §702: what this send put in front of the transcript, for the view-switch
     // counter. Each stamp is the time a request went out, because that is when
@@ -769,11 +800,6 @@ function ChatPanelInner({
     });
 
     try {
-      // Accumulate token usage across all turns for this send.
-      let totalInput = 0;
-      let totalOutput = 0;
-      let totalCacheWrite = 0;
-      let totalCacheRead = 0;
       // When the previous turn was a max_tokens continuation, the next turn's
       // text is appended to the SAME bubble (a split mid code-fence/table would
       // otherwise render as two broken blocks). `completed` distinguishes a clean
@@ -800,8 +826,8 @@ function ChatPanelInner({
         );
         // §702: the counter takes the request and its cache write together,
         // BEFORE the stale check — a request counted without its write would
-        // record a switch as free. The cap totals below keep their own rule and
-        // skip a response that landed after the send went stale.
+        // record a switch as free. Token usage is not counted here: the transport's
+        // tap counts every response that arrived, a stale one included.
         lastRequestAt = sentAt;
         firstRequestAt ??= sentAt;
         requests += 1;
@@ -809,10 +835,6 @@ function ChatPanelInner({
         // A cancel or a project switch may have landed while awaiting — bail
         // before writing this turn onto (possibly) another project's state.
         if (stale()) break;
-        totalInput += response.usage.input_tokens;
-        totalOutput += response.usage.output_tokens;
-        totalCacheWrite += response.usage.cache_creation_input_tokens;
-        totalCacheRead += response.usage.cache_read_input_tokens;
 
         const assistantMsg: ApiMessage = {
           role: "assistant",
@@ -856,63 +878,102 @@ function ChatPanelInner({
             });
           }
 
-          // ★★★ THE GATE. A turn holding a destructive call, more than one
-          // entity write, or an `update_project` (always staged, even alone:
-          // `ALWAYS_STAGED_TOOLS`), is STAGED: nothing runs, a review card goes into the
-          // transcript, and every `tool_use` id is still answered. A turn that
+          // ★★★ THE GATE. A turn is STAGED when it holds a destructive call, an
+          // event write that sends invitations, or an `update_project` (always
+          // staged, even alone: `ALWAYS_STAGED_TOOLS`); when its entity writes plus
+          // those this send already applied (`sendRecord.appliedWrites`) come to
+          // more than one; or, in an untrusted send (an attachment in the
+          // history), when it holds any call `stagesWhenUntrusted` names. Staged:
+          // no write runs, the turn's reads (`isPureReadTool`) run in place, the
+          // other calls go on a review card in the transcript, and every `tool_use`
+          // id is still answered. A turn that
           // does not stage takes the original path below UNCHANGED — that
           // equivalence is pinned by a test, because "one extra branch" is how
           // a working path acquires a condition nobody meant to add.
-          if (shouldStage(proposed.map((p) => p.call))) {
+          // ★★ AI-02 — A CARD IS NEVER REPLACED UNSEEN. Once a turn of this send has staged, a later
+          // turn stages nothing (a second `setPendingProposal` would swap the card before the user saw
+          // it): it takes the path below, where its reads (`isPureReadTool`) run and every other call
+          // is answered with `PROPOSAL_PENDING_RESULT` and runs nothing. The loop then continues, so
+          // the model can still write its reply; the turn cap bounds it as it bounds any send.
+          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord)) {
+            sendRecord = { ...sendRecord, staged: true };
             const ws = stagingWorkspace(workspaceRef.current);
-            const calls = proposed.map((p) => p.call);
+            // AI-02 — a read changes nothing, so it runs in place and gets its real result; so does `optimize_wbs`,
+            // whose own preview writes nothing until applied (`runsInPlaceWhenStaging`). Only the turn's other
+            // calls go on the card. These run FIRST, so the transcript keeps the turn's order: their lines, then
+            // the card.
+            const staged = proposed.filter((p) => !runsInPlaceWhenStaging(p.call.name));
+            const readAnswers = new Map<string, ToolResultBlock>();
+            let scopeMoved = false;
+            for (const p of proposed) {
+              if (staged.includes(p)) continue;
+              // §596 — re-checked per read, as the ordinary loop below checks per tool. Once the scope has
+              // moved, no read runs in the next project, and no card is staged for it.
+              if (dropStaleScopeWrite(getScopeEpoch, sendEpoch, "chat-panel.stagedRead", { tool: p.call.name })) {
+                scopeMoved = true;
+                break;
+              }
+              readAnswers.set(p.useId, (await runAndRecord(p.useId, p.call.name, p.call.input)).result);
+            }
+            const calls = staged.map((p) => p.call);
             // ★★★ `mintProvisionalIds` ADVANCES the session mark, so every
             // provisional id differs from the one apply mints and the remap is
             // exercised on every create. See its own docstring for what a
             // peek-based mint would have made dormant.
-            const planRows = buildPlanRows(calls, mintProvisionalIds(calls, ws));
-            // §779 — the dispatcher's live settings judge a functions row's other settings.
-            const described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch));
-            const proposalId = newProposalId();
-            setPendingProposal({
-              id: proposalId,
-              rows: described,
-              planRows,
-              titles: proposalTitles(described, ws, (r) => functionsRowTitle(lang, r.call) ?? proposalRowTitle(r.call, r.plan)),
-              // Everything starts kept: the card is a chance to REFUSE, and a
-              // plan that arrives all-unchecked reads as "nothing to do here".
-              selected: new Set(described.map((_, i) => i)),
-              applying: false,
-              failed: new Map<number, ProposalFailureKind>(),
-              applied: null,
-              scopeEpoch: sendEpoch,
-            });
-            setDisplay((prev) => [
-              ...prev,
-              { kind: "proposal", id: proposalId, count: described.length },
-            ]);
-            // ★★★ EVERY `tool_use` ID IS ANSWERED, staged or not. An unanswered
+            const planRows = scopeMoved ? [] : buildPlanRows(calls, mintProvisionalIds(calls, ws));
+            if (!scopeMoved) {
+              // §779 — the dispatcher's live settings judge a functions row's other settings.
+              const described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch));
+              const proposalId = newProposalId();
+              setPendingProposal({
+                id: proposalId,
+                rows: described,
+                planRows,
+                titles: proposalTitles(described, ws, (r, pending) => cardRowTitle(lang, r, ws, pending)),
+                // Everything starts kept: the card is a chance to REFUSE, and a
+                // plan that arrives all-unchecked reads as "nothing to do here".
+                selected: new Set(described.map((_, i) => i)),
+                applying: false,
+                failed: new Map<number, ProposalFailureKind>(),
+                applied: null,
+                scopeEpoch: sendEpoch,
+              });
+              setDisplay((prev) => [
+                ...prev,
+                { kind: "proposal", id: proposalId, count: described.length },
+              ]);
+            }
+            // ★★★ EVERY `tool_use` ID IS ANSWERED EXACTLY ONCE, staged or not. An unanswered
             // id makes the NEXT request a 400 and wedges the chat for good —
             // `closeDanglingToolUses` exists because of exactly that. The
             // result also carries the create's provisional id, so a later call
-            // in this same turn can name the row the plan will create.
-            messages.push({
-              role: "user",
-              content: proposed.map(
-                (p, i): ToolResultBlock => ({
-                  type: "tool_result",
-                  tool_use_id: p.useId,
-                  content: stagedToolResult(planRows[i].mintedId),
-                }),
-              ),
+            // in this same turn can name the row the plan will create. After a scope move every id
+            // without an answer gets the interrupted result, as a truncated turn's calls do.
+            const answers = proposed.map((p): ToolResultBlock => {
+              const read = readAnswers.get(p.useId);
+              if (read !== undefined) return read;
+              const at = staged.indexOf(p);
+              return scopeMoved || at === -1
+                ? { type: "tool_result", tool_use_id: p.useId, content: INTERRUPTED_TOOL_RESULT, is_error: true }
+                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId) };
             });
+            messages.push({ role: "user", content: answers });
             continueBubble = false;
             continue;
           }
 
           const results: ToolResultBlock[] = [];
+          // AI-02: entity writes this turn APPLIED directly, added to the send's count below. A call
+          // that threw (validation, a stale token) changed nothing and is not counted, so the model's
+          // corrected retry applies as a lone write would; a call the scope guard dropped never ran.
+          let directWrites = 0;
           for (const block of response.content) {
             if (block.type !== "tool_use") continue;
+            // AI-02 — a card of this send is waiting: only a read runs; anything else is answered and skipped.
+            if (sendRecord.staged && !isPureReadTool(block.name)) {
+              results.push({ type: "tool_result", tool_use_id: block.id, content: PROPOSAL_PENDING_RESULT });
+              continue;
+            }
             // ★★★ §596 — RE-CHECKED PER TOOL, NOT PER TURN, and no `stale()` call
             // site can stand in for this one: all three run BEFORE this loop. A
             // turn can carry several `tool_use` blocks, so a scope move landing
@@ -930,31 +991,11 @@ function ChatPanelInner({
             // changed". The rest is cheap insurance for the day a handler becomes
             // genuinely async.
             if (dropStaleScopeWrite(getScopeEpoch, sendEpoch, "chat-panel.toolLoop", { tool: block.name })) break;
-            let resultStr: string;
-            let isError = false;
-            try {
-              const r = await runTool(toolDispatcher, block.name, block.input);
-              resultStr = stringifyResult(r);
-            } catch (err) {
-              isError = true;
-              resultStr = err instanceof Error ? err.message : String(err);
+            const { result, ok } = await runAndRecord(block.id, block.name, block.input);
+            if (ok && isEntityWriteCall({ name: block.name, input: block.input as Readonly<Record<string, unknown>> })) {
+              directWrites += 1;
             }
-            setDisplay((prev) => [
-              ...prev,
-              {
-                kind: "tool",
-                name: block.name,
-                input: block.input,
-                result: resultStr,
-                error: isError,
-              },
-            ]);
-            results.push({
-              type: "tool_result",
-              tool_use_id: block.id,
-              content: resultStr,
-              is_error: isError ? true : undefined,
-            });
+            results.push(result);
           }
 
           // ★★★ NEVER PUSH AN EMPTY CARRIER. `content: []` is not "a carrier with
@@ -993,6 +1034,7 @@ function ChatPanelInner({
           if (results.length > 0) {
             messages.push({ role: "user", content: results });
           }
+          sendRecord = { ...sendRecord, appliedWrites: sendRecord.appliedWrites + directWrites };
           continueBubble = false; // tool output breaks the text flow — new bubble
           continue;
         }
@@ -1079,17 +1121,12 @@ function ChatPanelInner({
         }
       }
       if (!cancelledRef.current) {
-        // Record summed token usage for the entire send (all turns combined).
-        // Skipped on cancel — no complete turn to bill.
-        recordUsage({
-          input: totalInput,
-          output: totalOutput,
-          cacheWrite: totalCacheWrite,
-          cacheRead: totalCacheRead,
-        });
+        // Token usage is not recorded here: the transport's usage tap counts every response as it
+        // arrives, a turn that landed before Stop included.
         recordChatSend(sendFingerprint(), counterCacheWrite, requests);
       } else if (requests > 0) {
-        // Stopped after a response: not billed, but the prefix is cached.
+        // Stopped after a response: not counted as a send (the view-switch counter),
+        // but the prefix is cached; the tap still counts its usage.
         noteUnbilledChatSend(sendFingerprint());
       }
 
@@ -1097,7 +1134,7 @@ function ChatPanelInner({
       // leave the last assistant message with tool_use blocks and no results.
       // Skip when switched away, so the old project's tail can't clobber the new.
       if (!switchedAway) {
-        setHistory(closeDanglingToolUses(messages));
+        setHistory(closeDanglingToolUses([...newHistory, ...messages.slice(newHistory.length)]));
       }
     } catch (err) {
       // §702: a failure after a response still left its prefix in the cache.
@@ -1202,7 +1239,8 @@ function ChatPanelInner({
    *  itself part of the record. */
   function discardProposal() {
     const p = pendingProposal;
-    if (!p || p.applying) return;
+    // AI-02 — not while a send runs: the send-end `setHistory` would drop what this records (see the card's `busy`).
+    if (!p || p.applying || busy) return;
     setPendingProposal(null);
     setDisplay((prev) =>
       prev.map((item) =>
@@ -1233,7 +1271,9 @@ function ChatPanelInner({
    */
   async function applyPendingProposal() {
     const p = pendingProposal;
-    if (!p || p.applying) return;
+    // AI-02 — not while a send runs: the send-end `setHistory` would overwrite the applied notice, and the
+    // send's later calls would still be told the card is pending (see the card's `busy`).
+    if (!p || p.applying || busy) return;
     // ★★★ §600 — BEFORE anything is marked applying or written. A plan staged in
     // another scope is retired exactly as a discard is (the marker REPLACED, not
     // removed), with a notice that says why; nothing of it reaches the dispatcher.
@@ -1339,7 +1379,7 @@ function ChatPanelInner({
   });
   useEffect(() => {
     sendGateRef.current = {
-      blocked: guidesPending || apiKeyMissing || busy,
+      blocked: guidesPending || apiKeyMissing || busy || proposalApplying,
       submit: submitPrompt,
       consume: () => onChatSeedConsumed?.(),
       epoch: getScopeEpoch,
@@ -1643,7 +1683,9 @@ function ChatPanelInner({
                       applied={pendingProposal.applied}
                       onApply={applyPendingProposal}
                       onDiscard={discardProposal}
-                      busy={pendingProposal.applying}
+                      // AI-02 — a send still running keeps the card shut: its end rewrites `history` without
+                      // the applied notice, and its later calls are still answered as pending.
+                      busy={pendingProposal.applying || busy}
                     />
                   ) : (
                     <Banner severity="info" role="status">
@@ -1793,7 +1835,7 @@ function ChatPanelInner({
           ) : (
             <Button
               onClick={() => submitPrompt()}
-              disabled={(!input.trim() && attachments.length === 0) || apiKeyMissing || guidesPending}
+              disabled={(!input.trim() && attachments.length === 0) || apiKeyMissing || guidesPending || proposalApplying}
               aria-describedby={composerDescribedBy}
             >
               {t(lang, "chatSend")}

@@ -1,25 +1,39 @@
 "use client";
 // src/app/ai-usage-context.tsx
-// Shared provider that owns sessionTotal + localStorage buckets so the chat
-// panel (recorder) and the AI settings panel (reader) share one live source.
+// Shared provider that owns sessionTotal + the per-path localStorage buckets. It is the ONE
+// recorder (it hears the transport's usage tap) and the AI settings panel reads it.
 
 import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import {
-  addToBuckets,
+  isoDate,
+  mondayOf,
   nextWeekReset,
   normalizeUsage,
   usageCostEquivalent,
   weekToDate,
   type Usage,
-  type UsageBuckets,
 } from "./ai-usage";
+import { subscribeAiUsage } from "./ai-transport";
+import { publishBackgroundCapState } from "./ai-consent";
+import { parseAiPathId, type AiFeature } from "./ai-usage-paths";
+import {
+  AI_USAGE_BY_PATH_KEY,
+  AI_USAGE_KEY,
+  readPathBuckets,
+  recordPathUsage,
+  totalsByDay,
+  weekByPath,
+  type PathBuckets,
+} from "./ai-usage-store";
 import {
   addViewSwitchSend,
   EMPTY_VIEW_SWITCH_STATS,
@@ -37,7 +51,6 @@ import { t } from "./i18n";
 import type { AiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
 
-export const AI_USAGE_KEY = "aipm-cockpit:ai-usage";
 /** §702's view-switch counter (`ai-view-switch.ts`). ★ A KEY OF ITS OWN, not
  *  extra fields on the token buckets: every cap reader walks those buckets, and
  *  a counter there could only ever reach the cap arithmetic by mistake. */
@@ -68,13 +81,21 @@ export const AI_CAP_BASIS_NOTICE_KEY = "aipm-cockpit:ai-cap-basis-notice";
  *  threshold`, so a device already at or above its cap at mount never crossed
  *  anything. A panel line beside the numbers depends on no edge at all. */
 export const AI_COST_BASIS_NOTICE_KEY = "aipm-cockpit:ai-cost-basis-notice";
+/** The ISO date of the Monday of the week in which this device last showed the hard-cap warning: once per
+ *  week per device. localStorage, so a reload or another tab does not repeat it. */
+export const AI_HARD_CAP_WARNED_KEY = "aipm-cockpit:ai-hard-cap-warned";
 
 export type AiUsageContextValue = {
   sessionTotal: number;
   sessionUsage: Usage;
   weekTotal: number;
   nextReset: Date;
-  record: (u: Usage) => void;
+  /** This week's cost-equivalent tokens per feature, largest first, features with none left out. */
+  weekByFeature: ReadonlyArray<{ feature: AiFeature; usage: Usage; cost: number }>;
+  /** The part of `weekTotal` spent by background (unattended) calls. */
+  backgroundWeekCost: number;
+  /** This week's usage has reached the weekly hard cap, so background AI is paused. */
+  weekHardCapReached: boolean;
   /** This week's chat sends and warm view switches (§702). */
   viewSwitchWeek: ViewSwitchStats;
   /** Records one finished chat send: classifies it against the previous send
@@ -87,12 +108,25 @@ export type AiUsageContextValue = {
 
 const EMPTY_SESSION_USAGE: Usage = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 };
 
+/** The chat panel's two callbacks, apart from the usage figures (AI-03). */
+export type AiUsageActions = Pick<AiUsageContextValue, "recordChatSend" | "noteUnbilledChatSend">;
+
+// ★★ ITS OWN CONTEXT, with a value that keeps its identity. The provider re-renders on every tap from any path,
+//  background included, and on every other tab's recording; a consumer of the full context re-renders with it,
+//  whatever `memo` its parent has. The memoised `ChatPanel` needs only these callbacks, so it reads this context.
+const AiUsageActionsContext = createContext<AiUsageActions>({
+  recordChatSend: () => {},
+  noteUnbilledChatSend: () => {},
+});
+
 const AiUsageContext = createContext<AiUsageContextValue>({
   sessionTotal: 0,
   sessionUsage: EMPTY_SESSION_USAGE,
   weekTotal: 0,
   nextReset: new Date(),
-  record: () => {},
+  weekByFeature: [],
+  backgroundWeekCost: 0,
+  weekHardCapReached: false,
   viewSwitchWeek: EMPTY_VIEW_SWITCH_STATS,
   recordChatSend: () => {},
   noteUnbilledChatSend: () => {},
@@ -107,46 +141,89 @@ const AiUsageContext = createContext<AiUsageContextValue>({
 //   effect-run where the flag is not yet seeded, changing the current
 //   before-first-paint timing for no benefit — the write is idempotent, so
 //   there is nothing to gain from deferring it.
-function loadBucketsAndSeedBasisNotices(): UsageBuckets {
+function loadBucketsAndSeedBasisNotices(): PathBuckets {
   if (typeof window === "undefined") return {};
   try {
-    const raw = window.localStorage.getItem(AI_USAGE_KEY);
-    // ★ raw === null means the key was NEVER written — a genuinely fresh
-    //   install with no prior usage blob, as opposed to an empty-but-present
-    //   one (raw === "" or "{}") or storage having thrown (caught below).
-    //   Only THIS case never experienced either superseded cap basis — neither
-    //   the pre-cache-accounting one nor the pre-cost-weighting one — so seed
-    //   both flags now: the panel's migration line must never explain a
-    //   "before" that, for this user, never existed.
-    if (raw === null) {
-      window.localStorage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
-      window.localStorage.setItem(AI_COST_BASIS_NOTICE_KEY, "1");
+    const storage = window.localStorage;
+    // ★ Both keys null means the usage store was NEVER written — a genuinely
+    //   fresh install with no prior blob, as opposed to an empty-but-present
+    //   one (`{}`) or storage having thrown (caught below). Only THIS case never
+    //   experienced either superseded cap basis — neither the pre-cache-accounting
+    //   one nor the pre-cost-weighting one — so seed both flags now: the panel's
+    //   migration line must never explain a "before" that, for this user, never
+    //   existed. The pre-path key counts as "written" so an upgrading device is
+    //   not mistaken for a fresh one.
+    if (storage.getItem(AI_USAGE_KEY) === null && storage.getItem(AI_USAGE_BY_PATH_KEY) === null) {
+      storage.setItem(AI_CAP_BASIS_NOTICE_KEY, "1");
+      storage.setItem(AI_COST_BASIS_NOTICE_KEY, "1");
       return {};
     }
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    // ★★★ NORMALISE, NEVER CAST. A blob written before the cache-token widening
-    //     has no cacheWrite/cacheRead, and `undefined + n` is NaN — which
-    //     propagates into weekToDate and makes crossed80/crossed100
-    //     (src/app/usage-warning.ts) permanently false, silently disabling the
-    //     cap the user configured. Rebuild every bucket field by field.
-    const out: UsageBuckets = {};
-    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      out[k] = normalizeUsage(v as Partial<Usage> | undefined);
-    }
-    return out;
+    // The store normalises field by field, so a blob written before the cache-token widening
+    // cannot put NaN into the cap arithmetic.
+    return readPathBuckets(storage);
   } catch {
     return {};
   }
 }
 
-function saveBuckets(buckets: UsageBuckets): void {
-  if (typeof window === "undefined") return;
+/** localStorage, or an in-memory stand-in when the accessor throws (SSR is handled by the caller). */
+function memoryStorage(): Storage {
+  const m = new Map<string, string>();
+  return {
+    get length() { return m.size; },
+    clear: () => m.clear(),
+    getItem: (k) => m.get(k) ?? null,
+    key: (i) => Array.from(m.keys())[i] ?? null,
+    removeItem: (k) => { m.delete(k); },
+    setItem: (k, v) => { m.set(k, v); },
+  };
+}
+
+function usageStorage(fallback: Storage): Storage {
   try {
-    window.localStorage.setItem(AI_USAGE_KEY, JSON.stringify(buckets));
+    return window.localStorage;
   } catch {
-    // non-fatal: storage quota or private browsing
+    return fallback;
+  }
+}
+
+type FeatureRow = { feature: AiFeature; usage: Usage; cost: number };
+
+/** This week per feature (largest first, zero-cost rows left out) and the background share. */
+function summariseWeek(b: PathBuckets, now: Date): { rows: FeatureRow[]; background: number } {
+  const byFeature = new Map<AiFeature, Usage>();
+  let background = 0;
+  for (const [path, u] of Object.entries(weekByPath(b, now))) {
+    const { feature, level } = parseAiPathId(path);
+    const prev = byFeature.get(feature) ?? normalizeUsage(undefined);
+    byFeature.set(feature, {
+      input: prev.input + u.input,
+      output: prev.output + u.output,
+      cacheWrite: prev.cacheWrite + u.cacheWrite,
+      cacheRead: prev.cacheRead + u.cacheRead,
+    });
+    if (level === "background") background += usageCostEquivalent(u);
+  }
+  const rows = [...byFeature].map(([feature, usage]) => ({ feature, usage, cost: usageCostEquivalent(usage) }))
+    .filter((r) => r.cost > 0)
+    .sort((x, y) => y.cost - x.cost);
+  return { rows, background };
+}
+
+/** Whether the hard-cap warning was already shown this week; true on a storage failure (never nag blind). */
+function hardCapWarnedThisWeek(storage: Storage, now: Date): boolean {
+  try {
+    return storage.getItem(AI_HARD_CAP_WARNED_KEY) === isoDate(mondayOf(now));
+  } catch {
+    return true;
+  }
+}
+
+function markHardCapWarned(storage: Storage, now: Date): void {
+  try {
+    storage.setItem(AI_HARD_CAP_WARNED_KEY, isoDate(mondayOf(now)));
+  } catch {
+    // non-fatal: the warning may repeat
   }
 }
 
@@ -177,16 +254,18 @@ type AiUsageProviderProps = {
 };
 
 export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProviderProps) {
-  const [buckets, setBuckets] = useState<UsageBuckets>(() => loadBucketsAndSeedBasisNotices());
+  const [pathBuckets, setPathBuckets] = useState<PathBuckets>(() => loadBucketsAndSeedBasisNotices());
   const [sessionTotal, setSessionTotal] = useState(0);
   const [sessionUsage, setSessionUsage] = useState<Usage>(EMPTY_SESSION_USAGE);
 
-  // Refs that mirror the latest committed state values so the record callback
-  // can read them synchronously without capturing stale closures. Kept in sync
-  // immediately after every setState call (same event loop tick).
+  // Refs that mirror the session values so the tap listener can read them
+  // synchronously without capturing stale closures. Session is per tab: only this
+  // tab's taps move it, never a storage event.
   const sessionTotalRef = useRef(0);
   const sessionUsageRef = useRef<Usage>(EMPTY_SESSION_USAGE);
-  const bucketsRef = useRef<UsageBuckets>(buckets);
+  const fallbackStorageRef = useRef<Storage | null>(null);
+  // Set once a usage write to localStorage failed: this tab then counts in `fallbackStorageRef` alone.
+  const storageFailedRef = useRef(false);
 
   // Per-scope "already warned this session" flags — booleans in a ref so they
   // never trigger re-renders and are never reset within the provider lifetime
@@ -198,27 +277,43 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
 
   const sessionCap = ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
+  const hardCap = ai.weeklyHardCap;
 
-  const record = useCallback(
-    (u: Usage): void => {
-      // ★★★ STORE RAW, WEIGHT AT READ. The buckets hold the API's own counts;
-      // the per-field billing weights are applied here, at comparison time,
-      // and never baked into what is persisted. The previous shape multiplied
-      // every field by `tokenMultiplier` BEFORE writing, which is why that
-      // re-basing was permanent — the multiplier in force at write time was
-      // never recorded beside the numbers, so stored history could not be
-      // re-interpreted. It still cannot, for buckets written before this
-      // change; see the cost-basis notice.
-      const normalized = normalizeUsage(u);
+  // ★★★ THE TRANSPORT'S TAP IS THE ONLY RECORDER. Every Messages response of every path (chat,
+  // inline edit, forced calls, background jobs) reaches here, so nothing else records usage.
+  // ★★★ PERSIST ONLY THROUGH `recordPathUsage`, which re-reads storage before it adds: a copy
+  // of the buckets held in state is never written back, or this tab would erase what another
+  // tab recorded since it last looked. State is set FROM the returned value.
+  // ★★★ STORE RAW, WEIGHT AT READ. The buckets hold the API's own counts; the per-field
+  // billing weights are applied at comparison time, never baked into what is persisted.
+  useEffect(() => {
+    return subscribeAiUsage((path, apiUsage) => {
+      fallbackStorageRef.current ??= memoryStorage();
+      const storage = storageFailedRef.current ? fallbackStorageRef.current : usageStorage(fallbackStorageRef.current);
+      const normalized = normalizeUsage({
+        input: apiUsage.input_tokens,
+        output: apiUsage.output_tokens,
+        cacheWrite: apiUsage.cache_creation_input_tokens,
+        cacheRead: apiUsage.cache_read_input_tokens,
+      });
       const tokens = usageCostEquivalent(normalized);
-
-      // Read previous values from refs — no state reads inside updaters.
-      const prevSession = sessionTotalRef.current;
-      const prevSessionUsage = sessionUsageRef.current;
-      const prevBuckets = bucketsRef.current;
       const now = new Date();
 
-      // Compute next values purely.
+      const prevSession = sessionTotalRef.current;
+      const prevSessionUsage = sessionUsageRef.current;
+      const prevWeek = weekToDate(totalsByDay(readPathBuckets(storage)), now);
+      const recorded = recordPathUsage(storage, now, path, normalized);
+      const nextBuckets = recorded.buckets;
+      // ★ A refused write (quota, private mode) would lose this tap: the next one re-reads the old value. From
+      //   then on this tab counts in memory, seeded with what it has just added, so the caps can still trip.
+      if (!recorded.persisted && storage !== fallbackStorageRef.current) {
+        fallbackStorageRef.current.setItem(AI_USAGE_BY_PATH_KEY, JSON.stringify(nextBuckets));
+        storageFailedRef.current = true;
+      }
+      const nextWeek = weekToDate(totalsByDay(nextBuckets), now);
+      // ★ The cap verdict is published HERE as well as by the effect below: the effect runs only after React
+      //  commits, so a background request started in this same tick would still pass the consent check.
+      if (hardCap !== undefined && nextWeek >= hardCap) publishBackgroundCapState(true);
       const nextSession = prevSession + tokens;
       const nextSessionUsage: Usage = {
         input: prevSessionUsage.input + normalized.input,
@@ -226,24 +321,17 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
         cacheWrite: prevSessionUsage.cacheWrite + normalized.cacheWrite,
         cacheRead: prevSessionUsage.cacheRead + normalized.cacheRead,
       };
-      const prevWeek = weekToDate(prevBuckets, now);
-      const nextBuckets = addToBuckets(prevBuckets, now, normalized);
-      const nextWeek = weekToDate(nextBuckets, now);
 
-      // Advance refs before setState so back-to-back record() calls in the
-      // same tick see the accumulated totals, not the stale committed state.
+      // Advance refs before setState so back-to-back taps in the same tick see
+      // the accumulated totals, not the stale committed state.
       sessionTotalRef.current = nextSession;
       sessionUsageRef.current = nextSessionUsage;
-      bucketsRef.current = nextBuckets;
-
-      // Pure state updates — no side effects inside the updater functions.
       setSessionTotal(nextSession);
       setSessionUsage(nextSessionUsage);
-      setBuckets(nextBuckets);
+      setPathBuckets(nextBuckets);
 
-      // Side effects outside the updaters: persist and warn.
-      saveBuckets(nextBuckets);
-
+      // Set by a toast below so the hard-cap warning waits for a tap of its own (see the end of this handler).
+      let toasted = false;
       // ★ EXACTLY ONE showToast per crossing. `useToast` holds a single
       //   `Toast | null` slot with no queue, so two calls in one tick leave
       //   only the second painted — see AI_COST_BASIS_NOTICE_KEY above for the
@@ -251,10 +339,12 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       if (!warnedRef.current.session && crossed80(prevSession, nextSession, sessionCap)) {
         warnedRef.current.session = true;
         showToast("error", t(lang, "usage80Toast"));
+        toasted = true;
       }
       if (!warnedRef.current.week && crossed80(prevWeek, nextWeek, weeklyCap)) {
         warnedRef.current.week = true;
         showToast("error", t(lang, "usage80Toast"));
+        toasted = true;
       }
       // Crossing 100 % of a self-imposed cap: ADVISORY notice only — nothing is
       // blocked, the assistant keeps working. It is a separate pair of flags
@@ -264,14 +354,33 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       if (!warned100Ref.current.session && crossed100(prevSession, nextSession, sessionCap)) {
         warned100Ref.current.session = true;
         showToast("error", t(lang, "aiSelfLimitReached"));
+        toasted = true;
       }
       if (!warned100Ref.current.week && crossed100(prevWeek, nextWeek, weeklyCap)) {
         warned100Ref.current.week = true;
         showToast("error", t(lang, "aiSelfLimitReached"));
+        toasted = true;
       }
-    },
-    [lang, sessionCap, weeklyCap, showToast],
-  );
+      // The weekly HARD cap pauses background AI only; an interactive tap while it is reached is how the user
+      // hears of it, once a week per device. A tap that already toasted leaves the warning for the next one.
+      if (!toasted && hardCap !== undefined && nextWeek >= hardCap && parseAiPathId(path).level === "interactive"
+        && !hardCapWarnedThisWeek(storage, now)) {
+        markHardCapWarned(storage, now);
+        showToast("error", t(lang, "aiHardCapPausedToast"));
+      }
+    });
+  }, [lang, sessionCap, weeklyCap, hardCap, showToast]);
+
+  // Another tab's recording: re-read the shared store. Week figures only; the session is this tab's.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent): void => {
+      if (e.key !== null && e.key !== AI_USAGE_BY_PATH_KEY) return;
+      const fallback = fallbackStorageRef.current ?? memoryStorage();
+      setPathBuckets(readPathBuckets(storageFailedRef.current ? fallback : usageStorage(fallback)));
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const [viewSwitchBuckets, setViewSwitchBuckets] = useState<ViewSwitchBuckets>(loadViewSwitchBuckets);
   const viewSwitchBucketsRef = useRef<ViewSwitchBuckets>(viewSwitchBuckets);
@@ -299,25 +408,60 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
   );
 
   const now = new Date();
-  const weekTotal = weekToDate(buckets, now);
+  const weekTotal = weekToDate(totalsByDay(pathBuckets), now);
+  const { rows: weekByFeature, background: backgroundWeekCost } = summariseWeek(pathBuckets, now);
   const nextReset = nextWeekReset(now);
+  const weekHardCapReached = hardCap !== undefined && weekTotal >= hardCap;
+
+  // The transport asks this flag before every unattended send. Keyed on the verdict, so a settings change or
+  // another tab's recording that flips it publishes at once; the module setter is not React state.
+  // ★★ ALSO keyed on the buckets, so every recording re-asserts the RENDERED verdict. The tap publishes "reached"
+  //  in its own tick (see the tap listener); a tap just before the week reset whose render lands after it would
+  //  otherwise leave that "reached" standing, since the rendered verdict (false both times) never changed.
+  // An idle tab never renders on Monday, so while reached a timer lifts the flag at the reset.
+  useEffect(() => {
+    publishBackgroundCapState(weekHardCapReached);
+    const lift = weekHardCapReached
+      ? setTimeout(() => publishBackgroundCapState(false), Math.max(0, nextWeekReset(new Date()).getTime() - Date.now()))
+      : undefined;
+    return () => {
+      if (lift !== undefined) clearTimeout(lift);
+      publishBackgroundCapState(false);
+    };
+  }, [weekHardCapReached, pathBuckets]);
   const viewSwitchWeek = weekViewSwitchStats(viewSwitchBuckets, now);
+
+  const actions = useMemo<AiUsageActions>(
+    () => ({ recordChatSend, noteUnbilledChatSend: rememberSend }),
+    [recordChatSend, rememberSend],
+  );
 
   const value: AiUsageContextValue = {
     sessionTotal,
     sessionUsage,
     weekTotal,
     nextReset,
-    record,
+    weekByFeature,
+    backgroundWeekCost,
+    weekHardCapReached,
     viewSwitchWeek,
     recordChatSend,
     noteUnbilledChatSend: rememberSend,
   };
 
-  return <AiUsageContext.Provider value={value}>{children}</AiUsageContext.Provider>;
+  return (
+    <AiUsageActionsContext.Provider value={actions}>
+      <AiUsageContext.Provider value={value}>{children}</AiUsageContext.Provider>
+    </AiUsageActionsContext.Provider>
+  );
 }
 
 /** Consumes the shared usage state. Must be used inside <AiUsageProvider>. */
 export function useAiUsageContext(): AiUsageContextValue {
   return useContext(AiUsageContext);
+}
+
+/** The chat-send callbacks alone, stable across usage events. Use it where the figures are not needed. */
+export function useAiUsageActions(): AiUsageActions {
+  return useContext(AiUsageActionsContext);
 }

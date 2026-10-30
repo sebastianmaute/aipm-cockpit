@@ -4,6 +4,7 @@ import { useInsightRecommendRunner, type InsightRecommendRunnerArgs } from "./us
 import { runInsightRecommendation } from "./insights/recommend-call";
 import { MAX_BG_RECS_PER_TICK, type Insight, type InsightRecommendation } from "./insights/insight";
 import type { GroundingIndex } from "./action-ai";
+import { AiWeeklyCapReachedError } from "./ai-consent";
 
 vi.mock("./insights/recommend-call", () => ({ runInsightRecommendation: vi.fn() }));
 
@@ -130,6 +131,15 @@ describe("useInsightRecommendRunner", () => {
     rerender({ enabled: false }); // the user withdraws the background consent
     await act(async () => { settleFirst(fakeRec); await flushMicrotasks(); });
     expect(mockRun).toHaveBeenCalledTimes(1); // no second billed call
+  });
+
+  test("a candidate stopped by the weekly hard cap ends the tick (AI-03)", async () => {
+    mockRun.mockRejectedValueOnce(new AiWeeklyCapReachedError());
+    mockRun.mockResolvedValue(fakeRec);
+    const { applyRecommendation } = renderRunner({ insights: [makeInsight(1), makeInsight(2), makeInsight(3)] });
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(applyRecommendation).not.toHaveBeenCalled();
   });
 
   test("skips insights that already have a recommendation", async () => {

@@ -2,6 +2,10 @@ import { describe, expect, test } from "vitest";
 import { describeProposal, TOOL_ENTITY } from "./chat-proposal-describe";
 import { buildPlanRows, isEntityWriteTool, type ProposedCall } from "./chat-proposal";
 import { TOOL_DEFS } from "./chat-tool-defs";
+import { isPureReadTool, stagesWhenUntrusted } from "./chat-send-record";
+import { proposalTitles } from "./chat-proposal-stage";
+import { cardRowTitle } from "./chat-proposal-block";
+import { loadI18n, type Lang } from "./i18n";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 import { entityToken } from "./ai-entity-token";
 import type { Workspace } from "./workspace";
@@ -547,10 +551,10 @@ describe("TOOL_ENTITY", () => {
       "delete_all_tasks", "send_inquiry", "set_task_dependencies",
       "escalate_raid_item",
       // §502 — no descriptor, so no field diff; the card line itself carries the scenario name and the
-      // row count (`forecastScenarioRowTitle`, pinned in `use-forecast-tools.test.tsx`).
+      // row count (`forecastRowLine`, translated by `forecastRowTitle`, pinned in `use-forecast-tools.test.tsx`).
       "create_forecast_scenario", "update_forecast_scenario",
-      // §502 part 4 — the same: the decision writes' card lines come from `forecastScenarioRowTitle` (delete,
-      // proposal) and `forecastTargetRowTitle` (target confidence).
+      // §502 part 4 — the same: the decision writes' card lines (delete, proposal, target confidence) come from
+      // `forecastRowLine` too.
       "delete_forecast_scenario", "set_forecast_proposal", "set_forecast_target_confidence",
       // §715 — the project record has no create/update/delete triple, so it has no descriptor in the map.
       // Like `set_task_dependencies` it has a describer of its own (`describeProjectCall`, pinned in
@@ -595,6 +599,37 @@ describe("TOOL_ENTITY", () => {
     expect(deps.plan.links).toEqual([
       { entity: "task", target: "row", field: "dependencies", subject: "A", before: "", after: "B (FS)", rawIds: [2] },
     ]);
+  });
+
+  // AI-02 — the stageable tools that are no entity write change this device or its view. In an untrusted send
+  // they stage, so the card must say what each one does: a stageable tool the card cannot describe lands here.
+  test("describes every stageable tool that is not an entity write", () => {
+    const samples: Record<string, Record<string, unknown>> = {
+      set_language: { language: "de" },
+      set_filters: { search: "late", priority: "High", label: "" },
+      update_settings: { showViewHints: false },
+    };
+    const derived = (TOOL_DEFS as ReadonlyArray<{ name: string }>)
+      .map((d) => d.name)
+      .filter((n) => stagesWhenUntrusted(call(n, {})) && !isEntityWriteTool(n));
+    expect(derived.sort()).toEqual(Object.keys(samples).sort());
+    const rows = describeProposal(Object.entries(samples).map(([n, input]) => call(n, input)), ws);
+    expect(rows.map((r) => r.device)).toEqual([
+      { kind: "language", language: "de" },
+      { kind: "filters", filters: { search: "late", priority: "High", label: "" } },
+      { kind: "settings", settings: [{ key: "showViewHints", value: "false" }] },
+    ]);
+    for (const r of rows) expect(r.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+  });
+
+  test("a functions change is not a device row, and a priority the write drops is not shown", () => {
+    const [functions, filters] = describeProposal(
+      [call("update_settings", { enabledModules: ["raid"] }), call("set_filters", { priority: "Urgent!" })],
+      ws,
+    );
+    expect(functions.device).toBeUndefined();
+    expect(functions.functions).toBeDefined();
+    expect(filters.device).toEqual({ kind: "filters", filters: {} });
   });
 
   test("stamps escalate_raid_item with the live RAID row's token and describes no diff (§515)", () => {
@@ -657,5 +692,150 @@ describe("mintedId is carried onto the described row", () => {
     const rows = describeProposal(calls, ws, buildPlanRows(calls, [101, 7]));
     expect(rows.map((r) => r.mintedId)).toEqual([101, 7, undefined]);
     expect(rows[2].pendingOn).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AI-02 — with an attachment in the history every call that is not a read stages, so every one of them must reach
+// the card as a DESCRIBED line: the panel's title chain (`proposalTitles` with `cardRowTitle`) must give it more
+// than its bare tool name, in English and in German.
+// ★★ The sample list is checked against the derived stageable set, so a new tool that can stage goes red here
+// until it has a sample, and then red again until the card can name what it does.
+
+describe("every tool that can stage gets a described card line (AI-02)", () => {
+  const full = {
+    tasks: [{ id: 1, taskName: "Ship it", status: "To Do", dueDate: "2026-08-12", dependencies: [] }],
+    raid: [{ id: 7, category: "I", title: "Vendor down", status: "Open", severity: "High", linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [] }],
+    changes: [{ id: 5, title: "Scope change", status: "Open", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] }],
+    milestones: [{ id: 9, name: "Go live", date: "2026-09-01", linkedTaskIds: [] }],
+    stakeholders: [{ id: 6, name: "Dana Reed", category: "Other", influence: "Medium", interest: "Medium", raci: {} }],
+    resources: [{ id: 4, firstName: "Ada", lastName: "Lovelace", title: "Engineer" }],
+    absences: [{ id: 8, assignee: "Ada Lovelace", startDate: "2026-08-01", endDate: "2026-08-02", type: "vacation" }],
+    calendarEvents: [{ id: 10, title: "Standup", startDate: "2026-08-03", attendeeResourceIds: [] }],
+    documents: [{ id: 11, title: "Charter", blocks: [] }],
+    forecastScenarios: [{ id: 12, name: "Base", changes: [] }],
+    project: { name: "Apollo", code: "AP" },
+  } as unknown as Workspace;
+
+  const SAMPLES: Record<string, Record<string, unknown>> = {
+    create_task: { taskName: "New task", dueDate: "2026-10-01" },
+    create_raid_item: { title: "New risk" },
+    create_change: { title: "New change" },
+    create_milestone: { name: "New milestone", date: "2026-10-01" },
+    create_stakeholder: { name: "New person" },
+    create_resource: { firstName: "New", lastName: "Person" },
+    create_document: { title: "New doc", blocks: [{ type: "paragraph", html: "<p>Opening text</p>" }] },
+    create_absence: { assignee: "Ada Lovelace", startDate: "2026-10-01", endDate: "2026-10-02" },
+    create_calendar_event: { title: "Kickoff", startDate: "2026-10-01" },
+    create_forecast_scenario: { name: "Plan B", changes: [] },
+    delete_task: { id: 1 },
+    delete_all_tasks: {},
+    delete_raid_item: { id: 7 },
+    delete_change: { id: 5 },
+    delete_milestone: { id: 9 },
+    delete_stakeholder: { id: 6 },
+    delete_resource: { id: 4 },
+    delete_document: { id: 11 },
+    delete_absence: { id: 8 },
+    delete_calendar_event: { id: 10 },
+    delete_forecast_scenario: { id: 12 },
+    send_inquiry: { id: 1 },
+    update_project: { name: "Apollo 2" },
+    update_settings: { showViewHints: false },
+    set_filters: { search: "late" },
+    set_language: { language: "de" },
+    update_document: { id: 11, ops: [{ op: "append", block: { type: "heading", level: 1, text: "Appended" } }] },
+    set_forecast_proposal: { id: 12 },
+    set_forecast_target_confidence: { value: 80 },
+    escalate_raid_item: { id: 7, toEmail: "jane@example.com" },
+    update_task: { id: 1, status: "Done" },
+    set_task_dependencies: { id: 1, dependencies: [] },
+    update_raid_item: { id: 7, severity: "Critical" },
+    update_change: { id: 5, title: "Scope change v2" },
+    update_milestone: { id: 9, name: "Go live v2" },
+    update_stakeholder: { id: 6, name: "Dana Reed-Smith" },
+    update_resource: { id: 4, title: "Lead" },
+    update_absence: { id: 8, endDate: "2026-08-03" },
+    update_calendar_event: { id: 10, title: "Daily standup" },
+    update_forecast_scenario: { id: 12, name: "Base v2" },
+  };
+
+  test("the samples cover exactly the tools that can stage", () => {
+    const stageable = (TOOL_DEFS as ReadonlyArray<{ name: string }>)
+      .map((d) => d.name)
+      .filter((n) => stagesWhenUntrusted(call(n, { id: 1 })));
+    expect(stageable.filter(isPureReadTool)).toEqual([]);
+    expect(Object.keys(SAMPLES).sort()).toEqual(stageable.sort());
+  });
+
+  test.each(["en-US", "de"] as const)("in %s, no sample is titled by its bare tool name", async (lang: Lang) => {
+    await loadI18n("de");
+    const bare = Object.entries(SAMPLES).filter(([name, input]) => {
+      const rows = describeProposal([call(name, input)], full);
+      const [title] = proposalTitles(rows, full, (r) => cardRowTitle(lang, r, full));
+      return title.trim() === "" || title === name;
+    });
+    expect(bare.map(([name]) => name)).toEqual([]);
+  });
+
+  // ★★ A document write's title names only the document, so the card must also show what it writes
+  // (`DescribedRow.document`). Every stageable document tool but the delete must carry it, with its text.
+  // Mutation: dropping `document` from the empty-plan branch of `describeProposal` turns this red.
+  test("every document write that stages carries what it writes", () => {
+    const writes = Object.keys(SAMPLES).filter((n) => n.endsWith("_document") && n !== "delete_document");
+    expect(writes.sort()).toEqual(["create_document", "update_document"]);
+    const missing = writes.filter((name) => {
+      const [row] = describeProposal([call(name, SAMPLES[name])], full);
+      return row.document === undefined || row.document.excerpt === "";
+    });
+    expect(missing).toEqual([]);
+  });
+
+  // ★★ A line the German card shows in English. A title may read the same in both languages only when it is pure
+  // data: made of nothing but whole VALUES of the sample's own input and of the fixture row it addresses (the
+  // fixture's ids are distinct, so `id` finds that one row). Keys and other rows do not count, so an English word
+  // such as "name", "Open" or "To" passes only as a real value of that row. Mutation: a forecast line rendered from
+  // an English string in German turns this red.
+  const valuesOf = (input: Record<string, unknown>): string[] => {
+    const out: string[] = [];
+    const walk = (v: unknown): void => {
+      if (typeof v === "string" || typeof v === "number") out.push(String(v));
+      else if (Array.isArray(v)) v.forEach(walk);
+      else if (v !== null && typeof v === "object") Object.values(v).forEach(walk);
+    };
+    walk(input);
+    for (const list of Object.values(full)) {
+      if (!Array.isArray(list)) continue;
+      for (const row of list as { id?: unknown }[]) if (row.id === input.id) walk(row);
+    }
+    return out.filter((v) => v.trim() !== "");
+  };
+  const escapeRe = (v: string): string => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const isPureData = (title: string, values: readonly string[]): boolean => {
+    let rest = title;
+    for (const v of [...values].sort((a, b) => b.length - a.length)) {
+      rest = rest.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(v)}(?![\\p{L}\\p{N}])`, "gu"), " ");
+    }
+    return rest.replace(/[\s\p{P}\p{S}]/gu, "") === "";
+  };
+
+  test("the pure-data check accepts only whole values of the row", () => {
+    expect(isPureData("Ship it", valuesOf({ id: 1 }))).toBe(true);
+    expect(isPureData("New Person", valuesOf({ firstName: "New", lastName: "Person" }))).toBe(true);
+    // "Open" is a value of RAID item 7, not of task 1; "To" is only part of the value "To Do".
+    expect(isPureData("Open", valuesOf({ id: 1 }))).toBe(false);
+    expect(isPureData("To", valuesOf({ id: 1 }))).toBe(false);
+    expect(isPureData("name", valuesOf({ id: 6, name: "Dana Reed-Smith" }))).toBe(false);
+  });
+
+  test("every line with words of its own is translated into German", async () => {
+    await loadI18n("de");
+    const english = Object.entries(SAMPLES).filter(([name, input]) => {
+      const rows = describeProposal([call(name, input)], full);
+      const [en] = proposalTitles(rows, full, (r, pending) => cardRowTitle("en-US", r, full, pending));
+      const [de] = proposalTitles(rows, full, (r, pending) => cardRowTitle("de", r, full, pending));
+      return en === de && !isPureData(en, valuesOf(input));
+    });
+    expect(english.map(([name]) => name)).toEqual([]);
   });
 });

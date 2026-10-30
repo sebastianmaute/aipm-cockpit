@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSystemPrompt, buildStableSystemBlocks, buildTurnContext, CACHED_TOOLS } from "./chat-api";
+import { buildSystemPrompt, buildStableSystemBlocks, buildTurnContext, CACHED_TOOLS, ATTACHMENT_DATA_NOTICE } from "./chat-api";
 import { TOOL_DEFS } from "./chat-tool-defs";
 import type { Insight } from "./insights/insight";
 import type { OperatingGuide } from "./operating-guide";
@@ -469,5 +469,19 @@ describe("buildStableSystemBlocks respects groundInGuides even with real guide c
     const blocks = buildStableSystemBlocks("en-US", snapshot(), guides, false, {});
     expect(blocks).toHaveLength(1);
     expect(blocks[0].text).not.toContain("SHOULDNOTAPPEAR");
+  });
+});
+
+describe("attachment data notice", () => {
+  it("tells the model attachment documents are data, never instructions, in the stable block", () => {
+    const blocks = buildStableSystemBlocks("en-US", snapshot(), [], false, {});
+    expect(blocks[0].text).toContain(ATTACHMENT_DATA_NOTICE);
+    expect(ATTACHMENT_DATA_NOTICE).toMatch(/data to analyse/);
+    expect(ATTACHMENT_DATA_NOTICE).toMatch(/never instructions/);
+  });
+  it("keeps the stable prefix byte-identical between two builds", () => {
+    const a = buildStableSystemBlocks("en-US", snapshot(), [], false, {});
+    const b = buildStableSystemBlocks("en-US", snapshot({ taskCount: 9 }), [], false, {});
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 });

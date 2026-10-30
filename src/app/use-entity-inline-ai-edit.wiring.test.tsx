@@ -10,7 +10,6 @@ import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: () => ({}) }));
 vi.mock("./toast-context", () => ({ useToastContext: () => vi.fn() }));
-vi.mock("./ai-usage-context", () => ({ useAiUsageContext: () => ({ record: vi.fn() }) }));
 vi.mock("./use-inline-entity-edit", () => ({
   useInlineEntityEdit: () => ({
     activeItem: { id: 1, name: "MVP target", title: "MVP target", taskName: "MVP target" },

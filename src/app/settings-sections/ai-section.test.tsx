@@ -158,6 +158,33 @@ describe("AiSection", () => {
     expect(Number(input.value)).toBe(DEFAULT_WEEKLY_TOKEN_CAP);
   });
 
+  it("renders the weekly hard cap input blank by default, with a help line (AI-03)", () => {
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    const input = screen.getByLabelText(t("en-US", "aiWeeklyHardCap")) as HTMLInputElement;
+    expect(input.type).toBe("number");
+    expect(input.value).toBe("");
+    expect(screen.getByText(t("en-US", "aiWeeklyHardCapHelp"))).toBeInTheDocument();
+  });
+
+  it("typing a weekly hard cap saves it through onChange; clearing it removes the cap (AI-03)", () => {
+    const onChange = vi.fn();
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={onChange} />);
+    const input = screen.getByLabelText(t("en-US", "aiWeeklyHardCap"));
+    fireEvent.change(input, { target: { value: "8" } });
+    fireEvent.change(input, { target: { value: "800000" } });
+    expect(onChange).not.toHaveBeenCalled(); // a half-typed number is only a draft
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls.at(-1)?.[0].ai.weeklyHardCap).toBe(800_000);
+    cleanup();
+    const withCap = { ...defaultSettings, ai: { ...defaultSettings.ai, weeklyHardCap: 800_000 } };
+    render(<AiSection lang="en-US" settings={withCap} onChange={onChange} />);
+    const again = screen.getByLabelText(t("en-US", "aiWeeklyHardCap"));
+    fireEvent.change(again, { target: { value: "" } });
+    fireEvent.keyDown(again, { key: "Enter" });
+    expect(onChange.mock.calls.at(-1)?.[0].ai.weeklyHardCap).toBeUndefined();
+  });
+
   it("editing session cap calls onChange with the new value", () => {
     const onChange = vi.fn();
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={onChange} />);

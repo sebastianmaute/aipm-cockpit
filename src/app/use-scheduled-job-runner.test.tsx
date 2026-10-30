@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useScheduledJobRunner, type ScheduledJobRunnerArgs } from "./use-scheduled-job-runner";
 import type { ScheduledJob, ScheduledJobRun } from "./scheduled-jobs/types";
+import { newConsent, publishAiConsentState, publishBackgroundCapState } from "./ai-consent";
+import { defaultAiConfig } from "./settings-types";
 
 // The runner builds the run deps itself: the AI call, the portfolio lists, the project load and the report
 // store are mocked at their module edge, so the REAL runScheduledJob runs in every test below.
@@ -109,6 +111,16 @@ function resetStore(): void {
   storeState.fail = false;
   storeState.reads = 0;
 }
+
+// The hook asks the published background gate before each claim, so every test starts with a live consent.
+beforeEach(() => {
+  publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) });
+  publishBackgroundCapState(false);
+});
+afterEach(() => {
+  publishBackgroundCapState(false);
+  publishAiConsentState(undefined);
+});
 
 describe("useScheduledJobRunner: a later job re-checks the live state before its claim (§772 review wave 2)", () => {
   type Args = ScheduledJobRunnerArgs;
@@ -750,6 +762,19 @@ describe("useScheduledJobRunner: the period guard judges by the run's slot, not 
     const rec = record({ ranAt: slot, slot });
     await runAt([dailyJob({ timeZone: "America/Santiago", lastRunAt: slot, history: [rec] })], "2026-09-06T15:00:00.000Z");
     expect(mockRun).toHaveBeenCalledTimes(runs);
+  });
+});
+
+describe("useScheduledJobRunner: the weekly hard cap is asked before the claim (AI-03)", () => {
+  // KILLED BY: dropping the hook's confirmBackgroundGate wiring (a capped tab would claim the slot, then fail it).
+  it("a capped tab neither claims nor analyses", async () => {
+    mockRun.mockReset().mockResolvedValue({ summary: "s", actions: [] });
+    resetStore();
+    publishBackgroundCapState(true);
+    renderHook(() => useScheduledJobRunner(baseArgs()));
+    await act(async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); });
+    expect(mClaim).not.toHaveBeenCalled();
+    expect(mockRun).not.toHaveBeenCalled();
   });
 });
 

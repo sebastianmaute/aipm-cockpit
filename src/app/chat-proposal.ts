@@ -5,9 +5,11 @@
 //
 // ★ Deliberately knows nothing about React, the workspace or the dispatcher.
 //   Everything here is a function of the CALL LIST alone, which is what makes
-//   the gate testable without a fixture workspace. The one import is TYPE-ONLY
-//   (`MintKind`), so nothing is pulled in at runtime and that property holds.
+//   the gate testable without a fixture workspace. `MintKind` and `SendRecord`
+//   are TYPE-ONLY imports. The one runtime import is `stagesWhenUntrusted`
+//   (AI-02), from `chat-send-record.ts`, which imports only types from here.
 import type { MintKind } from "./id-mint-session";
+import { stagesWhenUntrusted, type SendRecord } from "./chat-send-record";
 
 /** One tool call the model emitted. Structurally identical to the insights
  *  pipeline's `InsightToolCall` (`insights/insight.ts`); kept as its own name
@@ -120,7 +122,7 @@ const ENTITY_WRITE_TOOLS: ReadonlySet<string> = new Set([
 /** Writes that are not deletions and still go to the review card on their own (§715, owner decision A).
  *  The project record is one per project and describes the whole engagement, so a Claude edit of it is
  *  always shown as a "Proposed changes" card with Apply — a lone task update applies at once, this does not. */
-const ALWAYS_STAGED_TOOLS: ReadonlySet<string> = new Set(["update_project"]);
+export const ALWAYS_STAGED_TOOLS: ReadonlySet<string> = new Set(["update_project"]);
 
 /** Input fields OTHER than `id` through which a call can name a row that a
  *  create EARLIER IN THE SAME TURN will mint, per tool.
@@ -388,7 +390,7 @@ const DESTRUCTIVE_DOC_OPS: ReadonlySet<string> = new Set(["replaceAll"]);
  *   read. Unreachable through the API, which builds `ProposedCall.input` from a
  *   tool_use block — the same exposure `isDestructiveCall` above carries — so
  *   this is a wording correction, not a missing guard. */
-function sendsInvitations(call: ProposedCall): boolean {
+export function sendsInvitations(call: ProposedCall): boolean {
   if (call.name !== "create_calendar_event" && call.name !== "update_calendar_event") return false;
   return (call.input as { sendInvitations?: unknown }).sendInvitations === true;
 }
@@ -444,13 +446,20 @@ export function isDestructiveCall(call: ProposedCall): boolean {
  *   ungated by undo — it is not gated by ANYTHING else here. `sendsInvitations`
  *   forces it through review regardless of `writes`, because unlike every other
  *   single-write exemption above, its effect leaves the building (it mails the
- *   attendees) and cannot be recalled once sent. */
-export function shouldStage(calls: readonly ProposedCall[]): boolean {
-  let writes = 0;
+ *   attendees) and cannot be recalled once sent.
+ *
+ *  ★★ AI-02 — `send` is the whole user send (`chat-send-record.ts`): the write count starts at the
+ *   writes earlier turns of the send already applied, so "more than one" holds across the send and
+ *   not per turn; and while an attachment is in the history (`send.untrusted`) every call
+ *   `stagesWhenUntrusted` names stages, even alone. Without `send` the rule is exactly the per-turn
+ *   one above. */
+export function shouldStage(calls: readonly ProposedCall[], send?: SendRecord): boolean {
+  let writes = send?.appliedWrites ?? 0;
   for (const c of calls) {
     if (isDestructiveCall(c)) return true;
     if (sendsInvitations(c)) return true;
     if (ALWAYS_STAGED_TOOLS.has(c.name)) return true;
+    if (send?.untrusted === true && stagesWhenUntrusted(c)) return true;
     if (isEntityWriteCall(c)) writes += 1;
   }
   return writes > 1;

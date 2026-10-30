@@ -12,6 +12,7 @@ import { loadScheduledJobs } from "./scheduled-jobs-store";
 import { slotStatus } from "./scheduled-reports-store";
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { confirmAiDeployment } from "./ai-transport";
+import { assertAiConsentLive } from "./ai-consent";
 import { runScheduledJob, type RunDeps, type RunOutcome } from "./scheduled-job-run";
 import { getDeviceLabel } from "./device-label";
 import { listProjectRefs } from "./turso-portfolio";
@@ -112,6 +113,7 @@ function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, con
       return live !== undefined && isRunnable(live) && live.projectId === job.projectId && sameSchedule(live, job);
     },
     confirmDeployment: () => confirmAiDeployment(),
+    confirmBackgroundGate: () => assertAiConsentLive("background"),
     loadWorkspace: async (projectId) => {
       lastPartial = false;
       const backend = new TursoBackend(config, projectId);

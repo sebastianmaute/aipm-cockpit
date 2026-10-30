@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ChatProposalBlock, proposalRowTitle, type ProposalCardRow } from "./chat-proposal-block";
+import { ChatProposalBlock, deviceRowTitle, escalationRowTitle, proposalRowTitle, taskToolRowTitle, type ProposalCardRow } from "./chat-proposal-block";
 import type { EditPlan } from "./inline-ai-edit/plan";
 import type { InlineEntity } from "./inline-ai-edit/entity-descriptor";
 import type { ProposedCall } from "./chat-proposal";
@@ -582,5 +582,86 @@ describe("ChatProposalBlock — the applied notice", () => {
   it("reports a zero rather than falling silent", () => {
     renderCard(ROWS, { applied: 0 });
     expect(screen.getByText(appliedText(0))).toBeInTheDocument();
+  });
+});
+
+// AI-02 — a staged language, filter or device-settings change is titled by what it changes, never by the tool name.
+describe("deviceRowTitle", () => {
+  it("names the language, the filters and the settings, in English", () => {
+    expect(deviceRowTitle("en-US", { kind: "language", language: "de" })).toBe("Switch the app language to Deutsch");
+    expect(deviceRowTitle("en-US", { kind: "filters", filters: { assignee: "Ann", priority: "All", search: "" } })).toBe(
+      "Filter the task list: Search = all, Priority = all, Assignee = Ann",
+    );
+    expect(deviceRowTitle("en-US", { kind: "settings", settings: [{ key: "dashboardDensity", value: "compact" }] })).toBe(
+      "Change settings: dashboardDensity = compact",
+    );
+    expect(deviceRowTitle("en-US", { kind: "settings", settings: [] })).toBe("Change settings: —");
+    expect(deviceRowTitle("en-US", undefined)).toBeNull();
+  });
+
+  it("translates the line and the filter labels in German", async () => {
+    await loadI18n("de");
+    expect(deviceRowTitle("de", { kind: "language", language: "en-GB" })).toBe("Sprache der App auf English (UK) umstellen");
+    expect(deviceRowTitle("de", { kind: "filters", filters: { priority: "High", group: "" } })).toBe(
+      "Aufgabenliste filtern: Priorität = High, Gruppe = alle",
+    );
+    expect(deviceRowTitle("de", { kind: "settings", settings: [{ key: "showViewHints", value: "false" }] })).toBe(
+      "Einstellungen ändern: showViewHints = false",
+    );
+  });
+});
+
+// AI-02 — an escalation staged in a send with an attachment shows its recipient address, so the user sees where it
+// would point. Mutation: falling back to the tool name turns this red.
+describe("escalationRowTitle", () => {
+  const raid = [{ id: 7, title: "Vendor down" }];
+  const esc = (input: Record<string, unknown>) => ({ name: "escalate_raid_item", input });
+
+  it("names the item and the recipient address, in English", () => {
+    expect(escalationRowTitle("en-US", esc({ id: 7, toEmail: "x@evil.example" }), raid)).toBe(
+      "Escalate “Vendor down” to x@evil.example",
+    );
+    expect(escalationRowTitle("en-US", esc({ id: 7, toEmail: "x@evil.example", toName: "Max" }), raid)).toBe(
+      "Escalate “Vendor down” to Max <x@evil.example>",
+    );
+    expect(escalationRowTitle("en-US", esc({ id: 9, toEmail: "x@evil.example" }), raid)).toBe(
+      "Escalate “#9” to x@evil.example",
+    );
+    expect(escalationRowTitle("en-US", { name: "update_raid_item", input: { id: 7 } }, raid)).toBeNull();
+  });
+
+  it("translates the line in German", async () => {
+    await loadI18n("de");
+    expect(escalationRowTitle("de", esc({ id: 7, toEmail: "x@evil.example" }), raid)).toBe(
+      "„Vendor down“ an x@evil.example eskalieren",
+    );
+  });
+});
+
+// AI-02 — every change stages in a send with an attachment, so the three task tools the describer leaves untitled
+// get a line of their own. Mutation: returning null for one of them turns this red.
+describe("taskToolRowTitle", () => {
+  const tasks = [{ id: 1, taskName: "Ship it" }, { id: 2, taskName: "Test it" }];
+
+  it("names the count or the task, in English", () => {
+    expect(taskToolRowTitle("en-US", { name: "delete_all_tasks", input: {} }, tasks)).toBe("Delete all tasks (2)");
+    expect(taskToolRowTitle("en-US", { name: "send_inquiry", input: { id: 1 } }, tasks)).toBe(
+      "Send a status inquiry about “Ship it”",
+    );
+    expect(taskToolRowTitle("en-US", { name: "set_task_dependencies", input: { id: 9, dependencies: [] } }, tasks)).toBe(
+      "Replace the dependencies of “#9”",
+    );
+    expect(taskToolRowTitle("en-US", { name: "update_task", input: { id: 1 } }, tasks)).toBeNull();
+  });
+
+  it("translates the lines in German", async () => {
+    await loadI18n("de");
+    expect(taskToolRowTitle("de", { name: "delete_all_tasks", input: {} }, tasks)).toBe("Alle Aufgaben löschen (2)");
+    expect(taskToolRowTitle("de", { name: "send_inquiry", input: { id: 2 } }, tasks)).toBe(
+      "Statusanfrage zu „Test it“ senden",
+    );
+    expect(taskToolRowTitle("de", { name: "set_task_dependencies", input: { id: 1, dependencies: [] } }, tasks)).toBe(
+      "Abhängigkeiten von „Ship it“ ersetzen",
+    );
   });
 });

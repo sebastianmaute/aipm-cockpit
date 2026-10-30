@@ -365,13 +365,13 @@ async function ingestNode(
         }
         return {
           ok: true,
-          node: { fileName, kind, block: buildAttachmentBlock(kind, outputMime, raw), children: [] },
+          node: { fileName, kind, block: buildAttachmentBlock(kind, outputMime, raw, fileName), children: [] },
         };
       }
       const data = cap(raw, ceiling, budget);
       return {
         ok: true,
-        node: { fileName, kind, block: buildAttachmentBlock(kind, outputMime, data), children: [] },
+        node: { fileName, kind, block: buildAttachmentBlock(kind, outputMime, data, fileName), children: [] },
       };
     } catch {
       return { ok: false, error: "read-failed" };
@@ -421,7 +421,7 @@ async function ingestNode(
     const md = renderMailBlock({ ...mail, diagnostics: notes }, MAIL_BODY_FLOOR, ceiling, budget);
     return {
       ok: true,
-      node: { fileName, kind, block: buildAttachmentBlock(kind, mimeType, md), children: [] },
+      node: { fileName, kind, block: buildAttachmentBlock(kind, mimeType, md, fileName), children: [] },
     };
   }
 
@@ -479,7 +479,7 @@ async function ingestNode(
   const finalMd = renderMailBlock({ ...mail, diagnostics: notes }, bodyShare, finalCeiling, budget);
   return {
     ok: true,
-    node: { fileName, kind, block: buildAttachmentBlock(kind, mimeType, finalMd), children },
+    node: { fileName, kind, block: buildAttachmentBlock(kind, mimeType, finalMd, fileName), children },
   };
 }
 

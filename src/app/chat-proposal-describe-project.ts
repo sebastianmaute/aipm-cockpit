@@ -52,10 +52,11 @@ function withoutKeys(input: Readonly<Record<string, unknown>>, drop: ReadonlySet
 
 const projectLabel = (stored: ProjectMeta): string => `Project "${stored.name}"`;
 
-/** The card line for a staged `update_project`, naming the STORED project (never the name the call
- *  sets), or null for any other tool or when no project is open. */
-export function projectRowTitle(call: ProposedCall, stored: ProjectMeta | undefined): string | null {
-  return call.name === UPDATE_PROJECT_TOOL && stored !== undefined ? projectLabel(stored) : null;
+/** The STORED project name a staged `update_project` card line names (never the name the call sets), or null for
+ *  any other tool or when no project is open. Data only: the card translates the line (`cardRowTitle` in
+ *  `chat-proposal-block.tsx`). */
+export function projectRowName(call: ProposedCall, stored: ProjectMeta | undefined): string | null {
+  return call.name === UPDATE_PROJECT_TOOL && stored !== undefined ? stored.name : null;
 }
 
 /** The card's rows for one `update_project` call against the stored record. */

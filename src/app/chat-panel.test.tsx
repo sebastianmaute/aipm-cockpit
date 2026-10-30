@@ -19,10 +19,10 @@ import { ATTACHMENT_ACCEPT } from "./chat-attachments";
 import { MAX_NODE_EXTRACT_CHARS } from "./attachment-ingest";
 import { buildCfbf } from "./__fixtures__/cfbf-writer";
 import { loadThreads, saveThread } from "./chat-threads-store";
-import type { ChatThread } from "./chat-threads";
+import { fitHistoryToBudget, type ChatThread } from "./chat-threads";
 import { t } from "./i18n";
-import { buildSystemPrompt, systemBlocksText } from "./chat-api";
-import { appliedProposalNotice } from "./chat-proposal-stage";
+import { buildSystemPrompt, INTERRUPTED_TOOL_RESULT, systemBlocksText } from "./chat-api";
+import { appliedProposalNotice, PROPOSAL_PENDING_RESULT } from "./chat-proposal-stage";
 import type { ToolDispatcher } from "./chat-tools";
 import type { AppView } from "./nav-config";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
@@ -32,8 +32,11 @@ import { emptyWorkspace, type Workspace } from "./workspace";
 import { saveSealed } from "./secrets-store";
 import { sealPassphrase } from "./secrets";
 import { peekMintId } from "./id-mint-session";
+import { entityToken } from "./ai-entity-token";
+import type { Task } from "./types";
+import type { UndoBatch } from "./use-undo-batch";
 import type { ChatConversation } from "./workspace-tab-context";
-import { useAiUsageContext } from "./ai-usage-context";
+import { useAiUsageActions } from "./ai-usage-context";
 import type { SendFingerprint } from "./ai-view-switch";
 
 // §548/§596 — `ChatPanel`'s two scope readers are REQUIRED props (see
@@ -49,16 +52,24 @@ const SCOPE_PROPS = { getScopeEpoch: () => 0, isSwapInFlight: () => false };
 // button (mirrors note-log-panel.test.tsx / task-form-fields.dictation.test.tsx
 // — jsdom has no SpeechRecognition ctor, so getCtor() is null and the button
 // is normally suppressed).
+// Pass-through spy: lets a test read what history each send handed to the budget trim.
+vi.mock("./chat-threads", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./chat-threads")>();
+  return { ...actual, fitHistoryToBudget: vi.fn(actual.fitHistoryToBudget) };
+});
+
 vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
   saveThread: vi.fn(async () => undefined),
   deleteThread: vi.fn(async () => undefined),
 }));
 
-// Default double of the shared usage context — a no-op record, matching the
-// real context's own default value (chat-panel is rendered directly in this
-// file with no <AiUsageProvider>, so it was already reading that default).
-// Individual tests override the return value to spy on `record`.
+// Default double of the shared usage context — no-op `recordChatSend` and
+// `noteUnbilledChatSend`, matching the real context's own default value
+// (chat-panel is rendered directly in this file with no <AiUsageProvider>, so
+// it was already reading that default). Token usage is not the panel's to
+// record (the transport's tap does it). The panel reads the two callbacks through
+// `useAiUsageActions` (AI-03); individual tests override its return value to spy on `recordChatSend`.
 //
 // Hoisted (vi.hoisted) so this object can be shared between the factory below
 // and the per-test beforeEach in the "cache-token usage recording" describe
@@ -72,7 +83,9 @@ const { DEFAULT_AI_USAGE_CONTEXT } = vi.hoisted(() => ({
     sessionUsage: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 },
     weekTotal: 0,
     nextReset: new Date(),
-    record: vi.fn(),
+    weekByFeature: [],
+    backgroundWeekCost: 0,
+    weekHardCapReached: false,
     viewSwitchWeek: { sends: 0, requests: 0, switches: 0, warmSends: 0, switchCacheWrite: 0, warmCacheWrite: 0 },
     recordChatSend: vi.fn(),
     noteUnbilledChatSend: vi.fn(),
@@ -80,6 +93,7 @@ const { DEFAULT_AI_USAGE_CONTEXT } = vi.hoisted(() => ({
 }));
 
 vi.mock("./ai-usage-context", () => ({
+  useAiUsageActions: vi.fn(() => DEFAULT_AI_USAGE_CONTEXT),
   useAiUsageContext: vi.fn(() => DEFAULT_AI_USAGE_CONTEXT),
 }));
 
@@ -1790,6 +1804,83 @@ describe("history budget wiring (§575)", () => {
     // seeded from) still holds the ORIGINAL block, byte for byte — budgeting
     // ran on the outgoing copy only, never mutated the source array/objects.
     expect(stored.history[0].content).toEqual([bigDoc]);
+  });
+});
+
+describe("history budget keeps stored attachments (§575)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const reply = () =>
+    Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "done" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    } as unknown as Response);
+
+  async function sendTwice(mb: number) {
+    const doc = {
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: "x".repeat(mb * 1024 * 1024) },
+    } as const;
+    const stored: ChatConversation = {
+      history: [
+        { role: "user", content: [doc] },
+        { role: "assistant", content: [{ type: "text", text: "ok" }] },
+        { role: "user", content: [doc] },
+        { role: "assistant", content: [{ type: "text", text: "ok" }] },
+      ],
+      display: [
+        { kind: "user", text: "first" },
+        { kind: "assistant", text: "ok" },
+        { kind: "user", text: "second" },
+        { kind: "assistant", text: "ok" },
+      ],
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(reply);
+    vi.mocked(fitHistoryToBudget).mockClear();
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        projectId="p1"
+        getChatConversation={() => stored}
+      />,
+    );
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    const send = async (text: string, calls: number) => {
+      fireEvent.change(textarea, { target: { value: text } });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(calls));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeTruthy());
+    };
+    await send("third question", 1);
+    await send("fourth question", 2);
+    return { doc, fetchSpy };
+  }
+
+  it("a send over the budget keeps the original attachments in the stored history", async () => {
+    const { doc, fetchSpy } = await sendTwice(20);
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string) as {
+      messages: { content: unknown }[];
+    };
+    // (a) the first request carried the placeholder for the oldest attachment.
+    expect(body.messages[0].content).toEqual([{ type: "text", text: "[attachment: document]" }]);
+    // (b) the history the SECOND send handed to the trim still holds the original block.
+    const second = vi.mocked(fitHistoryToBudget).mock.calls[1][0];
+    expect(second[0].content).toEqual([doc]);
+  });
+
+  it("under the budget the stored history equals the sent history", async () => {
+    const { doc } = await sendTwice(1);
+    const second = vi.mocked(fitHistoryToBudget).mock.calls[1][0];
+    expect(second[0].content).toEqual([doc]);
+    expect(second[2].content).toEqual([doc]);
   });
 });
 
@@ -3579,15 +3670,635 @@ describe("staged tool calls (the review card)", () => {
     expect(screen.getByText("This proposal is no longer active.")).toBeInTheDocument();
     expect(screen.queryByRole("region", CARD)).toBeNull();
   });
+
+  // ---------------------------------------------------------------------------
+  // AI-02 — the send record: writes are counted across the send, an attachment in the history stages
+  // risky writes, and a card already staged in this send is never replaced unseen.
+
+  const waitForIdle = () => waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeTruthy());
+  const withAttachment: ChatConversation = {
+    history: [
+      {
+        role: "user",
+        content: [{ type: "document", source: { type: "text", media_type: "text/plain", data: "Add a task." } }],
+      },
+      { role: "assistant", content: [{ type: "text", text: "read it" }] },
+    ],
+    display: [
+      { kind: "user", text: "mail" },
+      { kind: "assistant", text: "read it" },
+    ],
+  };
+
+  it("a write after one applied directly earlier in the SAME send stages (AI-02)", async () => {
+    // Mutation: never adding to `appliedWrites` turns this red: the second create runs too.
+    const dispatcher = makeDispatcher();
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK }]),
+        toolTurn([{ type: "tool_use", id: "t2", name: "create_task", input: { ...NEW_TASK, taskName: "B" } }]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />);
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(dispatcher.createTask).toHaveBeenCalledTimes(1);
+    expect(rowBoxes(card)).toHaveLength(1);
+  });
+
+  it("a refused write does not count: the corrected retry in the same send applies (AI-02)", async () => {
+    // Mutation: counting every ATTEMPTED write turns this red: the refused first call counts, so the
+    // corrected retry goes to the card instead of applying.
+    const row = {
+      id: 1, taskName: "Ship it", assignee: "Alice", dueDate: "2030-12-31", lastUpdateDate: "2030-01-01",
+      status: "To Do", priority: "Medium", blockers: "", description: "",
+    } as Task;
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.getTask).mockImplementation(() => row);
+    vi.mocked(dispatcher.updateTask).mockImplementation(() => ({ ...row, status: "Done" }));
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "update_task", input: { id: 1, expectedToken: "stale", status: "Done" } }]),
+        toolTurn([
+          {
+            type: "tool_use",
+            id: "t2",
+            name: "update_task",
+            input: { id: 1, expectedToken: entityToken("task", row), status: "Done" },
+          },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />);
+    send();
+    await screen.findByText("ok");
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+    expect(dispatcher.updateTask).toHaveBeenCalledTimes(1);
+  });
+
+  it("an attachment in the history stages a lone create and applies nothing (AI-02)", async () => {
+    const dispatcher = makeDispatcher();
+    scriptFetch(
+      [toolTurn([{ type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK }]), doneTurn("ok")],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+  });
+
+  // The gate reads the FULL history, not the copy trimmed for the request budget (§575): an attachment the trim
+  // replaced with a placeholder was still shown to the model in an earlier request. `fitHistoryToBudget` is mocked
+  // to trim every earlier attachment, as it does for a long thread of large PDFs.
+  // Mutation: `openSendRecord(messages)` instead of `openSendRecord(newHistory)` in `chat-panel.tsx` turns this red:
+  // the trimmed copy holds no attachment, so the lone create applies at once.
+  it("an attachment the request budget trimmed still stages a lone create (AI-02)", async () => {
+    vi.mocked(fitHistoryToBudget).mockImplementationOnce((history) =>
+      history.map((m) =>
+        Array.isArray(m.content)
+          ? { ...m, content: m.content.map((b) => (b.type === "document" ? { type: "text" as const, text: "[attachment: document]" } : b)) }
+          : m,
+      ),
+    );
+    const dispatcher = makeDispatcher();
+    const bodies: string[] = [];
+    scriptFetch(
+      [toolTurn([{ type: "tool_use", id: "t1", name: "create_task", input: NEW_TASK }]), doneTurn("ok")],
+      bodies,
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    // The request really went out without the attachment, so only the full history can have staged the create.
+    expect(bodies[0]).toContain("[attachment: document]");
+    expect(bodies[0]).not.toContain("Add a task.");
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+  });
+
+  // Owner decision: with an attachment in the history every change goes to the card, a version-checked one included.
+  // Mutation: restoring the token exemption in `stagesWhenUntrusted` turns this red: the status change applies at once.
+  it("a lone version-checked status change in a send with an attachment goes to the card, and Apply writes it (AI-02)", async () => {
+    const task = {
+      id: 1, taskName: "Ship it", assignee: "Alice", dueDate: "2030-12-31", lastUpdateDate: "2030-01-01",
+      status: "To Do", priority: "Medium", blockers: "", description: "",
+    } as Task;
+    const workspace = { ...emptyWorkspace(), tasks: [task] } as Workspace;
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.getTask).mockImplementation(() => task);
+    vi.mocked(dispatcher.updateTask).mockImplementation(() => ({ ...task, status: "Done" }));
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "update_task", input: { id: 1, expectedToken: entityToken("task", task), status: "Done" } },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        workspace={workspace}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    await waitForIdle();
+    expect(dispatcher.updateTask).not.toHaveBeenCalled();
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() =>
+      expect(within(card).getByText(t("en-US", "chatProposalApplied", 1))).toBeInTheDocument(),
+    );
+    expect(dispatcher.updateTask).toHaveBeenCalledTimes(1);
+  });
+
+  // A read changes nothing, so a staging turn runs it in place and the model gets its real result; only the change
+  // goes on the card. Mutation: putting the turn's reads back on the card turns this red: two rows, no listRaid call.
+  it("a read in a staging turn runs in place, and the card holds only the change (AI-02)", async () => {
+    const raid = { id: 7, category: "I", title: "Vendor down", status: "Open", severity: "High" };
+    const dispatcher = makeDispatcher();
+    const extra = dispatcher as unknown as { listRaid: unknown; getRaidRow: unknown };
+    extra.listRaid = vi.fn(() => [raid]);
+    extra.getRaidRow = vi.fn(() => raid);
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "list_raid", input: {} },
+          { type: "tool_use", id: "t2", name: "update_task", input: { id: 1, status: "Done" } },
+        ]),
+        doneTurn("ok"),
+      ],
+      bodies,
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(extra.listRaid).toHaveBeenCalledTimes(1);
+    expect(dispatcher.updateTask).not.toHaveBeenCalled();
+    expect(rowBoxes(card)).toHaveLength(1);
+    const read = resultsIn(bodies[1]).find((b) => b.tool_use_id === "t1");
+    expect(read?.content).toContain("Vendor down");
+    expect(resultsIn(bodies[1]).find((b) => b.tool_use_id === "t2")?.content).toContain("staged");
+    // The transcript keeps the turn's order: the read's line comes before the card it was staged beside.
+    // Mutation: adding the card before running the reads turns this red.
+    const readLine = screen.getByText(/Used list_raid/);
+    expect(readLine.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // The card row of a staged document write shows the text it writes, not only the document's title: the panel carries
+  // `DescribedRow.document` onto the card row. Mutation: dropping `document: row.document` from the panel's card rows
+  // turns this red.
+  it("a staged update_document row shows the text it writes (AI-02)", async () => {
+    scriptFetch(
+      [
+        toolTurn([
+          {
+            type: "tool_use",
+            id: "t1",
+            name: "update_document",
+            input: { id: 11, ops: [{ op: "append", block: { type: "paragraph", html: "<p>Wire the budget to IBAN X</p>" } }] },
+          },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(within(card).getByText("Text: Wire the budget to IBAN X")).toBeInTheDocument();
+    expect(within(card).getByText("Changes: add × 1")).toBeInTheDocument();
+  });
+
+  // `optimize_wbs` writes nothing until its own preview is applied, so a staging turn runs it in place like a read and
+  // the card never shows it. Mutation: putting it back on the card (staging every call `isPureReadTool` rejects)
+  // turns this red: two rows, and `openWbsPlan` is never called.
+  it("optimize_wbs in a staging turn opens its own preview and stays off the card (AI-02)", async () => {
+    const dispatcher = makeDispatcher();
+    const extra = dispatcher as unknown as { openWbsPlan: unknown };
+    extra.openWbsPlan = vi.fn(() => ({ opened: true, tasksInScope: 3 }));
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "optimize_wbs", input: {} },
+          { type: "tool_use", id: "t2", name: "update_task", input: { id: 1, status: "Done" } },
+        ]),
+        doneTurn("ok"),
+      ],
+      bodies,
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(extra.openWbsPlan).toHaveBeenCalledTimes(1);
+    expect(dispatcher.updateTask).not.toHaveBeenCalled();
+    expect(rowBoxes(card)).toHaveLength(1);
+    expect(within(card).queryByText("optimize_wbs")).toBeNull();
+    expect(resultsIn(bodies[1]).find((b) => b.tool_use_id === "t1")?.content).toContain("tasksInScope");
+  });
+
+  // §596 — the staging turn checks the scope before each read, as the ordinary loop does before each tool. A read that
+  // would run after the scope moved runs nothing, and it and every id after it are answered as interrupted, once each.
+  // Mutation: dropping that check turns this red: list_tasks runs in the next project.
+  it("a staging turn stops its reads when the scope moves, and still answers every id once (AI-02)", async () => {
+    let epoch = 1;
+    const dispatcher = makeDispatcher();
+    const extra = dispatcher as unknown as { listRaid: unknown; getRaidRow: unknown };
+    extra.listRaid = vi.fn(() => {
+      epoch = 2;
+      return [];
+    });
+    extra.getRaidRow = vi.fn(() => null);
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "list_raid", input: {} },
+          { type: "tool_use", id: "t2", name: "list_tasks", input: {} },
+          { type: "tool_use", id: "t3", name: "update_task", input: { id: 1, status: "Done" } },
+        ]),
+        doneTurn("after"),
+      ],
+      bodies,
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        getScopeEpoch={() => epoch}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    await waitFor(() => expect(extra.listRaid).toHaveBeenCalledTimes(1));
+    await waitForIdle();
+    expect(dispatcher.listTasks).not.toHaveBeenCalled();
+    expect(dispatcher.updateTask).not.toHaveBeenCalled();
+    // The turn's answers reach the model with the next send.
+    send("still there?");
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    const answers = (JSON.parse(bodies[1]) as { messages: { content: unknown }[] }).messages
+      .flatMap((m) => (Array.isArray(m.content) ? (m.content as { type: string; tool_use_id?: string; content?: string }[]) : []))
+      .filter((b) => b.type === "tool_result");
+    expect(answers.map((b) => b.tool_use_id).sort()).toEqual(["t1", "t2", "t3"]);
+    expect(answers.filter((b) => b.tool_use_id !== "t1").map((b) => b.content)).toEqual([
+      INTERRUPTED_TOOL_RESULT,
+      INTERRUPTED_TOOL_RESULT,
+    ]);
+  });
+
+  it("an automatic send waits while Apply is running, and the next one carries the applied notice (AI-02)", async () => {
+    // Mutation: dropping the applying term from `sendGateRef.blocked` turns this red: the seed goes out mid-apply.
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.deleteTask).mockReturnValue(true);
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } }]),
+        doneTurn("ok"),
+        doneTurn("after"),
+      ],
+      bodies,
+    );
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runBatched = vi.fn(async (fn: () => unknown) => {
+      await held;
+      return fn();
+    });
+    const props = {
+      ...SCOPE_PROPS,
+      lang: "en-US" as const,
+      ai: AI_WITH_KEY,
+      dispatcher,
+      runBatched: runBatched as unknown as UndoBatch["runBatched"],
+      onChatSeedConsumed: vi.fn(),
+    };
+    const { rerender } = render(<ChatPanel {...props} chatSeed={null} />);
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    await waitForIdle();
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() => expect(runBatched).toHaveBeenCalledTimes(1));
+
+    rerender(<ChatPanel {...props} chatSeed={{ prompt: "What's next?", autoSend: true, originView: "dashboard" }} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(bodies).toHaveLength(2);
+    // Held back, the seed is a prefill, not lost.
+    expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toHaveValue("What's next?");
+
+    await act(async () => {
+      release();
+    });
+    await waitFor(() =>
+      expect(within(card).getByText(t("en-US", "chatProposalApplied", 1))).toBeInTheDocument(),
+    );
+    // The held seed is sent as a prefill: unchanged, it still carries the page it was asked from. ★ This is what
+    // tells the gate's own term apart from the `submitPrompt` guard behind it: without the term the seed is
+    // submitted, refused by that guard, and its origin is dropped, so the send below would come from the chat.
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(bodies).toHaveLength(3));
+    expect(bodies[2]).toContain(appliedProposalNotice(1, 0));
+    expect(bodies[2]).toContain("What's next?");
+    expect(dispatcher.getSnapshot).toHaveBeenLastCalledWith({ originView: "dashboard" });
+  });
+
+  it("a send is refused while Apply is running, and the next one carries the applied notice (AI-02)", async () => {
+    // Mutation: dropping the applying check from the send guard turns this red: the send goes out mid-apply, and its
+    // end rewrites the history without the applied notice.
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.deleteTask).mockReturnValue(true);
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } }]),
+        doneTurn("ok"),
+        doneTurn("after"),
+      ],
+      bodies,
+    );
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runBatched = vi.fn(async (fn: () => unknown) => {
+      await held;
+      return fn();
+    });
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        runBatched={runBatched as unknown as UndoBatch["runBatched"]}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    await waitForIdle();
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() => expect(runBatched).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByPlaceholderText("Ask Claude about your tasks…"), { target: { value: "and then?" } });
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    // Enter is the path the disabled button does not cover.
+    fireEvent.keyDown(screen.getByPlaceholderText("Ask Claude about your tasks…"), { key: "Enter" });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(bodies).toHaveLength(2);
+
+    await act(async () => {
+      release();
+    });
+    await waitFor(() =>
+      expect(within(card).getByText(t("en-US", "chatProposalApplied", 1))).toBeInTheDocument(),
+    );
+    send("and then?");
+    await waitFor(() => expect(bodies).toHaveLength(3));
+    expect(bodies[2]).toContain(appliedProposalNotice(1, 0));
+  });
+
+  it("the card cannot be applied or discarded while the send runs, and works once it ends (AI-02)", async () => {
+    // Mutation: dropping the send-in-progress condition from the card's busy turns this red: Apply is enabled
+    // mid-send, and the applied notice the click adds is overwritten when the send ends.
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.deleteTask).mockReturnValue(true);
+    const bodies: string[] = [];
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const turns = [
+      toolTurn([{ type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } }]),
+      doneTurn("Waiting for you."),
+      doneTurn("after"),
+    ];
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ""));
+      const index = call;
+      call += 1;
+      if (index === 1) await held;
+      const body = turns[Math.min(index, turns.length - 1)];
+      return { ok: true, text: () => Promise.resolve(""), json: () => Promise.resolve(body) } as unknown as Response;
+    });
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />);
+    send();
+
+    const card = await screen.findByRole("region", CARD);
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    const apply = within(card).getByRole("button", { name: /^Apply \(/ });
+    const discard = within(card).getByRole("button", { name: t("en-US", "chatProposalDiscard") });
+    expect(apply).toBeDisabled();
+    expect(discard).toBeDisabled();
+    fireEvent.click(apply);
+    expect(dispatcher.deleteTask).not.toHaveBeenCalled();
+
+    await act(async () => {
+      release();
+    });
+    await screen.findByText("Waiting for you.");
+    await waitForIdle();
+    await waitFor(() => expect(within(card).getByRole("button", { name: /^Apply \(/ })).toBeEnabled());
+    expect(within(card).getByRole("button", { name: t("en-US", "chatProposalDiscard") })).toBeEnabled();
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() =>
+      expect(within(card).getByText(t("en-US", "chatProposalApplied", 1))).toBeInTheDocument(),
+    );
+    expect(dispatcher.deleteTask).toHaveBeenCalledTimes(1);
+
+    send("and then?");
+    await waitFor(() => expect(bodies).toHaveLength(3));
+    expect(bodies[2]).toContain(appliedProposalNotice(1, 0));
+  });
+
+  it("a write after a staged turn runs nothing and keeps the card, and the model still replies (AI-02)", async () => {
+    // Mutation: removing the pending-proposal rule turns this red: the create runs or replaces the card.
+    const dispatcher = makeDispatcher();
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } }]),
+        toolTurn([
+          { type: "text", text: "Adding one more as well." },
+          { type: "tool_use", id: "t2", name: "create_task", input: NEW_TASK },
+        ]),
+        doneTurn("Both wait for your review."),
+      ],
+      bodies,
+    );
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />);
+    send();
+    await screen.findByText("Both wait for your review.");
+    await waitForIdle();
+    expect(bodies).toHaveLength(3);
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+    expect(dispatcher.deleteTask).not.toHaveBeenCalled();
+    const cards = screen.getAllByRole("region", CARD);
+    expect(cards).toHaveLength(1);
+    expect(rowBoxes(cards[0])).toHaveLength(1);
+    expect(screen.queryByText(t("en-US", "chatTruncatedNote"))).toBeNull();
+    const answers = (JSON.parse(bodies[2]) as { messages: { content: unknown }[] }).messages
+      .flatMap((m) => (Array.isArray(m.content) ? (m.content as { type: string; tool_use_id?: string; content?: string }[]) : []))
+      .filter((b) => b.type === "tool_result" && b.tool_use_id === "t2");
+    expect(answers.map((b) => b.content)).toEqual([PROPOSAL_PENDING_RESULT]);
+  });
+
+  it("a read after a staged turn runs, a write beside it waits, and the model replies (AI-02)", async () => {
+    // Mutation: answering every call of the turn with the pending notice (or ending the send there) turns
+    // this red: list_tasks does not run, or the closing text never arrives.
+    const dispatcher = makeDispatcher();
+    const bodies: string[] = [];
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } }]),
+        toolTurn([
+          { type: "tool_use", id: "t2", name: "list_tasks", input: {} },
+          { type: "tool_use", id: "t3", name: "update_task", input: { id: 1, status: "Done" } },
+        ]),
+        doneTurn("Checked the list; the rest waits for you."),
+      ],
+      bodies,
+    );
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />);
+    send();
+    await screen.findByText("Checked the list; the rest waits for you.");
+    await waitForIdle();
+    expect(bodies).toHaveLength(3);
+    expect(dispatcher.listTasks).toHaveBeenCalled();
+    expect(dispatcher.updateTask).not.toHaveBeenCalled();
+    expect(dispatcher.deleteTask).not.toHaveBeenCalled();
+    const cards = screen.getAllByRole("region", CARD);
+    expect(cards).toHaveLength(1);
+    expect(rowBoxes(cards[0])).toHaveLength(1);
+    const results = (JSON.parse(bodies[2]) as { messages: { content: unknown }[] }).messages
+      .flatMap((m) => (Array.isArray(m.content) ? (m.content as { type: string; tool_use_id?: string; content?: string }[]) : []))
+      .filter((b) => b.type === "tool_result");
+    const read = results.find((b) => b.tool_use_id === "t2");
+    expect(read?.content).toBeDefined();
+    expect(read?.content).not.toBe(PROPOSAL_PENDING_RESULT);
+    expect(read?.content).not.toMatch(/proposal/i);
+    expect(results.filter((b) => b.tool_use_id === "t3").map((b) => b.content)).toEqual([PROPOSAL_PENDING_RESULT]);
+  });
+
+  it("the card describes and applies set_filters, set_language and a plain update_settings (AI-02)", async () => {
+    const dispatcher = makeDispatcher();
+    const extra = dispatcher as unknown as { updateSettings: unknown; previewSettings: unknown };
+    extra.updateSettings = vi.fn(() => ({ showViewHints: false }));
+    extra.previewSettings = vi.fn(() => ({ showViewHints: false }));
+    scriptFetch(
+      [
+        toolTurn([
+          { type: "tool_use", id: "t1", name: "set_filters", input: { search: "late" } },
+          { type: "tool_use", id: "t2", name: "set_language", input: { language: "de" } },
+          { type: "tool_use", id: "t3", name: "update_settings", input: { showViewHints: false } },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        projectId="p1"
+        getChatConversation={() => withAttachment}
+      />,
+    );
+    send();
+    const card = await screen.findByRole("region", CARD);
+    await screen.findByText("ok");
+    expect(dispatcher.setFilters).not.toHaveBeenCalled();
+    const rows = Array.from(card.querySelectorAll("[data-proposal-row]"));
+    expect(rows).toHaveLength(3);
+    // Mutation: titling these rows with the tool name turns this red.
+    expect(rows.map((r) => r.querySelector(".text-sm")?.textContent)).toEqual([
+      "Filter the task list: Search = late",
+      "Switch the app language to Deutsch",
+      "Change settings: showViewHints = false",
+    ]);
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() => expect(extra.updateSettings).toHaveBeenCalledTimes(1));
+    expect(dispatcher.setFilters).toHaveBeenCalledTimes(1);
+    expect(dispatcher.setLanguage).toHaveBeenCalledWith("de");
+  });
 });
 
 // ---------------------------------------------------------------------------
-// Cache-token usage recording (AI-cost roadmap, Task 4): the meter must sum
-// cache_read/cache_creation tokens across every turn of a send, not just the
-// last one. `record` is the observable here (not the request body — this
-// asserts what gets RECORDED, not what gets SENT), so a spy on the usage
-// context is the right seam, per the file's own request-body convention for
-// send-side assertions elsewhere.
+// Cache-write recording (§702): the view-switch counter must be handed the
+// cache writes of every turn of a send, not just the last one. Token usage
+// itself is recorded by the transport's tap, not by the panel. The
+// `recordChatSend` spy on the usage context is the observable here (not the
+// request body — this asserts what gets RECORDED, not what gets SENT), per the
+// file's own request-body convention for send-side assertions elsewhere.
 // ---------------------------------------------------------------------------
 describe("cache-token usage recording", () => {
   // ★★ RE-APPLY THE DEFAULT BOTH BEFORE AND AFTER EACH TEST. vi.restoreAllMocks()
@@ -3606,19 +4317,17 @@ describe("cache-token usage recording", () => {
   // reads whatever this block's last test left behind. The override must also
   // be undone in afterEach so nothing outside this block can ever observe it.
   beforeEach(() => {
-    vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
+    vi.mocked(useAiUsageActions).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
   });
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.mocked(useAiUsageContext).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
+    vi.mocked(useAiUsageActions).mockReturnValue(DEFAULT_AI_USAGE_CONTEXT);
   });
 
-  it("records cache tokens from every turn of a send", async () => {
-    const recordSpy = vi.fn();
+  it("hands the view-switch counter the cache writes of every turn of a send", async () => {
     const recordChatSendSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
-      record: recordSpy,
       recordChatSend: recordChatSendSpy,
     });
 
@@ -3673,9 +4382,7 @@ describe("cache-token usage recording", () => {
 
     await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
 
-    expect(recordSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ cacheRead: 2000, cacheWrite: 500 }),
-    );
+    // Token usage is the transport tap's to record (ai-usage-context.test.tsx); the panel reports none.
     // §702: one send, two API requests — the counter is told both numbers.
     expect(recordChatSendSpy).toHaveBeenCalledTimes(1);
     expect(recordChatSendSpy).toHaveBeenCalledWith(expect.anything(), 500, 2);
@@ -3695,7 +4402,7 @@ describe("cache-token usage recording", () => {
   // of one conversation or no send could ever count as a switch.
   it("hands each finished send's system blocks, thread and cache writes to the view-switch counter", async () => {
     const recordChatSendSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
     });
@@ -3771,14 +4478,12 @@ describe("cache-token usage recording", () => {
   // A send that goes stale WITHOUT being cancelled — a workspace scope change;
   // a project or thread switch cancels instead. The view-switch counter must
   // get the request together with its cache write, or a switch would be
-  // recorded with a write of 0; the token caps keep their old rule and never
-  // see a response that landed after the send went stale.
-  it("gives the counter the cache write of a response that landed after a scope change, and the caps none of it", async () => {
-    const recordSpy = vi.fn();
+  // recorded with a write of 0. Token usage is the transport tap's, which counts
+  // every response that arrived, a stale one included.
+  it("gives the counter the cache write of a response that landed after a scope change", async () => {
     const recordChatSendSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
-      record: recordSpy,
       recordChatSend: recordChatSendSpy,
     });
     let resolveFetch!: (r: Response) => void;
@@ -3810,8 +4515,6 @@ describe("cache-token usage recording", () => {
 
     await waitFor(() => expect(recordChatSendSpy).toHaveBeenCalledTimes(1));
     expect(recordChatSendSpy).toHaveBeenCalledWith(expect.anything(), 800, 1);
-    expect(recordSpy).toHaveBeenCalledTimes(1);
-    expect(recordSpy).toHaveBeenCalledWith({ input: 0, output: 0, cacheWrite: 0, cacheRead: 0 });
   });
 
   function renderGuidedPanel() {
@@ -3832,12 +4535,13 @@ describe("cache-token usage recording", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
   }
 
-  // A send that fails AFTER a response is not billed, but its prefix reached
-  // the cache — so the counter must still learn it as the thread's baseline.
+  // A send that fails AFTER a response is not counted as a send (the view-switch
+  // counter; the tap still counts its usage), but its prefix reached the cache —
+  // so the counter must still learn it as the thread's baseline.
   it("notes, without counting, a send that failed after a response", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
       noteUnbilledChatSend: noteSpy,
@@ -3874,7 +4578,7 @@ describe("cache-token usage recording", () => {
   it("tells the counter nothing about a send whose first request failed", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
       noteUnbilledChatSend: noteSpy,
@@ -3895,7 +4599,7 @@ describe("cache-token usage recording", () => {
   it("notes, without counting, a send stopped after its request answered", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
       noteUnbilledChatSend: noteSpy,
@@ -3931,7 +4635,7 @@ describe("cache-token usage recording", () => {
   it("notes a send whose second request was aborted, dated from the last request that answered", async () => {
     const recordChatSendSpy = vi.fn();
     const noteSpy = vi.fn();
-    vi.mocked(useAiUsageContext).mockReturnValue({
+    vi.mocked(useAiUsageActions).mockReturnValue({
       ...DEFAULT_AI_USAGE_CONTEXT,
       recordChatSend: recordChatSendSpy,
       noteUnbilledChatSend: noteSpy,

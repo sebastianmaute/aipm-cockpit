@@ -1,19 +1,30 @@
 // src/app/ai-usage-context.test.tsx
-import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { type ReactNode } from "react";
+import { act, render as renderTree, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { memo, type ReactNode } from "react";
+import { isBackgroundCapReached, publishBackgroundCapState } from "./ai-consent";
+import type { AiConfig } from "./settings-types";
 import {
+  AI_HARD_CAP_WARNED_KEY,
   AI_CAP_BASIS_NOTICE_KEY,
   AI_COST_BASIS_NOTICE_KEY,
-  AI_USAGE_KEY,
   AI_VIEW_SWITCH_KEY,
   AiUsageProvider,
+  useAiUsageActions,
   useAiUsageContext,
 } from "./ai-usage-context";
 import { defaultAiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
 import { t } from "./i18n";
-import { isoDate } from "./ai-usage";
+import { isoDate, mondayOf, usageCostEquivalent, type Usage } from "./ai-usage";
+import { AI_USAGE_BY_PATH_KEY, AI_USAGE_KEY, recordPathUsage } from "./ai-usage-store";
+import { emitUsage, tapListenerCount } from "../test/usage-tap";
+
+// The provider records what the transport's tap reports, so the tests drive that tap directly.
+vi.mock("./ai-transport", async (orig) => ({
+  ...(await orig<typeof import("./ai-transport")>()),
+  subscribeAiUsage: (await import("../test/usage-tap")).fakeSubscribeAiUsage,
+}));
 
 beforeEach(() => {
   localStorage.clear();
@@ -30,6 +41,203 @@ function makeWrapper(showToast: (kind: "info" | "error", text: string) => void) 
   };
 }
 
+describe("AiUsageProvider weekly hard cap (AI-03)", () => {
+  const seedWeek = (cost: number) =>
+    recordPathUsage(localStorage, new Date(), "chat", { input: cost, output: 0, cacheWrite: 0, cacheRead: 0 });
+  const hardWrapper = (showToast: (kind: "info" | "error", text: string) => void) =>
+    function Wrapper({ children, ai }: { children: ReactNode; ai: AiConfig }) {
+      return <AiUsageProvider lang="en-US" ai={ai} showToast={showToast}>{children}</AiUsageProvider>;
+    };
+  const render = (showToast: (kind: "info" | "error", text: string) => void, ai: AiConfig) => {
+    const W = hardWrapper(showToast);
+    return renderHook(() => useAiUsageContext(), {
+      wrapper: ({ children }: { children: ReactNode }) => <W ai={ai}>{children}</W>,
+    });
+  };
+  const withCap = (weeklyHardCap?: number): AiConfig => ({ ...defaultAiConfig, weeklyHardCap });
+  afterEach(() => publishBackgroundCapState(false));
+
+  it("publishes the cap state on a settings change, with no new recording", async () => {
+    seedWeek(900);
+    const W = hardWrapper(vi.fn());
+    const ai = { current: withCap(1000) };
+    const view = renderHook(() => useAiUsageContext(), {
+      wrapper: ({ children }: { children: ReactNode }) => <W ai={ai.current}>{children}</W>,
+    });
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(false);
+    ai.current = withCap(800);
+    view.rerender();
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(true);
+    ai.current = withCap(undefined);
+    view.rerender();
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(false);
+  });
+
+  it("is reached when the week total equals the cap exactly", async () => {
+    seedWeek(1000);
+    render(vi.fn(), withCap(1000));
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(true);
+  });
+
+  it("clears the published cap state on unmount", async () => {
+    seedWeek(2000);
+    const view = render(vi.fn(), withCap(1000));
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(true);
+    view.unmount();
+    expect(isBackgroundCapReached()).toBe(false);
+  });
+
+  it("lifts the published cap state at the week reset in a tab that never renders again", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 9, 28, 12, 0, 0)); // a Wednesday
+      seedWeek(2000);
+      render(vi.fn(), withCap(1000));
+      await act(async () => {});
+      expect(isBackgroundCapReached()).toBe(true);
+      act(() => { vi.advanceTimersByTime(5 * 24 * 3600 * 1000); });
+      expect(isBackgroundCapReached()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("defers the hard-cap warning past a tap that fired a soft-cap toast, without marking the week", async () => {
+    seedWeek(900);
+    const showToast = vi.fn();
+    // soft weekly cap 1000 crossed at 100 % by the same tap that reaches the hard cap of 1000
+    render(showToast, { ...defaultAiConfig, weeklyTokenCap: 1000, weeklyHardCap: 1000 });
+    await act(async () => {});
+    const hard = t("en-US", "aiHardCapPausedToast");
+    act(() => { emitUsage("chat", { input: 150, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "aiSelfLimitReached"));
+    expect(showToast.mock.calls.some((c) => c[1] === hard)).toBe(false);
+    expect(localStorage.getItem(AI_HARD_CAP_WARNED_KEY)).toBeNull();
+    act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(showToast.mock.calls.filter((c) => c[1] === hard)).toHaveLength(1);
+  });
+
+  it("is not reached without a hard cap, however much is used", async () => {
+    seedWeek(5_000_000);
+    render(vi.fn(), withCap(undefined));
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(false);
+  });
+
+  it("publishes reached when another tab's storage event raises the week total", async () => {
+    render(vi.fn(), withCap(1000));
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(false);
+    act(() => {
+      seedWeek(1200);
+      window.dispatchEvent(new StorageEvent("storage", { key: AI_USAGE_BY_PATH_KEY }));
+    });
+    expect(isBackgroundCapReached()).toBe(true);
+  });
+
+  it("warns once per week on an interactive tap while reached, and keeps the key", async () => {
+    seedWeek(900);
+    const showToast = vi.fn();
+    render(showToast, withCap(1000));
+    await act(async () => {});
+    const hardCalls = () => showToast.mock.calls.filter((c) => c[1] === t("en-US", "aiHardCapPausedToast"));
+    act(() => { emitUsage("chat", { input: 50, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(hardCalls()).toHaveLength(0); // 950: not yet reached
+    act(() => { emitUsage("chat", { input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(hardCalls()).toHaveLength(1);
+    expect(localStorage.getItem(AI_HARD_CAP_WARNED_KEY)).toBe(isoDate(mondayOf(new Date())));
+    act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(hardCalls()).toHaveLength(1);
+  });
+
+  it("does not warn for a background tap", async () => {
+    seedWeek(900);
+    const showToast = vi.fn();
+    render(showToast, withCap(1000));
+    await act(async () => {});
+    act(() => { emitUsage("report_analysis:background", { input: 500, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(showToast.mock.calls.some((c) => c[1] === t("en-US", "aiHardCapPausedToast"))).toBe(false);
+    expect(localStorage.getItem(AI_HARD_CAP_WARNED_KEY)).toBeNull();
+  });
+
+  it("does not warn again when this week was already warned on this device", async () => {
+    seedWeek(2000);
+    localStorage.setItem(AI_HARD_CAP_WARNED_KEY, isoDate(mondayOf(new Date())));
+    const showToast = vi.fn();
+    render(showToast, withCap(1000));
+    await act(async () => {});
+    act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(showToast.mock.calls.some((c) => c[1] === t("en-US", "aiHardCapPausedToast"))).toBe(false);
+  });
+
+  it("warns again in a later week (a stale key is not this week)", async () => {
+    seedWeek(2000);
+    localStorage.setItem(AI_HARD_CAP_WARNED_KEY, "2000-01-03");
+    const showToast = vi.fn();
+    render(showToast, withCap(1000));
+    await act(async () => {});
+    act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(showToast.mock.calls.filter((c) => c[1] === t("en-US", "aiHardCapPausedToast"))).toHaveLength(1);
+  });
+
+  // AI-03 — the verdict is published inside the tap that reaches the cap, not only by the effect after the next commit,
+  // so a background request started in the same tick is already refused.
+  // Mutation: dropping the synchronous `publishBackgroundCapState(true)` from the tap listener turns this red.
+  it("publishes reached inside the tap that reaches the cap, before React commits", async () => {
+    seedWeek(900);
+    render(vi.fn(), withCap(1000));
+    await act(async () => {});
+    expect(isBackgroundCapReached()).toBe(false);
+    let inTick: boolean | undefined;
+    act(() => {
+      emitUsage("chat", { input: 150, output: 0, cacheWrite: 0, cacheRead: 0 });
+      inTick = isBackgroundCapReached();
+    });
+    expect(inTick).toBe(true);
+    expect(isBackgroundCapReached()).toBe(true);
+  });
+
+  // AI-03 — a tap just before the week reset can publish "reached" in its own tick while the render after it already
+  // sees the new, empty week. The rendered verdict is then re-asserted, so background AI is not left paused all week.
+  // Mutation: keying the publish effect on the verdict alone (`[weekHardCapReached]`) turns this red: nothing
+  // publishes false, because the rendered verdict never changed.
+  it("does not stay reached when the tap lands before the week reset and the render after it", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 10, 1, 23, 59, 59, 990)); // a Sunday, 10 ms before the reset
+      seedWeek(900);
+      render(vi.fn(), withCap(1000));
+      await act(async () => {});
+      expect(isBackgroundCapReached()).toBe(false);
+      act(() => {
+        emitUsage("chat", { input: 150, output: 0, cacheWrite: 0, cacheRead: 0 });
+        expect(isBackgroundCapReached()).toBe(true);
+        vi.setSystemTime(new Date(2026, 10, 2, 0, 0, 0, 10)); // Monday: the render runs in the new week
+      });
+      expect(isBackgroundCapReached()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a tap below the cap publishes nothing in its tick", async () => {
+    seedWeek(100);
+    render(vi.fn(), withCap(1000));
+    await act(async () => {});
+    let inTick: boolean | undefined;
+    act(() => {
+      emitUsage("chat", { input: 150, output: 0, cacheWrite: 0, cacheRead: 0 });
+      inTick = isBackgroundCapReached();
+    });
+    expect(inTick).toBe(false);
+  });
+});
+
 describe("AiUsageProvider", () => {
   it("starts with sessionTotal = 0 and weekTotal = 0", async () => {
     const { result } = renderHook(() => useAiUsageContext(), {
@@ -41,14 +249,14 @@ describe("AiUsageProvider", () => {
     expect(result.current.nextReset).toBeInstanceOf(Date);
   });
 
-  it("record increments sessionTotal and weekTotal", async () => {
+  it("a tap increments sessionTotal and weekTotal", async () => {
     const { result } = renderHook(() => useAiUsageContext(), {
       wrapper: makeWrapper(vi.fn()),
     });
     await act(async () => {});
 
     act(() => {
-      result.current.record({ input: 100, output: 50, cacheWrite: 0, cacheRead: 0 });
+      emitUsage("chat", { input: 100, output: 50, cacheWrite: 0, cacheRead: 0 });
     });
 
     // Cost basis, not a raw sum: 100 input * 1 + 50 output * 5 = 350. This
@@ -65,14 +273,17 @@ describe("AiUsageProvider", () => {
     // A fixture seeded on today's key is therefore normalised by addToBuckets
     // on the way past regardless of what that read does, and cannot tell
     // the normalising read apart from a raw `as UsageBuckets` cast — that
-    // shape was measured vacuous against the cast mutant. A day far in the
-    // past guarantees it is never "today", however long this fixture lives.
-    const other = "2000-01-01";
+    // shape was measured vacuous against the cast mutant. Yesterday is never
+    // "today", and it is inside the store's retention window
+    // (`USAGE_RETENTION_DAYS`), which drops older days on write and on migration.
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const other = isoDate(yesterday);
     localStorage.setItem(
       AI_USAGE_KEY,
       JSON.stringify({ [other]: { input: 100, output: 50 } }),
     );
-    const { result } = renderHook(() => useAiUsageContext(), {
+    renderHook(() => useAiUsageContext(), {
       wrapper: makeWrapper(vi.fn()),
     });
     await act(async () => {});
@@ -82,12 +293,12 @@ describe("AiUsageProvider", () => {
     // through unchanged, so the legacy day's shape survives the round-trip
     // exactly as loadBucketsAndSeedBasisNotices produced it.
     act(() => {
-      result.current.record({ input: 1, output: 1, cacheWrite: 1, cacheRead: 1 });
+      emitUsage("chat", { input: 1, output: 1, cacheWrite: 1, cacheRead: 1 });
     });
 
-    const raw = localStorage.getItem(AI_USAGE_KEY);
+    const raw = localStorage.getItem(AI_USAGE_BY_PATH_KEY);
     const persisted = JSON.parse(raw ?? "{}") as Record<string, unknown>;
-    expect(persisted[other]).toEqual({ input: 100, output: 50, cacheWrite: 0, cacheRead: 0 });
+    expect(persisted[other]).toEqual({ legacy: { input: 100, output: 50, cacheWrite: 0, cacheRead: 0 } });
   });
 
   it("stores raw API counts in sessionUsage rather than scaled ones", async () => {
@@ -99,7 +310,7 @@ describe("AiUsageProvider", () => {
     });
     await act(async () => {});
 
-    act(() => { result.current.record({ input: 100, output: 10, cacheWrite: 20, cacheRead: 1000 }); });
+    act(() => { emitUsage("chat", { input: 100, output: 10, cacheWrite: 20, cacheRead: 1000 }); });
 
     expect(result.current.sessionUsage).toEqual({
       input: 100,
@@ -115,7 +326,7 @@ describe("AiUsageProvider", () => {
     });
     await act(async () => {});
 
-    act(() => { result.current.record({ input: 100, output: 10, cacheWrite: 20, cacheRead: 1000 }); });
+    act(() => { emitUsage("chat", { input: 100, output: 10, cacheWrite: 20, cacheRead: 1000 }); });
 
     // 100*1 + 10*5 + 20*1.25 + 1000*0.1 = 275
     expect(result.current.sessionTotal).toBeCloseTo(275, 6);
@@ -142,7 +353,7 @@ describe("AiUsageProvider", () => {
     const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
-    act(() => { result.current.record({ input: 100, output: 10, cacheWrite: 20, cacheRead: 1000 }); });
+    act(() => { emitUsage("chat", { input: 100, output: 10, cacheWrite: 20, cacheRead: 1000 }); });
 
     expect(result.current.sessionTotal).toBeCloseTo(275, 6);
   });
@@ -162,11 +373,11 @@ describe("AiUsageProvider", () => {
       );
     }
 
-    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
     act(() => {
-      result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
+      emitUsage("chat", { input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
     });
 
     // ★ EXACTLY ONE call, and that is now structural rather than arranged: the
@@ -192,13 +403,13 @@ describe("AiUsageProvider", () => {
       );
     }
 
-    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
     // First record crosses 80 %.
-    act(() => { result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("chat", { input: 900, output: 0, cacheWrite: 0, cacheRead: 0 }); });
     // Second record stays above 80 %.
-    act(() => { result.current.record({ input: 50, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("chat", { input: 50, output: 0, cacheWrite: 0, cacheRead: 0 }); });
 
     expect(showToast).toHaveBeenCalledTimes(1);
   });
@@ -221,10 +432,10 @@ describe("AiUsageProvider", () => {
       );
     }
 
-    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
-    act(() => { result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("chat", { input: 900, output: 0, cacheWrite: 0, cacheRead: 0 }); });
 
     expect(showToast).toHaveBeenCalledTimes(1);
   });
@@ -248,11 +459,11 @@ describe("AiUsageProvider", () => {
     const selfLimitText = t("en-US", "aiSelfLimitReached");
 
     // 850 crosses 80 % (fires usage80Toast) but NOT 100 %.
-    act(() => { result.current.record({ input: 850, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("chat", { input: 850, output: 0, cacheWrite: 0, cacheRead: 0 }); });
     expect(showToast.mock.calls.some((c) => c[1] === selfLimitText)).toBe(false);
 
     // 850 + 200 = 1050 crosses 100 % → the self-limit notice fires once.
-    act(() => { result.current.record({ input: 200, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("chat", { input: 200, output: 0, cacheWrite: 0, cacheRead: 0 }); });
     const afterCross = showToast.mock.calls.filter((c) => c[1] === selfLimitText).length;
     expect(afterCross).toBe(1);
 
@@ -260,7 +471,7 @@ describe("AiUsageProvider", () => {
     expect(result.current.sessionTotal).toBe(1050);
 
     // A further record above 100 % does NOT re-fire the notice.
-    act(() => { result.current.record({ input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("chat", { input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
     expect(showToast.mock.calls.filter((c) => c[1] === selfLimitText).length).toBe(1);
     expect(result.current.sessionTotal).toBe(1150);
   });
@@ -318,11 +529,11 @@ describe("AiUsageProvider", () => {
     }
 
     // localStorage is clear (beforeEach) — fresh install, no prior blob.
-    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
     act(() => {
-      result.current.record({ input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
+      emitUsage("chat", { input: 900, output: 0, cacheWrite: 0, cacheRead: 0 });
     });
 
     // The 80 % warning fires, and it is the ONLY thing that fires. The
@@ -366,7 +577,7 @@ describe("AiUsageProvider", () => {
       JSON.stringify({ [todayKey]: { input: 850, output: 0, cacheWrite: 0, cacheRead: 0 } }),
     );
 
-    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
     const selfLimitText = t("en-US", "aiSelfLimitReached");
@@ -374,7 +585,7 @@ describe("AiUsageProvider", () => {
     // 850 + 200 = 1050: never "crosses" 80 % (already above it), but DOES
     // cross 100 %.
     act(() => {
-      result.current.record({ input: 200, output: 0, cacheWrite: 0, cacheRead: 0 });
+      emitUsage("chat", { input: 200, output: 0, cacheWrite: 0, cacheRead: 0 });
     });
 
     expect(showToast).toHaveBeenCalledTimes(1);
@@ -382,19 +593,19 @@ describe("AiUsageProvider", () => {
   });
 
   it("persists usage to localStorage", async () => {
-    const { result } = renderHook(() => useAiUsageContext(), {
+    renderHook(() => useAiUsageContext(), {
       wrapper: makeWrapper(vi.fn()),
     });
     await act(async () => {});
 
-    act(() => { result.current.record({ input: 300, output: 100, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("chat", { input: 300, output: 100, cacheWrite: 0, cacheRead: 0 }); });
 
-    const raw = localStorage.getItem(AI_USAGE_KEY);
+    const raw = localStorage.getItem(AI_USAGE_BY_PATH_KEY);
     expect(raw).not.toBeNull();
-    const buckets = JSON.parse(raw!) as Record<string, { input: number; output: number }>;
+    const buckets = JSON.parse(raw!) as Record<string, Record<string, { input: number; output: number }>>;
     const values = Object.values(buckets);
-    expect(values[0].input).toBe(300);
-    expect(values[0].output).toBe(100);
+    expect(values[0].chat.input).toBe(300);
+    expect(values[0].chat.output).toBe(100);
   });
 
   it("leaves both basis-notice flags alone for an upgrading user — recording never stamps them", async () => {
@@ -420,15 +631,125 @@ describe("AiUsageProvider", () => {
       );
     }
 
-    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
     await act(async () => {});
 
     // Enough to cross both 80 % and 100 % of the 100-token session cap.
-    act(() => { result.current.record({ input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
-    act(() => { result.current.record({ input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("chat", { input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("chat", { input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
 
     expect(window.localStorage.getItem(AI_COST_BASIS_NOTICE_KEY)).toBeNull();
     expect(window.localStorage.getItem(AI_CAP_BASIS_NOTICE_KEY)).toBeNull();
+  });
+});
+
+describe("AiUsageProvider — the tap is the recorder", () => {
+  const U: Usage = { input: 100, output: 10, cacheWrite: 20, cacheRead: 1000 };
+  const renderProvider = (showToast = vi.fn(), ai = { ...defaultAiConfig }) =>
+    renderHook(() => useAiUsageContext(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <AiUsageProvider lang="en-US" ai={ai} showToast={showToast}>{children}</AiUsageProvider>
+      ),
+    });
+
+  it("a chat tap raises weekTotal and sessionTotal by its cost and adds a chat row", async () => {
+    const { result } = renderProvider();
+    await act(async () => {});
+    act(() => { emitUsage("chat", U); });
+    expect(result.current.weekTotal).toBeCloseTo(usageCostEquivalent(U), 6);
+    expect(result.current.sessionTotal).toBeCloseTo(usageCostEquivalent(U), 6);
+    expect(result.current.weekByFeature).toEqual([{ feature: "chat", usage: U, cost: usageCostEquivalent(U) }]);
+    expect(result.current.backgroundWeekCost).toBe(0);
+  });
+
+  it("a background tap also raises backgroundWeekCost", async () => {
+    const { result } = renderProvider();
+    await act(async () => {});
+    // The smaller feature is tapped first, so largest-first differs from insertion order.
+    act(() => { emitUsage("chat", { input: 1, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("report_analysis:background", U); });
+    // A tap that cost nothing leaves no row.
+    act(() => { emitUsage("propose_raci", { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(result.current.backgroundWeekCost).toBeCloseTo(usageCostEquivalent(U), 6);
+    expect(result.current.weekByFeature.map((r) => r.feature)).toEqual(["job-analysis", "chat"]);
+  });
+
+  it("a storage event from another tab updates the week, not the session", async () => {
+    const { result } = renderProvider();
+    await act(async () => {});
+    act(() => { emitUsage("chat", { input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    const day = isoDate(new Date());
+    localStorage.setItem(AI_USAGE_BY_PATH_KEY, JSON.stringify({
+      [day]: {
+        chat: { input: 100, output: 0, cacheWrite: 0, cacheRead: 0 },
+        "propose_wbs_changes:background": { input: 900, output: 0, cacheWrite: 0, cacheRead: 0 },
+      },
+    }));
+    act(() => { window.dispatchEvent(new StorageEvent("storage", { key: AI_USAGE_BY_PATH_KEY })); });
+    expect(result.current.weekTotal).toBe(1000);
+    expect(result.current.sessionTotal).toBe(100);
+    expect(result.current.backgroundWeekCost).toBe(900);
+    // An unrelated key's event is ignored: change storage again and only that event arrives.
+    localStorage.setItem(AI_USAGE_BY_PATH_KEY, JSON.stringify({ [day]: { chat: { input: 5000, output: 0, cacheWrite: 0, cacheRead: 0 } } }));
+    act(() => { window.dispatchEvent(new StorageEvent("storage", { key: "aipm-cockpit:something-else" })); });
+    expect(result.current.weekTotal).toBe(1000);
+    // A cleared storage (null key) re-reads.
+    act(() => { window.dispatchEvent(new StorageEvent("storage", { key: null })); });
+    expect(result.current.weekTotal).toBe(5000);
+  });
+
+  it("persists through the store, so another tab's recording between two taps survives", async () => {
+    const { result } = renderProvider();
+    await act(async () => {});
+    act(() => { emitUsage("chat", { input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    const day = isoDate(new Date());
+    const stored = JSON.parse(localStorage.getItem(AI_USAGE_BY_PATH_KEY)!) as Record<string, Record<string, Usage>>;
+    // Another tab records; no storage event reaches this one.
+    stored[day]["propose_wbs_changes:background"] = { input: 500, output: 0, cacheWrite: 0, cacheRead: 0 };
+    localStorage.setItem(AI_USAGE_BY_PATH_KEY, JSON.stringify(stored));
+    act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    const after = JSON.parse(localStorage.getItem(AI_USAGE_BY_PATH_KEY)!) as Record<string, Record<string, Usage>>;
+    expect(after[day]["propose_wbs_changes:background"].input).toBe(500);
+    expect(after[day].chat.input).toBe(110);
+    expect(result.current.weekTotal).toBe(610);
+  });
+
+  it("keeps counting in this tab when storage refuses the write (quota, private mode)", async () => {
+    // Mutation: dropping the switch to the in-memory store turns this red: every tap re-reads the old value.
+    const { result } = renderProvider();
+    await act(async () => {});
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("quota", "QuotaExceededError");
+    });
+    try {
+      act(() => { emitUsage("chat", { input: 100, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+      act(() => { emitUsage("chat", { input: 30, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+      expect(setItem).toHaveBeenCalled();
+      expect(result.current.weekTotal).toBe(130);
+      expect(result.current.sessionTotal).toBe(130);
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
+  it("the soft cap counts every path: a background recording alone crosses 80 %", async () => {
+    const showToast = vi.fn();
+    const { result } = renderProvider(showToast, { ...defaultAiConfig, sessionTokenCap: 10_000_000, weeklyTokenCap: 1_000 });
+    await act(async () => {});
+    act(() => { emitUsage("propose_wbs_changes:background", { input: 900, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast.mock.calls[0][1]).toBe(t("en-US", "usage80Toast"));
+    expect(result.current.weekTotal).toBe(900);
+  });
+
+  it("unsubscribes on unmount", async () => {
+    const { unmount } = renderProvider();
+    await act(async () => {});
+    expect(tapListenerCount()).toBe(1);
+    unmount();
+    expect(tapListenerCount()).toBe(0);
+    emitUsage("chat", { input: 5, output: 0, cacheWrite: 0, cacheRead: 0 });
+    expect(localStorage.getItem(AI_USAGE_BY_PATH_KEY)).toBeNull();
   });
 });
 
@@ -553,5 +874,30 @@ describe("AiUsageProvider — view-switch counter (§702)", () => {
       switchCacheWrite: 0,
       warmCacheWrite: 0,
     });
+  });
+});
+
+// AI-03 — every tap from any path, background included, re-renders the provider. A consumer that needs only the
+// chat-send callbacks (the memoised `ChatPanel`) reads them from `useAiUsageActions`, whose value keeps its identity,
+// so it does not re-render on a usage event.
+// Mutation: `useAiUsageActions` reading the full usage context turns this red: the child renders again per tap.
+describe("useAiUsageActions", () => {
+  it("does not re-render a memoised consumer on a usage event, and keeps the callbacks' identity", async () => {
+    const seen: unknown[] = [];
+    const Child = memo(function Child() {
+      seen.push(useAiUsageActions());
+      return null;
+    });
+    renderTree(
+      <AiUsageProvider lang="en-US" ai={{ ...defaultAiConfig }} showToast={vi.fn()}>
+        <Child />
+      </AiUsageProvider>,
+    );
+    await act(async () => {});
+    const before = seen.length;
+    act(() => { emitUsage("chat", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    act(() => { emitUsage("report_analysis:background", { input: 10, output: 0, cacheWrite: 0, cacheRead: 0 }); });
+    expect(seen.length).toBe(before);
+    expect(new Set(seen).size).toBe(1);
   });
 });

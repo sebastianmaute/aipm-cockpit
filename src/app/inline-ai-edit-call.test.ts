@@ -61,6 +61,17 @@ describe("callInlineEdit", () => {
     expect(spy.mock.calls[0][1]).toBe("claude-y");
   });
 
+  it("hands callClaude the inline-edit usage path", async () => {
+    const response: Awaited<ReturnType<typeof chatApi.callClaude>> = {
+      content: [],
+      stop_reason: "end_turn",
+      usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+    };
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(response);
+    await callInlineEdit({ apiKey: "sk-ant-secret000000000000", model: "claude-y", lang: "en-US", entity: "task", item, itemLabel: "x", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    expect(spy.mock.calls[0][7]).toBe("inline-edit");
+  });
+
   // Inline edit reuses the CHAT dispatcher's snapshot, so it inherits whatever
   // `getSnapshot()` puts on it — including the VIEW STATE digest, which lists
   // NEIGHBOURING rows of the surface the editor was opened from. Handing those

@@ -13,7 +13,6 @@ import { type ToolDispatcher } from "./chat-tools";
 import { type Task } from "./types";
 import { useWorkspace } from "./workspace-context";
 import { useToastContext } from "./toast-context";
-import { useAiUsageContext } from "./ai-usage-context";
 import { useInlineAiEdit } from "./use-inline-ai-edit";
 import { InlineAiEditPopover } from "./inline-ai-edit-popover";
 
@@ -37,7 +36,6 @@ export interface TasksInlineAiEdit {
 
 export function useTasksInlineAiEdit(deps: TasksInlineAiEditDeps): TasksInlineAiEdit {
   const showToast = useToastContext();
-  const { record } = useAiUsageContext();
   const inlineEdit = useInlineAiEdit({
     dispatcher: deps.dispatcher,
     ai: deps.settings.ai,
@@ -47,12 +45,6 @@ export function useTasksInlineAiEdit(deps: TasksInlineAiEditDeps): TasksInlineAi
     showToast,
     ws: deps.workspaceCtx,
     guides: [],
-    recordUsage: (u) => record({
-      input: u.input_tokens,
-      output: u.output_tokens,
-      cacheWrite: u.cache_creation_input_tokens,
-      cacheRead: u.cache_read_input_tokens,
-    }),
   });
   // Hoisted locals (not `inlineEdit.member`) so the caller's useMemo dep arrays
   // stay exhaustive-deps clean.

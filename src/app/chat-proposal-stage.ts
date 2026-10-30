@@ -18,10 +18,7 @@ import {
 } from "./chat-proposal";
 import {
   TOOL_ENTITY,
-  forecastScenarioRowTitle,
-  forecastTargetRowTitle,
   pendingScenarioNames,
-  projectRowTitle,
   type DescribedRow,
 } from "./chat-proposal-describe";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
@@ -43,6 +40,16 @@ export const STAGED_TOOL_RESULT =
   "This write was staged for the user to review and has NOT been applied. " +
   "Do not call this tool again for the same change. Tell the user the proposed " +
   "changes are waiting for their approval.";
+
+/** What the model is told about a call that is not a read (`isPureReadTool`), made AFTER a turn of the
+ *  same send staged (AI-02). The call ran nothing: staging it would replace the card the user has not
+ *  seen yet. Reads still run. Model-facing and English, like `STAGED_TOOL_RESULT`.
+ *  ★ It speaks of THIS reply only: the rule is per send (`SendRecord.staged`), so in the next message a
+ *  lone write can apply again, or stage a new card. */
+export const PROPOSAL_PENDING_RESULT =
+  "Not run: a proposal from this reply is waiting for the user's review, so no other change can be made or " +
+  "proposed in this reply. Tell the user the proposed changes are waiting for their approval; they can ask " +
+  "for further changes after deciding on them.";
 
 /**
  * What the model is told once the user has approved a staged batch.
@@ -252,20 +259,12 @@ const TITLED_DOCUMENT_TOOLS: ReadonlySet<string> = new Set(["update_document", "
  * against (`TOOL_ENTITY` → `INLINE_DESCRIPTORS`), so the title and the diff
  * beneath it can never describe two different rows.
  *
- * ★ The forecast scenario tools (§502) are the one exception, create included:
- * they have no descriptor and no diff, so their whole card line comes from
- * `forecastScenarioRowTitle`; the target-confidence write (§502 part 4) names no scenario and takes
- * `forecastTargetRowTitle`. `update_project` (§715) has neither, and takes `projectRowTitle`.
+ * ★ It returns only DATA (a row's own title), never a sentence: this module is i18n-free. The forecast
+ * tools (§502) and `update_project` (§715) have no descriptor, so it yields `null` for them and the card's
+ * translated lines title them (`cardRowTitle` in `chat-proposal-block.tsx`, from `forecastRowLine` and
+ * `projectRowName`).
  */
-export function liveRowTitle(
-  call: ProposedCall,
-  ws: Workspace,
-  pendingScenarios: ReadonlyMap<number, string> = new Map(),
-): string | null {
-  const forecastLine = forecastTargetRowTitle(call) ?? forecastScenarioRowTitle(call, ws, pendingScenarios);
-  if (forecastLine !== null) return forecastLine;
-  const projectLine = projectRowTitle(call, ws.project);
-  if (projectLine !== null) return projectLine;
+export function liveRowTitle(call: ProposedCall, ws: Workspace): string | null {
   const entity = TOOL_ENTITY[call.name];
   if (entity === undefined && TITLED_DOCUMENT_TOOLS.has(call.name)) {
     const docId = Number((call.input as { id?: unknown }).id);
@@ -286,14 +285,15 @@ export function liveRowTitle(
   return typeof title === "string" && title.trim() !== "" ? title : null;
 }
 
-/** Every described row's display title, in row order. */
+/** Every described row's display title, in row order. `fallback` titles a row the live workspace cannot, and
+ *  gets the names of the forecast scenarios this plan creates (`pendingScenarioNames`). */
 export function proposalTitles(
   rows: readonly DescribedRow[],
   ws: Workspace,
-  fallback: (row: DescribedRow) => string,
+  fallback: (row: DescribedRow, pendingScenarios: ReadonlyMap<number, string>) => string,
 ): readonly string[] {
   const pending = pendingScenarioNames(rows);
-  return rows.map((row) => liveRowTitle(row.call, ws, pending) ?? fallback(row));
+  return rows.map((row) => liveRowTitle(row.call, ws) ?? fallback(row, pending));
 }
 
 /**

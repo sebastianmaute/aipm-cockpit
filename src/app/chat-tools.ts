@@ -82,6 +82,25 @@ export type Filters = {
   label?: string;
 };
 
+/** The filters a `set_filters` call applies: the write and the review card's line both read this, so the card
+ *  cannot show a value the write drops (an unknown priority is left out). */
+export function filtersFromInput(input: Readonly<Record<string, unknown>>): Filters {
+  const filters: Filters = {};
+  if (input.search !== undefined) filters.search = asString(input.search) ?? "";
+  if (input.priority !== undefined) {
+    const p = input.priority;
+    if (p === "All") filters.priority = "All";
+    else {
+      const pr = asPriority(p);
+      if (pr) filters.priority = pr;
+    }
+  }
+  if (input.assignee !== undefined) filters.assignee = asString(input.assignee) ?? "";
+  if (input.group !== undefined) filters.group = asString(input.group) ?? "";
+  if (input.label !== undefined) filters.label = asString(input.label) ?? "";
+  return filters;
+}
+
 /** What `escalate_raid_item` reports back (§515). `emailSent` is always false —
  *  it is there so the model cannot read the result as a sent message. */
 export type EscalateRaidResult = {
@@ -800,22 +819,7 @@ export async function runTool(
     }
 
     case "set_filters": {
-      const filters: Filters = {};
-      if (input.search !== undefined) filters.search = asString(input.search) ?? "";
-      if (input.priority !== undefined) {
-        const p = input.priority;
-        if (p === "All") filters.priority = "All";
-        else {
-          const pr = asPriority(p);
-          if (pr) filters.priority = pr;
-        }
-      }
-      if (input.assignee !== undefined)
-        filters.assignee = asString(input.assignee) ?? "";
-      if (input.group !== undefined)
-        filters.group = asString(input.group) ?? "";
-      if (input.label !== undefined)
-        filters.label = asString(input.label) ?? "";
+      const filters = filtersFromInput(input);
       d.setFilters(filters);
       return { applied: filters };
     }

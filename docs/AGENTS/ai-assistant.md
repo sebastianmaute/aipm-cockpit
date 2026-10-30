@@ -237,8 +237,34 @@
   no known module (`[]` is allowed and switches every function off; a mixed list keeps the known ids, echoed in
   `applied`, and names the unknown ones in `applied.droppedModules`; one judge, `judgeEnabledModules`, serves
   the write and the review card). ★★ The staging gate counts it: `isEntityWriteCall` (`chat-proposal.ts`) treats an `update_settings`
-  call CARRYING the `enabledModules` key as a write, so one applies and two writes in a turn go to review (owner
-  decision 2026-10-24); a call without the key is a device-only write and stays exempt, like `set_language`. A staged one is
+  call CARRYING the `enabledModules` key as a write, so one applies and two writes in a send go to review (owner
+  decision 2026-10-24); a call without the key is a device-only write and stays exempt, like `set_language` — in a
+  trusted send. ★★ AI-02: the count runs across the whole user send, not per model turn (`SendRecord.appliedWrites`,
+  `chat-send-record.ts`, opened by `openSendRecord` from the full history); while an `image` or `document` block is
+  anywhere in that history the send is untrusted and EVERY call that is not a pure read (`isPureReadTool`) stages
+  alone, a version-checked update included (owner decision; `stagesWhenUntrusted`). The one exemption is
+  `optimize_wbs`: it writes nothing and opens the WBS preview, which is its own per-item review. It FAILS CLOSED: a
+  tool it does not know stages. ★★ Every tool that can stage must reach the card as a described line, never its bare
+  tool name: the panel titles rows through `proposalTitles` with `cardRowTitle`, and the coverage test in
+  `chat-proposal-describe.test.ts` runs a sample of every stageable tool through that pair in English and German; a
+  new stageable tool goes red there until it has a sample and a line. ★ The forecast and project lines are DATA from
+  the i18n-free describer (`forecastRowLine`, `projectRowName`) and translated in `chat-proposal-block.tsx`
+  (`forecastRowTitle`); the same test fails a line that reads the same in German as in English unless every word of
+  it is the row's own data. ★ A staging turn's reads run in place and get their real result, and so does
+  `optimize_wbs` (`runsInPlaceWhenStaging`): the card holds only the turn's other calls, never a read row or the WBS
+  call. And once a turn of the send has staged, a later turn stages nothing:
+  its reads (`isPureReadTool`, `chat-send-record.ts`) run, every other call runs nothing and is answered with
+  `PROPOSAL_PENDING_RESULT` (which speaks of the current reply only, since the rule is per send), and the loop continues so the model can reply; the card is never replaced unseen. A staged
+  `set_language`, `set_filters` or device-only `update_settings` is described by `describeDeviceCall`
+  (`chat-proposal-describe-device.ts`) into `DescribedRow.device` and titled by `deviceRowTitle`: the language by its own
+  name, the filters as `filtersFromInput` (the write's own reader) leaves them, the settings as `previewSettings` judges
+  them; "describes every stageable tool that is not an entity write" (`chat-proposal-describe.test.ts`) fails for a
+  stageable tool with no description. A staged `create_document` or `update_document` is described by
+  `describeDocumentCall` (`chat-proposal-describe-document.ts`) into `DescribedRow.document`, because its title
+  alone cannot show an injected rewrite: the new document's block count, or the update's op kinds with counts and
+  new title, plus the first `DOCUMENT_EXCERPT_CHARS` characters of the text it writes, as plain text the card renders
+  as text. "every document write that stages carries what it writes" (`chat-proposal-describe.test.ts`) pins it. A
+  staged functions change is
   described by `describeFunctionsCall` (`chat-proposal-describe-functions.ts`) into `DescribedRow.functions`: the
   card titles it with `functionsRowTitle` and lists the functions it turns on and off against `Workspace.features`
   (labels via the Functions picker's `moduleNames`), and a refused value shows as a rejection on the field.
@@ -1834,12 +1860,12 @@
   first message, invalidating the entire prefix on every send and paying a cache WRITE (1.25×) each
   time — worse than not caching at all. Any future history budget must be coarse and hysteretic;
   `chat-cache-layout.ts`'s header carries the reasoning.
-  ★★ **The usage meter this slice made honest is not honest on every path, and that is known, not an
-  oversight.** `chat-panel.tsx`'s `recordUsage` call is skipped entirely on the `catch` path (an aborted
-  or errored send) and gated behind `!cancelledRef.current` on the success path — so a send that errors,
-  or is cancelled, after earlier turns in the same multi-turn loop already burned billed tokens records
-  NOTHING for that send. Pre-existing control flow, deliberately unchanged by this slice — read this
-  before citing "the meter is now honest" as unconditional.
+  ★★ **The usage meter counts at the transport, not in the chat panel.** `chat-panel.tsx` records no usage
+  itself: the transport's tap (`subscribeAiUsage`, `ai-transport.ts`) reports the usage of every 2xx
+  Messages response, so the turns of a send that later errors or is cancelled are still counted, a stale
+  one included. Two gaps remain: a request aborted before its response arrived reports nothing, and so
+  does a response that is not JSON (a stream) — read this before citing "the meter is honest" as
+  unconditional.
   ★★ **`ai-usage-context.tsx`'s `loadBucketsAndSeedBasisNotices` normalizes each field (via `ai-usage.ts`'s
   `normalizeUsage`) instead of casting, and that closes a real trap** — a usage blob persisted before this
   slice has no `cacheWrite`/`cacheRead`, and an un-normalized legacy bucket would silently stop firing a cap
@@ -1972,8 +1998,9 @@
   cannot go stale when a published rate moves. ★★ The one thing that would make the design wrong is a future
   model breaking the ratio; at that point the basis has to become model-aware.
   ★★ THE WEIGHTS ARE APPLIED AT COMPARISON TIME, NEVER BEFORE PERSISTENCE — buckets store the API's own raw
-  counts and are priced on read. ★ The record path (where `record()` writes those raw counts), the advisory
-  notices and the retired write-time multiplier setting are owned by [`platform.md`](platform.md)'s
+  counts and are priced on read. ★ The record path (the transport tap `subscribeAiUsage` → `recordPathUsage`, which persists those raw
+  counts per AI path), the advisory notices, the background-only weekly hard cap and the retired write-time
+  multiplier setting are owned by [`platform.md`](platform.md)'s
   "Usage-limit notices + counting knobs" bullet; this one owns only the basis.
   ★★★ THE OLD UNWEIGHTED SUM WAS DELETED RATHER THAN RE-BODIED. It added the four fields flat, so a cached
   turn — billed at a tenth — consumed exactly as much of a cap as a fresh one, which is the over-counting this
@@ -2075,7 +2102,7 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   setter runs. Guard 2: the result carries `removedRows`, the stored rows not kept unchanged, counted as a MULTISET
   (`countRemovedRows`: each stored row consumes at most one equal new row, so a dropped duplicate counts 1 and an
   edited row counts as removed and re-added); the tool description says so. Guard 3: the staged card line
-  (`forecastScenarioRowTitle`, `chat-proposal-describe.ts`) shows the stored count beside the new one,
+  (`forecastRowLine` in `chat-proposal-describe.ts`, translated by `forecastRowTitle`) shows the stored count beside the new one,
   `(3 → 1 changes)`. `name` alone is a patch and returns no `removedRows`.
   ★★ REFERENCE ROWS ARE MATCHED BY REFERENCE, NOT BY INDEX: a milestone or resource reference that has since gone
   stale is still accepted when the STORED scenario already held that same reference (`keepsAnyStoredReference`,
@@ -2101,7 +2128,7 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   `delete_forecast_scenario.id` are `TARGET_MINTED_BY` rows minted by `create_forecast_scenario`, so
   `[create_forecast_scenario, set_forecast_proposal(<provisional>)]` proposes the scenario the create really minted,
   and refusing the create cascades the proposal call; `targetIdOf` reads `id: null` as no id, so a clear names no
-  row. The card lines come from `forecastScenarioRowTitle` (delete, proposal) and `forecastTargetRowTitle` (target). Forecast-side detail (shared store/log rules, the
+  row. The card lines (delete, proposal, target) come from `forecastRowLine` as data and are translated by `forecastRowTitle`. Forecast-side detail (shared store/log rules, the
   synchronous overrides ref, the `forecastDecision` document gate) is in `docs/AGENTS/forecast.md`, "The AI tool".
   ★★ A SCENARIO MAY NAME A MILESTONE OR PERSON CREATED EARLIER IN THE SAME TURN (this was refused with "does not
   exist" until the fix). Two halves. Applied directly: `requireInput` (`use-forecast-tools.ts`) replaces the
