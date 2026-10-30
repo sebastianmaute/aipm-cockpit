@@ -292,3 +292,21 @@ describe("activityMessage — resource.hoursMoved formats its hours (§774)", ()
     expect(activityMessage("en-US", "resource.hoursMoved", ["odd"], { display: true })).toBe("Planned hours moved: odd");
   });
 });
+
+// AI-04 — an AI-drafted report entry stores the meeting date as ISO; the panel formats it for the viewer's locale.
+describe("activityMessage — ai.reportDraft formats its meeting date", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+  it("shows the formatted date in English and German, never the raw ISO", () => {
+    for (const lang of ["en-US", "de"] as const) {
+      const msg = activityMessage(lang, "ai.reportDraft", ["2026-06-01"], { display: true });
+      expect(msg).toContain(formatExpiryDate("2026-06-01", lang));
+      expect(msg).not.toContain("2026-06-01");
+    }
+  });
+  it("shows a title (anything that is not an ISO date) as it is, and keeps the stored value without display", () => {
+    expect(activityMessage("en-US", "ai.reportDraft", ["Kickoff"], { display: true })).toContain("Kickoff");
+    expect(activityMessage("en-US", "ai.reportDraft", ["2026-06-01"])).toContain("2026-06-01");
+  });
+});

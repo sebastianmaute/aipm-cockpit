@@ -44,7 +44,7 @@ const READ_ONLY = t(defaultSettings.language, "popoutReadOnly");
 
 type Writer = (meta: ProjectMeta) => Promise<boolean>;
 
-function mount(opts: { writer?: Writer; isReadOnly?: boolean; epoch?: { value: number } } = {}) {
+function mount(opts: { writer?: Writer; isReadOnly?: boolean; epoch?: { value: number }; undoEpoch?: { value: number } } = {}) {
   const writer = vi.fn<Writer>(opts.writer ?? (async () => true));
   const projectWriterRef = { current: writer as Writer | null };
   const epoch = opts.epoch ?? { value: 0 };
@@ -59,6 +59,7 @@ function mount(opts: { writer?: Writer; isReadOnly?: boolean; epoch?: { value: n
         undo: { captureComposite },
         projectWriterRef,
         getScopeEpoch: () => epoch.value,
+        getUndoEpoch: () => (opts.undoEpoch ?? epoch).value,
         showToast,
       })),
       ws: useWorkspace(),
@@ -172,12 +173,12 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
     expect(h.logActivityAs).toHaveBeenCalledWith("ai", "project.updated", "customer, endDate");
   });
 
-  test("a successful AI update captures one project undo entry, stamped with the epoch it was read in", async () => {
-    const h = mount({ epoch: { value: 4 } });
+  test("a successful AI update captures one project undo entry, stamped with the UNDO epoch it was read in", async () => {
+    const h = mount({ epoch: { value: 4 }, undoEpoch: { value: 7 } });
     await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
     expect(h.captureComposite).toHaveBeenCalledTimes(1);
     expect(h.captureComposite.mock.calls[0][0]).toMatchObject({
-      kind: "project.updated", entityKey: "project", primaryCount: 1, name: "Apollo", readEpoch: 4,
+      kind: "project.updated", entityKey: "project", primaryCount: 1, name: "Apollo", readEpoch: 7,
     });
   });
 
@@ -272,16 +273,16 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
   });
 
   describe("through the real undo stack", () => {
-    function mountWithStack(epoch: { value: number }) {
+    function mountWithStack(epoch: { value: number }, undoEpoch: { value: number } = epoch) {
       const writer = vi.fn<Writer>(async () => true);
       const view = renderHook(
         () => {
           const undo = useUndoStack({
             lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn(),
-            getScopeEpoch: () => epoch.value,
+            getScopeEpoch: () => undoEpoch.value,
           });
           const dispatcher = useChatDispatcher(makeDispatcherArgs({
-            undo, projectWriterRef: { current: writer }, getScopeEpoch: () => epoch.value,
+            undo, projectWriterRef: { current: writer }, getScopeEpoch: () => epoch.value, getUndoEpoch: () => undoEpoch.value,
           }));
           return { undo, dispatcher };
         },
@@ -298,6 +299,25 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
       await settle();
       expect(h.writer).toHaveBeenCalledTimes(2);
       expect(h.writer.mock.calls[1][0]).toEqual(STORED);
+    });
+
+    // The undo stack's push guard compares against the UNDO epoch (scope + restores + denomination), so the capture
+    // must be stamped with that reader, not the plain scope epoch.
+    test("an AI update is undoable when the undo epoch differs from the scope epoch", async () => {
+      const h = mountWithStack({ value: 1 }, { value: 4 });
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
+      expect(h.result.current.undo.stack).toHaveLength(1);
+      act(() => h.result.current.undo.undo());
+      await settle();
+      expect(h.writer.mock.calls[1][0]).toEqual(STORED);
+    });
+
+    test("a restore during the write drops the undo entry instead of landing it in the next project", async () => {
+      const undoEpoch = { value: 4 };
+      const h = mountWithStack({ value: 1 }, undoEpoch);
+      h.writer.mockImplementation(async () => { undoEpoch.value = 5; return true; });
+      await act(async () => { await h.result.current.dispatcher.updateProjectMeta(NEXT); });
+      expect(h.result.current.undo.stack).toHaveLength(0);
     });
 
     test("an undo after a project switch writes nothing into the project open now", async () => {

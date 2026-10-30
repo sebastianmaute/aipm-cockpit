@@ -1017,6 +1017,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§781](#781-action-center-learning-is-rewritten-from-a-snapshot-that-never-read-its-store--closed-2026-10-24) | Action Center learning is rewritten from a snapshot that never read its store | — | — | **CLOSED** 2026-10-24 |
 | [§782](#782-an-insight-recommendation-can-propose-a-change-that-cannot-be-applied-and-the-failure-is-silent--closed-2026-10-24) | An insight recommendation can propose a change that cannot be applied, and the failure is silent | — | — | **CLOSED** 2026-10-24 |
 | [§783](#783-the-top-bars-bell-is-named-for-due-date-notifications-but-opens-next-actions--closed-2026-10-26) | The top bar's bell is named for due-date notifications but opens Next actions | — | — | **CLOSED** 2026-10-26 |
+| [§784](#784-escape-on-the-reports-replace-or-keep-both-question-adds-the-ai-section-instead-of-cancelling--open) | Escape on the report's Replace or Keep both question adds the AI section instead of cancelling | — | — | open |
 | [§785](#785-plan-with-ai-does-not-see-the-load-a-person-carries-in-other-projects) | Plan with AI does not see the load a person carries in other projects | #921 | — | OPEN |
 <!-- INDEX:END -->
 
@@ -46121,6 +46122,20 @@ Proposed: rename the base text in EN and DE (for example "Open next actions"), k
 Size S.
 
 **Source:** cold review of #892, 2026-10-25 (owner: file it).
+
+## 784. Escape on the report's Replace or Keep both question adds the AI section instead of cancelling — OPEN
+
+**Status:** OPEN 2026-10-30, filed on the owner's word from the final review of the AI-04 meeting-report draft work (`fix/ai-report-draft`). `grep -n "export type ConfirmFn" src/app/confirm-dialog.tsx` → `ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>`: the confirm has two outcomes, so Escape cannot differ from Keep both.
+
+**Work item:** #919
+
+Taking a section from the AI's proposal whose heading matches one of the user's asks Replace or Keep both (`take()` in `meeting-report-panel.tsx`, through `useConfirm`). The confirm has two outcomes, so Escape resolves as Keep both and `applyTake` adds the AI section after the user's. The spec says declining adds, so this is the intended behaviour today, but Escape usually means "do nothing". The editor remounts on each take (`seedNonce`), so its own undo history cannot remove the added section; the user deletes it by hand. Taken rows stay takeable, which makes the case easier to reach.
+
+Proposed: a third outcome. Escape, or a Cancel button, takes nothing and leaves the draft as it was; Replace and Keep both are unchanged. `ConfirmDialog` would need a cancel result distinct from its decline.
+
+Size S.
+
+**Source:** final whole-branch review of AI-04, 2026-10-30 (owner: file it).
 
 ## 785. Plan with AI does not see the load a person carries in other projects
 

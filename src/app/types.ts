@@ -311,6 +311,9 @@ export interface MeetingReport {
   html: string;
   updatedAt: string;
   sentAt?: string;
+  /** The text from before the most recent save; `savedAt` is the replaced
+   *  report's `updatedAt`. Set only when that text was non-empty. */
+  previous?: { html: string; savedAt: string };
 }
 
 export interface CommitteeMeeting {

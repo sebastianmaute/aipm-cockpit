@@ -580,7 +580,10 @@ export function SteeringCommitteePanel({
             if (!m) return null;
             const title = `${t(lang, "reportStatusReport")} – ${meetingToken(m)}`;
             return (
-              <Modal open onClose={closeReport} ariaLabel={title} align="center">
+              // appUndoOff: the app undo hotkey stays out of the WHOLE report dialog, its root included (AI-04) —
+              // a Ctrl+Z on one of its buttons, or on the root a click focuses, would otherwise undo a stored
+              // report under the draft.
+              <Modal open onClose={closeReport} ariaLabel={title} align="center" appUndoOff>
                 {/* print-root so @media print isn't blank; the panel behind drops
                     its own print-root while this modal is open (see root div) so
                     only the report prints. Resizable + reset/print/cancel chrome. */}
@@ -639,7 +642,7 @@ export function SteeringCommitteePanel({
                       lang={lang}
                       report={m.report}
                       recipients={committeeMemberEmails(c, resources)}
-                      onSave={(html) => report.onSaveReport(m.id, html)}
+                      onSave={(html, opts) => report.onSaveReport(m.id, html, opts)}
                       onSend={(recips) => report.onSendReport(m.id, recips)}
                       m365Configured={report.m365Configured}
                       sendBusy={report.sendBusyMeetingId === m.id}
@@ -651,6 +654,11 @@ export function SteeringCommitteePanel({
                       versions={reportVersions}
                       onRestore={(versionId) => report.onRestore(m.id, versionId)}
                       restoreBusyId={report.restoreBusyId}
+                      // AI-04 — the proposal is held by the report hook, so it survives this dialog closing.
+                      proposal={report.getProposal(m.id)}
+                      onTaken={(indices) => report.markTaken(m.id, indices)}
+                      onDiscardProposal={() => report.discardProposal(m.id)}
+                      onRestorePrevious={() => report.onRestorePrevious(m.id)}
                     />
                   </div>
                 </div>

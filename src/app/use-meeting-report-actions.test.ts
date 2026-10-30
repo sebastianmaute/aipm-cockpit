@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useMeetingReportActions, type MeetingReportActionsDeps } from "./use-meeting-report-actions";
-import type { SteeringCommittee, Resource } from "./types";
+import type { SteeringCommittee, Resource, MeetingReport } from "./types";
 import type { DashboardModel } from "./dashboard";
 import { defaultSettings } from "./settings-types";
 import { AiGatewayError, AiHttpError } from "./ai-errors";
 import { t } from "./i18n";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
+import { useUndoStack, type CaptureCompositeOpts } from "./undo/use-undo-stack";
 
 const sendMail = vi.fn<(token: string, msg: unknown) => Promise<void>>(async () => {});
 const runMeetingReport = vi.fn<() => Promise<string>>(async () => "<p>ai draft</p>");
@@ -33,7 +35,9 @@ vi.mock("./graph-mail", () => ({
 // function this test needs to avoid is stubbed.
 vi.mock("./sanitize-html", async (importActual) => ({
   ...(await importActual<typeof import("./sanitize-html")>()),
-  sanitizeRichHtml: (h: string) => h,
+  // Identity but for a plain marker, so a test can tell whether a body went THROUGH the sanitizer
+  // (a marker, not markup: an HTML-filtering regex stub here is flagged by code scanning).
+  sanitizeRichHtml: (h: string) => h.split("[[unsanitized]]").join(""),
 }));
 
 const resources: Resource[] = [
@@ -68,6 +72,8 @@ function makeDeps(over: Partial<MeetingReportActionsDeps> = {}): MeetingReportAc
     guides: [],
     projectId: "p1",
     getScopeEpoch: () => 0,
+    captureComposite: vi.fn(),
+    logActivityAs: vi.fn(),
     ...over,
   };
 }
@@ -96,12 +102,382 @@ describe("useMeetingReportActions", () => {
     expect(next.meetings[0].report?.html).toBe("<p>new</p>");
   });
 
+  describe("previous version", () => {
+    function harness(initial: SteeringCommittee = committee(), extra: Partial<MeetingReportActionsDeps> = {}) {
+      let state: SteeringCommittee | undefined = initial;
+      const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
+        state = u(state);
+      });
+      const deps = makeDeps({ setSteeringCommittee, ...extra });
+      Object.defineProperty(deps, "committee", { get: () => state });
+      const { result } = renderHook(() => useMeetingReportActions(deps));
+      return { result, report: () => state!.meetings[0].report!, meetings: () => state!.meetings };
+    }
+    const withReport = (report: MeetingReport): SteeringCommittee => ({
+      ...committee(false),
+      meetings: [{ id: 10, date: "2026-06-01", title: "M1", report }],
+    });
+
+    it("a save keeps the replaced text as previous, dated by its updatedAt", () => {
+      const h = harness();
+      act(() => h.result.current!.onSaveReport(10, "<p>second</p>"));
+      expect(h.report().html).toBe("<p>second</p>");
+      expect(h.report().previous).toEqual({ html: "<p>x</p>", savedAt: "t0" });
+      act(() => h.result.current!.onSaveReport(10, "<p>third</p>"));
+      expect(h.report().previous?.html).toBe("<p>second</p>");
+    });
+
+    it("sets no previous when there was no report, or the old html was empty", () => {
+      let state: SteeringCommittee | undefined = committee(false);
+      const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
+        state = u(state);
+      });
+      const deps = makeDeps({ setSteeringCommittee });
+      Object.defineProperty(deps, "committee", { get: () => state });
+      const { result } = renderHook(() => useMeetingReportActions(deps));
+      act(() => result.current!.onSaveReport(10, "<p>first</p>"));
+      expect(state!.meetings[0].report?.previous).toBeUndefined();
+      state = { ...state!, meetings: [{ ...state!.meetings[0], report: { html: "<p></p>", updatedAt: "t0" } }] };
+      act(() => result.current!.onSaveReport(10, "<p>second</p>"));
+      expect(state!.meetings[0].report?.previous).toBeUndefined();
+    });
+
+    it("onRestorePrevious swaps current and previous, and a second call swaps back", () => {
+      const h = harness();
+      act(() => h.result.current!.onSaveReport(10, "<p>second</p>"));
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report().html).toBe("<p>x</p>");
+      expect(h.report().previous?.html).toBe("<p>second</p>");
+      expect(h.report().sentAt).toBeUndefined();
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report().html).toBe("<p>second</p>");
+      expect(h.report().previous?.html).toBe("<p>x</p>");
+    });
+
+    it("saving text identical to the current html keeps the existing previous", () => {
+      const h = harness(withReport({ html: "<p>x</p>", updatedAt: "t5", previous: { html: "<p>old</p>", savedAt: "t1" } }));
+      act(() => h.result.current!.onSaveReport(10, "<p>x</p>"));
+      expect(h.report().html).toBe("<p>x</p>");
+      expect(h.report().previous).toEqual({ html: "<p>old</p>", savedAt: "t1" });
+    });
+
+    // an unchanged save is not a change: it writes nothing, so the sent stamp and the body's own
+    // stamp survive, and there is nothing to undo.
+    it("saving text identical to the current html writes nothing: sentAt and updatedAt stay, no undo entry", () => {
+      const captureComposite = vi.fn();
+      const h = harness(withReport({ html: "<p>x</p>", updatedAt: "t5", sentAt: "t9" }), { captureComposite });
+      const before = h.report();
+      act(() => h.result.current!.onSaveReport(10, "<p>x</p>"));
+      expect(h.report().sentAt).toBe("t9");
+      expect(h.report().updatedAt).toBe("t5");
+      expect(h.report()).toBe(before);
+      expect(captureComposite).not.toHaveBeenCalled();
+    });
+
+    it("an unchanged save takes no Turso version snapshot", async () => {
+      const h = harness(withReport({ html: "<p>x</p>", updatedAt: "t5" }), { tursoConfig: TURSO });
+      await act(async () => { h.result.current!.onSaveReport(10, "<p>x</p>"); });
+      expect(saveVersion).not.toHaveBeenCalled();
+    });
+
+    it("a save drops sentAt", () => {
+      const h = harness(withReport({ html: "<p>x</p>", updatedAt: "t0", sentAt: "t9" }));
+      act(() => h.result.current!.onSaveReport(10, "<p>y</p>"));
+      expect(h.report().sentAt).toBeUndefined();
+    });
+
+    it("restoring when the current html is empty omits previous (what persists)", () => {
+      const h = harness(withReport({ html: "", updatedAt: "t2", previous: { html: "<p>before</p>", savedAt: "t1" } }));
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report().html).toBe("<p>before</p>");
+      expect(h.report().previous).toBeUndefined();
+    });
+
+    it("restoring when the current html is a blank paragraph omits previous too", () => {
+      const h = harness(withReport({ html: "<p></p>", updatedAt: "t2", previous: { html: "<p>before</p>", savedAt: "t1" } }));
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report().html).toBe("<p>before</p>");
+      expect(h.report().previous).toBeUndefined();
+    });
+
+    it("restore-previous writes a Turso version row holding the text it replaced", async () => {
+      const h = harness(withReport({ html: "<p>live</p>", updatedAt: "t2", previous: { html: "<p>before</p>", savedAt: "t1" } }), { tursoConfig: TURSO });
+      act(() => h.result.current!.onRestorePrevious(10));
+      await waitFor(() => expect(saveVersion).toHaveBeenCalledTimes(1));
+      expect(saveVersion.mock.calls[0] as unknown[]).toContainEqual(expect.objectContaining({ html: "<p>live</p>", meetingId: 10 }));
+    });
+
+    it("a refused restore-previous (no previous on the live report) writes no version row", () => {
+      const h = harness(withReport({ html: "<p>live</p>", updatedAt: "t2" }), { tursoConfig: TURSO });
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(saveVersion).not.toHaveBeenCalled();
+    });
+
+    it("restore-previous sanitizes the previous body it writes", () => {
+      const h = harness(withReport({ html: "<p>live</p>", updatedAt: "t2", previous: { html: "<p>ok</p>[[unsanitized]]", savedAt: "t1" } }));
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report().html).toContain("<p>ok</p>");
+      expect(h.report().html).toBe("<p>ok</p>");
+    });
+
+    it("onRestorePrevious for another meeting id leaves this one untouched", () => {
+      const base = withReport({ html: "<p>x</p>", updatedAt: "t0", previous: { html: "<p>old</p>", savedAt: "t-1" } });
+      const h = harness({ ...base, meetings: [...base.meetings, { id: 11, date: "2026-06-02", title: "M2" }] });
+      act(() => h.result.current!.onRestorePrevious(11));
+      expect(h.meetings()[0].report).toEqual({ html: "<p>x</p>", updatedAt: "t0", previous: { html: "<p>old</p>", savedAt: "t-1" } });
+      expect(h.meetings()[1].report).toBeUndefined();
+    });
+
+    it("onRestorePrevious on a report with no previous is a no-op", () => {
+      const h = harness();
+      act(() => h.result.current!.onRestorePrevious(10));
+      expect(h.report()).toEqual({ html: "<p>x</p>", updatedAt: "t0" });
+    });
+
+    describe("undo and activity (AI-04)", () => {
+      const run = (c: ReturnType<typeof vi.fn>, i = 0) => (c.mock.calls[i][0] as CaptureCompositeOpts);
+
+      it("a save captures ONE meetingReport composite named by the meeting (title, else date)", () => {
+        const captureComposite = vi.fn();
+        const h = harness(committee(), { captureComposite });
+        act(() => h.result.current!.onSaveReport(10, "<p>second</p>"));
+        expect(captureComposite).toHaveBeenCalledTimes(1);
+        expect(run(captureComposite)).toMatchObject({ kind: "meetingReport.updated", primaryCount: 1, name: "M1" });
+        expect(run(captureComposite).parts).toHaveLength(1);
+      });
+
+      it("undo restores html AND previous together; redo re-applies both", () => {
+        const captureComposite = vi.fn();
+        const h = harness(committee(), { captureComposite });
+        act(() => h.result.current!.onSaveReport(10, "<p>second</p>"));
+        const saved = h.report();
+        expect(saved.previous?.html).toBe("<p>x</p>");
+        const redo = run(captureComposite).parts[0]!.restore({ current: new Map() }, false);
+        expect(h.report()).toEqual({ html: "<p>x</p>", updatedAt: "t0" });
+        redo();
+        expect(h.report()).toEqual(saved);
+      });
+
+      it("a restore-previous is one entry too, and undo brings the swapped pair back", () => {
+        const captureComposite = vi.fn();
+        const h = harness(committee(), { captureComposite });
+        act(() => h.result.current!.onSaveReport(10, "<p>second</p>"));
+        const before = h.report();
+        act(() => h.result.current!.onRestorePrevious(10));
+        expect(captureComposite).toHaveBeenCalledTimes(2);
+        run(captureComposite, 1).parts[0]!.restore({ current: new Map() }, false);
+        expect(h.report()).toEqual(before);
+      });
+
+      it("fromAi logs exactly one ai.reportDraft as actor ai; a plain save logs nothing", () => {
+        const logActivityAs = vi.fn();
+        const h = harness(committee(), { logActivityAs });
+        act(() => h.result.current!.onSaveReport(10, "<p>plain</p>"));
+        expect(logActivityAs).not.toHaveBeenCalled();
+        act(() => h.result.current!.onSaveReport(10, "<p>drafted</p>", { fromAi: true }));
+        expect(logActivityAs).toHaveBeenCalledTimes(1);
+        expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.reportDraft", "2026-06-01");
+      });
+
+      function quiet() {
+        const captureComposite = vi.fn();
+        const logActivityAs = vi.fn();
+        return { captureComposite, logActivityAs, h: harness(committee(), { captureComposite, logActivityAs }) };
+      }
+
+      it("captures and logs nothing for an unknown meeting", () => {
+        const q = quiet();
+        act(() => q.h.result.current!.onSaveReport(99, "<p>z</p>", { fromAi: true }));
+        expect(q.captureComposite).not.toHaveBeenCalled();
+        expect(q.logActivityAs).not.toHaveBeenCalled();
+      });
+
+      it("captures and logs nothing for a restore without a previous", () => {
+        const q = quiet();
+        act(() => q.h.result.current!.onRestorePrevious(10));
+        expect(q.captureComposite).not.toHaveBeenCalled();
+        expect(q.logActivityAs).not.toHaveBeenCalled();
+      });
+
+      it("captures and logs nothing for an unchanged body", () => {
+        const q = quiet();
+        act(() => q.h.result.current!.onSaveReport(10, "<p>x</p>", { fromAi: true }));
+        expect(q.captureComposite).not.toHaveBeenCalled();
+        expect(q.logActivityAs).not.toHaveBeenCalled();
+      });
+    });
+
+    // The deps committee is FROZEN at the first render (not a live getter): the writes must compute from the
+    // setter's live state, as a real render-scope closure goes stale between clicks.
+    describe("live state, not the render-scope committee (AI-04)", () => {
+      function frozen(initial: SteeringCommittee, extra: Partial<MeetingReportActionsDeps> = {}) {
+        let state: SteeringCommittee | undefined = initial;
+        const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
+          state = u(state);
+        });
+        const deps = makeDeps({ setSteeringCommittee, committee: initial, ...extra });
+        const { result } = renderHook(() => useMeetingReportActions(deps));
+        return { result, state: () => state, report: () => state!.meetings[0].report!, set: (s: SteeringCommittee) => { state = s; } };
+      }
+
+      it("two saves in one act compose: the second's previous is the first text", () => {
+        const f = frozen(committee());
+        act(() => {
+          f.result.current!.onSaveReport(10, "<p>one</p>");
+          f.result.current!.onSaveReport(10, "<p>two</p>");
+        });
+        expect(f.report().html).toBe("<p>two</p>");
+        expect(f.report().previous?.html).toBe("<p>one</p>");
+      });
+
+      it("a write between render and save is the base: its text becomes previous and sentAt is dropped (a new body is unsent)", () => {
+        const f = frozen(committee());
+        f.set({
+          ...committee(),
+          meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>live</p>", updatedAt: "t3", sentAt: "t4" } }],
+        });
+        act(() => f.result.current!.onSaveReport(10, "<p>new</p>"));
+        expect(f.report().html).toBe("<p>new</p>");
+        expect(f.report().previous).toEqual({ html: "<p>live</p>", savedAt: "t3" });
+        expect(f.report().sentAt).toBeUndefined();
+      });
+
+      it("undoing the second of two same-tick saves restores exactly the state before it; redo re-applies it", () => {
+        const captureComposite = vi.fn();
+        const f = frozen(committee(), { captureComposite });
+        act(() => {
+          f.result.current!.onSaveReport(10, "<p>one</p>");
+          f.result.current!.onSaveReport(10, "<p>two</p>");
+        });
+        const afterTwo = f.report();
+        expect(captureComposite).toHaveBeenCalledTimes(2);
+        const redo = (captureComposite.mock.calls[1][0] as CaptureCompositeOpts).parts[0]!.restore({ current: new Map() }, false);
+        expect(f.report().html).toBe("<p>one</p>");
+        expect(f.report().previous).toEqual({ html: "<p>x</p>", savedAt: "t0" });
+        redo();
+        expect(f.report()).toEqual(afterTwo);
+      });
+
+      it("a restore the live state refuses (no previous there) leaves the report alone and records no undo entry", () => {
+        const captureComposite = vi.fn();
+        const withPrev: SteeringCommittee = { ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>b</p>", updatedAt: "t2", previous: { html: "<p>a</p>", savedAt: "t1" } } }] };
+        const f = frozen(withPrev, { captureComposite });
+        const live = { html: "<p>live</p>", updatedAt: "t9" };
+        f.set({ ...withPrev, meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: live }] });
+        act(() => f.result.current!.onRestorePrevious(10));
+        expect(f.report()).toEqual(live);
+        expect(captureComposite).not.toHaveBeenCalled();
+      });
+
+      // A REAL useState setter: its updater runs at the next render, not inside the call, so anything that reads the
+      // updater's result synchronously (the log gate once did) sees nothing.
+      it("through a real useState setter: one ai.reportDraft as actor ai, and undo restores the prior report", () => {
+        const captureComposite = vi.fn();
+        const logActivityAs = vi.fn();
+        const { result } = renderHook(() => {
+          const [c, setC] = useState<SteeringCommittee | undefined>(committee());
+          const [, setTick] = useState(0);
+          const bag = useMeetingReportActions(makeDeps({ committee: c, setSteeringCommittee: setC, captureComposite, logActivityAs }));
+          return { bag, c, setTick };
+        });
+        act(() => result.current.setTick(1)); // an unrelated commit first
+        act(() => result.current.bag!.onSaveReport(10, "<p>plain</p>"));
+        const prior = result.current.c!.meetings[0].report;
+        expect(prior?.html).toBe("<p>plain</p>");
+        act(() => result.current.bag!.onSaveReport(10, "<p>drafted</p>", { fromAi: true }));
+        expect(result.current.c!.meetings[0].report?.html).toBe("<p>drafted</p>");
+        expect(logActivityAs).toHaveBeenCalledTimes(1);
+        expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.reportDraft", "2026-06-01");
+        const undo = (captureComposite.mock.calls[1][0] as CaptureCompositeOpts).parts[0]!;
+        act(() => { undo.restore({ current: new Map() }, false); });
+        expect(result.current.c!.meetings[0].report).toEqual(prior);
+      });
+
+      // Undo entry, Turso version row and AI log are decided on what the LIVE write did (writeLiveReport flushes the
+      // setter), not on this render's meeting, which a concurrent writer can have made stale.
+      it("render says changed but live already holds the body: no write, no undo entry, no version row, no log", () => {
+        const captureComposite = vi.fn();
+        const logActivityAs = vi.fn();
+        const f = frozen(committee(), { captureComposite, logActivityAs, tursoConfig: TURSO });
+        f.set({ ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>new</p>", updatedAt: "t9" } }] });
+        act(() => f.result.current!.onSaveReport(10, "<p>new</p>", { fromAi: true }));
+        expect(f.report()).toEqual({ html: "<p>new</p>", updatedAt: "t9" });
+        expect(captureComposite).not.toHaveBeenCalled();
+        expect(logActivityAs).not.toHaveBeenCalled();
+        expect(saveVersion).not.toHaveBeenCalled();
+      });
+
+      it("render says unchanged but live differs: the write lands with its undo entry, version row (of the LIVE text) and log", async () => {
+        const captureComposite = vi.fn();
+        const logActivityAs = vi.fn();
+        const f = frozen(
+          { ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>new</p>", updatedAt: "t0" } }] },
+          { captureComposite, logActivityAs, tursoConfig: TURSO },
+        );
+        f.set(committee());
+        act(() => f.result.current!.onSaveReport(10, "<p>new</p>", { fromAi: true }));
+        expect(f.report().html).toBe("<p>new</p>");
+        expect(f.report().previous?.html).toBe("<p>x</p>");
+        expect(captureComposite).toHaveBeenCalledTimes(1);
+        expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.reportDraft", "2026-06-01");
+        await waitFor(() => expect(saveVersion).toHaveBeenCalledTimes(1));
+        expect(saveVersion.mock.calls[0] as unknown[]).toContainEqual(expect.objectContaining({ html: "<p>x</p>" }));
+      });
+
+      it("a save the live report already holds hands the setter back the SAME committee object", () => {
+        const start: SteeringCommittee = { ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>new</p>", updatedAt: "t9" } }] };
+        const f = frozen(committee());
+        f.set(start);
+        act(() => f.result.current!.onSaveReport(10, "<p>new</p>"));
+        expect(f.state()).toBe(start);
+      });
+
+      it("a first save with nothing in it writes nothing: no report, no undo entry, false", () => {
+        const captureComposite = vi.fn();
+        const f = frozen(committee(false), { captureComposite });
+        let wrote = true;
+        act(() => { wrote = f.result.current!.onSaveReport(10, "<p></p>"); });
+        expect(wrote).toBe(false);
+        expect(f.state()!.meetings[0].report).toBeUndefined();
+        expect(captureComposite).not.toHaveBeenCalled();
+      });
+
+      it("a blank body that is overwritten is not stored as a Turso version", () => {
+        const f = frozen({ ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p></p>", updatedAt: "t0" } }] }, { tursoConfig: TURSO });
+        act(() => f.result.current!.onSaveReport(10, "<p>text</p>"));
+        expect(saveVersion).not.toHaveBeenCalled();
+      });
+
+      it("two restore-previous calls in one act swap back to where they started", () => {
+        const f = frozen({ ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>b</p>", updatedAt: "t2", previous: { html: "<p>a</p>", savedAt: "t1" } } }] });
+        act(() => {
+          f.result.current!.onRestorePrevious(10);
+          f.result.current!.onRestorePrevious(10);
+        });
+        expect(f.report().html).toBe("<p>b</p>");
+        expect(f.report().previous?.html).toBe("<p>a</p>");
+      });
+    });
+  });
+
   it("send with an empty recipient list shows the no-recipients toast and does NOT send", async () => {
     const showToast = vi.fn();
     const { result } = renderHook(() => useMeetingReportActions(makeDeps({ showToast })));
     await act(async () => { result.current!.onSendReport(10, []); });
     expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
     expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("does not send a report whose html is blank, even with a previous kept", async () => {
+    const committeeBlank: SteeringCommittee = {
+      ...committee(false),
+      meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p> </p>", updatedAt: "t2", previous: { html: "<p>b</p>", savedAt: "t1" } } }],
+    };
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ committee: committeeBlank, setSteeringCommittee })));
+    await act(async () => { result.current!.onSendReport(10, ["a@x.com"]); });
+    expect(sendMail).not.toHaveBeenCalled();
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
   });
 
   it("happy path sends to the given recipients, stamps sentAt, success toast", async () => {
@@ -119,13 +495,25 @@ describe("useMeetingReportActions", () => {
     expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
   });
 
-  it("generate drafts via AI and saves the sanitized result", async () => {
+  it("generate drafts via AI and holds the split result as a proposal, saving nothing", async () => {
     const setSteeringCommittee = vi.fn();
+    runMeetingReport.mockResolvedValueOnce("<h2>Status</h2><p>ok</p><h2>Risks</h2><p>none</p>");
     const { result } = renderHook(() => useMeetingReportActions(makeDeps({ setSteeringCommittee })));
     await act(async () => { result.current!.onGenerateReport(10); });
-    await waitFor(() => expect(runMeetingReport).toHaveBeenCalledTimes(1));
-    const updater = setSteeringCommittee.mock.calls.at(-1)![0] as (c: SteeringCommittee) => SteeringCommittee;
-    expect(updater(committee()).meetings[0].report?.html).toBe("<p>ai draft</p>");
+    await waitFor(() => expect(result.current!.getProposal(10)).toBeDefined());
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
+    const p = result.current!.getProposal(10)!;
+    expect(p.sections.map((x) => x.heading)).toEqual(["Status", "Risks"]);
+    expect(p.taken.size).toBe(0);
+    expect(p.createdAt).not.toBe("");
+  });
+
+  it("a draft that opens with a blank paragraph holds no opening section", async () => {
+    runMeetingReport.mockResolvedValueOnce("<p></p><h2>Status</h2><p>ok</p>");
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps()));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.getProposal(10)).toBeDefined());
+    expect(result.current!.getProposal(10)!.sections.map((x) => x.heading)).toEqual(["Status"]);
   });
 
   // §701 — the guides that target the committee report reach its call.
@@ -166,6 +554,7 @@ describe("useMeetingReportActions", () => {
     await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
     expect(showToast).not.toHaveBeenCalled();
     expect(setSteeringCommittee).not.toHaveBeenCalled();
+    expect(result.current!.getProposal(10)).toBeUndefined();
   });
 
   it("does not save a draft that resolves after the user stopped it", async () => {
@@ -181,6 +570,7 @@ describe("useMeetingReportActions", () => {
     await act(async () => { release!("<p>late</p>"); });
     await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
     expect(setSteeringCommittee).not.toHaveBeenCalled();
+    expect(result.current!.getProposal(10)).toBeUndefined();
   });
 
   it("generate is a no-op with no AI key", async () => {
@@ -210,9 +600,12 @@ describe("useMeetingReportActions", () => {
   });
 
   it("snapshots the prior report before an overwrite when Turso is active", async () => {
-    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ tursoConfig: TURSO })));
+    let state: SteeringCommittee | undefined = committee();
+    const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => { state = u(state); });
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ tursoConfig: TURSO, setSteeringCommittee })));
     await act(async () => { result.current!.onSaveReport(10, "<p>new</p>"); });
     await waitFor(() => expect(saveVersion).toHaveBeenCalledTimes(1));
+    expect(state!.meetings[0].report?.html).toBe("<p>new</p>");
   });
 
   it("does NOT snapshot on file backends (tursoConfig null)", () => {
@@ -233,6 +626,32 @@ describe("useMeetingReportActions", () => {
     await waitFor(() => expect(setSteeringCommittee).toHaveBeenCalled());
     const updater = setSteeringCommittee.mock.calls.at(-1)![0] as (c: SteeringCommittee) => SteeringCommittee;
     expect(updater(committee()).meetings[0].report?.html).toBe("<p>old version</p>");
+  });
+
+  it("a restore whose meeting is deleted during the version load writes nothing and does not say Restored", async () => {
+    loadVersionsFn.mockResolvedValueOnce([
+      { id: "v1", projectId: "p1", meetingId: 10, html: "<p>old version</p>", isAuto: true, capturedAt: "t" },
+    ]);
+    let state: SteeringCommittee | undefined = committee();
+    const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => { state = u(state); });
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ tursoConfig: TURSO, setSteeringCommittee, showToast })));
+    state = { ...committee(), meetings: [] }; // deleted while the versions load
+    await act(async () => { await result.current!.onRestore(10, "v1"); });
+    expect(showToast).not.toHaveBeenCalledWith("info", expect.anything());
+  });
+
+  it("a restore that writes says Restored", async () => {
+    loadVersionsFn.mockResolvedValueOnce([
+      { id: "v1", projectId: "p1", meetingId: 10, html: "<p>old version</p>", isAuto: true, capturedAt: "t" },
+    ]);
+    let state: SteeringCommittee | undefined = committee();
+    const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => { state = u(state); });
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ tursoConfig: TURSO, setSteeringCommittee, showToast })));
+    await act(async () => { await result.current!.onRestore(10, "v1"); });
+    expect(showToast).toHaveBeenCalledWith("info", expect.anything());
+    expect(state!.meetings[0].report?.html).toBe("<p>old version</p>");
   });
 
   it("loadVersions returns [] on file backends", async () => {
@@ -295,21 +714,31 @@ describe("§763 a report write that resolves after a project swap is dropped", (
     expect(setSteeringCommittee).not.toHaveBeenCalled();
     expect(saveVersion).not.toHaveBeenCalled();
     expect(showToast).not.toHaveBeenCalled();
+    epoch = 1; // even back on the start epoch nothing was stored
+    expect(result.current!.getProposal(10)).toBeUndefined();
     expect(dropped("useMeetingReportActions.generate")).toEqual([
       expect.objectContaining({ fields: expect.objectContaining({ writer: "useMeetingReportActions.generate", meetingId: 10 }) }),
     ]);
   });
 
-  it("a draft with no swap still writes, and logs no drop", async () => {
+  it("a draft with no swap is held as a proposal, writes nothing, and logs no drop", async () => {
     const setSteeringCommittee = vi.fn();
     const { result } = renderHook(() =>
       useMeetingReportActions(makeDeps({ setSteeringCommittee, getScopeEpoch: () => 7 })),
     );
     await act(async () => { result.current!.onGenerateReport(10); });
-    await waitFor(() => expect(setSteeringCommittee).toHaveBeenCalledTimes(1));
-    const updater = setSteeringCommittee.mock.calls[0][0] as (c: SteeringCommittee) => SteeringCommittee;
-    expect(updater(committee()).meetings[0].report?.html).toBe("<p>ai draft</p>");
+    await waitFor(() => expect(result.current!.getProposal(10)).toBeDefined());
+    expect(setSteeringCommittee).not.toHaveBeenCalled();
     expect(dropped("useMeetingReportActions.generate")).toEqual([]);
+  });
+
+  it("a proposal made in one project is not served after the epoch moves", async () => {
+    let epoch = 1;
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ getScopeEpoch: () => epoch })));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.getProposal(10)).toBeDefined());
+    epoch = 2;
+    expect(result.current!.getProposal(10)).toBeUndefined();
   });
 
   it("a restore whose versions load after the swap writes nothing and does not say Restored", async () => {
@@ -351,5 +780,248 @@ describe("§763 a report write that resolves after a project swap is dropped", (
     expect(dropped("useMeetingReportActions.send")).toHaveLength(1);
     // The mail did go out, so the user is still told it was sent.
     expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
+  });
+});
+
+describe("AI-04 the draft is a proposal held per meeting", () => {
+  const draft = (html: string) => runMeetingReport.mockResolvedValueOnce(html);
+  async function generate(result: { current: ReturnType<typeof useMeetingReportActions> }) {
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+  }
+
+  it("a second draft replaces the first and clears what was taken", async () => {
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps()));
+    draft("<h2>A</h2><p>1</p><h2>B</h2><p>2</p>");
+    await generate(result);
+    act(() => result.current!.markTaken(10, [0]));
+    draft("<h2>C</h2><p>3</p>");
+    await generate(result);
+    const p = result.current!.getProposal(10)!;
+    expect(p.sections.map((x) => x.heading)).toEqual(["C"]);
+    expect(p.taken.size).toBe(0);
+  });
+
+  it("markTaken accumulates indices, and discardProposal clears the proposal", async () => {
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps()));
+    draft("<h2>A</h2><p>1</p><h2>B</h2><p>2</p><h2>C</h2><p>3</p>");
+    await generate(result);
+    act(() => result.current!.markTaken(10, [0]));
+    act(() => result.current!.markTaken(10, [2]));
+    expect([...result.current!.getProposal(10)!.taken].sort()).toEqual([0, 2]);
+    act(() => result.current!.discardProposal(10));
+    expect(result.current!.getProposal(10)).toBeUndefined();
+  });
+
+  it("a draft for a meeting deleted before it resolves leaves no proposal", async () => {
+    let live: SteeringCommittee | undefined = committee();
+    const deps = makeDeps();
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    let release!: (v: string) => void;
+    runMeetingReport.mockImplementationOnce(() => new Promise<string>((r) => { release = r; }));
+    act(() => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(10));
+    live = { ...committee(), meetings: [] };
+    rerender();
+    await act(async () => { release("<h2>A</h2><p>1</p>"); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+    live = committee(); // even if a meeting with that id returns, no proposal was stored for it
+    rerender();
+    expect(result.current!.getProposal(10)).toBeUndefined();
+  });
+
+  it("an empty draft stores no proposal and shows the draft-failed toast", async () => {
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ showToast })));
+    draft("<p> </p>");
+    await generate(result);
+    expect(result.current!.getProposal(10)).toBeUndefined();
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "reportGenerateFailed"));
+  });
+});
+
+describe("AI-04 a proposal of a deleted meeting is pruned", () => {
+  it("deleting the meeting and creating one with the same id and date shows no proposal", async () => {
+    runMeetingReport.mockResolvedValueOnce("<h2>Status</h2><p>ok</p>");
+    const withMeeting = committee();
+    const { result, rerender } = renderHook(({ c }: { c: SteeringCommittee }) => useMeetingReportActions(makeDeps({ committee: c })), {
+      initialProps: { c: withMeeting },
+    });
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.getProposal(10)).toBeDefined());
+    rerender({ c: { ...withMeeting, meetings: [] } }); // deleted
+    rerender({ c: { ...withMeeting, meetings: [{ id: 10, date: "2026-06-01", title: "New one" }] } }); // re-created: same id, same date
+    expect(result.current!.getProposal(10)).toBeUndefined();
+  });
+});
+
+describe("AI-04 a proposal is tied to its meeting, not only its id", () => {
+  // Meeting ids are max + 1, so deleting the newest meeting and adding another reuses its id.
+  const withMeeting = (title: string, date = "2026-07-01"): SteeringCommittee => ({
+    ...committee(false),
+    meetings: [{ id: 3, date, title }],
+  });
+
+  it("a held proposal survives the meeting being pushed to Outlook (gains an outlookEventId)", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const deps = makeDeps();
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    runMeetingReport.mockResolvedValueOnce("<h2>A</h2><p>1</p>");
+    await act(async () => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.getProposal(3)).toBeDefined());
+    live = { ...live!, meetings: [{ ...live!.meetings[0], outlookEventId: "evt-1" }] };
+    rerender();
+    expect(result.current!.getProposal(3)).toBeDefined();
+  });
+
+  it("a held proposal survives an ordinary title edit", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const deps = makeDeps();
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    runMeetingReport.mockResolvedValueOnce("<h2>A</h2><p>1</p>");
+    await act(async () => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.getProposal(3)).toBeDefined());
+    live = withMeeting("Renamed");
+    rerender();
+    expect(result.current!.getProposal(3)).toBeDefined();
+  });
+
+  it("a held proposal is not served on a different meeting that reuses the id", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const deps = makeDeps();
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    runMeetingReport.mockResolvedValueOnce("<h2>A</h2><p>1</p>");
+    await act(async () => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.getProposal(3)).toBeDefined());
+    live = { ...live!, meetings: [] };
+    rerender();
+    live = withMeeting("Replacement", "2026-08-01");
+    rerender();
+    expect(result.current!.getProposal(3)).toBeUndefined();
+  });
+
+  it("a draft in flight is dropped when its meeting is deleted and re-created with the same id", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const deps = makeDeps();
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    let release!: (v: string) => void;
+    runMeetingReport.mockImplementationOnce(() => new Promise<string>((r) => { release = r; }));
+    act(() => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(3));
+    live = withMeeting("Replacement", "2026-08-01");
+    rerender();
+    await act(async () => { release("<h2>A</h2><p>1</p>"); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+    live = withMeeting("Original");
+    rerender();
+    expect(result.current!.getProposal(3)).toBeUndefined();
+  });
+
+  // Final-review item 7 — the date-change drop used to be silent.
+  it("a draft dropped because the meeting's date changed while it was written says so", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const showToast = vi.fn();
+    const deps = makeDeps({ showToast });
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    let release!: (v: string) => void;
+    runMeetingReport.mockImplementationOnce(() => new Promise<string>((r) => { release = r; }));
+    act(() => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(3));
+    live = withMeeting("Original", "2026-08-15");
+    rerender();
+    await act(async () => { release("<h2>A</h2><p>1</p>"); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+    expect(result.current!.getProposal(3)).toBeUndefined();
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "reportDraftMeetingChanged"));
+  });
+
+  it("a draft for a meeting deleted while it was written shows no date-change notice", async () => {
+    let live: SteeringCommittee | undefined = withMeeting("Original");
+    const showToast = vi.fn();
+    const deps = makeDeps({ showToast });
+    Object.defineProperty(deps, "committee", { get: () => live });
+    const { result, rerender } = renderHook(() => useMeetingReportActions(deps));
+    let release!: (v: string) => void;
+    runMeetingReport.mockImplementationOnce(() => new Promise<string>((r) => { release = r; }));
+    act(() => { result.current!.onGenerateReport(3); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBe(3));
+    live = { ...live!, meetings: [] };
+    rerender();
+    await act(async () => { release("<h2>A</h2><p>1</p>"); });
+    await waitFor(() => expect(result.current!.generateBusyMeetingId).toBeNull());
+    expect(showToast).not.toHaveBeenCalled();
+  });
+});
+
+describe("AI-04 final review — a report save on the real undo stack", () => {
+  // the stack refuses a push whose `readEpoch` differs from ITS reader, which in the app is the UNDO
+  // epoch (scope + restore + denomination), not the scope epoch this hook is given. The two differ after any
+  // currency/baseline change or version restore; the report save must still land on the stack.
+  function composed(scopeEpoch: number, undoEpoch: number) {
+    let state: SteeringCommittee | undefined = committee();
+    const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
+      state = u(state);
+    });
+    const { result } = renderHook(() => {
+      const undo = useUndoStack({
+        lang: "en-US",
+        logActivity: vi.fn(),
+        showToast: vi.fn(),
+        showToastAction: vi.fn(),
+        getScopeEpoch: () => undoEpoch,
+      });
+      const deps = makeDeps({ setSteeringCommittee, getScopeEpoch: () => scopeEpoch, captureComposite: undo.captureComposite });
+      Object.defineProperty(deps, "committee", { get: () => state });
+      return { undo, actions: useMeetingReportActions(deps) };
+    });
+    return { result, report: () => state!.meetings[0].report };
+  }
+
+  it("a save is undoable when the undo epoch differs from the scope epoch", () => {
+    const h = composed(0, 3);
+    act(() => h.result.current.actions!.onSaveReport(10, "<p>new</p>"));
+    expect(h.result.current.undo.stack).toHaveLength(1);
+    act(() => h.result.current.undo.undo());
+    expect(h.report()?.html).toBe("<p>x</p>");
+  });
+
+  it("a restore of the previous version is undoable when the undo epoch differs from the scope epoch", () => {
+    const h = composed(0, 3);
+    act(() => h.result.current.actions!.onSaveReport(10, "<p>new</p>"));
+    act(() => h.result.current.actions!.onRestorePrevious(10));
+    expect(h.result.current.undo.stack).toHaveLength(2);
+    act(() => h.result.current.undo.undo());
+    expect(h.report()?.html).toBe("<p>new</p>");
+  });
+});
+
+describe("AI-04 final review — an empty body carries its previous forward", () => {
+  // clear → Save → type → Save must keep A as previous (the empty body is not worth keeping, A is).
+  it("clear, save, type, save keeps the text before the clear as previous", () => {
+    let state: SteeringCommittee | undefined = {
+      ...committee(false),
+      meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>A</p>", updatedAt: "t0" } }],
+    };
+    const setSteeringCommittee = vi.fn((u: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined) => {
+      state = u(state);
+    });
+    const deps = makeDeps({ setSteeringCommittee });
+    Object.defineProperty(deps, "committee", { get: () => state });
+    const { result } = renderHook(() => useMeetingReportActions(deps));
+    act(() => result.current!.onSaveReport(10, "<p></p>")); // what an emptied editor emits
+    expect(state!.meetings[0].report).toMatchObject({ html: "<p></p>", previous: { html: "<p>A</p>", savedAt: "t0" } });
+    act(() => result.current!.onSaveReport(10, "<p>B</p>"));
+    expect(state!.meetings[0].report?.html).toBe("<p>B</p>");
+    expect(state!.meetings[0].report?.previous).toEqual({ html: "<p>A</p>", savedAt: "t0" });
+    // Restore stays consistent: B and A swap, and no empty body is ever kept as previous.
+    act(() => result.current!.onRestorePrevious(10));
+    expect(state!.meetings[0].report?.html).toBe("<p>A</p>");
+    expect(state!.meetings[0].report?.previous?.html).toBe("<p>B</p>");
   });
 });

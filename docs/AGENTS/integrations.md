@@ -53,6 +53,34 @@ clear (info-instances ARE map-tracked so they prune automatically). ★★ `outl
 tolerates 404 ONLY for DELETE; PATCH/POST THROW `GraphCalendarError(404)` so an event deleted in Outlook gets
 re-created next push (committee + milestone hooks self-heal by clearing the stale id).
 
+★★ **Meeting report: the AI draft is a PROPOSAL, not a write (AI-04).** `useMeetingReportActions`
+(`use-meeting-report-actions.ts`) owns it in hook state, one per meeting, never persisted: the draft is sanitized BEFORE
+the split, tied to the meeting's date (`fingerprint`) and to the scope epoch (`getProposal` returns
+nothing when the epoch moved, so a project change drops it). `markTaken`/`discardProposal` change the marks; a take is not
+marked until the Save lands. ★ A taken row keeps its visible Taken label but its Take stays ENABLED (an undone or
+restored-over take must stay takeable; Take all still skips taken rows), so the panel's focus move after a take reads
+`data-taken`, not `disabled`. A draft that resolves after its meeting's date changed is dropped with the
+`reportDraftMeetingChanged` toast. Pure split/merge is `report-sections.ts` (`splitSections` for the user's text, `splitProposalSections` for the AI draft: it splits only at the draft's TOP heading level and drops a blank opening; `planTake`, `applyTake`, an unmatched AI section goes after the nearest preceding AI section the text has (at the end of that anchor's range, extended past anything deeper than itself), else before the nearest following one whose level is at most its own, else at the end; an AI section shallower than the user section it matches goes to the end of the enclosing range at its own level, so the user's later sub-sections stay under their parent; an AI section deeper than a user section with the same heading never matches it and is added instead;
+and `isBlankReport`, the one blank-body rule the send refusal and the panel's disabled Send share); the proposal list
+(`meeting-report-proposal.tsx`) sits ABOVE the editor, each row with a closed-by-default `<details>` preview rendered
+through `RichTextView`; a matching heading asks Replace or Keep both in `meeting-report-panel.tsx`'s `take()`. `onSaveReport(id, html, {fromAi})`
+computes from live state, writes NOTHING for a body identical to the live one (`replacedReport` returns undefined, so
+`updatedAt` and `sentAt` stay, and no snapshot, undo entry or log row is made — decided on what the updater SAW: `writeLiveReport` wraps the setter in `flushSync` (§476 pattern) so the stash is final on return), is undoable through the composite fragment in `meeting-report-undo.ts`
+(`meetingReportUndoFragment`), and logs `ai.reportDraft` (actor ai) only when `fromAi`. ★★ Its `captureComposite` passes
+NO `readEpoch`: the capture is synchronous, so the stack stamps its own (UNDO) epoch. Passing the plain scope epoch made
+the stack refuse every report save once a currency change or version restore moved the undo epoch.
+`onRestorePrevious` swaps current and previous, is undoable, sanitizes the body it writes and (Turso) snapshots the text it replaced; "blank" everywhere means `isBlankReport` (an emptied editor emits `<p></p>`, not ""), so a blank replaced body is never kept as `previous` and the sanitizer drops a blank `previous`; both it and the Turso version list's Restore ask first
+in the panel over unsaved editor text; `use-report-undo-guard.ts` asks first when the top-bar
+undo would reverse a report change over unsaved edits. The report `Modal` passes `appUndoOff`, which puts
+`data-app-undo="off"` on the dialog ROOT, so the Ctrl+Z / redo hotkey is off on the `tabIndex={-1}` root as well; the confirms and the notice the panel opens pass `appUndoOff` too (`ConfirmOptions` / `NoticeOptions`), because `ConfirmProvider` renders at the app root, outside that subtree. ★★ `MeetingReport.previous` (`{html, savedAt}`, one slot) rides
+the same blob as the report and is validated in the sanitizer (a malformed one is dropped, the report kept); Turso still
+keeps its own version list. It lives in the committee blob, so it reaches each backend with the blob. Six paths, counted here: JSON, CSV and
+Markdown (`steering-committee-persistence.test.ts`, which also covers a blank `html`), Turso single-tenant and tenant
+(`turso-tenant-schema.test.ts`) and IndexedDB (`browser-backend.test.ts`); `sanitize-records.test.ts` pins the validator.
+★ Parked residuals: the proposal is tied to the meeting's id and DATE only (`meetingFingerprint`; the title and the Outlook
+id are left out so an edit or a push keeps it), so a date change hides it (hidden, not deleted: the old date shows it again), while a meeting that is gone from the
+committee drops its proposal outright (a render-time prune in the hook), so a meeting re-created with the same id and date never inherits it.
+
 ### Calendar write-back engine (generic — milestones/committee + tasks)
 
 Milestone + committee push use the BARE category `categoryFor(projectId)` = `AIPM:${projectId}` and are LIST-BASED

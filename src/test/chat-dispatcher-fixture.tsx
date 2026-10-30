@@ -79,6 +79,7 @@ export function makeDispatcherArgs(
     // §715 — REQUIRED on `ChatDispatcherArgs`. No writer: a project update refuses unless the test supplies one.
     projectWriterRef: { current: null },
     getScopeEpoch: () => 0,
+    getUndoEpoch: () => 0,
     showToast: vi.fn(),
     ...over,
   };

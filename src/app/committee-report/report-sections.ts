@@ -1,0 +1,344 @@
+// Pure section split and merge for the AI meeting-report draft (AI-04). DOM-free:
+// the input is already-sanitized rich-text HTML, so a string split on h1-h4 is
+// enough; never call DOMPurify here (docs/AGENTS/rich-text.md).
+//
+// ★ Splitting assumes TOP-LEVEL headings. HEADING_RE is markup-blind, so a heading nested in a container (a
+// blockquote, a list item) splits that element mid-way: the pieces are unbalanced fragments that still concatenate
+// back to the input, and the save re-sanitizes the joined text (pinned in report-sections.test.ts).
+// Placement and matching rules, each beside the test (in report-sections.test.ts) that pins it:
+//
+//  | rule                                                                       | pinned by                                                                     |
+//  | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+//  | a section matches a user section of the same heading at its level or DEEPER | "matches an h3 inside another h2, replaces only that block and keeps the h3 sibling under its parent" |
+//  | only the first of duplicate user headings is matched                       | "replaces only the first of duplicate user headings"                          |
+//  | Replace swaps the matched range (to the next same-or-higher heading)       | "removes sub-headings with a replaced section and reports them"               |
+//  | Keep both adds after the matched range, AI sections keeping AI order       | "declining Replace on Take all lands Risks before Vendor, after the user's range" |
+//  | a DEEPER AI heading never matches a shallower user section (it is added)  | "the plan reports an addition, no replacement, and the user's Risks range stays intact" |
+//  | a SHALLOWER AI section goes to the end of the enclosing range at its level | "Replace removes the user's h3 and places the h2 after the whole Status range" |
+//  | ... but only inside a parent heading; a flat report is taken in situ       | "Take all with Replace keeps the user's order"                                |
+//  | the opening goes under a leading h1 TITLE (the only h1), not above it      | "after a leading h1 that has no text of its own" |
+//  | ... several h1 sections are not a title: the opening goes first            | "a report of several h1 sections has no title: the opening goes first and the user's h1 sections stay intact" |
+//  | ... an opening held under the title is counted once, and anchors           | "an opening taken under the title is counted once: a re-take adds nothing" |
+//  | a titled flat report is taken in situ (only an h2 parent cuts an h2 range) | "Take all with Replace keeps the user's order" |
+//  | a placed AI anchor owns no user items                                      | "Take all over a flat report with an unmatched AI section between two matched ones keeps AI order and the user's order" |
+//  | ... and keeps AI order across several of them                              | "Take all with Replace over two shallower matches under one parent keeps AI order" |
+//  | unmatched: after the nearest PRECEDING anchor (extended past deeper items) | "a preceding anchor deeper than the inserted section extends to the end of the enclosing range" |
+//  | unmatched, no preceding anchor: BEFORE the nearest following one, level <= | "A alone goes before the following AI section the text has"                   |
+//  | ... a deeper following anchor is skipped                                   | "a following anchor deeper than the inserted section is skipped: Plan goes to the end, Risks stays under Status" |
+//  | unmatched, no anchor at all: the end                                       | "appends an unmatched section at the end when there is no anchor"             |
+//  | the AI opening (level 0) is never matched, only added after the user's     | "never replaces the user's level-0 text and adds the AI's after it"           |
+//  | the opening is recognised by its TEXT as WHOLE BLOCKS (a contiguous run)   | "a taken-and-saved opening, re-serialised by the editor without the newline, is not added again" |
+//  | ... a mere mention inside a sentence is not the opening                    | "an opening that only occurs INSIDE a user sentence is added, and does not anchor" |
+//  | a blank opening is dropped from a proposal and ignored by the engine       | "splitProposalSections leaves no opening row for whitespace or an empty paragraph" |
+//  | a proposal splits only at the draft's TOP heading level                    | "keeps nested sub-headings inside their parent section"                       |
+//  | ... and a deeper heading never folds into the opening                      | "a deeper heading is not folded into the level-0 opening: it keeps its own row" |
+//  | the user's own text splits at every heading and loses no byte              | "a user text with a blank preamble round-trips byte for byte"                 |
+import { htmlToPlainText, isBlankHtml } from "../html-to-text";
+
+/** The block texts of `html` (paragraphs, list items, headings, quotes, code), each whitespace-collapsed, empties
+ *  dropped. The model puts newlines between blocks that the editor drops when the user types, so the markup of an
+ *  opening differs from its saved form while its blocks are the same. */
+function blockTexts(html: string): string[] {
+  const BREAK = "\uE000";
+  const marked = html.replace(/<\/\s*(?:p|li|h[1-6]|blockquote|pre|div|tr|ul|ol)\s*>/gi, (m) => m + BREAK);
+  return htmlToPlainText(marked)
+    .split(BREAK)
+    .map((b) => b.replace(/\s+/g, " ").trim())
+    .filter((b) => b !== "");
+}
+
+/** True when `run` appears in `blocks` as a contiguous run of whole blocks. */
+function holdsRun(blocks: readonly string[], run: readonly string[]): boolean {
+  if (run.length === 0) return false;
+  for (let i = 0; i + run.length <= blocks.length; i++) if (run.every((b, k) => blocks[i + k] === b)) return true;
+  return false;
+}
+
+/** Whether the level-0 section `user` already holds the AI opening `opening` (never for a blank one). */
+/** With no text before the first heading, a leading h1 TITLE's own body is where an opening lives once taken (the
+ *  editor and the splitter see it as part of the h1 section): that body, as a level-0 stand-in, else undefined. */
+/** The first h1 is a TITLE only when it is the only h1 of the report (several h1 are sections, not a title). */
+function hasLeadingTitle(items: readonly Item[]): boolean {
+  return items[0]?.section.level === 1 && items.filter((it) => !it.placed && it.section.level === 1).length === 1;
+}
+
+function titleBody(items: readonly Item[]): ReportSection | undefined {
+  const first = items[0]?.section;
+  if (!hasLeadingTitle(items) || items.some((it) => it.section.level === 0)) return undefined;
+  if (!first) return undefined;
+  return { level: 0, heading: "", key: "", html: sectionBodyHtml(first.html) };
+}
+
+function holdsOpening(user: ReportSection | undefined, opening: ReportSection): boolean {
+  return user !== undefined && !isBlankHtml(opening.html) && holdsRun(blockTexts(user.html), blockTexts(opening.html));
+}
+
+// The ONE blank rule (the hook refuses to send a blank body, the panel disables Send on it, the sanitizer drops a
+// blank `previous`); it lives beside htmlToPlainText so the shared sanitizer need not import this feature module.
+export { isBlankHtml as isBlankReport } from "../html-to-text";
+
+export interface ReportSection {
+  level: 0 | 1 | 2 | 3 | 4;
+  heading: string;
+  key: string;
+  html: string;
+}
+
+export interface TakeReplacement {
+  aiIndex: number;
+  userHeading: string;
+  removedSubheadings: string[];
+}
+
+export interface TakePlan {
+  replacements: TakeReplacement[];
+  additions: number[];
+}
+
+// A heading element; inner content may carry inline tags but never another heading.
+const HEADING_RE = /<h([1-4])\b[^>]*>((?:[^<]|<(?!\/?h[1-4]\b))*)<\/h\1>/gi;
+
+// Numeric references are decoded BEFORE htmlToPlainText so its named-entity pass
+// never sees a decoded "&" (no double decode of "&amp;#8211;"); the markup
+// characters stay encoded for the same reason.
+function headingText(inner: string): string {
+  const numeric = inner.replace(
+    /&#(x[0-9a-f]+|[0-9]+);/gi,
+    (whole, body: string) => {
+      const n =
+        body[0].toLowerCase() === "x"
+          ? Number.parseInt(body.slice(1), 16)
+          : Number.parseInt(body, 10);
+      if (
+        !Number.isFinite(n) ||
+        n <= 0 ||
+        n > 0x10ffff ||
+        n === 38 ||
+        n === 60 ||
+        n === 62
+      )
+        return whole;
+      return String.fromCodePoint(n);
+    },
+  );
+  return htmlToPlainText(numeric).replace(/\s+/g, " ").trim();
+}
+
+/** Match key for heading text; the input may contain inline markup and entities. */
+export function normalizeHeading(text: string): string {
+  return headingText(text).toLowerCase();
+}
+
+/** The sections of an AI draft as the proposal shows them: a BLANK opening (whitespace, an empty paragraph) is not a
+ *  section. (The user's own text goes through splitSections whole, so a blank preamble there still round-trips.) */
+export function splitProposalSections(html: string): ReportSection[] {
+  const all = splitSections(html).filter((s) => !(s.level === 0 && isBlankHtml(s.html)));
+  const levels = all.filter((s) => s.level !== 0).map((s) => s.level);
+  const top = levels.length > 0 ? Math.min(...levels) : 0;
+  // Only the draft's TOP heading level splits it: a deeper heading stays inside the section above it, so a Replace of
+  // the parent brings its sub-sections along. (A deeper heading with nothing above it keeps its own section.)
+  const out: ReportSection[] = [];
+  for (const s of all) {
+    const prev = out[out.length - 1];
+    // A deeper heading never joins the level-0 opening (it would be re-taken with it), nor a sibling at its own depth.
+    if (s.level > top && prev && prev.level !== 0 && s.level > prev.level) out[out.length - 1] = { ...prev, html: prev.html + s.html };
+    else out.push(s);
+  }
+  return out;
+}
+
+export function splitSections(html: string): ReportSection[] {
+  const out: ReportSection[] = [];
+  const starts: { index: number; level: 1 | 2 | 3 | 4; inner: string }[] = [];
+  for (const m of html.matchAll(HEADING_RE)) {
+    starts.push({
+      index: m.index,
+      level: Number(m[1]) as 1 | 2 | 3 | 4,
+      inner: m[2],
+    });
+  }
+  const firstEnd = starts.length > 0 ? starts[0].index : html.length;
+  if (firstEnd > 0)
+    out.push({ level: 0, heading: "", key: "", html: html.slice(0, firstEnd) });
+  starts.forEach((s, i) => {
+    const end = i + 1 < starts.length ? starts[i + 1].index : html.length;
+    const heading = headingText(s.inner);
+    out.push({
+      level: s.level,
+      heading,
+      key: normalizeHeading(s.inner),
+      html: html.slice(s.index, end),
+    });
+  });
+  return out;
+}
+
+/** A section's html WITHOUT its own leading heading element (h1-h4), for a preview shown under a row that already
+ *  names it. Only the first heading is dropped, and only when it opens the html (a level-0 opening section has none). */
+export function sectionBodyHtml(html: string): string {
+  const m = /^\s*<h([1-4])\b[^>]*>(?:[^<]|<(?!\/?h[1-4]\b))*<\/h\1>/i.exec(html);
+  return m ? html.slice(m[0].length) : html;
+}
+
+interface Item {
+  section: ReportSection;
+  placed: boolean; // came from the AI: never a match target, may anchor an insertion
+}
+
+/** Index one past the last item of the section at `at`: it runs to the next heading of the same or higher level. */
+function rangeEnd(items: readonly Item[], at: number): number {
+  const level = items[at].section.level;
+  let e = at + 1;
+  if (level === 0) return e;
+  while (e < items.length && items[e].section.level > level) e++;
+  return e;
+}
+
+/** The first user section with this heading that is at least as DEEP as `level` (a deeper AI heading never matches a
+ *  shallower user section: it is added by the anchor rules instead of swallowing the shallower one). */
+function findUserMatch(items: readonly Item[], key: string, level: number): number {
+  if (key === "") return -1;
+  return items.findIndex(
+    (it) => !it.placed && it.section.level !== 0 && it.section.level >= level && it.section.key === key,
+  );
+}
+
+/** Where an unmatched AI section goes, in this order:
+ *  1. after the nearest PRECEDING AI section the working text also has (or one placed in this call), at the end of that
+ *     anchor's range, extended past anything deeper than the inserted section so a parent's later sub-sections stay put;
+ *  2. else BEFORE the nearest FOLLOWING AI section the text has (or one placed in this call), counting only an anchor
+ *     whose level is at most the inserted section's;
+ *  3. else the end.
+ *  The AI opening (level 0) goes after the text's own level-0 section, else under a leading h1 title, else first. */
+function insertionPoint(
+  items: readonly Item[],
+  ai: readonly ReportSection[],
+  aiIndex: number,
+): number {
+  const level0 = items.findIndex((it) => it.section.level === 0);
+  if (ai[aiIndex].level === 0) {
+    if (level0 !== -1) return rangeEnd(items, level0);
+    // No text before the first heading: the opening goes first, but UNDER a leading h1 title (after the title's own
+    // text, before its first sub-heading: index 1), never above it.
+    return hasLeadingTitle(items) ? 1 : 0;
+  }
+  for (let j = aiIndex - 1; j >= 0; j--) {
+    // Deliberately includes AI items placed in this call (keeps AI order in take-all); matching skips them.
+    const placedAt = items.findIndex((it) => it.section === ai[j]);
+    // An opening held in a leading title's body anchors at the title ITEM, but its range ends right after that item.
+    const inTitle = placedAt === -1 && ai[j].level === 0 && level0 === -1 && holdsOpening(titleBody(items), ai[j]);
+    const at =
+      placedAt !== -1
+        ? placedAt
+        : ai[j].level === 0
+          ? // The AI's opening is an anchor only when the user's text really holds it (its html sits inside the level-0 section, which may have grown a user intro around it); the user's OWN
+            // intro is not the AI's opening, so keep walking back (to the end if nothing else anchors).
+            (holdsOpening(items[level0]?.section, ai[j]) ? level0 : inTitle ? 0 : -1)
+          : items.findIndex(
+              (it) =>
+                it.section.level !== 0 &&
+                it.section.key === ai[j].key &&
+                ai[j].key !== "",
+            );
+    if (at !== -1) {
+      // An anchor DEEPER than the inserted section (a user h3 inside an h2) ends its own range, not the parent's: go on
+      // to the end of the enclosing range at this level, or the parent's later sub-sections would fall under the new one.
+      // A PLACED AI anchor owns only itself (its sub-sections are already folded into its html), so user items after
+      // it are not its range: go right after it.
+      if (items[at].placed) return at + 1;
+      let e = inTitle ? 1 : rangeEnd(items, at);
+      while (e < items.length && items[e].section.level > ai[aiIndex].level) e++;
+      return e;
+    }
+  }
+  // No preceding anchor: go BEFORE the nearest FOLLOWING AI section the text has (or one placed in this call), so the
+  // AI order holds; only with neither does it go to the end.
+  for (let j = aiIndex + 1; j < ai.length; j++) {
+    if (ai[j].level === 0) continue;
+    const at = items.findIndex(
+      (it) =>
+        (it.section === ai[j] || (ai[j].key !== "" && it.section.level !== 0 && it.section.key === ai[j].key)) &&
+        it.section.level <= ai[aiIndex].level,
+    );
+    // (A following anchor deeper than the inserted section is no place to go before, it would pull the user's
+    // sub-section out from under its parent: the predicate above skips it and the search goes on, else the end.)
+    if (at !== -1) return at;
+  }
+  return items.length;
+}
+
+function run(
+  currentHtml: string,
+  ai: readonly ReportSection[],
+  take: readonly number[],
+  confirmReplace: boolean,
+) {
+  const items: Item[] = splitSections(currentHtml).map((section) => ({
+    section,
+    placed: false,
+  }));
+  const plan: TakePlan = { replacements: [], additions: [] };
+  const order = [...new Set(take)]
+    .filter((i) => Number.isInteger(i) && i >= 0 && i < ai.length)
+    .sort((a, b) => a - b);
+  for (const aiIndex of order) {
+    const sec = ai[aiIndex];
+    const placed: Item = { section: sec, placed: true };
+    // A blank opening is nothing to take (it would also "match" almost any intro by containment).
+    if (sec.level === 0 && isBlankHtml(sec.html)) continue;
+    // An opening the text already holds, word for word, is already there: neither a replacement nor an addition.
+    if (sec.level === 0 && (items.some((it) => it.section.level === 0 && holdsOpening(it.section, sec)) || holdsOpening(titleBody(items), sec))) continue;
+    const m = sec.level === 0 ? -1 : findUserMatch(items, sec.key, sec.level);
+    if (m === -1) {
+      plan.additions.push(aiIndex);
+      items.splice(insertionPoint(items, ai, aiIndex), 0, placed);
+      continue;
+    }
+    const end = rangeEnd(items, m);
+    plan.replacements.push({
+      aiIndex,
+      userHeading: items[m].section.heading,
+      removedSubheadings: items
+        .slice(m + 1, end)
+        .filter((it) => it.section.level !== 0)
+        .map((it) => it.section.heading),
+    });
+    // An AI section SHALLOWER than the user section it matches (an h2 matching a user h3 inside an h2) must not land
+    // before that parent's later sub-sections, or they would fall under it: it goes to the end of the enclosing range
+    // at ITS level. Same level or deeper: the user's range as before.
+    // Only when the matched section sits inside a PARENT heading (the nearest user heading above it that is shallower
+    // than it) whose level is at least the AI section's: an h2 cuts an h2 parent's range, never an h1 title's. In a flat
+    // or merely titled report there is no such range, and the take stays where the match is.
+    const parent = items.slice(0, m).reverse().find((it) => !it.placed && it.section.level > 0 && it.section.level < items[m].section.level);
+    const shallower = sec.level < items[m].section.level && parent !== undefined && parent.section.level >= sec.level;
+    if (confirmReplace) items.splice(m, end - m);
+    let at = confirmReplace ? m : end;
+    if (shallower) while (at < items.length && items[at].section.level > sec.level) at++;
+    // Keep both, and a shallower Replace (which lands away from the matched spot), go past AI items already placed
+    // there, so the AI sections keep AI order.
+    if (!confirmReplace || shallower) while (at < items.length && items[at].placed) at++;
+    items.splice(at, 0, placed);
+  }
+  return { plan, html: items.map((it) => it.section.html).join("") };
+}
+
+/** What taking `take` would do. `confirmReplace` picks the answer the plan describes: Replace (default, what the
+ *  confirm dialog lists) or Keep both, which matches the same headings but removes nothing, so a later section the
+ *  Replace path would call an addition can be a match here. Same engine as applyTake, so they cannot disagree. */
+export function planTake(
+  currentHtml: string,
+  ai: readonly ReportSection[],
+  take: readonly number[],
+  confirmReplace = true,
+): TakePlan {
+  return run(currentHtml, ai, take, confirmReplace).plan;
+}
+
+export function applyTake(
+  currentHtml: string,
+  ai: readonly ReportSection[],
+  take: readonly number[],
+  confirmReplace: boolean,
+): string {
+  return run(currentHtml, ai, take, confirmReplace).html;
+}

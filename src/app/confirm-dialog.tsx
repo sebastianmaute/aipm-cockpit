@@ -54,6 +54,9 @@ export interface ConfirmOptions {
   /** Visual tone of the confirm button. Destructive (ui-pink) by default —
    *  the overwhelming majority of call sites are deletes/clears. */
   tone?: "danger" | "default";
+  /** AI-04 — switch the app undo hotkey off inside this dialog (the provider renders at the app root, outside the
+   *  subtree of the surface that asked, so that surface's own `appUndoOff` does not cover it). */
+  appUndoOff?: boolean;
 }
 
 export type ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>;
@@ -79,6 +82,8 @@ export interface NoticeOptions {
   /** Defaults to a generic "Please note". */
   title?: string;
   okLabel?: string;
+  /** As on ConfirmOptions. */
+  appUndoOff?: boolean;
 }
 
 export type NoticeFn = (opts: NoticeOptions) => Promise<void>;
@@ -256,6 +261,7 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
               backdropClassName="bg-ui-dark-blue/50"
               zIndex={60}
               initialFocusRef={initialFocusRef}
+              appUndoOff={pending.kind !== "prompt" && pending.appUndoOff === true}
             >
               <div
                 data-modal-panel

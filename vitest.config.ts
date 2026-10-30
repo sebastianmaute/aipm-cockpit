@@ -76,13 +76,14 @@ export default defineConfig({
         //   ALLOWED_REC_TOOLS, a security boundary, and an excluded file hides even an
         //   uncovered guard. It is driven through renderHook in its own test file, so
         //   "not unit-testable in isolation" never applied to it.
+        // ★ `use-meeting-report-actions.ts` was taken OUT too (AI-04): it decides what a report save writes,
+        //   snapshots, undoes and logs, and is driven through renderHook in its own test file.
         "src/app/use-calendar-integrations.ts",
         "src/app/use-action-center-handlers.ts",
         "src/app/use-ai-orchestration.ts",
         "src/app/use-notes-window.ts",
         "src/app/use-document-editor.ts",
         "src/app/use-digest.ts",
-        "src/app/use-meeting-report-actions.ts",
         // Color-scheme selection glue: loads/reconciles the store + fires the
         // events use-style's syncScheme (the apply source of truth) listens to.
         "src/app/use-color-schemes.ts",

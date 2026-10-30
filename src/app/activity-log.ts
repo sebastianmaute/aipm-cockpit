@@ -78,6 +78,9 @@ export type ActivityKind =
   // §715 — one project-record edit (args: the changed field keys joined by ", "), from the project form (actor
   // user, not undoable) or from Claude (actor ai, one undo entry).
   | "project.updated"
+  // AI-04 — a steering-committee meeting report save (args: the meeting name, its title else its date). Only the undo label uses it; the
+  // save itself is not logged (an AI-drafted one is, as `ai.reportDraft`).
+  | "meetingReport.updated"
   | "discipline.deleted"
   | "grade.deleted"
   | "settings.updated"
@@ -109,6 +112,8 @@ export type ActivityKind =
   | "ai.wbsPlan"
   | "ai.raciSuggest"
   | "ai.documentWrite"
+  // AI-04 — a save that contains AI-drafted report text (args: the meeting date).
+  | "ai.reportDraft"
   | "undo"
   | "redo";
 
@@ -366,6 +371,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "budget.deleted": "activityBudgetDeleted",
   "plan.currencySwitched": "activityPlanCurrencySwitched",
   "project.updated": "activityProjectUpdated",
+  "meetingReport.updated": "activityMeetingReportUpdated",
   "discipline.deleted": "activityDisciplineDeleted",
   "grade.deleted": "activityGradeDeleted",
   "settings.updated": "activitySettingsUpdated", // no args — no {0}/{1} placeholder
@@ -381,6 +387,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "ai.wbsPlan": "activityAiWbsPlan",
   "ai.raciSuggest": "activityAiRaciSuggest",
   "ai.documentWrite": "activityAiDocumentWrite",
+  "ai.reportDraft": "activityAiReportDraft",
   "undo": "activityUndo",
   "redo": "activityRedo",
 };

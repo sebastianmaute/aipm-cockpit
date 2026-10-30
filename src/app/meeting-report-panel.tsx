@@ -4,7 +4,10 @@
 // and this renders inside a shared Modal (see steering-committee-panel). The rich
 // editor comes from rich-text-editor-lazy (Tiptap is browser-only). Save/send/generate/
 // restore are all no-ops in popouts (read-only).
-import { useState, useMemo } from "react";
+// AI-04 — an AI draft arrives as a PROPOSAL (held by use-meeting-report-actions, passed in as
+// `proposal`), taken into the editor text by section; the stored previous version can be
+// compared and restored.
+import { useEffect, useMemo, useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
 import type { MeetingReport } from "./types";
 import { sanitizeRichHtml } from "./sanitize-html";
@@ -16,6 +19,11 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 import { AiTriggerButton } from "./ai-trigger-button";
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
+import { useConfirm, useNotice } from "./confirm-dialog";
+import { planTake, applyTake, isBlankReport, type TakePlan } from "./committee-report/report-sections";
+import type { ReportProposal } from "./use-meeting-report-actions";
+import { MeetingReportProposal } from "./meeting-report-proposal";
+import { MeetingReportPrevious } from "./meeting-report-previous";
 
 /** UI-facing subset of a stored MeetingReportVersion (Slice 3). */
 export interface MeetingReportVersionUi {
@@ -31,7 +39,9 @@ export interface MeetingReportPanelProps {
   report: MeetingReport | undefined;
   /** Initial recipients (committee members' emails) — editable before send. */
   recipients: readonly string[];
-  onSave: (html: string) => void;
+  /** Saves the draft. `fromAi` is true when the saved text contains sections taken from the AI proposal. Returns
+   *  whether the report was actually written (false: identical body, or the meeting is gone). */
+  onSave: (html: string, opts?: { fromAi?: boolean }) => boolean;
   onSend: (recipients: readonly string[]) => void;
   m365Configured: boolean;
   sendBusy?: boolean;
@@ -46,6 +56,12 @@ export interface MeetingReportPanelProps {
   versions?: readonly MeetingReportVersionUi[];
   onRestore?: (versionId: string) => void;
   restoreBusyId?: string | null;
+  // AI-04:
+  proposal?: ReportProposal;
+  onTaken?: (indices: readonly number[]) => void;
+  onDiscardProposal?: () => void;
+  /** Swap the stored report with its previous version. */
+  onRestorePrevious?: () => void;
 }
 
 function parseRecipients(raw: string): string[] {
@@ -59,6 +75,33 @@ function parseRecipients(raw: string): string[] {
     }
   }
   return out;
+}
+
+/** The replace confirm's message: one line per user section a take would replace. */
+function takeConfirmMessage(lang: Lang, plan: TakePlan): string {
+  const lines = plan.replacements.map((r) =>
+    r.removedSubheadings.length > 0
+      ? t(lang, "reportTakeConfirmBody", r.userHeading, r.removedSubheadings.join(", "))
+      : t(lang, "reportTakeConfirmBodyNoSub", r.userHeading),
+  );
+  return [...lines, "", t(lang, "reportTakeConfirmHint")].join("\n");
+}
+
+/** WCAG 2.4.3: after a take, focus goes to the next untaken row's Take (wrapping to an earlier
+ *  one), else Take all, else Discard, else the proposal heading. */
+function focusAfterTake(root: HTMLElement | null, after: number): void {
+  if (!root) return;
+  // A taken row's Take stays enabled (it can be taken again), so "untaken" is read off `data-taken`.
+  const takes = [...root.querySelectorAll<HTMLButtonElement>("button[data-take-index]")].filter(
+    (b) => !b.disabled && b.dataset.taken !== "true",
+  );
+  const next =
+    takes.find((b) => Number(b.dataset.takeIndex) > after) ??
+    takes[0] ??
+    root.querySelector<HTMLElement>("button[data-take-all]:not(:disabled)") ??
+    root.querySelector<HTMLElement>("button[data-discard]") ??
+    root.querySelector<HTMLElement>("[data-proposal-heading]");
+  next?.focus();
 }
 
 /** A version row's visible text, which is also its row token's name (§669). */
@@ -82,16 +125,145 @@ export function MeetingReportPanel({
   versions,
   onRestore,
   restoreBusyId,
+  proposal,
+  onTaken,
+  onDiscardProposal,
+  onRestorePrevious,
 }: MeetingReportPanelProps) {
   const readOnly = !!isPopout;
+  const confirm = useConfirm();
+  const notice = useNotice();
   const [draft, setDraft] = useState(report?.html ?? "");
   const [seenUpdatedAt, setSeenUpdatedAt] = useState(report?.updatedAt);
+  // AI-04 — a take rewrites the draft, and the editor binds its content once at mount, so a take
+  // bumps this to remount it (the key below). Typing never does.
+  const [seedNonce, setSeedNonce] = useState(0);
+  // Panel-local: whether the draft holds text taken from the proposal since the last save. Not
+  // persisted — closing the dialog with unsaved taken text loses it with the rest of the draft.
+  const [tookFromProposal, setTookFromProposal] = useState(false);
+  // sections taken into the draft but not saved yet. They show as Taken here at once, and reach
+  // the proposal (onTaken) only with the Save that stores their text; a draft closed unsaved leaves
+  // the proposal untouched.
+  const [pendingTaken, setPendingTaken] = useState<ReadonlySet<number>>(() => new Set());
+  // Unsaved taken marks are indices into ONE proposal: a regenerated draft (new createdAt) or a
+  // discarded one (undefined) drops them, by the same render-time reconcile as the one above.
+  // tookFromProposal stays: the draft really does hold AI text.
+  const [seenProposalAt, setSeenProposalAt] = useState(proposal?.createdAt);
+  if (proposal?.createdAt !== seenProposalAt) {
+    setSeenProposalAt(proposal?.createdAt);
+    setPendingTaken(new Set());
+  }
+  // the stored body's stamp and the proposal's as last committed, read after the take's confirm resolves.
+  const updatedAtRef = useRef(report?.updatedAt);
+  const proposalAtRef = useRef(proposal?.createdAt);
+  useEffect(() => {
+    updatedAtRef.current = report?.updatedAt;
+    proposalAtRef.current = proposal?.createdAt;
+  });
+  // the last proposal index a take just applied; the effect below moves focus on from its
+  // now-taken row once the take has rendered.
+  const focusAfterTakeRef = useRef<number | null>(null);
+  const proposalRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const after = focusAfterTakeRef.current;
+    if (after === null) return;
+    focusAfterTakeRef.current = null;
+    focusAfterTake(proposalRef.current, after);
+  });
   // Render-time reconcile (NOT an effect — set-state-in-effect is banned): when a
   // NEW report body arrives (AI draft or a restore bumps updatedAt), re-seed the
   // draft. A plain user edit leaves updatedAt unchanged, so typing isn't clobbered.
   if (report?.updatedAt !== seenUpdatedAt) {
     setSeenUpdatedAt(report?.updatedAt);
     setDraft(report?.html ?? "");
+    setTookFromProposal(false);
+    setPendingTaken(new Set());
+  }
+  // Unsaved edits: what a restore or an undo of this report would overwrite.
+  const dirty = draft !== (report?.html ?? "");
+
+  // Invariants of take / save (each one pinned in meeting-report-panel.test.tsx):
+  //  - A taken mark reaches the hook (onTaken) only with a Save that stored the text, or a settled no-op save (the text
+  //    was already stored); unsaved marks live here and are dropped by the render-time reconciles.
+  //  - A real write re-seeds the editor and the draft through the stored body's updatedAt; a take re-seeds the editor
+  //    through seedNonce. Typing never does either.
+  //  - A take is dropped (with a notice) when the stored body or the proposal changed while its confirm was open.
+  async function take(indices: number[]): Promise<void> {
+    if (!proposal || indices.length === 0) return;
+    const base = draft;
+    const startedAt = report?.updatedAt;
+    const proposalAt = proposal.createdAt;
+    const plan = planTake(base, proposal.sections, indices);
+    // A section the report already has asks first: Replace swaps it (and its sub-sections) for the
+    // AI text; Keep both — or dismissing the dialog — adds the AI text after it.
+    const replace =
+      plan.replacements.length > 0 &&
+      (await confirm({
+        appUndoOff: true,
+        title: t(lang, "reportTakeConfirmTitle"),
+        message: takeConfirmMessage(lang, plan),
+        confirmLabel: t(lang, "reportTakeReplace"),
+        cancelLabel: t(lang, "reportTakeKeepBoth"),
+      }));
+    // a write (save, restore, undo) landed while the confirm was open: `base` is stale and the
+    // editor now shows the new stored body, so the take is dropped rather than applied to old text. Likewise
+    // a new draft (or a discard) replaced the proposal: `indices` point into a proposal that is gone.
+    if (updatedAtRef.current !== startedAt || proposalAtRef.current !== proposalAt) {
+      void notice({ appUndoOff: true, title: t(lang, "reportTakeDroppedTitle"), message: t(lang, "reportTakeDroppedBody") });
+      return;
+    }
+    focusAfterTakeRef.current = Math.max(...indices);
+    const next = applyTake(base, proposal.sections, indices, replace);
+    // A take that changes nothing (the text is already in the draft) is no AI text: no flag, no remount, the draft
+    // stays; the row is still marked taken and focus still moves on.
+    if (next !== base) {
+      setDraft(next);
+      setSeedNonce((n) => n + 1);
+      setTookFromProposal(true);
+    }
+    setPendingTaken((prev) => new Set([...prev, ...indices]));
+  }
+
+  function save(): void {
+    const wrote = onSave(draft, { fromAi: tookFromProposal });
+    // Takes are marked when the text is in the stored report: it was just written, or the body was already stored
+    // (an unchanged save). A save that wrote nothing for any other reason (the meeting is gone) marks nothing.
+    const stored = report?.html ?? "";
+    // Settled: the draft is what is stored, or it is a blank first save (an emptied editor emits <p></p> and the hook
+    // writes no report for it, so the stored body stays "").
+    const settled = sanitizeRichHtml(draft) === stored || (stored === "" && isBlankReport(draft));
+    const inReport = wrote || settled;
+    if (inReport && pendingTaken.size > 0) onTaken?.([...pendingTaken].sort((a, b) => a - b));
+    setTookFromProposal(false);
+    setPendingTaken(new Set());
+    // A save whose sanitized text equals the stored body writes nothing (no new updatedAt, so no reconcile
+    // below): settle the draft on the stored body here, so a sanitizer-only difference does not stay dirty.
+    if (draft !== stored && settled) setDraft(stored);
+  }
+
+  /** A restore replaces the editor text, so over unsaved changes both restore paths ask first. Called only while
+   *  dirty: a clean restore stays synchronous (no await on its path). */
+  function confirmRestoreOverUnsaved(messageKey: "reportRestoreUnsavedBody" | "reportRestoreVersionUnsavedBody"): Promise<boolean> {
+    return confirm({
+      appUndoOff: true,
+      title: t(lang, "reportUnsavedTitle"),
+      message: t(lang, messageKey),
+      confirmLabel: t(lang, "reportRestore"),
+    });
+  }
+
+  async function restorePrevious(): Promise<void> {
+    if (!onRestorePrevious) return;
+    if (dirty && !(await confirmRestoreOverUnsaved("reportRestoreUnsavedBody"))) return;
+    onRestorePrevious();
+  }
+
+  // the Turso version list restores through onSaveReport, which re-seeds the editor from the new
+  // stored body: without this ask, unsaved typing was replaced without a word.
+  async function restoreVersion(versionId: string): Promise<void> {
+    if (!onRestore) return;
+    if (dirty && !(await confirmRestoreOverUnsaved("reportRestoreVersionUnsavedBody"))) return;
+    onRestore(versionId);
   }
 
   // Recipients are seeded from the committee members but EDITABLE before send
@@ -99,6 +271,8 @@ export function MeetingReportPanel({
   const [toList, setToList] = useState(recipients.join(", "));
   const parsedRecipients = parseRecipients(toList);
   const noRecipients = parsedRecipients.length === 0;
+  // What Send mails is the STORED body, so a blank one (e.g. cleared, with a previous kept) cannot be sent.
+  const blankReport = isBlankReport(report?.html ?? "");
 
   // Version-diff: compare the CURRENT draft against a selected version's snapshot.
   const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
@@ -125,7 +299,8 @@ export function MeetingReportPanel({
   const compareToken = compareVersionId === null ? undefined : versionTokens.get(compareVersionId);
 
   return (
-    <div className="flex flex-col gap-3">
+    // data-report-dirty is read by the top-bar undo guard (use-report-undo-guard.ts).
+    <div className="flex flex-col gap-3" data-report-dirty={dirty ? "true" : undefined}>
       {aiConfigured && onGenerate && !readOnly && (
         <div className="flex flex-wrap items-center gap-2">
           {/* ★ The shared trigger: while busy it reads "Stop" and aborts (§125).
@@ -146,6 +321,21 @@ export function MeetingReportPanel({
         </div>
       )}
 
+      {proposal && proposal.sections.length > 0 && !readOnly ? (
+        <div ref={proposalRef}>
+          <MeetingReportProposal
+            lang={lang}
+            sections={proposal.sections}
+            taken={pendingTaken.size === 0 ? proposal.taken : new Set([...proposal.taken, ...pendingTaken])}
+            onTake={(indices) => void take(indices)}
+            onDiscard={() => {
+              setPendingTaken(new Set());
+              onDiscardProposal?.();
+            }}
+          />
+        </div>
+      ) : null}
+
       {readOnly ? (
         <div
           className="min-h-40 rounded-md border border-line bg-surface p-3 text-sm"
@@ -156,14 +346,24 @@ export function MeetingReportPanel({
         <RichTextEditor
           // §763 — the editor binds `content` once at mount, so the re-seeded draft above
           // reaches it only through a remount: key it on the stored body's stamp, which
-          // every write (manual save, AI draft, restore) bumps and typing never touches.
-          key={report?.updatedAt ?? "new"}
+          // every write (manual save, restore, undo) bumps and typing never touches. AI-04: a take
+          // rewrites the draft without a write, so it bumps `seedNonce` instead.
+          key={`${report?.updatedAt ?? "new"}:${seedNonce}`}
           value={draft}
           onChange={setDraft}
           label={t(lang, "reportBody")}
           lang={lang}
         />
       )}
+
+      {report?.previous && onRestorePrevious && !readOnly ? (
+        <MeetingReportPrevious
+          lang={lang}
+          previous={report.previous}
+          draft={draft}
+          onRestore={() => void restorePrevious()}
+        />
+      ) : null}
 
       {versions && versions.length > 0 && onRestore && !readOnly && (
         <details className="rounded-md border border-line">
@@ -188,7 +388,7 @@ export function MeetingReportPanel({
                   <Button
                     variant="secondary"
                     size="xs"
-                    onClick={() => onRestore(v.id)}
+                    onClick={() => void restoreVersion(v.id)}
                     disabled={restoreBusyId === v.id}
                     aria-label={rowLabel(t(lang, "reportRestore"), versionTokens.get(v.id) ?? versionLabel(lang, v))}
                   >
@@ -228,13 +428,13 @@ export function MeetingReportPanel({
 
       {!readOnly && (
         <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" size="xs" onClick={() => onSave(draft)}>
+          <Button variant="secondary" size="xs" onClick={save}>
             {t(lang, "reportSave")}
           </Button>
           <Button
             size="xs"
             onClick={() => onSend(parsedRecipients)}
-            disabled={!m365Configured || sendBusy || noRecipients}
+            disabled={!m365Configured || sendBusy || noRecipients || blankReport}
           >
             {t(lang, sendBusy ? "reportSending" : "reportSend")}
           </Button>

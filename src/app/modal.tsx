@@ -106,6 +106,10 @@ interface BaseProps {
    *  non-`none` `transform`, `filter`, `perspective` or `will-change`), which
    *  otherwise scopes this backdrop to that ancestor instead of the viewport. */
   portal?: boolean;
+  /** AI-04 — switch the app undo/redo hotkey off for the WHOLE dialog, its root included
+   *  (`data-app-undo="off"`, read by `use-undo-hotkey.ts`). The root is `tabIndex={-1}`, so a click on
+   *  non-focusable content focuses it; a zone on the content alone would leave Ctrl+Z there live. */
+  appUndoOff?: boolean;
   children: ReactNode;
 }
 
@@ -126,6 +130,7 @@ export function Modal({
   zIndex = 40,
   initialFocusRef,
   portal = false,
+  appUndoOff = false,
   children,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -340,6 +345,7 @@ export function Modal({
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledby}
       tabIndex={-1}
+      data-app-undo={appUndoOff ? "off" : undefined}
       onFocus={(e) => {
         // Where focus came from. React runs this during commit, when a child's
         // `autoFocus` fires, which is before the focus effect above reads it.

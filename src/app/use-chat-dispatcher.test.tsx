@@ -80,7 +80,7 @@ const stubUndo = () => ({ captureComposite: vi.fn() });
 const stubOpenWbsPlan = () => ({ opened: true, tasksInScope: 1 });
 /** §715 — no project writer: these probes never write the project record (use-project-tools.test.tsx does).
  *  ONE object for the file, so a re-render hands the dispatcher the same ref (the identity tests rely on it). */
-const STUB_PROJECT_WRITE = { projectWriterRef: { current: null }, getScopeEpoch: () => 0, showToast: () => {} };
+const STUB_PROJECT_WRITE = { projectWriterRef: { current: null }, getScopeEpoch: () => 0, getUndoEpoch: () => 0, showToast: () => {} };
 
 function makeSettings(): Settings {
   const storageConfig: StorageConfig = { kind: "browser" };
