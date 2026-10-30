@@ -97,6 +97,16 @@ function snapshotOf(task: Task, plan: HoursMovePlan, ownerIds: readonly number[]
   };
 }
 
+/** The owner change the apply path (§774) plans for `task` handed to `receiver`; shared with the effect so both plan the same input. */
+export function ownerChangeFor(task: Task, receiver: Resource): OwnerChange {
+  return {
+    task: { ...task, assignee: resourceDisplayName(receiver), assigneeEmail: receiver.email ?? "", resourceId: receiver.id },
+    fromResourceId: task.resourceId,
+    toResourceId: receiver.id,
+    fromAssignee: task.assignee,
+  };
+}
+
 function groundMoves(raw: RawAllocAlternative, ctx: MoveGroundContext): { moves: GroundedMove[]; skippedMoves: SkippedMove[] } {
   const taskById = new Map(ctx.tasks.map((t) => [t.id, t]));
   const resourceById = new Map<number, Resource>(ctx.resources.map((r) => [r.id, r]));
@@ -119,14 +129,7 @@ function groundMoves(raw: RawAllocAlternative, ctx: MoveGroundContext): { moves:
     if (giver && task.resourceId === toResourceId) { skip("same-owner"); continue; }
 
     const toLabel = resourceDisplayName(receiver);
-    const after = { assignee: toLabel, assigneeEmail: receiver.email ?? "", resourceId: toResourceId };
-    const change: OwnerChange = {
-      task: { ...task, ...after },
-      fromResourceId: task.resourceId,
-      toResourceId,
-      fromAssignee: task.assignee,
-    };
-    const plan = planHoursMoves([change], ctx.resources, ctx);
+    const plan = planHoursMoves([ownerChangeFor(task, receiver)], ctx.resources, ctx);
     moves.push({
       key: moveKey({ taskId }),
       taskId,
