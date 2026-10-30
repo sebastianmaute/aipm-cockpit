@@ -128,8 +128,8 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     }
   }
 
-  // Functional committee setter — writes the report onto the meeting, built from the LIVE report. A NEW body
-  // is unsent, so the prior `sentAt` is dropped (`replacedReport`); only an identical body keeps `previous`.
+  // Functional committee setter — writes the report onto the meeting, built from the LIVE report. Every save
+  // drops `sentAt`; a new body moves the old text into `previous`, an identical body keeps the existing `previous`.
   function onSaveReport(meetingId: number, html: string, opts?: { fromAi?: boolean }): void {
     const meeting = deps.committee?.meetings.find((m) => m.id === meetingId);
     if (!meeting) return;
@@ -144,10 +144,11 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     // meeting, which is enough for a capture decision; the write above is judged on the live one.)
     if (meeting.report?.html === clean) return;
     captureReportChange(meeting.id, meeting.date, seen);
-    // Logged only when the updater really wrote (the meeting still existed in live state). ★ This reads the stash
-    // synchronously, so an updater a store defers past this call is NOT covered: it reads as "no write" and logs
-    // nothing. The setter here (useState) runs it eagerly or at the next render, never later than the undo.
-    if (opts?.fromAi && seen.after() !== null) deps.logActivityAs("ai", "ai.reportDraft", meeting.date);
+    // ★ Deliberately NOT gated on the stash: a React setState updater does not run inside the call (it runs at the
+    // next render), so `seen.after()` is still null here for nearly every real save and gating on it would never log.
+    // Accepted residual: if the meeting was deleted between render and click the row is logged though nothing was
+    // written (the undo entry is harmless, its thunks read null).
+    if (opts?.fromAi) deps.logActivityAs("ai", "ai.reportDraft", meeting.date);
   }
 
   /** Rewrites ONE meeting's report inside a functional setter, from the LIVE `m.report` (N saves in one tick

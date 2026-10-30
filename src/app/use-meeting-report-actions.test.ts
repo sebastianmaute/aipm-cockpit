@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useMeetingReportActions, type MeetingReportActionsDeps } from "./use-meeting-report-actions";
@@ -324,12 +325,28 @@ describe("useMeetingReportActions", () => {
         expect(f.report()).toEqual(live);
       });
 
-      it("an AI save on a meeting the live state no longer has logs nothing", () => {
+      // A REAL useState setter: its updater runs at the next render, not inside the call, so anything that reads the
+      // updater's result synchronously (the log gate once did) sees nothing.
+      it("through a real useState setter: one ai.reportDraft as actor ai, and undo restores the prior report", () => {
+        const captureComposite = vi.fn();
         const logActivityAs = vi.fn();
-        const f = frozen(committee(), { logActivityAs });
-        f.set({ ...committee(), meetings: [] });
-        act(() => f.result.current!.onSaveReport(10, "<p>drafted</p>", { fromAi: true }));
-        expect(logActivityAs).not.toHaveBeenCalled();
+        const { result } = renderHook(() => {
+          const [c, setC] = useState<SteeringCommittee | undefined>(committee());
+          const [, setTick] = useState(0);
+          const bag = useMeetingReportActions(makeDeps({ committee: c, setSteeringCommittee: setC, captureComposite, logActivityAs }));
+          return { bag, c, setTick };
+        });
+        act(() => result.current.setTick(1)); // an unrelated commit first
+        act(() => result.current.bag!.onSaveReport(10, "<p>plain</p>"));
+        const prior = result.current.c!.meetings[0].report;
+        expect(prior?.html).toBe("<p>plain</p>");
+        act(() => result.current.bag!.onSaveReport(10, "<p>drafted</p>", { fromAi: true }));
+        expect(result.current.c!.meetings[0].report?.html).toBe("<p>drafted</p>");
+        expect(logActivityAs).toHaveBeenCalledTimes(1);
+        expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.reportDraft", "2026-06-01");
+        const undo = (captureComposite.mock.calls[1][0] as CaptureCompositeOpts).parts[0]!;
+        act(() => { undo.restore({ current: new Map() }, false); });
+        expect(result.current.c!.meetings[0].report).toEqual(prior);
       });
 
       it("two restore-previous calls in one act swap back to where they started", () => {
