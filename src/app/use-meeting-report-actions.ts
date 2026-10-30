@@ -128,8 +128,8 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     }
   }
 
-  // Functional committee setter — writes the report onto the meeting; the prior
-  // sentAt survives (a re-save doesn't clear the last-sent stamp).
+  // Functional committee setter — writes the report onto the meeting, built from the LIVE report. A NEW body
+  // is unsent, so the prior `sentAt` is dropped (`replacedReport`); only an identical body keeps `previous`.
   function onSaveReport(meetingId: number, html: string, opts?: { fromAi?: boolean }): void {
     const meeting = deps.committee?.meetings.find((m) => m.id === meetingId);
     if (!meeting) return;
@@ -144,7 +144,10 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     // meeting, which is enough for a capture decision; the write above is judged on the live one.)
     if (meeting.report?.html === clean) return;
     captureReportChange(meeting.id, meeting.date, seen);
-    if (opts?.fromAi) deps.logActivityAs("ai", "ai.reportDraft", meeting.date);
+    // Logged only when the updater really wrote (the meeting still existed in live state). ★ This reads the stash
+    // synchronously, so an updater a store defers past this call is NOT covered: it reads as "no write" and logs
+    // nothing. The setter here (useState) runs it eagerly or at the next render, never later than the undo.
+    if (opts?.fromAi && seen.after() !== null) deps.logActivityAs("ai", "ai.reportDraft", meeting.date);
   }
 
   /** Rewrites ONE meeting's report inside a functional setter, from the LIVE `m.report` (N saves in one tick
@@ -160,6 +163,10 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     let before: MeetingReport | undefined;
     let after: MeetingReport | undefined;
     deps.setSteeringCommittee((c) => {
+      // A re-run (rebase) starts clean: it must not keep an earlier run's pair when it writes nothing.
+      wrote = false;
+      before = undefined;
+      after = undefined;
       if (!c) return c;
       return {
         ...c,

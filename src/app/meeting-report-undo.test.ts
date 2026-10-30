@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { meetingReportUndoFragment } from "./meeting-report-undo";
+import { meetingReportUndoFragment, type ReportRef } from "./meeting-report-undo";
 import { buildUndoLabel } from "./undo/use-undo-stack";
 import type { SteeringCommittee, MeetingReport } from "./types";
 
@@ -18,7 +18,7 @@ function committee(): SteeringCommittee {
   };
 }
 
-function run(initial: SteeringCommittee, meetingId: number, before: MeetingReport | undefined, after: MeetingReport | undefined) {
+function run(initial: SteeringCommittee, meetingId: number, before: ReportRef, after: ReportRef) {
   let state: SteeringCommittee | undefined = initial;
   const fragment = meetingReportUndoFragment({
     setSteeringCommittee: (u) => {
@@ -42,6 +42,15 @@ describe("meetingReportUndoFragment", () => {
     redo();
     expect(h.get().meetings[0].report).toEqual(AFTER);
     expect(h.get().meetings[1]).toBe(other);
+  });
+
+  it("thunks returning null mean nothing was written: undo and redo leave the report alone", () => {
+    const c = committee();
+    const h = run(c, 1, () => null, () => null);
+    const redo = h.fragment.restore({ current: new Map() }, false);
+    expect(h.get().meetings[0].report).toEqual(AFTER);
+    redo();
+    expect(h.get().meetings[0].report).toEqual(AFTER);
   });
 
   it("an undefined before removes the report", () => {

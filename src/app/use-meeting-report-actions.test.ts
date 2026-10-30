@@ -300,14 +300,36 @@ describe("useMeetingReportActions", () => {
           f.result.current!.onSaveReport(10, "<p>one</p>");
           f.result.current!.onSaveReport(10, "<p>two</p>");
         });
-        const afterOne = { ...f.report(), html: "<p>one</p>" };
         const afterTwo = f.report();
         expect(captureComposite).toHaveBeenCalledTimes(2);
         const redo = (captureComposite.mock.calls[1][0] as CaptureCompositeOpts).parts[0]!.restore({ current: new Map() }, false);
-        expect(f.report().html).toBe(afterOne.html);
+        expect(f.report().html).toBe("<p>one</p>");
         expect(f.report().previous).toEqual({ html: "<p>x</p>", savedAt: "t0" });
         redo();
         expect(f.report()).toEqual(afterTwo);
+      });
+
+      it("a restore the live state refuses (no previous there) leaves the report alone, and so does its undo", () => {
+        const captureComposite = vi.fn();
+        const withPrev: SteeringCommittee = { ...committee(), meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>b</p>", updatedAt: "t2", previous: { html: "<p>a</p>", savedAt: "t1" } } }] };
+        const f = frozen(withPrev, { captureComposite });
+        const live = { html: "<p>live</p>", updatedAt: "t9" };
+        f.set({ ...withPrev, meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: live }] });
+        act(() => f.result.current!.onRestorePrevious(10));
+        expect(f.report()).toEqual(live);
+        expect(captureComposite).toHaveBeenCalledTimes(1);
+        const redo = (captureComposite.mock.calls[0][0] as CaptureCompositeOpts).parts[0]!.restore({ current: new Map() }, false);
+        expect(f.report()).toEqual(live);
+        redo();
+        expect(f.report()).toEqual(live);
+      });
+
+      it("an AI save on a meeting the live state no longer has logs nothing", () => {
+        const logActivityAs = vi.fn();
+        const f = frozen(committee(), { logActivityAs });
+        f.set({ ...committee(), meetings: [] });
+        act(() => f.result.current!.onSaveReport(10, "<p>drafted</p>", { fromAi: true }));
+        expect(logActivityAs).not.toHaveBeenCalled();
       });
 
       it("two restore-previous calls in one act swap back to where they started", () => {
