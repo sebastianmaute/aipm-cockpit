@@ -13,6 +13,7 @@
 //  | only the first of duplicate user headings is matched                       | "replaces only the first of duplicate user headings"                          |
 //  | Replace swaps the matched range (to the next same-or-higher heading)       | "removes sub-headings with a replaced section and reports them"               |
 //  | Keep both adds after the matched range, AI sections keeping AI order       | "declining Replace on Take all lands Risks before Vendor, after the user's range" |
+//  | a DEEPER AI heading never matches a shallower user section (it is added)  | "the plan reports an addition, no replacement, and the user's Risks range stays intact" |
 //  | a SHALLOWER AI section goes to the end of the enclosing range at its level | "Replace removes the user's h3 and places the h2 after the whole Status range" |
 //  | ... and keeps AI order across several of them                              | "Take all with Replace over two shallower matches under one parent keeps AI order" |
 //  | unmatched: after the nearest PRECEDING anchor (extended past deeper items) | "a preceding anchor deeper than the inserted section extends to the end of the enclosing range" |
@@ -173,10 +174,12 @@ function rangeEnd(items: readonly Item[], at: number): number {
   return e;
 }
 
-function findUserMatch(items: readonly Item[], key: string): number {
+/** The first user section with this heading that is at least as DEEP as `level` (a deeper AI heading never matches a
+ *  shallower user section: it is added by the anchor rules instead of swallowing the shallower one). */
+function findUserMatch(items: readonly Item[], key: string, level: number): number {
   if (key === "") return -1;
   return items.findIndex(
-    (it) => !it.placed && it.section.level !== 0 && it.section.key === key,
+    (it) => !it.placed && it.section.level !== 0 && it.section.level >= level && it.section.key === key,
   );
 }
 
@@ -256,7 +259,7 @@ function run(
     if (sec.level === 0 && isBlankHtml(sec.html)) continue;
     // An opening the text already holds, word for word, is already there: neither a replacement nor an addition.
     if (sec.level === 0 && items.some((it) => it.section.level === 0 && holdsOpening(it.section, sec))) continue;
-    const m = sec.level === 0 ? -1 : findUserMatch(items, sec.key);
+    const m = sec.level === 0 ? -1 : findUserMatch(items, sec.key, sec.level);
     if (m === -1) {
       plan.additions.push(aiIndex);
       items.splice(insertionPoint(items, ai, aiIndex), 0, placed);

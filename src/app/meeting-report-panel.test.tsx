@@ -389,6 +389,17 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     expect(p.onTaken).toHaveBeenCalledWith([2]);
   });
 
+  it("re-taking an opening the report already holds changes nothing: no AI flag on the next save, no editor remount", async () => {
+    const held = "<p>ai intro</p><h2>Risks</h2><p>mine</p>";
+    const p = renderWithProposal({ report: { html: held, updatedAt: "2026-10-30T09:00:00.000Z" } });
+    const editor = await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Opening text" }));
+    await waitFor(() => expect(rowOf("Take – Opening text")).toHaveTextContent("Taken"));
+    expect(screen.getByLabelText("Report")).toBe(editor); // not remounted
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(p.onSave).toHaveBeenLastCalledWith(held, { fromAi: false });
+  });
+
   it("a new stored body clears the unsaved taken marks (the §763 reconcile)", async () => {
     const p = renderWithProposal();
     await screen.findByLabelText("Report");

@@ -301,6 +301,20 @@ describe("an AI section SHALLOWER than the user section it matches keeps the use
   });
 });
 
+describe("a DEEPER AI heading never matches a shallower user section", () => {
+  const USER = "<h2>A</h2><p>a</p><h2>Risks</h2><p>r</p><h3>R1</h3><p>x</p>";
+  const AI = ai("<h3>Risks</h3><p>new</p>");
+  it("the plan reports an addition, no replacement, and the user's Risks range stays intact", () => {
+    expect(planTake(USER, AI, [0])).toEqual({ replacements: [], additions: [0] });
+    expect(planTake(USER, AI, [0], false)).toEqual({ replacements: [], additions: [0] });
+    expect(applyTake(USER, AI, [0], true)).toBe(USER + "<h3>Risks</h3><p>new</p>");
+    expect(applyTake(USER, AI, [0], false)).toBe(USER + "<h3>Risks</h3><p>new</p>");
+  });
+  it("a same-level AI heading still replaces it", () => {
+    expect(applyTake(USER, ai("<h2>Risks</h2><p>new</p>"), [0], true)).toBe("<h2>A</h2><p>a</p><h2>Risks</h2><p>new</p>");
+  });
+});
+
 describe("a blank AI opening is not a section", () => {
   it("splitProposalSections leaves no opening row for whitespace or an empty paragraph", () => {
     for (const html of ["\n<h2>Summary</h2><p>S</p>", "<p></p><h2>Summary</h2><p>S</p>"]) {

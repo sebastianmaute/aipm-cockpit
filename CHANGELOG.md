@@ -78,7 +78,7 @@ longer carries its own changelog comment.
 
 ### Changed
 
-- A stored meeting report with no text and no previous version (for instance the empty paragraph an emptied editor leaves) is no longer kept when a workspace loads.
+- A stored meeting report with no text and no previous version (for instance the empty paragraph an emptied editor leaves) is no longer kept when a workspace loads (a sent date on such a report goes with it).
 
 ### Fixed
 

@@ -213,9 +213,14 @@ export function MeetingReportPanel({
       return;
     }
     focusAfterTakeRef.current = Math.max(...indices);
-    setDraft(applyTake(base, proposal.sections, indices, replace));
-    setSeedNonce((n) => n + 1);
-    setTookFromProposal(true);
+    const next = applyTake(base, proposal.sections, indices, replace);
+    // A take that changes nothing (the text is already in the draft) is no AI text: no flag, no remount, the draft
+    // stays; the row is still marked taken and focus still moves on.
+    if (next !== base) {
+      setDraft(next);
+      setSeedNonce((n) => n + 1);
+      setTookFromProposal(true);
+    }
     setPendingTaken((prev) => new Set([...prev, ...indices]));
   }
 
