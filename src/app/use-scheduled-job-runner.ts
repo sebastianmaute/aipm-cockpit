@@ -125,7 +125,7 @@ function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, con
     lastLoadPartial: () => lastPartial,
     // Cache the guide prefix only when this tick sends more than one request: a lone request would pay the cache
     // write and never read it.
-    analyse: (context) => runJobAnalysis(context, { ...argsRef.current.ai, cacheGuides, level: "background" }),
+    analyse: (context, privacy) => runJobAnalysis(context, { ...argsRef.current.ai, privacy, cacheGuides, level: "background" }),
     deviceSettings: a.deviceSettings,
     lang: a.lang,
     now: a.now ?? (() => new Date()),

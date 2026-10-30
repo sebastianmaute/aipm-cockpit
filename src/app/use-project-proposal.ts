@@ -4,7 +4,7 @@
 // single propose_project tool call and returns the parsed ProjectProposal. No
 // agentic loop. Reuses the live in-memory API key (never logged).
 
-import { PRIVACY_NOT_YET_THREADED } from "./ai-privacy";
+import { aiPrivacyFor } from "./ai-privacy";
 import { useCallback, useState } from "react";
 import { parseProposal, PROPOSAL_TOOL, buildProposalSystemPrompt, type ProjectProposal } from "./ai-project-proposal";
 import { type AttachmentBlock } from "./chat-attachments";
@@ -46,7 +46,9 @@ export function useProjectProposal(ai: AiCreds) {
         // cut at 4096 is asked for once more at 8192 (§764).
         const reply = await runForcedToolCallWithRetry({
           apiKey: key,
-          privacy: PRIVACY_NOT_YET_THREADED,
+          // AI people protection (spec R3): the wizard creates a project, so no workspace and no
+          // people exist yet: a request for no project, which is unprotected (ai-privacy.sites.test.ts).
+          privacy: aiPrivacyFor([]),
           model: ai.model,
           // The user's local day, computed the same way as the one the wizard stamps on the seed
           // (but at call start, so the two can differ across midnight); callback context — lint-safe.

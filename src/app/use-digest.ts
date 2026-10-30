@@ -11,6 +11,7 @@ import { loadDigestState, advanceDigestState, isDigestDue } from "./digest/diges
 import { buildDigestEmailHtml, buildDigestEmailSubject } from "./digest/digest-email";
 import { runDigestNarrative } from "./digest/digest-narrative";
 import { useActionGuideText, useActionGuidesReady } from "./action-guides-context";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
 import type { DigestConfig } from "./digest/digest-config";
 
@@ -58,6 +59,8 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
   const guideText = useActionGuideText("digest");
+  // AI people protection (spec R3): the digest is the open project's, the auto-run included.
+  const aiPrivacy = useOpenProjectAiPrivacy();
   // §701 — the auto-run below is once per cadence and unattended: run it only
   // once the guides have loaded, or it is narrated without them until next time.
   const guidesReady = useActionGuidesReady();
@@ -115,7 +118,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
           try {
             const runner = deps.runNarrative ?? runDigestNarrative;
             // runDigestNarrative already sanitizes + caps its return value.
-            const narrative = await runner(d, { apiKey: narrativeKey, model: deps.aiModel, lang: deps.lang, guideText, level: opts.background ? "background" : "interactive" }, ctrl.signal);
+            const narrative = await runner(d, { apiKey: narrativeKey, privacy: aiPrivacy(), model: deps.aiModel, lang: deps.lang, guideText, level: opts.background ? "background" : "interactive" }, ctrl.signal);
             // A Stop (or the timeout) that lost the race to the response still
             // means "don't use it".
             if (narrative && !ctrl.signal.aborted) {
@@ -138,7 +141,7 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
         setBusy(false);
       }
     },
-    [deps, guideText],
+    [deps, guideText, aiPrivacy],
   );
 
   useEffect(() => {

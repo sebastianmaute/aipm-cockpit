@@ -40,6 +40,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { runRaciSuggestion } from "./raci-suggest-call";
 import { useActionGuideText } from "./action-guides-context";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 import {
   buildRaciContext,
   cellKey,
@@ -133,6 +134,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
 
   const apiKey = aiKeyIfEnabled(settings.ai);
   const guideText = useActionGuideText("raci");
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
   const enabled =
     isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() &&
     stakeholders.length > 0 && milestones.length > 0;
@@ -162,7 +164,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     setPhase("thinking");
     try {
       const context = buildRaciContext(stakeholders, milestones);
-      const parsed = await runRaciSuggestion(context, { apiKey, model: settings.ai.model, guideText }, controller.signal);
+      const parsed = await runRaciSuggestion(context, { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() }, controller.signal);
       if (reqId !== reqIdRef.current) return; // superseded — discard
       // Re-ground UNTRUSTED model ids/roles against the LIVE stakeholders/
       // milestones before anything can be shown or applied.
@@ -224,7 +226,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       }
       setPhase("idle");
     }
-  }, [enabled, phase, stakeholders, milestones, apiKey, settings.ai.model, guideText, lang, showToast]);
+  }, [enabled, phase, stakeholders, milestones, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast]);
 
   const onToggle = useCallback((key: string) => {
     setSelected((prev) => {

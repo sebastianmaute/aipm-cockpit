@@ -43,6 +43,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { runWbsProposal } from "./wbs-plan-call";
 import { useGuideTextFrom } from "./action-guides-context";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 import type { OperatingGuide } from "./operating-guide";
 import {
   applyWbsProposal,
@@ -183,6 +184,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const apiKey = aiKeyIfEnabled(settings.ai);
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
   const guideText = useGuideTextFrom(deps.guides, settings.ai.groundInGuides, "wbs");
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
   const enabled = aiReady && !isPopout;
 
   // The flow's STATE back to idle — state setters only, so the load-hold
@@ -249,7 +251,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         const context = buildWbsContext({ tasks: live, scopeIds: runScope.taskIds, milestones, project });
         const parsed = await runWbsProposal(
           context,
-          { apiKey, model: settings.ai.model, guideText },
+          { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() },
           sanitizeText(text, MAX_WBS_INSTRUCTION_CHARS) || DEFAULT_WBS_INSTRUCTION,
           controller.signal,
         );
@@ -297,7 +299,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         reset();
       }
     },
-    [milestones, project, apiKey, settings.ai.model, guideText, lang, showToast, reset, setPhase, getScopeEpoch],
+    [milestones, project, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast, reset, setPhase, getScopeEpoch],
   );
 
   const onOpen = useCallback(() => {

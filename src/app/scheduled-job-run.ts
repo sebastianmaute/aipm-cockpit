@@ -7,6 +7,7 @@ import {
   AiDeploymentError, AiGatewayError, AiHttpError, classifyAiError,
 } from "./ai-errors";
 import { AiConsentRevokedError, AiWeeklyCapReachedError } from "./ai-consent";
+import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
 import { buildProjectAnalysisInput } from "./project-analysis-input";
 import { periodStartFor } from "./scheduled-jobs/schedule";
 import { buildProjectDigest, DIGEST_MAX_CHARS } from "./project-digest";
@@ -42,7 +43,9 @@ export interface RunDeps {
   loadWorkspace(projectId: string): Promise<Workspace>;
   /** After a load: true when part of the project failed to decode or was truncated (the report then says so). */
   lastLoadPartial?(): boolean;
-  analyse(context: string): Promise<ActionAnalysis>;
+  /** `privacy` is the TARGET project's (AI people protection, spec R3): its setting and its people, never the
+   *  open project's. */
+  analyse(context: string, privacy: AiPrivacy): Promise<ActionAnalysis>;
   deviceSettings: Settings;
   lang: Lang;
   now(): Date;
@@ -203,7 +206,9 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
       { ...input.digestInput, ...(job.instruction ? { instruction: job.instruction } : {}) },
       DIGEST_MAX_CHARS,
     );
-    analysis = await deps.analyse(context);
+    // The request carries THIS project's data, so it carries this project's privacy (spec R3), whichever
+    // project the app has open. The key is the project's storage id, as the open project's is.
+    analysis = await deps.analyse(context, aiPrivacyFor([{ key: projectId, ws: workspace }]));
     actions = analysis.actions.map(({ entity, ...rest }) => {
       const grounded = groundEntity(entity, input.grounding);
       return grounded ? { ...rest, entity: { view: grounded.view, id: String(grounded.id) } } : rest;

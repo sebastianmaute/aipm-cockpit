@@ -2,12 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { runWbsProposal } from "./wbs-plan-call";
 import { runForcedToolCallWithRetry } from "./ai-forced-call";
 import { PROPOSE_WBS_TOOL, buildWbsSystemPrompt } from "./wbs-plan/wbs-plan";
+import { aiPrivacyFor } from "./ai-privacy";
+
+/** These tests are about the call mechanics, not people: a request for no project (unprotected). */
+const UNPROTECTED = aiPrivacyFor([]);
 
 vi.mock("./ai-forced-call", () => ({ runForcedToolCallWithRetry: vi.fn() }));
 
 const mocked = vi.mocked(runForcedToolCallWithRetry);
 const whole = (input: Record<string, unknown>) => ({ input, stopReason: "tool_use" });
-const ai = { apiKey: "k", model: "m" };
+const ai = { apiKey: "k", privacy: UNPROTECTED, model: "m" };
 
 describe("runWbsProposal", () => {
   beforeEach(() => mocked.mockReset());

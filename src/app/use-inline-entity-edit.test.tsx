@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { newConsent } from "./ai-consent";
 import { join } from "node:path";
 import { it, expect, vi, afterEach, describe } from "vitest";
+// Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { renderHook, act } from "@testing-library/react";
 import * as call from "./inline-ai-edit-call";
 import { AiDeploymentError, AiHttpError } from "./ai-errors";

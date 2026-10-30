@@ -1665,6 +1665,7 @@ const enUS = {
   aiConsentReviewPrompt: "AI is switched on, but the AI data disclosure is not accepted. Review and accept it to use AI features.",
   aiConsentReview: "Review",
   aiConsentRevokedDuringSend: "AI was switched off or its consent was withdrawn, so the request was stopped.",
+  chatPeopleProtectedContent: "People protection is on, and this chat contains an image or a scanned or PDF document. Text in it cannot be checked for names, so nothing was sent. Remove the attachment or start a new chat.",
   aiConsentRevoke: "Revoke consent",
   // AI-01 — an accept or a revoke that could not be written to this browser's storage (Settings → AI).
   aiConsentAcceptNotSaved: "Your consent could not be saved because this browser's storage is full or unavailable, so AI stays off. Free up storage or allow it for this site, then try again.",

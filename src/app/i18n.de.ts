@@ -1558,6 +1558,7 @@ export const de: Record<TranslationKey, string> = {
   aiConsentReviewPrompt: "KI ist eingeschaltet, aber der Datenhinweis zur KI ist nicht akzeptiert. Prüfen und akzeptieren Sie ihn, um KI-Funktionen zu nutzen.",
   aiConsentReview: "Prüfen",
   aiConsentRevokedDuringSend: "Die KI wurde ausgeschaltet oder ihre Einwilligung wurde widerrufen, daher wurde die Anfrage abgebrochen.",
+  chatPeopleProtectedContent: "Der Personenschutz ist aktiv, und dieser Chat enthält ein Bild oder ein gescanntes oder PDF-Dokument. Text darin kann nicht auf Namen geprüft werden, daher wurde nichts gesendet. Entfernen Sie den Anhang oder beginnen Sie einen neuen Chat.",
   aiConsentRevoke: "Einwilligung widerrufen",
   // AI-01 — an accept or a revoke that could not be written to this browser's storage (Settings → AI).
   aiConsentAcceptNotSaved: "Ihre Einwilligung konnte nicht gespeichert werden, weil der Speicher dieses Browsers voll oder nicht verfügbar ist. Die KI bleibt daher aus. Geben Sie Speicher frei oder erlauben Sie ihn für diese Website und versuchen Sie es dann erneut.",

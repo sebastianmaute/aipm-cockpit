@@ -12,10 +12,6 @@ import type { Workspace } from "./workspace";
 
 export type AiPrivacy = { protected: false } | { protected: true; session: RedactionSession };
 
-/** Temporary: every existing feature call site passes this until Task 4 threads the real
- *  privacy through. Task 4 removes every use of it. */
-export const PRIVACY_NOT_YET_THREADED: AiPrivacy = { protected: false } as const;
-
 /** Protected if any project is; the session covers the people of ALL the given projects. */
 export function aiPrivacyFor(projects: readonly { key: string; ws: Workspace }[]): AiPrivacy {
   if (!projects.some((p) => isPeopleProtected(p.ws.settingsOverrides))) return { protected: false };

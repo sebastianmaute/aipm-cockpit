@@ -32,6 +32,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { runAllocProposal } from "./alloc-plan-call";
 import { useActionGuideText } from "./action-guides-context";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 import {
   applyAllocationCells,
   buildAllocContext,
@@ -135,6 +136,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
 
   const apiKey = aiKeyIfEnabled(settings.ai);
   const guideText = useActionGuideText("alloc");
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
   const enabled = isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() && resources.length > 0;
 
   // Invalidate/abort anything pending and clear the propose/preview state.
@@ -177,7 +179,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       const context = buildAllocContext({
         resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, instruction, today,
       });
-      const parsed = await runAllocProposal(context, { apiKey, model: settings.ai.model, guideText }, instruction, controller.signal);
+      const parsed = await runAllocProposal(context, { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() }, instruction, controller.signal);
       if (reqId !== reqIdRef.current) return; // superseded — discard
       // Re-ground UNTRUSTED model ids/keys before anything can be shown or applied: a hallucinated task or resource, or
       // an out-of-window period key, is dropped here. This is the state captured when the call was SENT, not the live
@@ -231,7 +233,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       }
       setPhase("input");
     }
-  }, [phase, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, today, apiKey, settings.ai.model, guideText, lang, showToast]);
+  }, [phase, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, today, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast]);
 
   // Toggles a row of the ACTIVE alternative only; the others keep their ticks.
   const onToggle = useCallback((key: string) => {

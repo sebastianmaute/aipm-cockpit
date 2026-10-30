@@ -6,6 +6,8 @@
 // real; only ./use-settings and ./task-dedup-call are mocked (mirrors
 // use-tasks-dedup.test.tsx + knowledge-panel.test.tsx conventions).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+// Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { newConsent } from "./ai-consent";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";

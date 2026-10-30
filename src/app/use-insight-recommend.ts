@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { runInsightRecommendation } from "./insights/recommend-call";
 import { useAbortableAi } from "./use-abortable-ai";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 import { isAbortError } from "./abort-error";
 import { AiHttpError, classifyAiError, type AiErrorClass } from "./ai-errors";
 import type { Insight, InsightRecommendation } from "./insights/insight";
@@ -55,6 +56,7 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
   // rather than adding a call path. The five that already own a controller are
   // deliberately left alone (see use-abortable-ai.ts).
   const { busy, run, cancel } = useAbortableAi();
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3): the open project's insights
 
   // Mirrored into a ref after every commit (refs can't be written during
   // render — react-hooks/refs) so `generate` stays a single stable callback
@@ -81,6 +83,7 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
         try {
           return await runInsightRecommendation({
             apiKey: current.ai.apiKey,
+            privacy: aiPrivacy(),
             model: current.ai.model,
             guideText: current.ai.guideText,
             context: current.buildContextFor(insight),
@@ -112,7 +115,7 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
       // the row that is still working.
       setGeneratingId((cur) => (cur === insightId ? null : cur));
     }
-  }, [run]);
+  }, [run, aiPrivacy]);
 
   return { generatingId, busy, generate, cancel };
 }

@@ -15,10 +15,14 @@ import {
 import { claudeMappingOf } from "./budget-import/claude-mapping";
 import type { SheetGrid } from "./budget-import/sheet-grid";
 import { XLSX_SHEET_TRUNCATED } from "./xlsx-extract";
+import { aiPrivacyFor } from "./ai-privacy";
+
+/** These tests are about the call mechanics, not people: a request for no project (unprotected). */
+const UNPROTECTED = aiPrivacyFor([]);
 
 afterEach(() => vi.restoreAllMocks());
 
-const AI = { apiKey: "sk-ant-secret", model: "claude-x" };
+const AI = { apiKey: "sk-ant-secret", privacy: UNPROTECTED, model: "claude-x" };
 const SHEET: SheetGrid = {
   name: "S",
   rows: [

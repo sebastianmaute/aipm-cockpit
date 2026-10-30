@@ -16,6 +16,7 @@ import { type AiConfig, isAiEnabled } from "./settings-types";
 import { type OperatingGuide } from "./operating-guide";
 import { callInlineEdit } from "./inline-ai-edit-call";
 import { useActionGuideText } from "./action-guides-context";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { describeEntityCalls, isEmptyPlan, type EditPlan, type FieldDiff, type LinkDiff } from "./inline-ai-edit/plan";
@@ -72,6 +73,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   // pass `guides: []`, so a library threaded through `deps.guides` would reach
   // nothing.
   const inlineGuideText = useActionGuideText("inlineEdit");
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
   // Monotonic request generation: bumped on open/cancel/submit so a slow
   // callInlineEdit that resolves after the active item changed can't land its
   // plan on the wrong item (stale-response cross-item overwrite).
@@ -193,7 +195,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     setPhase("thinking"); setErrorText(""); setClarifyText("");
     try {
       const { blocks, text } = await callInlineEdit({
-        apiKey: deps.apiKey, model: deps.ai.model, lang: deps.lang,
+        apiKey: deps.apiKey, model: deps.ai.model, lang: deps.lang, privacy: aiPrivacy(),
         entity: deps.entity, item: target, itemLabel: d.titleOf(target),
         instruction, snapshot: deps.dispatcher.getSnapshot(),
         guides: deps.guides, groundInGuides: deps.ai.groundInGuides, guideText: inlineGuideText,

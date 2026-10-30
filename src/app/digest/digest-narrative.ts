@@ -5,7 +5,7 @@
 // message status-only) or the token "parse". (Deliberately a direct one-shot
 // fetch rather than chat-api's callClaude, which embeds the response body in its
 // thrown message and would leak it.)
-import { PRIVACY_NOT_YET_THREADED } from "../ai-privacy";
+import type { AiPrivacy } from "../ai-privacy";
 import type { Lang } from "../i18n";
 import type { DigestModel } from "./digest-model";
 import { runForcedToolCallWithRetry } from "../ai-forced-call";
@@ -54,6 +54,8 @@ export function parseDigestNarrative(text: unknown): string {
 export interface DigestNarrativeCtx {
   apiKey: string;
   model: string;
+  /** The privacy of the project whose data this request carries (AI people protection, spec R3). */
+  privacy: AiPrivacy;
   lang: Lang;
   /** The user's guides for this action (§701), from `actionGuideText`. */
   guideText?: string;
@@ -73,7 +75,7 @@ export async function runDigestNarrative(
 ): Promise<string> {
   const { input, stopReason } = await runForcedToolCallWithRetry({
     apiKey: ctx.apiKey,
-    privacy: PRIVACY_NOT_YET_THREADED,
+    privacy: ctx.privacy,
     model: ctx.model,
     guideText: ctx.guideText,
     level: ctx.level,

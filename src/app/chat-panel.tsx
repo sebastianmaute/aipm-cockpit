@@ -1,6 +1,7 @@
 "use client";
 
-import { PRIVACY_NOT_YET_THREADED } from "./ai-privacy";
+import { AiPeopleProtectedContentError } from "./ai-privacy";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
 import { type ToolDispatcher, runTool } from "./chat-tools";
@@ -465,6 +466,7 @@ function ChatPanelInner({
   // ref-sync pattern `use-chat-dispatcher.ts` uses for every live slice it
   // reads. Written in an effect, never during render.
   const workspaceRef = useRef(workspace);
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3): asked per request
   useEffect(() => {
     workspaceRef.current = workspace;
   }, [workspace]);
@@ -823,7 +825,7 @@ function ChatPanelInner({
           ai.model,
           system,
           buildWireMessages(messages, turnContext).messages,
-          toolFlags, PRIVACY_NOT_YET_THREADED, controller.signal,
+          toolFlags, aiPrivacy(), controller.signal,
         );
         // §702: the counter takes the request and its cache write together,
         // BEFORE the stale check — a request counted without its write would
@@ -1164,6 +1166,10 @@ function ChatPanelInner({
             ...prev,
             { kind: "notice", text: t(lang, "aiUsageLimitReached") },
           ]);
+        } else if (err instanceof AiPeopleProtectedContentError) {
+          // People protection is on and the conversation holds an image or a non-text document (its
+          // text cannot be redacted): the transport refused before sending. Any earlier one blocks too.
+          setError(t(lang, "chatPeopleProtectedContent"));
         } else if (err instanceof AiConsentRevokedError) {
           setError(t(lang, "aiConsentRevokedDuringSend"));
         } else if (transportMsg) {

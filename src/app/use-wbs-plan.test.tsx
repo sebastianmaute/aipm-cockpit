@@ -3,7 +3,10 @@
 // undo matters, the stack is the REAL useUndoStack — so apply, the apply-time
 // re-ground and undo are exercised end to end, not against spies.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+// Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { newConsent } from "./ai-consent";
+import { aiPrivacyFor } from "./ai-privacy";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { AiHttpError } from "./ai-errors";
@@ -219,7 +222,7 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     // The call got the user's instruction and a context marking the scope.
     const [context, creds, instruction, signal] = vi.mocked(call.runWbsProposal).mock.calls[0];
     expect(instruction).toBe("split anything over 3 days");
-    expect(creds).toEqual({ apiKey: "sk-ant-test", model: "claude-x", guideText: "" });
+    expect(creds).toEqual({ apiKey: "sk-ant-test", model: "claude-x", guideText: "", privacy: aiPrivacyFor([]) });
     expect(context).toContain("#1 [in scope]");
     expect(signal).toBeInstanceOf(AbortSignal);
 
