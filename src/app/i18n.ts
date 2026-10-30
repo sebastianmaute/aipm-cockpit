@@ -4378,6 +4378,8 @@ const enUS = {
   reportUnsavedTitle: "Unsaved changes",
   reportRestoreUnsavedBody: "Restoring the previous version replaces your unsaved changes in the editor.",
   reportUndoUnsavedBody: "This replaces the text in the open report dialog, including your unsaved changes.",
+  reportTakeDroppedTitle: "Take not applied",
+  reportTakeDroppedBody: "The report changed while you were deciding, so nothing was taken. Take the section again if you still want it.",
   committeePushError: "Could not push reminders to Outlook.",
   committeePushResult: "Synced {0} and {1} to Outlook.",
   committeePushMeetingCount: "{0} meetings",

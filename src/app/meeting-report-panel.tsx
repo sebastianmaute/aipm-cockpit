@@ -19,7 +19,7 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 import { AiTriggerButton } from "./ai-trigger-button";
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
-import { useConfirm } from "./confirm-dialog";
+import { useConfirm, useNotice } from "./confirm-dialog";
 import { planTake, applyTake, type TakePlan } from "./committee-report/report-sections";
 import type { ReportProposal } from "./use-meeting-report-actions";
 import { MeetingReportProposal } from "./meeting-report-proposal";
@@ -128,6 +128,7 @@ export function MeetingReportPanel({
 }: MeetingReportPanelProps) {
   const readOnly = !!isPopout;
   const confirm = useConfirm();
+  const notice = useNotice();
   const [draft, setDraft] = useState(report?.html ?? "");
   const [seenUpdatedAt, setSeenUpdatedAt] = useState(report?.updatedAt);
   // AI-04 — a take rewrites the draft, and the editor binds its content once at mount, so a take
@@ -140,6 +141,14 @@ export function MeetingReportPanel({
   // the proposal (onTaken) only with the Save that stores their text; a draft closed unsaved leaves
   // the proposal untouched.
   const [pendingTaken, setPendingTaken] = useState<ReadonlySet<number>>(() => new Set());
+  // Unsaved taken marks are indices into ONE proposal: a regenerated draft (new createdAt) or a
+  // discarded one (undefined) drops them, by the same render-time reconcile as the one above.
+  // tookFromProposal stays: the draft really does hold AI text.
+  const [seenProposalAt, setSeenProposalAt] = useState(proposal?.createdAt);
+  if (proposal?.createdAt !== seenProposalAt) {
+    setSeenProposalAt(proposal?.createdAt);
+    setPendingTaken(new Set());
+  }
   // M-1 — the stored body's stamp as last committed, read after the take's confirm resolves.
   const updatedAtRef = useRef(report?.updatedAt);
   useEffect(() => {
@@ -184,7 +193,10 @@ export function MeetingReportPanel({
       }));
     // M-1 — a write (save, restore, undo) landed while the confirm was open: `base` is stale and the
     // editor now shows the new stored body, so the take is dropped rather than applied to old text.
-    if (updatedAtRef.current !== startedAt) return;
+    if (updatedAtRef.current !== startedAt) {
+      void notice({ title: t(lang, "reportTakeDroppedTitle"), message: t(lang, "reportTakeDroppedBody") });
+      return;
+    }
     focusAfterTakeRef.current = Math.max(...indices);
     setDraft(applyTake(base, proposal.sections, indices, replace));
     setSeedNonce((n) => n + 1);
@@ -275,7 +287,10 @@ export function MeetingReportPanel({
             sections={proposal.sections}
             taken={pendingTaken.size === 0 ? proposal.taken : new Set([...proposal.taken, ...pendingTaken])}
             onTake={(indices) => void take(indices)}
-            onDiscard={() => onDiscardProposal?.()}
+            onDiscard={() => {
+              setPendingTaken(new Set());
+              onDiscardProposal?.();
+            }}
           />
         </div>
       ) : null}

@@ -5,6 +5,7 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 import { ConfirmProvider } from "./confirm-dialog";
 import { splitSections } from "./committee-report/report-sections";
 import { formatDisplayTimestamp } from "./tz-display";
+import { t } from "./i18n";
 
 // Stub the dynamically-imported Tiptap editor with a plain textarea so the test
 // exercises the pane's buttons/logic, not the browser-only editor. ★ UNCONTROLLED
@@ -366,11 +367,38 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     await screen.findByRole("dialog", { name: "Replace sections?" });
     p.rerenderWith({ report: { html: "<h2>Risks</h2><p>undone</p>", updatedAt: "2026-10-30T09:30:00.000Z" } });
     fireEvent.click(screen.getByRole("button", { name: "Replace" }));
+    // The dropped take is announced, not silent.
+    const notice = await screen.findByRole("dialog", { name: "Take not applied" });
+    expect(notice).toHaveTextContent("The report changed while you were deciding");
+    fireEvent.click(within(notice).getByRole("button", { name: t("en-US", "dialogOk") }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>undone</p>"));
     expect(screen.getByRole("button", { name: "Take – Risks" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(p.onSave).toHaveBeenLastCalledWith("<h2>Risks</h2><p>undone</p>", { fromAi: false });
+  });
+
+  // Unsaved taken marks are indices into ONE proposal: a new or discarded proposal drops them.
+  it("a regenerated proposal (new createdAt) clears the unsaved taken marks", async () => {
+    const p = renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
+    p.rerenderWith({ proposal: { sections: AI, taken: new Set<number>(), createdAt: "2026-10-30T10:00:00.000Z" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeEnabled());
+    expect(rowOf("Take – Next steps")).not.toHaveTextContent("Taken");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(p.onTaken).not.toHaveBeenCalled();
+  });
+
+  it("Discard clears the unsaved taken marks, so a later Save reports none", async () => {
+    const p = renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(p.onTaken).not.toHaveBeenCalled();
   });
 
   it("shows no proposal block without a proposal", async () => {
