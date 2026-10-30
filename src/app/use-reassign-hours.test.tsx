@@ -267,6 +267,13 @@ describe("useReassignHours: two moves in one tick", () => {
     });
     expect(util(hook.result.current.resources, 1)).toEqual({ "2026-09": 42, "2026-10": 32, "2026-11": 20 });
     expect(util(hook.result.current.resources, 2)).toEqual(MOVED_LIAM);
+    // ★ KNOWN LIMIT (ruling R11), pinned, not a goal: undo is absolute per key, so the
+    // same-cell external +10 that landed before the move in the same tick is lost on undo
+    // (Sep back to the 40 the hook saw) and redo writes the planned 32, not 42.
+    act(() => { hook.result.current.undo.undo(); });
+    expect(util(hook.result.current.resources, 1)?.["2026-09"]).toBe(40);
+    act(() => { hook.result.current.undo.redo(); });
+    expect(util(hook.result.current.resources, 1)?.["2026-09"]).toBe(32);
   });
 
   it("a second reassignTasks in the same tick reads the owner the first one wrote", () => {

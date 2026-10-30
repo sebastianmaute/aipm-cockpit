@@ -13,15 +13,20 @@
 //   stale for a second call made before React re-renders — planning both from it
 //   double-spends the giver's hours (or creates hours out of nothing). So planning
 //   reads `resourcesRef`/`tasksRef`, which a write ADVANCES synchronously to the
-//   planned next state and a commit-time effect re-syncs to the live state.
+//   planned next state and a layout effect re-syncs to the live state.
 //   ★ That covers prepare→commit→prepare→commit. Two `prepare`s before either
 //   commits still plan from the same state: commit each step before the next prepare.
 // ★ The forward resources write applies each planned DELTA per key to `prev`
 //   (never the absolute `after`), so a same-key write by another writer in the
-//   same tick is kept rather than overwritten. The UNDO image stays absolute and
-//   merges per key: undo of a later move reverts that move's keys to what they
-//   were just before it, which is the first move's result.
-import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
+//   same tick is kept by the FORWARD write.
+// ★★ UNDO IS ABSOLUTE PER KEY (ruling R11, the codebase convention for every
+//   `captureFieldPart`). Undo restores each key the move touched to its value just
+//   before the move AS THIS HOOK SAW IT (the ref state); keys the move did not touch
+//   keep their live value. So undo of a later move returns its keys to the earlier
+//   move's result — but an external write to the SAME cell in the same tick, before
+//   the move, is NOT preserved by undo (or redo). Pinned as a known limit by the
+//   "same-key write" test.
+import { useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { ActivityActor } from "./activity-log";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { t, type Lang } from "./i18n";
@@ -53,7 +58,8 @@ export interface ReassignHoursDeps {
 export interface HoursMoveStep {
   /** Resources fragment to add to the caller's own captureComposite parts; null when nothing moved. */
   resourcesPart: CompositeFragment | null;
-  /** Writes the resources (functional setter) and logs the activity. Call once, after the task write. */
+  /** Writes the resources (functional setter) and logs the activity. Call once, after the task write.
+   *  ★ Commit each step before the next `prepare`: two `prepare` calls before either commits plan from the same state. */
   commit(actor: ActivityActor): void;
   /** Text for the caller's toastText (or for showToast when it captures nothing); null when silent. */
   notice: string | null;
@@ -68,7 +74,8 @@ export interface OwnerEdit {
 }
 
 export interface ReassignHours {
-  /** For a path that already records its own undo entry for this save. */
+  /** For a path that already records its own undo entry for this save.
+   *  ★ Commit each step before the next `prepare`: two `prepare` calls before either commits plan from the same state. */
   prepare(changes: readonly OwnerChange[]): HoursMoveStep;
   /** For a path that records nothing today: writes the task owner fields AND the hours, one undo entry, one notice. */
   reassignTasks(edits: readonly OwnerEdit[], actor: ActivityActor): void;
@@ -141,8 +148,8 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
   // changes it, advanced synchronously by every write below.
   const resourcesRef = useRef(resources);
   const tasksRef = useRef(tasks);
-  useEffect(() => { resourcesRef.current = resources; }, [resources]);
-  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  useLayoutEffect(() => { resourcesRef.current = resources; }, [resources]);
+  useLayoutEffect(() => { tasksRef.current = tasks; }, [tasks]);
 
   const resourceName = (id: number): string => {
     const r = resourcesRef.current.find((x) => x.id === id);
