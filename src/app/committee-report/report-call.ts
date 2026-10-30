@@ -7,6 +7,7 @@
 // and would leak it); the api key and response body are NEVER logged or echoed —
 // thrown errors carry only the HTTP status (AiHttpError, message status-only) or
 // the token "parse".
+import { PRIVACY_NOT_YET_THREADED } from "../ai-privacy";
 import type { Lang } from "../i18n";
 import type { DashboardModel } from "../dashboard";
 import { runForcedToolCallWithRetry } from "../ai-forced-call";
@@ -47,6 +48,7 @@ export async function runMeetingReport(
   const reply = await runForcedToolCallWithRetry(
     {
       apiKey: ctx.apiKey,
+      privacy: PRIVACY_NOT_YET_THREADED,
       model: ctx.model,
       guideText: ctx.guideText,
       tools: [REPORT_TOOL],

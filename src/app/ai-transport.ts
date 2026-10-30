@@ -38,6 +38,9 @@ import {
   type AiGatewayErrorCode,
 } from "./ai-errors";
 import { requestAiStatus } from "./ai-status-request";
+import { AiPeopleProtectedContentError, hasUnredactableContent, type AiPrivacy } from "./ai-privacy";
+import { redactJsonBody, restoreJsonText } from "./ai-people-redact";
+import { logDiag } from "./diagnostics";
 
 export { AiDeploymentError, AiGatewayError } from "./ai-errors";
 
@@ -219,24 +222,52 @@ export interface PostAiMessagesArgs {
    *  throw stops the send. Callers pass their consent assertion here, because the consent can be
    *  revoked while the status is asked. */
   beforeSend?: () => void;
+  /** REQUIRED so every caller decides. Protected: the body is redacted before it is sent and the
+   *  reply restored; an image or non-text document block is refused (`AiPeopleProtectedContentError`). */
+  privacy: AiPrivacy;
+}
+
+/** Redact `body` for a protected send and log the per-send counts (numbers only, never values). */
+function redactForSend(body: string, privacy: AiPrivacy): string {
+  if (!privacy.protected) return body;
+  if (hasUnredactableContent(body)) throw new AiPeopleProtectedContentError();
+  const before = privacy.session.counts();
+  const redacted = redactJsonBody(body, privacy.session);
+  const after = privacy.session.counts();
+  logDiag("info", "ai.peopleRedacted", {
+    person: after.person - before.person,
+    email: after.email - before.email,
+    phone: after.phone - before.phone,
+    iban: after.iban - before.iban,
+  });
+  return redacted;
+}
+
+/** Read a 2xx reply once and hand the caller the same response with the real names restored. */
+async function restoreReply(res: Response, privacy: AiPrivacy): Promise<Response> {
+  if (!privacy.protected || !res.ok) return res;
+  const restored = restoreJsonText(await res.text(), privacy.session);
+  return new Response(restored, { status: res.status, statusText: res.statusText, headers: res.headers });
 }
 
 /** POST a Messages request on this deployment's route, after `confirmAiDeployment`. */
-export async function postAiMessages({ apiKey, body, path, signal, beforeSend }: PostAiMessagesArgs): Promise<Response> {
+export async function postAiMessages({ apiKey, body, path, signal, beforeSend, privacy }: PostAiMessagesArgs): Promise<Response> {
   await confirmAiDeployment(signal);
   throwIfAborted(signal);
   beforeSend?.();
+  const outgoing = redactForSend(body, privacy);
   const gateway = currentAiRoute() === "gateway";
   const res = await fetch(gateway ? RELAY_MESSAGES_URL : ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     headers: gateway ? relayHeaders(apiKey, true) : directHeaders(apiKey, true),
-    body,
+    body: outgoing,
     signal,
   });
   if (gateway && !res.ok) await throwIfRelayOwnError(res);
+  const reply = await restoreReply(res, privacy);
   // Fire and forget: `tapUsage` swallows its own failures.
-  if (res.ok) void tapUsage(path, res);
-  return res;
+  if (reply.ok) void tapUsage(path, reply);
+  return reply;
 }
 
 /** GET the model list on this deployment's route, after `confirmAiDeployment`. */

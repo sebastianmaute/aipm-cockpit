@@ -120,7 +120,7 @@ describe("confirmAiDeployment", () => {
 describe("postAiMessages", () => {
   it("direct: checks the status, then posts to Anthropic with today's four headers", async () => {
     const f = stubFetch(DIRECT_AI_STATUS);
-    await postAiMessages({ apiKey: KEY, body: "{\"a\":1}", path: "chat" });
+    await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{\"a\":1}", path: "chat" });
     expect(urls(f)).toEqual(["/api/ai/status", "https://api.anthropic.com/v1/messages"]);
     const init = f.mock.calls[1][1];
     expect(init?.method).toBe("POST");
@@ -136,7 +136,7 @@ describe("postAiMessages", () => {
   it("gateway: posts to the same-origin relay without the browser-access header", async () => {
     setAiDeploymentState(GATEWAY);
     const f = stubFetch(GATEWAY);
-    await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
+    await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" });
     expect(urls(f)).toEqual(["/api/ai/status", "/api/ai/messages"]);
     expect(f.mock.calls[1][1]?.headers).toEqual({
       "x-api-key": KEY,
@@ -151,7 +151,7 @@ describe("postAiMessages", () => {
     [GATEWAY],
   ] as const)("never posts when the status refuses (%o)", async (state) => {
     const f = stubFetch(state);
-    await expect(postAiMessages({ apiKey: KEY, body: "{}", path: "chat" })).rejects.toBeInstanceOf(AiDeploymentError);
+    await expect(postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" })).rejects.toBeInstanceOf(AiDeploymentError);
     expect(urls(f)).toEqual(["/api/ai/status"]);
   });
 
@@ -165,14 +165,14 @@ describe("postAiMessages", () => {
       return json({});
     });
     vi.stubGlobal("fetch", f);
-    const err = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat", signal: ctrl.signal }).catch((e: unknown) => e);
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat", signal: ctrl.signal }).catch((e: unknown) => e);
     expect((err as { name?: string }).name).toBe("AbortError");
     expect(f.mock.calls.map((c) => c[0])).toEqual(["/api/ai/status"]);
   });
 
   it("never posts when the server is down", async () => {
     const f = stubFetch(new TypeError("Failed to fetch"));
-    const err = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
     expect((err as AiDeploymentError).reason).toBe("unconfirmed");
     expect(urls(f)).toEqual(["/api/ai/status"]);
   });
@@ -180,7 +180,7 @@ describe("postAiMessages", () => {
   it.each(["ai-gateway-rejected", "ai-gateway-error", "ai-gateway-rate-limited"] as const)("relay 502 %s throws AiGatewayError", async (code) => {
     setAiDeploymentState(GATEWAY);
     stubFetch(GATEWAY, () => json({ error: code }, 502));
-    const err = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AiGatewayError);
     expect((err as AiGatewayError).code).toBe(code);
   });
@@ -188,7 +188,7 @@ describe("postAiMessages", () => {
   it("relay 504 timeout throws AiGatewayError ai-gateway-error", async () => {
     setAiDeploymentState(GATEWAY);
     stubFetch(GATEWAY, () => json({ error: "ai-gateway-error" }, 504));
-    const err = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
     expect((err as AiGatewayError).code).toBe("ai-gateway-error");
   });
 
@@ -196,7 +196,7 @@ describe("postAiMessages", () => {
     setAiDeploymentState(GATEWAY);
     const tooLarge = { type: "error", error: { type: "request_too_large", message: "Request exceeds the maximum allowed size." } };
     stubFetch(GATEWAY, () => json(tooLarge, 413));
-    const res = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
+    const res = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" });
     expect(res.status).toBe(413);
     expect(await res.json()).toEqual(tooLarge);
   });
@@ -204,7 +204,7 @@ describe("postAiMessages", () => {
   it.each(["bad-request", "missing-api-key"])("relay 400 %s reaches the caller as a plain 400, never a gateway error", async (code) => {
     setAiDeploymentState(GATEWAY);
     stubFetch(GATEWAY, () => json({ error: code }, 400));
-    const res = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
+    const res = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" });
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: code });
   });
@@ -212,7 +212,7 @@ describe("postAiMessages", () => {
   it("relay's own 403 is a gateway error, never a key verdict", async () => {
     setAiDeploymentState(GATEWAY);
     stubFetch(GATEWAY, () => json({ error: "not-same-origin" }, 403));
-    await expect(postAiMessages({ apiKey: KEY, body: "{}", path: "chat" })).rejects.toBeInstanceOf(AiGatewayError);
+    await expect(postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" })).rejects.toBeInstanceOf(AiGatewayError);
   });
 
   it.each([
@@ -221,14 +221,14 @@ describe("postAiMessages", () => {
   ] as const)("relay %i %o after a good status is a deployment error", async (status, body, reason) => {
     setAiDeploymentState(GATEWAY);
     stubFetch(GATEWAY, () => json(body, status));
-    const err = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
     expect((err as AiDeploymentError).reason).toBe(reason);
   });
 
   it("relay 404 (the deployment went direct) is route-changed", async () => {
     setAiDeploymentState(GATEWAY);
     stubFetch(GATEWAY, () => new Response(null, { status: 404 }));
-    const err = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
     expect((err as AiDeploymentError).reason).toBe("route-changed");
   });
 
@@ -239,7 +239,7 @@ describe("postAiMessages", () => {
   ])("an uncoded relay 503 (%s) is unconfirmed, never route-changed", async (_label, reply) => {
     setAiDeploymentState(GATEWAY);
     stubFetch(GATEWAY, reply);
-    const err = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AiDeploymentError);
     expect((err as AiDeploymentError).reason).toBe("unconfirmed");
   });
@@ -258,7 +258,7 @@ describe("postAiMessages", () => {
       order.push("beforeSend");
       throw stop;
     });
-    const err = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat", beforeSend }).catch((e: unknown) => e);
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat", beforeSend }).catch((e: unknown) => e);
     expect(err).toBe(stop);
     expect(order).toEqual(["/api/ai/status", "beforeSend"]);
   });
@@ -266,7 +266,7 @@ describe("postAiMessages", () => {
   it("beforeSend that returns lets the send go out once", async () => {
     const f = stubFetch(DIRECT_AI_STATUS);
     const beforeSend = vi.fn();
-    await postAiMessages({ apiKey: KEY, body: "{}", path: "chat", beforeSend });
+    await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat", beforeSend });
     expect(beforeSend).toHaveBeenCalledTimes(1);
     expect(urls(f)).toEqual(["/api/ai/status", "https://api.anthropic.com/v1/messages"]);
   });
@@ -275,14 +275,14 @@ describe("postAiMessages", () => {
     setAiDeploymentState(GATEWAY);
     const anthropic = { type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } };
     stubFetch(GATEWAY, () => json(anthropic, 401));
-    const res = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
+    const res = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" });
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual(anthropic);
   });
 
   it("a direct non-2xx is returned to the caller unchanged", async () => {
     stubFetch(DIRECT_AI_STATUS, () => json({ error: "ai-gateway-rejected" }, 502));
-    const res = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
+    const res = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" });
     expect(res.status).toBe(502);
   });
 });
@@ -353,7 +353,7 @@ describe("subscribeAiUsage", () => {
     const seen: unknown[] = [];
     subscribe((path, usage) => seen.push([path, usage]));
     stubFetch(DIRECT_AI_STATUS, () => json({ content: [], usage: { input_tokens: 7, output_tokens: 3 } }));
-    const res = await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
+    const res = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" });
     expect(await res.json()).toEqual({ content: [], usage: { input_tokens: 7, output_tokens: 3 } });
     await vi.waitFor(() => expect(seen).toHaveLength(1));
     expect(seen).toEqual([
@@ -366,7 +366,7 @@ describe("subscribeAiUsage", () => {
     // A 2xx whose body never finishes: reading the clone never resolves.
     stubFetch(DIRECT_AI_STATUS, () => new Response(new ReadableStream({ start() {} }), { status: 200 }));
     const outcome = await Promise.race([
-      postAiMessages({ apiKey: KEY, body: "{}", path: "chat" }).then(() => "sent"),
+      postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).then(() => "sent"),
       new Promise((r) => setTimeout(() => r("held"), 200)),
     ]);
     expect(outcome).toBe("sent");
@@ -376,11 +376,11 @@ describe("subscribeAiUsage", () => {
     const listener = vi.fn();
     const off = subscribe(listener);
     stubFetch(DIRECT_AI_STATUS, () => json({ type: "error", error: { type: "invalid_request_error" } }, 400));
-    await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
+    await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" });
     expect(listener).not.toHaveBeenCalled();
     off();
     stubFetch(DIRECT_AI_STATUS, () => json({ usage: { input_tokens: 1 } }));
-    await postAiMessages({ apiKey: KEY, body: "{}", path: "chat" });
+    await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" });
     expect(listener).not.toHaveBeenCalled();
   });
 
@@ -389,7 +389,7 @@ describe("subscribeAiUsage", () => {
       throw new Error("listener");
     });
     stubFetch(DIRECT_AI_STATUS, () => json({ usage: { input_tokens: 1 } }));
-    await expect(postAiMessages({ apiKey: KEY, body: "{}", path: "x" })).resolves.toBeInstanceOf(Response);
+    await expect(postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "x" })).resolves.toBeInstanceOf(Response);
   });
 });
 

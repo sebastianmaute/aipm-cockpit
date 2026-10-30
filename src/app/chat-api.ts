@@ -88,6 +88,7 @@ export type DisplayItem =
   | { kind: "proposal"; id: string; count: number };
 
 import { CHAT_PATH } from "./ai-usage-paths";
+import type { AiPrivacy } from "./ai-privacy";
 import { normalizeApiUsage, postAiMessages, type ApiUsage, type WireUsage } from "./ai-transport";
 export { ANTHROPIC_VERSION, normalizeApiUsage, type ApiUsage } from "./ai-transport";
 
@@ -647,6 +648,8 @@ export async function callClaude(
   /** The tool flags — `settings.ai`'s drop a tool only on an explicit false; `forecast` (from the
    *  snapshot) offers its tools only on an explicit true. */
   toolFlags: ToolFlags,
+  /** Whether the request is redacted for people protection. Required: every caller decides. */
+  privacy: AiPrivacy,
   signal?: AbortSignal,
   /** A narrower tool list than the flags give (`toolsNamed`); absent, the flags' list. */
   tools?: ReturnType<typeof withCacheBreakpoint>,
@@ -669,6 +672,7 @@ export async function callClaude(
     }),
     path,
     signal,
+    privacy,
     // Asked again after the deployment status: consent can be revoked while it is asked.
     beforeSend: assertInteractiveConsentLive,
   });

@@ -1,5 +1,6 @@
 "use client";
 
+import { PRIVACY_NOT_YET_THREADED } from "./ai-privacy";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
 import { type ToolDispatcher, runTool } from "./chat-tools";
@@ -822,7 +823,7 @@ function ChatPanelInner({
           ai.model,
           system,
           buildWireMessages(messages, turnContext).messages,
-          toolFlags, controller.signal,
+          toolFlags, PRIVACY_NOT_YET_THREADED, controller.signal,
         );
         // §702: the counter takes the request and its cache write together,
         // BEFORE the stale check — a request counted without its write would

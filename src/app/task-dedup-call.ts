@@ -9,6 +9,7 @@
 // key or the raw response body. Thrown errors carry only the HTTP status
 // (AiHttpError, with the safe error.type token + safe body message; message
 // status-only) or the token "parse" for malformed tool output.
+import { PRIVACY_NOT_YET_THREADED } from "./ai-privacy";
 import {
   PROPOSE_MERGES_TOOL,
   buildDedupSystemPrompt,
@@ -37,6 +38,7 @@ export async function runDedupProposal(
 ): Promise<RawMergeGroup[]> {
   const reply = await runForcedToolCallWithRetry({
     apiKey: ai.apiKey,
+    privacy: PRIVACY_NOT_YET_THREADED,
     model: ai.model,
     system: buildDedupSystemPrompt(),
     guideText: ai.guideText,

@@ -5,6 +5,7 @@
 // ★★ The mapping is converted by `claudeMappingOf` and refused (`bad-mapping`)
 // when it cannot be used; the hand route's reader then imports with it, through
 // every question and refusal it has, and only after the user confirms it.
+import { PRIVACY_NOT_YET_THREADED } from "./ai-privacy";
 import { claudeMappingOf } from "./budget-import/claude-mapping";
 import { columnLetters } from "./budget-import/forecast-rows";
 import type { ColumnMapping } from "./budget-import/forecast-types";
@@ -101,6 +102,7 @@ export async function runForecastImportCall(
   if (prompt.length > MAX_CLAUDE_IMPORT_CHARS) throw new Error("too-large");
   const { input: raw, stopReason } = await runForcedToolCallWithStop({
     apiKey: ai.apiKey,
+    privacy: PRIVACY_NOT_YET_THREADED,
     model: ai.model,
     system: SYSTEM,
     guideText: ai.guideText,

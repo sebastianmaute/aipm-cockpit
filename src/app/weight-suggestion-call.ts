@@ -2,6 +2,7 @@
 // shared runForcedToolCallWithRetry envelope NEVER logs/echoes the api key or response
 // body; thrown errors carry only HTTP status (AiHttpError, message status-only)
 // or "parse". Mirrors scheduled-job-analysis.ts.
+import { PRIVACY_NOT_YET_THREADED } from "./ai-privacy";
 import { type NextActionsConfig } from "./settings-types";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { SUGGEST_TOOL, buildSuggestionSystemPrompt, parseSuggestionResponse, type SuggestionResult } from "./weight-suggestion-ai";
@@ -28,6 +29,7 @@ export async function runWeightSuggestion(context: string, ai: AiCreds, current:
   const reply = await runForcedToolCallWithRetry(
     {
       apiKey: ai.apiKey,
+      privacy: PRIVACY_NOT_YET_THREADED,
       model: ai.model,
       system: buildSuggestionSystemPrompt(),
       guideText: ai.guideText,

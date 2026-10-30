@@ -3,6 +3,7 @@
 // Non-hook single-shot call for the inline entity editor. Reuses callClaude
 // (which already sends the tool defs + browser headers). NEVER logs/echoes the
 // key or body; the caller reads only { blocks, text, usage }. No agentic loop.
+import { PRIVACY_NOT_YET_THREADED } from "./ai-privacy";
 import {
   buildSystemPrompt,
   callClaude,
@@ -196,6 +197,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     system,
     [{ role: "user", content: args.instruction }],
     NO_RECALL_TOOLS,
+    PRIVACY_NOT_YET_THREADED,
     args.signal,
     tools,
     INLINE_EDIT_PATH,

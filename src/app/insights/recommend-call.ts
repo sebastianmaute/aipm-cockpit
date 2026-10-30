@@ -6,6 +6,7 @@
 // Grounding happens in parseRecommendation; the api key/body are NEVER logged
 // (the shared runForcedToolCallWithRetry envelope guarantees it). Thrown errors carry
 // only the HTTP status (AiHttpError) or the token "parse".
+import { PRIVACY_NOT_YET_THREADED } from "../ai-privacy";
 import { runForcedToolCallWithRetry } from "../ai-forced-call";
 import type { AiConsentLevel } from "../ai-consent";
 import { RECOMMEND_TOOL, parseRecommendation } from "./recommend";
@@ -50,6 +51,7 @@ export async function runInsightRecommendation(
   const reply = await runForcedToolCallWithRetry(
     {
       apiKey: args.apiKey,
+      privacy: PRIVACY_NOT_YET_THREADED,
       model: args.model,
       system: buildRecommendSystemPrompt(),
       guideText: args.guideText,

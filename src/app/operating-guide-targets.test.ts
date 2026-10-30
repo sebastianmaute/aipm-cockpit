@@ -174,7 +174,7 @@ describe("runForcedToolCall sends the guide text", () => {
   }
   const body = (m: ReturnType<typeof stubFetch>) =>
     JSON.parse(((m.mock.calls[0] as unknown[])[1] as RequestInit).body as string) as { system?: unknown };
-  const base = { apiKey: "k", model: "m", tools: [], toolName: "t", messages: [], maxTokens: 10 };
+  const base = { privacy: { protected: false } as const, apiKey: "k", model: "m", tools: [], toolName: "t", messages: [], maxTokens: 10 };
 
   it("after the fixed prompt", async () => {
     const m = stubFetch();

@@ -21,6 +21,7 @@ import { reportAiKeyResponse } from "./ai-key-status";
 import { type AiConsentLevel, assertAiConsentLive } from "./ai-consent";
 import { matchesSchema, withStrictTool } from "./ai-tool-schema";
 import { postAiMessages } from "./ai-transport";
+import type { AiPrivacy } from "./ai-privacy";
 import { forcedPathId } from "./ai-usage-paths";
 
 export interface ForcedToolCallArgs {
@@ -48,6 +49,8 @@ export interface ForcedToolCallArgs {
   /** The consent every request of this call needs (`assertAiConsentLive`), asked before EACH request, the
    *  fallback and strict retries included. Default `interactive`; the unattended runners pass `background`. */
   level?: AiConsentLevel;
+  /** Whether the request is redacted for people protection. Required: every caller decides. */
+  privacy: AiPrivacy;
 }
 
 /** `system` with the guide text after it as its own LAST block. With `cache`,
@@ -272,6 +275,7 @@ async function postOnce(
     body: JSON.stringify(body),
     path: forcedPathId(args.toolName, level),
     signal: args.signal,
+    privacy: args.privacy,
     // Asked again after the deployment status: consent can be revoked while it is asked.
     beforeSend: () => assertAiConsentLive(level),
   });
