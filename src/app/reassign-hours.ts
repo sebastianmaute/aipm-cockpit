@@ -153,10 +153,11 @@ function receiverRoomHours(r: Resource, p: Period, abs: readonly Absence[], ctx:
 }
 
 /** Per resource, per period: the SHOWN hours the plan moves (negative for a giver). Built from the moves, so it
- *  is exact, not re-derived from rounded stored values. */
+ *  is exact, not re-derived from rounded stored values. With `present`, a move whose giver or receiver is not in it
+ *  (deleted in the same tick) is left out whole, so the other moves in that period still go through. */
 export type ShownDeltas = ReadonlyMap<number, ReadonlyMap<string, number>>;
 
-export function plannedShownDeltas(plan: HoursMovePlan): ShownDeltas {
+export function plannedShownDeltas(plan: HoursMovePlan, present?: ReadonlySet<number>): ShownDeltas {
   const out = new Map<number, Map<string, number>>();
   const add = (id: number, key: string, h: number) => {
     const keys = out.get(id) ?? new Map<string, number>();
@@ -165,6 +166,7 @@ export function plannedShownDeltas(plan: HoursMovePlan): ShownDeltas {
   };
   for (const m of plan.moves) {
     if (m.fromResourceId === undefined || m.toResourceId === undefined) continue;
+    if (present && !(present.has(m.fromResourceId) && present.has(m.toResourceId))) continue;
     for (const p of m.perPeriod) {
       add(m.fromResourceId, p.periodKey, -p.hours);
       add(m.toResourceId, p.periodKey, p.hours);
@@ -222,7 +224,8 @@ function scaledShares(rows: readonly Resource[], deltas: ShownDeltas, scale: Rea
 export function applyShownDeltas(rows: readonly Resource[], deltas: ShownDeltas, ctx: HoursMoveCtx): Resource[] {
   const periods = new Map(generatePeriods(ctx.plan.startDate, ctx.plan.endDate, ctx.plan.granularity).map((p) => [p.key, p]));
   const scale = new Map<string, number>();
-  // A giver or receiver deleted in the same tick takes no part: its periods move nothing, so nobody gains from it.
+  // Safety net: a delta for a person not in `rows` stops its periods, so nobody gains from a missing giver. The hook
+  // never reaches it: it drops a deleted person's moves first (`plannedShownDeltas(plan, present)`).
   const present = new Set(rows.map((r) => r.id));
   for (const [id, keys] of deltas) if (!present.has(id)) for (const key of keys.keys()) scale.set(key, 0);
   for (const r of rows) {

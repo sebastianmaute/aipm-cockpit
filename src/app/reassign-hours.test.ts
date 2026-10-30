@@ -342,6 +342,23 @@ describe("applyShownDeltas", () => {
     expect(out[0].utilization["2026-09"] ?? 0).toBe(0);
   });
 
+  it("a person deleted in the same tick drops only their own moves; the rest of the period still moves", () => {
+    // Maya (1) → Liam (2) and Zoe (3) → Ann (4), both in September; Maya is deleted before the write.
+    const planned = [resource(1, { utilization: { "2026-09": 40 } }), resource(2, {}), resource(3, { utilization: { "2026-09": 40 } }), resource(4, {})];
+    const p = planHoursMoves([change(sepTask(1, 1, 120), 1, 2), change(sepTask(2, 3, 60), 3, 4)], planned, c);
+    const live = planned.slice(1);
+    const out = applyShownDeltas(live, plannedShownDeltas(p, new Set(live.map((r) => r.id))), c);
+    expect(out[0].utilization["2026-09"] ?? 0).toBe(0); // Liam gains nothing from a deleted giver
+    expect(out[1].utilization["2026-09"]).toBe(39); // Zoe still gives her 1 h
+    expect(out[2].utilization["2026-09"]).toBe(1); // and Ann still receives it
+  });
+
+  it("keeps stored hours free of float noise (0.7 + 0.1 is stored as 0.8)", () => {
+    const deltas = new Map([[1, new Map([["2026-09", -0.1]])], [2, new Map([["2026-09", 0.1]])]]);
+    const out = applyShownDeltas([resource(1, { utilization: { "2026-09": 40 } }), resource(2, { utilization: { "2026-09": 0.7 } })], deltas, c);
+    expect(out[1].utilization["2026-09"]).toBe(0.8);
+  });
+
   it("rounds a percent value once, so a pair stays within 0.01 h", () => {
     const net = 22 * 8; // September's capacity at 8 h a day
     const rec = resource(2, { utilizationMode: "percent", utilization: { "2026-09": 10.006 } });

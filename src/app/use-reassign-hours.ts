@@ -22,7 +22,8 @@
 //   writer in the same tick is kept by the FORWARD write; when that write left a giver
 //   less (or a receiver less room) than planned, the period's moves are scaled down and
 //   converted with the planner's own rule, absences included (every scaled share floored
-//   to a tenth on both sides, both sides moving the same total), so no hours are created; a percent value rounds to
+//   to a tenth on both sides, both sides moving the same total), so no hours are created; a move whose giver or
+//   receiver was deleted in the same tick is left out, and the period's other moves still go through; a percent value rounds to
 //   0.01 %. When nothing moved under the plan, it writes the plan's own `after` values, so
 //   the forward write, undo and redo agree exactly.
 // ★★ UNDO IS ABSOLUTE PER KEY (ruling R11, the codebase convention for every
@@ -32,15 +33,20 @@
 //   move's result — but an external write to the SAME cell in the same tick, before
 //   the move, is NOT preserved by undo (or redo). Pinned as a known limit by the
 //   "same-key write" test.
-// ★★ TWO MORE KNOWN LIMITS of the same kind (owner decision 2026-10-30, both rare):
-//   - Redo replays the PLAN. When a same-tick write changed a giver's absences (or unit)
-//     and the forward write was scaled, undo restores the plan's `before` and redo then
-//     writes the plan's unscaled `after`, which was computed under the old absences.
-//   - `matchesPlanned` checks the utilization, absences and unit, not the display name.
-//     An absence without a `resourceId` is matched by name, so a same-tick rename that
-//     changes which absences apply still takes the fast path.
-//   Recording what was WRITTEN (not what was planned) in the undo entry would close all
-//   three; it was considered and left for later.
+// ★★ MORE KNOWN LIMITS of the same kind (owner decision 2026-10-30, all rare):
+//   - Redo replays the PLAN. When a same-tick write changed a giver's absence overrides
+//     (or unit) and the forward write was scaled, undo restores the plan's `before` and
+//     redo then writes the plan's unscaled `after`, computed under the old values. The same
+//     after a same-tick deletion: the forward write left the deleted person's move out,
+//     but redo writes the receiver's full planned `after`, so redo can create those hours.
+//   - `matchesPlanned` compares the utilization, the absence overrides (`absenceOverride`)
+//     and the unit, nothing else. Absence RECORDS are not compared: both write paths read
+//     the render's snapshot of them, so an Absence added, changed or removed in the same
+//     tick is not noticed. Nor is the display name: an absence without a `resourceId` is
+//     matched by name, so a same-tick rename that changes which absences apply still takes
+//     the fast path.
+//   Recording what was WRITTEN (not what was planned) in the undo entry would close the
+//   undo and redo cases; it was considered and left for later.
 import { useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { ActivityActor, ActivityKind } from "./activity-log";
 import type { LogActivityAsFn } from "./activity-log-context";
@@ -243,7 +249,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
           const stamp = new Date().toISOString();
           setResources((prev) => {
             // Unchanged since planning: write the plan's own values. Moved under the plan in the same tick: scale.
-            const next = matchesPlanned(prev, hoursPlan.edits, base) ? withPlannedAfter(prev, hoursPlan.edits) : applyShownDeltas(prev, deltas, ctx);
+            const next = matchesPlanned(prev, hoursPlan.edits, base) ? withPlannedAfter(prev, hoursPlan.edits) : applyShownDeltas(prev, plannedShownDeltas(hoursPlan, new Set(prev.map((r) => r.id))), ctx);
             // Stamp only the people whose stored hours actually changed.
             return next.map((r, i) => (sameUtil(r.utilization, prev[i].utilization) ? r : { ...r, localModifiedAt: stamp }));
           });

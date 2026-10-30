@@ -530,6 +530,20 @@ describe("useReassignHours: two moves in one tick", () => {
     expect(shownOf(hook, 2, "2026-09")).toBe(4); // not 8: only what Maya still showed
   });
 
+  it("a giver deleted in the same tick cancels only their own move, not another giver's in the same period", () => {
+    const sep = { startDate: "2026-09-01", dueDate: "2026-09-30" };
+    const a = { ...TASK, ...sep, id: 31, taskName: "A", remainingEstimateMinutes: 8 * 60 } as Task; // Maya's
+    const b = { ...TASK, ...sep, id: 32, taskName: "B", remainingEstimateMinutes: 8 * 60, assignee: "Zoe Kim", assigneeEmail: "zoe@x.com", resourceId: 3 } as Task;
+    const { hook } = setup({ tasks: [a, b] });
+    act(() => { setRes(hook, 3, { utilization: { "2026-09": 20 } }); });
+    act(() => {
+      hook.result.current.setResources((prev) => prev.filter((r) => r.id !== 1)); // Maya deleted in the same tick
+      hook.result.current.reassign.reassignTasks([{ taskId: 31, ...LIAM_OWNS }, { taskId: 32, ...LIAM_OWNS }], "user");
+    });
+    expect(util(hook.result.current.resources, 3)).toEqual({ "2026-09": 12 });
+    expect(util(hook.result.current.resources, 2)).toEqual({ "2026-09": 8 }); // Zoe's 8 h, nothing from Maya
+  });
+
   it("stamps only the people whose planned hours actually changed", () => {
     const sep = { startDate: "2026-09-01", dueDate: "2026-09-30" };
     const a = { ...TASK, ...sep, id: 31, taskName: "A", remainingEstimateMinutes: 8 * 60 } as Task;
