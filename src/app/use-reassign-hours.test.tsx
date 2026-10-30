@@ -484,6 +484,45 @@ describe("useReassignHours: two moves in one tick", () => {
     expect(util(hook.result.current.resources, 2)).toEqual({});
   });
 
+  it("the forward write equals what redo writes (no drift from netting a percent receiver's moves)", () => {
+    const sep = { startDate: "2026-09-01", dueDate: "2026-09-30" };
+    const ts = [21, 22, 23].map((id) => ({ ...TASK, ...sep, id, taskName: `T${id}`, remainingEstimateMinutes: 61 } as Task));
+    const { hook } = setup({ tasks: ts });
+    act(() => { setRes(hook, 3, { utilizationMode: "percent", utilization: { "2026-09": 10 } }); });
+    act(() => { hook.result.current.reassign.reassignTasks(ts.map((t) => ({ taskId: t.id, assignee: "Zoe Kim", assigneeEmail: "zoe@x.com", resourceId: 3 })), "user"); });
+    const forward = util(hook.result.current.resources, 3);
+    act(() => { hook.result.current.undo.undo(); });
+    act(() => { hook.result.current.undo.redo(); });
+    expect(util(hook.result.current.resources, 3)).toEqual(forward);
+  });
+
+  it("a rename later in the same tick does not roll the task copy back to the render snapshot", () => {
+    const { hook } = setup({ tasks: [TASK] });
+    act(() => {
+      const { prepare, reassignTasks } = hook.result.current.reassign;
+      reassignTasks([TO_LIAM], "user"); // Maya → Liam
+      // An inline rename built from the render snapshot (still Maya), no owner change: a silent step.
+      prepare([{ task: { ...TASK, taskName: "Renamed" } as Task, fromResourceId: 1, toResourceId: 1, fromAssignee: "Maya Patel" }]).commit("user");
+      reassignTasks([{ taskId: 10, assignee: "Zoe Kim", assigneeEmail: "zoe@x.com", resourceId: 3 }], "user"); // Liam → Zoe
+    });
+    // The second move must come from Liam, not from Maya again.
+    expect(util(hook.result.current.resources, 1)).toEqual(MOVED_MAYA);
+    expect(util(hook.result.current.resources, 2)).toEqual({ "2026-09": 0, "2026-10": 0 });
+    expect(util(hook.result.current.resources, 3)).toEqual(MOVED_LIAM);
+  });
+
+  it("stamps only the people whose planned hours actually changed", () => {
+    const sep = { startDate: "2026-09-01", dueDate: "2026-09-30" };
+    const a = { ...TASK, ...sep, id: 31, taskName: "A", remainingEstimateMinutes: 8 * 60 } as Task;
+    const b = { ...TASK, ...sep, id: 32, taskName: "B", remainingEstimateMinutes: 8 * 60, ...LIAM_OWNS } as Task;
+    const { hook } = setup({ tasks: [a, b] });
+    // Liam receives 8 h from Maya and passes 8 h to Zoe in one batch: his hours end where they started.
+    act(() => { hook.result.current.reassign.reassignTasks([{ taskId: 31, ...LIAM_OWNS }, { taskId: 32, assignee: "Zoe Kim", assigneeEmail: "zoe@x.com", resourceId: 3 }], "user"); });
+    const liam = hook.result.current.resources.find((r) => r.id === 2)!;
+    expect(liam.localModifiedAt).toBeUndefined();
+    expect(hook.result.current.resources.find((r) => r.id === 3)!.localModifiedAt).toBeDefined();
+  });
+
   it("a prepare().commit() advances the hook's task copy, so a later reassignTasks reads the new owner", () => {
     const { hook } = setup({ tasks: [TASK] });
     act(() => {

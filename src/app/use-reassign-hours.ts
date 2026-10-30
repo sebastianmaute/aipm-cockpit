@@ -21,8 +21,10 @@
 //   (`applyShownDeltas`, never the absolute `after`), so a same-key write by another
 //   writer in the same tick is kept by the FORWARD write; when that write left a giver
 //   less (or a receiver less room) than planned, the period's moves are scaled down and
-//   converted with the planner's own rule, absences included, so no hours are created
-//   or lost.
+//   converted with the planner's own rule, absences included (receiver shares floored to
+//   a tenth, givers give their sum), so no hours are created; a percent value rounds to
+//   0.01 %. When nothing moved under the plan, it writes the plan's own `after` values, so
+//   the forward write, undo and redo agree exactly.
 // ★★ UNDO IS ABSOLUTE PER KEY (ruling R11, the codebase convention for every
 //   `captureFieldPart`). Undo restores each key the move touched to its value just
 //   before the move AS THIS HOOK SAW IT (the ref state); keys the move did not touch
@@ -34,7 +36,7 @@ import { useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "rea
 import type { ActivityActor, ActivityKind } from "./activity-log";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { type Lang } from "./i18n";
-import { applyShownDeltas, planHoursMoves, plannedShownDeltas, type HoursMovePlan, type OwnerChange } from "./reassign-hours";
+import { applyShownDeltas, planHoursMoves, plannedShownDeltas, type HoursMovePlan, type OwnerChange, type ResourceUtilEdit } from "./reassign-hours";
 import { defaultPeriodLabel, hoursMoveNotice } from "./reassign-hours-notice";
 import { linkPersonForWrite, resourceDisplayName } from "./resource-foundation";
 import type { Absence, Resource, ResourcePlan, Task } from "./types";
@@ -137,6 +139,35 @@ function emptyPlan(resources: readonly Resource[]): HoursMovePlan {
   return { moves: [], nextResources: [...resources], edits: [], overCapacity: [] };
 }
 
+/** Value-equal utilization maps (a missing key counts as 0). */
+function sameUtil(a: Readonly<Record<string, number>>, b: Readonly<Record<string, number>>): boolean {
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) if ((a[k] ?? 0) !== (b[k] ?? 0)) return false;
+  return true;
+}
+
+/** True when every resource the plan edits still holds the utilization the plan started from. */
+function matchesPlanned(rows: readonly Resource[], edits: readonly ResourceUtilEdit[]): boolean {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return edits.every((e) => {
+    const r = byId.get(e.id);
+    return r !== undefined && sameUtil(r.utilization, e.before.utilization);
+  });
+}
+
+/** `rows` with each edited resource's utilization set to the plan's `after`. */
+function withPlannedAfter(rows: readonly Resource[], edits: readonly ResourceUtilEdit[]): Resource[] {
+  const after = new Map(edits.map((e) => [e.id, e.after.utilization]));
+  return rows.map((r) => {
+    const util = after.get(r.id);
+    return util ? { ...r, utilization: { ...util } } : r;
+  });
+}
+
+/** Whether a change changes the task's owner (its link or its name). */
+function changesOwner(c: OwnerChange): boolean {
+  return c.fromResourceId !== c.task.resourceId || (c.fromAssignee !== undefined && c.fromAssignee !== c.task.assignee);
+}
+
 export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
   const { lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours, holidaySet, captureComposite, logActivityAs, showToast } = deps;
 
@@ -155,7 +186,9 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
   // The caller wrote the owner through its own setter; advance this hook's copy too, so a reassignTasks later in
   // the same tick reads the new owner, not the render snapshot's. Every change, the silent ones included.
   const advanceTaskCopy = (changes: readonly OwnerChange[]): void => {
-    const owners = new Map(changes.map((c) => [c.task.id, c.task]));
+    // Only changes that change the owner: a rename built from the render snapshot carries that snapshot's owner,
+    // which may be older than this copy (a reassignTasks earlier in the same tick).
+    const owners = new Map(changes.filter(changesOwner).map((c) => [c.task.id, c.task]));
     tasksRef.current = tasksRef.current.map((row) => {
       const next = owners.get(row.id);
       return next ? { ...row, assignee: next.assignee, assigneeEmail: next.assigneeEmail, resourceId: next.resourceId } : row;
@@ -189,10 +222,15 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
         const deltas = plannedShownDeltas(hoursPlan);
         if (deltas.size > 0) {
           const ctx = { plan, absences, workdayHours, holidaySet, today };
-          resourcesRef.current = applyShownDeltas(resourcesRef.current, deltas, ctx);
+          // The ref IS the plan's input, so it takes the plan's own `after` values: undo and redo replay exactly these.
+          resourcesRef.current = withPlannedAfter(resourcesRef.current, hoursPlan.edits);
           const stamp = new Date().toISOString();
-          const touched = new Set(deltas.keys());
-          setResources((prev) => applyShownDeltas(prev, deltas, ctx).map((r) => (touched.has(r.id) ? { ...r, localModifiedAt: stamp } : r)));
+          setResources((prev) => {
+            // Unchanged since planning: write the plan's own values. Moved under the plan in the same tick: scale.
+            const next = matchesPlanned(prev, hoursPlan.edits) ? withPlannedAfter(prev, hoursPlan.edits) : applyShownDeltas(prev, deltas, ctx);
+            // Stamp only the people whose stored hours actually changed.
+            return next.map((r, i) => (sameUtil(r.utilization, prev[i].utilization) ? r : { ...r, localModifiedAt: stamp }));
+          });
         }
         const summary = moved ? activitySummary(hoursPlan, resourceName) : "";
         if (summary) logActivityAs?.(actor, "resource.hoursMoved", summary);

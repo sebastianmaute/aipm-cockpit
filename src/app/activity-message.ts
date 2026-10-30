@@ -99,7 +99,6 @@ function displayMovedHours(lang: Lang, stored: string): string {
   }).join(", ");
 }
 
-
 /**
  * §476 — per-kind DISPLAY formatting of stored args, applied by `activityMessage`
  * ONLY when the caller passes `{ display: true }` (the activity panel: a person reads

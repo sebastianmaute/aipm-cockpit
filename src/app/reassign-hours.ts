@@ -170,15 +170,46 @@ export function plannedShownDeltas(plan: HoursMovePlan): ShownDeltas {
 }
 
 /**
- * Apply planned shown-hour moves to `rows` as they are NOW. Pure: it serves both the hook's ref advance (rows ==
- * the plan's own state, nothing scales) and its setter updater (rows may have moved under the plan in the same tick).
+ * Apply planned shown-hour moves to `rows` as they are NOW — for a live state that moved under the plan in the same
+ * tick (the hook writes the plan's own `after` values when nothing moved, so undo, redo and the forward write agree).
  * ★ Conservation: per period, every move is scaled by the smallest fraction that still fits — a giver can give at most
- * the hours it shows now, a receiver can take at most its room now (100 % or HOURS_MAP_MAX) — and each person's
- * stored value is then converted from SHOWN hours with the planner's own rule (`shiftedStoredValue`), absences
- * included. So the receiver never gains more shown hours than the giver loses. The fraction is one per period across
- * the whole plan, so in a batch one constrained pair scales the others in that period too (total still conserved);
- * the notice keeps the plan's numbers.
+ * the hours it shows now, a receiver can take at most its room now (100 % or HOURS_MAP_MAX). A scaled receiver share is
+ * FLOORED to a tenth and the givers give exactly the sum of those shares (largest remainder), so rounding never creates
+ * an hour. Each person's stored value is then converted from SHOWN hours with the planner's own rule
+ * (`shiftedStoredValue`), absences included; a percent value rounds to 0.01 %, so the two sides agree to about
+ * 0.01 h. The fraction is one per period across the whole plan, so in a batch one constrained pair scales the others
+ * in that period too (total still conserved); the notice keeps the plan's numbers.
  */
+/** Per (resource, period): the shown hours to apply. Unscaled moves are the plan's own tenths; a scaled period floors
+ *  each receiver's share and lets the givers give exactly their sum. */
+function scaledShares(rows: readonly Resource[], deltas: ShownDeltas, scale: ReadonlyMap<string, number>): (id: number, key: string) => number {
+  const out = new Map<string, number>();
+  const at = (id: number, key: string) => `${id}|${key}`;
+  const byKey = new Map<string, { id: number; d: number }[]>();
+  for (const r of rows) {
+    for (const [key, d] of deltas.get(r.id) ?? []) byKey.set(key, [...(byKey.get(key) ?? []), { id: r.id, d }]);
+  }
+  for (const [key, entries] of byKey) {
+    const f = scale.get(key) ?? 1;
+    if (f >= 1) {
+      for (const { id, d } of entries) out.set(at(id, key), d);
+      continue;
+    }
+    const receivers = entries.filter((e) => e.d > 0);
+    const givers = entries.filter((e) => e.d < 0);
+    let total = 0;
+    for (const { id, d } of receivers) {
+      const h = floor1(d * f);
+      out.set(at(id, key), h);
+      total += h;
+    }
+    const giverSum = givers.reduce((s, e) => s + e.d, 0);
+    const parts = giverSum === 0 ? givers.map(() => 0) : toTenths(givers.map((e) => (e.d / giverSum) * total), total);
+    givers.forEach((e, i) => out.set(at(e.id, key), -parts[i]));
+  }
+  return (id, key) => out.get(at(id, key)) ?? 0;
+}
+
 export function applyShownDeltas(rows: readonly Resource[], deltas: ShownDeltas, ctx: HoursMoveCtx): Resource[] {
   const periods = new Map(generatePeriods(ctx.plan.startDate, ctx.plan.endDate, ctx.plan.granularity).map((p) => [p.key, p]));
   const scale = new Map<string, number>();
@@ -193,14 +224,15 @@ export function applyShownDeltas(rows: readonly Resource[], deltas: ShownDeltas,
       scale.set(key, Math.min(scale.get(key) ?? 1, Math.max(0, fit / d)));
     }
   }
+  const hoursFor = scaledShares(rows, deltas, scale);
   return rows.map((r) => {
     const keys = deltas.get(r.id);
     if (!keys) return r;
     const abs = absencesForResource(ctx.absences, r);
     let next = r;
-    for (const [key, d] of keys) {
+    for (const [key] of keys) {
       const p = periods.get(key);
-      const h = d * (scale.get(key) ?? 1);
+      const h = hoursFor(r.id, key);
       if (!p || h === 0) continue;
       next = withUtil(next, key, shiftedStoredValue(next, p, h, abs, ctx));
     }

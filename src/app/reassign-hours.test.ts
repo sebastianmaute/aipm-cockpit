@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planHoursMoves, type HoursMoveCtx, type OwnerChange } from "./reassign-hours";
+import { applyShownDeltas, planHoursMoves, plannedShownDeltas, type HoursMoveCtx, type OwnerChange } from "./reassign-hours";
 import {
   absencesForResource,
   generatePeriods,
@@ -285,5 +285,36 @@ describe("planHoursMoves", () => {
   it("skips an unchanged owner without a move", () => {
     expect(planHoursMoves([change(task(), 1, 1)], [maya()], ctx).moves).toEqual([]);
     expect(planHoursMoves([change(task(), undefined, undefined)], [maya()], ctx).moves).toEqual([]);
+  });
+});
+
+// Review of 388ce85e5: the live write (`applyShownDeltas`) conserves SHOWN hours, rounding included.
+describe("applyShownDeltas", () => {
+  const sepPlan: ResourcePlan = { startDate: "2026-09-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
+  const c: HoursMoveCtx = { plan: sepPlan, absences: [], workdayHours: 8, holidaySet: NO_HOLIDAYS, today: "2026-09-01" };
+  const [sep] = generatePeriods(sepPlan.startDate, sepPlan.endDate, sepPlan.granularity);
+  const sepTask = (id: number, owner: number, minutes: number): Task =>
+    task({ id, resourceId: owner, assignee: `P${owner}`, startDate: "2026-09-01", dueDate: "2026-09-30", remainingEstimateMinutes: minutes });
+  const shownTotal = (rs: readonly Resource[]) => rs.reduce((sum, r) => sum + shown(r, sep, c), 0);
+
+  it("never creates hours when a scaled batch rounds each receiver's share", () => {
+    const planned = [resource(1, { utilization: { "2026-09": 40 } }), resource(2, {}), resource(3, {})];
+    const p = planHoursMoves([change(sepTask(1, 1, 120), 1, 2), change(sepTask(2, 1, 120), 1, 3)], planned, c);
+    // A same-tick write left the giver showing 2.5 of the planned 4: each receiver's 1.25 must not round up twice.
+    const live = [resource(1, { utilization: { "2026-09": 2.5 } }), resource(2, {}), resource(3, {})];
+    const out = applyShownDeltas(live, plannedShownDeltas(p), c);
+    expect(shownTotal(out)).toBeLessThanOrEqual(shownTotal(live) + 1e-9);
+    expect(shown(out[1], sep, c) + shown(out[2], sep, c)).toBeCloseTo(shown(live[0], sep, c) - shown(out[0], sep, c), 5);
+  });
+
+  it("conserves hours for a percent-mode giver with an absence lowered in the same tick", () => {
+    const giver = (util: number) => resource(1, { utilizationMode: "percent", utilization: { "2026-09": util }, absenceOverride: { "2026-09": 40 } });
+    const p = planHoursMoves([change(sepTask(1, 1, 8 * 60), 1, 2)], [giver(50), resource(2, {})], c);
+    const live = [giver(5), resource(2, {})]; // now shows far less than the planned 8 h
+    const out = applyShownDeltas(live, plannedShownDeltas(p), c);
+    const given = shown(live[0], sep, c) - shown(out[0], sep, c);
+    expect(given).toBeGreaterThan(0);
+    expect(shown(out[1], sep, c)).toBeCloseTo(given, 1);
+    expect(shownTotal(out)).toBeLessThanOrEqual(shownTotal(live) + 0.01);
   });
 });
