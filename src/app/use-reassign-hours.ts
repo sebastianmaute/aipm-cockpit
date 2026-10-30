@@ -9,9 +9,19 @@
 //   composite has no whole-row `capturePart` and no id-remap to follow, and undo /
 //   redo merge `utilization` PER KEY (`mergeFieldPatch`) — a later edit to a period
 //   the move did not touch survives the undo.
-// ★ The forward write merges the same patch onto the LIVE rows, so a write that
-//   landed between render and the call is kept the same way.
-import type { Dispatch, SetStateAction } from "react";
+// ★★ TWO MOVES IN ONE TICK (R10). The render snapshot of `resources`/`tasks` is
+//   stale for a second call made before React re-renders — planning both from it
+//   double-spends the giver's hours (or creates hours out of nothing). So planning
+//   reads `resourcesRef`/`tasksRef`, which a write ADVANCES synchronously to the
+//   planned next state and a commit-time effect re-syncs to the live state.
+//   ★ That covers prepare→commit→prepare→commit. Two `prepare`s before either
+//   commits still plan from the same state: commit each step before the next prepare.
+// ★ The forward resources write applies each planned DELTA per key to `prev`
+//   (never the absolute `after`), so a same-key write by another writer in the
+//   same tick is kept rather than overwritten. The UNDO image stays absolute and
+//   merges per key: undo of a later move reverts that move's keys to what they
+//   were just before it, which is the first move's result.
+import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { ActivityActor } from "./activity-log";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { t, type Lang } from "./i18n";
@@ -20,7 +30,6 @@ import { defaultPeriodLabel, formatHours, hoursMoveNotice } from "./reassign-hou
 import { resourceDisplayName } from "./resource-foundation";
 import type { Absence, Resource, ResourcePlan, Task } from "./types";
 import { captureFieldPart, type CaptureCompositeOpts, type CompositeFragment } from "./undo/use-undo-stack";
-import { mergeFieldPatch } from "./undo/merge-field-value";
 
 export interface ReassignHoursDeps {
   lang: Lang;
@@ -92,32 +101,61 @@ function emptyPlan(resources: readonly Resource[]): HoursMovePlan {
   return { moves: [], nextResources: [...resources], edits: [], overCapacity: [] };
 }
 
-/** Merge the utilization patch onto the LIVE rows, stamped, in one setter pass. */
-function writeUtilEdits(setResources: ReassignHoursDeps["setResources"], edits: readonly ResourceUtilEdit[]): void {
-  if (edits.length === 0) return;
-  const byId = new Map(edits.map((e) => [e.id, e]));
-  const stamp = new Date().toISOString();
-  setResources((prev) => prev.map((r) => {
-    const edit = byId.get(r.id);
-    return edit ? { ...mergeFieldPatch(r, edit.after, edit.before), localModifiedAt: stamp } : r;
-  }));
+type UtilDeltas = ReadonlyMap<number, ReadonlyMap<string, number>>;
+
+const MAX_PERCENT = 100; // `sanitizeResource` clamps percent-mode utilization to this
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Per resource, per period: the stored-value change the plan made (keys it left alone are absent). */
+function utilDeltas(edits: readonly ResourceUtilEdit[]): UtilDeltas {
+  const out = new Map<number, Map<string, number>>();
+  for (const { id, before, after } of edits) {
+    const keys = new Map<string, number>();
+    for (const k of new Set([...Object.keys(before.utilization), ...Object.keys(after.utilization)])) {
+      const d = (after.utilization[k] ?? 0) - (before.utilization[k] ?? 0);
+      if (d !== 0) keys.set(k, d);
+    }
+    if (keys.size > 0) out.set(id, keys);
+  }
+  return out;
+}
+
+/** Add each delta to the row's CURRENT value — pure, so it serves both the ref advance and the setter updater. */
+function applyUtilDeltas(rows: readonly Resource[], deltas: UtilDeltas, stamp?: string): Resource[] {
+  return rows.map((r) => {
+    const keys = deltas.get(r.id);
+    if (!keys) return r;
+    const utilization = { ...r.utilization };
+    for (const [k, d] of keys) {
+      const next = Math.max(0, round2((utilization[k] ?? 0) + d));
+      utilization[k] = r.utilizationMode === "percent" ? Math.min(MAX_PERCENT, next) : next;
+    }
+    return stamp ? { ...r, utilization, localModifiedAt: stamp } : { ...r, utilization };
+  });
 }
 
 export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
   const { lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours, holidaySet, captureComposite, logActivityAs, showToast } = deps;
 
+  // Latest-value refs (R10): re-synced to the live state after each commit that
+  // changes it, advanced synchronously by every write below.
+  const resourcesRef = useRef(resources);
+  const tasksRef = useRef(tasks);
+  useEffect(() => { resourcesRef.current = resources; }, [resources]);
+  useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
   const resourceName = (id: number): string => {
-    const r = resources.find((x) => x.id === id);
+    const r = resourcesRef.current.find((x) => x.id === id);
     return r ? resourceDisplayName(r) : `#${id}`;
   };
 
-  const inert = (): HoursMoveStep => ({ resourcesPart: null, commit: () => {}, notice: null, plan: emptyPlan(resources) });
+  const inert = (): HoursMoveStep => ({ resourcesPart: null, commit: () => {}, notice: null, plan: emptyPlan(resourcesRef.current) });
 
   const prepare = (changes: readonly OwnerChange[]): HoursMoveStep => {
     if (loadPending) return inert();
     const moving = changes.filter((c) => !movesSilently(c));
     if (moving.length === 0) return inert();
-    const hoursPlan = planHoursMoves(moving, resources, { plan, absences, workdayHours, holidaySet, today });
+    const hoursPlan = planHoursMoves(moving, resourcesRef.current, { plan, absences, workdayHours, holidaySet, today });
     const taskNames = new Map(moving.map((c) => [c.task.id, c.task.taskName]));
     const notice = hoursMoveNotice(hoursPlan, {
       lang,
@@ -134,7 +172,12 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
       commit: (actor) => {
         if (committed) return; // a second call would apply the patch twice and log twice
         committed = true;
-        writeUtilEdits(setResources, hoursPlan.edits);
+        const deltas = utilDeltas(hoursPlan.edits);
+        if (deltas.size > 0) {
+          resourcesRef.current = applyUtilDeltas(resourcesRef.current, deltas);
+          const stamp = new Date().toISOString();
+          setResources((prev) => applyUtilDeltas(prev, deltas, stamp));
+        }
         if (moved) logActivityAs?.(actor, "resource.hoursMoved", activitySummary(hoursPlan, resourceName, lang));
       },
     };
@@ -142,7 +185,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
 
   const reassignTasks = (edits: readonly OwnerEdit[], actor: ActivityActor): void => {
     if (loadPending) return;
-    const byId = new Map(tasks.map((x) => [x.id, x]));
+    const byId = new Map(tasksRef.current.map((x) => [x.id, x]));
     const taskEdits: { id: number; before: OwnerFields; after: OwnerFields }[] = [];
     const changes: OwnerChange[] = [];
     const seen = new Set<number>();
@@ -161,10 +204,12 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     const step = prepare(changes);
     const afterById = new Map(taskEdits.map((x) => [x.id, x.after]));
     const stamp = new Date().toISOString();
-    setTasks((prev) => prev.map((row) => {
+    const withOwners = (rows: readonly Task[]): Task[] => rows.map((row) => {
       const after = afterById.get(row.id);
       return after ? { ...row, ...after, localModifiedAt: stamp } : row;
-    }));
+    });
+    tasksRef.current = withOwners(tasksRef.current);
+    setTasks(withOwners);
     step.commit(actor);
 
     if (isPopout || !captureComposite) {

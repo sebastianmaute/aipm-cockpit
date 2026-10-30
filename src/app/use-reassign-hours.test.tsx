@@ -19,6 +19,7 @@ const MAYA: Resource = {
   utilization: { "2026-09": 40, "2026-10": 40, "2026-11": 20 },
 };
 const LIAM: Resource = { id: 2, firstName: "Liam", lastName: "Foster", roleId: null, utilizationMode: "hours", utilization: {} };
+const ZOE: Resource = { id: 3, firstName: "Zoe", lastName: "Kim", roleId: null, utilizationMode: "hours", utilization: {} };
 
 const TASK: Task = {
   id: 10, taskName: "Design review", assignee: "Maya Patel", assigneeEmail: "maya@x.com", resourceId: 1,
@@ -27,7 +28,11 @@ const TASK: Task = {
 } as Task;
 const NO_ESTIMATE: Task = { ...TASK, id: 11, taskName: "No estimate", remainingEstimateMinutes: undefined } as Task;
 
+// 8 h over the same span → 4 h in Sep, 4 h in Oct.
+const SMALL: Task = { ...TASK, id: 12, taskName: "Small", remainingEstimateMinutes: 8 * 60 } as Task;
+
 const TO_LIAM = { taskId: 10, assignee: "Liam Foster", assigneeEmail: "liam@x.com", resourceId: 2 };
+const SMALL_TO_ZOE = { taskId: 12, assignee: "Zoe Kim", assigneeEmail: "zoe@x.com", resourceId: 3 };
 
 interface Opts { isPopout?: boolean; loadPending?: boolean; withUndo?: boolean; tasks?: readonly Task[] }
 
@@ -39,7 +44,7 @@ function setup(opts: Opts = {}) {
   const hook = renderHook(
     ({ isPopout, loadPending }: { isPopout: boolean; loadPending: boolean }) => {
       const [tasks, setTasks] = useState<readonly Task[]>(opts.tasks ?? [TASK]);
-      const [resources, setResources] = useState<readonly Resource[]>([MAYA, LIAM]);
+      const [resources, setResources] = useState<readonly Resource[]>([MAYA, LIAM, ZOE]);
       const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction });
       const deps: ReassignHoursDeps = {
         lang: "en-US", today: TODAY, isPopout, loadPending,
@@ -207,5 +212,73 @@ describe("useReassignHours.prepare", () => {
     }
     expect(util(hook.result.current.resources, 1)).toEqual(MAYA.utilization);
     expect(logActivityAs).not.toHaveBeenCalled();
+  });
+});
+
+// R10 — two moves in ONE tick: the second must plan from the first one's result.
+// Maya gives 8 h of Sep (and Oct) to Liam, then 4 h to Zoe: she ends at 40 - 8 - 4.
+describe("useReassignHours: two moves in one tick", () => {
+  const CONSERVED = (rs: readonly Resource[]) => {
+    expect(util(rs, 1)).toEqual({ "2026-09": 28, "2026-10": 28, "2026-11": 20 });
+    expect(util(rs, 2)).toEqual({ "2026-09": 8, "2026-10": 8 });
+    expect(util(rs, 3)).toEqual({ "2026-09": 4, "2026-10": 4 });
+  };
+
+  it("two reassignTasks calls conserve hours: same giver, two receivers", () => {
+    const { hook } = setup({ tasks: [TASK, SMALL] });
+    act(() => {
+      hook.result.current.reassign.reassignTasks([TO_LIAM], "user");
+      hook.result.current.reassign.reassignTasks([SMALL_TO_ZOE], "user");
+    });
+    CONSERVED(hook.result.current.resources);
+    expect(hook.result.current.undo.stack).toHaveLength(2);
+  });
+
+  it("two prepare().commit() calls conserve hours: same giver, two receivers", () => {
+    const { hook } = setup({ tasks: [TASK, SMALL] });
+    act(() => {
+      const { prepare } = hook.result.current.reassign;
+      prepare([{ task: { ...TASK, ...LIAM_OWNS } as Task, fromResourceId: 1, toResourceId: 2 }]).commit("user");
+      prepare([{ task: { ...SMALL, assignee: "Zoe Kim", resourceId: 3 } as Task, fromResourceId: 1, toResourceId: 3 }]).commit("user");
+    });
+    CONSERVED(hook.result.current.resources);
+  });
+
+  it("undo of the second call restores only its own move", () => {
+    const { hook } = setup({ tasks: [TASK, SMALL] });
+    act(() => {
+      hook.result.current.reassign.reassignTasks([TO_LIAM], "user");
+      hook.result.current.reassign.reassignTasks([SMALL_TO_ZOE], "user");
+    });
+    act(() => { hook.result.current.undo.undo(); });
+    const r = hook.result.current;
+    expect(util(r.resources, 1)).toEqual(MOVED_MAYA);
+    expect(util(r.resources, 2)).toEqual(MOVED_LIAM);
+    expect(util(r.resources, 3)).toEqual({});
+    expect(owner(r.tasks, 10)).toEqual(LIAM_OWNS);
+    expect(owner(r.tasks, 12)).toEqual(MAYA_OWNS);
+  });
+
+  it("keeps a same-key write that landed earlier in the same tick (delta, not absolute)", () => {
+    const { hook } = setup();
+    act(() => {
+      hook.result.current.setResources((prev) => prev.map((r) => (r.id === 1 ? { ...r, utilization: { ...r.utilization, "2026-09": 50 } } : r)));
+      hook.result.current.reassign.reassignTasks([TO_LIAM], "user");
+    });
+    expect(util(hook.result.current.resources, 1)).toEqual({ "2026-09": 42, "2026-10": 32, "2026-11": 20 });
+    expect(util(hook.result.current.resources, 2)).toEqual(MOVED_LIAM);
+  });
+
+  it("a second reassignTasks in the same tick reads the owner the first one wrote", () => {
+    const { hook } = setup({ tasks: [TASK] });
+    act(() => {
+      hook.result.current.reassign.reassignTasks([TO_LIAM], "user");
+      hook.result.current.reassign.reassignTasks([{ taskId: 10, assignee: "Zoe Kim", assigneeEmail: "zoe@x.com", resourceId: 3 }], "user");
+    });
+    const r = hook.result.current;
+    // The second move is Liam → Zoe, so Liam ends empty again and Maya keeps her 8 h-per-month loss.
+    expect(util(r.resources, 1)).toEqual(MOVED_MAYA);
+    expect(util(r.resources, 2)).toEqual({ "2026-09": 0, "2026-10": 0 });
+    expect(util(r.resources, 3)).toEqual(MOVED_LIAM);
   });
 });
