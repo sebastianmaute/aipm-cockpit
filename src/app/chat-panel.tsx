@@ -742,7 +742,9 @@ function ChatPanelInner({
     //     injected into the outgoing copy alone. Persisting it would leave stale
     //     "Today is ..." down the transcript AND rewrite history's tail on every
     //     send, which destroys the byte-identical prefix the cache depends on.
-    // §575: earlier turns' attachments are budgeted here too — the stored history keeps them.
+    // §575: earlier turns' attachments are budgeted here too, on the outgoing copy only — the stored
+    //     history keeps the originals (`newHistory` plus this send's turns) until the thread is saved,
+    //     which strips them in `stripAttachmentsForPersistence`.
     const messages = fitHistoryToBudget(newHistory, MAX_STAGED_PAYLOAD_BYTES);
 
     // §702: what this send put in front of the transcript, for the view-switch
@@ -1083,7 +1085,7 @@ function ChatPanelInner({
       // leave the last assistant message with tool_use blocks and no results.
       // Skip when switched away, so the old project's tail can't clobber the new.
       if (!switchedAway) {
-        setHistory(closeDanglingToolUses(messages));
+        setHistory(closeDanglingToolUses([...newHistory, ...messages.slice(newHistory.length)]));
       }
     } catch (err) {
       // §702: a failure after a response still left its prefix in the cache.

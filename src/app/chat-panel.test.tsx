@@ -19,7 +19,7 @@ import { ATTACHMENT_ACCEPT } from "./chat-attachments";
 import { MAX_NODE_EXTRACT_CHARS } from "./attachment-ingest";
 import { buildCfbf } from "./__fixtures__/cfbf-writer";
 import { loadThreads, saveThread } from "./chat-threads-store";
-import type { ChatThread } from "./chat-threads";
+import { fitHistoryToBudget, type ChatThread } from "./chat-threads";
 import { t } from "./i18n";
 import { buildSystemPrompt, systemBlocksText } from "./chat-api";
 import { appliedProposalNotice } from "./chat-proposal-stage";
@@ -49,6 +49,12 @@ const SCOPE_PROPS = { getScopeEpoch: () => 0, isSwapInFlight: () => false };
 // button (mirrors note-log-panel.test.tsx / task-form-fields.dictation.test.tsx
 // — jsdom has no SpeechRecognition ctor, so getCtor() is null and the button
 // is normally suppressed).
+// Pass-through spy: lets a test read what history each send handed to the budget trim.
+vi.mock("./chat-threads", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./chat-threads")>();
+  return { ...actual, fitHistoryToBudget: vi.fn(actual.fitHistoryToBudget) };
+});
+
 vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
   saveThread: vi.fn(async () => undefined),
@@ -1792,6 +1798,83 @@ describe("history budget wiring (§575)", () => {
     // seeded from) still holds the ORIGINAL block, byte for byte — budgeting
     // ran on the outgoing copy only, never mutated the source array/objects.
     expect(stored.history[0].content).toEqual([bigDoc]);
+  });
+});
+
+describe("history budget keeps stored attachments (§575)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const reply = () =>
+    Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "done" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    } as unknown as Response);
+
+  async function sendTwice(mb: number) {
+    const doc = {
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: "x".repeat(mb * 1024 * 1024) },
+    } as const;
+    const stored: ChatConversation = {
+      history: [
+        { role: "user", content: [doc] },
+        { role: "assistant", content: [{ type: "text", text: "ok" }] },
+        { role: "user", content: [doc] },
+        { role: "assistant", content: [{ type: "text", text: "ok" }] },
+      ],
+      display: [
+        { kind: "user", text: "first" },
+        { kind: "assistant", text: "ok" },
+        { kind: "user", text: "second" },
+        { kind: "assistant", text: "ok" },
+      ],
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(reply);
+    vi.mocked(fitHistoryToBudget).mockClear();
+    render(
+      <ChatPanel {...SCOPE_PROPS}
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        projectId="p1"
+        getChatConversation={() => stored}
+      />,
+    );
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    const send = async (text: string, calls: number) => {
+      fireEvent.change(textarea, { target: { value: text } });
+      fireEvent.click(screen.getByRole("button", { name: "Send" }));
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(calls));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeTruthy());
+    };
+    await send("third question", 1);
+    await send("fourth question", 2);
+    return { doc, fetchSpy };
+  }
+
+  it("a send over the budget keeps the original attachments in the stored history", async () => {
+    const { doc, fetchSpy } = await sendTwice(20);
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string) as {
+      messages: { content: unknown }[];
+    };
+    // (a) the first request carried the placeholder for the oldest attachment.
+    expect(body.messages[0].content).toEqual([{ type: "text", text: "[attachment: document]" }]);
+    // (b) the history the SECOND send handed to the trim still holds the original block.
+    const second = vi.mocked(fitHistoryToBudget).mock.calls[1][0];
+    expect(second[0].content).toEqual([doc]);
+  });
+
+  it("under the budget the stored history equals the sent history", async () => {
+    const { doc } = await sendTwice(1);
+    const second = vi.mocked(fitHistoryToBudget).mock.calls[1][0];
+    expect(second[0].content).toEqual([doc]);
+    expect(second[2].content).toEqual([doc]);
   });
 });
 
