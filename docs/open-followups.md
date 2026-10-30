@@ -1017,6 +1017,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§781](#781-action-center-learning-is-rewritten-from-a-snapshot-that-never-read-its-store--closed-2026-10-24) | Action Center learning is rewritten from a snapshot that never read its store | — | — | **CLOSED** 2026-10-24 |
 | [§782](#782-an-insight-recommendation-can-propose-a-change-that-cannot-be-applied-and-the-failure-is-silent--closed-2026-10-24) | An insight recommendation can propose a change that cannot be applied, and the failure is silent | — | — | **CLOSED** 2026-10-24 |
 | [§783](#783-the-top-bars-bell-is-named-for-due-date-notifications-but-opens-next-actions--closed-2026-10-26) | The top bar's bell is named for due-date notifications but opens Next actions | — | — | **CLOSED** 2026-10-26 |
+| [§784](#784-plan-with-ai-does-not-see-the-load-a-person-carries-in-other-projects) | Plan with AI does not see the load a person carries in other projects | #921 | — | OPEN |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46120,3 +46121,15 @@ Proposed: rename the base text in EN and DE (for example "Open next actions"), k
 Size S.
 
 **Source:** cold review of #892, 2026-10-25 (owner: file it).
+
+## 784. Plan with AI does not see the load a person carries in other projects
+
+**Status:** OPEN 2026-10-30, filed when §769 shipped. `grep -rniE "otherProject|portfolio|elsewhere" src/app/alloc-plan src/app/use-alloc-plan.tsx` → no output: Plan with AI sees this project's tasks, milestones, RACI and rates (`buildProjectDigest`, `buildAllocContext`), but not what a person is already booked for in other projects. A person shown at 60 % here may be at 120 % in total, so a proposal can move work onto someone who has no room. Out of scope for §769 by owner decision 2026-10-30.
+
+**Work item:** #921
+
+What it would take: read the other projects' planned hours for the same people where the storage mode allows it (Turso multi-project only; file, IndexedDB and single-project Turso hold one project), match people across projects (by email, since a resource id is per project), show the result to the model and in the review window as a separate "elsewhere" figure, and count it in the over-capacity warnings (`alternativeEffect`). Moves and hour edits would stay confined to this project: the other projects' hours are read, never written.
+
+Size M.
+
+**Source:** owner decision 2026-10-30 (§769 design, Non-goals).

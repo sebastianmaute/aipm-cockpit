@@ -19,6 +19,7 @@ import { useEffect } from "react";
 import { saveActualsCache } from "./timelog-actuals-store";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import type { SuggestedAction } from "./next-actions/types";
+import type { Stakeholder } from "./types";
 import { groupNextActions, pickHeroGroup } from "./next-actions/group";
 import { t } from "./i18n";
 import { markDemoBannerDone } from "./demo-banner-state";
@@ -1463,7 +1464,9 @@ describe("§1 — ResourcesPanel receives stable handler identities", () => {
 
   it("ResourcesPanel keeps its memo bail with the new handlers (§769)", async () => {
     resourcesPanelMock.props.length = 0;
-    const withPlan = () => ({ ...handlers(), onReassignTasks: vi.fn(() => 0), onCaptureComposite: vi.fn() });
+    // Same data arrays across both renders: a fresh array here would be the parent re-creating them, not the panel.
+    const stakeholders: Stakeholder[] = [];
+    const withPlan = () => ({ ...handlers(), stakeholders, onReassignTasks: vi.fn(() => 0), onCaptureComposite: vi.fn() });
     const { rerender } = await renderAtCalendar(withPlan());
     const before = resourcesPanelMock.props.at(-1)!;
     rerender(
@@ -1480,7 +1483,9 @@ describe("§1 — ResourcesPanel receives stable handler identities", () => {
       expect(after[k], k).toBe(before[k]);
     }
     expect(Array.isArray(after.milestones)).toBe(true);
+    expect(after.milestones).toBe(before.milestones);
     expect(Array.isArray(after.stakeholders)).toBe(true);
+    expect(after.stakeholders).toBe(before.stakeholders);
   });
 
   it("forwards the held plan handlers to the parent's LATEST ones (§769)", async () => {
