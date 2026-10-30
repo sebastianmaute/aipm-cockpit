@@ -151,6 +151,21 @@ describe("useReassignHours.reassignTasks", () => {
     expect(logActivityAs).toHaveBeenLastCalledWith("user", "resource.hoursMoved", "Maya Patel -16; Liam Foster +16");
   });
 
+  it("leaves out a person whose net move rounds to zero", () => {
+    // 0.1 h + 0.2 h from Maya to Liam, then 0.3 h back: each person nets to float noise (about 5e-17), never "+0".
+    const sep = { startDate: "2026-09-01", dueDate: "2026-09-30" };
+    const a = { ...TASK, ...sep, id: 21, taskName: "A", remainingEstimateMinutes: 6 } as Task;
+    const b = { ...TASK, ...sep, id: 22, taskName: "B", remainingEstimateMinutes: 12 } as Task;
+    const c = { ...TASK, ...sep, id: 23, taskName: "C", remainingEstimateMinutes: 18, ...LIAM_OWNS } as Task;
+    const { hook, logActivityAs } = setup({ tasks: [a, b, c] });
+    act(() => {
+      hook.result.current.reassign.reassignTasks([{ taskId: 21, ...LIAM_OWNS }, { taskId: 22, ...LIAM_OWNS }, { taskId: 23, ...MAYA_OWNS }], "user");
+    });
+    const args = logActivityAs.mock.calls.filter((call) => call[1] === "resource.hoursMoved").map((call) => String(call[2]));
+    // Nobody's net move is a tenth or more, so there is nothing to log — and never a "+0" part.
+    expect(args).toEqual([]);
+  });
+
   it("logs no resource.hoursMoved entry when no hours moved", () => {
     const { hook, logActivityAs } = setup({ tasks: [NO_ESTIMATE] });
     act(() => { hook.result.current.reassign.reassignTasks([{ ...TO_LIAM, taskId: 11 }], "user"); });
@@ -405,6 +420,68 @@ describe("useReassignHours: two moves in one tick", () => {
     // Planned from 40 (8 h a month), but Sep held only 2 by write time: 2 move, and no hours are created.
     expect(util(hook.result.current.resources, 1)).toEqual({ "2026-09": 0, "2026-10": 32, "2026-11": 20 });
     expect(util(hook.result.current.resources, 2)).toEqual({ "2026-09": 2, "2026-10": 8 });
+  });
+
+  // Second review of the fix round: the scaling works in SHOWN hours, so absences count on both sides.
+  const setRes = (hook: ReturnType<typeof setup>["hook"], id: number, patch: Partial<Resource>) =>
+    hook.result.current.setResources((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch, utilization: { ...r.utilization, ...patch.utilization } } : r)));
+  const shownOf = (hook: ReturnType<typeof setup>["hook"], id: number, key: string) => {
+    const r = hook.result.current.resources.find((x) => x.id === id)!;
+    const util = r.utilization[key] ?? 0;
+    const abs = r.absenceOverride?.[key] ?? 0;
+    if (r.utilizationMode === "percent") return util; // percent of the same net capacity on both sides of the check
+    return Math.max(0, util - abs);
+  };
+
+  it("conserves hours when an hours-mode giver with an absence was lowered in the same tick", () => {
+    const { hook } = setup();
+    // Plan state: Maya Sep stores 24 with 8 h absent, so she shows 16; the task's 8 h of Sep move.
+    act(() => { setRes(hook, 1, { utilization: { "2026-09": 24 }, absenceOverride: { "2026-09": 8 } }); });
+    act(() => {
+      setRes(hook, 1, { utilization: { "2026-09": 10 } }); // now shows 2
+      hook.result.current.reassign.reassignTasks([TO_LIAM], "user");
+    });
+    // Only the 2 h Maya still showed move: she shows 0, Liam gains 2, nothing is created.
+    expect(shownOf(hook, 1, "2026-09")).toBe(0);
+    expect(shownOf(hook, 2, "2026-09")).toBe(2);
+  });
+
+  it("conserves hours when an hours-mode receiver with an absence gets a scaled share", () => {
+    const { hook } = setup();
+    // Liam Sep is fully absent-topped: stores 0 against 16 h absent, so receiving 8 h stores 24.
+    act(() => { setRes(hook, 2, { absenceOverride: { "2026-09": 16 } }); });
+    act(() => {
+      setRes(hook, 1, { utilization: { "2026-09": 4 } }); // Maya now shows only 4 of the planned 8
+      hook.result.current.reassign.reassignTasks([TO_LIAM], "user");
+    });
+    expect(shownOf(hook, 1, "2026-09")).toBe(0);
+    expect(shownOf(hook, 2, "2026-09")).toBe(4); // not 0: the 4 h the giver lost arrive
+  });
+
+  it("moves nothing into a period a same-tick write filled for a percent-mode receiver", () => {
+    const { hook } = setup({ tasks: [TASK] });
+    act(() => { setRes(hook, 3, { utilizationMode: "percent", utilization: { "2026-09": 50, "2026-10": 50 } }); });
+    act(() => {
+      setRes(hook, 3, { utilization: { "2026-09": 100 } }); // Zoe's September is now full
+      hook.result.current.reassign.reassignTasks([{ taskId: 10, assignee: "Zoe Kim", assigneeEmail: "zoe@x.com", resourceId: 3 }], "user");
+    });
+    expect(util(hook.result.current.resources, 1)?.["2026-09"]).toBe(40); // Maya keeps September
+    expect(util(hook.result.current.resources, 3)?.["2026-09"]).toBe(100);
+    expect(util(hook.result.current.resources, 1)?.["2026-10"]).toBe(32); // October still moves
+  });
+
+  it("a silent change in the same prepare also advances the task copy", () => {
+    const { hook } = setup({ tasks: [TASK] });
+    act(() => {
+      const { prepare, reassignTasks } = hook.result.current.reassign;
+      const cleared = { ...TASK, assignee: "", assigneeEmail: "", resourceId: undefined } as Task;
+      hook.result.current.setTasks((prev) => prev.map((t) => (t.id === 10 ? cleared : t)));
+      prepare([{ task: cleared, fromResourceId: 1, toResourceId: undefined, fromAssignee: "Maya Patel" }]).commit("user");
+      // Assigning the now-unowned task is a first owner (R14): no hours may leave Maya.
+      reassignTasks([{ taskId: 10, ...LIAM_OWNS }], "user");
+    });
+    expect(util(hook.result.current.resources, 1)).toEqual(MAYA.utilization);
+    expect(util(hook.result.current.resources, 2)).toEqual({});
   });
 
   it("a prepare().commit() advances the hook's task copy, so a later reassignTasks reads the new owner", () => {

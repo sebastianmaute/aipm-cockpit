@@ -68,8 +68,6 @@ function emptyMove(change: OwnerChange, reason?: NoMoveReason, outsideWindowHour
 interface Share { period: Period; hours: number }
 interface SpanSplit { shares: Share[]; outsideWindowHours: number }
 
-/** Split `hours` across plan periods by workdays inside the span (Span/Split, R2).
- *  A task with no due date is treated like an overdue one: today's period. */
 /** Round `raw` to tenths so they still sum to `total` (rounded to a tenth): largest remainder first. */
 function toTenths(raw: readonly number[], total: number): number[] {
   const tenths = raw.map((x) => x * 10);
@@ -84,6 +82,8 @@ function toTenths(raw: readonly number[], total: number): number[] {
   return floors.map((f) => f / 10);
 }
 
+/** Split `hours` across plan periods by workdays inside the span (Span/Split, R2).
+ *  A task with no due date is treated like an overdue one: today's period. */
 function splitAcrossPeriods(task: Task, hours: number, periods: readonly Period[], ctx: HoursMoveCtx): SpanSplit {
   const { today, holidaySet, plan } = ctx;
   const due = task.dueDate;
@@ -146,6 +146,66 @@ function receiverRoomHours(r: Resource, p: Period, abs: readonly Absence[], ctx:
   const net = availableCapacityHours(r, p, abs, ctx.workdayHours, ctx.holidaySet);
   const util = r.utilization[p.key] ?? 0;
   return floor1((Math.max(0, MAX_PERCENT - util) / 100) * net);
+}
+
+/** Per resource, per period: the SHOWN hours the plan moves (negative for a giver). Built from the moves, so it
+ *  is exact, not re-derived from rounded stored values. */
+export type ShownDeltas = ReadonlyMap<number, ReadonlyMap<string, number>>;
+
+export function plannedShownDeltas(plan: HoursMovePlan): ShownDeltas {
+  const out = new Map<number, Map<string, number>>();
+  const add = (id: number, key: string, h: number) => {
+    const keys = out.get(id) ?? new Map<string, number>();
+    keys.set(key, (keys.get(key) ?? 0) + h);
+    out.set(id, keys);
+  };
+  for (const m of plan.moves) {
+    if (m.fromResourceId === undefined || m.toResourceId === undefined) continue;
+    for (const p of m.perPeriod) {
+      add(m.fromResourceId, p.periodKey, -p.hours);
+      add(m.toResourceId, p.periodKey, p.hours);
+    }
+  }
+  return out;
+}
+
+/**
+ * Apply planned shown-hour moves to `rows` as they are NOW. Pure: it serves both the hook's ref advance (rows ==
+ * the plan's own state, nothing scales) and its setter updater (rows may have moved under the plan in the same tick).
+ * ★ Conservation: per period, every move is scaled by the smallest fraction that still fits — a giver can give at most
+ * the hours it shows now, a receiver can take at most its room now (100 % or HOURS_MAP_MAX) — and each person's
+ * stored value is then converted from SHOWN hours with the planner's own rule (`shiftedStoredValue`), absences
+ * included. So the receiver never gains more shown hours than the giver loses. The fraction is one per period across
+ * the whole plan, so in a batch one constrained pair scales the others in that period too (total still conserved);
+ * the notice keeps the plan's numbers.
+ */
+export function applyShownDeltas(rows: readonly Resource[], deltas: ShownDeltas, ctx: HoursMoveCtx): Resource[] {
+  const periods = new Map(generatePeriods(ctx.plan.startDate, ctx.plan.endDate, ctx.plan.granularity).map((p) => [p.key, p]));
+  const scale = new Map<string, number>();
+  for (const r of rows) {
+    const abs = absencesForResource(ctx.absences, r);
+    for (const [key, d] of deltas.get(r.id) ?? []) {
+      const p = periods.get(key);
+      if (!p || d === 0) continue;
+      const fit = d < 0
+        ? Math.max(d, -periodCapacityHours(r, p, abs, ctx.workdayHours, ctx.holidaySet))
+        : Math.min(d, receiverRoomHours(r, p, abs, ctx));
+      scale.set(key, Math.min(scale.get(key) ?? 1, Math.max(0, fit / d)));
+    }
+  }
+  return rows.map((r) => {
+    const keys = deltas.get(r.id);
+    if (!keys) return r;
+    const abs = absencesForResource(ctx.absences, r);
+    let next = r;
+    for (const [key, d] of keys) {
+      const p = periods.get(key);
+      const h = d * (scale.get(key) ?? 1);
+      if (!p || h === 0) continue;
+      next = withUtil(next, key, shiftedStoredValue(next, p, h, abs, ctx));
+    }
+    return next;
+  });
 }
 
 export function planHoursMoves(

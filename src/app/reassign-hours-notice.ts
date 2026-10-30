@@ -28,7 +28,7 @@ export function defaultPeriodLabel(key: string, lang: Lang): string {
 
 /** Whole hours when the value is whole, else one decimal: the planner moves tenths, so a period list
  *  written this way adds up to its total ("10 h (Sep: 3.3 h, Oct: 3.3 h, Nov: 3.4 h)"). */
-export function formatHours(hours: number, lang: Lang): string {
+export function formatMovedHours(hours: number, lang: Lang): string {
   const tenths = Math.round(hours * 10);
   const fractionDigits = tenths % 10 === 0 ? 0 : 1;
   return new Intl.NumberFormat(lang, {
@@ -71,7 +71,7 @@ function periodList(keys: Iterable<string>, ctx: HoursMoveNoticeCtx): string {
 function capSentence(limit: TaskHoursMove["receiverCapLimit"], lead: string[], receiver: string, periods: string, lang: Lang, none: boolean): string {
   if (limit === "hours") {
     const key = none ? "hoursMovedNoneReceiverLimit" : "hoursMovedReceiverLimit";
-    return t(lang, key, ...lead, receiver, formatHours(HOURS_MAP_MAX, lang), periods);
+    return t(lang, key, ...lead, receiver, formatMovedHours(HOURS_MAP_MAX, lang), periods);
   }
   return t(lang, none ? "hoursMovedNoneReceiverCap" : "hoursMovedReceiverCap", ...lead, receiver, periods);
 }
@@ -99,20 +99,20 @@ function pairSentence(group: PairGroup, ctx: HoursMoveNoticeCtx): string {
   // "Sep: 8 h" — a colon between label and amount, so a week ("KW 38: 16 Std.") never reads as two numbers.
   const periods = [...byPeriod.keys()]
     .sort()
-    .map((key) => `${ctx.periodLabel(key)}: ${formatHours(byPeriod.get(key) ?? 0, lang)} ${t(lang, "hoursMovedUnit")}`)
+    .map((key) => `${ctx.periodLabel(key)}: ${formatMovedHours(byPeriod.get(key) ?? 0, lang)} ${t(lang, "hoursMovedUnit")}`)
     .join(", ");
   const from = ctx.resourceName(group.from);
   const to = ctx.resourceName(group.to);
-  const hours = formatHours(total, lang);
+  const hours = formatMovedHours(total, lang);
   const base =
     group.moves.length === 1
       ? t(lang, "hoursMoved", hours, from, to, periods)
       : tPlural(lang, "hoursMovedBatch", group.moves.length, hours, group.moves.length, from, to, periods);
   // Each note is a sentence of its own that names its periods, never a run of parentheses.
   const sentences = [`${base}.`];
-  if (shortfall > 0) sentences.push(t(lang, "hoursMovedShortfall", formatHours(shortfall, lang), from, periodList(shortKeys, ctx)));
-  if (capped > 0) sentences.push(capSentence(limit, [formatHours(capped, lang), from], to, periodList(capKeys, ctx), lang, false));
-  if (outside > 0) sentences.push(t(lang, "hoursMovedOutsideWindowNote", formatHours(outside, lang)));
+  if (shortfall > 0) sentences.push(t(lang, "hoursMovedShortfall", formatMovedHours(shortfall, lang), from, periodList(shortKeys, ctx)));
+  if (capped > 0) sentences.push(capSentence(limit, [formatMovedHours(capped, lang), from], to, periodList(capKeys, ctx), lang, false));
+  if (outside > 0) sentences.push(t(lang, "hoursMovedOutsideWindowNote", formatMovedHours(outside, lang)));
   return sentences.join(" ");
 }
 

@@ -17,9 +17,12 @@
 //   planned next state and a layout effect re-syncs to the live state.
 //   ★ That covers prepare→commit→prepare→commit. Two `prepare`s before either
 //   commits still plan from the same state: commit each step before the next prepare.
-// ★ The forward resources write applies each planned DELTA per key to `prev`
-//   (never the absolute `after`), so a same-key write by another writer in the
-//   same tick is kept by the FORWARD write.
+// ★ The forward resources write applies the planned moves in SHOWN hours to `prev`
+//   (`applyShownDeltas`, never the absolute `after`), so a same-key write by another
+//   writer in the same tick is kept by the FORWARD write; when that write left a giver
+//   less (or a receiver less room) than planned, the period's moves are scaled down and
+//   converted with the planner's own rule, absences included, so no hours are created
+//   or lost.
 // ★★ UNDO IS ABSOLUTE PER KEY (ruling R11, the codebase convention for every
 //   `captureFieldPart`). Undo restores each key the move touched to its value just
 //   before the move AS THIS HOOK SAW IT (the ref state); keys the move did not touch
@@ -31,10 +34,9 @@ import { useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "rea
 import type { ActivityActor, ActivityKind } from "./activity-log";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { type Lang } from "./i18n";
-import { planHoursMoves, type HoursMovePlan, type OwnerChange, type ResourceUtilEdit } from "./reassign-hours";
+import { applyShownDeltas, planHoursMoves, plannedShownDeltas, type HoursMovePlan, type OwnerChange } from "./reassign-hours";
 import { defaultPeriodLabel, hoursMoveNotice } from "./reassign-hours-notice";
 import { linkPersonForWrite, resourceDisplayName } from "./resource-foundation";
-import { HOURS_MAP_MAX } from "./sanitize-entities";
 import type { Absence, Resource, ResourcePlan, Task } from "./types";
 import { captureFieldPart, type CaptureCompositeOpts, type CompositeFragment, type UndoEntityKey } from "./undo/use-undo-stack";
 
@@ -123,67 +125,16 @@ function activitySummary(plan: HoursMovePlan, name: (id: number) => string): str
     net.set(move.fromResourceId, (net.get(move.fromResourceId) ?? 0) - move.movedHours);
     net.set(move.toResourceId, (net.get(move.toResourceId) ?? 0) + move.movedHours);
   }
+  // Rounded to a tenth BEFORE the zero check: a person who gives and receives in one batch nets to float noise.
   return [...net]
+    .map(([id, hours]) => [id, Math.round(hours * 10) / 10] as const)
     .filter(([, hours]) => hours !== 0)
-    .map(([id, hours]) => `${name(id)} ${hours > 0 ? "+" : "-"}${Math.round(Math.abs(hours) * 10) / 10}`)
+    .map(([id, hours]) => `${name(id)} ${hours > 0 ? "+" : "-"}${Math.abs(hours)}`)
     .join("; ");
 }
 
 function emptyPlan(resources: readonly Resource[]): HoursMovePlan {
   return { moves: [], nextResources: [...resources], edits: [], overCapacity: [] };
-}
-
-type UtilDeltas = ReadonlyMap<number, ReadonlyMap<string, number>>;
-
-const MAX_PERCENT = 100; // `sanitizeResource` clamps percent-mode utilization to this
-const EPSILON = 1e-9;
-const round2 = (n: number) => Math.round(n * 100 + EPSILON) / 100;
-
-/** Per resource, per period: the stored-value change the plan made (keys it left alone are absent). */
-function utilDeltas(edits: readonly ResourceUtilEdit[]): UtilDeltas {
-  const out = new Map<number, Map<string, number>>();
-  for (const { id, before, after } of edits) {
-    const keys = new Map<string, number>();
-    for (const k of new Set([...Object.keys(before.utilization), ...Object.keys(after.utilization)])) {
-      const d = (after.utilization[k] ?? 0) - (before.utilization[k] ?? 0);
-      if (d !== 0) keys.set(k, d);
-    }
-    if (keys.size > 0) out.set(id, keys);
-  }
-  return out;
-}
-
-/** The part of `d` that fits `r`'s stored range for `key` right now (0..100 % or 0..HOURS_MAP_MAX). */
-function fittingDelta(r: Resource, key: string, d: number): number {
-  const cur = r.utilization[key] ?? 0;
-  if (d < 0) return Math.max(d, -cur);
-  return Math.min(d, Math.max(0, (r.utilizationMode === "percent" ? MAX_PERCENT : HOURS_MAP_MAX) - cur));
-}
-
-/** Add each delta to the row's CURRENT value — pure, so it serves both the ref advance and the setter updater.
- *  ★ Conservation when the live state moved under the plan (a same-tick write lowered the giver, or filled the
- *  receiver): every delta for a period is scaled by the smallest fraction that still fits each side's stored
- *  range, so the receiver never gains more than the giver lost. Each side's shown hours are linear in its stored
- *  value inside that range, so one shared fraction keeps the two sides' hours equal. With the plan's own state
- *  (the ref advance) every fraction is 1. */
-function applyUtilDeltas(rows: readonly Resource[], deltas: UtilDeltas, stamp?: string): Resource[] {
-  const scale = new Map<string, number>();
-  for (const r of rows) {
-    for (const [k, d] of deltas.get(r.id) ?? []) {
-      if (d === 0) continue;
-      scale.set(k, Math.min(scale.get(k) ?? 1, fittingDelta(r, k, d) / d));
-    }
-  }
-  return rows.map((r) => {
-    const keys = deltas.get(r.id);
-    if (!keys) return r;
-    const utilization = { ...r.utilization };
-    for (const [k, d] of keys) {
-      const next = Math.max(0, round2((utilization[k] ?? 0) + d * (scale.get(k) ?? 1)));
-      utilization[k] = Math.min(r.utilizationMode === "percent" ? MAX_PERCENT : HOURS_MAP_MAX, next);
-    }
-    return stamp ? { ...r, utilization, localModifiedAt: stamp } : { ...r, utilization };
-  });
 }
 
 export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
@@ -201,12 +152,22 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
     return r ? resourceDisplayName(r) : `#${id}`;
   };
 
+  // The caller wrote the owner through its own setter; advance this hook's copy too, so a reassignTasks later in
+  // the same tick reads the new owner, not the render snapshot's. Every change, the silent ones included.
+  const advanceTaskCopy = (changes: readonly OwnerChange[]): void => {
+    const owners = new Map(changes.map((c) => [c.task.id, c.task]));
+    tasksRef.current = tasksRef.current.map((row) => {
+      const next = owners.get(row.id);
+      return next ? { ...row, assignee: next.assignee, assigneeEmail: next.assigneeEmail, resourceId: next.resourceId } : row;
+    });
+  };
+
   const inert = (): HoursMoveStep => ({ resourcesPart: null, commit: () => {}, notice: null, plan: emptyPlan(resourcesRef.current) });
 
   const prepare = (changes: readonly OwnerChange[]): HoursMoveStep => {
     if (loadPending) return inert();
     const moving = changes.filter((c) => !movesSilently(c, resourcesRef.current));
-    if (moving.length === 0) return inert();
+    if (moving.length === 0) return { ...inert(), commit: () => advanceTaskCopy(changes) };
     const hoursPlan = planHoursMoves(moving, resourcesRef.current, { plan, absences, workdayHours, holidaySet, today });
     const taskNames = new Map(moving.map((c) => [c.task.id, c.task.taskName]));
     const notice = hoursMoveNotice(hoursPlan, {
@@ -224,20 +185,17 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
       commit: (actor) => {
         if (committed) return; // a second call would apply the patch twice and log twice
         committed = true;
-        // The caller wrote the owner through its own setter; advance this hook's copy too, so a reassignTasks
-        // later in the same tick reads the new owner, not the render snapshot's.
-        const owners = new Map(moving.map((c) => [c.task.id, c.task]));
-        tasksRef.current = tasksRef.current.map((row) => {
-          const next = owners.get(row.id);
-          return next ? { ...row, assignee: next.assignee, assigneeEmail: next.assigneeEmail, resourceId: next.resourceId } : row;
-        });
-        const deltas = utilDeltas(hoursPlan.edits);
+        advanceTaskCopy(changes);
+        const deltas = plannedShownDeltas(hoursPlan);
         if (deltas.size > 0) {
-          resourcesRef.current = applyUtilDeltas(resourcesRef.current, deltas);
+          const ctx = { plan, absences, workdayHours, holidaySet, today };
+          resourcesRef.current = applyShownDeltas(resourcesRef.current, deltas, ctx);
           const stamp = new Date().toISOString();
-          setResources((prev) => applyUtilDeltas(prev, deltas, stamp));
+          const touched = new Set(deltas.keys());
+          setResources((prev) => applyShownDeltas(prev, deltas, ctx).map((r) => (touched.has(r.id) ? { ...r, localModifiedAt: stamp } : r)));
         }
-        if (moved) logActivityAs?.(actor, "resource.hoursMoved", activitySummary(hoursPlan, resourceName));
+        const summary = moved ? activitySummary(hoursPlan, resourceName) : "";
+        if (summary) logActivityAs?.(actor, "resource.hoursMoved", summary);
       },
     };
   };

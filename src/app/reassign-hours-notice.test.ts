@@ -72,13 +72,13 @@ describe("hoursMoveNotice (EN)", () => {
       outsideWindowHours: 2,
     });
     expect(hoursMoveNotice(plan([m]), ctx("en-US"))).toBe(
-      "Moved 16 h from Maya Patel to Liam Foster (Sep: 8 h, Oct: 8 h). 4 h were not in Maya Patel's plan in Sep. 6 h stayed with Maya Patel: Liam Foster is at 100 % in Oct. 2 h fall outside the plan.",
+      "Moved 16 h from Maya Patel to Liam Foster (Sep: 8 h, Oct: 8 h). Not in Maya Patel's plan in Sep: 4 h. Kept with Maya Patel, as Liam Foster is at 100 % in Oct: 6 h. Outside the plan: 2 h.",
     );
   });
   it("names the hours limit for an hours-mode receiver", () => {
     const m = move({ receiverCapHours: 6, receiverCapPeriods: ["2026-10"], receiverCapLimit: "hours" });
     expect(hoursMoveNotice(plan([m]), ctx("en-US"))).toBe(
-      "Moved 16 h from Maya Patel to Liam Foster (Sep: 8 h, Oct: 8 h). 6 h stayed with Maya Patel: Liam Foster is at the 1,000 h limit in Oct.",
+      "Moved 16 h from Maya Patel to Liam Foster (Sep: 8 h, Oct: 8 h). Kept with Maya Patel, as Liam Foster is at the 1,000 h limit in Oct: 6 h.",
     );
   });
   it("shows the period list to a tenth so it adds up to the total", () => {
@@ -204,17 +204,17 @@ describe("hoursMoveNotice (DE)", () => {
   });
   it("renders a shortfall", () => {
     expect(hoursMoveNotice(plan([move({ shortfallHours: 4, shortfallPeriods: ["2026-09"] })]), ctx("de"))).toBe(
-      "16 Std. von Maya Patel auf Liam Foster verschoben (Sep: 8 Std., Okt: 8 Std.). 4 Std. waren in Sep nicht im Plan von Maya Patel.",
+      "16 Std. von Maya Patel auf Liam Foster verschoben (Sep: 8 Std., Okt: 8 Std.). Nicht im Plan von Maya Patel in Sep: 4 Std.",
     );
   });
   it("renders a receiver cap and the hours limit", () => {
     const pct = move({ receiverCapHours: 6, receiverCapPeriods: ["2026-10"], receiverCapLimit: "percent" });
     expect(hoursMoveNotice(plan([pct]), ctx("de"))).toBe(
-      "16 Std. von Maya Patel auf Liam Foster verschoben (Sep: 8 Std., Okt: 8 Std.). 6 Std. bleiben bei Maya Patel: Liam Foster ist in Okt bei 100 %.",
+      "16 Std. von Maya Patel auf Liam Foster verschoben (Sep: 8 Std., Okt: 8 Std.). Bei Maya Patel geblieben, da Liam Foster in Okt bei 100 % ist: 6 Std.",
     );
     const hrs = move({ receiverCapHours: 6, receiverCapPeriods: ["2026-10"], receiverCapLimit: "hours" });
     expect(hoursMoveNotice(plan([hrs]), ctx("de"))).toBe(
-      "16 Std. von Maya Patel auf Liam Foster verschoben (Sep: 8 Std., Okt: 8 Std.). 6 Std. bleiben bei Maya Patel: Liam Foster ist in Okt an der Grenze von 1.000 Std.",
+      "16 Std. von Maya Patel auf Liam Foster verschoben (Sep: 8 Std., Okt: 8 Std.). Bei Maya Patel geblieben, da Liam Foster in Okt an der Grenze von 1.000 Std. ist: 6 Std.",
     );
   });
   it("renders a reason and a zero-moved shortfall", () => {
