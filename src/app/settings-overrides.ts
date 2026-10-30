@@ -149,6 +149,11 @@ function sanitizeForecastOverride(raw: unknown): SettingsOverrides["forecast"] |
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+/** Only an explicit allow is kept; protected (the default) is absence, and an empty result is undefined. */
+function sanitizeAiOverride(raw: unknown): SettingsOverrides["ai"] | undefined {
+  return isObject(raw) && raw.peopleAllowed === true ? { peopleAllowed: true } : undefined;
+}
+
 /** Validate untrusted per-project overrides. Emits a sub-key ONLY when it holds
  *  >= 1 valid field; returns {} when nothing valid. Never throws. */
 export function sanitizeSettingsOverrides(raw: unknown): SettingsOverrides {
@@ -162,6 +167,8 @@ export function sanitizeSettingsOverrides(raw: unknown): SettingsOverrides {
   if (timezone) out.timezone = timezone;
   const forecast = sanitizeForecastOverride(raw.forecast);
   if (forecast) out.forecast = forecast;
+  const ai = sanitizeAiOverride(raw.ai);
+  if (ai) out.ai = ai;
   return out;
 }
 
@@ -172,7 +179,8 @@ export function hasAnyOverride(o?: SettingsOverrides): boolean {
     (o.nextActions !== undefined ||
       o.notifications !== undefined ||
       o.timezone !== undefined ||
-      o.forecast !== undefined)
+      o.forecast !== undefined ||
+      o.ai !== undefined)
   );
 }
 

@@ -12,7 +12,7 @@
 // ★ Gates ask here; STORED settings are never rewritten. A user's Jira token or
 // TimeLog setup survives a switch-off and works again once the integration is back.
 
-export const INTEGRATION_IDS = ["jira", "confluence", "timelog", "ecb", "stt", "ai"] as const;
+export const INTEGRATION_IDS = ["jira", "confluence", "timelog", "ecb", "stt", "ai", "ai-people"] as const;
 export type IntegrationId = (typeof INTEGRATION_IDS)[number];
 
 export const DISABLED_INTEGRATIONS_ENV = "AIPM_DISABLED_INTEGRATIONS";
