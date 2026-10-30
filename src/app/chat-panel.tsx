@@ -856,9 +856,13 @@ function ChatPanelInner({
             });
           }
 
-          // ★★★ THE GATE. A turn holding a destructive call, more than one
-          // entity write, or an `update_project` (always staged, even alone:
-          // `ALWAYS_STAGED_TOOLS`), is STAGED: nothing runs, a review card goes into the
+          // ★★★ THE GATE. A turn is STAGED when it holds a destructive call, an
+          // event write that sends invitations, or an `update_project` (always
+          // staged, even alone: `ALWAYS_STAGED_TOOLS`); when its entity writes plus
+          // those this send already applied (`sendRecord.appliedWrites`) come to
+          // more than one; or, in an untrusted send (an attachment in the
+          // history), when it holds any call `stagesWhenUntrusted` names. Staged:
+          // nothing runs, a review card goes into the
           // transcript, and every `tool_use` id is still answered. A turn that
           // does not stage takes the original path below UNCHANGED — that
           // equivalence is pinned by a test, because "one extra branch" is how
@@ -926,8 +930,9 @@ function ChatPanelInner({
           }
 
           const results: ToolResultBlock[] = [];
-          // AI-02: entity writes this turn ran directly, added to the send's count below. A call that
-          // threw is counted too: the gate errs toward the card.
+          // AI-02: entity writes this turn APPLIED directly, added to the send's count below. A call
+          // that threw (validation, a stale token) changed nothing and is not counted, so the model's
+          // corrected retry applies as a lone write would; a call the scope guard dropped never ran.
           let directWrites = 0;
           for (const block of response.content) {
             if (block.type !== "tool_use") continue;
@@ -950,12 +955,12 @@ function ChatPanelInner({
             if (dropStaleScopeWrite(getScopeEpoch, sendEpoch, "chat-panel.toolLoop", { tool: block.name })) break;
             let resultStr: string;
             let isError = false;
-            if (isEntityWriteCall({ name: block.name, input: block.input as Readonly<Record<string, unknown>> })) {
-              directWrites += 1;
-            }
             try {
               const r = await runTool(toolDispatcher, block.name, block.input);
               resultStr = stringifyResult(r);
+              if (isEntityWriteCall({ name: block.name, input: block.input as Readonly<Record<string, unknown>> })) {
+                directWrites += 1;
+              }
             } catch (err) {
               isError = true;
               resultStr = err instanceof Error ? err.message : String(err);

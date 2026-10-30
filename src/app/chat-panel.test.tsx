@@ -32,6 +32,8 @@ import { emptyWorkspace, type Workspace } from "./workspace";
 import { saveSealed } from "./secrets-store";
 import { sealPassphrase } from "./secrets";
 import { peekMintId } from "./id-mint-session";
+import { entityToken } from "./ai-entity-token";
+import type { Task } from "./types";
 import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageContext } from "./ai-usage-context";
 import type { SendFingerprint } from "./ai-view-switch";
@@ -3701,6 +3703,38 @@ describe("staged tool calls (the review card)", () => {
     await screen.findByText("ok");
     expect(dispatcher.createTask).toHaveBeenCalledTimes(1);
     expect(rowBoxes(card)).toHaveLength(1);
+  });
+
+  it("a refused write does not count: the corrected retry in the same send applies (AI-02)", async () => {
+    // Mutation: counting every ATTEMPTED write turns this red: the refused first call counts, so the
+    // corrected retry goes to the card instead of applying.
+    const row = {
+      id: 1, taskName: "Ship it", assignee: "Alice", dueDate: "2030-12-31", lastUpdateDate: "2030-01-01",
+      status: "To Do", priority: "Medium", blockers: "", description: "",
+    } as Task;
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.getTask).mockImplementation(() => row);
+    vi.mocked(dispatcher.updateTask).mockImplementation(() => ({ ...row, status: "Done" }));
+    scriptFetch(
+      [
+        toolTurn([{ type: "tool_use", id: "t1", name: "update_task", input: { id: 1, expectedToken: "stale", status: "Done" } }]),
+        toolTurn([
+          {
+            type: "tool_use",
+            id: "t2",
+            name: "update_task",
+            input: { id: 1, expectedToken: entityToken("task", row), status: "Done" },
+          },
+        ]),
+        doneTurn("ok"),
+      ],
+      [],
+    );
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />);
+    send();
+    await screen.findByText("ok");
+    expect(screen.queryByRole("region", CARD)).toBeNull();
+    expect(dispatcher.updateTask).toHaveBeenCalledTimes(1);
   });
 
   it("an attachment in the history stages a lone create and applies nothing (AI-02)", async () => {

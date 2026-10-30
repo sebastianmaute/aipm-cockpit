@@ -1840,12 +1840,12 @@
   first message, invalidating the entire prefix on every send and paying a cache WRITE (1.25×) each
   time — worse than not caching at all. Any future history budget must be coarse and hysteretic;
   `chat-cache-layout.ts`'s header carries the reasoning.
-  ★★ **The usage meter this slice made honest is not honest on every path, and that is known, not an
-  oversight.** `chat-panel.tsx`'s `recordUsage` call is skipped entirely on the `catch` path (an aborted
-  or errored send) and gated behind `!cancelledRef.current` on the success path — so a send that errors,
-  or is cancelled, after earlier turns in the same multi-turn loop already burned billed tokens records
-  NOTHING for that send. Pre-existing control flow, deliberately unchanged by this slice — read this
-  before citing "the meter is now honest" as unconditional.
+  ★★ **The usage meter counts at the transport, not in the chat panel.** `chat-panel.tsx` records no usage
+  itself: the transport's tap (`subscribeAiUsage`, `ai-transport.ts`) reports the usage of every 2xx
+  Messages response, so the turns of a send that later errors or is cancelled are still counted, a stale
+  one included. Two gaps remain: a request aborted before its response arrived reports nothing, and so
+  does a response that is not JSON (a stream) — read this before citing "the meter is honest" as
+  unconditional.
   ★★ **`ai-usage-context.tsx`'s `loadBucketsAndSeedBasisNotices` normalizes each field (via `ai-usage.ts`'s
   `normalizeUsage`) instead of casting, and that closes a real trap** — a usage blob persisted before this
   slice has no `cacheWrite`/`cacheRead`, and an un-normalized legacy bucket would silently stop firing a cap
