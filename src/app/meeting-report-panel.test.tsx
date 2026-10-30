@@ -4,6 +4,7 @@ import { MeetingReportPanel } from "./meeting-report-panel";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { ConfirmProvider } from "./confirm-dialog";
 import { splitSections } from "./committee-report/report-sections";
+import { formatDisplayTimestamp } from "./tz-display";
 
 // Stub the dynamically-imported Tiptap editor with a plain textarea so the test
 // exercises the pane's buttons/logic, not the browser-only editor. ★ UNCONTROLLED
@@ -225,13 +226,21 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
       onDiscardProposal: vi.fn(),
       ...overrides,
     };
-    render(
+    const view = render(
       <ConfirmProvider lang="en-US">
         <MeetingReportPanel {...props} />
       </ConfirmProvider>,
     );
-    return props;
+    const rerenderWith = (more: Record<string, unknown>) =>
+      view.rerender(
+        <ConfirmProvider lang="en-US">
+          <MeetingReportPanel {...props} {...more} />
+        </ConfirmProvider>,
+      );
+    return { ...props, rerenderWith };
   }
+
+  const rowOf = (name: string) => screen.getByRole("button", { name }).closest("li") as HTMLElement;
 
   it("Take on a heading the report already has asks first, naming that heading", async () => {
     const p = renderWithProposal();
@@ -248,7 +257,10 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Take – Risks" }));
     fireEvent.click(await screen.findByRole("button", { name: "Replace" }));
     await waitFor(() => expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>ai risks</p>"));
-    expect(p.onTaken).toHaveBeenCalledWith([1]);
+    // Taken shows at once, but is reported only when the text is saved (I-1).
+    expect(rowOf("Take – Risks")).toHaveTextContent("Taken");
+    expect(screen.getByRole("button", { name: "Take – Risks" })).toBeDisabled();
+    expect(p.onTaken).not.toHaveBeenCalled();
   });
 
   it("cancelling keeps the user's section and adds the AI one after it", async () => {
@@ -259,7 +271,8 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>mine</p><h2>Risks</h2><p>ai risks</p>"),
     );
-    expect(p.onTaken).toHaveBeenCalledWith([1]);
+    expect(rowOf("Take – Risks")).toHaveTextContent("Taken");
+    expect(p.onTaken).not.toHaveBeenCalled();
   });
 
   it("unsaved typing before the take is still in the result", async () => {
@@ -284,11 +297,80 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     const p = renderWithProposal();
     await screen.findByLabelText("Report");
     fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
-    await waitFor(() => expect(p.onTaken).toHaveBeenCalledWith([2]));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
+    expect(p.onTaken).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(p.onSave).toHaveBeenLastCalledWith("<h2>Risks</h2><p>mine</p><h2>Next steps</h2><p>ai next</p>", { fromAi: true });
+    // I-1 — the take is reported to the proposal with the save that stores its text.
+    expect(p.onTaken).toHaveBeenCalledTimes(1);
+    expect(p.onTaken).toHaveBeenCalledWith([2]);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(p.onSave).toHaveBeenLastCalledWith("<h2>Risks</h2><p>mine</p><h2>Next steps</h2><p>ai next</p>", { fromAi: false });
+    expect(p.onTaken).toHaveBeenCalledTimes(1);
+  });
+
+  it("a new stored body clears the unsaved taken marks (the §763 reconcile)", async () => {
+    const p = renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
+    p.rerenderWith({ report: { html: "<p>restored</p>", updatedAt: "2026-10-30T09:30:00.000Z" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Take – Next steps" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(p.onTaken).not.toHaveBeenCalled();
+  });
+
+  // I-2 (WCAG 2.4.3) — the Take that was pressed becomes disabled, so focus moves on explicitly.
+  it("after a plain take, focus moves to the next untaken row's Take", async () => {
+    renderWithProposal();
+    await screen.findByLabelText("Report");
+    const opening = screen.getByRole("button", { name: "Take – Opening text" });
+    opening.focus();
+    fireEvent.click(opening);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Take – Risks" })));
+  });
+
+  it("after a confirmed take, focus moves to the next untaken row's Take, not the disabled one", async () => {
+    renderWithProposal();
+    await screen.findByLabelText("Report");
+    const risks = screen.getByRole("button", { name: "Take – Risks" });
+    risks.focus();
+    fireEvent.click(risks);
+    fireEvent.click(await screen.findByRole("button", { name: "Replace" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Take – Next steps" })));
+  });
+
+  it("after the last section is taken, focus wraps to an earlier untaken row", async () => {
+    renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Next steps" }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Take – Opening text" })));
+  });
+
+  it("after Take all, focus moves to Discard draft", async () => {
+    renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take all" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Keep both" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Discard draft" })));
+    expect(screen.getByRole("button", { name: "Take all" })).toBeDisabled();
+  });
+
+  // M-1 — a write that lands while the confirm is open makes the take's base stale: it is dropped.
+  it("drops a take whose confirm was answered after the stored body changed", async () => {
+    const p = renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Risks" }));
+    await screen.findByRole("dialog", { name: "Replace sections?" });
+    p.rerenderWith({ report: { html: "<h2>Risks</h2><p>undone</p>", updatedAt: "2026-10-30T09:30:00.000Z" } });
+    fireEvent.click(screen.getByRole("button", { name: "Replace" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>undone</p>"));
+    expect(screen.getByRole("button", { name: "Take – Risks" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(p.onSave).toHaveBeenLastCalledWith("<h2>Risks</h2><p>undone</p>", { fromAi: false });
   });
 
   it("shows no proposal block without a proposal", async () => {
@@ -322,10 +404,13 @@ describe("MeetingReportPanel — the previous version (AI-04)", () => {
     return onRestorePrevious;
   }
 
-  it("names the previous version with its save time", async () => {
+  it("names the previous version with its save time, formatted for display (M-6)", async () => {
     renderPrev();
     await screen.findByLabelText("Report");
-    expect(screen.getByText("Previous version (saved 2026-10-29T08:00:00.000Z)")).toBeInTheDocument();
+    // Outside a DisplayTimezoneProvider the panel shows the browser's zone (useDisplayTzOrBrowser).
+    const shown = formatDisplayTimestamp("2026-10-29T08:00:00.000Z", Intl.DateTimeFormat().resolvedOptions().timeZone, "en-US");
+    expect(shown).not.toBe("2026-10-29T08:00:00.000Z"); // anti-vacuity: the formatter changed the text
+    expect(screen.getByText(`Previous version (saved ${shown})`)).toBeInTheDocument();
   });
 
   it("Compare shows a line diff of the previous version against the draft", async () => {

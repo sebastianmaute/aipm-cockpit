@@ -7,7 +7,7 @@
 // AI-04 — an AI draft arrives as a PROPOSAL (held by use-meeting-report-actions, passed in as
 // `proposal`), taken into the editor text by section; the stored previous version can be
 // compared and restored.
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
 import type { MeetingReport } from "./types";
 import { sanitizeRichHtml } from "./sanitize-html";
@@ -86,6 +86,20 @@ function takeConfirmMessage(lang: Lang, plan: TakePlan): string {
   return [...lines, "", t(lang, "reportTakeConfirmHint")].join("\n");
 }
 
+/** I-2 (WCAG 2.4.3) — after a take, focus goes to the next untaken row's Take (wrapping to an earlier
+ *  one), else Take all, else Discard, else the proposal heading. */
+function focusAfterTake(root: HTMLElement | null, after: number): void {
+  if (!root) return;
+  const takes = [...root.querySelectorAll<HTMLButtonElement>("button[data-take-index]")].filter((b) => !b.disabled);
+  const next =
+    takes.find((b) => Number(b.dataset.takeIndex) > after) ??
+    takes[0] ??
+    root.querySelector<HTMLElement>("button[data-take-all]:not(:disabled)") ??
+    root.querySelector<HTMLElement>("button[data-discard]") ??
+    root.querySelector<HTMLElement>("[data-proposal-heading]");
+  next?.focus();
+}
+
 /** A version row's visible text, which is also its row token's name (§669). */
 function versionLabel(lang: Lang, v: MeetingReportVersionUi): string {
   return `${v.capturedAt} · ${t(lang, v.isAuto ? "reportVersionAuto" : "reportVersionManual")}`;
@@ -122,6 +136,25 @@ export function MeetingReportPanel({
   // Panel-local: whether the draft holds text taken from the proposal since the last save. Not
   // persisted — closing the dialog with unsaved taken text loses it with the rest of the draft.
   const [tookFromProposal, setTookFromProposal] = useState(false);
+  // I-1 — sections taken into the draft but not saved yet. They show as Taken here at once, and reach
+  // the proposal (onTaken) only with the Save that stores their text; a draft closed unsaved leaves
+  // the proposal untouched.
+  const [pendingTaken, setPendingTaken] = useState<ReadonlySet<number>>(() => new Set());
+  // M-1 — the stored body's stamp as last committed, read after the take's confirm resolves.
+  const updatedAtRef = useRef(report?.updatedAt);
+  useEffect(() => {
+    updatedAtRef.current = report?.updatedAt;
+  });
+  // I-2 — the last proposal index a take just applied; the effect below moves focus off its
+  // now-disabled Take button once the take has rendered.
+  const focusAfterTakeRef = useRef<number | null>(null);
+  const proposalRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const after = focusAfterTakeRef.current;
+    if (after === null) return;
+    focusAfterTakeRef.current = null;
+    focusAfterTake(proposalRef.current, after);
+  });
   // Render-time reconcile (NOT an effect — set-state-in-effect is banned): when a
   // NEW report body arrives (AI draft or a restore bumps updatedAt), re-seed the
   // draft. A plain user edit leaves updatedAt unchanged, so typing isn't clobbered.
@@ -129,6 +162,7 @@ export function MeetingReportPanel({
     setSeenUpdatedAt(report?.updatedAt);
     setDraft(report?.html ?? "");
     setTookFromProposal(false);
+    setPendingTaken(new Set());
   }
   // Unsaved edits: what a restore or an undo of this report would overwrite.
   const dirty = draft !== (report?.html ?? "");
@@ -136,6 +170,7 @@ export function MeetingReportPanel({
   async function take(indices: number[]): Promise<void> {
     if (!proposal || indices.length === 0) return;
     const base = draft;
+    const startedAt = report?.updatedAt;
     const plan = planTake(base, proposal.sections, indices);
     // A section the report already has asks first: Replace swaps it (and its sub-sections) for the
     // AI text; Keep both — or dismissing the dialog — adds the AI text after it.
@@ -147,10 +182,21 @@ export function MeetingReportPanel({
         confirmLabel: t(lang, "reportTakeReplace"),
         cancelLabel: t(lang, "reportTakeKeepBoth"),
       }));
+    // M-1 — a write (save, restore, undo) landed while the confirm was open: `base` is stale and the
+    // editor now shows the new stored body, so the take is dropped rather than applied to old text.
+    if (updatedAtRef.current !== startedAt) return;
+    focusAfterTakeRef.current = Math.max(...indices);
     setDraft(applyTake(base, proposal.sections, indices, replace));
     setSeedNonce((n) => n + 1);
     setTookFromProposal(true);
-    onTaken?.(indices);
+    setPendingTaken((prev) => new Set([...prev, ...indices]));
+  }
+
+  function save(): void {
+    onSave(draft, { fromAi: tookFromProposal });
+    if (pendingTaken.size > 0) onTaken?.([...pendingTaken].sort((a, b) => a - b));
+    setTookFromProposal(false);
+    setPendingTaken(new Set());
   }
 
   async function restorePrevious(): Promise<void> {
@@ -223,13 +269,15 @@ export function MeetingReportPanel({
       )}
 
       {proposal && proposal.sections.length > 0 && !readOnly ? (
-        <MeetingReportProposal
-          lang={lang}
-          sections={proposal.sections}
-          taken={proposal.taken}
-          onTake={(indices) => void take(indices)}
-          onDiscard={() => onDiscardProposal?.()}
-        />
+        <div ref={proposalRef}>
+          <MeetingReportProposal
+            lang={lang}
+            sections={proposal.sections}
+            taken={pendingTaken.size === 0 ? proposal.taken : new Set([...proposal.taken, ...pendingTaken])}
+            onTake={(indices) => void take(indices)}
+            onDiscard={() => onDiscardProposal?.()}
+          />
+        </div>
       ) : null}
 
       {readOnly ? (
@@ -324,10 +372,7 @@ export function MeetingReportPanel({
 
       {!readOnly && (
         <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" size="xs" onClick={() => {
-              onSave(draft, { fromAi: tookFromProposal });
-              setTookFromProposal(false);
-            }}>
+          <Button variant="secondary" size="xs" onClick={save}>
             {t(lang, "reportSave")}
           </Button>
           <Button

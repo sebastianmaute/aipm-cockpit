@@ -39,14 +39,14 @@ export function MeetingReportProposal({ lang, sections, taken, onTake, onDiscard
   return (
     <section className="rounded-md border border-line" aria-labelledby={headingId}>
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5">
-        <h3 id={headingId} className="text-xs font-medium">
+        <h3 id={headingId} tabIndex={-1} data-proposal-heading className="text-xs font-medium">
           {t(lang, "reportProposalHeading")}
         </h3>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="xs" onClick={() => onTake(untaken)} disabled={untaken.length === 0}>
+          <Button variant="secondary" size="xs" onClick={() => onTake(untaken)} disabled={untaken.length === 0} data-take-all>
             {t(lang, "reportProposalTakeAll")}
           </Button>
-          <Button variant="secondary" size="xs" onClick={onDiscard}>
+          <Button variant="secondary" size="xs" onClick={onDiscard} data-discard>
             {t(lang, "reportProposalDiscard")}
           </Button>
         </div>
@@ -66,6 +66,7 @@ export function MeetingReportProposal({ lang, sections, taken, onTake, onDiscard
                   size="xs"
                   onClick={() => onTake([i])}
                   disabled={isTaken}
+                  data-take-index={i}
                   aria-label={rowLabel(takeLabel, tokens.get(i) ?? name)}
                 >
                   {takeLabel}

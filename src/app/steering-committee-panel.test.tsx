@@ -382,8 +382,8 @@ describe("SteeringCommitteePanel", () => {
   });
 
   // AI-04 — the proposal lives in the report hook, not in the dialog: closing and reopening the
-  // dialog shows the same proposal with the sections already taken still marked.
-  it("closing and reopening the report dialog shows the same proposal with its taken marks", async () => {
+  // dialog shows the same proposal. A section counts as taken once its text is SAVED (I-1).
+  function renderWithStatefulProposal() {
     const sections = splitSections("<h2>Risks</h2><p>ai risks</p><h2>Next steps</h2><p>ai next</p>");
     let taken = new Set<number>();
     const markTaken = vi.fn((_id: number, indices: readonly number[]) => {
@@ -400,16 +400,37 @@ describe("SteeringCommitteePanel", () => {
         report={{ ...reportBag, getProposal, markTaken }}
       />,
     );
-    const open = () =>
+    const open = async () => {
       fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "reportStatusReport")} – Kickoff` }));
-    open();
-    let dialog = await screen.findByRole("dialog");
+      return screen.findByRole("dialog");
+    };
+    return { markTaken, open };
+  }
+
+  it("a take left unsaved is not taken: closing and reopening shows the row untaken", async () => {
+    const { markTaken, open } = renderWithStatefulProposal();
+    let dialog = await open();
     fireEvent.click(within(dialog).getByRole("button", { name: "Take – Next steps" }));
-    await waitFor(() => expect(markTaken).toHaveBeenCalledWith(1, [1]));
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
     fireEvent.click(within(dialog).getByRole("button", { name: t("en-US", "cancel") }));
     expect(screen.queryByRole("dialog")).toBeNull();
-    open();
-    dialog = await screen.findByRole("dialog");
+    dialog = await open();
+    expect(within(dialog).getAllByRole("listitem")[1]).not.toHaveTextContent("Taken");
+    expect(within(dialog).getByRole("button", { name: "Take – Next steps" })).toBeEnabled();
+    expect(markTaken).not.toHaveBeenCalled();
+  });
+
+  it("closing and reopening the report dialog after a saved take shows the same proposal with its taken marks", async () => {
+    const { markTaken, open } = renderWithStatefulProposal();
+    let dialog = await open();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Take – Next steps" }));
+    await waitFor(() => expect(within(dialog).getByRole("button", { name: "Take – Next steps" })).toBeDisabled());
+    expect(markTaken).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: t("en-US", "reportSave") }));
+    expect(markTaken).toHaveBeenCalledWith(1, [1]);
+    fireEvent.click(within(dialog).getByRole("button", { name: t("en-US", "cancel") }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    dialog = await open();
     const rows = within(dialog).getAllByRole("listitem");
     expect(rows[0]).not.toHaveTextContent("Taken");
     expect(rows[1]).toHaveTextContent("Taken");

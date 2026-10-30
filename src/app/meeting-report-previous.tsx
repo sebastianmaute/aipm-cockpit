@@ -10,6 +10,8 @@ import { diffLines } from "./text-diff";
 import { CommTemplateDiffView } from "./comm-template-diff-view";
 import { Button } from "./button";
 import { rowLabel } from "./row-tokens";
+import { formatDisplayTimestamp } from "./tz-display";
+import { useDisplayTzOrBrowser } from "./display-timezone-context";
 
 export interface MeetingReportPreviousProps {
   lang: Lang;
@@ -21,6 +23,8 @@ export interface MeetingReportPreviousProps {
 
 export function MeetingReportPrevious({ lang, previous, draft, onRestore }: MeetingReportPreviousProps) {
   const [comparing, setComparing] = useState(false);
+  // M-6 — the save time in the app's display zone (the browser's outside the provider, e.g. in tests).
+  const tz = useDisplayTzOrBrowser();
   const previousHtml = previous.html;
   const diff = useMemo(
     () =>
@@ -36,7 +40,7 @@ export function MeetingReportPrevious({ lang, previous, draft, onRestore }: Meet
   return (
     <div className="rounded-md border border-line">
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 text-xs">
-        <span>{t(lang, "reportPreviousVersion", previous.savedAt)}</span>
+        <span>{t(lang, "reportPreviousVersion", formatDisplayTimestamp(previous.savedAt, tz, lang))}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="secondary"

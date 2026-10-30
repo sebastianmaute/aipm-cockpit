@@ -85,4 +85,27 @@ describe("useUndoHotkey", () => {
     zone.remove();
     outside.remove();
   });
+
+  it("does NOT fire redo (Ctrl+Shift+Z or Ctrl+Y) inside [data-app-undo=\"off\"], and still does outside it", () => {
+    const undo = vi.fn();
+    const redo = vi.fn();
+    const zone = document.createElement("div");
+    zone.setAttribute("data-app-undo", "off");
+    const inside = document.createElement("button");
+    zone.appendChild(inside);
+    const outside = document.createElement("button");
+    document.body.append(zone, outside);
+    renderHook(() => useUndoHotkey(undo, redo));
+    const shiftZ = { key: "z", ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true };
+    const ctrlY = { key: "y", ctrlKey: true, bubbles: true, cancelable: true };
+    inside.dispatchEvent(new KeyboardEvent("keydown", shiftZ));
+    inside.dispatchEvent(new KeyboardEvent("keydown", ctrlY));
+    expect(redo).not.toHaveBeenCalled();
+    outside.dispatchEvent(new KeyboardEvent("keydown", shiftZ));
+    outside.dispatchEvent(new KeyboardEvent("keydown", ctrlY));
+    expect(redo).toHaveBeenCalledTimes(2);
+    expect(undo).not.toHaveBeenCalled();
+    zone.remove();
+    outside.remove();
+  });
 });
