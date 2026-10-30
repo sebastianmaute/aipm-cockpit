@@ -35,8 +35,9 @@ vi.mock("./graph-mail", () => ({
 // function this test needs to avoid is stubbed.
 vi.mock("./sanitize-html", async (importActual) => ({
   ...(await importActual<typeof import("./sanitize-html")>()),
-  // Identity but for a script element, so a test can tell whether a body went THROUGH the sanitizer.
-  sanitizeRichHtml: (h: string) => h.replace(/<script[\s\S]*?<\/script>/gi, ""),
+  // Identity but for a plain marker, so a test can tell whether a body went THROUGH the sanitizer
+  // (a marker, not markup: an HTML-filtering regex stub here is flagged by code scanning).
+  sanitizeRichHtml: (h: string) => h.split("[[unsanitized]]").join(""),
 }));
 
 const resources: Resource[] = [
@@ -213,7 +214,7 @@ describe("useMeetingReportActions", () => {
     });
 
     it("restore-previous sanitizes the previous body it writes", () => {
-      const h = harness(withReport({ html: "<p>live</p>", updatedAt: "t2", previous: { html: "<p>ok</p><script>alert(1)</script>", savedAt: "t1" } }));
+      const h = harness(withReport({ html: "<p>live</p>", updatedAt: "t2", previous: { html: "<p>ok</p>[[unsanitized]]", savedAt: "t1" } }));
       act(() => h.result.current!.onRestorePrevious(10));
       expect(h.report().html).toContain("<p>ok</p>");
       expect(h.report().html).toBe("<p>ok</p>");
