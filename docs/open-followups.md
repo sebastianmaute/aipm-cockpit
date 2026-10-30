@@ -46117,7 +46117,7 @@ Size S.
 
 ## 784. Escape on the report's Replace or Keep both question adds the AI section instead of cancelling — OPEN
 
-**Status:** OPEN 2026-10-30, filed on the owner's word from the final review of the AI-04 meeting-report draft work (`fix/ai-report-draft`).
+**Status:** OPEN 2026-10-30, filed on the owner's word from the final review of the AI-04 meeting-report draft work (`fix/ai-report-draft`). `grep -n "export type ConfirmFn" src/app/confirm-dialog.tsx` → `ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>`: the confirm has two outcomes, so Escape cannot differ from Keep both.
 
 **Work item:** #919
 
