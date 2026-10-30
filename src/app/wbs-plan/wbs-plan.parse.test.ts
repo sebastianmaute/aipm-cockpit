@@ -311,15 +311,19 @@ describe("buildWbsContext — AWAY block (§773)", () => {
   });
 
   // Estimate rule: tokens ~= characters / 3.5. One away line is bounded: the name plus at most
-  // AWAY_SUMMARY_MAX_RANGES ranges of 10 chars + ", " (~140 chars) plus " +K more", so the block is at most
-  // (60 lines + header + cut line) x ~220 chars ~= 13.6k chars ~= 3.9k tokens. We assert < 4,000 tokens
+  // AWAY_SUMMARY_MAX_RANGES multi-day ranges of 22 chars ("a..b") + ", " (~240 chars) plus the prefix and
+  // " +K more" (~50), so the block is at most (60 lines + header + cut line) x ~290 chars ~= 18k chars
+  // ~= 5.1k tokens. The fixture uses non-adjacent 2-day ranges (the widest form); we assert < 5,500 tokens
   // on top of the worst-case task digest, and the whole digest under 60,000 tokens.
   test("more than 60 people with many ranges each stay within the bound, capped lines and all", () => {
     const people = Array.from({ length: 80 }, (_, i) => ({ id: 100 + i, firstName: `P${i}`, lastName: "Longsurname" }));
     const manyAway = people.flatMap((p, i) =>
       Array.from({ length: 15 }, (_, d) => {
-        const day = `2026-11-${String(2 + d * 2).padStart(2, "0")}`;
-        return { id: 1000 * (i + 1) + d, assignee: `P${i} Longsurname`, resourceId: p.id, type: "Vacation", startDate: day, endDate: day };
+        const iso = (offset: number) => new Date(Date.UTC(2026, 10, 2 + offset)).toISOString().slice(0, 10);
+        return {
+          id: 1000 * (i + 1) + d, assignee: `P${i} Longsurname`, resourceId: p.id, type: "Vacation",
+          startDate: iso(d * 3), endDate: iso(d * 3 + 1),
+        };
       }),
     ) as never;
     const tasks = Array.from({ length: 400 }, (_, i) =>
@@ -328,7 +332,8 @@ describe("buildWbsContext — AWAY block (§773)", () => {
     const args = { ...base, tasks, absences: manyAway, resources: people as never };
     const withAway = buildWbsContext(args);
     const without = buildWbsContext({ ...args, absences: [] });
-    expect((withAway.length - without.length) / 3.5).toBeLessThan(4000);
+    expect((withAway.length - without.length) / 3.5).toBeLessThan(5500);
+    expect(withAway).toContain("2026-11-02..2026-11-03");
     expect(withAway.length / 3.5).toBeLessThan(60_000);
     expect(withAway).toContain("more people truncated");
     expect(withAway).toContain(" +5 more");
