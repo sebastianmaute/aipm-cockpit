@@ -13,15 +13,16 @@ longer carries its own changelog comment.
 ### Added
 
 - **Draft with AI in the meeting report is now a proposal, and the report keeps a previous version (AI-04).** The draft
-  no longer overwrites your report. It appears as a list of sections beside the editor, and you take one section or all of
-  them. When a section's heading matches one in your report, you choose Replace or Keep both; otherwise the section is
+  no longer overwrites your report. It appears as a list of sections above the editor, each with a Preview that shows its
+  text before you take it, and you take one section or all of them. When a section's heading matches one in your report, you choose Replace or Keep both; otherwise the section is
   added. A section you take shows as Taken in the list at once, but nothing is saved until you press Save; closing the
   window without saving leaves the proposal as it was. A taken section can be taken again (for example after you undo the
   save that stored it). A draft that finishes after the meeting's date changed is not kept, and a message says so. The proposal stays with the meeting when you close the window until
   you discard it, draft again, switch project, reload the app or delete the meeting; it is hidden while the meeting's date
   differs from the date when it was drafted, and returns if you change the date back. Closing the window drops unsaved
   typing. Saving a changed report keeps one previous version, on every storage type, which you can compare with the
-  current report or restore. Saving (a take included) and restoring can be undone; a take on its own is not undoable.
+  current report or restore; saving an unchanged report changes nothing, so it keeps its sent date. Restoring the
+  previous version, or one from the Turso version list, asks first when the editor has unsaved changes. Saving (a take included) and restoring can be undone; a take on its own is not undoable.
   Ctrl+Z and redo anywhere in the report dialog, its buttons and root included, no longer trigger the app's undo. An
   AI-drafted report is logged in the activity log as written by the AI. Sending a blank report is refused.
 

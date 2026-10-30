@@ -159,6 +159,25 @@ describe("useMeetingReportActions", () => {
       expect(h.report().previous).toEqual({ html: "<p>old</p>", savedAt: "t1" });
     });
 
+    // Review item 5 — an unchanged save is not a change: it writes nothing, so the sent stamp and the body's own
+    // stamp survive, and there is nothing to undo.
+    it("saving text identical to the current html writes nothing: sentAt and updatedAt stay, no undo entry", () => {
+      const captureComposite = vi.fn();
+      const h = harness(withReport({ html: "<p>x</p>", updatedAt: "t5", sentAt: "t9" }), { captureComposite });
+      const before = h.report();
+      act(() => h.result.current!.onSaveReport(10, "<p>x</p>"));
+      expect(h.report().sentAt).toBe("t9");
+      expect(h.report().updatedAt).toBe("t5");
+      expect(h.report()).toBe(before);
+      expect(captureComposite).not.toHaveBeenCalled();
+    });
+
+    it("an unchanged save takes no Turso version snapshot", async () => {
+      const h = harness(withReport({ html: "<p>x</p>", updatedAt: "t5" }), { tursoConfig: TURSO });
+      await act(async () => { h.result.current!.onSaveReport(10, "<p>x</p>"); });
+      expect(saveVersion).not.toHaveBeenCalled();
+    });
+
     it("a save drops sentAt", () => {
       const h = harness(withReport({ html: "<p>x</p>", updatedAt: "t0", sentAt: "t9" }));
       act(() => h.result.current!.onSaveReport(10, "<p>y</p>"));

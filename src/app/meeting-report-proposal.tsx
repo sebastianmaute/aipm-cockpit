@@ -1,11 +1,14 @@
 "use client";
-// AI-04 — the AI draft of a meeting report, held as a proposal beside the editor: one row per
-// section with a Take button, Take all and Discard. Presentational: what a take DOES to the
-// editor text (planTake / applyTake and the replace confirm) lives in meeting-report-panel.
+// AI-04 — the AI draft of a meeting report, held as a proposal above the editor: one row per
+// section with a Take button, Take all and Discard, and a closed-by-default read-only Preview of
+// the section. Presentational: what a take DOES to the editor text (planTake / applyTake and the
+// Replace / Keep both confirm) lives in meeting-report-panel's take().
 import { useId, useMemo } from "react";
 import { t, type Lang } from "./i18n";
 import { Button } from "./button";
 import { buildRowTokens, rowLabel } from "./row-tokens";
+import { RichTextView } from "./rich-text-view";
+import { FOCUS_RING } from "./interaction-styles";
 import type { ReportSection } from "./committee-report/report-sections";
 
 export interface MeetingReportProposalProps {
@@ -34,6 +37,7 @@ export function MeetingReportProposal({ lang, sections, taken, onTake, onDiscard
   );
   const untaken = sections.map((_, i) => i).filter((i) => !taken.has(i));
   const takeLabel = t(lang, "reportProposalTake");
+  const previewLabel = t(lang, "reportProposalPreview");
   const headingId = useId();
 
   return (
@@ -55,25 +59,43 @@ export function MeetingReportProposal({ lang, sections, taken, onTake, onDiscard
         {sections.map((s, i) => {
           const isTaken = taken.has(i);
           const name = sectionName(lang, s);
+          const token = tokens.get(i) ?? name;
           return (
-            <li key={i} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
-              <span className={INDENT[s.level]}>{name}</span>
-              <div className="flex items-center gap-2">
-                {/* The taken state is TEXT, not colour alone (WCAG 1.4.1). A taken row's Take stays ENABLED: a
-                    saved take can be undone or restored over, and the text must stay takeable (a second take of a
-                    heading the report has asks Replace / Keep both). Take all still skips taken rows. */}
-                {isTaken ? <span className="text-muted-foreground">{t(lang, "reportProposalTaken")}</span> : null}
-                <Button
-                  variant="secondary"
-                  size="xs"
-                  onClick={() => onTake([i])}
-                  data-take-index={i}
-                  data-taken={isTaken ? "true" : undefined}
-                  aria-label={rowLabel(takeLabel, tokens.get(i) ?? name)}
-                >
-                  {takeLabel}
-                </Button>
+            <li key={i} className="px-3 py-1.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className={INDENT[s.level]}>{name}</span>
+                <div className="flex items-center gap-2">
+                  {/* The taken state is TEXT, not colour alone (WCAG 1.4.1). A taken row's Take stays ENABLED: a
+                      saved take can be undone or restored over, and the text must stay takeable (a second take of a
+                      heading the report has asks Replace / Keep both). Take all still skips taken rows. */}
+                  {isTaken ? <span className="text-muted-foreground">{t(lang, "reportProposalTaken")}</span> : null}
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    onClick={() => onTake([i])}
+                    data-take-index={i}
+                    data-taken={isTaken ? "true" : undefined}
+                    aria-label={rowLabel(takeLabel, token)}
+                  >
+                    {takeLabel}
+                  </Button>
+                </div>
               </div>
+              {/* Read the section before taking it. A native <details> (the house disclosure pattern): closed by
+                  default, keyboard-operable through its <summary>, and toggling it moves no focus and changes no taken
+                  state. The summary is named per row (WCAG 2.4.6) with its visible text first (2.5.3). The section
+                  html is sanitized by the hook; RichTextView, the shared read-only sink, sanitizes it again. */}
+              <details data-section-preview className={`mt-1 ${INDENT[s.level]}`}>
+                <summary
+                  className={`w-fit cursor-pointer rounded-sm text-muted-foreground hover:text-foreground ${FOCUS_RING}`}
+                  aria-label={rowLabel(previewLabel, token)}
+                >
+                  {previewLabel}
+                </summary>
+                <div data-section-preview-body className="mt-1 rounded-sm border border-line bg-surface p-2">
+                  <RichTextView html={s.html} />
+                </div>
+              </details>
             </li>
           );
         })}

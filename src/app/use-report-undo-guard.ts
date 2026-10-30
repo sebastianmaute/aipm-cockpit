@@ -15,6 +15,9 @@
 //   entry asks while an open report is dirty. Only one report dialog is open at a time, so the over-ask is
 //   an undo of a DIFFERENT meeting's report while this one has unsaved text — rare, and a question, not a loss.
 //
+// ★ Parked: the save toast's Undo action does not pass through this guard; it is unreachable while the report
+//   modal is open (the toast sits under the modal), so it cannot reach a dirty draft today.
+//
 // Handlers are deliberately NOT memoized (deps-object convention): each reads the live stacks.
 import { t, type Lang } from "./i18n";
 import type { AppDialogs } from "./confirm-dialog";

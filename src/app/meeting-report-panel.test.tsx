@@ -121,6 +121,58 @@ describe("MeetingReportPanel", () => {
     expect(onRestore).toHaveBeenCalledWith("v1");
   });
 
+  // Review item 2 — the version list's Restore asks over unsaved typing, like the previous version's Restore.
+  describe("version-list Restore over unsaved changes", () => {
+    function renderVersions() {
+      const onRestore = vi.fn();
+      render(
+        <ConfirmProvider lang="en-US">
+          <MeetingReportPanel
+            lang="en-US"
+            report={{ html: "<p>hi</p>", updatedAt: "2026-05-30T10:00:00.000Z" }}
+            recipients={["a@x.com"]}
+            onSave={vi.fn()}
+            onSend={vi.fn()}
+            m365Configured
+            versions={[{ id: "v1", capturedAt: "2026-05-29T09:00:00.000Z", isAuto: true, html: "<p>old</p>" }]}
+            onRestore={onRestore}
+          />
+        </ConfirmProvider>,
+      );
+      return onRestore;
+    }
+    const restoreName = /^Restore – /;
+
+    it("clean: restores at once, no dialog", async () => {
+      const onRestore = renderVersions();
+      await screen.findByLabelText("Report");
+      fireEvent.click(screen.getByRole("button", { name: restoreName }));
+      expect(onRestore).toHaveBeenCalledWith("v1");
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("dirty: asks first, and confirming restores", async () => {
+      const onRestore = renderVersions();
+      fireEvent.change(await screen.findByLabelText("Report"), { target: { value: "<p>typed</p>" } });
+      fireEvent.click(screen.getByRole("button", { name: restoreName }));
+      const dialog = await screen.findByRole("dialog", { name: "Unsaved changes" });
+      expect(onRestore).not.toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Restore" }));
+      await waitFor(() => expect(onRestore).toHaveBeenCalledWith("v1"));
+    });
+
+    it("dirty, cancelled: keeps the draft and restores nothing", async () => {
+      const onRestore = renderVersions();
+      fireEvent.change(await screen.findByLabelText("Report"), { target: { value: "<p>typed</p>" } });
+      fireEvent.click(screen.getByRole("button", { name: restoreName }));
+      const dialog = await screen.findByRole("dialog", { name: "Unsaved changes" });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Unsaved changes" })).toBeNull());
+      expect(onRestore).not.toHaveBeenCalled();
+      expect(screen.getByLabelText("Report")).toHaveValue("<p>typed</p>");
+    });
+  });
+
   // §669 — two versions captured at the same time read alike.
   it("names the controls of two versions with one capture time apart", () => {
     const at = "2026-05-29T09:00:00.000Z";
@@ -531,5 +583,20 @@ describe("MeetingReportPanel — the previous version (AI-04)", () => {
     expect(container.querySelector('[data-report-dirty="true"]')).toBeNull();
     fireEvent.change(editor, { target: { value: "<p>typed</p>" } });
     expect(container.querySelector('[data-report-dirty="true"]')).not.toBeNull();
+  });
+
+  // Review item 5 — a save whose sanitized text equals the stored body writes nothing (no new updatedAt, so no
+  // reconcile): the panel settles the draft itself, so it does not stay dirty after Save.
+  it("a Save that differs from the stored body only by what the sanitizer strips leaves the panel clean", async () => {
+    const onSave = vi.fn();
+    const { container } = render(
+      <MeetingReportPanel lang="en-US" report={WITH_PREVIOUS} recipients={[]} onSave={onSave} onSend={vi.fn()} m365Configured />,
+    );
+    const editor = await screen.findByLabelText("Report");
+    fireEvent.change(editor, { target: { value: "<p>current</p><script>x()</script>" } });
+    expect(container.querySelector('[data-report-dirty="true"]')).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[data-report-dirty="true"]')).toBeNull();
   });
 });

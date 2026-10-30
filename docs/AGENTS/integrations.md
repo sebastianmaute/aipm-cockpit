@@ -60,13 +60,17 @@ nothing when the epoch moved, so a project change drops it). `markTaken`/`discar
 marked until the Save lands. ★ A taken row keeps its visible Taken label but its Take stays ENABLED (an undone or
 restored-over take must stay takeable; Take all still skips taken rows), so the panel's focus move after a take reads
 `data-taken`, not `disabled`. A draft that resolves after its meeting's date changed is dropped with the
-`reportDraftMeetingChanged` toast. Pure split/merge is `report-sections.ts` (`splitSections`, `planTake`, `applyTake`); a
-matching heading asks Replace or Keep both in the panel (`meeting-report-proposal.tsx`). `onSaveReport(id, html, {fromAi})`
-computes from live state, is undoable through the composite fragment in `meeting-report-undo.ts`
+`reportDraftMeetingChanged` toast. Pure split/merge is `report-sections.ts` (`splitSections`, `planTake`, `applyTake`,
+and `isBlankReport`, the one blank-body rule the send refusal and the panel's disabled Send share); the proposal list
+(`meeting-report-proposal.tsx`) sits ABOVE the editor, each row with a closed-by-default `<details>` preview rendered
+through `RichTextView`; a matching heading asks Replace or Keep both in `meeting-report-panel.tsx`'s `take()`. `onSaveReport(id, html, {fromAi})`
+computes from live state, writes NOTHING for a body identical to the live one (`replacedReport` returns undefined, so
+`updatedAt` and `sentAt` stay, and no snapshot, undo entry or log row is made), is undoable through the composite fragment in `meeting-report-undo.ts`
 (`meetingReportUndoFragment`), and logs `ai.reportDraft` (actor ai) only when `fromAi`. ★★ Its `captureComposite` passes
 NO `readEpoch`: the capture is synchronous, so the stack stamps its own (UNDO) epoch. Passing the plain scope epoch made
 the stack refuse every report save once a currency change or version restore moved the undo epoch.
-`onRestorePrevious` swaps current and previous and is undoable; `use-report-undo-guard.ts` asks first when the top-bar
+`onRestorePrevious` swaps current and previous and is undoable; both it and the Turso version list's Restore ask first
+in the panel over unsaved editor text; `use-report-undo-guard.ts` asks first when the top-bar
 undo would reverse a report change over unsaved edits. The report `Modal` passes `appUndoOff`, which puts
 `data-app-undo="off"` on the dialog ROOT, so the Ctrl+Z / redo hotkey is off on the `tabIndex={-1}` root as well. ★★ `MeetingReport.previous` (`{html, savedAt}`, one slot) rides
 the same blob as the report and is validated in the sanitizer (a malformed one is dropped, the report kept); Turso still

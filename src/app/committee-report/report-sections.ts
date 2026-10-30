@@ -50,6 +50,12 @@ function headingText(inner: string): string {
   return htmlToPlainText(numeric).replace(/\s+/g, " ").trim();
 }
 
+/** True when a report body has no visible text (empty, or only tags and whitespace). The ONE blank rule: the
+ *  hook refuses to send such a body and the panel disables Send on it. */
+export function isBlankReport(html: string): boolean {
+  return htmlToPlainText(html).trim() === "";
+}
+
 /** Match key for heading text; the input may contain inline markup and entities. */
 export function normalizeHeading(text: string): string {
   return headingText(text).toLowerCase();

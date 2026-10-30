@@ -77,6 +77,71 @@ describe("MeetingReportProposal", () => {
   });
 });
 
+// Review item 1 — each row can be read before it is taken: a closed-by-default, read-only preview.
+describe("MeetingReportProposal — section preview", () => {
+  const previews = (c: HTMLElement) => [...c.querySelectorAll<HTMLDetailsElement>("details[data-section-preview]")];
+  const summaryOf = (d: HTMLDetailsElement) => d.querySelector("summary") as HTMLElement;
+
+  it("gives every row a preview, closed by default, its text not visible", () => {
+    const { container } = render(
+      <MeetingReportProposal lang="en-US" sections={SECTIONS} taken={new Set()} onTake={vi.fn()} onDiscard={vi.fn()} />,
+    );
+    const ds = previews(container);
+    expect(ds).toHaveLength(4);
+    for (const d of ds) expect(d.open).toBe(false);
+    expect(within(ds[1]).getByText("a")).not.toBeVisible();
+  });
+
+  it("expanding shows that section's text, without moving focus or taking anything", () => {
+    const onTake = vi.fn();
+    const { container } = render(
+      <MeetingReportProposal lang="en-US" sections={SECTIONS} taken={new Set()} onTake={onTake} onDiscard={vi.fn()} />,
+    );
+    const d = previews(container)[2];
+    const summary = summaryOf(d);
+    summary.focus();
+    fireEvent.click(summary);
+    expect(d.open).toBe(true);
+    expect(within(d).getByText("b")).toBeVisible();
+    expect(document.activeElement).toBe(summary);
+    expect(onTake).not.toHaveBeenCalled();
+    expect(within(screen.getAllByRole("listitem")[2]).queryByText("Taken")).toBeNull();
+  });
+
+  it("names every preview toggle row-uniquely, also for two sections with one heading", () => {
+    const { container } = render(
+      <MeetingReportProposal lang="en-US" sections={SECTIONS} taken={new Set()} onTake={vi.fn()} onDiscard={vi.fn()} />,
+    );
+    const names = previews(container).map((d) => summaryOf(d).getAttribute("aria-label"));
+    expect(names).toEqual([
+      "Preview – Opening text",
+      "Preview – Risks (1)",
+      "Preview – Risks (2)",
+      "Preview – Next steps",
+    ]);
+    // Label in name (WCAG 2.5.3): the visible text starts the accessible name.
+    for (const d of previews(container)) expect(summaryOf(d).getAttribute("aria-label")).toMatch(new RegExp(`^${summaryOf(d).textContent}`));
+  });
+
+  it("renders a section's markup as text, never raw tags, and drops a script", () => {
+    const sections = splitSections(
+      `<h2>Status</h2><p>on <strong>track</strong></p><script>window.__pwned = 1</script><img src=x onerror="window.__pwned = 1">`,
+    );
+    const { container } = render(
+      <MeetingReportProposal lang="en-US" sections={sections} taken={new Set()} onTake={vi.fn()} onDiscard={vi.fn()} />,
+    );
+    const d = previews(container)[0];
+    fireEvent.click(summaryOf(d));
+    const body = d.querySelector("[data-section-preview-body]") as HTMLElement;
+    expect(body).toHaveTextContent("on track");
+    expect(body.textContent).not.toMatch(/<\/?(p|strong|h2)>/);
+    expect(body.querySelector("strong")).not.toBeNull();
+    expect(body.querySelector("script")).toBeNull();
+    expect(body.querySelector("[onerror]")).toBeNull();
+    expect((window as unknown as { __pwned?: number }).__pwned).toBeUndefined();
+  });
+});
+
 describe("MeetingReportProposal (DE)", () => {
   beforeAll(async () => {
     await loadI18n("de");

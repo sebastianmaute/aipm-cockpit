@@ -10,9 +10,8 @@ import type { Settings } from "./settings-types";
 import { isAiEnabled } from "./settings-types";
 import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
 import { sanitizeRichHtml } from "./sanitize-html";
-import { htmlToPlainText } from "./html-to-text";
 import { runMeetingReport } from "./committee-report/report-call";
-import { splitSections, type ReportSection } from "./committee-report/report-sections";
+import { splitSections, isBlankReport, type ReportSection } from "./committee-report/report-sections";
 import { useGuideTextFrom } from "./action-guides-context";
 import type { OperatingGuide } from "./operating-guide";
 import { loadVersions, saveVersion } from "./committee-report-versions-store";
@@ -116,17 +115,14 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-/** True when a body has no visible text (empty, or only tags and whitespace). */
-function isBlankReport(html: string): boolean {
-  return htmlToPlainText(html).trim() === "";
-}
-
 /** The report after a save: the new text, with the replaced text kept as `previous`
  *  when it was non-empty. An empty replaced body is not worth keeping, so ITS previous is carried forward
- *  (clear → Save → type → Save keeps the text before the clear). A new body is unsent, so `sentAt` is not carried. */
-function replacedReport(old: MeetingReport | undefined, html: string, stamp: string): MeetingReport {
+ *  (clear → Save → type → Save keeps the text before the clear). A new body is unsent, so `sentAt` is not carried.
+ *  An UNCHANGED body is no write at all (undefined): `updatedAt`, `sentAt` and `previous` all stay. */
+function replacedReport(old: MeetingReport | undefined, html: string, stamp: string): MeetingReport | undefined {
+  if (old && old.html === html) return undefined;
   const report: MeetingReport = { html, updatedAt: stamp };
-  if (old && (old.html === html || old.html === "")) return { ...report, ...(old.previous ? { previous: old.previous } : {}) };
+  if (old && old.html === "") return { ...report, ...(old.previous ? { previous: old.previous } : {}) };
   if (old) report.previous = { html: old.html, savedAt: old.updatedAt };
   return report;
 }
@@ -170,21 +166,23 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     }
   }
 
-  // Functional committee setter — writes the report onto the meeting, built from the LIVE report. Every save
-  // drops `sentAt`; a new body moves the old text into `previous`, an identical body keeps the existing `previous`.
+  // Functional committee setter — writes the report onto the meeting, built from the LIVE report. A changed body
+  // drops `sentAt` and moves the old text into `previous`; an identical body writes nothing at all.
   function onSaveReport(meetingId: number, html: string, opts?: { fromAi?: boolean }): void {
     const meeting = deps.committee?.meetings.find((m) => m.id === meetingId);
     if (!meeting) return;
-    void snapshotCurrent(meetingId); // snapshot the prior before we overwrite it
     // Uniform write-time sanitization (defense-in-depth) — every body write
     // (manual save, AI draft, restore) routes through here. A NEW body is
     // unsent, so `sentAt` is intentionally dropped.
     const clean = sanitizeRichHtml(html);
+    // An unchanged body is not a change: no snapshot, nothing to undo and nothing to log. (Judged on the
+    // render-scope meeting, which is enough for these decisions; the write below is judged on the live one, whose
+    // updater writes nothing for an identical body.)
+    const unchanged = meeting.report?.html === clean;
+    if (!unchanged) void snapshotCurrent(meetingId); // snapshot the prior before we overwrite it
     const stamp = nowIso();
     const seen = writeLiveReport(meetingId, (old) => replacedReport(old, clean, stamp));
-    // An unchanged body is not a change: nothing to undo and nothing to log. (Judged on the render-scope
-    // meeting, which is enough for a capture decision; the write above is judged on the live one.)
-    if (meeting.report?.html === clean) return;
+    if (unchanged) return;
     captureReportChange(meeting.id, meeting.date, seen);
     // ★ Deliberately NOT gated on the stash: a React setState updater does not run inside the call (it runs at the
     // next render), so `seen.after()` is still null here for nearly every real save and gating on it would never log.

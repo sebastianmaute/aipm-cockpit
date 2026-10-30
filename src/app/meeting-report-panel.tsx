@@ -20,7 +20,7 @@ import { AiTriggerButton } from "./ai-trigger-button";
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 import { useConfirm, useNotice } from "./confirm-dialog";
-import { planTake, applyTake, type TakePlan } from "./committee-report/report-sections";
+import { planTake, applyTake, isBlankReport, type TakePlan } from "./committee-report/report-sections";
 import type { ReportProposal } from "./use-meeting-report-actions";
 import { MeetingReportProposal } from "./meeting-report-proposal";
 import { MeetingReportPrevious } from "./meeting-report-previous";
@@ -213,23 +213,38 @@ export function MeetingReportPanel({
 
   function save(): void {
     onSave(draft, { fromAi: tookFromProposal });
+    // Pending takes on an unchanged body are marked too: their text is already in the stored report.
     if (pendingTaken.size > 0) onTaken?.([...pendingTaken].sort((a, b) => a - b));
     setTookFromProposal(false);
     setPendingTaken(new Set());
+    // A save whose sanitized text equals the stored body writes nothing (no new updatedAt, so no reconcile
+    // below): settle the draft on the stored body here, so a sanitizer-only difference does not stay dirty.
+    const stored = report?.html ?? "";
+    if (draft !== stored && sanitizeRichHtml(draft) === stored) setDraft(stored);
+  }
+
+  /** A restore replaces the editor text, so over unsaved changes both restore paths ask first. Called only while
+   *  dirty: a clean restore stays synchronous (no await on its path). */
+  function confirmRestoreOverUnsaved(messageKey: "reportRestoreUnsavedBody" | "reportRestoreVersionUnsavedBody"): Promise<boolean> {
+    return confirm({
+      title: t(lang, "reportUnsavedTitle"),
+      message: t(lang, messageKey),
+      confirmLabel: t(lang, "reportRestore"),
+    });
   }
 
   async function restorePrevious(): Promise<void> {
     if (!onRestorePrevious) return;
-    if (
-      dirty &&
-      !(await confirm({
-        title: t(lang, "reportUnsavedTitle"),
-        message: t(lang, "reportRestoreUnsavedBody"),
-        confirmLabel: t(lang, "reportRestore"),
-      }))
-    )
-      return;
+    if (dirty && !(await confirmRestoreOverUnsaved("reportRestoreUnsavedBody"))) return;
     onRestorePrevious();
+  }
+
+  // Review item 2 — the Turso version list restores through onSaveReport, which re-seeds the editor from the new
+  // stored body: without this ask, unsaved typing was replaced without a word.
+  async function restoreVersion(versionId: string): Promise<void> {
+    if (!onRestore) return;
+    if (dirty && !(await confirmRestoreOverUnsaved("reportRestoreVersionUnsavedBody"))) return;
+    onRestore(versionId);
   }
 
   // Recipients are seeded from the committee members but EDITABLE before send
@@ -238,7 +253,7 @@ export function MeetingReportPanel({
   const parsedRecipients = parseRecipients(toList);
   const noRecipients = parsedRecipients.length === 0;
   // What Send mails is the STORED body, so a blank one (e.g. cleared, with a previous kept) cannot be sent.
-  const blankReport = htmlToPlainText(report?.html ?? "").trim() === "";
+  const blankReport = isBlankReport(report?.html ?? "");
 
   // Version-diff: compare the CURRENT draft against a selected version's snapshot.
   const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
@@ -354,7 +369,7 @@ export function MeetingReportPanel({
                   <Button
                     variant="secondary"
                     size="xs"
-                    onClick={() => onRestore(v.id)}
+                    onClick={() => void restoreVersion(v.id)}
                     disabled={restoreBusyId === v.id}
                     aria-label={rowLabel(t(lang, "reportRestore"), versionTokens.get(v.id) ?? versionLabel(lang, v))}
                   >
