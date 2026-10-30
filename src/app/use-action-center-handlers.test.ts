@@ -449,7 +449,8 @@ describe("useActionCenterHandlers — Assign-owner goes through the reassign ste
     expect(spies.showToastAction.mock.calls[0][1]).not.toMatch(/planned hours/);
     expect(recordLearning).toHaveBeenCalledWith(action, "acted");
     // The confirmation IS the undo toast, so its Undo button stays: no second toast replaces it.
-    expect(spies.showToastAction.mock.calls[0][1]).toBe(t("en-US", "actionOwnerAssigned", 10));
-    expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "actionOwnerAssigned", 10));
+    // A task is named as a task, not as a RAID item (the RAID branch keeps its own message).
+    expect(spies.showToastAction.mock.calls[0][1]).toBe("Owner assigned to task #10");
+    expect(showToast).not.toHaveBeenCalled();
   });
 });

@@ -3547,6 +3547,7 @@ export const de: Record<TranslationKey, string> = {
   actionSnooze1d: "1 Tag",
   actionAssignOwner: "Verantwortlichen zuweisen",
   actionOwnerAssigned: "Verantwortlichen zu RAID #{0} zugewiesen",
+  actionTaskOwnerAssigned: "Verantwortlichen zu Aufgabe #{0} zugewiesen",
   // --- Inline-Aktionschips (SP4) ---
   actionChipsLabel: "Vorgeschlagene Schritte",
   actionChipsMore: "+{0} weitere",

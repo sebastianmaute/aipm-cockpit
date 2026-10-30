@@ -3749,6 +3749,7 @@ const enUS = {
   actionSnooze1d: "1 day",
   actionAssignOwner: "Assign owner",
   actionOwnerAssigned: "Owner assigned to RAID #{0}",
+  actionTaskOwnerAssigned: "Owner assigned to task #{0}",
   // --- Inline action chips (SP4) ---
   actionChipsLabel: "Suggested actions",
   actionChipsMore: "+{0} more",

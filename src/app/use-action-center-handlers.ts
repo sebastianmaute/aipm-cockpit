@@ -147,7 +147,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
                 reassignHoursRef.current.reassignTasks(
                   [{ taskId: id, assignee: v.name, assigneeEmail: v.email, resourceId: v.resourceId ?? undefined }],
                   "user",
-                  { toastText: t(lang, "actionOwnerAssigned", id) },
+                  { toastText: t(lang, "actionTaskOwnerAssigned", id) },
                 );
                 void recordLearning(action, "acted");
                 return;
