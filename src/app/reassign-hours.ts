@@ -14,7 +14,12 @@ import { isTaskClosed } from "./task-closed";
 import { type Absence, type Resource, type ResourcePlan, type Task } from "./types";
 
 export type NoMoveReason = "noEstimate" | "closed" | "unlinked" | "outsideWindow";
-export interface OwnerChange { task: Task; fromResourceId: number | undefined; toResourceId: number | undefined }
+export interface OwnerChange {
+  task: Task; fromResourceId: number | undefined; toResourceId: number | undefined;
+  /** The old owner's free-text name (R14). Blank together with no `fromResourceId` means the task had NO
+   *  owner, and gaining one is silent. Omitted, the old owner counts as present (an unlinked one gets a notice). */
+  fromAssignee?: string;
+}
 export interface HoursMoveCtx { plan: ResourcePlan; absences: readonly Absence[]; workdayHours: number; holidaySet: ReadonlySet<string>; today: string }
 export interface PeriodMove { periodKey: string; hours: number }
 export interface TaskHoursMove {

@@ -289,7 +289,9 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
 
       // ★ Called AFTER each branch's own-task captures, so the target entries
       // land on top of the stack and a bare undo() peels the successor links
-      // first (the most recently-intended act). ★★ There is NOT always an
+      // first (the most recently-intended act). ★ Except a save that moved
+      // planned hours (§774 R15): there the hours entry goes on top, so its notice
+      // is the toast the user ends on. ★★ There is NOT always an
       // own-task entry to unwind from: `captureFieldChanges` pushes nothing when
       // no own field changed, so a successors-only save leaves ONLY these
       // entries, and a create pushes none at all (creates are not undoable
@@ -427,7 +429,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         // §774 — planned from the task AFTER this save, so an estimate saved
         // together with the new owner is the estimate that moves.
         const step = prevTask && nextTask
-          ? reassignHoursRef.current.prepare([{ task: nextTask, fromResourceId: prevTask.resourceId, toResourceId: nextTask.resourceId }])
+          ? reassignHoursRef.current.prepare([{ task: nextTask, fromResourceId: prevTask.resourceId, toResourceId: nextTask.resourceId, fromAssignee: prevTask.assignee }])
           : undefined;
         // ONE functional setter for the edited task AND every successor target:
         // they all live in the same array, so a second setTasks would be a
@@ -450,6 +452,13 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         });
         step?.commit("user");
         setEditingId(null);
+        // §774 R15 — the toast is ONE slot and each entry shows its own. When this
+        // save moved hours (or has a no-move notice), the successor entry is pushed
+        // FIRST so the hours entry lands on top: the user ends on the notice, and
+        // that toast's Undo reverses what it describes. This flips the usual
+        // "successor links on top" order for such a save only.
+        const hoursOnTop = step !== undefined && (step.resourcesPart !== null || step.notice !== null);
+        if (hoursOnTop) recordSuccessorEdits(successors, tasksRef.current);
         // Always found: the guard at the top of this handler returned for a task
         // deleted elsewhere. The `if` only narrows the type.
         if (prevTask && nextTask && step) {
@@ -488,7 +497,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           const transition = statusActivityKind(prevTask, nextTask);
           if (transition) logActivity(transition, updatedId, taskName);
         }
-        recordSuccessorEdits(successors, tasksRef.current);
+        if (!hoursOnTop) recordSuccessorEdits(successors, tasksRef.current);
       } else {
         // A new task starts with no blockers and no log; the Blockers button
         // is disabled until the task is saved (as Notes), then the window adds.

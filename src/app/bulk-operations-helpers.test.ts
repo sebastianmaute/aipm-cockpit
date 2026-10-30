@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
+import { buildBulkEditUpdates, buildInquiryMessage, resolveBulkOwner } from "./bulk-operations-helpers";
+import { LIAM, MAYA } from "../test/reassign-hours-rig";
 import { emptyBulkEdit } from "./task-form-context";
 import type { Task } from "./types";
 
@@ -93,5 +94,24 @@ describe("buildInquiryMessage", () => {
     const { body } = buildInquiryMessage(list, "en-US");
     expect(body).toContain("#7: Ship");
     expect(body).toContain("#8: Test");
+  });
+});
+
+// §774 R13 — the strict owner match behind the bulk owner change.
+describe("resolveBulkOwner", () => {
+  it("leaves a patch without an owner field untouched", () => {
+    const updates = { priority: "High" as const };
+    expect(resolveBulkOwner(updates, false, [MAYA, LIAM])).toBe(updates);
+  });
+  it("links nobody when the name is shared by two people", () => {
+    const twin = { ...LIAM, id: 9, email: "other@x.com" };
+    expect(resolveBulkOwner({ assignee: "Liam Foster" }, false, [MAYA, LIAM, twin])).toEqual({ assignee: "Liam Foster", resourceId: undefined });
+  });
+  it("keeps a typed email that agrees, and links the person", () => {
+    expect(resolveBulkOwner({ assignee: "Liam Foster", assigneeEmail: "liam@x.com" }, true, [MAYA, LIAM]))
+      .toEqual({ assignee: "Liam Foster", assigneeEmail: "liam@x.com", resourceId: 2 });
+  });
+  it("a blank owner clears the link", () => {
+    expect(resolveBulkOwner({ assignee: "" }, false, [MAYA, LIAM])).toEqual({ assignee: "", resourceId: undefined });
   });
 });

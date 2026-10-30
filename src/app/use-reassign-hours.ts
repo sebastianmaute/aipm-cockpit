@@ -96,9 +96,11 @@ export interface StepEntry {
 
 type OwnerFields = Pick<Task, "assignee" | "assigneeEmail" | "resourceId">;
 
-/** Constraint "No move, no notice": the linked owner is unchanged, or the owner was cleared to nobody. */
+/** Constraint "No move, no notice": the linked owner is unchanged, the owner was cleared to nobody,
+ *  or (R14) the task had no owner at all — blank name, no link — and is now assigned. */
 function movesSilently(change: OwnerChange): boolean {
   if (change.fromResourceId === change.toResourceId) return true;
+  if (change.fromResourceId === undefined && change.fromAssignee !== undefined && change.fromAssignee.trim() === "") return true;
   return change.task.assignee.trim() === "" && change.toResourceId === undefined;
 }
 
@@ -217,7 +219,7 @@ export function useReassignHours(deps: ReassignHoursDeps): ReassignHours {
       const after: OwnerFields = { assignee: e.assignee, assigneeEmail: e.assigneeEmail, resourceId: e.resourceId };
       if (before.assignee === after.assignee && before.assigneeEmail === after.assigneeEmail && before.resourceId === after.resourceId) continue;
       taskEdits.push({ id: task.id, before, after });
-      changes.push({ task: { ...task, ...after }, fromResourceId: task.resourceId, toResourceId: e.resourceId });
+      changes.push({ task: { ...task, ...after }, fromResourceId: task.resourceId, toResourceId: e.resourceId, fromAssignee: task.assignee });
     }
     if (taskEdits.length === 0) return;
 

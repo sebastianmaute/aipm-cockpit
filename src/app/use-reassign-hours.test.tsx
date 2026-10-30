@@ -184,6 +184,36 @@ describe("useReassignHours.reassignTasks", () => {
   });
 });
 
+// R14 — a task that had NO owner (blank assignee, no link) gains one silently; a
+// free-text old owner still gets the "unlinked" notice.
+describe("useReassignHours: assigning a task that had no owner", () => {
+  const fromNobody = { task: { ...TASK, ...LIAM_OWNS } as Task, fromResourceId: undefined, toResourceId: 2 };
+  it("prepare is silent when the old owner was blank and unlinked", () => {
+    const { hook } = setup();
+    const step = hook.result.current.reassign.prepare([{ ...fromNobody, fromAssignee: "  " }]);
+    expect(step.resourcesPart).toBeNull();
+    expect(step.notice).toBeNull();
+    expect(step.plan.moves).toEqual([]);
+  });
+  it("prepare still says unlinked for a free-text old owner", () => {
+    const { hook } = setup();
+    const step = hook.result.current.reassign.prepare([{ ...fromNobody, fromAssignee: "Bob" }]);
+    expect(step.resourcesPart).toBeNull();
+    expect(step.notice).not.toBeNull();
+    expect(step.plan.moves[0]?.reason).toBe("unlinked");
+  });
+  it("reassignTasks on an unowned task shows no hours notice", () => {
+    const blank = { ...TASK, assignee: "", assigneeEmail: "", resourceId: undefined } as Task;
+    const { hook, showToast, showToastAction, logActivityAs } = setup({ tasks: [blank] });
+    act(() => { hook.result.current.reassign.reassignTasks([TO_LIAM], "user"); });
+    expect(owner(hook.result.current.tasks)).toEqual(LIAM_OWNS);
+    expect(showToast).not.toHaveBeenCalled();
+    expect(logActivityAs).not.toHaveBeenCalled();
+    expect(showToastAction).toHaveBeenCalledTimes(1);
+    expect(showToastAction.mock.calls[0][1]).not.toMatch(/planned hours/);
+  });
+});
+
 describe("useReassignHours.prepare", () => {
   it("returns a live step for a real reassignment, and commit writes the hours and logs once", () => {
     const { hook, logActivityAs } = setup();

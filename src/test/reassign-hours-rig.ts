@@ -2,7 +2,7 @@
 // path tests (triage, editor, inline, Kanban, Action Center). It runs the REAL
 // `useReassignHours` over real state cells and the REAL undo stack, so a path
 // test reads utilization and the undo toast as the app would produce them.
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { vi, type Mock } from "vitest";
 import type { LogActivityAsFn } from "../app/activity-log-context";
 import type { ToastAction } from "../app/use-toast";
@@ -60,6 +60,18 @@ export function rigSpies(): RigSpies {
 export function useReassignRig(spies: RigSpies, initialTasks: readonly Task[] = [RIG_TASK]) {
   const [tasks, setTasks] = useState<readonly Task[]>(initialTasks);
   const [resources, setResources] = useState<readonly Resource[]>([MAYA, LIAM]);
+  return useReassignRigOver(spies, { tasks, setTasks, resources, setResources });
+}
+
+interface RigCells {
+  tasks: readonly Task[];
+  setTasks: Dispatch<SetStateAction<readonly Task[]>>;
+  resources: readonly Resource[];
+  setResources: Dispatch<SetStateAction<readonly Resource[]>>;
+}
+
+/** The same rig over state the caller owns (e.g. a real WorkspaceProvider's slices). */
+export function useReassignRigOver(spies: RigSpies, { tasks, setTasks, resources, setResources }: RigCells) {
   const tasksRef = useRef<readonly Task[]>(tasks);
   useLayoutEffect(() => { tasksRef.current = tasks; }, [tasks]);
   const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: spies.showToastAction });
@@ -81,4 +93,4 @@ export function inertReassignHours(): ReassignHours {
   };
 }
 
-export const utilOf =(rs: readonly Resource[], id: number) => rs.find((r) => r.id === id)?.utilization;
+export const utilOf = (rs: readonly Resource[], id: number) => rs.find((r) => r.id === id)?.utilization;

@@ -1032,7 +1032,7 @@ function TaskManagerInner() {
     handleClearAll,
     handleCommand,
   } = useBulkOperations({
-    lang, dialogsRef: appDialogsRef, getScopeEpoch,
+    lang, dialogsRef: appDialogsRef, getScopeEpoch, reassignHours,
     // Effective settings so bulk-op day-boundary math (`args.settings.timezone`)
     // follows the per-project timezone override; the device writer stays on
     // `setSettings`.

@@ -1511,6 +1511,40 @@ describe("useTaskSubmit — §774 a reassignment moves the planned hours", () =>
   });
 });
 
+// R15 — the same save also links a successor, which pushes its own entry. The toast
+// the user ends on must still carry the hours notice: the hours entry is recorded LAST.
+describe("useTaskSubmit — §774 R15 the hours notice survives a successor-link entry", () => {
+  it("ends on the hours notice when the save also links a successor", () => {
+    const spies = rigSpies();
+    const target: Task = { ...RIG_TASK, id: 11, taskName: "Follow-up", resourceId: undefined, assignee: "", assigneeEmail: "" };
+    const form: TaskFormDraft = {
+      ...validForm(), taskName: RIG_TASK.taskName, startDate: RIG_TASK.startDate ?? "", dueDate: RIG_TASK.dueDate,
+      lastUpdateDate: RIG_TASK.lastUpdateDate, ...LIAM_OWNS, remainingEstimateMinutes: RIG_TASK.remainingEstimateMinutes,
+      successorLinks: [{ taskId: 11, type: "FS" as const }],
+    };
+    const { result } = renderHook(() => {
+      const rig = useReassignRig(spies, [RIG_TASK, target]);
+      const submit = useTaskSubmit(makeArgs({
+        form, editingId: 10, today: RIG_TODAY, tasks: rig.tasks, tasksRef: rig.tasksRef, setTasks: rig.setTasks,
+        captureFieldEdit: rig.undo.captureFieldEdit, captureComposite: rig.undo.captureComposite, reassignHours: rig.reassignHours,
+      }));
+      return { rig, submit };
+    });
+    act(() => result.current.submit.handleSubmit(fakeSubmitEvent()));
+    const { rig } = result.current;
+    expect(rig.tasks.find((x) => x.id === 11)?.dependencies).toEqual([{ taskId: 10, type: "FS" }]);
+    expect(utilOf(rig.resources, 2)).toEqual({ "2026-09": 8, "2026-10": 8 });
+    expect(rig.undo.stack).toHaveLength(2);
+    const notice = expectedNotice({ task: { ...RIG_TASK, ...LIAM_OWNS }, fromResourceId: 1, toResourceId: 2 });
+    expect(spies.showToastAction).toHaveBeenLastCalledWith("info", notice, expect.anything());
+    // The Undo on that toast reverses what it describes: owner and hours, not the link.
+    act(() => rig.undo.undo());
+    expect(result.current.rig.tasks[0]).toMatchObject({ assignee: "Maya Patel", resourceId: 1 });
+    expect(utilOf(result.current.rig.resources, 2)).toEqual({});
+    expect(result.current.rig.tasks.find((x) => x.id === 11)?.dependencies).toEqual([{ taskId: 10, type: "FS" }]);
+  });
+});
+
 describe("useTaskSubmit — remainingEstimateMinutes threading", () => {
   it("carries a pinned remaining value from the draft into the saved task", () => {
     const setTasks = vi.fn();

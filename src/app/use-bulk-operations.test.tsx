@@ -13,6 +13,7 @@ import { useUndoStack } from "./undo/use-undo-stack";
 import { useBudgetBuckets } from "./use-budget-buckets";
 import { bucketIdForTask } from "./budget-task-link";
 import { sanitizeVoiceTranscript } from "./sanitize";
+import { inertReassignHours, LIAM, MAYA, RIG_TASK, rigSpies, useReassignRigOver, utilOf } from "../test/reassign-hours-rig";
 import {
   useBulkOperations,
   type UseBulkOperationsArgs,
@@ -48,6 +49,7 @@ function makeArgs(
     showToast: vi.fn(),
     today: "2026-08-03",
     holidaySet: new Set<string>(),
+    reassignHours: inertReassignHours(),
     ...overrides,
   };
 }
@@ -1657,5 +1659,66 @@ describe("useBulkOperations", () => {
       expect(meta.kind).toBe("bulk.edit");
       expect(meta.tasksPart).not.toBeNull();
     });
+  });
+});
+
+// §774 R13 — the bulk owner change links the directory person it STRICTLY names,
+// so name and link never disagree, and moves every changed task's hours in ONE entry.
+describe("useBulkOperations — §774 bulk owner change", () => {
+  function renderBulkWithHours() {
+    const spies = rigSpies();
+    const { result } = renderHook(
+      () => {
+        const workspace = useWorkspace();
+        const rig = useReassignRigOver(spies, workspace);
+        const args = makeArgs({ capture: rig.undo.capture, captureFieldRows: rig.undo.captureFieldRows, reassignHours: rig.reassignHours });
+        return { bulk: useBulkOperations(args), workspace, taskForm: useTaskForm(), rig };
+      },
+      { wrapper: Wrapper },
+    );
+    return { result, spies };
+  }
+  type R = ReturnType<typeof renderBulkWithHours>["result"];
+  function bulkAssign(result: R, tasks: Task[], assignee: string) {
+    act(() => { result.current.workspace.setResources([MAYA, LIAM]); result.current.workspace.setTasks(tasks); });
+    for (const tk of tasks) act(() => { result.current.bulk.onToggleSelect(tk.id); });
+    act(() => { result.current.taskForm.setBulkEdit((prev) => ({ ...prev, enabled: { ...prev.enabled, assignee: true }, assignee })); });
+    act(() => { result.current.bulk.applyBulkEdit(); });
+  }
+  // Three of Maya's tasks, 32 h each over Sep–Oct (16 h a month): 48 h a month, but she plans only 40.
+  const big = (id: number): Task => ({ ...RIG_TASK, id, taskName: `Big ${id}`, remainingEstimateMinutes: 32 * 60 });
+
+  it("bulk edit moves every task's hours in one entry", () => {
+    const { result, spies } = renderBulkWithHours();
+    bulkAssign(result, [big(1), big(2), big(3)], "Liam Foster");
+    const { workspace, rig } = result.current;
+    for (const tk of workspace.tasks) expect(tk).toMatchObject({ assignee: "Liam Foster", assigneeEmail: "liam@x.com", resourceId: 2 });
+    // The running cap: Maya gives what she has (40 a month), never going negative.
+    expect(utilOf(workspace.resources, 1)).toEqual({ "2026-09": 0, "2026-10": 0, "2026-11": 20 });
+    expect(utilOf(workspace.resources, 2)).toEqual({ "2026-09": 40, "2026-10": 40 });
+    expect(rig.undo.stack).toHaveLength(1);
+    expect(spies.logActivityAs.mock.calls.filter((c) => c[1] === "resource.hoursMoved")).toHaveLength(1);
+    act(() => { result.current.rig.undo.undo(); });
+    expect(result.current.workspace.tasks.every((tk) => tk.resourceId === 1 && tk.assignee === "Maya Patel")).toBe(true);
+    expect(utilOf(result.current.workspace.resources, 1)).toEqual(MAYA.utilization);
+    expect(utilOf(result.current.workspace.resources, 2)).toEqual({});
+  });
+
+  it("bulk edit links the picked person", () => {
+    const { result } = renderBulkWithHours();
+    // Typed in another case: the strict match folds case and writes the directory identity.
+    bulkAssign(result, [{ ...RIG_TASK, id: 1 }], "liam foster");
+    expect(result.current.workspace.tasks[0]).toMatchObject({ assignee: "Liam Foster", assigneeEmail: "liam@x.com", resourceId: 2 });
+  });
+
+  it("an unmatched bulk owner clears the link", () => {
+    const { result, spies } = renderBulkWithHours();
+    bulkAssign(result, [{ ...RIG_TASK, id: 1 }], "Contractor Jo");
+    const [tk] = result.current.workspace.tasks;
+    expect(tk.assignee).toBe("Contractor Jo");
+    expect(tk.resourceId).toBeUndefined();
+    expect(utilOf(result.current.workspace.resources, 1)).toEqual(MAYA.utilization);
+    // Linked → unlinked: no hours move, and the notice says why.
+    expect(spies.showToastAction.mock.calls.at(-1)?.[1]).toMatch(/planned hours/);
   });
 });

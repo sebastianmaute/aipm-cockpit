@@ -443,8 +443,10 @@ describe("useActionCenterHandlers — Assign-owner goes through the reassign ste
     expect(rig.undo.stack).toHaveLength(1);
     expect(spies.logActivityAs).not.toHaveBeenCalled();
     expect(spies.showToast).not.toHaveBeenCalled();
-    // The undo toast carries the generic edit label, not an hours notice.
-    for (const [, text] of spies.showToastAction.mock.calls) expect(text).not.toMatch(/\bh\b|Liam/);
+    // The undo toast carries the generic edit label, not an hours notice — not even
+    // "unlinked" (R14: a task that had no owner gains one silently).
+    expect(spies.showToastAction).toHaveBeenCalledTimes(1);
+    expect(spies.showToastAction.mock.calls[0][1]).not.toMatch(/planned hours/);
     // Unchanged around the write: the learning record and the confirmation toast.
     expect(recordLearning).toHaveBeenCalledWith(action, "acted");
     expect(showToast).toHaveBeenCalledWith("info", t("en-US", "actionOwnerAssigned", 10));

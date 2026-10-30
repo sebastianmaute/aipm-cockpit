@@ -517,7 +517,7 @@ export function TasksSection({
       const clean = sanitizeInlinePatch(patch, patchCtx);
       // §774 — planned from the row after the edit; inert unless the linked owner changed.
       const afterRow = { ...beforeRow, ...clean };
-      const step = reassignHoursRef.current.prepare([{ task: afterRow, fromResourceId: beforeRow.resourceId, toResourceId: afterRow.resourceId }]);
+      const step = reassignHoursRef.current.prepare([{ task: afterRow, fromResourceId: beforeRow.resourceId, toResourceId: afterRow.resourceId, fromAssignee: beforeRow.assignee }]);
       setTasks((prev) =>
         prev.map((row) =>
           row.id === taskId && !row.jiraKey

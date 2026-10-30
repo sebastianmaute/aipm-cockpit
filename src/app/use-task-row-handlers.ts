@@ -374,7 +374,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         today,
       );
       // §774 — planned from the row AFTER the drop, so a drop into a Done lane is judged closed.
-      const step = reassignHoursRef.current.prepare([{ task: after, fromResourceId: prevRow.resourceId, toResourceId: nextResourceId }]);
+      const step = reassignHoursRef.current.prepare([{ task: after, fromResourceId: prevRow.resourceId, toResourceId: nextResourceId, fromAssignee: prevRow.assignee }]);
       setTasks((prev) =>
         prev.map((row) => (row.id === id ? { ...after, localModifiedAt: stamp } : row)),
       );
