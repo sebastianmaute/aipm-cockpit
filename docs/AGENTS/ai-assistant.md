@@ -247,8 +247,11 @@
   tool it does not know stages. ★★ Every tool that can stage must reach the card as a described line, never its bare
   tool name: the panel titles rows through `proposalTitles` with `cardRowTitle`, and the coverage test in
   `chat-proposal-describe.test.ts` runs a sample of every stageable tool through that pair in English and German; a
-  new stageable tool goes red there until it has a sample and a line. And once a turn of the send has staged, a later
-  turn stages nothing:
+  new stageable tool goes red there until it has a sample and a line. ★ The forecast and project lines are DATA from
+  the i18n-free describer (`forecastRowLine`, `projectRowName`) and translated in `chat-proposal-block.tsx`
+  (`forecastRowTitle`); the same test fails a line that reads the same in German as in English unless every word of
+  it is the row's own data. ★ A staging turn's reads run in place and get their real result: the card holds only the
+  turn's other calls, never a read row. And once a turn of the send has staged, a later turn stages nothing:
   its reads (`isPureReadTool`, `chat-send-record.ts`) run, every other call runs nothing and is answered with
   `PROPOSAL_PENDING_RESULT`, and the loop continues so the model can reply; the card is never replaced unseen. A staged
   `set_language`, `set_filters` or device-only `update_settings` is described by `describeDeviceCall`
@@ -2093,7 +2096,7 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   setter runs. Guard 2: the result carries `removedRows`, the stored rows not kept unchanged, counted as a MULTISET
   (`countRemovedRows`: each stored row consumes at most one equal new row, so a dropped duplicate counts 1 and an
   edited row counts as removed and re-added); the tool description says so. Guard 3: the staged card line
-  (`forecastScenarioRowTitle`, `chat-proposal-describe.ts`) shows the stored count beside the new one,
+  (`forecastRowLine` in `chat-proposal-describe.ts`, translated by `forecastRowTitle`) shows the stored count beside the new one,
   `(3 → 1 changes)`. `name` alone is a patch and returns no `removedRows`.
   ★★ REFERENCE ROWS ARE MATCHED BY REFERENCE, NOT BY INDEX: a milestone or resource reference that has since gone
   stale is still accepted when the STORED scenario already held that same reference (`keepsAnyStoredReference`,
@@ -2119,7 +2122,7 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   `delete_forecast_scenario.id` are `TARGET_MINTED_BY` rows minted by `create_forecast_scenario`, so
   `[create_forecast_scenario, set_forecast_proposal(<provisional>)]` proposes the scenario the create really minted,
   and refusing the create cascades the proposal call; `targetIdOf` reads `id: null` as no id, so a clear names no
-  row. The card lines come from `forecastScenarioRowTitle` (delete, proposal) and `forecastTargetRowTitle` (target). Forecast-side detail (shared store/log rules, the
+  row. The card lines (delete, proposal, target) come from `forecastRowLine` as data and are translated by `forecastRowTitle`. Forecast-side detail (shared store/log rules, the
   synchronous overrides ref, the `forecastDecision` document gate) is in `docs/AGENTS/forecast.md`, "The AI tool".
   ★★ A SCENARIO MAY NAME A MILESTONE OR PERSON CREATED EARLIER IN THE SAME TURN (this was refused with "does not
   exist" until the fix). Two halves. Applied directly: `requireInput` (`use-forecast-tools.ts`) replaces the
