@@ -248,9 +248,10 @@
   field, a person name or its address from `PERSON_FIELDS` (the writer derives the address from a new name through
   `withReassignFields`), or the `resourceId` link — or it is an `update_resource` carrying a field the person linker
   matches on (`RESOURCE_MATCH_FIELDS`, which types `buildResourceLookupIndexes`' input) or the `name` alias, because
-  a rename can relink an unlinked same-name assignee on the next load. The residual is a lone tokened update that touches none of these;
-  and once a turn of the send has staged, a later turn stages
-  nothing: its reads (`isPureReadTool`, `chat-send-record.ts`) run, every other call runs nothing and is answered with
+  a rename can relink an unlinked same-name assignee on the next load. The residual is a lone tokened update that
+  touches none of these, a stakeholder rename included (the linker reads resources only, so `update_stakeholder`'s
+  `name` is not staged); and once a turn of the send has staged, a later turn stages nothing:
+  its reads (`isPureReadTool`, `chat-send-record.ts`) run, every other call runs nothing and is answered with
   `PROPOSAL_PENDING_RESULT`, and the loop continues so the model can reply; the card is never replaced unseen. A staged
   `set_language`, `set_filters` or device-only `update_settings` is described by `describeDeviceCall`
   (`chat-proposal-describe-device.ts`) into `DescribedRow.device` and titled by `deviceRowTitle`: the language by its own
