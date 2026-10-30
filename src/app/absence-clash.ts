@@ -27,6 +27,8 @@ export interface AbsenceClash {
 }
 
 export const AWAY_SUMMARY_MAX_LINES = 60;
+/** Ranges listed on one person's line; the rest are summarised as " +K more". */
+export const AWAY_SUMMARY_MAX_RANGES = 10;
 /** The holiday set for a caller that has none to thread: no day is a holiday. Shared so every caller
  *  falls back to the same (frozen-by-convention) instance. */
 export const NO_HOLIDAYS: ReadonlySet<string> = new Set();
@@ -232,7 +234,9 @@ export function buildAwaySummary(args: {
   const lines = ["AWAY (absent days; type and reason not shown):"];
   for (const p of shown) {
     const id = p.rid === null ? "#-" : `#${p.rid}`;
-    lines.push(`${id}|name: ${JSON.stringify(oneLine(p.name))} away ${p.ranges.map(formatRange).join(", ")}`);
+    const listed = p.ranges.slice(0, AWAY_SUMMARY_MAX_RANGES).map(formatRange).join(", ");
+    const more = p.ranges.length - AWAY_SUMMARY_MAX_RANGES;
+    lines.push(`${id}|name: ${JSON.stringify(oneLine(p.name))} away ${listed}${more > 0 ? ` +${more} more` : ""}`);
   }
   const cut = people.length - shown.length;
   if (cut > 0) lines.push(`…(${cut} more people truncated)`);

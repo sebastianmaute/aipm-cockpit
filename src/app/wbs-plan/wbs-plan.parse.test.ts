@@ -310,24 +310,57 @@ describe("buildWbsContext — AWAY block (§773)", () => {
     );
   });
 
-  // Estimate rule: tokens ~= characters / 3.5 (a conservative bound; wbs-plan-call.ts estimates ~4).
-  // The call's existing INPUT guard is the digest cap (WBS_CONTEXT_MAX_TASKS tasks of at most
-  // 300 description chars); the AWAY block must add less than one task line's worth per away line
-  // and stay far inside the model's context. We assert the 60-line block adds under 4,000 tokens
-  // on top of the worst-case task digest, and the whole digest stays under 60,000 tokens.
-  test("60 away lines on top of the worst-case digest stay within budget", () => {
-    const people = Array.from({ length: 60 }, (_, i) => ({ id: 100 + i, firstName: `P${i}`, lastName: "Longsurname" }));
-    const manyAway = people.map((p, i) => ({
-      id: 500 + i, assignee: `P${i} Longsurname`, resourceId: p.id, type: "Vacation",
-      startDate: "2026-11-03", endDate: "2026-11-07",
-    })) as never;
+  // Estimate rule: tokens ~= characters / 3.5. One away line is bounded: the name plus at most
+  // AWAY_SUMMARY_MAX_RANGES ranges of 10 chars + ", " (~140 chars) plus " +K more", so the block is at most
+  // (60 lines + header + cut line) x ~220 chars ~= 13.6k chars ~= 3.9k tokens. We assert < 4,000 tokens
+  // on top of the worst-case task digest, and the whole digest under 60,000 tokens.
+  test("more than 60 people with many ranges each stay within the bound, capped lines and all", () => {
+    const people = Array.from({ length: 80 }, (_, i) => ({ id: 100 + i, firstName: `P${i}`, lastName: "Longsurname" }));
+    const manyAway = people.flatMap((p, i) =>
+      Array.from({ length: 15 }, (_, d) => {
+        const day = `2026-11-${String(2 + d * 2).padStart(2, "0")}`;
+        return { id: 1000 * (i + 1) + d, assignee: `P${i} Longsurname`, resourceId: p.id, type: "Vacation", startDate: day, endDate: day };
+      }),
+    ) as never;
     const tasks = Array.from({ length: 400 }, (_, i) =>
       task(i + 1, { description: "x".repeat(500), group: "G", assignee: "A".repeat(40) }),
     );
     const args = { ...base, tasks, absences: manyAway, resources: people as never };
-    const withAway = buildWbsContext(args).length;
-    const without = buildWbsContext({ ...args, absences: [] }).length;
-    expect((withAway - without) / 3.5).toBeLessThan(4000);
-    expect(withAway / 3.5).toBeLessThan(60_000);
+    const withAway = buildWbsContext(args);
+    const without = buildWbsContext({ ...args, absences: [] });
+    expect((withAway.length - without.length) / 3.5).toBeLessThan(4000);
+    expect(withAway.length / 3.5).toBeLessThan(60_000);
+    expect(withAway).toContain("more people truncated");
+    expect(withAway).toContain(" +5 more");
+  });
+
+  test("the window runs from today to the project end", () => {
+    const rs = [{ id: 7, firstName: "Maya", lastName: "Patel" }] as never;
+    const ab = [
+      { id: 1, assignee: "Maya Patel", resourceId: 7, type: "Vacation", startDate: "2026-03-02", endDate: "2026-03-06" },
+      { id: 2, assignee: "Maya Patel", resourceId: 7, type: "Vacation", startDate: "2026-11-10", endDate: "2026-11-12" },
+    ] as never;
+    const out = buildWbsContext({
+      ...base, project: { name: "Old", startDate: "2025-11-01", endDate: "2026-12-31" } as never, absences: ab, resources: rs,
+    });
+    expect(out).toContain("2026-11-10..2026-11-12");
+    expect(out).not.toContain("2026-03-02");
+  });
+
+  test("a project that has ended, or has only a start date, falls back to today..today+28", () => {
+    const rs = [{ id: 7, firstName: "Maya", lastName: "Patel" }] as never;
+    // today = 2026-11-01: 11-29 is inside the fallback (today+28), 11-30 just outside it: pins 28 days.
+    const ab = [
+      { id: 1, assignee: "Maya Patel", resourceId: 7, type: "Vacation", startDate: "2026-11-29", endDate: "2026-11-29" },
+      { id: 2, assignee: "Maya Patel", resourceId: 7, type: "Vacation", startDate: "2026-11-30", endDate: "2026-11-30" },
+    ] as never;
+    for (const project of [
+      { name: "Done", startDate: "2025-01-01", endDate: "2026-06-30" },
+      { name: "Half", startDate: "2026-01-01", endDate: "" },
+    ]) {
+      const out = buildWbsContext({ ...base, project: project as never, absences: ab, resources: rs });
+      expect(out).toContain("2026-11-29");
+      expect(out).not.toContain("2026-11-30");
+    }
   });
 });

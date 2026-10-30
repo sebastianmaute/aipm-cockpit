@@ -157,6 +157,9 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   // ★ Synced after commit, so `open()` prefers the caller's `liveTasks`.
   const tasksRef = useRef(tasks);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  // §773 — mirrored like tasks: grounding reads the absences as they are when the reply returns.
+  const absenceRef = useRef({ absences, resources, holidaySet });
+  useEffect(() => { absenceRef.current = { absences, resources, holidaySet }; }, [absences, resources, holidaySet]);
   // ★ Written in the SAME call as the state, never synced by an effect: a call
   // that fails in the same tick it started batches "thinking" -> "idle" into no
   // state change at all, so an effect would never fire and the ref would stay
@@ -262,7 +265,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
           return;
         }
         // Ground against the tasks as they are NOW, not as they were sent.
-        const grounded = groundWbsProposal(parsed, tasksRef.current, runScope, { absences, resources, holidaySet });
+        const grounded = groundWbsProposal(parsed, tasksRef.current, runScope, absenceRef.current);
         // Only a proposal with NOTHING in it is "no changes proposed". When the
         // model proposed items and grounding refused them all, the preview
         // still opens, showing just the "Not applied" list with its reasons.
@@ -299,7 +302,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         reset();
       }
     },
-    [milestones, project, absences, resources, tableToday, holidaySet, apiKey, settings.ai.model, guideText, lang, showToast, reset, setPhase, getScopeEpoch],
+    [milestones, project, absences, resources, tableToday, apiKey, settings.ai.model, guideText, lang, showToast, reset, setPhase, getScopeEpoch],
   );
 
   const onOpen = useCallback(() => {

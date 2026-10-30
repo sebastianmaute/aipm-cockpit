@@ -117,7 +117,7 @@ Readers (summary only):
 
 ## Calls I made (owner may override)
 
-- The summary window is today plus four weeks for the readers, the project window for the WBS plan.
+- The summary window is today plus four weeks for the readers, from today to the project end for the WBS plan (today plus four weeks when the project has no end date or has ended).
 - A milestone's people are the owners of its linked tasks; a milestone with no linked tasks gets no check.
 - An unlinked (typed-name) owner is matched to absences by name, as the due-date reminders do.
 - No AI path sets a task `startDate` today; the half-span rule uses the stored start date with the new due date.

@@ -78,8 +78,11 @@ export interface WbsContextArgs {
 /** Days past today the AWAY window reaches when the project has no start and end date. */
 const AWAY_FALLBACK_DAYS = 28;
 
+/** From today (or the project start, if later) to the project end; today..today+28 when the project has
+ *  no end date or has already ended. */
 function awayWindow(project: ProjectMeta | undefined, today: string): { from: string; to: string } {
-  if (project?.startDate && project.endDate) return { from: project.startDate, to: project.endDate };
+  const from = project?.startDate && project.startDate > today ? project.startDate : today;
+  if (project?.endDate && project.endDate >= from) return { from, to: project.endDate };
   return { from: today, to: isoAddDays(today, AWAY_FALLBACK_DAYS) };
 }
 
@@ -591,6 +594,8 @@ function groundRegroup(item: RegroupItem, key: string, st: GroundState): Verdict
   return { key, item: { kind: "regroup", taskId: live.id, group, why: oneLine(item.why) }, baseRows: [live], requires: [] };
 }
 
+// ★ Matching on the typed assignee name (no resourceId) is deliberate: a WBS new task is stored unlinked
+// (R14), so the preview judges exactly what will be written.
 function groundNewTask(item: NewTaskItem, key: string, st: GroundState, absence: AbsenceCtx): Verdict {
   const ref = oneLine(item.ref);
   if (ref === "") return "emptyRef";

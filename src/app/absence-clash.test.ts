@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AWAY_SUMMARY_MAX_LINES,
+  AWAY_SUMMARY_MAX_RANGES,
   absencesOfPerson,
   buildAwaySummary,
   milestoneClashes,
@@ -228,6 +229,20 @@ describe("milestoneClashes", () => {
 
 describe("buildAwaySummary", () => {
   const window = { from: "2026-11-02", to: "2026-11-30" };
+
+  it("caps the ranges on one person's line and says how many more", () => {
+    // 13 non-adjacent one-day absences (every other day) in the window
+    const day = (i: number) => `2026-11-${String(2 + i * 2).padStart(2, "0")}`;
+    const many = Array.from({ length: 13 }, (_, i) =>
+      absence({ id: 100 + i, assignee: "Maya Patel", resourceId: 1, startDate: day(i), endDate: day(i) }),
+    );
+    const line = buildAwaySummary({ absences: many, resources: [maya], ...window })[1];
+    expect(AWAY_SUMMARY_MAX_RANGES).toBe(10);
+    expect(line.split(", ")).toHaveLength(AWAY_SUMMARY_MAX_RANGES);
+    expect(line).toContain("2026-11-02");
+    expect(line).not.toContain("2026-11-24");
+    expect(line.endsWith(" +3 more")).toBe(true);
+  });
 
   it("returns [] when nobody is away in the window", () => {
     expect(buildAwaySummary({ absences: [MAYA_WEEK], resources: [maya], from: "2026-12-01", to: "2026-12-28" })).toEqual([]);

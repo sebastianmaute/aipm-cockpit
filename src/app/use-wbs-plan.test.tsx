@@ -264,6 +264,26 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(screen.getByText(/Maya Patel is absent/)).toBeTruthy();
   });
 
+  it("an absence added while the call is in flight flags the clash (read at return time, §773)", async () => {
+    let release: (p: ParsedWbsProposal) => void = () => {};
+    vi.mocked(call.runWbsProposal).mockImplementation(() => new Promise((res) => { release = res; }));
+    const api = renderHarness();
+    await proposeFromButton();
+    await waitFor(() => expect(call.runWbsProposal).toHaveBeenCalled());
+    act(() => {
+      api().ws.setAbsences([
+        { id: 1, assignee: "Maya Patel", type: "Vacation", startDate: "2026-11-03", endDate: "2026-11-07" } as never,
+      ]);
+    });
+    await act(async () => {
+      release(proposal([
+        { kind: "newTask", ref: "n1", taskName: "Handover", dueDate: "2026-11-04", assignee: "Maya Patel", why: "" },
+      ]));
+    });
+    await screen.findByRole("checkbox", { name: /include this change/i });
+    expect(screen.getByText(/Maya Patel is absent/)).toBeTruthy();
+  });
+
   it("a proposal whose every item was refused opens the preview with the reasons, not 'no changes'", async () => {
     vi.mocked(call.runWbsProposal).mockResolvedValue(
       proposal([{ kind: "regroup", taskId: 1, group: "Core", why: "" }]), // task 1 is already in Core
