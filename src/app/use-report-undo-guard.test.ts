@@ -136,12 +136,14 @@ describe("a through-op acts only on what it asked about (AI-04)", () => {
     r1.push(meta(4, "task.updated"));
     b.answer(true);
     await vi.waitFor(() => expect(showToast).toHaveBeenCalledTimes(2));
+    expect(showToast).toHaveBeenLastCalledWith("info", expect.stringContaining("nothing was redone"));
     const r2 = [meta(5, "meetingReport.updated")];
     const c = deferred([], r2, showToast);
     c.guarded.redoThrough(5);
     r2.push(meta(6, "task.updated"));
     c.answer(true);
     await vi.waitFor(() => expect(showToast).toHaveBeenCalledTimes(3));
+    expect(showToast).toHaveBeenLastCalledWith("info", expect.stringContaining("nothing was redone"));
   });
 
   it("stays silent when the op ran", async () => {

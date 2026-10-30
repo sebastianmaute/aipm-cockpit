@@ -82,7 +82,7 @@ export function useReportUndoGuard({ api, dialogsRef, lang, showToast }: ReportU
   /** Runs `run` only if the top of `which` is still `asked`; otherwise nothing is undone, and the user is told. */
   const ifTopUnchanged = (which: "stack" | "redoStack", asked: number | undefined, run: () => void): void => {
     if (topId(which) === asked) run();
-    else showToast?.("info", t(lang, "reportUndoListChanged"));
+    else showToast?.("info", t(lang, which === "stack" ? "reportUndoListChanged" : "reportRedoListChanged"));
   };
   /** `runNow` when nothing needs asking; `runAfterAsk` (bound to the entries as they were ASKED) once confirmed. */
   const guard = (entries: readonly UndoMeta[], confirmKey: "undo" | "redo", runNow: () => void, runAfterAsk: () => void): void => {

@@ -507,6 +507,14 @@ describe("useMeetingReportActions", () => {
     expect(p.createdAt).not.toBe("");
   });
 
+  it("a draft that opens with a blank paragraph holds no opening section", async () => {
+    runMeetingReport.mockResolvedValueOnce("<p></p><h2>Status</h2><p>ok</p>");
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps()));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(result.current!.getProposal(10)).toBeDefined());
+    expect(result.current!.getProposal(10)!.sections.map((x) => x.heading)).toEqual(["Status"]);
+  });
+
   // §701 — the guides that target the committee report reach its call.
   it("generate sends the guides that target the committee report", async () => {
     const guides = [

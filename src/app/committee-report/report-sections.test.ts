@@ -5,6 +5,7 @@ import {
   normalizeHeading,
   planTake,
   sectionBodyHtml,
+  splitProposalSections,
   splitSections,
 } from "./report-sections";
 
@@ -204,6 +205,30 @@ describe("an AI opening that sits inside a user intro", () => {
 
   it("an unmatched section lands after the level-0 section (before the first user heading)", () => {
     expect(applyTake(WITH_INTRO, AI, [1], true)).toBe("<p>my intro</p><p>AI intro</p><h2>Summary</h2><p>S</p><h2>Notes</h2><p>n</p>");
+  });
+});
+
+describe("a blank AI opening is not a section", () => {
+  it("splitProposalSections leaves no opening row for whitespace or an empty paragraph", () => {
+    for (const html of ["\n<h2>Summary</h2><p>S</p>", "<p></p><h2>Summary</h2><p>S</p>"]) {
+      expect(splitProposalSections(html).map((x) => x.heading)).toEqual(["Summary"]);
+    }
+    expect(splitProposalSections("<p>intro</p><h2>Summary</h2>").map((x) => x.level)).toEqual([0, 2]);
+  });
+
+  it("the engine ignores a blank opening handed to it: placement does not depend on whitespace in the user's text", () => {
+    const AI = splitSections("\n<h2>Summary</h2><p>S</p>"); // [blank opening, Summary]
+    expect(applyTake("<p>my\nintro</p><h2>Notes</h2><p>n</p>", AI, [1], true)).toBe("<p>my\nintro</p><h2>Notes</h2><p>n</p><h2>Summary</h2><p>S</p>");
+    expect(applyTake("<p>my intro</p><h2>Notes</h2><p>n</p>", AI, [1], true)).toBe("<p>my intro</p><h2>Notes</h2><p>n</p><h2>Summary</h2><p>S</p>");
+    expect(applyTake("<h2>Notes</h2><p>n</p>", AI, [0], true)).toBe("<h2>Notes</h2><p>n</p>"); // taking it adds nothing
+    expect(planTake("<h2>Notes</h2><p>n</p>", AI, [0])).toEqual({ replacements: [], additions: [] });
+  });
+
+  it("a user text with a blank preamble round-trips byte for byte", () => {
+    for (const user of ["\n<h2>Notes</h2><p>n</p>", "<p></p><h2>Notes</h2><p>n</p>", "  <h2>A</h2>"]) {
+      expect(splitSections(user).map((x) => x.html).join("")).toBe(user);
+      expect(applyTake(user, [], [], true)).toBe(user);
+    }
   });
 });
 

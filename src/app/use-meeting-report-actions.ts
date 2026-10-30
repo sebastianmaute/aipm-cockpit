@@ -12,7 +12,7 @@ import { isAiEnabled } from "./settings-types";
 import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { runMeetingReport } from "./committee-report/report-call";
-import { splitSections, isBlankReport, type ReportSection } from "./committee-report/report-sections";
+import { splitProposalSections, isBlankReport, type ReportSection } from "./committee-report/report-sections";
 import { useGuideTextFrom } from "./action-guides-context";
 import type { OperatingGuide } from "./operating-guide";
 import { loadVersions, saveVersion } from "./committee-report-versions-store";
@@ -353,7 +353,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       }
       // AI output is untrusted: sanitize BEFORE splitting, so the held sections are already clean.
       const clean = sanitizeRichHtml(html);
-      const sections = isBlankReport(clean) ? [] : splitSections(clean);
+      const sections = isBlankReport(clean) ? [] : splitProposalSections(clean);
       if (sections.length === 0) {
         deps.showToast("error", t(deps.lang, "reportGenerateFailed"));
         return;

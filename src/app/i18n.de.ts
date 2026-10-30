@@ -4188,6 +4188,7 @@ export const de: Record<TranslationKey, string> = {
   reportUnsavedTitle: "Nicht gespeicherte Änderungen",
   reportRestoreUnsavedBody: "Das Wiederherstellen der vorherigen Version ersetzt Ihre nicht gespeicherten Änderungen im Editor.",
   reportRestoreVersionUnsavedBody: "Das Wiederherstellen dieser Version ersetzt Ihre nicht gespeicherten Änderungen im Editor.",
+  reportRedoListChanged: "Die Rückgängig-Liste hat sich geändert, während Sie entschieden haben. Es wurde nichts wiederhergestellt.",
   reportUndoListChanged: "Die Rückgängig-Liste hat sich geändert, während Sie entschieden haben. Es wurde nichts rückgängig gemacht.",
   reportUndoUnsavedBody: "Damit wird der Text im geöffneten Bericht ersetzt, einschließlich Ihrer nicht gespeicherten Änderungen.",
   reportTakeDroppedTitle: "Übernahme nicht ausgeführt",

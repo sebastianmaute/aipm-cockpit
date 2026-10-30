@@ -5,7 +5,7 @@
 // ★ Splitting assumes TOP-LEVEL headings. HEADING_RE is markup-blind, so a heading nested in a container (a
 // blockquote, a list item) splits that element mid-way: the pieces are unbalanced fragments that still concatenate
 // back to the input, and the save re-sanitizes the joined text (pinned in report-sections.test.ts).
-import { htmlToPlainText } from "../html-to-text";
+import { htmlToPlainText, isBlankHtml } from "../html-to-text";
 
 // The ONE blank rule (the hook refuses to send a blank body, the panel disables Send on it, the sanitizer drops a
 // blank `previous`); it lives beside htmlToPlainText so the shared sanitizer need not import this feature module.
@@ -61,6 +61,12 @@ function headingText(inner: string): string {
 /** Match key for heading text; the input may contain inline markup and entities. */
 export function normalizeHeading(text: string): string {
   return headingText(text).toLowerCase();
+}
+
+/** The sections of an AI draft as the proposal shows them: a BLANK opening (whitespace, an empty paragraph) is not a
+ *  section. (The user's own text goes through splitSections whole, so a blank preamble there still round-trips.) */
+export function splitProposalSections(html: string): ReportSection[] {
+  return splitSections(html).filter((s) => !(s.level === 0 && isBlankHtml(s.html)));
 }
 
 export function splitSections(html: string): ReportSection[] {
@@ -135,7 +141,7 @@ function insertionPoint(
         : ai[j].level === 0
           ? // The AI's opening is an anchor only when the user's text really holds it (its html sits inside the level-0 section, which may have grown a user intro around it); the user's OWN
             // intro is not the AI's opening, so keep walking back (to the end if nothing else anchors).
-            (items[level0]?.section.html.includes(ai[j].html) ? level0 : -1)
+            (!isBlankHtml(ai[j].html) && items[level0]?.section.html.includes(ai[j].html) ? level0 : -1)
           : items.findIndex(
               (it) =>
                 it.section.level !== 0 &&
@@ -164,6 +170,8 @@ function run(
   for (const aiIndex of order) {
     const sec = ai[aiIndex];
     const placed: Item = { section: sec, placed: true };
+    // A blank opening is nothing to take (it would also "match" almost any intro by containment).
+    if (sec.level === 0 && isBlankHtml(sec.html)) continue;
     // An opening the text already holds, word for word, is already there: neither a replacement nor an addition.
     if (sec.level === 0 && items.some((it) => it.section.level === 0 && it.section.html.includes(sec.html))) continue;
     const m = sec.level === 0 ? -1 : findUserMatch(items, sec.key);
