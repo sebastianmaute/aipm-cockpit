@@ -141,7 +141,8 @@ describe("planHoursMoves", () => {
     const { moves, nextResources } = planHoursMoves([change(task({ dueDate: "2026-09-30" }), 1, 3)], [maya(), ana()], ctx);
     const avail = availableCapacityHours(ana(), SEP, [], 8, NO_HOLIDAYS);
     expect(nextResources[1].utilization["2026-09"]).toBeLessThanOrEqual(100);
-    expect(byKey(moves[0], "2026-09")).toBeCloseTo(avail * 0.1, 1);
+    const room = Math.floor((avail * 0.1) * 10 + 1e-9) / 10; // the planner floors the room to 0.1 h
+    expect(byKey(moves[0], "2026-09")).toBe(room);
     expect(moves[0].receiverCapHours).toBeGreaterThan(0);
     expect(moves[0].movedHours + moves[0].receiverCapHours).toBeCloseTo(24, 1);
     expect(shown(nextResources[0], SEP)).toBeCloseTo(120 - byKey(moves[0], "2026-09"), 1);
@@ -196,7 +197,58 @@ describe("planHoursMoves", () => {
     expect(out.edits[0].before.utilization).toEqual(snapshot[0].utilization);
   });
 
+  it("lowers a percent-mode giver's stored percent by exactly the moved hours", () => {
+    const giver = ana({ "2026-09": 90 });
+    const { moves, nextResources } = planHoursMoves([change(task({ dueDate: "2026-09-30" }), 3, 2)], [liam(), giver], ctx);
+    const m = byKey(moves[0], "2026-09");
+    expect(m).toBe(24);
+    expect(Math.abs(shown(nextResources[1], SEP) - (shown(giver, SEP) - m))).toBeLessThanOrEqual(0.01);
+    expect(nextResources[1].utilization["2026-09"]).toBeLessThan(90);
+  });
+
+  it("gives a fully absent percent-mode receiver nothing and leaves the share with the giver", () => {
+    const absences: Absence[] = [
+      { id: 1, assignee: "x", resourceId: 3, startDate: "2026-09-01", endDate: "2026-09-30" } as Absence,
+    ];
+    const c = { ...ctx, absences };
+    const receiver = ana({ "2026-09": 50 });
+    const { moves, nextResources } = planHoursMoves([change(task(), 1, 3)], [maya(), receiver], c);
+    expect(byKey(moves[0], "2026-09")).toBe(0);
+    expect(byKey(moves[0], "2026-10")).toBeGreaterThan(0);
+    expect(moves[0].receiverCapHours).toBeGreaterThan(12);
+    expect(nextResources[0].utilization["2026-09"]).toBe(120);
+    expect(nextResources[1].utilization["2026-09"]).toBe(50);
+  });
+
+  it("splits onto week keys for a week-granularity plan", () => {
+    const weekPlan: ResourcePlan = { ...plan, granularity: "week" };
+    const wc: HoursMoveCtx = { ...ctx, plan: weekPlan };
+    const weeks = generatePeriods(weekPlan.startDate, weekPlan.endDate, "week");
+    const util = Object.fromEntries(weeks.map((w) => [w.key, 40]));
+    const { moves } = planHoursMoves([change(task(), 1, 2)], [resource(1, { utilization: util }), liam()], wc);
+    const total = workdaysInRange("2026-09-21", "2026-10-09", NO_HOLIDAYS);
+    const expected = weeks
+      .map((w) => ({
+        key: w.key,
+        wd: workdaysInRange(w.start > "2026-09-21" ? w.start : "2026-09-21", w.end < "2026-10-09" ? w.end : "2026-10-09", NO_HOLIDAYS),
+      }))
+      .filter((w) => w.wd > 0);
+    expect(moves[0].perPeriod.map((p) => p.periodKey)).toEqual(expected.map((w) => w.key));
+    expect(expected.length).toBeGreaterThan(2);
+    for (const w of expected) expect(byKey(moves[0], w.key)).toBeCloseTo((24 * w.wd) / total, 1);
+    expect(moves[0].perPeriod.every((p) => /^\d{4}-W\d{2}$/.test(p.periodKey))).toBe(true);
+  });
+
+  it("caps an hours-mode giver by shown hours, honouring an absence override", () => {
+    const giver = resource(1, { utilization: { "2026-09": 110 }, absenceOverride: { "2026-09": 100 } });
+    const { moves, nextResources } = planHoursMoves([change(task({ dueDate: "2026-09-30" }), 1, 2)], [giver, liam()], ctx);
+    expect(byKey(moves[0], "2026-09")).toBe(10);
+    expect(moves[0].shortfallHours).toBe(14);
+    expect(nextResources[0].utilization["2026-09"]).toBe(100);
+  });
+
   it("skips an unchanged owner without a move", () => {
     expect(planHoursMoves([change(task(), 1, 1)], [maya()], ctx).moves).toEqual([]);
+    expect(planHoursMoves([change(task(), undefined, undefined)], [maya()], ctx).moves).toEqual([]);
   });
 });

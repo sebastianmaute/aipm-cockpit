@@ -96,6 +96,7 @@ function shiftedStoredValue(r: Resource, p: Period, delta: number, abs: readonly
   if (r.utilizationMode === "percent") {
     const net = availableCapacityHours(r, p, abs, ctx.workdayHours, ctx.holidaySet);
     if (net <= 0) return util;
+    // Shown hours match the moved hours only to about 0.01 h: stored percent rounds to 0.01.
     return Math.min(MAX_PERCENT, Math.max(0, round2(util + round2((delta / net) * 100))));
   }
   if (delta < 0) return Math.max(0, round1(util + delta));
@@ -123,7 +124,7 @@ export function planHoursMoves(
 
   for (const change of changes) {
     const { task, fromResourceId, toResourceId } = change;
-    if (fromResourceId !== undefined && fromResourceId === toResourceId) continue;
+    if (fromResourceId === toResourceId) continue; // owner unchanged (or both unset): nothing to move
     if (isTaskClosed(task)) { moves.push(emptyMove(change, "closed")); continue; }
     const minutes = task.remainingEstimateMinutes;
     if (minutes === undefined || !(minutes > 0)) { moves.push(emptyMove(change, "noEstimate")); continue; }
