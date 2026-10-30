@@ -6,17 +6,21 @@
 // at `CONTEXT_CAP_PER_CATEGORY` lines (the rest is counted in a "…(N more)" line), and the whole is bounded
 // by `DIGEST_MAX_CHARS`, dropping whole lines from the END so a cut never splits a line.
 // Lines keep the `view#id: title` grounding format the analysis reply is validated against.
+import { buildAwaySummary } from "./absence-clash";
 import { CONTEXT_CAP_PER_CATEGORY } from "./action-ai";
+import { isoAddDays } from "./due-dates";
 import type { AppMode } from "./feature-modules";
 import { isTerminalChangeStatus } from "./change-log";
 import { isRaidActiveForReview } from "./raid-review";
 import { TEXTAREA_MAX } from "./sanitize-core";
 import { isTaskClosed } from "./task-closed";
-import type { ChangeItem, Milestone, RaidItem, Stakeholder, Task } from "./types";
+import type { Absence, ChangeItem, Milestone, RaidItem, Resource, Stakeholder, Task } from "./types";
 
 export const DIGEST_MAX_CHARS = 24_000;
 const TITLE_MAX_CHARS = 120;
 const TRUNCATION_LINE = "…(truncated)";
+/** How far ahead the AWAY block looks (§773). */
+export const DIGEST_AWAY_DAYS = 28;
 
 export interface ProjectDigestInput {
   projectName: string;
@@ -28,6 +32,9 @@ export interface ProjectDigestInput {
   milestones: readonly Milestone[];
   changes: readonly ChangeItem[];
   stakeholders: readonly Stakeholder[];
+  /** §773 — who is away today..today+28 is summarised from these; the type and reason never reach the model. */
+  absences: readonly Absence[];
+  resources: readonly Resource[];
   /** `forecast` is absent when no pace forecast exists; the line then says n/a instead of repeating the plan. */
   budget?: { currency: string; planned: number; actual: number; forecast?: number };
   queue: readonly { title: string; why: string; tier: "now" | "soon" | "monitor" }[];
@@ -117,6 +124,10 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
   const openTasks = taskLines(input.tasks, input.today);
   const on = (id: string): boolean => input.enabledModules.includes(id);
   const instruction = input.instruction?.slice(0, TEXTAREA_MAX);
+  const away = buildAwaySummary({
+    absences: input.absences, resources: input.resources,
+    from: input.today, to: isoAddDays(input.today, DIGEST_AWAY_DAYS),
+  });
   const body = [
     `Project: ${clip(input.projectName)}. Today: ${input.today}. Mode: ${input.mode}.`,
     `Enabled modules: ${input.enabledModules.join(", ") || "(none)"}. Open task count: ${openTasks.length}.`,
@@ -124,6 +135,8 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
     ...(input.budget
       ? [`Budget (${input.budget.currency}): planned ${Math.round(input.budget.planned)}, actual ${Math.round(input.budget.actual)}, forecast ${input.budget.forecast === undefined ? "n/a" : Math.round(input.budget.forecast)}.`]
       : []),
+    // Ahead of the long lists: the fit drops lines from the END, so the AWAY block outlives a cut.
+    ...(away.length > 0 ? ["", ...away] : []),
     "",
     "## Current rule-based action queue", ...capLines(queue),
     "", "## Open tasks", ...capLines(openTasks),

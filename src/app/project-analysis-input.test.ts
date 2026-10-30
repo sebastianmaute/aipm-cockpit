@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { buildProjectAnalysisInput } from "./project-analysis-input";
+import { buildProjectDigest } from "./project-digest";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import { defaultSettings, type Settings } from "./settings-types";
@@ -110,5 +111,14 @@ describe("buildProjectAnalysisInput with a supplied queue (§772 final review)",
       workspace: workspace(), deviceSettings: defaultSettings, lang: "en-US", now: NOW, queue: [],
     });
     expect(digestInput.queue).toEqual([]);
+  });
+});
+
+describe("buildProjectAnalysisInput — absences (§773)", () => {
+  test("carries the workspace absences and resources, so a scheduled run (no holiday calendar) still lists who is away", () => {
+    const absences = [{ id: 1, assignee: "Maya Patel", resourceId: 7, type: "vacation", startDate: "2026-10-26", endDate: "2026-10-28" }] as never;
+    const resources = [{ id: 7, firstName: "Maya", lastName: "Patel", utilization: {}, utilizationMode: "percent" }] as never;
+    const { digestInput } = run(workspace({ absences, resources }));
+    expect(buildProjectDigest(digestInput)).toContain('#7|name: "Maya Patel" away 2026-10-26..2026-10-28');
   });
 });

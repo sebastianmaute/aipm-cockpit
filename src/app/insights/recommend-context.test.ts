@@ -8,6 +8,8 @@ const BASE = {
   severity: "high",
   data: { name: "Go-live", date: "2026-06-01", daysOverdue: 49 },
   relatedTasks: [],
+  absences: [],
+  resources: [],
 } as const;
 
 describe("buildRecommendContext — linked entity", () => {
@@ -186,5 +188,19 @@ describe("buildRecommendSystemPrompt", () => {
     expect(a).toBe(b);
     expect(a).not.toContain("\n");
     expect(a).toContain("propose_insight_actions");
+  });
+});
+
+describe("buildRecommendContext — who is away (§773)", () => {
+  it("appends the AWAY block, and nothing when nobody is away", () => {
+    const away = [{ id: 1, assignee: "Maya Patel", resourceId: 7, type: "vacation", startDate: "2026-07-22", endDate: "2026-07-24" }];
+    const resources = [{ id: 7, firstName: "Maya", lastName: "Patel" }];
+    const withAway = buildRecommendContext({ ...BASE, absences: away as never, resources: resources as never });
+    expect(withAway).toContain("AWAY (absent days; type and reason not shown):");
+    expect(withAway).toContain('#7|name: "Maya Patel" away 2026-07-22..2026-07-24');
+    expect(withAway).not.toContain("vacation");
+    const none = buildRecommendContext(BASE);
+    expect(none).not.toContain("AWAY");
+    expect(none.endsWith("(none known: do not propose create_task; prefer editing an existing item)")).toBe(true);
   });
 });

@@ -238,6 +238,8 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     (insight: Insight) => {
       const entity = resolveInsightEntity(insight);
       return buildRecommendContext({
+        absences,
+        resources: [...resourcesById.values()],
         projectName: project?.name ?? "",
         today,
         insightType: insight.type,
@@ -259,7 +261,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
         ),
       });
     },
-    [project, today, tasks, resolveInsightEntity, resourcesById],
+    [project, today, tasks, resolveInsightEntity, resourcesById, absences],
   );
   // ★★ THE SINGLE CHOKE POINT FOR STORING A GENERATED RECOMMENDATION — both the
   // on-demand `useInsightRecommend` and the background

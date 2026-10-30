@@ -2,6 +2,9 @@
 // stable cacheable system prompt. The digest is volatile (sent as the user
 // message, never the cached prefix). Mirrors action-ai's cap discipline. Kept
 // i18n-free — the context is model-facing English built from raw type/data.
+import { buildAwaySummary } from "../absence-clash";
+import { isoAddDays } from "../due-dates";
+import type { Absence, Resource } from "../types";
 
 /** Stable, cacheable system prompt. Senior-PM framing consistent with SP0/SP1. */
 export function buildRecommendSystemPrompt(): string {
@@ -24,6 +27,9 @@ export interface RecommendContextInput {
   readonly relatedTasks: readonly { readonly id: number; readonly title: string }[];
   /** §782 — the people a create may name as its assignee or owner (`recommendPeople`). */
   readonly people?: readonly string[];
+  /** §773 — who is away today..today+28 is summarised from these (type and reason never shown). */
+  readonly absences: readonly Absence[];
+  readonly resources: readonly Resource[];
 }
 
 /** §782 — who a create may name: the active resources' names, then the
@@ -67,6 +73,7 @@ const NO_PEOPLE_LINE = "(none known: do not propose create_task; prefer editing 
 
 const RELATED_TASKS_CAP = 30;
 const PEOPLE_CAP = 30;
+const AWAY_DAYS = 28;
 
 /** Compact, token-bounded per-insight digest. Volatile — sent as the user
  *  message, never in the cached system block. */
@@ -84,6 +91,10 @@ export function buildRecommendContext(input: RecommendContextInput): string {
   const people = input.people?.length
     ? input.people.slice(0, PEOPLE_CAP).map((name) => `- ${name.slice(0, 120)}`).join("\n")
     : NO_PEOPLE_LINE;
+  const away = buildAwaySummary({
+    absences: input.absences, resources: input.resources,
+    from: input.today, to: isoAddDays(input.today, AWAY_DAYS),
+  });
   return [
     `Project: ${input.projectName}. Today: ${input.today}.`,
     `Insight: ${input.insightType} (severity ${input.severity}).`,
@@ -95,5 +106,6 @@ export function buildRecommendContext(input: RecommendContextInput): string {
     tasks,
     "## People (assign by name)",
     people,
+    ...away,
   ].join("\n");
 }
