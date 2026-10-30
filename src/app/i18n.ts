@@ -2614,6 +2614,8 @@ const enUS = {
   hoursMovedOverCapacity: "{0} is now at {1} % in {2}.",
   hoursMovedOutsideWindowNote: "Outside the plan: {0} h.",
   hoursMovedNoEstimate: "{0} has no remaining estimate, so no planned hours moved.",
+  absenceClashOnDate: "{0} is absent on the date ({1}).",
+  absenceClashMostOfSpan: "{0} is away for most of this task's working days ({1}).",
   hoursMovedUnit: "h",
   hoursMovedNoneShortfall: "No planned hours moved for {0}: {1} has no planned hours in {2}.",
   hoursMovedNoneReceiverCap: "No planned hours moved for {0}: {1} is at 100 % in {2}.",

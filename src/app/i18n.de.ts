@@ -2493,6 +2493,8 @@ export const de: Record<TranslationKey, string> = {
   hoursMovedOverCapacity: "{0} ist jetzt bei {1} % in {2}.",
   hoursMovedOutsideWindowNote: "Außerhalb des Plans: {0} Std.",
   hoursMovedNoEstimate: "{0} hat keine Restschätzung, daher wurden keine geplanten Stunden verschoben.",
+  absenceClashOnDate: "{0} ist am Termin abwesend ({1}).",
+  absenceClashMostOfSpan: "{0} ist an den meisten Arbeitstagen dieser Aufgabe abwesend ({1}).",
   hoursMovedUnit: "Std.",
   hoursMovedNoneShortfall: "Für {0} wurden keine geplanten Stunden verschoben: {1} hat in {2} keine geplanten Stunden.",
   hoursMovedNoneReceiverCap: "Für {0} wurden keine geplanten Stunden verschoben: {1} ist in {2} bei 100 %.",
