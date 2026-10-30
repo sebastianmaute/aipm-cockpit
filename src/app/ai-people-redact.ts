@@ -11,9 +11,15 @@
 //   (ä/ö/ü fold to ae/oe/ue and ß to ss, so "Müller" = "MÜLLER" = "Mueller";
 //   other marks are stripped). Whitespace inside a name may be any run of
 //   whitespace. The longest alternative wins at each position.
-// - A FULL known name is always redacted. A single name token (first OR last
-//   name) is redacted alone only when it is at least MIN_TOKEN_LENGTH long,
+// - Dictionary names go through cleanPersonName first: "(CFO)" suffixes and
+//   "nobody" values such as TBD or "offen" never become names.
+// - A FULL known name is always redacted; a one-word dictionary entry is a full
+//   name too (no stop list, no length floor). A single TOKEN of a multi-word
+//   name is redacted alone only when it is at least MIN_TOKEN_LENGTH long,
 //   belongs to exactly ONE known person, and is not in NAME_STOP_WORDS.
+// - Case gate: a LONE word (a one-word entry or a token) is redacted only when
+//   the text spells it capitalised or all upper case, so "price list" stays
+//   while "Price" goes. Multi-word names match in any case.
 // - Emails, IBANs (mod-97 checked) and phone numbers are redacted even when not
 //   in the dictionary. An UNKNOWN phone needs a leading "+" or "0" (optionally
 //   inside "("), at least MIN_PHONE_DIGITS digits, and only space - . / ( ) as
@@ -21,7 +27,7 @@
 //   its digit sequence with any of those separators.
 // - Priority on overlap: email, IBAN, known phone, unknown phone, name.
 
-import type { PeopleDictionary } from "./ai-people-dictionary";
+import { cleanPersonName, type PeopleDictionary } from "./ai-people-dictionary";
 
 export type RedactionCounts = { person: number; email: number; phone: number; iban: number };
 
@@ -35,8 +41,9 @@ export interface RedactionSession {
 type Kind = keyof RedactionCounts;
 
 const LABEL: Record<Kind, string> = { person: "Person", email: "email", phone: "phone", iban: "IBAN" };
-const KIND_BY_LABEL: Record<string, Kind> = { Person: "person", email: "email", phone: "phone", IBAN: "iban" };
-const PLACEHOLDER = /\[(Person|email|phone|IBAN) (\d+)\]/g;
+const KIND_BY_LABEL: Record<string, Kind> = { person: "person", email: "email", phone: "phone", iban: "iban" };
+/** Case-insensitive: a model may write "[person 1]". */
+const PLACEHOLDER = /\[(person|email|phone|iban) (\d+)\]/gi;
 
 const MIN_TOKEN_LENGTH = 3;
 const MIN_PHONE_DIGITS = 7;
@@ -90,7 +97,8 @@ function buildNameMatcher(names: readonly string[], canonical: Map<string, strin
   const multi = new Map<string, string[]>(); // person key -> folded tokens
   const singles: string[] = [];
   for (const raw of names) {
-    const name = normSpace(raw);
+    const name = cleanPersonName(raw);
+    if (name === null) continue;
     const key = normSpace(fold(name));
     if (!key) continue;
     if (!canonical.has(key)) canonical.set(key, name);
@@ -101,13 +109,13 @@ function buildNameMatcher(names: readonly string[], canonical: Map<string, strin
   for (const [key, tokens] of multi) {
     for (const t of tokens) tokenOwners.set(t, (tokenOwners.get(t) ?? new Set()).add(key));
   }
-  // A one-word name that is a token of exactly one multi-word person is that person.
   const owner = new Map<string, string>(); // folded alternative -> person key
   for (const key of multi.keys()) owner.set(key, key);
+  // A one-word entry is a full known name: an alias of the one multi-word person
+  // it is a token of, else a person of its own. Never stop-listed (F1).
   for (const single of new Set(singles)) {
     const owners = tokenOwners.get(single);
-    if (owners && owners.size === 1) continue; // an alias; the token rule below covers it
-    tokenOwners.set(single, new Set([...(owners ?? []), single]));
+    owner.set(single, owners && owners.size === 1 ? [...owners][0] : single);
   }
   for (const [token, owners] of tokenOwners) {
     if (owners.size !== 1 || [...token].length < MIN_TOKEN_LENGTH || NAME_STOP_WORDS.has(token)) continue;
@@ -154,6 +162,13 @@ function validIbanPrefix(match: string): string | null {
     if (cut < 0) return null;
     cur = cur.slice(0, cut);
   }
+}
+
+/** The case gate for a lone word: capitalised, or all upper case. */
+function looksLikeAName(word: string): boolean {
+  const first = word.match(/\p{L}/u)?.[0] ?? "";
+  if (first !== first.toLowerCase()) return true;
+  return word === word.toUpperCase() && word !== word.toLowerCase();
 }
 
 function phoneAccepted(match: string): boolean {
@@ -229,13 +244,16 @@ class Session implements RedactionSession {
     if (this.names.re) {
       const { folded, map } = foldWithMap(text);
       for (const m of folded.matchAll(this.names.re)) {
-        const person = this.names.owner.get(normSpace(m[0]));
+        const alt = normSpace(m[0]);
+        const person = this.names.owner.get(alt);
         if (person === undefined) continue;
         const start = map[m.index];
         // The look-ahead forbids a letter after the match, so it never ends inside
         // a folded expansion (ü -> ue); the next folded char's origin is the end.
         const end = map[m.index + m[0].length];
-        add({ start, end, kind: "person", key: person, spelling: text.slice(start, end) });
+        const spelling = text.slice(start, end);
+        if (!alt.includes(" ") && !looksLikeAName(spelling)) continue;
+        add({ start, end, kind: "person", key: person, spelling });
       }
     }
 
@@ -262,7 +280,7 @@ class Session implements RedactionSession {
 
   restore(text: string): string {
     return text.replace(PLACEHOLDER, (whole, label: string, num: string) =>
-      this.restoreTo[KIND_BY_LABEL[label]].get(Number(num)) ?? whole);
+      this.restoreTo[KIND_BY_LABEL[label.toLowerCase()]].get(Number(num)) ?? whole);
   }
 
   counts(): RedactionCounts {
@@ -288,36 +306,39 @@ export function redactionSessionFor(projectKeys: readonly string[], dicts: reado
 
 // --- JSON request/response bodies -------------------------------------------
 
-/** String values that are protocol, never content. */
+/** String values that are protocol or opaque blobs, never content. */
 const PROTOCOL_KEYS: ReadonlySet<string> = new Set([
   "model", "role", "type", "id", "tool_use_id", "media_type", "signature", "stop_reason",
 ]);
 
-function isProtocolString(key: string, owner: Record<string, unknown>, inTools: boolean): boolean {
+function isProtocolString(key: string, owner: Record<string, unknown>): boolean {
   if (PROTOCOL_KEYS.has(key)) return true;
-  // A tool's own name (definition, tool_use / server_tool_use block, tool_choice) —
-  // NOT a `name` inside a tool INPUT, which is data the model wrote.
-  if (key === "name" && (inTools || "input_schema" in owner || owner.type === "tool_use"
-    || owner.type === "server_tool_use" || owner.type === "tool")) return true;
-  return key === "data" && owner.type === "base64";
+  // A tool's own name (tool_use / server_tool_use block, tool_choice) — NOT a
+  // `name` inside a tool INPUT, which is data the model wrote.
+  if (key === "name" && (owner.type === "tool_use" || owner.type === "server_tool_use" || owner.type === "tool")) return true;
+  // `data` is an opaque blob (base64, redacted thinking) — except a plain-text
+  // document source, whose `data` IS the attachment's readable text.
+  return key === "data" && owner.type !== "text";
 }
 
-function redactValue(v: unknown, s: RedactionSession, inTools: boolean): unknown {
+/** `top`: the request body itself, whose `tools` definitions pass untouched. */
+function redactValue(v: unknown, s: RedactionSession, top = false): unknown {
   if (typeof v === "string") return s.redact(v);
-  if (Array.isArray(v)) return v.map((x) => redactValue(x, s, inTools));
+  if (Array.isArray(v)) return v.map((x) => redactValue(x, s));
   if (v === null || typeof v !== "object") return v;
   const owner = v as Record<string, unknown>;
+  if (owner.type === "redacted_thinking") return owner; // opaque, and the API verifies it
   const out: Record<string, unknown> = {};
   for (const [k, x] of Object.entries(owner)) {
-    if (typeof x === "string" && isProtocolString(k, owner, inTools)) out[k] = x;
-    else if (k === "tools" && Array.isArray(x)) out[k] = x.map((t) => redactValue(t, s, true));
-    else out[k] = redactValue(x, s, false);
+    const keep = (top && k === "tools") || (typeof x === "string" && isProtocolString(k, owner));
+    out[k] = keep ? x : redactValue(x, s);
   }
   return out;
 }
 
-/** Redact every string VALUE of a JSON request body; keys and protocol strings
- *  stay. A body that is not JSON is redacted as plain text, never sent raw. */
+/** Redact every string VALUE of a JSON request body; keys, protocol strings,
+ *  opaque blobs and the top-level `tools` definitions (app-authored, no project
+ *  data) stay. A body that is not JSON is redacted as plain text, never sent raw. */
 export function redactJsonBody(body: string, s: RedactionSession): string {
   let parsed: unknown;
   try {
@@ -325,7 +346,7 @@ export function redactJsonBody(body: string, s: RedactionSession): string {
   } catch {
     return s.redact(body);
   }
-  return JSON.stringify(redactValue(parsed, s, false));
+  return JSON.stringify(redactValue(parsed, s, true));
 }
 
 /** Restore placeholders inside JSON (or SSE) text; each restored value is

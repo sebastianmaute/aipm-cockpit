@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { buildPeopleDictionary, NOT_PERSON_FIELDS, PERSON_FIELD_PATHS } from "./ai-people-dictionary";
 import type { Insight } from "./insights/insight";
@@ -86,14 +87,26 @@ describe("buildPeopleDictionary", () => {
     expect(buildPeopleDictionary(FIXTURE).names).not.toContain("#42");
   });
 
+  // F2b: placeholder values are not people, and a role suffix is not part of a name.
+  it("drops non-person placeholder values and strips parenthesised segments", () => {
+    const placeholders = ["TBD", "tbc", "N/A", "NA", "None", "unassigned", "Unknown", "N.N.", "TBA", "-", "?", "offen", "Keine", "niemand", " 42 "];
+    const d = buildPeopleDictionary({
+      ...emptyWorkspace(),
+      tasks: [...placeholders, "Anna Brandvik (CFO)", "[ext] Liam Price"].map((assignee, id) => task({ id, assignee, assigneeEmail: "" })),
+    });
+    expect(d.names).toEqual(["Anna Brandvik", "Liam Price"]);
+  });
+
   it("an empty workspace yields an empty dictionary", () => {
     expect(buildPeopleDictionary(emptyWorkspace())).toEqual({ names: [], emails: [], phones: [] });
   });
 });
 
 /** The brief's pattern, widened by the person fields whose names it misses
- *  (`requestedBy`, `sponsor`, `projectManager`, `keyStakeholders*`, `data.person`). */
-const PERSON_LIKE = /name|email|phone|assignee|owner|author|actor|attendee|reporter|requester|booker|by$|sponsor|manager|keystakeholders|person|contact/i;
+ *  (`requestedBy`, `sponsor`, `projectManager`, `keyStakeholders*`, `data.person`)
+ *  and by role words a future field is likely to use (reviewer, approver, ...). */
+const PERSON_LIKE =
+  /name|email|phone|assignee|owner|author|actor|attendee|reporter|requester|booker|by$|sponsor|manager|keystakeholders|person|contact|review|approv|leader|member|user|people|participant|organi[sz]er|creator|editor|recipient|sender|signer|staff/i;
 
 /** Every key path whose value is a string, a string list or an id list. Objects
  *  and object lists are walked into, not classified (their leaves are). */
@@ -115,14 +128,72 @@ function personLikePaths(root: unknown): Set<string> {
   return out;
 }
 
+/** F3: the person-like LEAF properties of every type reachable from `Workspace`,
+ *  read through the TypeScript checker (declarations, not values), so a field
+ *  that no sample row carries yet is still seen. `unresolved` collects paths
+ *  whose type did not resolve (any) — a scan that silently stops there is vacuous. */
+function personLikeTypePaths(): { paths: Set<string>; unresolved: string[] } {
+  const root = join(import.meta.dirname, "workspace.ts");
+  const program = ts.createProgram([root], {
+    strict: true, noEmit: true, skipLibCheck: true, types: [],
+    target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler,
+  });
+  const checker = program.getTypeChecker();
+  const source = program.getSourceFile(root);
+  if (!source) throw new Error("workspace.ts not in the program");
+  let workspace: ts.Type | undefined;
+  ts.forEachChild(source, (n) => {
+    if (ts.isTypeAliasDeclaration(n) && n.name.text === "Workspace") workspace = checker.getTypeAtLocation(n.name);
+  });
+  if (!workspace) throw new Error("type Workspace not found in workspace.ts");
+  const NULLISH = ts.TypeFlags.Undefined | ts.TypeFlags.Null;
+  const members = (t: ts.Type) => (t.isUnion() ? t.types.filter((x) => !(x.flags & NULLISH)) : [t]);
+  const isPrimitive = (t: ts.Type) => (t.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike)) !== 0;
+  const isLeaf = (t: ts.Type) => members(t).every((x) =>
+    isPrimitive(x) || (checker.isArrayType(x) && members(checker.getTypeArguments(x as ts.TypeReference)[0]).every(isPrimitive)));
+  const paths = new Set<string>();
+  const unresolved: string[] = [];
+  const walk = (t: ts.Type, path: string, stack: readonly ts.Type[]): void => {
+    for (const m of members(t)) {
+      if (checker.isArrayType(m)) { walk(checker.getTypeArguments(m as ts.TypeReference)[0], `${path}[]`, stack); continue; }
+      if (m.flags & ts.TypeFlags.Any) { unresolved.push(path); continue; }
+      if (!(m.flags & (ts.TypeFlags.Object | ts.TypeFlags.Intersection)) || stack.includes(m)) continue;
+      if (m.getCallSignatures().length > 0) continue;
+      for (const prop of checker.getPropertiesOfType(m)) {
+        const pt = checker.getTypeOfSymbol(prop);
+        const p = path ? `${path}.${prop.name}` : prop.name;
+        if (PERSON_LIKE.test(prop.name) && isLeaf(pt)) paths.add(p);
+        walk(pt, p, [...stack, m]);
+      }
+    }
+  };
+  walk(workspace, "", []);
+  return { paths, unresolved };
+}
+
 describe("person-field coverage pin (R2)", () => {
   const sample: unknown = JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8"));
   // Walk the sample AND the typed fixture: the sample lacks some fields (resources[].emails, data.person).
   const seen = new Set([...personLikePaths(sample), ...personLikePaths(FIXTURE)]);
+  const typed = personLikeTypePaths();
+  const classified = (p: string) => PERSON_FIELD_PATHS.includes(p) || p in NOT_PERSON_FIELDS;
 
   it("every person-like key is read by the extractor or classified as not a person", () => {
-    const unclassified = [...seen].filter((p) => !PERSON_FIELD_PATHS.includes(p) && !(p in NOT_PERSON_FIELDS));
-    expect(unclassified).toEqual([]);
+    expect([...seen].filter((p) => !classified(p))).toEqual([]);
+  });
+
+  // F3: a new person field declared on any type reachable from Workspace fails
+  // here even before any sample row or fixture carries it.
+  it("every person-like property DECLARED on the Workspace types is classified", () => {
+    expect(typed.unresolved).toEqual([]);
+    expect([...typed.paths].filter((p) => !classified(p))).toEqual([]);
+  });
+
+  it("the type scan is not vacuous", () => {
+    expect(typed.paths.size).toBeGreaterThan(40);
+    for (const p of ["tasks[].assignee", "changes[].requestedBy", "knowledgeItems[].name", "calendarEvents[].attendeeResourceIds"]) {
+      expect(typed.paths, p).toContain(p);
+    }
   });
 
   it("finds the fields it is meant to find (the walk is not vacuous)", () => {
@@ -137,7 +208,8 @@ describe("person-field coverage pin (R2)", () => {
     for (const [p, why] of Object.entries(NOT_PERSON_FIELDS)) expect(why.trim().length, p).toBeGreaterThan(5);
   });
 
-  it("every listed person path exists in the sample or the fixture (no stale entries)", () => {
-    expect(PERSON_FIELD_PATHS.filter((p) => !seen.has(p))).toEqual([]);
+  it("every listed path exists in the sample, the fixture or the types (no stale entries)", () => {
+    expect(PERSON_FIELD_PATHS.filter((p) => !seen.has(p) && !typed.paths.has(p))).toEqual([]);
+    expect(Object.keys(NOT_PERSON_FIELDS).filter((p) => !seen.has(p) && !typed.paths.has(p))).toEqual([]);
   });
 });

@@ -76,8 +76,8 @@ export const NOT_PERSON_FIELDS: Readonly<Record<string, string>> = {
   "raid[].ownerResourceId": "a resource id; the name is read from resources[]",
   "raid[].knowledgeLinks[].name": "a linked file name",
   "raid[].noteLog[].authorResourceId": "a resource id; the name is read from resources[]",
-  "raid[].escalations[].toResourceId": "a resource id; the name is read from resources[]",
   "changes[].noteLog[].authorResourceId": "a resource id; the name is read from resources[]",
+  "changes[].knowledgeLinks[].name": "a linked file name",
   "disciplines[].name": "a discipline label (Developer, Architect, ...)",
   "grades[].name": "a grade label (Junior, Senior, ...)",
   "budgets[].name": "a budget bucket title",
@@ -85,14 +85,43 @@ export const NOT_PERSON_FIELDS: Readonly<Record<string, string>> = {
   "milestones[].knowledgeLinks[].name": "a linked file name",
   "stakeholders[].knowledgeLinks[].name": "a linked file name",
   "project.name": "the project title",
-  "project.contactPersons[].id": "a contact's list id",
-  "project.contactPersons[].resourceId": "a resource id; the name is read from resources[]",
+  "project.knowledgeLinks[].name": "a linked file name",
   "steeringCommittee.name": "the committee's title",
+  "steeringCommittee.memberResourceIds": "resource ids; the names are read from resources[]",
+  "timelogLinks.userLinks[].timelogUserId": "a Timelog user id (number)",
+  "settingsOverrides.notifications.raidReviewIntervalDays": "a number of days",
   "knowledgeItems[].name": "a library item title",
   "insights[].data.name": "a milestone, budget or RAID title the insight is about",
   "activityLog[].actor": "an actor KIND: user, ai or integration — never a person's name",
   "calendarEvents[].attendeeResourceIds": "resource ids; the names are read from resources[]",
+  "insights[].recommendation.proposedCalls[].name": "an AI tool's name (e.g. create_task)",
+  "budgetHistory[].bucketName": "a budget bucket title",
+  "forecastScenarios[].name": "a forecast scenario title",
+  "documentAssets[].name": "an uploaded image's file name",
 };
+
+/** Values typed into a person field that mean "nobody yet" (EN + DE). Compared
+ *  lower-cased, before and after cleaning. */
+const NON_PERSON_VALUES: ReadonlySet<string> = new Set([
+  "tbd", "tbc", "tba", "n/a", "na", "none", "unassigned", "unknown", "n.n.", "n.n", "-", "?",
+  "offen", "keine", "niemand",
+]);
+
+/** A name as the redactor should match it, or null when it is not a person:
+ *  bracketed segments ("(CFO)", "[ext]") are removed, punctuation around each
+ *  token is stripped, tokens without a letter are dropped, and the
+ *  NON_PERSON_VALUES are rejected. */
+export function cleanPersonName(raw: string): string | null {
+  const trimmed = raw.trim().replace(/\s+/g, " ");
+  if (NON_PERSON_VALUES.has(trimmed.toLowerCase())) return null;
+  const name = trimmed
+    .replace(/[([{][^)\]}]*[)\]}]/g, " ")
+    .split(/\s+/)
+    .map((t) => t.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""))
+    .filter((t) => /\p{L}/u.test(t))
+    .join(" ");
+  return name && !NON_PERSON_VALUES.has(name.toLowerCase()) ? name : null;
+}
 
 const dedupeKey: Record<FieldKind, (s: string) => string> = {
   name: (s) => s.toLowerCase().replace(/\s+/g, " "),
@@ -100,21 +129,21 @@ const dedupeKey: Record<FieldKind, (s: string) => string> = {
   phone: (s) => (s.trim().startsWith("+") ? "+" : "") + s.replace(/\D/g, ""),
 };
 
-const usable: Record<FieldKind, (s: string) => boolean> = {
-  name: (s) => /\p{L}/u.test(s),
-  email: (s) => s.includes("@"),
-  phone: (s) => /\d/.test(s),
+const clean: Record<FieldKind, (s: string) => string | null> = {
+  name: cleanPersonName,
+  email: (s) => (s.includes("@") ? s : null),
+  phone: (s) => (/\d/.test(s) ? s : null),
 };
 
 /** Build the people dictionary of one project. First spelling wins; blanks,
- *  ids and case-duplicates are dropped. */
+ *  ids, "nobody" values and case-duplicates are dropped (see cleanPersonName). */
 export function buildPeopleDictionary(ws: Workspace): PeopleDictionary {
   const out: Record<FieldKind, Map<string, string>> = { name: new Map(), email: new Map(), phone: new Map() };
   for (const reader of PERSON_READERS) {
     for (const raw of reader.read(ws)) {
       if (typeof raw !== "string") continue;
-      const value = raw.trim().replace(/\s+/g, " ");
-      if (!usable[reader.kind](value)) continue;
+      const value = clean[reader.kind](raw.trim().replace(/\s+/g, " "));
+      if (value === null) continue;
       const key = dedupeKey[reader.kind](value);
       if (!out[reader.kind].has(key)) out[reader.kind].set(key, value);
     }

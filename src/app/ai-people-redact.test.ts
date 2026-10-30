@@ -19,7 +19,42 @@ describe("name matching", () => {
     expect(s.redact("Mark the task done, Mark")).toBe("Mark the task done, Mark");
     expect(s.redact("Mark Quillfeld said")).toBe("[Person 1] said");
     expect(s.redact("ask Quillfeld")).toBe("ask [Person 1]");
-    expect(s.redact("Annual review with quillfeld.")).toBe("Annual review with [Person 1].");
+    expect(s.redact("Annual review with QUILLFELD.")).toBe("Annual review with [Person 1].");
+    // F2a: a LONE token must look like a name — capitalised or all caps.
+    expect(s.redact("ask quillfeld")).toBe("ask quillfeld");
+    expect(s.redact("mark quillfeld said")).toBe("[Person 1] said");
+  });
+
+  // F1: a one-word dictionary entry IS the full known name — no stop list, no
+  // length floor — but it is still case-gated (F2a).
+  it("a one-word known name is redacted even when short or stop-listed", () => {
+    const s = fresh(dict(["Max", "Al", "Mark Quillfeld"]));
+    expect(s.redact("Max owns it; Al too")).toBe("[Person 1] owns it; [Person 2] too");
+    expect(s.redact("max speed, al dente")).toBe("max speed, al dente");
+    expect(s.restore("[Person 2]")).toBe("Al");
+  });
+
+  it("a one-word entry that is a token of exactly one full name is that person", () => {
+    const s = fresh(dict(["Mark", "Mark Quillfeld"]));
+    expect(s.redact("Mark said")).toBe("[Person 1] said");
+    expect(s.restore("[Person 1]")).toBe("Mark Quillfeld");
+  });
+
+  // F2: common words that happen to be names, team labels and role suffixes.
+  it("does not redact common words, placeholder values or role suffixes", () => {
+    const s = fresh(dict(["Team Alpha", "TBD", "Anna Brandvik (CFO)", "Liam Price", "Eva Lang"]));
+    expect(s.redact("The team is TBD; price list; lang dauert; (CFO) said")).toBe(
+      "The team is TBD; price list; lang dauert; (CFO) said",
+    );
+    expect(s.redact("Anna Brandvik (CFO) and Price, with Team Alpha")).toBe("[Person 1] (CFO) and [Person 2], with [Person 3]");
+    expect(s.restore("[Person 1]")).toBe("Anna Brandvik");
+  });
+
+  it("each non-person placeholder value in the dictionary is ignored", () => {
+    for (const v of ["TBD", "TBC", "N/A", "NA", "None", "Unassigned", "Unknown", "N.N.", "TBA", "-", "?", "Offen", "Keine", "Niemand"]) {
+      const s = fresh(dict([v, "Real Person"]));
+      expect(s.redact(`owner: ${v}`), v).toBe(`owner: ${v}`);
+    }
   });
 
   it("never touches a word that merely contains a name", () => {
@@ -37,7 +72,7 @@ describe("name matching", () => {
 
   it("diacritics, case, ue-transliteration and possessive all map to one placeholder", () => {
     const s = fresh(dict(["Hans Müller"]));
-    expect(s.redact("Müller, MÜLLER, Mueller, Müller's, mueller")).toBe(
+    expect(s.redact("Müller, MÜLLER, Mueller, Müller's, hans mueller")).toBe(
       "[Person 1], [Person 1], [Person 1], [Person 1]'s, [Person 1]",
     );
     expect(s.restore("[Person 1] agreed")).toBe("Hans Müller agreed");
@@ -84,6 +119,13 @@ describe("name matching", () => {
     s.redact("Sofia Ramirez");
     expect(s.restore("[Person 99] said hi")).toBe("[Person 99] said hi");
     expect(s.restore("[email 3] and [Person 1]")).toBe("[email 3] and Sofia Ramirez");
+  });
+
+  // F2d: the model may change the placeholder's case.
+  it("restore matches placeholders case-insensitively", () => {
+    const s = fresh(dict(["Sofia Ramirez"], ["s@example.com"]));
+    s.redact("Sofia Ramirez s@example.com");
+    expect(s.restore("[person 1], [PERSON 1], [Email 1]")).toBe("Sofia Ramirez, Sofia Ramirez, s@example.com");
   });
 });
 
@@ -189,7 +231,8 @@ describe("redactJsonBody / restoreJsonText", () => {
     expect(out.model).toBe("Sofia Ramirez");
     expect(out.system).toBe("Team: [Person 1]");
     expect(out.tools[0].name).toBe("Sofia Ramirez");
-    expect(out.tools[0].description).toBe("about [Person 1]");
+    // F2c: tool definitions are app-authored; they are passed through untouched.
+    expect(out.tools[0].description).toBe("about Sofia Ramirez");
     expect(out.messages[0].content[0].text).toBe("Ask [Person 1]");
     expect(out.messages[0].content[1].source.data).toBe("Sofia Ramirez");
     expect(out.messages[1].content[0].id).toBe("Sofia Ramirez");
@@ -202,16 +245,41 @@ describe("redactJsonBody / restoreJsonText", () => {
     expect(out.max_tokens).toBe(100);
   });
 
+  it("opaque blobs pass untouched: signature, base64 data, redacted_thinking", () => {
+    const s = fresh(dict(["Sofia Ramirez"]));
+    const body = JSON.stringify({ messages: [{ role: "assistant", content: [
+      { type: "thinking", thinking: "Sofia Ramirez", signature: "Sofia Ramirez" },
+      { type: "redacted_thinking", data: "Sofia Ramirez", note: "Sofia Ramirez" },
+      { type: "document", source: { type: "base64", media_type: "application/pdf", data: "Sofia Ramirez" } },
+      { type: "image", source: { type: "url", url: "https://x.example/a.png", data: "Sofia Ramirez" } },
+    ] }] });
+    const c = JSON.parse(redactJsonBody(body, s)).messages[0].content;
+    expect(c[0]).toEqual({ type: "thinking", thinking: "[Person 1]", signature: "Sofia Ramirez" });
+    expect(c[1]).toEqual({ type: "redacted_thinking", data: "Sofia Ramirez", note: "Sofia Ramirez" });
+    expect(c[2].source.data).toBe("Sofia Ramirez");
+    expect(c[3].source.data).toBe("Sofia Ramirez");
+  });
+
+  // Deviation from F2c's "any data field", flagged in the report: a plain-text
+  // document source carries readable attachment text, not an opaque blob.
+  it("a plain-text document source's data IS redacted", () => {
+    const s = fresh(dict(["Sofia Ramirez"]));
+    const body = JSON.stringify({ messages: [{ role: "user", content: [
+      { type: "document", source: { type: "text", media_type: "text/plain", data: "Sofia Ramirez" } },
+    ] }] });
+    expect(JSON.parse(redactJsonBody(body, s)).messages[0].content[0].source.data).toBe("[Person 1]");
+  });
+
   it("a body that is not JSON is redacted as plain text (never sent raw)", () => {
     const s = fresh(dict(["Sofia Ramirez"]));
     expect(redactJsonBody("not json Sofia Ramirez", s)).toBe("not json [Person 1]");
   });
 
   it("restores placeholders inside JSON text with JSON escaping, unknown ones untouched", () => {
-    const s = fresh(dict(['Jo "JJ" O\\Neil']));
-    s.redact('Jo "JJ" O\\Neil');
+    const s = fresh(dict(['Liam O"Neil\\Jr']));
+    s.redact('Liam O"Neil\\Jr');
     const text = JSON.stringify({ content: [{ type: "text", text: "Hi [Person 1] and [Person 7]" }] });
     const restored = JSON.parse(restoreJsonText(text, s));
-    expect(restored.content[0].text).toBe('Hi Jo "JJ" O\\Neil and [Person 7]');
+    expect(restored.content[0].text).toBe('Hi Liam O"Neil\\Jr and [Person 7]');
   });
 });
