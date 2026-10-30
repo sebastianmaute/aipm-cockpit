@@ -8,7 +8,7 @@
 //         "the top-bar controls call the guarded ops" is red.
 //   MW2 — `reportUndo.undo()` → `undoApi.undo()` in the `useUndoHotkey(…)` callbacks (likewise redo):
 //         "the hotkey calls the guarded ops" is red.
-//   MW3 — `useReportUndoGuard({ api: undoApi, … })` handed anything but the undo stack:
+//   MW3 — `useReportUndoGuard({ api: undoApi, … })` handed anything but the undo stack, or without `showToast`:
 //         "the guard wraps the real undo stack" is red.
 //   MW4 — delete `confirmBeforeUndo: …` from the `useUndoStack({ … })` call (the save toast's Undo then skips the
 //         guard): "the save toast's Undo asks through confirmReportUndo" is red.
@@ -20,6 +20,7 @@ const captured = vi.hoisted(() => ({
   guarded: { undo: vi.fn(), undoThrough: vi.fn(), redo: vi.fn(), redoThrough: vi.fn() },
   guardApi: undefined as unknown,
   guardDialogs: undefined as unknown,
+  guardShowToast: undefined as unknown,
   undoApi: undefined as unknown,
   hotkeyUndo: undefined as (() => void) | undefined,
   hotkeyRedo: undefined as (() => void) | undefined,
@@ -29,8 +30,9 @@ const captured = vi.hoisted(() => ({
 }));
 
 vi.mock("./use-report-undo-guard", () => ({
-  useReportUndoGuard: (deps: { api: unknown; dialogsRef: unknown }) => {
+  useReportUndoGuard: (deps: { api: unknown; dialogsRef: unknown; showToast?: unknown }) => {
     captured.guardApi = deps.api;
+    captured.guardShowToast = deps.showToast;
     captured.guardDialogs = deps.dialogsRef;
     return captured.guarded;
   },
@@ -100,6 +102,9 @@ describe("AI-04 task-manager routes undo through the report guard", () => {
     expect(captured.undoApi).toBeDefined(); // anti-vacuity
     expect(captured.guardApi).toBe(captured.undoApi);
     expect(typeof (captured.guardDialogs as { current: { confirm: unknown } }).current.confirm).toBe("function");
+    // The guard says when a confirmed undo did nothing: it must get the app's real toast (the one the undo stack uses).
+    expect(typeof captured.guardShowToast).toBe("function");
+    expect(captured.guardShowToast).toBe(captured.undoDeps?.showToast);
   });
 
   it("the save toast's Undo asks through confirmReportUndo (MW4)", () => {
