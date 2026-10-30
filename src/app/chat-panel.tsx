@@ -1229,7 +1229,8 @@ function ChatPanelInner({
    *  itself part of the record. */
   function discardProposal() {
     const p = pendingProposal;
-    if (!p || p.applying) return;
+    // AI-02 — not while a send runs: the send-end `setHistory` would drop what this records (see the card's `busy`).
+    if (!p || p.applying || busy) return;
     setPendingProposal(null);
     setDisplay((prev) =>
       prev.map((item) =>
@@ -1260,7 +1261,9 @@ function ChatPanelInner({
    */
   async function applyPendingProposal() {
     const p = pendingProposal;
-    if (!p || p.applying) return;
+    // AI-02 — not while a send runs: the send-end `setHistory` would overwrite the applied notice, and the
+    // send's later calls would still be told the card is pending (see the card's `busy`).
+    if (!p || p.applying || busy) return;
     // ★★★ §600 — BEFORE anything is marked applying or written. A plan staged in
     // another scope is retired exactly as a discard is (the marker REPLACED, not
     // removed), with a notice that says why; nothing of it reaches the dispatcher.
@@ -1670,7 +1673,9 @@ function ChatPanelInner({
                       applied={pendingProposal.applied}
                       onApply={applyPendingProposal}
                       onDiscard={discardProposal}
-                      busy={pendingProposal.applying}
+                      // AI-02 — a send still running keeps the card shut: its end rewrites `history` without
+                      // the applied notice, and its later calls are still answered as pending.
+                      busy={pendingProposal.applying || busy}
                     />
                   ) : (
                     <Banner severity="info" role="status">

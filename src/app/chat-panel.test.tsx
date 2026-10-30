@@ -3818,6 +3818,60 @@ describe("staged tool calls (the review card)", () => {
     });
   });
 
+  it("the card cannot be applied or discarded while the send runs, and works once it ends (AI-02)", async () => {
+    // Mutation: dropping the send-in-progress condition from the card's busy turns this red: Apply is enabled
+    // mid-send, and the applied notice the click adds is overwritten when the send ends.
+    const dispatcher = makeDispatcher();
+    vi.mocked(dispatcher.deleteTask).mockReturnValue(true);
+    const bodies: string[] = [];
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const turns = [
+      toolTurn([{ type: "tool_use", id: "t1", name: "delete_task", input: { id: 1 } }]),
+      doneTurn("Waiting for you."),
+      doneTurn("after"),
+    ];
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ""));
+      const index = call;
+      call += 1;
+      if (index === 1) await held;
+      const body = turns[Math.min(index, turns.length - 1)];
+      return { ok: true, text: () => Promise.resolve(""), json: () => Promise.resolve(body) } as unknown as Response;
+    });
+    render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} />);
+    send();
+
+    const card = await screen.findByRole("region", CARD);
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    const apply = within(card).getByRole("button", { name: /^Apply \(/ });
+    const discard = within(card).getByRole("button", { name: t("en-US", "chatProposalDiscard") });
+    expect(apply).toBeDisabled();
+    expect(discard).toBeDisabled();
+    fireEvent.click(apply);
+    expect(dispatcher.deleteTask).not.toHaveBeenCalled();
+
+    await act(async () => {
+      release();
+    });
+    await screen.findByText("Waiting for you.");
+    await waitForIdle();
+    await waitFor(() => expect(within(card).getByRole("button", { name: /^Apply \(/ })).toBeEnabled());
+    expect(within(card).getByRole("button", { name: t("en-US", "chatProposalDiscard") })).toBeEnabled();
+    fireEvent.click(within(card).getByRole("button", { name: /^Apply \(/ }));
+    await waitFor(() =>
+      expect(within(card).getByText(t("en-US", "chatProposalApplied", 1))).toBeInTheDocument(),
+    );
+    expect(dispatcher.deleteTask).toHaveBeenCalledTimes(1);
+
+    send("and then?");
+    await waitFor(() => expect(bodies).toHaveLength(3));
+    expect(bodies[2]).toContain(appliedProposalNotice(1, 0));
+  });
+
   it("a write after a staged turn runs nothing and keeps the card, and the model still replies (AI-02)", async () => {
     // Mutation: removing the pending-proposal rule turns this red: the create runs or replaces the card.
     const dispatcher = makeDispatcher();
