@@ -23,7 +23,8 @@
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { type Lang, t } from "./i18n";
 import { aiFailureMessageKey } from "./ai-key-status";
-import type { Task, RaidItem, Milestone, ChangeItem, Stakeholder, Resource, ProjectMeta } from "./types";
+import type { Task, RaidItem, Milestone, ChangeItem, Stakeholder, Resource, ProjectMeta, Absence } from "./types";
+import type { AbsenceCtx } from "./absence-clash";
 import {
   aiKeyIfEnabled,
   isAiBackgroundEnabled,
@@ -101,6 +102,9 @@ export interface InsightRecommendationDeps {
    *  replayed when it carries money (`recommendationPredatesSwitch`). */
   baselineHistory: readonly BaselineEntry[];
   resourcesById: ReadonlyMap<number, Resource>;
+  /** §773 — with `resourcesById` and `holidaySet`, what the review's absence-clash warnings are judged against. */
+  absences: readonly Absence[];
+  holidaySet: ReadonlySet<string>;
   insights: readonly Insight[] | undefined;
   setInsights: Dispatch<SetStateAction<readonly Insight[] | undefined>>;
   dispatcher: ToolDispatcher;
@@ -131,6 +135,8 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     stakeholders,
     baselineHistory,
     resourcesById,
+    absences,
+    holidaySet,
     insights,
     setInsights,
     dispatcher,
@@ -370,14 +376,18 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // proposed calls (re-grounded against the CURRENT workspace, since a
   // background-generated recommendation can be stale by the time it's reviewed).
   const reviewInsight = (insights ?? []).find((i) => i.id === reviewInsightId) ?? null;
+  const absenceCtx = useMemo<AbsenceCtx>(
+    () => ({ absences, resources: [...resourcesById.values()], holidaySet }),
+    [absences, resourcesById, holidaySet],
+  );
   const reviewPlan = useMemo(
     () =>
       reviewInsight?.recommendation
         ? describeRecommendationPlan(reviewInsight.recommendation.proposedCalls, {
             tasks, raid, changes, milestones, stakeholders,
-          }, recCallProblemText(lang))
+          }, recCallProblemText(lang), absenceCtx)
         : null,
-    [reviewInsight, tasks, raid, changes, milestones, stakeholders, lang],
+    [reviewInsight, tasks, raid, changes, milestones, stakeholders, lang, absenceCtx],
   );
   // ★ No plan-level entity is derived any more: every `FieldDiff`/`LinkDiff`
   // carries the register it belongs to, so the modal labels each row from the

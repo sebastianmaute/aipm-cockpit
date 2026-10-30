@@ -176,6 +176,9 @@ const RUN_UNBATCHED: UndoBatch["runBatched"] = (fn) => fn();
  *  ★★ NEVER CALLED DURING RENDER — `emptyWorkspace()` reads the clock, which
  *   the react-hooks purity rule bans in a component body. Every call site here
  *   is inside the async send. */
+/** §773 — the holiday set a staged row's absence clashes are judged with when the caller threads none. */
+const NO_HOLIDAYS: ReadonlySet<string> = new Set();
+
 function stagingWorkspace(ws: Workspace | undefined): Workspace {
   return ws ?? emptyWorkspace();
 }
@@ -205,6 +208,7 @@ function ChatPanelImpl({
   tursoConfig = null,
   exportFooter,
   workspace,
+  holidaySet,
   runBatched,
   getScopeEpoch,
   isSwapInFlight,
@@ -251,6 +255,7 @@ function ChatPanelImpl({
       tursoConfig={tursoConfig}
       exportFooter={exportFooter}
       workspace={workspace}
+      holidaySet={holidaySet}
       runBatched={runBatched}
       getScopeEpoch={getScopeEpoch}
       isSwapInFlight={isSwapInFlight}
@@ -319,6 +324,9 @@ interface ChatProposalProps {
   /** The live workspace, for grounding a staged plan's diffs and row titles.
    *  Read through a ref at staging time, never captured at send time. */
   workspace?: Workspace;
+  /** §773 — the shared holiday set, for a staged row's absence-clash warnings. Read through a ref at
+   *  staging time, like `workspace`. Absent ⇒ none, which still warns of a date on an absence. */
+  holidaySet?: ReadonlySet<string>;
   /** `useUndoBatch(...).runBatched` from the SAME batch whose `.undo` is the
    *  dispatcher's `undo` prop. A DIFFERENT instance would collect nothing —
    *  the captures would go straight to the live stack — and nothing would say
@@ -365,6 +373,7 @@ function ChatPanelInner({
   tursoConfig = null,
   exportFooter,
   workspace,
+  holidaySet,
   runBatched,
   getScopeEpoch,
   isSwapInFlight,
@@ -467,6 +476,10 @@ function ChatPanelInner({
   useEffect(() => {
     workspaceRef.current = workspace;
   }, [workspace]);
+  const holidaySetRef = useRef(holidaySet);
+  useEffect(() => {
+    holidaySetRef.current = holidaySet;
+  }, [holidaySet]);
   // Turso thread state (deps-object hook, AGENTS.md rule 1). Kept as one
   // object — most fields wire onto ChatThreadList in Task 6; submitPrompt
   // below reads .activeThreadId/.threadIdRef and calls .ensureThreadForSend.
@@ -923,7 +936,8 @@ function ChatPanelInner({
             const planRows = scopeMoved ? [] : buildPlanRows(calls, mintProvisionalIds(calls, ws));
             if (!scopeMoved) {
               // §779 — the dispatcher's live settings judge a functions row's other settings.
-              const described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch));
+              const absence = { absences: ws.absences, resources: ws.resources, holidaySet: holidaySetRef.current ?? NO_HOLIDAYS };
+              const described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch), absence);
               const proposalId = newProposalId();
               setPendingProposal({
                 id: proposalId,

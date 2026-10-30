@@ -11,6 +11,7 @@ import { Button } from "../button";
 import { isEmptyPlan, type EditPlan } from "../inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "../inline-ai-edit/field-labels";
 import { CreateFieldsList } from "../create-fields-list";
+import { AbsenceClashNotes } from "../absence-clash-notes";
 
 export interface RecommendationReviewModalProps {
   lang: Lang;
@@ -98,6 +99,8 @@ export function RecommendationReviewModal({ lang, summary, plan, onConfirm, onCa
               {plan.deletes.map((del, i) => (
                 <li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>
               ))}
+              {/* §773 — a warning, not a refusal: the change still applies. */}
+              <AbsenceClashNotes lang={lang} clashes={plan.clashes} />
             </ul>
           </>
         )}

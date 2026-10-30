@@ -9,6 +9,7 @@ import { loadI18n, type Lang } from "./i18n";
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 import { entityToken } from "./ai-entity-token";
 import type { Workspace } from "./workspace";
+import type { AbsenceCtx } from "./absence-clash";
 
 // ★★ THE THREE TASK ROWS CARRY DISTINCT IDS ON PURPOSE. `describeEntityCalls`
 // is bound to ONE `ctx.item` and rejects any update whose `input.id` differs,
@@ -240,7 +241,7 @@ describe("describeProposal", () => {
     expect(rows).toHaveLength(2);
     expect(rows.map((r) => r.call.name)).toEqual(["create_document", "delete_document"]);
     for (const r of rows) {
-      expect(r.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+      expect(r.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
       // Nothing is invented for it — the call is forwarded verbatim.
       expect(r.stamped).toEqual(r.call);
     }
@@ -439,7 +440,7 @@ describe("rows pending on a staged create", () => {
     const rows = describeProposal(calls, ws, buildPlanRows(calls, [101]));
 
     expect(rows[1].pendingOn).toBe(0);
-    expect(rows[1].plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+    expect(rows[1].plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
     // The create itself is still described normally.
     expect(rows[0].pendingOn).toBeUndefined();
     expect(rows[0].plan.creates).toHaveLength(1);
@@ -593,7 +594,7 @@ describe("TOOL_ENTITY", () => {
       ],
       ws,
     );
-    const empty = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+    const empty = { updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] };
     expect(allTasks.plan).toEqual(empty);
     expect(inquiry.plan).toEqual(empty);
     expect(deps.plan.links).toEqual([
@@ -619,7 +620,7 @@ describe("TOOL_ENTITY", () => {
       { kind: "filters", filters: { search: "late", priority: "High", label: "" } },
       { kind: "settings", settings: [{ key: "showViewHints", value: "false" }] },
     ]);
-    for (const r of rows) expect(r.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+    for (const r of rows) expect(r.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
   });
 
   test("a functions change is not a device row, and a priority the write drops is not shown", () => {
@@ -640,7 +641,7 @@ describe("TOOL_ENTITY", () => {
     const withRaid = { ...ws, raid: [raid7] } as unknown as Workspace;
     const [described] = describeProposal([call("escalate_raid_item", { id: 7, toEmail: "jane@example.com" })], withRaid);
     expect(described.stamped.input.expectedToken).toBe(entityToken("raid", raid7));
-    expect(described.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+    expect(described.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
   });
 });
 
@@ -677,7 +678,7 @@ describe("mintedId is carried onto the described row", () => {
   test("a descriptor-less create still carries it", () => {
     const calls = [call("create_document", { title: "Doc" })];
     const rows = describeProposal(calls, ws, buildPlanRows(calls, [55]));
-    expect(rows[0].plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+    expect(rows[0].plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
     expect(rows[0].mintedId).toBe(55);
   });
 
@@ -837,5 +838,36 @@ describe("every tool that can stage gets a described card line (AI-02)", () => {
       return en === de && !isPureData(en, valuesOf(input));
     });
     expect(english.map(([name]) => name)).toEqual([]);
+  });
+});
+
+// §773 — each staged row's plan carries the absence clashes its own change would cause.
+describe("describeProposal — absence clashes", () => {
+  const absence = {
+    absences: [{ id: 1, assignee: "Ada Lovelace", resourceId: 4, type: "vacation", startDate: "2026-08-17", endDate: "2026-08-21" }],
+    resources: [resource4],
+    holidaySet: new Set<string>(),
+  } as unknown as AbsenceCtx;
+
+  test("only the row whose change lands on the absence carries a note", () => {
+    const rows = describeProposal(
+      [
+        call("update_task", { id: 1, assignee: "Ada Lovelace", dueDate: "2026-08-19" }),
+        call("update_task", { id: 2, status: "Done" }),
+      ],
+      ws,
+      undefined,
+      undefined,
+      absence,
+    );
+    expect(rows[0].plan.clashes).toEqual([
+      expect.objectContaining({ entity: "task", id: 1, title: "A", clash: expect.objectContaining({ person: "Ada Lovelace", resourceId: 4 }) }),
+    ]);
+    expect(rows[1].plan.clashes).toEqual([]);
+  });
+
+  test("no absence context, no clashes", () => {
+    const rows = describeProposal([call("update_task", { id: 1, assignee: "Ada Lovelace", dueDate: "2026-08-19" })], ws);
+    expect(rows[0].plan.clashes).toEqual([]);
   });
 });

@@ -25,6 +25,8 @@ export interface TasksInlineAiEditDeps {
   lang: Lang;
   /** The live workspace context (structural superset of Workspace). */
   workspaceCtx: WorkspaceCtx;
+  /** §773 — the shared holiday set, for the preview's absence-clash warnings. */
+  holidaySet: ReadonlySet<string>;
 }
 
 export interface TasksInlineAiEdit {
@@ -44,6 +46,7 @@ export function useTasksInlineAiEdit(deps: TasksInlineAiEditDeps): TasksInlineAi
     lang: deps.lang,
     showToast,
     ws: deps.workspaceCtx,
+    holidaySet: deps.holidaySet,
     guides: [],
   });
   // Hoisted locals (not `inlineEdit.member`) so the caller's useMemo dep arrays

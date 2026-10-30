@@ -88,12 +88,12 @@ describe("describeToolCalls", () => {
   });
 
   it("returns an empty plan for no blocks", () => {
-    expect(describeToolCalls([], { task, ws })).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+    expect(describeToolCalls([], { task, ws })).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
   });
 
   it("ignores read-only tool calls (list_tasks/get_task)", () => {
     const plan = describeToolCalls([block("list_tasks", {})], { task, ws });
-    expect(plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+    expect(plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
   });
 
   it("rejects an out-of-enum status/priority instead of previewing an undroppable diff", () => {
@@ -171,7 +171,7 @@ describe("a prototype-named tool matches no tool map", () => {
     const plan = describeToolCalls([block(name, { id: 42, title: "x", linkedTaskIds: [42] })], { task, ws });
     // The same empty plan `list_tasks` and `bogus` produce — an unrecognised
     // tool is IGNORED here, it is not rejected.
-    expect(plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+    expect(plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
   });
 
   it("does not fabricate an unknown-id rejection on the delete branch", () => {
@@ -1344,12 +1344,12 @@ describe("EditPlan.links", () => {
     // empty would hide the most destructive write class behind a blank card.
     const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [
       { entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "Ship", rawIds: [2] },
-    ] };
+    ], clashes: [] };
     expect(isEmptyPlan(plan)).toBe(false);
   });
 
   it("is empty only when every bucket is empty", () => {
-    expect(isEmptyPlan({ updates: [], creates: [], deletes: [], rejected: [], links: [] })).toBe(true);
+    expect(isEmptyPlan({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] })).toBe(true);
   });
 });
 

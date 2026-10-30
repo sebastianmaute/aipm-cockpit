@@ -21,6 +21,8 @@ export interface EntityInlineAiEditDeps {
   settings: Settings;
   isPopout: boolean;
   lang: Lang;
+  /** §773 — the shared holiday set, for the preview's absence-clash warnings. */
+  holidaySet: ReadonlySet<string>;
   /** True when this entity's pane is the active view; a left-open edit is
    *  auto-closed when it goes false (stale-popover-on-tab-return guard). */
   active: boolean;
@@ -83,6 +85,7 @@ export function useEntityInlineAiEdit(entity: InlineEntity, deps: EntityInlineAi
     apiKey: aiKeyIfEnabled(deps.settings.ai),
     isPopout: deps.isPopout,
     lang: deps.lang,
+    holidaySet: deps.holidaySet,
     showToast,
     ws,
     guides: [],

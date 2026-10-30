@@ -9,6 +9,7 @@
 // to a single item: each call is grounded independently by its OWN `id`.
 import type { Workspace } from "../workspace";
 import { describeEntityCalls, type EditPlan, type ToolUseLike } from "../inline-ai-edit/plan";
+import type { AbsenceCtx } from "../absence-clash";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "../inline-ai-edit/entity-descriptor";
 import type { InsightToolCall } from "./insight";
 import { REC_TOOL_INPUT_SCHEMAS, recommendationCallProblem, type RecCallProblemFormat } from "./recommend-schema";
@@ -56,7 +57,7 @@ const DELETE_DESCRIPTOR: Record<string, InlineEntity> = {
 //  every row now carries the register it belongs to.
 
 function emptyPlan(): EditPlan {
-  return { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+  return { updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] };
 }
 
 function inputId(input: Readonly<Record<string, unknown>>): number {
@@ -72,11 +73,13 @@ function inputId(input: Readonly<Record<string, unknown>>): number {
  *  trivial pass, letting the real grounding — does that id still exist in
  *  the live list — do the work instead. Creates need no id grounding.
  *  `formatProblem` words a whole-call refusal's `detail` (English by default);
- *  the review modal passes the UI language's wording (§782 round 3). */
+ *  the review modal passes the UI language's wording (§782 round 3). `absence` (§773) adds the
+ *  absence clashes each call would cause; without it none are computed. */
 export function describeRecommendationPlan(
   calls: readonly InsightToolCall[],
   ws: RecommendPlanWorkspace,
   formatProblem?: RecCallProblemFormat,
+  absence?: AbsenceCtx,
 ): EditPlan {
   // describeEntityCalls is typed against the full Workspace but only ever reads
   // the five list fields in RecommendPlanWorkspace (verified) — cast once here so
@@ -103,10 +106,11 @@ export function describeRecommendationPlan(
       const rows = wsFull[d.wsKey] as ReadonlyArray<{ id: number }>;
       const id = inputId(call.input);
       const item = (rows.find((r) => r.id === id) ?? { id: NaN }) as unknown as RowItem;
-      const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull });
+      const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull, absence });
       merged.updates.push(...p.updates);
       merged.rejected.push(...p.rejected);
       merged.links.push(...p.links);
+      merged.clashes.push(...p.clashes);
       continue;
     }
 
@@ -114,20 +118,22 @@ export function describeRecommendationPlan(
       const d = INLINE_DESCRIPTORS[deleteEntity];
       const id = inputId(call.input);
       const item = { id } as unknown as RowItem;
-      const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull });
+      const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull, absence });
       merged.deletes.push(...p.deletes);
       merged.rejected.push(...p.rejected);
       merged.links.push(...p.links);
+      merged.clashes.push(...p.clashes);
       continue;
     }
 
     // create_* (and anything unrecognized) — the create-tool routing inside
     // describeEntityCalls is descriptor-independent, so any descriptor works.
     const item = { id: NaN } as unknown as RowItem;
-    const p = describeEntityCalls([block], { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsFull });
+    const p = describeEntityCalls([block], { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsFull, absence });
     merged.creates.push(...p.creates);
     merged.rejected.push(...p.rejected);
     merged.links.push(...p.links);
+    merged.clashes.push(...p.clashes);
   }
 
   return merged;

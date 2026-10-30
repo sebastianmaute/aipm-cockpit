@@ -44,6 +44,7 @@ import { describeProjectPlan, stampProjectCall, UPDATE_PROJECT_TOOL } from "./ch
 import { describeFunctionsCall, type FunctionsChange, type PreviewSettings } from "./chat-proposal-describe-functions";
 import { describeDeviceCall, type DeviceChange } from "./chat-proposal-describe-device";
 import { describeDocumentCall, type DocumentChange } from "./chat-proposal-describe-document";
+import type { AbsenceCtx } from "./absence-clash";
 
 export {
   describeProjectCall,
@@ -137,7 +138,7 @@ export interface DescribedRow {
 }
 
 function emptyPlan(): EditPlan {
-  return { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+  return { updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] };
 }
 
 /** A forecast scenario as a card line names it: by its name, or by its id when nothing names it. */
@@ -460,6 +461,8 @@ export function describeProposal(
   planRows?: readonly PlanRow[],
   /** §779 — the dispatcher's `previewSettings`, for a functions row's other settings. */
   previewSettings?: PreviewSettings,
+  /** §773 — the people, absences and holidays a row's absence clashes are judged against; none without it. */
+  absence?: AbsenceCtx,
 ): readonly DescribedRow[] {
   if (planRows !== undefined && planRows.length !== calls.length) {
     throw new RangeError(
@@ -589,6 +592,7 @@ export function describeProposal(
       descriptor: d,
       item: seedItem(op, d, call.input, ws),
       ws,
+      absence,
     });
     rows.push({ call, stamped, plan, mintedId });
   }

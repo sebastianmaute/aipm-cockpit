@@ -313,7 +313,7 @@ export function WorkspaceSection({
   // each yields the row handlers threaded into the panel + its active-edit
   // popover element. Called unconditionally (hook rules); the popover only
   // renders when that pane is active and an edit is open.
-  const inlineAiDeps = { dispatcher, settings, isPopout, lang }; // ★ NO logger — the inline editor writes no row of its own; each runTool it fires logs an "ai" entity row. See use-inline-entity-edit.
+  const inlineAiDeps = { dispatcher, settings, isPopout, lang, holidaySet }; // ★ NO logger — the inline editor writes no row of its own; each runTool it fires logs an "ai" entity row. See use-inline-entity-edit.
   // `active` auto-closes a left-open inline edit when its pane stops being the
   // active view (non-mouse nav doesn't trigger the popover's outside-click
   // dismiss). Tab keys match the tabpanel conditions below.
@@ -525,6 +525,7 @@ export function WorkspaceSection({
             tursoMode={chatTursoMode}
             tursoConfig={chatTursoConfig}
             workspace={workspace}
+            holidaySet={holidaySet}
             runBatched={runProposalBatch}
             getScopeEpoch={getScopeEpoch}
             isSwapInFlight={isSwapInFlight}

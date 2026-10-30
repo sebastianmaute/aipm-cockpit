@@ -8,7 +8,7 @@ import type { FunctionsChange } from "./chat-proposal-describe-functions";
 import type { EditPlan } from "./inline-ai-edit/plan";
 import { loadI18n, type Lang } from "./i18n";
 
-const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
 
 function renderCard(rows: readonly ProposalCardRow[], lang: Lang = "en-US") {
   return render(

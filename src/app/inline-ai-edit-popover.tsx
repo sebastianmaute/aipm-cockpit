@@ -5,6 +5,7 @@ import { FieldError } from "./field-feedback";
 import { type EditPlan } from "./inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { CreateFieldsList } from "./create-fields-list";
+import { AbsenceClashNotes } from "./absence-clash-notes";
 import { type InlinePhase } from "./use-inline-ai-edit";
 import { Modal } from "./modal";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
@@ -152,6 +153,8 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
               {plan.links.map((l, i) => (<li key={`l${i}-${l.field}`}><span className="font-medium">{linkLabel(lang, l.entity, l)}</span>: {l.before || "—"} → {l.after || "—"}</li>))}
               {plan.creates.map((c, i) => (<li key={`c${i}`}>{t(lang, "inlineAiEditCreate", c.entity, c.title)}<CreateFieldsList lang={lang} item={c} /></li>))}
               {plan.deletes.map((del, i) => (<li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>))}
+              {/* §773 — a warning, not a refusal: the change still applies. */}
+              <AbsenceClashNotes lang={lang} clashes={plan.clashes} />
               {/* ★★★ THE PARTS THAT WILL NOT LAND, and this surface is the one
                   that APPLIES what it renders. Rendered nowhere at all before —
                   the same gap the chat approval card had — so a field the

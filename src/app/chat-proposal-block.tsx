@@ -51,6 +51,7 @@ import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type DiffEntity, type EditPlan, type Rejected } from "./inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { CreateFieldsList } from "./create-fields-list";
+import { AbsenceClashNotes } from "./absence-clash-notes";
 import {
   forecastRowLine,
   previewEntityOf,
@@ -434,6 +435,8 @@ function PlanDetail({
       {plan.deletes.map((del, i) => (
         <li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>
       ))}
+      {/* §773 — a warning, not a refusal: the row still applies. */}
+      <AbsenceClashNotes lang={lang} clashes={plan.clashes} />
       {/* Last, and in the failure colour the row's own not-applied notice uses:
           these are the parts of the call that will NOT land. */}
       {plan.rejected.map((r, i) => (

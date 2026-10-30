@@ -454,7 +454,7 @@ describe("useInlineEntityEdit — raid", () => {
       text: "", usage: { input_tokens: 1, output_tokens: 1 },
     } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
     vi.spyOn(planMod, "describeEntityCalls").mockReturnValue({
-      updates: [], creates: [], deletes: [], rejected: [], links: [],
+      updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [],
     });
     // Stands in for a bucket apply() does not yet know how to write: the plan
     // passes the guard and every write branch skips it.
@@ -942,5 +942,42 @@ describe("inline task edit withholds assigneeEmail", () => {
     expect(stored.assigneeEmail).toBe("ann@example.com");
     expect(runToolSpy).toHaveBeenCalledWith(dispatcher, "update_task", expect.objectContaining({ expectedToken: entityToken("task", opened) }));
     expect(patches.every((p) => !("assigneeEmail" in p))).toBe(true);
+  });
+});
+
+// §773 — the inline preview reads the workspace's absences and people, and the holiday set the caller
+// threads in, so a proposed move that lands work on an absence is warned about.
+describe("absence clashes in the inline preview", () => {
+  // 2026-11-02 is a Monday. Away Tue–Wed of a Mon–Thu task: exactly half its four working days, so no
+  // clash — unless Monday is a holiday, which leaves three working days, two of them away.
+  const spanTask = { id: 42, taskName: "Fix login bug", status: "To Do", assignee: "Maya Patel", resourceId: 1, startDate: "2026-11-02", dueDate: "2026-11-12" } as unknown as Task;
+  const clashWs = {
+    tasks: [spanTask], raid: [], milestones: [], changes: [], stakeholders: [],
+    resources: [{ id: 1, firstName: "Maya", lastName: "Patel" }],
+    absences: [{ id: 1, assignee: "Maya Patel", resourceId: 1, type: "vacation", startDate: "2026-11-03", endDate: "2026-11-04" }],
+  } as unknown as InlineAiEditDeps["ws"];
+
+  async function previewMove(holidaySet?: ReadonlySet<string>) {
+    vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+      blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 42, dueDate: "2026-11-05" } }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    const { result } = renderHook(() => useInlineAiEdit(mkDeps({ ws: clashWs, ...(holidaySet ? { holidaySet } : {}) })));
+    act(() => result.current.openFor(spanTask));
+    await act(async () => { await result.current.submit("move it to Thursday"); });
+    return result.current.plan;
+  }
+
+  it("warns when the caller's holidays make the owner away for most of the span", async () => {
+    const plan = await previewMove(new Set(["2026-11-02"]));
+    expect(plan?.clashes).toEqual([
+      expect.objectContaining({ entity: "task", id: 42, clash: expect.objectContaining({ reason: "absent-most-of-span" }) }),
+    ]);
+  });
+
+  it("without the holiday the same move is exactly half and not a clash", async () => {
+    const plan = await previewMove();
+    expect(plan?.updates).toHaveLength(1);
+    expect(plan?.clashes).toEqual([]);
   });
 });

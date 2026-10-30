@@ -2,6 +2,7 @@
 import { describe, test, expect } from "vitest";
 import { describeRecommendationPlan } from "./recommend-plan";
 import type { Workspace } from "../workspace";
+import type { AbsenceCtx } from "../absence-clash";
 
 function ws(): Workspace {
   return {
@@ -137,3 +138,42 @@ describe("describeRecommendationPlan", () => {
 // or nothing" — which the per-diff `entity` above replaces: the merged case it
 // asserted `undefined` for is exactly the one now labelled correctly on both
 // rows. Nothing it covered is lost; it covered a fallback that no longer exists.
+
+// §773 — a recommended change that lands work on someone's absence carries the clash into the merged plan.
+describe("describeRecommendationPlan — absence clashes", () => {
+  const absence = {
+    absences: [{ id: 1, assignee: "Dana Ortiz", type: "vacation", startDate: "2026-09-21", endDate: "2026-09-25" }],
+    resources: [],
+    holidaySet: new Set<string>(),
+  } as unknown as AbsenceCtx;
+
+  test("a create_task due inside its assignee's absence yields one note", () => {
+    const plan = describeRecommendationPlan(
+      [{ name: "create_task", input: { taskName: "New", assignee: "Dana Ortiz", dueDate: "2026-09-25" } }],
+      ws(),
+      undefined,
+      absence,
+    );
+    expect(plan.clashes).toEqual([
+      expect.objectContaining({ entity: "task", id: null, title: "New", clash: expect.objectContaining({ person: "Dana Ortiz", which: "due" }) }),
+    ]);
+  });
+
+  test("an update_task giving the task to someone away on its due date yields one note", () => {
+    const plan = describeRecommendationPlan(
+      [{ name: "update_task", input: { id: 12, assignee: "Dana Ortiz", dueDate: "2026-09-22" } }],
+      ws(),
+      undefined,
+      absence,
+    );
+    expect(plan.clashes).toEqual([expect.objectContaining({ entity: "task", id: 12, title: "T" })]);
+  });
+
+  test("no absence context, no clashes", () => {
+    const plan = describeRecommendationPlan(
+      [{ name: "create_task", input: { taskName: "New", assignee: "Dana Ortiz", dueDate: "2026-09-25" } }],
+      ws(),
+    );
+    expect(plan.clashes).toEqual([]);
+  });
+});
