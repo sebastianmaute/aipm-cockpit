@@ -1135,9 +1135,14 @@
   when the same proposal gives that holder a valid non-A role, and stamps `pairKey` (`handover:<milestoneId>`) on
   both cells; without the demotion the new A is skipped as `accountable-needs-demotion`
   (`raciSuggestSkippedDuplicateNeedsDemotion`). A milestone with several stored A's accepts no handover. The modal
-  renders the pair as one row with one checkbox, and `onConfirm` first drops the cells whose stakeholder was
-  deleted since the proposal, THEN `dropOrphanedPairHalves` drops any lone half — in that order, otherwise the
-  fold would skip the deleted half silently and save its partner alone, leaving two Accountables or none.
+  renders the pair as one row with one checkbox (naming the new holder's current role when they have one,
+  `raciSuggestHandoverRowWas`), and `onConfirm` runs three steps in this order: it drops the cells whose
+  stakeholder was deleted since the proposal; `dropStaleAccountables` re-reads the LIVE A holders and drops an
+  unpaired A when its milestone now has another A holder, and a paired A unless the milestone's live holders are
+  exactly the pair's demoted stakeholder; THEN `dropOrphanedPairHalves` keeps a `pairKey` group only when it is
+  exactly one A and one non-A, and drops any other group whole. In that order, because the fold would otherwise
+  skip a deleted half silently, and a stale A dropped after the orphan check would leave its partner to be saved
+  alone — two Accountables or none either way.
   ★★ **THE FOLD-PER-STAKEHOLDER LANDMINE — distinct from the bulk-edit FUNCTIONAL-SETTER landmine above,
   and NOT covered by it.** `useStakeholders.handleSaveStakeholder` already IS a functional setter
   (`setStakeholders(prev => …)`), so this is not that bug. The defect sits one layer up: `onSave` (the
