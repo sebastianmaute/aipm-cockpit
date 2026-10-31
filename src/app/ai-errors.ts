@@ -39,6 +39,12 @@ export const AI_GATEWAY_ERROR = "ai-gateway-error";
 export const AI_GATEWAY_RATE_LIMITED = "ai-gateway-rate-limited";
 /** The relay's 503 body when the deployment's gateway setting is invalid (not a gateway failure). */
 export const AI_GATEWAY_INVALID = "ai-gateway-invalid";
+/** The relay's refusals when the deployment restricts keys to its Anthropic organisation (and
+ *  optionally named workspaces): the key belongs to another organisation (403), to a workspace not
+ *  on the list (403), or could not be checked, so nothing was forwarded (503). */
+export const AI_KEY_WRONG_ORGANIZATION = "ai-key-wrong-organization";
+export const AI_KEY_WRONG_WORKSPACE = "ai-key-wrong-workspace";
+export const AI_KEY_CHECK_UNAVAILABLE = "ai-key-check-unavailable";
 export type AiGatewayErrorCode = typeof AI_GATEWAY_REJECTED | typeof AI_GATEWAY_ERROR | typeof AI_GATEWAY_RATE_LIMITED;
 
 /** The organisation's AI gateway (reached through the same-origin relay) refused the app's

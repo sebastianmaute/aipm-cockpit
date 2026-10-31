@@ -3,6 +3,10 @@
 // operator restricts keys to an organisation (AIPM_AI_ORGANIZATION_ID). A direct
 // deployment with no restriction answers 404 and the browser calls the provider itself.
 //
+// With a restriction, nothing is forwarded until the caller's key has passed the key check
+// (`_key-check.ts`): a pre-flight through the same upstream that reads which organisation and
+// workspace the key belongs to. A refusal answers 403, a check that could not run 503.
+//
 // What it does and does not do:
 //   - forwards only `x-api-key`, `anthropic-version`, `anthropic-beta` and
 //     `content-type` from the browser, plus `cf-aig-authorization` with the
@@ -22,7 +26,17 @@ import type { RequestOptions } from "node:http";
 import { refuseIfDisabled } from "../_shared/integration-switch";
 import { readAiGatewayConfig, type AiGatewayConfig } from "../../ai-gateway-config";
 import { readAiKeyRestriction, type AiKeyRestriction } from "../../ai-key-restriction-config";
-import { AI_GATEWAY_ERROR, AI_GATEWAY_INVALID, AI_GATEWAY_RATE_LIMITED, AI_GATEWAY_REJECTED } from "../../ai-errors";
+import {
+  AI_GATEWAY_ERROR,
+  AI_GATEWAY_INVALID,
+  AI_GATEWAY_RATE_LIMITED,
+  AI_GATEWAY_REJECTED,
+  AI_KEY_CHECK_UNAVAILABLE,
+  AI_KEY_WRONG_ORGANIZATION,
+  AI_KEY_WRONG_WORKSPACE,
+} from "../../ai-errors";
+import { defaultKeyChecker, type KeyChecker, type KeyVerdict } from "./_key-check";
+import { discard, fail, isAnthropicError, MAX_ERROR_BODY_BYTES, readCapped } from "./_upstream-answer";
 
 // Anthropic's documented maximum request size for Messages and Token Counting is
 // 32 MB; larger requests get 413 `request_too_large`. Source (checked 2026-10-27):
@@ -31,9 +45,6 @@ export const RELAY_MAX_BODY_BYTES = 32 * 1024 * 1024;
 // Idle timeout on the upstream socket (node's `timeout` option): a streamed answer
 // that keeps sending is never cut off, a silent one is after 15 minutes.
 export const RELAY_TIMEOUT_MS = 15 * 60 * 1000;
-// A non-2xx body is read whole to decide whether it is Anthropic-shaped; error
-// bodies are small, so anything larger is treated as not Anthropic-shaped.
-const MAX_ERROR_BODY_BYTES = 1024 * 1024;
 
 // The gateway codes come from the client's own module, so the two sides cannot drift; the
 // remaining codes are pinned against the client by `_relay.wire.test.ts`.
@@ -78,13 +89,6 @@ export type UpstreamResponse = AsyncIterable<Uint8Array> & {
   on(event: "error", listener: (err: Error) => void): unknown;
 };
 
-/** An answer the relay drops unread: destroying the upstream request makes it emit 'error'
- *  (ECONNRESET), which with no listener would be thrown as an uncaught exception. */
-function discard(res: UpstreamResponse, upstream: UpstreamRequest | null): void {
-  res.on("error", () => {});
-  upstream?.destroy();
-}
-
 export type RelaySend = (
   url: URL,
   options: RequestOptions,
@@ -96,10 +100,6 @@ export type RelaySend = (
 export const httpsSend: RelaySend = (url, options, onResponse) => httpsRequest(url, options, onResponse);
 
 type Env = Record<string, string | undefined>;
-
-function fail(status: number, error: string): Response {
-  return Response.json({ error }, { status, headers: { "cache-control": "no-store" } });
-}
 
 /**
  * A browser call from this app's own pages. `Sec-Fetch-Site` decides when the browser
@@ -141,36 +141,6 @@ async function readCappedBody(request: Request): Promise<Uint8Array | null> {
     chunks.push(value);
   }
   return Buffer.concat(chunks);
-}
-
-/** The whole upstream body, or null when it is larger than `cap` or fails. */
-async function readCapped(res: UpstreamResponse, cap: number): Promise<Buffer | null> {
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    for await (const chunk of res) {
-      total += chunk.byteLength;
-      if (total > cap) return null;
-      chunks.push(chunk);
-    }
-  } catch {
-    return null;
-  }
-  return Buffer.concat(chunks);
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
-}
-
-/** `{ type: "error", error: { type: <string>, … } }` — what Anthropic answers on an error. */
-function isAnthropicError(bytes: Buffer): boolean {
-  try {
-    const v: unknown = JSON.parse(bytes.toString("utf8"));
-    return isRecord(v) && v.type === "error" && isRecord(v.error) && typeof v.error.type === "string";
-  } catch {
-    return false;
-  }
 }
 
 function passThroughHeaders(res: UpstreamResponse): Headers {
@@ -306,22 +276,55 @@ function forward(
   });
 }
 
+/** The answer for a key the check did not pass, or null on a pass. */
+function refusalFor(verdict: KeyVerdict): Response | null {
+  switch (verdict.kind) {
+    case "pass":
+      return null;
+    case "wrong-organization":
+      return fail(403, AI_KEY_WRONG_ORGANIZATION);
+    case "wrong-workspace":
+      return fail(403, AI_KEY_WRONG_WORKSPACE);
+    case "unavailable":
+      return fail(503, AI_KEY_CHECK_UNAVAILABLE);
+    case "upstream-error":
+      return verdict.response;
+  }
+}
+
 export async function relay(
   request: Request,
   op: RelayOp,
   env: Env = process.env,
   send: RelaySend = httpsSend,
+  checker: KeyChecker = defaultKeyChecker,
 ): Promise<Response> {
   const refused = refuseIfDisabled("ai", env);
   if (refused) return refused;
-  const config = upstreamFor(readAiGatewayConfig(env), readAiKeyRestriction(env));
+  const restriction = readAiKeyRestriction(env);
+  const config = upstreamFor(readAiGatewayConfig(env), restriction);
   if (config === "invalid") return fail(503, AI_GATEWAY_INVALID);
   if (config === "not-found") return new Response(null, { status: 404 });
   if (!isSameOrigin(request)) return fail(403, NOT_SAME_ORIGIN);
   // The gateway token is attached to every relayed call, and a gateway can hold a
   // stored provider key; a call without a key of its own must never reach it.
   // 400, never 401/403: the client reads those as a rejected key.
-  if (!request.headers.get("x-api-key")?.trim()) return fail(400, MISSING_API_KEY);
+  const apiKey = request.headers.get("x-api-key");
+  if (!apiKey?.trim()) return fail(400, MISSING_API_KEY);
+
+  if (restriction.kind === "restricted") {
+    // The same key value that would be forwarded is the one checked. Nothing goes upstream
+    // past this point (the body is not even read) unless the check passes.
+    const verdict = await checker.check(
+      apiKey,
+      restriction,
+      config,
+      send,
+      request.headers.get("anthropic-version") ?? undefined,
+    );
+    const refusal = refusalFor(verdict);
+    if (refusal) return refusal;
+  }
 
   let body: Uint8Array | null = null;
   if (op === "messages") {
