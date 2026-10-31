@@ -20,7 +20,9 @@ longer carries its own changelog comment.
   suggestions and dictation are unavailable. Images and non-text documents are refused, so an image or PDF in a chat
   conversation blocks that conversation while protection is on. Turning protection off asks to confirm and is written
   to the activity log. Existing consents to the AI data disclosure are asked for once more after this update, because
-  the disclosure changed. A deployment can lock the switch on for every project
+  the disclosure changed. The separate Allow AI to run in the background consent is asked for again too: until both
+  consents have been given again, scheduled jobs and automatic insight recommendations do not run, and a scheduled
+  digest comes without its AI summary. A deployment can lock the switch on for every project
   (`AIPM_DISABLED_INTEGRATIONS=ai-people`). Limits: names the project does not know, typed into free text or inside
   attachments, may still be sent; a lone first name that is also a common word is not redacted; and the protection is
   enforced in the app, so a modified copy of the app could bypass it (server-side enforcement is a later project).
