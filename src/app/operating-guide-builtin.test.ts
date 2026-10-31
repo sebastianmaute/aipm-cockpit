@@ -50,6 +50,8 @@ describe("availability rule reaches every view (§773)", () => {
     const text = active.map((g) => g.content).join(" ");
     expect(text).toContain("check their absences with `list_absences`");
     expect(text).toContain("A clash or availability answer needs both lists.");
+    // The guide goes out under people protection too, when list_absences is withheld.
+    expect(text).toContain("Under people protection `list_absences` is not offered: do not call it");
   });
   it("the rule is stated once, in the Overview", () => {
     const src = readFileSync(join(process.cwd(), "lib", "app-feature-guide.md"), "utf8");

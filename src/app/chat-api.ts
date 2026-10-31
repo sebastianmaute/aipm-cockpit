@@ -4,7 +4,7 @@
 // them" pattern); `chat-panel.tsx` consumes everything here.
 import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
 import { DOCUMENT_TOOL_DEFS_WITHOUT_DECISION } from "./chat-tool-defs-documents";
-import { PEOPLE_TOOLS, peopleToolsLive } from "./chat-tool-defs";
+import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS, peopleToolsLive } from "./chat-tool-defs";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
 import { assertInteractiveConsentLive } from "./ai-consent";
@@ -604,8 +604,10 @@ function variantFor(key: number) {
   //   assumption silently wrong, and a lost breakpoint is invisible except as a
   //   bill.
   const kept = TOOL_DEFS.filter((d) => !removed.has(d.name));
+  const decided = (key & 4) === 0 ? kept : kept.map((d) => (DOCUMENTS_WITHOUT_DECISION.get(d.name) as typeof d | undefined) ?? d);
+  // §773 — bit 8 withholds list_absences, so the date-writing tools stop pointing at it.
   const built = withCacheBreakpoint(
-    (key & 4) === 0 ? kept : kept.map((d) => (DOCUMENTS_WITHOUT_DECISION.get(d.name) as typeof d | undefined) ?? d),
+    (key & 8) === 0 ? decided : decided.map((d) => (PEOPLE_PROTECTED_DEFS.get(d.name) as typeof d | undefined) ?? d),
   );
   TOOL_VARIANTS.set(key, built);
   return built;
