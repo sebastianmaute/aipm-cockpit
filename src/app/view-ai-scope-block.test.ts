@@ -83,3 +83,11 @@ describe("buildViewStateBlock", () => {
     expect(text).toContain("3 people over capacity");
   });
 });
+
+// §773 — under people protection list_absences is withheld, so the calendar scope must not send the model to it.
+describe("calendar scope under people protection", () => {
+  it("a protected calendar scope never names list_absences; an unprotected one still does", () => {
+    expect(buildViewScopeBlock("calendar", toolNamesFor({ peopleProtected: true }))).not.toMatch(/\blist_absences\b/);
+    expect(buildViewScopeBlock("calendar", toolNamesFor({ peopleProtected: false }))).toMatch(/\blist_absences\b/);
+  });
+});

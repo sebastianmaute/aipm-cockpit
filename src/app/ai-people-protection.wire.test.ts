@@ -24,6 +24,8 @@ import { defaultAiConfig, defaultSettings, resolveNextActionsConfig, type Settin
 import type { Workspace } from "./workspace";
 import type { TursoConfig } from "./turso-config";
 import { runMeetingReport } from "./committee-report/report-call";
+import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAwaySummary } from "./absence-clash";
+import { isoAddDays } from "./due-dates";
 import { buildDigest } from "./digest/digest-model";
 import { runDigestNarrative } from "./digest/digest-narrative";
 import { runForecastImportCall } from "./forecast-import-call";
@@ -295,7 +297,14 @@ const DRIVERS: Readonly<Record<string, Driver>> = {
   },
   "committee-report": {
     kind: "redacted", sendsPeople: true,
-    run: (c) => sendAndIgnoreParse(() => runMeetingReport(dashboardOf(c.ws), AGENDA, { apiKey: KEY, model: MODEL, privacy: c.privacy, lang: "en-US" })),
+    // §773 — the AWAY block as `use-meeting-report-actions` builds it, so the fixture's absence person rides this row too.
+    run: (c) => sendAndIgnoreParse(() => runMeetingReport(dashboardOf(c.ws), AGENDA, {
+      apiKey: KEY, model: MODEL, privacy: c.privacy, lang: "en-US",
+      away: buildAwaySummary({
+        absences: c.ws.absences, resources: c.ws.resources,
+        from: FIXTURE_TODAY, to: isoAddDays(FIXTURE_TODAY, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,
+      }),
+    })),
   },
   "digest-narrative": {
     kind: "redacted",

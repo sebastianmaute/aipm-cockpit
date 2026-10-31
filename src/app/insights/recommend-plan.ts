@@ -103,12 +103,13 @@ function clashJudge(ws: Workspace, absence: AbsenceCtx): ClashJudge {
  *  absence clashes each call would cause; without it none are computed.
  *  ★★ AI people protection (R4): with `peopleProtected`, each call's person fields are stripped FIRST
  *   (`recommendationCallsToApply`), so the review shows what the confirm writes: a create without its
- *   assignee is a create, unassigned, never a refusal. */
+ *   assignee is a create, unassigned, never a refusal. REQUIRED, like the transport's `privacy`, so every
+ *   caller decides: a forgotten argument must not silently preview the unprotected plan. */
 export function describeRecommendationPlan(
   calls: readonly InsightToolCall[],
   ws: RecommendPlanWorkspace,
-  formatProblem?: RecCallProblemFormat,
-  peopleProtected = false,
+  formatProblem: RecCallProblemFormat | undefined,
+  peopleProtected: boolean,
   absence?: AbsenceCtx,
 ): EditPlan {
   // describeEntityCalls is typed against the full Workspace but only ever reads

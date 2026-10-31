@@ -133,7 +133,7 @@ it("does not mutate the recommendation it was given", () => {
 // it with nothing else complaining.
 it("does not surface the token as a proposed field change in the review preview", () => {
   const stamped = stampRecommendationTokens(rec([{ name: "update_task", input: { id: 42, status: "Done" } }]), ws);
-  const plan = describeRecommendationPlan(stamped.proposedCalls, ws);
+  const plan = describeRecommendationPlan(stamped.proposedCalls, ws, undefined, false);
   expect(plan.updates.map((u) => u.field)).toEqual(["status"]);
   // Anti-vacuity: the token really was stamped onto the call being previewed,
   // so the assertion above is about filtering, not about an absent token.

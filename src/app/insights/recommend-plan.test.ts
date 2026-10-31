@@ -16,12 +16,12 @@ function ws(): Workspace {
 
 describe("describeRecommendationPlan", () => {
   test("previews an update_task field diff", () => {
-    const plan = describeRecommendationPlan([{ name: "update_task", input: { id: 12, dueDate: "2026-08-01" } }], ws());
+    const plan = describeRecommendationPlan([{ name: "update_task", input: { id: 12, dueDate: "2026-08-01" } }], ws(), undefined, false);
     expect(plan.updates.some((u) => u.field === "dueDate" && u.after === "2026-08-01")).toBe(true);
   });
 
   test("rejects an update whose id is gone", () => {
-    const plan = describeRecommendationPlan([{ name: "update_task", input: { id: 999 } }], ws());
+    const plan = describeRecommendationPlan([{ name: "update_task", input: { id: 999 } }], ws(), undefined, false);
     expect(plan.rejected.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -29,6 +29,8 @@ describe("describeRecommendationPlan", () => {
     const plan = describeRecommendationPlan(
       [{ name: "create_task", input: { taskName: "New", assignee: "Dana Ortiz", dueDate: "2026-09-25" } }],
       ws(),
+      undefined,
+      false,
     );
     expect(plan.creates).toHaveLength(1);
     expect(plan.rejected).toHaveLength(0);
@@ -40,6 +42,8 @@ describe("describeRecommendationPlan", () => {
     const plan = describeRecommendationPlan(
       [{ name: "create_task", input: { title: "Review T&M burn", dueDate: "2026-09-25" } }],
       ws(),
+      undefined,
+      false,
     );
     expect(plan.creates).toHaveLength(0);
     expect(plan.rejected).toEqual([
@@ -54,19 +58,21 @@ describe("describeRecommendationPlan", () => {
         { name: "update_task", input: { id: 12, dueDate: "2026-08-01" } },
       ],
       ws(),
+      undefined,
+      false,
     );
     expect(plan.rejected.map((r) => r.detail)).toEqual(["create_milestone: date required"]);
     expect(plan.updates.some((u) => u.field === "dueDate")).toBe(true);
   });
 
   test("previews a delete without a false self-id rejection", () => {
-    const plan = describeRecommendationPlan([{ name: "delete_raid_item", input: { id: 5 } }], ws());
+    const plan = describeRecommendationPlan([{ name: "delete_raid_item", input: { id: 5 } }], ws(), undefined, false);
     expect(plan.deletes).toHaveLength(1);
     expect(plan.rejected).toHaveLength(0);
   });
 
   test("rejects a delete whose id no longer exists", () => {
-    const plan = describeRecommendationPlan([{ name: "delete_raid_item", input: { id: 999 } }], ws());
+    const plan = describeRecommendationPlan([{ name: "delete_raid_item", input: { id: 999 } }], ws(), undefined, false);
     expect(plan.deletes).toHaveLength(0);
     expect(plan.rejected.length).toBeGreaterThanOrEqual(1);
   });
@@ -78,6 +84,8 @@ describe("describeRecommendationPlan", () => {
         { name: "update_raid_item", input: { id: 5, title: "Risk A renamed" } },
       ],
       ws(),
+      undefined,
+      false,
     );
     expect(plan.updates).toEqual(
       expect.arrayContaining([
@@ -110,6 +118,8 @@ describe("describeRecommendationPlan", () => {
         { name: "update_change", input: { id: 7, impact: "High" } },
       ],
       mixed,
+      undefined,
+      false,
     );
     expect(plan.updates.map((u) => [u.entity, u.field])).toEqual([
       ["raid", "impact"],
@@ -127,9 +137,9 @@ describe("describeRecommendationPlan", () => {
       { name: "update_task", input: { id: 12, assigneeEmail: "not-an-email", dueDate: "2026-08-01" } },
       { name: "update_task", input: { id: 999 } },
     ];
-    const perCall = calls.flatMap((c) => describeRecommendationPlan([c], ws()).rejected);
+    const perCall = calls.flatMap((c) => describeRecommendationPlan([c], ws(), undefined, false).rejected);
     expect(perCall.map((r) => r.field)).toEqual(["assigneeEmail", undefined]); // anti-vacuity: both kinds present
-    expect(describeRecommendationPlan(calls, ws()).rejected).toEqual(perCall);
+    expect(describeRecommendationPlan(calls, ws(), undefined, false).rejected).toEqual(perCall);
   });
 });
 
@@ -175,6 +185,8 @@ describe("describeRecommendationPlan — absence clashes", () => {
     const plan = describeRecommendationPlan(
       [{ name: "create_task", input: { taskName: "New", assignee: "Dana Ortiz", dueDate: "2026-09-25" } }],
       ws(),
+      undefined,
+      false,
     );
     expect(plan.clashes).toEqual([]);
   });
@@ -244,7 +256,7 @@ describe("describeRecommendationPlan — a row changed by two calls (§773 N-1)"
       { name: "update_task", input: { id: 12, dueDate: "2026-09-22" } },
     ];
     const strip = (p: ReturnType<typeof describeRecommendationPlan>) => ({ ...p, clashes: [] });
-    expect(strip(describeRecommendationPlan(calls, ws(), undefined, false, absence))).toEqual(strip(describeRecommendationPlan(calls, ws())));
+    expect(strip(describeRecommendationPlan(calls, ws(), undefined, false, absence))).toEqual(strip(describeRecommendationPlan(calls, ws(), undefined, false)));
   });
 });
 
@@ -297,6 +309,6 @@ describe("describeRecommendationPlan — a create after an owner change (§773 N
       { name: "create_milestone", input: { name: "Beta", date: "2026-09-23", linkedTaskIds: [12] } },
     ];
     const strip = (p: ReturnType<typeof describeRecommendationPlan>) => ({ ...p, clashes: [] });
-    expect(strip(describeRecommendationPlan(calls, onSam(), undefined, false, absence))).toEqual(strip(describeRecommendationPlan(calls, onSam())));
+    expect(strip(describeRecommendationPlan(calls, onSam(), undefined, false, absence))).toEqual(strip(describeRecommendationPlan(calls, onSam(), undefined, false)));
   });
 });
