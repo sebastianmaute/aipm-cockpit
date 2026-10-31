@@ -682,3 +682,31 @@ describe("only the most recently used sessions keep a cache (follow-up m3)", () 
     expect(redactionCacheUse(again).entries).toBe(1);
   });
 });
+
+// Follow-up m4: near-miss placeholder forms a model may invent are counted as unrestored; the text is left as written.
+describe("placeholder near-misses are counted (follow-up m4)", () => {
+  const session = () => {
+    const s = fresh(dict(["Sofia Ramirez"], ["s@example.com"], ["+49 30 5550101"]));
+    s.redact("Sofia Ramirez, s@example.com, +49 30 5550101, DE89 3704 0044 0532 0130 00");
+    return s;
+  };
+
+  it("brackets with #, - or _, and parentheses or braces, for every kind", () => {
+    const s = session();
+    for (const label of ["Person", "email", "phone", "IBAN"]) {
+      const forms = [`[${label} #1]`, `(${label} 1)`, `[${label}-1]`, `[${label}_1]`, `{${label} 1}`, `( ${label.toLowerCase()} #1 )`];
+      for (const form of forms) {
+        expect(countUnrestoredPlaceholders(`see ${form} today`, s), form).toBe(1);
+        expect(restoreJsonText(JSON.stringify({ text: `see ${form} today` }), s), form).toBe(JSON.stringify({ text: `see ${form} today` }));
+      }
+    }
+  });
+
+  it("prose and mismatched brackets do not count", () => {
+    const s = session();
+    for (const text of ["Person 3 of the team", "phone 2 is broken", "email #4 bounced", "[Person 1)", "(Person 1]", "[Person]", "(see Person 3)"]) {
+      expect(countUnrestoredPlaceholders(text, s), text).toBe(0);
+    }
+    expect(countUnrestoredPlaceholders("[Person 1] and [IBAN 1]", s)).toBe(0);
+  });
+});

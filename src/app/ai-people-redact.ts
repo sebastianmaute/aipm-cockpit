@@ -61,8 +61,12 @@ const LABEL: Record<Kind, string> = { person: "Person", email: "email", phone: "
 const KIND_BY_LABEL: Record<string, Kind> = { person: "person", email: "email", phone: "phone", iban: "iban" };
 /** Case-insensitive: a model may write "[person 1]". */
 const PLACEHOLDER = /\[(person|email|phone|iban) (\d+)\]/gi;
-/** Placeholder-SHAPED: the exact form and the near misses a model may invent ("[Person1]", "[ person 12 ]"). */
-const PLACEHOLDER_LIKE = /\[\s*(?:person|email|phone|iban)\s*\d+\s*\]/gi;
+/** Placeholder-SHAPED: the exact form and the near misses a model may invent: "[Person1]", "[ person 12 ]",
+ *  "[Person #3]", "[Person-3]", "[Person_3]", "(Person 3)", "{Person 3}" (follow-up m4). A matching bracket,
+ *  parenthesis or brace pair is required, so prose such as "Person 3 of the team" never counts. The labels are
+ *  never localised (`LABEL`), so there are no German forms to count. */
+const LIKE_BODY = String.raw`\s*(?:person|email|phone|iban)\s*[#_-]?\s*\d+\s*`;
+const PLACEHOLDER_LIKE = new RegExp(String.raw`\[${LIKE_BODY}\]|\(${LIKE_BODY}\)|\{${LIKE_BODY}\}`, "gi");
 
 const MIN_TOKEN_LENGTH = 3;
 const MIN_PHONE_DIGITS = 7;
