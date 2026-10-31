@@ -8,9 +8,11 @@
 // which diffs against one already-open row — a recommendation is NOT bound
 // to a single item: each call is grounded independently by its OWN `id`.
 import type { Workspace } from "../workspace";
-import { describeEntityCalls, type EditPlan, type ToolUseLike } from "../inline-ai-edit/plan";
+import { describeEntityCalls, type ClashNote, type EditPlan, type ToolUseLike } from "../inline-ai-edit/plan";
+import { carryClashes, type ClashCarry } from "../inline-ai-edit/plan-clashes";
 import type { AbsenceCtx } from "../absence-clash";
-import { INLINE_DESCRIPTORS, type InlineEntity } from "../inline-ai-edit/entity-descriptor";
+import { INLINE_DESCRIPTORS, type EntityDescriptor, type InlineEntity } from "../inline-ai-edit/entity-descriptor";
+import type { Task } from "../types";
 import type { InsightToolCall } from "./insight";
 import { REC_TOOL_INPUT_SCHEMAS, recommendationCallProblem, type RecCallProblemFormat } from "./recommend-schema";
 
@@ -64,6 +66,28 @@ function inputId(input: Readonly<Record<string, unknown>>): number {
   return Number((input as { id?: unknown }).id);
 }
 
+type ClashJudge = (block: ToolUseLike, d: EntityDescriptor, item: RowItem) => ClashNote[];
+
+/** §773 N-1 — the absence clashes of an update call, judged against its row as the plan's EARLIER calls leave
+ *  it (`carryClashes`, keyed by entity and id, as `chat-proposal-turn-clashes.ts` does): an owner change, then
+ *  a due-date move, judges the move with the new owner, and a milestone judges its linked tasks' new owners.
+ *  Confined to clashes: the card's field lines are still described against the stored row. */
+function clashJudge(ws: Workspace, absence: AbsenceCtx): ClashJudge {
+  const changed = new Map<string, ClashCarry>();
+  const clashWs = (): Workspace => {
+    const stored = Array.isArray(ws.tasks) ? ws.tasks : [];
+    const live = stored.map((t) => (changed.get(`task:${t.id}`)?.item as Task | undefined) ?? t);
+    return live.some((t, i) => t !== stored[i]) ? { ...ws, tasks: live } : ws;
+  };
+  return (block, d, item) => {
+    const key = `${d.entity}:${item.id}`;
+    const start: ClashCarry = changed.get(key) ?? { item, ownerChanged: false };
+    const judged = describeEntityCalls([block], { descriptor: d, item: start.item, ws: clashWs(), absence, ownerChanged: start.ownerChanged });
+    if (Number.isFinite(item.id)) changed.set(key, carryClashes(block, judged, d, start, absence));
+    return judged.clashes;
+  };
+}
+
 /** Preview the effect of a recommendation's proposed tool calls against the
  *  live workspace. Each call is grounded independently — an update looks up
  *  its own target row by id (falling back to a not-found sentinel so
@@ -86,6 +110,7 @@ export function describeRecommendationPlan(
   // the caller passes a shape-checked partial, not `as unknown as Workspace`.
   const wsFull = ws as Workspace;
   const merged = emptyPlan();
+  const judgeClashes = absence ? clashJudge(wsFull, absence) : null;
 
   for (const call of calls) {
     // §782 — a call missing an argument its writer requires is shown as
@@ -106,11 +131,11 @@ export function describeRecommendationPlan(
       const rows = wsFull[d.wsKey] as ReadonlyArray<{ id: number }>;
       const id = inputId(call.input);
       const item = (rows.find((r) => r.id === id) ?? { id: NaN }) as unknown as RowItem;
-      const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull, absence });
+      const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull });
       merged.updates.push(...p.updates);
       merged.rejected.push(...p.rejected);
       merged.links.push(...p.links);
-      merged.clashes.push(...p.clashes);
+      merged.clashes.push(...(judgeClashes?.(block, d, item) ?? []));
       continue;
     }
 

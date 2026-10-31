@@ -177,3 +177,68 @@ describe("describeRecommendationPlan — absence clashes", () => {
     expect(plan.clashes).toEqual([]);
   });
 });
+
+// §773 N-1 — a later call on the same row is judged against the row as the earlier calls leave it.
+describe("describeRecommendationPlan — a row changed by two calls (§773 N-1)", () => {
+  const absence = {
+    absences: [{ id: 1, assignee: "Dana Ortiz", type: "vacation", startDate: "2026-09-21", endDate: "2026-09-25" }],
+    resources: [],
+    holidaySet: new Set<string>(),
+  } as unknown as AbsenceCtx;
+  const wsMs = (): Workspace =>
+    ({ ...ws(), milestones: [{ id: 3, name: "Beta", date: "2026-10-30", linkedTaskIds: [12] }] }) as unknown as Workspace;
+
+  test("an owner change, then a due-date move onto the new owner's absence, warns on the move", () => {
+    const plan = describeRecommendationPlan(
+      [
+        { name: "update_task", input: { id: 12, assignee: "Dana Ortiz" } },
+        { name: "update_task", input: { id: 12, dueDate: "2026-09-22" } },
+      ],
+      ws(),
+      undefined,
+      absence,
+    );
+    expect(plan.clashes).toEqual([
+      expect.objectContaining({ entity: "task", id: 12, clash: expect.objectContaining({ person: "Dana Ortiz", date: "2026-09-22" }) }),
+    ]);
+  });
+
+  test("an owner change away from the absent person, then a move into her absence, does not warn about her", () => {
+    const onDana = (): Workspace =>
+      ({ ...ws(), tasks: [{ id: 12, taskName: "T", assignee: "Dana Ortiz", dueDate: "2026-07-01" }] }) as unknown as Workspace;
+    const plan = describeRecommendationPlan(
+      [
+        { name: "update_task", input: { id: 12, assignee: "Sam Lee" } },
+        { name: "update_task", input: { id: 12, dueDate: "2026-09-22" } },
+      ],
+      onDana(),
+      undefined,
+      absence,
+    );
+    expect(plan.clashes).toEqual([]);
+  });
+
+  test("a milestone moved after its linked task changed owner judges the new owner", () => {
+    const plan = describeRecommendationPlan(
+      [
+        { name: "update_task", input: { id: 12, assignee: "Dana Ortiz" } },
+        { name: "update_milestone", input: { id: 3, date: "2026-09-23" } },
+      ],
+      wsMs(),
+      undefined,
+      absence,
+    );
+    expect(plan.clashes).toEqual([
+      expect.objectContaining({ entity: "milestone", id: 3, clash: expect.objectContaining({ person: "Dana Ortiz", date: "2026-09-23" }) }),
+    ]);
+  });
+
+  test("the card's field lines are still described against the stored row", () => {
+    const calls = [
+      { name: "update_task", input: { id: 12, assignee: "Dana Ortiz" } },
+      { name: "update_task", input: { id: 12, dueDate: "2026-09-22" } },
+    ];
+    const strip = (p: ReturnType<typeof describeRecommendationPlan>) => ({ ...p, clashes: [] });
+    expect(strip(describeRecommendationPlan(calls, ws(), undefined, absence))).toEqual(strip(describeRecommendationPlan(calls, ws())));
+  });
+});
