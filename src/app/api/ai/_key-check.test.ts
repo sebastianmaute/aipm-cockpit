@@ -6,7 +6,13 @@
 import { Readable } from "node:stream";
 import type { RequestOptions } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createKeyChecker, KEY_CHECK_TIMEOUT_MS, MAX_PREFLIGHTS_IN_FLIGHT, type KeyVerdict } from "./_key-check";
+import {
+  createKeyChecker,
+  KEY_CHECK_DEADLINE_MS,
+  KEY_CHECK_TIMEOUT_MS,
+  MAX_PREFLIGHTS_IN_FLIGHT,
+  type KeyVerdict,
+} from "./_key-check";
 import type { RelaySend, UpstreamResponse } from "./_relay";
 import type { AiKeyRestriction } from "../../ai-key-restriction-config";
 
@@ -262,6 +268,100 @@ describe("createKeyChecker — fails closed: unavailable, never cached", () => {
     const { send, calls } = fakeSend((call) => call.fire("timeout"));
     await createKeyChecker().check(KEY, ORG_ONLY, ANTHROPIC, send);
     expect(calls[0].destroyed).toBe(true);
+  });
+});
+
+describe("createKeyChecker — an overall deadline per pre-flight", () => {
+  // Only the timer functions are faked: the fake send's queueMicrotask and the streams' nextTick stay real.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A 401 whose body arrives one byte every 5 seconds and never ends: each byte would reset an idle timeout. */
+  function trickle(): { onEnd: (call: Call) => void; stop: () => void } {
+    let timer: ReturnType<typeof setInterval> | undefined;
+    let body: Readable | undefined;
+    return {
+      onEnd: (call) => {
+        body = new Readable({ read() {} });
+        timer = setInterval(() => body?.push("x"), 5000);
+        call.respond(Object.assign(body, { statusCode: 401, headers: { "content-type": "application/json" } }));
+      },
+      stop: () => {
+        clearInterval(timer);
+        body?.destroy();
+      },
+    };
+  }
+
+  it("is 30 seconds by default", () => {
+    expect(KEY_CHECK_DEADLINE_MS).toBe(30_000);
+  });
+
+  it("an upstream that trickles bytes forever → unavailable at the deadline, destroyed, not cached, its slot freed", async () => {
+    const { onEnd, stop } = trickle();
+    const { send, calls } = fakeSend(onEnd);
+    const checker = createKeyChecker({ maxPreflightsInFlight: 1 });
+    try {
+      let verdict: KeyVerdict | null = null;
+      void checker.check(KEY, ORG_ONLY, ANTHROPIC, send).then((v) => {
+        verdict = v;
+      });
+      await vi.advanceTimersByTimeAsync(KEY_CHECK_DEADLINE_MS - 1);
+      expect(verdict).toBeNull();
+      expect(calls[0].destroyed).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(verdict).toEqual({ kind: "unavailable" });
+      expect(calls[0].destroyed).toBe(true);
+      expect(checker.size()).toBe(0);
+    } finally {
+      stop();
+    }
+    const fresh = fakeSend(org(ORG));
+    expect(await checker.check(OTHER_KEY, ORG_ONLY, ANTHROPIC, fresh.send)).toEqual({ kind: "pass" });
+    expect(fresh.calls).toHaveLength(1);
+  });
+
+  it("the deadline is injectable", async () => {
+    const { onEnd, stop } = trickle();
+    const checker = createKeyChecker({ deadlineMs: 1000 });
+    try {
+      const pending = checker.check(KEY, ORG_ONLY, ANTHROPIC, fakeSend(onEnd).send);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(await pending).toEqual({ kind: "unavailable" });
+    } finally {
+      stop();
+    }
+  });
+
+  it("a settled check leaves no timer running, and the deadline never overrides its verdict", async () => {
+    const baseline = vi.getTimerCount();
+    const pending: Call[] = [];
+    const { send } = fakeSend((call) => pending.push(call));
+    const checker = createKeyChecker();
+    const check = checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    await vi.waitFor(() => expect(pending).toHaveLength(1));
+    // The deadline runs while the pre-flight is in flight …
+    expect(vi.getTimerCount()).toBe(baseline + 1);
+    org(ORG)(pending[0]);
+    expect(await check).toEqual({ kind: "pass" });
+    // … and is cleared once the verdict is settled.
+    expect(vi.getTimerCount()).toBe(baseline);
+    await vi.advanceTimersByTimeAsync(KEY_CHECK_DEADLINE_MS);
+    expect(await checker.check(KEY, ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "pass" });
+    expect(pending).toHaveLength(1);
+  });
+
+  it("a send that throws leaves no timer running", async () => {
+    const baseline = vi.getTimerCount();
+    const throwing: RelaySend = () => {
+      throw new Error("bad header");
+    };
+    expect(await createKeyChecker().check(KEY, ORG_ONLY, ANTHROPIC, throwing)).toEqual({ kind: "unavailable" });
+    expect(vi.getTimerCount()).toBe(baseline);
   });
 });
 

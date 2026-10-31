@@ -432,7 +432,8 @@ which owns that list.
      is forwarded; it is not cached, and users see that the key could not be checked
      and should try again, in Settings → AI and in the feature that failed. That covers
      any other answer than `2xx`, `401` or `403` (a `3xx`, `404`, `429` or `5xx`
-     among them), a network error, a timeout (30 seconds), and a `2xx` that lacks the
+     among them), a network error, a check not finished within 30 seconds in all
+     (an upstream that keeps sending data slowly does not extend it), and a `2xx` that lacks the
      organisation header or carries an empty or repeated header. It also covers a
      server that is already running 32 checks for other keys: a new key's check is not
      sent then, and its user sees the same "could not be checked, try again".

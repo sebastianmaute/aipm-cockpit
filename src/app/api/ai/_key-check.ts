@@ -12,8 +12,9 @@
 //   - Anthropic's own 401/403 → its answer is passed through unchanged (an invalid key is not
 //     a policy verdict). The 401 is remembered for `rejectedTtlMs` (60 s) so repeated calls with
 //     one invalid key do not each send a pre-flight; the 403 never is;
-//   - anything else (network error, timeout, 3xx, 404, 429, 5xx, a 2xx without the organisation
-//     header, or with an empty or repeated header) → unavailable, and the caller forwards nothing.
+//   - anything else (network error, idle timeout, the overall `deadlineMs` passing, 3xx, 404, 429,
+//     5xx, a 2xx without the organisation header, or with an empty or repeated header) →
+//     unavailable, and the caller forwards nothing.
 //     Fails closed. So is a new pre-flight asked for while `MAX_PREFLIGHTS_IN_FLIGHT` distinct ones
 //     are already running: it is not sent.
 //
@@ -64,6 +65,10 @@ export const KEY_CHECK_DEFAULT_REJECTED_TTL_MS = 60 * 1000;
 export const MAX_PREFLIGHTS_IN_FLIGHT = 32;
 // Idle timeout on the pre-flight's socket: past it the check is unavailable.
 export const KEY_CHECK_TIMEOUT_MS = 30 * 1000;
+// Overall limit on one pre-flight, from send to verdict, however much data keeps arriving: an
+// upstream that trickles bytes would otherwise reset the idle timeout forever and hold a slot.
+// Past it the request is destroyed and the check is unavailable (never cached).
+export const KEY_CHECK_DEADLINE_MS = 30_000;
 // Used only when the browser sent no `anthropic-version` (the app always sends one).
 const DEFAULT_ANTHROPIC_VERSION = "2023-06-01";
 
@@ -152,20 +157,29 @@ function preflight(
   upstream: Upstream,
   send: RelaySend,
   anthropicVersion: string,
+  deadlineMs: number,
 ): Promise<Finding> {
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (finding: Finding) => {
+    let request: UpstreamRequest | null = null;
+    // Every exit goes through `finish`, which clears the deadline: a settled check leaves no timer.
+    const deadline = setTimeout(() => {
+      request?.destroy();
+      finish(UNAVAILABLE);
+    }, deadlineMs);
+    // Never keeps the server process alive on its own.
+    deadline.unref?.();
+    function finish(finding: Finding) {
       if (settled) return;
       settled = true;
+      clearTimeout(deadline);
       resolve(finding);
-    };
+    }
     const headers: Record<string, string> = { "x-api-key": key, "anthropic-version": anthropicVersion };
     if (upstream.token) headers["cf-aig-authorization"] = `Bearer ${upstream.token}`;
     // Any upstream other than Anthropic itself is a gateway: never answer the check from its cache.
     if (upstream.token || upstream.baseUrl !== ANTHROPIC_API_BASE) headers["cf-aig-skip-cache"] = "true";
     const options: RequestOptions = { method: "GET", headers, timeout: KEY_CHECK_TIMEOUT_MS };
-    let request: UpstreamRequest | null = null;
     try {
       request = send(new URL(`${upstream.baseUrl}/v1/models?limit=1`), options, (res) => {
         findingFrom(res, request, restriction, upstream).then(finish, () => {
@@ -221,6 +235,7 @@ export function createKeyChecker(
     refusalTtlMs?: number;
     rejectedTtlMs?: number;
     maxPreflightsInFlight?: number;
+    deadlineMs?: number;
     now?: () => number;
   } = {},
 ): KeyChecker {
@@ -228,6 +243,7 @@ export function createKeyChecker(
   const refusalTtlMs = opts.refusalTtlMs ?? KEY_CHECK_DEFAULT_REFUSAL_TTL_MS;
   const rejectedTtlMs = opts.rejectedTtlMs ?? KEY_CHECK_DEFAULT_REJECTED_TTL_MS;
   const maxPreflightsInFlight = opts.maxPreflightsInFlight ?? MAX_PREFLIGHTS_IN_FLIGHT;
+  const deadlineMs = opts.deadlineMs ?? KEY_CHECK_DEADLINE_MS;
   const now = opts.now ?? Date.now;
   // Map order is recency order: the first entry is the least recently used, and a hit moves its
   // entry to the end, so eviction drops the entry unused for longest.
@@ -283,7 +299,7 @@ export function createKeyChecker(
         // No slot free: nothing is sent and nothing is cached; the caller may try again.
         if (inFlight.size >= maxPreflightsInFlight) return { kind: "unavailable" };
         const forSignature = restriction.signature;
-        flight = preflight(key, restriction, upstream, send, anthropicVersion)
+        flight = preflight(key, restriction, upstream, send, anthropicVersion, deadlineMs)
           .then(
             (finding) => {
               remember(hash, finding, forSignature);
