@@ -111,6 +111,10 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
     const controller = new AbortController();
     abortRef.current = controller;
     isRunningRef.current = true;
+    // The candidates were read from the project in scope NOW. A swap after this point (during an
+    // earlier candidate whose failure the catch below swallows) makes every remaining candidate the
+    // previous project's insight — sending it would apply the NEW project's privacy to it.
+    const tickEpoch = getScopeEpochRef.current?.();
     try {
       // Serial, not parallel — bounded by MAX_BG_RECS_PER_TICK candidates, and
       // a global failure (usage limit / auth) should stop the whole tick
@@ -124,6 +128,8 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
         // AI-01: `enabled` is also the background-consent gate. A flip to false while an earlier candidate
         // is in flight must stop the REST of this tick, not just the next one.
         if (!enabledRef.current) break;
+        // AI people protection (final review F2): checked BEFORE the send, against the tick's epoch.
+        if (dropStaleScopeWrite(getScopeEpochRef.current, tickEpoch, "useInsightRecommendRunner", { insightId: insight.id })) break;
         // §548 — per CANDIDATE, not per tick: the calls are serial, so a swap between two of them
         // must drop only the one it invalidates.
         const startEpoch = getScopeEpochRef.current?.();
