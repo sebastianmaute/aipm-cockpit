@@ -583,10 +583,19 @@ describe("relay — straight to Anthropic when keys are restricted and there is 
     expect((calls[0].options.headers as Record<string, string>)["cf-aig-authorization"]).toBe(`Bearer ${TOKEN}`);
   });
 
+  it("a valid gateway beside an invalid restriction → 503 ai-gateway-invalid, nothing sent", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", { ...GATEWAY_ENV, AIPM_AI_ORGANIZATION_ID: "not-an-id" }, send);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "ai-gateway-invalid" });
+    expect(calls).toHaveLength(0);
+  });
+
   it("an invalid gateway URL wins over a valid restriction: 503, nothing sent", async () => {
     const { send, calls } = fakeSend();
     const res = await relay(post(), "messages", { AIPM_AI_GATEWAY_URL: "http://insecure.example.com", ...RESTRICTED_ENV }, send);
     expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "ai-gateway-invalid" });
     expect(calls).toHaveLength(0);
   });
 
