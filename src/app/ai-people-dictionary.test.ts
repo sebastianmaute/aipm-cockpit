@@ -218,6 +218,30 @@ describe("person-field coverage pin (R2)", () => {
 // Review 2, finding D: a one-word role or team typed into a person field ("QA", "Vendor", "Kunde") is not a
 // person, so it is not redacted everywhere it appears — but a one-word first name ("Max") is, and a role word
 // that IS the name of a known resource or stakeholder stays a person.
+// Review 5, S2: a pronoun or quantifier typed as an assignee ("me", "ich", "alle") used to become a lower-case one-word
+// name, which the redactor matches in ANY case, so the word was redacted everywhere. They mean nobody in particular.
+describe("pronouns and quantifiers in person fields (review 5, S2)", () => {
+  const PRONOUNS = [
+    "me", "myself", "self", "I", "you", "we", "us", "all", "everyone", "everybody", "nobody", "anyone", "someone",
+    "ich", "mich", "mir", "du", "wir", "uns", "alle", "jeder", "jede", "niemand", "jemand", "selbst", "selber",
+  ];
+
+  it.each(PRONOUNS)("%s as an assignee is not in the dictionary", (value) => {
+    const ws: Workspace = { ...emptyWorkspace(), tasks: [task({ id: 1, assignee: value }), task({ id: 2, assignee: value.toUpperCase() })] };
+    expect(buildPeopleDictionary(ws).names).toEqual([]);
+  });
+
+  it("me, ich and alle stay in the text; a real one-word name beside them is still redacted", () => {
+    const ws: Workspace = {
+      ...emptyWorkspace(),
+      tasks: [task({ id: 1, assignee: "me" }), task({ id: 2, assignee: "ich" }), task({ id: 3, assignee: "alle" }), task({ id: 4, assignee: "Quorra" })],
+    };
+    expect(buildPeopleDictionary(ws).names).toEqual(["Quorra"]);
+    const s = redactionSessionFor(["s2-pronouns"], [buildPeopleDictionary(ws)]);
+    expect(s.redact("Tell me; ich frage alle; Quorra knows")).toBe("Tell me; ich frage alle; [Person 1] knows");
+  });
+});
+
 describe("role and team values in person fields (review 2, D)", () => {
   const redactWith = (ws: Workspace, text: string) => redactionSessionFor([`d-${++dKey}`], [buildPeopleDictionary(ws)]).redact(text);
   let dKey = 0;

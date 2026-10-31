@@ -102,11 +102,15 @@ export const NOT_PERSON_FIELDS: Readonly<Record<string, string>> = {
   "documentAssets[].name": "an uploaded image's file name",
 };
 
-/** Values typed into a person field that mean "nobody yet" (EN + DE). Compared
- *  lower-cased, before and after cleaning. */
+/** Values typed into a person field that mean "nobody yet" (EN + DE), and pronouns and quantifiers that name nobody
+ *  in particular ("me", "ich", "alle"). Compared lower-cased against the WHOLE value, before and after cleaning, so
+ *  "Alle Bauer" stays a name. Review 5, S2: without the second group, an assignee "me" became a lower-case one-word
+ *  name, which the redactor matches in any case, so the word was redacted wherever it appeared. */
 const NON_PERSON_VALUES: ReadonlySet<string> = new Set([
   "tbd", "tbc", "tba", "n/a", "na", "none", "unassigned", "unknown", "n.n.", "n.n", "-", "?",
   "offen", "keine", "niemand",
+  "me", "myself", "self", "i", "you", "we", "us", "all", "everyone", "everybody", "nobody", "anyone", "someone",
+  "ich", "mich", "mir", "du", "wir", "uns", "alle", "jeder", "jede", "jemand", "selbst", "selber",
 ]);
 
 /** One-word roles and teams typed into a person field (EN + DE): "QA" as an assignee, "Kunde" as an owner.
