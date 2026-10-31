@@ -1,5 +1,6 @@
 import type { Route } from "@playwright/test";
 import { test, expect, gotoApp, openView } from "./seed";
+import { AI_DISCLOSURE_VERSION } from "../src/app/ai-consent";
 
 // The eye-check KIT for "Optimize with AI" (§3). It opens the preview over the
 // seeded Open Points against a MOCKED Anthropic API (`page.route`, the way
@@ -47,7 +48,7 @@ const PROPOSAL = {
 };
 
 test("the Optimize with AI preview, as proposed and with a link disabled", async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((disclosureVersion: number) => {
     localStorage.setItem(
       "aipm-cockpit:settings",
       JSON.stringify({
@@ -55,12 +56,12 @@ test("the Optimize with AI preview, as proposed and with a link disabled", async
         ai: {
           enabled: true,
           apiKey: "sk-ant-e2e-mocked-key-not-real-0000",
-          consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 1 },
+          consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: disclosureVersion },
           groundInGuides: false,
         },
       }),
     );
-  });
+  }, AI_DISCLOSURE_VERSION);
 
   const forcedTools: string[] = [];
   const unexpected: string[] = [];

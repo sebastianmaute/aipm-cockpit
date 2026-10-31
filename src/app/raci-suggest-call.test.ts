@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("./ai-forced-call", () => ({ runForcedToolCallWithRetry: vi.fn() }));
 import { runForcedToolCallWithRetry } from "./ai-forced-call";
 import { runRaciSuggestion } from "./raci-suggest-call";
+import { aiPrivacyFor } from "./ai-privacy";
+
+/** These tests are about the call mechanics, not people: a request for no project (unprotected). */
+const UNPROTECTED = aiPrivacyFor([]);
 
 describe("runRaciSuggestion", () => {
   it("forces propose_raci and returns the parsed proposal", async () => {
@@ -12,7 +16,7 @@ describe("runRaciSuggestion", () => {
     });
     const out = await runRaciSuggestion(
       { text: "ctx", truncated: false },
-      { apiKey: "sk-ant-x", model: "claude-opus-5" },
+      { apiKey: "sk-ant-x", privacy: UNPROTECTED, model: "claude-opus-5" },
     );
     expect(vi.mocked(runForcedToolCallWithRetry).mock.calls[0][0].toolName).toBe("propose_raci");
     expect(out.cells).toHaveLength(1);
@@ -20,7 +24,7 @@ describe("runRaciSuggestion", () => {
 
   it("never puts the api key in the request body", async () => {
     vi.mocked(runForcedToolCallWithRetry).mockResolvedValue({ input: { cells: [] }, stopReason: "tool_use" });
-    await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "sk-ant-secret", model: "m" });
+    await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "sk-ant-secret", privacy: UNPROTECTED, model: "m" });
     const args = vi.mocked(runForcedToolCallWithRetry).mock.calls[0][0];
     expect(JSON.stringify(args.messages)).not.toContain("sk-ant-secret");
     expect(JSON.stringify(args.system ?? "")).not.toContain("sk-ant-secret");
@@ -28,7 +32,7 @@ describe("runRaciSuggestion", () => {
 
   it("asks for a reply cut at 4096 once more at 8192 (§764)", async () => {
     vi.mocked(runForcedToolCallWithRetry).mockResolvedValue({ input: { cells: [] }, stopReason: "tool_use" });
-    await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", model: "m" });
+    await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", privacy: UNPROTECTED, model: "m" });
     const [args, retry] = vi.mocked(runForcedToolCallWithRetry).mock.calls.at(-1)!;
     expect([args.maxTokens, retry]).toEqual([4096, 8192]);
   });
@@ -38,7 +42,7 @@ describe("runRaciSuggestion", () => {
       input: { cells: [{ stakeholderId: 1, milestoneId: 10, role: "A" }] },
       stopReason: "max_tokens",
     });
-    await expect(runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", model: "m" })).rejects.toThrow(/^parse$/);
+    await expect(runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", privacy: UNPROTECTED, model: "m" })).rejects.toThrow(/^parse$/);
   });
 });
 
@@ -46,7 +50,7 @@ describe("runRaciSuggestion", () => {
 describe("runRaciSuggestion guide text", () => {
   it("passes guideText through to the forced call", async () => {
     vi.mocked(runForcedToolCallWithRetry).mockResolvedValue({ input: { cells: [] }, stopReason: "tool_use" });
-    await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", model: "m", guideText: "GUIDE-MARK" });
+    await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", privacy: UNPROTECTED, model: "m", guideText: "GUIDE-MARK" });
     expect(vi.mocked(runForcedToolCallWithRetry).mock.calls.at(-1)![0].guideText).toBe("GUIDE-MARK");
   });
 });

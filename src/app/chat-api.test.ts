@@ -20,6 +20,7 @@ import {
 import { historySearchEnabled } from "./settings-types";
 import type { ToolDispatcher } from "./chat-tools";
 import { RECAP_WINDOW_DAYS } from "./history-search";
+import { BUILTIN_FEATURE_GUIDES, BUILTIN_GUIDE_CONTENT } from "./operating-guide-builtin.generated";
 
 type Snapshot = ReturnType<ToolDispatcher["getSnapshot"]>;
 
@@ -34,6 +35,23 @@ const snapshotFixture = (over: Partial<Snapshot> = {}): Snapshot => ({
   currentView: "chat",
   timezone: asTimeZoneForTests("UTC"),
   ...over,
+});
+
+// Review 4, M4: a model-facing example never names a numbered placeholder. "[Person 1]" in an instruction is a
+// placeholder the transport restores in a reply that quotes it, and reads to the model like a real person.
+const NUMBERED_PLACEHOLDER = /\[(person|email|phone|iban) \d+\]/i;
+describe("model-facing text names no numbered placeholder (review 4, M4)", () => {
+  it("the protected chat prompt says [Person N]", () => {
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({}), [], false, { peopleProtected: true });
+    const text = blocks.map((b) => b.text).join("\n");
+    expect(text).toContain("[Person N]");
+    expect(text).not.toMatch(NUMBERED_PLACEHOLDER);
+  });
+
+  it("the built-in guides the chat is grounded in", () => {
+    const texts = [BUILTIN_GUIDE_CONTENT, ...BUILTIN_FEATURE_GUIDES.map((g) => g.content)];
+    expect(texts.filter((t) => NUMBERED_PLACEHOLDER.test(t))).toEqual([]);
+  });
 });
 
 describe("buildSystemPrompt — the activity recap block", () => {
@@ -471,7 +489,7 @@ describe("callClaude", () => {
       }),
     });
     vi.stubGlobal("fetch", fetchMock);
-    const res = await callClaude("k", "claude-sonnet-5", [], [], {});
+    const res = await callClaude("k", "claude-sonnet-5", [], [], {}, { protected: false });
     expect(res.usage.cache_creation_input_tokens).toBe(700);
     expect(res.usage.cache_read_input_tokens).toBe(6000);
   });
@@ -486,7 +504,7 @@ describe("callClaude", () => {
       }),
     });
     vi.stubGlobal("fetch", fetchMock);
-    const res = await callClaude("k", "claude-sonnet-5", [], [], {});
+    const res = await callClaude("k", "claude-sonnet-5", [], [], {}, { protected: false });
     expect(res.usage.cache_creation_input_tokens).toBe(0);
     expect(res.usage.cache_read_input_tokens).toBe(0);
   });
@@ -512,23 +530,23 @@ describe("callClaude — §650 reports the key verdict at the envelope", () => {
     [403, "forbidden"],
   ] as const)("a %i reports %s", async (status, expected) => {
     stubStatus(status);
-    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiHttpError);
+    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {}, { protected: false })).rejects.toBeInstanceOf(AiHttpError);
     expect(getAiKeyStatus()).toBe(expected);
   });
 
   it("a 200 reports ok", async () => {
     stubStatus(401);
-    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiHttpError);
+    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {}, { protected: false })).rejects.toBeInstanceOf(AiHttpError);
     stubStatus(200);
-    await callClaude(KEY, "claude-sonnet-5", [], [], {});
+    await callClaude(KEY, "claude-sonnet-5", [], [], {}, { protected: false });
     expect(getAiKeyStatus()).toBe("ok");
   });
 
   it("a network failure leaves the verdict unchanged", async () => {
     stubStatus(401);
-    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiHttpError);
+    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {}, { protected: false })).rejects.toBeInstanceOf(AiHttpError);
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
-    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(TypeError);
+    await expect(callClaude(KEY, "claude-sonnet-5", [], [], {}, { protected: false })).rejects.toBeInstanceOf(TypeError);
     expect(getAiKeyStatus()).toBe("rejected");
   });
 });
@@ -549,7 +567,7 @@ describe("callClaude — the consent gate (AI-01)", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     publishAiConsentState({ ...defaultAiConfig, consent: undefined });
-    await expect(callClaude("k", "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiConsentRevokedError);
+    await expect(callClaude("k", "claude-sonnet-5", [], [], {}, { protected: false })).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -560,8 +578,8 @@ describe("callClaude — the consent gate (AI-01)", () => {
       return { ok: true, json: async () => ({ content: [{ type: "text", text: "hi" }], stop_reason: "tool_use" }) };
     });
     vi.stubGlobal("fetch", fetchMock);
-    await callClaude("k", "claude-sonnet-5", [], [], {});
-    await expect(callClaude("k", "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiConsentRevokedError);
+    await callClaude("k", "claude-sonnet-5", [], [], {}, { protected: false });
+    await expect(callClaude("k", "claude-sonnet-5", [], [], {}, { protected: false })).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -572,7 +590,7 @@ describe("callClaude — the consent gate (AI-01)", () => {
       publishAiConsentState({ ...defaultAiConfig, consent: undefined });
       return aiStatusResponse();
     });
-    await expect(callClaude("k", "claude-sonnet-5", [], [], {})).rejects.toBeInstanceOf(AiConsentRevokedError);
+    await expect(callClaude("k", "claude-sonnet-5", [], [], {}, { protected: false })).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 // src/app/settings-view.test.tsx
 import React from "react";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render as rtlRender, screen, fireEvent, within, type RenderOptions } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsView } from "./settings-view";
 import { defaultSettings, defaultIntegrations, defaultTursoIntegrations } from "./settings-types";
@@ -8,6 +8,9 @@ import { t } from "./i18n";
 import { TextButton } from "./text-button";
 import { primitiveClassFor } from "../test/primitive-class";
 import { TestProviders } from "./test-providers";
+
+// The AI section now carries the per-project people-protection control, which reads the workspace.
+const render = (ui: React.ReactElement, options?: RenderOptions) => rtlRender(ui, { wrapper: TestProviders, ...options });
 
 vi.mock("./jira-settings", () => ({ JiraSettingsSection: () => <div>jira-stub</div> }));
 vi.mock("./storage-config", () => ({ StorageConfigSection: () => <div>storage-stub</div> }));

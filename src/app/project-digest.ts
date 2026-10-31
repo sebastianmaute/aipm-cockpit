@@ -37,6 +37,8 @@ export interface ProjectDigestInput {
   budget?: { currency: string; planned: number; actual: number; forecast?: number };
   queue: readonly { title: string; why: string; tier: "now" | "soon" | "monitor" }[];
   instruction?: string;
+  /** AI people protection (layer 1): the project protects its people, so no Stakeholders section. */
+  peopleProtected?: boolean;
 }
 
 const clip = (s: string): string => s.replace(/\s+/g, " ").trim().slice(0, TITLE_MAX_CHARS);
@@ -143,7 +145,7 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
     ...(on("raid") ? ["", "## Active RAID", ...capLines(raidLines(input.raid, input.today))] : []),
     ...(on("milestones") ? ["", "## Upcoming milestones", ...capLines(milestoneLines(input.milestones, input.today))] : []),
     ...(on("changes") ? ["", "## Pending changes", ...capLines(changeLines(input.changes))] : []),
-    ...(on("stakeholders") ? ["", "## Stakeholders", ...capLines(stakeholderLines(input.stakeholders))] : []),
+    ...(on("stakeholders") && input.peopleProtected !== true ? ["", "## Stakeholders", ...capLines(stakeholderLines(input.stakeholders))] : []),
   ];
   const tail = instruction ? `\n\n## Job instruction\n${instruction}` : "";
   const fitted = fitLines(body, Math.max(0, maxChars - tail.length));

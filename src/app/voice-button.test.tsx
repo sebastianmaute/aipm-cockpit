@@ -3,6 +3,10 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { VoiceCommandButton } from "./voice-button";
 import { t } from "./i18n";
 
+// AI people protection: this file tests the button, not the protection (`voice-button.people.test.tsx`). Outside
+// the privacy provider the button fails closed, so the people gate answers "not protected" here.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
+
 // The real module reads `window.SpeechRecognition`, which jsdom does not
 // provide — unmocked, the button renders permanently unsupported and the
 // listening state is unreachable, so every assertion below would be vacuous.

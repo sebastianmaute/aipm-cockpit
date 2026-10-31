@@ -3,7 +3,18 @@
 // undo matters, the stack is the REAL useUndoStack — so apply, the apply-time
 // re-ground and undo are exercised end to end, not against spies.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+// Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
+// AI people protection, Task 6: one describe flips `people.on` (one stable getter, as the real one is).
+const people = vi.hoisted(() => {
+  const state = { on: false };
+  return { state, get: () => state.on };
+});
+vi.mock("./ai-privacy-context", async () => ({
+  ...(await import("../test/ai-privacy-unprotected")),
+  useOpenProjectPeopleProtected: () => people.get,
+}));
 import { newConsent } from "./ai-consent";
+import { aiPrivacyFor } from "./ai-privacy";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { AiHttpError } from "./ai-errors";
@@ -219,7 +230,15 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     // The call got the user's instruction and a context marking the scope.
     const [context, creds, instruction, signal] = vi.mocked(call.runWbsProposal).mock.calls[0];
     expect(instruction).toBe("split anything over 3 days");
-    expect(creds).toEqual({ apiKey: "sk-ant-test", model: "claude-x", guideText: "" });
+    // The privacy carries an `ifForced` builder, a function a fresh `aiPrivacyFor([])` would not share by identity,
+    // so it is checked by shape and by what it builds (review 5, C3); every other field stays exact.
+    const { privacy, ...stable } = creds;
+    expect(stable).toEqual({ apiKey: "sk-ant-test", model: "claude-x", guideText: "" });
+    expect(privacy).toEqual({ protected: false, ifForced: expect.any(Function) });
+    const expected = aiPrivacyFor([]);
+    if (privacy.protected || expected.protected) throw new Error("expected the unprotected privacy of no project");
+    expect(privacy.ifForced?.()).toMatchObject({ protected: true, refuseUnredactable: true });
+    expect(privacy.ifForced?.().session).toBe(expected.ifForced?.().session);
     expect(context).toContain("#1 [in scope]");
     expect(signal).toBeInstanceOf(AbortSignal);
 
@@ -964,5 +983,36 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     renderHarness();
     await proposeFromButton();
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", "wbsPlanError")));
+  });
+});
+
+// AI people protection, Task 6 (R4): a new task the model proposed with an assignee is previewed and
+// applied unassigned when the project protects its people.
+describe("new-task assignees under people protection", () => {
+  afterEach(() => { people.state.on = false; });
+
+  async function applyOneNewTask(peopleProtected: boolean) {
+    people.state.on = peopleProtected;
+    vi.mocked(call.runWbsProposal).mockResolvedValue(
+      proposal([{ kind: "newTask", ref: "n1", taskName: "Write docs", dueDate: "2026-11-15", assignee: "Zelda Quartz", why: "missing" }]),
+    );
+    const api = renderHarness();
+    await proposeFromButton();
+    await screen.findAllByRole("checkbox", { name: /include this change/i });
+    const previewShowsAssignee = screen.queryAllByText(/Zelda Quartz/).length > 0;
+    fireEvent.click(screen.getByRole("button", { name: tPlural("en-US", "wbsPlanApply", 1, 1) }));
+    return { previewShowsAssignee, created: api().ws.tasks.find((x) => x.taskName === "Write docs")! };
+  }
+
+  it("previews and creates the task without the model's assignee", async () => {
+    const { previewShowsAssignee, created } = await applyOneNewTask(true);
+    expect(previewShowsAssignee).toBe(false);
+    expect(created.assignee).toBe("");
+  });
+
+  it("protection off: the assignee is previewed and applied (positive control)", async () => {
+    const { previewShowsAssignee, created } = await applyOneNewTask(false);
+    expect(previewShowsAssignee).toBe(true);
+    expect(created.assignee).toBe("Zelda Quartz");
   });
 });

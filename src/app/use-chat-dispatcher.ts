@@ -27,6 +27,7 @@ import { withReassignFields } from "./person-reassign";
 import { resolveDependencyWrite } from "./task-dependency-write";
 import { useFilters } from "./filters-context";
 import { t, type Lang } from "./i18n";
+import { useOpenProjectPeopleProtected } from "./ai-privacy-context";
 import { applyTaskPatch, setBlockersText, type BlockerActor } from "./blocker-log";
 import {
   sanitizeAssignee,
@@ -395,6 +396,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // the type system and is NOT uniform across kinds — read `logActivityAs` on
   // `ChatDispatcherArgs` before adding or editing one.
 
+  // AI people protection: a STABLE getter over the open project's live setting (the transport's own source).
+  const peopleProtectedNow = useOpenProjectPeopleProtected();
+
   const dispatcher = useMemo<ToolDispatcher>(
     () => ({
       ...documentTools,
@@ -421,7 +425,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const assignee = sanitizeAssignee(input.assignee);
         const dueDate = sanitizeIsoDate(input.dueDate);
         if (!taskName) throw new Error("taskName is required");
-        if (!assignee) throw new Error("assignee is required");
+        // AI people protection (R4): `runTool` stripped the assignee, so the task is created unassigned.
+        if (!assignee && !peopleProtectedNow()) throw new Error("assignee is required");
         if (!dueDate) throw new Error("dueDate must be YYYY-MM-DD");
         const email = sanitizeLoadedEmail(input.assigneeEmail); // ★ M1: the unwrapped address, as every AI email write stores
         refuseEmailWrite("assigneeEmail", email, undefined);
@@ -1074,6 +1079,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       // ★ LIVE from the ref, never captured — a value snapshotted at construction would
       //   keep serving for the whole session, the exact mid-conversation case §162 is about.
       isHistorySearchEnabled: () => historySearchEnabled(settingsRef.current.ai.historySearch),
+      // ★ LIVE, like the line above: the getter reads the project's setting at call time.
+      isPeopleProtected: peopleProtectedNow,
       ...chatBindings.tools,
 
       ...forecastTools,
@@ -1124,7 +1131,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // ★ `forecastTools` is the same shape again: a useMemo'd object spread in, and read by `getSnapshot`; so is
     // `projectTools`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly, documentTools, registerTools, forecastTools, projectTools, setRaid, setAbsences, setShifts, setStakeholders, setProject, setFeatures],
+    [args.isReadOnly, documentTools, registerTools, forecastTools, projectTools, setRaid, setAbsences, setShifts, setStakeholders, setProject, setFeatures, peopleProtectedNow],
   );
 
   return dispatcher;

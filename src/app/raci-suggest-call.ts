@@ -1,6 +1,7 @@
 // ONE forced tool call for "Suggest RACI". Mirrors task-dedup-call.ts: no
 // agentic loop, and the api key goes to the shared never-log envelope only —
 // it is a request HEADER there and is never logged or echoed.
+import type { AiPrivacy } from "./ai-privacy";
 import { runForcedToolCallWithRetry } from "./ai-forced-call";
 import {
   parseRaciProposal,
@@ -20,11 +21,12 @@ const SYSTEM =
 
 export async function runRaciSuggestion(
   context: { text: string; truncated: boolean },
-  ai: { apiKey: string; model: string; guideText?: string },
+  ai: { apiKey: string; model: string; guideText?: string; privacy: AiPrivacy },
   signal?: AbortSignal,
 ): Promise<{ cells: ProposedCell[]; truncated: boolean }> {
   const reply = await runForcedToolCallWithRetry({
     apiKey: ai.apiKey,
+    privacy: ai.privacy,
     model: ai.model,
     system: SYSTEM,
     guideText: ai.guideText,

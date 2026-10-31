@@ -53,7 +53,7 @@ function fakeDispatcher(initial: ProjectMeta) {
     live = next;
     return next;
   });
-  const d = { getProjectMeta: () => live, updateProjectMeta } as unknown as ToolDispatcher;
+  const d = { getProjectMeta: () => live, updateProjectMeta, isPeopleProtected: () => false } as unknown as ToolDispatcher;
   return { d, updateProjectMeta, setLive: (m: ProjectMeta) => { live = m; } };
 }
 

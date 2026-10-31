@@ -16,6 +16,7 @@ import { sanitizeRichHtml } from "./sanitize-html";
 import { runMeetingReport } from "./committee-report/report-call";
 import { splitProposalSections, isBlankReport, type ReportSection } from "./committee-report/report-sections";
 import { useGuideTextFrom } from "./action-guides-context";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 import type { OperatingGuide } from "./operating-guide";
 import { loadVersions, saveVersion } from "./committee-report-versions-store";
 import type { MeetingReportVersionUi } from "./meeting-report-panel";
@@ -168,6 +169,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     });
   }
   const guideText = useGuideTextFrom(deps.guides, deps.settings.ai.groundInGuides, "committeeReport");
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
   if (deps.isPopout) return undefined;
 
   // Turso-only: snapshot the meeting's CURRENT report as a version before it's
@@ -353,7 +355,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       const html = await runMeetingReport(
         deps.getDashboardModel(),
         meeting.agenda ?? "",
-        { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang, guideText, away },
+        { apiKey: deps.aiKey, privacy: aiPrivacy(), model: deps.aiModel, lang: deps.lang, guideText, away },
         ctrl.signal,
       );
       // A stop that lost the race to the response still means "don't use it".

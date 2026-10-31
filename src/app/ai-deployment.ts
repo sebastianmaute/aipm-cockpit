@@ -20,6 +20,11 @@ export type AiDeploymentState = {
   invalidReason?: AiGatewayInvalidReason;
 };
 
+/** The per-send answer of `GET /api/ai/status`: the deployment state plus whether the server forces
+ *  people protection (`ai-people` in AIPM_DISABLED_INTEGRATIONS) right now — so a lock added after
+ *  the page loaded reaches the next send (review 4, M3). */
+export type AiStatus = AiDeploymentState & { peopleForced: boolean };
+
 let state: AiDeploymentState = { off: false, route: "direct", invalid: false };
 
 let invalidLogged = false;

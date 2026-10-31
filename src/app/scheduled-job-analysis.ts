@@ -6,6 +6,7 @@
 // SECURITY: the shared runForcedToolCall envelope never logs or echoes the api key
 // or the raw response body — thrown errors carry only the HTTP status (AiHttpError,
 // message status-only) or the token "parse".
+import type { AiPrivacy } from "./ai-privacy";
 import { parseAnalysis, ANALYZE_TOOL, buildAnalysisSystemPrompt, type ActionAnalysis } from "./action-ai";
 import { runForcedToolCallWithRetry } from "./ai-forced-call";
 import type { AiConsentLevel } from "./ai-consent";
@@ -13,6 +14,8 @@ import type { AiConsentLevel } from "./ai-consent";
 interface AiCreds {
   apiKey: string;
   model: string;
+  /** The privacy of the project whose data this request carries (AI people protection, spec R3). */
+  privacy: AiPrivacy;
   /** The user's guides for this action (§701), from `actionGuideText`. */
   guideText?: string;
   /** Cache the guide prefix: set by the scheduled-job runner, which can run
@@ -38,6 +41,7 @@ export async function runJobAnalysis(context: string, ai: AiCreds, signal?: Abor
   const reply = await runForcedToolCallWithRetry(
     {
       apiKey: ai.apiKey,
+      privacy: ai.privacy,
       model: ai.model,
       system: buildAnalysisSystemPrompt(),
       guideText: ai.guideText,

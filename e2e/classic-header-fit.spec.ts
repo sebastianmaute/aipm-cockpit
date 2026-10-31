@@ -1,4 +1,5 @@
 import { test, expect, FROZEN_NOW } from "./seed";
+import { AI_DISCLOSURE_VERSION } from "../src/app/ai-consent";
 
 // §618 — MEASURED, not reasoned: jsdom has no layout, so only a real browser
 // can say whether the classic header fits. The classic search keeps a 384px
@@ -31,16 +32,16 @@ test.describe("classic header fits from lg up (§618)", () => {
     // reproduce the original §618 report ("project picker, sync, Ask-Claude
     // and eight trailing icon buttons") closely enough to measure the real
     // overflow at 1024/1100 (see the file comment's numbers).
-    await page.addInitScript(() => {
+    await page.addInitScript((disclosureVersion: number) => {
       localStorage.setItem(
         "aipm-cockpit:settings",
         JSON.stringify({
           layout: "classic",
           expertMode: true,
-          ai: { enabled: true, apiKey: "e2e-probe-key", consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 1 } },
+          ai: { enabled: true, apiKey: "e2e-probe-key", consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: disclosureVersion } },
         }),
       );
-    });
+    }, AI_DISCLOSURE_VERSION);
   });
 
   for (const width of WIDTHS) {
@@ -101,17 +102,17 @@ test.describe("classic header fits from lg up (§618)", () => {
 // is gone.
 test.describe("classic header trailing row still fits with every sibling present (§618 M2)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => {
+    await page.addInitScript((disclosureVersion: number) => {
       localStorage.setItem(
         "aipm-cockpit:settings",
         JSON.stringify({
           layout: "classic",
           expertMode: true,
-          ai: { enabled: true, apiKey: "e2e-probe-key", consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 1 } },
+          ai: { enabled: true, apiKey: "e2e-probe-key", consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: disclosureVersion } },
           showDisplayTzSwitcher: true,
         }),
       );
-    });
+    }, AI_DISCLOSURE_VERSION);
   });
 
   for (const width of [1024, 1100] as const) {

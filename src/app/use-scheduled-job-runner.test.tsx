@@ -99,7 +99,7 @@ function baseArgs(overrides: Partial<ScheduledJobRunnerArgs> = {}): ScheduledJob
 }
 
 function resetStore(): void {
-  vi.mocked(confirmAiDeployment).mockReset().mockResolvedValue(undefined);
+  vi.mocked(confirmAiDeployment).mockReset().mockResolvedValue({ peopleForced: false });
   vi.mocked(hasReportAtOrAfter).mockReset().mockResolvedValue(false);
   vi.mocked(slotStatus).mockReset().mockResolvedValue("none");
   mClaim.mockReset().mockResolvedValue(true);

@@ -15,11 +15,15 @@ import { buildRecommendSystemPrompt } from "./insights/recommend-context";
 import { buildAnalysisSystemPrompt } from "./action-ai";
 import { buildDedupSystemPrompt } from "./task-dedup/dedup";
 import { buildSuggestionSystemPrompt } from "./weight-suggestion-ai";
+import { aiPrivacyFor } from "./ai-privacy";
+
+/** These tests are about the call mechanics, not people: a request for no project (unprotected). */
+const UNPROTECTED = aiPrivacyFor([]);
 
 afterEach(() => vi.restoreAllMocks());
 
 const GUIDE = "GUIDE-TEXT-701";
-const AI = { apiKey: "sk-ant-k", model: "claude-x" };
+const AI = { apiKey: "sk-ant-k", privacy: UNPROTECTED, model: "claude-x" };
 
 const DIGEST: DigestModel = {
   rag: "A", ragPrev: null, overdue: { count: 1, delta: null }, milestonesDueSoon: [],

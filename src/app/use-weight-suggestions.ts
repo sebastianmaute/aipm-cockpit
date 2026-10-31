@@ -9,6 +9,7 @@ import { runWeightSuggestion } from "./weight-suggestion-call";
 import { type SuggestionResult } from "./weight-suggestion-ai";
 import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
 import { useActionGuideText } from "./action-guides-context";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 
 interface AiCreds { apiKey: string; model: string }
 
@@ -17,6 +18,7 @@ export function useWeightSuggestions(ai: AiCreds) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SuggestionResult | null>(null);
   const guideText = useActionGuideText("weights");
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
 
   const run = useCallback(
     async (context: string, current: NextActionsConfig, scope: SuggestionScope): Promise<SuggestionResult | null> => {
@@ -25,7 +27,7 @@ export function useWeightSuggestions(ai: AiCreds) {
       setBusy(true);
       setError(null);
       try {
-        const parsed = await runWeightSuggestion(context, { apiKey: key, model: ai.model, guideText }, current, scope);
+        const parsed = await runWeightSuggestion(context, { apiKey: key, model: ai.model, guideText, privacy: aiPrivacy() }, current, scope);
         setResult(parsed);
         return parsed;
       } catch (e) {
@@ -48,7 +50,7 @@ export function useWeightSuggestions(ai: AiCreds) {
         setBusy(false);
       }
     },
-    [ai.apiKey, ai.model, guideText],
+    [ai.apiKey, ai.model, guideText, aiPrivacy],
   );
 
   const clear = useCallback(() => { setResult(null); setError(null); }, []);

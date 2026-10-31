@@ -152,6 +152,7 @@ describe("describeRecommendationPlan — absence clashes", () => {
       [{ name: "create_task", input: { taskName: "New", assignee: "Dana Ortiz", dueDate: "2026-09-25" } }],
       ws(),
       undefined,
+      false,
       absence,
     );
     expect(plan.clashes).toEqual([
@@ -164,6 +165,7 @@ describe("describeRecommendationPlan — absence clashes", () => {
       [{ name: "update_task", input: { id: 12, assignee: "Dana Ortiz", dueDate: "2026-09-22" } }],
       ws(),
       undefined,
+      false,
       absence,
     );
     expect(plan.clashes).toEqual([expect.objectContaining({ entity: "task", id: 12, title: "T" })]);
@@ -196,6 +198,7 @@ describe("describeRecommendationPlan — a row changed by two calls (§773 N-1)"
       ],
       ws(),
       undefined,
+      false,
       absence,
     );
     expect(plan.clashes).toEqual([
@@ -213,6 +216,7 @@ describe("describeRecommendationPlan — a row changed by two calls (§773 N-1)"
       ],
       onDana(),
       undefined,
+      false,
       absence,
     );
     expect(plan.clashes).toEqual([]);
@@ -226,6 +230,7 @@ describe("describeRecommendationPlan — a row changed by two calls (§773 N-1)"
       ],
       wsMs(),
       undefined,
+      false,
       absence,
     );
     expect(plan.clashes).toEqual([
@@ -239,7 +244,7 @@ describe("describeRecommendationPlan — a row changed by two calls (§773 N-1)"
       { name: "update_task", input: { id: 12, dueDate: "2026-09-22" } },
     ];
     const strip = (p: ReturnType<typeof describeRecommendationPlan>) => ({ ...p, clashes: [] });
-    expect(strip(describeRecommendationPlan(calls, ws(), undefined, absence))).toEqual(strip(describeRecommendationPlan(calls, ws())));
+    expect(strip(describeRecommendationPlan(calls, ws(), undefined, false, absence))).toEqual(strip(describeRecommendationPlan(calls, ws())));
   });
 });
 
@@ -264,6 +269,7 @@ describe("describeRecommendationPlan — a create after an owner change (§773 N
       ],
       onSam(),
       undefined,
+      false,
       absence,
     );
     expect(plan.clashes).toEqual([
@@ -279,6 +285,7 @@ describe("describeRecommendationPlan — a create after an owner change (§773 N
       ],
       onSam(),
       undefined,
+      false,
       absence,
     );
     expect(plan.clashes).toEqual([]);
@@ -290,6 +297,6 @@ describe("describeRecommendationPlan — a create after an owner change (§773 N
       { name: "create_milestone", input: { name: "Beta", date: "2026-09-23", linkedTaskIds: [12] } },
     ];
     const strip = (p: ReturnType<typeof describeRecommendationPlan>) => ({ ...p, clashes: [] });
-    expect(strip(describeRecommendationPlan(calls, onSam(), undefined, absence))).toEqual(strip(describeRecommendationPlan(calls, onSam())));
+    expect(strip(describeRecommendationPlan(calls, onSam(), undefined, false, absence))).toEqual(strip(describeRecommendationPlan(calls, onSam())));
   });
 });

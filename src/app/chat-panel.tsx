@@ -1,8 +1,10 @@
 "use client";
 
+import { AiPeopleProtectedContentError, holdsUnredactableContent } from "./ai-privacy";
+import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected } from "./ai-privacy-context";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
-import { type ToolDispatcher, runTool } from "./chat-tools";
+import { type ToolDispatcher, personStripContext, runTool } from "./chat-tools";
 import { type Lang, t } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
 import { ChatPromptChips } from "./chat-prompt-chips";
@@ -29,6 +31,7 @@ import { unlockSecret } from "./use-secrets";
 import { useConfirm } from "./confirm-dialog";
 import { isPassphraseLocked } from "./secrets-store";
 import { useDictationMic } from "./dictation-mic";
+import { joinDescribedBy } from "./editor-email-rule";
 import { appendDictation } from "./dictation-engine";
 import {
   type AttachmentBlock,
@@ -102,6 +105,8 @@ import {
   PROPOSAL_PENDING_RESULT,
   stagedToolResult,
 } from "./chat-proposal-stage";
+import { peopleToolsLive } from "./chat-tool-defs";
+import { PERSON_FIELDS_REMOVED_NOTE, stripPersonFields } from "./ai-person-fields";
 import type { UndoBatch } from "./use-undo-batch";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { buildRowTokens } from "./row-tokens";
@@ -472,6 +477,8 @@ function ChatPanelInner({
   // ref-sync pattern `use-chat-dispatcher.ts` uses for every live slice it
   // reads. Written in an effect, never during render.
   const workspaceRef = useRef(workspace);
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3): asked per request
+  const peopleProtectedNow = useOpenProjectPeopleProtected(); // same source, asked once per send (layer 1)
   useEffect(() => {
     workspaceRef.current = workspace;
   }, [workspace]);
@@ -491,7 +498,7 @@ function ChatPanelInner({
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.
   const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai, ai.model);
-  const { mic, status, registration } = useDictationMic({
+  const { mic, status, registration, describedById: dictationDesc } = useDictationMic({
     lang,
     dictation,
     aiConsented: isAiConsentedForDictation(ai),
@@ -643,7 +650,8 @@ function ChatPanelInner({
   const deploymentOn = blockedMessageKey === null;
   // The visible deployment notice (empty state or banner) describes the composer it disables.
   const deploymentNoticeId = useId();
-  const composerDescribedBy = deploymentOn ? undefined : deploymentNoticeId;
+  // AI people protection: the dictation-off reason (when it applies) describes the composer too.
+  const composerDescribedBy = joinDescribedBy(deploymentOn ? undefined : deploymentNoticeId, dictationDesc);
   const masterOn = deploymentOn && ai.enabled === true && !consentStale;
   // The key actually used for calls/gating: a plaintext settings key wins,
   // else the inline-unlocked passphrase key (if any).
@@ -659,6 +667,19 @@ function ChatPanelInner({
   // composer's onChange clears it), is a message typed in the chat.
   const prefillOriginRef = useRef<{ prompt: string; originView: AppView; epoch: number } | null>(null);
 
+  // AI people protection (review 2, A): the transport refuses a protected request holding an image or a
+  // non-text document. Asked BEFORE a turn is committed, over what the send would post (the history fitted
+  // the same way), so a refused turn never lands in the history or the saved thread.
+  function peopleProtectedRefusal(
+    atts: readonly StagedAttachment[],
+    content: string | ContentBlock[],
+  ): "chatPeopleProtectedAttachment" | "chatPeopleProtectedContent" | null {
+    if (!peopleProtectedNow()) return null;
+    if (atts.some((a) => holdsUnredactableContent(a.blocks))) return "chatPeopleProtectedAttachment";
+    const outgoing = fitHistoryToBudget([...closeDanglingToolUses(history), { role: "user", content }], MAX_STAGED_PAYLOAD_BYTES);
+    return holdsUnredactableContent(outgoing) ? "chatPeopleProtectedContent" : null;
+  }
+
   // `opts.originView` (§703) is set only by an auto-sent seed: the page the request came from. A
   // prefilled seed's page comes from `prefillOriginRef` instead.
   async function submitPrompt(textArg?: string, opts?: { originView?: AppView }) {
@@ -671,6 +692,22 @@ function ChatPanelInner({
     if ((!text && atts.length === 0) || busy || abortRef.current !== null || guidesPending || proposalApplying) return;
     if (!effectiveApiKey.trim()) {
       setError(t(lang, "chatNoApiKey"));
+      return;
+    }
+    // With attachments the user turn is a multimodal content array (text first,
+    // then each document/image block); otherwise a plain string.
+    const content: string | ContentBlock[] =
+      atts.length > 0
+        ? [
+            ...(text ? [{ type: "text", text } as TextBlock] : []),
+            ...atts.flatMap((a) => a.blocks),
+          ]
+        : text;
+    const refusal = peopleProtectedRefusal(atts, content);
+    if (refusal !== null) {
+      // Refused BEFORE anything is committed: history, transcript and the saved thread stay as they
+      // were, and the composer keeps its text and attachments so the user can remove the image.
+      setError(t(lang, refusal));
       return;
     }
     const prefill = prefillOriginRef.current;
@@ -700,15 +737,6 @@ function ChatPanelInner({
     // exactly the replacements that make this send's workspace the wrong one.
     const sendEpoch = getScopeEpoch();
 
-    // With attachments the user turn is a multimodal content array (text first,
-    // then each document/image block); otherwise a plain string.
-    const content: string | ContentBlock[] =
-      atts.length > 0
-        ? [
-            ...(text ? [{ type: "text", text } as TextBlock] : []),
-            ...atts.flatMap((a) => a.blocks),
-          ]
-        : text;
     // Heal any dangling tool_use left by a prior truncated/stopped turn before
     // appending this turn — else the API 400s on the unmatched tool_use and the
     // chat wedges (every subsequent send re-posts the corrupt history).
@@ -755,6 +783,9 @@ function ChatPanelInner({
       historySearch: ai.historySearch,
       chatSearch: ai.chatSearch,
       forecast: snapshot.forecastSimulation === true,
+      // AI people protection (Review Focus 4): read at SEND time from the transport's own source, so a switch
+      // mid-thread drops the people tools on the next send. Once per send: the list must stay one identity.
+      peopleProtected: peopleProtectedNow(),
     };
     // Runs one tool, shows it in the transcript and returns its `tool_result`, plus whether it ran without
     // throwing. Used by the ordinary path and by a staging turn's reads, which run in place (AI-02).
@@ -834,7 +865,7 @@ function ChatPanelInner({
           ai.model,
           system,
           buildWireMessages(messages, turnContext).messages,
-          toolFlags, controller.signal,
+          toolFlags, aiPrivacy(), controller.signal,
         );
         // §702: the counter takes the request and its cache write together,
         // BEFORE the stale check — a request counted without its write would
@@ -877,17 +908,20 @@ function ChatPanelInner({
         // model can use them.
         if (response.stop_reason === "tool_use") {
           // The turn's calls, paired with the ids their results must answer.
-          const proposed: { readonly useId: string; readonly call: ProposedCall }[] = [];
+          const proposed: { readonly useId: string; readonly call: ProposedCall; readonly removed: readonly string[] }[] = [];
           for (const block of response.content) {
             if (block.type !== "tool_use") continue;
-            proposed.push({
-              useId: block.id,
-              // `ToolUseBlock.input` is `unknown` (the API's own shape). The
-              // gate, the plan builder and `runTool` all treat it as a bag of
-              // keys, exactly as the immediate path below does when it hands
-              // `block.input` straight to `runTool`.
-              call: { name: block.name, input: block.input as Readonly<Record<string, unknown>> },
-            });
+            // `ToolUseBlock.input` is `unknown` (the API's own shape). The
+            // gate, the plan builder and `runTool` all treat it as a bag of
+            // keys, exactly as the immediate path below does when it hands
+            // `block.input` straight to `runTool`.
+            const sentInput = block.input as Readonly<Record<string, unknown>>;
+            // ★★ AI people protection (R4): a staged call's person fields go BEFORE the gate and the card, so
+            //  the card shows what Apply writes. The immediate path below hands `runTool` the raw input, and
+            //  `runTool` strips it there and says so in the result.
+            const people = peopleToolsLive(toolFlags.peopleProtected) ? null : stripPersonFields(block.name, sentInput, personStripContext(dispatcher, block.name, sentInput));
+            const removed = people?.removed ?? [];
+            proposed.push({ useId: block.id, call: { name: block.name, input: people && removed.length > 0 ? people.input : sentInput }, removed });
           }
 
           // ★★★ THE GATE. A turn is STAGED when it holds a destructive call, an
@@ -989,7 +1023,7 @@ function ChatPanelInner({
               const at = staged.indexOf(p);
               return scopeMoved || at === -1
                 ? { type: "tool_result", tool_use_id: p.useId, content: INTERRUPTED_TOOL_RESULT, is_error: true }
-                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId, described[at].plan.clashes.map((n) => n.clash)) };
+                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId, described[at].plan.clashes.map((n) => n.clash)) + (p.removed.length > 0 ? ` ${PERSON_FIELDS_REMOVED_NOTE(p.removed)}` : "") };
             });
             messages.push({ role: "user", content: answers });
             continueBubble = false;
@@ -1197,6 +1231,10 @@ function ChatPanelInner({
             ...prev,
             { kind: "notice", text: t(lang, "aiUsageLimitReached") },
           ]);
+        } else if (err instanceof AiPeopleProtectedContentError) {
+          // People protection is on and the conversation holds an image or a non-text document (its
+          // text cannot be redacted): the transport refused before sending. Any earlier one blocks too.
+          setError(t(lang, "chatPeopleProtectedContent"));
         } else if (err instanceof AiConsentRevokedError) {
           setError(t(lang, "aiConsentRevokedDuringSend"));
         } else if (transportMsg) {
@@ -1494,14 +1532,23 @@ function ChatPanelInner({
     // Collect every file's failure — a multi-file pick previously overwrote the
     // error state per file, so only the LAST failure was ever shown.
     const errors: string[] = [];
+    // Asked once per pick, from the same source the transport redacts with (layer 1).
+    const protectedNow = peopleProtectedNow();
     for (const file of Array.from(files)) {
       const result = await ingestFile(file);
       if (!result.ok) {
         errors.push(attachmentErrorText(result.error, file.name));
         continue;
       }
+      // AI people protection (review 2, A): an image or a non-text document cannot be redacted, so under
+      // protection it never reaches the composer — refused HERE with the reason, not by the transport
+      // after the turn is committed. A mail keeps its text (redacted on send) and loses only those parts.
+      const all = flattenIngestBlocks(result.node);
+      const blocks = protectedNow ? all.filter((b) => !holdsUnredactableContent(b)) : all;
+      if (blocks.length < all.length) errors.push(t(lang, "chatAttachmentPeopleProtected", file.name));
+      if (blocks.length === 0) continue;
       summaries.set(file.name, buildAttachmentSummary(lang, file.name, result.node));
-      read.push({ name: file.name, blocks: flattenIngestBlocks(result.node) });
+      read.push({ name: file.name, blocks });
     }
     const current = attachmentsRef.current;
     // The whole-batch ceilings first (§359): text and base64 across this pick

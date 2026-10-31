@@ -8,6 +8,7 @@
 // SECURITY: the shared runForcedToolCall envelope never logs or echoes the api
 // key or the raw response body. Thrown errors carry only the HTTP status
 // (AiHttpError, message status-only) or the token "parse" for malformed output.
+import type { AiPrivacy } from "./ai-privacy";
 import {
   PROPOSE_WBS_TOOL,
   buildWbsSystemPrompt,
@@ -19,6 +20,8 @@ import { runForcedToolCallWithRetry } from "./ai-forced-call";
 interface AiCreds {
   apiKey: string;
   model: string;
+  /** The privacy of the project whose data this request carries (AI people protection, spec R3). */
+  privacy: AiPrivacy;
   /** The user's guides for this action (§701), from `actionGuideText`. */
   guideText?: string;
 }
@@ -42,6 +45,7 @@ export async function runWbsProposal(
 
   const reply = await runForcedToolCallWithRetry({
     apiKey: ai.apiKey,
+    privacy: ai.privacy,
     model: ai.model,
     system: buildWbsSystemPrompt(),
     guideText: ai.guideText,

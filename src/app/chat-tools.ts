@@ -59,6 +59,8 @@ import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
 import { clashesForAi, type AbsenceClash, type AbsenceClashForAi } from "./absence-clash";
 export { TOOL_DEFS } from "./chat-tool-defs";
+import { PEOPLE_TOOLS, PeopleToolRefusedError, peopleToolsLive } from "./chat-tool-defs";
+import { PERSON_FIELDS_BY_TOOL, PERSON_FIELDS_REMOVED_NOTE, stripPersonFields, withPersonFieldsNote, type PersonStripContext } from "./ai-person-fields";
 
 type TaskInput = {
   taskName: string;
@@ -590,6 +592,11 @@ export type ToolDispatcher = {
    *  enforcement-not-advertisement reasoning as `isHistorySearchEnabled`
    *  above — `runTool` is reached by NAME. */
   isChatSearchEnabled(): boolean;
+  /** Does the open project protect its people from the AI? (AI people protection, layer 1.)
+   *  ★★★ THE EXECUTOR ASKS, LIVE, for the reason `isHistorySearchEnabled` does: `runTool` is reached by
+   *  NAME, and a thread that ran `list_resources` before protection was switched on still carries that
+   *  call in its history. Read from the same source as the transport's privacy (`ai-privacy-context`). */
+  isPeopleProtected(): boolean;
   /** The project's effective IANA zone — the SAME value behind `getSnapshot().today`,
    *  so a day bound and the `Today is …` date the model is given cannot disagree.
    *  ★ NOT the ephemeral display-tz override the top bar can set: that is a
@@ -711,6 +718,72 @@ export async function runTool(
     unknown
   >;
 
+  // ★★ AI people protection: ENFORCEMENT, not advertisement. `toolsFor` stops offering these under the same
+  //   predicate; this refuses to SERVE them, before any handler can read or write a row.
+  if (PEOPLE_TOOLS.has(name) && !peopleToolsLive(d.isPeopleProtected())) throw new PeopleToolRefusedError();
+
+  // ★★ AI people protection, R4: STRIP AND APPLY. A write's person fields (`PERSON_FIELDS_BY_TOOL`) are
+  //   removed before any handler sees the call, the rest applies, and the result (or the error) tells the
+  //   model what was dropped. Every AI path that replays a call ends here, so this is the guarantee; a path
+  //   with a review card strips its calls BEFORE the card as well, so the card shows what lands.
+  // ★ The note rides on `.then`: `chat-panel.tsx`'s §596 comment counts on this file never suspending.
+  const personFields = Object.hasOwn(PERSON_FIELDS_BY_TOOL, name) ? PERSON_FIELDS_BY_TOOL[name]! : [];
+  if (personFields.length === 0 || peopleToolsLive(d.isPeopleProtected())) return runToolAsSent(d, name, input, false);
+  const { input: kept, removed } = stripPersonFields(name, input, personStripContext(d, name, input));
+  // An update that held ONLY person fields is empty once stripped: applying it would stamp the row, count a
+  // write and log "AI updated" with no change. Nothing is applied; the model gets the note.
+  if (removed.length > 0 && isEmptyUpdate(name, kept)) return Promise.resolve(withPersonFieldsNote({ id: kept.id, applied: false }, removed));
+  return runToolAsSent(d, name, kept, true).then(
+    (result) => withPersonFieldsNote(result, removed),
+    (e: unknown) => {
+      // A plain `Error` is the model-facing validation message, so it gains the reason. A typed error
+      // (`ConcurrencyTokenError`, …) is matched on its TYPE by callers and passes through untouched.
+      if (removed.length > 0 && e instanceof Error && e.constructor === Error) {
+        throw new Error(`${e.message} ${PERSON_FIELDS_REMOVED_NOTE(removed)}`);
+      }
+      throw e;
+    },
+  );
+}
+
+/** Keys an `update_*` call carries that are not a change: the row's id and its concurrency token. */
+const UPDATE_ADDRESS_KEYS: ReadonlySet<string> = new Set(["id", "expectedToken"]);
+
+/** True for an `update_*` call whose input names its row and nothing to change. */
+function isEmptyUpdate(name: string, input: Readonly<Record<string, unknown>>): boolean {
+  return name.startsWith("update_") && Object.keys(input).every((k) => UPDATE_ADDRESS_KEYS.has(k));
+}
+
+/** The person references the record a call writes ALREADY holds, so the strip keeps them (fix round 1, I1):
+ *  an edit of a forecast scenario re-sends the user's own named-person rows, because `changes` replaces the
+ *  whole list — and gets back the ones it left out (review 3, R4: the AI may not remove a person). Every other
+ *  tool has none. Shared with the chat's staging strip, so the card and the write agree. */
+export function personStripContext(
+  d: Pick<ToolDispatcher, "getForecastScenarioRow">,
+  name: string,
+  input: Readonly<Record<string, unknown>>,
+): PersonStripContext {
+  if (name !== "update_forecast_scenario") return {};
+  const id = Number(input.id);
+  const row = Number.isFinite(id) ? d.getForecastScenarioRow(id) : null;
+  const keepIds = new Set<unknown>();
+  const storedRows: unknown[] = [];
+  for (const c of row?.changes ?? []) {
+    if (c.kind !== "addPeople" || !("resourceId" in c.who)) continue;
+    keepIds.add(c.who.resourceId);
+    storedRows.push(c);
+  }
+  return { keepIds, storedRows };
+}
+
+/** `runTool` past the people gates: the call exactly as it is applied. `peopleStripped` is true when the
+ *  person fields were removed under protection, so a create may then go without its assignee. */
+async function runToolAsSent(
+  d: ToolDispatcher,
+  name: string,
+  input: Record<string, unknown>,
+  peopleStripped: boolean,
+): Promise<unknown> {
   const forecast = runForecastTool(name, input, d);
   if (forecast !== NOT_FORECAST_TOOL) return forecast;
   const project = runProjectTool(name, input, d);
@@ -736,13 +809,14 @@ export async function runTool(
       const taskName = asString(input.taskName);
       const assignee = asString(input.assignee);
       const dueDate = asString(input.dueDate);
-      if (!taskName || !assignee || !dueDate) {
+      // Under people protection the assignee was stripped (R4): the task is created unassigned.
+      if (!taskName || (!assignee && !peopleStripped) || !dueDate) {
         throw new Error("taskName, assignee, and dueDate are required");
       }
       const clashes = d.absenceClashesFor?.(name, input);
       return withAbsenceClashes(withoutAssigneeEmail(d.createTask({
         taskName,
-        assignee,
+        assignee: assignee ?? "",
         dueDate,
         assigneeEmail: asString(input.assigneeEmail),
         lastUpdateDate: asString(input.lastUpdateDate),

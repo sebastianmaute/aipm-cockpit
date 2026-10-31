@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AiConsentDialog } from "./ai-consent-dialog";
 import { resolveAiPolicy } from "./ai-policy";
 import { t } from "./i18n";
-import { AI_DESTINATION_KEYS, aiDataPathsFor } from "./ai-disclosure";
+import { AI_DESTINATION_KEYS, aiDataPathsFor, aiProtectedTextKey } from "./ai-disclosure";
 import { setAiDeploymentState } from "./ai-deployment";
 import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 
@@ -131,6 +131,24 @@ describe("AiConsentDialog", () => {
     expect(
       screen.getByRole("button", { name: `${t("en-US", "alertModalClose")} – ${t("en-US", "aiConsentTitle")}` }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("AiConsentDialog — people protection", () => {
+  it.each(["interactive", "background"] as const)("the %s dialog shows the protection notice (the one-time notice, spec R5)", (level) => {
+    render(<AiConsentDialog lang="en-US" level={level} policy={resolveAiPolicy({})} onAccept={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "aiConsentPeopleProtection"))).toBeInTheDocument();
+  });
+
+  it("every row carries its protected state", () => {
+    const { container } = render(
+      <AiConsentDialog lang="en-US" level="interactive" policy={resolveAiPolicy({})} onAccept={vi.fn()} onCancel={vi.fn()} />,
+    );
+    for (const row of aiDataPathsFor("interactive")) {
+      const el = container.querySelector(`[data-ai-data-path="${row.id}"] [data-ai-protected="${row.whenProtected}"]`);
+      expect(el, row.id).not.toBeNull();
+      expect(el?.textContent, row.id).toContain(t("en-US", aiProtectedTextKey(row)));
+    }
   });
 });
 

@@ -107,6 +107,7 @@ import { useActionLearning, LEARNING_ERROR_TOAST } from "./use-action-learning";
 import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
 import { AiProviders } from "./action-guides-context";
+import { AiPrivacyProvider, useAiPrivacySource } from "./ai-privacy-context";
 import { useMsAuth } from "./use-ms-auth";
 import { useMeetingReportActions } from "./use-meeting-report-actions";
 import { useCommSend } from "./use-comm-send";
@@ -453,7 +454,7 @@ function TaskManagerInner() {
   const [portfolioMode] = useState<PortfolioMode>(loadPortfolioMode());
 
   const {
-    storageDescription, storageReady, workspaceLoaded, tursoPortfolioWithoutProject, loadPause, onPickStorageFile, onGrantWriteAccess,
+    currentWorkspace, storageDescription, storageReady, workspaceLoaded, tursoPortfolioWithoutProject, loadPause, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
     allowDestructiveSaveAnyway, destructiveRefusal,
     truncation, decodeFailureCount, activityLogUnreadable, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
@@ -679,6 +680,7 @@ function TaskManagerInner() {
   // `currentProjectId` are all already in scope by this point (each declared
   // earlier in the component), so there is no TDZ hazard hoisting it here.
   const portfolioCurrentId = portfolioMode === "turso" ? tursoProjectId : currentProjectId;
+  useAiPrivacySource(portfolioCurrentId ?? "default", currentWorkspace, getScopeEpoch); // AI people protection (spec R3): the open project, for every AI request built from it
   // Suggested next-actions wiring — the workload alerts, the engine run, the
   // grouping, the comms-pending ids, the jump-to-comms link and the group-aware
   // snooze — extracted to useNextActions (use-next-actions.ts, §491).
@@ -2013,7 +2015,7 @@ export default function TaskManager() {
       <WorkspaceProvider>
         <TaskFormProvider>
           <WorkspaceTabProvider>
-            <TaskManagerInner />
+            <AiPrivacyProvider><TaskManagerInner /></AiPrivacyProvider>
           </WorkspaceTabProvider>
         </TaskFormProvider>
       </WorkspaceProvider>

@@ -65,6 +65,7 @@ const EXPECTED: Record<string, string> = {
   LockClosedIcon: "Lock",
   MapPinIcon: "MapPin",
   MicrophoneIcon: "Mic",
+  MicrophoneSlashIcon: "MicOff",
   PaperClipIcon: "Paperclip",
   PencilIcon: "Pencil",
   PlusIcon: "Plus",
@@ -99,8 +100,8 @@ describe("icons barrel", () => {
   //   to both the barrel and EXPECTED passes that test and fails only this one,
   //   so growing the icon set is always a conscious edit rather than a
   //   side-effect. Bump the literal only when you mean to.
-  it("exports 74 icons", () => {
-    expect(Object.keys(icons)).toHaveLength(74);
+  it("exports 75 icons", () => {
+    expect(Object.keys(icons)).toHaveLength(75);
   });
 
   it.each(Object.entries(EXPECTED))(

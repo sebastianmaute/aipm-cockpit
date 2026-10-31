@@ -149,10 +149,12 @@ describe("AppHeader", () => {
     it("uses the custom branding logo when one is set", () => {
       const settings = {
         ...defaultSettings,
-        branding: { ...defaultSettings.branding, logo: "data:image/png;base64,custom" },
+        branding: { ...defaultSettings.branding, logo: "data:image/png;base64,custom", slogan: "Lanternfield Ops" },
       };
       render(<AppHeader {...makeProps({ settings })} />, { wrapper: Wrapper });
-      const img = screen.getByRole("img");
+      // By its accessible name (the slogan): the top bar also holds other images, such as the voice-command-off
+      // marker shown while people protection is on (review 5, C2).
+      const img = screen.getByRole("img", { name: "Lanternfield Ops" });
       expect(img).toHaveAttribute("src", "data:image/png;base64,custom");
     });
   });

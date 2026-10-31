@@ -12,7 +12,7 @@
 // ★ Gates ask here; STORED settings are never rewritten. A user's Jira token or
 // TimeLog setup survives a switch-off and works again once the integration is back.
 
-export const INTEGRATION_IDS = ["jira", "confluence", "timelog", "ecb", "stt", "ai"] as const;
+export const INTEGRATION_IDS = ["jira", "confluence", "timelog", "ecb", "stt", "ai", "ai-people"] as const;
 export type IntegrationId = (typeof INTEGRATION_IDS)[number];
 
 export const DISABLED_INTEGRATIONS_ENV = "AIPM_DISABLED_INTEGRATIONS";
@@ -29,6 +29,13 @@ let disabled: ReadonlySet<IntegrationId> = new Set();
 /** Records this deployment's switched-off integrations (the client, once per page load). */
 export function setDisabledIntegrations(ids: readonly IntegrationId[]): void {
   disabled = new Set(ids);
+}
+
+/** Records one more switched-off integration learned AFTER page load: the AI transport's per-send status
+ *  reporting a people lock the server added since (review 4, M3). Only ever adds; a lock the server lifts
+ *  applies at the next page load. */
+export function addDisabledIntegration(id: IntegrationId): void {
+  if (!disabled.has(id)) disabled = new Set([...disabled, id]);
 }
 
 export function isIntegrationDisabled(id: IntegrationId): boolean {

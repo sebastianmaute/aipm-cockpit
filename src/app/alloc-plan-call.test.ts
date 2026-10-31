@@ -2,6 +2,10 @@ import "../test/ai-consent-live";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runAllocProposal } from "./alloc-plan-call";
 import { MAX_ALLOC_CELLS } from "./alloc-plan/alloc-plan";
+import { aiPrivacyFor } from "./ai-privacy";
+
+/** These tests are about the call mechanics, not people: a request for no project (unprotected). */
+const UNPROTECTED = aiPrivacyFor([]);
 
 const ok = (body: unknown) => ({ ok: true, json: async () => body }) as unknown as Response;
 
@@ -21,7 +25,7 @@ describe("runAllocProposal", () => {
         ],
       }),
     );
-    const result = await runAllocProposal("ctx", { apiKey: "k", model: "m" }, "spread the work");
+    const result = await runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "spread the work");
     expect(result).toEqual({
       alternatives: [
         { summary: "s", taskMoves: [{ taskId: 4, toResourceId: 2 }], cells: [{ resourceId: 1, periodKey: "2026-08", hours: 40 }] },
@@ -39,7 +43,7 @@ describe("runAllocProposal", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { alternatives: [{ summary: "", taskMoves: [], cells }] } }] }),
     );
-    const result = await runAllocProposal("ctx", { apiKey: "k", model: "m" }, "spread the work");
+    const result = await runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "spread the work");
     expect(result.truncated).toBe(true);
     expect(result.alternatives[0].cells).toHaveLength(MAX_ALLOC_CELLS);
   });
@@ -48,7 +52,7 @@ describe("runAllocProposal", () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { alternatives: [] } }] }),
     );
-    await runAllocProposal("ctx", { apiKey: "k", model: "m" }, "spread the work");
+    await runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "spread the work");
     const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
     expect(body.tool_choice).toEqual({ type: "tool", name: "propose_allocations" });
     expect(body.tools[0].name).toBe("propose_allocations");
@@ -60,7 +64,7 @@ describe("runAllocProposal", () => {
     );
     const context = "PLAN: 2026-08-01 .. 2026-09-30\n#1 Jane Doe :: 2026-08=0/160";
     const instruction = "put 40 hours on Jane in August";
-    await runAllocProposal(context, { apiKey: "k", model: "m" }, instruction);
+    await runAllocProposal(context, { apiKey: "k", privacy: UNPROTECTED, model: "m" }, instruction);
     const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
     expect(body.messages).toHaveLength(1);
     const userContent = body.messages[0].content as string;
@@ -78,7 +82,7 @@ describe("runAllocProposal", () => {
       } as unknown as Response,
     );
     try {
-      await runAllocProposal("ctx", { apiKey: secret, model: "m" }, "do something");
+      await runAllocProposal("ctx", { apiKey: secret, privacy: UNPROTECTED, model: "m" }, "do something");
       expect.unreachable("should have thrown");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -99,7 +103,7 @@ describe("runAllocProposal", () => {
       ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { nope: true } }] }),
     );
     await expect(
-      runAllocProposal("ctx", { apiKey: "k", model: "m" }, "do something"),
+      runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "do something"),
     ).rejects.toThrow("parse");
   });
 
@@ -113,7 +117,7 @@ describe("runAllocProposal", () => {
       return Promise.resolve(ok({ content: [] }));
     });
     await expect(
-      runAllocProposal("ctx", { apiKey: "k", model: "m" }, "do something", controller.signal),
+      runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "do something", controller.signal),
     ).rejects.toThrow();
     expect(spy).toHaveBeenCalledTimes(1);
     const passedSignal = (spy.mock.calls[0][1] as RequestInit).signal;
@@ -127,7 +131,7 @@ describe("runAllocProposal guide text", () => {
   const reply = () => ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { alternatives: [] } }] });
   it("appends the guide text after the fixed system prompt", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply());
-    await runAllocProposal("ctx", { apiKey: "k", model: "m", guideText: "GUIDE-MARK" }, "x");
+    await runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m", guideText: "GUIDE-MARK" }, "x");
     const system = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).system as { text: string }[];
     expect(system).toHaveLength(2);
     expect(system[0].text.length).toBeGreaterThan(0);
@@ -135,7 +139,7 @@ describe("runAllocProposal guide text", () => {
   });
   it("sends the fixed prompt alone without one", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply());
-    await runAllocProposal("ctx", { apiKey: "k", model: "m" }, "x");
+    await runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "x");
     const system = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).system as string;
     expect(system).not.toContain("GUIDE-MARK");
   });
@@ -152,13 +156,13 @@ describe("runAllocProposal output budget (§764)", () => {
 
   it("asks once more at 16384 when the reply was cut at 8192, and returns that answer", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(cutOr("max_tokens", {})).mockResolvedValueOnce(cutOr("tool_use", CELLS));
-    await expect(runAllocProposal("ctx", { apiKey: "k", model: "m" }, "x")).resolves.toMatchObject({ alternatives: CELLS.alternatives });
+    await expect(runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "x")).resolves.toMatchObject({ alternatives: CELLS.alternatives });
     expect(budgets(spy)).toEqual([8192, 16_384]);
   });
 
   it("never reads a reply cut at the retry budget too, even one that parses", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(cutOr("max_tokens", CELLS));
-    await expect(runAllocProposal("ctx", { apiKey: "k", model: "m" }, "x")).rejects.toThrow(/^parse$/);
+    await expect(runAllocProposal("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, "x")).rejects.toThrow(/^parse$/);
     expect(budgets(spy)).toEqual([8192, 16_384]);
   });
 });

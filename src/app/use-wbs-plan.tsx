@@ -43,12 +43,14 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { runWbsProposal } from "./wbs-plan-call";
 import { useGuideTextFrom } from "./action-guides-context";
+import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected } from "./ai-privacy-context";
 import type { OperatingGuide } from "./operating-guide";
 import {
   applyWbsProposal,
   buildWbsContext,
   countNewRows,
   groundWbsProposal,
+  withoutWbsAssignees,
   type GroundedWbsItem,
   type SkippedWbsItem,
   type WbsApplyResult,
@@ -186,6 +188,8 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const apiKey = aiKeyIfEnabled(settings.ai);
   const aiReady = isAiEnabled(settings.ai) && !!apiKey.trim();
   const guideText = useGuideTextFrom(deps.guides, settings.ai.groundInGuides, "wbs");
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
+  const peopleProtectedNow = useOpenProjectPeopleProtected(); // the same source; R4 strips new-task assignees
   const enabled = aiReady && !isPopout;
 
   // The flow's STATE back to idle — state setters only, so the load-hold
@@ -254,7 +258,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         });
         const parsed = await runWbsProposal(
           context,
-          { apiKey, model: settings.ai.model, guideText },
+          { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() },
           sanitizeText(text, MAX_WBS_INSTRUCTION_CHARS) || DEFAULT_WBS_INSTRUCTION,
           controller.signal,
         );
@@ -265,7 +269,8 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
           return;
         }
         // Ground against the tasks as they are NOW, not as they were sent.
-        const grounded = groundWbsProposal(parsed, tasksRef.current, runScope, absenceRef.current);
+        // R4: the model's assignees go BEFORE grounding, so the preview shows what Apply writes.
+        const grounded = groundWbsProposal(withoutWbsAssignees(parsed, peopleProtectedNow()), tasksRef.current, runScope, absenceRef.current);
         // Only a proposal with NOTHING in it is "no changes proposed". When the
         // model proposed items and grounding refused them all, the preview
         // still opens, showing just the "Not applied" list with its reasons.
@@ -302,7 +307,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         reset();
       }
     },
-    [milestones, project, absences, resources, tableToday, apiKey, settings.ai.model, guideText, lang, showToast, reset, setPhase, getScopeEpoch],
+    [milestones, project, absences, resources, tableToday, apiKey, settings.ai.model, guideText, aiPrivacy, peopleProtectedNow, lang, showToast, reset, setPhase, getScopeEpoch],
   );
 
   const onOpen = useCallback(() => {

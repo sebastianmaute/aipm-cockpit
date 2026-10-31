@@ -4,6 +4,8 @@
 // LIVE buckets and refuses rather than writes when the bucket changed under an
 // open preview (Review Focus 5).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import "../test/ai-consent-live";
 import { newConsent } from "./ai-consent";
 import { act, renderHook } from "@testing-library/react";

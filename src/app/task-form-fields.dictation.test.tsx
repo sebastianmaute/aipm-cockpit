@@ -1,5 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+// AI people protection, Task 5: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { TestProviders } from "./test-providers";
 import { TaskFormFields } from "./task-form-fields";
 

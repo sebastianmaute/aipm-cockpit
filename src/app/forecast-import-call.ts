@@ -5,6 +5,7 @@
 // ★★ The mapping is converted by `claudeMappingOf` and refused (`bad-mapping`)
 // when it cannot be used; the hand route's reader then imports with it, through
 // every question and refusal it has, and only after the user confirms it.
+import type { AiPrivacy } from "./ai-privacy";
 import { claudeMappingOf } from "./budget-import/claude-mapping";
 import { columnLetters } from "./budget-import/forecast-rows";
 import type { ColumnMapping } from "./budget-import/forecast-types";
@@ -93,7 +94,7 @@ function countNonBlankCells(sheet: SheetGrid): number {
  *  `Error("bad-mapping")` when the mapping cannot be used (`claudeMappingOf`). */
 export async function runForecastImportCall(
   sheet: SheetGrid,
-  ai: { apiKey: string; model: string; guideText?: string },
+  ai: { apiKey: string; model: string; guideText?: string; privacy: AiPrivacy },
   signal?: AbortSignal,
 ): Promise<{ mapping: ColumnMapping; notes: string }> {
   if (countNonBlankCells(sheet) > MAX_CLAUDE_IMPORT_CELLS) throw new Error("too-large");
@@ -101,6 +102,7 @@ export async function runForecastImportCall(
   if (prompt.length > MAX_CLAUDE_IMPORT_CHARS) throw new Error("too-large");
   const { input: raw, stopReason } = await runForcedToolCallWithStop({
     apiKey: ai.apiKey,
+    privacy: ai.privacy,
     model: ai.model,
     system: SYSTEM,
     guideText: ai.guideText,

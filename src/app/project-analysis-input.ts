@@ -16,6 +16,8 @@ import { computeNextActions } from "./next-actions";
 import { buildActionInput } from "./next-actions-input";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { ProjectDigestInput } from "./project-digest";
+import { isPeopleProtected } from "./ai-people-protection";
+import { actionsForAi } from "./next-actions/people-signals";
 import { resolveEffectiveSettings } from "./settings-effective";
 import { resolveNextActionsConfig, type Settings } from "./settings-types";
 import { getStakeholderCommsItems } from "./stakeholder-comms";
@@ -56,7 +58,11 @@ export function buildProjectAnalysisInput(args: {
 
   const milestones = ws.milestones ?? [];
   const changes = ws.changes ?? [];
-  const stakeholders = ws.stakeholders ?? [];
+  // AI people protection (layer 1): THIS workspace's setting decides — the open project's for "Analyze with
+  // AI", the TARGET project's for a scheduled job. Protected, the digest lists no stakeholder, and the derived
+  // queue drops its people signals through the shared `actionsForAi` (workload, stakeholder comms).
+  const peopleProtected = isPeopleProtected(ws.settingsOverrides);
+  const stakeholders = peopleProtected ? [] : ws.stakeholders ?? [];
   const budgets = ws.budgets ?? [];
 
   const dashboard = queue === undefined || budgets.length > 0 ? computeDashboard(
@@ -111,7 +117,7 @@ export function buildProjectAnalysisInput(args: {
         workloadAlerts,
       }),
     );
-    return actions.map((a) => ({ title: actionText(lang, a.title), why: actionText(lang, a.why), tier: a.tier }));
+    return actionsForAi(actions, peopleProtected).map((a) => ({ title: actionText(lang, a.title), why: actionText(lang, a.why), tier: a.tier }));
   };
 
   const bundle = dashboard?.forecastBundle;
@@ -135,6 +141,7 @@ export function buildProjectAnalysisInput(args: {
       absences: ws.absences, resources: ws.resources,
       ...(budget ? { budget } : {}),
       queue: queue ?? (dashboard ? deriveQueue(dashboard) : []),
+      ...(peopleProtected ? { peopleProtected } : {}),
     },
     grounding: buildGroundingIndex({ tasks: ws.tasks, raid: ws.raid, milestones, changes, stakeholders }),
     effectiveSettings,

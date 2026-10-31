@@ -6,13 +6,15 @@
 // Anthropic call sees only that call. A test of the status check itself restores the real request.
 // ★ Imports only types, so the setup file loads no app module (and no `diagnostics`) through it:
 // a module the setup file loads is cached before a test file's `vi.mock` runs, and would stay real.
-import type { AiDeploymentState } from "../app/ai-deployment";
+import type { AiDeploymentState, AiStatus } from "../app/ai-deployment";
 
-export const DIRECT_AI_STATUS: AiDeploymentState = { off: false, route: "direct", invalid: false };
+export const DIRECT_AI_STATUS: AiStatus = { off: false, route: "direct", invalid: false, peopleForced: false };
 
-/** The status route's answer for `state`. */
-export function aiStatusResponse(state: AiDeploymentState = DIRECT_AI_STATUS): Response {
-  return new Response(JSON.stringify(state), { status: 200, headers: { "content-type": "application/json" } });
+/** The status route's answer for `state`; a state that does not say `peopleForced` answers false (the route always
+ *  says it; a test of a missing field sends its own body). */
+export function aiStatusResponse(state: AiDeploymentState | AiStatus = DIRECT_AI_STATUS): Response {
+  const body: AiStatus = { peopleForced: false, ...state };
+  return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 }
 
 /** The status request the test setup installs: always the direct state. */

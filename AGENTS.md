@@ -751,6 +751,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   chatTursoConfig !== null`. ★★★ The OR is load-bearing (`mode` is the multi-project picker flag, not the storage
   backend), so "file mode" does NOT mean no sidebar. ★★ The e2e seed is file mode, so axe never renders it — its
   unit tests are the only coverage. `chat_threads` stays OUT of `TABLE_NAMES`.
+- **AI people protection → [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md) "people protection".** On by default per project. ★★ A new AI path goes through `postAiMessages` with a real `privacy`; a new tool is classified in `PEOPLE_TOOLS`/`NON_PEOPLE_TOOLS` and `PERSON_FIELDS_BY_TOOL`; a new person field goes in `PERSON_FIELD_PATHS` (or `NOT_PERSON_FIELDS` with a reason); a new `AI_DATA_PATHS` row needs a driver in `ai-people-protection.wire.test.ts`.
 - **Attachment ingest — ONE entry point, and a mail is a TREE.** `attachment-ingest.ts`
   (`ingestFile` / `ingestBytes`) is the only read/classify/extract path. `chat-panel.tsx`,
   `step0-import-panel.tsx` and anything added later CALL it and must never reimplement it — three

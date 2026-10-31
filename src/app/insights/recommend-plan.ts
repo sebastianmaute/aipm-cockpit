@@ -15,6 +15,7 @@ import { INLINE_DESCRIPTORS, type EntityDescriptor, type InlineEntity } from "..
 import type { Task } from "../types";
 import type { InsightToolCall } from "./insight";
 import { REC_TOOL_INPUT_SCHEMAS, recommendationCallProblem, type RecCallProblemFormat } from "./recommend-schema";
+import { stripPersonFieldsFromCalls } from "../ai-person-fields";
 
 // The `item` shape describeEntityCalls expects, without exporting a new type
 // from plan.ts (which stays untouched — only read for this task).
@@ -99,11 +100,15 @@ function clashJudge(ws: Workspace, absence: AbsenceCtx): ClashJudge {
  *  the live list — do the work instead. Creates need no id grounding.
  *  `formatProblem` words a whole-call refusal's `detail` (English by default);
  *  the review modal passes the UI language's wording (§782 round 3). `absence` (§773) adds the
- *  absence clashes each call would cause; without it none are computed. */
+ *  absence clashes each call would cause; without it none are computed.
+ *  ★★ AI people protection (R4): with `peopleProtected`, each call's person fields are stripped FIRST
+ *   (`recommendationCallsToApply`), so the review shows what the confirm writes: a create without its
+ *   assignee is a create, unassigned, never a refusal. */
 export function describeRecommendationPlan(
   calls: readonly InsightToolCall[],
   ws: RecommendPlanWorkspace,
   formatProblem?: RecCallProblemFormat,
+  peopleProtected = false,
   absence?: AbsenceCtx,
 ): EditPlan {
   // describeEntityCalls is typed against the full Workspace but only ever reads
@@ -113,12 +118,12 @@ export function describeRecommendationPlan(
   const merged = emptyPlan();
   const judgeClashes = absence ? clashJudge(wsFull, absence) : null;
 
-  for (const call of calls) {
+  for (const call of recommendationCallsToApply(calls, peopleProtected)) {
     // §782 — a call missing an argument its writer requires is shown as
     // rejected, with the reason, and never as a change. The apply loop asks the
     // same question, so it does not send it either. Only the recommendation
     // tools are judged: the delete branch below previews other callers' input.
-    const problem = Object.hasOwn(REC_TOOL_INPUT_SCHEMAS, call.name) ? recommendationCallProblem(call, formatProblem) : null;
+    const problem = Object.hasOwn(REC_TOOL_INPUT_SCHEMAS, call.name) ? recommendationCallProblem(call, formatProblem, peopleProtected) : null;
     if (problem !== null) {
       merged.rejected.push({ toolName: call.name, reason: "bad-input", detail: problem });
       continue;
@@ -168,4 +173,11 @@ export function describeRecommendationPlan(
   }
 
   return merged;
+}
+
+/** The calls a recommendation's confirm sends, and its review shows: unchanged, or, when the project protects
+ *  its people, each without its person fields (R4: no person is set, changed or cleared from AI output). The
+ *  review (`describeRecommendationPlan`) and the confirm loop both read THIS, so they cannot disagree. */
+export function recommendationCallsToApply(calls: readonly InsightToolCall[], peopleProtected: boolean): InsightToolCall[] {
+  return stripPersonFieldsFromCalls(calls, peopleProtected).calls;
 }

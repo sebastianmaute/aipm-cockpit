@@ -53,7 +53,12 @@ type StartOptions = {
   continuous?: boolean;
 };
 
-export function startRecognition(opts: StartOptions): (() => void) | null {
+/** Calling it stops normally (`recog.stop()`: a pending final result is still delivered). `abort` discards: it
+ *  detaches the result handler and calls `recog.abort()`, so nothing is delivered afterwards (AI people protection
+ *  switched on mid-listen). */
+export type RecognitionStop = (() => void) & { abort: () => void };
+
+export function startRecognition(opts: StartOptions): RecognitionStop | null {
   const Ctor = getCtor();
   if (!Ctor) return null;
   const recog = new Ctor();
@@ -84,13 +89,22 @@ export function startRecognition(opts: StartOptions): (() => void) | null {
     return null;
   }
 
-  return () => {
+  const stop = () => {
     try {
       recog.stop();
     } catch {
       /* noop */
     }
   };
+  const abort = () => {
+    recog.onresult = null;
+    try {
+      recog.abort();
+    } catch {
+      /* noop */
+    }
+  };
+  return Object.assign(stop, { abort });
 }
 
 // --- Command parsing ---

@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
 import { HARBOR_DARK } from "../src/app/builtin-schemes";
 import { resolveSchemeColors } from "../src/app/scheme-tokens";
+import { AI_DISCLOSURE_VERSION } from "../src/app/ai-consent";
 
 // The eye-verify KIT for batch 17 (docs/eye-verify-batch-17.md). It covers what the
 // batch 16 kit left as "by hand" but a seeded browser CAN reach: the dark-scheme
@@ -93,7 +94,7 @@ test.describe("eye-verify kit, batch 17", () => {
 
   test("§41 AI Assistant: the attach and dictate buttons", async ({ page }) => {
     // Consent only, no key: the composer renders, and nothing is sent anywhere.
-    await open(page, { settings: { ai: { consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 1 } } } });
+    await open(page, { settings: { ai: { consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: AI_DISCLOSURE_VERSION } } } });
     await openView(page, "AI Assistant");
     await expect(page.getByRole("button", { name: "Attach documents", exact: true })).toBeVisible();
     await shoot(page, "04-ai-assistant-composer");

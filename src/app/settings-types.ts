@@ -573,6 +573,8 @@ export interface SettingsOverrides {
    *  (80) and "no proposal". `targetConfidence` holds only the two non-default goals; the three
    *  fields are independent (§502 part 4). */
   forecast?: { showSimulation?: boolean; targetConfidence?: 50 | 95; proposalScenarioId?: number };
+  /** AI people protection. Protected is stored as ABSENCE; only an explicit allow is kept. */
+  ai?: { peopleAllowed?: true };
 }
 
 export type LearningStoreKind = "local" | "turso";

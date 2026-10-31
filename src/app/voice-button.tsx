@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { MicrophoneIcon } from "./icons";
+import { useEffect, useId, useRef, useState } from "react";
+import { MicrophoneIcon, MicrophoneSlashIcon } from "./icons";
 import { type Lang, t } from "./i18n";
+import { usePeopleProtected } from "./ai-privacy-context";
 import { ToggleButton } from "./toggle-button";
 import {
   type Command,
   isVoiceSupported,
   parseCommand,
+  type RecognitionStop,
   startRecognition,
 } from "./voice";
 
@@ -20,9 +22,17 @@ function MicIcon({ className }: { className?: string }) {
 // passed into `toggle` at click time; everything else (listening/supported
 // state, the SSR-safe `supported` hydration, start/stop bookkeeping, and the
 // permission/error mapping) is identical and lives here.
-function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) {
+//
+// AI people protection (owner decision 2026-10-31, after spec P9): while the open project protects its people,
+// voice commands are OFF — the browser's built-in recognition can send the audio to the browser vendor. Read from
+// `usePeopleProtected`, the same source as the dictation gate, and enforced HERE in `toggle`, so no caller of this
+// hook can construct a recogniser while protected, whatever it renders. Fail closed: protected outside the provider.
+export function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) {
+  const peopleProtected = usePeopleProtected();
   const [listening, setListening] = useState(false);
-  const stopRef = useRef<(() => void) | null>(null);
+  const stopRef = useRef<RecognitionStop | null>(null);
+  // The protection as of the last commit, for a result the browser delivers after protection switched on.
+  const protectedRef = useRef(peopleProtected);
   // `isVoiceSupported()` reads `window.SpeechRecognition`, which doesn't
   // exist during SSR (returns false there) but does exist in Chrome / Edge
   // (returns true). Calling it directly during render would cause a
@@ -39,9 +49,20 @@ function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) {
     };
   }, []);
 
+  // Protection switched on mid-listen: ABORT the recogniser, never `stop` — a stop still delivers the pending final
+  // result, which would run a command heard before the switch. Its `onEnd` clears `listening`.
+  useEffect(() => {
+    protectedRef.current = peopleProtected;
+    if (peopleProtected) stopRef.current?.abort();
+  }, [peopleProtected]);
+
   function toggle(onFinal: (text: string) => void) {
     if (listening) {
       stopRef.current?.();
+      return;
+    }
+    if (peopleProtected) {
+      onError(t(lang, "voiceCommandUnavailablePeopleProtected"));
       return;
     }
     if (!supported) {
@@ -51,7 +72,10 @@ function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) {
     setListening(true);
     const stop = startRecognition({
       lang,
-      onFinal,
+      // Belt and braces with the abort above: a result that still arrives under protection runs nothing.
+      onFinal: (text) => {
+        if (!protectedRef.current) onFinal(text);
+      },
       onEnd: () => {
         setListening(false);
         stopRef.current = null;
@@ -70,7 +94,7 @@ function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) {
     if (!stop) setListening(false);
   }
 
-  return { listening, supported, toggle };
+  return { listening, supported, peopleProtected, toggle };
 }
 
 export function VoiceCommandButton({
@@ -82,7 +106,31 @@ export function VoiceCommandButton({
   onCommand: (cmd: Command, originalText: string) => void;
   onError: (msg: string) => void;
 }) {
-  const { listening, supported, toggle } = useVoiceRecognition(lang, onError);
+  const { listening, supported, peopleProtected, toggle } = useVoiceRecognition(lang, onError);
+  const offReasonId = useId();
+
+  // AI people protection: the button is replaced by a compact marker, as the dictation mic is. Unlike the mic
+  // this control never sits inside a field's <label>, so the marker can carry its own short name ("Voice command
+  // off") and name the reason as its accessible DESCRIPTION through a `hidden` element; `title` is the sighted
+  // hover hint. Not a disabled button: a disabled control leaves the tab order and cannot explain itself.
+  if (peopleProtected) {
+    const reason = t(lang, "voiceCommandUnavailablePeopleProtected");
+    return (
+      <>
+        <span
+          data-voice-off
+          role="img"
+          aria-label={t(lang, "voiceCommandOff")}
+          aria-describedby={offReasonId}
+          title={reason}
+          className="inline-flex items-center px-1 text-muted-foreground"
+        >
+          <MicrophoneSlashIcon aria-hidden="true" className="h-5 w-5" />
+        </span>
+        <span id={offReasonId} hidden>{reason}</span>
+      </>
+    );
+  }
 
   function handleClick() {
     toggle((text) => {

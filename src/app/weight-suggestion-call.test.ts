@@ -3,6 +3,10 @@ import "../test/ai-consent-live";
 import { runWeightSuggestion } from "./weight-suggestion-call";
 import { defaultNextActionsConfig } from "./settings-types";
 import { __resetToolChoiceFallbackForTests } from "./ai-forced-call";
+import { aiPrivacyFor } from "./ai-privacy";
+
+/** These tests are about the call mechanics, not people: a request for no project (unprotected). */
+const UNPROTECTED = aiPrivacyFor([]);
 
 // §763 — under auto tool choice the model thinks on the same output budget. A reply cut at it carries
 // `{}` (read as "no change suggested") or only its first suggestions, and both parse without an error,
@@ -16,7 +20,7 @@ const WHOLE = {
 };
 const budgets = (spy: { mock: { calls: unknown[][] } }) =>
   spy.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)).max_tokens as number);
-const run = () => runWeightSuggestion("ctx", { apiKey: "k", model: "m" }, defaultNextActionsConfig, "weights");
+const run = () => runWeightSuggestion("ctx", { apiKey: "k", privacy: UNPROTECTED, model: "m" }, defaultNextActionsConfig, "weights");
 
 describe("runWeightSuggestion output budget (§763)", () => {
   afterEach(() => vi.restoreAllMocks());

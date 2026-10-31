@@ -996,3 +996,63 @@ export const TOOL_DEFS = [
   ...FORECAST_TOOL_DEFS,
   ...PROJECT_TOOL_DEFS,
 ];
+
+// ---------------------------------------------------------------------------
+// AI people protection (spec layer 1): which tools read or write people.
+// ---------------------------------------------------------------------------
+
+/** Every tool that reads or writes a person: the resource directory, stakeholders, absences, the allocation
+ *  grid, contact addresses, the status-inquiry mail to an assignee, a RAID escalation to a person (review 3,
+ *  R5: its required recipient would be stripped and its look-up is gone, so it could never succeed), and the
+ *  two searches that can return people (the activity log and past chats). With people protection on they are neither offered
+ *  (`toolsFor`) nor served (`runTool`); both gates read `peopleToolsLive`.
+ *  ★ Every name in `TOOL_DEFS` is in exactly one of this set and `NON_PEOPLE_TOOLS`, and a test pins it:
+ *  a new tool must be classified before it ships. */
+export const PEOPLE_TOOLS: ReadonlySet<string> = new Set([
+  "list_resources", "get_resource", "create_resource", "update_resource", "delete_resource",
+  "list_stakeholders", "create_stakeholder", "update_stakeholder", "delete_stakeholder",
+  "list_absences", "create_absence", "update_absence", "delete_absence",
+  "list_allocations", "get_contact_email", "send_inquiry", "escalate_raid_item",
+  "search_history", "search_chats",
+]);
+
+/** Every other tool. A person field such a tool can carry (a task's assignee, a RAID owner, the project's
+ *  sponsor) is not this list's concern: the transport redacts the names it sends. */
+export const NON_PEOPLE_TOOLS: ReadonlySet<string> = new Set([
+  "list_tasks", "get_task", "optimize_wbs", "create_task", "update_task", "set_task_dependencies",
+  "delete_task", "delete_all_tasks", "set_filters", "set_language", "get_app_state", "get_dashboard_snapshot",
+  "list_raid", "list_changes", "list_milestones", "list_knowledge_items", "list_calendar_events",
+  "list_budget_buckets",
+  "create_raid_item", "update_raid_item", "delete_raid_item",
+  "create_change", "update_change", "delete_change",
+  "create_milestone", "update_milestone", "delete_milestone",
+  "create_calendar_event", "update_calendar_event", "delete_calendar_event",
+  "update_settings",
+  "list_documents", "get_document", "create_document", "update_document", "delete_document",
+  "get_forecast", "create_forecast_scenario", "update_forecast_scenario", "delete_forecast_scenario",
+  "set_forecast_proposal", "set_forecast_target_confidence",
+  "get_project", "update_project",
+]);
+
+/** ★★ ONE PREDICATE FOR ADVERTISEMENT AND ENFORCEMENT, as `historySearchEnabled` is for `search_history`:
+ *  `toolsFor`/`toolNamesFor` (what a request CARRIES) and `runTool` (what the executor SERVES) both ask
+ *  this. Only an explicit `true` removes the people tools, so a caller that says nothing (a test, a
+ *  narrower `toolsNamed` list) keeps them; the chat always says. */
+export function peopleToolsLive(protectedFlag: boolean | undefined): boolean {
+  return protectedFlag !== true;
+}
+
+/** What `runTool` answers for a people tool under protection. English and i18n-free: the model reads it,
+ *  like every other tool error. It says why, so the model does not retry. */
+export const PEOPLE_TOOL_REFUSAL =
+  "This project protects its people from the AI, so tools that read or change people (resources, stakeholders, absences, allocations, contacts, history and chat search) are switched off. Do not retry; do not assign, move or rate anyone. The user can allow it in Settings for this project.";
+
+/** What `runTool` throws for a people tool under protection. Its own TYPE, so a caller that replays stored
+ *  calls (an insight recommendation's confirm) can tell "refused before anything was written" from a hard
+ *  failure that may have written — matched on the type, never the message, like `ConcurrencyTokenError`. */
+export class PeopleToolRefusedError extends Error {
+  constructor() {
+    super(PEOPLE_TOOL_REFUSAL);
+    this.name = "PeopleToolRefusedError";
+  }
+}

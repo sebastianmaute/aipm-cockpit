@@ -1020,6 +1020,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§783](#783-the-top-bars-bell-is-named-for-due-date-notifications-but-opens-next-actions--closed-2026-10-26) | The top bar's bell is named for due-date notifications but opens Next actions | — | — | **CLOSED** 2026-10-26 |
 | [§784](#784-escape-on-the-reports-replace-or-keep-both-question-adds-the-ai-section-instead-of-cancelling--open) | Escape on the report's Replace or Keep both question adds the AI section instead of cancelling | — | — | open |
 | [§785](#785-plan-with-ai-does-not-see-the-load-a-person-carries-in-other-projects) | Plan with AI does not see the load a person carries in other projects | #921 | — | OPEN |
+| [§786](#786-dictation-stays-available-in-an-open-tab-after-the-people-protection-lock-is-set) | Dictation stays available in an open tab after the people-protection lock is set | #924 | — | OPEN |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46155,3 +46156,15 @@ What it would take: read the other projects' planned hours for the same people w
 Size M.
 
 **Source:** owner decision 2026-10-30 (§769 design, Non-goals).
+
+## 786. Dictation stays available in an open tab after the people-protection lock is set
+
+**Status:** OPEN 2026-10-31, filed when AI people protection shipped. `grep -n refuseIfDisabled src/app/api/stt/_helpers.ts` → the route refuses only `stt` and `ai`. With people protection on, dictation is switched off in the app (`useDictationMic`), but that switch is read in the browser: when an organisation adds `ai-people` to `AIPM_DISABLED_INTEGRATIONS` while a tab is open, the tab learns of the lock only on its next AI request (the per-send `/api/ai/status` check) or a reload, so dictation stays available there until then.
+
+**Work item:** #924
+
+What it would take: refuse `ai-people` in the speech-to-text route as well (`refuseIfDisabled("ai-people")` beside the existing two), so every tab stops dictating as soon as the lock is set, plus a case in `src/app/api/stt/route.test.ts`. A forced lock protects every project, so no project legitimately dictates under it.
+
+Size S.
+
+**Source:** final review of the AI people protection branch, owner decision 2026-10-31 (file it).

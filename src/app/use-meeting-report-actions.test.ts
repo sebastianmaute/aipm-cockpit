@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
+// Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { useMeetingReportActions, type MeetingReportActionsDeps } from "./use-meeting-report-actions";
 import type { SteeringCommittee, Resource, MeetingReport } from "./types";
 import type { DashboardModel } from "./dashboard";

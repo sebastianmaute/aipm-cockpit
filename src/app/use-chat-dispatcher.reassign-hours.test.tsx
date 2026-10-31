@@ -1,7 +1,10 @@
 // §774 Task 5 — a reassignment by Claude (`update_task`) moves the task's planned hours through the
 // shared step, in the SAME undo entry as the task write, and leaves the model a note of what moved.
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+// AI people protection, Task 6: rendered without task-manager's privacy provider, where the people getter
+// fails closed (protected) and the executor would strip person fields. These tests are about the feature.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
 import { LIAM, LIAM_OWNS, MAYA, RIG_TASK, expectedNotice, rigSpies, useReassignRigOver } from "../test/reassign-hours-rig";
 import { useChatDispatcher } from "./use-chat-dispatcher";

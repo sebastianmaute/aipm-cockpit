@@ -78,6 +78,7 @@ const rowOf = (entity: InlineEntity) => (id: number) => (seeded(entity).id === i
 
 function dispatcher(log: readonly ActivityEntry[]): ToolDispatcher {
   return {
+    isPeopleProtected: () => false,
     listTasks: () => [seeded("task")],
     getTask: (id: number) => rowOf("task")(id),
     listRaid: () => [toRaidSummary(seeded("raid") as never)],

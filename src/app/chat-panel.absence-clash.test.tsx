@@ -6,6 +6,7 @@ import "../test/ai-consent-live";
 import { newConsent } from "./ai-consent";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { ChatPanel } from "./chat-panel";
 import type { ToolDispatcher } from "./chat-tools";
 import { STAGED_TOOL_RESULT } from "./chat-proposal-stage";
@@ -69,6 +70,7 @@ function makeDispatcher(): ToolDispatcher {
       return row;
     }),
     absenceClashesFor: vi.fn((name: string, input: Readonly<Record<string, unknown>>) => callAbsenceClashes({ name, input }, WORKSPACE, ABSENCE)),
+    isPeopleProtected: () => false, // AI people protection: the executor asks on every write
     deleteTask: vi.fn(() => false),
     deleteAllTasks: vi.fn(() => 0),
     sendInquiry: vi.fn(() => ({ sent: false })),

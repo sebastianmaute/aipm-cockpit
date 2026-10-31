@@ -13,7 +13,7 @@ function call(level?: "interactive" | "background") {
     json: async () => ({ content: [{ type: "tool_use", name: "suggest_weights", input: { a: 1 } }] }),
   });
   return runForcedToolCall({
-    apiKey: "sk-ant-api03-PathKey0000000000000000", model: "claude-sonnet-5", tools: [],
+    privacy: { protected: false }, apiKey: "sk-ant-api03-PathKey0000000000000000", model: "claude-sonnet-5", tools: [],
     toolName: "suggest_weights", messages: [], maxTokens: 10, level,
   });
 }

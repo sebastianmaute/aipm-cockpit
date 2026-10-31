@@ -32,6 +32,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { runAllocProposal } from "./alloc-plan-call";
 import { useActionGuideText } from "./action-guides-context";
+import { useOpenProjectAiPrivacy, usePeopleProtected } from "./ai-privacy-context";
 import {
   applyAllocationCells,
   buildAllocContext,
@@ -135,7 +136,28 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
 
   const apiKey = aiKeyIfEnabled(settings.ai);
   const guideText = useActionGuideText("alloc");
-  const enabled = isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() && resources.length > 0;
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
+  // AI people protection (layer 1): Plan with AI moves people, so a protected project has no Plan with AI at
+  // all — the trigger is hidden, an open window closes and is reset (below), and propose/apply refuse. Guarded HERE, not at the
+  // button, so no other entry point reaches it.
+  const peopleProtected = usePeopleProtected();
+  const enabled = isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() && resources.length > 0 && !peopleProtected;
+  // Review 3, R6: protection turning on RESETS the window (render-time reconcile; set-state-in-effect is banned),
+  // so a stale instruction step or proposal cannot reappear when protection is turned off again. The request
+  // in flight is invalidated by the effect below (refs are not touched during render).
+  if (peopleProtected && (phase !== "idle" || alternatives.length > 0)) {
+    setPhase("idle");
+    setAlternatives([]);
+    setActiveIndex(0);
+    setSelectedByAlt(new Map());
+    setTruncated(false);
+  }
+  // Refs only, no state: a proposal still in flight when protection turns on is aborted and discarded.
+  useEffect(() => {
+    if (!peopleProtected) return;
+    reqIdRef.current++;
+    abortRef.current?.abort();
+  }, [peopleProtected]);
 
   // Invalidate/abort anything pending and clear the propose/preview state.
   // Shared by reset() (which also drops the phase to idle) and onOpen()
@@ -168,7 +190,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const onPropose = useCallback(async (instruction: string) => {
-    if (phase !== "input" || !instruction.trim()) return;
+    if (peopleProtected || phase !== "input" || !instruction.trim()) return;
     const reqId = ++reqIdRef.current;
     const controller = new AbortController();
     abortRef.current = controller;
@@ -177,7 +199,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       const context = buildAllocContext({
         resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, instruction, today,
       });
-      const parsed = await runAllocProposal(context, { apiKey, model: settings.ai.model, guideText }, instruction, controller.signal);
+      const parsed = await runAllocProposal(context, { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() }, instruction, controller.signal);
       if (reqId !== reqIdRef.current) return; // superseded — discard
       // Re-ground UNTRUSTED model ids/keys before anything can be shown or applied: a hallucinated task or resource, or
       // an out-of-window period key, is dropped here. This is the state captured when the call was SENT, not the live
@@ -231,7 +253,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       }
       setPhase("input");
     }
-  }, [phase, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, today, apiKey, settings.ai.model, guideText, lang, showToast]);
+  }, [peopleProtected, phase, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, today, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast]);
 
   // Toggles a row of the ACTIVE alternative only; the others keep their ticks.
   const onToggle = useCallback((key: string) => {
@@ -258,7 +280,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   }, [captureComposite, capture, resources, setResources, showToast]);
 
   const onConfirm = useCallback(() => {
-    if (phase !== "preview") return;
+    if (peopleProtected || phase !== "preview") return;
     // §548 — while the load hold is up nothing is written: §774's step refuses the moves then, and the hour edits must
     // not be written without them. The window stays as it is; the hold's own render replaces the pane.
     if (isLoadHeld()) return;
@@ -307,7 +329,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       logActivityAs?.("ai", "ai.allocationPlan", p.cellCount);
     }
     reset();
-  }, [phase, isLoadHeld, alternatives, activeIndex, selectedByAlt, resources, tasks, plan, absences, workdayHours, holidaySet, today, setResources, reassignTasks, recordCellsOnly, logActivityAs, showToast, lang, reset]);
+  }, [peopleProtected, phase, isLoadHeld, alternatives, activeIndex, selectedByAlt, resources, tasks, plan, absences, workdayHours, holidaySet, today, setResources, reassignTasks, recordCellsOnly, logActivityAs, showToast, lang, reset]);
 
   const stage: "input" | "preview" = phase === "preview" || phase === "applying" ? "preview" : "input";
   // The `"applying"` phase never actually commits a render (see the NOTE in
@@ -386,8 +408,9 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       />
     );
   };
-  // The effect is computed inside buildModal, so it runs only while the modal is open.
-  const modal = phase !== "idle" ? buildModal() : null;
+  // The effect is computed inside buildModal, so it runs only while the modal is open. Under protection the phase
+  // is already reset to idle above; the extra guard keeps the reconciling render itself from building it.
+  const modal = phase !== "idle" && !peopleProtected ? buildModal() : null;
 
   return { button, modal };
 }

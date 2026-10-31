@@ -1,6 +1,10 @@
 import { vi, test, expect, beforeEach, describe } from "vitest";
 import { runInsightRecommendation } from "./recommend-call";
 import { buildGroundingIndex } from "../action-ai";
+import { aiPrivacyFor } from "../ai-privacy";
+
+/** These tests are about the call mechanics, not people: a request for no project (unprotected). */
+const UNPROTECTED = aiPrivacyFor([]);
 
 const WHOLE = vi.hoisted(() => ({ summary: "reschedule 12", calls: [{ name: "update_task", input: { id: 12, dueDate: "2026-08-01" } }] }));
 // One mocked request per reply; `runForcedToolCallWithRetry` keeps its contract over it (one retry at the
@@ -21,7 +25,7 @@ beforeEach(() => vi.clearAllMocks());
 
 test("returns a grounded recommendation stamped with today", async () => {
   const index = buildGroundingIndex({ tasks: [{ id: 12 }], raid: [], milestones: [], changes: [], stakeholders: [] });
-  const out = await runInsightRecommendation({ apiKey: "sk-ant-x", model: "claude-x", context: "ctx", index, today: "2026-07-20" });
+  const out = await runInsightRecommendation({ apiKey: "sk-ant-x", privacy: UNPROTECTED, model: "claude-x", context: "ctx", index, today: "2026-07-20" });
   expect(out?.generatedAt).toBe("2026-07-20");
   expect(out?.proposedCalls).toHaveLength(1);
 });
@@ -30,14 +34,14 @@ test("throws parse when nothing grounds", async () => {
   const mod = await import("../ai-forced-call");
   vi.mocked(mod.runForcedToolCallWithStop).mockResolvedValueOnce({ input: { summary: "x", calls: [{ name: "update_task", input: { id: 777 } }] }, stopReason: "tool_use" });
   const index = buildGroundingIndex({ tasks: [], raid: [], milestones: [], changes: [], stakeholders: [] });
-  await expect(runInsightRecommendation({ apiKey: "k", model: "m", context: "c", index, today: "2026-07-20" })).rejects.toThrow("parse");
+  await expect(runInsightRecommendation({ apiKey: "k", privacy: UNPROTECTED, model: "m", context: "c", index, today: "2026-07-20" })).rejects.toThrow("parse");
 });
 
 // §763 — under auto tool choice the model thinks on the same output budget, and a reply cut at it may
 // carry `{}` or only the first calls. A cut reply is never read: it is asked for once more with 8192.
 describe("runInsightRecommendation output budget (§763)", () => {
   const index = buildGroundingIndex({ tasks: [{ id: 12 }], raid: [], milestones: [], changes: [], stakeholders: [] });
-  const args = { apiKey: "k", model: "m", context: "c", index, today: "2026-07-20" };
+  const args = { apiKey: "k", privacy: UNPROTECTED, model: "m", context: "c", index, today: "2026-07-20" };
   const withStop = async () => vi.mocked((await import("../ai-forced-call")).runForcedToolCallWithStop);
   const budgets = (m: { mock: { calls: unknown[][] } }) => m.mock.calls.map((c) => (c[0] as { maxTokens: number }).maxTokens);
 

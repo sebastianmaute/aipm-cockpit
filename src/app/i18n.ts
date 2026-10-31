@@ -377,6 +377,9 @@ const enUS = {
   workspaceSubTabsLabel: "Workspace sub-tabs",
 
   voiceCommand: "Voice command",
+  voiceCommandOff: "Voice command off",
+  voiceCommandUnavailablePeopleProtected:
+    "Voice commands are off: people protection is on for this project, and the browser's speech recognition can send audio to the browser vendor.",
   voiceCommandTip:
     "Click and say e.g. \"edit task 2\", \"delete task 3\", \"add task review the deck\"",
   voiceFieldHint: "Click and dictate",
@@ -697,6 +700,8 @@ const enUS = {
   activityProjectUpdated: "Project details updated: {0}",
   activityMeetingReportUpdated: "Saved the report for the meeting on {0}",
   activityAiReportDraft: "AI drafted the report for the meeting on {0}",
+  activityAiPeopleProtectionOff: "People protection was turned off: the AI can now see the people in this project",
+  activityAiPeopleProtectionOn: "People protection was turned on",
   taskBudgetBucket: "Budget bucket",
   budgetBucketNone: "— none —",
   budgetBucketsCount: "{0} buckets",
@@ -1312,6 +1317,7 @@ const enUS = {
   dictationEngineStt: "Cloud (OpenAI-compatible)",
   dictationNeedsAiConsent: "Speech-to-text sends your audio to the configured speech service. Switch on AI and accept the AI data disclosure in Settings → AI to use it; until then dictation is unavailable. To dictate without it, choose Browser (Web Speech) as the dictation engine.",
   dictationUnavailableNeedsAiConsent: "Dictation is unavailable: the speech-to-text service needs AI switched on and the AI data disclosure accepted in Settings → AI.",
+  dictationUnavailablePeopleProtected: "Dictation is off: people protection is on for this project, and audio cannot be checked for names.",
   dictationUnavailableSttNotSetUp: "Dictation is unavailable: speech-to-text is the chosen engine, but its service address or API key is missing, or the key cannot be read on this device. Complete the speech-to-text setup in Settings, or choose Browser (Web Speech) as the dictation engine.",
   dictationSttBaseUrl: "Transcription endpoint base URL",
   dictationSttModel: "Model",
@@ -1485,6 +1491,8 @@ const enUS = {
   wizardImportConfluenceUrl: "Confluence page URL",
   wizardImportFetch: "Fetch",
   wizardImportErrorUnsupported: "That file type is not supported.",
+  wizardImportPeopleProtected: "{0}: your organisation protects people from the AI, so images and scanned or PDF documents are left out (text in them cannot be checked for names). Text files and the text of mails and Office documents are still used.",
+  wizardPeopleProtectedContent: "Your organisation protects people from the AI, and the request held an image or a scanned or PDF document. Text in it cannot be checked for names, so nothing was sent. Describe the project in text or use a text file instead.",
   wizardImportReadingFiles: "Reading files…",
   wizardImportAnalyzing: "Analyzing documents…",
   wizardImportSkippedFiles: "{0} files skipped: {1}",
@@ -1665,6 +1673,9 @@ const enUS = {
   aiConsentReviewPrompt: "AI is switched on, but the AI data disclosure is not accepted. Review and accept it to use AI features.",
   aiConsentReview: "Review",
   aiConsentRevokedDuringSend: "AI was switched off or its consent was withdrawn, so the request was stopped.",
+  chatPeopleProtectedContent: "People protection is on, and this conversation contains an image or a PDF document from before. Text in it cannot be checked for names, so nothing was sent. Start a new chat to go on; the earlier messages of this conversation are not carried into the new chat.",
+  chatPeopleProtectedAttachment: "People protection is on, and an attachment in the message box is an image or a scanned or PDF document. Text in it cannot be checked for names, so nothing was sent. Remove that attachment and send again.",
+  chatAttachmentPeopleProtected: "{0}: people protection is on, so images and scanned or PDF documents are left out (text in them cannot be checked for names). Text files and the text of mails and Office documents can still be attached.",
   aiConsentRevoke: "Revoke consent",
   // AI-01 — an accept or a revoke that could not be written to this browser's storage (Settings → AI).
   aiConsentAcceptNotSaved: "Your consent could not be saved because this browser's storage is full or unavailable, so AI stays off. Free up storage or allow it for this site, then try again.",
@@ -1714,6 +1725,19 @@ const enUS = {
   aiDataProjectProposal: "Only what you give the wizard: the brief you type, the files you attach (an e-mail with its body and its sender and recipient names and addresses), and the SharePoint files and Confluence pages you pick, plus your operating guide if you have one. No data from existing projects.",
   aiDataDictationLabel: "Speech-to-text dictation",
   aiDataDictation: "When you choose a speech-to-text service, the audio you record and that service’s API key go through this app’s own server route to the speech service you configured, not to Anthropic. Without this consent, while AI is switched off, or while that service’s address or key is missing or cannot be read on this device, dictation with that service is unavailable; it never switches to another engine on its own. Only when you choose browser dictation instead, or this deployment has switched speech-to-text off, does it use the browser’s built-in speech recognition, which in some browsers sends audio to the browser maker’s service.",
+  aiPeopleProtectionLabel: "Protect people from the AI",
+  aiPeopleProtectionHelp: "On: the AI sees no known person's name, email address or phone number and cannot assign, move or rate anyone. Plan with AI, RACI suggestions, dictation and voice commands are unavailable. Names the project does not know, typed into free text or contained in attachments, may still be sent.",
+  aiPeopleProtectionLocked: "Your organisation has switched this on for every project.",
+  aiPeopleProtectionOffTitle: "Turn off people protection",
+  aiPeopleProtectionOffConfirm: "Turn off people protection for this project? The AI will then see the people listed in the AI data disclosure and can suggest assignments.",
+  aiPeopleProtectionOffButton: "Turn off",
+  aiConsentPeopleProtection: "People protection is on by default in every project: the AI sees no known person’s name, email address or phone number and cannot assign, move or rate anyone. Plan with AI and RACI suggestions are hidden and dictation and voice commands are off until you turn protection off for a project in Settings → AI, unless your organisation has switched it on for every project.",
+  aiProtectedWhenLabel: "With people protection on:",
+  aiProtectedRedacted: "The names, email addresses and phone numbers of people the project knows are replaced by placeholders before sending. Names the project does not know, typed into free text or contained in attachments, may still be sent.",
+  aiProtectedHidden: "Not available: the feature is hidden while protection is on.",
+  aiProtectedOff: "Not available: the feature is switched off while protection is on.",
+  aiProtectedChat: "The names, email addresses and phone numbers of people the project knows are replaced by placeholders before sending, and the assistant cannot assign, move or rate anyone. Images and PDFs are refused while protection is on. Names the project does not know, typed into free text or contained in text attachments, may still be sent.",
+  aiProtectedProjectProposal: "Email addresses, phone numbers and IBANs are always replaced by placeholders. Names cannot be: a new project has no known people yet, so names in your brief and in files you add to the wizard are sent. Images and scanned or PDF documents are sent too, unless your organisation forces protection; then they are refused. The AI’s proposal is applied without any people: no sponsor, project manager, stakeholders, resources, assignees or owners.",
   credentialStorageNote:
     "Encrypted at rest in this browser (device key). Anyone with access to this browser profile can still use it — avoid production credentials on shared or untrusted machines.",
   disclaimerTitle: "Security & responsibility disclaimer",
@@ -2041,7 +2065,7 @@ const enUS = {
     "Every edit, rename, duplication and deletion saves a snapshot of the document as it was just before the change. Open [[History]] on a document row to see them: each snapshot shows when it was saved, whether [[You]] or the [[Assistant]] made the change, what kind of change it was and how many blocks it held, and [[Preview]] expands it so you can read it before deciding. [[Restore]] writes that snapshot's title and blocks back into the document and records what it replaced, so a restore can itself be reversed. Deleting a document does not lose it — switch on [[Deleted documents]] in the toolbar, where the count beside the label tells you how many there are, and restore it from the list; it comes back as a new document and can be restored only once. Up to 20 snapshots are kept per document and 500 across the project, oldest dropped first, but while a document is deleted its last snapshot is exempt from both limits so it stays recoverable however old it is. This works on every storage backend. Document changes are not covered by [[Undo]] — this history is the way back.",
   helpSecVoiceTitle: "Voice commands",
   helpSecVoiceBody:
-    "Click the microphone in the header and try:\n• \"add task review the deck\"\n• \"edit task 2\"\n• \"delete task 3\"\n• \"send inquiry for task 5\"\n• \"search blockers\" / \"clear search\"\n• \"switch to German\"\nIndividual text fields also have an inline microphone for dictation.",
+    "Click the microphone in the header and try:\n• \"add task review the deck\"\n• \"edit task 2\"\n• \"delete task 3\"\n• \"send inquiry for task 5\"\n• \"search blockers\" / \"clear search\"\n• \"switch to German\"\nIndividual text fields also have an inline microphone for dictation.\nVoice commands and dictation are off while the project's people protection is on (Settings → AI): the microphone then shows crossed out.",
   helpSecNotifTitle: "Due-date notifications",
   helpSecNotifBody:
     "Tasks needing attention surface as ranked signals under Next actions rather than as a banner. Birthdays raise their own banner above the workspace, and its toast fires once per app load if enabled; urgent signals can additionally raise a desktop notification (off by default). Set how many days ahead reminders arrive in Settings → Notifications — by default one lead time covers both due dates and birthdays, and unticking the global option lets you set each reminder kind separately; a reminder that would land on a weekend, holiday, or absence day is shifted earlier so it reaches you on a working day. Snooze any reminder for 1 hour or 1 day — it stays hidden (and the toast stays quiet) until the snooze elapses. The bell icon in the header opens Next actions, badged with how many signals sit in the \"now\" tier. Configure each channel independently.",
@@ -2068,6 +2092,9 @@ const enUS = {
   helpSecAiAdvancedTitle: "AI assistance (advanced)",
   helpSecAiAdvancedBody:
     "Beyond the chat, an Anthropic key unlocks several optional, advisory AI helpers. Create project with AI: in the new-project wizard, describe the project in plain words or import a source — upload a file, pick a SharePoint document, or paste a Confluence page URL — and Claude pre-fills the form for you to review. Analyze with AI: the Action Center's button runs one analysis pass over your reports and suggests where to focus; it never edits your data, and the deterministic next-action engine is untouched. Suggest with AI: in the next-actions settings, Claude proposes tweaks to the ranking weights that you accept per row. Scheduled jobs: opt in (Settings → Scheduled jobs) to analyse a project you name on a daily or weekly cadence, with an instruction of your own — the scheduler runs due jobs while the app is open, skips a run whose day has passed, and keeps each result as a report under Portfolio → Scheduled reports (it needs a Turso portfolio) and shows it as a notification. Each scheduled run is a billed API call, so it is off by default. None of these features run in pop-out windows.",
+  helpSecAiPeopleTitle: "Protecting people from the AI",
+  helpSecAiPeopleBody:
+    "Each project has a switch, Protect people from the AI, in Settings → AI. It is on by default. While it is on, the AI is not sent the names, e-mail addresses or phone numbers of the people the project knows (its resources, stakeholders, owners and assignees), nor IBANs. The app replaces them with placeholders such as [Person 1] before a request leaves your browser and puts the real names back into the reply; the placeholders are never saved in your data. The AI also cannot assign, move or rate anyone: tools that touch people are not offered, anything it proposes about a person is dropped, and the people-related signals are left out of what it is told. Plan with AI, RACI suggestions, dictation and voice commands are unavailable while protection is on. Images and documents that are not plain text are refused as well: the chat leaves them out when you attach them (the text of mails and Office documents is kept), and an image or PDF already in a chat conversation blocks that conversation until protection is turned off or you start a new one. Creating a project from the empty wizard always replaces email addresses, phone numbers and IBANs with placeholders, but cannot replace names, because a new project knows no people yet; images and scanned or PDF documents are sent, unless your organisation forces protection: then they are left out. Either way the project is created without any people. Turning protection off asks you to confirm and is recorded in the activity log. (Existing consents to the AI data disclosure are asked for once more after this update, because the disclosure changed.) Your organisation can lock the switch on for every project. Limits, in plain words: names the project does not know, typed into free text or contained in attachments, may still be sent; a lone first name that is also a common word is not recognised; and the protection is enforced in this app, so a modified copy of the app could bypass it. Enforcement on the server side is planned as a later project.",
   helpSecInputFeedbackTitle: "Input feedback",
   helpSecInputFeedbackBody:
     "Capped text fields show a live character counter as you approach the limit — it stays hidden until roughly 80% full and turns a warning color when you reach the cap. Numeric fields (shift hours, change schedule-days/cost, budget amounts and rate overrides) are automatically clamped to their allowed range on blur, with an inline notice if the value was adjusted. If a label contains separator characters that must be stripped, a notice appears next to the field. When you save a record and any entries were trimmed or clamped to fit storage limits, a brief summary toast confirms what was adjusted.",
@@ -3186,6 +3213,8 @@ const enUS = {
   inlineAiEditRejected: "Not applied: {0}",
   inlineAiEditApply: "Apply",
   inlineAiEditNoChanges: "No changes to apply.",
+  inlineAiEditPeopleRecord: "People protection is on for this project, so Claude cannot edit people records.",
+  inlineAiEditPeopleWithheld: "People protection is on for this project, so Claude may not assign or change people; nothing else was proposed.",
   inlineAiEditApplyFailed: "Could not apply the change.",
   inlineAiEditPartial: "Some changes were applied, but a later step failed.",
   inlineAiEditStale: "Nothing was changed — this record changed since Claude read it. Run the edit again to pick up the new state.",

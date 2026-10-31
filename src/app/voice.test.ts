@@ -42,6 +42,30 @@ describe("startRecognition continuous flag", () => {
     startRecognition({ lang: "en-US", onFinal: () => {}, continuous: true });
     expect(created!.continuous).toBe(true);
   });
+  it("the returned stop still calls recog.stop (normal end, final result kept)", () => {
+    let created: FakeRecog | undefined;
+    installCtor((r) => (created = r));
+    const stop = startRecognition({ lang: "en-US", onFinal: () => {} });
+    stop!();
+    expect(created!.stop).toHaveBeenCalledTimes(1);
+    expect(created!.abort).not.toHaveBeenCalled();
+  });
+  it("abort calls recog.abort and drops any result that still arrives (AI people protection)", () => {
+    let created: FakeRecog | undefined;
+    installCtor((r) => (created = r));
+    const onFinal = vi.fn();
+    const stop = startRecognition({ lang: "en-US", onFinal });
+    const onresult = () => created!.onresult as ((e: unknown) => void) | null;
+    const result = { resultIndex: 0, results: [Object.assign([{ transcript: "delete task 3", confidence: 1 }], { isFinal: true })] };
+    // Anti-vacuity: before the abort, the same result reaches onFinal.
+    onresult()?.(result);
+    expect(onFinal).toHaveBeenCalledTimes(1);
+    stop!.abort();
+    expect(created!.abort).toHaveBeenCalledTimes(1);
+    expect(created!.stop).not.toHaveBeenCalled();
+    onresult()?.(result);
+    expect(onFinal).toHaveBeenCalledTimes(1);
+  });
   it("getCtor is exported and returns null when unsupported", () => {
     expect(getCtor()).toBeNull();
   });

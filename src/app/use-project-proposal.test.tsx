@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import "../test/ai-consent-live";
 import { renderHook, act } from "@testing-library/react";
 import { useProjectProposal } from "./use-project-proposal";
+import { PROPOSAL_PEOPLE_PROTECTED_ERROR } from "./use-project-proposal";
+import { setDisabledIntegrations } from "./integration-switches";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
 import type { ReactNode } from "react";
 import { ActionGuidesProvider } from "./action-guides-context";
@@ -17,14 +19,32 @@ const ai = { apiKey: "sk-test", model: "claude-sonnet-4-6" };
 
 afterEach(() => vi.restoreAllMocks());
 
+// A real Response per call: the wizard's reply is always read once as text to restore its placeholders (review 3, R3).
 function mockFetchToolUse(input: unknown) {
-  return vi.spyOn(globalThis, "fetch").mockResolvedValue({
-    ok: true,
-    json: async () => ({ content: [{ type: "tool_use", name: "propose_project", input }], stop_reason: "tool_use" }),
-  } as Response);
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(
+    JSON.stringify({ content: [{ type: "tool_use", name: "propose_project", input }], stop_reason: "tool_use" }),
+    { status: 200 },
+  ));
 }
 
 describe("useProjectProposal", () => {
+  // AI people protection, Task 6 (R4): the project "Use AI" creates carries no override, so it protects its
+  // people by default; the proposal reaches the wizard with no person in it. The positive control (allowed)
+  // is in ai-project-proposal.people.test.ts.
+  it("returns the proposal without its people, for a project that protects them by default", async () => {
+    mockFetchToolUse({
+      meta: { name: "Alpha", sponsor: "Zelda Quartz" }, features: [],
+      seed: { tasks: [{ taskName: "Kick-off", dueDate: "2026-11-05", assignee: "Yuri Pell" }], resources: [{ firstName: "Yuri", lastName: "Pell" }] },
+    });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: { meta: Record<string, unknown>; seed?: { tasks?: Record<string, unknown>[]; resources?: unknown[] } } | null = null;
+    await act(async () => { p = (await result.current.generate("a CRM project")) as typeof p; });
+    expect(p!.meta.name).toBe("Alpha");
+    expect(p!.meta).not.toHaveProperty("sponsor");
+    expect(p!.seed!.tasks![0]).toEqual({ taskName: "Kick-off", dueDate: "2026-11-05" });
+    expect(p!.seed!.resources).toBeUndefined();
+  });
+
   it("returns a parsed proposal on a forced tool_use response", async () => {
     mockFetchToolUse({ meta: { name: "Alpha" }, features: [] });
     const { result } = renderHook(() => useProjectProposal(ai));
@@ -77,9 +97,7 @@ describe("useProjectProposal", () => {
   });
 
   it("passes the abort signal to fetch", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true, json: async () => ({ content: [] }),
-    } as Response);
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({ content: [] }), { status: 200 }));
     const { result } = renderHook(() => useProjectProposal(ai));
     const ctrl = new AbortController();
     await act(async () => { await result.current.generate("hi", ctrl.signal); });
@@ -150,7 +168,7 @@ describe("useProjectProposal guide text", () => {
 // §764 — a reply cut at the output budget is asked for once more at a larger one, and never read.
 describe("useProjectProposal output budget (§764)", () => {
   const cutOr = (stop: string, input: unknown) =>
-    ({ ok: true, json: async () => ({ stop_reason: stop, content: [{ type: "tool_use", name: "propose_project", input }] }) }) as unknown as Response;
+    new Response(JSON.stringify({ stop_reason: stop, content: [{ type: "tool_use", name: "propose_project", input }] }), { status: 200 });
   const budgets = (spy: { mock: { calls: unknown[][] } }) =>
     spy.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)).max_tokens as number);
   const WHOLE = { meta: { name: "Alpha" }, features: [] };
@@ -165,12 +183,111 @@ describe("useProjectProposal output budget (§764)", () => {
   });
 
   it("never reads a reply cut at the retry budget too, even one that parses", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(cutOr("max_tokens", WHOLE));
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => cutOr("max_tokens", WHOLE));
     const { result } = renderHook(() => useProjectProposal(ai));
     let p: unknown = "unset";
     await act(async () => { p = await result.current.generate("a CRM project"); });
     expect(p).toBeNull();
     expect(result.current.error).toBe("parse");
     expect(budgets(spy)).toEqual([4096, 8192]);
+  });
+});
+
+/** A PDF whose base64 bytes hold an IBAN-shaped run after a "/" (valid checksum): opaque bytes must pass untouched. */
+const PDF = { type: "document", source: { type: "base64", media_type: "application/pdf", data: "JVBERi0x/DE89370400440532013000/w==" } } as const;
+
+// Review 2, finding B: a deployment that forces people protection (AIPM_DISABLED_INTEGRATIONS=ai-people) covers
+// the create-project wizard too. No people are known yet, so the dictionary is EMPTY, but the patterns still
+// redact email addresses, phone numbers and IBANs, and an image or non-text document is refused before sending.
+describe("useProjectProposal under a deployment that forces people protection (review 2, B)", () => {
+  afterEach(() => setDisabledIntegrations([]));
+
+  // A real Response: a protected reply is read once as text to restore the placeholders.
+  function replyWith(input: unknown) {
+    return vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(
+      JSON.stringify({ content: [{ type: "tool_use", name: "propose_project", input }], stop_reason: "tool_use" }),
+      { status: 200 },
+    ));
+  }
+  const BRIEF = "Plan a CRM rollout for Acme. Contact jane.doe@acme.example or +49 170 1234567.";
+  const bodyOf = (spy: ReturnType<typeof replyWith>) => String((spy.mock.calls[0]![1] as RequestInit).body);
+
+  it("forced: the brief's email address and phone number are replaced by placeholders", async () => {
+    setDisabledIntegrations(["ai-people"]);
+    const spy = replyWith({ meta: { name: "CRM" }, features: [] });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: unknown = null;
+    await act(async () => { p = await result.current.generate(BRIEF); });
+    expect(p).not.toBeNull();
+    const body = bodyOf(spy);
+    expect(body).not.toContain("jane.doe@acme.example");
+    expect(body).not.toContain("170 1234567");
+    expect(body).toContain("[email 1]");
+    expect(body).toContain("[phone 1]");
+  });
+
+  it("forced: an image is refused before anything is sent, with the protection's error", async () => {
+    setDisabledIntegrations(["ai-people"]);
+    const spy = replyWith({ meta: { name: "CRM" }, features: [] });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: unknown = "x";
+    await act(async () => {
+      p = await result.current.generate([
+        { type: "text", text: "From this whiteboard:" },
+        { type: "image", source: { type: "base64", media_type: "image/png", data: "iVBORw0KGgo=" } },
+      ] as never);
+    });
+    expect(p).toBeNull();
+    expect(result.current.error).toBe(PROPOSAL_PEOPLE_PROTECTED_ERROR);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("forced: a PDF is refused too", async () => {
+    setDisabledIntegrations(["ai-people"]);
+    const spy = replyWith({ meta: { name: "CRM" }, features: [] });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    await act(async () => { await result.current.generate([{ type: "text", text: "From this brief:" }, PDF] as never); });
+    expect(result.current.error).toBe(PROPOSAL_PEOPLE_PROTECTED_ERROR);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+// Review 3, R3 (owner: always pattern-redact): WITHOUT the deployment lock the wizard still sends through a
+// redaction session over an EMPTY dictionary, so email addresses, phone numbers and IBANs are replaced and restored
+// in the reply. Images and non-text documents pass (the wizard keeps reading PDFs); only a forced lock refuses them.
+describe("useProjectProposal without a forced protection (review 3, R3)", () => {
+  function replyWith(input: unknown) {
+    return vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(
+      JSON.stringify({ content: [{ type: "tool_use", name: "propose_project", input }], stop_reason: "tool_use" }),
+      { status: 200 },
+    ));
+  }
+  const IBAN = "DE89 3704 0044 0532 0130 00";
+  const BRIEF = `Plan a CRM rollout for Acme. Contact jane.doe@acme.example or +49 170 1234567; pay to ${IBAN}.`;
+  const bodyOf = (spy: ReturnType<typeof replyWith>) => String((spy.mock.calls[0]![1] as RequestInit).body);
+
+  it("the brief's email address, phone number and IBAN are replaced, and restored in the reply", async () => {
+    const spy = replyWith({ meta: { name: "CRM for [email 1]" }, features: [] });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: { meta: { name?: string } } | null = null;
+    await act(async () => { p = (await result.current.generate(BRIEF)) as typeof p; });
+    const body = bodyOf(spy);
+    expect(body).not.toContain("jane.doe@acme.example");
+    expect(body).not.toContain("170 1234567");
+    expect(body).not.toContain(IBAN);
+    expect(body).toContain("[email 1]");
+    expect(body).toContain("[phone 1]");
+    expect(body).toContain("[IBAN 1]");
+    expect(p!.meta.name).toBe("CRM for jane.doe@acme.example");
+  });
+
+  it("a PDF passes, its bytes untouched", async () => {
+    const spy = replyWith({ meta: { name: "CRM" }, features: [] });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: unknown = null;
+    await act(async () => { p = await result.current.generate([{ type: "text", text: "From this brief:" }, PDF] as never); });
+    expect(p).not.toBeNull();
+    expect(result.current.error).toBeNull();
+    expect(bodyOf(spy)).toContain(PDF.source.data);
   });
 });

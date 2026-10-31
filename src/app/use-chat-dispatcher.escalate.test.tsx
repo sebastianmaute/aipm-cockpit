@@ -1,5 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+// AI people protection, Task 6: rendered without task-manager's privacy provider, where the people getter
+// fails closed (protected) and the executor would strip person fields. These tests are about the feature.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
 import { describeEscalation } from "./action-escalate";
 import { entityToken } from "./ai-entity-token";

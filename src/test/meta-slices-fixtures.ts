@@ -78,7 +78,7 @@ export function fullMetaWorkspace(): Workspace {
     ...sample,
     fieldVisibility: { task: { fields: ["taskName"] } },
     features: ["raid"] as FeatureModuleId[],
-    settingsOverrides: { timezone: { timezone: "Europe/Berlin" } },
+    settingsOverrides: { timezone: { timezone: "Europe/Berlin" }, ai: { peopleAllowed: true } },
     budgetHistory: budgetHistoryFixture(),
     baselineHistory: [
       { from: "2026-01-05", at: "2026-01-05T08:00:00.000Z", currency: "GBP" },
