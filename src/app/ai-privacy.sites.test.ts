@@ -17,10 +17,11 @@ const FORCED = new Set(["runForcedToolCall", "runForcedToolCallWithStop", "runFo
 const CALL_CLAUDE_PRIVACY_INDEX = 5;
 const DEFINING_FILES = new Set(["src/app/ai-forced-call.ts", "src/app/chat-api.ts"]);
 
-/** The one site allowed to send unprotected, and why. */
+/** The one site allowed to send unprotected, and why. Review 2, B: it is unprotected only while the deployment does
+ *  not force protection — `aiPrivacyForNewProject()` is protected with an empty dictionary when it does. */
 const UNPROTECTED_ALLOWED: Readonly<Record<string, string>> = {
   "src/app/use-project-proposal.ts":
-    "the create-project wizard has no workspace yet, so no people: it passes aiPrivacyFor([]), which is { protected: false }",
+    "the create-project wizard has no workspace yet, so no people: it passes aiPrivacyForNewProject(), which is { protected: false } unless the deployment forces protection",
 };
 
 interface Site {
@@ -85,6 +86,12 @@ function isUnprotectedLiteral(e: ts.Expression): boolean {
   return u.properties.some((p) => ts.isPropertyAssignment(p) && p.name.getText() === "protected" && p.initializer.kind === ts.SyntaxKind.FalseKeyword);
 }
 
+/** `aiPrivacyForNewProject()` — a request for a project not created yet: unprotected unless the deployment forces protection. */
+function isNewProjectPrivacy(e: ts.Expression): boolean {
+  const u = unwrap(e);
+  return ts.isCallExpression(u) && ts.isIdentifier(u.expression) && u.expression.text === "aiPrivacyForNewProject" && u.arguments.length === 0;
+}
+
 /** `aiPrivacyFor([])` — a request for no project, i.e. unprotected. */
 function isEmptyProjectList(e: ts.Expression): boolean {
   const u = unwrap(e);
@@ -96,7 +103,6 @@ function isEmptyProjectList(e: ts.Expression): boolean {
 const PRIVACY_BUILDERS: Readonly<Record<string, string>> = {
   "src/app/ai-privacy-context.tsx": "the open project's getter (useOpenProjectAiPrivacy) builds it from the registered source",
   "src/app/scheduled-job-run.ts": "a scheduled job sends the TARGET project's data, so it builds that project's privacy",
-  "src/app/use-project-proposal.ts": UNPROTECTED_ALLOWED["src/app/use-project-proposal.ts"]!,
 };
 
 interface PrivacyValue {
@@ -154,6 +160,7 @@ function isThreadedPrivacy(v: PrivacyValue): boolean {
   if (ts.isCallExpression(e) && ts.isIdentifier(e.expression)) {
     if (v.getters.has(e.expression.text)) return e.arguments.length === 0;
     if (e.expression.text === "aiPrivacyFor") return v.file in PRIVACY_BUILDERS;
+    if (isNewProjectPrivacy(e)) return v.file in UNPROTECTED_ALLOWED;
   }
   if (ts.isCallExpression(e) && ts.isPropertyAccessExpression(e.expression) && e.expression.name.text === "current"
     && ts.isIdentifier(e.expression.expression)) {
@@ -208,9 +215,30 @@ describe("every AI call site supplies the privacy of the project it sends (spec 
     expect(bad).toEqual([]);
   });
 
-  it("only the listed site sends for no project at all, and it does", () => {
-    const empty = sites.filter((s) => s.privacy !== undefined && isEmptyProjectList(s.privacy)).map((s) => s.file);
-    expect(empty.sort()).toEqual(Object.keys(UNPROTECTED_ALLOWED).sort());
+  it("only the listed site sends for a project not yet created, and it does", () => {
+    const fresh = sites.filter((s) => s.privacy !== undefined && isNewProjectPrivacy(s.privacy)).map((s) => s.file);
+    expect(fresh.sort()).toEqual(Object.keys(UNPROTECTED_ALLOWED).sort());
+  });
+
+  // Review 2, B: the wizard used to pass `aiPrivacyFor([])`, unprotected even when the deployment forced protection.
+  it("no site sends for no project at all (aiPrivacyFor([]) ignores a forced protection)", () => {
+    const empty = sites.filter((s) => s.privacy !== undefined && isEmptyProjectList(s.privacy)).map((s) => `${s.file}:${s.line}`);
+    expect(empty).toEqual([]);
+  });
+
+  it("only the listed site calls aiPrivacyForNewProject", () => {
+    const found = new Set<string>();
+    for (const full of sourceFiles(SRC)) {
+      const file = relative(process.cwd(), full).replace(/\\/g, "/");
+      if (file === "src/app/ai-privacy.ts") continue;
+      const sf = parse(full);
+      const visit = (node: ts.Node): void => {
+        if (ts.isCallExpression(node) && isNewProjectPrivacy(node)) found.add(file);
+        ts.forEachChild(node, visit);
+      };
+      visit(sf);
+    }
+    expect([...found].sort()).toEqual(Object.keys(UNPROTECTED_ALLOWED).sort());
   });
 
   // Task 8 fix round 1 (I3): the call-site checks above see only the argument of `callClaude` / `runForcedToolCall*`.

@@ -19,7 +19,9 @@ import { SegmentedControl } from "./segmented-control";
 import { aiFailureMessageKeyForToken } from "./ai-key-status";
 import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
-import { type ProposalContent } from "./use-project-proposal";
+import { PROPOSAL_PEOPLE_PROTECTED_ERROR, type ProposalContent } from "./use-project-proposal";
+import { holdsUnredactableContent } from "./ai-privacy";
+import { isPeopleProtectionForced } from "./ai-people-protection";
 import { checkAttachmentSize, classifyAttachment, ATTACHMENT_ACCEPT, planBatch, type AttachmentBlock, type StagingCandidate } from "./chat-attachments";
 import { flattenIngestBlocks, ingestBytes, ingestFile } from "./attachment-ingest";
 import { officeKindOf } from "./office-extract";
@@ -38,6 +40,15 @@ import { Card } from "./card";
 
 /** Cap on files accepted in a single multi-upload (extras → "too-many" skip). */
 const MAX_IMPORT_FILES = 10;
+
+/** AI people protection (review 2, B): when the deployment forces protection the wizard's request is protected
+ *  with no known people, and the transport refuses an image or non-text document — so they are left out HERE,
+ *  at the attach step, with the reason, as the chat does. A mail's or Office document's text still imports. */
+function blocksForProposal(all: readonly AttachmentBlock[]): { blocks: AttachmentBlock[]; leftOut: boolean } {
+  if (!isPeopleProtectionForced()) return { blocks: [...all], leftOut: false };
+  const blocks = all.filter((b) => !holdsUnredactableContent(b));
+  return { blocks, leftOut: blocks.length < all.length };
+}
 
 /** Step-0 source picker: describe (default), file upload, SharePoint, Confluence. */
 type ImportMethod = "describe" | "file" | "sharepoint" | "confluence";
@@ -93,6 +104,9 @@ export function Step0ImportPanel({
   const [skipped, setSkipped] = useState<
     { name: string; reason: "too-large" | "unsupported" | "too-many" | "over-limit" }[]
   >([]);
+  // AI people protection (review 2, B): files whose images or non-text documents were left out because
+  // the deployment forces protection — their text (a mail's body, an Office document's) still imports.
+  const [protectedOut, setProtectedOut] = useState<string[]>([]);
   // Aborts the in-flight proposal call when the loading modal's Cancel is hit.
   const abortRef = useRef<AbortController | null>(null);
 
@@ -118,6 +132,7 @@ export function Step0ImportPanel({
     if (files.length === 0) return;
     setImportError(null);
     setSkipped([]);
+    setProtectedOut([]);
     onResetAi();
     // A native workspace JSON bypasses the model entirely: routed straight to
     // the wizard, which imports it as the new project's content. Any other
@@ -152,6 +167,7 @@ export function Step0ImportPanel({
     // treated as a text attachment for the model like any other document.
     const dropped: { name: string; reason: "too-large" | "unsupported" | "too-many" | "over-limit" }[] = [];
     const read: StagingCandidate[] = [];
+    const leftOut: string[] = [];
     setReading(true);
     try {
       for (let i = 0; i < files.length; i++) {
@@ -196,7 +212,9 @@ export function Step0ImportPanel({
         }
         // The whole walked tree, not just the mail envelope — see
         // flattenIngestBlocks. One dropped .eml can contribute several blocks.
-        read.push({ name: file.name, blocks: flattenIngestBlocks(result.node) });
+        const kept = blocksForProposal(flattenIngestBlocks(result.node));
+        if (kept.leftOut) leftOut.push(file.name);
+        if (kept.blocks.length > 0) read.push({ name: file.name, blocks: kept.blocks });
       }
     } catch (err) {
       const code = err instanceof Error ? err.message : "";
@@ -216,9 +234,10 @@ export function Step0ImportPanel({
     const blocks: AttachmentBlock[] = batch.accepted.flatMap((c) => [...c.blocks]);
     if (dropped.length > 0) setSkipped(dropped);
     if (blocks.length === 0) {
-      setImportError(t(lang, "wizardImportErrorUnsupported"));
+      setImportError(leftOut.length > 0 ? t(lang, "wizardImportPeopleProtected", leftOut.join(", ")) : t(lang, "wizardImportErrorUnsupported"));
       return;
     }
+    if (leftOut.length > 0) setProtectedOut(leftOut);
     const content: ProposalContent = [
       { type: "text", text: t(lang, "wizardImportFilePrompt") },
       ...blocks,
@@ -238,6 +257,7 @@ export function Step0ImportPanel({
   const onSharePointPick = async (link: KnowledgeLink) => {
     setSpPickerOpen(false);
     setImportError(null);
+    setProtectedOut([]);
     let content: ProposalContent;
     setReading(true);
     try {
@@ -271,11 +291,14 @@ export function Step0ImportPanel({
         );
         return;
       }
-      content = [
-        { type: "text", text: t(lang, "wizardImportFilePrompt") },
-        // A SharePoint-picked .eml is a tree exactly like a dropped one.
-        ...flattenIngestBlocks(result.node),
-      ];
+      // A SharePoint-picked .eml is a tree exactly like a dropped one.
+      const kept = blocksForProposal(flattenIngestBlocks(result.node));
+      if (kept.leftOut && kept.blocks.length === 0) {
+        setImportError(t(lang, "wizardImportPeopleProtected", name));
+        return;
+      }
+      if (kept.leftOut) setProtectedOut([name]);
+      content = [{ type: "text", text: t(lang, "wizardImportFilePrompt") }, ...kept.blocks];
     } catch {
       setImportError(t(lang, "wizardImportErrorSource"));
       return;
@@ -339,6 +362,7 @@ export function Step0ImportPanel({
             setMethod(id);
             setImportError(null);
             setSkipped([]);
+            setProtectedOut([]);
             onResetAi();
           }}
         />
@@ -416,8 +440,10 @@ export function Step0ImportPanel({
                   ? "aiCreateNeedsKey"
                   : aiError === "limit"
                     ? "aiUsageLimitReached"
-                    // §650 — a "401"/"403" status token names the key.
-                    : aiFailureMessageKeyForToken(aiError) ?? "aiCreateError",
+                    : aiError === PROPOSAL_PEOPLE_PROTECTED_ERROR
+                      ? "wizardPeopleProtectedContent"
+                      // §650 — a "401"/"403" status token names the key.
+                      : aiFailureMessageKeyForToken(aiError) ?? "aiCreateError",
               )}
           </FieldError>
         )}
@@ -425,6 +451,12 @@ export function Step0ImportPanel({
         {skipped.length > 0 && (
           <p className="text-xs text-muted-foreground">
             {tPlural(lang, "wizardImportSkippedFiles", skipped.length, skipped.length, skipped.map((s) => s.name).join(", "))}
+          </p>
+        )}
+
+        {protectedOut.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {t(lang, "wizardImportPeopleProtected", protectedOut.join(", "))}
           </p>
         )}
 

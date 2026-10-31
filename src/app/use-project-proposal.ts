@@ -4,7 +4,7 @@
 // single propose_project tool call and returns the parsed ProjectProposal. No
 // agentic loop. Reuses the live in-memory API key (never logged).
 
-import { aiPrivacyFor } from "./ai-privacy";
+import { AiPeopleProtectedContentError, aiPrivacyForNewProject } from "./ai-privacy";
 import { useCallback, useState } from "react";
 import { parseProposal, PROPOSAL_TOOL, buildProposalSystemPrompt, withoutProposalPeople, type ProjectProposal } from "./ai-project-proposal";
 import { isPeopleProtected } from "./ai-people-protection";
@@ -18,6 +18,9 @@ import { browserTimeZone, todayInZone } from "./timezone";
 /** The user-message content the proposal call accepts: a plain string (SP3) or
  *  a multimodal block array (text + PDF/image/text attachments) for SP-D. */
 export type ProposalContent = string | Array<{ type: "text"; text: string } | AttachmentBlock>;
+
+/** The error token when a forced people protection refused an image or non-text document (step0 names it). */
+export const PROPOSAL_PEOPLE_PROTECTED_ERROR = "people-protected-content";
 
 interface AiCreds {
   apiKey: string;
@@ -48,8 +51,9 @@ export function useProjectProposal(ai: AiCreds) {
         const reply = await runForcedToolCallWithRetry({
           apiKey: key,
           // AI people protection (spec R3): the wizard creates a project, so no workspace and no
-          // people exist yet: a request for no project, which is unprotected (ai-privacy.sites.test.ts).
-          privacy: aiPrivacyFor([]),
+          // people exist yet: unprotected, unless the deployment forces protection — then protected with
+          // no known people (patterns still redact; ai-privacy.sites.test.ts lists this exemption).
+          privacy: aiPrivacyForNewProject(),
           model: ai.model,
           // The user's local day, computed the same way as the one the wizard stamps on the seed
           // (but at call start, so the two can differ across midnight); callback context — lint-safe.
@@ -69,6 +73,10 @@ export function useProjectProposal(ai: AiCreds) {
         return withoutProposalPeople(parsed, isPeopleProtected(undefined));
       } catch (e) {
         if (signal?.aborted || isAbortError(e)) return null;
+        if (e instanceof AiPeopleProtectedContentError) {
+          setError(PROPOSAL_PEOPLE_PROTECTED_ERROR);
+          return null;
+        }
         if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
           setError("limit");
           return null;

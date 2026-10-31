@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import "../test/ai-consent-live";
 import { renderHook, act } from "@testing-library/react";
 import { useProjectProposal } from "./use-project-proposal";
+import { PROPOSAL_PEOPLE_PROTECTED_ERROR } from "./use-project-proposal";
+import { setDisabledIntegrations } from "./integration-switches";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
 import type { ReactNode } from "react";
 import { ActionGuidesProvider } from "./action-guides-context";
@@ -189,5 +191,61 @@ describe("useProjectProposal output budget (§764)", () => {
     expect(p).toBeNull();
     expect(result.current.error).toBe("parse");
     expect(budgets(spy)).toEqual([4096, 8192]);
+  });
+});
+
+// Review 2, finding B: a deployment that forces people protection (AIPM_DISABLED_INTEGRATIONS=ai-people) covers
+// the create-project wizard too. No people are known yet, so the dictionary is EMPTY, but the patterns still
+// redact email addresses, phone numbers and IBANs, and an image or non-text document is refused before sending.
+describe("useProjectProposal under a deployment that forces people protection (review 2, B)", () => {
+  afterEach(() => setDisabledIntegrations([]));
+
+  // A real Response: a protected reply is read once as text to restore the placeholders.
+  function replyWith(input: unknown) {
+    return vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(
+      JSON.stringify({ content: [{ type: "tool_use", name: "propose_project", input }], stop_reason: "tool_use" }),
+      { status: 200 },
+    ));
+  }
+  const BRIEF = "Plan a CRM rollout for Acme. Contact jane.doe@acme.example or +49 170 1234567.";
+  const bodyOf = (spy: ReturnType<typeof replyWith>) => String((spy.mock.calls[0]![1] as RequestInit).body);
+
+  it("forced: the brief's email address and phone number are replaced by placeholders", async () => {
+    setDisabledIntegrations(["ai-people"]);
+    const spy = replyWith({ meta: { name: "CRM" }, features: [] });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: unknown = null;
+    await act(async () => { p = await result.current.generate(BRIEF); });
+    expect(p).not.toBeNull();
+    const body = bodyOf(spy);
+    expect(body).not.toContain("jane.doe@acme.example");
+    expect(body).not.toContain("170 1234567");
+    expect(body).toContain("[email 1]");
+    expect(body).toContain("[phone 1]");
+  });
+
+  it("forced: an image is refused before anything is sent, with the protection's error", async () => {
+    setDisabledIntegrations(["ai-people"]);
+    const spy = replyWith({ meta: { name: "CRM" }, features: [] });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: unknown = "x";
+    await act(async () => {
+      p = await result.current.generate([
+        { type: "text", text: "From this whiteboard:" },
+        { type: "image", source: { type: "base64", media_type: "image/png", data: "iVBORw0KGgo=" } },
+      ] as never);
+    });
+    expect(p).toBeNull();
+    expect(result.current.error).toBe(PROPOSAL_PEOPLE_PROTECTED_ERROR);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  // The positive control: without the deployment lock the wizard sends the brief as written.
+  it("not forced: the brief is sent as written", async () => {
+    const spy = replyWith({ meta: { name: "CRM" }, features: [] });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    await act(async () => { await result.current.generate(BRIEF); });
+    expect(bodyOf(spy)).toContain("jane.doe@acme.example");
+    expect(bodyOf(spy)).toContain("+49 170 1234567");
   });
 });
