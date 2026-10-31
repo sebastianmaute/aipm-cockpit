@@ -96,6 +96,14 @@ describe("confirmAiDeployment", () => {
     expect((err as AiDeploymentError).reason).toBe(reason);
   });
 
+  // Review 5, C1: AI switched off is "off" whatever the answer says about the people lock — nothing is sent either way.
+  it("an answer that says AI is off is off even without the people lock", async () => {
+    stubFetch(json({ off: true, route: "direct", invalid: false }));
+    const err = await confirmAiDeployment().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiDeploymentError);
+    expect((err as AiDeploymentError).reason).toBe("off");
+  });
+
   it.each([
     ["the server is down", new TypeError("Failed to fetch")],
     ["the status is not 200", new Response("", { status: 500 })],

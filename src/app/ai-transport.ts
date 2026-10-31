@@ -99,9 +99,10 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
 
-function isAiStatus(v: unknown): v is AiStatus {
+/** The status answer's deployment half; `peopleForced` is checked on its own (review 5, C1). */
+function isAiStatusBase(v: unknown): v is Omit<AiStatus, "peopleForced"> & { peopleForced?: unknown } {
   return isRecord(v) && typeof v.off === "boolean" && typeof v.invalid === "boolean"
-    && (v.route === "direct" || v.route === "gateway") && typeof v.peopleForced === "boolean";
+    && (v.route === "direct" || v.route === "gateway");
 }
 
 function isAbort(e: unknown, signal: AbortSignal | undefined): boolean {
@@ -112,7 +113,8 @@ function isAbort(e: unknown, signal: AbortSignal | undefined): boolean {
  *  the one this page loaded with. Throws `AiDeploymentError` otherwise; an abort stays an abort.
  *  Resolves with whether the server forces people protection NOW (review 4, M3); a lock added since
  *  page load is folded into the page's forced state (`addDisabledIntegration`). An answer that does
- *  not say it is not trusted ("unconfirmed"), like any other malformed answer. */
+ *  not say it is not trusted ("unconfirmed"), like any other malformed answer — unless it says AI is
+ *  off, which is "off" either way (review 5, C1). */
 export async function confirmAiDeployment(signal?: AbortSignal): Promise<{ peopleForced: boolean }> {
   let state: unknown;
   try {
@@ -124,12 +126,15 @@ export async function confirmAiDeployment(signal?: AbortSignal): Promise<{ peopl
     if (isAbort(e, signal)) throw e;
     throw new AiDeploymentError("unconfirmed");
   }
-  if (!isAiStatus(state)) throw new AiDeploymentError("unconfirmed");
-  if (state.peopleForced) addDisabledIntegration("ai-people");
+  if (!isAiStatusBase(state)) throw new AiDeploymentError("unconfirmed");
+  const { peopleForced } = state;
+  if (peopleForced === true) addDisabledIntegration("ai-people");
+  // Review 5, C1: AI switched off sends nothing, so an "off" answer is off whatever it says about the people lock.
   if (state.off) throw new AiDeploymentError("off");
+  if (typeof peopleForced !== "boolean") throw new AiDeploymentError("unconfirmed");
   if (state.invalid) throw new AiDeploymentError("invalid");
   if (state.route !== currentAiRoute()) throw new AiDeploymentError("route-changed");
-  return { peopleForced: state.peopleForced };
+  return { peopleForced };
 }
 
 /** The privacy a send uses when the server forces people protection: a protected privacy always refuses
