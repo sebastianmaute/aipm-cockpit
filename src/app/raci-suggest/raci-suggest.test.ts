@@ -406,6 +406,14 @@ describe("buildRaciContext — §771 digest", () => {
     expect(ctxOf(stakeholders, milestones, { request: "x".repeat(RACI_REQUEST_MAX_CHARS) }).truncated).toBe(false);
   });
 
+  it("trims the request before the cap: padding around a full-length request is not a cut", () => {
+    const ctx = ctxOf(stakeholders, milestones, { request: "  " + "x".repeat(RACI_REQUEST_MAX_CHARS) + "  " });
+    const block = ctx.text.slice(ctx.text.indexOf("REQUEST"));
+    expect(block).toContain("x".repeat(RACI_REQUEST_MAX_CHARS));
+    expect(block).not.toContain("…");
+    expect(ctx.truncated).toBe(false);
+  });
+
   it("a context at every cap stays within 90,000 characters", () => {
     const people = Array.from({ length: MAX_CONTEXT_STAKEHOLDERS }, (_, i) =>
       sh(i + 1, `Person ${i}`, { title: "t".repeat(40), organization: "o".repeat(40) }));
