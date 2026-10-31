@@ -11,7 +11,7 @@ import { defaultPeriodLabel, formatMovedHours, hoursMoveNotice, movedHoursNotes,
 import { type GroundedMove } from "./alloc-plan/alloc-ground-moves";
 import { type AltEffect } from "./alloc-plan/alloc-effect";
 import { type HoursMovePlan } from "./reassign-hours";
-import { formatAbsenceClash } from "./absence-clash-notice";
+import { AbsenceClashLine } from "./absence-clash-notes";
 
 function noticeCtx(move: GroundedMove, lang: Lang): HoursMoveNoticeCtx {
   return {
@@ -60,10 +60,7 @@ function MoveHours({ lang, move, plan }: { lang: Lang; move: GroundedMove; plan:
  *  stays tickable. Icon plus text, never colour alone. */
 function MoveClashes({ lang, move }: { lang: Lang; move: GroundedMove }) {
   return move.clashes.map((c, i) => (
-    <p key={i} className="mt-1 flex items-start gap-1.5 text-xs text-foreground">
-      <ExclamationTriangleIcon aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      <span>{formatAbsenceClash(c, lang)}</span>
-    </p>
+    <AbsenceClashLine key={i} as="p" className="mt-1 flex items-start gap-1.5 text-xs text-foreground" lang={lang} clash={c} />
   ));
 }
 

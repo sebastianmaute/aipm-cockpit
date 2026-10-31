@@ -23,8 +23,7 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 import { htmlPlainProjection, oneLine } from "./rich-text-plain";
 import { sanitizeMultiline, sanitizeTaskName } from "./sanitize-core";
 import type { Task } from "./types";
-import { formatAbsenceClash } from "./absence-clash-notice";
-import { ExclamationTriangleIcon } from "./icons";
+import { AbsenceClashLine } from "./absence-clash-notes";
 import { type GroundedWbsItem, type RawWbsItem, type SkippedWbsItem, type WbsSkipReason, type WbsTarget } from "./wbs-plan/wbs-plan";
 
 export interface WbsPlanModalProps {
@@ -304,10 +303,14 @@ export function WbsPlanModal({
                               </span>
                             )}
                             {g.clashes?.map((c, i) => (
-                              <span key={i} id={partId(`c${i}`)} className="mt-1 flex items-start gap-1.5 text-xs text-foreground">
-                                <ExclamationTriangleIcon aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                                <span>{formatAbsenceClash(c, lang)}</span>
-                              </span>
+                              <AbsenceClashLine
+                                key={i}
+                                as="span"
+                                id={partId(`c${i}`)}
+                                className="mt-1 flex items-start gap-1.5 text-xs text-foreground"
+                                lang={lang}
+                                clash={c}
+                              />
                             ))}
                             {split && (
                               <ul
