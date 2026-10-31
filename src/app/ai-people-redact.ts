@@ -238,9 +238,9 @@ function phoneAccepted(match: string): boolean {
 type Span = { start: number; end: number; kind: Kind | null; key: string; spelling: string };
 
 const KINDS: readonly Kind[] = ["person", "email", "phone", "iban"];
-/** The per-session redaction cache's bounds (S4): entries, and characters held (original plus redaction). */
-const CACHE_MAX_ENTRIES = 4096;
-const CACHE_MAX_CHARS = 8_000_000;
+/** A redaction cache's bounds (S4): entries, and characters held (original plus redaction). */
+export type RedactionCacheLimits = { readonly entries: number; readonly chars: number };
+const DEFAULT_CACHE_LIMITS: RedactionCacheLimits = { entries: 4096, chars: 8_000_000 };
 
 /** `accepted` (sorted, disjoint) plus every span of `batch` that overlaps none of it; earlier batches win.
  *  `batch` must be sorted by start and disjoint, as one pattern's matches are. One pass per batch (review 5,
@@ -280,6 +280,8 @@ class Session implements RedactionSession {
    *  cleared whenever the dictionary changes, since that changes what a string redacts to. */
   private readonly cache = new Map<string, { out: string; counts: RedactionCounts }>();
   private cachedChars = 0;
+
+  constructor(private readonly limits: RedactionCacheLimits = DEFAULT_CACHE_LIMITS) {}
 
   /** Absorb the dictionaries (union). Numbering already issued never changes. */
   setDictionaries(dicts: readonly PeopleDictionary[]): void {
@@ -329,8 +331,8 @@ class Session implements RedactionSession {
   /** Bounded by entries and by characters held; a string over the character bound is not cached. */
   private remember(text: string, out: string, counts: RedactionCounts): void {
     const size = text.length + out.length;
-    if (size > CACHE_MAX_CHARS) return;
-    while (this.cache.size >= CACHE_MAX_ENTRIES || this.cachedChars + size > CACHE_MAX_CHARS) {
+    if (size > this.limits.chars) return;
+    while (this.cache.size > 0 && (this.cache.size >= this.limits.entries || this.cachedChars + size > this.limits.chars)) {
       const [oldest, entry] = this.cache.entries().next().value!;
       this.cache.delete(oldest);
       this.cachedChars -= oldest.length + entry.out.length;
@@ -407,6 +409,10 @@ class Session implements RedactionSession {
   counts(): RedactionCounts {
     return { ...this.tally };
   }
+
+  cacheUse(): { entries: number; chars: number } {
+    return { entries: this.cache.size, chars: this.cachedChars };
+  }
 }
 
 /** Browser-session memo: one session per sorted project-key list. Never persisted. */
@@ -423,6 +429,18 @@ export function redactionSessionFor(projectKeys: readonly string[], dicts: reado
   }
   s.setDictionaries(dicts);
   return s;
+}
+
+/** A session outside the per-project memo, with its own cache bounds (tests). */
+export function createRedactionSession(dicts: readonly PeopleDictionary[], limits?: RedactionCacheLimits): RedactionSession {
+  const s = new Session(limits);
+  s.setDictionaries(dicts);
+  return s;
+}
+
+/** What a session's redaction cache holds: entries, and characters (original plus redaction). */
+export function redactionCacheUse(s: RedactionSession): { entries: number; chars: number } {
+  return s instanceof Session ? s.cacheUse() : { entries: 0, chars: 0 };
 }
 
 // --- JSON request/response bodies -------------------------------------------

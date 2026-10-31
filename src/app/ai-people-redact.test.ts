@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PeopleDictionary } from "./ai-people-dictionary";
-import { countUnrestoredPlaceholders, mergeBatch, redactionSessionFor, redactJsonBody, restoreJsonText } from "./ai-people-redact";
+import {
+  countUnrestoredPlaceholders, createRedactionSession, mergeBatch, redactionCacheUse, redactionSessionFor, redactJsonBody, restoreJsonText,
+} from "./ai-people-redact";
 
 const dict = (names: string[], emails: string[] = [], phones: string[] = []): PeopleDictionary => ({ names, emails, phones });
 
@@ -622,5 +624,38 @@ describe("mergeBatch agrees with the per-candidate overlap check it replaced (fo
     expect(s.redact("Sofia Ramirez+49 30 5550101")).toBe("[Person 1][phone 1]");
     expect(s.redact("+4930123456/Sofia Ramirez")).toBe("[phone 2]/[Person 1]");
     expect(s.redact("s@example.com/Sofia Ramirez")).toBe("[email 1]/[Person 1]");
+  });
+});
+
+// Follow-up m2: the per-session cache is bounded by entries and by characters, evicting the least recently used first.
+describe("the redaction cache's bounds (follow-up m2)", () => {
+  const people = dict(["Sofia Ramirez"]);
+
+  it("past the entry bound the oldest entry goes and the size stays at the bound", () => {
+    const s = createRedactionSession([people], { entries: 3, chars: 1_000_000 });
+    for (const t of ["a Sofia Ramirez", "b Sofia Ramirez", "c Sofia Ramirez"]) s.redact(t);
+    expect(redactionCacheUse(s).entries).toBe(3);
+    s.redact("a Sofia Ramirez"); // a is now the most recently used, b the oldest
+    s.redact("d Sofia Ramirez");
+    expect(redactionCacheUse(s).entries).toBe(3);
+    const matchAll = vi.spyOn(RegExp.prototype, Symbol.matchAll);
+    for (const t of ["a Sofia Ramirez", "c Sofia Ramirez", "d Sofia Ramirez"]) s.redact(t);
+    expect(matchAll).not.toHaveBeenCalled();
+    s.redact("b Sofia Ramirez");
+    expect(matchAll).toHaveBeenCalled();
+    matchAll.mockRestore();
+  });
+
+  it("past the character bound the oldest entries go; a string over the bound is never cached", () => {
+    const s = createRedactionSession([people], { entries: 100, chars: 100 });
+    const t = (c: string) => `${c} ${"x".repeat(20)}`; // 22 chars, redacted to itself: 44 held
+    s.redact(t("a"));
+    s.redact(t("b"));
+    expect(redactionCacheUse(s)).toEqual({ entries: 2, chars: 88 });
+    s.redact(t("c"));
+    expect(redactionCacheUse(s)).toEqual({ entries: 2, chars: 88 });
+    s.redact("y".repeat(60));
+    expect(redactionCacheUse(s).chars).toBeLessThanOrEqual(100);
+    expect(redactionCacheUse(s).entries).toBe(2);
   });
 });
