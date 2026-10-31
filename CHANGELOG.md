@@ -30,7 +30,8 @@ longer carries its own changelog comment.
   set a due date in someone's vacation. Now the chat checks absences before it sets or moves a date or gives work to
   someone, and a date it sets on an absence day, or on a task the person is away for more than half of, is flagged: the
   inline edit preview, the chat's review card and the insight review window show the clash, and a lone chat change that
-  clashes waits on the review card instead of applying at once. Nothing is refused or moved for you. Plan the WBS with AI
+  clashes waits on the review card instead of applying at once. A Done or cancelled task is never flagged. Nothing is
+  refused or moved for you. Plan the WBS with AI
   is told who is away across the project's dates, and marks a new task whose due date clashes. Analyze with AI, scheduled
   analysis, insight recommendations and the steering report draft are told who is away in the next 28 days. The model
   sees days only, never the type or the note. Plan with AI's review window warns on a task move whose dates fall on the
