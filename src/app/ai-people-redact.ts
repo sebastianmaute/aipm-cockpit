@@ -19,7 +19,11 @@
 //   belongs to exactly ONE known person, and is not in NAME_STOP_WORDS.
 // - Case gate: a LONE word (a one-word entry or a token) is redacted only when
 //   the text spells it capitalised or all upper case, so "price list" stays
-//   while "Price" goes. Multi-word names match in any case.
+//   while "Price" goes. Multi-word names match in any case. A one-word entry the
+//   dictionary itself spells NOT capitalised ("anna", a user id like "jdoe") is
+//   exempt and matches in any case: it has no capitalised form to tell a common
+//   word apart by, so a spelling exactly as stored is always redacted (review 3,
+//   R1). A capitalised entry ("Bob") stays gated: "bob" is left, like "max".
 // - Emails, IBANs (mod-97 checked) and phone numbers are redacted even when not
 //   in the dictionary. An UNKNOWN phone needs a leading "+" or "0" (optionally
 //   inside "("), at least MIN_PHONE_DIGITS digits, and only space - . / ( ) as
@@ -90,12 +94,14 @@ const normSpace = (s: string) => s.trim().replace(/\s+/g, " ");
 
 // --- the person matcher -----------------------------------------------------
 
-type NameMatcher = { readonly re: RegExp | null; readonly owner: ReadonlyMap<string, string> };
+/** `ungated`: folded one-word entries some dictionary spelling of which fails the case gate (R1). */
+type NameMatcher = { readonly re: RegExp | null; readonly owner: ReadonlyMap<string, string>; readonly ungated: ReadonlySet<string> };
 
 /** Person key = folded full name. `canonical` maps it to the first spelling seen. */
 function buildNameMatcher(names: readonly string[], canonical: Map<string, string>): NameMatcher {
   const multi = new Map<string, string[]>(); // person key -> folded tokens
   const singles: string[] = [];
+  const ungated = new Set<string>();
   for (const raw of names) {
     const name = cleanPersonName(raw);
     if (name === null) continue;
@@ -103,7 +109,10 @@ function buildNameMatcher(names: readonly string[], canonical: Map<string, strin
     if (!key) continue;
     if (!canonical.has(key)) canonical.set(key, name);
     if (key.includes(" ")) multi.set(key, key.split(" "));
-    else singles.push(key);
+    else {
+      singles.push(key);
+      if (!looksLikeAName(name)) ungated.add(key);
+    }
   }
   const tokenOwners = new Map<string, Set<string>>();
   for (const [key, tokens] of multi) {
@@ -122,12 +131,12 @@ function buildNameMatcher(names: readonly string[], canonical: Map<string, strin
     if (!/\p{L}/u.test(token)) continue;
     if (!owner.has(token)) owner.set(token, [...owners][0]);
   }
-  if (owner.size === 0) return { re: null, owner };
+  if (owner.size === 0) return { re: null, owner, ungated };
   const alternatives = [...owner.keys()]
     .sort((a, b) => b.length - a.length)
     .map((alt) => alt.split(" ").map(escapeRe).join("\\s+"));
   const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${alternatives.join("|")})(?![\\p{L}\\p{N}])`, "gu");
-  return { re, owner };
+  return { re, owner, ungated };
 }
 
 // --- pattern kinds ------------------------------------------------------------
@@ -183,7 +192,7 @@ type Span = { start: number; end: number; kind: Kind | null; key: string; spelli
 
 class Session implements RedactionSession {
   private signature = "";
-  private names: NameMatcher = { re: null, owner: new Map() };
+  private names: NameMatcher = { re: null, owner: new Map(), ungated: new Set() };
   private knownPhones: { re: RegExp; key: string }[] = [];
   /** dictionary key -> dictionary spelling, per kind (emails/phones/persons). */
   private readonly canonical: Record<Kind, Map<string, string>> = {
@@ -252,7 +261,7 @@ class Session implements RedactionSession {
         // a folded expansion (ü -> ue); the next folded char's origin is the end.
         const end = map[m.index + m[0].length];
         const spelling = text.slice(start, end);
-        if (!alt.includes(" ") && !looksLikeAName(spelling)) continue;
+        if (!alt.includes(" ") && !this.names.ungated.has(alt) && !looksLikeAName(spelling)) continue;
         add({ start, end, kind: "person", key: person, spelling });
       }
     }

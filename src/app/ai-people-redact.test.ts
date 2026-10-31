@@ -34,6 +34,27 @@ describe("name matching", () => {
     expect(s.restore("[Person 2]")).toBe("Al");
   });
 
+  // Review 3, R1: the case gate exists so a capitalised name ("Max") does not take the common word with it
+  // ("max speed"). A one-word entry the dictionary itself stores in lower case ("anna", a user id like "jdoe")
+  // has no capitalised form to tell apart, so it is matched in ANY case; a spelling exactly as stored is
+  // therefore always redacted. A capitalised entry ("Bob") stays case-gated: "bob" is left, like "max speed".
+  it("a one-word entry stored in lower case is redacted in any case; a capitalised one stays case-gated", () => {
+    const s = fresh(dict(["anna", "jdoe", "Bob"]));
+    expect(s.redact('{"assignee":"anna"}')).toBe('{"assignee":"[Person 1]"}');
+    expect(s.redact("assignee: jdoe")).toBe("assignee: [Person 2]");
+    expect(s.redact("Anna, JDOE and Jdoe")).toBe("[Person 1], [Person 2] and [Person 2]");
+    expect(s.redact("Bob, BOB")).toBe("[Person 3], [Person 3]");
+    expect(s.redact("bob said")).toBe("bob said");
+    expect(s.restore("[Person 1] and [Person 2]")).toBe("anna and jdoe");
+  });
+
+  it("the case gate still holds for lone tokens of a multi-word name", () => {
+    const s = fresh(dict(["Mark Quillfeld", "anna brandvik"]));
+    expect(s.redact("Mark the task done")).toBe("Mark the task done");
+    expect(s.redact("ask quillfeld, ask brandvik")).toBe("ask quillfeld, ask brandvik");
+    expect(s.redact("anna brandvik said")).toBe("[Person 1] said");
+  });
+
   it("a one-word entry that is a token of exactly one full name is that person", () => {
     const s = fresh(dict(["Mark", "Mark Quillfeld"]));
     expect(s.redact("Mark said")).toBe("[Person 1] said");

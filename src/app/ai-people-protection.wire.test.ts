@@ -49,7 +49,7 @@ import { runScheduledJob } from "./scheduled-job-run";
 import { resourceDisplayName } from "./resource-foundation";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import {
-  FIXTURE_INSIGHT, FIXTURE_PEOPLE_TERMS, FIXTURE_PHONE, FIXTURE_PHONES, FIXTURE_PROJECT_KEY, FIXTURE_TODAY, FORMER_MEMBER, MAIL_EML,
+  FIXTURE_INSIGHT, FIXTURE_PEOPLE_TERMS, FIXTURE_PHONE, FIXTURE_PHONES, FIXTURE_PROJECT_KEY, FIXTURE_TODAY, FORMER_MEMBER, LOWERCASE_PEOPLE, MAIL_EML,
   MAIL_PERSON, RESOURCE_ID, RESOURCE_NAME_TOKENS, SEEDED_PERSON_FIELDS, STAKEHOLDER_ID, TASK_ID, UNKNOWN_PHONE, peopleFixture,
 } from "../test/people-protection-fixture";
 import { dashboardOf, peopleFeatureOffered, renderChat, type PeopleFeature } from "../test/people-protection-harness";
@@ -492,6 +492,14 @@ describe("anti-vacuity: with protection off, the same drivers send people", () =
     await driveChat(ctxFor(peopleFixture(true)));
     expect(peopleIn(sent)).toContain(FORMER_MEMBER);
     expect(peopleIn(sent)).toContain(MAIL_PERSON);
+  });
+
+  // Review 3, R1: the lower-case one-word assignee and user-id owner ride in list_tasks / list_raid. With protection
+  // on, the generic check above already demands none of them; this pins that they DO reach the wire unprotected.
+  it.each([["allowed", true], ["protected", false]] as const)("chat, %s: the lower-case one-word people", async (_mode, allowed) => {
+    await driveChat(ctxFor(peopleFixture(allowed)));
+    const found = peopleIn(sent).filter((t) => LOWERCASE_PEOPLE.includes(t));
+    expect(found).toEqual(allowed ? [...LOWERCASE_PEOPLE] : []);
   });
 
   // The phone half of the check: both phones ride in a task description that get_task / list_tasks return, the

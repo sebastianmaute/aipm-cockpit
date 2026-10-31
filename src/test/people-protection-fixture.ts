@@ -5,6 +5,8 @@
 // `SEEDED_PERSON_FIELDS` by path, so the wire test fails when a new person field is added to the dictionary
 // without a seeded value here. Every name is a distinctive full name, so the wire test asserts on full names
 // (the redactor's lone-token rule is case-gated and stop-listed, and is not what this fixture probes).
+// Two one-word people are stored in LOWER case (`LOWERCASE_PEOPLE`, review 3 R1): a lone word the dictionary itself
+// spells in lower case has no capitalised form, so the redactor must match it in any case.
 //
 // Two people are deliberately NOT in a dictionary-read field:
 // - `FORMER_MEMBER` appears only in the activity log, as the previous assignee of a task: someone the project
@@ -105,13 +107,19 @@ export const RESOURCE_NAME_TOKENS: readonly string[] = ["Rosalind", "Quenby"];
 /** Someone the project once had: named only in the activity log (see the header). */
 export const FORMER_MEMBER = "Ludovica Pemberton";
 
+/** Review 3, R1: people the project stores in LOWER case, in one word — an assignee typed as a first name and an
+ *  owner typed as a user id. They have no capitalised form, so the redactor matches them in any case. */
+export const LOWERCASE_ASSIGNEE = "fennimore";
+export const USER_ID_OWNER = "jkowalczyk";
+export const LOWERCASE_PEOPLE: readonly string[] = [LOWERCASE_ASSIGNEE, USER_ID_OWNER];
+
 /** The known person the mail attachment names. */
 export const MAIL_PERSON = P.stakeholder;
 
 export const KNOWN_NAMES: readonly string[] = Object.values(P);
 export const KNOWN_EMAILS: readonly string[] = Object.values(E);
 /** Everything the wire test must never find in a protected body. */
-export const FIXTURE_PEOPLE_TERMS: readonly string[] = [...KNOWN_NAMES, ...KNOWN_EMAILS, ...FIXTURE_PHONES, FORMER_MEMBER];
+export const FIXTURE_PEOPLE_TERMS: readonly string[] = [...KNOWN_NAMES, ...KNOWN_EMAILS, ...FIXTURE_PHONES, FORMER_MEMBER, ...LOWERCASE_PEOPLE];
 
 const note = (id: number, authorName: string, text: string): NoteLogEntry => ({
   id, authorName, timestamp: "2026-10-12T09:00:00.000Z", html: `<p>${text}</p>`, text,
@@ -136,6 +144,11 @@ const tasks: Task[] = [
     dueDate: "2026-11-15", lastUpdateDate: "2026-10-25", priority: "Low", status: "To Do",
     blockers: "", description: "Probably the same work as task 1.", group: "Platform",
   },
+  {
+    id: 3, taskName: "Order the rack power units", assignee: LOWERCASE_ASSIGNEE, assigneeEmail: "", dueDate: "2026-11-20",
+    lastUpdateDate: "2026-10-26", priority: "Low", status: "To Do", blockers: "",
+    description: `Ask ${LOWERCASE_ASSIGNEE} first; ${USER_ID_OWNER} signs the order.`, group: "Platform",
+  },
 ];
 
 const raid: RaidItem[] = [
@@ -146,6 +159,10 @@ const raid: RaidItem[] = [
     description: `Keys promised by ${P.external} (${E.absence}) for Friday.`,
     noteLog: [note(1, P.raidNoteAuthor, "Chased the vendor.")],
     escalations: [{ at: "2026-10-15T10:00:00.000Z", toName: P.escalatedTo, toEmail: E.escalatedTo }],
+  } as RaidItem,
+  {
+    id: 2, category: "I", title: "Rack power budget unclear", status: "Open", severity: "Medium", linkedTaskIds: [3],
+    raisedDate: "2026-10-20", causedByRaidIds: [], stakeholderIds: [], owner: USER_ID_OWNER, description: "Waiting for the quote.",
   } as RaidItem,
 ];
 
