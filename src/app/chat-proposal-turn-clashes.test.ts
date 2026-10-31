@@ -95,3 +95,39 @@ describe("describeProposal — a change to a row created earlier in the same tur
     expect(strip(describeTurn(calls))).toEqual(strip(describeTurn(calls, undefined)));
   });
 });
+
+describe("describeProposal — a second change to an EXISTING row in the same turn (§773 M-1)", () => {
+  const liamTask = {
+    id: 43, taskName: "Write the notes", assignee: "Liam Foster", dueDate: "2026-11-12", status: "To Do", priority: "Medium",
+  } as Task;
+  const wsTwo = { ...ws, tasks: [mayaTask, liamTask] } as unknown as Workspace;
+  const describeOn = (calls: ProposedCall[]) => describeProposal(calls, wsTwo, buildPlanRows(calls, []), undefined, absence);
+
+  it("an owner change, then a due-date move onto the new owner's absence, warns on the move", () => {
+    const rows = describeOn([
+      call("update_task", { id: 43, assignee: "Maya Patel" }),
+      call("update_task", { id: 43, dueDate: "2026-11-05" }),
+    ]);
+    expect(rows[0].plan.clashes).toEqual([]);
+    expect(rows[1].plan.clashes).toHaveLength(1);
+    expect(rows[1].plan.clashes[0]).toMatchObject({ entity: "task", id: 43, clash: { person: "Maya Patel", date: "2026-11-05" } });
+  });
+
+  it("an owner change away from the absent person, then a move into her absence, does not warn about her", () => {
+    const rows = describeOn([
+      call("update_task", { id: 42, assignee: "Liam Foster", assigneeEmail: "" }),
+      call("update_task", { id: 42, dueDate: "2026-11-05" }),
+    ]);
+    expect(rows.map((r) => r.plan.clashes)).toEqual([[], []]);
+  });
+
+  it("a milestone moved after a linked task changed owner judges the new owner", () => {
+    const rows = describeOn([
+      call("update_task", { id: 43, assignee: "Maya Patel" }),
+      call("update_milestone", { id: 7, date: "2026-11-05", linkedTaskIds: [43] }),
+    ]);
+    expect(rows[1].plan.clashes).toEqual([
+      expect.objectContaining({ entity: "milestone", clash: expect.objectContaining({ person: "Maya Patel", date: "2026-11-05" }) }),
+    ]);
+  });
+});
