@@ -66,6 +66,14 @@ describe("Suggest RACI prompt and tool text (§771)", () => {
     expect(system).toMatch(/exactly one Accountable[^.]*always wins over the request/i);
   });
 
+  it("SYSTEM explains the milestone scope column and that a scope-0 milestone is judged, not omitted", async () => {
+    vi.mocked(runForcedToolCallWithRetry).mockResolvedValue({ input: { cells: [] }, stopReason: "tool_use" });
+    await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", privacy: UNPROTECTED, model: "m" });
+    const system = String(vi.mocked(runForcedToolCallWithRetry).mock.calls.at(-1)![0].system);
+    expect(system).toMatch(/MILESTONES[^.]*scope[^.]*number of linked tasks/i);
+    expect(system).toMatch(/scope 0 has no evidence[^.]*titles[^.]*discipline[^.]*instead of omitting it/i);
+  });
+
   it("the tool description teaches the handover and drops the blanket ban", () => {
     expect(RACI_SUGGEST_TOOL.description).toContain("propose the new holder's A and a new role for the current holder in the same call");
     expect(RACI_SUGGEST_TOOL.description).not.toContain("Never propose a second Accountable");
