@@ -264,13 +264,13 @@ const DESTINATION_PIN: readonly string[] = [
   "gateway|keySecurity|aiConsentBullet2Gateway|16b9a79fc098",
   "gateway|thirdParty|aiConsentBullet3Gateway|0412e7b4a6e5",
   "gateway|help|helpSecAiBodyGateway|c788c6e74b8c",
-  // The relay route reads the gateway texts until it has its own (AI organisation key).
-  "relay|interactive|aiConsentDataIntroGateway|7ebfc37003e9",
-  "relay|background|aiConsentBackgroundDataIntroGateway|687e1f3265c0",
-  "relay|keyNote|aiApiKeyHintGateway|28c8960cc576",
-  "relay|keySecurity|aiConsentBullet2Gateway|16b9a79fc098",
-  "relay|thirdParty|aiConsentBullet3Gateway|0412e7b4a6e5",
-  "relay|help|helpSecAiBodyGateway|c788c6e74b8c",
+  // The relay route (organisation key restriction) has texts of its own (AI organisation key).
+  "relay|interactive|aiConsentDataIntroRelay|50239ebb92d8",
+  "relay|background|aiConsentBackgroundDataIntroRelay|21999ec60bd7",
+  "relay|keyNote|aiApiKeyHintRelay|594829fa1f23",
+  "relay|keySecurity|aiConsentBullet2Relay|baf0efa1464a",
+  "relay|thirdParty|aiConsentBullet3Relay|ac7587dd0eb6",
+  "relay|help|helpSecAiBodyRelay|dbc74c4125ac",
 ];
 
 const destinationFingerprint = () =>
@@ -304,7 +304,7 @@ describe("AI_DESTINATION_KEYS", () => {
   });
 
   it("every text exists in English and German, and German is translated", () => {
-    for (const key of [...routeKeys("direct"), ...routeKeys("gateway")]) {
+    for (const key of [...routeKeys("direct"), ...routeKeys("gateway"), ...routeKeys("relay")]) {
       expect(t("en-US", key), key).not.toBe(key);
       expect(de[key]?.trim(), key).toBeTruthy();
       expect(de[key], key).not.toBe(t("en-US", key));
@@ -351,11 +351,44 @@ describe("AI_DESTINATION_KEYS", () => {
     );
   });
 
+  it("relay has its own key for every kind, none shared with direct or gateway", () => {
+    const kinds = Object.keys(AI_DESTINATION_KEYS.direct);
+    expect(Object.keys(AI_DESTINATION_KEYS.relay).sort()).toEqual(kinds.sort());
+    const others = new Set<string>([...routeKeys("direct"), ...routeKeys("gateway")]);
+    for (const key of routeKeys("relay")) expect(others.has(key), key).toBe(false);
+  });
+
+  it("relay texts name this app's server as the hop to Anthropic and the organisation's key restriction", () => {
+    for (const key of routeKeys("relay")) {
+      const en = t("en-US", key);
+      expect(en, key).toContain("this app's server");
+      expect(en, key).not.toMatch(/directly|api.anthropic.com|gateway/i);
+      expect(de[key], key).toContain("den Server dieser App");
+      expect(de[key], key).not.toMatch(/direkt|api.anthropic.com|Gateway/);
+    }
+    for (const key of [AI_DESTINATION_KEYS.relay.keyNote, AI_DESTINATION_KEYS.relay.keySecurity, AI_DESTINATION_KEYS.relay.thirdParty, AI_DESTINATION_KEYS.relay.help]) {
+      expect(t("en-US", key), key).toContain("your organisation restricts which Anthropic organisation's keys may be used");
+      expect(de[key], key).toContain("Ihre Organisation legt fest, Schlüssel welcher Anthropic-Organisation verwendet werden dürfen");
+    }
+  });
+
+  it("relay key texts say the app's server checks the key and neither stores nor logs it", () => {
+    for (const key of [AI_DESTINATION_KEYS.relay.keyNote, AI_DESTINATION_KEYS.relay.keySecurity, AI_DESTINATION_KEYS.relay.help]) {
+      expect(t("en-US", key), key).toContain("this app's server checks it against");
+      expect(t("en-US", key), key).toContain("but neither stores nor logs it");
+      expect(de[key], key).toContain("prüft ihn gegen");
+      expect(de[key], key).toContain("speichert und protokolliert ihn aber nicht");
+    }
+  });
+
   it("Help's AI entry follows the route", () => {
     const entry = { bodyKey: "helpSecAiBody" } as const;
     expect(helpEntryBody("en-US", entry)).toBe(t("en-US", "helpSecAiBody"));
     setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false });
     expect(helpEntryBody("en-US", entry)).toBe(t("en-US", AI_DESTINATION_KEYS.gateway.help));
     expect(helpEntryBody("de", entry)).toBe(de[AI_DESTINATION_KEYS.gateway.help]);
+    setAiDeploymentState({ off: false, route: "relay", invalid: false, keyRestricted: true });
+    expect(helpEntryBody("en-US", entry)).toBe(t("en-US", AI_DESTINATION_KEYS.relay.help));
+    expect(helpEntryBody("de", entry)).toBe(de[AI_DESTINATION_KEYS.relay.help]);
   });
 });

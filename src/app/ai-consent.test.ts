@@ -136,6 +136,7 @@ describe("the weekly hard cap (AI-03)", () => {
 });
 
 const GATEWAY = { off: false, route: "gateway", invalid: false, keyRestricted: false } as const;
+const RELAY = { off: false, route: "relay", invalid: false, keyRestricted: true } as const;
 const DIRECT = { off: false, route: "direct", invalid: false, keyRestricted: false } as const;
 
 describe("route-bound consent", () => {
@@ -176,6 +177,22 @@ describe("route-bound consent", () => {
     publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: g, backgroundConsent: legacy });
     expect(() => assertAiConsentLive("interactive")).not.toThrow();
     expect(() => assertAiConsentLive("background")).toThrow(AiConsentRevokedError);
+  });
+  it("a direct or gateway record is stale under relay; a new consent records relay and is current", () => {
+    const d = newConsent(D);
+    setAiDeploymentState(GATEWAY);
+    const g = newConsent(D);
+    setAiDeploymentState(RELAY);
+    expect(isConsentCurrent(d)).toBe(false);
+    expect(isConsentCurrent(g)).toBe(false);
+    const r = newConsent(D);
+    expect(r.route).toBe("relay");
+    expect(isConsentCurrent(r)).toBe(true);
+    setAiDeploymentState(DIRECT);
+    expect(isConsentCurrent(r)).toBe(false);
+  });
+  it("a stored relay route parses", () => {
+    expect(sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: 1, route: "relay" })?.route).toBe("relay");
   });
   it("sanitizeConsent keeps a valid route and drops an invalid one", () => {
     expect(sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: 1, route: "gateway" })?.route).toBe("gateway");

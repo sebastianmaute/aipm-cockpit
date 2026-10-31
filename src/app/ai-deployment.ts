@@ -52,6 +52,11 @@ export function getAiDeploymentState(): AiDeploymentState {
   return state;
 }
 
+/** The browser sends its AI calls to this app's own relay (gateway or organisation key restriction), never to Anthropic. */
+export function usesRelay(route: AiRoute): boolean {
+  return route !== "direct";
+}
+
 export function currentAiRoute(): AiRoute {
   return state.route;
 }

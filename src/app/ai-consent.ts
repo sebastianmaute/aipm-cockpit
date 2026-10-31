@@ -37,7 +37,7 @@ export function sanitizeConsent(v: unknown): AiConsent | undefined {
     return undefined;
   }
   // An unknown route is dropped, not the record: it then counts as direct.
-  if (route === "direct" || route === "gateway") return { acceptedAt, disclosureVersion, route };
+  if (route === "direct" || route === "gateway" || route === "relay") return { acceptedAt, disclosureVersion, route };
   return { acceptedAt, disclosureVersion };
 }
 

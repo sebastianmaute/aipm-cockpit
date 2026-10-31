@@ -78,7 +78,7 @@ export function aiDeploymentStateFrom(env: Env): AiDeploymentState {
   const off = parseDisabledIntegrations(env[DISABLED_INTEGRATIONS_ENV]).includes("ai");
   const keyRestricted = restriction.kind !== "none";
   const hasGateway = config.kind === "gateway" || (config.kind === "invalid" && config.reason !== "token-without-url");
-  const route = keyRestricted && !hasGateway ? "relay" : hasGateway ? "gateway" : "direct";
+  const route = hasGateway ? "gateway" : keyRestricted ? "relay" : "direct";
   if (restriction.kind === "invalid") return { off, route, invalid: true, invalidReason: restriction.reason, keyRestricted };
   if (config.kind === "invalid") return { off, route, invalid: true, invalidReason: config.reason, keyRestricted };
   return { off, route, invalid: false, keyRestricted };

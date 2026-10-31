@@ -17,6 +17,7 @@ import { aiStatusResponse, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
 
 const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false, keyRestricted: false };
+const RELAY: AiDeploymentState = { off: false, route: "relay", invalid: false, keyRestricted: true };
 const KEY = "sk-ant-api03-test";
 
 function json(body: unknown, status = 200): Response {
@@ -118,6 +119,31 @@ describe("confirmAiDeployment", () => {
     expect((err as AiDeploymentError).reason).toBe("unconfirmed");
   });
 
+  it("accepts a relay answer that carries a boolean keyRestricted", async () => {
+    setAiDeploymentState(RELAY);
+    stubFetch(RELAY);
+    await expect(confirmAiDeployment()).resolves.toEqual({ peopleForced: false });
+  });
+
+  it.each([
+    ["keyRestricted is missing", json({ off: false, route: "relay", invalid: false, peopleForced: false })],
+    ["keyRestricted is not a boolean", json({ off: false, route: "relay", invalid: false, keyRestricted: "yes", peopleForced: false })],
+  ])("is unconfirmed when %s", async (_label, status) => {
+    setAiDeploymentState(RELAY);
+    stubFetch(status);
+    const err = await confirmAiDeployment().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiDeploymentError);
+    expect((err as AiDeploymentError).reason).toBe("unconfirmed");
+  });
+
+  it("page state direct, status answers relay: route-changed, and Anthropic is never called", async () => {
+    const f = stubFetch(RELAY);
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiDeploymentError);
+    expect((err as AiDeploymentError).reason).toBe("route-changed");
+    expect(urls(f)).toEqual(["/api/ai/status"]);
+  });
+
   it("lets an abort through as an abort, never as unconfirmed", async () => {
     const ctrl = new AbortController();
     ctrl.abort();
@@ -154,6 +180,25 @@ describe("postAiMessages", () => {
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
     });
+  });
+
+  it("relay: posts to the same-origin relay, never to Anthropic, without the browser-access header", async () => {
+    setAiDeploymentState(RELAY);
+    const f = stubFetch(RELAY);
+    await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" });
+    expect(urls(f)).toEqual(["/api/ai/status", "/api/ai/messages"]);
+    expect(urls(f).some((u) => hasAnthropicHost(u))).toBe(false);
+    expect(f.mock.calls[1][1]?.headers).toEqual({
+      "x-api-key": KEY,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    });
+  });
+
+  it("relay: a relay 502 is read as a relay answer, like the gateway's", async () => {
+    setAiDeploymentState(RELAY);
+    stubFetch(RELAY, () => json({ error: "ai-gateway-error" }, 502));
+    await expect(postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" })).rejects.toBeInstanceOf(AiGatewayError);
   });
 
   it.each([
@@ -308,6 +353,14 @@ describe("getAiModels", () => {
       "anthropic-version": "2023-06-01",
       "anthropic-dangerous-direct-browser-access": "true",
     });
+  });
+
+  it("relay: the models come from /api/ai/models, never from Anthropic", async () => {
+    setAiDeploymentState(RELAY);
+    const f = stubFetch(RELAY);
+    await getAiModels(KEY);
+    expect(urls(f)).toEqual(["/api/ai/status", "/api/ai/models"]);
+    expect(f.mock.calls[1][1]?.headers).toEqual({ "x-api-key": KEY, "anthropic-version": "2023-06-01" });
   });
 
   it("gateway: the relay, without the browser-access header", async () => {

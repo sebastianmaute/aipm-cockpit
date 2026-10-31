@@ -12,7 +12,7 @@
 // Routes: "direct" posts to Anthropic exactly as the app always has (same URL, same headers,
 // including the browser-access header). "gateway" posts to the same-origin relay
 // (`/api/ai/messages`, `/api/ai/models`), which adds the organisation's gateway token server side;
-// the browser never learns the gateway's URL or token. The relay's own failures are not
+// the browser never learns the gateway's URL or token. "relay" (an organisation key restriction, no gateway) posts to the same routes the same way. The relay's own failures are not
 // Anthropic-shaped; they are turned into `AiGatewayError` / `AiDeploymentError` here, so a caller
 // never reads them as a verdict on the user's key. An Anthropic-shaped error (passed through by the
 // relay unchanged) reaches the caller as a normal non-2xx Response.
@@ -27,7 +27,7 @@
 // non-streaming JSON (`callClaude` and `postOnce` both `await res.json()`), so the clone parses as
 // JSON. A streamed (SSE) response would fail that parse, which is swallowed: no usage is reported for
 // it, and streaming usage is left to the code that adds streaming. With no listener, nothing is cloned.
-import { currentAiRoute, type AiStatus } from "./ai-deployment";
+import { currentAiRoute, usesRelay, type AiStatus } from "./ai-deployment";
 import { addDisabledIntegration } from "./integration-switches";
 import {
   AI_GATEWAY_ERROR,
@@ -102,7 +102,8 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 /** The status answer's deployment half; `peopleForced` is checked on its own (review 5, C1). */
 function isAiStatusBase(v: unknown): v is Omit<AiStatus, "peopleForced"> & { peopleForced?: unknown } {
   return isRecord(v) && typeof v.off === "boolean" && typeof v.invalid === "boolean"
-    && (v.route === "direct" || v.route === "gateway");
+    && (v.route === "direct" || v.route === "gateway" || v.route === "relay")
+    && typeof v.keyRestricted === "boolean";
 }
 
 function isAbort(e: unknown, signal: AbortSignal | undefined): boolean {
@@ -282,7 +283,7 @@ export async function postAiMessages({ apiKey, body, path, signal, beforeSend, p
   beforeSend?.();
   const privacy = peopleForced ? forcedPrivacy(asked) : asked;
   const outgoing = redactForSend(body, privacy);
-  const gateway = currentAiRoute() === "gateway";
+  const gateway = usesRelay(currentAiRoute());
   const res = await fetch(gateway ? RELAY_MESSAGES_URL : ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     headers: gateway ? relayHeaders(apiKey, true) : directHeaders(apiKey, true),
@@ -300,7 +301,7 @@ export async function postAiMessages({ apiKey, body, path, signal, beforeSend, p
 export async function getAiModels(apiKey: string, signal?: AbortSignal): Promise<Response> {
   await confirmAiDeployment(signal);
   throwIfAborted(signal);
-  const gateway = currentAiRoute() === "gateway";
+  const gateway = usesRelay(currentAiRoute());
   const res = await fetch(gateway ? RELAY_MODELS_URL : ANTHROPIC_MODELS_URL, {
     headers: gateway ? relayHeaders(apiKey, false) : directHeaders(apiKey, false),
     signal,
