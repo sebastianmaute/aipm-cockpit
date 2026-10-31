@@ -33,7 +33,9 @@ longer carries its own changelog comment.
   clashes waits on the review card instead of applying at once. Nothing is refused or moved for you. Plan the WBS with AI
   is told who is away across the project's dates, and marks a new task whose due date clashes. Analyze with AI, scheduled
   analysis, insight recommendations and the steering report draft are told who is away in the next 28 days. The model
-  sees days only, never the type or the note. Manual
+  sees days only, never the type or the note. Plan with AI's review window warns on a task move whose dates fall on the
+  new owner's absence. When one proposal changes the same task twice (a new owner, then a new due date), the second
+  change is judged with the new owner. Manual
   edits are not warned.
 
 - **Plan with AI understands the project (§769).** Resources → Planning → Plan with AI now sees open tasks, milestones,

@@ -50,8 +50,11 @@ see absences at all.
 - Warnings on MANUAL date edits (the task editor, Gantt drag, Kanban). This is about Claude.
 - Refusing or auto-shifting a date. The user decides.
 - Changing how absences are stored, edited or shown (the absence edit modal is being reworked elsewhere).
-- Plan with AI's hour planning (§769) — it already deducts absences; it only gains the warning on task moves if a move
-  sets no date (it doesn't), so it is untouched.
+- Plan with AI's hour planning (§769) — it already deducts absences, and how its moves are applied stays untouched.
+  (This line first excluded its task moves too, because "a move sets no date". Owner decision 2026-10-31, final
+  review I-1: a move hands the task's existing dates to the new owner, which decision 7 checks, so the review window
+  now runs `taskClashes` with the receiver as owner on each move, judging the whole item per R2, and warns on that
+  move's row. It never refuses.)
 
 ## Anti-goals
 
