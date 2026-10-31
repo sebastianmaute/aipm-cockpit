@@ -28,7 +28,7 @@
 // non-streaming JSON (`callClaude` and `postOnce` both `await res.json()`), so the clone parses as
 // JSON. A streamed (SSE) response would fail that parse, which is swallowed: no usage is reported for
 // it, and streaming usage is left to the code that adds streaming. With no listener, nothing is cloned.
-import { currentAiRoute, usesRelay, type AiStatus } from "./ai-deployment";
+import { currentAiRoute, getAiDeploymentState, usesRelay, type AiStatus } from "./ai-deployment";
 import { addDisabledIntegration } from "./integration-switches";
 import {
   AI_GATEWAY_ERROR,
@@ -118,8 +118,8 @@ function isAbort(e: unknown, signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true || (isRecord(e) && e.name === "AbortError");
 }
 
-/** Ask the server for this deployment's AI setting; resolve only when AI is on and the route is
- *  the one this page loaded with. Throws `AiDeploymentError` otherwise; an abort stays an abort.
+/** Ask the server for this deployment's AI setting; resolve only when AI is on and the route, and
+ *  whether the key restriction is on, are the ones this page loaded with (a consent records both). Throws `AiDeploymentError` otherwise; an abort stays an abort.
  *  Resolves with whether the server forces people protection NOW (review 4, M3); a lock added since
  *  page load is folded into the page's forced state (`addDisabledIntegration`). An answer that does
  *  not say it is not trusted ("unconfirmed"), like any other malformed answer — unless it says AI is
@@ -143,6 +143,9 @@ export async function confirmAiDeployment(signal?: AbortSignal): Promise<{ peopl
   if (typeof peopleForced !== "boolean") throw new AiDeploymentError("unconfirmed");
   if (state.invalid) throw new AiDeploymentError("invalid");
   if (state.route !== currentAiRoute()) throw new AiDeploymentError("route-changed");
+  // Behind a gateway the route stays "gateway" when the restriction is switched on or off; the
+  // consent this page holds was given for the old setting, so the change refuses like a new route.
+  if (state.keyRestricted !== getAiDeploymentState().keyRestricted) throw new AiDeploymentError("route-changed");
   return { peopleForced };
 }
 

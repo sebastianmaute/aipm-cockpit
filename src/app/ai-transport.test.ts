@@ -145,6 +145,26 @@ describe("confirmAiDeployment", () => {
     expect(urls(f)).toEqual(["/api/ai/status"]);
   });
 
+  // Behind a gateway the route stays "gateway" when the key restriction is switched on or off, but a
+  // consent records whether it was on: a tab loaded before the change must not send.
+  it.each([
+    ["off at page load, on now", false, true],
+    ["on at page load, off now", true, false],
+  ])("gateway, key restriction %s: route-changed, and nothing goes upstream", async (_label, pageRestricted, nowRestricted) => {
+    setAiDeploymentState({ ...GATEWAY, keyRestricted: pageRestricted });
+    const f = stubFetch({ ...GATEWAY, keyRestricted: nowRestricted });
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiDeploymentError);
+    expect((err as AiDeploymentError).reason).toBe("route-changed");
+    expect(urls(f)).toEqual(["/api/ai/status"]);
+  });
+
+  it("gateway, key restriction unchanged: confirmed", async () => {
+    setAiDeploymentState({ ...GATEWAY, keyRestricted: true });
+    stubFetch({ ...GATEWAY, keyRestricted: true });
+    await expect(confirmAiDeployment()).resolves.toEqual({ peopleForced: false });
+  });
+
   it("lets an abort through as an abort, never as unconfirmed", async () => {
     const ctrl = new AbortController();
     ctrl.abort();

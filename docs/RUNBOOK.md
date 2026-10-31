@@ -399,7 +399,10 @@ which owns that list.
    [Routing AI through a gateway](#routing-ai-through-a-gateway-run-time-optional)).
    With a gateway set as well the route stays `gateway`, but a consent also records
    whether the restriction was on, so turning it on or off asks every user again there
-   too. A tab left open across the change sends nothing until it is reloaded.
+   too. A tab left open across the change sends nothing until it is reloaded: before
+   each AI call it asks `GET /api/ai/status`, and when the route or `keyRestricted`
+   differs from what the page loaded with, the call is refused as a changed deployment
+   and the user is asked to reload.
 4. **How a key is checked.** Before the first call with a key, the server sends a free
    `GET /v1/models?limit=1` with that key and reads the answer headers
    `anthropic-organization-id` and `anthropic-workspace-id`. Several first requests with
