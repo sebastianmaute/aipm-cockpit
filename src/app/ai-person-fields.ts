@@ -31,8 +31,6 @@ export const PERSON_FIELDS_BY_TOOL: Readonly<Record<string, readonly string[]>> 
   // RAID: the owner, the address, the derived directory link, and the linked stakeholders.
   create_raid_item: ["owner", "ownerEmail", "ownerResourceId", "stakeholderIds"],
   update_raid_item: ["owner", "ownerEmail", "ownerResourceId", "stakeholderIds"],
-  // Escalating TO a person is acting on that person: the recipient goes, so nobody is escalated to.
-  escalate_raid_item: ["toEmail", "toName"],
   delete_raid_item: [],
   // Changes: who requested it, who decides it, and the linked stakeholders.
   create_change: ["requestedBy", "decisionBy", "stakeholderIds"],

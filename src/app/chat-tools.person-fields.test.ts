@@ -3,6 +3,7 @@
 // same calls apply unchanged (positive control).
 import { describe, it, expect, vi } from "vitest";
 import { runTool, type ToolDispatcher } from "./chat-tools";
+import { PeopleToolRefusedError } from "./chat-tool-defs";
 import { entityToken } from "./ai-entity-token";
 import { PERSON_FIELDS_NOTE_KEY, PERSON_FIELDS_REMOVED_NOTE } from "./ai-person-fields";
 import type { RaidItem, Task } from "./types";
@@ -88,12 +89,13 @@ describe("update_task under people protection", () => {
   });
 });
 
+// Review 3, R5: a people tool, refused whole by the executor under protection (no longer stripped and retried).
 describe("escalate_raid_item under people protection", () => {
-  it("escalates to nobody: the recipient is stripped, nothing is recorded, and the error says why", async () => {
+  it("is refused as a people tool, and nothing is recorded", async () => {
     const { d, escalateRaid } = dispatcher(true);
     await expect(
       runTool(d, "escalate_raid_item", { id: 5, expectedToken: entityToken("raid", RISK), toEmail: "boss@x.io", toName: "Boss" }),
-    ).rejects.toThrow(PERSON_FIELDS_REMOVED_NOTE(["toEmail", "toName"]));
+    ).rejects.toBeInstanceOf(PeopleToolRefusedError);
     expect(escalateRaid).not.toHaveBeenCalled();
   });
 

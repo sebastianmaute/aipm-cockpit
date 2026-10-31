@@ -28,6 +28,14 @@ describe("people tool classification", () => {
     expect(SPEC_MINIMUM.filter((n) => !PEOPLE_TOOLS.has(n))).toEqual([]);
   });
 
+  // Review 3, R5: escalating is acting on a person, and under protection the recipient (required) is stripped and
+  // its look-up (get_contact_email) is gone, so the tool could never succeed. It is a people tool: not offered.
+  it("escalate_raid_item is a people tool", () => {
+    expect(PEOPLE_TOOLS.has("escalate_raid_item")).toBe(true);
+    expect(toolNamesFor({ ...OPEN, peopleProtected: true }).has("escalate_raid_item")).toBe(false);
+    expect(toolNamesFor({ ...OPEN, peopleProtected: false }).has("escalate_raid_item")).toBe(true);
+  });
+
   it("only an explicit true takes the people tools away", () => {
     expect(peopleToolsLive(true)).toBe(false);
     expect(peopleToolsLive(false)).toBe(true);

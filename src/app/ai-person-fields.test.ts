@@ -44,7 +44,8 @@ const NOT_A_PERSON: Readonly<Record<string, string>> = {
 
 describe("PERSON_FIELDS_BY_TOOL classification", () => {
   it("classifies every write tool, and nothing else", () => {
-    expect(WRITE_TOOLS.length).toBeGreaterThan(30);
+    // 30 since review 3, R5 moved escalate_raid_item to the people tools (anti-vacuity floor).
+    expect(WRITE_TOOLS.length).toBeGreaterThanOrEqual(30);
     expect(WRITE_TOOLS.filter((n) => !Object.hasOwn(PERSON_FIELDS_BY_TOOL, n))).toEqual([]);
     const keys = Object.keys(PERSON_FIELDS_BY_TOOL);
     // No people tool (refused whole by the executor) and no stale name.
@@ -78,7 +79,8 @@ describe("PERSON_FIELDS_BY_TOOL classification", () => {
     expect(PERSON_FIELDS_BY_TOOL.update_raid_item).toEqual(expect.arrayContaining(["owner", "ownerEmail", "ownerResourceId"]));
     expect(PERSON_FIELDS_BY_TOOL.update_change).toEqual(expect.arrayContaining(["requestedBy"]));
     expect(PERSON_FIELDS_BY_TOOL.create_calendar_event).toEqual(expect.arrayContaining(["attendeeResourceIds", "sendInvitations"]));
-    expect(PERSON_FIELDS_BY_TOOL.escalate_raid_item).toEqual(expect.arrayContaining(["toEmail", "toName"]));
+    // Review 3, R5: escalate_raid_item is a people tool (refused whole), so it has no entry here.
+    expect(PERSON_FIELDS_BY_TOOL).not.toHaveProperty("escalate_raid_item");
     expect(PERSON_FIELDS_BY_TOOL.update_settings).toEqual([]);
     expect(PERSON_FIELDS_BY_TOOL.set_filters).toEqual([]);
   });

@@ -1002,8 +1002,9 @@ export const TOOL_DEFS = [
 // ---------------------------------------------------------------------------
 
 /** Every tool that reads or writes a person: the resource directory, stakeholders, absences, the allocation
- *  grid, contact addresses, the status-inquiry mail to an assignee, and the two searches that can return
- *  people (the activity log and past chats). With people protection on they are neither offered
+ *  grid, contact addresses, the status-inquiry mail to an assignee, a RAID escalation to a person (review 3,
+ *  R5: its required recipient would be stripped and its look-up is gone, so it could never succeed), and the
+ *  two searches that can return people (the activity log and past chats). With people protection on they are neither offered
  *  (`toolsFor`) nor served (`runTool`); both gates read `peopleToolsLive`.
  *  ★ Every name in `TOOL_DEFS` is in exactly one of this set and `NON_PEOPLE_TOOLS`, and a test pins it:
  *  a new tool must be classified before it ships. */
@@ -1011,7 +1012,7 @@ export const PEOPLE_TOOLS: ReadonlySet<string> = new Set([
   "list_resources", "get_resource", "create_resource", "update_resource", "delete_resource",
   "list_stakeholders", "create_stakeholder", "update_stakeholder", "delete_stakeholder",
   "list_absences", "create_absence", "update_absence", "delete_absence",
-  "list_allocations", "get_contact_email", "send_inquiry",
+  "list_allocations", "get_contact_email", "send_inquiry", "escalate_raid_item",
   "search_history", "search_chats",
 ]);
 
@@ -1022,7 +1023,7 @@ export const NON_PEOPLE_TOOLS: ReadonlySet<string> = new Set([
   "delete_task", "delete_all_tasks", "set_filters", "set_language", "get_app_state", "get_dashboard_snapshot",
   "list_raid", "list_changes", "list_milestones", "list_knowledge_items", "list_calendar_events",
   "list_budget_buckets",
-  "create_raid_item", "update_raid_item", "escalate_raid_item", "delete_raid_item",
+  "create_raid_item", "update_raid_item", "delete_raid_item",
   "create_change", "update_change", "delete_change",
   "create_milestone", "update_milestone", "delete_milestone",
   "create_calendar_event", "update_calendar_event", "delete_calendar_event",
