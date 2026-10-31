@@ -1052,13 +1052,24 @@ export function peopleToolsLive(protectedFlag: boolean | undefined): boolean {
   return protectedFlag !== true;
 }
 
-/** §773 — the four date-writing tools as a people-protected request sends them: without the sentence that
- *  points at the withheld `list_absences` (`LIST_ABSENCES_HINT`). Applied by `toolsFor` on the same bit
- *  that removes the people tools, as the forecast bit swaps in the document tools without their decision section. */
+/** AI people protection follow-up: `get_task`'s pointer at the withheld `get_contact_email`. */
+const CONTACT_EMAIL_HINT = { get_task: " (use get_contact_email)" } as const;
+
+/** What a people-protected request drops from a tool's description: each text points at a withheld people tool. */
+const PROTECTED_DROPS: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(Object.entries(LIST_ABSENCES_HINT).map(([name, hint]) => [name, ` ${hint}`])),
+  ...CONTACT_EMAIL_HINT,
+};
+
+/** The tools as a people-protected request sends them: §773's four date-writing tools without the sentence that
+ *  points at the withheld `list_absences` (`LIST_ABSENCES_HINT`), and `get_task` without its pointer at the
+ *  withheld `get_contact_email`. Applied by `toolsFor` on the same bit that removes the people tools, as the
+ *  forecast bit swaps in the document tools without their decision section. A test checks that no tool text a
+ *  protected request carries names a withheld people tool. */
 export const PEOPLE_PROTECTED_DEFS: ReadonlyMap<string, (typeof TOOL_DEFS)[number]> = new Map(
   TOOL_DEFS.flatMap((d) => {
-    const hint = (LIST_ABSENCES_HINT as Readonly<Record<string, string>>)[d.name];
-    return hint ? [[d.name, { ...d, description: d.description.replace(` ${hint}`, "") }] as const] : [];
+    const drop = PROTECTED_DROPS[d.name];
+    return drop ? [[d.name, { ...d, description: d.description.replace(drop, "") }] as const] : [];
   }),
 );
 
