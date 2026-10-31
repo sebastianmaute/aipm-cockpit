@@ -19,7 +19,8 @@ export type PeopleDictionary = {
 };
 
 type FieldKind = "name" | "email" | "phone";
-type Reader = { readonly paths: readonly string[]; readonly kind: FieldKind; readonly read: (ws: Workspace) => readonly unknown[] };
+/** `identity`: the field IS a record's name (a resource, a stakeholder), so a ROLE_VALUES word there is a person. */
+type Reader = { readonly paths: readonly string[]; readonly kind: FieldKind; readonly read: (ws: Workspace) => readonly unknown[]; readonly identity?: true };
 
 const authors = (logs: readonly { authorName?: string }[] | undefined) => (logs ?? []).map((n) => n.authorName);
 
@@ -30,11 +31,12 @@ const PERSON_READERS: readonly Reader[] = [
     paths: ["resources[].firstName", "resources[].lastName"],
     kind: "name",
     read: (ws) => ws.resources.map((r) => `${r.firstName ?? ""} ${r.lastName ?? ""}`),
+    identity: true,
   },
   { paths: ["resources[].email"], kind: "email", read: (ws) => ws.resources.map((r) => r.email) },
   { paths: ["resources[].emails"], kind: "email", read: (ws) => ws.resources.flatMap((r) => r.emails ?? []) },
   { paths: ["resources[].businessPhone"], kind: "phone", read: (ws) => ws.resources.map((r) => r.businessPhone) },
-  { paths: ["stakeholders[].name"], kind: "name", read: (ws) => (ws.stakeholders ?? []).map((s) => s.name) },
+  { paths: ["stakeholders[].name"], kind: "name", read: (ws) => (ws.stakeholders ?? []).map((s) => s.name), identity: true },
   { paths: ["stakeholders[].email"], kind: "email", read: (ws) => (ws.stakeholders ?? []).map((s) => s.email) },
   { paths: ["absences[].assignee"], kind: "name", read: (ws) => ws.absences.map((a) => a.assignee) },
   { paths: ["absences[].assigneeEmail"], kind: "email", read: (ws) => ws.absences.map((a) => a.assigneeEmail) },
@@ -107,6 +109,18 @@ const NON_PERSON_VALUES: ReadonlySet<string> = new Set([
   "offen", "keine", "niemand",
 ]);
 
+/** One-word roles and teams typed into a person field (EN + DE): "QA" as an assignee, "Kunde" as an owner.
+ *  Matched lower-cased against the WHOLE cleaned value, so "QA Lead" or "Max" are never touched. Review 2, D:
+ *  without this, a team word became a "full known name" and was redacted everywhere it appeared. A value that
+ *  is the name of a known resource or stakeholder (an `identity` reader) stays a person — someone may really
+ *  be called "Sales" in the directory. Kept short: a missing word only over-redacts, never leaks. */
+const ROLE_VALUES: ReadonlySet<string> = new Set([
+  "qa", "dev", "devs", "ops", "devops", "pm", "pmo", "po", "it", "hr",
+  "vendor", "supplier", "client", "customer", "team", "support", "sales", "legal", "finance", "management",
+  "marketing", "procurement", "external", "internal",
+  "extern", "intern", "lieferant", "kunde", "vertrieb", "einkauf", "geschäftsführung", "buchhaltung", "rechtsabteilung",
+]);
+
 /** A name as the redactor should match it, or null when it is not a person:
  *  bracketed segments ("(CFO)", "[ext]") are removed, punctuation around each
  *  token is stripped, tokens without a letter are dropped, and the
@@ -135,15 +149,32 @@ const clean: Record<FieldKind, (s: string) => string | null> = {
   phone: (s) => (/\d/.test(s) ? s : null),
 };
 
+const isRoleValue = (name: string): boolean => ROLE_VALUES.has(name.toLowerCase());
+
+/** The lower-cased cleaned names of the project's resources and stakeholders (the `identity` readers). */
+function identityNames(ws: Workspace): ReadonlySet<string> {
+  const out = new Set<string>();
+  for (const reader of PERSON_READERS) {
+    if (!reader.identity) continue;
+    for (const raw of reader.read(ws)) {
+      const name = typeof raw === "string" ? cleanPersonName(raw) : null;
+      if (name !== null) out.add(name.toLowerCase());
+    }
+  }
+  return out;
+}
+
 /** Build the people dictionary of one project. First spelling wins; blanks,
  *  ids, "nobody" values and case-duplicates are dropped (see cleanPersonName). */
 export function buildPeopleDictionary(ws: Workspace): PeopleDictionary {
   const out: Record<FieldKind, Map<string, string>> = { name: new Map(), email: new Map(), phone: new Map() };
+  const identities = identityNames(ws);
   for (const reader of PERSON_READERS) {
     for (const raw of reader.read(ws)) {
       if (typeof raw !== "string") continue;
       const value = clean[reader.kind](raw.trim().replace(/\s+/g, " "));
       if (value === null) continue;
+      if (reader.kind === "name" && isRoleValue(value) && !identities.has(value.toLowerCase())) continue;
       const key = dedupeKey[reader.kind](value);
       if (!out[reader.kind].has(key)) out[reader.kind].set(key, value);
     }

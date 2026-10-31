@@ -3,6 +3,7 @@ import { join } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { buildPeopleDictionary, NOT_PERSON_FIELDS, PERSON_FIELD_PATHS } from "./ai-people-dictionary";
+import { redactionSessionFor } from "./ai-people-redact";
 import type { Insight } from "./insights/insight";
 import type {
   Absence, ChangeItem, NoteLogEntry, ProjectMeta, RaidItem, Resource, Shift, Stakeholder, Task,
@@ -211,5 +212,44 @@ describe("person-field coverage pin (R2)", () => {
   it("every listed path exists in the sample, the fixture or the types (no stale entries)", () => {
     expect(PERSON_FIELD_PATHS.filter((p) => !seen.has(p) && !typed.paths.has(p))).toEqual([]);
     expect(Object.keys(NOT_PERSON_FIELDS).filter((p) => !seen.has(p) && !typed.paths.has(p))).toEqual([]);
+  });
+});
+
+// Review 2, finding D: a one-word role or team typed into a person field ("QA", "Vendor", "Kunde") is not a
+// person, so it is not redacted everywhere it appears — but a one-word first name ("Max") is, and a role word
+// that IS the name of a known resource or stakeholder stays a person.
+describe("role and team values in person fields (review 2, D)", () => {
+  const redactWith = (ws: Workspace, text: string) => redactionSessionFor([`d-${++dKey}`], [buildPeopleDictionary(ws)]).redact(text);
+  let dKey = 0;
+
+  it("a one-word role or team as an assignee or owner is not a name", () => {
+    const ws: Workspace = {
+      ...emptyWorkspace(),
+      tasks: [task({ id: 1, assignee: "QA" }), task({ id: 2, assignee: "vendor" }), task({ id: 3, assignee: "Geschäftsführung" })],
+      raid: [raid({ id: 1, owner: "Kunde" }), raid({ id: 2, owner: "Client (ext)" })],
+    };
+    expect(buildPeopleDictionary(ws).names).toEqual([]);
+    expect(redactWith(ws, "QA checks the vendor build for the Kunde.")).toBe("QA checks the vendor build for the Kunde.");
+  });
+
+  it("a one-word first name as an assignee stays a name and is redacted", () => {
+    const ws: Workspace = { ...emptyWorkspace(), tasks: [task({ id: 1, assignee: "Max" })] };
+    expect(buildPeopleDictionary(ws).names).toEqual(["Max"]);
+    expect(redactWith(ws, "Ask Max about it.")).toBe("Ask [Person 1] about it.");
+  });
+
+  it("a stakeholder literally named Client stays a person, wherever the value appears", () => {
+    const ws: Workspace = {
+      ...emptyWorkspace(),
+      stakeholders: [{ id: 1, name: "Client" } as Stakeholder],
+      tasks: [task({ id: 1, assignee: "client" })],
+    };
+    expect(buildPeopleDictionary(ws).names).toEqual(["Client"]);
+    expect(redactWith(ws, "Send it to Client.")).toBe("Send it to [Person 1].");
+  });
+
+  it("a resource whose name is a role word stays a person", () => {
+    const ws: Workspace = { ...emptyWorkspace(), resources: [{ id: 1, firstName: "Sales", lastName: "" } as Resource], tasks: [task({ id: 1, assignee: "Sales" })] };
+    expect(buildPeopleDictionary(ws).names).toEqual(["Sales"]);
   });
 });
