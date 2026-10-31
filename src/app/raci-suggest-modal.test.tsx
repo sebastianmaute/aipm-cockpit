@@ -45,6 +45,7 @@ function renderModal(
     <RaciSuggestModal
       lang={lang}
       open
+      stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel
       cells={cells}
       skipped={[]}
       noOp={0}
@@ -128,6 +129,7 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
       <RaciSuggestModal
         lang="en-US"
         open
+        stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel
         cells={[]}
         skipped={skipped}
         noOp={noOp}
@@ -169,6 +171,7 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
       <RaciSuggestModal
         lang="en-US"
         open
+        stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel
         cells={[]}
         skipped={[]}
         noOp={0}
@@ -414,7 +417,7 @@ describe("RaciSuggestModal handover row (§771)", () => {
     const onToggle = vi.fn();
     render(
       <RaciSuggestModal
-        lang="en-US" open cells={pair} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
+        lang="en-US" open stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel cells={pair} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
         stakeholders={[{ id: 1, name: "Sam" }, { id: 2, name: "Lee" }]} milestones={[{ id: 10, name: "Go-Live" }]}
         selected={new Set(["1:10", "2:10"])} onToggle={onToggle} onConfirm={vi.fn()} onCancel={vi.fn()} busy={false}
       />,
@@ -424,5 +427,26 @@ describe("RaciSuggestModal handover row (§771)", () => {
     expect(boxes[0].getAttribute("aria-label")).toMatch(/^Accountable for Go-Live: Sam → Lee, Sam becomes /);
     fireEvent.click(boxes[0]);
     expect(onToggle.mock.calls.map((c) => c[0]).sort()).toEqual(["1:10", "2:10"]);
+  });
+});
+
+describe("RaciSuggestModal input stage (§771)", () => {
+  it("shows the labelled request box and Run, and Run fires onRun", () => {
+    const onRun = vi.fn();
+    const onRequestChange = vi.fn();
+    render(
+      <RaciSuggestModal
+        lang="en-US" open stage="input" request="hi" onRequestChange={onRequestChange} onRun={onRun} canCancel
+        cells={[]} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
+        stakeholders={[]} milestones={[]} selected={new Set()} onToggle={vi.fn()} onConfirm={vi.fn()} onCancel={vi.fn()} busy={false}
+      />,
+    );
+    const box = screen.getByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") });
+    expect(box.getAttribute("maxlength")).toBe("2000");
+    fireEvent.change(box, { target: { value: "x" } });
+    expect(onRequestChange).toHaveBeenCalledWith("x");
+    expect(screen.queryByRole("button", { name: /apply selected/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "raciSuggestRun") }));
+    expect(onRun).toHaveBeenCalledTimes(1);
   });
 });

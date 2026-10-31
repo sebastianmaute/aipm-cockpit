@@ -179,7 +179,8 @@ describe("Plan with AI and RACI suggestions under protection", () => {
   it("a RACI preview does not come back when protection is turned off again", async () => {
     const flip = renderWithSource(allowed(base()), <RaciHarness />);
     fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
-    expect(await screen.findByRole("dialog")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "raciSuggestRun") }));
+    expect(await screen.findByRole("button", { name: /apply selected/i })).toBeTruthy();
     flip(protectedWs(base()));
     expect(screen.queryByRole("dialog")).toBeNull();
     flip(allowed(base()));

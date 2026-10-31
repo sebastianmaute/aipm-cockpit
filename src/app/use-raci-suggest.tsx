@@ -31,7 +31,6 @@
 
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "./icons";
-import { Textarea } from "./form-controls";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import {
@@ -47,7 +46,6 @@ import { runRaciSuggestion } from "./raci-suggest-call";
 import { useActionGuideText } from "./action-guides-context";
 import { useOpenProjectAiPrivacy, usePeopleProtected } from "./ai-privacy-context";
 import {
-  RACI_REQUEST_MAX_CHARS,
   buildRaciContext,
   cellKey,
   groundRaciCells,
@@ -59,7 +57,7 @@ import { RaciSuggestModal } from "./raci-suggest-modal";
 import { AiTriggerButton } from "./ai-trigger-button";
 import { STAKEHOLDER_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
 
-type Phase = "idle" | "thinking" | "preview" | "applying";
+type Phase = "idle" | "input" | "thinking" | "preview" | "applying";
 
 export interface RaciSuggestDeps {
   settings: Settings;
@@ -97,9 +95,6 @@ export interface RaciSuggest {
   button: ReactNode;
   /** The preview/confirm modal element (null while the feature is idle or thinking). */
   modal: ReactNode;
-  /** The optional free-text request, shown beside the trigger BEFORE the run
-   *  (the review dialog only opens after it). Null when the feature is unavailable. */
-  requestBox: ReactNode;
 }
 
 /** Collapse the accepted cells into ONE updated Stakeholder per person.
@@ -210,8 +205,14 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   // doesn't run into the set-state-in-effect ban.
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // The trigger opens the dialog on its input stage; nothing is billed until Run.
+  const onOpen = useCallback(() => {
+    if (!enabled || phase !== "idle") return;
+    setPhase("input");
+  }, [enabled, phase]);
+
   const onPropose = useCallback(async () => {
-    if (!enabled || phase === "thinking" || phase === "applying") return;
+    if (!enabled || phase !== "input") return;
     const reqId = ++reqIdRef.current;
     const controller = new AbortController();
     abortRef.current = controller;
@@ -249,7 +250,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
         // the one case where "why is this empty?" most needs answering, the
         // signal would be computed and then silently dropped. Again.
         if (context.truncated) showToast("info", t(lang, "raciSuggestContextTruncated"));
-        setPhase("idle");
+        reset();
         return;
       }
       // Preselect every grounded cell; skipped-only results still surface via
@@ -264,7 +265,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       // directly (never `instanceof DOMException`) — mirrors chat-panel.tsx.
       const errName = e instanceof Error ? e.name : (e as { name?: string }).name;
       if (errName === "AbortError") {
-        setPhase("idle");
+        setPhase("input");
         return;
       }
       // §650 — a refused key (401/403) is named as the key problem, ahead of the response's own
@@ -280,9 +281,9 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       } else {
         showToast("error", t(lang, "raciSuggestError"));
       }
-      setPhase("idle");
+      setPhase("input");
     }
-  }, [enabled, phase, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades, documents, request, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast]);
+  }, [enabled, phase, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades, documents, request, reset, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast]);
 
   const onToggle = useCallback((key: string) => {
     setSelected((prev) => {
@@ -355,20 +356,25 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     <AiTriggerButton
       lang={lang}
       busy={phase === "thinking"}
-      onRun={() => void onPropose()}
+      onRun={onOpen}
       onCancel={reset}
       idleLabelKey="raciSuggest"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-      disabled={phase === "applying"}
+      disabled={phase !== "idle" && phase !== "thinking"}
     />
   ) : null;
 
   // Under protection the phase is already reset to idle above; the extra guard keeps the reconciling render from
   // building the modal.
-  const modal = (phase === "preview" || phase === "applying") && !peopleProtected ? (
+  const modal = phase !== "idle" && !peopleProtected ? (
     <RaciSuggestModal
       lang={lang}
       open
+      stage={phase === "preview" || phase === "applying" ? "preview" : "input"}
+      request={request}
+      onRequestChange={setRequest}
+      onRun={() => void onPropose()}
+      canCancel={phase !== "applying"}
       cells={cells}
       skipped={skipped}
       noOp={noOp}
@@ -384,20 +390,5 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     />
   ) : null;
 
-  const requestBox = enabled ? (
-    <Textarea
-      size="xs"
-      rows={1}
-      autoGrow
-      value={request}
-      maxLength={RACI_REQUEST_MAX_CHARS}
-      disabled={phase !== "idle"}
-      onChange={(e) => setRequest(e.target.value)}
-      aria-label={t(lang, "raciSuggestRequestLabel")}
-      placeholder={t(lang, "raciSuggestRequestPlaceholder")}
-      className="w-64"
-    />
-  ) : null;
-
-  return { button, modal, requestBox };
+  return { button, modal };
 }

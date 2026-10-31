@@ -120,7 +120,6 @@ function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakehold
   return (
     <div>
       {suggest.button}
-      {suggest.requestBox}
       {suggest.modal}
       <button
         type="button"
@@ -151,6 +150,11 @@ function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakehold
 }
 
 const showToast = vi.fn();
+/** Open the dialog from the trigger, then press Run (the request stage comes first, §771). */
+function openAndRun() {
+  fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+  fireEvent.click(screen.getByRole("button", { name: t("en-US", "raciSuggestRun") }));
+}
 function renderHarness(props: HarnessProps = {}) {
   return render(
     <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
@@ -173,7 +177,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
       truncated: false,
     });
     renderHarness({ stakeholderRaci: { "10": "R" } });
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     await waitFor(() =>
       expect(showToast).toHaveBeenCalledWith("info", t("en-US", "raciSuggestAllExisting")),
     );
@@ -192,7 +196,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
       truncated: false,
     });
     renderHarness({ stakeholderRaci: { "10": "R", "11": "A" } });
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     await waitFor(() =>
       expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedDuplicateNeedsDemotion", 1, 1))).toBeTruthy(),
     );
@@ -208,7 +212,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     }) as Milestone);
     vi.mocked(call.runRaciSuggestion).mockResolvedValue({ cells: [], truncated: false });
     renderHarness({ milestones: many });
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     await waitFor(() =>
       expect(showToast).toHaveBeenCalledWith("info", t("en-US", "raciSuggestContextTruncated")),
     );
@@ -228,7 +232,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
       new Promise((res) => { release = res; }) as ReturnType<typeof call.runRaciSuggestion>,
     );
     renderHarness();
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: t("en-US", "aiStop") }),
@@ -264,7 +268,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     });
     renderHarness({ milestones: many });
 
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     await waitFor(() =>
       expect(screen.getByText(t("en-US", "raciSuggestContextTruncated"))).toBeTruthy(),
     );
@@ -283,7 +287,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     const onSaves = vi.fn();
     renderHarness({ onSaves });
 
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
 
     await waitFor(() => expect(screen.getByText(/Go-Live/)).toBeTruthy());
     expect(screen.getByText(/Kickoff/)).toBeTruthy();
@@ -304,7 +308,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     const onCaptureBulk = vi.fn();
     renderHarness({ onSaves, onCaptureBulk });
 
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     await waitFor(() => expect(screen.getByText(/Go-Live/)).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
 
@@ -336,7 +340,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     const onSaves = vi.fn();
     renderHarness({ onSaves });
 
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     await waitFor(() => expect(screen.getByText(/Kickoff/)).toBeTruthy());
     // Untick the Kickoff (milestone 11) cell — row-unique checkbox name.
     fireEvent.click(screen.getByRole("checkbox", { name: /Sam.*Kickoff/i }));
@@ -375,7 +379,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     const onCaptureBulk = vi.fn();
     renderHarness({ onSaves, onCaptureBulk, externalWrite: { id: 2, milestoneId: 10, role: "C" } });
 
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     // Both cells survived grounding and are preselected — so Lee reaches the
     // fold. Without this the test could pass because grounding dropped the cell,
     // which is a different (and already-tested) mechanism.
@@ -402,7 +406,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
   it("shows a 'no proposal' toast and no modal when the model returns nothing", async () => {
     vi.mocked(call.runRaciSuggestion).mockResolvedValue({ cells: [], truncated: false });
     renderHarness();
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", expect.stringMatching(/no assignments/i)));
     expect(screen.queryByRole("button", { name: /apply selected/i })).toBeNull();
   });
@@ -416,7 +420,7 @@ describe("useRaciSuggest — §650 a refused key shows the key message", () => {
   ] as const)("a %i toasts %s, not the response's own message", async (status, key) => {
     vi.mocked(call.runRaciSuggestion).mockRejectedValue(new AiHttpError(status, "authentication_error", "invalid x-api-key"));
     renderHarness();
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", t("en-US", key)));
     expect(showToast).not.toHaveBeenCalledWith("error", "invalid x-api-key");
   });
@@ -438,7 +442,7 @@ describe("useRaciSuggest guide text", () => {
         </ToastProvider>
       </ActionGuidesProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     await waitFor(() => expect(call.runRaciSuggestion).toHaveBeenCalled());
     const text = vi.mocked(call.runRaciSuggestion).mock.calls[0][1].guideText ?? "";
     expect(text).toContain("TARGET-MARK");
@@ -452,14 +456,36 @@ describe("useRaciSuggest — request and evidence (§771)", () => {
   it("sends the typed request and the EVIDENCE block to the call", async () => {
     vi.mocked(call.runRaciSuggestion).mockResolvedValue({ cells: [], truncated: false });
     renderHarness();
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
     fireEvent.change(screen.getByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") }), {
       target: { value: "Keep Sam on Go-Live" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "raciSuggestRun") }));
     await waitFor(() => expect(call.runRaciSuggestion).toHaveBeenCalled());
     const context = vi.mocked(call.runRaciSuggestion).mock.calls[0][0];
     expect(context.text).toContain("EVIDENCE");
     expect(context.text).toContain("Keep Sam on Go-Live");
+  });
+});
+
+describe("useRaciSuggest — input stage (§771)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("opens on the request stage without calling Claude, and Cancel closes it", () => {
+    renderHarness();
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    expect(screen.getByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") }).getAttribute("maxlength")).toBe("2000");
+    expect(call.runRaciSuggestion).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(screen.queryByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") })).toBeNull();
+  });
+  it("Escape closes the request stage and the typed request is forgotten", () => {
+    renderHarness();
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    fireEvent.change(screen.getByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") }), { target: { value: "draft" } });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    expect((screen.getByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") }) as HTMLTextAreaElement).value).toBe("");
   });
 });
 
@@ -477,7 +503,7 @@ describe("useRaciSuggest — handover pair integrity (§771)", () => {
       truncated: false,
     });
     renderHarness({ stakeholderRaci: { "10": "A" }, onSaves, onCaptureBulk });
-    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    openAndRun();
     await screen.findByRole("button", { name: /apply selected/i });
   }
 

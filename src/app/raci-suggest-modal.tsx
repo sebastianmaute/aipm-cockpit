@@ -16,11 +16,12 @@ import { useMemo } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
-import { Checkbox } from "./form-controls";
+import { Checkbox, Textarea } from "./form-controls";
 import { HelpIconButton } from "./help-icon-button";
 import { MODAL_HELP } from "./help-content";
 import { ROLE_LABEL_KEY } from "./raci-chip-picker";
 import {
+  RACI_REQUEST_MAX_CHARS,
   cellKey,
   type GroundedRaciCell,
   type SkippedRaciCell,
@@ -81,6 +82,15 @@ export const SKIP_KEY_ORDER: readonly SkipMessageKey[] = (
 export interface RaciSuggestModalProps {
   lang: Lang;
   open: boolean;
+  /** "input" while collecting the optional request (nothing proposed yet), "preview" once cells are back. */
+  stage: "input" | "preview";
+  /** The optional free-text request, held by the caller. */
+  request: string;
+  onRequestChange: (value: string) => void;
+  /** Start the proposal (input stage). */
+  onRun: () => void;
+  /** False only while applying; closing is otherwise allowed, even mid-proposal (it aborts). */
+  canCancel: boolean;
   cells: readonly GroundedRaciCell[];
   skipped: readonly SkippedRaciCell[];
   /** Proposed cells dropped because the role proposed is the role already
@@ -119,6 +129,11 @@ function qualify(name: string, id: number, counts: ReadonlyMap<string, number>):
 export function RaciSuggestModal({
   lang,
   open,
+  stage,
+  request,
+  onRequestChange,
+  onRun,
+  canCancel,
   cells,
   skipped,
   noOp,
@@ -150,6 +165,7 @@ export function RaciSuggestModal({
   const selectedCount = cells.reduce((n, c) => (selected.has(cellKey(c)) ? n + 1 : n), 0);
   const seenPairs = new Set<string>();
   const canConfirm = !busy && selectedCount > 0;
+  const isInput = stage === "input";
 
   const skippedByKey = new Map<SkipMessageKey, number>();
   for (const s of skipped) {
@@ -165,7 +181,7 @@ export function RaciSuggestModal({
   ).filter(([, n]) => n > 0);
 
   return (
-    <Modal open={open} onClose={busy ? () => {} : onCancel} ariaLabel={title}>
+    <Modal open={open} onClose={canCancel ? onCancel : () => {}} ariaLabel={title}>
       <div
         data-modal-panel
         className="relative flex max-h-[90vh] w-[620px] max-w-[95vw] flex-col rounded-xl border border-line bg-surface"
@@ -191,16 +207,30 @@ export function RaciSuggestModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          {truncated && (
+          {isInput && (
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-foreground">{t(lang, "raciSuggestRequestLabel")}</span>
+              <Textarea
+                value={request}
+                onChange={(e) => onRequestChange(e.target.value)}
+                placeholder={t(lang, "raciSuggestRequestPlaceholder")}
+                maxLength={RACI_REQUEST_MAX_CHARS}
+                disabled={busy}
+                rows={3}
+                className="w-full"
+              />
+            </label>
+          )}
+          {!isInput && truncated && (
             <p className="mb-4 text-xs text-muted-foreground">{t(lang, "raciSuggestTruncated")}</p>
           )}
-          {contextTruncated && (
+          {!isInput && contextTruncated && (
             <p className="mb-4 text-xs text-muted-foreground">
               {t(lang, "raciSuggestContextTruncated")}
             </p>
           )}
 
-          {cells.length === 0 ? (
+          {isInput ? null : cells.length === 0 ? (
             // "Claude proposed no assignments" is false exactly when this
             // branch is reachable: the hook only opens the preview with zero
             // cells when every proposal was SKIPPED, and the skipped block
@@ -307,7 +337,7 @@ export function RaciSuggestModal({
             </ul>
           )}
 
-          {(noOp > 0 || skippedRows.length > 0) && (
+          {!isInput && (noOp > 0 || skippedRows.length > 0) && (
             <div className="mt-4 space-y-1 border-t border-line pt-3 text-xs text-muted-foreground">
               {noOp > 0 && <p>{t(lang, "raciSuggestNoOpCount", String(noOp))}</p>}
               {skippedRows.map(([key, n]) => (
@@ -318,12 +348,18 @@ export function RaciSuggestModal({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-line px-6 py-4">
-          <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={!canCancel}>
             {t(lang, "cancel")}
           </Button>
-          <Button variant="primary" size="sm" onClick={onConfirm} disabled={!canConfirm}>
-            {t(lang, "raciSuggestApply")}
-          </Button>
+          {isInput ? (
+            <Button variant="primary" size="sm" onClick={onRun} disabled={busy}>
+              {busy ? t(lang, "raciSuggestThinking") : t(lang, "raciSuggestRun")}
+            </Button>
+          ) : (
+            <Button variant="primary" size="sm" onClick={onConfirm} disabled={!canConfirm}>
+              {t(lang, "raciSuggestApply")}
+            </Button>
+          )}
         </div>
       </div>
     </Modal>

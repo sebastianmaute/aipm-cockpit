@@ -3354,7 +3354,6 @@ const enUS = {
   raciSuggest: "Suggest RACI",
   raciSuggestTitle: "Proposed RACI assignments",
   raciSuggestIntro: "Review each proposed assignment. Only ticked rows are applied.",
-  raciSuggestThinking: "Asking Claude…",
   raciSuggestApply: "Apply selected",
   raciSuggestInclude: "Include",
   raciSuggestCurrent: "Current",
@@ -3383,6 +3382,8 @@ const enUS = {
   raciSuggestSkippedDuplicateNeedsDemotionOne:
     "1 proposed assignment was refused because it would make a second Accountable. Claude must also propose the current holder's new role.",
   raciSuggestHandoverRow: "Accountable for {0}: {1} → {2}, {1} becomes {3}",
+  raciSuggestRun: "Suggest",
+  raciSuggestThinking: "Asking Claude…",
   raciSuggestRequestLabel: "Request for Claude (optional)",
   raciSuggestRequestPlaceholder: "e.g. Keep Ada as Accountable for Go-Live",
   raciSuggestNoOpCount: "Already in place: {0}",

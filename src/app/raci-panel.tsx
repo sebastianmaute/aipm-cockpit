@@ -207,7 +207,6 @@ export function RaciPanel({ lang, stakeholders, milestones, tasks, raid, changes
       <div className="mb-2 flex shrink-0 flex-wrap items-start gap-2 print:hidden">
         <div className="flex flex-1 flex-wrap items-center gap-2">
           {suggest.button}
-          {suggest.requestBox}
           {/* ★ onClear hits the setter DIRECTLY, never the onChange above —
               routing it through onChange would re-run the auto-add match. */}
           <ClearableSearchInput
