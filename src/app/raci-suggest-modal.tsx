@@ -254,13 +254,15 @@ export function RaciSuggestModal({
                   if (incoming && outgoing && halves.length === 2) {
                     seenPairs.add(c.pairKey);
                     const keys = halves.map(cellKey);
+                    // The new holder's current role on this milestone is replaced by the A, so the row names it.
                     const label = t(
                       lang,
-                      "raciSuggestHandoverRow",
+                      incoming.currentRole ? "raciSuggestHandoverRowWas" : "raciSuggestHandoverRow",
                       qualify(c.milestoneName, c.milestoneId, nameCounts.milestone),
                       qualify(outgoing.stakeholderName, outgoing.stakeholderId, nameCounts.stakeholder),
                       qualify(incoming.stakeholderName, incoming.stakeholderId, nameCounts.stakeholder),
                       t(lang, ROLE_LABEL_KEY[outgoing.role]),
+                      incoming.currentRole ? t(lang, ROLE_LABEL_KEY[incoming.currentRole]) : "",
                     );
                     return (
                       <li key={c.pairKey} className="rounded-md border border-line bg-surface-muted px-3 py-2">

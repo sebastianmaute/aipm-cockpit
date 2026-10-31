@@ -9,6 +9,7 @@ import {
 import { loadI18n, t, tPlural, type Lang } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { GroundedRaciCell, SkippedRaciCell } from "./raci-suggest/raci-suggest";
+import { ROLE_LABEL_KEY } from "./raci-chip-picker";
 
 const cell = (
   stakeholderId: number,
@@ -427,6 +428,38 @@ describe("RaciSuggestModal handover row (§771)", () => {
     expect(boxes[0].getAttribute("aria-label")).toMatch(/^Accountable for Go-Live: Sam → Lee, Sam becomes /);
     fireEvent.click(boxes[0]);
     expect(onToggle.mock.calls.map((c) => c[0]).sort()).toEqual(["1:10", "2:10"]);
+  });
+
+  describe("shows the new holder's current role when they have one", () => {
+    beforeAll(() => loadI18n("de"));
+    const withRole: GroundedRaciCell[] = [{ ...pair[0], currentRole: "R" }, pair[1]];
+    const renderPair = (cells: GroundedRaciCell[], lang: Lang) =>
+      render(
+        <RaciSuggestModal
+          lang={lang} open stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel cells={cells} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
+          stakeholders={[{ id: 1, name: "Sam" }, { id: 2, name: "Lee" }]} milestones={[{ id: 10, name: "Go-Live" }]}
+          selected={new Set(["1:10", "2:10"])} onToggle={vi.fn()} onConfirm={vi.fn()} onCancel={vi.fn()} busy={false}
+        />,
+      );
+
+    it.each([
+      ["en-US", "Accountable for Go-Live: Sam → Lee (was Responsible), Sam becomes Consulted"],
+      ["de", "Rechenschaftspflichtig (A) für Go-Live: Sam → Lee (bisher Verantwortlich); neue Rolle von Sam: Konsultiert"],
+    ] as const)("names it in the label and the visible text in %s", (lang, expected) => {
+      const label = t(lang, "raciSuggestHandoverRowWas", "Go-Live", "Sam", "Lee", t(lang, ROLE_LABEL_KEY.C), t(lang, ROLE_LABEL_KEY.R));
+      expect(label).toBe(expected);
+      renderPair(withRole, lang);
+      const box = screen.getByRole("checkbox");
+      expect(box.getAttribute("aria-label")).toBe(label);
+      expect(screen.getByText(label)).toBeInTheDocument();
+    });
+
+    it.each(["en-US", "de"] as const)("keeps the plain row when the new holder has no role yet in %s", (lang) => {
+      const label = t(lang, "raciSuggestHandoverRow", "Go-Live", "Sam", "Lee", t(lang, ROLE_LABEL_KEY.C));
+      renderPair(pair, lang);
+      expect(screen.getByRole("checkbox").getAttribute("aria-label")).toBe(label);
+      expect(screen.getByText(label)).toBeInTheDocument();
+    });
   });
 });
 

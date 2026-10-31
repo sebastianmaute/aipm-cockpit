@@ -3382,6 +3382,7 @@ const enUS = {
   raciSuggestSkippedDuplicateNeedsDemotionOne:
     "1 proposed assignment was refused because it would make a second Accountable. Claude must also propose the current holder's new role.",
   raciSuggestHandoverRow: "Accountable for {0}: {1} → {2}, {1} becomes {3}",
+  raciSuggestHandoverRowWas: "Accountable for {0}: {1} → {2} (was {4}), {1} becomes {3}",
   raciSuggestInputTitle: "Suggest RACI",
   raciSuggestInputIntro: "Tell Claude any rule to follow, or leave it empty, then choose Suggest.",
   raciSuggestRun: "Suggest",

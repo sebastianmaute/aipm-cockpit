@@ -3213,6 +3213,7 @@ export const de: Record<TranslationKey, string> = {
   raciSuggestSkippedDuplicateNeedsDemotionOne:
     "1 vorgeschlagene Zuordnung wurde abgelehnt, da sie einen zweiten Rechenschaftspflichtigen ergäbe. Claude muss auch die neue Rolle des bisherigen Inhabers vorschlagen.",
   raciSuggestHandoverRow: "Rechenschaftspflichtig (A) für {0}: {1} → {2}; neue Rolle von {1}: {3}",
+  raciSuggestHandoverRowWas: "Rechenschaftspflichtig (A) für {0}: {1} → {2} (bisher {4}); neue Rolle von {1}: {3}",
   raciSuggestInputTitle: "RACI vorschlagen",
   raciSuggestInputIntro: "Nennen Sie Claude eine Regel, die gelten soll, oder lassen Sie das Feld leer, und wählen Sie dann Vorschlagen.",
   raciSuggestRun: "Vorschlagen",
