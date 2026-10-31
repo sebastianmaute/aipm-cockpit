@@ -28,21 +28,20 @@ export interface AiDataPath {
   /** What it sends. Two rows of one feature at different levels may share a text. */
   dataKey: TranslationKey;
   /** What people protection does to this path while it is ON (AI people protection): the feature is
-   *  `hidden`, switched `off` (audio cannot be redacted), its request is `redacted`, or it is `unredacted` (sent as is, with the
-   *  result applied without people: the project proposal, where the project has no people yet). */
+   *  `hidden`, switched `off` (audio cannot be redacted), or its request is `redacted`. (Review 3, R3: the
+   *  former `unredacted` state is gone — the project proposal now always pattern-redacts, see its `protectedKey`.) */
   whenProtected: AiProtectedState;
   /** Replaces the standard text of the state, for a row that must say more or less than it. */
   protectedKey?: TranslationKey;
 }
 
-export const AI_PROTECTED_STATES = ["hidden", "redacted", "off", "unredacted"] as const;
+export const AI_PROTECTED_STATES = ["hidden", "redacted", "off"] as const;
 export type AiProtectedState = (typeof AI_PROTECTED_STATES)[number];
 
 const PROTECTED_STATE_KEY: Readonly<Record<AiProtectedState, TranslationKey>> = {
   hidden: "aiProtectedHidden",
   redacted: "aiProtectedRedacted",
   off: "aiProtectedOff",
-  unredacted: "aiProtectedUnredacted",
 };
 
 /** The text that says what protection does to a row: its own override, else the state's standard text. */
@@ -63,7 +62,7 @@ export const AI_DATA_PATHS: readonly AiDataPath[] = [
   { id: "task-dedup", level: "interactive", labelKey: "aiDataTaskDedupLabel", dataKey: "aiDataTaskDedup", whenProtected: "redacted" },
   { id: "wbs-plan", level: "interactive", labelKey: "aiDataWbsPlanLabel", dataKey: "aiDataWbsPlan", whenProtected: "redacted" },
   { id: "weight-suggestion", level: "interactive", labelKey: "aiDataWeightSuggestionLabel", dataKey: "aiDataWeightSuggestion", whenProtected: "redacted" },
-  { id: "project-proposal", level: "interactive", labelKey: "aiDataProjectProposalLabel", dataKey: "aiDataProjectProposal", whenProtected: "unredacted" },
+  { id: "project-proposal", level: "interactive", labelKey: "aiDataProjectProposalLabel", dataKey: "aiDataProjectProposal", whenProtected: "redacted", protectedKey: "aiProtectedProjectProposal" },
   { id: "dictation", level: "interactive", labelKey: "aiDataDictationLabel", dataKey: "aiDataDictation", whenProtected: "off" },
   { id: "scheduled-job", level: "background", labelKey: "aiDataScheduledJobLabel", dataKey: "aiDataScheduledJob", whenProtected: "redacted" },
   { id: "insight-recommendation-auto", level: "background", labelKey: "aiDataInsightRecommendationAutoLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted" },

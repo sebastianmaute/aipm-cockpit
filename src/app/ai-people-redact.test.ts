@@ -289,9 +289,10 @@ describe("redactJsonBody / restoreJsonText", () => {
     // F2c: tool definitions are app-authored; they are passed through untouched.
     expect(out.tools[0].description).toBe("about Sofia Ramirez");
     expect(out.messages[0].content[0].text).toBe("Ask [Person 1]");
-    // Final review F1: no `data` exemption — under protection an image is refused
-    // before redaction (`hasUnredactableContent`), so none is ever walked here.
-    expect(out.messages[0].content[1].source.data).toBe("[Person 1]");
+    // Review 3, R3: a base64 source's `data` is opaque bytes and passes untouched. A refusing protection never
+    // walks one (`hasUnredactableContent`); the unforced create-project wizard sends images and PDFs through a
+    // pattern-only session, and a pattern matched inside base64 would corrupt the file.
+    expect(out.messages[0].content[1].source.data).toBe("Sofia Ramirez");
     expect(out.messages[0].content[1].source.media_type).toBe("image/png");
     expect(out.messages[1].content[0].id).toBe("Sofia Ramirez");
     expect(out.messages[1].content[0].name).toBe("Sofia Ramirez");
@@ -303,7 +304,7 @@ describe("redactJsonBody / restoreJsonText", () => {
     expect(out.max_tokens).toBe(100);
   });
 
-  it("opaque blobs pass untouched: signature and redacted_thinking; other data is redacted", () => {
+  it("opaque blobs pass untouched: signature, redacted_thinking and base64 data; other data is redacted", () => {
     const s = fresh(dict(["Sofia Ramirez"]));
     const body = JSON.stringify({ messages: [{ role: "assistant", content: [
       { type: "thinking", thinking: "Sofia Ramirez", signature: "Sofia Ramirez" },
@@ -314,9 +315,8 @@ describe("redactJsonBody / restoreJsonText", () => {
     const c = JSON.parse(redactJsonBody(body, s)).messages[0].content;
     expect(c[0]).toEqual({ type: "thinking", thinking: "[Person 1]", signature: "Sofia Ramirez" });
     expect(c[1]).toEqual({ type: "redacted_thinking", data: "Sofia Ramirez", note: "Sofia Ramirez" });
-    // Final review F1: the `data` exemption is gone (such blocks are refused
-    // before redaction under protection), so a `data` string is redacted.
-    expect(c[2].source.data).toBe("[Person 1]");
+    // Review 3, R3: base64 bytes are opaque (see above); any other `data` string is redacted.
+    expect(c[2].source.data).toBe("Sofia Ramirez");
     expect(c[3].source.data).toBe("[Person 1]");
   });
 

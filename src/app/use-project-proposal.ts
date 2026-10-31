@@ -50,9 +50,10 @@ export function useProjectProposal(ai: AiCreds) {
         // cut at 4096 is asked for once more at 8192 (§764).
         const reply = await runForcedToolCallWithRetry({
           apiKey: key,
-          // AI people protection (spec R3): the wizard creates a project, so no workspace and no
-          // people exist yet: unprotected, unless the deployment forces protection — then protected with
-          // no known people (patterns still redact; ai-privacy.sites.test.ts lists this exemption).
+          // AI people protection (spec R3; review 3, R3): the wizard creates a project, so no workspace and
+          // no people exist yet: always protected with no known people, so email addresses, phone numbers and
+          // IBANs are redacted by their patterns; images and PDFs are refused only when the deployment forces
+          // protection (ai-privacy.sites.test.ts lists this site).
           privacy: aiPrivacyForNewProject(),
           model: ai.model,
           // The user's local day, computed the same way as the one the wizard stamps on the seed

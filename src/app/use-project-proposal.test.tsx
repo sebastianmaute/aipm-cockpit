@@ -19,11 +19,12 @@ const ai = { apiKey: "sk-test", model: "claude-sonnet-4-6" };
 
 afterEach(() => vi.restoreAllMocks());
 
+// A real Response per call: the wizard's reply is always read once as text to restore its placeholders (review 3, R3).
 function mockFetchToolUse(input: unknown) {
-  return vi.spyOn(globalThis, "fetch").mockResolvedValue({
-    ok: true,
-    json: async () => ({ content: [{ type: "tool_use", name: "propose_project", input }], stop_reason: "tool_use" }),
-  } as Response);
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(
+    JSON.stringify({ content: [{ type: "tool_use", name: "propose_project", input }], stop_reason: "tool_use" }),
+    { status: 200 },
+  ));
 }
 
 describe("useProjectProposal", () => {
@@ -96,9 +97,7 @@ describe("useProjectProposal", () => {
   });
 
   it("passes the abort signal to fetch", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true, json: async () => ({ content: [] }),
-    } as Response);
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({ content: [] }), { status: 200 }));
     const { result } = renderHook(() => useProjectProposal(ai));
     const ctrl = new AbortController();
     await act(async () => { await result.current.generate("hi", ctrl.signal); });
@@ -169,7 +168,7 @@ describe("useProjectProposal guide text", () => {
 // §764 — a reply cut at the output budget is asked for once more at a larger one, and never read.
 describe("useProjectProposal output budget (§764)", () => {
   const cutOr = (stop: string, input: unknown) =>
-    ({ ok: true, json: async () => ({ stop_reason: stop, content: [{ type: "tool_use", name: "propose_project", input }] }) }) as unknown as Response;
+    new Response(JSON.stringify({ stop_reason: stop, content: [{ type: "tool_use", name: "propose_project", input }] }), { status: 200 });
   const budgets = (spy: { mock: { calls: unknown[][] } }) =>
     spy.mock.calls.map((c) => JSON.parse(String((c[1] as RequestInit).body)).max_tokens as number);
   const WHOLE = { meta: { name: "Alpha" }, features: [] };
@@ -184,7 +183,7 @@ describe("useProjectProposal output budget (§764)", () => {
   });
 
   it("never reads a reply cut at the retry budget too, even one that parses", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(cutOr("max_tokens", WHOLE));
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => cutOr("max_tokens", WHOLE));
     const { result } = renderHook(() => useProjectProposal(ai));
     let p: unknown = "unset";
     await act(async () => { p = await result.current.generate("a CRM project"); });
@@ -193,6 +192,9 @@ describe("useProjectProposal output budget (§764)", () => {
     expect(budgets(spy)).toEqual([4096, 8192]);
   });
 });
+
+/** A PDF whose base64 bytes hold an IBAN-shaped run after a "/" (valid checksum): opaque bytes must pass untouched. */
+const PDF = { type: "document", source: { type: "base64", media_type: "application/pdf", data: "JVBERi0x/DE89370400440532013000/w==" } } as const;
 
 // Review 2, finding B: a deployment that forces people protection (AIPM_DISABLED_INTEGRATIONS=ai-people) covers
 // the create-project wizard too. No people are known yet, so the dictionary is EMPTY, but the patterns still
@@ -240,12 +242,52 @@ describe("useProjectProposal under a deployment that forces people protection (r
     expect(spy).not.toHaveBeenCalled();
   });
 
-  // The positive control: without the deployment lock the wizard sends the brief as written.
-  it("not forced: the brief is sent as written", async () => {
+  it("forced: a PDF is refused too", async () => {
+    setDisabledIntegrations(["ai-people"]);
     const spy = replyWith({ meta: { name: "CRM" }, features: [] });
     const { result } = renderHook(() => useProjectProposal(ai));
-    await act(async () => { await result.current.generate(BRIEF); });
-    expect(bodyOf(spy)).toContain("jane.doe@acme.example");
-    expect(bodyOf(spy)).toContain("+49 170 1234567");
+    await act(async () => { await result.current.generate([{ type: "text", text: "From this brief:" }, PDF] as never); });
+    expect(result.current.error).toBe(PROPOSAL_PEOPLE_PROTECTED_ERROR);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+// Review 3, R3 (owner: always pattern-redact): WITHOUT the deployment lock the wizard still sends through a
+// redaction session over an EMPTY dictionary, so email addresses, phone numbers and IBANs are replaced and restored
+// in the reply. Images and non-text documents pass (the wizard keeps reading PDFs); only a forced lock refuses them.
+describe("useProjectProposal without a forced protection (review 3, R3)", () => {
+  function replyWith(input: unknown) {
+    return vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(
+      JSON.stringify({ content: [{ type: "tool_use", name: "propose_project", input }], stop_reason: "tool_use" }),
+      { status: 200 },
+    ));
+  }
+  const IBAN = "DE89 3704 0044 0532 0130 00";
+  const BRIEF = `Plan a CRM rollout for Acme. Contact jane.doe@acme.example or +49 170 1234567; pay to ${IBAN}.`;
+  const bodyOf = (spy: ReturnType<typeof replyWith>) => String((spy.mock.calls[0]![1] as RequestInit).body);
+
+  it("the brief's email address, phone number and IBAN are replaced, and restored in the reply", async () => {
+    const spy = replyWith({ meta: { name: "CRM for [email 1]" }, features: [] });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: { meta: { name?: string } } | null = null;
+    await act(async () => { p = (await result.current.generate(BRIEF)) as typeof p; });
+    const body = bodyOf(spy);
+    expect(body).not.toContain("jane.doe@acme.example");
+    expect(body).not.toContain("170 1234567");
+    expect(body).not.toContain(IBAN);
+    expect(body).toContain("[email 1]");
+    expect(body).toContain("[phone 1]");
+    expect(body).toContain("[IBAN 1]");
+    expect(p!.meta.name).toBe("CRM for jane.doe@acme.example");
+  });
+
+  it("a PDF passes, its bytes untouched", async () => {
+    const spy = replyWith({ meta: { name: "CRM" }, features: [] });
+    const { result } = renderHook(() => useProjectProposal(ai));
+    let p: unknown = null;
+    await act(async () => { p = await result.current.generate([{ type: "text", text: "From this brief:" }, PDF] as never); });
+    expect(p).not.toBeNull();
+    expect(result.current.error).toBeNull();
+    expect(bodyOf(spy)).toContain(PDF.source.data);
   });
 });

@@ -1,7 +1,9 @@
 // src/app/ai-privacy.ts — what the AI transport does with people in a request.
 //
 // A request is either unprotected (sent as it is) or protected: the transport redacts every
-// outgoing body through `session` and restores the real names in the reply. `privacy` is REQUIRED
+// outgoing body through `session` and restores the real names in the reply. A protected request
+// refuses an image or non-text document (`refuseUnredactable`), except the unforced create-project
+// wizard's, which only pattern-redacts and keeps reading PDFs (review 3, R3). `privacy` is REQUIRED
 // on every send path, so tsc forces each caller to decide. A request that mixes projects is
 // protected if ANY of them is, and its session holds every one of their dictionaries.
 
@@ -10,14 +12,23 @@ import { isPeopleProtected, isPeopleProtectionForced } from "./ai-people-protect
 import { redactionSessionFor, type RedactionSession } from "./ai-people-redact";
 import type { Workspace } from "./workspace";
 
-export type AiPrivacy = { protected: false } | { protected: true; session: RedactionSession };
+export type AiPrivacy =
+  | { protected: false }
+  | {
+      protected: true;
+      session: RedactionSession;
+      /** True: an image or non-text document is refused before sending (`AiPeopleProtectedContentError`). False
+       *  only for the create-project wizard while the deployment does not force protection. Required, so tsc makes
+       *  every builder state it. */
+      refuseUnredactable: boolean;
+    };
 
 /** Protected if any project is; the session covers the people of ALL the given projects. */
 export function aiPrivacyFor(projects: readonly { key: string; ws: Workspace }[]): AiPrivacy {
   if (!projects.some((p) => isPeopleProtected(p.ws.settingsOverrides))) return { protected: false };
   const keys = projects.map((p) => p.key);
   const dicts = projects.map((p) => buildPeopleDictionary(p.ws));
-  return { protected: true, session: redactionSessionFor(keys, dicts) };
+  return { protected: true, session: redactionSessionFor(keys, dicts), refuseUnredactable: true };
 }
 
 /** The session key of a project that does not exist yet; no stored project can carry it (ids are never
@@ -25,12 +36,16 @@ export function aiPrivacyFor(projects: readonly { key: string; ws: Workspace }[]
 const NEW_PROJECT_KEY = "(new project)";
 const NO_PEOPLE: PeopleDictionary = { names: [], emails: [], phones: [] };
 
-/** The create-project wizard (review 2, B): no workspace yet, so no people are known. Unprotected unless the
- *  deployment FORCES protection; then it is protected with an EMPTY dictionary, so email addresses, phone
- *  numbers and IBANs are still redacted by their patterns, and an image or non-text document is refused. */
+/** The create-project wizard: no workspace yet, so no people are known. ALWAYS protected with an EMPTY dictionary
+ *  (review 3, R3), so email addresses, phone numbers and IBANs are redacted by their patterns and restored in the
+ *  reply; names cannot be. An image or non-text document is refused only when the deployment FORCES protection
+ *  (review 2, B); otherwise it is sent, so the wizard keeps reading PDFs. */
 export function aiPrivacyForNewProject(): AiPrivacy {
-  if (!isPeopleProtectionForced()) return { protected: false };
-  return { protected: true, session: redactionSessionFor([NEW_PROJECT_KEY], [NO_PEOPLE]) };
+  return {
+    protected: true,
+    session: redactionSessionFor([NEW_PROJECT_KEY], [NO_PEOPLE]),
+    refuseUnredactable: isPeopleProtectionForced(),
+  };
 }
 
 /** Thrown before any request when a protected body holds content that cannot be redacted. */

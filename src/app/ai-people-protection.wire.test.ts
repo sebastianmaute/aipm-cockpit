@@ -49,7 +49,7 @@ import { runScheduledJob } from "./scheduled-job-run";
 import { resourceDisplayName } from "./resource-foundation";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import {
-  FIXTURE_INSIGHT, FIXTURE_PEOPLE_TERMS, FIXTURE_PHONE, FIXTURE_PHONES, FIXTURE_PROJECT_KEY, FIXTURE_TODAY, FORMER_MEMBER, LOWERCASE_PEOPLE, MAIL_EML,
+  FIXTURE_INSIGHT, FIXTURE_PEOPLE_TERMS, FIXTURE_PHONE, FIXTURE_PHONES, KNOWN_EMAILS, FIXTURE_PROJECT_KEY, FIXTURE_TODAY, FORMER_MEMBER, LOWERCASE_PEOPLE, MAIL_EML,
   MAIL_PERSON, RESOURCE_ID, RESOURCE_NAME_TOKENS, SEEDED_PERSON_FIELDS, STAKEHOLDER_ID, TASK_ID, UNKNOWN_PHONE, peopleFixture,
 } from "../test/people-protection-fixture";
 import { dashboardOf, peopleFeatureOffered, renderChat, type PeopleFeature } from "../test/people-protection-harness";
@@ -190,8 +190,7 @@ type HiddenDriver = {
   run: ((c: Ctx) => Promise<void>) | null;
   sendsPeople: true | string;
 };
-type ExemptDriver = { kind: "unredacted"; run: () => Promise<unknown> };
-type Driver = SendDriver | HiddenDriver | ExemptDriver;
+type Driver = SendDriver | HiddenDriver;
 
 const AGENDA = `1. Licence keys: ${MAIL_PERSON} to report. 2. Data centre change.`;
 
@@ -395,30 +394,36 @@ const DRIVERS: Readonly<Record<string, Driver>> = {
     sendsPeople: "it sends audio to the speech service, never a request body this test can read; protection switches it off",
   },
   "project-proposal": {
-    kind: "unredacted",
-    run: async () => {
-      script = [() => toolUse([{
-        name: "propose_project",
-        input: {
-          meta: { name: "Warehouse platform", sponsor: "Sébastien Oakenfold", projectManager: "Philippa Underhay", customer: "Acme" },
-          features: [],
-          seed: {
-            tasks: [{ taskName: "Kick-off", dueDate: "2026-11-05", assignee: "Tobias Kranewitter" }],
-            raid: [{ title: "Vendor late", category: "R", owner: "Ottilie Marchbanks", ownerEmail: "o.marchbanks@example.test" }],
-            stakeholders: [{ name: MAIL_PERSON, title: "Sponsor" }],
-            resources: [{ firstName: "Rosalind", lastName: "Quenby" }],
-            milestones: [{ name: "Go-live", date: "2026-12-01" }],
-          },
-        },
-      }])];
-      const { result } = renderHook(() => useProjectProposal({ apiKey: KEY, model: MODEL, timeZone: "UTC" }));
-      return result.current.generate("Plan a warehouse platform rollout for Acme.");
-    },
+    kind: "redacted",
+    // Review 3, R3: the wizard ALWAYS sends through a session over an empty dictionary, whatever the setting.
+    sendsPeople: "a new project has no workspace, so no fixture person is in it; the brief's email address and phone are pattern-redacted even with protection off (names cannot be, so the brief names none)",
+    run: async () => { await generateProposal(); },
   },
 };
 
+/** The create-project wizard over the wire: a brief carrying a fixture email address and an unknown phone, and a
+ *  scripted proposal full of people. */
+async function generateProposal(): Promise<unknown> {
+  script = [() => toolUse([{
+    name: "propose_project",
+    input: {
+      meta: { name: "Warehouse platform", sponsor: "Sébastien Oakenfold", projectManager: "Philippa Underhay", customer: "Acme" },
+      features: [],
+      seed: {
+        tasks: [{ taskName: "Kick-off", dueDate: "2026-11-05", assignee: "Tobias Kranewitter" }],
+        raid: [{ title: "Vendor late", category: "R", owner: "Ottilie Marchbanks", ownerEmail: "o.marchbanks@example.test" }],
+        stakeholders: [{ name: MAIL_PERSON, title: "Sponsor" }],
+        resources: [{ firstName: "Rosalind", lastName: "Quenby" }],
+        milestones: [{ name: "Go-live", date: "2026-12-01" }],
+      },
+    },
+  }])];
+  const { result } = renderHook(() => useProjectProposal({ apiKey: KEY, model: MODEL, timeZone: "UTC" }));
+  return result.current.generate(`Plan a warehouse platform rollout for Acme. Questions to ${KNOWN_EMAILS[0]} or ${UNKNOWN_PHONE}.`);
+}
+
 const KIND_OF: Readonly<Record<AiProtectedState, Driver["kind"]>> = {
-  redacted: "redacted", hidden: "hidden", off: "off", unredacted: "unredacted",
+  redacted: "redacted", hidden: "hidden", off: "off",
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -458,11 +463,12 @@ describe("with protection on, no fixture person reaches a request body", () => {
     expect(sent).toEqual([]);
   });
 
-  it("project-proposal: the documented exemption sends no workspace, and applies its result without people", async () => {
-    const driver = DRIVERS["project-proposal"] as ExemptDriver;
-    const proposal = (await driver.run()) as { meta: Record<string, unknown>; seed?: Record<string, unknown> } | null;
+  it("project-proposal: sends no workspace, pattern-redacts its brief, and applies its result without people", async () => {
+    const proposal = (await generateProposal()) as { meta: Record<string, unknown>; seed?: Record<string, unknown> } | null;
     expect(sent).toHaveLength(1);
-    expect(peopleIn(sent)).toEqual([]); // no Workspace is passed, so no fixture person can be in it
+    expect(peopleIn(sent)).toEqual([]); // no Workspace is passed, and the brief's email and phone are redacted
+    expect(sent[0]).toContain("[email 1]");
+    expect(sent[0]).toContain("[phone 1]");
     expect(proposal).not.toBeNull();
     expect(proposal!.meta).not.toHaveProperty("sponsor");
     expect(proposal!.meta).not.toHaveProperty("projectManager");

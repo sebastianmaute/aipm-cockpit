@@ -223,14 +223,15 @@ export interface PostAiMessagesArgs {
    *  revoked while the status is asked. */
   beforeSend?: () => void;
   /** REQUIRED so every caller decides. Protected: the body is redacted before it is sent and the
-   *  reply restored; an image or non-text document block is refused (`AiPeopleProtectedContentError`). */
+   *  reply restored; an image or non-text document block is refused (`AiPeopleProtectedContentError`)
+   *  unless the privacy says `refuseUnredactable: false` (the unforced create-project wizard). */
   privacy: AiPrivacy;
 }
 
 /** Redact `body` for a protected send and log the per-send counts (numbers only, never values). */
 function redactForSend(body: string, privacy: AiPrivacy): string {
   if (!privacy.protected) return body;
-  if (hasUnredactableContent(body)) throw new AiPeopleProtectedContentError();
+  if (privacy.refuseUnredactable && hasUnredactableContent(body)) throw new AiPeopleProtectedContentError();
   const before = privacy.session.counts();
   const redacted = redactJsonBody(body, privacy.session);
   const after = privacy.session.counts();

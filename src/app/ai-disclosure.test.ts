@@ -59,7 +59,7 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted",
     "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|1a29e0f163bd|redacted",
     "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51|redacted",
-    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|unredacted",
+    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|redacted",
     "dictation|interactive|aiDataDictationLabel|aiDataDictation|11af271ca960|off",
     "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|43c341548943|redacted",
     "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|5eb499ef50b6|redacted",
@@ -152,7 +152,7 @@ describe("AI_DATA_PATHS", () => {
 
   it("every row states what protection does to it: hidden, off or redacted, with a text in both languages", () => {
     for (const row of AI_DATA_PATHS) {
-      expect(["hidden", "redacted", "off", "unredacted"], row.id).toContain(row.whenProtected);
+      expect(["hidden", "redacted", "off"], row.id).toContain(row.whenProtected);
       const key = aiProtectedTextKey(row);
       expect(t("en-US", key).trim(), row.id).toBeTruthy();
       expect(t("en-US", key), row.id).not.toBe(key);
@@ -162,17 +162,21 @@ describe("AI_DATA_PATHS", () => {
     expect(state("alloc-plan")).toBe("hidden");
     expect(state("raci-suggest")).toBe("hidden");
     expect(state("dictation")).toBe("off");
-    expect(state("project-proposal")).toBe("unredacted");
-    expect(AI_DATA_PATHS.filter((r) => r.whenProtected === "redacted")).toHaveLength(AI_DATA_PATHS.length - 4);
+    expect(state("project-proposal")).toBe("redacted");
+    expect(AI_DATA_PATHS.filter((r) => r.whenProtected === "redacted")).toHaveLength(AI_DATA_PATHS.length - 3);
   });
 
-  it("the project-proposal row says the request is sent as is, and the proposal is applied without any people", () => {
+  // Review 3, R3: the wizard always pattern-redacts; images and PDFs are refused only under a forced protection.
+  it("the project-proposal row says emails, phones and IBANs are always redacted, names cannot be, and the proposal is applied without people", () => {
     const row = AI_DATA_PATHS.find((r) => r.id === "project-proposal")!;
     const text = t("en-US", aiProtectedTextKey(row));
+    expect(text).toContain("Email addresses, phone numbers and IBANs are always replaced by placeholders");
     expect(text).toContain("a new project has no known people yet");
-    expect(text).toMatch(/files you add to the wizard may contain names/i);
+    expect(text).toMatch(/images and scanned or PDF documents are sent too, unless your organisation forces protection; then they are refused/i);
     expect(text).toContain("no sponsor, project manager, stakeholders, resources, assignees or owners");
-    expect(de[aiProtectedTextKey(row)]).toMatch(/Dateien, die Sie dem Assistenten hinzufügen, können Namen enthalten/);
+    const deText = de[aiProtectedTextKey(row)];
+    expect(deText).toMatch(/E-Mail-Adressen, Telefonnummern und IBANs werden immer durch Platzhalter ersetzt/);
+    expect(deText).toMatch(/sofern Ihre Organisation den Schutz nicht erzwingt; dann werden sie abgelehnt/);
   });
 
   it("the chat row says images and scanned documents are refused while protection is on", () => {

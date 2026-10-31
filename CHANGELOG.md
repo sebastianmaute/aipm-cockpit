@@ -26,7 +26,7 @@ longer carries its own changelog comment.
   (`AIPM_DISABLED_INTEGRATIONS=ai-people`). Limits: names the project does not know, typed into free text or inside
   attachments, may still be sent; a lone first name that is also a common word is not redacted; and the protection is
   enforced in the app, so a modified copy of the app could bypass it (server-side enforcement is a later project).
-  Creating a project from the empty wizard runs without redaction and creates the project without any people.
+  Creating a project from the empty wizard always replaces email addresses, phone numbers and IBANs with placeholders (not names: no people are known yet), refuses images and PDFs only when the organisation forces protection, and creates the project without any people.
 
 - **Draft with AI in the meeting report is now a proposal, and the report keeps a previous version (AI-04).** The draft
   no longer overwrites your report. It appears as a list of sections above the editor, each with a Preview that shows its

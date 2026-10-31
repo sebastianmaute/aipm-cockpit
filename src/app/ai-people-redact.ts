@@ -340,10 +340,13 @@ function isProtocolString(key: string, owner: Record<string, unknown>): boolean 
   if (PROTOCOL_KEYS.has(key)) return true;
   // A tool's own name (tool_use / server_tool_use block, tool_choice) — NOT a
   // `name` inside a tool INPUT, which is data the model wrote.
-  // No `data` exemption: under protection `hasUnredactableContent` refuses every
-  // image and non-text document, so no base64 blob reaches this walk; a
-  // plain-text document's `data` IS readable text; `redacted_thinking` is
-  // passed whole by `redactValue`.
+  // A base64 source's `data` is opaque bytes (an image or a PDF): a refusing
+  // protection never walks one (`hasUnredactableContent`), and the unforced
+  // create-project wizard sends them through a pattern-only session, where an
+  // IBAN- or phone-shaped run inside the base64 would corrupt the file (review 3,
+  // R3). A plain-text document's `data` IS readable text and is redacted;
+  // `redacted_thinking` is passed whole by `redactValue`.
+  if (key === "data" && owner.type === "base64") return true;
   return key === "name" && (owner.type === "tool_use" || owner.type === "server_tool_use" || owner.type === "tool");
 }
 
