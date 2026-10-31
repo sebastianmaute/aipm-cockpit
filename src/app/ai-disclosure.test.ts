@@ -371,9 +371,9 @@ describe("AI_DESTINATION_KEYS", () => {
     for (const key of routeKeys("relay")) {
       const en = t("en-US", key);
       expect(en, key).toContain("this app's server");
-      expect(en, key).not.toMatch(/directly|api.anthropic.com|gateway/i);
+      expect(en, key).not.toMatch(/directly|api\.anthropic\.com|gateway/i);
       expect(de[key], key).toContain("den Server dieser App");
-      expect(de[key], key).not.toMatch(/direkt|api.anthropic.com|Gateway/);
+      expect(de[key], key).not.toMatch(/direkt|api\.anthropic\.com|Gateway/);
     }
     for (const key of [AI_DESTINATION_KEYS.relay.keyNote, AI_DESTINATION_KEYS.relay.keySecurity, AI_DESTINATION_KEYS.relay.thirdParty, AI_DESTINATION_KEYS.relay.help]) {
       expect(t("en-US", key), key).toContain("your organisation restricts which Anthropic organisation's keys may be used");

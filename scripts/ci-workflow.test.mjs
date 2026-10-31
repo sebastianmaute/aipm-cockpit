@@ -808,7 +808,7 @@ describe("ai-live.yml", () => {
     expect(liveAt).toBeGreaterThan(npmCi);
     expect(stepLines(lines, npmCi)).toHaveLength(1);
     const live = stepLines(lines, stepStart(lines, liveAt)).join("\n");
-    expect(live).toMatch(new RegExp(`^ {8}run: npx vitest run ${LIVE_TEST.replace(/\./g, "\\.")} --reporter=default$`, "m"));
+    expect(live).toMatch(new RegExp(`^ {8}run: npx vitest run ${LIVE_TEST.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} --reporter=default$`, "m"));
     expect(live).toMatch(/^ {10}AI_LIVE_REQUIRED: "1"$/m);
     const stepMin = Number(live.match(/^ {8}timeout-minutes: (\d+)$/m)?.[1]);
     const jobMin = Number(job.match(/^ {4}timeout-minutes: (\d+)$/m)?.[1]);

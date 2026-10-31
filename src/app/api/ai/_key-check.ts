@@ -22,13 +22,14 @@
 // default, but an organisation can turn it on, and a cached 2xx answered to a FOREIGN key would
 // carry another key's organisation headers and let it pass. A direct pre-flight never sends it.
 //
-// Verdicts are cached in memory by SHA-256 of the key: a pass for the life of the entry, a
-// refusal for `refusalTtlMs`, Anthropic's own 401 for `rejectedTtlMs`, "unavailable", a 403 and
-// a gateway's refusal never. A change of the
+// Verdicts are cached in memory by an HMAC-SHA-256 of the key under a secret drawn at random
+// when this module loads, so a fingerprint means nothing outside this process. A pass is kept for
+// the life of the entry, a refusal for `refusalTtlMs`, Anthropic's own 401 for `rejectedTtlMs`;
+// "unavailable", a 403 and a gateway's refusal never. A change of the
 // restriction (its `signature`) clears the cache. The key itself is never logged, returned or
 // stored; it lives only in the pre-flight while that runs.
 
-import { createHash } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import type { RequestOptions } from "node:http";
 import type { AiKeyRestriction } from "../../ai-key-restriction-config";
 import { AI_GATEWAY_REJECTED } from "../../ai-errors";
@@ -78,8 +79,10 @@ type Finding =
 
 const UNAVAILABLE: Finding = { kind: "unavailable" };
 
+const FINGERPRINT_SECRET = randomBytes(32);
+
 function hashKey(key: string): string {
-  return createHash("sha256").update(key).digest("hex");
+  return createHmac("sha256", FINGERPRINT_SECRET).update(key).digest("hex");
 }
 
 type HeaderRead = { kind: "value"; value: string } | { kind: "absent" } | { kind: "ambiguous" };
