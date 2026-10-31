@@ -347,3 +347,20 @@ describe("buildAwaySummary: maxChars (§773 M-3)", () => {
     expect(lines).toEqual(["AWAY (absent days; type and reason not shown):", "…(1 more people truncated)"]);
   });
 });
+
+describe("closed work does not clash (§773 P-1)", () => {
+  const onAbsence = { assignee: "Maya Patel", resourceId: 1, startDate: undefined, dueDate: "2026-11-05" };
+
+  it("taskClashes: a Done or Cancelled task yields nothing; an open one still clashes", () => {
+    expect(taskClashes({ ...onAbsence, status: "Done" }, ctx([MAYA_WEEK]))).toEqual([]);
+    expect(taskClashes({ ...onAbsence, status: "Cancelled" }, ctx([MAYA_WEEK]))).toEqual([]);
+    expect(taskClashes({ ...onAbsence, status: "In Progress" }, ctx([MAYA_WEEK]))).toHaveLength(1);
+  });
+
+  it("milestoneClashes: skips the owner of a closed linked task, keeps an open one", () => {
+    const linked = (status: Task["status"]) => [{ id: 10, assignee: "Maya Patel", resourceId: 1, status } as Task];
+    expect(milestoneClashes({ date: "2026-11-05", linkedTaskIds: [10] }, linked("Done"), ctx([MAYA_WEEK]))).toEqual([]);
+    expect(milestoneClashes({ date: "2026-11-05", linkedTaskIds: [10] }, linked("Cancelled"), ctx([MAYA_WEEK]))).toEqual([]);
+    expect(milestoneClashes({ date: "2026-11-05", linkedTaskIds: [10] }, linked("To Do"), ctx([MAYA_WEEK]))).toHaveLength(1);
+  });
+});

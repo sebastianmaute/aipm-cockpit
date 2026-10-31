@@ -230,3 +230,42 @@ describe("describeEntityCalls — later blocks see earlier ones (§773 M-2)", ()
     );
   });
 });
+
+describe("describeEntityCalls — closed tasks (§773 P-1)", () => {
+  const onMaya = { ...task, assignee: "Maya Patel", assigneeEmail: "maya@example.com", resourceId: 1 };
+
+  it("moving a Done task's due date onto its owner's absence does not warn", () => {
+    const plan = describeEntityCalls([block("update_task", { id: 42, dueDate: "2026-11-05" })], {
+      ...taskCtx, item: { ...onMaya, status: "Done", completedDate: "2026-10-30" } as unknown as Item,
+    });
+    expect(plan.clashes).toEqual([]);
+  });
+
+  it("a change that closes the task as it moves the date does not warn", () => {
+    const plan = describeEntityCalls([block("update_task", { id: 42, dueDate: "2026-11-05", status: "Cancelled" })], {
+      ...taskCtx, item: onMaya as unknown as Item,
+    });
+    expect(plan.clashes).toEqual([]);
+  });
+
+  it("a change that reopens the task as it moves the date is judged", () => {
+    const plan = describeEntityCalls([block("update_task", { id: 42, dueDate: "2026-11-05", status: "In Progress" })], {
+      ...taskCtx, item: { ...onMaya, status: "Done", completedDate: "2026-10-30" } as unknown as Item,
+    });
+    expect(plan.clashes).toEqual([expect.objectContaining({ entity: "task", id: 42, clash: expect.objectContaining({ date: "2026-11-05" }) })]);
+  });
+
+  it("an earlier block that closes the task silences a later move", () => {
+    const plan = describeEntityCalls([
+      block("update_task", { id: 42, status: "Done" }),
+      block("update_task", { id: 42, dueDate: "2026-11-05" }),
+    ], { ...taskCtx, item: onMaya as unknown as Item });
+    expect(plan.clashes).toEqual([]);
+  });
+
+  it("a milestone moved onto the absence of a Done linked task's owner does not warn", () => {
+    const doneWs = { ...ws, tasks: [{ ...task, assignee: "Maya Patel", resourceId: 1, status: "Done", completedDate: "2026-10-30" }, mayaTask] } as unknown as Workspace;
+    const plan = describeEntityCalls([block("update_milestone", { id: 7, date: "2026-11-04" })], { ...milestoneCtx, ws: doneWs });
+    expect(plan.clashes).toEqual([]);
+  });
+});

@@ -5,6 +5,7 @@ import { absenceWorkdays, absencesForResource, workdaysInRange } from "./resourc
 import { isoAddDays } from "./due-dates";
 import { oneLine } from "./rich-text-plain";
 import { resourceDisplayName } from "./resource-foundation";
+import { isTaskClosed } from "./task-closed";
 import type { Absence, Milestone, Resource, Task } from "./types";
 
 export interface AbsenceCtx {
@@ -139,12 +140,15 @@ function spanClash(
  *  else absent on more than half of its working days (stored start AND due date; exactly half is not
  *  a clash). Rule (a) wins when both hold, as the more specific statement.
  *  `ignoreStart` (§773 R2): the start date is not newly the owner's (a due-only move), so rule (a) is not
- *  asked of it — it still bounds the span for rule (b). */
+ *  asked of it — it still bounds the span for rule (b).
+ *  A closed task (`isTaskClosed`: Done or Cancelled) never clashes (§773 P-1): nobody works on it again.
+ *  `status` is the status AFTER the change being judged; absent means open. */
 export function taskClashes(
-  t: Pick<Task, "assignee" | "resourceId" | "startDate" | "dueDate">,
+  t: Pick<Task, "assignee" | "resourceId" | "startDate" | "dueDate"> & Partial<Pick<Task, "status">>,
   ctx: AbsenceCtx,
   opts: { ignoreStart?: boolean } = {},
 ): AbsenceClash[] {
+  if (t.status !== undefined && isTaskClosed({ status: t.status })) return [];
   const person: PersonRef = { resourceId: t.resourceId ?? null, name: t.assignee ?? "" };
   if (!linkedResource(person, ctx) && !person.name.trim()) return [];
   const clash =
@@ -154,8 +158,8 @@ export function taskClashes(
   return clash ? [clash] : [];
 }
 
-/** A milestone's people are the owners of its linked tasks; one clash per owner away on its date.
- *  No linked tasks, no check. */
+/** A milestone's people are the owners of its OPEN linked tasks; one clash per owner away on its date.
+ *  No linked tasks, no check. A closed (Done or Cancelled) linked task names nobody (§773 P-1). */
 export function milestoneClashes(
   m: Pick<Milestone, "date" | "linkedTaskIds">,
   tasks: readonly Task[],
@@ -166,7 +170,7 @@ export function milestoneClashes(
   const seen = new Set<string>();
   const out: AbsenceClash[] = [];
   for (const task of tasks) {
-    if (!linked.has(task.id)) continue;
+    if (!linked.has(task.id) || isTaskClosed(task)) continue;
     const person: PersonRef = { resourceId: task.resourceId ?? null, name: task.assignee ?? "" };
     const resource = linkedResource(person, ctx);
     const name = person.name.trim().toLowerCase();

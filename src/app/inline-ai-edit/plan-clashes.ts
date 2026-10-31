@@ -15,7 +15,8 @@
 import { milestoneClashes, taskClashes, type AbsenceClash, type AbsenceCtx } from "../absence-clash";
 import { linkPersonForWrite } from "../resource-foundation";
 import { sanitizeAssignee, sanitizeIsoDate, sanitizeLoadedEmail } from "../sanitize";
-import type { Task } from "../types";
+import { isTaskStatus } from "../task-status";
+import type { Task, TaskStatus } from "../types";
 import type { Workspace } from "../workspace";
 import type { EntityDescriptor } from "./entity-descriptor";
 import type { ClashNote, EditPlan, ToolUseLike } from "./plan";
@@ -38,7 +39,8 @@ function notes(entity: ClashNote["entity"], id: number | null, title: string, cl
 }
 
 /** The task's person fields AFTER the write; a changed person re-resolves its link exactly as
- *  `updateTask` does (`linkPersonForWrite`), an untouched one keeps it. */
+ *  `updateTask` does (`linkPersonForWrite`), an untouched one keeps it. The status is the one after the write
+ *  too, so a change that closes the task is not warned and one that reopens it is judged (§773 P-1). */
 function taskAfter(item: Row, changed: ReadonlyMap<string, string>, absence: AbsenceCtx): Parameters<typeof taskClashes>[0] {
   const assignee = changed.get("assignee") ?? str(item.assignee);
   const assigneeEmail = changed.get("assigneeEmail") ?? str(item.assigneeEmail);
@@ -49,7 +51,12 @@ function taskAfter(item: Row, changed: ReadonlyMap<string, string>, absence: Abs
     resourceId: personChanged ? (linkPersonForWrite({ assignee, assigneeEmail }, absence.resources) ?? undefined) : storedId,
     startDate: typeof item.startDate === "string" ? item.startDate : undefined,
     dueDate: changed.get("dueDate") ?? str(item.dueDate),
+    status: statusOf(changed.get("status") ?? item.status),
   };
+}
+
+function statusOf(v: unknown): TaskStatus | undefined {
+  return isTaskStatus(v) ? v : undefined;
 }
 
 /** The task fields one block's plan writes, as the writer stores them. */
@@ -89,7 +96,8 @@ function createNotes(one: EditPlan, ws: Workspace, absence: AbsenceCtx): ClashNo
       const assigneeEmail = sanitizeLoadedEmail(c.input.assigneeEmail);
       const resourceId = linkPersonForWrite({ assignee, assigneeEmail }, absence.resources) ?? undefined;
       const dueDate = sanitizeIsoDate(c.input.dueDate);
-      return notes("task", null, c.title, taskClashes({ assignee, resourceId, startDate: undefined, dueDate }, absence));
+      const status = statusOf(c.input.status);
+      return notes("task", null, c.title, taskClashes({ assignee, resourceId, startDate: undefined, dueDate, status }, absence));
     }
     if (c.entity === "milestone") {
       const links = one.links.find((l) => l.entity === "milestone" && l.target === "create" && l.field === "linkedTaskIds");
@@ -122,7 +130,7 @@ export function clashNotesFor(
 export interface ClashCarry { readonly item: Row; readonly ownerChanged: boolean }
 
 /** `carry` with ONE block's written fields folded in: a task's owner (its link re-resolved as `updateTask`
- *  does) and due date, a milestone's date and linked tasks. Read off the final plan, so a rejected field
+ *  does), due date and status, a milestone's date and linked tasks. Read off the final plan, so a rejected field
  *  carries nothing. A create leaves it as it was. */
 export function carryClashes(
   b: ToolUseLike,
@@ -135,12 +143,17 @@ export function carryClashes(
   if (d.entity === "task") {
     const changed = taskChanges(one);
     const personChanged = TASK_PERSON_FIELDS.some((f) => changed.has(f));
-    if (!personChanged && !changed.has("dueDate")) return carry;
+    if (!personChanged && !changed.has("dueDate") && !changed.has("status")) return carry;
     const after = taskAfter(carry.item, changed, absence);
     const person = personChanged
       ? { assignee: after.assignee, assigneeEmail: changed.get("assigneeEmail") ?? str(carry.item.assigneeEmail), resourceId: after.resourceId }
       : {};
-    const item: Row = { ...carry.item, ...person, ...(changed.has("dueDate") ? { dueDate: after.dueDate } : {}) };
+    const item: Row = {
+      ...carry.item,
+      ...person,
+      ...(changed.has("dueDate") ? { dueDate: after.dueDate } : {}),
+      ...(changed.has("status") ? { status: after.status } : {}),
+    };
     return { item, ownerChanged: carry.ownerChanged || personChanged };
   }
   if (d.entity === "milestone") {

@@ -21,7 +21,8 @@ import { carryClashes, type ClashCarry } from "./inline-ai-edit/plan-clashes";
 import { INLINE_DESCRIPTORS, type EntityDescriptor } from "./inline-ai-edit/entity-descriptor";
 import { linkPersonForWrite } from "./resource-foundation";
 import { sanitizeAssignee, sanitizeIsoDate, sanitizeLoadedEmail, sanitizeTaskName } from "./sanitize";
-import type { Task } from "./types";
+import { isTaskStatus } from "./task-status";
+import { DEFAULT_TASK_STATUS, type Task } from "./types";
 import type { Workspace } from "./workspace";
 
 type RowItem = Parameters<typeof describeEntityCalls>[1]["item"];
@@ -68,6 +69,8 @@ export function turnClashes(ws: Workspace, absence: AbsenceCtx): TurnClashes {
       assigneeEmail,
       resourceId: linkPersonForWrite({ assignee, assigneeEmail }, absence.resources) ?? undefined,
       dueDate: sanitizeIsoDate(c.input.dueDate),
+      // A model-supplied status is applied by `createTask`; a closed one clashes with nothing (§773 P-1).
+      status: isTaskStatus(c.input.status) ? c.input.status : DEFAULT_TASK_STATUS,
     } as Task;
   }
 
