@@ -1,9 +1,10 @@
 // @vitest-environment node
 //
 // The relay and its organisation key check against the REAL Anthropic API and a REAL Cloudflare AI
-// Gateway (AI organisation key, spec "The live CI job", call C1). Run only by
-// `.github/workflows/ai-live.yml`, started by hand; every test here SKIPS unless all five
-// AI_LIVE_* values are set, which in every other run (the unit job, a local run) they are not.
+// Gateway (AI organisation key). Run only by `.github/workflows/ai-live.yml`, started by hand. Every
+// proof here SKIPS unless all five AI_LIVE_* values are set AND AI_LIVE_REQUIRED is "1", which only
+// that workflow's test step sets: neither the unit job nor a local shell that happens to export the
+// AI_LIVE_* values ever makes a paid call.
 //
 // `relay()` runs in-process with the production `httpsSend`, wrapped by a recorder. The recorder
 // keeps, per upstream call, only what the proofs need: which call it was (pre-flight, model list,
@@ -33,6 +34,7 @@ const SECRET_NAMES = [
 const value = (name: (typeof SECRET_NAMES)[number]) => process.env[name]?.trim() ?? "";
 const missing = SECRET_NAMES.filter((name) => value(name) === "");
 const allSecretsSet = missing.length === 0;
+const liveRun = allSecretsSet && process.env.AI_LIVE_REQUIRED === "1";
 
 // ai-live.yml sets this on its test step: there a run that skipped every proof must fail.
 it.runIf(process.env.AI_LIVE_REQUIRED === "1")("has all five AI_LIVE_* values (the live job sets AI_LIVE_REQUIRED)", () => {
@@ -43,9 +45,10 @@ const LIVE_TIMEOUT_MS = 60_000;
 const ANTHROPIC_VERSION = "2023-06-01";
 const ORGANIZATION_HEADER = "anthropic-organization-id";
 const WORKSPACE_HEADER = "anthropic-workspace-id";
-const K9 =
+// The rule a gateway must meet to be combined with the restriction: it passes Anthropic's answer headers back.
+const GATEWAY_PASSES_HEADERS =
   "the gateway did not pass back both anthropic-organization-id and anthropic-workspace-id, so every check is "
-  + "unavailable and AI stays off (spec K9). docs/RUNBOOK.md, Restricting AI to the organisation's Anthropic keys, "
+  + "unavailable and AI stays off. docs/RUNBOOK.md, Restricting AI to the organisation's Anthropic keys, "
   + "step 5: such a gateway cannot be combined with the restriction. Fix the gateway; never loosen the check";
 
 type CallKind = "preflight" | "models" | "messages" | "other";
@@ -124,20 +127,32 @@ async function relayed(op: RelayOp, env: Record<string, string>, body?: unknown,
   return { status: response.status, text, calls };
 }
 
+/** The body as JSON, or undefined when it is not JSON. Never throws: a parse error quotes the text it
+ *  failed on, and no assertion message may carry an upstream body. Callers assert booleans on it. */
+function parsedBody(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+const field = (body: unknown, name: string): unknown =>
+  body !== null && typeof body === "object" && name in body ? (body as Record<string, unknown>)[name] : undefined;
+
+// The relay's codes are short lower-case slugs; anything else is not one and is never echoed.
+const RELAY_CODE = /^[a-z0-9-]{1,64}$/;
+
 /** The relay's own refusal code, or null when the body is not one. */
 function codeOf(text: string): string | null {
-  try {
-    const parsed: unknown = JSON.parse(text);
-    return parsed && typeof parsed === "object" && "error" in parsed && typeof parsed.error === "string" ? parsed.error : null;
-  } catch {
-    return null;
-  }
+  const code = field(parsedBody(text), "error");
+  return typeof code === "string" && RELAY_CODE.test(code) ? code : null;
 }
 
 const kinds = (calls: UpstreamCall[]) => calls.map((c) => c.kind);
 const summary: string[] = [];
 
-describe.skipIf(!allSecretsSet)("relay + key check, live (ai-live.yml)", () => {
+describe.skipIf(!liveRun)("relay + key check, live (ai-live.yml)", () => {
   const org = value("AI_LIVE_ORGANIZATION_ID");
   const workspace = value("AI_LIVE_WORKSPACE_ID");
   const direct = (organizationId: string, workspaceId: string): Record<string, string> => ({
@@ -157,9 +172,15 @@ describe.skipIf(!allSecretsSet)("relay + key check, live (ai-live.yml)", () => {
     // The cheapest current model: Haiku is Anthropic's lowest price tier; the newest one listed.
     const { status, text } = await relayed("models", direct(org, workspace));
     expect(status, `model list through the relay (${codeOf(text) ?? "no relay code"})`).toBe(200);
-    const list = (JSON.parse(text) as { data?: { id?: unknown; created_at?: unknown }[] }).data ?? [];
+    const body = parsedBody(text);
+    expect(body !== undefined, "the model list body is JSON").toBe(true);
+    const data = field(body, "data");
+    const list: unknown[] = Array.isArray(data) ? data : [];
     const haiku = list
-      .filter((m): m is { id: string; created_at?: unknown } => typeof m.id === "string" && m.id.includes("haiku"))
+      .filter((m): m is { id: string; created_at?: unknown } => {
+        const id = field(m, "id");
+        return typeof id === "string" && id.includes("haiku");
+      })
       .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
     expect(haiku.length, "a Haiku model in the live model list").toBeGreaterThan(0);
     model = haiku[0].id;
@@ -180,7 +201,7 @@ describe.skipIf(!allSecretsSet)("relay + key check, live (ai-live.yml)", () => {
     expect(preflight).toMatchObject({ status: 200, organizationMatches: true, workspaceMatches: true, sentSkipCache: false, sentGatewayToken: false });
     expect(messages.status).toBe(200);
     expect({ status, code: codeOf(text) }).toEqual({ status: 200, code: null });
-    expect((JSON.parse(text) as { type?: unknown }).type).toBe("message");
+    expect(field(parsedBody(text), "type") === "message", "the answer is a message").toBe(true);
   }, LIVE_TIMEOUT_MS);
 
   it("2. direct, a random organisation id: refused as wrong organisation, no Messages call reached Anthropic", async () => {
@@ -207,9 +228,11 @@ describe.skipIf(!allSecretsSet)("relay + key check, live (ai-live.yml)", () => {
         + `workspace header ${preflight?.workspaceHeader ? "present" : "ABSENT"}`,
     );
     expect(preflight).toMatchObject({ sentSkipCache: true, sentGatewayToken: true });
-    expect(preflight.organizationHeader && preflight.workspaceHeader, K9).toBe(true);
+    expect(preflight.organizationHeader && preflight.workspaceHeader, GATEWAY_PASSES_HEADERS).toBe(true);
     expect(preflight).toMatchObject({ status: 200, organizationMatches: true, workspaceMatches: true });
     expect(kinds(calls)).toEqual(["preflight", "messages"]);
+    // The Messages call itself went through the gateway, with its token, and succeeded.
+    expect(calls[1]).toMatchObject({ status: 200, sentGatewayToken: true });
     expect({ status, code: codeOf(text) }).toEqual({ status: 200, code: null });
   }, LIVE_TIMEOUT_MS);
 
@@ -218,12 +241,12 @@ describe.skipIf(!allSecretsSet)("relay + key check, live (ai-live.yml)", () => {
     const preflight = calls[0];
     expect(preflight?.kind).toBe("preflight");
     expect(preflight).toMatchObject({ sentSkipCache: true, sentGatewayToken: true });
-    expect(preflight.organizationHeader && preflight.workspaceHeader, K9).toBe(true);
+    expect(preflight.organizationHeader && preflight.workspaceHeader, GATEWAY_PASSES_HEADERS).toBe(true);
     expect({ status, code: codeOf(text) }).toEqual({ status: 403, code: AI_KEY_WRONG_ORGANIZATION });
     expect(kinds(calls)).toEqual(["preflight"]);
   }, LIVE_TIMEOUT_MS);
 
-  // Recorded, not asserted (spec: a documented gap): whether Anthropic names the organisation on a 401.
+  // Recorded, not asserted: whether Anthropic names the organisation on a 401 is not documented.
   it("6. records whether the organisation header comes back on a 401 for an invalid key", async () => {
     const invalidKey = `sk-ant-api03-${randomBytes(24).toString("hex")}`;
     const { status, calls } = await relayed("messages", direct(org, workspace), messageBody(), invalidKey);

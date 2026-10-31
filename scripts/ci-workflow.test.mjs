@@ -791,6 +791,13 @@ describe("ai-live.yml", () => {
     expect(check).not.toMatch(/npm |npx /);
   });
 
+  // A dispatch with a secret missing skips the live job, and the run still shows green: the warning is
+  // what tells the reader that nothing was proved.
+  it("warns, never merely notes, that a run with a secret missing proved nothing", () => {
+    expect(check).toMatch(/echo "::warning::ai-live proved nothing: /);
+    expect(check).not.toMatch(/::notice::/);
+  });
+
   // A vitest run in which every test skipped exits 0; AI_LIVE_REQUIRED turns on the test file's one
   // test that fails when any secret is missing, so a renamed secret cannot pass green.
   it("installs without secrets, then runs only the live test file with AI_LIVE_REQUIRED, in its own timeout", () => {
@@ -808,7 +815,10 @@ describe("ai-live.yml", () => {
     expect(stepMin).toBeGreaterThan(0);
     expect(stepMin + 5).toBeLessThanOrEqual(jobMin);
     const test = read(LIVE_TEST);
-    expect(test).toMatch(/describe\.skipIf\(!allSecretsSet\)/);
+    // The proofs run only when the live job asks for them, so a local shell with AI_LIVE_* exported
+    // never makes paid calls.
+    expect(test).toMatch(/const liveRun = allSecretsSet && process\.env\.AI_LIVE_REQUIRED === "1";/);
+    expect(test).toMatch(/describe\.skipIf\(!liveRun\)/);
     expect(test).toMatch(/it\.runIf\(process\.env\.AI_LIVE_REQUIRED === "1"\)/);
     for (const s of SECRETS) expect(test, s).toContain(`"${s}"`);
   });

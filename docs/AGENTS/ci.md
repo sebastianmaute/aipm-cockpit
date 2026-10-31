@@ -277,7 +277,8 @@ organisation key check (`_key-check.ts`) against the real Anthropic API and a re
 Gateway. Two jobs, the same shape as `live-turso.yml`:
 
 - **`check`** reads the five secrets through `env:` and answers one question, are all five set.
-  With any missing it writes a notice, and `ai-live` is skipped.
+  With any missing it writes a warning, and `ai-live` is skipped. ★★ Such a run shows green and
+  proved NOTHING: read the warning, never the colour, before citing a run as evidence.
 - **`ai-live`** (`needs: check`, only when all five are set) runs `npm ci` with no secret in its
   environment, then one step: `npx vitest run src/app/api/ai/_relay.live.test.ts`. That file calls
   `relay` in-process with the production `httpsSend` wrapped by a recorder, so the "no Messages
@@ -288,13 +289,18 @@ Gateway. Two jobs, the same shape as `live-turso.yml`:
   ids, both answer headers came back and the call succeeds; (5) through the gateway, a random
   organisation id is refused before any Messages call; (6) records, without asserting, whether the
   organisation header comes back on a 401 for an invalid key. Proofs 4 and 6 write what they saw to
-  the job summary. If the gateway drops either header, proofs 4 and 5 fail with a message pointing
-  at spec K9 and the RUNBOOK rule that such a gateway cannot be combined with the restriction.
-- ★★★ **A green run must have run every proof.** The file's tests SKIP unless all five secrets are
-  set (that is what keeps the unit job, which runs every `src/**` test file, from touching the
-  network), and a vitest run in which everything skipped exits 0. So the test step also sets
-  `AI_LIVE_REQUIRED=1`, which turns on the file's one test that fails when any secret is missing:
-  a renamed or mistyped secret fails the run instead of passing it green.
+  the job summary. Proof 4 also checks that the Messages call itself went through the gateway with
+  its token. If the gateway drops either header, proofs 4 and 5 fail with a message that names the
+  rule it breaks: a gateway must pass Anthropic's organisation and workspace headers back, and one
+  that does not cannot be combined with the restriction ([RUNBOOK](../RUNBOOK.md), "Restricting AI
+  to the organisation's Anthropic keys", step 5). No assertion message carries an upstream body:
+  every parse of one is wrapped, and a failure reports a boolean or a status.
+- ★★★ **A green run must have run every proof.** The file's proofs SKIP unless all five secrets are
+  set AND `AI_LIVE_REQUIRED` is `1` (that is what keeps the unit job, which runs every `src/**`
+  test file, and a local shell that exports the `AI_LIVE_*` values from making paid calls), and a
+  vitest run in which everything skipped exits 0. So the test step sets `AI_LIVE_REQUIRED=1`, which
+  also turns on the file's one test that fails when any secret is missing: a renamed or mistyped
+  secret fails the run instead of passing it green.
 - **Secrets.** `AI_LIVE_ANTHROPIC_KEY` (a key with a low spend limit from a throwaway organisation
   and workspace), `AI_LIVE_ORGANIZATION_ID` and `AI_LIVE_WORKSPACE_ID` (that key's ids, UUID-shaped
   as the restriction setting requires), `AI_LIVE_GATEWAY_URL` and `AI_LIVE_GATEWAY_TOKEN` (a

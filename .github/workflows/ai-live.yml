@@ -1,5 +1,5 @@
 # The AI relay and its organisation key check against the real Anthropic API and a real Cloudflare
-# AI Gateway (AI organisation key, spec "The live CI job"). NOT a required check, and started by hand
+# AI Gateway (AI organisation key). NOT a required check, and started by hand
 # only (workflow_dispatch): every run spends tokens. docs/AGENTS/ci.md says how to read it. The six
 # proofs are src/app/api/ai/_relay.live.test.ts; it calls the relay in-process with the real
 # node:https send, so the "nothing reached Anthropic" assertions read the relay's own upstream record.
@@ -24,7 +24,10 @@
 #
 # ★★ A green run must have run every proof. A vitest run in which every test skipped exits 0, so the
 # test step sets AI_LIVE_REQUIRED, which turns on the file's one test that fails when any of the five
-# secrets is missing (a renamed or mistyped secret would otherwise skip all six proofs, green).
+# secrets is missing (a renamed or mistyped secret would otherwise skip all six proofs, green). The
+# proofs themselves also need AI_LIVE_REQUIRED, so a local run never makes paid calls. A dispatch
+# with a secret missing skips the live job and shows green; the check job's warning says that such a
+# run proved nothing.
 name: ai-live
 
 on:
@@ -53,7 +56,7 @@ jobs:
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::ai-live skipped: AI_LIVE_ANTHROPIC_KEY, AI_LIVE_ORGANIZATION_ID, AI_LIVE_WORKSPACE_ID, AI_LIVE_GATEWAY_URL and AI_LIVE_GATEWAY_TOKEN are not all set."
+            echo "::warning::ai-live proved nothing: AI_LIVE_ANTHROPIC_KEY, AI_LIVE_ORGANIZATION_ID, AI_LIVE_WORKSPACE_ID, AI_LIVE_GATEWAY_URL and AI_LIVE_GATEWAY_TOKEN are not all set, so the live job was skipped."
           fi
 
   ai-live:
