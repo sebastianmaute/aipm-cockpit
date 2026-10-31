@@ -46172,7 +46172,7 @@ Size S.
 
 ## 787. i18n-plural.test.ts runs about 24 s against the 20 s unit timeout
 
-**Status:** OPEN 2026-10-31, filed during §773. `src/app/i18n-plural.test.ts` took 23.8 s on the §773 branch and 24.4 s at e05c349cd (a clean worktree, `--maxWorkers=2`), so the cost predates §773; the unit timeout is `testTimeout: 20000` in `vitest.config.ts`. CI's `unit` job has passed so far, but a slower runner could time it out and turn a required check red with no code change. Likely cost: "routes every paired base key through tPlural, outside a documented exception", which walks and reads every non-test source file under `src/app`.
+**Status:** OPEN 2026-10-31, filed during §773. `src/app/i18n-plural.test.ts` took 23.8 s on the §773 branch and 24.4 s at e05c349cd (a clean worktree, `npx vitest run src/app/i18n-plural.test.ts --maxWorkers=2`), so the cost predates §773; the unit timeout is 20 s (`grep -n testTimeout vitest.config.ts` → `testTimeout: 20000`). CI's `unit` job has passed so far, but a slower runner could time it out and turn a required check red with no code change. Likely cost: "routes every paired base key through tPlural, outside a documented exception", which walks and reads every non-test source file under `src/app`.
 
 **Work item:** #926
 
