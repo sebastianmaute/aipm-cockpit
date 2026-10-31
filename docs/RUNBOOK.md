@@ -385,10 +385,12 @@ which owns that list.
    A malformed value, an empty list item, workspace ids without an organisation id, or
    a misspelled setting name switch AI off for the whole deployment (reason codes
    `org-id`, `workspace-ids`, `workspaces-without-org`, `misspelled-setting`) instead of
-   letting keys through. The misspelling guard treats `AIPM_AI_ORGANISATION_ID`,
-   `AIPM_AI_ORGANISATION_IDS`, `AIPM_AI_ORGANIZATION_IDS` and `AIPM_AI_WORKSPACE_ID`,
-   when set to anything but blanks, as an invalid setting even beside the correctly
-   spelled ones, so a typo cannot leave the deployment unrestricted. As with the gateway
+   letting keys through. The misspelling guard treats any variable whose name, in
+   capitals, starts with `AIPM_AI_` and contains `ORG` or `WORKSPACE`, other than the
+   two names above written exactly so, as an invalid setting when it is set to anything
+   but blanks, even beside the correctly spelled ones; that includes
+   `AIPM_AI_ORGANISATION_ID` and the real names in lower case. A typo therefore cannot
+   leave the deployment unrestricted. As with the gateway
    settings, the code is logged once per server process, as
    `ai key restriction invalid: <reason>`, and `GET /api/ai/status`
    answers `invalid: true` with it as `invalidReason`; any invalid setting, the

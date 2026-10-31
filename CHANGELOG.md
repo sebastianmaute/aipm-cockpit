@@ -17,8 +17,9 @@ longer carries its own changelog comment.
   which checks which organisation and workspace the user's key belongs to before it forwards anything; a key from
   another organisation or workspace is refused, and the AI key banner and Settings → AI say why; a check that
   cannot be completed is named in Settings → AI and in the feature that failed, with a hint to try again. A
-  malformed setting switches AI off, and so does a misspelled setting name (such as `AIPM_AI_ORGANISATION_ID`), so a
-  typo cannot leave the deployment unrestricted. Switching the restriction on or off asks every user to accept the AI data
+  malformed setting switches AI off, and so does a misspelled setting name: any variable starting with `AIPM_AI_` whose
+  name contains `ORG` or `WORKSPACE` and is not one of the two real names exactly (such as `AIPM_AI_ORGANISATION_ID`
+  or a real name in lower case), so a typo cannot leave the deployment unrestricted. Switching the restriction on or off asks every user to accept the AI data
   disclosure again, behind a gateway too. A stored consent naming an AI route this version does not know (after going
   back to an earlier release, for example) is asked for again, instead of counting as consent for calls straight to
   Anthropic. The check proves which organisation a key belongs to, not what
