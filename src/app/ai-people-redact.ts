@@ -72,6 +72,12 @@ const NAME_STOP_WORDS: ReadonlySet<string> = new Set([
   "mark", "may", "will", "ann", "april", "june", "august", "rose", "max", "frank", "bill", "art", "grant",
   "hope", "grace", "joy", "long", "young", "page", "wolf", "klein", "lange", "mai",
   "van", "von", "der", "den", "del", "die", "das", "the", "and", "und",
+  // Review 4, M1: app vocabulary. RAG colours (EN, DE), month names and their
+  // abbreviations (EN, DE), and "Rich" (rich text). Entries are FOLDED (grün -> gruen).
+  "red", "amber", "green", "rot", "gelb", "gruen", "rich",
+  "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+  "january", "february", "march", "july", "september", "october", "november", "december",
+  "januar", "februar", "maerz", "maer", "juni", "juli", "oktober", "okt", "dezember", "dez",
 ]);
 
 // --- folding -----------------------------------------------------------------

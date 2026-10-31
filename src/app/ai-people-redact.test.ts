@@ -171,6 +171,33 @@ describe("name matching", () => {
   });
 });
 
+// Review 4, M1: RAG colours, month names and "Rich" are app vocabulary. As a lone token they stay; the full name goes.
+describe("app vocabulary is never a lone token (review 4, M1)", () => {
+  const vocab = () => fresh(dict(["Amber Lee", "Tom Green", "Jan Koch", "Rich Turner", "Ruth Rot", "Mai Gelb", "Okt Grün"]));
+
+  it("RAG status words, EN and DE", () => {
+    const s = vocab();
+    expect(s.redact("RAG status: Amber (was Green), now Red")).toBe("RAG status: Amber (was Green), now Red");
+    expect(s.redact("Ampel: Rot, Gelb, Grün")).toBe("Ampel: Rot, Gelb, Grün");
+  });
+
+  it("month names and abbreviations, EN and DE", () => {
+    const s = fresh(dict(["Jan Koch", "Mär Okt", "Sept Dez", "March Smith", "Juli Quillfeld"]));
+    expect(s.redact("Planned for Jan 2026, Sept and March; Juli, Mär, Okt, Dez")).toBe("Planned for Jan 2026, Sept and March; Juli, Mär, Okt, Dez");
+  });
+
+  it("'Rich' as in rich text", () => {
+    const s = vocab();
+    expect(s.redact("Rich text fields are HTML.")).toBe("Rich text fields are HTML.");
+  });
+
+  it("the full names are still redacted", () => {
+    const s = vocab();
+    expect(s.redact("Jan Koch, Amber Lee, Rich Turner and Tom Green")).toBe("[Person 1], [Person 2], [Person 3] and [Person 4]");
+    expect(s.redact("ask Koch")).toBe("ask [Person 5]");
+  });
+});
+
 // Review 4, I1: three spellings of a known name that the matcher missed.
 describe("matching gaps (review 4, I1)", () => {
   const NFD_UE = "ü";
