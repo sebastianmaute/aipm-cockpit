@@ -3209,7 +3209,7 @@ const enUS = {
   aiKeyUnreadable: "Your saved Anthropic API key couldn't be read on this device. Enter it again in Settings → AI.",
   aiKeyWrongOrganization:
     "This API key belongs to another Anthropic organisation. Your organisation only allows keys from its own organisation.",
-  aiKeyWrongWorkspace: "This API key belongs to an Anthropic workspace your organisation does not allow.",
+  aiKeyWrongWorkspace: "This API key is not from an Anthropic workspace your organisation allows.",
   aiKeyCheckUnavailable: "The API key could not be checked right now. Try again in a moment.",
   aiKeyOpenSettings: "Open AI settings",
   aiKeyBannerAria: "Anthropic API key problem",

@@ -3053,7 +3053,7 @@ export const de: Record<TranslationKey, string> = {
   aiKeyWrongOrganization:
     "Dieser API-Schlüssel gehört zu einer anderen Anthropic-Organisation. Ihre Organisation erlaubt nur Schlüssel aus der eigenen Organisation.",
   aiKeyWrongWorkspace:
-    "Dieser API-Schlüssel gehört zu einem Anthropic-Workspace, den Ihre Organisation nicht zulässt.",
+    "Dieser API-Schlüssel stammt nicht aus einem Anthropic-Workspace, den Ihre Organisation zulässt.",
   aiKeyCheckUnavailable: "Der API-Schlüssel konnte gerade nicht geprüft werden. Versuchen Sie es gleich noch einmal.",
   aiKeyOpenSettings: "KI-Einstellungen öffnen",
   aiKeyBannerAria: "Problem mit dem Anthropic-API-Schlüssel",
