@@ -592,7 +592,9 @@ function groundRegroup(item: RegroupItem, key: string, st: GroundState): Verdict
 }
 
 // ★ Matching on the typed assignee name (no resourceId) is deliberate: a WBS new task is stored unlinked
-// (R14), so the preview judges exactly what will be written.
+// (R14), so the preview judges exactly what will be written. The cost, consistent with R14: an unlinked person
+// matches `Absence.assignee` text only, so an absence recorded WITH a resourceId whose assignee text went stale
+// after the person was renamed is not seen here, and that clash is missed.
 function groundNewTask(item: NewTaskItem, key: string, st: GroundState, absence: AbsenceCtx): Verdict {
   const ref = oneLine(item.ref);
   if (ref === "") return "emptyRef";
