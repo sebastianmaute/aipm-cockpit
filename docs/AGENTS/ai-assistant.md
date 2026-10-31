@@ -1095,15 +1095,61 @@
   (`bad-mapping`); the hand route's reader imports with it, and Apply waits for the user's explicit
   "These columns are right". Engine, bounds and the single writer:
   [`budget.md`](budget.md) "Forecast import (§500)".
-- **AI "Suggest RACI" (RACI matrix toolbar, 0.211.0):** plan-then-apply, mirroring `alloc-plan/` — no
-  free-text instruction, just the live stakeholders + milestones. Pure engine `raci-suggest/raci-suggest.ts`
-  (`buildRaciContext` digest · `RACI_SUGGEST_TOOL` schema · `parseRaciProposal` · `groundRaciCells` —
-  re-grounds every UNTRUSTED model-proposed `{stakeholderId, milestoneId, role}` cell against the LIVE
-  stakeholders/milestones, capped at `MAX_RACI_CELLS=200` with a `truncated` flag); one forced call in
+- **AI "Suggest RACI" (RACI matrix toolbar, 0.211.0; reads the work since §771):** plan-then-apply, mirroring
+  `alloc-plan/`. Pure engine in `raci-suggest/`: `raci-evidence.ts` (`stakeholdersForItem` · `buildRaciEvidence`),
+  `raci-context.ts` (`buildRaciContext`), `raci-suggest.ts` (`RACI_SUGGEST_TOOL` schema · `parseRaciProposal` ·
+  `groundRaciCells` — re-grounds every UNTRUSTED model-proposed `{stakeholderId, milestoneId, role}` cell against
+  the LIVE stakeholders/milestones, capped at `MAX_RACI_CELLS=200` with a `truncated` flag); one forced call in
   `raci-suggest-call.ts` (`runRaciSuggestion`, through the shared never-log `runForcedToolCall`); glue hook
   `use-raci-suggest.tsx`; review modal `raci-suggest-modal.tsx` shows every grounded cell's current value next
   to the proposed one, ticked by default, and applies only the ticked subset as ONE undo entry
   (`logActivity("ai.raciSuggest", …)`).
+  ★★ **EVIDENCE IS COMPUTED BY THE APP, NOT MATCHED BY THE MODEL.** `stakeholdersForItem` matches an item to a
+  stakeholder: an item whose resource id (`task.resourceId`, RAID `ownerResourceId`) names a LIVE resource matches
+  only the stakeholders linked to that resource, with NO name fallback; otherwise its typed person (`assignee`,
+  `owner`, `requestedBy`) is compared case-insensitively with the stakeholder's name and, when linked, the
+  resource's display name. An item that reaches more than one stakeholder counts for NONE, and that is judged
+  over EVERY stakeholder: `buildRaciContext` passes `buildRaciEvidence` a `buildMatchCtx` over the whole list, so
+  a namesake beyond the 120 shown still makes a typed name ambiguous, while rows are emitted only for the shown
+  stakeholders. `buildRaciEvidence`
+  tallies per stakeholder and milestone, over the milestone's scope (`linkedTaskIds`): tasks owned (and closed),
+  RAID owned (open per `isRaidActiveForReview`, by category) and changes requested; a pair with no count gets no
+  line, and a milestone with an empty scope gets none, so the model falls back to titles there (the system prompt
+  in `raci-suggest-call.ts` says scope is the number of linked tasks and tells the model to judge a scope-0
+  milestone from titles, discipline and grade as it would without evidence, while still omitting any cell it is
+  not confident about). Documents have no
+  author, so their titles are milestone context only. `buildRaciContext` takes ONE input object (the hook gets
+  tasks, RAID, changes, resources, roles, disciplines, grades and documents as props, not from `useWorkspace()`)
+  and emits stakeholder rows with discipline and grade, milestone rows with scope size and document titles
+  (`MAX_DOC_TITLES_PER_MILESTONE`, `DOC_TITLE_CHARS`), an EVIDENCE block cut at `MAX_EVIDENCE_LINES` from the
+  END (earlier milestones stay complete) and a REQUEST block. `truncated` is set by exactly three
+  things: the stakeholder or milestone caps (120 / 60), more than 500 evidence lines, and a request cut at 2,000
+  characters. Dropping document titles beyond 5 on a milestone does not set it (owner ruling R6, 2026-10-31:
+  titles are milestone context, never person evidence, and the notice is about people and evidence Claude did not
+  see), and neither does a shortened description or document title. A size test pins the digest under 90,000 characters at the caps. Only people who already have a
+  stakeholder row get a role; nothing creates a stakeholder.
+  ★★ **THE REQUEST STAGE.** `use-raci-suggest.tsx` has an `input` phase: the Suggest button only opens the dialog
+  (the modal's `stage` is `input`), nothing is sent until its Suggest button runs, and the request text is
+  trimmed and capped at `RACI_REQUEST_MAX_CHARS` before it is sent. It is not persisted. The system prompt says it
+  cannot override the one-Accountable rule.
+  ★★ **THE HANDOVER PAIR.** `groundRaciCells` accepts a new A on a milestone with exactly ONE stored holder only
+  when the same proposal gives that holder a valid non-A role, and stamps `pairKey` (`handover:<milestoneId>`) on
+  both cells; without the demotion the new A is skipped as `accountable-needs-demotion`
+  (`raciSuggestSkippedDuplicateNeedsDemotion`). A milestone with several stored A's accepts no handover. The modal
+  renders the pair as one row with one checkbox (naming the new holder's current role when they have one,
+  `raciSuggestHandoverRowWas`), and `onConfirm` runs three steps in this order: it drops the cells whose
+  stakeholder was deleted since the proposal; `dropStaleAccountables` re-reads the LIVE A holders and drops an
+  unpaired A when its milestone now has another A holder, and a paired A unless the milestone's live holders are
+  exactly the pair's demoted stakeholder; THEN `dropOrphanedPairHalves` keeps a `pairKey` group only when it is
+  exactly one A and one non-A, and drops any other group whole. In that order, because the fold would otherwise
+  skip a deleted half silently, and a stale A dropped after the orphan check would leave its partner to be saved
+  alone, against a state that changed since the proposal. That lone half does not always break the
+  one-Accountable rule: a lone demotion leaves the milestone with no A, but when the deleted stakeholder is the
+  demoted holder their stored A goes with them, so a lone new A would leave exactly one. The drop is still right
+  in both cases, because the state changed. ★ The re-check is CONSERVATIVE on purpose (owner ruling,
+  2026-10-31): when the live Accountable state of a milestone changed after the proposal, its handover is dropped
+  even when writing it would still leave exactly one A — e.g. the old holder lost A meanwhile, so the pair's
+  demoted stakeholder is no longer the live holder. The user re-runs Suggest RACI against the new state.
   ★★ **THE FOLD-PER-STAKEHOLDER LANDMINE — distinct from the bulk-edit FUNCTIONAL-SETTER landmine above,
   and NOT covered by it.** `useStakeholders.handleSaveStakeholder` already IS a functional setter
   (`setStakeholders(prev => …)`), so this is not that bug. The defect sits one layer up: `onSave` (the
@@ -1127,16 +1173,13 @@
   screen-reader user, in a dialog whose entire job is choosing which rows to commit.
   ★★ **THE CONTEXT CAP MUST REACH THE USER.** `buildRaciContext` caps at `MAX_CONTEXT_STAKEHOLDERS`/
   `MAX_CONTEXT_MILESTONES` and returns `truncated`; the hook surfaces it as `contextTruncated`, which the
-  modal renders as its OWN sentence. Keep it distinct from `truncated` (the RESPONSE cap): they have opposite
+  modal renders as its OWN sentence (since §771 the same flag also covers the evidence and request cuts, never a dropped document title). Keep it distinct from `truncated` (the RESPONSE cap): they have opposite
   causes, and a capped INPUT means a missing proposal may simply be someone the model was never shown —
   otherwise silence reads as "Claude decided they need no role". This flag was computed and dropped on the
   floor at first, with only its engine unit test consuming it — so the engine test passed while the product
   had no such behaviour. A flag whose sole consumer is its own test is not a feature.
   ★ The modal's zero-cell branch must NOT say "Claude proposed no assignments": the hook only opens the
   preview with zero cells when everything was SKIPPED, so that sentence is false exactly when it renders.
-  ★ `groundRaciCells` refuses an Accountable HANDOVER within one proposal (demote A, promote someone else on
-  the same milestone) — `accountableHolder` still holds the old id when the second cell is examined.
-  Conservative and safe, but it silently discards a natural proposal.
 - **Inline "Ask Claude" edit (SP1):** a per-item edit popover (✨ hover icon on the task table row + Kanban
   card, or the row menu) takes a natural-language instruction and INVERTS the chat loop: ONE bounded
   `callClaude` call proposes tool calls but nothing executes yet. Pure `inline-ai-edit/plan.ts`

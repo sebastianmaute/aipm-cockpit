@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import {
   RaciSuggestModal,
   SKIP_KEY_ORDER,
@@ -9,6 +9,7 @@ import {
 import { loadI18n, t, tPlural, type Lang } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { GroundedRaciCell, SkippedRaciCell } from "./raci-suggest/raci-suggest";
+import { ROLE_LABEL_KEY } from "./raci-chip-picker";
 
 const cell = (
   stakeholderId: number,
@@ -45,6 +46,7 @@ function renderModal(
     <RaciSuggestModal
       lang={lang}
       open
+      stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel
       cells={cells}
       skipped={[]}
       noOp={0}
@@ -117,7 +119,7 @@ describe("skip-reason bucket wiring", () => {
       "raciSuggestSkipped",
       "raciSuggestSkippedInvalidRole",
       "raciSuggestSkippedAccountable",
-      "raciSuggestSkippedHandover",
+      "raciSuggestSkippedDuplicateNeedsDemotion",
     ]);
   });
 });
@@ -128,6 +130,7 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
       <RaciSuggestModal
         lang="en-US"
         open
+        stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel
         cells={[]}
         skipped={skipped}
         noOp={noOp}
@@ -169,6 +172,7 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
       <RaciSuggestModal
         lang="en-US"
         open
+        stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel
         cells={[]}
         skipped={[]}
         noOp={0}
@@ -222,12 +226,12 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
     expect(first).toHaveLength(3);
   });
 
-  // §43 (a): a deliberate handover (the proposal demotes the current
-  // Accountable and promotes someone else) is refused, but "that milestone
-  // already has an Accountable" misdescribes it.
-  it("explains a refused Accountable HANDOVER with its own sentence", () => {
-    renderSkipped([skip("accountable-handover")]);
-    expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedHandover", 1, 1))).toBeInTheDocument();
+  // A new Accountable proposed without the current holder's new role is refused,
+  // but "that milestone already has an Accountable" misdescribes it: the model
+  // must also propose the holder's demotion.
+  it("explains a refused second Accountable that lacks a demotion with its own sentence", () => {
+    renderSkipped([skip("accountable-needs-demotion")]);
+    expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedDuplicateNeedsDemotion", 1, 1))).toBeInTheDocument();
     expect(screen.queryByText(tPlural("en-US", "raciSuggestSkippedAccountable", 1, 1))).not.toBeInTheDocument();
   });
 
@@ -402,5 +406,127 @@ describe("RaciSuggestModal — every Include checkbox has its own name (§672)",
   it.each(["en-US", "de"] as const)("names every proposed row's checkbox distinctly in %s", (lang) => {
     renderModal(CELLS, undefined, lang);
     expectRowUniqueNames({ minControls: CELLS.length, roles: ["checkbox"] });
+  });
+});
+
+describe("RaciSuggestModal handover row (§771)", () => {
+  const pair: GroundedRaciCell[] = [
+    { stakeholderId: 2, stakeholderName: "Lee", milestoneId: 10, milestoneName: "Go-Live", role: "A", currentRole: null, pairKey: "handover:10" },
+    { stakeholderId: 1, stakeholderName: "Sam", milestoneId: 10, milestoneName: "Go-Live", role: "C", currentRole: "A", pairKey: "handover:10" },
+  ];
+  it("renders a pair as ONE row whose single checkbox toggles both cell keys", () => {
+    const onToggle = vi.fn();
+    render(
+      <RaciSuggestModal
+        lang="en-US" open stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel cells={pair} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
+        stakeholders={[{ id: 1, name: "Sam" }, { id: 2, name: "Lee" }]} milestones={[{ id: 10, name: "Go-Live" }]}
+        selected={new Set(["1:10", "2:10"])} onToggle={onToggle} onConfirm={vi.fn()} onCancel={vi.fn()} busy={false}
+      />,
+    );
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes).toHaveLength(1);
+    expect(boxes[0].getAttribute("aria-label")).toMatch(/^Accountable for Go-Live: Sam → Lee, Sam becomes /);
+    fireEvent.click(boxes[0]);
+    expect(onToggle.mock.calls.map((c) => c[0]).sort()).toEqual(["1:10", "2:10"]);
+  });
+
+  describe("shows the new holder's current role when they have one", () => {
+    beforeAll(() => loadI18n("de"));
+    const withRole: GroundedRaciCell[] = [{ ...pair[0], currentRole: "R" }, pair[1]];
+    const renderPair = (cells: GroundedRaciCell[], lang: Lang) =>
+      render(
+        <RaciSuggestModal
+          lang={lang} open stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel cells={cells} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
+          stakeholders={[{ id: 1, name: "Sam" }, { id: 2, name: "Lee" }]} milestones={[{ id: 10, name: "Go-Live" }]}
+          selected={new Set(["1:10", "2:10"])} onToggle={vi.fn()} onConfirm={vi.fn()} onCancel={vi.fn()} busy={false}
+        />,
+      );
+
+    it.each([
+      ["en-US", "Accountable for Go-Live: Sam → Lee (was Responsible), Sam becomes Consulted"],
+      ["de", "Rechenschaftspflichtig (A) für Go-Live: Sam → Lee (bisher Verantwortlich); neue Rolle von Sam: Konsultiert"],
+    ] as const)("names it in the label and the visible text in %s", (lang, expected) => {
+      const label = t(lang, "raciSuggestHandoverRowWas", "Go-Live", "Sam", "Lee", t(lang, ROLE_LABEL_KEY.C), t(lang, ROLE_LABEL_KEY.R));
+      expect(label).toBe(expected);
+      renderPair(withRole, lang);
+      const box = screen.getByRole("checkbox");
+      expect(box.getAttribute("aria-label")).toBe(label);
+      expect(screen.getByText(label)).toBeInTheDocument();
+    });
+
+    it.each(["en-US", "de"] as const)("keeps the plain row when the new holder has no role yet in %s", (lang) => {
+      const label = t(lang, "raciSuggestHandoverRow", "Go-Live", "Sam", "Lee", t(lang, ROLE_LABEL_KEY.C));
+      renderPair(pair, lang);
+      expect(screen.getByRole("checkbox").getAttribute("aria-label")).toBe(label);
+      expect(screen.getByText(label)).toBeInTheDocument();
+    });
+  });
+});
+
+describe("RaciSuggestModal handover edge cases (§771)", () => {
+  const live = { stakeholders: [{ id: 1, name: "Sam" }, { id: 2, name: "Lee" }] };
+  function renderPairs(cells: GroundedRaciCell[], milestones: { id: number; name: string }[]) {
+    render(
+      <RaciSuggestModal
+        lang="en-US" open stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel
+        cells={cells} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
+        stakeholders={live.stakeholders} milestones={milestones}
+        selected={new Set(cells.map((c) => `${c.stakeholderId}:${c.milestoneId}`))}
+        onToggle={vi.fn()} onConfirm={vi.fn()} onCancel={vi.fn()} busy={false}
+      />,
+    );
+  }
+  const half = (stakeholderId: number, stakeholderName: string, milestoneId: number, role: "A" | "C", pairKey: string): GroundedRaciCell => ({
+    stakeholderId, stakeholderName, milestoneId, milestoneName: "Go-Live", role, currentRole: role === "C" ? "A" : null, pairKey,
+  });
+
+  it("gives two handover rows on same-named milestones distinct checkbox names", () => {
+    renderPairs(
+      [half(2, "Lee", 10, "A", "handover:10"), half(1, "Sam", 10, "C", "handover:10"),
+       half(2, "Lee", 11, "A", "handover:11"), half(1, "Sam", 11, "C", "handover:11")],
+      [{ id: 10, name: "Go-Live" }, { id: 11, name: "Go-Live" }],
+    );
+    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+    expectRowUniqueNames({ minControls: 2, roles: ["checkbox"] });
+  });
+
+  it("renders every half of a malformed pair as an ordinary row", () => {
+    // Two A halves under one key is not a handover: neither may be hidden.
+    renderPairs([half(2, "Lee", 10, "A", "handover:10"), half(1, "Sam", 10, "A", "handover:10")], [{ id: 10, name: "Go-Live" }]);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+  });
+});
+
+describe("RaciSuggestModal input stage (§771)", () => {
+  it("titles the request stage on its own and keeps the review title for the preview", () => {
+    render(
+      <RaciSuggestModal
+        lang="en-US" open stage="input" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel
+        cells={[]} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
+        stakeholders={[]} milestones={[]} selected={new Set()} onToggle={vi.fn()} onConfirm={vi.fn()} onCancel={vi.fn()} busy={false}
+      />,
+    );
+    expect(screen.getByText(t("en-US", "raciSuggestInputIntro"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "raciSuggestIntro"))).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: t("en-US", "raciSuggestInputTitle") })).toBeInTheDocument();
+  });
+
+  it("shows the labelled request box and Run, and Run fires onRun", () => {
+    const onRun = vi.fn();
+    const onRequestChange = vi.fn();
+    render(
+      <RaciSuggestModal
+        lang="en-US" open stage="input" request="hi" onRequestChange={onRequestChange} onRun={onRun} canCancel
+        cells={[]} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
+        stakeholders={[]} milestones={[]} selected={new Set()} onToggle={vi.fn()} onConfirm={vi.fn()} onCancel={vi.fn()} busy={false}
+      />,
+    );
+    const box = screen.getByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") });
+    expect(box.getAttribute("maxlength")).toBe("2000");
+    fireEvent.change(box, { target: { value: "x" } });
+    expect(onRequestChange).toHaveBeenCalledWith("x");
+    expect(screen.queryByRole("button", { name: /apply selected/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "raciSuggestRun") }));
+    expect(onRun).toHaveBeenCalledTimes(1);
   });
 });

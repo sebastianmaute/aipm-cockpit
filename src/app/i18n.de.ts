@@ -3201,16 +3201,24 @@ export const de: Record<TranslationKey, string> = {
   raciSuggestSkippedAccountableOne: "1 vorgeschlagene Zuordnung wurde abgelehnt, da dieser Meilenstein bereits einen Rechenschaftspflichtigen hat.",
   raciSuggestTruncated: "Der Vorschlag wurde gekürzt; einige Zuordnungen fehlen.",
   raciSuggestContextTruncated:
-    "Dieses Projekt ist groß, daher wurden Claude nur einige Stakeholder und Meilensteine gezeigt. Für alle übrigen gibt es hier keinen Vorschlag.",
+    "Dieses Projekt ist groß, daher wurden Claude nur Teile seiner Daten gezeigt (einige Stakeholder, Meilensteine oder Belege). Für alles Übrige gibt es hier keinen Vorschlag.",
   raciSuggestAllSkipped: "Keine der vorgeschlagenen Zuordnungen kann übernommen werden.",
   raciSuggestAllExisting:
     "Alle von Claude vorgeschlagenen Zuordnungen sind bereits vorhanden. Es muss nichts geändert werden.",
   raciSuggestSkippedInvalidRole:
     "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da der Rollenbuchstabe nicht R, A, C oder I war.",
   raciSuggestSkippedInvalidRoleOne: "1 vorgeschlagene Zuordnung wurde abgelehnt, da der Rollenbuchstabe nicht R, A, C oder I war.",
-  raciSuggestSkippedHandover:
-    "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da es sich jeweils um eine Übergabe der Rechenschaftspflicht handelt. Ändern Sie den Rechenschaftspflichtigen manuell.",
-  raciSuggestSkippedHandoverOne: "1 vorgeschlagene Zuordnung wurde abgelehnt, da es sich um eine Übergabe der Rechenschaftspflicht handelt. Ändern Sie den Rechenschaftspflichtigen manuell.",
+  raciSuggestSkippedDuplicateNeedsDemotion:
+    "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da jede einen zweiten Rechenschaftspflichtigen ergäbe. Claude muss auch die neue Rolle des bisherigen Inhabers vorschlagen.",
+  raciSuggestSkippedDuplicateNeedsDemotionOne:
+    "1 vorgeschlagene Zuordnung wurde abgelehnt, da sie einen zweiten Rechenschaftspflichtigen ergäbe. Claude muss auch die neue Rolle des bisherigen Inhabers vorschlagen.",
+  raciSuggestHandoverRow: "Rechenschaftspflichtig (A) für {0}: {1} → {2}; neue Rolle von {1}: {3}",
+  raciSuggestHandoverRowWas: "Rechenschaftspflichtig (A) für {0}: {1} → {2} (bisher {4}); neue Rolle von {1}: {3}",
+  raciSuggestInputTitle: "RACI vorschlagen",
+  raciSuggestInputIntro: "Nennen Sie Claude eine Regel, die gelten soll, oder lassen Sie das Feld leer, und wählen Sie dann Vorschlagen.",
+  raciSuggestRun: "Vorschlagen",
+  raciSuggestRequestLabel: "Anfrage an Claude (optional)",
+  raciSuggestRequestPlaceholder: "z. B. Ada bleibt Rechenschaftspflichtige für Go-Live",
   raciSuggestNoOpCount: "Bereits vorhanden: {0}",
   activityAiRaciSuggest: "{0} von der KI vorgeschlagene RACI-Zuordnungen übernommen",
   activityAiRaciSuggestOne: "1 von der KI vorgeschlagene RACI-Zuordnung übernommen",

@@ -3,8 +3,9 @@
 // RACI-pane glue for "Suggest RACI" (AI-assisted RACI assignment). Owns the
 // propose -> ground -> preview -> confirm state machine plus the trigger
 // button and the review modal element, mirroring use-tasks-dedup.tsx's shape
-// (no free-text instruction — raci-suggest.ts's engine takes only the live
-// stakeholders/milestones, unlike alloc-plan's instruction-driven flow) with
+// (the trigger opens an input stage with an optional request; the engine
+// digest is built from the live stakeholders, milestones, tasks, RAID, changes,
+// resources, roles, disciplines, grades and documents) with
 // the request-generation nonce, abort handling and error classification of
 // use-alloc-plan.tsx. Plan-then-apply: the single forced Anthropic call
 // PROPOSES RACI cells but NOTHING mutates the workspace until the user
@@ -33,7 +34,11 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { SparklesIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
-import { type Milestone, type Stakeholder } from "./types";
+import {
+  type ChangeItem, type Discipline, type Grade, type Milestone,
+  type RaidItem, type Resource, type Role, type Stakeholder, type Task,
+} from "./types";
+import { type ProjectDocument } from "./document-model";
 import { type LogActivityAsFn } from "./activity-log-context";
 import { useToastContext } from "./toast-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -53,7 +58,7 @@ import { RaciSuggestModal } from "./raci-suggest-modal";
 import { AiTriggerButton } from "./ai-trigger-button";
 import { STAKEHOLDER_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
 
-type Phase = "idle" | "thinking" | "preview" | "applying";
+type Phase = "idle" | "input" | "thinking" | "preview" | "applying";
 
 export interface RaciSuggestDeps {
   settings: Settings;
@@ -61,6 +66,15 @@ export interface RaciSuggestDeps {
   lang: Lang;
   stakeholders: readonly Stakeholder[];
   milestones: readonly Milestone[];
+  // The evidence and reference slices Claude reads alongside the matrix (§771).
+  tasks: readonly Task[];
+  raid: readonly RaidItem[];
+  changes: readonly ChangeItem[];
+  resources: readonly Resource[];
+  roles: readonly Role[];
+  disciplines: readonly Discipline[];
+  grades: readonly Grade[];
+  documents: readonly ProjectDocument[];
   /** The stakeholders pane's save handler — mirrors every other entity save
    *  contract: `(item, isNew?, opts?)`, where `opts.suppressFieldUndo` skips
    *  the per-field undo capture (this hook records ONE bulk undo entry
@@ -108,8 +122,47 @@ export function foldCellsByStakeholder(
   return [...folded.values()];
 }
 
+/** Keep a `pairKey` group only when it is well formed: exactly two cells in `chosen`,
+ *  one A and one non-A. Any other group (a lone half, two A halves, three cells) is
+ *  dropped whole. The two halves of a pair are applied together or not at all: an A
+ *  without its demotion would leave a milestone with two Accountables. */
+export function dropOrphanedPairHalves(chosen: readonly GroundedRaciCell[]): GroundedRaciCell[] {
+  const groups = new Map<string, GroundedRaciCell[]>();
+  for (const c of chosen) if (c.pairKey) groups.set(c.pairKey, [...(groups.get(c.pairKey) ?? []), c]);
+  const wellFormed = (g: readonly GroundedRaciCell[] = []) =>
+    g.length === 2 && g.filter((c) => c.role === "A").length === 1;
+  return chosen.filter((c) => !c.pairKey || wellFormed(groups.get(c.pairKey)));
+}
+
+/** Drop every chosen A cell that the LIVE Accountable holders no longer allow, since
+ *  grounding judged them at propose time: an unpaired A when its milestone now has an
+ *  A holder other than that cell's stakeholder, and a paired A unless its milestone's
+ *  live holders are exactly the pair's demoted stakeholder. Run it before
+ *  `dropOrphanedPairHalves`, which then drops the dropped A's partner. */
+export function dropStaleAccountables(
+  chosen: readonly GroundedRaciCell[],
+  stakeholders: readonly Stakeholder[],
+): GroundedRaciCell[] {
+  const holders = new Map<number, number[]>();
+  for (const s of stakeholders) {
+    for (const [key, role] of Object.entries(s.raci)) {
+      if (role === "A") holders.set(Number(key), [...(holders.get(Number(key)) ?? []), s.id]);
+    }
+  }
+  return chosen.filter((c) => {
+    if (c.role !== "A") return true;
+    const live = holders.get(c.milestoneId) ?? [];
+    if (!c.pairKey) return live.every((id) => id === c.stakeholderId);
+    const demoted = chosen.find((x) => x.pairKey === c.pairKey && x.role !== "A");
+    return demoted !== undefined && live.length === 1 && live[0] === demoted.stakeholderId;
+  });
+}
+
 export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
-  const { settings, isPopout, lang, stakeholders, milestones, onSave, onCaptureBulk, logActivityAs } = deps;
+  const {
+    settings, isPopout, lang, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades,
+    documents, onSave, onCaptureBulk, logActivityAs,
+  } = deps;
   const showToast = useToastContext();
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -127,6 +180,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   // which made a capped input indistinguishable from "Claude assigned no role".
   const [contextTruncated, setContextTruncated] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [request, setRequest] = useState("");
   // Monotonic request generation: a slow proposal that resolves after cancel /
   // a new open is discarded (can't land a stale proposal or a stale error toast).
   const reqIdRef = useRef(0);
@@ -152,6 +206,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     setTruncated(false);
     setContextTruncated(false);
     setSelected(new Set());
+    setRequest("");
   }
   // Refs only, no state: a proposal still in flight when protection turns on is aborted and discarded.
   useEffect(() => {
@@ -170,6 +225,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     setTruncated(false);
     setContextTruncated(false);
     setSelected(new Set());
+    setRequest("");
   }, []);
 
   // Abort any in-flight proposal if the pane unmounts — a response must
@@ -177,14 +233,22 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   // doesn't run into the set-state-in-effect ban.
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // The trigger opens the dialog on its input stage; nothing is billed until Run.
+  const onOpen = useCallback(() => {
+    if (!enabled || phase !== "idle") return;
+    setPhase("input");
+  }, [enabled, phase]);
+
   const onPropose = useCallback(async () => {
-    if (!enabled || phase === "thinking" || phase === "applying") return;
+    if (!enabled || phase !== "input") return;
     const reqId = ++reqIdRef.current;
     const controller = new AbortController();
     abortRef.current = controller;
     setPhase("thinking");
     try {
-      const context = buildRaciContext(stakeholders, milestones);
+      const context = buildRaciContext({
+        stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades, documents, request,
+      });
       const parsed = await runRaciSuggestion(context, { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() }, controller.signal);
       if (reqId !== reqIdRef.current) return; // superseded — discard
       // Re-ground UNTRUSTED model ids/roles against the LIVE stakeholders/
@@ -214,7 +278,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
         // the one case where "why is this empty?" most needs answering, the
         // signal would be computed and then silently dropped. Again.
         if (context.truncated) showToast("info", t(lang, "raciSuggestContextTruncated"));
-        setPhase("idle");
+        reset();
         return;
       }
       // Preselect every grounded cell; skipped-only results still surface via
@@ -229,7 +293,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       // directly (never `instanceof DOMException`) — mirrors chat-panel.tsx.
       const errName = e instanceof Error ? e.name : (e as { name?: string }).name;
       if (errName === "AbortError") {
-        setPhase("idle");
+        setPhase("input");
         return;
       }
       // §650 — a refused key (401/403) is named as the key problem, ahead of the response's own
@@ -245,9 +309,9 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       } else {
         showToast("error", t(lang, "raciSuggestError"));
       }
-      setPhase("idle");
+      setPhase("input");
     }
-  }, [enabled, phase, stakeholders, milestones, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast]);
+  }, [enabled, phase, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades, documents, request, reset, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast]);
 
   const onToggle = useCallback((key: string) => {
     setSelected((prev) => {
@@ -260,7 +324,19 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
 
   const onConfirm = useCallback(() => {
     if (peopleProtected || phase !== "preview") return;
-    const chosen = cells.filter((c) => selected.has(cellKey(c)));
+    // Three steps, in this order. (1) Keep only ticked cells whose stakeholder still exists: a half
+    // whose stakeholder was deleted since propose counts as not chosen, so it orphans its partner
+    // (foldCellsByStakeholder would otherwise skip it silently and save the other half alone).
+    // (2) Drop an A the LIVE holders no longer allow (someone took or lost A since propose).
+    // (3) Only then drop orphaned or malformed pair halves — a half whose partner was deselected or
+    // dropped above goes too, so a lone new Accountable (or lone demotion) can never be written.
+    const liveIds = new Set(stakeholders.map((s) => s.id));
+    const chosen = dropOrphanedPairHalves(
+      dropStaleAccountables(
+        cells.filter((c) => selected.has(cellKey(c)) && liveIds.has(c.stakeholderId)),
+        stakeholders,
+      ),
+    );
     if (chosen.length === 0) return;
     const updated = foldCellsByStakeholder(chosen, stakeholders);
     if (updated.length === 0) {
@@ -318,20 +394,25 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     <AiTriggerButton
       lang={lang}
       busy={phase === "thinking"}
-      onRun={() => void onPropose()}
+      onRun={onOpen}
       onCancel={reset}
       idleLabelKey="raciSuggest"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
-      disabled={phase === "applying"}
+      disabled={phase !== "idle" && phase !== "thinking"}
     />
   ) : null;
 
   // Under protection the phase is already reset to idle above; the extra guard keeps the reconciling render from
   // building the modal.
-  const modal = (phase === "preview" || phase === "applying") && !peopleProtected ? (
+  const modal = phase !== "idle" && !peopleProtected ? (
     <RaciSuggestModal
       lang={lang}
       open
+      stage={phase === "preview" || phase === "applying" ? "preview" : "input"}
+      request={request}
+      onRequestChange={setRequest}
+      onRun={() => void onPropose()}
+      canCancel={phase !== "applying"}
       cells={cells}
       skipped={skipped}
       noOp={noOp}

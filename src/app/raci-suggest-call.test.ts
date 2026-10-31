@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("./ai-forced-call", () => ({ runForcedToolCallWithRetry: vi.fn() }));
 import { runForcedToolCallWithRetry } from "./ai-forced-call";
 import { runRaciSuggestion } from "./raci-suggest-call";
+import { RACI_SUGGEST_TOOL } from "./raci-suggest/raci-suggest";
 import { aiPrivacyFor } from "./ai-privacy";
 
 /** These tests are about the call mechanics, not people: a request for no project (unprotected). */
@@ -52,5 +53,32 @@ describe("runRaciSuggestion guide text", () => {
     vi.mocked(runForcedToolCallWithRetry).mockResolvedValue({ input: { cells: [] }, stopReason: "tool_use" });
     await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", privacy: UNPROTECTED, model: "m", guideText: "GUIDE-MARK" });
     expect(vi.mocked(runForcedToolCallWithRetry).mock.calls.at(-1)![0].guideText).toBe("GUIDE-MARK");
+  });
+});
+
+describe("Suggest RACI prompt and tool text (§771)", () => {
+  it("SYSTEM names EVIDENCE and REQUEST and keeps one Accountable above the request", async () => {
+    vi.mocked(runForcedToolCallWithRetry).mockResolvedValue({ input: { cells: [] }, stopReason: "tool_use" });
+    await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", privacy: UNPROTECTED, model: "m" });
+    const system = String(vi.mocked(runForcedToolCallWithRetry).mock.calls.at(-1)![0].system);
+    expect(system).toContain("EVIDENCE");
+    expect(system).toContain("REQUEST");
+    expect(system).toMatch(/exactly one Accountable[^.]*always wins over the request/i);
+  });
+
+  it("SYSTEM explains the milestone scope column and judges a scope-0 milestone without dropping the omit rule", async () => {
+    vi.mocked(runForcedToolCallWithRetry).mockResolvedValue({ input: { cells: [] }, stopReason: "tool_use" });
+    await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", privacy: UNPROTECTED, model: "m" });
+    const system = String(vi.mocked(runForcedToolCallWithRetry).mock.calls.at(-1)![0].system);
+    expect(system).toMatch(/MILESTONES[^.]*scope[^.]*number of linked tasks/i);
+    expect(system).toMatch(/scope 0 there is no evidence: judge it from titles, discipline and grade[^.]*still omit any cell you are not confident about/i);
+    expect(system).toContain("Prefer omitting a cell to guessing.");
+    // The old wording told the model to fill a scope-0 milestone, against the omit rule.
+    expect(system).not.toMatch(/instead of omitting it/i);
+  });
+
+  it("the tool description teaches the handover and drops the blanket ban", () => {
+    expect(RACI_SUGGEST_TOOL.description).toContain("propose the new holder's A and a new role for the current holder in the same call");
+    expect(RACI_SUGGEST_TOOL.description).not.toContain("Never propose a second Accountable");
   });
 });

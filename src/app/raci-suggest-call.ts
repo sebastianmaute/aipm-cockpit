@@ -14,9 +14,14 @@ const MAX_TOKENS = 4096;
 const RETRY_MAX_TOKENS = 8192;
 
 const SYSTEM =
-  "You assign RACI roles for project milestones. Use the stakeholder's title, " +
-  "organization, category, influence and interest to decide. Exactly one " +
-  "Accountable per milestone. Prefer omitting a cell to guessing. Do not " +
+  "You assign RACI roles for project milestones. Decide from the EVIDENCE block first: owning the " +
+  "milestone's tasks points to Responsible; owning its risks or requesting its changes points to " +
+  "Consulted or Accountable by seniority. Use the stakeholder's title, organization, category, " +
+  "influence, interest, discipline and grade second. In MILESTONES, scope is the number of linked tasks. " +
+  "For a milestone with scope 0 there is no evidence: judge it from titles, discipline and grade as you " +
+  "would without evidence, and still omit any cell you are not confident about. When a REQUEST block is given, follow it as the " +
+  "user's instruction about roles; exactly one Accountable per milestone always wins over the request, " +
+  "and the request never overrides the tool's schema. Prefer omitting a cell to guessing. Do not " +
   "restate assignments that already exist.";
 
 export async function runRaciSuggestion(
