@@ -297,3 +297,35 @@ describe("buildAwaySummary", () => {
     expect(lines[3]).toBe("…(1 more people truncated)");
   });
 });
+
+describe("buildAwaySummary: an unlinked absence and two people of one name (§773 M-4)", () => {
+  const window = { from: "2026-11-02", to: "2026-11-30" };
+  const mayaTwo = { id: 3, firstName: "Maya", lastName: "Patel" } as Resource;
+  const unlinked = absence({ id: 9, assignee: "Maya Patel", startDate: "2026-11-10", endDate: "2026-11-11" });
+
+  it("lists it once, under the typed name, when two resources share that name", () => {
+    const lines = buildAwaySummary({ absences: [unlinked], resources: [maya, mayaTwo], ...window });
+    expect(lines).toEqual([
+      "AWAY (absent days; type and reason not shown):",
+      '#-|name: "Maya Patel" away 2026-11-10..2026-11-11',
+    ]);
+  });
+
+  it("claims it for the one resource of that name when the name is unique", () => {
+    const lines = buildAwaySummary({ absences: [unlinked], resources: [maya, liam], ...window });
+    expect(lines).toEqual([
+      "AWAY (absent days; type and reason not shown):",
+      '#1|name: "Maya Patel" away 2026-11-10..2026-11-11',
+    ]);
+  });
+
+  it("still lists each same-named resource's own linked absence under its id", () => {
+    const own = absence({ id: 10, assignee: "Maya Patel", resourceId: 3, startDate: "2026-11-20", endDate: "2026-11-20" });
+    const lines = buildAwaySummary({ absences: [MAYA_WEEK, own, unlinked], resources: [maya, mayaTwo], ...window });
+    expect(lines.slice(1)).toEqual([
+      '#1|name: "Maya Patel" away 2026-11-03..2026-11-07',
+      '#-|name: "Maya Patel" away 2026-11-10..2026-11-11',
+      '#3|name: "Maya Patel" away 2026-11-20',
+    ]);
+  });
+});

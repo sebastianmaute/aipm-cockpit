@@ -200,8 +200,17 @@ function collectAway(
 ): AwayPerson[] {
   const people: AwayPerson[] = [];
   const claimed = new Set<Absence>();
+  // An unlinked absence (no `resourceId`) is claimed by name only when exactly ONE resource carries that
+  // display name. Two people of one name would each claim it through `absencesForResource` and list it
+  // twice, so an ambiguous one stays unclaimed and is listed once, under its typed name (`#-`).
+  const nameCount = new Map<string, number>();
+  for (const r of resources) {
+    const key = resourceDisplayName(r).toLowerCase();
+    nameCount.set(key, (nameCount.get(key) ?? 0) + 1);
+  }
   for (const resource of resources) {
-    const mine = absencesForResource(absences, resource);
+    const unique = nameCount.get(resourceDisplayName(resource).toLowerCase()) === 1;
+    const mine = absencesForResource(absences, resource).filter((a) => unique || a.resourceId != null);
     mine.forEach((a) => claimed.add(a));
     const ranges = clipToWindow(usableRanges(mine), from, to);
     if (ranges.length) people.push({ rid: resource.id, name: resourceDisplayName(resource), ranges });
