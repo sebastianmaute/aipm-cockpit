@@ -1108,17 +1108,24 @@
   stakeholder: an item whose resource id (`task.resourceId`, RAID `ownerResourceId`) names a LIVE resource matches
   only the stakeholders linked to that resource, with NO name fallback; otherwise its typed person (`assignee`,
   `owner`, `requestedBy`) is compared case-insensitively with the stakeholder's name and, when linked, the
-  resource's display name. An item that reaches more than one stakeholder counts for NONE. `buildRaciEvidence`
+  resource's display name. An item that reaches more than one stakeholder counts for NONE, and that is judged
+  over EVERY stakeholder: `buildRaciContext` passes `buildRaciEvidence` a `buildMatchCtx` over the whole list, so
+  a namesake beyond the 120 shown still makes a typed name ambiguous, while rows are emitted only for the shown
+  stakeholders. `buildRaciEvidence`
   tallies per stakeholder and milestone, over the milestone's scope (`linkedTaskIds`): tasks owned (and closed),
   RAID owned (open per `isRaidActiveForReview`, by category) and changes requested; a pair with no count gets no
-  line, and a milestone with an empty scope gets none, so the model falls back to titles there. Documents have no
+  line, and a milestone with an empty scope gets none, so the model falls back to titles there (the system prompt
+  in `raci-suggest-call.ts` says scope is the number of linked tasks and tells the model to judge a scope-0
+  milestone from titles and discipline instead of omitting it). Documents have no
   author, so their titles are milestone context only. `buildRaciContext` takes ONE input object (the hook gets
   tasks, RAID, changes, resources, roles, disciplines, grades and documents as props, not from `useWorkspace()`)
   and emits stakeholder rows with discipline and grade, milestone rows with scope size and document titles
   (`MAX_DOC_TITLES_PER_MILESTONE`, `DOC_TITLE_CHARS`), an EVIDENCE block cut at `MAX_EVIDENCE_LINES` from the
-  END (earlier milestones stay complete) and a REQUEST block. `truncated` is set by exactly four
-  things: the stakeholder or milestone caps (120 / 60), more than 5 document titles on a milestone, more than 500
-  evidence lines, and a request cut at 2,000 characters. A shortened description or document title does not. A size test pins the digest under 90,000 characters at the caps. Only people who already have a
+  END (earlier milestones stay complete) and a REQUEST block. `truncated` is set by exactly three
+  things: the stakeholder or milestone caps (120 / 60), more than 500 evidence lines, and a request cut at 2,000
+  characters. Dropping document titles beyond 5 on a milestone does not set it (owner ruling R6, 2026-10-31:
+  titles are milestone context, never person evidence, and the notice is about people and evidence Claude did not
+  see), and neither does a shortened description or document title. A size test pins the digest under 90,000 characters at the caps. Only people who already have a
   stakeholder row get a role; nothing creates a stakeholder.
   ★★ **THE REQUEST STAGE.** `use-raci-suggest.tsx` has an `input` phase: the Suggest button only opens the dialog
   (the modal's `stage` is `input`), nothing is sent until its Suggest button runs, and the request text is
@@ -1154,7 +1161,7 @@
   screen-reader user, in a dialog whose entire job is choosing which rows to commit.
   ★★ **THE CONTEXT CAP MUST REACH THE USER.** `buildRaciContext` caps at `MAX_CONTEXT_STAKEHOLDERS`/
   `MAX_CONTEXT_MILESTONES` and returns `truncated`; the hook surfaces it as `contextTruncated`, which the
-  modal renders as its OWN sentence (since §771 the same flag also covers the evidence, document-title and request cuts). Keep it distinct from `truncated` (the RESPONSE cap): they have opposite
+  modal renders as its OWN sentence (since §771 the same flag also covers the evidence and request cuts, never a dropped document title). Keep it distinct from `truncated` (the RESPONSE cap): they have opposite
   causes, and a capped INPUT means a missing proposal may simply be someone the model was never shown —
   otherwise silence reads as "Claude decided they need no role". This flag was computed and dropped on the
   floor at first, with only its engine unit test consuming it — so the engine test passed while the product

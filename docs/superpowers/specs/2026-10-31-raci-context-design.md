@@ -59,7 +59,7 @@ Emit a line only for a pair with at least one count above zero. Milestones with 
 - **REQUEST block**, the user's request, when given.
 - The existing blocks (stakeholders, milestones, existing assignments) stay, with today's caps (`MAX_CONTEXT_STAKEHOLDERS` 120, `MAX_CONTEXT_MILESTONES` 60) and the §770 single-line cell rule.
 
-Caps (constants, values are the builder's within these bounds): evidence lines capped so the whole context stays within a size test the plan sets (comparable to the WBS plan's: a fixture at the caps stays under a stated token bound); document titles per milestone capped (e.g. 5) and title length capped. Any cut sets `truncated`, and the modal's existing notice covers it.
+Caps (constants, values are the builder's within these bounds): evidence lines capped so the whole context stays within a size test the plan sets (comparable to the WBS plan's: a fixture at the caps stays under a stated token bound); document titles per milestone capped (e.g. 5) and title length capped. Any cut sets `truncated`, and the modal's existing notice covers it. (Ruling R6, 2026-10-31, after the final review: dropping document titles beyond the per-milestone cap does NOT set `truncated`; titles are milestone context, never person evidence, and the notice is about people and evidence Claude did not see.)
 
 ### 4. Prompt and tool text
 
