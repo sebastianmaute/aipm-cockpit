@@ -138,10 +138,26 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const guideText = useActionGuideText("alloc");
   const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
   // AI people protection (layer 1): Plan with AI moves people, so a protected project has no Plan with AI at
-  // all — the trigger is hidden, an open window closes, and propose/apply refuse. Guarded HERE, not at the
+  // all — the trigger is hidden, an open window closes and is reset (below), and propose/apply refuse. Guarded HERE, not at the
   // button, so no other entry point reaches it.
   const peopleProtected = usePeopleProtected();
   const enabled = isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() && resources.length > 0 && !peopleProtected;
+  // Review 3, R6: protection turning on RESETS the window (render-time reconcile; set-state-in-effect is banned),
+  // so a stale instruction step or proposal cannot reappear when protection is turned off again. The request
+  // in flight is invalidated by the effect below (refs are not touched during render).
+  if (peopleProtected && (phase !== "idle" || alternatives.length > 0)) {
+    setPhase("idle");
+    setAlternatives([]);
+    setActiveIndex(0);
+    setSelectedByAlt(new Map());
+    setTruncated(false);
+  }
+  // Refs only, no state: a proposal still in flight when protection turns on is aborted and discarded.
+  useEffect(() => {
+    if (!peopleProtected) return;
+    reqIdRef.current++;
+    abortRef.current?.abort();
+  }, [peopleProtected]);
 
   // Invalidate/abort anything pending and clear the propose/preview state.
   // Shared by reset() (which also drops the phase to idle) and onOpen()
@@ -392,7 +408,8 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       />
     );
   };
-  // The effect is computed inside buildModal, so it runs only while the modal is open.
+  // The effect is computed inside buildModal, so it runs only while the modal is open. Under protection the phase
+  // is already reset to idle above; the extra guard keeps the reconciling render itself from building it.
   const modal = phase !== "idle" && !peopleProtected ? buildModal() : null;
 
   return { button, modal };

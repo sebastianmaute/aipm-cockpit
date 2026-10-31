@@ -9,6 +9,8 @@ const people = vi.hoisted(() => {
 vi.mock("./ai-privacy-context", async () => ({
   ...(await import("../test/ai-privacy-unprotected")),
   useOpenProjectPeopleProtected: () => people.get,
+  // The render-reactive answer from the same source (the review plan reads it, review 3 R6).
+  usePeopleProtected: () => people.state.on,
 }));
 import { renderHook, act } from "@testing-library/react";
 import { newConsent } from "./ai-consent";

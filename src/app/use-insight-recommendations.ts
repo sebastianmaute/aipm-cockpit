@@ -54,7 +54,7 @@ import type { ToastKind } from "./use-toast";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { type OperatingGuide } from "./operating-guide";
 import { useGuideTextFrom } from "./action-guides-context";
-import { useOpenProjectPeopleProtected } from "./ai-privacy-context";
+import { useOpenProjectPeopleProtected, usePeopleProtected } from "./ai-privacy-context";
 
 // Cap on any free-text field folded into the linked-entity digest of an insight
 // recommendation prompt — the digest rides a billed call, so an unbounded
@@ -376,14 +376,18 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // proposed calls (re-grounded against the CURRENT workspace, since a
   // background-generated recommendation can be stale by the time it's reviewed).
   const reviewInsight = (insights ?? []).find((i) => i.id === reviewInsightId) ?? null;
+  // Review 3, R6: the RENDER-REACTIVE answer from the same source as `peopleProtectedNow`. The getter is stable,
+  // so as a memo input it never told the preview that the project's protection flipped; this boolean does, so
+  // the preview strips (or shows) person fields exactly as the confirm will.
+  const peopleProtectedLive = usePeopleProtected();
   const reviewPlan = useMemo(
     () =>
       reviewInsight?.recommendation
         ? describeRecommendationPlan(reviewInsight.recommendation.proposedCalls, {
             tasks, raid, changes, milestones, stakeholders,
-          }, recCallProblemText(lang), peopleProtectedNow())
+          }, recCallProblemText(lang), peopleProtectedLive)
         : null,
-    [reviewInsight, tasks, raid, changes, milestones, stakeholders, lang, peopleProtectedNow],
+    [reviewInsight, tasks, raid, changes, milestones, stakeholders, lang, peopleProtectedLive],
   );
   // ★ No plan-level entity is derived any more: every `FieldDiff`/`LinkDiff`
   // carries the register it belongs to, so the modal labels each row from the

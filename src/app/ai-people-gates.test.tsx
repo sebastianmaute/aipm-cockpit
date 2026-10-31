@@ -25,6 +25,10 @@ import { buildProjectAnalysisInput } from "./project-analysis-input";
 import { buildProjectDigest } from "./project-digest";
 import type { Milestone, Resource, ResourcePlan, Stakeholder } from "./types";
 
+// Review 3, R6: a RACI proposal the test can reach the preview with, without a request.
+vi.mock("./raci-suggest-call", () => ({
+  runRaciSuggestion: vi.fn(async () => ({ cells: [{ stakeholderId: 1, milestoneId: 10, role: "R" }], truncated: false })),
+}));
 vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
   saveThread: vi.fn(async () => undefined),
@@ -158,6 +162,29 @@ describe("Plan with AI and RACI suggestions under protection", () => {
     flip(protectedWs(base()));
     expect(screen.queryByPlaceholderText(/distribute 200 hours/i)).toBeNull();
     expect(screen.queryByRole("button", { name: /plan with ai/i })).toBeNull();
+  });
+
+  // Review 3, R6: protection turning on RESETS the window, not just hides it, so a stale proposal cannot come back
+  // when protection is turned off again.
+  it("an open Plan with AI window does not come back when protection is turned off again", () => {
+    const flip = renderWithSource(allowed(base()), <AllocHarness />);
+    fireEvent.click(screen.getByRole("button", { name: /plan with ai/i }));
+    expect(screen.getByPlaceholderText(/distribute 200 hours/i)).toBeTruthy();
+    flip(protectedWs(base()));
+    flip(allowed(base()));
+    expect(screen.queryByPlaceholderText(/distribute 200 hours/i)).toBeNull();
+    expect(screen.getByRole("button", { name: /plan with ai/i })).toBeTruthy();
+  });
+
+  it("a RACI preview does not come back when protection is turned off again", async () => {
+    const flip = renderWithSource(allowed(base()), <RaciHarness />);
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    flip(protectedWs(base()));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    flip(allowed(base()));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: /suggest raci/i })).toBeTruthy();
   });
 
   it("the RACI suggestion trigger is absent when protected and present when allowed", () => {

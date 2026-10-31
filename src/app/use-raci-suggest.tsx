@@ -136,11 +136,29 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   const guideText = useActionGuideText("raci");
   const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
   // AI people protection (layer 1): RACI suggestions rate people, so a protected project has none — the
-  // trigger is hidden, an open preview closes, and propose/apply refuse. Guarded HERE, not at the button.
+  // trigger is hidden, an open preview closes and is reset (below), and propose/apply refuse. Guarded HERE, not at the button.
   const peopleProtected = usePeopleProtected();
   const enabled =
     isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() &&
     stakeholders.length > 0 && milestones.length > 0 && !peopleProtected;
+  // Review 3, R6: protection turning on RESETS the preview (render-time reconcile; set-state-in-effect is banned),
+  // so a stale proposal cannot reappear when protection is turned off again. The request in flight is
+  // invalidated by the effect below (refs are not touched during render).
+  if (peopleProtected && (phase !== "idle" || cells.length > 0 || skipped.length > 0)) {
+    setPhase("idle");
+    setCells([]);
+    setSkipped([]);
+    setNoOp(0);
+    setTruncated(false);
+    setContextTruncated(false);
+    setSelected(new Set());
+  }
+  // Refs only, no state: a proposal still in flight when protection turns on is aborted and discarded.
+  useEffect(() => {
+    if (!peopleProtected) return;
+    reqIdRef.current++;
+    abortRef.current?.abort();
+  }, [peopleProtected]);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -308,6 +326,8 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     />
   ) : null;
 
+  // Under protection the phase is already reset to idle above; the extra guard keeps the reconciling render from
+  // building the modal.
   const modal = (phase === "preview" || phase === "applying") && !peopleProtected ? (
     <RaciSuggestModal
       lang={lang}
