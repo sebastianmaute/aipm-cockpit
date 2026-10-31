@@ -716,6 +716,9 @@ export async function runTool(
   const personFields = Object.hasOwn(PERSON_FIELDS_BY_TOOL, name) ? PERSON_FIELDS_BY_TOOL[name]! : [];
   if (personFields.length === 0 || peopleToolsLive(d.isPeopleProtected())) return runToolAsSent(d, name, input, false);
   const { input: kept, removed } = stripPersonFields(name, input, personStripContext(d, name, input));
+  // An update that held ONLY person fields is empty once stripped: applying it would stamp the row, count a
+  // write and log "AI updated" with no change. Nothing is applied; the model gets the note.
+  if (removed.length > 0 && isEmptyUpdate(name, kept)) return Promise.resolve(withPersonFieldsNote({ id: kept.id, applied: false }, removed));
   return runToolAsSent(d, name, kept, true).then(
     (result) => withPersonFieldsNote(result, removed),
     (e: unknown) => {
@@ -727,6 +730,14 @@ export async function runTool(
       throw e;
     },
   );
+}
+
+/** Keys an `update_*` call carries that are not a change: the row's id and its concurrency token. */
+const UPDATE_ADDRESS_KEYS: ReadonlySet<string> = new Set(["id", "expectedToken"]);
+
+/** True for an `update_*` call whose input names its row and nothing to change. */
+function isEmptyUpdate(name: string, input: Readonly<Record<string, unknown>>): boolean {
+  return name.startsWith("update_") && Object.keys(input).every((k) => UPDATE_ADDRESS_KEYS.has(k));
 }
 
 /** The person references the record a call writes ALREADY holds, so the strip keeps them (fix round 1, I1):

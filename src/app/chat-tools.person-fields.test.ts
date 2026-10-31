@@ -68,6 +68,24 @@ describe("update_task under people protection", () => {
     await runTool(d, "update_task", { id: 3, expectedToken: entityToken("task", TASK), assignee: "", priority: "High" });
     expect(updateTask.mock.calls[0]![1]).toHaveProperty("assignee", "");
   });
+
+  // Final review F3: an update that held only person fields is EMPTY once stripped — it must not reach the
+  // dispatcher (no stamped row, no counted write, no "AI updated" log entry with no change).
+  it("an update stripped down to its id and token writes nothing and returns the note", async () => {
+    const { d, updateTask } = dispatcher(true);
+    const result = await runTool(d, "update_task", { id: 3, expectedToken: entityToken("task", TASK), assignee: "Ann", assigneeEmail: "a@x.io" });
+    expect(updateTask).not.toHaveBeenCalled();
+    expect((result as Record<string, unknown>)[PERSON_FIELDS_NOTE_KEY]).toBe(PERSON_FIELDS_REMOVED_NOTE(["assignee", "assigneeEmail"]));
+    expect(result).toHaveProperty("id", 3);
+  });
+
+  it("protection off: the same assignee-only update applies (positive control)", async () => {
+    const { d, updateTask } = dispatcher(false);
+    const result = await runTool(d, "update_task", { id: 3, expectedToken: entityToken("task", TASK), assignee: "Ann" });
+    expect(updateTask).toHaveBeenCalledTimes(1);
+    expect(updateTask.mock.calls[0]![1]).toHaveProperty("assignee", "Ann");
+    expect(result).not.toHaveProperty(PERSON_FIELDS_NOTE_KEY);
+  });
 });
 
 describe("escalate_raid_item under people protection", () => {
