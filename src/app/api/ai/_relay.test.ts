@@ -719,6 +719,28 @@ describe("relay — the key check before forwarding (AI organisation key)", () =
     expect(calls.some(isMessages)).toBe(false);
   });
 
+  // Forwarding never follows a non-pass: with the real checker, each verdict that is not a pass
+  // leaves the pre-flight as the only upstream call, and the caller's body (the prompt) unread.
+  const ANTHROPIC_401_BODY = JSON.stringify({ type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } });
+  it.each([
+    ["wrong organisation", RESTRICTED_ENV, checkedAs(OTHER_ORG), 403],
+    ["wrong workspace", { ...RESTRICTED_ENV, AIPM_AI_WORKSPACE_IDS: WS }, checkedAs(ORG, undefined, OTHER_WS), 403],
+    ["check unavailable", RESTRICTED_ENV, (call: Call) => (isPreflight(call) ? call.fire("timeout") : respondWith(200, ANTHROPIC_OK)(call)), 503],
+    ["Anthropic's own 401", RESTRICTED_ENV, (call: Call) => (isPreflight(call) ? respondWith(401, ANTHROPIC_401_BODY)(call) : respondWith(200, ANTHROPIC_OK)(call)), 401],
+  ] as const)("%s: only the pre-flight goes upstream and the request body is never read", async (_label, env, onEnd, status) => {
+    const { send, calls } = fakeSend(onEnd);
+    const request = post();
+    const res = await relay(request, "messages", env, send, createKeyChecker());
+    expect(res.status).toBe(status);
+    expect(calls).toHaveLength(1);
+    expect(isPreflight(calls[0])).toBe(true);
+    expect(calls[0].body).toBeUndefined();
+    expect(request.bodyUsed).toBe(false);
+    expect(request.body?.locked).toBe(false);
+    // The positive control: the body was there to be read, and still reads in full.
+    expect(await request.text()).toContain(PROMPT);
+  });
+
   it("a refused key's model list is never returned: only the pre-flight goes out", async () => {
     const { send, calls } = fakeSend(checkedAs(OTHER_ORG, respondWith(200, '{"data":[{"id":"claude-x"}]}')));
     const res = await relay(getModels(), "models", RESTRICTED_ENV, send, createKeyChecker());
