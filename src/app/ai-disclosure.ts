@@ -125,9 +125,17 @@ export const AI_DESTINATION_KEYS: Readonly<Record<AiRoute, AiDestinationKeys>> =
   },
 };
 
-/** The gateway texts say nothing about a key restriction, so a gateway deployment that also restricts AI to
- *  its organisation's Anthropic keys adds this sentence to the consent dialog. The relay route's own texts
- *  already say it. */
+/** The gateway key texts that change when the deployment also restricts AI to its organisation's Anthropic
+ *  keys: the server then keeps a one-way fingerprint of the key in memory, so the plain gateway claim that
+ *  it neither stores nor logs the key would be untrue. `aiDestinationKey` picks them. */
+export const AI_GATEWAY_RESTRICTED_KEYS: Readonly<Pick<AiDestinationKeys, "keyNote" | "keySecurity" | "help">> = {
+  keyNote: "aiApiKeyHintGatewayRestricted",
+  keySecurity: "aiConsentBullet2GatewayRestricted",
+  help: "helpSecAiBodyGatewayRestricted",
+};
+
+/** The gateway texts do not say that the deployment restricts keys to its organisation, so a gateway
+ *  deployment that does adds this sentence to the consent dialog. The relay route's own texts already say it. */
 export const AI_GATEWAY_KEY_RESTRICTION_KEY = "aiConsentKeyRestrictionGateway" satisfies TranslationKey;
 
 /** The extra consent sentence for this deployment's key restriction, or null when none is needed. */
@@ -138,5 +146,9 @@ export function aiKeyRestrictionConsentKey(): TranslationKey | null {
 
 /** The text for `kind` on this deployment's AI route. */
 export function aiDestinationKey(kind: keyof AiDestinationKeys): TranslationKey {
-  return AI_DESTINATION_KEYS[currentAiRoute()][kind];
+  const route = currentAiRoute();
+  if (route === "gateway" && getAiDeploymentState().keyRestricted && kind in AI_GATEWAY_RESTRICTED_KEYS) {
+    return AI_GATEWAY_RESTRICTED_KEYS[kind as keyof typeof AI_GATEWAY_RESTRICTED_KEYS];
+  }
+  return AI_DESTINATION_KEYS[route][kind];
 }
