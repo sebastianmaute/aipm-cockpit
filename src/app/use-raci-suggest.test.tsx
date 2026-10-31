@@ -179,14 +179,14 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     vi.mocked(call.runRaciSuggestion).mockResolvedValue({
       cells: [
         { stakeholderId: 1, milestoneId: 10, role: "R" },   // already stored -> no-op
-        { stakeholderId: 2, milestoneId: 11, role: "A" },   // Sam holds A on 11 -> refused
+        { stakeholderId: 2, milestoneId: 11, role: "A" },   // Sam holds A on 11, no demotion -> refused (needs-demotion)
       ],
       truncated: false,
     });
     renderHarness({ stakeholderRaci: { "10": "R", "11": "A" } });
     fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
     await waitFor(() =>
-      expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedAccountable", 1, 1))).toBeTruthy(),
+      expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedHandover", 1, 1))).toBeTruthy(),
     );
     expect(screen.getByText(t("en-US", "raciSuggestNoOpCount", "1"))).toBeTruthy();
   });
