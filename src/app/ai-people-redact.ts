@@ -17,6 +17,12 @@
 //   name too (no stop list, no length floor). A single TOKEN of a multi-word
 //   name is redacted alone only when it is at least MIN_TOKEN_LENGTH long,
 //   belongs to exactly ONE known person, and is not in NAME_STOP_WORDS.
+// - Placeholders: a full name and its variants (case, ü/ue, ß/ss, possessive)
+//   share one placeholder that restores the full name. A LONE token of a
+//   multi-word person ("Brandvik" of "Anna Brandvik"), and a one-word entry that
+//   aliases one, gets its own placeholder per (person, token) restoring that
+//   token's dictionary spelling — never the full name, which would turn
+//   "Brandvik GmbH" into "Anna Brandvik GmbH" in a restored write (review 3, R2).
 // - Case gate: a LONE word (a one-word entry or a token) is redacted only when
 //   the text spells it capitalised or all upper case, so "price list" stays
 //   while "Price" goes. Multi-word names match in any case. A one-word entry the
@@ -97,7 +103,11 @@ const normSpace = (s: string) => s.trim().replace(/\s+/g, " ");
 /** `ungated`: folded one-word entries some dictionary spelling of which fails the case gate (R1). */
 type NameMatcher = { readonly re: RegExp | null; readonly owner: ReadonlyMap<string, string>; readonly ungated: ReadonlySet<string> };
 
-/** Person key = folded full name. `canonical` maps it to the first spelling seen. */
+/** The placeholder key of a lone token of a multi-word person (R2). */
+const tokenKey = (person: string, token: string): string => `${person}\u0000${token}`;
+
+/** Person key = folded full name; a lone token's key is `tokenKey`. `canonical` maps each key to the first
+ *  spelling seen (for a token: that token as the full name's first spelling writes it). */
 function buildNameMatcher(names: readonly string[], canonical: Map<string, string>): NameMatcher {
   const multi = new Map<string, string[]>(); // person key -> folded tokens
   const singles: string[] = [];
@@ -116,20 +126,26 @@ function buildNameMatcher(names: readonly string[], canonical: Map<string, strin
   }
   const tokenOwners = new Map<string, Set<string>>();
   for (const [key, tokens] of multi) {
-    for (const t of tokens) tokenOwners.set(t, (tokenOwners.get(t) ?? new Set()).add(key));
+    const spelled = (canonical.get(key) ?? key).split(" ");
+    tokens.forEach((t, i) => {
+      tokenOwners.set(t, (tokenOwners.get(t) ?? new Set()).add(key));
+      const k = tokenKey(key, t);
+      if (!canonical.has(k)) canonical.set(k, spelled.length === tokens.length ? spelled[i]! : t);
+    });
   }
   const owner = new Map<string, string>(); // folded alternative -> person key
   for (const key of multi.keys()) owner.set(key, key);
-  // A one-word entry is a full known name: an alias of the one multi-word person
-  // it is a token of, else a person of its own. Never stop-listed (F1).
+  // A one-word entry is a full known name: that token of the one multi-word person
+  // it is a token of (its own placeholder, R2), else a person of its own. Never
+  // stop-listed (F1).
   for (const single of new Set(singles)) {
     const owners = tokenOwners.get(single);
-    owner.set(single, owners && owners.size === 1 ? [...owners][0] : single);
+    owner.set(single, owners && owners.size === 1 ? tokenKey([...owners][0]!, single) : single);
   }
   for (const [token, owners] of tokenOwners) {
     if (owners.size !== 1 || [...token].length < MIN_TOKEN_LENGTH || NAME_STOP_WORDS.has(token)) continue;
     if (!/\p{L}/u.test(token)) continue;
-    if (!owner.has(token)) owner.set(token, [...owners][0]);
+    if (!owner.has(token)) owner.set(token, tokenKey([...owners][0]!, token));
   }
   if (owner.size === 0) return { re: null, owner, ungated };
   const alternatives = [...owner.keys()]

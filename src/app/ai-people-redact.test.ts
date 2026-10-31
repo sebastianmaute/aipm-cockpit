@@ -18,8 +18,8 @@ describe("name matching", () => {
     const s = fresh(dict(["Mark Quillfeld"]));
     expect(s.redact("Mark the task done, Mark")).toBe("Mark the task done, Mark");
     expect(s.redact("Mark Quillfeld said")).toBe("[Person 1] said");
-    expect(s.redact("ask Quillfeld")).toBe("ask [Person 1]");
-    expect(s.redact("Annual review with QUILLFELD.")).toBe("Annual review with [Person 1].");
+    expect(s.redact("ask Quillfeld")).toBe("ask [Person 2]");
+    expect(s.redact("Annual review with QUILLFELD.")).toBe("Annual review with [Person 2].");
     // F2a: a LONE token must look like a name — capitalised or all caps.
     expect(s.redact("ask quillfeld")).toBe("ask quillfeld");
     expect(s.redact("mark quillfeld said")).toBe("[Person 1] said");
@@ -55,10 +55,31 @@ describe("name matching", () => {
     expect(s.redact("anna brandvik said")).toBe("[Person 1] said");
   });
 
-  it("a one-word entry that is a token of exactly one full name is that person", () => {
+  // Review 3, R2: an alias entry is a lone token of that person, so it restores as itself, not as the full name.
+  it("a one-word entry that is a token of exactly one full name is that person's token", () => {
     const s = fresh(dict(["Mark", "Mark Quillfeld"]));
     expect(s.redact("Mark said")).toBe("[Person 1] said");
-    expect(s.restore("[Person 1]")).toBe("Mark Quillfeld");
+    expect(s.redact("Mark Quillfeld said")).toBe("[Person 2] said");
+    expect(s.restore("[Person 1] and [Person 2]")).toBe("Mark and Mark Quillfeld");
+  });
+
+  // Review 3, R2: a lone token used to share the full name's placeholder, so restore turned "Brandvik GmbH" into
+  // "Anna Brandvik GmbH" — and a restored tool input is what gets saved. A lone token now has its OWN placeholder
+  // per (person, token), restoring that token's dictionary spelling; full-name variants still share one.
+  it("a lone token gets its own placeholder and restores as itself; the full name and its variants share one", () => {
+    const s = fresh(dict(["Anna Brandvik", "Mark Quillfeld"]));
+    expect(s.redact("Brandvik GmbH contract")).toBe("[Person 1] GmbH contract");
+    expect(s.redact("Anna Brandvik said")).toBe("[Person 2] said");
+    expect(s.redact("ask Quillfeld")).toBe("ask [Person 3]");
+    expect(s.redact("BRANDVIK, Anna Brandvik's, anna  brandvik")).toBe("[Person 1], [Person 2]'s, [Person 2]");
+    // The model echoes the placeholders; restore gives back the original text.
+    expect(s.restore("[Person 1] GmbH contract")).toBe("Brandvik GmbH contract");
+    expect(s.restore("[Person 2] said")).toBe("Anna Brandvik said");
+    expect(s.restore("ask [Person 3]")).toBe("ask Quillfeld");
+    for (const t of ["Brandvik GmbH contract", "Anna Brandvik said", "ask Quillfeld", "Quillfeld and Mark Quillfeld"]) {
+      expect(s.restore(s.redact(t)), t).toBe(t);
+    }
+    expect(restoreJsonText(redactJsonBody(JSON.stringify({ vendor: "Brandvik GmbH" }), s), s)).toBe('{"vendor":"Brandvik GmbH"}');
   });
 
   // F2: common words that happen to be names, team labels and role suffixes.
@@ -88,15 +109,15 @@ describe("name matching", () => {
   it("a first name shared by two known people is not redacted alone; surnames are", () => {
     const s = fresh(dict(["Anna Brandvik", "Anna Keller"]));
     expect(s.redact("Anna asked Brandvik and Keller")).toBe("Anna asked [Person 1] and [Person 2]");
-    expect(s.redact("Anna Keller and Anna Brandvik")).toBe("[Person 2] and [Person 1]");
+    expect(s.redact("Anna Keller and Anna Brandvik")).toBe("[Person 3] and [Person 4]");
+    expect(s.restore("[Person 1], [Person 2], [Person 3], [Person 4]")).toBe("Brandvik, Keller, Anna Keller, Anna Brandvik");
   });
 
   it("diacritics, case, ue-transliteration and possessive all map to one placeholder", () => {
     const s = fresh(dict(["Hans Müller"]));
-    expect(s.redact("Müller, MÜLLER, Mueller, Müller's, hans mueller")).toBe(
-      "[Person 1], [Person 1], [Person 1], [Person 1]'s, [Person 1]",
-    );
-    expect(s.restore("[Person 1] agreed")).toBe("Hans Müller agreed");
+    expect(s.redact("hans mueller, Hans Müller's, HANS MÜLLER")).toBe("[Person 1], [Person 1]'s, [Person 1]");
+    expect(s.redact("Müller, MÜLLER, Mueller, Müller's")).toBe("[Person 2], [Person 2], [Person 2], [Person 2]'s");
+    expect(s.restore("[Person 1] agreed with [Person 2]")).toBe("Hans Müller agreed with Müller");
   });
 
   it("longest match first: a full name beats its own tokens, across line breaks too", () => {
