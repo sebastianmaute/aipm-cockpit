@@ -68,7 +68,10 @@ export function hasUnredactableContent(body: string): boolean {
 }
 
 /** The same test over a value (a content block, a message, a history): the chat asks it when a file is
- *  attached and before a turn is committed, so it never commits a turn the transport would refuse. */
+ *  attached and before a turn is committed, so it never commits a turn the transport would refuse.
+ *  Only CONTENT is walked: a body's `messages`, and the `content` of a message or a tool_result (nested
+ *  arrays included). Never a `tool_use.input`: an image-shaped object the model wrote there is data, not an
+ *  image the request carries, and would lock every later protected send in the thread (review 4, M2). */
 export function holdsUnredactableContent(v: unknown): boolean {
   if (Array.isArray(v)) return v.some(holdsUnredactableContent);
   if (typeof v !== "object" || v === null) return false;
@@ -78,5 +81,5 @@ export function holdsUnredactableContent(v: unknown): boolean {
     const src = o.source as Record<string, unknown> | undefined;
     if (src?.type !== "text") return true;
   }
-  return Object.values(o).some(holdsUnredactableContent);
+  return holdsUnredactableContent(o.messages) || holdsUnredactableContent(o.content);
 }
