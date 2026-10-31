@@ -58,6 +58,10 @@ const E = {
 } as const;
 
 export const FIXTURE_PHONE = "+49 30 5550 1187";
+/** A phone the project does NOT know, typed into free text: the redactor's pattern must catch it. */
+export const UNKNOWN_PHONE = "+49 30 9876543";
+/** Both phones, checked with their spacing ignored. */
+export const FIXTURE_PHONES: readonly string[] = [FIXTURE_PHONE, UNKNOWN_PHONE];
 
 /** Every `PERSON_FIELD_PATHS` entry, with the value seeded into it. The wire test pins the key set. */
 export const SEEDED_PERSON_FIELDS: Readonly<Record<string, string>> = {
@@ -107,7 +111,7 @@ export const MAIL_PERSON = P.stakeholder;
 export const KNOWN_NAMES: readonly string[] = Object.values(P);
 export const KNOWN_EMAILS: readonly string[] = Object.values(E);
 /** Everything the wire test must never find in a protected body. */
-export const FIXTURE_PEOPLE_TERMS: readonly string[] = [...KNOWN_NAMES, ...KNOWN_EMAILS, FIXTURE_PHONE, FORMER_MEMBER];
+export const FIXTURE_PEOPLE_TERMS: readonly string[] = [...KNOWN_NAMES, ...KNOWN_EMAILS, ...FIXTURE_PHONES, FORMER_MEMBER];
 
 const note = (id: number, authorName: string, text: string): NoteLogEntry => ({
   id, authorName, timestamp: "2026-10-12T09:00:00.000Z", html: `<p>${text}</p>`, text,
@@ -121,9 +125,10 @@ const tasks: Task[] = [
   {
     id: TASK_ID, taskName: "Configure the staging cluster", assignee: P.assignee, assigneeEmail: E.assignee,
     dueDate: "2026-10-20", lastUpdateDate: "2026-10-10", priority: "Medium", status: "In Progress",
-    blockers: "Waiting for firewall rules", description: "Bring the staging cluster up to the production layout.",
+    blockers: "Waiting for firewall rules", description: `Bring the staging cluster up to the production layout. Questions to ${P.projectManager} (${E.contact}), ` +
+      `on call ${FIXTURE_PHONE}, vendor hotline ${UNKNOWN_PHONE}.`,
     group: "Platform",
-    noteLog: [note(1, P.taskNoteAuthor, "Firewall ticket raised.")],
+    noteLog: [note(1, P.taskNoteAuthor, `Firewall ticket raised; ${P.internal} approves it.`)],
     blockerLog: [{ id: 1, text: "Firewall rules", createdAt: "2026-10-11T08:00:00.000Z", authorName: P.blockerAuthor }],
   },
   {
@@ -138,6 +143,7 @@ const raid: RaidItem[] = [
     id: 1, category: "R", title: "Vendor delivers the licence keys late", status: "Open", severity: "High",
     linkedTaskIds: [TASK_ID], raisedDate: "2026-10-01", causedByRaidIds: [], stakeholderIds: [STAKEHOLDER_ID],
     owner: P.raidOwner, ownerEmail: E.raidOwner,
+    description: `Keys promised by ${P.external} (${E.absence}) for Friday.`,
     noteLog: [note(1, P.raidNoteAuthor, "Chased the vendor.")],
     escalations: [{ at: "2026-10-15T10:00:00.000Z", toName: P.escalatedTo, toEmail: E.escalatedTo }],
   } as RaidItem,
@@ -151,7 +157,12 @@ const changes: ChangeItem[] = [
   } as ChangeItem,
 ];
 
-const milestones: Milestone[] = [{ id: 1, name: "Staging ready", date: "2026-11-20", linkedTaskIds: [TASK_ID] }];
+// The second milestone is overdue, so the digest (which carries milestone names and nothing else people-shaped)
+// names a person: free text, matched only because the name is known to the project.
+const milestones: Milestone[] = [
+  { id: 1, name: "Staging ready", date: "2026-11-20", linkedTaskIds: [TASK_ID] },
+  { id: 2, name: `Go/no-go sign-off by ${P.sponsor}`, date: "2026-10-25", linkedTaskIds: [] },
+];
 
 const resources: Resource[] = [
   {

@@ -92,6 +92,76 @@ function isEmptyProjectList(e: ts.Expression): boolean {
     && u.arguments.length === 1 && ts.isArrayLiteralExpression(u.arguments[0]) && u.arguments[0].elements.length === 0;
 }
 
+/** The files that may build a privacy with `aiPrivacyFor`, and why. Every other file is handed one. */
+const PRIVACY_BUILDERS: Readonly<Record<string, string>> = {
+  "src/app/ai-privacy-context.tsx": "the open project's getter (useOpenProjectAiPrivacy) builds it from the registered source",
+  "src/app/scheduled-job-run.ts": "a scheduled job sends the TARGET project's data, so it builds that project's privacy",
+  "src/app/use-project-proposal.ts": UNPROTECTED_ALLOWED["src/app/use-project-proposal.ts"]!,
+};
+
+interface PrivacyValue {
+  file: string;
+  line: number;
+  expr: ts.Expression;
+  /** Names bound in this file to `useOpenProjectAiPrivacy()`, and refs holding one (`useRef(getter)`). */
+  getters: ReadonlySet<string>;
+  getterRefs: ReadonlySet<string>;
+}
+
+/** Every value a source file hands on as a privacy: each `privacy:` property (or shorthand) of an object literal,
+ *  and `callClaude`'s positional privacy argument. */
+function privacyValues(): PrivacyValue[] {
+  const out: PrivacyValue[] = [];
+  for (const full of sourceFiles(SRC)) {
+    const file = relative(process.cwd(), full).replace(/\\/g, "/");
+    if (DEFINING_FILES.has(file) || file === "src/app/ai-privacy.ts") continue;
+    const sf = parse(full);
+    const getters = new Set<string>();
+    const getterRefs = new Set<string>();
+    const values: ts.Expression[] = [];
+    const visit = (node: ts.Node): void => {
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+        const init = unwrap(node.initializer);
+        if (ts.isCallExpression(init) && ts.isIdentifier(init.expression) && init.expression.text === "useOpenProjectAiPrivacy") {
+          getters.add(node.name.text);
+        }
+        if (ts.isCallExpression(init) && ts.isIdentifier(init.expression) && init.expression.text === "useRef"
+          && init.arguments.length === 1 && ts.isIdentifier(init.arguments[0]!) && getters.has(init.arguments[0].text)) {
+          getterRefs.add(node.name.text);
+        }
+      }
+      if (ts.isPropertyAssignment(node) && node.name.getText() === "privacy" && ts.isObjectLiteralExpression(node.parent)) values.push(node.initializer);
+      if (ts.isShorthandPropertyAssignment(node) && node.name.text === "privacy") values.push(node.name);
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "callClaude") {
+        const arg = node.arguments[CALL_CLAUDE_PRIVACY_INDEX];
+        if (arg) values.push(arg);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sf);
+    for (const expr of values) out.push({ file, line: sf.getLineAndCharacterOfPosition(expr.getStart()).line + 1, expr, getters, getterRefs });
+  }
+  return out;
+}
+
+/** Threaded: a call of this file's `useOpenProjectAiPrivacy()` getter (directly or through `ref.current()` of a
+ *  ref that holds it), a value named `privacy` (a parameter or a
+ *  caller's `x.privacy`), or `aiPrivacyFor(…)` in a listed builder. Anything else was made up on the spot. */
+function isThreadedPrivacy(v: PrivacyValue): boolean {
+  const e = unwrap(v.expr);
+  if (ts.isIdentifier(e)) return e.text === "privacy";
+  if (ts.isPropertyAccessExpression(e)) return e.name.text === "privacy";
+  if (ts.isCallExpression(e) && ts.isIdentifier(e.expression)) {
+    if (v.getters.has(e.expression.text)) return e.arguments.length === 0;
+    if (e.expression.text === "aiPrivacyFor") return v.file in PRIVACY_BUILDERS;
+  }
+  if (ts.isCallExpression(e) && ts.isPropertyAccessExpression(e.expression) && e.expression.name.text === "current"
+    && ts.isIdentifier(e.expression.expression)) {
+    return v.getterRefs.has(e.expression.expression.text) && e.arguments.length === 0;
+  }
+  return false;
+}
+
 describe("every AI call site supplies the privacy of the project it sends (spec R3)", () => {
   const sites = scanSites();
 
@@ -141,6 +211,31 @@ describe("every AI call site supplies the privacy of the project it sends (spec 
   it("only the listed site sends for no project at all, and it does", () => {
     const empty = sites.filter((s) => s.privacy !== undefined && isEmptyProjectList(s.privacy)).map((s) => s.file);
     expect(empty.sort()).toEqual(Object.keys(UNPROTECTED_ALLOWED).sort());
+  });
+
+  // Task 8 fix round 1 (I3): the call-site checks above see only the argument of `callClaude` / `runForcedToolCall*`.
+  // A hook that hands its `*-call` function `privacy: aiPrivacyFor([])` (or any value built on the spot) one hop up
+  // passed them all, and the wire test, which drives the call functions with a real privacy, cannot see it either.
+  it("only the listed files build a privacy with aiPrivacyFor", () => {
+    const found = new Set<string>();
+    for (const full of sourceFiles(SRC)) {
+      const file = relative(process.cwd(), full).replace(/\\/g, "/");
+      const sf = parse(full);
+      const visit = (node: ts.Node): void => {
+        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "aiPrivacyFor") found.add(file);
+        ts.forEachChild(node, visit);
+      };
+      visit(sf);
+    }
+    expect([...found].sort()).toEqual(Object.keys(PRIVACY_BUILDERS).sort());
+  });
+
+  it("every privacy handed to a call is threaded: the open-project getter, a privacy parameter, or a listed builder", () => {
+    const values = privacyValues();
+    // Anti-vacuity: every call site, plus the hooks' and runners' `privacy:` properties (26 when this was written).
+    expect(values.length).toBeGreaterThanOrEqual(25);
+    const bad = values.filter((v) => !isThreadedPrivacy(v)).map((v) => `${v.file}:${v.line} ${v.expr.getText()}`);
+    expect(bad).toEqual([]);
   });
 
   it("the temporary placeholder is no longer exported", () => {

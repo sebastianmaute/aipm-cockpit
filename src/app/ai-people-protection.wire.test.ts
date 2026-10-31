@@ -49,8 +49,8 @@ import { runScheduledJob } from "./scheduled-job-run";
 import { resourceDisplayName } from "./resource-foundation";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import {
-  FIXTURE_INSIGHT, FIXTURE_PEOPLE_TERMS, FIXTURE_PHONE, FIXTURE_PROJECT_KEY, FIXTURE_TODAY, FORMER_MEMBER, MAIL_EML,
-  MAIL_PERSON, RESOURCE_ID, RESOURCE_NAME_TOKENS, SEEDED_PERSON_FIELDS, STAKEHOLDER_ID, TASK_ID, peopleFixture,
+  FIXTURE_INSIGHT, FIXTURE_PEOPLE_TERMS, FIXTURE_PHONE, FIXTURE_PHONES, FIXTURE_PROJECT_KEY, FIXTURE_TODAY, FORMER_MEMBER, MAIL_EML,
+  MAIL_PERSON, RESOURCE_ID, RESOURCE_NAME_TOKENS, SEEDED_PERSON_FIELDS, STAKEHOLDER_ID, TASK_ID, UNKNOWN_PHONE, peopleFixture,
 } from "../test/people-protection-fixture";
 import { dashboardOf, peopleFeatureOffered, renderChat, type PeopleFeature } from "../test/people-protection-harness";
 
@@ -127,7 +127,7 @@ function peopleIn(bodies: readonly string[]): string[] {
   const hayDigits = digitsOf(hay);
   return [
     ...FIXTURE_PEOPLE_TERMS.filter((term) =>
-      hay.includes(fold(term)) || (term === FIXTURE_PHONE && hayDigits.includes(digitsOf(term)))),
+      hay.includes(fold(term)) || (FIXTURE_PHONES.includes(term) && hayDigits.includes(digitsOf(term)))),
     ...RESOURCE_NAME_TOKENS.filter((token) => new RegExp(`\\b${token}\\b`).test(raw)),
   ];
 }
@@ -289,7 +289,8 @@ const DRIVERS: Readonly<Record<string, Driver>> = {
   },
   "digest-narrative": {
     kind: "redacted",
-    sendsPeople: "the digest model carries counts, a RAG and milestone names only (digest-model.ts), no person field",
+    // Its only text is milestone names; the fixture's overdue milestone names the sponsor in free text.
+    sendsPeople: true,
     run: (c) => sendAndIgnoreParse(() => runDigestNarrative(
       buildDigest({ model: dashboardOf(c.ws), raid: [...c.ws.raid], prior: null }, NOW.toISOString()),
       { apiKey: KEY, model: MODEL, privacy: c.privacy, lang: "en-US" },
@@ -297,7 +298,7 @@ const DRIVERS: Readonly<Record<string, Driver>> = {
   },
   "digest-narrative-scheduled": {
     kind: "redacted",
-    sendsPeople: "the same digest model as digest-narrative: counts, a RAG and milestone names, no person field",
+    sendsPeople: true,
     run: (c) => sendAndIgnoreParse(() => runDigestNarrative(
       buildDigest({ model: dashboardOf(c.ws), raid: [...c.ws.raid], prior: null }, NOW.toISOString()),
       { apiKey: KEY, model: MODEL, privacy: c.privacy, lang: "en-US", level: "background" },
@@ -491,6 +492,14 @@ describe("anti-vacuity: with protection off, the same drivers send people", () =
     await driveChat(ctxFor(peopleFixture(true)));
     expect(peopleIn(sent)).toContain(FORMER_MEMBER);
     expect(peopleIn(sent)).toContain(MAIL_PERSON);
+  });
+
+  // The phone half of the check: both phones ride in a task description that get_task / list_tasks return, the
+  // known one (matched from the dictionary) and one the project does not know (matched by the phone pattern).
+  it.each([["allowed", true], ["protected", false]] as const)("chat, %s: the task description's phones", async (_mode, allowed) => {
+    await driveChat(ctxFor(peopleFixture(allowed)));
+    const phones = peopleIn(sent).filter((t) => t === FIXTURE_PHONE || t === UNKNOWN_PHONE);
+    expect(phones).toEqual(allowed ? [FIXTURE_PHONE, UNKNOWN_PHONE] : []);
   });
 });
 
