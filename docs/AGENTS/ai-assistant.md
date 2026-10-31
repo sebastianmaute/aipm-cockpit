@@ -1116,8 +1116,9 @@
   tasks, RAID, changes, resources, roles, disciplines, grades and documents as props, not from `useWorkspace()`)
   and emits stakeholder rows with discipline and grade, milestone rows with scope size and document titles
   (`MAX_DOC_TITLES_PER_MILESTONE`, `DOC_TITLE_CHARS`), an EVIDENCE block cut at `MAX_EVIDENCE_LINES` from the
-  END (earlier milestones stay complete) and a REQUEST block. Any cut sets `truncated`, except a shortened
-  document title; a size test pins the digest under 90,000 characters at the caps. Only people who already have a
+  END (earlier milestones stay complete) and a REQUEST block. `truncated` is set by exactly four
+  things: the stakeholder or milestone caps (120 / 60), more than 5 document titles on a milestone, more than 500
+  evidence lines, and a request cut at 2,000 characters. A shortened description or document title does not. A size test pins the digest under 90,000 characters at the caps. Only people who already have a
   stakeholder row get a role; nothing creates a stakeholder.
   ★★ **THE REQUEST STAGE.** `use-raci-suggest.tsx` has an `input` phase: the Suggest button only opens the dialog
   (the modal's `stage` is `input`), nothing is sent until its Suggest button runs, and the request text is
@@ -1153,7 +1154,7 @@
   screen-reader user, in a dialog whose entire job is choosing which rows to commit.
   ★★ **THE CONTEXT CAP MUST REACH THE USER.** `buildRaciContext` caps at `MAX_CONTEXT_STAKEHOLDERS`/
   `MAX_CONTEXT_MILESTONES` and returns `truncated`; the hook surfaces it as `contextTruncated`, which the
-  modal renders as its OWN sentence. Keep it distinct from `truncated` (the RESPONSE cap): they have opposite
+  modal renders as its OWN sentence (since §771 the same flag also covers the evidence, document-title and request cuts). Keep it distinct from `truncated` (the RESPONSE cap): they have opposite
   causes, and a capped INPUT means a missing proposal may simply be someone the model was never shown —
   otherwise silence reads as "Claude decided they need no role". This flag was computed and dropped on the
   floor at first, with only its engine unit test consuming it — so the engine test passed while the product

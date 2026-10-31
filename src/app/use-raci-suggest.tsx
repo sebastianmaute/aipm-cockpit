@@ -3,8 +3,9 @@
 // RACI-pane glue for "Suggest RACI" (AI-assisted RACI assignment). Owns the
 // propose -> ground -> preview -> confirm state machine plus the trigger
 // button and the review modal element, mirroring use-tasks-dedup.tsx's shape
-// (no free-text instruction — raci-suggest.ts's engine takes only the live
-// stakeholders/milestones, unlike alloc-plan's instruction-driven flow) with
+// (the trigger opens an input stage with an optional request; the engine
+// digest is built from the live stakeholders, milestones, tasks, RAID, changes,
+// resources, roles, disciplines, grades and documents) with
 // the request-generation nonce, abort handling and error classification of
 // use-alloc-plan.tsx. Plan-then-apply: the single forced Anthropic call
 // PROPOSES RACI cells but NOTHING mutates the workspace until the user
