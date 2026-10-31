@@ -1673,7 +1673,7 @@ const enUS = {
   aiConsentReviewPrompt: "AI is switched on, but the AI data disclosure is not accepted. Review and accept it to use AI features.",
   aiConsentReview: "Review",
   aiConsentRevokedDuringSend: "AI was switched off or its consent was withdrawn, so the request was stopped.",
-  chatPeopleProtectedContent: "People protection is on, and this conversation contains an image or a PDF document from before. Text in it cannot be checked for names, so nothing was sent. Start a new chat to go on.",
+  chatPeopleProtectedContent: "People protection is on, and this conversation contains an image or a PDF document from before. Text in it cannot be checked for names, so nothing was sent. Start a new chat to go on; the earlier messages of this conversation are not carried into the new chat.",
   chatPeopleProtectedAttachment: "People protection is on, and an attachment in the message box is an image or a scanned or PDF document. Text in it cannot be checked for names, so nothing was sent. Remove that attachment and send again.",
   chatAttachmentPeopleProtected: "{0}: people protection is on, so images and scanned or PDF documents are left out (text in them cannot be checked for names). Text files and the text of mails and Office documents can still be attached.",
   aiConsentRevoke: "Revoke consent",

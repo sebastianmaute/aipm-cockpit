@@ -10,6 +10,7 @@ import { newConsent } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import { t } from "./i18n";
+import { de } from "./i18n.de";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ChatConversation } from "./workspace-tab-context";
 
@@ -209,6 +210,9 @@ describe("sending under people protection (review 2, A)", () => {
     expect(await screen.findByText(t("en-US", "chatPeopleProtectedContent"))).toBeTruthy();
     expect(t("en-US", "chatPeopleProtectedContent")).toMatch(/conversation/i);
     expect(t("en-US", "chatPeopleProtectedContent")).toMatch(/new chat/i);
+    // Review 3, R7: the message says a new chat starts empty.
+    expect(t("en-US", "chatPeopleProtectedContent")).toMatch(/earlier messages of this conversation are not carried into the new chat/i);
+    expect(de.chatPeopleProtectedContent).toMatch(/bisherigen Nachrichten dieser Unterhaltung werden nicht in den neuen Chat übernommen/);
     expect(bodies).toEqual([]);
     expect(screen.getByPlaceholderText("Ask Claude about your tasks…")).toHaveValue("What does the chart say?");
     // Only the two stored turns are shown: the refused text never became a third.

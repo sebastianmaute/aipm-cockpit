@@ -1566,7 +1566,7 @@ export const de: Record<TranslationKey, string> = {
   aiConsentReviewPrompt: "KI ist eingeschaltet, aber der Datenhinweis zur KI ist nicht akzeptiert. Prüfen und akzeptieren Sie ihn, um KI-Funktionen zu nutzen.",
   aiConsentReview: "Prüfen",
   aiConsentRevokedDuringSend: "Die KI wurde ausgeschaltet oder ihre Einwilligung wurde widerrufen, daher wurde die Anfrage abgebrochen.",
-  chatPeopleProtectedContent: "Der Personenschutz ist aktiv, und diese Unterhaltung enthält von früher ein Bild oder ein PDF-Dokument. Text darin kann nicht auf Namen geprüft werden, daher wurde nichts gesendet. Beginnen Sie einen neuen Chat, um fortzufahren.",
+  chatPeopleProtectedContent: "Der Personenschutz ist aktiv, und diese Unterhaltung enthält von früher ein Bild oder ein PDF-Dokument. Text darin kann nicht auf Namen geprüft werden, daher wurde nichts gesendet. Beginnen Sie einen neuen Chat, um fortzufahren; die bisherigen Nachrichten dieser Unterhaltung werden nicht in den neuen Chat übernommen.",
   chatPeopleProtectedAttachment: "Der Personenschutz ist aktiv, und ein Anhang im Eingabefeld ist ein Bild oder ein gescanntes oder PDF-Dokument. Text darin kann nicht auf Namen geprüft werden, daher wurde nichts gesendet. Entfernen Sie diesen Anhang und senden Sie erneut.",
   chatAttachmentPeopleProtected: "{0}: Der Personenschutz ist aktiv, daher werden Bilder und gescannte oder PDF-Dokumente weggelassen (Text darin kann nicht auf Namen geprüft werden). Textdateien und der Text von E-Mails und Office-Dokumenten können weiterhin angehängt werden.",
   aiConsentRevoke: "Einwilligung widerrufen",

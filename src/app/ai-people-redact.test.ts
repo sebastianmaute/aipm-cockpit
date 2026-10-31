@@ -320,6 +320,25 @@ describe("redactJsonBody / restoreJsonText", () => {
     expect(c[3].source.data).toBe("[Person 1]");
   });
 
+  // Review 3, R7: `restoreJsonText` works on the reply's raw text, so it restores a placeholder in an object KEY
+  // too. A tool input the model keyed by a person (no schema does today) would come back with the real name as a
+  // key, ride in the history, and leave unredacted on the next send if only values were redacted. So keys inside
+  // a tool `input` are redacted as well; every other key is protocol or app-authored and stays.
+  it("keys inside a tool input are redacted and restored; keys elsewhere stay", () => {
+    const s = fresh(dict(["Sofia Ramirez"]));
+    const body = JSON.stringify({
+      messages: [{ role: "assistant", content: [
+        { type: "tool_use", id: "t1", name: "x", input: { raci: { "Sofia Ramirez": "R" }, note: "Sofia Ramirez" } },
+      ] }],
+      metadata: { "Sofia Ramirez": "Sofia Ramirez" },
+    });
+    const out = JSON.parse(redactJsonBody(body, s));
+    expect(out.messages[0].content[0].input).toEqual({ raci: { "[Person 1]": "R" }, note: "[Person 1]" });
+    expect(out.metadata).toEqual({ "Sofia Ramirez": "[Person 1]" });
+    const reply = JSON.stringify({ content: [{ type: "tool_use", id: "t2", name: "x", input: { raci: { "[Person 1]": "A" } } }] });
+    expect(JSON.parse(restoreJsonText(reply, s)).content[0].input).toEqual({ raci: { "Sofia Ramirez": "A" } });
+  });
+
   // Deviation from F2c's "any data field", flagged in the report: a plain-text
   // document source carries readable attachment text, not an opaque blob.
   it("a plain-text document source's data IS redacted", () => {

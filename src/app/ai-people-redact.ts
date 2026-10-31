@@ -350,15 +350,19 @@ function isProtocolString(key: string, owner: Record<string, unknown>): boolean 
   return key === "name" && (owner.type === "tool_use" || owner.type === "server_tool_use" || owner.type === "tool");
 }
 
-/** Every string value redacted, whatever its key: a tool `input` is data the
- *  model wrote, and the transport restores real names into it, so a
- *  protocol-named key there (`role`, `type`, `id`, `data`…) is content too. */
+/** Every string redacted, KEYS included, whatever its key: a tool `input` is data
+ *  the model wrote, and the transport restores real names into it, so a
+ *  protocol-named key there (`role`, `type`, `id`, `data`…) is content too.
+ *  Review 3, R7: `restoreJsonText` restores the raw reply text, so a placeholder
+ *  the model used as an object key comes back as a real name and rides in the
+ *  history; redacting keys here keeps it from leaving on the next send. No tool
+ *  schema keys an object by person today (keys are ids, months, milestone ids). */
 function redactAll(v: unknown, s: RedactionSession): unknown {
   if (typeof v === "string") return s.redact(v);
   if (Array.isArray(v)) return v.map((x) => redactAll(x, s));
   if (v === null || typeof v !== "object") return v;
   const out: Record<string, unknown> = {};
-  for (const [k, x] of Object.entries(v as Record<string, unknown>)) out[k] = redactAll(x, s);
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) out[s.redact(k)] = redactAll(x, s);
   return out;
 }
 
@@ -377,9 +381,9 @@ function redactValue(v: unknown, s: RedactionSession, top = false): unknown {
   return out;
 }
 
-/** Redact every string VALUE of a JSON request body; keys, protocol strings,
- *  opaque blobs and the top-level `tools` definitions (app-authored, no project
- *  data) stay. A body that is not JSON is redacted as plain text, never sent raw. */
+/** Redact every string VALUE of a JSON request body, and the keys inside a tool
+ *  `input` (R7); other keys (protocol or app-authored), protocol strings, opaque
+ *  blobs and the top-level `tools` definitions (app-authored, no project data) stay. A body that is not JSON is redacted as plain text, never sent raw. */
 export function redactJsonBody(body: string, s: RedactionSession): string {
   let parsed: unknown;
   try {
