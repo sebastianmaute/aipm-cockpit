@@ -380,7 +380,8 @@ which owns that list.
    AIPM_AI_ORGANIZATION_ID=<organisation UUID>
    AIPM_AI_WORKSPACE_IDS=<wrkspc_…>,<wrkspc_…>   # optional
    ```
-   The server reads both on every request, so a restart applies a change; no rebuild.
+   Both are read from the server's environment (`process.env`), which a running server does
+   not re-read: a change needs a server restart; no rebuild.
    A malformed value, an empty list item, or workspace ids without an organisation id
    switch AI off for the whole deployment (reason codes `org-id`, `workspace-ids`,
    `workspaces-without-org`) instead of letting keys through. As with the gateway
@@ -421,8 +422,9 @@ which owns that list.
    - A pass is cached, by the SHA-256 of the key and in memory only, until the cache
      (at most 1000 entries) evicts it or the restriction settings change. A restart
      empties the cache.
-   - Anthropic's own `401` or `403` for the key is passed through unchanged and not
-     cached. Through a gateway, a `401` or `403` that is not Anthropic's own (the
+   - Anthropic's own `401` or `403` for the key is passed through unchanged. The `401`
+     is remembered for 60 seconds (by the SHA-256 of the key), so repeated calls with
+     one invalid key send one check, not one each; the `403` is not cached. Through a gateway, a `401` or `403` that is not Anthropic's own (the
      gateway refusing its token) answers `502` `ai-gateway-rejected`, as any gateway
      refusal does.
 5. **Combining it with a gateway.** With `AIPM_AI_GATEWAY_URL` set too, calls stay on the
@@ -482,7 +484,8 @@ that list.
    AIPM_AI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_id>/anthropic
    AIPM_AI_GATEWAY_TOKEN=<the token from step 2>
    ```
-   The server reads both on every request, so a restart applies a change; no rebuild.
+   Both are read from the server's environment (`process.env`), which a running server does
+   not re-read: a change needs a server restart; no rebuild.
    An invalid value switches AI off for the whole deployment instead of falling back
    to a direct call: Settings → AI says the gateway setting is invalid, and
    `GET /api/ai/status` answers `invalid: true`. Which part is invalid is named by a

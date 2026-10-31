@@ -20,8 +20,8 @@ longer carries its own changelog comment.
   malformed setting switches AI off. Switching the restriction on or off asks every user to accept the AI data
   disclosure again, behind a gateway too. The check proves which organisation a key belongs to, not what
   that organisation's contract covers, and it governs only data this app sends; setup and limits are in
-  `docs/RUNBOOK.md` and `docs/security.md`. After updating, a tab left open from before the update reports AI
-  as not confirmed until it is reloaded.
+  `docs/RUNBOOK.md` and `docs/security.md`. Where the operator turns the restriction on, a tab left open from before
+  that change reports AI as not confirmed until it is reloaded; a deployment without the restriction keeps working.
 - **People protection for the AI (on by default, per project).** Settings → AI has a new switch, Protect people from
   the AI. While it is on, every AI request is redacted before it leaves the browser: the names, e-mail addresses and
   phone numbers of the people the project knows, and IBANs, become placeholders such as [Person 1], and the real names
