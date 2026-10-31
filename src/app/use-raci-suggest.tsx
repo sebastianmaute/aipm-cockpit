@@ -324,12 +324,12 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
 
   const onConfirm = useCallback(() => {
     if (peopleProtected || phase !== "preview") return;
-    // Pair integrity first: a half whose partner was deselected is dropped, so a
-    // lone new Accountable (or lone demotion) can never be written.
-    // A half whose stakeholder was deleted since propose counts as not chosen, so it orphans its partner
+    // Three steps, in this order. (1) Keep only ticked cells whose stakeholder still exists: a half
+    // whose stakeholder was deleted since propose counts as not chosen, so it orphans its partner
     // (foldCellsByStakeholder would otherwise skip it silently and save the other half alone).
-    // Then an A the LIVE holders no longer allow is dropped (someone took or lost A since propose),
-    // and only then are orphaned halves removed, so the dropped A takes its partner with it.
+    // (2) Drop an A the LIVE holders no longer allow (someone took or lost A since propose).
+    // (3) Only then drop orphaned or malformed pair halves — a half whose partner was deselected or
+    // dropped above goes too, so a lone new Accountable (or lone demotion) can never be written.
     const liveIds = new Set(stakeholders.map((s) => s.id));
     const chosen = dropOrphanedPairHalves(
       dropStaleAccountables(

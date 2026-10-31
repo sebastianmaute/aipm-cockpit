@@ -1143,7 +1143,10 @@
   exactly the pair's demoted stakeholder; THEN `dropOrphanedPairHalves` keeps a `pairKey` group only when it is
   exactly one A and one non-A, and drops any other group whole. In that order, because the fold would otherwise
   skip a deleted half silently, and a stale A dropped after the orphan check would leave its partner to be saved
-  alone — two Accountables or none either way. ★ The re-check is CONSERVATIVE on purpose (owner ruling,
+  alone, against a state that changed since the proposal. That lone half does not always break the
+  one-Accountable rule: a lone demotion leaves the milestone with no A, but when the deleted stakeholder is the
+  demoted holder their stored A goes with them, so a lone new A would leave exactly one. The drop is still right
+  in both cases, because the state changed. ★ The re-check is CONSERVATIVE on purpose (owner ruling,
   2026-10-31): when the live Accountable state of a milestone changed after the proposal, its handover is dropped
   even when writing it would still leave exactly one A — e.g. the old holder lost A meanwhile, so the pair's
   demoted stakeholder is no longer the live holder. The user re-runs Suggest RACI against the new state.
