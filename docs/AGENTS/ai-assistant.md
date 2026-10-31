@@ -48,7 +48,13 @@
   and the forced-call envelope `postOnce`; `getAiModels` for the model list). Before EACH send it asks
   `GET /api/ai/status` (`confirmAiDeployment`): off, invalid, a route other than the page loaded with, or no
   answer at all throws `AiDeploymentError` and NOTHING is sent — an unconfirmed setting never falls back to a
-  direct call. ★ One status request per send, so: the chat makes one per `callClaude` round (a reply with tool
+  direct call. ★★ The answer also says `peopleForced` (`AiStatus`: `ai-people` in AIPM_DISABLED_INTEGRATIONS, read
+  per request), because the page-load copy (`IntegrationSwitchesSync`) never sees a lock added later: an answer
+  without it is unconfirmed; when true, `confirmAiDeployment` folds it into the page's forced state
+  (`addDisabledIntegration`) and `postAiMessages` protects THAT send — an unprotected privacy becomes its
+  projects' protected one through `ifForced` (`aiPrivacyFor`), the wizard loses its image exemption, and a
+  privacy with no `ifForced` is refused (review 4, M3). Only the Messages path applies it; dictation
+  (`stt-engine.ts`) only folds it. ★ One status request per send, so: the chat makes one per `callClaude` round (a reply with tool
   calls takes up to `maxChatTurns` rounds, `DEFAULT_MAX_CHAT_TURNS` by default); a forced call one per `postOnce`
   (more than one when it falls back); a scheduled job two in the usual case (its `confirmDeployment` before the run,
   then its analysis's `postOnce`). Reproduce the call sites:

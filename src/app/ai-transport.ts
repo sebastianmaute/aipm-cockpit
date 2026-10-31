@@ -27,7 +27,8 @@
 // non-streaming JSON (`callClaude` and `postOnce` both `await res.json()`), so the clone parses as
 // JSON. A streamed (SSE) response would fail that parse, which is swallowed: no usage is reported for
 // it, and streaming usage is left to the code that adds streaming. With no listener, nothing is cloned.
-import { currentAiRoute, type AiDeploymentState } from "./ai-deployment";
+import { currentAiRoute, type AiStatus } from "./ai-deployment";
+import { addDisabledIntegration } from "./integration-switches";
 import {
   AI_GATEWAY_ERROR,
   AI_GATEWAY_INVALID,
@@ -98,9 +99,9 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
 
-function isDeploymentState(v: unknown): v is AiDeploymentState {
+function isAiStatus(v: unknown): v is AiStatus {
   return isRecord(v) && typeof v.off === "boolean" && typeof v.invalid === "boolean"
-    && (v.route === "direct" || v.route === "gateway");
+    && (v.route === "direct" || v.route === "gateway") && typeof v.peopleForced === "boolean";
 }
 
 function isAbort(e: unknown, signal: AbortSignal | undefined): boolean {
@@ -108,8 +109,11 @@ function isAbort(e: unknown, signal: AbortSignal | undefined): boolean {
 }
 
 /** Ask the server for this deployment's AI setting; resolve only when AI is on and the route is
- *  the one this page loaded with. Throws `AiDeploymentError` otherwise; an abort stays an abort. */
-export async function confirmAiDeployment(signal?: AbortSignal): Promise<void> {
+ *  the one this page loaded with. Throws `AiDeploymentError` otherwise; an abort stays an abort.
+ *  Resolves with whether the server forces people protection NOW (review 4, M3); a lock added since
+ *  page load is folded into the page's forced state (`addDisabledIntegration`). An answer that does
+ *  not say it is not trusted ("unconfirmed"), like any other malformed answer. */
+export async function confirmAiDeployment(signal?: AbortSignal): Promise<{ peopleForced: boolean }> {
   let state: unknown;
   try {
     const res = await requestAiStatus(signal);
@@ -120,10 +124,21 @@ export async function confirmAiDeployment(signal?: AbortSignal): Promise<void> {
     if (isAbort(e, signal)) throw e;
     throw new AiDeploymentError("unconfirmed");
   }
-  if (!isDeploymentState(state)) throw new AiDeploymentError("unconfirmed");
+  if (!isAiStatus(state)) throw new AiDeploymentError("unconfirmed");
+  if (state.peopleForced) addDisabledIntegration("ai-people");
   if (state.off) throw new AiDeploymentError("off");
   if (state.invalid) throw new AiDeploymentError("invalid");
   if (state.route !== currentAiRoute()) throw new AiDeploymentError("route-changed");
+  return { peopleForced: state.peopleForced };
+}
+
+/** The privacy a send uses when the server forces people protection: a protected privacy always refuses
+ *  unredactable content (the unforced wizard's exemption ends), an unprotected one becomes its projects'
+ *  protected privacy, and one that cannot be protected is refused before anything is sent (review 4, M3). */
+function forcedPrivacy(privacy: AiPrivacy): AiPrivacy {
+  if (privacy.protected) return privacy.refuseUnredactable ? privacy : { ...privacy, refuseUnredactable: true };
+  if (privacy.ifForced) return privacy.ifForced();
+  throw new AiDeploymentError("unconfirmed");
 }
 
 const JSON_BODY: Readonly<Record<string, string>> = { "content-type": "application/json" };
@@ -252,10 +267,11 @@ async function restoreReply(res: Response, privacy: AiPrivacy): Promise<Response
 }
 
 /** POST a Messages request on this deployment's route, after `confirmAiDeployment`. */
-export async function postAiMessages({ apiKey, body, path, signal, beforeSend, privacy }: PostAiMessagesArgs): Promise<Response> {
-  await confirmAiDeployment(signal);
+export async function postAiMessages({ apiKey, body, path, signal, beforeSend, privacy: asked }: PostAiMessagesArgs): Promise<Response> {
+  const { peopleForced } = await confirmAiDeployment(signal);
   throwIfAborted(signal);
   beforeSend?.();
+  const privacy = peopleForced ? forcedPrivacy(asked) : asked;
   const outgoing = redactForSend(body, privacy);
   const gateway = currentAiRoute() === "gateway";
   const res = await fetch(gateway ? RELAY_MESSAGES_URL : ANTHROPIC_MESSAGES_URL, {

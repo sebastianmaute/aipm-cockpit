@@ -31,6 +31,13 @@ export function setDisabledIntegrations(ids: readonly IntegrationId[]): void {
   disabled = new Set(ids);
 }
 
+/** Records one more switched-off integration learned AFTER page load: the AI transport's per-send status
+ *  reporting a people lock the server added since (review 4, M3). Only ever adds; a lock the server lifts
+ *  applies at the next page load. */
+export function addDisabledIntegration(id: IntegrationId): void {
+  if (!disabled.has(id)) disabled = new Set([...disabled, id]);
+}
+
 export function isIntegrationDisabled(id: IntegrationId): boolean {
   return disabled.has(id);
 }

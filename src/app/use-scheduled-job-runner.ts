@@ -112,7 +112,10 @@ function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, con
       const live = list.find((j) => j.key !== null && j.key === job.key);
       return live !== undefined && isRunnable(live) && live.projectId === job.projectId && sameSchedule(live, job);
     },
-    confirmDeployment: () => confirmAiDeployment(),
+    // The people lock it reports is applied by the send itself (`postAiMessages` asks again).
+    confirmDeployment: async () => {
+      await confirmAiDeployment();
+    },
     confirmBackgroundGate: () => assertAiConsentLive("background"),
     loadWorkspace: async (projectId) => {
       lastPartial = false;

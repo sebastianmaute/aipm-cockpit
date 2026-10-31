@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { postAiMessages, subscribeAiUsage } from "./ai-transport";
+import { AiDeploymentError, postAiMessages, subscribeAiUsage } from "./ai-transport";
 import { setAiDeploymentState } from "./ai-deployment";
-import { AiPeopleProtectedContentError, aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
+import { AiPeopleProtectedContentError, aiPrivacyFor, aiPrivacyForNewProject, type AiPrivacy } from "./ai-privacy";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
-import { withPeopleAllowed } from "./ai-people-protection";
+import { isPeopleProtectionForced, withPeopleAllowed } from "./ai-people-protection";
+import { setDisabledIntegrations } from "./integration-switches";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { Resource, Stakeholder } from "./types";
 
@@ -141,5 +142,65 @@ describe("aiPrivacyFor", () => {
     if (!p.protected) return;
     const out = p.session.redact("Rosalind Quenby and Stellan Hargreave");
     expect(out).not.toMatch(/Rosalind|Quenby|Stellan|Hargreave/);
+  });
+});
+
+// Review 4, M3: the deployment lock was read once per page load. The per-send status now says whether the server
+// forces people protection; a lock added after the page loaded protects the very next send, whatever the project
+// allows, and is folded into the page's forced state.
+describe("a people lock the server added after page load (review 4, M3)", () => {
+  const FORCED = { ...DIRECT_AI_STATUS, peopleForced: true };
+  function stubForced(reply: (body: string) => Response) {
+    const mock = vi.fn(async (input: string, init?: RequestInit): Promise<Response> => {
+      if (input === "/api/ai/status") return aiStatusResponse(FORCED);
+      return reply(String(init?.body));
+    });
+    vi.stubGlobal("fetch", mock);
+    return mock;
+  }
+  afterEach(() => setDisabledIntegrations([]));
+
+  it("a project that allows people: the next send is redacted and the reply restored", async () => {
+    const privacy = privacyOf(wsAllowed);
+    expect(privacy.protected).toBe(false);
+    expect(isPeopleProtectionForced()).toBe(false);
+    let sentBody = "";
+    const fetchMock = stubForced((body) => {
+      sentBody = body;
+      const placeholder = /\[Person \d+\]/.exec(body)?.[0] ?? "none";
+      return new Response(JSON.stringify({ content: [{ type: "text", text: `Ask ${placeholder}` }] }), { status: 200 });
+    });
+    const res = await postAiMessages({ apiKey: KEY, path: "chat", privacy, body: bodyOf("Stellan Hargreave, s.hargreave@example.test") });
+    expect(messageCalls(fetchMock)).toHaveLength(1);
+    expect(sentBody).not.toMatch(/Stellan|Hargreave|s\.hargreave/);
+    expect(await res.text()).toContain("Ask Stellan Hargreave");
+    expect(isPeopleProtectionForced()).toBe(true);
+  });
+
+  it("the server not forcing: an allowing project sends as before (control)", async () => {
+    let sentBody = "";
+    stub((body) => {
+      sentBody = body;
+      return new Response("{}", { status: 200 });
+    });
+    await postAiMessages({ apiKey: KEY, path: "chat", privacy: privacyOf(wsAllowed), body: bodyOf("Stellan Hargreave") });
+    expect(sentBody).toContain("Stellan Hargreave");
+    expect(isPeopleProtectionForced()).toBe(false);
+  });
+
+  it("an unprotected privacy that cannot be protected is refused before sending (fail closed)", async () => {
+    const fetchMock = stubForced(() => new Response("{}", { status: 200 }));
+    const err = await postAiMessages({ apiKey: KEY, path: "chat", privacy: { protected: false }, body: bodyOf("x") }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiDeploymentError);
+    expect(messageCalls(fetchMock)).toEqual([]);
+  });
+
+  it("the unforced create-project wizard now refuses an image", async () => {
+    const privacy = aiPrivacyForNewProject();
+    expect(privacy.protected && privacy.refuseUnredactable).toBe(false);
+    const fetchMock = stubForced(() => new Response("{}", { status: 200 }));
+    const body = JSON.stringify({ messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: "image/png", data: "AAAA" } }] }] });
+    await expect(postAiMessages({ apiKey: KEY, path: "wizard", privacy, body })).rejects.toBeInstanceOf(AiPeopleProtectedContentError);
+    expect(messageCalls(fetchMock)).toEqual([]);
   });
 });

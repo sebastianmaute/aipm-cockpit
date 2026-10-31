@@ -12,23 +12,35 @@ import { isPeopleProtected, isPeopleProtectionForced } from "./ai-people-protect
 import { redactionSessionFor, type RedactionSession } from "./ai-people-redact";
 import type { Workspace } from "./workspace";
 
+export type ProtectedAiPrivacy = {
+  protected: true;
+  session: RedactionSession;
+  /** True: an image or non-text document is refused before sending (`AiPeopleProtectedContentError`). False
+   *  only for the create-project wizard while the deployment does not force protection. Required, so tsc makes
+   *  every builder state it. */
+  refuseUnredactable: boolean;
+};
+
 export type AiPrivacy =
-  | { protected: false }
   | {
-      protected: true;
-      session: RedactionSession;
-      /** True: an image or non-text document is refused before sending (`AiPeopleProtectedContentError`). False
-       *  only for the create-project wizard while the deployment does not force protection. Required, so tsc makes
-       *  every builder state it. */
-      refuseUnredactable: boolean;
-    };
+      protected: false;
+      /** The protected privacy of the same projects, built on demand. The transport uses it when the per-send
+       *  status reports a people lock the server added after page load (review 4, M3); without it such a send
+       *  is refused (fail closed). */
+      ifForced?: () => ProtectedAiPrivacy;
+    }
+  | ProtectedAiPrivacy;
 
 /** Protected if any project is; the session covers the people of ALL the given projects. */
 export function aiPrivacyFor(projects: readonly { key: string; ws: Workspace }[]): AiPrivacy {
-  if (!projects.some((p) => isPeopleProtected(p.ws.settingsOverrides))) return { protected: false };
   const keys = projects.map((p) => p.key);
-  const dicts = projects.map((p) => buildPeopleDictionary(p.ws));
-  return { protected: true, session: redactionSessionFor(keys, dicts), refuseUnredactable: true };
+  const forced = (): ProtectedAiPrivacy => ({
+    protected: true,
+    session: redactionSessionFor(keys, projects.map((p) => buildPeopleDictionary(p.ws))),
+    refuseUnredactable: true,
+  });
+  if (!projects.some((p) => isPeopleProtected(p.ws.settingsOverrides))) return { protected: false, ifForced: forced };
+  return forced();
 }
 
 /** The session key of a project that does not exist yet; no stored project can carry it (ids are never
