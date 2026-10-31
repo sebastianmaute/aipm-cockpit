@@ -601,7 +601,7 @@ describe("relay — straight to Anthropic when keys are restricted and there is 
     expect(calls).toHaveLength(0);
   });
 
-  it("a gateway wins over the restriction: the check and the call both go to it with its token (K9)", async () => {
+  it("a gateway wins over the restriction: the check and the call both go to it with its token, like the real request", async () => {
     const { send, calls } = fakeSend(checkedAs(ORG));
     await relay(post(), "messages", { ...GATEWAY_ENV, ...RESTRICTED_ENV }, send, createKeyChecker());
     expect(calls.map((c) => c.url.href)).toEqual([`${BASE}/v1/models?limit=1`, `${BASE}/v1/messages`]);
@@ -700,7 +700,7 @@ describe("relay — the key check before forwarding (AI organisation key)", () =
     expect(calls.some(isMessages)).toBe(false);
   });
 
-  it("workspaces configured and the pre-flight has no workspace header → 503; no Messages call (Review Focus 2)", async () => {
+  it("workspaces configured and the pre-flight has no workspace header → 503; no Messages call (fails closed)", async () => {
     const { send, calls } = fakeSend(checkedAs(ORG));
     const env = { ...RESTRICTED_ENV, AIPM_AI_WORKSPACE_IDS: WS };
     const res = await relay(post(), "messages", env, send, createKeyChecker());

@@ -2,8 +2,9 @@
 // its Anthropic organisation (AIPM_AI_ORGANIZATION_ID, optionally AIPM_AI_WORKSPACE_IDS).
 //
 // A free pre-flight `GET <base>/v1/models?limit=1` with the caller's key goes through the same
-// upstream as the real request (the gateway, with its token, or Anthropic itself; spec K9), and
-// the `anthropic-organization-id` and `anthropic-workspace-id` answer headers decide:
+// upstream as the real request (the gateway, with its token, or Anthropic itself; a gateway must pass
+// Anthropic's answer headers back, docs/RUNBOOK.md "Restricting AI to the organisation's Anthropic
+// keys" step 5), and the `anthropic-organization-id` and `anthropic-workspace-id` answer headers decide:
 //   - organisation matches and (when workspaces are listed) the workspace is listed → pass;
 //   - another organisation → wrong-organization; a workspace not listed → wrong-workspace;
 //   - Anthropic's own 401/403 → its answer is passed through unchanged (an invalid key is not

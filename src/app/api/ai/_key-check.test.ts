@@ -200,7 +200,7 @@ describe("createKeyChecker — refusals", () => {
   });
 });
 
-describe("createKeyChecker — fails closed (Review Focus 2): unavailable, never cached", () => {
+describe("createKeyChecker — fails closed: unavailable, never cached", () => {
   const cases: Array<[string, (call: Call) => void, Restricted]> = [
     ["workspaces configured, a 2xx without the workspace header", org(ORG), WITH_WS],
     ["a 2xx without the organisation header", respond(200, {}), ORG_ONLY],
@@ -272,7 +272,7 @@ describe("createKeyChecker — Anthropic's own 401/403 is passed through, not ca
   });
 });
 
-describe("createKeyChecker — coalescing (Review Focus 1)", () => {
+describe("createKeyChecker — coalescing: concurrent checks of one new key share one pre-flight", () => {
   it("three concurrent checks with one new key → one upstream call, three equal verdicts", async () => {
     const { send, calls } = fakeSend(org(ORG));
     const checker = createKeyChecker();
