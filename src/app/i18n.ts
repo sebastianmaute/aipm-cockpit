@@ -3378,7 +3378,6 @@ const enUS = {
   raciSuggest: "Suggest RACI",
   raciSuggestTitle: "Proposed RACI assignments",
   raciSuggestIntro: "Review each proposed assignment. Only ticked rows are applied.",
-  raciSuggestThinking: "Asking Claude…",
   raciSuggestApply: "Apply selected",
   raciSuggestInclude: "Include",
   raciSuggestCurrent: "Current",
@@ -3394,7 +3393,7 @@ const enUS = {
     "1 proposed assignment was refused because that milestone already has an Accountable.",
   raciSuggestTruncated: "The proposal was capped; some assignments were not returned.",
   raciSuggestContextTruncated:
-    "This project is large, so Claude was shown only some of its stakeholders and milestones. Anyone left out has no proposal here.",
+    "This project is large, so Claude was shown only part of its data (some stakeholders, milestones or evidence). Anything left out has no proposal here.",
   raciSuggestAllSkipped: "None of the proposed assignments can be applied.",
   raciSuggestAllExisting:
     "Every assignment Claude proposed is already in place. Nothing needs to change.",
@@ -3402,10 +3401,18 @@ const enUS = {
     "{0} proposed assignments were refused because the role letter was not one of R, A, C or I.",
   raciSuggestSkippedInvalidRoleOne:
     "1 proposed assignment was refused because the role letter was not one of R, A, C or I.",
-  raciSuggestSkippedHandover:
-    "{0} proposed assignments were refused because each is an Accountable handover. Change the Accountable by hand.",
-  raciSuggestSkippedHandoverOne:
-    "1 proposed assignment was refused because it is an Accountable handover. Change the Accountable by hand.",
+  raciSuggestSkippedDuplicateNeedsDemotion:
+    "{0} proposed assignments were refused because each would make a second Accountable. Claude must also propose the current holder's new role.",
+  raciSuggestSkippedDuplicateNeedsDemotionOne:
+    "1 proposed assignment was refused because it would make a second Accountable. Claude must also propose the current holder's new role.",
+  raciSuggestHandoverRow: "Accountable for {0}: {1} → {2}, {1} becomes {3}",
+  raciSuggestHandoverRowWas: "Accountable for {0}: {1} → {2} (was {4}), {1} becomes {3}",
+  raciSuggestInputTitle: "Suggest RACI",
+  raciSuggestInputIntro: "Tell Claude any rule to follow, or leave it empty, then choose Suggest.",
+  raciSuggestRun: "Suggest",
+  raciSuggestThinking: "Asking Claude…",
+  raciSuggestRequestLabel: "Request for Claude (optional)",
+  raciSuggestRequestPlaceholder: "e.g. Keep Ada as Accountable for Go-Live",
   raciSuggestNoOpCount: "Already in place: {0}",
   activityAiRaciSuggest: "Applied {0} AI-proposed RACI assignments",
   activityAiRaciSuggestOne: "Applied 1 AI-proposed RACI assignment",

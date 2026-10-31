@@ -131,7 +131,7 @@ function AllocHarness() {
 
 function RaciHarness() {
   const suggest = useRaciSuggest({
-    settings: AI_SETTINGS, isPopout: false, lang: "en-US", stakeholders: [ALICE], milestones: MILESTONES, onSave: () => undefined,
+    settings: AI_SETTINGS, isPopout: false, lang: "en-US", stakeholders: [ALICE], milestones: MILESTONES, tasks: [], raid: [], changes: [], resources: [], roles: [], disciplines: [], grades: [], documents: [], onSave: () => undefined,
   });
   return <div>{suggest.button}{suggest.modal}</div>;
 }
@@ -179,12 +179,24 @@ describe("Plan with AI and RACI suggestions under protection", () => {
   it("a RACI preview does not come back when protection is turned off again", async () => {
     const flip = renderWithSource(allowed(base()), <RaciHarness />);
     fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
-    expect(await screen.findByRole("dialog")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "raciSuggestRun") }));
+    expect(await screen.findByRole("button", { name: /apply selected/i })).toBeTruthy();
     flip(protectedWs(base()));
     expect(screen.queryByRole("dialog")).toBeNull();
     flip(allowed(base()));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole("button", { name: /suggest raci/i })).toBeTruthy();
+  });
+
+  it("protection turning on during the RACI request stage closes the dialog and clears the draft", () => {
+    const flip = renderWithSource(allowed(base()), <RaciHarness />);
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    fireEvent.change(screen.getByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") }), { target: { value: "draft" } });
+    flip(protectedWs(base()));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    flip(allowed(base()));
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    expect((screen.getByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") }) as HTMLTextAreaElement).value).toBe("");
   });
 
   it("the RACI suggestion trigger is absent when protected and present when allowed", () => {

@@ -3,13 +3,19 @@
 // re-grounded against the live stakeholders/milestones before anything can be
 // shown or applied.
 import { RACI_ROLES, type Milestone, type RaciRole, type Stakeholder } from "../types";
-import { descriptionHtml, htmlPlainProjection, oneLine } from "../rich-text-plain";
 
 export const MAX_RACI_CELLS = 200;
-export const MAX_CONTEXT_STAKEHOLDERS = 120;
-export const MAX_CONTEXT_MILESTONES = 60;
-/** Visible characters of a milestone description the model is shown; the rest is cut with "…". */
-export const RACI_CONTEXT_DESCRIPTION_CHARS = 300;
+export {
+  buildRaciContext,
+  MAX_CONTEXT_STAKEHOLDERS,
+  MAX_CONTEXT_MILESTONES,
+  RACI_CONTEXT_DESCRIPTION_CHARS,
+  MAX_EVIDENCE_LINES,
+  MAX_DOC_TITLES_PER_MILESTONE,
+  DOC_TITLE_CHARS,
+  RACI_REQUEST_MAX_CHARS,
+  type RaciContextInput,
+} from "./raci-context";
 
 export interface ProposedCell {
   stakeholderId: number;
@@ -22,6 +28,9 @@ export interface GroundedRaciCell extends ProposedCell {
   milestoneName: string;
   /** The role stored today, or null when the cell is empty. */
   currentRole: RaciRole | null;
+  /** `handover:<milestoneId>` on BOTH cells of an accepted Accountable handover
+   *  (the new holder's A and the old holder's demotion); absent otherwise. */
+  pairKey?: string;
 }
 
 export type SkipReason =
@@ -29,11 +38,10 @@ export type SkipReason =
   | "unknown-milestone"
   | "invalid-role"
   | "duplicate-accountable"
-  /** A proposed Accountable for someone else on a milestone whose CURRENT
-   *  Accountable the same proposal demotes. Still refused — see
-   *  `groundRaciCells` — but "that milestone already has an Accountable" would
-   *  misdescribe a proposal that deliberately moves it (§43). */
-  | "accountable-handover";
+  /** A new Accountable on a milestone with exactly ONE stored holder, when the
+   *  proposal gives that holder no valid non-A role: the A could only be
+   *  accepted by minting a second one (§771). */
+  | "accountable-needs-demotion";
 
 export interface SkippedRaciCell {
   stakeholderId: number;
@@ -94,11 +102,20 @@ export function groundRaciCells(
 
   // Milestones whose STORED Accountable this proposal demotes (a valid non-A
   // role for that holder). A second A proposed for such a milestone is a
-  // HANDOVER, and it is still refused rather than accepted: `onConfirm` applies
-  // whatever subset the user ticks and does not re-check uniqueness, so a user
-  // who unticked the demotion and kept the promotion would write TWO
-  // Accountables. Only the explanation changes (§43). First occurrence per cell
-  // only, matching the `seen` dedupe below.
+  // HANDOVER, accepted as a PAIR only when the milestone has exactly ONE stored
+  // holder and the proposal demotes that holder: both cells carry `pairKey`.
+  // That is safe only because the confirm path applies both halves or neither
+  // (`dropOrphanedPairHalves`) and re-checks the LIVE Accountable holders first
+  // (`dropStaleAccountables`, both in use-raci-suggest.tsx), since these holders
+  // are the ones stored at propose time. First occurrence per cell only,
+  // matching the `seen` dedupe below.
+  const storedHolders = new Map<number, number[]>();
+  for (const s of stakeholders) {
+    for (const [key, role] of Object.entries(s.raci)) {
+      if (role === "A") storedHolders.set(Number(key), [...(storedHolders.get(Number(key)) ?? []), s.id]);
+    }
+  }
+  const pairedMilestones = new Set<number>();
   const demotedHolder = new Set<number>();
   const preSeen = new Set<string>();
   for (const c of proposed) {
@@ -139,13 +156,19 @@ export function groundRaciCells(
       // someone else is not.
       const holder = accountableHolder.get(c.milestoneId);
       if (holder !== undefined && holder !== c.stakeholderId) {
-        // `demotedHolder` only names milestones with a STORED holder, and a
-        // stored holder is never replaced in the map, so `holder` here IS the
-        // demoted one. Two proposed A's on a milestone with no stored holder
-        // still read as duplicate-accountable.
-        const handover = demotedHolder.has(c.milestoneId);
-        skipped.push({ ...c, reason: handover ? "accountable-handover" : "duplicate-accountable" });
-        continue;
+        // A handover needs exactly ONE stored holder (still unclaimed in the
+        // map) whom the proposal demotes. Everything else stays a duplicate.
+        const stored = storedHolders.get(c.milestoneId) ?? [];
+        const unclaimed = stored.length === 1 && stored[0] === holder;
+        if (!unclaimed) {
+          skipped.push({ ...c, reason: "duplicate-accountable" });
+          continue;
+        }
+        if (!demotedHolder.has(c.milestoneId)) {
+          skipped.push({ ...c, reason: "accountable-needs-demotion" });
+          continue;
+        }
+        pairedMilestones.add(c.milestoneId);
       }
       // Claim it BEFORE the no-op check below, so that a later proposed A for a
       // DIFFERENT stakeholder on this milestone is still refused even when this
@@ -171,62 +194,28 @@ export function groundRaciCells(
     });
   }
 
-  return { cells, skipped, truncated: proposed.length > MAX_RACI_CELLS, noOp };
+  return { cells: markHandoverPairs(cells, pairedMilestones, storedHolders), skipped, truncated: proposed.length > MAX_RACI_CELLS, noOp };
 }
 
-/** One table cell: a single line, with the column separator replaced, so a value
- *  can never split its row or add a column (§770). */
-function cell(v: string | undefined): string {
-  return oneLine(v ?? "").replace(/\s+/g, " ").replace(/\|/g, "/");
-}
-
-/** A milestone description as one capped plain-text cell. A legacy plain value
- *  is escaped first (`descriptionHtml`), so a literal "<" in it survives. */
-function descriptionCell(stored: string | undefined): string {
-  // Code points, not UTF-16 units, so the cut never splits an emoji.
-  const chars = [...cell(htmlPlainProjection(descriptionHtml(stored, "rich")))];
-  return chars.length > RACI_CONTEXT_DESCRIPTION_CHARS
-    ? `${chars.slice(0, RACI_CONTEXT_DESCRIPTION_CHARS).join("")}…`
-    : chars.join("");
-}
-
-/** Compact English digest for the model. Capped, and reports the cap — a silent
- *  truncation reads as "covered everything". */
-export function buildRaciContext(
-  stakeholders: readonly Stakeholder[],
-  milestones: readonly Milestone[],
-): { text: string; truncated: boolean } {
-  const s = stakeholders.slice(0, MAX_CONTEXT_STAKEHOLDERS);
-  const m = milestones.slice(0, MAX_CONTEXT_MILESTONES);
-  const lines: string[] = ["STAKEHOLDERS (id | name | title | organization | category | influence | interest)"];
-  for (const p of s) {
-    lines.push(
-      [p.id, cell(p.name), cell(p.title), cell(p.organization), p.category, p.influence, p.interest].join(" | "),
-    );
-  }
-  lines.push("", "MILESTONES (id | name | date | description)");
-  for (const x of m) {
-    lines.push([x.id, cell(x.name), x.date ?? "", descriptionCell(x.description)].join(" | "));
-  }
-  lines.push("", "EXISTING ASSIGNMENTS (stakeholderId | milestoneId | role)");
-  // Restricted to the milestones actually listed above. Emitting an assignment
-  // for a milestone outside the capped slice shows the model an id it was never
-  // given, inviting it to reason about — or propose against — a row it cannot
-  // see. Grounding would reject such a cell anyway; this keeps the prompt
-  // self-consistent rather than relying on that backstop.
-  const shownMilestones = new Set(m.map((x) => String(x.id)));
-  for (const p of s) {
-    for (const [key, role] of Object.entries(p.raci)) {
-      if (!shownMilestones.has(key)) continue;
-      lines.push([p.id, key, role].join(" | "));
-    }
-  }
-  return {
-    text: lines.join("\n"),
-    truncated:
-      stakeholders.length > MAX_CONTEXT_STAKEHOLDERS ||
-      milestones.length > MAX_CONTEXT_MILESTONES,
-  };
+/** Stamp `pairKey` on both cells of each handover. A new A whose demotion was
+ *  cut by the cell cap is dropped: it would mint a second Accountable alone.
+ *  The dropped A appears in none of `cells`, `skipped` or `noOp`; only
+ *  `truncated` reports it. */
+function markHandoverPairs(
+  cells: GroundedRaciCell[],
+  paired: ReadonlySet<number>,
+  storedHolders: ReadonlyMap<number, number[]>,
+): GroundedRaciCell[] {
+  if (paired.size === 0) return cells;
+  const hasDemotion = (m: number) =>
+    cells.some((c) => c.milestoneId === m && c.stakeholderId === storedHolders.get(m)?.[0] && c.role !== "A");
+  return cells.flatMap((c) => {
+    if (!paired.has(c.milestoneId)) return [c];
+    const isDemotion = c.stakeholderId === storedHolders.get(c.milestoneId)?.[0];
+    if (!isDemotion && c.role === "A" && !hasDemotion(c.milestoneId)) return [];
+    if (isDemotion || c.role === "A") return [{ ...c, pairKey: `handover:${c.milestoneId}` }];
+    return [c];
+  });
 }
 
 export const RACI_SUGGEST_TOOL = {
@@ -236,7 +225,8 @@ export const RACI_SUGGEST_TOOL = {
     "R = Responsible (does the work), A = Accountable (exactly ONE per milestone, owns the outcome), " +
     "C = Consulted (two-way input), I = Informed (one-way updates). " +
     "Only propose assignments you are confident about; omit a cell rather than guess. " +
-    "Never propose a second Accountable for a milestone that already has one.",
+    "To move Accountable from its current holder to someone else, propose the new holder's A and a new role for the current holder in the same call; " +
+    "otherwise never propose a second Accountable for a milestone that already has one.",
   input_schema: {
     type: "object" as const,
     properties: {

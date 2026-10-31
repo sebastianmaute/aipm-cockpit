@@ -16,11 +16,12 @@ import { useMemo } from "react";
 import { type Lang, t, tPlural } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
-import { Checkbox } from "./form-controls";
+import { Checkbox, Textarea } from "./form-controls";
 import { HelpIconButton } from "./help-icon-button";
 import { MODAL_HELP } from "./help-content";
 import { ROLE_LABEL_KEY } from "./raci-chip-picker";
 import {
+  RACI_REQUEST_MAX_CHARS,
   cellKey,
   type GroundedRaciCell,
   type SkippedRaciCell,
@@ -30,7 +31,7 @@ type SkipMessageKey =
   | "raciSuggestSkipped"
   | "raciSuggestSkippedInvalidRole"
   | "raciSuggestSkippedAccountable"
-  | "raciSuggestSkippedHandover";
+  | "raciSuggestSkippedDuplicateNeedsDemotion";
 
 // The five SkipReasons do not share an explanation, so they cannot share a
 // count. TWO of them mean the cell named something this project does not have.
@@ -50,9 +51,10 @@ export const SKIP_REASON_KEY: Record<SkippedRaciCell["reason"], SkipMessageKey> 
   "unknown-milestone": "raciSuggestSkipped",
   "invalid-role": "raciSuggestSkippedInvalidRole",
   "duplicate-accountable": "raciSuggestSkippedAccountable",
-  // Its own bucket, NOT duplicate-accountable's: "already has an Accountable"
-  // is the very explanation that misdescribed a deliberate handover (§43).
-  "accountable-handover": "raciSuggestSkippedHandover",
+  // Its own bucket, NOT duplicate-accountable's: the fix differs. The refusal is
+  // actionable on the model side (propose the holder's new role too), not "this
+  // milestone is taken" (§771).
+  "accountable-needs-demotion": "raciSuggestSkippedDuplicateNeedsDemotion",
 };
 
 // Render order is FIXED, not taken from the Map. A Map iterates in insertion
@@ -71,7 +73,7 @@ export const SKIP_KEY_RANK: Record<SkipMessageKey, number> = {
   raciSuggestSkipped: 0,
   raciSuggestSkippedInvalidRole: 1,
   raciSuggestSkippedAccountable: 2,
-  raciSuggestSkippedHandover: 3,
+  raciSuggestSkippedDuplicateNeedsDemotion: 3,
 };
 export const SKIP_KEY_ORDER: readonly SkipMessageKey[] = (
   Object.keys(SKIP_KEY_RANK) as SkipMessageKey[]
@@ -80,6 +82,15 @@ export const SKIP_KEY_ORDER: readonly SkipMessageKey[] = (
 export interface RaciSuggestModalProps {
   lang: Lang;
   open: boolean;
+  /** "input" while collecting the optional request (nothing proposed yet), "preview" once cells are back. */
+  stage: "input" | "preview";
+  /** The optional free-text request, held by the caller. */
+  request: string;
+  onRequestChange: (value: string) => void;
+  /** Start the proposal (input stage). */
+  onRun: () => void;
+  /** False only while applying; closing is otherwise allowed, even mid-proposal (it aborts). */
+  canCancel: boolean;
   cells: readonly GroundedRaciCell[];
   skipped: readonly SkippedRaciCell[];
   /** Proposed cells dropped because the role proposed is the role already
@@ -110,9 +121,19 @@ export interface RaciSuggestModalProps {
   busy: boolean;
 }
 
+/** Name, plus the id when the name collides — keeps per-row accessible names unique. */
+function qualify(name: string, id: number, counts: ReadonlyMap<string, number>): string {
+  return (counts.get(name.trim().toLowerCase()) ?? 0) > 1 ? `${name} (#${id})` : name;
+}
+
 export function RaciSuggestModal({
   lang,
   open,
+  stage,
+  request,
+  onRequestChange,
+  onRun,
+  canCancel,
   cells,
   skipped,
   noOp,
@@ -126,7 +147,8 @@ export function RaciSuggestModal({
   onCancel,
   busy,
 }: RaciSuggestModalProps) {
-  const title = t(lang, "raciSuggestTitle");
+  const isInput = stage === "input";
+  const title = t(lang, isInput ? "raciSuggestInputTitle" : "raciSuggestTitle");
 
   // Case-folded name -> occurrences, over the LIVE lists. Same normalisation as
   // raci-panel's labelFor, so the two surfaces qualify the same people.
@@ -142,6 +164,7 @@ export function RaciSuggestModal({
     return { stakeholder: tally(stakeholders), milestone: tally(milestones) };
   }, [stakeholders, milestones]);
   const selectedCount = cells.reduce((n, c) => (selected.has(cellKey(c)) ? n + 1 : n), 0);
+  const seenPairs = new Set<string>();
   const canConfirm = !busy && selectedCount > 0;
 
   const skippedByKey = new Map<SkipMessageKey, number>();
@@ -158,7 +181,7 @@ export function RaciSuggestModal({
   ).filter(([, n]) => n > 0);
 
   return (
-    <Modal open={open} onClose={busy ? () => {} : onCancel} ariaLabel={title}>
+    <Modal open={open} onClose={canCancel ? onCancel : () => {}} ariaLabel={title}>
       <div
         data-modal-panel
         className="relative flex max-h-[90vh] w-[620px] max-w-[95vw] flex-col rounded-xl border border-line bg-surface"
@@ -180,20 +203,34 @@ export function RaciSuggestModal({
               <HelpIconButton lang={lang} conceptId={MODAL_HELP.raciSuggest} dialogTitle={title} />
             </div>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{t(lang, "raciSuggestIntro")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t(lang, isInput ? "raciSuggestInputIntro" : "raciSuggestIntro")}</p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          {truncated && (
+          {isInput && (
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium text-foreground">{t(lang, "raciSuggestRequestLabel")}</span>
+              <Textarea
+                value={request}
+                onChange={(e) => onRequestChange(e.target.value)}
+                placeholder={t(lang, "raciSuggestRequestPlaceholder")}
+                maxLength={RACI_REQUEST_MAX_CHARS}
+                disabled={busy}
+                rows={3}
+                className="w-full"
+              />
+            </label>
+          )}
+          {!isInput && truncated && (
             <p className="mb-4 text-xs text-muted-foreground">{t(lang, "raciSuggestTruncated")}</p>
           )}
-          {contextTruncated && (
+          {!isInput && contextTruncated && (
             <p className="mb-4 text-xs text-muted-foreground">
               {t(lang, "raciSuggestContextTruncated")}
             </p>
           )}
 
-          {cells.length === 0 ? (
+          {isInput ? null : cells.length === 0 ? (
             // "Claude proposed no assignments" is false exactly when this
             // branch is reachable: the hook only opens the preview with zero
             // cells when every proposal was SKIPPED, and the skipped block
@@ -208,6 +245,45 @@ export function RaciSuggestModal({
             <ul className="space-y-2">
               {cells.map((c) => {
                 const key = cellKey(c);
+                if (c.pairKey) {
+                  // ONE row per well-formed handover pair, rendered at the first half met.
+                  if (seenPairs.has(c.pairKey)) return null;
+                  const halves = cells.filter((x) => x.pairKey === c.pairKey);
+                  const incoming = halves.find((x) => x.role === "A");
+                  const outgoing = halves.find((x) => x.role !== "A");
+                  if (incoming && outgoing && halves.length === 2) {
+                    seenPairs.add(c.pairKey);
+                    const keys = halves.map(cellKey);
+                    // The new holder's current role on this milestone is replaced by the A, so the row names it.
+                    const label = t(
+                      lang,
+                      incoming.currentRole ? "raciSuggestHandoverRowWas" : "raciSuggestHandoverRow",
+                      qualify(c.milestoneName, c.milestoneId, nameCounts.milestone),
+                      qualify(outgoing.stakeholderName, outgoing.stakeholderId, nameCounts.stakeholder),
+                      qualify(incoming.stakeholderName, incoming.stakeholderId, nameCounts.stakeholder),
+                      t(lang, ROLE_LABEL_KEY[outgoing.role]),
+                      incoming.currentRole ? t(lang, ROLE_LABEL_KEY[incoming.currentRole]) : "",
+                    );
+                    return (
+                      <li key={c.pairKey} className="rounded-md border border-line bg-surface-muted px-3 py-2">
+                        <label className="flex cursor-pointer items-start gap-2">
+                          <Checkbox
+                            checked={keys.every((k) => selected.has(k))}
+                            disabled={busy}
+                            onChange={() => {
+                              // Both halves move together: one on, one off would mint a second Accountable.
+                              const on = keys.every((k) => selected.has(k));
+                              for (const k of keys) if (selected.has(k) === on) onToggle(k);
+                            }}
+                            aria-label={label}
+                            className="mt-0.5 shrink-0"
+                          />
+                          <span className="min-w-0 flex-1 text-sm text-foreground">{label}</span>
+                        </label>
+                      </li>
+                    );
+                  }
+                }
                 // Two stakeholders can genuinely share a name, and cells are
                 // deduped by (stakeholderId, milestoneId) — not by name — so
                 // name+milestone is NOT guaranteed unique. Identical names on N
@@ -263,7 +339,7 @@ export function RaciSuggestModal({
             </ul>
           )}
 
-          {(noOp > 0 || skippedRows.length > 0) && (
+          {!isInput && (noOp > 0 || skippedRows.length > 0) && (
             <div className="mt-4 space-y-1 border-t border-line pt-3 text-xs text-muted-foreground">
               {noOp > 0 && <p>{t(lang, "raciSuggestNoOpCount", String(noOp))}</p>}
               {skippedRows.map(([key, n]) => (
@@ -274,12 +350,18 @@ export function RaciSuggestModal({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-line px-6 py-4">
-          <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={!canCancel}>
             {t(lang, "cancel")}
           </Button>
-          <Button variant="primary" size="sm" onClick={onConfirm} disabled={!canConfirm}>
-            {t(lang, "raciSuggestApply")}
-          </Button>
+          {isInput ? (
+            <Button variant="primary" size="sm" onClick={onRun} disabled={busy}>
+              {busy ? t(lang, "raciSuggestThinking") : t(lang, "raciSuggestRun")}
+            </Button>
+          ) : (
+            <Button variant="primary" size="sm" onClick={onConfirm} disabled={!canConfirm}>
+              {t(lang, "raciSuggestApply")}
+            </Button>
+          )}
         </div>
       </div>
     </Modal>

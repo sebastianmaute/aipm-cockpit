@@ -118,6 +118,7 @@ function AllocHarness({ ws, settings }: { ws: Workspace; settings: Settings }) {
 function RaciHarness({ ws, settings }: { ws: Workspace; settings: Settings }) {
   const suggest = useRaciSuggest({
     settings, isPopout: false, lang: "en-US", stakeholders: ws.stakeholders ?? [], milestones: ws.milestones ?? [],
+    tasks: [], raid: [], changes: [], resources: [], roles: [], disciplines: [], grades: [], documents: [],
     onSave: () => undefined,
   });
   return <div>{suggest.button}{suggest.modal}</div>;

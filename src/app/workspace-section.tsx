@@ -851,6 +851,14 @@ export function WorkspaceSection({
               settings={settings}
               stakeholders={stakeholders}
               milestones={milestones}
+              tasks={tasks}
+              raid={raid}
+              changes={changes}
+              resources={resources}
+              roles={roles}
+              disciplines={disciplines}
+              grades={grades}
+              documents={workspace.documents}
               onSave={handleSaveStakeholder}
               onCaptureBulk={onCaptureStakeholderBulk}
               logActivityAs={logActivityAs}
