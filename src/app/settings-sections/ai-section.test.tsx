@@ -18,7 +18,8 @@ import {
 import { t } from "../i18n";
 import { AI_DISCLOSURE_VERSION, newConsent } from "../ai-consent";
 import { setAiDeploymentState } from "../ai-deployment";
-import { DIRECT_AI_STATUS } from "../../test/ai-status-fetch";
+import { aiStatusResponse, DIRECT_AI_STATUS } from "../../test/ai-status-fetch";
+import { __setAiStatusRequestForTests } from "../ai-status-request";
 // The AI config UI is gated behind the "Enable AI assistant" master switch
 // (default OFF), and the key field also behind a current consent (AI-01). These
 // tests exercise the expanded config, so flip it on with a consent.
@@ -1416,5 +1417,50 @@ describe("AiSection - a key the organisation refuses (AI organisation key)", () 
     const field = screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"));
     expect(field).toHaveAccessibleDescription(expect.stringContaining(t("en-US", key)));
     expect(field).toHaveAttribute("aria-invalid", "true");
+  });
+});
+
+describe("AiSection — the relay could not check the key", () => {
+  const KEY = "sk-ant-api03-SettingsNoticeKey000000";
+  const RELAY = { off: false, route: "relay" as const, invalid: false, keyRestricted: true };
+  const UNAVAILABLE = t("en-US", "aiKeyCheckUnavailable");
+
+  beforeEach(() => {
+    setAiDeploymentState(RELAY);
+    __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse(RELAY)));
+  });
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
+
+  function renderWithKey() {
+    const settings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, apiKey: KEY, consent: newConsent(new Date(0)) } };
+    render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    return screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"));
+  }
+
+  function answerModels(status: number, body: unknown) {
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
+    return spy;
+  }
+
+  it("the model list's unavailable check shows the notice beside the key field, and the list falls back", async () => {
+    const spy = answerModels(503, { error: "ai-key-check-unavailable" });
+    const field = renderWithKey();
+    await waitFor(() => expect(field).toHaveAccessibleDescription(expect.stringContaining(UNAVAILABLE)));
+    expect(spy.mock.calls.map((c) => String(c[0]))).toContain("/api/ai/models");
+    // Not a verdict on the key: the field is not marked invalid.
+    expect(field).not.toHaveAttribute("aria-invalid", "true");
+    // The model select keeps only the current selection, as on any failed poll.
+    const select = screen.getByRole("combobox", { name: t("en-US", "aiModel") });
+    expect(within(select).getAllByRole("option")).toHaveLength(1);
+  });
+
+  it("another failed poll shows no such notice (control)", async () => {
+    const spy = answerModels(503, { error: "ai-gateway-error" });
+    const field = renderWithKey();
+    await waitFor(() => expect(spy.mock.calls.map((c) => String(c[0]))).toContain("/api/ai/models"));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(screen.queryByText(UNAVAILABLE)).toBeNull();
+    expect(field).not.toHaveAccessibleDescription(expect.stringContaining(UNAVAILABLE));
   });
 });

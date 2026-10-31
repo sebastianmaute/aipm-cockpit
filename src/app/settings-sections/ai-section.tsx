@@ -211,11 +211,16 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
     showToast("error", t(lang, messageKey));
     return false;
   };
-  const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai, settings.ai.model);
+  const { options: modelOptions, loaded: modelsLoaded, checkUnavailable: keyCheckUnavailable } =
+    useChatModels(settings.ai.apiKey, settings.ai, settings.ai.model);
   // §650 — the in-memory key verdict (rejected / forbidden / unreadable), shown beside the key field
   // and, for a key that IS present but was refused, in place of the "enter a valid key" model hint.
   const apiKeyStatusId = useId();
   const keyStatusMsg = aiKeyMessageKey(useAiKeyStatus());
+  // The relay could not check the key (not a verdict on it): a notice beside the key field, never aria-invalid.
+  // A key verdict, when there is one, wins.
+  const keyCheckNoticeShown = !keyStatusMsg && keyCheckUnavailable;
+  const apiKeyCheckId = useId();
   const modelHintKey =
     keyStatusMsg && keyStatusMsg !== "aiKeyUnreadable" && settings.ai.apiKey.trim() ? keyStatusMsg : "aiModelNeedsKey";
   const sessionCap = settings.ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
@@ -513,11 +518,12 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
             onChange={(e) => handleApiKeyChange(e.target.value)}
             onBlur={handleApiKeyBlur}
             placeholder={t(lang, "aiApiKeyPlaceholder")}
-            aria-describedby={keyStatusMsg ? `${apiKeyStatusId} ${apiKeyNoteId}` : apiKeyNoteId}
+            aria-describedby={keyStatusMsg ? `${apiKeyStatusId} ${apiKeyNoteId}` : keyCheckNoticeShown ? `${apiKeyCheckId} ${apiKeyNoteId}` : apiKeyNoteId}
             aria-invalid={keyStatusMsg ? true : undefined}
           />
         </HintedLabel>
         {keyStatusMsg && <FieldError id={apiKeyStatusId}>{t(lang, keyStatusMsg)}</FieldError>}
+        {keyCheckNoticeShown && <FieldNotice id={apiKeyCheckId}>{t(lang, "aiKeyCheckUnavailable")}</FieldNotice>}
         <FieldNotice id={apiKeyNoteId}>{t(lang, "credentialStorageNote")}</FieldNotice>
       </div>
       <div className="mt-2">
