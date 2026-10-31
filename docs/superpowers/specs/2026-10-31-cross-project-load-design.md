@@ -151,29 +151,30 @@ one or two sentences and links to the entry.
 ## Settled after the builder check (designer's calls, 2026-10-31)
 
 1. **Absolute hours.** The elsewhere figure is hours, not a share. A percent value elsewhere becomes hours with that
-   project's own capacity for the person ( over that project's plan, absences and the app's
-   /holidays, which are app settings, not per project). Over capacity compares hours: this project's
+   project's own capacity for the person (`periodCapacityHours` over that project's plan, absences and the app's
+   `workdayHours`/holidays, which are app settings, not per project). Over capacity compares hours: this project's
    hours + elsewhere hours against this project's available hours for the person.
-2. **Grid source.** "Grid hours" means  with  (the Planning grid), over the
-   other project's  periods (, , ). Not    (that is budget data). A project with no stored plan contributes nothing and is named as such.
+2. **Grid source.** "Grid hours" means `Resource.utilization` with `utilizationMode` (the Planning grid), over the
+   other project's `ResourcePlan` periods (`startDate`, `endDate`, `granularity`). Not `plan.allocations` (that is
+   budget data). A project with no stored plan contributes nothing and is named as such.
 3. **Re-minted ids.** A link row also stores both sides' first name, last name and emails at decision time. A row
    applies only while both resources still carry the same first + last name (case-insensitive, trimmed); otherwise it
    is ignored as stale, so a re-minted id can never inherit an old answer. No write from any delete path.
 4. **Stale rows.** Rows naming a project no longer in the registry, or a resource id no longer present, are ignored.
    No cleanup job.
-5. **DDL.**  follows the  pattern: a DDL list plus a store that runs
-    ahead of each read or write. No  self-healing is needed for a new
-   table; a later column change would need it.
+5. **DDL.** `person_links` follows the `chat-threads` pattern (`CHAT_THREADS_DDL` + `chat-threads-store.ts`): a DDL
+   list plus a store that runs `CREATE TABLE IF NOT EXISTS` ahead of each read or write. No `turso-migrate`
+   self-healing is needed for a new table; a later column change would need it.
 6. **When a name suggestion appears.** When the names are equal and email cannot decide: at least one side has no
    usable email. Two usable emails that differ mean different people: no suggestion.
 7. **Usable email.** Trimmed, non-empty and containing "@".
 8. **Who is included.** Every resource, external or inactive, matches and contributes its grid hours; planned hours are
    booked time whoever holds them.
 9. **Which projects.** Every other project in the registry (there is no archived state); the open project excluded.
-10. **Read-only, precisely.** Loading another project runs , which executes
-     DDL, as Portfolio health already does. "Never written" means no project data is
-    written; the only data write is to .
-11. **Over-capacity display.**  gets the elsewhere hours as a new input and  carries
+10. **Read-only, precisely.** Loading another project runs `TursoBackend.load()`, which executes
+    `CREATE TABLE IF NOT EXISTS` DDL, as Portfolio health already does. "Never written" means no project data is
+    written; the only data write is to `person_links`.
+11. **Over-capacity display.** `alternativeEffect` gets the elsewhere hours as a new input and `OverCapacity` carries
     the elsewhere figure so the review window can show it.
 
 ## Left to the builder
