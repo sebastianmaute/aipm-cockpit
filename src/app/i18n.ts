@@ -3205,6 +3205,10 @@ const enUS = {
   aiKeyForbidden:
     "Your Anthropic API key isn't allowed to make this request. Check the key's permissions in the Anthropic Console, or enter a different key in Settings → AI.",
   aiKeyUnreadable: "Your saved Anthropic API key couldn't be read on this device. Enter it again in Settings → AI.",
+  aiKeyWrongOrganization:
+    "This API key belongs to another Anthropic organisation. Your organisation only allows keys from its own organisation.",
+  aiKeyWrongWorkspace: "This API key belongs to an Anthropic workspace your organisation does not allow.",
+  aiKeyCheckUnavailable: "The API key could not be checked right now. Try again in a moment.",
   aiKeyOpenSettings: "Open AI settings",
   aiKeyBannerAria: "Anthropic API key problem",
   inlineAiEdit: "Ask Claude",

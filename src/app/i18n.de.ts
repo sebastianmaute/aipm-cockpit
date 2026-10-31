@@ -3048,6 +3048,11 @@ export const de: Record<TranslationKey, string> = {
   aiKeyForbidden:
     "Ihr Anthropic-API-Schlüssel darf diese Anfrage nicht ausführen. Prüfen Sie die Berechtigungen des Schlüssels in der Anthropic Console, oder geben Sie unter Einstellungen → KI einen anderen Schlüssel ein.",
   aiKeyUnreadable: "Ihr gespeicherter Anthropic-API-Schlüssel konnte auf diesem Gerät nicht gelesen werden. Geben Sie ihn unter Einstellungen → KI erneut ein.",
+  aiKeyWrongOrganization:
+    "Dieser API-Schlüssel gehört zu einer anderen Anthropic-Organisation. Ihre Organisation erlaubt nur Schlüssel aus der eigenen Organisation.",
+  aiKeyWrongWorkspace:
+    "Dieser API-Schlüssel gehört zu einem Anthropic-Workspace, den Ihre Organisation nicht zulässt.",
+  aiKeyCheckUnavailable: "Der API-Schlüssel konnte gerade nicht geprüft werden. Versuchen Sie es gleich noch einmal.",
   aiKeyOpenSettings: "KI-Einstellungen öffnen",
   aiKeyBannerAria: "Problem mit dem Anthropic-API-Schlüssel",
   inlineAiEdit: "Claude fragen",

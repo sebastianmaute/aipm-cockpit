@@ -14,14 +14,17 @@
 // the start-up check), and the §567 mount probe in use-settings.ts (unreadable). Who syncs the live
 // key: `useAiKeyCheck`, mounted once in task-manager.tsx.
 import {
-  AiHttpError, aiTransportMessageKey, classifyAiError, isAiTransportMessageKey, type AiTransportMessageKey,
+  AiHttpError, AiKeyRefusedError, aiTransportMessageKey, classifyAiError, isAiTransportMessageKey,
+  type AiKeyRefusedReason, type AiTransportMessageKey,
 } from "./ai-errors";
 
-export type AiKeyStatus = "unknown" | "ok" | "rejected" | "forbidden" | "unreadable";
+export type AiKeyStatus =
+  | "unknown" | "ok" | "rejected" | "forbidden" | "unreadable" | "refused-organization" | "refused-workspace";
 
 /** The i18n keys the key verdict speaks through. String literals, not `TranslationKey`, so this
  *  module stays i18n-free; each is a real key in i18n.ts (tsc checks the call sites). */
-export type AiKeyMessageKey = "aiKeyRejected" | "aiKeyForbidden" | "aiKeyUnreadable";
+export type AiKeyMessageKey =
+  | "aiKeyRejected" | "aiKeyForbidden" | "aiKeyUnreadable" | "aiKeyWrongOrganization" | "aiKeyWrongWorkspace";
 
 let currentKey: string | null = null;
 let status: AiKeyStatus = "unknown";
@@ -73,6 +76,15 @@ export function reportAiKeyResponse(key: string, httpStatus: number, errorType?:
   setStatus(httpStatus === 401 ? "rejected" : "forbidden");
 }
 
+/** The relay refused the key `key`: another organisation, or a workspace not allowed. Same key
+ *  guard as `reportAiKeyResponse` (a refusal for a key no longer live is dropped). */
+export function reportAiKeyRefused(key: string, reason: AiKeyRefusedReason): void {
+  const k = key.trim();
+  if (currentKey === null) currentKey = k;
+  else if (k !== currentKey) return;
+  setStatus(reason === "organization" ? "refused-organization" : "refused-workspace");
+}
+
 /** §567 probe: the SEALED Anthropic key exists but cannot be decrypted on this device, so the live
  *  key reads as "". Recorded against the empty key; entering any key clears it via `syncAiKey`. A
  *  non-empty live key wins — the user already replaced it. */
@@ -82,20 +94,33 @@ export function reportAiKeyUnreadable(): void {
   setStatus("unreadable");
 }
 
-export function isAiKeyStatusBad(s: AiKeyStatus): s is "rejected" | "forbidden" | "unreadable" {
-  return s === "rejected" || s === "forbidden" || s === "unreadable";
+/** The ONE predicate for "this key is known to be refused, so do not use it": a rejected key
+ *  (401) or one the organisation refuses. Every surface that blocks on a key verdict asks this. */
+export function isKeyBlocked(s: AiKeyStatus): s is "rejected" | "refused-organization" | "refused-workspace" {
+  return s === "rejected" || s === "refused-organization" || s === "refused-workspace";
+}
+
+export function isAiKeyStatusBad(
+  s: AiKeyStatus,
+): s is "rejected" | "forbidden" | "unreadable" | "refused-organization" | "refused-workspace" {
+  return isKeyBlocked(s) || s === "forbidden" || s === "unreadable";
 }
 
 export function aiKeyMessageKey(s: AiKeyStatus): AiKeyMessageKey | null {
   if (s === "rejected") return "aiKeyRejected";
   if (s === "forbidden") return "aiKeyForbidden";
   if (s === "unreadable") return "aiKeyUnreadable";
+  if (s === "refused-organization") return "aiKeyWrongOrganization";
+  if (s === "refused-workspace") return "aiKeyWrongWorkspace";
   return null;
 }
 
 /** The key message for a thrown AI error, or null when the failure is not about the key. Mirrors
  *  `classifyAiError`'s "auth" class, split by status. */
 export function aiKeyMessageKeyForError(err: unknown): AiKeyMessageKey | null {
+  if (err instanceof AiKeyRefusedError) {
+    return err.reason === "organization" ? "aiKeyWrongOrganization" : "aiKeyWrongWorkspace";
+  }
   if (!(err instanceof AiHttpError)) return null;
   if (classifyAiError(err.status, err.errorType) !== "auth") return null;
   return err.status === 401 ? "aiKeyRejected" : "aiKeyForbidden";

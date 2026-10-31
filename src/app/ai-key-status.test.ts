@@ -8,12 +8,14 @@ import {
   aiFailureMessageKeyForToken,
   getAiKeyStatus,
   isAiKeyStatusBad,
+  isKeyBlocked,
+  reportAiKeyRefused,
   reportAiKeyResponse,
   reportAiKeyUnreadable,
   subscribeAiKeyStatus,
   syncAiKey,
 } from "./ai-key-status";
-import { AiDeploymentError, AiGatewayError, AiHttpError } from "./ai-errors";
+import { AiDeploymentError, AiGatewayError, AiHttpError, AiKeyRefusedError } from "./ai-errors";
 
 const KEY_A = "sk-ant-api03-AAAAAAAAAAAAAAAAAAAA";
 const KEY_B = "sk-ant-api03-BBBBBBBBBBBBBBBBBBBB";
@@ -175,5 +177,50 @@ describe("aiFailureMessageKey", () => {
     expect(aiFailureMessageKeyForToken("off")).toBeNull();
     expect(aiFailureMessageKeyForToken("toString")).toBeNull();
     expect(aiFailureMessageKeyForToken(null)).toBeNull();
+  });
+});
+
+describe("a key the organisation refuses (AI organisation key)", () => {
+  it("reportAiKeyRefused sets the matching status for the live key", () => {
+    syncAiKey(KEY_A);
+    reportAiKeyRefused(KEY_A, "organization");
+    expect(getAiKeyStatus()).toBe("refused-organization");
+    reportAiKeyRefused(KEY_A, "workspace");
+    expect(getAiKeyStatus()).toBe("refused-workspace");
+  });
+
+  it("a refusal measured with a key that is no longer live is dropped", () => {
+    syncAiKey(KEY_B);
+    reportAiKeyRefused(KEY_A, "organization");
+    expect(getAiKeyStatus()).toBe("unknown");
+  });
+
+  it("syncAiKey with a different key resets a refusal to unknown; the same key keeps it", () => {
+    syncAiKey(KEY_A);
+    reportAiKeyRefused(KEY_A, "organization");
+    syncAiKey(" " + KEY_A + " ");
+    expect(getAiKeyStatus()).toBe("refused-organization");
+    syncAiKey(KEY_B);
+    expect(getAiKeyStatus()).toBe("unknown");
+  });
+
+  it("isKeyBlocked is true for rejected and both refusals, false for the rest", () => {
+    expect(isKeyBlocked("rejected")).toBe(true);
+    expect(isKeyBlocked("refused-organization")).toBe(true);
+    expect(isKeyBlocked("refused-workspace")).toBe(true);
+    for (const s of ["unknown", "ok", "forbidden", "unreadable"] as const) expect(isKeyBlocked(s)).toBe(false);
+  });
+
+  it("both refusals count as a bad status and name their message", () => {
+    expect(isAiKeyStatusBad("refused-organization")).toBe(true);
+    expect(isAiKeyStatusBad("refused-workspace")).toBe(true);
+    expect(aiKeyMessageKey("refused-organization")).toBe("aiKeyWrongOrganization");
+    expect(aiKeyMessageKey("refused-workspace")).toBe("aiKeyWrongWorkspace");
+  });
+
+  it("a thrown AiKeyRefusedError names its message", () => {
+    expect(aiKeyMessageKeyForError(new AiKeyRefusedError("organization"))).toBe("aiKeyWrongOrganization");
+    expect(aiKeyMessageKeyForError(new AiKeyRefusedError("workspace"))).toBe("aiKeyWrongWorkspace");
+    expect(aiFailureMessageKey(new AiKeyRefusedError("workspace"))).toBe("aiKeyWrongWorkspace");
   });
 });

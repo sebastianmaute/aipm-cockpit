@@ -4,7 +4,7 @@ import { cleanup, render, screen, fireEvent, waitFor, act, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiSection } from "./ai-section";
 import { hasUnsealedPassphraseSecret } from "../turso-token-marker";
-import { __resetAiKeyStatusForTests, reportAiKeyResponse, reportAiKeyUnreadable } from "../ai-key-status";
+import { __resetAiKeyStatusForTests, reportAiKeyRefused, reportAiKeyResponse, reportAiKeyUnreadable } from "../ai-key-status";
 import { defaultSettings as baseSettings, type Settings } from "../settings-types";
 import {
   DEFAULT_SESSION_TOKEN_CAP,
@@ -1397,5 +1397,24 @@ describe("AiSection — withdrawing while the deployment blocks AI", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "aiConsentRevoke") })).toBeNull();
     expect(screen.queryByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toBeNull();
     expect(screen.queryByRole("button", { name: t("en-US", "aiConsentReview") })).toBeNull();
+  });
+});
+
+describe("AiSection - a key the organisation refuses (AI organisation key)", () => {
+  const KEY = "sk-ant-api03-OrgRefusedKey0000000000";
+  const withKey = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY } };
+
+  beforeEach(() => __resetAiKeyStatusForTests());
+
+  it.each([
+    ["organization", "aiKeyWrongOrganization"],
+    ["workspace", "aiKeyWrongWorkspace"],
+  ] as const)("a %s refusal shows its message, described on the key field", (reason, key) => {
+    reportAiKeyRefused(KEY, reason);
+    render(<AiSection lang="en-US" settings={withKey} onChange={vi.fn()} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", key));
+    const field = screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"));
+    expect(field).toHaveAccessibleDescription(expect.stringContaining(t("en-US", key)));
+    expect(field).toHaveAttribute("aria-invalid", "true");
   });
 });

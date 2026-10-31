@@ -10,7 +10,8 @@ import {
 import { setAiDeploymentState, type AiDeploymentState } from "./ai-deployment";
 import { fetchAnthropicModels } from "./anthropic-models";
 import { __resetAiKeyStatusForTests, getAiKeyStatus, syncAiKey } from "./ai-key-status";
-import { aiTransportMessageKey } from "./ai-errors";
+import { aiTransportMessageKey, AiKeyCheckUnavailableError, AiKeyRefusedError } from "./ai-errors";
+import * as diagnostics from "./diagnostics";
 import * as transport from "./ai-transport";
 import * as models from "./anthropic-models";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
@@ -469,5 +470,44 @@ describe("aiTransportMessageKey", () => {
     [new Error("x"), null],
   ] as const)("%o → %s", (err, key) => {
     expect(aiTransportMessageKey(err)).toBe(key);
+  });
+});
+
+describe("the relay's key refusals (AI organisation key)", () => {
+  beforeEach(() => {
+    __resetAiKeyStatusForTests();
+    syncAiKey(KEY);
+    setAiDeploymentState(RELAY);
+  });
+
+  it.each([
+    ["ai-key-wrong-organization", "organization", "refused-organization"],
+    ["ai-key-wrong-workspace", "workspace", "refused-workspace"],
+  ] as const)("403 %s throws AiKeyRefusedError, sets the key status and logs the reason once", async (code, reason, status) => {
+    stubFetch(RELAY, () => json({ error: code }, 403));
+    const spy = vi.spyOn(diagnostics, "logDiag");
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiKeyRefusedError);
+    expect((err as AiKeyRefusedError).reason).toBe(reason);
+    expect(err).not.toBeInstanceOf(AiGatewayError);
+    expect(getAiKeyStatus()).toBe(status);
+    const refused = spy.mock.calls.filter((c) => c[1] === "ai.keyRefused");
+    expect(refused).toEqual([["warn", "ai.keyRefused", { reason }]]);
+    expect(JSON.stringify(spy.mock.calls)).not.toContain(KEY);
+  });
+
+  it("the models call maps a refusal the same way", async () => {
+    stubFetch(RELAY, () => json({ error: "ai-key-wrong-organization" }, 403));
+    const err = await getAiModels(KEY).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiKeyRefusedError);
+    expect(getAiKeyStatus()).toBe("refused-organization");
+  });
+
+  it("503 ai-key-check-unavailable throws AiKeyCheckUnavailableError (not unconfirmed) and leaves the key status alone", async () => {
+    stubFetch(RELAY, () => json({ error: "ai-key-check-unavailable" }, 503));
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiKeyCheckUnavailableError);
+    expect(aiTransportMessageKey(err)).toBe("aiKeyCheckUnavailable");
+    expect(getAiKeyStatus()).toBe("unknown");
   });
 });

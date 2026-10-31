@@ -132,13 +132,17 @@ export function StorageBanner({
  *  holds for this page only (the verdict is re-derived on the next load). */
 export function AiKeyBanner({
   status, lang, onOpenSettings, onDismiss,
-}: { status: "rejected" | "forbidden" | "unreadable"; lang: Lang; onOpenSettings: () => void; onDismiss: () => void }) {
+}: { status: "rejected" | "forbidden" | "unreadable" | "refused-organization" | "refused-workspace"; lang: Lang; onOpenSettings: () => void; onDismiss: () => void }) {
   const msg =
     status === "rejected"
       ? t(lang, "aiKeyRejected")
       : status === "forbidden"
         ? t(lang, "aiKeyForbidden")
-        : t(lang, "aiKeyUnreadable");
+        : status === "refused-organization"
+          ? t(lang, "aiKeyWrongOrganization")
+          : status === "refused-workspace"
+            ? t(lang, "aiKeyWrongWorkspace")
+            : t(lang, "aiKeyUnreadable");
   return (
     <AlertBanner severity="error" ariaLabel={t(lang, "aiKeyBannerAria")} icon="⚠"
       actions={<>
