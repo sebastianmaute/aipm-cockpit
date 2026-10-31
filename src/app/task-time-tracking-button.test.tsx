@@ -8,6 +8,10 @@ import { ModalHeader } from "./modal-header";
 import { TaskTimeTrackingButton } from "./task-time-tracking-button";
 import { VoiceCommandProvider } from "./voice-command-context";
 
+// AI people protection: the voice mic is off outside the privacy provider (fail closed). This file counts mics in
+// stacked headers, not the protection (`voice-button.people.test.tsx`), so the people gate answers "not protected".
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
+
 const base = {
   lang: "en-US" as const,
   estimateMinutes: 480,
