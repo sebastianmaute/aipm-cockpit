@@ -40,7 +40,7 @@ import {
 } from "./ai-errors";
 import { requestAiStatus } from "./ai-status-request";
 import { AiPeopleProtectedContentError, hasUnredactableContent, type AiPrivacy } from "./ai-privacy";
-import { redactJsonBody, restoreJsonText } from "./ai-people-redact";
+import { countUnrestoredPlaceholders, redactJsonBody, restoreJsonText } from "./ai-people-redact";
 import { logDiag } from "./diagnostics";
 
 export { AiDeploymentError, AiGatewayError } from "./ai-errors";
@@ -259,10 +259,14 @@ function redactForSend(body: string, privacy: AiPrivacy): string {
   return redacted;
 }
 
-/** Read a 2xx reply once and hand the caller the same response with the real names restored. */
+/** Read a 2xx reply once and hand the caller the same response with the real names restored. A placeholder the
+ *  session cannot map stays as written and is logged once per reply, as a count (review 5, S5). */
 async function restoreReply(res: Response, privacy: AiPrivacy): Promise<Response> {
   if (!privacy.protected || !res.ok) return res;
-  const restored = restoreJsonText(await res.text(), privacy.session);
+  const text = await res.text();
+  const unrestored = countUnrestoredPlaceholders(text, privacy.session);
+  if (unrestored > 0) logDiag("warn", "ai.placeholderUnrestored", { count: unrestored });
+  const restored = restoreJsonText(text, privacy.session);
   return new Response(restored, { status: res.status, statusText: res.statusText, headers: res.headers });
 }
 

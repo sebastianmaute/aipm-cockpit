@@ -119,6 +119,38 @@ describe("protected send", () => {
   });
 });
 
+// Review 5, S5: a placeholder the session cannot map (invented by the model, or a near-miss form it never issued)
+// stays in the text as written; the reply logs ONE warning with its count, and no text.
+describe("unrestored placeholders in a reply (review 5, S5)", () => {
+  const diagOf = (code: string) =>
+    (JSON.parse(window.localStorage.getItem("aipm-cockpit:diag-log") ?? "[]") as { code: string; level: string; fields: Record<string, unknown> }[])
+      .filter((e) => e.code === code);
+  const replyWith = (text: string) => () => new Response(JSON.stringify({ content: [{ type: "text", text }] }), { status: 200 });
+
+  it("counts invented and near-miss placeholders once per reply and leaves the text unchanged", async () => {
+    const privacy = privacyOf(wsA);
+    if (!privacy.protected) throw new Error("expected protected");
+    expect(privacy.session.redact("Rosalind Quenby")).toBe("[Person 1]");
+    stub(replyWith("[Person 1] asked [Person 12], [Person1], [person 12] and [ Email 2 ]."));
+    const res = await postAiMessages({ apiKey: KEY, path: "chat", privacy, body: bodyOf("hi") });
+    const json = (await res.json()) as { content: { text: string }[] };
+    expect(json.content[0].text).toBe("Rosalind Quenby asked [Person 12], [Person1], [person 12] and [ Email 2 ].");
+    const warn = diagOf("ai.placeholderUnrestored");
+    expect(warn).toHaveLength(1);
+    expect(warn[0]!.level).toBe("warn");
+    expect(warn[0]!.fields).toEqual({ count: 4 });
+  });
+
+  it("logs nothing when every placeholder is restored", async () => {
+    const privacy = privacyOf(wsA);
+    if (!privacy.protected) throw new Error("expected protected");
+    privacy.session.redact("Rosalind Quenby");
+    stub(replyWith("Ask [Person 1] and [person 1]."));
+    await postAiMessages({ apiKey: KEY, path: "chat", privacy, body: bodyOf("hi") });
+    expect(diagOf("ai.placeholderUnrestored")).toEqual([]);
+  });
+});
+
 describe("unprotected send", () => {
   it("passes the body through byte-identical and the reply untouched", async () => {
     const fetchMock = stub(() => new Response('{"x":"[Person 1]"}', { status: 200 }));

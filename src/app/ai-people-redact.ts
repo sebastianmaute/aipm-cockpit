@@ -61,6 +61,8 @@ const LABEL: Record<Kind, string> = { person: "Person", email: "email", phone: "
 const KIND_BY_LABEL: Record<string, Kind> = { person: "person", email: "email", phone: "phone", iban: "iban" };
 /** Case-insensitive: a model may write "[person 1]". */
 const PLACEHOLDER = /\[(person|email|phone|iban) (\d+)\]/gi;
+/** Placeholder-SHAPED: the exact form and the near misses a model may invent ("[Person1]", "[ person 12 ]"). */
+const PLACEHOLDER_LIKE = /\[\s*(?:person|email|phone|iban)\s*\d+\s*\]/gi;
 
 const MIN_TOKEN_LENGTH = 3;
 const MIN_PHONE_DIGITS = 7;
@@ -484,6 +486,15 @@ export function redactJsonBody(body: string, s: RedactionSession): string {
     return s.redact(body);
   }
   return JSON.stringify(redactValue(parsed, s, true));
+}
+
+/** Review 5, S5: how many placeholder-shaped tokens in `text` this session cannot restore — one it never issued
+ *  ("[Person 12]") or a near-miss form ("[Person1]"). `restore` leaves them as written, so the caller can record
+ *  that a reply carried one; the count is the only thing it learns, never the text. */
+export function countUnrestoredPlaceholders(text: string, s: RedactionSession): number {
+  let n = 0;
+  for (const m of text.matchAll(PLACEHOLDER_LIKE)) if (s.restore(m[0]) === m[0]) n += 1;
+  return n;
 }
 
 /** Restore placeholders inside JSON (or SSE) text; each restored value is

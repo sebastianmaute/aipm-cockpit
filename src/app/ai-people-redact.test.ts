@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PeopleDictionary } from "./ai-people-dictionary";
-import { redactionSessionFor, redactJsonBody, restoreJsonText } from "./ai-people-redact";
+import { countUnrestoredPlaceholders, redactionSessionFor, redactJsonBody, restoreJsonText } from "./ai-people-redact";
 
 const dict = (names: string[], emails: string[] = [], phones: string[] = []): PeopleDictionary => ({ names, emails, phones });
 
@@ -162,6 +162,15 @@ describe("name matching", () => {
     s.redact("Sofia Ramirez");
     expect(s.restore("[Person 99] said hi")).toBe("[Person 99] said hi");
     expect(s.restore("[email 3] and [Person 1]")).toBe("[email 3] and Sofia Ramirez");
+  });
+
+  // Review 5, S5: the caller logs the count of placeholder-shaped tokens restore could not map.
+  it("counts the placeholders it cannot restore: never issued, and near-miss forms", () => {
+    const s = fresh(dict(["Sofia Ramirez"]));
+    s.redact("Sofia Ramirez");
+    expect(countUnrestoredPlaceholders("[Person 1] and [PERSON 1]", s)).toBe(0);
+    expect(countUnrestoredPlaceholders("[Person 12], [Person1], [person 12], [ phone 3 ], [IBAN 1]", s)).toBe(5);
+    expect(countUnrestoredPlaceholders("[Persona 1], [Person], [Person x], plain text", s)).toBe(0);
   });
 
   // F2d: the model may change the placeholder's case.
