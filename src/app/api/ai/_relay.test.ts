@@ -590,11 +590,12 @@ describe("relay — straight to Anthropic when keys are restricted and there is 
     expect(calls).toHaveLength(0);
   });
 
-  it("a gateway token with no URL does not win over the restriction", async () => {
-    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
-    await relay(post(), "messages", { AIPM_AI_GATEWAY_TOKEN: TOKEN, ...RESTRICTED_ENV }, send);
-    expect(calls[0].url.href).toBe("https://api.anthropic.com/v1/messages");
-    expect((calls[0].options.headers as Record<string, string>)["cf-aig-authorization"]).toBeUndefined();
+  it("a gateway token with no URL beside a restriction → 503 ai-gateway-invalid, nothing sent", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", { AIPM_AI_GATEWAY_TOKEN: TOKEN, ...RESTRICTED_ENV }, send);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "ai-gateway-invalid" });
+    expect(calls).toHaveLength(0);
   });
 
   it("neither set → 404 as before", async () => {

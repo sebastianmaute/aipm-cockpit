@@ -46,7 +46,7 @@ export type RelayOp = "messages" | "models";
 export const ANTHROPIC_API_BASE = "https://api.anthropic.com";
 
 /**
- * Where a relayed call goes. A gateway URL (valid or invalid) always wins; with none, a
+ * Where a relayed call goes. A gateway setting (valid or invalid) always wins; with none, a
  * restriction sends the call straight to Anthropic, with no gateway token. "invalid" = refuse
  * (503), "not-found" = a direct deployment (404). Fail closed: an invalid restriction never
  * falls through to a direct call.
@@ -56,11 +56,11 @@ export function upstreamFor(
   restriction: AiKeyRestriction,
 ): { baseUrl: string; token: string | null } | "not-found" | "invalid" {
   if (gateway.kind === "gateway") return { baseUrl: gateway.baseUrl, token: gateway.token };
-  // A token with no URL is not a gateway URL: it does not win over a restriction.
-  if (gateway.kind === "invalid" && gateway.reason !== "token-without-url") return "invalid";
+  // Any invalid gateway setting (a token with no URL included) fails closed, restriction or not.
+  if (gateway.kind === "invalid") return "invalid";
   if (restriction.kind === "invalid") return "invalid";
   if (restriction.kind === "restricted") return { baseUrl: ANTHROPIC_API_BASE, token: null };
-  return gateway.kind === "invalid" ? "invalid" : "not-found";
+  return "not-found";
 }
 
 const FORWARDED_HEADERS = ["x-api-key", "anthropic-version", "anthropic-beta", "content-type"] as const;
