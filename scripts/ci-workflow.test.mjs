@@ -463,6 +463,19 @@ describe("electron-builder.yml agrees with the release library", () => {
   });
 });
 
+// Shared by the two live workflows' blocks below.
+// Comment lines name what they forbid; only the YAML itself is checked.
+const code = (text) => text.split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join("\n");
+// GitHub runs .yaml as well as .yml.
+const ALL_WORKFLOWS = readdirSync(new URL("../.github/workflows/", import.meta.url)).filter((f) => /\.ya?ml$/.test(f));
+// A step, from its "- " line to the next step's, and the step a line index belongs to.
+const stepStart = (lines, i) => lines.slice(0, i + 1).findLastIndex((l) => /^ {6}- /.test(l));
+const stepLines = (lines, start) => {
+  const next = lines.slice(start + 1).findIndex((l) => /^ {6}- /.test(l));
+  return lines.slice(start, next === -1 ? undefined : start + 1 + next);
+};
+const stepId = (step) => step.map((l) => l.match(/^ {6}(?:- | {2})id: (\S+)$/)?.[1]).find(Boolean);
+
 // §215: the live-Turso specs against a dedicated throwaway database. Not a required check.
 describe("live-turso.yml", () => {
   const LIVE = read(".github/workflows/live-turso.yml");
@@ -471,17 +484,6 @@ describe("live-turso.yml", () => {
   const job = jobBlock(LIVE, "live-turso");
   const config = read("playwright.config.ts");
   const scripts = JSON.parse(read("package.json")).scripts;
-  // Comment lines name what they forbid; only the YAML itself is checked.
-  const code = (text) => text.split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join("\n");
-  // GitHub runs .yaml as well as .yml.
-  const ALL_WORKFLOWS = readdirSync(new URL("../.github/workflows/", import.meta.url)).filter((f) => /\.ya?ml$/.test(f));
-  // A step, from its "- " line to the next step's, and the step a line index belongs to.
-  const stepStart = (lines, i) => lines.slice(0, i + 1).findLastIndex((l) => /^ {6}- /.test(l));
-  const stepLines = (lines, start) => {
-    const next = lines.slice(start + 1).findIndex((l) => /^ {6}- /.test(l));
-    return lines.slice(start, next === -1 ? undefined : start + 1 + next);
-  };
-  const stepId = (step) => step.map((l) => l.match(/^ {6}(?:- | {2})id: (\S+)$/)?.[1]).find(Boolean);
   const jobLines = code(job).split("\n");
   const stepById = (id) => {
     const at = jobLines.findIndex((l) => new RegExp(`^ {6}(- | {2})id: ${id}$`).test(l));
@@ -717,6 +719,107 @@ describe("live-turso.yml", () => {
     for (const f of ALL_WORKFLOWS.filter((n) => n !== "live-turso.yml")) {
       const text = read(`.github/workflows/${f}`);
       expect(text, f).not.toMatch(/TURSO_THROWAWAY|NEXT_PUBLIC_TURSO/);
+      expect(text, f).not.toMatch(/tojson\(\s*secrets\s*\)|secrets:\s*inherit/i);
+    }
+  });
+});
+
+// AI organisation key: the relay and its key check against real Anthropic and a real Cloudflare AI
+// Gateway. Not a required check; started by hand only, since every run spends tokens.
+describe("ai-live.yml", () => {
+  const AI = read(".github/workflows/ai-live.yml");
+  workflowRules("ai-live.yml", AI);
+  const check = jobBlock(AI, "check");
+  const job = jobBlock(AI, "ai-live");
+  const SECRETS = ["AI_LIVE_ANTHROPIC_KEY", "AI_LIVE_ORGANIZATION_ID", "AI_LIVE_WORKSPACE_ID", "AI_LIVE_GATEWAY_URL", "AI_LIVE_GATEWAY_TOKEN"];
+  const LIVE_TEST = "src/app/api/ai/_relay.live.test.ts";
+
+  it("is a secret check plus the live job, and neither is a required check", () => {
+    expect(jobIds(AI)).toEqual(["check", "ai-live"]);
+    for (const id of jobIds(AI)) expect(REQUIRED).not.toContain(id);
+  });
+
+  it("runs on workflow_dispatch only", () => {
+    expect(topLevelBlock(AI, "on")).toEqual(["workflow_dispatch:"]);
+  });
+
+  it("grants no job its own permissions and sets no workflow- or job-level env:", () => {
+    for (const block of [check, job]) expect(block).not.toMatch(/^ {4}(permissions|env):/m);
+    expect(topLevelBlock(AI, "env")).toEqual([]);
+  });
+
+  it("queues the live job on one fixed group, never cancels a running job, and leaves the check ungrouped", () => {
+    expect(topLevelBlock(AI, "concurrency")).toEqual([]);
+    expect(job).toMatch(/^ {4}concurrency:\r?\n {6}group: ai-live-throwaway-organisation\r?\n {6}cancel-in-progress: false$/m);
+    expect(check).not.toMatch(/concurrency:/);
+    expect(job).toMatch(/^ {4}needs: check$/m);
+    expect(job).toMatch(/^ {4}if: needs\.check\.outputs\.present == 'true'$/m);
+  });
+
+  // Same shape rule as live-turso.yml's: each secret line sits directly under a STEP's env:, named
+  // as the secret itself, and only the check step (`all`) and the test step (`live`) carry them, all
+  // five each. Never npm ci, never a run: line.
+  it("puts the five secrets only on the env: of the check step and the test step", () => {
+    const lines = code(AI).split("\n");
+    const indent = (l) => l.match(/^\s*/)[0].length;
+    const perStep = {};
+    lines.forEach((line, i) => {
+      if (!/(?<!steps\.)\bsecrets\b/.test(line)) return;
+      const m = line.match(/^ {10}([A-Z_]+): \$\{\{ secrets\.([A-Z_]+) \}\}$/);
+      expect(m, line).not.toBeNull();
+      expect(m[1], line).toBe(m[2]);
+      expect(SECRETS, line).toContain(m[2]);
+      const parent = lines.slice(0, i).reverse().find((l) => l.trim() !== "" && indent(l) < indent(line));
+      expect(parent, line).toMatch(/^( {8}env:| {6}- env:)$/);
+      const id = stepId(stepLines(lines, stepStart(lines, i))) ?? "(a step with no id)";
+      perStep[id] = [...(perStep[id] ?? []), m[2]];
+    });
+    expect(perStep).toEqual({ all: SECRETS, live: SECRETS });
+  });
+
+  // RAW text, comment lines included (a "# ..." line in a run: | body is still evaluated): only the
+  // ten secret lines may hold a ${{ }} naming secrets or env, and no ${{ }} reads env.
+  it("has no other expression that reads a secret or an env value", () => {
+    const raw = AI.split(/\r?\n/).filter((l) => /\$\{\{/.test(l) && /\b(secrets|env)\b/.test(l));
+    expect(raw, raw.join("\n")).toHaveLength(10);
+    expect(AI).not.toMatch(/\$\{\{[^}]*\benv\s*[.[]/);
+  });
+
+  it("decides on all five secrets being present, in the check job, and installs nothing there", () => {
+    for (const s of SECRETS) expect(check).toContain(`[ -n "$${s}" ]`);
+    expect(check).toMatch(/present: \$\{\{ steps\.all\.outputs\.present \}\}/);
+    expect(check).not.toMatch(/npm |npx /);
+  });
+
+  // A vitest run in which every test skipped exits 0; AI_LIVE_REQUIRED turns on the test file's one
+  // test that fails when any secret is missing, so a renamed secret cannot pass green.
+  it("installs without secrets, then runs only the live test file with AI_LIVE_REQUIRED, in its own timeout", () => {
+    const lines = code(job).split("\n");
+    const npmCi = lines.findIndex((l) => /^ {6}- run: npm ci$/.test(l));
+    const liveAt = lines.findIndex((l) => /^ {8}id: live$/.test(l));
+    expect(npmCi).toBeGreaterThan(-1);
+    expect(liveAt).toBeGreaterThan(npmCi);
+    expect(stepLines(lines, npmCi)).toHaveLength(1);
+    const live = stepLines(lines, stepStart(lines, liveAt)).join("\n");
+    expect(live).toMatch(new RegExp(`^ {8}run: npx vitest run ${LIVE_TEST.replace(/\./g, "\\.")} --reporter=default$`, "m"));
+    expect(live).toMatch(/^ {10}AI_LIVE_REQUIRED: "1"$/m);
+    const stepMin = Number(live.match(/^ {8}timeout-minutes: (\d+)$/m)?.[1]);
+    const jobMin = Number(job.match(/^ {4}timeout-minutes: (\d+)$/m)?.[1]);
+    expect(stepMin).toBeGreaterThan(0);
+    expect(stepMin + 5).toBeLessThanOrEqual(jobMin);
+    const test = read(LIVE_TEST);
+    expect(test).toMatch(/describe\.skipIf\(!allSecretsSet\)/);
+    expect(test).toMatch(/it\.runIf\(process\.env\.AI_LIVE_REQUIRED === "1"\)/);
+    for (const s of SECRETS) expect(test, s).toContain(`"${s}"`);
+  });
+
+  // Every other workflow, ci.yml's unit job included (it runs the same test file, which must skip
+  // there): none names the secrets or hands over every secret at once.
+  it("is the only workflow that reads the AI_LIVE_ secrets", () => {
+    expect(ALL_WORKFLOWS).toContain("ai-live.yml");
+    for (const f of ALL_WORKFLOWS.filter((n) => n !== "ai-live.yml")) {
+      const text = read(`.github/workflows/${f}`);
+      expect(text, f).not.toMatch(/AI_LIVE_/);
       expect(text, f).not.toMatch(/tojson\(\s*secrets\s*\)|secrets:\s*inherit/i);
     }
   });
