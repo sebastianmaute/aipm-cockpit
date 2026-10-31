@@ -182,7 +182,7 @@ export function createKeyChecker(
   const now = opts.now ?? Date.now;
   // Insertion order is age order: the first entry is the oldest.
   const cache = new Map<string, { kind: CachedKind; at: number }>();
-  // In-flight pre-flights by signature and hash: concurrent callers with one new key share one.
+  // In-flight pre-flights by signature, hash and version: concurrent callers with one new key share one.
   const inFlight = new Map<string, Promise<Finding>>();
   let signature: string | null = null;
 
@@ -217,7 +217,8 @@ export function createKeyChecker(
       const hash = hashKey(key);
       const hit = cached(hash);
       if (hit) return { kind: hit };
-      const flightKey = `${restriction.signature}\n${hash}`;
+      // The version header goes upstream with the pre-flight, so callers sending different ones never share one.
+      const flightKey = `${restriction.signature}\n${hash}\n${anthropicVersion}`;
       let flight = inFlight.get(flightKey);
       if (!flight) {
         const forSignature = restriction.signature;

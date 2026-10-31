@@ -90,7 +90,7 @@ describe("createKeyChecker — the pre-flight", () => {
     expect(calls[0].options.timeout).toBe(KEY_CHECK_TIMEOUT_MS);
   });
 
-  it("goes through the gateway with its token when there is one (K9)", async () => {
+  it("goes through the gateway with its token when there is one, like the real request", async () => {
     const { send, calls } = fakeSend(org(ORG));
     const verdict = await createKeyChecker().check(KEY, ORG_ONLY, GATEWAY, send, "2023-06-01");
     expect(verdict).toEqual({ kind: "pass" });
@@ -283,6 +283,18 @@ describe("createKeyChecker — coalescing (Review Focus 1)", () => {
     ]);
     expect(calls).toHaveLength(1);
     expect(verdicts).toEqual([{ kind: "pass" }, { kind: "pass" }, { kind: "pass" }]);
+  });
+
+  it("concurrent checks with different anthropic-version headers do not share one pre-flight", async () => {
+    const { send, calls } = fakeSend(org(ORG));
+    const checker = createKeyChecker();
+    const verdicts = await Promise.all([
+      checker.check(KEY, ORG_ONLY, ANTHROPIC, send, "2023-06-01"),
+      checker.check(KEY, ORG_ONLY, ANTHROPIC, send, "2099-01-01"),
+    ]);
+    expect(verdicts).toEqual([{ kind: "pass" }, { kind: "pass" }]);
+    const versions = calls.map((c) => (c.options.headers as Record<string, string>)["anthropic-version"]);
+    expect(versions.sort()).toEqual(["2023-06-01", "2099-01-01"]);
   });
 
   it("concurrent checks share an unavailable verdict, and the next one tries again", async () => {

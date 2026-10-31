@@ -503,11 +503,14 @@ describe("the relay's key refusals (AI organisation key)", () => {
     expect(getAiKeyStatus()).toBe("refused-organization");
   });
 
-  it("503 ai-key-check-unavailable throws AiKeyCheckUnavailableError (not unconfirmed) and leaves the key status alone", async () => {
+  it("503 ai-key-check-unavailable throws AiKeyCheckUnavailableError (not unconfirmed) and leaves the key status alone, logging no refusal", async () => {
     stubFetch(RELAY, () => json({ error: "ai-key-check-unavailable" }, 503));
+    const spy = vi.spyOn(diagnostics, "logDiag");
     const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AiKeyCheckUnavailableError);
     expect(aiTransportMessageKey(err)).toBe("aiKeyCheckUnavailable");
     expect(getAiKeyStatus()).toBe("unknown");
+    // Not a verdict on the key, so no refusal is logged (the refusal test above shows the spy sees one).
+    expect(spy.mock.calls.filter((c) => c[1] === "ai.keyRefused")).toEqual([]);
   });
 });
