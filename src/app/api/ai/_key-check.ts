@@ -9,7 +9,14 @@
 //   - Anthropic's own 401/403 → its answer is passed through unchanged (an invalid key is not
 //     a policy verdict);
 //   - anything else (network error, timeout, 3xx, 404, 429, 5xx, a 2xx without the header the
-//     verdict needs) → unavailable, and the caller forwards nothing. Fails closed.
+//     verdict needs, or with a repeated one) → unavailable, and the caller forwards nothing.
+//     Fails closed.
+//
+// Through a gateway the pre-flight sends `cf-aig-skip-cache: true` (Cloudflare AI Gateway's
+// per-request cache bypass; checked 2026-10-31 at
+// https://developers.cloudflare.com/ai-gateway/features/caching/). The gateway cache is off by
+// default, but an organisation can turn it on, and a cached 2xx answered to a FOREIGN key would
+// carry another key's organisation headers and let it pass. A direct pre-flight never sends it.
 //
 // Verdicts are cached in memory by SHA-256 of the key: a pass for the life of the entry, a
 // refusal for `refusalTtlMs`, "unavailable" and passed-through errors never. A change of the
@@ -21,7 +28,7 @@ import type { RequestOptions } from "node:http";
 import type { AiKeyRestriction } from "../../ai-key-restriction-config";
 import { AI_GATEWAY_REJECTED } from "../../ai-errors";
 import type { RelaySend, UpstreamRequest, UpstreamResponse } from "./_relay";
-import { discard, fail, isAnthropicError, MAX_ERROR_BODY_BYTES, readCapped } from "./_upstream-answer";
+import { ANTHROPIC_API_BASE, discard, fail, isAnthropicError, MAX_ERROR_BODY_BYTES, readCapped } from "./_upstream-answer";
 
 export type KeyVerdict =
   | { kind: "pass" }
@@ -64,13 +71,15 @@ function hashKey(key: string): string {
   return createHash("sha256").update(key).digest("hex");
 }
 
-/** The one value of a header, whatever the case of its name; null when absent, empty, repeated
- *  or not a string (ambiguous answers fail closed). Ids compare in lower case. */
+/** The one value of a header, whatever the case of its name; null when absent, empty, not a
+ *  string, or repeated. Node folds a repeated non-standard header into one comma-joined string
+ *  ("a, b"), so a value with a comma counts as repeated (no id contains one). Ambiguous answers
+ *  fail closed. Ids compare in lower case. */
 function headerValue(headers: UpstreamResponse["headers"], name: string): string | null {
   const values = Object.entries(headers)
     .filter(([k]) => k.toLowerCase() === name)
     .map(([, v]) => v);
-  if (values.length !== 1 || typeof values[0] !== "string") return null;
+  if (values.length !== 1 || typeof values[0] !== "string" || values[0].includes(",")) return null;
   return values[0].trim().toLowerCase() || null;
 }
 
@@ -126,6 +135,8 @@ function preflight(
     };
     const headers: Record<string, string> = { "x-api-key": key, "anthropic-version": anthropicVersion };
     if (upstream.token) headers["cf-aig-authorization"] = `Bearer ${upstream.token}`;
+    // Any upstream other than Anthropic itself is a gateway: never answer the check from its cache.
+    if (upstream.token || upstream.baseUrl !== ANTHROPIC_API_BASE) headers["cf-aig-skip-cache"] = "true";
     const options: RequestOptions = { method: "GET", headers, timeout: KEY_CHECK_TIMEOUT_MS };
     let request: UpstreamRequest | null = null;
     try {

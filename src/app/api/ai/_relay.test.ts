@@ -209,7 +209,7 @@ describe("relay — refusals before any upstream call", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("the key check comes before the body cap (no key + oversized → 400, not 413)", async () => {
+  it("the missing-key refusal comes before the body cap (no key + oversized → 400, not 413)", async () => {
     const { send } = fakeSend();
     const req = post();
     Object.defineProperty(req, "headers", {
@@ -605,6 +605,7 @@ describe("relay — straight to Anthropic when keys are restricted and there is 
     const { send, calls } = fakeSend(checkedAs(ORG));
     await relay(post(), "messages", { ...GATEWAY_ENV, ...RESTRICTED_ENV }, send, createKeyChecker());
     expect(calls.map((c) => c.url.href)).toEqual([`${BASE}/v1/models?limit=1`, `${BASE}/v1/messages`]);
+    expect((calls[0].options.headers as Record<string, string>)["cf-aig-skip-cache"]).toBe("true");
     for (const call of calls) {
       expect((call.options.headers as Record<string, string>)["cf-aig-authorization"]).toBe(`Bearer ${TOKEN}`);
     }
@@ -739,6 +740,16 @@ describe("relay — the key check before forwarding (AI organisation key)", () =
     expect((await relay(post(), "messages", GATEWAY_ENV, send, checker)).status).toBe(200);
     expect(calls.map((c) => c.url.href)).toEqual([`${BASE}/v1/messages`]);
     expect(checker.size()).toBe(0);
+  });
+
+  it("a check that rejects → 503 ai-key-check-unavailable; nothing sent", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const rejecting = { check: () => Promise.reject(new Error(`boom ${KEY}`)), size: () => 0 };
+    const res = await relay(post(), "messages", RESTRICTED_ENV, send, rejecting);
+    expect(res.status).toBe(503);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.json()).toEqual({ error: "ai-key-check-unavailable" });
+    expect(calls).toHaveLength(0);
   });
 
   it("the default checker is used when none is passed (one module-level instance)", async () => {

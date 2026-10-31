@@ -4,6 +4,9 @@
 
 import type { UpstreamRequest, UpstreamResponse } from "./_relay";
 
+/** Anthropic's API itself: the relay's upstream when keys are restricted and there is no gateway. */
+export const ANTHROPIC_API_BASE = "https://api.anthropic.com";
+
 // A non-2xx body is read whole to decide whether it is Anthropic-shaped; error
 // bodies are small, so anything larger is treated as not Anthropic-shaped.
 export const MAX_ERROR_BODY_BYTES = 1024 * 1024;

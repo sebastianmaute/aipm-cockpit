@@ -98,6 +98,16 @@ describe("createKeyChecker — the pre-flight", () => {
     expect((calls[0].options.headers as Record<string, string>)["cf-aig-authorization"]).toBe(`Bearer ${GATEWAY.token}`);
   });
 
+  it("a gateway pre-flight skips the gateway's response cache; a direct one sends no such header", async () => {
+    const { send, calls } = fakeSend(org(ORG));
+    const checker = createKeyChecker();
+    await checker.check(KEY, ORG_ONLY, GATEWAY, send);
+    await checker.check(OTHER_KEY, ORG_ONLY, { baseUrl: GATEWAY.baseUrl, token: null }, send);
+    await checker.check("sk-ant-direct", ORG_ONLY, ANTHROPIC, send);
+    const sent = calls.map((c) => (c.options.headers as Record<string, string>)["cf-aig-skip-cache"]);
+    expect(sent).toEqual(["true", "true", undefined]);
+  });
+
   it("a pass is cached: a second check with the same key makes no upstream call", async () => {
     const { send, calls } = fakeSend(org(ORG));
     const checker = createKeyChecker();
@@ -196,6 +206,10 @@ describe("createKeyChecker — fails closed (Review Focus 2): unavailable, never
     ["a 2xx without the organisation header", respond(200, {}), ORG_ONLY],
     ["a 2xx with only the workspace header", respond(200, { "anthropic-workspace-id": WS }), WITH_WS],
     ["an empty organisation header", respond(200, { "anthropic-organization-id": "" }), ORG_ONLY],
+    // Node folds a repeated non-standard header into one comma-joined value.
+    ["a folded (repeated) organisation header", respond(200, { "anthropic-organization-id": `${ORG}, ${OTHER_ORG}` }), ORG_ONLY],
+    ["a folded organisation header repeating the right id", respond(200, { "anthropic-organization-id": `${ORG}, ${ORG}` }), ORG_ONLY],
+    ["a folded workspace header", org(ORG, `${WS}, ${OTHER_WS}`), WITH_WS],
     ["a network error", (call) => call.fire("error", new Error(`boom ${KEY}`)), ORG_ONLY],
     ["a timeout", (call) => call.fire("timeout"), ORG_ONLY],
     ["a 500", respond(500, { "anthropic-organization-id": ORG }), ORG_ONLY],

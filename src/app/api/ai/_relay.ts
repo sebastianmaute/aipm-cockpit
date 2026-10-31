@@ -36,7 +36,7 @@ import {
   AI_KEY_WRONG_WORKSPACE,
 } from "../../ai-errors";
 import { defaultKeyChecker, type KeyChecker, type KeyVerdict } from "./_key-check";
-import { discard, fail, isAnthropicError, MAX_ERROR_BODY_BYTES, readCapped } from "./_upstream-answer";
+import { ANTHROPIC_API_BASE, discard, fail, isAnthropicError, MAX_ERROR_BODY_BYTES, readCapped } from "./_upstream-answer";
 
 // Anthropic's documented maximum request size for Messages and Token Counting is
 // 32 MB; larger requests get 413 `request_too_large`. Source (checked 2026-10-27):
@@ -54,7 +54,7 @@ export const MISSING_API_KEY = "missing-api-key";
 
 export type RelayOp = "messages" | "models";
 
-export const ANTHROPIC_API_BASE = "https://api.anthropic.com";
+export { ANTHROPIC_API_BASE };
 
 /**
  * Where a relayed call goes. Any invalid setting refuses the call ("invalid" = 503). Otherwise a
@@ -315,13 +315,10 @@ export async function relay(
   if (restriction.kind === "restricted") {
     // The same key value that would be forwarded is the one checked. Nothing goes upstream
     // past this point (the body is not even read) unless the check passes.
-    const verdict = await checker.check(
-      apiKey,
-      restriction,
-      config,
-      send,
-      request.headers.get("anthropic-version") ?? undefined,
-    );
+    // A check that rejects (it should not) is a check that could not run: nothing is forwarded.
+    const verdict: KeyVerdict = await checker
+      .check(apiKey, restriction, config, send, request.headers.get("anthropic-version") ?? undefined)
+      .catch((): KeyVerdict => ({ kind: "unavailable" }));
     const refusal = refusalFor(verdict);
     if (refusal) return refusal;
   }
