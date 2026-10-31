@@ -17,7 +17,7 @@ longer carries its own changelog comment.
   phone numbers of the people the project knows, and IBANs, become placeholders such as [Person 1], and the real names
   are put back into the reply (placeholders are never saved). The AI is not offered tools that touch people, anything
   it proposes about a person is dropped, people-related signals are left out of its context, and Plan with AI, RACI
-  suggestions and dictation are unavailable. Images and non-text documents are refused, so an image or PDF in a chat
+  suggestions, dictation and voice commands are unavailable. Images and non-text documents are refused, so an image or PDF in a chat
   conversation blocks that conversation while protection is on. Turning protection off asks to confirm and is written
   to the activity log. Existing consents to the AI data disclosure are asked for once more after this update, because
   the disclosure changed. The separate Allow AI to run in the background consent is asked for again too: until both
