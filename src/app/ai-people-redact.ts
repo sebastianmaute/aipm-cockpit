@@ -9,8 +9,12 @@
 // Matching rules (each pinned in ai-people-redact.test.ts):
 // - Names are matched whole-word, case-insensitively and diacritic-folded
 //   (ä/ö/ü fold to ae/oe/ue and ß to ss, so "Müller" = "MÜLLER" = "Mueller";
-//   other marks are stripped). Whitespace inside a name may be any run of
-//   whitespace. The longest alternative wins at each position.
+//   other marks are stripped). Folding works per character CLUSTER composed to
+//   NFC, so NFD text ("u" + U+0308) folds like "ü"; the apostrophes ’ ‘ ʼ ′
+//   fold to "'". A German genitive "s" may follow a name; it is not part of
+//   the match and stays in the text ("Müllers" -> "[Person 1]s"). Whitespace
+//   inside a name may be any run of whitespace. The longest alternative wins
+//   at each position.
 // - Dictionary names go through cleanPersonName first: "(CFO)" suffixes and
 //   "nobody" values such as TBD or "offen" never become names.
 // - A FULL known name is always redacted; a one-word dictionary entry is a full
@@ -72,23 +76,28 @@ const NAME_STOP_WORDS: ReadonlySet<string> = new Set([
 
 // --- folding -----------------------------------------------------------------
 
-const GERMAN_FOLD: Record<string, string> = { ä: "ae", ö: "oe", ü: "ue", ß: "ss" };
+/** Folded per CLUSTER (a base char and its combining marks, composed to NFC), so
+ *  "u" + U+0308 folds like "ü" (review 4, I1). Apostrophe variants fold to "'". */
+const GERMAN_FOLD: Record<string, string> = {
+  ä: "ae", ö: "oe", ü: "ue", ß: "ss", "’": "'", "‘": "'", "ʼ": "'", "′": "'",
+};
+const CLUSTER = /\P{M}\p{M}*|\p{M}+/gu;
 
-function foldChar(c: string): string {
-  const lower = c.toLowerCase();
+function foldCluster(c: string): string {
+  const lower = c.normalize("NFC").toLowerCase();
   return GERMAN_FOLD[lower] ?? lower.normalize("NFD").replace(/\p{M}+/gu, "");
 }
 
-/** Fold `text`; `map[i]` is the index in `text` of the char folded char `i` came from. */
+/** Fold `text`; `map[i]` is the index in `text` of the CLUSTER folded char `i`
+ *  came from, so a match always starts and ends on a cluster boundary of the
+ *  original text and slicing it keeps the input byte-exact (NFD included). */
 function foldWithMap(text: string): { folded: string; map: number[] } {
   let folded = "";
   const map: number[] = [];
-  let i = 0;
-  for (const c of text) {
-    const f = foldChar(c);
+  for (const m of text.matchAll(CLUSTER)) {
+    const f = foldCluster(m[0]);
     folded += f;
-    for (let k = 0; k < f.length; k++) map.push(i);
-    i += c.length;
+    for (let k = 0; k < f.length; k++) map.push(m.index);
   }
   map.push(text.length);
   return { folded, map };
@@ -151,7 +160,8 @@ function buildNameMatcher(names: readonly string[], canonical: Map<string, strin
   const alternatives = [...owner.keys()]
     .sort((a, b) => b.length - a.length)
     .map((alt) => alt.split(" ").map(escapeRe).join("\\s+"));
-  const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${alternatives.join("|")})(?![\\p{L}\\p{N}])`, "gu");
+  // An optional German genitive "s" may follow, OUTSIDE the match, so it stays in the text (review 4, I1).
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${alternatives.join("|")})(?=s?(?![\\p{L}\\p{N}]))`, "gu");
   return { re, owner, ungated };
 }
 
@@ -273,9 +283,11 @@ class Session implements RedactionSession {
         const person = this.names.owner.get(alt);
         if (person === undefined) continue;
         const start = map[m.index];
-        // The look-ahead forbids a letter after the match, so it never ends inside
-        // a folded expansion (ü -> ue); the next folded char's origin is the end.
-        const end = map[m.index + m[0].length];
+        // The match must end on a cluster boundary: the genitive look-ahead lets an
+        // "s" follow, which could be the second half of one folded ß ("hanss").
+        const after = m.index + m[0].length;
+        if (map[after] === map[after - 1]) continue;
+        const end = map[after];
         const spelling = text.slice(start, end);
         if (!alt.includes(" ") && !this.names.ungated.has(alt) && !looksLikeAName(spelling)) continue;
         add({ start, end, kind: "person", key: person, spelling });

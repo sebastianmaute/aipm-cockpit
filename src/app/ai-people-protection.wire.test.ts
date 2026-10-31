@@ -50,7 +50,8 @@ import { resourceDisplayName } from "./resource-foundation";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import {
   FIXTURE_INSIGHT, FIXTURE_PEOPLE_TERMS, FIXTURE_PHONE, FIXTURE_PHONES, KNOWN_EMAILS, FIXTURE_PROJECT_KEY, FIXTURE_TODAY, FORMER_MEMBER, LOWERCASE_PEOPLE, MAIL_EML,
-  MAIL_PERSON, RESOURCE_ID, RESOURCE_NAME_TOKENS, SEEDED_PERSON_FIELDS, STAKEHOLDER_ID, TASK_ID, UNKNOWN_PHONE, peopleFixture,
+  MAIL_PERSON, RESOURCE_ID, RESOURCE_NAME_TOKENS, SEEDED_PERSON_FIELDS, STAKEHOLDER_ID, TASK_ID, UNKNOWN_PHONE, VARIANT_SPELLINGS,
+  peopleFixture,
 } from "../test/people-protection-fixture";
 import { dashboardOf, peopleFeatureOffered, renderChat, type PeopleFeature } from "../test/people-protection-harness";
 
@@ -116,18 +117,27 @@ afterEach(() => {
 // The check: fixture people in the captured bodies.
 // ---------------------------------------------------------------------------------------------------------------
 
-const fold = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+// Two folds, and a term counts when EITHER finds it (review 4, I1): the redactor's own (NFC first, ä/ö/ü -> ae/oe/ue,
+// ß -> ss, apostrophe variants -> '), so a leak spelled "Brandtmueller" or written in NFD is seen; and marks stripped
+// (ü -> u), so a leak whose marks were dropped is seen too.
+const APOSTROPHES = /[’‘ʼ′]/g;
+const UMLAUT_FOLD: Readonly<Record<string, string>> = { ä: "ae", ö: "oe", ü: "ue", ß: "ss" };
+const stripMarks = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu, "");
+const FOLDS: readonly ((s: string) => string)[] = [
+  (s) => stripMarks(s.normalize("NFC").toLowerCase().replace(/[äöüß]/g, (c) => UMLAUT_FOLD[c]!)).replace(APOSTROPHES, "'"),
+  (s) => stripMarks(s).toLowerCase().replace(APOSTROPHES, "'"),
+];
 const digitsOf = (s: string): string => s.replace(/[^\d+]/g, "");
 
 /** The fixture terms found in `bodies`: full names and emails folded, the phone also with its spacing ignored, and
  *  the resource's two name tokens as written (see `RESOURCE_NAME_TOKENS`). */
 function peopleIn(bodies: readonly string[]): string[] {
   const raw = bodies.join("\n");
-  const hay = fold(raw);
-  const hayDigits = digitsOf(hay);
+  const hays = FOLDS.map((fold) => fold(raw));
+  const hayDigits = digitsOf(hays[1]!);
   return [
     ...FIXTURE_PEOPLE_TERMS.filter((term) =>
-      hay.includes(fold(term)) || (FIXTURE_PHONES.includes(term) && hayDigits.includes(digitsOf(term)))),
+      FOLDS.some((fold, i) => hays[i]!.includes(fold(term))) || (FIXTURE_PHONES.includes(term) && hayDigits.includes(digitsOf(term)))),
     ...RESOURCE_NAME_TOKENS.filter((token) => new RegExp(`\\b${token}\\b`).test(raw)),
   ];
 }
@@ -506,6 +516,17 @@ describe("anti-vacuity: with protection off, the same drivers send people", () =
     await driveChat(ctxFor(peopleFixture(allowed)));
     const found = peopleIn(sent).filter((t) => LOWERCASE_PEOPLE.includes(t));
     expect(found).toEqual(allowed ? [...LOWERCASE_PEOPLE] : []);
+  });
+
+  // Review 4, I1: a genitive, an NFD spelling and a straight apostrophe for a curly-stored name ride in task 1's
+  // description. Each one's LAST word is checked byte for byte (a first name redacted alone would hide a whole-variant
+  // check while the surname leaks): present when people are allowed, absent when protected.
+  it.each([["allowed", true], ["protected", false]] as const)("chat, %s: the variant spellings of known names", async (_mode, allowed) => {
+    await driveChat(ctxFor(peopleFixture(allowed)));
+    const raw = sent.join("\n");
+    const surnames = VARIANT_SPELLINGS.map((v) => v.split(" ").at(-1)!);
+    expect(surnames).toHaveLength(3);
+    expect(surnames.filter((v) => raw.includes(v))).toEqual(allowed ? surnames : []);
   });
 
   // The phone half of the check: both phones ride in a task description that get_task / list_tasks return, the

@@ -45,6 +45,8 @@ const P = {
   external: "Zoë Brandtmüller",
   contact: "Cordelia Ashdown",
   booker: "Barnaby Quillfeather",
+  // Stored with a curly apostrophe (U+2019); the task description writes it straight (review 4, I1).
+  secondContact: "Seamus O’Dowling",
 } as const;
 
 const E = {
@@ -113,6 +115,15 @@ export const LOWERCASE_ASSIGNEE = "fennimore";
 export const USER_ID_OWNER = "jkowalczyk";
 export const LOWERCASE_PEOPLE: readonly string[] = [LOWERCASE_ASSIGNEE, USER_ID_OWNER];
 
+/** Review 4, I1: known names as free text spells them differently from the dictionary — a German genitive -s, NFD
+ *  (a base letter plus a combining mark), and a straight apostrophe for a name stored with a curly one. All three ride
+ *  in task 1's description; the wire test checks each, byte for byte, in both directions. */
+export const VARIANT_SPELLINGS: readonly string[] = [
+  `${P.external}s`,
+  P.external.normalize("NFD"),
+  P.secondContact.replace("’", "'"),
+];
+
 /** The known person the mail attachment names. */
 export const MAIL_PERSON = P.stakeholder;
 
@@ -134,7 +145,8 @@ const tasks: Task[] = [
     id: TASK_ID, taskName: "Configure the staging cluster", assignee: P.assignee, assigneeEmail: E.assignee,
     dueDate: "2026-10-20", lastUpdateDate: "2026-10-10", priority: "Medium", status: "In Progress",
     blockers: "Waiting for firewall rules", description: `Bring the staging cluster up to the production layout. Questions to ${P.projectManager} (${E.contact}), ` +
-      `on call ${FIXTURE_PHONE}, vendor hotline ${UNKNOWN_PHONE}.`,
+      `on call ${FIXTURE_PHONE}, vendor hotline ${UNKNOWN_PHONE}. ` +
+      `${VARIANT_SPELLINGS[0]} Schlüssel fehlen; ${VARIANT_SPELLINGS[1]} fragt nach; ${VARIANT_SPELLINGS[2]} prüft das.`,
     group: "Platform",
     noteLog: [note(1, P.taskNoteAuthor, `Firewall ticket raised; ${P.internal} approves it.`)],
     blockerLog: [{ id: 1, text: "Firewall rules", createdAt: "2026-10-11T08:00:00.000Z", authorName: P.blockerAuthor }],
@@ -209,7 +221,10 @@ const project: ProjectMeta = {
   keyStakeholdersInternal: [P.internal], keyStakeholdersExternal: [P.external], customer: "Acme Logistics",
   naceSection: "H", identityTypes: [], products: "Warehouse platform", deployment: "", startDate: "2026-10-01",
   endDate: "2026-12-31", profitCenter: "PC-7",
-  contactPersons: [{ id: 1, name: P.contact, email: E.contact, synced: false }], regulatory: [],
+  contactPersons: [
+    { id: 1, name: P.contact, email: E.contact, synced: false },
+    { id: 2, name: P.secondContact, email: "", synced: false },
+  ], regulatory: [],
 };
 
 export const FIXTURE_INSIGHT: Insight = {

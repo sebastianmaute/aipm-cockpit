@@ -171,6 +171,69 @@ describe("name matching", () => {
   });
 });
 
+// Review 4, I1: three spellings of a known name that the matcher missed.
+describe("matching gaps (review 4, I1)", () => {
+  const NFD_UE = "ü";
+  const names = () => fresh(dict(["Anna Müller", "Sean O’Brien"]));
+
+  it("a German genitive -s: the name is redacted, the s stays in the text", () => {
+    const s = names();
+    const t = "Anna Müllers Aufgabe; Müllers Team";
+    expect(s.redact(t)).toBe("[Person 1]s Aufgabe; [Person 2]s Team");
+    expect(s.restore(s.redact(t))).toBe(t);
+  });
+
+  it("the genitive look-ahead still refuses a longer word", () => {
+    const s = names();
+    expect(s.redact("Müllerstraße, Müllersen")).toBe("Müllerstraße, Müllersen");
+  });
+
+  it("NFD text (u + combining diaeresis) matches a name the dictionary stores in NFC", () => {
+    const s = names();
+    const t = `Anna M${NFD_UE}ller called, M${NFD_UE}ller too`;
+    expect(s.redact(t)).toBe("[Person 1] called, [Person 2] too");
+    // The placeholder restores the dictionary spelling (NFC), canonically equal to the input.
+    expect(s.restore(s.redact(t)).normalize("NFC")).toBe(t.normalize("NFC"));
+  });
+
+  it("NFD round-trips byte-exact when the dictionary stores the NFD spelling; NFD text elsewhere is untouched", () => {
+    const s = fresh(dict([`Anna M${NFD_UE}ller`]));
+    const t = `Gr${NFD_UE}ße: Anna M${NFD_UE}ller and Anna Müller`;
+    expect(s.redact(t)).toBe(`Gr${NFD_UE}ße: [Person 1] and [Person 1]`);
+    const exact = `x Anna M${NFD_UE}ller y, Gr${NFD_UE}ße`;
+    expect(s.restore(s.redact(exact))).toBe(exact);
+  });
+
+  it("a combining mark after a name's last letter is not a match boundary", () => {
+    const s = fresh(dict(["Anna"]));
+    // "Annä" in NFD is not "Anna": the match must not end before the mark and strand it.
+    expect(s.redact("Annä said")).toBe("Annä said");
+  });
+
+  it("a straight apostrophe matches a name stored with a curly one, and vice versa", () => {
+    const s = names();
+    expect(s.redact("Sean O'Brien said")).toBe("[Person 1] said");
+    expect(s.redact("Sean O‘Brien and Sean OʼBrien")).toBe("[Person 1] and [Person 1]");
+    // The placeholder restores the dictionary spelling.
+    expect(s.restore("[Person 1]")).toBe("Sean O’Brien");
+    const straight = fresh(dict(["Sean O'Brien"]));
+    expect(straight.redact("Sean O’Brien said")).toBe("[Person 1] said");
+  });
+
+  it("a curly-apostrophe name round-trips byte-exact", () => {
+    const s = names();
+    const t = "Sean O’Brien said, O’Brien agreed";
+    expect(s.redact(t)).toBe("[Person 1] said, [Person 2] agreed");
+    expect(s.restore(s.redact(t))).toBe(t);
+  });
+
+  it("a match never ends inside a folded expansion (ß -> ss)", () => {
+    const s = fresh(dict(["Hans"]));
+    // "Hanß" folds to "hanss"; the genitive look-ahead must not take "hans" + "s" out of one ß.
+    expect(s.redact("Hanß kam")).toBe("Hanß kam");
+  });
+});
+
 describe("pattern kinds (redacted even when not in the dictionary)", () => {
   it("emails, phones and IBANs get their own placeholders and counts", () => {
     const s = fresh(dict([]));
