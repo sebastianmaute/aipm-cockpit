@@ -52,7 +52,7 @@ export const SKIP_REASON_KEY: Record<SkippedRaciCell["reason"], SkipMessageKey> 
   "duplicate-accountable": "raciSuggestSkippedAccountable",
   // Its own bucket, NOT duplicate-accountable's: "already has an Accountable"
   // is the very explanation that misdescribed a deliberate handover (§43).
-  "accountable-handover": "raciSuggestSkippedHandover",
+  "accountable-needs-demotion": "raciSuggestSkippedHandover",
 };
 
 // Render order is FIXED, not taken from the Map. A Map iterates in insertion

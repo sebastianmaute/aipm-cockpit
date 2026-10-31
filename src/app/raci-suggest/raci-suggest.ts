@@ -28,6 +28,9 @@ export interface GroundedRaciCell extends ProposedCell {
   milestoneName: string;
   /** The role stored today, or null when the cell is empty. */
   currentRole: RaciRole | null;
+  /** `handover:<milestoneId>` on BOTH cells of an accepted Accountable handover
+   *  (the new holder's A and the old holder's demotion); absent otherwise. */
+  pairKey?: string;
 }
 
 export type SkipReason =
@@ -35,11 +38,10 @@ export type SkipReason =
   | "unknown-milestone"
   | "invalid-role"
   | "duplicate-accountable"
-  /** A proposed Accountable for someone else on a milestone whose CURRENT
-   *  Accountable the same proposal demotes. Still refused — see
-   *  `groundRaciCells` — but "that milestone already has an Accountable" would
-   *  misdescribe a proposal that deliberately moves it (§43). */
-  | "accountable-handover";
+  /** A new Accountable on a milestone with exactly ONE stored holder, when the
+   *  proposal gives that holder no valid non-A role: the A could only be
+   *  accepted by minting a second one (§771). */
+  | "accountable-needs-demotion";
 
 export interface SkippedRaciCell {
   stakeholderId: number;
@@ -105,6 +107,13 @@ export function groundRaciCells(
   // who unticked the demotion and kept the promotion would write TWO
   // Accountables. Only the explanation changes (§43). First occurrence per cell
   // only, matching the `seen` dedupe below.
+  const storedHolders = new Map<number, number[]>();
+  for (const s of stakeholders) {
+    for (const [key, role] of Object.entries(s.raci)) {
+      if (role === "A") storedHolders.set(Number(key), [...(storedHolders.get(Number(key)) ?? []), s.id]);
+    }
+  }
+  const pairedMilestones = new Set<number>();
   const demotedHolder = new Set<number>();
   const preSeen = new Set<string>();
   for (const c of proposed) {
@@ -145,13 +154,19 @@ export function groundRaciCells(
       // someone else is not.
       const holder = accountableHolder.get(c.milestoneId);
       if (holder !== undefined && holder !== c.stakeholderId) {
-        // `demotedHolder` only names milestones with a STORED holder, and a
-        // stored holder is never replaced in the map, so `holder` here IS the
-        // demoted one. Two proposed A's on a milestone with no stored holder
-        // still read as duplicate-accountable.
-        const handover = demotedHolder.has(c.milestoneId);
-        skipped.push({ ...c, reason: handover ? "accountable-handover" : "duplicate-accountable" });
-        continue;
+        // A handover needs exactly ONE stored holder (still unclaimed in the
+        // map) whom the proposal demotes. Everything else stays a duplicate.
+        const stored = storedHolders.get(c.milestoneId) ?? [];
+        const unclaimed = stored.length === 1 && stored[0] === holder;
+        if (!unclaimed) {
+          skipped.push({ ...c, reason: "duplicate-accountable" });
+          continue;
+        }
+        if (!demotedHolder.has(c.milestoneId)) {
+          skipped.push({ ...c, reason: "accountable-needs-demotion" });
+          continue;
+        }
+        pairedMilestones.add(c.milestoneId);
       }
       // Claim it BEFORE the no-op check below, so that a later proposed A for a
       // DIFFERENT stakeholder on this milestone is still refused even when this
@@ -177,7 +192,26 @@ export function groundRaciCells(
     });
   }
 
-  return { cells, skipped, truncated: proposed.length > MAX_RACI_CELLS, noOp };
+  return { cells: markHandoverPairs(cells, pairedMilestones, storedHolders), skipped, truncated: proposed.length > MAX_RACI_CELLS, noOp };
+}
+
+/** Stamp `pairKey` on both cells of each handover. A new A whose demotion was
+ *  cut by the cell cap is dropped: it would mint a second Accountable alone. */
+function markHandoverPairs(
+  cells: GroundedRaciCell[],
+  paired: ReadonlySet<number>,
+  storedHolders: ReadonlyMap<number, number[]>,
+): GroundedRaciCell[] {
+  if (paired.size === 0) return cells;
+  const hasDemotion = (m: number) =>
+    cells.some((c) => c.milestoneId === m && c.stakeholderId === storedHolders.get(m)?.[0] && c.role !== "A");
+  return cells.flatMap((c) => {
+    if (!paired.has(c.milestoneId)) return [c];
+    const isDemotion = c.stakeholderId === storedHolders.get(c.milestoneId)?.[0];
+    if (!isDemotion && c.role === "A" && !hasDemotion(c.milestoneId)) return [];
+    if (isDemotion || c.role === "A") return [{ ...c, pairKey: `handover:${c.milestoneId}` }];
+    return [c];
+  });
 }
 
 export const RACI_SUGGEST_TOOL = {

@@ -226,7 +226,7 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
   // Accountable and promotes someone else) is refused, but "that milestone
   // already has an Accountable" misdescribes it.
   it("explains a refused Accountable HANDOVER with its own sentence", () => {
-    renderSkipped([skip("accountable-handover")]);
+    renderSkipped([skip("accountable-needs-demotion")]);
     expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedHandover", 1, 1))).toBeInTheDocument();
     expect(screen.queryByText(tPlural("en-US", "raciSuggestSkippedAccountable", 1, 1))).not.toBeInTheDocument();
   });
