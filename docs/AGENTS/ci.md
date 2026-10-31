@@ -293,7 +293,7 @@ Gateway. Two jobs, the same shape as `live-turso.yml`:
   its token. If the gateway drops either header, proofs 4 and 5 fail with a message that names the
   rule it breaks: a gateway must pass Anthropic's organisation and workspace headers back, and one
   that does not cannot be combined with the restriction ([RUNBOOK](../RUNBOOK.md), "Restricting AI
-  to the organisation's Anthropic keys", step 5). No assertion message carries an upstream body:
+  to the organisation's Anthropic keys", step 6). No assertion message carries an upstream body:
   every parse of one is wrapped, and a failure reports a boolean or a status.
 - ★★★ **A green run must have run every proof.** The file's proofs SKIP unless all five secrets are
   set AND `AI_LIVE_REQUIRED` is `1` (that is what keeps the unit job, which runs every `src/**`

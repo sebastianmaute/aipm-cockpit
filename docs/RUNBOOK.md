@@ -427,11 +427,14 @@ which owns that list.
      and should try again, in Settings → AI and in the feature that failed. That covers
      any other answer than `2xx`, `401` or `403` (a `3xx`, `404`, `429` or `5xx`
      among them), a network error, a timeout (30 seconds), and a `2xx` that lacks the
-     organisation header or carries an empty or repeated header.
+     organisation header or carries an empty or repeated header. It also covers a
+     server that is already running 32 checks for other keys: a new key's check is not
+     sent then, and its user sees the same "could not be checked, try again".
    - A pass is cached in memory only, by a keyed SHA-256 (HMAC) of the key whose
-     secret is drawn at random when the server starts, until the cache
-     (at most 1000 entries) evicts it or the restriction settings change. A restart
-     empties the cache.
+     secret is drawn at random when the server starts, until the restriction settings
+     change or the cache (at most 1000 entries) evicts it; when full, the cache evicts
+     the entry whose key was used least recently, so keys in steady use stay cached. A
+     restart empties the cache.
    - Anthropic's own `401` or `403` for the key is passed through unchanged. The `401`
      is remembered for 60 seconds (by the same keyed hash), so repeated calls with
      one invalid key send one check, not one each; the `403` is not cached. Through a gateway, a `401` or `403` that is not Anthropic's own (the

@@ -6,7 +6,7 @@
 import { Readable } from "node:stream";
 import type { RequestOptions } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createKeyChecker, KEY_CHECK_TIMEOUT_MS, type KeyVerdict } from "./_key-check";
+import { createKeyChecker, KEY_CHECK_TIMEOUT_MS, MAX_PREFLIGHTS_IN_FLIGHT, type KeyVerdict } from "./_key-check";
 import type { RelaySend, UpstreamResponse } from "./_relay";
 import type { AiKeyRestriction } from "../../ai-key-restriction-config";
 
@@ -466,6 +466,142 @@ describe("createKeyChecker — cache bounds and restriction changes", () => {
     const checker = createKeyChecker();
     for (let i = 0; i < 1001; i++) await checker.check(`key-${i}`, ORG_ONLY, ANTHROPIC, send);
     expect(checker.size()).toBe(1000);
+  });
+});
+
+/** The key a recorded pre-flight carried. */
+const keyOf = (call: Call) => (call.options.headers as Record<string, string>)["x-api-key"];
+
+describe("createKeyChecker — least-recently-used eviction", () => {
+  const kinds: Array<[string, (call: Call) => void, string]> = [
+    ["a pass", org(ORG), "pass"],
+    ["a refusal", org(OTHER_ORG), "wrong-organization"],
+    ["Anthropic's own 401", respond(401, {}, ANTHROPIC_401), "upstream-error"],
+  ];
+  for (const [name, oldestAnswer, expectedKind] of kinds) {
+    it(`a hit on ${name} makes it most recent: the next eviction drops the second-oldest instead`, async () => {
+      const { send, calls } = fakeSend((call) => (keyOf(call) === "k1" ? oldestAnswer : org(ORG))(call));
+      const checker = createKeyChecker({ maxEntries: 3 });
+      for (const k of ["k1", "k2", "k3"]) await checker.check(k, ORG_ONLY, ANTHROPIC, send);
+      expect(calls).toHaveLength(3);
+      // The hit on the oldest entry is answered from the cache.
+      expect((await checker.check("k1", ORG_ONLY, ANTHROPIC, send)).kind).toBe(expectedKind);
+      expect(calls).toHaveLength(3);
+      await checker.check("k4", ORG_ONLY, ANTHROPIC, send);
+      expect(calls).toHaveLength(4);
+      expect(checker.size()).toBe(3);
+      // k1 (hit) and k3 are still cached; k2, now the least recently used, was evicted.
+      for (const k of ["k1", "k3", "k4"]) await checker.check(k, ORG_ONLY, ANTHROPIC, send);
+      expect(calls).toHaveLength(4);
+      await checker.check("k2", ORG_ONLY, ANTHROPIC, send);
+      expect(calls.map(keyOf)).toEqual(["k1", "k2", "k3", "k4", "k2"]);
+    });
+  }
+});
+
+describe("createKeyChecker — a cap on pre-flights in flight", () => {
+  /** A send whose pre-flights wait until the test answers them. */
+  function heldSend() {
+    const pending: Call[] = [];
+    const { send, calls } = fakeSend((call) => pending.push(call));
+    return { send, calls, pending };
+  }
+
+  it("is 32 by default", async () => {
+    expect(MAX_PREFLIGHTS_IN_FLIGHT).toBe(32);
+    const { send, calls, pending } = heldSend();
+    const checker = createKeyChecker();
+    const held = Array.from({ length: 32 }, (_, i) => checker.check(`key-${i}`, ORG_ONLY, ANTHROPIC, send));
+    await vi.waitFor(() => expect(pending).toHaveLength(32));
+    expect(await checker.check("key-32", ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "unavailable" });
+    expect(calls).toHaveLength(32);
+    for (const call of pending) org(ORG)(call);
+    await Promise.all(held);
+  });
+
+  it("at the cap, a new key gets unavailable, nothing is sent and nothing is cached", async () => {
+    const { send, calls, pending } = heldSend();
+    const checker = createKeyChecker({ maxPreflightsInFlight: 2 });
+    const first = checker.check("k1", ORG_ONLY, ANTHROPIC, send);
+    const second = checker.check("k2", ORG_ONLY, ANTHROPIC, send);
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    expect(await checker.check("k3", ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "unavailable" });
+    expect(calls).toHaveLength(2);
+    expect(checker.size()).toBe(0);
+    for (const call of pending) org(ORG)(call);
+    expect(await Promise.all([first, second])).toEqual([{ kind: "pass" }, { kind: "pass" }]);
+  });
+
+  it("a cached key is still answered at the cap: only a new pre-flight needs a slot", async () => {
+    const { send, calls, pending } = heldSend();
+    const checker = createKeyChecker({ maxPreflightsInFlight: 1 });
+    const first = checker.check("k1", ORG_ONLY, ANTHROPIC, send);
+    await vi.waitFor(() => expect(pending).toHaveLength(1));
+    org(ORG)(pending[0]);
+    await first;
+    const held = checker.check("k2", ORG_ONLY, ANTHROPIC, send);
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    expect(await checker.check("k1", ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "pass" });
+    expect(calls).toHaveLength(2);
+    org(ORG)(pending[1]);
+    await held;
+  });
+
+  it("after one flight finishes, a new key gets its slot", async () => {
+    const { send, calls, pending } = heldSend();
+    const checker = createKeyChecker({ maxPreflightsInFlight: 1 });
+    const first = checker.check("k1", ORG_ONLY, ANTHROPIC, send);
+    await vi.waitFor(() => expect(pending).toHaveLength(1));
+    expect(await checker.check("k2", ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "unavailable" });
+    org(ORG)(pending[0]);
+    await first;
+    const next = checker.check("k2", ORG_ONLY, ANTHROPIC, send);
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    org(ORG)(pending[1]);
+    expect(await next).toEqual({ kind: "pass" });
+    expect(calls.map(keyOf)).toEqual(["k1", "k2"]);
+  });
+
+  it("callers coalesced onto a flight take no slot of their own", async () => {
+    const { send, calls, pending } = heldSend();
+    const checker = createKeyChecker({ maxPreflightsInFlight: 2 });
+    const shared = [1, 2, 3].map(() => checker.check("k1", ORG_ONLY, ANTHROPIC, send));
+    await vi.waitFor(() => expect(pending).toHaveLength(1));
+    const other = checker.check("k2", ORG_ONLY, ANTHROPIC, send);
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    expect(await checker.check("k3", ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "unavailable" });
+    expect(calls.map(keyOf)).toEqual(["k1", "k2"]);
+    for (const call of pending) org(ORG)(call);
+    expect(await Promise.all([...shared, other])).toEqual(Array(4).fill({ kind: "pass" }));
+  });
+
+  const exits: Array<[string, (call: Call) => void]> = [
+    ["a pass", org(ORG)],
+    ["a refusal", org(OTHER_ORG)],
+    ["Anthropic's own 401", respond(401, {}, ANTHROPIC_401)],
+    ["an upstream error", respond(500, {})],
+    ["a network error", (call) => call.fire("error", new Error("boom"))],
+    ["a timeout", (call) => call.fire("timeout")],
+  ];
+  for (const [name, onEnd] of exits) {
+    it(`the slot is freed after ${name}`, async () => {
+      const checker = createKeyChecker({ maxPreflightsInFlight: 1 });
+      await checker.check("k1", ORG_ONLY, ANTHROPIC, fakeSend(onEnd).send);
+      const { send, calls } = fakeSend(org(ORG));
+      expect(await checker.check("k2", ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "pass" });
+      expect(calls).toHaveLength(1);
+    });
+  }
+
+  it("the slot is freed after a send that throws", async () => {
+    const checker = createKeyChecker({ maxPreflightsInFlight: 1 });
+    const throwing: RelaySend = () => {
+      throw new Error("bad header");
+    };
+    expect(await checker.check("k1", ORG_ONLY, ANTHROPIC, throwing)).toEqual({ kind: "unavailable" });
+    const { send, calls } = fakeSend(org(ORG));
+    expect(await checker.check("k2", ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "pass" });
+    expect(calls).toHaveLength(1);
   });
 });
 
