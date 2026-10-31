@@ -242,3 +242,54 @@ describe("describeRecommendationPlan — a row changed by two calls (§773 N-1)"
     expect(strip(describeRecommendationPlan(calls, ws(), undefined, absence))).toEqual(strip(describeRecommendationPlan(calls, ws())));
   });
 });
+
+// §773 N-1 (re-review) — a create linking a task an earlier call reassigned judges the new owner.
+describe("describeRecommendationPlan — a create after an owner change (§773 N-1)", () => {
+  const absence = {
+    absences: [
+      { id: 1, assignee: "Dana Ortiz", type: "vacation", startDate: "2026-09-21", endDate: "2026-09-25" },
+      { id: 2, assignee: "Sam Lee", type: "vacation", startDate: "2026-10-05", endDate: "2026-10-09" },
+    ],
+    resources: [],
+    holidaySet: new Set<string>(),
+  } as unknown as AbsenceCtx;
+  const onSam = (): Workspace =>
+    ({ ...ws(), tasks: [{ id: 12, taskName: "T", assignee: "Sam Lee", dueDate: "2026-07-01" }] }) as unknown as Workspace;
+
+  test("create_milestone linking a task given to someone away on its date warns for the new owner", () => {
+    const plan = describeRecommendationPlan(
+      [
+        { name: "update_task", input: { id: 12, assignee: "Dana Ortiz" } },
+        { name: "create_milestone", input: { name: "Beta", date: "2026-09-23", linkedTaskIds: [12] } },
+      ],
+      onSam(),
+      undefined,
+      absence,
+    );
+    expect(plan.clashes).toEqual([
+      expect.objectContaining({ entity: "milestone", id: null, clash: expect.objectContaining({ person: "Dana Ortiz", date: "2026-09-23" }) }),
+    ]);
+  });
+
+  test("and does not warn about the old owner's absence on that date", () => {
+    const plan = describeRecommendationPlan(
+      [
+        { name: "update_task", input: { id: 12, assignee: "Dana Ortiz" } },
+        { name: "create_milestone", input: { name: "Beta", date: "2026-10-07", linkedTaskIds: [12] } },
+      ],
+      onSam(),
+      undefined,
+      absence,
+    );
+    expect(plan.clashes).toEqual([]);
+  });
+
+  test("the create's card lines are still described against the stored workspace", () => {
+    const calls = [
+      { name: "update_task", input: { id: 12, assignee: "Dana Ortiz" } },
+      { name: "create_milestone", input: { name: "Beta", date: "2026-09-23", linkedTaskIds: [12] } },
+    ];
+    const strip = (p: ReturnType<typeof describeRecommendationPlan>) => ({ ...p, clashes: [] });
+    expect(strip(describeRecommendationPlan(calls, onSam(), undefined, absence))).toEqual(strip(describeRecommendationPlan(calls, onSam())));
+  });
+});

@@ -68,9 +68,10 @@ function inputId(input: Readonly<Record<string, unknown>>): number {
 
 type ClashJudge = (block: ToolUseLike, d: EntityDescriptor, item: RowItem) => ClashNote[];
 
-/** §773 N-1 — the absence clashes of an update call, judged against its row as the plan's EARLIER calls leave
- *  it (`carryClashes`, keyed by entity and id, as `chat-proposal-turn-clashes.ts` does): an owner change, then
- *  a due-date move, judges the move with the new owner, and a milestone judges its linked tasks' new owners.
+/** §773 N-1 — the absence clashes of an update or create call, judged against its row and the tasks as the
+ *  plan's EARLIER calls leave them (`carryClashes`, keyed by entity and id, as `chat-proposal-turn-clashes.ts`
+ *  does): an owner change, then a due-date move, judges the move with the new owner, and a milestone (updated or
+ *  created) judges its linked tasks' new owners. Only an update with a real id carries forward.
  *  Confined to clashes: the card's field lines are still described against the stored row. */
 function clashJudge(ws: Workspace, absence: AbsenceCtx): ClashJudge {
   const changed = new Map<string, ClashCarry>();
@@ -154,11 +155,13 @@ export function describeRecommendationPlan(
     // create_* (and anything unrecognized) — the create-tool routing inside
     // describeEntityCalls is descriptor-independent, so any descriptor works.
     const item = { id: NaN } as unknown as RowItem;
-    const p = describeEntityCalls([block], { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsFull, absence });
+    const p = describeEntityCalls([block], { descriptor: INLINE_DESCRIPTORS.task, item, ws: wsFull });
     merged.creates.push(...p.creates);
     merged.rejected.push(...p.rejected);
     merged.links.push(...p.links);
-    merged.clashes.push(...p.clashes);
+    // §773 — judged on the workspace as the earlier calls leave it: a new milestone linking a task an earlier
+    // call reassigned judges the new owner. A create carries nothing forward (its row has no id yet).
+    merged.clashes.push(...(judgeClashes?.(block, INLINE_DESCRIPTORS.task, item) ?? []));
   }
 
   return merged;
