@@ -132,6 +132,9 @@ export function describeRecommendationPlan(
       const rows = wsFull[d.wsKey] as ReadonlyArray<{ id: number }>;
       const id = inputId(call.input);
       const item = (rows.find((r) => r.id === id) ?? { id: NaN }) as unknown as RowItem;
+      // ★ Described TWICE on purpose: here for the card (against the stored row), and again inside
+      //  `judgeClashes` for the clashes (against the row as earlier calls leave it). Do not merge them —
+      //  the card must keep its stored-row diff, and the clash pass needs the carried row.
       const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull });
       merged.updates.push(...p.updates);
       merged.rejected.push(...p.rejected);
