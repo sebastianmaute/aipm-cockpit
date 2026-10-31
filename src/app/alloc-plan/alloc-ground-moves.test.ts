@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { groundAlternative, isMoveStale, moveKey, planTickedMoves, type MoveGroundContext } from "./alloc-ground-moves";
 import { type RawAllocAlternative } from "./alloc-alternatives";
-import { type Resource, type ResourcePlan, type Task } from "../types";
+import { type Absence, type Resource, type ResourcePlan, type Task } from "../types";
 
 const plan: ResourcePlan = { startDate: "2026-09-01", endDate: "2026-10-31", granularity: "month", currency: "EUR" };
 
@@ -234,5 +234,35 @@ describe("planTickedMoves", () => {
     const p = planTickedMoves(g.moves, new Set(g.moves.map((m) => m.key)), c);
     expect(p.plan.moves).toEqual([]);
     expect(p.changedCells.size).toBe(0);
+  });
+});
+
+describe("groundAlternative: a move onto the new owner's absence (§773)", () => {
+  // 2026-11-02 is a Monday; Liam is away 2026-11-03..2026-11-07.
+  const away = { id: 1, assignee: "Liam Foster", resourceId: 2, type: "vacation", startDate: "2026-11-03", endDate: "2026-11-07" } as Absence;
+  const withAway = (t: Task): MoveGroundContext => ({ ...ctxOf([maya(), liam()], [t]), absences: [away] });
+
+  it("a task due on a day the receiver is away carries that clash", () => {
+    const due = task({ startDate: undefined, dueDate: "2026-11-05" });
+    const g = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), withAway(due));
+    expect(g.moves[0].clashes).toEqual([
+      {
+        person: "Liam Foster", resourceId: 2, reason: "date-on-absence", which: "due", date: "2026-11-05",
+        ranges: [{ start: "2026-11-03", end: "2026-11-07" }],
+      },
+    ]);
+  });
+
+  it("judges the whole task for the new owner: its start date on the absence warns too", () => {
+    const g = groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), withAway(task({ startDate: "2026-11-04", dueDate: "2026-11-20" })));
+    expect(g.moves[0].clashes).toEqual([expect.objectContaining({ person: "Liam Foster", which: "start", date: "2026-11-04" })]);
+  });
+
+  it("a task due on a free day carries no clash, and nor does the giver's absence", () => {
+    const mayaAway = { ...away, id: 2, assignee: "Maya Patel", resourceId: 1 } as Absence;
+    const due = task({ startDate: undefined, dueDate: "2026-11-12" });
+    const c = { ...ctxOf([maya(), liam()], [task({ startDate: undefined, dueDate: "2026-11-05" })]), absences: [mayaAway] };
+    expect(groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), withAway(due)).moves[0].clashes).toEqual([]);
+    expect(groundAlternative(alt({ taskMoves: [{ taskId: 7, toResourceId: 2 }] }), c).moves[0].clashes).toEqual([]);
   });
 });

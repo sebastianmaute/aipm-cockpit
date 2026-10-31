@@ -6,6 +6,7 @@
 // TICKED moves do together is planned again by `planTickedMoves`, for the preview and at apply.
 // Pure and deterministic; no React, no i18n.
 import { type Resource, type Task } from "../types";
+import { taskClashes, type AbsenceClash } from "../absence-clash";
 import { isTaskClosed } from "../task-closed";
 import { resourceDisplayName } from "../resource-foundation";
 import { absencesForResource, generatePeriods } from "../resource-capacity";
@@ -54,6 +55,9 @@ export interface GroundedMove {
   linked: boolean;
   plan: HoursMovePlan;
   snapshot: MoveSnapshot;
+  /** §773 — the task's dates that fall on the RECEIVER's absence, by the one clash rule. An owner change hands
+   *  over the whole task (R2), so every date is judged. The review window warns on the row; it never refuses. */
+  clashes: AbsenceClash[];
 }
 
 export interface GroundedAlternative {
@@ -177,7 +181,8 @@ function groundMoves(raw: RawAllocAlternative, ctx: MoveGroundContext): { moves:
     if (giver && task.resourceId === toResourceId) { skip("same-owner"); continue; }
 
     const toLabel = resourceDisplayName(receiver);
-    const plan = planHoursMoves([ownerChangeFor(task, receiver)], ctx.resources, ctx);
+    const change = ownerChangeFor(task, receiver);
+    const plan = planHoursMoves([change], ctx.resources, ctx);
     moves.push({
       key: moveKey({ taskId }),
       taskId,
@@ -189,6 +194,7 @@ function groundMoves(raw: RawAllocAlternative, ctx: MoveGroundContext): { moves:
       linked: giver !== undefined,
       plan,
       snapshot: snapshotOf(task, plan, giver ? [giver.id, toResourceId] : [toResourceId], ctx),
+      clashes: taskClashes(change.task, ctx),
     });
   }
   return { moves, skippedMoves };
