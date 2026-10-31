@@ -445,6 +445,11 @@ verdicts are cached per server process, and a cached pass is not checked again u
 the cache evicts it or the restriction settings change; a key that is revoked is
 refused by Anthropic itself.
 
+The relay is not reserved for the app's own pages: it answers any same-origin request,
+and any client outside a browser, that sends a key. With the restriction on, every such
+key is still checked, so only keys of the organisation (and of a listed workspace, when
+a list is set) get through. The relay adds no access the key does not already have.
+
 ### Routing AI through a gateway (run-time, optional)
 
 By default every AI request goes from the user's browser straight to
