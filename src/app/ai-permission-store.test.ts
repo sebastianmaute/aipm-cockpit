@@ -190,4 +190,9 @@ describe("sameAiState — the route is part of a consent record", () => {
     expect(sameAiState({ enabled: true, consent: { ...base, route: "gateway" } }, state(base))).toBe(false);
     expect(sameAiState({ enabled: true, consent: base }, state({ ...base, route: "gateway" }))).toBe(false);
   });
+  it("tells a consent given under the key restriction from one given without it (absent = unrestricted)", () => {
+    const gw = { ...base, route: "gateway" as const };
+    expect(sameAiState({ enabled: true, consent: { ...gw, keyRestricted: true } }, state(gw))).toBe(false);
+    expect(sameAiState({ enabled: true, consent: { ...gw, keyRestricted: false } }, state(gw))).toBe(true);
+  });
 });

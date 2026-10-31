@@ -13,6 +13,7 @@ vi.mock("../../diagnostics", async (importOriginal) => {
 });
 
 import { logDiag } from "../../diagnostics";
+import { createKeyChecker } from "./_key-check";
 import {
   relay,
   RELAY_MAX_BODY_BYTES,
@@ -70,10 +71,15 @@ function fakeSend(onEnd: (call: Call) => void = () => {}): { send: RelaySend; ca
   return { send, calls };
 }
 
-function upstream(status: number, body: string, contentType = "application/json"): UpstreamResponse {
+function upstream(
+  status: number,
+  body: string,
+  contentType = "application/json",
+  extra: Record<string, string> = {},
+): UpstreamResponse {
   return Object.assign(Readable.from([Buffer.from(body)]), {
     statusCode: status,
-    headers: { "content-type": contentType },
+    headers: { "content-type": contentType, ...extra },
   });
 }
 
@@ -203,7 +209,7 @@ describe("relay — refusals before any upstream call", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("the key check comes before the body cap (no key + oversized → 400, not 413)", async () => {
+  it("the missing-key refusal comes before the body cap (no key + oversized → 400, not 413)", async () => {
     const { send } = fakeSend();
     const req = post();
     Object.defineProperty(req, "headers", {
@@ -531,6 +537,264 @@ describe("relay — logs nothing secret", () => {
     ]);
     for (const secret of [KEY, TOKEN, PROMPT, "gateway.example.com"]) {
       expect(logged).not.toContain(secret);
+    }
+  });
+});
+
+const ORG = "11111111-2222-3333-4444-555555555555";
+const RESTRICTED_ENV = { AIPM_AI_ORGANIZATION_ID: ORG };
+
+const isPreflight = (call: Call) => call.url.pathname.endsWith("/v1/models") && call.url.searchParams.get("limit") === "1";
+
+/** Answers the key check's pre-flight with `orgId` (and `ws`), every other call with `onEnd`. */
+const checkedAs =
+  (orgId: string, onEnd: (call: Call) => void = respondWith(200, ANTHROPIC_OK), ws?: string) =>
+  (call: Call) => {
+    if (!isPreflight(call)) return onEnd(call);
+    const headers: Record<string, string> = { "anthropic-organization-id": orgId };
+    if (ws) headers["anthropic-workspace-id"] = ws;
+    call.respond(upstream(200, '{"data":[]}', "application/json", headers));
+  };
+
+describe("relay — straight to Anthropic when keys are restricted and there is no gateway", () => {
+  it("a Messages call goes to api.anthropic.com with the four forwarded headers and no gateway token", async () => {
+    const { send, calls } = fakeSend(checkedAs(ORG));
+    const res = await relay(
+      post({ "anthropic-beta": "b1", cookie: "session=1" }),
+      "messages",
+      RESTRICTED_ENV,
+      send,
+      createKeyChecker(),
+    );
+    expect(res.status).toBe(200);
+    expect(calls).toHaveLength(2);
+    expect(calls[1].url.href).toBe("https://api.anthropic.com/v1/messages");
+    expect(calls[1].options.method).toBe("POST");
+    const headers = calls[1].options.headers as Record<string, string>;
+    expect(Object.keys(headers).sort()).toEqual(
+      ["anthropic-beta", "anthropic-version", "content-length", "content-type", "x-api-key"],
+    );
+    expect(headers["x-api-key"]).toBe(KEY);
+    expect(headers["cf-aig-authorization"]).toBeUndefined();
+  });
+
+  it("a models call goes to /v1/models?limit=1000", async () => {
+    const { send, calls } = fakeSend(checkedAs(ORG, respondWith(200, "{}")));
+    await relay(getModels(), "models", RESTRICTED_ENV, send, createKeyChecker());
+    expect(calls).toHaveLength(2);
+    expect(calls[1].url.href).toBe("https://api.anthropic.com/v1/models?limit=1000");
+    expect(calls[1].options.method).toBe("GET");
+  });
+
+  it("an invalid restriction → 503 ai-gateway-invalid, nothing sent", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", { AIPM_AI_ORGANIZATION_ID: "not-an-id" }, send);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "ai-gateway-invalid" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a call without a key of its own is still refused with 400", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post({ "x-api-key": " " }), "messages", RESTRICTED_ENV, send);
+    expect(res.status).toBe(400);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a gateway wins over the restriction: the check and the call both go to it with its token, like the real request", async () => {
+    const { send, calls } = fakeSend(checkedAs(ORG));
+    await relay(post(), "messages", { ...GATEWAY_ENV, ...RESTRICTED_ENV }, send, createKeyChecker());
+    expect(calls.map((c) => c.url.href)).toEqual([`${BASE}/v1/models?limit=1`, `${BASE}/v1/messages`]);
+    expect((calls[0].options.headers as Record<string, string>)["cf-aig-skip-cache"]).toBe("true");
+    for (const call of calls) {
+      expect((call.options.headers as Record<string, string>)["cf-aig-authorization"]).toBe(`Bearer ${TOKEN}`);
+    }
+  });
+
+  it("a valid gateway beside an invalid restriction → 503 ai-gateway-invalid, nothing sent", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", { ...GATEWAY_ENV, AIPM_AI_ORGANIZATION_ID: "not-an-id" }, send);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "ai-gateway-invalid" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("an invalid gateway URL wins over a valid restriction: 503, nothing sent", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", { AIPM_AI_GATEWAY_URL: "http://insecure.example.com", ...RESTRICTED_ENV }, send);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "ai-gateway-invalid" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a gateway token with no URL beside a restriction → 503 ai-gateway-invalid, nothing sent", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", { AIPM_AI_GATEWAY_TOKEN: TOKEN, ...RESTRICTED_ENV }, send);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "ai-gateway-invalid" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("neither set → 404 as before", async () => {
+    const { send, calls } = fakeSend();
+    expect((await relay(post(), "messages", {}, send)).status).toBe(404);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+const OTHER_ORG = "99999999-8888-7777-6666-555555555555";
+const WS = "wrkspc_01InventedAlphaQ7x";
+const OTHER_WS = "wrkspc_01InventedOmegaR2m";
+const isMessages = (call: Call) => call.url.pathname.endsWith("/v1/messages");
+
+describe("relay — the key check before forwarding (AI organisation key)", () => {
+  it("another organisation → 403 ai-key-wrong-organization; no Messages call, no body read upstream", async () => {
+    const { send, calls } = fakeSend(checkedAs(OTHER_ORG));
+    const res = await relay(post(), "messages", RESTRICTED_ENV, send, createKeyChecker());
+    expect(res.status).toBe(403);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.json()).toEqual({ error: "ai-key-wrong-organization" });
+    expect(calls).toHaveLength(1);
+    expect(isPreflight(calls[0])).toBe(true);
+    expect(calls.some(isMessages)).toBe(false);
+    expect(calls[0].body).toBeUndefined();
+  });
+
+  it("a workspace not on the list → 403 ai-key-wrong-workspace; no Messages call", async () => {
+    const { send, calls } = fakeSend(checkedAs(ORG, undefined, OTHER_WS));
+    const env = { ...RESTRICTED_ENV, AIPM_AI_WORKSPACE_IDS: WS };
+    const res = await relay(post(), "messages", env, send, createKeyChecker());
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "ai-key-wrong-workspace" });
+    expect(calls.some(isMessages)).toBe(false);
+  });
+
+  it("a pass → the Messages call follows the pre-flight, with the caller's key on both", async () => {
+    const { send, calls } = fakeSend(checkedAs(ORG, undefined, WS));
+    const env = { ...RESTRICTED_ENV, AIPM_AI_WORKSPACE_IDS: WS };
+    const res = await relay(post(), "messages", env, send, createKeyChecker());
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(ANTHROPIC_OK);
+    expect(calls.map((c) => c.url.href)).toEqual([
+      "https://api.anthropic.com/v1/models?limit=1",
+      "https://api.anthropic.com/v1/messages",
+    ]);
+    for (const call of calls) expect((call.options.headers as Record<string, string>)["x-api-key"]).toBe(KEY);
+  });
+
+  it("a passed key is not checked again on the next call", async () => {
+    const { send, calls } = fakeSend(checkedAs(ORG));
+    const checker = createKeyChecker();
+    await (await relay(post(), "messages", RESTRICTED_ENV, send, checker)).text();
+    await (await relay(post(), "messages", RESTRICTED_ENV, send, checker)).text();
+    expect(calls.filter(isPreflight)).toHaveLength(1);
+    expect(calls.filter(isMessages)).toHaveLength(2);
+  });
+
+  it("the check unavailable → 503 ai-key-check-unavailable; no Messages call", async () => {
+    const { send, calls } = fakeSend((call) => (isPreflight(call) ? call.fire("timeout") : respondWith(200, ANTHROPIC_OK)(call)));
+    const res = await relay(post(), "messages", RESTRICTED_ENV, send, createKeyChecker());
+    expect(res.status).toBe(503);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.json()).toEqual({ error: "ai-key-check-unavailable" });
+    expect(calls.some(isMessages)).toBe(false);
+  });
+
+  it("workspaces configured and the pre-flight has no workspace header (a key not tied to a workspace) → 403 ai-key-wrong-workspace; no Messages call", async () => {
+    const { send, calls } = fakeSend(checkedAs(ORG));
+    const env = { ...RESTRICTED_ENV, AIPM_AI_WORKSPACE_IDS: WS };
+    const res = await relay(post(), "messages", env, send, createKeyChecker());
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "ai-key-wrong-workspace" });
+    expect(calls.some(isMessages)).toBe(false);
+  });
+
+  it("Anthropic refuses the key (401) → its own answer, unchanged; no Messages call", async () => {
+    const refusal = JSON.stringify({ type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } });
+    const { send, calls } = fakeSend(respondWith(401, refusal));
+    const res = await relay(post(), "messages", RESTRICTED_ENV, send, createKeyChecker());
+    expect(res.status).toBe(401);
+    expect(await res.text()).toBe(refusal);
+    expect(calls).toHaveLength(1);
+    expect(calls.some(isMessages)).toBe(false);
+  });
+
+  // Forwarding never follows a non-pass: with the real checker, each verdict that is not a pass
+  // leaves the pre-flight as the only upstream call, and the caller's body (the prompt) unread.
+  const ANTHROPIC_401_BODY = JSON.stringify({ type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } });
+  it.each([
+    ["wrong organisation", RESTRICTED_ENV, checkedAs(OTHER_ORG), 403],
+    ["wrong workspace", { ...RESTRICTED_ENV, AIPM_AI_WORKSPACE_IDS: WS }, checkedAs(ORG, undefined, OTHER_WS), 403],
+    ["check unavailable", RESTRICTED_ENV, (call: Call) => (isPreflight(call) ? call.fire("timeout") : respondWith(200, ANTHROPIC_OK)(call)), 503],
+    ["Anthropic's own 401", RESTRICTED_ENV, (call: Call) => (isPreflight(call) ? respondWith(401, ANTHROPIC_401_BODY)(call) : respondWith(200, ANTHROPIC_OK)(call)), 401],
+  ] as const)("%s: only the pre-flight goes upstream and the request body is never read", async (_label, env, onEnd, status) => {
+    const { send, calls } = fakeSend(onEnd);
+    const request = post();
+    const res = await relay(request, "messages", env, send, createKeyChecker());
+    expect(res.status).toBe(status);
+    expect(calls).toHaveLength(1);
+    expect(isPreflight(calls[0])).toBe(true);
+    expect(calls[0].body).toBeUndefined();
+    expect(request.bodyUsed).toBe(false);
+    expect(request.body?.locked).toBe(false);
+    // The positive control: the body was there to be read, and still reads in full.
+    expect(await request.text()).toContain(PROMPT);
+  });
+
+  it("a refused key's model list is never returned: only the pre-flight goes out", async () => {
+    const { send, calls } = fakeSend(checkedAs(OTHER_ORG, respondWith(200, '{"data":[{"id":"claude-x"}]}')));
+    const res = await relay(getModels(), "models", RESTRICTED_ENV, send, createKeyChecker());
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "ai-key-wrong-organization" });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("through a gateway, a wrong organisation is refused before any Messages call", async () => {
+    const { send, calls } = fakeSend(checkedAs(OTHER_ORG));
+    const res = await relay(post(), "messages", { ...GATEWAY_ENV, ...RESTRICTED_ENV }, send, createKeyChecker());
+    expect(res.status).toBe(403);
+    expect(calls.map((c) => c.url.href)).toEqual([`${BASE}/v1/models?limit=1`]);
+  });
+
+  it("no restriction → no pre-flight at all (today's behaviour), gateway or not", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const checker = createKeyChecker();
+    expect((await relay(post(), "messages", GATEWAY_ENV, send, checker)).status).toBe(200);
+    expect(calls.map((c) => c.url.href)).toEqual([`${BASE}/v1/messages`]);
+    expect(checker.size()).toBe(0);
+  });
+
+  it("a check that rejects → 503 ai-key-check-unavailable; nothing sent", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const rejecting = { check: () => Promise.reject(new Error(`boom ${KEY}`)), size: () => 0 };
+    const res = await relay(post(), "messages", RESTRICTED_ENV, send, rejecting);
+    expect(res.status).toBe(503);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.json()).toEqual({ error: "ai-key-check-unavailable" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("the default checker is used when none is passed (one module-level instance)", async () => {
+    const { send, calls } = fakeSend(checkedAs(OTHER_ORG));
+    const res = await relay(post({ "x-api-key": "sk-ant-default-instance-key" }), "messages", RESTRICTED_ENV, send);
+    expect(res.status).toBe(403);
+    expect(calls.some(isMessages)).toBe(false);
+  });
+
+  it("logs nothing that carries the key in any check outcome", async () => {
+    const spies = (["log", "info", "warn", "error", "debug"] as const).map((m) =>
+      vi.spyOn(console, m).mockImplementation(() => {}),
+    );
+    try {
+      for (const onEnd of [checkedAs(ORG), checkedAs(OTHER_ORG), (call: Call) => call.fire("error", new Error(`boom ${KEY}`))]) {
+        const { send } = fakeSend(onEnd);
+        const res = await relay(post(), "messages", RESTRICTED_ENV, send, createKeyChecker());
+        expect(await res.text()).not.toContain(KEY);
+      }
+      const logged = JSON.stringify([...spies.map((s) => s.mock.calls), vi.mocked(logDiag).mock.calls]);
+      expect(logged).not.toContain(KEY);
+    } finally {
+      spies.forEach((s) => s.mockRestore());
     }
   });
 });

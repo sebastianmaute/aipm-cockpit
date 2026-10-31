@@ -4,7 +4,7 @@ import { cleanup, render, screen, fireEvent, waitFor, act, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiSection } from "./ai-section";
 import { hasUnsealedPassphraseSecret } from "../turso-token-marker";
-import { __resetAiKeyStatusForTests, reportAiKeyResponse, reportAiKeyUnreadable } from "../ai-key-status";
+import { __resetAiKeyStatusForTests, reportAiKeyRefused, reportAiKeyResponse, reportAiKeyUnreadable } from "../ai-key-status";
 import { defaultSettings as baseSettings, type Settings } from "../settings-types";
 import {
   DEFAULT_SESSION_TOKEN_CAP,
@@ -18,7 +18,8 @@ import {
 import { t } from "../i18n";
 import { AI_DISCLOSURE_VERSION, newConsent } from "../ai-consent";
 import { setAiDeploymentState } from "../ai-deployment";
-import { DIRECT_AI_STATUS } from "../../test/ai-status-fetch";
+import { aiStatusResponse, DIRECT_AI_STATUS } from "../../test/ai-status-fetch";
+import { __setAiStatusRequestForTests } from "../ai-status-request";
 // The AI config UI is gated behind the "Enable AI assistant" master switch
 // (default OFF), and the key field also behind a current consent (AI-01). These
 // tests exercise the expanded config, so flip it on with a consent.
@@ -1247,7 +1248,7 @@ describe("AiSection — the lock's records survive a blur and an untick (§749 r
 describe("AiSection — deployment notice", () => {
   afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
   it("off: shows the notice, disables the master switch and changes nothing", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
     const onChange = vi.fn();
     const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: "sk-ant-keep", backgroundConsent: newConsent(new Date(0)) } };
     const before = structuredClone(settings.ai);
@@ -1262,13 +1263,13 @@ describe("AiSection — deployment notice", () => {
     expect(settings.ai.backgroundConsent).toEqual(before.backgroundConsent);
   });
   it("invalid: shows the invalid notice", () => {
-    setAiDeploymentState({ off: false, route: "direct", invalid: true });
+    setAiDeploymentState({ off: false, route: "direct", invalid: true, keyRestricted: false });
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
     expect(screen.getByText(t("en-US", "aiDeploymentInvalid"))).toBeInTheDocument();
   });
 
   it("blocked: the master switch reads unticked, names the notice, and the stored switch is untouched", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
     const onChange = vi.fn();
     const settings = { ...defaultSettings, ai: { ...defaultSettings.ai } };
     render(<AiSection lang="en-US" settings={settings} onChange={onChange} />);
@@ -1292,9 +1293,9 @@ describe("AiSection — deployment notice", () => {
   const DIRECT_KEYS = ["aiApiKeyHint", "aiConsentDataIntro", "aiConsentBackgroundDataIntro", "aiConsentBullet2"] as const;
 
   it.each([
-    ["invalid, gateway consent current", { off: false, route: "gateway" as const, invalid: true, invalidReason: "url" as const }],
-    ["off, consent for the other route", { off: true, route: "direct" as const, invalid: false }],
-    ["invalid, consent for the other route", { off: false, route: "direct" as const, invalid: true }],
+    ["invalid, gateway consent current", { off: false, route: "gateway" as const, invalid: true, invalidReason: "url" as const, keyRestricted: false }],
+    ["off, consent for the other route", { off: true, route: "direct" as const, invalid: false, keyRestricted: false }],
+    ["invalid, consent for the other route", { off: false, route: "direct" as const, invalid: true, keyRestricted: false }],
   ])("blocked (%s) with AI stored on and a key: no AI controls, no review, no direct text; Remove stays", async (_label, state) => {
     saveSealed(await sealDevice("anthropicApiKey", "sk-ant-api03-stored000000000000"));
     setAiDeploymentState(state);
@@ -1330,7 +1331,7 @@ describe("AiSection — the key note follows the AI route", () => {
     expect(screen.getByText(t("en-US", "aiApiKeyHint"))).toBeInTheDocument();
   });
   it("gateway: names the app's server and the gateway instead", () => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false });
     const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, consent: { ...newConsent(new Date(0)), route: "gateway" as const } } };
     render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
     expect(screen.getByText(t("en-US", "aiApiKeyHintGateway"))).toBeInTheDocument();
@@ -1358,8 +1359,8 @@ describe("AiSection — withdrawing while the deployment blocks AI", () => {
   }
 
   it.each([
-    ["off", { off: true, route: "direct" as const, invalid: false }],
-    ["invalid", { off: false, route: "direct" as const, invalid: true }],
+    ["off", { off: true, route: "direct" as const, invalid: false, keyRestricted: false }],
+    ["invalid", { off: false, route: "direct" as const, invalid: true, keyRestricted: false }],
   ])("%s: a current interactive consent can be withdrawn, and nothing can be accepted", (_label, state) => {
     setAiDeploymentState(state);
     const granted = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: C, backgroundConsent: C } };
@@ -1377,7 +1378,7 @@ describe("AiSection — withdrawing while the deployment blocks AI", () => {
   });
 
   it("off: a current background consent can be withdrawn on its own", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
     const granted = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: C, backgroundConsent: C } };
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: granted.ai }));
     renderWith(granted);
@@ -1392,10 +1393,74 @@ describe("AiSection — withdrawing while the deployment blocks AI", () => {
   });
 
   it("off with no current consent: no withdraw and no accept control (control)", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
     renderWith({ ...baseSettings, ai: { ...baseSettings.ai, enabled: true } });
     expect(screen.queryByRole("button", { name: t("en-US", "aiConsentRevoke") })).toBeNull();
     expect(screen.queryByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toBeNull();
     expect(screen.queryByRole("button", { name: t("en-US", "aiConsentReview") })).toBeNull();
+  });
+});
+
+describe("AiSection - a key the organisation refuses (AI organisation key)", () => {
+  const KEY = "sk-ant-api03-OrgRefusedKey0000000000";
+  const withKey = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY } };
+
+  beforeEach(() => __resetAiKeyStatusForTests());
+
+  it.each([
+    ["organization", "aiKeyWrongOrganization"],
+    ["workspace", "aiKeyWrongWorkspace"],
+  ] as const)("a %s refusal shows its message, described on the key field", (reason, key) => {
+    reportAiKeyRefused(KEY, reason);
+    render(<AiSection lang="en-US" settings={withKey} onChange={vi.fn()} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(t("en-US", key));
+    const field = screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"));
+    expect(field).toHaveAccessibleDescription(expect.stringContaining(t("en-US", key)));
+    expect(field).toHaveAttribute("aria-invalid", "true");
+  });
+});
+
+describe("AiSection — the relay could not check the key", () => {
+  const KEY = "sk-ant-api03-SettingsNoticeKey000000";
+  const RELAY = { off: false, route: "relay" as const, invalid: false, keyRestricted: true };
+  const UNAVAILABLE = t("en-US", "aiKeyCheckUnavailable");
+
+  beforeEach(() => {
+    setAiDeploymentState(RELAY);
+    __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse(RELAY)));
+  });
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
+
+  function renderWithKey() {
+    const settings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, apiKey: KEY, consent: newConsent(new Date(0)) } };
+    render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
+    return screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"));
+  }
+
+  function answerModels(status: number, body: unknown) {
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
+    return spy;
+  }
+
+  it("the model list's unavailable check shows the notice beside the key field, and the list falls back", async () => {
+    const spy = answerModels(503, { error: "ai-key-check-unavailable" });
+    const field = renderWithKey();
+    await waitFor(() => expect(field).toHaveAccessibleDescription(expect.stringContaining(UNAVAILABLE)));
+    expect(spy.mock.calls.map((c) => String(c[0]))).toContain("/api/ai/models");
+    // Not a verdict on the key: the field is not marked invalid.
+    expect(field).not.toHaveAttribute("aria-invalid", "true");
+    // The model select keeps only the current selection, as on any failed poll.
+    const select = screen.getByRole("combobox", { name: t("en-US", "aiModel") });
+    expect(within(select).getAllByRole("option")).toHaveLength(1);
+  });
+
+  it("another failed poll shows no such notice (control)", async () => {
+    const spy = answerModels(503, { error: "ai-gateway-error" });
+    const field = renderWithKey();
+    await waitFor(() => expect(spy.mock.calls.map((c) => String(c[0]))).toContain("/api/ai/models"));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(screen.queryByText(UNAVAILABLE)).toBeNull();
+    expect(field).not.toHaveAccessibleDescription(expect.stringContaining(UNAVAILABLE));
   });
 });

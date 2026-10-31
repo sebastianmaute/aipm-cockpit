@@ -1,0 +1,92 @@
+# The AI relay and its organisation key check against the real Anthropic API and a real Cloudflare
+# AI Gateway (AI organisation key). NOT a required check, and started by hand
+# only (workflow_dispatch): every run spends tokens. docs/AGENTS/ci.md says how to read it. The six
+# proofs are src/app/api/ai/_relay.live.test.ts; it calls the relay in-process with the real
+# node:https send, so the "nothing reached Anthropic" assertions read the relay's own upstream record.
+#
+# ★★★ THE SECRETS. Five repository secrets: AI_LIVE_ANTHROPIC_KEY (a key with a low spend limit,
+# from a throwaway organisation and workspace), AI_LIVE_ORGANIZATION_ID and AI_LIVE_WORKSPACE_ID
+# (that key's organisation and workspace), AI_LIVE_GATEWAY_URL and AI_LIVE_GATEWAY_TOKEN (a
+# throwaway Cloudflare AI Gateway, on an account with no stored provider keys). ★ Accepted risk,
+# stated: anyone who can push a branch to this repository can change the test file, the vitest
+# config or package.json and dispatch this workflow on that branch, and so read the secrets. That is
+# acceptable while only the owner has write access. With collaborators, gate the live job on an
+# environment with required reviewers. pull_request_target is never used.
+#
+# ★★★ THE SECRETS NEVER REACH A run: LINE, AND ONLY THE STEPS THAT NEED THEM GET THEM. They enter
+# through a step's env: only (a job-level env: would hand them to npm ci, which runs every
+# dependency's install scripts). The `check` job reads them to answer one question, are all five
+# set; with any missing the `ai-live` job is skipped. No other workflow names them, so the unit job
+# of ci.yml, which runs the same test file, never has them and the file skips there.
+#
+# ★★★ ONE RUN AT A TIME. The live job's concurrency group is a fixed name and cancel-in-progress is
+# false, as in live-turso.yml: a second run waits, a third REPLACES the waiting second.
+#
+# ★★ A green run must have run every proof. A vitest run in which every test skipped exits 0, so the
+# test step sets AI_LIVE_REQUIRED, which turns on the file's one test that fails when any of the five
+# secrets is missing (a renamed or mistyped secret would otherwise skip all six proofs, green). The
+# proofs themselves also need AI_LIVE_REQUIRED, so a local run never makes paid calls. A dispatch
+# with a secret missing skips the live job and shows green; the check job's warning says that such a
+# run proved nothing.
+name: ai-live
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      present: ${{ steps.all.outputs.present }}
+    steps:
+      - name: Are all five live AI values set?
+        id: all
+        env:
+          AI_LIVE_ANTHROPIC_KEY: ${{ secrets.AI_LIVE_ANTHROPIC_KEY }}
+          AI_LIVE_ORGANIZATION_ID: ${{ secrets.AI_LIVE_ORGANIZATION_ID }}
+          AI_LIVE_WORKSPACE_ID: ${{ secrets.AI_LIVE_WORKSPACE_ID }}
+          AI_LIVE_GATEWAY_URL: ${{ secrets.AI_LIVE_GATEWAY_URL }}
+          AI_LIVE_GATEWAY_TOKEN: ${{ secrets.AI_LIVE_GATEWAY_TOKEN }}
+        run: |
+          if [ -n "$AI_LIVE_ANTHROPIC_KEY" ] && [ -n "$AI_LIVE_ORGANIZATION_ID" ] && [ -n "$AI_LIVE_WORKSPACE_ID" ] && [ -n "$AI_LIVE_GATEWAY_URL" ] && [ -n "$AI_LIVE_GATEWAY_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::ai-live proved nothing: AI_LIVE_ANTHROPIC_KEY, AI_LIVE_ORGANIZATION_ID, AI_LIVE_WORKSPACE_ID, AI_LIVE_GATEWAY_URL and AI_LIVE_GATEWAY_TOKEN are not all set, so the live job was skipped."
+          fi
+
+  ai-live:
+    needs: check
+    if: needs.check.outputs.present == 'true'
+    concurrency:
+      group: ai-live-throwaway-organisation
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # The test step's own timeout plus setup (checkout, node, npm ci).
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      # Its own timeout, below the job's, so a hung call fails the step rather than the job being
+      # cancelled. The file writes what the gateway passed and the 401 observation to the job summary.
+      - name: Live relay and key check
+        id: live
+        timeout-minutes: 10
+        env:
+          AI_LIVE_ANTHROPIC_KEY: ${{ secrets.AI_LIVE_ANTHROPIC_KEY }}
+          AI_LIVE_ORGANIZATION_ID: ${{ secrets.AI_LIVE_ORGANIZATION_ID }}
+          AI_LIVE_WORKSPACE_ID: ${{ secrets.AI_LIVE_WORKSPACE_ID }}
+          AI_LIVE_GATEWAY_URL: ${{ secrets.AI_LIVE_GATEWAY_URL }}
+          AI_LIVE_GATEWAY_TOKEN: ${{ secrets.AI_LIVE_GATEWAY_TOKEN }}
+          AI_LIVE_REQUIRED: "1"
+        run: npx vitest run src/app/api/ai/_relay.live.test.ts --reporter=default

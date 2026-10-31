@@ -12,7 +12,8 @@
 // Routes: "direct" posts to Anthropic exactly as the app always has (same URL, same headers,
 // including the browser-access header). "gateway" posts to the same-origin relay
 // (`/api/ai/messages`, `/api/ai/models`), which adds the organisation's gateway token server side;
-// the browser never learns the gateway's URL or token. The relay's own failures are not
+// the browser never learns the gateway's URL or token. "relay" (an organisation key restriction, no
+// gateway) posts to the same routes the same way. The relay's own failures are not
 // Anthropic-shaped; they are turned into `AiGatewayError` / `AiDeploymentError` here, so a caller
 // never reads them as a verdict on the user's key. An Anthropic-shaped error (passed through by the
 // relay unchanged) reaches the caller as a normal non-2xx Response.
@@ -27,21 +28,28 @@
 // non-streaming JSON (`callClaude` and `postOnce` both `await res.json()`), so the clone parses as
 // JSON. A streamed (SSE) response would fail that parse, which is swallowed: no usage is reported for
 // it, and streaming usage is left to the code that adds streaming. With no listener, nothing is cloned.
-import { currentAiRoute, type AiStatus } from "./ai-deployment";
+import { currentAiRoute, getAiDeploymentState, usesRelay, type AiStatus } from "./ai-deployment";
 import { addDisabledIntegration } from "./integration-switches";
 import {
   AI_GATEWAY_ERROR,
   AI_GATEWAY_INVALID,
   AI_GATEWAY_RATE_LIMITED,
   AI_GATEWAY_REJECTED,
+  AI_KEY_CHECK_UNAVAILABLE,
+  AI_KEY_WRONG_ORGANIZATION,
+  AI_KEY_WRONG_WORKSPACE,
   AiDeploymentError,
   AiGatewayError,
+  AiKeyCheckUnavailableError,
+  AiKeyRefusedError,
   type AiGatewayErrorCode,
+  type AiKeyRefusedReason,
 } from "./ai-errors";
 import { requestAiStatus } from "./ai-status-request";
 import { AiPeopleProtectedContentError, hasUnredactableContent, type AiPrivacy } from "./ai-privacy";
 import { countUnrestoredPlaceholders, redactJsonBody, restoreJsonText } from "./ai-people-redact";
 import { logDiag } from "./diagnostics";
+import { reportAiKeyRefused } from "./ai-key-status";
 
 export { AiDeploymentError, AiGatewayError } from "./ai-errors";
 
@@ -102,15 +110,16 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 /** The status answer's deployment half; `peopleForced` is checked on its own (review 5, C1). */
 function isAiStatusBase(v: unknown): v is Omit<AiStatus, "peopleForced"> & { peopleForced?: unknown } {
   return isRecord(v) && typeof v.off === "boolean" && typeof v.invalid === "boolean"
-    && (v.route === "direct" || v.route === "gateway");
+    && (v.route === "direct" || v.route === "gateway" || v.route === "relay")
+    && typeof v.keyRestricted === "boolean";
 }
 
 function isAbort(e: unknown, signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true || (isRecord(e) && e.name === "AbortError");
 }
 
-/** Ask the server for this deployment's AI setting; resolve only when AI is on and the route is
- *  the one this page loaded with. Throws `AiDeploymentError` otherwise; an abort stays an abort.
+/** Ask the server for this deployment's AI setting; resolve only when AI is on and the route, and
+ *  whether the key restriction is on, are the ones this page loaded with (a consent records both). Throws `AiDeploymentError` otherwise; an abort stays an abort.
  *  Resolves with whether the server forces people protection NOW (review 4, M3); a lock added since
  *  page load is folded into the page's forced state (`addDisabledIntegration`). An answer that does
  *  not say it is not trusted ("unconfirmed"), like any other malformed answer — unless it says AI is
@@ -134,6 +143,9 @@ export async function confirmAiDeployment(signal?: AbortSignal): Promise<{ peopl
   if (typeof peopleForced !== "boolean") throw new AiDeploymentError("unconfirmed");
   if (state.invalid) throw new AiDeploymentError("invalid");
   if (state.route !== currentAiRoute()) throw new AiDeploymentError("route-changed");
+  // Behind a gateway the route stays "gateway" when the restriction is switched on or off; the
+  // consent this page holds was given for the old setting, so the change refuses like a new route.
+  if (state.keyRestricted !== getAiDeploymentState().keyRestricted) throw new AiDeploymentError("route-changed");
   return { peopleForced };
 }
 
@@ -169,9 +181,15 @@ function isAnthropicError(body: unknown): boolean {
   return isRecord(body) && body.type === "error" && isRecord(body.error) && typeof body.error.type === "string";
 }
 
+function keyRefusalReason(code: string | undefined): AiKeyRefusedReason | undefined {
+  if (code === AI_KEY_WRONG_ORGANIZATION) return "organization";
+  if (code === AI_KEY_WRONG_WORKSPACE) return "workspace";
+  return undefined;
+}
+
 /** A relayed non-2xx that is the relay's own answer, not Anthropic's: throw the matching error.
  *  Returns normally for an Anthropic-shaped error, which the caller handles as before. */
-async function throwIfRelayOwnError(res: Response): Promise<void> {
+async function throwIfRelayOwnError(res: Response, apiKey: string): Promise<void> {
   let body: unknown;
   try {
     body = await res.clone().json();
@@ -180,6 +198,15 @@ async function throwIfRelayOwnError(res: Response): Promise<void> {
   }
   if (isAnthropicError(body)) return;
   const code = isRecord(body) && typeof body.error === "string" ? body.error : undefined;
+  // The organisation key check comes FIRST: a refused key is a verdict on the user's key, not a
+  // gateway failure, and an unavailable check is not an unconfirmed deployment.
+  const refusal = res.status === 403 ? keyRefusalReason(code) : undefined;
+  if (refusal !== undefined) {
+    reportAiKeyRefused(apiKey, refusal);
+    logDiag("warn", "ai.keyRefused", { reason: refusal });
+    throw new AiKeyRefusedError(refusal);
+  }
+  if (res.status === 503 && code === AI_KEY_CHECK_UNAVAILABLE) throw new AiKeyCheckUnavailableError();
   if (code !== undefined && GATEWAY_CODES.has(code)) throw new AiGatewayError(code as AiGatewayErrorCode);
   if (res.status === 503 && code === RELAY_DISABLED) throw new AiDeploymentError("off");
   if (res.status === 503 && code === AI_GATEWAY_INVALID) throw new AiDeploymentError("invalid");
@@ -282,14 +309,14 @@ export async function postAiMessages({ apiKey, body, path, signal, beforeSend, p
   beforeSend?.();
   const privacy = peopleForced ? forcedPrivacy(asked) : asked;
   const outgoing = redactForSend(body, privacy);
-  const gateway = currentAiRoute() === "gateway";
+  const gateway = usesRelay(currentAiRoute());
   const res = await fetch(gateway ? RELAY_MESSAGES_URL : ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     headers: gateway ? relayHeaders(apiKey, true) : directHeaders(apiKey, true),
     body: outgoing,
     signal,
   });
-  if (gateway && !res.ok) await throwIfRelayOwnError(res);
+  if (gateway && !res.ok) await throwIfRelayOwnError(res, apiKey);
   const reply = await restoreReply(res, privacy);
   // Fire and forget: `tapUsage` swallows its own failures.
   if (reply.ok) void tapUsage(path, reply);
@@ -300,11 +327,11 @@ export async function postAiMessages({ apiKey, body, path, signal, beforeSend, p
 export async function getAiModels(apiKey: string, signal?: AbortSignal): Promise<Response> {
   await confirmAiDeployment(signal);
   throwIfAborted(signal);
-  const gateway = currentAiRoute() === "gateway";
+  const gateway = usesRelay(currentAiRoute());
   const res = await fetch(gateway ? RELAY_MODELS_URL : ANTHROPIC_MODELS_URL, {
     headers: gateway ? relayHeaders(apiKey, false) : directHeaders(apiKey, false),
     signal,
   });
-  if (gateway && !res.ok) await throwIfRelayOwnError(res);
+  if (gateway && !res.ok) await throwIfRelayOwnError(res, apiKey);
   return res;
 }

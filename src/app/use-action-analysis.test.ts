@@ -4,6 +4,7 @@ vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { renderHook, act } from "@testing-library/react";
 import { useActionAnalysis } from "./use-action-analysis";
 import * as jobAnalysis from "./scheduled-job-analysis";
+import { AiKeyRefusedError } from "./ai-errors";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -24,6 +25,13 @@ describe("useActionAnalysis — a cancel is not an error", () => {
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "sk-ant-x", model: "claude-opus-5" }));
     await act(async () => { await result.current.analyze("ctx"); });
     expect(result.current.error).toBe("parse");
+  });
+
+  it("names a key the organisation refuses by its message key, not network", async () => {
+    vi.spyOn(jobAnalysis, "runJobAnalysis").mockRejectedValue(new AiKeyRefusedError("workspace"));
+    const { result } = renderHook(() => useActionAnalysis({ apiKey: "sk-ant-x", model: "claude-opus-5" }));
+    await act(async () => { await result.current.analyze("ctx"); });
+    expect(result.current.error).toBe("aiKeyWrongWorkspace");
   });
 });
 

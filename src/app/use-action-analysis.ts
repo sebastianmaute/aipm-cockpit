@@ -6,7 +6,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type ActionAnalysis } from "./action-ai";
 import { runJobAnalysis } from "./scheduled-job-analysis";
-import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
+import { AiHttpError, classifyAiError } from "./ai-errors";
+import { aiFailureToken } from "./ai-key-status";
 import { isAbortError } from "./abort-error";
 import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 
@@ -42,10 +43,10 @@ export function useActionAnalysis(ai: AiCreds) {
           setError("limit");
           return null;
         }
-        // A switched-off deployment or a refused gateway → its own message key, never "network".
-        const transportKey = aiTransportMessageKey(e);
-        if (transportKey) {
-          setError(transportKey);
+        // A switched-off deployment, a refused gateway, a refused or unchecked key → its own message key, never "network".
+        const failureKey = aiFailureToken(e);
+        if (failureKey) {
+          setError(failureKey);
           return null;
         }
         const msg = e instanceof Error ? e.message : "error";

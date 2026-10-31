@@ -7,7 +7,8 @@ import { type NextActionsConfig } from "./settings-types";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { runWeightSuggestion } from "./weight-suggestion-call";
 import { type SuggestionResult } from "./weight-suggestion-ai";
-import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
+import { AiHttpError, classifyAiError } from "./ai-errors";
+import { aiFailureToken } from "./ai-key-status";
 import { useActionGuideText } from "./action-guides-context";
 import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 
@@ -36,10 +37,10 @@ export function useWeightSuggestions(ai: AiCreds) {
           setError("limit");
           return null;
         }
-        // A switched-off deployment or a refused gateway → its own message key, never "network".
-        const transportKey = aiTransportMessageKey(e);
-        if (transportKey) {
-          setError(transportKey);
+        // A switched-off deployment, a refused gateway, a refused or unchecked key → its own message key, never "network".
+        const failureKey = aiFailureToken(e);
+        if (failureKey) {
+          setError(failureKey);
           return null;
         }
         const msg = e instanceof Error ? e.message : "error";

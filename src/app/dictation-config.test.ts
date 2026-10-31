@@ -108,24 +108,24 @@ describe("R9 — isAiConsentedForDictation needs the AI switch AND a current con
 describe("dictation when the deployment has AI off", () => {
   afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
   it("resolves no speech-to-text engine", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
     const d = { engine: "stt", sttBaseUrl: "https://x/v1", sttApiKey: "k" } as const;
     expect(dictationUnavailableReason(d, true)).toBe(DICTATION_AI_DEPLOYMENT_OFF);
     expect(resolveDictationEngine(d, "en-US", true)).toBeNull();
   });
   // The organisation's setting comes first: no consent the user could give would make dictation available.
   it("names the switched-off deployment even without a consent", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
     expect(dictationUnavailableReason({ engine: "stt" }, false)).toBe(DICTATION_AI_DEPLOYMENT_OFF);
   });
   it("names an invalid gateway setting", () => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: true });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: true, keyRestricted: false });
     const d = { engine: "stt", sttBaseUrl: "https://x/v1", sttApiKey: "k" } as const;
     expect(dictationUnavailableReason(d, true)).toBe(DICTATION_AI_DEPLOYMENT_INVALID);
     expect(resolveDictationEngine(d, "en-US", true)).toBeNull();
   });
   it("the browser's engine is unaffected by the deployment (control)", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
     expect(dictationUnavailableReason({ engine: "web-speech" }, true)).toBeNull();
   });
 });

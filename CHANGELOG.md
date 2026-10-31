@@ -12,6 +12,16 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **A deployment can restrict AI to its own Anthropic organisation's keys.** The operator sets
+  `AIPM_AI_ORGANIZATION_ID` and, optionally, `AIPM_AI_WORKSPACE_IDS`. AI requests then go through this app's server,
+  which checks which organisation and workspace the user's key belongs to before it forwards anything; a key from
+  another organisation or workspace is refused, and the AI key banner and Settings → AI say why; a check that
+  cannot be completed is named in Settings → AI and in the feature that failed, with a hint to try again. A
+  malformed setting switches AI off. Switching the restriction on or off asks every user to accept the AI data
+  disclosure again, behind a gateway too. The check proves which organisation a key belongs to, not what
+  that organisation's contract covers, and it governs only data this app sends; setup and limits are in
+  `docs/RUNBOOK.md` and `docs/security.md`. Where the operator turns the restriction on, a tab left open from before
+  that change reports AI as not confirmed until it is reloaded; a deployment without the restriction keeps working.
 - **Suggest RACI reads the work.** Claude no longer decides from job titles alone. For each person who already has a stakeholder row, it is shown which of a milestone's linked tasks the person owns (and how many are closed), the risks and issues they own, the change requests they raised, their linked resource's discipline and grade, and the documents linked to the milestone. The app matches people to work by resource link first and typed name second, and skips a name it cannot tell apart. The Suggest RACI dialog now opens on a box where you can state a rule (for example, the client PO approves every release) before anything is sent. Claude may also hand Accountable over: the review shows the new holder's A and the old holder's new role as one row with one tick box, and both are applied together or not at all. A new Accountable without the old holder's new role is still refused, with a message that says so. Nothing creates a stakeholder: a team member without a stakeholder row gets no role. Suggest RACI stays unavailable while people protection is on. On a very large project the evidence is capped and the dialog says so.
 
 - **People protection for the AI (on by default, per project).** Settings → AI has a new switch, Protect people from
