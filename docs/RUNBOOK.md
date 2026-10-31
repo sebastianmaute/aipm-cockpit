@@ -393,8 +393,11 @@ which owns that list.
    `api.anthropic.com` whenever the restriction is set or invalid. The relay route has
    its own disclosure texts, so every user is asked to accept the AI data disclosure
    again, and to tick background AI again, exactly as when the gateway is turned on or
-   off (see "Consent follows the route" under the gateway section below). A tab left
-   open across the change sends nothing until it is reloaded.
+   off (see "Consent follows the route" under
+   [Routing AI through a gateway](#routing-ai-through-a-gateway-run-time-optional)).
+   With a gateway set as well the route stays `gateway`, but a consent also records
+   whether the restriction was on, so turning it on or off asks every user again there
+   too. A tab left open across the change sends nothing until it is reloaded.
 4. **How a key is checked.** Before the first call with a key, the server sends a free
    `GET /v1/models?limit=1` with that key and reads the answer headers
    `anthropic-organization-id` and `anthropic-workspace-id`. Several first requests with
@@ -403,14 +406,18 @@ which owns that list.
      `ai-key-wrong-organization` or `ai-key-wrong-workspace`. The refusal is cached
      for 5 minutes; users see it in the AI key banner and in Settings → AI.
    - A check that cannot be completed gets `503` `ai-key-check-unavailable` and nothing
-     is forwarded; it is not cached, and users see "try again". That covers a network
-     error, a timeout (30 seconds), a `5xx` or `429`, and an answer that lacks a
+     is forwarded; it is not cached, and users see that the key could not be checked
+     and should try again, in Settings → AI and in the feature that failed. That covers
+     any other answer than `2xx`, `401` or `403` (a `3xx`, `404`, `429` or `5xx`
+     among them), a network error, a timeout (30 seconds), and a `2xx` that lacks a
      header the check needs or repeats it.
    - A pass is cached, by the SHA-256 of the key and in memory only, until the cache
      (at most 1000 entries) evicts it or the restriction settings change. A restart
      empties the cache.
    - Anthropic's own `401` or `403` for the key is passed through unchanged and not
-     cached.
+     cached. Through a gateway, a `401` or `403` that is not Anthropic's own (the
+     gateway refusing its token) answers `502` `ai-gateway-rejected`, as any gateway
+     refusal does.
 5. **Combining it with a gateway.** With `AIPM_AI_GATEWAY_URL` set too, calls stay on the
    gateway route and the check goes through the gateway with its token, sending
    `cf-aig-skip-cache: true` so that a cached answer for another key can never pass.
@@ -427,8 +434,9 @@ What the restriction does not do (the same four limits as
 workspace a key belongs to, not what that organisation's contract covers; it is
 enforced in this app's server, so a person with a key can still call Anthropic outside
 the app; anyone with access to the server environment can change or remove it; and
-verdicts are cached per server process, so a key moved or revoked later is caught by
-Anthropic's own answer, not by the cache.
+verdicts are cached per server process, and a cached pass is not checked again until
+the cache evicts it or the restriction settings change; a key that is revoked is
+refused by Anthropic itself.
 
 ### Routing AI through a gateway (run-time, optional)
 
