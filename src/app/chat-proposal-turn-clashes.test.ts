@@ -131,3 +131,20 @@ describe("describeProposal — a second change to an EXISTING row in the same tu
     ]);
   });
 });
+
+describe("describeProposal — a task created Done earlier in the turn (§773 Q-1)", () => {
+  const calls = (status: string): ProposedCall[] => [
+    call("create_task", { taskName: "Draft", assignee: "Maya Patel", dueDate: "2026-11-12", status }),
+    call("create_milestone", { name: "Beta", date: "2026-11-05", linkedTaskIds: [NEW_TASK] }),
+  ];
+
+  it("a milestone linking it on its owner's absence does not warn", () => {
+    expect(describeTurn(calls("Done"))[1].plan.clashes).toEqual([]);
+  });
+
+  it("the same turn with the task open does warn (control)", () => {
+    expect(describeTurn(calls("To Do"))[1].plan.clashes).toEqual([
+      expect.objectContaining({ entity: "milestone", clash: expect.objectContaining({ person: "Maya Patel", date: "2026-11-05" }) }),
+    ]);
+  });
+});
