@@ -1645,6 +1645,8 @@ const enUS = {
     "On this deployment your requests and your API key also pass through your organisation's AI gateway and the provider that runs it. Your organisation decides what the gateway logs and for how long; its AI usage policy should say which provider that is. Anthropic's handling of your data is governed by their Privacy Policy and Usage Policy. Review them before enabling.",
   aiConsentBullet3Relay:
     "On this deployment your requests and your API key also pass through this app's server on their way to Anthropic, and your organisation restricts which Anthropic organisation's keys may be used. Anthropic's handling of your data is governed by their Privacy Policy and Usage Policy. Review them before enabling.",
+  aiConsentKeyRestrictionGateway:
+    "On this deployment your organisation also restricts which Anthropic organisation's keys may be used: this app's server checks your key before it forwards a request, and refuses a key from another organisation.",
   aiConsentBullet4:
       "Do not paste confidential client information, credentials, personal data of third parties, or anything covered by an NDA into any field while AI is enabled.",
   aiConsentBullet5:

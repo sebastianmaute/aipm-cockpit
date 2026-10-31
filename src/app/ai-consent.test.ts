@@ -138,6 +138,7 @@ describe("the weekly hard cap (AI-03)", () => {
 const GATEWAY = { off: false, route: "gateway", invalid: false, keyRestricted: false } as const;
 const RELAY = { off: false, route: "relay", invalid: false, keyRestricted: true } as const;
 const DIRECT = { off: false, route: "direct", invalid: false, keyRestricted: false } as const;
+const GATEWAY_RESTRICTED = { off: false, route: "gateway", invalid: false, keyRestricted: true } as const;
 
 describe("route-bound consent", () => {
   afterEach(() => { setAiDeploymentState(DIRECT); publishAiConsentState(undefined); });
@@ -190,6 +191,35 @@ describe("route-bound consent", () => {
     expect(isConsentCurrent(r)).toBe(true);
     setAiDeploymentState(DIRECT);
     expect(isConsentCurrent(r)).toBe(false);
+  });
+  it("a gateway consent given without the key restriction is stale once the restriction is on, and a new one is current", () => {
+    setAiDeploymentState(GATEWAY);
+    const unrestricted = newConsent(D);
+    expect(isConsentCurrent(unrestricted)).toBe(true);
+    setAiDeploymentState(GATEWAY_RESTRICTED);
+    expect(isConsentCurrent(unrestricted)).toBe(false);
+    const restricted = newConsent(D);
+    expect(restricted.keyRestricted).toBe(true);
+    expect(isConsentCurrent(restricted)).toBe(true);
+  });
+  it("a gateway consent given with the key restriction is stale once the restriction is off", () => {
+    setAiDeploymentState(GATEWAY_RESTRICTED);
+    const restricted = newConsent(D);
+    setAiDeploymentState(GATEWAY);
+    expect(isConsentCurrent(restricted)).toBe(false);
+    expect(isConsentCurrent(newConsent(D))).toBe(true);
+  });
+  it("a record without keyRestricted counts as unrestricted", () => {
+    const legacy = { acceptedAt: D.toISOString(), disclosureVersion: AI_DISCLOSURE_VERSION, route: "gateway" as const };
+    setAiDeploymentState(GATEWAY);
+    expect(isConsentCurrent(legacy)).toBe(true);
+    setAiDeploymentState(GATEWAY_RESTRICTED);
+    expect(isConsentCurrent(legacy)).toBe(false);
+  });
+  it("sanitizeConsent keeps a boolean keyRestricted and drops anything else", () => {
+    const base = { acceptedAt: D.toISOString(), disclosureVersion: 1, route: "gateway" };
+    expect(sanitizeConsent({ ...base, keyRestricted: true })?.keyRestricted).toBe(true);
+    expect(sanitizeConsent({ ...base, keyRestricted: "yes" })).toEqual(base);
   });
   it("a stored relay route parses", () => {
     expect(sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: 1, route: "relay" })?.route).toBe("relay");

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { AI_CONSENT_LEVELS, AI_DATA_PATHS, AI_DESTINATION_KEYS, aiDataPathsFor, aiProtectedTextKey } from "./ai-disclosure";
+import { AI_CONSENT_LEVELS, AI_DATA_PATHS, AI_DESTINATION_KEYS, AI_GATEWAY_KEY_RESTRICTION_KEY, aiDataPathsFor, aiProtectedTextKey } from "./ai-disclosure";
 import { type AiRoute, setAiDeploymentState } from "./ai-deployment";
 import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { helpEntryBody } from "./help-content";
@@ -271,14 +271,19 @@ const DESTINATION_PIN: readonly string[] = [
   "relay|keySecurity|aiConsentBullet2Relay|baf0efa1464a",
   "relay|thirdParty|aiConsentBullet3Relay|ac7587dd0eb6",
   "relay|help|helpSecAiBodyRelay|dbc74c4125ac",
+  // A gateway deployment that also restricts keys adds one sentence to the consent dialog (AI organisation key).
+  "gateway+keyRestricted|keyRestriction|aiConsentKeyRestrictionGateway|e93f8909f467",
 ];
 
-const destinationFingerprint = () =>
-  Object.entries(AI_DESTINATION_KEYS).flatMap(([route, keys]) =>
-    Object.entries(keys).map(([kind, key]) =>
-      `${route}|${kind}|${key}|${createHash("sha256").update(`${t("en-US", key)}\u0000${de[key as TranslationKey]}`).digest("hex").slice(0, 12)}`,
-    ),
-  );
+const pinEntry = (route: string, kind: string, key: TranslationKey) =>
+  `${route}|${kind}|${key}|${createHash("sha256").update(`${t("en-US", key)}\u0000${de[key]}`).digest("hex").slice(0, 12)}`;
+
+const destinationFingerprint = () => [
+  ...Object.entries(AI_DESTINATION_KEYS).flatMap(([route, keys]) =>
+    Object.entries(keys).map(([kind, key]) => pinEntry(route, kind, key)),
+  ),
+  pinEntry("gateway+keyRestricted", "keyRestriction", AI_GATEWAY_KEY_RESTRICTION_KEY),
+];
 
 const routeKeys = (route: AiRoute): TranslationKey[] => Object.values(AI_DESTINATION_KEYS[route]);
 

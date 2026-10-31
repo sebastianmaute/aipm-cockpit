@@ -14,7 +14,7 @@
 //    each row's English label and data text, and fails on any change until it is re-pinned (wording
 //    only) or the version is bumped (what is sent changed).
 import type { TranslationKey } from "./i18n";
-import { type AiRoute, currentAiRoute } from "./ai-deployment";
+import { type AiRoute, currentAiRoute, getAiDeploymentState } from "./ai-deployment";
 
 export const AI_CONSENT_LEVELS = ["interactive", "background"] as const;
 export type AiConsentLevel = (typeof AI_CONSENT_LEVELS)[number];
@@ -124,6 +124,17 @@ export const AI_DESTINATION_KEYS: Readonly<Record<AiRoute, AiDestinationKeys>> =
     help: "helpSecAiBodyRelay",
   },
 };
+
+/** The gateway texts say nothing about a key restriction, so a gateway deployment that also restricts AI to
+ *  its organisation's Anthropic keys adds this sentence to the consent dialog. The relay route's own texts
+ *  already say it. */
+export const AI_GATEWAY_KEY_RESTRICTION_KEY = "aiConsentKeyRestrictionGateway" satisfies TranslationKey;
+
+/** The extra consent sentence for this deployment's key restriction, or null when none is needed. */
+export function aiKeyRestrictionConsentKey(): TranslationKey | null {
+  const { route, keyRestricted } = getAiDeploymentState();
+  return route === "gateway" && keyRestricted ? AI_GATEWAY_KEY_RESTRICTION_KEY : null;
+}
 
 /** The text for `kind` on this deployment's AI route. */
 export function aiDestinationKey(kind: keyof AiDestinationKeys): TranslationKey {

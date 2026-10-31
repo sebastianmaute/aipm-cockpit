@@ -14,7 +14,7 @@ import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { type AiPolicy } from "./ai-policy";
-import { aiDataPathsFor, aiDestinationKey, aiProtectedTextKey, type AiConsentLevel } from "./ai-disclosure";
+import { aiDataPathsFor, aiDestinationKey, aiKeyRestrictionConsentKey, aiProtectedTextKey, type AiConsentLevel } from "./ai-disclosure";
 
 export interface AiConsentDialogProps {
   lang: Lang;
@@ -45,9 +45,11 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
     whenProtected: row.whenProtected,
     protectedText: t(lang, aiProtectedTextKey(row)),
   }));
+  const keyRestrictionKey = aiKeyRestrictionConsentKey();
   const bullets: string[] = [
     t(lang, aiDestinationKey("keySecurity")),
     t(lang, aiDestinationKey("thirdParty")),
+    ...(keyRestrictionKey !== null ? [t(lang, keyRestrictionKey)] : []),
     t(lang, "aiConsentBullet4"),
     t(lang, "aiConsentBullet5"),
     ...(hasPolicy ? [t(lang, "aiConsentBullet6", owner)] : []),

@@ -1539,6 +1539,8 @@ export const de: Record<TranslationKey, string> = {
     "Auf dieser Installation laufen Ihre Anfragen und Ihr API-Schlüssel zusätzlich über das KI-Gateway Ihrer Organisation und den Anbieter, der es betreibt. Was das Gateway protokolliert und wie lange, legt Ihre Organisation fest; ihre KI-Nutzungsrichtlinie sollte diesen Anbieter nennen. Die Datenverarbeitung durch Anthropic unterliegt deren Datenschutz- und Nutzungsrichtlinien. Bitte vor der Aktivierung lesen.",
   aiConsentBullet3Relay:
     "Auf dieser Installation laufen Ihre Anfragen und Ihr API-Schlüssel zusätzlich über den Server dieser App zu Anthropic, und Ihre Organisation legt fest, Schlüssel welcher Anthropic-Organisation verwendet werden dürfen. Die Datenverarbeitung durch Anthropic unterliegt deren Datenschutz- und Nutzungsrichtlinien. Bitte vor der Aktivierung lesen.",
+  aiConsentKeyRestrictionGateway:
+    "Auf dieser Installation legt Ihre Organisation außerdem fest, Schlüssel welcher Anthropic-Organisation verwendet werden dürfen: Der Server dieser App prüft Ihren Schlüssel, bevor er eine Anfrage weiterleitet, und weist einen Schlüssel einer anderen Organisation ab.",
   aiConsentBullet4:
       "Keine vertraulichen Kundendaten, Zugangsdaten, personenbezogenen Daten Dritter oder NDA-geschützten Inhalte in ein beliebiges Feld einfügen, solange KI aktiviert ist.",
   aiConsentBullet5:
