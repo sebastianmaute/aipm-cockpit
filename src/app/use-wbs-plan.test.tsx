@@ -230,7 +230,15 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     // The call got the user's instruction and a context marking the scope.
     const [context, creds, instruction, signal] = vi.mocked(call.runWbsProposal).mock.calls[0];
     expect(instruction).toBe("split anything over 3 days");
-    expect(creds).toEqual({ apiKey: "sk-ant-test", model: "claude-x", guideText: "", privacy: aiPrivacyFor([]) });
+    // The privacy carries an `ifForced` builder, a function a fresh `aiPrivacyFor([])` would not share by identity,
+    // so it is checked by shape and by what it builds (review 5, C3); every other field stays exact.
+    const { privacy, ...stable } = creds;
+    expect(stable).toEqual({ apiKey: "sk-ant-test", model: "claude-x", guideText: "" });
+    expect(privacy).toEqual({ protected: false, ifForced: expect.any(Function) });
+    const expected = aiPrivacyFor([]);
+    if (privacy.protected || expected.protected) throw new Error("expected the unprotected privacy of no project");
+    expect(privacy.ifForced?.()).toMatchObject({ protected: true, refuseUnredactable: true });
+    expect(privacy.ifForced?.().session).toBe(expected.ifForced?.().session);
     expect(context).toContain("#1 [in scope]");
     expect(signal).toBeInstanceOf(AbortSignal);
 
