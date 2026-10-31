@@ -40,6 +40,10 @@ export function clashesForAi(clashes: readonly AbsenceClash[]): AbsenceClashForA
 export const AWAY_SUMMARY_MAX_LINES = 60;
 /** Ranges listed on one person's line; the rest are summarised as " +K more". */
 export const AWAY_SUMMARY_MAX_RANGES = 10;
+/** §773 — the characters one AWAY block may take in the three 28-day readers (the analysis digest, insight
+ *  recommendations, the steering report draft), passed as `maxChars`. Uncapped, up to 60 people lines run to
+ *  ~17,000 characters and crowd out the prompt's own content (in the digest, past its cap). */
+export const AWAY_SUMMARY_MAX_CHARS = 3_000;
 /** Days past today a "who is away" window reaches: the readers' window, and the WBS plan's fallback. */
 export const AWAY_WINDOW_DAYS = 28;
 /** The holiday set for a caller that has none to thread: no day is a holiday. Shared so every caller

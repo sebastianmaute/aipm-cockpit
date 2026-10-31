@@ -9,6 +9,7 @@ import { AiGatewayError, AiHttpError } from "./ai-errors";
 import { t } from "./i18n";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { useUndoStack, type CaptureCompositeOpts } from "./undo/use-undo-stack";
+import { AWAY_SUMMARY_MAX_CHARS } from "./absence-clash";
 
 const sendMail = vi.fn<(token: string, msg: unknown) => Promise<void>>(async () => {});
 const runMeetingReport = vi.fn<() => Promise<string>>(async () => "<p>ai draft</p>");
@@ -1045,5 +1046,24 @@ describe("AI-04 final review — an empty body carries its previous forward", ()
     act(() => result.current!.onRestorePrevious(10));
     expect(state!.meetings[0].report?.html).toBe("<p>A</p>");
     expect(state!.meetings[0].report?.previous?.html).toBe("<p>B</p>");
+  });
+});
+
+describe("useMeetingReportActions — a large team away (§773 N-2)", () => {
+  it("generate keeps the AWAY block within the shared character cap", async () => {
+    // 60 people, each away for ten separate two-day spells inside the 28-day window.
+    const team = Array.from({ length: 60 }, (_, i) =>
+      ({ id: i + 1, firstName: `Teammember${i + 1}`, lastName: "Withaverylongfamilyname", roleId: null, utilizationMode: "percent", utilization: {} }) as Resource);
+    const day = (offset: number) => new Date(Date.UTC(2026, 5, 1 + offset)).toISOString().slice(0, 10);
+    const absences = team.flatMap((r) =>
+      Array.from({ length: 10 }, (_, k) => ({ id: r.id * 100 + k, assignee: "", resourceId: r.id, type: "vacation", startDate: day(3 * k), endDate: day(3 * k + 1) }))) as unknown as MeetingReportActionsDeps["absences"];
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ resources: team, absences })));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(runMeetingReport).toHaveBeenCalledTimes(1));
+    const away = ((runMeetingReport.mock.calls[0] as unknown[])[2] as { away?: string[] }).away ?? [];
+    expect(away[0]).toBe("AWAY (absent days; type and reason not shown):");
+    expect(away.join("\n").length).toBeLessThanOrEqual(3_000);
+    expect(away[away.length - 1]).toMatch(/^…\(\d+ more people truncated\)$/);
+    expect(AWAY_SUMMARY_MAX_CHARS).toBe(3_000);
   });
 });

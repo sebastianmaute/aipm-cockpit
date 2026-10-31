@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { CONTEXT_CAP_PER_CATEGORY } from "./action-ai";
-import { buildProjectDigest, DIGEST_AWAY_MAX_CHARS, DIGEST_MAX_CHARS, type ProjectDigestInput } from "./project-digest";
+import { buildProjectDigest, DIGEST_MAX_CHARS, type ProjectDigestInput } from "./project-digest";
+import { AWAY_SUMMARY_MAX_CHARS } from "./absence-clash";
 import { TEXTAREA_MAX } from "./sanitize-core";
 import type { Absence, ChangeItem, Milestone, RaidItem, Resource, Stakeholder, Task } from "./types";
 
@@ -329,7 +330,7 @@ describe("buildProjectDigest — a large team away does not crowd out the open t
     const start = lines.findIndex((l) => l.startsWith("AWAY ("));
     const end = lines.indexOf("", start);
     const block = lines.slice(start, end);
-    expect(block.join("\n").length).toBeLessThanOrEqual(DIGEST_AWAY_MAX_CHARS);
+    expect(block.join("\n").length).toBeLessThanOrEqual(AWAY_SUMMARY_MAX_CHARS);
     expect(block[block.length - 1]).toMatch(/^…\(\d+ more people truncated\)$/);
   });
 });

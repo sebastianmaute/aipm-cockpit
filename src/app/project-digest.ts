@@ -6,7 +6,7 @@
 // at `CONTEXT_CAP_PER_CATEGORY` lines (the rest is counted in a "…(N more)" line), and the whole is bounded
 // by `DIGEST_MAX_CHARS`, dropping whole lines from the END so a cut never splits a line.
 // Lines keep the `view#id: title` grounding format the analysis reply is validated against.
-import { AWAY_WINDOW_DAYS, buildAwaySummary } from "./absence-clash";
+import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAwaySummary } from "./absence-clash";
 import { CONTEXT_CAP_PER_CATEGORY } from "./action-ai";
 import { isoAddDays } from "./due-dates";
 import type { AppMode } from "./feature-modules";
@@ -17,9 +17,6 @@ import { isTaskClosed } from "./task-closed";
 import type { Absence, ChangeItem, Milestone, RaidItem, Resource, Stakeholder, Task } from "./types";
 
 export const DIGEST_MAX_CHARS = 24_000;
-/** §773 M-3 — the AWAY block's own bound. It sits ahead of the open tasks, so unbounded (up to 60 people
- *  lines) it could push them past `DIGEST_MAX_CHARS`; past this the builder drops people from its end. */
-export const DIGEST_AWAY_MAX_CHARS = 3_000;
 const TITLE_MAX_CHARS = 120;
 const TRUNCATION_LINE = "…(truncated)";
 
@@ -127,7 +124,7 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
   const instruction = input.instruction?.slice(0, TEXTAREA_MAX);
   const away = buildAwaySummary({
     absences: input.absences, resources: input.resources,
-    from: input.today, to: isoAddDays(input.today, AWAY_WINDOW_DAYS), maxChars: DIGEST_AWAY_MAX_CHARS,
+    from: input.today, to: isoAddDays(input.today, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,
   });
   const body = [
     `Project: ${clip(input.projectName)}. Today: ${input.today}. Mode: ${input.mode}.`,
@@ -136,7 +133,8 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
     ...(input.budget
       ? [`Budget (${input.budget.currency}): planned ${Math.round(input.budget.planned)}, actual ${Math.round(input.budget.actual)}, forecast ${input.budget.forecast === undefined ? "n/a" : Math.round(input.budget.forecast)}.`]
       : []),
-    // Ahead of the long lists: the fit drops lines from the END, so the AWAY block outlives a cut.
+    // Ahead of the long lists: the fit drops lines from the END, so the AWAY block outlives a cut; its own
+    // `AWAY_SUMMARY_MAX_CHARS` bound keeps it from pushing the open tasks out.
     ...(away.length > 0 ? ["", ...away] : []),
     "",
     "## Current rule-based action queue", ...capLines(queue),

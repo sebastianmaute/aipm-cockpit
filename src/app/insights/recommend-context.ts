@@ -2,7 +2,7 @@
 // stable cacheable system prompt. The digest is volatile (sent as the user
 // message, never the cached prefix). Mirrors action-ai's cap discipline. Kept
 // i18n-free — the context is model-facing English built from raw type/data.
-import { AWAY_WINDOW_DAYS, buildAwaySummary } from "../absence-clash";
+import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAwaySummary } from "../absence-clash";
 import { isoAddDays } from "../due-dates";
 import type { Absence, Resource } from "../types";
 
@@ -92,7 +92,7 @@ export function buildRecommendContext(input: RecommendContextInput): string {
     : NO_PEOPLE_LINE;
   const away = buildAwaySummary({
     absences: input.absences, resources: input.resources,
-    from: input.today, to: isoAddDays(input.today, AWAY_WINDOW_DAYS),
+    from: input.today, to: isoAddDays(input.today, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,
   });
   return [
     `Project: ${input.projectName}. Today: ${input.today}.`,
