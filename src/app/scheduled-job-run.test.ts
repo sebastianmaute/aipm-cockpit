@@ -3,7 +3,7 @@ import type { Task } from "./types";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import type { Workspace } from "./workspace";
 import { StorageNotReadyError, emptyWorkspace } from "./workspace";
-import { AiDeploymentError, AiGatewayError, AiHttpError } from "./ai-errors";
+import { AiDeploymentError, AiGatewayError, AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError } from "./ai-errors";
 import { AiConsentRevokedError, AiWeeklyCapReachedError } from "./ai-consent";
 import { TursoHttpError, TursoStepError } from "./turso-pipeline";
 import type { ReportData } from "./scheduled-reports-store";
@@ -332,6 +332,12 @@ describe("toErrorToken", () => {
     expect(toErrorToken(new AiGatewayError("ai-gateway-rejected"))).toBe("ai-gateway-rejected");
     expect(toErrorToken(new AiGatewayError("ai-gateway-error"))).toBe("ai-gateway-error");
     expect(toErrorToken(new AiGatewayError("ai-gateway-rate-limited"))).toBe("ai-gateway-rate-limited");
+  });
+
+  it("records the organisation key check's refusals and an unavailable check as their own tokens (AI organisation key)", () => {
+    expect(toErrorToken(new AiKeyRefusedError("organization"))).toBe("ai-key-wrong-organization");
+    expect(toErrorToken(new AiKeyRefusedError("workspace"))).toBe("ai-key-wrong-workspace");
+    expect(toErrorToken(new AiKeyCheckUnavailableError())).toBe("ai-key-check-unavailable");
   });
 });
 

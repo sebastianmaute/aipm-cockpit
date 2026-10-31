@@ -4,7 +4,8 @@
 // ★ Errors are stored ONLY as `ReportErrorToken`s, never `e.message` (Turso errors carry server text).
 import { groundEntity, type ActionAnalysis } from "./action-ai";
 import {
-  AiDeploymentError, AiGatewayError, AiHttpError, classifyAiError,
+  AI_KEY_CHECK_UNAVAILABLE, AI_KEY_WRONG_ORGANIZATION, AI_KEY_WRONG_WORKSPACE,
+  AiDeploymentError, AiGatewayError, AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError, classifyAiError,
 } from "./ai-errors";
 import { AiConsentRevokedError, AiWeeklyCapReachedError } from "./ai-consent";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
@@ -69,6 +70,8 @@ export function toErrorToken(e: unknown): ReportErrorToken {
     return "error";
   }
   if (e instanceof AiGatewayError) return e.code;
+  if (e instanceof AiKeyRefusedError) return e.reason === "organization" ? AI_KEY_WRONG_ORGANIZATION : AI_KEY_WRONG_WORKSPACE;
+  if (e instanceof AiKeyCheckUnavailableError) return AI_KEY_CHECK_UNAVAILABLE;
   if (e instanceof StorageNotReadyError) return "storage-unreachable";
   if (e instanceof TursoStepError || e instanceof TursoHttpError) return "turso";
   if (e instanceof Error) {
