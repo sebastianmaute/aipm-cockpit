@@ -3,13 +3,19 @@
 // re-grounded against the live stakeholders/milestones before anything can be
 // shown or applied.
 import { RACI_ROLES, type Milestone, type RaciRole, type Stakeholder } from "../types";
-import { descriptionHtml, htmlPlainProjection, oneLine } from "../rich-text-plain";
 
 export const MAX_RACI_CELLS = 200;
-export const MAX_CONTEXT_STAKEHOLDERS = 120;
-export const MAX_CONTEXT_MILESTONES = 60;
-/** Visible characters of a milestone description the model is shown; the rest is cut with "…". */
-export const RACI_CONTEXT_DESCRIPTION_CHARS = 300;
+export {
+  buildRaciContext,
+  MAX_CONTEXT_STAKEHOLDERS,
+  MAX_CONTEXT_MILESTONES,
+  RACI_CONTEXT_DESCRIPTION_CHARS,
+  MAX_EVIDENCE_LINES,
+  MAX_DOC_TITLES_PER_MILESTONE,
+  DOC_TITLE_CHARS,
+  RACI_REQUEST_MAX_CHARS,
+  type RaciContextInput,
+} from "./raci-context";
 
 export interface ProposedCell {
   stakeholderId: number;
@@ -174,61 +180,6 @@ export function groundRaciCells(
   return { cells, skipped, truncated: proposed.length > MAX_RACI_CELLS, noOp };
 }
 
-/** One table cell: a single line, with the column separator replaced, so a value
- *  can never split its row or add a column (§770). */
-function cell(v: string | undefined): string {
-  return oneLine(v ?? "").replace(/\s+/g, " ").replace(/\|/g, "/");
-}
-
-/** A milestone description as one capped plain-text cell. A legacy plain value
- *  is escaped first (`descriptionHtml`), so a literal "<" in it survives. */
-function descriptionCell(stored: string | undefined): string {
-  // Code points, not UTF-16 units, so the cut never splits an emoji.
-  const chars = [...cell(htmlPlainProjection(descriptionHtml(stored, "rich")))];
-  return chars.length > RACI_CONTEXT_DESCRIPTION_CHARS
-    ? `${chars.slice(0, RACI_CONTEXT_DESCRIPTION_CHARS).join("")}…`
-    : chars.join("");
-}
-
-/** Compact English digest for the model. Capped, and reports the cap — a silent
- *  truncation reads as "covered everything". */
-export function buildRaciContext(
-  stakeholders: readonly Stakeholder[],
-  milestones: readonly Milestone[],
-): { text: string; truncated: boolean } {
-  const s = stakeholders.slice(0, MAX_CONTEXT_STAKEHOLDERS);
-  const m = milestones.slice(0, MAX_CONTEXT_MILESTONES);
-  const lines: string[] = ["STAKEHOLDERS (id | name | title | organization | category | influence | interest)"];
-  for (const p of s) {
-    lines.push(
-      [p.id, cell(p.name), cell(p.title), cell(p.organization), p.category, p.influence, p.interest].join(" | "),
-    );
-  }
-  lines.push("", "MILESTONES (id | name | date | description)");
-  for (const x of m) {
-    lines.push([x.id, cell(x.name), x.date ?? "", descriptionCell(x.description)].join(" | "));
-  }
-  lines.push("", "EXISTING ASSIGNMENTS (stakeholderId | milestoneId | role)");
-  // Restricted to the milestones actually listed above. Emitting an assignment
-  // for a milestone outside the capped slice shows the model an id it was never
-  // given, inviting it to reason about — or propose against — a row it cannot
-  // see. Grounding would reject such a cell anyway; this keeps the prompt
-  // self-consistent rather than relying on that backstop.
-  const shownMilestones = new Set(m.map((x) => String(x.id)));
-  for (const p of s) {
-    for (const [key, role] of Object.entries(p.raci)) {
-      if (!shownMilestones.has(key)) continue;
-      lines.push([p.id, key, role].join(" | "));
-    }
-  }
-  return {
-    text: lines.join("\n"),
-    truncated:
-      stakeholders.length > MAX_CONTEXT_STAKEHOLDERS ||
-      milestones.length > MAX_CONTEXT_MILESTONES,
-  };
-}
-
 export const RACI_SUGGEST_TOOL = {
   name: "propose_raci",
   description:
@@ -236,7 +187,8 @@ export const RACI_SUGGEST_TOOL = {
     "R = Responsible (does the work), A = Accountable (exactly ONE per milestone, owns the outcome), " +
     "C = Consulted (two-way input), I = Informed (one-way updates). " +
     "Only propose assignments you are confident about; omit a cell rather than guess. " +
-    "Never propose a second Accountable for a milestone that already has one.",
+    "To move Accountable from its current holder to someone else, propose the new holder's A and a new role for the current holder in the same call; " +
+    "otherwise never propose a second Accountable for a milestone that already has one.",
   input_schema: {
     type: "object" as const,
     properties: {

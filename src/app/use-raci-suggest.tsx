@@ -184,7 +184,11 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     abortRef.current = controller;
     setPhase("thinking");
     try {
-      const context = buildRaciContext(stakeholders, milestones);
+      // The evidence, reference and request slices are wired in Task 4 (§771); empty until then.
+      const context = buildRaciContext({
+        stakeholders, milestones, tasks: [], raid: [], changes: [], resources: [],
+        roles: [], disciplines: [], grades: [], documents: [],
+      });
       const parsed = await runRaciSuggestion(context, { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() }, controller.signal);
       if (reqId !== reqIdRef.current) return; // superseded — discard
       // Re-ground UNTRUSTED model ids/roles against the LIVE stakeholders/

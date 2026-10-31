@@ -408,7 +408,7 @@ const DRIVERS: Readonly<Record<string, Driver>> = {
   },
   "raci-suggest": {
     kind: "hidden", feature: "raci-suggest", sendsPeople: true,
-    run: (c) => sendAndIgnoreParse(() => runRaciSuggestion(buildRaciContext(c.ws.stakeholders ?? [], c.ws.milestones ?? []), { apiKey: KEY, model: MODEL, privacy: c.privacy })),
+    run: (c) => sendAndIgnoreParse(() => runRaciSuggestion(buildRaciContext({ stakeholders: c.ws.stakeholders ?? [], milestones: c.ws.milestones ?? [], tasks: [], raid: [], changes: [], resources: [], roles: [], disciplines: [], grades: [], documents: [] }), { apiKey: KEY, model: MODEL, privacy: c.privacy })),
   },
   dictation: {
     kind: "off", feature: "dictation", run: null,
