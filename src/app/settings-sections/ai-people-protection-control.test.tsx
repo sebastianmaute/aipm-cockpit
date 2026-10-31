@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ActivityLogProvider } from "../activity-log-context";
+import { AiPrivacyProvider, useAiPrivacySource } from "../ai-privacy-context";
+import type { Workspace } from "../workspace";
 import { setDisabledIntegrations } from "../integration-switches";
 import { t } from "../i18n";
 import type { SettingsOverrides } from "../settings-types";
@@ -101,5 +103,45 @@ describe("AiPeopleProtectionControl", () => {
   it("does not show the locked reason when nothing forces protection", () => {
     renderControl();
     expect(screen.queryByText(t("en-US", "aiPeopleProtectionLocked"))).toBeNull();
+  });
+});
+
+// Final review F4: the confirm dialog is awaited. A project swap while it is open must not lower the
+// protection of the project that is open when it closes.
+describe("AiPeopleProtectionControl — a project swap while the dialog is open", () => {
+  const epoch = { v: 1 };
+  function Registrar() {
+    useAiPrivacySource("p1", () => ({}) as unknown as Workspace, () => epoch.v);
+    return null;
+  }
+  function renderInScope() {
+    return render(
+      <AiPrivacyProvider>
+        <Registrar />
+        <ActivityLogProvider value={log}>
+          <AiPeopleProtectionControl lang="en-US" />
+        </ActivityLogProvider>
+      </AiPrivacyProvider>,
+    );
+  }
+  beforeEach(() => { epoch.v = 1; });
+
+  it("drops the write and the log when the scope changed before Confirm", async () => {
+    state.confirm.mockImplementation(async () => { epoch.v += 1; return true; });
+    renderInScope();
+    fireEvent.click(control());
+    await waitFor(() => expect(state.confirm).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(state.setOverrides).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("CONTROL — the same scope still stores the choice and logs it", async () => {
+    state.confirm.mockResolvedValue(true);
+    renderInScope();
+    fireEvent.click(control());
+    await waitFor(() => expect(state.setOverrides).toHaveBeenCalledTimes(1));
+    expect(log).toHaveBeenCalledWith("user", "ai.peopleProtectionOff");
   });
 });

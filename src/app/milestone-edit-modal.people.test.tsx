@@ -37,7 +37,7 @@ const REASON = t("en-US", "dictationUnavailablePeopleProtected");
 
 function renderModal(ws: Workspace) {
   function Source({ children }: { children: ReactNode }) {
-    useAiPrivacySource("p1", () => ws);
+    useAiPrivacySource("p1", () => ws, () => 0);
     return <>{children}</>;
   }
   return render(

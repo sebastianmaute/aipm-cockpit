@@ -680,7 +680,7 @@ function TaskManagerInner() {
   // `currentProjectId` are all already in scope by this point (each declared
   // earlier in the component), so there is no TDZ hazard hoisting it here.
   const portfolioCurrentId = portfolioMode === "turso" ? tursoProjectId : currentProjectId;
-  useAiPrivacySource(portfolioCurrentId ?? "default", currentWorkspace); // AI people protection (spec R3): the open project, for every AI request built from it
+  useAiPrivacySource(portfolioCurrentId ?? "default", currentWorkspace, getScopeEpoch); // AI people protection (spec R3): the open project, for every AI request built from it
   // Suggested next-actions wiring — the workload alerts, the engine run, the
   // grouping, the comms-pending ids, the jump-to-comms link and the group-aware
   // snooze — extracted to useNextActions (use-next-actions.ts, §491).

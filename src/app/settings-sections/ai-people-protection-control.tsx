@@ -12,6 +12,8 @@
 import { useId } from "react";
 import { useActivityLogger } from "../activity-log-context";
 import { isPeopleProtected, isPeopleProtectionForced, withPeopleAllowed } from "../ai-people-protection";
+import { useOpenProjectScopeEpoch } from "../ai-privacy-context";
+import { dropStaleScopeWrite } from "../scope-epoch";
 import { useConfirm } from "../confirm-dialog";
 import { FieldHint } from "../field-hint";
 import { FieldNotice } from "../field-feedback";
@@ -23,6 +25,7 @@ export function AiPeopleProtectionControl({ lang }: { lang: Lang }) {
   const { settingsOverrides, setSettingsOverrides } = useWorkspace();
   const confirm = useConfirm();
   const logActivityAs = useActivityLogger();
+  const readScopeEpoch = useOpenProjectScopeEpoch();
   const helpId = useId();
   const lockedId = useId();
   const forced = isPeopleProtectionForced();
@@ -34,6 +37,9 @@ export function AiPeopleProtectionControl({ lang }: { lang: Lang }) {
   };
 
   const turnOff = async () => {
+    // A project swap while the dialog is open must not lower the NEXT project's protection: the write and
+    // its log entry are dropped when the scope moved during the await (final review F4).
+    const startEpoch = readScopeEpoch();
     const ok = await confirm({
       title: t(lang, "aiPeopleProtectionOffTitle"),
       message: t(lang, "aiPeopleProtectionOffConfirm"),
@@ -41,6 +47,7 @@ export function AiPeopleProtectionControl({ lang }: { lang: Lang }) {
       tone: "default",
     });
     if (!ok) return;
+    if (dropStaleScopeWrite(readScopeEpoch, startEpoch, "AiPeopleProtectionControl.turnOff")) return;
     setSettingsOverrides((prev) => withPeopleAllowed(prev, true));
     logActivityAs?.("user", "ai.peopleProtectionOff");
   };

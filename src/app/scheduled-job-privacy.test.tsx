@@ -64,7 +64,7 @@ function args(): ScheduledJobRunnerArgs {
 /** Project A is open: it registers ITS privacy source, as task-manager does. */
 function openProject(ws: Workspace) {
   function Open({ children }: { children: ReactNode }) {
-    useAiPrivacySource("project-A", () => ws);
+    useAiPrivacySource("project-A", () => ws, () => 0);
     return <>{children}</>;
   }
   return function Wrapper({ children }: { children: ReactNode }) {

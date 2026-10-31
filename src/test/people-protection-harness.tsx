@@ -36,7 +36,7 @@ export function dashboardOf(ws: Workspace): DashboardModel {
 }
 
 function PrivacySource({ ws, children }: { ws: Workspace; children: ReactNode }) {
-  useAiPrivacySource(FIXTURE_PROJECT_KEY, () => ws);
+  useAiPrivacySource(FIXTURE_PROJECT_KEY, () => ws, () => 0);
   return <>{children}</>;
 }
 

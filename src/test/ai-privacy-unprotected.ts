@@ -29,3 +29,10 @@ export function useOpenProjectPeopleProtected(): () => boolean {
 export function usePeopleProtected(): boolean {
   return false;
 }
+
+// Final review F4: a scope that never moves, so a feature's own tests see every awaited write land.
+const stillScope = (): number => 0;
+
+export function useOpenProjectScopeEpoch(): () => number {
+  return stillScope;
+}

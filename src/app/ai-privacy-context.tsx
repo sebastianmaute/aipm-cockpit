@@ -15,11 +15,15 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { isPeopleProtected } from "./ai-people-protection";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
+import type { ScopeEpochReader } from "./scope-epoch";
 import type { Workspace } from "./workspace";
 
 interface PrivacySource {
   key: string;
   read: () => Workspace;
+  /** `useStorageBackend`'s scope-epoch reader, for a privacy WRITE that awaits (the protection switch's
+   *  confirm dialog): a swap during the await must not change the next project's setting. */
+  epoch: ScopeEpochReader;
 }
 
 interface SourceStore {
@@ -70,11 +74,22 @@ export function AiPrivacyProvider({ children }: { children: ReactNode }) {
 
 /** Task-manager registers the open project here. A layout effect, so every commit's source is in
  *  place before any passive effect (an unattended run) or event handler can ask for it. */
-export function useAiPrivacySource(key: string, read: () => Workspace): void {
+export function useAiPrivacySource(key: string, read: () => Workspace, epoch: ScopeEpochReader): void {
   const store = useContext(SourceContext);
   useLayoutEffect(() => {
-    store?.set({ key, read });
+    store?.set({ key, read, epoch });
   });
+}
+
+/** Read when no source is registered: two reads both outside a provider compare equal (never stale); a
+ *  source that appears or goes between two reads makes them differ, so the write is dropped. */
+const NO_SOURCE_EPOCH = -1;
+
+/** A stable scope-epoch reader for the open project, for a setting write that awaits first: capture it
+ *  before the await, drop the write when it moved (`dropStaleScopeWrite`). */
+export function useOpenProjectScopeEpoch(): ScopeEpochReader {
+  const store = useContext(SourceContext);
+  return useCallback(() => store?.get()?.epoch() ?? NO_SOURCE_EPOCH, [store]);
 }
 
 /** AI people protection, layer 1: a stable getter for whether the open project protects its people, asked

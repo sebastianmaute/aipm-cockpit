@@ -50,7 +50,7 @@ const withImage: ChatConversation = {
 
 function renderOpen(ws: Workspace) {
   function Source({ children }: { children: ReactNode }) {
-    useAiPrivacySource("p1", () => ws);
+    useAiPrivacySource("p1", () => ws, () => 0);
     return <>{children}</>;
   }
   render(

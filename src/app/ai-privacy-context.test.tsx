@@ -25,7 +25,7 @@ interface Props { projectKey: string; workspace: Workspace }
 
 /** Registers the source as task-manager does, and hands back the getter a feature would hold. */
 function useHarness({ projectKey, workspace }: Props) {
-  useAiPrivacySource(projectKey, () => workspace);
+  useAiPrivacySource(projectKey, () => workspace, () => 0);
   return useOpenProjectAiPrivacy();
 }
 const wrapper = ({ children }: { children: ReactNode }) => <AiPrivacyProvider>{children}</AiPrivacyProvider>;
