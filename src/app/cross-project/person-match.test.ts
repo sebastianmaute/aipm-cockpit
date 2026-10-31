@@ -22,8 +22,10 @@ function row(over: Partial<PersonLinkRow> & Pick<PersonLinkRow, "verdict">): Per
     resourceA: 1,
     projectB: "p-other",
     resourceB: 10,
-    nameA: "Ann Lee",
-    nameB: "Ann Lee",
+    firstA: "Ann",
+    lastA: "Lee",
+    firstB: "Ann",
+    lastB: "Lee",
     emailsA: "",
     emailsB: "",
     decidedAt: "2026-10-31T00:00:00Z",
@@ -100,7 +102,7 @@ describe("matchPeople", () => {
     ]).get(1)!;
     expect(renamedOther.matched).toEqual([]);
     // falls back to the remaining rules: equal names here, so a suggestion
-    const sameNames = matchPeople(HERE, [res(1, "ANN", " lee")], others, [row({ verdict: "same", nameA: "Old Name" })]).get(1)!;
+    const sameNames = matchPeople(HERE, [res(1, "ANN", " lee")], others, [row({ verdict: "same", firstA: "Old", lastA: "Name" })]).get(1)!;
     expect(sameNames.matched).toEqual([]);
     expect(sameNames.suggestions).toHaveLength(1);
   });
@@ -120,6 +122,30 @@ describe("matchPeople", () => {
     const others = [other("p-other", [res(10, "A", "One", { email: "a@x.com" }), res(11, "A", "Two", { emails: ["a@x.com"] })])];
     const m = matchPeople(HERE, here, others, []).get(1)!;
     expect(m.matched.map((r) => r.resourceId)).toEqual([10, 11]);
+  });
+
+  test("emails matches emails, case-insensitive", () => {
+    const here = [res(1, "Ann", "Lee", { emails: ["x@y.com", "ANN@X.com"] })];
+    const others = [other("p-other", [res(10, "Zed", "Q", { emails: ["ann@x.COM"] })])];
+    const m = matchPeople(HERE, here, others, []).get(1)!;
+    expect(m.matched.map((r) => r.via)).toEqual(["email"]);
+  });
+
+  test("a first/last re-split with the same joined name makes a same row stale", () => {
+    const others = [other("p-other", [res(10, "Ann", "Lee")])];
+    const links = [row({ verdict: "same", firstA: "Mary Ann", lastA: "Lee" })];
+    const resplit = matchPeople(HERE, [res(1, "Mary", "Ann Lee")], others, links).get(1)!;
+    expect(resplit.matched).toEqual([]);
+    const sameFields = matchPeople(HERE, [res(1, "Mary Ann", "Lee")], others, links).get(1)!;
+    expect(sameFields.matched).toHaveLength(1);
+  });
+
+  test("a different row still rejects after a rename, even with overlapping emails", () => {
+    const here = [res(1, "Annabel", "Lee", { email: "a@x.com" })];
+    const others = [other("p-other", [res(10, "Ann", "Leigh", { email: "A@x.com" })])];
+    const m = matchPeople(HERE, here, others, [row({ verdict: "different" })]).get(1)!;
+    expect(m.matched).toEqual([]);
+    expect(m.rejected).toEqual([{ projectId: "p-other", projectName: "Name p-other", resourceId: 10 }]);
   });
 
   test("a row stored in either order is found", () => {

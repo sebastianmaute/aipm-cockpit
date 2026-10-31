@@ -11,10 +11,14 @@
  * other project matching the same person BOTH match, so their hours are summed
  * by the caller.
  *
- * A link row is live only while both projects are in the list, both resource
- * ids still exist and both resources still carry the first + last name stored
- * in the row (case-insensitive, trimmed). Otherwise it is ignored and the
- * email/name rules decide.
+ * A `same` row is live only while both projects are in the list, both resource
+ * ids still exist and both resources still carry the stored first name AND last
+ * name, each compared on its own (case-insensitive, trimmed), so re-splitting
+ * "Mary Ann"/"Lee" into "Mary"/"Ann Lee" makes it stale. A stale `same` row is
+ * ignored and the email/name rules decide. A `different` row is a rejection the
+ * user made and applies whatever the names are now: renaming a resource must
+ * never let an email match add hours to a pair the user said is not the same.
+ * (A row whose project or resource no longer exists matches nothing.)
  */
 import type { Resource } from "../types";
 import { resourceDisplayName } from "../resource-foundation";
@@ -27,8 +31,10 @@ export interface PersonLinkRow {
   projectB: string;
   resourceB: number;
   verdict: LinkVerdict;
-  nameA: string;
-  nameB: string;
+  firstA: string;
+  lastA: string;
+  firstB: string;
+  lastB: string;
   emailsA: string;
   emailsB: string;
   decidedAt: string;
@@ -82,9 +88,13 @@ const pairKey = (pa: string, ra: number, pb: string, rb: number): string => {
   return JSON.stringify([c.projectA, c.resourceA, c.projectB, c.resourceB]);
 };
 
-/** The row's stored name for the side that is `projectId`/`resourceId`. */
-function storedNameFor(row: PersonLinkRow, projectId: string, resourceId: number): string {
-  return row.projectA === projectId && row.resourceA === resourceId ? row.nameA : row.nameB;
+/** True while the resource still carries the first and last name stored for its side of the row. */
+function namesUnchanged(row: PersonLinkRow, projectId: string, r: Resource): boolean {
+  // pairKey guarantees the row concerns this pair, so a non-A side is B.
+  const isA = row.projectA === projectId && row.resourceA === r.id;
+  const first = isA ? row.firstA : row.firstB;
+  const last = isA ? row.lastA : row.lastB;
+  return normName(first) === normName(r.firstName) && normName(last) === normName(r.lastName);
 }
 
 export function matchPeople(
@@ -111,8 +121,8 @@ export function matchPeople(
         const stored = rowByKey.get(pairKey(hereProjectId, h.id, o.projectId, r.id));
         const live =
           stored !== undefined &&
-          normName(storedNameFor(stored, hereProjectId, h.id)) === hName &&
-          normName(storedNameFor(stored, o.projectId, r.id)) === rName;
+          (stored.verdict === "different" ||
+            (namesUnchanged(stored, hereProjectId, h) && namesUnchanged(stored, o.projectId, r)));
         const verdict = live ? stored.verdict : undefined;
 
         if (verdict === "different") {
