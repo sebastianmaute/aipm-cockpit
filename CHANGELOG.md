@@ -12,6 +12,14 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **A deployment can restrict AI to its own Anthropic organisation's keys.** The operator sets
+  `AIPM_AI_ORGANIZATION_ID` and, optionally, `AIPM_AI_WORKSPACE_IDS`. AI requests then go through this app's server,
+  which checks which organisation and workspace the user's key belongs to before it forwards anything; a key from
+  another organisation or workspace is refused, and the AI key banner and Settings → AI say why (a check that
+  cannot be completed says to try again). A malformed setting switches AI off. Users accept the AI data disclosure
+  again, because the data now goes by a new route. The check proves which organisation a key belongs to, not what
+  that organisation's contract covers, and it governs only data this app sends; setup and limits are in
+  `docs/RUNBOOK.md` and `docs/security.md`.
 - **People protection for the AI (on by default, per project).** Settings → AI has a new switch, Protect people from
   the AI. While it is on, every AI request is redacted before it leaves the browser: the names, e-mail addresses and
   phone numbers of the people the project knows, and IBANs, become placeholders such as [Person 1], and the real names

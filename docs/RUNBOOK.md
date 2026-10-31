@@ -130,8 +130,9 @@ keeps `'unsafe-inline'` because React renders `style={{...}}` props as the
 that has been sanitized (`sanitize-html.ts` / DOMPurify) or is an app-authored
 constant, and script execution stays nonce-strict — which is why the
 attribute allowance is treated as low-risk. `connect-src` allows the browser-called
-origins (`api.anthropic.com` only while AI is on and not routed through a gateway, see
-[Routing AI through a gateway](#routing-ai-through-a-gateway-run-time-optional); `*.turso.io`, `graph.microsoft.com`,
+origins (`api.anthropic.com` only while AI is on and not routed through a gateway and not restricted to an organisation's keys, see
+[Routing AI through a gateway](#routing-ai-through-a-gateway-run-time-optional) and
+[Restricting AI to the organisation's Anthropic keys](#restricting-ai-to-the-organisations-anthropic-keys-run-time-optional); `*.turso.io`, `graph.microsoft.com`,
 `login.microsoftonline.com`, the SharePoint download hosts `*.sharepoint.com` and
 `*.files.1drv.com` — the backend's load fetches the file bytes from the pre-authenticated
 `@microsoft.graph.downloadUrl` — plus `http://localhost:*` and `http://127.0.0.1:*`
@@ -361,6 +362,73 @@ section there.
   `api.anthropic.com`, so on the first deploy that sets `ai` it goes on calling Anthropic
   directly from the browser. Only the server's own routes (`/api/stt`) are refused at
   once.
+
+### Restricting AI to the organisation's Anthropic keys (run-time, optional)
+
+A deployment can allow only Anthropic API keys that belong to its own Anthropic
+organisation, and optionally only certain workspaces of it. Each user still enters
+their own key; the app's server checks it before forwarding anything. The settings and
+their rules are in [security.md → Environment variables](security.md#environment-variables),
+which owns that list.
+
+1. **Find the ids** in the Anthropic Console: the organisation id and, if you want to
+   limit the keys to some workspaces, their ids. All are UUIDs.
+2. **Set the server environment** and restart:
+   ```
+   AIPM_AI_ORGANIZATION_ID=<organisation UUID>
+   AIPM_AI_WORKSPACE_IDS=<workspace UUID>,<workspace UUID>   # optional
+   ```
+   The server reads both on every request, so a restart applies a change; no rebuild.
+   A malformed value, an empty list item, or workspace ids without an organisation id
+   switch AI off for the whole deployment (reason codes `org-id`, `workspace-ids`,
+   `workspaces-without-org`) instead of letting keys through. As with the gateway
+   settings, the code is logged once per server process, as
+   `ai key restriction invalid: <reason>`, and `GET /api/ai/status`
+   answers `invalid: true` with it as `invalidReason`; any invalid setting, the
+   gateway's or this one, refuses every AI call. The status answer carries only
+   `keyRestricted: true`, never the ids.
+3. **What changes for users.** With no gateway set, AI goes by a third route, the
+   relay: the browser calls this app's `/api/ai/*` and the server forwards to
+   `https://api.anthropic.com`. The content security policy drops
+   `api.anthropic.com` whenever the restriction is set or invalid. The relay route has
+   its own disclosure texts, so every user is asked to accept the AI data disclosure
+   again, and to tick background AI again, exactly as when the gateway is turned on or
+   off (see "Consent follows the route" under the gateway section below). A tab left
+   open across the change sends nothing until it is reloaded.
+4. **How a key is checked.** Before the first call with a key, the server sends a free
+   `GET /v1/models?limit=1` with that key and reads the answer headers
+   `anthropic-organization-id` and `anthropic-workspace-id`. Several first requests with
+   the same key share one check.
+   - A key of another organisation or an unlisted workspace gets `403`
+     `ai-key-wrong-organization` or `ai-key-wrong-workspace`. The refusal is cached
+     for 5 minutes; users see it in the AI key banner and in Settings → AI.
+   - A check that cannot be completed gets `503` `ai-key-check-unavailable` and nothing
+     is forwarded; it is not cached, and users see "try again". That covers a network
+     error, a timeout (30 seconds), a `5xx` or `429`, and an answer that lacks a
+     header the check needs or repeats it.
+   - A pass is cached, by the SHA-256 of the key and in memory only, until the cache
+     (at most 1000 entries) evicts it or the restriction settings change. A restart
+     empties the cache.
+   - Anthropic's own `401` or `403` for the key is passed through unchanged and not
+     cached.
+5. **Combining it with a gateway.** With `AIPM_AI_GATEWAY_URL` set too, calls stay on the
+   gateway route and the check goes through the gateway with its token, sending
+   `cf-aig-skip-cache: true` so that a cached answer for another key can never pass.
+   ★★ **The gateway must pass Anthropic's two answer headers through.** A gateway that
+   drops them makes every check "unavailable": AI stays off for everyone. Such a
+   gateway cannot be combined with the restriction; check with Settings → AI after
+   turning it on.
+6. **Desktop.** The desktop app's server child receives the operating system's
+   environment variables (`desktop/src/server-child.ts` copies `process.env`), so set
+   both variables in the environment the desktop app starts in.
+
+What the restriction does not do (the same four limits as
+[security.md → AI features](security.md#ai-features)): it proves which organisation and
+workspace a key belongs to, not what that organisation's contract covers; it is
+enforced in this app's server, so a person with a key can still call Anthropic outside
+the app; anyone with access to the server environment can change or remove it; and
+verdicts are cached per server process, so a key moved or revoked later is caught by
+Anthropic's own answer, not by the cache.
 
 ### Routing AI through a gateway (run-time, optional)
 
