@@ -121,6 +121,9 @@ function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakehold
     <div>
       {suggest.button}
       {suggest.modal}
+      <button type="button" onClick={() => setStakeholders((prev) => prev.filter((s) => s.id !== 2))}>
+        TEST_DELETE_LEE
+      </button>
       <button
         type="button"
         onClick={() => (suggest.modal as ReactElement<{ onToggle: (k: string) => void }>).props.onToggle("2:10")}
@@ -491,6 +494,24 @@ describe("useRaciSuggest — input stage (§771)", () => {
 
 describe("useRaciSuggest — handover pair integrity (§771)", () => {
   beforeEach(() => { vi.clearAllMocks(); });
+  it("a deleted incoming holder orphans the demotion: the old holder keeps A and nothing is saved", async () => {
+    const onSaves = vi.fn();
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({
+      cells: [
+        { stakeholderId: 2, milestoneId: 10, role: "A" },
+        { stakeholderId: 1, milestoneId: 10, role: "C" },
+      ],
+      truncated: false,
+    });
+    renderHarness({ stakeholderRaci: { "10": "A" }, onSaves });
+    openAndRun();
+    await screen.findByRole("button", { name: /apply selected/i });
+    // Lee (the incoming Accountable) is deleted between propose and confirm.
+    fireEvent.click(screen.getByRole("button", { name: "TEST_DELETE_LEE" }));
+    fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
+    expect(onSaves).not.toHaveBeenCalled();
+    expect(screen.getByTestId("sam-raci").textContent).toBe(JSON.stringify({ "10": "A" }));
+  });
   type SaveMock = ReturnType<typeof vi.fn<NonNullable<HarnessProps["onSaves"]>>>;
   type CaptureMock = ReturnType<typeof vi.fn<NonNullable<HarnessProps["onCaptureBulk"]>>>;
   async function openHandover(onSaves: SaveMock, onCaptureBulk?: CaptureMock) {

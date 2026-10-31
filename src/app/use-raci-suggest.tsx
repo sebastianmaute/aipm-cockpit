@@ -298,7 +298,12 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     if (peopleProtected || phase !== "preview") return;
     // Pair integrity first: a half whose partner was deselected is dropped, so a
     // lone new Accountable (or lone demotion) can never be written.
-    const chosen = dropOrphanedPairHalves(cells.filter((c) => selected.has(cellKey(c))));
+    // A half whose stakeholder was deleted since propose counts as not chosen, so it orphans its partner
+    // (foldCellsByStakeholder would otherwise skip it silently and save the other half alone).
+    const liveIds = new Set(stakeholders.map((s) => s.id));
+    const chosen = dropOrphanedPairHalves(
+      cells.filter((c) => selected.has(cellKey(c)) && liveIds.has(c.stakeholderId)),
+    );
     if (chosen.length === 0) return;
     const updated = foldCellsByStakeholder(chosen, stakeholders);
     if (updated.length === 0) {

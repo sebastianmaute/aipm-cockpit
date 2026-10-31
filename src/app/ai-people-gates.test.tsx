@@ -188,6 +188,17 @@ describe("Plan with AI and RACI suggestions under protection", () => {
     expect(screen.getByRole("button", { name: /suggest raci/i })).toBeTruthy();
   });
 
+  it("protection turning on during the RACI request stage closes the dialog and clears the draft", () => {
+    const flip = renderWithSource(allowed(base()), <RaciHarness />);
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    fireEvent.change(screen.getByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") }), { target: { value: "draft" } });
+    flip(protectedWs(base()));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    flip(allowed(base()));
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    expect((screen.getByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") }) as HTMLTextAreaElement).value).toBe("");
+  });
+
   it("the RACI suggestion trigger is absent when protected and present when allowed", () => {
     const flip = renderWithSource(allowed(base()), <RaciHarness />);
     expect(screen.getByRole("button", { name: /suggest raci/i })).toBeTruthy();

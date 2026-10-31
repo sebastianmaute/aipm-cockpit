@@ -147,7 +147,8 @@ export function RaciSuggestModal({
   onCancel,
   busy,
 }: RaciSuggestModalProps) {
-  const title = t(lang, "raciSuggestTitle");
+  const isInput = stage === "input";
+  const title = t(lang, isInput ? "raciSuggestInputTitle" : "raciSuggestTitle");
 
   // Case-folded name -> occurrences, over the LIVE lists. Same normalisation as
   // raci-panel's labelFor, so the two surfaces qualify the same people.
@@ -165,7 +166,6 @@ export function RaciSuggestModal({
   const selectedCount = cells.reduce((n, c) => (selected.has(cellKey(c)) ? n + 1 : n), 0);
   const seenPairs = new Set<string>();
   const canConfirm = !busy && selectedCount > 0;
-  const isInput = stage === "input";
 
   const skippedByKey = new Map<SkipMessageKey, number>();
   for (const s of skipped) {
@@ -203,7 +203,7 @@ export function RaciSuggestModal({
               <HelpIconButton lang={lang} conceptId={MODAL_HELP.raciSuggest} dialogTitle={title} />
             </div>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{t(lang, "raciSuggestIntro")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t(lang, isInput ? "raciSuggestInputIntro" : "raciSuggestIntro")}</p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
@@ -246,13 +246,13 @@ export function RaciSuggestModal({
               {cells.map((c) => {
                 const key = cellKey(c);
                 if (c.pairKey) {
-                  // ONE row per handover pair, rendered at the first half met.
+                  // ONE row per well-formed handover pair, rendered at the first half met.
                   if (seenPairs.has(c.pairKey)) return null;
-                  seenPairs.add(c.pairKey);
                   const halves = cells.filter((x) => x.pairKey === c.pairKey);
                   const incoming = halves.find((x) => x.role === "A");
-                  const outgoing = halves.find((x) => x !== incoming);
+                  const outgoing = halves.find((x) => x.role !== "A");
                   if (incoming && outgoing && halves.length === 2) {
+                    seenPairs.add(c.pairKey);
                     const keys = halves.map(cellKey);
                     const label = t(
                       lang,

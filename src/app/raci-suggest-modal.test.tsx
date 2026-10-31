@@ -430,7 +430,54 @@ describe("RaciSuggestModal handover row (§771)", () => {
   });
 });
 
+describe("RaciSuggestModal handover edge cases (§771)", () => {
+  const live = { stakeholders: [{ id: 1, name: "Sam" }, { id: 2, name: "Lee" }] };
+  function renderPairs(cells: GroundedRaciCell[], milestones: { id: number; name: string }[]) {
+    render(
+      <RaciSuggestModal
+        lang="en-US" open stage="preview" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel
+        cells={cells} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
+        stakeholders={live.stakeholders} milestones={milestones}
+        selected={new Set(cells.map((c) => `${c.stakeholderId}:${c.milestoneId}`))}
+        onToggle={vi.fn()} onConfirm={vi.fn()} onCancel={vi.fn()} busy={false}
+      />,
+    );
+  }
+  const half = (stakeholderId: number, stakeholderName: string, milestoneId: number, role: "A" | "C", pairKey: string): GroundedRaciCell => ({
+    stakeholderId, stakeholderName, milestoneId, milestoneName: "Go-Live", role, currentRole: role === "C" ? "A" : null, pairKey,
+  });
+
+  it("gives two handover rows on same-named milestones distinct checkbox names", () => {
+    renderPairs(
+      [half(2, "Lee", 10, "A", "handover:10"), half(1, "Sam", 10, "C", "handover:10"),
+       half(2, "Lee", 11, "A", "handover:11"), half(1, "Sam", 11, "C", "handover:11")],
+      [{ id: 10, name: "Go-Live" }, { id: 11, name: "Go-Live" }],
+    );
+    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+    expectRowUniqueNames({ minControls: 2, roles: ["checkbox"] });
+  });
+
+  it("renders every half of a malformed pair as an ordinary row", () => {
+    // Two A halves under one key is not a handover: neither may be hidden.
+    renderPairs([half(2, "Lee", 10, "A", "handover:10"), half(1, "Sam", 10, "A", "handover:10")], [{ id: 10, name: "Go-Live" }]);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+  });
+});
+
 describe("RaciSuggestModal input stage (§771)", () => {
+  it("titles the request stage on its own and keeps the review title for the preview", () => {
+    render(
+      <RaciSuggestModal
+        lang="en-US" open stage="input" request="" onRequestChange={vi.fn()} onRun={vi.fn()} canCancel
+        cells={[]} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
+        stakeholders={[]} milestones={[]} selected={new Set()} onToggle={vi.fn()} onConfirm={vi.fn()} onCancel={vi.fn()} busy={false}
+      />,
+    );
+    expect(screen.getByText(t("en-US", "raciSuggestInputIntro"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "raciSuggestIntro"))).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: t("en-US", "raciSuggestInputTitle") })).toBeInTheDocument();
+  });
+
   it("shows the labelled request box and Run, and Run fires onRun", () => {
     const onRun = vi.fn();
     const onRequestChange = vi.fn();
