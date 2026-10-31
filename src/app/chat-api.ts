@@ -4,6 +4,7 @@
 // them" pattern); `chat-panel.tsx` consumes everything here.
 import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
 import { DOCUMENT_TOOL_DEFS_WITHOUT_DECISION } from "./chat-tool-defs-documents";
+import { PEOPLE_TOOLS, peopleToolsLive } from "./chat-tool-defs";
 import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import { reportAiKeyResponse } from "./ai-key-status";
 import { assertInteractiveConsentLive } from "./ai-consent";
@@ -88,6 +89,7 @@ export type DisplayItem =
   | { kind: "proposal"; id: string; count: number };
 
 import { CHAT_PATH } from "./ai-usage-paths";
+import type { AiPrivacy } from "./ai-privacy";
 import { normalizeApiUsage, postAiMessages, type ApiUsage, type WireUsage } from "./ai-transport";
 export { ANTHROPIC_VERSION, normalizeApiUsage, type ApiUsage } from "./ai-transport";
 
@@ -167,11 +169,10 @@ export function buildStableSystemBlocks(
    *  `forecastSimulation`, and only an explicit true offers it. */
   toolFlags: ToolFlags,
 ): SystemBlock[] {
-  // `toolFlags` is unused HERE — the tool-advertising blocks it drives
-  // (view scope / activity recap / chat pointer) all live in the volatile
-  // half. Kept on the signature anyway so both halves take the IDENTICAL
-  // param list `buildSystemPrompt` composes them from unchanged.
-  void toolFlags;
+  // `toolFlags` drives ONE line here: under people protection the request carries no people tool, so
+  // the prompt must not advertise the resource directory's (AI people protection, layer 1). The other
+  // tool-advertising blocks (view scope / activity recap / chat pointer) live in the volatile half.
+  const peopleLive = peopleToolsLive(toolFlags.peopleProtected);
   // STABLE prefix (cached): fixed instructions plus the always-on guides
   // (block 0), followed by the current view's guides (block 1, no marker of
   // its own). Anthropic prompt-cache is prefix-based, so block 0 must come
@@ -183,7 +184,9 @@ export function buildStableSystemBlocks(
     "The user is a project lead tracking open tasks. Each task has: id, taskName, assignee, assigneeEmail, dueDate (YYYY-MM-DD), lastUpdateDate, priority (Low/Medium/High/Urgent), status (To Do/In Progress/On Hold/In Review/Cancelled/Done), blockers, notes, group (single optional category), labels (zero or more tags).",
     "Use the provided tools to read and modify the app's state. Prefer calling tools over guessing. After modifying state, briefly confirm what changed.",
     "Beyond tasks you can also read and write RAID items (Risks/Assumptions/Issues/Dependencies), change-control items, milestones, and stakeholders via their list_/create_/update_/delete_ tools. RAID category is R/A/I/D; status must match the category. Dates are YYYY-MM-DD.",
-    "You can also manage the resource directory: list_resources, get_resource, create_resource (firstName/lastName), update_resource, and delete_resource. IMPORTANT: assigning a task to a person by name does NOT add them to the directory — when a document describes a team or resource plan, call create_resource for each person so they appear in the directory, not just as task assignees.",
+    peopleLive
+      ? "You can also manage the resource directory: list_resources, get_resource, create_resource (firstName/lastName), update_resource, and delete_resource. IMPORTANT: assigning a task to a person by name does NOT add them to the directory — when a document describes a team or resource plan, call create_resource for each person so they appear in the directory, not just as task assignees."
+      : PEOPLE_PROTECTED_INSTRUCTION,
     "When the user attaches a document, read it and, when they ask, extract the relevant items (tasks, risks, milestones, stakeholders, people/resources) and create them with the matching create_ tool. Summarise what you created and ask before bulk-creating many records.",
     // ★★★ THIS REPLACED AN INSTRUCTION TO "confirm with the user in chat", and
     //    the replacement is not a rewording — the mechanism changed underneath
@@ -276,7 +279,8 @@ export function buildTurnContext(
   ].join("\n");
   // Active insights are VOLATILE (change as detectors reconcile) → this block
   // MUST stay in the uncached suffix, or it would invalidate the cached prefix.
-  const insightsBlock = buildInsightsPromptBlock(snapshot.insights ?? []);
+  // AI people protection: a per-person insight line (a TimeLog violation names its person) is dropped.
+  const insightsBlock = buildInsightsPromptBlock(snapshot.insights ?? [], { withPeople: peopleToolsLive(toolFlags.peopleProtected) });
   // The digest (what is on screen right now) is per-call and changes on every
   // filter/sort tweak — it MUST stay in the uncached suffix too, or it would
   // silently invalidate the cache on every interaction. See view-ai-scope-block.ts.
@@ -521,6 +525,10 @@ function withCacheBreakpoint(defs: typeof TOOL_DEFS) {
 
 export const CACHED_TOOLS = withCacheBreakpoint(TOOL_DEFS);
 
+/** The stable prompt's line in place of the resource-directory one when the project protects its people. */
+const PEOPLE_PROTECTED_INSTRUCTION =
+  "This project protects its people from the AI: you have no tools to read or change the resource directory, stakeholders, absences or allocations, and you must not assign, move or rate anyone. Names may reach you as placeholders of the form [Person N] (also [email N], [phone N], [IBAN N]), where N is a number; use them exactly as given.";
+
 /** The flags that select a tool-list variant.
  *
  *  ★★★ ONE OBJECT, NOT TWO ADJACENT BOOLEANS. Both flags are
@@ -531,7 +539,13 @@ export const CACHED_TOOLS = withCacheBreakpoint(TOOL_DEFS);
  *
  *  ★ `forecast` has the INVERSE default of the other two: the forecast tools are offered only on an
  *  explicit `true`, so a caller that says nothing (inline edit, tests) gets none. */
-export type ToolFlags = Pick<AiConfig, "historySearch" | "chatSearch"> & { forecast?: boolean };
+export type ToolFlags = Pick<AiConfig, "historySearch" | "chatSearch"> & {
+  forecast?: boolean;
+  /** AI people protection (layer 1): the open project protects its people, so the request carries no
+   *  `PEOPLE_TOOLS`. Read at SEND time (chat-panel), so a switch mid-thread takes effect on the next send.
+   *  Only an explicit true removes them (`peopleToolsLive`). */
+  peopleProtected?: boolean;
+};
 
 /** Tool names removed by each bit of the variant key. */
 const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
@@ -543,6 +557,8 @@ const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
   [4, "delete_forecast_scenario"],
   [4, "set_forecast_proposal"],
   [4, "set_forecast_target_confidence"],
+  // AI people protection: every people tool, by the SAME predicate `runTool` enforces (`peopleToolsLive`).
+  ...[...PEOPLE_TOOLS].map((name) => [8, name] as const),
 ];
 
 /** The document tools as sent with bit 4 set (forecast off): no `forecastDecision` data section (§502 part 4). */
@@ -564,7 +580,8 @@ function variantKey(flags: ToolFlags): number {
   return (
     (historySearchEnabled(flags.historySearch) ? 0 : 1) |
     (chatSearchEnabled(flags.chatSearch) ? 0 : 2) |
-    (flags.forecast === true ? 0 : 4)
+    (flags.forecast === true ? 0 : 4) |
+    (peopleToolsLive(flags.peopleProtected) ? 0 : 8)
   );
 }
 
@@ -647,6 +664,8 @@ export async function callClaude(
   /** The tool flags — `settings.ai`'s drop a tool only on an explicit false; `forecast` (from the
    *  snapshot) offers its tools only on an explicit true. */
   toolFlags: ToolFlags,
+  /** Whether the request is redacted for people protection. Required: every caller decides. */
+  privacy: AiPrivacy,
   signal?: AbortSignal,
   /** A narrower tool list than the flags give (`toolsNamed`); absent, the flags' list. */
   tools?: ReturnType<typeof withCacheBreakpoint>,
@@ -669,6 +688,7 @@ export async function callClaude(
     }),
     path,
     signal,
+    privacy,
     // Asked again after the deployment status: consent can be revoked while it is asked.
     beforeSend: assertInteractiveConsentLive,
   });

@@ -8,6 +8,7 @@ import { type ActionAnalysis } from "./action-ai";
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { AiHttpError, aiTransportMessageKey, classifyAiError } from "./ai-errors";
 import { isAbortError } from "./abort-error";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 
 interface AiCreds { apiKey: string; model: string; guideText?: string }
 
@@ -16,6 +17,9 @@ export function useActionAnalysis(ai: AiCreds) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ActionAnalysis | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // AI people protection (spec R3): the Action Center analyses the OPEN project. (A scheduled job
+  // analyses its stored target and passes that project's privacy itself: `scheduled-job-run.ts`.)
+  const aiPrivacy = useOpenProjectAiPrivacy();
 
   const analyze = useCallback(
     async (context: string): Promise<ActionAnalysis | null> => {
@@ -27,7 +31,7 @@ export function useActionAnalysis(ai: AiCreds) {
       setError(null);
       try {
         // Single source of truth for the call (shared with the SP5 job runner).
-        const parsed = await runJobAnalysis(context, { apiKey: key, model: ai.model, guideText: ai.guideText }, controller.signal);
+        const parsed = await runJobAnalysis(context, { apiKey: key, model: ai.model, guideText: ai.guideText, privacy: aiPrivacy() }, controller.signal);
         setResult(parsed);
         return parsed;
       } catch (e) {
@@ -82,7 +86,7 @@ export function useActionAnalysis(ai: AiCreds) {
         }
       }
     },
-    [ai.apiKey, ai.model, ai.guideText],
+    [ai.apiKey, ai.model, ai.guideText, aiPrivacy],
   );
 
   const cancel = useCallback(() => { abortRef.current?.abort(); }, []);

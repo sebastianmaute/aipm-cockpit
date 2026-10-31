@@ -1,6 +1,7 @@
 import { test, expect, gotoApp, openView, waitForViewSettled, installAssetByteStore } from "./seed";
 import { join } from "node:path";
 import type { Locator } from "@playwright/test";
+import { AI_DISCLOSURE_VERSION } from "../src/app/ai-consent";
 
 // Browser eye-verify for open-followups §414 (the control-defects batch). Each
 // item there is a layout/hover/native-tooltip claim jsdom cannot observe. This
@@ -129,12 +130,12 @@ test.describe("control-defects eye-verify (§414)", () => {
     // test only reads geometry (no clicks), keeping every test in this file on
     // the same "already onboarded" baseline avoids the tour's own animation
     // shifting layout mid-measurement.
-    await page.addInitScript(() => {
+    await page.addInitScript((disclosureVersion: number) => {
       localStorage.setItem(
         "aipm-cockpit:settings",
-        JSON.stringify({ tourSeen: true, ai: { enabled: true, apiKey: "e2e-eye-verify-key", consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 1 } } }),
+        JSON.stringify({ tourSeen: true, ai: { enabled: true, apiKey: "e2e-eye-verify-key", consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: disclosureVersion } } }),
       );
-    });
+    }, AI_DISCLOSURE_VERSION);
 
     await gotoApp(page);
     await openView(page, "Open Points");

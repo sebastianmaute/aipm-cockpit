@@ -47,6 +47,7 @@ import { runForecastImportCall } from "./forecast-import-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { useActionGuideText } from "./action-guides-context";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 import { checkAttachmentSize, MAX_ATTACHMENT_BYTES } from "./chat-attachments";
 import type { TranslationKey } from "./i18n";
 import { aiKeyIfEnabled, isAiEnabled, type AiConfig } from "./settings-types";
@@ -302,6 +303,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
   const startYear = bucketStartYear(deps.bucket);
   const { ai } = deps;
   const guideText = useActionGuideText("forecastImport");
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
   const apiKey = aiKeyIfEnabled(ai);
   const model = ai.model;
   const aiAvailable = isAiEnabled(ai) && apiKey !== "";
@@ -541,7 +543,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
     setError(null);
     setBusy("claude");
     try {
-      const res = await runForecastImportCall(sheet, { apiKey, model, guideText }, controller.signal);
+      const res = await runForecastImportCall(sheet, { apiKey, model, guideText, privacy: aiPrivacy() }, controller.signal);
       if (reqId !== reqIdRef.current) return;
       // A mapping that names no year reads year-less labels in the year in effect.
       const proposed: ColumnMapping = res.mapping.year === undefined && year !== undefined ? { ...res.mapping, year } : res.mapping;
@@ -563,7 +565,7 @@ export function useForecastImport(deps: ForecastImportDeps): ForecastImport {
         setBusy(false);
       }
     }
-  }, [sheet, aiAvailable, nextRequest, apiKey, model, guideText, year]);
+  }, [sheet, aiAvailable, nextRequest, apiKey, model, guideText, aiPrivacy, year]);
 
   const cancel = useCallback(() => {
     nextRequest();

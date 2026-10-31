@@ -35,3 +35,21 @@ describe("i18n German encoding", () => {
     expect(all).not.toMatch(/\bfuer\b|\bmuessen\b|\bgeloescht\b|\bSchliessen\b/);
   });
 });
+
+// AI people protection, review 2 (C): the German texts that name the allocation planner use its UI label.
+describe("German people-protection texts name “Mit KI planen” as the UI does", () => {
+  const KEYS = ["aiPeopleProtectionHelp", "aiConsentPeopleProtection", "helpSecAiPeopleBody"] as const;
+
+  it("the UI label is “Mit KI planen”", () => {
+    expect(de.allocPlan).toBe("Mit KI planen");
+  });
+
+  it.each(KEYS)("%s uses the UI label and no other wording", (key) => {
+    expect(de[key]).toContain(de.allocPlan);
+    expect(de[key]).not.toMatch(/Planen mit KI|Plan mit KI/);
+  });
+
+  it("no German text uses the other wordings", () => {
+    expect(Object.values(de).join(" ")).not.toMatch(/Planen mit KI|Plan mit KI/);
+  });
+});

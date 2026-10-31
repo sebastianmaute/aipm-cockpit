@@ -25,6 +25,8 @@ import "../test/ai-consent-live";
 import { newConsent } from "./ai-consent";
 import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
+// Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { ChatPanel } from "./chat-panel";
 import { isValidAnthropicApiKey } from "./chat-models";
 import type { ToolDispatcher } from "./chat-tools";
@@ -103,6 +105,7 @@ function makeDispatcher(): ToolDispatcher {
       enabledModules: [] as string[],
       currentView: "open-points" as const,
     })),
+    isPeopleProtected: () => false, // AI people protection: the executor asks on every write
   } as unknown as ToolDispatcher;
 }
 

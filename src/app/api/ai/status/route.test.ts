@@ -25,26 +25,31 @@ describe("GET /api/ai/status", () => {
   });
 
   it.each([
-    ["direct", {}, { off: false, route: "direct", invalid: false }],
+    ["direct", {}, { off: false, route: "direct", invalid: false, peopleForced: false }],
     [
       "gateway",
       { AIPM_AI_GATEWAY_URL: URL_SETTING, AIPM_AI_GATEWAY_TOKEN: TOKEN },
-      { off: false, route: "gateway", invalid: false },
+      { off: false, route: "gateway", invalid: false, peopleForced: false },
     ],
     [
       "off",
       { AIPM_DISABLED_INTEGRATIONS: "ai", AIPM_AI_GATEWAY_URL: URL_SETTING },
-      { off: true, route: "gateway", invalid: false },
+      { off: true, route: "gateway", invalid: false, peopleForced: false },
+    ],
+    [
+      "people forced (review 4, M3)",
+      { AIPM_DISABLED_INTEGRATIONS: "jira, ai-people" },
+      { off: false, route: "direct", invalid: false, peopleForced: true },
     ],
     [
       "invalid (token without URL)",
       { AIPM_AI_GATEWAY_TOKEN: TOKEN },
-      { off: false, route: "direct", invalid: true, invalidReason: "token-without-url" },
+      { off: false, route: "direct", invalid: true, invalidReason: "token-without-url", peopleForced: false },
     ],
     [
       "invalid (URL)",
       { AIPM_AI_GATEWAY_URL: "http://gateway.example.com/gw", AIPM_AI_GATEWAY_TOKEN: TOKEN },
-      { off: false, route: "gateway", invalid: true, invalidReason: "url" },
+      { off: false, route: "gateway", invalid: true, invalidReason: "url", peopleForced: false },
     ],
   ])("%s → 200 with the state, no-store", async (_name, env, expected) => {
     const { res, text } = await status(env);

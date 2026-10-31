@@ -5,7 +5,8 @@
 import type { GroundingIndex, GroundableView } from "../action-ai";
 import type { InsightRecommendation, InsightToolCall } from "./insight";
 import { INSIGHT_REC_MAX_CALLS, INSIGHT_REC_SUMMARY_MAX, ALLOWED_REC_TOOLS } from "./insight";
-import { REC_CALL_ITEM_SCHEMA } from "./recommend-schema";
+import { REC_CALL_ITEM_SCHEMA, REC_CALL_ITEM_SCHEMA_PEOPLE_PROTECTED } from "./recommend-schema";
+import { peopleToolsLive } from "../chat-tool-defs";
 
 // Re-export so existing importers of `./recommend` (tests, call sites) are unchanged.
 export { ALLOWED_REC_TOOLS };
@@ -54,22 +55,37 @@ export function parseRecommendation(input: unknown, index: GroundingIndex): Insi
   return { summary, proposedCalls: calls, generatedAt: "", status: "proposed" };
 }
 
-/** Anthropic tool definition. Forced via tool_choice. */
-export const RECOMMEND_TOOL = {
-  name: "propose_insight_actions",
-  description: "Propose concrete, applicable actions that resolve the given project insight. Call exactly once.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      summary: { type: "string", description: "One line: what to do and why." },
-      calls: {
-        type: "array",
-        description:
-          "Concrete tool calls that fix the insight. Use only the listed tools; reference only ids present in the digest. Give every required argument of the tool; an update_* call names its target by the numeric id shown in the digest.",
-        // §782 — each tool with its own arguments, from the chat tool definitions.
-        items: REC_CALL_ITEM_SCHEMA,
+function recommendTool(items: typeof REC_CALL_ITEM_SCHEMA) {
+  return {
+    name: "propose_insight_actions",
+    description: "Propose concrete, applicable actions that resolve the given project insight. Call exactly once.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        summary: { type: "string", description: "One line: what to do and why." },
+        calls: {
+          type: "array",
+          description:
+            "Concrete tool calls that fix the insight. Use only the listed tools; reference only ids present in the digest. Give every required argument of the tool; an update_* call names its target by the numeric id shown in the digest.",
+          // §782 — each tool with its own arguments, from the chat tool definitions.
+          items,
+        },
       },
+      required: ["summary", "calls"],
     },
-    required: ["summary", "calls"],
-  },
-} as const;
+  } as const;
+}
+
+/** AI people protection (layer 1): the tool as offered for a project that protects its people — no people
+ *  tool in its call union. Decided by the executor's own predicate; one constant per answer, so the request's
+ *  tool list keeps one identity. */
+const RECOMMEND_TOOL_PEOPLE_PROTECTED = recommendTool(REC_CALL_ITEM_SCHEMA_PEOPLE_PROTECTED);
+
+/** The tool to offer: every allowed tool, or, when the request's project protects its people, all but the
+ *  people tools. The confirm path still refuses a people call at the executor. */
+export function recommendToolFor(peopleProtected: boolean) {
+  return peopleToolsLive(peopleProtected) ? RECOMMEND_TOOL : RECOMMEND_TOOL_PEOPLE_PROTECTED;
+}
+
+/** Anthropic tool definition. Forced via tool_choice. */
+export const RECOMMEND_TOOL = recommendTool(REC_CALL_ITEM_SCHEMA);

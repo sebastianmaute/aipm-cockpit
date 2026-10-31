@@ -3,6 +3,8 @@
 // user SEES and can operate: row-unique pickers, a blocker that disables
 // Apply, the partial-period warning, the AI-off reason, and one commit.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import "../test/ai-consent-live";
 import { newConsent } from "./ai-consent";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";

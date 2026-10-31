@@ -10,6 +10,7 @@
 // clamped to [15, 1440] here), and a global limit/auth failure stops the tick
 // early rather than burning through remaining candidates.
 import { useEffect, useRef } from "react";
+import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 import { runInsightRecommendation } from "./insights/recommend-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { AiWeeklyCapReachedError } from "./ai-consent";
@@ -61,6 +62,10 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   const applyRecommendationRef = useRef(args.applyRecommendation);
   const getScopeEpochRef = useRef(args.getScopeEpoch);
   const snapshotEntitiesRef = useRef(args.snapshotEntities);
+  // AI people protection (spec R3): the insights are the open project's, so is the privacy. A stable getter,
+  // read through a ref like every other input of the tick.
+  const aiPrivacy = useOpenProjectAiPrivacy();
+  const aiPrivacyRef = useRef(aiPrivacy);
   useEffect(() => { enabledRef.current = args.enabled; }, [args.enabled]);
   useEffect(() => { insightsRef.current = args.insights; }, [args.insights]);
   useEffect(() => { aiRef.current = args.ai; }, [args.ai]);
@@ -70,6 +75,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   useEffect(() => { applyRecommendationRef.current = args.applyRecommendation; }, [args.applyRecommendation]);
   useEffect(() => { getScopeEpochRef.current = args.getScopeEpoch; }, [args.getScopeEpoch]);
   useEffect(() => { snapshotEntitiesRef.current = args.snapshotEntities; }, [args.snapshotEntities]);
+  useEffect(() => { aiPrivacyRef.current = aiPrivacy; }, [aiPrivacy]);
   const guidesReady = args.guidesReady;
   const guidesReadyRef = useRef(guidesReady);
 
@@ -105,6 +111,10 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
     const controller = new AbortController();
     abortRef.current = controller;
     isRunningRef.current = true;
+    // The candidates were read from the project in scope NOW. A swap after this point (during an
+    // earlier candidate whose failure the catch below swallows) makes every remaining candidate the
+    // previous project's insight — sending it would apply the NEW project's privacy to it.
+    const tickEpoch = getScopeEpochRef.current?.();
     try {
       // Serial, not parallel — bounded by MAX_BG_RECS_PER_TICK candidates, and
       // a global failure (usage limit / auth) should stop the whole tick
@@ -118,6 +128,8 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
         // AI-01: `enabled` is also the background-consent gate. A flip to false while an earlier candidate
         // is in flight must stop the REST of this tick, not just the next one.
         if (!enabledRef.current) break;
+        // AI people protection (final review F2): checked BEFORE the send, against the tick's epoch.
+        if (dropStaleScopeWrite(getScopeEpochRef.current, tickEpoch, "useInsightRecommendRunner", { insightId: insight.id })) break;
         // §548 — per CANDIDATE, not per tick: the calls are serial, so a swap between two of them
         // must drop only the one it invalidates.
         const startEpoch = getScopeEpochRef.current?.();
@@ -126,6 +138,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
         try {
           const rec = await runInsightRecommendation({
             apiKey: aiRef.current.apiKey,
+            privacy: aiPrivacyRef.current(),
             model: aiRef.current.model,
             guideText: aiRef.current.guideText,
             // Cache the guide prefix only when this tick sends more than one

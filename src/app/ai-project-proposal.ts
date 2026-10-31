@@ -402,6 +402,38 @@ export function parseProposal(input: unknown): ProjectProposal | null {
   return { meta, features, seed };
 }
 
+/** The project fields that name a person. */
+const PROPOSAL_META_PEOPLE = ["sponsor", "projectManager"] as const;
+/** Per seed list, the item keys that name a person. The stakeholder and resource lists ARE people. */
+const PROPOSAL_SEED_PEOPLE: Readonly<Partial<Record<keyof ProposalSeed, readonly string[]>>> = {
+  raid: ["owner", "ownerEmail"],
+  tasks: ["assignee"],
+};
+
+function withoutKeys(items: unknown[] | undefined, keys: readonly string[]): unknown[] | undefined {
+  if (!items) return items;
+  return items.map((item) => (isObj(item) ? Object.fromEntries(Object.entries(item).filter(([k]) => !keys.includes(k))) : item));
+}
+
+/** AI people protection (R4): the proposal with no person in it when the project protects its people — no
+ *  sponsor or project manager, no seeded stakeholders or resources (people records the AI would create), no
+ *  task assignee and no risk owner. Unchanged otherwise. The project "Use AI" creates carries no override,
+ *  so it is protected by default (P6). Never mutates `p`. */
+export function withoutProposalPeople(p: ProjectProposal, peopleProtected: boolean): ProjectProposal {
+  if (!peopleProtected) return p;
+  const meta = { ...p.meta };
+  for (const key of PROPOSAL_META_PEOPLE) delete meta[key];
+  if (!p.seed) return { ...p, meta };
+  const seed: ProposalSeed = {
+    ...p.seed,
+    raid: withoutKeys(p.seed.raid, PROPOSAL_SEED_PEOPLE.raid ?? []),
+    tasks: withoutKeys(p.seed.tasks, PROPOSAL_SEED_PEOPLE.tasks ?? []),
+    stakeholders: undefined,
+    resources: undefined,
+  };
+  return { ...p, meta, seed };
+}
+
 /** Map the proposal's meta onto the Step-1 form draft. Only sets fields the
  *  model supplied; the form keeps its blank defaults for the rest, all of
  *  which may be submitted blank except `name` (O-1). */

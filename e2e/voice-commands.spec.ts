@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, gotoApp, openView, skipTour } from "./seed";
+import { test, expect, gotoApp, openView, reseedWorkspace, skipTour } from "./seed";
 import { SEED_WORKSPACE } from "./seed-workspace";
 
 /**
@@ -20,6 +20,11 @@ import { SEED_WORKSPACE } from "./seed-workspace";
 
 async function installFakeRecognition(page: Page): Promise<void> {
   await skipTour(page);
+  // AI people protection: voice commands are off while the open project protects its people, which is the default
+  // (the seed stores no override). Allow people for THIS spec's project only. `reseedWorkspace` puts just the
+  // `settingsOverrides` kv row over the seed written by the fixture, before `gotoApp` loads it; the sample master
+  // and its goldens are untouched.
+  await reseedWorkspace(page, { settingsOverrides: { ai: { peopleAllowed: true } } });
   await page.addInitScript(() => {
     class FakeRecognition {
       lang = "";

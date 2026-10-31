@@ -2,6 +2,8 @@
 // semantics with `removedRows`, undo capture, refusals that write nothing, and the staging classification.
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+// AI people protection, Task 5: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
 import { showForecastView } from "../test/forecast-view";
 import { entityToken } from "./ai-entity-token";

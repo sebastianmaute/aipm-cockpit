@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { newConsent } from "./ai-consent";
 import { join } from "node:path";
 import { it, expect, vi, afterEach, describe } from "vitest";
+// Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { renderHook, act } from "@testing-library/react";
 import * as call from "./inline-ai-edit-call";
 import { AiDeploymentError, AiHttpError } from "./ai-errors";
@@ -776,6 +778,7 @@ describe("optimistic concurrency across the submit → apply window", () => {
         stored = { ...stored, ...patch };
         return stored;
       },
+      isPeopleProtected: () => false, // AI people protection: the executor asks on every write
     } as unknown as InlineAiEditDeps["dispatcher"];
     return {
       opened,
@@ -925,6 +928,7 @@ describe("inline task edit withholds assigneeEmail", () => {
         stored = { ...stored, ...patch };
         return stored;
       },
+      isPeopleProtected: () => false, // AI people protection: the executor asks on every write
     } as unknown as InlineAiEditDeps["dispatcher"];
     vi.spyOn(call, "callInlineEdit").mockResolvedValue({
       blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 42, status: "Done", assigneeEmail: "evil@example.com" } }],

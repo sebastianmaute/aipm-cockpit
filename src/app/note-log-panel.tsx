@@ -84,7 +84,7 @@ function NoteEntryRow(props: NoteEntryRowProps) {
   }, []);
   // The editor owns its own content; append through the handle rather than
   // re-feeding `value`, which Tiptap binds only at mount (see rich-text-editor.tsx).
-  const { mic: editMic, registration: editDictationReg } = useDictationMic({
+  const { mic: editMic, registration: editDictationReg, describedById: editDictationDesc } = useDictationMic({
     lang,
     dictation,
     aiConsented,
@@ -124,6 +124,7 @@ function NoteEntryRow(props: NoteEntryRowProps) {
               commitOnEnter
               label={editLabel}
               lang={lang}
+              ariaDescribedBy={editDictationDesc}
               editorRef={editEditor}
               bounded
             />
@@ -215,7 +216,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
   // Tiptap binds `content` only at mount, and Web Speech fires `onFinal`
   // repeatedly per hold, so a value-based push would need to remount the
   // composer mid-sentence and lose the caret each time (see rich-text-editor.tsx).
-  const { mic: composerMic, registration: composerDictationReg } = useDictationMic({
+  const { mic: composerMic, registration: composerDictationReg, describedById: composerDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -277,6 +278,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
             commitOnEnter
             label={composerLabel}
             lang={lang}
+            ariaDescribedBy={composerDictationDesc}
             editorRef={composerEditor}
             // §680: the floating window is fixed-height, so an unbounded draft
             // would push the notes below it out of reach.

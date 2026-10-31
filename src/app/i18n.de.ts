@@ -376,6 +376,9 @@ export const de: Record<TranslationKey, string> = {
   workspaceSubTabsLabel: "Arbeitsbereich-Untertabs",
 
   voiceCommand: "Sprachbefehl",
+  voiceCommandOff: "Sprachbefehl aus",
+  voiceCommandUnavailablePeopleProtected:
+    "Sprachbefehle sind ausgeschaltet: Für dieses Projekt ist der Personenschutz aktiv, und die Spracherkennung des Browsers kann Audio an den Browserhersteller senden.",
   voiceCommandTip:
     "Klicken und z. B. sagen: \"Aufgabe 2 bearbeiten\", \"Aufgabe 3 löschen\", \"neue Aufgabe Deck prüfen\"",
   voiceFieldHint: "Klicken und diktieren",
@@ -635,6 +638,8 @@ export const de: Record<TranslationKey, string> = {
   activityProjectUpdated: "Projektdetails aktualisiert: {0}",
   activityMeetingReportUpdated: "Bericht zur Sitzung am {0} gespeichert",
   activityAiReportDraft: "KI hat den Bericht zur Sitzung am {0} entworfen",
+  activityAiPeopleProtectionOff: "Der Personenschutz wurde ausgeschaltet: Die KI sieht jetzt die Personen in diesem Projekt",
+  activityAiPeopleProtectionOn: "Der Personenschutz wurde eingeschaltet",
   taskBudgetBucket: "Budgetposition",
   budgetBucketNone: "— keine —",
   budgetBucketsCount: "{0} Buckets",
@@ -1213,6 +1218,7 @@ export const de: Record<TranslationKey, string> = {
   dictationEngineStt: "Cloud (OpenAI-kompatibel)",
   dictationNeedsAiConsent: "Die Spracherkennung sendet Ihr Audio an den konfigurierten Sprachdienst. Schalten Sie dazu unter Einstellungen → KI die KI ein und akzeptieren Sie den Datenhinweis zur KI; bis dahin ist das Diktat nicht verfügbar. Um ohne den Dienst zu diktieren, wählen Sie als Diktier-Engine „Browser (Web Speech)“.",
   dictationUnavailableNeedsAiConsent: "Das Diktat ist nicht verfügbar: Der Spracherkennungsdienst erfordert, dass die KI unter Einstellungen → KI eingeschaltet und der Datenhinweis zur KI akzeptiert ist.",
+  dictationUnavailablePeopleProtected: "Das Diktat ist ausgeschaltet: Für dieses Projekt ist der Personenschutz aktiv, und Audio kann nicht auf Namen geprüft werden.",
   dictationUnavailableSttNotSetUp: "Das Diktat ist nicht verfügbar: Als Diktier-Engine ist die Spracherkennung gewählt, aber die Basis-URL des Transkriptionsdienstes oder der API-Schlüssel fehlt, oder der Schlüssel kann auf diesem Gerät nicht gelesen werden. Vervollständigen Sie die Einrichtung der Spracherkennung in den Einstellungen oder wählen Sie als Diktier-Engine „Browser (Web Speech)“.",
   dictationSttBaseUrl: "Basis-URL des Transkriptionsdienstes",
   dictationSttModel: "Modell",
@@ -1381,6 +1387,8 @@ export const de: Record<TranslationKey, string> = {
   wizardImportConfluenceUrl: "Confluence-Seiten-URL",
   wizardImportFetch: "Abrufen",
   wizardImportErrorUnsupported: "Dieser Dateityp wird nicht unterstützt.",
+  wizardImportPeopleProtected: "{0}: Ihre Organisation schützt Personen vor der KI, daher werden Bilder und gescannte oder PDF-Dokumente weggelassen (Text darin kann nicht auf Namen geprüft werden). Textdateien und der Text von E-Mails und Office-Dokumenten werden weiterhin verwendet.",
+  wizardPeopleProtectedContent: "Ihre Organisation schützt Personen vor der KI, und die Anfrage enthielt ein Bild oder ein gescanntes oder PDF-Dokument. Text darin kann nicht auf Namen geprüft werden, daher wurde nichts gesendet. Beschreiben Sie das Projekt als Text oder verwenden Sie stattdessen eine Textdatei.",
   wizardImportReadingFiles: "Dateien werden gelesen…",
   wizardImportAnalyzing: "Dokumente werden analysiert…",
   wizardImportSkippedFiles: "{0} Dateien übersprungen: {1}",
@@ -1558,6 +1566,9 @@ export const de: Record<TranslationKey, string> = {
   aiConsentReviewPrompt: "KI ist eingeschaltet, aber der Datenhinweis zur KI ist nicht akzeptiert. Prüfen und akzeptieren Sie ihn, um KI-Funktionen zu nutzen.",
   aiConsentReview: "Prüfen",
   aiConsentRevokedDuringSend: "Die KI wurde ausgeschaltet oder ihre Einwilligung wurde widerrufen, daher wurde die Anfrage abgebrochen.",
+  chatPeopleProtectedContent: "Der Personenschutz ist aktiv, und diese Unterhaltung enthält von früher ein Bild oder ein PDF-Dokument. Text darin kann nicht auf Namen geprüft werden, daher wurde nichts gesendet. Beginnen Sie einen neuen Chat, um fortzufahren; die bisherigen Nachrichten dieser Unterhaltung werden nicht in den neuen Chat übernommen.",
+  chatPeopleProtectedAttachment: "Der Personenschutz ist aktiv, und ein Anhang im Eingabefeld ist ein Bild oder ein gescanntes oder PDF-Dokument. Text darin kann nicht auf Namen geprüft werden, daher wurde nichts gesendet. Entfernen Sie diesen Anhang und senden Sie erneut.",
+  chatAttachmentPeopleProtected: "{0}: Der Personenschutz ist aktiv, daher werden Bilder und gescannte oder PDF-Dokumente weggelassen (Text darin kann nicht auf Namen geprüft werden). Textdateien und der Text von E-Mails und Office-Dokumenten können weiterhin angehängt werden.",
   aiConsentRevoke: "Einwilligung widerrufen",
   // AI-01 — an accept or a revoke that could not be written to this browser's storage (Settings → AI).
   aiConsentAcceptNotSaved: "Ihre Einwilligung konnte nicht gespeichert werden, weil der Speicher dieses Browsers voll oder nicht verfügbar ist. Die KI bleibt daher aus. Geben Sie Speicher frei oder erlauben Sie ihn für diese Website und versuchen Sie es dann erneut.",
@@ -1607,6 +1618,19 @@ export const de: Record<TranslationKey, string> = {
   aiDataProjectProposal: "Nur, was Sie dem Assistenten geben: die Beschreibung, die Sie eingeben, die Dateien, die Sie anhängen (eine E-Mail mit ihrem Text sowie Namen und Adressen von Absender und Empfängern), und die SharePoint-Dateien und Confluence-Seiten, die Sie auswählen, dazu Ihr Betriebsleitfaden, falls vorhanden. Keine Daten aus bestehenden Projekten.",
   aiDataDictationLabel: "Diktat per Spracherkennung",
   aiDataDictation: "Wählen Sie einen Spracherkennungsdienst, gehen das aufgenommene Audio und der API-Schlüssel dieses Dienstes über eine Server-Route dieser App an den von Ihnen eingerichteten Sprachdienst, nicht an Anthropic. Ohne diese Einwilligung, solange die KI ausgeschaltet ist oder solange Adresse oder Schlüssel dieses Dienstes fehlen oder auf diesem Gerät nicht gelesen werden können, ist das Diktat über diesen Dienst nicht verfügbar; es wechselt nie von selbst zu einer anderen Engine. Nur wenn Sie stattdessen das Browser-Diktat wählen oder diese Installation die Spracherkennung abgeschaltet hat, verwendet es die eingebaute Spracherkennung des Browsers, die in manchen Browsern Audio an einen Dienst des Browserherstellers sendet.",
+  aiPeopleProtectionLabel: "Personen vor der KI schützen",
+  aiPeopleProtectionHelp: "Ein: Die KI sieht weder Namen noch E-Mail-Adressen oder Telefonnummern bekannter Personen und kann niemanden zuweisen, verschieben oder bewerten. „Mit KI planen“, RACI-Vorschläge, Diktat und Sprachbefehle sind nicht verfügbar. Namen, die das Projekt nicht kennt und die im Freitext oder in Anhängen stehen, können weiterhin gesendet werden.",
+  aiPeopleProtectionLocked: "Ihre Organisation hat dies für alle Projekte eingeschaltet.",
+  aiPeopleProtectionOffTitle: "Personenschutz ausschalten",
+  aiPeopleProtectionOffConfirm: "Personenschutz für dieses Projekt ausschalten? Die KI sieht dann die im KI-Datenhinweis aufgeführten Personen und kann Zuweisungen vorschlagen.",
+  aiPeopleProtectionOffButton: "Ausschalten",
+  aiConsentPeopleProtection: "Der Personenschutz ist in jedem Projekt standardmäßig eingeschaltet: Die KI sieht weder Namen noch E-Mail-Adressen oder Telefonnummern bekannter Personen und kann niemanden zuweisen, verschieben oder bewerten. „Mit KI planen“ und RACI-Vorschläge sind ausgeblendet und Diktat und Sprachbefehle sind aus, bis Sie den Schutz für ein Projekt unter Einstellungen → KI ausschalten, sofern Ihre Organisation ihn nicht für alle Projekte eingeschaltet hat.",
+  aiProtectedWhenLabel: "Bei eingeschaltetem Personenschutz:",
+  aiProtectedRedacted: "Namen, E-Mail-Adressen und Telefonnummern von Personen, die das Projekt kennt, werden vor dem Senden durch Platzhalter ersetzt. Namen, die das Projekt nicht kennt und die im Freitext oder in Anhängen stehen, können weiterhin gesendet werden.",
+  aiProtectedHidden: "Nicht verfügbar: Die Funktion ist bei eingeschaltetem Schutz ausgeblendet.",
+  aiProtectedOff: "Nicht verfügbar: Die Funktion ist bei eingeschaltetem Schutz ausgeschaltet.",
+  aiProtectedChat: "Namen, E-Mail-Adressen und Telefonnummern von Personen, die das Projekt kennt, werden vor dem Senden durch Platzhalter ersetzt, und der Assistent kann niemanden zuweisen, verschieben oder bewerten. Bilder und PDFs werden abgelehnt, solange der Schutz eingeschaltet ist. Namen, die das Projekt nicht kennt und die im Freitext oder in Textanhängen stehen, können weiterhin gesendet werden.",
+  aiProtectedProjectProposal: "E-Mail-Adressen, Telefonnummern und IBANs werden immer durch Platzhalter ersetzt. Namen können nicht ersetzt werden: Ein neues Projekt kennt noch keine Personen, daher werden Namen in Ihrer Beschreibung und in Dateien, die Sie dem Assistenten hinzufügen, gesendet. Bilder sowie gescannte oder PDF-Dokumente werden ebenfalls gesendet, sofern Ihre Organisation den Schutz nicht erzwingt; dann werden sie abgelehnt. Der Vorschlag der KI wird ohne Personen übernommen: kein Sponsor, keine Projektleitung, keine Stakeholder, Ressourcen, Zuständigen oder Verantwortlichen.",
   credentialStorageNote:
     "Verschlüsselt in diesem Browser gespeichert (Geräteschlüssel). Wer Zugriff auf dieses Browserprofil hat, kann sie dennoch verwenden – verwenden Sie auf gemeinsam genutzten oder nicht vertrauenswürdigen Rechnern keine produktiven Zugangsdaten.",
   disclaimerTitle: "Sicherheits- und Verantwortungshinweis",
@@ -1944,7 +1968,7 @@ export const de: Record<TranslationKey, string> = {
     "Jede Bearbeitung, Umbenennung, Duplizierung und Löschung speichert eine Momentaufnahme des Dokuments so, wie es unmittelbar vor der Änderung aussah. Öffnen Sie [[Verlauf]] in einer Dokumentzeile, um sie zu sehen: Jede Momentaufnahme zeigt den Speicherzeitpunkt, ob [[Sie]] oder der [[Assistent]] die Änderung vorgenommen hat, um welche Art von Änderung es sich handelte und wie viele Blöcke sie enthielt; [[Vorschau]] klappt sie auf, sodass Sie sie vor der Entscheidung lesen können. [[Wiederherstellen]] schreibt Titel und Blöcke dieser Momentaufnahme zurück in das Dokument und hält fest, was dabei ersetzt wurde – eine Wiederherstellung lässt sich damit selbst wieder zurücknehmen. Ein gelöschtes Dokument ist nicht verloren: Schalten Sie [[Gelöschte Dokumente]] in der Werkzeugleiste ein – die Zahl daneben nennt die Anzahl – und stellen Sie es aus der Liste wieder her; es kommt als neues Dokument zurück und lässt sich nur einmal wiederherstellen. Pro Dokument werden bis zu 20 Momentaufnahmen aufbewahrt und 500 im gesamten Projekt, wobei die ältesten zuerst entfallen; solange ein Dokument gelöscht ist, ist seine letzte Momentaufnahme von beiden Grenzen ausgenommen und bleibt damit unabhängig vom Alter wiederherstellbar. Das funktioniert mit jedem Speicher-Backend. Änderungen an Dokumenten werden nicht von [[Rückgängig]] erfasst – dieser Verlauf ist der Weg zurück.",
   helpSecVoiceTitle: "Sprachbefehle",
   helpSecVoiceBody:
-    "Auf das Mikrofon im Header klicken und z. B. sagen:\n• \"neue Aufgabe Deck prüfen\"\n• \"Aufgabe 2 bearbeiten\"\n• \"Aufgabe 3 löschen\"\n• \"Anfrage für Aufgabe 5 senden\"\n• \"Suche Blocker\" / \"Suche zurücksetzen\"\n• \"Sprache Englisch\"\nEinzelne Textfelder haben zusätzlich ein Mikrofon-Symbol für Diktate.",
+    "Auf das Mikrofon im Header klicken und z. B. sagen:\n• \"neue Aufgabe Deck prüfen\"\n• \"Aufgabe 2 bearbeiten\"\n• \"Aufgabe 3 löschen\"\n• \"Anfrage für Aufgabe 5 senden\"\n• \"Suche Blocker\" / \"Suche zurücksetzen\"\n• \"Sprache Englisch\"\nEinzelne Textfelder haben zusätzlich ein Mikrofon-Symbol für Diktate.\nSprachbefehle und Diktat sind ausgeschaltet, solange der Personenschutz des Projekts aktiv ist (Einstellungen → KI); das Mikrofon erscheint dann durchgestrichen.",
   helpSecNotifTitle: "Fälligkeits-Benachrichtigungen",
   helpSecNotifBody:
     "Aufgaben, die Aufmerksamkeit brauchen, erscheinen als bewertete Signale unter Nächste Schritte, nicht als Banner. Geburtstage erhalten ein eigenes Banner über dem Arbeitsbereich; dessen Toast wird einmal pro Seitenladen ausgelöst, wenn aktiviert, und dringende Signale können zusätzlich eine Desktop-Benachrichtigung auslösen (standardmäßig aus). Unter Einstellungen → Benachrichtigungen legen Sie fest, wie viele Tage im Voraus Erinnerungen erscheinen – standardmäßig gilt ein Vorlauf für Fälligkeiten und Geburtstage, und wenn Sie die globale Option abwählen, lässt sich jede Erinnerungsart einzeln einstellen; eine Erinnerung, die auf ein Wochenende, einen Feiertag oder einen Abwesenheitstag fiele, wird vorgezogen, sodass sie an einem Arbeitstag eintrifft. Jede Erinnerung lässt sich um 1 Stunde oder 1 Tag zurückstellen – sie bleibt ausgeblendet (und der Toast still), bis die Schlummerzeit abläuft. Das Glocken-Symbol im Header öffnet Nächste Schritte; der Zähler zeigt, wie viele Signale in der Stufe \"jetzt\" liegen. Jeder Kanal lässt sich einzeln konfigurieren.",
@@ -1971,6 +1995,9 @@ export const de: Record<TranslationKey, string> = {
   helpSecAiAdvancedTitle: "KI-Unterstützung (erweitert)",
   helpSecAiAdvancedBody:
     "Über den Chat hinaus schaltet ein Anthropic-Schlüssel mehrere optionale, beratende KI-Helfer frei. Projekt mit KI erstellen: Beschreiben Sie das Projekt im Anlege-Assistenten in eigenen Worten oder importieren Sie eine Quelle – laden Sie eine Datei hoch, wählen Sie ein SharePoint-Dokument oder fügen Sie die URL einer Confluence-Seite ein – und Claude füllt das Formular zur Prüfung vor. Mit KI analysieren: Die Schaltfläche im Action Center führt einen Analysedurchlauf über Ihre Berichte aus und schlägt vor, worauf Sie sich konzentrieren sollten; sie ändert nie Ihre Daten, und die deterministische Nächste-Schritte-Engine bleibt unberührt. Mit KI vorschlagen: In den Nächste-Schritte-Einstellungen schlägt Claude Anpassungen der Gewichtungen vor, die Sie je Zeile übernehmen. Geplante Jobs: Aktivieren Sie optional (Einstellungen → Geplante Jobs) die Analyse eines von Ihnen gewählten Projekts im täglichen oder wöchentlichen Rhythmus, mit einer eigenen Anweisung – der Planer führt fällige Jobs aus, solange die App geöffnet ist, überspringt einen Lauf, dessen Tag vorbei ist, und speichert jedes Ergebnis als Bericht unter Portfolio → Geplante Berichte (dafür ist ein Turso-Portfolio nötig) und zeigt es als Benachrichtigung. Jeder geplante Lauf ist ein kostenpflichtiger API-Aufruf, daher ist die Funktion standardmäßig aus. Keine dieser Funktionen läuft in Popout-Fenstern.",
+  helpSecAiPeopleTitle: "Personen vor der KI schützen",
+  helpSecAiPeopleBody:
+    "Jedes Projekt hat unter Einstellungen → KI den Schalter „Personen vor der KI schützen“. Er ist standardmäßig an. Solange er an ist, werden der KI weder Namen, E-Mail-Adressen oder Telefonnummern der dem Projekt bekannten Personen (Ressourcen, Stakeholder, Verantwortliche und Zugewiesene) noch IBANs gesendet. Die App ersetzt sie vor dem Versand aus Ihrem Browser durch Platzhalter wie [Person 1] und setzt in der Antwort die echten Namen wieder ein; die Platzhalter werden nie in Ihren Daten gespeichert. Außerdem kann die KI niemanden zuweisen, verschieben oder bewerten: Werkzeuge, die Personen betreffen, werden nicht angeboten, Vorschläge zu einer Person werden verworfen, und personenbezogene Hinweise gehören nicht zu dem, was die KI erfährt. „Mit KI planen“, RACI-Vorschläge, Diktat und Sprachbefehle stehen bei aktivem Schutz nicht zur Verfügung. Bilder und Dokumente, die kein reiner Text sind, werden ebenfalls abgelehnt: Der Chat lässt sie beim Anhängen weg (der Text von E-Mails und Office-Dokumenten bleibt erhalten), und ein Bild oder PDF, das schon in einer Chat-Unterhaltung steht, sperrt diese Unterhaltung, bis Sie den Schutz ausschalten oder eine neue beginnen. Beim Erstellen eines Projekts aus dem leeren Anlege-Assistenten werden E-Mail-Adressen, Telefonnummern und IBANs immer durch Platzhalter ersetzt, Namen jedoch nicht, weil ein neues Projekt noch keine Personen kennt; Bilder sowie gescannte oder PDF-Dokumente werden gesendet, es sei denn, Ihre Organisation erzwingt den Schutz: Dann werden sie weggelassen. In beiden Fällen wird das Projekt ohne Personen angelegt. Das Ausschalten des Schutzes verlangt eine Bestätigung und wird im Aktivitätsprotokoll festgehalten. (Bestehende Zustimmungen zum Datenhinweis zur KI werden nach diesem Update einmalig erneut abgefragt, weil sich der Hinweis geändert hat.) Ihre Organisation kann den Schalter für alle Projekte fest einschalten. Grenzen, in klaren Worten: Namen, die das Projekt nicht kennt und die in Freitext oder in Anhängen stehen, können weiterhin gesendet werden; ein einzelner Vorname, der zugleich ein gewöhnliches Wort ist, wird nicht erkannt; und der Schutz wird in dieser App durchgesetzt, eine veränderte Kopie der App könnte ihn umgehen. Die Durchsetzung auf dem Server ist als späteres Projekt geplant.",
   helpSecInputFeedbackTitle: "Eingabe-Feedback",
   helpSecInputFeedbackBody:
     "Textfelder mit Zeichenbegrenzung zeigen einen Live-Zähler, sobald Sie sich dem Limit nähern – er erscheint erst ab etwa 80 % Füllstand und wechselt bei Erreichen der Grenze die Farbe. Numerische Felder (Schichtstunden, Änderungs-Terminauswirkung/-Kosten, Budgetbeträge und Satz-Overrides) werden beim Verlassen des Feldes automatisch auf den erlaubten Bereich begrenzt; ein Hinweis erscheint, wenn der Wert angepasst wurde. Enthält ein Label Trennzeichen, die entfernt werden müssen, erscheint ein Hinweis neben dem Feld. Beim Speichern eines Eintrags werden gekürtzte oder begrenzte Felder in einem kurzen Toast zusammengefasst.",
@@ -3028,6 +3055,8 @@ export const de: Record<TranslationKey, string> = {
   inlineAiEditPartial: "Einige Änderungen wurden angewendet, aber ein späterer Schritt ist fehlgeschlagen.",
   inlineAiEditStale: "Es wurde nichts geändert — dieser Datensatz hat sich geändert, seit Claude ihn gelesen hat. Führen Sie die Bearbeitung erneut aus, um den neuen Stand zu übernehmen.",
   inlineAiEditNoChanges: "Keine Änderungen anzuwenden.",
+  inlineAiEditPeopleRecord: "Für dieses Projekt ist der Personenschutz aktiv, daher kann Claude keine Personendatensätze bearbeiten.",
+  inlineAiEditPeopleWithheld: "Für dieses Projekt ist der Personenschutz aktiv, daher darf Claude keine Personen zuweisen oder ändern; sonst wurde nichts vorgeschlagen.",
   inlineAiEditClarify: "Claude braucht mehr Details:",
   inlineAiEditError: "Claude nicht erreichbar. Bitte erneut versuchen.",
   inlineAiEditApplied: "„{0}“ aktualisiert",

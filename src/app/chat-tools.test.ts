@@ -322,6 +322,9 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     isHistorySearchEnabled: vi.fn(() => true),
     // ★ Same default-enabled reasoning for search_chats.
     isChatSearchEnabled: vi.fn(() => true),
+    // AI people protection: allowed here, so this file's people-tool tests reach their handlers; the refusal
+    // is pinned in chat-tool-defs.people.test.ts.
+    isPeopleProtected: vi.fn(() => false),
     // Forecast members (§502): the gate reads off here, so no pre-existing test reaches them.
     isForecastEnabled: vi.fn(() => false),
     getForecast: vi.fn(() => {
@@ -1953,7 +1956,7 @@ describe("list_allocations", () => {
       resources: [],
       truncated: false,
     } as unknown as ReturnType<ToolDispatcher["listAllocations"]>;
-    const d = { listAllocations: () => snapshot } as unknown as ToolDispatcher;
+    const d = { listAllocations: () => snapshot, isPeopleProtected: () => false } as unknown as ToolDispatcher;
 
     await expect(runTool(d, "list_allocations", {})).resolves.toBe(snapshot);
   });
@@ -1963,7 +1966,7 @@ describe("list_allocations", () => {
   // reach the dispatcher with its filters intact — validation is the builder's.
   it("passes no scope for an argument-less call", async () => {
     const listAllocations = vi.fn();
-    const d = { listAllocations } as unknown as ToolDispatcher;
+    const d = { listAllocations, isPeopleProtected: () => false } as unknown as ToolDispatcher;
 
     await runTool(d, "list_allocations", {});
     await runTool(d, "list_allocations", undefined);
@@ -1974,7 +1977,7 @@ describe("list_allocations", () => {
 
   it("forwards resourceIds and the period bounds to the dispatcher", async () => {
     const listAllocations = vi.fn();
-    const d = { listAllocations } as unknown as ToolDispatcher;
+    const d = { listAllocations, isPeopleProtected: () => false } as unknown as ToolDispatcher;
 
     await runTool(d, "list_allocations", { resourceIds: [2, 5], periodFrom: "2026-08", periodTo: "2026-09" });
 

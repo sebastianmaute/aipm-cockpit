@@ -158,6 +158,7 @@ export {
   LockIcon as LockClosedIcon,
   MapPinIcon,
   MicIcon as MicrophoneIcon,
+  MicOffIcon as MicrophoneSlashIcon,
   PaperclipIcon as PaperClipIcon,
   PencilIcon,
   PlusIcon,

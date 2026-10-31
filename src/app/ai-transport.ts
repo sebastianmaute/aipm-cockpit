@@ -27,7 +27,8 @@
 // non-streaming JSON (`callClaude` and `postOnce` both `await res.json()`), so the clone parses as
 // JSON. A streamed (SSE) response would fail that parse, which is swallowed: no usage is reported for
 // it, and streaming usage is left to the code that adds streaming. With no listener, nothing is cloned.
-import { currentAiRoute, type AiDeploymentState } from "./ai-deployment";
+import { currentAiRoute, type AiStatus } from "./ai-deployment";
+import { addDisabledIntegration } from "./integration-switches";
 import {
   AI_GATEWAY_ERROR,
   AI_GATEWAY_INVALID,
@@ -38,6 +39,9 @@ import {
   type AiGatewayErrorCode,
 } from "./ai-errors";
 import { requestAiStatus } from "./ai-status-request";
+import { AiPeopleProtectedContentError, hasUnredactableContent, type AiPrivacy } from "./ai-privacy";
+import { countUnrestoredPlaceholders, redactJsonBody, restoreJsonText } from "./ai-people-redact";
+import { logDiag } from "./diagnostics";
 
 export { AiDeploymentError, AiGatewayError } from "./ai-errors";
 
@@ -95,7 +99,8 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
 
-function isDeploymentState(v: unknown): v is AiDeploymentState {
+/** The status answer's deployment half; `peopleForced` is checked on its own (review 5, C1). */
+function isAiStatusBase(v: unknown): v is Omit<AiStatus, "peopleForced"> & { peopleForced?: unknown } {
   return isRecord(v) && typeof v.off === "boolean" && typeof v.invalid === "boolean"
     && (v.route === "direct" || v.route === "gateway");
 }
@@ -105,8 +110,12 @@ function isAbort(e: unknown, signal: AbortSignal | undefined): boolean {
 }
 
 /** Ask the server for this deployment's AI setting; resolve only when AI is on and the route is
- *  the one this page loaded with. Throws `AiDeploymentError` otherwise; an abort stays an abort. */
-export async function confirmAiDeployment(signal?: AbortSignal): Promise<void> {
+ *  the one this page loaded with. Throws `AiDeploymentError` otherwise; an abort stays an abort.
+ *  Resolves with whether the server forces people protection NOW (review 4, M3); a lock added since
+ *  page load is folded into the page's forced state (`addDisabledIntegration`). An answer that does
+ *  not say it is not trusted ("unconfirmed"), like any other malformed answer — unless it says AI is
+ *  off, which is "off" either way (review 5, C1). */
+export async function confirmAiDeployment(signal?: AbortSignal): Promise<{ peopleForced: boolean }> {
   let state: unknown;
   try {
     const res = await requestAiStatus(signal);
@@ -117,10 +126,24 @@ export async function confirmAiDeployment(signal?: AbortSignal): Promise<void> {
     if (isAbort(e, signal)) throw e;
     throw new AiDeploymentError("unconfirmed");
   }
-  if (!isDeploymentState(state)) throw new AiDeploymentError("unconfirmed");
+  if (!isAiStatusBase(state)) throw new AiDeploymentError("unconfirmed");
+  const { peopleForced } = state;
+  if (peopleForced === true) addDisabledIntegration("ai-people");
+  // Review 5, C1: AI switched off sends nothing, so an "off" answer is off whatever it says about the people lock.
   if (state.off) throw new AiDeploymentError("off");
+  if (typeof peopleForced !== "boolean") throw new AiDeploymentError("unconfirmed");
   if (state.invalid) throw new AiDeploymentError("invalid");
   if (state.route !== currentAiRoute()) throw new AiDeploymentError("route-changed");
+  return { peopleForced };
+}
+
+/** The privacy a send uses when the server forces people protection: a protected privacy always refuses
+ *  unredactable content (the unforced wizard's exemption ends), an unprotected one becomes its projects'
+ *  protected privacy, and one that cannot be protected is refused before anything is sent (review 4, M3). */
+function forcedPrivacy(privacy: AiPrivacy): AiPrivacy {
+  if (privacy.protected) return privacy.refuseUnredactable ? privacy : { ...privacy, refuseUnredactable: true };
+  if (privacy.ifForced) return privacy.ifForced();
+  throw new AiDeploymentError("unconfirmed");
 }
 
 const JSON_BODY: Readonly<Record<string, string>> = { "content-type": "application/json" };
@@ -219,24 +242,58 @@ export interface PostAiMessagesArgs {
    *  throw stops the send. Callers pass their consent assertion here, because the consent can be
    *  revoked while the status is asked. */
   beforeSend?: () => void;
+  /** REQUIRED so every caller decides. Protected: the body is redacted before it is sent and the
+   *  reply restored; an image or non-text document block is refused (`AiPeopleProtectedContentError`)
+   *  unless the privacy says `refuseUnredactable: false` (the unforced create-project wizard). */
+  privacy: AiPrivacy;
+}
+
+/** Redact `body` for a protected send and log the per-send counts (numbers only, never values). */
+function redactForSend(body: string, privacy: AiPrivacy): string {
+  if (!privacy.protected) return body;
+  if (privacy.refuseUnredactable && hasUnredactableContent(body)) throw new AiPeopleProtectedContentError();
+  const before = privacy.session.counts();
+  const redacted = redactJsonBody(body, privacy.session);
+  const after = privacy.session.counts();
+  logDiag("info", "ai.peopleRedacted", {
+    person: after.person - before.person,
+    email: after.email - before.email,
+    phone: after.phone - before.phone,
+    iban: after.iban - before.iban,
+  });
+  return redacted;
+}
+
+/** Read a 2xx reply once and hand the caller the same response with the real names restored. A placeholder the
+ *  session cannot map stays as written and is logged once per reply, as a count (review 5, S5). */
+async function restoreReply(res: Response, privacy: AiPrivacy): Promise<Response> {
+  if (!privacy.protected || !res.ok) return res;
+  const text = await res.text();
+  const unrestored = countUnrestoredPlaceholders(text, privacy.session);
+  if (unrestored > 0) logDiag("warn", "ai.placeholderUnrestored", { count: unrestored });
+  const restored = restoreJsonText(text, privacy.session);
+  return new Response(restored, { status: res.status, statusText: res.statusText, headers: res.headers });
 }
 
 /** POST a Messages request on this deployment's route, after `confirmAiDeployment`. */
-export async function postAiMessages({ apiKey, body, path, signal, beforeSend }: PostAiMessagesArgs): Promise<Response> {
-  await confirmAiDeployment(signal);
+export async function postAiMessages({ apiKey, body, path, signal, beforeSend, privacy: asked }: PostAiMessagesArgs): Promise<Response> {
+  const { peopleForced } = await confirmAiDeployment(signal);
   throwIfAborted(signal);
   beforeSend?.();
+  const privacy = peopleForced ? forcedPrivacy(asked) : asked;
+  const outgoing = redactForSend(body, privacy);
   const gateway = currentAiRoute() === "gateway";
   const res = await fetch(gateway ? RELAY_MESSAGES_URL : ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     headers: gateway ? relayHeaders(apiKey, true) : directHeaders(apiKey, true),
-    body,
+    body: outgoing,
     signal,
   });
   if (gateway && !res.ok) await throwIfRelayOwnError(res);
+  const reply = await restoreReply(res, privacy);
   // Fire and forget: `tapUsage` swallows its own failures.
-  if (res.ok) void tapUsage(path, res);
-  return res;
+  if (reply.ok) void tapUsage(path, reply);
+  return reply;
 }
 
 /** GET the model list on this deployment's route, after `confirmAiDeployment`. */

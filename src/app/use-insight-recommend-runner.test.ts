@@ -1,4 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
+// Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { act, renderHook } from "@testing-library/react";
 import { useInsightRecommendRunner, type InsightRecommendRunnerArgs } from "./use-insight-recommend-runner";
 import { runInsightRecommendation } from "./insights/recommend-call";
@@ -338,6 +340,34 @@ describe("useInsightRecommendRunner — the scope epoch (§548)", () => {
 
     expect(mockRun).toHaveBeenCalledTimes(1); // control: the tick ran, and STOPPED after the first
     expect(applyRecommendation).not.toHaveBeenCalled();
+  });
+
+  // Final review F2: the catch path (a non-global error) continues to the next candidate. If a swap
+  // landed meanwhile, that candidate is the PREVIOUS project's insight and would be sent under the new
+  // project's privacy — the tick must stop before sending it.
+  test("a swap during a candidate that fails stops the tick before the next candidate is sent", async () => {
+    const epoch = { v: 4 };
+    const insights = [makeInsight(1), makeInsight(2)];
+    mockRun.mockImplementationOnce(async () => { epoch.v += 1; throw new Error("one-off parse failure"); });
+    mockRun.mockResolvedValue(fakeRec);
+    const { applyRecommendation } = renderRunner({ insights, getScopeEpoch: () => epoch.v });
+    await act(async () => { await flushMicrotasks(); });
+
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(applyRecommendation).not.toHaveBeenCalled();
+  });
+
+  test("CONTROL — a one-off failure without a swap still moves on to the next candidate", async () => {
+    const epoch = { v: 4 };
+    const insights = [makeInsight(1), makeInsight(2)];
+    mockRun.mockRejectedValueOnce(new Error("one-off parse failure"));
+    mockRun.mockResolvedValue(fakeRec);
+    const { applyRecommendation } = renderRunner({ insights, getScopeEpoch: () => epoch.v });
+    await act(async () => { await flushMicrotasks(); });
+
+    expect(mockRun).toHaveBeenCalledTimes(2);
+    expect(applyRecommendation).toHaveBeenCalledTimes(1);
+    expect(applyRecommendation.mock.calls[0][0]).toBe(2);
   });
 
   test("CONTROL — the same tick stores both results when the scope is unchanged", async () => {

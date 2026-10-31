@@ -16,6 +16,9 @@ import { type AiConfig, isAiEnabled } from "./settings-types";
 import { type OperatingGuide } from "./operating-guide";
 import { callInlineEdit } from "./inline-ai-edit-call";
 import { useActionGuideText } from "./action-guides-context";
+import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected } from "./ai-privacy-context";
+import { stripPersonFieldsFromCalls } from "./ai-person-fields";
+import { PEOPLE_TOOLS } from "./chat-tool-defs";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { describeEntityCalls, isEmptyPlan, type EditPlan, type FieldDiff, type LinkDiff } from "./inline-ai-edit/plan";
@@ -72,6 +75,8 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   // pass `guides: []`, so a library threaded through `deps.guides` would reach
   // nothing.
   const inlineGuideText = useActionGuideText("inlineEdit");
+  const aiPrivacy = useOpenProjectAiPrivacy(); // AI people protection (spec R3)
+  const peopleProtectedNow = useOpenProjectPeopleProtected(); // the same source, asked per submit (R4)
   // Monotonic request generation: bumped on open/cancel/submit so a slow
   // callInlineEdit that resolves after the active item changed can't land its
   // plan on the wrong item (stale-response cross-item overwrite).
@@ -183,6 +188,13 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     if (!activeItem || !instruction.trim() || phase === "thinking" || phase === "applying") return;
     const reqId = ++reqIdRef.current;
     const target = activeItem;
+    // AI people protection (R4): a person record (a resource, stakeholder or absence) is written by a people
+    // tool (`PEOPLE_TOOLS`), which the executor refuses outright under protection. Said here, before a billed
+    // call that could only fail.
+    const peopleProtected = peopleProtectedNow();
+    if (peopleProtected && PEOPLE_TOOLS.has(d.updateTool)) {
+      setErrorText(t(deps.lang, "inlineAiEditPeopleRecord")); setPhase("error"); return;
+    }
     // Derived from the FULL stored row (`target`), before the await — see
     // tokenRef's comment for why the derivation point is the design. The prompt
     // below gets only its projection (`projectForInlineEdit`, withheld fields
@@ -193,7 +205,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     setPhase("thinking"); setErrorText(""); setClarifyText("");
     try {
       const { blocks, text } = await callInlineEdit({
-        apiKey: deps.apiKey, model: deps.ai.model, lang: deps.lang,
+        apiKey: deps.apiKey, model: deps.ai.model, lang: deps.lang, privacy: aiPrivacy(),
         entity: deps.entity, item: target, itemLabel: d.titleOf(target),
         instruction, snapshot: deps.dispatcher.getSnapshot(),
         guides: deps.guides, groundInGuides: deps.ai.groundInGuides, guideText: inlineGuideText,
@@ -204,7 +216,9 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         signal: controller.signal,
       });
       if (reqId !== reqIdRef.current) return; // superseded — discard
-      const next = describeEntityCalls(blocks, { descriptor: d, item: target, ws: deps.ws });
+      // ★★ R4: the person fields go BEFORE the plan is built, so the preview shows what Apply writes.
+      const people = stripPersonFieldsFromCalls(blocks, peopleProtected);
+      const next = describeEntityCalls(people.calls, { descriptor: d, item: target, ws: deps.ws });
       // ★★★ A REFUSAL IS NOT "NO CHANGES" (§392). `isEmptyPlan` counts what the
       //  plan would WRITE and deliberately does not count `rejected`, so a plan
       //  whose only content is a refusal is empty by that predicate and used to
@@ -220,7 +234,9 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       //  and nothing in the "rejected" phase can reach `apply()`.
       if (isEmptyPlan(next)) {
         if (next.rejected.length > 0) { setPlan(next); setPhase("rejected"); return; }
-        setClarifyText(text || t(deps.lang, "inlineAiEditNoChanges")); setPhase("clarify"); return;
+        // Only a person change was proposed: say why it is gone, not the model's text promising it.
+        const why = people.removed.length > 0 ? t(deps.lang, "inlineAiEditPeopleWithheld") : text || t(deps.lang, "inlineAiEditNoChanges");
+        setClarifyText(why); setPhase("clarify"); return;
       }
       // Committed only for the response that WON the reqId check above, so a
       // superseded submit can never leave its item's token behind for another

@@ -4,6 +4,10 @@ import { runMeetingReport } from "./report-call";
 import { __resetToolChoiceFallbackForTests } from "../ai-forced-call";
 import type { DashboardModel } from "../dashboard";
 import type { MeetingReportCtx } from "./report-call";
+import { aiPrivacyFor } from "../ai-privacy";
+
+/** These tests are about the call mechanics, not people: a request for no project (unprotected). */
+const UNPROTECTED = aiPrivacyFor([]);
 
 const MODEL = {
   overall: { computed: "G", effective: "G", overridden: false },
@@ -27,7 +31,7 @@ const MODEL = {
   narrative: { text: "" },
 } as unknown as DashboardModel;
 
-const CTX: MeetingReportCtx = { apiKey: "sk-ant-secret-123", model: "claude-x", lang: "en-US" };
+const CTX: MeetingReportCtx = { apiKey: "sk-ant-secret-123", privacy: UNPROTECTED, model: "claude-x", lang: "en-US" };
 
 afterEach(() => {
   vi.restoreAllMocks();

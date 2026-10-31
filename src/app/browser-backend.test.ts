@@ -421,6 +421,13 @@ describe("BrowserBackend parallel IDB save/load", () => {
     expect(loaded.fieldVisibility).toBeUndefined();
   });
 
+  it("save → fresh load round-trips settingsOverrides.ai.peopleAllowed", async () => {
+    await forcedSave({ ...emptyWorkspace(), settingsOverrides: { ai: { peopleAllowed: true } } });
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.settingsOverrides).toEqual({ ai: { peopleAllowed: true } });
+  });
+
   it("save → fresh load round-trips documentVersions", async () => {
     const version = {
       id: 1,

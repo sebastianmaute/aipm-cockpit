@@ -1,5 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+// AI people protection, Task 5: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
 import {
   ALL_FIELDS_REJECTED_ERROR,
@@ -865,6 +867,8 @@ describe("TOKEN_ROW_SOURCE", () => {
         {
           get: (_target, prop) => {
             const member = String(prop);
+            // AI people protection: the executor's gate is a question, not a reader or writer — allowed here.
+            if (member === "isPeopleProtected") return () => false;
             return () => {
               reached.push(member);
               return row;

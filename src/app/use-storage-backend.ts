@@ -1529,7 +1529,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const reloadHeld = holdDuring(reloadCurrentProject, "same-scope"); // one wrapper, shared by the conflict banner's Reload
   // ★ `conflictPause` below is a TEST SEAM (final review m13): only tests read it; the app reads `loadPause`.
   return {
-    storageDescription, storageReady, workspaceLoaded, tursoPortfolioWithoutProject, loadPause, conflictPause: loadPause === "conflict", canOverwriteConflict: loadPause === "conflict" && savesPaused?.seen != null, loadPending, getScopeEpoch, getUndoEpoch, isSwapInFlight,
+    currentWorkspace, storageDescription, storageReady, workspaceLoaded, tursoPortfolioWithoutProject, loadPause, conflictPause: loadPause === "conflict", canOverwriteConflict: loadPause === "conflict" && savesPaused?.seen != null, loadPending, getScopeEpoch, getUndoEpoch, isSwapInFlight,
     // ★★★ §590 PUT `onPickStorageFile` UNDER THE HOLD, and it was deliberately outside it before.
     //   The exclusion was right while the op only ever wrote the live workspace OUTWARD — nothing was
     //   replaced, so there was nothing for a background writer to land in the middle of. Its

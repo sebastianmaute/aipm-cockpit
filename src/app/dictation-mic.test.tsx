@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+// AI people protection, Task 5: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { renderHook, render, screen, fireEvent, act } from "@testing-library/react";
 import { ToastProvider } from "./toast-context";
 import { useDictationMic } from "./dictation-mic";

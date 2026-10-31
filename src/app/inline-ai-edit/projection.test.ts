@@ -6,6 +6,10 @@ import { INLINE_DESCRIPTORS, inlineDescriptor, type InlineEntity } from "./entit
 import { projectForInlineEdit } from "./projection";
 import { describeEntityCalls } from "./plan";
 import type { Workspace } from "../workspace";
+import { aiPrivacyFor } from "../ai-privacy";
+
+/** These tests are about the call mechanics, not people: a request for no project (unprotected). */
+const UNPROTECTED = aiPrivacyFor([]);
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -117,7 +121,7 @@ describe("nested emails (D7 fix round 1)", () => {
   it("the inline call's system text carries no escalation address", async () => {
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue({ content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } });
     await callInlineEdit({
-      apiKey: "k", model: "m", lang: "en-US", entity: "raid", item: raid, itemLabel: "Vendor slip", instruction: "x",
+      apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "raid", item: raid, itemLabel: "Vendor slip", instruction: "x",
       snapshot: { today: "2026-07-03", language: "en-US", holidayCountries: [], storageKind: "browser", taskCount: 0, knownGroups: [], knownLabels: [], mode: "advanced", enabledModules: [], currentView: "raid", timezone: asTimeZoneForTests("UTC") },
       guides: [], groundInGuides: false,
     });

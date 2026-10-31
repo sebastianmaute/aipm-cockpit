@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { renderHook, act } from "@testing-library/react";
 vi.mock("./weight-suggestion-call", () => ({ runWeightSuggestion: vi.fn() }));
 import { runWeightSuggestion } from "./weight-suggestion-call";

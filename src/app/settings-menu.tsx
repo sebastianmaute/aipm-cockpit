@@ -14,6 +14,7 @@ import { GeneralSection } from "./settings-sections/general-section";
 import { LocalizationSection } from "./settings-sections/localization-section";
 import { NotificationsSection } from "./settings-sections/notifications-section";
 import { AiSection } from "./settings-sections/ai-section";
+import { AiPeopleProtectionControl } from "./settings-sections/ai-people-protection-control";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { TemplatesSection } from "./settings-sections/templates-section";
 import { type Settings } from "./settings-types";
@@ -100,6 +101,7 @@ export function SettingsMenu({
           <hr className="my-4 border-line" />
 
           <AiSection lang={lang} settings={settings} onChange={onChange} />
+          <AiPeopleProtectionControl lang={lang} />
 
           <hr className="my-4 border-line" />
 

@@ -7,10 +7,15 @@ import { test, expect } from "@playwright/test";
 // ★★ The stroke-width check is the ONLY proof the globals.css pin works. jsdom
 // has no CSS, so no unit test in this repo can observe it, in either the CSS or
 // the LucideProvider design.
+
+// Every export of src/app/icons.ts. 75 since MicrophoneSlashIcon joined the barrel for the voice-command-off
+// marker (AI people protection); a new barrel icon must bump this.
+const BARREL_ICON_COUNT = 75;
+
 test.describe("icon gallery", () => {
   test("renders every barrel icon", async ({ page }) => {
     await page.goto("/icon-gallery");
-    await expect(page.locator("[data-icon-cell]")).toHaveCount(74);
+    await expect(page.locator("[data-icon-cell]")).toHaveCount(BARREL_ICON_COUNT);
   });
 
   test("★★ pins every icon to the heroicons stroke weight of 1.5", async ({ page }) => {
@@ -29,7 +34,7 @@ test.describe("icon gallery", () => {
     // ★★ Without this count the test is VACUOUS: filter(...).length on an empty
     // node list is 0, so it passed green against a page with no icons at all
     // (measured by repointing the goto at /recovery). Give the zero a denominator.
-    await expect(page.locator("[data-icon-cell] svg")).toHaveCount(74);
+    await expect(page.locator("[data-icon-cell] svg")).toHaveCount(BARREL_ICON_COUNT);
     const exposed = await page.locator("[data-icon-cell] svg").evaluateAll((nodes) =>
       nodes.filter((n) => n.getAttribute("aria-hidden") !== "true").length,
     );

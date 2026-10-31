@@ -51,6 +51,7 @@ import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-p
 import { RICH_SINK } from "./html-start";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { useDictationMic } from "./dictation-mic";
+import { joinDescribedBy } from "./editor-email-rule";
 import { isAiConsentedForDictation } from "./settings-types";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
@@ -152,7 +153,7 @@ export function ChangeEditModal({
   const { settings } = useSettings();
   const draftRef = useRef(draft);
   useEffect(() => { draftRef.current = draft; });
-  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
+  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg, describedById: descriptionDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -160,7 +161,7 @@ export function ChangeEditModal({
     label: t(lang, "changeFieldDescription"),
     onAppendFinal: (txt) => update("description", appendDictationToHtml(draftRef.current.description, txt)),
   });
-  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
+  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg, describedById: titleDictationDesc } = useDictationMic({
     lang,
     dictation: settings.dictation,
     aiConsented: isAiConsentedForDictation(settings.ai),
@@ -376,7 +377,7 @@ export function ChangeEditModal({
               onChange={(e) => update("title", e.target.value)}
               onFocus={titleDictationReg.onFocus}
               onBlur={(e) => { update("title", describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim()); titleDictationReg.onBlur(); }}
-              aria-describedby="change-title-counter"
+              aria-describedby={joinDescribedBy("change-title-counter", titleDictationDesc)}
             />
             <CharCounter value={draft.title} max={BUDGET_NAME_MAX} id="change-title-counter" lang={lang} />
             {titleDictationStatus}
@@ -460,6 +461,7 @@ export function ChangeEditModal({
                 onChange={(html) => update("description", html)}
                 label={t(lang, "changeFieldDescription")}
                 lang={lang}
+                ariaDescribedBy={descriptionDictationDesc}
               />
             </div>
             {/* CharCounter measures `.length`, and the cap measures VISIBLE

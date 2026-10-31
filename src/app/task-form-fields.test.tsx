@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+// AI people protection, Task 5: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
+vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { TestProviders } from "./test-providers";
 import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields } from "./task-form-fields";

@@ -14,6 +14,7 @@ const KEY = "sk-ant-api03-ForcedCallKey000000000";
 function args() {
   return {
     apiKey: KEY,
+    privacy: { protected: false } as const,
     model: "claude-sonnet-5",
     tools: [],
     toolName: "t",

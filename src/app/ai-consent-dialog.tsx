@@ -14,7 +14,7 @@ import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { type AiPolicy } from "./ai-policy";
-import { aiDataPathsFor, aiDestinationKey, type AiConsentLevel } from "./ai-disclosure";
+import { aiDataPathsFor, aiDestinationKey, aiProtectedTextKey, type AiConsentLevel } from "./ai-disclosure";
 
 export interface AiConsentDialogProps {
   lang: Lang;
@@ -42,6 +42,8 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
     id: row.id,
     label: t(lang, row.labelKey),
     data: t(lang, row.dataKey),
+    whenProtected: row.whenProtected,
+    protectedText: t(lang, aiProtectedTextKey(row)),
   }));
   const bullets: string[] = [
     t(lang, aiDestinationKey("keySecurity")),
@@ -79,12 +81,16 @@ export function AiConsentDialog({ lang, level, policy, onAccept, onCancel }: AiC
               ))}
             </ul>
           )}
+          <p data-ai-people-protection-notice>{t(lang, "aiConsentPeopleProtection")}</p>
           <p>{t(lang, aiDestinationKey(level))}</p>
           <dl className="space-y-2">
             {dataRows.map((row) => (
               <div key={row.id} data-ai-data-path={row.id}>
                 <dt className="font-medium">{row.label}</dt>
                 <dd>{row.data}</dd>
+                <dd data-ai-protected={row.whenProtected} className="mt-1 text-muted-foreground">
+                  <span className="font-medium">{t(lang, "aiProtectedWhenLabel")}</span> {row.protectedText}
+                </dd>
               </div>
             ))}
           </dl>

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { AI_CONSENT_LEVELS, AI_DATA_PATHS, AI_DESTINATION_KEYS, aiDataPathsFor } from "./ai-disclosure";
+import { AI_CONSENT_LEVELS, AI_DATA_PATHS, AI_DESTINATION_KEYS, aiDataPathsFor, aiProtectedTextKey } from "./ai-disclosure";
 import { type AiRoute, setAiDeploymentState } from "./ai-deployment";
 import { DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { helpEntryBody } from "./help-content";
@@ -45,6 +45,26 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|5eb499ef50b6",
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998",
   ],
+  // v2: the protected column joins the table (AI people protection, spec R5). The data texts are unchanged.
+  2: [
+    "chat|interactive|aiDataChatLabel|aiDataChat|0ab2b52cc0f9|redacted",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted",
+    "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|ec731819812b|redacted",
+    "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted",
+    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|77d3b27235a2|redacted",
+    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|dd308831307b|redacted",
+    "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|8454d8b056cd|redacted",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|1d90c54d0111|hidden",
+    "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden",
+    "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted",
+    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|1a29e0f163bd|redacted",
+    "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51|redacted",
+    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|redacted",
+    "dictation|interactive|aiDataDictationLabel|aiDataDictation|11af271ca960|off",
+    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|43c341548943|redacted",
+    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|5eb499ef50b6|redacted",
+    "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted",
+  ],
 };
 
 // Which disclosure rows each activation site (src/test/ai-activation-sites.ts) leads to. A new site
@@ -86,7 +106,7 @@ const textHash = (row: (typeof AI_DATA_PATHS)[number]) =>
   createHash("sha256").update(`${t("en-US", row.labelKey)}
 ${t("en-US", row.dataKey)}`).digest("hex").slice(0, 12);
 const fingerprint = () =>
-  AI_DATA_PATHS.map((row) => `${row.id}|${row.level}|${row.labelKey}|${row.dataKey}|${textHash(row)}`);
+  AI_DATA_PATHS.map((row) => `${row.id}|${row.level}|${row.labelKey}|${row.dataKey}|${textHash(row)}|${row.whenProtected}`);
 const ids = new Set(AI_DATA_PATHS.map((row) => row.id));
 
 describe("AI_DATA_PATHS", () => {
@@ -126,6 +146,49 @@ describe("AI_DATA_PATHS", () => {
     expect(fingerprint()).toEqual(DISCLOSED_TABLES[AI_DISCLOSURE_VERSION]);
   });
 
+  it("a version-1 table (consented before people protection) is no longer the current one", () => {
+    expect(AI_DISCLOSURE_VERSION).toBe(2);
+  });
+
+  it("every row states what protection does to it: hidden, off or redacted, with a text in both languages", () => {
+    for (const row of AI_DATA_PATHS) {
+      expect(["hidden", "redacted", "off"], row.id).toContain(row.whenProtected);
+      const key = aiProtectedTextKey(row);
+      expect(t("en-US", key).trim(), row.id).toBeTruthy();
+      expect(t("en-US", key), row.id).not.toBe(key);
+      expect(de[key]?.trim(), row.id).toBeTruthy();
+    }
+    const state = (id: string) => AI_DATA_PATHS.find((r) => r.id === id)?.whenProtected;
+    expect(state("alloc-plan")).toBe("hidden");
+    expect(state("raci-suggest")).toBe("hidden");
+    expect(state("dictation")).toBe("off");
+    expect(state("project-proposal")).toBe("redacted");
+    expect(AI_DATA_PATHS.filter((r) => r.whenProtected === "redacted")).toHaveLength(AI_DATA_PATHS.length - 3);
+  });
+
+  // Review 5, S3: the chat refuses EVERY PDF under protection (a base64 document block), not only scanned ones.
+  it("the chat row says images and PDFs are refused, in both languages", () => {
+    const row = AI_DATA_PATHS.find((r) => r.id === "chat")!;
+    const key = aiProtectedTextKey(row);
+    expect(t("en-US", key)).toContain("Images and PDFs are refused");
+    expect(de[key]).toContain("Bilder und PDFs werden abgelehnt");
+    expect(t("en-US", key)).not.toMatch(/scanned/i);
+    expect(de[key]).not.toMatch(/gescannt/i);
+  });
+
+  // Review 3, R3: the wizard always pattern-redacts; images and PDFs are refused only under a forced protection.
+  it("the project-proposal row says emails, phones and IBANs are always redacted, names cannot be, and the proposal is applied without people", () => {
+    const row = AI_DATA_PATHS.find((r) => r.id === "project-proposal")!;
+    const text = t("en-US", aiProtectedTextKey(row));
+    expect(text).toContain("Email addresses, phone numbers and IBANs are always replaced by placeholders");
+    expect(text).toContain("a new project has no known people yet");
+    expect(text).toMatch(/images and scanned or PDF documents are sent too, unless your organisation forces protection; then they are refused/i);
+    expect(text).toContain("no sponsor, project manager, stakeholders, resources, assignees or owners");
+    const deText = de[aiProtectedTextKey(row)];
+    expect(deText).toMatch(/E-Mail-Adressen, Telefonnummern und IBANs werden immer durch Platzhalter ersetzt/);
+    expect(deText).toMatch(/sofern Ihre Organisation den Schutz nicht erzwingt; dann werden sie abgelehnt/);
+  });
+
   it("every activation site maps to a row, and every row but dictation has a site", () => {
     for (const file of PREDICATE_DEFINITIONS) expect(AI_ACTIVATION_SITES[file], file).toBeDefined();
     const sites = Object.keys(AI_ACTIVATION_SITES).filter((file) => !PREDICATE_DEFINITIONS.has(file)).sort();
@@ -145,6 +208,18 @@ describe("AI_DATA_PATHS", () => {
     const background = new Set(aiDataPathsFor("background").map((row) => row.id));
     for (const site of AI_BACKGROUND_SITES) {
       expect(SITE_ROWS[site].some((id) => background.has(id)), site).toBe(true);
+    }
+  });
+
+  it("docs/security.md lists the protected state of every row under its People protection heading", () => {
+    const doc = readFileSync(join(process.cwd(), "docs", "security.md"), "utf8");
+    const at = doc.indexOf("#### People protection");
+    expect(at).toBeGreaterThan(-1);
+    const end = doc.indexOf("\n### ", at);
+    const section = doc.slice(at, end === -1 ? undefined : end);
+    for (const row of AI_DATA_PATHS) {
+      const line = `- **${t("en-US", row.labelKey)}** — ${t("en-US", aiProtectedTextKey(row))}`;
+      expect(section, line).toContain(line);
     }
   });
 

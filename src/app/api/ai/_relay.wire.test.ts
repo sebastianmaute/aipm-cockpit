@@ -46,7 +46,7 @@ function browserRequest(headers: Record<string, string> = { "x-api-key": KEY }):
 /** The client's reading of `relayAnswer`: the thrown error, or the Response it returned. */
 async function clientReads(relayAnswer: Response): Promise<unknown> {
   vi.stubGlobal("fetch", vi.fn(async () => relayAnswer));
-  return postAiMessages({ apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+  return postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
 }
 
 beforeEach(() => {

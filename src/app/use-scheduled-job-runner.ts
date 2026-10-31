@@ -112,7 +112,10 @@ function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, con
       const live = list.find((j) => j.key !== null && j.key === job.key);
       return live !== undefined && isRunnable(live) && live.projectId === job.projectId && sameSchedule(live, job);
     },
-    confirmDeployment: () => confirmAiDeployment(),
+    // The people lock it reports is applied by the send itself (`postAiMessages` asks again).
+    confirmDeployment: async () => {
+      await confirmAiDeployment();
+    },
     confirmBackgroundGate: () => assertAiConsentLive("background"),
     loadWorkspace: async (projectId) => {
       lastPartial = false;
@@ -125,7 +128,7 @@ function buildRunDeps(argsRef: { readonly current: ScheduledJobRunnerArgs }, con
     lastLoadPartial: () => lastPartial,
     // Cache the guide prefix only when this tick sends more than one request: a lone request would pay the cache
     // write and never read it.
-    analyse: (context) => runJobAnalysis(context, { ...argsRef.current.ai, cacheGuides, level: "background" }),
+    analyse: (context, privacy) => runJobAnalysis(context, { ...argsRef.current.ai, privacy, cacheGuides, level: "background" }),
     deviceSettings: a.deviceSettings,
     lang: a.lang,
     now: a.now ?? (() => new Date()),

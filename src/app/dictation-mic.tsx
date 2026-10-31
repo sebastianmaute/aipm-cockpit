@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { MicrophoneIcon } from "./icons";
+import { MicrophoneIcon, MicrophoneSlashIcon } from "./icons";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { Settings } from "./settings-types";
@@ -10,6 +10,7 @@ import { useToastContext } from "./toast-context";
 import { PRESS, TRANSITION } from "./interaction-styles";
 import { ToggleButton } from "./toggle-button";
 import { setActiveDictationTarget, clearDictationTargetIf, type DictationTarget } from "./dictation-target";
+import { usePeopleProtected } from "./ai-privacy-context";
 import {
   DICTATION_AI_DEPLOYMENT_INVALID,
   DICTATION_AI_DEPLOYMENT_OFF,
@@ -55,11 +56,17 @@ export function useDictationMic({
   const showToast = useToastContext();
   const [interim, setInterim] = useState("");
   const unavailableReasonId = useId();
+  // AI people protection: the id of the dictation-off reason, as the field's accessible DESCRIPTION.
+  const offReasonId = useId();
+  // AI people protection (P9): with protection on, dictation is OFF — both engines send audio to a third
+  // party and audio cannot be redacted. Read HERE, once for every mic in the app, so a new dictation site is
+  // covered without anyone remembering to. `enabled: false` also stops the focused-field hotkey (`target.press`).
+  const peopleProtected = usePeopleProtected();
   const ptt = usePushToTalk({
     lang,
-    enabled,
+    enabled: enabled && !peopleProtected,
     dictation,
-    aiConsented,
+    aiConsented: aiConsented && !peopleProtected,
     onAppendFinal: (txt) => { onAppendFinal(txt); setInterim(""); },
     onInterim: (txt) => setInterim(txt),
     onError: (err) => {
@@ -121,7 +128,25 @@ export function useDictationMic({
               ? "aiDeploymentInvalid"
               : "dictationUnavailableNeedsAiConsent",
       );
-  const mic = ptt.supported ? (
+  // ★★ Review rounds 1–2 (I2): only where a mic WOULD render (`ptt.supported`), and compact. Several callers
+  //   place the mic INSIDE a field's <label> (the milestone name), where any exposed text — even an
+  //   `aria-label` — joins that input's accessible NAME. So the icon is `aria-hidden` (its `title` is the
+  //   sighted hover hint), and the reason reaches assistive tech as the field's DESCRIPTION: a `hidden` span
+  //   (hidden content stays out of a label's name) that every call site names in its input's
+  //   `aria-describedby` through `describedById`.
+  const mic = !ptt.supported ? null : peopleProtected ? (
+    <>
+      <span
+        data-dictation-off
+        aria-hidden="true"
+        title={t(lang, "dictationUnavailablePeopleProtected")}
+        className="inline-flex items-center px-1 text-muted-foreground"
+      >
+        <MicrophoneSlashIcon aria-hidden="true" className="h-4 w-4" />
+      </span>
+      <span id={offReasonId} hidden>{t(lang, "dictationUnavailablePeopleProtected")}</span>
+    </>
+  ) : (
     <>
     <ToggleButton
       disabled={ptt.unavailable}
@@ -157,7 +182,7 @@ export function useDictationMic({
     </ToggleButton>
     {reason && <span id={unavailableReasonId} hidden>{reason}</span>}
     </>
-  ) : null;
+  );
 
   const status = (ptt.listening || ptt.transcribing) ? (
     <span className="text-xs text-muted-foreground" aria-live="polite">
@@ -166,5 +191,10 @@ export function useDictationMic({
     </span>
   ) : null;
 
-  return { mic, status, registration, supported: ptt.supported };
+  // `describedById`: every call site adds it to its field's `aria-describedby`. Defined ONLY while the reason
+  // element above is rendered, so an unprotected field's description is exactly what it was (no dangling id).
+  // ★ A rich-text editor reads `ariaDescribedBy` at MOUNT, so one mounted before protection switched on does
+  //   not gain the description until it remounts (the next time its window opens); the mic is gone either way.
+  const describedById = ptt.supported && peopleProtected ? offReasonId : undefined;
+  return { mic, status, registration, supported: ptt.supported, describedById };
 }

@@ -86,6 +86,8 @@ export interface AnalysisContextInput {
   changes: readonly { id: number; title: string }[];
   stakeholders: readonly { id: number; name: string }[];
   queue: readonly { title: string; why: string; tier: "now" | "soon" | "monitor" }[];
+  /** AI people protection (layer 1): the project protects its people, so no Stakeholders section. */
+  peopleProtected?: boolean;
 }
 
 function capList(view: GroundableView, rows: readonly { id: number; title?: string; name?: string }[]): string {
@@ -114,7 +116,7 @@ export function buildAnalysisContext(input: AnalysisContextInput): string {
     "## Active RAID", capList("raid", input.raid),
     "## Upcoming milestones", capList("milestones", input.milestones),
     "## Pending changes", capList("changes", input.changes),
-    "## Stakeholders", capList("stakeholders", input.stakeholders),
+    ...(input.peopleProtected === true ? [] : ["## Stakeholders", capList("stakeholders", input.stakeholders)]),
     "",
     "## Current rule-based action queue", queue,
   ].join("\n");

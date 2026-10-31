@@ -24,6 +24,9 @@ export interface RecommendContextInput {
   readonly relatedTasks: readonly { readonly id: number; readonly title: string }[];
   /** §782 — the people a create may name as its assignee or owner (`recommendPeople`). */
   readonly people?: readonly string[];
+  /** AI people protection (layer 1): the project protects its people, so the digest has no People section
+   *  and `people` is ignored. With no one listed the system prompt already forbids create_task. */
+  readonly peopleProtected?: boolean;
 }
 
 /** §782 — who a create may name: the active resources' names, then the
@@ -81,9 +84,11 @@ export function buildRecommendContext(input: RecommendContextInput): string {
         .map((t) => `- open-points#${t.id}: ${t.title.slice(0, 120)}`)
         .join("\n")
     : "(none)";
-  const people = input.people?.length
-    ? input.people.slice(0, PEOPLE_CAP).map((name) => `- ${name.slice(0, 120)}`).join("\n")
-    : NO_PEOPLE_LINE;
+  const people = input.peopleProtected === true
+    ? null
+    : input.people?.length
+      ? input.people.slice(0, PEOPLE_CAP).map((name) => `- ${name.slice(0, 120)}`).join("\n")
+      : NO_PEOPLE_LINE;
   return [
     `Project: ${input.projectName}. Today: ${input.today}.`,
     `Insight: ${input.insightType} (severity ${input.severity}).`,
@@ -93,7 +98,6 @@ export function buildRecommendContext(input: RecommendContextInput): string {
     entity,
     "## Related open tasks (reference by id)",
     tasks,
-    "## People (assign by name)",
-    people,
+    ...(people === null ? [] : ["## People (assign by name)", people]),
   ].join("\n");
 }

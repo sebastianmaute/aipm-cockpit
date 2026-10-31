@@ -427,3 +427,48 @@ describe("§762 — Step0ImportPanel Confluence source with confluence switched 
     expect(screen.getByRole("radio", { name: t("en-US", "wizardImportMethodFile") })).toBeInTheDocument();
   });
 });
+
+// Review 2, finding B: under a deployment that forces people protection the wizard leaves images and non-text
+// documents out at the attach step, with the reason, the same way the chat does.
+describe("Step0ImportPanel under a deployment that forces people protection (review 2, B)", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const png = () => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "board.png", { type: "image/png" });
+  const txt = () => new File(["Kick-off on Monday"], "brief.txt", { type: "text/plain" });
+
+  it("leaves an image out with the reason and imports the text file", async () => {
+    setDisabledIntegrations(["ai-people"]);
+    const onIngest = vi.fn().mockResolvedValue(undefined);
+    render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
+    selectFileMethod();
+    fireEvent.change(fileInput(), { target: { files: [txt(), png()] } });
+    await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
+    expect(onIngest.mock.calls[0][0].length).toBe(2); // prompt + the text file
+    expect(JSON.stringify(onIngest.mock.calls[0][0])).not.toContain("\"image\"");
+    expect(screen.getByText(t("en-US", "wizardImportPeopleProtected", "board.png"))).toBeTruthy();
+  });
+
+  it("sends nothing when only an image was given, and says why", async () => {
+    setDisabledIntegrations(["ai-people"]);
+    const onIngest = vi.fn();
+    render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
+    selectFileMethod();
+    fireEvent.change(fileInput(), { target: { files: [png()] } });
+    expect(await screen.findByText(t("en-US", "wizardImportPeopleProtected", "board.png"))).toBeTruthy();
+    expect(onIngest).not.toHaveBeenCalled();
+  });
+
+  it("not forced: the image is imported as before", async () => {
+    const onIngest = vi.fn().mockResolvedValue(undefined);
+    render(<Step0ImportPanel {...baseProps} onIngest={onIngest} />);
+    selectFileMethod();
+    fireEvent.change(fileInput(), { target: { files: [txt(), png()] } });
+    await waitFor(() => expect(onIngest).toHaveBeenCalledTimes(1));
+    expect(onIngest.mock.calls[0][0].length).toBe(3);
+    expect(screen.queryByText(t("en-US", "wizardImportPeopleProtected", "board.png"))).toBeNull();
+  });
+
+  it("names the protection when the proposal call itself was refused", () => {
+    render(<Step0ImportPanel {...baseProps} aiError="people-protected-content" onIngest={vi.fn()} />);
+    expect(screen.getByText(t("en-US", "wizardPeopleProtectedContent"))).toBeTruthy();
+  });
+});

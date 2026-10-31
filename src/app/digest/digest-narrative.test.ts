@@ -3,6 +3,10 @@ import { buildDigestNarrativePrompt, parseDigestNarrative, runDigestNarrative } 
 import { AiConsentRevokedError, newConsent, publishAiConsentState } from "../ai-consent";
 import { defaultAiConfig } from "../settings-types";
 import type { DigestModel } from "./digest-model";
+import { aiPrivacyFor } from "../ai-privacy";
+
+/** These tests are about the call mechanics, not people: a request for no project (unprotected). */
+const UNPROTECTED = aiPrivacyFor([]);
 
 const MODEL: DigestModel = {
   rag: "R", ragPrev: "A",
@@ -45,7 +49,7 @@ describe("runDigestNarrative — the consent level", () => {
 
   it("a background narrative needs the background consent", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(reply());
-    const ctx = { apiKey: "k", model: "m", lang: "en-US" as const };
+    const ctx = { apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US" as const };
     await expect(runDigestNarrative(MODEL, { ...ctx, level: "background" })).rejects.toBeInstanceOf(AiConsentRevokedError);
     expect(fetchSpy).not.toHaveBeenCalled();
     // control: the same consent lets an interactive narrative through
@@ -67,7 +71,7 @@ describe("runDigestNarrative — a reply cut at max_tokens (§764)", () => {
   }) as unknown as Response;
   const budgets = (spy: { mock: { calls: unknown[][] } }) =>
     spy.mock.calls.map((c) => (JSON.parse((c[1] as { body: string }).body) as { max_tokens: number }).max_tokens);
-  const ctx = { apiKey: "k", model: "m", lang: "en-US" as const };
+  const ctx = { apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US" as const };
   beforeEach(() => publishAiConsentState({ ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)) }));
   afterEach(() => {
     vi.restoreAllMocks();
