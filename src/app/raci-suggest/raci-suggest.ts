@@ -105,8 +105,10 @@ export function groundRaciCells(
   // HANDOVER, accepted as a PAIR only when the milestone has exactly ONE stored
   // holder and the proposal demotes that holder: both cells carry `pairKey`.
   // That is safe only because the confirm path applies both halves or neither
-  // (Task 4); `onConfirm` alone does not re-check uniqueness. First occurrence
-  // per cell only, matching the `seen` dedupe below.
+  // (`dropOrphanedPairHalves`) and re-checks the LIVE Accountable holders first
+  // (`dropStaleAccountables`, both in use-raci-suggest.tsx), since these holders
+  // are the ones stored at propose time. First occurrence per cell only,
+  // matching the `seen` dedupe below.
   const storedHolders = new Map<number, number[]>();
   for (const s of stakeholders) {
     for (const [key, role] of Object.entries(s.raci)) {

@@ -122,13 +122,40 @@ export function foldCellsByStakeholder(
   return [...folded.values()];
 }
 
-/** Drop every cell whose handover partner is not also in `chosen`. The two halves
- *  of a pair are applied together or not at all: an A without its demotion would
- *  leave a milestone with two Accountables. */
+/** Keep a `pairKey` group only when it is well formed: exactly two cells in `chosen`,
+ *  one A and one non-A. Any other group (a lone half, two A halves, three cells) is
+ *  dropped whole. The two halves of a pair are applied together or not at all: an A
+ *  without its demotion would leave a milestone with two Accountables. */
 export function dropOrphanedPairHalves(chosen: readonly GroundedRaciCell[]): GroundedRaciCell[] {
-  const perPair = new Map<string, number>();
-  for (const c of chosen) if (c.pairKey) perPair.set(c.pairKey, (perPair.get(c.pairKey) ?? 0) + 1);
-  return chosen.filter((c) => !c.pairKey || (perPair.get(c.pairKey) ?? 0) >= 2);
+  const groups = new Map<string, GroundedRaciCell[]>();
+  for (const c of chosen) if (c.pairKey) groups.set(c.pairKey, [...(groups.get(c.pairKey) ?? []), c]);
+  const wellFormed = (g: readonly GroundedRaciCell[] = []) =>
+    g.length === 2 && g.filter((c) => c.role === "A").length === 1;
+  return chosen.filter((c) => !c.pairKey || wellFormed(groups.get(c.pairKey)));
+}
+
+/** Drop every chosen A cell that the LIVE Accountable holders no longer allow, since
+ *  grounding judged them at propose time: an unpaired A when its milestone now has an
+ *  A holder other than that cell's stakeholder, and a paired A unless its milestone's
+ *  live holders are exactly the pair's demoted stakeholder. Run it before
+ *  `dropOrphanedPairHalves`, which then drops the dropped A's partner. */
+export function dropStaleAccountables(
+  chosen: readonly GroundedRaciCell[],
+  stakeholders: readonly Stakeholder[],
+): GroundedRaciCell[] {
+  const holders = new Map<number, number[]>();
+  for (const s of stakeholders) {
+    for (const [key, role] of Object.entries(s.raci)) {
+      if (role === "A") holders.set(Number(key), [...(holders.get(Number(key)) ?? []), s.id]);
+    }
+  }
+  return chosen.filter((c) => {
+    if (c.role !== "A") return true;
+    const live = holders.get(c.milestoneId) ?? [];
+    if (!c.pairKey) return live.every((id) => id === c.stakeholderId);
+    const demoted = chosen.find((x) => x.pairKey === c.pairKey && x.role !== "A");
+    return demoted !== undefined && live.length === 1 && live[0] === demoted.stakeholderId;
+  });
 }
 
 export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
@@ -301,9 +328,14 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     // lone new Accountable (or lone demotion) can never be written.
     // A half whose stakeholder was deleted since propose counts as not chosen, so it orphans its partner
     // (foldCellsByStakeholder would otherwise skip it silently and save the other half alone).
+    // Then an A the LIVE holders no longer allow is dropped (someone took or lost A since propose),
+    // and only then are orphaned halves removed, so the dropped A takes its partner with it.
     const liveIds = new Set(stakeholders.map((s) => s.id));
     const chosen = dropOrphanedPairHalves(
-      cells.filter((c) => selected.has(cellKey(c)) && liveIds.has(c.stakeholderId)),
+      dropStaleAccountables(
+        cells.filter((c) => selected.has(cellKey(c)) && liveIds.has(c.stakeholderId)),
+        stakeholders,
+      ),
     );
     if (chosen.length === 0) return;
     const updated = foldCellsByStakeholder(chosen, stakeholders);

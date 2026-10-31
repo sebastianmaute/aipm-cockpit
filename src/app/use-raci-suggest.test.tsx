@@ -5,7 +5,8 @@ import { newConsent } from "./ai-consent";
 import { AiHttpError } from "./ai-errors";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useState, type ReactElement } from "react";
-import { foldCellsByStakeholder, useRaciSuggest } from "./use-raci-suggest";
+import { dropOrphanedPairHalves, foldCellsByStakeholder, useRaciSuggest } from "./use-raci-suggest";
+import type { GroundedRaciCell } from "./raci-suggest/raci-suggest";
 import { ToastProvider } from "./toast-context";
 import { defaultSettings, type Settings } from "./settings-types";
 import type { Milestone, Stakeholder } from "./types";
@@ -94,15 +95,18 @@ interface HarnessProps {
    *  a second tab, the AI dispatcher, a manual edit in the matrix — leaves a
    *  cell in `cells` that has since become a no-op. */
   externalWrite?: { id: number; milestoneId: number; role: "R" | "A" | "C" | "I" };
+  /** Stakeholders beyond Sam (1) and Lee (2), e.g. a third person who takes A from outside. */
+  extraStakeholders?: Stakeholder[];
 }
 
-function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakeholderRaci, externalWrite }: HarnessProps) {
+function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakeholderRaci, externalWrite, extraStakeholders }: HarnessProps) {
   // Bound to a const so the `ext &&` guard's narrowing survives into the nested
   // setState/map callbacks below — a destructured PARAMETER's narrowing does not.
   const ext = externalWrite;
   const [stakeholders, setStakeholders] = useState<readonly Stakeholder[]>([
     { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: (stakeholderRaci ?? {}) as Stakeholder["raci"] },
     { id: 2, name: "Lee", category: "Internal", influence: "Medium", interest: "High", raci: {} },
+    ...(extraStakeholders ?? []),
   ]);
   const suggest = useRaciSuggest({
     settings: AI_ON,
@@ -549,5 +553,95 @@ describe("useRaciSuggest — handover pair integrity (§771)", () => {
     expect(onSaves).not.toHaveBeenCalled();
     expect(screen.getByTestId("sam-raci").textContent).toBe(JSON.stringify({ "10": "A" }));
     expect(screen.getByTestId("lee-raci").textContent).toBe("{}");
+  });
+});
+
+describe("useRaciSuggest — confirm re-checks the live Accountable (§771)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  const kim: Stakeholder = { id: 3, name: "Kim", category: "Internal", influence: "High", interest: "High", raci: {} };
+
+  it("does not write a new A when someone else became Accountable after the proposal", async () => {
+    const onSaves = vi.fn();
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({
+      cells: [{ stakeholderId: 2, milestoneId: 10, role: "A" }, { stakeholderId: 2, milestoneId: 11, role: "R" }],
+      truncated: false,
+    });
+    renderHarness({ onSaves, externalWrite: { id: 1, milestoneId: 10, role: "A" } });
+    openAndRun();
+    await screen.findByRole("button", { name: /apply selected/i });
+    // Sam takes A on 10 from outside the hook, after the proposal.
+    fireEvent.click(screen.getByRole("button", { name: "TEST_EXTERNAL_RACI_WRITE" }));
+    fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
+    await waitFor(() => expect(onSaves).toHaveBeenCalledTimes(1));
+    // Lee's unrelated R still applies; the stale A does not.
+    expect(screen.getByTestId("lee-raci").textContent).toBe(JSON.stringify({ "11": "R" }));
+    expect(screen.getByTestId("sam-raci").textContent).toBe(JSON.stringify({ "10": "A" }));
+  });
+
+  it("writes neither half of a handover when a third person became Accountable after the proposal", async () => {
+    const onSaves = vi.fn();
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({
+      cells: [{ stakeholderId: 2, milestoneId: 10, role: "A" }, { stakeholderId: 1, milestoneId: 10, role: "C" }],
+      truncated: false,
+    });
+    renderHarness({ stakeholderRaci: { "10": "A" }, onSaves, extraStakeholders: [kim], externalWrite: { id: 3, milestoneId: 10, role: "A" } });
+    openAndRun();
+    await screen.findByRole("button", { name: /apply selected/i });
+    fireEvent.click(screen.getByRole("button", { name: "TEST_EXTERNAL_RACI_WRITE" }));
+    fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
+    expect(onSaves).not.toHaveBeenCalled();
+    expect(screen.getByTestId("sam-raci").textContent).toBe(JSON.stringify({ "10": "A" }));
+    expect(screen.getByTestId("lee-raci").textContent).toBe("{}");
+  });
+
+  it("writes neither half of a handover when the old holder lost A after the proposal", async () => {
+    const onSaves = vi.fn();
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({
+      cells: [{ stakeholderId: 2, milestoneId: 10, role: "A" }, { stakeholderId: 1, milestoneId: 10, role: "C" }],
+      truncated: false,
+    });
+    renderHarness({ stakeholderRaci: { "10": "A" }, onSaves, externalWrite: { id: 1, milestoneId: 10, role: "R" } });
+    openAndRun();
+    await screen.findByRole("button", { name: /apply selected/i });
+    fireEvent.click(screen.getByRole("button", { name: "TEST_EXTERNAL_RACI_WRITE" }));
+    fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
+    expect(onSaves).not.toHaveBeenCalled();
+    expect(screen.getByTestId("sam-raci").textContent).toBe(JSON.stringify({ "10": "R" }));
+    expect(screen.getByTestId("lee-raci").textContent).toBe("{}");
+  });
+
+  it("applies a new A as before when the live Accountable is unchanged", async () => {
+    const onSaves = vi.fn();
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({
+      cells: [{ stakeholderId: 2, milestoneId: 10, role: "A" }],
+      truncated: false,
+    });
+    renderHarness({ onSaves, extraStakeholders: [kim], externalWrite: { id: 3, milestoneId: 11, role: "A" } });
+    openAndRun();
+    await screen.findByRole("button", { name: /apply selected/i });
+    // An A on a DIFFERENT milestone changes nothing for milestone 10.
+    fireEvent.click(screen.getByRole("button", { name: "TEST_EXTERNAL_RACI_WRITE" }));
+    fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
+    await waitFor(() => expect(onSaves).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("lee-raci").textContent).toBe(JSON.stringify({ "10": "A" }));
+  });
+});
+
+describe("dropOrphanedPairHalves — only a well-formed pair survives (§771)", () => {
+  const half = (stakeholderId: number, role: "A" | "C", pairKey = "handover:10"): GroundedRaciCell => ({
+    stakeholderId, stakeholderName: `S${stakeholderId}`, milestoneId: 10, milestoneName: "M", role, currentRole: null, pairKey,
+  });
+
+  it("keeps a group of exactly one A and one non-A", () => {
+    expect(dropOrphanedPairHalves([half(2, "A"), half(1, "C")])).toHaveLength(2);
+  });
+
+  it("drops a malformed group of two A halves, both chosen", () => {
+    expect(dropOrphanedPairHalves([half(2, "A"), half(1, "A")])).toEqual([]);
+  });
+
+  it("drops a group of three cells, and keeps unpaired cells", () => {
+    const plain: GroundedRaciCell = { ...half(4, "C"), pairKey: undefined };
+    expect(dropOrphanedPairHalves([half(2, "A"), half(1, "C"), half(3, "C"), plain])).toEqual([plain]);
   });
 });
