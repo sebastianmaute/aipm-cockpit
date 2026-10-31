@@ -6,6 +6,7 @@ import {
   aiKeyMessageKeyForStatusToken,
   aiFailureMessageKey,
   aiFailureMessageKeyForToken,
+  aiFailureToken,
   getAiKeyStatus,
   isAiKeyStatusBad,
   isKeyBlocked,
@@ -15,7 +16,7 @@ import {
   subscribeAiKeyStatus,
   syncAiKey,
 } from "./ai-key-status";
-import { AiDeploymentError, AiGatewayError, AiHttpError, AiKeyRefusedError } from "./ai-errors";
+import { AiDeploymentError, AiGatewayError, AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError } from "./ai-errors";
 
 const KEY_A = "sk-ant-api03-AAAAAAAAAAAAAAAAAAAA";
 const KEY_B = "sk-ant-api03-BBBBBBBBBBBBBBBBBBBB";
@@ -177,6 +178,22 @@ describe("aiFailureMessageKey", () => {
     expect(aiFailureMessageKeyForToken("off")).toBeNull();
     expect(aiFailureMessageKeyForToken("toString")).toBeNull();
     expect(aiFailureMessageKeyForToken(null)).toBeNull();
+  });
+});
+
+describe("aiFailureToken — the token a token-keeping hook stores for a refused or unchecked key", () => {
+  it.each([
+    [new AiKeyRefusedError("organization"), "aiKeyWrongOrganization"],
+    [new AiKeyRefusedError("workspace"), "aiKeyWrongWorkspace"],
+    [new AiKeyCheckUnavailableError(), "aiKeyCheckUnavailable"],
+    [new AiGatewayError("ai-gateway-rejected"), "aiGatewayRejected"],
+  ] as const)("%o stores %s, which reads back as its own message", (err, key) => {
+    expect(aiFailureToken(err)).toBe(key);
+    expect(aiFailureMessageKeyForToken(aiFailureToken(err))).toBe(key);
+  });
+  it("an Anthropic HTTP error or a plain error is not its business (the hook keeps its own token)", () => {
+    expect(aiFailureToken(new AiHttpError(401))).toBeNull();
+    expect(aiFailureToken(new Error("parse"))).toBeNull();
   });
 });
 

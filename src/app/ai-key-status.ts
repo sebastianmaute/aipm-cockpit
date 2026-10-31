@@ -56,6 +56,17 @@ export function syncAiKey(key: string): void {
   setStatus("unknown");
 }
 
+/** The stale-key guard every report shares: with no live key yet, the reporting key becomes the live
+ *  one; a report made with any other key than the live one is stale and must be dropped (false). */
+function adoptReportKey(key: string): boolean {
+  const k = key.trim();
+  if (currentKey === null) {
+    currentKey = k;
+    return true;
+  }
+  return k === currentKey;
+}
+
 /**
  * Report an Anthropic HTTP response made WITH `key`. 2xx → "ok"; 401 → "rejected"; 403 →
  * "forbidden" (unless its error type says it is a usage limit — `classifyAiError` decides, as it
@@ -65,9 +76,7 @@ export function syncAiKey(key: string): void {
  * response they actually received.
  */
 export function reportAiKeyResponse(key: string, httpStatus: number, errorType?: string): void {
-  const k = key.trim();
-  if (currentKey === null) currentKey = k;
-  else if (k !== currentKey) return;
+  if (!adoptReportKey(key)) return;
   if (httpStatus >= 200 && httpStatus < 300) {
     setStatus("ok");
     return;
@@ -79,9 +88,7 @@ export function reportAiKeyResponse(key: string, httpStatus: number, errorType?:
 /** The relay refused the key `key`: another organisation, or a workspace not allowed. Same key
  *  guard as `reportAiKeyResponse` (a refusal for a key no longer live is dropped). */
 export function reportAiKeyRefused(key: string, reason: AiKeyRefusedReason): void {
-  const k = key.trim();
-  if (currentKey === null) currentKey = k;
-  else if (k !== currentKey) return;
+  if (!adoptReportKey(key)) return;
   setStatus(reason === "organization" ? "refused-organization" : "refused-workspace");
 }
 
@@ -95,7 +102,8 @@ export function reportAiKeyUnreadable(): void {
 }
 
 /** The ONE predicate for "this key is known to be refused, so do not use it": a rejected key
- *  (401) or one the organisation refuses. Every surface that blocks on a key verdict asks this. */
+ *  (401) or one the organisation refuses. Today its one reader is `isAiKeyStatusBad`, which
+ *  decides whether the key banner shows (`app-banners-block.tsx`). */
 export function isKeyBlocked(s: AiKeyStatus): s is "rejected" | "refused-organization" | "refused-workspace" {
   return s === "rejected" || s === "refused-organization" || s === "refused-workspace";
 }
@@ -143,12 +151,23 @@ export function aiFailureMessageKey(err: unknown): AiTransportMessageKey | AiKey
   return aiTransportMessageKey(err) ?? aiKeyMessageKeyForError(err);
 }
 
-/** `aiFailureMessageKey` for a stored token: a transport message key is its own message (the
- *  token-keeping hooks store it as the token), "401"/"403" name the key, anything else is null. */
+const REFUSAL_MESSAGE_KEYS: ReadonlySet<string> = new Set<AiKeyMessageKey>(["aiKeyWrongOrganization", "aiKeyWrongWorkspace"]);
+
+/** The token a token-keeping hook stores for a failure that is not the feature's own: the transport's message
+ *  key (an unavailable key check among them) or a refused key's message key; null for anything else, which the
+ *  hook maps to its own token ("401", "limit", "network", …). The one mapper those hooks share. */
+export function aiFailureToken(err: unknown): AiTransportMessageKey | AiKeyMessageKey | null {
+  if (err instanceof AiKeyRefusedError) return aiKeyMessageKeyForError(err);
+  return aiTransportMessageKey(err);
+}
+
+/** `aiFailureMessageKey` for a stored token: a transport or refused-key message key is its own message (the
+ *  token-keeping hooks store it as the token, `aiFailureToken`), "401"/"403" name the key, anything else is null. */
 export function aiFailureMessageKeyForToken(
   token: string | undefined | null,
 ): AiTransportMessageKey | AiKeyMessageKey | null {
   if (isAiTransportMessageKey(token)) return token;
+  if (typeof token === "string" && REFUSAL_MESSAGE_KEYS.has(token)) return token as AiKeyMessageKey;
   return aiKeyMessageKeyForStatusToken(token);
 }
 
