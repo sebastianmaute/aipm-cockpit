@@ -329,13 +329,22 @@ describe("buildRaciContext — §771 digest", () => {
     expect(ctx.truncated).toBe(false);
   });
 
-  it("caps document titles per milestone and their length, and flags it", () => {
+  it("cuts a long title to 80 code points WITHOUT flagging truncation", () => {
     const m = msTasks(10, "M", [1]);
-    const docs = Array.from({ length: 6 }, (_, i) => doc(i, `T${i}${"y".repeat(100)}`, [{ kind: "milestone", id: 10 }]));
+    const docs = Array.from({ length: 5 }, (_, i) => doc(i, `T${i}${"y".repeat(100)}`, [{ kind: "milestone", id: 10 }]));
     const ctx = ctxOf(stakeholders, [m], { tasks: [task(1, "Ada")], documents: docs });
     const row = ctx.text.split("\n").find((r) => r.startsWith("10 | "))!;
     expect(row.split("; ")).toHaveLength(5);
     expect(row).toContain(`T0${"y".repeat(78)}…`);
+    expect(ctx.truncated).toBe(false);
+  });
+
+  it("drops titles beyond 5 per milestone and flags truncation", () => {
+    const m = msTasks(10, "M", [1]);
+    const docs = Array.from({ length: 6 }, (_, i) => doc(i, `T${i}`, [{ kind: "milestone", id: 10 }]));
+    const ctx = ctxOf(stakeholders, [m], { tasks: [task(1, "Ada")], documents: docs });
+    const row = ctx.text.split("\n").find((r) => r.startsWith("10 | "))!;
+    expect(row.split("; ")).toHaveLength(5);
     expect(row).not.toContain("T5");
     expect(ctx.truncated).toBe(true);
   });
@@ -407,7 +416,7 @@ describe("buildRaciContext — §771 digest", () => {
       doc(m.id * 10 + k, `D${"z".repeat(120)}`, [{ kind: "milestone", id: m.id }])));
     const ctx = ctxOf(people, mss, { tasks, documents: docs, request: "r".repeat(RACI_REQUEST_MAX_CHARS) });
     expect(ctx.text.split("\n").filter((r) => / \| 1\d\d\d \| owns/.test(r))).toHaveLength(MAX_EVIDENCE_LINES);
-    // Measured 79,718 at the exact caps (docs ~25k, descriptions ~18k, stakeholders ~13k, evidence ~15k); the brief's 60,000 contradicted its own constants.
+    // Measured about 79.7k characters at the exact caps; 90k leaves headroom.
     expect(ctx.text.length).toBeLessThan(90_000);
   });
 });

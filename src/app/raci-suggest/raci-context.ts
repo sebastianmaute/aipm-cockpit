@@ -76,7 +76,7 @@ function documentTitles(
 /** The request as separate one-line rows (newlines kept as line breaks), capped in code points. */
 function requestLines(request: string | undefined): { lines: string[]; cut: boolean } {
   if (!request || request.trim() === "") return { lines: [], cut: false };
-  const capped = capChars(request, RACI_REQUEST_MAX_CHARS);
+  const capped = capChars(request.trim(), RACI_REQUEST_MAX_CHARS);
   const lines = capped.text.split(/\r\n|\r|\n/).map((l) => cell(l)).filter((l) => l !== "");
   return { lines, cut: capped.cut };
 }
@@ -111,11 +111,8 @@ export function buildRaciContext(input: RaciContextInput): { text: string; trunc
     const scope = new Set((x.linkedTaskIds ?? []).filter((id) => taskIds.has(id))).size;
     const titles = documentTitles(x, input.documents, taskIds, milestoneIds);
     if (titles.length > MAX_DOC_TITLES_PER_MILESTONE) truncated = true;
-    const shown = titles.slice(0, MAX_DOC_TITLES_PER_MILESTONE).map((t) => {
-      const c = capChars(cell(t), DOC_TITLE_CHARS);
-      if (c.cut) truncated = true;
-      return c.text;
-    });
+    // Shortening one title is not a dropped row (like the description cut); only dropped titles flag.
+    const shown = titles.slice(0, MAX_DOC_TITLES_PER_MILESTONE).map((t) => capChars(cell(t), DOC_TITLE_CHARS).text);
     lines.push([x.id, cell(x.name), x.date ?? "", scope, shown.join("; "), descriptionCell(x.description)].join(" | "));
   }
 
