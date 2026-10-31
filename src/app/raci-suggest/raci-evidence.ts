@@ -129,9 +129,11 @@ function tallyMilestone(
 }
 
 /** Evidence per stakeholder and milestone, only for pairs with any count above zero. Milestones keep
- *  the input order; within one, the strongest first (owned tasks, then RAID, then changes, then stakeholder id). Uncapped. */
-export function buildRaciEvidence(input: RaciEvidenceInput): RaciEvidence[] {
-  const ctx = buildMatchCtx(input.stakeholders, input.resources);
+ *  the input order; within one, the strongest first (owned tasks, then RAID, then changes, then stakeholder id). Uncapped.
+ *  `ctx` defaults to one built from `input.stakeholders`; pass one built from a WIDER list to judge name
+ *  ambiguity over it. Rows are emitted only for `input.stakeholders` either way. */
+export function buildRaciEvidence(input: RaciEvidenceInput, ctx: MatchCtx = buildMatchCtx(input.stakeholders, input.resources)): RaciEvidence[] {
+  const shown = new Set(input.stakeholders.map((s) => s.id));
   const taskIds = new Set(input.tasks.map((t) => t.id));
   const out: RaciEvidence[] = [];
   for (const m of input.milestones) {
@@ -139,7 +141,7 @@ export function buildRaciEvidence(input: RaciEvidenceInput): RaciEvidence[] {
     if (scope.size === 0) continue;
     const rows: RaciEvidence[] = [];
     for (const [stakeholderId, t] of tallyMilestone(scope, input, ctx)) {
-      if (!hasAny(t)) continue;
+      if (!shown.has(stakeholderId) || !hasAny(t)) continue;
       rows.push({ stakeholderId, milestoneId: m.id, scopeSize: scope.size, ...t });
     }
     rows.sort(

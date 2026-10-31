@@ -414,14 +414,15 @@ describe("buildRaciContext — §771 digest", () => {
     expect(ctx.truncated).toBe(false);
   });
 
-  it("drops titles beyond 5 per milestone and flags truncation", () => {
+  it("drops titles beyond 5 per milestone WITHOUT flagging truncation (R6: titles are context, not people)", () => {
     const m = msTasks(10, "M", [1]);
     const docs = Array.from({ length: 6 }, (_, i) => doc(i, `T${i}`, [{ kind: "milestone", id: 10 }]));
     const ctx = ctxOf(stakeholders, [m], { tasks: [task(1, "Ada")], documents: docs });
     const row = ctx.text.split("\n").find((r) => r.startsWith("10 | "))!;
     expect(row.split("; ")).toHaveLength(5);
+    expect(row).toContain("T4");
     expect(row).not.toContain("T5");
-    expect(ctx.truncated).toBe(true);
+    expect(ctx.truncated).toBe(false);
   });
 
   it("emits EVIDENCE for shown pairs only, none for a milestone without tasks", () => {
@@ -439,6 +440,16 @@ describe("buildRaciContext — §771 digest", () => {
     const m = msTasks(10, "M", [1]);
     const ctx = ctxOf(many, [m], { tasks: [task(1, `P${MAX_CONTEXT_STAKEHOLDERS}`)] });
     expect(ctx.text).not.toContain(`${MAX_CONTEXT_STAKEHOLDERS + 1} | 10 | owns`);
+  });
+
+  it("judges name ambiguity over ALL stakeholders, not only the shown ones", () => {
+    // #5 (shown) and #130 (beyond the cap) are both "Ada": a task typed "Ada" is ambiguous and
+    // counts for neither. A task typed with a unique shown name still yields evidence.
+    const many = Array.from({ length: 130 }, (_, i) => sh(i + 1, i + 1 === 5 || i + 1 === 130 ? "Ada" : `P${i + 1}`));
+    const m = msTasks(10, "M", [1, 2]);
+    const ctx = ctxOf(many, [m], { tasks: [task(1, "Ada"), task(2, "P7")] });
+    expect(ctx.text).toContain("7 | 10 | owns 1 of 2 tasks");
+    expect(ctx.text.split("\n").filter((r) => /^(5|130) \| 10 \| /.test(r))).toEqual([]);
   });
 
   it("cuts evidence at MAX_EVIDENCE_LINES and flags it", () => {

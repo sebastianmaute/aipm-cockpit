@@ -3,7 +3,7 @@
 import type { Discipline, Grade, Milestone, Resource, Role } from "../types";
 import type { ProjectDocument } from "../document-model";
 import { descriptionHtml, htmlPlainProjection, oneLine } from "../rich-text-plain";
-import { buildRaciEvidence, evidenceLine, type RaciEvidenceInput } from "./raci-evidence";
+import { buildMatchCtx, buildRaciEvidence, evidenceLine, type RaciEvidenceInput } from "./raci-evidence";
 
 export const MAX_CONTEXT_STAKEHOLDERS = 120;
 export const MAX_CONTEXT_MILESTONES = 60;
@@ -110,8 +110,8 @@ export function buildRaciContext(input: RaciContextInput): { text: string; trunc
   for (const x of m) {
     const scope = new Set((x.linkedTaskIds ?? []).filter((id) => taskIds.has(id))).size;
     const titles = documentTitles(x, input.documents, taskIds, milestoneIds);
-    if (titles.length > MAX_DOC_TITLES_PER_MILESTONE) truncated = true;
-    // Shortening one title is not a dropped row (like the description cut); only dropped titles flag.
+    // Neither a dropped title (beyond 5) nor a shortened one flags `truncated` (R6): titles are milestone
+    // context, never person evidence, and the notice is about people and evidence Claude did not see.
     const shown = titles.slice(0, MAX_DOC_TITLES_PER_MILESTONE).map((t) => capChars(cell(t), DOC_TITLE_CHARS).text);
     lines.push([x.id, cell(x.name), x.date ?? "", scope, shown.join("; "), descriptionCell(x.description)].join(" | "));
   }
@@ -130,8 +130,12 @@ export function buildRaciContext(input: RaciContextInput): { text: string; trunc
     }
   }
 
-  // Evidence is built over the SHOWN rows only, so it never names an id the model was not given.
-  const evidence = buildRaciEvidence({ ...input, stakeholders: s, milestones: m });
+  // Evidence is emitted for the SHOWN rows only, so it never names an id the model was not given; but a
+  // typed name is matched against EVERY stakeholder, so a namesake beyond the cap still makes it ambiguous.
+  const evidence = buildRaciEvidence(
+    { ...input, stakeholders: s, milestones: m },
+    buildMatchCtx(input.stakeholders, input.resources),
+  );
   if (evidence.length > MAX_EVIDENCE_LINES) truncated = true;
   lines.push("", "EVIDENCE (stakeholderId | milestoneId | evidence)");
   for (const e of evidence.slice(0, MAX_EVIDENCE_LINES)) {
