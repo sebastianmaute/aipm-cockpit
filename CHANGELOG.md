@@ -15,7 +15,9 @@ longer carries its own changelog comment.
 - **People protection for the AI (on by default, per project).** Settings → AI has a new switch, Protect people from
   the AI. While it is on, every AI request is redacted before it leaves the browser: the names, e-mail addresses and
   phone numbers of the people the project knows, and IBANs, become placeholders such as [Person 1], and the real names
-  are put back into the reply (placeholders are never saved). The AI is not offered tools that touch people, anything
+  are put back into the reply (placeholders are never saved). Where the reply repeats text you sent, a name comes back
+  as you wrote it there (for example "Mueller" or all in capitals); in text the AI writes itself, a name is spelled as
+  the project stores it. The AI is not offered tools that touch people, anything
   it proposes about a person is dropped, people-related signals are left out of its context, and Plan with AI, RACI
   suggestions, dictation and voice commands are unavailable. Images and non-text documents are refused, so an image or PDF in a chat
   conversation blocks that conversation while protection is on. Turning protection off asks to confirm and is written
