@@ -207,6 +207,19 @@ describe("redactionSessionFor", () => {
     const s2 = redactionSessionFor(["amb"], [dict(["Sofia Ramirez", "Sofia Keller"])]);
     expect(s2.redact("Sofia")).toBe("Sofia");
   });
+
+  // Review 2, E: a placeholder the user typed themselves, which this session never issued, is not a name.
+  it("a literal placeholder the session never issued stays literal; an issued one maps to this session's name only", () => {
+    const a = fresh(dict(["Sofia Ramirez"]));
+    const b = fresh(dict(["Noah Bennett", "Elena Fischer", "Liam Keller"]));
+    expect(b.redact("Noah Bennett, Elena Fischer, Liam Keller")).toBe("[Person 1], [Person 2], [Person 3]");
+    const sent = a.redact("Sofia Ramirez wrote [Person 3] in the ticket.");
+    expect(sent).toBe("[Person 1] wrote [Person 3] in the ticket.");
+    // Session b has issued [Person 3], session a has not: a leaves it as typed.
+    expect(a.restore(sent)).toBe("Sofia Ramirez wrote [Person 3] in the ticket.");
+    expect(a.restore("[Person 1]")).toBe("Sofia Ramirez");
+    expect(b.restore("[Person 1] and [Person 3]")).toBe("Noah Bennett and Liam Keller");
+  });
 });
 
 describe("redactJsonBody / restoreJsonText", () => {

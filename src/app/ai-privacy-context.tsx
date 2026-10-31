@@ -7,6 +7,12 @@
 // "default"`, the key every per-project device store uses) and a reader of its live workspace.
 // `useOpenProjectAiPrivacy` returns a STABLE getter, asked right before each request, so the privacy
 // always follows the workspace and setting as they are at send time.
+// ★ The key also names the redaction SESSION (`redactionSessionFor`), so every project opened with no
+// registry or Turso id (`portfolioCurrentId === null`) shares the key "default": one session and one
+// placeholder numbering, so a placeholder issued while one such project was open keeps its number and its
+// restore mapping after another is opened (the matcher itself follows the open project's dictionary).
+// Harmless for the protection: the mapping lives only in this tab's memory and is never sent or saved.
+// Numbering is per KEY, not strictly per project (review 2, E).
 //
 // ★★ Only for requests built from the OPEN project. A request about another project (a scheduled job
 // on a stored project) builds its privacy from THAT project's workspace (`scheduled-job-run.ts`).
