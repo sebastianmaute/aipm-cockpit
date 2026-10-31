@@ -12,7 +12,8 @@
 // Routes: "direct" posts to Anthropic exactly as the app always has (same URL, same headers,
 // including the browser-access header). "gateway" posts to the same-origin relay
 // (`/api/ai/messages`, `/api/ai/models`), which adds the organisation's gateway token server side;
-// the browser never learns the gateway's URL or token. "relay" (an organisation key restriction, no gateway) posts to the same routes the same way. The relay's own failures are not
+// the browser never learns the gateway's URL or token. "relay" (an organisation key restriction, no
+// gateway) posts to the same routes the same way. The relay's own failures are not
 // Anthropic-shaped; they are turned into `AiGatewayError` / `AiDeploymentError` here, so a caller
 // never reads them as a verdict on the user's key. An Anthropic-shaped error (passed through by the
 // relay unchanged) reaches the caller as a normal non-2xx Response.

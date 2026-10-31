@@ -111,7 +111,7 @@ describe("confirmAiDeployment", () => {
     ["the body is not a state", json({ off: "no" })],
     // Review 4, M3: the people lock is part of the answer; without it the answer is not trusted.
     ["the state says nothing about the people lock", json({ off: false, route: "direct", invalid: false, keyRestricted: false })],
-    ["the people lock is not a boolean", json({ off: false, route: "direct", invalid: false, peopleForced: "yes" })],
+    ["the people lock is not a boolean", json({ off: false, route: "direct", invalid: false, keyRestricted: false, peopleForced: "yes" })],
   ])("is unconfirmed when %s", async (_label, status) => {
     stubFetch(status);
     const err = await confirmAiDeployment().catch((e: unknown) => e);
