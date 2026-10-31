@@ -1,6 +1,6 @@
 "use client";
 
-import { AiPeopleProtectedContentError } from "./ai-privacy";
+import { AiPeopleProtectedContentError, holdsUnredactableContent } from "./ai-privacy";
 import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected } from "./ai-privacy-context";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
@@ -655,6 +655,19 @@ function ChatPanelInner({
   // composer's onChange clears it), is a message typed in the chat.
   const prefillOriginRef = useRef<{ prompt: string; originView: AppView; epoch: number } | null>(null);
 
+  // AI people protection (review 2, A): the transport refuses a protected request holding an image or a
+  // non-text document. Asked BEFORE a turn is committed, over what the send would post (the history fitted
+  // the same way), so a refused turn never lands in the history or the saved thread.
+  function peopleProtectedRefusal(
+    atts: readonly StagedAttachment[],
+    content: string | ContentBlock[],
+  ): "chatPeopleProtectedAttachment" | "chatPeopleProtectedContent" | null {
+    if (!peopleProtectedNow()) return null;
+    if (atts.some((a) => holdsUnredactableContent(a.blocks))) return "chatPeopleProtectedAttachment";
+    const outgoing = fitHistoryToBudget([...closeDanglingToolUses(history), { role: "user", content }], MAX_STAGED_PAYLOAD_BYTES);
+    return holdsUnredactableContent(outgoing) ? "chatPeopleProtectedContent" : null;
+  }
+
   // `opts.originView` (§703) is set only by an auto-sent seed: the page the request came from. A
   // prefilled seed's page comes from `prefillOriginRef` instead.
   async function submitPrompt(textArg?: string, opts?: { originView?: AppView }) {
@@ -667,6 +680,22 @@ function ChatPanelInner({
     if ((!text && atts.length === 0) || busy || abortRef.current !== null || guidesPending || proposalApplying) return;
     if (!effectiveApiKey.trim()) {
       setError(t(lang, "chatNoApiKey"));
+      return;
+    }
+    // With attachments the user turn is a multimodal content array (text first,
+    // then each document/image block); otherwise a plain string.
+    const content: string | ContentBlock[] =
+      atts.length > 0
+        ? [
+            ...(text ? [{ type: "text", text } as TextBlock] : []),
+            ...atts.flatMap((a) => a.blocks),
+          ]
+        : text;
+    const refusal = peopleProtectedRefusal(atts, content);
+    if (refusal !== null) {
+      // Refused BEFORE anything is committed: history, transcript and the saved thread stay as they
+      // were, and the composer keeps its text and attachments so the user can remove the image.
+      setError(t(lang, refusal));
       return;
     }
     const prefill = prefillOriginRef.current;
@@ -696,15 +725,6 @@ function ChatPanelInner({
     // exactly the replacements that make this send's workspace the wrong one.
     const sendEpoch = getScopeEpoch();
 
-    // With attachments the user turn is a multimodal content array (text first,
-    // then each document/image block); otherwise a plain string.
-    const content: string | ContentBlock[] =
-      atts.length > 0
-        ? [
-            ...(text ? [{ type: "text", text } as TextBlock] : []),
-            ...atts.flatMap((a) => a.blocks),
-          ]
-        : text;
     // Heal any dangling tool_use left by a prior truncated/stopped turn before
     // appending this turn — else the API 400s on the unmatched tool_use and the
     // chat wedges (every subsequent send re-posts the corrupt history).
@@ -1478,14 +1498,23 @@ function ChatPanelInner({
     // Collect every file's failure — a multi-file pick previously overwrote the
     // error state per file, so only the LAST failure was ever shown.
     const errors: string[] = [];
+    // Asked once per pick, from the same source the transport redacts with (layer 1).
+    const protectedNow = peopleProtectedNow();
     for (const file of Array.from(files)) {
       const result = await ingestFile(file);
       if (!result.ok) {
         errors.push(attachmentErrorText(result.error, file.name));
         continue;
       }
+      // AI people protection (review 2, A): an image or a non-text document cannot be redacted, so under
+      // protection it never reaches the composer — refused HERE with the reason, not by the transport
+      // after the turn is committed. A mail keeps its text (redacted on send) and loses only those parts.
+      const all = flattenIngestBlocks(result.node);
+      const blocks = protectedNow ? all.filter((b) => !holdsUnredactableContent(b)) : all;
+      if (blocks.length < all.length) errors.push(t(lang, "chatAttachmentPeopleProtected", file.name));
+      if (blocks.length === 0) continue;
       summaries.set(file.name, buildAttachmentSummary(lang, file.name, result.node));
-      read.push({ name: file.name, blocks: flattenIngestBlocks(result.node) });
+      read.push({ name: file.name, blocks });
     }
     const current = attachmentsRef.current;
     // The whole-batch ceilings first (§359): text and base64 across this pick

@@ -36,11 +36,13 @@ export function hasUnredactableContent(body: string): boolean {
   } catch {
     return false;
   }
-  return scan(parsed);
+  return holdsUnredactableContent(parsed);
 }
 
-function scan(v: unknown): boolean {
-  if (Array.isArray(v)) return v.some(scan);
+/** The same test over a value (a content block, a message, a history): the chat asks it when a file is
+ *  attached and before a turn is committed, so it never commits a turn the transport would refuse. */
+export function holdsUnredactableContent(v: unknown): boolean {
+  if (Array.isArray(v)) return v.some(holdsUnredactableContent);
   if (typeof v !== "object" || v === null) return false;
   const o = v as Record<string, unknown>;
   if (o.type === "image") return true;
@@ -48,5 +50,5 @@ function scan(v: unknown): boolean {
     const src = o.source as Record<string, unknown> | undefined;
     if (src?.type !== "text") return true;
   }
-  return Object.values(o).some(scan);
+  return Object.values(o).some(holdsUnredactableContent);
 }
