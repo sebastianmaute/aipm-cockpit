@@ -315,10 +315,23 @@ function isProtocolString(key: string, owner: Record<string, unknown>): boolean 
   if (PROTOCOL_KEYS.has(key)) return true;
   // A tool's own name (tool_use / server_tool_use block, tool_choice) — NOT a
   // `name` inside a tool INPUT, which is data the model wrote.
-  if (key === "name" && (owner.type === "tool_use" || owner.type === "server_tool_use" || owner.type === "tool")) return true;
-  // `data` is an opaque blob (base64, redacted thinking) — except a plain-text
-  // document source, whose `data` IS the attachment's readable text.
-  return key === "data" && owner.type !== "text";
+  // No `data` exemption: under protection `hasUnredactableContent` refuses every
+  // image and non-text document, so no base64 blob reaches this walk; a
+  // plain-text document's `data` IS readable text; `redacted_thinking` is
+  // passed whole by `redactValue`.
+  return key === "name" && (owner.type === "tool_use" || owner.type === "server_tool_use" || owner.type === "tool");
+}
+
+/** Every string value redacted, whatever its key: a tool `input` is data the
+ *  model wrote, and the transport restores real names into it, so a
+ *  protocol-named key there (`role`, `type`, `id`, `data`…) is content too. */
+function redactAll(v: unknown, s: RedactionSession): unknown {
+  if (typeof v === "string") return s.redact(v);
+  if (Array.isArray(v)) return v.map((x) => redactAll(x, s));
+  if (v === null || typeof v !== "object") return v;
+  const out: Record<string, unknown> = {};
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) out[k] = redactAll(x, s);
+  return out;
 }
 
 /** `top`: the request body itself, whose `tools` definitions pass untouched. */
@@ -331,7 +344,7 @@ function redactValue(v: unknown, s: RedactionSession, top = false): unknown {
   const out: Record<string, unknown> = {};
   for (const [k, x] of Object.entries(owner)) {
     const keep = (top && k === "tools") || (typeof x === "string" && isProtocolString(k, owner));
-    out[k] = keep ? x : redactValue(x, s);
+    out[k] = keep ? x : k === "input" ? redactAll(x, s) : redactValue(x, s);
   }
   return out;
 }

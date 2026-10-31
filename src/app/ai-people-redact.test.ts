@@ -210,7 +210,7 @@ describe("redactionSessionFor", () => {
 });
 
 describe("redactJsonBody / restoreJsonText", () => {
-  it("redacts string values, never keys, model, role, type, tool names, ids or base64 data", () => {
+  it("redacts string values, never keys, model, role, type, tool names or ids", () => {
     const s = fresh(dict(["Sofia Ramirez"]));
     const body = JSON.stringify({
       model: "Sofia Ramirez",
@@ -234,7 +234,10 @@ describe("redactJsonBody / restoreJsonText", () => {
     // F2c: tool definitions are app-authored; they are passed through untouched.
     expect(out.tools[0].description).toBe("about Sofia Ramirez");
     expect(out.messages[0].content[0].text).toBe("Ask [Person 1]");
-    expect(out.messages[0].content[1].source.data).toBe("Sofia Ramirez");
+    // Final review F1: no `data` exemption — under protection an image is refused
+    // before redaction (`hasUnredactableContent`), so none is ever walked here.
+    expect(out.messages[0].content[1].source.data).toBe("[Person 1]");
+    expect(out.messages[0].content[1].source.media_type).toBe("image/png");
     expect(out.messages[1].content[0].id).toBe("Sofia Ramirez");
     expect(out.messages[1].content[0].name).toBe("Sofia Ramirez");
     // A tool INPUT's `name` is data the model wrote — it is redacted.
@@ -245,7 +248,7 @@ describe("redactJsonBody / restoreJsonText", () => {
     expect(out.max_tokens).toBe(100);
   });
 
-  it("opaque blobs pass untouched: signature, base64 data, redacted_thinking", () => {
+  it("opaque blobs pass untouched: signature and redacted_thinking; other data is redacted", () => {
     const s = fresh(dict(["Sofia Ramirez"]));
     const body = JSON.stringify({ messages: [{ role: "assistant", content: [
       { type: "thinking", thinking: "Sofia Ramirez", signature: "Sofia Ramirez" },
@@ -256,8 +259,10 @@ describe("redactJsonBody / restoreJsonText", () => {
     const c = JSON.parse(redactJsonBody(body, s)).messages[0].content;
     expect(c[0]).toEqual({ type: "thinking", thinking: "[Person 1]", signature: "Sofia Ramirez" });
     expect(c[1]).toEqual({ type: "redacted_thinking", data: "Sofia Ramirez", note: "Sofia Ramirez" });
-    expect(c[2].source.data).toBe("Sofia Ramirez");
-    expect(c[3].source.data).toBe("Sofia Ramirez");
+    // Final review F1: the `data` exemption is gone (such blocks are refused
+    // before redaction under protection), so a `data` string is redacted.
+    expect(c[2].source.data).toBe("[Person 1]");
+    expect(c[3].source.data).toBe("[Person 1]");
   });
 
   // Deviation from F2c's "any data field", flagged in the report: a plain-text
@@ -268,6 +273,34 @@ describe("redactJsonBody / restoreJsonText", () => {
       { type: "document", source: { type: "text", media_type: "text/plain", data: "Sofia Ramirez" } },
     ] }] });
     expect(JSON.parse(redactJsonBody(body, s)).messages[0].content[0].source.data).toBe("[Person 1]");
+  });
+
+  // Final review F1: protocol-key and `data` exemptions stop at a tool INPUT —
+  // every string the model wrote there is data, whatever its key.
+  it("inside a tool_use input every string is redacted, protocol-named keys included", () => {
+    const s = fresh(dict(["Sofia Ramirez"]));
+    const body = JSON.stringify({ messages: [
+      { role: "assistant", content: [{ type: "tool_use", id: "toolu_1", name: "update_task", input: {
+        data: "Sofia Ramirez", role: "Sofia Ramirez", type: "Sofia Ramirez", id: "Sofia Ramirez",
+        model: "Sofia Ramirez", media_type: "Sofia Ramirez", signature: "Sofia Ramirez",
+        nested: { type: "redacted_thinking", data: "Sofia Ramirez", role: "Sofia Ramirez" },
+      } }] },
+      { role: "user", content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "owner Sofia Ramirez" }] },
+    ] });
+    const out = JSON.parse(redactJsonBody(body, s));
+    const block = out.messages[0].content[0];
+    expect(block.type).toBe("tool_use");
+    expect(block.id).toBe("toolu_1");
+    expect(block.name).toBe("update_task");
+    expect(block.input).toEqual({
+      data: "[Person 1]", role: "[Person 1]", type: "[Person 1]", id: "[Person 1]",
+      model: "[Person 1]", media_type: "[Person 1]", signature: "[Person 1]",
+      // Not passed whole as an opaque block: its data is redacted inside an input.
+      nested: { type: "redacted_thinking", data: "[Person 1]", role: "[Person 1]" },
+    });
+    expect(out.messages[0].role).toBe("assistant");
+    expect(out.messages[1].content[0].tool_use_id).toBe("toolu_1");
+    expect(out.messages[1].content[0].content).toBe("owner [Person 1]");
   });
 
   it("a body that is not JSON is redacted as plain text (never sent raw)", () => {
