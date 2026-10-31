@@ -527,9 +527,13 @@ describe("createKeyChecker — a cap on pre-flights in flight", () => {
     await vi.waitFor(() => expect(pending).toHaveLength(2));
     expect(await checker.check("k3", ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "unavailable" });
     expect(calls).toHaveLength(2);
-    expect(checker.size()).toBe(0);
     for (const call of pending) org(ORG)(call);
     expect(await Promise.all([first, second])).toEqual([{ kind: "pass" }, { kind: "pass" }]);
+    // Nothing was cached for k3: once a slot is free, it gets a pre-flight of its own.
+    const again = checker.check("k3", ORG_ONLY, ANTHROPIC, send);
+    await vi.waitFor(() => expect(pending).toHaveLength(3));
+    org(ORG)(pending[2]);
+    expect(await again).toEqual({ kind: "pass" });
   });
 
   it("a cached key is still answered at the cap: only a new pre-flight needs a slot", async () => {

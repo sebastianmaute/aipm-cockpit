@@ -398,7 +398,9 @@ which owns that list.
    answer `keyRestricted: true` and `invalid: false` (with `invalid: true`, its
    `invalidReason` names what to fix). Then open Settings → AI: the note under the key
    field must say that your organisation restricts which Anthropic organisation's keys
-   may be used. If either is missing, the server did not pick the setting up.
+   may be used (behind a gateway, that the gateway checks the key against your
+   organisation's key restriction). If either is missing, the server did not pick the
+   setting up.
 4. **What changes for users.** With no gateway set, AI goes by a third route, the
    relay: the browser calls this app's `/api/ai/*` and the server forwards to
    `https://api.anthropic.com`. The content security policy drops
