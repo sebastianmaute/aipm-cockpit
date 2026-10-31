@@ -102,11 +102,11 @@ export function groundRaciCells(
 
   // Milestones whose STORED Accountable this proposal demotes (a valid non-A
   // role for that holder). A second A proposed for such a milestone is a
-  // HANDOVER, and it is still refused rather than accepted: `onConfirm` applies
-  // whatever subset the user ticks and does not re-check uniqueness, so a user
-  // who unticked the demotion and kept the promotion would write TWO
-  // Accountables. Only the explanation changes (§43). First occurrence per cell
-  // only, matching the `seen` dedupe below.
+  // HANDOVER, accepted as a PAIR only when the milestone has exactly ONE stored
+  // holder and the proposal demotes that holder: both cells carry `pairKey`.
+  // That is safe only because the confirm path applies both halves or neither
+  // (Task 4); `onConfirm` alone does not re-check uniqueness. First occurrence
+  // per cell only, matching the `seen` dedupe below.
   const storedHolders = new Map<number, number[]>();
   for (const s of stakeholders) {
     for (const [key, role] of Object.entries(s.raci)) {
@@ -196,7 +196,9 @@ export function groundRaciCells(
 }
 
 /** Stamp `pairKey` on both cells of each handover. A new A whose demotion was
- *  cut by the cell cap is dropped: it would mint a second Accountable alone. */
+ *  cut by the cell cap is dropped: it would mint a second Accountable alone.
+ *  The dropped A appears in none of `cells`, `skipped` or `noOp`; only
+ *  `truncated` reports it. */
 function markHandoverPairs(
   cells: GroundedRaciCell[],
   paired: ReadonlySet<number>,

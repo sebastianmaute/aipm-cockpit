@@ -130,8 +130,44 @@ describe("groundRaciCells", () => {
     const withA = [sh(1, "Ada", { raci: { "10": "A" } }), sh(2, "Bo")];
     const g = groundRaciCells(proposal, withA, milestones);
     expect(g.skipped).toEqual([]);
-    expect(g.cells).toHaveLength(2);
-    expect(g.cells.every((c) => c.pairKey === "handover:10")).toBe(true);
+    expect(pairKeys(g).sort()).toEqual([[1, "R", "handover:10"], [2, "A", "handover:10"]]);
+  });
+
+  it("drops a new A whose demotion the cell cap cut, and reports only truncated", () => {
+    const fillers = Array.from({ length: MAX_RACI_CELLS - 1 }, (_, i) => sh(100 + i, `F${i}`));
+    const stored = [sh(1, "Ada", { raci: { "10": "A" } }), sh(2, "Bo"), ...fillers];
+    const proposal = [
+      { stakeholderId: 2, milestoneId: 10, role: "A" as const },
+      ...fillers.map((f) => ({ stakeholderId: f.id, milestoneId: 11, role: "R" as const })),
+      { stakeholderId: 1, milestoneId: 10, role: "R" as const },
+    ];
+    const g = groundRaciCells(proposal, stored, milestones);
+    expect(g.truncated).toBe(true);
+    expect(g.cells).toHaveLength(MAX_RACI_CELLS - 1);
+    expect(g.cells.some((c) => c.stakeholderId === 2)).toBe(false);
+    expect(g.cells.every((c) => c.pairKey === undefined)).toBe(true);
+    expect(g.skipped).toEqual([]);
+    expect(g.noOp).toBe(0);
+  });
+
+  it.each([
+    ["H R, H A, N A: the first H cell (a demotion) wins", [
+      { stakeholderId: 1, milestoneId: 10, role: "R" as const }, { stakeholderId: 1, milestoneId: 10, role: "A" as const }, { stakeholderId: 2, milestoneId: 10, role: "A" as const },
+    ], [[1, "R", "handover:10"], [2, "A", "handover:10"]]],
+    ["N R, N A, H R: N's later A is a duplicate cell and never lands", [
+      { stakeholderId: 2, milestoneId: 10, role: "R" as const }, { stakeholderId: 2, milestoneId: 10, role: "A" as const }, { stakeholderId: 1, milestoneId: 10, role: "R" as const },
+    ], [[1, "R", undefined], [2, "R", undefined]]],
+    ["H A, H R, N A: the first H cell is a re-assertion, so no demotion", [
+      { stakeholderId: 1, milestoneId: 10, role: "A" as const }, { stakeholderId: 1, milestoneId: 10, role: "R" as const }, { stakeholderId: 2, milestoneId: 10, role: "A" as const },
+    ], []],
+  ])("duplicate keys: first occurrence per cell wins (%s)", (_label, proposal, expected) => {
+    const withA = [sh(1, "Ada", { raci: { "10": "A" } }), sh(2, "Bo")];
+    const g = groundRaciCells(proposal, withA, milestones);
+    expect(pairKeys(g).sort()).toEqual(expected);
+    // Invariant: the cells never leave two Accountables for the milestone.
+    const after = new Map<number, string | undefined>([[1, "A"], [2, undefined]]);
+    for (const c of g.cells) after.set(c.stakeholderId, c.role);
+    expect([...after.values()].filter((r) => r === "A").length).toBeLessThanOrEqual(1);
   });
 
   it("a new A without the demotion is refused as accountable-needs-demotion", () => {
