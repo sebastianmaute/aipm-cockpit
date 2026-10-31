@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  AI_KEY_RESTRICTION_MISSPELLED_ENVS,
   AI_ORGANIZATION_ID_ENV,
   AI_WORKSPACE_IDS_ENV,
   parseAiKeyRestriction,
@@ -83,6 +84,43 @@ describe("parseAiKeyRestriction", () => {
 
   it("reports the organisation id before the workspace list", () => {
     expect(parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: "bad", AIPM_AI_WORKSPACE_IDS: "bad" })).toEqual({ kind: "invalid", reason: "org-id" });
+  });
+});
+
+describe("parseAiKeyRestriction — misspelled settings", () => {
+  const MISSPELLED = [
+    "AIPM_AI_ORGANISATION_ID",
+    "AIPM_AI_ORGANISATION_IDS",
+    "AIPM_AI_ORGANIZATION_IDS",
+    "AIPM_AI_WORKSPACE_ID",
+  ];
+
+  it("lists the four misspellings it guards against", () => {
+    expect([...AI_KEY_RESTRICTION_MISSPELLED_ENVS]).toEqual(MISSPELLED);
+  });
+
+  it.each(MISSPELLED)("%s alone is invalid, never silently unrestricted", (name) => {
+    expect(parseAiKeyRestriction({ [name]: ORG })).toEqual({ kind: "invalid", reason: "misspelled-setting" });
+  });
+
+  it.each(MISSPELLED)("%s beside a valid setting is still invalid", (name) => {
+    expect(parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG, AIPM_AI_WORKSPACE_IDS: WS_A, [name]: ORG })).toEqual({
+      kind: "invalid",
+      reason: "misspelled-setting",
+    });
+  });
+
+  it.each(MISSPELLED)("%s empty or blank is ignored", (name) => {
+    expect(parseAiKeyRestriction({ [name]: "" })).toEqual({ kind: "none" });
+    expect(parseAiKeyRestriction({ [name]: "   " })).toEqual({ kind: "none" });
+    expect(parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG, [name]: " " })).toMatchObject({ kind: "restricted" });
+  });
+
+  it("is reported before an invalid correctly spelled setting", () => {
+    expect(parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: "bad", AIPM_AI_WORKSPACE_ID: WS_A })).toEqual({
+      kind: "invalid",
+      reason: "misspelled-setting",
+    });
   });
 });
 

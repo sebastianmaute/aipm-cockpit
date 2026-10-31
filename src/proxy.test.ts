@@ -200,6 +200,13 @@ describe("proxy CSP — follows the key restriction", () => {
     expect(cspFor()).not.toContain("api.anthropic.com");
   });
 
+  it("drops it for a misspelled setting name (fails closed), without naming the value", () => {
+    vi.stubEnv("AIPM_AI_ORGANISATION_ID", ORG);
+    const csp = cspFor();
+    expect(csp).not.toContain("api.anthropic.com");
+    expect(csp).not.toContain(ORG);
+  });
+
   it("keeps it when no restriction is set and AI is not off", () => {
     vi.stubEnv("AIPM_AI_ORGANIZATION_ID", "");
     vi.stubEnv("AIPM_AI_WORKSPACE_IDS", "");

@@ -17,7 +17,8 @@ export type AiGatewayInvalidReason =
   | "token"
   | "org-id"
   | "workspace-ids"
-  | "workspaces-without-org";
+  | "workspaces-without-org"
+  | "misspelled-setting";
 export type AiDeploymentState = {
   off: boolean;
   route: AiRoute;

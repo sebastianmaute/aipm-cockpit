@@ -17,7 +17,8 @@ longer carries its own changelog comment.
   which checks which organisation and workspace the user's key belongs to before it forwards anything; a key from
   another organisation or workspace is refused, and the AI key banner and Settings → AI say why; a check that
   cannot be completed is named in Settings → AI and in the feature that failed, with a hint to try again. A
-  malformed setting switches AI off. Switching the restriction on or off asks every user to accept the AI data
+  malformed setting switches AI off, and so does a misspelled setting name (such as `AIPM_AI_ORGANISATION_ID`), so a
+  typo cannot leave the deployment unrestricted. Switching the restriction on or off asks every user to accept the AI data
   disclosure again, behind a gateway too. The check proves which organisation a key belongs to, not what
   that organisation's contract covers, and it governs only data this app sends; setup and limits are in
   `docs/RUNBOOK.md` and `docs/security.md`. Where the operator turns the restriction on, a tab left open from before

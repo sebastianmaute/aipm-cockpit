@@ -63,6 +63,11 @@ describe("GET /api/ai/status", () => {
       { AIPM_AI_WORKSPACE_IDS: "11111111-2222-3333-4444-555555555555" },
       { off: false, route: "relay", invalid: true, invalidReason: "workspaces-without-org", keyRestricted: true, peopleForced: false },
     ],
+    [
+      "key restriction setting misspelled",
+      { AIPM_AI_ORGANISATION_ID: "11111111-2222-3333-4444-555555555555" },
+      { off: false, route: "relay", invalid: true, invalidReason: "misspelled-setting", keyRestricted: true, peopleForced: false },
+    ],
   ])("%s → 200 with the state, no-store", async (_name, env, expected) => {
     const { res, text } = await status(env);
     expect(res.status).toBe(200);

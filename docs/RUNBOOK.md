@@ -382,15 +382,24 @@ which owns that list.
    ```
    Both are read from the server's environment (`process.env`), which a running server does
    not re-read: a change needs a server restart; no rebuild.
-   A malformed value, an empty list item, or workspace ids without an organisation id
-   switch AI off for the whole deployment (reason codes `org-id`, `workspace-ids`,
-   `workspaces-without-org`) instead of letting keys through. As with the gateway
+   A malformed value, an empty list item, workspace ids without an organisation id, or
+   a misspelled setting name switch AI off for the whole deployment (reason codes
+   `org-id`, `workspace-ids`, `workspaces-without-org`, `misspelled-setting`) instead of
+   letting keys through. The misspelling guard treats `AIPM_AI_ORGANISATION_ID`,
+   `AIPM_AI_ORGANISATION_IDS`, `AIPM_AI_ORGANIZATION_IDS` and `AIPM_AI_WORKSPACE_ID`,
+   when set to anything but blanks, as an invalid setting even beside the correctly
+   spelled ones, so a typo cannot leave the deployment unrestricted. As with the gateway
    settings, the code is logged once per server process, as
    `ai key restriction invalid: <reason>`, and `GET /api/ai/status`
    answers `invalid: true` with it as `invalidReason`; any invalid setting, the
    gateway's or this one, refuses every AI call. The status answer carries only
    `keyRestricted: true`, never the ids.
-3. **What changes for users.** With no gateway set, AI goes by a third route, the
+3. **Check it.** After the restart, open `GET /api/ai/status` on the deployment: it must
+   answer `keyRestricted: true` and `invalid: false` (with `invalid: true`, its
+   `invalidReason` names what to fix). Then open Settings → AI: the note under the key
+   field must say that your organisation restricts which Anthropic organisation's keys
+   may be used. If either is missing, the server did not pick the setting up.
+4. **What changes for users.** With no gateway set, AI goes by a third route, the
    relay: the browser calls this app's `/api/ai/*` and the server forwards to
    `https://api.anthropic.com`. The content security policy drops
    `api.anthropic.com` whenever the restriction is set or invalid. The relay route has
@@ -404,7 +413,7 @@ which owns that list.
    each AI call it asks `GET /api/ai/status`, and when the route or `keyRestricted`
    differs from what the page loaded with, the call is refused as a changed deployment
    and the user is asked to reload.
-4. **How a key is checked.** Before the first call with a key, the server sends a free
+5. **How a key is checked.** Before the first call with a key, the server sends a free
    `GET /v1/models?limit=1` with that key and reads the answer headers
    `anthropic-organization-id` and `anthropic-workspace-id`. Several first requests with
    the same key share one check.
@@ -428,14 +437,14 @@ which owns that list.
      one invalid key send one check, not one each; the `403` is not cached. Through a gateway, a `401` or `403` that is not Anthropic's own (the
      gateway refusing its token) answers `502` `ai-gateway-rejected`, as any gateway
      refusal does.
-5. **Combining it with a gateway.** With `AIPM_AI_GATEWAY_URL` set too, calls stay on the
+6. **Combining it with a gateway.** With `AIPM_AI_GATEWAY_URL` set too, calls stay on the
    gateway route and the check goes through the gateway with its token, sending
    `cf-aig-skip-cache: true` so that a cached answer for another key can never pass.
    ★★ **The gateway must pass Anthropic's two answer headers through.** A gateway that
    drops them makes every check "unavailable": AI stays off for everyone. Such a
    gateway cannot be combined with the restriction; check with Settings → AI after
    turning it on.
-6. **Desktop.** The desktop app's server child receives the operating system's
+7. **Desktop.** The desktop app's server child receives the operating system's
    environment variables (`desktop/src/server-child.ts` copies `process.env`), so set
    both variables in the environment the desktop app starts in.
 

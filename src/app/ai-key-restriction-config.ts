@@ -1,5 +1,5 @@
 // SERVER-ONLY. Reads the deployment's Anthropic key restriction from the environment
-// (AIPM_AI_ORGANIZATION_ID, AIPM_AI_WORKSPACE_IDS) on every call, like the gateway setting, so a
+// (AIPM_AI_ORGANIZATION_ID, AIPM_AI_WORKSPACE_IDS, and four misspellings that make it invalid) on every call, like the gateway setting, so a
 // restart applies a change and no rebuild is needed. Import this from `ai-gateway-config.ts`,
 // `src/proxy.ts` and API routes only; a test pins that no client module imports it.
 //
@@ -10,7 +10,17 @@
 export const AI_ORGANIZATION_ID_ENV = "AIPM_AI_ORGANIZATION_ID";
 export const AI_WORKSPACE_IDS_ENV = "AIPM_AI_WORKSPACE_IDS";
 
-export type AiKeyRestrictionInvalidReason = "org-id" | "workspace-ids" | "workspaces-without-org";
+/** Near misses of the two names above. Any of them set (non-blank) makes the restriction invalid,
+ *  even beside correctly spelled settings: a misspelled name would otherwise be ignored and the
+ *  deployment would run unrestricted without saying so. */
+export const AI_KEY_RESTRICTION_MISSPELLED_ENVS = [
+  "AIPM_AI_ORGANISATION_ID",
+  "AIPM_AI_ORGANISATION_IDS",
+  "AIPM_AI_ORGANIZATION_IDS",
+  "AIPM_AI_WORKSPACE_ID",
+] as const;
+
+export type AiKeyRestrictionInvalidReason = "org-id" | "workspace-ids" | "workspaces-without-org" | "misspelled-setting";
 
 export type AiKeyRestriction =
   | { kind: "none" }
@@ -34,6 +44,9 @@ const WORKSPACE_ID_SHAPE = /^wrkspc_[A-Za-z0-9]+$/;
 /** The setting, parsed, with no side effect. The organisation id compares case-insensitively and is
  *  lower-cased; workspace ids are kept exactly as written and compare exactly. */
 export function parseAiKeyRestriction(env: Env): AiKeyRestriction {
+  if (AI_KEY_RESTRICTION_MISSPELLED_ENVS.some((name) => (env[name]?.trim() ?? "") !== "")) {
+    return { kind: "invalid", reason: "misspelled-setting" };
+  }
   const org = env[AI_ORGANIZATION_ID_ENV]?.trim() ?? "";
   const rawWorkspaces = env[AI_WORKSPACE_IDS_ENV]?.trim() ?? "";
   if (!org && !rawWorkspaces) return { kind: "none" };
