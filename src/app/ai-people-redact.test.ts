@@ -659,3 +659,26 @@ describe("the redaction cache's bounds (follow-up m2)", () => {
     expect(redactionCacheUse(s).entries).toBe(2);
   });
 });
+
+// Follow-up m3: one session per project-key list, kept for the tab's lifetime. Only the WARM_SESSIONS most recently
+// asked-for sessions keep their redaction cache (it holds original text); older ones keep only their placeholder maps.
+describe("only the most recently used sessions keep a cache (follow-up m3)", () => {
+  const people = dict(["Sofia Ramirez"]);
+  const text = "Sofia Ramirez owns the cutover";
+
+  it("the oldest session's cache is dropped once eight newer sessions are asked for; its placeholders still restore", () => {
+    const oldest = redactionSessionFor(["m3-oldest"], [people]);
+    expect(oldest.redact(text)).toBe("[Person 1] owns the cutover");
+    for (let k = 1; k <= 7; k++) redactionSessionFor([`m3-${k}`], [people]).redact(text);
+    expect(redactionCacheUse(oldest).entries).toBe(1); // 8 sessions: all warm
+    redactionSessionFor(["m3-8"], [people]).redact(text);
+    expect(redactionCacheUse(oldest)).toEqual({ entries: 0, chars: 0 });
+    expect(redactionCacheUse(redactionSessionFor(["m3-8"], [people])).entries).toBe(1);
+    expect(oldest.restore("[Person 1] agreed")).toBe("Sofia Ramirez agreed");
+    // Asked for again, it is the most recent: same numbering, and it caches again.
+    const again = redactionSessionFor(["m3-oldest"], [people]);
+    expect(again).toBe(oldest);
+    expect(again.redact(text)).toBe("[Person 1] owns the cutover");
+    expect(redactionCacheUse(again).entries).toBe(1);
+  });
+});

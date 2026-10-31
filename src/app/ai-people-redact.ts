@@ -410,22 +410,37 @@ class Session implements RedactionSession {
     return { ...this.tally };
   }
 
+  /** Follow-up m3: drop the cache (it holds original text). The placeholder maps stay, so a reply still restores. */
+  dropCache(): void {
+    this.cache.clear();
+    this.cachedChars = 0;
+  }
+
   cacheUse(): { entries: number; chars: number } {
     return { entries: this.cache.size, chars: this.cachedChars };
   }
 }
 
-/** Browser-session memo: one session per sorted project-key list. Never persisted. */
+/** Browser-session memo: one session per sorted project-key list, least recently asked for first. Never persisted.
+ *  Follow-up m3: each session's cache may hold up to its character bound of original text with real names in it, so
+ *  only the WARM_SESSIONS most recently asked-for sessions keep one; an older session drops its cache and keeps its
+ *  placeholder maps (small: one entry per person, email, phone or IBAN it has replaced), so a reply to a request it
+ *  redacted still restores, and its numbering stays stable if it is asked for again. A cold session a caller still
+ *  holds (a reply in flight) may cache again until the next call here drops it. */
 const sessions = new Map<string, Session>();
+const WARM_SESSIONS = 8;
 
 /** The session for these projects, its dictionary the union of `dicts`.
  *  Placeholders already issued stay stable as the dictionaries grow. */
 export function redactionSessionFor(projectKeys: readonly string[], dicts: readonly PeopleDictionary[]): RedactionSession {
   const id = JSON.stringify([...projectKeys].sort());
-  let s = sessions.get(id);
-  if (!s) {
-    s = new Session();
-    sessions.set(id, s);
+  const s = sessions.get(id) ?? new Session();
+  sessions.delete(id);
+  sessions.set(id, s); // now the most recently asked for
+  let cold = sessions.size - WARM_SESSIONS;
+  for (const old of sessions.values()) {
+    if (cold-- <= 0) break;
+    old.dropCache();
   }
   s.setDictionaries(dicts);
   return s;
