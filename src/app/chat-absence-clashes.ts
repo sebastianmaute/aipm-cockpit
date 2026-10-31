@@ -10,7 +10,7 @@
 import type { AbsenceClash, AbsenceCtx } from "./absence-clash";
 import { describeProposal } from "./chat-proposal-describe";
 import type { ProposedCall } from "./chat-proposal";
-import type { Workspace } from "./workspace";
+import { emptyWorkspace, type Workspace } from "./workspace";
 
 /** The chat tools that set a task's or a milestone's date — the only calls judged. */
 export const DATE_WRITE_TOOLS: ReadonlySet<string> = new Set([
@@ -22,4 +22,12 @@ export function callAbsenceClashes(call: ProposedCall, ws: Workspace, absence: A
   if (!DATE_WRITE_TOOLS.has(call.name)) return [];
   const [row] = describeProposal([call], ws, undefined, undefined, absence);
   return row ? row.plan.clashes.map((note) => note.clash) : [];
+}
+
+/** The workspace the dispatcher's backstop (`absenceClashesFor`) judges against: the live tasks, milestones,
+ *  resources and absences, every other slice empty. The four date tools' judgment reads only those
+ *  (`describeProposal` → `describeEntityCalls` → `plan-clashes.ts`); a parity test against a fully populated
+ *  workspace pins it (§773 P-2), so a judgment that starts reading another slice fails there, not in silence. */
+export function backstopWorkspace(live: Pick<Workspace, "tasks" | "milestones" | "resources" | "absences">): Workspace {
+  return { ...emptyWorkspace(), tasks: live.tasks, milestones: live.milestones, resources: live.resources, absences: live.absences };
 }

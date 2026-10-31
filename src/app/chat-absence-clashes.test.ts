@@ -2,7 +2,7 @@
 // tools' results share. It reads the SAME plan the review card shows (`describeProposal`), so the card, the
 // gate and the tool result cannot disagree.
 import { describe, expect, it } from "vitest";
-import { callAbsenceClashes, DATE_WRITE_TOOLS } from "./chat-absence-clashes";
+import { backstopWorkspace, callAbsenceClashes, DATE_WRITE_TOOLS } from "./chat-absence-clashes";
 import type { AbsenceCtx } from "./absence-clash";
 import type { Workspace } from "./workspace";
 import type { Absence, Milestone, Resource, Task } from "./types";
@@ -62,5 +62,61 @@ describe("callAbsenceClashes (§773)", () => {
   it("any other tool is never judged", () => {
     expect(callAbsenceClashes({ name: "update_raid_item", input: { id: 1, dueDate: "2026-11-05" } }, ws, absence)).toEqual([]);
     expect(callAbsenceClashes({ name: "create_absence", input: { assignee: "Maya Patel", startDate: "2026-11-05", endDate: "2026-11-05" } }, ws, absence)).toEqual([]);
+  });
+});
+
+// §773 P-2 — the dispatcher's backstop judges a workspace holding only tasks, milestones, resources and absences
+// (`backstopWorkspace`). Pinned: on a workspace with every other slice populated, the four date tools give the
+// same answer against the full workspace and the stripped one, clashing and not.
+describe("callAbsenceClashes — the backstop's stripped workspace (§773 P-2)", () => {
+  const liam = { id: 2, firstName: "Liam", lastName: "Foster", email: "liam@example.com" } as Resource;
+  const liamTask = { id: 43, taskName: "Write the notes", assignee: "Liam Foster", resourceId: 2, dueDate: "2026-11-20", status: "To Do", priority: "Medium" } as Task;
+  const full = {
+    ...ws,
+    tasks: [mayaTask, liamTask],
+    resources: [maya, liam],
+    raid: [{ id: 5, category: "R", title: "Vendor slips", status: "Open", linkedTaskIds: [42, 43], raisedDate: "2026-10-01", causedByRaidIds: [], stakeholderIds: [9] }],
+    changes: [{ id: 6, title: "Scope add", status: "Proposed", type: "Scope", raisedDate: "2026-10-01", linkedTaskIds: [42], linkedRaidIds: [5], stakeholderIds: [9] }],
+    stakeholders: [{ id: 9, name: "Sofia Ramirez", category: "Sponsor", influence: "High", interest: "High" }],
+    shifts: [{ id: 1, resourceId: 1, date: "2026-11-05", start: "08:00", end: "16:00" }],
+    roles: [{ id: 1, name: "Engineer" }],
+    budgets: [{ id: 1, name: "Build", amount: 1000 }],
+    calendarEvents: [{ id: 1, title: "Standup", date: "2026-11-05", attendeeResourceIds: [1] }],
+    documents: [{ id: "d1", title: "Plan", blocks: [] }],
+    status: { overall: "green" },
+  } as unknown as Workspace;
+  const stripped = backstopWorkspace(full);
+  const fullAbsence: AbsenceCtx = { absences: [MAYA_WEEK], resources: [maya, liam], holidaySet: new Set() };
+  const calls = [
+    { name: "update_task", input: { id: 42, dueDate: "2026-11-05" } },
+    { name: "update_task", input: { id: 42, dueDate: "2026-11-13" } },
+    { name: "update_task", input: { id: 43, assignee: "Maya Patel", dueDate: "2026-11-04" } },
+    { name: "update_task", input: { id: 43, assignee: "Maya Patel" } },
+    { name: "create_task", input: { taskName: "New", assignee: "Maya Patel", dueDate: "2026-11-06" } },
+    { name: "create_task", input: { taskName: "New", assignee: "Maya Patel", dueDate: "2026-11-16" } },
+    { name: "update_milestone", input: { id: 7, date: "2026-11-05" } },
+    { name: "update_milestone", input: { id: 7, date: "2026-11-19" } },
+    { name: "update_milestone", input: { id: 7, linkedTaskIds: [42, 43] } },
+    { name: "create_milestone", input: { name: "Beta", date: "2026-11-04", linkedTaskIds: [42, 43] } },
+    { name: "create_milestone", input: { name: "Beta", date: "2026-11-18", linkedTaskIds: [42, 43] } },
+  ];
+
+  it("keeps only the four slices it is said to read", () => {
+    expect(stripped.tasks).toBe(full.tasks);
+    expect(stripped.milestones).toBe(full.milestones);
+    expect(stripped.resources).toBe(full.resources);
+    expect(stripped.absences).toBe(full.absences);
+    expect(stripped.raid).toEqual([]);
+    expect(stripped.stakeholders).toEqual([]);
+  });
+
+  it.each(calls.map((c) => [`${c.name} ${JSON.stringify(c.input)}`, c] as const))("%s: same answer", (_label, c) => {
+    expect(callAbsenceClashes(c, stripped, fullAbsence)).toEqual(callAbsenceClashes(c, full, fullAbsence));
+  });
+
+  it("the fixture exercises both answers (anti-vacuity)", () => {
+    const answers = calls.map((c) => callAbsenceClashes(c, full, fullAbsence).length);
+    expect(answers.filter((n) => n > 0).length).toBeGreaterThanOrEqual(5);
+    expect(answers.filter((n) => n === 0).length).toBeGreaterThanOrEqual(5);
   });
 });

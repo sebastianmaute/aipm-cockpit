@@ -58,8 +58,7 @@ import { useRegisterTools } from "./use-register-tools";
 import { useForecastTools } from "./use-forecast-tools";
 import { useProjectTools } from "./use-project-tools";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
-import { callAbsenceClashes } from "./chat-absence-clashes";
-import { emptyWorkspace, type Workspace } from "./workspace";
+import { backstopWorkspace, callAbsenceClashes } from "./chat-absence-clashes";
 import type { AppView } from "./nav-config";
 export type { ChatDispatcherArgs };
 
@@ -407,12 +406,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         return note;
       },
       // §773 — the live slices, judged by the same function as the staging gate and the review card.
-      // ★ For the four date tools that path reads only tasks, milestones, resources and absences (read
-      //  2026-10-30: `describeProposal` → `describeEntityCalls` → `plan-clashes.ts`), so the rest stays empty.
+      // ★ `backstopWorkspace` keeps only the four slices that judgment reads; its parity test pins that.
       absenceClashesFor: (name, input) => {
         const resources = resourcesRef.current;
         const absences = absencesRef.current;
-        const ws: Workspace = { ...emptyWorkspace(), tasks: tasksRef.current, milestones: milestonesRef.current, resources, absences };
+        const ws = backstopWorkspace({ tasks: tasksRef.current, milestones: milestonesRef.current, resources, absences });
         return callAbsenceClashes({ name, input }, ws, { absences, resources, holidaySet: holidaySetRef.current });
       },
       createTask: (input) => {
