@@ -534,3 +534,72 @@ describe("relay — logs nothing secret", () => {
     }
   });
 });
+
+const ORG = "11111111-2222-3333-4444-555555555555";
+const RESTRICTED_ENV = { AIPM_AI_ORGANIZATION_ID: ORG };
+
+describe("relay — straight to Anthropic when keys are restricted and there is no gateway", () => {
+  it("a Messages call goes to api.anthropic.com with the four forwarded headers and no gateway token", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const res = await relay(post({ "anthropic-beta": "b1", cookie: "session=1" }), "messages", RESTRICTED_ENV, send);
+    expect(res.status).toBe(200);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url.href).toBe("https://api.anthropic.com/v1/messages");
+    expect(calls[0].options.method).toBe("POST");
+    const headers = calls[0].options.headers as Record<string, string>;
+    expect(Object.keys(headers).sort()).toEqual(
+      ["anthropic-beta", "anthropic-version", "content-length", "content-type", "x-api-key"],
+    );
+    expect(headers["x-api-key"]).toBe(KEY);
+    expect(headers["cf-aig-authorization"]).toBeUndefined();
+  });
+
+  it("a models call goes to /v1/models?limit=1000", async () => {
+    const { send, calls } = fakeSend(respondWith(200, "{}"));
+    await relay(getModels(), "models", RESTRICTED_ENV, send);
+    expect(calls[0].url.href).toBe("https://api.anthropic.com/v1/models?limit=1000");
+    expect(calls[0].options.method).toBe("GET");
+  });
+
+  it("an invalid restriction → 503 ai-gateway-invalid, nothing sent", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", { AIPM_AI_ORGANIZATION_ID: "not-an-id" }, send);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "ai-gateway-invalid" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a call without a key of its own is still refused with 400", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post({ "x-api-key": " " }), "messages", RESTRICTED_ENV, send);
+    expect(res.status).toBe(400);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a gateway wins over the restriction: gateway URL and token", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    await relay(post(), "messages", { ...GATEWAY_ENV, ...RESTRICTED_ENV }, send);
+    expect(calls[0].url.href).toBe(`${BASE}/v1/messages`);
+    expect((calls[0].options.headers as Record<string, string>)["cf-aig-authorization"]).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it("an invalid gateway URL wins over a valid restriction: 503, nothing sent", async () => {
+    const { send, calls } = fakeSend();
+    const res = await relay(post(), "messages", { AIPM_AI_GATEWAY_URL: "http://insecure.example.com", ...RESTRICTED_ENV }, send);
+    expect(res.status).toBe(503);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("a gateway token with no URL does not win over the restriction", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    await relay(post(), "messages", { AIPM_AI_GATEWAY_TOKEN: TOKEN, ...RESTRICTED_ENV }, send);
+    expect(calls[0].url.href).toBe("https://api.anthropic.com/v1/messages");
+    expect((calls[0].options.headers as Record<string, string>)["cf-aig-authorization"]).toBeUndefined();
+  });
+
+  it("neither set → 404 as before", async () => {
+    const { send, calls } = fakeSend();
+    expect((await relay(post(), "messages", {}, send)).status).toBe(404);
+    expect(calls).toHaveLength(0);
+  });
+});

@@ -1,6 +1,7 @@
-// Same-origin relay from the browser to the deployment's AI gateway
-// (AIPM_AI_GATEWAY_URL). Used only when the deployment routes AI through a gateway;
-// a direct deployment answers 404 and the browser calls the provider itself.
+// Same-origin relay from the browser to the deployment's AI upstream: the AI gateway
+// (AIPM_AI_GATEWAY_URL) when one is set, otherwise api.anthropic.com itself when the
+// operator restricts keys to an organisation (AIPM_AI_ORGANIZATION_ID). A direct
+// deployment with no restriction answers 404 and the browser calls the provider itself.
 //
 // What it does and does not do:
 //   - forwards only `x-api-key`, `anthropic-version`, `anthropic-beta` and
@@ -19,7 +20,8 @@
 import { request as httpsRequest } from "node:https";
 import type { RequestOptions } from "node:http";
 import { refuseIfDisabled } from "../_shared/integration-switch";
-import { readAiGatewayConfig } from "../../ai-gateway-config";
+import { readAiGatewayConfig, type AiGatewayConfig } from "../../ai-gateway-config";
+import { readAiKeyRestriction, type AiKeyRestriction } from "../../ai-key-restriction-config";
 import { AI_GATEWAY_ERROR, AI_GATEWAY_INVALID, AI_GATEWAY_RATE_LIMITED, AI_GATEWAY_REJECTED } from "../../ai-errors";
 
 // Anthropic's documented maximum request size for Messages and Token Counting is
@@ -40,6 +42,26 @@ export const NOT_SAME_ORIGIN = "not-same-origin";
 export const MISSING_API_KEY = "missing-api-key";
 
 export type RelayOp = "messages" | "models";
+
+export const ANTHROPIC_API_BASE = "https://api.anthropic.com";
+
+/**
+ * Where a relayed call goes. A gateway URL (valid or invalid) always wins; with none, a
+ * restriction sends the call straight to Anthropic, with no gateway token. "invalid" = refuse
+ * (503), "not-found" = a direct deployment (404). Fail closed: an invalid restriction never
+ * falls through to a direct call.
+ */
+export function upstreamFor(
+  gateway: AiGatewayConfig,
+  restriction: AiKeyRestriction,
+): { baseUrl: string; token: string | null } | "not-found" | "invalid" {
+  if (gateway.kind === "gateway") return { baseUrl: gateway.baseUrl, token: gateway.token };
+  // A token with no URL is not a gateway URL: it does not win over a restriction.
+  if (gateway.kind === "invalid" && gateway.reason !== "token-without-url") return "invalid";
+  if (restriction.kind === "invalid") return "invalid";
+  if (restriction.kind === "restricted") return { baseUrl: ANTHROPIC_API_BASE, token: null };
+  return gateway.kind === "invalid" ? "invalid" : "not-found";
+}
 
 const FORWARDED_HEADERS = ["x-api-key", "anthropic-version", "anthropic-beta", "content-type"] as const;
 
@@ -293,9 +315,9 @@ export async function relay(
 ): Promise<Response> {
   const refused = refuseIfDisabled("ai", env);
   if (refused) return refused;
-  const config = readAiGatewayConfig(env);
-  if (config.kind === "invalid") return fail(503, AI_GATEWAY_INVALID);
-  if (config.kind === "direct") return new Response(null, { status: 404 });
+  const config = upstreamFor(readAiGatewayConfig(env), readAiKeyRestriction(env));
+  if (config === "invalid") return fail(503, AI_GATEWAY_INVALID);
+  if (config === "not-found") return new Response(null, { status: 404 });
   if (!isSameOrigin(request)) return fail(403, NOT_SAME_ORIGIN);
   // The gateway token is attached to every relayed call, and a gateway can hold a
   // stored provider key; a call without a key of its own must never reach it.
