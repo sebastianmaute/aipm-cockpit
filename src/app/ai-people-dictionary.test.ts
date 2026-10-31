@@ -3,12 +3,19 @@ import { join } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { buildPeopleDictionary, NOT_PERSON_FIELDS, PERSON_FIELD_PATHS } from "./ai-people-dictionary";
-import { redactionSessionFor } from "./ai-people-redact";
+import { redactionSessionFor, redactJsonBody } from "./ai-people-redact";
 import type { Insight } from "./insights/insight";
 import type {
   Absence, ChangeItem, NoteLogEntry, ProjectMeta, RaidItem, Resource, Shift, Stakeholder, Task,
 } from "./types";
 import { emptyWorkspace, type Workspace } from "./workspace";
+import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAwaySummary } from "./absence-clash";
+import { isoAddDays } from "./due-dates";
+import { buildRecommendContext, recommendPeople } from "./insights/recommend-context";
+import { buildProjectAnalysisInput } from "./project-analysis-input";
+import { buildProjectDigest } from "./project-digest";
+import { defaultSettings } from "./settings-types";
+import { buildWbsContext } from "./wbs-plan/wbs-plan";
 
 // Partial<T> checks every key against the real type, so a renamed field fails tsc here.
 const task = (p: Partial<Task>) => p as Task;
@@ -275,5 +282,74 @@ describe("role and team values in person fields (review 2, D)", () => {
   it("a resource whose name is a role word stays a person", () => {
     const ws: Workspace = { ...emptyWorkspace(), resources: [{ id: 1, firstName: "Sales", lastName: "" } as Resource], tasks: [task({ id: 1, assignee: "Sales" })] };
     expect(buildPeopleDictionary(ws).names).toEqual(["Sales"]);
+  });
+});
+
+// Coordinator question (2026-10-31): a person known ONLY through a one-word lowercase stored name must be redacted
+// wherever the name appears, through the real dictionary builder and the redactor. Ruling R1: a one-word entry the
+// dictionary spells NOT capitalised has no capitalised form to tell a common word apart by, so it matches in any case;
+// a capitalised entry stays case-gated, so its lowercase spelling in free text is left in clear.
+describe("one-word stored names and the case gate (ruling R1)", () => {
+  let rKey = 0;
+  const sessionFor = (ws: Workspace) => redactionSessionFor([`r1-${++rKey}`], [buildPeopleDictionary(ws)]);
+
+  it("R1: a person known only as the lowercase absence assignee 'dorrin' is redacted in every spelling", () => {
+    const ws: Workspace = { ...emptyWorkspace(), absences: [{ id: 1, assignee: "dorrin" } as Absence] };
+    expect(buildPeopleDictionary(ws).names).toEqual(["dorrin"]);
+    const s = sessionFor(ws);
+    expect(s.redact("dorrin is away; ask Dorrin or DORRIN, or dorrin's deputy")).toBe(
+      "[Person 1] is away; ask [Person 1] or [Person 1], or [Person 1]'s deputy",
+    );
+    const body = redactJsonBody(JSON.stringify({ messages: [{ role: "user", content: "Who covers for dorrin?" }] }), s);
+    expect(body).not.toMatch(/dorrin/i);
+    expect(s.restore("[Person 1] is back")).toBe("dorrin is back");
+  });
+
+  it("R1: a person stored as 'Dorrin' (capitalised) typed lowercase as 'dorrin' in free text stays in clear", () => {
+    const ws: Workspace = { ...emptyWorkspace(), absences: [{ id: 1, assignee: "Dorrin" } as Absence] };
+    const s = sessionFor(ws);
+    expect(s.redact("dorrin is away")).toBe("dorrin is away");
+    expect(s.redact("Dorrin is away")).toBe("[Person 1] is away");
+  });
+});
+
+// Coordinator follow-up after #923: the AWAY lines (§773) put an absence's assignee into the AI context. A person known
+// ONLY as the lowercase "dorrin" through an absence must not reach the AI in clear in any of them, nor anywhere else in
+// those contexts. Each context is built by its real builder; the redaction is the transport's (`redactJsonBody` over a
+// Messages body) with the session `aiPrivacyFor` builds (`buildPeopleDictionary` of the project).
+describe("R1 through the AWAY lines (§773)", () => {
+  const TODAY = "2026-11-02";
+  const ws: Workspace = {
+    ...emptyWorkspace(),
+    absences: [{ id: 1, assignee: "dorrin", startDate: "2026-11-04", endDate: "2026-11-06", type: "vacation" } as Absence],
+    tasks: [],
+  };
+  const contexts: Record<string, string> = {
+    "project digest (action analysis, scheduled analysis)": buildProjectDigest(
+      buildProjectAnalysisInput({ workspace: ws, deviceSettings: defaultSettings, lang: "en-US", now: new Date(`${TODAY}T09:00:00.000Z`) }).digestInput,
+    ),
+    "insight recommendation": buildRecommendContext({
+      peopleProtected: true, projectName: "Harbour", today: TODAY, insightType: "overdueTasks", severity: "medium", data: {},
+      relatedTasks: [], people: recommendPeople([], ws.tasks.map((t) => t.assignee), []), absences: ws.absences, resources: ws.resources,
+    } as Parameters<typeof buildRecommendContext>[0]),
+    "WBS proposal": buildWbsContext({
+      tasks: ws.tasks, scopeIds: new Set<number>(), milestones: [], project: ws.project, absences: ws.absences, resources: ws.resources, today: TODAY,
+    }),
+    "meeting report (use-meeting-report-actions)": buildAwaySummary({
+      absences: ws.absences, resources: ws.resources, from: TODAY, to: isoAddDays(TODAY, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,
+    }).join("\n"),
+  };
+
+  it("R1: a person known only as the lowercase absence assignee 'dorrin' is in no AWAY line, nor anywhere, the AI is sent", () => {
+    expect(buildPeopleDictionary(ws).names).toEqual(["dorrin"]);
+    const s = redactionSessionFor(["r1-away"], [buildPeopleDictionary(ws)]);
+    for (const [name, context] of Object.entries(contexts)) {
+      // Anti-vacuity: the context does carry the AWAY line naming her.
+      expect(context, name).toMatch(/^AWAY \(/m);
+      expect(context, name).toContain('name: "dorrin" away 2026-11-04..2026-11-06');
+      const body = redactJsonBody(JSON.stringify({ model: "m", messages: [{ role: "user", content: context }] }), s);
+      expect(body, name).not.toMatch(/dorrin/i);
+      expect(body, name).toContain('name: \\"[Person 1]\\" away 2026-11-04..2026-11-06');
+    }
   });
 });

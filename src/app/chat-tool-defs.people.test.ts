@@ -66,6 +66,30 @@ describe("advertisement gate", () => {
     expect(JSON.stringify(createTask)).toContain("absenceClashes");
   });
 
+  // Follow-up: get_task told the model to use get_contact_email, which a protected request withholds. Every tool text
+  // a protected request advertises (descriptions and parameter descriptions, every tool, every flag combination) must
+  // name no withheld people tool. Both lists are derived: withheld = PEOPLE_TOOLS minus what the request carries.
+  it("no tool text a protected request advertises names a withheld people tool", () => {
+    const offenders = new Set<string>();
+    let checked = 0;
+    for (const historySearch of [false, true]) for (const chatSearch of [false, true]) for (const forecast of [false, true]) {
+      const flags: ToolFlags = { historySearch, chatSearch, forecast, peopleProtected: true };
+      const advertised = toolsFor(flags);
+      const carried = toolNamesFor(flags);
+      const withheld = [...PEOPLE_TOOLS].filter((n) => !carried.has(n));
+      expect(withheld.length).toBeGreaterThan(0);
+      for (const def of advertised) {
+        const text = JSON.stringify(def);
+        checked += 1;
+        for (const name of withheld) if (new RegExp(String.raw`\b${name}\b`).test(text)) offenders.add(`${def.name} -> ${name}`);
+      }
+    }
+    expect(checked).toBeGreaterThan(8 * 40);
+    expect([...offenders].sort()).toEqual([]);
+    // The probe can see a withheld name: the allowed get_task still points at get_contact_email.
+    expect(JSON.stringify(toolsFor({ ...OPEN, peopleProtected: false }).find((d) => d.name === "get_task"))).toMatch(/\bget_contact_email\b/);
+  });
+
   it("keeps one array identity per combination, so the cached tool list stays stable", () => {
     expect(toolsFor({ ...OPEN, peopleProtected: true })).toBe(toolsFor({ ...OPEN, peopleProtected: true }));
     expect(toolsFor({ ...OPEN, peopleProtected: true })).not.toBe(toolsFor(OPEN));

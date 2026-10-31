@@ -43,8 +43,17 @@
 //   separators; date-shaped matches are rejected. A KNOWN phone is matched by
 //   its digit sequence with any of those separators.
 // - Priority on overlap: email, IBAN, known phone, unknown phone, name.
+// - Restore keeps the user's spelling where the reply echoes it (follow-up m5, owner ruling 2026-10-31). Every
+//   spelling of a person still shares one placeholder, so the model's view is unchanged. A reply string equal to a
+//   redaction this session produced comes back as that original, byte for byte; a placeholder with the same
+//   context beside it as where the session put it ("MUERWALD said the budget is late" echoed inside a longer
+//   sentence) gets the spelling written there; anything else, including a bare placeholder, gets the stored
+//   spelling. The context rule and its bounds are in ai-people-redact-cache.ts.
+// - Memory: the redaction cache and those echo records hold original text, so they are bounded per session
+//   (RedactionCacheLimits) and only the WARM_SESSIONS most recently used sessions keep them (follow-up m3).
 
 import { cleanPersonName, type PeopleDictionary } from "./ai-people-dictionary";
+import { RedactionCache, type Occurrence } from "./ai-people-redact-cache";
 
 export type RedactionCounts = { person: number; email: number; phone: number; iban: number };
 
@@ -61,8 +70,12 @@ const LABEL: Record<Kind, string> = { person: "Person", email: "email", phone: "
 const KIND_BY_LABEL: Record<string, Kind> = { person: "person", email: "email", phone: "phone", iban: "iban" };
 /** Case-insensitive: a model may write "[person 1]". */
 const PLACEHOLDER = /\[(person|email|phone|iban) (\d+)\]/gi;
-/** Placeholder-SHAPED: the exact form and the near misses a model may invent ("[Person1]", "[ person 12 ]"). */
-const PLACEHOLDER_LIKE = /\[\s*(?:person|email|phone|iban)\s*\d+\s*\]/gi;
+/** Placeholder-SHAPED: the exact form and the near misses a model may invent: "[Person1]", "[ person 12 ]",
+ *  "[Person #3]", "[Person-3]", "[Person_3]", "(Person 3)", "{Person 3}" (follow-up m4). A matching bracket,
+ *  parenthesis or brace pair is required, so prose such as "Person 3 of the team" never counts. The labels are
+ *  never localised (`LABEL`), so there are no German forms to count. */
+const LIKE_BODY = String.raw`\s*(?:person|email|phone|iban)\s*[#_-]?\s*\d+\s*`;
+const PLACEHOLDER_LIKE = new RegExp(String.raw`\[${LIKE_BODY}\]|\(${LIKE_BODY}\)|\{${LIKE_BODY}\}`, "gi");
 
 const MIN_TOKEN_LENGTH = 3;
 const MIN_PHONE_DIGITS = 7;
@@ -238,14 +251,16 @@ function phoneAccepted(match: string): boolean {
 type Span = { start: number; end: number; kind: Kind | null; key: string; spelling: string };
 
 const KINDS: readonly Kind[] = ["person", "email", "phone", "iban"];
-/** The per-session redaction cache's bounds (S4): entries, and characters held (original plus redaction). */
-const CACHE_MAX_ENTRIES = 4096;
-const CACHE_MAX_CHARS = 8_000_000;
+/** A redaction cache's bounds (S4): entries, and characters held (original plus redaction). */
+export type RedactionCacheLimits = { readonly entries: number; readonly chars: number };
+const DEFAULT_CACHE_LIMITS: RedactionCacheLimits = { entries: 4096, chars: 8_000_000 };
 
 /** `accepted` (sorted, disjoint) plus every span of `batch` that overlaps none of it; earlier batches win.
  *  `batch` must be sorted by start and disjoint, as one pattern's matches are. One pass per batch (review 5,
- *  S4): checking each candidate against every accepted span made one long string quadratic. */
-function mergeBatch(accepted: readonly Span[], batch: readonly Span[]): readonly Span[] {
+ *  S4): checking each candidate against every accepted span made one long string quadratic. A span that only
+ *  TOUCHES an accepted one (ends where it starts, or starts where it ends) does not overlap it and is kept, as the
+ *  old per-candidate check kept it; exported for the equivalence test that pins this against that check. */
+export function mergeBatch(accepted: readonly Span[], batch: readonly Span[]): readonly Span[] {
   if (batch.length === 0) return accepted;
   const out: Span[] = [];
   let i = 0;
@@ -274,10 +289,14 @@ class Session implements RedactionSession {
     person: new Map(), email: new Map(), phone: new Map(), iban: new Map(),
   };
   private readonly tally: RedactionCounts = { person: 0, email: 0, phone: 0, iban: 0 };
-  /** Review 5, S4: original string -> its redaction and the replacements it made. Memory only, like the mapping;
-   *  cleared whenever the dictionary changes, since that changes what a string redacts to. */
-  private readonly cache = new Map<string, { out: string; counts: RedactionCounts }>();
-  private cachedChars = 0;
+  /** Review 5, S4: original string -> its redaction and the replacements it made, plus the echo records (m5).
+   *  Memory only, like the mapping; cleared whenever the dictionary changes, since that changes what a string
+   *  redacts to. */
+  private readonly cache: RedactionCache<RedactionCounts>;
+
+  constructor(limits: RedactionCacheLimits = DEFAULT_CACHE_LIMITS) {
+    this.cache = new RedactionCache(limits);
+  }
 
   /** Absorb the dictionaries (union). Numbering already issued never changes. */
   setDictionaries(dicts: readonly PeopleDictionary[]): void {
@@ -288,7 +307,6 @@ class Session implements RedactionSession {
     if (signature === this.signature) return;
     this.signature = signature;
     this.cache.clear();
-    this.cachedChars = 0;
     this.names = buildNameMatcher(names, this.canonical.person);
     for (const e of emails) {
       const key = e.trim().toLowerCase();
@@ -312,29 +330,15 @@ class Session implements RedactionSession {
   redact(text: string): string {
     const hit = this.cache.get(text);
     if (hit) {
-      this.cache.delete(text);
-      this.cache.set(text, hit); // least recently used is evicted first
-      for (const kind of KINDS) this.tally[kind] += hit.counts[kind];
+      for (const kind of KINDS) this.tally[kind] += hit.data[kind];
       return hit.out;
     }
     const before = this.counts();
-    const out = this.render(text, this.spansOf(text));
+    const { out, occurrences } = this.render(text, this.spansOf(text));
     const after = this.counts();
-    this.remember(text, out, { person: after.person - before.person, email: after.email - before.email, phone: after.phone - before.phone, iban: after.iban - before.iban });
+    const counts = { person: after.person - before.person, email: after.email - before.email, phone: after.phone - before.phone, iban: after.iban - before.iban };
+    this.cache.set(text, out, counts, occurrences);
     return out;
-  }
-
-  /** Bounded by entries and by characters held; a string over the character bound is not cached. */
-  private remember(text: string, out: string, counts: RedactionCounts): void {
-    const size = text.length + out.length;
-    if (size > CACHE_MAX_CHARS) return;
-    while (this.cache.size >= CACHE_MAX_ENTRIES || this.cachedChars + size > CACHE_MAX_CHARS) {
-      const [oldest, entry] = this.cache.entries().next().value!;
-      this.cache.delete(oldest);
-      this.cachedChars -= oldest.length + entry.out.length;
-    }
-    this.cache.set(text, { out, counts });
-    this.cachedChars += size;
   }
 
   /** Every span to replace, sorted and disjoint. Kinds are taken in priority order; one batch per pattern. */
@@ -376,14 +380,22 @@ class Session implements RedactionSession {
     return spans;
   }
 
-  private render(text: string, spans: readonly Span[]): string {
+  /** The redaction, and where each issued placeholder sits in it with the spelling it replaced (m5). */
+  private render(text: string, spans: readonly Span[]): { out: string; occurrences: Occurrence[] } {
     let out = "";
     let at = 0;
+    const occurrences: Occurrence[] = [];
     for (const s of spans) {
-      out += text.slice(at, s.start) + (s.kind === null ? s.spelling : this.placeholder(s, s.kind));
+      out += text.slice(at, s.start);
+      if (s.kind === null) out += s.spelling;
+      else {
+        const placeholder = this.placeholder(s, s.kind);
+        occurrences.push({ at: out.length, end: out.length + placeholder.length, token: placeholder.slice(1, -1).toLowerCase(), spelling: s.spelling });
+        out += placeholder;
+      }
       at = s.end;
     }
-    return out + text.slice(at);
+    return { out: out + text.slice(at), occurrences };
   }
 
   private placeholder(s: Span, kind: Kind): string {
@@ -397,30 +409,68 @@ class Session implements RedactionSession {
     return `[${LABEL[kind]} ${n}]`;
   }
 
+  /** Follow-up m5: a whole string this session redacted comes back exactly as it was; otherwise each issued
+   *  placeholder gets the spelling recorded at that spot (`RedactionCache.spellingAt`), else the stored one. */
   restore(text: string): string {
-    return text.replace(PLACEHOLDER, (whole, label: string, num: string) =>
-      this.restoreTo[KIND_BY_LABEL[label.toLowerCase()]].get(Number(num)) ?? whole);
+    const echoed = this.cache.original(text);
+    if (echoed !== undefined) return echoed;
+    return text.replace(PLACEHOLDER, (whole, label: string, num: string, at: number) => {
+      const kind = KIND_BY_LABEL[label.toLowerCase()];
+      const stored = this.restoreTo[kind].get(Number(num));
+      if (stored === undefined) return whole;
+      return this.cache.spellingAt(text, at, at + whole.length, `${LABEL[kind].toLowerCase()} ${Number(num)}`) ?? stored;
+    });
   }
 
   counts(): RedactionCounts {
     return { ...this.tally };
   }
+
+  /** Follow-up m3: drop the cache (it holds original text). The placeholder maps stay, so a reply still restores. */
+  dropCache(): void {
+    this.cache.clear();
+  }
+
+  cacheUse(): { entries: number; chars: number } {
+    return this.cache.use();
+  }
 }
 
-/** Browser-session memo: one session per sorted project-key list. Never persisted. */
+/** Browser-session memo: one session per sorted project-key list, least recently asked for first. Never persisted.
+ *  Follow-up m3: each session's cache may hold up to its character bound of original text with real names in it, so
+ *  only the WARM_SESSIONS most recently asked-for sessions keep one; an older session drops its cache and keeps its
+ *  placeholder maps (small: one entry per person, email, phone or IBAN it has replaced), so a reply to a request it
+ *  redacted still restores, and its numbering stays stable if it is asked for again. A cold session a caller still
+ *  holds (a reply in flight) may cache again until the next call here drops it. */
 const sessions = new Map<string, Session>();
+const WARM_SESSIONS = 8;
 
 /** The session for these projects, its dictionary the union of `dicts`.
  *  Placeholders already issued stay stable as the dictionaries grow. */
 export function redactionSessionFor(projectKeys: readonly string[], dicts: readonly PeopleDictionary[]): RedactionSession {
   const id = JSON.stringify([...projectKeys].sort());
-  let s = sessions.get(id);
-  if (!s) {
-    s = new Session();
-    sessions.set(id, s);
+  const s = sessions.get(id) ?? new Session();
+  sessions.delete(id);
+  sessions.set(id, s); // now the most recently asked for
+  let cold = sessions.size - WARM_SESSIONS;
+  for (const old of sessions.values()) {
+    if (cold-- <= 0) break;
+    old.dropCache();
   }
   s.setDictionaries(dicts);
   return s;
+}
+
+/** A session outside the per-project memo, with its own cache bounds (tests). */
+export function createRedactionSession(dicts: readonly PeopleDictionary[], limits?: RedactionCacheLimits): RedactionSession {
+  const s = new Session(limits);
+  s.setDictionaries(dicts);
+  return s;
+}
+
+/** What a session's redaction cache holds: entries, and characters (original plus redaction). */
+export function redactionCacheUse(s: RedactionSession): { entries: number; chars: number } {
+  return s instanceof Session ? s.cacheUse() : { entries: 0, chars: 0 };
 }
 
 // --- JSON request/response bodies -------------------------------------------
@@ -497,11 +547,34 @@ export function countUnrestoredPlaceholders(text: string, s: RedactionSession): 
   return n;
 }
 
-/** Restore placeholders inside JSON (or SSE) text; each restored value is
- *  JSON-escaped so the text stays valid. Unknown placeholders are untouched. */
-export function restoreJsonText(text: string, s: RedactionSession): string {
+/** A JSON string literal (one line: JSON escapes every newline inside a string), or a bare placeholder. */
+const JSON_STRING_OR_PLACEHOLDER = new RegExp(String.raw`"(?:[^"\\\n]|\\.)*"|${PLACEHOLDER.source}`, "gi");
+
+/** A placeholder restored outside a decoded string: no context, so the stored spelling, JSON-escaped. */
+function restoreBare(text: string, s: RedactionSession): string {
   return text.replace(PLACEHOLDER, (whole) => {
     const restored = s.restore(whole);
     return restored === whole ? whole : JSON.stringify(restored).slice(1, -1);
+  });
+}
+
+/** Restore placeholders inside JSON (or SSE) text so the text stays valid. Each JSON string is decoded and restored
+ *  as one value (follow-up m5), so a whole echoed value and an echoed spot keep the user's spelling; a string that
+ *  changes is written back with `JSON.stringify` (an equivalent escaping, not always the same bytes), one that does
+ *  not change keeps its bytes. A string that does not decode, and a placeholder outside any string, get the stored
+ *  spelling, as before m5. Unknown placeholders are untouched. A tool input streamed as `partial_json` is decoded
+ *  one level only, so its spots get the stored spelling unless a delta carries enough context. */
+export function restoreJsonText(text: string, s: RedactionSession): string {
+  return text.replace(JSON_STRING_OR_PLACEHOLDER, (token) => {
+    if (!token.startsWith('"')) return restoreBare(token, s);
+    let value: unknown;
+    try {
+      value = JSON.parse(token);
+    } catch {
+      return restoreBare(token, s);
+    }
+    if (typeof value !== "string") return restoreBare(token, s);
+    const restored = s.restore(value);
+    return restored === value ? token : JSON.stringify(restored);
   });
 }
