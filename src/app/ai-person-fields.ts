@@ -62,12 +62,16 @@ export const PERSON_FIELDS_BY_TOOL: Readonly<Record<string, readonly string[]>> 
 /** Paths whose array ROW goes when it names a person the AI chose. A row without its person reference fails
  *  validation and would refuse the whole call (`changes` REPLACES the list); dropping the row lets the rest
  *  apply (R4). A row naming a person in `keepIds` (already stored in that record) passes unchanged: the AI
- *  chose no one. */
+ *  chose no one. Review 3, R4 — because the list is REPLACED, the AI could also remove a person by leaving
+ *  their row out: a stored person row (`storedRows`) the call omits is re-added unchanged. And a list the
+ *  strip alone empties is dropped from the call, so nothing is written for it (never an empty list). */
 const PERSON_ROW_PATHS: ReadonlySet<string> = new Set(["changes[].who.resourceId"]);
 
 /** What the caller knows about the record the call writes: the person references it ALREADY holds. */
 export interface PersonStripContext {
   readonly keepIds?: ReadonlySet<unknown>;
+  /** The record's stored rows that name a person, for a ROW path: re-added when the call omits them. */
+  readonly storedRows?: readonly unknown[];
 }
 
 /** What the model is told when person fields were removed from its call. English and i18n-free: the model
@@ -113,8 +117,14 @@ function stripPath(value: unknown, segs: readonly string[]): { value: unknown; h
   return r.hit ? { value: { ...value, [key]: r.value }, hit: true } : { value, hit: false };
 }
 
-/** `value` without the rows of its first `[]` array whose leaf names a person not in `keep`. */
-function dropPersonRows(value: Record<string, unknown>, path: string, keep: ReadonlySet<unknown>): { value: Record<string, unknown>; hit: boolean } {
+/** `value` without the rows of its first `[]` array whose leaf names a person not in `keep`, plus every stored
+ *  person row the call omitted; without the array at all when the drop alone emptied it. */
+function dropPersonRows(
+  value: Record<string, unknown>,
+  path: string,
+  keep: ReadonlySet<unknown>,
+  stored: readonly unknown[],
+): { value: Record<string, unknown>; hit: boolean } {
   const [head, ...rest] = path.split(".") as [string, ...string[]];
   const key = head.slice(0, -2);
   const rows = value[key];
@@ -129,7 +139,18 @@ function dropPersonRows(value: Record<string, unknown>, path: string, keep: Read
     const n = named(row);
     return !n.present || keep.has(n.id);
   });
-  return kept.length === rows.length ? { value, hit: false } : { value: { ...value, [key]: kept }, hit: true };
+  if (rows.length > 0 && kept.length === 0) {
+    const without = { ...value };
+    delete without[key]; // a fresh copy: `input` itself is never touched
+    return { value: without, hit: true };
+  }
+  const sent = new Set(kept.map(named).filter((n) => n.present).map((n) => n.id));
+  const omitted = stored.filter((row) => {
+    const n = named(row);
+    return n.present && !sent.has(n.id);
+  });
+  if (kept.length === rows.length && omitted.length === 0) return { value, hit: false };
+  return { value: { ...value, [key]: [...kept, ...omitted] }, hit: true };
 }
 
 /** The tool's input with every person field removed, and the fields (paths) that were present. A tool with
@@ -145,7 +166,7 @@ export function stripPersonFields(
   const removed: string[] = [];
   for (const path of fields) {
     const r = PERSON_ROW_PATHS.has(path)
-      ? dropPersonRows(current, path, ctx.keepIds ?? new Set())
+      ? dropPersonRows(current, path, ctx.keepIds ?? new Set(), ctx.storedRows ?? [])
       : stripPath(current, path.split("."));
     if (r.hit) {
       current = r.value as Record<string, unknown>;

@@ -742,7 +742,8 @@ function isEmptyUpdate(name: string, input: Readonly<Record<string, unknown>>): 
 
 /** The person references the record a call writes ALREADY holds, so the strip keeps them (fix round 1, I1):
  *  an edit of a forecast scenario re-sends the user's own named-person rows, because `changes` replaces the
- *  whole list. Every other tool has none. Shared with the chat's staging strip, so the card and the write agree. */
+ *  whole list — and gets back the ones it left out (review 3, R4: the AI may not remove a person). Every other
+ *  tool has none. Shared with the chat's staging strip, so the card and the write agree. */
 export function personStripContext(
   d: Pick<ToolDispatcher, "getForecastScenarioRow">,
   name: string,
@@ -752,8 +753,13 @@ export function personStripContext(
   const id = Number(input.id);
   const row = Number.isFinite(id) ? d.getForecastScenarioRow(id) : null;
   const keepIds = new Set<unknown>();
-  for (const c of row?.changes ?? []) if (c.kind === "addPeople" && "resourceId" in c.who) keepIds.add(c.who.resourceId);
-  return { keepIds };
+  const storedRows: unknown[] = [];
+  for (const c of row?.changes ?? []) {
+    if (c.kind !== "addPeople" || !("resourceId" in c.who)) continue;
+    keepIds.add(c.who.resourceId);
+    storedRows.push(c);
+  }
+  return { keepIds, storedRows };
 }
 
 /** `runTool` past the people gates: the call exactly as it is applied. `peopleStripped` is true when the

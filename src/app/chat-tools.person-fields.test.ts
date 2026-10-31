@@ -146,4 +146,26 @@ describe("update_forecast_scenario under people protection", () => {
     await runTool(d, "update_forecast_scenario", call([USER_ROW, NEW_PERSON_ROW, AVAILABILITY]));
     expect(sentChanges(updateForecastScenario).map((c) => c.who?.resourceId ?? c.kind)).toEqual([7, 9, "availability"]);
   });
+
+  // Review 3, R4: the AI may not remove a person either. A list that omits the stored person row gets it back,
+  // unchanged; a list emptied purely by the strip writes nothing for `changes`.
+  it("omitting the stored person row does not remove it: it is re-added unchanged", async () => {
+    const { d, updateForecastScenario } = forecastDispatcher(true);
+    const result = await runTool(d, "update_forecast_scenario", call([AVAILABILITY]));
+    expect(sentChanges(updateForecastScenario)).toEqual([AVAILABILITY, USER_ROW]);
+    expect((result as Record<string, unknown>)[PERSON_FIELDS_NOTE_KEY]).toBe(PERSON_FIELDS_REMOVED_NOTE(["changes[].who.resourceId"]));
+  });
+
+  it("a call whose only row names a person the AI chose writes nothing, and the model is told", async () => {
+    const { d, updateForecastScenario } = forecastDispatcher(true);
+    const result = await runTool(d, "update_forecast_scenario", call([NEW_PERSON_ROW]));
+    expect(updateForecastScenario).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ id: 2, applied: false, [PERSON_FIELDS_NOTE_KEY]: PERSON_FIELDS_REMOVED_NOTE(["changes[].who.resourceId"]) });
+  });
+
+  it("protection off: omitting the person row removes it (positive control)", async () => {
+    const { d, updateForecastScenario } = forecastDispatcher(false);
+    await runTool(d, "update_forecast_scenario", call([AVAILABILITY]));
+    expect(sentChanges(updateForecastScenario)).toEqual([AVAILABILITY]);
+  });
 });

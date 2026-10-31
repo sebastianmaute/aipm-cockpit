@@ -120,6 +120,28 @@ describe("stripPersonFields", () => {
     expect(other.removed).toEqual(["changes[].who.resourceId"]);
   });
 
+  // Review 3, R4: `changes` REPLACES the list, so omitting a stored person row would remove that person. Under
+  // protection the AI may not remove a person: the stored person rows it omitted are re-added unchanged.
+  it("re-adds a stored person row the call omitted, unchanged", () => {
+    const stored = { kind: "addPeople", who: { resourceId: 4, hoursPerWeek: 20 }, from: "2026-10-01" };
+    const r = stripPersonFields("update_forecast_scenario", { id: 1, changes: [PLACEHOLDER_ROW] }, { keepIds: new Set([4]), storedRows: [stored] });
+    expect(r.input.changes).toEqual([PLACEHOLDER_ROW, stored]);
+    expect(r.removed).toEqual(["changes[].who.resourceId"]);
+    // A stored row the call re-sends (even edited) is not added twice.
+    const kept = stripPersonFields("update_forecast_scenario", { id: 1, changes: [PERSON_ROW] }, { keepIds: new Set([4]), storedRows: [stored] });
+    expect(kept).toEqual({ input: { id: 1, changes: [PERSON_ROW] }, removed: [] });
+  });
+
+  // Review 3, R4: a list emptied purely by the strip would write `changes: []` and wipe the scenario. The field is
+  // dropped instead (nothing is written for it), and the model gets the note.
+  it("a changes list emptied by the strip is dropped, not written empty", () => {
+    for (const tool of ["create_forecast_scenario", "update_forecast_scenario"]) {
+      const r = stripPersonFields(tool, { id: 1, name: "Hire", changes: [PERSON_ROW] }, { keepIds: new Set([5]), storedRows: [] });
+      expect(r.input, tool).toEqual({ id: 1, name: "Hire" });
+      expect(r.removed, tool).toEqual(["changes[].who.resourceId"]);
+    }
+  });
+
   it("returns the input unchanged for a tool without person fields or an unknown tool", () => {
     expect(stripPersonFields("update_milestone", { id: 1, name: "M" })).toEqual({ input: { id: 1, name: "M" }, removed: [] });
     expect(stripPersonFields("no_such_tool", { assignee: "x" })).toEqual({ input: { assignee: "x" }, removed: [] });
