@@ -166,7 +166,7 @@ describe("AiConsentDialog — where the data goes follows the deployment's AI ro
   });
 
   it.each(["interactive", "background"] as const)("gateway: the %s dialog names the gateway route and no direct call", (level) => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false });
     renderLevel(level);
     expect(screen.getByText(t("en-US", AI_DESTINATION_KEYS.gateway[level]))).toBeInTheDocument();
     expect(screen.getByText(t("en-US", AI_DESTINATION_KEYS.gateway.keySecurity))).toBeInTheDocument();

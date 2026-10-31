@@ -453,7 +453,7 @@ describe("deployment closes the AI gate", () => {
     expect(aiKeyIfEnabled(allowed)).toBe("sk-ant-x");
     expect(isAiConsentedForDictation(allowed)).toBe(true);
   });
-  it.each([["off", { off: true, route: "direct", invalid: false }], ["invalid", { off: false, route: "direct", invalid: true }]] as const)(
+  it.each([["off", { off: true, route: "direct", invalid: false, keyRestricted: false }], ["invalid", { off: false, route: "direct", invalid: true, keyRestricted: false }]] as const)(
     "is closed when the deployment is %s", (_n, st) => {
       setAiDeploymentState(st);
       expect(isInteractiveAiAllowed(allowed)).toBe(false);

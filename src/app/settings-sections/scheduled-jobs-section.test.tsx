@@ -94,8 +94,8 @@ function setup(settings: Settings, onChange = vi.fn()) {
 
 describe("ScheduledJobsSection — the deployment's AI setting", () => {
   it.each([
-    ["off", { off: true, route: "direct" as const, invalid: false }, "aiDeploymentOff"],
-    ["invalid", { off: false, route: "direct" as const, invalid: true }, "aiDeploymentInvalid"],
+    ["off", { off: true, route: "direct" as const, invalid: false, keyRestricted: false }, "aiDeploymentOff"],
+    ["invalid", { off: false, route: "direct" as const, invalid: true, keyRestricted: false }, "aiDeploymentInvalid"],
   ] as const)("%s: says so instead of asking to configure the assistant", (_label, state, key) => {
     setAiDeploymentState(state);
     try {

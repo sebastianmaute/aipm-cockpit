@@ -253,8 +253,8 @@ describe("DictationSection — the deployment's AI setting comes before the cons
   const sttStored = { dictation: { ...defaultSettings.dictation, engine: "stt" as const, sttBaseUrl: "https://x/v1", sttApiKey: "k" } };
   afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
   it.each([
-    ["off", { off: true, route: "direct" as const, invalid: false }, "aiDeploymentOff"],
-    ["invalid", { off: false, route: "direct" as const, invalid: true }, "aiDeploymentInvalid"],
+    ["off", { off: true, route: "direct" as const, invalid: false, keyRestricted: false }, "aiDeploymentOff"],
+    ["invalid", { off: false, route: "direct" as const, invalid: true, keyRestricted: false }, "aiDeploymentInvalid"],
   ] as const)("%s: shows the deployment notice instead of asking for a consent", (_label, state, key) => {
     setAiDeploymentState(state);
     setup(sttStored);

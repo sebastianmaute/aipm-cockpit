@@ -9,15 +9,23 @@
 
 import { logDiag } from "./diagnostics";
 
-export type AiRoute = "direct" | "gateway";
-/** Which part of the gateway setting is invalid. A code, never the value; not secret. */
-export type AiGatewayInvalidReason = "url" | "token-without-url" | "token";
+export type AiRoute = "direct" | "gateway" | "relay";
+/** Which part of the gateway or key-restriction setting is invalid. A code, never the value; not secret. */
+export type AiGatewayInvalidReason =
+  | "url"
+  | "token-without-url"
+  | "token"
+  | "org-id"
+  | "workspace-ids"
+  | "workspaces-without-org";
 export type AiDeploymentState = {
   off: boolean;
   route: AiRoute;
   invalid: boolean;
   /** Set only while `invalid`. */
   invalidReason?: AiGatewayInvalidReason;
+  /** An organisation key restriction is set (valid or not): keys are checked by the relay. The ids stay on the server. */
+  keyRestricted: boolean;
 };
 
 /** The per-send answer of `GET /api/ai/status`: the deployment state plus whether the server forces
@@ -25,7 +33,7 @@ export type AiDeploymentState = {
  *  the page loaded reaches the next send (review 4, M3). */
 export type AiStatus = AiDeploymentState & { peopleForced: boolean };
 
-let state: AiDeploymentState = { off: false, route: "direct", invalid: false };
+let state: AiDeploymentState = { off: false, route: "direct", invalid: false, keyRestricted: false };
 
 let invalidLogged = false;
 
@@ -36,8 +44,8 @@ export function setAiDeploymentState(s: AiDeploymentState): void {
     logDiag("warn", "ai.gateway.invalid", s.invalidReason !== undefined ? { reason: s.invalidReason } : undefined);
   }
   state = s.invalid && s.invalidReason !== undefined
-    ? { off: s.off, route: s.route, invalid: true, invalidReason: s.invalidReason }
-    : { off: s.off, route: s.route, invalid: s.invalid };
+    ? { off: s.off, route: s.route, invalid: true, invalidReason: s.invalidReason, keyRestricted: s.keyRestricted }
+    : { off: s.off, route: s.route, invalid: s.invalid, keyRestricted: s.keyRestricted };
 }
 
 export function getAiDeploymentState(): AiDeploymentState {

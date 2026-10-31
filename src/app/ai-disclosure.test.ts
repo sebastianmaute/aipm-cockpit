@@ -264,6 +264,13 @@ const DESTINATION_PIN: readonly string[] = [
   "gateway|keySecurity|aiConsentBullet2Gateway|16b9a79fc098",
   "gateway|thirdParty|aiConsentBullet3Gateway|0412e7b4a6e5",
   "gateway|help|helpSecAiBodyGateway|c788c6e74b8c",
+  // The relay route reads the gateway texts until it has its own (AI organisation key).
+  "relay|interactive|aiConsentDataIntroGateway|7ebfc37003e9",
+  "relay|background|aiConsentBackgroundDataIntroGateway|687e1f3265c0",
+  "relay|keyNote|aiApiKeyHintGateway|28c8960cc576",
+  "relay|keySecurity|aiConsentBullet2Gateway|16b9a79fc098",
+  "relay|thirdParty|aiConsentBullet3Gateway|0412e7b4a6e5",
+  "relay|help|helpSecAiBodyGateway|c788c6e74b8c",
 ];
 
 const destinationFingerprint = () =>
@@ -347,7 +354,7 @@ describe("AI_DESTINATION_KEYS", () => {
   it("Help's AI entry follows the route", () => {
     const entry = { bodyKey: "helpSecAiBody" } as const;
     expect(helpEntryBody("en-US", entry)).toBe(t("en-US", "helpSecAiBody"));
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false });
     expect(helpEntryBody("en-US", entry)).toBe(t("en-US", AI_DESTINATION_KEYS.gateway.help));
     expect(helpEntryBody("de", entry)).toBe(de[AI_DESTINATION_KEYS.gateway.help]);
   });

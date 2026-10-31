@@ -10,6 +10,7 @@
 
 import { DISABLED_INTEGRATIONS_ENV, parseDisabledIntegrations } from "./integration-switches";
 import type { AiDeploymentState, AiGatewayInvalidReason } from "./ai-deployment";
+import { readAiKeyRestriction } from "./ai-key-restriction-config";
 
 export const AI_GATEWAY_URL_ENV = "AIPM_AI_GATEWAY_URL";
 export const AI_GATEWAY_TOKEN_ENV = "AIPM_AI_GATEWAY_TOKEN";
@@ -67,16 +68,18 @@ export function readAiGatewayConfig(env: Env): AiGatewayConfig {
 }
 
 /** What the browser may know: switched off, which route, whether the setting is invalid and why
- *  (a reason code). An invalid setting with a URL set reports the gateway route the operator meant;
- *  a token without a URL names no gateway and stays direct. */
+ *  (a reason code), and whether a key restriction exists. An invalid gateway setting with a URL set
+ *  reports the gateway route the operator meant; a token without a URL names no gateway and stays
+ *  direct. A key restriction (valid or not) with no gateway URL is the relay route; its own invalid
+ *  reason wins over the gateway's. */
 export function aiDeploymentStateFrom(env: Env): AiDeploymentState {
   const config = readAiGatewayConfig(env);
+  const restriction = readAiKeyRestriction(env);
   const off = parseDisabledIntegrations(env[DISABLED_INTEGRATIONS_ENV]).includes("ai");
-  if (config.kind !== "invalid") return { off, route: config.kind, invalid: false };
-  return {
-    off,
-    route: config.reason === "token-without-url" ? "direct" : "gateway",
-    invalid: true,
-    invalidReason: config.reason,
-  };
+  const keyRestricted = restriction.kind !== "none";
+  const hasGateway = config.kind === "gateway" || (config.kind === "invalid" && config.reason !== "token-without-url");
+  const route = keyRestricted && !hasGateway ? "relay" : hasGateway ? "gateway" : "direct";
+  if (restriction.kind === "invalid") return { off, route, invalid: true, invalidReason: restriction.reason, keyRestricted };
+  if (config.kind === "invalid") return { off, route, invalid: true, invalidReason: config.reason, keyRestricted };
+  return { off, route, invalid: false, keyRestricted };
 }

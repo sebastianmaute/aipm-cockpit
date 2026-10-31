@@ -113,6 +113,16 @@ export const AI_DESTINATION_KEYS: Readonly<Record<AiRoute, AiDestinationKeys>> =
     thirdParty: "aiConsentBullet3Gateway",
     help: "helpSecAiBodyGateway",
   },
+  // The relay route (organisation key restriction) sends the browser's calls to this app's server
+  // too; until it has texts of its own it reads the gateway ones, the nearer truth than "direct".
+  relay: {
+    interactive: "aiConsentDataIntroGateway",
+    background: "aiConsentBackgroundDataIntroGateway",
+    keyNote: "aiApiKeyHintGateway",
+    keySecurity: "aiConsentBullet2Gateway",
+    thirdParty: "aiConsentBullet3Gateway",
+    help: "helpSecAiBodyGateway",
+  },
 };
 
 /** The text for `kind` on this deployment's AI route. */

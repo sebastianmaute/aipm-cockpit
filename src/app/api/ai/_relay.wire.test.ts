@@ -11,7 +11,7 @@ import { setAiDeploymentState, type AiDeploymentState } from "../../ai-deploymen
 import { __setAiStatusRequestForTests } from "../../ai-status-request";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../../../test/ai-status-fetch";
 
-const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false };
+const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false, keyRestricted: false };
 const GATEWAY_ENV = { AIPM_AI_GATEWAY_URL: "https://gateway.example.com/acct/gw/anthropic" };
 const KEY = "sk-ant-wire-test";
 
