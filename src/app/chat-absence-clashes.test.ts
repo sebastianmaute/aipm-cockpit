@@ -4,8 +4,12 @@
 import { describe, expect, it } from "vitest";
 import { backstopWorkspace, callAbsenceClashes, DATE_WRITE_TOOLS } from "./chat-absence-clashes";
 import type { AbsenceCtx } from "./absence-clash";
-import type { Workspace } from "./workspace";
-import type { Absence, Milestone, Resource, Task } from "./types";
+import { emptyWorkspace, type Workspace } from "./workspace";
+import type {
+  Absence, BudgetBucket, ChangeItem, Milestone, ProjectStatus, RaidItem, Resource, Role, Shift, Stakeholder, Task,
+} from "./types";
+import type { CalendarEvent } from "./calendar-event";
+import type { ProjectDocument } from "./document-model";
 
 const maya = { id: 1, firstName: "Maya", lastName: "Patel", email: "maya@example.com" } as Resource;
 // 2026-11-02 is a Monday.
@@ -71,20 +75,30 @@ describe("callAbsenceClashes (§773)", () => {
 describe("callAbsenceClashes — the backstop's stripped workspace (§773 P-2)", () => {
   const liam = { id: 2, firstName: "Liam", lastName: "Foster", email: "liam@example.com" } as Resource;
   const liamTask = { id: 43, taskName: "Write the notes", assignee: "Liam Foster", resourceId: 2, dueDate: "2026-11-20", status: "To Do", priority: "Medium" } as Task;
-  const full = {
-    ...ws,
+  // Typed per slice (Q-2), so a mis-shaped slice is a tsc error rather than something that merely looks
+  // populated; only single rows are cast, to keep the fixture short.
+  const full: Workspace = {
+    ...emptyWorkspace(),
     tasks: [mayaTask, liamTask],
+    milestones: [milestone],
+    absences: [MAYA_WEEK],
     resources: [maya, liam],
-    raid: [{ id: 5, category: "R", title: "Vendor slips", status: "Open", linkedTaskIds: [42, 43], raisedDate: "2026-10-01", causedByRaidIds: [], stakeholderIds: [9] }],
-    changes: [{ id: 6, title: "Scope add", status: "Proposed", type: "Scope", raisedDate: "2026-10-01", linkedTaskIds: [42], linkedRaidIds: [5], stakeholderIds: [9] }],
-    stakeholders: [{ id: 9, name: "Sofia Ramirez", category: "Sponsor", influence: "High", interest: "High" }],
-    shifts: [{ id: 1, resourceId: 1, date: "2026-11-05", start: "08:00", end: "16:00" }],
-    roles: [{ id: 1, name: "Engineer" }],
-    budgets: [{ id: 1, name: "Build", amount: 1000 }],
-    calendarEvents: [{ id: 1, title: "Standup", date: "2026-11-05", attendeeResourceIds: [1] }],
-    documents: [{ id: "d1", title: "Plan", blocks: [] }],
-    status: { overall: "green" },
-  } as unknown as Workspace;
+    raid: [{ id: 5, category: "R", title: "Vendor slips", status: "Open", linkedTaskIds: [42, 43], raisedDate: "2026-10-01", causedByRaidIds: [], stakeholderIds: [9] } as unknown as RaidItem],
+    changes: [{ id: 6, title: "Scope add", status: "Proposed", type: "Scope", raisedDate: "2026-10-01", linkedTaskIds: [42], linkedRaidIds: [5], stakeholderIds: [9] } as unknown as ChangeItem],
+    stakeholders: [{ id: 9, name: "Sofia Ramirez", category: "Sponsor", influence: "High", interest: "High" } as unknown as Stakeholder],
+    shifts: [{ id: 1, resourceId: 1, date: "2026-11-05", start: "08:00", end: "16:00" } as unknown as Shift],
+    roles: [{ id: 1, name: "Engineer" } as unknown as Role],
+    disciplines: [{ id: 1, name: "Engineering" }],
+    grades: [{ id: 1, name: "Senior" }],
+    // Distinctive on every field, so a judgment that read the plan would see it differ from the stripped side's
+    // `defaultResourcePlan(today)`.
+    plan: { startDate: "2025-01-06", endDate: "2027-12-31", granularity: "week", currency: "GBP", budgetFollowsPlan: true },
+    budgets: [{ id: 1, name: "Build" } as unknown as BudgetBucket],
+    fxRates: { base: "EUR", date: "2026-10-30", fetchedAt: "2026-10-30T16:00:00Z", rates: { GBP: 0.86 } },
+    status: { overall: "green" } as unknown as ProjectStatus,
+    calendarEvents: [{ id: 1, title: "Standup", date: "2026-11-05", attendeeResourceIds: [1] } as unknown as CalendarEvent],
+    documents: [{ id: "d1", title: "Plan", blocks: [] } as unknown as ProjectDocument],
+  };
   const stripped = backstopWorkspace(full);
   const fullAbsence: AbsenceCtx = { absences: [MAYA_WEEK], resources: [maya, liam], holidaySet: new Set() };
   const calls = [
@@ -108,6 +122,16 @@ describe("callAbsenceClashes — the backstop's stripped workspace (§773 P-2)",
     expect(stripped.absences).toBe(full.absences);
     expect(stripped.raid).toEqual([]);
     expect(stripped.stakeholders).toEqual([]);
+  });
+
+  it("the full side really is populated where the stripped side is not (anti-vacuity)", () => {
+    for (const key of ["raid", "changes", "stakeholders", "shifts", "roles", "disciplines", "grades", "budgets", "calendarEvents", "documents"] as const) {
+      expect(full[key]?.length, key).toBeGreaterThan(0);
+      expect(stripped[key] ?? [], key).toEqual([]);
+    }
+    expect(stripped.plan).not.toEqual(full.plan);
+    expect(stripped.fxRates).toBeNull();
+    expect(full.fxRates).not.toBeNull();
   });
 
   it.each(calls.map((c) => [`${c.name} ${JSON.stringify(c.input)}`, c] as const))("%s: same answer", (_label, c) => {
