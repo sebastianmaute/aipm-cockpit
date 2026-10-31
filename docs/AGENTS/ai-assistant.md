@@ -1116,7 +1116,8 @@
   RAID owned (open per `isRaidActiveForReview`, by category) and changes requested; a pair with no count gets no
   line, and a milestone with an empty scope gets none, so the model falls back to titles there (the system prompt
   in `raci-suggest-call.ts` says scope is the number of linked tasks and tells the model to judge a scope-0
-  milestone from titles and discipline instead of omitting it). Documents have no
+  milestone from titles, discipline and grade as it would without evidence, while still omitting any cell it is
+  not confident about). Documents have no
   author, so their titles are milestone context only. `buildRaciContext` takes ONE input object (the hook gets
   tasks, RAID, changes, resources, roles, disciplines, grades and documents as props, not from `useWorkspace()`)
   and emits stakeholder rows with discipline and grade, milestone rows with scope size and document titles
@@ -1142,7 +1143,10 @@
   exactly the pair's demoted stakeholder; THEN `dropOrphanedPairHalves` keeps a `pairKey` group only when it is
   exactly one A and one non-A, and drops any other group whole. In that order, because the fold would otherwise
   skip a deleted half silently, and a stale A dropped after the orphan check would leave its partner to be saved
-  alone — two Accountables or none either way.
+  alone — two Accountables or none either way. ★ The re-check is CONSERVATIVE on purpose (owner ruling,
+  2026-10-31): when the live Accountable state of a milestone changed after the proposal, its handover is dropped
+  even when writing it would still leave exactly one A — e.g. the old holder lost A meanwhile, so the pair's
+  demoted stakeholder is no longer the live holder. The user re-runs Suggest RACI against the new state.
   ★★ **THE FOLD-PER-STAKEHOLDER LANDMINE — distinct from the bulk-edit FUNCTIONAL-SETTER landmine above,
   and NOT covered by it.** `useStakeholders.handleSaveStakeholder` already IS a functional setter
   (`setStakeholders(prev => …)`), so this is not that bug. The defect sits one layer up: `onSave` (the

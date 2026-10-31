@@ -66,12 +66,15 @@ describe("Suggest RACI prompt and tool text (§771)", () => {
     expect(system).toMatch(/exactly one Accountable[^.]*always wins over the request/i);
   });
 
-  it("SYSTEM explains the milestone scope column and that a scope-0 milestone is judged, not omitted", async () => {
+  it("SYSTEM explains the milestone scope column and judges a scope-0 milestone without dropping the omit rule", async () => {
     vi.mocked(runForcedToolCallWithRetry).mockResolvedValue({ input: { cells: [] }, stopReason: "tool_use" });
     await runRaciSuggestion({ text: "ctx", truncated: false }, { apiKey: "k", privacy: UNPROTECTED, model: "m" });
     const system = String(vi.mocked(runForcedToolCallWithRetry).mock.calls.at(-1)![0].system);
     expect(system).toMatch(/MILESTONES[^.]*scope[^.]*number of linked tasks/i);
-    expect(system).toMatch(/scope 0 has no evidence[^.]*titles[^.]*discipline[^.]*instead of omitting it/i);
+    expect(system).toMatch(/scope 0 there is no evidence: judge it from titles, discipline and grade[^.]*still omit any cell you are not confident about/i);
+    expect(system).toContain("Prefer omitting a cell to guessing.");
+    // The old wording told the model to fill a scope-0 milestone, against the omit rule.
+    expect(system).not.toMatch(/instead of omitting it/i);
   });
 
   it("the tool description teaches the handover and drops the blanket ban", () => {
