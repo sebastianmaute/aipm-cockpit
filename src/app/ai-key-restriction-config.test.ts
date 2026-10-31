@@ -7,8 +7,9 @@ import {
 } from "./ai-key-restriction-config";
 
 const ORG = "11111111-2222-3333-4444-555555555555";
-const WS_A = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
-const WS_B = "01234567-89ab-cdef-0123-456789abcdef";
+// Workspace ids are `wrkspc_` plus an alphanumeric identifier, case-sensitive (invented here).
+const WS_A = "wrkspc_01InventedAlphaQ7x";
+const WS_B = "wrkspc_01InventedBetaZ3k";
 
 describe("parseAiKeyRestriction", () => {
   it("names the two settings", () => {
@@ -27,30 +28,49 @@ describe("parseAiKeyRestriction", () => {
     expect(r).toMatchObject({ kind: "restricted", organizationId: ORG, workspaceIds: null });
   });
 
-  it("trims the workspace list and normalises every id to lower case", () => {
+  it("trims the workspace list, lower-cases the organisation id and keeps each workspace id's case", () => {
     const r = parseAiKeyRestriction({
       AIPM_AI_ORGANIZATION_ID: ` ${ORG.toUpperCase()} `,
-      AIPM_AI_WORKSPACE_IDS: ` ${WS_A.toUpperCase()} , ${WS_B} `,
+      AIPM_AI_WORKSPACE_IDS: ` ${WS_A} , ${WS_B} `,
     });
     expect(r).toMatchObject({ kind: "restricted", organizationId: ORG, workspaceIds: [WS_A, WS_B] });
   });
 
+  it("does not fold the case of a workspace id: two ids differing only in case stay distinct", () => {
+    const r = parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG, AIPM_AI_WORKSPACE_IDS: WS_A.toUpperCase().replace("WRKSPC_", "wrkspc_") });
+    expect(r).toMatchObject({ kind: "restricted", workspaceIds: ["wrkspc_01INVENTEDALPHAQ7X"] });
+  });
+
   it("gives a stable signature of the two normalised values", () => {
     const a = parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG, AIPM_AI_WORKSPACE_IDS: `${WS_A},${WS_B}` });
-    const b = parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG.toUpperCase(), AIPM_AI_WORKSPACE_IDS: ` ${WS_A.toUpperCase()} , ${WS_B}` });
+    const b = parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG.toUpperCase(), AIPM_AI_WORKSPACE_IDS: ` ${WS_A} , ${WS_B}` });
     const c = parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG });
     const d = parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG, AIPM_AI_WORKSPACE_IDS: WS_A });
+    const e = parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG, AIPM_AI_WORKSPACE_IDS: "wrkspc_01inventedalphaq7x" });
     const sig = (r: ReturnType<typeof parseAiKeyRestriction>) => (r.kind === "restricted" ? r.signature : null);
     expect(sig(a)).toBeTruthy();
     expect(sig(a)).toBe(sig(b));
-    expect(new Set([sig(a), sig(c), sig(d)]).size).toBe(3);
+    expect(new Set([sig(a), sig(c), sig(d), sig(e)]).size).toBe(4);
   });
 
   it.each(["not-a-uuid", "1111111122223333444455555555555", `${ORG}x`])("rejects the organisation id %s", (org) => {
     expect(parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: org })).toEqual({ kind: "invalid", reason: "org-id" });
   });
 
-  it.each([`${WS_A},nope`, `${WS_A},`, `${WS_A},,${WS_B}`, ",", `${WS_A};${WS_B}`])("rejects the workspace list %s", (list) => {
+  it.each([
+    `${WS_A},nope`,
+    `${WS_A},`,
+    `${WS_A},,${WS_B}`,
+    ",",
+    `${WS_A};${WS_B}`,
+    // A UUID is an organisation id's shape, not a workspace id's.
+    "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "wrkspc_",
+    "WRKSPC_01InventedAlphaQ7x",
+    "wrkspc_01Invented-Alpha",
+    "wrkspc_01Invented Alpha",
+    "xwrkspc_01InventedAlphaQ7x",
+  ])("rejects the workspace list %s", (list) => {
     expect(parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG, AIPM_AI_WORKSPACE_IDS: list })).toEqual({
       kind: "invalid",
       reason: "workspace-ids",

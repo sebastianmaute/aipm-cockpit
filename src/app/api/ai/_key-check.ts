@@ -6,11 +6,13 @@
 // Anthropic's answer headers back, docs/RUNBOOK.md "Restricting AI to the organisation's Anthropic
 // keys" step 5), and the `anthropic-organization-id` and `anthropic-workspace-id` answer headers decide:
 //   - organisation matches and (when workspaces are listed) the workspace is listed → pass;
-//   - another organisation → wrong-organization; a workspace not listed → wrong-workspace;
+//   - another organisation → wrong-organization; a workspace not listed → wrong-workspace, and so
+//     is an answer with no workspace header at all while workspaces are listed (Anthropic sends
+//     none when the key is not tied to a workspace);
 //   - Anthropic's own 401/403 → its answer is passed through unchanged (an invalid key is not
 //     a policy verdict);
-//   - anything else (network error, timeout, 3xx, 404, 429, 5xx, a 2xx without the header the
-//     verdict needs, or with a repeated one) → unavailable, and the caller forwards nothing.
+//   - anything else (network error, timeout, 3xx, 404, 429, 5xx, a 2xx without the organisation
+//     header, or with an empty or repeated header) → unavailable, and the caller forwards nothing.
 //     Fails closed.
 //
 // Through a gateway the pre-flight sends `cf-aig-skip-cache: true` (Cloudflare AI Gateway's
@@ -72,26 +74,34 @@ function hashKey(key: string): string {
   return createHash("sha256").update(key).digest("hex");
 }
 
-/** The one value of a header, whatever the case of its name; null when absent, empty, not a
- *  string, or repeated. Node folds a repeated non-standard header into one comma-joined string
- *  ("a, b"), so a value with a comma counts as repeated (no id contains one). Ambiguous answers
- *  fail closed. Ids compare in lower case. */
-function headerValue(headers: UpstreamResponse["headers"], name: string): string | null {
+type HeaderRead = { kind: "value"; value: string } | { kind: "absent" } | { kind: "ambiguous" };
+
+/** A header, whatever the case of its name: `absent` when no such header came back, `ambiguous`
+ *  when it is empty, not a string, or repeated. Node folds a repeated non-standard header into one
+ *  comma-joined string ("a, b"), so a value with a comma counts as repeated (no id contains one).
+ *  The value is trimmed, never case-folded. */
+function headerValue(headers: UpstreamResponse["headers"], name: string): HeaderRead {
   const values = Object.entries(headers)
     .filter(([k]) => k.toLowerCase() === name)
     .map(([, v]) => v);
-  if (values.length !== 1 || typeof values[0] !== "string" || values[0].includes(",")) return null;
-  return values[0].trim().toLowerCase() || null;
+  if (values.length === 0) return { kind: "absent" };
+  const value = values.length === 1 && typeof values[0] === "string" ? values[0].trim() : "";
+  if (!value || value.includes(",")) return { kind: "ambiguous" };
+  return { kind: "value", value };
 }
 
 function verdictFromHeaders(headers: UpstreamResponse["headers"], restriction: Restricted): Finding {
   const organization = headerValue(headers, ORGANIZATION_HEADER);
-  if (organization === null) return UNAVAILABLE;
-  if (organization !== restriction.organizationId) return { kind: "wrong-organization" };
+  if (organization.kind !== "value") return UNAVAILABLE;
+  // A UUID: compared in lower case, like the setting.
+  if (organization.value.toLowerCase() !== restriction.organizationId) return { kind: "wrong-organization" };
   if (restriction.workspaceIds === null) return { kind: "pass" };
   const workspace = headerValue(headers, WORKSPACE_HEADER);
-  if (workspace === null) return UNAVAILABLE;
-  return restriction.workspaceIds.includes(workspace) ? { kind: "pass" } : { kind: "wrong-workspace" };
+  if (workspace.kind === "ambiguous") return UNAVAILABLE;
+  // No header: the key is not tied to a workspace, so it is in none of the listed ones.
+  if (workspace.kind === "absent") return { kind: "wrong-workspace" };
+  // Workspace ids are case-sensitive: compared exactly.
+  return restriction.workspaceIds.includes(workspace.value) ? { kind: "pass" } : { kind: "wrong-workspace" };
 }
 
 async function findingFrom(

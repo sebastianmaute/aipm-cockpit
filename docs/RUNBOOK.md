@@ -371,12 +371,14 @@ their own key; the app's server checks it before forwarding anything. The settin
 their rules are in [security.md → Environment variables](security.md#environment-variables),
 which owns that list.
 
-1. **Find the ids** in the Anthropic Console: the organisation id and, if you want to
-   limit the keys to some workspaces, their ids. All are UUIDs.
+1. **Find the ids** in the Anthropic Console: the organisation id, a UUID, and, if you
+   want to limit the keys to some workspaces, their ids, each `wrkspc_` followed by
+   letters and digits, as the Console's Workspaces page shows them. Copy workspace ids
+   exactly: their letter case matters.
 2. **Set the server environment** and restart:
    ```
    AIPM_AI_ORGANIZATION_ID=<organisation UUID>
-   AIPM_AI_WORKSPACE_IDS=<workspace UUID>,<workspace UUID>   # optional
+   AIPM_AI_WORKSPACE_IDS=<wrkspc_…>,<wrkspc_…>   # optional
    ```
    The server reads both on every request, so a restart applies a change; no rebuild.
    A malformed value, an empty list item, or workspace ids without an organisation id
@@ -404,13 +406,15 @@ which owns that list.
    the same key share one check.
    - A key of another organisation or an unlisted workspace gets `403`
      `ai-key-wrong-organization` or `ai-key-wrong-workspace`. The refusal is cached
-     for 5 minutes; users see it in the AI key banner and in Settings → AI.
+     for 5 minutes; users see it in the AI key banner and in Settings → AI. With a
+     workspace list set, a key that is not tied to a workspace (Anthropic sends no
+     `anthropic-workspace-id` for it) counts as an unlisted workspace.
    - A check that cannot be completed gets `503` `ai-key-check-unavailable` and nothing
      is forwarded; it is not cached, and users see that the key could not be checked
      and should try again, in Settings → AI and in the feature that failed. That covers
      any other answer than `2xx`, `401` or `403` (a `3xx`, `404`, `429` or `5xx`
-     among them), a network error, a timeout (30 seconds), and a `2xx` that lacks a
-     header the check needs or repeats it.
+     among them), a network error, a timeout (30 seconds), and a `2xx` that lacks the
+     organisation header or carries an empty or repeated header.
    - A pass is cached, by the SHA-256 of the key and in memory only, until the cache
      (at most 1000 entries) evicts it or the restriction settings change. A restart
      empties the cache.

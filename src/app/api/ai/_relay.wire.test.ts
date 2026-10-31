@@ -100,8 +100,8 @@ describe("relay ⇄ transport wire codes", () => {
 describe("relay <-> transport wire codes for a refused key (AI organisation key)", () => {
   const ORG = "11111111-2222-3333-4444-555555555555";
   const OTHER_ORG = "99999999-8888-7777-6666-555555555555";
-  const WS = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
-  const OTHER_WS = "ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const WS = "wrkspc_01InventedAlphaQ7x";
+  const OTHER_WS = "wrkspc_01InventedOmegaR2m";
   const RESTRICTED: AiDeploymentState = { off: false, route: "relay", invalid: false, keyRestricted: true };
 
   /** Answers the pre-flight with a 2xx carrying the given organisation (and workspace) headers. */

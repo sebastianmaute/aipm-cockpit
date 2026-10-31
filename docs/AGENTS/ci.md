@@ -302,8 +302,8 @@ Gateway. Two jobs, the same shape as `live-turso.yml`:
   also turns on the file's one test that fails when any secret is missing: a renamed or mistyped
   secret fails the run instead of passing it green.
 - **Secrets.** `AI_LIVE_ANTHROPIC_KEY` (a key with a low spend limit from a throwaway organisation
-  and workspace), `AI_LIVE_ORGANIZATION_ID` and `AI_LIVE_WORKSPACE_ID` (that key's ids, UUID-shaped
-  as the restriction setting requires), `AI_LIVE_GATEWAY_URL` and `AI_LIVE_GATEWAY_TOKEN` (a
+  and workspace), `AI_LIVE_ORGANIZATION_ID` and `AI_LIVE_WORKSPACE_ID` (that key's ids, in the
+  shapes the restriction setting requires: a UUID and a `wrkspc_` id, the latter copied with its letter case), `AI_LIVE_GATEWAY_URL` and `AI_LIVE_GATEWAY_TOKEN` (a
   throwaway Cloudflare AI Gateway, on an account with no stored provider keys, per the RUNBOOK).
   They enter through the `env:` of the two steps that need them only, never a `run:` line and never
   a job- or workflow-level `env:`, and no other workflow names them, so `ci.yml`'s unit job never

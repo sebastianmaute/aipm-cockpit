@@ -643,8 +643,8 @@ describe("relay — straight to Anthropic when keys are restricted and there is 
 });
 
 const OTHER_ORG = "99999999-8888-7777-6666-555555555555";
-const WS = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
-const OTHER_WS = "ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee";
+const WS = "wrkspc_01InventedAlphaQ7x";
+const OTHER_WS = "wrkspc_01InventedOmegaR2m";
 const isMessages = (call: Call) => call.url.pathname.endsWith("/v1/messages");
 
 describe("relay — the key check before forwarding (AI organisation key)", () => {
@@ -700,12 +700,12 @@ describe("relay — the key check before forwarding (AI organisation key)", () =
     expect(calls.some(isMessages)).toBe(false);
   });
 
-  it("workspaces configured and the pre-flight has no workspace header → 503; no Messages call (fails closed)", async () => {
+  it("workspaces configured and the pre-flight has no workspace header (a key not tied to a workspace) → 403 ai-key-wrong-workspace; no Messages call", async () => {
     const { send, calls } = fakeSend(checkedAs(ORG));
     const env = { ...RESTRICTED_ENV, AIPM_AI_WORKSPACE_IDS: WS };
     const res = await relay(post(), "messages", env, send, createKeyChecker());
-    expect(res.status).toBe(503);
-    expect(await res.json()).toEqual({ error: "ai-key-check-unavailable" });
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "ai-key-wrong-workspace" });
     expect(calls.some(isMessages)).toBe(false);
   });
 

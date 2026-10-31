@@ -16,8 +16,9 @@ const KEY = "sk-ant-key-check-secret";
 const OTHER_KEY = "sk-ant-key-check-other";
 const ORG = "11111111-2222-3333-4444-555555555555";
 const OTHER_ORG = "99999999-8888-7777-6666-555555555555";
-const WS = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
-const OTHER_WS = "ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee";
+// Invented workspace ids in Anthropic's shape: `wrkspc_` plus a case-sensitive identifier.
+const WS = "wrkspc_01InventedAlphaQ7x";
+const OTHER_WS = "wrkspc_01InventedOmegaR2m";
 const ANTHROPIC = { baseUrl: "https://api.anthropic.com", token: null };
 const GATEWAY = { baseUrl: "https://gateway.example.com/acct/gw/anthropic", token: "gw-secret-token" };
 
@@ -125,11 +126,16 @@ describe("createKeyChecker — the pre-flight", () => {
     expect(calls).toHaveLength(2);
   });
 
-  it("header names are matched case-insensitively, and the ids too", async () => {
+  it("header names and the organisation id are matched case-insensitively", async () => {
     const { send } = fakeSend(
-      respond(200, { "Anthropic-Organization-Id": ORG.toUpperCase(), "ANTHROPIC-WORKSPACE-ID": WS.toUpperCase() }),
+      respond(200, { "Anthropic-Organization-Id": ORG.toUpperCase(), "ANTHROPIC-WORKSPACE-ID": WS }),
     );
     expect(await createKeyChecker().check(KEY, WITH_WS, ANTHROPIC, send)).toEqual({ kind: "pass" });
+  });
+
+  it("a workspace id is matched exactly: one differing only in case is another workspace", async () => {
+    const { send } = fakeSend(org(ORG, WS.toLowerCase()));
+    expect(await createKeyChecker().check(KEY, WITH_WS, ANTHROPIC, send)).toEqual({ kind: "wrong-workspace" });
   });
 
   it("drops the pre-flight's body (the request is destroyed once the headers are read)", async () => {
@@ -159,6 +165,20 @@ describe("createKeyChecker — refusals", () => {
   it("a listed workspace passes", async () => {
     const { send } = fakeSend(org(ORG, WS));
     expect(await createKeyChecker().check(KEY, WITH_WS, ANTHROPIC, send)).toEqual({ kind: "pass" });
+  });
+
+  it("workspaces listed, a 2xx with no workspace header (a key not tied to a workspace) → wrong-workspace, cached", async () => {
+    const { send, calls } = fakeSend(org(ORG));
+    const checker = createKeyChecker({ now: clock });
+    expect(await checker.check(KEY, WITH_WS, ANTHROPIC, send)).toEqual({ kind: "wrong-workspace" });
+    expect(await checker.check(KEY, WITH_WS, ANTHROPIC, send)).toEqual({ kind: "wrong-workspace" });
+    expect(calls).toHaveLength(1);
+    expect(checker.size()).toBe(1);
+  });
+
+  it("no workspace list: a 2xx with no workspace header passes on the organisation alone", async () => {
+    const { send } = fakeSend(org(ORG));
+    expect(await createKeyChecker().check(KEY, ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "pass" });
   });
 
   it("a wrong organisation wins over a listed workspace", async () => {
@@ -202,7 +222,6 @@ describe("createKeyChecker — refusals", () => {
 
 describe("createKeyChecker — fails closed: unavailable, never cached", () => {
   const cases: Array<[string, (call: Call) => void, Restricted]> = [
-    ["workspaces configured, a 2xx without the workspace header", org(ORG), WITH_WS],
     ["a 2xx without the organisation header", respond(200, {}), ORG_ONLY],
     ["a 2xx with only the workspace header", respond(200, { "anthropic-workspace-id": WS }), WITH_WS],
     ["an empty organisation header", respond(200, { "anthropic-organization-id": "" }), ORG_ONLY],
@@ -210,6 +229,8 @@ describe("createKeyChecker — fails closed: unavailable, never cached", () => {
     ["a folded (repeated) organisation header", respond(200, { "anthropic-organization-id": `${ORG}, ${OTHER_ORG}` }), ORG_ONLY],
     ["a folded organisation header repeating the right id", respond(200, { "anthropic-organization-id": `${ORG}, ${ORG}` }), ORG_ONLY],
     ["a folded workspace header", org(ORG, `${WS}, ${OTHER_WS}`), WITH_WS],
+    ["a folded workspace header repeating the listed id", org(ORG, `${WS}, ${WS}`), WITH_WS],
+    ["an empty workspace header", respond(200, { "anthropic-organization-id": ORG, "anthropic-workspace-id": "" }), WITH_WS],
     ["a network error", (call) => call.fire("error", new Error(`boom ${KEY}`)), ORG_ONLY],
     ["a timeout", (call) => call.fire("timeout"), ORG_ONLY],
     ["a 500", respond(500, { "anthropic-organization-id": ORG }), ORG_ONLY],

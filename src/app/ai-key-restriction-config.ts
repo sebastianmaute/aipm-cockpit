@@ -26,22 +26,25 @@ export type AiKeyRestriction =
 
 type Env = Record<string, string | undefined>;
 
-const ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// An organisation id is a UUID. A workspace id is `wrkspc_` followed by an alphanumeric identifier
+// (Anthropic's workspaces documentation, checked 2026-10-31); its identifier is case-sensitive.
+const ORGANIZATION_ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const WORKSPACE_ID_SHAPE = /^wrkspc_[A-Za-z0-9]+$/;
 
-/** The setting, parsed, with no side effect. Ids compare case-insensitively: all are lower-cased. */
+/** The setting, parsed, with no side effect. The organisation id compares case-insensitively and is
+ *  lower-cased; workspace ids are kept exactly as written and compare exactly. */
 export function parseAiKeyRestriction(env: Env): AiKeyRestriction {
   const org = env[AI_ORGANIZATION_ID_ENV]?.trim() ?? "";
   const rawWorkspaces = env[AI_WORKSPACE_IDS_ENV]?.trim() ?? "";
   if (!org && !rawWorkspaces) return { kind: "none" };
   if (!org) return { kind: "invalid", reason: "workspaces-without-org" };
-  if (!ID_SHAPE.test(org)) return { kind: "invalid", reason: "org-id" };
+  if (!ORGANIZATION_ID_SHAPE.test(org)) return { kind: "invalid", reason: "org-id" };
   const organizationId = org.toLowerCase();
   if (!rawWorkspaces) {
     return { kind: "restricted", organizationId, workspaceIds: null, signature: `${organizationId}|` };
   }
-  const items = rawWorkspaces.split(",").map((s) => s.trim());
-  if (!items.every((s) => ID_SHAPE.test(s))) return { kind: "invalid", reason: "workspace-ids" };
-  const workspaceIds = items.map((s) => s.toLowerCase());
+  const workspaceIds = rawWorkspaces.split(",").map((s) => s.trim());
+  if (!workspaceIds.every((s) => WORKSPACE_ID_SHAPE.test(s))) return { kind: "invalid", reason: "workspace-ids" };
   return { kind: "restricted", organizationId, workspaceIds, signature: `${organizationId}|${workspaceIds.join(",")}` };
 }
 

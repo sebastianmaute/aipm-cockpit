@@ -69,10 +69,15 @@ function kindOf(url: URL): CallKind {
   return url.searchParams.get("limit") === "1" ? "preflight" : "models";
 }
 
+// Trimmed, not case-folded: the organisation id (a UUID) is compared in lower case below, a
+// workspace id (case-sensitive) exactly, as the key check compares them.
 const headerOf = (headers: Record<string, string | string[] | undefined>, name: string): string | null => {
   const v = headers[name];
-  return typeof v === "string" && v.trim() !== "" ? v.trim().toLowerCase() : null;
+  return typeof v === "string" && v.trim() !== "" ? v.trim() : null;
 };
+
+/** A random id in a workspace id's shape (`wrkspc_` plus an alphanumeric identifier). */
+const randomWorkspaceId = (): string => `wrkspc_${randomBytes(12).toString("hex")}`;
 
 /** The production send, recording each call without keeping any value it carries. */
 function recorder(): { send: RelaySend; calls: UpstreamCall[] } {
@@ -96,8 +101,8 @@ function recorder(): { send: RelaySend; calls: UpstreamCall[] } {
       call.status = res.statusCode ?? null;
       call.organizationHeader = org !== null;
       call.workspaceHeader = workspace !== null;
-      call.organizationMatches = org === value("AI_LIVE_ORGANIZATION_ID").toLowerCase();
-      call.workspaceMatches = workspace === value("AI_LIVE_WORKSPACE_ID").toLowerCase();
+      call.organizationMatches = org?.toLowerCase() === value("AI_LIVE_ORGANIZATION_ID").toLowerCase();
+      call.workspaceMatches = workspace === value("AI_LIVE_WORKSPACE_ID");
       onResponse(res);
     });
   };
@@ -212,7 +217,7 @@ describe.skipIf(!liveRun)("relay + key check, live (ai-live.yml)", () => {
   }, LIVE_TIMEOUT_MS);
 
   it("3. direct, a random workspace id: refused as wrong workspace, no Messages call reached Anthropic", async () => {
-    const { status, text, calls } = await relayed("messages", direct(org, randomUUID()), messageBody());
+    const { status, text, calls } = await relayed("messages", direct(org, randomWorkspaceId()), messageBody());
     expect({ status, code: codeOf(text) }).toEqual({ status: 403, code: AI_KEY_WRONG_WORKSPACE });
     expect(kinds(calls)).toEqual(["preflight"]);
     expect(calls[0]).toMatchObject({ status: 200, workspaceHeader: true, workspaceMatches: true });
