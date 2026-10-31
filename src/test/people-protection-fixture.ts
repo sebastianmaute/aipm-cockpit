@@ -4,7 +4,8 @@
 // One distinct fictional person in EVERY person field the dictionary reads (`PERSON_FIELD_PATHS`), listed in
 // `SEEDED_PERSON_FIELDS` by path, so the wire test fails when a new person field is added to the dictionary
 // without a seeded value here. Every name is a distinctive full name, so the wire test asserts on full names
-// (the redactor's lone-token rule is case-gated and stop-listed, and is not what this fixture probes).
+// (the redactor's lone-token rule is case-gated and stop-listed, and is not what this fixture probes) — except
+// `SHARED_SURNAME`, a lone surname two known people share (review 5, S1), checked on its own.
 // Two one-word people are stored in LOWER case (`LOWERCASE_PEOPLE`, review 3 R1): a lone word the dictionary itself
 // spells in lower case has no capitalised form, so the redactor must match it in any case.
 //
@@ -124,13 +125,18 @@ export const VARIANT_SPELLINGS: readonly string[] = [
   P.secondContact.replace("’", "'"),
 ];
 
+/** Review 5, S1: two known people who share a surname. Task 1's description names the surname ALONE, which the redactor
+ *  used to send in clear; the wire test checks it both ways (present when people are allowed, absent when protected). */
+export const SHARED_SURNAME = "Galbraithe";
+export const SHARED_SURNAME_PEOPLE: readonly string[] = [`Henrietta ${SHARED_SURNAME}`, `Lysander ${SHARED_SURNAME}`];
+
 /** The known person the mail attachment names. */
 export const MAIL_PERSON = P.stakeholder;
 
 export const KNOWN_NAMES: readonly string[] = Object.values(P);
 export const KNOWN_EMAILS: readonly string[] = Object.values(E);
 /** Everything the wire test must never find in a protected body. */
-export const FIXTURE_PEOPLE_TERMS: readonly string[] = [...KNOWN_NAMES, ...KNOWN_EMAILS, ...FIXTURE_PHONES, FORMER_MEMBER, ...LOWERCASE_PEOPLE];
+export const FIXTURE_PEOPLE_TERMS: readonly string[] = [...KNOWN_NAMES, ...KNOWN_EMAILS, ...FIXTURE_PHONES, FORMER_MEMBER, ...LOWERCASE_PEOPLE, ...SHARED_SURNAME_PEOPLE];
 
 const note = (id: number, authorName: string, text: string): NoteLogEntry => ({
   id, authorName, timestamp: "2026-10-12T09:00:00.000Z", html: `<p>${text}</p>`, text,
@@ -146,7 +152,7 @@ const tasks: Task[] = [
     dueDate: "2026-10-20", lastUpdateDate: "2026-10-10", priority: "Medium", status: "In Progress",
     blockers: "Waiting for firewall rules", description: `Bring the staging cluster up to the production layout. Questions to ${P.projectManager} (${E.contact}), ` +
       `on call ${FIXTURE_PHONE}, vendor hotline ${UNKNOWN_PHONE}. ` +
-      `${VARIANT_SPELLINGS[0]} Schlüssel fehlen; ${VARIANT_SPELLINGS[1]} fragt nach; ${VARIANT_SPELLINGS[2]} prüft das.`,
+      `${VARIANT_SPELLINGS[0]} Schlüssel fehlen; ${VARIANT_SPELLINGS[1]} fragt nach; ${VARIANT_SPELLINGS[2]} prüft das. Ask ${SHARED_SURNAME} about the budget.`,
     group: "Platform",
     noteLog: [note(1, P.taskNoteAuthor, `Firewall ticket raised; ${P.internal} approves it.`)],
     blockerLog: [{ id: 1, text: "Firewall rules", createdAt: "2026-10-11T08:00:00.000Z", authorName: P.blockerAuthor }],
@@ -218,7 +224,7 @@ const shifts: Shift[] = [
 
 const project: ProjectMeta = {
   name: "Project Lighthouse", code: "LH-1", projectManager: P.projectManager, sponsor: P.sponsor,
-  keyStakeholdersInternal: [P.internal], keyStakeholdersExternal: [P.external], customer: "Acme Logistics",
+  keyStakeholdersInternal: [P.internal, ...SHARED_SURNAME_PEOPLE], keyStakeholdersExternal: [P.external], customer: "Acme Logistics",
   naceSection: "H", identityTypes: [], products: "Warehouse platform", deployment: "", startDate: "2026-10-01",
   endDate: "2026-12-31", profitCenter: "PC-7",
   contactPersons: [

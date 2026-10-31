@@ -50,7 +50,7 @@ import { resourceDisplayName } from "./resource-foundation";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 import {
   FIXTURE_INSIGHT, FIXTURE_PEOPLE_TERMS, FIXTURE_PHONE, FIXTURE_PHONES, KNOWN_EMAILS, FIXTURE_PROJECT_KEY, FIXTURE_TODAY, FORMER_MEMBER, LOWERCASE_PEOPLE, MAIL_EML,
-  MAIL_PERSON, RESOURCE_ID, RESOURCE_NAME_TOKENS, SEEDED_PERSON_FIELDS, STAKEHOLDER_ID, TASK_ID, UNKNOWN_PHONE, VARIANT_SPELLINGS,
+  MAIL_PERSON, RESOURCE_ID, RESOURCE_NAME_TOKENS, SEEDED_PERSON_FIELDS, SHARED_SURNAME, STAKEHOLDER_ID, TASK_ID, UNKNOWN_PHONE, VARIANT_SPELLINGS,
   peopleFixture,
 } from "../test/people-protection-fixture";
 import { dashboardOf, peopleFeatureOffered, renderChat, type PeopleFeature } from "../test/people-protection-harness";
@@ -527,6 +527,15 @@ describe("anti-vacuity: with protection off, the same drivers send people", () =
     const surnames = VARIANT_SPELLINGS.map((v) => v.split(" ").at(-1)!);
     expect(surnames).toHaveLength(3);
     expect(surnames.filter((v) => raw.includes(v))).toEqual(allowed ? surnames : []);
+  });
+
+  // Review 5, S1: two known people share a surname, and task 1's description names it ALONE. A name part several people
+  // share used to be sent in clear; it is checked as a whole word, case-sensitively: present allowed, absent protected.
+  it.each([["allowed", true], ["protected", false]] as const)("chat, %s: a surname two known people share", async (_mode, allowed) => {
+    await driveChat(ctxFor(peopleFixture(allowed)));
+    const raw = sent.join("\n");
+    expect(raw.includes(`Ask ${SHARED_SURNAME} about the budget`)).toBe(allowed);
+    expect(new RegExp(`\\b${SHARED_SURNAME}\\b`).test(raw)).toBe(allowed);
   });
 
   // The phone half of the check: both phones ride in a task description that get_task / list_tasks return, the

@@ -106,11 +106,12 @@ describe("name matching", () => {
     expect(s.redact("Webster said hi")).toBe("[Person 1] said hi");
   });
 
-  it("a first name shared by two known people is not redacted alone; surnames are", () => {
+  // Review 5, S1: a first name shared by two known people is redacted alone too, under ONE placeholder of its own.
+  it("a first name shared by two known people is redacted alone under a shared placeholder; surnames are their own", () => {
     const s = fresh(dict(["Anna Brandvik", "Anna Keller"]));
-    expect(s.redact("Anna asked Brandvik and Keller")).toBe("Anna asked [Person 1] and [Person 2]");
-    expect(s.redact("Anna Keller and Anna Brandvik")).toBe("[Person 3] and [Person 4]");
-    expect(s.restore("[Person 1], [Person 2], [Person 3], [Person 4]")).toBe("Brandvik, Keller, Anna Keller, Anna Brandvik");
+    expect(s.redact("Anna asked Brandvik and Keller")).toBe("[Person 1] asked [Person 2] and [Person 3]");
+    expect(s.redact("Anna Keller and Anna Brandvik")).toBe("[Person 4] and [Person 5]");
+    expect(s.restore("[Person 1], [Person 2], [Person 3], [Person 4], [Person 5]")).toBe("Anna, Brandvik, Keller, Anna Keller, Anna Brandvik");
   });
 
   it("diacritics, case, ue-transliteration and possessive all map to one placeholder", () => {
@@ -168,6 +169,36 @@ describe("name matching", () => {
     const s = fresh(dict(["Sofia Ramirez"], ["s@example.com"]));
     s.redact("Sofia Ramirez s@example.com");
     expect(s.restore("[person 1], [PERSON 1], [Email 1]")).toBe("Sofia Ramirez, Sofia Ramirez, s@example.com");
+  });
+});
+
+// Review 5, S1: a name part several known people share used to be sent in clear, though the consent text promises the
+// AI sees no known person's name. It now gets ONE placeholder keyed by the token alone, restoring that token's spelling.
+describe("a name part shared by several known people (review 5, S1)", () => {
+  const people = ["Ilse Mürwald", "Tobin Mürwald", "Corvin Ashgrove", "Corvin Pellatt"];
+
+  it("a shared surname and a shared first name are redacted alone and round-trip byte-exact", () => {
+    const s = fresh(dict(people));
+    const surname = "Ask Mürwald about the budget";
+    expect(s.redact(surname)).toBe("Ask [Person 1] about the budget");
+    expect(s.restore(s.redact(surname))).toBe(surname);
+    const first = "Corvin will deliver the report";
+    expect(s.redact(first)).toBe("[Person 2] will deliver the report");
+    expect(s.restore(s.redact(first))).toBe(first);
+  });
+
+  it("the shared placeholder covers the token's variants and never stands for a full name", () => {
+    const s = fresh(dict(people));
+    expect(s.redact("Mürwald, MUERWALD, Mürwalds")).toBe("[Person 1], [Person 1], [Person 1]s");
+    expect(s.redact("Ilse Mürwald and Tobin Mürwald")).toBe("[Person 2] and [Person 3]");
+    expect(s.restore("[Person 1] / [Person 2] / [Person 3]")).toBe("Mürwald / Ilse Mürwald / Tobin Mürwald");
+  });
+
+  it("the case gate, the minimum length and the stop list still hold for a shared token", () => {
+    const s = fresh(dict([...people, "Mark Quillfeld", "Mark Ostrander", "Al Brix", "Al Venn"]));
+    expect(s.redact("ask mürwald; corvin too")).toBe("ask mürwald; corvin too");
+    expect(s.redact("Mark the task done")).toBe("Mark the task done");
+    expect(s.redact("Al said so")).toBe("Al said so");
   });
 });
 
@@ -333,11 +364,13 @@ describe("redactionSessionFor", () => {
     expect(grown.redact("Elena Fischer, Sofia Ramirez, Noah Bennett")).toBe("[Person 2], [Person 1], [Person 3]");
   });
 
-  it("growth can make a token ambiguous; then it is no longer redacted alone", () => {
+  // Review 5, S1: a token that growth makes shared moves to the shared placeholder; the one already issued still restores.
+  it("growth can make a token shared; it is still redacted alone, under the shared placeholder", () => {
     const s1 = redactionSessionFor(["amb"], [dict(["Sofia Ramirez"])]);
     expect(s1.redact("Sofia")).toBe("[Person 1]");
     const s2 = redactionSessionFor(["amb"], [dict(["Sofia Ramirez", "Sofia Keller"])]);
-    expect(s2.redact("Sofia")).toBe("Sofia");
+    expect(s2.redact("Sofia")).toBe("[Person 2]");
+    expect(s2.restore("[Person 1] / [Person 2]")).toBe("Sofia / Sofia");
   });
 
   // Review 2, E: a placeholder the user typed themselves, which this session never issued, is not a name.

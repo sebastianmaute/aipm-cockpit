@@ -19,14 +19,17 @@
 //   "nobody" values such as TBD or "offen" never become names.
 // - A FULL known name is always redacted; a one-word dictionary entry is a full
 //   name too (no stop list, no length floor). A single TOKEN of a multi-word
-//   name is redacted alone only when it is at least MIN_TOKEN_LENGTH long,
-//   belongs to exactly ONE known person, and is not in NAME_STOP_WORDS.
+//   name is redacted alone only when it is at least MIN_TOKEN_LENGTH long and
+//   is not in NAME_STOP_WORDS — whether one known person or several have it.
 // - Placeholders: a full name and its variants (case, ü/ue, ß/ss, possessive)
 //   share one placeholder that restores the full name. A LONE token of a
 //   multi-word person ("Brandvik" of "Anna Brandvik"), and a one-word entry that
 //   aliases one, gets its own placeholder per (person, token) restoring that
 //   token's dictionary spelling — never the full name, which would turn
 //   "Brandvik GmbH" into "Anna Brandvik GmbH" in a restored write (review 3, R2).
+//   A token several known people share ("Müller" of two Müllers) gets ONE
+//   placeholder keyed by the token alone, restoring the token as the first of
+//   them spells it (review 5, S1; it used to be left in clear).
 // - Case gate: a LONE word (a one-word entry or a token) is redacted only when
 //   the text spells it capitalised or all upper case, so "price list" stays
 //   while "Price" goes. Multi-word names match in any case. A one-word entry the
@@ -120,6 +123,8 @@ type NameMatcher = { readonly re: RegExp | null; readonly owner: ReadonlyMap<str
 
 /** The placeholder key of a lone token of a multi-word person (R2). */
 const tokenKey = (person: string, token: string): string => `${person}\u0000${token}`;
+/** The `person` of a lone token several people share (S1). Never a person key: a cleaned name has a letter in every token. */
+const SHARED_TOKEN_OWNER = "*";
 
 /** Person key = folded full name; a lone token's key is `tokenKey`. `canonical` maps each key to the first
  *  spelling seen (for a token: that token as the full name's first spelling writes it). */
@@ -158,9 +163,17 @@ function buildNameMatcher(names: readonly string[], canonical: Map<string, strin
     owner.set(single, owners && owners.size === 1 ? tokenKey([...owners][0]!, single) : single);
   }
   for (const [token, owners] of tokenOwners) {
-    if (owners.size !== 1 || [...token].length < MIN_TOKEN_LENGTH || NAME_STOP_WORDS.has(token)) continue;
-    if (!/\p{L}/u.test(token)) continue;
-    if (!owner.has(token)) owner.set(token, tokenKey([...owners][0]!, token));
+    if ([...token].length < MIN_TOKEN_LENGTH || NAME_STOP_WORDS.has(token)) continue;
+    if (!/\p{L}/u.test(token) || owner.has(token)) continue;
+    const [first] = owners;
+    if (owners.size === 1) {
+      owner.set(token, tokenKey(first!, token));
+      continue;
+    }
+    // Review 5, S1: shared by several people. One placeholder for the token alone, restoring the first owner's spelling.
+    const shared = tokenKey(SHARED_TOKEN_OWNER, token);
+    if (!canonical.has(shared)) canonical.set(shared, canonical.get(tokenKey(first!, token)) ?? token);
+    owner.set(token, shared);
   }
   if (owner.size === 0) return { re: null, owner, ungated };
   const alternatives = [...owner.keys()]
