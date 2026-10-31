@@ -14,7 +14,11 @@
 //   session issued were recorded, in redacted form, with the spelling it replaced. A side with fewer than
 //   ECHO_MIN_CONTEXT characters besides placeholders (the start or end of a short string) is not recorded. When
 //   the reply has a recorded window of the SAME placeholder beside it, that spelling is used, but only when every
-//   matching record agrees on one spelling; otherwise the caller uses the stored spelling.
+//   matching record agrees on one spelling; otherwise the caller uses the stored spelling. A spelling with a
+//   control character is never used for a spot (review): a multi-word name matches across any whitespace run and a
+//   known phone allows whitespace between digits, so "Anna\nBrandvik" can be recorded, and restored into a
+//   `partial_json` string (decoded one level only) its line break would break the inner tool-input JSON. The
+//   stored spelling is used instead. Records keep it, so it still counts when deciding between two spellings.
 // - Never a different person: records are keyed by the placeholder, and a placeholder's number is never reissued,
 //   so a recorded spelling is always one the session matched for that very placeholder. Two originals with the
 //   same redaction carry the same placeholders at the same spots; when the cache holds more than one, `original`
@@ -33,6 +37,8 @@ export type Occurrence = { readonly at: number; readonly end: number; readonly t
 export type CacheLimits = { readonly entries: number; readonly chars: number };
 
 const ANY_PLACEHOLDER = /\[(?:person|email|phone|iban) \d+\]/gi;
+/** C0 controls and DEL: a spelling carrying one ("Anna\nBrandvik") is never used for a spot. */
+const CONTROL_CHAR = /[\u0000-\u001f\u007f]/;
 const specific = (s: string): boolean => s.replace(ANY_PLACEHOLDER, "").length >= ECHO_MIN_CONTEXT;
 const windowKey = (side: "L" | "R", token: string, window: string): string => `${side}\u0000${token}\u0000${window}`;
 
@@ -100,7 +106,8 @@ export class RedactionCache<T> {
       if (at - k >= 0) collect(windowKey("L", token, text.slice(at - k, at)));
       if (end + k <= text.length) collect(windowKey("R", token, text.slice(end, end + k)));
     }
-    return found.size === 1 ? found.values().next().value : undefined;
+    const [spelling] = found;
+    return found.size === 1 && !CONTROL_CHAR.test(spelling!) ? spelling : undefined;
   }
 
   clear(): void {

@@ -102,3 +102,27 @@ describe("an echoed spot keeps the spelling the user wrote (follow-up m5)", () =
     expect(texts).toEqual(["MUERWALD said the budget is late", "Mürwald", " said the budget is late"]);
   });
 });
+
+// Review: a multi-word name matches across any whitespace run and a known phone allows whitespace between digits, so a
+// recorded spelling can carry a line break or tab. Restored into a `partial_json` string (decoded one level only) it
+// would break the inner tool-input JSON, so such a spelling is never used for a spot; the stored spelling is.
+describe("an echo spelling with a control character is not used (review)", () => {
+  const said = " said the budget is late";
+
+  it("a line break or tab inside the echoed name gives the stored 'Anna Brandvik', also inside partial_json", () => {
+    const s = fresh(dict(["Anna Brandvik"]));
+    expect(s.redact(`Anna\nBrandvik${said}`)).toBe(`[Person 1]${said}`);
+    expect(s.restore(`Noted: [Person 1]${said}.`)).toBe(`Noted: Anna Brandvik${said}.`);
+    const t = fresh(dict(["Anna Brandvik"]));
+    t.redact(`Anna\tBrandvik${said}`);
+    const event = JSON.stringify({ type: "content_block_delta", delta: { type: "input_json_delta", partial_json: `{"notes": "Quote: [Person 1]${said}"}` } });
+    const inner = JSON.parse(restoreJsonText(event, t)).delta.partial_json;
+    expect(JSON.parse(inner).notes).toBe(`Quote: Anna Brandvik${said}`);
+  });
+
+  it("an ordinary single-space spelling still comes back as the user wrote it", () => {
+    const s = fresh(dict(["Anna Brandvik"]));
+    s.redact(`ANNA BRANDVIK${said}`);
+    expect(s.restore(`Noted: [Person 1]${said}.`)).toBe(`Noted: ANNA BRANDVIK${said}.`);
+  });
+});
