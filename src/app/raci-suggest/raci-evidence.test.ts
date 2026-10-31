@@ -33,6 +33,11 @@ describe("stakeholdersForItem", () => {
     expect(stakeholdersForItem({ resourceId: 99, person: "ada" }, ctx)).toEqual([1]);
   });
 
+  it("a live resource id with no linked stakeholder matches none, with no name fallback", () => {
+    const ctx = buildMatchCtx([sh(1, "Bo")], [res(7, "Zed", "Zee")]);
+    expect(stakeholdersForItem({ resourceId: 7, person: "Bo" }, ctx)).toEqual([]);
+  });
+
   it("a name shared by two stakeholders matches neither", () => {
     const ctx = buildMatchCtx([sh(1, "Sam"), sh(2, "sam")], []);
     expect(stakeholdersForItem({ person: "Sam" }, ctx)).toEqual([]);
@@ -109,6 +114,41 @@ describe("buildRaciEvidence", () => {
 
   it("a milestone with no linked tasks yields no evidence", () => {
     expect(buildRaciEvidence({ ...base, milestones: [ms(10, []), ms(11, [404])] })).toEqual([]);
+  });
+
+  it("ties on every count fall back to stakeholder id ascending, not slice position", () => {
+    const ev = buildRaciEvidence({
+      ...base,
+      stakeholders: [sh(2, "Bo"), sh(1, "Ada")],
+      tasks: [task(1, { assignee: "Ada" }), task(2, { assignee: "Bo" })],
+      milestones: [ms(10, [1, 2])],
+    });
+    expect(ev.map((e) => e.stakeholderId)).toEqual([1, 2]);
+  });
+
+  it("after owned tasks, more owned RAID ranks first; then more requested changes", () => {
+    const stakeholders = [sh(1, "Ada"), sh(2, "Bo"), sh(3, "Cy"), sh(4, "Di")];
+    const ev = buildRaciEvidence({
+      ...base,
+      stakeholders,
+      tasks: [task(1)],
+      milestones: [ms(10, [1])],
+      raid: [
+        raid(1, { owner: "Bo", linkedTaskIds: [1] }),
+        raid(2, { owner: "Bo", linkedTaskIds: [1] }),
+        raid(3, { owner: "Ada", linkedTaskIds: [1] }),
+      ],
+      changes: [
+        change(1, { requestedBy: "Cy", linkedTaskIds: [1] }),
+        change(2, { requestedBy: "Cy", linkedTaskIds: [1] }),
+        change(3, { requestedBy: "Di", linkedTaskIds: [1] }),
+        change(4, { requestedBy: "Ada", linkedTaskIds: [1] }),
+        change(5, { requestedBy: "Ada", linkedTaskIds: [1] }),
+        change(6, { requestedBy: "Ada", linkedTaskIds: [1] }),
+      ],
+    });
+    // Bo 2 RAID, Ada 1 RAID (3 changes must not outrank Bo), then Cy 2 changes, Di 1
+    expect(ev.map((e) => e.stakeholderId)).toEqual([2, 1, 3, 4]);
   });
 
   it("order: milestone slice order, then strongest first", () => {

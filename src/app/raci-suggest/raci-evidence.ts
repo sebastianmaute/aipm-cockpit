@@ -129,11 +129,10 @@ function tallyMilestone(
 }
 
 /** Evidence per stakeholder and milestone, only for pairs with any count above zero. Milestones keep
- *  the input order; within one, the strongest first (owned tasks, then RAID, then changes). Uncapped. */
+ *  the input order; within one, the strongest first (owned tasks, then RAID, then changes, then stakeholder id). Uncapped. */
 export function buildRaciEvidence(input: RaciEvidenceInput): RaciEvidence[] {
   const ctx = buildMatchCtx(input.stakeholders, input.resources);
   const taskIds = new Set(input.tasks.map((t) => t.id));
-  const rank = new Map(input.stakeholders.map((s, i) => [s.id, i]));
   const out: RaciEvidence[] = [];
   for (const m of input.milestones) {
     const scope = new Set((m.linkedTaskIds ?? []).filter((id) => taskIds.has(id)));
@@ -148,7 +147,7 @@ export function buildRaciEvidence(input: RaciEvidenceInput): RaciEvidence[] {
         b.tasksOwned - a.tasksOwned ||
         sum(b.raidOpen) + sum(b.raidClosed) - (sum(a.raidOpen) + sum(a.raidClosed)) ||
         b.changesRequested - a.changesRequested ||
-        (rank.get(a.stakeholderId) ?? 0) - (rank.get(b.stakeholderId) ?? 0),
+        a.stakeholderId - b.stakeholderId,
     );
     out.push(...rows);
   }
