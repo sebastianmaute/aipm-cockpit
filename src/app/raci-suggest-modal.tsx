@@ -30,7 +30,7 @@ type SkipMessageKey =
   | "raciSuggestSkipped"
   | "raciSuggestSkippedInvalidRole"
   | "raciSuggestSkippedAccountable"
-  | "raciSuggestSkippedHandover";
+  | "raciSuggestSkippedDuplicateNeedsDemotion";
 
 // The five SkipReasons do not share an explanation, so they cannot share a
 // count. TWO of them mean the cell named something this project does not have.
@@ -50,9 +50,10 @@ export const SKIP_REASON_KEY: Record<SkippedRaciCell["reason"], SkipMessageKey> 
   "unknown-milestone": "raciSuggestSkipped",
   "invalid-role": "raciSuggestSkippedInvalidRole",
   "duplicate-accountable": "raciSuggestSkippedAccountable",
-  // Its own bucket, NOT duplicate-accountable's: "already has an Accountable"
-  // is the very explanation that misdescribed a deliberate handover (§43).
-  "accountable-needs-demotion": "raciSuggestSkippedHandover",
+  // Its own bucket, NOT duplicate-accountable's: the fix differs. The refusal is
+  // actionable on the model side (propose the holder's new role too), not "this
+  // milestone is taken" (§771).
+  "accountable-needs-demotion": "raciSuggestSkippedDuplicateNeedsDemotion",
 };
 
 // Render order is FIXED, not taken from the Map. A Map iterates in insertion
@@ -71,7 +72,7 @@ export const SKIP_KEY_RANK: Record<SkipMessageKey, number> = {
   raciSuggestSkipped: 0,
   raciSuggestSkippedInvalidRole: 1,
   raciSuggestSkippedAccountable: 2,
-  raciSuggestSkippedHandover: 3,
+  raciSuggestSkippedDuplicateNeedsDemotion: 3,
 };
 export const SKIP_KEY_ORDER: readonly SkipMessageKey[] = (
   Object.keys(SKIP_KEY_RANK) as SkipMessageKey[]
@@ -110,6 +111,11 @@ export interface RaciSuggestModalProps {
   busy: boolean;
 }
 
+/** Name, plus the id when the name collides — keeps per-row accessible names unique. */
+function qualify(name: string, id: number, counts: ReadonlyMap<string, number>): string {
+  return (counts.get(name.trim().toLowerCase()) ?? 0) > 1 ? `${name} (#${id})` : name;
+}
+
 export function RaciSuggestModal({
   lang,
   open,
@@ -142,6 +148,7 @@ export function RaciSuggestModal({
     return { stakeholder: tally(stakeholders), milestone: tally(milestones) };
   }, [stakeholders, milestones]);
   const selectedCount = cells.reduce((n, c) => (selected.has(cellKey(c)) ? n + 1 : n), 0);
+  const seenPairs = new Set<string>();
   const canConfirm = !busy && selectedCount > 0;
 
   const skippedByKey = new Map<SkipMessageKey, number>();
@@ -208,6 +215,43 @@ export function RaciSuggestModal({
             <ul className="space-y-2">
               {cells.map((c) => {
                 const key = cellKey(c);
+                if (c.pairKey) {
+                  // ONE row per handover pair, rendered at the first half met.
+                  if (seenPairs.has(c.pairKey)) return null;
+                  seenPairs.add(c.pairKey);
+                  const halves = cells.filter((x) => x.pairKey === c.pairKey);
+                  const incoming = halves.find((x) => x.role === "A");
+                  const outgoing = halves.find((x) => x !== incoming);
+                  if (incoming && outgoing && halves.length === 2) {
+                    const keys = halves.map(cellKey);
+                    const label = t(
+                      lang,
+                      "raciSuggestHandoverRow",
+                      qualify(c.milestoneName, c.milestoneId, nameCounts.milestone),
+                      qualify(outgoing.stakeholderName, outgoing.stakeholderId, nameCounts.stakeholder),
+                      qualify(incoming.stakeholderName, incoming.stakeholderId, nameCounts.stakeholder),
+                      t(lang, ROLE_LABEL_KEY[outgoing.role]),
+                    );
+                    return (
+                      <li key={c.pairKey} className="rounded-md border border-line bg-surface-muted px-3 py-2">
+                        <label className="flex cursor-pointer items-start gap-2">
+                          <Checkbox
+                            checked={keys.every((k) => selected.has(k))}
+                            disabled={busy}
+                            onChange={() => {
+                              // Both halves move together: one on, one off would mint a second Accountable.
+                              const on = keys.every((k) => selected.has(k));
+                              for (const k of keys) if (selected.has(k) === on) onToggle(k);
+                            }}
+                            aria-label={label}
+                            className="mt-0.5 shrink-0"
+                          />
+                          <span className="min-w-0 flex-1 text-sm text-foreground">{label}</span>
+                        </label>
+                      </li>
+                    );
+                  }
+                }
                 // Two stakeholders can genuinely share a name, and cells are
                 // deduped by (stakeholderId, milestoneId) — not by name — so
                 // name+milestone is NOT guaranteed unique. Identical names on N

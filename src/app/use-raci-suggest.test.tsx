@@ -4,7 +4,7 @@ vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { newConsent } from "./ai-consent";
 import { AiHttpError } from "./ai-errors";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { foldCellsByStakeholder, useRaciSuggest } from "./use-raci-suggest";
 import { ToastProvider } from "./toast-context";
 import { defaultSettings, type Settings } from "./settings-types";
@@ -110,6 +110,7 @@ function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakehold
     lang: "en-US",
     stakeholders,
     milestones: milestonesProp ?? milestones,
+    tasks: [], raid: [], changes: [], resources: [], roles: [], disciplines: [], grades: [], documents: [],
     onSave: (item, isNew, opts) => {
       onSaves?.(item, isNew, opts);
       setStakeholders((prev) => prev.map((s) => (s.id === item.id ? item : s)));
@@ -119,7 +120,14 @@ function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakehold
   return (
     <div>
       {suggest.button}
+      {suggest.requestBox}
       {suggest.modal}
+      <button
+        type="button"
+        onClick={() => (suggest.modal as ReactElement<{ onToggle: (k: string) => void }>).props.onToggle("2:10")}
+      >
+        TEST_TOGGLE_LEE_HALF
+      </button>
       <output data-testid="sam-raci">{JSON.stringify(stakeholders.find((s) => s.id === 1)?.raci ?? {})}</output>
       <output data-testid="lee-raci">{JSON.stringify(stakeholders.find((s) => s.id === 2)?.raci ?? {})}</output>
       {ext && (
@@ -186,7 +194,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     renderHarness({ stakeholderRaci: { "10": "R", "11": "A" } });
     fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
     await waitFor(() =>
-      expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedHandover", 1, 1))).toBeTruthy(),
+      expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedDuplicateNeedsDemotion", 1, 1))).toBeTruthy(),
     );
     expect(screen.getByText(t("en-US", "raciSuggestNoOpCount", "1"))).toBeTruthy();
   });
@@ -435,5 +443,64 @@ describe("useRaciSuggest guide text", () => {
     const text = vi.mocked(call.runRaciSuggestion).mock.calls[0][1].guideText ?? "";
     expect(text).toContain("TARGET-MARK");
     expect(text).not.toContain("CHAT-ONLY");
+  });
+});
+
+// §771 — the request box, the evidence slices and handover pair integrity.
+describe("useRaciSuggest — request and evidence (§771)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  it("sends the typed request and the EVIDENCE block to the call", async () => {
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({ cells: [], truncated: false });
+    renderHarness();
+    fireEvent.change(screen.getByRole("textbox", { name: t("en-US", "raciSuggestRequestLabel") }), {
+      target: { value: "Keep Sam on Go-Live" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    await waitFor(() => expect(call.runRaciSuggestion).toHaveBeenCalled());
+    const context = vi.mocked(call.runRaciSuggestion).mock.calls[0][0];
+    expect(context.text).toContain("EVIDENCE");
+    expect(context.text).toContain("Keep Sam on Go-Live");
+  });
+});
+
+describe("useRaciSuggest — handover pair integrity (§771)", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  type SaveMock = ReturnType<typeof vi.fn<NonNullable<HarnessProps["onSaves"]>>>;
+  type CaptureMock = ReturnType<typeof vi.fn<NonNullable<HarnessProps["onCaptureBulk"]>>>;
+  async function openHandover(onSaves: SaveMock, onCaptureBulk?: CaptureMock) {
+    // Sam holds A on 10; the proposal hands it to Lee and demotes Sam to C.
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({
+      cells: [
+        { stakeholderId: 2, milestoneId: 10, role: "A" },
+        { stakeholderId: 1, milestoneId: 10, role: "C" },
+      ],
+      truncated: false,
+    });
+    renderHarness({ stakeholderRaci: { "10": "A" }, onSaves, onCaptureBulk });
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    await screen.findByRole("button", { name: /apply selected/i });
+  }
+
+  it("confirm writes both halves of a selected pair in one bulk undo entry", async () => {
+    const onSaves: SaveMock = vi.fn();
+    const onCaptureBulk: CaptureMock = vi.fn();
+    await openHandover(onSaves, onCaptureBulk);
+    fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
+    await waitFor(() => expect(onSaves).toHaveBeenCalledTimes(2));
+    expect(onCaptureBulk).toHaveBeenCalledTimes(1);
+    expect(onCaptureBulk.mock.calls[0][0]).toHaveLength(2);
+    expect(screen.getByTestId("sam-raci").textContent).toBe(JSON.stringify({ "10": "C" }));
+    expect(screen.getByTestId("lee-raci").textContent).toBe(JSON.stringify({ "10": "A" }));
+  });
+
+  it("confirm writes neither half when the selection holds only one half of a pair", async () => {
+    const onSaves: SaveMock = vi.fn();
+    await openHandover(onSaves);
+    // Deselect ONLY Lee's half, programmatically: the modal row never allows this.
+    fireEvent.click(screen.getByRole("button", { name: "TEST_TOGGLE_LEE_HALF" }));
+    fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
+    expect(onSaves).not.toHaveBeenCalled();
+    expect(screen.getByTestId("sam-raci").textContent).toBe(JSON.stringify({ "10": "A" }));
+    expect(screen.getByTestId("lee-raci").textContent).toBe("{}");
   });
 });

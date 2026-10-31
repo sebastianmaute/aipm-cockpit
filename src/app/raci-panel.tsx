@@ -15,7 +15,11 @@ import {
   raciWarningFor,
   setRaciRole,
 } from "./stakeholders";
-import { type RaciRole, type Stakeholder, type Milestone } from "./types";
+import {
+  type ChangeItem, type Discipline, type Grade, type Milestone, type RaciRole, type RaidItem, type Resource,
+  type Role, type Stakeholder, type Task,
+} from "./types";
+import { type ProjectDocument } from "./document-model";
 import { type LogActivityAsFn } from "./activity-log-context";
 import { RaciChipPicker, RaciLegend } from "./raci-chip-picker";
 import { buildRowTokens, collapse } from "./row-tokens";
@@ -34,6 +38,15 @@ export interface RaciPanelProps {
   lang: Lang;
   stakeholders: readonly Stakeholder[];
   milestones: readonly Milestone[];
+  // Read by Suggest RACI only (§771): the evidence Claude is shown beside the matrix.
+  tasks: readonly Task[];
+  raid: readonly RaidItem[];
+  changes: readonly ChangeItem[];
+  resources: readonly Resource[];
+  roles: readonly Role[];
+  disciplines: readonly Discipline[];
+  grades: readonly Grade[];
+  documents: readonly ProjectDocument[];
   onSave: (item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
   /** Snapshot the touched stakeholders' field patches for undo, called
    *  before "Suggest RACI" applies its selected cells — mirrors
@@ -55,7 +68,7 @@ export interface RaciPanelProps {
 // Component
 // ---------------------------------------------------------------------------
 
-export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBulk, logActivityAs, showHints, isPopout, onLearnMore, settings }: RaciPanelProps) {
+export function RaciPanel({ lang, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades, documents, onSave, onCaptureBulk, logActivityAs, showHints, isPopout, onLearnMore, settings }: RaciPanelProps) {
 
   // AI-assisted "Suggest RACI" (Stakeholders → RACI toolbar only). Called
   // UNCONDITIONALLY — before the two empty-state early returns below — so the
@@ -68,6 +81,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
     lang,
     stakeholders,
     milestones,
+    tasks, raid, changes, resources, roles, disciplines, grades, documents,
     onSave,
     onCaptureBulk,
     logActivityAs,
@@ -193,6 +207,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
       <div className="mb-2 flex shrink-0 flex-wrap items-start gap-2 print:hidden">
         <div className="flex flex-1 flex-wrap items-center gap-2">
           {suggest.button}
+          {suggest.requestBox}
           {/* ★ onClear hits the setter DIRECTLY, never the onChange above —
               routing it through onChange would re-run the auto-add match. */}
           <ClearableSearchInput

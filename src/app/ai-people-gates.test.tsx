@@ -131,7 +131,7 @@ function AllocHarness() {
 
 function RaciHarness() {
   const suggest = useRaciSuggest({
-    settings: AI_SETTINGS, isPopout: false, lang: "en-US", stakeholders: [ALICE], milestones: MILESTONES, onSave: () => undefined,
+    settings: AI_SETTINGS, isPopout: false, lang: "en-US", stakeholders: [ALICE], milestones: MILESTONES, tasks: [], raid: [], changes: [], resources: [], roles: [], disciplines: [], grades: [], documents: [], onSave: () => undefined,
   });
   return <div>{suggest.button}{suggest.modal}</div>;
 }

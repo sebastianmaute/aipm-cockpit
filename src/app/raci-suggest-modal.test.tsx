@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import {
   RaciSuggestModal,
   SKIP_KEY_ORDER,
@@ -117,7 +117,7 @@ describe("skip-reason bucket wiring", () => {
       "raciSuggestSkipped",
       "raciSuggestSkippedInvalidRole",
       "raciSuggestSkippedAccountable",
-      "raciSuggestSkippedHandover",
+      "raciSuggestSkippedDuplicateNeedsDemotion",
     ]);
   });
 });
@@ -222,12 +222,12 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
     expect(first).toHaveLength(3);
   });
 
-  // §43 (a): a deliberate handover (the proposal demotes the current
-  // Accountable and promotes someone else) is refused, but "that milestone
-  // already has an Accountable" misdescribes it.
-  it("explains a refused Accountable HANDOVER with its own sentence", () => {
+  // A new Accountable proposed without the current holder's new role is refused,
+  // but "that milestone already has an Accountable" misdescribes it: the model
+  // must also propose the holder's demotion.
+  it("explains a refused second Accountable that lacks a demotion with its own sentence", () => {
     renderSkipped([skip("accountable-needs-demotion")]);
-    expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedHandover", 1, 1))).toBeInTheDocument();
+    expect(screen.getByText(tPlural("en-US", "raciSuggestSkippedDuplicateNeedsDemotion", 1, 1))).toBeInTheDocument();
     expect(screen.queryByText(tPlural("en-US", "raciSuggestSkippedAccountable", 1, 1))).not.toBeInTheDocument();
   });
 
@@ -402,5 +402,27 @@ describe("RaciSuggestModal — every Include checkbox has its own name (§672)",
   it.each(["en-US", "de"] as const)("names every proposed row's checkbox distinctly in %s", (lang) => {
     renderModal(CELLS, undefined, lang);
     expectRowUniqueNames({ minControls: CELLS.length, roles: ["checkbox"] });
+  });
+});
+
+describe("RaciSuggestModal handover row (§771)", () => {
+  const pair: GroundedRaciCell[] = [
+    { stakeholderId: 2, stakeholderName: "Lee", milestoneId: 10, milestoneName: "Go-Live", role: "A", currentRole: null, pairKey: "handover:10" },
+    { stakeholderId: 1, stakeholderName: "Sam", milestoneId: 10, milestoneName: "Go-Live", role: "C", currentRole: "A", pairKey: "handover:10" },
+  ];
+  it("renders a pair as ONE row whose single checkbox toggles both cell keys", () => {
+    const onToggle = vi.fn();
+    render(
+      <RaciSuggestModal
+        lang="en-US" open cells={pair} skipped={[]} noOp={0} truncated={false} contextTruncated={false}
+        stakeholders={[{ id: 1, name: "Sam" }, { id: 2, name: "Lee" }]} milestones={[{ id: 10, name: "Go-Live" }]}
+        selected={new Set(["1:10", "2:10"])} onToggle={onToggle} onConfirm={vi.fn()} onCancel={vi.fn()} busy={false}
+      />,
+    );
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes).toHaveLength(1);
+    expect(boxes[0].getAttribute("aria-label")).toMatch(/^Accountable for Go-Live: Sam → Lee, Sam becomes /);
+    fireEvent.click(boxes[0]);
+    expect(onToggle.mock.calls.map((c) => c[0]).sort()).toEqual(["1:10", "2:10"]);
   });
 });

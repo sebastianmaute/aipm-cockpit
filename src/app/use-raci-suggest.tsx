@@ -31,9 +31,14 @@
 
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "./icons";
+import { Textarea } from "./form-controls";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
-import { type Milestone, type Stakeholder } from "./types";
+import {
+  type ChangeItem, type Discipline, type Grade, type Milestone,
+  type RaidItem, type Resource, type Role, type Stakeholder, type Task,
+} from "./types";
+import { type ProjectDocument } from "./document-model";
 import { type LogActivityAsFn } from "./activity-log-context";
 import { useToastContext } from "./toast-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -42,6 +47,7 @@ import { runRaciSuggestion } from "./raci-suggest-call";
 import { useActionGuideText } from "./action-guides-context";
 import { useOpenProjectAiPrivacy, usePeopleProtected } from "./ai-privacy-context";
 import {
+  RACI_REQUEST_MAX_CHARS,
   buildRaciContext,
   cellKey,
   groundRaciCells,
@@ -61,6 +67,15 @@ export interface RaciSuggestDeps {
   lang: Lang;
   stakeholders: readonly Stakeholder[];
   milestones: readonly Milestone[];
+  // The evidence and reference slices Claude reads alongside the matrix (§771).
+  tasks: readonly Task[];
+  raid: readonly RaidItem[];
+  changes: readonly ChangeItem[];
+  resources: readonly Resource[];
+  roles: readonly Role[];
+  disciplines: readonly Discipline[];
+  grades: readonly Grade[];
+  documents: readonly ProjectDocument[];
   /** The stakeholders pane's save handler — mirrors every other entity save
    *  contract: `(item, isNew?, opts?)`, where `opts.suppressFieldUndo` skips
    *  the per-field undo capture (this hook records ONE bulk undo entry
@@ -82,6 +97,9 @@ export interface RaciSuggest {
   button: ReactNode;
   /** The preview/confirm modal element (null while the feature is idle or thinking). */
   modal: ReactNode;
+  /** The optional free-text request, shown beside the trigger BEFORE the run
+   *  (the review dialog only opens after it). Null when the feature is unavailable. */
+  requestBox: ReactNode;
 }
 
 /** Collapse the accepted cells into ONE updated Stakeholder per person.
@@ -108,8 +126,20 @@ export function foldCellsByStakeholder(
   return [...folded.values()];
 }
 
+/** Drop every cell whose handover partner is not also in `chosen`. The two halves
+ *  of a pair are applied together or not at all: an A without its demotion would
+ *  leave a milestone with two Accountables. */
+export function dropOrphanedPairHalves(chosen: readonly GroundedRaciCell[]): GroundedRaciCell[] {
+  const perPair = new Map<string, number>();
+  for (const c of chosen) if (c.pairKey) perPair.set(c.pairKey, (perPair.get(c.pairKey) ?? 0) + 1);
+  return chosen.filter((c) => !c.pairKey || (perPair.get(c.pairKey) ?? 0) >= 2);
+}
+
 export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
-  const { settings, isPopout, lang, stakeholders, milestones, onSave, onCaptureBulk, logActivityAs } = deps;
+  const {
+    settings, isPopout, lang, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades,
+    documents, onSave, onCaptureBulk, logActivityAs,
+  } = deps;
   const showToast = useToastContext();
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -127,6 +157,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   // which made a capped input indistinguishable from "Claude assigned no role".
   const [contextTruncated, setContextTruncated] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [request, setRequest] = useState("");
   // Monotonic request generation: a slow proposal that resolves after cancel /
   // a new open is discarded (can't land a stale proposal or a stale error toast).
   const reqIdRef = useRef(0);
@@ -152,6 +183,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     setTruncated(false);
     setContextTruncated(false);
     setSelected(new Set());
+    setRequest("");
   }
   // Refs only, no state: a proposal still in flight when protection turns on is aborted and discarded.
   useEffect(() => {
@@ -170,6 +202,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     setTruncated(false);
     setContextTruncated(false);
     setSelected(new Set());
+    setRequest("");
   }, []);
 
   // Abort any in-flight proposal if the pane unmounts — a response must
@@ -184,10 +217,8 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     abortRef.current = controller;
     setPhase("thinking");
     try {
-      // The evidence, reference and request slices are wired in Task 4 (§771); empty until then.
       const context = buildRaciContext({
-        stakeholders, milestones, tasks: [], raid: [], changes: [], resources: [],
-        roles: [], disciplines: [], grades: [], documents: [],
+        stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades, documents, request,
       });
       const parsed = await runRaciSuggestion(context, { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() }, controller.signal);
       if (reqId !== reqIdRef.current) return; // superseded — discard
@@ -251,7 +282,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       }
       setPhase("idle");
     }
-  }, [enabled, phase, stakeholders, milestones, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast]);
+  }, [enabled, phase, stakeholders, milestones, tasks, raid, changes, resources, roles, disciplines, grades, documents, request, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast]);
 
   const onToggle = useCallback((key: string) => {
     setSelected((prev) => {
@@ -264,7 +295,9 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
 
   const onConfirm = useCallback(() => {
     if (peopleProtected || phase !== "preview") return;
-    const chosen = cells.filter((c) => selected.has(cellKey(c)));
+    // Pair integrity first: a half whose partner was deselected is dropped, so a
+    // lone new Accountable (or lone demotion) can never be written.
+    const chosen = dropOrphanedPairHalves(cells.filter((c) => selected.has(cellKey(c))));
     if (chosen.length === 0) return;
     const updated = foldCellsByStakeholder(chosen, stakeholders);
     if (updated.length === 0) {
@@ -351,5 +384,20 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     />
   ) : null;
 
-  return { button, modal };
+  const requestBox = enabled ? (
+    <Textarea
+      size="xs"
+      rows={1}
+      autoGrow
+      value={request}
+      maxLength={RACI_REQUEST_MAX_CHARS}
+      disabled={phase !== "idle"}
+      onChange={(e) => setRequest(e.target.value)}
+      aria-label={t(lang, "raciSuggestRequestLabel")}
+      placeholder={t(lang, "raciSuggestRequestPlaceholder")}
+      className="w-64"
+    />
+  ) : null;
+
+  return { button, modal, requestBox };
 }
