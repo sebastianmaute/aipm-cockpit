@@ -1021,6 +1021,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§784](#784-escape-on-the-reports-replace-or-keep-both-question-adds-the-ai-section-instead-of-cancelling--open) | Escape on the report's Replace or Keep both question adds the AI section instead of cancelling | — | — | open |
 | [§785](#785-plan-with-ai-does-not-see-the-load-a-person-carries-in-other-projects) | Plan with AI does not see the load a person carries in other projects | #921 | — | OPEN |
 | [§786](#786-dictation-stays-available-in-an-open-tab-after-the-people-protection-lock-is-set) | Dictation stays available in an open tab after the people-protection lock is set | #924 | — | OPEN |
+| [§787](#787-i18n-pluraltestts-runs-about-24-s-against-the-20-s-unit-timeout) | i18n-plural.test.ts runs about 24 s against the 20 s unit timeout | #926 | — | OPEN |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46168,3 +46169,15 @@ What it would take: refuse `ai-people` in the speech-to-text route as well (`ref
 Size S.
 
 **Source:** final review of the AI people protection branch, owner decision 2026-10-31 (file it).
+
+## 787. i18n-plural.test.ts runs about 24 s against the 20 s unit timeout
+
+**Status:** OPEN 2026-10-31, filed during §773. `src/app/i18n-plural.test.ts` took 23.8 s on the §773 branch and 24.4 s at e05c349cd (a clean worktree, `--maxWorkers=2`), so the cost predates §773; the unit timeout is `testTimeout: 20000` in `vitest.config.ts`. CI's `unit` job has passed so far, but a slower runner could time it out and turn a required check red with no code change. Likely cost: "routes every paired base key through tPlural, outside a documented exception", which walks and reads every non-test source file under `src/app`.
+
+**Work item:** #926
+
+What it would take: measure which test takes the time, then make the scan cheaper (read each file once, or narrow it to files that call `t(`) or give that one test an explicit timeout with a comment saying why. Do not raise the global timeout.
+
+Size S.
+
+**Source:** §773 PR-head fix round, owner decision 2026-10-31 (file it).
