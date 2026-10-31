@@ -527,7 +527,7 @@ export const CACHED_TOOLS = withCacheBreakpoint(TOOL_DEFS);
 
 /** The stable prompt's line in place of the resource-directory one when the project protects its people. */
 const PEOPLE_PROTECTED_INSTRUCTION =
-  "This project protects its people from the AI: you have no tools to read or change the resource directory, stakeholders, absences or allocations, and you must not assign, move or rate anyone. Names may reach you as placeholders such as [Person 1]; use them as given.";
+  "This project protects its people from the AI: you have no tools to read or change the resource directory, stakeholders, absences or allocations, and you must not assign, move or rate anyone. Names may reach you as placeholders of the form [Person N] (also [email N], [phone N], [IBAN N]), where N is a number; use them exactly as given.";
 
 /** The flags that select a tool-list variant.
  *

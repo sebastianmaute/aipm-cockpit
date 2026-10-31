@@ -20,6 +20,7 @@ import {
 import { historySearchEnabled } from "./settings-types";
 import type { ToolDispatcher } from "./chat-tools";
 import { RECAP_WINDOW_DAYS } from "./history-search";
+import { BUILTIN_FEATURE_GUIDES, BUILTIN_GUIDE_CONTENT } from "./operating-guide-builtin.generated";
 
 type Snapshot = ReturnType<ToolDispatcher["getSnapshot"]>;
 
@@ -34,6 +35,23 @@ const snapshotFixture = (over: Partial<Snapshot> = {}): Snapshot => ({
   currentView: "chat",
   timezone: asTimeZoneForTests("UTC"),
   ...over,
+});
+
+// Review 4, M4: a model-facing example never names a numbered placeholder. "[Person 1]" in an instruction is a
+// placeholder the transport restores in a reply that quotes it, and reads to the model like a real person.
+const NUMBERED_PLACEHOLDER = /\[(person|email|phone|iban) \d+\]/i;
+describe("model-facing text names no numbered placeholder (review 4, M4)", () => {
+  it("the protected chat prompt says [Person N]", () => {
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({}), [], false, { peopleProtected: true });
+    const text = blocks.map((b) => b.text).join("\n");
+    expect(text).toContain("[Person N]");
+    expect(text).not.toMatch(NUMBERED_PLACEHOLDER);
+  });
+
+  it("the built-in guides the chat is grounded in", () => {
+    const texts = [BUILTIN_GUIDE_CONTENT, ...BUILTIN_FEATURE_GUIDES.map((g) => g.content)];
+    expect(texts.filter((t) => NUMBERED_PLACEHOLDER.test(t))).toEqual([]);
+  });
 });
 
 describe("buildSystemPrompt — the activity recap block", () => {
