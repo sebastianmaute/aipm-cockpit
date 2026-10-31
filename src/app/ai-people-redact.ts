@@ -244,8 +244,10 @@ const CACHE_MAX_CHARS = 8_000_000;
 
 /** `accepted` (sorted, disjoint) plus every span of `batch` that overlaps none of it; earlier batches win.
  *  `batch` must be sorted by start and disjoint, as one pattern's matches are. One pass per batch (review 5,
- *  S4): checking each candidate against every accepted span made one long string quadratic. */
-function mergeBatch(accepted: readonly Span[], batch: readonly Span[]): readonly Span[] {
+ *  S4): checking each candidate against every accepted span made one long string quadratic. A span that only
+ *  TOUCHES an accepted one (ends where it starts, or starts where it ends) does not overlap it and is kept, as the
+ *  old per-candidate check kept it; exported for the equivalence test that pins this against that check. */
+export function mergeBatch(accepted: readonly Span[], batch: readonly Span[]): readonly Span[] {
   if (batch.length === 0) return accepted;
   const out: Span[] = [];
   let i = 0;

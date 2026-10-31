@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PeopleDictionary } from "./ai-people-dictionary";
-import { countUnrestoredPlaceholders, redactionSessionFor, redactJsonBody, restoreJsonText } from "./ai-people-redact";
+import { countUnrestoredPlaceholders, mergeBatch, redactionSessionFor, redactJsonBody, restoreJsonText } from "./ai-people-redact";
 
 const dict = (names: string[], emails: string[] = [], phones: string[] = []): PeopleDictionary => ({ names, emails, phones });
 
@@ -556,5 +556,71 @@ describe("redactJsonBody / restoreJsonText", () => {
     const text = JSON.stringify({ content: [{ type: "text", text: "Hi [Person 1] and [Person 7]" }] });
     const restored = JSON.parse(restoreJsonText(text, s));
     expect(restored.content[0].text).toBe('Hi Liam O"Neil\\Jr and [Person 7]');
+  });
+});
+
+// Follow-up m1: `mergeBatch` replaced a per-candidate check against every accepted span (review 5, S4). A span that only
+// TOUCHES an accepted one must still be kept, or a name written straight against a phone number stays in clear.
+describe("mergeBatch agrees with the per-candidate overlap check it replaced (follow-up m1)", () => {
+  type Span = Parameters<typeof mergeBatch>[1][number];
+
+  /** The pre-S4 algorithm, kept as the reference: add a span when it overlaps no span added so far. */
+  function reference(batches: readonly (readonly Span[])[]): Span[] {
+    const spans: Span[] = [];
+    const free = (start: number, end: number) => spans.every((s) => end <= s.start || start >= s.end);
+    for (const batch of batches) for (const span of batch) if (span.end > span.start && free(span.start, span.end)) spans.push(span);
+    return spans.sort((a, b) => a.start - b.start);
+  }
+
+  /** mulberry32: a plain seeded PRNG, so every run checks the same cases. */
+  function prng(seed: number): () => number {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /** One pattern's matches: sorted and disjoint, as `matchAll` yields them, but free to touch (gap 0) or be empty. */
+  function batchOf(rand: () => number, id: number): Span[] {
+    const out: Span[] = [];
+    let at = Math.floor(rand() * 4);
+    const count = Math.floor(rand() * 5);
+    for (let k = 0; k < count && at < 24; k++) {
+      const len = rand() < 0.1 ? 0 : 1 + Math.floor(rand() * 5);
+      out.push({ start: at, end: at + len, kind: "person", key: `${id}.${k}`, spelling: "" });
+      at += len + Math.floor(rand() * 3); // a gap of 0 makes the next span touch this one
+    }
+    return out;
+  }
+
+  const ids = (spans: readonly Span[]) => spans.map((s) => s.key);
+
+  it("on 5000 seeded batch lists (touching, nested, identical, adjacent and empty spans)", () => {
+    const rand = prng(20261031);
+    for (let run = 0; run < 5000; run++) {
+      const batches = Array.from({ length: 1 + Math.floor(rand() * 5) }, (_, b) => batchOf(rand, run * 10 + b));
+      const merged = batches.reduce<readonly Span[]>((acc, batch) => mergeBatch(acc, batch), []);
+      expect(ids(merged), JSON.stringify(batches.map((b) => b.map((s) => [s.start, s.end])))).toEqual(ids(reference(batches)));
+    }
+  });
+
+  it("explicit cases: a span touching an accepted one on either side is kept; nested and identical ones are not", () => {
+    const span = (start: number, end: number, key: string): Span => ({ start, end, kind: "phone", key, spelling: "" });
+    const accepted = [span(5, 10, "a")];
+    expect(ids(mergeBatch(accepted, [span(0, 5, "before"), span(10, 14, "after")]))).toEqual(["before", "a", "after"]);
+    expect(ids(mergeBatch(accepted, [span(5, 10, "same")]))).toEqual(["a"]);
+    expect(ids(mergeBatch(accepted, [span(6, 8, "inside")]))).toEqual(["a"]);
+    expect(ids(mergeBatch(accepted, [span(2, 6, "left"), span(9, 12, "right")]))).toEqual(["a"]);
+  });
+
+  it("a name written straight against a phone number or an email, with no gap, is still redacted", () => {
+    const s = fresh(dict(["Sofia Ramirez"], ["s@example.com"], ["+49 30 5550101"]));
+    expect(s.redact("Sofia Ramirez+49 30 5550101")).toBe("[Person 1][phone 1]");
+    expect(s.redact("+4930123456/Sofia Ramirez")).toBe("[phone 2]/[Person 1]");
+    expect(s.redact("s@example.com/Sofia Ramirez")).toBe("[email 1]/[Person 1]");
   });
 });
