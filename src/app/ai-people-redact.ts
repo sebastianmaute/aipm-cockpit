@@ -235,6 +235,28 @@ function phoneAccepted(match: string): boolean {
  *  checksum), so no phone pattern can match inside it. */
 type Span = { start: number; end: number; kind: Kind | null; key: string; spelling: string };
 
+const KINDS: readonly Kind[] = ["person", "email", "phone", "iban"];
+/** The per-session redaction cache's bounds (S4): entries, and characters held (original plus redaction). */
+const CACHE_MAX_ENTRIES = 4096;
+const CACHE_MAX_CHARS = 8_000_000;
+
+/** `accepted` (sorted, disjoint) plus every span of `batch` that overlaps none of it; earlier batches win.
+ *  `batch` must be sorted by start and disjoint, as one pattern's matches are. One pass per batch (review 5,
+ *  S4): checking each candidate against every accepted span made one long string quadratic. */
+function mergeBatch(accepted: readonly Span[], batch: readonly Span[]): readonly Span[] {
+  if (batch.length === 0) return accepted;
+  const out: Span[] = [];
+  let i = 0;
+  for (const c of batch) {
+    if (c.end <= c.start) continue;
+    while (i < accepted.length && accepted[i]!.end <= c.start) out.push(accepted[i++]!);
+    if (i < accepted.length && accepted[i]!.start < c.end) continue;
+    out.push(c);
+  }
+  while (i < accepted.length) out.push(accepted[i++]!);
+  return out;
+}
+
 class Session implements RedactionSession {
   private signature = "";
   private names: NameMatcher = { re: null, owner: new Map(), ungated: new Set() };
@@ -250,6 +272,10 @@ class Session implements RedactionSession {
     person: new Map(), email: new Map(), phone: new Map(), iban: new Map(),
   };
   private readonly tally: RedactionCounts = { person: 0, email: 0, phone: 0, iban: 0 };
+  /** Review 5, S4: original string -> its redaction and the replacements it made. Memory only, like the mapping;
+   *  cleared whenever the dictionary changes, since that changes what a string redacts to. */
+  private readonly cache = new Map<string, { out: string; counts: RedactionCounts }>();
+  private cachedChars = 0;
 
   /** Absorb the dictionaries (union). Numbering already issued never changes. */
   setDictionaries(dicts: readonly PeopleDictionary[]): void {
@@ -259,6 +285,8 @@ class Session implements RedactionSession {
     const signature = JSON.stringify([names, emails, phones]);
     if (signature === this.signature) return;
     this.signature = signature;
+    this.cache.clear();
+    this.cachedChars = 0;
     this.names = buildNameMatcher(names, this.canonical.person);
     for (const e of emails) {
       const key = e.trim().toLowerCase();
@@ -276,44 +304,77 @@ class Session implements RedactionSession {
     }
   }
 
+  /** Review 5, S4: a cached string is not matched again, but its replacements are COUNTED again, so `counts()`
+   *  (and the per-send `ai.peopleRedacted` diag, a before/after difference of it) reads the same with or
+   *  without the cache: the replacements in the body sent, not the work done. */
   redact(text: string): string {
-    const spans: Span[] = [];
-    const free = (start: number, end: number) => spans.every((s) => end <= s.start || start >= s.end);
-    const add = (span: Span) => { if (span.end > span.start && free(span.start, span.end)) spans.push(span); };
-
-    for (const m of text.matchAll(EMAIL_RE)) {
-      add({ start: m.index, end: m.index + m[0].length, kind: "email", key: m[0].toLowerCase(), spelling: m[0] });
+    const hit = this.cache.get(text);
+    if (hit) {
+      this.cache.delete(text);
+      this.cache.set(text, hit); // least recently used is evicted first
+      for (const kind of KINDS) this.tally[kind] += hit.counts[kind];
+      return hit.out;
     }
-    for (const m of text.matchAll(IBAN_RE)) {
+    const before = this.counts();
+    const out = this.render(text, this.spansOf(text));
+    const after = this.counts();
+    this.remember(text, out, { person: after.person - before.person, email: after.email - before.email, phone: after.phone - before.phone, iban: after.iban - before.iban });
+    return out;
+  }
+
+  /** Bounded by entries and by characters held; a string over the character bound is not cached. */
+  private remember(text: string, out: string, counts: RedactionCounts): void {
+    const size = text.length + out.length;
+    if (size > CACHE_MAX_CHARS) return;
+    while (this.cache.size >= CACHE_MAX_ENTRIES || this.cachedChars + size > CACHE_MAX_CHARS) {
+      const [oldest, entry] = this.cache.entries().next().value!;
+      this.cache.delete(oldest);
+      this.cachedChars -= oldest.length + entry.out.length;
+    }
+    this.cache.set(text, { out, counts });
+    this.cachedChars += size;
+  }
+
+  /** Every span to replace, sorted and disjoint. Kinds are taken in priority order; one batch per pattern. */
+  private spansOf(text: string): readonly Span[] {
+    const at = (m: RegExpExecArray) => ({ start: m.index, end: m.index + m[0].length, spelling: m[0] });
+    let spans = mergeBatch([], [...text.matchAll(EMAIL_RE)].map((m) => ({ ...at(m), kind: "email" as const, key: m[0].toLowerCase() })));
+    spans = mergeBatch(spans, [...text.matchAll(IBAN_RE)].map((m) => {
       const iban = validIbanPrefix(m[0]);
-      if (iban) add({ start: m.index, end: m.index + iban.length, kind: "iban", key: iban.replace(/ /g, ""), spelling: iban });
-      else add({ start: m.index, end: m.index + m[0].length, kind: null, key: "", spelling: m[0] });
-    }
+      return iban
+        ? { start: m.index, end: m.index + iban.length, kind: "iban" as const, key: iban.replace(/ /g, ""), spelling: iban }
+        : { ...at(m), kind: null, key: "" };
+    }));
     for (const { re, key } of this.knownPhones) {
-      for (const m of text.matchAll(re)) add({ start: m.index, end: m.index + m[0].length, kind: "phone", key, spelling: m[0] });
+      spans = mergeBatch(spans, [...text.matchAll(re)].map((m) => ({ ...at(m), kind: "phone" as const, key })));
     }
-    for (const m of text.matchAll(PHONE_RE)) {
-      if (phoneAccepted(m[0])) add({ start: m.index, end: m.index + m[0].length, kind: "phone", key: phoneKey(m[0]), spelling: m[0] });
-    }
-    if (this.names.re) {
-      const { folded, map } = foldWithMap(text);
-      for (const m of folded.matchAll(this.names.re)) {
-        const alt = normSpace(m[0]);
-        const person = this.names.owner.get(alt);
-        if (person === undefined) continue;
-        const start = map[m.index];
-        // The match must end on a cluster boundary: the genitive look-ahead lets an
-        // "s" follow, which could be the second half of one folded ß ("hanss").
-        const after = m.index + m[0].length;
-        if (map[after] === map[after - 1]) continue;
-        const end = map[after];
-        const spelling = text.slice(start, end);
-        if (!alt.includes(" ") && !this.names.ungated.has(alt) && !looksLikeAName(spelling)) continue;
-        add({ start, end, kind: "person", key: person, spelling });
-      }
-    }
+    spans = mergeBatch(spans, [...text.matchAll(PHONE_RE)].filter((m) => phoneAccepted(m[0]))
+      .map((m) => ({ ...at(m), kind: "phone" as const, key: phoneKey(m[0]) })));
+    return mergeBatch(spans, this.nameSpans(text));
+  }
 
-    spans.sort((a, b) => a.start - b.start);
+  private nameSpans(text: string): Span[] {
+    if (!this.names.re) return [];
+    const spans: Span[] = [];
+    const { folded, map } = foldWithMap(text);
+    for (const m of folded.matchAll(this.names.re)) {
+      const alt = normSpace(m[0]);
+      const person = this.names.owner.get(alt);
+      if (person === undefined) continue;
+      const start = map[m.index];
+      // The match must end on a cluster boundary: the genitive look-ahead lets an
+      // "s" follow, which could be the second half of one folded ß ("hanss").
+      const after = m.index + m[0].length;
+      if (map[after] === map[after - 1]) continue;
+      const end = map[after];
+      const spelling = text.slice(start, end);
+      if (!alt.includes(" ") && !this.names.ungated.has(alt) && !looksLikeAName(spelling)) continue;
+      spans.push({ start, end, kind: "person", key: person, spelling });
+    }
+    return spans;
+  }
+
+  private render(text: string, spans: readonly Span[]): string {
     let out = "";
     let at = 0;
     for (const s of spans) {

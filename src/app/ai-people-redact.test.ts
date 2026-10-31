@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PeopleDictionary } from "./ai-people-dictionary";
 import { redactionSessionFor, redactJsonBody, restoreJsonText } from "./ai-people-redact";
 
@@ -384,6 +384,42 @@ describe("redactionSessionFor", () => {
     expect(a.restore(sent)).toBe("Sofia Ramirez wrote [Person 3] in the ticket.");
     expect(a.restore("[Person 1]")).toBe("Sofia Ramirez");
     expect(b.restore("[Person 1] and [Person 3]")).toBe("Noah Bennett and Liam Keller");
+  });
+});
+
+// Review 5, S4: the history is re-redacted on every tool-loop step, so a session caches each string's redaction.
+describe("the per-session redaction cache (review 5, S4)", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const people = dict(["Sofia Ramirez", "Noah Bennett"], ["s@example.com"], ["+49 30 5550101"]);
+  const text = "Sofia Ramirez asked Bennett (s@example.com, +49 30 5550101) and Noah Bennett; call 0170 1234567.";
+
+  it("a cached redaction equals a fresh one, and counts it again", () => {
+    const s = fresh(people);
+    const first = s.redact(text);
+    const afterFirst = s.counts();
+    expect(s.redact(text)).toBe(first);
+    const afterSecond = s.counts();
+    expect(afterFirst).toEqual({ person: 3, email: 1, phone: 2, iban: 0 });
+    expect(afterSecond).toEqual({ person: 6, email: 2, phone: 4, iban: 0 });
+    expect(fresh(people).redact(text)).toBe(first);
+  });
+
+  it("an unchanged string is not matched again (operation count, not wall time)", () => {
+    const s = fresh(people);
+    const long = text.repeat(50);
+    s.redact(long);
+    const matchAll = vi.spyOn(RegExp.prototype, Symbol.matchAll);
+    s.redact(long);
+    expect(matchAll).not.toHaveBeenCalled();
+    s.redact(`${long} more`);
+    expect(matchAll).toHaveBeenCalled();
+  });
+
+  it("a dictionary change invalidates the cache", () => {
+    const first = redactionSessionFor(["s4-grow"], [dict(["Sofia Ramirez"])]);
+    expect(first.redact("Noah said so")).toBe("Noah said so");
+    const grown = redactionSessionFor(["s4-grow"], [dict(["Sofia Ramirez", "Noah Bennett"])]);
+    expect(grown.redact("Noah said so")).toBe("[Person 1] said so");
   });
 });
 
