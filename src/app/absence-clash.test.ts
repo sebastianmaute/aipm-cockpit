@@ -329,3 +329,21 @@ describe("buildAwaySummary: an unlinked absence and two people of one name (§77
     ]);
   });
 });
+
+describe("buildAwaySummary: maxChars (§773 M-3)", () => {
+  const window = { from: "2026-11-02", to: "2026-11-30" };
+  const second = absence({ id: 2, assignee: "Liam Foster", resourceId: 2, startDate: "2026-11-10", endDate: "2026-11-10" });
+
+  it("drops whole people lines from the end and counts them in the truncation line", () => {
+    const all = buildAwaySummary({ absences: [MAYA_WEEK, second], resources: [maya, liam], ...window });
+    const cap = all.slice(0, 2).join("\n").length + "\n…(1 more people truncated)".length;
+    const lines = buildAwaySummary({ absences: [MAYA_WEEK, second], resources: [maya, liam], ...window, maxChars: cap });
+    expect(lines).toEqual([...all.slice(0, 2), "…(1 more people truncated)"]);
+    expect(lines.join("\n").length).toBeLessThanOrEqual(cap);
+  });
+
+  it("keeps the heading and the truncation line even when no person line fits", () => {
+    const lines = buildAwaySummary({ absences: [MAYA_WEEK], resources: [maya], ...window, maxChars: 10 });
+    expect(lines).toEqual(["AWAY (absent days; type and reason not shown):", "…(1 more people truncated)"]);
+  });
+});

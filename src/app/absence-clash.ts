@@ -235,15 +235,18 @@ const formatRange = (r: AbsenceRange): string => (r.start === r.end ? r.start : 
 
 /** "Who is away" for an AI digest: absent days only (never type or reason), ranges clipped to
  *  [from, to], sorted by first day. Empty when nobody is away, so a digest adds nothing. Unlinked
- *  people carry `#-` where a linked one carries `#<resource id>`. */
+ *  people carry `#-` where a linked one carries `#<resource id>`.
+ *  `maxChars` (§773 M-3) bounds the block joined by newlines, its truncation line included: whole people
+ *  lines are dropped from the end and counted in that line. The heading and that line always stay. */
 export function buildAwaySummary(args: {
   absences: readonly Absence[];
   resources: readonly Resource[];
   from: string;
   to: string;
   maxLines?: number;
+  maxChars?: number;
 }): string[] {
-  const { absences, resources, from, to, maxLines = AWAY_SUMMARY_MAX_LINES } = args;
+  const { absences, resources, from, to, maxLines = AWAY_SUMMARY_MAX_LINES, maxChars = Infinity } = args;
   if (!isIsoDay(from) || !isIsoDay(to) || from > to) return [];
   const people = collectAway(absences, resources, from, to).sort((a, b) => {
     const x = a.ranges[0].start;
@@ -252,15 +255,16 @@ export function buildAwaySummary(args: {
     return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
   });
   if (people.length === 0) return [];
-  const shown = people.slice(0, Math.max(0, maxLines));
-  const lines = ["AWAY (absent days; type and reason not shown):"];
-  for (const p of shown) {
+  const personLines = people.slice(0, Math.max(0, maxLines)).map((p) => {
     const id = p.rid === null ? "#-" : `#${p.rid}`;
     const listed = p.ranges.slice(0, AWAY_SUMMARY_MAX_RANGES).map(formatRange).join(", ");
     const more = p.ranges.length - AWAY_SUMMARY_MAX_RANGES;
-    lines.push(`${id}|name: ${JSON.stringify(oneLine(p.name))} away ${listed}${more > 0 ? ` +${more} more` : ""}`);
-  }
-  const cut = people.length - shown.length;
-  if (cut > 0) lines.push(`…(${cut} more people truncated)`);
-  return lines;
+    return `${id}|name: ${JSON.stringify(oneLine(p.name))} away ${listed}${more > 0 ? ` +${more} more` : ""}`;
+  });
+  const heading = "AWAY (absent days; type and reason not shown):";
+  const truncation = (cut: number): string[] => (cut > 0 ? [`…(${cut} more people truncated)`] : []);
+  const blockOf = (kept: number): string[] => [heading, ...personLines.slice(0, kept), ...truncation(people.length - kept)];
+  let kept = personLines.length;
+  while (kept > 0 && blockOf(kept).join("\n").length > maxChars) kept--;
+  return blockOf(kept);
 }

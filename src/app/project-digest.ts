@@ -17,6 +17,9 @@ import { isTaskClosed } from "./task-closed";
 import type { Absence, ChangeItem, Milestone, RaidItem, Resource, Stakeholder, Task } from "./types";
 
 export const DIGEST_MAX_CHARS = 24_000;
+/** §773 M-3 — the AWAY block's own bound. It sits ahead of the open tasks, so unbounded (up to 60 people
+ *  lines) it could push them past `DIGEST_MAX_CHARS`; past this the builder drops people from its end. */
+export const DIGEST_AWAY_MAX_CHARS = 3_000;
 const TITLE_MAX_CHARS = 120;
 const TRUNCATION_LINE = "…(truncated)";
 
@@ -124,7 +127,7 @@ export function buildProjectDigest(input: ProjectDigestInput, maxChars: number =
   const instruction = input.instruction?.slice(0, TEXTAREA_MAX);
   const away = buildAwaySummary({
     absences: input.absences, resources: input.resources,
-    from: input.today, to: isoAddDays(input.today, AWAY_WINDOW_DAYS),
+    from: input.today, to: isoAddDays(input.today, AWAY_WINDOW_DAYS), maxChars: DIGEST_AWAY_MAX_CHARS,
   });
   const body = [
     `Project: ${clip(input.projectName)}. Today: ${input.today}. Mode: ${input.mode}.`,
