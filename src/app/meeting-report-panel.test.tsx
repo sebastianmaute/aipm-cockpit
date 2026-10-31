@@ -648,7 +648,7 @@ describe("MeetingReportPanel on the real save hook — clearing the editor (AI-0
         meetings: [{ id: 10, date: "2026-06-01", title: "M1", report: { html: "<p>before clear</p>", updatedAt: "2026-06-01T09:00:00.000Z" } }],
       });
       const bag = useMeetingReportActions({
-        lang: "en-US", isPopout: false, settings: defaultSettings, committee: c, resources: [], setSteeringCommittee: setC,
+        lang: "en-US", isPopout: false, settings: defaultSettings, committee: c, resources: [], absences: [], today: "2026-06-01", setSteeringCommittee: setC,
         tursoConfig: null, m365Configured: true, acquireToken: async () => "t", showToast: vi.fn(),
         getDashboardModel: () => ({}) as DashboardModel, aiKey: "", aiModel: "m", guides: [], projectId: "p1",
         getScopeEpoch: () => 0, captureComposite: vi.fn(), logActivityAs: vi.fn(),

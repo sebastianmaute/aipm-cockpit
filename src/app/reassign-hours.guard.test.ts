@@ -46,6 +46,8 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "shift-edit-modal.tsx": "a shift's person, not a task owner",
   "calendar-drag.ts": "moves an absence or shift between people, not a task owner",
   "alloc-plan/alloc-ground-moves.ts": "builds the OwnerChange a Plan with AI move would plan (read-only); the write is routed through reassignTasks in the review window",
+  "inline-ai-edit/plan-clashes.ts": "§773: folds a proposed owner into a copy of the item so the absence check can judge it; writes no task",
+  "chat-proposal-turn-clashes.ts": "§773: folds a turn's earlier calls into copies of its items for the absence check; writes no task",
 };
 
 function sourceFiles(dir: string, out: string[] = []): string[] {

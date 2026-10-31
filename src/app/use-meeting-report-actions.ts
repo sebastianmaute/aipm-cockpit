@@ -6,7 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { t, type Lang, tPlural } from "./i18n";
 import { aiFailureMessageKey } from "./ai-key-status";
-import type { SteeringCommittee, CommitteeMeeting, Resource, MeetingReport } from "./types";
+import type { SteeringCommittee, CommitteeMeeting, Resource, MeetingReport, Absence } from "./types";
+import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAwaySummary } from "./absence-clash";
+import { isoAddDays } from "./due-dates";
 import type { Settings } from "./settings-types";
 import { isAiEnabled } from "./settings-types";
 import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
@@ -31,6 +33,9 @@ export interface MeetingReportActionsDeps {
   settings: Settings;
   committee: SteeringCommittee | undefined;
   resources: readonly Resource[];
+  /** §773 — with `today`, the AI draft is told who is away in the next `AWAY_WINDOW_DAYS`. */
+  absences: readonly Absence[];
+  today: string;
   setSteeringCommittee: (
     updater: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined,
   ) => void;
@@ -343,10 +348,14 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     const startEpoch = deps.getScopeEpoch();
     const startFingerprint = meetingFingerprint(meeting);
     try {
+      const away = buildAwaySummary({
+        absences: deps.absences, resources: deps.resources,
+        from: deps.today, to: isoAddDays(deps.today, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,
+      });
       const html = await runMeetingReport(
         deps.getDashboardModel(),
         meeting.agenda ?? "",
-        { apiKey: deps.aiKey, privacy: aiPrivacy(), model: deps.aiModel, lang: deps.lang, guideText },
+        { apiKey: deps.aiKey, privacy: aiPrivacy(), model: deps.aiModel, lang: deps.lang, guideText, away },
         ctrl.signal,
       );
       // A stop that lost the race to the response still means "don't use it".

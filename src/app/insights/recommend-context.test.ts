@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildRecommendContext, buildRecommendSystemPrompt, recommendPeople } from "./recommend-context";
+import { AWAY_SUMMARY_MAX_CHARS } from "../absence-clash";
 
 const BASE = {
   projectName: "Apollo",
@@ -8,6 +9,8 @@ const BASE = {
   severity: "high",
   data: { name: "Go-live", date: "2026-06-01", daysOverdue: 49 },
   relatedTasks: [],
+  absences: [],
+  resources: [],
 } as const;
 
 describe("buildRecommendContext — linked entity", () => {
@@ -186,5 +189,34 @@ describe("buildRecommendSystemPrompt", () => {
     expect(a).toBe(b);
     expect(a).not.toContain("\n");
     expect(a).toContain("propose_insight_actions");
+  });
+});
+
+describe("buildRecommendContext — who is away (§773)", () => {
+  it("appends the AWAY block, and nothing when nobody is away", () => {
+    const away = [{ id: 1, assignee: "Maya Patel", resourceId: 7, type: "vacation", startDate: "2026-07-22", endDate: "2026-07-24" }];
+    const resources = [{ id: 7, firstName: "Maya", lastName: "Patel" }];
+    const withAway = buildRecommendContext({ ...BASE, absences: away as never, resources: resources as never });
+    expect(withAway).toContain("AWAY (absent days; type and reason not shown):");
+    expect(withAway).toContain('#7|name: "Maya Patel" away 2026-07-22..2026-07-24');
+    expect(withAway).not.toContain("vacation");
+    const none = buildRecommendContext(BASE);
+    expect(none).not.toContain("AWAY");
+    expect(none.endsWith("(none known: do not propose create_task; prefer editing an existing item)")).toBe(true);
+  });
+});
+
+describe("buildRecommendContext — a large team away (§773 N-2)", () => {
+  it("keeps the AWAY block within the shared character cap and says how many people it left out", () => {
+    // 60 people, each away for ten separate two-day spells inside the 28-day window.
+    const resources = Array.from({ length: 60 }, (_, i) => ({ id: i + 1, firstName: `Teammember${i + 1}`, lastName: "Withaverylongfamilyname" }));
+    const day = (offset: number) => new Date(Date.UTC(2026, 6, 20 + offset)).toISOString().slice(0, 10);
+    const absences = resources.flatMap((r) =>
+      Array.from({ length: 10 }, (_, k) => ({ id: r.id * 100 + k, assignee: "", resourceId: r.id, type: "vacation", startDate: day(3 * k), endDate: day(3 * k + 1) })));
+    const lines = buildRecommendContext({ ...BASE, absences: absences as never, resources: resources as never }).split("\n");
+    const block = lines.slice(lines.findIndex((l) => l.startsWith("AWAY (")));
+    expect(block.join("\n").length).toBeLessThanOrEqual(3_000);
+    expect(block[block.length - 1]).toMatch(/^…\(\d+ more people truncated\)$/);
+    expect(AWAY_SUMMARY_MAX_CHARS).toBe(3_000);
   });
 });

@@ -12,6 +12,8 @@ import { splitName } from "../resource-foundation";
 import { resolveLinkTitles } from "./link-titles";
 import { str } from "./str";
 import { isPersonEntity, withReassignFields } from "../person-reassign";
+import type { AbsenceClash, AbsenceCtx } from "../absence-clash";
+import { carryClashes, clashNotesFor, type ClashCarry } from "./plan-clashes";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -184,7 +186,11 @@ export interface LinkDiff {
   after: string;
   rawIds: number[];
 }
-export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: Deletion[]; rejected: Rejected[]; links: LinkDiff[] }
+/** §773 — one absence clash the proposed change would cause, on the item AFTER the change (`plan-clashes.ts`).
+ *  `id` is null for a create. Display only: a clash warns, it never blocks or alters a write. */
+export interface ClashNote { entity: "task" | "milestone"; id: number | null; title: string; clash: AbsenceClash }
+/** ★ `clashes` is REQUIRED (§773), so every literal plan names it and a merging producer cannot drop it silently. */
+export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: Deletion[]; rejected: Rejected[]; links: LinkDiff[]; clashes: ClashNote[] }
 
 // Any create_*/delete_* tool → its entity + workspace list key. Shared across
 // entities (an inline edit on any row may create/delete related items).
@@ -548,7 +554,11 @@ function pushLinkDiffs(
   }
 }
 
-type DescribeCtx = { descriptor: EntityDescriptor; item: EntityItem; ws: Workspace };
+/** `absence` (§773): the people, absences and holidays the clash check reads. Without it no clashes are
+ *  computed. Holidays are not in `Workspace`, so the caller supplies the whole context.
+ *  `ownerChanged` (§773 M-1): an earlier call of the same chat turn already gave `item` a new owner, so
+ *  its clashes judge the whole item. */
+type DescribeCtx = { descriptor: EntityDescriptor; item: EntityItem; ws: Workspace; absence?: AbsenceCtx; ownerChanged?: boolean };
 
 /** ONE judging pass over `blocks`. `describeEntityCalls` is the public entry,
  *  and it runs this per block until the block's verdict is stable (§534). */
@@ -557,7 +567,7 @@ function describeEntityCallsOnce(
   ctx: DescribeCtx,
 ): EditPlan {
   const { descriptor: d, item, ws } = ctx;
-  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] };
   // ★★★ `Array.isArray`, NOT a bare read — `Workspace.calendarEvents` is an
   //  OPTIONAL slice (`calendarEvents?: readonly CalendarEvent[]`), absent on
   //  every project that has never had a meeting, and `emptyWorkspace()` omits
@@ -1025,9 +1035,13 @@ function describeBlockUntilStable(b: ToolUseLike, ctx: DescribeCtx): EditPlan {
  *  diff never diverges from what the sanitizer would persist.
  *  ★ Each block is judged on its own, re-judged without its rejected fields
  *   (`describeBlockUntilStable`), and the per-block plans are concatenated in
- *   block order. */
+ *   block order.
+ *  ★ Except the absence clashes (§773 M-2): a block's are judged on the item
+ *   as the earlier blocks leave it (`carryClashes`), so an owner change, then a date
+ *   move, warns about the new owner. */
 export function describeEntityCalls(blocks: readonly ToolUseLike[], ctx: DescribeCtx): EditPlan {
-  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] };
+  let carry: ClashCarry = { item: ctx.item, ownerChanged: ctx.ownerChanged ?? false };
   for (const b of blocks) {
     const one = describeBlockUntilStable(b, ctx);
     plan.updates.push(...one.updates);
@@ -1035,6 +1049,10 @@ export function describeEntityCalls(blocks: readonly ToolUseLike[], ctx: Describ
     plan.deletes.push(...one.deletes);
     plan.rejected.push(...one.rejected);
     plan.links.push(...one.links);
+    if (ctx.absence) {
+      plan.clashes.push(...clashNotesFor(b, one, ctx.descriptor, carry.item, ctx.ws, ctx.absence, carry.ownerChanged));
+      carry = carryClashes(b, one, ctx.descriptor, carry, ctx.absence);
+    }
   }
   return plan;
 }

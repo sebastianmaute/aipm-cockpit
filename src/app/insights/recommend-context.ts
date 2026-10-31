@@ -2,6 +2,9 @@
 // stable cacheable system prompt. The digest is volatile (sent as the user
 // message, never the cached prefix). Mirrors action-ai's cap discipline. Kept
 // i18n-free — the context is model-facing English built from raw type/data.
+import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAwaySummary } from "../absence-clash";
+import { isoAddDays } from "../due-dates";
+import type { Absence, Resource } from "../types";
 
 /** Stable, cacheable system prompt. Senior-PM framing consistent with SP0/SP1. */
 export function buildRecommendSystemPrompt(): string {
@@ -24,6 +27,9 @@ export interface RecommendContextInput {
   readonly relatedTasks: readonly { readonly id: number; readonly title: string }[];
   /** §782 — the people a create may name as its assignee or owner (`recommendPeople`). */
   readonly people?: readonly string[];
+  /** §773 — who is away today..today+28 is summarised from these (type and reason never shown). */
+  readonly absences: readonly Absence[];
+  readonly resources: readonly Resource[];
   /** AI people protection (layer 1): the project protects its people, so the digest has no People section
    *  and `people` is ignored. With no one listed the system prompt already forbids create_task. */
   readonly peopleProtected?: boolean;
@@ -89,6 +95,10 @@ export function buildRecommendContext(input: RecommendContextInput): string {
     : input.people?.length
       ? input.people.slice(0, PEOPLE_CAP).map((name) => `- ${name.slice(0, 120)}`).join("\n")
       : NO_PEOPLE_LINE;
+  const away = buildAwaySummary({
+    absences: input.absences, resources: input.resources,
+    from: input.today, to: isoAddDays(input.today, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,
+  });
   return [
     `Project: ${input.projectName}. Today: ${input.today}.`,
     `Insight: ${input.insightType} (severity ${input.severity}).`,
@@ -99,5 +109,6 @@ export function buildRecommendContext(input: RecommendContextInput): string {
     "## Related open tasks (reference by id)",
     tasks,
     ...(people === null ? [] : ["## People (assign by name)", people]),
+    ...away,
   ].join("\n");
 }

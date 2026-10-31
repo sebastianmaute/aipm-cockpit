@@ -8,8 +8,11 @@
 // which diffs against one already-open row — a recommendation is NOT bound
 // to a single item: each call is grounded independently by its OWN `id`.
 import type { Workspace } from "../workspace";
-import { describeEntityCalls, type EditPlan, type ToolUseLike } from "../inline-ai-edit/plan";
-import { INLINE_DESCRIPTORS, type InlineEntity } from "../inline-ai-edit/entity-descriptor";
+import { describeEntityCalls, type ClashNote, type EditPlan, type ToolUseLike } from "../inline-ai-edit/plan";
+import { carryClashes, type ClashCarry } from "../inline-ai-edit/plan-clashes";
+import type { AbsenceCtx } from "../absence-clash";
+import { INLINE_DESCRIPTORS, type EntityDescriptor, type InlineEntity } from "../inline-ai-edit/entity-descriptor";
+import type { Task } from "../types";
 import type { InsightToolCall } from "./insight";
 import { REC_TOOL_INPUT_SCHEMAS, recommendationCallProblem, type RecCallProblemFormat } from "./recommend-schema";
 import { stripPersonFieldsFromCalls } from "../ai-person-fields";
@@ -57,11 +60,34 @@ const DELETE_DESCRIPTOR: Record<string, InlineEntity> = {
 //  every row now carries the register it belongs to.
 
 function emptyPlan(): EditPlan {
-  return { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+  return { updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] };
 }
 
 function inputId(input: Readonly<Record<string, unknown>>): number {
   return Number((input as { id?: unknown }).id);
+}
+
+type ClashJudge = (block: ToolUseLike, d: EntityDescriptor, item: RowItem) => ClashNote[];
+
+/** §773 N-1 — the absence clashes of an update or create call, judged against its row and the tasks as the
+ *  plan's EARLIER calls leave them (`carryClashes`, keyed by entity and id, as `chat-proposal-turn-clashes.ts`
+ *  does): an owner change, then a due-date move, judges the move with the new owner, and a milestone (updated or
+ *  created) judges its linked tasks' new owners. Only an update with a real id carries forward.
+ *  Confined to clashes: the card's field lines are still described against the stored row. */
+function clashJudge(ws: Workspace, absence: AbsenceCtx): ClashJudge {
+  const changed = new Map<string, ClashCarry>();
+  const clashWs = (): Workspace => {
+    const stored = Array.isArray(ws.tasks) ? ws.tasks : [];
+    const live = stored.map((t) => (changed.get(`task:${t.id}`)?.item as Task | undefined) ?? t);
+    return live.some((t, i) => t !== stored[i]) ? { ...ws, tasks: live } : ws;
+  };
+  return (block, d, item) => {
+    const key = `${d.entity}:${item.id}`;
+    const start: ClashCarry = changed.get(key) ?? { item, ownerChanged: false };
+    const judged = describeEntityCalls([block], { descriptor: d, item: start.item, ws: clashWs(), absence, ownerChanged: start.ownerChanged });
+    if (Number.isFinite(item.id)) changed.set(key, carryClashes(block, judged, d, start, absence));
+    return judged.clashes;
+  };
 }
 
 /** Preview the effect of a recommendation's proposed tool calls against the
@@ -73,21 +99,25 @@ function inputId(input: Readonly<Record<string, unknown>>): number {
  *  trivial pass, letting the real grounding — does that id still exist in
  *  the live list — do the work instead. Creates need no id grounding.
  *  `formatProblem` words a whole-call refusal's `detail` (English by default);
- *  the review modal passes the UI language's wording (§782 round 3).
+ *  the review modal passes the UI language's wording (§782 round 3). `absence` (§773) adds the
+ *  absence clashes each call would cause; without it none are computed.
  *  ★★ AI people protection (R4): with `peopleProtected`, each call's person fields are stripped FIRST
  *   (`recommendationCallsToApply`), so the review shows what the confirm writes: a create without its
- *   assignee is a create, unassigned, never a refusal. */
+ *   assignee is a create, unassigned, never a refusal. REQUIRED, like the transport's `privacy`, so every
+ *   caller decides: a forgotten argument must not silently preview the unprotected plan. */
 export function describeRecommendationPlan(
   calls: readonly InsightToolCall[],
   ws: RecommendPlanWorkspace,
-  formatProblem?: RecCallProblemFormat,
-  peopleProtected = false,
+  formatProblem: RecCallProblemFormat | undefined,
+  peopleProtected: boolean,
+  absence?: AbsenceCtx,
 ): EditPlan {
   // describeEntityCalls is typed against the full Workspace but only ever reads
   // the five list fields in RecommendPlanWorkspace (verified) — cast once here so
   // the caller passes a shape-checked partial, not `as unknown as Workspace`.
   const wsFull = ws as Workspace;
   const merged = emptyPlan();
+  const judgeClashes = absence ? clashJudge(wsFull, absence) : null;
 
   for (const call of recommendationCallsToApply(calls, peopleProtected)) {
     // §782 — a call missing an argument its writer requires is shown as
@@ -108,10 +138,14 @@ export function describeRecommendationPlan(
       const rows = wsFull[d.wsKey] as ReadonlyArray<{ id: number }>;
       const id = inputId(call.input);
       const item = (rows.find((r) => r.id === id) ?? { id: NaN }) as unknown as RowItem;
+      // ★ Described TWICE on purpose: here for the card (against the stored row), and again inside
+      //  `judgeClashes` for the clashes (against the row as earlier calls leave it). Do not merge them —
+      //  the card must keep its stored-row diff, and the clash pass needs the carried row.
       const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull });
       merged.updates.push(...p.updates);
       merged.rejected.push(...p.rejected);
       merged.links.push(...p.links);
+      merged.clashes.push(...(judgeClashes?.(block, d, item) ?? []));
       continue;
     }
 
@@ -119,10 +153,11 @@ export function describeRecommendationPlan(
       const d = INLINE_DESCRIPTORS[deleteEntity];
       const id = inputId(call.input);
       const item = { id } as unknown as RowItem;
-      const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull });
+      const p = describeEntityCalls([block], { descriptor: d, item, ws: wsFull, absence });
       merged.deletes.push(...p.deletes);
       merged.rejected.push(...p.rejected);
       merged.links.push(...p.links);
+      merged.clashes.push(...p.clashes);
       continue;
     }
 
@@ -133,6 +168,9 @@ export function describeRecommendationPlan(
     merged.creates.push(...p.creates);
     merged.rejected.push(...p.rejected);
     merged.links.push(...p.links);
+    // §773 — judged on the workspace as the earlier calls leave it: a new milestone linking a task an earlier
+    // call reassigned judges the new owner. A create carries nothing forward (its row has no id yet).
+    merged.clashes.push(...(judgeClashes?.(block, INLINE_DESCRIPTORS.task, item) ?? []));
   }
 
   return merged;

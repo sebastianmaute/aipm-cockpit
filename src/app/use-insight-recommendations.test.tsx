@@ -68,6 +68,8 @@ function mkDeps(over: Partial<InsightRecommendationDeps> = {}): InsightRecommend
     raid: [], milestones: [], changes: [], stakeholders: [],
     baselineHistory: [],
     resourcesById: new Map(),
+    absences: [],
+    holidaySet: new Set(),
     insights: [],
     setInsights: vi.fn(),
     dispatcher: mkDispatcher().dispatcher,
@@ -895,6 +897,23 @@ describe("§782 round 3 — people without a directory, a stale and a failed cal
     expect(result.current.reviewPlan?.rejected.map((r) => r.detail)).toEqual([
       "create_task: taskName, assignee erforderlich",
       "create_milestone: date muss im Format JJJJ-MM-TT sein",
+    ]);
+  });
+});
+
+// §773 — the review's plan is judged against the absences, people and holidays the hook is handed.
+describe("§773 — the review plan warns of absence clashes", () => {
+  it("carries a clash when the recommended due date lands on the owner's absence", () => {
+    const maya = { id: 1, firstName: "Maya", lastName: "Patel" };
+    const deps = mkDeps({
+      insights: [mkInsight({ recommendation: mkRec({ id: 42, assignee: "Maya Patel", dueDate: "2026-11-05" }) })],
+      resourcesById: new Map([[1, maya]]) as unknown as InsightRecommendationDeps["resourcesById"],
+      absences: [{ id: 1, assignee: "Maya Patel", resourceId: 1, type: "vacation", startDate: "2026-11-03", endDate: "2026-11-07" }] as unknown as InsightRecommendationDeps["absences"],
+    });
+    const { result } = renderHook(() => useInsightRecommendations(deps));
+    act(() => { result.current.setReviewInsightId(1); });
+    expect(result.current.reviewPlan?.clashes).toEqual([
+      expect.objectContaining({ entity: "task", id: 42, clash: expect.objectContaining({ person: "Maya Patel", resourceId: 1 }) }),
     ]);
   });
 });

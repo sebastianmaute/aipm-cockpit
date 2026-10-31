@@ -44,6 +44,8 @@ import { describeProjectPlan, stampProjectCall, UPDATE_PROJECT_TOOL } from "./ch
 import { describeFunctionsCall, type FunctionsChange, type PreviewSettings } from "./chat-proposal-describe-functions";
 import { describeDeviceCall, type DeviceChange } from "./chat-proposal-describe-device";
 import { describeDocumentCall, type DocumentChange } from "./chat-proposal-describe-document";
+import type { AbsenceCtx } from "./absence-clash";
+import { turnClashes } from "./chat-proposal-turn-clashes";
 
 export {
   describeProjectCall,
@@ -137,7 +139,7 @@ export interface DescribedRow {
 }
 
 function emptyPlan(): EditPlan {
-  return { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+  return { updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] };
 }
 
 /** A forecast scenario as a card line names it: by its name, or by its id when nothing names it. */
@@ -460,6 +462,8 @@ export function describeProposal(
   planRows?: readonly PlanRow[],
   /** §779 — the dispatcher's `previewSettings`, for a functions row's other settings. */
   previewSettings?: PreviewSettings,
+  /** §773 — the people, absences and holidays a row's absence clashes are judged against; none without it. */
+  absence?: AbsenceCtx,
 ): readonly DescribedRow[] {
   if (planRows !== undefined && planRows.length !== calls.length) {
     throw new RangeError(
@@ -472,6 +476,9 @@ export function describeProposal(
   // previous accepted functions row leaves, so two such rows in one turn are not both diffed against the
   // pre-turn list. Apply re-checks each row against the same chain (`chat-proposal-apply.ts`).
   let functionsSoFar = ws.features;
+  // §773 — every row's absence clashes, judged against the turn as it will land: a row whose target an
+  // earlier call of this turn creates is otherwise judged against nothing (`chat-proposal-turn-clashes.ts`).
+  const turn = absence ? turnClashes(ws, absence) : null;
 
   for (let index = 0; index < calls.length; index += 1) {
     const call = calls[index];
@@ -515,7 +522,9 @@ export function describeProposal(
     const documentDetail = document === null ? {} : { document };
 
     if (pendingOn !== undefined) {
-      rows.push({ call, stamped, plan: emptyPlan(), mintedId, pendingOn, ...documentDetail });
+      const clashes = turn?.judge(call, pendingOn) ?? [];
+      turn?.record(index, call, mintedId, pendingOn);
+      rows.push({ call, stamped, plan: { ...emptyPlan(), clashes }, mintedId, pendingOn, ...documentDetail });
       continue;
     }
 
@@ -585,11 +594,13 @@ export function describeProposal(
 
     const d = INLINE_DESCRIPTORS[entity];
     const block: ToolUseLike = { type: "tool_use", name: call.name, input: call.input };
-    const plan = describeEntityCalls([block], {
+    const described = describeEntityCalls([block], {
       descriptor: d,
       item: seedItem(op, d, call.input, ws),
       ws,
     });
+    const plan = turn ? { ...described, clashes: turn.judge(call, undefined) } : described;
+    turn?.record(index, call, mintedId, undefined);
     rows.push({ call, stamped, plan, mintedId });
   }
 

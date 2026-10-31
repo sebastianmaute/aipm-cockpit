@@ -517,3 +517,19 @@ describe("WbsPlanModal", () => {
     });
   });
 });
+
+describe("WbsPlanModal — absence clash (§773)", () => {
+  beforeAll(async () => { await loadI18n("en-US"); });
+  it("shows the clash sentence under a newTask row and nothing under others", () => {
+    const clashed: GroundedWbsItem = {
+      ...newTask,
+      clashes: [{ person: "Maya Patel", reason: "date-on-absence", which: "due", date: "2026-11-05", ranges: [{ start: "2026-11-03", end: "2026-11-07" }] }],
+    };
+    render5({ items: [clashed, regroup], selected: new Set() });
+    const text = screen.getAllByText(/Maya Patel is absent/);
+    expect(text).toHaveLength(1);
+    const box = screen.getByRole("checkbox", { name: /Release notes/ });
+    const clashSpan = text[0].closest("span[id]") as HTMLElement;
+    expect(box.getAttribute("aria-describedby")?.split(" ")).toContain(clashSpan.id);
+  });
+});

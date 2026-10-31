@@ -12,7 +12,8 @@ import { defaultAiConfig } from "./settings-types";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { ToolDispatcher } from "./chat-tools";
 import { entityToken } from "./ai-entity-token";
-import type { Task } from "./types";
+import type { Absence, Resource, Task } from "./types";
+import { STAGED_TOOL_RESULT } from "./chat-proposal-stage";
 
 // AI people protection, Task 6 (R4): a staged turn's person fields are stripped BEFORE the review card is
 // built, so the card shows what Apply will write, and the model is told which fields were dropped.
@@ -183,5 +184,68 @@ describe("applying a staged turn under people protection", () => {
     const ws = { ...emptyWorkspace(), tasks: [TASK], settingsOverrides: withPeopleAllowed(undefined, true) };
     const written = await applyRenameAndReassign(ws, false);
     expect(written.assignee).toBe("Zelda Quartz");
+  });
+});
+
+// §773 × AI people protection: a lone update_task that moves the date AND names a new owner. The assignee is
+// stripped, so the move lands on the EXISTING owner, who is away that day: the write is staged, and the staged
+// result must tell Claude both halves — the clash and which person fields were dropped.
+describe("a protected lone date move onto the existing owner's absence", () => {
+  const MAYA = { id: 1, firstName: "Maya", lastName: "Patel" } as Resource;
+  // 2026-11-02 is a Monday.
+  const AWAY = { id: 1, assignee: "Maya Patel", resourceId: 1, type: "vacation", startDate: "2026-11-03", endDate: "2026-11-07" } as Absence;
+  const OWNED: Task = {
+    id: 1, taskName: "Ship", assignee: "Maya Patel", resourceId: 1, assigneeEmail: "", dueDate: "2026-11-12", lastUpdateDate: "2026-10-01",
+    priority: "Medium", status: "To Do", blockers: "", description: "", inquiriesSent: 0, group: "", labels: [],
+  };
+
+  it("stages the write, and its result carries both the clash and the removed-fields note", async () => {
+    // Mutation: dropping either half of chat-panel's staged result (the clashes passed to stagedToolResult, or the
+    // appended PERSON_FIELDS_REMOVED_NOTE) turns this red.
+    const ws = { ...emptyWorkspace(), tasks: [OWNED], resources: [MAYA], absences: [AWAY] } as Workspace;
+    const d = {
+      ...(makeDispatcher() as unknown as Record<string, unknown>),
+      isPeopleProtected: () => true,
+      getTask: (id: number) => (id === OWNED.id ? OWNED : null),
+      updateTask: vi.fn(() => null),
+    } as unknown as ToolDispatcher;
+    const turns = [
+      {
+        content: [{ type: "tool_use", id: "t1", name: "update_task", input: { id: 1, expectedToken: entityToken("task", OWNED), assignee: "Zelda Quartz", dueDate: "2026-11-05" } }],
+        stop_reason: "tool_use", usage,
+      },
+      { content: [{ type: "text", text: "Staged." }], stop_reason: "end_turn", usage },
+    ];
+    const bodies: string[] = [];
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ""));
+      const body = turns[Math.min(call, turns.length - 1)];
+      call += 1;
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+    });
+    function Source({ children }: { children: ReactNode }) {
+      useAiPrivacySource("p1", () => ws, () => 0);
+      return <>{children}</>;
+    }
+    render(
+      <AiPrivacyProvider>
+        <Source>
+          <ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI} dispatcher={d} projectId="p1" workspace={ws} />
+        </Source>
+      </AiPrivacyProvider>,
+    );
+    send("Move it to the 5th and give it to Zelda");
+    await screen.findByRole("region", CARD);
+    await screen.findByText("Staged.");
+    expect(d.updateTask).not.toHaveBeenCalled();
+
+    const sent = JSON.parse(bodies[1]) as { messages: { content: unknown }[] };
+    const last = sent.messages[sent.messages.length - 1].content as { type: string; tool_use_id: string; content: string }[];
+    const staged = last.find((b) => b.type === "tool_result" && b.tool_use_id === "t1")?.content ?? "";
+    expect(staged.startsWith(STAGED_TOOL_RESULT)).toBe(true);
+    expect(staged).toContain("absenceClashes:");
+    expect(staged).toContain("2026-11-05");
+    expect(staged).toContain(PERSON_FIELDS_REMOVED_NOTE(["assignee"]));
   });
 });

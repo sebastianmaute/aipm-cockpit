@@ -54,6 +54,18 @@ describe("advertisement gate", () => {
     expect([...NON_PEOPLE_TOOLS].filter((n) => !protectedNames.has(n))).toEqual([]);
   });
 
+  // §773: four date-writing tools told the model to call list_absences, which a protected request withholds.
+  it("a protected request's tool texts never point at the withheld list_absences; an allowed one still does", () => {
+    const prot = { ...OPEN, peopleProtected: true };
+    expect(toolNamesFor(prot).has("list_absences")).toBe(false);
+    expect(toolsFor(prot).filter((d) => /\blist_absences\b/.test(JSON.stringify(d))).map((d) => d.name)).toEqual([]);
+    const pointing = toolsFor({ ...OPEN, peopleProtected: false }).filter((d) => JSON.stringify(d).includes("list_absences")).map((d) => d.name);
+    expect(pointing).toEqual(expect.arrayContaining(["create_task", "update_task", "create_milestone", "update_milestone"]));
+    // The clash sentence stays: clashes still come back under protection.
+    const createTask = toolsFor(prot).find((d) => d.name === "create_task");
+    expect(JSON.stringify(createTask)).toContain("absenceClashes");
+  });
+
   it("keeps one array identity per combination, so the cached tool list stays stable", () => {
     expect(toolsFor({ ...OPEN, peopleProtected: true })).toBe(toolsFor({ ...OPEN, peopleProtected: true }));
     expect(toolsFor({ ...OPEN, peopleProtected: true })).not.toBe(toolsFor(OPEN));

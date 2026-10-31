@@ -38,7 +38,14 @@ function ragLabel(h: "R" | "A" | "G"): string {
 /** Build the English prose prompt instructing Claude to write a steering-committee
  *  status report as simple HTML, summarizing the dashboard model and weaving in
  *  the meeting agenda. */
-export function buildMeetingReportPrompt(model: DashboardModel, agenda: string, lang: Lang): string {
+/** `away` is the shared "who is away" block (`buildAwaySummary`): names and absent days only, already capped.
+ *  Omitted or empty adds nothing, so the prompt is byte-identical to one built without it (§773). */
+export function buildMeetingReportPrompt(
+  model: DashboardModel,
+  agenda: string,
+  lang: Lang,
+  away: readonly string[] = [],
+): string {
   const rag = ragLabel(model.overall.effective);
   const changes =
     model.topChanges.map((c) => c.title).filter(Boolean).slice(0, 5).join("; ") || "none";
@@ -83,6 +90,7 @@ export function buildMeetingReportPrompt(model: DashboardModel, agenda: string, 
     `- Overdue milestones: ${milestone(model.overdueMilestones)}\n` +
     `- At-risk milestones: ${milestone(model.atRiskMilestones)}\n` +
     `- Milestones due soon: ${milestone(model.dueSoonMilestones)}\n\n` +
+    (away.length > 0 ? `${away.join("\n")}\n\n` : "") +
     `The upcoming meeting agenda is:\n${agendaLines}\n\n` +
     `Weave the agenda topics into the relevant sections (especially "Decisions needed" and ` +
     `"Next steps"), grounding each point in the facts above. Be factual and specific; do not ` +

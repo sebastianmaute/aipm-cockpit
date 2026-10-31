@@ -7,6 +7,8 @@ import { type AltEffect } from "./alloc-plan/alloc-effect";
 import { type HoursMovePlan } from "./reassign-hours";
 import { loadI18n, t } from "./i18n";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { type AbsenceClash } from "./absence-clash";
+import { formatAbsenceClash } from "./absence-clash-notice";
 
 const cell = (resourceId: number, resourceName: string, periodKey: string): GroundedAllocCell => ({
   resourceId,
@@ -59,6 +61,7 @@ function move(taskId: number, taskName: string, linked: boolean, hours = 16): Gr
     linked,
     plan,
     snapshot: {} as GroundedMove["snapshot"],
+    clashes: [],
   };
 }
 
@@ -316,5 +319,31 @@ describe("AllocPlanModal — review window (§769)", () => {
     );
     expect(screen.getByText(/^Verschiebt 2 Aufgaben [(]24 Std[.][)] · ändert 1 Zelle · [+].*1[.]200.* intern$/)).toBeTruthy();
     expect(screen.getByText("2 Personen haben keinen Stundensatz")).toBeTruthy();
+  });
+});
+
+describe("AllocPlanModal — a move onto the new owner's absence (§773)", () => {
+  beforeAll(() => loadI18n("de"));
+  const clash: AbsenceClash = {
+    person: "Liam Foster", resourceId: 2, reason: "date-on-absence", which: "due", date: "2026-11-05",
+    ranges: [{ start: "2026-11-03", end: "2026-11-07" }],
+  };
+  const clashing = (): GroundedMove => ({ ...move(42, "Design review", true), clashes: [clash] });
+
+  it("warns on that move's row, in the shared clash sentence, and leaves it tickable", () => {
+    const moves = [clashing(), move(43, "Spec", true)];
+    render(<AllocPlanModal {...props({ alternatives: [alt({ moves })], selected: new Set(moves.map((m) => m.key)) })} />);
+    const sentence = formatAbsenceClash(clash, "en-US");
+    const row = screen.getByRole("checkbox", { name: /#42 Design review/ }).closest("li") as HTMLElement;
+    expect(within(row).getByText(sentence)).toBeTruthy();
+    expect(screen.getAllByText(sentence)).toHaveLength(1);
+    const other = screen.getByRole("checkbox", { name: /#43 Spec/ }).closest("li") as HTMLElement;
+    expect(within(other).queryByText(sentence)).toBeNull();
+    expect(screen.getByRole("checkbox", { name: /#42 Design review/ })).toBeEnabled();
+  });
+
+  it("says it in German", () => {
+    render(<AllocPlanModal {...props({ lang: "de", alternatives: [alt({ moves: [clashing()] })] })} />);
+    expect(screen.getByText(formatAbsenceClash(clash, "de"))).toBeTruthy();
   });
 });

@@ -101,6 +101,8 @@ describe("parseRecommendation", () => {
 describe("buildRecommendContext / buildRecommendSystemPrompt", () => {
   test("includes insight data and related task ids", () => {
     const out = buildRecommendContext({
+      absences: [],
+      resources: [],
       projectName: "Demo",
       today: "2026-07-20",
       insightType: "milestoneSlip",
@@ -115,6 +117,8 @@ describe("buildRecommendContext / buildRecommendSystemPrompt", () => {
 
   test("handles no linked entity and no related tasks", () => {
     const out = buildRecommendContext({
+      absences: [],
+      resources: [],
       projectName: "Demo",
       today: "2026-07-20",
       insightType: "raidAging",

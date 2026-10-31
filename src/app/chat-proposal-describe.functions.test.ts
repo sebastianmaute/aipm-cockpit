@@ -54,7 +54,7 @@ describe("describeProposal — update_settings { enabledModules } (§779)", () =
   test("an update_settings without enabledModules keeps today's empty row", () => {
     const row = only(settings({ showViewHints: false }), wsWith(["raid"]));
     expect(row.functions).toBeUndefined();
-    expect(row.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+    expect(row.plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
   });
   // The card names the full lists too, so Apply can re-judge against the baseline it was described with.
   test("carries the baseline and the resulting list", () => {

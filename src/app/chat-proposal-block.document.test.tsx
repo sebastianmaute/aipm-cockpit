@@ -8,7 +8,7 @@ import { loadI18n, type Lang } from "./i18n";
 
 // AI-02 — a staged document write's row shows what the write puts into the document, not only its title.
 
-const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
 
 function docRow(index: number, title: string, call: ProposedCall): ProposalCardRow {
   const document = describeDocumentCall(call);

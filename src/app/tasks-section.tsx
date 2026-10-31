@@ -310,6 +310,7 @@ export function TasksSection({
     isPopout: isPopout ?? false,
     lang,
     workspaceCtx,
+    holidaySet,
   });
   // "Deduplicate & unify" (plan-then-apply AI merge) — owns its trigger + modal.
   const dedup = useTasksDedup({

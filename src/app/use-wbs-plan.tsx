@@ -132,7 +132,7 @@ const isEditable = (task: Task): boolean => !isTaskClosed(task) && !task.jiraKey
 
 export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   const { settings, isPopout, lang, capture, logActivityAs, getScopeEpoch, loadPending, today: tableToday, holidaySet } = deps;
-  const { tasks, setTasks, milestones, project, filteredSortedTasks } = useWorkspace();
+  const { tasks, setTasks, milestones, project, filteredSortedTasks, absences, resources } = useWorkspace();
   const { healthFilter } = useFilters();
   const showToast = useToastContext();
 
@@ -159,6 +159,9 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
   // ★ Synced after commit, so `open()` prefers the caller's `liveTasks`.
   const tasksRef = useRef(tasks);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  // §773 — mirrored like tasks: grounding reads the absences as they are when the reply returns.
+  const absenceRef = useRef({ absences, resources, holidaySet });
+  useEffect(() => { absenceRef.current = { absences, resources, holidaySet }; }, [absences, resources, holidaySet]);
   // ★ Written in the SAME call as the state, never synced by an effect: a call
   // that fails in the same tick it started batches "thinking" -> "idle" into no
   // state change at all, so an effect would never fire and the ref would stay
@@ -250,7 +253,9 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
       epochRef.current = startEpoch;
       try {
         const live = liveTasks ?? tasksRef.current;
-        const context = buildWbsContext({ tasks: live, scopeIds: runScope.taskIds, milestones, project });
+        const context = buildWbsContext({
+          tasks: live, scopeIds: runScope.taskIds, milestones, project, absences, resources, today: tableToday,
+        });
         const parsed = await runWbsProposal(
           context,
           { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() },
@@ -265,7 +270,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         }
         // Ground against the tasks as they are NOW, not as they were sent.
         // R4: the model's assignees go BEFORE grounding, so the preview shows what Apply writes.
-        const grounded = groundWbsProposal(withoutWbsAssignees(parsed, peopleProtectedNow()), tasksRef.current, runScope);
+        const grounded = groundWbsProposal(withoutWbsAssignees(parsed, peopleProtectedNow()), tasksRef.current, runScope, absenceRef.current);
         // Only a proposal with NOTHING in it is "no changes proposed". When the
         // model proposed items and grounding refused them all, the preview
         // still opens, showing just the "Not applied" list with its reasons.
@@ -302,7 +307,7 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
         reset();
       }
     },
-    [milestones, project, apiKey, settings.ai.model, guideText, aiPrivacy, peopleProtectedNow, lang, showToast, reset, setPhase, getScopeEpoch],
+    [milestones, project, absences, resources, tableToday, apiKey, settings.ai.model, guideText, aiPrivacy, peopleProtectedNow, lang, showToast, reset, setPhase, getScopeEpoch],
   );
 
   const onOpen = useCallback(() => {
