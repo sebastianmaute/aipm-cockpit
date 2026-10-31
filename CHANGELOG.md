@@ -19,7 +19,9 @@ longer carries its own changelog comment.
   cannot be completed is named in Settings → AI and in the feature that failed, with a hint to try again. A
   malformed setting switches AI off, and so does a misspelled setting name (such as `AIPM_AI_ORGANISATION_ID`), so a
   typo cannot leave the deployment unrestricted. Switching the restriction on or off asks every user to accept the AI data
-  disclosure again, behind a gateway too. The check proves which organisation a key belongs to, not what
+  disclosure again, behind a gateway too. A stored consent naming an AI route this version does not know (after going
+  back to an earlier release, for example) is asked for again, instead of counting as consent for calls straight to
+  Anthropic. The check proves which organisation a key belongs to, not what
   that organisation's contract covers, and it governs only data this app sends; setup and limits are in
   `docs/RUNBOOK.md` and `docs/security.md`. Where the operator turns the restriction on, a tab left open from before
   that change reports AI as not confirmed until it is reloaded; a deployment without the restriction keeps working.
