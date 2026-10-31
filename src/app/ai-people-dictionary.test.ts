@@ -3,7 +3,7 @@ import { join } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { buildPeopleDictionary, NOT_PERSON_FIELDS, PERSON_FIELD_PATHS } from "./ai-people-dictionary";
-import { redactionSessionFor } from "./ai-people-redact";
+import { redactionSessionFor, redactJsonBody } from "./ai-people-redact";
 import type { Insight } from "./insights/insight";
 import type {
   Absence, ChangeItem, NoteLogEntry, ProjectMeta, RaidItem, Resource, Shift, Stakeholder, Task,
@@ -275,5 +275,33 @@ describe("role and team values in person fields (review 2, D)", () => {
   it("a resource whose name is a role word stays a person", () => {
     const ws: Workspace = { ...emptyWorkspace(), resources: [{ id: 1, firstName: "Sales", lastName: "" } as Resource], tasks: [task({ id: 1, assignee: "Sales" })] };
     expect(buildPeopleDictionary(ws).names).toEqual(["Sales"]);
+  });
+});
+
+// Coordinator question (2026-10-31): a person known ONLY through a one-word lowercase stored name must be redacted
+// wherever the name appears, through the real dictionary builder and the redactor. Ruling R1: a one-word entry the
+// dictionary spells NOT capitalised has no capitalised form to tell a common word apart by, so it matches in any case;
+// a capitalised entry stays case-gated, so its lowercase spelling in free text is left in clear.
+describe("one-word stored names and the case gate (ruling R1)", () => {
+  let rKey = 0;
+  const sessionFor = (ws: Workspace) => redactionSessionFor([`r1-${++rKey}`], [buildPeopleDictionary(ws)]);
+
+  it("R1: a person known only as the lowercase absence assignee 'dorrin' is redacted in every spelling", () => {
+    const ws: Workspace = { ...emptyWorkspace(), absences: [{ id: 1, assignee: "dorrin" } as Absence] };
+    expect(buildPeopleDictionary(ws).names).toEqual(["dorrin"]);
+    const s = sessionFor(ws);
+    expect(s.redact("dorrin is away; ask Dorrin or DORRIN, or dorrin's deputy")).toBe(
+      "[Person 1] is away; ask [Person 1] or [Person 1], or [Person 1]'s deputy",
+    );
+    const body = redactJsonBody(JSON.stringify({ messages: [{ role: "user", content: "Who covers for dorrin?" }] }), s);
+    expect(body).not.toMatch(/dorrin/i);
+    expect(s.restore("[Person 1] is back")).toBe("dorrin is back");
+  });
+
+  it("R1: a person stored as 'Dorrin' (capitalised) typed lowercase as 'dorrin' in free text stays in clear", () => {
+    const ws: Workspace = { ...emptyWorkspace(), absences: [{ id: 1, assignee: "Dorrin" } as Absence] };
+    const s = sessionFor(ws);
+    expect(s.redact("dorrin is away")).toBe("dorrin is away");
+    expect(s.redact("Dorrin is away")).toBe("[Person 1] is away");
   });
 });
