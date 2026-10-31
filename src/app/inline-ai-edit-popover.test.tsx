@@ -113,7 +113,7 @@ it("gives each update row a key of its own when two touch the same field", () =>
             { entity: "raid", field: "title", before: "Old", after: "Mid", raw: "Mid" },
             { entity: "raid", field: "title", before: "Mid", after: "New", raw: "New" },
           ],
-          creates: [], deletes: [], rejected: [], links: [],
+          creates: [], deletes: [], rejected: [], links: [], clashes: [],
         }}
       />,
     );
@@ -137,7 +137,7 @@ it("renders a link change in preview", () => {
         creates: [],
         deletes: [],
         rejected: [],
-        links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
+        links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }], clashes: [],
       }}
     />,
   );
@@ -206,7 +206,7 @@ it("renders a rejected field in preview", () => {
         creates: [],
         deletes: [],
         rejected: [{ toolName: "update_raid_item", reason: "bad-input", detail: "targetDate=nope" }],
-        links: [],
+        links: [], clashes: [],
       }}
     />,
   );
@@ -230,7 +230,7 @@ it("renders a rejection on a plan that writes nothing", () => {
     <InlineAiEditPopover
       {...base}
       phase="preview"
-      plan={{ updates: [], creates: [], deletes: [], rejected: [{ toolName: "update_raid_item", reason: "unknown-id", detail: "99" }], links: [] }}
+      plan={{ updates: [], creates: [], deletes: [], rejected: [{ toolName: "update_raid_item", reason: "unknown-id", detail: "99" }], links: [], clashes: [] }}
     />,
   );
   expect(screen.getByText("Not applied: 99")).toBeInTheDocument();
@@ -248,7 +248,7 @@ it("names the refused field and offers no Apply in the rejected phase", () => {
       phase="rejected"
       plan={{
         updates: [], creates: [], deletes: [], links: [],
-        rejected: [{ toolName: "update_raid_item", reason: "bad-input", detail: "probability=9" }],
+        rejected: [{ toolName: "update_raid_item", reason: "bad-input", detail: "probability=9" }], clashes: [],
       }}
     />,
   );
@@ -274,7 +274,7 @@ it("labels each field through its own entity", () => {
       { entity: "raid" as const, field: "title", before: "Old", after: "New" },
       { entity: "stakeholder" as const, field: "title", before: "Engineer", after: "Architect" },
     ],
-    creates: [], deletes: [], rejected: [], links: [],
+    creates: [], deletes: [], rejected: [], links: [], clashes: [],
   };
   render(<InlineAiEditPopover {...base} phase="preview" plan={plan} />);
   expect(screen.getByText("Title")).toBeInTheDocument();
@@ -294,7 +294,7 @@ it("renders a cleared link list as an em dash rather than as nothing", () => {
         creates: [],
         deletes: [],
         rejected: [],
-        links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
+        links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }], clashes: [],
       }}
     />,
   );
@@ -302,8 +302,24 @@ it("renders a cleared link list as an em dash rather than as nothing", () => {
 });
 
 it("shows the diff and an Apply button in preview", () => {
-  render(<InlineAiEditPopover {...base} phase="preview" plan={{ updates: [{ entity: "raid", field: "status", before: "To Do", after: "Done" }], creates: [], deletes: [], rejected: [], links: [] }} />);
+  render(<InlineAiEditPopover {...base} phase="preview" plan={{ updates: [{ entity: "raid", field: "status", before: "To Do", after: "Done" }], creates: [], deletes: [], rejected: [], links: [], clashes: [] }} />);
   expect(screen.getByText(/status/i)).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
   expect(base.onApply).toHaveBeenCalled();
+});
+
+// §773 — a proposed change that lands work on an absence is warned about beside the change, as an
+// aria-hidden icon plus text (never colour alone).
+it("warns about an absence clash in the preview", () => {
+  const plan = {
+    updates: [{ entity: "task" as const, field: "dueDate", before: "2026-11-12", after: "2026-11-05", raw: "2026-11-05" }],
+    creates: [], deletes: [], rejected: [], links: [],
+    clashes: [{
+      entity: "task" as const, id: 42, title: "Fix login bug",
+      clash: { person: "Maya Patel", reason: "date-on-absence" as const, which: "due" as const, date: "2026-11-05", ranges: [{ start: "2026-11-03", end: "2026-11-07" }] },
+    }],
+  };
+  render(<InlineAiEditPopover {...base} phase="preview" plan={plan} />);
+  const note = screen.getByText(/Maya Patel is absent on the due date/).closest("li")!;
+  expect(note.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
 });

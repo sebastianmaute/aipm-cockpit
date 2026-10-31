@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { CONTEXT_CAP_PER_CATEGORY } from "./action-ai";
 import { buildProjectDigest, DIGEST_MAX_CHARS, type ProjectDigestInput } from "./project-digest";
+import { AWAY_SUMMARY_MAX_CHARS } from "./absence-clash";
 import { TEXTAREA_MAX } from "./sanitize-core";
-import type { ChangeItem, Milestone, RaidItem, Stakeholder, Task } from "./types";
+import type { Absence, ChangeItem, Milestone, RaidItem, Resource, Stakeholder, Task } from "./types";
 
 const task = (over: Partial<Task>): Task =>
   ({
@@ -20,7 +21,7 @@ const stakeholder = (over: Partial<Stakeholder>): Stakeholder =>
 
 const base = (over: Partial<ProjectDigestInput> = {}): ProjectDigestInput => ({
   projectName: "Apollo", today: "2026-10-23", mode: "advanced", enabledModules: ["raid", "milestones", "changes", "stakeholders"],
-  tasks: [], raid: [], milestones: [], changes: [], stakeholders: [], queue: [], ...over,
+  tasks: [], raid: [], milestones: [], changes: [], stakeholders: [], queue: [], absences: [], resources: [], ...over,
 });
 
 const lineWith = (text: string, needle: string): string => text.split("\n").find((l) => l.includes(needle))!;
@@ -272,5 +273,64 @@ describe("RAID review date (§772 cr4)", () => {
     }));
     expect(lineWith(text, "raid#1")).toContain("last touched 2026-10-12");
     expect(lineWith(text, "raid#2")).toContain("last touched 2026-09-02");
+  });
+});
+
+describe("buildProjectDigest — who is away (§773)", () => {
+  const maya = { id: 7, firstName: "Maya", lastName: "Patel" } as Resource;
+  const leave = { id: 1, assignee: "Maya Patel", resourceId: 7, type: "vacation", startDate: "2026-10-26", endDate: "2026-10-28" } as Absence;
+
+  test("lists who is away in the next 28 days, before the task lists", () => {
+    const text = buildProjectDigest(base({ absences: [leave], resources: [maya], tasks: [task({ id: 3, taskName: "Live work" })] }));
+    expect(text).toContain("AWAY (absent days; type and reason not shown):");
+    expect(text).toContain('#7|name: "Maya Patel" away 2026-10-26..2026-10-28');
+    expect(text.indexOf("AWAY (")).toBeLessThan(text.indexOf("## Open tasks"));
+    expect(text).not.toContain("vacation");
+  });
+
+  test("adds nothing, not even a blank line, when nobody is away in the window", () => {
+    const far = { ...leave, startDate: "2026-12-20", endDate: "2026-12-22" } as Absence;
+    const withFar = buildProjectDigest(base({ absences: [far], resources: [maya] }));
+    expect(withFar).toBe(buildProjectDigest(base()));
+    expect(withFar).not.toContain("AWAY");
+  });
+
+  test("survives a digest over the cap", () => {
+    const tasks = Array.from({ length: 400 }, (_, i) => task({ id: i + 1, taskName: "Long task name ".repeat(6) }));
+    const text = buildProjectDigest(base({ tasks, absences: [leave], resources: [maya] }), 3_000);
+    expect(text).toContain("…(truncated)");
+    expect(text).toContain('#7|name: "Maya Patel"');
+  });
+});
+
+describe("buildProjectDigest — a large team away does not crowd out the open tasks (§773 M-3)", () => {
+  const PEOPLE = 60;
+  const resources = Array.from({ length: PEOPLE }, (_, i) =>
+    ({ id: i + 1, firstName: `Teammember${String(i + 1).padStart(2, "0")}`, lastName: "Withaverylongfamilyname" }) as Resource);
+  // Ten separate two-day absences each, one every third day from today (2026-10-23): ten ranges on every line.
+  const day = (offset: number) => new Date(Date.UTC(2026, 9, 23 + offset)).toISOString().slice(0, 10);
+  const absences = resources.flatMap((r) =>
+    Array.from({ length: 10 }, (_, k) =>
+      ({ id: r.id * 100 + k, assignee: "", resourceId: r.id, type: "vacation", startDate: day(3 * k), endDate: day(3 * k + 1) }) as Absence));
+  const tasks = Array.from({ length: CONTEXT_CAP_PER_CATEGORY }, (_, i) =>
+    task({ id: i + 1, taskName: `Open task ${i + 1} `.padEnd(110, "x"), assignee: "Maya Patel", dueDate: "2026-11-30" }));
+  const queue = Array.from({ length: CONTEXT_CAP_PER_CATEGORY }, (_, i) =>
+    ({ title: `Queue item ${i + 1} `.padEnd(110, "q"), why: "Because ".padEnd(110, "w"), tier: "soon" as const }));
+
+  test("every open task still reaches the digest", () => {
+    const text = buildProjectDigest(base({ tasks, queue, absences, resources }));
+    expect(text).toContain("AWAY (absent days; type and reason not shown):");
+    expect(text).toContain(`open-points#${CONTEXT_CAP_PER_CATEGORY}:`);
+    expect(text).not.toContain("…(truncated)");
+  });
+
+  test("the AWAY block stays within its own cap and says how many people it left out", () => {
+    const text = buildProjectDigest(base({ tasks, queue, absences, resources }));
+    const lines = text.split("\n");
+    const start = lines.findIndex((l) => l.startsWith("AWAY ("));
+    const end = lines.indexOf("", start);
+    const block = lines.slice(start, end);
+    expect(block.join("\n").length).toBeLessThanOrEqual(AWAY_SUMMARY_MAX_CHARS);
+    expect(block[block.length - 1]).toMatch(/^…\(\d+ more people truncated\)$/);
   });
 });

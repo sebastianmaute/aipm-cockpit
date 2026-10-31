@@ -867,6 +867,8 @@ describe("TOKEN_ROW_SOURCE", () => {
         {
           get: (_target, prop) => {
             const member = String(prop);
+            // §773 — an optional judge that is not a row read: absent, as on a dispatcher that does not judge.
+            if (member === "absenceClashesFor") return undefined;
             // AI people protection: the executor's gate is a question, not a reader or writer — allowed here.
             if (member === "isPeopleProtected") return () => false;
             return () => {

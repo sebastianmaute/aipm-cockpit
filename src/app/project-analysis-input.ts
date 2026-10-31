@@ -138,6 +138,7 @@ export function buildProjectAnalysisInput(args: {
       mode: deriveMode(features),
       enabledModules: features,
       tasks: ws.tasks, raid: ws.raid, milestones, changes, stakeholders,
+      absences: ws.absences, resources: ws.resources,
       ...(budget ? { budget } : {}),
       queue: queue ?? (dashboard ? deriveQueue(dashboard) : []),
       ...(peopleProtected ? { peopleProtected } : {}),

@@ -11,6 +11,7 @@ import { defaultPeriodLabel, formatMovedHours, hoursMoveNotice, movedHoursNotes,
 import { type GroundedMove } from "./alloc-plan/alloc-ground-moves";
 import { type AltEffect } from "./alloc-plan/alloc-effect";
 import { type HoursMovePlan } from "./reassign-hours";
+import { AbsenceClashLine } from "./absence-clash-notes";
 
 function noticeCtx(move: GroundedMove, lang: Lang): HoursMoveNoticeCtx {
   return {
@@ -55,6 +56,14 @@ function MoveHours({ lang, move, plan }: { lang: Lang; move: GroundedMove; plan:
   return reason ? <p className="mt-1 text-xs text-muted-foreground">{reason}</p> : null;
 }
 
+/** §773 — the task's dates that fall on the receiver's absence (`GroundedMove.clashes`). A warning only: the row
+ *  stays tickable. Icon plus text, never colour alone. */
+function MoveClashes({ lang, move }: { lang: Lang; move: GroundedMove }) {
+  return move.clashes.map((c, i) => (
+    <AbsenceClashLine key={i} as="p" className="mt-1 flex items-start gap-1.5 text-xs text-foreground" lang={lang} clash={c} />
+  ));
+}
+
 export interface AllocPlanMoveRowsProps {
   lang: Lang;
   moves: readonly GroundedMove[];
@@ -89,7 +98,10 @@ export function AllocPlanMoveRows({ lang, moves, selected, staleMoves, movePlan,
               {staleMoves.has(m.key) ? (
                 <p className="mt-1 text-xs text-muted-foreground">{t(lang, "allocPlanMoveChanged")}</p>
               ) : (
-                <MoveHours lang={lang} move={m} plan={planFor(m, selected.has(m.key), movePlan)} />
+                <>
+                  <MoveHours lang={lang} move={m} plan={planFor(m, selected.has(m.key), movePlan)} />
+                  <MoveClashes lang={lang} move={m} />
+                </>
               )}
             </span>
           </label>

@@ -14,6 +14,7 @@ import { buildPlanRows, remapStagedCall, type PlanRow, type ProposedCall } from 
 import { peekMintId, resetMintState, seedMintFromWorkspace } from "./id-mint-session";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { DescribedRow } from "./chat-proposal-describe";
+import { clashesForAi, type AbsenceClash } from "./absence-clash";
 
 function ws(over: Partial<Workspace> = {}): Workspace {
   return { ...emptyWorkspace(), ...over };
@@ -138,6 +139,26 @@ describe("stagedToolResult", () => {
     // The "do not re-issue" half must survive on BOTH branches — a model told
     // only that nothing happened re-calls the tool and stages a duplicate row.
     expect(text).toContain("Do not call this tool again");
+  });
+
+  // §773 — a staged write that clashes with an absence says so while the card waits.
+  const CLASH: AbsenceClash = {
+    person: "Maya Patel", resourceId: 1, reason: "date-on-absence", which: "due", date: "2026-11-05",
+    ranges: [{ start: "2026-11-03", end: "2026-11-07" }],
+  };
+
+  it("is byte-for-byte unchanged with no clashes", () => {
+    expect(stagedToolResult(undefined, [])).toBe(STAGED_TOOL_RESULT);
+    expect(stagedToolResult(42, [])).toBe(stagedToolResult(42));
+  });
+
+  it("lists the clashes in the same shape the tools' results use, and keeps the rest", () => {
+    const text = stagedToolResult(42, [CLASH]);
+    expect(text.startsWith(stagedToolResult(42))).toBe(true);
+    expect(text).toContain(`absenceClashes: ${JSON.stringify(clashesForAi([CLASH]))}`);
+    expect(clashesForAi([CLASH])).toEqual([
+      { person: "Maya Patel", reason: "date-on-absence", date: "2026-11-05", ranges: [{ start: "2026-11-03", end: "2026-11-07" }] },
+    ]);
   });
 });
 

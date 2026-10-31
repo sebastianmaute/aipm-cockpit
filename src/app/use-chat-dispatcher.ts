@@ -59,6 +59,7 @@ import { useRegisterTools } from "./use-register-tools";
 import { useForecastTools } from "./use-forecast-tools";
 import { useProjectTools } from "./use-project-tools";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
+import { backstopWorkspace, callAbsenceClashes } from "./chat-absence-clashes";
 import type { AppView } from "./nav-config";
 export type { ChatDispatcherArgs };
 
@@ -208,6 +209,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     clockRef.current = args.clock;
   }, [args.clock]);
+  // §773 — the holiday set a date tool's absence clashes are judged against (`absenceClashesFor`).
+  const holidaySetRef = useRef(args.holidaySet);
+  useEffect(() => {
+    holidaySetRef.current = args.holidaySet;
+  }, [args.holidaySet]);
   useEffect(() => {
     viewRef.current = args.currentView;
   }, [args.currentView]);
@@ -402,6 +408,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const note = plannedHoursNoteRef.current;
         plannedHoursNoteRef.current = null;
         return note;
+      },
+      // §773 — the live slices, judged by the same function as the staging gate and the review card.
+      // ★ `backstopWorkspace` keeps only the four slices that judgment reads; its parity test pins that.
+      absenceClashesFor: (name, input) => {
+        const resources = resourcesRef.current;
+        const absences = absencesRef.current;
+        const ws = backstopWorkspace({ tasks: tasksRef.current, milestones: milestonesRef.current, resources, absences });
+        return callAbsenceClashes({ name, input }, ws, { absences, resources, holidaySet: holidaySetRef.current });
       },
       createTask: (input) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));

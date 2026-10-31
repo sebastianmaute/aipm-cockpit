@@ -8,7 +8,7 @@ import type { ProposedCall } from "./chat-proposal";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { loadI18n, t } from "./i18n";
 
-const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [], links: [] });
+const emptyPlan = (): EditPlan => ({ updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] });
 
 // ★★ `entity` is REQUIRED on a `FieldDiff` (§393) but INERT on this surface:
 // `PlanDetail` labels each line from the ROW's own tool name, not from the
@@ -663,5 +663,21 @@ describe("taskToolRowTitle", () => {
     expect(taskToolRowTitle("de", { name: "set_task_dependencies", input: { id: 1, dependencies: [] } }, tasks)).toBe(
       "Abhängigkeiten von „Ship it“ ersetzen",
     );
+  });
+});
+
+// §773 — the staged card warns under the row whose change lands work on someone's absence.
+describe("ChatProposalBlock — absence clashes", () => {
+  it("renders the clash note with an aria-hidden icon under its row", () => {
+    const plan: EditPlan = {
+      ...updatePlan("task", "dueDate", "2026-11-12", "2026-11-05"),
+      clashes: [{
+        entity: "task", id: 7, title: "Migrate database",
+        clash: { person: "Maya Patel", reason: "date-on-absence", which: "due", date: "2026-11-05", ranges: [{ start: "2026-11-03", end: "2026-11-07" }] },
+      }],
+    };
+    renderCard([row({ index: 0, title: "Migrate database", call: { name: "update_task", input: { id: 7 } }, plan })]);
+    const note = screen.getByText(/Maya Patel is absent on the due date/).closest("li")!;
+    expect(note.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
   });
 });

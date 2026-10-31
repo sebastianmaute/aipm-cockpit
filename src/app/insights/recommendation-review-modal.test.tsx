@@ -8,9 +8,9 @@ const planWithChanges: EditPlan = {
   creates: [{ entity: "raid", title: "New risk", toolName: "create_raid_item", input: {}, fields: [] }],
   deletes: [{ entity: "task", label: "Old task", toolName: "delete_task", id: 3 }],
   rejected: [],
-  links: [],
+  links: [], clashes: [],
 };
-const emptyPlan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+const emptyPlan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] };
 
 it("renders the summary and the plan's updates/creates/deletes", () => {
   render(
@@ -58,7 +58,7 @@ it("labels each row from its own entity when one plan spans two registers", () =
         creates: [],
         deletes: [],
         rejected: [],
-        links: [],
+        links: [], clashes: [],
       }}
       onConfirm={vi.fn()}
       onCancel={vi.fn()}
@@ -112,7 +112,7 @@ it("names the fields that will not land when the plan has rejected calls", () =>
       { toolName: "update_task", reason: "unknown-id", detail: "targetDate=nope" },
       { toolName: "update_raid_item", reason: "unknown-id", detail: "owner=empty" },
     ],
-    links: [],
+    links: [], clashes: [],
   };
   render(
     <RecommendationReviewModal
@@ -140,7 +140,7 @@ it("renders a link change with its resolved titles", () => {
     creates: [],
     deletes: [],
     rejected: [],
-    links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }],
+    links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief, Review", after: "Ship", rawIds: [2] }], clashes: [],
   };
   render(
     <RecommendationReviewModal
@@ -173,7 +173,7 @@ it("renders a cleared link list as an em dash rather than as nothing", () => {
         creates: [],
         deletes: [],
         rejected: [],
-        links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }],
+        links: [{ entity: "raid", target: "row", field: "linkedTaskIds", before: "Draft brief", after: "", rawIds: [] }], clashes: [],
       }}
       onConfirm={vi.fn()}
       onCancel={vi.fn()}
@@ -194,4 +194,27 @@ it("disables Confirm and shows the empty-plan note when the plan has no changes"
   );
   expect(screen.getByRole("button", { name: /apply recommendation/i })).toBeDisabled();
   expect(screen.getByText(/no remaining changes/i)).toBeInTheDocument();
+});
+
+// §773 — the review warns when a recommended change lands work on someone's absence.
+it("warns about an absence clash beside the plan", () => {
+  render(
+    <RecommendationReviewModal
+      lang="en-US"
+      summary="Move the release"
+      plan={{
+        ...emptyPlan,
+        updates: [{ entity: "milestone", field: "date", before: "2026-11-20", after: "2026-11-05" }],
+        clashes: [{
+          entity: "milestone", id: 7, title: "Go-live",
+          clash: { person: "Maya Patel", reason: "date-on-absence", which: "milestone", date: "2026-11-05", ranges: [{ start: "2026-11-03", end: "2026-11-07" }] },
+        }],
+      }}
+      onConfirm={vi.fn()}
+      onCancel={vi.fn()}
+    />,
+  );
+  const note = screen.getByText(/Maya Patel is absent on the milestone date/).closest("li")!;
+  expect(note).toHaveTextContent("Go-live");
+  expect(note.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
 });

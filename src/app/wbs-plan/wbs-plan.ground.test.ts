@@ -468,3 +468,33 @@ describe("groundWbsProposal — the grounded items", () => {
     expect(r.items[1].requires).toEqual([]);
   });
 });
+
+describe("groundWbsProposal — absence clashes on new tasks (§773)", () => {
+  const ctx = {
+    absences: [{ id: 1, assignee: "Maya Patel", type: "Vacation", startDate: "2026-12-01", endDate: "2026-12-05" }] as never,
+    resources: [],
+    holidaySet: new Set<string>(),
+  };
+  const run = (items: RawWbsItem[]) =>
+    groundWbsProposal({ items, truncated: false }, TASKS, { taskIds: new Set([1, 2, 3]) }, ctx);
+
+  test("a newTask due inside its assignee's absence carries the clash", () => {
+    const g = run([newTask("a", { assignee: "Maya Patel", dueDate: "2026-12-02" })]).items[0];
+    expect(g.clashes).toHaveLength(1);
+    expect(g.clashes?.[0].person).toBe("Maya Patel");
+  });
+
+  test("a newTask outside the absence, or without an assignee, carries none", () => {
+    const out = run([
+      newTask("a", { assignee: "Maya Patel", dueDate: "2026-12-10" }),
+      newTask("b", { dueDate: "2026-12-02" }),
+    ]).items;
+    expect(out.every((g) => !g.clashes || g.clashes.length === 0)).toBe(true);
+  });
+
+  test("a split piece is never marked, even inheriting an assignee in an absence", () => {
+    const tasks = [task(1, { assignee: "Maya Patel", dueDate: "2026-12-02" }), task(2), task(3)];
+    const out = groundWbsProposal({ items: [split(1)], truncated: false }, tasks, { taskIds: new Set([1]) }, ctx);
+    expect(out.items[0].clashes).toBeUndefined();
+  });
+});

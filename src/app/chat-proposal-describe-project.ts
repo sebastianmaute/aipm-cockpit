@@ -100,7 +100,7 @@ export function describeProjectCall(
  *   it is left off the card, the way the entity engine leaves an unchanged field off. A call whose only
  *   remaining fields are refused therefore `writesNothing` and is not sent (§534). */
 export function describeProjectPlan(call: ProposedCall, stored: ProjectMeta | undefined): EditPlan {
-  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] };
   if (stored === undefined) {
     plan.rejected.push({ toolName: call.name, reason: "unknown-id", detail: "no project is open" });
     return plan;

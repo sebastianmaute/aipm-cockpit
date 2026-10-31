@@ -452,15 +452,26 @@ export function isDestructiveCall(call: ProposedCall): boolean {
  *   writes earlier turns of the send already applied, so "more than one" holds across the send and
  *   not per turn; and while an attachment is in the history (`send.untrusted`) every call
  *   `stagesWhenUntrusted` names stages, even alone. Without `send` the rule is exactly the per-turn
- *   one above. */
-export function shouldStage(calls: readonly ProposedCall[], send?: SendRecord): boolean {
+ *   one above.
+ *
+ *  ★★ §773 — `hasClash` stages a write it flags, even alone: a date write that lands someone's work on
+ *   their absence goes to the card, so the user sees the warning before it is written. It is asked only
+ *   about entity writes, and the caller builds it (`callAbsenceClashes`), so this stays a function of the
+ *   call list. Without it the rule is exactly the one above. */
+export function shouldStage(
+  calls: readonly ProposedCall[],
+  send?: SendRecord,
+  hasClash?: (c: ProposedCall) => boolean,
+): boolean {
   let writes = send?.appliedWrites ?? 0;
   for (const c of calls) {
     if (isDestructiveCall(c)) return true;
     if (sendsInvitations(c)) return true;
     if (ALWAYS_STAGED_TOOLS.has(c.name)) return true;
     if (send?.untrusted === true && stagesWhenUntrusted(c)) return true;
-    if (isEntityWriteCall(c)) writes += 1;
+    if (!isEntityWriteCall(c)) continue;
+    if (hasClash?.(c) === true) return true;
+    writes += 1;
   }
   return writes > 1;
 }

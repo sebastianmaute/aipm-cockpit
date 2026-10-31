@@ -83,6 +83,8 @@ import {
 } from "./chat-proposal";
 import { isPureReadTool, openSendRecord, runsInPlaceWhenStaging } from "./chat-send-record";
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
+import { NO_HOLIDAYS, type AbsenceCtx } from "./absence-clash";
+import { callAbsenceClashes, DATE_WRITE_TOOLS } from "./chat-absence-clashes";
 import {
   cardRowTitle,
   ChatProposalBlock,
@@ -210,6 +212,7 @@ function ChatPanelImpl({
   tursoConfig = null,
   exportFooter,
   workspace,
+  holidaySet,
   runBatched,
   getScopeEpoch,
   isSwapInFlight,
@@ -256,6 +259,7 @@ function ChatPanelImpl({
       tursoConfig={tursoConfig}
       exportFooter={exportFooter}
       workspace={workspace}
+      holidaySet={holidaySet}
       runBatched={runBatched}
       getScopeEpoch={getScopeEpoch}
       isSwapInFlight={isSwapInFlight}
@@ -324,6 +328,9 @@ interface ChatProposalProps {
   /** The live workspace, for grounding a staged plan's diffs and row titles.
    *  Read through a ref at staging time, never captured at send time. */
   workspace?: Workspace;
+  /** §773 — the shared holiday set, for a staged row's absence-clash warnings. Read through a ref at
+   *  staging time, like `workspace`. Absent ⇒ none, which still warns of a date on an absence. */
+  holidaySet?: ReadonlySet<string>;
   /** `useUndoBatch(...).runBatched` from the SAME batch whose `.undo` is the
    *  dispatcher's `undo` prop. A DIFFERENT instance would collect nothing —
    *  the captures would go straight to the live stack — and nothing would say
@@ -370,6 +377,7 @@ function ChatPanelInner({
   tursoConfig = null,
   exportFooter,
   workspace,
+  holidaySet,
   runBatched,
   getScopeEpoch,
   isSwapInFlight,
@@ -474,6 +482,10 @@ function ChatPanelInner({
   useEffect(() => {
     workspaceRef.current = workspace;
   }, [workspace]);
+  const holidaySetRef = useRef(holidaySet);
+  useEffect(() => {
+    holidaySetRef.current = holidaySet;
+  }, [holidaySet]);
   // Turso thread state (deps-object hook, AGENTS.md rule 1). Kept as one
   // object — most fields wire onto ChatThreadList in Task 6; submitPrompt
   // below reads .activeThreadId/.threadIdRef and calls .ensureThreadForSend.
@@ -917,7 +929,8 @@ function ChatPanelInner({
           // staged, even alone: `ALWAYS_STAGED_TOOLS`); when its entity writes plus
           // those this send already applied (`sendRecord.appliedWrites`) come to
           // more than one; or, in an untrusted send (an attachment in the
-          // history), when it holds any call `stagesWhenUntrusted` names. Staged:
+          // history), when it holds any call `stagesWhenUntrusted` names; or when an
+          // entity write would land someone's work on their absence (§773). Staged:
           // no write runs, the turn's reads (`isPureReadTool`) run in place, the
           // other calls go on a review card in the transcript, and every `tool_use`
           // id is still answered. A turn that
@@ -929,9 +942,26 @@ function ChatPanelInner({
           // it): it takes the path below, where its reads (`isPureReadTool`) run and every other call
           // is answered with `PROPOSAL_PENDING_RESULT` and runs nothing. The loop then continues, so
           // the model can still write its reply; the turn cap bounds it as it bounds any send.
-          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord)) {
-            sendRecord = { ...sendRecord, staged: true };
+          // ★★ §773 — a lone date write that lands someone's work on their absence stages too, judged by the
+          // same plan the card below shows (`callAbsenceClashes`), so the card always carries the warning.
+          // Built on first use: a turn with no date write, and no staging, never builds it. The holiday set
+          // is task-manager's one `useHolidaySet` result, the same the dispatcher judges with; the prop is
+          // optional only for mounts that thread none (tests), where no day is a holiday on either side.
+          let gate: { ws: Workspace; absence: AbsenceCtx } | undefined;
+          const gateContext = () => {
+            if (gate) return gate;
             const ws = stagingWorkspace(workspaceRef.current);
+            gate = { ws, absence: { absences: ws.absences, resources: ws.resources, holidaySet: holidaySetRef.current ?? NO_HOLIDAYS } };
+            return gate;
+          };
+          const hasClash = (c: ProposedCall) => {
+            if (!DATE_WRITE_TOOLS.has(c.name)) return false;
+            const { ws, absence } = gateContext();
+            return callAbsenceClashes(c, ws, absence).length > 0;
+          };
+          if (!sendRecord.staged && shouldStage(proposed.map((p) => p.call), sendRecord, hasClash)) {
+            sendRecord = { ...sendRecord, staged: true };
+            const { ws, absence: gateAbsence } = gateContext();
             // AI-02 — a read changes nothing, so it runs in place and gets its real result; so does `optimize_wbs`,
             // whose own preview writes nothing until applied (`runsInPlaceWhenStaging`). Only the turn's other
             // calls go on the card. These run FIRST, so the transcript keeps the turn's order: their lines, then
@@ -955,9 +985,12 @@ function ChatPanelInner({
             // exercised on every create. See its own docstring for what a
             // peek-based mint would have made dormant.
             const planRows = scopeMoved ? [] : buildPlanRows(calls, mintProvisionalIds(calls, ws));
+            // §773 — the card's rows, read again below so each staged result names its row's clashes.
+            let described: readonly DescribedRow[] = [];
             if (!scopeMoved) {
               // §779 — the dispatcher's live settings judge a functions row's other settings.
-              const described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch));
+              // §773 — the gate's own absence context, so the card judges exactly what staged it.
+              described = describeProposal(calls, ws, planRows, (patch) => dispatcher.previewSettings(patch), gateAbsence);
               const proposalId = newProposalId();
               setPendingProposal({
                 id: proposalId,
@@ -981,15 +1014,16 @@ function ChatPanelInner({
             // id makes the NEXT request a 400 and wedges the chat for good —
             // `closeDanglingToolUses` exists because of exactly that. The
             // result also carries the create's provisional id, so a later call
-            // in this same turn can name the row the plan will create. After a scope move every id
-            // without an answer gets the interrupted result, as a truncated turn's calls do.
+            // in this same turn can name the row the plan will create, and (§773) the absence clashes
+            // the card shows for that row, so Claude can offer another date while the card waits. After a
+            // scope move every id without an answer gets the interrupted result, as a truncated turn's calls do.
             const answers = proposed.map((p): ToolResultBlock => {
               const read = readAnswers.get(p.useId);
               if (read !== undefined) return read;
               const at = staged.indexOf(p);
               return scopeMoved || at === -1
                 ? { type: "tool_result", tool_use_id: p.useId, content: INTERRUPTED_TOOL_RESULT, is_error: true }
-                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId) + (p.removed.length > 0 ? ` ${PERSON_FIELDS_REMOVED_NOTE(p.removed)}` : "") };
+                : { type: "tool_result", tool_use_id: p.useId, content: stagedToolResult(planRows[at].mintedId, described[at].plan.clashes.map((n) => n.clash)) + (p.removed.length > 0 ? ` ${PERSON_FIELDS_REMOVED_NOTE(p.removed)}` : "") };
             });
             messages.push({ role: "user", content: answers });
             continueBubble = false;

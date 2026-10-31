@@ -45,7 +45,7 @@ function setup(peopleProtected: boolean, input: Record<string, unknown>) {
   const createTask = vi.fn((i: Record<string, unknown>) => ({ id: 9, ...i }) as unknown as Task);
   const dispatcher = { isPeopleProtected: () => peopleProtected, createTask } as unknown as InsightRecommendationDeps["dispatcher"];
   const deps: InsightRecommendationDeps = {
-    isPopout: false, loadPending: false, getScopeEpoch: () => 0, guides: [], guidesReady: true,
+    isPopout: false, loadPending: false, getScopeEpoch: () => 0, guides: [], guidesReady: true, absences: [], holidaySet: new Set(),
     settings: { ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x" } } as unknown as InsightRecommendationDeps["settings"],
     lang: "en-US", today: "2026-09-03", project: undefined,
     tasks: [], raid: [], milestones: [], changes: [], stakeholders: [],

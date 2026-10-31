@@ -284,6 +284,16 @@ const taskFields = {
   },
 };
 
+/** §773 — the sentence each date-writing tool's description spends on `list_absences`. That tool is a people
+ *  tool, so a people-protected request sends these four descriptions without it (`PEOPLE_PROTECTED_DEFS`);
+ *  the absenceClashes sentence after it stays, since a clash still comes back under protection. */
+const LIST_ABSENCES_HINT = {
+  create_task: "Check the assignee's absences with list_absences first.",
+  update_task: "Before changing the dates or the assignee, check list_absences.",
+  create_milestone: "Check list_absences for the people involved first.",
+  update_milestone: "Before moving the date, check list_absences.",
+} as const;
+
 export const TOOL_DEFS = [
   {
     name: "list_tasks",
@@ -327,7 +337,7 @@ export const TOOL_DEFS = [
   {
     name: "create_task",
     description:
-      "Create a new task. Required: taskName, assignee, dueDate. Optional fields default sensibly.",
+      `Create a new task. Required: taskName, assignee, dueDate. Optional fields default sensibly. ${LIST_ABSENCES_HINT.create_task} A result may list absenceClashes to mention to the user, offering another date.`,
     input_schema: {
       type: "object",
       // ★ Own `blockers` wording: the shared one describes REPLACING open
@@ -345,7 +355,7 @@ export const TOOL_DEFS = [
   {
     name: "update_task",
     description:
-      "Update one or more fields on an existing task. Only the fields you specify are changed.",
+      `Update one or more fields on an existing task. Only the fields you specify are changed. ${LIST_ABSENCES_HINT.update_task} A result may list absenceClashes to mention to the user, offering another date.`,
     input_schema: {
       type: "object",
       properties: {
@@ -822,7 +832,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "create_milestone",
-    description: "Create a project milestone. Required: name and date (YYYY-MM-DD).",
+    description: `Create a project milestone. Required: name and date (YYYY-MM-DD). ${LIST_ABSENCES_HINT.create_milestone} A result may list absenceClashes to mention to the user.`,
     input_schema: {
       type: "object",
       properties: milestoneFields,
@@ -831,7 +841,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "update_milestone",
-    description: "Update fields on an existing milestone. Only the fields you pass change. linkedTaskIds REPLACES the whole list: read it from list_milestones first, and send every id to keep.",
+    description: `Update fields on an existing milestone. Only the fields you pass change. ${LIST_ABSENCES_HINT.update_milestone} A result may list absenceClashes to mention to the user. linkedTaskIds REPLACES the whole list: read it from list_milestones first, and send every id to keep.`,
     input_schema: {
       type: "object",
       properties: { id: { type: "number" }, ...expectedTokenField, ...milestoneFields },
@@ -878,7 +888,7 @@ export const TOOL_DEFS = [
   {
     name: "list_absences",
     description:
-      "List time-off/absence entries with id, assignee, startDate, endDate. Every entry reads type \"absent\"; the real type and note are withheld. Read-only.",
+      "List time-off/absence entries (call list_absences before setting or moving a date for someone, or giving them work) with id, assignee, startDate, endDate. Every entry reads type \"absent\"; the real type and note are withheld. Read-only.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -1041,6 +1051,16 @@ export const NON_PEOPLE_TOOLS: ReadonlySet<string> = new Set([
 export function peopleToolsLive(protectedFlag: boolean | undefined): boolean {
   return protectedFlag !== true;
 }
+
+/** §773 — the four date-writing tools as a people-protected request sends them: without the sentence that
+ *  points at the withheld `list_absences` (`LIST_ABSENCES_HINT`). Applied by `toolsFor` on the same bit
+ *  that removes the people tools, as the forecast bit swaps in the document tools without their decision section. */
+export const PEOPLE_PROTECTED_DEFS: ReadonlyMap<string, (typeof TOOL_DEFS)[number]> = new Map(
+  TOOL_DEFS.flatMap((d) => {
+    const hint = (LIST_ABSENCES_HINT as Readonly<Record<string, string>>)[d.name];
+    return hint ? [[d.name, { ...d, description: d.description.replace(` ${hint}`, "") }] as const] : [];
+  }),
+);
 
 /** What `runTool` answers for a people tool under protection. English and i18n-free: the model reads it,
  *  like every other tool error. It says why, so the model does not retry. */

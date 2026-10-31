@@ -23,6 +23,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { aiFailureMessageKey } from "./ai-key-status";
 import { describeEntityCalls, isEmptyPlan, type EditPlan, type FieldDiff, type LinkDiff } from "./inline-ai-edit/plan";
 import { inlineDescriptor, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
+import { NO_HOLIDAYS, type AbsenceCtx } from "./absence-clash";
 
 export type InlinePhase = "idle" | "thinking" | "preview" | "clarify" | "rejected" | "applying" | "error";
 type EntityItem = { id: number; [k: string]: unknown };
@@ -36,6 +37,9 @@ export interface InlineEntityEditDeps {
   lang: Lang;
   showToast: (kind: "info" | "error", text: string) => void;
   ws: Workspace;
+  /** §773 — the caller's holiday set, for the absence-clash warnings in the preview (a span's working
+   *  days). Holidays are not in `Workspace`. Absent ⇒ none, which still warns of a date on an absence. */
+  holidaySet?: ReadonlySet<string>;
   guides: readonly OperatingGuide[];
   /** Extra per-entity enable clause (task: !jiraKey). MUST be a stable
    *  reference (useCallback / module fn): it feeds the `aiEditEnabled`/`openFor`
@@ -60,6 +64,16 @@ export interface InlineEntityEditApi {
   submit: (instruction: string) => Promise<void>;
   apply: () => Promise<void>;
   cancel: () => void;
+}
+
+/** §773 — what the preview's absence clashes are judged against: the workspace's absences and people, the
+ *  caller's holidays. ★ `Array.isArray`: a partial workspace (a popout mirror, a test seed) may lack a slice. */
+function absenceCtxOf(deps: Pick<InlineEntityEditDeps, "ws" | "holidaySet">): AbsenceCtx {
+  return {
+    absences: Array.isArray(deps.ws.absences) ? deps.ws.absences : [],
+    resources: Array.isArray(deps.ws.resources) ? deps.ws.resources : [],
+    holidaySet: deps.holidaySet ?? NO_HOLIDAYS,
+  };
 }
 
 export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEditApi {
@@ -218,7 +232,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       if (reqId !== reqIdRef.current) return; // superseded — discard
       // ★★ R4: the person fields go BEFORE the plan is built, so the preview shows what Apply writes.
       const people = stripPersonFieldsFromCalls(blocks, peopleProtected);
-      const next = describeEntityCalls(people.calls, { descriptor: d, item: target, ws: deps.ws });
+      const next = describeEntityCalls(people.calls, { descriptor: d, item: target, ws: deps.ws, absence: absenceCtxOf(deps) });
       // ★★★ A REFUSAL IS NOT "NO CHANGES" (§392). `isEmptyPlan` counts what the
       //  plan would WRITE and deliberately does not count `rejected`, so a plan
       //  whose only content is a refusal is empty by that predicate and used to

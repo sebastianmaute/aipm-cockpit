@@ -24,6 +24,8 @@ import { defaultAiConfig, defaultSettings, resolveNextActionsConfig, type Settin
 import type { Workspace } from "./workspace";
 import type { TursoConfig } from "./turso-config";
 import { runMeetingReport } from "./committee-report/report-call";
+import { AWAY_SUMMARY_MAX_CHARS, AWAY_WINDOW_DAYS, buildAwaySummary } from "./absence-clash";
+import { isoAddDays } from "./due-dates";
 import { buildDigest } from "./digest/digest-model";
 import { runDigestNarrative } from "./digest/digest-narrative";
 import { runForecastImportCall } from "./forecast-import-call";
@@ -259,6 +261,7 @@ function insightContext(c: Ctx): string {
     insightType: FIXTURE_INSIGHT.type, severity: FIXTURE_INSIGHT.severity, data: FIXTURE_INSIGHT.data,
     relatedTasks: ws.tasks.map((t) => ({ id: t.id, title: t.taskName })),
     people: recommendPeople(ws.resources.map(resourceDisplayName), ws.tasks.map((t) => t.assignee), []),
+    absences: ws.absences, resources: ws.resources,
   });
 }
 const groundingOf = (ws: Workspace) =>
@@ -294,7 +297,14 @@ const DRIVERS: Readonly<Record<string, Driver>> = {
   },
   "committee-report": {
     kind: "redacted", sendsPeople: true,
-    run: (c) => sendAndIgnoreParse(() => runMeetingReport(dashboardOf(c.ws), AGENDA, { apiKey: KEY, model: MODEL, privacy: c.privacy, lang: "en-US" })),
+    // §773 — the AWAY block as `use-meeting-report-actions` builds it, so the fixture's absence person rides this row too.
+    run: (c) => sendAndIgnoreParse(() => runMeetingReport(dashboardOf(c.ws), AGENDA, {
+      apiKey: KEY, model: MODEL, privacy: c.privacy, lang: "en-US",
+      away: buildAwaySummary({
+        absences: c.ws.absences, resources: c.ws.resources,
+        from: FIXTURE_TODAY, to: isoAddDays(FIXTURE_TODAY, AWAY_WINDOW_DAYS), maxChars: AWAY_SUMMARY_MAX_CHARS,
+      }),
+    })),
   },
   "digest-narrative": {
     kind: "redacted",
@@ -362,7 +372,8 @@ const DRIVERS: Readonly<Record<string, Driver>> = {
   "wbs-plan": {
     kind: "redacted", sendsPeople: true,
     run: (c) => sendAndIgnoreParse(() => runWbsProposal(
-      buildWbsContext({ tasks: c.ws.tasks, scopeIds: new Set(c.ws.tasks.map((t) => t.id)), milestones: c.ws.milestones ?? [], project: c.ws.project }),
+      buildWbsContext({ tasks: c.ws.tasks, scopeIds: new Set(c.ws.tasks.map((t) => t.id)), milestones: c.ws.milestones ?? [], project: c.ws.project,
+        absences: c.ws.absences, resources: c.ws.resources, today: FIXTURE_TODAY }),
       { apiKey: KEY, model: MODEL, privacy: c.privacy },
       `Split the platform work; ${MAIL_PERSON} wants a review step.`,
     )),

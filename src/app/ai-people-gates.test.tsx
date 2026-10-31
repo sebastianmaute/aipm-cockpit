@@ -234,7 +234,7 @@ describe("dictation under protection", () => {
 describe("context builders under protection", () => {
   const recommendInput = {
     projectName: "P", today: "2026-10-30", insightType: "stalledWork", severity: "high", data: {},
-    relatedTasks: [], people: ["Alice Anderson"],
+    relatedTasks: [], people: ["Alice Anderson"], absences: [], resources: [],
   };
 
   it("the insight recommendation context has no People section", () => {

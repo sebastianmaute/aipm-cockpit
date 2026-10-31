@@ -66,7 +66,7 @@ export function describeFunctionsCall(
   preview?: PreviewSettings,
 ): { functions?: FunctionsChange; plan: EditPlan } | null {
   if (!carriesEnabledModules(call)) return null;
-  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [] };
+  const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] };
   let judged: ReturnType<typeof judgeEnabledModules>;
   try {
     judged = judgeEnabledModules(call.input[FIELD]);

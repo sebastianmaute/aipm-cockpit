@@ -51,6 +51,7 @@ import type { ProposalFailureKind } from "./chat-proposal-apply";
 import { isEmptyPlan, type DiffEntity, type EditPlan, type Rejected } from "./inline-ai-edit/plan";
 import { fieldLabel, linkLabel } from "./inline-ai-edit/field-labels";
 import { CreateFieldsList } from "./create-fields-list";
+import { AbsenceClashNotes } from "./absence-clash-notes";
 import {
   forecastRowLine,
   previewEntityOf,
@@ -407,7 +408,8 @@ function PlanDetail({
    *   buy nothing and leave the file reading as a half-finished edit. */
   entity: DiffEntity | undefined;
 }) {
-  if (isEmptyPlan(plan) && plan.rejected.length === 0) return null;
+  // §773 — a pending row's plan is empty but for its clashes (`chat-proposal-turn-clashes.ts`), so they count.
+  if (isEmptyPlan(plan) && plan.rejected.length === 0 && plan.clashes.length === 0) return null;
   return (
     <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
       {plan.updates.map((d, i) => (
@@ -434,6 +436,8 @@ function PlanDetail({
       {plan.deletes.map((del, i) => (
         <li key={`d${i}`}>{t(lang, "inlineAiEditDelete", del.entity, del.label)}</li>
       ))}
+      {/* §773 — a warning, not a refusal: the row still applies. */}
+      <AbsenceClashNotes lang={lang} clashes={plan.clashes} />
       {/* Last, and in the failure colour the row's own not-applied notice uses:
           these are the parts of the call that will NOT land. */}
       {plan.rejected.map((r, i) => (

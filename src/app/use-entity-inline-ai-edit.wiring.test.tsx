@@ -41,6 +41,7 @@ describe("useEntityInlineAiEdit's popover title (§715 D4)", () => {
         settings: defaultSettings,
         isPopout: false,
         lang: "en-US",
+        holidaySet: new Set(),
         active: true,
       }),
     );

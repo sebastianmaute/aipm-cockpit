@@ -24,6 +24,7 @@ import {
 import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
 import { mintIds } from "./id-mint-session";
 import type { Workspace } from "./workspace";
+import { clashesForAi, type AbsenceClash } from "./absence-clash";
 
 /** What the model is told about a write the user has not approved yet.
  *
@@ -93,13 +94,22 @@ export function appliedProposalNotice(applied: number, failed: number): string {
  *  ★★ IT IS ANNOUNCED AS PROVISIONAL, not as the row's id. The number is
  *   guaranteed NOT to survive apply — `mintProvisionalIds` advances the session
  *   high-water mark, so the real minter hands out a strictly higher one — and a
- *   model told otherwise could report it to the user as the created row's id. */
-export function stagedToolResult(mintedId: number | undefined): string {
-  if (mintedId === undefined) return STAGED_TOOL_RESULT;
+ *   model told otherwise could report it to the user as the created row's id.
+ *
+ *  ★★ §773 — `clashes` are the absence clashes the card shows for this row (owner decision 2026-10-30):
+ *   Claude is told while the card waits, so it can mention them and offer another date. Same shape as
+ *   the date tools' `absenceClashes` (`clashesForAi`). None ⇒ the text is exactly what it was before. */
+export function stagedToolResult(mintedId: number | undefined, clashes: readonly AbsenceClash[] = []): string {
+  const base =
+    mintedId === undefined
+      ? STAGED_TOOL_RESULT
+      : `${STAGED_TOOL_RESULT} If the user approves it, this row will be created; ` +
+        `refer to it as id ${mintedId} in later calls in THIS turn only. That number ` +
+        "is provisional and is not the id the row will finally have, so never show it to the user.";
+  if (clashes.length === 0) return base;
   return (
-    `${STAGED_TOOL_RESULT} If the user approves it, this row will be created; ` +
-    `refer to it as id ${mintedId} in later calls in THIS turn only. That number ` +
-    "is provisional and is not the id the row will finally have, so never show it to the user."
+    `${base} It puts someone's work on a day they are away; mention this to the user and offer another ` +
+    `date. absenceClashes: ${JSON.stringify(clashesForAi(clashes))}`
   );
 }
 

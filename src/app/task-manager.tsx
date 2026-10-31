@@ -885,7 +885,7 @@ function TaskManagerInner() {
     isPopout,
     settings,
     committee: steeringCommittee,
-    resources,
+    resources, absences, today,
     setSteeringCommittee,
     tursoConfig,
     m365Configured: m365Enabled,
@@ -1115,7 +1115,7 @@ function TaskManagerInner() {
   } = useInsightRecommendations({
     isPopout, loadPending, getScopeEpoch, settings, lang, today, project, guides: operatingGuides.guides, guidesReady: operatingGuides.ready,
     tasks, raid, milestones, changes, stakeholders, baselineHistory,
-    resourcesById, insights, setInsights, dispatcher,
+    resourcesById, absences, holidaySet, insights, setInsights, dispatcher,
     showToast, logActivityAs,
     onAcknowledgeInsight, onActInsight, onDismissInsight,
     onLogAsRaid: raidCreate.openFromInsight,
