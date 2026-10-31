@@ -334,10 +334,9 @@ describe("toErrorToken", () => {
     expect(toErrorToken(new AiGatewayError("ai-gateway-rate-limited"))).toBe("ai-gateway-rate-limited");
   });
 
-  it("records the organisation key check's refusals and an unavailable check as their own tokens (AI organisation key)", () => {
+  it("records the organisation key check's refusals as their own tokens (AI organisation key)", () => {
     expect(toErrorToken(new AiKeyRefusedError("organization"))).toBe("ai-key-wrong-organization");
     expect(toErrorToken(new AiKeyRefusedError("workspace"))).toBe("ai-key-wrong-workspace");
-    expect(toErrorToken(new AiKeyCheckUnavailableError())).toBe("ai-key-check-unavailable");
   });
 });
 
@@ -571,6 +570,15 @@ describe("runScheduledJob: a send that never happened spends nothing", () => {
   // KILLED BY: dropping the AiDeploymentError branch of the analyse catch (the run would be failed and the period spent).
   it("a deployment error during analyse releases the claim as transient: nothing is finished or recorded", async () => {
     const d = deps({ analyse: vi.fn().mockRejectedValue(new AiDeploymentError("route-changed")) });
+    expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
+    expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
+    expect(mFinish).not.toHaveBeenCalled();
+    expect(d.recordRun).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: dropping AiKeyCheckUnavailableError from the analyse catch's transient branch (the run would be failed and the period spent on a check that merely could not run).
+  it("an unavailable organisation key check during analyse releases the claim as transient: nothing is finished or recorded (AI organisation key)", async () => {
+    const d = deps({ analyse: vi.fn().mockRejectedValue(new AiKeyCheckUnavailableError()) });
     expect(await runScheduledJob(job(), SLOT, d)).toBe("transient");
     expect(mRelease).toHaveBeenCalledWith(CONFIG, "report-1");
     expect(mFinish).not.toHaveBeenCalled();

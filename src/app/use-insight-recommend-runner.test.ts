@@ -7,7 +7,7 @@ import { runInsightRecommendation } from "./insights/recommend-call";
 import { MAX_BG_RECS_PER_TICK, type Insight, type InsightRecommendation } from "./insights/insight";
 import type { GroundingIndex } from "./action-ai";
 import { AiWeeklyCapReachedError } from "./ai-consent";
-import { AiKeyRefusedError } from "./ai-errors";
+import { AiKeyCheckUnavailableError, AiKeyRefusedError } from "./ai-errors";
 
 vi.mock("./insights/recommend-call", () => ({ runInsightRecommendation: vi.fn() }));
 
@@ -148,6 +148,16 @@ describe("useInsightRecommendRunner", () => {
   // AI organisation key: a refused key is refused for every remaining candidate too.
   test.each(["organization", "workspace"] as const)("a key refused by the organisation key check (%s) ends the tick", async (reason) => {
     mockRun.mockRejectedValueOnce(new AiKeyRefusedError(reason));
+    mockRun.mockResolvedValue(fakeRec);
+    const { applyRecommendation } = renderRunner({ insights: [makeInsight(1), makeInsight(2), makeInsight(3)] });
+    await act(async () => { await flushMicrotasks(); });
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(applyRecommendation).not.toHaveBeenCalled();
+  });
+
+  // KILLED BY: dropping AiKeyCheckUnavailableError from the catch (every remaining candidate would send, and be held, the same way).
+  test("a key check that could not run ends the tick (AI organisation key)", async () => {
+    mockRun.mockRejectedValueOnce(new AiKeyCheckUnavailableError());
     mockRun.mockResolvedValue(fakeRec);
     const { applyRecommendation } = renderRunner({ insights: [makeInsight(1), makeInsight(2), makeInsight(3)] });
     await act(async () => { await flushMicrotasks(); });

@@ -12,7 +12,7 @@
 import { useEffect, useRef } from "react";
 import { useOpenProjectAiPrivacy } from "./ai-privacy-context";
 import { runInsightRecommendation } from "./insights/recommend-call";
-import { AiHttpError, AiKeyRefusedError, classifyAiError } from "./ai-errors";
+import { AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError, classifyAiError } from "./ai-errors";
 import { AiWeeklyCapReachedError } from "./ai-consent";
 import { clampInsightRecInterval } from "./settings-types";
 import { MAX_BG_RECS_PER_TICK, type Insight, type InsightRecommendation } from "./insights/insight";
@@ -169,6 +169,8 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
           if (e instanceof AiWeeklyCapReachedError) break;
           // So is a key the organisation key check refused: the same key goes with every candidate.
           if (e instanceof AiKeyRefusedError) break;
+          // So is a key check that could not run: the relay held the same key back, and would again for the rest.
+          if (e instanceof AiKeyCheckUnavailableError) break;
           if (e instanceof AiHttpError) {
             const cls = classifyAiError(e.status, e.errorType);
             if (cls === "limit" || cls === "auth") break;

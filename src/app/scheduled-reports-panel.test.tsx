@@ -371,7 +371,6 @@ describe("ScheduledReportsPanel", () => {
     ["a rate-limiting gateway", { status: "done" as const, ok: false }, { error: "ai-gateway-rate-limited" as const }, "aiGatewayRateLimited"],
     ["a key of another organisation", { status: "done" as const, ok: false }, { error: "ai-key-wrong-organization" as const }, "aiKeyWrongOrganization"],
     ["a key of an unlisted workspace", { status: "done" as const, ok: false }, { error: "ai-key-wrong-workspace" as const }, "aiKeyWrongWorkspace"],
-    ["a key check that could not run", { status: "done" as const, ok: false }, { error: "ai-key-check-unavailable" as const }, "aiKeyCheckUnavailable"],
     ["a failure without a token", { status: "done" as const, ok: false }, {}, "scheduledReportsErrError"],
     ["an interrupted run", { status: "running" as const, ok: false, ranAt: "2020-01-01T00:00:00.000Z" }, {}, "scheduledReportsErrInterrupted"],
     ["a run in progress", { status: "running" as const, ok: false, ranAt: "2999-01-01T00:00:00.000Z" }, {}, "scheduledReportsRunningNote"],

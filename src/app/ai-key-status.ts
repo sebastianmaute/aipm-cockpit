@@ -101,9 +101,9 @@ export function reportAiKeyUnreadable(): void {
   setStatus("unreadable");
 }
 
-/** The ONE predicate for "this key is known to be refused, so do not use it": a rejected key
- *  (401) or one the organisation refuses. Today its one reader is `isAiKeyStatusBad`, which
- *  decides whether the key banner shows (`app-banners-block.tsx`). */
+/** The ONE predicate for "this key is known to be refused": a rejected key (401) or one the
+ *  organisation refuses. Today its one reader is `isAiKeyStatusBad`, which decides whether the
+ *  key banner shows (`app-banners-block.tsx`). It guards nothing before a send. */
 export function isKeyBlocked(s: AiKeyStatus): s is "rejected" | "refused-organization" | "refused-workspace" {
   return s === "rejected" || s === "refused-organization" || s === "refused-workspace";
 }
