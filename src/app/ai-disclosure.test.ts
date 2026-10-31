@@ -166,6 +166,16 @@ describe("AI_DATA_PATHS", () => {
     expect(AI_DATA_PATHS.filter((r) => r.whenProtected === "redacted")).toHaveLength(AI_DATA_PATHS.length - 3);
   });
 
+  // Review 5, S3: the chat refuses EVERY PDF under protection (a base64 document block), not only scanned ones.
+  it("the chat row says images and PDFs are refused, in both languages", () => {
+    const row = AI_DATA_PATHS.find((r) => r.id === "chat")!;
+    const key = aiProtectedTextKey(row);
+    expect(t("en-US", key)).toContain("Images and PDFs are refused");
+    expect(de[key]).toContain("Bilder und PDFs werden abgelehnt");
+    expect(t("en-US", key)).not.toMatch(/scanned/i);
+    expect(de[key]).not.toMatch(/gescannt/i);
+  });
+
   // Review 3, R3: the wizard always pattern-redacts; images and PDFs are refused only under a forced protection.
   it("the project-proposal row says emails, phones and IBANs are always redacted, names cannot be, and the proposal is applied without people", () => {
     const row = AI_DATA_PATHS.find((r) => r.id === "project-proposal")!;
@@ -177,12 +187,6 @@ describe("AI_DATA_PATHS", () => {
     const deText = de[aiProtectedTextKey(row)];
     expect(deText).toMatch(/E-Mail-Adressen, Telefonnummern und IBANs werden immer durch Platzhalter ersetzt/);
     expect(deText).toMatch(/sofern Ihre Organisation den Schutz nicht erzwingt; dann werden sie abgelehnt/);
-  });
-
-  it("the chat row says images and scanned documents are refused while protection is on", () => {
-    const row = AI_DATA_PATHS.find((r) => r.id === "chat")!;
-    expect(t("en-US", aiProtectedTextKey(row))).toMatch(/images and scanned documents are refused/i);
-    expect(de[aiProtectedTextKey(row)]).toMatch(/Bilder und gescannte Dokumente werden abgelehnt/);
   });
 
   it("every activation site maps to a row, and every row but dictation has a site", () => {
