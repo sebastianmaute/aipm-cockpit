@@ -9,6 +9,9 @@
 // ★★ A trigger judges only what it makes newly the owner's (ruling R2): a date-only move asks about the
 //  moved date and the span it changes, never an unchanged stored start date; a new owner or a new link
 //  hands over the whole item, so every date is judged.
+// ★★ A later block of the same change is judged against the item as the earlier blocks leave it
+//  (`carryClashes`, M-1/M-2): an owner change, then a due-date move, judges the move with the NEW owner.
+//  Once an earlier block changed the owner the item is newly theirs, so a later move judges it whole.
 import { milestoneClashes, taskClashes, type AbsenceClash, type AbsenceCtx } from "../absence-clash";
 import { linkPersonForWrite } from "../resource-foundation";
 import { sanitizeAssignee, sanitizeIsoDate, sanitizeLoadedEmail } from "../sanitize";
@@ -49,11 +52,16 @@ function taskAfter(item: Row, changed: ReadonlyMap<string, string>, absence: Abs
   };
 }
 
-function updateTaskNotes(one: EditPlan, item: Row, absence: AbsenceCtx): ClashNote[] {
-  const changed = new Map(one.updates.filter((u) => u.entity === "task").map((u) => [u.field, u.raw ?? u.after]));
+/** The task fields one block's plan writes, as the writer stores them. */
+function taskChanges(one: EditPlan): Map<string, string> {
+  return new Map(one.updates.filter((u) => u.entity === "task").map((u) => [u.field, u.raw ?? u.after]));
+}
+
+function updateTaskNotes(one: EditPlan, item: Row, absence: AbsenceCtx, ownerChanged: boolean): ClashNote[] {
+  const changed = taskChanges(one);
   const personChanged = TASK_PERSON_FIELDS.some((f) => changed.has(f));
   if (!changed.has("dueDate") && !personChanged) return [];
-  const clashes = taskClashes(taskAfter(item, changed, absence), absence, { ignoreStart: !personChanged });
+  const clashes = taskClashes(taskAfter(item, changed, absence), absence, { ignoreStart: !personChanged && !ownerChanged });
   return notes("task", item.id, str(item.taskName), clashes);
 }
 
@@ -92,7 +100,8 @@ function createNotes(one: EditPlan, ws: Workspace, absence: AbsenceCtx): ClashNo
   });
 }
 
-/** The clashes ONE block's final plan (`one`) would cause. `item` is the row the plan is bound to. */
+/** The clashes ONE block's final plan (`one`) would cause. `item` is the row the plan is bound to, as the
+ *  earlier blocks of the same change leave it; `ownerChanged`: one of them gave it a new owner. */
 export function clashNotesFor(
   b: ToolUseLike,
   one: EditPlan,
@@ -100,10 +109,50 @@ export function clashNotesFor(
   item: Row,
   ws: Workspace,
   absence: AbsenceCtx,
+  ownerChanged = false,
 ): ClashNote[] {
   const out = createNotes(one, ws, absence);
   if (b.name !== d.updateTool) return out;
-  if (d.entity === "task") return [...out, ...updateTaskNotes(one, item, absence)];
+  if (d.entity === "task") return [...out, ...updateTaskNotes(one, item, absence, ownerChanged)];
   if (d.entity === "milestone") return [...out, ...updateMilestoneNotes(one, item, ws, absence)];
   return out;
+}
+
+/** What the next block of the same change is judged against (§773 M-1/M-2). */
+export interface ClashCarry { readonly item: Row; readonly ownerChanged: boolean }
+
+/** `carry` with ONE block's written fields folded in: a task's owner (its link re-resolved as `updateTask`
+ *  does) and due date, a milestone's date and linked tasks. Read off the final plan, so a rejected field
+ *  carries nothing. A create leaves it as it was. */
+export function carryClashes(
+  b: ToolUseLike,
+  one: EditPlan,
+  d: EntityDescriptor,
+  carry: ClashCarry,
+  absence: AbsenceCtx,
+): ClashCarry {
+  if (b.name !== d.updateTool) return carry;
+  if (d.entity === "task") {
+    const changed = taskChanges(one);
+    const personChanged = TASK_PERSON_FIELDS.some((f) => changed.has(f));
+    if (!personChanged && !changed.has("dueDate")) return carry;
+    const after = taskAfter(carry.item, changed, absence);
+    const person = personChanged
+      ? { assignee: after.assignee, assigneeEmail: changed.get("assigneeEmail") ?? str(carry.item.assigneeEmail), resourceId: after.resourceId }
+      : {};
+    const item: Row = { ...carry.item, ...person, ...(changed.has("dueDate") ? { dueDate: after.dueDate } : {}) };
+    return { item, ownerChanged: carry.ownerChanged || personChanged };
+  }
+  if (d.entity === "milestone") {
+    const moved = one.updates.find((u) => u.entity === "milestone" && u.field === "date");
+    const relinked = one.links.find((l) => l.entity === "milestone" && l.target === "row" && l.field === "linkedTaskIds");
+    if (!moved && !relinked) return carry;
+    const item: Row = {
+      ...carry.item,
+      ...(moved ? { date: moved.raw ?? moved.after } : {}),
+      ...(relinked ? { linkedTaskIds: relinked.rawIds } : {}),
+    };
+    return { ...carry, item };
+  }
+  return carry;
 }

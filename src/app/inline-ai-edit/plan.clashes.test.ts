@@ -197,3 +197,36 @@ describe("describeEntityCalls — what a trigger judges (§773 R2)", () => {
     ]);
   });
 });
+
+describe("describeEntityCalls — later blocks see earlier ones (§773 M-2)", () => {
+  it("an owner change, then a due-date move onto the new owner's absence, warns on the move", () => {
+    const plan = describeEntityCalls([
+      block("update_task", { id: 42, assignee: "Maya Patel" }),
+      block("update_task", { id: 42, dueDate: "2026-11-05" }),
+    ], taskCtx);
+    expect(plan.clashes).toEqual([
+      expect.objectContaining({ entity: "task", id: 42, clash: expect.objectContaining({ person: "Maya Patel", date: "2026-11-05" }) }),
+    ]);
+  });
+
+  it("an owner change away from the absent person, then a move into her absence, does not warn about her", () => {
+    const onMaya = { ...task, assignee: "Maya Patel", assigneeEmail: "maya@example.com", resourceId: 1 };
+    const plan = describeEntityCalls([
+      block("update_task", { id: 42, assignee: "Liam Foster", assigneeEmail: "liam@example.com" }),
+      block("update_task", { id: 42, dueDate: "2026-11-05" }),
+    ], { ...taskCtx, item: onMaya as unknown as Item });
+    expect(plan.clashes).toEqual([]);
+  });
+
+  it("once an earlier block changed the owner, a later move judges the whole task, its start date included", () => {
+    const startInMayaWeek = { ...task, startDate: "2026-11-04" };
+    const plan = describeEntityCalls([
+      block("update_task", { id: 42, assignee: "Maya Patel" }),
+      block("update_task", { id: 42, dueDate: "2026-11-13" }),
+    ], { ...taskCtx, item: startInMayaWeek as unknown as Item });
+    expect(plan.clashes).toHaveLength(2);
+    expect(plan.clashes[1]).toEqual(
+      expect.objectContaining({ entity: "task", id: 42, clash: expect.objectContaining({ which: "start", date: "2026-11-04" }) }),
+    );
+  });
+});

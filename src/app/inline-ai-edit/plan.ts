@@ -13,7 +13,7 @@ import { resolveLinkTitles } from "./link-titles";
 import { str } from "./str";
 import { isPersonEntity, withReassignFields } from "../person-reassign";
 import type { AbsenceClash, AbsenceCtx } from "../absence-clash";
-import { clashNotesFor } from "./plan-clashes";
+import { carryClashes, clashNotesFor, type ClashCarry } from "./plan-clashes";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -555,8 +555,10 @@ function pushLinkDiffs(
 }
 
 /** `absence` (§773): the people, absences and holidays the clash check reads. Without it no clashes are
- *  computed. Holidays are not in `Workspace`, so the caller supplies the whole context. */
-type DescribeCtx = { descriptor: EntityDescriptor; item: EntityItem; ws: Workspace; absence?: AbsenceCtx };
+ *  computed. Holidays are not in `Workspace`, so the caller supplies the whole context.
+ *  `ownerChanged` (§773 M-1): an earlier call of the same chat turn already gave `item` a new owner, so
+ *  its clashes judge the whole item. */
+type DescribeCtx = { descriptor: EntityDescriptor; item: EntityItem; ws: Workspace; absence?: AbsenceCtx; ownerChanged?: boolean };
 
 /** ONE judging pass over `blocks`. `describeEntityCalls` is the public entry,
  *  and it runs this per block until the block's verdict is stable (§534). */
@@ -1033,9 +1035,13 @@ function describeBlockUntilStable(b: ToolUseLike, ctx: DescribeCtx): EditPlan {
  *  diff never diverges from what the sanitizer would persist.
  *  ★ Each block is judged on its own, re-judged without its rejected fields
  *   (`describeBlockUntilStable`), and the per-block plans are concatenated in
- *   block order. */
+ *   block order.
+ *  ★ Except the absence clashes (§773 M-2): a block's are judged on the item
+ *   as the earlier blocks leave it (`carryClashes`), so an owner change, then a date
+ *   move, warns about the new owner. */
 export function describeEntityCalls(blocks: readonly ToolUseLike[], ctx: DescribeCtx): EditPlan {
   const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [], links: [], clashes: [] };
+  let carry: ClashCarry = { item: ctx.item, ownerChanged: ctx.ownerChanged ?? false };
   for (const b of blocks) {
     const one = describeBlockUntilStable(b, ctx);
     plan.updates.push(...one.updates);
@@ -1043,7 +1049,10 @@ export function describeEntityCalls(blocks: readonly ToolUseLike[], ctx: Describ
     plan.deletes.push(...one.deletes);
     plan.rejected.push(...one.rejected);
     plan.links.push(...one.links);
-    if (ctx.absence) plan.clashes.push(...clashNotesFor(b, one, ctx.descriptor, ctx.item, ctx.ws, ctx.absence));
+    if (ctx.absence) {
+      plan.clashes.push(...clashNotesFor(b, one, ctx.descriptor, carry.item, ctx.ws, ctx.absence, carry.ownerChanged));
+      carry = carryClashes(b, one, ctx.descriptor, carry, ctx.absence);
+    }
   }
   return plan;
 }
