@@ -409,10 +409,14 @@ which owns that list.
    [Routing AI through a gateway](#routing-ai-through-a-gateway-run-time-optional)).
    With a gateway set as well the route stays `gateway`, but a consent also records
    whether the restriction was on, so turning it on or off asks every user again there
-   too. A tab left open across the change sends nothing until it is reloaded: before
-   each AI call it asks `GET /api/ai/status`, and when the route or `keyRestricted`
-   differs from what the page loaded with, the call is refused as a changed deployment
-   and the user is asked to reload.
+   too. A tab of this release left open across the change sends nothing until it is
+   reloaded: before each AI call it asks `GET /api/ai/status`, and when the route or
+   `keyRestricted` differs from what the page loaded with, the call is refused as a
+   changed deployment and the user is asked to reload. A tab still running the release
+   before the restriction existed does not know `keyRestricted`: through a gateway it
+   keeps sending until reloaded, and the server still checks every key; without a
+   gateway the new `relay` route is one it cannot read, so it reports that it could not
+   confirm the AI setting and sends nothing.
 5. **How a key is checked.** Before the first call with a key, the server sends a free
    `GET /v1/models?limit=1` with that key and reads the answer headers
    `anthropic-organization-id` and `anthropic-workspace-id`. Several first requests with
@@ -437,9 +441,12 @@ which owns that list.
      restart empties the cache.
    - Anthropic's own `401` or `403` for the key is passed through unchanged. The `401`
      is remembered for 60 seconds (by the same keyed hash), so repeated calls with
-     one invalid key send one check, not one each; the `403` is not cached. Through a gateway, a `401` or `403` that is not Anthropic's own (the
-     gateway refusing its token) answers `502` `ai-gateway-rejected`, as any gateway
-     refusal does.
+     one invalid key send one check, not one each; the `403` is not cached.
+   - A `401` or `403` that is not Anthropic's own answers `502` `ai-gateway-rejected`
+     only when a gateway token (`AIPM_AI_GATEWAY_TOKEN`) is set: it is then the gateway
+     refusing its token, as any gateway refusal does. Without a gateway token, on the
+     direct relay or through a gateway without one, the check is unavailable: `503`
+     `ai-key-check-unavailable`, nothing forwarded, nothing cached.
 6. **Combining it with a gateway.** With `AIPM_AI_GATEWAY_URL` set too, calls stay on the
    gateway route and the check goes through the gateway with its token, sending
    `cf-aig-skip-cache: true` so that a cached answer for another key can never pass.
