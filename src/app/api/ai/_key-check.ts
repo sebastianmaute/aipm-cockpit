@@ -10,7 +10,8 @@
 //     is an answer with no workspace header at all while workspaces are listed (Anthropic sends
 //     none when the key is not tied to a workspace);
 //   - Anthropic's own 401/403 → its answer is passed through unchanged (an invalid key is not
-//     a policy verdict);
+//     a policy verdict). The 401 is remembered for `rejectedTtlMs` (60 s) so repeated calls with
+//     one invalid key do not each send a pre-flight; the 403 never is;
 //   - anything else (network error, timeout, 3xx, 404, 429, 5xx, a 2xx without the organisation
 //     header, or with an empty or repeated header) → unavailable, and the caller forwards nothing.
 //     Fails closed.
@@ -22,7 +23,8 @@
 // carry another key's organisation headers and let it pass. A direct pre-flight never sends it.
 //
 // Verdicts are cached in memory by SHA-256 of the key: a pass for the life of the entry, a
-// refusal for `refusalTtlMs`, "unavailable" and passed-through errors never. A change of the
+// refusal for `refusalTtlMs`, Anthropic's own 401 for `rejectedTtlMs`, "unavailable", a 403 and
+// a gateway's refusal never. A change of the
 // restriction (its `signature`) clears the cache. The key itself is never logged, returned or
 // stored; it lives only in the pre-flight while that runs.
 
@@ -46,12 +48,14 @@ type Upstream = { baseUrl: string; token: string | null };
 
 export interface KeyChecker {
   check(key: string, restriction: Restricted, upstream: Upstream, send: RelaySend, anthropicVersion?: string): Promise<KeyVerdict>;
-  /** Cached verdicts (pass and refusals); never more than `maxEntries`. */
+  /** Cached verdicts (pass, refusals and a remembered 401); never more than `maxEntries`. */
   size(): number;
 }
 
 export const KEY_CHECK_DEFAULT_MAX_ENTRIES = 1000;
 export const KEY_CHECK_DEFAULT_REFUSAL_TTL_MS = 5 * 60 * 1000;
+// How long Anthropic's own 401 for a key is remembered: short, so a key fixed upstream is tried again soon.
+export const KEY_CHECK_DEFAULT_REJECTED_TTL_MS = 60 * 1000;
 // Idle timeout on the pre-flight's socket: past it the check is unavailable.
 export const KEY_CHECK_TIMEOUT_MS = 30 * 1000;
 // Used only when the browser sent no `anthropic-version` (the app always sends one).
@@ -62,11 +66,15 @@ const WORKSPACE_HEADER = "anthropic-workspace-id";
 
 type CachedKind = "pass" | "wrong-organization" | "wrong-workspace";
 
+type UpstreamErrorFinding = { kind: "upstream-error"; status: number; contentType: string | null; body: Uint8Array };
+type Kept = { kind: CachedKind } | UpstreamErrorFinding;
+type CacheEntry = Kept & { at: number };
+
 /** What one pre-flight found, shared by every caller coalesced onto it. A passed-through error
  *  keeps its bytes, so each caller gets a Response of its own (a body is readable once). */
 type Finding =
   | { kind: CachedKind | "unavailable" | "gateway-rejected" }
-  | { kind: "upstream-error"; status: number; contentType: string | null; body: Uint8Array };
+  | UpstreamErrorFinding;
 
 const UNAVAILABLE: Finding = { kind: "unavailable" };
 
@@ -185,33 +193,53 @@ function toVerdict(finding: Finding): KeyVerdict {
   }
 }
 
+/** What may be kept: a pass, a refusal, and Anthropic's own 401 (never its 403). */
+function rememberable(finding: Finding): Kept | null {
+  switch (finding.kind) {
+    case "pass":
+    case "wrong-organization":
+    case "wrong-workspace":
+      return { kind: finding.kind };
+    case "upstream-error":
+      return finding.status === 401 ? finding : null;
+    default:
+      return null;
+  }
+}
+
 export function createKeyChecker(
-  opts: { maxEntries?: number; refusalTtlMs?: number; now?: () => number } = {},
+  opts: { maxEntries?: number; refusalTtlMs?: number; rejectedTtlMs?: number; now?: () => number } = {},
 ): KeyChecker {
   const maxEntries = opts.maxEntries ?? KEY_CHECK_DEFAULT_MAX_ENTRIES;
   const refusalTtlMs = opts.refusalTtlMs ?? KEY_CHECK_DEFAULT_REFUSAL_TTL_MS;
+  const rejectedTtlMs = opts.rejectedTtlMs ?? KEY_CHECK_DEFAULT_REJECTED_TTL_MS;
   const now = opts.now ?? Date.now;
   // Insertion order is age order: the first entry is the oldest.
-  const cache = new Map<string, { kind: CachedKind; at: number }>();
+  const cache = new Map<string, CacheEntry>();
   // In-flight pre-flights by signature, hash and version: concurrent callers with one new key share one.
   const inFlight = new Map<string, Promise<Finding>>();
   let signature: string | null = null;
 
-  const cached = (hash: string): CachedKind | null => {
+  const cached = (hash: string): Finding | null => {
     const entry = cache.get(hash);
     if (!entry) return null;
-    if (entry.kind !== "pass" && now() - entry.at >= refusalTtlMs) {
+    const ttl = entry.kind === "upstream-error" ? rejectedTtlMs : refusalTtlMs;
+    if (entry.kind !== "pass" && now() - entry.at >= ttl) {
       cache.delete(hash);
       return null;
     }
-    return entry.kind;
+    return entry.kind === "upstream-error"
+      ? { kind: entry.kind, status: entry.status, contentType: entry.contentType, body: entry.body }
+      : { kind: entry.kind };
   };
 
-  const remember = (hash: string, kind: CachedKind, forSignature: string) => {
+  const remember = (hash: string, finding: Finding, forSignature: string) => {
     // A verdict reached under a restriction that has since changed is never kept.
     if (forSignature !== signature) return;
+    const entry = rememberable(finding);
+    if (!entry) return;
     cache.delete(hash);
-    cache.set(hash, { kind, at: now() });
+    cache.set(hash, { ...entry, at: now() });
     while (cache.size > maxEntries) {
       const oldest = cache.keys().next();
       if (oldest.done) break;
@@ -227,7 +255,7 @@ export function createKeyChecker(
       }
       const hash = hashKey(key);
       const hit = cached(hash);
-      if (hit) return { kind: hit };
+      if (hit) return toVerdict(hit);
       // The version header goes upstream with the pre-flight, so callers sending different ones never share one.
       const flightKey = `${restriction.signature}\n${hash}\n${anthropicVersion}`;
       let flight = inFlight.get(flightKey);
@@ -235,9 +263,7 @@ export function createKeyChecker(
         const forSignature = restriction.signature;
         flight = preflight(key, restriction, upstream, send, anthropicVersion).then((finding) => {
           inFlight.delete(flightKey);
-          if (finding.kind === "pass" || finding.kind === "wrong-organization" || finding.kind === "wrong-workspace") {
-            remember(hash, finding.kind, forSignature);
-          }
+          remember(hash, finding, forSignature);
           return finding;
         });
         inFlight.set(flightKey, flight);

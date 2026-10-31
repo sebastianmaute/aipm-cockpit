@@ -265,8 +265,8 @@ describe("createKeyChecker — fails closed: unavailable, never cached", () => {
   });
 });
 
-describe("createKeyChecker — Anthropic's own 401/403 is passed through, not cached", () => {
-  for (const status of [401, 403]) {
+describe("createKeyChecker — Anthropic's own 403 is passed through, not cached", () => {
+  for (const status of [403]) {
     it(`${status} Anthropic-shaped → upstream-error carrying that answer unchanged`, async () => {
       const { send, calls } = fakeSend(respond(status, {}, ANTHROPIC_401));
       const checker = createKeyChecker();
@@ -290,6 +290,82 @@ describe("createKeyChecker — Anthropic's own 401/403 is passed through, not ca
     const response = (verdict as Extract<KeyVerdict, { kind: "upstream-error" }>).response;
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ error: "ai-gateway-rejected" });
+  });
+});
+
+describe("createKeyChecker — Anthropic's own 401 is passed through and remembered briefly", () => {
+  let now = 0;
+  const clock = () => now;
+  beforeEach(() => {
+    now = 1_000_000;
+  });
+
+  async function expectOwn401(verdict: KeyVerdict): Promise<void> {
+    expect(verdict.kind).toBe("upstream-error");
+    const response = (verdict as Extract<KeyVerdict, { kind: "upstream-error" }>).response;
+    expect(response.status).toBe(401);
+    expect(response.headers.get("content-type")).toBe("application/json");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.text()).toBe(ANTHROPIC_401);
+  }
+
+  // KILLED BY: dropping the 401 entry from the cache (every call with a junk key sends its own pre-flight).
+  it("two calls with one invalid key send one pre-flight and both get Anthropic's answer unchanged", async () => {
+    const { send, calls } = fakeSend(respond(401, {}, ANTHROPIC_401));
+    const checker = createKeyChecker({ now: clock });
+    await expectOwn401(await checker.check(KEY, ORG_ONLY, ANTHROPIC, send));
+    await expectOwn401(await checker.check(KEY, ORG_ONLY, ANTHROPIC, send));
+    expect(calls).toHaveLength(1);
+    expect(checker.size()).toBe(1);
+  });
+
+  // KILLED BY: a TTL that never expires, or one that applies the 5-minute refusal TTL.
+  it("remembers the 401 for 60 seconds, then sends a second pre-flight", async () => {
+    const { send, calls } = fakeSend(respond(401, {}, ANTHROPIC_401));
+    const checker = createKeyChecker({ now: clock });
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    now += 59_999;
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    expect(calls).toHaveLength(1);
+    now += 1;
+    await expectOwn401(await checker.check(KEY, ORG_ONLY, ANTHROPIC, send));
+    expect(calls).toHaveLength(2);
+  });
+
+  it("a different key is checked on its own", async () => {
+    const { send, calls } = fakeSend(respond(401, {}, ANTHROPIC_401));
+    const checker = createKeyChecker({ now: clock });
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    await checker.check(OTHER_KEY, ORG_ONLY, ANTHROPIC, send);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("a key that was invalid and is now valid passes once the 60 seconds are over", async () => {
+    let valid = false;
+    const { send, calls } = fakeSend((call) => (valid ? org(ORG)(call) : respond(401, {}, ANTHROPIC_401)(call)));
+    const checker = createKeyChecker({ now: clock });
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    valid = true;
+    now += 60_000;
+    expect((await checker.check(KEY, ORG_ONLY, ANTHROPIC, send)).kind).toBe("pass");
+    expect(calls).toHaveLength(2);
+  });
+
+  it("a gateway's own 401 (not Anthropic-shaped) is not remembered", async () => {
+    const { send, calls } = fakeSend(respond(401, {}, "<html>no</html>"));
+    const checker = createKeyChecker({ now: clock });
+    await checker.check(KEY, ORG_ONLY, GATEWAY, send);
+    await checker.check(KEY, ORG_ONLY, GATEWAY, send);
+    expect(calls).toHaveLength(2);
+    expect(checker.size()).toBe(0);
+  });
+
+  it("a change of the restriction forgets the remembered 401", async () => {
+    const { send, calls } = fakeSend(respond(401, {}, ANTHROPIC_401));
+    const checker = createKeyChecker({ now: clock });
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    await checker.check(KEY, WITH_WS, ANTHROPIC, send);
+    expect(calls).toHaveLength(2);
   });
 });
 
