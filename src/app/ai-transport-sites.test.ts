@@ -9,7 +9,7 @@ import ts from "typescript";
 // found with the TypeScript parser, so a mention in a comment is not a site and a real one can not hide
 // behind formatting.
 //
-// Allowed besides the transport: the user-facing text files, whose disclosure copy names the host.
+// Allowed besides the transport: the user-facing text files, whose disclosure copy names the host, and the server relay's upstream-answer module.
 // Outside the scan on purpose: `scripts/ai-eval.ts`, a developer script run from a terminal with its
 // own key, never part of the app. `src/proxy.ts` (CSP) sits outside `src/app` and names the host as a
 // policy entry, not a call.
@@ -20,6 +20,8 @@ const APP = join(process.cwd(), "src", "app");
 const HOST_IN_TEXT = /(^|[^A-Za-z0-9.-])api\.anthropic\.com(?![A-Za-z0-9-]|\.[A-Za-z0-9])/;
 const TRANSPORT = "ai-transport.ts";
 const TEXT_FILES = ["i18n.ts", "i18n.de.ts"];
+// Server-only: the relay's key check and its upstream answers name the host to call Anthropic from the server, never the browser.
+const SERVER_RELAY_FILES = ["api/ai/_upstream-answer.ts"];
 const EXCLUDED_DEV_SCRIPTS = ["scripts/ai-eval.ts"];
 
 function sourceFiles(dir: string): string[] {
@@ -81,7 +83,7 @@ describe("AI transport sites", () => {
   const found = scan();
 
   it("names the Anthropic host in code only in the transport and the text files", () => {
-    expect(found.hostIn).toEqual([TRANSPORT, ...TEXT_FILES].sort());
+    expect(found.hostIn).toEqual([TRANSPORT, ...TEXT_FILES, ...SERVER_RELAY_FILES].sort());
   });
 
   it("calls fetch with an Anthropic URL only in the transport", () => {

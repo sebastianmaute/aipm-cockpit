@@ -4,6 +4,7 @@ import { join, relative, sep } from "node:path";
 import {
   AI_GATEWAY_TOKEN_ENV,
   AI_GATEWAY_URL_ENV,
+  aiDeploymentStateFrom,
   readAiGatewayConfig,
 } from "./ai-gateway-config";
 
@@ -127,6 +128,87 @@ describe("an invalid setting is reported on the server", () => {
     ]);
     const all = lines.join(" | ");
     for (const value of ["secret-host", "sekret", "only-a-token", "cloudflare"]) expect(all).not.toContain(value);
+  });
+});
+
+describe("aiDeploymentStateFrom with a key restriction", () => {
+  const ORG = "11111111-2222-3333-4444-555555555555";
+
+  it("a restriction alone takes the relay route", () => {
+    expect(aiDeploymentStateFrom({ AIPM_AI_ORGANIZATION_ID: ORG })).toEqual({
+      off: false,
+      route: "relay",
+      invalid: false,
+      keyRestricted: true,
+    });
+  });
+
+  it("a restriction with a gateway keeps the gateway route", () => {
+    expect(aiDeploymentStateFrom({ AIPM_AI_ORGANIZATION_ID: ORG, AIPM_AI_GATEWAY_URL: GW })).toEqual({
+      off: false,
+      route: "gateway",
+      invalid: false,
+      keyRestricted: true,
+    });
+  });
+
+  it("an invalid restriction without a gateway is relay, invalid, with its reason", () => {
+    expect(aiDeploymentStateFrom({ AIPM_AI_ORGANIZATION_ID: "nope" })).toEqual({
+      off: false,
+      route: "relay",
+      invalid: true,
+      invalidReason: "org-id",
+      keyRestricted: true,
+    });
+    expect(aiDeploymentStateFrom({ AIPM_AI_WORKSPACE_IDS: ORG })).toMatchObject({ invalidReason: "workspaces-without-org" });
+  });
+
+  it("an invalid restriction beside an invalid gateway reports the restriction's reason", () => {
+    expect(aiDeploymentStateFrom({ AIPM_AI_ORGANIZATION_ID: "nope", AIPM_AI_GATEWAY_URL: "http://x" })).toEqual({
+      off: false,
+      route: "gateway",
+      invalid: true,
+      invalidReason: "org-id",
+      keyRestricted: true,
+    });
+  });
+
+  it("with no restriction keyRestricted is false and nothing else changes", () => {
+    expect(aiDeploymentStateFrom({})).toEqual({ off: false, route: "direct", invalid: false, keyRestricted: false });
+    expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_URL: GW })).toEqual({ off: false, route: "gateway", invalid: false, keyRestricted: false });
+    expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_TOKEN: "t" })).toEqual({
+      off: false,
+      route: "direct",
+      invalid: true,
+      invalidReason: "token-without-url",
+      keyRestricted: false,
+    });
+  });
+
+  it("never carries the ids", () => {
+    expect(JSON.stringify(aiDeploymentStateFrom({ AIPM_AI_ORGANIZATION_ID: ORG, AIPM_AI_WORKSPACE_IDS: ORG }))).not.toContain(ORG);
+  });
+});
+
+describe("ai-key-restriction-config stays on the server", () => {
+  const ALLOWED = [`proxy.ts`, `app${sep}api${sep}`, `app${sep}layout.tsx`];
+
+  function walk(dir: string): string[] {
+    return readdirSync(dir).flatMap((n) => {
+      const p = join(dir, n);
+      return statSync(p).isDirectory() ? walk(p) : [p];
+    });
+  }
+
+  it("is imported only by the proxy, the layout, API routes and the gateway config", () => {
+    const src = join(process.cwd(), "src");
+    const offenders = walk(src)
+      .filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f))
+      .filter((f) => /(?:from\s*|import\s*\(?\s*|require\s*\(\s*)["'][^"']*ai-key-restriction-config["']/.test(readFileSync(f, "utf8")))
+      .map((f) => relative(src, f))
+      .filter((rel) => rel !== `app${sep}ai-gateway-config.ts`)
+      .filter((rel) => !ALLOWED.some((a) => rel === a || (a.endsWith(sep) && rel.startsWith(a))));
+    expect(offenders).toEqual([]);
   });
 });
 

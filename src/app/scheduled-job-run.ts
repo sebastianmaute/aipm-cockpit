@@ -4,7 +4,8 @@
 // ★ Errors are stored ONLY as `ReportErrorToken`s, never `e.message` (Turso errors carry server text).
 import { groundEntity, type ActionAnalysis } from "./action-ai";
 import {
-  AiDeploymentError, AiGatewayError, AiHttpError, classifyAiError,
+  AI_KEY_WRONG_ORGANIZATION, AI_KEY_WRONG_WORKSPACE,
+  AiDeploymentError, AiGatewayError, AiHttpError, AiKeyCheckUnavailableError, AiKeyRefusedError, classifyAiError,
 } from "./ai-errors";
 import { AiConsentRevokedError, AiWeeklyCapReachedError } from "./ai-consent";
 import { aiPrivacyFor, type AiPrivacy } from "./ai-privacy";
@@ -60,7 +61,7 @@ export interface RunDeps {
 
 /** Maps any failure to the closed token set, stored instead of a message. It reads the error's type and status. The only
  *  text it reads: the literal "parse" `runJobAnalysis` throws, and the `Turso` prefix of the pipeline's plain errors.
- *  An `AiDeploymentError` never reaches it: the run catches it first as transient and waits for its next check. */
+ *  An `AiDeploymentError` or an `AiKeyCheckUnavailableError` never reaches it: the run catches them first as transient and waits for its next check. */
 export function toErrorToken(e: unknown): ReportErrorToken {
   if (e instanceof AiHttpError) {
     if (classifyAiError(e.status, e.errorType) === "limit") return "limit";
@@ -69,6 +70,7 @@ export function toErrorToken(e: unknown): ReportErrorToken {
     return "error";
   }
   if (e instanceof AiGatewayError) return e.code;
+  if (e instanceof AiKeyRefusedError) return e.reason === "organization" ? AI_KEY_WRONG_ORGANIZATION : AI_KEY_WRONG_WORKSPACE;
   if (e instanceof StorageNotReadyError) return "storage-unreachable";
   if (e instanceof TursoStepError || e instanceof TursoHttpError) return "turso";
   if (e instanceof Error) {
@@ -214,12 +216,13 @@ export async function runScheduledJob(job: ScheduledJob, slot: Date, deps: RunDe
       return grounded ? { ...rest, entity: { view: grounded.view, id: String(grounded.id) } } : rest;
     });
   } catch (e) {
-    // The transport throws `AiDeploymentError` before it sends anything (the setting changed since the check above):
-    // nothing was billed, so, as for the load, the claim is released and the next tick retries. A consent withdrawn or
-    // a weekly hard cap reached since the check above is refused the same way, before a send. With the max-tokens
-    // retry the first reply may already have been billed when the second send is refused: that spend stays recorded
-    // in the usage store, and the released slot is retried once the gate allows it.
-    if (e instanceof AiDeploymentError || e instanceof AiWeeklyCapReachedError || e instanceof AiConsentRevokedError) {
+    // The transport throws `AiDeploymentError` before it sends anything (the setting changed since the check above), and
+    // `AiKeyCheckUnavailableError` when the relay could not check the key (nothing was forwarded): nothing was billed, so, as
+    // for the load, the claim is released and the next tick retries. A consent withdrawn or a weekly hard cap reached
+    // since the check above is refused the same way, before a send. With the max-tokens retry the first reply may
+    // already have been billed when the second send is refused: that spend stays recorded in the usage store, and the
+    // released slot is retried once the gate allows it.
+    if (e instanceof AiDeploymentError || e instanceof AiKeyCheckUnavailableError || e instanceof AiWeeklyCapReachedError || e instanceof AiConsentRevokedError) {
       await settle(releaseClaim(config, reportId));
       return "transient";
     }

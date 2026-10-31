@@ -8,7 +8,7 @@
 // a module the setup file loads is cached before a test file's `vi.mock` runs, and would stay real.
 import type { AiDeploymentState, AiStatus } from "../app/ai-deployment";
 
-export const DIRECT_AI_STATUS: AiStatus = { off: false, route: "direct", invalid: false, peopleForced: false };
+export const DIRECT_AI_STATUS: AiStatus = { off: false, route: "direct", invalid: false, keyRestricted: false, peopleForced: false };
 
 /** The status route's answer for `state`; a state that does not say `peopleForced` answers false (the route always
  *  says it; a test of a missing field sends its own body). */

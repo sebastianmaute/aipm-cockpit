@@ -57,7 +57,8 @@ export function parseStoredAiState(raw: string | null): PersistedAiState {
 }
 
 function sameConsent(a: AiConsent | undefined, b: AiConsent | undefined): boolean {
-  return a?.acceptedAt === b?.acceptedAt && a?.disclosureVersion === b?.disclosureVersion && (a?.route ?? "direct") === (b?.route ?? "direct");
+  return a?.acceptedAt === b?.acceptedAt && a?.disclosureVersion === b?.disclosureVersion && (a?.route ?? "direct") === (b?.route ?? "direct")
+    && (a?.keyRestricted ?? false) === (b?.keyRestricted ?? false);
 }
 
 /** Whether `ai` holds the switch and the two records of `p`. */

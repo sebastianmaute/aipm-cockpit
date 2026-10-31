@@ -22,7 +22,7 @@ afterEach(() => {
   seen.length = 0;
 });
 
-const AI: AiDeploymentState = { off: false, route: "direct", invalid: false };
+const AI: AiDeploymentState = { off: false, route: "direct", invalid: false, keyRestricted: false };
 
 describe("§762 — IntegrationSwitchesSync", () => {
   it("§762 — disabled={[]} leaves jira enabled for the child (positive control)", () => {
@@ -52,7 +52,7 @@ describe("IntegrationSwitchesSync records the deployment's AI state", () => {
   afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
 
   it("a gateway state reaches the client store before the child renders", () => {
-    const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false };
+    const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false, keyRestricted: false };
     const routes: string[] = [];
     function RouteProbe() {
       routes.push(currentAiRoute());

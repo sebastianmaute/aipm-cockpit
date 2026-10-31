@@ -213,7 +213,7 @@ describe("Without a current AI consent", () => {
   });
 
   it("a deployment with AI off leaves the composer in the AI-disabled state", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
     try {
       render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
       expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
@@ -225,7 +225,7 @@ describe("Without a current AI consent", () => {
 
   // The organisation switched AI off: no key or consent the user could supply would turn it on.
   it("a deployment with AI off says so instead of asking for a key", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
     try {
       render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={{ ...defaultAiConfig, apiKey: "" }} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
       expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
@@ -237,8 +237,8 @@ describe("Without a current AI consent", () => {
   });
 
   it.each([
-    ["off", { off: true, route: "direct", invalid: false }, "aiDeploymentOff"],
-    ["invalid", { off: false, route: "gateway", invalid: true }, "aiDeploymentInvalid"],
+    ["off", { off: true, route: "direct", invalid: false, keyRestricted: false }, "aiDeploymentOff"],
+    ["invalid", { off: false, route: "gateway", invalid: true, keyRestricted: false }, "aiDeploymentInvalid"],
   ] as const)("a deployment %s with a conversation on screen names it beside the disabled composer, with no consent banner", (_n, state, key) => {
     setAiDeploymentState(state);
     try {
@@ -267,7 +267,7 @@ describe("Without a current AI consent", () => {
   });
 
   it("an invalid gateway setting names the invalid setting in the empty state", () => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: true });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: true, keyRestricted: false });
     try {
       render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
       expect(screen.getByText(t("en-US", "aiDeploymentInvalid"))).toBeInTheDocument();
@@ -282,7 +282,7 @@ describe("Without a current AI consent", () => {
     ["the empty state", false],
     ["the banner beside a transcript", true],
   ] as const)("the disabled composer is described by the deployment notice in %s", (_where, withTranscript) => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
     try {
       render(
         <ChatPanel {...SCOPE_PROPS}
@@ -318,7 +318,7 @@ describe("Without a current AI consent", () => {
   });
 
   it("a deployment with AI off shows no consent review banner for a stale consent", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
     try {
       render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={{ ...defaultAiConfig, consent: undefined, apiKey: "sk-test" }} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
       // Positive control: the deployment message is on screen.
