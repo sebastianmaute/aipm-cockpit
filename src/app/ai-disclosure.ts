@@ -6,6 +6,8 @@
 //
 // ★★ The data texts (`dataKey`) are a promise about what leaves the browser. Change one only after
 //    reading the request builder it describes, and change it in the SAME commit as a builder change.
+// ★★ `whenProtected` (and `protectedKey`) is the PROTECTED column: what people protection does to the path. The consent
+//    dialog and docs/security.md "People protection" render it per row; it is pinned with the row.
 // ★★ `AI_DISCLOSURE_VERSION` (`ai-consent.ts`) must be bumped whenever this table changes (a row
 //    added, removed, re-levelled or re-keyed): consent was given to the table as it was, so a changed
 //    table must be asked again. `ai-disclosure.test.ts` pins the table per version, with a hash of
@@ -25,26 +27,45 @@ export interface AiDataPath {
   labelKey: TranslationKey;
   /** What it sends. Two rows of one feature at different levels may share a text. */
   dataKey: TranslationKey;
+  /** What people protection does to this path while it is ON (AI people protection): the feature is
+   *  `hidden`, switched `off` (audio cannot be redacted), or its request is `redacted`. */
+  whenProtected: AiProtectedState;
+  /** Replaces the standard text of the state, for a row that must say more or less than it. */
+  protectedKey?: TranslationKey;
+}
+
+export const AI_PROTECTED_STATES = ["hidden", "redacted", "off"] as const;
+export type AiProtectedState = (typeof AI_PROTECTED_STATES)[number];
+
+const PROTECTED_STATE_KEY: Readonly<Record<AiProtectedState, TranslationKey>> = {
+  hidden: "aiProtectedHidden",
+  redacted: "aiProtectedRedacted",
+  off: "aiProtectedOff",
+};
+
+/** The text that says what protection does to a row: its own override, else the state's standard text. */
+export function aiProtectedTextKey(row: AiDataPath): TranslationKey {
+  return row.protectedKey ?? PROTECTED_STATE_KEY[row.whenProtected];
 }
 
 export const AI_DATA_PATHS: readonly AiDataPath[] = [
-  { id: "chat", level: "interactive", labelKey: "aiDataChatLabel", dataKey: "aiDataChat" },
-  { id: "inline-edit", level: "interactive", labelKey: "aiDataInlineEditLabel", dataKey: "aiDataInlineEdit" },
-  { id: "committee-report", level: "interactive", labelKey: "aiDataCommitteeReportLabel", dataKey: "aiDataCommitteeReport" },
-  { id: "digest-narrative", level: "interactive", labelKey: "aiDataDigestNarrativeLabel", dataKey: "aiDataDigestNarrative" },
-  { id: "forecast-import", level: "interactive", labelKey: "aiDataForecastImportLabel", dataKey: "aiDataForecastImport" },
-  { id: "insight-recommendation", level: "interactive", labelKey: "aiDataInsightRecommendationLabel", dataKey: "aiDataInsightRecommendation" },
-  { id: "action-analysis", level: "interactive", labelKey: "aiDataActionAnalysisLabel", dataKey: "aiDataActionAnalysis" },
-  { id: "alloc-plan", level: "interactive", labelKey: "aiDataAllocPlanLabel", dataKey: "aiDataAllocPlan" },
-  { id: "raci-suggest", level: "interactive", labelKey: "aiDataRaciSuggestLabel", dataKey: "aiDataRaciSuggest" },
-  { id: "task-dedup", level: "interactive", labelKey: "aiDataTaskDedupLabel", dataKey: "aiDataTaskDedup" },
-  { id: "wbs-plan", level: "interactive", labelKey: "aiDataWbsPlanLabel", dataKey: "aiDataWbsPlan" },
-  { id: "weight-suggestion", level: "interactive", labelKey: "aiDataWeightSuggestionLabel", dataKey: "aiDataWeightSuggestion" },
-  { id: "project-proposal", level: "interactive", labelKey: "aiDataProjectProposalLabel", dataKey: "aiDataProjectProposal" },
-  { id: "dictation", level: "interactive", labelKey: "aiDataDictationLabel", dataKey: "aiDataDictation" },
-  { id: "scheduled-job", level: "background", labelKey: "aiDataScheduledJobLabel", dataKey: "aiDataScheduledJob" },
-  { id: "insight-recommendation-auto", level: "background", labelKey: "aiDataInsightRecommendationAutoLabel", dataKey: "aiDataInsightRecommendation" },
-  { id: "digest-narrative-scheduled", level: "background", labelKey: "aiDataDigestNarrativeScheduledLabel", dataKey: "aiDataDigestNarrative" },
+  { id: "chat", level: "interactive", labelKey: "aiDataChatLabel", dataKey: "aiDataChat", whenProtected: "redacted", protectedKey: "aiProtectedChat" },
+  { id: "inline-edit", level: "interactive", labelKey: "aiDataInlineEditLabel", dataKey: "aiDataInlineEdit", whenProtected: "redacted" },
+  { id: "committee-report", level: "interactive", labelKey: "aiDataCommitteeReportLabel", dataKey: "aiDataCommitteeReport", whenProtected: "redacted" },
+  { id: "digest-narrative", level: "interactive", labelKey: "aiDataDigestNarrativeLabel", dataKey: "aiDataDigestNarrative", whenProtected: "redacted" },
+  { id: "forecast-import", level: "interactive", labelKey: "aiDataForecastImportLabel", dataKey: "aiDataForecastImport", whenProtected: "redacted" },
+  { id: "insight-recommendation", level: "interactive", labelKey: "aiDataInsightRecommendationLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted" },
+  { id: "action-analysis", level: "interactive", labelKey: "aiDataActionAnalysisLabel", dataKey: "aiDataActionAnalysis", whenProtected: "redacted" },
+  { id: "alloc-plan", level: "interactive", labelKey: "aiDataAllocPlanLabel", dataKey: "aiDataAllocPlan", whenProtected: "hidden" },
+  { id: "raci-suggest", level: "interactive", labelKey: "aiDataRaciSuggestLabel", dataKey: "aiDataRaciSuggest", whenProtected: "hidden" },
+  { id: "task-dedup", level: "interactive", labelKey: "aiDataTaskDedupLabel", dataKey: "aiDataTaskDedup", whenProtected: "redacted" },
+  { id: "wbs-plan", level: "interactive", labelKey: "aiDataWbsPlanLabel", dataKey: "aiDataWbsPlan", whenProtected: "redacted" },
+  { id: "weight-suggestion", level: "interactive", labelKey: "aiDataWeightSuggestionLabel", dataKey: "aiDataWeightSuggestion", whenProtected: "redacted" },
+  { id: "project-proposal", level: "interactive", labelKey: "aiDataProjectProposalLabel", dataKey: "aiDataProjectProposal", whenProtected: "redacted", protectedKey: "aiProtectedProjectProposal" },
+  { id: "dictation", level: "interactive", labelKey: "aiDataDictationLabel", dataKey: "aiDataDictation", whenProtected: "off" },
+  { id: "scheduled-job", level: "background", labelKey: "aiDataScheduledJobLabel", dataKey: "aiDataScheduledJob", whenProtected: "redacted" },
+  { id: "insight-recommendation-auto", level: "background", labelKey: "aiDataInsightRecommendationAutoLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted" },
+  { id: "digest-narrative-scheduled", level: "background", labelKey: "aiDataDigestNarrativeScheduledLabel", dataKey: "aiDataDigestNarrative", whenProtected: "redacted" },
 ];
 
 /** The rows one consent level discloses, in table order. */

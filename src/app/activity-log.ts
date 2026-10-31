@@ -114,6 +114,9 @@ export type ActivityKind =
   | "ai.documentWrite"
   // AI-04 — a save that contains AI-drafted report text (args: the meeting date).
   | "ai.reportDraft"
+  // AI people protection — a project's protection switch was turned off / on in Settings → AI (no args; actor user).
+  | "ai.peopleProtectionOff"
+  | "ai.peopleProtectionOn"
   | "undo"
   | "redo";
 
@@ -388,6 +391,8 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "ai.raciSuggest": "activityAiRaciSuggest",
   "ai.documentWrite": "activityAiDocumentWrite",
   "ai.reportDraft": "activityAiReportDraft",
+  "ai.peopleProtectionOff": "activityAiPeopleProtectionOff",
+  "ai.peopleProtectionOn": "activityAiPeopleProtectionOn",
   "undo": "activityUndo",
   "redo": "activityRedo",
 };

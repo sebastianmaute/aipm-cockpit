@@ -15,9 +15,21 @@ import {
   publishAiConsentState,
   sanitizeConsent,
 } from "./ai-consent";
-import { defaultAiConfig } from "./settings-types";
+import { defaultAiConfig, isAiEnabled } from "./settings-types";
 
 const D = new Date(0);
+
+describe("a consent given before AI people protection (disclosure version 1)", () => {
+  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false }));
+  it("is not current, so AI stays off until the user consents again", () => {
+    const v1 = { acceptedAt: D.toISOString(), disclosureVersion: 1 };
+    expect(AI_DISCLOSURE_VERSION).toBeGreaterThan(1);
+    expect(isConsentCurrent(v1)).toBe(false);
+    const ai = { ...defaultAiConfig, enabled: true, apiKey: "sk-ant-test-key", consent: v1 };
+    expect(isAiEnabled(ai)).toBe(false);
+    expect(isAiEnabled({ ...ai, consent: newConsent(D) })).toBe(true); // control: the same config with a fresh consent
+  });
+});
 
 describe("isConsentCurrent", () => {
   it("is true for a fresh consent", () => {

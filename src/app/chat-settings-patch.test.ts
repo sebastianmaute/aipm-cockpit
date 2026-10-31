@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { computeSettingsPatch } from "./chat-settings-patch";
 import type { Settings } from "./settings-types";
+import { TOOL_DEFS } from "./chat-tool-defs";
 
 function baseSettings(): Settings {
   // Minimal shape the function reads. Cast is safe: computeSettingsPatch only
@@ -169,5 +170,35 @@ describe("computeSettingsPatch", () => {
     );
     expect(changes).toEqual({});
     expect(applied).toEqual({});
+  });
+});
+
+describe("computeSettingsPatch — AI people protection", () => {
+  // The protection is a PROJECT override (`settingsOverrides.ai.peopleAllowed`), written only by the
+  // Settings → AI control after a confirmation. `update_settings` patches device `Settings` and has no
+  // field that reaches it; whatever the model smuggles in is ignored.
+  it("cannot store peopleAllowed, however the model spells it", () => {
+    const patch = {
+      peopleAllowed: true,
+      aiPeopleAllowed: true,
+      ai: { peopleAllowed: true },
+      settingsOverrides: { ai: { peopleAllowed: true } },
+      overrides: { ai: { peopleAllowed: true } },
+    } as never;
+    const { changes, applied } = computeSettingsPatch(patch, baseSettings());
+    expect(changes).toEqual({});
+    expect(applied).toEqual({});
+    expect(JSON.stringify(changes)).not.toContain("peopleAllowed");
+  });
+
+  it("the tool schema offers no field for it", () => {
+    const def = TOOL_DEFS.find((d) => d.name === "update_settings");
+    expect(def).toBeDefined();
+    expect(JSON.stringify(def)).not.toMatch(/people|protect/i);
+  });
+
+  it("control: a real field in the same patch still applies", () => {
+    const { changes } = computeSettingsPatch({ dashboardDensity: "compact", peopleAllowed: true } as never, baseSettings());
+    expect(changes).toEqual({ dashboardDensity: "compact" });
   });
 });

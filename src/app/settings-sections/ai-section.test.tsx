@@ -16,7 +16,7 @@ import {
 } from "../settings-types";
 
 import { t } from "../i18n";
-import { newConsent } from "../ai-consent";
+import { AI_DISCLOSURE_VERSION, newConsent } from "../ai-consent";
 import { setAiDeploymentState } from "../ai-deployment";
 import { DIRECT_AI_STATUS } from "../../test/ai-status-fetch";
 // The AI config UI is gated behind the "Enable AI assistant" master switch
@@ -672,7 +672,7 @@ describe("AiSection", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") }));
     const ai = onChange.mock.calls.at(-1)![0].ai;
     expect(ai.enabled).toBe(true);
-    expect(ai.consent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1, route: "direct" });
+    expect(ai.consent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: AI_DISCLOSURE_VERSION, route: "direct" });
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -797,7 +797,7 @@ describe("AiSection", () => {
       fireEvent.click(bgToggle());
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentBackgroundAccept") }));
       const ai = onChange.mock.calls.at(-1)![0].ai;
-      expect(ai.backgroundConsent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1, route: "direct" });
+      expect(ai.backgroundConsent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: AI_DISCLOSURE_VERSION, route: "direct" });
       expect(ai.consent).toEqual(interactiveOnly.ai.consent);
       expect(screen.queryByRole("dialog")).toBeNull();
     });
@@ -932,7 +932,7 @@ describe("AiSection — an action widens only its own field (AI-01)", () => {
     render(<AiSection lang="en-US" settings={shown} onChange={onChange} />);
     fireEvent.click(screen.getByLabelText(t("en-US", "aiBackgroundConsentToggle")));
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentBackgroundAccept") }));
-    expect(persistedAi().backgroundConsent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1, route: "direct" }); // control
+    expect(persistedAi().backgroundConsent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: AI_DISCLOSURE_VERSION, route: "direct" }); // control
     expect(persistedAi().enabled).toBe(false);
     expect(onChange.mock.calls.at(-1)![0].ai.enabled).toBe(false);
   });
@@ -944,7 +944,7 @@ describe("AiSection — an action widens only its own field (AI-01)", () => {
     render(<AiSection lang="en-US" settings={shown} onChange={onChange} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentReview") }));
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiConsentAccept") }));
-    expect(persistedAi().consent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: 1, route: "direct" }); // control
+    expect(persistedAi().consent).toEqual({ acceptedAt: expect.any(String), disclosureVersion: AI_DISCLOSURE_VERSION, route: "direct" }); // control
     expect(persistedAi().enabled).toBe(true);
     expect(persistedAi().backgroundConsent).toBeUndefined();
     expect(onChange.mock.calls.at(-1)![0].ai.backgroundConsent).toBeUndefined();
