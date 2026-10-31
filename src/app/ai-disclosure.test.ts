@@ -267,12 +267,12 @@ const DESTINATION_PIN: readonly string[] = [
   // The relay route (organisation key restriction) has texts of its own (AI organisation key).
   "relay|interactive|aiConsentDataIntroRelay|50239ebb92d8",
   "relay|background|aiConsentBackgroundDataIntroRelay|21999ec60bd7",
-  "relay|keyNote|aiApiKeyHintRelay|594829fa1f23",
-  "relay|keySecurity|aiConsentBullet2Relay|baf0efa1464a",
+  "relay|keyNote|aiApiKeyHintRelay|c79f17b384ac",
+  "relay|keySecurity|aiConsentBullet2Relay|0a146b55c15b",
   "relay|thirdParty|aiConsentBullet3Relay|ac7587dd0eb6",
-  "relay|help|helpSecAiBodyRelay|dbc74c4125ac",
+  "relay|help|helpSecAiBodyRelay|28e7a0ac847a",
   // A gateway deployment that also restricts keys adds one sentence to the consent dialog (AI organisation key).
-  "gateway+keyRestricted|keyRestriction|aiConsentKeyRestrictionGateway|e93f8909f467",
+  "gateway+keyRestricted|keyRestriction|aiConsentKeyRestrictionGateway|780270d283a5",
 ];
 
 const pinEntry = (route: string, kind: string, key: TranslationKey) =>
@@ -377,12 +377,13 @@ describe("AI_DESTINATION_KEYS", () => {
     }
   });
 
-  it("relay key texts say the app's server checks the key and neither stores nor logs it", () => {
+  it("relay key texts say the app's server checks the key and keeps only a one-way fingerprint of it in memory", () => {
     for (const key of [AI_DESTINATION_KEYS.relay.keyNote, AI_DESTINATION_KEYS.relay.keySecurity, AI_DESTINATION_KEYS.relay.help]) {
       expect(t("en-US", key), key).toContain("this app's server checks it against");
-      expect(t("en-US", key), key).toContain("but neither stores nor logs it");
+      expect(t("en-US", key), key).toContain("It never stores or logs the key itself, only a one-way fingerprint of it in memory, to remember the result of the check.");
+      expect(t("en-US", key), key).not.toContain("neither stores nor logs it");
       expect(de[key], key).toContain("prüft ihn gegen");
-      expect(de[key], key).toContain("speichert und protokolliert ihn aber nicht");
+      expect(de[key], key).toContain("Er speichert oder protokolliert den Schlüssel selbst nie, sondern behält nur einen unumkehrbaren Fingerabdruck davon im Arbeitsspeicher, um das Ergebnis der Prüfung zu merken.");
     }
   });
 
