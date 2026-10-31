@@ -9,6 +9,7 @@ import {
   type Command,
   isVoiceSupported,
   parseCommand,
+  type RecognitionStop,
   startRecognition,
 } from "./voice";
 
@@ -29,7 +30,9 @@ function MicIcon({ className }: { className?: string }) {
 export function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) {
   const peopleProtected = usePeopleProtected();
   const [listening, setListening] = useState(false);
-  const stopRef = useRef<(() => void) | null>(null);
+  const stopRef = useRef<RecognitionStop | null>(null);
+  // The protection as of the last commit, for a result the browser delivers after protection switched on.
+  const protectedRef = useRef(peopleProtected);
   // `isVoiceSupported()` reads `window.SpeechRecognition`, which doesn't
   // exist during SSR (returns false there) but does exist in Chrome / Edge
   // (returns true). Calling it directly during render would cause a
@@ -46,9 +49,11 @@ export function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) 
     };
   }, []);
 
-  // Protection switched on mid-listen: stop the recogniser. Its `onEnd` clears `listening`.
+  // Protection switched on mid-listen: ABORT the recogniser, never `stop` — a stop still delivers the pending final
+  // result, which would run a command heard before the switch. Its `onEnd` clears `listening`.
   useEffect(() => {
-    if (peopleProtected) stopRef.current?.();
+    protectedRef.current = peopleProtected;
+    if (peopleProtected) stopRef.current?.abort();
   }, [peopleProtected]);
 
   function toggle(onFinal: (text: string) => void) {
@@ -67,7 +72,10 @@ export function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) 
     setListening(true);
     const stop = startRecognition({
       lang,
-      onFinal,
+      // Belt and braces with the abort above: a result that still arrives under protection runs nothing.
+      onFinal: (text) => {
+        if (!protectedRef.current) onFinal(text);
+      },
       onEnd: () => {
         setListening(false);
         stopRef.current = null;

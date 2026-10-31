@@ -12,10 +12,16 @@ import { setDisabledIntegrations } from "./integration-switches";
 import { useVoiceRecognition, VoiceCommandButton } from "./voice-button";
 import { emptyWorkspace, type Workspace } from "./workspace";
 
-const voiceEnv = vi.hoisted(() => ({ stop: vi.fn() }));
+const voiceEnv = vi.hoisted(() => {
+  const stop = Object.assign(vi.fn(), { abort: vi.fn() });
+  return { stop, last: null as null | { onFinal: (text: string) => void } };
+});
 vi.mock("./voice", () => ({
   isVoiceSupported: () => true,
-  startRecognition: vi.fn(() => voiceEnv.stop),
+  startRecognition: vi.fn((opts: { onFinal: (text: string) => void }) => {
+    voiceEnv.last = opts;
+    return voiceEnv.stop;
+  }),
   parseCommand: (text: string) => ({ kind: "unknown", text }),
 }));
 import { startRecognition } from "./voice";
@@ -36,8 +42,8 @@ const tree = (ws: Workspace, children: ReactNode) => (
   </AiPrivacyProvider>
 );
 
-function renderButton(start: Workspace, onError = vi.fn()) {
-  const node = <VoiceCommandButton lang="en-US" onCommand={() => undefined} onError={onError} />;
+function renderButton(start: Workspace, onError = vi.fn(), onCommand = vi.fn()) {
+  const node = <VoiceCommandButton lang="en-US" onCommand={onCommand} onError={onError} />;
   const view = render(tree(start, node));
   return { ...view, flip: (next: Workspace) => act(() => view.rerender(tree(next, node))) };
 }
@@ -45,6 +51,8 @@ function renderButton(start: Workspace, onError = vi.fn()) {
 afterEach(() => {
   vi.mocked(startRecognition).mockClear();
   voiceEnv.stop.mockClear();
+  voiceEnv.stop.abort.mockClear();
+  voiceEnv.last = null;
   setDisabledIntegrations([]);
 });
 
@@ -95,12 +103,26 @@ describe("voice commands under people protection", () => {
     expect(startRecognition).toHaveBeenCalledTimes(1);
   });
 
-  it("protection switched on while listening stops the recogniser and removes the button", () => {
+  it("protection switched on while listening ABORTS the recogniser (not stop) and removes the button", () => {
     const { flip } = renderButton(allowed());
     fireEvent.click(screen.getByRole("button", { name: "Voice command" }));
-    expect(voiceEnv.stop).not.toHaveBeenCalled();
+    expect(voiceEnv.stop.abort).not.toHaveBeenCalled();
     flip(protectedWs());
-    expect(voiceEnv.stop).toHaveBeenCalled();
+    expect(voiceEnv.stop.abort).toHaveBeenCalledTimes(1);
+    expect(voiceEnv.stop).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /voice command/i })).toBeNull();
+  });
+
+  it("a final result delivered after protection flips mid-listen runs no command", () => {
+    const onCommand = vi.fn();
+    const { flip } = renderButton(allowed(), vi.fn(), onCommand);
+    fireEvent.click(screen.getByRole("button", { name: "Voice command" }));
+    const deliver = voiceEnv.last!.onFinal;
+    // Anti-vacuity: while allowed, a delivered result runs the command.
+    act(() => deliver("search blockers"));
+    expect(onCommand).toHaveBeenCalledTimes(1);
+    flip(protectedWs());
+    act(() => deliver("delete task 3"));
+    expect(onCommand).toHaveBeenCalledTimes(1);
   });
 });
