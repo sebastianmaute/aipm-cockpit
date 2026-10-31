@@ -89,6 +89,14 @@ describe("SettingsMenu trigger", () => {
   });
 });
 
+describe("SettingsMenu people protection (P5: reachable in the classic layout too)", () => {
+  it("renders the per-project people-protection control beside the AI section, on by default", () => {
+    render(<SettingsMenu {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
+    expect(screen.getByRole("checkbox", { name: t("en-US", "aiPeopleProtectionLabel") })).toBeChecked();
+  });
+});
+
 describe("SettingsMenu popout toggle", () => {
   it("renders 'Reuse popout window' toggle in settings panel", () => {
     render(<SettingsMenu {...makeProps()} />);

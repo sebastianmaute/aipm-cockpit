@@ -1623,7 +1623,7 @@ export const de: Record<TranslationKey, string> = {
   aiProtectedHidden: "Nicht verfügbar: Die Funktion ist bei eingeschaltetem Schutz ausgeblendet.",
   aiProtectedOff: "Nicht verfügbar: Die Funktion ist bei eingeschaltetem Schutz ausgeschaltet.",
   aiProtectedChat: "Namen, E-Mail-Adressen und Telefonnummern von Personen, die das Projekt kennt, werden vor dem Senden durch Platzhalter ersetzt, und der Assistent kann niemanden zuweisen, verschieben oder bewerten. Bilder und gescannte Dokumente werden abgelehnt, solange der Schutz eingeschaltet ist. Namen, die das Projekt nicht kennt und die im Freitext oder in Textanhängen stehen, können weiterhin gesendet werden.",
-  aiProtectedProjectProposal: "Nicht geschützt: Ein neues Projekt hat noch keine Personen, also gibt es nichts zu ersetzen. Dateien, die Sie in den Assistenten ziehen, können Namen enthalten, und diese werden unverändert gesendet.",
+  aiProtectedUnredacted: "Unverändert gesendet: Ein neues Projekt kennt noch keine Personen, und Dateien, die Sie dem Assistenten hinzufügen, können Namen enthalten. Der Vorschlag der KI wird ohne Personen übernommen: kein Sponsor, keine Projektleitung, keine Stakeholder, Ressourcen, Zuständigen oder Verantwortlichen.",
   credentialStorageNote:
     "Verschlüsselt in diesem Browser gespeichert (Geräteschlüssel). Wer Zugriff auf dieses Browserprofil hat, kann sie dennoch verwenden – verwenden Sie auf gemeinsam genutzten oder nicht vertrauenswürdigen Rechnern keine produktiven Zugangsdaten.",
   disclaimerTitle: "Sicherheits- und Verantwortungshinweis",

@@ -1730,7 +1730,7 @@ const enUS = {
   aiProtectedHidden: "Not available: the feature is hidden while protection is on.",
   aiProtectedOff: "Not available: the feature is switched off while protection is on.",
   aiProtectedChat: "The names, email addresses and phone numbers of people the project knows are replaced by placeholders before sending, and the assistant cannot assign, move or rate anyone. Images and scanned documents are refused while protection is on. Names the project does not know, typed into free text or contained in text attachments, may still be sent.",
-  aiProtectedProjectProposal: "Not protected: a new project has no people yet, so there is nothing to replace. Files you drop into the wizard may contain names, and those are sent as they are.",
+  aiProtectedUnredacted: "Sent as is: a new project has no known people yet, and files you add to the wizard may contain names. The AI’s proposal is applied without any people: no sponsor, project manager, stakeholders, resources, assignees or owners.",
   credentialStorageNote:
     "Encrypted at rest in this browser (device key). Anyone with access to this browser profile can still use it — avoid production credentials on shared or untrusted machines.",
   disclaimerTitle: "Security & responsibility disclaimer",

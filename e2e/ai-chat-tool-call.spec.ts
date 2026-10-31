@@ -1,5 +1,6 @@
 import type { Route } from "@playwright/test";
 import { test, expect, gotoApp, openView } from "./seed";
+import { AI_DISCLOSURE_VERSION } from "../src/app/ai-consent";
 
 /**
  * §234 (c) — one AI chat turn with a tool call, end to end, against a MOCKED
@@ -46,7 +47,7 @@ function toolResults(body: Body): { tool_use_id?: string; is_error?: boolean; co
 }
 
 test("a chat turn's create_task tool call creates the task and reports its result back", async ({ page }) => {
-  await page.addInitScript(() => {
+  await page.addInitScript((disclosureVersion: number) => {
     localStorage.setItem(
       "aipm-cockpit:settings",
       JSON.stringify({
@@ -54,12 +55,12 @@ test("a chat turn's create_task tool call creates the task and reports its resul
         ai: {
           enabled: true,
           apiKey: "sk-ant-e2e-mocked-key-not-real-0000",
-          consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: 1 },
+          consent: { acceptedAt: "1970-01-01T00:00:00.000Z", disclosureVersion: disclosureVersion },
           groundInGuides: false,
         },
       }),
     );
-  });
+  }, AI_DISCLOSURE_VERSION);
 
   const requests: Body[] = [];
   const unexpected: string[] = [];
