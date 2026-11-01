@@ -16,6 +16,10 @@ describe("ChatThreadClosedNotice", () => {
     expect(screen.getByRole("status")).not.toHaveTextContent("deleted");
     rerender(<ChatThreadClosedNotice lang="de" closed reason="unconfirmed" />);
     expect(screen.getByRole("status")).toHaveTextContent("Dieser Chat konnte nicht gespeichert werden und wurde daher geschlossen.");
+    rerender(<ChatThreadClosedNotice lang="en-US" closed reason="otherDatabase" />);
+    expect(screen.getByRole("status")).toHaveTextContent("This chat belongs to the previous database and has been closed.");
+    rerender(<ChatThreadClosedNotice lang="de" closed reason="otherDatabase" />);
+    expect(screen.getByRole("status")).toHaveTextContent("Dieser Chat gehört zur vorherigen Datenbank und wurde daher geschlossen.");
     rerender(<ChatThreadClosedNotice lang="en-US" closed reason="gone" />);
     expect(screen.getByRole("status")).toHaveTextContent("This chat was deleted elsewhere and has been closed.");
   });

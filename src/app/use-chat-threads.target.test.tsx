@@ -409,20 +409,57 @@ describe("useChatThreads — between a database switch and the new load, nothing
     expect(savesTo(CFG_B)).toEqual([]);
   });
 
-  it("a send in A's thread in that window writes nothing to B, at the send or at the turn's end", async () => {
+  const carriesOld = (call: unknown[]): boolean => JSON.stringify(call[1]).includes("about Jane");
+
+  it("an idle chat of A is closed at the switch, with a notice; a send then starts a fresh B thread carrying nothing of A", async () => {
     loadsByDatabase([thread("t1", OLD)]);
     const { result, rerender, initialProps } = renderChatThreads({ ...OLD });
     await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
     saveThreadMock.mockClear();
-    const inB = { ...initialProps, ...OLD, tursoConfig: CFG_B };
+    rerender({ ...initialProps, ...OLD, tursoConfig: CFG_B });
+    expect(result.current.activeThreadId).toBeNull();
+    expect(result.current.threadClosed).toBe(true);
+    expect(result.current.threadCloseReason).toBe("otherDatabase");
+    expect((initialProps.setHistory as ReturnType<typeof vi.fn>).mock.calls.at(-1)).toEqual([[]]);
+    expect((initialProps.setDisplay as ReturnType<typeof vi.fn>).mock.calls.at(-1)).toEqual([[]]);
+
+    // The panel's state is what the setters made it: empty.
+    const inB = { ...initialProps, history: [], display: [], tursoConfig: CFG_B };
     rerender(inB);
+    let id: string | null = null;
     act(() => {
-      result.current.ensureThreadForSend(turn.history, turn.display);
+      id = result.current.ensureThreadForSend(turn.history, turn.display);
     });
-    rerender({ ...inB, busy: true });
-    rerender({ ...inB, busy: false });
+    rerender({ ...inB, ...turn, busy: true });
+    rerender({ ...inB, ...turn, busy: false });
     await settle(() => {});
+    expect(id).not.toBe("t1");
+    expect(result.current.threadClosed).toBe(false);
+    expect(savesTo(CFG_A)).toEqual([]);
+    expect(savesTo(CFG_B).length).toBeGreaterThan(0);
+    for (const call of savesTo(CFG_B)) {
+      expect((call[1] as ChatThread).id).toBe(id);
+      expect(carriesOld(call)).toBe(false);
+    }
+  });
+
+  it("a turn running across the switch is saved to A, and the screen closes with the notice once that save is queued", async () => {
+    loadsByDatabase([thread("t1", OLD)]); // B's load never settles
+    const { result, rerender, initialProps } = renderChatThreads({ ...OLD });
+    await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
+    rerender({ ...initialProps, ...turn, busy: true });
+    rerender({ ...initialProps, ...turn, busy: true, tursoConfig: CFG_B });
+    // Mid-turn nothing is pulled from under the running send.
+    expect(result.current.activeThreadId).toBe("t1");
+    expect(result.current.threadClosed).toBe(false);
+    saveThreadMock.mockClear();
+    rerender({ ...initialProps, ...turn, busy: false, tursoConfig: CFG_B });
+    await waitFor(() => expect(savesTo(CFG_A)).toHaveLength(1));
+    expect((savesTo(CFG_A)[0]![1] as ChatThread).id).toBe("t1");
     expect(savesTo(CFG_B)).toEqual([]);
-    expect(result.current.threads).toEqual([]);
+    expect(result.current.activeThreadId).toBeNull();
+    expect(result.current.threadClosed).toBe(true);
+    expect(result.current.threadCloseReason).toBe("otherDatabase");
+    expect((initialProps.setHistory as ReturnType<typeof vi.fn>).mock.calls.at(-1)).toEqual([[]]);
   });
 });

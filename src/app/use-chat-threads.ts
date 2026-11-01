@@ -208,21 +208,36 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // Stored / gone / source of every thread this session has seen, per database (chat-thread-ledger.ts).
   const [ledger] = useState(createChatThreadLedger);
 
+  // A chat deleted elsewhere (or one a save could not confirm, or one of the previous database) was
+  // closed here: the panel says so in one line, worded by `threadCloseReason`, until the next send,
+  // thread switch or new chat.
+  const [threadClosed, setThreadClosed] = useState(false);
+  const [threadCloseReason, setThreadCloseReason] = useState<ChatThreadCloseReason>("gone");
+
   // The database the list is for. When the config moves to another database, the rows of the old one
   // leave the list (and so the registry, which is also marked not loaded) in the same render, before
-  // the new load settles: from then on none of them is shown, renamed or sent in. Render-time
-  // reconcile, not an effect, so no render ever shows them under the new database.
+  // the new load settles: from then on none of them is shown, renamed or sent in. An open chat of the
+  // old database is closed in the same render too (with no send running; a running turn is closed by
+  // the end-of-turn effect once its save to its own database is queued) — otherwise a send would run
+  // in it, its save would be refused, and the new load would then replace it: the message and the
+  // reply would vanish without a word. Render-time reconcile, not an effect, so no render ever shows
+  // them under the new database.
   const currentUrl = urlOf(tursoConfig);
   const [listUrl, setListUrl] = useState(currentUrl);
   if (listUrl !== currentUrl) {
     setListUrl(currentUrl);
     setThreads((prev) => prev.filter((th) => ledger.cameFrom(currentUrl, th.id)));
     setLoadedProjectId(null);
+    const openFromElsewhere = activeThreadId !== null && ledger.sourceOf(activeThreadId) !== null
+      && !ledger.cameFrom(currentUrl, activeThreadId);
+    if (tursoMode && !busy && openFromElsewhere) {
+      setActiveThreadId(null);
+      setHistory([]);
+      setDisplay([]);
+      setThreadClosed(true);
+      setThreadCloseReason("otherDatabase");
+    }
   }
-  // A chat deleted elsewhere (or one a save could not confirm) was closed here: the panel says so in
-  // one line, worded by `threadCloseReason`, until the next send, thread switch or new chat.
-  const [threadClosed, setThreadClosed] = useState(false);
-  const [threadCloseReason, setThreadCloseReason] = useState<ChatThreadCloseReason>("gone");
 
   const identity = useChatIdentity({ tursoMode, tursoConfig, chat });
   const { persistence, identityReloads } = identity;
@@ -338,8 +353,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     if (threadIdRef.current === th.id && ledger.cameFrom(urlOf(config), th.id) && abortRef.current === null) closeGoneThread();
   }
 
-  /** Closes the active chat whose row is gone: nothing on screen, no active thread, and the notice. */
-  function closeGoneThread(): void {
+  /** Closes the active chat: nothing on screen, no active thread, and the notice (worded by `reason`
+   *  when given; `dropGone` sets it for a gone thread). */
+  function closeGoneThread(reason?: ChatThreadCloseReason): void {
+    if (reason) setThreadCloseReason(reason);
     threadIdRef.current = null;
     setActiveThreadId(null);
     setHistory([]);
@@ -629,9 +646,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       display,
     };
     if (!movedAway) setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
-    if (!saveGate) return;
-    const scope = renameScope(turnConfig);
-    runPersist(id, saveAction(writeConfig(turnConfig), thread, saveGate), (owns) => confirmSavedName(scope, id, thread.name, owns));
+    if (saveGate) {
+      const scope = renameScope(turnConfig);
+      runPersist(id, saveAction(writeConfig(turnConfig), thread, saveGate), (owns) => confirmSavedName(scope, id, thread.name, owns));
+    }
+    // The turn ran across a database switch: its save is queued to its own database above, and the
+    // screen now belongs to the new one, so the chat is closed with a notice.
+    if (movedAway) closeGoneThread("otherDatabase");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
 

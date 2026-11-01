@@ -1335,6 +1335,7 @@ const enUS = {
   chatDeleteAllNotRefreshed: "Your chats were deleted; the list could not be refreshed.",
   chatThreadClosedGone: "This chat was deleted elsewhere and has been closed.",
   chatThreadClosedUnconfirmed: "This chat could not be saved and has been closed.",
+  chatThreadClosedOtherDatabase: "This chat belongs to the previous database and has been closed.",
   chatFindButton: "Find chats mentioning a person",
   chatFindTitle: "Find chats mentioning a person",
   chatFindHint: "Searches the chats in this project that you can see for a name or e-mail address: your messages, the replies and the tool results. That includes older shared chats saved before chats became private, which you can delete too. Colleagues' own private chats are not searched.",
