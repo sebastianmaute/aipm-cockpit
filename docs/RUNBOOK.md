@@ -611,6 +611,12 @@ stored and who can read it is in
 [security.md → Saved AI chats](security.md#saved-ai-chats); the settings' exact rules
 are in [security.md → Environment variables](security.md#environment-variables).
 
+★★ **Upgrading — set both settings BEFORE you deploy.** On the first server start or page
+load after the upgrade, every chat not changed for the retention period (30 days unless
+`AIPM_AI_CHAT_RETENTION_DAYS` is set) is deleted — older shared chats included, and even
+without a recovery key. And until `AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY` is set, no chat is
+saved at all.
+
 1. **Generate the recovery key pair** on a trusted machine:
    ```bash
    npm run chats:erase -- keygen --out <path>

@@ -22,6 +22,10 @@ longer carries its own changelog comment.
   mention a person, and a chat passphrase in Settings → AI opens your chats on another browser. A permanently
   deleted project whose cleanup fails is cleaned up again the next time the app starts. Setup and the erasure
   checklist: `docs/RUNBOOK.md`.
+  ★ **Before upgrading:** on the first server start or page load after the upgrade, every chat not changed for the
+  retention period (30 days unless `AIPM_AI_CHAT_RETENTION_DAYS` is set) is deleted, older shared chats included,
+  even without a recovery key. And until `AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY` is set, no chat is saved. Set both
+  before deploying.
 
 - **A deployment can restrict AI to its own Anthropic organisation's keys.** The operator sets
   `AIPM_AI_ORGANIZATION_ID` and, optionally, `AIPM_AI_WORKSPACE_IDS`. AI requests then go through this app's server,
