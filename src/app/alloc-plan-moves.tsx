@@ -5,6 +5,8 @@
 import { type Lang, t, tPlural, localeFor } from "./i18n";
 import { Checkbox } from "./form-controls";
 import { ExclamationTriangleIcon } from "./icons";
+import { InfoTooltip } from "./info-tooltip";
+import { HelpIconButton } from "./help-icon-button";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { formatCurrency } from "./resource-cost";
 import { defaultPeriodLabel, formatMovedHours, hoursMoveNotice, movedHoursNotes, type HoursMoveNoticeCtx } from "./reassign-hours-notice";
@@ -160,15 +162,38 @@ export function AllocPlanEffect({ lang, effect, currency, nameOf }: AllocPlanEff
             <li key={`${o.resourceId}:${o.periodKey}`} className="flex items-start gap-1.5 text-xs text-foreground">
               <ExclamationTriangleIcon aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                {t(
-                  lang,
-                  "allocPlanOverCapacity",
-                  nameOf(o.resourceId),
-                  formatMovedHours(o.hours, lang),
-                  formatMovedHours(o.capacityHours, lang),
-                  defaultPeriodLabel(o.periodKey, lang),
-                )}
+                {o.elsewhereHours > 0
+                  ? t(
+                      lang,
+                      "allocPlanOverCapacityElsewhere",
+                      nameOf(o.resourceId),
+                      formatMovedHours(o.hours, lang),
+                      formatMovedHours(o.capacityHours, lang),
+                      defaultPeriodLabel(o.periodKey, lang),
+                      formatMovedHours(o.elsewhereHours, lang),
+                    )
+                  : t(
+                      lang,
+                      "allocPlanOverCapacity",
+                      nameOf(o.resourceId),
+                      formatMovedHours(o.hours, lang),
+                      formatMovedHours(o.capacityHours, lang),
+                      defaultPeriodLabel(o.periodKey, lang),
+                    )}
               </span>
+              {o.elsewhereHours > 0 && (
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <InfoTooltip
+                    text={t(lang, "allocElsewhereTip")}
+                    label={`${t(lang, "allocElsewhereLabel", formatMovedHours(o.elsewhereHours, lang))} – ${nameOf(o.resourceId)} (#${o.resourceId}) – ${defaultPeriodLabel(o.periodKey, lang)}`}
+                  />
+                  <HelpIconButton
+                    lang={lang}
+                    conceptId="feature-cross-project-people"
+                    dialogTitle={`${t(lang, "allocElsewhereLabel", formatMovedHours(o.elsewhereHours, lang))} – ${nameOf(o.resourceId)} (#${o.resourceId}) – ${defaultPeriodLabel(o.periodKey, lang)}`}
+                  />
+                </span>
+              )}
             </li>
           ))}
         </ul>
