@@ -19,6 +19,48 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** A stand-in for `navigator.locks`: one queue per lock name, shared by every module instance. */
+function installFakeLocks(): { names: string[] } {
+  const tails = new Map<string, Promise<unknown>>();
+  const names: string[] = [];
+  const locks = {
+    request: (name: string, cb: () => Promise<unknown>) => {
+      names.push(name);
+      const run = (tails.get(name) ?? Promise.resolve()).then(() => cb());
+      tails.set(name, run.catch(() => undefined));
+      return run;
+    },
+  };
+  Object.defineProperty(window.navigator, "locks", { value: locks, configurable: true });
+  return { names };
+}
+
+describe("chat-key-vault across tabs", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(window.navigator, "locks");
+    vi.restoreAllMocks();
+  });
+
+  it("two tabs creating the first identity at once write one, under the identity lock", async () => {
+    // Tab A creates the device key (and an identity for another database) first, so both tabs seal
+    // with the same device key; then each tab is a separate module instance, as in two tabs.
+    vi.resetModules();
+    const tabA = await import("./chat-key-vault");
+    await tabA.ensureChatIdentity(URL_B);
+    vi.resetModules();
+    const tabB = await import("./chat-key-vault");
+    const { names } = installFakeLocks();
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+
+    const [a, b] = await Promise.all([tabA.ensureChatIdentity(URL_A), tabB.ensureChatIdentity(URL_A)]);
+
+    const writes = setItem.mock.calls.filter(([k]) => k === CHAT_IDENTITY_KEY);
+    expect(writes).toHaveLength(1);
+    expect(a!.ownerId).toBe(b!.ownerId);
+    expect(names).toContain("aipm-cockpit:chat-identity");
+  });
+});
+
 describe("chat-key-vault", () => {
   it("getChatIdentity never creates one", async () => {
     expect(await getChatIdentity(URL_A)).toBeNull();

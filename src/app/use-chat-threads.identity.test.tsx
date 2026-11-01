@@ -40,6 +40,7 @@ vi.mock("./chat-key-vault", () => ({
     }
     return identity;
   }),
+  storedChatOwnerId: (url: string) => h.vault.get(url)?.ownerId ?? null,
 }));
 
 vi.mock("./chat-threads-store", () => ({

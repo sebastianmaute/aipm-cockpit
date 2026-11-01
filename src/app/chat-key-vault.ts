@@ -82,10 +82,28 @@ export async function readChatIdentity(httpUrl: string): Promise<ChatIdentityRea
   return chatKey ? { kind: "found", identity: { ownerId: entry.ownerId, chatKey } } : { kind: "absent" };
 }
 
+/** The owner id stored for `httpUrl` right now, read synchronously and without opening the chat key;
+ *  null when there is no well-formed entry. Lets a write check that the identity it holds is still
+ *  the stored one (another tab may have replaced it) without waiting. */
+export function storedChatOwnerId(httpUrl: string): string | null {
+  const entry = readVault()[httpUrl];
+  return isVaultEntry(entry) ? entry.ownerId : null;
+}
+
 /** The identity for `httpUrl`, or null when there is none or it cannot be used. Never creates one. */
 export async function getChatIdentity(httpUrl: string): Promise<ChatIdentity | null> {
   const read = await readChatIdentity(httpUrl);
   return read.kind === "found" ? read.identity : null;
+}
+
+/** The Web Locks name that serialises identity creation across this browser's tabs. */
+const CHAT_IDENTITY_LOCK = "aipm-cockpit:chat-identity";
+
+/** Runs `fn` holding the identity lock across tabs when the browser has Web Locks; otherwise just
+ *  runs it (the in-tab `creating` guard below still applies). */
+function withIdentityLock<T>(fn: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator === "undefined" ? undefined : navigator.locks;
+  return locks?.request ? locks.request(CHAT_IDENTITY_LOCK, fn) : fn();
 }
 
 /** One creation in flight per database URL in this tab, so overlapping first writes share it. */
@@ -101,18 +119,19 @@ async function createChatIdentity(httpUrl: string): Promise<ChatIdentity | null>
   } catch {
     return null;
   }
-  // Return what is stored, so a tab that wrote in between is adopted where it can be. Two tabs can still
-  // both read "absent" and both write; the saves made under the overwritten identity are then unreadable.
+  // Return what is stored, so a tab that wrote in between is adopted where it can be. Under Web Locks
+  // (`withIdentityLock`) a second tab reads "found" and never writes; without them two tabs can still
+  // both read "absent" and both write, and the saves made under the overwritten identity are lost.
   return getChatIdentity(httpUrl);
 }
 
 /** The identity for `httpUrl`, created on first use. Null when this browser cannot encrypt, or holds
  *  an entry its device key cannot open (that entry is kept, not replaced). Concurrent calls for one
- *  URL share a single creation. */
+ *  URL share a single creation in this tab, and run one at a time across tabs where Web Locks exist. */
 export function ensureChatIdentity(httpUrl: string): Promise<ChatIdentity | null> {
   const inFlight = creating.get(httpUrl);
   if (inFlight) return inFlight;
-  const run = createChatIdentity(httpUrl).finally(() => creating.delete(httpUrl));
+  const run = withIdentityLock(() => createChatIdentity(httpUrl)).finally(() => creating.delete(httpUrl));
   creating.set(httpUrl, run);
   return run;
 }

@@ -5,7 +5,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useChatThreads, type UseChatThreadsDeps } from "./use-chat-threads";
 import { loadThreads, saveThread, deleteThread, expireThreads } from "./chat-threads-store";
-import { CHAT_IDENTITY_KEY } from "./chat-key-vault";
+import { CHAT_IDENTITY_KEY, ensureChatIdentity, replaceChatIdentity } from "./chat-key-vault";
+import { generateChatKey } from "./chat-crypto";
 import type { ChatThread } from "./chat-threads";
 import type { TursoConfig } from "./turso-config";
 import type { ChatSettings } from "./ai-chat-retention-config";
@@ -57,6 +58,57 @@ beforeEach(() => {
   saveThreadMock.mockResolvedValue("saved");
   deleteThreadMock.mockResolvedValue(undefined);
   expireThreadsMock.mockResolvedValue(undefined);
+});
+
+/** Another tab adopting a new identity for this database: the vault entry changes under this tab. */
+async function adoptNewIdentity(): Promise<string> {
+  const ownerId = crypto.randomUUID();
+  await replaceChatIdentity(CFG.httpUrl, { ownerId, chatKey: await generateChatKey() });
+  return ownerId;
+}
+
+describe("useChatThreads — the identity changes in another tab", () => {
+  it("a storage event naming the chat identity with a new owner reloads the list under it", async () => {
+    loadThreadsMock.mockResolvedValue([thread("t1")]);
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    expect(loadThreadsMock).toHaveBeenCalledTimes(1);
+    const next = await adoptNewIdentity();
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: CHAT_IDENTITY_KEY }));
+    });
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+    expect((loadThreadsMock.mock.calls[1]![2] as { ownerId: string }).ownerId).toBe(next);
+    await waitFor(() => expect(result.current.erase.ownerId).toBe(next));
+  });
+
+  it("a save after the vault changed uses the new identity, even with no storage event", async () => {
+    await ensureChatIdentity(CFG.httpUrl);
+    loadThreadsMock.mockResolvedValue([]);
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.erase.ownerId).not.toBeNull());
+    const next = await adoptNewIdentity();
+    act(() => {
+      result.current.ensureThreadForSend([{ role: "user", content: "hi" }], [{ kind: "user", text: "hi" }]);
+    });
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1), { timeout: 5000 });
+    expect((saveThreadMock.mock.calls[0]![2] as { ownerId: string }).ownerId).toBe(next);
+  });
+
+  it("a save of a thread stamped with the old owner drops it instead of failing for ever", async () => {
+    const old = await ensureChatIdentity(CFG.httpUrl);
+    loadThreadsMock.mockResolvedValue([thread("mine", { ownerId: old!.ownerId })]);
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    await adoptNewIdentity();
+    act(() => {
+      result.current.renameThread("mine", "Renamed");
+    });
+    await waitFor(() => expect(result.current.threads).toEqual([]), { timeout: 5000 });
+    expect(saveThreadMock).not.toHaveBeenCalled();
+    expect(result.current.threadsError).toBe(false);
+  });
 });
 
 describe("useChatThreads with the real vault", () => {

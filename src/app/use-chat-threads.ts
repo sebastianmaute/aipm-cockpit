@@ -32,7 +32,9 @@ import {
 } from "./chat-threads-store";
 import type { ChatSettings } from "./ai-chat-retention-config";
 import type { ChatIdentity } from "./chat-thread-codec";
-import { chatVaultAvailable, ensureChatIdentity, getChatIdentity, readChatIdentity } from "./chat-key-vault";
+import {
+  CHAT_IDENTITY_KEY, chatVaultAvailable, ensureChatIdentity, getChatIdentity, readChatIdentity, storedChatOwnerId,
+} from "./chat-key-vault";
 import { retentionCutoff } from "./chat-threads-schema";
 import {
   type ChatThread, newThreadId, deriveThreadName, normalizeThreadName, stripAttachmentsForPersistence,
@@ -511,6 +513,30 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       (th.ownerId === null || th.ownerId === identity?.ownerId)
       && (cutoffIso === null || !expiredBy(th.updatedAt, cutoffIso)));
   }
+  // Bumped when another tab changes this database's chat identity (`storage` event): the load effect
+  // then reloads the list under the identity now stored.
+  const [identityReloads, setIdentityReloads] = useState(0);
+  useEffect(() => {
+    if (!tursoMode) return;
+    const url = targetUrl ?? "";
+    let live = true;
+    function onStorage(e: StorageEvent): void {
+      // `key` is null when the other tab cleared all of localStorage (a factory reset).
+      if (e.key !== CHAT_IDENTITY_KEY && e.key !== null) return;
+      void readChatIdentity(url).then((read) => {
+        if (!live) return;
+        const known = vaultReadRef.current;
+        const before = known?.url === url ? known.identity?.ownerId ?? null : null;
+        const after = read.kind === "found" ? read.identity.ownerId : null;
+        if (before !== after || known?.url !== url || known.kind !== read.kind) setIdentityReloads((n) => n + 1);
+      });
+    }
+    window.addEventListener("storage", onStorage);
+    return () => {
+      live = false;
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [tursoMode, targetUrl]);
   const loadVisibleRef = useRef(loadVisibleThreads);
   useEffect(() => {
     loadVisibleRef.current = loadVisibleThreads;
@@ -523,26 +549,44 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     return known?.url === (config?.httpUrl ?? "") ? known.identity : null;
   }
 
-  /** The identity a write to `config`'s database uses, created on first use. Throws when this browser
-   *  cannot encrypt (and records that, so persistence reads "no-crypto"). */
+  /** The identity a write to `config`'s database uses, read from the vault and created on first
+   *  use. Throws when this browser cannot encrypt (and records that, so persistence reads
+   *  "no-crypto"). */
   async function writeIdentity(config: TursoConfig | null): Promise<ChatIdentity> {
     const url = config?.httpUrl ?? "";
     const identity = await ensureChatIdentity(url);
-    const next: VaultRead = identity
-      ? { url, kind: "found", identity }
-      : { url, kind: "unavailable", identity: null };
-    vaultReadRef.current = next;
-    setVaultRead(next);
+    const known = vaultReadRef.current;
+    const unchanged = known?.url === url && (identity
+      ? known.kind === "found" && known.identity?.ownerId === identity.ownerId
+      : known.kind === "unavailable");
+    if (!unchanged) {
+      const next: VaultRead = identity
+        ? { url, kind: "found", identity }
+        : { url, kind: "unavailable", identity: null };
+      vaultReadRef.current = next;
+      setVaultRead(next);
+    }
     if (!identity) throw new Error("chat identity unavailable");
     return identity;
   }
 
   /** The save of `th`: expiry first (never blocking), then the encrypted upsert as this browser's
-   *  owner. A save the server says changed no row means another owner holds the id now. */
+   *  owner. A save the server says changed no row means another owner holds the id now; so does a
+   *  thread stamped with an owner this browser no longer is (another tab adopted a new identity). */
   function saveAction(config: TursoConfig | null, th: ChatThread, gate: SaveGate): () => Promise<void> {
     return async () => {
       expireOldThreads(config, gate.retentionDays, th.projectId, () => threadsRef.current);
-      const identity = knownIdentity(config) ?? (await writeIdentity(config));
+      // Checked against the vault right before every save, so a tab that missed another tab's change
+      // of identity never saves under the old one: the identity already read is used only while the
+      // stored owner id is still its own (one localStorage read); otherwise the vault is read afresh.
+      const known = knownIdentity(config);
+      const identity = known && storedChatOwnerId(config?.httpUrl ?? "") === known.ownerId
+        ? known
+        : await writeIdentity(config);
+      if (th.ownerId !== null && th.ownerId !== identity.ownerId) {
+        dropNotOwned(th.id);
+        return;
+      }
       const outcome = await saveThread(config, th, identity, gate.recoveryKey);
       if (outcome === "not-owned") dropNotOwned(th.id);
       // Only into the list of the database it landed in: a write pinned to a database the user has
@@ -715,7 +759,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     return () => {
       cancelled = true;
     };
-  }, [tursoMode, projectId, tursoConfig, setHistory, setDisplay]);
+  }, [tursoMode, projectId, tursoConfig, setHistory, setDisplay, identityReloads]);
 
   // The banner's single retry action. If one or more saves/deletes failed,
   // `pendingRetryRef` holds a thunk PER failed write (keyed by thread id) —

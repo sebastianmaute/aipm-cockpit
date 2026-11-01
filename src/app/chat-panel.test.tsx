@@ -76,6 +76,7 @@ vi.mock("./chat-key-vault", () => ({
   readChatIdentity: vi.fn(async () => ({ kind: "absent" })),
   getChatIdentity: vi.fn(async () => null),
   ensureChatIdentity: vi.fn(async () => ({ ownerId: "owner-test", chatKey: new Uint8Array(32) })),
+  storedChatOwnerId: () => "owner-test",
 }));
 
 // Default double of the shared usage context — no-op `recordChatSend` and
