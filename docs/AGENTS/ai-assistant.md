@@ -2176,9 +2176,23 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   operator steps: `docs/RUNBOOK.md` "Saved AI chats". The code facts:
   - **Saving is gated** by `chatPersistence` (`use-chat-threads.ts`): only with the server's chat settings known
     (`AiDeploymentState.chat`, from `readChatSettings`), a recovery public key set, and a browser that can encrypt.
-    Otherwise nothing is written and the chat shows one line saying why.
+    Otherwise nothing is SAVED and the chat shows one line saying why. Deletes are still written whenever the
+    status is known in Turso mode (`deleteGate`): they need no encryption, and a deleted legacy chat must not
+    come back on reload.
   - **Identity.** One per browser per database (`chat-key-vault.ts`, `localStorage["aipm-cockpit:chat-identity"]`,
     the chat key sealed by the device key; `ensureChatIdentity` creates it once per URL, never on a delete).
+    ★★ Two cross-tab Web Locks serialise the races: `withIdentityLock` (lock name `aipm-cockpit:chat-identity`, the
+    same string as the storage key) around creating an identity, so two tabs cannot each mint one and orphan the
+    other's saves; and `withDeviceKeyLock` (`secrets.ts`, lock name `aipm-cockpit:device-key`) around loading or
+    creating the device key, so a tab that loses the race adopts the stored key instead of sealing under its own.
+    Without Web Locks both fall back to the in-tab guards.
+  - **`"identity-locked"`** (a `ChatPersistence` value): a stored entry exists for this database that the device key
+    cannot open (`readChatIdentity` answers `"unavailable"` with crypto present). Nothing is saved; the entry is
+    never overwritten silently. ★ A NEW identity that could not be stored is NOT this state: `writeIdentity` reads
+    the vault again and, finding it still empty, fails the save into the Retry banner. The way out is
+    `startNewChatIdentity` (the hook's `startNewIdentity`, the notice's "Start a new chat identity" button), which
+    stores a fresh identity over the locked entry; chats saved under the old one are left for the operator and
+    retention. Settings → AI hides the chat passphrase area in this state too (`ai-section.tsx` reads the vault).
   - **Rows.** `encodeThreadRow` (`chat-thread-codec.ts`) seals name, history and display under a fresh thread key on
     every write and wraps it twice, `wrapForOwner` and `wrapForOperator` (`chat-crypto.ts`). Loading drops every row
     owned by someone else. A legacy row (`isLegacyRow`: no owner) still decodes as plaintext until it expires, and

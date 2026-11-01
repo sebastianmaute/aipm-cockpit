@@ -66,6 +66,7 @@ AI Assistant chats are saved only on a Turso project, and only when three things
 
 - **Older chats.** Chats saved by an earlier version of the app have no owner and are not encrypted; anyone using the project can read them until they expire. Continuing one in the app saves it again, encrypted, as yours.
 - **Another browser.** A person may set a chat passphrase in Settings → AI. Their chat key is then stored in the Turso table `chat_keys`, encrypted under a key derived from the passphrase (PBKDF2, 600,000 rounds, SHA-256, a 16-byte salt; at least 12 characters), beside a short unlock code. The unlock code is **not a secret**: it only finds the row. The passphrase is the protection. Anyone holding the database token can copy every `chat_keys` row and guess passphrases offline; the cost of each guess and the 12-character minimum are what bound that, so choose a long passphrase. A forgotten passphrase cannot be recovered.
+- **A chat identity this browser cannot open.** If the stored identity can no longer be opened here (for example the device key was lost), nothing is saved until you choose **Start a new chat identity** in the chat; your earlier chats are not deleted here; they stay with the operator until they expire.
 
 **How long it is kept.** A chat is deleted when the retention period (`AIPM_AI_CHAT_RETENTION_DAYS`, default 30 days) has passed since its last change; a row without a readable change time is deleted at once. Three independent deleters do this:
 
