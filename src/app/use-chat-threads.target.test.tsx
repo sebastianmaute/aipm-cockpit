@@ -16,7 +16,17 @@ vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
   saveThread: vi.fn(async () => undefined),
   deleteThread: vi.fn(async () => undefined),
+  expireThreads: vi.fn(async () => undefined),
 }));
+
+// This browser's chat identity: one fixed identity for every database, so each save goes out at once.
+const { TEST_IDENTITY } = vi.hoisted(() => ({ TEST_IDENTITY: { ownerId: "owner-test", chatKey: new Uint8Array(32) } }));
+vi.mock("./chat-key-vault", () => ({
+  chatVaultAvailable: () => true,
+  readChatIdentity: vi.fn(async () => ({ kind: "found", identity: TEST_IDENTITY })),
+  ensureChatIdentity: vi.fn(async () => TEST_IDENTITY),
+}));
+const CHAT_ON = { retentionDays: 30, retentionInvalid: false, recoveryKey: "recovery-spki", recoveryKeyInvalid: false };
 
 const loadThreadsMock = loadThreads as unknown as ReturnType<typeof vi.fn>;
 const saveThreadMock = saveThread as unknown as ReturnType<typeof vi.fn>;
@@ -86,6 +96,7 @@ function renderChatThreads(overrides: Partial<UseChatThreadsDeps> = {}) {
     cancelledRef: { current: false },
     abortRef: { current: null },
     confirm: vi.fn(async () => true),
+    chat: CHAT_ON,
     ...overrides,
   };
   const hook = renderHook((props: UseChatThreadsDeps) => useChatThreads(props), { initialProps });
@@ -223,7 +234,7 @@ describe("useChatThreads — writes stay in the Turso database they started in (
     });
 
     expect(deleteThreadMock).toHaveBeenCalledTimes(1);
-    expect(deleteThreadMock).toHaveBeenCalledWith(CFG_A2, "t1", "default", null);
+    expect(deleteThreadMock).toHaveBeenCalledWith(CFG_A2, "t1", "default", "owner-test");
   });
 
   it("a send started after a config change persists to the new database", async () => {
@@ -260,7 +271,7 @@ describe("useChatThreads — writes stay in the Turso database they started in (
     });
 
     expect(deleteThreadMock).toHaveBeenCalledTimes(1);
-    expect(deleteThreadMock).toHaveBeenCalledWith(CFG_A, "t1", "default", null);
+    expect(deleteThreadMock).toHaveBeenCalledWith(CFG_A, "t1", "default", "owner-test");
   });
 
   it("a turn finished after a config change settles its rename edit under the database it started in", async () => {
@@ -294,7 +305,7 @@ describe("useChatThreads — a load retry outliving a Turso target change (§604
     await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
 
     act(() => result.current.retryLoad());
-    expect(loadThreadsMock).toHaveBeenLastCalledWith(CFG_A, "default", null);
+    expect(loadThreadsMock).toHaveBeenLastCalledWith(CFG_A, "default", TEST_IDENTITY);
     rerender({ ...initialProps, tursoConfig: CFG_B });
     await waitFor(() => expect(result.current.threads).toEqual(inB));
     await settle(() => retry.resolve([thread("t1", { name: "Stale in A" })]));

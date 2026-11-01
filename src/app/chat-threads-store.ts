@@ -60,23 +60,29 @@ export async function loadThreads(
   return decodeThreadRows(results[CHAT_THREADS_DDL.length], id);
 }
 
+/** What a save did: wrote the row, or changed nothing because the id is held by another owner
+ *  (or another project) — the owner-guarded upsert then matches no row. */
+export type SaveThreadOutcome = "saved" | "not-owned";
+
 /** Seal and upsert `th` as `id`'s thread, then prune `id`'s threads in that
  *  project beyond the cap. Without an identity or a recovery key it refuses
- *  before any network call — there is no plaintext write path. */
+ *  before any network call — there is no plaintext write path. Reports
+ *  "not-owned" when the server says the upsert changed no row. */
 export async function saveThread(
   config: TursoConfig | null,
   th: ChatThread,
-  id: ChatIdentity | null,
-  recoverySpki: string | null,
-): Promise<void> {
-  if (id === null || !recoverySpki) {
+  id: ChatIdentity,
+  recoverySpki: string,
+): Promise<SaveThreadOutcome> {
+  if (!id?.ownerId || !recoverySpki) {
     throw new Error("saveThread: a chat identity and a recovery key are required");
   }
   const row = await encodeThreadRow(th, id, recoverySpki);
-  await run(config, [
+  const results = await run(config, [
     ...upsertThreadStatements(row),
     ...pruneThreadsStatements(th.projectId, id.ownerId, CHAT_THREAD_CAP),
   ]);
+  return results[CHAT_THREADS_DDL.length]?.response?.result?.affected_row_count === 0 ? "not-owned" : "saved";
 }
 
 /** Delete one thread of `ownerId` (or a legacy owner-less one). Without an
@@ -85,7 +91,7 @@ export async function deleteThread(
   config: TursoConfig | null,
   id: string,
   projectId: string,
-  ownerId: string | null,
+  ownerId: string,
 ): Promise<void> {
   if (!ownerId) throw new Error("deleteThread: an owner id is required");
   await run(config, deleteThreadStatements(id, projectId, ownerId));

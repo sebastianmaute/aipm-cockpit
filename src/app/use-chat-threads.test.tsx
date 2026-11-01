@@ -19,7 +19,17 @@ vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
   saveThread: vi.fn(async () => undefined),
   deleteThread: vi.fn(async () => undefined),
+  expireThreads: vi.fn(async () => undefined),
 }));
+
+// This browser's chat identity: one fixed identity for every database, so each save goes out at once.
+const { TEST_IDENTITY } = vi.hoisted(() => ({ TEST_IDENTITY: { ownerId: "owner-test", chatKey: new Uint8Array(32) } }));
+vi.mock("./chat-key-vault", () => ({
+  chatVaultAvailable: () => true,
+  readChatIdentity: vi.fn(async () => ({ kind: "found", identity: TEST_IDENTITY })),
+  ensureChatIdentity: vi.fn(async () => TEST_IDENTITY),
+}));
+const CHAT_ON = { retentionDays: 30, retentionInvalid: false, recoveryKey: "recovery-spki", recoveryKeyInvalid: false };
 
 const loadThreadsMock = loadThreads as unknown as ReturnType<typeof vi.fn>;
 const saveThreadMock = saveThread as unknown as ReturnType<typeof vi.fn>;
@@ -59,6 +69,7 @@ function renderChatThreads(overrides: Partial<UseChatThreadsDeps> = {}) {
     cancelledRef: { current: false },
     abortRef: { current: null },
     confirm,
+    chat: CHAT_ON,
     ...overrides,
   };
   const hook = renderHook((props: UseChatThreadsDeps) => useChatThreads(props), {
@@ -169,7 +180,7 @@ describe("useChatThreads — requestDeleteThread", () => {
     expect(setDisplay).toHaveBeenCalledWith(t2.display);
     // Scoped by project too — an id-only delete is precisely what this
     // guards against (defense-in-depth against a cross-project id collision).
-    expect(deleteThreadMock).toHaveBeenCalledWith(null, "t1", "default", null);
+    await waitFor(() => expect(deleteThreadMock).toHaveBeenCalledWith(null, "t1", "default", "owner-test"));
   });
 
   it("a declined confirm does nothing", async () => {
@@ -343,6 +354,7 @@ describe("useChatThreads — retry (save failure vs. load failure)", () => {
         cancelledRef,
         abortRef,
         confirm,
+        chat: CHAT_ON,
         ...over,
       };
     };
@@ -1188,6 +1200,7 @@ describe("useChatThreads — busy-persist effect: existing-thread name reuse", (
         cancelledRef,
         abortRef,
         confirm,
+        chat: CHAT_ON,
         ...over,
       };
     };

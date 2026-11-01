@@ -27,11 +27,13 @@ import { type Lang, t } from "./i18n";
 import type { ApiMessage, DisplayItem } from "./chat-api";
 import type { TursoConfig } from "./turso-config";
 import type { ConfirmFn } from "./confirm-dialog";
-// No chat identity or recovery key reaches this hook yet: loads pass `null` (legacy plaintext
-// rows only), saves pass `null, null` and deletes pass a `null` owner, which `saveThread` and
-// `deleteThread` refuse before any network call — a thread is never stored in plaintext.
-// Wiring the identity in replaces these nulls.
-import { loadThreads, saveThread, deleteThread as deleteThreadRow } from "./chat-threads-store";
+import {
+  loadThreads, saveThread, deleteThread as deleteThreadRow, expireThreads,
+} from "./chat-threads-store";
+import type { ChatSettings } from "./ai-chat-retention-config";
+import type { ChatIdentity } from "./chat-thread-codec";
+import { chatVaultAvailable, ensureChatIdentity, readChatIdentity } from "./chat-key-vault";
+import { retentionCutoff } from "./chat-threads-schema";
 import {
   type ChatThread, newThreadId, deriveThreadName, normalizeThreadName, stripAttachmentsForPersistence,
 } from "./chat-threads";
@@ -98,6 +100,33 @@ function adoptConfirmedNames(
   }
 }
 
+/** Whether this browser saves chats: "on", or why not. Anything but "on" means no save, delete or
+ *  expiry is sent; the panel shows one line saying why. */
+export type ChatPersistence = "on" | "no-recovery-key" | "no-crypto" | "status-unknown";
+
+/** The persistence for the server's chat settings (`null` = not known yet) and whether this browser
+ *  can encrypt. Checked in this order: status unknown, no crypto, no recovery key. */
+export function chatPersistence(chat: ChatSettings | null, canEncrypt: boolean): ChatPersistence {
+  if (chat === null) return "status-unknown";
+  if (!canEncrypt) return "no-crypto";
+  if (!chat.recoveryKey) return "no-recovery-key";
+  return "on";
+}
+
+/** What a save needs from the server's settings, present only while persistence is "on". */
+type SaveGate = { recoveryKey: string; retentionDays: number };
+
+/** This browser's identity per database URL, as last read here; `null` identity = none stored yet. */
+type VaultRead = { url: string; kind: "found" | "absent" | "unavailable"; identity: ChatIdentity | null };
+
+/** Deletes the project's threads older than the retention period. Never blocks the caller: a failure
+ *  is logged without any detail. */
+function expireOldThreads(config: TursoConfig | null, retentionDays: number, projectId: string): void {
+  Promise.resolve()
+    .then(() => expireThreads(config, retentionCutoff(new Date(), retentionDays), projectId))
+    .catch(() => logDiag("warn", "chat.retentionExpireFailed"));
+}
+
 /** Live render-scope values the Turso thread flows read each render. */
 export interface UseChatThreadsDeps {
   tursoMode: boolean;
@@ -124,6 +153,8 @@ export interface UseChatThreadsDeps {
   cancelledRef: React.MutableRefObject<boolean>;
   abortRef: React.MutableRefObject<AbortController | null>;
   confirm: ConfirmFn;
+  /** The server's saved-chat settings; `null` until the status has answered. */
+  chat: ChatSettings | null;
 }
 
 export function useChatThreads(deps: UseChatThreadsDeps) {
@@ -132,7 +163,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // locals, never on `deps.x`.
   const {
     tursoMode, tursoConfig, projectId, lang, busy, history, display,
-    setHistory, setDisplay, cancelledRef, abortRef, confirm,
+    setHistory, setDisplay, cancelledRef, abortRef, confirm, chat,
   } = deps;
 
   // Monotonic count of COMMITTED sends, bumped by ensureThreadForSend — which
@@ -401,6 +432,84 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   const landedRef = useRef<Map<string, LandedWrite>>(new Map());
   const landingsRef = useRef(0);
 
+  // This browser's identity for the current database, as last read from the vault. Read before every
+  // load (a load never creates one); a save creates one on first use (`ensureChatIdentity`).
+  const [vaultRead, setVaultRead] = useState<VaultRead | null>(null);
+  const vaultReadRef = useRef(vaultRead);
+  useEffect(() => {
+    vaultReadRef.current = vaultRead;
+  }, [vaultRead]);
+  const currentUrl = tursoConfig?.httpUrl ?? "";
+  const vaultLocked = vaultRead?.url === currentUrl && vaultRead.kind === "unavailable";
+  const persistence = chatPersistence(chat, chatVaultAvailable() && !vaultLocked);
+  const saveGate: SaveGate | null = persistence === "on" && chat?.recoveryKey
+    ? { recoveryKey: chat.recoveryKey, retentionDays: chat.retentionDays }
+    : null;
+  // For the load effect's expiry, which must not refire the load when the settings change.
+  const saveGateRef = useRef(saveGate);
+  useEffect(() => {
+    saveGateRef.current = saveGate;
+  });
+
+  /** Reads this browser's identity for `config`'s database, then loads the threads it may see: its
+   *  own and legacy owner-less ones. A row owned by anybody else is dropped here as well as in the
+   *  decoder, so it can never reach the list, the registry, search or the recap. */
+  async function loadVisibleThreads(config: TursoConfig | null, pid: string): Promise<ChatThread[]> {
+    const url = config?.httpUrl ?? "";
+    const read = await readChatIdentity(url);
+    const identity = read.kind === "found" ? read.identity : null;
+    const next: VaultRead = { url, kind: read.kind, identity };
+    vaultReadRef.current = next;
+    setVaultRead(next);
+    const loaded = await loadThreads(config, pid, identity);
+    return loaded.filter((th) => th.ownerId === null || th.ownerId === identity?.ownerId);
+  }
+  const loadVisibleRef = useRef(loadVisibleThreads);
+  useEffect(() => {
+    loadVisibleRef.current = loadVisibleThreads;
+  });
+
+  /** The identity already read for `config`'s database, if any — synchronous, so a write that has
+   *  one starts without waiting. */
+  function knownIdentity(config: TursoConfig | null): ChatIdentity | null {
+    const known = vaultReadRef.current;
+    return known?.url === (config?.httpUrl ?? "") ? known.identity : null;
+  }
+
+  /** The identity a write to `config`'s database uses, created on first use. Throws when this browser
+   *  cannot encrypt (and records that, so persistence reads "no-crypto"). */
+  async function writeIdentity(config: TursoConfig | null): Promise<ChatIdentity> {
+    const url = config?.httpUrl ?? "";
+    const identity = await ensureChatIdentity(url);
+    const next: VaultRead = identity
+      ? { url, kind: "found", identity }
+      : { url, kind: "unavailable", identity: null };
+    vaultReadRef.current = next;
+    setVaultRead(next);
+    if (!identity) throw new Error("chat identity unavailable");
+    return identity;
+  }
+
+  /** The save of `th`: expiry first (never blocking), then the encrypted upsert as this browser's
+   *  owner. A save the server says changed no row means another owner holds the id now. */
+  function saveAction(config: TursoConfig | null, th: ChatThread, gate: SaveGate): () => Promise<void> {
+    return async () => {
+      expireOldThreads(config, gate.retentionDays, th.projectId);
+      const identity = knownIdentity(config) ?? (await writeIdentity(config));
+      const outcome = await saveThread(config, th, identity, gate.recoveryKey);
+      if (outcome === "not-owned") dropNotOwned(th.id);
+    };
+  }
+
+  /** The thread `id` is no longer this browser's: off the list (and so off the registry). When it is
+   *  the active one and no send is running, the conversation on screen stays, under no thread, so the
+   *  next send starts a new one of this owner's. */
+  function dropNotOwned(id: string): void {
+    logDiag("warn", "chat.threadNotOwned");
+    setThreads((prev) => prev.filter((th) => th.id !== id));
+    if (threadIdRef.current === id && abortRef.current === null) setActiveThreadId(null);
+  }
+
   // Fire a Turso WRITE (save or delete), tracking it as the retry target
   // (keyed by the thread id it targets) on failure and clearing just THAT
   // key on success — the error banner only clears once nothing is left
@@ -478,9 +587,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // fetch), or a "New chat" / thread click.
     const startedOn = threadIdRef.current;
     const landingsAtStart = landingsRef.current;
-    loadThreads(tursoConfig, projectId, null)
+    loadVisibleRef.current(tursoConfig, projectId)
       .then((loaded) => {
         if (cancelled) return;
+        // Retention: once the list is in, the project's threads past the server's period go. Only
+        // while chats are saved at all — never with a guessed period.
+        const gate = saveGateRef.current;
+        if (gate) expireOldThreads(tursoConfig, gate.retentionDays, projectId);
         setThreadsError(false);
         setLoadFailed(false);
         // MERGE, not bail, when something adopted a different thread while
@@ -700,7 +813,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       sendSeqRef.current !== seqAtClick ||
       persistInFlightAtClick ||
       persistSeqRef.current !== persistSeqAtClick;
-    loadThreads(tursoConfig, projectId, null)
+    loadVisibleThreads(tursoConfig, projectId)
       .then((loaded) => {
         // §313. A project switch while this was in flight means every setState
         // below would write p1's data under p2 — including setLoadedProjectId,
@@ -788,8 +901,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       display,
     };
     if (!movedAway) setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
+    if (!saveGate) return;
     const scope = renameScope(turnConfig);
-    runPersist(id, () => saveThread(writeConfig(turnConfig), thread, null, null), (owns) => confirmSavedName(scope, id, thread.name, owns));
+    runPersist(id, saveAction(writeConfig(turnConfig), thread, saveGate), (owns) => confirmSavedName(scope, id, thread.name, owns));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
 
@@ -884,8 +998,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       display: sentDisplay,
     };
     setThreads((prev) => (prev.some((th) => th.id === id) ? prev : [inserted, ...prev]));
+    if (!saveGate) return id;
     const scope = renameScope();
-    runPersist(id, () => saveThread(tursoConfig, inserted, null, null), (owns) => confirmSavedName(scope, id, inserted.name, owns));
+    runPersist(id, saveAction(tursoConfig, inserted, saveGate), (owns) => confirmSavedName(scope, id, inserted.name, owns));
     return id;
   }
 
@@ -939,7 +1054,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     const config = tursoConfig;
     const scope = renameScope(config);
     if (scope) trackPendingEdit(scope, { kind: RENAME_KIND, id, base: confirmedName(target), value: name });
-    runPersist(id, () => saveThread(writeConfig(config), updated, null, null), (owns) => confirmSavedName(scope, id, name, owns));
+    if (!saveGate) return;
+    runPersist(id, saveAction(writeConfig(config), updated, saveGate), (owns) => confirmSavedName(scope, id, name, owns));
   }
 
   // §626. Re-issues the renames typed before the last close, once a load for this project has
@@ -1021,13 +1137,19 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // Scope the delete by project (defense-in-depth against a project-id
     // collision in the id space) — `target` was resolved from `threads`
     // before the confirm await and still carries the row's own projectId.
-    runPersist(id, () => deleteThreadRow(writeConfig(deleteConfig), id, target.projectId, null));
+    if (!saveGate) return;
+    runPersist(id, async () => {
+      const config = writeConfig(deleteConfig);
+      const identity = knownIdentity(config) ?? (await writeIdentity(config));
+      await deleteThreadRow(config, id, target.projectId, identity.ownerId);
+    });
   }
 
   return {
     threads,
     activeThreadId,
     threadsError,
+    persistence,
     setThreadsError,
     setThreads,
     threadIdRef,

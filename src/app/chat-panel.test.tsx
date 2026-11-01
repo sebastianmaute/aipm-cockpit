@@ -14,6 +14,9 @@ import { __setAiStatusRequestForTests } from "./ai-status-request";
 import { answerAiStatusDirect, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 // §717 — an unlocked key lives in a page-wide store now, not in one panel: forget it after every test.
 afterEach(() => { clearSessionAiKey(); });
+// Saved chats need the server's chat settings with a recovery key; every test starts with them known.
+const CHAT_ON = { retentionDays: 30, retentionInvalid: false, recoveryKey: "recovery-spki", recoveryKeyInvalid: false };
+beforeEach(() => { setAiDeploymentState({ ...DIRECT_AI_STATUS, chat: CHAT_ON }); });
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
@@ -64,6 +67,14 @@ vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
   saveThread: vi.fn(async () => undefined),
   deleteThread: vi.fn(async () => undefined),
+  expireThreads: vi.fn(async () => undefined),
+}));
+
+// This browser's chat identity: none stored yet (so a load reads legacy threads only), one created on save.
+vi.mock("./chat-key-vault", () => ({
+  chatVaultAvailable: () => true,
+  readChatIdentity: vi.fn(async () => ({ kind: "absent" })),
+  ensureChatIdentity: vi.fn(async () => ({ ownerId: "owner-test", chatKey: new Uint8Array(32) })),
 }));
 
 // Default double of the shared usage context — no-op `recordChatSend` and
@@ -2246,6 +2257,25 @@ describe("ChatPanel — Turso thread persistence", () => {
       />,
     );
   }
+
+  it("says why chats are not saved, and only in Turso mode", async () => {
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, chat: null });
+    const { unmount } = renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    expect(await screen.findByText("Chats are not saved until the AI settings have loaded.")).toBeInTheDocument();
+    unmount();
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, chat: { ...CHAT_ON, recoveryKey: null } });
+    const second = renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    expect(await screen.findByText("Chats are not saved: the operator has not set a recovery key.")).toBeInTheDocument();
+    second.unmount();
+    renderChatPanel({});
+    expect(screen.queryByText(/Chats are not saved/)).not.toBeInTheDocument();
+  });
+
+  it("shows no not-saved line while chats are saved", async () => {
+    renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    await waitFor(() => expect(loadThreads).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/Chats are not saved/)).not.toBeInTheDocument();
+  });
 
   it("does not fetch threads in file mode (tursoMode omitted) — existing behavior untouched", () => {
     renderChatPanel({});

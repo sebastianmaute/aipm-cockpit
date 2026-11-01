@@ -82,14 +82,26 @@ describe("chat-threads-store", () => {
     expect(values(prune)).toEqual(["p", "alice", "p", "alice", "50"]);
   });
 
+  it("saveThread reports not-owned when the owner-guarded upsert changed no row", async () => {
+    const upsertResult = (affected: number) => async (_c: unknown, stmts: SqlStmt[]) =>
+      stmts.map((s) => ({
+        type: "ok",
+        response: { type: "execute", result: { cols: [], rows: [], affected_row_count: /^INSERT INTO chat_threads/.test(s.sql) ? affected : 0 } },
+      }));
+    pipe.mockImplementation(upsertResult(0));
+    await expect(saveThread(cfg, th, alice, spkiB64)).resolves.toBe("not-owned");
+    pipe.mockImplementation(upsertResult(1));
+    await expect(saveThread(cfg, th, alice, spkiB64)).resolves.toBe("saved");
+  });
+
   it("saveThread emits no standalone row-delete — the upsert must be one atomic statement", async () => {
     await saveThread(cfg, th, alice, spkiB64);
     expect(lastStmts().some((s) => /^DELETE FROM chat_threads WHERE id = \?$/i.test(s.sql))).toBe(false);
   });
 
   it("saveThread refuses without an identity or a recovery key and writes nothing", async () => {
-    await expect(saveThread(cfg, th, null, spkiB64)).rejects.toThrow();
-    await expect(saveThread(cfg, th, alice, null)).rejects.toThrow();
+    await expect(saveThread(cfg, th, null as never, spkiB64)).rejects.toThrow();
+    await expect(saveThread(cfg, th, alice, null as never)).rejects.toThrow();
     await expect(saveThread(cfg, th, alice, "")).rejects.toThrow();
     expect(pipe).not.toHaveBeenCalled();
   });
@@ -104,7 +116,7 @@ describe("chat-threads-store", () => {
   });
 
   it("deleteThread refuses without an owner and writes nothing", async () => {
-    await expect(deleteThread(cfg, "t1", "p", null)).rejects.toThrow();
+    await expect(deleteThread(cfg, "t1", "p", null as never)).rejects.toThrow();
     await expect(deleteThread(cfg, "t1", "p", "")).rejects.toThrow();
     expect(pipe).not.toHaveBeenCalled();
   });
