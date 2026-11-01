@@ -66,6 +66,8 @@ export interface CrossProjectDeps {
 
 interface Loaded {
   projectId: string;
+  /** Identity of the database the result was read from; a config change hides it. */
+  configKey: string;
   others: OtherProjectData[];
   links: PersonLinkRow[];
   failures: { projectId: string; projectName: string }[];
@@ -76,6 +78,8 @@ const NO_MATCHES = new Map<number, PersonMatch>();
 
 const defaultLoad = (config: TursoConfig, projectId: string): Promise<Workspace> =>
   new TursoBackend(config, projectId).load();
+
+const configKeyOf = (c: TursoConfig): string => `${c.httpUrl}|${c.authToken}`;
 
 const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
@@ -92,18 +96,25 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   } = deps;
   const load = deps.load ?? defaultLoad;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [loading, setLoading] = useState(false);
-  const inFlightRef = useRef(false);
+  const [loadingFor, setLoadingFor] = useState<string | null>(null);
+  // The run that currently owns the in-flight state; a run from an older scope never clears a newer one.
+  const runRef = useRef<{ id: number; epoch: number } | null>(null);
+  const runCounterRef = useRef(0);
 
   const available = portfolioMode === "turso" && tursoConfig !== null && currentProjectId !== null && projects.length > 1;
   // A result belongs to the project it was loaded for; after a switch it is invisible.
-  const effective = loaded !== null && loaded.projectId === currentProjectId ? loaded : null;
+  const configKey = tursoConfig ? configKeyOf(tursoConfig) : null;
+  const effective =
+    available && loaded !== null && loaded.projectId === currentProjectId && loaded.configKey === configKey ? loaded : null;
 
   const request = useCallback((): void => {
-    if (!available || loadPending || inFlightRef.current || !tursoConfig || currentProjectId === null) return;
-    inFlightRef.current = true;
-    setLoading(true);
+    if (!available || loadPending || !tursoConfig || currentProjectId === null) return;
     const startEpoch = getScopeEpoch();
+    if (runRef.current !== null && runRef.current.epoch === startEpoch) return; // a run for this scope is already going
+    const runId = ++runCounterRef.current;
+    runRef.current = { id: runId, epoch: startEpoch };
+    setLoadingFor(currentProjectId);
+    const key = configKeyOf(tursoConfig);
     const projectId = currentProjectId;
     const run = async (): Promise<void> => {
       try {
@@ -126,12 +137,14 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
         }
         const links = await loadPersonLinks(tursoConfig);
         if (isScopeStale(getScopeEpoch, startEpoch)) return;
-        setLoaded({ projectId, others, links, failures });
+        setLoaded({ projectId, configKey: key, others, links, failures });
       } catch (err) {
         logDiag("error", "crossProject.linksLoadFailed", { message: messageOf(err) });
       } finally {
-        inFlightRef.current = false;
-        setLoading(false);
+        if (runRef.current?.id === runId) {
+          runRef.current = null;
+          setLoadingFor(null);
+        }
       }
     };
     void run();
@@ -178,7 +191,8 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   };
 
   // Write first, then reflect: a throwing store leaves the in-memory links as they were.
-  const commit = async (write: () => Promise<void>, next: (links: PersonLinkRow[]) => PersonLinkRow[]): Promise<void> => {
+  const commit = async (write: () => Promise<void>, projectId: string, next: (links: PersonLinkRow[]) => PersonLinkRow[]): Promise<void> => {
+    const startEpoch = getScopeEpoch();
     try {
       await write();
     } catch (err) {
@@ -186,7 +200,9 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
       onWriteError?.(err);
       return;
     }
-    setLoaded((prev) => (prev ? { ...prev, links: next(prev.links) } : prev));
+    // The stored write stands; only the in-memory reflect is dropped when the scope moved on.
+    if (isScopeStale(getScopeEpoch, startEpoch)) return;
+    setLoaded((prev) => (prev && prev.projectId === projectId ? { ...prev, links: next(prev.links) } : prev));
   };
 
   const decide = async (hereId: number, rel: Relation, verdict: PersonLinkRow["verdict"]): Promise<void> => {
@@ -195,21 +211,23 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     const key = canonicalPair(row.projectA, row.resourceA, row.projectB, row.resourceB);
     await commit(
       () => savePersonLink(tursoConfig, row),
+      currentProjectId ?? "",
       (links) => [...links.filter((l) => !sameLink(l, key)), row],
     );
   };
 
   const undo = async (hereId: number, rel: Relation): Promise<void> => {
-    if (!currentProjectId) return;
+    if (!currentProjectId || !effective) return;
     const pair = { projectA: currentProjectId, resourceA: hereId, projectB: rel.projectId, resourceB: rel.resourceId };
     const key = canonicalPair(pair.projectA, pair.resourceA, pair.projectB, pair.resourceB);
     await commit(
       () => deletePersonLink(tursoConfig, pair),
+      currentProjectId,
       (links) => links.filter((l) => !sameLink(l, key)),
     );
   };
 
-  const status: CrossProjectStatus = !available ? "unavailable" : loading ? "loading" : effective ? "ready" : "idle";
+  const status: CrossProjectStatus = !available ? "unavailable" : loadingFor === currentProjectId ? "loading" : effective ? "ready" : "idle";
   return {
     status,
     failures: effective?.failures ?? NO_FAILURES,

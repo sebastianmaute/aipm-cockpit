@@ -29,7 +29,7 @@ const PROJECTS = [
 const HERE_RES = [res(1, "Ann", "Lee")];
 
 function setup(over: Partial<CrossProjectDeps> = {}) {
-  const load = vi.fn(async (_c: TursoConfig, id: string) => ws([res(10, "Ann", "Lee", { email: id === "p-b" ? "" : "" })]));
+  const load = vi.fn(async () => ws([res(10, "Ann", "Lee")]));
   const deps: CrossProjectDeps = {
     tursoConfig: CONFIG, portfolioMode: "turso", projects: PROJECTS, currentProjectId: "p-here",
     resources: HERE_RES, plan: PLAN, workdayHours: 8, holidaySet: new Set(), loadPending: false,
@@ -180,5 +180,48 @@ describe("useCrossProjectPeople", () => {
     expect(onWriteError).toHaveBeenCalledTimes(1);
     expect(s.hook.result.current.matches.get(1)?.matched).toEqual([]);
     expect(s.hook.result.current.status).toBe("ready");
+  });
+  test("a request after a scope change starts, and the dropped run never decides the new status", async () => {
+    let epoch = 0;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => { release = r; });
+    let first = true;
+    const load = vi.fn(async (_c: TursoConfig, id: string) => {
+      if (first && id === "p-b") { first = false; await gate; }
+      return ws([res(10, "Ann", "Lee")]);
+    });
+    const { hook } = setup({ load, getScopeEpoch: () => epoch });
+    act(() => hook.result.current.request());
+    epoch += 1;
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    await act(async () => { release(); await gate; });
+    expect(hook.result.current.status).toBe("ready");
+    expect(hook.result.current.matches.get(1)?.suggestions).toHaveLength(2);
+  });
+
+  test("confirm whose write straddles a scope change leaves the in-memory links alone", async () => {
+    let epoch = 0;
+    const s = setup({ getScopeEpoch: () => epoch });
+    act(() => s.hook.result.current.request());
+    await waitFor(() => expect(s.hook.result.current.status).toBe("ready"));
+    vi.mocked(savePersonLink).mockImplementationOnce(async () => { epoch += 1; });
+    await act(async () => s.hook.result.current.confirm(1, { projectId: "p-b", projectName: "B", resourceId: 10 }));
+    expect(savePersonLink).toHaveBeenCalledTimes(1);
+    expect(s.hook.result.current.matches.get(1)?.matched).toEqual([]);
+  });
+
+  test.each([
+    ["portfolio mode off", { portfolioMode: "file" as const }],
+    ["a different Turso config", { tursoConfig: { httpUrl: "https://other.turso.io", authToken: "t" } as TursoConfig }],
+  ])("a loaded result is hidden after %s, and confirm writes nothing", async (_n, change) => {
+    const { hook, deps } = await ready();
+    hook.rerender({ ...deps, ...change });
+    expect(hook.result.current.matches.size).toBe(0);
+    expect(hook.result.current.elsewhere(1)).toEqual([]);
+    await act(async () => hook.result.current.confirm(1, { projectId: "p-b", projectName: "B", resourceId: 10 }));
+    await act(async () => hook.result.current.undo(1, { projectId: "p-b", projectName: "B", resourceId: 10 }));
+    expect(savePersonLink).not.toHaveBeenCalled();
+    expect(deletePersonLink).not.toHaveBeenCalled();
   });
 });
