@@ -162,18 +162,27 @@ export function AllocPlanEffect({ lang, effect, currency, nameOf }: AllocPlanEff
             <li key={`${o.resourceId}:${o.periodKey}`} className="flex items-start gap-1.5 text-xs text-foreground">
               <ExclamationTriangleIcon aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                {t(
-                  lang,
-                  "allocPlanOverCapacity",
-                  nameOf(o.resourceId),
-                  formatMovedHours(o.hours, lang),
-                  formatMovedHours(o.capacityHours, lang),
-                  defaultPeriodLabel(o.periodKey, lang),
-                )}
+                {o.elsewhereHours > 0
+                  ? t(
+                      lang,
+                      "allocPlanOverCapacityElsewhere",
+                      nameOf(o.resourceId),
+                      formatMovedHours(o.hours, lang),
+                      formatMovedHours(o.capacityHours, lang),
+                      defaultPeriodLabel(o.periodKey, lang),
+                      formatMovedHours(o.elsewhereHours, lang),
+                    )
+                  : t(
+                      lang,
+                      "allocPlanOverCapacity",
+                      nameOf(o.resourceId),
+                      formatMovedHours(o.hours, lang),
+                      formatMovedHours(o.capacityHours, lang),
+                      defaultPeriodLabel(o.periodKey, lang),
+                    )}
               </span>
               {o.elsewhereHours > 0 && (
                 <span className="inline-flex items-center gap-1 text-muted-foreground">
-                  <span>{t(lang, "allocElsewhereLabel", formatMovedHours(o.elsewhereHours, lang))}</span>
                   <InfoTooltip
                     text={t(lang, "allocElsewhereTip")}
                     label={`${t(lang, "allocElsewhereLabel", formatMovedHours(o.elsewhereHours, lang))} – ${nameOf(o.resourceId)} (#${o.resourceId}) – ${defaultPeriodLabel(o.periodKey, lang)}`}

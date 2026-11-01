@@ -9,10 +9,12 @@
 //
 // ★ A request captures `getScopeEpoch()` before its first await and re-checks it
 //   after every await: a project switch mid-load drops the result (status goes
-//   back to idle). It also refuses to start while `loadPending`.
+//   back to idle). It refuses to start while `loadPending`, but REMEMBERS the ask and starts it when the hold ends.
+// ★ A link write that lands while a reload is in flight is re-applied over the reloaded links: the reload may have
+//   read `person_links` before the write, and replacing the links would silently drop it from memory.
 // ★ A failed link write leaves the in-memory links untouched, so the matches never
 //   claim a state the store does not hold; `onWriteError` lets the caller toast.
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Resource, ResourcePlan } from "./types";
 import type { TursoConfig } from "./turso-config";
 import type { PortfolioMode } from "./portfolio-mode";
@@ -41,6 +43,8 @@ type Relation = Omit<PersonRelation, "via">;
 export interface CrossProjectPeople {
   status: CrossProjectStatus;
   failures: { projectId: string; projectName: string }[];
+  /** Turso portfolio mode, but this is the only project: nothing else to read (status "unavailable"). */
+  singleProject: boolean;
   /** The stored answers could not be loaded, so nothing was matched; cleared by the next request. */
   loadFailed: boolean;
   matches: Map<number, PersonMatch>;
@@ -107,19 +111,31 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   // The run that currently owns the in-flight state; a run from an older scope never clears a newer one.
   const runRef = useRef<{ id: number; epoch: number } | null>(null);
   const runCounterRef = useRef(0);
+  // A request made during the load hold, started when the hold ends.
+  const wantedRef = useRef(false);
+  // Link edits applied while a run is in flight; re-applied over what that run read.
+  const runWritesRef = useRef<((links: PersonLinkRow[]) => PersonLinkRow[])[]>([]);
 
-  const available = portfolioMode === "turso" && tursoConfig !== null && currentProjectId !== null && projects.length > 1;
+  const portfolio = portfolioMode === "turso" && tursoConfig !== null && currentProjectId !== null;
+  const available = portfolio && projects.length > 1;
+  const singleProject = portfolio && projects.length <= 1;
   // A result belongs to the project it was loaded for; after a switch it is invisible.
   const configKey = tursoConfig ? configKeyOf(tursoConfig) : null;
   const effective =
     available && loaded !== null && loaded.projectId === currentProjectId && loaded.configKey === configKey ? loaded : null;
 
   const request = useCallback((): void => {
-    if (!available || loadPending || !tursoConfig || currentProjectId === null) return;
+    if (!available || !tursoConfig || currentProjectId === null) return;
+    if (loadPending) {
+      wantedRef.current = true;
+      return;
+    }
+    wantedRef.current = false;
     const startEpoch = getScopeEpoch();
     if (runRef.current !== null && runRef.current.epoch === startEpoch) return; // a run for this scope is already going
     const runId = ++runCounterRef.current;
     runRef.current = { id: runId, epoch: startEpoch };
+    runWritesRef.current = [];
     setLoadingFor(currentProjectId);
     setLoadFailedFor(null);
     const key = configKeyOf(tursoConfig);
@@ -145,7 +161,8 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
         }
         const links = await loadPersonLinks(tursoConfig);
         if (isScopeStale(getScopeEpoch, startEpoch)) return;
-        setLoaded({ projectId, configKey: key, others, links, failures });
+        const merged = runWritesRef.current.reduce((acc, edit) => edit(acc), links);
+        setLoaded({ projectId, configKey: key, others, links: merged, failures });
       } catch (err) {
         logDiag("error", "crossProject.linksLoadFailed", { message: messageOf(err) });
         if (!isScopeStale(getScopeEpoch, startEpoch)) setLoadFailedFor(projectId);
@@ -158,6 +175,11 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     };
     void run();
   }, [available, loadPending, tursoConfig, currentProjectId, projects, getScopeEpoch, load]);
+
+  // The hold ended: start the load somebody asked for during it. Only calls request(); no state is set here.
+  useEffect(() => {
+    if (!loadPending && wantedRef.current) request();
+  }, [loadPending, request]);
 
   const matches = useMemo(
     () =>
@@ -219,6 +241,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     }
     // The stored write stands; only the in-memory reflect is dropped when the scope moved on.
     if (isScopeStale(getScopeEpoch, startEpoch)) return;
+    if (runRef.current !== null) runWritesRef.current.push(next);
     setLoaded((prev) => (prev && prev.projectId === projectId ? { ...prev, links: next(prev.links) } : prev));
   };
 
@@ -255,7 +278,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   const failures = effective?.failures ?? NO_FAILURES;
   const loadFailed = available && loadFailedFor === currentProjectId;
   return useMemo(
-    () => ({ status, failures, loadFailed, matches, elsewhere, nameOf, request, ...writers }),
-    [status, failures, loadFailed, matches, elsewhere, nameOf, request, writers],
+    () => ({ status, failures, singleProject, loadFailed, matches, elsewhere, nameOf, request, ...writers }),
+    [status, failures, singleProject, loadFailed, matches, elsewhere, nameOf, request, writers],
   );
 }

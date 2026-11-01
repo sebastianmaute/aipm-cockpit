@@ -90,11 +90,14 @@ export interface AllocElsewhere {
   status: "unavailable" | "idle" | "loading" | "ready";
   /** The stored answers could not be loaded (status is then idle). */
   loadFailed?: boolean;
+  /** Unavailable because this is the only project of a Turso portfolio, not because of the storage mode. */
+  singleProject?: boolean;
   figuresFor: (resourceId: number) => readonly ElsewhereFigure[];
   failures: readonly { projectName: string }[];
 }
 
 const ELSEWHERE_UNAVAILABLE = "ELSEWHERE: other projects cannot be seen in this storage mode";
+const ELSEWHERE_SINGLE_PROJECT = "ELSEWHERE: this is the only project, there are no other projects";
 const ELSEWHERE_NOT_LOADED = "ELSEWHERE: other projects were not loaded";
 const ELSEWHERE_LOAD_FAILED = "ELSEWHERE: other projects could not be loaded";
 const oneDecimal = (n: number): number => Math.round(n * 10) / 10;
@@ -213,7 +216,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
 /** The ELSEWHERE lines that are not per person: the mode or load state, and the projects that could not be read. */
 function elsewhereNotes(e: AllocElsewhere | undefined): string[] {
   if (!e) return [];
-  if (e.status === "unavailable") return [ELSEWHERE_UNAVAILABLE];
+  if (e.status === "unavailable") return [e.singleProject ? ELSEWHERE_SINGLE_PROJECT : ELSEWHERE_UNAVAILABLE];
   if (e.status !== "ready") return [e.loadFailed ? ELSEWHERE_LOAD_FAILED : ELSEWHERE_NOT_LOADED];
   if (e.failures.length === 0) return [];
   return [`ELSEWHERE: could not be read: ${e.failures.map((f) => JSON.stringify(oneLine(f.projectName))).join(", ")}`];

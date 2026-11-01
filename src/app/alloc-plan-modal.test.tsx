@@ -357,6 +357,7 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
       status: "ready",
       failures: [],
       loadFailed: false,
+      singleProject: false,
       matches: new Map(Object.entries(suggestions).map(([id, s]) => [Number(id), { matched: [], suggestions: s, rejected: [] }])),
       elsewhere: () => [],
       nameOf: () => "",
@@ -373,24 +374,36 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
   it("an over-capacity row shows the elsewhere hours, with a tooltip that explains them", () => {
     const effect: AltEffect = { ...noEffect, overCapacity: [{ resourceId: 2, periodKey: "2026-09", hours: 116, capacityHours: 176, elsewhereHours: 70 }] };
     render(<AllocPlanModal {...withMove({ effect })} />);
-    const row = screen.getByText("Liam Foster: 116 h of 176 h in Sep").closest("li")!;
-    expect(within(row).getByText(t("en-US", "allocElsewhereLabel", "70"))).toBeTruthy();
+    const row = screen.getByText("Liam Foster: 116 h + 70 h elsewhere of 176 h in Sep").closest("li")!;
     expect(within(row).getByRole("button", { name: "70 h in other projects – Liam Foster (#2) – Sep" })).toBeTruthy();
   });
 
   it("the elsewhere figure carries a help control for the cross-project people entry (§785)", () => {
     const effect: AltEffect = { ...noEffect, overCapacity: [{ resourceId: 2, periodKey: "2026-09", hours: 116, capacityHours: 176, elsewhereHours: 70 }] };
     render(<AllocPlanModal {...withMove({ effect })} />);
-    const row = screen.getByText("Liam Foster: 116 h of 176 h in Sep").closest("li")!;
+    const row = screen.getByText("Liam Foster: 116 h + 70 h elsewhere of 176 h in Sep").closest("li")!;
     const help = within(row).getByRole("button", { name: t("en-US", "modalHelpAbout", "70 h in other projects – Liam Foster (#2) – Sep") });
     fireEvent.click(help);
     expect(screen.getByText(t("en-US", "helpSecCrossProjectTitle"))).toBeTruthy();
   });
 
-  it("an over-capacity row without elsewhere hours shows neither", () => {
+  it("an over-capacity row without elsewhere hours keeps the plain wording (§785)", () => {
     const effect: AltEffect = { ...noEffect, overCapacity: [{ resourceId: 2, periodKey: "2026-09", hours: 180, capacityHours: 160, elsewhereHours: 0 }] };
     render(<AllocPlanModal {...withMove({ effect })} />);
     expect(screen.queryByText(/other projects/i)).toBeNull();
+    expect(screen.getByText("Liam Foster: 180 h of 160 h in Sep")).toBeTruthy();
+  });
+
+  it("says the other projects are not loaded when idle without a failure, and not once loaded or failed (§785)", () => {
+    const note = t("en-US", "allocElsewhereNotLoaded");
+    const { unmount } = render(<AllocPlanModal {...props({ stage: "input", crossProject: crossProject({ status: "idle" }) })} />);
+    expect(screen.getByText(note)).toBeTruthy();
+    unmount();
+    for (const cp of [crossProject({ status: "ready" }), crossProject({ status: "idle", loadFailed: true })]) {
+      const r = render(<AllocPlanModal {...props({ stage: "input", crossProject: cp })} />);
+      expect(screen.queryByText(note)).toBeNull();
+      r.unmount();
+    }
   });
 
   it("offers Confirm and Not the same for an unconfirmed suggestion of a person in the proposal, named per person and project", () => {
@@ -451,7 +464,7 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
       ],
     };
     render(<AllocPlanModal {...withMove({ effect })} />);
-    expect(screen.getAllByText(t("en-US", "allocElsewhereLabel", "70"))).toHaveLength(2);
+    expect(screen.getAllByText(/h \+ 70 h elsewhere of/)).toHaveLength(2);
     expectRowUniqueNames({ minControls: 2, roles: ["button"] });
   });
 

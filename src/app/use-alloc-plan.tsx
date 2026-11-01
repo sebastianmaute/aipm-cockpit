@@ -197,6 +197,10 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const onPropose = useCallback(async (instruction: string) => {
     if (peopleProtected || phase !== "input" || !instruction.trim()) return;
     if (crossProject?.status === "loading") return; // Run waits: the digest must carry the other projects' hours
+    if (crossProject?.status === "idle" && !crossProject.loadFailed) {
+      crossProject.request(); // never loaded (a request during the load hold is still pending): ask again, send nothing without the hours
+      return;
+    }
     const reqId = ++reqIdRef.current;
     const controller = new AbortController();
     abortRef.current = controller;
@@ -204,7 +208,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     try {
       const context = buildAllocContext({
         resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, instruction, today,
-        elsewhere: crossProject && { status: crossProject.status, figuresFor: crossProject.elsewhere, failures: crossProject.failures, loadFailed: crossProject.loadFailed },
+        elsewhere: crossProject && { status: crossProject.status, figuresFor: crossProject.elsewhere, failures: crossProject.failures, loadFailed: crossProject.loadFailed, singleProject: crossProject.singleProject },
       });
       const parsed = await runAllocProposal(context, { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() }, instruction, controller.signal);
       if (reqId !== reqIdRef.current) return; // superseded — discard

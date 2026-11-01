@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, cleanup } from "@testing-library/react";
 import { beforeAll, describe, it, expect, vi } from "vitest";
 import { useEffect, useRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -734,6 +734,7 @@ describe("ResourceEditModal — other projects (§785)", () => {
       status: "ready",
       failures: [],
       loadFailed: false,
+      singleProject: false,
       matches: new Map([[1, { matched: [], suggestions: [], rejected: [], ...match }]]),
       elsewhere: () => [],
       nameOf: (p, r) => names[`${p}:${r}`] ?? "",
@@ -762,6 +763,26 @@ describe("ResourceEditModal — other projects (§785)", () => {
     fireEvent.click(undo);
     expect(crossProject.undo).toHaveBeenCalledWith(1, expect.objectContaining(rel("p-c", "Borealis", 20)));
     expect(screen.getAllByRole("button", { name: new RegExp(en("resourceLinkUndo")) })).toHaveLength(1);
+  });
+
+  it("an e-mail match can be marked not the same person; a confirmed one gets Undo instead (§785)", () => {
+    const crossProject = cp({ matched: [{ ...rel("p-b", "Apollo", 10), via: "email" }, { ...rel("p-c", "Borealis", 20), via: "confirmed" }] });
+    setup({ crossProject });
+    const reject = screen.getAllByRole("button", { name: new RegExp("^" + en("resourceLinkReject")) });
+    expect(reject).toHaveLength(1);
+    expect(reject[0].getAttribute("aria-label")).toContain("Apollo");
+    fireEvent.click(reject[0]);
+    expect(crossProject.reject).toHaveBeenCalledWith(1, expect.objectContaining(rel("p-b", "Apollo", 10)));
+    expect(crossProject.undo).not.toHaveBeenCalled();
+  });
+
+  it("two e-mail matches get two different reject names, disabled while loading (§785)", () => {
+    const matched = [{ ...rel("p-b", "Apollo", 10), via: "email" as const }, { ...rel("p-c", "Borealis", 20), via: "email" as const }];
+    setup({ crossProject: cp({ matched }) });
+    expectRowUniqueNames({ minControls: 2 });
+    cleanup();
+    setup({ crossProject: cp({ matched }, { status: "loading" }) });
+    for (const b of screen.getAllByRole("button", { name: new RegExp("^" + en("resourceLinkReject")) })) expect(b).toBeDisabled();
   });
 
   it("shows suggestions naming the other person, with Confirm and Not the same that call the hook", () => {

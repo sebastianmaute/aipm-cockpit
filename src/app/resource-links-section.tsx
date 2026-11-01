@@ -71,6 +71,12 @@ export function ResourceLinksSection({ lang, crossProject, resourceId, name }: R
                 {undoLabel}
               </Button>
             )}
+            {rel.via === "email" && (
+              <Button variant="secondary" size="xs" type="button" disabled={loading} aria-label={`${reject} – ${who(rel)}`}
+                onClick={() => void crossProject.reject(resourceId, rel)}>
+                {reject}
+              </Button>
+            )}
           </li>
         ))}
         {suggestions.map((rel) => (

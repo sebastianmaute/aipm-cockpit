@@ -147,6 +147,7 @@ export function AllocPlanModal({
   };
   const hasRows = cells.length > 0 || moves.length > 0;
   const loadingElsewhere = crossProject?.status === "loading";
+  const notLoadedElsewhere = crossProject?.status === "idle" && !crossProject.loadFailed;
   const canPropose = instruction.trim().length > 0 && !busy && !loadingElsewhere;
   const proposalResourceIds = [...cells.map((c) => c.resourceId), ...moves.flatMap((m) => (m.fromResourceId === undefined ? [m.toResourceId] : [m.fromResourceId, m.toResourceId]))];
   // A ticked hour edit the ticked moves already write is not applied (its count shows under the effect), so it does
@@ -193,6 +194,7 @@ export function AllocPlanModal({
               className="w-full"
             />
           </label>
+          {!isPreview && notLoadedElsewhere && <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereNotLoaded")}</p>}
 
           {isPreview && (
             <>

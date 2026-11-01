@@ -936,6 +936,7 @@ describe("useAllocPlan — other projects (§785)", () => {
     status: "idle",
     failures: [],
     loadFailed: false,
+    singleProject: false,
     matches: new Map(),
     elsewhere: () => [],
     nameOf: () => "",
@@ -972,6 +973,36 @@ describe("useAllocPlan — other projects (§785)", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") }));
     await waitFor(() => expect(call.runAllocProposal).toHaveBeenCalled());
     expect(vi.mocked(call.runAllocProposal).mock.calls[0][0]).toContain('ELSEWHERE "Apollo": 2026-08=40');
+  });
+
+  it("Run does not send while nothing was loaded (idle, no failure): it asks again and sends nothing (§785)", async () => {
+    const c = cp({ status: "idle" });
+    render(wrap(c));
+    openAndType();
+    vi.mocked(c.request).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") }));
+    await Promise.resolve();
+    expect(call.runAllocProposal).not.toHaveBeenCalled();
+    expect(c.request).toHaveBeenCalledTimes(1);
+  });
+
+  it("Run still sends, with the could-not-load note, when the load itself failed (§785)", async () => {
+    vi.mocked(call.runAllocProposal).mockImplementation(() => new Promise(() => {}));
+    render(wrap(cp({ status: "idle", loadFailed: true })));
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") }));
+    await waitFor(() => expect(call.runAllocProposal).toHaveBeenCalled());
+    expect(vi.mocked(call.runAllocProposal).mock.calls[0][0]).toContain("ELSEWHERE: other projects could not be loaded");
+  });
+
+  it("a single-project portfolio tells Claude there are no other projects (§785)", async () => {
+    vi.mocked(call.runAllocProposal).mockImplementation(() => new Promise(() => {}));
+    render(wrap(cp({ status: "unavailable", singleProject: true })));
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") }));
+    await waitFor(() => expect(call.runAllocProposal).toHaveBeenCalled());
+    const lines = vi.mocked(call.runAllocProposal).mock.calls[0][0].split("\n").filter((l) => l.includes("ELSEWHERE"));
+    expect(lines).toEqual(["ELSEWHERE: this is the only project, there are no other projects"]);
   });
 
   it("unavailable: one ELSEWHERE line and Run is not blocked", async () => {

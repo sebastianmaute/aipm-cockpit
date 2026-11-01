@@ -189,6 +189,13 @@ one or two sentences and links to the entry.
 - Archived projects are not loaded: item 9 said there is no archived state, but the app keeps archived projects in a
   separate list (`tursoArchived`) and the loader reads only `tursoProjects`, so an archived project never contributes
   hours or suggestions.
+- An e-mail match can be marked "not the same person" from the person's entry (`reject` writes a `different` row, which
+  already overrides an e-mail match; Undo restores it).
+- A load requested during the load hold is remembered (`wantedRef` in `use-cross-project-people.ts`) and started when
+  the hold ends; Plan with AI does not send while the status is `idle` without `loadFailed`.
+- A single-project Turso portfolio reports `singleProject`, and the digest says there are no other projects.
+- A link write made during a reload is kept in `runWritesRef` and re-applied over the reloaded links.
+- The over-capacity line reads "<here> h + <elsewhere> h elsewhere of <available> h" when elsewhere hours exist.
 - The help link beside the tooltip is a `HelpIconButton` that opens the entry in place; an `InfoTooltip` cannot carry a link.
 
 ## Left to the builder

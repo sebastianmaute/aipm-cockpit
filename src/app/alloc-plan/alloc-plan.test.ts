@@ -1510,6 +1510,11 @@ describe("ELSEWHERE in the allocation digest (§785)", () => {
     expect(buildAllocContext(args({ status: "ready", figuresFor: () => [], failures: [] }))).not.toContain("ELSEWHERE");
   });
 
+  it("says there are no other projects for a single-project portfolio, not that the mode hides them", () => {
+    const text = buildAllocContext(args({ status: "unavailable", singleProject: true, figuresFor, failures: [] }));
+    expect(text.split("\n").filter((l) => l.includes("ELSEWHERE"))).toEqual(["ELSEWHERE: this is the only project, there are no other projects"]);
+  });
+
   it("says other projects cannot be seen in this storage mode, in one line", () => {
     const text = buildAllocContext(args({ status: "unavailable", figuresFor, failures: [] }));
     expect(text.split("\n").filter((l) => l.includes("ELSEWHERE"))).toEqual(["ELSEWHERE: other projects cannot be seen in this storage mode"]);

@@ -1094,18 +1094,23 @@
   `tursoConfig`, a project open (`currentProjectId !== null`) and more than one project (`available` in `useCrossProjectPeople`, `use-cross-project-people.ts`; the
   hook is built once in `task-manager.tsx` through `useCrossProjectApp`, which keeps the call to one line under the
   size ratchet). Anywhere else the status is `"unavailable"`: nothing loads, the digest carries one line
-  (`ELSEWHERE: other projects cannot be seen in this storage mode`) and the person's entry shows nothing.
+  (`ELSEWHERE: other projects cannot be seen in this storage mode`) and the person's entry shows nothing. ★ The one
+  exception is a Turso portfolio with a single project: the hook reports `singleProject: true` and the digest says
+  `ELSEWHERE: this is the only project, there are no other projects` instead (`AllocElsewhere.singleProject`).
   ★ **Loading.** `request()` loads every OTHER project with `TursoBackend.load()`, SEQUENTIALLY (as
   `use-portfolio-health.ts`); every request reloads (no cache), but a request made while a run for the same scope is
   still in flight is ignored; archived projects are not loaded (the list is `tursoProjects`, never `tursoArchived`);
   a project that fails is skipped and listed in `failures`.
   It captures `getScopeEpoch()` before its first await, re-checks after each, and refuses to start while
-  `loadPending`. Opening Plan with AI calls it (`use-alloc-plan.tsx`) and Run returns without sending while the status
-  is `"loading"`; opening an existing person's entry calls it too (`resource-links-section.tsx`). Loading runs
+  `loadPending`, but REMEMBERS the ask (`wantedRef`) and an effect that only calls `request()` starts it when the hold
+  ends. A link write that lands while a run is in flight is re-applied over the links that run read (`runWritesRef`),
+  so a reload racing a confirm cannot drop it from memory. Opening Plan with AI calls it (`use-alloc-plan.tsx`) and Run
+  returns without sending while the status is `"loading"`, and while it is `"idle"` without `loadFailed` (it asks
+  again, and the window says the hours are not loaded); opening an existing person's entry calls it too (`resource-links-section.tsx`). Loading runs
   `CREATE TABLE IF NOT EXISTS` DDL in each project, as Portfolio health does; no project data is written.
   ★ **Matching** (`matchPeople`, `cross-project/person-match.ts`, pure), per pair, in this order: a live `different` row
   means no; a live `same` row matches (`via: "confirmed"`); an overlapping usable email (trimmed, contains "@",
-  compared over `email` + `emails`, case-insensitive) matches (`via: "email"`); equal first + last name with a usable
+  compared over `email` + `emails`, case-insensitive) matches (`via: "email"`; the person's entry offers "Not the same person" on such a row, which writes a `different` row, and Undo restores the email match); equal first + last name with a usable
   email missing on at least one side is only a SUGGESTION and adds no hours; two differing usable emails never suggest.
   ★★ **The two verdicts go stale differently, on purpose.** A `same` row is live only while both resources still carry
   the stored first name AND last name, each compared separately, so a re-minted id or a re-split name cannot inherit a

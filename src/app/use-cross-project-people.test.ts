@@ -314,3 +314,49 @@ describe("useCrossProjectPeople — nameOf (§785)", () => {
     expect(hook.result.current.nameOf("p-c", 10)).toBe("");
   });
 });
+
+// §785 — fix round: a request made during the load hold, the single-project signal, a reload racing a write.
+describe("useCrossProjectPeople — request during the load hold (§785)", () => {
+  test("a request made while loadPending runs once the hold ends", async () => {
+    const { hook, load, deps } = setup({ loadPending: true });
+    act(() => hook.result.current.request());
+    expect(load).not.toHaveBeenCalled();
+    hook.rerender({ ...deps, loadPending: false });
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  test("nothing starts when the hold ends if nobody asked", async () => {
+    const { hook, load, deps } = setup({ loadPending: true });
+    hook.rerender({ ...deps, loadPending: false });
+    await act(async () => {});
+    expect(load).not.toHaveBeenCalled();
+    expect(hook.result.current.status).toBe("idle");
+  });
+});
+
+describe("useCrossProjectPeople — singleProject (§785)", () => {
+  test("true for Turso portfolio mode with one project; false when there are several or the mode is off", () => {
+    expect(setup({ projects: [PROJECTS[0]] }).hook.result.current.singleProject).toBe(true);
+    expect(setup().hook.result.current.singleProject).toBe(false);
+    expect(setup({ portfolioMode: "file", projects: [PROJECTS[0]] }).hook.result.current.singleProject).toBe(false);
+    expect(setup({ tursoConfig: null, projects: [PROJECTS[0]] }).hook.result.current.singleProject).toBe(false);
+  });
+});
+
+describe("useCrossProjectPeople — a reload racing a write (§785)", () => {
+  test("a confirm made while a reload is in flight survives a reload that read the links before it", async () => {
+    const { hook } = setup();
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    let release: (l: PersonLinkRow[]) => void = () => {};
+    vi.mocked(loadPersonLinks).mockImplementationOnce(() => new Promise<PersonLinkRow[]>((r) => { release = r; }));
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(loadPersonLinks).toHaveBeenCalledTimes(2));
+    const rel = { projectId: "p-b", projectName: "B", resourceId: 10 };
+    await act(async () => hook.result.current.confirm(1, rel));
+    await act(async () => release([]));
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(hook.result.current.matches.get(1)?.matched).toEqual([{ ...rel, via: "confirmed" }]);
+  });
+});
