@@ -145,7 +145,7 @@ longer carries its own changelog comment.
 
 - **Dictation stops as soon as an organisation forces people protection (§786).** A tab already open could send
   one more recording to the speech-to-text service before it heard about the lock. It now discards the recording
-  and says why, and the server refuses it too. The browser's built-in dictation is not covered yet (§789).
+  and says why, and the server refuses it too. The browser's own speech recognition (built-in dictation and voice commands) is not covered yet (§789).
 - **An AI project update can be undone after a currency change or a restore (§715).** After a change of the
   project currency or baseline, or a restore of an earlier version, a project change made by Claude was not added to
   the undo list, with no message. It is undoable again.

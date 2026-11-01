@@ -1024,7 +1024,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§786](#786-dictation-stays-available-in-an-open-tab-after-the-people-protection-lock-is-set--closed-2026-11-01) | Dictation stays available in an open tab after the people-protection lock is set | — | — | **CLOSED** 2026-11-01 |
 | [§787](#787-i18n-pluraltestts-runs-about-24-s-against-the-20-s-unit-timeout) | i18n-plural.test.ts runs about 24 s against the 20 s unit timeout | #926 | — | OPEN |
 | [§788](#788-deleting-a-person-leaves-their-name-in-the-shared-person_links-table) | Deleting a person leaves their name in the shared person_links table | #935 | — | OPEN |
-| [§789](#789-built-in-dictation-stays-available-in-an-open-tab-after-the-people-protection-lock-is-set) | Built-in dictation stays available in an open tab after the people-protection lock is set | #937 | — | OPEN |
+| [§789](#789-the-browsers-speech-recognition-keeps-listening-in-an-open-tab-after-the-people-protection-lock-is-set) | The browser's speech recognition keeps listening in an open tab after the people-protection lock is set | #937 | — | OPEN |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46169,7 +46169,7 @@ Size M.
 
 ## 786. Dictation stays available in an open tab after the people-protection lock is set — CLOSED 2026-11-01
 
-**Status:** CLOSED 2026-11-01 on `fix/786-dictation-people-lock`, for the speech-to-text service only; the browser's built-in dictation is split out as §789 (owner decision 2026-11-01). `/api/stt` now refuses `ai-people` as well (`parseSttRequest`), and `stt-engine.ts` discards a recording when the status check it already makes reports the lock, with the existing people-protection message. Before the fix: `grep -n refuseIfDisabled src/app/api/stt/_helpers.ts` → the route refuses only `stt` and `ai`. With people protection on, dictation is switched off in the app (`useDictationMic`), but that switch is read in the browser: when an organisation adds `ai-people` to `AIPM_DISABLED_INTEGRATIONS` while a tab is open, the tab learns of the lock only on its next AI request (the per-send `/api/ai/status` check) or a reload, so dictation stays available there until then.
+**Status:** CLOSED 2026-11-01 on `fix/786-dictation-people-lock`, for the speech-to-text service only; the browser's own speech recognition is split out as §789 (owner decision 2026-11-01). `/api/stt` now refuses `ai-people` as well (`parseSttRequest`), and `stt-engine.ts` discards a recording when the status check it already makes reports the lock, with the existing people-protection message. Before the fix: `grep -n refuseIfDisabled src/app/api/stt/_helpers.ts` → the route refuses only `stt` and `ai`. With people protection on, dictation is switched off in the app (`useDictationMic`), but that switch is read in the browser: when an organisation adds `ai-people` to `AIPM_DISABLED_INTEGRATIONS` while a tab is open, the tab learns of the lock only on its next AI request (the per-send `/api/ai/status` check) or a reload, so dictation stays available there until then.
 
 Size S.
 
@@ -46199,14 +46199,14 @@ Size S.
 
 **Source:** §785 code review, owner decision 2026-11-01 (file it).
 
-## 789. Built-in dictation stays available in an open tab after the people-protection lock is set
+## 789. The browser's speech recognition keeps listening in an open tab after the people-protection lock is set
 
-**Status:** OPEN 2026-11-01, split out of §786. `grep -c "fetch|confirmAiDeployment" src/app/web-speech-engine.ts` prints 0: the browser's built-in dictation makes no request to this app, so neither the status check nor `/api/stt`'s refusal reaches it. When an organisation forces people protection while a tab is open, that tab goes on sending speech to the browser vendor's service until its next AI request or a reload.
+**Status:** OPEN 2026-11-01, split out of §786. `grep -cE "fetch|/api/|confirmAiDeployment" src/app/web-speech-engine.ts src/app/voice.ts src/app/voice-button.tsx` prints 0 for each file: built-in dictation and voice commands make no request to this app, so neither the status check nor `/api/stt`'s refusal reaches them. When an organisation forces people protection while a tab is open, that tab goes on sending speech to the browser vendor's service until its next AI request or a reload.
 
 **Work item:** #937
 
-What it would take: ask `/api/ai/status` when built-in dictation starts and refuse under the lock, or have open tabs learn of the lock without waiting for an AI request. Built-in dictation needs no server call today, so decide what happens when the check fails or the user is offline. Tests for the refusal and for that failure.
+What it would take: ask `/api/ai/status` when either one starts and refuse under the lock, or have open tabs learn of the lock without waiting for an AI request (which covers both). Neither needs a server call today, so decide what happens when the check fails or the user is offline. Tests for the refusal and for that failure, on both paths.
 
 Size S.
 
-**Source:** §786, owner decision 2026-11-01 (file it).
+**Source:** §786, owner decision 2026-11-01 (file it); voice commands added from the §786 code review.
