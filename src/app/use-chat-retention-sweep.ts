@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import type { TursoConfig } from "./turso-config";
 import { getAiDeploymentState } from "./ai-deployment";
-import { expireThreads } from "./chat-threads-store";
+import { expireThreads, loadAllThreadIds } from "./chat-threads-store";
+import { dropPendingEditsWhere, pendingEditScope } from "./pending-edits";
 import { retryPendingProjectSweeps } from "./pending-project-sweeps";
 import { logDiag } from "./diagnostics";
 
@@ -15,6 +16,20 @@ const projectSweepsRetriedThisLoad = new Set<string>();
 export function resetChatRetentionSweepForTests(): void {
   sweptThisLoad.clear();
   projectSweepsRetriedThisLoad.clear();
+}
+
+/** After a sweep: the pending chat-thread renames of this database (every project's scope) whose
+ *  thread no longer exists are dropped. One id-only read; when it fails, nothing is dropped and
+ *  nothing is logged (the next page load tries again). */
+async function dropOrphanedRenames(tursoConfig: TursoConfig): Promise<void> {
+  if (!tursoConfig.httpUrl) return;
+  let existing: Set<string>;
+  try {
+    existing = new Set(await loadAllThreadIds(tursoConfig));
+  } catch {
+    return;
+  }
+  dropPendingEditsWhere(pendingEditScope(tursoConfig.httpUrl, "chat:"), "chat-thread-name", (id) => existing.has(id));
 }
 
 export type ChatRetentionSweepDeps = {
@@ -33,7 +48,8 @@ export type ChatRetentionSweepDeps = {
  * The retention comes from the server-rendered chat settings in the deployment state
  * (`getAiDeploymentState().chat`, null while unknown), read on every render. While the server's
  * retention setting is invalid no period is in force: the chat sweep is skipped (paused), and the
- * project-sweep retry still runs.
+ * project-sweep retry still runs. After a sweep that ran, the pending renames of threads that no
+ * longer exist in this database are dropped (`dropOrphanedRenames`).
  */
 export function useChatRetentionSweep({ tursoConfig, loadPending }: ChatRetentionSweepDeps): void {
   const chat = getAiDeploymentState().chat;
@@ -47,9 +63,12 @@ export function useChatRetentionSweep({ tursoConfig, loadPending }: ChatRetentio
     let chatSweep: Promise<void> = Promise.resolve();
     if (sweepChats) {
       sweptThisLoad.add(url);
-      chatSweep = expireThreads(tursoConfig, retentionDays).catch(() => {
-        logDiag("warn", "chat.retentionSweepFailed");
-      });
+      chatSweep = expireThreads(tursoConfig, retentionDays).then(
+        () => dropOrphanedRenames(tursoConfig),
+        () => {
+          logDiag("warn", "chat.retentionSweepFailed");
+        },
+      );
     }
     if (retryProjects) {
       projectSweepsRetriedThisLoad.add(url);

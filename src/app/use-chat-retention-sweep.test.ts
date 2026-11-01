@@ -4,8 +4,17 @@ import type { TursoConfig } from "./turso-config";
 import type { ChatSettings } from "./ai-chat-retention-config";
 
 const expireThreads = vi.fn();
+const loadAllThreadIds = vi.fn();
 const logDiag = vi.fn();
-vi.mock("./chat-threads-store", () => ({ expireThreads: (...a: unknown[]) => expireThreads(...a) }));
+vi.mock("./chat-threads-store", () => ({
+  expireThreads: (...a: unknown[]) => expireThreads(...a),
+  loadAllThreadIds: (...a: unknown[]) => loadAllThreadIds(...a),
+}));
+const dropPendingEditsWhere = vi.fn();
+vi.mock("./pending-edits", async (orig) => ({
+  ...(await orig<typeof import("./pending-edits")>()),
+  dropPendingEditsWhere: (...a: unknown[]) => dropPendingEditsWhere(...a),
+}));
 vi.mock("./diagnostics", () => ({ logDiag: (...a: unknown[]) => logDiag(...a) }));
 const retryPendingProjectSweeps = vi.fn();
 vi.mock("./pending-project-sweeps", () => ({ retryPendingProjectSweeps: (...a: unknown[]) => retryPendingProjectSweeps(...a) }));
@@ -15,6 +24,7 @@ let deploymentChat: ChatSettings | null = null;
 vi.mock("./ai-deployment", () => ({ getAiDeploymentState: () => ({ chat: deploymentChat }) }));
 
 import { useChatRetentionSweep, resetChatRetentionSweepForTests } from "./use-chat-retention-sweep";
+import { pendingEditScope } from "./pending-edits";
 
 const config: TursoConfig = { httpUrl: "https://a.example", authToken: "t" };
 const other: TursoConfig = { httpUrl: "https://b.example", authToken: "t" };
@@ -28,6 +38,8 @@ const run = (p: Props) => renderHook((props: Props) => {
 
 beforeEach(() => {
   expireThreads.mockReset().mockResolvedValue(undefined);
+  loadAllThreadIds.mockReset().mockResolvedValue([]);
+  dropPendingEditsWhere.mockReset();
   logDiag.mockReset();
   retryPendingProjectSweeps.mockReset().mockResolvedValue(undefined);
   resetChatRetentionSweepForTests();
@@ -110,6 +122,33 @@ describe("useChatRetentionSweep", () => {
     await waitFor(() => expect(retryPendingProjectSweeps).toHaveBeenCalledTimes(1));
     await Promise.resolve();
     expect(expireThreads).not.toHaveBeenCalled();
+  });
+
+  it("after the sweep, drops the pending chat renames of this database whose thread is gone", async () => {
+    loadAllThreadIds.mockResolvedValue(["kept"]);
+    run({ tursoConfig: config, chat, loadPending: false });
+    await waitFor(() => expect(dropPendingEditsWhere).toHaveBeenCalledTimes(1));
+    expect(loadAllThreadIds).toHaveBeenCalledWith(config);
+    expect(loadAllThreadIds.mock.invocationCallOrder[0]).toBeGreaterThan(expireThreads.mock.invocationCallOrder[0]);
+    const [prefix, kind, keep] = dropPendingEditsWhere.mock.calls[0] as [string, string, (id: string) => boolean];
+    expect(prefix).toBe(pendingEditScope(config.httpUrl, "chat:"));
+    expect(kind).toBe("chat-thread-name");
+    expect(keep("kept")).toBe(true);
+    expect(keep("gone")).toBe(false);
+  });
+
+  it("drops no pending rename when the ids cannot be read, the sweep failed, or it did not run", async () => {
+    loadAllThreadIds.mockRejectedValue(new Error("network"));
+    run({ tursoConfig: config, chat, loadPending: false });
+    await waitFor(() => expect(loadAllThreadIds).toHaveBeenCalledTimes(1));
+    expireThreads.mockRejectedValue(new Error("x"));
+    run({ tursoConfig: other, chat, loadPending: false });
+    await waitFor(() => expect(logDiag).toHaveBeenCalledWith("warn", "chat.retentionSweepFailed"));
+    run({ tursoConfig: { httpUrl: "https://c.example", authToken: "t" }, chat: { ...chat, retentionInvalid: true }, loadPending: false });
+    await waitFor(() => expect(retryPendingProjectSweeps).toHaveBeenCalledTimes(3));
+    expect(loadAllThreadIds).toHaveBeenCalledTimes(1);
+    expect(dropPendingEditsWhere).not.toHaveBeenCalled();
+    expect(logDiag).not.toHaveBeenCalledWith("warn", expect.stringMatching(/ids/i));
   });
 
   it("does nothing without a Turso config", async () => {

@@ -167,6 +167,12 @@ export function legacyThreadIdsSelect(): SqlStmt[] {
   return [{ sql: `SELECT id FROM chat_threads WHERE owner_id IS NULL OR owner_id = ''` }];
 }
 
+/** The id of every row, in every project of the database — which threads still exist, to drop the
+ *  pending renames of those that do not. Ids only: no content is read. */
+export function allThreadIdsSelect(): SqlStmt[] {
+  return [{ sql: `SELECT id FROM chat_threads` }];
+}
+
 /** The cutoff and the future bound are computed by the DATABASE's clock (SQL `'now'`), never a
  *  browser's: one client with a clock weeks ahead would otherwise delete everybody's chats. The
  *  format matches `toISOString()`, so the comparison is between ISO strings. */

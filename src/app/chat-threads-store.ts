@@ -7,7 +7,7 @@ import { runTursoPipeline } from "./turso-pipeline";
 import {
   CHAT_THREADS_DDL, CHAT_THREADS_TABLE, CHAT_THREAD_CAP, chatThreadsHealAlters, threadsSelect,
   upsertThreadStatements, updateStoredThreadStatements, deleteThreadStatements, pruneThreadsStatements,
-  deleteOwnerThreadsStatements, expireThreadsStatements, legacyThreadIdsSelect,
+  deleteOwnerThreadsStatements, expireThreadsStatements, legacyThreadIdsSelect, allThreadIdsSelect,
 } from "./chat-threads-schema";
 import { decodeThreadRows, encodeThreadRow, type ChatIdentity } from "./chat-thread-codec";
 import { pragmaStatements } from "./turso-migrate";
@@ -123,6 +123,12 @@ export async function deleteOwnerThreads(config: TursoConfig | null, ownerId: st
 /** The ids of the legacy owner-less threads in every project of the database. */
 export async function loadLegacyThreadIds(config: TursoConfig | null): Promise<string[]> {
   const results = await run(config, legacyThreadIdsSelect());
+  return rowObjects(results[CHAT_THREADS_DDL.length]).map((r) => r.id).filter((id) => !!id);
+}
+
+/** The id of every thread in the database (every project, every owner). */
+export async function loadAllThreadIds(config: TursoConfig | null): Promise<string[]> {
+  const results = await run(config, allThreadIdsSelect());
   return rowObjects(results[CHAT_THREADS_DDL.length]).map((r) => r.id).filter((id) => !!id);
 }
 

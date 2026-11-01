@@ -20,6 +20,8 @@ import {
   UNLOCK_CODE_ALPHABET, MIN_CHAT_PASSPHRASE_LENGTH, ChatPassphraseError,
 } from "./chat-passphrase";
 import { ensureChatIdentity, getChatIdentity } from "./chat-key-vault";
+import { runTursoPipeline } from "./turso-pipeline";
+import { readDiagLog } from "./diagnostics";
 import { loadThreads, saveThread, __resetChatThreadsHealForTests } from "./chat-threads-store";
 import type { ChatThread } from "./chat-threads";
 import { threadFieldAd, type ChatIdentity } from "./chat-thread-codec";
@@ -226,15 +228,41 @@ describe("chat passphrase", () => {
     expect((await getChatIdentity(URL))!.ownerId).toBe(a.ownerId);
   });
 
-  it("an unlock reads exactly one chat_keys row, by its code, and writes none", async () => {
-    const { code } = await browserA();
-    await browserB();
+  it("an unlock reads exactly one chat_keys row, by its code, and then deletes only the replaced owner's row", async () => {
+    const { a, code } = await browserA();
+    const b = await browserB();
+    const { unlockCode: codeB } = await setChatPassphrase(cfg, b, "another long passphrase");
     const from = server.log.length;
     await unlockWithPassphrase(cfg, URL, code, PASS);
     const touched = keyStatements(from);
-    expect(touched).toHaveLength(1);
+    expect(touched).toHaveLength(2);
     expect(touched[0].sql).toMatch(/^SELECT .+ FROM chat_keys WHERE unlock_code = \?$/);
     expect(touched[0].args?.map((x) => x.value)).toEqual([code]);
+    expect(touched[1].sql).toBe("DELETE FROM chat_keys WHERE owner_id = ?");
+    expect(touched[1].args?.map((x) => x.value)).toEqual([b.ownerId]);
+    // The adopted owner's row stays; the replaced owner's code no longer opens anything.
+    expect(server.db.prepare("SELECT owner_id FROM chat_keys").all()).toEqual([{ owner_id: a.ownerId }]);
+    window.localStorage.clear();
+    expect(await unlockWithPassphrase(cfg, URL, codeB, "another long passphrase")).toEqual({ outcome: "unknown-code" });
+  });
+
+  it("a failed delete of the replaced owner's row is logged by code only and keeps the adoption", async () => {
+    const { a, code } = await browserA();
+    const b = await browserB();
+    const pipeline = vi.mocked(runTursoPipeline);
+    pipeline.mockImplementation(async (_config: unknown, stmts: SqlStmt[]) => {
+      if (stmts.some((s) => /^DELETE FROM chat_keys/.test(s.sql))) throw new Error(`boom ${b.ownerId}`);
+      return execute(stmts);
+    });
+    try {
+      expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toMatchObject({ outcome: "adopted" });
+    } finally {
+      pipeline.mockImplementation(async (_config: unknown, stmts: SqlStmt[]) => execute(stmts));
+    }
+    expect((await getChatIdentity(URL))!.ownerId).toBe(a.ownerId);
+    const logged = readDiagLog().filter((e) => e.code === "chat.replacedKeyDeleteFailed");
+    expect(logged).toHaveLength(1);
+    expect(logged[0].fields).toBeUndefined();
   });
 
   it("a passphrase shorter than 12 characters is refused before anything is sent", async () => {

@@ -9,7 +9,7 @@ import { join } from "node:path";
 import {
   CHAT_THREADS_DDL, chatThreadsHealAlters, upsertThreadStatements, pruneThreadsStatements,
   expireThreadsStatements, deleteOwnerThreadsStatements, deleteThreadStatements, threadsSelect, retentionCutoff,
-  legacyThreadIdsSelect, updateStoredThreadStatements,
+  legacyThreadIdsSelect, updateStoredThreadStatements, allThreadIdsSelect,
   type StoredThreadRow,
 } from "./chat-threads-schema";
 import { pragmaStatements } from "./turso-migrate";
@@ -255,6 +255,15 @@ describe("chat_threads statements against a real engine", () => {
     const [stmt] = legacyThreadIdsSelect();
     expect(query(db, stmt).map((r) => r.id).sort()).toEqual(["e", "n"]);
     expect(stmt.sql).toMatch(/^SELECT id FROM chat_threads/);
+  });
+
+  it("allThreadIdsSelect returns every id in the database and no content", () => {
+    run(db, upsertThreadStatements(row("a")));
+    run(db, upsertThreadStatements(row("b", { owner_id: "bob", project_id: "q" })));
+    insertNullOwner(db, "n");
+    const out = query(db, allThreadIdsSelect()[0]);
+    expect(out.map((r) => r.id).sort()).toEqual(["a", "b", "n"]);
+    expect(Object.keys(out[0])).toEqual(["id"]);
   });
 
   it("deleteOwnerThreads refuses an empty owner id", () => {

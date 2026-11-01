@@ -22,6 +22,7 @@ import { ChatCryptoError, unwrapForOwner, wrapForOwner } from "./chat-crypto";
 import { readChatIdentity, replaceChatIdentity } from "./chat-key-vault";
 import { ownerKeyAd, resealThreadFields, type ChatIdentity } from "./chat-thread-codec";
 import { bytesToBase64 } from "./base64";
+import { logDiag } from "./diagnostics";
 import { openPassphraseValue, sealPassphraseValue, SecretUnlockError } from "./secrets";
 
 /** The unlock code's characters: no 0/O, 1/I, so a code read aloud or retyped is unambiguous. */
@@ -159,7 +160,8 @@ async function reownThreads(
 /** Adopt the identity stored under `typedCode` when `passphrase` opens it. Reads exactly one
  *  chat_keys row (by its code). When this browser already holds a different identity for `httpUrl`,
  *  its threads move to the adopted owner first; only after that commit is the adopted identity
- *  stored here, replacing the old one. "wrong" and "unknown-code" change nothing. */
+ *  stored here, replacing the old one, and then the old one's chat_keys row is deleted. "wrong" and
+ *  "unknown-code" change nothing. */
 export async function unlockWithPassphrase(
   config: TursoConfig | null,
   httpUrl: string,
@@ -180,5 +182,14 @@ export async function unlockWithPassphrase(
     ? await reownThreads(config, current.identity, adopted)
     : { moved: 0, skipped: 0 };
   await replaceChatIdentity(httpUrl, adopted);
+  // The replaced identity's own passphrase row now opens nothing (its threads moved to the adopted
+  // owner, or are ones its key could not open): delete it. A failure leaves the adoption in place.
+  if (current.kind === "found" && current.identity.ownerId !== adopted.ownerId) {
+    try {
+      await removeChatPassphrase(config, current.identity.ownerId);
+    } catch {
+      logDiag("warn", "chat.replacedKeyDeleteFailed");
+    }
+  }
   return { outcome: "adopted", ...counts };
 }
