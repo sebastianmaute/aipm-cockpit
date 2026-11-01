@@ -63,8 +63,9 @@ export const KEY_CHECK_DEFAULT_REJECTED_TTL_MS = 60 * 1000;
 // Distinct pre-flights running at once, across all keys. A new one asked for at the cap is not sent:
 // the check is unavailable (503, "try again"). Callers coalesced onto a running one take no slot.
 export const MAX_PREFLIGHTS_IN_FLIGHT = 32;
-// Idle timeout on the pre-flight's socket: past it the check is unavailable.
-export const KEY_CHECK_TIMEOUT_MS = 30 * 1000;
+// Idle timeout on the pre-flight's socket: past it the check is unavailable. Shorter than the
+// deadline below, so an upstream that goes silent is dropped first; equal to it, it could never fire.
+export const KEY_CHECK_TIMEOUT_MS = 10_000;
 // Overall limit on one pre-flight, from send to verdict, however much data keeps arriving: an
 // upstream that trickles bytes would otherwise reset the idle timeout forever and hold a slot.
 // Past it the request is destroyed and the check is unavailable (never cached).
