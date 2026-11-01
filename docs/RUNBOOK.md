@@ -394,7 +394,9 @@ which owns that list.
    On Windows, variable names ignore case, and a variable that already exists can keep
    the capitals it was first created with when it is set again. If the reason is
    `misspelled-setting` although the name looks right, delete the variable and create
-   it again, written in capitals exactly as above. As with the gateway
+   it again, written in capitals exactly as above, in the place the server's
+   environment is defined (the system or service environment settings, or the process
+   manager's configuration), not only in a shell session. As with the gateway
    settings, the code is logged once per server process, as
    `ai key restriction invalid: <reason>`, and `GET /api/ai/status`
    answers `invalid: true` with it as `invalidReason`; any invalid setting, the
@@ -438,7 +440,8 @@ which owns that list.
      is forwarded; it is not cached, and users see that the key could not be checked
      and should try again, in Settings → AI and in the feature that failed. That covers
      any other answer than `2xx`, `401` or `403` (a `3xx`, `404`, `429` or `5xx`
-     among them), a network error, a check that receives nothing for 10 seconds, a check
+     among them), a network error, a check that receives nothing for 10 seconds (a
+     gateway that is slow to wake up, too: the user tries again a moment later), a check
      not finished within 30 seconds in all (an upstream that keeps sending data slowly
      does not extend it), and a `2xx` that lacks the
      organisation header or carries an empty or repeated header. It also covers a
