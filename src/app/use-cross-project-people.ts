@@ -102,6 +102,7 @@ interface Loaded {
   protectedIds: string[];
 }
 
+const LINK_WRITE_FAILED = "crossProject.linkWriteFailed";
 const NO_FAILURES: { projectId: string; projectName: string }[] = [];
 const NO_MATCHES = new Map<number, PersonMatch>();
 
@@ -142,7 +143,11 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   // Link edits applied while a run is in flight; re-applied over what that run read.
   const runWritesRef = useRef<((links: PersonLinkRow[]) => PersonLinkRow[])[]>([]);
 
-  const portfolio = portfolioMode === "turso" && tursoConfig !== null && currentProjectId !== null;
+  // ★★★ §788: the WHOLE feature needs the LIVE storage to be Turso, not just the startup portfolio mode. `portfolioMode` never
+  // changes and an in-place switch away from Turso leaves it (and `tursoConfig`, `tursoProjectId`) looking like Turso while the open
+  // workspace is a local copy: reading matches or writing an answer for that copy's ids would be about people who may not be
+  // the ones in the Turso project. So off Turso the status is "unavailable" (not `singleProject`: that claims "the only project").
+  const portfolio = portfolioMode === "turso" && storageKind === "turso" && tursoConfig !== null && currentProjectId !== null;
   // The open project may be missing from the active list (archived from another tab or device while open), so count
   // the OTHER projects, never the list length.
   const otherCount = projects.filter((p) => p.id !== currentProjectId).length;
@@ -301,15 +306,17 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     write: () => Promise<void>,
     projectId: string,
     next: (links: PersonLinkRow[]) => PersonLinkRow[],
-    // REQUIRED, never defaulted: a delete's sweep must not fall back to the "could not save your answer" route.
+    // REQUIRED, never defaulted: a delete's sweep must not fall back to the "could not save your answer" route, nor be logged
+    // as a failed link write (`failCode`).
     onError: ((err: unknown) => void) | undefined,
+    failCode: string,
   ): Promise<void> => {
     const startEpoch = getScopeEpoch();
     const writtenTo = configKeyRef.current;
     try {
       await write();
     } catch (err) {
-      logDiag("error", "crossProject.linkWriteFailed", { message: messageOf(err) });
+      logDiag("error", failCode, { message: messageOf(err) });
       onError?.(err);
       return;
     }
@@ -333,6 +340,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
       currentProjectId ?? "",
       (links) => [...links.filter((l) => !sameLink(l, key)), row],
       onWriteError,
+      LINK_WRITE_FAILED,
     );
   };
 
@@ -345,6 +353,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
       currentProjectId,
       (links) => links.filter((l) => !sameLink(l, key)),
       onWriteError,
+      LINK_WRITE_FAILED,
     );
   };
 
@@ -363,6 +372,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
       projectId,
       (links) => links.filter((l) => !names(l)),
       onForgetError,
+      "crossProject.forgetSweepFailed",
     );
   };
 

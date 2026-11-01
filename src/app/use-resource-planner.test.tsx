@@ -446,7 +446,7 @@ describe("useResourcePlanner", () => {
       expect(onResourcesDeleted).not.toHaveBeenCalled();
     });
 
-    it("undoing a delete reports nothing: the answers are not restored", () => {
+    it("undoing a delete reports nothing: the answers are not restored", async () => {
       const onResourcesDeleted = vi.fn();
       const captureComposite = vi.fn();
       const { result } = renderPlanner({ onResourcesDeleted, captureComposite });
@@ -455,6 +455,7 @@ describe("useResourcePlanner", () => {
       const opts = captureComposite.mock.calls[0][0] as { parts: (CompositeFragment | null)[] };
       onResourcesDeleted.mockClear();
       act(() => replayCompositeUndo(opts.parts));
+      await act(async () => { await Promise.resolve(); }); // a queued report would land here
       expect(result.current.workspace.resources.map((r) => r.id).sort()).toEqual([5, 6]);
       expect(onResourcesDeleted).not.toHaveBeenCalled();
     });

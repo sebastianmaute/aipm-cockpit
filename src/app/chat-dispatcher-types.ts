@@ -132,9 +132,11 @@ export interface ChatDispatcherArgs {
   /** §788 — called with the id of a person the `delete_resource` tool actually removed (never for an unknown id), so their
    *  cross-project answers go with them. Optional: a popout or a test supplies none. */
   onResourcesDeleted?: (resourceIds: readonly number[]) => void;
-  /** §788 — true while a project swap is in flight (`useStorageBackend`'s `isSwapInFlight`); `delete_resource` is refused then.
-   *  Optional: a popout or a test supplies none. */
-  isSwapInFlight?: () => boolean;
+  /** §788 — true while the LOAD HOLD is on (a project swap, a same-project Reload, a backend rebuild, the first load); `delete_resource`
+   *  is refused then, because its sweep is permanent while a delete made in that window is lost with the workspace it edited.
+   *  task-manager passes `isSwapInFlight() || loadPendingRef.current`: the first is synchronous at a teardown, the second covers
+   *  the holds the first does not. NOT the cross-project reload (that one must not refuse). Optional: a popout or a test supplies none. */
+  isLoadHeld?: () => boolean;
   /** Undo capture for AI writes. REQUIRED, and that is the whole defence of one
    *  line of wiring.
    *

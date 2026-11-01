@@ -14,6 +14,7 @@ vi.mock("./person-links-store", () => ({
 vi.mock("./turso-backend", () => ({ TursoBackend: class {} }));
 
 import { deletePersonLink, deletePersonLinksFor, loadPersonLinks, savePersonLink } from "./person-links-store";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { generatePeriods } from "./resource-capacity";
 import { configKeyOf, useCrossProjectPeople, type CrossProjectDeps } from "./use-cross-project-people";
 
@@ -627,17 +628,6 @@ describe("useCrossProjectPeople — forgetPeople (§788)", () => {
     expect(hook.result.current.matches.get(1)?.matched).toHaveLength(1);
   });
 
-  test("the project id is the one at call time", async () => {
-    const { hook, deps } = setup();
-    let pending: () => void = () => {};
-    vi.mocked(deletePersonLinksFor).mockImplementationOnce(() => new Promise<void>((r) => { pending = r; }));
-    let done: Promise<void> = Promise.resolve();
-    act(() => { done = hook.result.current.forgetPeople([1]); });
-    hook.rerender({ ...deps, currentProjectId: "p-b" });
-    await act(async () => { pending(); await done; });
-    expect(deletePersonLinksFor).toHaveBeenCalledWith(CONFIG, "p-here", [1]);
-  });
-
   test("after the person is restored (Undo of the delete) nothing re-wrote the answer; a new Confirm writes a new row", async () => {
     const { hook, deps } = await readyWithConfirmed();
     expect(savePersonLink).toHaveBeenCalledTimes(1); // the original Confirm
@@ -645,6 +635,7 @@ describe("useCrossProjectPeople — forgetPeople (§788)", () => {
     hook.rerender({ ...deps, resources: [] }); // the person is gone ...
     hook.rerender({ ...deps, resources: [res(1, "Ann", "Lee")] }); // ... and Undo brings them back
     expect(savePersonLink).toHaveBeenCalledTimes(1); // nothing re-wrote the old answer
+    expect(deletePersonLinksFor).toHaveBeenCalledTimes(1); // and nothing swept on the person vanishing from the list: only a delete does
     expect(hook.result.current.matches.get(1)?.matched).toEqual([]);
     expect(hook.result.current.matches.get(1)?.suggestions).toHaveLength(2); // the name suggestion returns on its own
     await act(async () => hook.result.current.confirm(1, REL));
@@ -658,5 +649,83 @@ describe("useCrossProjectPeople — forgetPeople (§788)", () => {
     const first = hook.result.current;
     hook.rerender({ ...deps });
     expect(hook.result.current.forgetPeople).toBe(first.forgetPeople);
+  });
+});
+
+// §788 round 3 — the whole feature is off unless the LIVE storage is Turso.
+describe("useCrossProjectPeople — only while the live storage is Turso (§788)", () => {
+  const REL3 = { projectId: "p-b", projectName: "B", resourceId: 10 };
+
+  test("a non-Turso kind is unavailable, loads nothing, is not a single project, and refuses every answer", async () => {
+    for (const storageKind of ["browser", "local-json"] as const) {
+      const { hook, load } = setup({ storageKind });
+      expect(hook.result.current.status).toBe("unavailable");
+      expect(hook.result.current.singleProject).toBe(false);
+      act(() => hook.result.current.request());
+      expect(load).not.toHaveBeenCalled();
+      await act(async () => { await hook.result.current.confirm(1, REL3); await hook.result.current.reject(1, REL3); await hook.result.current.undo(1, REL3); });
+    }
+    expect(loadPersonLinks).not.toHaveBeenCalled();
+    expect(savePersonLink).not.toHaveBeenCalled();
+    expect(deletePersonLink).not.toHaveBeenCalled();
+  });
+
+  test("a one-project database on a non-Turso kind is still not reported as a single project", () => {
+    const { hook } = setup({ storageKind: "browser", projects: [PROJECTS[0]] });
+    expect(hook.result.current.singleProject).toBe(false);
+  });
+
+  test("a switch away after a load hides the matches and refuses writes; a switch back works again", async () => {
+    const { hook, deps, load } = setup();
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(hook.result.current.matches.get(1)?.suggestions.length).toBeGreaterThan(0);
+    const loads = load.mock.calls.length;
+
+    hook.rerender({ ...deps, storageKind: "browser" });
+    expect(hook.result.current.status).toBe("unavailable");
+    expect(hook.result.current.matches.size).toBe(0);
+    expect(hook.result.current.elsewhere(1)).toEqual([]);
+    act(() => hook.result.current.request());
+    await act(async () => { await hook.result.current.confirm(1, REL3); await hook.result.current.undo(1, REL3); });
+    expect(load.mock.calls.length).toBe(loads);
+    expect(savePersonLink).not.toHaveBeenCalled();
+    expect(deletePersonLink).not.toHaveBeenCalled();
+
+    hook.rerender({ ...deps, storageKind: "turso" });
+    expect(hook.result.current.status).toBe("ready");
+    await act(async () => hook.result.current.confirm(1, REL3));
+    expect(savePersonLink).toHaveBeenCalledTimes(1);
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(load.mock.calls.length).toBeGreaterThan(loads));
+  });
+});
+
+describe("useCrossProjectPeople — the sweep's own diagnostics and call-time project (§788)", () => {
+  test("a failed sweep is logged under its own code, never as a failed link write", async () => {
+    clearDiagLog();
+    const { hook } = setup({ onForgetError: vi.fn() });
+    vi.mocked(deletePersonLinksFor).mockRejectedValueOnce(new Error("down"));
+    await act(async () => hook.result.current.forgetPeople([1]));
+    const codes = readDiagLog().map((e) => e.code);
+    expect(codes).toContain("crossProject.forgetSweepFailed");
+    expect(codes).not.toContain("crossProject.linkWriteFailed");
+  });
+
+  test("the in-memory reflect lands on the project the call was made for, even if the open project changed meanwhile", async () => {
+    const s = setup();
+    act(() => s.hook.result.current.request());
+    await waitFor(() => expect(s.hook.result.current.status).toBe("ready"));
+    await act(async () => s.hook.result.current.confirm(1, { projectId: "p-b", projectName: "B", resourceId: 10 }));
+    expect(s.hook.result.current.matches.get(1)?.matched).toHaveLength(1);
+    let release: () => void = () => {};
+    vi.mocked(deletePersonLinksFor).mockImplementationOnce(() => new Promise<void>((r) => { release = r; }));
+    let done: Promise<void> = Promise.resolve();
+    act(() => { done = s.hook.result.current.forgetPeople([1]); });
+    s.hook.rerender({ ...s.deps, currentProjectId: "p-b" }); // the open project moves while the write is in flight
+    await act(async () => { release(); await done; });
+    s.hook.rerender({ ...s.deps, currentProjectId: "p-here" });
+    expect(deletePersonLinksFor).toHaveBeenCalledWith(CONFIG, "p-here", [1]);
+    expect(s.hook.result.current.matches.get(1)?.matched).toEqual([]);
   });
 });

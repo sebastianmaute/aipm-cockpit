@@ -984,9 +984,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       },
       deleteResource: (id: number) => {
         if (args.isReadOnly) throw readOnlyError();
-        // §788: the sweep is permanent while a delete made during a project swap is lost with the workspace it edited, so a
-        // delete is refused in that window (the epoch only moves once the swap's load has finished).
-        if (args.isSwapInFlight?.()) throw new Error("The project is being switched; try deleting the person again once it has finished.");
+        // §788: the sweep is permanent while a delete made during the load hold is lost with the workspace it edited, so a
+        // delete is refused in that window (the epoch only moves once a swap's load has finished, and a Reload never moves it).
+        if (args.isLoadHeld?.()) throw new Error("The project is loading or being switched; try deleting the person again once it has finished.");
         const doomed = resourcesRef.current.find((r) => r.id === id);
         if (!doomed) return false;
         const next = resourcesRef.current.filter((r) => r.id !== id);

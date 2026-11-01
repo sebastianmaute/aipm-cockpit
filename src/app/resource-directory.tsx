@@ -63,6 +63,9 @@ interface Props {
   onBulkEditResources?: (ids: readonly number[], patch: Partial<Resource>) => void;
   /** Bulk-delete selected resources (omitted → no bulk delete). */
   onBulkDeleteResources?: (ids: readonly number[]) => void;
+  /** §788: this project shares "same person" answers with other projects, so the delete confirmation also says Undo does not
+   *  bring those answers back. A plain boolean: this component is memo'd and must not read a context for it. */
+  sharesAnswers?: boolean;
 }
 
 // Inline single role picker for a directory row. Lists the existing rate-card
@@ -132,6 +135,7 @@ function ResourceDirectoryInner({
   onImportOutlook,
   onBulkEditResources,
   onBulkDeleteResources,
+  sharesAnswers,
 }: Props) {
   const showToast = useToastContext();
   const confirm = useConfirm();
@@ -302,7 +306,8 @@ function ResourceDirectoryInner({
 
   const handleBulkDelete = async () => {
     if (!onBulkDeleteResources || sel.count === 0) return;
-    if (await confirm({ message: `${tPlural(lang, "resourceBulkDeleteConfirm", sel.count, String(sel.count))} ${t(lang, "resourceDeleteCascadeNote")}` })) {
+    const answersNote = sharesAnswers ? ` ${t(lang, "resourceDeleteAnswersNote")}` : "";
+    if (await confirm({ message: `${tPlural(lang, "resourceBulkDeleteConfirm", sel.count, String(sel.count))} ${t(lang, "resourceDeleteCascadeNote")}${answersNote}` })) {
       onBulkDeleteResources(Array.from(sel.selectedIds));
       sel.clear();
       setBulkOpen(false);

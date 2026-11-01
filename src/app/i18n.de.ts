@@ -5583,7 +5583,8 @@ export const de: Record<TranslationKey, string> = {
   allocElsewhereLoadFailed: "Andere Projekte konnten nicht geladen werden, Stunden in anderen Projekten werden nicht mitgezählt.",
   allocElsewhereLoading: "Andere Projekte werden geladen…",
   allocElsewhereWriteFailed: "Ihre Antwort zur Person im anderen Projekt konnte nicht gespeichert werden. Es wurde nichts geändert.",
-  allocElsewhereForgetFailed: "Das Löschen wurde ausgeführt, aber die geteilten Antworten zu den gelöschten Personen konnten nicht bereinigt werden, daher können ihre Namen in der von Ihren Projekten gemeinsam genutzten Datenbank bleiben. Für einen neuen Versuch, solange es angeboten wird, klicken Sie auf Rückgängig und löschen Sie erneut.",
+  allocElsewhereForgetFailed: "Das Löschen wurde ausgeführt, aber die geteilten Antworten zu den gelöschten Personen konnten nicht bereinigt werden, daher können ihre Namen in der von Ihren Projekten gemeinsam genutzten Datenbank bleiben. Für einen neuen Versuch verwenden Sie Rückgängig (die Schaltfläche oben oder Strg+Z), solange es angeboten wird, und löschen Sie dann erneut.",
+  resourceDeleteAnswersNote: "Die Antworten, die Sie zur selben Person in Ihren anderen Projekten gegeben haben, werden ebenfalls entfernt; Rückgängig stellt diese Antworten nicht wieder her.",
 
   resourceLinksNone: "In anderen Projekten nicht gefunden.",
   resourceLinksHeading: "Andere Projekte",

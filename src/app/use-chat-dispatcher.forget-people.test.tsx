@@ -50,18 +50,20 @@ describe("useChatDispatcher deleteResource reports the removal (§788)", () => {
   });
 });
 
-describe("useChatDispatcher deleteResource during a project swap (§788)", () => {
-  test("is refused while a swap is in flight: nobody is removed and nothing is reported", () => {
+describe("useChatDispatcher deleteResource during the load hold (§788)", () => {
+  // The hold covers a project swap, a same-project Reload and a backend rebuild; task-manager's reader is
+  // `isSwapInFlight() || loadPendingRef.current` (source-pinned in use-cross-project-app.test.ts).
+  test("is refused while the load hold is on: nobody is removed and nothing is reported", () => {
     const onResourcesDeleted = vi.fn();
-    const { result } = render({ onResourcesDeleted, isSwapInFlight: () => true });
+    const { result } = render({ onResourcesDeleted, isLoadHeld: () => true });
     expect(() => result.current.deleteResource(2)).toThrow();
     expect(result.current.listResources().map((r) => r.id)).toEqual([1, 2]);
     expect(onResourcesDeleted).not.toHaveBeenCalled();
   });
 
-  test("goes through when no swap is in flight", () => {
+  test("goes through when the hold is off (a cross-project reload is not the hold)", () => {
     const onResourcesDeleted = vi.fn();
-    const { result } = render({ onResourcesDeleted, isSwapInFlight: () => false });
+    const { result } = render({ onResourcesDeleted, isLoadHeld: () => false });
     act(() => { result.current.deleteResource(2); });
     expect(onResourcesDeleted).toHaveBeenCalledWith([2]);
   });

@@ -214,12 +214,13 @@ one or two sentences and links to the entry.
   item-3 text above stays as the record of the original ruling. Deleting a person (the Resources panel's single and bulk
   delete, the AI `delete_resource` tool, and the Redo of any of those) removes every `person_links` row naming that project and
   resource id on either side (`forgetPeople` in `use-cross-project-people.ts`, `deletePersonLinksFor` in `person-links-store.ts`),
-  because the rows hold the person's first and last name and nothing else ended their retention. It requires the live storage
-  kind `turso` (after an in-place switch away the open workspace is a local copy), and the AI tool is refused during a project
-  swap. Undo of the delete brings the person back but NOT their answers: an e-mail match and a name suggestion reappear on
-  their own, a "Not the same" or a confirmed name must be answered again. Because the sweep runs at once, the claim in "As built"
-  above that a re-minted id inherits a `different` row holds only where the rows were NOT swept: a failed sweep, an answer
-  written after it (in flight or from another tab), or a person dropped by an import or a restore, none of which is a delete.
+  because the rows hold the person's first and last name and nothing else ended their retention. The delete confirmations (single
+  and bulk) and the AI tool description say that Undo does not bring those answers back. The WHOLE feature (loading, matching,
+  answering, the sweep) is off unless the live storage kind is `turso`: after an in-place switch away the open workspace is a local
+  copy, so the status is "unavailable" (never "single project"). The AI tool is refused during the load hold (a swap, a Reload, a
+  rebuild). Undo of the delete brings the person back but NOT their answers: an e-mail match and a name suggestion reappear on their
+  own, a "Not the same" or a confirmed name must be answered again. Because the sweep runs at once, the claim in "As built" above
+  that a re-minted id inherits a `different` row holds only where the rows were NOT swept. Not swept, or swept too early: (1) a sweep that FAILED; (2) an answer written after the sweep, by one still in flight when it ran, or by another tab or user who holds the person in their loaded data (writes are not ordered; accepted); (3) a person dropped by an import, a version restore or a project swap, which replace the list and are not deletes (nothing is detected by diffing `resources`); (4) a delete that NEVER SAVES: the sweep fires when the delete happens in memory, not when it is stored, so in the "Saving paused" state (or after a failed save) the delete can be thrown away by the banner's Reload while the answers are already gone and the person is back (owner decision 2026-11-01: accepted and documented; gating the sweep on the save would leave the name behind after Overwrite); (5) a person deleted in a LOCAL copy after a switch away from Turso and later converted back: the sweep is skipped there on purpose, and nothing sweeps on the conversion (`onRequestStorageSwitch` builds its Turso target without the open project's id, so what it writes was not traced to the end); (6) Undo, which brings the person back but never their answers (owner decision 2026-11-01).
 - A project hard delete removes `person_links` rows naming the project on either side (`PROJECT_SCOPED_SIDE_TABLES`
   entry with `columns`), and the §204 guard now checks every `project_<letter>` column.
 - The review window lists a name suggestion only when the suggested person has hours in the plan's periods

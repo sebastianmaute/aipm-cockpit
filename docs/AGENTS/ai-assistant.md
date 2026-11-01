@@ -1147,30 +1147,36 @@
   (`PROJECT_SCOPED_SIDE_TABLES`, `columns: ["project_a", "project_b"]`; the §204 guard checks all `project_<letter>` columns,
   since the table has no `project_id`).
   ★★ **Deleting a person removes their rows (§788).** `forgetPeople(ids)` on `useCrossProjectPeople` deletes every row naming
-  (this project, id) on EITHER side (`deletePersonLinksForStatements`: both sides match on the project AND the id, so another
-  project's same-numbered id stays). FOUR paths call it, each with only the ids really removed: `handleDeleteResource` and
+  (this project, id) on EITHER side (`deletePersonLinksForStatements`, chunked by 200: both sides match on the project AND the id, so
+  another project's same-numbered id stays). FOUR paths call it, each with only the ids really removed: `handleDeleteResource` and
   `handleBulkDeleteResources` (`use-resource-directory.ts`, through the `onResourcesDeleted` arg of `useResourcePlanner`), the AI
   `deleteResource` (`use-chat-dispatcher.ts`), and the REDO of any of those deletes (`CapturePart.onRedoRemoved`, see
   [`undo.md`](undo.md)). task-manager builds the planner BEFORE `useCrossProjectApp` (which needs `resources`), so the planner
   reports through `useForgetPeopleBridge`'s `notify`, and `useCrossProjectApp` binds `forgetPeople` in an effect; the dispatcher is
-  built after it and takes `crossProject.forgetPeople` directly.
+  built after it and takes `crossProject.forgetPeople` directly. `use-forget-people.wiring.test.tsx` composes bridge, undo stack,
+  planner and the app hook in that order; task-manager's own props are pinned by a source scan in `use-cross-project-app.test.ts`.
   ★ It is NOT refused while the cross-project data loads and needs no other project loaded (rows outlive the other projects);
   it rides `commit`, so a reload that read the rows first is corrected through `runWritesRef`.
-  ★★★ **IT REQUIRES THE LIVE `storageKind === "turso"`, NOT JUST `portfolioMode`.** `portfolioMode` is frozen at startup and an
-  in-place storage switch (Turso to Browser) leaves `portfolioMode`, `tursoConfig` and `tursoProjectId` looking like Turso while the
-  open workspace is a local copy; a delete there would destroy the shared answers of a person who still exists in Turso.
-  `task-manager.tsx` passes `settings.storageConfig.kind`. ★ The same stale state lets `confirm`, `reject` and `undo` write
-  against the old project id after such a switch; they are NOT gated (they only add or remove one answer) and that is open.
-  ★ The AI `delete_resource` is refused while `isSwapInFlight()` (a project swap), because the sweep is permanent while the delete is
-  lost with the workspace it edited; only that tool is gated.
-  ★ Its failure has its own REQUIRED route, `onForgetError` → `allocElsewhereForgetFailed` (the delete stands; names may remain; Undo and
-  delete again retries while Undo is offered): "could not save your answer" would be false, and `commit`'s `onError` has no default
-  so the sweep cannot fall back to it.
-  ★★ **WHAT IS STILL NOT SWEPT**, stated so the closure does not read as "never": (1) a sweep that FAILED; (2) an answer written
-  after the sweep, by one still in flight when it ran, or by another tab or user who holds the person in their loaded data (writes
-  are not ordered; §788 minor, accepted); (3) a person dropped by an import, a version restore or a project swap, which replace the
-  list and are not deletes (nothing is detected by diffing `resources`); (4) Undo brings the person back but never their answers
-  (owner decision 2026-11-01). Popouts cannot delete (edit guard, read-only dispatcher).
+  ★★★ **THE WHOLE FEATURE IS OFF UNLESS THE LIVE `storageKind` IS `"turso"`, NOT JUST `portfolioMode`.** `portfolioMode` is frozen at
+  startup and an in-place storage switch (Turso to Browser) leaves `portfolioMode`, `tursoConfig` and `tursoProjectId` looking like
+  Turso while the open workspace is a local copy. So `useCrossProjectPeople` takes `storageKind` (task-manager passes
+  `settings.storageConfig.kind`) and folds it into `portfolio`: off Turso the status is `"unavailable"`, nothing is loaded, `request`
+  does nothing, `confirm`/`reject`/`undo` refuse, the person's section renders nothing, and `singleProject` is FALSE (it is only for a
+  Turso database with one project, so the digest never claims "this is the only project"; it says "ELSEWHERE: other projects cannot be
+  seen in this storage mode" and the window shows no elsewhere note). `forgetPeople` keeps its own explicit `storageKind` check as well,
+  redundant by design. A switch back to Turso works again with no reload. `portfolioMode` itself is untouched and still contradicts
+  the invariant comment in `portfolio-mode-switch.ts` after such a switch; only this feature is made safe.
+  ★ The AI `delete_resource` is refused while the LOAD HOLD is on (`isLoadHeld` = `isSwapInFlight() || loadPendingRef.current`, so a
+  project swap, a same-project Reload, a backend rebuild and the first load), because the sweep is permanent while the delete is lost
+  with the workspace it edited; only that tool is gated, and a cross-project reload is not the hold.
+  ★ The delete confirmations say what Undo will not restore (`resourceDeleteAnswersNote`), only where answers are shared
+  (`crossProject.status !== "unavailable"`; the directory gets a boolean `sharesAnswers`, never a context read, so its memo holds), and the
+  `delete_resource` tool description says the same to the model.
+  ★ Its failure has its own REQUIRED route, `onForgetError` → `allocElsewhereForgetFailed` (the delete stands; names may remain; use Undo
+  while it is offered, then delete again), logged as `crossProject.forgetSweepFailed`: "could not save your answer" would be false, and
+  `commit`'s `onError` and `failCode` have no default so the sweep can fall back to neither.
+  ★★ **WHAT IS STILL NOT SWEPT, or swept too early**, stated so the closure does not read as "never": (1) a sweep that FAILED; (2) an answer written after the sweep, by one still in flight when it ran, or by another tab or user who holds the person in their loaded data (writes are not ordered; accepted); (3) a person dropped by an import, a version restore or a project swap, which replace the list and are not deletes (nothing is detected by diffing `resources`); (4) a delete that NEVER SAVES: the sweep fires when the delete happens in memory, not when it is stored, so in the "Saving paused" state (or after a failed save) the delete can be thrown away by the banner's Reload while the answers are already gone and the person is back (owner decision 2026-11-01: accepted and documented; gating the sweep on the save would leave the name behind after Overwrite); (5) a person deleted in a LOCAL copy after a switch away from Turso and later converted back: the sweep is skipped there on purpose, and nothing sweeps on the conversion (`onRequestStorageSwitch` builds its Turso target without the open project's id, so what it writes was not traced to the end); (6) Undo, which brings the person back but never their answers (owner decision 2026-11-01). Popouts cannot delete
+  (edit guard, read-only dispatcher).
   A failed write leaves the in-memory links untouched and toasts
   (`onWriteError`); writes are epoch-guarded. `decided_by` is blank today: the hook accepts `actorLabel` but
   `task-manager.tsx` does not pass it. Confirm / Not the same / Undo are in two places that write the same row: the

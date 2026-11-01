@@ -117,6 +117,16 @@ describe("person_links delete for a person (§788)", () => {
     expect(keys(db)).toEqual(["p-alpha:4|p-beta:8"]);
   });
 
+  it("a list longer than one chunk still removes every id, the boundary ones included", () => {
+    const db = freshDb();
+    const ids = Array.from({ length: 450 }, (_, i) => i + 1);
+    for (const id of ids) run(db, upsertPersonLinkStatements(mk("p-alpha", id, "p-beta", 1000 + id)));
+    const stmts = deletePersonLinksForStatements("p-alpha", ids);
+    expect(stmts).toHaveLength(3);
+    run(db, stmts);
+    expect(select(db)).toEqual([]); // an off-by-one chunk slice leaves ids 200, 400 behind
+  });
+
   it("an empty id list builds no statement", () => {
     expect(deletePersonLinksForStatements("p-alpha", [])).toEqual([]);
   });
