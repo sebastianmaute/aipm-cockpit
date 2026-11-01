@@ -170,7 +170,7 @@ describe("ChatThreadSidebar", () => {
 });
 
 describe("ChatThreadSidebar — erase controls", () => {
-  const erase = { enabled: true, ownerId: "me", deleteAll: vi.fn(async () => undefined), deleteSelected: vi.fn(async () => undefined) };
+  const erase = { enabled: true, ownerId: "me", deleteAll: vi.fn(async () => "done" as const), deleteSelected: vi.fn(async () => undefined) };
 
   it("shows delete-all and find while chats are saved", () => {
     renderSidebar({ erase });

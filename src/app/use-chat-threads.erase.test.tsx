@@ -311,7 +311,7 @@ describe("useChatThreads — a chat started here is owned once saved", () => {
     await waitFor(() => expect(readChatThreads("default").threads.find((th) => th.id === id)?.ownerId).toBe(owner));
   });
 
-  it("delete-all removes a saved session thread even when the reload fails, and the UI reports the failure", async () => {
+  it("delete-all removes a saved session thread even when the reload fails, and the UI says the list was not refreshed", async () => {
     let api: ReturnType<typeof useChatThreads> | null = null;
     function Harness(p: UseChatThreadsDeps) {
       const chatThreads = useChatThreads(p);
@@ -336,7 +336,8 @@ describe("useChatThreads — a chat started here is owned once saved", () => {
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "delete my chats" } });
     fireEvent.click(screen.getByRole("button", { name: "Delete my chats" }));
 
-    expect(await screen.findByText("Your chats could not be deleted. Please try again.")).toBeInTheDocument();
+    expect(await screen.findByText("Your chats were deleted; the list could not be refreshed.")).toBeInTheDocument();
+    expect(screen.queryByText("Your chats could not be deleted. Please try again.")).not.toBeInTheDocument();
     expect(deleteOwnerThreadsMock).toHaveBeenCalledTimes(1);
     expect(api!.threads.find((th) => th.id === id)).toBeUndefined();
     expect(api!.activeThreadId).toBeNull();

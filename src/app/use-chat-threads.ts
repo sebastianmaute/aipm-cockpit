@@ -170,6 +170,10 @@ function expireOldThreads(
     .catch(() => logDiag("warn", "chat.retentionExpireFailed"));
 }
 
+/** How a delete-all ended when it did not fail: "done" (deleted and the list reloaded, or nothing of this
+ *  browser's to delete), or "not-refreshed" (deleted, but the reload afterwards failed). */
+export type DeleteAllOutcome = "done" | "not-refreshed";
+
 /** The sidebar's erase controls: delete every chat of this browser's owner, and delete chosen ones. */
 export interface ChatEraseActions {
   /** False while the chat status is unknown or outside Turso mode. True otherwise, even while chats
@@ -177,8 +181,9 @@ export interface ChatEraseActions {
   enabled: boolean;
   /** This browser's owner id for the current database; null when none is stored (nothing of yours to delete). */
   ownerId: string | null;
-  /** Deletes every thread of this owner in the database (all projects). Rejects when the delete fails. */
-  deleteAll: () => Promise<void>;
+  /** Deletes every thread of this owner in the database (all projects). Rejects when the delete fails;
+   *  resolves "not-refreshed" when it succeeded but the list could not be reloaded afterwards. */
+  deleteAll: () => Promise<DeleteAllOutcome>;
   /** Deletes the listed threads of this project. Rejects when any of them could not be deleted. */
   deleteSelected: (ids: readonly string[]) => Promise<void>;
 }
@@ -1350,11 +1355,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     if (results.some((r) => r.status === "rejected")) throw new Error("some chat threads could not be deleted");
   }
 
-  async function deleteAll(): Promise<void> {
-    if (!deleteGate) return;
+  async function deleteAll(): Promise<DeleteAllOutcome> {
+    if (!deleteGate) return "done";
     const config = writeConfig(tursoConfig);
     const identity = knownIdentity(config) ?? (await getChatIdentity(config?.httpUrl ?? ""));
-    if (!identity) return;
+    if (!identity) return "done";
     const epoch = projectEpochRef.current;
     const pid = projectId;
     await deleteOwnerThreads(config, identity.ownerId);
@@ -1362,15 +1367,17 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // This owner's threads are gone in every project, so whichever project is open now loses them.
     const owned = threadsRef.current.filter((th) => th.ownerId === identity.ownerId).map((th) => th.id);
     removeDeleted(null, owned, projectEpochRef.current);
-    // An extra check against the database; a failure is reported, so the user can try again.
+    // An extra check against the database. The delete itself succeeded, so a failed reload is reported
+    // as such ("not-refreshed"), never as a failed delete.
     let left: Set<string>;
     try {
       left = new Set((await loadVisibleThreads(config, pid)).map((th) => th.id));
     } catch {
       logDiag("warn", "chat.deleteAllReloadFailed");
-      throw new Error("chat threads could not be reloaded after deleting them");
+      return "not-refreshed";
     }
     removeDeleted(null, threadsRef.current.filter((th) => th.projectId === pid && !left.has(th.id)).map((th) => th.id), epoch);
+    return "done";
   }
 
   /** After a delete-all: every thread-name draft of this database, in every project's scope, stored or

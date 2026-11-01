@@ -19,7 +19,7 @@ describe("ChatNotSavedNotice", () => {
     const onStart = vi.fn(async () => undefined);
     render(<ChatNotSavedNotice lang="en-US" persistence="identity-locked" onStartNewIdentity={onStart} />);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Your saved chats on this browser cannot be opened any more. Start a new chat identity to save chats again; your earlier chats stay with the operator until they expire.",
+      "Your saved chats on this browser cannot be opened any more. Start a new chat identity to save chats again; your earlier chats stay with the operator until they expire. If you set a chat passphrase earlier, start a new identity, then use “Open my chats from another browser” in Settings → AI with your unlock code to get your earlier chats back.",
     );
     fireEvent.click(screen.getByRole("button", { name: "Start a new chat identity" }));
     expect(onStart).toHaveBeenCalledTimes(1);
@@ -35,5 +35,7 @@ describe("ChatNotSavedNotice", () => {
     render(<ChatNotSavedNotice lang="de" persistence="identity-locked" onStartNewIdentity={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Neue Chat-Identität beginnen" })).toBeInTheDocument();
     expect(screen.getByRole("status").textContent).toContain("Ihre gespeicherten Chats");
+    expect(screen.getByRole("status").textContent).toContain("„Meine Chats aus einem anderen Browser öffnen“");
+    expect(screen.getByRole("status").textContent).toContain("Entsperrcode");
   });
 });

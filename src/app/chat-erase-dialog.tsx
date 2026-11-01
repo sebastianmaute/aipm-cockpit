@@ -36,32 +36,39 @@ export function ChatEraseControls({ lang, threads, erase }: ChatEraseControlsPro
   const noOwnerId = useId();
   const [open, setOpen] = useState<"none" | "delete-all" | "find">("none");
   const [busy, setBusy] = useState(false);
-  const [deleteAllFailed, setDeleteAllFailed] = useState(false);
+  // What the last delete-all left to say: it failed, or it deleted but the list could not be refreshed.
+  const [deleteAllNotice, setDeleteAllNotice] = useState<"failed" | "not-refreshed" | null>(null);
   if (!erase.enabled) return null;
   const hasOwner = erase.ownerId !== null;
 
   function confirmDeleteAll(): void {
     if (busy) return;
     setBusy(true);
-    setDeleteAllFailed(false);
+    setDeleteAllNotice(null);
     erase.deleteAll().then(
-      () => {
+      (outcome) => {
         setBusy(false);
         setOpen("none");
+        if (outcome === "not-refreshed") setDeleteAllNotice("not-refreshed");
       },
       () => {
         setBusy(false);
         setOpen("none");
-        setDeleteAllFailed(true);
+        setDeleteAllNotice("failed");
       },
     );
   }
 
   return (
     <div className="flex shrink-0 flex-col items-start gap-1.5">
-      {deleteAllFailed && (
+      {deleteAllNotice === "failed" && (
         <Banner severity="error" role="alert">
           {t(lang, "chatDeleteAllFailed")}
+        </Banner>
+      )}
+      {deleteAllNotice === "not-refreshed" && (
+        <Banner severity="warn" role="alert">
+          {t(lang, "chatDeleteAllNotRefreshed")}
         </Banner>
       )}
       <Button variant="secondary" size="xs" onClick={() => setOpen("find")}>

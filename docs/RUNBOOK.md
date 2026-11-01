@@ -659,6 +659,8 @@ a URL, token or error text. With no usable pair it runs no schedule; it then log
 limit:** a database configured only in a user's browser (Settings → Integrations) is
 unknown to the server. Its chats are still deleted by the browser (once per page load,
 across the whole database, even with AI off) — or by you, with the script below.
+★ Several deployments sharing one database each sweep it with their OWN retention setting, so
+the shortest one wins for every chat in it: give them the same value.
 
 **The operator script** — `npm run chats:erase -- <command>`, credentials from
 `CHAT_ERASURE_TURSO_URL` and `CHAT_ERASURE_TURSO_TOKEN` (`libsql://` or `https://`;
@@ -697,8 +699,9 @@ Its next save of that chat changes no row, and the chat leaves its list.
 **SQL one-liners** (for example in `turso db shell <db>`):
 
 ```sql
--- expire: delete chats not changed for 30 days (the same test the app uses)
-DELETE FROM chat_threads WHERE updated_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days') OR updated_at IS NULL OR updated_at = '' OR julianday(updated_at) IS NULL;
+-- expire: delete chats not changed for 30 days, exactly the app's statement (a unit test pins it):
+-- also rows without a usable date, and rows dated more than a day ahead of the database clock
+DELETE FROM chat_threads WHERE (updated_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', '-30 days') OR updated_at > strftime('%Y-%m-%dT%H:%M:%fZ','now', '+1 days') OR updated_at IS NULL OR updated_at = '' OR julianday(updated_at) IS NULL);
 -- delete every saved chat in the database
 DELETE FROM chat_threads;
 ```

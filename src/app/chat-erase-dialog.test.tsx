@@ -17,7 +17,7 @@ function actions(over: Partial<ChatEraseActions> = {}): ChatEraseActions {
   return {
     enabled: true,
     ownerId: "me",
-    deleteAll: vi.fn(async () => undefined),
+    deleteAll: vi.fn(async () => "done" as const),
     deleteSelected: vi.fn(async () => undefined),
     ...over,
   };
@@ -73,6 +73,24 @@ describe("ChatEraseControls — delete all my chats", () => {
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "delete my chats" } });
     fireEvent.click(screen.getByRole("button", { name: "Delete my chats" }));
     expect(await screen.findByText("Your chats could not be deleted. Please try again.")).toBeInTheDocument();
+  });
+
+  it("says the chats were deleted, not that the delete failed, when only the refresh afterwards failed", async () => {
+    renderControls([thread("a")], actions({ deleteAll: vi.fn(async () => "not-refreshed" as const) }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete all my chats" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "delete my chats" } });
+    fireEvent.click(screen.getByRole("button", { name: "Delete my chats" }));
+    expect(await screen.findByText("Your chats were deleted; the list could not be refreshed.")).toBeInTheDocument();
+    expect(screen.queryByText("Your chats could not be deleted. Please try again.")).not.toBeInTheDocument();
+  });
+
+  it("says so in German too when only the refresh failed", async () => {
+    await loadI18n("de");
+    renderControls([thread("a")], actions({ deleteAll: vi.fn(async () => "not-refreshed" as const) }), "de");
+    fireEvent.click(screen.getByRole("button", { name: "Alle meine Chats löschen" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "meine Chats löschen" } });
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Meine Chats löschen" }));
+    expect(await screen.findByText("Ihre Chats wurden gelöscht; die Liste konnte nicht aktualisiert werden.")).toBeInTheDocument();
   });
 
   it("is disabled, with the reason as its description, when this browser has no chats of yours", () => {

@@ -4,6 +4,8 @@
 // the SQL cannot show which rows a DELETE really removes.
 import { describe, it, expect, beforeEach } from "vitest";
 import { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   CHAT_THREADS_DDL, chatThreadsHealAlters, upsertThreadStatements, pruneThreadsStatements,
   expireThreadsStatements, deleteOwnerThreadsStatements, deleteThreadStatements, threadsSelect, retentionCutoff,
@@ -202,6 +204,13 @@ describe("chat_threads statements against a real engine", () => {
       { id: "n", owner_id: "bob", name: "c1.bob" },
       { id: "t", owner_id: "alice", name: "c1.v2" },
     ]);
+  });
+
+  it("the RUNBOOK's expire one-liner is the app's statement for 30 days, word for word", () => {
+    const [stmt] = expireThreadsStatements(30);
+    const sql = `${stmt.sql.replace("?", "'-30 days'")};`;
+    const runbook = readFileSync(join(process.cwd(), "docs", "RUNBOOK.md"), "utf8");
+    expect(runbook.split(/\r?\n/)).toContain(sql);
   });
 
   it("delete is scoped to the owner: bob cannot delete alice's row, but can delete a legacy one", () => {
