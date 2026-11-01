@@ -102,6 +102,22 @@ export function upsertThreadStatements(row: StoredThreadRow): SqlStmt[] {
   ];
 }
 
+/** The save of a thread KNOWN to be stored (loaded from the database, or saved earlier in this
+ *  session): an owner-guarded UPDATE, never an insert. When the row is gone — erased by the operator,
+ *  deleted in another tab or browser, expired — it matches nothing and the write changes no row, so a
+ *  session still holding the thread can never bring an erased chat back. The same project and owner
+ *  guard as the upsert: an owner's own row or a legacy owner-less one (taken over), never another's. */
+export function updateStoredThreadStatements(row: StoredThreadRow): SqlStmt[] {
+  return [{
+    sql: `UPDATE chat_threads SET name = ?, updated_at = ?, history_json = ?, display_json = ?, key_owner = ?, key_operator = ?, owner_id = ? ` +
+      `WHERE id = ? AND project_id = ? AND (owner_id = ? OR owner_id IS NULL OR owner_id = '')`,
+    args: [
+      txt(row.name), txt(row.updated_at), txt(row.history_json), txt(row.display_json), txt(row.key_owner), txt(row.key_operator),
+      txt(row.owner_id), txt(row.id), txt(row.project_id), txt(row.owner_id),
+    ],
+  }];
+}
+
 /** An id alone must never be sufficient to delete a thread across projects. Every id
  *  reaching this today comes from a project-scoped list (`threadsSelect`), so nothing
  *  was exploitable, but a future caller (a bulk-cleanup script, a new AI tool, a

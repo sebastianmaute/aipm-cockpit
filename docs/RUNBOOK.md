@@ -688,6 +688,9 @@ repeat with that key.
 5. In the person's own browser, Delete all my chats (chat sidebar) removes their chats
    in every project of that database.
 
+Nobody has to reload first: a tab that still shows an erased chat cannot upload it again.
+Its next save of that chat changes no row, and the chat leaves its list.
+
 **SQL one-liners** (for example in `turso db shell <db>`):
 
 ```sql

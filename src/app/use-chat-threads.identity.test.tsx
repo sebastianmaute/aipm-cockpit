@@ -13,6 +13,7 @@ import type { TursoConfig } from "./turso-config";
 import type { ChatSettings } from "./ai-chat-retention-config";
 import { clearChatThreads, readChatThreads } from "./chat-threads-registry";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
+import { PENDING_EDITS_PREFIX, flushPendingEdits, pendingEditScope, resetPendingEditsForTests } from "./pending-edits";
 
 const h = vi.hoisted(() => ({
   vault: new Map<string, { ownerId: string; chatKey: Uint8Array }>(),
@@ -396,6 +397,55 @@ describe("useChatThreads — retention", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(expireThreadsMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("useChatThreads — an erased chat never comes back", () => {
+  const stored = (call: unknown[] | undefined): boolean | undefined => (call?.[4] as { stored?: boolean } | undefined)?.stored;
+  const OUTBOX_KEY = `${PENDING_EDITS_PREFIX}${pendingEditScope(CFG_A.httpUrl, "chat:default")}`;
+  const storedRenameIds = (): string[] => {
+    flushPendingEdits(Date.now());
+    const raw = window.localStorage.getItem(OUTBOX_KEY);
+    return raw ? (JSON.parse(raw) as { id: string }[]).map((e) => e.id).sort() : [];
+  };
+  beforeEach(() => resetPendingEditsForTests());
+
+  it("a loaded thread whose row was deleted is dropped on its next save, with its pending rename, never re-inserted", async () => {
+    loadThreadsMock.mockResolvedValue([thread("t1"), thread("t2")]);
+    const hook = renderChatThreads();
+    await waitFor(() => expect(hook.result.current.threads).toHaveLength(2));
+    act(() => {
+      hook.result.current.trackRenameDraft("t1", "Draft one");
+      hook.result.current.trackRenameDraft("t2", "Draft two");
+    });
+    expect(storedRenameIds()).toEqual(["t1", "t2"]);
+    saveThreadMock.mockResolvedValueOnce("gone");
+    await sendTurn(hook);
+    await waitFor(() => expect(hook.result.current.threads.map((th) => th.id)).toEqual(["t2"]));
+    expect(saveThreadMock).toHaveBeenCalledTimes(1);
+    expect(stored(saveThreadMock.mock.calls[0])).toBe(true);
+    expect(readChatThreads("default").threads.map((th) => th.id)).toEqual(["t2"]);
+    expect(hook.result.current.threadsError).toBe(false);
+    expect(readDiagLog().filter((e) => e.code === "chat.threadGone")).toHaveLength(1);
+    expect(readDiagLog().some((e) => e.code === "chat.threadNotOwned")).toBe(false);
+    expect(storedRenameIds()).toEqual(["t2"]);
+  });
+
+  it("a brand-new thread is saved as not yet stored, and as stored once its first save landed", async () => {
+    const hook = renderChatThreads();
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    act(() => {
+      hook.result.current.ensureThreadForSend(turn.history, turn.display);
+    });
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    expect(stored(saveThreadMock.mock.calls[0])).toBe(false);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const id = hook.result.current.activeThreadId!;
+    act(() => hook.result.current.renameThread(id, "Renamed"));
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(2));
+    expect(stored(saveThreadMock.mock.calls[1])).toBe(true);
   });
 });
 

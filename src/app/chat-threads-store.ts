@@ -6,7 +6,7 @@
 import { runTursoPipeline } from "./turso-pipeline";
 import {
   CHAT_THREADS_DDL, CHAT_THREADS_TABLE, CHAT_THREAD_CAP, chatThreadsHealAlters, threadsSelect,
-  upsertThreadStatements, deleteThreadStatements, pruneThreadsStatements,
+  upsertThreadStatements, updateStoredThreadStatements, deleteThreadStatements, pruneThreadsStatements,
   deleteOwnerThreadsStatements, expireThreadsStatements, legacyThreadIdsSelect,
 } from "./chat-threads-schema";
 import { decodeThreadRows, encodeThreadRow, type ChatIdentity } from "./chat-thread-codec";
@@ -66,29 +66,41 @@ export async function loadThreads(
   return decodeThreadRows(results[CHAT_THREADS_DDL.length], id);
 }
 
-/** What a save did: wrote the row, or changed nothing because the id is held by another owner
- *  (or another project) — the owner-guarded upsert then matches no row. */
-export type SaveThreadOutcome = "saved" | "not-owned";
+/** What a save did: wrote the row; or changed nothing because the id is held by another owner
+ *  (or another project) — the owner-guarded upsert then matches no row ("not-owned"); or, for a
+ *  thread known to be stored, changed nothing because its row is gone or no longer this owner's
+ *  ("gone") — it is never inserted again. */
+export type SaveThreadOutcome = "saved" | "not-owned" | "gone";
 
-/** Seal and upsert `th` as `id`'s thread, then prune `id`'s threads in that
+/** `stored`: the thread is known to be in the database (loaded from it, or saved earlier in this
+ *  session). Such a thread is only ever UPDATEd, so an erased chat cannot come back. */
+export interface SaveThreadOptions {
+  stored?: boolean;
+}
+
+/** Seal and write `th` as `id`'s thread, then prune `id`'s threads in that
  *  project beyond the cap. Without an identity or a recovery key it refuses
- *  before any network call — there is no plaintext write path. Reports
- *  "not-owned" when the server says the upsert changed no row. */
+ *  before any network call — there is no plaintext write path. A thread never
+ *  stored is upserted ("not-owned" when the server says that changed no row); a
+ *  stored one is updated in place only ("gone" when that changed no row). */
 export async function saveThread(
   config: TursoConfig | null,
   th: ChatThread,
   id: ChatIdentity,
   recoverySpki: string,
+  options: SaveThreadOptions = {},
 ): Promise<SaveThreadOutcome> {
   if (!id?.ownerId || !recoverySpki) {
     throw new Error("saveThread: a chat identity and a recovery key are required");
   }
   const row = await encodeThreadRow(th, id, recoverySpki);
+  const write = options.stored ? updateStoredThreadStatements(row) : upsertThreadStatements(row);
   const results = await run(config, [
-    ...upsertThreadStatements(row),
+    ...write,
     ...pruneThreadsStatements(th.projectId, id.ownerId, CHAT_THREAD_CAP),
   ]);
-  return results[CHAT_THREADS_DDL.length]?.response?.result?.affected_row_count === 0 ? "not-owned" : "saved";
+  if (results[CHAT_THREADS_DDL.length]?.response?.result?.affected_row_count !== 0) return "saved";
+  return options.stored ? "gone" : "not-owned";
 }
 
 /** Delete one thread of `ownerId` (or a legacy owner-less one). Without an

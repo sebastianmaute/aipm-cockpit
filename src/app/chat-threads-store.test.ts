@@ -79,7 +79,9 @@ describe("chat-threads-store", () => {
     const v = values(insert);
     expect(v.slice(0, 3)).toEqual(["t1", "p", "alice"]);
     expect(JSON.stringify(v)).not.toContain("Q1 budget");
-    expect(JSON.stringify(v)).not.toContain("hi");
+    // The plaintext as it would be stored, quotes included: base64 never carries a quote, while a bare
+    // "hi" turns up in random ciphertext now and then.
+    expect(v.join("")).not.toContain('"content":"hi"');
 
     const prune = stmts.find((s) => /^DELETE FROM chat_threads WHERE project_id = \? AND owner_id = \? AND id NOT IN/i.test(s.sql));
     expect(prune).toBeTruthy();
@@ -96,6 +98,25 @@ describe("chat-threads-store", () => {
     await expect(saveThread(cfg, th, alice, spkiB64)).resolves.toBe("not-owned");
     pipe.mockImplementation(upsertResult(1));
     await expect(saveThread(cfg, th, alice, spkiB64)).resolves.toBe("saved");
+  });
+
+  it("saveThread of a stored thread sends an owner-guarded UPDATE, never an INSERT, and reports gone on no row", async () => {
+    const updateResult = (affected: number) => async (_c: unknown, stmts: SqlStmt[]) =>
+      stmts.map((s) => ({
+        type: "ok",
+        response: { type: "execute", result: { cols: [], rows: [], affected_row_count: /^UPDATE chat_threads/.test(s.sql) ? affected : 0 } },
+      }));
+    pipe.mockImplementation(updateResult(0));
+    await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("gone");
+    const stmts = lastStmts();
+    expect(stmts.some((s) => /INSERT/i.test(s.sql))).toBe(false);
+    const update = stmts.find((s) => /^UPDATE chat_threads SET /.test(s.sql));
+    expect(update?.sql).toMatch(/WHERE id = \? AND project_id = \? AND \(owner_id = \? OR owner_id IS NULL OR owner_id = ''\)$/);
+    expect(values(update).slice(-3)).toEqual(["t1", "p", "alice"]);
+    expect(JSON.stringify(values(update))).not.toContain("Q1 budget");
+    expect(stmts.some((s) => /^DELETE FROM chat_threads WHERE project_id = \? AND owner_id = \? AND id NOT IN/.test(s.sql))).toBe(true);
+    pipe.mockImplementation(updateResult(1));
+    await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("saved");
   });
 
   it("saveThread emits no standalone row-delete — the upsert must be one atomic statement", async () => {

@@ -63,6 +63,11 @@ function outboxScope(tursoConfig: TursoConfig | null, projectId: string): string
   return typeof url === "string" && url.length > 0 ? pendingEditScope(url, `chat:${projectId}`) : null;
 }
 
+/** The key of thread `id` of `config`'s database in the hook's set of stored threads. */
+function storedKey(config: TursoConfig | null, id: string): string {
+  return `${config?.httpUrl ?? ""}\n${id}`;
+}
+
 /** §604. Two configs name the same Turso database when their URLs match; the token may differ. */
 function sameDatabase(a: TursoConfig | null, b: TursoConfig | null): boolean {
   return a?.httpUrl === b?.httpUrl;
@@ -475,6 +480,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   const landedRef = useRef<Map<string, LandedWrite>>(new Map());
   const landingsRef = useRef(0);
 
+  // The threads known to be in the database, per database URL and thread id (`storedKey`): read by a
+  // load, or saved here with the outcome "saved". Such a thread is only ever UPDATEd, so a chat erased
+  // or deleted elsewhere while this session holds it can never be written back.
+  const storedRef = useRef<Set<string>>(new Set());
+
   // This browser's identity for the current database, as last read from the vault. Read before every
   // load (a load never creates one); a save creates one on first use (`ensureChatIdentity`).
   const [vaultRead, setVaultRead] = useState<VaultRead | null>(null);
@@ -515,6 +525,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     vaultReadRef.current = next;
     setVaultRead(next);
     const loaded = await loadThreads(config, pid, identity);
+    for (const th of loaded) storedRef.current.add(storedKey(config, th.id));
     const cutoffIso = chat ? retentionCutoff(new Date(), chat.retentionDays) : null;
     return loaded.filter((th) =>
       (th.ownerId === null || th.ownerId === identity?.ownerId)
@@ -600,12 +611,29 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         dropNotOwned(th.id);
         return;
       }
-      const outcome = await saveThread(config, th, identity, gate.recoveryKey);
-      if (outcome === "not-owned") dropNotOwned(th.id);
+      const key = storedKey(config, th.id);
+      const outcome = await saveThread(config, th, identity, gate.recoveryKey, { stored: storedRef.current.has(key) });
+      if (outcome === "not-owned") {
+        dropNotOwned(th.id);
+        return;
+      }
+      if (outcome === "gone") {
+        dropGone(config, th);
+        return;
+      }
+      storedRef.current.add(key);
       // Only into the list of the database it landed in: a write pinned to a database the user has
       // since left must not touch the new one's list.
-      else if (sameDatabase(config, liveConfigRef.current)) stampOwner(th.id, identity.ownerId);
+      if (sameDatabase(config, liveConfigRef.current)) stampOwner(th.id, identity.ownerId);
     };
+  }
+
+  /** The stored thread `th` is gone from the database (erased, deleted elsewhere, expired) or no longer
+   *  this owner's: as `dropNotOwned`, and its pending rename goes too. It is never written again. */
+  function dropGone(config: TursoConfig | null, th: ChatThread): void {
+    const scope = outboxScope(config, th.projectId);
+    if (scope) dropPendingEdit(scope, RENAME_KIND, th.id);
+    dropUnsaveable(th.id, "chat.threadGone");
   }
 
   /** A save of thread `id` landed as `ownerId`'s row: the in-memory thread says so too (list, ref and
@@ -624,7 +652,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
    *  the active one and no send is running, the conversation on screen stays, under no thread, so the
    *  next send starts a new one of this owner's. */
   function dropNotOwned(id: string): void {
-    logDiag("warn", "chat.threadNotOwned");
+    dropUnsaveable(id, "chat.threadNotOwned");
+  }
+
+  function dropUnsaveable(id: string, code: "chat.threadNotOwned" | "chat.threadGone"): void {
+    logDiag("warn", code);
     setThreads((prev) => prev.filter((th) => th.id !== id));
     if (threadIdRef.current === id && abortRef.current === null) setActiveThreadId(null);
   }

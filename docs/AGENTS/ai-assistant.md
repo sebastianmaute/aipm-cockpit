@@ -2233,6 +2233,11 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   DO UPDATE … WHERE` that only overwrites a row of the same project whose owner is the writer or nobody — never
   a delete-then-insert pair, because `runTursoPipeline` only opens a transaction when the first statement is
   literal `BEGIN`. A guarded upsert that matches nothing is a silent no-op.
+  ★★ That upsert is ONLY for a thread never stored. A thread the hook knows is stored (it was loaded, or a
+  save of it returned "saved") is written with `updateStoredThreadStatements`, an owner-guarded UPDATE: when
+  its row was erased or deleted elsewhere it changes no row, `saveThread` returns "gone", and the hook drops
+  the thread, its registry entry and its pending rename (`chat.threadGone`). Upserting it would bring an
+  erased chat back with its whole history.
   `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
   requires `projectId` AND the owner id (not just an id), so a delete can never reach across projects or into a
   colleague's row; it also matches legacy owner-less rows.

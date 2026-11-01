@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import {
   CHAT_THREADS_DDL, chatThreadsHealAlters, upsertThreadStatements, pruneThreadsStatements,
   expireThreadsStatements, deleteOwnerThreadsStatements, deleteThreadStatements, threadsSelect, retentionCutoff,
-  legacyThreadIdsSelect,
+  legacyThreadIdsSelect, updateStoredThreadStatements,
   type StoredThreadRow,
 } from "./chat-threads-schema";
 import { pragmaStatements } from "./turso-migrate";
@@ -177,6 +177,30 @@ describe("chat_threads statements against a real engine", () => {
     run(db, upsertThreadStatements(row("t", { name: "c1.v2", updated_at: daysAgo(0), key_owner: "c1.k2" })));
     expect(db.prepare("SELECT * FROM chat_threads").all()).toEqual([
       row("t", { name: "c1.v2", updated_at: daysAgo(0), key_owner: "c1.k2" }),
+    ]);
+  });
+
+  it("the stored-thread update never brings back a deleted row", () => {
+    run(db, upsertThreadStatements(row("t", { name: "c1.v1" })));
+    run(db, deleteOwnerThreadsStatements("alice"));
+    const [stmt] = updateStoredThreadStatements(row("t", { name: "c1.v2" }));
+    expect(db.prepare(stmt.sql).run(...(stmt.args ?? []).map(bindArg)).changes).toBe(0);
+    expect(ids(db)).toEqual([]);
+  });
+
+  it("the stored-thread update rewrites the owner's row, takes over a legacy one, and leaves another owner's or project's alone", () => {
+    run(db, upsertThreadStatements(row("t", { name: "c1.v1" })));
+    run(db, updateStoredThreadStatements(row("t", { name: "c1.v2", updated_at: daysAgo(0), key_owner: "c1.k2" })));
+    expect(db.prepare("SELECT * FROM chat_threads").all()).toEqual([
+      row("t", { name: "c1.v2", updated_at: daysAgo(0), key_owner: "c1.k2" }),
+    ]);
+    insertNullOwner(db, "n");
+    run(db, updateStoredThreadStatements(row("n", { name: "c1.bob", owner_id: "bob" })));
+    run(db, updateStoredThreadStatements(row("t", { name: "c1.bob", owner_id: "bob" })));
+    run(db, updateStoredThreadStatements(row("t", { name: "c1.q", project_id: "q" })));
+    expect(db.prepare("SELECT id, owner_id, name FROM chat_threads ORDER BY id").all()).toEqual([
+      { id: "n", owner_id: "bob", name: "c1.bob" },
+      { id: "t", owner_id: "alice", name: "c1.v2" },
     ]);
   });
 
