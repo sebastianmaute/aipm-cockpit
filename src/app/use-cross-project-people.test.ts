@@ -271,3 +271,26 @@ describe("useCrossProjectPeople — loadFailed (§785)", () => {
     expect(hook.result.current.loadFailed).toBe(false);
   });
 });
+
+describe("useCrossProjectPeople — nameOf (§785)", () => {
+  test("names the person in another project from the loaded data, empty when unknown or not loaded", async () => {
+    const { hook } = setup();
+    expect(hook.result.current.nameOf("p-b", 10)).toBe("");
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(hook.result.current.nameOf("p-b", 10)).toBe("Ann Lee");
+    expect(hook.result.current.nameOf("p-b", 99)).toBe("");
+    expect(hook.result.current.nameOf("p-zzz", 10)).toBe("");
+  });
+
+  test("is empty after the open project changes, and keeps one identity across unrelated renders", async () => {
+    const { hook, deps } = setup();
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    const nameOf = hook.result.current.nameOf;
+    hook.rerender({ ...deps });
+    expect(hook.result.current.nameOf).toBe(nameOf);
+    hook.rerender({ ...deps, currentProjectId: "p-b" });
+    expect(hook.result.current.nameOf("p-c", 10)).toBe("");
+  });
+});

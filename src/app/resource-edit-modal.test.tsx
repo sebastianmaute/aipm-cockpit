@@ -12,6 +12,8 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 import { selectFieldTier } from "../test/field-tier";
 import { expectExactLabelNames, expectNoHintInNamingLabel } from "../test/hint-label";
 import type { Resource } from "./types";
+import type { CrossProjectPeople } from "./use-cross-project-people";
+import type { PersonMatch } from "./cross-project/person-match";
 import { buttonClassFor } from "../test/button-variant";
 
 // ModalFieldControls (rendered in the modal header) reads field visibility from
@@ -720,5 +722,105 @@ describe("ResourceEditModal — More details disclosure follows the person (§70
     userSetsOpen(true);
     rerender(<ResourceEditModal {...props} resource={plain} onClose={vi.fn()} />);
     expect(details().open).toBe(true);
+  });
+});
+
+// §785 — where else the person works, with the answers that link or separate them.
+describe("ResourceEditModal — other projects (§785)", () => {
+  const rel = (projectId: string, projectName: string, resourceId: number) => ({ projectId, projectName, resourceId });
+  const names: Record<string, string> = { "p-b:10": "Sofia Ramirez", "p-c:20": "Sofia Ramirez" };
+  function cp(match: Partial<PersonMatch>, over: Partial<CrossProjectPeople> = {}): CrossProjectPeople {
+    return {
+      status: "ready",
+      failures: [],
+      loadFailed: false,
+      matches: new Map([[1, { matched: [], suggestions: [], rejected: [], ...match }]]),
+      elsewhere: () => [],
+      nameOf: (p, r) => names[`${p}:${r}`] ?? "",
+      request: vi.fn(),
+      confirm: vi.fn(async () => {}),
+      reject: vi.fn(async () => {}),
+      undo: vi.fn(async () => {}),
+      ...over,
+    };
+  }
+  const en = (key: Parameters<typeof t>[1], ...a: (string | number)[]) => t("en-US", key, ...a);
+
+  it("asks for the other projects when an existing person is opened, and says so while loading", () => {
+    const crossProject = cp({}, { status: "loading" });
+    setup({ crossProject });
+    expect(crossProject.request).toHaveBeenCalled();
+    expect(screen.getByText(en("allocElsewhereLoading"))).toBeTruthy();
+  });
+
+  it("lists the matched projects, a confirmed one marked and with an Undo that names the project", () => {
+    const crossProject = cp({ matched: [{ ...rel("p-b", "Apollo", 10), via: "email" }, { ...rel("p-c", "Borealis", 20), via: "confirmed" }] });
+    setup({ crossProject });
+    expect(screen.getByText(en("resourceWorksInProject", "Apollo"))).toBeTruthy();
+    expect(screen.getByText(en("resourceWorksInProjectConfirmed", "Borealis"))).toBeTruthy();
+    const undo = screen.getByRole("button", { name: `${en("resourceLinkUndo")} – Sofia Ramirez (#1) – Sofia Ramirez (#20) – Borealis` });
+    fireEvent.click(undo);
+    expect(crossProject.undo).toHaveBeenCalledWith(1, expect.objectContaining(rel("p-c", "Borealis", 20)));
+    expect(screen.getAllByRole("button", { name: new RegExp(en("resourceLinkUndo")) })).toHaveLength(1);
+  });
+
+  it("shows suggestions naming the other person, with Confirm and Not the same that call the hook", () => {
+    const crossProject = cp({ suggestions: [rel("p-b", "Apollo", 10)] });
+    setup({ crossProject });
+    expect(screen.getByText(en("resourceLinkSuggest", "Sofia Ramirez", "Apollo"))).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en("resourceLinkConfirm")} – `) }));
+    expect(crossProject.confirm).toHaveBeenCalledWith(1, rel("p-b", "Apollo", 10));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en("resourceLinkReject")} – `) }));
+    expect(crossProject.reject).toHaveBeenCalledWith(1, rel("p-b", "Apollo", 10));
+  });
+
+  it("shows rejected pairs with an Undo", () => {
+    const crossProject = cp({ rejected: [rel("p-b", "Apollo", 10)] });
+    setup({ crossProject });
+    expect(screen.getByText(en("resourceLinkRejected", "Sofia Ramirez", "Apollo"))).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${en("resourceLinkUndo")} – `) }));
+    expect(crossProject.undo).toHaveBeenCalledWith(1, rel("p-b", "Apollo", 10));
+  });
+
+  it("disables Confirm, Not the same and Undo while loading", () => {
+    const crossProject = cp(
+      { suggestions: [rel("p-b", "Apollo", 10)], rejected: [rel("p-c", "Borealis", 20)] },
+      { status: "loading" },
+    );
+    setup({ crossProject });
+    const answers = screen.getAllByRole("button", { name: new RegExp(`^(${en("resourceLinkConfirm")}|${en("resourceLinkReject")}|${en("resourceLinkUndo")}) – `) });
+    expect(answers).toHaveLength(3);
+    for (const b of answers) expect(b).toBeDisabled();
+  });
+
+  it("gives every answer control a row-unique name across two projects", () => {
+    const crossProject = cp({ suggestions: [rel("p-b", "Apollo", 10), rel("p-c", "Borealis", 20)] });
+    setup({ crossProject });
+    expectRowUniqueNames({ minControls: 4 });
+  });
+
+  it("explains the rule in a tooltip and links the help entry", () => {
+    setup({ crossProject: cp({}) });
+    expect(screen.getByRole("button", { name: new RegExp(en("resourceLinksTip").slice(0, 30)) })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: en("modalHelpAbout", en("resourceLinksHeading")) })).toHaveLength(1);
+  });
+
+  it("shows nothing and requests nothing for a new person", () => {
+    const crossProject = cp({ suggestions: [rel("p-b", "Apollo", 10)] });
+    setup({ crossProject, isNew: true });
+    expect(crossProject.request).not.toHaveBeenCalled();
+    expect(screen.queryByText(en("resourceLinksHeading"))).toBeNull();
+  });
+
+  it("shows nothing and requests nothing when other projects cannot be seen", () => {
+    const crossProject = cp({}, { status: "unavailable" });
+    setup({ crossProject });
+    expect(crossProject.request).not.toHaveBeenCalled();
+    expect(screen.queryByText(en("resourceLinksHeading"))).toBeNull();
+  });
+
+  it("is unchanged without a crossProject prop", () => {
+    setup();
+    expect(screen.queryByText(en("resourceLinksHeading"))).toBeNull();
   });
 });

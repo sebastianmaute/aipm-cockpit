@@ -51,7 +51,7 @@ export type AppModalsBlockDeps = AllKeys<
     | "editingShift" | "shiftExistingAssigneeKeys" | "handleSaveShift" | "handleDeleteShift" | "handleCloseShiftModal"
     | "today" | "nextId" | "contactsList" | "resources" | "absences" | "uniqueGroups" | "uniqueLabels"
     | "editingIsJiraLinked" | "fieldErrors" | "submitted" | "saveDisabled" | "holidaySet"
-    | "handleSubmit" | "handleCancelEdit" | "handleRemoveContact" | "budgetLink" | "editingResource" | "toast"
+    | "handleSubmit" | "handleCancelEdit" | "handleRemoveContact" | "budgetLink" | "editingResource" | "crossProject" | "toast"
   >
   & Pick<
     ComponentProps<typeof CalendarSummaryModals>,
@@ -117,7 +117,7 @@ export function buildAppModalsBlock(deps: AppModalsBlockDeps) {
     today, nextId, contactsList, resources, handleCreateResource, absences, tasks, uniqueGroups, uniqueLabels,
     editingIsJiraLinked, editingReadOnlyJiraProjectName, fieldErrors, submitted, saveDisabled, holidaySet,
     handleSubmit, handleCancelEdit, handleRemoveContact, handleAddAssigneeToAddressBook,
-    editingResource, handleSaveResourceFromAnywhere, handleDeleteResource, handleCloseResourceFromAnywhere,
+    editingResource, crossProject, handleSaveResourceFromAnywhere, handleDeleteResource, handleCloseResourceFromAnywhere,
     toast, pauseToast, resumeToast,
     linkedTaskOpen, setLinkedTaskOpen, handleCreateLinkedTask, notesWindowProps, blockersWindowProps,
     raidCreate, raid, stakeholdersEnabled, stakeholders, requestOpen, wbsPlanModal,
@@ -237,6 +237,7 @@ export function buildAppModalsBlock(deps: AppModalsBlockDeps) {
         handleRemoveContact={handleRemoveContact}
         onAddAssigneeToAddressBook={isPopout ? undefined : handleAddAssigneeToAddressBook}
         editingResource={editingResource}
+        crossProject={crossProject}
         onSaveResource={handleSaveResourceFromAnywhere}
         onDeleteResource={handleDeleteResource}
         onCloseResourceModal={handleCloseResourceFromAnywhere}

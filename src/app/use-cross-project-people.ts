@@ -19,6 +19,7 @@ import type { PortfolioMode } from "./portfolio-mode";
 import { TursoBackend } from "./turso-backend";
 import type { Workspace } from "./workspace";
 import { generatePeriods } from "./resource-capacity";
+import { resourceDisplayName } from "./resource-foundation";
 import { isScopeStale } from "./scope-epoch";
 import { logDiag } from "./diagnostics";
 import { useStableHandlers } from "./use-stable-handlers";
@@ -44,6 +45,8 @@ export interface CrossProjectPeople {
   loadFailed: boolean;
   matches: Map<number, PersonMatch>;
   elsewhere: (resourceId: number) => ElsewhereFigure[];
+  /** Display name of a person in ANOTHER project, from the loaded data; "" when nothing is loaded or the person is unknown. */
+  nameOf: (projectId: string, resourceId: number) => string;
   request: () => void;
   confirm: (hereResourceId: number, rel: Relation) => Promise<void>;
   reject: (hereResourceId: number, rel: Relation) => Promise<void>;
@@ -183,6 +186,14 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     [matches, effective, herePeriods, workdayHours, holidaySet],
   );
 
+  const nameOf = useCallback(
+    (projectId: string, resourceId: number): string => {
+      const r = effective?.others.find((o) => o.projectId === projectId)?.resources.find((x) => x.id === resourceId);
+      return r ? resourceDisplayName(r) : "";
+    },
+    [effective],
+  );
+
   const buildRow = (hereId: number, rel: Relation, verdict: PersonLinkRow["verdict"]): PersonLinkRow | null => {
     if (!effective || !currentProjectId) return null;
     const here = resources.find((r) => r.id === hereId);
@@ -244,7 +255,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   const failures = effective?.failures ?? NO_FAILURES;
   const loadFailed = available && loadFailedFor === currentProjectId;
   return useMemo(
-    () => ({ status, failures, loadFailed, matches, elsewhere, request, ...writers }),
-    [status, failures, loadFailed, matches, elsewhere, request, writers],
+    () => ({ status, failures, loadFailed, matches, elsewhere, nameOf, request, ...writers }),
+    [status, failures, loadFailed, matches, elsewhere, nameOf, request, writers],
   );
 }

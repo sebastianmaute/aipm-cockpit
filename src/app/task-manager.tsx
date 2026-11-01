@@ -1810,7 +1810,7 @@ function TaskManagerInner() {
     today, nextId, contactsList, resources, handleCreateResource, absences, tasks, uniqueGroups, uniqueLabels,
     editingIsJiraLinked, editingReadOnlyJiraProjectName, fieldErrors, submitted, saveDisabled, holidaySet,
     handleSubmit, handleCancelEdit, handleRemoveContact, handleAddAssigneeToAddressBook,
-    editingResource, handleSaveResourceFromAnywhere, handleDeleteResource, handleCloseResourceFromAnywhere,
+    editingResource, crossProject, handleSaveResourceFromAnywhere, handleDeleteResource, handleCloseResourceFromAnywhere,
     toast, pauseToast, resumeToast,
     linkedTaskOpen, setLinkedTaskOpen, handleCreateLinkedTask, notesWindowProps, blockersWindowProps,
     raidCreate, raid, stakeholdersEnabled, stakeholders, requestOpen, wbsPlanModal: wbsPlan.modal,

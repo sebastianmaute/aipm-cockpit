@@ -6,6 +6,7 @@ import { type Lang, t, tPlural, localeFor } from "./i18n";
 import { Checkbox } from "./form-controls";
 import { ExclamationTriangleIcon } from "./icons";
 import { InfoTooltip } from "./info-tooltip";
+import { HelpIconButton } from "./help-icon-button";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { formatCurrency } from "./resource-cost";
 import { defaultPeriodLabel, formatMovedHours, hoursMoveNotice, movedHoursNotes, type HoursMoveNoticeCtx } from "./reassign-hours-notice";
@@ -176,6 +177,11 @@ export function AllocPlanEffect({ lang, effect, currency, nameOf }: AllocPlanEff
                   <InfoTooltip
                     text={t(lang, "allocElsewhereTip")}
                     label={`${t(lang, "allocElsewhereLabel", formatMovedHours(o.elsewhereHours, lang))} – ${nameOf(o.resourceId)} (#${o.resourceId}) – ${defaultPeriodLabel(o.periodKey, lang)}`}
+                  />
+                  <HelpIconButton
+                    lang={lang}
+                    conceptId="feature-cross-project-people"
+                    dialogTitle={`${t(lang, "allocElsewhereLabel", formatMovedHours(o.elsewhereHours, lang))} – ${nameOf(o.resourceId)} (#${o.resourceId}) – ${defaultPeriodLabel(o.periodKey, lang)}`}
                   />
                 </span>
               )}

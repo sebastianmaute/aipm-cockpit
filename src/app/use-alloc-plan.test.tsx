@@ -938,6 +938,7 @@ describe("useAllocPlan — other projects (§785)", () => {
     loadFailed: false,
     matches: new Map(),
     elsewhere: () => [],
+    nameOf: () => "",
     request: vi.fn(),
     confirm: vi.fn(async () => {}),
     reject: vi.fn(async () => {}),
