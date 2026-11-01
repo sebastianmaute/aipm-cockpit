@@ -15,7 +15,7 @@ import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { TABLE_NAMES } from "./turso-schema";
 import { tenantSchemaDdl } from "./turso-tenant-schema";
-import { PROJECT_SCOPED_SIDE_TABLES } from "./project-side-tables";
+import { PROJECT_SCOPED_SIDE_TABLES, sideTableColumns } from "./project-side-tables";
 
 const APP = resolve(__dirname);
 // Real DDL only, each with a reason. Never add a comment-only file here.
@@ -30,6 +30,25 @@ export const DDL_LITERAL_RE = /[`"']\s*CREATE TABLE/;
  *  whitespace; a `://` inside a URL is kept). */
 export function stripComments(text: string): string {
   return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+}
+
+/** A column that names a project: `project_id`, or a pair side such as `project_a` / `project_b` (§785). */
+const PROJECT_REF_RE = /^project_(id|[a-z])$/;
+const projectRefColumns = (db: DatabaseSync, table: string): string[] =>
+  (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name).filter((n) => PROJECT_REF_RE.test(n));
+
+/** Tables with a project-reference column that no sweep covers, or covers only in part. */
+function unsweptProjectTables(
+  db: DatabaseSync,
+  swept: ReadonlyMap<string, readonly string[]>,
+): string[] {
+  const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map((r) => r.name);
+  return tables.filter((name) => {
+    const refs = projectRefColumns(db, name);
+    if (refs.length === 0) return false;
+    const covered = swept.get(name);
+    return !covered || refs.some((c) => !covered.includes(c));
+  });
 }
 
 async function discoverDdl(): Promise<{ statements: string[]; sources: string[] }> {
@@ -57,15 +76,27 @@ describe("project-scoped side tables (open-followups §204)", () => {
     expect(DDL_LITERAL_RE.test(stripComments('const X = ["CREATE TABLE IF NOT EXISTS t (id TEXT)"];\n'))).toBe(true);
   });
 
-  it("every table with a project_id column is swept by a project hard delete", async () => {
+  it("a table with a project_a / project_b pair that no sweep covers is reported (§785)", () => {
+    const db = new DatabaseSync(":memory:");
+    db.exec("CREATE TABLE pair_links (project_a TEXT, project_b TEXT, note TEXT)");
+    db.exec("CREATE TABLE half (project_a TEXT, project_b TEXT)");
+    const swept = new Map<string, readonly string[]>([["half", ["project_a"]]]);
+    expect(unsweptProjectTables(db, swept).sort()).toEqual(["half", "pair_links"]);
+    expect(unsweptProjectTables(db, new Map([["pair_links", ["project_a", "project_b"]], ["half", ["project_a", "project_b"]]]))).toEqual([]);
+  });
+
+  it("every table with a project-reference column is swept by a project hard delete", async () => {
     const { statements, sources } = await discoverDdl();
     const db = new DatabaseSync(":memory:");
     for (const sql of statements) db.exec(sql);
     const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map((r) => r.name);
-    const scoped = tables.filter((name) =>
-      (db.prepare(`PRAGMA table_info(${name})`).all() as { name: string }[]).some((c) => c.name === "project_id"));
-    const registered = new Set([...TABLE_NAMES, ...PROJECT_SCOPED_SIDE_TABLES.map((e) => e.table)]);
-    expect(scoped.filter((name) => !registered.has(name))).toEqual([]);
+    const scoped = tables.filter((name) => projectRefColumns(db, name).length > 0);
+    // TABLE_NAMES are swept by the tenant transaction (project_id); side tables by the registry, each over its own columns.
+    const swept = new Map<string, readonly string[]>([
+      ...TABLE_NAMES.map((n): [string, readonly string[]] => [n, ["project_id"]]),
+      ...PROJECT_SCOPED_SIDE_TABLES.map((e): [string, readonly string[]] => [e.table, sideTableColumns(e)]),
+    ]);
+    expect(unsweptProjectTables(db, swept)).toEqual([]);
     // Anti-vacuity floors: the discovery saw real DDL, and the registry is live.
     expect(sources.length).toBeGreaterThanOrEqual(10);
     expect(tables.length).toBeGreaterThanOrEqual(TABLE_NAMES.length + PROJECT_SCOPED_SIDE_TABLES.length);

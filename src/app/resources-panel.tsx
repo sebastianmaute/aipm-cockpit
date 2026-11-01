@@ -58,6 +58,7 @@ import { useAllocPlan } from "./use-alloc-plan";
 import { type LogActivityAsFn } from "./activity-log-context";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { type ReassignHours } from "./use-reassign-hours";
+import { type CrossProjectPeople } from "./use-cross-project-people";
 import { useColumnResize } from "./use-column-resize";
 import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { EmptyState } from "./empty-state";
@@ -164,6 +165,8 @@ interface Props {
   onReassignTasks: ReassignHours["reassignTasks"];
   /** §548 — the reassign step's load-hold signal, asked by Plan with AI before it writes. */
   onIsLoadHeld: ReassignHours["isLoadHeld"];
+  /** §785 — other projects' hours for Plan with AI. One stable object (this panel is memo()'d). */
+  crossProject?: CrossProjectPeople;
   /** §769 — the SAME undo stack the §774 step uses, so moves and hour edits form one entry. */
   onCaptureComposite?: UndoStackApi["captureComposite"];
   /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
@@ -243,6 +246,7 @@ function ResourcesPanelInner({
   stakeholders,
   onReassignTasks,
   onIsLoadHeld,
+  crossProject,
   onCaptureComposite,
   logActivityAs,
 }: Props) {
@@ -323,6 +327,7 @@ function ResourcesPanelInner({
     today,
     reassignTasks: onReassignTasks,
     isLoadHeld: onIsLoadHeld,
+    crossProject,
     captureComposite: onCaptureComposite,
     capture: onCaptureUndo,
     logActivityAs,

@@ -57,6 +57,7 @@ function makeDeps(overrides: Partial<AppModalsBlockDeps> = {}): AppModalsBlockDe
     editingIsJiraLinked: false, editingReadOnlyJiraProjectName: "Read-only project",
     fieldErrors: {}, submitted: false, saveDisabled: false, holidaySet: new Set<string>(),
     handleSubmit: vi.fn(), handleCancelEdit: vi.fn(), handleRemoveContact: vi.fn(), handleAddAssigneeToAddressBook: vi.fn(),
+    crossProject: { tag: "cross-project" },
     editingResource: null, handleSaveResourceFromAnywhere: vi.fn(), handleDeleteResource: vi.fn(), handleCloseResourceFromAnywhere: vi.fn(),
     toast: null, pauseToast: vi.fn(), resumeToast: vi.fn(),
     linkedTaskOpen: false, setLinkedTaskOpen: vi.fn(), handleCreateLinkedTask: vi.fn(),
@@ -97,6 +98,7 @@ describe("buildAppModalsBlock — the popout gates", () => {
     expect(seen.RaidCreateHost).toBeDefined();
     expect(seen.AppModals?.onCreateResource).toBe(deps.handleCreateResource);
     expect(seen.AppModals?.onAddAssigneeToAddressBook).toBe(deps.handleAddAssigneeToAddressBook);
+    expect(seen.AppModals?.crossProject).toBe(deps.crossProject);
   });
 
   it("drops them, and both address-book creators, in a popout", () => {
@@ -112,6 +114,7 @@ describe("buildAppModalsBlock — the popout gates", () => {
     expect("onCreateResource" in (seen.AppModals ?? {})).toBe(true);
     expect(seen.AppModals?.onCreateResource).toBeUndefined();
     expect(seen.AppModals?.onAddAssigneeToAddressBook).toBeUndefined();
+    expect(seen.AppModals?.crossProject).toBeUndefined();
   });
 });
 

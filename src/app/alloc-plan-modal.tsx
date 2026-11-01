@@ -27,6 +27,8 @@ import { Button } from "./button";
 import { Checkbox, Textarea } from "./form-controls";
 import { SegmentedControl } from "./segmented-control";
 import { AllocPlanEffect, AllocPlanMoveRows } from "./alloc-plan-moves";
+import { AllocElsewhereSuggestions } from "./alloc-elsewhere-suggestions";
+import { type CrossProjectPeople } from "./use-cross-project-people";
 import { type AltEffect } from "./alloc-plan/alloc-effect";
 import { type GroundedAlternative, type MoveSkipReason } from "./alloc-plan/alloc-ground-moves";
 import {
@@ -60,6 +62,8 @@ export interface AllocPlanModalProps {
    *  person by them, since it carries ids only. */
   liveTaskName: (taskId: number) => string | undefined;
   liveResourceName: (resourceId: number) => string | undefined;
+  /** §785: other projects' hours and the name suggestions; Run waits while it loads. Absent → none of it shows. */
+  crossProject?: CrossProjectPeople;
   onToggle: (key: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
@@ -108,6 +112,7 @@ export function AllocPlanModal({
   currency,
   liveTaskName,
   liveResourceName,
+  crossProject,
   onToggle,
   onConfirm,
   onCancel,
@@ -141,7 +146,10 @@ export function AllocPlanModal({
     return `#${taskId}${name ? ` ${name}` : ""} → ${nameOf(toResourceId)}`;
   };
   const hasRows = cells.length > 0 || moves.length > 0;
-  const canPropose = instruction.trim().length > 0 && !busy;
+  const loadingElsewhere = crossProject?.status === "loading";
+  const notLoadedElsewhere = crossProject?.status === "idle" && !crossProject.loadFailed;
+  const canPropose = instruction.trim().length > 0 && !busy && !loadingElsewhere;
+  const proposalResourceIds = [...cells.map((c) => c.resourceId), ...moves.flatMap((m) => (m.fromResourceId === undefined ? [m.toResourceId] : [m.fromResourceId, m.toResourceId]))];
   // A ticked hour edit the ticked moves already write is not applied (its count shows under the effect), so it does
   // not count here: with only such rows ticked there is nothing to apply.
   const canConfirm = !busy && selectedCount - effect.coveredCells > 0;
@@ -186,6 +194,14 @@ export function AllocPlanModal({
               className="w-full"
             />
           </label>
+          {crossProject && crossProject.protectedProjects.length > 0 && (
+            <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereProtected", crossProject.protectedProjects.map((p) => p.projectName).join(", "))}</p>
+          )}
+          {!isPreview && notLoadedElsewhere && <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereNotLoaded")}</p>}
+          {crossProject?.loadFailed && <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereLoadFailed")}</p>}
+          {crossProject && crossProject.failures.length > 0 && (
+            <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereFailures", crossProject.failures.map((f) => f.projectName).join(", "))}</p>
+          )}
 
           {isPreview && (
             <>
@@ -219,6 +235,9 @@ export function AllocPlanModal({
               {active?.rationale && <p className="mt-1 text-xs text-muted-foreground">{active.rationale}</p>}
               {!hasRows && <p className="mt-3 text-sm text-muted-foreground">{t(lang, "allocPlanAlternativeEmpty")}</p>}
               {hasRows && <AllocPlanEffect lang={lang} effect={effect} currency={currency} nameOf={nameOf} />}
+              {crossProject && hasRows && (
+                <AllocElsewhereSuggestions lang={lang} crossProject={crossProject} resourceIds={proposalResourceIds} nameOf={nameOf} busy={busy} />
+              )}
               {moves.length > 0 && (
                 <>
                   <h3 className="mt-4 text-xs font-semibold uppercase text-muted-foreground">{t(lang, "allocPlanMovesHeading")}</h3>
@@ -304,7 +323,7 @@ export function AllocPlanModal({
             </Button>
           ) : (
             <Button variant="primary" size="sm" onClick={() => onPropose(instruction)} disabled={!canPropose}>
-              {busy ? t(lang, "allocPlanThinking") : t(lang, "allocPlanPropose")}
+              {busy ? t(lang, "allocPlanThinking") : loadingElsewhere ? t(lang, "allocElsewhereLoading") : t(lang, "allocPlanPropose")}
             </Button>
           )}
         </div>

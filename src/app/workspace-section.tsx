@@ -261,6 +261,7 @@ export function WorkspaceSection({
   runProposalBatch,
   getScopeEpoch,
   isSwapInFlight,
+  crossProject,
 }: WorkspaceSectionProps) {
   const { settings, setSettings, hydrated, lang } = useSettings();
   // §717 — re-render when a passphrase key is unlocked (or cleared) in the chat: the AI gates below read it
@@ -716,6 +717,7 @@ export function WorkspaceSection({
               calendarEvents={calendarEvents}
               milestones={milestones}
               stakeholders={stakeholders}
+              crossProject={crossProject}
               roles={roles}
               disciplines={disciplines}
               grades={grades}

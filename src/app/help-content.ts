@@ -234,6 +234,7 @@ const HELP_ENTRIES_LITERAL = [
   { id: "feature-meeting-series", group: "features", titleKey: "helpSecMeetingSeriesTitle", bodyKey: "helpSecMeetingSeriesBody", relatedViews: ["calendar"] },
   { id: "feature-document-assets", group: "features", titleKey: "helpSecDocumentAssetsTitle", bodyKey: "helpSecDocumentAssetsBody", relatedViews: ["documents"] },
   { id: "feature-task-effort", group: "features", titleKey: "helpSecTaskEffortTitle", bodyKey: "helpSecTaskEffortBody", relatedViews: ["open-points"] },
+  { id: "feature-cross-project-people", group: "features", titleKey: "helpSecCrossProjectTitle", bodyKey: "helpSecCrossProjectBody", relatedViews: ["resources", "planning"], relatedConcepts: ["concept-resource"] },
 
   // ── What's automated ──
   { id: "automated-tracking", group: "automated", titleKey: "helpAutomatedTrackingTitle", bodyKey: "helpAutomatedTrackingBody", relatedViews: ["dashboard", "actions", "open-points"], relatedConcepts: ["concept-task-status"] },

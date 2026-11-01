@@ -46,9 +46,8 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998",
   ],
   // v2: the protected column joins the table (AI people protection, spec R5). The data texts are unchanged.
-  // Re-pinned, wording only: the chat row now also says who can read a saved chat and when it is deleted.
   2: [
-    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted",
+    "chat|interactive|aiDataChatLabel|aiDataChat|0ab2b52cc0f9|redacted",
     "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted",
     "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|ec731819812b|redacted",
     "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted",
@@ -56,6 +55,27 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|dd308831307b|redacted",
     "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|8454d8b056cd|redacted",
     "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|1d90c54d0111|hidden",
+    "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden",
+    "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted",
+    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|1a29e0f163bd|redacted",
+    "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51|redacted",
+    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|redacted",
+    "dictation|interactive|aiDataDictationLabel|aiDataDictation|11af271ca960|off",
+    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|43c341548943|redacted",
+    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|5eb499ef50b6|redacted",
+    "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted",
+  ],
+  // v3: the allocation plan proposal also sends other projects' figures for a matched person (§785), and the chat row
+  // also says who can read a saved chat and when it is deleted. Only those two hashes changed.
+  3: [
+    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted",
+    "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|ec731819812b|redacted",
+    "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted",
+    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|77d3b27235a2|redacted",
+    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|dd308831307b|redacted",
+    "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|8454d8b056cd|redacted",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|eacd65fa6f17|hidden",
     "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden",
     "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted",
     "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|1a29e0f163bd|redacted",
@@ -148,7 +168,7 @@ describe("AI_DATA_PATHS", () => {
   });
 
   it("a version-1 table (consented before people protection) is no longer the current one", () => {
-    expect(AI_DISCLOSURE_VERSION).toBe(2);
+    expect(AI_DISCLOSURE_VERSION).toBeGreaterThan(1);
   });
 
   it("every row states what protection does to it: hidden, off or redacted, with a text in both languages", () => {

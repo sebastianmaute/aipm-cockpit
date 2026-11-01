@@ -84,7 +84,7 @@
   `allNavViews()`, which flattens nested `children` — a walk over `NAV_GROUPS` items alone sees half the sidebar and
   measured 7 gaps where there are 14.
   ★★ **The baseline is now EMPTY** (slice 3): every nav view is named by some entry's `relatedViews`, so the
-  assertion reads "nothing is uncovered" and a regression fails on the next run. `HELP_ENTRIES` is 64
+  assertion reads "nothing is uncovered" and a regression fails on the next run. `HELP_ENTRIES` is 74
   (`grep -c '^  { id: "' src/app/help-content.ts`).
   ★★★ **FIVE of the fourteen gaps were missing WIRING, NOT CONTENT**, and the gate cannot tell those apart —
   coverage is `relatedViews` membership, so a complete, truthful entry that lists no view reads as a gap.

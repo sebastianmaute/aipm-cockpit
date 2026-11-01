@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { AllocPlanModal, type AllocPlanModalProps } from "./alloc-plan-modal";
 import { cellKey, type GroundedAllocCell } from "./alloc-plan/alloc-plan";
 import { moveKey, type GroundedAlternative, type GroundedMove } from "./alloc-plan/alloc-ground-moves";
+import { type CrossProjectPeople } from "./use-cross-project-people";
 import { type AltEffect } from "./alloc-plan/alloc-effect";
 import { type HoursMovePlan } from "./reassign-hours";
 import { loadI18n, t } from "./i18n";
@@ -197,7 +198,7 @@ describe("AllocPlanModal — review window (§769)", () => {
 
   // Third wave, 2: the wording with no capacity at all.
   it("an over-capacity warning against 0 h reads as such", () => {
-    const effect: AltEffect = { ...noEffect, overCapacity: [{ resourceId: 2, periodKey: "2026-09", hours: 16, capacityHours: 0 }] };
+    const effect: AltEffect = { ...noEffect, overCapacity: [{ resourceId: 2, periodKey: "2026-09", hours: 16, capacityHours: 0, elsewhereHours: 0 }] };
     render(<AllocPlanModal {...props({ alternatives: [alt({ moves: [move(42, "Design review", true)] })], effect })} />);
     expect(screen.getByText("Liam Foster: 16 h of 0 h in Sep")).toBeTruthy();
   });
@@ -231,7 +232,7 @@ describe("AllocPlanModal — review window (§769)", () => {
   it("over-capacity warning is text, not colour alone", () => {
     const effect: AltEffect = {
       ...noEffect,
-      overCapacity: [{ resourceId: 2, periodKey: "2026-09", hours: 180, capacityHours: 160 }],
+      overCapacity: [{ resourceId: 2, periodKey: "2026-09", hours: 180, capacityHours: 160, elsewhereHours: 0 }],
     };
     render(<AllocPlanModal {...props({ alternatives: [alt({ moves: [move(42, "Design review", true)] })], effect })} />);
     const warning = screen.getByText("Liam Foster: 180 h of 160 h in Sep");
@@ -345,5 +346,167 @@ describe("AllocPlanModal — a move onto the new owner's absence (§773)", () =>
   it("says it in German", () => {
     render(<AllocPlanModal {...props({ lang: "de", alternatives: [alt({ moves: [clashing()] })] })} />);
     expect(screen.getByText(formatAbsenceClash(clash, "de"))).toBeTruthy();
+  });
+});
+
+// §785 — hours a person has in other projects, and the name suggestions that would add them.
+describe("AllocPlanModal — elsewhere (§785)", () => {
+  const rel = (projectId: string, projectName: string, resourceId: number) => ({ projectId, projectName, resourceId });
+  function crossProject(over: Partial<CrossProjectPeople> = {}, suggestions: Record<number, ReturnType<typeof rel>[]> = {}): CrossProjectPeople {
+    return {
+      status: "ready",
+      failures: [],
+      loadFailed: false,
+      singleProject: false,
+      protectedProjects: [],
+      matches: new Map(Object.entries(suggestions).map(([id, s]) => [Number(id), { matched: [], suggestions: s, rejected: [] }])),
+      elsewhere: () => [],
+      nameOf: () => "",
+      suggestionHours: () => 5,
+      request: vi.fn(),
+      confirm: vi.fn(async () => {}),
+      reject: vi.fn(async () => {}),
+      undo: vi.fn(async () => {}),
+      ...over,
+    };
+  }
+  const withMove = (over: Partial<AllocPlanModalProps> = {}) =>
+    props({ alternatives: [alt({ moves: [move(42, "Design review", true)] })], ...over });
+
+  it("an over-capacity row shows the elsewhere hours, with a tooltip that explains them", () => {
+    const effect: AltEffect = { ...noEffect, overCapacity: [{ resourceId: 2, periodKey: "2026-09", hours: 116, capacityHours: 176, elsewhereHours: 70 }] };
+    render(<AllocPlanModal {...withMove({ effect })} />);
+    const row = screen.getByText("Liam Foster: 116 h + 70 h elsewhere of 176 h in Sep").closest("li")!;
+    expect(within(row).getByRole("button", { name: "70 h in other projects – Liam Foster (#2) – Sep" })).toBeTruthy();
+  });
+
+  it("the elsewhere figure carries a help control for the cross-project people entry (§785)", () => {
+    const effect: AltEffect = { ...noEffect, overCapacity: [{ resourceId: 2, periodKey: "2026-09", hours: 116, capacityHours: 176, elsewhereHours: 70 }] };
+    render(<AllocPlanModal {...withMove({ effect })} />);
+    const row = screen.getByText("Liam Foster: 116 h + 70 h elsewhere of 176 h in Sep").closest("li")!;
+    const help = within(row).getByRole("button", { name: t("en-US", "modalHelpAbout", "70 h in other projects – Liam Foster (#2) – Sep") });
+    fireEvent.click(help);
+    expect(screen.getByText(t("en-US", "helpSecCrossProjectTitle"))).toBeTruthy();
+  });
+
+  it("an over-capacity row without elsewhere hours keeps the plain wording (§785)", () => {
+    const effect: AltEffect = { ...noEffect, overCapacity: [{ resourceId: 2, periodKey: "2026-09", hours: 180, capacityHours: 160, elsewhereHours: 0 }] };
+    render(<AllocPlanModal {...withMove({ effect })} />);
+    expect(screen.queryByText(/other projects/i)).toBeNull();
+    expect(screen.getByText("Liam Foster: 180 h of 160 h in Sep")).toBeTruthy();
+  });
+
+  it("says the other projects are not loaded when idle without a failure, and not once loaded or failed (§785)", () => {
+    const note = t("en-US", "allocElsewhereNotLoaded");
+    const { unmount } = render(<AllocPlanModal {...props({ stage: "input", crossProject: crossProject({ status: "idle" }) })} />);
+    expect(screen.getByText(note)).toBeTruthy();
+    unmount();
+    for (const cp of [crossProject({ status: "ready" }), crossProject({ status: "idle", loadFailed: true })]) {
+      const r = render(<AllocPlanModal {...props({ stage: "input", crossProject: cp })} />);
+      expect(screen.queryByText(note)).toBeNull();
+      r.unmount();
+    }
+  });
+
+  it("the not-loaded hint names the button by its own label, in EN and DE (§785)", async () => {
+    await loadI18n("de");
+    for (const lang of ["en-US", "de"] as const) expect(t(lang, "allocElsewhereNotLoaded")).toContain(t(lang, "allocPlanPropose"));
+  });
+
+  it("names the projects whose hours are not counted because they protect their people (§785)", () => {
+    const note = t("en-US", "allocElsewhereProtected", "Zeus");
+    render(<AllocPlanModal {...withMove({ crossProject: crossProject({ protectedProjects: [{ projectId: "p3", projectName: "Zeus" }] }) })} />);
+    expect(screen.getByText(note)).toBeTruthy();
+  });
+
+  it("shows a load failure and unreadable projects before Run, not only in the review (§785)", () => {
+    const cp = crossProject({ loadFailed: true, status: "idle", failures: [{ projectId: "p9", projectName: "Zed" }] });
+    render(<AllocPlanModal {...props({ stage: "input", crossProject: cp })} />);
+    expect(screen.getByText(t("en-US", "allocElsewhereLoadFailed"))).toBeTruthy();
+    expect(screen.getByText(t("en-US", "allocElsewhereFailures", "Zed"))).toBeTruthy();
+  });
+
+  it("lists only a suggestion that would change the figures: the other person has hours in the shown periods (§785)", () => {
+    const cp = crossProject({ suggestionHours: (r) => (r.projectId === "p2" ? 12 : 0) }, { 2: [rel("p2", "Apollo", 11), rel("p3", "Zeus", 5)] });
+    render(<AllocPlanModal {...withMove({ crossProject: cp })} />);
+    expect(screen.getAllByRole("button", { name: new RegExp("^" + t("en-US", "allocElsewhereConfirm")) })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /Apollo/ })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /Zeus/ })).toBeNull();
+  });
+
+  it("offers Confirm and Not the same for an unconfirmed suggestion of a person in the proposal, named per person and project", () => {
+    const cp = crossProject({}, { 2: [rel("p2", "Apollo", 11), rel("p3", "Zeus", 5)], 99: [rel("p2", "Apollo", 12)] });
+    render(<AllocPlanModal {...withMove({ crossProject: cp })} />);
+    const confirm = screen.getAllByRole("button", { name: new RegExp("^" + t("en-US", "allocElsewhereConfirm")) });
+    const reject = screen.getAllByRole("button", { name: new RegExp("^" + t("en-US", "allocElsewhereReject")) });
+    expect(confirm).toHaveLength(2); // person 99 is not in the proposal
+    expect(reject).toHaveLength(2);
+    expect(confirm[0].getAttribute("aria-label")).toMatch(/Liam Foster.*Apollo/);
+    expectRowUniqueNames({ minControls: 4, roles: ["button"] });
+  });
+
+  it("Confirm hands the right relation to the hook; Not the same does too", () => {
+    const cp = crossProject({}, { 2: [rel("p3", "Zeus", 5)] });
+    render(<AllocPlanModal {...withMove({ crossProject: cp })} />);
+    fireEvent.click(screen.getByRole("button", { name: new RegExp("^" + t("en-US", "allocElsewhereConfirm")) }));
+    expect(cp.confirm).toHaveBeenCalledWith(2, rel("p3", "Zeus", 5));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp("^" + t("en-US", "allocElsewhereReject")) }));
+    expect(cp.reject).toHaveBeenCalledWith(2, rel("p3", "Zeus", 5));
+  });
+
+  it("disables both while the other projects are loading (a write then would be lost)", () => {
+    const cp = crossProject({ status: "loading" }, { 2: [rel("p3", "Zeus", 5)] });
+    render(<AllocPlanModal {...withMove({ crossProject: cp })} />);
+    expect(screen.getByRole("button", { name: new RegExp("^" + t("en-US", "allocElsewhereConfirm")) })).toBeDisabled();
+    expect(screen.getByRole("button", { name: new RegExp("^" + t("en-US", "allocElsewhereReject")) })).toBeDisabled();
+  });
+
+  it("shows no suggestion block without a suggestion", () => {
+    render(<AllocPlanModal {...withMove({ crossProject: crossProject() })} />);
+    expect(screen.queryByRole("button", { name: new RegExp("^" + t("en-US", "allocElsewhereConfirm")) })).toBeNull();
+  });
+
+  it("Run waits while the other projects load: loading label, disabled", () => {
+    render(<AllocPlanModal {...props({ stage: "input", crossProject: crossProject({ status: "loading" }) })} />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "spread the work" } });
+    const run = screen.getByRole("button", { name: t("en-US", "allocElsewhereLoading") });
+    expect(run).toBeDisabled();
+    expect(screen.queryByRole("button", { name: t("en-US", "allocPlanPropose") })).toBeNull();
+  });
+
+  it("Run is available once loaded, and when other projects cannot be seen", () => {
+    for (const status of ["ready", "unavailable"] as const) {
+      const { unmount } = render(<AllocPlanModal {...props({ stage: "input", crossProject: crossProject({ status }) })} />);
+      fireEvent.change(screen.getByRole("textbox"), { target: { value: "spread the work" } });
+      expect(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") })).toBeEnabled();
+      unmount();
+    }
+  });
+
+  it("two over-capacity rows with elsewhere hours get two different tooltip names", () => {
+    const effect: AltEffect = {
+      ...noEffect,
+      overCapacity: [
+        { resourceId: 2, periodKey: "2026-09", hours: 116, capacityHours: 176, elsewhereHours: 70 },
+        { resourceId: 2, periodKey: "2026-10", hours: 116, capacityHours: 176, elsewhereHours: 70 },
+      ],
+    };
+    render(<AllocPlanModal {...withMove({ effect })} />);
+    expect(screen.getAllByText(/h \+ 70 h elsewhere of/)).toHaveLength(2);
+    expectRowUniqueNames({ minControls: 2, roles: ["button"] });
+  });
+
+  it("names the projects that could not be read, and says when none could be loaded", () => {
+    const failed = crossProject({ failures: [{ projectId: "p9", projectName: "Zed" }, { projectId: "p8", projectName: "Yak" }] });
+    const a = render(<AllocPlanModal {...withMove({ crossProject: failed })} />);
+    expect(screen.getByText(t("en-US", "allocElsewhereFailures", "Zed, Yak"))).toBeTruthy();
+    a.unmount();
+    render(<AllocPlanModal {...withMove({ crossProject: crossProject({ status: "idle", loadFailed: true }) })} />);
+    expect(screen.getByText(t("en-US", "allocElsewhereLoadFailed"))).toBeTruthy();
+  });
+
+  it("shows no notice when everything loaded", () => {
+    render(<AllocPlanModal {...withMove({ crossProject: crossProject() })} />);
+    expect(screen.queryByText(/could not be/i)).toBeNull();
   });
 });

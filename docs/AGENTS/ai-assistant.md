@@ -1090,6 +1090,70 @@
   reason (second review). ★ While the load hold is up (`isLoadHeld`, §774's step's own `loadPending`, threaded as
   `onIsLoadHeld`) apply writes nothing: the step would refuse the moves and the hour edits must not go alone. The
   activity log stores only the alternative's number and counts, never the model's summary text.
+- **Plan with AI sees a person's load in other projects (§785).** Only in portfolio mode Turso with a live
+  `tursoConfig`, a project open (`currentProjectId !== null`) and more than one project (`available` in `useCrossProjectPeople`, `use-cross-project-people.ts`; the
+  hook is built once in `task-manager.tsx` through `useCrossProjectApp`, which keeps the call to one line under the
+  size ratchet). Anywhere else the status is `"unavailable"`: nothing loads, the digest carries one line
+  (`ELSEWHERE: other projects cannot be seen in this storage mode`) and the person's entry shows nothing. ★ The one
+  exception is a Turso portfolio with a single project: the hook reports `singleProject: true` and the digest says
+  `ELSEWHERE: this is the only project, there are no other projects` instead (`AllocElsewhere.singleProject`).
+  ★ **Loading.** `request()` loads every OTHER project with `TursoBackend.load()`, SEQUENTIALLY (as
+  `use-portfolio-health.ts`); every request reloads (no cache), but a request made while a run for the same scope AND the same database is
+  still in flight is ignored (a config change starts a new run, and only the newest run writes its result); archived projects are not loaded (the list is `tursoProjects`, never `tursoArchived`);
+  a project that fails is skipped and listed in `failures`. ★ **People protection of the other projects:** each loaded project's
+  `settingsOverrides` go through `isPeopleProtected` (protected is the DEFAULT); a protected project is left out of
+  `elsewhere()`, `suggestionHours` and the task counts, and named in `protectedProjects` (digest note `ELSEWHERE: not
+  counted, because these projects protect their people: …` and a window note), but still appears in `matches` so the
+  person's entry lists it. A failed `person_links` read drops any earlier result for the
+  project (status `idle`, `loadFailed`), so old figures are never used beside a "not counted" message.
+  It captures `getScopeEpoch()` before its first await, re-checks after each, and refuses to start while
+  `loadPending`, but REMEMBERS the ask (`wantedRef`) and an effect that only calls `request()` starts it when the hold
+  ends. A link write that lands while a run is in flight is re-applied over the links that run read (`runWritesRef`),
+  so a reload racing a confirm cannot drop it from memory. Opening Plan with AI calls it (`use-alloc-plan.tsx`) and Run
+  returns without sending while the status is `"loading"`, and while it is `"idle"` without `loadFailed` (it asks
+  again, and the window says the hours are not loaded); opening an existing person's entry calls it too (`resource-links-section.tsx`). Loading runs
+  `CREATE TABLE IF NOT EXISTS` DDL in each project, as Portfolio health does; no project data is written.
+  ★ **Matching** (`matchPeople`, `cross-project/person-match.ts`, pure), per pair, in this order: a live `different` row
+  means no; a live `same` row matches (`via: "confirmed"`); an overlapping usable email (trimmed, contains "@",
+  compared over `email` + `emails`, case-insensitive) matches (`via: "email"`; the person's entry offers "Not the same" on such a row, which writes a `different` row, and Undo restores the email match); equal first + last name with a usable
+  email missing on at least one side is only a SUGGESTION and adds no hours; two differing usable emails never suggest.
+  ★★ **The two verdicts go stale differently, on purpose.** A `same` row is live only while both resources still carry
+  the stored first name AND last name, each compared separately, so a re-minted id or a re-split name cannot inherit a
+  confirmation. A `different` row applies whatever the names are now, because a rejection can only remove a relation;
+  the price is that a re-minted id inherits it until someone presses Undo in the person's entry. A row naming a
+  project not in the list or a missing resource id matches nothing. Two resources of one other project matching the
+  same person BOTH count and their hours are summed (`figureFor` in `cross-project/elsewhere-hours.ts`). External and
+  inactive resources count.
+  ★ **Hours** (`elsewhereFor`, pure): the other project's `Resource.utilization` read as its Planning grid reads it
+  (`periodCapacityHours` over that project's `ResourcePlan` periods, its absences, the app's workday hours and
+  holidays), spread over this plan's periods by overlapping workdays. A project is always read over a plan: `rowsToWorkspace`
+  fills in the app's default plan window when a project has no stored plan row, so a project never reads as having no plan. The tasks hint (open tasks owned by `resourceId`, else the typed name equal to the
+  resource's display name; count and remaining hours from `remainingEstimateMinutes`, no titles) is for the model only
+  and is never added to the hours.
+  ★ **Digest.** `buildAllocContext` (`alloc-plan/alloc-plan.ts`) reads an optional `AllocContextArgs.elsewhere` (`AllocElsewhere`): under a person, one
+  `ELSEWHERE "<project>": <period>=<h> …` line per project, listing only the shown periods that have hours (a project with open tasks but no hours there reads `no hours in the shown periods`); a project with neither hours there nor open tasks gets
+  no line. Notes not tied to a person: `ELSEWHERE: other projects were not
+  loaded` (status idle or loading; effectively a defensive fallback, because Plan with AI refuses to send in either state
+  unless `loadFailed`), `ELSEWHERE: other projects could not be loaded` (the stored answers could not be
+  read, `loadFailed`) and `ELSEWHERE: could not be read: "<project>", …`. The project name is a JSON string and the
+  person's own name is not repeated on the line.
+  ★ **Over capacity.** `alternativeEffect` (`alloc-effect.ts`) takes an optional `elsewhereHours(resourceId, periodKey)`;
+  a cell is over capacity when this project's hours + elsewhere hours exceed capacity + `OVER_CAPACITY_TOLERANCE_HOURS`,
+  and the `OverCapacity` row carries `elsewhereHours`. The elsewhere figure is never folded into this project's hours.
+  ★ **Answers** live in the global `person_links` table (`person-links-schema.ts`, `person-links-store.ts`), kept OUT of
+  `TABLE_NAMES` and built like `chat_threads`: DDL ahead of each read or write, one row per canonical pair
+  (`project_a < project_b`), columns `first_a`, `last_a`, `first_b`, `last_b` (not one name per side), `decided_at`, `decided_by`
+  (no e-mail addresses are stored: only names decide whether a `same` row is stale). A project hard delete removes every row naming that project on either side
+  (`PROJECT_SCOPED_SIDE_TABLES`, `columns: ["project_a", "project_b"]`; the §204 guard checks all `project_<letter>` columns,
+  since the table has no `project_id`). A failed write leaves the in-memory links untouched and toasts
+  (`onWriteError`); writes are epoch-guarded. `decided_by` is blank today: the hook accepts `actorLabel` but
+  `task-manager.tsx` does not pass it. Confirm / Not the same / Undo are in two places that write the same row: the
+  person's entry (`resource-links-section.tsx`, with a `HelpIconButton` for `feature-cross-project-people` beside the
+  `InfoTooltip`, because a tooltip cannot carry a link; the review window's elsewhere label in `alloc-plan-moves.tsx` pairs the same two) and the review window (`alloc-elsewhere-suggestions.tsx`, for
+  the resources the active alternative touches, and only for a suggestion whose person has hours in the plan's periods:
+  `suggestionHours(rel) > 0`; it sums the whole plan window, as the over-capacity check does). Both disable their buttons while a load runs, because a write during
+  a reload would be lost in memory. ★ Neither is in axe's views (Turso-only), so their unit tests are the only a11y
+  coverage; names are row-unique (person, project and ids).
 - **Forecast import, Claude route (§500):** ONE forced `propose_forecast_mapping` call in
   `forecast-import-call.ts` (`runForecastImportCall`, through the shared never-log `runForcedToolCallWithStop`)
   reads one sheet and returns a COLUMN MAPPING, never a value. `claudeMappingOf` converts it or refuses it

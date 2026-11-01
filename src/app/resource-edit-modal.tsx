@@ -30,6 +30,9 @@ import { useConfirm } from "./confirm-dialog";
 import { useDraftState } from "./use-draft-state";
 import { Button } from "./button";
 import { FOCUS_RING } from "./interaction-styles";
+import { resourceDisplayName } from "./resource-foundation";
+import { ResourceLinksSection } from "./resource-links-section";
+import type { CrossProjectPeople } from "./use-cross-project-people";
 
 interface Props {
   lang: Lang;
@@ -40,6 +43,8 @@ interface Props {
   onSave: (r: Resource) => void;
   onDelete: (id: number) => void;
   onClose: () => void;
+  /** §785: where else the person works. Absent, or status "unavailable" → nothing shows. */
+  crossProject?: CrossProjectPeople;
 }
 
 // 2000 is a leap year, so an unknown-year Feb 29 stays representable in the picker.
@@ -80,6 +85,7 @@ export function ResourceEditModal({
   onSave,
   onDelete,
   onClose,
+  crossProject,
 }: Props) {
   const [prevResource, setPrevResource] = useState(resource);
   const { draft, setDraft, update, error, setError } = useDraftState<Resource>(resource);
@@ -488,6 +494,10 @@ export function ResourceEditModal({
               )}
             </div>
           </details>
+
+          {!isNew && crossProject && (
+            <ResourceLinksSection lang={lang} crossProject={crossProject} resourceId={draft.id} name={resourceDisplayName(draft)} />
+          )}
 
           {error && <ModalFieldError error={error} id={emailRequiredShown ? EMAIL_REQUIRED_ERROR_ID : undefined} />}
 

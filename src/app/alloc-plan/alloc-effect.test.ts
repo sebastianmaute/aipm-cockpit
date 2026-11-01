@@ -54,7 +54,7 @@ describe("alternativeEffect", () => {
     const c = ctxOf([maya(), liam({ utilization: { "2026-09": 170 } })], [task()]);
     const alt = ground({ taskMoves: [move(7, 2)] }, c);
     expect(alternativeEffect(alt, ticked(moveKey({ taskId: 7 })), c).overCapacity).toEqual([
-      { resourceId: 2, periodKey: "2026-09", hours: 186, capacityHours: 176 },
+      { resourceId: 2, periodKey: "2026-09", hours: 186, capacityHours: 176, elsewhereHours: 0 },
     ]);
   });
 
@@ -62,7 +62,7 @@ describe("alternativeEffect", () => {
     const c = ctxOf([maya(), liam({ absenceOverride: { "2026-09": 176 } })], [task()]);
     const alt = ground({ taskMoves: [move(7, 2)] }, c);
     const e = alternativeEffect(alt, ticked(moveKey({ taskId: 7 })), c);
-    expect(e.overCapacity).toEqual([{ resourceId: 2, periodKey: "2026-09", hours: 16, capacityHours: 0 }]);
+    expect(e.overCapacity).toEqual([{ resourceId: 2, periodKey: "2026-09", hours: 16, capacityHours: 0, elsewhereHours: 0 }]);
   });
 
   it("moving 16 h from a €50/h to a €80/h person costs +€480", () => {
@@ -147,7 +147,7 @@ describe("alternativeEffect", () => {
     expect(alternativeEffect(ok.alt, ticked(moveKey({ taskId: 7 })), ok.c).overCapacity).toEqual([]);
     const over = mk(180);
     const e = alternativeEffect(over.alt, ticked(moveKey({ taskId: 7 })), over.c);
-    expect(e.overCapacity).toEqual([{ resourceId: 2, periodKey: "2026-09", hours: 180, capacityHours: 160 }]);
+    expect(e.overCapacity).toEqual([{ resourceId: 2, periodKey: "2026-09", hours: 180, capacityHours: 160, elsewhereHours: 0 }]);
   });
 
   it("two ticked moves from one giver are planned together, not summed", () => {
@@ -162,6 +162,30 @@ describe("alternativeEffect", () => {
     const e = alternativeEffect(alt, ticked(...alt.moves.map((m) => m.key)), c);
     expect(e.movedTasks).toBe(2);
     expect(e.movedHours).toBe(20);
+  });
+
+  // §785 — hours a person is booked for in other projects count against their capacity here.
+  describe("elsewhere hours (§785)", () => {
+    const elsewhere = (h: number) => (id: number, key: string) => (id === 2 && key === "2026-09" ? h : 0);
+
+    it("flags a receiver that is under capacity alone but over with the elsewhere hours, and says how many", () => {
+      const c = { ...ctxOf([maya(), liam({ utilization: { "2026-09": 100 } })], [task()]), elsewhereHours: elsewhere(70) };
+      const alt = ground({ taskMoves: [move(7, 2)] }, c);
+      const e = alternativeEffect(alt, ticked(moveKey({ taskId: 7 })), c);
+      expect(e.overCapacity).toEqual([{ resourceId: 2, periodKey: "2026-09", hours: 116, capacityHours: 176, elsewhereHours: 70 }]);
+    });
+
+    it("does not flag it when the elsewhere hours still fit", () => {
+      const c = { ...ctxOf([maya(), liam({ utilization: { "2026-09": 100 } })], [task()]), elsewhereHours: elsewhere(10) };
+      const alt = ground({ taskMoves: [move(7, 2)] }, c);
+      expect(alternativeEffect(alt, ticked(moveKey({ taskId: 7 })), c).overCapacity).toEqual([]);
+    });
+
+    it("behaves as before without the function", () => {
+      const c = ctxOf([maya(), liam({ utilization: { "2026-09": 100 } })], [task()]);
+      const alt = ground({ taskMoves: [move(7, 2)] }, c);
+      expect(alternativeEffect(alt, ticked(moveKey({ taskId: 7 })), c).overCapacity).toEqual([]);
+    });
   });
 
   it("an unlinked move counts as a moved task but moves no hours", () => {

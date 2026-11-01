@@ -8,6 +8,7 @@ import { AbsenceEditModal } from "./absence-edit-modal";
 import { CalendarEventModal } from "./calendar-event-modal";
 import { ShiftEditModal } from "./shift-edit-modal";
 import { ResourceEditModal } from "./resource-edit-modal";
+import type { CrossProjectPeople } from "./use-cross-project-people";
 import type { listContacts } from "./contacts";
 import { t, type Lang } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
@@ -101,6 +102,8 @@ export interface AppModalsProps {
 
   // Resource edit modal
   editingResource: { resource: Resource; isNew: boolean } | null;
+  /** §785: other projects' people for the resource editor; absent outside multi-project Turso. */
+  crossProject?: CrossProjectPeople;
   onSaveResource: (r: Resource) => void;
   onDeleteResource: (id: number) => void;
   onCloseResourceModal: () => void;
@@ -165,6 +168,7 @@ export function AppModals({
   taskCalendarSyncEnabled,
   absenceCalendarSyncEnabled,
   editingResource,
+  crossProject,
   onSaveResource,
   onDeleteResource,
   onCloseResourceModal,
@@ -270,6 +274,7 @@ export function AppModals({
           onSave={onSaveResource}
           onDelete={onDeleteResource}
           onClose={onCloseResourceModal}
+          crossProject={crossProject}
         />
       )}
 
