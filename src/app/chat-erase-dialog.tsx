@@ -3,7 +3,8 @@
 // src/app/chat-erase-dialog.tsx — the chat sidebar's two erase controls: "Delete all my chats" (a
 // type-to-confirm dialog; deletes this browser's owner's threads in every project of the database)
 // and "Find chats mentioning a person" (search the threads already loaded, tick, delete). Rendered
-// only while chats are saved at all; the hook (`use-chat-threads.ts`) does the deleting.
+// once the chat status is known — also while chats are not saved, since deletes need no encryption;
+// the hook (`use-chat-threads.ts`) does the deleting.
 
 import { useId, useMemo, useState, type FormEvent } from "react";
 import { type Lang, t } from "./i18n";

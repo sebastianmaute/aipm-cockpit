@@ -128,10 +128,48 @@ describe("useChatThreads — delete all my chats", () => {
     expect(result.current.threads).toHaveLength(1);
   });
 
-  it("is not enabled while chats are not saved", async () => {
-    const { result } = renderChatThreads({ chat: { ...CHAT_ON, recoveryKey: null } });
+  it("is not enabled while the chat status is unknown", async () => {
+    const { result } = renderChatThreads({ chat: null });
     await waitFor(() => expect(loadThreadsMock).toHaveBeenCalled());
     expect(result.current.erase.enabled).toBe(false);
+  });
+});
+
+describe("useChatThreads — deletes reach the database while chats are not saved", () => {
+  const NOT_SAVED: ChatSettings = { ...CHAT_ON, recoveryKey: null };
+
+  it("a single delete of a legacy thread is sent without a recovery key", async () => {
+    loadThreadsMock.mockResolvedValue([thread("legacy"), thread("other")]);
+    const { result } = renderChatThreads({ chat: NOT_SAVED });
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+    expect(result.current.persistence).toBe("no-recovery-key");
+    await act(async () => {
+      await result.current.requestDeleteThread("legacy");
+    });
+    await waitFor(() => expect(deleteThreadMock).toHaveBeenCalledTimes(1));
+    expect(deleteThreadMock.mock.calls[0].slice(0, 3)).toEqual([CFG, "legacy", "default"]);
+    expect(saveThreadMock).not.toHaveBeenCalled();
+  });
+
+  it("find-and-delete is offered and deletes legacy threads; delete-all stays disabled without an identity", async () => {
+    loadThreadsMock.mockResolvedValue([
+      thread("legacy", { history: [{ role: "user", content: "about Erika Muster" }], display: [{ kind: "user", text: "about Erika Muster" }] }),
+    ]);
+    const { result } = renderChatThreads({ chat: NOT_SAVED });
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    expect(result.current.erase.enabled).toBe(true);
+    expect(result.current.erase.ownerId).toBeNull();
+    render(<ChatEraseControls lang="en-US" threads={result.current.threads} erase={result.current.erase} />);
+    expect(screen.getByRole("button", { name: "Delete all my chats" })).toBeDisabled();
+    await act(async () => {
+      await result.current.erase.deleteSelected(["legacy"]);
+    });
+    expect(deleteThreadMock.mock.calls.map((c) => c[1])).toEqual(["legacy"]);
+    expect(result.current.threads).toEqual([]);
+    await act(async () => {
+      await result.current.erase.deleteAll();
+    });
+    expect(deleteOwnerThreadsMock).not.toHaveBeenCalled();
   });
 });
 

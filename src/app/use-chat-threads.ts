@@ -101,8 +101,9 @@ function adoptConfirmedNames(
   }
 }
 
-/** Whether this browser saves chats: "on", or why not. Anything but "on" means no save, delete or
- *  expiry is sent; the panel shows one line saying why. */
+/** Whether this browser saves chats: "on", or why not. Anything but "on" means no save is sent; the
+ *  panel shows one line saying why. Deletes need no encryption and are sent whenever the status is
+ *  known (`deleteGate`), so a deleted chat does not come back on reload. */
 export type ChatPersistence = "on" | "no-recovery-key" | "no-crypto" | "status-unknown";
 
 /** The persistence for the server's chat settings (`null` = not known yet) and whether this browser
@@ -152,7 +153,8 @@ function expireOldThreads(
 
 /** The sidebar's erase controls: delete every chat of this browser's owner, and delete chosen ones. */
 export interface ChatEraseActions {
-  /** False while chats are not saved (persistence is not "on"): nothing is sent, so nothing is offered. */
+  /** False while the chat status is unknown or outside Turso mode. True otherwise, even while chats
+   *  are not saved: a delete needs no encryption, and older shared chats are still listed. */
   enabled: boolean;
   /** This browser's owner id for the current database; null when none is stored (nothing of yours to delete). */
   ownerId: string | null;
@@ -480,6 +482,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   const saveGate: SaveGate | null = persistence === "on" && chat?.recoveryKey
     ? { recoveryKey: chat.recoveryKey, retentionDays: chat.retentionDays }
     : null;
+  // Deletes need no encryption, so they do not wait for "on": with the status known in Turso mode, a
+  // delete is sent — otherwise a deleted legacy chat would come back on reload. (Like a save, it does
+  // not check the config itself: the store reports a missing one as a failed write.)
+  const deleteGate = chat !== null && tursoMode;
   // For the load effect's expiry, which must not refire the load when the settings change.
   const saveGateRef = useRef(saveGate);
   useEffect(() => {
@@ -1189,7 +1195,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // Scope the delete by project (defense-in-depth against a project-id
     // collision in the id space) — `target` was resolved from `threads`
     // before the confirm await and still carries the row's own projectId.
-    if (!saveGate) return;
+    if (!deleteGate) return;
     runPersist(id, async () => {
       const config = writeConfig(deleteConfig);
       // A delete never creates an identity. Without one, only legacy rows are this browser's to delete,
@@ -1227,7 +1233,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   }
 
   async function deleteSelected(ids: readonly string[]): Promise<void> {
-    if (!saveGate) return;
+    if (!deleteGate) return;
     const config = writeConfig(tursoConfig);
     const scope = renameScope(tursoConfig);
     const epoch = projectEpochRef.current;
@@ -1239,7 +1245,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   }
 
   async function deleteAll(): Promise<void> {
-    if (!saveGate) return;
+    if (!deleteGate) return;
     const config = writeConfig(tursoConfig);
     const identity = knownIdentity(config) ?? (await getChatIdentity(config?.httpUrl ?? ""));
     if (!identity) return;
@@ -1276,7 +1282,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   }
 
   const knownOwnerId = vaultRead?.url === currentUrl && vaultRead.kind === "found" ? vaultRead.identity?.ownerId ?? null : null;
-  const erase: ChatEraseActions = { enabled: persistence === "on", ownerId: knownOwnerId, deleteAll, deleteSelected };
+  const erase: ChatEraseActions = { enabled: deleteGate, ownerId: knownOwnerId, deleteAll, deleteSelected };
 
   return {
     erase,
