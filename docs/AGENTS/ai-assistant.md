@@ -2242,8 +2242,13 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   send under a NEW id, i.e. an INSERT of the erased transcript. So a gone ACTIVE thread is closed
   (`closeGoneThread`: no active thread, history and display cleared, `threadClosed` drives
   `ChatThreadClosedNotice`); with a send running, its id stays in `goneRef` and the busy-persist effect closes it
-  without saving once the turn settles. A "not-owned" result keeps the conversation (a take-over by this
-  person, not an erasure).
+  without saving once the turn settles. `goneRef` is keyed by the thread id ALONE and the close ignores which
+  database is current: after a switch to another database the old transcript is still on screen, and a
+  per-database key would miss it there and upsert it into the new one.
+  ★★ The same close applies to a LOCAL owner mismatch in `saveAction` (the thread is stamped with an owner
+  this browser no longer is, `chat.threadOwnerChanged`): that can be an erased row followed by a new identity
+  in another tab. ONLY a server-confirmed `"not-owned"` (the upsert of a never-stored thread whose id exists
+  under another owner) keeps the conversation on screen, as a take-over by this person.
   `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
   requires `projectId` AND the owner id (not just an id), so a delete can never reach across projects or into a
   colleague's row; it also matches legacy owner-less rows.

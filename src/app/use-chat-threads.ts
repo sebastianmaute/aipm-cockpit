@@ -497,7 +497,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // load, or saved here with the outcome "saved". Such a thread is only ever UPDATEd, so a chat erased
   // or deleted elsewhere while this session holds it can never be written back.
   const storedRef = useRef<Set<string>>(new Set());
-  // The threads whose save came back "gone" (`storedKey`): never saved again, under their id or a new one.
+  // The ids of threads found gone, or owned by an owner this browser no longer is: never saved again,
+  // under their id or a new one. Keyed by the id ALONE, not per database: the transcript on screen is
+  // what would leak, whichever database is current by the time the next save runs.
   const goneRef = useRef<Set<string>>(new Set());
   // A chat deleted elsewhere was closed here: the panel says so in one line until the next send,
   // thread switch or new chat.
@@ -626,8 +628,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       const identity = known && storedChatOwnerId(config?.httpUrl ?? "") === known.ownerId
         ? known
         : await writeIdentity(config);
+      // A LOCAL mismatch is not a take-over: the row may have been erased and a new identity started in
+      // another tab. Closed like a deleted chat, so its transcript cannot go out under the new owner.
       if (th.ownerId !== null && th.ownerId !== identity.ownerId) {
-        dropNotOwned(th.id);
+        dropGone(config, th, "chat.threadOwnerChanged");
         return;
       }
       const key = storedKey(config, th.id);
@@ -637,7 +641,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         return;
       }
       if (outcome === "gone") {
-        dropGone(config, th);
+        dropGone(config, th, "chat.threadGone");
         return;
       }
       storedRef.current.add(key);
@@ -647,13 +651,14 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     };
   }
 
-  /** The stored thread `th` is gone from the database (erased, deleted elsewhere, expired) or no longer
-   *  this owner's: as `dropNotOwned`, and its pending rename goes too. It is never written again. */
-  function dropGone(config: TursoConfig | null, th: ChatThread): void {
+  /** The thread `th` is gone from the database (erased, deleted elsewhere, expired), or stamped with an
+   *  owner this browser no longer is: as `dropNotOwned`, its pending rename goes too, and it is never
+   *  written again. The active one is closed whichever database is current now. */
+  function dropGone(config: TursoConfig | null, th: ChatThread, code: "chat.threadGone" | "chat.threadOwnerChanged"): void {
     const scope = outboxScope(config, th.projectId);
     if (scope) dropPendingEdit(scope, RENAME_KIND, th.id);
-    goneRef.current.add(storedKey(config, th.id));
-    dropUnsaveable(th.id, "chat.threadGone");
+    goneRef.current.add(th.id);
+    dropUnsaveable(th.id, code);
     // ★ Its conversation must not stay on screen: the next send would mint a new id and insert the
     // whole erased transcript again. With a send running, the end-of-turn effect closes it instead.
     if (threadIdRef.current === th.id && abortRef.current === null) closeGoneThread();
@@ -687,7 +692,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     dropUnsaveable(id, "chat.threadNotOwned");
   }
 
-  function dropUnsaveable(id: string, code: "chat.threadNotOwned" | "chat.threadGone"): void {
+  function dropUnsaveable(id: string, code: "chat.threadNotOwned" | "chat.threadGone" | "chat.threadOwnerChanged"): void {
     logDiag("warn", code);
     setThreads((prev) => prev.filter((th) => th.id !== id));
     if (threadIdRef.current === id && abortRef.current === null) setActiveThreadId(null);
@@ -1072,11 +1077,12 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // conversation into A — there is nothing of this turn left to save.
     if (movedAway && activeThreadId !== turnThreadIdRef.current) return;
     // A thread found gone while this turn ran is not saved at all (an UPDATE would match nothing, and
-    // under a new id it would insert the erased transcript): it is closed now that the send has settled.
-    if (activeThreadId !== null && goneRef.current.has(storedKey(turnConfig, activeThreadId))) {
+    // under a new id it would insert the erased transcript): it is closed now that the send has settled,
+    // even when the user has moved to another database since — its transcript is still on screen.
+    if (activeThreadId !== null && goneRef.current.has(activeThreadId)) {
       const goneId = activeThreadId;
       setThreads((prev) => prev.filter((th) => th.id !== goneId));
-      if (!movedAway) closeGoneThread();
+      closeGoneThread();
       return;
     }
     const id = activeThreadId ?? newThreadId();
