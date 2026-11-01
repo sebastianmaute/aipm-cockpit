@@ -279,9 +279,11 @@ function firstExcerpt(texts, needle) {
   return null;
 }
 
+// Keyset paging: each page starts after the last id read, so rows deleted (or added) between pages
+// cannot shift a later row out of the next page, as an OFFSET would.
 const PAGE_SQL =
   "SELECT id, project_id, owner_id, name, updated_at, history_json, display_json, key_operator " +
-  "FROM chat_threads ORDER BY id LIMIT ? OFFSET ?";
+  "FROM chat_threads WHERE id > ? ORDER BY id LIMIT ?";
 
 /** Every row of the database, in pages: `{ matches: [{ id, projectId, updatedAt, excerpt }], unreadable, readable }`. */
 async function searchDatabase(run, privateKey, query, pageSize) {
@@ -289,8 +291,8 @@ async function searchDatabase(run, privateKey, query, pageSize) {
   const matches = [];
   let unreadable = 0;
   let readable = 0;
-  for (let offset = 0; ; offset += pageSize) {
-    const [page] = await run([{ sql: PAGE_SQL, args: [int(pageSize), int(offset)] }]);
+  for (let after = ""; ; ) {
+    const [page] = await run([{ sql: PAGE_SQL, args: [txt(after), int(pageSize)] }]);
     const rows = rowObjects(page);
     for (const r of rows) {
       const texts = await readRowTexts(r, privateKey);
@@ -306,6 +308,7 @@ async function searchDatabase(run, privateKey, query, pageSize) {
       if (excerpt !== null) matches.push({ id: r.id, projectId: r.project_id, updatedAt: r.updated_at, excerpt });
     }
     if (rows.length < pageSize) break;
+    after = rows[rows.length - 1].id;
   }
   return { matches, unreadable, readable };
 }

@@ -265,12 +265,32 @@ describe("search", () => {
     // read in pages, ordered by id, never the whole table at once
     const selects = fake.calls.flatMap((c) => c.body.requests).filter((r) => r.type === "execute" && /SELECT/.test(r.stmt.sql));
     expect(selects.length).toBeGreaterThanOrEqual(3);
-    expect(selects[0].stmt.sql).toMatch(/ORDER BY id LIMIT \? OFFSET \?/);
+    expect(selects[0].stmt.sql).toMatch(/WHERE id > \? ORDER BY id LIMIT \?$/);
     // credentials go in the header, never in output
     expect(fake.calls[0].url).toBe("https://db-org.turso.io/v2/pipeline");
     expect(fake.calls[0].headers.Authorization).toBe(`Bearer ${TOKEN}`);
     expect([...a.out, ...a.err].join("\n")).not.toContain(TOKEN);
   }, 30_000);
+
+  it("pages by id, so rows deleted between pages never make it skip a later row", async () => {
+    for (const id of ["a", "b", "c", "d", "e"]) {
+      insertRow(db, legacyRow(thread(id, [{ role: "user", content: "about Erika Müller" }])));
+    }
+    const fake = makeFakeTurso(db);
+    let pages = 0;
+    const deletingBetweenPages = async (url, init) => {
+      const res = await fake.fetchImpl(url, init);
+      // Another operator (or the app) deletes the first page's rows right after it was read.
+      if (JSON.parse(init.body).requests.some((r) => r.type === "execute" && /SELECT/.test(r.stmt.sql)) && ++pages === 1) {
+        db.prepare("DELETE FROM chat_threads WHERE id IN ('a', 'b')").run();
+      }
+      return res;
+    };
+    const a = deps({ ...fake, fetchImpl: deletingBetweenPages }, { pageSize: 2 });
+    expect(await runCli(["search", "--key", keyPath, "Erika"], a.deps)).toBe(EXIT.FOUND);
+    const found = a.out.filter((l) => l.includes("\t")).map((l) => l.split("\t")[0]);
+    expect(found).toEqual(["a", "b", "c", "d", "e"]);
+  });
 
   it("prints 0 matches and exits 0 when every row was read and none matches", async () => {
     await seed();
