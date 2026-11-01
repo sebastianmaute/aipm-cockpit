@@ -2242,9 +2242,14 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   send under a NEW id, i.e. an INSERT of the erased transcript. So a gone ACTIVE thread is closed
   (`closeGoneThread`: no active thread, history and display cleared, `threadClosed` drives
   `ChatThreadClosedNotice`); with a send running, its id stays in `goneRef` and the busy-persist effect closes it
-  without saving once the turn settles. `goneRef` is keyed by the thread id ALONE and the close ignores which
-  database is current: after a switch to another database the old transcript is still on screen, and a
-  per-database key would miss it there and upsert it into the new one.
+  without saving once the turn settles. The close ignores which database is CURRENT: after a switch the old
+  transcript is still on screen. `goneRef` is keyed by database URL + id and looked up with the database the
+  thread CAME FROM (the turn's config; `threadDbRef` records each in-memory thread's database on every load
+  and mint), so the same id in another database (a fork or restore) is never closed by mistake.
+  ★★★ A load keeps only held rows of ITS OWN database (`mergeThreadsAfterLoad` / `resetThreadsAfterFailedLoad`
+  take a `fromLoadedDatabase` predicate). A project id is not unique across databases: without it, a close
+  on a database the user left (`threadIdRef` null makes the next load take the stale branch) kept the old
+  database's rows in the new list, and renaming one wrote that content into the new database.
   ★★ The same close applies to a LOCAL owner mismatch in `saveAction` (the thread is stamped with an owner
   this browser no longer is, `chat.threadOwnerChanged`): that can be an erased row followed by a new identity
   in another tab. ONLY a server-confirmed `"not-owned"` (the upsert of a never-stored thread whose id exists

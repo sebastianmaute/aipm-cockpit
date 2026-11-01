@@ -586,6 +586,62 @@ describe("useChatThreads — a chat deleted elsewhere is closed, not carried int
     }
   });
 
+  it("after a chat closed mid-send on a database left behind, the next database's list holds only its own rows", async () => {
+    let resolveB: (rows: ChatThread[]) => void = () => {};
+    const legacyA = thread("a2", { history: [{ role: "user", content: "A secret" }] as ApiMessage[] });
+    loadThreadsMock.mockImplementation(async (cfg: TursoConfig) =>
+      cfg === CFG_B
+        ? new Promise<ChatThread[]>((resolve) => { resolveB = resolve; })
+        : [thread("t1", { history: OLD_HISTORY, display: OLD_DISPLAY }), legacyA]);
+    const abortRef: { current: AbortController | null } = { current: null };
+    const hook = renderChatThreads({ history: OLD_HISTORY, display: OLD_DISPLAY, abortRef });
+    await waitFor(() => expect(hook.result.current.activeThreadId).toBe("t1"));
+    const live = { ...hook.initialProps, abortRef };
+    abortRef.current = new AbortController();
+    hook.rerender({ ...live, busy: true });
+    saveThreadMock.mockResolvedValueOnce("gone");
+    act(() => hook.result.current.renameThread("t1", "New name"));
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    hook.rerender({ ...live, busy: true, tursoConfig: CFG_B });
+    abortRef.current = null;
+    hook.rerender({ ...live, busy: false, tursoConfig: CFG_B });
+    await waitFor(() => expect(hook.result.current.threadClosed).toBe(true));
+    await act(async () => {
+      resolveB([thread("b1")]);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() => expect(hook.result.current.threads.map((th) => th.id)).toEqual(["b1"]));
+    act(() => hook.result.current.renameThread("a2", "Mine"));
+    act(() => hook.result.current.renameThread("b1", "Mine"));
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(2));
+    for (const call of saveThreadMock.mock.calls.slice(1)) {
+      expect(call[0]).toBe(CFG_B);
+      expect((call[1] as ChatThread).id).toBe("b1");
+      expect(JSON.stringify(call[1])).not.toContain("A secret");
+      expect(carriesOld(call)).toBe(false);
+    }
+  });
+
+  it("a thread id that is gone in one database is not closed in another database that has the same id", async () => {
+    loadThreadsMock.mockImplementation(async (cfg: TursoConfig) =>
+      [thread("t1", cfg === CFG_B ? { history: [{ role: "user", content: "B copy" }] as ApiMessage[] } : { history: OLD_HISTORY })]);
+    const hook = renderChatThreads({ history: OLD_HISTORY, display: OLD_DISPLAY });
+    await waitFor(() => expect(hook.result.current.activeThreadId).toBe("t1"));
+    saveThreadMock.mockResolvedValueOnce("gone");
+    act(() => hook.result.current.renameThread("t1", "New name"));
+    await waitFor(() => expect(hook.result.current.threadClosed).toBe(true));
+    // The same id in database B (a fork or restore) is a different chat.
+    const inB = { ...hook.initialProps, tursoConfig: CFG_B, history: [] as ApiMessage[], display: [] as DisplayItem[] };
+    hook.rerender(inB);
+    await waitFor(() => expect(hook.result.current.activeThreadId).toBe("t1"));
+    saveThreadMock.mockClear();
+    await sendTurn({ ...hook, initialProps: inB });
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
+    expect(saveThreadMock.mock.calls.at(-1)![0]).toBe(CFG_B);
+    expect((saveThreadMock.mock.calls.at(-1)![1] as ChatThread).id).toBe("t1");
+    expect(hook.result.current.activeThreadId).toBe("t1");
+  });
+
   it("a not-owned save keeps the conversation on screen (a take-over, not an erasure)", async () => {
     loadThreadsMock.mockResolvedValue([thread("t1", { history: OLD_HISTORY, display: OLD_DISPLAY })]);
     const hook = renderChatThreads({ history: OLD_HISTORY, display: OLD_DISPLAY });

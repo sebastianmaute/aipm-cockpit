@@ -63,6 +63,11 @@ function outboxScope(tursoConfig: TursoConfig | null, projectId: string): string
   return typeof url === "string" && url.length > 0 ? pendingEditScope(url, `chat:${projectId}`) : null;
 }
 
+/** The key of thread `id` of `config`'s database in the hook's set of gone threads. */
+function goneKey(config: TursoConfig | null, id: string): string {
+  return `${config?.httpUrl ?? ""}|${id}`;
+}
+
 /** The key of thread `id` of `config`'s database in the hook's set of stored threads. */
 function storedKey(config: TursoConfig | null, id: string): string {
   return `${config?.httpUrl ?? ""}\n${id}`;
@@ -497,10 +502,14 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // load, or saved here with the outcome "saved". Such a thread is only ever UPDATEd, so a chat erased
   // or deleted elsewhere while this session holds it can never be written back.
   const storedRef = useRef<Set<string>>(new Set());
-  // The ids of threads found gone, or owned by an owner this browser no longer is: never saved again,
-  // under their id or a new one. Keyed by the id ALONE, not per database: the transcript on screen is
-  // what would leak, whichever database is current by the time the next save runs.
+  // The threads found gone, or owned by an owner this browser no longer is (`goneKey`: database URL +
+  // id): never saved again, under their id or a new one. Looked up with the database the thread CAME
+  // FROM, never the current one, so the same id in another database (a fork, a restore) is untouched.
   const goneRef = useRef<Set<string>>(new Set());
+  // The database (URL) each in-memory thread came from: set by every load and every mint. A load keeps
+  // only held rows of its own database (`mergeThreadsAfterLoad`), and a gone result closes the thread on
+  // screen only when that thread came from the database the result is about.
+  const threadDbRef = useRef<Map<string, string>>(new Map());
   // A chat deleted elsewhere was closed here: the panel says so in one line until the next send,
   // thread switch or new chat.
   const [threadClosed, setThreadClosed] = useState(false);
@@ -545,7 +554,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     vaultReadRef.current = next;
     setVaultRead(next);
     const loaded = await loadThreads(config, pid, identity);
-    for (const th of loaded) storedRef.current.add(storedKey(config, th.id));
+    for (const th of loaded) {
+      storedRef.current.add(storedKey(config, th.id));
+      threadDbRef.current.set(th.id, url);
+    }
     const days = retentionInForce(chat);
     const cutoffIso = days === null ? null : retentionCutoff(new Date(), days);
     return loaded.filter((th) =>
@@ -615,9 +627,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     return identity;
   }
 
-  /** The save of `th`: expiry first (never blocking), then the encrypted upsert as this browser's
-   *  owner. A save the server says changed no row means another owner holds the id now; so does a
-   *  thread stamped with an owner this browser no longer is (another tab adopted a new identity). */
+  /** The save of `th`: expiry first (never blocking), then the encrypted write as this browser's owner.
+   *  A thread stamped with an owner this browser no longer is (the row may have been erased and a new
+   *  identity started in another tab) is closed like a gone one, and nothing is sent. A stored thread is
+   *  UPDATEd; a zero-row result is "gone" and closes it too. Only a server-reported "not-owned" (the
+   *  upsert of a never-stored thread whose id another owner holds) keeps the conversation on screen. */
   function saveAction(config: TursoConfig | null, th: ChatThread, gate: SaveGate): () => Promise<void> {
     return async () => {
       if (gate.retentionDays !== null) expireOldThreads(config, gate.retentionDays, th.projectId, () => threadsRef.current);
@@ -657,11 +671,16 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   function dropGone(config: TursoConfig | null, th: ChatThread, code: "chat.threadGone" | "chat.threadOwnerChanged"): void {
     const scope = outboxScope(config, th.projectId);
     if (scope) dropPendingEdit(scope, RENAME_KIND, th.id);
-    goneRef.current.add(th.id);
+    goneRef.current.add(goneKey(config, th.id));
     dropUnsaveable(th.id, code);
     // ★ Its conversation must not stay on screen: the next send would mint a new id and insert the
     // whole erased transcript again. With a send running, the end-of-turn effect closes it instead.
-    if (threadIdRef.current === th.id && abortRef.current === null) closeGoneThread();
+    if (threadIdRef.current === th.id && cameFrom(th.id, config) && abortRef.current === null) closeGoneThread();
+  }
+
+  /** Whether the in-memory thread `id` came from `config`'s database. */
+  function cameFrom(id: string, config: TursoConfig | null): boolean {
+    return threadDbRef.current.get(id) === (config?.httpUrl ?? "");
   }
 
   /** Closes the active chat whose row is gone: nothing on screen, no active thread, and the notice. */
@@ -808,7 +827,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         // covers this effect's own hazard (a mint DURING this fetch), because
         // at mount there is no earlier thread for a send to already be
         // streaming into.
-        const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, false);
+        const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, false, (th) => cameFrom(th.id, tursoConfig));
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
         // §626. A rename typed before the last close and never saved: re-issue it now that the
@@ -830,7 +849,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         // on its way to Turso. A failed FETCH says nothing about a thread this
         // client just created, so leave it — and the send it belongs to — alone.
         // `preserveLive: false` for the project-switch reason given above.
-        const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId, false);
+        const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId, false, (th) => cameFrom(th.id, tursoConfig));
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
         if (settled.stale) return;
@@ -1013,7 +1032,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         setThreadsError(false);
         setLoadFailed(false);
         const preserveLive = shouldPreserveLive();
-        const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, preserveLive);
+        const settled = mergeThreadsAfterLoad(startedOn, threadIdRef.current, projectId, loaded, preserveLive, (th) => cameFrom(th.id, tursoConfig));
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
         adoptConfirmedNames(confirmedNamesRef.current, landedRef.current, loaded, landingsAtClick);
@@ -1029,7 +1048,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         setThreadsError(true);
         setLoadFailed(true);
         const preserveLive = shouldPreserveLive();
-        const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId, preserveLive);
+        const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId, preserveLive, (th) => cameFrom(th.id, tursoConfig));
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
         if (settled.stale) return;
@@ -1079,7 +1098,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // A thread found gone while this turn ran is not saved at all (an UPDATE would match nothing, and
     // under a new id it would insert the erased transcript): it is closed now that the send has settled,
     // even when the user has moved to another database since — its transcript is still on screen.
-    if (activeThreadId !== null && goneRef.current.has(activeThreadId)) {
+    if (activeThreadId !== null && goneRef.current.has(goneKey(turnConfig, activeThreadId))) {
       const goneId = activeThreadId;
       setThreads((prev) => prev.filter((th) => th.id !== goneId));
       closeGoneThread();
@@ -1099,7 +1118,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       history: stripAttachmentsForPersistence(history),
       display,
     };
-    if (!movedAway) setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
+    if (!movedAway) {
+      threadDbRef.current.set(id, turnConfig?.httpUrl ?? "");
+      setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
+    }
     if (!saveGate) return;
     const scope = renameScope(turnConfig);
     runPersist(id, saveAction(writeConfig(turnConfig), thread, saveGate), (owns) => confirmSavedName(scope, id, thread.name, owns));
@@ -1197,6 +1219,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       history: stripAttachmentsForPersistence(sentHistory),
       display: sentDisplay,
     };
+    threadDbRef.current.set(id, tursoConfig?.httpUrl ?? "");
     setThreads((prev) => (prev.some((th) => th.id === id) ? prev : [inserted, ...prev]));
     if (!saveGate) return id;
     const scope = renameScope();

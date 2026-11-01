@@ -43,6 +43,14 @@ describe("mergeThreadsAfterLoad", () => {
     expect(merged.map((t) => t.id)).toEqual(["a"]);
   });
 
+  it("drops rows that came from another database, even of the same project", () => {
+    const fromLoad = (th: ChatThread) => th.id !== "from-a";
+    const r = mergeThreadsAfterLoad("live", "live", "p1", [thread("b1")], true, fromLoad);
+    expect(r.updateThreads([thread("from-a"), thread("minted")]).map((t) => t.id)).toEqual(["minted", "b1"]);
+    const f = resetThreadsAfterFailedLoad("live", "live", "p1", true, fromLoad);
+    expect(f.updateThreads([thread("from-a"), thread("minted")]).map((t) => t.id)).toEqual(["minted"]);
+  });
+
   it("treats a moved thread id as stale even when preserveLive is false", () => {
     const r = mergeThreadsAfterLoad("before", "after", "p1", [thread("a")], false);
     expect(r.stale).toBe(true);
