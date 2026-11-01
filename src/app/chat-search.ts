@@ -123,9 +123,10 @@ export interface ChatSearchResult {
  *   `grep -rn "threadTitle" src --include=*.ts --include=*.tsx`. A new
  *   UI consumer must read `th.name`, not this.
  *
- *   ★★ NOT self-injection only — `chat-threads-schema.ts` scopes `chat_threads`
- *   by `project_id` with no per-user or per-device column, so on a shared Turso
- *   project this text belongs to another collaborator.
+ *   ★★ NOT self-injection only for LEGACY rows — a chat saved before chats were owned has no owner, and
+ *   `chat-threads-schema.ts` loads such owner-less rows for everyone in the project (`threadsSelect`), so on a
+ *   shared Turso project this text may belong to another collaborator. A row saved since carries its writer's
+ *   owner id and is never loaded for anyone else.
  *
  *   ★ A clip that LANDS ON an ellipsis gains no second one: a user-set name of
  *   59 characters + `…` + more text clips to 60 units already ending in `…`,

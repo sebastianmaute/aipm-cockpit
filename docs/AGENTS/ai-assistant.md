@@ -2255,7 +2255,7 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   `markStored`/`isStored`, `markGone`/`isGone`, `recordSource`/`cameFrom`/`sourceOf`; an id has one source at a
   time); `use-chat-identity.ts` (`useChatIdentity`: the vault read, `writeIdentity`, `trustedIdentity`, the
   cross-tab `identityReloads` signal, `startNewIdentity` and `chatPersistence`); `chat-persist-queue.ts`
-  (`createChatPersistQueue`: `runPersist`, its write ordering, retries and landings); `use-chat-thread-renames.ts`
+  (`createChatPersistQueue`: `runPersist`, its write ordering, retries and landings, and `savesSettled`, which a delete-all awaits so an insert still on its way is not left behind); `use-chat-thread-renames.ts`
   (`useChatThreadRenames`: rename and the §626 outbox); `use-chat-erase.ts` (`useChatErase`: single delete,
   delete ticked, delete all); `use-chat-threads-publish.ts` (`useChatThreadsPublish`: the registry the
   dispatcher reads); and `chat-thread-writes.ts` (shared helpers: outbox scope, `sameDatabase`, the retention
@@ -2342,6 +2342,10 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     queued by project id per database (`pending-project-sweeps.ts`) and retried by `retryPendingProjectSweeps`,
     which `useChatRetentionSweep` runs once per database per page load after the chat sweep (without waiting for
     the chat settings).
+  - **Find chats mentioning a person** (`findThreadsMentioning`, `chat-thread-mentions.ts`; the operator's `search`
+    repeats the rule over every row): matches message text, tool calls and tool results of the threads loaded for
+    this project. A proposal card is not searched because it holds no text (only an id and a count); what it proposed
+    is in the tool call beside it.
   - **Factory reset** (`clearAppConfig`) deletes the device key and the identity, so this browser can no longer
     read its own rows (unless a chat passphrase lets it adopt the identity again); it deletes no Turso row.
   ★★ `rowsToThreads` runs `minimiseStoredToolResults` (`chat-threads.ts`) over a loaded history: a thread saved

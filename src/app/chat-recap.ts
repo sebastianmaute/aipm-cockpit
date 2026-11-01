@@ -38,9 +38,10 @@ import type { ChatPointer } from "./chat-search";
  *   half: an unescaped quote closes a title early and lets the rest read as
  *   prompt prose.
  *
- *   ★★ NOT self-injection only — `chat-threads-schema.ts` scopes `chat_threads`
- *   by `project_id` with no per-user or per-device column, so on a shared Turso
- *   project this text belongs to another collaborator.
+ *   ★★ NOT self-injection only for LEGACY rows — a chat saved before chats were owned has no owner, and
+ *   `chat-threads-schema.ts` loads such owner-less rows for everyone in the project (`threadsSelect`), so on a
+ *   shared Turso project this text may belong to another collaborator. A row saved since carries its writer's
+ *   owner id and is never loaded for anyone else.
  *
  *   ★★ SIZE is a THIRD hazard and it is deliberately NOT handled here.
  *   Clipping at this sink is opt-in per call site and left the other two

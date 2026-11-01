@@ -682,7 +682,9 @@ terminal and no `--yes`), `expire` refused (the retention setting is invalid), o
 arguments, credentials or key, unreachable database). `search` and
 `delete --all-matches` end with `unreadable: <n>`: rows this key cannot open, for
 example ones saved under an earlier recovery key. They may mention the text too —
-repeat with that key.
+repeat with that key. `search` reads each chat's message text, tool calls and tool
+results. An AI proposal card is not searched because it holds no text (only an id and a
+count of changes); what it proposed is in the tool call beside it, which is searched.
 
 **Erasure checklist** (a person asks for their data to be erased):
 
