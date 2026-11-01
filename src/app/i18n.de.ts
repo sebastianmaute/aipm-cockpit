@@ -1235,6 +1235,7 @@ export const de: Record<TranslationKey, string> = {
   chatDeleteAllFailed: "Ihre Chats konnten nicht gelöscht werden. Bitte versuchen Sie es erneut.",
   chatDeleteAllNotRefreshed: "Ihre Chats wurden gelöscht; die Liste konnte nicht aktualisiert werden.",
   chatThreadClosedGone: "Dieser Chat wurde an anderer Stelle gelöscht und daher geschlossen.",
+  chatThreadClosedUnconfirmed: "Dieser Chat konnte nicht gespeichert werden und wurde daher geschlossen.",
   chatFindButton: "Chats finden, die eine Person erwähnen",
   chatFindTitle: "Chats finden, die eine Person erwähnen",
   chatFindHint: "Durchsucht die Chats in diesem Projekt, die Sie sehen können, nach einem Namen oder einer E-Mail-Adresse: Ihre Nachrichten, die Antworten und die Werkzeugergebnisse. Dazu gehören auch ältere, gemeinsam sichtbare Chats aus der Zeit vor den privaten Chats, die Sie ebenfalls löschen können. Die privaten Chats Ihrer Kolleginnen und Kollegen werden nicht durchsucht.",

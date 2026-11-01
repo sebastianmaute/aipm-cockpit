@@ -52,8 +52,12 @@ import { createChatPersistQueue } from "./chat-persist-queue";
 import { useChatThreadRenames } from "./use-chat-thread-renames";
 import { useChatErase } from "./use-chat-erase";
 import { useChatThreadsPublish } from "./use-chat-threads-publish";
+import type { ChatThreadCloseReason } from "./chat-not-saved-notice";
 
 export { chatPersistence, type ChatPersistence } from "./use-chat-identity";
+
+/** The diagnostics code a thread that is never written again is logged with. */
+type GoneCode = "chat.threadGone" | "chat.threadOwnerChanged" | "chat.threadSaveUnconfirmed";
 export type { ChatEraseActions, DeleteAllOutcome } from "./use-chat-erase";
 
 /** Live render-scope values the Turso thread flows read each render. */
@@ -203,9 +207,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
 
   // Stored / gone / source of every thread this session has seen, per database (chat-thread-ledger.ts).
   const [ledger] = useState(createChatThreadLedger);
-  // A chat deleted elsewhere was closed here: the panel says so in one line until the next send,
-  // thread switch or new chat.
+  // A chat deleted elsewhere (or one a save could not confirm) was closed here: the panel says so in
+  // one line, worded by `threadCloseReason`, until the next send, thread switch or new chat.
   const [threadClosed, setThreadClosed] = useState(false);
+  const [threadCloseReason, setThreadCloseReason] = useState<ChatThreadCloseReason>("gone");
 
   const identity = useChatIdentity({ tursoMode, tursoConfig, chat });
   const { persistence, identityReloads } = identity;
@@ -249,8 +254,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   /** The save of `th`: expiry first (never blocking), then the encrypted write as this browser's owner.
    *  A thread stamped with an owner this browser no longer is (the row may have been erased and a new
    *  identity started in another tab) is closed like a gone one, and nothing is sent. A stored thread is
-   *  UPDATEd; a zero-row result is "gone" and closes it too. Only a server-reported "not-owned" (the
-   *  upsert of a never-stored thread whose id another owner holds) keeps the conversation on screen. */
+   *  UPDATEd; when that changes no row the store reads whether the row is still there: absent is "gone"
+   *  and closes it, and a failed read ("unconfirmed") closes it too, without saying it was deleted. A
+   *  server-reported "not-owned" — the upsert of a never-stored thread whose id another owner holds, or a
+   *  stored row another owner took over — keeps the conversation on screen under no thread, so the next
+   *  send saves it under a new id of this owner's: it is this person's own content, not an erasure. */
   function saveAction(config: TursoConfig | null, th: ChatThread, gate: SaveGate): () => Promise<void> {
     return async () => {
       if (gate.retentionDays !== null) expireOldThreads(config, gate.retentionDays, th.projectId, () => threadsRef.current);
@@ -267,8 +275,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         dropUnsaveable(th.id, "chat.threadNotOwned");
         return;
       }
-      if (outcome === "gone") {
-        dropGone(config, th, "chat.threadGone");
+      if (outcome === "gone" || outcome === "unconfirmed") {
+        dropGone(config, th, outcome === "gone" ? "chat.threadGone" : "chat.threadSaveUnconfirmed");
         return;
       }
       ledger.markStored(url, th.id);
@@ -279,12 +287,14 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   }
 
   /** The thread `th` is gone from the database (erased, deleted elsewhere, expired), or stamped with an
-   *  owner this browser no longer is: off the list, its pending rename goes too, and it is never
-   *  written again. The active one is closed whichever database is current now. */
-  function dropGone(config: TursoConfig | null, th: ChatThread, code: "chat.threadGone" | "chat.threadOwnerChanged"): void {
+   *  owner this browser no longer is, or a save could not confirm it is there ("unconfirmed"): off the
+   *  list, its pending rename goes too, and it is never written again. The active one is closed whichever
+   *  database is current now; the notice says it was deleted except for "unconfirmed". */
+  function dropGone(config: TursoConfig | null, th: ChatThread, code: GoneCode): void {
     const scope = outboxScope(config, th.projectId);
     if (scope) dropPendingEdit(scope, RENAME_KIND, th.id);
     ledger.markGone(urlOf(config), th.id);
+    if (threadIdRef.current === th.id) setThreadCloseReason(code === "chat.threadSaveUnconfirmed" ? "unconfirmed" : "gone");
     dropUnsaveable(th.id, code);
     // ★ Its conversation must not stay on screen: the next send would mint a new id and insert the
     // whole erased transcript again. With a send running, the end-of-turn effect closes it instead.
@@ -316,7 +326,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
    *  the active one and no send is running, it stops being active; the conversation on screen is left
    *  to the caller (`dropGone` closes it, a not-owned result keeps it so the next send starts a new
    *  thread of this owner's). */
-  function dropUnsaveable(id: string, code: "chat.threadNotOwned" | "chat.threadGone" | "chat.threadOwnerChanged"): void {
+  function dropUnsaveable(id: string, code: GoneCode | "chat.threadNotOwned"): void {
     logDiag("warn", code);
     setThreads((prev) => prev.filter((th) => th.id !== id));
     if (threadIdRef.current === id && abortRef.current === null) setActiveThreadId(null);
@@ -684,6 +694,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     threadsError,
     persistence,
     threadClosed,
+    threadCloseReason,
     startNewIdentity: identity.startNewIdentity,
     setThreadsError,
     setThreads,

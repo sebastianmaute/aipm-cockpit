@@ -18,11 +18,16 @@ const CHAT_NOT_SAVED_KEY: Record<Exclude<ChatPersistence, "on">, TranslationKey>
   "status-unknown": "chatNotSavedStatusUnknown",
 };
 
-/** One line after an open chat was closed because its row was deleted elsewhere (an erasure, another
- *  tab or browser, the expiry). Nothing while `closed` is false. */
-export function ChatThreadClosedNotice({ lang, closed }: { lang: Lang; closed: boolean }) {
+/** Why an open chat was closed: its row was deleted elsewhere (an erasure, another tab or browser, the
+ *  expiry), or a save found no row of it and could not tell whether it was deleted. */
+export type ChatThreadCloseReason = "gone" | "unconfirmed";
+
+/** One line after an open chat was closed, saying why (`reason`, "gone" when not given). Nothing while
+ *  `closed` is false. */
+export function ChatThreadClosedNotice({ lang, closed, reason = "gone" }: { lang: Lang; closed: boolean; reason?: ChatThreadCloseReason }) {
   if (!closed) return null;
-  return <p role="status" className="mb-2 shrink-0 text-xs text-muted-foreground">{t(lang, "chatThreadClosedGone")}</p>;
+  const key = reason === "unconfirmed" ? "chatThreadClosedUnconfirmed" : "chatThreadClosedGone";
+  return <p role="status" className="mb-2 shrink-0 text-xs text-muted-foreground">{t(lang, key)}</p>;
 }
 
 export interface ChatNotSavedNoticeProps {

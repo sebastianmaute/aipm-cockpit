@@ -10,6 +10,16 @@ beforeAll(async () => {
 });
 
 describe("ChatThreadClosedNotice", () => {
+  it("says neutrally that a chat which could not be saved was closed, in English and German", () => {
+    const { rerender } = render(<ChatThreadClosedNotice lang="en-US" closed reason="unconfirmed" />);
+    expect(screen.getByRole("status")).toHaveTextContent("This chat could not be saved and has been closed.");
+    expect(screen.getByRole("status")).not.toHaveTextContent("deleted");
+    rerender(<ChatThreadClosedNotice lang="de" closed reason="unconfirmed" />);
+    expect(screen.getByRole("status")).toHaveTextContent("Dieser Chat konnte nicht gespeichert werden und wurde daher geschlossen.");
+    rerender(<ChatThreadClosedNotice lang="en-US" closed reason="gone" />);
+    expect(screen.getByRole("status")).toHaveTextContent("This chat was deleted elsewhere and has been closed.");
+  });
+
   it("says the chat was deleted elsewhere and closed, in English and German, and nothing when not closed", () => {
     const { rerender, container } = render(<ChatThreadClosedNotice lang="en-US" closed={false} />);
     expect(container).toBeEmptyDOMElement();

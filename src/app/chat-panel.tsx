@@ -1640,7 +1640,7 @@ function ChatPanelInner({
       {tursoMode && (
         <ChatNotSavedNotice lang={lang} persistence={chatThreads.persistence} onStartNewIdentity={chatThreads.startNewIdentity} />
       )}
-      {tursoMode && <ChatThreadClosedNotice lang={lang} closed={chatThreads.threadClosed} />}
+      {tursoMode && <ChatThreadClosedNotice lang={lang} closed={chatThreads.threadClosed} reason={chatThreads.threadCloseReason} />}
       <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
         <Select
           size="xs"

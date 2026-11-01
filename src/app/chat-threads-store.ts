@@ -7,7 +7,7 @@ import { runTursoPipeline } from "./turso-pipeline";
 import {
   CHAT_THREADS_DDL, CHAT_THREADS_TABLE, CHAT_THREAD_CAP, chatThreadsHealAlters, threadsSelect,
   upsertThreadStatements, updateStoredThreadStatements, deleteThreadStatements, pruneThreadsStatements,
-  deleteOwnerThreadsStatements, expireThreadsStatements, legacyThreadIdsSelect, allThreadIdsSelect,
+  deleteOwnerThreadsStatements, expireThreadsStatements, legacyThreadIdsSelect, allThreadIdsSelect, threadPresentSelect,
 } from "./chat-threads-schema";
 import { decodeThreadRows, encodeThreadRow, type ChatIdentity } from "./chat-thread-codec";
 import { pragmaStatements } from "./turso-migrate";
@@ -67,10 +67,11 @@ export async function loadThreads(
 }
 
 /** What a save did: wrote the row; or changed nothing because the id is held by another owner
- *  (or another project) — the owner-guarded upsert then matches no row ("not-owned"); or, for a
- *  thread known to be stored, changed nothing because its row is gone or no longer this owner's
- *  ("gone") — it is never inserted again. */
-export type SaveThreadOutcome = "saved" | "not-owned" | "gone";
+ *  (or another project) — the owner-guarded upsert then matches no row, or a stored thread's row was
+ *  taken over by another owner ("not-owned"); or, for a thread known to be stored, changed nothing
+ *  because its row is gone ("gone") — it is never inserted again; or changed nothing and the read that
+ *  tells those two apart failed ("unconfirmed") — treated like gone, without saying it was deleted. */
+export type SaveThreadOutcome = "saved" | "not-owned" | "gone" | "unconfirmed";
 
 /** `stored`: the thread is known to be in the database (loaded from it, or saved earlier in this
  *  session). Such a thread is only ever UPDATEd, so an erased chat cannot come back. */
@@ -100,7 +101,20 @@ export async function saveThread(
     ...pruneThreadsStatements(th.projectId, id.ownerId, CHAT_THREAD_CAP),
   ]);
   if (results[CHAT_THREADS_DDL.length]?.response?.result?.affected_row_count !== 0) return "saved";
-  return options.stored ? "gone" : "not-owned";
+  if (!options.stored) return "not-owned";
+  // A stored thread's UPDATE matched nothing: its row is gone, or another owner took it over (a legacy
+  // row adopted elsewhere). One id-only read tells them apart; no content is read.
+  try {
+    return (await threadPresent(config, th.id, th.projectId)) ? "not-owned" : "gone";
+  } catch {
+    return "unconfirmed";
+  }
+}
+
+/** Whether a row with this id exists in this project, whoever owns it. Reads no content. */
+async function threadPresent(config: TursoConfig | null, id: string, projectId: string): Promise<boolean> {
+  const results = await run(config, threadPresentSelect(id, projectId));
+  return rowObjects(results[CHAT_THREADS_DDL.length]).length > 0;
 }
 
 /** Delete one thread of `ownerId` (or a legacy owner-less one). Without an

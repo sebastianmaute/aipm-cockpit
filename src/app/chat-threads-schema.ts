@@ -173,6 +173,12 @@ export function allThreadIdsSelect(): SqlStmt[] {
   return [{ sql: `SELECT id FROM chat_threads` }];
 }
 
+/** Whether a row with this id exists in this project, whoever owns it — to tell a stored thread whose
+ *  UPDATE changed no row apart: gone, or taken over by another owner. No content is read. */
+export function threadPresentSelect(id: string, projectId: string): SqlStmt[] {
+  return [{ sql: `SELECT 1 AS present FROM chat_threads WHERE id = ? AND project_id = ?`, args: [txt(id), txt(projectId)] }];
+}
+
 /** The cutoff and the future bound are computed by the DATABASE's clock (SQL `'now'`), never a
  *  browser's: one client with a clock weeks ahead would otherwise delete everybody's chats. The
  *  format matches `toISOString()`, so the comparison is between ISO strings. */

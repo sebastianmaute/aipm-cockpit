@@ -108,7 +108,7 @@ describe("chat-threads-store", () => {
       }));
     pipe.mockImplementation(updateResult(0));
     await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("gone");
-    const stmts = lastStmts();
+    const stmts = pipe.mock.calls.map((c) => c[1] as SqlStmt[]).filter((ss) => ss.some((x) => /^UPDATE chat_threads/.test(x.sql))).at(-1)!;
     expect(stmts.some((s) => /INSERT/i.test(s.sql))).toBe(false);
     const update = stmts.find((s) => /^UPDATE chat_threads SET /.test(s.sql));
     expect(update?.sql).toMatch(/WHERE id = \? AND project_id = \? AND \(owner_id = \? OR owner_id IS NULL OR owner_id = ''\)$/);
@@ -117,6 +117,44 @@ describe("chat-threads-store", () => {
     expect(stmts.some((s) => /^DELETE FROM chat_threads WHERE project_id = \? AND owner_id = \? AND id NOT IN/.test(s.sql))).toBe(true);
     pipe.mockImplementation(updateResult(1));
     await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("saved");
+  });
+
+  describe("a stored thread whose UPDATE changed no row", () => {
+    /** The UPDATE changes no row; the id-only read answers `present` (or fails). */
+    const zeroRowUpdate = (present: boolean | "fail") => async (_c: unknown, stmts: SqlStmt[]) => {
+      if (stmts.some((x) => /^SELECT 1 AS present FROM chat_threads/.test(x.sql))) {
+        if (present === "fail") throw new Error("network down");
+        return stmts.map((x) => (/^SELECT 1 AS present FROM chat_threads/.test(x.sql)
+          ? { type: "ok", response: { type: "execute", result: { cols: [{ name: "present" }], rows: present ? [[{ value: "1" }]] : [] } } }
+          : { type: "ok" }));
+      }
+      return stmts.map(() => ({ type: "ok", response: { type: "execute", result: { cols: [], rows: [], affected_row_count: 0 } } }));
+    };
+    const probe = (): SqlStmt | undefined =>
+      pipe.mock.calls.flatMap((c) => c[1] as SqlStmt[]).find((x) => /^SELECT 1 AS present FROM chat_threads/.test(x.sql));
+
+    it("reads only whether the row is there, by id and project, and says not-owned when it is (a take-over)", async () => {
+      pipe.mockImplementation(zeroRowUpdate(true));
+      await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("not-owned");
+      expect(probe()?.sql).toBe("SELECT 1 AS present FROM chat_threads WHERE id = ? AND project_id = ?");
+      expect(values(probe())).toEqual(["t1", "p"]);
+    });
+
+    it("says gone when the row is not there", async () => {
+      pipe.mockImplementation(zeroRowUpdate(false));
+      await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("gone");
+    });
+
+    it("says unconfirmed when the read fails", async () => {
+      pipe.mockImplementation(zeroRowUpdate("fail"));
+      await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("unconfirmed");
+    });
+
+    it("never reads for a thread not stored, and never after an UPDATE that changed a row", async () => {
+      pipe.mockImplementation(zeroRowUpdate(true));
+      await expect(saveThread(cfg, th, alice, spkiB64)).resolves.toBe("not-owned");
+      expect(probe()).toBeUndefined();
+    });
   });
 
   it("saveThread emits no standalone row-delete — the upsert must be one atomic statement", async () => {

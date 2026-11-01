@@ -670,3 +670,67 @@ describe("useChatThreads — a thread somebody else now owns", () => {
     expect(result.current.threadsError).toBe(false);
   });
 });
+
+describe("useChatThreads — a stored thread another owner took over is not treated as deleted", () => {
+  const OLD_HISTORY = [{ role: "user", content: "about Jane" }] as ApiMessage[];
+  const OLD_DISPLAY = [{ kind: "user", text: "about Jane" }] as DisplayItem[];
+
+  it("a legacy thread taken over between load and save: screen kept, no notice, the next send saves under a new id as this owner", async () => {
+    h.vault.set(CFG_A.httpUrl, { ownerId: "owner-a", chatKey: new Uint8Array(32) });
+    loadThreadsMock.mockResolvedValue([thread("t1", { history: OLD_HISTORY, display: OLD_DISPLAY })]);
+    const hook = renderChatThreads({ history: OLD_HISTORY, display: OLD_DISPLAY });
+    await waitFor(() => expect(hook.result.current.activeThreadId).toBe("t1"));
+    const setHistory = hook.initialProps.setHistory as ReturnType<typeof vi.fn>;
+    const before = setHistory.mock.calls.length;
+    // The store's id-only read found the row under another owner: "not-owned", not "gone".
+    saveThreadMock.mockResolvedValueOnce("not-owned");
+    act(() => hook.result.current.renameThread("t1", "New name"));
+    await waitFor(() => expect(hook.result.current.activeThreadId).toBeNull());
+    expect(saveThreadMock.mock.calls[0]![4]).toEqual({ stored: true });
+    expect(setHistory.mock.calls.length).toBe(before);
+    expect(hook.result.current.threadClosed).toBe(false);
+    expect(readDiagLog().some((e) => e.code === "chat.threadGone")).toBe(false);
+
+    saveThreadMock.mockClear();
+    act(() => {
+      hook.result.current.ensureThreadForSend(OLD_HISTORY, OLD_DISPLAY);
+    });
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    const [, saved, owner, , options] = saveThreadMock.mock.calls[0]!;
+    expect((saved as ChatThread).id).not.toBe("t1");
+    expect((owner as { ownerId: string }).ownerId).toBe("owner-a");
+    expect(options).toEqual({ stored: false });
+  });
+
+  it("an erased row closes the chat with the deleted-elsewhere notice", async () => {
+    loadThreadsMock.mockResolvedValue([thread("t1", { history: OLD_HISTORY, display: OLD_DISPLAY })]);
+    const hook = renderChatThreads({ history: OLD_HISTORY, display: OLD_DISPLAY });
+    await waitFor(() => expect(hook.result.current.activeThreadId).toBe("t1"));
+    saveThreadMock.mockResolvedValueOnce("gone");
+    act(() => hook.result.current.renameThread("t1", "New name"));
+    await waitFor(() => expect(hook.result.current.threadClosed).toBe(true));
+    expect(hook.result.current.threadCloseReason).toBe("gone");
+  });
+
+  it("when the store could not tell (its read failed), the chat is closed with the neutral notice", async () => {
+    loadThreadsMock.mockResolvedValue([thread("t1", { history: OLD_HISTORY, display: OLD_DISPLAY }), thread("t2")]);
+    const hook = renderChatThreads({ history: OLD_HISTORY, display: OLD_DISPLAY });
+    await waitFor(() => expect(hook.result.current.activeThreadId).toBe("t1"));
+    saveThreadMock.mockResolvedValueOnce("unconfirmed");
+    act(() => hook.result.current.renameThread("t1", "New name"));
+    await waitFor(() => expect(hook.result.current.threadClosed).toBe(true));
+    expect(hook.result.current.threadCloseReason).toBe("unconfirmed");
+    expect(hook.result.current.activeThreadId).toBeNull();
+    expect(hook.result.current.threads.map((th) => th.id)).toEqual(["t2"]);
+    expect((hook.initialProps.setHistory as ReturnType<typeof vi.fn>).mock.calls.at(-1)).toEqual([[]]);
+    expect(hook.result.current.threadsError).toBe(false);
+    expect(readDiagLog().filter((e) => e.code === "chat.threadSaveUnconfirmed")).toHaveLength(1);
+    expect(readDiagLog().some((e) => e.code === "chat.threadGone")).toBe(false);
+
+    // It is never written again, under its id or a new one.
+    saveThreadMock.mockClear();
+    hook.rerender({ ...hook.initialProps, history: [], display: [] });
+    await sendTurn({ ...hook, initialProps: { ...hook.initialProps, history: [], display: [] } });
+    for (const call of saveThreadMock.mock.calls) expect((call[1] as ChatThread).id).not.toBe("t1");
+  });
+});

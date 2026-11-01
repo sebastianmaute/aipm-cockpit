@@ -2235,9 +2235,12 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   literal `BEGIN`. A guarded upsert that matches nothing is a silent no-op.
   ★★ That upsert is ONLY for a thread never stored. A thread the hook knows is stored (it was loaded, or a
   save of it returned "saved") is written with `updateStoredThreadStatements`, an owner-guarded UPDATE: when
-  its row was erased or deleted elsewhere it changes no row, `saveThread` returns "gone", and the hook drops
-  the thread, its registry entry and its pending rename (`chat.threadGone`). Upserting it would bring an
-  erased chat back with its whole history.
+  it changes no row, `saveThread` runs ONE id-only read (`threadPresentSelect`, no content): no row is "gone"
+  (erased or deleted elsewhere), and the hook drops the thread, its registry entry and its pending rename
+  (`chat.threadGone`); a row under another owner is "not-owned" (a legacy row taken over elsewhere, see below);
+  a failed read is "unconfirmed", closed like gone but with the neutral notice "This chat could not be saved
+  and has been closed." (`chat.threadSaveUnconfirmed`). Upserting it would bring an erased chat back with its
+  whole history.
   ★★ Dropping it from the list is NOT enough: the conversation left on screen would go out with the next
   send under a NEW id, i.e. an INSERT of the erased transcript. So a gone ACTIVE thread is closed
   (`closeGoneThread`: no active thread, history and display cleared, `threadClosed` drives
@@ -2264,7 +2267,8 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   ★★ The same close applies to a LOCAL owner mismatch in `saveAction` (the thread is stamped with an owner
   this browser no longer is, `chat.threadOwnerChanged`): that can be an erased row followed by a new identity
   in another tab. ONLY a server-confirmed `"not-owned"` (the upsert of a never-stored thread whose id exists
-  under another owner) keeps the conversation on screen, as a take-over by this person.
+  under another owner, or a stored row another owner took over) keeps the conversation on screen, under no
+  thread, so the next send saves it under a NEW id of this owner's: it is this person's own content.
   `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
   requires `projectId` AND the owner id (not just an id), so a delete can never reach across projects or into a
   colleague's row; it also matches legacy owner-less rows.
