@@ -1,0 +1,48 @@
+"use client";
+
+// src/app/chat-not-saved-notice.tsx — the one line under the chat that says why chats are not saved
+// (Turso mode only; the panel decides). A chat identity this browser can no longer open gets its own
+// line and a way out: start a new identity for this database. The earlier rows are left alone — they
+// stay readable to the operator until retention removes them.
+
+import { useState } from "react";
+import { type Lang, type TranslationKey, t } from "./i18n";
+import { Button } from "./button";
+import type { ChatPersistence } from "./use-chat-threads";
+
+/** Why chats are not saved, one line per reason. */
+const CHAT_NOT_SAVED_KEY: Record<Exclude<ChatPersistence, "on">, TranslationKey> = {
+  "no-recovery-key": "chatNotSavedNoRecoveryKey",
+  "no-crypto": "chatNotSavedNoCrypto",
+  "identity-locked": "chatNotSavedIdentityLocked",
+  "status-unknown": "chatNotSavedStatusUnknown",
+};
+
+export interface ChatNotSavedNoticeProps {
+  lang: Lang;
+  persistence: ChatPersistence;
+  /** Replaces this browser's chat identity for the current database with a new one. */
+  onStartNewIdentity: () => Promise<void>;
+}
+
+export function ChatNotSavedNotice({ lang, persistence, onStartNewIdentity }: ChatNotSavedNoticeProps) {
+  const [starting, setStarting] = useState(false);
+  if (persistence === "on") return null;
+
+  function start(): void {
+    if (starting) return;
+    setStarting(true);
+    void onStartNewIdentity().finally(() => setStarting(false));
+  }
+
+  return (
+    <div className="mb-2 flex shrink-0 flex-col items-start gap-1.5">
+      <p role="status" className="text-xs text-muted-foreground">{t(lang, CHAT_NOT_SAVED_KEY[persistence])}</p>
+      {persistence === "identity-locked" && (
+        <Button variant="secondary" size="xs" disabled={starting} onClick={start}>
+          {t(lang, "chatStartNewIdentity")}
+        </Button>
+      )}
+    </div>
+  );
+}

@@ -136,6 +136,17 @@ export function ensureChatIdentity(httpUrl: string): Promise<ChatIdentity | null
   return run;
 }
 
+/** A NEW identity for `httpUrl`, stored over whatever entry is there — the way out of an entry this
+ *  browser's device key can no longer open. Rows saved under the old identity are left alone (they
+ *  expire). Throws when the new entry cannot be sealed or stored. */
+export function startNewChatIdentity(httpUrl: string): Promise<ChatIdentity> {
+  return withIdentityLock(async () => {
+    const identity: ChatIdentity = { ownerId: crypto.randomUUID(), chatKey: await generateChatKey() };
+    await replaceChatIdentity(httpUrl, identity);
+    return identity;
+  });
+}
+
 /** Store `id` as this browser's identity for `httpUrl`, replacing any earlier one. */
 export async function replaceChatIdentity(httpUrl: string, id: ChatIdentity): Promise<void> {
   if (httpUrl === "") throw new Error("replaceChatIdentity: a database URL is required");

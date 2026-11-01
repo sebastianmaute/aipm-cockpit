@@ -1186,6 +1186,8 @@ export const de: Record<TranslationKey, string> = {
   chatThreadUntitled: "Unbenannter Chat",
   chatNotSavedNoRecoveryKey: "Chats werden nicht gespeichert: Der Betreiber hat keinen Wiederherstellungsschlüssel festgelegt.",
   chatNotSavedNoCrypto: "Chats werden nicht gespeichert: Dieser Browser kann sie nicht verschlüsseln.",
+  chatNotSavedIdentityLocked: "Ihre gespeicherten Chats in diesem Browser lassen sich nicht mehr öffnen. Beginnen Sie eine neue Chat-Identität, um Chats wieder zu speichern; Ihre früheren Chats bleiben beim Betreiber, bis sie ablaufen.",
+  chatStartNewIdentity: "Neue Chat-Identität beginnen",
   chatNotSavedStatusUnknown: "Chats werden erst gespeichert, wenn die KI-Einstellungen geladen sind.",
   chatThreadOpen: "\"{0}\" öffnen",
   chatThreadRename: "\"{0}\" umbenennen",

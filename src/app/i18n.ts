@@ -1285,6 +1285,8 @@ const enUS = {
   chatThreadUntitled: "Untitled chat",
   chatNotSavedNoRecoveryKey: "Chats are not saved: the operator has not set a recovery key.",
   chatNotSavedNoCrypto: "Chats are not saved: this browser cannot encrypt them.",
+  chatNotSavedIdentityLocked: "Your saved chats on this browser cannot be opened any more. Start a new chat identity to save chats again; your earlier chats stay with the operator until they expire.",
+  chatStartNewIdentity: "Start a new chat identity",
   chatNotSavedStatusUnknown: "Chats are not saved until the AI settings have loaded.",
   chatThreadOpen: "Open \"{0}\"",
   chatThreadRename: "Rename \"{0}\"",

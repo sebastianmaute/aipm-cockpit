@@ -41,6 +41,13 @@ vi.mock("./chat-key-vault", () => ({
     return identity;
   }),
   storedChatOwnerId: (url: string) => h.vault.get(url)?.ownerId ?? null,
+  startNewChatIdentity: vi.fn(async (url: string) => {
+    h.minted.value += 1;
+    const identity = { ownerId: `owner-${h.minted.value}`, chatKey: new Uint8Array(32) };
+    h.vault.set(url, identity);
+    h.locked.delete(url);
+    return identity;
+  }),
 }));
 
 vi.mock("./chat-threads-store", () => ({
@@ -199,12 +206,26 @@ describe("useChatThreads — persistence", () => {
     expect(saveThreadMock).not.toHaveBeenCalled();
   });
 
-  it("an identity the device key cannot open: persistence no-crypto and no save", async () => {
+  it("an identity the device key cannot open: persistence identity-locked and no save", async () => {
     h.locked.add(CFG_A.httpUrl);
     const hook = renderChatThreads();
-    await waitFor(() => expect(hook.result.current.persistence).toBe("no-crypto"));
+    await waitFor(() => expect(hook.result.current.persistence).toBe("identity-locked"));
     await sendTurn(hook);
     expect(saveThreadMock).not.toHaveBeenCalled();
+  });
+
+  it("starting a new chat identity over a locked one resumes saving under it", async () => {
+    h.locked.add(CFG_A.httpUrl);
+    const hook = renderChatThreads();
+    await waitFor(() => expect(hook.result.current.persistence).toBe("identity-locked"));
+    await act(async () => {
+      await hook.result.current.startNewIdentity();
+    });
+    expect(hook.result.current.persistence).toBe("on");
+    const fresh = h.vault.get(CFG_A.httpUrl)!;
+    await sendTurn(hook);
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
+    expect((saveThreadMock.mock.calls[0]![2] as { ownerId: string }).ownerId).toBe(fresh.ownerId);
   });
 
   it("status unknown wins over the other two", async () => {

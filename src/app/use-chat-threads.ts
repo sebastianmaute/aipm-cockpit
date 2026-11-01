@@ -33,7 +33,8 @@ import {
 import type { ChatSettings } from "./ai-chat-retention-config";
 import type { ChatIdentity } from "./chat-thread-codec";
 import {
-  CHAT_IDENTITY_KEY, chatVaultAvailable, ensureChatIdentity, getChatIdentity, readChatIdentity, storedChatOwnerId,
+  CHAT_IDENTITY_KEY, chatVaultAvailable, ensureChatIdentity, getChatIdentity, readChatIdentity, startNewChatIdentity,
+  storedChatOwnerId,
 } from "./chat-key-vault";
 import { retentionCutoff } from "./chat-threads-schema";
 import {
@@ -106,13 +107,16 @@ function adoptConfirmedNames(
 /** Whether this browser saves chats: "on", or why not. Anything but "on" means no save is sent; the
  *  panel shows one line saying why. Deletes need no encryption and are sent whenever the status is
  *  known (`deleteGate`), so a deleted chat does not come back on reload. */
-export type ChatPersistence = "on" | "no-recovery-key" | "no-crypto" | "status-unknown";
+export type ChatPersistence = "on" | "no-recovery-key" | "no-crypto" | "identity-locked" | "status-unknown";
 
-/** The persistence for the server's chat settings (`null` = not known yet) and whether this browser
- *  can encrypt. Checked in this order: status unknown, no crypto, no recovery key. */
-export function chatPersistence(chat: ChatSettings | null, canEncrypt: boolean): ChatPersistence {
+/** The persistence for the server's chat settings (`null` = not known yet), whether this browser can
+ *  encrypt at all (Web Crypto and IndexedDB), and whether its stored identity for the database is one
+ *  the device key cannot open. Checked in this order: status unknown, no crypto, identity locked, no
+ *  recovery key. */
+export function chatPersistence(chat: ChatSettings | null, canEncrypt: boolean, identityLocked: boolean): ChatPersistence {
   if (chat === null) return "status-unknown";
   if (!canEncrypt) return "no-crypto";
+  if (identityLocked) return "identity-locked";
   if (!chat.recoveryKey) return "no-recovery-key";
   return "on";
 }
@@ -480,7 +484,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   }, [vaultRead]);
   const currentUrl = tursoConfig?.httpUrl ?? "";
   const vaultLocked = vaultRead?.url === currentUrl && vaultRead.kind === "unavailable";
-  const persistence = chatPersistence(chat, chatVaultAvailable() && !vaultLocked);
+  const persistence = chatPersistence(chat, chatVaultAvailable(), vaultLocked);
   const saveGate: SaveGate | null = persistence === "on" && chat?.recoveryKey
     ? { recoveryKey: chat.recoveryKey, retentionDays: chat.retentionDays }
     : null;
@@ -550,8 +554,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   }
 
   /** The identity a write to `config`'s database uses, read from the vault and created on first
-   *  use. Throws when this browser cannot encrypt (and records that, so persistence reads
-   *  "no-crypto"). */
+   *  use. Throws when this browser cannot encrypt or its stored identity cannot be opened (and records
+   *  that, so persistence reads "no-crypto" or "identity-locked"). */
   async function writeIdentity(config: TursoConfig | null): Promise<ChatIdentity> {
     const url = config?.httpUrl ?? "";
     const identity = await ensureChatIdentity(url);
@@ -1331,6 +1335,22 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     dropPendingEditsWhere(pendingEditScope(url, "chat:"), RENAME_KIND, (id) => legacy?.has(id) ?? false);
   }
 
+  /** Replaces a stored identity this browser can no longer open ("identity-locked") with a new one,
+   *  so saving resumes. The old rows are not touched; they expire. A failure is logged without detail
+   *  and leaves the state as it was. */
+  async function startNewIdentity(): Promise<void> {
+    const url = tursoConfig?.httpUrl ?? "";
+    if (!url) return;
+    try {
+      const identity = await startNewChatIdentity(url);
+      const next: VaultRead = { url, kind: "found", identity };
+      vaultReadRef.current = next;
+      setVaultRead(next);
+    } catch {
+      logDiag("warn", "chat.newIdentityFailed");
+    }
+  }
+
   const knownOwnerId = vaultRead?.url === currentUrl && vaultRead.kind === "found" ? vaultRead.identity?.ownerId ?? null : null;
   const erase: ChatEraseActions = { enabled: deleteGate, ownerId: knownOwnerId, deleteAll, deleteSelected };
 
@@ -1340,6 +1360,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     activeThreadId,
     threadsError,
     persistence,
+    startNewIdentity,
     setThreadsError,
     setThreads,
     threadIdRef,

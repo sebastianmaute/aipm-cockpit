@@ -139,15 +139,35 @@ function idbPut(db: IDBDatabase, key: string, value: unknown): Promise<void> {
 }
 
 /** Get the persisted non-extractable device key, generating + storing it once.
- *  A module-level singleton promise ensures concurrent callers (e.g. two tabs)
- *  share ONE load/generate, so they can't both generate + overwrite the key and
- *  orphan ciphertext. On failure the cache resets so a later call can retry. */
+ *  A module-level singleton promise makes concurrent callers in ONE tab share one
+ *  load/generate; across tabs the load-or-create runs under a Web Lock where the
+ *  browser has one, and a tab that created a key returns what IndexedDB holds
+ *  afterwards, so a tab that lost a race adopts the winner's key instead of
+ *  orphaning ciphertext. On any failure — the IndexedDB open included — the cache
+ *  resets so a later call can retry. */
 let deviceKeyPromise: Promise<CryptoKey> | null = null;
 export function getDeviceKey(): Promise<CryptoKey> {
   if (!deviceKeyPromise) deviceKeyPromise = loadOrCreateDeviceKey();
   return deviceKeyPromise;
 }
+
+const DEVICE_KEY_LOCK = "aipm-cockpit:device-key";
+
+function withDeviceKeyLock<T>(fn: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator === "undefined" ? undefined : navigator.locks;
+  return locks?.request ? locks.request(DEVICE_KEY_LOCK, fn) : fn();
+}
+
 async function loadOrCreateDeviceKey(): Promise<CryptoKey> {
+  try {
+    return await withDeviceKeyLock(readOrCreateStoredKey);
+  } catch (err) {
+    deviceKeyPromise = null; // allow a later retry
+    throw err;
+  }
+}
+
+async function readOrCreateStoredKey(): Promise<CryptoKey> {
   const db = await idbOpen();
   try {
     const existing = (await idbGet(db, DEVICE_KEY_ID)) as CryptoKey | undefined;
@@ -157,10 +177,8 @@ async function loadOrCreateDeviceKey(): Promise<CryptoKey> {
       "decrypt",
     ]);
     await idbPut(db, DEVICE_KEY_ID, key);
-    return key;
-  } catch (err) {
-    deviceKeyPromise = null; // allow a later retry
-    throw err;
+    // The stored key, not ours: without Web Locks another tab may have written in between.
+    return ((await idbGet(db, DEVICE_KEY_ID)) as CryptoKey | undefined) ?? key;
   } finally {
     db.close();
   }

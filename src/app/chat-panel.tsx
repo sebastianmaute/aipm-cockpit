@@ -5,7 +5,7 @@ import { useOpenProjectAiPrivacy, useOpenProjectPeopleProtected } from "./ai-pri
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { PaperClipIcon, XMarkIcon } from "./icons";
 import { type ToolDispatcher, personStripContext, runTool } from "./chat-tools";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, t } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
 import { ChatPromptChips } from "./chat-prompt-chips";
 import { Markdown } from "./markdown";
@@ -70,7 +70,8 @@ import { useSessionAiKey } from "./use-session-ai-key";
 import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
-import { useChatThreads, type ChatPersistence } from "./use-chat-threads";
+import { useChatThreads } from "./use-chat-threads";
+import { ChatNotSavedNotice } from "./chat-not-saved-notice";
 import { fitHistoryToBudget } from "./chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
 import {
@@ -123,13 +124,6 @@ type StagedAttachment = { id: string; name: string; blocks: AttachmentBlock[]; s
 
 // Full-width, drag-to-resize pane (same chrome as the primary views).
 const CHAT_PANE_CLASS = VIEW_PANE_RESIZABLE_CLASS;
-
-/** Why chats are not saved, one line per reason. */
-const CHAT_NOT_SAVED_KEY: Record<Exclude<ChatPersistence, "on">, TranslationKey> = {
-  "no-recovery-key": "chatNotSavedNoRecoveryKey",
-  "no-crypto": "chatNotSavedNoCrypto",
-  "status-unknown": "chatNotSavedStatusUnknown",
-};
 
 /** The live plan behind a `{kind:"proposal"}` marker in the transcript.
  *
@@ -1643,8 +1637,8 @@ function ChatPanelInner({
         />
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {tursoMode && chatThreads.persistence !== "on" && (
-        <p role="status" className="mb-2 shrink-0 text-xs text-muted-foreground">{t(lang, CHAT_NOT_SAVED_KEY[chatThreads.persistence])}</p>
+      {tursoMode && (
+        <ChatNotSavedNotice lang={lang} persistence={chatThreads.persistence} onStartNewIdentity={chatThreads.startNewIdentity} />
       )}
       <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
         <Select
