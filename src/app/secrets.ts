@@ -177,12 +177,13 @@ async function aesEncrypt(
   return { v: 1, id, alg: "AES-GCM", iv: toB64(iv), ciphertext: toB64(ct), ...extra } as SealedSecret;
 }
 async function aesDecrypt(key: CryptoKey, s: SealedSecret): Promise<string> {
+  return aesDecryptB64(key, s.iv, s.ciphertext);
+}
+/** Base64 IV + ciphertext in, plaintext out; any failure (bad base64, wrong
+ *  key, tampered tag) becomes a `SecretUnlockError`. */
+async function aesDecryptB64(key: CryptoKey, ivB64: string, ctB64: string): Promise<string> {
   try {
-    const pt = await subtle().decrypt(
-      { name: "AES-GCM", iv: fromB64(s.iv) },
-      key,
-      fromB64(s.ciphertext),
-    );
+    const pt = await subtle().decrypt({ name: "AES-GCM", iv: fromB64(ivB64) }, key, fromB64(ctB64));
     return dec.decode(pt);
   } catch {
     throw new SecretUnlockError();
@@ -194,6 +195,28 @@ export async function sealDevice(id: SecretId, plaintext: string): Promise<Seale
 }
 export async function openDevice(s: SealedSecret): Promise<string> {
   return aesDecrypt(await getDeviceKey(), s);
+}
+
+/** A value sealed under the device key that is not one of the `SECRET_IDS`
+ *  settings fields (e.g. a per-person chat key). Both fields are base64. */
+export interface DeviceSealedValue {
+  iv: string;
+  ciphertext: string;
+}
+
+/** Seal an arbitrary string under the same non-extractable device key as the
+ *  settings secrets, with a fresh 12-byte IV. */
+export async function sealDeviceValue(plaintext: string): Promise<DeviceSealedValue> {
+  const key = await getDeviceKey();
+  const iv = randomBytes(12);
+  const ct = await subtle().encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
+  return { iv: toB64(iv), ciphertext: toB64(ct) };
+}
+
+/** Open a `sealDeviceValue` result. Throws `SecretUnlockError` on a tampered or
+ *  malformed value, or one sealed under another device key. */
+export async function openDeviceValue(v: DeviceSealedValue): Promise<string> {
+  return aesDecryptB64(await getDeviceKey(), v.iv, v.ciphertext);
 }
 
 async function deriveKey(passphrase: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {

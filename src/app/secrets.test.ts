@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect } from "vitest";
-import { sealDevice, openDevice, sealPassphrase, openPassphrase, SecretUnlockError, isSealedSecret, SECRET_IDS } from "./secrets";
+import { sealDevice, openDevice, sealPassphrase, openPassphrase, SecretUnlockError, isSealedSecret, SECRET_IDS, sealDeviceValue, openDeviceValue } from "./secrets";
 
 describe("secrets", () => {
   it("round-trips a secret through the device key", async () => {
@@ -49,5 +49,25 @@ describe("secrets", () => {
     expect(isSealedSecret(sealed)).toBe(true);
     expect(isSealedSecret({ ...sealed, id: "notASecret" })).toBe(false);
     expect(isSealedSecret({ ...sealed, id: 7 })).toBe(false);
+  });
+
+  it("sealDeviceValue/openDeviceValue round-trip an arbitrary value through the device key", async () => {
+    const sealed = await sealDeviceValue("chat-key-material");
+    expect(Object.keys(sealed).sort()).toEqual(["ciphertext", "iv"]);
+    expect(sealed.ciphertext).not.toContain("chat-key");
+    expect(await openDeviceValue(sealed)).toBe("chat-key-material");
+    const again = await sealDeviceValue("chat-key-material");
+    expect(again.iv).not.toBe(sealed.iv);
+  });
+
+  it("openDeviceValue rejects tampered ciphertext with SecretUnlockError", async () => {
+    const sealed = await sealDeviceValue("value");
+    const bytes = Uint8Array.from(atob(sealed.ciphertext), (c) => c.charCodeAt(0));
+    bytes[0] ^= 0x01;
+    let s = "";
+    for (const b of bytes) s += String.fromCharCode(b);
+    await expect(openDeviceValue({ ...sealed, ciphertext: btoa(s) })).rejects.toBeInstanceOf(
+      SecretUnlockError,
+    );
   });
 });
