@@ -322,6 +322,18 @@ describe("search", () => {
     for (const line of a.err) expect(hasControl(line)).toBe(false);
   });
 
+  it("searches a table from before the owner columns as legacy rows", async () => {
+    db.exec("DROP TABLE chat_threads");
+    db.exec("CREATE TABLE chat_threads (id TEXT PRIMARY KEY, project_id TEXT, name TEXT, created_at TEXT, updated_at TEXT, history_json TEXT, display_json TEXT)");
+    const th = thread("t-old", [{ role: "user", content: "Erika Müller asked" }]);
+    db.prepare("INSERT INTO chat_threads (id, project_id, name, created_at, updated_at, history_json, display_json) VALUES (?,?,?,?,?,?,?)")
+      .run(th.id, th.projectId, th.name, th.createdAt, th.updatedAt, JSON.stringify(th.history), JSON.stringify(th.display));
+    const a = deps(makeFakeTurso(db));
+    expect(await runCli(["search", "--key", keyPath, "Erika"], a.deps)).toBe(EXIT.FOUND);
+    expect(a.out.some((l) => l.startsWith("t-old\t"))).toBe(true);
+    expect(a.out.join("\n")).toContain("unreadable: 0");
+  });
+
   it("prints 0 matches and exits 0 when every row was read and none matches", async () => {
     await seed();
     const a = deps(makeFakeTurso(db));

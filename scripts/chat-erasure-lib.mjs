@@ -300,10 +300,10 @@ function firstExcerpt(texts, needle) {
 }
 
 // Keyset paging: each page starts after the last id read, so rows deleted (or added) between pages
-// cannot shift a later row out of the next page, as an OFFSET would.
-const PAGE_SQL =
-  "SELECT id, project_id, owner_id, name, updated_at, history_json, display_json, key_operator " +
-  "FROM chat_threads WHERE id > ? ORDER BY id LIMIT ?";
+// cannot shift a later row out of the next page, as an OFFSET would. `SELECT *`, not a column list:
+// a table the app has not healed yet lacks owner_id, key_owner and key_operator, and its rows then
+// read with those missing — that is, as legacy plaintext rows, which is what they are.
+const PAGE_SQL = "SELECT * FROM chat_threads WHERE id > ? ORDER BY id LIMIT ?";
 
 /** Every row of the database, in pages: `{ matches: [{ id, projectId, updatedAt, excerpt }], unreadable, readable }`. */
 async function searchDatabase(run, privateKey, query, pageSize) {
