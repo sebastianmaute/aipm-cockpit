@@ -55,6 +55,21 @@ describe("elsewhereFor", () => {
     expect(fig.hoursByPeriod[weeks[0].key]).toBe(10);
   });
 
+  test("a weekly plan elsewhere and monthly here-periods: each month sums the overlapping weeks' shares", () => {
+    // Weeks Mar 23-29 (all March) and Mar 30 - Apr 5 (Mar 30,31 = 2 workdays in March, Apr 1-3 = 3 in April).
+    const weeks = generatePeriods("2026-03-23", "2026-04-05", "week");
+    const o = other({
+      plan: plan("2026-03-23", "2026-04-05", "week"),
+      resources: [res(10, { utilization: { [weeks[0].key]: 20, [weeks[1].key]: 40 } })],
+    });
+    const months = generatePeriods("2026-03-01", "2026-04-30", "month");
+    const [fig] = elsewhereFor([rel(10)], [o], months, 8, NO_HOLIDAYS);
+    // March: all 20 of the first week + 2/5 of 40 = 16; April: 3/5 of 40 = 24.
+    expect(fig.hoursByPeriod[months[0].key]).toBe(36);
+    expect(fig.hoursByPeriod[months[1].key]).toBe(24);
+    expect(fig.hoursByPeriod[months[0].key] + fig.hoursByPeriod[months[1].key]).toBe(60);
+  });
+
   test("percent mode elsewhere uses that project's capacity", () => {
     const o = other({
       plan: plan("2026-02-02", "2026-02-08", "week"),

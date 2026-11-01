@@ -78,6 +78,19 @@ describe("matchPeople", () => {
     expect(m.suggestions).toEqual([{ projectId: "p-other", projectName: "Name p-other", resourceId: 10 }]);
   });
 
+  test("a name suggestion compares first and last separately, not the joined name", () => {
+    const here = [res(1, "Mary Ann", "Lee")];
+    const resplit = matchPeople(HERE, here, [other("p-other", [res(10, "Mary", "Ann Lee")])], []).get(1)!;
+    expect(resplit.suggestions).toEqual([]);
+    const equal = matchPeople(HERE, here, [other("p-other", [res(10, " mary  ann ", "LEE")])], []).get(1)!;
+    expect(equal.suggestions).toHaveLength(1);
+  });
+
+  test("a resource with a blank first or last name is never suggested", () => {
+    const m = matchPeople(HERE, [res(1, "Ann", "")], [other("p-other", [res(10, "Ann", "")])], []).get(1)!;
+    expect(m.suggestions).toEqual([]);
+  });
+
   test("two usable emails that differ give no suggestion even with equal names", () => {
     const here = [res(1, "Ann", "Lee", { email: "a@x.com" })];
     const others = [other("p-other", [res(10, "Ann", "Lee", { email: "b@x.com" })])];

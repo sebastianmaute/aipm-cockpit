@@ -21,7 +21,6 @@
  * (A row whose project or resource no longer exists matches nothing.)
  */
 import type { Resource } from "../types";
-import { resourceDisplayName } from "../resource-foundation";
 
 export type LinkVerdict = "same" | "different";
 
@@ -110,13 +109,13 @@ export function matchPeople(
   for (const h of here) {
     const match: PersonMatch = { matched: [], suggestions: [], rejected: [] };
     result.set(h.id, match);
-    const hName = normName(resourceDisplayName(h));
+    const hFirst = normName(h.firstName);
+    const hLast = normName(h.lastName);
     const hEmails = usableEmails(h);
 
     for (const o of others) {
       for (const r of o.resources) {
         const ref = { projectId: o.projectId, projectName: o.projectName, resourceId: r.id };
-        const rName = normName(resourceDisplayName(r));
 
         const stored = rowByKey.get(pairKey(hereProjectId, h.id, o.projectId, r.id));
         const live =
@@ -139,7 +138,8 @@ export function matchPeople(
           continue;
         }
         const missingEmail = hEmails.length === 0 || rEmails.length === 0;
-        if (hName !== "" && hName === rName && missingEmail) match.suggestions.push(ref);
+        const sameName = hFirst !== "" && hLast !== "" && hFirst === normName(r.firstName) && hLast === normName(r.lastName);
+        if (sameName && missingEmail) match.suggestions.push(ref);
       }
     }
   }

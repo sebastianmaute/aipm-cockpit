@@ -200,6 +200,26 @@ describe("useCrossProjectPeople", () => {
     expect(hook.result.current.matches.get(1)?.suggestions).toHaveLength(2);
   });
 
+  test("a dropped older run finishing first never clears the newer run's loading state", async () => {
+    let epoch = 0;
+    const releases: (() => void)[] = [];
+    const load = vi.fn(async (_c: TursoConfig, id: string) => {
+      if (id === "p-b") await new Promise<void>((r) => { releases.push(r); });
+      return ws([res(10, "Ann", "Lee")]);
+    });
+    const { hook } = setup({ load, getScopeEpoch: () => epoch });
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(releases).toHaveLength(1));
+    epoch += 1;
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(releases).toHaveLength(2));
+    // Run 1 resolves into a changed scope and is dropped; run 2 is still in flight.
+    await act(async () => { releases[0](); await Promise.resolve(); });
+    expect(hook.result.current.status).toBe("loading");
+    await act(async () => { releases[1](); });
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+  });
+
   test("confirm whose write straddles a scope change leaves the in-memory links alone", async () => {
     let epoch = 0;
     const s = setup({ getScopeEpoch: () => epoch });
