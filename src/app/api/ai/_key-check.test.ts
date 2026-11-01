@@ -35,6 +35,8 @@ type Call = {
   url: URL;
   options: RequestOptions;
   destroyed: boolean;
+  /** How many times destroy() was called: a pass destroys once, so a later destroy is the deadline acting late. */
+  destroys: number;
   fire: (event: "error" | "timeout", err?: Error) => void;
   respond: (res: UpstreamResponse) => void;
 };
@@ -48,6 +50,7 @@ function fakeSend(onEnd: (call: Call) => void = () => {}): { send: RelaySend; ca
       url,
       options,
       destroyed: false,
+      destroys: 0,
       fire: (event, err) => listeners.get(event)?.(err),
       respond: onResponse,
     };
@@ -63,6 +66,7 @@ function fakeSend(onEnd: (call: Call) => void = () => {}): { send: RelaySend; ca
       },
       destroy() {
         call.destroyed = true;
+        call.destroys += 1;
         return this;
       },
     };
@@ -301,6 +305,11 @@ describe("createKeyChecker — an overall deadline per pre-flight", () => {
     expect(KEY_CHECK_DEADLINE_MS).toBe(30_000);
   });
 
+  it("the idle timeout is shorter than the deadline, so a silent upstream is dropped before it", () => {
+    expect(KEY_CHECK_TIMEOUT_MS).toBe(10_000);
+    expect(KEY_CHECK_TIMEOUT_MS).toBeLessThan(KEY_CHECK_DEADLINE_MS);
+  });
+
   it("an upstream that trickles bytes forever → unavailable at the deadline, destroyed, not cached, its slot freed", async () => {
     const { onEnd, stop } = trickle();
     const { send, calls } = fakeSend(onEnd);
@@ -329,15 +338,20 @@ describe("createKeyChecker — an overall deadline per pre-flight", () => {
     const { onEnd, stop } = trickle();
     const checker = createKeyChecker({ deadlineMs: 1000 });
     try {
-      const pending = checker.check(KEY, ORG_ONLY, ANTHROPIC, fakeSend(onEnd).send);
-      await vi.advanceTimersByTimeAsync(1000);
-      expect(await pending).toEqual({ kind: "unavailable" });
+      let verdict: KeyVerdict | null = null;
+      void checker.check(KEY, ORG_ONLY, ANTHROPIC, fakeSend(onEnd).send).then((v) => {
+        verdict = v;
+      });
+      await vi.advanceTimersByTimeAsync(999);
+      expect(verdict).toBeNull();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(verdict).toEqual({ kind: "unavailable" });
     } finally {
       stop();
     }
   });
 
-  it("a settled check leaves no timer running, and the deadline never overrides its verdict", async () => {
+  it("a settled check leaves no timer running, and its finished request is never destroyed by the deadline", async () => {
     const baseline = vi.getTimerCount();
     const pending: Call[] = [];
     const { send } = fakeSend((call) => pending.push(call));
@@ -350,7 +364,9 @@ describe("createKeyChecker — an overall deadline per pre-flight", () => {
     expect(await check).toEqual({ kind: "pass" });
     // … and is cleared once the verdict is settled.
     expect(vi.getTimerCount()).toBe(baseline);
+    const destroysAtVerdict = pending[0].destroys;
     await vi.advanceTimersByTimeAsync(KEY_CHECK_DEADLINE_MS);
+    expect(pending[0].destroys).toBe(destroysAtVerdict);
     expect(await checker.check(KEY, ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "pass" });
     expect(pending).toHaveLength(1);
   });
