@@ -23,7 +23,7 @@
 // failed fetch/save. It composes:
 //   chat-thread-ledger.ts        stored / gone / source of each thread, per database
 //   use-chat-identity.ts         this browser's chat identity and `persistence`
-//   use-chat-persist-queue.ts    runPersist: write ordering, retries, landings
+//   chat-persist-queue.ts        runPersist: write ordering, retries, landings, saves in flight
 //   use-chat-thread-renames.ts   rename and the rename outbox
 //   use-chat-erase.ts            single delete, delete ticked, delete all
 //   use-chat-threads-publish.ts  the registry the AI dispatcher reads
