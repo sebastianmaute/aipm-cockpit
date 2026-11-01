@@ -46,8 +46,9 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998",
   ],
   // v2: the protected column joins the table (AI people protection, spec R5). The data texts are unchanged.
+  // Re-pinned, wording only: the chat row now also says who can read a saved chat and when it is deleted.
   2: [
-    "chat|interactive|aiDataChatLabel|aiDataChat|0ab2b52cc0f9|redacted",
+    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted",
     "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted",
     "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|ec731819812b|redacted",
     "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted",
@@ -250,32 +251,33 @@ describe("AI_DATA_PATHS", () => {
 // names the gateway and its provider as recipients), and the gateway key note, key bullet and Help now say
 // the app's server neither stores nor logs the key while the gateway receives it, and that the gateway may
 // keep its own log. Re-pinned again when the hash took in the German text, and the gateway Help's log
-// clause moved into brackets.
+// clause moved into brackets. Re-pinned, wording only, when the four Help texts began to say who can read a
+// saved chat and when it is deleted.
 const DESTINATION_PIN: readonly string[] = [
   "direct|interactive|aiConsentDataIntro|83b84643e133",
   "direct|background|aiConsentBackgroundDataIntro|f5a79b78f629",
   "direct|keyNote|aiApiKeyHint|52324fad6918",
   "direct|keySecurity|aiConsentBullet2|d509cd229b54",
   "direct|thirdParty|aiConsentBullet3|e5f450536dea",
-  "direct|help|helpSecAiBody|b798afe12238",
+  "direct|help|helpSecAiBody|3ecd0809860d",
   "gateway|interactive|aiConsentDataIntroGateway|7ebfc37003e9",
   "gateway|background|aiConsentBackgroundDataIntroGateway|687e1f3265c0",
   "gateway|keyNote|aiApiKeyHintGateway|28c8960cc576",
   "gateway|keySecurity|aiConsentBullet2Gateway|16b9a79fc098",
   "gateway|thirdParty|aiConsentBullet3Gateway|0412e7b4a6e5",
-  "gateway|help|helpSecAiBodyGateway|c788c6e74b8c",
+  "gateway|help|helpSecAiBodyGateway|b11fe8dbcbe7",
   // The relay route (organisation key restriction) has texts of its own (AI organisation key).
   "relay|interactive|aiConsentDataIntroRelay|50239ebb92d8",
   "relay|background|aiConsentBackgroundDataIntroRelay|21999ec60bd7",
   "relay|keyNote|aiApiKeyHintRelay|c79f17b384ac",
   "relay|keySecurity|aiConsentBullet2Relay|0a146b55c15b",
   "relay|thirdParty|aiConsentBullet3Relay|ac7587dd0eb6",
-  "relay|help|helpSecAiBodyRelay|28e7a0ac847a",
+  "relay|help|helpSecAiBodyRelay|3d648f7446c4",
   // A gateway deployment that also restricts keys adds one sentence to the consent dialog (AI organisation key).
   "gateway+keyRestricted|keyRestriction|aiConsentKeyRestrictionGateway|e93f8909f467",
   "gateway+keyRestricted|keyNote|aiApiKeyHintGatewayRestricted|3d914da2249e",
   "gateway+keyRestricted|keySecurity|aiConsentBullet2GatewayRestricted|4bffef981a8e",
-  "gateway+keyRestricted|help|helpSecAiBodyGatewayRestricted|511fa4eac1c6",
+  "gateway+keyRestricted|help|helpSecAiBodyGatewayRestricted|8444285d8c9b",
 ];
 
 const pinEntry = (route: string, kind: string, key: TranslationKey) =>

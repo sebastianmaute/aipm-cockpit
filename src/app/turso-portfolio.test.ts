@@ -9,6 +9,7 @@ import {
 import * as diagnostics from "./diagnostics";
 import { upsertProjectStatement } from "./turso-tenant-schema";
 import { PROJECT_SCOPED_SIDE_TABLES } from "./project-side-tables";
+import { pendingProjectSweeps } from "./pending-project-sweeps";
 import type { ProjectMeta } from "./types";
 
 const cfg = { httpUrl: "https://x.turso.io", authToken: "t" };
@@ -96,10 +97,20 @@ describe("turso-portfolio", () => {
     vi.mocked(runTursoPipeline)
       .mockResolvedValueOnce([])
       .mockRejectedValueOnce(new Error("asset cleanup boom"));
-    await expect(hardDeleteProject(cfg, "p1")).resolves.toBeUndefined();
+    window.localStorage.clear();
+    await expect(hardDeleteProject(cfg, "p1")).resolves.toEqual({ sweepPending: true });
     const firstCallStmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
     expect(firstCallStmts.some((s) => s.sql.includes("DELETE FROM projects WHERE id = ?"))).toBe(true);
     expect(vi.mocked(runTursoPipeline)).toHaveBeenCalledTimes(2);
+    // Queued for a retry at the next app start, for this database only.
+    expect(pendingProjectSweeps(cfg.httpUrl)).toEqual(["p1"]);
+  });
+
+  it("hardDeleteProject queues nothing when the side-table sweep succeeds", async () => {
+    window.localStorage.clear();
+    vi.mocked(runTursoPipeline).mockResolvedValue([]);
+    await expect(hardDeleteProject(cfg, "p1")).resolves.toEqual({ sweepPending: false });
+    expect(pendingProjectSweeps(cfg.httpUrl)).toEqual([]);
   });
 
   it("hardDeleteProject sweeps every project-scoped side table in ONE second pipeline (§204)", async () => {

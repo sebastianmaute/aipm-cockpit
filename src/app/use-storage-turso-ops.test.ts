@@ -64,12 +64,12 @@ vi.mock("./portfolio-mode", () => ({
 // ★ `migrateCurrentProjectToTurso` reaches the shared portfolio DB and the
 // settings writer before it ever touches a backend; both are mocked so the
 // refusal can be observed as an ABSENCE of those calls.
-import { createProject as portfolioCreate } from "./turso-portfolio";
+import { createProject as portfolioCreate, hardDeleteProject as portfolioHardDelete } from "./turso-portfolio";
 vi.mock("./turso-portfolio", () => ({
   createProject: vi.fn(async () => {}),
   archiveProject: vi.fn(async () => {}),
   restoreProject: vi.fn(async () => {}),
-  hardDeleteProject: vi.fn(async () => {}),
+  hardDeleteProject: vi.fn(async () => ({ sweepPending: false })),
 }));
 // ★ `SECRET_MERGE_TIMEOUT_MS` bounds `tokenSealsSettled`; left undefined the wait would time out at once.
 vi.mock("./use-settings", () => ({ writeSettings: vi.fn(), SECRET_MERGE_TIMEOUT_MS: 5_000 }));
@@ -590,5 +590,25 @@ describe("useTursoProjectOps — §715 Move to Turso keeps a passphrase-mode tok
     });
     await act(async () => { land(); await Promise.all([first, second]); });
     expect(portfolioCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useTursoProjectOps — hard delete", () => {
+  it("confirms the delete when the project's side tables were swept", async () => {
+    vi.mocked(portfolioHardDelete).mockResolvedValueOnce({ sweepPending: false });
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useTursoProjectOps(makeDeps({ showToast })));
+    await act(async () => { await result.current.hardDeleteTursoProject("p-9"); });
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "projectHardDeletedToast"));
+  });
+
+  it("warns once that some of the project's data is still to be removed when the sweep failed", async () => {
+    vi.mocked(portfolioHardDelete).mockResolvedValueOnce({ sweepPending: true });
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useTursoProjectOps(makeDeps({ showToast })));
+    await act(async () => { await result.current.hardDeleteTursoProject("p-9"); });
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith("error", t("en-US", "projectSweepPending"));
   });
 });

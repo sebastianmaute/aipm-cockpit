@@ -2165,10 +2165,40 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   surface will ever have; do not read a green axe run as covering it, and eye-verify against a real
   Turso project before shipping any change to this surface.
   ★ The `chat_threads` table is deliberately OUT of `TABLE_NAMES` (else a workspace save's per-table
-  DELETE sweep wipes it); its upsert is a single atomic `INSERT OR REPLACE`, never a delete-then-insert
-  pair, because `runTursoPipeline` only opens a transaction when the first statement is literal `BEGIN`.
+  DELETE sweep wipes it); its upsert (`upsertThreadStatements`) is a single atomic `INSERT … ON CONFLICT(id)
+  DO UPDATE … WHERE` that only overwrites a row of the same project whose owner is the writer or nobody — never
+  a delete-then-insert pair, because `runTursoPipeline` only opens a transaction when the first statement is
+  literal `BEGIN`. A guarded upsert that matches nothing is a silent no-op.
   `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
-  requires `projectId` (not just an id) so a delete can never reach across projects.
+  requires `projectId` AND the owner id (not just an id), so a delete can never reach across projects or into a
+  colleague's row; it also matches legacy owner-less rows.
+- **Saved chats are owned, encrypted and expire.** User-facing statement: `docs/security.md` "Saved AI chats";
+  operator steps: `docs/RUNBOOK.md` "Saved AI chats". The code facts:
+  - **Saving is gated** by `chatPersistence` (`use-chat-threads.ts`): only with the server's chat settings known
+    (`AiDeploymentState.chat`, from `readChatSettings`), a recovery public key set, and a browser that can encrypt.
+    Otherwise nothing is written and the chat shows one line saying why.
+  - **Identity.** One per browser per database (`chat-key-vault.ts`, `localStorage["aipm-cockpit:chat-identity"]`,
+    the chat key sealed by the device key; `ensureChatIdentity` creates it once per URL, never on a delete).
+  - **Rows.** `encodeThreadRow` (`chat-thread-codec.ts`) seals name, history and display under a fresh thread key on
+    every write and wraps it twice, `wrapForOwner` and `wrapForOperator` (`chat-crypto.ts`). Loading drops every row
+    owned by someone else. A legacy row (`isLegacyRow`: no owner) still decodes as plaintext until it expires, and
+    saving it again makes it the writer's.
+  - **Passphrase.** `chat-passphrase.ts` + the GLOBAL `chat_keys` table (`chat-keys-schema.ts`) let another browser
+    adopt the identity with an unlock code and the passphrase. ★★ `chat_keys` is OUT of `TABLE_NAMES` like
+    `chat_threads`, and has no `project_id`, so neither a project hard delete nor a factory reset touches it.
+  - **Three deleters, one predicate** (`expireThreadsStatements`: older than the cutoff, or no usable
+    `updated_at`). The browser: `expireOldThreads` per project on load and before each save, and
+    `useChatRetentionSweep` once per database per page load, independent of the AI switch. The server:
+    `startChatSweepSchedule` (`api/ai/_chat-sweep.ts`, started from `src/instrumentation.ts`) at start and every
+    24 h with `sweepCredentialsFrom`. The operator: `npm run chats:erase` (`scripts/chat-erasure-lib.mjs`
+    `runCli`), whose `expireStatements` repeats the predicate. ★ A database configured only in a browser is unknown
+    to the server; the browser sweep and the script cover it.
+  - **Project hard delete** sweeps `chat_threads` with the other `PROJECT_SCOPED_SIDE_TABLES`. A failed sweep is
+    queued by project id per database (`pending-project-sweeps.ts`) and retried by `retryPendingProjectSweeps`,
+    which `useChatRetentionSweep` runs once per database per page load after the chat sweep (without waiting for
+    the chat settings).
+  - **Factory reset** (`clearAppConfig`) deletes the device key and the identity, so this browser can no longer
+    read its own rows (unless a chat passphrase lets it adopt the identity again); it deletes no Turso row.
   ★★ `rowsToThreads` runs `minimiseStoredToolResults` (`chat-threads.ts`) over a loaded history: a thread saved
   before the tool results were minimised still holds e-mail fields and an absence's real type and note in its stored
   `tool_result` blocks, which the next message would re-send. Only `tool_result` blocks change; the user's and the

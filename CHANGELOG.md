@@ -12,6 +12,17 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Saved AI chats are private to the person who wrote them, and are deleted after a retention period.** On a
+  Turso project a chat is now saved encrypted, readable only by its writer and by the operator holding the recovery
+  key (`AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY`); without that key no chat is saved, and the chat says why. Colleagues no
+  longer see each other's chats; chats saved by an earlier version stay readable until they expire. Each chat is
+  deleted once the retention period has passed since its last change (`AIPM_AI_CHAT_RETENTION_DAYS`, default 30
+  days), by the browser, by the server once a day and by the operator's `npm run chats:erase`, which can also find
+  and delete every chat that mentions a person. In the chat sidebar you can delete all your chats or the ones that
+  mention a person, and a chat passphrase in Settings → AI opens your chats on another browser. A permanently
+  deleted project whose cleanup fails is cleaned up again the next time the app starts. Setup and the erasure
+  checklist: `docs/RUNBOOK.md`.
+
 - **A deployment can restrict AI to its own Anthropic organisation's keys.** The operator sets
   `AIPM_AI_ORGANIZATION_ID` and, optionally, `AIPM_AI_WORKSPACE_IDS`. AI requests then go through this app's server,
   which checks which organisation and workspace the user's key belongs to before it forwards anything; a key from
