@@ -4,11 +4,13 @@ import {
   DICTATION_AI_DEPLOYMENT_OFF,
   DICTATION_AI_DEPLOYMENT_UNCONFIRMED,
   DICTATION_NEEDS_AI_CONSENT,
+  DICTATION_PEOPLE_FORCED,
   type DictationEngine,
   type DictationHandlers,
 } from "./dictation-engine";
 import { isInteractiveConsentLive } from "./ai-consent";
 import { AiDeploymentError, confirmAiDeployment } from "./ai-transport";
+import { isIntegrationDisabled } from "./integration-switches";
 
 export interface SttConfig { lang: Lang; baseUrl: string; model: string; apiKey: string; }
 
@@ -56,6 +58,12 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
           );
           return;
         }
+      }
+      // §786: the status check above folds the people lock into the page, on the changed-route path too, so read it
+      // here rather than from the check's return value. `/api/stt` refuses as well, for a tab that skips this.
+      if (isIntegrationDisabled("ai-people")) {
+        handlers?.onError(DICTATION_PEOPLE_FORCED);
+        return;
       }
       // Asked again: the consent may have been withdrawn during the status round trip.
       if (consentGone()) return;

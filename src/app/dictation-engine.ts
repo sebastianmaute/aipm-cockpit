@@ -29,6 +29,8 @@ export const DICTATION_STT_NOT_SET_UP = "speech-service-not-set-up";
 export const DICTATION_AI_DEPLOYMENT_OFF = "ai-deployment-off";
 export const DICTATION_AI_DEPLOYMENT_INVALID = "ai-deployment-invalid";
 export const DICTATION_AI_DEPLOYMENT_UNCONFIRMED = "ai-deployment-unconfirmed";
+/** §786: the organisation forced people protection while this tab was open, so a recording is discarded unsent. */
+export const DICTATION_PEOPLE_FORCED = "people-forced";
 
 /** Space-aware append of a dictated segment to existing text. */
 export function appendDictation(prev: string, text: string): string {

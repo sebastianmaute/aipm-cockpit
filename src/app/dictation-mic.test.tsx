@@ -86,6 +86,7 @@ describe("useDictationMic — the deployment's AI setting after a recording", ()
     ["ai-deployment-invalid", "aiDeploymentInvalid"],
     ["ai-deployment-unconfirmed", "aiDeploymentUnconfirmed"],
     ["needs-ai-consent", "dictationUnavailableNeedsAiConsent"],
+    ["people-forced", "dictationUnavailablePeopleProtected"],
     ["stt-500", "dictationTranscribeFailed"],
   ] as const)("%s shows %s", (code, key) => {
     const showToast = vi.fn();

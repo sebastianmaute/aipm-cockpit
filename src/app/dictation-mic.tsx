@@ -16,6 +16,7 @@ import {
   DICTATION_AI_DEPLOYMENT_OFF,
   DICTATION_AI_DEPLOYMENT_UNCONFIRMED,
   DICTATION_NEEDS_AI_CONSENT,
+  DICTATION_PEOPLE_FORCED,
   DICTATION_STT_NOT_SET_UP,
 } from "./dictation-engine";
 
@@ -79,6 +80,7 @@ export function useDictationMic({
       else if (err === DICTATION_AI_DEPLOYMENT_OFF) showToast("error", t(lang, "aiDeploymentOff"));
       else if (err === DICTATION_AI_DEPLOYMENT_INVALID) showToast("error", t(lang, "aiDeploymentInvalid"));
       else if (err === DICTATION_AI_DEPLOYMENT_UNCONFIRMED) showToast("error", t(lang, "aiDeploymentUnconfirmed"));
+      else if (err === DICTATION_PEOPLE_FORCED) showToast("error", t(lang, "dictationUnavailablePeopleProtected"));
     },
   });
 
