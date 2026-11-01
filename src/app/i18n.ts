@@ -5834,6 +5834,8 @@ const enUS = {
   allocElsewhereSuggest: "{0} has the same name as a person in {1}. Same person?",
   allocElsewhereConfirm: "Confirm",
   allocElsewhereReject: "Not the same",
+  allocElsewhereFailures: "These projects could not be read, so their hours are not counted: {0}",
+  allocElsewhereLoadFailed: "Other projects could not be loaded, so hours in other projects are not counted.",
   allocElsewhereLoading: "Loading other projects…",
   allocElsewhereWriteFailed: "Could not save your answer about the person in the other project. Nothing was changed.",
   allocPlanSkipMoveUnknownTask: "task not found",

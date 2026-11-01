@@ -173,7 +173,10 @@ export function AllocPlanEffect({ lang, effect, currency, nameOf }: AllocPlanEff
               {o.elsewhereHours > 0 && (
                 <span className="inline-flex items-center gap-1 text-muted-foreground">
                   <span>{t(lang, "allocElsewhereLabel", formatMovedHours(o.elsewhereHours, lang))}</span>
-                  <InfoTooltip text={t(lang, "allocElsewhereTip")} />
+                  <InfoTooltip
+                    text={t(lang, "allocElsewhereTip")}
+                    label={`${t(lang, "allocElsewhereLabel", formatMovedHours(o.elsewhereHours, lang))} – ${nameOf(o.resourceId)} (#${o.resourceId}) – ${defaultPeriodLabel(o.periodKey, lang)}`}
+                  />
                 </span>
               )}
             </li>

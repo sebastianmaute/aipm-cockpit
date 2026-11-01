@@ -5549,6 +5549,8 @@ export const de: Record<TranslationKey, string> = {
   allocElsewhereSuggest: "{0} hat denselben Namen wie eine Person in {1}. Dieselbe Person?",
   allocElsewhereConfirm: "Bestätigen",
   allocElsewhereReject: "Nicht dieselbe",
+  allocElsewhereFailures: "Diese Projekte konnten nicht gelesen werden, ihre Stunden werden nicht mitgezählt: {0}",
+  allocElsewhereLoadFailed: "Andere Projekte konnten nicht geladen werden, Stunden in anderen Projekten werden nicht mitgezählt.",
   allocElsewhereLoading: "Andere Projekte werden geladen…",
   allocElsewhereWriteFailed: "Ihre Antwort zur Person im anderen Projekt konnte nicht gespeichert werden. Es wurde nichts geändert.",
   allocPlanSkipMoveUnknownTask: "Aufgabe nicht gefunden",

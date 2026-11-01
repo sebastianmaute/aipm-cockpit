@@ -935,6 +935,7 @@ describe("useAllocPlan — other projects (§785)", () => {
   const cp = (over: Partial<CrossProjectPeople> = {}): CrossProjectPeople => ({
     status: "idle",
     failures: [],
+    loadFailed: false,
     matches: new Map(),
     elsewhere: () => [],
     request: vi.fn(),

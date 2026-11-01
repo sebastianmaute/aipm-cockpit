@@ -356,6 +356,7 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
     return {
       status: "ready",
       failures: [],
+      loadFailed: false,
       matches: new Map(Object.entries(suggestions).map(([id, s]) => [Number(id), { matched: [], suggestions: s, rejected: [] }])),
       elsewhere: () => [],
       request: vi.fn(),
@@ -373,7 +374,7 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
     render(<AllocPlanModal {...withMove({ effect })} />);
     const row = screen.getByText("Liam Foster: 116 h of 176 h in Sep").closest("li")!;
     expect(within(row).getByText(t("en-US", "allocElsewhereLabel", "70"))).toBeTruthy();
-    expect(within(row).getByRole("button", { name: t("en-US", "allocElsewhereTip") })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "70 h in other projects – Liam Foster (#2) – Sep" })).toBeTruthy();
   });
 
   it("an over-capacity row without elsewhere hours shows neither", () => {
@@ -429,5 +430,32 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
       expect(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") })).toBeEnabled();
       unmount();
     }
+  });
+
+  it("two over-capacity rows with elsewhere hours get two different tooltip names", () => {
+    const effect: AltEffect = {
+      ...noEffect,
+      overCapacity: [
+        { resourceId: 2, periodKey: "2026-09", hours: 116, capacityHours: 176, elsewhereHours: 70 },
+        { resourceId: 2, periodKey: "2026-10", hours: 116, capacityHours: 176, elsewhereHours: 70 },
+      ],
+    };
+    render(<AllocPlanModal {...withMove({ effect })} />);
+    expect(screen.getAllByText(t("en-US", "allocElsewhereLabel", "70"))).toHaveLength(2);
+    expectRowUniqueNames({ minControls: 2, roles: ["button"] });
+  });
+
+  it("names the projects that could not be read, and says when none could be loaded", () => {
+    const failed = crossProject({ failures: [{ projectId: "p9", projectName: "Zed" }, { projectId: "p8", projectName: "Yak" }] });
+    const a = render(<AllocPlanModal {...withMove({ crossProject: failed })} />);
+    expect(screen.getByText(t("en-US", "allocElsewhereFailures", "Zed, Yak"))).toBeTruthy();
+    a.unmount();
+    render(<AllocPlanModal {...withMove({ crossProject: crossProject({ status: "idle", loadFailed: true }) })} />);
+    expect(screen.getByText(t("en-US", "allocElsewhereLoadFailed"))).toBeTruthy();
+  });
+
+  it("shows no notice when everything loaded", () => {
+    render(<AllocPlanModal {...withMove({ crossProject: crossProject() })} />);
+    expect(screen.queryByText(/could not be/i)).toBeNull();
   });
 });

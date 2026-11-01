@@ -88,18 +88,24 @@ export interface AllocContextArgs {
 /** The slice of `CrossProjectPeople` the digest reads (kept narrow so this module stays free of React types). */
 export interface AllocElsewhere {
   status: "unavailable" | "idle" | "loading" | "ready";
+  /** The stored answers could not be loaded (status is then idle). */
+  loadFailed?: boolean;
   figuresFor: (resourceId: number) => readonly ElsewhereFigure[];
   failures: readonly { projectName: string }[];
 }
 
 const ELSEWHERE_UNAVAILABLE = "ELSEWHERE: other projects cannot be seen in this storage mode";
 const ELSEWHERE_NOT_LOADED = "ELSEWHERE: other projects were not loaded";
+const ELSEWHERE_LOAD_FAILED = "ELSEWHERE: other projects could not be loaded";
 const oneDecimal = (n: number): number => Math.round(n * 10) / 10;
 
 /** `  ELSEWHERE "<project>": <shown period>=<h> … · open tasks <n> (<h> h left)` — the project name is a JSON string
  *  (free text), and no person name is on the line: the row above it carries the person. */
-function elsewhereLine(f: ElsewhereFigure, periodKeys: readonly string[]): string {
-  const hours = f.noPlan ? "no plan" : periodKeys.map((k) => `${k}=${oneDecimal(f.hoursByPeriod[k] ?? 0)}`).join(" ");
+function elsewhereLine(f: ElsewhereFigure, periodKeys: readonly string[]): string | null {
+  const booked = periodKeys.filter((k) => oneDecimal(f.hoursByPeriod[k] ?? 0) > 0);
+  // Nothing to tell the model: no hours in the shown periods and no open tasks there.
+  if (booked.length === 0 && f.openTasks === 0) return null;
+  const hours = booked.length > 0 ? booked.map((k) => `${k}=${oneDecimal(f.hoursByPeriod[k] ?? 0)}`).join(" ") : f.noPlan ? "no plan" : "no hours in the shown periods";
   return `  ELSEWHERE ${JSON.stringify(oneLine(f.projectName))}: ${hours} · open tasks ${f.openTasks} (${oneDecimal(f.remainingHours)} h left)`;
 }
 
@@ -176,7 +182,10 @@ export function buildAllocContext(args: AllocContextArgs): string {
       `#${r.id} ${JSON.stringify(oneLine(aiResourceLabel(r)))} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}${rate}`,
     );
     if (args.elsewhere?.status === "ready") {
-      for (const f of args.elsewhere.figuresFor(r.id)) lines.push(elsewhereLine(f, periodKeys));
+      for (const f of args.elsewhere.figuresFor(r.id)) {
+        const line = elsewhereLine(f, periodKeys);
+        if (line !== null) lines.push(line);
+      }
     }
   }
   lines.push(...elsewhereNotes(args.elsewhere));
@@ -205,7 +214,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
 function elsewhereNotes(e: AllocElsewhere | undefined): string[] {
   if (!e) return [];
   if (e.status === "unavailable") return [ELSEWHERE_UNAVAILABLE];
-  if (e.status !== "ready") return [ELSEWHERE_NOT_LOADED];
+  if (e.status !== "ready") return [e.loadFailed ? ELSEWHERE_LOAD_FAILED : ELSEWHERE_NOT_LOADED];
   if (e.failures.length === 0) return [];
   return [`ELSEWHERE: could not be read: ${e.failures.map((f) => JSON.stringify(oneLine(f.projectName))).join(", ")}`];
 }
@@ -219,7 +228,7 @@ export function buildAllocSystemPrompt(): string {
     "Use ONLY the period keys and resource ids listed in the digest — never invent a resource or a period key.",
     "The digest may be truncated for a large resource count or a long plan window — a trailing '…(N more … truncated)' line means your view is partial, so say so rather than asserting something is unplanned when it may simply be out of view.",
     "Respect the shown per-period capacity unless the user explicitly asks to overload a resource.",
-    "An ELSEWHERE line under a person shows hours already booked for them in another project, per period: that time is not available here, you cannot change it, and a proposal must respect it (only the shown periods are listed).",
+    "An ELSEWHERE line under a person shows hours already booked for them in another project, per period: that time is not available here, you cannot change it, and a proposal must respect it (only periods with hours are listed).",
     "When asked to spread work across a role, split it across the resources holding that role, preferring whoever has spare capacity (current well below capacity).",
     "If you cannot honor the request without inventing a resource or period, return one alternative with empty `taskMoves` and `cells` rather than guessing.",
     "For a very broad request (many resources across many periods), prioritise the most impactful cells rather than exhaustively enumerating every resource and period.",

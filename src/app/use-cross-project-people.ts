@@ -40,6 +40,8 @@ type Relation = Omit<PersonRelation, "via">;
 export interface CrossProjectPeople {
   status: CrossProjectStatus;
   failures: { projectId: string; projectName: string }[];
+  /** The stored answers could not be loaded, so nothing was matched; cleared by the next request. */
+  loadFailed: boolean;
   matches: Map<number, PersonMatch>;
   elsewhere: (resourceId: number) => ElsewhereFigure[];
   request: () => void;
@@ -98,6 +100,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   const load = deps.load ?? defaultLoad;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [loadingFor, setLoadingFor] = useState<string | null>(null);
+  const [loadFailedFor, setLoadFailedFor] = useState<string | null>(null);
   // The run that currently owns the in-flight state; a run from an older scope never clears a newer one.
   const runRef = useRef<{ id: number; epoch: number } | null>(null);
   const runCounterRef = useRef(0);
@@ -115,6 +118,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     const runId = ++runCounterRef.current;
     runRef.current = { id: runId, epoch: startEpoch };
     setLoadingFor(currentProjectId);
+    setLoadFailedFor(null);
     const key = configKeyOf(tursoConfig);
     const projectId = currentProjectId;
     const run = async (): Promise<void> => {
@@ -141,6 +145,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
         setLoaded({ projectId, configKey: key, others, links, failures });
       } catch (err) {
         logDiag("error", "crossProject.linksLoadFailed", { message: messageOf(err) });
+        if (!isScopeStale(getScopeEpoch, startEpoch)) setLoadFailedFor(projectId);
       } finally {
         if (runRef.current?.id === runId) {
           runRef.current = null;
@@ -237,8 +242,9 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     undo,
   });
   const failures = effective?.failures ?? NO_FAILURES;
+  const loadFailed = available && loadFailedFor === currentProjectId;
   return useMemo(
-    () => ({ status, failures, matches, elsewhere, request, ...writers }),
-    [status, failures, matches, elsewhere, request, writers],
+    () => ({ status, failures, loadFailed, matches, elsewhere, request, ...writers }),
+    [status, failures, loadFailed, matches, elsewhere, request, writers],
   );
 }

@@ -257,3 +257,17 @@ describe("useCrossProjectPeople — stable result (§785)", () => {
     expect(hook.result.current).not.toBe(idle);
   });
 });
+
+describe("useCrossProjectPeople — loadFailed (§785)", () => {
+  test("a failed person_links load sets loadFailed, and the next request clears it", async () => {
+    vi.mocked(loadPersonLinks).mockRejectedValueOnce(new Error("down"));
+    const { hook } = setup();
+    expect(hook.result.current.loadFailed).toBe(false);
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.loadFailed).toBe(true));
+    expect(hook.result.current.status).toBe("idle");
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(hook.result.current.loadFailed).toBe(false);
+  });
+});
