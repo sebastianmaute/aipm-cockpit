@@ -631,7 +631,10 @@ are in [security.md → Environment variables](security.md#environment-variables
    An invalid retention or key is shown in Settings → AI and in `/api/ai/status`; 30
    days applies, and an invalid key counts as unset (nothing is saved).
 3. **Check:** after the restart the server log shows `chat sweep: <n> expired`, and a
-   new chat in a Turso project is still in the sidebar after a reload.
+   new chat in a Turso project is still in the sidebar after a reload. `chat sweep: not
+   configured` means a sweep or public database URL is set but no usable URL and token pair
+   came of it (see the next paragraph): fix the pair and restart. No line at all means no URL
+   is set, so the server does not sweep.
 
 **The server sweep.** At start and every 24 hours the server deletes every chat whose
 retention period has passed, with `AIPM_CHAT_SWEEP_TURSO_URL` +
@@ -642,7 +645,8 @@ set it where the server runs, not only as build arguments, or there is no sweep.
 `AIPM_CHAT_SWEEP_TURSO_URL` is set but unusable (not a `libsql://`/`https://` URL, plain
 `http://` other than loopback, or a remote URL without its token), the public pair is not
 tried and no sweep runs. It logs `chat sweep: <n> expired` or `chat sweep failed`, never
-a URL, token or error text. With no usable pair it runs no schedule and logs nothing. ★★ **Stated
+a URL, token or error text. With no usable pair it runs no schedule; it then logs
+`chat sweep: not configured` once when one of the two URLs was set, and nothing when neither was. ★★ **Stated
 limit:** a database configured only in a user's browser (Settings → Integrations) is
 unknown to the server. Its chats are still deleted by the browser (once per page load,
 across the whole database, even with AI off) — or by you, with the script below.

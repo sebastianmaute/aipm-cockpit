@@ -141,6 +141,29 @@ describe("startChatSweepSchedule", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("logs nothing when no sweep or public URL is set", async () => {
+    const { startChatSweepSchedule } = await freshModule();
+    expect(startChatSweepSchedule({}, fakeTimers().timers, vi.fn(async () => deleted(0)))).toBe(false);
+    expect(console.warn).not.toHaveBeenCalled();
+    expect(console.info).not.toHaveBeenCalled();
+  });
+
+  it("says 'chat sweep: not configured' once when a URL is set but no usable pair results, and never the URL", async () => {
+    const { startChatSweepSchedule } = await freshModule();
+    const run = vi.fn(async () => deleted(0));
+    const broken = [
+      { AIPM_CHAT_SWEEP_TURSO_URL: "https://remote-sweep.example.com" },
+      { NEXT_PUBLIC_TURSO_DATABASE_URL: "not a url at all", NEXT_PUBLIC_TURSO_AUTH_TOKEN: PUBLIC_TOKEN },
+    ];
+    for (const env of broken) expect(startChatSweepSchedule(env, fakeTimers().timers, run)).toBe(false);
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(console.warn).toHaveBeenCalledWith("chat sweep: not configured");
+    expect(run).not.toHaveBeenCalled();
+    const logged = JSON.stringify([...vi.mocked(console.warn).mock.calls, ...vi.mocked(console.info).mock.calls]);
+    expect(logged).not.toContain("remote-sweep");
+    expect(logged).not.toContain(PUBLIC_TOKEN);
+  });
+
   it("runs once at start and once per daily interval, with an unref'd timer", async () => {
     const { startChatSweepSchedule, CHAT_SWEEP_INTERVAL_MS } = await freshModule();
     expect(CHAT_SWEEP_INTERVAL_MS).toBe(86_400_000);

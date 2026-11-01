@@ -6,7 +6,8 @@
 //   AIPM_CHAT_SWEEP_TURSO_URL + AIPM_CHAT_SWEEP_TURSO_TOKEN   preferred
 //   NEXT_PUBLIC_TURSO_DATABASE_URL + NEXT_PUBLIC_TURSO_AUTH_TOKEN   used when the sweep URL is unset
 // A remote URL needs a token; a loopback http URL (local tursodb) may have none. No usable pair
-// means no schedule.
+// means no schedule; when a URL was set but gave no usable pair, that is logged once as
+// "chat sweep: not configured".
 //
 // The schedule does not depend on the AI switch or on disabled integrations: deleting expired
 // chats is always right. Logs carry a fixed line and a count only — never the URL, the token or
@@ -65,6 +66,16 @@ export async function runChatSweep(
 
 // Dev mode can call `register()` more than once in one process; one schedule is enough.
 let started = false;
+// …and one "not configured" line.
+let reportedNotConfigured = false;
+
+/** A URL was set for the sweep but no usable pair came of it: say so once, with no detail. */
+function reportNotConfigured(env: Env): void {
+  const urlSet = value(env, "AIPM_CHAT_SWEEP_TURSO_URL") !== "" || value(env, "NEXT_PUBLIC_TURSO_DATABASE_URL") !== "";
+  if (!urlSet || reportedNotConfigured) return;
+  reportedNotConfigured = true;
+  console.warn("chat sweep: not configured");
+}
 
 /** Runs the sweep now and every 24 hours. Returns false when it did not start a schedule. */
 export function startChatSweepSchedule(
@@ -74,7 +85,10 @@ export function startChatSweepSchedule(
 ): boolean {
   if (started) return false;
   const config = sweepCredentialsFrom(env);
-  if (!config) return false;
+  if (!config) {
+    reportNotConfigured(env);
+    return false;
+  }
   started = true;
   const sweep = (): void => {
     // The retention is read on every run, so a changed setting applies without a restart of the schedule.
