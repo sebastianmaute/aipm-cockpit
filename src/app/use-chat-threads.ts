@@ -555,10 +555,16 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
 
   /** The identity a write to `config`'s database uses, read from the vault and created on first
    *  use. Throws when this browser cannot encrypt or its stored identity cannot be opened (and records
-   *  that, so persistence reads "no-crypto" or "identity-locked"). */
+   *  that, so persistence reads "no-crypto" or "identity-locked"). Throws WITHOUT recording anything
+   *  when a new identity could not be stored: that is a failed save, offered for retry, not a lock. */
   async function writeIdentity(config: TursoConfig | null): Promise<ChatIdentity> {
     const url = config?.httpUrl ?? "";
-    const identity = await ensureChatIdentity(url);
+    const created = await ensureChatIdentity(url);
+    // Null means one of two things, told apart by reading the vault again: an entry the device key
+    // cannot open, or no crypto ("unavailable"), or a new entry whose write failed (still "absent").
+    const reread = created ? null : await readChatIdentity(url);
+    if (reread?.kind === "absent") throw new Error("chat identity not stored");
+    const identity = created ?? (reread?.kind === "found" ? reread.identity : null);
     const known = vaultReadRef.current;
     const unchanged = known?.url === url && (identity
       ? known.kind === "found" && known.identity?.ownerId === identity.ownerId

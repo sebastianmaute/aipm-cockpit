@@ -19,6 +19,8 @@ const h = vi.hoisted(() => ({
   locked: new Set<string>(),
   available: { value: true },
   minted: { value: 0 },
+  /** Storing a NEW identity fails (the vault stays empty). */
+  failStore: { value: false },
 }));
 
 vi.mock("./chat-key-vault", () => ({
@@ -33,6 +35,7 @@ vi.mock("./chat-key-vault", () => ({
   ensureChatIdentity: vi.fn(async (url: string) => {
     if (!h.available.value || h.locked.has(url)) return null;
     let identity = h.vault.get(url);
+    if (!identity && h.failStore.value) return null;
     if (!identity) {
       h.minted.value += 1;
       identity = { ownerId: `owner-${h.minted.value}`, chatKey: new Uint8Array(32) };
@@ -130,6 +133,7 @@ beforeEach(() => {
   h.locked.clear();
   h.available.value = true;
   h.minted.value = 0;
+  h.failStore.value = false;
   loadThreadsMock.mockResolvedValue([]);
   saveThreadMock.mockResolvedValue("saved");
   deleteThreadMock.mockResolvedValue(undefined);
@@ -226,6 +230,35 @@ describe("useChatThreads — persistence", () => {
     await sendTurn(hook);
     await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
     expect((saveThreadMock.mock.calls[0]![2] as { ownerId: string }).ownerId).toBe(fresh.ownerId);
+  });
+
+  it("a new identity that could not be stored is a failed save with a retry, not a locked identity", async () => {
+    const hook = renderChatThreads();
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    h.failStore.value = true;
+    await sendTurn(hook);
+    await waitFor(() => expect(hook.result.current.threadsError).toBe(true));
+    expect(hook.result.current.persistence).toBe("on");
+    expect(saveThreadMock).not.toHaveBeenCalled();
+    h.failStore.value = false;
+    await act(async () => {
+      hook.result.current.retryLoad();
+    });
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    expect(hook.result.current.persistence).toBe("on");
+  });
+
+  it("a stored identity the device key stops opening before a save: identity-locked and no save", async () => {
+    h.vault.set(CFG_A.httpUrl, { ownerId: "owner-stored", chatKey: new Uint8Array(32) });
+    const hook = renderChatThreads();
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    expect(hook.result.current.persistence).toBe("on");
+    h.locked.add(CFG_A.httpUrl);
+    // Another tab replaced the entry, so the save reads the vault afresh and finds it locked.
+    h.vault.set(CFG_A.httpUrl, { ownerId: "owner-other-tab", chatKey: new Uint8Array(32) });
+    await sendTurn(hook);
+    await waitFor(() => expect(hook.result.current.persistence).toBe("identity-locked"));
+    expect(saveThreadMock).not.toHaveBeenCalled();
   });
 
   it("status unknown wins over the other two", async () => {

@@ -126,7 +126,9 @@ async function createChatIdentity(httpUrl: string): Promise<ChatIdentity | null>
 }
 
 /** The identity for `httpUrl`, created on first use. Null when this browser cannot encrypt, or holds
- *  an entry its device key cannot open (that entry is kept, not replaced). Concurrent calls for one
+ *  an entry its device key cannot open (that entry is kept, not replaced), or the new entry could not
+ *  be sealed or stored (the vault then still reads "absent"; a caller tells the cases apart by
+ *  `readChatIdentity`). Concurrent calls for one
  *  URL share a single creation in this tab, and run one at a time across tabs where Web Locks exist. */
 export function ensureChatIdentity(httpUrl: string): Promise<ChatIdentity | null> {
   const inFlight = creating.get(httpUrl);
