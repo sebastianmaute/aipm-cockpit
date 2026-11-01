@@ -1023,6 +1023,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§785](#785-plan-with-ai-does-not-see-the-load-a-person-carries-in-other-projects--closed-2026-11-01) | Plan with AI does not see the load a person carries in other projects | — | — | **CLOSED** 2026-11-01 |
 | [§786](#786-dictation-stays-available-in-an-open-tab-after-the-people-protection-lock-is-set) | Dictation stays available in an open tab after the people-protection lock is set | #924 | — | OPEN |
 | [§787](#787-i18n-pluraltestts-runs-about-24-s-against-the-20-s-unit-timeout) | i18n-plural.test.ts runs about 24 s against the 20 s unit timeout | #926 | — | OPEN |
+| [§788](#788-an-e-mail-match-across-projects-cannot-be-marked-not-the-same-person) | An e-mail match across projects cannot be marked 'not the same person' | #933 | — | OPEN |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46188,3 +46189,15 @@ What it would take: measure which test takes the time, then make the scan cheape
 Size S.
 
 **Source:** §773 PR-head fix round, owner decision 2026-10-31 (file it).
+
+## 788. An e-mail match across projects cannot be marked 'not the same person'
+
+**Status:** OPEN 2026-11-01, filed during §785. People in projects that share one Turso database are matched automatically when they share a usable e-mail address, and their Planning-grid hours elsewhere count as booked time in Plan with AI. The person's entry (`resource-links-section.tsx`) offers Confirm / Not the same only for name suggestions and Undo only for confirmed or rejected pairs, so an e-mail match has no "Not the same" control: `grep -n "crossProject.reject" src/app/resource-links-section.tsx` finds one call, in the suggestions list. Two different people who share a mailbox are treated as one person and the other one's hours are added to this one's load; the only way out is editing the e-mail address. The data already supports it: `matchPeople` (`cross-project/person-match.ts`) checks a `different` row in `person_links` before the e-mail rule.
+
+**Work item:** #933
+
+What it would take: a "Not the same" button on an e-mail-matched "Works in project" line (and, if wanted, in Plan with AI's review window) that writes a `different` row through the existing `reject`; the rejected pair then shows with Undo like other rejections. Tests for the button, its row-unique accessible name and that the hours stop counting.
+
+Size S.
+
+**Source:** §785 final review, owner decision 2026-11-01 (file it).
