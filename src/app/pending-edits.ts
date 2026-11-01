@@ -108,6 +108,26 @@ export function settlePendingEdit(scope: string, kind: PendingEditKind, id: stri
   markTouched(scope, key);
 }
 
+/** The thing the edit was for is gone (a deleted or expired chat thread): its live edit is dropped
+ *  and its stored entry is removed from localStorage at once, not at the next pagehide, so a deleted
+ *  thread's draft name does not stay on the device. Other entries of the scope are kept, and a record
+ *  left empty removes its key. Never throws. */
+export function dropPendingEdit(scope: string, kind: PendingEditKind, id: string): void {
+  try {
+    if (typeof window === "undefined") return;
+    const key = editKey(kind, id);
+    liveEdits.get(scope)?.delete(key);
+    markTouched(scope, key);
+    const storageKey = storageKeyFor(scope);
+    if (window.localStorage.getItem(storageKey) === null) return;
+    const rest = storedEntries(storageKey).filter((edit) => editKey(edit.kind, edit.id) !== key);
+    if (rest.length === 0) window.localStorage.removeItem(storageKey);
+    else window.localStorage.setItem(storageKey, JSON.stringify(rest));
+  } catch (err) {
+    logDiag("warn", "storage.pendingEditsWriteFailed", { reason: "storage-error", message: errorMessage(err) });
+  }
+}
+
 /** The value the live edit started from was saved as `base`: a newer draft still waiting in the
  *  outbox now starts from it, so a replay checks it against what the server holds. No live edit, no-op. */
 export function rebasePendingEdit(scope: string, kind: PendingEditKind, id: string, base: string): void {

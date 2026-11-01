@@ -8,7 +8,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import * as diagnostics from "./diagnostics";
 import {
   PENDING_EDITS_PREFIX, flushPendingEdits, pendingEditScope, rebasePendingEdit, resetPendingEditsForTests,
-  settlePendingEdit, takePendingEdits, trackPendingEdit,
+  settlePendingEdit, takePendingEdits, trackPendingEdit, dropPendingEdit,
 } from "./pending-edits";
 import { UNLOAD_JOURNAL_MAX_AGE_MS, UNLOAD_JOURNAL_MAX_CHARS } from "./unload-journal";
 
@@ -293,5 +293,47 @@ describe("pending-edits outbox", () => {
     expect(takePendingEdits(scope, NOW).map((e) => e.id).sort()).toEqual(["a", "c"]);
     expect(spy).toHaveBeenCalledWith("warn", "storage.pendingEditsWriteFailed", expect.objectContaining({ reason: "too-large", id: "b" }));
     expect(loggedJson(spy)).not.toContain("bbbbbbbb");
+  });
+});
+
+describe("dropPendingEdit", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    resetPendingEditsForTests();
+  });
+
+  it("removes a stored entry from localStorage at once, keeping the scope's other entries", () => {
+    trackPendingEdit(scope, edit({ id: "a" }));
+    trackPendingEdit(scope, edit({ id: "b" }));
+    pagehide();
+    dropPendingEdit(scope, "template-name", "a");
+    const stored = JSON.parse(window.localStorage.getItem(storageKey) ?? "[]") as { id: string }[];
+    expect(stored.map((e) => e.id)).toEqual(["b"]);
+  });
+
+  it("removes the key when the dropped entry was the last one", () => {
+    trackPendingEdit(scope, edit({ id: "a" }));
+    pagehide();
+    dropPendingEdit(scope, "template-name", "a");
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
+  });
+
+  it("drops the live edit, so a later pagehide does not write it back", () => {
+    trackPendingEdit(scope, edit({ id: "a" }));
+    dropPendingEdit(scope, "template-name", "a");
+    pagehide();
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
+  });
+
+  it("a stored entry written by another tab is removed too", () => {
+    window.localStorage.setItem(storageKey, JSON.stringify([{ v: 1, ...edit({ id: "a" }), savedAt: NOW }]));
+    dropPendingEdit(scope, "template-name", "a");
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
+  });
+
+  it("never throws when storage fails", () => {
+    const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("denied"); });
+    expect(() => dropPendingEdit(scope, "template-name", "a")).not.toThrow();
+    spy.mockRestore();
   });
 });

@@ -26,10 +26,12 @@ import { type Lang, t } from "./i18n";
 import { Banner } from "./banner";
 import { Button } from "./button";
 import { ChatThreadList } from "./chat-thread-list";
+import { ChatEraseControls } from "./chat-erase-dialog";
 import { ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import type { ChatThread } from "./chat-threads";
 import type { ChatSettings } from "./ai-chat-retention-config";
+import type { ChatEraseActions } from "./use-chat-threads";
 
 /** localStorage key for the persisted column width. Distinct from the chat
  *  PANE's own `aipm-cockpit:chat-size-v2` — resetting one must not clear the
@@ -51,6 +53,8 @@ export interface ChatThreadSidebarProps {
   onRenameDraft?: (id: string, value: string) => void;
   onRenameCancel?: (id: string) => void;
   onDelete: (id: string) => void;
+  /** "Delete all my chats" and "Find chats mentioning a person"; shown only while chats are saved. */
+  erase?: ChatEraseActions;
 }
 
 export function ChatThreadSidebar({
@@ -66,6 +70,7 @@ export function ChatThreadSidebar({
   onRenameDraft,
   onRenameCancel,
   onDelete,
+  erase,
 }: ChatThreadSidebarProps) {
   // ★ `axis: "x"` — this column is `resize-x`, so height is not a dimension the
   // drag can change. Without it the hook records whatever height the flex row
@@ -116,6 +121,7 @@ export function ChatThreadSidebar({
           default: the chat pane already renders a reset-size button, and two
           reset controls sharing an accessible name while doing different
           things is a WCAG 2.4.6 failure that axe passes (a name exists). */}
+      {erase && <ChatEraseControls lang={lang} threads={threads} erase={erase} />}
       {chat !== null && (
         <p className="shrink-0 text-xs text-muted-foreground">{t(lang, "chatRetentionNotice", chat.retentionDays)}</p>
       )}

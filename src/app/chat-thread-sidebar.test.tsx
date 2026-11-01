@@ -163,3 +163,20 @@ describe("ChatThreadSidebar", () => {
     expect(screen.getByText("Chats werden nach 90 Tagen ohne Aktivität gelöscht.")).toBeInTheDocument();
   });
 });
+
+describe("ChatThreadSidebar — erase controls", () => {
+  const erase = { enabled: true, ownerId: "me", deleteAll: vi.fn(async () => undefined), deleteSelected: vi.fn(async () => undefined) };
+
+  it("shows delete-all and find while chats are saved", () => {
+    renderSidebar({ erase });
+    expect(screen.getByRole("button", { name: "Delete all my chats" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Find chats mentioning a person" })).toBeInTheDocument();
+  });
+
+  it("shows neither while chats are not saved, or without the prop", () => {
+    renderSidebar({ erase: { ...erase, enabled: false } });
+    expect(screen.queryByRole("button", { name: "Delete all my chats" })).not.toBeInTheDocument();
+    renderSidebar();
+    expect(screen.queryByRole("button", { name: "Find chats mentioning a person" })).not.toBeInTheDocument();
+  });
+});

@@ -1639,6 +1639,7 @@ function ChatPanelInner({
           onRenameDraft={chatThreads.trackRenameDraft}
           onRenameCancel={chatThreads.cancelRenameDraft}
           onDelete={chatThreads.requestDeleteThread}
+          erase={chatThreads.erase}
         />
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">

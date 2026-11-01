@@ -28,7 +28,7 @@ import type { ApiMessage, DisplayItem } from "./chat-api";
 import type { TursoConfig } from "./turso-config";
 import type { ConfirmFn } from "./confirm-dialog";
 import {
-  loadThreads, saveThread, deleteThread as deleteThreadRow, expireThreads,
+  loadThreads, saveThread, deleteThread as deleteThreadRow, deleteOwnerThreads, expireThreads,
 } from "./chat-threads-store";
 import type { ChatSettings } from "./ai-chat-retention-config";
 import type { ChatIdentity } from "./chat-thread-codec";
@@ -40,7 +40,7 @@ import {
 import { publishChatThreads, clearChatThreadsFor } from "./chat-threads-registry";
 import { logDiag } from "./diagnostics";
 import {
-  pendingEditScope, trackPendingEdit, settlePendingEdit, rebasePendingEdit, takePendingEdits,
+  pendingEditScope, trackPendingEdit, settlePendingEdit, rebasePendingEdit, takePendingEdits, dropPendingEdit,
 } from "./pending-edits";
 import {
   mergeThreadsAfterLoad,
@@ -119,12 +119,44 @@ type SaveGate = { recoveryKey: string; retentionDays: number };
 /** This browser's identity per database URL, as last read here; `null` identity = none stored yet. */
 type VaultRead = { url: string; kind: "found" | "absent" | "unavailable"; identity: ChatIdentity | null };
 
+/** Whether a thread last updated at `updatedAt` is gone after an expiry at `cutoffIso`: the same test as
+ *  the expiry statement (older than the cutoff, or no usable date). */
+function expiredBy(updatedAt: string, cutoffIso: string): boolean {
+  return !updatedAt || Number.isNaN(Date.parse(updatedAt)) || updatedAt < cutoffIso;
+}
+
 /** Deletes the project's threads older than the retention period. Never blocks the caller: a failure
- *  is logged without any detail. */
-function expireOldThreads(config: TursoConfig | null, retentionDays: number, projectId: string): void {
+ *  is logged without any detail. Once it has run, the pending renames of the threads in `known()` that
+ *  it removed are dropped from this browser's outbox. */
+function expireOldThreads(
+  config: TursoConfig | null,
+  retentionDays: number,
+  projectId: string,
+  known: () => readonly ChatThread[],
+): void {
+  const cutoffIso = retentionCutoff(new Date(), retentionDays);
   Promise.resolve()
-    .then(() => expireThreads(config, retentionCutoff(new Date(), retentionDays), projectId))
+    .then(() => expireThreads(config, cutoffIso, projectId))
+    .then(() => {
+      const scope = outboxScope(config, projectId);
+      if (!scope) return;
+      for (const th of known()) {
+        if (th.projectId === projectId && expiredBy(th.updatedAt, cutoffIso)) dropPendingEdit(scope, RENAME_KIND, th.id);
+      }
+    })
     .catch(() => logDiag("warn", "chat.retentionExpireFailed"));
+}
+
+/** The sidebar's erase controls: delete every chat of this browser's owner, and delete chosen ones. */
+export interface ChatEraseActions {
+  /** False while chats are not saved (persistence is not "on"): nothing is sent, so nothing is offered. */
+  enabled: boolean;
+  /** This browser's owner id for the current database; null when none is stored (nothing of yours to delete). */
+  ownerId: string | null;
+  /** Deletes every thread of this owner in the database (all projects). Rejects when the delete fails. */
+  deleteAll: () => Promise<void>;
+  /** Deletes the listed threads of this project. Rejects when any of them could not be deleted. */
+  deleteSelected: (ids: readonly string[]) => Promise<void>;
 }
 
 /** Live render-scope values the Turso thread flows read each render. */
@@ -494,7 +526,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
    *  owner. A save the server says changed no row means another owner holds the id now. */
   function saveAction(config: TursoConfig | null, th: ChatThread, gate: SaveGate): () => Promise<void> {
     return async () => {
-      expireOldThreads(config, gate.retentionDays, th.projectId);
+      expireOldThreads(config, gate.retentionDays, th.projectId, () => threadsRef.current);
       const identity = knownIdentity(config) ?? (await writeIdentity(config));
       const outcome = await saveThread(config, th, identity, gate.recoveryKey);
       if (outcome === "not-owned") dropNotOwned(th.id);
@@ -593,7 +625,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         // Retention: once the list is in, the project's threads past the server's period go. Only
         // while chats are saved at all — never with a guessed period.
         const gate = saveGateRef.current;
-        if (gate) expireOldThreads(tursoConfig, gate.retentionDays, projectId);
+        if (gate) expireOldThreads(tursoConfig, gate.retentionDays, projectId, () => loaded);
         setThreadsError(false);
         setLoadFailed(false);
         // MERGE, not bail, when something adopted a different thread while
@@ -1134,6 +1166,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       setHistory(next?.history ?? []);
       setDisplay(next?.display ?? []);
     }
+    const scope = renameScope(deleteConfig);
+    if (scope) dropPendingEdit(scope, RENAME_KIND, id);
     // Scope the delete by project (defense-in-depth against a project-id
     // collision in the id space) — `target` was resolved from `threads`
     // before the confirm await and still carries the row's own projectId.
@@ -1147,7 +1181,72 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     });
   }
 
+  /** Takes the deleted threads `ids` off this browser: their pending renames (in `scope`), their retry
+   *  slots, and — while the project is still the one the delete was issued in — the list (and so the
+   *  registry). A deleted active thread is cleared, not replaced. */
+  function removeDeleted(scope: string | null, ids: readonly string[], epoch: number): void {
+    if (ids.length === 0) return;
+    const gone = new Set(ids);
+    for (const id of ids) {
+      if (scope) dropPendingEdit(scope, RENAME_KIND, id);
+      pendingRetryRef.current.delete(id);
+    }
+    setThreadsError(pendingRetryRef.current.size > 0);
+    if (epoch !== projectEpochRef.current) return;
+    setThreads((prev) => prev.filter((th) => !gone.has(th.id)));
+    if (threadIdRef.current !== null && gone.has(threadIdRef.current)) {
+      setActiveThreadId(null);
+      setHistory([]);
+      setDisplay([]);
+    }
+  }
+
+  /** The owner id deletes run as: this browser's identity, or — with none stored — one that is never
+   *  stored, which matches only legacy rows (the delete's legacy branch). Never creates an identity. */
+  async function deleteOwnerId(config: TursoConfig | null): Promise<string> {
+    const identity = knownIdentity(config) ?? (await getChatIdentity(config?.httpUrl ?? ""));
+    return identity?.ownerId ?? crypto.randomUUID();
+  }
+
+  async function deleteSelected(ids: readonly string[]): Promise<void> {
+    if (!saveGate) return;
+    const config = writeConfig(tursoConfig);
+    const scope = renameScope(tursoConfig);
+    const epoch = projectEpochRef.current;
+    const targets = threadsRef.current.filter((th) => ids.includes(th.id));
+    const owner = await deleteOwnerId(config);
+    const results = await Promise.allSettled(targets.map((th) => deleteThreadRow(config, th.id, th.projectId, owner)));
+    removeDeleted(scope, targets.filter((_, i) => results[i].status === "fulfilled").map((th) => th.id), epoch);
+    if (results.some((r) => r.status === "rejected")) throw new Error("some chat threads could not be deleted");
+  }
+
+  async function deleteAll(): Promise<void> {
+    if (!saveGate) return;
+    const config = writeConfig(tursoConfig);
+    const identity = knownIdentity(config) ?? (await getChatIdentity(config?.httpUrl ?? ""));
+    if (!identity) return;
+    const scope = renameScope(tursoConfig);
+    const epoch = projectEpochRef.current;
+    const pid = projectId;
+    await deleteOwnerThreads(config, identity.ownerId);
+    // Threads saved in this session carry no owner in memory, so the database says which are left.
+    let left: Set<string> | null = null;
+    try {
+      left = new Set((await loadVisibleThreads(config, pid)).map((th) => th.id));
+    } catch {
+      logDiag("warn", "chat.deleteAllReloadFailed");
+    }
+    const removed = threadsRef.current
+      .filter((th) => th.projectId === pid && (th.ownerId === identity.ownerId || (left !== null && !left.has(th.id))))
+      .map((th) => th.id);
+    removeDeleted(scope, removed, epoch);
+  }
+
+  const knownOwnerId = vaultRead?.url === currentUrl && vaultRead.kind === "found" ? vaultRead.identity?.ownerId ?? null : null;
+  const erase: ChatEraseActions = { enabled: persistence === "on", ownerId: knownOwnerId, deleteAll, deleteSelected };
+
   return {
+    erase,
     threads,
     activeThreadId,
     threadsError,
