@@ -55,20 +55,38 @@ export function isUnlockCodeClash(err: unknown): boolean {
   return err instanceof Error && /UNIQUE constraint failed: chat_keys\.unlock_code/i.test(err.message);
 }
 
-/** Every thread of one owner, in every project: its id and owner-wrapped thread key. */
+/** Every thread of one owner, in every project: what a move to another owner re-seals — its id,
+ *  project, owner, the owner-wrapped thread key and the three sealed fields. */
 export function ownerThreadKeysSelect(ownerId: string): SqlStmt[] {
   requireOwner(ownerId, "ownerThreadKeysSelect");
-  return [{ sql: `SELECT id, key_owner FROM chat_threads WHERE owner_id = ?`, args: [txt(ownerId)] }];
+  return [{
+    sql: `SELECT id, project_id, owner_id, key_owner, name, history_json, display_json FROM chat_threads WHERE owner_id = ?`,
+    args: [txt(ownerId)],
+  }];
 }
 
-/** Move one thread from `fromOwner` to `toOwner` with its thread key re-wrapped. The encrypted
- *  payloads and `key_operator` are untouched (the thread key is the same). A row that is no longer
- *  `fromOwner`'s is left alone. */
-export function reownThreadStatements(id: string, fromOwner: string, toOwner: string, keyOwner: string): SqlStmt[] {
+/** One thread as it moves to a new owner: the owner wrap and the three fields, re-sealed for that
+ *  owner under the same thread key (each is bound to its owner, chat-thread-codec.ts). */
+export type ReownedThread = {
+  id: string;
+  projectId: string;
+  keyOwner: string;
+  name: string;
+  historyJson: string;
+  displayJson: string;
+};
+
+/** Move one thread from `fromOwner` to `toOwner` with its owner wrap and fields re-sealed.
+ *  `key_operator` is untouched (the thread key is the same). A row that is no longer `fromOwner`'s,
+ *  or no longer in that project, is left alone. */
+export function reownThreadStatements(row: ReownedThread, fromOwner: string, toOwner: string): SqlStmt[] {
   requireOwner(fromOwner, "reownThreadStatements");
   requireOwner(toOwner, "reownThreadStatements");
   return [{
-    sql: `UPDATE chat_threads SET owner_id = ?, key_owner = ? WHERE id = ? AND owner_id = ?`,
-    args: [txt(toOwner), txt(keyOwner), txt(id), txt(fromOwner)],
+    sql: `UPDATE chat_threads SET owner_id = ?, key_owner = ?, name = ?, history_json = ?, display_json = ? WHERE id = ? AND project_id = ? AND owner_id = ?`,
+    args: [
+      txt(toOwner), txt(row.keyOwner), txt(row.name), txt(row.historyJson), txt(row.displayJson),
+      txt(row.id), txt(row.projectId), txt(fromOwner),
+    ],
   }];
 }

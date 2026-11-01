@@ -7,7 +7,10 @@
 // chats past the retention period.
 //
 // Formats mirror the app and must stay identical (the test builds rows with the app's own codec):
-//   envelope          "c1." + b64(iv) + "." + b64(AES-256-GCM ciphertext)   — src/app/chat-crypto.ts
+//   envelope          "c2." + b64(iv) + "." + b64(AES-256-GCM ciphertext)   — src/app/chat-crypto.ts
+//                     with additional data id + "\n" + project_id + "\n" + owner_id + "\n" + field
+//                     (field: name | history | display), so a field moved to another row, field
+//                     or owner does not open; "c1." (an earlier release, no additional data) still opens
 //   operator wrap     "r1." + b64(RSA-OAEP-SHA-256 ciphertext of the 32-byte thread key)
 //   legacy row        owner_id NULL or '' — name / history_json / display_json are plain text
 //   recovery key      base64 DER SPKI, RSA-OAEP, ≥ 3072 bits — src/app/ai-chat-retention-config.ts
@@ -219,13 +222,20 @@ export async function unwrapOperatorKey(privateKey, wrapped) {
   return raw;
 }
 
-async function openText(threadKey, envelope) {
+/** The additional data a sealed field of a row is bound to (the app's `threadFieldAd`). */
+function fieldAd(r, field) {
+  return `${r.id}\n${r.project_id ?? ""}\n${r.owner_id ?? ""}\n${field}`;
+}
+
+/** The app's `openText`: "c2" with the additional data `ad`, "c1" without any. */
+async function openText(threadKey, envelope, ad) {
   const parts = typeof envelope === "string" ? envelope.split(".") : [];
-  if (parts.length !== 3 || parts[0] !== "c1") throw new Error("bad-envelope");
+  if (parts.length !== 3 || (parts[0] !== "c1" && parts[0] !== "c2")) throw new Error("bad-envelope");
   const iv = fromB64(parts[1]);
   if (iv.length !== IV_BYTES) throw new Error("bad-envelope");
   const aes = await subtle().importKey("raw", threadKey, "AES-GCM", false, ["decrypt"]);
-  const pt = await subtle().decrypt({ name: "AES-GCM", iv }, aes, fromB64(parts[2]));
+  const params = parts[0] === "c2" ? { name: "AES-GCM", iv, additionalData: new TextEncoder().encode(ad) } : { name: "AES-GCM", iv };
+  const pt = await subtle().decrypt(params, aes, fromB64(parts[2]));
   return new TextDecoder("utf-8", { fatal: true }).decode(pt);
 }
 
@@ -236,7 +246,9 @@ async function readRowTexts(r, privateKey) {
   try {
     const threadKey = await unwrapOperatorKey(privateKey, r.key_operator);
     const [name, history, display] = await Promise.all([
-      openText(threadKey, r.name), openText(threadKey, r.history_json), openText(threadKey, r.display_json),
+      openText(threadKey, r.name, fieldAd(r, "name")),
+      openText(threadKey, r.history_json, fieldAd(r, "history")),
+      openText(threadKey, r.display_json, fieldAd(r, "display")),
     ]);
     return { name, history, display };
   } catch {

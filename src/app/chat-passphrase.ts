@@ -20,7 +20,7 @@ import {
 import { ensureChatThreadsColumns } from "./chat-threads-store";
 import { ChatCryptoError, unwrapForOwner, wrapForOwner } from "./chat-crypto";
 import { readChatIdentity, replaceChatIdentity } from "./chat-key-vault";
-import type { ChatIdentity } from "./chat-thread-codec";
+import { ownerKeyAd, resealThreadFields, type ChatIdentity } from "./chat-thread-codec";
 import { bytesToBase64 } from "./base64";
 import { openPassphraseValue, sealPassphraseValue, SecretUnlockError } from "./secrets";
 
@@ -128,8 +128,9 @@ async function openStoredKey(row: Record<string, string>, passphrase: string): P
   }
 }
 
-/** Move every thread of `from` (in the whole database) to `to`, re-wrapping each thread key, in one
- *  transaction. A row whose owner wrap will not open is left with `from` and counted as skipped. */
+/** Move every thread of `from` (in the whole database) to `to`, in one transaction: each thread key
+ *  is re-wrapped and the three fields re-sealed for `to`, since both are bound to the owner. A row
+ *  whose owner wrap or fields will not open is left with `from` and counted as skipped. */
 async function reownThreads(
   config: TursoConfig | null,
   from: ChatIdentity,
@@ -142,8 +143,10 @@ async function reownThreads(
   for (const r of rowObjects(selected)) {
     if (!r.id) continue;
     try {
-      const threadKey = await unwrapForOwner(from.chatKey, r.key_owner);
-      updates.push(...reownThreadStatements(r.id, from.ownerId, to.ownerId, await wrapForOwner(to.chatKey, threadKey)));
+      const threadKey = await unwrapForOwner(from.chatKey, r.key_owner, ownerKeyAd(r.id, from.ownerId));
+      const fields = await resealThreadFields(threadKey, r, to.ownerId);
+      const keyOwner = await wrapForOwner(to.chatKey, threadKey, ownerKeyAd(r.id, to.ownerId));
+      updates.push(...reownThreadStatements({ id: r.id, projectId: r.project_id ?? "", keyOwner, ...fields }, from.ownerId, to.ownerId));
     } catch (err) {
       if (!(err instanceof ChatCryptoError)) throw err;
       skipped += 1;

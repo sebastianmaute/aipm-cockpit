@@ -4,6 +4,11 @@
 // wrapped for the owner (under their chat key) and for the operator (to the
 // recovery public key). Reading opens only the caller's own rows; legacy
 // plaintext rows (no owner) still decode as before. No React, no IO.
+//
+// Each sealed value is bound to its row (chat-crypto.ts "c2"): a field to its id, project, owner
+// and field name (`threadFieldAd`), the owner wrap to its id and owner (`ownerKeyAd`). A value moved
+// to another row, field or owner does not open. Rows of an earlier release ("c1", unbound) still do.
+// The operator wrap ("r1") is not bound; the fields it opens are.
 import {
   generateThreadKey, openText, sealText, unwrapForOwner, wrapForOperator, wrapForOwner,
 } from "./chat-crypto";
@@ -16,6 +21,19 @@ import { rowObjects, type PipelineResultLike } from "./turso-schema";
 /** Who is reading or writing: their stable owner id and their raw 32-byte chat key. */
 export type ChatIdentity = { ownerId: string; chatKey: Uint8Array };
 
+/** The three sealed columns of a row, by the field name their additional data carries. */
+export type ThreadField = "name" | "history" | "display";
+
+/** The additional data a sealed field of a row is bound to. */
+export function threadFieldAd(id: string, projectId: string, ownerId: string, field: ThreadField): string {
+  return `${id}\n${projectId}\n${ownerId}\n${field}`;
+}
+
+/** The additional data the owner wrap of a row's thread key is bound to. */
+export function ownerKeyAd(id: string, ownerId: string): string {
+  return `${id}\n${ownerId}\nkey`;
+}
+
 /** Seal `th` for `id`. A fresh thread key on every call; the history loses its
  *  attachment bytes first. Refuses a thread that already belongs to somebody else. */
 export async function encodeThreadRow(
@@ -27,11 +45,12 @@ export async function encodeThreadRow(
     throw new Error("encodeThreadRow: thread belongs to another owner");
   }
   const threadKey = await generateThreadKey();
+  const ad = (field: ThreadField): string => threadFieldAd(th.id, th.projectId, id.ownerId, field);
   const [name, historyJson, displayJson, keyOwner, keyOperator] = await Promise.all([
-    sealText(threadKey, th.name),
-    sealText(threadKey, JSON.stringify(stripAttachmentsForPersistence(th.history))),
-    sealText(threadKey, JSON.stringify(th.display)),
-    wrapForOwner(id.chatKey, threadKey),
+    sealText(threadKey, th.name, ad("name")),
+    sealText(threadKey, JSON.stringify(stripAttachmentsForPersistence(th.history)), ad("history")),
+    sealText(threadKey, JSON.stringify(th.display), ad("display")),
+    wrapForOwner(id.chatKey, threadKey, ownerKeyAd(th.id, id.ownerId)),
     wrapForOperator(recoverySpki, threadKey),
   ]);
   return {
@@ -48,14 +67,42 @@ export async function encodeThreadRow(
   };
 }
 
+/** The three sealed fields of a stored row, opened with its thread key and its own id, project and
+ *  owner as the additional data. Throws when any of them does not open. */
+export async function openThreadFields(
+  threadKey: Uint8Array,
+  r: Record<string, string>,
+): Promise<{ name: string; historyJson: string; displayJson: string }> {
+  const ad = (field: ThreadField): string => threadFieldAd(r.id, r.project_id ?? "", r.owner_id ?? "", field);
+  const [name, historyJson, displayJson] = await Promise.all([
+    openText(threadKey, r.name, ad("name")),
+    openText(threadKey, r.history_json, ad("history")),
+    openText(threadKey, r.display_json, ad("display")),
+  ]);
+  return { name, historyJson, displayJson };
+}
+
+/** The three fields re-sealed (c2) under the same thread key for `ownerId`, for a row whose owner
+ *  changes (`reownThreadStatements`). */
+export async function resealThreadFields(
+  threadKey: Uint8Array,
+  r: Record<string, string>,
+  ownerId: string,
+): Promise<{ name: string; historyJson: string; displayJson: string }> {
+  const open = await openThreadFields(threadKey, r);
+  const ad = (field: ThreadField): string => threadFieldAd(r.id, r.project_id ?? "", ownerId, field);
+  const [name, historyJson, displayJson] = await Promise.all([
+    sealText(threadKey, open.name, ad("name")),
+    sealText(threadKey, open.historyJson, ad("history")),
+    sealText(threadKey, open.displayJson, ad("display")),
+  ]);
+  return { name, historyJson, displayJson };
+}
+
 async function openOwnedRow(r: Record<string, string>, id: ChatIdentity): Promise<ChatThread | null> {
   try {
-    const threadKey = await unwrapForOwner(id.chatKey, r.key_owner);
-    const [name, historyJson, displayJson] = await Promise.all([
-      openText(threadKey, r.name),
-      openText(threadKey, r.history_json),
-      openText(threadKey, r.display_json),
-    ]);
+    const threadKey = await unwrapForOwner(id.chatKey, r.key_owner, ownerKeyAd(r.id, id.ownerId));
+    const { name, historyJson, displayJson } = await openThreadFields(threadKey, r);
     return {
       id: r.id,
       projectId: r.project_id ?? "",

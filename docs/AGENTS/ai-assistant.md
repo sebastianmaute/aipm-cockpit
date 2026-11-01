@@ -2266,6 +2266,13 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     every write and wraps it twice, `wrapForOwner` and `wrapForOperator` (`chat-crypto.ts`). Loading drops every row
     owned by someone else. A legacy row (`isLegacyRow`: no owner) still decodes as plaintext until it expires, and
     saving it again makes it the writer's.
+    ★★ Every write is a `c2.` envelope bound to its row by AES-GCM additional data: each field to
+    `threadFieldAd` (id, project, owner, field name), the owner wrap to `ownerKeyAd` (id, owner). `c1.` (unbound,
+    an earlier release) is still READ, never written. The operator wrap stays `r1.` (unbound); the fields it
+    opens are bound. So anything that changes a row's owner must re-seal the fields AND the owner wrap:
+    adoption does (`reownThreads` → `resealThreadFields` → `reownThreadStatements`, under the same thread key, so
+    `key_operator` is untouched). Changing `owner_id`, `project_id` or `id` in SQL alone makes the row unreadable.
+    `scripts/chat-erasure-lib.mjs` repeats the additional-data rule and its tests build rows with the app's codec.
   - **Passphrase.** `chat-passphrase.ts` + the GLOBAL `chat_keys` table (`chat-keys-schema.ts`) let another browser
     adopt the identity with an unlock code and the passphrase. ★★ `chat_keys` is OUT of `TABLE_NAMES` like
     `chat_threads`, and has no `project_id`, so neither a project hard delete nor a factory reset touches it.

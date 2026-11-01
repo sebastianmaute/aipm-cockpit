@@ -22,7 +22,8 @@ import {
 import { ensureChatIdentity, getChatIdentity } from "./chat-key-vault";
 import { loadThreads, saveThread, __resetChatThreadsHealForTests } from "./chat-threads-store";
 import type { ChatThread } from "./chat-threads";
-import type { ChatIdentity } from "./chat-thread-codec";
+import { threadFieldAd, type ChatIdentity } from "./chat-thread-codec";
+import { openText, unwrapForOperator, wrapForOperator } from "./chat-crypto";
 
 const URL = "https://db.example";
 const cfg = { httpUrl: URL, authToken: "t" } as never;
@@ -71,6 +72,7 @@ function bytesToB64(bytes: Uint8Array): string {
 }
 
 let spki: string;
+let operatorKey: CryptoKey;
 beforeAll(async () => {
   const pair = await globalThis.crypto.subtle.generateKey(
     { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
@@ -78,7 +80,16 @@ beforeAll(async () => {
     ["encrypt", "decrypt"],
   );
   spki = bytesToB64(new Uint8Array(await globalThis.crypto.subtle.exportKey("spki", pair.publicKey)));
+  operatorKey = pair.privateKey;
 });
+
+/** A version-1 envelope (no additional data), as an earlier release wrote it. */
+async function sealC1(key: Uint8Array, plaintext: string): Promise<string> {
+  const aes = await globalThis.crypto.subtle.importKey("raw", new Uint8Array(key), "AES-GCM", false, ["encrypt"]);
+  const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await globalThis.crypto.subtle.encrypt({ name: "AES-GCM", iv }, aes, new TextEncoder().encode(plaintext)));
+  return `c1.${bytesToB64(iv)}.${bytesToB64(ct)}`;
+}
 
 beforeEach(() => {
   server.db = new DatabaseSync(":memory:");
@@ -137,18 +148,46 @@ describe("chat passphrase", () => {
     expect(loaded.every((t) => t.ownerId === a.ownerId)).toBe(true);
   });
 
-  it("the move keeps the encrypted payloads and the operator wrap, and runs as one transaction", async () => {
-    const { code } = await browserA();
-    await browserB();
-    const before = server.db.prepare("SELECT name, history_json, display_json, key_operator FROM chat_threads WHERE id = 'tb'").get();
+  it("the move re-seals the fields for the new owner, keeps the operator wrap, and runs as one transaction", async () => {
+    const { a, code } = await browserA();
+    const b = await browserB();
+    type Row = { name: string; history_json: string; display_json: string; key_operator: string };
+    const read = () => server.db.prepare("SELECT name, history_json, display_json, key_operator FROM chat_threads WHERE id = 'tb'").get() as Row;
+    const before = read();
     const from = server.log.length;
     await unlockWithPassphrase(cfg, URL, code, PASS);
-    const after = server.db.prepare("SELECT name, history_json, display_json, key_operator FROM chat_threads WHERE id = 'tb'").get();
-    expect(after).toEqual(before);
+    const after = read();
+    expect(after.key_operator).toBe(before.key_operator);
+    expect(after.name).not.toBe(before.name);
+    expect(after.name.startsWith("c2.")).toBe(true);
+    // The operator still opens it, under the new owner's binding only.
+    const threadKey = await unwrapForOperator(operatorKey, after.key_operator);
+    expect(await openText(threadKey, after.name, threadFieldAd("tb", "p", a.ownerId, "name"))).toBe("From B");
+    await expect(openText(threadKey, after.name, threadFieldAd("tb", "p", b.ownerId, "name"))).rejects.toThrow();
     const updates = server.log.slice(from).filter((list) => list.some((s) => /^\s*UPDATE chat_threads\b/i.test(s.sql)));
     expect(updates).toHaveLength(1);
     expect(updates[0][0].sql).toMatch(/^BEGIN/);
     expect(updates[0].at(-1)!.sql).toMatch(/^COMMIT/);
+  });
+
+  it("a row an earlier release wrote (c1) moves over and is then readable by the new owner and the operator", async () => {
+    const { a, code } = await browserA();
+    const b = await browserB();
+    const threadKey = globalThis.crypto.getRandomValues(new Uint8Array(32));
+    server.db.prepare(
+      "INSERT INTO chat_threads (id, project_id, owner_id, name, created_at, updated_at, history_json, display_json, key_owner, key_operator) VALUES (?,?,?,?,?,?,?,?,?,?)",
+    ).run(
+      "told", "p", b.ownerId, await sealC1(threadKey, "Old one"), "2026-11-01T00:00:00.000Z", "2026-11-01T00:00:00.000Z",
+      await sealC1(threadKey, JSON.stringify([{ role: "user", content: "x" }])), await sealC1(threadKey, "[]"),
+      await sealC1(b.chatKey, bytesToB64(threadKey)), await wrapForOperator(spki, threadKey),
+    );
+    expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toEqual({ outcome: "adopted", moved: 2, skipped: 0 });
+    const loaded = await loadThreads(cfg, "p", (await getChatIdentity(URL))!);
+    expect(loaded.map((t) => t.name).sort()).toEqual(["From A", "From B", "Old one"]);
+    const row = server.db.prepare("SELECT name, key_operator FROM chat_threads WHERE id = 'told'").get() as { name: string; key_operator: string };
+    expect(row.name.startsWith("c2.")).toBe(true);
+    const key = await unwrapForOperator(operatorKey, row.key_operator);
+    expect(await openText(key, row.name, threadFieldAd("told", "p", a.ownerId, "name"))).toBe("Old one");
   });
 
   it("a thread whose owner wrap will not open is left with the old owner and counted", async () => {

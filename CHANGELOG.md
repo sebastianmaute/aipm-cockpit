@@ -14,7 +14,9 @@ longer carries its own changelog comment.
 
 - **Saved AI chats are private to the person who wrote them, and are deleted after a retention period.** On a
   Turso project a chat is now saved encrypted, readable only by its writer and by the operator holding the recovery
-  key (`AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY`); without that key no chat is saved, and the chat says why. Colleagues no
+  key (`AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY`); without that key no chat is saved, and the chat says why. Each
+  encrypted value is bound to its own chat (its id, project and writer), so a value copied into another chat or
+  another person's chat does not open. Colleagues no
   longer see each other's chats; chats saved by an earlier version stay readable until they expire. Each chat is
   deleted once the retention period has passed since its last change (`AIPM_AI_CHAT_RETENTION_DAYS`, default 30
   days), by the browser, by the server once a day and by the operator's `npm run chats:erase`, which can also find

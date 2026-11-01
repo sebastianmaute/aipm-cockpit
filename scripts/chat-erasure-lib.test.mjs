@@ -353,6 +353,52 @@ describe("search", () => {
     expect(text).not.toMatch(/^0 matches$/m);
   });
 
+  it("counts a row whose fields were moved to another id, project, owner or field as unreadable", async () => {
+    const row = await ownedRow(thread("t-orig", [{ role: "user", content: "Erika Müller" }], [{ kind: "user", text: "Erika Müller" }]));
+    const search = async () => {
+      const a = deps(makeFakeTurso(db));
+      expect(await runCli(["search", "--key", keyPath, "Müller"], a.deps)).toBe(EXIT.FOUND);
+      return a.out.join("\n");
+    };
+    // Control: the row as written opens and matches.
+    insertRow(db, row);
+    expect(await search()).toContain("unreadable: 0");
+    // Each change alone, on a table holding only that row (the id is the primary key).
+    const moved = [
+      { ...row, id: "t-other" },
+      { ...row, project_id: "p2" },
+      { ...row, owner_id: "owner-b" },
+      { ...row, display_json: row.history_json },
+    ];
+    for (const variant of moved) {
+      db.exec("DELETE FROM chat_threads");
+      insertRow(db, variant);
+      const text = await search();
+      expect(text).toContain("unreadable: 1");
+      expect(text).not.toContain(`${variant.id}\t`);
+    }
+  });
+
+  it("still opens a row an earlier release wrote (c1 envelopes, no additional data)", async () => {
+    const threadKey = await generateThreadKey();
+    const seal = async (text) => {
+      const aes = await globalThis.crypto.subtle.importKey("raw", threadKey, "AES-GCM", false, ["encrypt"]);
+      const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
+      const ct = new Uint8Array(await globalThis.crypto.subtle.encrypt({ name: "AES-GCM", iv }, aes, new TextEncoder().encode(text)));
+      return `c1.${Buffer.from(iv).toString("base64")}.${Buffer.from(ct).toString("base64")}`;
+    };
+    const th = thread("t-c1", [{ role: "user", content: "Erika Müller" }]);
+    insertRow(db, {
+      id: th.id, project_id: th.projectId, owner_id: "owner-a", created_at: th.createdAt, updated_at: th.updatedAt,
+      name: await seal(th.name), history_json: await seal(JSON.stringify(th.history)), display_json: await seal("[]"),
+      key_owner: "c1.unused", key_operator: await wrapForOperator(OPERATOR_SPKI, threadKey),
+    });
+    const a = deps(makeFakeTurso(db));
+    expect(await runCli(["search", "--key", keyPath, "Müller"], a.deps)).toBe(EXIT.FOUND);
+    expect(a.out.join("\n")).toContain("t-c1\t");
+    expect(a.out.join("\n")).toContain("unreadable: 0");
+  });
+
   it("counts an owned row without key_operator as unreadable", async () => {
     const row = await ownedRow(thread("t-nokey", [{ role: "user", content: "hi" }]));
     insertRow(db, { ...row, key_operator: "" });

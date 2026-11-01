@@ -1,10 +1,18 @@
 // src/app/chat-thread-codec.test.ts
 import { describe, it, expect, beforeAll } from "vitest";
-import { encodeThreadRow, decodeThreadRows, type ChatIdentity } from "./chat-thread-codec";
-import { generateChatKey, unwrapForOperator } from "./chat-crypto";
+import { encodeThreadRow, decodeThreadRows, threadFieldAd, type ChatIdentity } from "./chat-thread-codec";
+import { generateChatKey, generateThreadKey, openText, unwrapForOperator } from "./chat-crypto";
 import type { StoredThreadRow } from "./chat-threads-schema";
 import type { ChatThread } from "./chat-threads";
 import type { PipelineResultLike } from "./turso-schema";
+
+/** A version-1 envelope (no additional data), as an earlier release wrote it. */
+async function sealC1(key: Uint8Array, plaintext: string): Promise<string> {
+  const aes = await globalThis.crypto.subtle.importKey("raw", new Uint8Array(key), "AES-GCM", false, ["encrypt"]);
+  const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await globalThis.crypto.subtle.encrypt({ name: "AES-GCM", iv }, aes, new TextEncoder().encode(plaintext)));
+  return `c1.${bytesToB64(iv)}.${bytesToB64(ct)}`;
+}
 
 function bytesToB64(bytes: Uint8Array): string {
   let s = "";
@@ -93,10 +101,10 @@ describe("encodeThreadRow / decodeThreadRows", () => {
     expect(row.updated_at).toBe(thread.updatedAt);
     const all = JSON.stringify(row);
     for (const secret of [PROMPT, REPLY, NAME, "Falcon"]) expect(all).not.toContain(secret);
-    expect(row.name.startsWith("c1.")).toBe(true);
-    expect(row.history_json.startsWith("c1.")).toBe(true);
-    expect(row.display_json.startsWith("c1.")).toBe(true);
-    expect(row.key_owner.startsWith("c1.")).toBe(true);
+    expect(row.name.startsWith("c2.")).toBe(true);
+    expect(row.history_json.startsWith("c2.")).toBe(true);
+    expect(row.display_json.startsWith("c2.")).toBe(true);
+    expect(row.key_owner.startsWith("c2.")).toBe(true);
     expect(row.key_operator.startsWith("r1.")).toBe(true);
   });
 
@@ -147,6 +155,42 @@ describe("encodeThreadRow / decodeThreadRows", () => {
     };
     const out = await decodeThreadRows(asResult([mine, theirs, legacy]), alice);
     expect(out.map((t) => t.id)).toEqual(["m", "l"]);
+  });
+
+  it("binds every sealed value to its row: moved to another id, project, owner or field, it does not open", async () => {
+    const row = await encodeThreadRow(thread, alice, spkiB64);
+    const other = await encodeThreadRow({ ...thread, id: "t2", name: "Other" }, alice, spkiB64);
+    // Control: both rows open as written.
+    expect((await decodeThreadRows(asResult([row, other]), alice)).map((t) => t.id)).toEqual(["t1", "t2"]);
+    // The whole row under another id, or in another project.
+    expect(await decodeThreadRows(asResult([{ ...row, id: "t9" }]), alice)).toEqual([]);
+    expect(await decodeThreadRows(asResult([{ ...row, project_id: "p2" }]), alice)).toEqual([]);
+    // One field swapped into another column of the same row (same thread key).
+    expect(await decodeThreadRows(asResult([{ ...row, display_json: row.history_json }]), alice)).toEqual([]);
+    // The same chat key under another owner id.
+    const twin: ChatIdentity = { ownerId: "alice-2", chatKey: alice.chatKey };
+    expect(await decodeThreadRows(asResult([{ ...row, owner_id: "alice-2" }]), twin)).toEqual([]);
+  });
+
+  it("the operator opens a field only with the row's own additional data", async () => {
+    const row = await encodeThreadRow(thread, alice, spkiB64);
+    const key = await unwrapForOperator(privateKey, row.key_operator);
+    expect(await openText(key, row.name, threadFieldAd("t1", "p1", "alice", "name"))).toBe(NAME);
+    await expect(openText(key, row.name, threadFieldAd("t1", "p1", "bob", "name"))).rejects.toThrow();
+  });
+
+  it("still opens a row an earlier release wrote (c1, unbound)", async () => {
+    const threadKey = await generateThreadKey();
+    const old: StoredThreadRow = {
+      id: "t1", project_id: "p1", owner_id: "alice", created_at: thread.createdAt, updated_at: thread.updatedAt,
+      name: await sealC1(threadKey, NAME),
+      history_json: await sealC1(threadKey, JSON.stringify([{ role: "user", content: PROMPT }])),
+      display_json: await sealC1(threadKey, JSON.stringify([{ kind: "user", text: PROMPT }])),
+      key_owner: await sealC1(alice.chatKey, bytesToB64(threadKey)),
+      key_operator: "",
+    };
+    const [out] = await decodeThreadRows(asResult([old]), alice);
+    expect(out).toMatchObject({ id: "t1", ownerId: "alice", name: NAME, display: [{ kind: "user", text: PROMPT }] });
   });
 
   it("refuses to encode a thread owned by somebody else", async () => {

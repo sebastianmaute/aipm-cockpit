@@ -102,14 +102,19 @@ describe("chat_keys statements against a real engine", () => {
     expect(() => ownerThreadKeysSelect("")).toThrow();
   });
 
-  it("re-own moves one row from the old owner, keeping the payloads and key_operator", () => {
+  it("re-own moves one row from the old owner with its re-sealed fields, keeping key_operator", () => {
     run(db, upsertThreadStatements(threadRow("a1", "old")));
     run(db, upsertThreadStatements(threadRow("b1", "bob")));
-    run(db, reownThreadStatements("a1", "old", "new", "k-new"));
-    // A row that is no longer the old owner's is left alone.
-    run(db, reownThreadStatements("b1", "old", "new", "k-new"));
+    const resealed = (id: string, projectId = "p") =>
+      ({ id, projectId, keyOwner: "k-new", name: "c2.n", historyJson: "c2.h", displayJson: "c2.d" });
+    run(db, reownThreadStatements(resealed("a1"), "old", "new"));
+    // A row that is no longer the old owner's, or not in that project, is left alone.
+    run(db, reownThreadStatements(resealed("b1"), "old", "new"));
+    run(db, upsertThreadStatements(threadRow("a2", "old")));
+    run(db, reownThreadStatements(resealed("a2", "q"), "old", "new"));
     expect(db.prepare("SELECT * FROM chat_threads ORDER BY id").all()).toEqual([
-      { ...threadRow("a1", "new"), key_owner: "k-new" },
+      { ...threadRow("a1", "new"), key_owner: "k-new", name: "c2.n", history_json: "c2.h", display_json: "c2.d" },
+      threadRow("a2", "old"),
       threadRow("b1", "bob"),
     ]);
   });
