@@ -19,7 +19,7 @@ function rel(resourceId: number, projectId = "p2"): PersonRelation {
 }
 
 function other(over: Partial<OtherProjectData> & Pick<OtherProjectData, "resources">): OtherProjectData {
-  return { projectId: "p2", projectName: "Name p2", plan: null, absences: [], tasks: [], ...over };
+  return { projectId: "p2", projectName: "Name p2", plan: FEB, absences: [], tasks: [], ...over };
 }
 
 function task(id: number, extra: Partial<Task> = {}): Task {
@@ -90,13 +90,6 @@ describe("elsewhereFor", () => {
     expect(fig.hoursByPeriod["2026-W06"]).toBe(24);
   });
 
-  test("a project with no plan contributes zero hours and is flagged noPlan", () => {
-    const o = other({ plan: null, resources: [res(10, { utilization: { "2026-W06": 30 } })] });
-    const [fig] = elsewhereFor([rel(10)], [o], WEEKS, 8, NO_HOLIDAYS);
-    expect(fig.noPlan).toBe(true);
-    expect(elsewhereTotal([fig], "2026-W06")).toBe(0);
-  });
-
   test("two matched resources in one project sum", () => {
     const o = other({
       plan: plan("2026-02-02", "2026-02-08", "week"),
@@ -144,7 +137,7 @@ describe("elsewhereFor", () => {
 describe("elsewhereTotal", () => {
   test("sums a period across figures and treats a missing key as zero", () => {
     const f = (h: Record<string, number>) => ({
-      projectId: "x", projectName: "x", hoursByPeriod: h, openTasks: 0, remainingHours: 0, noPlan: false,
+      projectId: "x", projectName: "x", hoursByPeriod: h, openTasks: 0, remainingHours: 0,
     });
     expect(elsewhereTotal([f({ a: 1.5 }), f({ a: 2 }), f({})], "a")).toBe(3.5);
   });

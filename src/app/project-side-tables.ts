@@ -30,7 +30,7 @@ export const PROJECT_SCOPED_SIDE_TABLES: readonly ProjectSideTable[] = [
   { table: "snapshot", ddl: SNAPSHOT_DDL },
   { table: "snapshot_series", ddl: SNAPSHOT_DDL },
   { table: "project_versions", ddl: VERSION_DDL },
-  // §785: a pair of people in two projects; either side naming the project makes the row its data (names, emails).
+  // §785: a pair of people in two projects; either side naming the project makes the row its data (names).
   { table: "person_links", ddl: PERSON_LINKS_DDL, columns: ["project_a", "project_b"] },
 ];
 

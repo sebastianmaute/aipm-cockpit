@@ -1126,13 +1126,12 @@
   inactive resources count.
   ★ **Hours** (`elsewhereFor`, pure): the other project's `Resource.utilization` read as its Planning grid reads it
   (`periodCapacityHours` over that project's `ResourcePlan` periods, its absences, the app's workday hours and
-  holidays), spread over this plan's periods by overlapping workdays. A project with no stored plan contributes no
-  hours and is marked `noPlan`. The tasks hint (open tasks owned by `resourceId`, else the typed name equal to the
+  holidays), spread over this plan's periods by overlapping workdays. A project is always read over a plan: `rowsToWorkspace`
+  fills in the app's default plan window when a project has no stored plan row, so a project never reads as having no plan. The tasks hint (open tasks owned by `resourceId`, else the typed name equal to the
   resource's display name; count and remaining hours from `remainingEstimateMinutes`, no titles) is for the model only
   and is never added to the hours.
   ★ **Digest.** `buildAllocContext` (`alloc-plan/alloc-plan.ts`) reads an optional `AllocContextArgs.elsewhere` (`AllocElsewhere`): under a person, one
-  `ELSEWHERE "<project>": <period>=<h> …` line per project, listing only the shown periods that have hours (a project with open tasks but no hours there reads `no plan` when
-  it has no stored plan, else `no hours in the shown periods`); a project with neither hours there nor open tasks gets
+  `ELSEWHERE "<project>": <period>=<h> …` line per project, listing only the shown periods that have hours (a project with open tasks but no hours there reads `no hours in the shown periods`); a project with neither hours there nor open tasks gets
   no line. Notes not tied to a person: `ELSEWHERE: other projects were not
   loaded` (status idle or loading; effectively a defensive fallback, because Plan with AI refuses to send in either state
   unless `loadFailed`), `ELSEWHERE: other projects could not be loaded` (the stored answers could not be

@@ -419,6 +419,13 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
     expect(screen.getByText(note)).toBeTruthy();
   });
 
+  it("shows a load failure and unreadable projects before Run, not only in the review (§785)", () => {
+    const cp = crossProject({ loadFailed: true, status: "idle", failures: [{ projectId: "p9", projectName: "Zed" }] });
+    render(<AllocPlanModal {...props({ stage: "input", crossProject: cp })} />);
+    expect(screen.getByText(t("en-US", "allocElsewhereLoadFailed"))).toBeTruthy();
+    expect(screen.getByText(t("en-US", "allocElsewhereFailures", "Zed"))).toBeTruthy();
+  });
+
   it("lists only a suggestion that would change the figures: the other person has hours in the shown periods (§785)", () => {
     const cp = crossProject({ suggestionHours: (r) => (r.projectId === "p2" ? 12 : 0) }, { 2: [rel("p2", "Apollo", 11), rel("p3", "Zeus", 5)] });
     render(<AllocPlanModal {...withMove({ crossProject: cp })} />);

@@ -111,7 +111,7 @@ function elsewhereLine(f: ElsewhereFigure, periodKeys: readonly string[]): strin
   const booked = periodKeys.filter((k) => oneDecimal(f.hoursByPeriod[k] ?? 0) > 0);
   // Nothing to tell the model: no hours in the shown periods and no open tasks there.
   if (booked.length === 0 && f.openTasks === 0) return null;
-  const hours = booked.length > 0 ? booked.map((k) => `${k}=${oneDecimal(f.hoursByPeriod[k] ?? 0)}`).join(" ") : f.noPlan ? "no plan" : "no hours in the shown periods";
+  const hours = booked.length > 0 ? booked.map((k) => `${k}=${oneDecimal(f.hoursByPeriod[k] ?? 0)}`).join(" ") : "no hours in the shown periods";
   return `  ELSEWHERE ${JSON.stringify(oneLine(f.projectName))}: ${hours} · open tasks ${f.openTasks} (${oneDecimal(f.remainingHours)} h left)`;
 }
 

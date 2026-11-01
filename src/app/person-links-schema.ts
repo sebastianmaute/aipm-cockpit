@@ -20,7 +20,7 @@ export interface PersonLinkPair {
 export const selectPersonLinks = (): SqlStmt[] => [{ sql: `SELECT * FROM person_links` }];
 
 /** Put a row into canonical order (`projectA <= projectB`), swapping EVERY
- *  side-specific field together so each side's names and emails stay attached
+ *  side-specific field together so each side's names stay attached
  *  to its own resource. */
 export function canonicalRow(row: PersonLinkRow): PersonLinkRow {
   const c = canonicalPair(row.projectA, row.resourceA, row.projectB, row.resourceB);

@@ -5583,6 +5583,7 @@ export const de: Record<TranslationKey, string> = {
   allocElsewhereLoading: "Andere Projekte werden geladen…",
   allocElsewhereWriteFailed: "Ihre Antwort zur Person im anderen Projekt konnte nicht gespeichert werden. Es wurde nichts geändert.",
 
+  resourceLinksNone: "In anderen Projekten nicht gefunden.",
   resourceLinksHeading: "Andere Projekte",
   resourceLinksTip: "Personen sind in jedem Projekt eigene Einträge. Die App verknüpft sie automatisch über die E-Mail-Adresse und über den Namen erst nach Ihrer Bestätigung. Andere Projekte werden nur gelesen, nie verändert.",
   resourceWorksInProject: "Arbeitet im Projekt {0} als {1}",

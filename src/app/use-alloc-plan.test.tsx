@@ -948,7 +948,7 @@ describe("useAllocPlan — other projects (§785)", () => {
     undo: vi.fn(async () => {}),
     ...over,
   });
-  const apollo = { projectId: "p2", projectName: "Apollo", hoursByPeriod: { "2026-08": 40 }, openTasks: 2, remainingHours: 9, noPlan: false };
+  const apollo = { projectId: "p2", projectName: "Apollo", hoursByPeriod: { "2026-08": 40 }, openTasks: 2, remainingHours: 9 };
   const wrap = (crossProject: CrossProjectPeople) => (
     <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
       <Harness crossProject={crossProject} />

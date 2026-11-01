@@ -829,6 +829,20 @@ describe("ResourceEditModal — other projects (§785)", () => {
     expectRowUniqueNames({ minControls: 4 });
   });
 
+  it("says the person was not found in other projects once loaded, instead of an empty list (§785)", () => {
+    const { container } = setup({ crossProject: cp({}) });
+    expect(screen.getByText(en("resourceLinksNone"))).toBeTruthy();
+    expect(container.querySelector("section ul")).toBeNull();
+  });
+
+  it("shows that line neither while loading nor when something is listed (§785)", () => {
+    setup({ crossProject: cp({}, { status: "loading" }) });
+    expect(screen.queryByText(en("resourceLinksNone"))).toBeNull();
+    cleanup();
+    setup({ crossProject: cp({ matched: [{ ...rel("p-b", "Apollo", 10), via: "email" }] }) });
+    expect(screen.queryByText(en("resourceLinksNone"))).toBeNull();
+  });
+
   it("explains the rule in a tooltip and links the help entry", () => {
     setup({ crossProject: cp({}) });
     expect(screen.getByRole("button", { name: new RegExp(en("resourceLinksTip").slice(0, 30)) })).toBeTruthy();

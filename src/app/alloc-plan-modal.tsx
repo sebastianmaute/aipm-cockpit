@@ -198,13 +198,13 @@ export function AllocPlanModal({
             <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereProtected", crossProject.protectedProjects.map((p) => p.projectName).join(", "))}</p>
           )}
           {!isPreview && notLoadedElsewhere && <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereNotLoaded")}</p>}
+          {crossProject?.loadFailed && <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereLoadFailed")}</p>}
+          {crossProject && crossProject.failures.length > 0 && (
+            <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereFailures", crossProject.failures.map((f) => f.projectName).join(", "))}</p>
+          )}
 
           {isPreview && (
             <>
-              {crossProject?.loadFailed && <p className="mt-4 text-xs text-foreground">{t(lang, "allocElsewhereLoadFailed")}</p>}
-              {crossProject && crossProject.failures.length > 0 && (
-                <p className="mt-4 text-xs text-foreground">{t(lang, "allocElsewhereFailures", crossProject.failures.map((f) => f.projectName).join(", "))}</p>
-              )}
               {truncated && (
                 <p className="mt-4 text-xs text-muted-foreground">{t(lang, "allocPlanTruncated")}</p>
               )}

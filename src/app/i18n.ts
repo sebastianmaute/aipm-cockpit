@@ -5867,6 +5867,7 @@ const enUS = {
   allocElsewhereLoading: "Loading other projects…",
   allocElsewhereWriteFailed: "Could not save your answer about the person in the other project. Nothing was changed.",
 
+  resourceLinksNone: "Not found in other projects.",
   resourceLinksHeading: "Other projects",
   resourceLinksTip: "People are separate entries in each project. The app links them by email automatically, and by name only after you confirm. Other projects are only read, never changed.",
   resourceWorksInProject: "Works in project {0} as {1}",

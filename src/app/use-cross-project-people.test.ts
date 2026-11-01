@@ -508,3 +508,34 @@ describe("useCrossProjectPeople — an older run's links failure (§785)", () =>
     expect(hook.result.current.loadFailed).toBe(false);
   });
 });
+
+// §785 — round 5: a write landing after the database changed.
+describe("useCrossProjectPeople — the open project is not in the list (§785)", () => {
+  test("another project still makes it available when the open one was archived elsewhere; alone it is a single project", () => {
+    const archivedOpen = setup({ projects: [PROJECTS[1]] }).hook.result.current;
+    expect(archivedOpen.status).toBe("idle");
+    expect(archivedOpen.singleProject).toBe(false);
+    const alone = setup({ projects: [] }).hook.result.current;
+    expect(alone.status).toBe("unavailable");
+    expect(alone.singleProject).toBe(true);
+  });
+});
+
+describe("useCrossProjectPeople — a write in flight when the config changes (§785)", () => {
+  test("never reaches the new database's links", async () => {
+    const OTHER = { httpUrl: "https://other.turso.io", authToken: "t2" } as TursoConfig;
+    const { hook, deps } = setup();
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    let finishWrite: () => void = () => {};
+    vi.mocked(savePersonLink).mockImplementationOnce(() => new Promise<void>((r) => { finishWrite = r; }));
+    const rel = { projectId: "p-b", projectName: "B", resourceId: 10 };
+    let confirmed: Promise<void> = Promise.resolve();
+    act(() => { confirmed = hook.result.current.confirm(1, rel); });
+    hook.rerender({ ...deps, tursoConfig: OTHER });
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    await act(async () => { finishWrite(); await confirmed; });
+    expect(hook.result.current.matches.get(1)?.matched).toEqual([]);
+  });
+});

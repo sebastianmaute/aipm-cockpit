@@ -36,6 +36,7 @@ export function ResourceLinksSection({ lang, crossProject, resourceId, name }: R
   const suggestions = match?.suggestions ?? [];
   const rejected = match?.rejected ?? [];
   const loading = status === "loading";
+  const isEmpty = status === "ready" && matched.length === 0 && suggestions.length === 0 && rejected.length === 0;
   const heading = t(lang, "resourceLinksHeading");
   const confirm = t(lang, "resourceLinkConfirm");
   const reject = t(lang, "resourceLinkReject");
@@ -59,6 +60,8 @@ export function ResourceLinksSection({ lang, crossProject, resourceId, name }: R
           {t(lang, "allocElsewhereFailures", crossProject.failures.map((f) => f.projectName).join(", "))}
         </p>
       )}
+      {isEmpty && <p className="mt-2 text-xs text-muted-foreground">{t(lang, "resourceLinksNone")}</p>}
+      {!isEmpty && (
       <ul className="mt-2 space-y-2">
         {matched.map((rel) => (
           <li key={`m:${rel.projectId}:${rel.resourceId}`} className={rowClass}>
@@ -102,7 +105,7 @@ export function ResourceLinksSection({ lang, crossProject, resourceId, name }: R
           </li>
         ))}
       </ul>
-
+      )}
     </section>
   );
 }

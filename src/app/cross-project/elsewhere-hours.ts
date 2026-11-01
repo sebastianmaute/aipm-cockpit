@@ -28,7 +28,7 @@ import type { PersonRelation } from "./person-match";
 export interface OtherProjectData {
   projectId: string;
   projectName: string;
-  plan: ResourcePlan | null;
+  plan: ResourcePlan;
   resources: readonly Resource[];
   absences: readonly Absence[];
   tasks: readonly Task[];
@@ -41,7 +41,6 @@ export interface ElsewhereFigure {
   hoursByPeriod: Record<string, number>;
   openTasks: number;
   remainingHours: number;
-  noPlan: boolean;
 }
 
 const MINUTES_PER_HOUR = 60;
@@ -89,9 +88,7 @@ function figureFor(
 ): ElsewhereFigure {
   const matched = data.resources.filter((r) => resourceIds.has(r.id));
   const sums = new Map<string, number>();
-  if (data.plan) {
-    for (const r of matched) spreadHours(r, data, data.plan, herePeriods, workdayHours, holidaySet, sums);
-  }
+  for (const r of matched) spreadHours(r, data, data.plan, herePeriods, workdayHours, holidaySet, sums);
   const hoursByPeriod: Record<string, number> = {};
   for (const p of herePeriods) hoursByPeriod[p.key] = round2(sums.get(p.key) ?? 0);
   const owned = data.tasks.filter((t) => !isTaskClosed(t) && matched.some((r) => matchesPerson(t, r)));
@@ -102,7 +99,6 @@ function figureFor(
     hoursByPeriod,
     openTasks: owned.length,
     remainingHours: round2(minutes / MINUTES_PER_HOUR),
-    noPlan: data.plan === null,
   };
 }
 

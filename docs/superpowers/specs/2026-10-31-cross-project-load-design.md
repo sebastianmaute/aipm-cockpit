@@ -189,6 +189,10 @@ one or two sentences and links to the entry.
 - Archived projects are not loaded: item 9 said there is no archived state, but the app keeps archived projects in a
   separate list (`tursoArchived`) and the loader reads only `tursoProjects`, so an archived project never contributes
   hours or suggestions.
+- A project without a stored plan row is read over the app's default plan window (`rowsToWorkspace` always fills in `defaultResourcePlan`), so the "no plan" case of settled item 2 is not built and the figure's no-plan flag was removed (owner decision 2026-11-01).
+- The Resource entry says "Not found in other projects" when the load is ready and nothing is listed; the review window shows the load-failure and unreadable-project notes before Run as well as in the review.
+- The open project may be absent from the active list (archived from another tab or device); availability counts the OTHER projects, never the list length.
+- A link write that lands after the database changed (a config change) is dropped from memory (`configKeyRef` in `commit`).
 - The `person_links` table keeps NO e-mail columns (`emails_a` / `emails_b` were dropped before the table shipped: nothing read them, and only names decide staleness).
 - Dropped by owner decision 2026-11-01: the per-row elsewhere figure beside each person and the percentage fed by elsewhere
   hours. Elsewhere hours count in the over-capacity warning (which carries them) and in the digest.

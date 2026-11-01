@@ -1461,29 +1461,29 @@ describe("ELSEWHERE in the allocation digest (§785)", () => {
   const ana = resource(1, { firstName: "Ana", lastName: "Lee", utilizationMode: "hours" });
   const bo = resource(2, { firstName: "Bo", lastName: "Kim", utilizationMode: "hours" });
   const figure = (over: Partial<ElsewhereFigure> = {}): ElsewhereFigure => ({
-    projectId: "p2", projectName: "Apollo", hoursByPeriod: { "2026-08": 40, "2026-09": 12.5 }, openTasks: 3, remainingHours: 21, noPlan: false, ...over,
+    projectId: "p2", projectName: "Apollo", hoursByPeriod: { "2026-08": 40, "2026-09": 12.5 }, openTasks: 3, remainingHours: 21, ...over,
   });
   const args = (elsewhere: AllocContextArgs["elsewhere"]) => ({ ...NO_PROJECT, ...ctx, resources: [ana, bo], elsewhere });
-  const figuresFor = (id: number): ElsewhereFigure[] => (id === 1 ? [figure(), figure({ projectId: "p3", projectName: "Zeus", hoursByPeriod: { "2026-08": 0, "2026-09": 0 }, noPlan: true, openTasks: 0, remainingHours: 0 })] : []);
+  const figuresFor = (id: number): ElsewhereFigure[] => (id === 1 ? [figure(), figure({ projectId: "p3", projectName: "Zeus", hoursByPeriod: { "2026-08": 0, "2026-09": 0 }, openTasks: 0, remainingHours: 0 })] : []);
 
   it("gives a person with figures one line per other project, under their row, with only the shown periods", () => {
     const lines = buildAllocContext(args({ status: "ready", figuresFor, failures: [] })).split("\n");
     const row = lines.findIndex((l) => l.startsWith("#1 "));
     expect(lines[row + 1]).toBe('  ELSEWHERE "Apollo": 2026-08=40 2026-09=12.5 · open tasks 3 (21 h left)');
-    expect(lines[row + 2]).toMatch(/^#2 /); // Zeus: no plan, no hours, no tasks — no line at all
+    expect(lines[row + 2]).toMatch(/^#2 /); // Zeus: no hours, no tasks — no line at all
   });
 
-  it("omits zero periods, and says no plan only where the person has open tasks", () => {
+  it("omits zero periods, and says no hours in the shown periods only where the person has open tasks", () => {
     const f = [
       figure({ hoursByPeriod: { "2026-08": 0, "2026-09": 3 } }),
-      figure({ projectId: "p3", projectName: "Zeus", hoursByPeriod: { "2026-08": 0, "2026-09": 0 }, noPlan: true, openTasks: 2, remainingHours: 5 }),
+      figure({ projectId: "p3", projectName: "Zeus", hoursByPeriod: { "2026-08": 0, "2026-09": 0 }, openTasks: 2, remainingHours: 5 }),
       figure({ projectId: "p4", projectName: "Hera", hoursByPeriod: { "2026-08": 0, "2026-09": 0 }, openTasks: 0, remainingHours: 0 }),
       figure({ projectId: "p5", projectName: "Ares", hoursByPeriod: { "2026-08": 0, "2026-09": 0 }, openTasks: 1, remainingHours: 2 }),
     ];
     const text = buildAllocContext(args({ status: "ready", figuresFor: (id) => (id === 1 ? f : []), failures: [] }));
     expect(text).toContain('  ELSEWHERE "Apollo": 2026-09=3 · open tasks 3 (21 h left)');
     expect(text.split(String.fromCharCode(10)).filter((l) => l.includes("ELSEWHERE")).join(" ")).not.toContain("=0 ");
-    expect(text).toContain('  ELSEWHERE "Zeus": no plan · open tasks 2 (5 h left)');
+    expect(text).toContain('  ELSEWHERE "Zeus": no hours in the shown periods · open tasks 2 (5 h left)');
     expect(text).not.toContain("Hera");
     expect(text).toContain('  ELSEWHERE "Ares": no hours in the shown periods · open tasks 1 (2 h left)');
   });

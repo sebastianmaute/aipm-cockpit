@@ -131,10 +131,18 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   const runWritesRef = useRef<((links: PersonLinkRow[]) => PersonLinkRow[])[]>([]);
 
   const portfolio = portfolioMode === "turso" && tursoConfig !== null && currentProjectId !== null;
-  const available = portfolio && projects.length > 1;
-  const singleProject = portfolio && projects.length <= 1;
+  // The open project may be missing from the active list (archived from another tab or device while open), so count
+  // the OTHER projects, never the list length.
+  const otherCount = projects.filter((p) => p.id !== currentProjectId).length;
+  const available = portfolio && otherCount > 0;
+  const singleProject = portfolio && otherCount === 0;
   // A result belongs to the project it was loaded for; after a switch it is invisible.
   const configKey = tursoConfig ? configKeyOf(tursoConfig) : null;
+  // The latest database, for a write that awaits: it must not land in the links of a database it did not go to.
+  const configKeyRef = useRef(configKey);
+  useEffect(() => {
+    configKeyRef.current = configKey;
+  }, [configKey]);
   const effective =
     available && loaded !== null && loaded.projectId === currentProjectId && loaded.configKey === configKey ? loaded : null;
 
@@ -170,7 +178,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
             if (isScopeStale(getScopeEpoch, startEpoch)) return;
             if (isPeopleProtected(ws.settingsOverrides)) protectedIds.push(p.id);
             others.push({
-              projectId: p.id, projectName: p.name, plan: ws.plan ?? null,
+              projectId: p.id, projectName: p.name, plan: ws.plan,
               resources: ws.resources ?? [], absences: ws.absences ?? [], tasks: ws.tasks ?? [],
             });
           } catch (err) {
@@ -279,6 +287,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   // Write first, then reflect: a throwing store leaves the in-memory links as they were.
   const commit = async (write: () => Promise<void>, projectId: string, next: (links: PersonLinkRow[]) => PersonLinkRow[]): Promise<void> => {
     const startEpoch = getScopeEpoch();
+    const writtenTo = configKeyRef.current;
     try {
       await write();
     } catch (err) {
@@ -288,6 +297,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     }
     // The stored write stands; only the in-memory reflect is dropped when the scope moved on.
     if (isScopeStale(getScopeEpoch, startEpoch)) return;
+    if (configKeyRef.current !== writtenTo) return; // the database changed while the write was in flight
     if (runRef.current !== null) runWritesRef.current.push(next);
     setLoaded((prev) => (prev && prev.projectId === projectId ? { ...prev, links: next(prev.links) } : prev));
   };
