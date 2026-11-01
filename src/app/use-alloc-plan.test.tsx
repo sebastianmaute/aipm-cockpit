@@ -939,6 +939,7 @@ describe("useAllocPlan — other projects (§785)", () => {
     singleProject: false,
     matches: new Map(),
     elsewhere: () => [],
+    suggestionHours: () => 5,
     nameOf: () => "",
     request: vi.fn(),
     confirm: vi.fn(async () => {}),

@@ -8,7 +8,7 @@ import {
 } from "./turso-portfolio";
 import * as diagnostics from "./diagnostics";
 import { upsertProjectStatement } from "./turso-tenant-schema";
-import { PROJECT_SCOPED_SIDE_TABLES } from "./project-side-tables";
+import { PROJECT_SCOPED_SIDE_TABLES, sideTableColumns } from "./project-side-tables";
 import type { ProjectMeta } from "./types";
 
 const cfg = { httpUrl: "https://x.turso.io", authToken: "t" };
@@ -108,8 +108,11 @@ describe("turso-portfolio", () => {
     const calls = vi.mocked(runTursoPipeline).mock.calls;
     expect(calls).toHaveLength(2);
     const sweep = calls[1][1].filter((s) => s.sql.startsWith("DELETE"));
-    expect(sweep.map((s) => s.sql)).toEqual(PROJECT_SCOPED_SIDE_TABLES.map((e) => `DELETE FROM ${e.table} WHERE project_id = ?`));
-    for (const s of sweep) expect(s.args).toEqual([{ type: "text", value: "p1" }]);
+    expect(sweep.map((s) => s.sql)).toEqual(
+      PROJECT_SCOPED_SIDE_TABLES.map((e) => `DELETE FROM ${e.table} WHERE ${sideTableColumns(e).map((c) => `${c} = ?`).join(" OR ")}`),
+    );
+    sweep.forEach((s, i) => expect(s.args).toEqual(sideTableColumns(PROJECT_SCOPED_SIDE_TABLES[i]).map(() => ({ type: "text", value: "p1" }))));
+    expect(sweep.find((s) => s.sql.startsWith("DELETE FROM person_links"))?.sql).toBe("DELETE FROM person_links WHERE project_a = ? OR project_b = ?");
   });
 
   it("updateProjectMeta emits an upsert with archived='0'", async () => {

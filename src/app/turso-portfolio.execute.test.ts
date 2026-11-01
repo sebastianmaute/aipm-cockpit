@@ -4,7 +4,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { tenantSchemaDdl, hardDeleteProjectStatements } from "./turso-tenant-schema";
-import { PROJECT_SCOPED_SIDE_TABLES, projectSideTableSweepStatements } from "./project-side-tables";
+import { PROJECT_SCOPED_SIDE_TABLES, projectSideTableSweepStatements, sideTableColumns } from "./project-side-tables";
 import type { SqlStmt } from "./turso-schema";
 import { activityLogsStatement } from "./turso-portfolio";
 
@@ -15,18 +15,23 @@ function run(db: DatabaseSync, statements: readonly SqlStmt[]): void {
   }
 }
 
-function insertFor(db: DatabaseSync, table: string, projectId: string, n: number): void {
+function insertFor(db: DatabaseSync, table: string, projectId: string, n: number, other = `${projectId}-other`): void {
   const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string; type: string }[]);
   const values = cols.map((c) => {
-    if (c.name === "project_id") return projectId;
+    if (c.name === "project_id" || c.name === "project_a") return projectId;
+    if (c.name === "project_b") return other;
     if (/INT/i.test(c.type)) return n;
     return `${projectId}-${n}`;
   });
   db.prepare(`INSERT INTO ${table} (${cols.map((c) => `"${c.name}"`).join(",")}) VALUES (${cols.map(() => "?").join(",")})`).run(...values);
 }
 
-const count = (db: DatabaseSync, table: string, projectId: string): number =>
-  Number((db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE project_id = ?`).get(projectId) as { n: number | bigint }).n);
+const count = (db: DatabaseSync, table: string, projectId: string): number => {
+  const entry = PROJECT_SCOPED_SIDE_TABLES.find((e) => e.table === table);
+  const cols = entry ? sideTableColumns(entry) : ["project_id"];
+  const where = cols.map((c) => `${c} = ?`).join(" OR ");
+  return Number((db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where}`).get(...cols.map(() => projectId)) as { n: number | bigint }).n);
+};
 
 describe("hardDeleteProject statements against a real engine (open-followups §204)", () => {
   it("empties every registered side table for p1 and leaves p2 untouched", () => {
@@ -43,6 +48,20 @@ describe("hardDeleteProject statements against a real engine (open-followups §2
       expect(count(db, table, "p1"), table).toBe(0);
       expect(count(db, table, "p2"), table).toBe(1);
     }
+  });
+});
+
+describe("person_links on a project hard delete (§785)", () => {
+  it("removes rows naming the project on either side and keeps the rest", () => {
+    const db = new DatabaseSync(":memory:");
+    run(db, tenantSchemaDdl().map((sql) => ({ sql })));
+    run(db, projectSideTableSweepStatements("setup-only").filter((s) => !s.sql.startsWith("DELETE")));
+    insertFor(db, "person_links", "p1", 1, "p2"); // p1 on side A
+    insertFor(db, "person_links", "p0", 2, "p1"); // p1 on side B
+    insertFor(db, "person_links", "p2", 3, "p3"); // not p1
+    run(db, projectSideTableSweepStatements("p1"));
+    const left = db.prepare("SELECT project_a, project_b FROM person_links").all() as { project_a: string; project_b: string }[];
+    expect(left).toEqual([{ project_a: "p2", project_b: "p3" }]);
   });
 });
 

@@ -51,6 +51,8 @@ export interface CrossProjectPeople {
   elsewhere: (resourceId: number) => ElsewhereFigure[];
   /** Display name of a person in ANOTHER project, from the loaded data; "" when nothing is loaded or the person is unknown. */
   nameOf: (projectId: string, resourceId: number) => string;
+  /** Hours the suggested person would add in the shown plan periods if confirmed; 0 when nothing is loaded. */
+  suggestionHours: (rel: Relation) => number;
   request: () => void;
   confirm: (hereResourceId: number, rel: Relation) => Promise<void>;
   reject: (hereResourceId: number, rel: Relation) => Promise<void>;
@@ -226,6 +228,15 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     [effective],
   );
 
+  const suggestionHours = useCallback(
+    (rel: Relation): number => {
+      if (!effective) return 0;
+      const figures = elsewhereFor([{ ...rel, via: "confirmed" }], effective.others, herePeriods, workdayHours, holidaySet);
+      return figures.reduce((sum, f) => sum + Object.values(f.hoursByPeriod).reduce((a, h) => a + h, 0), 0);
+    },
+    [effective, herePeriods, workdayHours, holidaySet],
+  );
+
   const buildRow = (hereId: number, rel: Relation, verdict: PersonLinkRow["verdict"]): PersonLinkRow | null => {
     if (!effective || !currentProjectId) return null;
     const here = resources.find((r) => r.id === hereId);
@@ -292,7 +303,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   const failures = effective?.failures ?? NO_FAILURES;
   const loadFailed = available && loadFailedFor === currentProjectId;
   return useMemo(
-    () => ({ status, failures, singleProject, loadFailed, matches, elsewhere, nameOf, request, ...writers }),
-    [status, failures, singleProject, loadFailed, matches, elsewhere, nameOf, request, writers],
+    () => ({ status, failures, singleProject, loadFailed, matches, elsewhere, nameOf, suggestionHours, request, ...writers }),
+    [status, failures, singleProject, loadFailed, matches, elsewhere, nameOf, suggestionHours, request, writers],
   );
 }

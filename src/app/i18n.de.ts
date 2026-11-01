@@ -5569,7 +5569,7 @@ export const de: Record<TranslationKey, string> = {
   allocPlanMoveChanged: "Seit dem Vorschlag geändert: diese Verschiebung wird nicht angewendet.",
   allocPlanOverCapacity: "{0}: {1} Std. von {2} Std. im Zeitraum {3}",
   allocPlanOverCapacityElsewhere: "{0}: {1} Std. + {4} Std. anderswo von {2} Std. im Zeitraum {3}",
-  allocElsewhereNotLoaded: "Die Stunden in anderen Projekten sind noch nicht geladen. Ausführen fordert sie erneut an; versuchen Sie es gleich noch einmal.",
+  allocElsewhereNotLoaded: "Die Stunden in anderen Projekten sind noch nicht geladen. Vorschlagen fordert sie erneut an; versuchen Sie es gleich noch einmal.",
   allocElsewhereLabel: "{0} Std. in anderen Projekten",
   allocElsewhereTip: "Stunden, für die diese Person in anderen Projekten bereits eingeplant ist (ihr Planungsraster dort). Sie zählen hier gegen ihre Kapazität; Mit KI planen kann sie nicht ändern.",
   allocElsewhereHeading: "Dieselbe Person in einem anderen Projekt?",

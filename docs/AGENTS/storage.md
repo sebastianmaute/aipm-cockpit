@@ -637,6 +637,10 @@ Kept short: `AGENTS.md` owns each rule.
   chat threads, `person_links` (§785), templates, …) stay out, or a workspace save would wipe them. Each such store pins
   that with its own test: `grep -rln "TABLE_NAMES).not.toContain" src/app`. Rule: **New Turso table
   NOT workspace data**.
+  ★ A project hard delete sweeps these side tables by the columns that NAME a project: `PROJECT_SCOPED_SIDE_TABLES`
+  entries default to `project_id`, and `person_links` (§785) lists `project_a` + `project_b`, so a row naming the project on
+  EITHER side is removed (it holds people's names and emails). `turso-side-tables.guard.test.ts` flags any table with a
+  `project_id` / `project_<letter>` column that is not swept over all of them (`unsweptProjectTables`).
 - **`idKind`**: a spec with a string id must declare `idKind: "text"`; one does today (`grep -n
   'idKind: "' src/app/turso-schema.ts`). Same bullet.
 - **Self-heal**: `ensureColumns` runs once per backend instance (retried after a failure, which

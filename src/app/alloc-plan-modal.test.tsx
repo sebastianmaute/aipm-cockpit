@@ -361,6 +361,7 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
       matches: new Map(Object.entries(suggestions).map(([id, s]) => [Number(id), { matched: [], suggestions: s, rejected: [] }])),
       elsewhere: () => [],
       nameOf: () => "",
+      suggestionHours: () => 5,
       request: vi.fn(),
       confirm: vi.fn(async () => {}),
       reject: vi.fn(async () => {}),
@@ -404,6 +405,19 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
       expect(screen.queryByText(note)).toBeNull();
       r.unmount();
     }
+  });
+
+  it("the not-loaded hint names the button by its own label, in EN and DE (§785)", async () => {
+    await loadI18n("de");
+    for (const lang of ["en-US", "de"] as const) expect(t(lang, "allocElsewhereNotLoaded")).toContain(t(lang, "allocPlanPropose"));
+  });
+
+  it("lists only a suggestion that would change the figures: the other person has hours in the shown periods (§785)", () => {
+    const cp = crossProject({ suggestionHours: (r) => (r.projectId === "p2" ? 12 : 0) }, { 2: [rel("p2", "Apollo", 11), rel("p3", "Zeus", 5)] });
+    render(<AllocPlanModal {...withMove({ crossProject: cp })} />);
+    expect(screen.getAllByRole("button", { name: new RegExp("^" + t("en-US", "allocElsewhereConfirm")) })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /Apollo/ })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /Zeus/ })).toBeNull();
   });
 
   it("offers Confirm and Not the same for an unconfirmed suggestion of a person in the proposal, named per person and project", () => {

@@ -24,7 +24,10 @@ type Relation = PersonMatch["suggestions"][number];
 export function AllocElsewhereSuggestions({ lang, crossProject, resourceIds, nameOf, busy }: AllocElsewhereSuggestionsProps) {
   const rows: { id: number; rel: Relation }[] = [];
   for (const id of [...new Set(resourceIds)].sort((a, b) => a - b)) {
-    for (const rel of crossProject.matches.get(id)?.suggestions ?? []) rows.push({ id, rel });
+    // Only a suggestion that would change the figures: the suggested person has hours in the shown periods.
+    for (const rel of crossProject.matches.get(id)?.suggestions ?? []) {
+      if (crossProject.suggestionHours(rel) > 0) rows.push({ id, rel });
+    }
   }
   if (rows.length === 0) return null;
   const disabled = busy || crossProject.status === "loading";

@@ -5853,7 +5853,7 @@ const enUS = {
   allocPlanMoveChanged: "Changed since proposed: this move will not be applied.",
   allocPlanOverCapacity: "{0}: {1} h of {2} h in {3}",
   allocPlanOverCapacityElsewhere: "{0}: {1} h + {4} h elsewhere of {2} h in {3}",
-  allocElsewhereNotLoaded: "Hours in other projects are not loaded yet. Run asks for them again; try once more in a moment.",
+  allocElsewhereNotLoaded: "Hours in other projects are not loaded yet. Propose asks for them again; try once more in a moment.",
   allocElsewhereLabel: "{0} h in other projects",
   allocElsewhereTip: "Hours this person is already planned for in other projects (their Planning grid there). They count against their capacity here; Plan with AI cannot change them.",
   allocElsewhereHeading: "Same person in another project?",

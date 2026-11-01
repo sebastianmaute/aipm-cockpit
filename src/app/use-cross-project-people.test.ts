@@ -13,6 +13,7 @@ vi.mock("./person-links-store", () => ({
 vi.mock("./turso-backend", () => ({ TursoBackend: class {} }));
 
 import { deletePersonLink, loadPersonLinks, savePersonLink } from "./person-links-store";
+import { generatePeriods } from "./resource-capacity";
 import { configKeyOf, useCrossProjectPeople, type CrossProjectDeps } from "./use-cross-project-people";
 
 const CONFIG = { httpUrl: "https://x.turso.io", authToken: "t" } as TursoConfig;
@@ -366,6 +367,22 @@ describe("useCrossProjectPeople — a reload racing a write (§785)", () => {
 });
 
 // §785 — final minor fixes.
+describe("useCrossProjectPeople — suggestionHours (§785)", () => {
+  test("is the hours the suggested person would add in the shown periods: positive with hours, 0 without, 0 before a load", async () => {
+    const key = generatePeriods(PLAN.startDate, PLAN.endDate, PLAN.granularity)[0].key;
+    const load = vi.fn(async (_c: TursoConfig, id: string) =>
+      ws([res(10, "Ann", "Lee", { utilizationMode: "hours", utilization: id === "p-b" ? { [key]: 20 } : {} })]));
+    const { hook } = setup({ load });
+    const relB = { projectId: "p-b", projectName: "B", resourceId: 10 };
+    const relC = { projectId: "p-c", projectName: "C", resourceId: 10 };
+    expect(hook.result.current.suggestionHours(relB)).toBe(0);
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(hook.result.current.suggestionHours(relB)).toBe(20);
+    expect(hook.result.current.suggestionHours(relC)).toBe(0);
+  });
+});
+
 describe("useCrossProjectPeople — final fixes (§785)", () => {
   test("a request made while unavailable is not remembered: becoming available starts no load", async () => {
     const { hook, load, deps } = setup({ loadPending: true });

@@ -237,7 +237,7 @@ export function buildAppModalsBlock(deps: AppModalsBlockDeps) {
         handleRemoveContact={handleRemoveContact}
         onAddAssigneeToAddressBook={isPopout ? undefined : handleAddAssigneeToAddressBook}
         editingResource={editingResource}
-        crossProject={crossProject}
+        crossProject={isPopout ? undefined : crossProject}
         onSaveResource={handleSaveResourceFromAnywhere}
         onDeleteResource={handleDeleteResource}
         onCloseResourceModal={handleCloseResourceFromAnywhere}

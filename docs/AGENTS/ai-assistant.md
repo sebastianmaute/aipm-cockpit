@@ -1138,12 +1138,15 @@
   ★ **Answers** live in the global `person_links` table (`person-links-schema.ts`, `person-links-store.ts`), kept OUT of
   `TABLE_NAMES` and built like `chat_threads`: DDL ahead of each read or write, one row per canonical pair
   (`project_a < project_b`), columns `first_a`, `last_a`, `first_b`, `last_b` (not one name per side), `emails_a`,
-  `emails_b`, `decided_at`, `decided_by`. A failed write leaves the in-memory links untouched and toasts
+  `emails_b`, `decided_at`, `decided_by`. A project hard delete removes every row naming that project on either side
+  (`PROJECT_SCOPED_SIDE_TABLES`, `columns: ["project_a", "project_b"]`; the §204 guard checks all `project_<letter>` columns,
+  since the table has no `project_id`). A failed write leaves the in-memory links untouched and toasts
   (`onWriteError`); writes are epoch-guarded. `decided_by` is blank today: the hook accepts `actorLabel` but
   `task-manager.tsx` does not pass it. Confirm / Not the same / Undo are in two places that write the same row: the
   person's entry (`resource-links-section.tsx`, with a `HelpIconButton` for `feature-cross-project-people` beside the
   `InfoTooltip`, because a tooltip cannot carry a link; the review window's elsewhere label in `alloc-plan-moves.tsx` pairs the same two) and the review window (`alloc-elsewhere-suggestions.tsx`, for
-  the resources the active alternative touches). Both disable their buttons while a load runs, because a write during
+  the resources the active alternative touches, and only for a suggestion whose person has hours in the shown periods:
+  `suggestionHours(rel) > 0`). Both disable their buttons while a load runs, because a write during
   a reload would be lost in memory. ★ Neither is in axe's views (Turso-only), so their unit tests are the only a11y
   coverage; names are row-unique (person, project and ids).
 - **Forecast import, Claude route (§500):** ONE forced `propose_forecast_mapping` call in

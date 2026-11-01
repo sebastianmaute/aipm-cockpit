@@ -737,6 +737,7 @@ describe("ResourceEditModal — other projects (§785)", () => {
       singleProject: false,
       matches: new Map([[1, { matched: [], suggestions: [], rejected: [], ...match }]]),
       elsewhere: () => [],
+      suggestionHours: () => 5,
       nameOf: (p, r) => names[`${p}:${r}`] ?? "",
       request: vi.fn(),
       confirm: vi.fn(async () => {}),

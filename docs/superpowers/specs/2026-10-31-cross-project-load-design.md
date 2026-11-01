@@ -196,6 +196,13 @@ one or two sentences and links to the entry.
 - A single-project Turso portfolio reports `singleProject`, and the digest says there are no other projects.
 - A link write made during a reload is kept in `runWritesRef` and re-applied over the reloaded links.
 - The over-capacity line reads "<here> h + <elsewhere> h elsewhere of <available> h" when elsewhere hours exist.
+- Run (Propose) is REFUSED while the other projects load rather than queuing the send: the button is disabled while
+  loading; when idle without a failure a click re-requests and sends nothing, with the "not loaded" hint.
+- A project hard delete removes `person_links` rows naming the project on either side (`PROJECT_SCOPED_SIDE_TABLES`
+  entry with `columns`), and the §204 guard now checks every `project_<letter>` column.
+- The review window lists a name suggestion only when the suggested person has hours in the shown periods
+  (`suggestionHours`), as decision 3 says; the Resource entry lists all suggestions.
+- The person's entry is not offered in a popout (`crossProject` is `undefined` there).
 - The help link beside the tooltip is a `HelpIconButton` that opens the entry in place; an `InfoTooltip` cannot carry a link.
 
 ## Left to the builder
