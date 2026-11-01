@@ -1,6 +1,7 @@
 // SERVER-ONLY. Reads the deployment's Anthropic key restriction from the environment
-// (AIPM_AI_ORGANIZATION_ID, AIPM_AI_WORKSPACE_IDS) on every call, like the gateway setting, so a
-// restart applies a change and no rebuild is needed. Import this from `ai-gateway-config.ts`,
+// (AIPM_AI_ORGANIZATION_ID, AIPM_AI_WORKSPACE_IDS; a near miss of either makes it invalid, see
+// `isMisspelledRestrictionEnv`) on every call, like the gateway setting, so a restart applies a
+// change and no rebuild is needed. Import this from `ai-gateway-config.ts`,
 // `src/proxy.ts` and API routes only; a test pins that no client module imports it.
 //
 // The ids never reach a browser: the client learns only that a restriction exists
@@ -10,7 +11,23 @@
 export const AI_ORGANIZATION_ID_ENV = "AIPM_AI_ORGANIZATION_ID";
 export const AI_WORKSPACE_IDS_ENV = "AIPM_AI_WORKSPACE_IDS";
 
-export type AiKeyRestrictionInvalidReason = "org-id" | "workspace-ids" | "workspaces-without-org";
+/** A near miss of the two names above: a name that, upper-cased, starts with `AIPM_AI_` and contains
+ *  `ORG` or `WORKSPACE`, and is not exactly one of the two real names. No other setting of the app
+ *  matches. Any such variable set (non-blank) makes the restriction invalid, even beside correctly
+ *  spelled settings: a misspelled name would otherwise be ignored and the deployment would run
+ *  unrestricted without saying so.
+ *
+ *  The real names compare exactly, so a lower- or mixed-case spelling of one is misspelled too. On
+ *  Windows, `process.env` looks names up regardless of case but lists each one as it was set, so a
+ *  real name set as documented is listed exactly and passes, and one set in another case is listed
+ *  in that case and is caught, as on every other system. */
+export function isMisspelledRestrictionEnv(name: string): boolean {
+  if (name === AI_ORGANIZATION_ID_ENV || name === AI_WORKSPACE_IDS_ENV) return false;
+  const upper = name.toUpperCase();
+  return upper.startsWith("AIPM_AI_") && (upper.includes("ORG") || upper.includes("WORKSPACE"));
+}
+
+export type AiKeyRestrictionInvalidReason = "org-id" | "workspace-ids" | "workspaces-without-org" | "misspelled-setting";
 
 export type AiKeyRestriction =
   | { kind: "none" }
@@ -34,6 +51,10 @@ const WORKSPACE_ID_SHAPE = /^wrkspc_[A-Za-z0-9]+$/;
 /** The setting, parsed, with no side effect. The organisation id compares case-insensitively and is
  *  lower-cased; workspace ids are kept exactly as written and compare exactly. */
 export function parseAiKeyRestriction(env: Env): AiKeyRestriction {
+  // The names as listed, not looked up: only a listing shows how a name was actually spelled.
+  if (Object.keys(env).some((name) => isMisspelledRestrictionEnv(name) && (env[name]?.trim() ?? "") !== "")) {
+    return { kind: "invalid", reason: "misspelled-setting" };
+  }
   const org = env[AI_ORGANIZATION_ID_ENV]?.trim() ?? "";
   const rawWorkspaces = env[AI_WORKSPACE_IDS_ENV]?.trim() ?? "";
   if (!org && !rawWorkspaces) return { kind: "none" };

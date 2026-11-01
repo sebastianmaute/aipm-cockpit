@@ -594,6 +594,14 @@ describe("relay — straight to Anthropic when keys are restricted and there is 
     expect(calls).toHaveLength(0);
   });
 
+  it("a misspelled setting name beside a valid restriction → 503 ai-gateway-invalid, nothing sent", async () => {
+    const { send, calls } = fakeSend(checkedAs(ORG));
+    const res = await relay(post(), "messages", { ...RESTRICTED_ENV, AIPM_AI_ORGANISATION_ID: ORG }, send, createKeyChecker());
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "ai-gateway-invalid" });
+    expect(calls).toHaveLength(0);
+  });
+
   it("a call without a key of its own is still refused with 400", async () => {
     const { send, calls } = fakeSend();
     const res = await relay(post({ "x-api-key": " " }), "messages", RESTRICTED_ENV, send);

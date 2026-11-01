@@ -42,11 +42,14 @@ export function sanitizeConsent(v: unknown): AiConsent | undefined {
   if (typeof disclosureVersion !== "number" || !Number.isInteger(disclosureVersion) || disclosureVersion < 1) {
     return undefined;
   }
-  // An unknown route is dropped, not the record: it then counts as direct. A keyRestricted other than `true` is
-  // dropped too (absent counts as false).
+  // A record with no route predates routes and counts as direct. A route that is present but not one this release
+  // knows (written by a later release, say, before a rollback) is no consent at all, so the user is asked again:
+  // read as direct, consent given for another route would become consent for a direct one. A keyRestricted other
+  // than `true` is dropped (absent counts as false).
   const restricted = keyRestricted === true ? { keyRestricted: true } : {};
+  if (route === undefined) return { acceptedAt, disclosureVersion, ...restricted };
   if (route === "direct" || route === "gateway" || route === "relay") return { acceptedAt, disclosureVersion, route, ...restricted };
-  return { acceptedAt, disclosureVersion, ...restricted };
+  return undefined;
 }
 
 export class AiConsentRevokedError extends Error {

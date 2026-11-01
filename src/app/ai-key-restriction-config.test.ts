@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AI_ORGANIZATION_ID_ENV,
   AI_WORKSPACE_IDS_ENV,
+  isMisspelledRestrictionEnv,
   parseAiKeyRestriction,
   readAiKeyRestriction,
 } from "./ai-key-restriction-config";
@@ -83,6 +84,81 @@ describe("parseAiKeyRestriction", () => {
 
   it("reports the organisation id before the workspace list", () => {
     expect(parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: "bad", AIPM_AI_WORKSPACE_IDS: "bad" })).toEqual({ kind: "invalid", reason: "org-id" });
+  });
+});
+
+describe("parseAiKeyRestriction — misspelled settings", () => {
+  const MISSPELLED = [
+    "AIPM_AI_ORGANISATION_ID",
+    "AIPM_AI_ORGANISATION_IDS",
+    "AIPM_AI_ORGANIZATION_IDS",
+    "AIPM_AI_WORKSPACE_ID",
+    "AIPM_AI_ORG_ID",
+    "AIPM_AI_WORKSPACES_IDS",
+    "aipm_ai_organization_id",
+    "Aipm_Ai_Workspace_Ids",
+  ];
+
+  it.each(MISSPELLED)("the rule catches %s", (name) => {
+    expect(isMisspelledRestrictionEnv(name)).toBe(true);
+  });
+
+  it.each(["AIPM_AI_ORGANIZATION_ID", "AIPM_AI_WORKSPACE_IDS", "AIPM_AI_GATEWAY_URL", "AIPM_AI_GATEWAY_TOKEN", "AIPM_DISABLED_INTEGRATIONS", "ORG_ID", "XAIPM_AI_ORG_ID"])(
+    "the rule leaves %s alone",
+    (name) => {
+      expect(isMisspelledRestrictionEnv(name)).toBe(false);
+    },
+  );
+
+  it.each(MISSPELLED)("%s alone is invalid, never silently unrestricted", (name) => {
+    expect(parseAiKeyRestriction({ [name]: ORG })).toEqual({ kind: "invalid", reason: "misspelled-setting" });
+  });
+
+  it.each(MISSPELLED)("%s beside a valid setting is still invalid", (name) => {
+    expect(parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG, AIPM_AI_WORKSPACE_IDS: WS_A, [name]: ORG })).toEqual({
+      kind: "invalid",
+      reason: "misspelled-setting",
+    });
+  });
+
+  it.each(MISSPELLED)("%s empty or blank is ignored", (name) => {
+    expect(parseAiKeyRestriction({ [name]: "" })).toEqual({ kind: "none" });
+    expect(parseAiKeyRestriction({ [name]: "   " })).toEqual({ kind: "none" });
+    expect(parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: ORG, [name]: " " })).toMatchObject({ kind: "restricted" });
+  });
+
+  it("is reported before an invalid correctly spelled setting", () => {
+    expect(parseAiKeyRestriction({ AIPM_AI_ORGANIZATION_ID: "bad", AIPM_AI_WORKSPACE_ID: WS_A })).toEqual({
+      kind: "invalid",
+      reason: "misspelled-setting",
+    });
+  });
+
+  it("an unrelated AIPM_AI_ setting does not count", () => {
+    expect(parseAiKeyRestriction({ AIPM_AI_GATEWAY_URL: "https://gateway.example.net/x", AIPM_AI_ORGANIZATION_ID: ORG })).toMatchObject({
+      kind: "restricted",
+    });
+  });
+
+  /** Windows' `process.env`: lookups ignore case, and its keys are the names exactly as they were set. */
+  function windowsLikeEnv(vars: Record<string, string>): Record<string, string | undefined> {
+    const find = (name: string) => Object.keys(vars).find((k) => k.toUpperCase() === name.toUpperCase());
+    return new Proxy(vars, {
+      get: (target, prop) => (typeof prop === "string" ? target[find(prop) ?? prop] : undefined),
+      has: (_target, prop) => typeof prop === "string" && find(prop) !== undefined,
+    });
+  }
+
+  it("on a case-insensitive environment, the real names set as written still restrict", () => {
+    expect(parseAiKeyRestriction(windowsLikeEnv({ AIPM_AI_ORGANIZATION_ID: ORG, AIPM_AI_WORKSPACE_IDS: WS_A }))).toMatchObject({
+      kind: "restricted",
+      workspaceIds: [WS_A],
+    });
+  });
+
+  it("on a case-insensitive environment, a real name set in lower case is still misspelled", () => {
+    // The lookup by the real name would find it there, but the name was not written as documented.
+    expect(parseAiKeyRestriction(windowsLikeEnv({ aipm_ai_organization_id: ORG }))).toEqual({ kind: "invalid", reason: "misspelled-setting" });
   });
 });
 

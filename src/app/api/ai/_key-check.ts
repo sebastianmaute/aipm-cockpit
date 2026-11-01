@@ -4,7 +4,7 @@
 // A free pre-flight `GET <base>/v1/models?limit=1` with the caller's key goes through the same
 // upstream as the real request (the gateway, with its token, or Anthropic itself; a gateway must pass
 // Anthropic's answer headers back, docs/RUNBOOK.md "Restricting AI to the organisation's Anthropic
-// keys" step 5), and the `anthropic-organization-id` and `anthropic-workspace-id` answer headers decide:
+// keys" step 6), and the `anthropic-organization-id` and `anthropic-workspace-id` answer headers decide:
 //   - organisation matches and (when workspaces are listed) the workspace is listed → pass;
 //   - another organisation → wrong-organization; a workspace not listed → wrong-workspace, and so
 //     is an answer with no workspace header at all while workspaces are listed (Anthropic sends
@@ -12,9 +12,11 @@
 //   - Anthropic's own 401/403 → its answer is passed through unchanged (an invalid key is not
 //     a policy verdict). The 401 is remembered for `rejectedTtlMs` (60 s) so repeated calls with
 //     one invalid key do not each send a pre-flight; the 403 never is;
-//   - anything else (network error, timeout, 3xx, 404, 429, 5xx, a 2xx without the organisation
-//     header, or with an empty or repeated header) → unavailable, and the caller forwards nothing.
-//     Fails closed.
+//   - anything else (network error, idle timeout, the overall `deadlineMs` passing, 3xx, 404, 429,
+//     5xx, a 2xx without the organisation header, or with an empty or repeated header) →
+//     unavailable, and the caller forwards nothing.
+//     Fails closed. So is a new pre-flight asked for while `MAX_PREFLIGHTS_IN_FLIGHT` distinct ones
+//     are already running: it is not sent.
 //
 // Through a gateway the pre-flight sends `cf-aig-skip-cache: true` (Cloudflare AI Gateway's
 // per-request cache bypass; checked 2026-10-31 at
@@ -25,7 +27,8 @@
 // Verdicts are cached in memory by an HMAC-SHA-256 of the key under a secret drawn at random
 // when this module loads, so a fingerprint means nothing outside this process. A pass is kept for
 // the life of the entry, a refusal for `refusalTtlMs`, Anthropic's own 401 for `rejectedTtlMs`;
-// "unavailable", a 403 and a gateway's refusal never. A change of the
+// "unavailable", a 403 and a gateway's refusal never. Past `maxEntries` the least recently used
+// entry is evicted (a cache hit counts as a use). A change of the
 // restriction (its `signature`) clears the cache. The key itself is never logged, returned or
 // stored; it lives only in the pre-flight while that runs.
 
@@ -57,8 +60,15 @@ export const KEY_CHECK_DEFAULT_MAX_ENTRIES = 1000;
 export const KEY_CHECK_DEFAULT_REFUSAL_TTL_MS = 5 * 60 * 1000;
 // How long Anthropic's own 401 for a key is remembered: short, so a key fixed upstream is tried again soon.
 export const KEY_CHECK_DEFAULT_REJECTED_TTL_MS = 60 * 1000;
+// Distinct pre-flights running at once, across all keys. A new one asked for at the cap is not sent:
+// the check is unavailable (503, "try again"). Callers coalesced onto a running one take no slot.
+export const MAX_PREFLIGHTS_IN_FLIGHT = 32;
 // Idle timeout on the pre-flight's socket: past it the check is unavailable.
 export const KEY_CHECK_TIMEOUT_MS = 30 * 1000;
+// Overall limit on one pre-flight, from send to verdict, however much data keeps arriving: an
+// upstream that trickles bytes would otherwise reset the idle timeout forever and hold a slot.
+// Past it the request is destroyed and the check is unavailable (never cached).
+export const KEY_CHECK_DEADLINE_MS = 30_000;
 // Used only when the browser sent no `anthropic-version` (the app always sends one).
 const DEFAULT_ANTHROPIC_VERSION = "2023-06-01";
 
@@ -147,20 +157,29 @@ function preflight(
   upstream: Upstream,
   send: RelaySend,
   anthropicVersion: string,
+  deadlineMs: number,
 ): Promise<Finding> {
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (finding: Finding) => {
+    let request: UpstreamRequest | null = null;
+    // Every exit goes through `finish`, which clears the deadline: a settled check leaves no timer.
+    const deadline = setTimeout(() => {
+      request?.destroy();
+      finish(UNAVAILABLE);
+    }, deadlineMs);
+    // Never keeps the server process alive on its own.
+    deadline.unref?.();
+    function finish(finding: Finding) {
       if (settled) return;
       settled = true;
+      clearTimeout(deadline);
       resolve(finding);
-    };
+    }
     const headers: Record<string, string> = { "x-api-key": key, "anthropic-version": anthropicVersion };
     if (upstream.token) headers["cf-aig-authorization"] = `Bearer ${upstream.token}`;
     // Any upstream other than Anthropic itself is a gateway: never answer the check from its cache.
     if (upstream.token || upstream.baseUrl !== ANTHROPIC_API_BASE) headers["cf-aig-skip-cache"] = "true";
     const options: RequestOptions = { method: "GET", headers, timeout: KEY_CHECK_TIMEOUT_MS };
-    let request: UpstreamRequest | null = null;
     try {
       request = send(new URL(`${upstream.baseUrl}/v1/models?limit=1`), options, (res) => {
         findingFrom(res, request, restriction, upstream).then(finish, () => {
@@ -211,15 +230,26 @@ function rememberable(finding: Finding): Kept | null {
 }
 
 export function createKeyChecker(
-  opts: { maxEntries?: number; refusalTtlMs?: number; rejectedTtlMs?: number; now?: () => number } = {},
+  opts: {
+    maxEntries?: number;
+    refusalTtlMs?: number;
+    rejectedTtlMs?: number;
+    maxPreflightsInFlight?: number;
+    deadlineMs?: number;
+    now?: () => number;
+  } = {},
 ): KeyChecker {
   const maxEntries = opts.maxEntries ?? KEY_CHECK_DEFAULT_MAX_ENTRIES;
   const refusalTtlMs = opts.refusalTtlMs ?? KEY_CHECK_DEFAULT_REFUSAL_TTL_MS;
   const rejectedTtlMs = opts.rejectedTtlMs ?? KEY_CHECK_DEFAULT_REJECTED_TTL_MS;
+  const maxPreflightsInFlight = opts.maxPreflightsInFlight ?? MAX_PREFLIGHTS_IN_FLIGHT;
+  const deadlineMs = opts.deadlineMs ?? KEY_CHECK_DEADLINE_MS;
   const now = opts.now ?? Date.now;
-  // Insertion order is age order: the first entry is the oldest.
+  // Map order is recency order: the first entry is the least recently used, and a hit moves its
+  // entry to the end, so eviction drops the entry unused for longest.
   const cache = new Map<string, CacheEntry>();
-  // In-flight pre-flights by signature, hash and version: concurrent callers with one new key share one.
+  // In-flight pre-flights by signature, hash and version: concurrent callers with one new key share
+  // one. Its size is the number of slots taken; an entry leaves it however its pre-flight ends.
   const inFlight = new Map<string, Promise<Finding>>();
   let signature: string | null = null;
 
@@ -231,6 +261,9 @@ export function createKeyChecker(
       cache.delete(hash);
       return null;
     }
+    // Most recently used now; the entry keeps the time its verdict was reached.
+    cache.delete(hash);
+    cache.set(hash, entry);
     return entry.kind === "upstream-error"
       ? { kind: entry.kind, status: entry.status, contentType: entry.contentType, body: entry.body }
       : { kind: entry.kind };
@@ -263,12 +296,18 @@ export function createKeyChecker(
       const flightKey = `${restriction.signature}\n${hash}\n${anthropicVersion}`;
       let flight = inFlight.get(flightKey);
       if (!flight) {
+        // No slot free: nothing is sent and nothing is cached; the caller may try again.
+        if (inFlight.size >= maxPreflightsInFlight) return { kind: "unavailable" };
         const forSignature = restriction.signature;
-        flight = preflight(key, restriction, upstream, send, anthropicVersion).then((finding) => {
-          inFlight.delete(flightKey);
-          remember(hash, finding, forSignature);
-          return finding;
-        });
+        flight = preflight(key, restriction, upstream, send, anthropicVersion, deadlineMs)
+          .then(
+            (finding) => {
+              remember(hash, finding, forSignature);
+              return finding;
+            },
+            (): Finding => UNAVAILABLE,
+          )
+          .finally(() => inFlight.delete(flightKey));
         inFlight.set(flightKey, flight);
       }
       return toVerdict(await flight);

@@ -49,7 +49,7 @@ const WORKSPACE_HEADER = "anthropic-workspace-id";
 const GATEWAY_PASSES_HEADERS =
   "the gateway did not pass back both anthropic-organization-id and anthropic-workspace-id, so every check is "
   + "unavailable and AI stays off. docs/RUNBOOK.md, Restricting AI to the organisation's Anthropic keys, "
-  + "step 5: such a gateway cannot be combined with the restriction. Fix the gateway; never loosen the check";
+  + "step 6: such a gateway cannot be combined with the restriction. Fix the gateway; never loosen the check";
 
 type CallKind = "preflight" | "models" | "messages" | "other";
 interface UpstreamCall {

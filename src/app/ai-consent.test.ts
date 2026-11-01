@@ -224,11 +224,32 @@ describe("route-bound consent", () => {
   it("a stored relay route parses", () => {
     expect(sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: 1, route: "relay" })?.route).toBe("relay");
   });
-  it("sanitizeConsent keeps a valid route and drops an invalid one", () => {
-    expect(sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: 1, route: "gateway" })?.route).toBe("gateway");
-    const bad = sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: 1, route: "x" });
-    expect(bad).toEqual({ acceptedAt: D.toISOString(), disclosureVersion: 1 });
+  it.each(["direct", "gateway", "relay"] as const)("sanitizeConsent round-trips the known route %s", (route) => {
+    const stored = { acceptedAt: D.toISOString(), disclosureVersion: 1, route };
+    expect(sanitizeConsent(stored)).toEqual(stored);
+    expect(sanitizeConsent(JSON.parse(JSON.stringify(sanitizeConsent(stored))))).toEqual(stored);
   });
+  it("a record with no route keeps counting as direct (records from before routes existed)", () => {
+    const legacy = { acceptedAt: D.toISOString(), disclosureVersion: AI_DISCLOSURE_VERSION };
+    expect(sanitizeConsent(legacy)).toEqual(legacy);
+    expect(sanitizeConsent({ ...legacy, route: undefined })).toEqual(legacy);
+    setAiDeploymentState(DIRECT);
+    expect(isConsentCurrent(sanitizeConsent(legacy))).toBe(true);
+  });
+  // A route this release does not know (one written by a later release, say, before a rollback) must not
+  // turn into consent for a direct route: the user is asked again.
+  it.each([["an unknown route string", "x"], ["a route from a later release", "proxy"], ["a route in another case", "Gateway"]])(
+    "%s is no consent at all",
+    (_name, route) => {
+      expect(sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: AI_DISCLOSURE_VERSION, route })).toBeUndefined();
+    },
+  );
+  it.each([["a number", 7], ["null", null], ["an object", { kind: "gateway" }], ["a boolean", true], ["an array", ["direct"]]])(
+    "a route that is %s is no consent at all",
+    (_name, route) => {
+      expect(sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: AI_DISCLOSURE_VERSION, route })).toBeUndefined();
+    },
+  );
   it.each([["off", { off: true, route: "direct", invalid: false, keyRestricted: false }], ["invalid", { off: false, route: "direct", invalid: true, keyRestricted: false }]] as const)(
     "a deployment that is %s blocks the published state", (_n, st) => {
       const ai = { ...defaultAiConfig, enabled: true, consent: newConsent(D), backgroundConsent: newConsent(D) };

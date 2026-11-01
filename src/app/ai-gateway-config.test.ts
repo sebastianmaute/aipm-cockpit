@@ -163,6 +163,29 @@ describe("aiDeploymentStateFrom with a key restriction", () => {
     expect(aiDeploymentStateFrom({ AIPM_AI_WORKSPACE_IDS: ORG })).toMatchObject({ invalidReason: "workspaces-without-org" });
   });
 
+  it("a misspelled setting name is the relay route, invalid, with its reason", () => {
+    expect(aiDeploymentStateFrom({ AIPM_AI_ORGANISATION_ID: ORG })).toEqual({
+      off: false,
+      route: "relay",
+      invalid: true,
+      invalidReason: "misspelled-setting",
+      keyRestricted: true,
+    });
+    expect(aiDeploymentStateFrom({ AIPM_AI_WORKSPACE_ID: "x", AIPM_AI_GATEWAY_URL: GW })).toMatchObject({
+      route: "gateway",
+      invalid: true,
+      invalidReason: "misspelled-setting",
+    });
+  });
+
+  it("a misspelled setting name beside an invalid gateway reports the misspelling", () => {
+    expect(aiDeploymentStateFrom({ AIPM_AI_ORGANIZATION_IDS: ORG, AIPM_AI_GATEWAY_URL: "http://x" })).toMatchObject({
+      route: "gateway",
+      invalid: true,
+      invalidReason: "misspelled-setting",
+    });
+  });
+
   it("an invalid restriction beside an invalid gateway reports the restriction's reason", () => {
     expect(aiDeploymentStateFrom({ AIPM_AI_ORGANIZATION_ID: "nope", AIPM_AI_GATEWAY_URL: "http://x" })).toEqual({
       off: false,
