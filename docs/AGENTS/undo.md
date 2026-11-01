@@ -206,6 +206,16 @@ the write-through keys at the top level only) — so a redo cannot destroy an un
 reused a freed id. §179 is why it ignores those keys: whole-row equality let a note added after the
 undo block the redo, and the next undo then spliced in a second copy.
 
+★★ **A person delete's REDO reports the ids it removed (§788).** `CapturePart.onRedoRemoved` is called ONCE per redo with the
+ids that redo actually removed from that fragment's array, computed by `forwardRemovedIds` (`undo-stack.ts`) from the array the
+redo runs against, with the same `rowsEqualExcept` identity guard `applyUndoForward` applies: a row edited since the Undo is kept
+by the redo and is NOT reported. The report is queued from the state updater as a microtask (an updater may run more than once or
+late, and the callback must not run during render), at most once per redo. The UNDO direction never calls it. The two
+`resource.deleted` captures (`use-resource-directory.ts` single and bulk, the AI `deleteResource` in `use-chat-dispatcher.ts`) pass
+it, forwarding to `onResourcesDeleted`, which sweeps the person's cross-project answers; the ids are the ones the redo removed,
+which differ from the originals when Undo re-minted an id. Pinned by `use-resource-directory.forget-redo.test.tsx` and the redo
+test in `use-chat-dispatcher.forget-people.test.tsx`, both on the real stack.
+
 ## Gates on the stack
 
 - **Popouts record nothing (§91).** `isReadOnly` is read lazily on every capture and every restore

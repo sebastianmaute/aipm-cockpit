@@ -5867,7 +5867,7 @@ const enUS = {
   allocElsewhereLoadFailed: "Other projects could not be loaded, so hours in other projects are not counted.",
   allocElsewhereLoading: "Loading other projects…",
   allocElsewhereWriteFailed: "Could not save your answer about the person in the other project. Nothing was changed.",
-  allocElsewhereForgetFailed: "The person was deleted, but their name could not be removed from the answers shared with your other projects. It may still show there.",
+  allocElsewhereForgetFailed: "The delete went through, but the shared answers about the deleted person or people could not be cleaned up, so their names may remain in the database your projects share. To try again while it is still offered, press Undo and delete again.",
 
   resourceLinksNone: "Not found in other projects.",
   resourceLinksHeading: "Other projects",

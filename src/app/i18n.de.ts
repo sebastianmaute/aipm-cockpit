@@ -5583,7 +5583,7 @@ export const de: Record<TranslationKey, string> = {
   allocElsewhereLoadFailed: "Andere Projekte konnten nicht geladen werden, Stunden in anderen Projekten werden nicht mitgezählt.",
   allocElsewhereLoading: "Andere Projekte werden geladen…",
   allocElsewhereWriteFailed: "Ihre Antwort zur Person im anderen Projekt konnte nicht gespeichert werden. Es wurde nichts geändert.",
-  allocElsewhereForgetFailed: "Die Person wurde gelöscht, aber ihr Name konnte nicht aus den Antworten entfernt werden, die mit Ihren anderen Projekten geteilt werden. Er kann dort noch erscheinen.",
+  allocElsewhereForgetFailed: "Das Löschen wurde ausgeführt, aber die geteilten Antworten zu den gelöschten Personen konnten nicht bereinigt werden, daher können ihre Namen in der von Ihren Projekten gemeinsam genutzten Datenbank bleiben. Für einen neuen Versuch, solange es angeboten wird, klicken Sie auf Rückgängig und löschen Sie erneut.",
 
   resourceLinksNone: "In anderen Projekten nicht gefunden.",
   resourceLinksHeading: "Andere Projekte",

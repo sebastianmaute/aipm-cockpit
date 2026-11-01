@@ -37,7 +37,7 @@ function setup(over: Partial<CrossProjectDeps> = {}) {
   const deps: CrossProjectDeps = {
     tursoConfig: CONFIG, portfolioMode: "turso", projects: PROJECTS, currentProjectId: "p-here",
     resources: HERE_RES, plan: PLAN, workdayHours: 8, holidaySet: new Set(), loadPending: false,
-    getScopeEpoch: () => 0, load, ...over,
+    getScopeEpoch: () => 0, storageKind: "turso", load, ...over,
   };
   return { load, deps, hook: renderHook((p: CrossProjectDeps) => useCrossProjectPeople(p), { initialProps: deps }) };
 }
@@ -585,7 +585,8 @@ describe("useCrossProjectPeople — forgetPeople (§788)", () => {
   });
 
   test("outside portfolio mode (file mode, no config, no open project) nothing is swept", async () => {
-    for (const over of [{ portfolioMode: "file" as const }, { tursoConfig: null }, { currentProjectId: null }]) {
+    // `portfolioMode` is frozen at startup, so a switch to another storage leaves it on "turso": the live kind decides.
+    for (const over of [{ portfolioMode: "file" as const }, { tursoConfig: null }, { currentProjectId: null }, { storageKind: "browser" as const }, { storageKind: "local-json" as const }]) {
       const { hook } = setup(over);
       await act(async () => hook.result.current.forgetPeople([1]));
     }
@@ -637,13 +638,19 @@ describe("useCrossProjectPeople — forgetPeople (§788)", () => {
     expect(deletePersonLinksFor).toHaveBeenCalledWith(CONFIG, "p-here", [1]);
   });
 
-  test("bringing the person back (Undo of the delete) does not bring the answer back; the name suggestions reappear on their own", async () => {
+  test("after the person is restored (Undo of the delete) nothing re-wrote the answer; a new Confirm writes a new row", async () => {
     const { hook, deps } = await readyWithConfirmed();
+    expect(savePersonLink).toHaveBeenCalledTimes(1); // the original Confirm
     await act(async () => hook.result.current.forgetPeople([1]));
-    hook.rerender({ ...deps, resources: [res(1, "Ann", "Lee")] }); // the person is restored
+    hook.rerender({ ...deps, resources: [] }); // the person is gone ...
+    hook.rerender({ ...deps, resources: [res(1, "Ann", "Lee")] }); // ... and Undo brings them back
+    expect(savePersonLink).toHaveBeenCalledTimes(1); // nothing re-wrote the old answer
     expect(hook.result.current.matches.get(1)?.matched).toEqual([]);
-    expect(hook.result.current.matches.get(1)?.suggestions).toHaveLength(2);
-    expect(savePersonLink).toHaveBeenCalledTimes(1); // only the original confirm; nothing re-wrote the answer
+    expect(hook.result.current.matches.get(1)?.suggestions).toHaveLength(2); // the name suggestion returns on its own
+    await act(async () => hook.result.current.confirm(1, REL));
+    expect(savePersonLink).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(savePersonLink).mock.calls[1][1]).toMatchObject({ projectA: "p-here", resourceA: 1, verdict: "same" });
+    expect(hook.result.current.matches.get(1)?.matched).toHaveLength(1);
   });
 
   test("forgetPeople keeps one identity across a re-render that changes nothing", async () => {

@@ -1120,7 +1120,7 @@
   ★★ **The two verdicts go stale differently, on purpose.** A `same` row is live only while both resources still carry
   the stored first name AND last name, each compared separately, so a re-minted id or a re-split name cannot inherit a
   confirmation. A `different` row applies whatever the names are now, because a rejection can only remove a relation;
-  the price is that a re-minted id inherits it until someone presses Undo in the person's entry (§788: only after a FAILED delete sweep, since a delete now removes the person's rows). A row naming a
+  the price is that a re-minted id inherits it until someone presses Undo in the person's entry (§788: only when the person's rows were NOT swept, see the exceptions under "Deleting a person removes their rows"). A row naming a
   project not in the list or a missing resource id matches nothing. Two resources of one other project matching the
   same person BOTH count and their hours are summed (`figureFor` in `cross-project/elsewhere-hours.ts`). External and
   inactive resources count.
@@ -1148,17 +1148,29 @@
   since the table has no `project_id`).
   ★★ **Deleting a person removes their rows (§788).** `forgetPeople(ids)` on `useCrossProjectPeople` deletes every row naming
   (this project, id) on EITHER side (`deletePersonLinksForStatements`: both sides match on the project AND the id, so another
-  project's same-numbered id stays). All three delete paths call it, and only with ids that were actually removed:
-  `handleDeleteResource` and `handleBulkDeleteResources` (`use-resource-directory.ts`, through the `onResourcesDeleted`
-  arg of `useResourcePlanner`) and the AI `deleteResource` (`use-chat-dispatcher.ts`). task-manager builds the planner BEFORE
-  `useCrossProjectApp` (which needs `resources`), so the planner reports through `useForgetPeopleBridge`'s `notify`, and
-  `useCrossProjectApp` binds `forgetPeople` in an effect; the dispatcher is built after it and takes `crossProject.forgetPeople`
-  directly. ★ It is NOT refused while loading and needs no other project loaded (a delete must always reach the table; rows
-  outlive the other projects); it rides `commit`, so a reload that read the rows first is corrected through `runWritesRef`.
-  ★ Its failure has its own route, `onForgetError` → `allocElsewhereForgetFailed` ("deleted, but the name could not be removed"):
-  the "could not save your answer" text would be false. ★★ A resources REPLACE (import, version restore, project swap) is
-  not a delete and is never swept, and deletes are never detected by diffing `resources`. ★ Undo of a delete restores the
-  person, NOT their answers (owner decision 2026-11-01). Popouts cannot delete (edit guard, read-only dispatcher).
+  project's same-numbered id stays). FOUR paths call it, each with only the ids really removed: `handleDeleteResource` and
+  `handleBulkDeleteResources` (`use-resource-directory.ts`, through the `onResourcesDeleted` arg of `useResourcePlanner`), the AI
+  `deleteResource` (`use-chat-dispatcher.ts`), and the REDO of any of those deletes (`CapturePart.onRedoRemoved`, see
+  [`undo.md`](undo.md)). task-manager builds the planner BEFORE `useCrossProjectApp` (which needs `resources`), so the planner
+  reports through `useForgetPeopleBridge`'s `notify`, and `useCrossProjectApp` binds `forgetPeople` in an effect; the dispatcher is
+  built after it and takes `crossProject.forgetPeople` directly.
+  ★ It is NOT refused while the cross-project data loads and needs no other project loaded (rows outlive the other projects);
+  it rides `commit`, so a reload that read the rows first is corrected through `runWritesRef`.
+  ★★★ **IT REQUIRES THE LIVE `storageKind === "turso"`, NOT JUST `portfolioMode`.** `portfolioMode` is frozen at startup and an
+  in-place storage switch (Turso to Browser) leaves `portfolioMode`, `tursoConfig` and `tursoProjectId` looking like Turso while the
+  open workspace is a local copy; a delete there would destroy the shared answers of a person who still exists in Turso.
+  `task-manager.tsx` passes `settings.storageConfig.kind`. ★ The same stale state lets `confirm`, `reject` and `undo` write
+  against the old project id after such a switch; they are NOT gated (they only add or remove one answer) and that is open.
+  ★ The AI `delete_resource` is refused while `isSwapInFlight()` (a project swap), because the sweep is permanent while the delete is
+  lost with the workspace it edited; only that tool is gated.
+  ★ Its failure has its own REQUIRED route, `onForgetError` → `allocElsewhereForgetFailed` (the delete stands; names may remain; Undo and
+  delete again retries while Undo is offered): "could not save your answer" would be false, and `commit`'s `onError` has no default
+  so the sweep cannot fall back to it.
+  ★★ **WHAT IS STILL NOT SWEPT**, stated so the closure does not read as "never": (1) a sweep that FAILED; (2) an answer written
+  after the sweep, by one still in flight when it ran, or by another tab or user who holds the person in their loaded data (writes
+  are not ordered; §788 minor, accepted); (3) a person dropped by an import, a version restore or a project swap, which replace the
+  list and are not deletes (nothing is detected by diffing `resources`); (4) Undo brings the person back but never their answers
+  (owner decision 2026-11-01). Popouts cannot delete (edit guard, read-only dispatcher).
   A failed write leaves the in-memory links untouched and toasts
   (`onWriteError`); writes are epoch-guarded. `decided_by` is blank today: the hook accepts `actorLabel` but
   `task-manager.tsx` does not pass it. Confirm / Not the same / Undo are in two places that write the same row: the

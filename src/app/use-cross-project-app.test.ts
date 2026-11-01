@@ -5,7 +5,7 @@ import type { TursoConfig } from "./turso-config";
 import type { Workspace } from "./workspace";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 
 vi.mock("./person-links-store", () => ({
   loadPersonLinks: vi.fn(async () => []),
@@ -33,7 +33,7 @@ function setup() {
   const deps: CrossProjectAppDeps = {
     tursoConfig: CONFIG, portfolioMode: "turso", tursoProjects: TURSO_PROJECTS, currentProjectId: "p-here",
     resources: HERE, plan: PLAN, workdayHours: 8, holidaySet: new Set(), loadPending: false,
-    getScopeEpoch: () => 0, lang: "en-US", showToast, load,
+    getScopeEpoch: () => 0, storageKind: "turso", lang: "en-US", showToast, load,
   };
   return { showToast, deps, hook: renderHook((p: CrossProjectAppDeps) => useCrossProjectApp(p), { initialProps: deps }) };
 }
@@ -80,6 +80,10 @@ describe("useCrossProjectApp — forgetting a deleted person (§788)", () => {
     await act(async () => { await hook.result.current.forgetPeople([1]); });
     expect(showToast).toHaveBeenCalledTimes(1);
     expect(showToast).toHaveBeenCalledWith("error", t("en-US", "allocElsewhereForgetFailed"));
+    // It offers a way forward, in both languages: Undo, then delete again.
+    await loadI18n("de");
+    expect(t("en-US", "allocElsewhereForgetFailed")).toMatch(/Undo/);
+    expect(t("de", "allocElsewhereForgetFailed")).toMatch(/Rückgängig/);
     expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "allocElsewhereWriteFailed"));
   });
 
@@ -99,6 +103,9 @@ describe("useCrossProjectApp — forgetting a deleted person (§788)", () => {
   test.each([
     ["task-manager.tsx", "useResourcePlanner({", /onResourcesDeleted: forgetBridge\.notify/],
     ["task-manager.tsx", "useCrossProjectApp({", /forgetBridge/],
+    ["task-manager.tsx", "useCrossProjectApp({", /storageKind: settings\.storageConfig\.kind/],
+    ["task-manager.tsx", "useChatDispatcherWiring({", /isSwapInFlight/],
+    ["use-chat-dispatcher-wiring.ts", "useChatDispatcher({", /^\s*isSwapInFlight,\s*$/m],
     ["task-manager.tsx", "useChatDispatcherWiring({", /onResourcesDeleted: crossProject\.forgetPeople/],
     ["use-chat-dispatcher-wiring.ts", "useChatDispatcher({", /^\s*onResourcesDeleted,\s*$/m],
     ["use-resource-planner.ts", "useResourceDirectory({", /onResourcesDeleted: args\.onResourcesDeleted/],

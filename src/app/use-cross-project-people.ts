@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Resource, ResourcePlan } from "./types";
 import type { TursoConfig } from "./turso-config";
 import type { PortfolioMode } from "./portfolio-mode";
+import type { StorageConfig } from "./storage-config-kind";
 import { TursoBackend } from "./turso-backend";
 import type { Workspace } from "./workspace";
 import { generatePeriods } from "./resource-capacity";
@@ -71,6 +72,9 @@ export interface CrossProjectPeople {
 export interface CrossProjectDeps {
   tursoConfig: TursoConfig | null;
   portfolioMode: PortfolioMode;
+  /** The LIVE storage kind (`settings.storageConfig.kind`). `portfolioMode` is fixed at startup and an in-place storage switch
+   *  leaves it on "turso", so only this says the open workspace still IS the Turso project. The sweep requires "turso". */
+  storageKind: StorageConfig["kind"];
   projects: readonly { id: string; name: string }[];
   currentProjectId: string | null;
   resources: readonly Resource[];
@@ -123,7 +127,7 @@ const sameLink = (l: PersonLinkRow, p: ReturnType<typeof canonicalPair>): boolea
 
 export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeople {
   const {
-    tursoConfig, portfolioMode, projects, currentProjectId, resources, plan,
+    tursoConfig, portfolioMode, storageKind, projects, currentProjectId, resources, plan,
     workdayHours, holidaySet, loadPending, getScopeEpoch, actorLabel, onWriteError, onForgetError,
   } = deps;
   const load = deps.load ?? defaultLoad;
@@ -297,7 +301,8 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     write: () => Promise<void>,
     projectId: string,
     next: (links: PersonLinkRow[]) => PersonLinkRow[],
-    onError: ((err: unknown) => void) | undefined = onWriteError,
+    // REQUIRED, never defaulted: a delete's sweep must not fall back to the "could not save your answer" route.
+    onError: ((err: unknown) => void) | undefined,
   ): Promise<void> => {
     const startEpoch = getScopeEpoch();
     const writtenTo = configKeyRef.current;
@@ -327,6 +332,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
       () => savePersonLink(tursoConfig, row),
       currentProjectId ?? "",
       (links) => [...links.filter((l) => !sameLink(l, key)), row],
+      onWriteError,
     );
   };
 
@@ -338,13 +344,16 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
       () => deletePersonLink(tursoConfig, pair),
       currentProjectId,
       (links) => links.filter((l) => !sameLink(l, key)),
+      onWriteError,
     );
   };
 
   // §788: deliberately NOT gated on `isLoading` or `available`: a delete must always reach the table, and the rows
   // outlive the other projects. The project id is read at call time, so a later switch cannot redirect the sweep.
   const forgetPeople = async (resourceIds: readonly number[]): Promise<void> => {
-    if (resourceIds.length === 0 || !portfolio || !tursoConfig || currentProjectId === null) return;
+    // `storageKind`: after an in-place Turso → other switch the open workspace is a LOCAL copy, and deleting a person in it
+    // must not destroy the shared answers of a person who still exists in the Turso project.
+    if (resourceIds.length === 0 || !portfolio || storageKind !== "turso" || !tursoConfig || currentProjectId === null) return;
     const projectId = currentProjectId;
     const gone = new Set(resourceIds);
     const names = (l: PersonLinkRow): boolean =>

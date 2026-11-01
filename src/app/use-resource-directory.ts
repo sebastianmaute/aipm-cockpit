@@ -124,7 +124,8 @@ export interface UseResourceDirectoryArgs {
    *  supply none. */
   allowDestructiveSave?: () => void;
   /** §788 — the ids of the people a delete ACTUALLY removed (never an unknown id, never an empty list), so their answers
-   *  about the same person in other projects go with them. NOT called on Undo, an import, a restore or a project swap. */
+   *  about the same person in other projects go with them. Also called when a REDO of such a delete removes people again.
+   *  NOT called on Undo, an import, a restore or a project swap. */
   onResourcesDeleted?: (resourceIds: readonly number[]) => void;
 }
 
@@ -291,7 +292,7 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
           primaryCount: 1,
           name,
           parts: [
-            capturePart({ setter: setResources, removed: [removed], fromArray: resources, isPrimary: true }),
+            capturePart({ setter: setResources, removed: [removed], fromArray: resources, isPrimary: true, onRedoRemoved: (ids) => argsRef.current.onResourcesDeleted?.(ids) }),
             capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences, fkRemapField: "resourceId" }),
             capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],
@@ -351,7 +352,7 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
           kind: "resource.deleted",
           primaryCount: removed.length,
           parts: [
-            capturePart({ setter: setResources, removed, fromArray: resources, isPrimary: true }),
+            capturePart({ setter: setResources, removed, fromArray: resources, isPrimary: true, onRedoRemoved: (ids) => argsRef.current.onResourcesDeleted?.(ids) }),
             capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences, fkRemapField: "resourceId" }),
             capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],

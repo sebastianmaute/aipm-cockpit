@@ -5,6 +5,7 @@ import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatch
 import { __resetMintStateForTests } from "./id-mint-session";
 import type { Resource } from "./types";
 import { useChatDispatcher } from "./use-chat-dispatcher";
+import { useUndoStack } from "./undo/use-undo-stack";
 
 const res = (id: number, firstName: string): Resource =>
   ({ id, firstName, lastName: "Bennett", roleId: null, utilizationMode: "percent", utilization: {} }) as Resource;
@@ -46,5 +47,49 @@ describe("useChatDispatcher deleteResource reports the removal (§788)", () => {
   test("works without the callback", () => {
     const { result } = render();
     expect(() => { act(() => { result.current.deleteResource(1); }); }).not.toThrow();
+  });
+});
+
+describe("useChatDispatcher deleteResource during a project swap (§788)", () => {
+  test("is refused while a swap is in flight: nobody is removed and nothing is reported", () => {
+    const onResourcesDeleted = vi.fn();
+    const { result } = render({ onResourcesDeleted, isSwapInFlight: () => true });
+    expect(() => result.current.deleteResource(2)).toThrow();
+    expect(result.current.listResources().map((r) => r.id)).toEqual([1, 2]);
+    expect(onResourcesDeleted).not.toHaveBeenCalled();
+  });
+
+  test("goes through when no swap is in flight", () => {
+    const onResourcesDeleted = vi.fn();
+    const { result } = render({ onResourcesDeleted, isSwapInFlight: () => false });
+    act(() => { result.current.deleteResource(2); });
+    expect(onResourcesDeleted).toHaveBeenCalledWith([2]);
+  });
+});
+
+describe("a redone AI person delete sweeps (§788)", () => {
+  test("the delete sweeps, Undo sweeps nothing, Redo sweeps the same id", async () => {
+    __resetMintStateForTests();
+    const onResourcesDeleted = vi.fn();
+    const { result } = renderHook(
+      () => {
+        const undo = useUndoStack({ lang: "en-US", logActivity: vi.fn(), showToast: vi.fn(), showToastAction: vi.fn() });
+        const dispatcher = useChatDispatcher(makeDispatcherArgs({ undo, onResourcesDeleted }));
+        return { undo, dispatcher };
+      },
+      { wrapper: dispatcherWrapperWith({ resources: [res(1, "Ada"), res(2, "Grace")] }) },
+    );
+    act(() => { result.current.dispatcher.deleteResource(2); });
+    expect(onResourcesDeleted).toHaveBeenLastCalledWith([2]);
+    onResourcesDeleted.mockClear();
+    act(() => { result.current.undo.undo(); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.dispatcher.listResources().map((r) => r.id).sort()).toEqual([1, 2]);
+    expect(onResourcesDeleted).not.toHaveBeenCalled();
+    act(() => { result.current.undo.redo(); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.dispatcher.listResources().map((r) => r.id)).toEqual([1]);
+    expect(onResourcesDeleted).toHaveBeenCalledTimes(1);
+    expect(onResourcesDeleted).toHaveBeenCalledWith([2]);
   });
 });

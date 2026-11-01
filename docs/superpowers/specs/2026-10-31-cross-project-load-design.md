@@ -212,13 +212,14 @@ one or two sentences and links to the entry.
   loading; when idle without a failure a click re-requests and sends nothing, with the "not loaded" hint.
 - **Delete sweep (§788, owner decision 2026-11-01): settled item 3's "No write from any delete path" is REVERSED for this one write.** The
   item-3 text above stays as the record of the original ruling. Deleting a person (the Resources panel's single and bulk
-  delete, and the AI `delete_resource` tool) now removes every `person_links` row naming that project and resource id on
-  either side (`forgetPeople` in `use-cross-project-people.ts`, `deletePersonLinksFor` in `person-links-store.ts`), because the
-  rows hold the person's first and last name and nothing else ended their retention. Undo of the delete brings the person
-  back but NOT their answers: an e-mail match and a name suggestion reappear on their own, a "Not the same" or a confirmed
-  name must be answered again. Because the sweep runs at once, the claim in "As built" above that a re-minted id inherits a
-  `different` row now holds only after a FAILED sweep (the person was deleted, the toast said the name could not be removed).
-  An import, a version restore or a project swap replaces the list and is not a delete: nothing is swept.
+  delete, the AI `delete_resource` tool, and the Redo of any of those) removes every `person_links` row naming that project and
+  resource id on either side (`forgetPeople` in `use-cross-project-people.ts`, `deletePersonLinksFor` in `person-links-store.ts`),
+  because the rows hold the person's first and last name and nothing else ended their retention. It requires the live storage
+  kind `turso` (after an in-place switch away the open workspace is a local copy), and the AI tool is refused during a project
+  swap. Undo of the delete brings the person back but NOT their answers: an e-mail match and a name suggestion reappear on
+  their own, a "Not the same" or a confirmed name must be answered again. Because the sweep runs at once, the claim in "As built"
+  above that a re-minted id inherits a `different` row holds only where the rows were NOT swept: a failed sweep, an answer
+  written after it (in flight or from another tab), or a person dropped by an import or a restore, none of which is a delete.
 - A project hard delete removes `person_links` rows naming the project on either side (`PROJECT_SCOPED_SIDE_TABLES`
   entry with `columns`), and the §204 guard now checks every `project_<letter>` column.
 - The review window lists a name suggestion only when the suggested person has hours in the plan's periods

@@ -174,7 +174,8 @@ function TaskManagerInner() {
   // down instead would also move `useUndoHotkey`'s listener registration relative
   // to the other hotkey hooks.
   const allowDestructiveSaveRef = useRef<(() => void) | undefined>(undefined);
-  const isPopoutRef = useRef(isPopout); const forgetBridge = useForgetPeopleBridge(); // §788 — a deleted person's cross-project answers go with them; the planner below is built BEFORE crossProject, so it reports through this bridge
+  const isPopoutRef = useRef(isPopout);
+  const forgetBridge = useForgetPeopleBridge(); // §788 — a deleted person's cross-project answers go with them; the planner below is built BEFORE crossProject, so it reports through this bridge
   const appDialogsRef = useRef<AppDialogs>(unbridgedDialogs()); // §752 — the app's dialogs for the hooks below, which run ABOVE the ConfirmProvider this renders; it fills the ref
   const loadPendingRef = useRef(true); // §548 — filled beside `allowDestructiveSaveRef`, read by the undo hotkey below. Starts TRUE (fail safe) so a keystroke landing before the first effect commit cannot slip through the false-by-default window; `loadPending` itself is true pre-hydration anyway (ruling 8), so the effect below overwrites this immediately either way.
   const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
@@ -618,7 +619,7 @@ function TaskManagerInner() {
   // §774 — reassigning a task moves its planned hours (one undo entry, one notice). Threaded into the editor,
   // inline, Kanban, bulk and Action Center hooks, TasksSection and the Workload triage builder below.
   const reassignHours = useReassignHours({ lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours: settings.resources.workdayHours, holidaySet, captureComposite: undoApi.captureComposite, logActivityAs, showToast });
-  const crossProject = useCrossProjectApp({ tursoConfig, portfolioMode, tursoProjects, currentProjectId: tursoProjectId, resources, plan, workdayHours: settings.resources.workdayHours, holidaySet, loadPending, getScopeEpoch, lang, showToast, forgetBridge }); // §785
+  const crossProject = useCrossProjectApp({ tursoConfig, portfolioMode, tursoProjects, currentProjectId: tursoProjectId, resources, plan, workdayHours: settings.resources.workdayHours, holidaySet, loadPending, getScopeEpoch, lang, showToast, forgetBridge, storageKind: settings.storageConfig.kind }); // §785
 
   // Day rates are the rate card's source of truth; the hourly cost rate every
   // budget/EVM consumer reads is DERIVED from workday hours. When that setting
@@ -1088,7 +1089,7 @@ function TaskManagerInner() {
     // ★ ONE field, not `today` + `timezone` (§159); `onSettingsLoggedByAi` is §160.
     clock,
     onSettingsLoggedByAi, setSelectedIds, setSettings,
-    isReadOnly: isPopout, openWbsPlan: wbsPlan.open, projectWriterRef, getScopeEpoch, getUndoEpoch: readScopeEpochForUndo, showToast, reassignHours, onResourcesDeleted: crossProject.forgetPeople,
+    isReadOnly: isPopout, openWbsPlan: wbsPlan.open, projectWriterRef, getScopeEpoch, getUndoEpoch: readScopeEpochForUndo, showToast, reassignHours, onResourcesDeleted: crossProject.forgetPeople, isSwapInFlight,
     currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, holidaysReady, logActivityAs,
     // ★ `delete_document` is a second removal route into a COUNTED slice — see
     //   the arming site in `use-document-tools.ts`.
