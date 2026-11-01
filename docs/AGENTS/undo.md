@@ -212,7 +212,7 @@ redo runs against, with the same `rowsEqualExcept` identity guard `applyUndoForw
 by the redo and is NOT reported. The report is queued from the state updater as a microtask (an updater may run more than once or
 late, and the callback must not run during render), at most once per redo (pinned under StrictMode). The UNDO direction never calls it, with one harmless exception: a failed
 undo write rolls back by running the redo thunks (`redoUntracked`), which reports, and the repeat sweep is idempotent. The reverse (a
-failed redo rolls the person back after its sweep went out) loses the answers given after the Undo; it is very rare and accepted. The
+failed redo rolls the person back after its sweep went out) loses the answers given after the Undo; it is very rare and accepted (item 8 of the list in `ai-assistant.md`, "WHAT IS STILL NOT SWEPT"). The
 three `resource.deleted` captures (`use-resource-directory.ts` single and bulk, the AI `deleteResource` in `use-chat-dispatcher.ts`) pass
 it, forwarding to `onResourcesDeleted`, which sweeps the person's cross-project answers; the ids are the ones the redo removed,
 which differ from the originals when Undo re-minted an id. Pinned by `use-resource-directory.forget-redo.test.tsx` and the redo

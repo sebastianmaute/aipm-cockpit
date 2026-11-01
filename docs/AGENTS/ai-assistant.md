@@ -1188,6 +1188,12 @@
   [§790](../open-followups.md#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database)); (6) Undo, which brings the person back but never their answers (owner decision 2026-11-01); (7) rows naming an ARCHIVED
   project: they are removed without the confirmation's clause, because the clause shows only when other projects are active and
   `tursoProjects` never holds an archived one, and they stay gone if that project is restored (owner decision 2026-11-01; no code change).
+  The same missing clause follows when the project list failed to load or has not loaded, since `tursoProjects` is then empty too, while the
+  sweep still runs; (8) a redo that FAILS and rolls the person back after its sweep went out, which loses the answers given after the Undo
+  (`docs/AGENTS/undo.md`; needs a composite with a tracked fragment, in practice an AI batch that also changed the project; owner decision
+  2026-11-01: accepted); (9) a delete with the Turso config blank while storage is Turso and a project is open: `portfolio` is false, so the
+  sweep is skipped with no message and the name stays. Saves fail visibly in that state, so the effect is probably nil (owner decision
+  2026-11-01: accepted, no code change).
   Popouts cannot delete (edit guard, read-only dispatcher).
   A failed write leaves the in-memory links untouched and toasts
   (`onWriteError`); writes are epoch-guarded. `decided_by` is blank today: the hook accepts `actorLabel` but
