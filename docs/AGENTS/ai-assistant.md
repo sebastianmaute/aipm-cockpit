@@ -1163,20 +1163,32 @@
   `settings.storageConfig.kind`) and folds it into `portfolio`: off Turso the status is `"unavailable"`, nothing is loaded, `request`
   does nothing, `confirm`/`reject`/`undo` refuse, the person's section renders nothing, and `singleProject` is FALSE (it is only for a
   Turso database with one project, so the digest never claims "this is the only project"; it says "ELSEWHERE: other projects cannot be
-  seen in this storage mode" and the window shows no elsewhere note). `forgetPeople` keeps its own explicit `storageKind` check as well,
-  redundant by design. A switch back to Turso works again with no reload. `portfolioMode` itself is untouched and still contradicts
-  the invariant comment in `portfolio-mode-switch.ts` after such a switch; only this feature is made safe.
+  seen in this storage mode" and the window shows no elsewhere note). `forgetPeople` gates on the same `portfolio`. The hook re-enables
+  when the live kind returns to `turso` (pinned at the hook). How a user gets back, and what the conversion writes, is [§790](../open-followups.md#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database).
+  `portfolioMode` stays frozen and still contradicts the comment in `portfolio-mode-switch.ts` after such a switch; only this feature is
+  made safe, and auditing the other readers is also [§790](../open-followups.md#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database)'s.
   ★ The AI `delete_resource` is refused while the LOAD HOLD is on (`isLoadHeld` = `isSwapInFlight() || loadPendingRef.current`, so a
   project swap, a same-project Reload, a backend rebuild and the first load), because the sweep is permanent while the delete is lost
   with the workspace it edited; only that tool is gated, and a cross-project reload is not the hold.
-  ★ The delete confirmations say what Undo will not restore (`resourceDeleteAnswersNote`), only where answers are shared
-  (`crossProject.status !== "unavailable"`; the directory gets a boolean `sharesAnswers`, never a context read, so its memo holds), and the
-  `delete_resource` tool description says the same to the model.
+  ★ The delete confirmations say what Undo will not restore (`resourceDeleteAnswersNote`, "Any answers you gave…"), when other projects
+  are ACTIVE (`crossProject.status !== "unavailable"`; the directory gets a boolean `sharesAnswers`, never a context read, so its memo
+  holds, and a source pin fixes its mapping in `workspace-section.tsx`), and the `delete_resource` tool description says the same to the model.
   ★ Its failure has its own REQUIRED route, `onForgetError` → `allocElsewhereForgetFailed` (the delete stands; names may remain; use Undo
-  while it is offered, then delete again), logged as `crossProject.forgetSweepFailed`: "could not save your answer" would be false, and
-  `commit`'s `onError` and `failCode` have no default so the sweep can fall back to neither.
-  ★★ **WHAT IS STILL NOT SWEPT, or swept too early**, stated so the closure does not read as "never": (1) a sweep that FAILED; (2) an answer written after the sweep, by one still in flight when it ran, or by another tab or user who holds the person in their loaded data (writes are not ordered; accepted); (3) a person dropped by an import, a version restore or a project swap, which replace the list and are not deletes (nothing is detected by diffing `resources`); (4) a delete that NEVER SAVES: the sweep fires when the delete happens in memory, not when it is stored, so in the "Saving paused" state (or after a failed save) the delete can be thrown away by the banner's Reload while the answers are already gone and the person is back (owner decision 2026-11-01: accepted and documented; gating the sweep on the save would leave the name behind after Overwrite); (5) a person deleted in a LOCAL copy after a switch away from Turso and later converted back: the sweep is skipped there on purpose, and nothing sweeps on the conversion (`onRequestStorageSwitch` builds its Turso target without the open project's id, so what it writes was not traced to the end); (6) Undo, which brings the person back but never their answers (owner decision 2026-11-01). Popouts cannot delete
-  (edit guard, read-only dispatcher).
+  while it is offered, then delete again), logged under ONE code, `crossProject.forgetFailed` (`FORGET_FAILED`; `commit` logs it and the app
+  callback reports under the same code): "could not save your answer" would be false, and `commit`'s `onError` and `failCode` have no default
+  so the sweep can fall back to neither.
+  ★★ **WHAT IS STILL NOT SWEPT, or swept too early — THE ONE LIST** (the spec, the register closure and `docs/security.md` link here):
+  (1) a sweep that FAILED; (2) an answer written after the sweep, by one still in flight when it ran, or by another tab or user who holds
+  the person in their loaded data (writes are not ordered; accepted); (3) a person dropped by an import, a version restore or a project
+  swap, which replace the list and are not deletes (nothing is detected by diffing `resources`); (4) a delete that NEVER SAVES: the sweep
+  fires when the delete happens in memory, not when it is stored, so in the "Saving paused" state (or after a failed save) the banner's
+  Reload can throw the delete away while the answers are already gone and the person is back (owner decision 2026-11-01: accepted;
+  gating the sweep on the save would leave the name behind after Overwrite); (5) a person deleted in a LOCAL copy after a switch away from
+  Turso and later converted back: the sweep is skipped there on purpose, and nothing sweeps on the conversion (what the conversion writes is
+  [§790](../open-followups.md#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database)); (6) Undo, which brings the person back but never their answers (owner decision 2026-11-01); (7) rows naming an ARCHIVED
+  project: they are removed without the confirmation's clause, because the clause shows only when other projects are active and
+  `tursoProjects` never holds an archived one, and they stay gone if that project is restored (owner decision 2026-11-01; no code change).
+  Popouts cannot delete (edit guard, read-only dispatcher).
   A failed write leaves the in-memory links untouched and toasts
   (`onWriteError`); writes are epoch-guarded. `decided_by` is blank today: the hook accepts `actorLabel` but
   `task-manager.tsx` does not pass it. Confirm / Not the same / Undo are in two places that write the same row: the

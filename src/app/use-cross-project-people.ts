@@ -103,6 +103,8 @@ interface Loaded {
 }
 
 const LINK_WRITE_FAILED = "crossProject.linkWriteFailed";
+/** ONE diagnostics code for a failed sweep: `commit` logs it, and `use-cross-project-app.ts` reports under the same code. */
+export const FORGET_FAILED = "crossProject.forgetFailed";
 const NO_FAILURES: { projectId: string; projectName: string }[] = [];
 const NO_MATCHES = new Map<number, PersonMatch>();
 
@@ -360,9 +362,9 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   // §788: deliberately NOT gated on `isLoading` or `available`: a delete must always reach the table, and the rows
   // outlive the other projects. The project id is read at call time, so a later switch cannot redirect the sweep.
   const forgetPeople = async (resourceIds: readonly number[]): Promise<void> => {
-    // `storageKind`: after an in-place Turso → other switch the open workspace is a LOCAL copy, and deleting a person in it
-    // must not destroy the shared answers of a person who still exists in the Turso project.
-    if (resourceIds.length === 0 || !portfolio || storageKind !== "turso" || !tursoConfig || currentProjectId === null) return;
+    // `portfolio` already requires the live storage kind: after an in-place Turso → other switch the open workspace is a LOCAL
+    // copy, and deleting a person in it must not destroy the shared answers of a person who still exists in the Turso project.
+    if (resourceIds.length === 0 || !portfolio || !tursoConfig || currentProjectId === null) return;
     const projectId = currentProjectId;
     const gone = new Set(resourceIds);
     const names = (l: PersonLinkRow): boolean =>
@@ -372,7 +374,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
       projectId,
       (links) => links.filter((l) => !names(l)),
       onForgetError,
-      "crossProject.forgetSweepFailed",
+      FORGET_FAILED,
     );
   };
 

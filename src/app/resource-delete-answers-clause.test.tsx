@@ -59,7 +59,7 @@ describe("single delete confirmation (ResourceEditModal)", () => {
     expect(screen.getByText(new RegExp(note.slice(0, 30)))).toBeTruthy();
   });
 
-  it("does not show it when the feature is unavailable, or absent (popout)", async () => {
+  it("does not show it when the feature is unavailable", async () => {
     await openConfirm(cross("unavailable"));
     expect(screen.queryByText(new RegExp(note.slice(0, 30)))).toBeNull();
   });
@@ -91,7 +91,7 @@ describe("bulk delete confirmation (ResourceDirectory)", () => {
     await waitFor(() => expect(screen.getByText(new RegExp(note.slice(0, 30)))).toBeTruthy());
   });
 
-  it("does not show it when they are not, or the prop is absent", async () => {
+  it("does not show it when sharesAnswers is false", async () => {
     await openBulk(false);
     expect(screen.queryByText(new RegExp(note.slice(0, 30)))).toBeNull();
   });

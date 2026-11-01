@@ -708,7 +708,7 @@ describe("useCrossProjectPeople — the sweep's own diagnostics and call-time pr
     vi.mocked(deletePersonLinksFor).mockRejectedValueOnce(new Error("down"));
     await act(async () => hook.result.current.forgetPeople([1]));
     const codes = readDiagLog().map((e) => e.code);
-    expect(codes).toContain("crossProject.forgetSweepFailed");
+    expect(codes).toContain("crossProject.forgetFailed");
     expect(codes).not.toContain("crossProject.linkWriteFailed");
   });
 

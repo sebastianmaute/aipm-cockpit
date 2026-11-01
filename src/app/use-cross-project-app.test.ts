@@ -106,7 +106,8 @@ describe("useCrossProjectApp — forgetting a deleted person (§788)", () => {
     ["task-manager.tsx", "useCrossProjectApp({", /storageKind: settings\.storageConfig\.kind/],
     ["task-manager.tsx", "useChatDispatcherWiring({", /isLoadHeld: \(\) => isSwapInFlight\(\) \|\| loadPendingRef\.current/],
     ["use-chat-dispatcher-wiring.ts", "useChatDispatcher({", /^\s*isLoadHeld,\s*$/m],
-    ["workspace-section.tsx", "<ResourceDirectory", /sharesAnswers=/],
+    // Pins the MAPPING, not just the prop: a hard-coded `sharesAnswers={true}` would show a false clause off Turso.
+    ["workspace-section.tsx", "<ResourceDirectory", /sharesAnswers=\{crossProject !== undefined && crossProject\.status !== "unavailable"\}/],
     ["task-manager.tsx", "useChatDispatcherWiring({", /onResourcesDeleted: crossProject\.forgetPeople/],
     ["use-chat-dispatcher-wiring.ts", "useChatDispatcher({", /^\s*onResourcesDeleted,\s*$/m],
     ["use-resource-planner.ts", "useResourceDirectory({", /onResourcesDeleted: args\.onResourcesDeleted/],
@@ -116,7 +117,7 @@ describe("useCrossProjectApp — forgetting a deleted person (§788)", () => {
     expect(start, `${opener} not found in ${file}`).toBeGreaterThan(-1);
     // A one-line call is read to the end of its line; a multi-line one to its closing `});`.
     const eol = src.indexOf("\n", start);
-    const oneLine = /\}\);\s*(\/\/.*)?$/.test(src.slice(start, eol));
+    const oneLine = /\}\);\s*(\/\/[^\r\n]*)?\s*$/.test(src.slice(start, eol));
     const call = oneLine ? src.slice(start, eol) : src.slice(start, src.indexOf("\n  });", start));
     expect(call).toMatch(pattern);
   });

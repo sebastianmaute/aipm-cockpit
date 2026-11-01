@@ -240,7 +240,9 @@ export interface CapturePart<T extends { id: number }> {
   isPrimary?: boolean;
   /** §788 — called ONCE per redo with the ids that redo actually removed from this fragment's array (a row edited since the
    *  Undo is kept by the redo and is not listed; nothing is called when none were removed). The UNDO direction never calls
-   *  it. It fires from a microtask after the redo's state update has been computed, never during render. */
+   *  it, with one harmless exception: a failed undo write rolls back by running the redo thunks (`redoUntracked`), which
+   *  reports, and the repeat sweep is idempotent. It fires from a microtask after the redo's state update has been computed,
+   *  never during render. */
   onRedoRemoved?: (ids: readonly number[]) => void;
 }
 

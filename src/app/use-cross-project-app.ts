@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { Lang } from "./i18n";
 import { reportSilentFailure } from "./guard-feedback";
-import { useCrossProjectPeople, type CrossProjectDeps, type CrossProjectPeople } from "./use-cross-project-people";
+import { FORGET_FAILED, useCrossProjectPeople, type CrossProjectDeps, type CrossProjectPeople } from "./use-cross-project-people";
 
 type ForgetFn = (resourceIds: readonly number[]) => Promise<void>;
 
@@ -44,7 +44,7 @@ export function useCrossProjectApp({ tursoProjects, lang, showToast, forgetBridg
   );
   // A failed sweep must not read as a failed answer: the person IS deleted, only their name could not be removed.
   const onForgetError = useCallback(
-    (err: unknown) => reportSilentFailure(showToast, lang, "crossProject.forgetFailed", err, "allocElsewhereForgetFailed"),
+    (err: unknown) => reportSilentFailure(showToast, lang, FORGET_FAILED, err, "allocElsewhereForgetFailed"),
     [showToast, lang],
   );
   const people = useCrossProjectPeople({ ...deps, projects, onWriteError, onForgetError });

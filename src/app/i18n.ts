@@ -5868,7 +5868,7 @@ const enUS = {
   allocElsewhereLoading: "Loading other projects…",
   allocElsewhereWriteFailed: "Could not save your answer about the person in the other project. Nothing was changed.",
   allocElsewhereForgetFailed: "The delete went through, but the shared answers about the deleted person or people could not be cleaned up, so their names may remain in the database your projects share. To try again, use Undo (the Undo control at the top, or Ctrl+Z) while it is still offered, then delete again.",
-  resourceDeleteAnswersNote: "The answers you gave about the same person in your other projects are removed too; Undo does not bring those answers back.",
+  resourceDeleteAnswersNote: "Any answers you gave about the same person in your other projects are removed too; Undo does not bring those answers back.",
 
   resourceLinksNone: "Not found in other projects.",
   resourceLinksHeading: "Other projects",
