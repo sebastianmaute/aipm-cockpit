@@ -1269,11 +1269,11 @@ describe("AiSection — saved chat retention", () => {
     renderIt();
     expect(screen.getByText("Chats are deleted after 90 days without activity.")).toBeInTheDocument();
   });
-  it("invalid: says so and still shows the 30-day notice", () => {
+  it("invalid: says deleting is paused until it is fixed, and names no period", () => {
     withChat(chat({ retentionInvalid: true }));
     renderIt();
-    expect(screen.getByText("The server's chat retention setting is invalid; the default of 30 days applies.")).toBeInTheDocument();
-    expect(screen.getByText("Chats are deleted after 30 days without activity.")).toBeInTheDocument();
+    expect(screen.getByText("The server's chat retention setting is invalid. Deleting old chats is paused until it is fixed.")).toBeInTheDocument();
+    expect(screen.queryByText(/without activity/)).not.toBeInTheDocument();
   });
   it("unknown status: no number", () => {
     withChat(null);
@@ -1290,8 +1290,8 @@ describe("AiSection — saved chat retention", () => {
     await loadI18n("de");
     withChat(chat({ retentionInvalid: true, recoveryKeyInvalid: true }));
     renderIt("de");
-    expect(screen.getByText("Chats werden nach 30 Tagen ohne Aktivität gelöscht.")).toBeInTheDocument();
-    expect(screen.getByText("Die Aufbewahrungseinstellung des Servers für Chats ist ungültig; es gilt der Standard von 30 Tagen.")).toBeInTheDocument();
+    expect(screen.queryByText(/ohne Aktivität/)).not.toBeInTheDocument();
+    expect(screen.getByText("Die Aufbewahrungseinstellung des Servers für Chats ist ungültig. Das Löschen alter Chats ist ausgesetzt, bis sie korrigiert ist.")).toBeInTheDocument();
     expect(screen.getByText("Der Wiederherstellungsschlüssel des Servers für Chats ist ungültig, daher werden Chats nicht gespeichert.")).toBeInTheDocument();
   });
 

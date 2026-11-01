@@ -480,10 +480,10 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       )}
       {chatSettings !== null && (
         <>
-          <FieldHint className="mt-1">{t(lang, "chatRetentionNotice", chatSettings.retentionDays)}</FieldHint>
-          {chatSettings.retentionInvalid && (
-            <FieldNotice>{t(lang, "aiChatRetentionInvalid", chatSettings.retentionDays)}</FieldNotice>
-          )}
+          {/* While the setting is invalid no period is in force: deleting is paused, so no number is shown. */}
+          {chatSettings.retentionInvalid
+            ? <FieldNotice>{t(lang, "aiChatRetentionInvalid")}</FieldNotice>
+            : <FieldHint className="mt-1">{t(lang, "chatRetentionNotice", chatSettings.retentionDays)}</FieldHint>}
           {chatSettings.recoveryKeyInvalid && <FieldNotice>{t(lang, "aiChatRecoveryKeyInvalid")}</FieldNotice>}
         </>
       )}

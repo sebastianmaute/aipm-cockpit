@@ -31,11 +31,13 @@ export type ChatRetentionSweepDeps = {
  * settings: with them unknown there is no chat sweep to run first.
  *
  * The retention comes from the server-rendered chat settings in the deployment state
- * (`getAiDeploymentState().chat`, null while unknown), read on every render.
+ * (`getAiDeploymentState().chat`, null while unknown), read on every render. While the server's
+ * retention setting is invalid no period is in force: the chat sweep is skipped (paused), and the
+ * project-sweep retry still runs.
  */
 export function useChatRetentionSweep({ tursoConfig, loadPending }: ChatRetentionSweepDeps): void {
   const chat = getAiDeploymentState().chat;
-  const retentionDays = chat ? chat.retentionDays : null;
+  const retentionDays = chat && !chat.retentionInvalid ? chat.retentionDays : null;
   useEffect(() => {
     if (!tursoConfig || loadPending) return;
     const url = tursoConfig.httpUrl;

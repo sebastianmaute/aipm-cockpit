@@ -1321,7 +1321,7 @@ const enUS = {
   chatUnlockFailed: "Your chats could not be opened. Please try again.",
   chatUnlockDone: "Your chats are now open on this browser. The page reloads to show them.",
   chatUnlockSkipped: "{0} chats saved on this browser could not be moved and stay unreadable until they expire.",
-  aiChatRetentionInvalid: "The server's chat retention setting is invalid; the default of {0} days applies.",
+  aiChatRetentionInvalid: "The server's chat retention setting is invalid. Deleting old chats is paused until it is fixed.",
   aiChatRecoveryKeyInvalid: "The server's chat recovery key is invalid, so chats are not saved.",
   chatThreadSaveRetry: "Retry",
   chatSidebarResetSize: "Reset the chat sidebar width",

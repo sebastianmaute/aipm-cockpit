@@ -9,6 +9,9 @@
 // means no schedule; when a URL was set but gave no usable pair, that is logged once as
 // "chat sweep: not configured".
 //
+// While AIPM_AI_CHAT_RETENTION_DAYS is set but invalid, a run deletes nothing and logs
+// "chat sweep: paused, retention setting invalid": no period is in force, so none is guessed.
+//
 // The schedule does not depend on the AI switch or on disabled integrations: deleting expired
 // chats is always right. Logs carry a fixed line and a count only — never the URL, the token or
 // an error message, which could quote either.
@@ -92,7 +95,13 @@ export function startChatSweepSchedule(
   started = true;
   const sweep = (): void => {
     // The retention is read on every run, so a changed setting applies without a restart of the schedule.
-    void runChatSweep(config, readChatSettings(env).retentionDays, run).then(
+    const settings = readChatSettings(env);
+    // An invalid setting is no period at all: nothing is deleted for age until it is fixed.
+    if (settings.retentionInvalid) {
+      console.warn("chat sweep: paused, retention setting invalid");
+      return;
+    }
+    void runChatSweep(config, settings.retentionDays, run).then(
       (count) => console.info(`chat sweep: ${count} expired`),
       () => console.warn("chat sweep failed"),
     );

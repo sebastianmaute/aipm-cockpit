@@ -25,7 +25,9 @@ longer carries its own changelog comment.
   ★ **Before upgrading:** on the first server start or page load after the upgrade, every chat not changed for the
   retention period (30 days unless `AIPM_AI_CHAT_RETENTION_DAYS` is set) is deleted, older shared chats included,
   even without a recovery key. And until `AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY` is set, no chat is saved. Set both
-  before deploying.
+  before deploying. While `AIPM_AI_CHAT_RETENTION_DAYS` is set but invalid, no chat is deleted for its age (the
+  server logs `chat sweep: paused, retention setting invalid`, and Settings → AI says deleting is paused) until it
+  is fixed.
 
 - **Plan with AI sees a person's load in other projects.** When your projects share one Turso database, Plan with AI now reads the other projects' Planning grids and counts what each matched person is already booked for elsewhere: in the review window's over-capacity warning and in what Claude sees. Claude is told that time is booked and cannot be changed (with a count of the person's open tasks there, never their titles). Projects that keep their people hidden from the AI are left out of those figures and named in the window and in what Claude sees. The AI data notice now describes this, so AI consent is asked again. People are matched across projects by e-mail address; a person with the same first and last name but no usable e-mail is only a suggestion until you confirm it, in the person's entry (which now lists the projects they work in) or in Plan with AI's review window. "Not the same" is remembered too, also for a person matched by e-mail, and every answer can be undone from the person's entry. A project that cannot be read is named and skipped. Nothing is written to the other projects. In file and IndexedDB storage nothing is loaded and Claude is told other projects cannot be seen; in a single-project Turso database it is told there are no other projects. A new help entry explains the matching.
 

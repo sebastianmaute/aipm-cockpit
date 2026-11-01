@@ -634,8 +634,11 @@ saved at all.
    | `AIPM_CHAT_SWEEP_TURSO_URL` | the database the server sweeps (optional) |
    | `AIPM_CHAT_SWEEP_TURSO_TOKEN` | its token (needed for a remote URL) |
 
-   An invalid retention or key is shown in Settings → AI and in `/api/ai/status`; 30
-   days applies, and an invalid key counts as unset (nothing is saved).
+   An invalid retention or key is shown in Settings → AI and in `/api/ai/status`. ★★ While
+   the retention is invalid, deleting chats for age is PAUSED everywhere until you fix it:
+   the browser deletes nothing for age, the server logs
+   `chat sweep: paused, retention setting invalid` on each run, and `expire` without
+   `--days` refuses. An invalid key counts as unset (nothing is saved).
 3. **Check:** after the restart the server log shows `chat sweep: <n> expired`, and a
    new chat in a Turso project is still in the sidebar after a reload. `chat sweep: not
    configured` means a sweep or public database URL is set but no usable URL and token pair
@@ -667,10 +670,10 @@ plain `http://` only for a loopback host). Run it with no command for usage.
 | `search --key <pem> <text>` | lists every chat mentioning `<text>`: id, project, last change, excerpt |
 | `delete [--yes] <id…>` | deletes those chats, in one transaction |
 | `delete --all-matches --key <pem> [--yes] <text>` | deletes every chat mentioning `<text>` |
-| `expire [--days <n>]` | deletes chats not changed for `n` days, by the database clock (default: `AIPM_AI_CHAT_RETENTION_DAYS` when it is a whole number from 1 to 3650, else 30; the output names the value used) |
+| `expire [--days <n>]` | deletes chats not changed for `n` days, by the database clock (default: `AIPM_AI_CHAT_RETENTION_DAYS`, else 30 when it is unset; the output names the value used). While that setting is set but invalid, `expire` without `--days` refuses (exit 1) and names the setting; `--days` still works |
 
 Exit codes: **0** done · **1** matches found, a delete refused (no `yes` typed, or no
-terminal and no `--yes`), or rows the key cannot open · **2** could not run (bad
+terminal and no `--yes`), `expire` refused (the retention setting is invalid), or rows the key cannot open · **2** could not run (bad
 arguments, credentials or key, unreachable database). `search` and
 `delete --all-matches` end with `unreadable: <n>`: rows this key cannot open, for
 example ones saved under an earlier recovery key. They may mention the text too —

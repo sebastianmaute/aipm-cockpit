@@ -1222,7 +1222,7 @@ export const de: Record<TranslationKey, string> = {
   chatUnlockFailed: "Ihre Chats konnten nicht geöffnet werden. Bitte versuchen Sie es erneut.",
   chatUnlockDone: "Ihre Chats sind jetzt in diesem Browser geöffnet. Die Seite wird neu geladen, um sie anzuzeigen.",
   chatUnlockSkipped: "{0} in diesem Browser gespeicherte Chats konnten nicht verschoben werden und bleiben bis zu ihrem Ablauf unlesbar.",
-  aiChatRetentionInvalid: "Die Aufbewahrungseinstellung des Servers für Chats ist ungültig; es gilt der Standard von {0} Tagen.",
+  aiChatRetentionInvalid: "Die Aufbewahrungseinstellung des Servers für Chats ist ungültig. Das Löschen alter Chats ist ausgesetzt, bis sie korrigiert ist.",
   aiChatRecoveryKeyInvalid: "Der Wiederherstellungsschlüssel des Servers für Chats ist ungültig, daher werden Chats nicht gespeichert.",
   chatThreadSaveRetry: "Erneut versuchen",
   chatSidebarResetSize: "Breite der Chat-Seitenleiste zurücksetzen",

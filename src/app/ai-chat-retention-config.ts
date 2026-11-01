@@ -1,6 +1,8 @@
 // SERVER-ONLY. Reads the deployment's saved-chat settings from the environment on every call, like
 // the gateway setting, so a restart applies a change and no rebuild is needed:
-//   AIPM_AI_CHAT_RETENTION_DAYS        days a saved chat is kept (whole number, 1 to 3650; default 30)
+//   AIPM_AI_CHAT_RETENTION_DAYS        days a saved chat is kept (whole number, 1 to 3650; default 30
+//                                      when unset). Set but invalid: NO period is in force, and every
+//                                      deleter pauses (nothing is deleted for age) until it is fixed.
 //   AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY   the operator's recovery PUBLIC key: base64 DER SPKI of an
 //                                      RSA-OAEP key of at least 3072 bits
 // Import this from `ai-gateway-config.ts` and API routes only; client modules may import its TYPES
@@ -19,9 +21,11 @@ export const MAX_CHAT_RETENTION_DAYS = 3650;
 const MIN_RECOVERY_KEY_BITS = 3072;
 
 export type ChatSettings = {
-  /** The retention in force: the default while the setting is unset or invalid. */
+  /** The retention period: the default while the setting is unset. While `retentionInvalid` it still
+   *  carries the default, but that period is NOT in force: nothing is deleted for age and no thread is
+   *  hidden for its age (the browser, the server sweep and the operator script all pause). */
   retentionDays: number;
-  /** The retention setting is set but unusable. */
+  /** The retention setting is set but unusable: deleting for age is paused until it is fixed. */
   retentionInvalid: boolean;
   /** The recovery public key as set (base64 SPKI, whitespace removed), or null when unset or invalid. */
   recoveryKey: string | null;

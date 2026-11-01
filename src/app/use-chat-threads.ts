@@ -126,11 +126,19 @@ export function chatPersistence(chat: ChatSettings | null, canEncrypt: boolean, 
   return "on";
 }
 
-/** What a save needs from the server's settings, present only while persistence is "on". */
-type SaveGate = { recoveryKey: string; retentionDays: number };
+/** What a save needs from the server's settings, present only while persistence is "on".
+ *  `retentionDays` is null while the server's retention setting is invalid: no period is in force,
+ *  so nothing is expired (deleting is paused until the setting is fixed). */
+type SaveGate = { recoveryKey: string; retentionDays: number | null };
 
 /** This browser's identity per database URL, as last read here; `null` identity = none stored yet. */
 type VaultRead = { url: string; kind: "found" | "absent" | "unavailable"; identity: ChatIdentity | null };
+
+/** The retention period in force: the server's, or null while it is unknown or its setting is invalid
+ *  (then nothing is expired, and nothing is hidden for its age). */
+function retentionInForce(chat: ChatSettings | null): number | null {
+  return chat && !chat.retentionInvalid ? chat.retentionDays : null;
+}
 
 /** Whether a thread last updated at `updatedAt` is gone after an expiry at `cutoffIso`: the same test as
  *  the expiry statement (older than the cutoff, or no usable date). */
@@ -496,7 +504,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   const vaultLocked = vaultRead?.url === currentUrl && vaultRead.kind === "unavailable";
   const persistence = chatPersistence(chat, chatVaultAvailable(), vaultLocked);
   const saveGate: SaveGate | null = persistence === "on" && chat?.recoveryKey
-    ? { recoveryKey: chat.recoveryKey, retentionDays: chat.retentionDays }
+    ? { recoveryKey: chat.recoveryKey, retentionDays: retentionInForce(chat) }
     : null;
   // Deletes need no encryption, so they do not wait for "on": with the status known in Turso mode, a
   // delete is sent — otherwise a deleted legacy chat would come back on reload. (Like a save, it does
@@ -513,8 +521,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
 
   /** Reads this browser's identity for `config`'s database, then loads the threads it may see: its
    *  own and legacy owner-less ones. A row owned by anybody else is dropped here as well as in the
-   *  decoder, so it can never reach the list, the registry, search or the recap. With the chat
-   *  settings known, a thread past the retention period is dropped too (by this browser's clock —
+   *  decoder, so it can never reach the list, the registry, search or the recap. With a retention
+   *  period in force (`retentionInForce`), a thread past it is dropped too (by this browser's clock —
    *  display only; the delete itself runs on the database's clock), so a load never shows a chat the
    *  next expiry is about to delete. */
   async function loadVisibleThreads(config: TursoConfig | null, pid: string): Promise<ChatThread[]> {
@@ -526,7 +534,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     setVaultRead(next);
     const loaded = await loadThreads(config, pid, identity);
     for (const th of loaded) storedRef.current.add(storedKey(config, th.id));
-    const cutoffIso = chat ? retentionCutoff(new Date(), chat.retentionDays) : null;
+    const days = retentionInForce(chat);
+    const cutoffIso = days === null ? null : retentionCutoff(new Date(), days);
     return loaded.filter((th) =>
       (th.ownerId === null || th.ownerId === identity?.ownerId)
       && (cutoffIso === null || !expiredBy(th.updatedAt, cutoffIso)));
@@ -599,7 +608,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
    *  thread stamped with an owner this browser no longer is (another tab adopted a new identity). */
   function saveAction(config: TursoConfig | null, th: ChatThread, gate: SaveGate): () => Promise<void> {
     return async () => {
-      expireOldThreads(config, gate.retentionDays, th.projectId, () => threadsRef.current);
+      if (gate.retentionDays !== null) expireOldThreads(config, gate.retentionDays, th.projectId, () => threadsRef.current);
       // Checked against the vault right before every save, so a tab that missed another tab's change
       // of identity never saves under the old one: the identity already read is used only while the
       // stored owner id is still its own (one localStorage read); otherwise the vault is read afresh.
@@ -744,7 +753,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         // Retention: once the list is in, the project's threads past the server's period go. Only
         // while chats are saved at all — never with a guessed period.
         const gate = saveGateRef.current;
-        if (gate) expireOldThreads(tursoConfig, gate.retentionDays, projectId, () => loaded);
+        if (gate && gate.retentionDays !== null) expireOldThreads(tursoConfig, gate.retentionDays, projectId, () => loaded);
         setThreadsError(false);
         setLoadFailed(false);
         // MERGE, not bail, when something adopted a different thread while

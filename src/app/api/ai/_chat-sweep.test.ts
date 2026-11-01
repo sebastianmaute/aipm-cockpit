@@ -191,6 +191,20 @@ describe("startChatSweepSchedule", () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
+  it("pauses while the retention setting is invalid: no delete, one fixed line per run", async () => {
+    const { startChatSweepSchedule } = await freshModule();
+    const { intervals, timers } = fakeTimers();
+    const run = vi.fn<PipelineRunner>(async () => deleted(5));
+    const paused = () => vi.mocked(console.warn).mock.calls.filter((c) => c[0] === "chat sweep: paused, retention setting invalid");
+    expect(startChatSweepSchedule({ ...env, AIPM_AI_CHAT_RETENTION_DAYS: "forever" }, timers, run)).toBe(true);
+    expect(paused()).toHaveLength(1);
+    intervals[0].fn();
+    expect(paused()).toHaveLength(2);
+    expect(run).not.toHaveBeenCalled();
+    expect(console.info).not.toHaveBeenCalled();
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain("forever");
+  });
+
   it("uses the configured retention period", async () => {
     const { startChatSweepSchedule } = await freshModule();
     const { timers } = fakeTimers();

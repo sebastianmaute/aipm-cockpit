@@ -490,16 +490,16 @@ describe("expire", () => {
     expect(ids(db)).toEqual(["fresh"]);
   });
 
-  it("without --days uses AIPM_AI_CHAT_RETENTION_DAYS when it is valid, else 30, and prints the value used", async () => {
+  it("without --days uses AIPM_AI_CHAT_RETENTION_DAYS when it is valid, else 30 when unset, and prints the value used", async () => {
     const fake = makeFakeTurso(db);
     const a = deps(fake, { env: { ...ENV, AIPM_AI_CHAT_RETENTION_DAYS: "7" } });
     expect(await runCli(["expire"], a.deps)).toBe(EXIT.DONE);
     expect(fake.calls[0].body.requests[0].stmt).toEqual(expireThreadsStatements(7)[0]);
     expect(a.out.join("\n")).toContain("not updated for 7 days");
 
-    for (const bad of ["abc", "0", "3651", ""]) {
+    for (const unset of [undefined, "", "  "]) {
       const other = makeFakeTurso(db);
-      const b = deps(other, { env: { ...ENV, AIPM_AI_CHAT_RETENTION_DAYS: bad } });
+      const b = deps(other, { env: { ...ENV, AIPM_AI_CHAT_RETENTION_DAYS: unset } });
       expect(await runCli(["expire"], b.deps)).toBe(EXIT.DONE);
       expect(other.calls[0].body.requests[0].stmt).toEqual(expireThreadsStatements(30)[0]);
       expect(b.out.join("\n")).toContain("not updated for 30 days");
@@ -508,6 +508,26 @@ describe("expire", () => {
     const flag = makeFakeTurso(db);
     const c = deps(flag, { env: { ...ENV, AIPM_AI_CHAT_RETENTION_DAYS: "7" } });
     expect(await runCli(["expire", "--days", "12"], c.deps)).toBe(EXIT.DONE);
+    expect(flag.calls[0].body.requests[0].stmt).toEqual(expireThreadsStatements(12)[0]);
+  });
+
+  it("without --days refuses while AIPM_AI_CHAT_RETENTION_DAYS is set but invalid, naming the setting, not its value", async () => {
+    insertRow(db, { ...legacyRow(thread("old", [])), updated_at: "garbage" });
+    for (const bad of ["abc", "0", "3651", "seven-days"]) {
+      const fake = makeFakeTurso(db);
+      const a = deps(fake, { env: { ...ENV, AIPM_AI_CHAT_RETENTION_DAYS: bad } });
+      expect(await runCli(["expire"], a.deps)).toBe(1);
+      expect(fake.calls).toHaveLength(0);
+      const printed = [...a.out, ...a.err].join("\n");
+      expect(printed).toContain("AIPM_AI_CHAT_RETENTION_DAYS");
+      expect(printed).toContain("paused");
+      if (bad !== "0") expect(printed).not.toContain(bad);
+    }
+    expect(ids(db)).toEqual(["old"]);
+    // An explicit --days still works.
+    const flag = makeFakeTurso(db);
+    const b = deps(flag, { env: { ...ENV, AIPM_AI_CHAT_RETENTION_DAYS: "seven-days" } });
+    expect(await runCli(["expire", "--days", "12"], b.deps)).toBe(EXIT.DONE);
     expect(flag.calls[0].body.requests[0].stmt).toEqual(expireThreadsStatements(12)[0]);
   });
 

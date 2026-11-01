@@ -105,6 +105,13 @@ describe("useChatRetentionSweep", () => {
     await waitFor(() => expect(expireThreads).toHaveBeenCalledTimes(1));
   });
 
+  it("skips the chat expiry while the retention setting is invalid, and still retries the project sweeps", async () => {
+    run({ tursoConfig: config, chat: { ...chat, retentionInvalid: true }, loadPending: false });
+    await waitFor(() => expect(retryPendingProjectSweeps).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    expect(expireThreads).not.toHaveBeenCalled();
+  });
+
   it("does nothing without a Turso config", async () => {
     run({ tursoConfig: null, chat, loadPending: false });
     await Promise.resolve();

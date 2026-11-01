@@ -157,6 +157,11 @@ describe("ChatThreadSidebar", () => {
     expect(screen.queryByText(/without activity/)).not.toBeInTheDocument();
   });
 
+  it("shows no number while the retention setting is invalid: no period is in force", () => {
+    renderSidebar({ chat: { ...CHAT_30, retentionInvalid: true } });
+    expect(screen.queryByText(/without activity/)).not.toBeInTheDocument();
+  });
+
   it("says it in German too", async () => {
     await loadI18n("de");
     renderSidebar({ lang: "de", chat: { ...CHAT_30, retentionDays: 90 } });

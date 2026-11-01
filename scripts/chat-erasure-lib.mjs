@@ -45,12 +45,15 @@ const USAGE = [
   "  delete [--yes] <id…>                        delete chats by id",
   "  delete --all-matches --key <file> [--yes] <text>   delete every chat mentioning <text>",
   "  expire [--days <n>]                         delete chats not updated for n days",
-  `                                              (default ${RETENTION_ENV} when valid, else 30)`,
+  `                                              (default ${RETENTION_ENV}, else 30; refused while it is set but invalid)`,
   `environment: ${URL_ENV}, ${TOKEN_ENV}`,
 ].join("\n");
 
 /** A failure the script reports and exits 2 on. The message is safe to print. */
 class UnusableError extends Error {}
+
+/** A refusal the script reports and exits 1 on (nothing was sent). The message is safe to print. */
+class RefusedError extends Error {}
 
 /** `value` as text with every C0 and C1 control character (and DEL) removed — tabs and newlines
  *  included. Everything the script prints from the database or from Turso goes through this, so a
@@ -451,9 +454,21 @@ function validDays(raw) {
   return Number.isSafeInteger(days) && days >= 1 && days <= MAX_DAYS ? days : null;
 }
 
-/** `--days`, else the app's own retention setting when it is valid, else DEFAULT_DAYS. */
+/** `--days`, else the app's own retention setting, else DEFAULT_DAYS when it is unset. While the
+ *  setting is set but invalid the app deletes nothing for age (paused), so neither does this: it
+ *  refuses, naming the setting and never its value. An explicit `--days` still works. */
 function parseDays(raw, env) {
-  if (raw === undefined) return validDays(env?.[RETENTION_ENV]) ?? DEFAULT_DAYS;
+  if (raw === undefined) {
+    const setting = String(env?.[RETENTION_ENV] ?? "").trim();
+    if (setting === "") return DEFAULT_DAYS;
+    const days = validDays(setting);
+    if (days === null) {
+      throw new RefusedError(
+        `expire refused: ${RETENTION_ENV} is set but is not a whole number from 1 to ${MAX_DAYS}, so deleting old chats is paused. Fix it, or pass --days <n>.`,
+      );
+    }
+    return days;
+  }
   const days = validDays(raw);
   if (days === null) throw new UnusableError(`--days must be a whole number from 1 to ${MAX_DAYS}`);
   return days;
@@ -495,6 +510,10 @@ export async function runCli(argv, deps) {
     if (command === "delete") return await cmdDelete(values, positionals, run, deps);
     return await cmdExpire(values, run, deps);
   } catch (e) {
+    if (e instanceof RefusedError) {
+      deps.err(e.message);
+      return EXIT.FOUND;
+    }
     deps.err(e instanceof UnusableError ? e.message : `failed unexpectedly (${printable(e?.name ?? "error")})`);
     return EXIT.UNUSABLE;
   }

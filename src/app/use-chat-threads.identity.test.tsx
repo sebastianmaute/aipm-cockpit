@@ -390,6 +390,19 @@ describe("useChatThreads — retention", () => {
     expect(loadThreadsMock).toHaveBeenCalledTimes(2);
   });
 
+  it("while the retention setting is invalid: no expiry on load or save, and nothing hidden by age", async () => {
+    loadThreadsMock.mockResolvedValue([
+      thread("old", { updatedAt: "2026-09-22T12:00:00.000Z" }), // 40 days before NOW
+      thread("fresh"),
+    ]);
+    const hook = renderChatThreads({ chat: { ...CHAT_ON, retentionInvalid: true } });
+    await waitFor(() => expect(hook.result.current.threads.map((th) => th.id)).toEqual(["old", "fresh"]));
+    expect(hook.result.current.persistence).toBe("on");
+    await sendTurn(hook);
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    expect(expireThreadsMock).not.toHaveBeenCalled();
+  });
+
   it("never expires while the status is unknown", async () => {
     renderChatThreads({ chat: null });
     await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));

@@ -122,7 +122,8 @@ export function ChatThreadSidebar({
           reset controls sharing an accessible name while doing different
           things is a WCAG 2.4.6 failure that axe passes (a name exists). */}
       {erase && <ChatEraseControls lang={lang} threads={threads} erase={erase} />}
-      {chat !== null && (
+      {/* No period while the server's setting is invalid: deleting is paused (Settings → AI says so). */}
+      {chat !== null && !chat.retentionInvalid && (
         <p className="shrink-0 text-xs text-muted-foreground">{t(lang, "chatRetentionNotice", chat.retentionDays)}</p>
       )}
       <div className="flex shrink-0 justify-end">

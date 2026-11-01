@@ -2278,6 +2278,13 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     24 h with `sweepCredentialsFrom`. The operator: `npm run chats:erase` (`scripts/chat-erasure-lib.mjs`
     `runCli`), whose `expireStatements` repeats the predicate. ★ A database configured only in a browser is unknown
     to the server; the browser sweep and the script cover it.
+    ★★ **Paused while the setting is invalid.** `AIPM_AI_CHAT_RETENTION_DAYS` set but unusable means NO period is
+    in force (`ChatSettings.retentionInvalid`), so nothing is deleted for age: the browser neither expires
+    (`retentionInForce` in `use-chat-threads.ts` is null, so `SaveGate.retentionDays` is null) nor hides threads by
+    age, `useChatRetentionSweep` skips the chat sweep but still runs the project-sweep retry, the server logs
+    `chat sweep: paused, retention setting invalid` once per run, and the script's `expire` without `--days`
+    refuses with exit 1. Chats are still listed, saved and deletable. Never fall back to the default here: a
+    typo would otherwise silently delete everything older than 30 days.
   - **Project hard delete** sweeps `chat_threads` with the other `PROJECT_SCOPED_SIDE_TABLES`. A failed sweep is
     queued by project id per database (`pending-project-sweeps.ts`) and retried by `retryPendingProjectSweeps`,
     which `useChatRetentionSweep` runs once per database per page load after the chat sweep (without waiting for
