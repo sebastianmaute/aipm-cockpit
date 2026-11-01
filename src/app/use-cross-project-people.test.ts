@@ -438,7 +438,11 @@ describe("useCrossProjectPeople — third review (§785)", () => {
   test("a config change during a run starts a new run for the new config, and the old run never overwrites it", async () => {
     const OTHER = { httpUrl: "https://other.turso.io", authToken: "t2" } as TursoConfig;
     let releaseFirst: (w: Workspace) => void = () => {};
-    const load = vi.fn(async () => ws([res(10, "Ann", "Lee")]));
+    const seen: string[] = [];
+    const load = vi.fn(async (c: TursoConfig, id: string) => {
+      seen.push(c.httpUrl + "|" + id);
+      return ws([res(10, "Ann", "Lee")]);
+    });
     load.mockImplementationOnce(() => new Promise<Workspace>((r) => { releaseFirst = r; }));
     const { hook, deps } = setup({ load });
     act(() => hook.result.current.request());
@@ -446,7 +450,7 @@ describe("useCrossProjectPeople — third review (§785)", () => {
     hook.rerender({ ...deps, tursoConfig: OTHER });
     act(() => hook.result.current.request());
     await waitFor(() => expect(hook.result.current.status).toBe("ready"));
-    expect(load.mock.calls.filter((c) => c[0] === OTHER).length).toBeGreaterThan(0);
+    expect(seen.some((x) => x.startsWith(OTHER.httpUrl))).toBe(true);
     await act(async () => releaseFirst(ws([])));
     expect(hook.result.current.status).toBe("ready");
     expect(hook.result.current.matches.get(1)?.suggestions.length).toBeGreaterThan(0);
