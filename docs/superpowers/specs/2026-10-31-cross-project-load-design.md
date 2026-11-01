@@ -186,6 +186,9 @@ one or two sentences and links to the entry.
 - Two resources in one other project matching the same person: both count and their hours are summed (the builder's
   choice under "Left to the builder"; `figureFor` in `cross-project/elsewhere-hours.ts`).
 - `decided_by` is left blank: the hook accepts an actor label but the app does not pass one yet.
+- Archived projects are not loaded: item 9 said there is no archived state, but the app keeps archived projects in a
+  separate list (`tursoArchived`) and the loader reads only `tursoProjects`, so an archived project never contributes
+  hours or suggestions.
 - The help link beside the tooltip is a `HelpIconButton` that opens the entry in place; an `InfoTooltip` cannot carry a link.
 
 ## Left to the builder
