@@ -8,6 +8,9 @@ export interface ChatThread {
   id: string;
   /** "default" in non-portfolio Turso mode, matching ChatPanel's own projectId default. */
   projectId: string;
+  /** The person the stored row belongs to; null for a thread not yet saved
+   *  encrypted (new, or a legacy plaintext row). See chat-thread-codec.ts. */
+  ownerId: string | null;
   /** Auto-derived from the first user message on first save; empty until then —
    *  callers show a translated "Untitled chat" fallback (this module is i18n-free). */
   name: string;

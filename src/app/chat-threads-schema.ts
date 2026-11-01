@@ -4,21 +4,68 @@
 // chat-threads-store.test.ts) so the workspace save's per-table DELETE never
 // touches it — chat threads are Turso-only, not a Workspace field, and need no
 // CSV/MD/JSON codec. Mirrors committee-report-versions-schema.ts.
+//
+// A row is either OWNED (`owner_id` set; `name`, `history_json` and
+// `display_json` are encrypted envelopes, the thread key wrapped twice in
+// `key_owner` / `key_operator` — see chat-thread-codec.ts) or LEGACY (`owner_id`
+// NULL or '', plaintext, written before encryption). `SqlArg.value` is
+// string-only, so NULL is never bound: the owner-less group is always spelled
+// `(owner_id IS NULL OR owner_id = '')` in the SQL itself.
 import { rowObjects, txt, int, type PipelineResultLike, type SqlStmt } from "./turso-schema";
+import { existingColumnsFromPragma, missingColumnAlters } from "./turso-migrate";
 import { minimiseStoredToolResults, type ChatThread } from "./chat-threads";
 
+export const CHAT_THREADS_TABLE = "chat_threads";
+
+/** Every column, in DDL order. The heal adds whichever of these an older table lacks. */
+export const CHAT_THREADS_COLUMNS = [
+  "id", "project_id", "name", "created_at", "updated_at", "history_json", "display_json",
+  "owner_id", "key_owner", "key_operator",
+] as const;
+
 export const CHAT_THREADS_DDL: string[] = [
-  `CREATE TABLE IF NOT EXISTS chat_threads (id TEXT PRIMARY KEY, project_id TEXT, name TEXT, created_at TEXT, updated_at TEXT, history_json TEXT, display_json TEXT)`,
+  `CREATE TABLE IF NOT EXISTS chat_threads (id TEXT PRIMARY KEY, project_id TEXT, name TEXT, created_at TEXT, updated_at TEXT, history_json TEXT, display_json TEXT, owner_id TEXT, key_owner TEXT, key_operator TEXT)`,
 ];
 
-/** Retention cap: keep at most this many threads per project (oldest by
- *  updated_at pruned on each save beyond the cap). Higher than the committee
+/** One stored row, every column as text (an owner-less legacy row carries ''). */
+export interface StoredThreadRow {
+  id: string;
+  project_id: string;
+  owner_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  history_json: string;
+  display_json: string;
+  key_owner: string;
+  key_operator: string;
+}
+
+/** Retention cap: keep at most this many threads per project and owner (oldest
+ *  by updated_at pruned on each save beyond the cap). Higher than the committee
  *  report cap (25) — chat threads are casual/frequent, not formal snapshots. */
 export const CHAT_THREAD_CAP = 50;
 
-export const threadsSelect = (projectId: string): SqlStmt[] => [
-  { sql: `SELECT * FROM chat_threads WHERE project_id = ? ORDER BY updated_at DESC`, args: [txt(projectId)] },
-];
+const LEGACY_OWNER = `(owner_id IS NULL OR owner_id = '')`;
+
+/** The ALTERs that bring an existing table up to `CHAT_THREADS_COLUMNS`, given
+ *  its `PRAGMA table_info` result. Empty for an up-to-date table and for an
+ *  unreadable or absent one (run the DDL first, so the table exists). */
+export function chatThreadsHealAlters(pragma: PipelineResultLike | undefined): SqlStmt[] {
+  const existing = existingColumnsFromPragma(pragma);
+  if (existing === null) return [];
+  return missingColumnAlters(CHAT_THREADS_TABLE, existing, CHAT_THREADS_COLUMNS);
+}
+
+/** One project's threads visible to `ownerId`: its own rows plus the legacy
+ *  owner-less ones. With no owner, the legacy rows only. Never another owner's. */
+export const threadsSelect = (projectId: string, ownerId: string | null): SqlStmt[] =>
+  ownerId === null
+    ? [{ sql: `SELECT * FROM chat_threads WHERE project_id = ? AND ${LEGACY_OWNER} ORDER BY updated_at DESC`, args: [txt(projectId)] }]
+    : [{
+      sql: `SELECT * FROM chat_threads WHERE project_id = ? AND (owner_id = ? OR owner_id IS NULL OR owner_id = '') ORDER BY updated_at DESC`,
+      args: [txt(projectId), txt(ownerId)],
+    }];
 
 /** Upsert as ONE atomic `INSERT OR REPLACE`, never a delete-then-insert pair.
  *  `runTursoPipeline` only opens a server-side transaction when the pipeline's
@@ -27,13 +74,13 @@ export const threadsSelect = (projectId: string): SqlStmt[] => [
  *  every other statement list, this one included, autocommits statement by
  *  statement. A standalone DELETE followed by a separate INSERT would leave a
  *  real window where the thread is gone if the INSERT then failed. */
-export function upsertThreadStatements(th: ChatThread): SqlStmt[] {
+export function upsertThreadStatements(row: StoredThreadRow): SqlStmt[] {
   return [
     {
-      sql: `INSERT OR REPLACE INTO chat_threads (id,project_id,name,created_at,updated_at,history_json,display_json) VALUES (?,?,?,?,?,?,?)`,
+      sql: `INSERT OR REPLACE INTO chat_threads (id,project_id,owner_id,name,created_at,updated_at,history_json,display_json,key_owner,key_operator) VALUES (?,?,?,?,?,?,?,?,?,?)`,
       args: [
-        txt(th.id), txt(th.projectId), txt(th.name), txt(th.createdAt), txt(th.updatedAt),
-        txt(JSON.stringify(th.history)), txt(JSON.stringify(th.display)),
+        txt(row.id), txt(row.project_id), txt(row.owner_id), txt(row.name), txt(row.created_at), txt(row.updated_at),
+        txt(row.history_json), txt(row.display_json), txt(row.key_owner), txt(row.key_operator),
       ],
     },
   ];
@@ -53,15 +100,48 @@ export function deleteThreadStatements(id: string, projectId: string): SqlStmt[]
   ];
 }
 
-/** Delete all but the newest `keep` threads for one project (by updated_at). */
-export function pruneThreadsStatements(projectId: string, keep: number): SqlStmt[] {
+/** Delete all but the newest `keep` threads of ONE owner group in one project (by
+ *  updated_at). `ownerId` null prunes the legacy owner-less group. A save never
+ *  removes another person's threads to make room for its own. */
+export function pruneThreadsStatements(projectId: string, ownerId: string | null, keep: number): SqlStmt[] {
+  if (ownerId === null) {
+    return [{
+      sql: `DELETE FROM chat_threads WHERE project_id = ? AND ${LEGACY_OWNER} AND id NOT IN (SELECT id FROM chat_threads WHERE project_id = ? AND ${LEGACY_OWNER} ORDER BY updated_at DESC, id DESC LIMIT ?)`,
+      args: [txt(projectId), txt(projectId), int(keep)],
+    }];
+  }
   return [{
-    sql: `DELETE FROM chat_threads WHERE project_id = ? AND id NOT IN (SELECT id FROM chat_threads WHERE project_id = ? ORDER BY updated_at DESC, id DESC LIMIT ?)`,
-    args: [txt(projectId), txt(projectId), int(keep)],
+    sql: `DELETE FROM chat_threads WHERE project_id = ? AND owner_id = ? AND id NOT IN (SELECT id FROM chat_threads WHERE project_id = ? AND owner_id = ? ORDER BY updated_at DESC, id DESC LIMIT ?)`,
+    args: [txt(projectId), txt(ownerId), txt(projectId), txt(ownerId), int(keep)],
   }];
 }
 
-function parseJsonArray<T>(raw: string | undefined): T[] {
+/** Every thread of one owner, in every project of the database. An empty id is
+ *  refused: it would match the legacy '' rows of everybody. */
+export function deleteOwnerThreadsStatements(ownerId: string): SqlStmt[] {
+  if (ownerId === "") throw new Error("deleteOwnerThreadsStatements: empty owner id");
+  return [{ sql: `DELETE FROM chat_threads WHERE owner_id = ?`, args: [txt(ownerId)] }];
+}
+
+/** Threads last updated before `cutoffIso`, plus any without a usable
+ *  `updated_at` (NULL or '', which no retention period can vouch for). Whole
+ *  database, or one project when `projectId` is given. Compares ISO strings. */
+export function expireThreadsStatements(cutoffIso: string, projectId?: string): SqlStmt[] {
+  const stale = `(updated_at < ? OR updated_at IS NULL OR updated_at = '')`;
+  if (projectId === undefined) {
+    return [{ sql: `DELETE FROM chat_threads WHERE ${stale}`, args: [txt(cutoffIso)] }];
+  }
+  return [{ sql: `DELETE FROM chat_threads WHERE ${stale} AND project_id = ?`, args: [txt(cutoffIso), txt(projectId)] }];
+}
+
+const DAY_MS = 86_400_000;
+
+/** The ISO instant `days` whole days before `now`: rows updated earlier expire. */
+export function retentionCutoff(now: Date, days: number): string {
+  return new Date(now.getTime() - days * DAY_MS).toISOString();
+}
+
+export function parseJsonArray<T>(raw: string | undefined): T[] {
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -71,17 +151,30 @@ function parseJsonArray<T>(raw: string | undefined): T[] {
   }
 }
 
+/** A row whose `owner_id` is NULL or '' — plaintext, written before encryption. */
+export function isLegacyRow(r: Record<string, string>): boolean {
+  return !r.owner_id;
+}
+
+/** Decode one LEGACY plaintext row object (see `rowObjects`). */
+export function legacyRowToThread(r: Record<string, string>): ChatThread {
+  return {
+    id: r.id,
+    projectId: r.project_id ?? "",
+    ownerId: null,
+    name: r.name ?? "",
+    createdAt: r.created_at ?? "",
+    updatedAt: r.updated_at ?? "",
+    // AI-08 / AI-05 — a thread saved before the tool results were minimised is minimised here, before it can be re-sent.
+    history: minimiseStoredToolResults(parseJsonArray(r.history_json)),
+    display: parseJsonArray(r.display_json),
+  };
+}
+
+/** The legacy plaintext rows of a SELECT result, decoded; owned rows are skipped
+ *  (they need a key — see `decodeThreadRows` in chat-thread-codec.ts). */
 export function rowsToThreads(res: PipelineResultLike | undefined): ChatThread[] {
   return rowObjects(res)
-    .filter((r) => r.id)
-    .map((r): ChatThread => ({
-      id: r.id,
-      projectId: r.project_id ?? "",
-      name: r.name ?? "",
-      createdAt: r.created_at ?? "",
-      updatedAt: r.updated_at ?? "",
-      // AI-08 / AI-05 — a thread saved before the tool results were minimised is minimised here, before it can be re-sent.
-      history: minimiseStoredToolResults(parseJsonArray(r.history_json)),
-      display: parseJsonArray(r.display_json),
-    }));
+    .filter((r) => r.id && isLegacyRow(r))
+    .map(legacyRowToThread);
 }

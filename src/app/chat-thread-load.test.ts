@@ -6,6 +6,7 @@ function thread(id: string, projectId = "p1"): ChatThread {
   return {
     id,
     projectId,
+    ownerId: null,
     name: `Thread ${id}`,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",

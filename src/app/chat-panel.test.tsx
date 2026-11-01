@@ -2257,6 +2257,7 @@ describe("ChatPanel — Turso thread persistence", () => {
       {
         id: "t1",
         projectId: "default",
+        ownerId: null,
         name: "Prior chat",
         createdAt: "c",
         updatedAt: "u",
@@ -2266,7 +2267,7 @@ describe("ChatPanel — Turso thread persistence", () => {
     ] satisfies ChatThread[]);
     renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
     await screen.findByText("hi");
-    expect(loadThreads).toHaveBeenCalledWith({}, "default");
+    expect(loadThreads).toHaveBeenCalledWith({}, "default", null);
   });
 
   it("saves a new thread after the first turn completes, auto-named from the first message", async () => {
@@ -2316,6 +2317,7 @@ describe("ChatPanel — Turso thread persistence", () => {
     {
       id: "t-a",
       projectId: "default",
+      ownerId: null,
       name: "Thread A",
       createdAt: "c",
       updatedAt: "u2",
@@ -2325,6 +2327,7 @@ describe("ChatPanel — Turso thread persistence", () => {
     {
       id: "t-b",
       projectId: "default",
+      ownerId: null,
       name: "Thread B",
       createdAt: "c",
       updatedAt: "u1",
@@ -2553,6 +2556,7 @@ describe("ChatPanel — Turso thread persistence", () => {
       {
         id: "t1",
         projectId: "default",
+        ownerId: null,
         name: "Prior chat",
         createdAt: "c",
         updatedAt: "u",

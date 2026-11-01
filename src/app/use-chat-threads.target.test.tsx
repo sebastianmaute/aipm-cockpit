@@ -30,6 +30,7 @@ function thread(id: string, over: Partial<ChatThread> = {}): ChatThread {
   return {
     id,
     projectId: "default",
+    ownerId: null,
     name: `Thread ${id}`,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
@@ -293,7 +294,7 @@ describe("useChatThreads — a load retry outliving a Turso target change (§604
     await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
 
     act(() => result.current.retryLoad());
-    expect(loadThreadsMock).toHaveBeenLastCalledWith(CFG_A, "default");
+    expect(loadThreadsMock).toHaveBeenLastCalledWith(CFG_A, "default", null);
     rerender({ ...initialProps, tursoConfig: CFG_B });
     await waitFor(() => expect(result.current.threads).toEqual(inB));
     await settle(() => retry.resolve([thread("t1", { name: "Stale in A" })]));

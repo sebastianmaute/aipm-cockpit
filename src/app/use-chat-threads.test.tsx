@@ -29,6 +29,7 @@ function thread(id: string, over: Partial<ChatThread> = {}): ChatThread {
   return {
     id,
     projectId: "default",
+    ownerId: null,
     name: `Thread ${id}`,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",

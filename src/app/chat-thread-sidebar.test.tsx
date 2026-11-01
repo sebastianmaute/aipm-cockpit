@@ -10,6 +10,7 @@ import type { ChatThread } from "./chat-threads";
 const threadA: ChatThread = {
   id: "a",
   projectId: "p",
+  ownerId: null,
   name: "Q1 budget",
   createdAt: "c",
   updatedAt: "u",

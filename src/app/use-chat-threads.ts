@@ -27,6 +27,9 @@ import { type Lang, t } from "./i18n";
 import type { ApiMessage, DisplayItem } from "./chat-api";
 import type { TursoConfig } from "./turso-config";
 import type { ConfirmFn } from "./confirm-dialog";
+// No chat identity or recovery key reaches this hook yet: loads pass `null` (legacy plaintext
+// rows only) and saves pass `null, null`, which `saveThread` refuses before any write — a
+// thread is never stored in plaintext. Wiring the identity in replaces these nulls.
 import { loadThreads, saveThread, deleteThread as deleteThreadRow } from "./chat-threads-store";
 import {
   type ChatThread, newThreadId, deriveThreadName, normalizeThreadName, stripAttachmentsForPersistence,
@@ -474,7 +477,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // fetch), or a "New chat" / thread click.
     const startedOn = threadIdRef.current;
     const landingsAtStart = landingsRef.current;
-    loadThreads(tursoConfig, projectId)
+    loadThreads(tursoConfig, projectId, null)
       .then((loaded) => {
         if (cancelled) return;
         setThreadsError(false);
@@ -696,7 +699,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       sendSeqRef.current !== seqAtClick ||
       persistInFlightAtClick ||
       persistSeqRef.current !== persistSeqAtClick;
-    loadThreads(tursoConfig, projectId)
+    loadThreads(tursoConfig, projectId, null)
       .then((loaded) => {
         // §313. A project switch while this was in flight means every setState
         // below would write p1's data under p2 — including setLoadedProjectId,
@@ -776,6 +779,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     const thread: ChatThread = {
       id,
       projectId,
+      ownerId: existing?.ownerId ?? null,
       name: existing?.name ?? deriveThreadName(display),
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
@@ -784,7 +788,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     };
     if (!movedAway) setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
     const scope = renameScope(turnConfig);
-    runPersist(id, () => saveThread(writeConfig(turnConfig), thread), (owns) => confirmSavedName(scope, id, thread.name, owns));
+    runPersist(id, () => saveThread(writeConfig(turnConfig), thread, null, null), (owns) => confirmSavedName(scope, id, thread.name, owns));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
 
@@ -871,6 +875,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     const inserted: ChatThread = {
       id,
       projectId,
+      ownerId: null,
       name: deriveThreadName(sentDisplay),
       createdAt: now,
       updatedAt: now,
@@ -879,7 +884,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     };
     setThreads((prev) => (prev.some((th) => th.id === id) ? prev : [inserted, ...prev]));
     const scope = renameScope();
-    runPersist(id, () => saveThread(tursoConfig, inserted), (owns) => confirmSavedName(scope, id, inserted.name, owns));
+    runPersist(id, () => saveThread(tursoConfig, inserted, null, null), (owns) => confirmSavedName(scope, id, inserted.name, owns));
     return id;
   }
 
@@ -933,7 +938,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     const config = tursoConfig;
     const scope = renameScope(config);
     if (scope) trackPendingEdit(scope, { kind: RENAME_KIND, id, base: confirmedName(target), value: name });
-    runPersist(id, () => saveThread(writeConfig(config), updated), (owns) => confirmSavedName(scope, id, name, owns));
+    runPersist(id, () => saveThread(writeConfig(config), updated, null, null), (owns) => confirmSavedName(scope, id, name, owns));
   }
 
   // §626. Re-issues the renames typed before the last close, once a load for this project has
