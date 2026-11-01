@@ -371,6 +371,24 @@ describe("useChatThreads — retention", () => {
     expect(readChatThreads("default").threads.map((th) => th.id)).toEqual(["fresh"]);
   });
 
+  it("drops a thread past the retention period once the status arrives after the first load", async () => {
+    loadThreadsMock.mockResolvedValue([
+      thread("old", { updatedAt: "2026-09-22T12:00:00.000Z" }), // 40 days before NOW
+      thread("fresh"),
+    ]);
+    const hook = renderChatThreads({ chat: null });
+    await waitFor(() => expect(hook.result.current.threads.map((th) => th.id)).toEqual(["old", "fresh"]));
+    hook.rerender({ ...hook.initialProps, chat: CHAT_ON });
+    await waitFor(() => expect(hook.result.current.threads.map((th) => th.id)).toEqual(["fresh"]));
+    expect(loadThreadsMock).toHaveBeenCalledTimes(2);
+    // Known → known again (a new settings object) does not reload.
+    hook.rerender({ ...hook.initialProps, chat: { ...CHAT_ON } });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(loadThreadsMock).toHaveBeenCalledTimes(2);
+  });
+
   it("never expires while the status is unknown", async () => {
     renderChatThreads({ chat: null });
     await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));

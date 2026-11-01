@@ -492,6 +492,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // delete is sent — otherwise a deleted legacy chat would come back on reload. (Like a save, it does
   // not check the config itself: the store reports a missing one as a failed write.)
   const deleteGate = chat !== null && tursoMode;
+  // A primitive for the load effect: it reloads once when the settings become known, never on a new
+  // settings object.
+  const chatKnown = chat !== null;
   // For the load effect's expiry, which must not refire the load when the settings change.
   const saveGateRef = useRef(saveGate);
   useEffect(() => {
@@ -769,7 +772,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     return () => {
       cancelled = true;
     };
-  }, [tursoMode, projectId, tursoConfig, setHistory, setDisplay, identityReloads]);
+    // `chatKnown`: the load filters out threads past the retention period only with the chat settings
+    // known, so the list is loaded once more when they arrive after the first load.
+  }, [tursoMode, projectId, tursoConfig, setHistory, setDisplay, identityReloads, chatKnown]);
 
   // The banner's single retry action. If one or more saves/deletes failed,
   // `pendingRetryRef` holds a thunk PER failed write (keyed by thread id) —
