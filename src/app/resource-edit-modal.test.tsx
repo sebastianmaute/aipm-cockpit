@@ -758,8 +758,8 @@ describe("ResourceEditModal — other projects (§785)", () => {
   it("lists the matched projects, a confirmed one marked and with an Undo that names the project", () => {
     const crossProject = cp({ matched: [{ ...rel("p-b", "Apollo", 10), via: "email" }, { ...rel("p-c", "Borealis", 20), via: "confirmed" }] });
     setup({ crossProject });
-    expect(screen.getByText(en("resourceWorksInProject", "Apollo"))).toBeTruthy();
-    expect(screen.getByText(en("resourceWorksInProjectConfirmed", "Borealis"))).toBeTruthy();
+    expect(screen.getByText(en("resourceWorksInProject", "Apollo", "Sofia Ramirez (#10)"))).toBeTruthy();
+    expect(screen.getByText(en("resourceWorksInProjectConfirmed", "Borealis", "Sofia Ramirez (#20)"))).toBeTruthy();
     const undo = screen.getByRole("button", { name: `${en("resourceLinkUndo")} – Sofia Ramirez (#1) – Sofia Ramirez (#20) – Borealis` });
     fireEvent.click(undo);
     expect(crossProject.undo).toHaveBeenCalledWith(1, expect.objectContaining(rel("p-c", "Borealis", 20)));
@@ -775,6 +775,13 @@ describe("ResourceEditModal — other projects (§785)", () => {
     fireEvent.click(reject[0]);
     expect(crossProject.reject).toHaveBeenCalledWith(1, expect.objectContaining(rel("p-b", "Apollo", 10)));
     expect(crossProject.undo).not.toHaveBeenCalled();
+  });
+
+  it("two matches in one project show distinguishable lines (§785)", () => {
+    const matched = [{ ...rel("p-b", "Apollo", 10), via: "email" as const }, { ...rel("p-b", "Apollo", 11), via: "email" as const }];
+    setup({ crossProject: cp({ matched }, { nameOf: (p, r) => (r === 10 ? "Sofia Ramirez" : "Sofia Ramírez") }) });
+    expect(screen.getByText(en("resourceWorksInProject", "Apollo", "Sofia Ramirez (#10)"))).toBeTruthy();
+    expect(screen.getByText(en("resourceWorksInProject", "Apollo", "Sofia Ramírez (#11)"))).toBeTruthy();
   });
 
   it("two e-mail matches get two different reject names, disabled while loading (§785)", () => {

@@ -1098,9 +1098,10 @@
   exception is a Turso portfolio with a single project: the hook reports `singleProject: true` and the digest says
   `ELSEWHERE: this is the only project, there are no other projects` instead (`AllocElsewhere.singleProject`).
   ★ **Loading.** `request()` loads every OTHER project with `TursoBackend.load()`, SEQUENTIALLY (as
-  `use-portfolio-health.ts`); every request reloads (no cache), but a request made while a run for the same scope is
-  still in flight is ignored; archived projects are not loaded (the list is `tursoProjects`, never `tursoArchived`);
-  a project that fails is skipped and listed in `failures`.
+  `use-portfolio-health.ts`); every request reloads (no cache), but a request made while a run for the same scope AND the same database is
+  still in flight is ignored (a config change starts a new run, and only the newest run writes its result); archived projects are not loaded (the list is `tursoProjects`, never `tursoArchived`);
+  a project that fails is skipped and listed in `failures`. A failed `person_links` read drops any earlier result for the
+  project (status `idle`, `loadFailed`), so old figures are never used beside a "not counted" message.
   It captures `getScopeEpoch()` before its first await, re-checks after each, and refuses to start while
   `loadPending`, but REMEMBERS the ask (`wantedRef`) and an effect that only calls `request()` starts it when the hold
   ends. A link write that lands while a run is in flight is re-applied over the links that run read (`runWritesRef`),
@@ -1129,7 +1130,8 @@
   `ELSEWHERE "<project>": <period>=<h> …` line per project, listing only the shown periods that have hours (a project with open tasks but no hours there reads `no plan` when
   it has no stored plan, else `no hours in the shown periods`); a project with neither hours there nor open tasks gets
   no line. Notes not tied to a person: `ELSEWHERE: other projects were not
-  loaded` (status idle or loading), `ELSEWHERE: other projects could not be loaded` (the stored answers could not be
+  loaded` (status idle or loading; effectively a defensive fallback, because Plan with AI refuses to send in either state
+  unless `loadFailed`), `ELSEWHERE: other projects could not be loaded` (the stored answers could not be
   read, `loadFailed`) and `ELSEWHERE: could not be read: "<project>", …`. The project name is a JSON string and the
   person's own name is not repeated on the line.
   ★ **Over capacity.** `alternativeEffect` (`alloc-effect.ts`) takes an optional `elsewhereHours(resourceId, periodKey)`;
@@ -1145,8 +1147,8 @@
   `task-manager.tsx` does not pass it. Confirm / Not the same / Undo are in two places that write the same row: the
   person's entry (`resource-links-section.tsx`, with a `HelpIconButton` for `feature-cross-project-people` beside the
   `InfoTooltip`, because a tooltip cannot carry a link; the review window's elsewhere label in `alloc-plan-moves.tsx` pairs the same two) and the review window (`alloc-elsewhere-suggestions.tsx`, for
-  the resources the active alternative touches, and only for a suggestion whose person has hours in the shown periods:
-  `suggestionHours(rel) > 0`). Both disable their buttons while a load runs, because a write during
+  the resources the active alternative touches, and only for a suggestion whose person has hours in the plan's periods:
+  `suggestionHours(rel) > 0`; it sums the whole plan window, as the over-capacity check does). Both disable their buttons while a load runs, because a write during
   a reload would be lost in memory. ★ Neither is in axe's views (Turso-only), so their unit tests are the only a11y
   coverage; names are row-unique (person, project and ids).
 - **Forecast import, Claude route (§500):** ONE forced `propose_forecast_mapping` call in

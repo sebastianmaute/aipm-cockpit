@@ -419,3 +419,36 @@ describe("useCrossProjectPeople — final fixes (§785)", () => {
     expect(a).toBe(configKeyOf({ httpUrl: "https://x.turso.io", authToken: "secret-token-aaa" } as TursoConfig));
   });
 });
+
+// §785 — third review round.
+describe("useCrossProjectPeople — third review (§785)", () => {
+  test("a reload whose links fail drops the earlier result: idle, loadFailed, nothing matched, no hours", async () => {
+    const { hook } = setup();
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(hook.result.current.matches.size).toBe(1);
+    vi.mocked(loadPersonLinks).mockRejectedValueOnce(new Error("links down"));
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.loadFailed).toBe(true));
+    expect(hook.result.current.status).toBe("idle");
+    expect(hook.result.current.matches.size).toBe(0);
+    expect(hook.result.current.elsewhere(1)).toEqual([]);
+  });
+
+  test("a config change during a run starts a new run for the new config, and the old run never overwrites it", async () => {
+    const OTHER = { httpUrl: "https://other.turso.io", authToken: "t2" } as TursoConfig;
+    let releaseFirst: (w: Workspace) => void = () => {};
+    const load = vi.fn(async () => ws([res(10, "Ann", "Lee")]));
+    load.mockImplementationOnce(() => new Promise<Workspace>((r) => { releaseFirst = r; }));
+    const { hook, deps } = setup({ load });
+    act(() => hook.result.current.request());
+    expect(hook.result.current.status).toBe("loading");
+    hook.rerender({ ...deps, tursoConfig: OTHER });
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(load.mock.calls.filter((c) => c[0] === OTHER).length).toBeGreaterThan(0);
+    await act(async () => releaseFirst(ws([])));
+    expect(hook.result.current.status).toBe("ready");
+    expect(hook.result.current.matches.get(1)?.suggestions.length).toBeGreaterThan(0);
+  });
+});

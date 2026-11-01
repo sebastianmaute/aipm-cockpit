@@ -63,7 +63,7 @@ export function ResourceLinksSection({ lang, crossProject, resourceId, name }: R
         {matched.map((rel) => (
           <li key={`m:${rel.projectId}:${rel.resourceId}`} className={rowClass}>
             <span className="min-w-0 flex-1">
-              {t(lang, rel.via === "confirmed" ? "resourceWorksInProjectConfirmed" : "resourceWorksInProject", rel.projectName)}
+              {t(lang, rel.via === "confirmed" ? "resourceWorksInProjectConfirmed" : "resourceWorksInProject", rel.projectName, `${other(rel)} (#${rel.resourceId})`)}
             </span>
             {rel.via === "confirmed" && (
               <Button variant="secondary" size="xs" type="button" disabled={loading} aria-label={`${undoLabel} – ${who(rel)}`}

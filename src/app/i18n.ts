@@ -5867,8 +5867,8 @@ const enUS = {
 
   resourceLinksHeading: "Other projects",
   resourceLinksTip: "People are separate entries in each project. The app links them by email automatically, and by name only after you confirm. Other projects are only read, never changed.",
-  resourceWorksInProject: "Works in project {0}",
-  resourceWorksInProjectConfirmed: "Works in project {0} (confirmed)",
+  resourceWorksInProject: "Works in project {0} as {1}",
+  resourceWorksInProjectConfirmed: "Works in project {0} as {1} (confirmed)",
   resourceLinkSuggest: "{0} in {1} has the same name. Same person?",
   resourceLinkConfirm: "Confirm",
   resourceLinkReject: "Not the same",

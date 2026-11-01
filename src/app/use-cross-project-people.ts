@@ -45,13 +45,13 @@ export interface CrossProjectPeople {
   failures: { projectId: string; projectName: string }[];
   /** Turso portfolio mode, but this is the only project: nothing else to read (status "unavailable"). */
   singleProject: boolean;
-  /** The stored answers could not be loaded, so nothing was matched; cleared by the next request. */
+  /** The stored answers could not be loaded, so nothing was matched (an earlier result for this project is dropped too); cleared by the next request. */
   loadFailed: boolean;
   matches: Map<number, PersonMatch>;
   elsewhere: (resourceId: number) => ElsewhereFigure[];
   /** Display name of a person in ANOTHER project, from the loaded data; "" when nothing is loaded or the person is unknown. */
   nameOf: (projectId: string, resourceId: number) => string;
-  /** Hours the suggested person would add in the shown plan periods if confirmed; 0 when nothing is loaded. */
+  /** Hours the suggested person would add in the plan's periods if confirmed; 0 when nothing is loaded. */
   suggestionHours: (rel: Relation) => number;
   request: () => void;
   confirm: (hereResourceId: number, rel: Relation) => Promise<void>;
@@ -118,7 +118,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   const [loadingFor, setLoadingFor] = useState<string | null>(null);
   const [loadFailedFor, setLoadFailedFor] = useState<string | null>(null);
   // The run that currently owns the in-flight state; a run from an older scope never clears a newer one.
-  const runRef = useRef<{ id: number; epoch: number } | null>(null);
+  const runRef = useRef<{ id: number; epoch: number; key: string } | null>(null);
   const runCounterRef = useRef(0);
   // A request made during the load hold, started when the hold ends.
   const wantedRef = useRef(false);
@@ -144,13 +144,14 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     }
     wantedRef.current = false;
     const startEpoch = getScopeEpoch();
-    if (runRef.current !== null && runRef.current.epoch === startEpoch) return; // a run for this scope is already going
+    const key = configKeyOf(tursoConfig);
+    // A run for this scope AND this database is already going; one for another config is superseded by a new run.
+    if (runRef.current !== null && runRef.current.epoch === startEpoch && runRef.current.key === key) return;
     const runId = ++runCounterRef.current;
-    runRef.current = { id: runId, epoch: startEpoch };
+    runRef.current = { id: runId, epoch: startEpoch, key };
     runWritesRef.current = [];
     setLoadingFor(currentProjectId);
     setLoadFailedFor(null);
-    const key = configKeyOf(tursoConfig);
     const projectId = currentProjectId;
     const run = async (): Promise<void> => {
       try {
@@ -173,11 +174,16 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
         }
         const links = await loadPersonLinks(tursoConfig);
         if (isScopeStale(getScopeEpoch, startEpoch)) return;
+        if (runRef.current?.id !== runId) return; // a newer run owns the result
         const merged = runWritesRef.current.reduce((acc, edit) => edit(acc), links);
         setLoaded({ projectId, configKey: key, others, links: merged, failures });
       } catch (err) {
         logDiag("error", "crossProject.linksLoadFailed", { message: messageOf(err) });
-        if (!isScopeStale(getScopeEpoch, startEpoch)) setLoadFailedFor(projectId);
+        if (!isScopeStale(getScopeEpoch, startEpoch)) {
+          setLoadFailedFor(projectId);
+          // The old figures cannot be trusted any more than the answers: show nothing rather than "ready" with a failure.
+          setLoaded((prev) => (prev?.projectId === projectId ? null : prev));
+        }
       } finally {
         if (runRef.current?.id === runId) {
           runRef.current = null;

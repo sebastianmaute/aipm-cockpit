@@ -98,6 +98,7 @@ export interface AllocElsewhere {
 
 const ELSEWHERE_UNAVAILABLE = "ELSEWHERE: other projects cannot be seen in this storage mode";
 const ELSEWHERE_SINGLE_PROJECT = "ELSEWHERE: this is the only project, there are no other projects";
+// A defensive fallback: Plan with AI refuses to send while the status is "loading", or "idle" without a failure.
 const ELSEWHERE_NOT_LOADED = "ELSEWHERE: other projects were not loaded";
 const ELSEWHERE_LOAD_FAILED = "ELSEWHERE: other projects could not be loaded";
 const oneDecimal = (n: number): number => Math.round(n * 10) / 10;
