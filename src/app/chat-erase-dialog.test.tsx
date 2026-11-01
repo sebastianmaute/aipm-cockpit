@@ -36,6 +36,16 @@ function search(query: string) {
   return dialog;
 }
 
+describe("ChatEraseControls — find chats mentioning a person", () => {
+  it("says that older shared chats are searched and can be deleted too", () => {
+    renderControls([thread("a")]);
+    fireEvent.click(screen.getByRole("button", { name: "Find chats mentioning a person" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("older shared chats saved before chats became private, which you can delete too");
+    expect(dialog).not.toHaveTextContent("Colleagues' chats are not searched.");
+  });
+});
+
 describe("ChatEraseControls — delete all my chats", () => {
   it("asks for the typed phrase before deleting, then deletes", async () => {
     const erase = renderControls([thread("a")]);
@@ -44,6 +54,7 @@ describe("ChatEraseControls — delete all my chats", () => {
     expect(dialog).toHaveTextContent("in every project of this database");
     expect(dialog).toHaveTextContent("cannot be undone");
     expect(dialog).toHaveTextContent("colleagues' chats are not affected");
+    expect(dialog).toHaveTextContent("Your own chats from before the upgrade belong to no one and stay until they expire");
     const confirm = within(dialog).getByRole("button", { name: "Delete my chats" });
     expect(confirm).toBeDisabled();
     const input = within(dialog).getByRole("textbox");
