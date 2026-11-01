@@ -1007,6 +1007,15 @@ describe("useAllocPlan — other projects (§785)", () => {
     expect(lines).toEqual(["ELSEWHERE: this is the only project, there are no other projects"]);
   });
 
+  it("hands the protected projects to the digest: the not-counted note is in what is sent (§785)", async () => {
+    vi.mocked(call.runAllocProposal).mockImplementation(() => new Promise(() => {}));
+    render(wrap(cp({ status: "ready", protectedProjects: [{ projectId: "p9", projectName: "Zeus" }] })));
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") }));
+    await waitFor(() => expect(call.runAllocProposal).toHaveBeenCalled());
+    expect(vi.mocked(call.runAllocProposal).mock.calls[0][0]).toContain('ELSEWHERE: not counted, because these projects protect their people: "Zeus"');
+  });
+
   it("unavailable: one ELSEWHERE line and Run is not blocked", async () => {
     vi.mocked(call.runAllocProposal).mockImplementation(() => new Promise(() => {}));
     render(wrap(cp({ status: "unavailable" })));
