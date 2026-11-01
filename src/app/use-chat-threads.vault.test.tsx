@@ -26,10 +26,13 @@ const expireThreadsMock = expireThreads as unknown as ReturnType<typeof vi.fn>;
 const CFG: TursoConfig = { httpUrl: "https://database-v.example.invalid", authToken: "token-v" };
 const CHAT_ON: ChatSettings = { retentionDays: 30, retentionInvalid: false, recoveryKey: "recovery-spki", recoveryKeyInvalid: false };
 
+// Within the retention period by the real clock: a load drops a thread past it.
+const RECENT = new Date(Date.now() - 86_400_000).toISOString();
+
 function thread(id: string, over: Partial<ChatThread> = {}): ChatThread {
   return {
     id, projectId: "default", ownerId: null, name: `Thread ${id}`,
-    createdAt: "2026-10-20T00:00:00.000Z", updatedAt: "2026-10-20T00:00:00.000Z", history: [], display: [], ...over,
+    createdAt: RECENT, updatedAt: RECENT, history: [], display: [], ...over,
   };
 }
 

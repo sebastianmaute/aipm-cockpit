@@ -494,7 +494,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
 
   /** Reads this browser's identity for `config`'s database, then loads the threads it may see: its
    *  own and legacy owner-less ones. A row owned by anybody else is dropped here as well as in the
-   *  decoder, so it can never reach the list, the registry, search or the recap. */
+   *  decoder, so it can never reach the list, the registry, search or the recap. With the chat
+   *  settings known, a thread past the retention period is dropped too (by this browser's clock —
+   *  display only; the delete itself runs on the database's clock), so a load never shows a chat the
+   *  next expiry is about to delete. */
   async function loadVisibleThreads(config: TursoConfig | null, pid: string): Promise<ChatThread[]> {
     const url = config?.httpUrl ?? "";
     const read = await readChatIdentity(url);
@@ -503,7 +506,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     vaultReadRef.current = next;
     setVaultRead(next);
     const loaded = await loadThreads(config, pid, identity);
-    return loaded.filter((th) => th.ownerId === null || th.ownerId === identity?.ownerId);
+    const cutoffIso = chat ? retentionCutoff(new Date(), chat.retentionDays) : null;
+    return loaded.filter((th) =>
+      (th.ownerId === null || th.ownerId === identity?.ownerId)
+      && (cutoffIso === null || !expiredBy(th.updatedAt, cutoffIso)));
   }
   const loadVisibleRef = useRef(loadVisibleThreads);
   useEffect(() => {

@@ -218,16 +218,28 @@ describe("useChatThreads — pending renames of removed threads", () => {
   });
 
   it("this browser's expiry drops the renames of the threads it expired", async () => {
-    loadThreadsMock.mockResolvedValue([thread("old", { updatedAt: "2020-01-01T00:00:00.000Z" }), thread("new")]);
-    const { result } = renderChatThreads();
-    await waitFor(() => expect(result.current.threads).toHaveLength(2));
-    await waitFor(() => expect(expireThreadsMock).toHaveBeenCalledTimes(1));
-    storeDrafts(result, ["old", "new"]);
-    act(() => {
-      result.current.renameThread("new", "Renamed");
-    });
-    await waitFor(() => expect(expireThreadsMock).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(storedRenameIds()).toEqual(["new"]));
+    // A thread that ages past the period while the list is open: a load never lists an expired one.
+    const start = Date.now();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(start);
+    try {
+      loadThreadsMock.mockResolvedValue([
+        thread("old", { updatedAt: new Date(start - 20 * 86_400_000).toISOString() }),
+        thread("new", { updatedAt: new Date(start).toISOString() }),
+      ]);
+      const { result } = renderChatThreads();
+      await waitFor(() => expect(result.current.threads).toHaveLength(2));
+      await waitFor(() => expect(expireThreadsMock).toHaveBeenCalledTimes(1));
+      storeDrafts(result, ["old", "new"]);
+      vi.setSystemTime(start + 15 * 86_400_000);
+      act(() => {
+        result.current.renameThread("new", "Renamed");
+      });
+      await waitFor(() => expect(expireThreadsMock).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(storedRenameIds()).toEqual(["new"]));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -36,6 +36,8 @@ const loadThreadsMock = loadThreads as unknown as ReturnType<typeof vi.fn>;
 const saveThreadMock = saveThread as unknown as ReturnType<typeof vi.fn>;
 const deleteThreadMock = deleteThread as unknown as ReturnType<typeof vi.fn>;
 
+const RECENT = new Date(Date.now() - 86_400_000).toISOString();
+
 function thread(id: string, over: Partial<ChatThread> = {}): ChatThread {
   return {
     id,
@@ -43,7 +45,8 @@ function thread(id: string, over: Partial<ChatThread> = {}): ChatThread {
     ownerId: null,
     name: `Thread ${id}`,
     createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
+    // Within the retention period by the real clock: a load drops a thread past it.
+    updatedAt: RECENT,
     history: [],
     display: [],
     ...over,
@@ -1540,7 +1543,7 @@ describe("useChatThreads — registry publication", () => {
   });
 
   it("publishes the live threads and active id in Turso mode", async () => {
-    const t1 = thread("t1", { updatedAt: "2026-02-02T00:00:00.000Z" });
+    const t1 = thread("t1", { updatedAt: new Date().toISOString() });
     const t2 = thread("t2");
     loadThreadsMock.mockResolvedValue([t1, t2]);
     renderChatThreads({ tursoMode: true, projectId: "p1" });

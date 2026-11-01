@@ -305,6 +305,17 @@ describe("useChatThreads — retention", () => {
     expect(hook.result.current.threadsError).toBe(false);
   });
 
+  it("never lists a thread past the retention period after a load, nor publishes it", async () => {
+    loadThreadsMock.mockResolvedValue([
+      thread("old", { updatedAt: "2026-09-22T12:00:00.000Z" }),
+      thread("fresh"),
+    ]);
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(result.current.threads.map((th) => th.id)).toEqual(["fresh"]));
+    await waitFor(() => expect(readChatThreads("default").available).toBe(true));
+    expect(readChatThreads("default").threads.map((th) => th.id)).toEqual(["fresh"]);
+  });
+
   it("never expires while the status is unknown", async () => {
     renderChatThreads({ chat: null });
     await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
