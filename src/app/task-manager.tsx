@@ -16,7 +16,7 @@ import { disabledViewRedirect, isModuleEnabled, deriveMode } from "./feature-mod
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
-import { useReassignHours } from "./use-reassign-hours";
+import { useReassignHours } from "./use-reassign-hours"; import { useCrossProjectPeople } from "./use-cross-project-people";
 import { useBulkOperations } from "./use-bulk-operations";
 import { useColumnManager } from "./use-column-manager";
 import { useContacts } from "./use-contacts";
@@ -616,7 +616,7 @@ function TaskManagerInner() {
   } = useResourcePlanner({ lang, today, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave, dialogsRef: appDialogsRef, getScopeEpoch });
   // §774 — reassigning a task moves its planned hours (one undo entry, one notice). Threaded into the editor,
   // inline, Kanban, bulk and Action Center hooks, TasksSection and the Workload triage builder below.
-  const reassignHours = useReassignHours({ lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours: settings.resources.workdayHours, holidaySet, captureComposite: undoApi.captureComposite, logActivityAs, showToast });
+  const reassignHours = useReassignHours({ lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours: settings.resources.workdayHours, holidaySet, captureComposite: undoApi.captureComposite, logActivityAs, showToast }); useCrossProjectPeople({ tursoConfig, portfolioMode, projects: tursoProjects.map((p) => ({ id: p.id, name: p.meta.name })), currentProjectId: tursoProjectId, resources, plan, workdayHours: settings.resources.workdayHours, holidaySet, loadPending, getScopeEpoch }); // §785: loads other projects on request; result is threaded by the next tasks
 
   // Day rates are the rate card's source of truth; the hourly cost rate every
   // budget/EVM consumer reads is DERIVED from workday hours. When that setting
