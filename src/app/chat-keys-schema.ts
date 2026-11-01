@@ -6,6 +6,7 @@
 // chat-threads-store.test.ts) so the workspace save's per-table DELETE never touches it. Also holds
 // the two chat_threads statements adoption needs, so every SQL string lives in a schema module.
 import { txt, type SqlStmt } from "./turso-schema";
+import { CHAT_DB_NOW } from "./chat-threads-schema";
 
 export const CHAT_KEYS_TABLE = "chat_keys";
 
@@ -83,7 +84,8 @@ export function reownThreadStatements(row: ReownedThread, fromOwner: string, toO
   requireOwner(fromOwner, "reownThreadStatements");
   requireOwner(toOwner, "reownThreadStatements");
   return [{
-    sql: `UPDATE chat_threads SET owner_id = ?, key_owner = ?, name = ?, history_json = ?, display_json = ? WHERE id = ? AND project_id = ? AND owner_id = ?`,
+    sql: `UPDATE chat_threads SET owner_id = ?, key_owner = ?, name = ?, history_json = ?, display_json = ?, updated_at = ${CHAT_DB_NOW} ` +
+      `WHERE id = ? AND project_id = ? AND owner_id = ?`,
     args: [
       txt(toOwner), txt(row.keyOwner), txt(row.name), txt(row.historyJson), txt(row.displayJson),
       txt(row.id), txt(row.projectId), txt(fromOwner),

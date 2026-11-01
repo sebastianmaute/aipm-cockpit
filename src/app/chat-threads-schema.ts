@@ -67,14 +67,22 @@ export const threadsSelect = (projectId: string, ownerId: string | null): SqlStm
       args: [txt(projectId), txt(ownerId)],
     }];
 
+/** The DATABASE clock as an ISO instant in the format `toISOString()` writes. Every write dates its row
+ *  with it (`created_at` on insert, `updated_at` always), never with the browser's clock: a browser
+ *  clock days ahead would otherwise get the chat deleted by the next expiry (its future-date rule), and
+ *  one far behind would get it expired early. */
+export const CHAT_DB_NOW = `strftime('%Y-%m-%dT%H:%M:%fZ','now')`;
+
+/** The columns an upsert binds; `created_at` and `updated_at` come from `CHAT_DB_NOW`. */
 const UPSERT_COLUMNS = [
-  "id", "project_id", "owner_id", "name", "created_at", "updated_at",
-  "history_json", "display_json", "key_owner", "key_operator",
+  "id", "project_id", "owner_id", "name", "history_json", "display_json", "key_owner", "key_operator",
 ] as const;
 
 const UPSERT_SQL =
-  `INSERT INTO chat_threads (${UPSERT_COLUMNS.join(",")}) VALUES (${UPSERT_COLUMNS.map(() => "?").join(",")}) ` +
-  `ON CONFLICT(id) DO UPDATE SET ${UPSERT_COLUMNS.filter((c) => c !== "id").map((c) => `${c} = excluded.${c}`).join(", ")} ` +
+  `INSERT INTO chat_threads (${UPSERT_COLUMNS.join(",")}, created_at, updated_at) ` +
+  `VALUES (${UPSERT_COLUMNS.map(() => "?").join(",")}, ${CHAT_DB_NOW}, ${CHAT_DB_NOW}) ` +
+  `ON CONFLICT(id) DO UPDATE SET ${UPSERT_COLUMNS.filter((c) => c !== "id").map((c) => `${c} = excluded.${c}`).join(", ")}, ` +
+  `updated_at = excluded.updated_at ` +
   `WHERE chat_threads.project_id = excluded.project_id AND ` +
   `(chat_threads.owner_id = excluded.owner_id OR chat_threads.owner_id IS NULL OR chat_threads.owner_id = '')`;
 
@@ -95,7 +103,7 @@ export function upsertThreadStatements(row: StoredThreadRow): SqlStmt[] {
     {
       sql: UPSERT_SQL,
       args: [
-        txt(row.id), txt(row.project_id), txt(row.owner_id), txt(row.name), txt(row.created_at), txt(row.updated_at),
+        txt(row.id), txt(row.project_id), txt(row.owner_id), txt(row.name),
         txt(row.history_json), txt(row.display_json), txt(row.key_owner), txt(row.key_operator),
       ],
     },
@@ -109,10 +117,10 @@ export function upsertThreadStatements(row: StoredThreadRow): SqlStmt[] {
  *  guard as the upsert: an owner's own row or a legacy owner-less one (taken over), never another's. */
 export function updateStoredThreadStatements(row: StoredThreadRow): SqlStmt[] {
   return [{
-    sql: `UPDATE chat_threads SET name = ?, updated_at = ?, history_json = ?, display_json = ?, key_owner = ?, key_operator = ?, owner_id = ? ` +
+    sql: `UPDATE chat_threads SET name = ?, updated_at = ${CHAT_DB_NOW}, history_json = ?, display_json = ?, key_owner = ?, key_operator = ?, owner_id = ? ` +
       `WHERE id = ? AND project_id = ? AND (owner_id = ? OR owner_id IS NULL OR owner_id = '')`,
     args: [
-      txt(row.name), txt(row.updated_at), txt(row.history_json), txt(row.display_json), txt(row.key_owner), txt(row.key_operator),
+      txt(row.name), txt(row.history_json), txt(row.display_json), txt(row.key_owner), txt(row.key_operator),
       txt(row.owner_id), txt(row.id), txt(row.project_id), txt(row.owner_id),
     ],
   }];

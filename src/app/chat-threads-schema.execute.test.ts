@@ -64,6 +64,23 @@ function insertNullOwner(db: DatabaseSync, id: string, updatedAt: string | null 
     .run(id, projectId, updatedAt);
 }
 
+/** Insert a row exactly as given, its dates included: the builders date every write by the database
+ *  clock, so a fixture that needs an age is seeded directly. */
+function seed(db: DatabaseSync, r: StoredThreadRow): void {
+  const cols = Object.keys(r) as (keyof StoredThreadRow)[];
+  db.prepare(`INSERT INTO chat_threads (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`).run(...cols.map((c) => r[c]));
+}
+
+/** Rows without their two dates, which every write takes from the database clock. */
+function undated(rows: unknown[]): Record<string, unknown>[] {
+  return (rows as Record<string, unknown>[]).map((r) => {
+    const copy = { ...r };
+    delete copy.created_at;
+    delete copy.updated_at;
+    return copy;
+  });
+}
+
 let db: DatabaseSync;
 beforeEach(() => {
   db = new DatabaseSync(":memory:");
@@ -80,14 +97,14 @@ describe("chat_threads statements against a real engine", () => {
     run(db, upsertThreadStatements(row("t1")));
     run(db, upsertThreadStatements(row("t1", { name: "c1.renamed" })));
     const out = db.prepare("SELECT * FROM chat_threads").all();
-    expect(out).toEqual([{ ...row("t1"), name: "c1.renamed" }]);
+    expect(undated(out)).toEqual(undated([{ ...row("t1"), name: "c1.renamed" }]));
   });
 
   it("select returns the owner's rows and the legacy rows of the project, never another owner's", () => {
-    run(db, upsertThreadStatements(row("a", { updated_at: daysAgo(3) })));
-    run(db, upsertThreadStatements(row("b", { owner_id: "bob" })));
-    run(db, upsertThreadStatements(row("e", { owner_id: "" })));
-    run(db, upsertThreadStatements(row("q", { project_id: "other" })));
+    seed(db, row("a", { updated_at: daysAgo(3) }));
+    seed(db, row("b", { owner_id: "bob" }));
+    seed(db, row("e", { owner_id: "" }));
+    seed(db, row("q", { project_id: "other" }));
     insertNullOwner(db, "n", daysAgo(2));
     const [stmt] = threadsSelect("p", "alice");
     expect(query(db, stmt).map((r) => r.id)).toEqual(["e", "n", "a"]);
@@ -97,9 +114,9 @@ describe("chat_threads statements against a real engine", () => {
 
   it("prune keeps the newest 50 per owner and never deletes another owner's rows", () => {
     for (let i = 0; i < 55; i += 1) {
-      run(db, upsertThreadStatements(row(`a${String(i).padStart(2, "0")}`, { updated_at: daysAgo(100 - i) })));
+      seed(db, row(`a${String(i).padStart(2, "0")}`, { updated_at: daysAgo(100 - i) }));
     }
-    for (let i = 0; i < 3; i += 1) run(db, upsertThreadStatements(row(`b${i}`, { owner_id: "bob", updated_at: daysAgo(500) })));
+    for (let i = 0; i < 3; i += 1) seed(db, row(`b${i}`, { owner_id: "bob", updated_at: daysAgo(500) }));
     insertNullOwner(db, "legacy", daysAgo(900));
     run(db, pruneThreadsStatements("p", "alice", 50));
     const left = ids(db);
@@ -113,32 +130,32 @@ describe("chat_threads statements against a real engine", () => {
   it("prune of the legacy group touches only owner-less rows", () => {
     insertNullOwner(db, "n1", daysAgo(5));
     insertNullOwner(db, "n2", daysAgo(1));
-    run(db, upsertThreadStatements(row("e1", { owner_id: "", updated_at: daysAgo(9) })));
-    run(db, upsertThreadStatements(row("a", { updated_at: daysAgo(99) })));
+    seed(db, row("e1", { owner_id: "", updated_at: daysAgo(9) }));
+    seed(db, row("a", { updated_at: daysAgo(99) }));
     run(db, pruneThreadsStatements("p", null, 1));
     expect(ids(db)).toEqual(["a", "n2"]);
   });
 
   it("expire deletes a row 31 days old at 30, keeps one 29 days old, and deletes NULL or empty updated_at", () => {
-    run(db, upsertThreadStatements(row("old", { updated_at: realAgo(31 * DAY) })));
-    run(db, upsertThreadStatements(row("young", { updated_at: realAgo(29 * DAY) })));
-    run(db, upsertThreadStatements(row("blank", { updated_at: "" })));
+    seed(db, row("old", { updated_at: realAgo(31 * DAY) }));
+    seed(db, row("young", { updated_at: realAgo(29 * DAY) }));
+    seed(db, row("blank", { updated_at: "" }));
     insertNullOwner(db, "nullts", null);
     run(db, expireThreadsStatements(30));
     expect(ids(db)).toEqual(["young"]);
   });
 
   it("expire deletes a row whose updated_at is not a date", () => {
-    run(db, upsertThreadStatements(row("garbage", { updated_at: "garbage" })));
-    run(db, upsertThreadStatements(row("young", { updated_at: realAgo(29 * DAY) })));
+    seed(db, row("garbage", { updated_at: "garbage" }));
+    seed(db, row("young", { updated_at: realAgo(29 * DAY) }));
     run(db, expireThreadsStatements(30));
     expect(ids(db)).toEqual(["young"]);
   });
 
   it("expire deletes a date more than a day in the future by the database clock, and keeps one an hour ahead", () => {
-    run(db, upsertThreadStatements(row("far", { updated_at: realAgo(-2 * DAY) })));
-    run(db, upsertThreadStatements(row("year9999", { updated_at: "9999-01-01T00:00:00.000Z" })));
-    run(db, upsertThreadStatements(row("soon", { updated_at: realAgo(-HOUR) })));
+    seed(db, row("far", { updated_at: realAgo(-2 * DAY) }));
+    seed(db, row("year9999", { updated_at: "9999-01-01T00:00:00.000Z" }));
+    seed(db, row("soon", { updated_at: realAgo(-HOUR) }));
     run(db, expireThreadsStatements(30));
     expect(ids(db)).toEqual(["soon"]);
   });
@@ -177,9 +194,9 @@ describe("chat_threads statements against a real engine", () => {
   it("an owner re-saving their own row updates it", () => {
     run(db, upsertThreadStatements(row("t", { name: "c1.v1" })));
     run(db, upsertThreadStatements(row("t", { name: "c1.v2", updated_at: daysAgo(0), key_owner: "c1.k2" })));
-    expect(db.prepare("SELECT * FROM chat_threads").all()).toEqual([
-      row("t", { name: "c1.v2", updated_at: daysAgo(0), key_owner: "c1.k2" }),
-    ]);
+    expect(undated(db.prepare("SELECT * FROM chat_threads").all())).toEqual(undated([
+      row("t", { name: "c1.v2", key_owner: "c1.k2" }),
+    ]));
   });
 
   it("the stored-thread update never brings back a deleted row", () => {
@@ -193,9 +210,9 @@ describe("chat_threads statements against a real engine", () => {
   it("the stored-thread update rewrites the owner's row, takes over a legacy one, and leaves another owner's or project's alone", () => {
     run(db, upsertThreadStatements(row("t", { name: "c1.v1" })));
     run(db, updateStoredThreadStatements(row("t", { name: "c1.v2", updated_at: daysAgo(0), key_owner: "c1.k2" })));
-    expect(db.prepare("SELECT * FROM chat_threads").all()).toEqual([
-      row("t", { name: "c1.v2", updated_at: daysAgo(0), key_owner: "c1.k2" }),
-    ]);
+    expect(undated(db.prepare("SELECT * FROM chat_threads").all())).toEqual(undated([
+      row("t", { name: "c1.v2", key_owner: "c1.k2" }),
+    ]));
     insertNullOwner(db, "n");
     run(db, updateStoredThreadStatements(row("n", { name: "c1.bob", owner_id: "bob" })));
     run(db, updateStoredThreadStatements(row("t", { name: "c1.bob", owner_id: "bob" })));
@@ -206,6 +223,39 @@ describe("chat_threads statements against a real engine", () => {
     ]);
   });
 
+  describe("every write is dated by the database clock, never the browser's", () => {
+    const FAST = new Date(Date.now() + 3 * DAY).toISOString(); // a client clock three days fast
+    const SLOW = new Date(Date.now() - 400 * DAY).toISOString(); // and one a year behind
+    const dates = (id: string) =>
+      db.prepare("SELECT created_at, updated_at FROM chat_threads WHERE id = ?").get(id) as { created_at: string; updated_at: string };
+    const nearNow = (iso: string) => Math.abs(Date.parse(iso) - Date.now()) < 60_000;
+
+    it("an insert, an update and a re-save with a fast client clock are not expired by the next expiry", () => {
+      run(db, upsertThreadStatements(row("ins", { created_at: FAST, updated_at: FAST })));
+      seed(db, row("upd"));
+      run(db, updateStoredThreadStatements(row("upd", { updated_at: FAST })));
+      seed(db, row("re"));
+      run(db, upsertThreadStatements(row("re", { updated_at: FAST })));
+      run(db, expireThreadsStatements(30));
+      expect(ids(db)).toEqual(["ins", "re", "upd"]);
+      for (const id of ["ins", "re", "upd"]) expect(nearNow(dates(id).updated_at)).toBe(true);
+      expect(nearNow(dates("ins").created_at)).toBe(true);
+    });
+
+    it("a write with a slow client clock is dated now, so the next expiry keeps it", () => {
+      run(db, upsertThreadStatements(row("ins", { created_at: SLOW, updated_at: SLOW })));
+      run(db, expireThreadsStatements(30));
+      expect(ids(db)).toEqual(["ins"]);
+    });
+
+    it("a re-save keeps the row's created_at; the date format is the one toISOString writes", () => {
+      seed(db, row("t", { created_at: daysAgo(5) }));
+      run(db, upsertThreadStatements(row("t", { created_at: FAST, updated_at: FAST })));
+      expect(dates("t").created_at).toBe(daysAgo(5));
+      expect(dates("t").updated_at).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/);
+    });
+  });
+
   it("the RUNBOOK's expire one-liner is the app's statement for 30 days, word for word", () => {
     const [stmt] = expireThreadsStatements(30);
     const sql = `${stmt.sql.replace("?", "'-30 days'")};`;
@@ -214,9 +264,9 @@ describe("chat_threads statements against a real engine", () => {
   });
 
   it("delete is scoped to the owner: bob cannot delete alice's row, but can delete a legacy one", () => {
-    run(db, upsertThreadStatements(row("a")));
+    seed(db, row("a"));
     insertNullOwner(db, "n");
-    run(db, upsertThreadStatements(row("e", { owner_id: "" })));
+    seed(db, row("e", { owner_id: "" }));
     run(db, deleteThreadStatements("a", "p", "bob"));
     run(db, deleteThreadStatements("n", "p", "bob"));
     run(db, deleteThreadStatements("e", "p", "bob"));
@@ -232,25 +282,25 @@ describe("chat_threads statements against a real engine", () => {
   });
 
   it("expire scoped to a project leaves other projects alone", () => {
-    run(db, upsertThreadStatements(row("old-p", { updated_at: realAgo(40 * DAY) })));
-    run(db, upsertThreadStatements(row("old-q", { project_id: "q", updated_at: realAgo(40 * DAY) })));
+    seed(db, row("old-p", { updated_at: realAgo(40 * DAY) }));
+    seed(db, row("old-q", { project_id: "q", updated_at: realAgo(40 * DAY) }));
     run(db, expireThreadsStatements(30, "p"));
     expect(ids(db)).toEqual(["old-q"]);
   });
 
   it("deleteOwnerThreads removes one owner's rows in every project and nothing else", () => {
-    run(db, upsertThreadStatements(row("a1")));
-    run(db, upsertThreadStatements(row("a2", { project_id: "q" })));
-    run(db, upsertThreadStatements(row("b1", { owner_id: "bob" })));
+    seed(db, row("a1"));
+    seed(db, row("a2", { project_id: "q" }));
+    seed(db, row("b1", { owner_id: "bob" }));
     insertNullOwner(db, "n");
     run(db, deleteOwnerThreadsStatements("alice"));
     expect(ids(db)).toEqual(["b1", "n"]);
   });
 
   it("legacyThreadIdsSelect returns the ids of every owner-less row in every project, and nothing else", () => {
-    run(db, upsertThreadStatements(row("a1")));
-    run(db, upsertThreadStatements(row("b1", { owner_id: "bob" })));
-    run(db, upsertThreadStatements(row("e", { owner_id: "", project_id: "q" })));
+    seed(db, row("a1"));
+    seed(db, row("b1", { owner_id: "bob" }));
+    seed(db, row("e", { owner_id: "", project_id: "q" }));
     insertNullOwner(db, "n");
     const [stmt] = legacyThreadIdsSelect();
     expect(query(db, stmt).map((r) => r.id).sort()).toEqual(["e", "n"]);
@@ -258,8 +308,8 @@ describe("chat_threads statements against a real engine", () => {
   });
 
   it("allThreadIdsSelect returns every id in the database and no content", () => {
-    run(db, upsertThreadStatements(row("a")));
-    run(db, upsertThreadStatements(row("b", { owner_id: "bob", project_id: "q" })));
+    seed(db, row("a"));
+    seed(db, row("b", { owner_id: "bob", project_id: "q" }));
     insertNullOwner(db, "n");
     const out = query(db, allThreadIdsSelect()[0]);
     expect(out.map((r) => r.id).sort()).toEqual(["a", "b", "n"]);

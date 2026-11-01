@@ -2320,7 +2320,10 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   - **Three deleters, one predicate** (`expireThreadsStatements`: older than the retention period, or no usable
     `updated_at`, or more than a day in the future). ★★ The cutoff is computed IN SQL from the DATABASE clock
     (`strftime(…, 'now', '-N days')`), never a browser's: one client with a clock weeks ahead would otherwise
-    delete every colleague's chats. Only the on-screen filter uses the client clock (`retentionCutoff`). The browser: `expireOldThreads` per project on load and before each save, and
+    delete every colleague's chats. Only the on-screen filter uses the client clock (`retentionCutoff`). ★★ The same holds for the dates a write SETS: the upsert, the stored-thread update (renames included) and
+    adoption's re-own date the row with `CHAT_DB_NOW` in SQL (`created_at` on insert only, `updated_at` always), so a
+    browser clock days fast cannot get a chat deleted by the future-date rule. The in-memory `updatedAt` stays the
+    browser's, for display only. The browser: `expireOldThreads` per project on load and before each save, and
     `useChatRetentionSweep` once per database per page load, independent of the AI switch (after a sweep that
     ran, `dropOrphanedRenames` drops the pending thread renames whose thread is gone, from one id-only read of
     `chat_threads`; a failed read drops nothing). The server:

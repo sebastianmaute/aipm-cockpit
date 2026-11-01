@@ -7,7 +7,7 @@ import {
   CHAT_KEYS_DDL, upsertChatKeyStatements, deleteChatKeyStatements, chatKeyByCodeSelect,
   ownerThreadKeysSelect, reownThreadStatements, isUnlockCodeClash, type ChatKeyRow,
 } from "./chat-keys-schema";
-import { CHAT_THREADS_DDL, upsertThreadStatements, type StoredThreadRow } from "./chat-threads-schema";
+import { CHAT_THREADS_DDL, type StoredThreadRow } from "./chat-threads-schema";
 import { TABLE_NAMES, type SqlStmt } from "./turso-schema";
 
 function bindArg(arg: { type: string; value?: string }): string | bigint | null {
@@ -36,6 +36,12 @@ function threadRow(id: string, ownerId: string): StoredThreadRow {
     id, project_id: "p", owner_id: ownerId, name: "c1.n", created_at: "c", updated_at: "u",
     history_json: "c1.h", display_json: "c1.d", key_owner: `k-${ownerId}`, key_operator: "r1.op",
   };
+}
+
+/** Insert a thread row exactly as given, its dates included (the builders date writes by the database clock). */
+function seed(db: DatabaseSync, r: StoredThreadRow): void {
+  const cols = Object.keys(r) as (keyof StoredThreadRow)[];
+  db.prepare(`INSERT INTO chat_threads (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`).run(...cols.map((c) => r[c]));
 }
 
 let db: DatabaseSync;
@@ -93,29 +99,48 @@ describe("chat_keys statements against a real engine", () => {
   });
 
   it("the owner's thread-key select reads only that owner's rows, in every project", () => {
-    run(db, upsertThreadStatements(threadRow("a1", "old")));
-    run(db, upsertThreadStatements({ ...threadRow("a2", "old"), project_id: "q" }));
-    run(db, upsertThreadStatements(threadRow("b1", "bob")));
+    seed(db, threadRow("a1", "old"));
+    seed(db, { ...threadRow("a2", "old"), project_id: "q" });
+    seed(db, threadRow("b1", "bob"));
     const rows = query(db, ownerThreadKeysSelect("old")[0]);
     expect(rows.map((r) => r.id).sort()).toEqual(["a1", "a2"]);
     expect(rows[0]).toHaveProperty("key_owner");
     expect(() => ownerThreadKeysSelect("")).toThrow();
   });
 
+  it("re-own dates the moved row by the database clock and leaves the rows it did not move alone", () => {
+    seed(db, threadRow("a1", "old"));
+    seed(db, threadRow("b1", "bob"));
+    const resealed = (id: string) => ({ id, projectId: "p", keyOwner: "k-new", name: "c2.n", historyJson: "c2.h", displayJson: "c2.d" });
+    run(db, reownThreadStatements(resealed("a1"), "old", "new"));
+    run(db, reownThreadStatements(resealed("b1"), "old", "new"));
+    const at = (id: string) => (db.prepare("SELECT updated_at FROM chat_threads WHERE id = ?").get(id) as { updated_at: string }).updated_at;
+    expect(Math.abs(Date.parse(at("a1")) - Date.now())).toBeLessThan(60_000);
+    expect(at("b1")).toBe("u");
+  });
+
   it("re-own moves one row from the old owner with its re-sealed fields, keeping key_operator", () => {
-    run(db, upsertThreadStatements(threadRow("a1", "old")));
-    run(db, upsertThreadStatements(threadRow("b1", "bob")));
+    seed(db, threadRow("a1", "old"));
+    seed(db, threadRow("b1", "bob"));
     const resealed = (id: string, projectId = "p") =>
       ({ id, projectId, keyOwner: "k-new", name: "c2.n", historyJson: "c2.h", displayJson: "c2.d" });
     run(db, reownThreadStatements(resealed("a1"), "old", "new"));
     // A row that is no longer the old owner's, or not in that project, is left alone.
     run(db, reownThreadStatements(resealed("b1"), "old", "new"));
-    run(db, upsertThreadStatements(threadRow("a2", "old")));
+    seed(db, threadRow("a2", "old"));
     run(db, reownThreadStatements(resealed("a2", "q"), "old", "new"));
-    expect(db.prepare("SELECT * FROM chat_threads ORDER BY id").all()).toEqual([
+    // The moved row's updated_at is the database clock (pinned in the test above); the others keep theirs.
+    const rows = db.prepare("SELECT * FROM chat_threads ORDER BY id").all() as Record<string, unknown>[];
+    const withoutUpdatedAt = (r: object): Record<string, unknown> => {
+      const copy: Record<string, unknown> = { ...r };
+      delete copy.updated_at;
+      return copy;
+    };
+    expect(rows.map(withoutUpdatedAt)).toEqual([
       { ...threadRow("a1", "new"), key_owner: "k-new", name: "c2.n", history_json: "c2.h", display_json: "c2.d" },
       threadRow("a2", "old"),
       threadRow("b1", "bob"),
-    ]);
+    ].map(withoutUpdatedAt));
+    expect(rows.slice(1).map((r) => r.updated_at)).toEqual(["u", "u"]);
   });
 });
