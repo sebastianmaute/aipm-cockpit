@@ -13,7 +13,7 @@ vi.mock("./person-links-store", () => ({
 vi.mock("./turso-backend", () => ({ TursoBackend: class {} }));
 
 import { deletePersonLink, loadPersonLinks, savePersonLink } from "./person-links-store";
-import { useCrossProjectPeople, type CrossProjectDeps } from "./use-cross-project-people";
+import { configKeyOf, useCrossProjectPeople, type CrossProjectDeps } from "./use-cross-project-people";
 
 const CONFIG = { httpUrl: "https://x.turso.io", authToken: "t" } as TursoConfig;
 const PLAN: ResourcePlan = { startDate: "2026-11-02", endDate: "2026-11-29", granularity: "week", currency: "EUR" };
@@ -345,18 +345,60 @@ describe("useCrossProjectPeople — singleProject (§785)", () => {
 });
 
 describe("useCrossProjectPeople — a reload racing a write (§785)", () => {
-  test("a confirm made while a reload is in flight survives a reload that read the links before it", async () => {
+  test("a confirm whose write lands while a reload is in flight survives a reload that read the links before it", async () => {
+    const { hook } = setup();
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    let release: (l: PersonLinkRow[]) => void = () => {};
+    let finishWrite: () => void = () => {};
+    vi.mocked(loadPersonLinks).mockImplementationOnce(() => new Promise<PersonLinkRow[]>((r) => { release = r; }));
+    vi.mocked(savePersonLink).mockImplementationOnce(() => new Promise<void>((r) => { finishWrite = r; }));
+    const rel = { projectId: "p-b", projectName: "B", resourceId: 10 };
+    let confirmed: Promise<void> = Promise.resolve();
+    act(() => { confirmed = hook.result.current.confirm(1, rel); }); // accepted: nothing is loading yet
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(loadPersonLinks).toHaveBeenCalledTimes(2));
+    await act(async () => { finishWrite(); await confirmed; });
+    await act(async () => release([]));
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(hook.result.current.matches.get(1)?.matched).toEqual([{ ...rel, via: "confirmed" }]);
+  });
+});
+
+// §785 — final minor fixes.
+describe("useCrossProjectPeople — final fixes (§785)", () => {
+  test("a request made while unavailable is not remembered: becoming available starts no load", async () => {
+    const { hook, load, deps } = setup({ loadPending: true });
+    act(() => hook.result.current.request()); // remembered during the hold
+    hook.rerender({ ...deps, loadPending: false, projects: [PROJECTS[0]] }); // hold ends, but now unavailable
+    hook.rerender({ ...deps, loadPending: false, projects: PROJECTS });
+    await act(async () => {});
+    expect(load).not.toHaveBeenCalled();
+    expect(hook.result.current.status).toBe("idle");
+  });
+
+  test("confirm, reject and undo write nothing while a load is running", async () => {
     const { hook } = setup();
     act(() => hook.result.current.request());
     await waitFor(() => expect(hook.result.current.status).toBe("ready"));
     let release: (l: PersonLinkRow[]) => void = () => {};
     vi.mocked(loadPersonLinks).mockImplementationOnce(() => new Promise<PersonLinkRow[]>((r) => { release = r; }));
     act(() => hook.result.current.request());
-    await waitFor(() => expect(loadPersonLinks).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(hook.result.current.status).toBe("loading"));
     const rel = { projectId: "p-b", projectName: "B", resourceId: 10 };
     await act(async () => hook.result.current.confirm(1, rel));
+    await act(async () => hook.result.current.reject(1, rel));
+    await act(async () => hook.result.current.undo(1, rel));
+    expect(savePersonLink).not.toHaveBeenCalled();
+    expect(deletePersonLink).not.toHaveBeenCalled();
     await act(async () => release([]));
-    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
-    expect(hook.result.current.matches.get(1)?.matched).toEqual([{ ...rel, via: "confirmed" }]);
+  });
+
+  test("the stored config key carries no copy of the token, and still tells configs apart", () => {
+    const a = configKeyOf({ httpUrl: "https://x.turso.io", authToken: "secret-token-aaa" } as TursoConfig);
+    const b = configKeyOf({ httpUrl: "https://x.turso.io", authToken: "secret-token-bbb" } as TursoConfig);
+    expect(a).not.toContain("secret-token");
+    expect(a).not.toBe(b);
+    expect(a).toBe(configKeyOf({ httpUrl: "https://x.turso.io", authToken: "secret-token-aaa" } as TursoConfig));
   });
 });

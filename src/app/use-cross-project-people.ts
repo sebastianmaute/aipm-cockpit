@@ -89,7 +89,14 @@ const NO_MATCHES = new Map<number, PersonMatch>();
 const defaultLoad = (config: TursoConfig, projectId: string): Promise<Workspace> =>
   new TursoBackend(config, projectId).load();
 
-const configKeyOf = (c: TursoConfig): string => `${c.httpUrl}|${c.authToken}`;
+// FNV-1a: a small synchronous, non-reversible fingerprint, so a token change is seen without keeping a copy of the token.
+const fingerprint = (s: string): string => {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+  return (h >>> 0).toString(16);
+};
+
+export const configKeyOf = (c: TursoConfig): string => `${c.httpUrl}|${fingerprint(c.authToken)}`;
 
 const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
@@ -125,7 +132,10 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     available && loaded !== null && loaded.projectId === currentProjectId && loaded.configKey === configKey ? loaded : null;
 
   const request = useCallback((): void => {
-    if (!available || !tursoConfig || currentProjectId === null) return;
+    if (!available || !tursoConfig || currentProjectId === null) {
+      wantedRef.current = false; // an ask made for a state that no longer holds is dropped
+      return;
+    }
     if (loadPending) {
       wantedRef.current = true;
       return;
@@ -245,7 +255,11 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     setLoaded((prev) => (prev && prev.projectId === projectId ? { ...prev, links: next(prev.links) } : prev));
   };
 
+  // A write during a reload would race the links that reload reads; the UI disables the answers, the hook refuses them.
+  const isLoading = loadingFor !== null && loadingFor === currentProjectId;
+
   const decide = async (hereId: number, rel: Relation, verdict: PersonLinkRow["verdict"]): Promise<void> => {
+    if (isLoading) return;
     const row = buildRow(hereId, rel, verdict);
     if (!row) return;
     const key = canonicalPair(row.projectA, row.resourceA, row.projectB, row.resourceB);
@@ -257,7 +271,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   };
 
   const undo = async (hereId: number, rel: Relation): Promise<void> => {
-    if (!currentProjectId || !effective) return;
+    if (!currentProjectId || !effective || isLoading) return;
     const pair = { projectA: currentProjectId, resourceA: hereId, projectB: rel.projectId, resourceB: rel.resourceId };
     const key = canonicalPair(pair.projectA, pair.resourceA, pair.projectB, pair.resourceB);
     await commit(
