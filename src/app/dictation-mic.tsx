@@ -11,6 +11,7 @@ import { PRESS, TRANSITION } from "./interaction-styles";
 import { ToggleButton } from "./toggle-button";
 import { setActiveDictationTarget, clearDictationTargetIf, type DictationTarget } from "./dictation-target";
 import { usePeopleProtected } from "./ai-privacy-context";
+import { isPeopleProtectionForced } from "./ai-people-protection";
 import {
   DICTATION_AI_DEPLOYMENT_INVALID,
   DICTATION_AI_DEPLOYMENT_OFF,
@@ -63,6 +64,8 @@ export function useDictationMic({
   // party and audio cannot be redacted. Read HERE, once for every mic in the app, so a new dictation site is
   // covered without anyone remembering to. `enabled: false` also stops the focused-field hotkey (`target.press`).
   const peopleProtected = usePeopleProtected();
+  // §786: a forced lock is the organisation's decision, not this project's switch, so the reason says so.
+  const peopleOffReason = t(lang, isPeopleProtectionForced() ? "dictationUnavailablePeopleForced" : "dictationUnavailablePeopleProtected");
   const ptt = usePushToTalk({
     lang,
     enabled: enabled && !peopleProtected,
@@ -80,7 +83,7 @@ export function useDictationMic({
       else if (err === DICTATION_AI_DEPLOYMENT_OFF) showToast("error", t(lang, "aiDeploymentOff"));
       else if (err === DICTATION_AI_DEPLOYMENT_INVALID) showToast("error", t(lang, "aiDeploymentInvalid"));
       else if (err === DICTATION_AI_DEPLOYMENT_UNCONFIRMED) showToast("error", t(lang, "aiDeploymentUnconfirmed"));
-      else if (err === DICTATION_PEOPLE_FORCED) showToast("error", t(lang, "dictationUnavailablePeopleProtected"));
+      else if (err === DICTATION_PEOPLE_FORCED) showToast("error", t(lang, "dictationUnavailablePeopleForced"));
     },
   });
 
@@ -141,12 +144,12 @@ export function useDictationMic({
       <span
         data-dictation-off
         aria-hidden="true"
-        title={t(lang, "dictationUnavailablePeopleProtected")}
+        title={peopleOffReason}
         className="inline-flex items-center px-1 text-muted-foreground"
       >
         <MicrophoneSlashIcon aria-hidden="true" className="h-4 w-4" />
       </span>
-      <span id={offReasonId} hidden>{t(lang, "dictationUnavailablePeopleProtected")}</span>
+      <span id={offReasonId} hidden>{peopleOffReason}</span>
     </>
   ) : (
     <>

@@ -1223,6 +1223,7 @@ export const de: Record<TranslationKey, string> = {
   dictationNeedsAiConsent: "Die Spracherkennung sendet Ihr Audio an den konfigurierten Sprachdienst. Schalten Sie dazu unter Einstellungen → KI die KI ein und akzeptieren Sie den Datenhinweis zur KI; bis dahin ist das Diktat nicht verfügbar. Um ohne den Dienst zu diktieren, wählen Sie als Diktier-Engine „Browser (Web Speech)“.",
   dictationUnavailableNeedsAiConsent: "Das Diktat ist nicht verfügbar: Der Spracherkennungsdienst erfordert, dass die KI unter Einstellungen → KI eingeschaltet und der Datenhinweis zur KI akzeptiert ist.",
   dictationUnavailablePeopleProtected: "Das Diktat ist ausgeschaltet: Für dieses Projekt ist der Personenschutz aktiv, und Audio kann nicht auf Namen geprüft werden.",
+  dictationUnavailablePeopleForced: "Das Diktat ist ausgeschaltet: Ihre Organisation schreibt den Personenschutz für alle Projekte vor, und Audio kann nicht auf Namen geprüft werden.",
   dictationUnavailableSttNotSetUp: "Das Diktat ist nicht verfügbar: Als Diktier-Engine ist die Spracherkennung gewählt, aber die Basis-URL des Transkriptionsdienstes oder der API-Schlüssel fehlt, oder der Schlüssel kann auf diesem Gerät nicht gelesen werden. Vervollständigen Sie die Einrichtung der Spracherkennung in den Einstellungen oder wählen Sie als Diktier-Engine „Browser (Web Speech)“.",
   dictationSttBaseUrl: "Basis-URL des Transkriptionsdienstes",
   dictationSttModel: "Modell",

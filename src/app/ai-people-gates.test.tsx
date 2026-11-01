@@ -5,6 +5,7 @@ import "../test/ai-consent-live";
 // context builders drop their people sections.
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { setDisabledIntegrations } from "./integration-switches";
 import type { ReactNode } from "react";
 import { ChatPanel } from "./chat-panel";
 import { AiPrivacyProvider, useAiPrivacySource } from "./ai-privacy-context";
@@ -236,6 +237,20 @@ describe("dictation under protection", () => {
     const carrier = screen.getByTestId("mic-slot").querySelector("[hidden]");
     expect(carrier?.textContent).toBe(t("en-US", "dictationUnavailablePeopleProtected"));
     expect(screen.getByTestId("mic-slot").textContent).toBe(carrier?.textContent);
+  });
+
+  // §786: a forced lock is not this project's switch, so the reason says who decided, and matches the refusal toast.
+  it("names the organisation as the reason when protection is forced", () => {
+    (window as unknown as Record<string, unknown>).webkitSpeechRecognition = class {};
+    setDisabledIntegrations(["ai-people"]);
+    try {
+      renderWithSource(allowed(base()), <MicHarness />);
+      const slot = screen.getByTestId("mic-slot");
+      expect(slot.querySelector("[data-dictation-off]")?.getAttribute("title")).toBe(t("en-US", "dictationUnavailablePeopleForced"));
+      expect(slot.querySelector("[hidden]")?.textContent).toBe(t("en-US", "dictationUnavailablePeopleForced"));
+    } finally {
+      setDisabledIntegrations([]);
+    }
   });
 });
 
