@@ -133,6 +133,8 @@ import { TOUR_ANCHORS } from "./app-tour";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
 import { usePortfolioProjects } from "./use-portfolio-projects";
 import { useNextActions } from "./use-next-actions";
+import { useChatRetentionSweep } from "./use-chat-retention-sweep";
+import { getAiDeploymentState } from "./ai-deployment";
 import type { SuggestedAction } from "./next-actions";
 import { resolveTimezone, createProjectClock } from "./timezone";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
@@ -474,6 +476,7 @@ function TaskManagerInner() {
     getScopeEpochRef.current = getUndoEpoch; // the UNDO epoch: also moves on a restore
   }, [allowDestructiveSave, isPopout, loadPending, getUndoEpoch]);
   usePruneUndoOnScopeChange(loadPending, undoApi.pruneStale); // §628 — a project switch drops the previous project's undo entries; a hold that kept the project drops none.
+  useChatRetentionSweep({ tursoConfig, chat: getAiDeploymentState().chat, loadPending }); // whole-database expiry of saved chats, once per page load; independent of the AI switch
 
   // The three saving-paused banners' re-show on a NEW cause (the incomplete load, the refused
   // destructive save, the §586/§587 load pause) — see use-storage-banner-reshow.ts (§491).
