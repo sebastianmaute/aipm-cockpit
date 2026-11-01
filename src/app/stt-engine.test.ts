@@ -86,7 +86,7 @@ describe("stt-engine — the deployment status check before the upload", () => {
     ["the same route", "direct"],
     ["a changed route", "gateway"],
   ] as const)("people protection forced, %s: uploads nothing and says why", async (_name, route) => {
-    __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse({ off: false, route, invalid: false, keyRestricted: false, peopleForced: true })));
+    __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse({ off: false, route, invalid: false, keyRestricted: false, chat: null, peopleForced: true })));
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) }));
     vi.stubGlobal("fetch", fetchMock);
     const h = { onInterim: vi.fn(), onFinal: vi.fn(), onError: vi.fn(), onStatus: vi.fn() };
