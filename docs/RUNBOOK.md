@@ -657,7 +657,7 @@ plain `http://` only for a loopback host). Run it with no command for usage.
 | `search --key <pem> <text>` | lists every chat mentioning `<text>`: id, project, last change, excerpt |
 | `delete [--yes] <id…>` | deletes those chats, in one transaction |
 | `delete --all-matches --key <pem> [--yes] <text>` | deletes every chat mentioning `<text>` |
-| `expire [--days <n>]` | deletes chats not changed for `n` days (default 30) |
+| `expire [--days <n>]` | deletes chats not changed for `n` days, by the database clock (default: `AIPM_AI_CHAT_RETENTION_DAYS` when it is a whole number from 1 to 3650, else 30; the output names the value used) |
 
 Exit codes: **0** done · **1** matches found, a delete refused (no `yes` typed, or no
 terminal and no `--yes`), or rows the key cannot open · **2** could not run (bad

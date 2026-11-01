@@ -29,6 +29,8 @@ export const TOKEN_ENV = "CHAT_ERASURE_TURSO_TOKEN";
 export const EXCERPT_MAX = 80;
 export const PAGE_SIZE = 200;
 export const DEFAULT_DAYS = 30;
+/** The app's retention setting; `expire` uses it when no --days is given. */
+const RETENTION_ENV = "AIPM_AI_CHAT_RETENTION_DAYS";
 const MAX_DAYS = 3650;
 const RECOVERY_KEY_BITS = 3072;
 const KEY_BYTES = 32;
@@ -42,7 +44,8 @@ const USAGE = [
   "  search --key <file> <text>                  find chats mentioning <text>",
   "  delete [--yes] <id…>                        delete chats by id",
   "  delete --all-matches --key <file> [--yes] <text>   delete every chat mentioning <text>",
-  "  expire [--days <n>]                         delete chats not updated for n days (default 30)",
+  "  expire [--days <n>]                         delete chats not updated for n days",
+  `                                              (default ${RETENTION_ENV} when valid, else 30)`,
   `environment: ${URL_ENV}, ${TOKEN_ENV}`,
 ].join("\n");
 
@@ -441,17 +444,23 @@ async function cmdDelete(values, positionals, run, deps) {
   return result.unreadable > 0 ? EXIT.FOUND : EXIT.DONE;
 }
 
-function parseDays(raw) {
-  if (raw === undefined) return DEFAULT_DAYS;
-  const days = /^[0-9]+$/.test(raw) ? Number(raw) : NaN;
-  if (!Number.isSafeInteger(days) || days < 1 || days > MAX_DAYS) {
-    throw new UnusableError(`--days must be a whole number from 1 to ${MAX_DAYS}`);
-  }
+/** A whole number of days from 1 to MAX_DAYS, or null. */
+function validDays(raw) {
+  const text = String(raw ?? "").trim();
+  const days = /^[0-9]+$/.test(text) ? Number(text) : NaN;
+  return Number.isSafeInteger(days) && days >= 1 && days <= MAX_DAYS ? days : null;
+}
+
+/** `--days`, else the app's own retention setting when it is valid, else DEFAULT_DAYS. */
+function parseDays(raw, env) {
+  if (raw === undefined) return validDays(env?.[RETENTION_ENV]) ?? DEFAULT_DAYS;
+  const days = validDays(raw);
+  if (days === null) throw new UnusableError(`--days must be a whole number from 1 to ${MAX_DAYS}`);
   return days;
 }
 
 async function cmdExpire(values, run, deps) {
-  const days = parseDays(values.days);
+  const days = parseDays(values.days, deps.env);
   const [result] = await run(expireStatements(days));
   deps.out(`expired: ${Number(result.affected_row_count ?? 0)} (not updated for ${days} days, by the database clock)`);
   return EXIT.DONE;
@@ -479,7 +488,7 @@ export async function runCli(argv, deps) {
     if (command === "keygen") return await cmdKeygen(values, deps);
     if (command !== "search" && command !== "delete" && command !== "expire") throw new UnusableError(USAGE);
     // Arguments are checked before the database is touched; credentials before anything is sent.
-    if (command === "expire") parseDays(values.days);
+    if (command === "expire") parseDays(values.days, deps.env);
     const config = readConfig(deps.env);
     const run = (stmts) => runPipeline(config, deps.fetchImpl, stmts);
     if (command === "search") return await cmdSearch(values, positionals, run, deps);
