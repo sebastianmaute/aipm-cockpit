@@ -71,9 +71,9 @@ describe("useChatRetentionSweep", () => {
   it("sweeps the whole database once and not again on rerender or remount", async () => {
     const h = run({ tursoConfig: config, chat, loadPending: false });
     await waitFor(() => expect(expireThreads).toHaveBeenCalledTimes(1));
-    const [cfg, cutoff, projectId] = expireThreads.mock.calls[0];
+    const [cfg, days, projectId] = expireThreads.mock.calls[0];
     expect(cfg).toBe(config);
-    expect(typeof cutoff).toBe("string");
+    expect(days).toBe(chat.retentionDays);
     expect(projectId).toBeUndefined();
     h.rerender({ tursoConfig: { ...config }, chat: { ...chat }, loadPending: false });
     h.unmount();

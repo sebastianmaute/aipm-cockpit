@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import type { TursoConfig } from "./turso-config";
 import type { ChatSettings } from "./ai-chat-retention-config";
 import { expireThreads } from "./chat-threads-store";
-import { retentionCutoff } from "./chat-threads-schema";
 import { retryPendingProjectSweeps } from "./pending-project-sweeps";
 import { logDiag } from "./diagnostics";
 
@@ -44,8 +43,7 @@ export function useChatRetentionSweep({ tursoConfig, chat, loadPending }: ChatRe
     let chatSweep: Promise<void> = Promise.resolve();
     if (sweepChats) {
       sweptThisLoad.add(url);
-      const cutoff = retentionCutoff(new Date(), retentionDays);
-      chatSweep = expireThreads(tursoConfig, cutoff).catch(() => {
+      chatSweep = expireThreads(tursoConfig, retentionDays).catch(() => {
         logDiag("warn", "chat.retentionSweepFailed");
       });
     }

@@ -23,7 +23,6 @@ const code = await runCli(process.argv.slice(2), {
   writePrivateKey: writePrivateKeyFile,
   isTTY: Boolean(process.stdin.isTTY && process.stderr.isTTY),
   confirm,
-  now: () => new Date(),
   out: (line) => process.stdout.write(`${line}\n`),
   err: (line) => process.stderr.write(`${line}\n`),
 });

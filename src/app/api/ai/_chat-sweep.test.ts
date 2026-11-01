@@ -108,9 +108,8 @@ describe("runChatSweep", () => {
     const { runChatSweep } = await freshModule();
     const run = vi.fn<PipelineRunner>(async () => deleted(4));
     const config = { httpUrl: PUBLIC_URL, authToken: PUBLIC_TOKEN };
-    const now = new Date("2026-11-01T12:00:00.000Z");
 
-    const count = await runChatSweep(config, 30, now, run);
+    const count = await runChatSweep(config, 30, run);
 
     expect(count).toBe(4);
     expect(run).toHaveBeenCalledTimes(1);
@@ -120,13 +119,13 @@ describe("runChatSweep", () => {
     const expiry = stmts[stmts.length - 1];
     expect(expiry.sql).toMatch(/^DELETE FROM chat_threads WHERE /);
     expect(expiry.sql).not.toContain("project_id");
-    expect(expiry.args).toEqual([{ type: "text", value: "2026-10-02T12:00:00.000Z" }]);
+    expect(expiry.args).toEqual([{ type: "text", value: "-30 days" }]);
   });
 
   it("returns 0 when the result carries no affected row count", async () => {
     const { runChatSweep } = await freshModule();
     const run = vi.fn(async () => deleted(undefined));
-    expect(await runChatSweep({ httpUrl: PUBLIC_URL, authToken: PUBLIC_TOKEN }, 30, new Date(), run)).toBe(0);
+    expect(await runChatSweep({ httpUrl: PUBLIC_URL, authToken: PUBLIC_TOKEN }, 30, run)).toBe(0);
   });
 });
 
@@ -173,15 +172,9 @@ describe("startChatSweepSchedule", () => {
     const { startChatSweepSchedule } = await freshModule();
     const { timers } = fakeTimers();
     const run = vi.fn<PipelineRunner>(async () => deleted(0));
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-11-01T00:00:00.000Z"));
-    try {
-      startChatSweepSchedule({ ...env, AIPM_AI_CHAT_RETENTION_DAYS: "7" }, timers, run);
-    } finally {
-      vi.useRealTimers();
-    }
+    startChatSweepSchedule({ ...env, AIPM_AI_CHAT_RETENTION_DAYS: "7" }, timers, run);
     const stmts = run.mock.calls[0][1];
-    expect(stmts[stmts.length - 1].args).toEqual([{ type: "text", value: "2026-10-25T00:00:00.000Z" }]);
+    expect(stmts[stmts.length - 1].args).toEqual([{ type: "text", value: "-7 days" }]);
   });
 
   it("logs a fixed line on failure and the next interval still runs", async () => {

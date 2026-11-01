@@ -2186,8 +2186,10 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   - **Passphrase.** `chat-passphrase.ts` + the GLOBAL `chat_keys` table (`chat-keys-schema.ts`) let another browser
     adopt the identity with an unlock code and the passphrase. ★★ `chat_keys` is OUT of `TABLE_NAMES` like
     `chat_threads`, and has no `project_id`, so neither a project hard delete nor a factory reset touches it.
-  - **Three deleters, one predicate** (`expireThreadsStatements`: older than the cutoff, or no usable
-    `updated_at`). The browser: `expireOldThreads` per project on load and before each save, and
+  - **Three deleters, one predicate** (`expireThreadsStatements`: older than the retention period, or no usable
+    `updated_at`, or more than a day in the future). ★★ The cutoff is computed IN SQL from the DATABASE clock
+    (`strftime(…, 'now', '-N days')`), never a browser's: one client with a clock weeks ahead would otherwise
+    delete every colleague's chats. Only the on-screen filter uses the client clock (`retentionCutoff`). The browser: `expireOldThreads` per project on load and before each save, and
     `useChatRetentionSweep` once per database per page load, independent of the AI switch. The server:
     `startChatSweepSchedule` (`api/ai/_chat-sweep.ts`, started from `src/instrumentation.ts`) at start and every
     24 h with `sweepCredentialsFrom`. The operator: `npm run chats:erase` (`scripts/chat-erasure-lib.mjs`

@@ -114,7 +114,7 @@ export async function loadLegacyThreadIds(config: TursoConfig | null): Promise<s
   return rowObjects(results[CHAT_THREADS_DDL.length]).map((r) => r.id).filter((id) => !!id);
 }
 
-/** Delete threads last updated before `cutoffIso` (and any without a date). */
-export async function expireThreads(config: TursoConfig | null, cutoffIso: string, projectId?: string): Promise<void> {
-  await run(config, expireThreadsStatements(cutoffIso, projectId));
+/** Delete threads not updated for `days` days by the database clock (and any without a usable date). */
+export async function expireThreads(config: TursoConfig | null, days: number, projectId?: string): Promise<void> {
+  await run(config, expireThreadsStatements(days, projectId));
 }

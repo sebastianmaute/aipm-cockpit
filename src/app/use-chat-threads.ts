@@ -135,9 +135,11 @@ function expireOldThreads(
   projectId: string,
   known: () => readonly ChatThread[],
 ): void {
+  // The delete runs on the database's clock; this browser's clock only decides which local
+  // renames to drop afterwards.
   const cutoffIso = retentionCutoff(new Date(), retentionDays);
   Promise.resolve()
-    .then(() => expireThreads(config, cutoffIso, projectId))
+    .then(() => expireThreads(config, retentionDays, projectId))
     .then(() => {
       const scope = outboxScope(config, projectId);
       if (!scope) return;

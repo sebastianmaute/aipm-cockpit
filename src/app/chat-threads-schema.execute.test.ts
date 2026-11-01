@@ -45,6 +45,9 @@ function ids(db: DatabaseSync): string[] {
 const DAY = 86_400_000;
 const NOW = new Date("2026-11-01T12:00:00.000Z");
 const daysAgo = (n: number): string => new Date(NOW.getTime() - n * DAY).toISOString();
+// Expiry reads the DATABASE's clock ('now' in SQL), so its rows are dated from the real clock.
+const HOUR = 3_600_000;
+const realAgo = (ms: number): string => new Date(Date.now() - ms).toISOString();
 
 function row(id: string, over: Partial<StoredThreadRow> = {}): StoredThreadRow {
   return {
@@ -115,20 +118,33 @@ describe("chat_threads statements against a real engine", () => {
   });
 
   it("expire deletes a row 31 days old at 30, keeps one 29 days old, and deletes NULL or empty updated_at", () => {
-    run(db, upsertThreadStatements(row("old", { updated_at: daysAgo(31) })));
-    run(db, upsertThreadStatements(row("young", { updated_at: daysAgo(29) })));
+    run(db, upsertThreadStatements(row("old", { updated_at: realAgo(31 * DAY) })));
+    run(db, upsertThreadStatements(row("young", { updated_at: realAgo(29 * DAY) })));
     run(db, upsertThreadStatements(row("blank", { updated_at: "" })));
     insertNullOwner(db, "nullts", null);
-    run(db, expireThreadsStatements(retentionCutoff(NOW, 30)));
+    run(db, expireThreadsStatements(30));
     expect(ids(db)).toEqual(["young"]);
   });
 
-  it("expire deletes a row whose updated_at is not a date, and keeps a well-formed future date", () => {
+  it("expire deletes a row whose updated_at is not a date", () => {
     run(db, upsertThreadStatements(row("garbage", { updated_at: "garbage" })));
-    run(db, upsertThreadStatements(row("future", { updated_at: "9999-01-01T00:00:00.000Z" })));
-    run(db, upsertThreadStatements(row("young", { updated_at: daysAgo(29) })));
-    run(db, expireThreadsStatements(retentionCutoff(NOW, 30)));
-    expect(ids(db)).toEqual(["future", "young"]);
+    run(db, upsertThreadStatements(row("young", { updated_at: realAgo(29 * DAY) })));
+    run(db, expireThreadsStatements(30));
+    expect(ids(db)).toEqual(["young"]);
+  });
+
+  it("expire deletes a date more than a day in the future by the database clock, and keeps one an hour ahead", () => {
+    run(db, upsertThreadStatements(row("far", { updated_at: realAgo(-2 * DAY) })));
+    run(db, upsertThreadStatements(row("year9999", { updated_at: "9999-01-01T00:00:00.000Z" })));
+    run(db, upsertThreadStatements(row("soon", { updated_at: realAgo(-HOUR) })));
+    run(db, expireThreadsStatements(30));
+    expect(ids(db)).toEqual(["soon"]);
+  });
+
+  it("expire computes its cutoff in SQL from the database clock, not from a bound instant", () => {
+    const [stmt] = expireThreadsStatements(30);
+    expect(stmt.sql).toContain("strftime('%Y-%m-%dT%H:%M:%fZ','now', ?)");
+    expect(stmt.args).toEqual([{ type: "text", value: "-30 days" }]);
   });
 
   it("upsert never overwrites another owner's row", () => {
@@ -183,9 +199,9 @@ describe("chat_threads statements against a real engine", () => {
   });
 
   it("expire scoped to a project leaves other projects alone", () => {
-    run(db, upsertThreadStatements(row("old-p", { updated_at: daysAgo(40) })));
-    run(db, upsertThreadStatements(row("old-q", { project_id: "q", updated_at: daysAgo(40) })));
-    run(db, expireThreadsStatements(retentionCutoff(NOW, 30), "p"));
+    run(db, upsertThreadStatements(row("old-p", { updated_at: realAgo(40 * DAY) })));
+    run(db, upsertThreadStatements(row("old-q", { project_id: "q", updated_at: realAgo(40 * DAY) })));
+    run(db, expireThreadsStatements(30, "p"));
     expect(ids(db)).toEqual(["old-q"]);
   });
 

@@ -14,7 +14,7 @@ import {
 import { encodeThreadRow } from "../src/app/chat-thread-codec";
 import { generateChatKey, generateThreadKey, wrapForOperator } from "../src/app/chat-crypto";
 import {
-  CHAT_THREADS_DDL, expireThreadsStatements, retentionCutoff,
+  CHAT_THREADS_DDL, expireThreadsStatements,
 } from "../src/app/chat-threads-schema";
 import { parseChatSettings, CHAT_RECOVERY_KEY_ENV } from "../src/app/ai-chat-retention-config";
 
@@ -148,7 +148,6 @@ function deps(fake, extra = {}) {
       writePrivateKey: writePrivateKeyFile,
       isTTY: false,
       confirm: async () => "no",
-      now: () => new Date("2026-11-01T12:00:00.000Z"),
       out: (line) => out.push(line),
       err: (line) => err.push(line),
       ...extra,
@@ -405,25 +404,26 @@ describe("delete", () => {
 
 describe("expire", () => {
   it("uses exactly the app's whole-database expiry statement", () => {
-    const cutoff = "2026-10-02T12:00:00.000Z";
-    expect(expireStatements(cutoff)).toEqual(expireThreadsStatements(cutoff));
+    expect(expireStatements(30)).toEqual(expireThreadsStatements(30));
+    expect(expireStatements(7)).toEqual(expireThreadsStatements(7));
   });
 
   it("deletes threads older than --days (default 30) and malformed dates, keeps the rest", async () => {
-    const now = new Date("2026-11-01T12:00:00.000Z");
-    insertRow(db, { ...legacyRow(thread("old", [])), updated_at: "2026-09-01T00:00:00.000Z" });
-    insertRow(db, { ...legacyRow(thread("fresh", [])), updated_at: "2026-10-30T00:00:00.000Z" });
+    // The cutoff is the DATABASE's clock, so the rows are dated from the real one.
+    const ago = (days) => new Date(Date.now() - days * 86_400_000).toISOString();
+    insertRow(db, { ...legacyRow(thread("old", [])), updated_at: ago(61) });
+    insertRow(db, { ...legacyRow(thread("fresh", [])), updated_at: ago(2) });
     insertRow(db, { ...legacyRow(thread("bad", [])), updated_at: "garbage" });
-    insertRow(db, { ...legacyRow(thread("mid", [])), updated_at: "2026-10-20T00:00:00.000Z" });
+    insertRow(db, { ...legacyRow(thread("mid", [])), updated_at: ago(12) });
     const fake = makeFakeTurso(db);
-    const a = deps(fake, { now: () => now });
+    const a = deps(fake);
     expect(await runCli(["expire"], a.deps)).toBe(EXIT.DONE);
     expect(ids(db)).toEqual(["fresh", "mid"]);
     const stmt = fake.calls[0].body.requests[0].stmt;
-    expect(stmt).toEqual(expireThreadsStatements(retentionCutoff(now, 30))[0]);
+    expect(stmt).toEqual(expireThreadsStatements(30)[0]);
     expect(a.out.join("\n")).toContain("expired: 2");
 
-    const b = deps(makeFakeTurso(db), { now: () => now });
+    const b = deps(makeFakeTurso(db));
     expect(await runCli(["expire", "--days", "5"], b.deps)).toBe(EXIT.DONE);
     expect(ids(db)).toEqual(["fresh"]);
   });

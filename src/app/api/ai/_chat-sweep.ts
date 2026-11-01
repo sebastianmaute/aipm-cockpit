@@ -12,7 +12,7 @@
 // chats is always right. Logs carry a fixed line and a count only — never the URL, the token or
 // an error message, which could quote either.
 
-import { CHAT_THREADS_DDL, expireThreadsStatements, retentionCutoff } from "../../chat-threads-schema";
+import { CHAT_THREADS_DDL, expireThreadsStatements } from "../../chat-threads-schema";
 import { readChatSettings } from "../../ai-chat-retention-config";
 import { runTursoPipeline } from "../../turso-pipeline";
 import { toHttpUrl, type TursoConfig } from "../../turso-config";
@@ -51,15 +51,15 @@ export function sweepCredentialsFrom(env: Env): TursoConfig | null {
   return null;
 }
 
-/** Creates the table if it is missing, deletes every expired chat, and returns how many went. */
+/** Creates the table if it is missing, deletes every expired chat (by the database's clock),
+ *  and returns how many went. */
 export async function runChatSweep(
   config: TursoConfig,
   days: number,
-  now: Date,
   run: PipelineRunner = runTursoPipeline,
 ): Promise<number> {
   const ddl: SqlStmt[] = CHAT_THREADS_DDL.map((sql) => ({ sql }));
-  const results = await run(config, [...ddl, ...expireThreadsStatements(retentionCutoff(now, days))]);
+  const results = await run(config, [...ddl, ...expireThreadsStatements(days)]);
   return results[results.length - 1]?.response?.result?.affected_row_count ?? 0;
 }
 
@@ -78,7 +78,7 @@ export function startChatSweepSchedule(
   started = true;
   const sweep = (): void => {
     // The retention is read on every run, so a changed setting applies without a restart of the schedule.
-    void runChatSweep(config, readChatSettings(env).retentionDays, new Date(), run).then(
+    void runChatSweep(config, readChatSettings(env).retentionDays, run).then(
       (count) => console.info(`chat sweep: ${count} expired`),
       () => console.warn("chat sweep failed"),
     );

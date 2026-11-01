@@ -11,7 +11,6 @@ import type { ChatThread } from "./chat-threads";
 import type { ApiMessage, DisplayItem } from "./chat-api";
 import type { TursoConfig } from "./turso-config";
 import type { ChatSettings } from "./ai-chat-retention-config";
-import { retentionCutoff } from "./chat-threads-schema";
 import { clearChatThreads, readChatThreads } from "./chat-threads-registry";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 
@@ -272,12 +271,10 @@ describe("useChatThreads — identity", () => {
 });
 
 describe("useChatThreads — retention", () => {
-  const cutoff = () => retentionCutoff(NOW, CHAT_ON.retentionDays);
-
   it("expires this project's old threads after the load, with the server's retention period", async () => {
     const { result } = renderChatThreads();
     await waitFor(() => expect(expireThreadsMock).toHaveBeenCalledTimes(1));
-    expect(expireThreadsMock).toHaveBeenCalledWith(CFG_A, cutoff(), "default");
+    expect(expireThreadsMock).toHaveBeenCalledWith(CFG_A, CHAT_ON.retentionDays, "default");
     expect(result.current.persistence).toBe("on");
   });
 

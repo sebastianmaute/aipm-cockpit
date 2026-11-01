@@ -33,7 +33,6 @@ const MAX_DAYS = 3650;
 const RECOVERY_KEY_BITS = 3072;
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
-const DAY_MS = 86_400_000;
 const PIPELINE_TIMEOUT_MS = 30_000;
 const BASE64_RE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
@@ -333,10 +332,14 @@ export function deleteStatements(ids) {
 }
 
 /** The app's whole-database expiry rule (`expireThreadsStatements` in chat-threads-schema.ts): rows
- *  last updated before the cutoff, plus any without a usable `updated_at`. */
-export function expireStatements(cutoffIso) {
-  const stale = `(updated_at < ? OR updated_at IS NULL OR updated_at = '' OR julianday(updated_at) IS NULL)`;
-  return [{ sql: `DELETE FROM chat_threads WHERE ${stale}`, args: [txt(cutoffIso)] }];
+ *  not updated for `days` days by the DATABASE clock, plus any without a usable `updated_at` or
+ *  dated more than a day in the future. */
+export function expireStatements(days) {
+  const dbNow = (modifier) => `strftime('%Y-%m-%dT%H:%M:%fZ','now', ${modifier})`;
+  const stale =
+    `(updated_at < ${dbNow("?")} OR updated_at > ${dbNow("'+1 days'")}` +
+    ` OR updated_at IS NULL OR updated_at = '' OR julianday(updated_at) IS NULL)`;
+  return [{ sql: `DELETE FROM chat_threads WHERE ${stale}`, args: [txt(`-${days} days`)] }];
 }
 
 // ── commands ────────────────────────────────────────────────────────────────
@@ -427,9 +430,8 @@ function parseDays(raw) {
 
 async function cmdExpire(values, run, deps) {
   const days = parseDays(values.days);
-  const cutoff = new Date(deps.now().getTime() - days * DAY_MS).toISOString();
-  const [result] = await run(expireStatements(cutoff));
-  deps.out(`expired: ${Number(result.affected_row_count ?? 0)} (not updated since ${cutoff})`);
+  const [result] = await run(expireStatements(days));
+  deps.out(`expired: ${Number(result.affected_row_count ?? 0)} (not updated for ${days} days, by the database clock)`);
   return EXIT.DONE;
 }
 

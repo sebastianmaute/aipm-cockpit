@@ -151,21 +151,31 @@ export function legacyThreadIdsSelect(): SqlStmt[] {
   return [{ sql: `SELECT id FROM chat_threads WHERE owner_id IS NULL OR owner_id = ''` }];
 }
 
-/** Threads last updated before `cutoffIso`, plus any without a usable
- *  `updated_at` — NULL, '' or not a date at all (`julianday` NULL), which no
- *  retention period can vouch for. A well-formed FUTURE date is kept. Whole
- *  database, or one project when `projectId` is given. Compares ISO strings. */
-export function expireThreadsStatements(cutoffIso: string, projectId?: string): SqlStmt[] {
-  const stale = `(updated_at < ? OR updated_at IS NULL OR updated_at = '' OR julianday(updated_at) IS NULL)`;
+/** The cutoff and the future bound are computed by the DATABASE's clock (SQL `'now'`), never a
+ *  browser's: one client with a clock weeks ahead would otherwise delete everybody's chats. The
+ *  format matches `toISOString()`, so the comparison is between ISO strings. */
+const DB_NOW_ISO = (modifier: string): string => `strftime('%Y-%m-%dT%H:%M:%fZ','now', ${modifier})`;
+
+/** Threads not updated for `days` days by the database clock, plus any without a usable
+ *  `updated_at` — NULL, '' or not a date at all (`julianday` NULL) — or one more than a day
+ *  in the FUTURE, which no retention period can vouch for either (a clock that was ahead when
+ *  it was written would keep it forever). Whole database, or one project when `projectId` is
+ *  given. */
+export function expireThreadsStatements(days: number, projectId?: string): SqlStmt[] {
+  const stale =
+    `(updated_at < ${DB_NOW_ISO("?")} OR updated_at > ${DB_NOW_ISO("'+1 days'")}` +
+    ` OR updated_at IS NULL OR updated_at = '' OR julianday(updated_at) IS NULL)`;
+  const age = txt(`-${days} days`);
   if (projectId === undefined) {
-    return [{ sql: `DELETE FROM chat_threads WHERE ${stale}`, args: [txt(cutoffIso)] }];
+    return [{ sql: `DELETE FROM chat_threads WHERE ${stale}`, args: [age] }];
   }
-  return [{ sql: `DELETE FROM chat_threads WHERE ${stale} AND project_id = ?`, args: [txt(cutoffIso), txt(projectId)] }];
+  return [{ sql: `DELETE FROM chat_threads WHERE ${stale} AND project_id = ?`, args: [age, txt(projectId)] }];
 }
 
 const DAY_MS = 86_400_000;
 
-/** The ISO instant `days` whole days before `now`: rows updated earlier expire. */
+/** The ISO instant `days` whole days before `now`, by the CLIENT clock — for what the screen
+ *  shows only; deletes use the database clock (`expireThreadsStatements`). */
 export function retentionCutoff(now: Date, days: number): string {
   return new Date(now.getTime() - days * DAY_MS).toISOString();
 }

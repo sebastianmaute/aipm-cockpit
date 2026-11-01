@@ -141,13 +141,13 @@ describe("chat-threads-store", () => {
     expect(select.sql).toMatch(/WHERE owner_id IS NULL OR owner_id = ''/i);
   });
 
-  it("expireThreads deletes by cutoff, optionally scoped to a project", async () => {
-    await expireThreads(cfg, "2026-10-01T00:00:00.000Z");
+  it("expireThreads deletes by age on the database clock, optionally scoped to a project", async () => {
+    await expireThreads(cfg, 30);
     const all = lastStmts().find((s) => /^DELETE FROM chat_threads WHERE/i.test(s.sql));
-    expect(values(all)).toEqual(["2026-10-01T00:00:00.000Z"]);
-    await expireThreads(cfg, "2026-10-01T00:00:00.000Z", "p");
+    expect(values(all)).toEqual(["-30 days"]);
+    await expireThreads(cfg, 30, "p");
     const scoped = lastStmts().find((s) => /^DELETE FROM chat_threads WHERE/i.test(s.sql));
-    expect(values(scoped)).toEqual(["2026-10-01T00:00:00.000Z", "p"]);
+    expect(values(scoped)).toEqual(["-30 days", "p"]);
   });
 
   it("loadThreads selects the owner's and legacy rows newest-first and decodes them", async () => {
