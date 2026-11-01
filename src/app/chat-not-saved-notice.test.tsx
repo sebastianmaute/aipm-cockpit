@@ -2,11 +2,22 @@
 // saved, and the way out of a chat identity this browser can no longer open.
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { ChatNotSavedNotice } from "./chat-not-saved-notice";
+import { ChatNotSavedNotice, ChatThreadClosedNotice } from "./chat-not-saved-notice";
 import { loadI18n } from "./i18n";
 
 beforeAll(async () => {
   await loadI18n("de");
+});
+
+describe("ChatThreadClosedNotice", () => {
+  it("says the chat was deleted elsewhere and closed, in English and German, and nothing when not closed", () => {
+    const { rerender, container } = render(<ChatThreadClosedNotice lang="en-US" closed={false} />);
+    expect(container).toBeEmptyDOMElement();
+    rerender(<ChatThreadClosedNotice lang="en-US" closed />);
+    expect(screen.getByRole("status")).toHaveTextContent("This chat was deleted elsewhere and has been closed.");
+    rerender(<ChatThreadClosedNotice lang="de" closed />);
+    expect(screen.getByRole("status")).toHaveTextContent("Dieser Chat wurde an anderer Stelle gelöscht und daher geschlossen.");
+  });
 });
 
 describe("ChatNotSavedNotice", () => {

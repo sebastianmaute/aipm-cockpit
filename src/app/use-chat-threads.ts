@@ -497,6 +497,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // load, or saved here with the outcome "saved". Such a thread is only ever UPDATEd, so a chat erased
   // or deleted elsewhere while this session holds it can never be written back.
   const storedRef = useRef<Set<string>>(new Set());
+  // The threads whose save came back "gone" (`storedKey`): never saved again, under their id or a new one.
+  const goneRef = useRef<Set<string>>(new Set());
+  // A chat deleted elsewhere was closed here: the panel says so in one line until the next send,
+  // thread switch or new chat.
+  const [threadClosed, setThreadClosed] = useState(false);
 
   // This browser's identity for the current database, as last read from the vault. Read before every
   // load (a load never creates one); a save creates one on first use (`ensureChatIdentity`).
@@ -647,7 +652,20 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   function dropGone(config: TursoConfig | null, th: ChatThread): void {
     const scope = outboxScope(config, th.projectId);
     if (scope) dropPendingEdit(scope, RENAME_KIND, th.id);
+    goneRef.current.add(storedKey(config, th.id));
     dropUnsaveable(th.id, "chat.threadGone");
+    // ★ Its conversation must not stay on screen: the next send would mint a new id and insert the
+    // whole erased transcript again. With a send running, the end-of-turn effect closes it instead.
+    if (threadIdRef.current === th.id && abortRef.current === null) closeGoneThread();
+  }
+
+  /** Closes the active chat whose row is gone: nothing on screen, no active thread, and the notice. */
+  function closeGoneThread(): void {
+    threadIdRef.current = null;
+    setActiveThreadId(null);
+    setHistory([]);
+    setDisplay([]);
+    setThreadClosed(true);
   }
 
   /** A save of thread `id` landed as `ownerId`'s row: the in-memory thread says so too (list, ref and
@@ -1053,6 +1071,14 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // so aborted this send: what is on screen is B's, not the turn's. Saving it would write B's
     // conversation into A — there is nothing of this turn left to save.
     if (movedAway && activeThreadId !== turnThreadIdRef.current) return;
+    // A thread found gone while this turn ran is not saved at all (an UPDATE would match nothing, and
+    // under a new id it would insert the erased transcript): it is closed now that the send has settled.
+    if (activeThreadId !== null && goneRef.current.has(storedKey(turnConfig, activeThreadId))) {
+      const goneId = activeThreadId;
+      setThreads((prev) => prev.filter((th) => th.id !== goneId));
+      if (!movedAway) closeGoneThread();
+      return;
+    }
     const id = activeThreadId ?? newThreadId();
     if (!movedAway) setActiveThreadId((prev) => prev ?? id);
     const existing = threads.find((th) => th.id === id);
@@ -1134,6 +1160,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // reader, is tursoMode-gated anyway.
     sendSeqRef.current += 1;
     if (!tursoMode) return threadIdRef.current;
+    setThreadClosed(false);
     const id = activeThreadId ?? newThreadId();
     if (activeThreadId === null) {
       // Keep threadIdRef in lockstep with the mint SYNCHRONOUSLY, not only
@@ -1173,6 +1200,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
 
   function selectThread(id: string) {
     if (id === activeThreadId) return;
+    setThreadClosed(false);
     const target = threads.find((th) => th.id === id);
     setActiveThreadId(id);
     setHistory(target?.history ?? []);
@@ -1180,6 +1208,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   }
 
   function newThread() {
+    setThreadClosed(false);
     setActiveThreadId(newThreadId());
     setHistory([]);
     setDisplay([]);
@@ -1419,6 +1448,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     activeThreadId,
     threadsError,
     persistence,
+    threadClosed,
     startNewIdentity,
     setThreadsError,
     setThreads,

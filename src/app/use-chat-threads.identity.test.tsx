@@ -462,6 +462,82 @@ describe("useChatThreads — an erased chat never comes back", () => {
   });
 });
 
+describe("useChatThreads — a chat deleted elsewhere is closed, not carried into a new one", () => {
+  const OLD_HISTORY = [{ role: "user", content: "about Jane" }] as ApiMessage[];
+  const OLD_DISPLAY = [{ kind: "user", text: "about Jane" }] as DisplayItem[];
+  const carriesOld = (call: unknown[]): boolean => JSON.stringify((call[1] as ChatThread).history).includes("about Jane")
+    || JSON.stringify((call[1] as ChatThread).display).includes("about Jane");
+
+  it("with no send running: the screen is cleared, the notice is up, and the next send carries nothing of it", async () => {
+    loadThreadsMock.mockResolvedValue([thread("t1", { history: OLD_HISTORY, display: OLD_DISPLAY }), thread("t2")]);
+    const hook = renderChatThreads({ history: OLD_HISTORY, display: OLD_DISPLAY });
+    await waitFor(() => expect(hook.result.current.activeThreadId).toBe("t1"));
+    expect(hook.result.current.threadClosed).toBe(false);
+    saveThreadMock.mockResolvedValueOnce("gone");
+    act(() => hook.result.current.renameThread("t1", "New name"));
+    await waitFor(() => expect(hook.result.current.threadClosed).toBe(true));
+    expect(hook.result.current.activeThreadId).toBeNull();
+    const setHistory = hook.initialProps.setHistory as ReturnType<typeof vi.fn>;
+    const setDisplay = hook.initialProps.setDisplay as ReturnType<typeof vi.fn>;
+    expect(setHistory.mock.calls.at(-1)).toEqual([[]]);
+    expect(setDisplay.mock.calls.at(-1)).toEqual([[]]);
+
+    // The panel's state is what the setters made it: the next turn starts empty, on a new id.
+    saveThreadMock.mockClear();
+    hook.rerender({ ...hook.initialProps, history: [], display: [] });
+    await sendTurn({ ...hook, initialProps: { ...hook.initialProps, history: [], display: [] } });
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalled());
+    for (const call of saveThreadMock.mock.calls) {
+      expect((call[1] as ChatThread).id).not.toBe("t1");
+      expect(carriesOld(call)).toBe(false);
+    }
+    expect(hook.result.current.threadClosed).toBe(false);
+  });
+
+  it("with a send running: the end-of-turn save writes nothing, under no id, and the screen is cleared once it settles", async () => {
+    loadThreadsMock.mockResolvedValue([thread("t1", { history: OLD_HISTORY, display: OLD_DISPLAY })]);
+    const abortRef: { current: AbortController | null } = { current: null };
+    const hook = renderChatThreads({ history: OLD_HISTORY, display: OLD_DISPLAY, abortRef });
+    await waitFor(() => expect(hook.result.current.activeThreadId).toBe("t1"));
+    const live = { ...hook.initialProps, abortRef };
+    abortRef.current = new AbortController();
+    hook.rerender({ ...live, busy: true });
+    saveThreadMock.mockResolvedValueOnce("gone");
+    act(() => hook.result.current.renameThread("t1", "New name"));
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    // Still mid-send: nothing is pulled from under the running turn yet.
+    expect(hook.result.current.activeThreadId).toBe("t1");
+    abortRef.current = null;
+    const turnHistory = [...OLD_HISTORY, { role: "assistant", content: "reply" }] as ApiMessage[];
+    hook.rerender({ ...live, busy: false, history: turnHistory, display: OLD_DISPLAY });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(saveThreadMock).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.activeThreadId).toBeNull();
+    expect(hook.result.current.threads).toEqual([]);
+    expect(hook.result.current.threadClosed).toBe(true);
+    expect((hook.initialProps.setHistory as ReturnType<typeof vi.fn>).mock.calls.at(-1)).toEqual([[]]);
+    expect((hook.initialProps.setDisplay as ReturnType<typeof vi.fn>).mock.calls.at(-1)).toEqual([[]]);
+  });
+
+  it("a not-owned save keeps the conversation on screen (a take-over, not an erasure)", async () => {
+    loadThreadsMock.mockResolvedValue([thread("t1", { history: OLD_HISTORY, display: OLD_DISPLAY })]);
+    const hook = renderChatThreads({ history: OLD_HISTORY, display: OLD_DISPLAY });
+    await waitFor(() => expect(hook.result.current.activeThreadId).toBe("t1"));
+    const setHistory = hook.initialProps.setHistory as ReturnType<typeof vi.fn>;
+    const before = setHistory.mock.calls.length;
+    saveThreadMock.mockResolvedValueOnce("not-owned");
+    act(() => hook.result.current.renameThread("t1", "New name"));
+    await waitFor(() => expect(hook.result.current.activeThreadId).toBeNull());
+    expect(setHistory.mock.calls.length).toBe(before);
+    expect(hook.result.current.threadClosed).toBe(false);
+  });
+});
+
 describe("useChatThreads — a thread somebody else now owns", () => {
   it("a save that changed no row drops the thread here and withdraws it from the registry", async () => {
     loadThreadsMock.mockResolvedValue([thread("t1"), thread("t2")]);

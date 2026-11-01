@@ -2238,6 +2238,12 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   its row was erased or deleted elsewhere it changes no row, `saveThread` returns "gone", and the hook drops
   the thread, its registry entry and its pending rename (`chat.threadGone`). Upserting it would bring an
   erased chat back with its whole history.
+  ★★ Dropping it from the list is NOT enough: the conversation left on screen would go out with the next
+  send under a NEW id, i.e. an INSERT of the erased transcript. So a gone ACTIVE thread is closed
+  (`closeGoneThread`: no active thread, history and display cleared, `threadClosed` drives
+  `ChatThreadClosedNotice`); with a send running, its id stays in `goneRef` and the busy-persist effect closes it
+  without saving once the turn settles. A "not-owned" result keeps the conversation (a take-over by this
+  person, not an erasure).
   `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
   requires `projectId` AND the owner id (not just an id), so a delete can never reach across projects or into a
   colleague's row; it also matches legacy owner-less rows.

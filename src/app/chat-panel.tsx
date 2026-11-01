@@ -71,7 +71,7 @@ import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
 import { useChatThreads } from "./use-chat-threads";
-import { ChatNotSavedNotice } from "./chat-not-saved-notice";
+import { ChatNotSavedNotice, ChatThreadClosedNotice } from "./chat-not-saved-notice";
 import { fitHistoryToBudget } from "./chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
 import {
@@ -1640,6 +1640,7 @@ function ChatPanelInner({
       {tursoMode && (
         <ChatNotSavedNotice lang={lang} persistence={chatThreads.persistence} onStartNewIdentity={chatThreads.startNewIdentity} />
       )}
+      {tursoMode && <ChatThreadClosedNotice lang={lang} closed={chatThreads.threadClosed} />}
       <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
         <Select
           size="xs"
