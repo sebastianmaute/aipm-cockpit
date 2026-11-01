@@ -166,7 +166,7 @@ describe("AiConsentDialog — where the data goes follows the deployment's AI ro
   });
 
   it.each(["interactive", "background"] as const)("gateway: the %s dialog names the gateway route and no direct call", (level) => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null });
     renderLevel(level);
     expect(screen.getByText(t("en-US", AI_DESTINATION_KEYS.gateway[level]))).toBeInTheDocument();
     expect(screen.getByText(t("en-US", AI_DESTINATION_KEYS.gateway.keySecurity))).toBeInTheDocument();
@@ -179,14 +179,14 @@ describe("AiConsentDialog — where the data goes follows the deployment's AI ro
   });
 
   it.each(["interactive", "background"] as const)("gateway with the key restriction: the %s dialog also says which keys may be used", (level) => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: true });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: true, chat: null });
     renderLevel(level);
     expect(screen.getByText(t("en-US", "aiConsentKeyRestrictionGateway"))).toBeInTheDocument();
   });
 
   it.each([
-    ["gateway without the restriction", { off: false, route: "gateway", invalid: false, keyRestricted: false }],
-    ["relay, whose own texts already say it", { off: false, route: "relay", invalid: false, keyRestricted: true }],
+    ["gateway without the restriction", { off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null }],
+    ["relay, whose own texts already say it", { off: false, route: "relay", invalid: false, keyRestricted: true, chat: null }],
   ] as const)("%s: no extra key restriction sentence (control)", (_label, state) => {
     setAiDeploymentState(state);
     renderLevel("interactive");

@@ -10,6 +10,8 @@ import {
 
 const GW = "https://gateway.ai.cloudflare.com/v1/acc/gw/anthropic";
 
+const CHAT_DEFAULTS = { retentionDays: 30, retentionInvalid: false, recoveryKey: null, recoveryKeyInvalid: false };
+
 describe("readAiGatewayConfig", () => {
   it("names the two settings", () => {
     expect(AI_GATEWAY_URL_ENV).toBe("AIPM_AI_GATEWAY_URL");
@@ -139,7 +141,7 @@ describe("aiDeploymentStateFrom with a key restriction", () => {
       off: false,
       route: "relay",
       invalid: false,
-      keyRestricted: true,
+      keyRestricted: true, chat: CHAT_DEFAULTS,
     });
   });
 
@@ -148,7 +150,7 @@ describe("aiDeploymentStateFrom with a key restriction", () => {
       off: false,
       route: "gateway",
       invalid: false,
-      keyRestricted: true,
+      keyRestricted: true, chat: CHAT_DEFAULTS,
     });
   });
 
@@ -158,7 +160,7 @@ describe("aiDeploymentStateFrom with a key restriction", () => {
       route: "relay",
       invalid: true,
       invalidReason: "org-id",
-      keyRestricted: true,
+      keyRestricted: true, chat: CHAT_DEFAULTS,
     });
     expect(aiDeploymentStateFrom({ AIPM_AI_WORKSPACE_IDS: ORG })).toMatchObject({ invalidReason: "workspaces-without-org" });
   });
@@ -169,7 +171,7 @@ describe("aiDeploymentStateFrom with a key restriction", () => {
       route: "relay",
       invalid: true,
       invalidReason: "misspelled-setting",
-      keyRestricted: true,
+      keyRestricted: true, chat: CHAT_DEFAULTS,
     });
     expect(aiDeploymentStateFrom({ AIPM_AI_WORKSPACE_ID: "x", AIPM_AI_GATEWAY_URL: GW })).toMatchObject({
       route: "gateway",
@@ -192,19 +194,19 @@ describe("aiDeploymentStateFrom with a key restriction", () => {
       route: "gateway",
       invalid: true,
       invalidReason: "org-id",
-      keyRestricted: true,
+      keyRestricted: true, chat: CHAT_DEFAULTS,
     });
   });
 
   it("with no restriction keyRestricted is false and nothing else changes", () => {
-    expect(aiDeploymentStateFrom({})).toEqual({ off: false, route: "direct", invalid: false, keyRestricted: false });
-    expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_URL: GW })).toEqual({ off: false, route: "gateway", invalid: false, keyRestricted: false });
+    expect(aiDeploymentStateFrom({})).toEqual({ off: false, route: "direct", invalid: false, keyRestricted: false, chat: CHAT_DEFAULTS });
+    expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_URL: GW })).toEqual({ off: false, route: "gateway", invalid: false, keyRestricted: false, chat: CHAT_DEFAULTS });
     expect(aiDeploymentStateFrom({ AIPM_AI_GATEWAY_TOKEN: "t" })).toEqual({
       off: false,
       route: "direct",
       invalid: true,
       invalidReason: "token-without-url",
-      keyRestricted: false,
+      keyRestricted: false, chat: CHAT_DEFAULTS,
     });
   });
 

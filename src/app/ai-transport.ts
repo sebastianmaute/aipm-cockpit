@@ -108,7 +108,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 /** The status answer's deployment half; `peopleForced` is checked on its own (review 5, C1). */
-function isAiStatusBase(v: unknown): v is Omit<AiStatus, "peopleForced"> & { peopleForced?: unknown } {
+function isAiStatusBase(v: unknown): v is Omit<AiStatus, "peopleForced" | "chat"> & { peopleForced?: unknown } {
   return isRecord(v) && typeof v.off === "boolean" && typeof v.invalid === "boolean"
     && (v.route === "direct" || v.route === "gateway" || v.route === "relay")
     && typeof v.keyRestricted === "boolean";

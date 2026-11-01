@@ -17,8 +17,8 @@ import * as models from "./anthropic-models";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
 
-const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false, keyRestricted: false };
-const RELAY: AiDeploymentState = { off: false, route: "relay", invalid: false, keyRestricted: true };
+const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null };
+const RELAY: AiDeploymentState = { off: false, route: "relay", invalid: false, keyRestricted: true, chat: null };
 const KEY = "sk-ant-api03-test";
 
 function json(body: unknown, status = 200): Response {
@@ -88,8 +88,8 @@ describe("confirmAiDeployment", () => {
   });
 
   it.each([
-    ["off", { off: true, route: "direct", invalid: false, keyRestricted: false }],
-    ["invalid", { off: false, route: "direct", invalid: true, keyRestricted: false }],
+    ["off", { off: true, route: "direct", invalid: false, keyRestricted: false, chat: null }],
+    ["invalid", { off: false, route: "direct", invalid: true, keyRestricted: false, chat: null }],
     ["route-changed", GATEWAY],
   ] as const)("throws %s", async (reason, state) => {
     stubFetch(state);
@@ -100,7 +100,7 @@ describe("confirmAiDeployment", () => {
 
   // Review 5, C1: AI switched off is "off" whatever the answer says about the people lock — nothing is sent either way.
   it("an answer that says AI is off is off even without the people lock", async () => {
-    stubFetch(json({ off: true, route: "direct", invalid: false, keyRestricted: false }));
+    stubFetch(json({ off: true, route: "direct", invalid: false, keyRestricted: false, chat: null }));
     const err = await confirmAiDeployment().catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AiDeploymentError);
     expect((err as AiDeploymentError).reason).toBe("off");
@@ -111,7 +111,7 @@ describe("confirmAiDeployment", () => {
     ["the status is not 200", new Response("", { status: 500 })],
     ["the body is not a state", json({ off: "no" })],
     // Review 4, M3: the people lock is part of the answer; without it the answer is not trusted.
-    ["the state says nothing about the people lock", json({ off: false, route: "direct", invalid: false, keyRestricted: false })],
+    ["the state says nothing about the people lock", json({ off: false, route: "direct", invalid: false, keyRestricted: false, chat: null })],
     ["the people lock is not a boolean", json({ off: false, route: "direct", invalid: false, keyRestricted: false, peopleForced: "yes" })],
   ])("is unconfirmed when %s", async (_label, status) => {
     stubFetch(status);
@@ -223,8 +223,8 @@ describe("postAiMessages", () => {
   });
 
   it.each([
-    [{ off: true, route: "direct", invalid: false, keyRestricted: false }],
-    [{ off: false, route: "direct", invalid: true, keyRestricted: false }],
+    [{ off: true, route: "direct", invalid: false, keyRestricted: false, chat: null }],
+    [{ off: false, route: "direct", invalid: true, keyRestricted: false, chat: null }],
     [GATEWAY],
   ] as const)("never posts when the status refuses (%o)", async (state) => {
     const f = stubFetch(state);
@@ -322,7 +322,7 @@ describe("postAiMessages", () => {
   });
 
   it.each(["direct", "gateway"] as const)("%s: beforeSend runs after the status answer and can stop the send", async (r) => {
-    const state: AiDeploymentState = { off: false, route: r, invalid: false, keyRestricted: false };
+    const state: AiDeploymentState = { off: false, route: r, invalid: false, keyRestricted: false, chat: null };
     setAiDeploymentState(state);
     const order: string[] = [];
     const f = vi.fn(async (input: string): Promise<Response> => {

@@ -397,7 +397,7 @@ describe("AI_DESTINATION_KEYS", () => {
 
   // KILLED BY: aiDestinationKey ignoring keyRestricted on the gateway route (the dialog then claims the server stores nothing next to its own fingerprint sentence).
   it("gateway with the restriction on: no key text claims the server neither stores nor logs the key, each says what it keeps and still names the gateway", () => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: true });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: true, chat: null });
     for (const kind of KEY_KINDS) {
       const key = aiDestinationKey(kind);
       expect(key, kind).not.toBe(AI_DESTINATION_KEYS.gateway[kind]);
@@ -411,7 +411,7 @@ describe("AI_DESTINATION_KEYS", () => {
   });
 
   it("plain gateway keeps its texts exactly", () => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null });
     for (const kind of KEY_KINDS) {
       const key = aiDestinationKey(kind);
       expect(key, kind).toBe(AI_DESTINATION_KEYS.gateway[kind]);
@@ -422,10 +422,10 @@ describe("AI_DESTINATION_KEYS", () => {
   it("Help's AI entry follows the route", () => {
     const entry = { bodyKey: "helpSecAiBody" } as const;
     expect(helpEntryBody("en-US", entry)).toBe(t("en-US", "helpSecAiBody"));
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null });
     expect(helpEntryBody("en-US", entry)).toBe(t("en-US", AI_DESTINATION_KEYS.gateway.help));
     expect(helpEntryBody("de", entry)).toBe(de[AI_DESTINATION_KEYS.gateway.help]);
-    setAiDeploymentState({ off: false, route: "relay", invalid: false, keyRestricted: true });
+    setAiDeploymentState({ off: false, route: "relay", invalid: false, keyRestricted: true, chat: null });
     expect(helpEntryBody("en-US", entry)).toBe(t("en-US", AI_DESTINATION_KEYS.relay.help));
     expect(helpEntryBody("de", entry)).toBe(de[AI_DESTINATION_KEYS.relay.help]);
   });

@@ -13,7 +13,7 @@ import { setAiDeploymentState, type AiDeploymentState } from "../../ai-deploymen
 import { __setAiStatusRequestForTests } from "../../ai-status-request";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../../../test/ai-status-fetch";
 
-const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false, keyRestricted: false };
+const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null };
 const GATEWAY_ENV = { AIPM_AI_GATEWAY_URL: "https://gateway.example.com/acct/gw/anthropic" };
 const KEY = "sk-ant-wire-test";
 
@@ -102,7 +102,7 @@ describe("relay <-> transport wire codes for a refused key (AI organisation key)
   const OTHER_ORG = "99999999-8888-7777-6666-555555555555";
   const WS = "wrkspc_01InventedAlphaQ7x";
   const OTHER_WS = "wrkspc_01InventedOmegaR2m";
-  const RESTRICTED: AiDeploymentState = { off: false, route: "relay", invalid: false, keyRestricted: true };
+  const RESTRICTED: AiDeploymentState = { off: false, route: "relay", invalid: false, keyRestricted: true, chat: null };
 
   /** Answers the pre-flight with a 2xx carrying the given organisation (and workspace) headers. */
   function preflightAs(headers: Record<string, string>): RelaySend {
