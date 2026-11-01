@@ -223,7 +223,7 @@ describe("useChatThreads — writes stay in the Turso database they started in (
     });
 
     expect(deleteThreadMock).toHaveBeenCalledTimes(1);
-    expect(deleteThreadMock).toHaveBeenCalledWith(CFG_A2, "t1", "default");
+    expect(deleteThreadMock).toHaveBeenCalledWith(CFG_A2, "t1", "default", null);
   });
 
   it("a send started after a config change persists to the new database", async () => {
@@ -260,7 +260,7 @@ describe("useChatThreads — writes stay in the Turso database they started in (
     });
 
     expect(deleteThreadMock).toHaveBeenCalledTimes(1);
-    expect(deleteThreadMock).toHaveBeenCalledWith(CFG_A, "t1", "default");
+    expect(deleteThreadMock).toHaveBeenCalledWith(CFG_A, "t1", "default", null);
   });
 
   it("a turn finished after a config change settles its rename edit under the database it started in", async () => {

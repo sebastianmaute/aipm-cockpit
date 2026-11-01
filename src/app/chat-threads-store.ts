@@ -79,8 +79,16 @@ export async function saveThread(
   ]);
 }
 
-export async function deleteThread(config: TursoConfig | null, id: string, projectId: string): Promise<void> {
-  await run(config, deleteThreadStatements(id, projectId));
+/** Delete one thread of `ownerId` (or a legacy owner-less one). Without an
+ *  owner it refuses before any network call. */
+export async function deleteThread(
+  config: TursoConfig | null,
+  id: string,
+  projectId: string,
+  ownerId: string | null,
+): Promise<void> {
+  if (!ownerId) throw new Error("deleteThread: an owner id is required");
+  await run(config, deleteThreadStatements(id, projectId, ownerId));
 }
 
 /** Delete every thread of `ownerId`, in every project of the database. */

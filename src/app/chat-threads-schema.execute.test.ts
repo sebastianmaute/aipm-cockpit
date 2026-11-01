@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { DatabaseSync } from "node:sqlite";
 import {
   CHAT_THREADS_DDL, chatThreadsHealAlters, upsertThreadStatements, pruneThreadsStatements,
-  expireThreadsStatements, deleteOwnerThreadsStatements, threadsSelect, retentionCutoff,
+  expireThreadsStatements, deleteOwnerThreadsStatements, deleteThreadStatements, threadsSelect, retentionCutoff,
   type StoredThreadRow,
 } from "./chat-threads-schema";
 import { pragmaStatements } from "./turso-migrate";
@@ -120,6 +120,65 @@ describe("chat_threads statements against a real engine", () => {
     insertNullOwner(db, "nullts", null);
     run(db, expireThreadsStatements(retentionCutoff(NOW, 30)));
     expect(ids(db)).toEqual(["young"]);
+  });
+
+  it("expire deletes a row whose updated_at is not a date, and keeps a well-formed future date", () => {
+    run(db, upsertThreadStatements(row("garbage", { updated_at: "garbage" })));
+    run(db, upsertThreadStatements(row("future", { updated_at: "9999-01-01T00:00:00.000Z" })));
+    run(db, upsertThreadStatements(row("young", { updated_at: daysAgo(29) })));
+    run(db, expireThreadsStatements(retentionCutoff(NOW, 30)));
+    expect(ids(db)).toEqual(["future", "young"]);
+  });
+
+  it("upsert never overwrites another owner's row", () => {
+    run(db, upsertThreadStatements(row("t", { name: "c1.alice" })));
+    const before = db.prepare("SELECT * FROM chat_threads").all();
+    run(db, upsertThreadStatements(row("t", { owner_id: "bob", name: "c1.bob", key_owner: "c1.bobkey" })));
+    expect(db.prepare("SELECT * FROM chat_threads").all()).toEqual(before);
+  });
+
+  it("upsert takes over a legacy row (NULL or empty owner)", () => {
+    insertNullOwner(db, "n");
+    run(db, upsertThreadStatements(row("e", { owner_id: "" })));
+    run(db, upsertThreadStatements(row("n", { owner_id: "bob", name: "c1.bob" })));
+    run(db, upsertThreadStatements(row("e", { owner_id: "bob", name: "c1.bob" })));
+    expect(db.prepare("SELECT id, owner_id, name FROM chat_threads ORDER BY id").all()).toEqual([
+      { id: "e", owner_id: "bob", name: "c1.bob" },
+      { id: "n", owner_id: "bob", name: "c1.bob" },
+    ]);
+  });
+
+  it("upsert with the same id in another project leaves the original untouched", () => {
+    run(db, upsertThreadStatements(row("t", { name: "c1.p" })));
+    const before = db.prepare("SELECT * FROM chat_threads").all();
+    run(db, upsertThreadStatements(row("t", { project_id: "q", name: "c1.q" })));
+    expect(db.prepare("SELECT * FROM chat_threads").all()).toEqual(before);
+  });
+
+  it("an owner re-saving their own row updates it", () => {
+    run(db, upsertThreadStatements(row("t", { name: "c1.v1" })));
+    run(db, upsertThreadStatements(row("t", { name: "c1.v2", updated_at: daysAgo(0), key_owner: "c1.k2" })));
+    expect(db.prepare("SELECT * FROM chat_threads").all()).toEqual([
+      row("t", { name: "c1.v2", updated_at: daysAgo(0), key_owner: "c1.k2" }),
+    ]);
+  });
+
+  it("delete is scoped to the owner: bob cannot delete alice's row, but can delete a legacy one", () => {
+    run(db, upsertThreadStatements(row("a")));
+    insertNullOwner(db, "n");
+    run(db, upsertThreadStatements(row("e", { owner_id: "" })));
+    run(db, deleteThreadStatements("a", "p", "bob"));
+    run(db, deleteThreadStatements("n", "p", "bob"));
+    run(db, deleteThreadStatements("e", "p", "bob"));
+    expect(ids(db)).toEqual(["a"]);
+    run(db, deleteThreadStatements("a", "q", "alice"));
+    expect(ids(db)).toEqual(["a"]);
+    run(db, deleteThreadStatements("a", "p", "alice"));
+    expect(ids(db)).toEqual([]);
+  });
+
+  it("delete refuses an empty owner id", () => {
+    expect(() => deleteThreadStatements("a", "p", "")).toThrow();
   });
 
   it("expire scoped to a project leaves other projects alone", () => {

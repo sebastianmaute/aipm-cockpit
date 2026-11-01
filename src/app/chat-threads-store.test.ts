@@ -70,7 +70,7 @@ describe("chat-threads-store", () => {
     const stmts = lastStmts();
     expect(stmts.some((s) => /CREATE TABLE IF NOT EXISTS chat_threads/i.test(s.sql))).toBe(true);
 
-    const insert = stmts.find((s) => /INSERT OR REPLACE INTO chat_threads/i.test(s.sql));
+    const insert = stmts.find((s) => /^INSERT INTO chat_threads .* ON CONFLICT\(id\) DO UPDATE SET /i.test(s.sql));
     expect(insert).toBeTruthy();
     const v = values(insert);
     expect(v.slice(0, 3)).toEqual(["t1", "p", "alice"]);
@@ -94,13 +94,19 @@ describe("chat-threads-store", () => {
     expect(pipe).not.toHaveBeenCalled();
   });
 
-  it("deleteThread prepends DDL and deletes scoped by id AND project (never id alone)", async () => {
-    await deleteThread(cfg, "t1", "p");
+  it("deleteThread prepends DDL and deletes scoped by id, project AND owner (never id alone)", async () => {
+    await deleteThread(cfg, "t1", "p", "alice");
     const stmts = lastStmts();
     expect(stmts.some((s) => /CREATE TABLE IF NOT EXISTS chat_threads/i.test(s.sql))).toBe(true);
-    const del = stmts.find((s) => /^DELETE FROM chat_threads WHERE id = \? AND project_id = \?$/i.test(s.sql));
+    const del = stmts.find((s) => /^DELETE FROM chat_threads WHERE id = \? AND project_id = \? AND \(owner_id = \? OR owner_id IS NULL OR owner_id = ''\)$/i.test(s.sql));
     expect(del).toBeTruthy();
-    expect(values(del)).toEqual(["t1", "p"]);
+    expect(values(del)).toEqual(["t1", "p", "alice"]);
+  });
+
+  it("deleteThread refuses without an owner and writes nothing", async () => {
+    await expect(deleteThread(cfg, "t1", "p", null)).rejects.toThrow();
+    await expect(deleteThread(cfg, "t1", "p", "")).rejects.toThrow();
+    expect(pipe).not.toHaveBeenCalled();
   });
 
   it("deleteOwnerThreads deletes every row of one owner", async () => {
@@ -169,8 +175,8 @@ describe("chat-threads-store", () => {
 
     it("adds the missing columns in one transaction, once per database", async () => {
       pipe.mockImplementation(async (_c: unknown, stmts: SqlStmt[]) => (isPragma(stmts) ? [{ type: "ok" }, OLD_PRAGMA] : []));
-      await deleteThread(cfg, "t1", "p");
-      await deleteThread(cfg, "t2", "p");
+      await deleteThread(cfg, "t1", "p", "alice");
+      await deleteThread(cfg, "t2", "p", "alice");
       const calls = pipe.mock.calls.map((c) => c[1] as SqlStmt[]);
       expect(calls.filter(isPragma)).toHaveLength(1);
       const alter = calls.find((s) => s[0]?.sql === "BEGIN")!;
@@ -187,15 +193,15 @@ describe("chat-threads-store", () => {
     });
 
     it("runs again for a different database", async () => {
-      await deleteThread(cfg, "t1", "p");
-      await deleteThread({ httpUrl: "https://other.example", authToken: "t" } as never, "t1", "p");
+      await deleteThread(cfg, "t1", "p", "alice");
+      await deleteThread({ httpUrl: "https://other.example", authToken: "t" } as never, "t1", "p", "alice");
       expect(pipe.mock.calls.map((c) => c[1] as SqlStmt[]).filter(isPragma)).toHaveLength(2);
     });
 
     it("a failed heal is not remembered: the call fails and the next one retries", async () => {
       pipe.mockRejectedValueOnce(new Error("network down"));
-      await expect(deleteThread(cfg, "t1", "p")).rejects.toThrow("network down");
-      await deleteThread(cfg, "t1", "p");
+      await expect(deleteThread(cfg, "t1", "p", "alice")).rejects.toThrow("network down");
+      await deleteThread(cfg, "t1", "p", "alice");
       expect(pipe.mock.calls.map((c) => c[1] as SqlStmt[]).filter(isPragma)).toHaveLength(2);
     });
   });

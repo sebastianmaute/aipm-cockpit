@@ -67,17 +67,33 @@ export const threadsSelect = (projectId: string, ownerId: string | null): SqlStm
       args: [txt(projectId), txt(ownerId)],
     }];
 
-/** Upsert as ONE atomic `INSERT OR REPLACE`, never a delete-then-insert pair.
+const UPSERT_COLUMNS = [
+  "id", "project_id", "owner_id", "name", "created_at", "updated_at",
+  "history_json", "display_json", "key_owner", "key_operator",
+] as const;
+
+const UPSERT_SQL =
+  `INSERT INTO chat_threads (${UPSERT_COLUMNS.join(",")}) VALUES (${UPSERT_COLUMNS.map(() => "?").join(",")}) ` +
+  `ON CONFLICT(id) DO UPDATE SET ${UPSERT_COLUMNS.filter((c) => c !== "id").map((c) => `${c} = excluded.${c}`).join(", ")} ` +
+  `WHERE chat_threads.project_id = excluded.project_id AND ` +
+  `(chat_threads.owner_id = excluded.owner_id OR chat_threads.owner_id IS NULL OR chat_threads.owner_id = '')`;
+
+/** Upsert as ONE atomic statement, never a delete-then-insert pair.
  *  `runTursoPipeline` only opens a server-side transaction when the pipeline's
  *  FIRST statement is literally `BEGIN` and its LAST is `COMMIT` (see its
  *  `isTransactional` check) —
  *  every other statement list, this one included, autocommits statement by
  *  statement. A standalone DELETE followed by a separate INSERT would leave a
- *  real window where the thread is gone if the INSERT then failed. */
+ *  real window where the thread is gone if the INSERT then failed.
+ *  ★ The id alone never decides the target: an existing row is updated only
+ *  when it is in the same project AND belongs to the same owner or to nobody
+ *  (a legacy row, which this write takes over). Otherwise the write is a
+ *  silent no-op — a stale copy saved by somebody else, or an id from another
+ *  project, can never replace a row (`INSERT OR REPLACE` would have). */
 export function upsertThreadStatements(row: StoredThreadRow): SqlStmt[] {
   return [
     {
-      sql: `INSERT OR REPLACE INTO chat_threads (id,project_id,owner_id,name,created_at,updated_at,history_json,display_json,key_owner,key_operator) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      sql: UPSERT_SQL,
       args: [
         txt(row.id), txt(row.project_id), txt(row.owner_id), txt(row.name), txt(row.created_at), txt(row.updated_at),
         txt(row.history_json), txt(row.display_json), txt(row.key_owner), txt(row.key_operator),
@@ -93,10 +109,16 @@ export function upsertThreadStatements(row: StoredThreadRow): SqlStmt[] {
  *  on offer. ★ `projectId` is REQUIRED deliberately: it landed optional so the then-open
  *  call site kept typechecking, but an optional security parameter whose default is the
  *  UNSCOPED statement is a trap — it reads as protection while every caller that forgets
- *  it silently opts out. The scoping is now unconditional and cannot be omitted. */
-export function deleteThreadStatements(id: string, projectId: string): SqlStmt[] {
+ *  it silently opts out. The scoping is now unconditional and cannot be omitted.
+ *  The same holds for the OWNER: a person deletes their own rows and legacy
+ *  owner-less ones, never somebody else's. An empty owner id is refused. */
+export function deleteThreadStatements(id: string, projectId: string, ownerId: string): SqlStmt[] {
+  if (ownerId === "") throw new Error("deleteThreadStatements: empty owner id");
   return [
-    { sql: `DELETE FROM chat_threads WHERE id = ? AND project_id = ?`, args: [txt(id), txt(projectId)] },
+    {
+      sql: `DELETE FROM chat_threads WHERE id = ? AND project_id = ? AND (owner_id = ? OR owner_id IS NULL OR owner_id = '')`,
+      args: [txt(id), txt(projectId), txt(ownerId)],
+    },
   ];
 }
 
@@ -124,10 +146,11 @@ export function deleteOwnerThreadsStatements(ownerId: string): SqlStmt[] {
 }
 
 /** Threads last updated before `cutoffIso`, plus any without a usable
- *  `updated_at` (NULL or '', which no retention period can vouch for). Whole
+ *  `updated_at` — NULL, '' or not a date at all (`julianday` NULL), which no
+ *  retention period can vouch for. A well-formed FUTURE date is kept. Whole
  *  database, or one project when `projectId` is given. Compares ISO strings. */
 export function expireThreadsStatements(cutoffIso: string, projectId?: string): SqlStmt[] {
-  const stale = `(updated_at < ? OR updated_at IS NULL OR updated_at = '')`;
+  const stale = `(updated_at < ? OR updated_at IS NULL OR updated_at = '' OR julianday(updated_at) IS NULL)`;
   if (projectId === undefined) {
     return [{ sql: `DELETE FROM chat_threads WHERE ${stale}`, args: [txt(cutoffIso)] }];
   }

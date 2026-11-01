@@ -169,7 +169,7 @@ describe("useChatThreads — requestDeleteThread", () => {
     expect(setDisplay).toHaveBeenCalledWith(t2.display);
     // Scoped by project too — an id-only delete is precisely what this
     // guards against (defense-in-depth against a cross-project id collision).
-    expect(deleteThreadMock).toHaveBeenCalledWith(null, "t1", "default");
+    expect(deleteThreadMock).toHaveBeenCalledWith(null, "t1", "default", null);
   });
 
   it("a declined confirm does nothing", async () => {

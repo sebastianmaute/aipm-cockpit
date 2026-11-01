@@ -28,8 +28,9 @@ import type { ApiMessage, DisplayItem } from "./chat-api";
 import type { TursoConfig } from "./turso-config";
 import type { ConfirmFn } from "./confirm-dialog";
 // No chat identity or recovery key reaches this hook yet: loads pass `null` (legacy plaintext
-// rows only) and saves pass `null, null`, which `saveThread` refuses before any write — a
-// thread is never stored in plaintext. Wiring the identity in replaces these nulls.
+// rows only), saves pass `null, null` and deletes pass a `null` owner, which `saveThread` and
+// `deleteThread` refuse before any network call — a thread is never stored in plaintext.
+// Wiring the identity in replaces these nulls.
 import { loadThreads, saveThread, deleteThread as deleteThreadRow } from "./chat-threads-store";
 import {
   type ChatThread, newThreadId, deriveThreadName, normalizeThreadName, stripAttachmentsForPersistence,
@@ -1020,7 +1021,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // Scope the delete by project (defense-in-depth against a project-id
     // collision in the id space) — `target` was resolved from `threads`
     // before the confirm await and still carries the row's own projectId.
-    runPersist(id, () => deleteThreadRow(writeConfig(deleteConfig), id, target.projectId));
+    runPersist(id, () => deleteThreadRow(writeConfig(deleteConfig), id, target.projectId, null));
   }
 
   return {
