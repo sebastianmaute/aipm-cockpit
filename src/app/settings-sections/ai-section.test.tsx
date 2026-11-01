@@ -1295,6 +1295,7 @@ describe("AiSection — saved chat retention", () => {
 
   const withTurso: Settings = {
     ...defaultSettings,
+    storageConfig: { kind: "turso" },
     integrations: {
       ...defaultSettings.integrations,
       turso: { ...defaultSettings.integrations?.turso, databaseUrl: "libsql://db.example.turso.io", authToken: "tok" },
@@ -1305,6 +1306,14 @@ describe("AiSection — saved chat retention", () => {
     withChat(chat({ recoveryKey: "spki" }));
     render(<AiSection lang="en-US" settings={withTurso} onChange={vi.fn()} />);
     expect(passphraseHeading()).toBeInTheDocument();
+  });
+  it("hides the chat passphrase area under file storage, even with a Turso integration configured", () => {
+    withChat(chat({ recoveryKey: "spki" }));
+    for (const kind of ["local-json", "browser"] as const) {
+      cleanup();
+      render(<AiSection lang="en-US" settings={{ ...withTurso, storageConfig: { kind } }} onChange={vi.fn()} />);
+      expect(passphraseHeading()).toBeNull();
+    }
   });
   it("hides the chat passphrase area without a recovery key, or without a Turso database", () => {
     withChat(chat());

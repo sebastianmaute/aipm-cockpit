@@ -389,9 +389,14 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const deploymentBlocked = blockedMessageKey !== null;
   const chatSettings = getAiDeploymentState().chat;
   // The chat passphrase area shows only while chats are saved: the same rule the chat panel uses (server
-  // settings known, this browser can encrypt, a recovery key set), plus a Turso database to store the key in.
+  // settings known, this browser can encrypt, a recovery key set), plus a Turso database to store the key in,
+  // and Turso storage. The chat panel also accepts the multi-project picker's Turso `mode`, which is not
+  // reachable from Settings, so this checks the storage kind alone: with file storage chats are not saved,
+  // even when a Turso integration is configured.
   const chatTursoConfig = getTursoConfig(settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken);
-  const chatPassphraseShown = chatTursoConfig !== null && chatPersistence(chatSettings, chatVaultAvailable(), false) === "on";
+  const chatPassphraseShown = settings.storageConfig.kind === "turso"
+    && chatTursoConfig !== null
+    && chatPersistence(chatSettings, chatVaultAvailable(), false) === "on";
   const consentCurrent = isConsentCurrent(settings.ai.consent);
   // While the deployment blocks AI the switch reads off, so nothing under it is shown either (no key field,
   // behaviour toggles, caps, consent review or accepting a consent). Withdrawing stays as available as giving:
