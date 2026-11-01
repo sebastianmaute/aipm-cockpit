@@ -9,6 +9,10 @@ vi.mock("./chat-threads-store", () => ({ expireThreads: (...a: unknown[]) => exp
 vi.mock("./diagnostics", () => ({ logDiag: (...a: unknown[]) => logDiag(...a) }));
 const retryPendingProjectSweeps = vi.fn();
 vi.mock("./pending-project-sweeps", () => ({ retryPendingProjectSweeps: (...a: unknown[]) => retryPendingProjectSweeps(...a) }));
+// The hook reads the server's chat settings from the deployment state itself; each render below
+// sets them first, as `IntegrationSwitchesSync` does before any child renders.
+let deploymentChat: ChatSettings | null = null;
+vi.mock("./ai-deployment", () => ({ getAiDeploymentState: () => ({ chat: deploymentChat }) }));
 
 import { useChatRetentionSweep, resetChatRetentionSweepForTests } from "./use-chat-retention-sweep";
 
@@ -17,13 +21,17 @@ const other: TursoConfig = { httpUrl: "https://b.example", authToken: "t" };
 const chat: ChatSettings = { retentionDays: 30, retentionInvalid: false, recoveryKey: null } as unknown as ChatSettings;
 
 type Props = { tursoConfig: TursoConfig | null; chat: ChatSettings | null; loadPending: boolean };
-const run = (p: Props) => renderHook((props: Props) => useChatRetentionSweep(props), { initialProps: p });
+const run = (p: Props) => renderHook((props: Props) => {
+  deploymentChat = props.chat;
+  return useChatRetentionSweep({ tursoConfig: props.tursoConfig, loadPending: props.loadPending });
+}, { initialProps: p });
 
 beforeEach(() => {
   expireThreads.mockReset().mockResolvedValue(undefined);
   logDiag.mockReset();
   retryPendingProjectSweeps.mockReset().mockResolvedValue(undefined);
   resetChatRetentionSweepForTests();
+  deploymentChat = null;
 });
 
 describe("useChatRetentionSweep — failed project sweeps", () => {

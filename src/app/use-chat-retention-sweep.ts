@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { TursoConfig } from "./turso-config";
-import type { ChatSettings } from "./ai-chat-retention-config";
+import { getAiDeploymentState } from "./ai-deployment";
 import { expireThreads } from "./chat-threads-store";
 import { retryPendingProjectSweeps } from "./pending-project-sweeps";
 import { logDiag } from "./diagnostics";
@@ -19,8 +19,6 @@ export function resetChatRetentionSweepForTests(): void {
 
 export type ChatRetentionSweepDeps = {
   tursoConfig: TursoConfig | null;
-  /** The server-rendered chat settings; null while unknown. */
-  chat: ChatSettings | null;
   loadPending: boolean;
 };
 
@@ -31,8 +29,12 @@ export type ChatRetentionSweepDeps = {
  * Then, also once per database per page load, retries the side-table sweeps of deleted projects
  * that failed earlier (`retryPendingProjectSweeps`). That retry does not wait for the chat
  * settings: with them unknown there is no chat sweep to run first.
+ *
+ * The retention comes from the server-rendered chat settings in the deployment state
+ * (`getAiDeploymentState().chat`, null while unknown), read on every render.
  */
-export function useChatRetentionSweep({ tursoConfig, chat, loadPending }: ChatRetentionSweepDeps): void {
+export function useChatRetentionSweep({ tursoConfig, loadPending }: ChatRetentionSweepDeps): void {
+  const chat = getAiDeploymentState().chat;
   const retentionDays = chat ? chat.retentionDays : null;
   useEffect(() => {
     if (!tursoConfig || loadPending) return;
