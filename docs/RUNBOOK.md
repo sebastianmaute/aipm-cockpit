@@ -698,8 +698,13 @@ repeat with that key.
 
 An open tab running THIS release cannot upload an erased chat again: its next save of that
 chat changes no row, and the tab closes the chat (its list, the conversation on screen) and
-says so. ★★ A tab still running an OLDER release can write it back. After an erasure, ask
-people to reload every open tab, or run `search` again afterwards and repeat the delete.
+says so. ★★ A tab or a desktop install still running an OLDER release can write it back.
+After an erasure, ask people to reload every open tab and to update every desktop install
+(desktop installs update separately), or run `search` again afterwards and repeat the delete.
+★★ Before relying on any of these guarantees, update EVERY device that shares the database,
+desktop installs included: a device on the previous release prunes colleagues' encrypted
+chats beyond 50 per project, and can overwrite an encrypted chat so that not even the
+operator can open it.
 
 **SQL one-liners** (for example in `turso db shell <db>`):
 
