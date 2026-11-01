@@ -5,9 +5,9 @@ import { DatabaseSync } from "node:sqlite";
 vi.mock("./turso-pipeline", () => ({ runTursoPipeline: vi.fn(async () => []) }));
 import { runTursoPipeline } from "./turso-pipeline";
 import {
-  PERSON_LINKS_DDL, selectPersonLinks, upsertPersonLinkStatements, deletePersonLinkStatements, rowsToPersonLinks,
+  PERSON_LINKS_DDL, selectPersonLinks, upsertPersonLinkStatements, deletePersonLinkStatements, deletePersonLinksForStatements, rowsToPersonLinks,
 } from "./person-links-schema";
-import { loadPersonLinks, savePersonLink, deletePersonLink } from "./person-links-store";
+import { loadPersonLinks, savePersonLink, deletePersonLink, deletePersonLinksFor } from "./person-links-store";
 import { TABLE_NAMES, type PipelineResultLike, type SqlStmt } from "./turso-schema";
 import type { PersonLinkRow } from "./cross-project/person-match";
 
@@ -93,6 +93,45 @@ describe("person_links schema", () => {
   });
 });
 
+describe("person_links delete for a person (§788)", () => {
+  const mk = (pa: string, ra: number, pb: string, rb: number): PersonLinkRow => ({ ...row, projectA: pa, resourceA: ra, projectB: pb, resourceB: rb });
+  const keys = (db: DatabaseSync): string[] =>
+    select(db).map((r) => `${r.projectA}:${r.resourceA}|${r.projectB}:${r.resourceB}`).sort();
+
+  it("removes the person's rows on BOTH sides; other people's rows and other projects' same-numbered ids stay", () => {
+    const db = freshDb();
+    run(db, upsertPersonLinkStatements(mk("p-alpha", 3, "p-beta", 9))); // 3 on side A
+    run(db, upsertPersonLinkStatements(mk("p-aaa", 5, "p-alpha", 3))); // 3 on side B
+    run(db, upsertPersonLinkStatements(mk("p-beta", 3, "p-gamma", 4))); // id 3 in ANOTHER project
+    run(db, upsertPersonLinkStatements(mk("p-alpha", 4, "p-beta", 9))); // another person here
+    run(db, deletePersonLinksForStatements("p-alpha", [3]));
+    expect(keys(db)).toEqual(["p-alpha:4|p-beta:9", "p-beta:3|p-gamma:4"]);
+  });
+
+  it("removes several people in one statement list", () => {
+    const db = freshDb();
+    run(db, upsertPersonLinkStatements(mk("p-alpha", 3, "p-beta", 9)));
+    run(db, upsertPersonLinkStatements(mk("p-alpha", 4, "p-beta", 8)));
+    run(db, upsertPersonLinkStatements(mk("p-alpha", 5, "p-beta", 7)));
+    run(db, deletePersonLinksForStatements("p-alpha", [3, 5]));
+    expect(keys(db)).toEqual(["p-alpha:4|p-beta:8"]);
+  });
+
+  it("a list longer than one chunk still removes every id, the boundary ones included", () => {
+    const db = freshDb();
+    const ids = Array.from({ length: 450 }, (_, i) => i + 1);
+    for (const id of ids) run(db, upsertPersonLinkStatements(mk("p-alpha", id, "p-beta", 1000 + id)));
+    const stmts = deletePersonLinksForStatements("p-alpha", ids);
+    expect(stmts).toHaveLength(3);
+    run(db, stmts);
+    expect(select(db)).toEqual([]); // an off-by-one chunk slice leaves ids 200, 400 behind
+  });
+
+  it("an empty id list builds no statement", () => {
+    expect(deletePersonLinksForStatements("p-alpha", [])).toEqual([]);
+  });
+});
+
 describe("person_links store", () => {
   beforeEach(() => vi.mocked(runTursoPipeline).mockClear());
 
@@ -105,9 +144,17 @@ describe("person_links store", () => {
     await loadPersonLinks({} as never);
     await savePersonLink({} as never, row);
     await deletePersonLink({} as never, row);
+    await deletePersonLinksFor({} as never, "p-alpha", [3]);
     for (const call of vi.mocked(runTursoPipeline).mock.calls) {
       expect(call[1][0].sql).toMatch(/CREATE TABLE IF NOT EXISTS person_links/);
     }
-    expect(vi.mocked(runTursoPipeline)).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(runTursoPipeline)).toHaveBeenCalledTimes(4);
+  });
+
+  it("deletePersonLinksFor with no ids or no config never touches the pipeline", async () => {
+    vi.mocked(runTursoPipeline).mockClear();
+    await deletePersonLinksFor({} as never, "p-alpha", []);
+    await deletePersonLinksFor(null, "p-alpha", [3]);
+    expect(vi.mocked(runTursoPipeline)).not.toHaveBeenCalled();
   });
 });

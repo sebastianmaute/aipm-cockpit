@@ -412,6 +412,55 @@ describe("useResourcePlanner", () => {
     });
   });
 
+  describe("§788 — a delete reports the people actually removed", () => {
+    const person = (id: number): Resource => ({ id, firstName: `P${id}`, lastName: "X", roleId: null, utilizationMode: "percent", utilization: {} });
+
+    it("handleDeleteResource reports the id once, and nothing for an unknown id", () => {
+      const onResourcesDeleted = vi.fn();
+      const { result } = renderPlanner({ onResourcesDeleted });
+      act(() => { result.current.workspace.setResources([person(5), person(6)]); });
+      act(() => { result.current.planner.handleDeleteResource(999); });
+      expect(onResourcesDeleted).not.toHaveBeenCalled();
+      act(() => { result.current.planner.handleDeleteResource(5); });
+      expect(onResourcesDeleted).toHaveBeenCalledTimes(1);
+      expect(onResourcesDeleted).toHaveBeenCalledWith([5]);
+    });
+
+    it("handleBulkDeleteResources reports only the ids that existed; an empty or unmatched list reports nothing", () => {
+      const onResourcesDeleted = vi.fn();
+      const { result } = renderPlanner({ onResourcesDeleted });
+      act(() => { result.current.workspace.setResources([person(5), person(6), person(7)]); });
+      act(() => { result.current.planner.handleBulkDeleteResources([]); });
+      act(() => { result.current.planner.handleBulkDeleteResources([404]); });
+      expect(onResourcesDeleted).not.toHaveBeenCalled();
+      act(() => { result.current.planner.handleBulkDeleteResources([5, 6, 404]); });
+      expect(onResourcesDeleted).toHaveBeenCalledTimes(1);
+      expect(onResourcesDeleted).toHaveBeenCalledWith([5, 6]);
+    });
+
+    it("replacing the whole list (import, restore, project swap) is not a delete", () => {
+      const onResourcesDeleted = vi.fn();
+      const { result } = renderPlanner({ onResourcesDeleted });
+      act(() => { result.current.workspace.setResources([person(5), person(6)]); });
+      act(() => { result.current.workspace.setResources([person(7)]); });
+      expect(onResourcesDeleted).not.toHaveBeenCalled();
+    });
+
+    it("undoing a delete reports nothing: the answers are not restored", async () => {
+      const onResourcesDeleted = vi.fn();
+      const captureComposite = vi.fn();
+      const { result } = renderPlanner({ onResourcesDeleted, captureComposite });
+      act(() => { result.current.workspace.setResources([person(5), person(6)]); });
+      act(() => { result.current.planner.handleDeleteResource(5); });
+      const opts = captureComposite.mock.calls[0][0] as { parts: (CompositeFragment | null)[] };
+      onResourcesDeleted.mockClear();
+      act(() => replayCompositeUndo(opts.parts));
+      await act(async () => { await Promise.resolve(); }); // a queued report would land here
+      expect(result.current.workspace.resources.map((r) => r.id).sort()).toEqual([5, 6]);
+      expect(onResourcesDeleted).not.toHaveBeenCalled();
+    });
+  });
+
   describe("role activity logging", () => {
     it("handleSaveRole logs role.updated for an existing role", () => {
       const logActivity = vi.fn();

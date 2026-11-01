@@ -3,6 +3,7 @@ import {
   applyUndoRestore,
   applyUndoRestoreWithRemap,
   applyUndoForward,
+  forwardRemovedIds,
   applyPreserved,
   buildBeforeImages,
   buildForwardImages,
@@ -513,5 +514,18 @@ describe("delete-branch identity under a write-through write (open-followups §1
     const live: Row[] = [{ id: 7, title: "Something else entirely" }];
     const out = applyUndoForward(live, [{ index: 0, item: recovered, op: "delete" }], PRESERVE);
     expect(out).toEqual(live);
+  });
+});
+
+describe("forwardRemovedIds (§788)", () => {
+  it("lists exactly the rows applyUndoForward removes, and not a row edited since", () => {
+    const current: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }];
+    const forward = [del(0, { id: 1, name: "a" }), del(1, { id: 2, name: "EDITED-BEFORE" }), del(2, { id: 9, name: "gone" })];
+    const ids = forwardRemovedIds(current, forward, []);
+    expect(ids).toEqual([1]);
+    expect(applyUndoForward(current, forward, []).map((r) => r.id)).toEqual([2, 3]);
+  });
+  it("is empty for an edit-only forward list", () => {
+    expect(forwardRemovedIds([{ id: 1, name: "a" }], [edit(0, { id: 1, name: "b" })], [])).toEqual([]);
   });
 });

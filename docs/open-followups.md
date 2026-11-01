@@ -1023,8 +1023,9 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§785](#785-plan-with-ai-does-not-see-the-load-a-person-carries-in-other-projects--closed-2026-11-01) | Plan with AI does not see the load a person carries in other projects | — | — | **CLOSED** 2026-11-01 |
 | [§786](#786-dictation-stays-available-in-an-open-tab-after-the-people-protection-lock-is-set--closed-2026-11-01) | Dictation stays available in an open tab after the people-protection lock is set | — | — | **CLOSED** 2026-11-01 |
 | [§787](#787-i18n-pluraltestts-runs-about-24-s-against-the-20-s-unit-timeout) | i18n-plural.test.ts runs about 24 s against the 20 s unit timeout | #926 | — | OPEN |
-| [§788](#788-deleting-a-person-leaves-their-name-in-the-shared-person_links-table) | Deleting a person leaves their name in the shared person_links table | #935 | — | OPEN |
+| [§788](#788-deleting-a-person-leaves-their-name-in-the-shared-person_links-table--closed-2026-11-01) | Deleting a person leaves their name in the shared person_links table | — | — | **CLOSED** 2026-11-01 |
 | [§789](#789-the-browsers-speech-recognition-keeps-listening-in-an-open-tab-after-the-people-protection-lock-is-set) | The browser's speech recognition keeps listening in an open tab after the people-protection lock is set | #937 | — | OPEN |
+| [§790](#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database) | Converting a local copy back to Turso writes through the wrong layout and may empty a shared database | #939 | — | OPEN |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46187,13 +46188,9 @@ Size S.
 
 **Source:** §773 PR-head fix round, owner decision 2026-10-31 (file it).
 
-## 788. Deleting a person leaves their name in the shared person_links table
+## 788. Deleting a person leaves their name in the shared person_links table — CLOSED 2026-11-01
 
-**Status:** OPEN 2026-11-01, filed during §785. The shared Turso table `person_links` keeps both people's first name and last name at the time of each same / not-the-same answer (no e-mail addresses: those columns were dropped before the table shipped). A project hard delete sweeps the project's rows (`PROJECT_SCOPED_SIDE_TABLES` in `project-side-tables.ts`), but deleting a single resource does not: `grep -rn "person_links" src/app --include=*.ts --include=*.tsx -l | grep -v test` lists no resource-delete path. The design chose this (spec settled item 3: no delete path writes; a row whose resource is gone is ignored when matching), so nothing shows on screen, but the personal data is kept with no end date and is readable from every project in the database.
-
-**Work item:** #935
-
-What it would take: on a resource delete, also delete the `person_links` rows naming that project and resource id on either side, or record the retention rule and why it stands. Decide whether undoing the delete restores the rows. Tests for the sweep and for other people's rows staying.
+**Status:** CLOSED 2026-11-01 on `fix/788-person-links-delete`, owner decision 2026-11-01: remove on delete, no restore. Deleting a person now deletes every `person_links` row naming that project and resource id on either side (`deletePersonLinksForStatements` in `person-links-schema.ts`, `deletePersonLinksFor` in `person-links-store.ts`, `forgetPeople` in `use-cross-project-people.ts`). Four paths call it, each only with the ids really removed: `handleDeleteResource` and `handleBulkDeleteResources` through the `onResourcesDeleted` arg of `useResourcePlanner`, the AI `deleteResource` in `use-chat-dispatcher.ts`, and the Redo of any of those deletes (`CapturePart.onRedoRemoved`, which reports only the rows the redo really removed). The planner is built before `useCrossProjectApp`, so it reports through `useForgetPeopleBridge`; the dispatcher takes `crossProject.forgetPeople`; `use-forget-people.wiring.test.tsx` composes them. The whole cross-project feature is off unless the live storage kind is `turso` (an in-place switch away leaves `portfolioMode` on turso): status "unavailable", nothing loaded, answers refused, the sweep gated too. The sweep is not refused while the cross-project data loads and is re-applied over a running reload (`commit`, `runWritesRef`). The AI tool is refused during the load hold (`isLoadHeld`). The delete confirmations and the AI tool description say Undo does not bring the answers back. A failed sweep toasts `allocElsewhereForgetFailed` and logs `crossProject.forgetFailed`, never the "could not save your answer" text. The accepted exceptions are listed once, in `docs/AGENTS/ai-assistant.md`, "Deleting a person removes their rows"; converting a local copy back to Turso, and the other readers of `portfolioMode`, are [§790](#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database). This reverses settled item 3 of the §785 design; the spec's As built records it. Popouts cannot delete. Call sites, not behaviour: `grep -rln --include=*.ts --include=*.tsx "onResourcesDeleted\|onRedoRemoved" src/app | grep -v "\.test\."` lists the files that take the callback. Docs: the spec, `docs/AGENTS/ai-assistant.md`, `docs/AGENTS/undo.md`, `docs/AGENTS/storage.md`, `docs/security.md`, the help entry and the §785 `CHANGELOG.md` entry. Filed 2026-11-01 during §785; the original finding follows. The shared Turso table `person_links` kept both people's first name and last name at the time of each same / not-the-same answer (no e-mail addresses: those columns were dropped before the table shipped). A project hard delete swept the project's rows (`PROJECT_SCOPED_SIDE_TABLES` in `project-side-tables.ts`), but deleting a single resource did not, so the personal data was kept with no end date and was readable from every project in the database.
 
 Size S.
 
@@ -46210,3 +46207,23 @@ What it would take: ask `/api/ai/status` when either one starts and refuse under
 Size S.
 
 **Source:** §786, owner decision 2026-11-01 (file it); voice commands added from the §786 code review.
+
+## 790. Converting a local copy back to Turso writes through the wrong layout and may empty a shared database
+
+**Status:** OPEN 2026-11-01, filed during §788. Found by reading in two independent reviews and NOT yet reproduced. `grep -n "createBackend(newConfig" src/app/use-storage-file-ops.ts` prints one hit, in `onRequestStorageSwitch`, and the options object that call passes has `acquireToken` and `tursoConfig` but no `tursoProjectId`, so `storage.ts` returns the single-project `TursoBackend`.
+
+**Work item:** #939
+
+Converting a local copy back to Turso (Settings → Storage) writes through the wrong layout, and may be able to empty a shared database. The path: `onRequestStorageSwitch` (`use-storage-file-ops.ts`) builds its target with `createBackend` and no `tursoProjectId`, so `storage.ts` returns the single-project `TursoBackend`. Its forced write has no baseline, so every table is dirty, and `workspaceToStatements` (`turso-schema.ts`) sends an unscoped `DELETE FROM` for each one. The multi-project layout uses the same table names, so those statements target every project's rows.
+
+What stops it today is an accident. The same batch inserts `plan` with an `id` column, the multi-project `plan` table has none, so the batch fails and rolls back. The user sees a raw error and stays on local storage. On a database whose `plan` table has an `id`, because the single-project layout created it first, the insert would succeed and the batch could commit. How common that is could not be bounded from the code, and no test pins the accidental protection.
+
+§751 closed the same mechanism on three other save paths and noted that only the batch rolling back spared the projects there. This write skips those guards.
+
+The same root: `portfolioMode` is frozen at startup, so after an in-place storage switch it stays "turso" while storage is not, which contradicts the comment in `portfolio-mode-switch.ts`. §788 made the cross-project feature safe against this. The other readers of `portfolioMode` have not been audited.
+
+What it would take: reproduce on real SQLite with a multi-project database, with both shapes of `plan`. Then refuse an in-place conversion into a database that holds projects, or give the target the open project's id, with a test pinning it. Decide what a user is told. Audit the other `portfolioMode` readers, or have a storage switch keep it true.
+
+Size M.
+
+**Source:** §788 code reviews, owner decision 2026-11-01 (file it, take it next).

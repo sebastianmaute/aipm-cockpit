@@ -123,6 +123,10 @@ export interface UseResourceDirectoryArgs {
   /** Arms the one-shot destructive-save bypass. Optional — popouts and tests
    *  supply none. */
   allowDestructiveSave?: () => void;
+  /** §788 — the ids of the people a delete ACTUALLY removed (never an unknown id, never an empty list), so their answers
+   *  about the same person in other projects go with them. Also called when a REDO of such a delete removes people again.
+   *  NOT called on Undo, an import, a restore or a project swap. */
+  onResourcesDeleted?: (resourceIds: readonly number[]) => void;
 }
 
 export function useResourceDirectory(args: UseResourceDirectoryArgs) {
@@ -288,13 +292,14 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
           primaryCount: 1,
           name,
           parts: [
-            capturePart({ setter: setResources, removed: [removed], fromArray: resources, isPrimary: true }),
+            capturePart({ setter: setResources, removed: [removed], fromArray: resources, isPrimary: true, onRedoRemoved: (ids) => argsRef.current.onResourcesDeleted?.(ids) }),
             capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences, fkRemapField: "resourceId" }),
             capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],
         });
         argsRef.current.logActivity("resource.deleted", id, name);
         argsRef.current.allowDestructiveSave?.();
+        argsRef.current.onResourcesDeleted?.([id]);
       }
     },
     [resources, absences, shifts, setResources, setAbsences, setShifts, purgeCalendarFor],
@@ -347,12 +352,13 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
           kind: "resource.deleted",
           primaryCount: removed.length,
           parts: [
-            capturePart({ setter: setResources, removed, fromArray: resources, isPrimary: true }),
+            capturePart({ setter: setResources, removed, fromArray: resources, isPrimary: true, onRedoRemoved: (ids) => argsRef.current.onResourcesDeleted?.(ids) }),
             capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences, fkRemapField: "resourceId" }),
             capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],
         });
         argsRef.current.allowDestructiveSave?.();
+        argsRef.current.onResourcesDeleted?.(removed.map((r) => r.id));
       }
       for (const r of removed) {
         argsRef.current.logActivity("resource.deleted", r.id, `${r.firstName} ${r.lastName}`.trim());

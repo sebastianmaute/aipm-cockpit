@@ -686,6 +686,7 @@ export function WorkspaceSection({
               onEditResource={onEditResource}
               onBulkEditResources={onBulkEditResources}
               onBulkDeleteResources={onBulkDeleteResources}
+              sharesAnswers={crossProject !== undefined && crossProject.status !== "unavailable"}
               onAddResource={onAddResource}
               onAddAbsence={handleOpenAddAbsence}
               onImportOutlook={onImportOutlook}

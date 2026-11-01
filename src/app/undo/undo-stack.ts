@@ -324,6 +324,25 @@ export function applyUndoForward<T extends { id: number }>(
   return out;
 }
 
+/** The ids `applyUndoForward` REMOVES from `current`: a delete-image removes its row only while the live row at that id
+ *  still matches the recovered row (the same `rowsEqualExcept` identity guard), so a row edited since the Undo is NOT
+ *  in this list. Pure. §788: it is what a caller reports when a redone delete took a person out of the workspace. */
+export function forwardRemovedIds<T extends { id: number }>(
+  current: readonly T[],
+  forward: readonly BeforeImage<T>[],
+  preserve: readonly string[],
+): number[] {
+  const deletes = new Map<number, T>();
+  for (const f of forward) if (f.op === "delete") deletes.set(f.item.id, f.item);
+  if (deletes.size === 0) return [];
+  return current
+    .filter((r) => {
+      const recovered = deletes.get(r.id);
+      return recovered !== undefined && rowsEqualExcept(r, recovered, preserve);
+    })
+    .map((r) => r.id);
+}
+
 /**
  * Build the FORWARD (redo) images from the before-images plus the array as it
  * existed AT UNDO TIME (`afterArray` = the post-op state, i.e. the value the

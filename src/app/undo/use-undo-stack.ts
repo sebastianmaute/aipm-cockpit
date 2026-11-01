@@ -16,6 +16,7 @@ import {
   type CompletionFlips,
   applyUndoRestoreWithRemap,
   applyUndoForward,
+  forwardRemovedIds,
   buildBeforeImages,
   buildForwardImages,
   remapImageField,
@@ -237,6 +238,12 @@ export interface CapturePart<T extends { id: number }> {
    *  none does, the first fragment is assumed primary (back-compat). Making it
    *  explicit removes the fragile positional "fragments[0] = primary" convention. */
   isPrimary?: boolean;
+  /** §788 — called ONCE per redo with the ids that redo actually removed from this fragment's array (a row edited since the
+   *  Undo is kept by the redo and is not listed; nothing is called when none were removed). The UNDO direction never calls
+   *  it, with one harmless exception: a failed undo write rolls back by running the redo thunks (`redoUntracked`), which
+   *  reports, and the repeat sweep is idempotent. It fires from a microtask after the redo's state update has been computed,
+   *  never during render. */
+  onRedoRemoved?: (ids: readonly number[]) => void;
 }
 
 /**
@@ -502,7 +509,7 @@ function compositeUndoRunner(
  * ⇒ same result), exactly like the single-array `fragmentUndoRunner`.
  */
 export function capturePart<T extends { id: number }>(part: CapturePart<T>): CompositeFragment | null {
-  const { setter, removed = [], edited = [], fromArray, fkRemapField, isPrimary } = part;
+  const { setter, removed = [], edited = [], fromArray, fkRemapField, isPrimary, onRedoRemoved } = part;
   const images = buildBeforeImages(removed, edited, fromArray);
   if (images.length === 0) return null;
   const restore = (
@@ -530,7 +537,19 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
       // is what makes a composite arm transitively — `compositeUndoRunner` just
       // forwards `arm` and adds no check of its own.
       if (imagesRemoveRows(forward)) arm?.();
-      setter((prev) => applyUndoForward(prev, forward, WRITE_THROUGH_FIELDS));
+      // The updater may run more than once, or later than this call; the report goes out at most once per redo, computed
+      // from the array the redo really removed from, and only after the update has been decided (a microtask).
+      let reported = false;
+      setter((prev) => {
+        if (onRedoRemoved && !reported) {
+          const ids = forwardRemovedIds(prev, forward, WRITE_THROUGH_FIELDS);
+          if (ids.length > 0) {
+            reported = true;
+            queueMicrotask(() => onRedoRemoved(ids));
+          }
+        }
+        return applyUndoForward(prev, forward, WRITE_THROUGH_FIELDS);
+      });
     };
   };
   return { isPrimary: isPrimary === true, followsPrimary: fkRemapField !== undefined, restore };

@@ -641,6 +641,8 @@ Kept short: `AGENTS.md` owns each rule.
   entries default to `project_id`, and `person_links` (§785) lists `project_a` + `project_b`, so a row naming the project on
   EITHER side is removed (it holds people's names). `turso-side-tables.guard.test.ts` flags any table with a
   `project_id` / `project_<letter>` column that is not swept over all of them (`unsweptProjectTables`).
+  ★ A PERSON delete (single, bulk, AI, or the Redo of one) sweeps `person_links` too (§788, `deletePersonLinksFor`): rows naming that
+  project and resource id on either side go at once, only while the live storage kind is turso; undoing the delete does not restore them.
 - **`idKind`**: a spec with a string id must declare `idKind: "text"`; one does today (`grep -n
   'idKind: "' src/app/turso-schema.ts`). Same bullet.
 - **Self-heal**: `ensureColumns` runs once per backend instance (retried after a failure, which
