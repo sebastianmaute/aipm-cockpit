@@ -6,6 +6,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
 import type { ChatThread } from "./chat-threads";
+import type { ChatSettings } from "./ai-chat-retention-config";
+import { loadI18n } from "./i18n";
+
+const CHAT_30: ChatSettings = { retentionDays: 30, retentionInvalid: false, recoveryKey: null, recoveryKeyInvalid: false };
 
 const threadA: ChatThread = {
   id: "a",
@@ -25,6 +29,7 @@ function renderSidebar(overrides: Partial<React.ComponentProps<typeof ChatThread
       threads={[threadA]}
       activeThreadId={null}
       error={false}
+      chat={CHAT_30}
       onRetry={vi.fn()}
       onSelect={vi.fn()}
       onNew={vi.fn()}
@@ -137,5 +142,24 @@ describe("ChatThreadSidebar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reset the chat sidebar width" }));
     expect(el.style.width).toBe("");
     expect(window.localStorage.getItem(SIZE_KEY)).toBeNull();
+  });
+
+  it("says how long chats are kept: 30 days by default, 90 when set", () => {
+    const { unmount } = renderSidebar();
+    expect(screen.getByText("Chats are deleted after 30 days without activity.")).toBeInTheDocument();
+    unmount();
+    renderSidebar({ chat: { ...CHAT_30, retentionDays: 90 } });
+    expect(screen.getByText("Chats are deleted after 90 days without activity.")).toBeInTheDocument();
+  });
+
+  it("shows no number while the retention is unknown", () => {
+    renderSidebar({ chat: null });
+    expect(screen.queryByText(/without activity/)).not.toBeInTheDocument();
+  });
+
+  it("says it in German too", async () => {
+    await loadI18n("de");
+    renderSidebar({ lang: "de", chat: { ...CHAT_30, retentionDays: 90 } });
+    expect(screen.getByText("Chats werden nach 90 Tagen ohne Aktivität gelöscht.")).toBeInTheDocument();
   });
 });

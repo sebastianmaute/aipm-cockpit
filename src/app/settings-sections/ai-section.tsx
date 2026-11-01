@@ -10,7 +10,7 @@ import { persistAiConsentChange } from "../use-settings";
 import { AiConsentDialog } from "../ai-consent-dialog";
 import { resolveAiPolicy } from "../ai-policy";
 import { aiDestinationKey } from "../ai-disclosure";
-import { aiDeploymentBlockedMessageKey } from "../ai-deployment";
+import { aiDeploymentBlockedMessageKey, getAiDeploymentState } from "../ai-deployment";
 import { TextButton } from "../text-button";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS, coerceHardCap } from "../settings-types";
 import {
@@ -383,6 +383,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   // stored key needs neither: a user who switched AI off or withdrew the consent can still delete it.
   const blockedMessageKey = aiDeploymentBlockedMessageKey();
   const deploymentBlocked = blockedMessageKey !== null;
+  const chatSettings = getAiDeploymentState().chat;
   const consentCurrent = isConsentCurrent(settings.ai.consent);
   // While the deployment blocks AI the switch reads off, so nothing under it is shown either (no key field,
   // behaviour toggles, caps, consent review or accepting a consent). Withdrawing stays as available as giving:
@@ -450,6 +451,15 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       </span>
       {blockedMessageKey !== null && (
         <FieldNotice id={deploymentNoticeId}>{t(lang, blockedMessageKey)}</FieldNotice>
+      )}
+      {chatSettings !== null && (
+        <>
+          <FieldHint className="mt-1">{t(lang, "chatRetentionNotice", chatSettings.retentionDays)}</FieldHint>
+          {chatSettings.retentionInvalid && (
+            <FieldNotice>{t(lang, "aiChatRetentionInvalid", chatSettings.retentionDays)}</FieldNotice>
+          )}
+          {chatSettings.recoveryKeyInvalid && <FieldNotice>{t(lang, "aiChatRecoveryKeyInvalid")}</FieldNotice>}
+        </>
       )}
       <label className="mt-2 flex items-center gap-2">
         <Checkbox

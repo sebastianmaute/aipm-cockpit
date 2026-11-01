@@ -496,9 +496,10 @@ function ChatPanelInner({
   // Turso thread state (deps-object hook, AGENTS.md rule 1). Kept as one
   // object — most fields wire onto ChatThreadList in Task 6; submitPrompt
   // below reads .activeThreadId/.threadIdRef and calls .ensureThreadForSend.
+  const chatSettings = getAiDeploymentState().chat;
   const chatThreads = useChatThreads({
     tursoMode, tursoConfig, projectId, lang, busy, history, display, setHistory, setDisplay, cancelledRef, abortRef, confirm,
-    chat: getAiDeploymentState().chat,
+    chat: chatSettings,
   });
   const { ref: chatRef, reset: resetChatSize } = useResizable("aipm-cockpit:chat-size-v2");
   // AI-03 — the callbacks alone: the full usage context changes on every usage event (`useAiUsageActions`).
@@ -1630,6 +1631,7 @@ function ChatPanelInner({
           threads={chatThreads.threads}
           activeThreadId={chatThreads.activeThreadId}
           error={chatThreads.threadsError}
+          chat={chatSettings}
           onRetry={chatThreads.retryLoad}
           onSelect={chatThreads.selectThread}
           onNew={chatThreads.newThread}

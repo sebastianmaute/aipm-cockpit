@@ -15,7 +15,8 @@ import {
   clampInsightRecInterval,
 } from "../settings-types";
 
-import { t } from "../i18n";
+import { t, loadI18n } from "../i18n";
+import type { ChatSettings } from "../ai-chat-retention-config";
 import { AI_DISCLOSURE_VERSION, newConsent } from "../ai-consent";
 import { setAiDeploymentState } from "../ai-deployment";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../../test/ai-status-fetch";
@@ -1242,6 +1243,53 @@ describe("AiSection — the lock's records survive a blur and an untick (§749 r
     expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}2`)).toBe(true);
     await act(async () => { releaseSeal(deviceSealed); await new Promise((r) => setTimeout(r, 0)); });
     expect(hasUnsealedPassphraseSecret("anthropicApiKey", `${KEY}2`)).toBe(true);
+  });
+});
+
+describe("AiSection — saved chat retention", () => {
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
+  const chat = (over: Partial<ChatSettings> = {}): ChatSettings => ({
+    retentionDays: 30, retentionInvalid: false, recoveryKey: null, recoveryKeyInvalid: false, ...over,
+  });
+  const withChat = (c: ChatSettings | null) => setAiDeploymentState({ ...DIRECT_AI_STATUS, chat: c });
+  const renderIt = (lang: "en-US" | "de" = "en-US") =>
+    render(<AiSection lang={lang} settings={defaultSettings} onChange={vi.fn()} />);
+
+  it("shows the default 30 days and no invalid line", () => {
+    withChat(chat());
+    renderIt();
+    expect(screen.getByText("Chats are deleted after 30 days without activity.")).toBeInTheDocument();
+    expect(screen.queryByText(/retention setting is invalid/)).not.toBeInTheDocument();
+  });
+  it("shows 90 days when set", () => {
+    withChat(chat({ retentionDays: 90 }));
+    renderIt();
+    expect(screen.getByText("Chats are deleted after 90 days without activity.")).toBeInTheDocument();
+  });
+  it("invalid: says so and still shows the 30-day notice", () => {
+    withChat(chat({ retentionInvalid: true }));
+    renderIt();
+    expect(screen.getByText("The server's chat retention setting is invalid; the default of 30 days applies.")).toBeInTheDocument();
+    expect(screen.getByText("Chats are deleted after 30 days without activity.")).toBeInTheDocument();
+  });
+  it("unknown status: no number", () => {
+    withChat(null);
+    renderIt();
+    expect(screen.queryByText(/without activity/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/retention setting is invalid/)).not.toBeInTheDocument();
+  });
+  it("an invalid recovery key is reported", () => {
+    withChat(chat({ recoveryKeyInvalid: true }));
+    renderIt();
+    expect(screen.getByText("The server's chat recovery key is invalid, so chats are not saved.")).toBeInTheDocument();
+  });
+  it("German", async () => {
+    await loadI18n("de");
+    withChat(chat({ retentionInvalid: true, recoveryKeyInvalid: true }));
+    renderIt("de");
+    expect(screen.getByText("Chats werden nach 30 Tagen ohne Aktivität gelöscht.")).toBeInTheDocument();
+    expect(screen.getByText("Die Aufbewahrungseinstellung des Servers für Chats ist ungültig; es gilt der Standard von 30 Tagen.")).toBeInTheDocument();
+    expect(screen.getByText("Der Wiederherstellungsschlüssel des Servers für Chats ist ungültig, daher werden Chats nicht gespeichert.")).toBeInTheDocument();
   });
 });
 
