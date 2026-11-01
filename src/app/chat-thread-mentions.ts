@@ -22,9 +22,14 @@ function displayTexts(item: DisplayItem): string[] {
   return [item.text];
 }
 
+/** Case- and composition-insensitive form: a decomposed "Mu\u0308ller" matches "M\u00fcller". */
+function fold(text: string): string {
+  return text.normalize("NFC").toLowerCase();
+}
+
 function mentions(th: ChatThread, needle: string): boolean {
   const texts = [th.name, ...th.history.flatMap(messageTexts), ...th.display.flatMap(displayTexts)];
-  return texts.some((text) => typeof text === "string" && text.toLowerCase().includes(needle));
+  return texts.some((text) => typeof text === "string" && fold(text).includes(needle));
 }
 
 /** The threads of `ownerId` (or legacy owner-less ones) that mention `query`, case-insensitively, in
@@ -35,7 +40,7 @@ export function findThreadsMentioning(
   query: string,
   ownerId: string | null,
 ): ChatThread[] {
-  const needle = query.trim().toLowerCase();
+  const needle = fold(query.trim());
   if (needle === "") return [];
   return threads.filter((th) => (th.ownerId === null || th.ownerId === ownerId) && mentions(th, needle));
 }

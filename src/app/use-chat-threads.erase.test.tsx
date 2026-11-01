@@ -3,15 +3,20 @@
 // vault (fake-indexeddb) and a mocked store.
 import "fake-indexeddb/auto";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { renderHook, render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { useChatThreads, type UseChatThreadsDeps } from "./use-chat-threads";
-import { loadThreads, saveThread, deleteThread, deleteOwnerThreads, expireThreads } from "./chat-threads-store";
+import {
+  loadThreads, saveThread, deleteThread, deleteOwnerThreads, expireThreads, loadLegacyThreadIds,
+} from "./chat-threads-store";
+import { ChatEraseControls } from "./chat-erase-dialog";
 import { ensureChatIdentity } from "./chat-key-vault";
 import { readChatThreads } from "./chat-threads-registry";
 import type { ChatThread } from "./chat-threads";
 import type { TursoConfig } from "./turso-config";
 import type { ChatSettings } from "./ai-chat-retention-config";
-import { PENDING_EDITS_PREFIX, flushPendingEdits, pendingEditScope, resetPendingEditsForTests } from "./pending-edits";
+import {
+  PENDING_EDITS_PREFIX, flushPendingEdits, pendingEditScope, resetPendingEditsForTests, trackPendingEdit,
+} from "./pending-edits";
 
 vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
@@ -19,6 +24,7 @@ vi.mock("./chat-threads-store", () => ({
   deleteThread: vi.fn(async () => undefined),
   deleteOwnerThreads: vi.fn(async () => undefined),
   expireThreads: vi.fn(async () => undefined),
+  loadLegacyThreadIds: vi.fn(async () => []),
 }));
 
 const loadThreadsMock = loadThreads as unknown as ReturnType<typeof vi.fn>;
@@ -26,6 +32,7 @@ const saveThreadMock = saveThread as unknown as ReturnType<typeof vi.fn>;
 const deleteThreadMock = deleteThread as unknown as ReturnType<typeof vi.fn>;
 const deleteOwnerThreadsMock = deleteOwnerThreads as unknown as ReturnType<typeof vi.fn>;
 const expireThreadsMock = expireThreads as unknown as ReturnType<typeof vi.fn>;
+const loadLegacyThreadIdsMock = loadLegacyThreadIds as unknown as ReturnType<typeof vi.fn>;
 
 const CFG: TursoConfig = { httpUrl: "https://database-erase.example.invalid", authToken: "token-e" };
 const CHAT_ON: ChatSettings = { retentionDays: 30, retentionInvalid: false, recoveryKey: "recovery-spki", recoveryKeyInvalid: false };
@@ -72,6 +79,7 @@ beforeEach(() => {
   deleteThreadMock.mockResolvedValue(undefined);
   deleteOwnerThreadsMock.mockResolvedValue(undefined);
   expireThreadsMock.mockResolvedValue(undefined);
+  loadLegacyThreadIdsMock.mockResolvedValue([]);
 });
 
 describe("useChatThreads — delete all my chats", () => {
@@ -80,6 +88,7 @@ describe("useChatThreads — delete all my chats", () => {
     const mine = thread("mine", { ownerId: me!.ownerId });
     const legacy = thread("legacy");
     loadThreadsMock.mockResolvedValueOnce([mine, legacy]).mockResolvedValue([legacy]);
+    loadLegacyThreadIdsMock.mockResolvedValue(["legacy"]);
     const { result } = renderChatThreads();
     await waitFor(() => expect(result.current.erase.ownerId).toBe(me!.ownerId));
     await waitFor(() => expect(result.current.threads).toHaveLength(2));
@@ -181,5 +190,105 @@ describe("useChatThreads — pending renames of removed threads", () => {
     });
     await waitFor(() => expect(expireThreadsMock).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(storedRenameIds()).toEqual(["new"]));
+  });
+});
+
+/** The ids with a stored rename in `projectId`'s outbox. */
+function storedIn(projectId: string): string[] {
+  const raw = window.localStorage.getItem(`${PENDING_EDITS_PREFIX}${pendingEditScope(CFG.httpUrl, `chat:${projectId}`)}`);
+  return raw ? (JSON.parse(raw) as { id: string }[]).map((e) => e.id).sort() : [];
+}
+
+describe("useChatThreads — delete all clears the draft names of every project", () => {
+  it("drops a stored draft of another project and a live draft of a project loaded earlier; a legacy draft stays", async () => {
+    const me = await ensureChatIdentity(CFG.httpUrl);
+    window.localStorage.setItem(
+      `${PENDING_EDITS_PREFIX}${pendingEditScope(CFG.httpUrl, "chat:other")}`,
+      JSON.stringify([
+        { v: 1, kind: "chat-thread-name", id: "other-mine", base: "a", value: "Jane", savedAt: Date.now() },
+        { v: 1, kind: "chat-thread-name", id: "other-legacy", base: "a", value: "b", savedAt: Date.now() },
+      ]),
+    );
+    loadThreadsMock.mockImplementation(async (_c: unknown, pid: string) =>
+      pid === "earlier" ? [thread("earlier-mine", { projectId: "earlier", ownerId: me!.ownerId })] : [thread("legacy")]);
+    loadLegacyThreadIdsMock.mockResolvedValue(["legacy", "other-legacy"]);
+    const { result, rerender, props } = renderChatThreads({ projectId: "earlier" });
+    await waitFor(() => expect(result.current.threads.map((th) => th.id)).toEqual(["earlier-mine"]));
+    act(() => result.current.trackRenameDraft("earlier-mine", "Jane"));
+    rerender({ ...props, projectId: "default" });
+    await waitFor(() => expect(result.current.threads.map((th) => th.id)).toEqual(["legacy"]));
+    act(() => result.current.trackRenameDraft("legacy", "Draft"));
+
+    await act(async () => {
+      await result.current.erase.deleteAll();
+    });
+
+    expect(storedIn("other")).toEqual(["other-legacy"]);
+    flushPendingEdits(Date.now());
+    expect(storedIn("earlier")).toEqual([]);
+    expect(storedIn("default")).toEqual(["legacy"]);
+  });
+
+  it("drops every draft name of the database when the legacy ids cannot be read", async () => {
+    const me = await ensureChatIdentity(CFG.httpUrl);
+    loadThreadsMock.mockResolvedValue([thread("legacy"), thread("mine", { ownerId: me!.ownerId })]);
+    loadLegacyThreadIdsMock.mockRejectedValue(new Error("network"));
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+    storeDrafts(result, ["legacy", "mine"]);
+    const templates = pendingEditScope(CFG.httpUrl, "templates");
+    trackPendingEdit(templates, { kind: "template-name", id: "t", base: "a", value: "b" });
+    await act(async () => {
+      await result.current.erase.deleteAll().catch(() => undefined);
+    });
+    flushPendingEdits(Date.now());
+    expect(storedRenameIds()).toEqual([]);
+    expect(window.localStorage.getItem(`${PENDING_EDITS_PREFIX}${templates}`)).not.toBeNull();
+  });
+});
+
+describe("useChatThreads — a chat started here is owned once saved", () => {
+  it("stamps this browser's owner id on a session-minted thread when its save lands", async () => {
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalled());
+    let id: string | null = null;
+    act(() => {
+      id = result.current.ensureThreadForSend([{ role: "user", content: "hi" }], [{ kind: "user", text: "hi" }]);
+    });
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    const owner = (saveThreadMock.mock.calls[0][2] as { ownerId: string }).ownerId;
+    await waitFor(() => expect(result.current.threads.find((th) => th.id === id)?.ownerId).toBe(owner));
+    await waitFor(() => expect(readChatThreads("default").threads.find((th) => th.id === id)?.ownerId).toBe(owner));
+  });
+
+  it("delete-all removes a saved session thread even when the reload fails, and the UI reports the failure", async () => {
+    let api: ReturnType<typeof useChatThreads> | null = null;
+    function Harness(p: UseChatThreadsDeps) {
+      const chatThreads = useChatThreads(p);
+      api = chatThreads;
+      return <ChatEraseControls lang="en-US" threads={chatThreads.threads} erase={chatThreads.erase} />;
+    }
+    const props: UseChatThreadsDeps = {
+      tursoMode: true, tursoConfig: CFG, projectId: "default", lang: "en-US", busy: false, history: [], display: [],
+      setHistory: vi.fn(), setDisplay: vi.fn(), cancelledRef: { current: false }, abortRef: { current: null },
+      confirm: vi.fn(async () => true), chat: CHAT_ON,
+    };
+    loadThreadsMock.mockResolvedValueOnce([]).mockRejectedValue(new Error("network"));
+    render(<Harness {...props} />);
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    let id: string | null = null;
+    act(() => {
+      id = api!.ensureThreadForSend([{ role: "user", content: "about Jane" }], [{ kind: "user", text: "about Jane" }]);
+    });
+    await waitFor(() => expect(api!.threads.find((th) => th.id === id)?.ownerId).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete all my chats" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "delete my chats" } });
+    fireEvent.click(screen.getByRole("button", { name: "Delete my chats" }));
+
+    expect(await screen.findByText("Your chats could not be deleted. Please try again.")).toBeInTheDocument();
+    expect(deleteOwnerThreadsMock).toHaveBeenCalledTimes(1);
+    expect(api!.threads.find((th) => th.id === id)).toBeUndefined();
+    expect(api!.activeThreadId).toBeNull();
   });
 });

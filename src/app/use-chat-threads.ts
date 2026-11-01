@@ -28,7 +28,7 @@ import type { ApiMessage, DisplayItem } from "./chat-api";
 import type { TursoConfig } from "./turso-config";
 import type { ConfirmFn } from "./confirm-dialog";
 import {
-  loadThreads, saveThread, deleteThread as deleteThreadRow, deleteOwnerThreads, expireThreads,
+  loadThreads, saveThread, deleteThread as deleteThreadRow, deleteOwnerThreads, expireThreads, loadLegacyThreadIds,
 } from "./chat-threads-store";
 import type { ChatSettings } from "./ai-chat-retention-config";
 import type { ChatIdentity } from "./chat-thread-codec";
@@ -41,6 +41,7 @@ import { publishChatThreads, clearChatThreadsFor } from "./chat-threads-registry
 import { logDiag } from "./diagnostics";
 import {
   pendingEditScope, trackPendingEdit, settlePendingEdit, rebasePendingEdit, takePendingEdits, dropPendingEdit,
+  dropPendingEditsWhere,
 } from "./pending-edits";
 import {
   mergeThreadsAfterLoad,
@@ -530,7 +531,22 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       const identity = knownIdentity(config) ?? (await writeIdentity(config));
       const outcome = await saveThread(config, th, identity, gate.recoveryKey);
       if (outcome === "not-owned") dropNotOwned(th.id);
+      // Only into the list of the database it landed in: a write pinned to a database the user has
+      // since left must not touch the new one's list.
+      else if (sameDatabase(config, liveConfigRef.current)) stampOwner(th.id, identity.ownerId);
     };
+  }
+
+  /** A save of thread `id` landed as `ownerId`'s row: the in-memory thread says so too (list, ref and
+   *  so the registry). A chat started in this session is minted owner-less, and without this a
+   *  "delete all my chats" could not tell it from a legacy row. */
+  function stampOwner(id: string, ownerId: string): void {
+    const stamp = (list: ChatThread[]): ChatThread[] =>
+      list.some((th) => th.id === id && th.ownerId !== ownerId)
+        ? list.map((th) => (th.id === id ? { ...th, ownerId } : th))
+        : list;
+    threadsRef.current = stamp(threadsRef.current);
+    setThreads(stamp);
   }
 
   /** The thread `id` is no longer this browser's: off the list (and so off the registry). When it is
@@ -1225,21 +1241,36 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     const config = writeConfig(tursoConfig);
     const identity = knownIdentity(config) ?? (await getChatIdentity(config?.httpUrl ?? ""));
     if (!identity) return;
-    const scope = renameScope(tursoConfig);
     const epoch = projectEpochRef.current;
     const pid = projectId;
     await deleteOwnerThreads(config, identity.ownerId);
-    // Threads saved in this session carry no owner in memory, so the database says which are left.
-    let left: Set<string> | null = null;
+    await dropDeletedDraftNames(config);
+    // This owner's threads are gone in every project, so whichever project is open now loses them.
+    const owned = threadsRef.current.filter((th) => th.ownerId === identity.ownerId).map((th) => th.id);
+    removeDeleted(null, owned, projectEpochRef.current);
+    // An extra check against the database; a failure is reported, so the user can try again.
+    let left: Set<string>;
     try {
       left = new Set((await loadVisibleThreads(config, pid)).map((th) => th.id));
     } catch {
       logDiag("warn", "chat.deleteAllReloadFailed");
+      throw new Error("chat threads could not be reloaded after deleting them");
     }
-    const removed = threadsRef.current
-      .filter((th) => th.projectId === pid && (th.ownerId === identity.ownerId || (left !== null && !left.has(th.id))))
-      .map((th) => th.id);
-    removeDeleted(scope, removed, epoch);
+    removeDeleted(null, threadsRef.current.filter((th) => th.projectId === pid && !left.has(th.id)).map((th) => th.id), epoch);
+  }
+
+  /** After a delete-all: every thread-name draft of this database, in every project's scope, stored or
+   *  live, goes — except those of the legacy rows still standing. When those cannot be read, all go. */
+  async function dropDeletedDraftNames(config: TursoConfig | null): Promise<void> {
+    const url = config?.httpUrl;
+    if (!url) return;
+    let legacy: Set<string> | null = null;
+    try {
+      legacy = new Set(await loadLegacyThreadIds(config));
+    } catch {
+      logDiag("warn", "chat.legacyThreadIdsReadFailed");
+    }
+    dropPendingEditsWhere(pendingEditScope(url, "chat:"), RENAME_KIND, (id) => legacy?.has(id) ?? false);
   }
 
   const knownOwnerId = vaultRead?.url === currentUrl && vaultRead.kind === "found" ? vaultRead.identity?.ownerId ?? null : null;

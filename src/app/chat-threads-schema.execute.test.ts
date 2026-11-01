@@ -7,6 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import {
   CHAT_THREADS_DDL, chatThreadsHealAlters, upsertThreadStatements, pruneThreadsStatements,
   expireThreadsStatements, deleteOwnerThreadsStatements, deleteThreadStatements, threadsSelect, retentionCutoff,
+  legacyThreadIdsSelect,
   type StoredThreadRow,
 } from "./chat-threads-schema";
 import { pragmaStatements } from "./turso-migrate";
@@ -195,6 +196,16 @@ describe("chat_threads statements against a real engine", () => {
     insertNullOwner(db, "n");
     run(db, deleteOwnerThreadsStatements("alice"));
     expect(ids(db)).toEqual(["b1", "n"]);
+  });
+
+  it("legacyThreadIdsSelect returns the ids of every owner-less row in every project, and nothing else", () => {
+    run(db, upsertThreadStatements(row("a1")));
+    run(db, upsertThreadStatements(row("b1", { owner_id: "bob" })));
+    run(db, upsertThreadStatements(row("e", { owner_id: "", project_id: "q" })));
+    insertNullOwner(db, "n");
+    const [stmt] = legacyThreadIdsSelect();
+    expect(query(db, stmt).map((r) => r.id).sort()).toEqual(["e", "n"]);
+    expect(stmt.sql).toMatch(/^SELECT id FROM chat_threads/);
   });
 
   it("deleteOwnerThreads refuses an empty owner id", () => {

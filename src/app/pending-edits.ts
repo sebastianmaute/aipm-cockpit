@@ -128,6 +128,35 @@ export function dropPendingEdit(scope: string, kind: PendingEditKind, id: string
   }
 }
 
+/** Drops (as `dropPendingEdit` does: live, stored, and the pagehide state) every `kind` edit in every
+ *  scope starting with `scopePrefix` — stored by any tab, or live in this page — whose id `keep` does
+ *  not name. Used when a whole set of threads is deleted across projects. Never throws. */
+export function dropPendingEditsWhere(scopePrefix: string, kind: PendingEditKind, keep: (id: string) => boolean): void {
+  try {
+    if (typeof window === "undefined") return;
+    for (const [scope, edits] of liveEdits) {
+      if (!scope.startsWith(scopePrefix)) continue;
+      for (const edit of [...edits.values()]) {
+        if (edit.kind === kind && !keep(edit.id)) dropPendingEdit(scope, kind, edit.id);
+      }
+    }
+    const keyPrefix = storageKeyFor(scopePrefix);
+    const storageKeys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (key?.startsWith(keyPrefix)) storageKeys.push(key);
+    }
+    for (const key of storageKeys) {
+      const scope = key.slice(PENDING_EDITS_PREFIX.length);
+      for (const edit of storedEntries(key)) {
+        if (edit.kind === kind && !keep(edit.id)) dropPendingEdit(scope, kind, edit.id);
+      }
+    }
+  } catch (err) {
+    logDiag("warn", "storage.pendingEditsWriteFailed", { reason: "storage-error", message: errorMessage(err) });
+  }
+}
+
 /** The value the live edit started from was saved as `base`: a newer draft still waiting in the
  *  outbox now starts from it, so a replay checks it against what the server holds. No live edit, no-op. */
 export function rebasePendingEdit(scope: string, kind: PendingEditKind, id: string, base: string): void {

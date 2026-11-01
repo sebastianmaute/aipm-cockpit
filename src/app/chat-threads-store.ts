@@ -7,12 +7,12 @@ import { runTursoPipeline } from "./turso-pipeline";
 import {
   CHAT_THREADS_DDL, CHAT_THREADS_TABLE, CHAT_THREAD_CAP, chatThreadsHealAlters, threadsSelect,
   upsertThreadStatements, deleteThreadStatements, pruneThreadsStatements,
-  deleteOwnerThreadsStatements, expireThreadsStatements,
+  deleteOwnerThreadsStatements, expireThreadsStatements, legacyThreadIdsSelect,
 } from "./chat-threads-schema";
 import { decodeThreadRows, encodeThreadRow, type ChatIdentity } from "./chat-thread-codec";
 import { pragmaStatements } from "./turso-migrate";
 import type { ChatThread } from "./chat-threads";
-import type { SqlStmt } from "./turso-schema";
+import { rowObjects, type SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
 
 const ddl = (): SqlStmt[] => CHAT_THREADS_DDL.map((sql) => ({ sql }));
@@ -106,6 +106,12 @@ export async function deleteThread(
 /** Delete every thread of `ownerId`, in every project of the database. */
 export async function deleteOwnerThreads(config: TursoConfig | null, ownerId: string): Promise<void> {
   await run(config, deleteOwnerThreadsStatements(ownerId));
+}
+
+/** The ids of the legacy owner-less threads in every project of the database. */
+export async function loadLegacyThreadIds(config: TursoConfig | null): Promise<string[]> {
+  const results = await run(config, legacyThreadIdsSelect());
+  return rowObjects(results[CHAT_THREADS_DDL.length]).map((r) => r.id).filter((id) => !!id);
 }
 
 /** Delete threads last updated before `cutoffIso` (and any without a date). */

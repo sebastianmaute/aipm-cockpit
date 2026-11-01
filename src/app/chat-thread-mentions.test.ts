@@ -45,6 +45,13 @@ describe("findThreadsMentioning", () => {
     expect(ids(findThreadsMentioning([mine, legacy, colleague], "jane", null))).toEqual(["l"]);
   });
 
+  it("matches a name whatever its Unicode composition", () => {
+    const decomposed = "Müller";
+    const th = thread("a", { history: [{ role: "assistant", content: [{ type: "text", text: `Ask ${decomposed}` }] }] });
+    expect(ids(findThreadsMentioning([th], "Müller", null))).toEqual(["a"]);
+    expect(ids(findThreadsMentioning([thread("b", { name: "Müller" })], decomposed, null))).toEqual(["b"]);
+  });
+
   it("trims the query and returns nothing for an empty one", () => {
     const th = thread("a", { name: "Jane" });
     expect(ids(findThreadsMentioning([th], "  jane  ", null))).toEqual(["a"]);

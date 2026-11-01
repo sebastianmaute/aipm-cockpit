@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 vi.mock("./turso-pipeline", () => ({ runTursoPipeline: vi.fn(async () => []) }));
 import { runTursoPipeline } from "./turso-pipeline";
 import {
-  loadThreads, saveThread, deleteThread, deleteOwnerThreads, expireThreads,
+  loadThreads, saveThread, deleteThread, deleteOwnerThreads, expireThreads, loadLegacyThreadIds,
   __resetChatThreadsHealForTests,
 } from "./chat-threads-store";
 import { TABLE_NAMES, type SqlStmt } from "./turso-schema";
@@ -129,6 +129,16 @@ describe("chat-threads-store", () => {
     await deleteOwnerThreads(cfg, "alice");
     const del = lastStmts().find((s) => /^DELETE FROM chat_threads WHERE owner_id = \?$/i.test(s.sql));
     expect(values(del)).toEqual(["alice"]);
+  });
+
+  it("loadLegacyThreadIds selects only the ids of owner-less rows and returns them", async () => {
+    pipe.mockImplementation(async (_c: unknown, stmts: SqlStmt[]) =>
+      stmts.some((s) => /^SELECT id FROM chat_threads/.test(s.sql))
+        ? [{ type: "ok" }, { type: "ok", response: { type: "execute", result: { cols: [{ name: "id" }], rows: [[{ value: "n1" }], [{ value: "n2" }]] } } }]
+        : []);
+    expect(await loadLegacyThreadIds(cfg)).toEqual(["n1", "n2"]);
+    const select = lastStmts().find((s) => /^SELECT id FROM chat_threads/i.test(s.sql))!;
+    expect(select.sql).toMatch(/WHERE owner_id IS NULL OR owner_id = ''/i);
   });
 
   it("expireThreads deletes by cutoff, optionally scoped to a project", async () => {

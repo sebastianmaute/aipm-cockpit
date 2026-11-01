@@ -145,6 +145,12 @@ export function deleteOwnerThreadsStatements(ownerId: string): SqlStmt[] {
   return [{ sql: `DELETE FROM chat_threads WHERE owner_id = ?`, args: [txt(ownerId)] }];
 }
 
+/** The ids of every legacy owner-less row, in every project of the database — the rows a
+ *  "delete all my chats" leaves standing. Ids only: no content is read. */
+export function legacyThreadIdsSelect(): SqlStmt[] {
+  return [{ sql: `SELECT id FROM chat_threads WHERE owner_id IS NULL OR owner_id = ''` }];
+}
+
 /** Threads last updated before `cutoffIso`, plus any without a usable
  *  `updated_at` — NULL, '' or not a date at all (`julianday` NULL), which no
  *  retention period can vouch for. A well-formed FUTURE date is kept. Whole
