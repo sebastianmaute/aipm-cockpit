@@ -634,7 +634,7 @@ Kept short: `AGENTS.md` owns each rule.
   Turso setup (portfolio not on Turso) still saves.
 - **`TABLE_NAMES`** is `ENTITY_SPECS` tables plus `plan`, `fx_rates` and `meta`, and a save
   emits `DELETE FROM` for every dirty one. Non-workspace tables (snapshots, version history,
-  chat threads, templates, …) stay out, or a workspace save would wipe them. Each such store pins
+  chat threads, `person_links` (§785), templates, …) stay out, or a workspace save would wipe them. Each such store pins
   that with its own test: `grep -rln "TABLE_NAMES).not.toContain" src/app`. Rule: **New Turso table
   NOT workspace data**.
 - **`idKind`**: a spec with a string id must declare `idKind: "text"`; one does today (`grep -n

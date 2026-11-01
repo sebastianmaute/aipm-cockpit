@@ -177,6 +177,17 @@ one or two sentences and links to the entry.
 11. **Over-capacity display.** `alternativeEffect` gets the elsewhere hours as a new input and `OverCapacity` carries
     the elsewhere figure so the review window can show it.
 
+### As built
+
+- Task 1 rulings. The link row stores first name and last name separately for each side (`first_a`, `last_a`, `first_b`,
+  `last_b`), so re-splitting a name ("Mary Ann"/"Lee" into "Mary"/"Ann Lee") makes a `same` row stale. Item 3 above
+  applies to `same` rows only: a `different` row applies whatever the names are now, because a rejection can only
+  remove a relation; the cost is that a re-minted id inherits it until the user presses Undo.
+- Two resources in one other project matching the same person: both count and their hours are summed (the builder's
+  choice under "Left to the builder"; `figureFor` in `cross-project/elsewhere-hours.ts`).
+- `decided_by` is left blank: the hook accepts an actor label but the app does not pass one yet.
+- The help link beside the tooltip is a `HelpIconButton` that opens the entry in place; an `InfoTooltip` cannot carry a link.
+
 ## Left to the builder
 
 - The exact module layout and names.

@@ -1020,7 +1020,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§782](#782-an-insight-recommendation-can-propose-a-change-that-cannot-be-applied-and-the-failure-is-silent--closed-2026-10-24) | An insight recommendation can propose a change that cannot be applied, and the failure is silent | — | — | **CLOSED** 2026-10-24 |
 | [§783](#783-the-top-bars-bell-is-named-for-due-date-notifications-but-opens-next-actions--closed-2026-10-26) | The top bar's bell is named for due-date notifications but opens Next actions | — | — | **CLOSED** 2026-10-26 |
 | [§784](#784-escape-on-the-reports-replace-or-keep-both-question-adds-the-ai-section-instead-of-cancelling--open) | Escape on the report's Replace or Keep both question adds the AI section instead of cancelling | — | — | open |
-| [§785](#785-plan-with-ai-does-not-see-the-load-a-person-carries-in-other-projects) | Plan with AI does not see the load a person carries in other projects | #921 | — | OPEN |
+| [§785](#785-plan-with-ai-does-not-see-the-load-a-person-carries-in-other-projects--closed-2026-11-01) | Plan with AI does not see the load a person carries in other projects | — | — | **CLOSED** 2026-11-01 |
 | [§786](#786-dictation-stays-available-in-an-open-tab-after-the-people-protection-lock-is-set) | Dictation stays available in an open tab after the people-protection lock is set | #924 | — | OPEN |
 | [§787](#787-i18n-pluraltestts-runs-about-24-s-against-the-20-s-unit-timeout) | i18n-plural.test.ts runs about 24 s against the 20 s unit timeout | #926 | — | OPEN |
 <!-- INDEX:END -->
@@ -46155,11 +46155,9 @@ Size S.
 
 **Source:** final whole-branch review of AI-04, 2026-10-30 (owner: file it).
 
-## 785. Plan with AI does not see the load a person carries in other projects
+## 785. Plan with AI does not see the load a person carries in other projects — CLOSED 2026-11-01
 
-**Status:** OPEN 2026-10-30, filed when §769 shipped. `grep -rniE --exclude='*.test.*' "otherProject|portfolio|elsewhere" src/app/alloc-plan src/app/use-alloc-plan.tsx` → no output (the tests are left out: a test title in `alloc-plan.test.ts` says "elsewhere" about another period): Plan with AI sees this project's tasks, milestones, RACI and rates (`buildProjectDigest`, `buildAllocContext`), but not what a person is already booked for in other projects. A person shown at 60 % here may be at 120 % in total, so a proposal can move work onto someone who has no room. Out of scope for §769 by owner decision 2026-10-30.
-
-**Work item:** #921
+**Status:** CLOSED 2026-11-01 on `feat/785-cross-project-load`, owner decisions 2026-10-31 (design `docs/superpowers/specs/2026-10-31-cross-project-load-design.md`). In portfolio mode Turso with more than one project, Plan with AI now loads the other projects (`useCrossProjectPeople`), matches people by email or by a name the user confirmed (`matchPeople`), shows each person's planned hours there as a separate elsewhere figure, sends them to the model as `ELSEWHERE` lines, and counts them in the over-capacity warning (`alternativeEffect`). The person's entry lists the projects they are matched in and takes Confirm / Not the same / Undo; the answers are stored in the global `person_links` table, outside `TABLE_NAMES`. `grep -rln --exclude='*.test.*' "elsewhere" src/app/alloc-plan src/app/use-alloc-plan.tsx` → `alloc-effect.ts`, `alloc-plan.ts`, `use-alloc-plan.tsx` (it was no output when filed). Detail: `docs/AGENTS/ai-assistant.md` "Plan with AI sees a person's load in other projects". Filed 2026-10-30; the original finding follows. Before it shipped: Plan with AI sees this project's tasks, milestones, RACI and rates (`buildProjectDigest`, `buildAllocContext`), but not what a person is already booked for in other projects. A person shown at 60 % here may be at 120 % in total, so a proposal can move work onto someone who has no room. Out of scope for §769 by owner decision 2026-10-30.
 
 What it would take: read the other projects' planned hours for the same people where the storage mode allows it (Turso multi-project only; file, IndexedDB and single-project Turso hold one project), match people across projects (by email, since a resource id is per project), show the result to the model and in the review window as a separate "elsewhere" figure, and count it in the over-capacity warnings (`alternativeEffect`). Moves and hour edits would stay confined to this project: the other projects' hours are read, never written.
 
