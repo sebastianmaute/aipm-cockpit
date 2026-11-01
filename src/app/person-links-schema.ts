@@ -58,6 +58,24 @@ export function deletePersonLinkStatements(pair: PersonLinkPair): SqlStmt[] {
   ];
 }
 
+// SQLite's bound-variable ceiling is far above this; chunking keeps one statement small for a huge bulk delete.
+const FORGET_CHUNK = 200;
+
+/** §788 — every row naming (projectId, resourceId) on EITHER side, for each id. Another project's same-numbered
+ *  id is untouched: both sides are matched on the project AND the id together. */
+export function deletePersonLinksForStatements(projectId: string, resourceIds: readonly number[]): SqlStmt[] {
+  const stmts: SqlStmt[] = [];
+  for (let i = 0; i < resourceIds.length; i += FORGET_CHUNK) {
+    const ids = resourceIds.slice(i, i + FORGET_CHUNK).map((id) => int(id));
+    const marks = ids.map(() => "?").join(",");
+    stmts.push({
+      sql: `DELETE FROM person_links WHERE (project_a = ? AND resource_a IN (${marks})) OR (project_b = ? AND resource_b IN (${marks}))`,
+      args: [txt(projectId), ...ids, txt(projectId), ...ids],
+    });
+  }
+  return stmts;
+}
+
 export function rowsToPersonLinks(res: PipelineResultLike | undefined): PersonLinkRow[] {
   return rowObjects(res)
     .filter((r) => (r.verdict === "same" || r.verdict === "different") && r.project_a && r.project_b)

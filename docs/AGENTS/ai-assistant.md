@@ -1120,7 +1120,7 @@
   ★★ **The two verdicts go stale differently, on purpose.** A `same` row is live only while both resources still carry
   the stored first name AND last name, each compared separately, so a re-minted id or a re-split name cannot inherit a
   confirmation. A `different` row applies whatever the names are now, because a rejection can only remove a relation;
-  the price is that a re-minted id inherits it until someone presses Undo in the person's entry. A row naming a
+  the price is that a re-minted id inherits it until someone presses Undo in the person's entry (§788: only after a FAILED delete sweep, since a delete now removes the person's rows). A row naming a
   project not in the list or a missing resource id matches nothing. Two resources of one other project matching the
   same person BOTH count and their hours are summed (`figureFor` in `cross-project/elsewhere-hours.ts`). External and
   inactive resources count.
@@ -1145,7 +1145,21 @@
   (`project_a < project_b`), columns `first_a`, `last_a`, `first_b`, `last_b` (not one name per side), `decided_at`, `decided_by`
   (no e-mail addresses are stored: only names decide whether a `same` row is stale). A project hard delete removes every row naming that project on either side
   (`PROJECT_SCOPED_SIDE_TABLES`, `columns: ["project_a", "project_b"]`; the §204 guard checks all `project_<letter>` columns,
-  since the table has no `project_id`). A failed write leaves the in-memory links untouched and toasts
+  since the table has no `project_id`).
+  ★★ **Deleting a person removes their rows (§788).** `forgetPeople(ids)` on `useCrossProjectPeople` deletes every row naming
+  (this project, id) on EITHER side (`deletePersonLinksForStatements`: both sides match on the project AND the id, so another
+  project's same-numbered id stays). All three delete paths call it, and only with ids that were actually removed:
+  `handleDeleteResource` and `handleBulkDeleteResources` (`use-resource-directory.ts`, through the `onResourcesDeleted`
+  arg of `useResourcePlanner`) and the AI `deleteResource` (`use-chat-dispatcher.ts`). task-manager builds the planner BEFORE
+  `useCrossProjectApp` (which needs `resources`), so the planner reports through `useForgetPeopleBridge`'s `notify`, and
+  `useCrossProjectApp` binds `forgetPeople` in an effect; the dispatcher is built after it and takes `crossProject.forgetPeople`
+  directly. ★ It is NOT refused while loading and needs no other project loaded (a delete must always reach the table; rows
+  outlive the other projects); it rides `commit`, so a reload that read the rows first is corrected through `runWritesRef`.
+  ★ Its failure has its own route, `onForgetError` → `allocElsewhereForgetFailed` ("deleted, but the name could not be removed"):
+  the "could not save your answer" text would be false. ★★ A resources REPLACE (import, version restore, project swap) is
+  not a delete and is never swept, and deletes are never detected by diffing `resources`. ★ Undo of a delete restores the
+  person, NOT their answers (owner decision 2026-11-01). Popouts cannot delete (edit guard, read-only dispatcher).
+  A failed write leaves the in-memory links untouched and toasts
   (`onWriteError`); writes are epoch-guarded. `decided_by` is blank today: the hook accepts `actorLabel` but
   `task-manager.tsx` does not pass it. Confirm / Not the same / Undo are in two places that write the same row: the
   person's entry (`resource-links-section.tsx`, with a `HelpIconButton` for `feature-cross-project-people` beside the

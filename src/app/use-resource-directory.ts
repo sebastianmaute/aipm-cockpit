@@ -123,6 +123,9 @@ export interface UseResourceDirectoryArgs {
   /** Arms the one-shot destructive-save bypass. Optional — popouts and tests
    *  supply none. */
   allowDestructiveSave?: () => void;
+  /** §788 — the ids of the people a delete ACTUALLY removed (never an unknown id, never an empty list), so their answers
+   *  about the same person in other projects go with them. NOT called on Undo, an import, a restore or a project swap. */
+  onResourcesDeleted?: (resourceIds: readonly number[]) => void;
 }
 
 export function useResourceDirectory(args: UseResourceDirectoryArgs) {
@@ -295,6 +298,7 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
         });
         argsRef.current.logActivity("resource.deleted", id, name);
         argsRef.current.allowDestructiveSave?.();
+        argsRef.current.onResourcesDeleted?.([id]);
       }
     },
     [resources, absences, shifts, setResources, setAbsences, setShifts, purgeCalendarFor],
@@ -353,6 +357,7 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
           ],
         });
         argsRef.current.allowDestructiveSave?.();
+        argsRef.current.onResourcesDeleted?.(removed.map((r) => r.id));
       }
       for (const r of removed) {
         argsRef.current.logActivity("resource.deleted", r.id, `${r.firstName} ${r.lastName}`.trim());

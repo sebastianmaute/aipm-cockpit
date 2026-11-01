@@ -5867,6 +5867,7 @@ const enUS = {
   allocElsewhereLoadFailed: "Other projects could not be loaded, so hours in other projects are not counted.",
   allocElsewhereLoading: "Loading other projects…",
   allocElsewhereWriteFailed: "Could not save your answer about the person in the other project. Nothing was changed.",
+  allocElsewhereForgetFailed: "The person was deleted, but their name could not be removed from the answers shared with your other projects. It may still show there.",
 
   resourceLinksNone: "Not found in other projects.",
   resourceLinksHeading: "Other projects",
@@ -5879,7 +5880,7 @@ const enUS = {
   resourceLinkUndo: "Undo",
   resourceLinkRejected: "Not the same as {0} in {1}",
   helpSecCrossProjectTitle: "People across projects",
-  helpSecCrossProjectBody: "A person is a separate entry in every project. When you open a person here, or run Plan with AI, the app looks at the other projects in the same Turso database and links the entries that belong to one person: automatically when they share an email address, and by name only after you answer. Two people with the same name and no email to tell them apart show up as a suggestion; until you press [[Confirm]] their hours elsewhere are not counted. [[Not the same]] is remembered, so the suggestion does not come back. Both answers can be undone from the person's entry with [[Undo]], and the answer holds for every user of the database. Hours the person is planned for in other projects count against their capacity here; Plan with AI cannot change them. Other projects are only read, never changed, and a project that cannot be read is named and left out. Projects that keep their people hidden from the AI (people protection, on by default) are not counted. This works only with several projects in Turso storage; in every other storage mode nothing is loaded and no notice is shown.",
+  helpSecCrossProjectBody: "A person is a separate entry in every project. When you open a person here, or run Plan with AI, the app looks at the other projects in the same Turso database and links the entries that belong to one person: automatically when they share an email address, and by name only after you answer. Two people with the same name and no email to tell them apart show up as a suggestion; until you press [[Confirm]] their hours elsewhere are not counted. [[Not the same]] is remembered, so the suggestion does not come back. Both answers can be undone from the person's entry with [[Undo]], and the answer holds for every user of the database. When you delete a person, their answers are deleted with them; Undo brings the person back but not the answers. Hours the person is planned for in other projects count against their capacity here; Plan with AI cannot change them. Other projects are only read, never changed, and a project that cannot be read is named and left out. Projects that keep their people hidden from the AI (people protection, on by default) are not counted. This works only with several projects in Turso storage; in every other storage mode nothing is loaded and no notice is shown.",
   allocPlanSkipMoveUnknownTask: "task not found",
   allocPlanSkipMoveClosed: "task is closed",
   allocPlanSkipMoveJira: "task is synced from Jira",

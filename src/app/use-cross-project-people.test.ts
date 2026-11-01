@@ -9,10 +9,11 @@ vi.mock("./person-links-store", () => ({
   loadPersonLinks: vi.fn(async () => []),
   savePersonLink: vi.fn(async () => undefined),
   deletePersonLink: vi.fn(async () => undefined),
+  deletePersonLinksFor: vi.fn(async () => undefined),
 }));
 vi.mock("./turso-backend", () => ({ TursoBackend: class {} }));
 
-import { deletePersonLink, loadPersonLinks, savePersonLink } from "./person-links-store";
+import { deletePersonLink, deletePersonLinksFor, loadPersonLinks, savePersonLink } from "./person-links-store";
 import { generatePeriods } from "./resource-capacity";
 import { configKeyOf, useCrossProjectPeople, type CrossProjectDeps } from "./use-cross-project-people";
 
@@ -45,6 +46,7 @@ beforeEach(() => {
   vi.mocked(loadPersonLinks).mockReset().mockResolvedValue([]);
   vi.mocked(savePersonLink).mockReset().mockResolvedValue(undefined);
   vi.mocked(deletePersonLink).mockReset().mockResolvedValue(undefined);
+  vi.mocked(deletePersonLinksFor).mockReset().mockResolvedValue(undefined);
 });
 
 describe("useCrossProjectPeople", () => {
@@ -537,5 +539,117 @@ describe("useCrossProjectPeople — a write in flight when the config changes (�
     await waitFor(() => expect(hook.result.current.status).toBe("ready"));
     await act(async () => { finishWrite(); await confirmed; });
     expect(hook.result.current.matches.get(1)?.matched).toEqual([]);
+  });
+});
+
+// §788 — a deleted person's answers go with them.
+describe("useCrossProjectPeople — forgetPeople (§788)", () => {
+  const REL = { projectId: "p-b", projectName: "B", resourceId: 10 };
+  async function readyWithConfirmed(over: Partial<CrossProjectDeps> = {}) {
+    const s = setup(over);
+    act(() => s.hook.result.current.request());
+    await waitFor(() => expect(s.hook.result.current.status).toBe("ready"));
+    await act(async () => s.hook.result.current.confirm(1, REL));
+    expect(s.hook.result.current.matches.get(1)?.matched).toHaveLength(1);
+    return s;
+  }
+
+  test("sweeps the store for the ids of the open project and drops their relations from memory", async () => {
+    const { hook } = await readyWithConfirmed();
+    await act(async () => hook.result.current.forgetPeople([1]));
+    expect(deletePersonLinksFor).toHaveBeenCalledWith(CONFIG, "p-here", [1]);
+    expect(hook.result.current.matches.get(1)?.matched).toEqual([]);
+  });
+
+  test("a rejected (not the same) answer is dropped too", async () => {
+    const s = setup();
+    act(() => s.hook.result.current.request());
+    await waitFor(() => expect(s.hook.result.current.status).toBe("ready"));
+    await act(async () => s.hook.result.current.reject(1, REL));
+    expect(s.hook.result.current.matches.get(1)?.rejected).toHaveLength(1);
+    await act(async () => s.hook.result.current.forgetPeople([1]));
+    expect(s.hook.result.current.matches.get(1)?.rejected).toEqual([]);
+  });
+
+  test("forgetting an id nobody answered about leaves the other answers alone", async () => {
+    const { hook } = await readyWithConfirmed();
+    await act(async () => hook.result.current.forgetPeople([99]));
+    expect(deletePersonLinksFor).toHaveBeenCalledWith(CONFIG, "p-here", [99]);
+    expect(hook.result.current.matches.get(1)?.matched).toHaveLength(1);
+  });
+
+  test("an empty list sweeps nothing", async () => {
+    const { hook } = setup();
+    await act(async () => hook.result.current.forgetPeople([]));
+    expect(deletePersonLinksFor).not.toHaveBeenCalled();
+  });
+
+  test("outside portfolio mode (file mode, no config, no open project) nothing is swept", async () => {
+    for (const over of [{ portfolioMode: "file" as const }, { tursoConfig: null }, { currentProjectId: null }]) {
+      const { hook } = setup(over);
+      await act(async () => hook.result.current.forgetPeople([1]));
+    }
+    expect(deletePersonLinksFor).not.toHaveBeenCalled();
+  });
+
+  test("still sweeps when no other project is left or loaded, because rows outlive the other projects", async () => {
+    const { hook } = setup({ projects: [PROJECTS[0]] });
+    await act(async () => hook.result.current.forgetPeople([1]));
+    expect(deletePersonLinksFor).toHaveBeenCalledWith(CONFIG, "p-here", [1]);
+  });
+
+  test("is not refused while a load is running, and the sweep survives a reload that read the links before it", async () => {
+    const { hook } = await readyWithConfirmed();
+    const stale: PersonLinkRow[] = [{
+      projectA: "p-b", resourceA: 10, projectB: "p-here", resourceB: 1, verdict: "same",
+      firstA: "Ann", lastA: "Lee", firstB: "Ann", lastB: "Lee", decidedAt: "", decidedBy: "",
+    }];
+    let release: (l: PersonLinkRow[]) => void = () => {};
+    vi.mocked(loadPersonLinks).mockImplementationOnce(() => new Promise<PersonLinkRow[]>((r) => { release = r; }));
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("loading"));
+    await act(async () => hook.result.current.forgetPeople([1]));
+    expect(deletePersonLinksFor).toHaveBeenCalledTimes(1);
+    await act(async () => release(stale)); // the reload read the row before the sweep
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(hook.result.current.matches.get(1)?.matched).toEqual([]);
+  });
+
+  test("a failed sweep reports through onForgetError, never onWriteError, and leaves memory alone", async () => {
+    const onWriteError = vi.fn();
+    const onForgetError = vi.fn();
+    const { hook } = await readyWithConfirmed({ onWriteError, onForgetError });
+    vi.mocked(deletePersonLinksFor).mockRejectedValueOnce(new Error("down"));
+    await act(async () => hook.result.current.forgetPeople([1]));
+    expect(onForgetError).toHaveBeenCalledTimes(1);
+    expect(onWriteError).not.toHaveBeenCalled();
+    expect(hook.result.current.matches.get(1)?.matched).toHaveLength(1);
+  });
+
+  test("the project id is the one at call time", async () => {
+    const { hook, deps } = setup();
+    let pending: () => void = () => {};
+    vi.mocked(deletePersonLinksFor).mockImplementationOnce(() => new Promise<void>((r) => { pending = r; }));
+    let done: Promise<void> = Promise.resolve();
+    act(() => { done = hook.result.current.forgetPeople([1]); });
+    hook.rerender({ ...deps, currentProjectId: "p-b" });
+    await act(async () => { pending(); await done; });
+    expect(deletePersonLinksFor).toHaveBeenCalledWith(CONFIG, "p-here", [1]);
+  });
+
+  test("bringing the person back (Undo of the delete) does not bring the answer back; the name suggestions reappear on their own", async () => {
+    const { hook, deps } = await readyWithConfirmed();
+    await act(async () => hook.result.current.forgetPeople([1]));
+    hook.rerender({ ...deps, resources: [res(1, "Ann", "Lee")] }); // the person is restored
+    expect(hook.result.current.matches.get(1)?.matched).toEqual([]);
+    expect(hook.result.current.matches.get(1)?.suggestions).toHaveLength(2);
+    expect(savePersonLink).toHaveBeenCalledTimes(1); // only the original confirm; nothing re-wrote the answer
+  });
+
+  test("forgetPeople keeps one identity across a re-render that changes nothing", async () => {
+    const { hook, deps } = setup();
+    const first = hook.result.current;
+    hook.rerender({ ...deps });
+    expect(hook.result.current.forgetPeople).toBe(first.forgetPeople);
   });
 });

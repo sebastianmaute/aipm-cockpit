@@ -1011,6 +1011,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         setResources(next);
         args.logActivityAs?.("ai", "resource.deleted", doomed.id, resourceLogName(doomed));
         args.allowDestructiveSave?.();
+        args.onResourcesDeleted?.([doomed.id]);
         return true;
       },
 

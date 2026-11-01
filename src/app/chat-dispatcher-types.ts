@@ -129,6 +129,9 @@ export interface ChatDispatcherArgs {
    *  Optional, like `logActivityAs`: a test harness or a popout supplies no
    *  bypass at all. */
   allowDestructiveSave?: () => void;
+  /** §788 — called with the id of a person the `delete_resource` tool actually removed (never for an unknown id), so their
+   *  cross-project answers go with them. Optional: a popout or a test supplies none. */
+  onResourcesDeleted?: (resourceIds: readonly number[]) => void;
   /** Undo capture for AI writes. REQUIRED, and that is the whole defence of one
    *  line of wiring.
    *

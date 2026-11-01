@@ -143,6 +143,13 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Deleting a person now removes their answers about people in other projects (§788).** When your projects share one
+  Turso database, the app keeps your "same person" and "not the same person" answers, with both people's first and last
+  names, in a table every project reads. Deleting a person, one at a time, in bulk or through the AI assistant, left their
+  name there with no end date. It now removes their answers at once. Undo brings the person back but not their answers:
+  an e-mail match and a name suggestion come back on their own, while a "Not the same" or a confirmed name has to be
+  answered again. If the database cannot be reached, the person is still deleted and a message says their name could not be
+  removed from the shared answers.
 - **Dictation stops as soon as an organisation forces people protection (§786).** A tab already open could send
   one more recording to the speech-to-text service before it heard about the lock. It now discards the recording
   and says your organisation requires people protection, and the server refuses it too. The browser's own speech recognition (built-in dictation and voice commands) is not covered yet (§789).
