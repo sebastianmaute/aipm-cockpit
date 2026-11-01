@@ -21,6 +21,8 @@ import { AI_DISCLOSURE_VERSION, newConsent } from "../ai-consent";
 import { setAiDeploymentState } from "../ai-deployment";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../../test/ai-status-fetch";
 import { __setAiStatusRequestForTests } from "../ai-status-request";
+import { CHAT_IDENTITY_KEY } from "../chat-key-vault";
+import { getTursoConfig } from "../turso-config";
 // The AI config UI is gated behind the "Enable AI assistant" master switch
 // (default OFF), and the key field also behind a current consent (AI-01). These
 // tests exercise the expanded config, so flip it on with a consent.
@@ -1323,6 +1325,19 @@ describe("AiSection — saved chat retention", () => {
     withChat(chat({ recoveryKey: "spki" }));
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
     expect(passphraseHeading()).toBeNull();
+  });
+  it("hides the chat passphrase area while this browser's chat identity is locked", async () => {
+    withChat(chat({ recoveryKey: "spki" }));
+    const url = getTursoConfig("libsql://db.example.turso.io", "tok")!.httpUrl;
+    // An entry this browser's device key cannot open: the stored identity is locked.
+    const locked = { ownerId: "owner-locked", sealed: { iv: "AAAAAAAAAAAAAAAA", ciphertext: "AAAAAAAAAAAAAAAAAAAAAAAA" } };
+    window.localStorage.setItem(CHAT_IDENTITY_KEY, JSON.stringify({ [url]: locked }));
+    try {
+      render(<AiSection lang="en-US" settings={withTurso} onChange={vi.fn()} />);
+      await waitFor(() => expect(passphraseHeading()).toBeNull());
+    } finally {
+      window.localStorage.removeItem(CHAT_IDENTITY_KEY);
+    }
   });
 });
 
