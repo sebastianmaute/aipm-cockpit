@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createChatPersistQueue } from "./chat-persist-queue";
+import { createChatPersistQueue, WriteRefusedError } from "./chat-persist-queue";
 
 function deferred() {
   let resolve!: () => void;
@@ -87,5 +87,23 @@ describe("createChatPersistQueue", () => {
     await waiting;
     expect(settled).toBe(true);
     await expect(queue.savesSettled("C")).resolves.toBeUndefined();
+  });
+
+  it("a refused write neither lands nor fails: no onLanded, no retry, and the banner stays as it was", async () => {
+    const setError = vi.fn();
+    const queue = createChatPersistQueue(setError);
+    queue.runPersist("t1", () => Promise.reject(new Error("down")));
+    await flush();
+    expect(setError).toHaveBeenLastCalledWith(true);
+    const onLanded = vi.fn();
+    setError.mockClear();
+    queue.runPersist("t1", () => Promise.reject(new WriteRefusedError()), onLanded);
+    await flush();
+    expect(onLanded).not.toHaveBeenCalled();
+    expect(setError).not.toHaveBeenCalled();
+    expect(queue.landings()).toBe(0);
+    expect(queue.inFlight()).toBe(false);
+    // The earlier failure's retry is still there.
+    expect(queue.retryFailed()).toBe(true);
   });
 });

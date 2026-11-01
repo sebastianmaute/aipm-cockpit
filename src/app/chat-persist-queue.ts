@@ -10,6 +10,16 @@ function slot<T>(current: T): { current: T } {
 
 export type ChatPersistQueue = ReturnType<typeof createChatPersistQueue>;
 
+/** A write refused before anything was sent (the thread belongs to another database). It neither
+ *  landed nor failed: `runPersist` records no landing, runs no `onLanded` (so no outbox entry is
+ *  settled), keeps no retry and leaves the banner as it is. */
+export class WriteRefusedError extends Error {
+  constructor() {
+    super("chat thread write refused: the thread belongs to another database");
+    this.name = "WriteRefusedError";
+  }
+}
+
 /** `setThreadsError` raises or clears the sidebar's failure banner. */
 export function createChatPersistQueue(setThreadsError: (failed: boolean) => void) {
   // Holds a thunk that re-issues whatever Turso WRITE (save or delete) last
@@ -107,9 +117,9 @@ export function createChatPersistQueue(setThreadsError: (failed: boolean) => voi
         }
         if (isNewestLanding) onLanded?.(owns());
       },
-      () => {
+      (err: unknown) => {
         persistSettledRef.current += 1;
-        if (!owns()) return;
+        if (err instanceof WriteRefusedError || !owns()) return;
         pendingRetryRef.current.set(key, () => runPersist(key, action, onLanded));
         setThreadsError(true);
       },
@@ -137,7 +147,9 @@ export function createChatPersistQueue(setThreadsError: (failed: boolean) => voi
   }
 
   /** Resolves once no tracked save to `url`'s database is on its way — including saves that start
-   *  while it waits. Never rejects: a failed save is the save's own business. */
+   *  while it waits. Never rejects: a failed save is the save's own business. It cannot wait forever:
+   *  every save goes through `runTursoPipeline`, which gives up after `DEFAULT_PIPELINE_TIMEOUT_MS`
+   *  (15 s), so each tracked save settles. */
   async function savesSettled(url: string): Promise<void> {
     for (let pending = inFlightByUrl.get(url); pending && pending.size > 0; pending = inFlightByUrl.get(url)) {
       await Promise.allSettled([...pending]);

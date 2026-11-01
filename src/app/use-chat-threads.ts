@@ -48,7 +48,7 @@ import {
   RENAME_KIND, urlOf, outboxScope, sameDatabase, retentionInForce, expiredBy, expireOldThreads, type SaveGate,
 } from "./chat-thread-writes";
 import { useChatIdentity } from "./use-chat-identity";
-import { createChatPersistQueue } from "./chat-persist-queue";
+import { createChatPersistQueue, WriteRefusedError } from "./chat-persist-queue";
 import { useChatThreadRenames } from "./use-chat-thread-renames";
 import { useChatErase } from "./use-chat-erase";
 import { useChatThreadsPublish } from "./use-chat-threads-publish";
@@ -307,9 +307,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
 
   async function runSave(config: TursoConfig | null, th: ChatThread, gate: SaveGate): Promise<void> {
     // Every write (a rename, an end-of-turn save, a retry) goes only to the thread's own database.
+    // Refused, not landed: no confirmed name, no settled outbox entry, no cleared banner.
     if (!ledger.cameFrom(urlOf(config), th.id)) {
       logDiag("warn", "chat.threadOtherDatabase");
-      return;
+      throw new WriteRefusedError();
     }
     if (gate.retentionDays !== null) expireOldThreads(config, gate.retentionDays, th.projectId, () => threadsRef.current);
     const owner = identity.trustedIdentity(config) ?? (await identity.writeIdentity(config));
