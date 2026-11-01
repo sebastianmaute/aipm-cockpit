@@ -44,6 +44,7 @@ vi.mock("./ai-usage-panel", () => ({
 // window.confirm; no ConfirmProvider here, so mock the hook to auto-confirm.
 vi.mock("../confirm-dialog", () => ({
   useConfirm: () => () => Promise.resolve(true),
+  useNotice: () => () => Promise.resolve(),
 }));
 
 beforeEach(() => {
@@ -1290,6 +1291,29 @@ describe("AiSection — saved chat retention", () => {
     expect(screen.getByText("Chats werden nach 30 Tagen ohne Aktivität gelöscht.")).toBeInTheDocument();
     expect(screen.getByText("Die Aufbewahrungseinstellung des Servers für Chats ist ungültig; es gilt der Standard von 30 Tagen.")).toBeInTheDocument();
     expect(screen.getByText("Der Wiederherstellungsschlüssel des Servers für Chats ist ungültig, daher werden Chats nicht gespeichert.")).toBeInTheDocument();
+  });
+
+  const withTurso: Settings = {
+    ...defaultSettings,
+    integrations: {
+      ...defaultSettings.integrations,
+      turso: { ...defaultSettings.integrations?.turso, databaseUrl: "libsql://db.example.turso.io", authToken: "tok" },
+    } as Settings["integrations"],
+  };
+  const passphraseHeading = () => screen.queryByRole("group", { name: t("en-US", "chatPassphraseHeading") });
+  it("shows the chat passphrase area while chats are saved to a Turso database", () => {
+    withChat(chat({ recoveryKey: "spki" }));
+    render(<AiSection lang="en-US" settings={withTurso} onChange={vi.fn()} />);
+    expect(passphraseHeading()).toBeInTheDocument();
+  });
+  it("hides the chat passphrase area without a recovery key, or without a Turso database", () => {
+    withChat(chat());
+    const { unmount } = render(<AiSection lang="en-US" settings={withTurso} onChange={vi.fn()} />);
+    expect(passphraseHeading()).toBeNull();
+    unmount();
+    withChat(chat({ recoveryKey: "spki" }));
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(passphraseHeading()).toBeNull();
   });
 });
 

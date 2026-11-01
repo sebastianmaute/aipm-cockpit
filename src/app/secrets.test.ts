@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect } from "vitest";
-import { sealDevice, openDevice, sealPassphrase, openPassphrase, SecretUnlockError, isSealedSecret, SECRET_IDS, sealDeviceValue, openDeviceValue } from "./secrets";
+import { sealDevice, openDevice, sealPassphrase, openPassphrase, SecretUnlockError, isSealedSecret, SECRET_IDS, sealDeviceValue, openDeviceValue, sealPassphraseValue, openPassphraseValue } from "./secrets";
 
 describe("secrets", () => {
   it("round-trips a secret through the device key", async () => {
@@ -69,5 +69,19 @@ describe("secrets", () => {
     await expect(openDeviceValue({ ...sealed, ciphertext: btoa(s) })).rejects.toBeInstanceOf(
       SecretUnlockError,
     );
+  });
+});
+
+describe("passphrase-sealed values", () => {
+  it("round-trips under the passphrase with a fresh 16-byte salt, and a wrong passphrase is a SecretUnlockError", async () => {
+    const sealed = await sealPassphraseValue("chat-key-b64", "correct horse battery");
+    expect(atob(sealed.salt)).toHaveLength(16);
+    expect(atob(sealed.iv)).toHaveLength(12);
+    expect(sealed.ciphertext).not.toContain("chat-key");
+    expect(await openPassphraseValue(sealed, "correct horse battery")).toBe("chat-key-b64");
+    await expect(openPassphraseValue(sealed, "wrong horse battery")).rejects.toBeInstanceOf(SecretUnlockError);
+    await expect(openPassphraseValue({ ...sealed, salt: "!!" }, "correct horse battery")).rejects.toBeInstanceOf(SecretUnlockError);
+    const again = await sealPassphraseValue("chat-key-b64", "correct horse battery");
+    expect(again.salt).not.toBe(sealed.salt);
   });
 });

@@ -65,6 +65,10 @@ describe("chat-threads-store", () => {
     expect(TABLE_NAMES).not.toContain("chat_threads");
   });
 
+  it("chat_keys is NOT in TABLE_NAMES", () => {
+    expect(TABLE_NAMES).not.toContain("chat_keys");
+  });
+
   it("saveThread prepends DDL, upserts an owned encrypted row atomically, and prunes the owner's group", async () => {
     await saveThread(cfg, th, alice, spkiB64);
     const stmts = lastStmts();

@@ -39,6 +39,12 @@ function ensureColumns(config: TursoConfig | null): Promise<void> {
   return run;
 }
 
+/** Create the table and bring an older one up to the current columns (once per database), for a
+ *  caller that runs its own chat_threads statements (adoption, chat-passphrase.ts). */
+export function ensureChatThreadsColumns(config: TursoConfig | null): Promise<void> {
+  return ensureColumns(config);
+}
+
 /** Test seam: forget every remembered heal. */
 export function __resetChatThreadsHealForTests(): void {
   healed.clear();

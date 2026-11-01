@@ -39,6 +39,10 @@ import { useToastAction, useToastContext } from "../toast-context";
 import { useChatModels } from "../use-chat-models";
 import { isValidAnthropicApiKey } from "../chat-models";
 import { clearSessionAiKey } from "../session-ai-key";
+import { getTursoConfig } from "../turso-config";
+import { chatVaultAvailable } from "../chat-key-vault";
+import { chatPersistence } from "../use-chat-threads";
+import { ChatPassphraseSection } from "./chat-passphrase-section";
 
 interface AiSectionProps {
   lang: Lang;
@@ -384,6 +388,10 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   const blockedMessageKey = aiDeploymentBlockedMessageKey();
   const deploymentBlocked = blockedMessageKey !== null;
   const chatSettings = getAiDeploymentState().chat;
+  // The chat passphrase area shows only while chats are saved: the same rule the chat panel uses (server
+  // settings known, this browser can encrypt, a recovery key set), plus a Turso database to store the key in.
+  const chatTursoConfig = getTursoConfig(settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken);
+  const chatPassphraseShown = chatTursoConfig !== null && chatPersistence(chatSettings, chatVaultAvailable()) === "on";
   const consentCurrent = isConsentCurrent(settings.ai.consent);
   // While the deployment blocks AI the switch reads off, so nothing under it is shown either (no key field,
   // behaviour toggles, caps, consent review or accepting a consent). Withdrawing stays as available as giving:
@@ -461,6 +469,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           {chatSettings.recoveryKeyInvalid && <FieldNotice>{t(lang, "aiChatRecoveryKeyInvalid")}</FieldNotice>}
         </>
       )}
+      {chatPassphraseShown && chatTursoConfig !== null && <ChatPassphraseSection lang={lang} tursoConfig={chatTursoConfig} />}
       <label className="mt-2 flex items-center gap-2">
         <Checkbox
           // While the deployment blocks AI the switch reads off, as AI is; the stored value is kept.

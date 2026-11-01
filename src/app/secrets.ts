@@ -250,3 +250,35 @@ export async function openPassphrase(s: SealedSecret, passphrase: string): Promi
   const key = await deriveKey(passphrase, fromB64(s.salt));
   return aesDecrypt(key, s);
 }
+
+/** A value sealed under a passphrase that is not one of the `SECRET_IDS` settings fields (e.g. a
+ *  chat key kept in Turso for another browser). Same PBKDF2 parameters as `sealPassphrase`; every
+ *  field is base64. */
+export interface PassphraseSealedValue {
+  salt: string;
+  iv: string;
+  ciphertext: string;
+}
+
+/** Seal an arbitrary string under a key derived from `passphrase`, with a fresh 16-byte salt and
+ *  12-byte IV. */
+export async function sealPassphraseValue(plaintext: string, passphrase: string): Promise<PassphraseSealedValue> {
+  const salt = randomBytes(16);
+  const key = await deriveKey(passphrase, salt);
+  const iv = randomBytes(12);
+  const ct = await subtle().encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
+  return { salt: toB64(salt), iv: toB64(iv), ciphertext: toB64(ct) };
+}
+
+/** Open a `sealPassphraseValue` result. A wrong passphrase, or a tampered or malformed value,
+ *  throws `SecretUnlockError`. */
+export async function openPassphraseValue(v: PassphraseSealedValue, passphrase: string): Promise<string> {
+  let salt: Uint8Array<ArrayBuffer>;
+  try {
+    salt = fromB64(v.salt);
+  } catch {
+    throw new SecretUnlockError("bad-salt");
+  }
+  const key = await deriveKey(passphrase, salt);
+  return aesDecryptB64(key, v.iv, v.ciphertext);
+}
