@@ -51,22 +51,22 @@ describe("single delete confirmation (ResourceEditModal)", () => {
       </Providers>,
     );
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
-    await screen.findByText(new RegExp(t("en-US", "resourceConfirmDelete").replace(/[?]/g, "\\?")));
+    await screen.findByText((text) => text.includes(t("en-US", "resourceConfirmDelete")));
   }
 
   it.each(["ready", "idle", "loading"] as const)("shows the clause when answers are shared (status %s)", async (status) => {
     await openConfirm(cross(status));
-    expect(screen.getByText(new RegExp(note.slice(0, 30)))).toBeTruthy();
+    expect(screen.getByText((text: string) => text.includes(note))).toBeTruthy();
   });
 
   it("does not show it when the feature is unavailable", async () => {
     await openConfirm(cross("unavailable"));
-    expect(screen.queryByText(new RegExp(note.slice(0, 30)))).toBeNull();
+    expect(screen.queryByText((text: string) => text.includes(note))).toBeNull();
   });
 
   it("does not show it without a crossProject", async () => {
     await openConfirm(undefined);
-    expect(screen.queryByText(new RegExp(note.slice(0, 30)))).toBeNull();
+    expect(screen.queryByText((text: string) => text.includes(note))).toBeNull();
   });
 });
 
@@ -88,16 +88,16 @@ describe("bulk delete confirmation (ResourceDirectory)", () => {
 
   it("shows the clause when answers are shared", async () => {
     await openBulk(true);
-    await waitFor(() => expect(screen.getByText(new RegExp(note.slice(0, 30)))).toBeTruthy());
+    await waitFor(() => expect(screen.getByText((text: string) => text.includes(note))).toBeTruthy());
   });
 
   it("does not show it when sharesAnswers is false", async () => {
     await openBulk(false);
-    expect(screen.queryByText(new RegExp(note.slice(0, 30)))).toBeNull();
+    expect(screen.queryByText((text: string) => text.includes(note))).toBeNull();
   });
 
   it("does not show it when the prop is absent", async () => {
     await openBulk(undefined);
-    expect(screen.queryByText(new RegExp(note.slice(0, 30)))).toBeNull();
+    expect(screen.queryByText((text: string) => text.includes(note))).toBeNull();
   });
 });
