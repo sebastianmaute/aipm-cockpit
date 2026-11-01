@@ -286,35 +286,38 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
    *  stored row another owner took over — keeps the conversation on screen under no thread, so the next
    *  send saves it under a new id of this owner's: it is this person's own content, not an erasure. */
   function saveAction(config: TursoConfig | null, th: ChatThread, gate: SaveGate): () => Promise<void> {
-    return async () => {
-      // Every write (a rename, an end-of-turn save, a retry) goes only to the thread's own database.
-      if (!ledger.cameFrom(urlOf(config), th.id)) {
-        logDiag("warn", "chat.threadOtherDatabase");
-        return;
-      }
-      if (gate.retentionDays !== null) expireOldThreads(config, gate.retentionDays, th.projectId, () => threadsRef.current);
-      const owner = identity.trustedIdentity(config) ?? (await identity.writeIdentity(config));
-      // A LOCAL mismatch is not a take-over: the row may have been erased and a new identity started in
-      // another tab. Closed like a deleted chat, so its transcript cannot go out under the new owner.
-      if (th.ownerId !== null && th.ownerId !== owner.ownerId) {
-        dropGone(config, th, "chat.threadOwnerChanged");
-        return;
-      }
-      const url = urlOf(config);
-      const outcome = await saveThread(config, th, owner, gate.recoveryKey, { stored: ledger.isStored(url, th.id) });
-      if (outcome === "not-owned") {
-        dropUnsaveable(th.id, "chat.threadNotOwned");
-        return;
-      }
-      if (outcome === "gone" || outcome === "unconfirmed") {
-        dropGone(config, th, outcome === "gone" ? "chat.threadGone" : "chat.threadSaveUnconfirmed");
-        return;
-      }
-      ledger.markStored(url, th.id);
-      // Only into the list of the database it landed in: a write pinned to a database the user has
-      // since left must not touch the new one's list.
-      if (sameDatabase(config, liveConfigRef.current)) stampOwner(th.id, owner.ownerId);
-    };
+    // Tracked per database while on its way, so a delete-all there waits for it (`savesSettled`).
+    return () => queue.track(urlOf(config), runSave(config, th, gate));
+  }
+
+  async function runSave(config: TursoConfig | null, th: ChatThread, gate: SaveGate): Promise<void> {
+    // Every write (a rename, an end-of-turn save, a retry) goes only to the thread's own database.
+    if (!ledger.cameFrom(urlOf(config), th.id)) {
+      logDiag("warn", "chat.threadOtherDatabase");
+      return;
+    }
+    if (gate.retentionDays !== null) expireOldThreads(config, gate.retentionDays, th.projectId, () => threadsRef.current);
+    const owner = identity.trustedIdentity(config) ?? (await identity.writeIdentity(config));
+    // A LOCAL mismatch is not a take-over: the row may have been erased and a new identity started in
+    // another tab. Closed like a deleted chat, so its transcript cannot go out under the new owner.
+    if (th.ownerId !== null && th.ownerId !== owner.ownerId) {
+      dropGone(config, th, "chat.threadOwnerChanged");
+      return;
+    }
+    const url = urlOf(config);
+    const outcome = await saveThread(config, th, owner, gate.recoveryKey, { stored: ledger.isStored(url, th.id) });
+    if (outcome === "not-owned") {
+      dropUnsaveable(th.id, "chat.threadNotOwned");
+      return;
+    }
+    if (outcome === "gone" || outcome === "unconfirmed") {
+      dropGone(config, th, outcome === "gone" ? "chat.threadGone" : "chat.threadSaveUnconfirmed");
+      return;
+    }
+    ledger.markStored(url, th.id);
+    // Only into the list of the database it landed in: a write pinned to a database the user has
+    // since left must not touch the new one's list.
+    if (sameDatabase(config, liveConfigRef.current)) stampOwner(th.id, owner.ownerId);
   }
 
   /** The thread `th` is gone from the database (erased, deleted elsewhere, expired), or stamped with an
@@ -723,7 +726,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     tursoConfig, projectId, lang, confirm, deleteGate, knownOwnerId: identity.knownOwnerId, threads, threadsRef,
     threadIdRef, projectEpochRef, setThreads, setActiveThreadId, setHistory, setDisplay,
     knownIdentity: identity.knownIdentity, storedIdentity: identity.storedIdentity, writeConfig, renameScope, runPersist,
-    forgetRetries: queue.forgetRetries, loadVisibleThreads,
+    forgetRetries: queue.forgetRetries, savesSettled: (config) => queue.savesSettled(urlOf(config)), loadVisibleThreads,
   });
 
   return {

@@ -59,6 +59,8 @@ export interface UseChatEraseDeps {
   renameScope: (config?: TursoConfig | null) => string | null;
   runPersist: (key: string, action: () => Promise<void>) => void;
   forgetRetries: (ids: readonly string[]) => void;
+  /** Resolves once no save to `config`'s database is on its way. */
+  savesSettled: (config: TursoConfig | null) => Promise<void>;
   loadVisibleThreads: (config: TursoConfig | null, pid: string) => Promise<ChatThread[]>;
 }
 
@@ -66,7 +68,7 @@ export function useChatErase(deps: UseChatEraseDeps) {
   const {
     tursoConfig, projectId, lang, confirm, deleteGate, knownOwnerId, threads, threadsRef, threadIdRef, projectEpochRef,
     setThreads, setActiveThreadId, setHistory, setDisplay, knownIdentity, storedIdentity, writeConfig, renameScope, runPersist,
-    forgetRetries, loadVisibleThreads,
+    forgetRetries, savesSettled, loadVisibleThreads,
   } = deps;
 
   async function requestDeleteThread(id: string): Promise<void> {
@@ -151,6 +153,8 @@ export function useChatErase(deps: UseChatEraseDeps) {
     if (!identity) return "done";
     const epoch = projectEpochRef.current;
     const pid = projectId;
+    // A save still on its way (a first send's insert) would land after the delete and leave its row.
+    await savesSettled(config);
     await deleteOwnerThreads(config, identity.ownerId);
     await dropDeletedDraftNames(config);
     // This owner's threads are gone in every project, so whichever project is open now loses them.

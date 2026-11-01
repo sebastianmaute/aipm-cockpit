@@ -116,6 +116,34 @@ export function createChatPersistQueue(setThreadsError: (failed: boolean) => voi
     );
   }
 
+  // Per database URL, the saves still on their way. A delete-all waits for them (`savesSettled`): an
+  // insert that lands after the owner delete ran would otherwise leave its row behind.
+  const inFlightByUrl = new Map<string, Set<Promise<unknown>>>();
+
+  /** Tracks `write`, a save to `url`'s database, until it settles; returns it unchanged. */
+  function track<T>(url: string, write: Promise<T>): Promise<T> {
+    let pending = inFlightByUrl.get(url);
+    if (!pending) {
+      pending = new Set();
+      inFlightByUrl.set(url, pending);
+    }
+    const set = pending;
+    set.add(write);
+    const forget = () => {
+      set.delete(write);
+    };
+    write.then(forget, forget);
+    return write;
+  }
+
+  /** Resolves once no tracked save to `url`'s database is on its way — including saves that start
+   *  while it waits. Never rejects: a failed save is the save's own business. */
+  async function savesSettled(url: string): Promise<void> {
+    for (let pending = inFlightByUrl.get(url); pending && pending.size > 0; pending = inFlightByUrl.get(url)) {
+      await Promise.allSettled([...pending]);
+    }
+  }
+
   /** A fresh load for (possibly) another project: the pending retries no longer apply. `latestSeqRef`
    *  is cleared with them (its counter is global and never resets, so this cannot make a later write
    *  collide with an older one). */
@@ -140,7 +168,7 @@ export function createChatPersistQueue(setThreadsError: (failed: boolean) => voi
   }
 
   return {
-    runPersist, resetForLoad, retryFailed, forgetRetries,
+    runPersist, resetForLoad, retryFailed, forgetRetries, track, savesSettled,
     /** Writes started so far (an occurrence count). */
     startedCount: () => persistSeqRef.current,
     /** Whether a write is outstanding right now. */

@@ -67,4 +67,25 @@ describe("createChatPersistQueue", () => {
     queue.resetForLoad();
     expect(queue.retryFailed()).toBe(false);
   });
+
+  it("waits for the tracked saves of one database only, including one started while it waits", async () => {
+    const queue = createChatPersistQueue(vi.fn());
+    const a1 = deferred();
+    const a2 = deferred();
+    const b = deferred();
+    queue.track("A", a1.promise);
+    queue.track("B", b.promise);
+    let settled = false;
+    const waiting = queue.savesSettled("A").then(() => {
+      settled = true;
+    });
+    queue.track("A", a2.promise);
+    a1.resolve();
+    await flush();
+    expect(settled).toBe(false);
+    a2.reject(new Error("down"));
+    await waiting;
+    expect(settled).toBe(true);
+    await expect(queue.savesSettled("C")).resolves.toBeUndefined();
+  });
 });

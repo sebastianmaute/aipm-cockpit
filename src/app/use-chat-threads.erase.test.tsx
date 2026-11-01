@@ -343,3 +343,41 @@ describe("useChatThreads — a chat started here is owned once saved", () => {
     expect(api!.activeThreadId).toBeNull();
   });
 });
+
+describe("useChatThreads — delete all waits for the saves still on their way", () => {
+  it("a first-send insert still in flight when delete-all starts is deleted with the rest", async () => {
+    const me = await ensureChatIdentity(CFG.httpUrl);
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(result.current.erase.ownerId).toBe(me!.ownerId));
+    let landInsert!: (outcome: string) => void;
+    saveThreadMock.mockImplementationOnce(() => new Promise<string>((resolve) => {
+      landInsert = resolve;
+    }));
+    act(() => {
+      result.current.ensureThreadForSend([{ role: "user", content: "about Jane" }], [{ kind: "user", text: "about Jane" }]);
+    });
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+
+    let done = false;
+    let deleting!: Promise<unknown>;
+    act(() => {
+      deleting = result.current.erase.deleteAll().then(() => {
+        done = true;
+      });
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    // The owner delete must not run before the insert has landed: it would miss the row.
+    expect(deleteOwnerThreadsMock).not.toHaveBeenCalled();
+    expect(done).toBe(false);
+
+    await act(async () => {
+      landInsert("saved");
+      await deleting;
+    });
+    expect(deleteOwnerThreadsMock).toHaveBeenCalledTimes(1);
+    expect(deleteOwnerThreadsMock.mock.invocationCallOrder[0]).toBeGreaterThan(saveThreadMock.mock.invocationCallOrder[0]);
+    expect(done).toBe(true);
+  });
+});
