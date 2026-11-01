@@ -32,7 +32,7 @@ import {
 } from "./chat-threads-store";
 import type { ChatSettings } from "./ai-chat-retention-config";
 import type { ChatIdentity } from "./chat-thread-codec";
-import { chatVaultAvailable, ensureChatIdentity, readChatIdentity } from "./chat-key-vault";
+import { chatVaultAvailable, ensureChatIdentity, getChatIdentity, readChatIdentity } from "./chat-key-vault";
 import { retentionCutoff } from "./chat-threads-schema";
 import {
   type ChatThread, newThreadId, deriveThreadName, normalizeThreadName, stripAttachmentsForPersistence,
@@ -1140,8 +1140,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     if (!saveGate) return;
     runPersist(id, async () => {
       const config = writeConfig(deleteConfig);
-      const identity = knownIdentity(config) ?? (await writeIdentity(config));
-      await deleteThreadRow(config, id, target.projectId, identity.ownerId);
+      // A delete never creates an identity. Without one, only legacy rows are this browser's to delete,
+      // and an owner id that is never stored matches exactly those (the delete's legacy branch).
+      const identity = knownIdentity(config) ?? (await getChatIdentity(config?.httpUrl ?? ""));
+      await deleteThreadRow(config, id, target.projectId, identity?.ownerId ?? crypto.randomUUID());
     });
   }
 

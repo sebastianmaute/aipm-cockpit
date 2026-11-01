@@ -39,6 +39,15 @@ describe("chat-key-vault", () => {
     expect(Array.from(read!.chatKey)).toEqual(Array.from(first!.chatKey));
   });
 
+  it("two concurrent first calls create one identity, the one stored", async () => {
+    const [x, y] = await Promise.all([ensureChatIdentity(URL_A), ensureChatIdentity(URL_A)]);
+    expect(x!.ownerId).toBe(y!.ownerId);
+    expect(Array.from(x!.chatKey)).toEqual(Array.from(y!.chatKey));
+    const parsed = JSON.parse(stored()!) as Record<string, { ownerId: string }>;
+    expect(parsed[URL_A]!.ownerId).toBe(x!.ownerId);
+    expect((await getChatIdentity(URL_A))!.ownerId).toBe(x!.ownerId);
+  });
+
   it("keeps one identity per database URL", async () => {
     const a = await ensureChatIdentity(URL_A);
     const b = await ensureChatIdentity(URL_B);

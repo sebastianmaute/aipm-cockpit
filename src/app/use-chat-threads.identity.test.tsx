@@ -29,6 +29,8 @@ vi.mock("./chat-key-vault", () => ({
     const identity = h.vault.get(url);
     return identity ? { kind: "found", identity } : { kind: "absent" };
   }),
+  getChatIdentity: vi.fn(async (url: string) =>
+    (!h.available.value || h.locked.has(url) ? null : h.vault.get(url) ?? null)),
   ensureChatIdentity: vi.fn(async (url: string) => {
     if (!h.available.value || h.locked.has(url)) return null;
     let identity = h.vault.get(url);

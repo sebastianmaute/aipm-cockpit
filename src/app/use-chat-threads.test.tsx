@@ -27,6 +27,7 @@ const { TEST_IDENTITY } = vi.hoisted(() => ({ TEST_IDENTITY: { ownerId: "owner-t
 vi.mock("./chat-key-vault", () => ({
   chatVaultAvailable: () => true,
   readChatIdentity: vi.fn(async () => ({ kind: "found", identity: TEST_IDENTITY })),
+  getChatIdentity: vi.fn(async () => TEST_IDENTITY),
   ensureChatIdentity: vi.fn(async () => TEST_IDENTITY),
 }));
 const CHAT_ON = { retentionDays: 30, retentionInvalid: false, recoveryKey: "recovery-spki", recoveryKeyInvalid: false };

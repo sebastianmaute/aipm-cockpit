@@ -88,9 +88,10 @@ export async function getChatIdentity(httpUrl: string): Promise<ChatIdentity | n
   return read.kind === "found" ? read.identity : null;
 }
 
-/** The identity for `httpUrl`, created on first use. Null when this browser cannot encrypt, or holds
- *  an entry its device key cannot open (that entry is kept, not replaced). */
-export async function ensureChatIdentity(httpUrl: string): Promise<ChatIdentity | null> {
+/** One creation in flight per database URL in this tab, so overlapping first writes share it. */
+const creating = new Map<string, Promise<ChatIdentity | null>>();
+
+async function createChatIdentity(httpUrl: string): Promise<ChatIdentity | null> {
   const read = await readChatIdentity(httpUrl);
   if (read.kind === "found") return read.identity;
   if (read.kind === "unavailable") return null;
@@ -100,7 +101,20 @@ export async function ensureChatIdentity(httpUrl: string): Promise<ChatIdentity 
   } catch {
     return null;
   }
-  return identity;
+  // Return what is stored, so a tab that wrote in between is adopted where it can be. Two tabs can still
+  // both read "absent" and both write; the saves made under the overwritten identity are then unreadable.
+  return getChatIdentity(httpUrl);
+}
+
+/** The identity for `httpUrl`, created on first use. Null when this browser cannot encrypt, or holds
+ *  an entry its device key cannot open (that entry is kept, not replaced). Concurrent calls for one
+ *  URL share a single creation. */
+export function ensureChatIdentity(httpUrl: string): Promise<ChatIdentity | null> {
+  const inFlight = creating.get(httpUrl);
+  if (inFlight) return inFlight;
+  const run = createChatIdentity(httpUrl).finally(() => creating.delete(httpUrl));
+  creating.set(httpUrl, run);
+  return run;
 }
 
 /** Store `id` as this browser's identity for `httpUrl`, replacing any earlier one. */

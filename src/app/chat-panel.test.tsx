@@ -74,6 +74,7 @@ vi.mock("./chat-threads-store", () => ({
 vi.mock("./chat-key-vault", () => ({
   chatVaultAvailable: () => true,
   readChatIdentity: vi.fn(async () => ({ kind: "absent" })),
+  getChatIdentity: vi.fn(async () => null),
   ensureChatIdentity: vi.fn(async () => ({ ownerId: "owner-test", chatKey: new Uint8Array(32) })),
 }));
 
