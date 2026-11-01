@@ -635,10 +635,14 @@ are in [security.md → Environment variables](security.md#environment-variables
 
 **The server sweep.** At start and every 24 hours the server deletes every chat whose
 retention period has passed, with `AIPM_CHAT_SWEEP_TURSO_URL` +
-`AIPM_CHAT_SWEEP_TURSO_TOKEN`, or, when that URL is unset, the build's
+`AIPM_CHAT_SWEEP_TURSO_TOKEN`, or, only when that URL is unset (or blank),
 `NEXT_PUBLIC_TURSO_DATABASE_URL` + `NEXT_PUBLIC_TURSO_AUTH_TOKEN` (never one of each).
-It logs `chat sweep: <n> expired` or `chat sweep failed`, never a URL, token or error
-text. With neither pair usable it runs no schedule and logs nothing. ★★ **Stated
+★★ The server reads that public pair from its RUN-TIME environment, not from the build:
+set it where the server runs, not only as build arguments, or there is no sweep. If
+`AIPM_CHAT_SWEEP_TURSO_URL` is set but unusable (not a `libsql://`/`https://` URL, plain
+`http://` other than loopback, or a remote URL without its token), the public pair is not
+tried and no sweep runs. It logs `chat sweep: <n> expired` or `chat sweep failed`, never
+a URL, token or error text. With no usable pair it runs no schedule and logs nothing. ★★ **Stated
 limit:** a database configured only in a user's browser (Settings → Integrations) is
 unknown to the server. Its chats are still deleted by the browser (once per page load,
 across the whole database, even with AI off) — or by you, with the script below.
