@@ -53,7 +53,9 @@ export interface ChatThreadSidebarProps {
   onRenameDraft?: (id: string, value: string) => void;
   onRenameCancel?: (id: string) => void;
   onDelete: (id: string) => void;
-  /** "Delete all my chats" and "Find chats mentioning a person"; shown only while chats are saved. */
+  /** "Delete all my chats" and "Find chats mentioning a person"; shown while `erase.enabled` is true —
+   *  the chat status known, in Turso mode — including while chats are not saved, because a delete needs
+   *  no encryption. "Delete all" itself is disabled without a stored owner. */
   erase?: ChatEraseActions;
 }
 

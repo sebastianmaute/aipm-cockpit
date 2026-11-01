@@ -56,7 +56,7 @@ import type { ChatThreadCloseReason } from "./chat-not-saved-notice";
 
 export { chatPersistence, type ChatPersistence } from "./use-chat-identity";
 
-/** The diagnostics code a thread that is never written again is logged with. */
+/** The diagnostics code a thread marked gone (`dropGone`) is logged with. */
 type GoneCode = "chat.threadGone" | "chat.threadOwnerChanged" | "chat.threadSaveUnconfirmed";
 export type { ChatEraseActions, DeleteAllOutcome } from "./use-chat-erase";
 
@@ -319,8 +319,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
 
   /** The thread `th` is gone from the database (erased, deleted elsewhere, expired), or stamped with an
    *  owner this browser no longer is, or a save could not confirm it is there ("unconfirmed"): off the
-   *  list, its pending rename goes too, and it is never written again. The active one is closed whichever
-   *  database is current now; the notice says it was deleted except for "unconfirmed". */
+   *  list, its pending rename goes too, and it is marked gone in `config`'s database. The active thread
+   *  is closed only when it came from that database — which need not be the current one: after a switch
+   *  its transcript is still on screen — and never a same-id thread of another database. With a send
+   *  running, the end-of-turn effect closes it instead. The notice says it was deleted except for
+   *  "unconfirmed". */
   function dropGone(config: TursoConfig | null, th: ChatThread, code: GoneCode): void {
     const scope = outboxScope(config, th.projectId);
     if (scope) dropPendingEdit(scope, RENAME_KIND, th.id);

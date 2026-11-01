@@ -5,8 +5,11 @@
 // within one database (a fork or a restore can hold the same id elsewhere):
 //   - stored: the row is known to exist in that database (a load read it, or a save of it landed).
 //     Such a thread is only ever UPDATEd, so a chat erased or deleted elsewhere is never inserted again.
-//   - gone:   the row was found gone there, or stamped with an owner this browser no longer is. It is
-//     never written again, under its id or a new one.
+//   - gone:   the row was found gone there, or stamped with an owner this browser no longer is, or a
+//     save could not confirm it is there. useChatThreads takes it off the list and closes it on screen,
+//     and its end-of-turn save checks this flag (for the database the turn started in), so the
+//     transcript is not saved again under its id or a new one. The flag is per database: the same id
+//     in another database is not gone.
 //   - source: the database the in-memory copy came from (a load showed it, or it was minted here while
 //     that database was current). A thread is written only to its source database. An id has at most
 //     one source: recording a new one replaces the old.
@@ -24,7 +27,7 @@ export interface ChatThreadLedger {
   /** Thread `id` is stored in `url` (a save of it landed there). */
   markStored(url: string, id: string): void;
   isStored(url: string, id: string): boolean;
-  /** Thread `id` is gone from `url` (or no longer this browser's there): never written again. */
+  /** Thread `id` is gone from `url` (or no longer this browser's there, or unconfirmed). */
   markGone(url: string, id: string): void;
   isGone(url: string, id: string): boolean;
   /** The in-memory thread `id` came from `url`; any other database's claim on the id is dropped. */
