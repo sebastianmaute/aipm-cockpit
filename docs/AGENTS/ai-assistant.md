@@ -2241,11 +2241,22 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   ★★ Dropping it from the list is NOT enough: the conversation left on screen would go out with the next
   send under a NEW id, i.e. an INSERT of the erased transcript. So a gone ACTIVE thread is closed
   (`closeGoneThread`: no active thread, history and display cleared, `threadClosed` drives
-  `ChatThreadClosedNotice`); with a send running, its id stays in `goneRef` and the busy-persist effect closes it
-  without saving once the turn settles. The close ignores which database is CURRENT: after a switch the old
-  transcript is still on screen. `goneRef` is keyed by database URL + id and looked up with the database the
-  thread CAME FROM (the turn's config; `threadDbRef` records each in-memory thread's database on every load
-  and mint), so the same id in another database (a fork or restore) is never closed by mistake.
+  `ChatThreadClosedNotice`); with a send running, its id is marked gone in the ledger and the busy-persist
+  effect closes it without saving once the turn settles. The close ignores which database is CURRENT: after a
+  switch the old transcript is still on screen. Gone is keyed by database URL + id and looked up with the
+  database the thread CAME FROM (the turn's config; the ledger's source records each in-memory thread's
+  database on every load and mint), so the same id in another database (a fork or restore) is never closed by
+  mistake.
+  ★★ **Module map.** `use-chat-threads.ts` composes: `chat-thread-ledger.ts` (`createChatThreadLedger`, pure:
+  stored, gone and source of every thread, each keyed by database URL AND thread id — `recordLoaded`,
+  `markStored`/`isStored`, `markGone`/`isGone`, `recordSource`/`cameFrom`/`sourceOf`; an id has one source at a
+  time); `use-chat-identity.ts` (`useChatIdentity`: the vault read, `writeIdentity`, `trustedIdentity`, the
+  cross-tab `identityReloads` signal, `startNewIdentity` and `chatPersistence`); `chat-persist-queue.ts`
+  (`createChatPersistQueue`: `runPersist`, its write ordering, retries and landings); `use-chat-thread-renames.ts`
+  (`useChatThreadRenames`: rename and the §626 outbox); `use-chat-erase.ts` (`useChatErase`: single delete,
+  delete ticked, delete all); `use-chat-threads-publish.ts` (`useChatThreadsPublish`: the registry the
+  dispatcher reads); and `chat-thread-writes.ts` (shared helpers: outbox scope, `sameDatabase`, the retention
+  expiry). Every module is coverage-gated, not excluded.
   ★★★ A load keeps only held rows of ITS OWN database (`mergeThreadsAfterLoad` / `resetThreadsAfterFailedLoad`
   take a `fromLoadedDatabase` predicate). A project id is not unique across databases: without it, a close
   on a database the user left (`threadIdRef` null makes the next load take the stale branch) kept the old
