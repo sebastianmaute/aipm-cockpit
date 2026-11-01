@@ -1021,9 +1021,10 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§783](#783-the-top-bars-bell-is-named-for-due-date-notifications-but-opens-next-actions--closed-2026-10-26) | The top bar's bell is named for due-date notifications but opens Next actions | — | — | **CLOSED** 2026-10-26 |
 | [§784](#784-escape-on-the-reports-replace-or-keep-both-question-adds-the-ai-section-instead-of-cancelling--open) | Escape on the report's Replace or Keep both question adds the AI section instead of cancelling | — | — | open |
 | [§785](#785-plan-with-ai-does-not-see-the-load-a-person-carries-in-other-projects--closed-2026-11-01) | Plan with AI does not see the load a person carries in other projects | — | — | **CLOSED** 2026-11-01 |
-| [§786](#786-dictation-stays-available-in-an-open-tab-after-the-people-protection-lock-is-set) | Dictation stays available in an open tab after the people-protection lock is set | #924 | — | OPEN |
+| [§786](#786-dictation-stays-available-in-an-open-tab-after-the-people-protection-lock-is-set--closed-2026-11-01) | Dictation stays available in an open tab after the people-protection lock is set | — | — | **CLOSED** 2026-11-01 |
 | [§787](#787-i18n-pluraltestts-runs-about-24-s-against-the-20-s-unit-timeout) | i18n-plural.test.ts runs about 24 s against the 20 s unit timeout | #926 | — | OPEN |
 | [§788](#788-deleting-a-person-leaves-their-name-in-the-shared-person_links-table) | Deleting a person leaves their name in the shared person_links table | #935 | — | OPEN |
+| [§789](#789-the-browsers-speech-recognition-keeps-listening-in-an-open-tab-after-the-people-protection-lock-is-set) | The browser's speech recognition keeps listening in an open tab after the people-protection lock is set | #937 | — | OPEN |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46166,13 +46167,9 @@ Size M.
 
 **Source:** owner decision 2026-10-30 (§769 design, Non-goals).
 
-## 786. Dictation stays available in an open tab after the people-protection lock is set
+## 786. Dictation stays available in an open tab after the people-protection lock is set — CLOSED 2026-11-01
 
-**Status:** OPEN 2026-10-31, filed when AI people protection shipped. `grep -n refuseIfDisabled src/app/api/stt/_helpers.ts` → the route refuses only `stt` and `ai`. With people protection on, dictation is switched off in the app (`useDictationMic`), but that switch is read in the browser: when an organisation adds `ai-people` to `AIPM_DISABLED_INTEGRATIONS` while a tab is open, the tab learns of the lock only on its next AI request (the per-send `/api/ai/status` check) or a reload, so dictation stays available there until then.
-
-**Work item:** #924
-
-What it would take: refuse `ai-people` in the speech-to-text route as well (`refuseIfDisabled("ai-people")` beside the existing two), so every tab stops dictating as soon as the lock is set, plus a case in `src/app/api/stt/route.test.ts`. A forced lock protects every project, so no project legitimately dictates under it.
+**Status:** CLOSED 2026-11-01 on `fix/786-dictation-people-lock`, for the speech-to-text service only; the browser's own speech recognition is split out as §789 (owner decision 2026-11-01). `/api/stt` now refuses `ai-people` as well (`parseSttRequest`), and `stt-engine.ts` discards a recording when the status check it already makes reports the lock, with a message that names the organisation (`dictationUnavailablePeopleForced`, also the mic's off reason under the lock). Before the fix: `grep -n refuseIfDisabled src/app/api/stt/_helpers.ts` → the route refuses only `stt` and `ai`. With people protection on, dictation is switched off in the app (`useDictationMic`), but that switch is read in the browser: when an organisation adds `ai-people` to `AIPM_DISABLED_INTEGRATIONS` while a tab is open, the tab learns of the lock only on its next AI request (the per-send `/api/ai/status` check) or a reload, so dictation stays available there until then.
 
 Size S.
 
@@ -46201,3 +46198,15 @@ What it would take: on a resource delete, also delete the `person_links` rows na
 Size S.
 
 **Source:** §785 code review, owner decision 2026-11-01 (file it).
+
+## 789. The browser's speech recognition keeps listening in an open tab after the people-protection lock is set
+
+**Status:** OPEN 2026-11-01, split out of §786. `grep -cE "fetch|/api/|confirmAiDeployment" src/app/web-speech-engine.ts src/app/voice.ts src/app/voice-button.tsx` prints 0 for each file: built-in dictation and voice commands make no request to this app, so neither the status check nor `/api/stt`'s refusal reaches them. When an organisation forces people protection while a tab is open, that tab goes on sending speech to the browser vendor's service until its next AI request or a reload.
+
+**Work item:** #937
+
+What it would take: ask `/api/ai/status` when either one starts and refuse under the lock, or have open tabs learn of the lock without waiting for an AI request (which covers both). Neither needs a server call today, so decide what happens when the check fails or the user is offline. Tests for the refusal and for that failure, on both paths.
+
+Size S.
+
+**Source:** §786, owner decision 2026-11-01 (file it); voice commands added from the §786 code review.
