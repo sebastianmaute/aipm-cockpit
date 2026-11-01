@@ -46171,9 +46171,6 @@ Size M.
 
 **Status:** CLOSED 2026-11-01 on `fix/786-dictation-people-lock`, for the speech-to-text service only; the browser's built-in dictation is split out as §789 (owner decision 2026-11-01). `/api/stt` now refuses `ai-people` as well (`parseSttRequest`), and `stt-engine.ts` discards a recording when the status check it already makes reports the lock, with the existing people-protection message. Before the fix: `grep -n refuseIfDisabled src/app/api/stt/_helpers.ts` → the route refuses only `stt` and `ai`. With people protection on, dictation is switched off in the app (`useDictationMic`), but that switch is read in the browser: when an organisation adds `ai-people` to `AIPM_DISABLED_INTEGRATIONS` while a tab is open, the tab learns of the lock only on its next AI request (the per-send `/api/ai/status` check) or a reload, so dictation stays available there until then.
 
-
-What it would take: refuse `ai-people` in the speech-to-text route as well (`refuseIfDisabled("ai-people")` beside the existing two), so every tab stops dictating as soon as the lock is set, plus a case in `src/app/api/stt/route.test.ts`. A forced lock protects every project, so no project legitimately dictates under it.
-
 Size S.
 
 **Source:** final review of the AI people protection branch, owner decision 2026-10-31 (file it).

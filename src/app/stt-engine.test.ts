@@ -26,6 +26,9 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) })));
 });
 
+// The lock is add-only in the app, so a test that learns it would otherwise leak it into the next.
+afterEach(() => setDisabledIntegrations([]));
+
 const cfg = { lang: "en-US" as const, baseUrl: "https://api.openai.com/v1", model: "whisper-1", apiKey: "sk-test" };
 
 describe("stt-engine — the send-time consent check (AI-01)", () => {
@@ -56,10 +59,7 @@ describe("stt-engine — the send-time consent check (AI-01)", () => {
 });
 
 describe("stt-engine — the deployment status check before the upload", () => {
-  afterEach(() => {
-    __setAiStatusRequestForTests(answerAiStatusDirect);
-    setDisabledIntegrations([]);
-  });
+  afterEach(() => __setAiStatusRequestForTests(answerAiStatusDirect));
 
   it.each([
     ["AI switched off for the deployment", () => Promise.resolve(aiStatusResponse({ off: true, route: "direct", invalid: false, keyRestricted: false })), "ai-deployment-off"],
