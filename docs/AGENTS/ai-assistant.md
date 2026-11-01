@@ -2260,6 +2260,12 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   delete ticked, delete all); `use-chat-threads-publish.ts` (`useChatThreadsPublish`: the registry the
   dispatcher reads); and `chat-thread-writes.ts` (shared helpers: outbox scope, `sameDatabase`, the retention
   expiry). Every module is coverage-gated, not excluded.
+  ★★★ **A thread is written only to its own database.** The ledger records a source only for rows a load SHOWS
+  (owner and retention filter passed) and for threads minted here; `saveAction` refuses (no network,
+  `chat.threadOtherDatabase`) any write — rename, end-of-turn save, retry — whose config is not the thread's source,
+  and `claimSource` keeps a send in another database's thread from inserting it here. The moment the database URL
+  changes, a render-time reconcile drops the old database's rows from the list (and marks the registry not
+  loaded), before the new load settles. A turn that started in A and ends after the switch is still saved to A.
   ★★★ A load keeps only held rows of ITS OWN database (`mergeThreadsAfterLoad` / `resetThreadsAfterFailedLoad`
   take a `fromLoadedDatabase` predicate). A project id is not unique across databases: without it, a close
   on a database the user left (`threadIdRef` null makes the next load take the stale branch) kept the old

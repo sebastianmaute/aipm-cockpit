@@ -11,6 +11,7 @@ import type { ApiMessage, DisplayItem } from "./chat-api";
 import type { TursoConfig } from "./turso-config";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { PENDING_EDITS_PREFIX, pendingEditScope, resetPendingEditsForTests } from "./pending-edits";
+import { readChatThreads } from "./chat-threads-registry";
 
 vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
@@ -172,7 +173,6 @@ describe("useChatThreads — writes stay in the Turso database they started in (
     loadsByDatabase([thread("t1")]); // B's load never settles
     const { result, rerender, initialProps } = renderChatThreads();
     await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
-    const listBefore = result.current.threads;
 
     rerender({ ...initialProps, ...turn, busy: true });
     rerender({ ...initialProps, ...turn, busy: true, tursoConfig: CFG_B });
@@ -182,7 +182,8 @@ describe("useChatThreads — writes stay in the Turso database they started in (
     await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
     expect(saveThreadMock.mock.calls[0]![0]).toBe(CFG_A);
     expect((saveThreadMock.mock.calls[0]![1] as ChatThread).id).toBe("t1");
-    expect(result.current.threads).toBe(listBefore);
+    // A's rows left the list when the database changed; the turn does not bring t1 back into it.
+    expect(result.current.threads).toEqual([]);
   });
 
   it("a token rotated mid-turn is the same database: the turn saves with the new token and stays in the list", async () => {
@@ -354,7 +355,8 @@ describe("useChatThreads — a load retry outliving a Turso target change (§604
     await settle(() => retry.resolve([thread("t1", { name: "Old name" })]));
 
     expect(saveThreadMock).not.toHaveBeenCalled();
-    expect(result.current.threads.map((th) => th.name)).toEqual(["Old name"]);
+    // A's rows are not shown while B's own load is out, so the replay has nothing to apply to either.
+    expect(result.current.threads).toEqual([]);
   });
 
   it("a load retry dropped after a config change leaves the confirmed names alone", async () => {
@@ -374,6 +376,53 @@ describe("useChatThreads — a load retry outliving a Turso target change (§604
     act(() => result.current.trackRenameDraft("t1", "Draft"));
     pagehide();
 
-    expect(stored(CFG_B)).toEqual([expect.objectContaining({ id: "t1", base: "Mine", value: "Draft" })]);
+    // A's thread is not B's: it is not in B's list, so no draft of it is kept under B, and the dropped
+    // retry wrote nothing (it is logged as stale).
+    expect(stored(CFG_B)).toEqual([]);
+    expect(stored(CFG_A)).toEqual([]);
+    expect(staleTargetLog()).toHaveLength(1);
+  });
+});
+
+describe("useChatThreads — between a database switch and the new load, nothing of A reaches B", () => {
+  const OLD = { history: [{ role: "user", content: "about Jane" }] as ApiMessage[], display: [{ kind: "user", text: "about Jane" }] as DisplayItem[] };
+  const savesTo = (cfg: TursoConfig) => saveThreadMock.mock.calls.filter(([c]) => (c as TursoConfig).httpUrl === cfg.httpUrl);
+
+  it("A's rows are not visible, nor published, once the database changed, before B's load settles", async () => {
+    loadsByDatabase([thread("t1"), thread("a2")]); // B's load never settles
+    const { result, rerender, initialProps } = renderChatThreads();
+    await waitFor(() => expect(result.current.threads.map((th) => th.id)).toEqual(["t1", "a2"]));
+    rerender({ ...initialProps, tursoConfig: CFG_B });
+    expect(result.current.threads).toEqual([]);
+    expect(readChatThreads("default").threads).toEqual([]);
+    expect(readChatThreads("default").available).toBe(false);
+  });
+
+  it("a rename of A's legacy row in that window writes nothing to B", async () => {
+    loadsByDatabase([thread("t1"), thread("a2", OLD)]);
+    const { result, rerender, initialProps } = renderChatThreads();
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+    saveThreadMock.mockClear();
+    rerender({ ...initialProps, tursoConfig: CFG_B });
+    act(() => result.current.renameThread("a2", "Renamed"));
+    await settle(() => {});
+    expect(savesTo(CFG_B)).toEqual([]);
+  });
+
+  it("a send in A's thread in that window writes nothing to B, at the send or at the turn's end", async () => {
+    loadsByDatabase([thread("t1", OLD)]);
+    const { result, rerender, initialProps } = renderChatThreads({ ...OLD });
+    await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
+    saveThreadMock.mockClear();
+    const inB = { ...initialProps, ...OLD, tursoConfig: CFG_B };
+    rerender(inB);
+    act(() => {
+      result.current.ensureThreadForSend(turn.history, turn.display);
+    });
+    rerender({ ...inB, busy: true });
+    rerender({ ...inB, busy: false });
+    await settle(() => {});
+    expect(savesTo(CFG_B)).toEqual([]);
+    expect(result.current.threads).toEqual([]);
   });
 });

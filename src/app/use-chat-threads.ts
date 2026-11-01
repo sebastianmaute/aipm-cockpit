@@ -207,6 +207,18 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
 
   // Stored / gone / source of every thread this session has seen, per database (chat-thread-ledger.ts).
   const [ledger] = useState(createChatThreadLedger);
+
+  // The database the list is for. When the config moves to another database, the rows of the old one
+  // leave the list (and so the registry, which is also marked not loaded) in the same render, before
+  // the new load settles: from then on none of them is shown, renamed or sent in. Render-time
+  // reconcile, not an effect, so no render ever shows them under the new database.
+  const currentUrl = urlOf(tursoConfig);
+  const [listUrl, setListUrl] = useState(currentUrl);
+  if (listUrl !== currentUrl) {
+    setListUrl(currentUrl);
+    setThreads((prev) => prev.filter((th) => ledger.cameFrom(currentUrl, th.id)));
+    setLoadedProjectId(null);
+  }
   // A chat deleted elsewhere (or one a save could not confirm) was closed here: the panel says so in
   // one line, worded by `threadCloseReason`, until the next send, thread switch or new chat.
   const [threadClosed, setThreadClosed] = useState(false);
@@ -239,12 +251,26 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   async function loadVisibleThreads(config: TursoConfig | null, pid: string): Promise<ChatThread[]> {
     const owner = await identity.readIdentity(config);
     const loaded = await loadThreads(config, pid, owner);
-    ledger.recordLoaded(urlOf(config), loaded.map((th) => th.id));
+    const url = urlOf(config);
+    // Every row read is stored there; only the rows shown come from there (and may be written there).
+    for (const th of loaded) ledger.markStored(url, th.id);
     const days = retentionInForce(chat);
     const cutoffIso = days === null ? null : retentionCutoff(new Date(), days);
-    return loaded.filter((th) =>
+    const visible = loaded.filter((th) =>
       (th.ownerId === null || th.ownerId === owner?.ownerId)
       && (cutoffIso === null || !expiredBy(th.updatedAt, cutoffIso)));
+    ledger.recordLoaded(url, visible.map((th) => th.id));
+    return visible;
+  }
+
+  /** Whether the in-memory thread `id` may be written to `url`'s database: it came from there, or it is
+   *  new (no database yet), and then it is recorded as coming from there. A thread of another database
+   *  is never written here, under any id: its writes are refused without a network call. */
+  function claimSource(url: string, id: string): boolean {
+    const source = ledger.sourceOf(id);
+    if (source === null) ledger.recordSource(url, id);
+    if (source !== null && source !== url) logDiag("warn", "chat.threadOtherDatabase");
+    return source === null || source === url;
   }
   const loadVisibleRef = useRef(loadVisibleThreads);
   useEffect(() => {
@@ -261,6 +287,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
    *  send saves it under a new id of this owner's: it is this person's own content, not an erasure. */
   function saveAction(config: TursoConfig | null, th: ChatThread, gate: SaveGate): () => Promise<void> {
     return async () => {
+      // Every write (a rename, an end-of-turn save, a retry) goes only to the thread's own database.
+      if (!ledger.cameFrom(urlOf(config), th.id)) {
+        logDiag("warn", "chat.threadOtherDatabase");
+        return;
+      }
       if (gate.retentionDays !== null) expireOldThreads(config, gate.retentionDays, th.projectId, () => threadsRef.current);
       const owner = identity.trustedIdentity(config) ?? (await identity.writeIdentity(config));
       // A LOCAL mismatch is not a take-over: the row may have been erased and a new identity started in
@@ -545,12 +576,16 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   const turnConfigRef = useRef(tursoConfig);
   // §604. The thread the turn started on, next to its config.
   const turnThreadIdRef = useRef(activeThreadId);
+  // The turn's thread as the list held it when the turn started: after a database switch the list no
+  // longer holds it, and the save to its own database still carries its name and creation date.
+  const turnThreadRef = useRef<ChatThread | null>(null);
   useEffect(() => {
     const wasBusy = prevBusyRef.current;
     prevBusyRef.current = busy;
     if (!wasBusy && busy) {
       turnConfigRef.current = tursoConfig;
       turnThreadIdRef.current = activeThreadId;
+      turnThreadRef.current = threads.find((th) => th.id === activeThreadId) ?? null;
     }
     if (!tursoMode || !wasBusy || busy) return;
     const turnConfig = turnConfigRef.current;
@@ -572,8 +607,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       return;
     }
     const id = activeThreadId ?? newThreadId();
+    // A thread of another database (left on screen until the new load settles) is not saved here.
+    if (!movedAway && !claimSource(urlOf(turnConfig), id)) return;
     if (!movedAway) setActiveThreadId((prev) => prev ?? id);
-    const existing = threads.find((th) => th.id === id);
+    const existing = threads.find((th) => th.id === id) ?? (movedAway && turnThreadRef.current?.id === id ? turnThreadRef.current : undefined);
     const now = new Date().toISOString();
     const thread: ChatThread = {
       id,
@@ -585,10 +622,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       history: stripAttachmentsForPersistence(history),
       display,
     };
-    if (!movedAway) {
-      ledger.recordSource(urlOf(turnConfig), id);
-      setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
-    }
+    if (!movedAway) setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
     if (!saveGate) return;
     const scope = renameScope(turnConfig);
     runPersist(id, saveAction(writeConfig(turnConfig), thread, saveGate), (owns) => confirmSavedName(scope, id, thread.name, owns));
@@ -643,6 +677,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // closure is still fresh, so it's safe to decide "does this thread already
     // have a row" from it directly.
     if (threads.some((th) => th.id === id)) return id;
+    // The active thread is another database's (the list has moved on, its load has not settled): no
+    // row is inserted or saved here.
+    if (!claimSource(urlOf(tursoConfig), id)) return id;
     const now = new Date().toISOString();
     const inserted: ChatThread = {
       id,
@@ -654,7 +691,6 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       history: stripAttachmentsForPersistence(sentHistory),
       display: sentDisplay,
     };
-    ledger.recordSource(urlOf(tursoConfig), id);
     setThreads((prev) => (prev.some((th) => th.id === id) ? prev : [inserted, ...prev]));
     if (!saveGate) return id;
     const scope = renameScope();
