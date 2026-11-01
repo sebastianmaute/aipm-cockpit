@@ -128,6 +128,14 @@ function legacyRow(th) {
   };
 }
 
+/** True when `text` holds a C0 or C1 control character (or DEL). */
+function hasControl(text) {
+  return [...text].some((ch) => {
+    const c = ch.codePointAt(0);
+    return c < 0x20 || (c >= 0x7f && c <= 0x9f);
+  });
+}
+
 function ids(db) {
   return db.prepare("SELECT id FROM chat_threads ORDER BY id").all().map((r) => r.id);
 }
@@ -290,6 +298,28 @@ describe("search", () => {
     expect(await runCli(["search", "--key", keyPath, "Erika"], a.deps)).toBe(EXIT.FOUND);
     const found = a.out.filter((l) => l.includes("\t")).map((l) => l.split("\t")[0]);
     expect(found).toEqual(["a", "b", "c", "d", "e"]);
+  });
+
+  it("prints every field without control characters: no terminal escape from a stored row reaches the screen", async () => {
+    const th = thread("t-\x1b[2Jid", [], [], "Erika \x1b[31mMüller\x1b]0;owned\x07 notes\x9b1m");
+    insertRow(db, { ...legacyRow(th), project_id: "p\x1b[0m1", updated_at: "2026-10-20T00:00:00.000Z\x07" });
+    const a = deps(makeFakeTurso(db));
+    expect(await runCli(["search", "--key", keyPath, "Erika"], a.deps)).toBe(EXIT.FOUND);
+    const hit = a.out.find((l) => l.startsWith("t-"));
+    expect(hit.split("\t")).toHaveLength(4);
+    for (const field of hit.split("\t")) expect(hasControl(field)).toBe(false);
+    expect(hit).toContain("Müller");
+  });
+
+  it("strips control characters from a Turso error before printing it", async () => {
+    const turso = async () => ({
+      ok: true, status: 200,
+      text: async () => JSON.stringify({ results: [{ type: "error", error: { message: "no such table \x1b]0;pwned\x07\x1b[31m" } }] }),
+    });
+    const a = deps({ fetchImpl: turso, calls: [] });
+    expect(await runCli(["expire"], a.deps)).toBe(EXIT.UNUSABLE);
+    expect(a.err.join("\n")).toContain("no such table");
+    for (const line of a.err) expect(hasControl(line)).toBe(false);
   });
 
   it("prints 0 matches and exits 0 when every row was read and none matches", async () => {

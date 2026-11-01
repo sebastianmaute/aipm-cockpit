@@ -49,6 +49,23 @@ const USAGE = [
 /** A failure the script reports and exits 2 on. The message is safe to print. */
 class UnusableError extends Error {}
 
+/** `value` as text with every C0 and C1 control character (and DEL) removed — tabs and newlines
+ *  included. Everything the script prints from the database or from Turso goes through this, so a
+ *  stored row or an error text cannot move the cursor, retitle the terminal or fake a column; the
+ *  only tabs in the output are the column separators the script adds itself. */
+export function printable(value) {
+  let out = "";
+  for (const ch of String(value ?? "")) {
+    const code = ch.codePointAt(0);
+    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) continue;
+    out += ch;
+  }
+  return out;
+}
+
+/** A Turso-reported error, safe to print. */
+const tursoError = (message, suffix = "") => new UnusableError(`Turso error: ${printable(message ?? "unknown")}${suffix}`);
+
 // ── Turso HTTP ──────────────────────────────────────────────────────────────
 
 /** `libsql://` → `https://`, origin only (no credentials, no path). Plain http only for loopback. */
@@ -120,20 +137,20 @@ async function runPipeline(config, fetchImpl, stmts) {
   if (!transactional) {
     return stmts.map((_, i) => {
       const r = results[i];
-      if (r?.type === "error") throw new UnusableError(`Turso error: ${r.error?.message ?? "unknown"}`);
+      if (r?.type === "error") throw tursoError(r.error?.message);
       const result = r?.response?.result;
       if (r?.type !== "ok" || !result) throw new UnusableError("Turso returned an unexpected response");
       return result;
     });
   }
   const only = results[0];
-  if (only?.type === "error") throw new UnusableError(`Turso error: ${only.error?.message ?? "unknown"}`);
+  if (only?.type === "error") throw tursoError(only.error?.message);
   const answer = only?.response?.result;
   if (only?.response?.type !== "batch" || !Array.isArray(answer?.step_results)) {
     throw new UnusableError("Turso returned an unexpected response");
   }
   const failed = (answer.step_errors ?? []).slice(0, stmts.length).find((e) => e);
-  if (failed) throw new UnusableError(`Turso error: ${failed.message ?? "unknown"} (nothing was changed)`);
+  if (failed) throw tursoError(failed.message, " (nothing was changed)");
   return stmts.map((_, i) => {
     const result = answer.step_results[i];
     if (!result) throw new UnusableError("Turso returned an unexpected response");
@@ -314,7 +331,9 @@ async function searchDatabase(run, privateKey, query, pageSize) {
 }
 
 function reportSearch(result, out) {
-  for (const m of result.matches) out(`${m.id}\t${m.projectId}\t${m.updatedAt}\t${m.excerpt}`);
+  for (const m of result.matches) {
+    out([m.id, m.projectId, m.updatedAt, m.excerpt].map(printable).join("\t"));
+  }
   const n = result.matches.length;
   if (n > 0) out(`${n} ${n === 1 ? "match" : "matches"}`);
   else if (result.unreadable > 0) out(`no match in the ${result.readable} readable rows`);
@@ -467,7 +486,7 @@ export async function runCli(argv, deps) {
     if (command === "delete") return await cmdDelete(values, positionals, run, deps);
     return await cmdExpire(values, run, deps);
   } catch (e) {
-    deps.err(e instanceof UnusableError ? e.message : `failed unexpectedly (${e?.name ?? "error"})`);
+    deps.err(e instanceof UnusableError ? e.message : `failed unexpectedly (${printable(e?.name ?? "error")})`);
     return EXIT.UNUSABLE;
   }
 }
