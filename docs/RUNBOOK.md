@@ -348,6 +348,9 @@ section there.
 - **Confluence has its own name.** The Confluence import uses the Jira credentials, but
   switching off `jira` alone leaves it offered to users who stored Jira credentials
   earlier. Name `confluence` too to switch it off.
+- **`ai-people` forces people protection on** in every project; AI stays available. Dictation
+  to a speech service stops at once (`/api/stt` refuses), but a tab left open keeps the browser's
+  own speech recognition until its next AI request or a reload (§789), so ask people to reload.
 - **`ai` switches every AI feature off**, and dictation to a speech service with it
   (`/api/stt` refuses too). To check it took effect, open Settings → AI: it says the
   organisation switched AI off, and the master switch cannot be ticked. Users' keys and

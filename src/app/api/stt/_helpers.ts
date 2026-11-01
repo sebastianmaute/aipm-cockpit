@@ -27,7 +27,9 @@ export async function parseSttRequest(
   request: Request,
 ): Promise<{ fwd: SttForward } | { error: Response }> {
   // §762 — dictation sends speech to a model provider, so the AI switch closes it too.
-  const refused = refuseIfDisabled("stt") ?? refuseIfDisabled("ai");
+  // §786 — so does the people-protection lock: audio cannot be redacted, and a tab opened before the lock was set
+  // has not heard about it yet.
+  const refused = refuseIfDisabled("stt") ?? refuseIfDisabled("ai") ?? refuseIfDisabled("ai-people");
   if (refused) return { error: refused };
   // An invalid AI gateway setting turns AI off for the deployment, so it closes dictation the same way: 503.
   if (readAiGatewayConfig(process.env).kind === "invalid") {

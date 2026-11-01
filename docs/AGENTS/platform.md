@@ -114,13 +114,13 @@
 ### Deployment integration switch (§762)
 
 `AIPM_DISABLED_INTEGRATIONS` (a server run-time setting, see `docs/security.md`) switches `jira`, `confluence`,
-`timelog`, `ecb`, `stt` and `ai` off for one deployment. Two halves, one id list (`INTEGRATION_IDS` in
+`timelog`, `ecb`, `stt` and `ai` off for one deployment, and `ai-people` forces people protection on. Two halves, one id list (`INTEGRATION_IDS` in
 `integration-switches.ts`):
 - **Server:** `refuseIfDisabled` (`api/_shared/integration-switch.ts`) reads the setting on EVERY request and answers
   503 `integration-disabled` before rate-limiting or any upstream call. ★★ 503, never 401/403: the Jira and TimeLog
   clients read those as a rejected token and write `tokenInvalidAt` into the stored settings. It sits in `parseJiraRequest` (which takes
-  `"confluence"` for the Confluence route), `parseTimelogRequest`, `parseSttRequest` (which refuses on `ai` too:
-  dictation sends speech to a model provider), the ECB `GET` and the AI relay's `relay`.
+  `"confluence"` for the Confluence route), `parseTimelogRequest`, `parseSttRequest` (which refuses on `ai` and `ai-people` too:
+  dictation sends speech to a model provider, and audio cannot be redacted), the ECB `GET` and the AI relay's `relay`.
 - **Client:** the root layout reads the setting per request (it is dynamic already, for the nonce) and
   `IntegrationSwitchesSync` records it with `setDisabledIntegrations` during render, before any child renders.
   Plain functions then ask `isIntegrationDisabled` / `isJiraOn` / `isModuleSwitchedOff` with no prop threaded.

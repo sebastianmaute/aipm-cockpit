@@ -5,6 +5,7 @@ import { newConsent, publishAiConsentState } from "./ai-consent";
 import { defaultAiConfig } from "./settings-types";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
 import { aiStatusResponse, answerAiStatusDirect } from "../test/ai-status-fetch";
+import { setDisabledIntegrations } from "./integration-switches";
 
 class FakeRecorder {
   state = "inactive"; mimeType = "audio/webm";
@@ -24,6 +25,9 @@ beforeEach(() => {
   getUserMedia.mockResolvedValue({ getTracks: () => [track] });
   vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) })));
 });
+
+// The lock is add-only in the app, so a test that learns it would otherwise leak it into the next.
+afterEach(() => setDisabledIntegrations([]));
 
 const cfg = { lang: "en-US" as const, baseUrl: "https://api.openai.com/v1", model: "whisper-1", apiKey: "sk-test" };
 
@@ -71,6 +75,26 @@ describe("stt-engine — the deployment status check before the upload", () => {
     await Promise.resolve(); await Promise.resolve();
     eng.stop();
     await vi.waitFor(() => expect(h.onError).toHaveBeenCalledWith(code));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(h.onFinal).not.toHaveBeenCalled();
+    expect(h.onStatus).toHaveBeenLastCalledWith("idle");
+  });
+
+  // §786: a tab opened before the lock was set hears about it here, so it discards the clip and says why.
+  // The changed route matters because that path carries on to the upload and returns no `peopleForced`.
+  it.each([
+    ["the same route", "direct"],
+    ["a changed route", "gateway"],
+  ] as const)("people protection forced, %s: uploads nothing and says why", async (_name, route) => {
+    __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse({ off: false, route, invalid: false, keyRestricted: false, peopleForced: true })));
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const h = { onInterim: vi.fn(), onFinal: vi.fn(), onError: vi.fn(), onStatus: vi.fn() };
+    const eng = createSttEngine(cfg);
+    eng.start(h);
+    await Promise.resolve(); await Promise.resolve();
+    eng.stop();
+    await vi.waitFor(() => expect(h.onError).toHaveBeenCalledWith("people-forced"));
     expect(fetchMock).not.toHaveBeenCalled();
     expect(h.onFinal).not.toHaveBeenCalled();
     expect(h.onStatus).toHaveBeenLastCalledWith("idle");

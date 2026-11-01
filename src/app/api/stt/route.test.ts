@@ -99,6 +99,20 @@ describe("POST /api/stt", () => {
     }
   });
 
+  // §786: the people-protection lock closes dictation here too, so a tab opened before the lock was set cannot
+  // send one more recording while it has not yet heard about the lock.
+  it("refuses with 503 integration-disabled when people protection is forced, calling nothing upstream", async () => {
+    vi.stubEnv("AIPM_DISABLED_INTEGRATIONS", "ai-people");
+    try {
+      const res = await POST(req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" }));
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ error: "integration-disabled" });
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   // An invalid gateway setting turns AI off for the deployment, so it closes dictation like the switch does.
   it("refuses with 503 ai-gateway-invalid when the AI gateway setting is invalid, calling nothing upstream", async () => {
     vi.stubEnv("AIPM_AI_GATEWAY_URL", "");
