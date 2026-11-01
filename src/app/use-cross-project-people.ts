@@ -23,13 +23,13 @@ import type { Workspace } from "./workspace";
 import { generatePeriods } from "./resource-capacity";
 import { resourceDisplayName } from "./resource-foundation";
 import { isScopeStale } from "./scope-epoch";
+import { isPeopleProtected } from "./ai-people-protection";
 import { logDiag } from "./diagnostics";
 import { useStableHandlers } from "./use-stable-handlers";
 import { deletePersonLink, loadPersonLinks, savePersonLink } from "./person-links-store";
 import {
   canonicalPair,
   matchPeople,
-  usableEmails,
   type PersonLinkRow,
   type PersonMatch,
   type PersonRelation,
@@ -43,6 +43,9 @@ type Relation = Omit<PersonRelation, "via">;
 export interface CrossProjectPeople {
   status: CrossProjectStatus;
   failures: { projectId: string; projectName: string }[];
+  /** Other projects that protect their people AND hold someone matched or suggested for a person here: their hours, tasks
+   *  and suggestions are left out of every figure (and so out of what Plan with AI sends). The person's entry still lists them. */
+  protectedProjects: { projectId: string; projectName: string }[];
   /** Turso portfolio mode, but this is the only project: nothing else to read (status "unavailable"). */
   singleProject: boolean;
   /** The stored answers could not be loaded, so nothing was matched (an earlier result for this project is dropped too); cleared by the next request. */
@@ -83,6 +86,8 @@ interface Loaded {
   others: OtherProjectData[];
   links: PersonLinkRow[];
   failures: { projectId: string; projectName: string }[];
+  /** Ids of the loaded projects whose settings keep people protected (the default). */
+  protectedIds: string[];
 }
 
 const NO_FAILURES: { projectId: string; projectName: string }[] = [];
@@ -157,11 +162,13 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
       try {
         const others: OtherProjectData[] = [];
         const failures: Loaded["failures"] = [];
+        const protectedIds: string[] = [];
         for (const p of projects) {
           if (p.id === projectId) continue;
           try {
             const ws = await load(tursoConfig, p.id);
             if (isScopeStale(getScopeEpoch, startEpoch)) return;
+            if (isPeopleProtected(ws.settingsOverrides)) protectedIds.push(p.id);
             others.push({
               projectId: p.id, projectName: p.name, plan: ws.plan ?? null,
               resources: ws.resources ?? [], absences: ws.absences ?? [], tasks: ws.tasks ?? [],
@@ -176,10 +183,10 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
         if (isScopeStale(getScopeEpoch, startEpoch)) return;
         if (runRef.current?.id !== runId) return; // a newer run owns the result
         const merged = runWritesRef.current.reduce((acc, edit) => edit(acc), links);
-        setLoaded({ projectId, configKey: key, others, links: merged, failures });
+        setLoaded({ projectId, configKey: key, others, links: merged, failures, protectedIds });
       } catch (err) {
         logDiag("error", "crossProject.linksLoadFailed", { message: messageOf(err) });
-        if (!isScopeStale(getScopeEpoch, startEpoch)) {
+        if (!isScopeStale(getScopeEpoch, startEpoch) && runRef.current?.id === runId) {
           setLoadFailedFor(projectId);
           // The old figures cannot be trusted any more than the answers: show nothing rather than "ready" with a failure.
           setLoaded((prev) => (prev?.projectId === projectId ? null : prev));
@@ -212,6 +219,20 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     [effective, currentProjectId, resources],
   );
 
+  // People protection is per project and the default: a protected project's figures are left out, never sent.
+  const figureOthers = useMemo(
+    () => (effective ? effective.others.filter((o) => !effective.protectedIds.includes(o.projectId)) : []),
+    [effective],
+  );
+  const protectedProjects = useMemo(() => {
+    if (!effective) return NO_FAILURES;
+    const involved = new Set<string>();
+    for (const m of matches.values()) for (const r of [...m.matched, ...m.suggestions]) involved.add(r.projectId);
+    return effective.others
+      .filter((o) => effective.protectedIds.includes(o.projectId) && involved.has(o.projectId))
+      .map((o) => ({ projectId: o.projectId, projectName: o.projectName }));
+  }, [effective, matches]);
+
   const herePeriods = useMemo(
     () => generatePeriods(plan.startDate, plan.endDate, plan.granularity),
     [plan.startDate, plan.endDate, plan.granularity],
@@ -221,9 +242,9 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     (resourceId: number): ElsewhereFigure[] => {
       const m = matches.get(resourceId);
       if (!effective || !m || m.matched.length === 0) return [];
-      return elsewhereFor(m.matched, effective.others, herePeriods, workdayHours, holidaySet);
+      return elsewhereFor(m.matched, figureOthers, herePeriods, workdayHours, holidaySet);
     },
-    [matches, effective, herePeriods, workdayHours, holidaySet],
+    [matches, effective, figureOthers, herePeriods, workdayHours, holidaySet],
   );
 
   const nameOf = useCallback(
@@ -237,10 +258,10 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   const suggestionHours = useCallback(
     (rel: Relation): number => {
       if (!effective) return 0;
-      const figures = elsewhereFor([{ ...rel, via: "confirmed" }], effective.others, herePeriods, workdayHours, holidaySet);
+      const figures = elsewhereFor([{ ...rel, via: "confirmed" }], figureOthers, herePeriods, workdayHours, holidaySet);
       return figures.reduce((sum, f) => sum + Object.values(f.hoursByPeriod).reduce((a, h) => a + h, 0), 0);
     },
-    [effective, herePeriods, workdayHours, holidaySet],
+    [effective, figureOthers, herePeriods, workdayHours, holidaySet],
   );
 
   const buildRow = (hereId: number, rel: Relation, verdict: PersonLinkRow["verdict"]): PersonLinkRow | null => {
@@ -251,7 +272,6 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     return {
       projectA: currentProjectId, resourceA: hereId, projectB: rel.projectId, resourceB: rel.resourceId, verdict,
       firstA: here.firstName, lastA: here.lastName, firstB: there.firstName, lastB: there.lastName,
-      emailsA: usableEmails(here).join(","), emailsB: usableEmails(there).join(","),
       decidedAt: new Date().toISOString(), decidedBy: actorLabel ?? "",
     };
   };
@@ -309,7 +329,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   const failures = effective?.failures ?? NO_FAILURES;
   const loadFailed = available && loadFailedFor === currentProjectId;
   return useMemo(
-    () => ({ status, failures, singleProject, loadFailed, matches, elsewhere, nameOf, suggestionHours, request, ...writers }),
-    [status, failures, singleProject, loadFailed, matches, elsewhere, nameOf, suggestionHours, request, writers],
+    () => ({ status, failures, protectedProjects, singleProject, loadFailed, matches, elsewhere, nameOf, suggestionHours, request, ...writers }),
+    [status, failures, protectedProjects, singleProject, loadFailed, matches, elsewhere, nameOf, suggestionHours, request, writers],
   );
 }

@@ -14,12 +14,11 @@ import type { PersonLinkRow } from "./cross-project/person-match";
 const row: PersonLinkRow = {
   projectA: "p-alpha", resourceA: 3, projectB: "p-beta", resourceB: 9, verdict: "same",
   firstA: "Ada", lastA: "Lovelace", firstB: "Ada", lastB: "Byron",
-  emailsA: "ada@a.test", emailsB: "ada@b.test", decidedAt: "2026-10-31", decidedBy: "me",
+  decidedAt: "2026-10-31", decidedBy: "me",
 };
 const reversed: PersonLinkRow = {
   ...row, projectA: row.projectB, resourceA: row.resourceB, projectB: row.projectA, resourceB: row.resourceA,
   firstA: row.firstB, lastA: row.lastB, firstB: row.firstA, lastB: row.lastA,
-  emailsA: row.emailsB, emailsB: row.emailsA,
 };
 
 function bindArg(arg: { type: string; value?: string }): string | bigint | null {
@@ -58,7 +57,7 @@ describe("person_links schema", () => {
     const cols = (db.prepare("PRAGMA table_info(person_links)").all() as { name: string }[]).map((c) => c.name);
     expect(cols).toEqual([
       "project_a", "resource_a", "project_b", "resource_b", "verdict", "first_a", "last_a", "first_b", "last_b",
-      "emails_a", "emails_b", "decided_at", "decided_by",
+      "decided_at", "decided_by",
     ]);
   });
 

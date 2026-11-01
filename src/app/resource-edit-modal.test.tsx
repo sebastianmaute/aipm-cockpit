@@ -735,6 +735,7 @@ describe("ResourceEditModal — other projects (§785)", () => {
       failures: [],
       loadFailed: false,
       singleProject: false,
+      protectedProjects: [],
       matches: new Map([[1, { matched: [], suggestions: [], rejected: [], ...match }]]),
       elsewhere: () => [],
       suggestionHours: () => 5,

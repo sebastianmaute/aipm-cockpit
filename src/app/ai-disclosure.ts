@@ -57,7 +57,7 @@ export const AI_DATA_PATHS: readonly AiDataPath[] = [
   { id: "forecast-import", level: "interactive", labelKey: "aiDataForecastImportLabel", dataKey: "aiDataForecastImport", whenProtected: "redacted" },
   { id: "insight-recommendation", level: "interactive", labelKey: "aiDataInsightRecommendationLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted" },
   { id: "action-analysis", level: "interactive", labelKey: "aiDataActionAnalysisLabel", dataKey: "aiDataActionAnalysis", whenProtected: "redacted" },
-  { id: "alloc-plan", level: "interactive", labelKey: "aiDataAllocPlanLabel", dataKey: "aiDataAllocPlan", whenProtected: "hidden" },
+  { id: "alloc-plan", level: "interactive", labelKey: "aiDataAllocPlanLabel", dataKey: "aiDataAllocPlan", whenProtected: "hidden", protectedKey: "aiProtectedAllocPlan" },
   { id: "raci-suggest", level: "interactive", labelKey: "aiDataRaciSuggestLabel", dataKey: "aiDataRaciSuggest", whenProtected: "hidden" },
   { id: "task-dedup", level: "interactive", labelKey: "aiDataTaskDedupLabel", dataKey: "aiDataTaskDedup", whenProtected: "redacted" },
   { id: "wbs-plan", level: "interactive", labelKey: "aiDataWbsPlanLabel", dataKey: "aiDataWbsPlan", whenProtected: "redacted" },

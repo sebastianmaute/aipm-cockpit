@@ -1023,7 +1023,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§785](#785-plan-with-ai-does-not-see-the-load-a-person-carries-in-other-projects--closed-2026-11-01) | Plan with AI does not see the load a person carries in other projects | — | — | **CLOSED** 2026-11-01 |
 | [§786](#786-dictation-stays-available-in-an-open-tab-after-the-people-protection-lock-is-set) | Dictation stays available in an open tab after the people-protection lock is set | #924 | — | OPEN |
 | [§787](#787-i18n-pluraltestts-runs-about-24-s-against-the-20-s-unit-timeout) | i18n-plural.test.ts runs about 24 s against the 20 s unit timeout | #926 | — | OPEN |
-| [§788](#788-deleting-a-person-leaves-their-name-and-e-mail-in-the-shared-person_links-table) | Deleting a person leaves their name and e-mail in the shared person_links table | #935 | — | OPEN |
+| [§788](#788-deleting-a-person-leaves-their-name-in-the-shared-person_links-table) | Deleting a person leaves their name in the shared person_links table | #935 | — | OPEN |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46190,9 +46190,9 @@ Size S.
 
 **Source:** §773 PR-head fix round, owner decision 2026-10-31 (file it).
 
-## 788. Deleting a person leaves their name and e-mail in the shared person_links table
+## 788. Deleting a person leaves their name in the shared person_links table
 
-**Status:** OPEN 2026-11-01, filed during §785. The shared Turso table `person_links` keeps both people's first name, last name and e-mail addresses at the time of each same / not-the-same answer, so a confirmed link can go stale when a name changes. A project hard delete sweeps the project's rows (`PROJECT_SCOPED_SIDE_TABLES` in `project-side-tables.ts`), but deleting a single resource does not: `grep -rn "person_links" src/app --include=*.ts --include=*.tsx -l | grep -v test` lists no resource-delete path. The design chose this (spec settled item 3: no delete path writes; a row whose resource is gone is ignored when matching), so nothing shows on screen, but the personal data is kept with no end date and is readable from every project in the database.
+**Status:** OPEN 2026-11-01, filed during §785. The shared Turso table `person_links` keeps both people's first name and last name at the time of each same / not-the-same answer (no e-mail addresses: those columns were dropped before the table shipped). A project hard delete sweeps the project's rows (`PROJECT_SCOPED_SIDE_TABLES` in `project-side-tables.ts`), but deleting a single resource does not: `grep -rn "person_links" src/app --include=*.ts --include=*.tsx -l | grep -v test` lists no resource-delete path. The design chose this (spec settled item 3: no delete path writes; a row whose resource is gone is ignored when matching), so nothing shows on screen, but the personal data is kept with no end date and is readable from every project in the database.
 
 **Work item:** #935
 

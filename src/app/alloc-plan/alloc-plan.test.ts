@@ -1510,6 +1510,15 @@ describe("ELSEWHERE in the allocation digest (§785)", () => {
     expect(buildAllocContext(args({ status: "ready", figuresFor: () => [], failures: [] }))).not.toContain("ELSEWHERE");
   });
 
+  it("names the projects left out because they protect their people, beside the could-not-be-read note (§785)", () => {
+    const text = buildAllocContext(args({ status: "ready", figuresFor: () => [], failures: [{ projectName: "Broken" }], protectedProjects: [{ projectName: "Zeus" }, { projectName: "Ares" }] }));
+    expect(text.split("\n").filter((l) => l.includes("ELSEWHERE"))).toEqual([
+      'ELSEWHERE: could not be read: "Broken"',
+      'ELSEWHERE: not counted, because these projects protect their people: "Zeus", "Ares"',
+    ]);
+    expect(buildAllocContext(args({ status: "ready", figuresFor: () => [], failures: [], protectedProjects: [] }))).not.toContain("ELSEWHERE");
+  });
+
   it("says there are no other projects for a single-project portfolio, not that the mode hides them", () => {
     const text = buildAllocContext(args({ status: "unavailable", singleProject: true, figuresFor, failures: [] }));
     expect(text.split("\n").filter((l) => l.includes("ELSEWHERE"))).toEqual(["ELSEWHERE: this is the only project, there are no other projects"]);

@@ -20,7 +20,9 @@ const CONFIG = { httpUrl: "https://x.turso.io", authToken: "t" } as TursoConfig;
 const PLAN: ResourcePlan = { startDate: "2026-11-02", endDate: "2026-11-29", granularity: "week", currency: "EUR" };
 const res = (id: number, firstName: string, lastName: string, extra: Partial<Resource> = {}): Resource =>
   ({ id, firstName, lastName, ...extra }) as Resource;
-const ws = (resources: Resource[]): Workspace => ({ resources, absences: [], tasks: [], plan: PLAN }) as unknown as Workspace;
+// Other projects count only when they allow the AI to see people (protected is the default), so the fixture allows it.
+const ws = (resources: Resource[]): Workspace =>
+  ({ resources, absences: [], tasks: [], plan: PLAN, settingsOverrides: { ai: { peopleAllowed: true } } }) as unknown as Workspace;
 
 const PROJECTS = [
   { id: "p-here", name: "Here" },
@@ -265,10 +267,10 @@ describe("useCrossProjectPeople — stable result (§785)", () => {
     await waitFor(() => expect(hook.result.current.status).toBe("ready"));
     const confirm = hook.result.current.confirm;
     const renamed = [res(1, "Ann", "Lee", { email: "ann@x.io" })];
-    hook.rerender({ ...deps, resources: renamed });
+    hook.rerender({ ...deps, resources: renamed, actorLabel: "Sam" });
     const rel = hook.result.current.matches.get(1)!.suggestions[0];
     await act(async () => { await confirm(1, rel); });
-    expect(savePersonLink).toHaveBeenCalledWith(CONFIG, expect.objectContaining({ emailsA: "ann@x.io" }));
+    expect(savePersonLink).toHaveBeenCalledWith(CONFIG, expect.objectContaining({ decidedBy: "Sam" }));
   });
 
   test("a status change gives a new object", async () => {
@@ -454,5 +456,55 @@ describe("useCrossProjectPeople — third review (§785)", () => {
     await act(async () => releaseFirst(ws([])));
     expect(hook.result.current.status).toBe("ready");
     expect(hook.result.current.matches.get(1)?.suggestions.length).toBeGreaterThan(0);
+  });
+});
+
+// §785 — round 4: people protection of the OTHER projects, and an older run's links failure.
+describe("useCrossProjectPeople — people protection in other projects (§785)", () => {
+  const key = generatePeriods(PLAN.startDate, PLAN.endDate, PLAN.granularity)[0].key;
+  const withHours = (extra: Partial<Workspace>): Workspace =>
+    ({ ...ws([res(10, "Ann", "Lee", { email: "ann@x.test", utilizationMode: "hours", utilization: { [key]: 20 } })]), ...extra }) as Workspace;
+  const loadMixed = async (_c: TursoConfig, id: string): Promise<Workspace> =>
+    id === "p-b" ? withHours({ settingsOverrides: { ai: { peopleAllowed: true } } }) : withHours({ settingsOverrides: undefined });
+
+  test("a protected project's hours never reach elsewhere(); its name is listed as not counted; the entry still lists it", async () => {
+    const { hook } = setup({ load: vi.fn(loadMixed), resources: [res(1, "Ann", "Lee", { email: "ann@x.test" })] });
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(hook.result.current.elsewhere(1).map((f) => f.projectId)).toEqual(["p-b"]);
+    expect(hook.result.current.protectedProjects).toEqual([{ projectId: "p-c", projectName: "C" }]);
+    expect(hook.result.current.matches.get(1)?.matched.map((m) => m.projectId).sort()).toEqual(["p-b", "p-c"]);
+  });
+
+  test("a name suggestion in a protected project adds no hours, so it would not change the figures", async () => {
+    const { hook } = setup({ load: vi.fn(loadMixed) });
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(hook.result.current.suggestionHours({ projectId: "p-b", projectName: "B", resourceId: 10 })).toBe(20);
+    expect(hook.result.current.suggestionHours({ projectId: "p-c", projectName: "C", resourceId: 10 })).toBe(0);
+  });
+
+  test("a protected project with nobody matched is not named", async () => {
+    const { hook } = setup({ load: vi.fn(async () => withHours({ settingsOverrides: undefined })), resources: [res(1, "Zed", "Nobody")] });
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    expect(hook.result.current.protectedProjects).toEqual([]);
+  });
+});
+
+describe("useCrossProjectPeople — an older run's links failure (§785)", () => {
+  test("never marks a newer run failed", async () => {
+    const OTHER = { httpUrl: "https://other.turso.io", authToken: "t2" } as TursoConfig;
+    let rejectFirst: (e: Error) => void = () => {};
+    vi.mocked(loadPersonLinks).mockImplementationOnce(() => new Promise<PersonLinkRow[]>((_r, rej) => { rejectFirst = rej; }));
+    const { hook, deps } = setup();
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(loadPersonLinks).toHaveBeenCalledTimes(1));
+    hook.rerender({ ...deps, tursoConfig: OTHER });
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    await act(async () => rejectFirst(new Error("old token rejected")));
+    expect(hook.result.current.status).toBe("ready");
+    expect(hook.result.current.loadFailed).toBe(false);
   });
 });

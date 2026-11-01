@@ -194,6 +194,9 @@ export function AllocPlanModal({
               className="w-full"
             />
           </label>
+          {crossProject && crossProject.protectedProjects.length > 0 && (
+            <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereProtected", crossProject.protectedProjects.map((p) => p.projectName).join(", "))}</p>
+          )}
           {!isPreview && notLoadedElsewhere && <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereNotLoaded")}</p>}
 
           {isPreview && (

@@ -34,8 +34,6 @@ export interface PersonLinkRow {
   lastA: string;
   firstB: string;
   lastB: string;
-  emailsA: string;
-  emailsB: string;
   decidedAt: string;
   decidedBy: string;
 }

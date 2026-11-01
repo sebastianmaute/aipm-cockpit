@@ -157,7 +157,7 @@ one or two sentences and links to the entry.
 2. **Grid source.** "Grid hours" means `Resource.utilization` with `utilizationMode` (the Planning grid), over the
    other project's `ResourcePlan` periods (`startDate`, `endDate`, `granularity`). Not `plan.allocations` (that is
    budget data). A project with no stored plan contributes nothing and is named as such.
-3. **Re-minted ids.** A link row also stores both sides' first name, last name and emails at decision time. A row
+3. **Re-minted ids.** A link row also stores both sides' first name and last name at decision time (no e-mail addresses are stored). A row
    applies only while both resources still carry the same first + last name (case-insensitive, trimmed); otherwise it
    is ignored as stale, so a re-minted id can never inherit an old answer. No write from any delete path.
 4. **Stale rows.** Rows naming a project no longer in the registry, or a resource id no longer present, are ignored.
@@ -189,6 +189,14 @@ one or two sentences and links to the entry.
 - Archived projects are not loaded: item 9 said there is no archived state, but the app keeps archived projects in a
   separate list (`tursoArchived`) and the loader reads only `tursoProjects`, so an archived project never contributes
   hours or suggestions.
+- The `person_links` table keeps NO e-mail columns (`emails_a` / `emails_b` were dropped before the table shipped: nothing read them, and only names decide staleness).
+- Dropped by owner decision 2026-11-01: the per-row elsewhere figure beside each person and the percentage fed by elsewhere
+  hours. Elsewhere hours count in the over-capacity warning (which carries them) and in the digest.
+- People protection of the OTHER projects (owner decision 2026-11-01): a loaded project whose people are protected (the
+  default: `isPeopleProtected(ws.settingsOverrides)`) is left out of every elsewhere figure, task count and suggestion
+  (`figureOthers` in `use-cross-project-people.ts`); the digest and the window name those projects
+  (`protectedProjects`, only when someone there is matched or suggested). The person's entry still lists such a project
+  under "Works in project": that is local UI, not an AI send. The AI data disclosure (version 3) describes what is sent.
 - An e-mail match can be marked "not the same person" from the person's entry (`reject` writes a `different` row, which
   already overrides an e-mail match; Undo restores it).
 - A load requested during the load hold is remembered (`wantedRef` in `use-cross-project-people.ts`) and started when

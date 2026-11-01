@@ -937,6 +937,7 @@ describe("useAllocPlan — other projects (§785)", () => {
     failures: [],
     loadFailed: false,
     singleProject: false,
+    protectedProjects: [],
     matches: new Map(),
     elsewhere: () => [],
     suggestionHours: () => 5,

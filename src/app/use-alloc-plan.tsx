@@ -208,7 +208,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     try {
       const context = buildAllocContext({
         resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, instruction, today,
-        elsewhere: crossProject && { status: crossProject.status, figuresFor: crossProject.elsewhere, failures: crossProject.failures, loadFailed: crossProject.loadFailed, singleProject: crossProject.singleProject },
+        elsewhere: crossProject && { status: crossProject.status, figuresFor: crossProject.elsewhere, failures: crossProject.failures, protectedProjects: crossProject.protectedProjects, loadFailed: crossProject.loadFailed, singleProject: crossProject.singleProject },
       });
       const parsed = await runAllocProposal(context, { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() }, instruction, controller.signal);
       if (reqId !== reqIdRef.current) return; // superseded — discard

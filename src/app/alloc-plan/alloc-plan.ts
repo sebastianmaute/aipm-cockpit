@@ -94,6 +94,8 @@ export interface AllocElsewhere {
   singleProject?: boolean;
   figuresFor: (resourceId: number) => readonly ElsewhereFigure[];
   failures: readonly { projectName: string }[];
+  /** Other projects whose figures were left out because they protect their people. */
+  protectedProjects?: readonly { projectName: string }[];
 }
 
 const ELSEWHERE_UNAVAILABLE = "ELSEWHERE: other projects cannot be seen in this storage mode";
@@ -219,8 +221,13 @@ function elsewhereNotes(e: AllocElsewhere | undefined): string[] {
   if (!e) return [];
   if (e.status === "unavailable") return [e.singleProject ? ELSEWHERE_SINGLE_PROJECT : ELSEWHERE_UNAVAILABLE];
   if (e.status !== "ready") return [e.loadFailed ? ELSEWHERE_LOAD_FAILED : ELSEWHERE_NOT_LOADED];
-  if (e.failures.length === 0) return [];
-  return [`ELSEWHERE: could not be read: ${e.failures.map((f) => JSON.stringify(oneLine(f.projectName))).join(", ")}`];
+  const names = (list: readonly { projectName: string }[]): string => list.map((f) => JSON.stringify(oneLine(f.projectName))).join(", ");
+  const notes: string[] = [];
+  if (e.failures.length > 0) notes.push(`ELSEWHERE: could not be read: ${names(e.failures)}`);
+  if (e.protectedProjects && e.protectedProjects.length > 0) {
+    notes.push(`ELSEWHERE: not counted, because these projects protect their people: ${names(e.protectedProjects)}`);
+  }
+  return notes;
 }
 
 /** Stable, cacheable system prompt. */

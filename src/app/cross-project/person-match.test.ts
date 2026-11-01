@@ -26,8 +26,6 @@ function row(over: Partial<PersonLinkRow> & Pick<PersonLinkRow, "verdict">): Per
     lastA: "Lee",
     firstB: "Ann",
     lastB: "Lee",
-    emailsA: "",
-    emailsB: "",
     decidedAt: "2026-10-31T00:00:00Z",
     decidedBy: "me",
     ...over,

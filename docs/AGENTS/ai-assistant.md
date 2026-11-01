@@ -1100,7 +1100,11 @@
   ★ **Loading.** `request()` loads every OTHER project with `TursoBackend.load()`, SEQUENTIALLY (as
   `use-portfolio-health.ts`); every request reloads (no cache), but a request made while a run for the same scope AND the same database is
   still in flight is ignored (a config change starts a new run, and only the newest run writes its result); archived projects are not loaded (the list is `tursoProjects`, never `tursoArchived`);
-  a project that fails is skipped and listed in `failures`. A failed `person_links` read drops any earlier result for the
+  a project that fails is skipped and listed in `failures`. ★ **People protection of the other projects:** each loaded project's
+  `settingsOverrides` go through `isPeopleProtected` (protected is the DEFAULT); a protected project is left out of
+  `elsewhere()`, `suggestionHours` and the task counts, and named in `protectedProjects` (digest note `ELSEWHERE: not
+  counted, because these projects protect their people: …` and a window note), but still appears in `matches` so the
+  person's entry lists it. A failed `person_links` read drops any earlier result for the
   project (status `idle`, `loadFailed`), so old figures are never used beside a "not counted" message.
   It captures `getScopeEpoch()` before its first await, re-checks after each, and refuses to start while
   `loadPending`, but REMEMBERS the ask (`wantedRef`) and an effect that only calls `request()` starts it when the hold
@@ -1111,7 +1115,7 @@
   `CREATE TABLE IF NOT EXISTS` DDL in each project, as Portfolio health does; no project data is written.
   ★ **Matching** (`matchPeople`, `cross-project/person-match.ts`, pure), per pair, in this order: a live `different` row
   means no; a live `same` row matches (`via: "confirmed"`); an overlapping usable email (trimmed, contains "@",
-  compared over `email` + `emails`, case-insensitive) matches (`via: "email"`; the person's entry offers "Not the same person" on such a row, which writes a `different` row, and Undo restores the email match); equal first + last name with a usable
+  compared over `email` + `emails`, case-insensitive) matches (`via: "email"`; the person's entry offers "Not the same" on such a row, which writes a `different` row, and Undo restores the email match); equal first + last name with a usable
   email missing on at least one side is only a SUGGESTION and adds no hours; two differing usable emails never suggest.
   ★★ **The two verdicts go stale differently, on purpose.** A `same` row is live only while both resources still carry
   the stored first name AND last name, each compared separately, so a re-minted id or a re-split name cannot inherit a
@@ -1139,8 +1143,8 @@
   and the `OverCapacity` row carries `elsewhereHours`. The elsewhere figure is never folded into this project's hours.
   ★ **Answers** live in the global `person_links` table (`person-links-schema.ts`, `person-links-store.ts`), kept OUT of
   `TABLE_NAMES` and built like `chat_threads`: DDL ahead of each read or write, one row per canonical pair
-  (`project_a < project_b`), columns `first_a`, `last_a`, `first_b`, `last_b` (not one name per side), `emails_a`,
-  `emails_b`, `decided_at`, `decided_by`. A project hard delete removes every row naming that project on either side
+  (`project_a < project_b`), columns `first_a`, `last_a`, `first_b`, `last_b` (not one name per side), `decided_at`, `decided_by`
+  (no e-mail addresses are stored: only names decide whether a `same` row is stale). A project hard delete removes every row naming that project on either side
   (`PROJECT_SCOPED_SIDE_TABLES`, `columns: ["project_a", "project_b"]`; the §204 guard checks all `project_<letter>` columns,
   since the table has no `project_id`). A failed write leaves the in-memory links untouched and toasts
   (`onWriteError`); writes are epoch-guarded. `decided_by` is blank today: the hook accepts `actorLabel` but

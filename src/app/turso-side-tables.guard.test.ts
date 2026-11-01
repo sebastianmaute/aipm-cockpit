@@ -38,7 +38,7 @@ const projectRefColumns = (db: DatabaseSync, table: string): string[] =>
   (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name).filter((n) => PROJECT_REF_RE.test(n));
 
 /** Tables with a project-reference column that no sweep covers, or covers only in part. */
-export function unsweptProjectTables(
+function unsweptProjectTables(
   db: DatabaseSync,
   swept: ReadonlyMap<string, readonly string[]>,
 ): string[] {

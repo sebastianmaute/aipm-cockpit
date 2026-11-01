@@ -358,6 +358,7 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
       failures: [],
       loadFailed: false,
       singleProject: false,
+      protectedProjects: [],
       matches: new Map(Object.entries(suggestions).map(([id, s]) => [Number(id), { matched: [], suggestions: s, rejected: [] }])),
       elsewhere: () => [],
       nameOf: () => "",
@@ -410,6 +411,12 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
   it("the not-loaded hint names the button by its own label, in EN and DE (§785)", async () => {
     await loadI18n("de");
     for (const lang of ["en-US", "de"] as const) expect(t(lang, "allocElsewhereNotLoaded")).toContain(t(lang, "allocPlanPropose"));
+  });
+
+  it("names the projects whose hours are not counted because they protect their people (§785)", () => {
+    const note = t("en-US", "allocElsewhereProtected", "Zeus");
+    render(<AllocPlanModal {...withMove({ crossProject: crossProject({ protectedProjects: [{ projectId: "p3", projectName: "Zeus" }] }) })} />);
+    expect(screen.getByText(note)).toBeTruthy();
   });
 
   it("lists only a suggestion that would change the figures: the other person has hours in the shown periods (§785)", () => {

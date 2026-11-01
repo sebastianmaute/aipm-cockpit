@@ -7,7 +7,7 @@ import { rowObjects, txt, int, type PipelineResultLike, type SqlStmt } from "./t
 import { canonicalPair, type PersonLinkRow } from "./cross-project/person-match";
 
 export const PERSON_LINKS_DDL: string[] = [
-  `CREATE TABLE IF NOT EXISTS person_links (project_a TEXT, resource_a INTEGER, project_b TEXT, resource_b INTEGER, verdict TEXT, first_a TEXT, last_a TEXT, first_b TEXT, last_b TEXT, emails_a TEXT, emails_b TEXT, decided_at TEXT, decided_by TEXT, PRIMARY KEY (project_a, resource_a, project_b, resource_b))`,
+  `CREATE TABLE IF NOT EXISTS person_links (project_a TEXT, resource_a INTEGER, project_b TEXT, resource_b INTEGER, verdict TEXT, first_a TEXT, last_a TEXT, first_b TEXT, last_b TEXT, decided_at TEXT, decided_by TEXT, PRIMARY KEY (project_a, resource_a, project_b, resource_b))`,
 ];
 
 export interface PersonLinkPair {
@@ -28,8 +28,8 @@ export function canonicalRow(row: PersonLinkRow): PersonLinkRow {
   return {
     ...row,
     ...c,
-    firstA: row.firstB, lastA: row.lastB, emailsA: row.emailsB,
-    firstB: row.firstA, lastB: row.lastA, emailsB: row.emailsA,
+    firstA: row.firstB, lastA: row.lastB,
+    firstB: row.firstA, lastB: row.lastA,
   };
 }
 
@@ -38,11 +38,11 @@ export function upsertPersonLinkStatements(row: PersonLinkRow): SqlStmt[] {
   const c = canonicalRow(row);
   return [
     {
-      sql: `INSERT OR REPLACE INTO person_links (project_a,resource_a,project_b,resource_b,verdict,first_a,last_a,first_b,last_b,emails_a,emails_b,decided_at,decided_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      sql: `INSERT OR REPLACE INTO person_links (project_a,resource_a,project_b,resource_b,verdict,first_a,last_a,first_b,last_b,decided_at,decided_by) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
       args: [
         txt(c.projectA), int(c.resourceA), txt(c.projectB), int(c.resourceB), txt(c.verdict),
         txt(c.firstA), txt(c.lastA), txt(c.firstB), txt(c.lastB),
-        txt(c.emailsA), txt(c.emailsB), txt(c.decidedAt), txt(c.decidedBy),
+        txt(c.decidedAt), txt(c.decidedBy),
       ],
     },
   ];
@@ -69,7 +69,6 @@ export function rowsToPersonLinks(res: PipelineResultLike | undefined): PersonLi
       verdict: r.verdict as PersonLinkRow["verdict"],
       firstA: r.first_a ?? "", lastA: r.last_a ?? "",
       firstB: r.first_b ?? "", lastB: r.last_b ?? "",
-      emailsA: r.emails_a ?? "", emailsB: r.emails_b ?? "",
       decidedAt: r.decided_at ?? "", decidedBy: r.decided_by ?? "",
     }));
 }
