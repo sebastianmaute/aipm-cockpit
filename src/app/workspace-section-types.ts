@@ -74,6 +74,7 @@ import type {
 import type {
   SettingsSectionId,
 } from "./dashboard-coaching";
+import type { CrossProjectPeople } from "./use-cross-project-people";
 
 /**
  * Consolidated two-way Outlook calendar controls for one entity (RAID / Change /
@@ -182,6 +183,9 @@ export interface WorkspaceSectionProps {
    *   argument, and why wrapping `onRequestStorageSwitch` in `holdDuring` does NOT
    *   close it, is beside `swapsInFlightRef` in `use-storage-backend.ts`. */
   isSwapInFlight: () => boolean;
+  /** §785 — a person's hours in other projects, for Plan with AI (Resources → Planning). Optional so a popout or a
+   *  fixture that has none still renders; the panel is memo()'d, so it must arrive as ONE stable object. */
+  crossProject?: CrossProjectPeople;
   fullBleed?: boolean;
   handleGanttBarUpdate: (edit: {
     taskId: number;

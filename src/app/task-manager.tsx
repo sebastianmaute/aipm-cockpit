@@ -16,7 +16,8 @@ import { disabledViewRedirect, isModuleEnabled, deriveMode } from "./feature-mod
 import { useJiraSync } from "./use-jira-sync";
 import { useStorageBackend } from "./use-storage-backend";
 import { useResourcePlanner } from "./use-resource-planner";
-import { useReassignHours } from "./use-reassign-hours"; import { useCrossProjectPeople } from "./use-cross-project-people";
+import { useReassignHours } from "./use-reassign-hours";
+import { useCrossProjectApp } from "./use-cross-project-app";
 import { useBulkOperations } from "./use-bulk-operations";
 import { useColumnManager } from "./use-column-manager";
 import { useContacts } from "./use-contacts";
@@ -616,7 +617,8 @@ function TaskManagerInner() {
   } = useResourcePlanner({ lang, today, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave, dialogsRef: appDialogsRef, getScopeEpoch });
   // §774 — reassigning a task moves its planned hours (one undo entry, one notice). Threaded into the editor,
   // inline, Kanban, bulk and Action Center hooks, TasksSection and the Workload triage builder below.
-  const reassignHours = useReassignHours({ lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours: settings.resources.workdayHours, holidaySet, captureComposite: undoApi.captureComposite, logActivityAs, showToast }); useCrossProjectPeople({ tursoConfig, portfolioMode, projects: tursoProjects.map((p) => ({ id: p.id, name: p.meta.name })), currentProjectId: tursoProjectId, resources, plan, workdayHours: settings.resources.workdayHours, holidaySet, loadPending, getScopeEpoch }); // §785: loads other projects on request; result is threaded by the next tasks
+  const reassignHours = useReassignHours({ lang, today, isPopout, loadPending, tasks, setTasks, resources, setResources, plan, absences, workdayHours: settings.resources.workdayHours, holidaySet, captureComposite: undoApi.captureComposite, logActivityAs, showToast });
+  const crossProject = useCrossProjectApp({ tursoConfig, portfolioMode, tursoProjects, currentProjectId: tursoProjectId, resources, plan, workdayHours: settings.resources.workdayHours, holidaySet, loadPending, getScopeEpoch, lang, showToast }); // §785
 
   // Day rates are the rate card's source of truth; the hourly cost rate every
   // budget/EVM consumer reads is DERIVED from workday hours. When that setting
@@ -669,16 +671,12 @@ function TaskManagerInner() {
     holidaySet, holidaysReady, shifts, absences, timelogLinks,
     insights, setInsights, requestOpen, settingsOverrides, features: settings.features, forecastHistory, setForecastHistory, getScopeEpoch, storageKind: settings.storageConfig.kind, portfolioMode,
   });
-  // The SP2 generate/apply/reject handlers (+ the `insightActions` assembly
-  // that references them) live in `useInsightRecommendations`
-  // (use-insight-recommendations.ts) — apply replays proposed tool calls
-  // through `dispatcher`, so that hook is called right after `dispatcher` is
-  // created, below.
+  // The SP2 generate/apply/reject handlers (+ `insightActions`) live in `useInsightRecommendations`
+  // (use-insight-recommendations.ts); apply replays tool calls through `dispatcher`, so it is called
+  // right after `dispatcher` is created, below.
 
-  // The single declaration for "the current project id under whichever
-  // portfolio backend is active" — `portfolioMode`, `tursoProjectId` and
-  // `currentProjectId` are all already in scope by this point (each declared
-  // earlier in the component), so there is no TDZ hazard hoisting it here.
+  // The single declaration for "the current project id under whichever portfolio backend is active"
+  // (its three inputs are declared earlier in the component, so no TDZ hazard).
   const portfolioCurrentId = portfolioMode === "turso" ? tursoProjectId : currentProjectId;
   useAiPrivacySource(portfolioCurrentId ?? "default", currentWorkspace, getScopeEpoch); // AI people protection (spec R3): the open project, for every AI request built from it
   // Suggested next-actions wiring — the workload alerts, the engine run, the
@@ -1343,6 +1341,7 @@ function TaskManagerInner() {
     // way down, so a dropped thread is a tsc error rather than a silently unguarded turn.
     getScopeEpoch,
     isSwapInFlight,
+    crossProject, // §785: other projects' hours for Plan with AI
     handleGanttBarUpdate: guardEdit(handleGanttBarUpdate),
     handleCancelEdit,
     setTaskModalOpen,

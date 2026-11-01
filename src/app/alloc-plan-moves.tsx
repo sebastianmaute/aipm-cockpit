@@ -5,6 +5,7 @@
 import { type Lang, t, tPlural, localeFor } from "./i18n";
 import { Checkbox } from "./form-controls";
 import { ExclamationTriangleIcon } from "./icons";
+import { InfoTooltip } from "./info-tooltip";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { formatCurrency } from "./resource-cost";
 import { defaultPeriodLabel, formatMovedHours, hoursMoveNotice, movedHoursNotes, type HoursMoveNoticeCtx } from "./reassign-hours-notice";
@@ -169,6 +170,12 @@ export function AllocPlanEffect({ lang, effect, currency, nameOf }: AllocPlanEff
                   defaultPeriodLabel(o.periodKey, lang),
                 )}
               </span>
+              {o.elsewhereHours > 0 && (
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <span>{t(lang, "allocElsewhereLabel", formatMovedHours(o.elsewhereHours, lang))}</span>
+                  <InfoTooltip text={t(lang, "allocElsewhereTip")} />
+                </span>
+              )}
             </li>
           ))}
         </ul>

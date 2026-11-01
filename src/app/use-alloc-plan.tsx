@@ -40,6 +40,8 @@ import {
   type GroundedAllocCell,
 } from "./alloc-plan/alloc-plan";
 import { alternativeEffect } from "./alloc-plan/alloc-effect";
+import { elsewhereTotal, type ElsewhereFigure } from "./cross-project/elsewhere-hours";
+import { type CrossProjectPeople } from "./use-cross-project-people";
 import { groundAlternative, isMoveStale, moveKey, type GroundedAlternative } from "./alloc-plan/alloc-ground-moves";
 import { planApply } from "./alloc-plan/alloc-apply";
 import { AllocPlanModal } from "./alloc-plan-modal";
@@ -77,6 +79,8 @@ export interface AllocPlanDeps {
   /** ★ ACTOR-AWARE. This hook writes exactly one kind, and it is an `ai.*`
    *  one, so it KNOWS its actor — see the rule on `useActivityLog`. */
   logActivityAs?: LogActivityAsFn;
+  /** §785: what the people here are booked for in other projects. Opening the window asks for it; Run waits for it. */
+  crossProject?: CrossProjectPeople;
 }
 
 export interface AllocPlan {
@@ -118,7 +122,7 @@ function applyToastText(lang: Lang, c: ApplyCounts): string {
 
 export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const { settings, isPopout, lang, resources, setResources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet } = deps;
-  const { tasks, milestones, stakeholders, today, reassignTasks, isLoadHeld, capture, captureComposite, logActivityAs } = deps;
+  const { tasks, milestones, stakeholders, today, reassignTasks, isLoadHeld, capture, captureComposite, logActivityAs, crossProject } = deps;
   const showToast = useToastContext();
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -181,7 +185,8 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     if (!enabled || phase !== "idle") return;
     clearProposalState();
     setPhase("input");
-  }, [enabled, phase, clearProposalState]);
+    crossProject?.request();
+  }, [enabled, phase, clearProposalState, crossProject]);
 
   // Abort any in-flight proposal if the pane unmounts (e.g. the user
   // navigates away from Resources) — a response must never land against a
@@ -191,6 +196,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
 
   const onPropose = useCallback(async (instruction: string) => {
     if (peopleProtected || phase !== "input" || !instruction.trim()) return;
+    if (crossProject?.status === "loading") return; // Run waits: the digest must carry the other projects' hours
     const reqId = ++reqIdRef.current;
     const controller = new AbortController();
     abortRef.current = controller;
@@ -198,6 +204,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     try {
       const context = buildAllocContext({
         resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, instruction, today,
+        elsewhere: crossProject && { status: crossProject.status, figuresFor: crossProject.elsewhere, failures: crossProject.failures },
       });
       const parsed = await runAllocProposal(context, { apiKey, model: settings.ai.model, guideText, privacy: aiPrivacy() }, instruction, controller.signal);
       if (reqId !== reqIdRef.current) return; // superseded — discard
@@ -253,7 +260,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       }
       setPhase("input");
     }
-  }, [peopleProtected, phase, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, today, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast]);
+  }, [peopleProtected, phase, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, today, apiKey, settings.ai.model, guideText, aiPrivacy, lang, showToast, crossProject]);
 
   // Toggles a row of the ACTIVE alternative only; the others keep their ticks.
   const onToggle = useCallback((key: string) => {
@@ -375,6 +382,15 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       const r = resourceById.get(id);
       return r ? resourceDisplayName(r) : undefined;
     };
+    // One lookup per person per render: `elsewhere` re-spreads the other projects' plans each call.
+    const figuresById = new Map<number, ElsewhereFigure[]>();
+    const elsewhereHours = crossProject
+      ? (id: number, periodKey: string): number => {
+          const figures = figuresById.get(id) ?? crossProject.elsewhere(id);
+          figuresById.set(id, figures);
+          return elsewhereTotal(figures, periodKey);
+        }
+      : undefined;
     return (
       <AllocPlanModal
         lang={lang}
@@ -396,7 +412,9 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
           holidaySet,
           tasks,
           today,
+          elsewhereHours,
         })}
+        crossProject={crossProject}
         currency={plan.currency}
         liveTaskName={(id) => taskById.get(id)?.taskName}
         liveResourceName={liveResourceName}

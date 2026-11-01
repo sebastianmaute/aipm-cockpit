@@ -225,3 +225,35 @@ describe("useCrossProjectPeople", () => {
     expect(deletePersonLink).not.toHaveBeenCalled();
   });
 });
+
+// §785 — Resources → Planning is memo()'d: its `crossProject` prop must keep one identity while nothing it shows changed.
+describe("useCrossProjectPeople — stable result (§785)", () => {
+  test("a re-render with unchanged inputs returns the same object, writers included", async () => {
+    const { hook, deps } = setup();
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    const first = hook.result.current;
+    hook.rerender({ ...deps }); // fresh deps object, same values
+    expect(hook.result.current).toBe(first);
+    expect(hook.result.current.confirm).toBe(first.confirm);
+  });
+
+  test("a stable writer still acts on the LATEST render's scope", async () => {
+    const { hook, deps } = setup();
+    act(() => hook.result.current.request());
+    await waitFor(() => expect(hook.result.current.status).toBe("ready"));
+    const confirm = hook.result.current.confirm;
+    const renamed = [res(1, "Ann", "Lee", { email: "ann@x.io" })];
+    hook.rerender({ ...deps, resources: renamed });
+    const rel = hook.result.current.matches.get(1)!.suggestions[0];
+    await act(async () => { await confirm(1, rel); });
+    expect(savePersonLink).toHaveBeenCalledWith(CONFIG, expect.objectContaining({ emailsA: "ann@x.io" }));
+  });
+
+  test("a status change gives a new object", async () => {
+    const { hook } = setup();
+    const idle = hook.result.current;
+    act(() => hook.result.current.request());
+    expect(hook.result.current).not.toBe(idle);
+  });
+});

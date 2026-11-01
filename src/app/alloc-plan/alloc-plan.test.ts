@@ -11,6 +11,7 @@ import {
   applyAllocationCells,
   availableCapacityHours,
   buildAllocContext,
+  type AllocContextArgs,
   buildAllocSystemPrompt,
   buildAllocationsSnapshot,
   cellKey,
@@ -32,6 +33,7 @@ import {
   type Task,
 } from "../types";
 import { generatePeriods, periodCapacityHours } from "../resource-capacity";
+import { type ElsewhereFigure } from "../cross-project/elsewhere-hours";
 
 const plan: ResourcePlan = {
   startDate: "2026-08-01",
@@ -1450,5 +1452,60 @@ describe("buildAllocContext project digest (§769)", () => {
     expect(text.indexOf("TASKS (open only):")).toBeGreaterThan(text.indexOf("RESOURCES"));
     expect(buildAllocSystemPrompt()).toContain("Prefer people with R or A on a task's milestone.");
     expect(buildAllocSystemPrompt()).toContain("A task not listed may still exist when the TASKS list is truncated.");
+  });
+});
+
+// §785 — what a person is already booked for in OTHER projects, as the digest and the system prompt tell the model.
+describe("ELSEWHERE in the allocation digest (§785)", () => {
+  const ctx = { plan, absences: [], workdayHours: 8, holidaySet: new Set<string>(), roles: [], disciplines: [], grades: [] };
+  const ana = resource(1, { firstName: "Ana", lastName: "Lee", utilizationMode: "hours" });
+  const bo = resource(2, { firstName: "Bo", lastName: "Kim", utilizationMode: "hours" });
+  const figure = (over: Partial<ElsewhereFigure> = {}): ElsewhereFigure => ({
+    projectId: "p2", projectName: "Apollo", hoursByPeriod: { "2026-08": 40, "2026-09": 12.5 }, openTasks: 3, remainingHours: 21, noPlan: false, ...over,
+  });
+  const args = (elsewhere: AllocContextArgs["elsewhere"]) => ({ ...NO_PROJECT, ...ctx, resources: [ana, bo], elsewhere });
+  const figuresFor = (id: number): ElsewhereFigure[] => (id === 1 ? [figure(), figure({ projectId: "p3", projectName: "Zeus", hoursByPeriod: { "2026-08": 0, "2026-09": 0 }, noPlan: true, openTasks: 0, remainingHours: 0 })] : []);
+
+  it("gives a person with figures one line per other project, under their row, with only the shown periods", () => {
+    const lines = buildAllocContext(args({ status: "ready", figuresFor, failures: [] })).split("\n");
+    const row = lines.findIndex((l) => l.startsWith("#1 "));
+    expect(lines[row + 1]).toBe('  ELSEWHERE "Apollo": 2026-08=40 2026-09=12.5 · open tasks 3 (21 h left)');
+    expect(lines[row + 2]).toBe('  ELSEWHERE "Zeus": no plan · open tasks 0 (0 h left)');
+    expect(lines[row + 3]).toMatch(/^#2 /);
+  });
+
+  it("drops a period that is not shown", () => {
+    const many = { ...plan, endDate: "2028-12-31" };
+    const text = buildAllocContext({ ...args({ status: "ready", figuresFor: () => [figure({ hoursByPeriod: { "2026-08": 4, "2030-01": 99 } })], failures: [] }), plan: many });
+    expect(text).toContain("2026-08=4");
+    expect(text).not.toContain("2030-01");
+  });
+
+  it("lists projects that could not be read, once", () => {
+    const text = buildAllocContext(args({ status: "ready", figuresFor: () => [], failures: [{ projectName: "Broken" }, { projectName: "Odd\nName" }] }));
+    expect(text.split("\n").filter((l) => l.startsWith("ELSEWHERE: could not be read:"))).toEqual(['ELSEWHERE: could not be read: "Broken", "Odd Name"']);
+  });
+
+  it("says nothing per person when nothing was found", () => {
+    expect(buildAllocContext(args({ status: "ready", figuresFor: () => [], failures: [] }))).not.toContain("ELSEWHERE");
+  });
+
+  it("says other projects cannot be seen in this storage mode, in one line", () => {
+    const text = buildAllocContext(args({ status: "unavailable", figuresFor, failures: [] }));
+    expect(text.split("\n").filter((l) => l.includes("ELSEWHERE"))).toEqual(["ELSEWHERE: other projects cannot be seen in this storage mode"]);
+  });
+
+  it("carries no person name on an ELSEWHERE line (a project name is not a person)", () => {
+    const text = buildAllocContext(args({ status: "ready", figuresFor, failures: [] }));
+    for (const l of text.split("\n").filter((x) => x.includes("ELSEWHERE"))) {
+      expect(l).not.toContain("Ana");
+      expect(l).not.toContain("Lee");
+    }
+  });
+
+  it("the system prompt calls elsewhere hours booked time the proposal must respect and cannot change", () => {
+    const p = buildAllocSystemPrompt();
+    expect(p).toMatch(/ELSEWHERE/);
+    expect(p).toMatch(/cannot change/i);
   });
 });

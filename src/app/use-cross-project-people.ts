@@ -21,6 +21,7 @@ import type { Workspace } from "./workspace";
 import { generatePeriods } from "./resource-capacity";
 import { isScopeStale } from "./scope-epoch";
 import { logDiag } from "./diagnostics";
+import { useStableHandlers } from "./use-stable-handlers";
 import { deletePersonLink, loadPersonLinks, savePersonLink } from "./person-links-store";
 import {
   canonicalPair,
@@ -228,14 +229,16 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   };
 
   const status: CrossProjectStatus = !available ? "unavailable" : loadingFor === currentProjectId ? "loading" : effective ? "ready" : "idle";
-  return {
-    status,
-    failures: effective?.failures ?? NO_FAILURES,
-    matches,
-    elsewhere,
-    request,
-    confirm: (hereId, rel) => decide(hereId, rel, "same"),
-    reject: (hereId, rel) => decide(hereId, rel, "different"),
+  // The writers read live render scope, so they go through stable wrappers: the result below keeps ONE identity
+  // until something it shows changes, which is what lets the memo()'d Resources panel bail on unrelated renders.
+  const writers = useStableHandlers({
+    confirm: (hereId: number, rel: Relation) => decide(hereId, rel, "same"),
+    reject: (hereId: number, rel: Relation) => decide(hereId, rel, "different"),
     undo,
-  };
+  });
+  const failures = effective?.failures ?? NO_FAILURES;
+  return useMemo(
+    () => ({ status, failures, matches, elsewhere, request, ...writers }),
+    [status, failures, matches, elsewhere, request, writers],
+  );
 }

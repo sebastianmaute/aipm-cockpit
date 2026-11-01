@@ -14,6 +14,8 @@ export interface OverCapacity {
   periodKey: string;
   hours: number;
   capacityHours: number;
+  /** §785: hours already booked in other projects in this period (0 when none or not known). */
+  elsewhereHours: number;
 }
 
 export interface AltEffect {
@@ -38,7 +40,11 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 export function alternativeEffect(
   alt: GroundedAlternative,
   selected: ReadonlySet<string>,
-  ctx: MoveGroundContext & { roles: readonly Role[] },
+  ctx: MoveGroundContext & {
+    roles: readonly Role[];
+    /** §785: a person's hours in other projects for a period of this plan; counts against capacity. */
+    elsewhereHours?: (resourceId: number, periodKey: string) => number;
+  },
 ): AltEffect {
   const resourceById = new Map(ctx.resources.map((r) => [r.id, r]));
   const periodByKey = new Map<string, Period>(
@@ -105,10 +111,13 @@ export function alternativeEffect(
     }
     const capacityHours = capacityOf(r, periodKey);
     const hours = shownNow(r, periodKey) + delta;
+    const elsewhereHours = round2(ctx.elsewhereHours?.(resourceId, periodKey) ?? 0);
     // Warn only where the ticked changes ADD hours and the result ends above available: a giver already over whose
     // hours drop was not put there by this plan. No `capacityHours > 0` guard (unlike §774's own notice): hours landing
     // on someone with nothing available — a whole month absent — are exactly what the review window must warn about.
-    if (delta > NO_CHANGE && hours > capacityHours + OVER_CAPACITY_TOLERANCE_HOURS) overCapacity.push({ resourceId, periodKey, hours: round2(hours), capacityHours });
+    if (delta > NO_CHANGE && hours + elsewhereHours > capacityHours + OVER_CAPACITY_TOLERANCE_HOURS) {
+      overCapacity.push({ resourceId, periodKey, hours: round2(hours), capacityHours, elsewhereHours });
+    }
   }
   overCapacity.sort((a, b) => a.resourceId - b.resourceId || a.periodKey.localeCompare(b.periodKey));
 

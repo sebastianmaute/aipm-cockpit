@@ -20,6 +20,7 @@ import * as call from "./alloc-plan-call";
 import { type RawAllocCell } from "./alloc-plan/alloc-plan";
 import { type ParsedAllocAlternatives } from "./alloc-plan/alloc-alternatives";
 import { t, tPlural } from "./i18n";
+import { type CrossProjectPeople } from "./use-cross-project-people";
 import { ActionGuidesProvider } from "./action-guides-context";
 
 vi.mock("./alloc-plan-call");
@@ -63,6 +64,7 @@ interface HarnessProps {
    *  `resources` DIRECTLY (bypassing the alloc-plan hook) — simulating
    *  another edit/background sync landing while the preview modal is open. */
   externalEdit?: (resources: readonly Resource[]) => readonly Resource[];
+  crossProject?: CrossProjectPeople;
 }
 
 /** Renders of the component that owns the hook (in the app, the Resources panel and its planning grid). */
@@ -75,6 +77,7 @@ function Harness({
   logActivitySpy,
   onResources,
   externalEdit,
+  crossProject,
 }: HarnessProps) {
   // Counted in an effect (every committed render runs it): mutating it in the render body is refused by lint.
   useEffect(() => { harnessRenders.count++; });
@@ -108,6 +111,7 @@ function Harness({
     today: "2026-08-01",
     reassignTasks: () => 0,
     isLoadHeld: () => false,
+    crossProject,
   });
   return (
     <div>
@@ -919,5 +923,62 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     expect(lastToast()).toBe(tPlural("en-US", "allocPlanApplied", 1, 1));
     fireEvent.click(screen.getByRole("button", { name: "undo-now" }));
     await waitFor(() => expect(readUtil()[3]).toEqual({}));
+  });
+});
+
+// §785 — Plan with AI counts a person's hours in other projects: it asks to load them when the window opens, waits
+// for them before Run, and puts them in the digest.
+describe("useAllocPlan — other projects (§785)", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const cp = (over: Partial<CrossProjectPeople> = {}): CrossProjectPeople => ({
+    status: "idle",
+    failures: [],
+    matches: new Map(),
+    elsewhere: () => [],
+    request: vi.fn(),
+    confirm: vi.fn(async () => {}),
+    reject: vi.fn(async () => {}),
+    undo: vi.fn(async () => {}),
+    ...over,
+  });
+  const apollo = { projectId: "p2", projectName: "Apollo", hoursByPeriod: { "2026-08": 40 }, openTasks: 2, remainingHours: 9, noPlan: false };
+  const wrap = (crossProject: CrossProjectPeople) => (
+    <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+      <Harness crossProject={crossProject} />
+    </ToastProvider>
+  );
+
+  it("opening the window asks for the other projects", () => {
+    const c = cp();
+    render(wrap(c));
+    expect(c.request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /plan with ai/i }));
+    expect(c.request).toHaveBeenCalledTimes(1);
+  });
+
+  it("Run waits while loading, then sends a digest that contains ELSEWHERE", async () => {
+    vi.mocked(call.runAllocProposal).mockImplementation(() => new Promise(() => {}));
+    const { rerender } = render(wrap(cp({ status: "loading" })));
+    openAndType();
+    const waiting = screen.getByRole("button", { name: t("en-US", "allocElsewhereLoading") });
+    expect(waiting).toBeDisabled();
+    fireEvent.click(waiting);
+    expect(call.runAllocProposal).not.toHaveBeenCalled();
+    rerender(wrap(cp({ status: "ready", elsewhere: (id) => (id === 1 ? [apollo] : []) })));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") }));
+    await waitFor(() => expect(call.runAllocProposal).toHaveBeenCalled());
+    expect(vi.mocked(call.runAllocProposal).mock.calls[0][0]).toContain('ELSEWHERE "Apollo": 2026-08=40');
+  });
+
+  it("unavailable: one ELSEWHERE line and Run is not blocked", async () => {
+    vi.mocked(call.runAllocProposal).mockImplementation(() => new Promise(() => {}));
+    render(wrap(cp({ status: "unavailable" })));
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "allocPlanPropose") }));
+    await waitFor(() => expect(call.runAllocProposal).toHaveBeenCalled());
+    const lines = vi.mocked(call.runAllocProposal).mock.calls[0][0].split("\n").filter((l) => l.includes("ELSEWHERE"));
+    expect(lines).toEqual(["ELSEWHERE: other projects cannot be seen in this storage mode"]);
   });
 });
