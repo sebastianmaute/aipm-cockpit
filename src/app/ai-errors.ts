@@ -39,6 +39,33 @@ export const AI_GATEWAY_ERROR = "ai-gateway-error";
 export const AI_GATEWAY_RATE_LIMITED = "ai-gateway-rate-limited";
 /** The relay's 503 body when the deployment's gateway setting is invalid (not a gateway failure). */
 export const AI_GATEWAY_INVALID = "ai-gateway-invalid";
+/** The relay's refusals when the deployment restricts keys to its Anthropic organisation (and
+ *  optionally named workspaces): the key belongs to another organisation (403), to a workspace not
+ *  on the list (403), or could not be checked, so nothing was forwarded (503). */
+export const AI_KEY_WRONG_ORGANIZATION = "ai-key-wrong-organization";
+export const AI_KEY_WRONG_WORKSPACE = "ai-key-wrong-workspace";
+export const AI_KEY_CHECK_UNAVAILABLE = "ai-key-check-unavailable";
+
+/** The relay refused the key: it belongs to another Anthropic organisation, or to a workspace the
+ *  organisation does not allow. A verdict on the user's own key (unlike `AiGatewayError`). */
+export type AiKeyRefusedReason = "organization" | "workspace";
+
+export class AiKeyRefusedError extends Error {
+  constructor(public readonly reason: AiKeyRefusedReason) {
+    super(reason);
+    this.name = "AiKeyRefusedError";
+  }
+}
+
+/** The relay could not check the key's organisation and forwarded nothing. NOT a verdict on the
+ *  key: the key status stays as it was. */
+export class AiKeyCheckUnavailableError extends Error {
+  constructor() {
+    super(AI_KEY_CHECK_UNAVAILABLE);
+    this.name = "AiKeyCheckUnavailableError";
+  }
+}
+
 export type AiGatewayErrorCode = typeof AI_GATEWAY_REJECTED | typeof AI_GATEWAY_ERROR | typeof AI_GATEWAY_RATE_LIMITED;
 
 /** The organisation's AI gateway (reached through the same-origin relay) refused the app's
@@ -57,7 +84,8 @@ export type AiTransportMessageKey =
   | "aiDeploymentUnconfirmed"
   | "aiGatewayRejected"
   | "aiGatewayFailed"
-  | "aiGatewayRateLimited";
+  | "aiGatewayRateLimited"
+  | "aiKeyCheckUnavailable";
 
 const DEPLOYMENT_MESSAGE: Record<AiDeploymentErrorReason, AiTransportMessageKey> = {
   off: "aiDeploymentOff",
@@ -76,12 +104,14 @@ const GATEWAY_MESSAGE: Record<AiGatewayErrorCode, AiTransportMessageKey> = {
 export function aiTransportMessageKey(err: unknown): AiTransportMessageKey | null {
   if (err instanceof AiDeploymentError) return DEPLOYMENT_MESSAGE[err.reason];
   if (err instanceof AiGatewayError) return GATEWAY_MESSAGE[err.code];
+  if (err instanceof AiKeyCheckUnavailableError) return "aiKeyCheckUnavailable";
   return null;
 }
 
 const TRANSPORT_MESSAGE_KEYS: ReadonlySet<string> = new Set<AiTransportMessageKey>([
   ...Object.values(DEPLOYMENT_MESSAGE),
   ...Object.values(GATEWAY_MESSAGE),
+  "aiKeyCheckUnavailable",
 ]);
 
 /** True when a hook's stored error token is a transport message key (the features that keep a

@@ -10,13 +10,15 @@ import {
 import { setAiDeploymentState, type AiDeploymentState } from "./ai-deployment";
 import { fetchAnthropicModels } from "./anthropic-models";
 import { __resetAiKeyStatusForTests, getAiKeyStatus, syncAiKey } from "./ai-key-status";
-import { aiTransportMessageKey } from "./ai-errors";
+import { aiTransportMessageKey, AiKeyCheckUnavailableError, AiKeyRefusedError } from "./ai-errors";
+import * as diagnostics from "./diagnostics";
 import * as transport from "./ai-transport";
 import * as models from "./anthropic-models";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
 
-const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false };
+const GATEWAY: AiDeploymentState = { off: false, route: "gateway", invalid: false, keyRestricted: false };
+const RELAY: AiDeploymentState = { off: false, route: "relay", invalid: false, keyRestricted: true };
 const KEY = "sk-ant-api03-test";
 
 function json(body: unknown, status = 200): Response {
@@ -86,8 +88,8 @@ describe("confirmAiDeployment", () => {
   });
 
   it.each([
-    ["off", { off: true, route: "direct", invalid: false }],
-    ["invalid", { off: false, route: "direct", invalid: true }],
+    ["off", { off: true, route: "direct", invalid: false, keyRestricted: false }],
+    ["invalid", { off: false, route: "direct", invalid: true, keyRestricted: false }],
     ["route-changed", GATEWAY],
   ] as const)("throws %s", async (reason, state) => {
     stubFetch(state);
@@ -98,7 +100,7 @@ describe("confirmAiDeployment", () => {
 
   // Review 5, C1: AI switched off is "off" whatever the answer says about the people lock — nothing is sent either way.
   it("an answer that says AI is off is off even without the people lock", async () => {
-    stubFetch(json({ off: true, route: "direct", invalid: false }));
+    stubFetch(json({ off: true, route: "direct", invalid: false, keyRestricted: false }));
     const err = await confirmAiDeployment().catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AiDeploymentError);
     expect((err as AiDeploymentError).reason).toBe("off");
@@ -109,13 +111,58 @@ describe("confirmAiDeployment", () => {
     ["the status is not 200", new Response("", { status: 500 })],
     ["the body is not a state", json({ off: "no" })],
     // Review 4, M3: the people lock is part of the answer; without it the answer is not trusted.
-    ["the state says nothing about the people lock", json({ off: false, route: "direct", invalid: false })],
-    ["the people lock is not a boolean", json({ off: false, route: "direct", invalid: false, peopleForced: "yes" })],
+    ["the state says nothing about the people lock", json({ off: false, route: "direct", invalid: false, keyRestricted: false })],
+    ["the people lock is not a boolean", json({ off: false, route: "direct", invalid: false, keyRestricted: false, peopleForced: "yes" })],
   ])("is unconfirmed when %s", async (_label, status) => {
     stubFetch(status);
     const err = await confirmAiDeployment().catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AiDeploymentError);
     expect((err as AiDeploymentError).reason).toBe("unconfirmed");
+  });
+
+  it("accepts a relay answer that carries a boolean keyRestricted", async () => {
+    setAiDeploymentState(RELAY);
+    stubFetch(RELAY);
+    await expect(confirmAiDeployment()).resolves.toEqual({ peopleForced: false });
+  });
+
+  it.each([
+    ["keyRestricted is missing", json({ off: false, route: "relay", invalid: false, peopleForced: false })],
+    ["keyRestricted is not a boolean", json({ off: false, route: "relay", invalid: false, keyRestricted: "yes", peopleForced: false })],
+  ])("is unconfirmed when %s", async (_label, status) => {
+    setAiDeploymentState(RELAY);
+    stubFetch(status);
+    const err = await confirmAiDeployment().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiDeploymentError);
+    expect((err as AiDeploymentError).reason).toBe("unconfirmed");
+  });
+
+  it("page state direct, status answers relay: route-changed, and Anthropic is never called", async () => {
+    const f = stubFetch(RELAY);
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiDeploymentError);
+    expect((err as AiDeploymentError).reason).toBe("route-changed");
+    expect(urls(f)).toEqual(["/api/ai/status"]);
+  });
+
+  // Behind a gateway the route stays "gateway" when the key restriction is switched on or off, but a
+  // consent records whether it was on: a tab loaded before the change must not send.
+  it.each([
+    ["off at page load, on now", false, true],
+    ["on at page load, off now", true, false],
+  ])("gateway, key restriction %s: route-changed, and nothing goes upstream", async (_label, pageRestricted, nowRestricted) => {
+    setAiDeploymentState({ ...GATEWAY, keyRestricted: pageRestricted });
+    const f = stubFetch({ ...GATEWAY, keyRestricted: nowRestricted });
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiDeploymentError);
+    expect((err as AiDeploymentError).reason).toBe("route-changed");
+    expect(urls(f)).toEqual(["/api/ai/status"]);
+  });
+
+  it("gateway, key restriction unchanged: confirmed", async () => {
+    setAiDeploymentState({ ...GATEWAY, keyRestricted: true });
+    stubFetch({ ...GATEWAY, keyRestricted: true });
+    await expect(confirmAiDeployment()).resolves.toEqual({ peopleForced: false });
   });
 
   it("lets an abort through as an abort, never as unconfirmed", async () => {
@@ -156,9 +203,28 @@ describe("postAiMessages", () => {
     });
   });
 
+  it("relay: posts to the same-origin relay, never to Anthropic, without the browser-access header", async () => {
+    setAiDeploymentState(RELAY);
+    const f = stubFetch(RELAY);
+    await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" });
+    expect(urls(f)).toEqual(["/api/ai/status", "/api/ai/messages"]);
+    expect(urls(f).some((u) => hasAnthropicHost(u))).toBe(false);
+    expect(f.mock.calls[1][1]?.headers).toEqual({
+      "x-api-key": KEY,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    });
+  });
+
+  it("relay: a relay 502 is read as a relay answer, like the gateway's", async () => {
+    setAiDeploymentState(RELAY);
+    stubFetch(RELAY, () => json({ error: "ai-gateway-error" }, 502));
+    await expect(postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" })).rejects.toBeInstanceOf(AiGatewayError);
+  });
+
   it.each([
-    [{ off: true, route: "direct", invalid: false }],
-    [{ off: false, route: "direct", invalid: true }],
+    [{ off: true, route: "direct", invalid: false, keyRestricted: false }],
+    [{ off: false, route: "direct", invalid: true, keyRestricted: false }],
     [GATEWAY],
   ] as const)("never posts when the status refuses (%o)", async (state) => {
     const f = stubFetch(state);
@@ -256,7 +322,7 @@ describe("postAiMessages", () => {
   });
 
   it.each(["direct", "gateway"] as const)("%s: beforeSend runs after the status answer and can stop the send", async (r) => {
-    const state: AiDeploymentState = { off: false, route: r, invalid: false };
+    const state: AiDeploymentState = { off: false, route: r, invalid: false, keyRestricted: false };
     setAiDeploymentState(state);
     const order: string[] = [];
     const f = vi.fn(async (input: string): Promise<Response> => {
@@ -308,6 +374,14 @@ describe("getAiModels", () => {
       "anthropic-version": "2023-06-01",
       "anthropic-dangerous-direct-browser-access": "true",
     });
+  });
+
+  it("relay: the models come from /api/ai/models, never from Anthropic", async () => {
+    setAiDeploymentState(RELAY);
+    const f = stubFetch(RELAY);
+    await getAiModels(KEY);
+    expect(urls(f)).toEqual(["/api/ai/status", "/api/ai/models"]);
+    expect(f.mock.calls[1][1]?.headers).toEqual({ "x-api-key": KEY, "anthropic-version": "2023-06-01" });
   });
 
   it("gateway: the relay, without the browser-access header", async () => {
@@ -416,5 +490,47 @@ describe("aiTransportMessageKey", () => {
     [new Error("x"), null],
   ] as const)("%o → %s", (err, key) => {
     expect(aiTransportMessageKey(err)).toBe(key);
+  });
+});
+
+describe("the relay's key refusals (AI organisation key)", () => {
+  beforeEach(() => {
+    __resetAiKeyStatusForTests();
+    syncAiKey(KEY);
+    setAiDeploymentState(RELAY);
+  });
+
+  it.each([
+    ["ai-key-wrong-organization", "organization", "refused-organization"],
+    ["ai-key-wrong-workspace", "workspace", "refused-workspace"],
+  ] as const)("403 %s throws AiKeyRefusedError, sets the key status and logs the reason once", async (code, reason, status) => {
+    stubFetch(RELAY, () => json({ error: code }, 403));
+    const spy = vi.spyOn(diagnostics, "logDiag");
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiKeyRefusedError);
+    expect((err as AiKeyRefusedError).reason).toBe(reason);
+    expect(err).not.toBeInstanceOf(AiGatewayError);
+    expect(getAiKeyStatus()).toBe(status);
+    const refused = spy.mock.calls.filter((c) => c[1] === "ai.keyRefused");
+    expect(refused).toEqual([["warn", "ai.keyRefused", { reason }]]);
+    expect(JSON.stringify(spy.mock.calls)).not.toContain(KEY);
+  });
+
+  it("the models call maps a refusal the same way", async () => {
+    stubFetch(RELAY, () => json({ error: "ai-key-wrong-organization" }, 403));
+    const err = await getAiModels(KEY).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiKeyRefusedError);
+    expect(getAiKeyStatus()).toBe("refused-organization");
+  });
+
+  it("503 ai-key-check-unavailable throws AiKeyCheckUnavailableError (not unconfirmed) and leaves the key status alone, logging no refusal", async () => {
+    stubFetch(RELAY, () => json({ error: "ai-key-check-unavailable" }, 503));
+    const spy = vi.spyOn(diagnostics, "logDiag");
+    const err = await postAiMessages({ privacy: { protected: false }, apiKey: KEY, body: "{}", path: "chat" }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AiKeyCheckUnavailableError);
+    expect(aiTransportMessageKey(err)).toBe("aiKeyCheckUnavailable");
+    expect(getAiKeyStatus()).toBe("unknown");
+    // Not a verdict on the key, so no refusal is logged (the refusal test above shows the spy sees one).
+    expect(spy.mock.calls.filter((c) => c[1] === "ai.keyRefused")).toEqual([]);
   });
 });

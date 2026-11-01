@@ -29,11 +29,12 @@ and the job ids in `.github/workflows/ci.yml` differ.
 
 ## Jobs
 
-Six workflows: `.github/workflows/ci.yml` (the required checks), `.github/workflows/release.yml`
+Eight workflows: `.github/workflows/ci.yml` (the required checks), `.github/workflows/release.yml`
 (tag-triggered, see below), `.github/workflows/scheduled.yml` (weekly, see below),
-`.github/workflows/future-clock.yml` (weekly, one job, described with the weekly jobs below), and the two
-security workflows `security.yml` and `scorecard.yml` (see "Security workflows" below). Count them with
-`ls .github/workflows`. `ci/gitlab-sync.yml`
+`.github/workflows/future-clock.yml` (weekly, one job, described with the weekly jobs below), the two
+security workflows `security.yml` and `scorecard.yml` (see "Security workflows" below), and the two live
+workflows, `live-turso.yml` and `ai-live.yml` (each in its own section below), neither of them required.
+Count them with `ls .github/workflows`. `ci/gitlab-sync.yml`
 is NOT one of them — it is a GitLab-side CI config, run by GitLab's own CI configuration path, that
 pushes GitHub's history into the read-only mirror and then, in a second job (`mirror-releases`, §640),
 creates a GitLab release for every GitHub release that has none yet, with asset links to the GitHub
@@ -266,6 +267,62 @@ pull request and every push to `main`, beside `ci.yml`, and on `workflow_dispatc
   deliberately obscured expression (a YAML anchor, `format()` to build a secret name) is out of
   their reach. They fail closed on a trailing comment after `env:` or a secret line, and on any
   comment line quoting a `${{ }}` that names `secrets` or `env`: keep comments on their own line.
+
+## `ai-live.yml` — the AI relay and key check, live (AI organisation key)
+
+NOT a required check, and started by hand only: it runs on `workflow_dispatch` and nothing else,
+because every run spends tokens (a handful of Messages calls with `max_tokens: 1`, on the newest
+Haiku model the live model list names). It proves the relay (`src/app/api/ai/_relay.ts`) and its
+organisation key check (`_key-check.ts`) against the real Anthropic API and a real Cloudflare AI
+Gateway. Two jobs, the same shape as `live-turso.yml`:
+
+- **`check`** reads the five secrets through `env:` and answers one question, are all five set.
+  With any missing it writes a warning, and `ai-live` is skipped. ★★ Such a run shows green and
+  proved NOTHING: read the warning, never the colour, before citing a run as evidence.
+- **`ai-live`** (`needs: check`, only when all five are set) runs `npm ci` with no secret in its
+  environment, then one step: `npx vitest run src/app/api/ai/_relay.live.test.ts`. That file calls
+  `relay` in-process with the production `httpsSend` wrapped by a recorder, so the "no Messages
+  call reached Anthropic" proofs read the relay's own upstream record. The six proofs, one test
+  each: (1) direct, correct ids, a Messages call succeeds after a passing pre-flight; (2) a random
+  organisation id and (3) a random workspace id are refused with `ai-key-wrong-organization` /
+  `ai-key-wrong-workspace` and only the pre-flight went upstream; (4) through the gateway, correct
+  ids, both answer headers came back and the call succeeds; (5) through the gateway, a random
+  organisation id is refused before any Messages call; (6) records, without asserting, whether the
+  organisation header comes back on a 401 for an invalid key. Proofs 4 and 6 write what they saw to
+  the job summary. Proof 4 also checks that the Messages call itself went through the gateway with
+  its token. If the gateway drops either header, proofs 4 and 5 fail with a message that names the
+  rule it breaks: a gateway must pass Anthropic's organisation and workspace headers back, and one
+  that does not cannot be combined with the restriction ([RUNBOOK](../RUNBOOK.md), "Restricting AI
+  to the organisation's Anthropic keys", step 6). No assertion message carries an upstream body:
+  every parse of one is wrapped, and a failure reports a boolean or a status.
+- ★★★ **A green run must have run every proof.** The file's proofs SKIP unless all five secrets are
+  set AND `AI_LIVE_REQUIRED` is `1` (that is what keeps the unit job, which runs every `src/**`
+  test file, and a local shell that exports the `AI_LIVE_*` values from making paid calls), and a
+  vitest run in which everything skipped exits 0. So the test step sets `AI_LIVE_REQUIRED=1`, which
+  also turns on the file's one test that fails when any secret is missing: a renamed or mistyped
+  secret fails the run instead of passing it green.
+- **Secrets.** `AI_LIVE_ANTHROPIC_KEY` (a key with a low spend limit from a throwaway organisation
+  and workspace), `AI_LIVE_ORGANIZATION_ID` and `AI_LIVE_WORKSPACE_ID` (that key's ids, in the
+  shapes the restriction setting requires: a UUID and a `wrkspc_` id, the latter copied with its letter case), `AI_LIVE_GATEWAY_URL` and `AI_LIVE_GATEWAY_TOKEN` (a
+  throwaway Cloudflare AI Gateway, on an account with no stored provider keys, per the RUNBOOK).
+  They enter through the `env:` of the two steps that need them only, never a `run:` line and never
+  a job- or workflow-level `env:`, and no other workflow names them, so `ci.yml`'s unit job never
+  has them. The test's recorder keeps only booleans, statuses and call kinds, never a key, id, URL
+  or body, so neither an assertion message nor the summary can print one; GitHub masks the exact
+  secret values in the log as well. msw is closed for that file, since its unhandled-request
+  warning would print each call's URL and body.
+- ★★ **Accepted risk**, as for `live-turso.yml`: anyone who can push a branch can change the test
+  file, the vitest config or `package.json` and dispatch the workflow on that branch, and so read
+  the secrets. Acceptable while only the owner has write access; with collaborators, gate
+  `ai-live` on an environment with required reviewers.
+- **One run at a time.** A JOB-level concurrency group with the fixed name
+  `ai-live-throwaway-organisation` and `cancel-in-progress: false`; the same queueing caveat as
+  `live-turso.yml` applies (a third run replaces a waiting second).
+- **Not yet run.** Nothing here has been observed against the real services; the first dispatch
+  with the secrets set is the first proof. Record what proofs 4 and 6 found (the job summary) in
+  this section when it has run.
+- **Pinned by** the `ai-live.yml` block of `scripts/ci-workflow.test.mjs` (text, not parsed YAML,
+  with the same limits as the `live-turso.yml` block's).
 
 ## Weekly
 

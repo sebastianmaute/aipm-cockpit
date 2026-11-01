@@ -67,7 +67,7 @@ describe("useActionAnalysis", () => {
   });
 
   it("names a switched-off deployment, not a network problem", async () => {
-    __setAiStatusRequestForTests(async () => new Response(JSON.stringify({ off: true, invalid: false, route: "direct" }), { status: 200 }));
+    __setAiStatusRequestForTests(async () => new Response(JSON.stringify({ off: true, invalid: false, route: "direct", keyRestricted: false }), { status: 200 }));
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));
     await act(async () => { await result.current.analyze("ctx"); });

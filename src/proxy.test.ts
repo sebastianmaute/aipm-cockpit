@@ -175,6 +175,45 @@ describe("proxy CSP — follows the AI deployment", () => {
   });
 });
 
+describe("proxy CSP — follows the key restriction", () => {
+  const ORG = "11111111-2222-3333-4444-555555555555";
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("drops api.anthropic.com on the relay route, without naming the ids", () => {
+    vi.stubEnv("AIPM_AI_ORGANIZATION_ID", ORG);
+    const csp = cspFor();
+    expect(csp).not.toContain("api.anthropic.com");
+    expect(csp).not.toContain(ORG);
+  });
+
+  it("drops it for a gateway with a restriction", () => {
+    vi.stubEnv("AIPM_AI_GATEWAY_URL", "https://gateway.example.net/v1/acct/gw/anthropic");
+    vi.stubEnv("AIPM_AI_ORGANIZATION_ID", ORG);
+    expect(cspFor()).not.toContain("api.anthropic.com");
+  });
+
+  it("drops it for an invalid restriction (fails closed)", () => {
+    vi.stubEnv("AIPM_AI_ORGANIZATION_ID", "nope");
+    expect(cspFor()).not.toContain("api.anthropic.com");
+    vi.unstubAllEnvs();
+    vi.stubEnv("AIPM_AI_WORKSPACE_IDS", ORG);
+    expect(cspFor()).not.toContain("api.anthropic.com");
+  });
+
+  it("drops it for a misspelled setting name (fails closed), without naming the value", () => {
+    vi.stubEnv("AIPM_AI_ORGANISATION_ID", ORG);
+    const csp = cspFor();
+    expect(csp).not.toContain("api.anthropic.com");
+    expect(csp).not.toContain(ORG);
+  });
+
+  it("keeps it when no restriction is set and AI is not off", () => {
+    vi.stubEnv("AIPM_AI_ORGANIZATION_ID", "");
+    vi.stubEnv("AIPM_AI_WORKSPACE_IDS", "");
+    expect(directive(cspFor(), "connect-src")).toContain("https://api.anthropic.com");
+  });
+});
+
 describe("proxy matcher — API routes stay outside the proxy", () => {
   // A matched request has its body buffered by Next up to its proxyClientMaxBodySize setting (10 MB by
   // default), which would cut off the AI relay's larger bodies before its own 32 MB cap applies.

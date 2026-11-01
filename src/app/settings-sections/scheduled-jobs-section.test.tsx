@@ -94,8 +94,8 @@ function setup(settings: Settings, onChange = vi.fn()) {
 
 describe("ScheduledJobsSection — the deployment's AI setting", () => {
   it.each([
-    ["off", { off: true, route: "direct" as const, invalid: false }, "aiDeploymentOff"],
-    ["invalid", { off: false, route: "direct" as const, invalid: true }, "aiDeploymentInvalid"],
+    ["off", { off: true, route: "direct" as const, invalid: false, keyRestricted: false }, "aiDeploymentOff"],
+    ["invalid", { off: false, route: "direct" as const, invalid: true, keyRestricted: false }, "aiDeploymentInvalid"],
   ] as const)("%s: says so instead of asking to configure the assistant", (_label, state, key) => {
     setAiDeploymentState(state);
     try {
@@ -610,6 +610,8 @@ describe("§772 final review: Settings run history, Add job, keyed writes", () =
     ["project-missing", "scheduledReportsErrProjectMissing"],
     ["turso", "scheduledReportsErrTurso"],
     ["storage-unreachable", "scheduledReportsErrStorage"],
+    ["ai-key-wrong-organization", "aiKeyWrongOrganization"],
+    ["ai-key-wrong-workspace", "aiKeyWrongWorkspace"],
   ] as const)("a failed run with the token %s reads as its translation, not the raw token", (token, key) => {
     mockJobs = [job({ id: 1, name: "Alpha", history: failedRun(token) })];
     setup(withKey({ scheduledJobs: true }));

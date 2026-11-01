@@ -5,7 +5,7 @@ import { renderHook, act } from "@testing-library/react";
 vi.mock("./weight-suggestion-call", () => ({ runWeightSuggestion: vi.fn() }));
 import { runWeightSuggestion } from "./weight-suggestion-call";
 import { useWeightSuggestions } from "./use-weight-suggestions";
-import { AiGatewayError } from "./ai-errors";
+import { AiGatewayError, AiKeyCheckUnavailableError, AiKeyRefusedError } from "./ai-errors";
 import { defaultNextActionsConfig } from "./settings-types";
 import type { ReactNode } from "react";
 import { ActionGuidesProvider } from "./action-guides-context";
@@ -38,6 +38,16 @@ describe("useWeightSuggestions", () => {
     const { result } = renderHook(() => useWeightSuggestions({ apiKey: "k", model: "claude-x" }));
     await act(async () => { await result.current.run("ctx", defaultNextActionsConfig, "weights"); });
     expect(result.current.error).toBe("aiGatewayRejected");
+  });
+  it.each([
+    [new AiKeyRefusedError("organization"), "aiKeyWrongOrganization"],
+    [new AiKeyRefusedError("workspace"), "aiKeyWrongWorkspace"],
+    [new AiKeyCheckUnavailableError(), "aiKeyCheckUnavailable"],
+  ] as const)("names a refused or unchecked key (%o) by its message key, not network", async (err, key) => {
+    vi.mocked(runWeightSuggestion).mockRejectedValueOnce(err);
+    const { result } = renderHook(() => useWeightSuggestions({ apiKey: "k", model: "claude-x" }));
+    await act(async () => { await result.current.run("ctx", defaultNextActionsConfig, "weights"); });
+    expect(result.current.error).toBe(key);
   });
 });
 

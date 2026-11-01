@@ -14,6 +14,7 @@ import { formatExpiryDate, formatFetchedAt } from "./date-format";
 import type { OtherJournal } from "./use-other-journals";
 import type { JiraTokenAlert } from "./jira-token-status";
 import type { StorageErrorKind } from "./storage-error";
+import { aiKeyMessageKey } from "./ai-key-status";
 import { isKeptProjectKey, journalKeyProject } from "./unload-journal";
 import { Banner, type BannerSeverity } from "./banner";
 import { Button } from "./button";
@@ -132,13 +133,9 @@ export function StorageBanner({
  *  holds for this page only (the verdict is re-derived on the next load). */
 export function AiKeyBanner({
   status, lang, onOpenSettings, onDismiss,
-}: { status: "rejected" | "forbidden" | "unreadable"; lang: Lang; onOpenSettings: () => void; onDismiss: () => void }) {
-  const msg =
-    status === "rejected"
-      ? t(lang, "aiKeyRejected")
-      : status === "forbidden"
-        ? t(lang, "aiKeyForbidden")
-        : t(lang, "aiKeyUnreadable");
+}: { status: "rejected" | "forbidden" | "unreadable" | "refused-organization" | "refused-workspace"; lang: Lang; onOpenSettings: () => void; onDismiss: () => void }) {
+  // `aiKeyMessageKey` names a message for every bad status; the fallback only satisfies the type.
+  const msg = t(lang, aiKeyMessageKey(status) ?? "aiKeyUnreadable");
   return (
     <AlertBanner severity="error" ariaLabel={t(lang, "aiKeyBannerAria")} icon="⚠"
       actions={<>

@@ -14,6 +14,22 @@ longer carries its own changelog comment.
 
 - **Plan with AI sees a person's load in other projects.** When your projects share one Turso database, Plan with AI now reads the other projects' Planning grids and shows, beside each person's hours here, what they are already booked for elsewhere. Claude is told that time is booked and cannot be changed (with a count of the person's open tasks there, never their titles), and the review window's over-capacity warning counts it. People are matched across projects by e-mail address; a person with the same first and last name but no usable e-mail is only a suggestion until you confirm it, in the person's entry (which now lists the projects they work in) or in Plan with AI's review window. "Not the same person" is remembered too, and both answers can be undone from the person's entry. A project that cannot be read is named and skipped. Nothing is written to the other projects. In file, IndexedDB and single-project Turso storage nothing is loaded and Claude is told other projects cannot be seen. A new help entry explains the matching.
 
+- **A deployment can restrict AI to its own Anthropic organisation's keys.** The operator sets
+  `AIPM_AI_ORGANIZATION_ID` and, optionally, `AIPM_AI_WORKSPACE_IDS`. AI requests then go through this app's server,
+  which checks which organisation and workspace the user's key belongs to before it forwards anything; a key from
+  another organisation or workspace is refused, and the AI key banner and Settings → AI say why; a check that
+  cannot be completed is named in Settings → AI and in the feature that failed, with a hint to try again. A
+  malformed setting switches AI off, and so does a misspelled setting name: any variable starting with `AIPM_AI_` whose
+  name contains `ORG` or `WORKSPACE` and is not one of the two real names exactly (such as `AIPM_AI_ORGANISATION_ID`
+  or a real name in lower case), so a typo cannot leave the deployment unrestricted. Switching the restriction on or off asks every user to accept the AI data
+  disclosure again, behind a gateway too. A stored consent naming an AI route this version does not know (after going
+  back to an earlier release, for example) is asked for again, instead of counting as consent for calls straight to
+  Anthropic. The check proves which organisation a key belongs to, not what
+  that organisation's contract covers, and it governs only data this app sends; setup and limits are in
+  `docs/RUNBOOK.md` and `docs/security.md`. When the operator turns the restriction on, a tab still running the
+  previous release keeps working through a gateway until it is reloaded (the server still checks every key), and
+  without a gateway it says it could not confirm the AI setting and sends nothing; a tab already running this release
+  asks for a reload, because the AI setting changed. A deployment without the restriction keeps working.
 - **Suggest RACI reads the work.** Claude no longer decides from job titles alone. For each person who already has a stakeholder row, it is shown which of a milestone's linked tasks the person owns (and how many are closed), the risks and issues they own, the change requests they raised, their linked resource's discipline and grade, and the documents linked to the milestone. The app matches people to work by resource link first and typed name second, and skips a name it cannot tell apart. The Suggest RACI dialog now opens on a box where you can state a rule (for example, the client PO approves every release) before anything is sent. Claude may also hand Accountable over: the review shows the new holder's A and the old holder's new role as one row with one tick box, and both are applied together or not at all. A new Accountable without the old holder's new role is still refused, with a message that says so. Nothing creates a stakeholder: a team member without a stakeholder row gets no role. Suggest RACI stays unavailable while people protection is on. On a very large project the evidence is capped and the dialog says so.
 
 - **People protection for the AI (on by default, per project).** Settings → AI has a new switch, Protect people from

@@ -15,6 +15,7 @@ import type { AddressInfo } from "node:net";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { httpsSend, relay, type RelaySend } from "./_relay";
+import { createKeyChecker } from "./_key-check";
 
 // ── A minimal self-signed X.509 v3 certificate (ECDSA P-256, SHA-256), DER-encoded ──
 function derLength(n: number): Buffer {
@@ -108,6 +109,9 @@ const loopbackSend: RelaySend = (url, options, onResponse) => {
 };
 
 const TOKEN = "gateway-secret-token";
+// Invented organisation ids.
+const ORG = "11111111-2222-3333-4444-555555555555";
+const OTHER_ORG = "99999999-8888-7777-6666-555555555555";
 
 function browserPost(signal?: AbortSignal): Request {
   return new Request("http://localhost:3000/api/ai/messages", {
@@ -191,6 +195,55 @@ describe("relay over real https (loopback)", () => {
     expect(received.cookie).toBeUndefined();
     expect(received["x-other"]).toBeUndefined();
     expect(received["sec-fetch-site"]).toBeUndefined();
+  });
+
+  // The organisation key check over the real client: the pre-flight is a GET to the gateway's models route,
+  // the answer's headers decide, and only a pass lets the Messages call through. A fresh checker per test
+  // keeps the process-wide cache out of it.
+  describe("organisation key check", () => {
+    const restricted = (base: string) => ({
+      AIPM_AI_GATEWAY_URL: base, AIPM_AI_GATEWAY_TOKEN: TOKEN, AIPM_AI_ORGANIZATION_ID: ORG,
+    });
+    /** A gateway answering the pre-flight with `organization` (and a body, which the check drops unread) and the
+     *  Messages call with 200; it records every request it sees. */
+    const startChecked = (organization: string) => {
+      const seen: Array<{ method: string; path: string; skipCache: string | string[] | undefined }> = [];
+      const ready = startGateway((req, res) => {
+        seen.push({ method: req.method ?? "", path: req.url ?? "", skipCache: req.headers["cf-aig-skip-cache"] });
+        req.resume();
+        if (req.method === "GET") {
+          res.writeHead(200, { "content-type": "application/json", "anthropic-organization-id": organization });
+          res.end(JSON.stringify({ data: [{ id: "m" }] }));
+          return;
+        }
+        req.on("end", () => {
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end("{\"ok\":true}");
+        });
+      });
+      return { ready, seen };
+    };
+
+    it("a key of the organisation passes: the pre-flight goes first, then the Messages call reaches the gateway", async () => {
+      const { ready, seen } = startChecked(ORG);
+      const base = await ready;
+      const res = await relay(browserPost(), "messages", restricted(base), loopbackSend, createKeyChecker());
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+      expect(seen).toEqual([
+        { method: "GET", path: "/acct/gw/anthropic/v1/models?limit=1", skipCache: "true" },
+        { method: "POST", path: "/acct/gw/anthropic/v1/messages", skipCache: undefined },
+      ]);
+    });
+
+    it("a key of another organisation is refused with 403 and the gateway saw only the pre-flight", async () => {
+      const { ready, seen } = startChecked(OTHER_ORG);
+      const base = await ready;
+      const res = await relay(browserPost(), "messages", restricted(base), loopbackSend, createKeyChecker());
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: "ai-key-wrong-organization" });
+      expect(seen.map((r) => r.method)).toEqual(["GET"]);
+    });
   });
 
   // KILLED BY: dropping `upstream?.destroy()` from the relay's abort handler (the gateway keeps streaming to nobody).
