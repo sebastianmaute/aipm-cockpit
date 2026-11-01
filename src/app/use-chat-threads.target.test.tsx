@@ -361,7 +361,8 @@ describe("useChatThreads — a load retry outliving a Turso target change (§604
 
   it("a load retry dropped after a config change leaves the confirmed names alone", async () => {
     const retry = deferred<ChatThread[]>();
-    loadsByDatabase([thread("t1", { name: "Old name" })], retry.promise);
+    // B holds its own thread with the same id, already named "Mine" there.
+    loadsByDatabase([thread("t1", { name: "Old name" })], retry.promise, [thread("t1", { name: "Mine" })]);
     const { result, rerender, initialProps } = renderChatThreads();
     await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
     act(() => result.current.renameThread("t1", "Mine"));
@@ -372,14 +373,13 @@ describe("useChatThreads — a load retry outliving a Turso target change (§604
 
     act(() => result.current.retryLoad());
     rerender({ ...initialProps, tursoConfig: CFG_B });
+    await waitFor(() => expect(result.current.threads.map((th) => th.name)).toEqual(["Mine"]));
+    // A's retry settles AFTER B's load: dropped, it must not move t1's confirmed name back to A's "Old name".
     await settle(() => retry.resolve([thread("t1", { name: "Old name" })]));
     act(() => result.current.trackRenameDraft("t1", "Draft"));
     pagehide();
 
-    // A's thread is not B's: it is not in B's list, so no draft of it is kept under B, and the dropped
-    // retry wrote nothing (it is logged as stale).
-    expect(stored(CFG_B)).toEqual([]);
-    expect(stored(CFG_A)).toEqual([]);
+    expect(stored(CFG_B)).toEqual([expect.objectContaining({ id: "t1", base: "Mine", value: "Draft" })]);
     expect(staleTargetLog()).toHaveLength(1);
   });
 });
