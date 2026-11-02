@@ -379,6 +379,21 @@ describe("search", () => {
     }
   });
 
+  it("does not open a row under a tuple that only collided when the parts were joined by newlines", async () => {
+    const row = await ownedRow({ ...thread("a\nb", [{ role: "user", content: "Erika Müller" }]), projectId: "c" });
+    const search = async () => {
+      const a = deps(makeFakeTurso(db));
+      expect(await runCli(["search", "--key", keyPath, "Müller"], a.deps)).toBe(EXIT.FOUND);
+      return a.out.join("\n");
+    };
+    // Control: the row as written opens (the script reads what the app wrote).
+    insertRow(db, row);
+    expect(await search()).toContain("unreadable: 0");
+    db.exec("DELETE FROM chat_threads");
+    insertRow(db, { ...row, id: "a", project_id: "b\nc" });
+    expect(await search()).toContain("unreadable: 1");
+  });
+
   it("counts a row sealed in unbound c1 envelopes as unreadable, even with the right operator key", async () => {
     const threadKey = await generateThreadKey();
     const seal = async (text) => {

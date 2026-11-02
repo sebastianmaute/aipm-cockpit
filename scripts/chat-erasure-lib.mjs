@@ -8,8 +8,9 @@
 //
 // Formats mirror the app and must stay identical (the test builds rows with the app's own codec):
 //   envelope          "c2." + b64(iv) + "." + b64(AES-256-GCM ciphertext)   — src/app/chat-crypto.ts
-//                     with additional data id + "\n" + project_id + "\n" + owner_id + "\n" + field
-//                     (field: name | history | display), so a field moved to another row, field
+//                     with additional data JSON.stringify([id, project_id, owner_id, field])
+//                     (field: name | history | display; a JSON array, so no part can shift into
+//                     its neighbour), so a field moved to another row, field
 //                     or owner does not open; any other envelope does not open either
 //   operator wrap     "r1." + b64(RSA-OAEP-SHA-256 ciphertext of the 32-byte thread key)
 //   legacy row        owner_id NULL or '' — name / history_json / display_json are plain text
@@ -224,7 +225,7 @@ export async function unwrapOperatorKey(privateKey, wrapped) {
 
 /** The additional data a sealed field of a row is bound to (the app's `threadFieldAd`). */
 function fieldAd(r, field) {
-  return `${r.id}\n${r.project_id ?? ""}\n${r.owner_id ?? ""}\n${field}`;
+  return JSON.stringify([r.id, r.project_id ?? "", r.owner_id ?? "", field]);
 }
 
 /** The app's `openText`: a "c2" envelope with the additional data `ad`; anything else throws. */

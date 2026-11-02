@@ -1,7 +1,7 @@
 // src/app/chat-thread-codec.test.ts
 import { describe, it, expect, beforeAll } from "vitest";
-import { encodeThreadRow, decodeThreadRows, threadFieldAd, type ChatIdentity } from "./chat-thread-codec";
-import { generateChatKey, generateThreadKey, openText, unwrapForOperator } from "./chat-crypto";
+import { encodeThreadRow, decodeThreadRows, ownerKeyAd, threadFieldAd, type ChatIdentity } from "./chat-thread-codec";
+import { generateChatKey, generateThreadKey, openText, unwrapForOperator, unwrapForOwner } from "./chat-crypto";
 import type { StoredThreadRow } from "./chat-threads-schema";
 import type { ChatThread } from "./chat-threads";
 import type { PipelineResultLike } from "./turso-schema";
@@ -177,6 +177,21 @@ describe("encodeThreadRow / decodeThreadRows", () => {
     const key = await unwrapForOperator(privateKey, row.key_operator);
     expect(await openText(key, row.name, threadFieldAd("t1", "p1", "alice", "name"))).toBe(NAME);
     await expect(openText(key, row.name, threadFieldAd("t1", "p1", "bob", "name"))).rejects.toThrow();
+  });
+
+  it("encodes the additional data unambiguously: parts containing a newline cannot shift into a neighbour", async () => {
+    // Under newline-joining, id "a\nb" + project "c" and id "a" + project "b\nc" gave the same bytes.
+    expect(threadFieldAd("a\nb", "c", "alice", "name")).not.toBe(threadFieldAd("a", "b\nc", "alice", "name"));
+    expect(ownerKeyAd("a\nb", "c")).not.toBe(ownerKeyAd("a", "b\nc"));
+    const row = await encodeThreadRow({ ...thread, id: "a\nb", projectId: "c" }, alice, spkiB64);
+    // Control: the row opens as written, for the owner and for the operator.
+    expect((await decodeThreadRows(asResult([row]), alice)).map((t) => t.id)).toEqual(["a\nb"]);
+    const key = await unwrapForOperator(privateKey, row.key_operator);
+    expect(await openText(key, row.name, threadFieldAd("a\nb", "c", "alice", "name"))).toBe(NAME);
+    // The colliding tuple does not open.
+    await expect(openText(key, row.name, threadFieldAd("a", "b\nc", "alice", "name"))).rejects.toThrow();
+    const shifted = await encodeThreadRow({ ...thread, id: "a\nb" }, { ownerId: "c", chatKey: alice.chatKey }, spkiB64);
+    await expect(unwrapForOwner(alice.chatKey, shifted.key_owner, ownerKeyAd("a", "b\nc"))).rejects.toThrow();
   });
 
   it("skips an own row sealed in unbound c1 envelopes, even under the right keys", async () => {

@@ -9,6 +9,9 @@
 // and field name (`threadFieldAd`), the owner wrap to its id and owner (`ownerKeyAd`). A value moved
 // to another row, field or owner does not open. An envelope other than "c2" does not open either.
 // The operator wrap ("r1") is not bound; the fields it opens are.
+// The additional data is the JSON array of its parts (`JSON.stringify([id, project, owner, field])`),
+// so a part that contains a separator cannot shift into its neighbour: two different tuples never
+// give the same bytes. scripts/chat-erasure-lib.mjs builds the same string.
 import {
   generateThreadKey, openText, sealText, unwrapForOwner, wrapForOperator, wrapForOwner,
 } from "./chat-crypto";
@@ -26,12 +29,12 @@ export type ThreadField = "name" | "history" | "display";
 
 /** The additional data a sealed field of a row is bound to. */
 export function threadFieldAd(id: string, projectId: string, ownerId: string, field: ThreadField): string {
-  return `${id}\n${projectId}\n${ownerId}\n${field}`;
+  return JSON.stringify([id, projectId, ownerId, field]);
 }
 
 /** The additional data the owner wrap of a row's thread key is bound to. */
 export function ownerKeyAd(id: string, ownerId: string): string {
-  return `${id}\n${ownerId}\nkey`;
+  return JSON.stringify([id, ownerId, "key"]);
 }
 
 /** Seal `th` for `id`. A fresh thread key on every call; the history loses its
