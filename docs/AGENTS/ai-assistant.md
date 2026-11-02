@@ -2375,6 +2375,9 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     private windows), `chatVaultAvailable` answers false for the rest of the page load, the save is refused
     (`WriteRefusedError`: no retry, no banner) and the chat says it cannot encrypt. A failure with a working device
     key (storage full) stays a failed save offered for retry.
+    ★ That includes a TEMPORARY failure to open the key store (IndexedDB briefly blocked, say by another tab's
+    upgrade): the flag is never cleared on this page, so the chat keeps saying this browser cannot save chats until
+    the page is reloaded. Deliberate: a retry that fails the same way every time is worse than one line to reload.
   - **Rows.** `encodeThreadRow` (`chat-thread-codec.ts`) seals name, history and display under a fresh thread key on
     every write and wraps it twice, `wrapForOwner` and `wrapForOperator` (`chat-crypto.ts`). Loading drops every row
     owned by someone else. A legacy row (`isLegacyRow`: no owner) still decodes as plaintext until it expires, and
