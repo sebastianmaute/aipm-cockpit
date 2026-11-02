@@ -1228,6 +1228,7 @@ export const de: Record<TranslationKey, string> = {
   chatUnlockWrong: "Die Passphrase passt nicht zu diesem Entsperrcode.",
   chatUnlockUnknown: "Zu diesem Entsperrcode wurden keine Chats gefunden.",
   chatUnlockFailed: "Ihre Chats konnten nicht geöffnet werden. Bitte versuchen Sie es erneut.",
+  chatUnlockMoveFailed: "Ihre Chats aus dem anderen Browser werden jetzt hier geöffnet, aber die in diesem Browser gespeicherten Chats konnten noch nicht übernommen werden. Die Seite wird jetzt neu geladen; entsperren Sie erneut mit demselben Code, um den Vorgang abzuschließen.",
   chatUnlockDone: "Ihre Chats sind jetzt in diesem Browser geöffnet. Die Seite wird neu geladen, um sie anzuzeigen.",
   chatUnlockSkipped: "{0} in diesem Browser gespeicherte Chats konnten nicht verschoben werden und bleiben bis zu ihrem Ablauf unlesbar.",
   aiChatRetentionInvalid: "Die Aufbewahrungseinstellung des Servers für Chats ist ungültig. Das Löschen alter Chats ist ausgesetzt, bis sie korrigiert ist.",

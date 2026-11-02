@@ -18,7 +18,7 @@ vi.mock("./turso-pipeline", () => ({
 }));
 
 import {
-  setChatPassphrase, removeChatPassphrase, unlockWithPassphrase, normaliseUnlockCode,
+  setChatPassphrase, removeChatPassphrase, unlockWithPassphrase, normaliseUnlockCode, ChatAdoptionMoveError,
   UNLOCK_CODE_ALPHABET, MIN_CHAT_PASSPHRASE_LENGTH, ChatPassphraseError,
 } from "./chat-passphrase";
 import { ensureChatIdentity, getChatIdentity, storedChatOwnerIds } from "./chat-key-vault";
@@ -315,7 +315,7 @@ describe("chat passphrase", () => {
     const b = await browserB();
     await setChatPassphrase(cfg, b, PASS);
     server.failNext = (stmts) => /^BEGIN/.test(stmts[0]?.sql ?? "") && stmts.some((s) => /^UPDATE chat_threads\b/.test(s.sql));
-    await expect(unlockWithPassphrase(cfg, URL, code, PASS)).rejects.toThrow();
+    await expect(unlockWithPassphrase(cfg, URL, code, PASS)).rejects.toBeInstanceOf(ChatAdoptionMoveError);
     expect((await getChatIdentity(URL))!.ownerId).toBe(a.ownerId);
     expect(server.db.prepare("SELECT owner_id FROM chat_threads WHERE id = 'tb'").get()).toEqual({ owner_id: b.ownerId });
     // The old owner id is kept, so a delete-all can still erase its rows.

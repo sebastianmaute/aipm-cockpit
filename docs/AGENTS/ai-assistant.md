@@ -2381,6 +2381,8 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     (`reownThreads`), and only then is it cleared from `unmoved` and its `chat_keys` row deleted (a failed delete
     is logged as `chat.replacedKeyDeleteFailed` and keeps the adoption). A move that fails throws; unlocking again
     — the same code or another one — reads `readUnmovedChatIdentities` and moves every pending identity too.
+    A failed move throws `ChatAdoptionMoveError`: the adopted identity IS stored, so Settings → AI shows why first
+    and then reloads the tab as on success (a tab left on the old identity would close its own chats as deleted).
     ★★ Every rewrite of the entry CARRIES `unmoved` over, an entry it cannot open right now included; only the
     identity's own successful move clears it (and a new identity started after deleting the old chats).
     The whole adoption (vault read, identity write, move) runs inside `withIdentityLock`, the lock creating an

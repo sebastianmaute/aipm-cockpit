@@ -193,8 +193,8 @@ async function reownStatements(
  *  chat_keys row (by its code). The adopted identity is stored here first (again on a retry: the same
  *  entry), replacing the one held; the replaced identity's owner id is kept in the entry. Then that
  *  identity's threads move to the adopted owner, and only once they have is its chat_keys row deleted.
- *  A failed move throws and leaves the replaced identity in the entry, so unlocking again moves its
- *  threads. The vault read, the identity write and the move run under the chat identity lock, so another
+ *  A failed move throws `ChatAdoptionMoveError` (the adopted identity IS stored) and leaves the replaced
+ *  identity in the entry, so unlocking again moves its threads. The vault read, the identity write and the move run under the chat identity lock, so another
  *  tab cannot create or replace the identity in between. "wrong" and "unknown-code" change nothing. */
 export async function unlockWithPassphrase(
   config: TursoConfig | null,
@@ -211,6 +211,15 @@ export async function unlockWithPassphrase(
   if (!chatKey) return { outcome: "wrong" };
   const adopted: ChatIdentity = { ownerId: row.owner_id, chatKey };
   return withIdentityLock(() => adopt(config, httpUrl, adopted));
+}
+
+/** An unlock stored the adopted identity, but moving this browser's earlier chats to it failed: the tab
+ *  must reload to use the adopted identity, and unlocking again finishes the move. */
+export class ChatAdoptionMoveError extends Error {
+  constructor() {
+    super("chat-adoption-move-failed");
+    this.name = "ChatAdoptionMoveError";
+  }
 }
 
 /** The adoption itself, run under the identity lock (`unlockWithPassphrase`). */
@@ -231,7 +240,12 @@ async function adopt(config: TursoConfig | null, httpUrl: string, adopted: ChatI
   let moved = 0;
   let skipped = 0;
   for (const from of sources.values()) {
-    const counts = await reownThreads(config, from, adopted);
+    let counts: { moved: number; skipped: number };
+    try {
+      counts = await reownThreads(config, from, adopted);
+    } catch {
+      throw new ChatAdoptionMoveError();
+    }
     moved += counts.moved;
     skipped += counts.skipped;
     clearUnmovedChatIdentity(httpUrl, from.ownerId);

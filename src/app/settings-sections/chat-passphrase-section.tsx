@@ -17,7 +17,7 @@ import { useConfirm, useNotice, type ConfirmFn, type NoticeFn } from "../confirm
 import { logDiag } from "../diagnostics";
 import { ensureChatIdentity, getChatIdentity } from "../chat-key-vault";
 import {
-  MIN_CHAT_PASSPHRASE_LENGTH, formatUnlockCode, removeChatPassphrase, setChatPassphrase, unlockWithPassphrase,
+  ChatAdoptionMoveError, MIN_CHAT_PASSPHRASE_LENGTH, formatUnlockCode, removeChatPassphrase, setChatPassphrase, unlockWithPassphrase,
 } from "../chat-passphrase";
 
 type I18nKey = Parameters<typeof t>[1];
@@ -174,8 +174,16 @@ function UnlockFromOtherBrowser({ lang, tursoConfig, notice, onAdopted }: {
       if (result.skipped > 0) lines.push(t(lang, "chatUnlockSkipped", result.skipped));
       await notice({ message: lines.join("\n"), title: t(lang, "chatUnlockHeading") });
       onAdopted();
-    } catch {
+    } catch (err) {
       logDiag("warn", "chat.unlockFailed");
+      if (err instanceof ChatAdoptionMoveError) {
+        // The adopted identity is stored: this tab must not keep using the old one. Say why first, then
+        // reload as on success; unlocking again finishes the move.
+        setPassphrase("");
+        await notice({ message: t(lang, "chatUnlockMoveFailed"), title: t(lang, "chatUnlockHeading") });
+        onAdopted();
+        return;
+      }
       setMessage({ tone: "error", text: t(lang, "chatUnlockFailed") });
     } finally {
       setBusy(false);

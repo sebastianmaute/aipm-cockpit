@@ -15,7 +15,7 @@ vi.mock("../chat-key-vault", () => ({
 }));
 
 import { ChatPassphraseSection } from "./chat-passphrase-section";
-import { removeChatPassphrase, setChatPassphrase, unlockWithPassphrase } from "../chat-passphrase";
+import { ChatAdoptionMoveError, removeChatPassphrase, setChatPassphrase, unlockWithPassphrase } from "../chat-passphrase";
 import { ensureChatIdentity, getChatIdentity } from "../chat-key-vault";
 import { loadI18n, t } from "../i18n";
 
@@ -120,6 +120,31 @@ describe("ChatPassphraseSection", () => {
     expect(notice).toHaveBeenCalledWith(expect.objectContaining({
       message: `${en("chatUnlockDone")}\n${en("chatUnlockSkipped", 1)}`,
     }));
+  });
+
+  it("an unlock whose identity was stored but whose move failed says so first, then reloads like a success", async () => {
+    unlockMock.mockRejectedValue(new ChatAdoptionMoveError());
+    const order: string[] = [];
+    const onAdopted = vi.fn(() => { order.push("reload"); });
+    const notice = vi.fn(async () => { order.push("notice"); });
+    render(<ChatPassphraseSection lang="en-US" tursoConfig={cfg} onAdopted={onAdopted} notice={notice} />);
+    type(en("chatUnlockCode"), "ABCDEFGH");
+    type(en("chatUnlockPassphrase"), LONG);
+    fireEvent.click(screen.getByRole("button", { name: en("chatUnlockButton") }));
+    await waitFor(() => expect(onAdopted).toHaveBeenCalledTimes(1));
+    expect(notice).toHaveBeenCalledWith(expect.objectContaining({ message: en("chatUnlockMoveFailed") }));
+    expect(order).toEqual(["notice", "reload"]);
+  });
+
+  it("an unlock that failed before storing anything shows the failure and does not reload", async () => {
+    unlockMock.mockRejectedValue(new Error("network"));
+    const onAdopted = vi.fn();
+    render(<ChatPassphraseSection lang="en-US" tursoConfig={cfg} onAdopted={onAdopted} notice={vi.fn(async () => {})} />);
+    type(en("chatUnlockCode"), "ABCDEFGH");
+    type(en("chatUnlockPassphrase"), LONG);
+    fireEvent.click(screen.getByRole("button", { name: en("chatUnlockButton") }));
+    expect(await screen.findByText(en("chatUnlockFailed"))).toBeInTheDocument();
+    expect(onAdopted).not.toHaveBeenCalled();
   });
 
   it("renders in German", () => {

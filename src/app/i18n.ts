@@ -1327,6 +1327,7 @@ const enUS = {
   chatUnlockWrong: "The passphrase does not match this unlock code.",
   chatUnlockUnknown: "No chats were found for this unlock code.",
   chatUnlockFailed: "Your chats could not be opened. Please try again.",
+  chatUnlockMoveFailed: "Your chats from the other browser are now opened here, but the chats saved on this browser could not be moved to them yet. The page reloads now; unlock again with the same code to finish.",
   chatUnlockDone: "Your chats are now open on this browser. The page reloads to show them.",
   chatUnlockSkipped: "{0} chats saved on this browser could not be moved and stay unreadable until they expire.",
   aiChatRetentionInvalid: "The server's chat retention setting is invalid. Deleting old chats is paused until it is fixed.",
