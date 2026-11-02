@@ -46229,11 +46229,11 @@ Size M.
 
 ## 791. The portfolio flag stays on Turso after an in-place storage switch, and its other readers are unaudited
 
-**Status:** OPEN 2026-11-02, split out of §790. `portfolioMode` is read once at startup (`useState` in `task-manager.tsx`) and an in-place storage switch (Settings → Storage) does not update it. After a switch from Turso to a local copy it still says "turso" while the live storage is not Turso, which contradicts the comment in `portfolio-mode-switch.ts`.
+**Status:** OPEN 2026-11-02, split out of §790. `portfolioMode` is read once at startup (`useState` in `task-manager.tsx`) and an in-place storage switch (Settings → Storage) does not update it. After a switch from Turso to a local copy it still says "turso" while the live storage is not Turso, which contradicts the comment in `portfolio-mode-switch.ts`. `grep -rn "portfolioMode" src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | wc -l` printed 122 on 2026-11-02: the lines outside tests that name it.
 
 **Work item:** #942
 
-Two readers are safe against this. §788 gates the cross-project people feature on the live storage kind as well, and §790 refuses a conversion into a Turso database that holds projects whatever the flag says. The other readers have not been audited; `grep -rn "portfolioMode" src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | wc -l` counts the lines that name it (122 on 2026-11-02).
+Two readers are safe against this. §788 gates the cross-project people feature on the live storage kind as well, and §790 refuses a conversion into a Turso database that holds projects whatever the flag says. The other readers have not been audited.
 
 What it would take: either have an in-place storage switch keep `portfolioMode` true to the live storage (and decide what a switch back to Turso does to it), or audit each reader for what it does while the flag and the storage disagree, with a test for each one that writes.
 
