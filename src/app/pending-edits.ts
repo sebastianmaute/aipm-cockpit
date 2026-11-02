@@ -157,6 +157,31 @@ export function dropPendingEditsWhere(scopePrefix: string, kind: PendingEditKind
   }
 }
 
+/** Drops (as `dropPendingEdit` does) every STORED `kind` edit, in every scope `inScope` accepts, that
+ *  `isStale` names — whichever tab stored it. Used to clear old drafts of scopes this page never opens.
+ *  Never throws. */
+export function dropStoredEditsWhere(
+  kind: PendingEditKind, inScope: (scope: string) => boolean, isStale: (edit: PendingEdit) => boolean,
+): void {
+  try {
+    if (typeof window === "undefined") return;
+    const scopes: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (!key?.startsWith(PENDING_EDITS_PREFIX)) continue;
+      const scope = key.slice(PENDING_EDITS_PREFIX.length);
+      if (inScope(scope)) scopes.push(scope);
+    }
+    for (const scope of scopes) {
+      for (const edit of storedEntries(storageKeyFor(scope))) {
+        if (edit.kind === kind && isStale(edit)) dropPendingEdit(scope, kind, edit.id);
+      }
+    }
+  } catch (err) {
+    logDiag("warn", "storage.pendingEditsWriteFailed", { reason: "storage-error", message: errorMessage(err) });
+  }
+}
+
 /** The value the live edit started from was saved as `base`: a newer draft still waiting in the
  *  outbox now starts from it, so a replay checks it against what the server holds. No live edit, no-op. */
 export function rebasePendingEdit(scope: string, kind: PendingEditKind, id: string, base: string): void {

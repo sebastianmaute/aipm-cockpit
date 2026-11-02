@@ -2400,7 +2400,10 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     not restart a chat's retention period. The browser: `expireOldThreads` per project on load and before each save, and
     `useChatRetentionSweep` once per database per page load, independent of the AI switch (after a sweep that
     ran, `dropOrphanedRenames` drops the pending thread renames whose thread is gone, from one id-only read of
-    `chat_threads`; a failed read drops nothing). The server:
+    `chat_threads`; a failed read drops nothing). Once per page load it also drops the thread-name drafts of every
+    OTHER database older than the retention period, 30 days while none is in force (`dropOldDraftsOfOtherDatabases`,
+    over `dropStoredEditsWhere`): this page never opens those scopes, so their plain-text names would otherwise
+    outlive their chats. The server:
     `startChatSweepSchedule` (`api/ai/_chat-sweep.ts`, started from `src/instrumentation.ts`) at start and every
     24 h with `sweepCredentialsFrom`. The operator: `npm run chats:erase` (`scripts/chat-erasure-lib.mjs`
     `runCli`), whose `expireStatements` repeats the predicate. ★ A database configured only in a browser is unknown
