@@ -212,6 +212,21 @@ describe("useChatThreads — persistence", () => {
     expect(saveThreadMock).not.toHaveBeenCalled();
   });
 
+  it("IndexedDB present but unusable when the first identity is created: no-crypto, no save and no retry banner", async () => {
+    const hook = renderChatThreads();
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    expect(hook.result.current.persistence).toBe("on");
+    // The vault finds the device key cannot be opened while creating the identity, and says so from then on.
+    ensureMock.mockImplementationOnce(async () => {
+      h.available.value = false;
+      return null;
+    });
+    await sendTurn(hook);
+    await waitFor(() => expect(hook.result.current.persistence).toBe("no-crypto"));
+    expect(saveThreadMock).not.toHaveBeenCalled();
+    expect(hook.result.current.threadsError).toBe(false);
+  });
+
   it("an identity the device key cannot open: persistence identity-locked and no save", async () => {
     h.locked.add(CFG_A.httpUrl);
     const hook = renderChatThreads();

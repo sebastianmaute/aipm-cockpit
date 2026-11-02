@@ -2367,6 +2367,11 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     (`SecretUnlockError`) — IndexedDB blocked, quota, anything unexpected — so `readChatIdentity` answers
     `"transient"`. ★★ Not a lock: no "Start a new chat identity" offer, the entry is never replaced (nor by an
     unlock), the notice says the app will try again, and the next save or load reads the vault afresh.
+  - **`"no-crypto"` after a failed first identity**: when NO entry is stored and sealing the new one fails because
+    the device key itself cannot be opened (`getDeviceKey` rejects: IndexedDB there but unusable, as in some
+    private windows), `chatVaultAvailable` answers false for the rest of the page load, the save is refused
+    (`WriteRefusedError`: no retry, no banner) and the chat says it cannot encrypt. A failure with a working device
+    key (storage full) stays a failed save offered for retry.
   - **Rows.** `encodeThreadRow` (`chat-thread-codec.ts`) seals name, history and display under a fresh thread key on
     every write and wraps it twice, `wrapForOwner` and `wrapForOperator` (`chat-crypto.ts`). Loading drops every row
     owned by someone else. A legacy row (`isLegacyRow`: no owner) still decodes as plaintext until it expires, and

@@ -10,12 +10,12 @@ function slot<T>(current: T): { current: T } {
 
 export type ChatPersistQueue = ReturnType<typeof createChatPersistQueue>;
 
-/** A write refused before anything was sent (the thread belongs to another database). It neither
- *  landed nor failed: `runPersist` records no landing, runs no `onLanded` (so no outbox entry is
- *  settled), keeps no retry and leaves the banner as it is. */
+/** A write refused before anything was sent (the thread belongs to another database, or this browser
+ *  turned out unable to encrypt). It neither landed nor failed: `runPersist` records no landing, runs
+ *  no `onLanded` (so no outbox entry is settled), keeps no retry and leaves the banner as it is. */
 export class WriteRefusedError extends Error {
-  constructor() {
-    super("chat thread write refused: the thread belongs to another database");
+  constructor(message = "chat thread write refused: the thread belongs to another database") {
+    super(message);
     this.name = "WriteRefusedError";
   }
 }

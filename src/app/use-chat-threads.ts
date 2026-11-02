@@ -48,6 +48,7 @@ import {
   RENAME_KIND, urlOf, outboxScope, sameDatabase, retentionInForce, expiredBy, expireOldThreads, type SaveGate,
 } from "./chat-thread-writes";
 import { useChatIdentity } from "./use-chat-identity";
+import { chatVaultAvailable } from "./chat-key-vault";
 import { createChatPersistQueue, WriteRefusedError } from "./chat-persist-queue";
 import { useChatThreadRenames } from "./use-chat-thread-renames";
 import { useChatErase } from "./use-chat-erase";
@@ -317,7 +318,12 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       throw new WriteRefusedError();
     }
     if (gate.retentionDays !== null) expireOldThreads(config, gate.retentionDays, th.projectId, () => threadsRef.current);
-    const owner = identity.trustedIdentity(config) ?? (await identity.writeIdentity(config));
+    const owner = identity.trustedIdentity(config) ?? (await identity.writeIdentity(config).catch((err: unknown) => {
+      // The vault found this browser cannot encrypt after all (the device key cannot be opened): the
+      // chat now says so ("no-crypto"), and a retry would fail the same way, so none is offered.
+      if (!chatVaultAvailable()) throw new WriteRefusedError("chat thread write refused: this browser cannot encrypt");
+      throw err;
+    }));
     // A LOCAL mismatch is not a take-over: the row may have been erased and a new identity started in
     // another tab. Closed like a deleted chat, so its transcript cannot go out under the new owner.
     if (th.ownerId !== null && th.ownerId !== owner.ownerId) {

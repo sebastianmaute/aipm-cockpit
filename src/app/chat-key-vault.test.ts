@@ -155,6 +155,40 @@ describe("chat-key-vault", () => {
     }
   });
 
+  it("IndexedDB present but unusable (the device key cannot be opened): no crypto for the rest of the page load", async () => {
+    vi.resetModules();
+    vi.doMock("./secrets", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("./secrets")>()),
+      getDeviceKey: vi.fn(async () => { throw new Error("idb open failed"); }),
+      sealDeviceValue: vi.fn(async () => { throw new Error("idb open failed"); }),
+    }));
+    try {
+      const vault = await import("./chat-key-vault");
+      expect(vault.chatVaultAvailable()).toBe(true);
+      expect(await vault.ensureChatIdentity(URL_A)).toBeNull();
+      expect(stored()).toBeNull();
+      expect(vault.chatVaultAvailable()).toBe(false);
+      expect(await vault.readChatIdentity(URL_A)).toEqual({ kind: "unavailable" });
+    } finally {
+      vi.doUnmock("./secrets");
+      vi.resetModules();
+    }
+  });
+
+  it("a new identity that could not be stored while the device key opens stays retryable", async () => {
+    vi.resetModules();
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
+    try {
+      const vault = await import("./chat-key-vault");
+      expect(await vault.ensureChatIdentity(URL_A)).toBeNull();
+      expect(vault.chatVaultAvailable()).toBe(true);
+      expect(await vault.readChatIdentity(URL_A)).toEqual({ kind: "absent" });
+    } finally {
+      setItem.mockRestore();
+      vi.resetModules();
+    }
+  });
+
   it("is unavailable without IndexedDB, and creates nothing", async () => {
     vi.stubGlobal("indexedDB", undefined);
     expect(await readChatIdentity(URL_A)).toEqual({ kind: "unavailable" });

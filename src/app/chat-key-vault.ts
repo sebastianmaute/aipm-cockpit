@@ -11,7 +11,10 @@
 // entry the device key cannot open counts as unavailable and is never
 // overwritten. Any other failure while opening it (IndexedDB blocked, quota,
 // anything unexpected) is transient: nothing is created or overwritten, and the
-// next read tries again. Nothing here logs a key, an owner id or a URL.
+// next read tries again. Creating the first identity is different: when its seal fails because the
+// device key cannot be opened at all (IndexedDB there but unusable), the vault counts as unavailable
+// for the rest of the page load (`chatVaultAvailable`), so the chat says it cannot encrypt instead of
+// offering a retry that fails the same way. Nothing here logs a key, an owner id or a URL.
 //
 // An entry also keeps `previousOwnerIds`: the owner ids this browser used for the database before the
 // current one (a new identity started while the old chats were kept, or an adoption whose move did
@@ -25,7 +28,7 @@
 import { bytesToBase64 } from "./base64";
 import { generateChatKey, isChatCryptoAvailable } from "./chat-crypto";
 import type { ChatIdentity } from "./chat-thread-codec";
-import { openDeviceValue, sealDeviceValue, SecretUnlockError, type DeviceSealedValue } from "./secrets";
+import { getDeviceKey, openDeviceValue, sealDeviceValue, SecretUnlockError, type DeviceSealedValue } from "./secrets";
 
 export const CHAT_IDENTITY_KEY = "aipm-cockpit:chat-identity";
 
@@ -103,7 +106,7 @@ function decodeChatKey(b64: string): Uint8Array | null {
 
 /** This browser's identity for the database at `httpUrl`, without creating one. */
 export async function readChatIdentity(httpUrl: string): Promise<ChatIdentityRead> {
-  if (httpUrl === "" || !isChatCryptoAvailable()) return { kind: "unavailable" };
+  if (httpUrl === "" || !chatVaultAvailable()) return { kind: "unavailable" };
   const entry = readVault()[httpUrl];
   if (!isVaultEntry(entry)) return { kind: "absent" };
   let opened: string;
@@ -161,6 +164,10 @@ async function createChatIdentity(httpUrl: string): Promise<ChatIdentity | null>
   try {
     await replaceChatIdentity(httpUrl, identity);
   } catch {
+    // IndexedDB is there but the device key cannot be opened (an open or transaction error, as in
+    // some private windows): no chat can be sealed on this page load, so say "cannot encrypt" instead
+    // of offering a retry that fails the same way. Any other failure (storage full) stays retryable.
+    if (!(await deviceKeyOpens())) deviceKeyUnusable = true;
     return null;
   }
   // Return what is stored, so a tab that wrote in between is adopted where it can be. Under Web Locks
@@ -260,7 +267,22 @@ export function clearUnmovedChatIdentity(httpUrl: string, ownerId: string): void
   writeVaultEntry(httpUrl, next);
 }
 
-/** True when this browser has what sealing a chat key needs (Web Crypto and IndexedDB). */
+/** Set for the rest of the page load once creating an identity found the device key cannot be opened
+ *  although IndexedDB exists. An identity already stored is never the reason: reading one that fails
+ *  for another reason stays "transient" (retried). */
+let deviceKeyUnusable = false;
+
+async function deviceKeyOpens(): Promise<boolean> {
+  try {
+    await getDeviceKey();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** True when this browser has what sealing a chat key needs (Web Crypto and IndexedDB), and the device
+ *  key has not been found unusable on this page load. */
 export function chatVaultAvailable(): boolean {
-  return isChatCryptoAvailable();
+  return isChatCryptoAvailable() && !deviceKeyUnusable;
 }
