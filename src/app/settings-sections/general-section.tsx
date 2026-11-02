@@ -9,6 +9,7 @@ import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { TypeToConfirmDialog } from "../type-to-confirm-dialog";
 import { resetAppToCleanSlate } from "../app-reset";
+import { hasPendingProjectSweeps } from "../pending-project-sweeps";
 import { Input, Select, Checkbox } from "../form-controls";
 import { Button } from "../button";
 
@@ -23,6 +24,9 @@ interface GeneralSectionProps {
 
 export function GeneralSection({ lang, settings, onChange, resources = [] }: GeneralSectionProps) {
   const [resetOpen, setResetOpen] = useState(false);
+  // Read when the dialog opens: a deleted project's side-table sweep still queued for a retry, which the
+  // reset clears with every other app key.
+  const [sweepsPending, setSweepsPending] = useState(false);
   const workdayHoursId = useId();
   return (
     <>
@@ -109,7 +113,10 @@ export function GeneralSection({ lang, settings, onChange, resources = [] }: Gen
         </h3>
         <FieldHint className="mt-1">{t(lang, "settingsResetDesc")}</FieldHint>
         <Button variant="destructive" size="md"
-          onClick={() => setResetOpen(true)}
+          onClick={() => {
+            setSweepsPending(hasPendingProjectSweeps());
+            setResetOpen(true);
+          }}
           className="mt-3"
         >
           {t(lang, "settingsResetButton")}
@@ -120,7 +127,9 @@ export function GeneralSection({ lang, settings, onChange, resources = [] }: Gen
         <TypeToConfirmDialog
           lang={lang}
           title={t(lang, "settingsResetDialogTitle")}
-          message={t(lang, "settingsResetDialogMessage")}
+          message={sweepsPending
+            ? `${t(lang, "settingsResetDialogMessage")} ${t(lang, "settingsResetPendingSweeps")}`
+            : t(lang, "settingsResetDialogMessage")}
           confirmValue={t(lang, "settingsResetConfirmValue")}
           confirmLabel={t(lang, "settingsResetConfirmLabel")}
           onConfirm={() => resetAppToCleanSlate()}

@@ -2958,6 +2958,8 @@ export const de: Record<TranslationKey, string> = {
   settingsResetDialogTitle: "Auf Werkszustand zurücksetzen?",
   settingsResetDialogMessage:
     "Dadurch werden alle Projekte getrennt und sämtliche Einstellungen, Geheimnisse (einschließlich Ihres Anthropic-API-Schlüssels) und das Layout in diesem Browser gelöscht. Dateien und Datenbanken werden NICHT gelöscht. Die aus diesem Browser gespeicherten KI-Chats kann dieser Browser sofort nicht mehr lesen, sofern Sie keine Chat-Passphrase festgelegt haben, und sie werden mit Ablauf ihrer Aufbewahrungsfrist gelöscht. Dies kann nicht rückgängig gemacht werden – die App wird neu geladen.",
+  settingsResetPendingSweeps:
+    "Einige Daten eines gelöschten Projekts warten noch darauf, aus seiner Datenbank entfernt zu werden; nach dem Zurücksetzen wird dies nicht erneut versucht.",
   settingsResetConfirmLabel: "Alles zurücksetzen",
   aiAssistantTooltip: "Anthropic-API-Schlüssel verbinden, um den KI-Assistenten zu aktivieren.",
   aiGuidesHeading: "Betriebsleitfäden",

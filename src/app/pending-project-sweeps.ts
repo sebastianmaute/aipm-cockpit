@@ -44,6 +44,12 @@ export function pendingProjectSweeps(httpUrl: string): string[] {
   return readStore()[httpUrl] ?? [];
 }
 
+/** Whether any database still has a deleted project whose sweep is to be retried. A factory reset clears
+ *  the queue with every other app key, so its dialog says so while this is true. */
+export function hasPendingProjectSweeps(): boolean {
+  return Object.keys(readStore()).length > 0;
+}
+
 export function addPendingProjectSweep(httpUrl: string, projectId: string): void {
   const store = readStore();
   const ids = store[httpUrl] ?? [];

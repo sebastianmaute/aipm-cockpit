@@ -3113,6 +3113,8 @@ const enUS = {
   settingsResetDialogTitle: "Reset to clean slate?",
   settingsResetDialogMessage:
     "This detaches every project and erases all settings, secrets (including your Anthropic API key) and layout from this browser. Files and databases are NOT deleted. This browser's saved AI chats become unreadable to it at once, unless you have set a chat passphrase, and are deleted when their retention period ends. This cannot be undone — the app will reload.",
+  settingsResetPendingSweeps:
+    "Some data of a deleted project is still waiting to be removed from its database; its removal will not be retried after the reset.",
   settingsResetConfirmLabel: "Reset everything",
   aiAssistantTooltip: "Connect an Anthropic API key to enable the in-app AI assistant.",
   aiGuidesHeading: "Operating guides",
