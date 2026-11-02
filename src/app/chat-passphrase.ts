@@ -190,12 +190,21 @@ async function reownStatements(
 }
 
 /** Adopt the identity stored under `typedCode` when `passphrase` opens it. Reads exactly one
- *  chat_keys row (by its code). The adopted identity is stored here first (again on a retry: the same
- *  entry), replacing the one held; the replaced identity's owner id is kept in the entry. Then that
- *  identity's threads move to the adopted owner, and only once they have is its chat_keys row deleted.
- *  A failed move throws `ChatAdoptionMoveError` (the adopted identity IS stored) and leaves the replaced
- *  identity in the entry, so unlocking again moves its threads. The vault read, the identity write and the move run under the chat identity lock, so another
- *  tab cannot create or replace the identity in between. "wrong" and "unknown-code" change nothing. */
+ *  chat_keys row (by its code); "wrong" and "unknown-code" change nothing.
+ *
+ *  The adopted identity is stored first (again on a retry: the same entry). Every owner id held so far
+ *  is kept in the entry for a later delete-all, and the identity held here, when it is not the adopted
+ *  one, joins the entry's pending (`unmoved`) identities.
+ *
+ *  Then the threads move to the adopted owner from the identity held here and from every pending
+ *  identity an earlier unlock left (one that cannot be opened right now stays pending). Each is cleared
+ *  from the pending list, and its chat_keys row deleted, only after its own move has succeeded.
+ *
+ *  A failed move throws `ChatAdoptionMoveError`: the adopted identity IS stored, and the identities
+ *  not yet moved stay pending, so unlocking again (with this code or another) moves their threads.
+ *
+ *  The vault read, the identity write and the moves run under the chat identity lock, so another tab
+ *  cannot create or replace the identity in between. */
 export async function unlockWithPassphrase(
   config: TursoConfig | null,
   httpUrl: string,
