@@ -43,6 +43,12 @@
 //      (`scheduler`) reach the installer only through `.next/static`. ALWAYS pass
 //      `buildDir` with `shippedNextDir` for a release; without it those are lost.
 // Version and `dir` still come from the install, which has the LICENSE files.
+//
+// ★★ The two ways the evidence could go quiet are not left silent. A shipped
+// bundle of `next-server` with no map beside it is a `problems` entry (what it
+// embeds would go unseen), and a file of any other NEXT_OWN_FOLDERS folder in the
+// shipped tree throws (the folder was allowed as "does not reach users", and
+// that has stopped being true).
 import { readFile, readdir } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { MAP_ROOTS, mapFiles, mapSources } from "./bundled-packages.mjs";
@@ -58,6 +64,9 @@ export const NEXT_OWN_FOLDERS = {
   "next-server": "Next's runtime bundles; the libraries they embed are listed from their source maps",
   "postcss-plugin-stub-for-cssnano-simple": "a stub plugin named postcss-plugin-stub that does nothing",
 };
+
+// The one own folder that ships by design: its maps say what it embeds.
+const NEXT_RUNTIME_FOLDER = "next-server";
 
 const NEXT_RENAMES = { "source-map08": "source-map" };
 const CJS_VERSION = /exports\.version\s*=\s*"([^"]+)"/g;
@@ -241,15 +250,35 @@ function compiledPathsIn(sources) {
   return paths;
 }
 
-/** Sources of the maps beside each shipped bundle; the maps themselves stay in the install. */
+/**
+ * Sources of the maps beside each shipped bundle; the maps themselves stay in the
+ * install. `problems` names each next-server bundle with no map to read.
+ */
 async function pathsEmbeddedInShipped(compiled, shippedCompiled, shippedFiles) {
   const paths = [];
+  const problems = [];
   for (const file of shippedFiles) {
     if (!file.endsWith(".js")) continue;
     const map = await readJson(join(compiled, `${relative(shippedCompiled, file)}.map`));
-    if (map) paths.push(...compiledPathsIn(mapSources(map, file)));
+    if (map) {
+      paths.push(...compiledPathsIn(mapSources(map, file)));
+      continue;
+    }
+    const rel = relFolder(shippedCompiled, file);
+    if (rel.startsWith(`${NEXT_RUNTIME_FOLDER}/`)) {
+      problems.push(`The shipped Next bundle ${rel} has no source map in the install, so the libraries it embeds cannot be listed`);
+    }
   }
-  return paths;
+  return { paths, problems };
+}
+
+/** Throws when a folder allowed as Next's own has a file in the shipped tree. */
+function refuseShippedOwnFolders(shippedPaths) {
+  for (const folder of Object.keys(NEXT_OWN_FOLDERS)) {
+    if (folder === NEXT_RUNTIME_FOLDER) continue;
+    const shipped = shippedPaths.find((path) => path.startsWith(`${folder}/`));
+    if (shipped) throw new Error(`${folder} is allowed as Next's own code that does not ship, yet ${shipped} ships — read it and list it`);
+  }
 }
 
 /** Sources of a build's own maps below `dist/compiled`. Throws when a map root is empty, as bundled-packages does. */
@@ -266,14 +295,16 @@ async function pathsCompiledIntoBuild(buildDir) {
 }
 
 /** Whether a library folder (path below `compiled/`) ships, per the header's three kinds of evidence. */
-async function shippedFolderTest(compiled, { shippedNextDir, buildDir }) {
+async function shippedEvidence(compiled, { shippedNextDir, buildDir }) {
   const shippedCompiled = join(shippedNextDir, "dist", "compiled");
   const shippedFiles = await filesUnder(shippedCompiled);
   if (shippedFiles.length === 0) throw new Error(`No file under ${shippedCompiled} — not a shipped Next`);
   const paths = shippedFiles.map((file) => relFolder(shippedCompiled, file));
-  paths.push(...(await pathsEmbeddedInShipped(compiled, shippedCompiled, shippedFiles)));
+  refuseShippedOwnFolders(paths);
+  const embedded = await pathsEmbeddedInShipped(compiled, shippedCompiled, shippedFiles);
+  paths.push(...embedded.paths);
   if (buildDir) paths.push(...(await pathsCompiledIntoBuild(buildDir)));
-  return (folder) => paths.some((path) => path.startsWith(`${folder}/`));
+  return { ships: (folder) => paths.some((path) => path.startsWith(`${folder}/`)), problems: embedded.problems };
 }
 
 /**
@@ -282,7 +313,8 @@ async function shippedFolderTest(compiled, { shippedNextDir, buildDir }) {
  * @returns {Promise<{
  *   packages: Array<{ name: string; version: string; dir: string; vendoredIn: "next"; versionKnown: boolean }>;
  *   skipped: Array<{ folder: string; reason: string }>;
- * }>} `skipped` only ever holds NEXT_OWN_FOLDERS entries.
+ *   problems: string[];
+ * }>} `skipped` only ever holds NEXT_OWN_FOLDERS entries. `problems` is empty with no `shippedNextDir`.
  */
 export async function scanNextVendored(nextDir, options = {}) {
   const nextPkg = await readJson(join(nextDir, "package.json"));
@@ -291,7 +323,7 @@ export async function scanNextVendored(nextDir, options = {}) {
   const compiled = join(nextDir, "dist", "compiled");
   const roots = await rootFolders(compiled);
   if (roots.length === 0) throw new Error(`No library folder under ${compiled} — not a Next install`);
-  const ships = options.shippedNextDir ? await shippedFolderTest(compiled, options) : () => true;
+  const { ships, problems } = options.shippedNextDir ? await shippedEvidence(compiled, options) : { ships: () => true, problems: [] };
   const packages = [];
   const skipped = [];
   for (const root of roots) {
@@ -308,7 +340,7 @@ export async function scanNextVendored(nextDir, options = {}) {
   const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
   packages.sort((a, b) => cmp(a.name, b.name) || cmp(a.dir, b.dir));
   skipped.sort((a, b) => cmp(a.folder, b.folder));
-  return { packages, skipped };
+  return { packages, skipped, problems };
 }
 
 /**

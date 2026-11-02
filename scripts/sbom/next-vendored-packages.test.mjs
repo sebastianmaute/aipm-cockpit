@@ -234,6 +234,41 @@ describe("nextVendoredPackages with a shipped tree", () => {
     expect(skipped).toEqual((await scanNextVendored(nextDir)).skipped);
   });
 
+  it("throws when a folder treated as Next's own has a file in the shipped tree: it would go unlisted", async () => {
+    const dir = join(tmp, "standalone-own");
+    writeFiles(join(dir, "dist", "compiled"), { "zod/index.js": "", "next-devtools/index.js": "" });
+    await expect(nextVendoredPackages(nextDir, { shippedNextDir: dir })).rejects.toThrow(/next-devtools/);
+  });
+
+  it("throws for a scoped own folder too", async () => {
+    const dir = join(tmp, "standalone-own-scoped");
+    writeFiles(join(dir, "dist", "compiled"), { "zod/index.js": "", "@next/font/index.js": "" });
+    await expect(nextVendoredPackages(nextDir, { shippedNextDir: dir })).rejects.toThrow(/@next\/font/);
+  });
+
+  it("does not take next-server's own bundles for that: they ship, and their maps list what they embed", async () => {
+    await expect(nextVendoredPackages(nextDir, { shippedNextDir })).resolves.toBeDefined();
+  });
+
+  it("has no problem when every shipped next-server bundle has its map", async () => {
+    expect((await scanNextVendored(nextDir, { shippedNextDir })).problems).toEqual([]);
+    expect((await scanNextVendored(nextDir)).problems).toEqual([]);
+  });
+
+  it("reports a shipped next-server bundle with no map beside it, since what it embeds goes unseen", async () => {
+    const dir = join(tmp, "standalone-unmapped");
+    writeFiles(join(dir, "dist", "compiled"), { "next-server/mapless.runtime.prod.js": "", "zod/index.js": "" });
+    const { problems } = await scanNextVendored(nextDir, { shippedNextDir: dir });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("next-server/mapless.runtime.prod.js");
+  });
+
+  it("does not ask for a map beside any other shipped bundle", async () => {
+    const dir = join(tmp, "standalone-other");
+    writeFiles(join(dir, "dist", "compiled"), { "zod/index.js": "" });
+    expect((await scanNextVendored(nextDir, { shippedNextDir: dir })).problems).toEqual([]);
+  });
+
   it("throws on a shipped tree with no compiled file, rather than dropping everything", async () => {
     await expect(nextVendoredPackages(nextDir, { shippedNextDir: join(tmp, "empty") })).rejects.toThrow(/dist.compiled/);
   });
