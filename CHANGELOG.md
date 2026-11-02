@@ -22,9 +22,11 @@ longer carries its own changelog comment.
   days), by the browser, by the server once a day and by the operator's `npm run chats:erase`, which can also find
   and delete every chat that mentions a person. In the chat sidebar you can delete all your chats or the ones that
   mention a person ("Find chats mentioning a person" searches your chats in all projects), and a chat passphrase
-  in Settings → AI opens your chats on another browser. A browser that can no longer open your saved chats offers
+  in Settings → AI opens your chats on another browser. "Delete all my chats" also removes your chat passphrase
+  unless you untick that option. A browser that can no longer open your saved chats offers
   "Delete my old chats", and asks before starting a new chat identity whether to delete them. A permanently
-  deleted project whose cleanup fails is cleaned up again the next time the app starts. Setup and the erasure
+  deleted project whose cleanup fails is cleaned up again the next time the app starts; while such a cleanup is
+  still waiting, the factory reset warns that it will not be retried afterwards. Setup and the erasure
   checklist: `docs/RUNBOOK.md`.
   ★ **Before upgrading:** on the first server start or page load after the upgrade, every chat not changed for the
   retention period (30 days unless `AIPM_AI_CHAT_RETENTION_DAYS` is set) is deleted, older shared chats included,
