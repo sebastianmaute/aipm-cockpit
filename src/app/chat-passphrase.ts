@@ -4,9 +4,11 @@
 // Turso table chat_keys wrapped under a key derived from it (PBKDF2, 600,000 rounds, SHA-256, a
 // fresh 16-byte salt — `sealPassphraseValue`), beside a short random unlock code. Another browser
 // types the code and the passphrase; it reads that ONE row, opens the chat key, and adopts the
-// identity. Threads that browser already saved under its own identity are moved to the adopted one
-// first: their thread key is re-wrapped for the adopted chat key in one transaction, while the
-// encrypted payloads and the operator's wrap stay as they are.
+// identity. The adopted identity is stored first; then the threads that browser had saved under its
+// own identity move to it: their thread key is re-wrapped for the adopted chat key and the fields
+// re-sealed in one transaction, while the operator's wrap stays as it is. A move that fails is
+// finished by unlocking again: until then the vault keeps the replaced identity (`unmoved`) and its
+// owner id (`previousOwnerIds`), so its rows can still be moved, or erased by a delete-all.
 //
 // A forgotten passphrase cannot be recovered by the user: nothing else opens the stored key.
 // Nothing here logs a passphrase, a code or key material. No React, no i18n.
@@ -19,7 +21,9 @@ import {
 } from "./chat-keys-schema";
 import { ensureChatThreadsColumns } from "./chat-threads-store";
 import { ChatCryptoError, unwrapForOwner, wrapForOwner } from "./chat-crypto";
-import { readChatIdentity, replaceChatIdentity } from "./chat-key-vault";
+import {
+  clearUnmovedChatIdentity, readChatIdentity, readUnmovedChatIdentity, replaceChatIdentity, storedChatOwnerIds,
+} from "./chat-key-vault";
 import { ownerKeyAd, resealThreadFields, type ChatIdentity } from "./chat-thread-codec";
 import { bytesToBase64 } from "./base64";
 import { logDiag } from "./diagnostics";
@@ -158,10 +162,11 @@ async function reownThreads(
 }
 
 /** Adopt the identity stored under `typedCode` when `passphrase` opens it. Reads exactly one
- *  chat_keys row (by its code). When this browser already holds a different identity for `httpUrl`,
- *  its threads move to the adopted owner first; only after that commit is the adopted identity
- *  stored here, replacing the old one, and then the old one's chat_keys row is deleted. "wrong" and
- *  "unknown-code" change nothing. */
+ *  chat_keys row (by its code). The adopted identity is stored here first (again on a retry: the same
+ *  entry), replacing the one held; the replaced identity's owner id is kept in the entry. Then that
+ *  identity's threads move to the adopted owner, and only once they have is its chat_keys row deleted.
+ *  A failed move throws and leaves the replaced identity in the entry, so unlocking again moves its
+ *  threads. "wrong" and "unknown-code" change nothing. */
 export async function unlockWithPassphrase(
   config: TursoConfig | null,
   httpUrl: string,
@@ -180,18 +185,22 @@ export async function unlockWithPassphrase(
   const current = await readChatIdentity(httpUrl);
   // An identity that could not be read right now is not replaced: it may still be good.
   if (current.kind === "transient") throw new Error("chat identity not readable right now");
-  const counts = current.kind === "found" && current.identity.ownerId !== adopted.ownerId
-    ? await reownThreads(config, current.identity, adopted)
-    : { moved: 0, skipped: 0 };
-  await replaceChatIdentity(httpUrl, adopted);
+  // Whose threads move: the identity held here, or — when it is already the adopted one — the one a
+  // move that did not finish left in the entry.
+  const from = current.kind !== "found" ? null
+    : current.identity.ownerId !== adopted.ownerId ? current.identity
+      : await readUnmovedChatIdentity(httpUrl);
+  // Stored first, with every owner id held so far (a locked one's too) kept for a later delete-all.
+  await replaceChatIdentity(httpUrl, adopted, storedChatOwnerIds(httpUrl), from);
+  if (!from) return { outcome: "adopted", moved: 0, skipped: 0 };
+  const counts = await reownThreads(config, from, adopted);
+  clearUnmovedChatIdentity(httpUrl, from.ownerId);
   // The replaced identity's own passphrase row now opens nothing (its threads moved to the adopted
   // owner, or are ones its key could not open): delete it. A failure leaves the adoption in place.
-  if (current.kind === "found" && current.identity.ownerId !== adopted.ownerId) {
-    try {
-      await removeChatPassphrase(config, current.identity.ownerId);
-    } catch {
-      logDiag("warn", "chat.replacedKeyDeleteFailed");
-    }
+  try {
+    await removeChatPassphrase(config, from.ownerId);
+  } catch {
+    logDiag("warn", "chat.replacedKeyDeleteFailed");
   }
   return { outcome: "adopted", ...counts };
 }

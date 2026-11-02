@@ -9,6 +9,8 @@ import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 const server = vi.hoisted(() => ({
   db: null as unknown as import("node:sqlite").DatabaseSync,
   log: [] as { sql: string; args?: { type: string; value?: string }[] }[][],
+  /** When set, the next statement list it matches fails (once), as a dropped connection would. */
+  failNext: null as null | ((stmts: SqlStmt[]) => boolean),
 }));
 
 vi.mock("./turso-pipeline", () => ({
@@ -19,7 +21,7 @@ import {
   setChatPassphrase, removeChatPassphrase, unlockWithPassphrase, normaliseUnlockCode,
   UNLOCK_CODE_ALPHABET, MIN_CHAT_PASSPHRASE_LENGTH, ChatPassphraseError,
 } from "./chat-passphrase";
-import { ensureChatIdentity, getChatIdentity } from "./chat-key-vault";
+import { ensureChatIdentity, getChatIdentity, storedChatOwnerIds } from "./chat-key-vault";
 import { runTursoPipeline } from "./turso-pipeline";
 import { readDiagLog } from "./diagnostics";
 import { loadThreads, saveThread, __resetChatThreadsHealForTests } from "./chat-threads-store";
@@ -56,6 +58,10 @@ function one(s: SqlStmt): PipelineResultLike {
  *  statement by statement and throws on the first error, as `runTursoPipeline` does. */
 function execute(stmts: SqlStmt[]): PipelineResultLike[] {
   server.log.push(stmts.map((s) => ({ sql: s.sql, args: s.args })));
+  if (server.failNext?.(stmts)) {
+    server.failNext = null;
+    throw new Error("Turso error: connection dropped");
+  }
   const tx = /^\s*BEGIN\b/i.test(stmts[0]?.sql ?? "") && /^\s*COMMIT\b/i.test(stmts.at(-1)?.sql ?? "");
   const out: PipelineResultLike[] = [];
   try {
@@ -96,6 +102,7 @@ async function sealC1(key: Uint8Array, plaintext: string): Promise<string> {
 beforeEach(() => {
   server.db = new DatabaseSync(":memory:");
   server.log = [];
+  server.failNext = null;
   window.localStorage.clear();
   __resetChatThreadsHealForTests();
 });
@@ -301,6 +308,37 @@ describe("chat passphrase", () => {
     await removeChatPassphrase(cfg, a.ownerId);
     expect(server.db.prepare("SELECT owner_id FROM chat_keys").all()).toEqual([{ owner_id: b.ownerId }]);
     expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toEqual({ outcome: "unknown-code" });
+  });
+
+  it("the adopted identity is stored before the move; a failed move keeps the old rows and is finished by unlocking again", async () => {
+    const { a, code } = await browserA();
+    const b = await browserB();
+    await setChatPassphrase(cfg, b, PASS);
+    server.failNext = (stmts) => /^BEGIN/.test(stmts[0]?.sql ?? "") && stmts.some((s) => /^UPDATE chat_threads\b/.test(s.sql));
+    await expect(unlockWithPassphrase(cfg, URL, code, PASS)).rejects.toThrow();
+    expect((await getChatIdentity(URL))!.ownerId).toBe(a.ownerId);
+    expect(server.db.prepare("SELECT owner_id FROM chat_threads WHERE id = 'tb'").get()).toEqual({ owner_id: b.ownerId });
+    // The old owner id is kept, so a delete-all can still erase its rows.
+    expect(storedChatOwnerIds(URL)).toEqual([a.ownerId, b.ownerId]);
+    // Its passphrase row is not deleted before its threads have moved.
+    const keyOwners = () => (server.db.prepare("SELECT owner_id FROM chat_keys").all() as { owner_id: string }[]).map((r) => r.owner_id).sort();
+    expect(keyOwners()).toEqual([a.ownerId, b.ownerId].sort());
+
+    expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toEqual({ outcome: "adopted", moved: 1, skipped: 0 });
+    expect(server.db.prepare("SELECT owner_id FROM chat_threads WHERE id = 'tb'").get()).toEqual({ owner_id: a.ownerId });
+    const loaded = await loadThreads(cfg, "p", (await getChatIdentity(URL))!);
+    expect(loaded.map((t) => t.name).sort()).toEqual(["From A", "From B"]);
+    expect(keyOwners()).toEqual([a.ownerId]);
+    // Finished: a third unlock has nothing left to move.
+    expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toEqual({ outcome: "adopted", moved: 0, skipped: 0 });
+  });
+
+  it("an unlock over a locked identity keeps the locked owner id for a later delete-all", async () => {
+    const { a, code } = await browserA();
+    const sealed = { iv: "AAAAAAAAAAAAAAAA", ciphertext: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" };
+    window.localStorage.setItem("aipm-cockpit:chat-identity", JSON.stringify({ [URL]: { ownerId: "o-locked", sealed } }));
+    expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toEqual({ outcome: "adopted", moved: 0, skipped: 0 });
+    expect(storedChatOwnerIds(URL)).toEqual([a.ownerId, "o-locked"]);
   });
 
   it("a browser without an identity adopts without moving anything", async () => {

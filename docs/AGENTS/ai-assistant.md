@@ -2376,8 +2376,11 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   - **Passphrase.** `chat-passphrase.ts` + the GLOBAL `chat_keys` table (`chat-keys-schema.ts`) let another browser
     adopt the identity with an unlock code and the passphrase. ★★ `chat_keys` is OUT of `TABLE_NAMES` like
     `chat_threads`, and has no `project_id`, so neither a project hard delete nor a factory reset touches it.
-    ★ Adoption deletes the REPLACED owner's `chat_keys` row once the adopted identity is stored
-    (`unlockWithPassphrase`; a failure is logged as `chat.replacedKeyDeleteFailed` and keeps the adoption).
+    ★★ ORDER: the adopted identity is stored FIRST (idempotent on a retry), with the replaced owner id in
+    `previousOwnerIds` and the replaced identity itself sealed in the entry as `unmoved`; THEN its threads move
+    (`reownThreads`), and only then is `unmoved` cleared and the replaced owner's `chat_keys` row deleted (a
+    failed delete is logged as `chat.replacedKeyDeleteFailed` and keeps the adoption). A move that fails throws;
+    unlocking again reads `readUnmovedChatIdentity` and finishes it.
     `startNewChatIdentity` deliberately does NOT: the old unlock code is the way back to the earlier chats, and
     the locked-identity notice tells the person to use it.
   - **Three deleters, one predicate** (`expireThreadsStatements`: older than the retention period, or no usable

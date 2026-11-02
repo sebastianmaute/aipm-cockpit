@@ -17,6 +17,10 @@
 // current one (a new identity started while the old chats were kept, or an adoption whose move did
 // not finish). They open nothing, but a delete-all still erases their rows, so no chat of this person
 // is left without a way to erase it. They stay readable while the entry itself is locked.
+//
+// While an adoption's move has not finished, the entry also keeps `unmoved`: the replaced identity, its
+// chat key sealed like the current one, so unlocking again can still move its threads
+// (chat-passphrase.ts). It is cleared once they have moved.
 import { bytesToBase64 } from "./base64";
 import { generateChatKey, isChatCryptoAvailable } from "./chat-crypto";
 import type { ChatIdentity } from "./chat-thread-codec";
@@ -35,9 +39,14 @@ export type ChatIdentityRead =
   | { kind: "unavailable" }
   | { kind: "transient" };
 
-type VaultEntry = { ownerId: string; sealed: DeviceSealedValue; previousOwnerIds?: string[] };
+type SealedIdentity = { ownerId: string; sealed: DeviceSealedValue };
+type VaultEntry = SealedIdentity & { previousOwnerIds?: string[]; unmoved?: SealedIdentity };
 
 function isVaultEntry(v: unknown): v is VaultEntry {
+  return isSealedIdentity(v);
+}
+
+function isSealedIdentity(v: unknown): v is SealedIdentity {
   if (typeof v !== "object" || v === null) return false;
   const { ownerId, sealed } = v as Record<string, unknown>;
   if (typeof ownerId !== "string" || ownerId === "") return false;
@@ -183,22 +192,51 @@ export function startNewChatIdentity(httpUrl: string, { keepOld }: { keepOld: bo
 
 /** Store `id` as this browser's identity for `httpUrl`, replacing any earlier one. The entry's earlier
  *  owner ids are carried over, and `addPrevious` (owner ids whose rows may still be in the database)
- *  joins them, so none is lost to a later delete-all. */
+ *  joins them, so none is lost to a later delete-all. `unmoved` is the replaced identity whose threads
+ *  are still to move to `id` (an adoption); without it none is kept. */
 export async function replaceChatIdentity(
-  httpUrl: string, id: ChatIdentity, addPrevious: readonly string[] = [],
+  httpUrl: string, id: ChatIdentity, addPrevious: readonly string[] = [], unmoved: ChatIdentity | null = null,
 ): Promise<void> {
   const entry = readVault()[httpUrl];
   const carried = isVaultEntry(entry) ? previousOf(entry) : [];
-  await writeIdentityEntry(httpUrl, id, [...addPrevious, ...carried]);
+  await writeIdentityEntry(httpUrl, id, [...addPrevious, ...carried], unmoved);
 }
 
-async function writeIdentityEntry(httpUrl: string, id: ChatIdentity, previous: readonly string[]): Promise<void> {
+async function writeIdentityEntry(
+  httpUrl: string, id: ChatIdentity, previous: readonly string[], unmoved: ChatIdentity | null = null,
+): Promise<void> {
   if (httpUrl === "") throw new Error("replaceChatIdentity: a database URL is required");
   const sealed = await sealDeviceValue(bytesToBase64(id.chatKey));
   const previousOwnerIds = uniqueIds(previous.filter((o) => o !== "" && o !== id.ownerId));
-  writeVaultEntry(httpUrl, previousOwnerIds.length > 0
-    ? { ownerId: id.ownerId, sealed, previousOwnerIds }
-    : { ownerId: id.ownerId, sealed });
+  const entry: VaultEntry = { ownerId: id.ownerId, sealed };
+  if (previousOwnerIds.length > 0) entry.previousOwnerIds = previousOwnerIds;
+  if (unmoved && unmoved.ownerId !== id.ownerId) {
+    entry.unmoved = { ownerId: unmoved.ownerId, sealed: await sealDeviceValue(bytesToBase64(unmoved.chatKey)) };
+  }
+  writeVaultEntry(httpUrl, entry);
+}
+
+/** The replaced identity whose threads have not finished moving to the one stored for `httpUrl` (see
+ *  `replaceChatIdentity`), or null when there is none or it cannot be opened. */
+export async function readUnmovedChatIdentity(httpUrl: string): Promise<ChatIdentity | null> {
+  const entry = readVault()[httpUrl];
+  if (!isVaultEntry(entry) || !isSealedIdentity(entry.unmoved)) return null;
+  try {
+    const chatKey = decodeChatKey(await openDeviceValue(entry.unmoved.sealed));
+    return chatKey ? { ownerId: entry.unmoved.ownerId, chatKey } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Forgets the unmoved identity `ownerId` for `httpUrl` once its threads have moved; the rest of the
+ *  entry stays as it is. */
+export function clearUnmovedChatIdentity(httpUrl: string, ownerId: string): void {
+  const entry = readVault()[httpUrl];
+  if (!isVaultEntry(entry) || !isSealedIdentity(entry.unmoved) || entry.unmoved.ownerId !== ownerId) return;
+  const rest: VaultEntry = { ...entry };
+  delete rest.unmoved;
+  writeVaultEntry(httpUrl, rest);
 }
 
 /** True when this browser has what sealing a chat key needs (Web Crypto and IndexedDB). */
