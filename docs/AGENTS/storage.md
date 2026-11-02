@@ -639,7 +639,9 @@ Kept short: `AGENTS.md` owns each rule.
   used for several keeps the `id`, and there the write commits over every project. So before the confirm,
   and again after it, the handler asks `tursoDatabaseHoldsProjects` (`turso-holds-projects.ts`: a `projects`
   row, or a workspace row with `project_id` set) and refuses on yes, or when the question cannot be answered;
-  a malformed answer counts as unanswered, and the failure is named by `TURSO_TEST_FAIL_KEYS`, never raw. It
+  a malformed answer counts as unanswered, and the failure is named by `TURSO_TEST_FAIL_KEYS`, never raw
+  (`refuseConversionIntoProjects`, `storage-convert-guard.ts`; its wording names a way back only when the
+  portfolio flag is File, see §791). One switch runs at a time (`switchBusyRef`). It
   does not depend on `portfolioMode`, which an in-place switch leaves frozen ([§791](../open-followups.md#791-the-portfolio-flag-stays-on-turso-after-an-in-place-storage-switch-and-its-other-readers-are-unaudited)).
   `turso-holds-projects.execute.test.ts` runs the probe, and the commit it prevents, on `node:sqlite`.
 - **`TABLE_NAMES`** is `ENTITY_SPECS` tables plus `plan`, `fx_rates` and `meta`, and a save

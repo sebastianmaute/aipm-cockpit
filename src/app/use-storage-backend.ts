@@ -482,6 +482,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const announcedUnsafeEmailsRef = useRef<Set<string>>(new Set());
   // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
   const reloadInFlightRef = useRef(false);
+  // §790 — guards onRequestStorageSwitch the same way (see `StorageFilePickerDeps.switchBusyRef`).
+  const switchBusyRef = useRef(false);
   // ★★ The DESTRUCTIVE lockout. Its peer is `useLoadTruncation` directly below;
   // the two cannot be active at once (see that hook's header for why).
   const destructive = useDestructiveSaveGuard();
@@ -1363,6 +1365,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     onRequestStorageSwitch,
   } = useStorageFilePickerOps({
     isPopout: args.isPopout,
+    switchBusyRef,
     backend,
     truncationOps,
     currentWorkspace,

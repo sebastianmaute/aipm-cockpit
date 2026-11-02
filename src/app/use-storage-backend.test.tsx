@@ -2002,7 +2002,9 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
       expect(target.save).not.toHaveBeenCalled();
       expect(setStorageConfig).not.toHaveBeenCalled();
       expect(confirmSpy).not.toHaveBeenCalled();
-      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertTursoHoldsProjects"));
+      // The portfolio flag is File here (nothing stored), so the text names the Settings route;
+      // the flag-dependent wording is pinned in storage-convert-guard.test.ts.
+      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertTursoHoldsProjectsRoute"));
     });
 
     it("refuses when the question cannot be answered: an unreadable database is not an empty one", async () => {
@@ -2023,20 +2025,33 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
       expect(JSON.stringify(vi.mocked(showToast).mock.calls)).not.toContain("network down");
     });
 
-    it("says why the check failed in words, not as an internal code", async () => {
-      // ★ The class from the mocked "./storage": it is the one `tursoErrorKind` (storage-error.ts) tests against here.
-      holdsMock.mockRejectedValue(new storageMod.StorageNotReadyError("storage-unreachable"));
+    // A second request while the first is still checking (two round trips, each up to the load timeout)
+    // must not start a second check and a second confirm.
+    it("ignores a second request while the first is still checking", async () => {
+      let answer!: (held: boolean) => void;
+      holdsMock.mockImplementationOnce(() => new Promise<boolean>((resolve) => { answer = resolve; }));
       const target = makeTarget();
       createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValueOnce(target);
-      vi.spyOn(window, "confirm").mockReturnValue(true);
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
       const { result } = renderBackend(makeArgs({ setStorageConfig, settings: tursoSettings }));
       await act(async () => { await Promise.resolve(); });
-      await act(async () => { await result.current.onRequestStorageSwitch("turso"); });
+      let first!: Promise<void>;
+      await act(async () => {
+        first = result.current.onRequestStorageSwitch("turso");
+        await Promise.resolve();
+        await result.current.onRequestStorageSwitch("turso");
+      });
+      expect(holdsMock).toHaveBeenCalledTimes(1);
+      expect(confirmSpy).not.toHaveBeenCalled();
 
-      expect(target.save).not.toHaveBeenCalled();
-      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertTursoProbeFailed", t("en-US", "integrationsTursoTestUnreachable")));
-      expect(JSON.stringify(vi.mocked(showToast).mock.calls)).not.toContain("storage-unreachable");
+      await act(async () => { answer(false); await first; });
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(target.save).toHaveBeenCalledTimes(1);
+      // ★ The guard lets go once the first request is over: a later one is heard again.
+      holdsMock.mockResolvedValueOnce(true);
+      await act(async () => { await result.current.onRequestStorageSwitch("turso"); });
+      expect(holdsMock).toHaveBeenCalledTimes(3); // first request: before + after the confirm; this one: refused before
     });
 
     // The confirm can stay open for a while; a project another device creates meanwhile must still stop the write.
@@ -2054,10 +2069,10 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
       expect(holdsMock).toHaveBeenCalledTimes(2);
       expect(target.save).not.toHaveBeenCalled();
       expect(setStorageConfig).not.toHaveBeenCalled();
-      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertTursoHoldsProjects"));
+      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertTursoHoldsProjectsRoute"));
     });
 
-    it("does not ask when no Turso config is set: there is no database to ask", async () => {
+    it("skips the check when no Turso config is set", async () => {
       const target = makeTarget();
       createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValueOnce(target);
       vi.spyOn(window, "confirm").mockReturnValue(true);

@@ -58,8 +58,8 @@ import { writeSettings } from "./use-settings";
 import { sealSettingsUntilReload } from "./settings-reload-seal";
 import type { TruncationOps } from "./use-load-truncation";
 import { getTursoConfig } from "./turso-config";
-import { tursoDatabaseHoldsProjects } from "./turso-holds-projects";
-import { TURSO_TEST_FAIL_KEYS, isSaveConflict, isSaveLockTimeout, isTursoLockTimeout, tursoErrorKind } from "./storage-error";
+import { refuseConversionIntoProjects, type ConvertCheckStage } from "./storage-convert-guard";
+import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout } from "./storage-error";
 import { STORAGE_LABEL_KEYS } from "./use-storage-backend-types";
 import { dropDanglingDependencies, summarizeUnsafeEmailRecords } from "./sanitize";
 import type { UseMsAuthResult } from "./use-ms-auth";
@@ -462,6 +462,8 @@ export interface StorageFilePickerDeps {
   settingsRef: React.MutableRefObject<Settings>;
   suppressNextSaveRef: React.MutableRefObject<boolean>;
   suppressNextLoadRef: React.MutableRefObject<boolean>;
+  /** §790 — true while a storage switch runs; a second request meanwhile is dropped. */
+  switchBusyRef: React.MutableRefObject<boolean>;
   /** §4 §645 — same field as `FileProjectOpsDeps.handOverFromRef`; the conversion sets it. */
   handOverFromRef: React.MutableRefObject<StorageBackend | null>;
   /** §645 C1 — same field as `FileProjectOpsDeps.setFileBinding`: a pick binds a file no registry project names. */
@@ -921,7 +923,21 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
   // the emitters it calls (emitStorageConfig, emitToast): they are re-created
   // each render and read `args.*` live, so memoizing this handler would capture
   // stale versions of those callbacks too — and a stale `mountedRef` with them.
+  // §790 — one storage switch at a time. A conversion into Turso first checks the database (two round
+  // trips, each up to the load timeout) before any dialog shows, so a second pick of the Storage select in
+  // that window would otherwise start a second check and a second confirm. ★ The ref lives in
+  // `useStorageBackend`: a `useRef` here would make this function a hook the React compiler checks.
   async function onRequestStorageSwitch(newKind: StorageKind): Promise<void> {
+    if (deps.switchBusyRef.current) { logDiag("info", "storage.switchDropped", { stage: "busy" }); return; }
+    deps.switchBusyRef.current = true;
+    try {
+      await switchStorage(newKind);
+    } finally {
+      deps.switchBusyRef.current = false;
+    }
+  }
+
+  async function switchStorage(newKind: StorageKind): Promise<void> {
     if (deps.isPopout) return;
     const current = deps.settingsRef.current.storageConfig;
     if (newKind === current.kind) return;
@@ -956,24 +972,13 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     // and refuse: before the confirm, so nobody agrees to a write that will not happen, and again after it,
     // because another device can create a project while the dialog is open. The second ask narrows that
     // window to the write's own round trip; closing it fully would need the check inside the write batch.
-    // A failed question refuses too: an unreadable database is not an empty one. See turso-holds-projects.ts.
-    const refusedByProjects = async (stage: "before-confirm" | "after-confirm"): Promise<boolean> => {
-      if (newKind !== "turso" || tursoConfig === null) return false;
-      let held: boolean;
-      try {
-        held = await tursoDatabaseHoldsProjects(tursoConfig);
-      } catch (err) {
-        logDiag("warn", "storage.convertRefused", { reason: "probe-failed", stage });
-        // A translated sentence by failure kind, never the raw message: it may be an internal code or carry the URL.
-        const why = t(deps.langRef.current, TURSO_TEST_FAIL_KEYS[tursoErrorKind(err) ?? "generic"]);
-        deps.emitToast("error", t(deps.langRef.current, "storageConvertTursoProbeFailed", why));
-        return true;
-      }
-      if (!held) return false;
-      logDiag("warn", "storage.convertRefused", { reason: "turso-holds-projects", stage });
-      deps.emitToast("error", t(deps.langRef.current, "storageConvertTursoHoldsProjects"));
-      return true;
-    };
+    // A failed question refuses too. See storage-convert-guard.ts.
+    const refusedByProjects = (stage: ConvertCheckStage): Promise<boolean> =>
+      newKind !== "turso" || tursoConfig === null
+        ? Promise.resolve(false)
+        : refuseConversionIntoProjects(tursoConfig, stage, {
+          lang: deps.langRef.current, emitToast: deps.emitToast, portfolioMode: loadPortfolioMode(),
+        });
     if (await refusedByProjects("before-confirm")) return;
     const leavingTurso = current.kind === "turso" && newKind !== "turso";
     const confirmKey = leavingTurso ? "storageTursoLeaveWarn" : "storageConvertConfirm";
