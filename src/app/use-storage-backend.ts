@@ -480,10 +480,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const captureFileBinding = (): void => setFileBinding((backend as { fileBinding?: () => string | null }).fileBinding?.() ?? null);
   // M4: projects whose unsafe-email notice this session already showed (see `FileProjectOpsDeps`).
   const announcedUnsafeEmailsRef = useRef<Set<string>>(new Set());
-  // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
-  const reloadInFlightRef = useRef(false);
-  // §790 — guards onRequestStorageSwitch the same way (see `StorageFilePickerDeps.switchBusyRef`).
-  const switchBusyRef = useRef(false);
+  // Re-entry guards: reloadCurrentProject (redundant round-trips) and onRequestStorageSwitch (§790, `StorageFilePickerDeps.switchBusyRef`).
+  const reloadInFlightRef = useRef(false), switchBusyRef = useRef(false);
   // ★★ The DESTRUCTIVE lockout. Its peer is `useLoadTruncation` directly below;
   // the two cannot be active at once (see that hook's header for why).
   const destructive = useDestructiveSaveGuard();
@@ -1364,8 +1362,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     onOpenStorageFile,
     onRequestStorageSwitch,
   } = useStorageFilePickerOps({
-    isPopout: args.isPopout,
-    switchBusyRef,
+    isPopout: args.isPopout, switchBusyRef,
     backend,
     truncationOps,
     currentWorkspace,
