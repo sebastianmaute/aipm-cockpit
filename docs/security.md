@@ -53,6 +53,7 @@ This is a **local-first, bring-your-own-key** application. There is no applicati
 | This browser's chat identity (owner id + chat key), one per Turso database | `localStorage["aipm-cockpit:chat-identity"]`; the chat key is sealed under the device key |
 | A chat key wrapped under a chat passphrase, with its unlock code (only for people who set one) | Turso table `chat_keys` |
 | Deleted projects whose side-table cleanup is still to be retried (project ids only) | `localStorage["aipm-cockpit:pending-project-sweeps"]` |
+| "Same person" / "not the same person" answers across projects (Turso storage with several projects only) | The shared Turso table `person_links`, with both people's first and last names (no e-mail addresses), readable from every project in the database. Deleting a person removes their answers, whether by a delete or by Redo of one; Undo brings the person back but not the answers. Deleting a project removes every answer naming it. Some cases are not removed, or are removed too early (for example a person dropped by an import, or a delete that never saves); they are listed in `docs/AGENTS/ai-assistant.md`, "Deleting a person removes their rows". The feature works only while the live storage is Turso |
 
 If WebCrypto / IndexedDB is unavailable the app degrades to holding the secrets in memory rather than crashing. Credentials are deliberately excluded from workspace exports (JSON/CSV/Markdown), the activity log, and console output; the secrets ciphertext is likewise excluded from exports and never written to Turso.
 

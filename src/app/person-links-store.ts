@@ -4,7 +4,7 @@
 import { runTursoPipeline } from "./turso-pipeline";
 import {
   PERSON_LINKS_DDL, selectPersonLinks, upsertPersonLinkStatements, deletePersonLinkStatements,
-  rowsToPersonLinks, type PersonLinkPair,
+  deletePersonLinksForStatements, rowsToPersonLinks, type PersonLinkPair,
 } from "./person-links-schema";
 import type { PersonLinkRow } from "./cross-project/person-match";
 import type { SqlStmt } from "./turso-schema";
@@ -24,4 +24,10 @@ export async function savePersonLink(config: TursoConfig | null, row: PersonLink
 
 export async function deletePersonLink(config: TursoConfig | null, pair: PersonLinkPair): Promise<void> {
   await runTursoPipeline(config, [...ddl(), ...deletePersonLinkStatements(pair)]);
+}
+
+/** §788 — remove every answer naming these people of `projectId`, on either side (a person was deleted). */
+export async function deletePersonLinksFor(config: TursoConfig | null, projectId: string, resourceIds: readonly number[]): Promise<void> {
+  if (!config || resourceIds.length === 0) return;
+  await runTursoPipeline(config, [...ddl(), ...deletePersonLinksForStatements(projectId, resourceIds)]);
 }

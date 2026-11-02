@@ -176,7 +176,9 @@ export function ResourceEditModal({
 
   async function handleDeleteClick() {
     if (!draft) return;
-    if (await confirm({ message: `${t(lang, "resourceConfirmDelete")} ${t(lang, "resourceDeleteCascadeNote")}` })) {
+    // §788: said only where answers are shared (the feature is on); Undo restores the person but not those answers.
+    const answersNote = crossProject && crossProject.status !== "unavailable" ? ` ${t(lang, "resourceDeleteAnswersNote")}` : "";
+    if (await confirm({ message: `${t(lang, "resourceConfirmDelete")} ${t(lang, "resourceDeleteCascadeNote")}${answersNote}` })) {
       onDelete(draft.id);
     }
   }

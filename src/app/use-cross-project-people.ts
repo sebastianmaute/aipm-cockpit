@@ -14,10 +14,15 @@
 //   read `person_links` before the write, and replacing the links would silently drop it from memory.
 // ★ A failed link write leaves the in-memory links untouched, so the matches never
 //   claim a state the store does not hold; `onWriteError` lets the caller toast.
+// ★ §788: `forgetPeople(ids)` is the one write a DELETE makes. It removes every row naming the deleted people, on either
+//   side. Unlike an answer it is never refused during a load (a delete must always reach the table) and needs no other
+//   project loaded (rows outlive the other projects); it rides `commit`, so a reload that read the rows first is corrected.
+//   Its own failure route (`onForgetError`) keeps the "could not save your answer" text off a delete.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Resource, ResourcePlan } from "./types";
 import type { TursoConfig } from "./turso-config";
 import type { PortfolioMode } from "./portfolio-mode";
+import type { StorageConfig } from "./storage-config-kind";
 import { TursoBackend } from "./turso-backend";
 import type { Workspace } from "./workspace";
 import { generatePeriods } from "./resource-capacity";
@@ -26,7 +31,7 @@ import { isScopeStale } from "./scope-epoch";
 import { isPeopleProtected } from "./ai-people-protection";
 import { logDiag } from "./diagnostics";
 import { useStableHandlers } from "./use-stable-handlers";
-import { deletePersonLink, loadPersonLinks, savePersonLink } from "./person-links-store";
+import { deletePersonLink, deletePersonLinksFor, loadPersonLinks, savePersonLink } from "./person-links-store";
 import {
   canonicalPair,
   matchPeople,
@@ -60,11 +65,16 @@ export interface CrossProjectPeople {
   confirm: (hereResourceId: number, rel: Relation) => Promise<void>;
   reject: (hereResourceId: number, rel: Relation) => Promise<void>;
   undo: (hereResourceId: number, rel: Relation) => Promise<void>;
+  /** §788: a person was deleted here; remove every answer that names them. Never throws; a failure goes to `onForgetError`. */
+  forgetPeople: (resourceIds: readonly number[]) => Promise<void>;
 }
 
 export interface CrossProjectDeps {
   tursoConfig: TursoConfig | null;
   portfolioMode: PortfolioMode;
+  /** The LIVE storage kind (`settings.storageConfig.kind`). `portfolioMode` is fixed at startup and an in-place storage switch
+   *  leaves it on "turso", so only this says the open workspace still IS the Turso project. The sweep requires "turso". */
+  storageKind: StorageConfig["kind"];
   projects: readonly { id: string; name: string }[];
   currentProjectId: string | null;
   resources: readonly Resource[];
@@ -76,6 +86,8 @@ export interface CrossProjectDeps {
   actorLabel?: string;
   /** Called after a link write failed (the failure is also logged); the matches are left unchanged. */
   onWriteError?: (err: unknown) => void;
+  /** Called after the sweep for a deleted person failed (also logged); the person is gone, their answers may remain. */
+  onForgetError?: (err: unknown) => void;
   load?: (config: TursoConfig, projectId: string) => Promise<Workspace>;
 }
 
@@ -90,6 +102,9 @@ interface Loaded {
   protectedIds: string[];
 }
 
+const LINK_WRITE_FAILED = "crossProject.linkWriteFailed";
+/** ONE diagnostics code for a failed sweep: `commit` logs it, and `use-cross-project-app.ts` reports under the same code. */
+export const FORGET_FAILED = "crossProject.forgetFailed";
 const NO_FAILURES: { projectId: string; projectName: string }[] = [];
 const NO_MATCHES = new Map<number, PersonMatch>();
 
@@ -115,8 +130,8 @@ const sameLink = (l: PersonLinkRow, p: ReturnType<typeof canonicalPair>): boolea
 
 export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeople {
   const {
-    tursoConfig, portfolioMode, projects, currentProjectId, resources, plan,
-    workdayHours, holidaySet, loadPending, getScopeEpoch, actorLabel, onWriteError,
+    tursoConfig, portfolioMode, storageKind, projects, currentProjectId, resources, plan,
+    workdayHours, holidaySet, loadPending, getScopeEpoch, actorLabel, onWriteError, onForgetError,
   } = deps;
   const load = deps.load ?? defaultLoad;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -130,7 +145,11 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   // Link edits applied while a run is in flight; re-applied over what that run read.
   const runWritesRef = useRef<((links: PersonLinkRow[]) => PersonLinkRow[])[]>([]);
 
-  const portfolio = portfolioMode === "turso" && tursoConfig !== null && currentProjectId !== null;
+  // ★★★ §788: the WHOLE feature needs the LIVE storage to be Turso, not just the startup portfolio mode. `portfolioMode` never
+  // changes and an in-place switch away from Turso leaves it (and `tursoConfig`, `tursoProjectId`) looking like Turso while the open
+  // workspace is a local copy: reading matches or writing an answer for that copy's ids would be about people who may not be
+  // the ones in the Turso project. So off Turso the status is "unavailable" (not `singleProject`: that claims "the only project").
+  const portfolio = portfolioMode === "turso" && storageKind === "turso" && tursoConfig !== null && currentProjectId !== null;
   // The open project may be missing from the active list (archived from another tab or device while open), so count
   // the OTHER projects, never the list length.
   const otherCount = projects.filter((p) => p.id !== currentProjectId).length;
@@ -285,14 +304,22 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
   };
 
   // Write first, then reflect: a throwing store leaves the in-memory links as they were.
-  const commit = async (write: () => Promise<void>, projectId: string, next: (links: PersonLinkRow[]) => PersonLinkRow[]): Promise<void> => {
+  const commit = async (
+    write: () => Promise<void>,
+    projectId: string,
+    next: (links: PersonLinkRow[]) => PersonLinkRow[],
+    // REQUIRED, never defaulted: a delete's sweep must not fall back to the "could not save your answer" route, nor be logged
+    // as a failed link write (`failCode`).
+    onError: ((err: unknown) => void) | undefined,
+    failCode: string,
+  ): Promise<void> => {
     const startEpoch = getScopeEpoch();
     const writtenTo = configKeyRef.current;
     try {
       await write();
     } catch (err) {
-      logDiag("error", "crossProject.linkWriteFailed", { message: messageOf(err) });
-      onWriteError?.(err);
+      logDiag("error", failCode, { message: messageOf(err) });
+      onError?.(err);
       return;
     }
     // The stored write stands; only the in-memory reflect is dropped when the scope moved on.
@@ -314,6 +341,8 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
       () => savePersonLink(tursoConfig, row),
       currentProjectId ?? "",
       (links) => [...links.filter((l) => !sameLink(l, key)), row],
+      onWriteError,
+      LINK_WRITE_FAILED,
     );
   };
 
@@ -325,6 +354,27 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
       () => deletePersonLink(tursoConfig, pair),
       currentProjectId,
       (links) => links.filter((l) => !sameLink(l, key)),
+      onWriteError,
+      LINK_WRITE_FAILED,
+    );
+  };
+
+  // §788: deliberately NOT gated on `isLoading` or `available`: a delete must always reach the table, and the rows
+  // outlive the other projects. The project id is read at call time, so a later switch cannot redirect the sweep.
+  const forgetPeople = async (resourceIds: readonly number[]): Promise<void> => {
+    // `portfolio` already requires the live storage kind: after an in-place Turso → other switch the open workspace is a LOCAL
+    // copy, and deleting a person in it must not destroy the shared answers of a person who still exists in the Turso project.
+    if (resourceIds.length === 0 || !portfolio || !tursoConfig || currentProjectId === null) return;
+    const projectId = currentProjectId;
+    const gone = new Set(resourceIds);
+    const names = (l: PersonLinkRow): boolean =>
+      (l.projectA === projectId && gone.has(l.resourceA)) || (l.projectB === projectId && gone.has(l.resourceB));
+    await commit(
+      () => deletePersonLinksFor(tursoConfig, projectId, resourceIds),
+      projectId,
+      (links) => links.filter((l) => !names(l)),
+      onForgetError,
+      FORGET_FAILED,
     );
   };
 
@@ -335,6 +385,7 @@ export function useCrossProjectPeople(deps: CrossProjectDeps): CrossProjectPeopl
     confirm: (hereId: number, rel: Relation) => decide(hereId, rel, "same"),
     reject: (hereId: number, rel: Relation) => decide(hereId, rel, "different"),
     undo,
+    forgetPeople,
   });
   const failures = effective?.failures ?? NO_FAILURES;
   const loadFailed = available && loadFailedFor === currentProjectId;

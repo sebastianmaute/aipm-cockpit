@@ -744,7 +744,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "delete_resource",
-    description: "Delete a resource from the directory by ID.",
+    description: "Delete a resource from the directory by ID. When the project shares same-person answers with other projects, those answers about this person are deleted too and Undo does not bring them back.",
     input_schema: {
       type: "object",
       properties: { id: { type: "number" } },

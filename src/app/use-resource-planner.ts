@@ -83,6 +83,8 @@ export interface UseResourcePlannerArgs {
   /** Arms the one-shot destructive-save bypass. Optional — popouts and tests
    *  supply none. */
   allowDestructiveSave?: () => void;
+  /** §788 — forwarded to useResourceDirectory: the ids a delete actually removed. */
+  onResourcesDeleted?: (resourceIds: readonly number[]) => void;
 }
 
 export function useResourcePlanner(args: UseResourcePlannerArgs) {
@@ -233,7 +235,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const referenceDataApi = useReferenceData({ logActivity: args.logActivity, captureComposite: args.captureComposite, logUpdate, allowDestructiveSave: args.allowDestructiveSave });
 
   // Resource-directory CRUD (create/edit/delete/bulk/import) extracted to use-resource-directory.ts.
-  const resourceDirectoryApi = useResourceDirectory({ lang: args.lang, logActivity: args.logActivity, showToast: args.showToast, capture: args.capture, captureComposite: args.captureComposite, captureFieldEdit: args.captureFieldEdit, logUpdate, allowDestructiveSave: args.allowDestructiveSave });
+  const resourceDirectoryApi = useResourceDirectory({ lang: args.lang, logActivity: args.logActivity, showToast: args.showToast, capture: args.capture, captureComposite: args.captureComposite, captureFieldEdit: args.captureFieldEdit, logUpdate, allowDestructiveSave: args.allowDestructiveSave, onResourcesDeleted: args.onResourcesDeleted });
 
   const handleOpenShiftEditor = useCallback(
     (existing: Shift | null, seed: { display: string; email: string }) => {

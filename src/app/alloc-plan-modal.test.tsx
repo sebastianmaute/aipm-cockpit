@@ -367,6 +367,7 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
       confirm: vi.fn(async () => {}),
       reject: vi.fn(async () => {}),
       undo: vi.fn(async () => {}),
+      forgetPeople: vi.fn(async () => {}),
       ...over,
     };
   }

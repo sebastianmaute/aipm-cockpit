@@ -984,6 +984,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       },
       deleteResource: (id: number) => {
         if (args.isReadOnly) throw readOnlyError();
+        // §788: the sweep is permanent while a delete made during the load hold is lost with the workspace it edited, so a
+        // delete is refused in that window (the epoch only moves once a swap's load has finished, and a Reload never moves it).
+        if (args.isLoadHeld?.()) throw new Error("The project is loading or being switched; try deleting the person again once it has finished.");
         const doomed = resourcesRef.current.find((r) => r.id === id);
         if (!doomed) return false;
         const next = resourcesRef.current.filter((r) => r.id !== id);
@@ -1003,6 +1006,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
             removed: [doomed],
             fromArray: resourcesRef.current,
             isPrimary: true,
+            // §788: a REDO of this delete removes the person again, so it sweeps like the delete did.
+            onRedoRemoved: (ids) => args.onResourcesDeleted?.(ids),
           })],
           name: resourceLogName(doomed),
           entityKey: "resource",
@@ -1011,6 +1016,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         setResources(next);
         args.logActivityAs?.("ai", "resource.deleted", doomed.id, resourceLogName(doomed));
         args.allowDestructiveSave?.();
+        args.onResourcesDeleted?.([doomed.id]);
         return true;
       },
 
