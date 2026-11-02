@@ -696,7 +696,12 @@ count of changes); what it proposed is in the tool call beside it, which is sear
    also deletes its chats.
 4. AI gateway logs: if AI runs through a gateway, erase there too; the app cannot.
 5. In the person's own browser, Delete all my chats (chat sidebar) removes their chats
-   in every project of that database.
+   in every project of that database, and (ticked by default) their chat passphrase.
+6. Chat passphrase: a person's `chat_keys` row holds no chat text, only their chat key
+   wrapped under their passphrase. When it is the person's own erasure and step 5 was not
+   done, remove it by their owner id: `DELETE FROM chat_keys WHERE owner_id = ?`. Read the
+   owner id from one of their own chats before step 1 deletes them
+   (`SELECT owner_id FROM chat_threads WHERE id = ?`).
 
 An open tab running THIS release cannot upload an erased chat again: its next save of that
 chat changes no row, and the tab closes the chat (its list, the conversation on screen) and

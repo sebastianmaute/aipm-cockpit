@@ -2363,6 +2363,9 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     read without the chat key), so single deletes, find-and-delete and the delete-all run as it
     (`use-chat-erase.ts`), and the notice offers "Delete my old chats" (type-to-confirm, the delete-all's
     confirm value). A delete-all erases the current AND every `previousOwnerIds` owner's rows.
+    The sidebar's delete-all dialog also offers "Also remove my chat passphrase" (ticked by default): after the
+    chats are gone, `removeChatPassphrase` deletes the `chat_keys` row of every owner id erased; a failure there
+    is `"passphrase-kept"`, never a failed delete. The notice's "Delete my old chats" keeps the passphrase.
   - **`"identity-retry"`**: opening the entry failed for any reason OTHER than a key that cannot open it
     (`SecretUnlockError`) — IndexedDB blocked, quota, anything unexpected — so `readChatIdentity` answers
     `"transient"`. ★★ Not a lock: no "Start a new chat identity" offer, the entry is never replaced (nor by an

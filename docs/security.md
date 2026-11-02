@@ -78,7 +78,7 @@ AI Assistant chats are saved only on a Turso project, and only when three things
 
 **Erasure.**
 
-- In the chat sidebar, **Delete all my chats** deletes every chat of this browser's identity in every project of the database (older chats without an owner stay until they expire), and **Find chats mentioning a person** searches all your chats in every project of the database, plus the older shared chats of the current project, so you can tick and delete them; each match shows its project.
+- In the chat sidebar, **Delete all my chats** deletes every chat of this browser's identity in every project of the database (older chats without an owner stay until they expire); unless you untick it, it also removes your chat passphrase. **Find chats mentioning a person** searches all your chats in every project of the database, plus the older shared chats of the current project, so you can tick and delete them; each match shows its project.
 - The operator can search and delete across the whole database with `npm run chats:erase` and the recovery private key ([RUNBOOK.md](RUNBOOK.md#saved-ai-chats-recovery-key-retention-and-erasure-run-time)).
 - Deleting a project for good also deletes its chats. If that cleanup fails, the app says so and tries again at its next start (the project ids wait in `localStorage["aipm-cockpit:pending-project-sweeps"]`).
 - A factory reset (Settings → Reset application) deletes the device key and every `aipm-cockpit:*` entry, so this browser's own chats become unreadable to it at once — unless a chat passphrase was set, in which case the unlock code and passphrase open them again. It deletes no Turso row; the chats are deleted when their retention period ends.

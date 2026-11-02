@@ -59,7 +59,7 @@ export { chatPersistence, type ChatPersistence } from "./use-chat-identity";
 
 /** The diagnostics code a thread marked gone (`dropGone`) is logged with. */
 type GoneCode = "chat.threadGone" | "chat.threadOwnerChanged" | "chat.threadSaveUnconfirmed";
-export type { ChatEraseActions, DeleteAllOutcome } from "./use-chat-erase";
+export type { ChatEraseActions, DeleteAllOptions, DeleteAllOutcome } from "./use-chat-erase";
 
 /** Live render-scope values the Turso thread flows read each render. */
 export interface UseChatThreadsDeps {

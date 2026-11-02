@@ -27,6 +27,12 @@ vi.mock("./chat-threads-store", () => ({
   loadLegacyThreadIds: vi.fn(async () => []),
   loadOwnerThreads: vi.fn(async () => []),
 }));
+vi.mock("./chat-passphrase", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./chat-passphrase")>()),
+  removeChatPassphrase: vi.fn(async () => undefined),
+}));
+import { removeChatPassphrase } from "./chat-passphrase";
+const removePassphraseMock = removeChatPassphrase as unknown as ReturnType<typeof vi.fn>;
 
 const loadThreadsMock = loadThreads as unknown as ReturnType<typeof vi.fn>;
 const saveThreadMock = saveThread as unknown as ReturnType<typeof vi.fn>;
@@ -83,6 +89,7 @@ beforeEach(() => {
   expireThreadsMock.mockResolvedValue(undefined);
   loadLegacyThreadIdsMock.mockResolvedValue([]);
   loadOwnerThreadsMock.mockResolvedValue([]);
+  removePassphraseMock.mockResolvedValue(undefined);
 });
 
 describe("useChatThreads — delete all my chats", () => {
@@ -129,6 +136,50 @@ describe("useChatThreads — delete all my chats", () => {
       await expect(result.current.erase.deleteAll()).rejects.toThrow();
     });
     expect(result.current.threads).toHaveLength(1);
+  });
+
+  it("removes the chat passphrase of every erased owner id after the chats, only when asked", async () => {
+    const me = await ensureChatIdentity(CFG.httpUrl);
+    loadThreadsMock.mockResolvedValue([thread("mine", { ownerId: me!.ownerId })]);
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(result.current.erase.ownerId).toBe(me!.ownerId));
+    await act(async () => {
+      expect(await result.current.erase.deleteAll()).not.toBe("passphrase-kept");
+    });
+    expect(removePassphraseMock).not.toHaveBeenCalled();
+    await act(async () => {
+      await result.current.erase.deleteAll({ removePassphrase: true });
+    });
+    expect(removePassphraseMock.mock.calls).toEqual([[CFG, me!.ownerId]]);
+    expect(removePassphraseMock.mock.invocationCallOrder[0]!)
+      .toBeGreaterThan(deleteOwnerThreadsMock.mock.invocationCallOrder.at(-1)!);
+  });
+
+  it("a passphrase that could not be removed is reported as such, after the chats were deleted", async () => {
+    const me = await ensureChatIdentity(CFG.httpUrl);
+    loadThreadsMock.mockResolvedValueOnce([thread("mine", { ownerId: me!.ownerId })]).mockResolvedValue([]);
+    removePassphraseMock.mockRejectedValue(new Error("network"));
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.erase.deleteAll({ removePassphrase: true });
+    });
+    expect(outcome).toBe("passphrase-kept");
+    expect(deleteOwnerThreadsMock).toHaveBeenCalledWith(CFG, me!.ownerId);
+    expect(result.current.threads).toEqual([]);
+  });
+
+  it("a failed chat delete removes no passphrase", async () => {
+    const me = await ensureChatIdentity(CFG.httpUrl);
+    loadThreadsMock.mockResolvedValue([thread("mine", { ownerId: me!.ownerId })]);
+    deleteOwnerThreadsMock.mockRejectedValue(new Error("network"));
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(result.current.erase.ownerId).toBe(me!.ownerId));
+    await act(async () => {
+      await expect(result.current.erase.deleteAll({ removePassphrase: true })).rejects.toThrow();
+    });
+    expect(removePassphraseMock).not.toHaveBeenCalled();
   });
 
   it("is not enabled while the chat status is unknown", async () => {
@@ -457,9 +508,11 @@ describe("useChatThreads — a locked identity can still erase its own chats", (
     const fresh = result.current.erase.ownerId;
     expect(fresh).not.toBe("o-locked");
     await act(async () => {
-      await result.current.erase.deleteAll();
+      await result.current.erase.deleteAll({ removePassphrase: true });
     });
     expect(deleteOwnerThreadsMock.mock.calls.map((c) => c[1]).sort()).toEqual([fresh, "o-locked"].sort());
+    // Both owner ids' chat passphrases go too: an earlier one's code would otherwise still open its key.
+    expect(removePassphraseMock.mock.calls.map((c) => c[1]).sort()).toEqual([fresh, "o-locked"].sort());
   });
 
   it("starting a new identity and deleting the old chats erases them first and keeps no old owner id", async () => {

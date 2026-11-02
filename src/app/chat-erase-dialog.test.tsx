@@ -77,6 +77,41 @@ describe("ChatEraseControls — delete all my chats", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
+  it("offers to remove the chat passphrase too, ticked by default, and passes the choice on", async () => {
+    const erase = renderControls([thread("a")]);
+    fireEvent.click(screen.getByRole("button", { name: "Delete all my chats" }));
+    const box = within(screen.getByRole("dialog")).getByRole("checkbox", { name: "Also remove my chat passphrase" });
+    expect(box).toBeChecked();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "delete my chats" } });
+    fireEvent.click(screen.getByRole("button", { name: "Delete my chats" }));
+    await waitFor(() => expect(erase.deleteAll).toHaveBeenCalledWith({ removePassphrase: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete all my chats" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("checkbox", { name: "Also remove my chat passphrase" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "delete my chats" } });
+    fireEvent.click(screen.getByRole("button", { name: "Delete my chats" }));
+    await waitFor(() => expect(erase.deleteAll).toHaveBeenLastCalledWith({ removePassphrase: false }));
+  });
+
+  it("says the chats were deleted but the passphrase was not removed when only that failed", async () => {
+    renderControls([thread("a")], actions({ deleteAll: vi.fn(async () => "passphrase-kept" as const) }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete all my chats" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "delete my chats" } });
+    fireEvent.click(screen.getByRole("button", { name: "Delete my chats" }));
+    expect(await screen.findByText(
+      "Your chats were deleted; your chat passphrase could not be removed. Remove it in Settings → AI.",
+    )).toBeInTheDocument();
+    expect(screen.queryByText("Your chats could not be deleted. Please try again.")).not.toBeInTheDocument();
+  });
+
+  it("offers the passphrase choice in German too", async () => {
+    await loadI18n("de");
+    renderControls([thread("a")], {}, "de");
+    fireEvent.click(screen.getByRole("button", { name: "Alle meine Chats löschen" }));
+    expect(within(screen.getByRole("dialog")).getByRole("checkbox", { name: "Auch meine Chat-Passphrase entfernen" })).toBeChecked();
+  });
+
   it("closes the dialog and says so when the delete fails", async () => {
     renderControls([thread("a")], actions({ deleteAll: vi.fn(async () => { throw new Error("x"); }) }));
     fireEvent.click(screen.getByRole("button", { name: "Delete all my chats" }));

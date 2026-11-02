@@ -23,10 +23,18 @@ import { findThreadsMentioning } from "./chat-thread-mentions";
 import { logDiag } from "./diagnostics";
 import { pendingEditScope, dropPendingEdit, dropPendingEditsWhere } from "./pending-edits";
 import { RENAME_KIND, outboxScope } from "./chat-thread-writes";
+import { removeChatPassphrase } from "./chat-passphrase";
 
 /** How a delete-all ended when it did not fail: "done" (deleted and the list reloaded, or nothing of this
- *  browser's to delete), or "not-refreshed" (deleted, but the reload afterwards failed). */
-export type DeleteAllOutcome = "done" | "not-refreshed";
+ *  browser's to delete), "not-refreshed" (deleted, but the reload afterwards failed), or "passphrase-kept"
+ *  (deleted, but a chat passphrase asked to go with them could not be removed). */
+export type DeleteAllOutcome = "done" | "not-refreshed" | "passphrase-kept";
+
+/** What a delete-all removes besides the chats: with `removePassphrase`, the chat passphrase (the
+ *  `chat_keys` row) of every owner id it erased, once their chats are gone. */
+export interface DeleteAllOptions {
+  removePassphrase?: boolean;
+}
 
 /** The sidebar's erase controls: delete every chat of this browser's owner, and delete chosen ones. */
 export interface ChatEraseActions {
@@ -37,7 +45,7 @@ export interface ChatEraseActions {
   ownerId: string | null;
   /** Deletes every thread of this owner in the database (all projects). Rejects when the delete fails;
    *  resolves "not-refreshed" when it succeeded but the list could not be reloaded afterwards. */
-  deleteAll: () => Promise<DeleteAllOutcome>;
+  deleteAll: (options?: DeleteAllOptions) => Promise<DeleteAllOutcome>;
   /** Deletes the listed threads, each in its own project: threads of the list, or found by the last
    *  `findMentioning`. Rejects when any of them could not be deleted. */
   deleteSelected: (ids: readonly string[]) => Promise<void>;
@@ -189,7 +197,7 @@ export function useChatErase(deps: UseChatEraseDeps) {
     if (results.some((r) => r.status === "rejected")) throw new Error("some chat threads could not be deleted");
   }
 
-  async function deleteAll(): Promise<DeleteAllOutcome> {
+  async function deleteAll({ removePassphrase = false }: DeleteAllOptions = {}): Promise<DeleteAllOutcome> {
     if (!deleteGate) return "done";
     const config = writeConfig(tursoConfig);
     const owners = eraseOwnerIds(config);
@@ -199,6 +207,8 @@ export function useChatErase(deps: UseChatEraseDeps) {
     // A save still on its way (a first send's insert) would land after the delete and leave its row.
     await savesSettled(config);
     for (const owner of owners) await deleteOwnerThreads(config, owner);
+    // Only after every chat is gone: a passphrase removed first would leave chats nobody can open elsewhere.
+    const passphraseKept = removePassphrase && !(await removePassphrases(config, owners));
     await dropDeletedDraftNames(config);
     // These owners' threads are gone in every project, so whichever project is open now loses them.
     const gone = new Set(owners);
@@ -211,10 +221,19 @@ export function useChatErase(deps: UseChatEraseDeps) {
       left = new Set((await loadVisibleThreads(config, pid)).map((th) => th.id));
     } catch {
       logDiag("warn", "chat.deleteAllReloadFailed");
-      return "not-refreshed";
+      return passphraseKept ? "passphrase-kept" : "not-refreshed";
     }
     removeDeleted(null, threadsRef.current.filter((th) => th.projectId === pid && !left.has(th.id)).map((th) => th.id), epoch);
-    return "done";
+    return passphraseKept ? "passphrase-kept" : "done";
+  }
+
+  /** Removes the chat passphrase of each owner id; true when every removal succeeded. A failure is
+   *  logged without detail and the others are still tried. */
+  async function removePassphrases(config: TursoConfig | null, owners: readonly string[]): Promise<boolean> {
+    const results = await Promise.allSettled(owners.map((owner) => removeChatPassphrase(config, owner)));
+    const ok = results.every((r) => r.status === "fulfilled");
+    if (!ok) logDiag("warn", "chat.passphraseRemoveFailed");
+    return ok;
   }
 
   /** After a delete-all: every thread-name draft of this database, in every project's scope, stored or

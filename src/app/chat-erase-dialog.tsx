@@ -37,7 +37,9 @@ export function ChatEraseControls({ lang, erase, projectNames }: ChatEraseContro
   const [open, setOpen] = useState<"none" | "delete-all" | "find">("none");
   const [busy, setBusy] = useState(false);
   // What the last delete-all left to say: it failed, or it deleted but the list could not be refreshed.
-  const [deleteAllNotice, setDeleteAllNotice] = useState<"failed" | "not-refreshed" | null>(null);
+  const [deleteAllNotice, setDeleteAllNotice] = useState<"failed" | "not-refreshed" | "passphrase-kept" | null>(null);
+  // "Also remove my chat passphrase": on by default, so a person erasing their chats leaves no unlock code behind.
+  const [removePassphrase, setRemovePassphrase] = useState(true);
   if (!erase.enabled) return null;
   const hasOwner = erase.ownerId !== null;
 
@@ -45,11 +47,11 @@ export function ChatEraseControls({ lang, erase, projectNames }: ChatEraseContro
     if (busy) return;
     setBusy(true);
     setDeleteAllNotice(null);
-    erase.deleteAll().then(
+    erase.deleteAll({ removePassphrase }).then(
       (outcome) => {
         setBusy(false);
         setOpen("none");
-        if (outcome === "not-refreshed") setDeleteAllNotice("not-refreshed");
+        if (outcome !== "done") setDeleteAllNotice(outcome);
       },
       () => {
         setBusy(false);
@@ -71,6 +73,11 @@ export function ChatEraseControls({ lang, erase, projectNames }: ChatEraseContro
           {t(lang, "chatDeleteAllNotRefreshed")}
         </Banner>
       )}
+      {deleteAllNotice === "passphrase-kept" && (
+        <Banner severity="warn" role="alert">
+          {t(lang, "chatDeleteAllPassphraseKept")}
+        </Banner>
+      )}
       <Button variant="secondary" size="xs" onClick={() => setOpen("find")}>
         {t(lang, "chatFindButton")}
       </Button>
@@ -79,7 +86,10 @@ export function ChatEraseControls({ lang, erase, projectNames }: ChatEraseContro
         size="xs"
         disabled={!hasOwner}
         aria-describedby={hasOwner ? undefined : noOwnerId}
-        onClick={() => setOpen("delete-all")}
+        onClick={() => {
+          setRemovePassphrase(true);
+          setOpen("delete-all");
+        }}
       >
         {t(lang, "chatDeleteAllButton")}
       </Button>
@@ -97,7 +107,12 @@ export function ChatEraseControls({ lang, erase, projectNames }: ChatEraseContro
           confirmLabel={t(lang, "chatDeleteAllConfirm")}
           onConfirm={confirmDeleteAll}
           onCancel={() => setOpen("none")}
-        />
+        >
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <Checkbox checked={removePassphrase} onChange={(e) => setRemovePassphrase(e.target.checked)} />
+            {t(lang, "chatDeleteAllRemovePassphrase")}
+          </label>
+        </TypeToConfirmDialog>
       )}
       {open === "find" && (
         <ChatFindDialog lang={lang} erase={erase} projectNames={projectNames} onClose={() => setOpen("none")} />

@@ -1243,6 +1243,8 @@ export const de: Record<TranslationKey, string> = {
   chatDeleteAllConfirm: "Meine Chats löschen",
   chatDeleteAllFailed: "Ihre Chats konnten nicht gelöscht werden. Bitte versuchen Sie es erneut.",
   chatDeleteAllNotRefreshed: "Ihre Chats wurden gelöscht; die Liste konnte nicht aktualisiert werden.",
+  chatDeleteAllRemovePassphrase: "Auch meine Chat-Passphrase entfernen",
+  chatDeleteAllPassphraseKept: "Ihre Chats wurden gelöscht; Ihre Chat-Passphrase konnte nicht entfernt werden. Entfernen Sie sie unter Einstellungen → KI.",
   chatThreadClosedGone: "Dieser Chat wurde an anderer Stelle gelöscht und daher geschlossen.",
   chatThreadClosedUnconfirmed: "Dieser Chat konnte nicht gespeichert werden und wurde daher geschlossen.",
   chatThreadClosedOtherDatabase: "Dieser Chat gehört zur vorherigen Datenbank und wurde daher geschlossen.",

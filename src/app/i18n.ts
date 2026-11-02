@@ -1342,6 +1342,8 @@ const enUS = {
   chatDeleteAllConfirm: "Delete my chats",
   chatDeleteAllFailed: "Your chats could not be deleted. Please try again.",
   chatDeleteAllNotRefreshed: "Your chats were deleted; the list could not be refreshed.",
+  chatDeleteAllRemovePassphrase: "Also remove my chat passphrase",
+  chatDeleteAllPassphraseKept: "Your chats were deleted; your chat passphrase could not be removed. Remove it in Settings → AI.",
   chatThreadClosedGone: "This chat was deleted elsewhere and has been closed.",
   chatThreadClosedUnconfirmed: "This chat could not be saved and has been closed.",
   chatThreadClosedOtherDatabase: "This chat belongs to the previous database and has been closed.",
