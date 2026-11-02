@@ -382,6 +382,53 @@ describe("chat passphrase", () => {
     expect(movesHeld).toEqual([true]);
   });
 
+  it("a thread the old owner saved between the move's read and its commit is moved by one more pass", async () => {
+    const { a, code } = await browserA();
+    const b = await browserB();
+    let lateSaved = false;
+    vi.mocked(runTursoPipeline).mockImplementation(async (_config, stmts) => {
+      const isMove = /^BEGIN/.test(stmts[0]?.sql ?? "") && stmts.some((s) => /^UPDATE chat_threads\b/.test(s.sql));
+      if (isMove && !lateSaved) {
+        lateSaved = true;
+        await saveThread(cfg, thread("tlate", "Saved late"), b, spki);
+      }
+      return execute(stmts);
+    });
+    try {
+      expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toEqual({ outcome: "adopted", moved: 2, skipped: 0 });
+    } finally {
+      vi.mocked(runTursoPipeline).mockImplementation(async (_config, stmts) => execute(stmts));
+    }
+    expect(lateSaved).toBe(true);
+    expect(server.db.prepare("SELECT id FROM chat_threads WHERE owner_id = ? ORDER BY id").all(b.ownerId)).toEqual([]);
+    const loaded = await loadThreads(cfg, "p", (await getChatIdentity(URL))!);
+    expect(loaded.map((t) => t.name).sort()).toEqual(["From A", "From B", "Saved late"]);
+    expect(loaded.every((t) => t.ownerId === a.ownerId)).toBe(true);
+  });
+
+  it("a thread the old owner saved again between the move's read and its commit moves with its newer content", async () => {
+    const { a, code } = await browserA();
+    const b = await browserB();
+    let resaved = false;
+    vi.mocked(runTursoPipeline).mockImplementation(async (_config, stmts) => {
+      const isMove = /^BEGIN/.test(stmts[0]?.sql ?? "") && stmts.some((s) => /^UPDATE chat_threads\b/.test(s.sql));
+      if (isMove && !resaved) {
+        resaved = true;
+        await saveThread(cfg, { ...thread("tb", "From B, edited"), ownerId: b.ownerId }, b, spki, { stored: true });
+      }
+      return execute(stmts);
+    });
+    try {
+      expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toEqual({ outcome: "adopted", moved: 1, skipped: 0 });
+    } finally {
+      vi.mocked(runTursoPipeline).mockImplementation(async (_config, stmts) => execute(stmts));
+    }
+    expect(resaved).toBe(true);
+    const loaded = await loadThreads(cfg, "p", (await getChatIdentity(URL))!);
+    expect(loaded.map((t) => t.name).sort()).toEqual(["From A", "From B, edited"]);
+    expect(loaded.every((t) => t.ownerId === a.ownerId)).toBe(true);
+  });
+
   it("a browser without an identity adopts without moving anything", async () => {
     const { a, code } = await browserA();
     window.localStorage.clear();

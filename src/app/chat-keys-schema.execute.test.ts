@@ -111,7 +111,7 @@ describe("chat_keys statements against a real engine", () => {
   it("re-own keeps the moved row's updated_at, so the move does not restart its retention period", () => {
     seed(db, threadRow("a1", "old"));
     seed(db, threadRow("b1", "bob"));
-    const resealed = (id: string) => ({ id, projectId: "p", keyOwner: "k-new", name: "c2.n", historyJson: "c2.h", displayJson: "c2.d" });
+    const resealed = (id: string) => ({ id, projectId: "p", fromKeyOwner: "k-old", keyOwner: "k-new", name: "c2.n", historyJson: "c2.h", displayJson: "c2.d" });
     run(db, reownThreadStatements(resealed("a1"), "old", "new"));
     run(db, reownThreadStatements(resealed("b1"), "old", "new"));
     const row = (id: string) => db.prepare("SELECT owner_id, updated_at FROM chat_threads WHERE id = ?").get(id);
@@ -119,11 +119,21 @@ describe("chat_keys statements against a real engine", () => {
     expect(row("b1")).toEqual({ owner_id: "bob", updated_at: "u" });
   });
 
+  it("re-own leaves a row saved again since it was read (another owner wrap) alone", () => {
+    seed(db, { ...threadRow("a1", "old"), key_owner: "k-old-resaved" });
+    run(db, reownThreadStatements(
+      { id: "a1", projectId: "p", fromKeyOwner: "k-old", keyOwner: "k-new", name: "c2.n", historyJson: "c2.h", displayJson: "c2.d" },
+      "old", "new",
+    ));
+    expect(db.prepare("SELECT owner_id, key_owner FROM chat_threads WHERE id = 'a1'").get())
+      .toEqual({ owner_id: "old", key_owner: "k-old-resaved" });
+  });
+
   it("re-own moves one row from the old owner with its re-sealed fields, keeping key_operator", () => {
     seed(db, threadRow("a1", "old"));
     seed(db, threadRow("b1", "bob"));
     const resealed = (id: string, projectId = "p") =>
-      ({ id, projectId, keyOwner: "k-new", name: "c2.n", historyJson: "c2.h", displayJson: "c2.d" });
+      ({ id, projectId, fromKeyOwner: "k-old", keyOwner: "k-new", name: "c2.n", historyJson: "c2.h", displayJson: "c2.d" });
     run(db, reownThreadStatements(resealed("a1"), "old", "new"));
     // A row that is no longer the old owner's, or not in that project, is left alone.
     run(db, reownThreadStatements(resealed("b1"), "old", "new"));

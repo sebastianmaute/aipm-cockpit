@@ -134,32 +134,59 @@ async function openStoredKey(row: Record<string, string>, passphrase: string): P
   }
 }
 
-/** Move every thread of `from` (in the whole database) to `to`, in one transaction: each thread key
- *  is re-wrapped and the three fields re-sealed for `to`, since both are bound to the owner. A row
- *  whose owner wrap or fields will not open is left with `from` and counted as skipped. */
+/** How many passes a move makes: the first, and one more for a thread `from` saved while the first was
+ *  on its way (between its read and its commit). Bounded, so a writer that keeps saving cannot hold an
+ *  unlock forever; a row saved after that stays with `from`, whose id the vault keeps for erasure. */
+const REOWN_PASSES = 2;
+
+/** Move every thread of `from` (in the whole database) to `to`: each pass reads `from`'s rows and moves
+ *  them in one transaction, each thread key re-wrapped and the three fields re-sealed for `to`, since
+ *  both are bound to the owner. Each UPDATE also requires the row to be unchanged since it was read
+ *  (still `from`'s, the same owner wrap), so a save in between is never overwritten with older content;
+ *  a second pass moves what was saved in between. Only rows an UPDATE changed count as moved. A row
+ *  whose owner wrap or fields will not open is left with `from` and counted as skipped, once. */
 async function reownThreads(
   config: TursoConfig | null,
   from: ChatIdentity,
   to: ChatIdentity,
 ): Promise<{ moved: number; skipped: number }> {
   await ensureChatThreadsColumns(config);
-  const [selected] = await runTursoPipeline(config, ownerThreadKeysSelect(from.ownerId));
+  const unopenable = new Set<string>();
+  let moved = 0;
+  for (let pass = 0; pass < REOWN_PASSES; pass += 1) {
+    const [selected] = await runTursoPipeline(config, ownerThreadKeysSelect(from.ownerId));
+    const rows = rowObjects(selected).filter((r) => r.id && !unopenable.has(r.id));
+    if (rows.length === 0) break;
+    const updates = await reownStatements(rows, from, to, unopenable);
+    if (updates.length === 0) break;
+    const results = await runTursoPipeline(config, [{ sql: "BEGIN" }, ...updates, { sql: "COMMIT" }]);
+    moved += results.slice(1, 1 + updates.length)
+      .reduce((n, res) => n + (res?.response?.result?.affected_row_count ?? 1), 0);
+  }
+  return { moved, skipped: unopenable.size };
+}
+
+/** The UPDATEs moving `rows` from `from` to `to`; a row that will not open goes into `unopenable`. */
+async function reownStatements(
+  rows: Record<string, string>[],
+  from: ChatIdentity,
+  to: ChatIdentity,
+  unopenable: Set<string>,
+): Promise<SqlStmt[]> {
   const updates: SqlStmt[] = [];
-  let skipped = 0;
-  for (const r of rowObjects(selected)) {
-    if (!r.id) continue;
+  for (const r of rows) {
     try {
       const threadKey = await unwrapForOwner(from.chatKey, r.key_owner, ownerKeyAd(r.id, from.ownerId));
       const fields = await resealThreadFields(threadKey, r, to.ownerId);
       const keyOwner = await wrapForOwner(to.chatKey, threadKey, ownerKeyAd(r.id, to.ownerId));
-      updates.push(...reownThreadStatements({ id: r.id, projectId: r.project_id ?? "", keyOwner, ...fields }, from.ownerId, to.ownerId));
+      const row = { id: r.id, projectId: r.project_id ?? "", fromKeyOwner: r.key_owner ?? "", keyOwner, ...fields };
+      updates.push(...reownThreadStatements(row, from.ownerId, to.ownerId));
     } catch (err) {
       if (!(err instanceof ChatCryptoError)) throw err;
-      skipped += 1;
+      unopenable.add(r.id);
     }
   }
-  if (updates.length > 0) await runTursoPipeline(config, [{ sql: "BEGIN" }, ...updates, { sql: "COMMIT" }]);
-  return { moved: updates.length, skipped };
+  return updates;
 }
 
 /** Adopt the identity stored under `typedCode` when `passphrase` opens it. Reads exactly one

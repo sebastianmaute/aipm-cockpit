@@ -2384,6 +2384,10 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     The whole adoption (vault read, identity write, move) runs inside `withIdentityLock`, the lock creating an
     identity takes, so another tab cannot create or replace the identity in between. ★ Not re-entrant: nothing
     inside may call `ensureChatIdentity` or `startNewChatIdentity`.
+    ★★ The move is race-safe and bounded: each `reownThreadStatements` UPDATE also requires the row to be unchanged
+    since it was read (`owner_id` AND `key_owner`, which every save renews), so a save in between is never
+    overwritten with older content; after the COMMIT one more pass (`REOWN_PASSES`) re-reads the old owner's
+    rows and moves what was saved in between. `moved` counts the rows an UPDATE actually changed.
     `startNewChatIdentity` deliberately does NOT: the old unlock code is the way back to the earlier chats, and
     the locked-identity notice tells the person to use it.
   - **Three deleters, one predicate** (`expireThreadsStatements`: older than the retention period, or no usable

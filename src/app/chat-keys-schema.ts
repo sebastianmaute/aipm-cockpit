@@ -70,6 +70,8 @@ export function ownerThreadKeysSelect(ownerId: string): SqlStmt[] {
 export type ReownedThread = {
   id: string;
   projectId: string;
+  /** The owner wrap the move read: a row saved since (a fresh thread key, so a new wrap) is left alone. */
+  fromKeyOwner: string;
   keyOwner: string;
   name: string;
   historyJson: string;
@@ -79,16 +81,17 @@ export type ReownedThread = {
 /** Move one thread from `fromOwner` to `toOwner` with its owner wrap and fields re-sealed.
  *  `key_operator` is untouched (the thread key is the same), and so is `updated_at`: a move is not a
  *  change of the chat, so its retention period does not restart. A row that is no longer `fromOwner`'s,
- *  or no longer in that project, is left alone. */
+ *  or no longer in that project, or saved again since it was read (its owner wrap is not `fromKeyOwner`),
+ *  is left alone: the move's next pass reads it again. */
 export function reownThreadStatements(row: ReownedThread, fromOwner: string, toOwner: string): SqlStmt[] {
   requireOwner(fromOwner, "reownThreadStatements");
   requireOwner(toOwner, "reownThreadStatements");
   return [{
     sql: `UPDATE chat_threads SET owner_id = ?, key_owner = ?, name = ?, history_json = ?, display_json = ? ` +
-      `WHERE id = ? AND project_id = ? AND owner_id = ?`,
+      `WHERE id = ? AND project_id = ? AND owner_id = ? AND key_owner = ?`,
     args: [
       txt(toOwner), txt(row.keyOwner), txt(row.name), txt(row.historyJson), txt(row.displayJson),
-      txt(row.id), txt(row.projectId), txt(fromOwner),
+      txt(row.id), txt(row.projectId), txt(fromOwner), txt(row.fromKeyOwner),
     ],
   }];
 }
