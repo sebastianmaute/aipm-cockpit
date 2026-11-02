@@ -41,7 +41,7 @@ function deps(): AiOrchestrationDeps {
     learning: { state: {} as never },
     trendsActive: false,
     actionTrends: undefined,
-    tursoConfig: null,
+    tursoConfig: null, loadPending: false,
     requestOpen: vi.fn(),
     requestChat: vi.fn(),
   };

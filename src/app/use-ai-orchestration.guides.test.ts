@@ -42,7 +42,7 @@ function deps(groundInGuides: boolean, guidesReady = true, scheduledJobs = false
     learning: { state: {} as never },
     trendsActive: false,
     actionTrends: undefined,
-    tursoConfig: null,
+    tursoConfig: null, loadPending: false,
     requestOpen: vi.fn(),
     requestChat: vi.fn(),
   };

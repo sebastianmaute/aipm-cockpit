@@ -108,6 +108,80 @@ export function settlePendingEdit(scope: string, kind: PendingEditKind, id: stri
   markTouched(scope, key);
 }
 
+/** The thing the edit was for is gone (a deleted or expired chat thread): its live edit is dropped
+ *  and its stored entry is removed from localStorage at once, not at the next pagehide, so a deleted
+ *  thread's draft name does not stay on the device. Other entries of the scope are kept, and a record
+ *  left empty removes its key. Never throws. */
+export function dropPendingEdit(scope: string, kind: PendingEditKind, id: string): void {
+  try {
+    if (typeof window === "undefined") return;
+    const key = editKey(kind, id);
+    liveEdits.get(scope)?.delete(key);
+    markTouched(scope, key);
+    const storageKey = storageKeyFor(scope);
+    if (window.localStorage.getItem(storageKey) === null) return;
+    const rest = storedEntries(storageKey).filter((edit) => editKey(edit.kind, edit.id) !== key);
+    if (rest.length === 0) window.localStorage.removeItem(storageKey);
+    else window.localStorage.setItem(storageKey, JSON.stringify(rest));
+  } catch (err) {
+    logDiag("warn", "storage.pendingEditsWriteFailed", { reason: "storage-error", message: errorMessage(err) });
+  }
+}
+
+/** Drops (as `dropPendingEdit` does: live, stored, and the pagehide state) every `kind` edit in every
+ *  scope starting with `scopePrefix` — stored by any tab, or live in this page — whose id `keep` does
+ *  not name. Used when a whole set of threads is deleted across projects. Never throws. */
+export function dropPendingEditsWhere(scopePrefix: string, kind: PendingEditKind, keep: (id: string) => boolean): void {
+  try {
+    if (typeof window === "undefined") return;
+    for (const [scope, edits] of liveEdits) {
+      if (!scope.startsWith(scopePrefix)) continue;
+      for (const edit of [...edits.values()]) {
+        if (edit.kind === kind && !keep(edit.id)) dropPendingEdit(scope, kind, edit.id);
+      }
+    }
+    const keyPrefix = storageKeyFor(scopePrefix);
+    const storageKeys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (key?.startsWith(keyPrefix)) storageKeys.push(key);
+    }
+    for (const key of storageKeys) {
+      const scope = key.slice(PENDING_EDITS_PREFIX.length);
+      for (const edit of storedEntries(key)) {
+        if (edit.kind === kind && !keep(edit.id)) dropPendingEdit(scope, kind, edit.id);
+      }
+    }
+  } catch (err) {
+    logDiag("warn", "storage.pendingEditsWriteFailed", { reason: "storage-error", message: errorMessage(err) });
+  }
+}
+
+/** Drops (as `dropPendingEdit` does) every STORED `kind` edit, in every scope `inScope` accepts, that
+ *  `isStale` names — whichever tab stored it. Used to clear old drafts of scopes this page never opens.
+ *  Never throws. */
+export function dropStoredEditsWhere(
+  kind: PendingEditKind, inScope: (scope: string) => boolean, isStale: (edit: PendingEdit) => boolean,
+): void {
+  try {
+    if (typeof window === "undefined") return;
+    const scopes: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (!key?.startsWith(PENDING_EDITS_PREFIX)) continue;
+      const scope = key.slice(PENDING_EDITS_PREFIX.length);
+      if (inScope(scope)) scopes.push(scope);
+    }
+    for (const scope of scopes) {
+      for (const edit of storedEntries(storageKeyFor(scope))) {
+        if (edit.kind === kind && isStale(edit)) dropPendingEdit(scope, kind, edit.id);
+      }
+    }
+  } catch (err) {
+    logDiag("warn", "storage.pendingEditsWriteFailed", { reason: "storage-error", message: errorMessage(err) });
+  }
+}
+
 /** The value the live edit started from was saved as `base`: a newer draft still waiting in the
  *  outbox now starts from it, so a replay checks it against what the server holds. No live edit, no-op. */
 export function rebasePendingEdit(scope: string, kind: PendingEditKind, id: string, base: string): void {

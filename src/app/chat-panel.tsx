@@ -12,7 +12,7 @@ import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import { type AiConfig, type Settings, clampMaxChatTurns, isAiConsentedForDictation } from "./settings-types";
 import { AiConsentRevokedError, isConsentCurrent } from "./ai-consent";
-import { aiDeploymentBlockedMessageKey } from "./ai-deployment";
+import { aiDeploymentBlockedMessageKey, getAiDeploymentState } from "./ai-deployment";
 import type { ChatConversation, ChatSeed } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 import { useAiUsageActions } from "./ai-usage-context";
@@ -71,6 +71,7 @@ import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
 import { dropStaleScopeWrite, isScopeStale, type ScopeEpochReader } from "./scope-epoch";
 import { useChatThreads } from "./use-chat-threads";
+import { ChatNotSavedNotice, ChatThreadClosedNotice } from "./chat-not-saved-notice";
 import { fitHistoryToBudget } from "./chat-threads";
 import { ChatThreadSidebar } from "./chat-thread-sidebar";
 import {
@@ -210,6 +211,7 @@ function ChatPanelImpl({
   saveChatConversation,
   tursoMode = false,
   tursoConfig = null,
+  projectNames,
   exportFooter,
   workspace,
   holidaySet,
@@ -234,6 +236,8 @@ function ChatPanelImpl({
    *  exactly as before: one ephemeral in-memory conversation, no sidebar. */
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
+  /** Project names by id, for the project of each chat the sidebar's "Find" lists. */
+  projectNames?: ReadonlyMap<string, string>;
   /** Footer line of a document card's HTML/PDF/PowerPoint download (`exportFooterText(settings.branding)`). */
   exportFooter?: string;
 } & ChatProposalProps &
@@ -257,6 +261,7 @@ function ChatPanelImpl({
       saveChatConversation={saveChatConversation}
       tursoMode={tursoMode}
       tursoConfig={tursoConfig}
+      projectNames={projectNames}
       exportFooter={exportFooter}
       workspace={workspace}
       holidaySet={holidaySet}
@@ -375,6 +380,7 @@ function ChatPanelInner({
   saveChatConversation,
   tursoMode = false,
   tursoConfig = null,
+  projectNames,
   exportFooter,
   workspace,
   holidaySet,
@@ -396,6 +402,8 @@ function ChatPanelInner({
   onConfigureAi?: () => void;
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
+  /** Project names by id, for the project of each chat the sidebar's "Find" lists. */
+  projectNames?: ReadonlyMap<string, string>;
   /** Footer line of a document card's HTML/PDF/PowerPoint download (`exportFooterText(settings.branding)`). */
   exportFooter?: string;
 } & ChatProposalProps &
@@ -489,8 +497,10 @@ function ChatPanelInner({
   // Turso thread state (deps-object hook, AGENTS.md rule 1). Kept as one
   // object — most fields wire onto ChatThreadList in Task 6; submitPrompt
   // below reads .activeThreadId/.threadIdRef and calls .ensureThreadForSend.
+  const chatSettings = getAiDeploymentState().chat;
   const chatThreads = useChatThreads({
     tursoMode, tursoConfig, projectId, lang, busy, history, display, setHistory, setDisplay, cancelledRef, abortRef, confirm,
+    chat: chatSettings,
   });
   const { ref: chatRef, reset: resetChatSize } = useResizable("aipm-cockpit:chat-size-v2");
   // AI-03 — the callbacks alone: the full usage context changes on every usage event (`useAiUsageActions`).
@@ -1622,6 +1632,7 @@ function ChatPanelInner({
           threads={chatThreads.threads}
           activeThreadId={chatThreads.activeThreadId}
           error={chatThreads.threadsError}
+          chat={chatSettings}
           onRetry={chatThreads.retryLoad}
           onSelect={chatThreads.selectThread}
           onNew={chatThreads.newThread}
@@ -1629,9 +1640,20 @@ function ChatPanelInner({
           onRenameDraft={chatThreads.trackRenameDraft}
           onRenameCancel={chatThreads.cancelRenameDraft}
           onDelete={chatThreads.requestDeleteThread}
+          erase={chatThreads.erase}
+          projectNames={projectNames}
         />
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {tursoMode && (
+        <ChatNotSavedNotice
+          lang={lang}
+          persistence={chatThreads.persistence}
+          onStartNewIdentity={chatThreads.startNewIdentity}
+          onDeleteOldChats={chatThreads.erase.deleteAll}
+        />
+      )}
+      {tursoMode && <ChatThreadClosedNotice lang={lang} closed={chatThreads.threadClosed} reason={chatThreads.threadCloseReason} />}
       <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
         <Select
           size="xs"

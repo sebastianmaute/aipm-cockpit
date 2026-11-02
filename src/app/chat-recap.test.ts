@@ -124,6 +124,7 @@ describe("buildChatPointerBlock is bounded only because threadTitle bounds it", 
     const th: ChatThread = {
       id: "t1",
       projectId: "default",
+      ownerId: null,
       name: "x".repeat(5000),
       createdAt: "2026-08-01T00:00:00.000Z",
       updatedAt: "2026-08-01T00:00:00.000Z",

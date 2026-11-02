@@ -1,16 +1,24 @@
 // src/app/chat-threads-store.test.ts
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 
 vi.mock("./turso-pipeline", () => ({ runTursoPipeline: vi.fn(async () => []) }));
 import { runTursoPipeline } from "./turso-pipeline";
-import { loadThreads, saveThread, deleteThread } from "./chat-threads-store";
-import { TABLE_NAMES } from "./turso-schema";
+import {
+  loadThreads, saveThread, deleteThread, deleteOwnerThreads, expireThreads, loadLegacyThreadIds,
+  __resetChatThreadsHealForTests,
+} from "./chat-threads-store";
+import { TABLE_NAMES, type SqlStmt } from "./turso-schema";
+import { CHAT_THREADS_DDL } from "./chat-threads-schema";
+import { generateChatKey } from "./chat-crypto";
+import type { ChatIdentity } from "./chat-thread-codec";
 import type { ChatThread } from "./chat-threads";
 
-const cfg = {} as never;
+const pipe = runTursoPipeline as unknown as ReturnType<typeof vi.fn>;
+const cfg = { httpUrl: "https://db.example", authToken: "t" } as never;
 const th: ChatThread = {
   id: "t1",
   projectId: "p",
+  ownerId: null,
   name: "Q1 budget",
   createdAt: "c",
   updatedAt: "u",
@@ -18,105 +26,273 @@ const th: ChatThread = {
   display: [{ kind: "user", text: "hi" }],
 };
 
+function bytesToB64(bytes: Uint8Array): string {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s);
+}
+
+let alice: ChatIdentity;
+let spkiB64: string;
+beforeAll(async () => {
+  alice = { ownerId: "alice", chatKey: await generateChatKey() };
+  const pair = await globalThis.crypto.subtle.generateKey(
+    { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    true,
+    ["encrypt", "decrypt"],
+  );
+  spkiB64 = bytesToB64(new Uint8Array(await globalThis.crypto.subtle.exportKey("spki", pair.publicKey)));
+});
+
+beforeEach(() => {
+  pipe.mockReset();
+  pipe.mockResolvedValue([]);
+  __resetChatThreadsHealForTests();
+});
+
+/** One plain ok per DDL statement: the results of a call start with these. */
+const DDL_OK = CHAT_THREADS_DDL.map(() => ({ type: "ok" }));
+
+const lastStmts = (): SqlStmt[] => pipe.mock.calls.at(-1)![1] as SqlStmt[];
+const values = (s: SqlStmt | undefined): string[] => (s?.args ?? []).map((a) => a.value as string);
+
+const ROW_COLS = ["id", "project_id", "owner_id", "name", "created_at", "updated_at", "history_json", "display_json", "key_owner", "key_operator"];
+function selectResult(rows: string[][]) {
+  return {
+    type: "ok",
+    response: { type: "execute", result: { cols: ROW_COLS.map((name) => ({ name })), rows: rows.map((r) => r.map((value) => ({ value }))) } },
+  };
+}
+
 describe("chat-threads-store", () => {
   it("chat_threads is NOT in TABLE_NAMES", () => {
     expect(TABLE_NAMES).not.toContain("chat_threads");
   });
 
-  it("saveThread prepends DDL, upserts the row atomically, and prunes beyond the cap", async () => {
-    await saveThread(cfg, th);
-    const stmts = (runTursoPipeline as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1];
-    expect(stmts.some((s: { sql: string }) => /CREATE TABLE IF NOT EXISTS chat_threads/i.test(s.sql))).toBe(true);
+  it("chat_keys is NOT in TABLE_NAMES", () => {
+    expect(TABLE_NAMES).not.toContain("chat_keys");
+  });
 
-    const insert = stmts.find((s: { sql: string }) => /INSERT OR REPLACE INTO chat_threads/i.test(s.sql));
+  it("saveThread prepends DDL, upserts an owned encrypted row atomically, and prunes the owner's group", async () => {
+    await saveThread(cfg, th, alice, spkiB64);
+    const stmts = lastStmts();
+    expect(stmts.some((s) => /CREATE TABLE IF NOT EXISTS chat_threads/i.test(s.sql))).toBe(true);
+
+    const insert = stmts.find((s) => /^INSERT INTO chat_threads .* ON CONFLICT\(id\) DO UPDATE SET /i.test(s.sql));
     expect(insert).toBeTruthy();
-    expect(insert.args.map((a: { value: string }) => a.value)).toEqual([
-      "t1", "p", "Q1 budget", "c", "u",
-      JSON.stringify(th.history), JSON.stringify(th.display),
-    ]);
+    const v = values(insert);
+    expect(v.slice(0, 3)).toEqual(["t1", "p", "alice"]);
+    expect(JSON.stringify(v)).not.toContain("Q1 budget");
+    // The plaintext as it would be stored, quotes included: base64 never carries a quote, while a bare
+    // "hi" turns up in random ciphertext now and then.
+    expect(v.join("")).not.toContain('"content":"hi"');
 
-    const prune = stmts.find((s: { sql: string }) => /DELETE FROM chat_threads WHERE project_id = \? AND id NOT IN/i.test(s.sql));
+    const prune = stmts.find((s) => /^DELETE FROM chat_threads WHERE project_id = \? AND owner_id = \? AND id NOT IN/i.test(s.sql));
     expect(prune).toBeTruthy();
-    expect(prune.args.map((a: { value: string }) => a.value)).toEqual(["p", "p", "50"]);
+    expect(values(prune)).toEqual(["p", "alice", "p", "alice", "50"]);
+  });
+
+  it("saveThread reports not-owned when the owner-guarded upsert changed no row", async () => {
+    const upsertResult = (affected: number) => async (_c: unknown, stmts: SqlStmt[]) =>
+      stmts.map((s) => ({
+        type: "ok",
+        response: { type: "execute", result: { cols: [], rows: [], affected_row_count: /^INSERT INTO chat_threads/.test(s.sql) ? affected : 0 } },
+      }));
+    pipe.mockImplementation(upsertResult(0));
+    await expect(saveThread(cfg, th, alice, spkiB64)).resolves.toBe("not-owned");
+    pipe.mockImplementation(upsertResult(1));
+    await expect(saveThread(cfg, th, alice, spkiB64)).resolves.toBe("saved");
+  });
+
+  it("saveThread of a stored thread sends an owner-guarded UPDATE, never an INSERT, and reports gone on no row", async () => {
+    const updateResult = (affected: number) => async (_c: unknown, stmts: SqlStmt[]) =>
+      stmts.map((s) => ({
+        type: "ok",
+        response: { type: "execute", result: { cols: [], rows: [], affected_row_count: /^UPDATE chat_threads/.test(s.sql) ? affected : 0 } },
+      }));
+    pipe.mockImplementation(updateResult(0));
+    await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("gone");
+    const stmts = pipe.mock.calls.map((c) => c[1] as SqlStmt[]).filter((ss) => ss.some((x) => /^UPDATE chat_threads/.test(x.sql))).at(-1)!;
+    // The DDL's owner guard names INSERT too; no statement of the save itself may insert.
+    expect(stmts.filter((s) => !CHAT_THREADS_DDL.includes(s.sql)).some((s) => /INSERT/i.test(s.sql))).toBe(false);
+    const update = stmts.find((s) => /^UPDATE chat_threads SET /.test(s.sql));
+    expect(update?.sql).toMatch(/WHERE id = \? AND project_id = \? AND \(owner_id = \? OR owner_id IS NULL OR owner_id = ''\)$/);
+    expect(values(update).slice(-3)).toEqual(["t1", "p", "alice"]);
+    expect(JSON.stringify(values(update))).not.toContain("Q1 budget");
+    expect(stmts.some((s) => /^DELETE FROM chat_threads WHERE project_id = \? AND owner_id = \? AND id NOT IN/.test(s.sql))).toBe(true);
+    pipe.mockImplementation(updateResult(1));
+    await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("saved");
+  });
+
+  describe("a stored thread whose UPDATE changed no row", () => {
+    /** The UPDATE changes no row; the id-only read answers `present` (or fails). */
+    const zeroRowUpdate = (present: boolean | "fail") => async (_c: unknown, stmts: SqlStmt[]) => {
+      if (stmts.some((x) => /^SELECT 1 AS present FROM chat_threads/.test(x.sql))) {
+        if (present === "fail") throw new Error("network down");
+        return stmts.map((x) => (/^SELECT 1 AS present FROM chat_threads/.test(x.sql)
+          ? { type: "ok", response: { type: "execute", result: { cols: [{ name: "present" }], rows: present ? [[{ value: "1" }]] : [] } } }
+          : { type: "ok" }));
+      }
+      return stmts.map(() => ({ type: "ok", response: { type: "execute", result: { cols: [], rows: [], affected_row_count: 0 } } }));
+    };
+    const probe = (): SqlStmt | undefined =>
+      pipe.mock.calls.flatMap((c) => c[1] as SqlStmt[]).find((x) => /^SELECT 1 AS present FROM chat_threads/.test(x.sql));
+
+    it("reads only whether the row is there, by id and project, and says not-owned when it is (a take-over)", async () => {
+      pipe.mockImplementation(zeroRowUpdate(true));
+      await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("not-owned");
+      expect(probe()?.sql).toBe("SELECT 1 AS present FROM chat_threads WHERE id = ? AND project_id = ?");
+      expect(values(probe())).toEqual(["t1", "p"]);
+    });
+
+    it("says gone when the row is not there", async () => {
+      pipe.mockImplementation(zeroRowUpdate(false));
+      await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("gone");
+    });
+
+    it("says unconfirmed when the read fails", async () => {
+      pipe.mockImplementation(zeroRowUpdate("fail"));
+      await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("unconfirmed");
+    });
+
+    it("never reads for a thread not stored, and never after an UPDATE that changed a row", async () => {
+      pipe.mockImplementation(zeroRowUpdate(true));
+      await expect(saveThread(cfg, th, alice, spkiB64)).resolves.toBe("not-owned");
+      expect(probe()).toBeUndefined();
+    });
   });
 
   it("saveThread emits no standalone row-delete — the upsert must be one atomic statement", async () => {
-    await saveThread(cfg, th);
-    const stmts = (runTursoPipeline as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1];
-    // A bare `DELETE ... WHERE id = ?` before the insert would reopen the data-loss
-    // window: runTursoPipeline only opens a transaction when statement 1 is `BEGIN`,
-    // so a failed insert after a successful delete would destroy the thread.
-    expect(stmts.some((s: { sql: string }) => /^DELETE FROM chat_threads WHERE id = \?$/i.test(s.sql))).toBe(false);
+    await saveThread(cfg, th, alice, spkiB64);
+    expect(lastStmts().some((s) => /^DELETE FROM chat_threads WHERE id = \?$/i.test(s.sql))).toBe(false);
   });
 
-  it("deleteThread prepends DDL and deletes scoped by id AND project (never id alone)", async () => {
-    await deleteThread(cfg, "t1", "p");
-    const stmts = (runTursoPipeline as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1];
-    expect(stmts.some((s: { sql: string }) => /CREATE TABLE IF NOT EXISTS chat_threads/i.test(s.sql))).toBe(true);
-    // Regression: an id-only `DELETE ... WHERE id = ?` (no project_id predicate) would
-    // let a stale/mismatched id delete another project's thread. Pinning the FULL sql
-    // (not just a substring match) means dropping the "AND project_id = ?" clause fails
-    // this assertion outright, not just the args check below.
-    const del = stmts.find((s: { sql: string }) => /^DELETE FROM chat_threads WHERE id = \? AND project_id = \?$/i.test(s.sql));
+  it("saveThread refuses without an identity or a recovery key and writes nothing", async () => {
+    await expect(saveThread(cfg, th, null as never, spkiB64)).rejects.toThrow();
+    await expect(saveThread(cfg, th, alice, null as never)).rejects.toThrow();
+    await expect(saveThread(cfg, th, alice, "")).rejects.toThrow();
+    expect(pipe).not.toHaveBeenCalled();
+  });
+
+  it("deleteThread prepends DDL and deletes scoped by id, project AND owner (never id alone)", async () => {
+    await deleteThread(cfg, "t1", "p", "alice");
+    const stmts = lastStmts();
+    expect(stmts.some((s) => /CREATE TABLE IF NOT EXISTS chat_threads/i.test(s.sql))).toBe(true);
+    const del = stmts.find((s) => /^DELETE FROM chat_threads WHERE id = \? AND project_id = \? AND \(owner_id = \? OR owner_id IS NULL OR owner_id = ''\)$/i.test(s.sql));
     expect(del).toBeTruthy();
-    expect(del.args.map((a: { value: string }) => a.value)).toEqual(["t1", "p"]);
+    expect(values(del)).toEqual(["t1", "p", "alice"]);
   });
 
-  it("loadThreads selects by project, newest-first, and decodes rows incl. JSON columns", async () => {
-    (runTursoPipeline as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
-      { type: "ok" },
-      {
-        type: "ok",
-        response: {
-          type: "execute",
-          result: {
-            cols: [
-              { name: "id" }, { name: "project_id" }, { name: "name" },
-              { name: "created_at" }, { name: "updated_at" },
-              { name: "history_json" }, { name: "display_json" },
-            ],
-            rows: [
-              [{ value: "t2" }, { value: "p" }, { value: "Later" }, { value: "c2" }, { value: "u2" }, { value: "[]" }, { value: "[]" }],
-              [
-                { value: "t1" }, { value: "p" }, { value: "Earlier" }, { value: "c1" }, { value: "u1" },
-                { value: JSON.stringify(th.history) }, { value: JSON.stringify(th.display) },
-              ],
-            ],
-          },
-        },
-      },
-    ]);
-    const out = await loadThreads(cfg, "p");
-    const select = (runTursoPipeline as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1]
-      .find((s: { sql: string }) => /SELECT \* FROM chat_threads/i.test(s.sql));
-    expect(select.sql).toMatch(/WHERE project_id = \? ORDER BY updated_at DESC/i);
-    expect(select.args[0].value).toBe("p");
+  it("deleteThread refuses without an owner and writes nothing", async () => {
+    await expect(deleteThread(cfg, "t1", "p", null as never)).rejects.toThrow();
+    await expect(deleteThread(cfg, "t1", "p", "")).rejects.toThrow();
+    expect(pipe).not.toHaveBeenCalled();
+  });
+
+  it("deleteOwnerThreads deletes every row of one owner", async () => {
+    await deleteOwnerThreads(cfg, "alice");
+    const del = lastStmts().find((s) => /^DELETE FROM chat_threads WHERE owner_id = \?$/i.test(s.sql));
+    expect(values(del)).toEqual(["alice"]);
+  });
+
+  it("loadLegacyThreadIds selects only the ids of owner-less rows and returns them", async () => {
+    pipe.mockImplementation(async (_c: unknown, stmts: SqlStmt[]) =>
+      stmts.some((s) => /^SELECT id FROM chat_threads/.test(s.sql))
+        ? [...DDL_OK, { type: "ok", response: { type: "execute", result: { cols: [{ name: "id" }], rows: [[{ value: "n1" }], [{ value: "n2" }]] } } }]
+        : []);
+    expect(await loadLegacyThreadIds(cfg)).toEqual(["n1", "n2"]);
+    const select = lastStmts().find((s) => /^SELECT id FROM chat_threads/i.test(s.sql))!;
+    expect(select.sql).toMatch(/WHERE owner_id IS NULL OR owner_id = ''/i);
+  });
+
+  it("expireThreads deletes by age on the database clock, optionally scoped to a project", async () => {
+    await expireThreads(cfg, 30);
+    const all = lastStmts().find((s) => /^DELETE FROM chat_threads WHERE/i.test(s.sql));
+    expect(values(all)).toEqual(["-30 days"]);
+    await expireThreads(cfg, 30, "p");
+    const scoped = lastStmts().find((s) => /^DELETE FROM chat_threads WHERE/i.test(s.sql));
+    expect(values(scoped)).toEqual(["-30 days", "p"]);
+  });
+
+  it("loadThreads selects the owner's and legacy rows newest-first and decodes them", async () => {
+    pipe.mockImplementation(async (_c: unknown, stmts: SqlStmt[]) =>
+      stmts.some((s) => /^SELECT \* FROM chat_threads/.test(s.sql))
+        ? [...DDL_OK, selectResult([
+          ["t2", "p", "", "Later", "c2", "u2", "[]", "[]", "", ""],
+          ["t1", "p", "", "Earlier", "c1", "u1", JSON.stringify(th.history), JSON.stringify(th.display), "", ""],
+        ])]
+        : []);
+    const out = await loadThreads(cfg, "p", alice);
+    const select = lastStmts().find((s) => /SELECT \* FROM chat_threads/i.test(s.sql))!;
+    expect(select.sql).toMatch(/WHERE project_id = \? AND \(owner_id = \? OR owner_id IS NULL OR owner_id = ''\) ORDER BY updated_at DESC/i);
+    expect(values(select)).toEqual(["p", "alice"]);
     expect(out).toEqual([
-      { id: "t2", projectId: "p", name: "Later", createdAt: "c2", updatedAt: "u2", history: [], display: [] },
-      { id: "t1", projectId: "p", name: "Earlier", createdAt: "c1", updatedAt: "u1", history: th.history, display: th.display },
+      { id: "t2", projectId: "p", ownerId: null, name: "Later", createdAt: "c2", updatedAt: "u2", history: [], display: [] },
+      { id: "t1", projectId: "p", ownerId: null, name: "Earlier", createdAt: "c1", updatedAt: "u1", history: th.history, display: th.display },
     ]);
   });
 
-  it("rowsToThreads falls back to [] for a malformed JSON column", async () => {
-    (runTursoPipeline as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
-      { type: "ok" },
-      {
-        type: "ok",
-        response: {
-          type: "execute",
-          result: {
-            cols: [
-              { name: "id" }, { name: "project_id" }, { name: "name" },
-              { name: "created_at" }, { name: "updated_at" },
-              { name: "history_json" }, { name: "display_json" },
-            ],
-            rows: [[{ value: "t1" }, { value: "p" }, { value: "N" }, { value: "c" }, { value: "u" }, { value: "not json" }, { value: "[]" }]],
-          },
-        },
-      },
-    ]);
-    const out = await loadThreads(cfg, "p");
+  it("loadThreads with no identity selects legacy rows only", async () => {
+    await loadThreads(cfg, "p", null);
+    const select = lastStmts().find((s) => /SELECT \* FROM chat_threads/i.test(s.sql))!;
+    expect(select.sql).toMatch(/WHERE project_id = \? AND \(owner_id IS NULL OR owner_id = ''\)/i);
+    expect(values(select)).toEqual(["p"]);
+  });
+
+  it("a malformed legacy JSON column falls back to []", async () => {
+    pipe.mockImplementation(async (_c: unknown, stmts: SqlStmt[]) =>
+      stmts.some((s) => /^SELECT \* FROM chat_threads/.test(s.sql))
+        ? [...DDL_OK, selectResult([["t1", "p", "", "N", "c", "u", "not json", "[]", "", ""]])]
+        : []);
+    const out = await loadThreads(cfg, "p", null);
     expect(out[0].history).toEqual([]);
     expect(out[0].display).toEqual([]);
+  });
+
+  describe("heal", () => {
+    const OLD_PRAGMA = {
+      type: "ok",
+      response: {
+        type: "execute",
+        result: {
+          cols: [{ name: "cid" }, { name: "name" }],
+          rows: ["id", "project_id", "name", "created_at", "updated_at", "history_json", "display_json"]
+            .map((n, i) => [{ value: String(i) }, { value: n }]),
+        },
+      },
+    };
+    const isPragma = (stmts: SqlStmt[]) => stmts.some((s) => /^PRAGMA table_info\("chat_threads"\)$/.test(s.sql));
+
+    it("adds the missing columns in one transaction, once per database", async () => {
+      pipe.mockImplementation(async (_c: unknown, stmts: SqlStmt[]) => (isPragma(stmts) ? [...DDL_OK, OLD_PRAGMA] : []));
+      await deleteThread(cfg, "t1", "p", "alice");
+      await deleteThread(cfg, "t2", "p", "alice");
+      const calls = pipe.mock.calls.map((c) => c[1] as SqlStmt[]);
+      expect(calls.filter(isPragma)).toHaveLength(1);
+      const alter = calls.find((s) => s[0]?.sql === "BEGIN")!;
+      expect(alter.map((s) => s.sql)).toEqual([
+        "BEGIN",
+        `ALTER TABLE "chat_threads" ADD COLUMN "owner_id" TEXT`,
+        `ALTER TABLE "chat_threads" ADD COLUMN "key_owner" TEXT`,
+        `ALTER TABLE "chat_threads" ADD COLUMN "key_operator" TEXT`,
+        "COMMIT",
+      ]);
+      // The PRAGMA runs after the DDL, so a brand-new table exists before it is inspected.
+      const pragmaCall = calls.find(isPragma)!;
+      expect(pragmaCall[0].sql).toMatch(/CREATE TABLE IF NOT EXISTS chat_threads/);
+    });
+
+    it("runs again for a different database", async () => {
+      await deleteThread(cfg, "t1", "p", "alice");
+      await deleteThread({ httpUrl: "https://other.example", authToken: "t" } as never, "t1", "p", "alice");
+      expect(pipe.mock.calls.map((c) => c[1] as SqlStmt[]).filter(isPragma)).toHaveLength(2);
+    });
+
+    it("a failed heal is not remembered: the call fails and the next one retries", async () => {
+      pipe.mockRejectedValueOnce(new Error("network down"));
+      await expect(deleteThread(cfg, "t1", "p", "alice")).rejects.toThrow("network down");
+      await deleteThread(cfg, "t1", "p", "alice");
+      expect(pipe.mock.calls.map((c) => c[1] as SqlStmt[]).filter(isPragma)).toHaveLength(2);
+    });
   });
 });

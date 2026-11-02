@@ -70,6 +70,27 @@ describe("GeneralSection", () => {
     fireEvent.click(confirm);
     expect(resetMock).toHaveBeenCalledTimes(1);
   });
+
+  it("says a deleted project's data still waiting to be removed will not be retried, only while some is waiting", () => {
+    const SWEEPS = "aipm-cockpit:pending-project-sweeps";
+    const sentence = "Some data of a deleted project is still waiting to be removed from its database";
+    try {
+      render(<GeneralSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsResetButton") }));
+      expect(screen.getByRole("dialog")).not.toHaveTextContent(sentence);
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+      window.localStorage.setItem(SWEEPS, JSON.stringify({ "https://db.example": ["p-secret-id"] }));
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsResetButton") }));
+      const dialog = screen.getByRole("dialog");
+      expect(dialog).toHaveTextContent(sentence);
+      expect(dialog).toHaveTextContent("will not be retried after the reset");
+      // It names nothing: no database, no project id.
+      expect(dialog).not.toHaveTextContent("db.example");
+      expect(dialog).not.toHaveTextContent("p-secret-id");
+    } finally {
+      window.localStorage.removeItem(SWEEPS);
+    }
+  });
 });
 
 // open-followups §386: the hinted workday-hours input is named by its caption.

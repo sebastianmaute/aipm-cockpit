@@ -15,6 +15,7 @@ import { expectRowUniqueNames } from "../test/row-unique-names";
 const threadA: ChatThread = {
   id: "a",
   projectId: "p",
+  ownerId: null,
   name: "Q1 budget",
   createdAt: "c",
   updatedAt: "u2",
@@ -25,6 +26,7 @@ const threadA: ChatThread = {
 const threadB: ChatThread = {
   id: "b",
   projectId: "p",
+  ownerId: null,
   name: "",
   createdAt: "c",
   updatedAt: "u1",

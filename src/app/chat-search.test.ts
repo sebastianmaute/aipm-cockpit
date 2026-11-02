@@ -17,6 +17,7 @@ function thread(over: Partial<ChatThread> & { id: string }): ChatThread {
   return {
     id: over.id,
     projectId: "default",
+    ownerId: null,
     // ★ `name`, not `title` — `ChatThread`'s stored label is `name`, and it is
     //   the PRIMARY source of a hit's title (see `threadTitle`). Defaulting it
     //   to "" here matches a thread that has never been saved or renamed, which

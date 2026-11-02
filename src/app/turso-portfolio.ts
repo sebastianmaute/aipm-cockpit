@@ -14,6 +14,7 @@ import {
   hardDeleteProjectStatements, rowsToProjectList, type ProjectListEntry,
 } from "./turso-tenant-schema";
 import { projectSideTableSweepStatements } from "./project-side-tables";
+import { addPendingProjectSweep } from "./pending-project-sweeps";
 import { logDiag } from "./diagnostics";
 import { rowObjects, type SqlStmt } from "./turso-schema";
 import { buildProjectFromObj } from "./csv-codecs-config";
@@ -68,7 +69,9 @@ export async function restoreProject(config: TursoConfig | null, id: string): Pr
   await runTursoPipeline(config, [...ddl(), restoreProjectStatement(id)]);
 }
 
-export async function hardDeleteProject(config: TursoConfig | null, id: string): Promise<void> {
+/** `sweepPending`: the project is gone, but its side-table sweep failed and is queued for a retry
+ *  at the next app start (`pending-project-sweeps.ts`), so the caller can say so. */
+export async function hardDeleteProject(config: TursoConfig | null, id: string): Promise<{ sweepPending: boolean }> {
   // The DDL goes INSIDE the transaction, after BEGIN: `runTursoPipeline` sends a
   // list as one all-or-nothing batch only when BEGIN is its FIRST statement and
   // COMMIT its LAST (§637), and a DDL prefix used to make these deletes commit
@@ -80,11 +83,15 @@ export async function hardDeleteProject(config: TursoConfig | null, id: string):
   // transaction above never reaches them. ONE separate, non-fatal pipeline:
   // leaked rows are recoverable, a half-deleted project is not. ★ A libSQL
   // pipeline does not abort on a failing statement, so a sweep can be partial;
-  // it is logged and re-runnable.
+  // it is logged and queued: `useChatRetentionSweep` re-runs it at the next app
+  // start (`retryPendingProjectSweeps`) until it succeeds.
   try {
     await runTursoPipeline(config, projectSideTableSweepStatements(id));
+    return { sweepPending: false };
   } catch (err) {
     logDiag("warn", "storage.projectSideTableSweepFailed", { id, message: err instanceof Error ? err.message : String(err) });
+    if (config) addPendingProjectSweep(config.httpUrl, id);
+    return { sweepPending: true };
   }
 }
 

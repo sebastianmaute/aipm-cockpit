@@ -15,11 +15,14 @@ import {
   clampInsightRecInterval,
 } from "../settings-types";
 
-import { t } from "../i18n";
+import { t, loadI18n } from "../i18n";
+import type { ChatSettings } from "../ai-chat-retention-config";
 import { AI_DISCLOSURE_VERSION, newConsent } from "../ai-consent";
 import { setAiDeploymentState } from "../ai-deployment";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../../test/ai-status-fetch";
 import { __setAiStatusRequestForTests } from "../ai-status-request";
+import { CHAT_IDENTITY_KEY } from "../chat-key-vault";
+import { getTursoConfig } from "../turso-config";
 // The AI config UI is gated behind the "Enable AI assistant" master switch
 // (default OFF), and the key field also behind a current consent (AI-01). These
 // tests exercise the expanded config, so flip it on with a consent.
@@ -43,6 +46,7 @@ vi.mock("./ai-usage-panel", () => ({
 // window.confirm; no ConfirmProvider here, so mock the hook to auto-confirm.
 vi.mock("../confirm-dialog", () => ({
   useConfirm: () => () => Promise.resolve(true),
+  useNotice: () => () => Promise.resolve(),
 }));
 
 beforeEach(() => {
@@ -1245,10 +1249,102 @@ describe("AiSection — the lock's records survive a blur and an untick (§749 r
   });
 });
 
+describe("AiSection — saved chat retention", () => {
+  afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
+  const chat = (over: Partial<ChatSettings> = {}): ChatSettings => ({
+    retentionDays: 30, retentionInvalid: false, recoveryKey: null, recoveryKeyInvalid: false, ...over,
+  });
+  const withChat = (c: ChatSettings | null) => setAiDeploymentState({ ...DIRECT_AI_STATUS, chat: c });
+  const renderIt = (lang: "en-US" | "de" = "en-US") =>
+    render(<AiSection lang={lang} settings={defaultSettings} onChange={vi.fn()} />);
+
+  it("shows the default 30 days and no invalid line", () => {
+    withChat(chat());
+    renderIt();
+    expect(screen.getByText("Chats are deleted after 30 days without activity.")).toBeInTheDocument();
+    expect(screen.queryByText(/retention setting is invalid/)).not.toBeInTheDocument();
+  });
+  it("shows 90 days when set", () => {
+    withChat(chat({ retentionDays: 90 }));
+    renderIt();
+    expect(screen.getByText("Chats are deleted after 90 days without activity.")).toBeInTheDocument();
+  });
+  it("invalid: says deleting is paused until it is fixed, and names no period", () => {
+    withChat(chat({ retentionInvalid: true }));
+    renderIt();
+    expect(screen.getByText("The server's chat retention setting is invalid. Deleting old chats is paused until it is fixed.")).toBeInTheDocument();
+    expect(screen.queryByText(/without activity/)).not.toBeInTheDocument();
+  });
+  it("unknown status: no number", () => {
+    withChat(null);
+    renderIt();
+    expect(screen.queryByText(/without activity/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/retention setting is invalid/)).not.toBeInTheDocument();
+  });
+  it("an invalid recovery key is reported", () => {
+    withChat(chat({ recoveryKeyInvalid: true }));
+    renderIt();
+    expect(screen.getByText("The server's chat recovery key is invalid, so chats are not saved.")).toBeInTheDocument();
+  });
+  it("German", async () => {
+    await loadI18n("de");
+    withChat(chat({ retentionInvalid: true, recoveryKeyInvalid: true }));
+    renderIt("de");
+    expect(screen.queryByText(/ohne Aktivität/)).not.toBeInTheDocument();
+    expect(screen.getByText("Die Aufbewahrungseinstellung des Servers für Chats ist ungültig. Das Löschen alter Chats ist ausgesetzt, bis sie korrigiert ist.")).toBeInTheDocument();
+    expect(screen.getByText("Der Wiederherstellungsschlüssel des Servers für Chats ist ungültig, daher werden Chats nicht gespeichert.")).toBeInTheDocument();
+  });
+
+  const withTurso: Settings = {
+    ...defaultSettings,
+    storageConfig: { kind: "turso" },
+    integrations: {
+      ...defaultSettings.integrations,
+      turso: { ...defaultSettings.integrations?.turso, databaseUrl: "libsql://db.example.turso.io", authToken: "tok" },
+    } as Settings["integrations"],
+  };
+  const passphraseHeading = () => screen.queryByRole("group", { name: t("en-US", "chatPassphraseHeading") });
+  it("shows the chat passphrase area while chats are saved to a Turso database", () => {
+    withChat(chat({ recoveryKey: "spki" }));
+    render(<AiSection lang="en-US" settings={withTurso} onChange={vi.fn()} />);
+    expect(passphraseHeading()).toBeInTheDocument();
+  });
+  it("hides the chat passphrase area under file storage, even with a Turso integration configured", () => {
+    withChat(chat({ recoveryKey: "spki" }));
+    for (const kind of ["local-json", "browser"] as const) {
+      cleanup();
+      render(<AiSection lang="en-US" settings={{ ...withTurso, storageConfig: { kind } }} onChange={vi.fn()} />);
+      expect(passphraseHeading()).toBeNull();
+    }
+  });
+  it("hides the chat passphrase area without a recovery key, or without a Turso database", () => {
+    withChat(chat());
+    const { unmount } = render(<AiSection lang="en-US" settings={withTurso} onChange={vi.fn()} />);
+    expect(passphraseHeading()).toBeNull();
+    unmount();
+    withChat(chat({ recoveryKey: "spki" }));
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(passphraseHeading()).toBeNull();
+  });
+  it("hides the chat passphrase area while this browser's chat identity is locked", async () => {
+    withChat(chat({ recoveryKey: "spki" }));
+    const url = getTursoConfig("libsql://db.example.turso.io", "tok")!.httpUrl;
+    // An entry this browser's device key cannot open: the stored identity is locked.
+    const locked = { ownerId: "owner-locked", sealed: { iv: "AAAAAAAAAAAAAAAA", ciphertext: "AAAAAAAAAAAAAAAAAAAAAAAA" } };
+    window.localStorage.setItem(CHAT_IDENTITY_KEY, JSON.stringify({ [url]: locked }));
+    try {
+      render(<AiSection lang="en-US" settings={withTurso} onChange={vi.fn()} />);
+      await waitFor(() => expect(passphraseHeading()).toBeNull());
+    } finally {
+      window.localStorage.removeItem(CHAT_IDENTITY_KEY);
+    }
+  });
+});
+
 describe("AiSection — deployment notice", () => {
   afterEach(() => setAiDeploymentState(DIRECT_AI_STATUS));
   it("off: shows the notice, disables the master switch and changes nothing", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false, chat: null });
     const onChange = vi.fn();
     const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: "sk-ant-keep", backgroundConsent: newConsent(new Date(0)) } };
     const before = structuredClone(settings.ai);
@@ -1263,13 +1359,13 @@ describe("AiSection — deployment notice", () => {
     expect(settings.ai.backgroundConsent).toEqual(before.backgroundConsent);
   });
   it("invalid: shows the invalid notice", () => {
-    setAiDeploymentState({ off: false, route: "direct", invalid: true, keyRestricted: false });
+    setAiDeploymentState({ off: false, route: "direct", invalid: true, keyRestricted: false, chat: null });
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
     expect(screen.getByText(t("en-US", "aiDeploymentInvalid"))).toBeInTheDocument();
   });
 
   it("blocked: the master switch reads unticked, names the notice, and the stored switch is untouched", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false, chat: null });
     const onChange = vi.fn();
     const settings = { ...defaultSettings, ai: { ...defaultSettings.ai } };
     render(<AiSection lang="en-US" settings={settings} onChange={onChange} />);
@@ -1293,9 +1389,9 @@ describe("AiSection — deployment notice", () => {
   const DIRECT_KEYS = ["aiApiKeyHint", "aiConsentDataIntro", "aiConsentBackgroundDataIntro", "aiConsentBullet2"] as const;
 
   it.each([
-    ["invalid, gateway consent current", { off: false, route: "gateway" as const, invalid: true, invalidReason: "url" as const, keyRestricted: false }],
-    ["off, consent for the other route", { off: true, route: "direct" as const, invalid: false, keyRestricted: false }],
-    ["invalid, consent for the other route", { off: false, route: "direct" as const, invalid: true, keyRestricted: false }],
+    ["invalid, gateway consent current", { off: false, route: "gateway" as const, invalid: true, invalidReason: "url" as const, keyRestricted: false, chat: null }],
+    ["off, consent for the other route", { off: true, route: "direct" as const, invalid: false, keyRestricted: false, chat: null }],
+    ["invalid, consent for the other route", { off: false, route: "direct" as const, invalid: true, keyRestricted: false, chat: null }],
   ])("blocked (%s) with AI stored on and a key: no AI controls, no review, no direct text; Remove stays", async (_label, state) => {
     saveSealed(await sealDevice("anthropicApiKey", "sk-ant-api03-stored000000000000"));
     setAiDeploymentState(state);
@@ -1331,7 +1427,7 @@ describe("AiSection — the key note follows the AI route", () => {
     expect(screen.getByText(t("en-US", "aiApiKeyHint"))).toBeInTheDocument();
   });
   it("gateway: names the app's server and the gateway instead", () => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null });
     const settings = { ...defaultSettings, ai: { ...defaultSettings.ai, consent: { ...newConsent(new Date(0)), route: "gateway" as const } } };
     render(<AiSection lang="en-US" settings={settings} onChange={vi.fn()} />);
     expect(screen.getByText(t("en-US", "aiApiKeyHintGateway"))).toBeInTheDocument();
@@ -1359,8 +1455,8 @@ describe("AiSection — withdrawing while the deployment blocks AI", () => {
   }
 
   it.each([
-    ["off", { off: true, route: "direct" as const, invalid: false, keyRestricted: false }],
-    ["invalid", { off: false, route: "direct" as const, invalid: true, keyRestricted: false }],
+    ["off", { off: true, route: "direct" as const, invalid: false, keyRestricted: false, chat: null }],
+    ["invalid", { off: false, route: "direct" as const, invalid: true, keyRestricted: false, chat: null }],
   ])("%s: a current interactive consent can be withdrawn, and nothing can be accepted", (_label, state) => {
     setAiDeploymentState(state);
     const granted = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: C, backgroundConsent: C } };
@@ -1378,7 +1474,7 @@ describe("AiSection — withdrawing while the deployment blocks AI", () => {
   });
 
   it("off: a current background consent can be withdrawn on its own", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false, chat: null });
     const granted = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true, consent: C, backgroundConsent: C } };
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ai: granted.ai }));
     renderWith(granted);
@@ -1393,7 +1489,7 @@ describe("AiSection — withdrawing while the deployment blocks AI", () => {
   });
 
   it("off with no current consent: no withdraw and no accept control (control)", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false, chat: null });
     renderWith({ ...baseSettings, ai: { ...baseSettings.ai, enabled: true } });
     expect(screen.queryByRole("button", { name: t("en-US", "aiConsentRevoke") })).toBeNull();
     expect(screen.queryByRole("checkbox", { name: t("en-US", "aiBackgroundConsentToggle") })).toBeNull();
@@ -1422,7 +1518,7 @@ describe("AiSection - a key the organisation refuses (AI organisation key)", () 
 
 describe("AiSection — the relay could not check the key", () => {
   const KEY = "sk-ant-api03-SettingsNoticeKey000000";
-  const RELAY = { off: false, route: "relay" as const, invalid: false, keyRestricted: true };
+  const RELAY = { off: false, route: "relay" as const, invalid: false, keyRestricted: true, chat: null };
   const UNAVAILABLE = t("en-US", "aiKeyCheckUnavailable");
 
   beforeEach(() => {

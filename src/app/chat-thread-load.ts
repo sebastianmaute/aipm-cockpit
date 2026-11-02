@@ -37,18 +37,24 @@ export interface LoadSettleResult {
  *  loaded on this path, republishes them under this project's id. Every row
  *  carries the `projectId` it was minted or fetched under (`loadThreads` is
  *  per-project; ensureThreadForSend and the busy-persist effect both stamp
- *  it), so the ownership test is exact rather than heuristic. */
+ *  it), so the ownership test is exact rather than heuristic.
+ *
+ *  ★★★ AND TO THIS DATABASE: `fromLoadedDatabase` says whether a held row came from the database this
+ *  load read. A project id is not unique across databases, so without it a row left over from the
+ *  database the user switched away from would survive into the new one's list, and a later save of it
+ *  would write that database's content into this one. The caller tracks each row's database. */
 export function mergeThreadsAfterLoad(
   startedOn: string | null,
   liveThreadId: string | null,
   projectId: string,
   loaded: ChatThread[],
   preserveLive: boolean,
+  fromLoadedDatabase: (th: ChatThread) => boolean = () => true,
 ): LoadSettleResult {
   if (preserveLive || liveThreadId !== startedOn) {
     return {
       updateThreads: (prev) => [
-        ...prev.filter((th) => th.projectId === projectId && !loaded.some((l) => l.id === th.id)),
+        ...prev.filter((th) => th.projectId === projectId && fromLoadedDatabase(th) && !loaded.some((l) => l.id === th.id)),
         ...loaded,
       ],
       stale: true,
@@ -72,9 +78,10 @@ export function resetThreadsAfterFailedLoad(
   liveThreadId: string | null,
   projectId: string,
   preserveLive: boolean,
+  fromLoadedDatabase: (th: ChatThread) => boolean = () => true,
 ): FailedLoadSettleResult {
   if (preserveLive || liveThreadId !== startedOn) {
-    return { updateThreads: (prev) => prev.filter((th) => th.projectId === projectId), stale: true };
+    return { updateThreads: (prev) => prev.filter((th) => th.projectId === projectId && fromLoadedDatabase(th)), stale: true };
   }
   return { updateThreads: () => [], stale: false };
 }
