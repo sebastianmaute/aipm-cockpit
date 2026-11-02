@@ -17,7 +17,7 @@ import {
   toCycloneDx,
   toNotices,
 } from "./build-sbom.mjs";
-import { sbomName } from "../release-publish-lib.mjs";
+import { checkSbom, sbomName } from "../release-publish-lib.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..");
@@ -448,6 +448,10 @@ describe("the CLI", () => {
       expect(result.stderr).toBe("");
       expect(result.code).toBe(0);
       expect(bom.metadata.component.version).toBe("9.8.7");
+    });
+
+    it("writes an SBOM that release:verify accepts", () => {
+      expect(checkSbom(readFileSync(join(repo, "out", SBOM_NAME), "utf8"), "9.8.7")).toEqual([]);
     });
 
     it("lists what comes from each source", () => {

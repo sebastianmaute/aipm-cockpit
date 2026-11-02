@@ -72,15 +72,18 @@ jobs:
       # desktop/node_modules.
       - run: npm --prefix desktop ci
       # SBOM_SOURCE_MAPS=1 makes the maps release:sbom reads (next.config.ts). They never ship:
-      # release:strip-maps takes them out of .next before anything is copied or packed.
+      # release:strip-maps deletes the standalone copies before the pre-pass (so both passes read
+      # exactly the shipped tree) and moves the build's own out of .next after it.
       - name: Standalone app build, with source maps for the SBOM
         env:
           NEXT_STANDALONE: "1"
           SBOM_SOURCE_MAPS: "1"
         run: npm run build
+      - name: Delete the source maps in the standalone tree
+        run: npm run release:strip-maps -- --delete .next/standalone
       - name: Licence notices and a provisional SBOM (release:sbom pre-pass)
         run: npm run release:sbom -- --build .next --standalone .next/standalone --desktop desktop --out .next/sbom
-      - name: Take the source maps out of what ships
+      - name: Move the build's source maps out of .next
         run: npm run release:strip-maps -- --build .next --keep sbom-maps
       - run: npm run desktop:copy-static -- --notices .next/sbom/THIRD-PARTY-NOTICES.txt
       - run: npm --prefix desktop run build
@@ -96,6 +99,15 @@ jobs:
           test -f "$app/resources/standalone/server.js" || { echo "map guard: $app/resources/standalone/server.js is missing -- the packaged tree moved"; exit 1; }
           maps=$(find "$app/resources" -name '*.map' -print) || { echo "map guard: find failed under $app/resources"; exit 1; }
           if [ -n "$maps" ]; then echo "map guard: source maps in the packaged app -- see release:strip-maps and the !**/*.map filters in desktop/electron-builder.yml:"; echo "$maps"; exit 1; fi
+          # find sees app.asar as one file; the desktop shell's production dependencies carry maps of
+          # their own, so list the archive. grep -c exits 1 on zero matches, so each count goes into a
+          # variable and is tested; the archive's own package.json is the positive control.
+          asar=desktop/node_modules/.bin/asar
+          listing=$("$asar" list "$app/resources/app.asar" | tr -d '\r') || { echo "map guard: asar list failed on $app/resources/app.asar"; exit 1; }
+          root=$(grep -cE '^[/\\]package\.json$' <<<"$listing") || true
+          [ "$root" = "1" ] || { echo "map guard: app.asar's listing has no /package.json -- the archive or asar list's output moved"; exit 1; }
+          asarmaps=$(grep -cE '\.map$' <<<"$listing") || true
+          [ "$asarmaps" = "0" ] || { echo "map guard: $asarmaps source map(s) inside app.asar -- see files: in desktop/electron-builder.yml:"; grep -E '\.map$' <<<"$listing"; exit 1; }
           # The final pass's notices equal the shipped ones only if both passes saw the same set.
           cmp desktop/release/THIRD-PARTY-NOTICES.txt "$app/THIRD-PARTY-NOTICES.txt" || { echo "notices guard: the install folder's THIRD-PARTY-NOTICES.txt is missing or differs from the final pass's -- see extraFiles in desktop/electron-builder.yml"; exit 1; }
           cmp desktop/release/THIRD-PARTY-NOTICES.txt "$app/resources/standalone/public/third-party-notices.txt" || { echo "notices guard: the Help panel's third-party-notices.txt is missing or differs from the final pass's -- see desktop:copy-static --notices"; exit 1; }
@@ -179,7 +191,7 @@ jobs:
           subject-path: ${{ runner.temp }}/release/*
       - name: Attest the SBOM
         if: ${{ !github.event.repository.private }}
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           sbom-path: ${{ runner.temp }}/release/aipm-cockpit-${{ needs.guard.outputs.version }}-sbom.cdx.json
           subject-path: ${{ runner.temp }}/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe

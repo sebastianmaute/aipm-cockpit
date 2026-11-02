@@ -146,23 +146,38 @@ describe("latest.yml", () => {
 });
 
 describe("checkSbom", () => {
-  const bom = (version, over = {}) => JSON.stringify({ bomFormat: "CycloneDX", specVersion: "1.5", metadata: { component: { name: "AI PM Cockpit", version } }, components: [{ name: "react" }], ...over });
-  it("accepts a CycloneDX document whose root component is this version", () => {
-    expect(checkSbom(bom("1.14.0"), "1.14.0")).toEqual([]);
+  const NAME = "aipm-cockpit-1.14.0-sbom.cdx.json";
+  const root = (over = {}) => ({ name: "AI PM Cockpit", version: "1.14.0", licenses: [{ expression: "EUPL-1.2" }], ...over });
+  const bom = (over = {}, rootOver = {}) => JSON.stringify({
+    bomFormat: "CycloneDX", specVersion: "1.5", metadata: { component: root(rootOver) }, components: [{ name: "react" }], ...over,
+  });
+  it("accepts a CycloneDX 1.5+ document whose root is this app, this version, under EUPL-1.2", () => {
+    expect(checkSbom(bom(), "1.14.0")).toEqual([]);
+    expect(checkSbom(bom({ specVersion: "1.6" }), "1.14.0")).toEqual([]);
+    expect(checkSbom(bom({}, { licenses: [{ license: { id: "EUPL-1.2" } }] }), "1.14.0")).toEqual([]);
   });
   it("names a root version that is not the tag's", () => {
-    expect(checkSbom(bom("1.13.2"), "1.14.0")).toEqual(["aipm-cockpit-1.14.0-sbom.cdx.json describes version 1.13.2, expected 1.14.0"]);
+    expect(checkSbom(bom({}, { version: "1.13.2" }), "1.14.0")).toEqual([`${NAME} describes version 1.13.2, expected 1.14.0`]);
   });
-  it("names a file that does not parse, or is not CycloneDX, or has no root component", () => {
-    expect(checkSbom("{", "1.14.0")[0]).toMatch(/^cannot read aipm-cockpit-1.14.0-sbom.cdx.json: /);
-    expect(checkSbom(bom("1.14.0", { bomFormat: "SPDX" }), "1.14.0")).toEqual(["aipm-cockpit-1.14.0-sbom.cdx.json is not a CycloneDX document"]);
-    expect(checkSbom(JSON.stringify({ bomFormat: "CycloneDX", components: [] }), "1.14.0")).toEqual([
-      "aipm-cockpit-1.14.0-sbom.cdx.json describes version (none), expected 1.14.0",
+  it("names a spec version below 1.5, or none", () => {
+    expect(checkSbom(bom({ specVersion: "1.4" }), "1.14.0")).toEqual([`${NAME} is CycloneDX 1.4, expected 1.5 or later`]);
+    expect(checkSbom(bom({ specVersion: undefined }), "1.14.0")).toEqual([`${NAME} is CycloneDX (no specVersion), expected 1.5 or later`]);
+  });
+  it("names a root that is not this app, or not under EUPL-1.2", () => {
+    expect(checkSbom(bom({}, { name: "Other" }), "1.14.0")).toEqual([`${NAME} describes Other, expected AI PM Cockpit`]);
+    expect(checkSbom(bom({}, { licenses: [{ expression: "MIT" }] }), "1.14.0")).toEqual([`${NAME} does not license the app as EUPL-1.2`]);
+    expect(checkSbom(bom({}, { licenses: undefined }), "1.14.0")).toEqual([`${NAME} does not license the app as EUPL-1.2`]);
+  });
+  it("names a file that does not parse, or is not CycloneDX, or has no root component or components", () => {
+    expect(checkSbom("{", "1.14.0")[0]).toMatch(/^cannot read aipm-cockpit-1\.14\.0-sbom\.cdx\.json: /);
+    expect(checkSbom(bom({ bomFormat: "SPDX" }), "1.14.0")).toEqual([`${NAME} is not a CycloneDX document`]);
+    expect(checkSbom("null", "1.14.0")).toEqual([`${NAME} is not a CycloneDX document`]);
+    expect(checkSbom(bom({ metadata: undefined }), "1.14.0")).toEqual([
+      `${NAME} describes (no name), expected AI PM Cockpit`,
+      `${NAME} describes version (none), expected 1.14.0`,
+      `${NAME} does not license the app as EUPL-1.2`,
     ]);
-    expect(checkSbom(JSON.stringify({ bomFormat: "CycloneDX", metadata: { component: { version: "1.14.0" } } }), "1.14.0")).toEqual([
-      "aipm-cockpit-1.14.0-sbom.cdx.json lists no components",
-    ]);
-    expect(checkSbom("null", "1.14.0")).toEqual(["aipm-cockpit-1.14.0-sbom.cdx.json is not a CycloneDX document"]);
+    expect(checkSbom(bom({ components: [] }), "1.14.0")).toEqual([`${NAME} lists no components`]);
   });
 });
 

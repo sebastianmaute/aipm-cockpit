@@ -33,6 +33,8 @@ desktop/release/
 
 # next.js
 /.next/
+# The release build's source maps, moved out of .next for release:sbom's final pass (release:strip-maps)
+/sbom-maps/
 /out/
 
 # production

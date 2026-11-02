@@ -12,10 +12,18 @@ publish:
   provider: github
   owner: sebastianmaute
   repo: aipm-cockpit
+# ★★ "!**/*.map" keeps source maps out of app.asar. These patterns also filter
+# the desktop shell's production node_modules as they are packed
+# (app-builder-lib/out/util/appFileCopier.js, computeNodeModuleFileSets, reuses
+# the main matcher's patterns), and electron-updater and builder-util-runtime
+# ship maps that `.map` is not among electron-builder's default exclusions
+# (fileMatcher.js `excludedExts`) to drop. The release workflow's `build` job
+# lists the packed app.asar and fails on any `.map` entry.
 files:
   - dist/**
   - splash.html
   - package.json
+  - "!**/*.map"
 # The built Next standalone server ships as an unpacked resource, so
 # process.resourcesPath/standalone/server.js resolves at runtime.
 #
@@ -40,7 +48,8 @@ files:
 # `npm run release:sbom` (SBOM_SOURCE_MAPS=1, next.config.ts) and the release
 # workflow strips them before packaging; "!**/*.map" keeps a stray one out
 # anyway (the matcher runs with `dot: true`, so it reaches standalone/.next/).
-# The release workflow's `build` job fails on any `*.map` in the packaged tree.
+# The release workflow's `build` job fails on any `*.map` under the packaged
+# resources/ folder and on any `.map` entry inside app.asar (see `files:` above).
 # scripts/sbom/shipped-packages.mjs reads this filter and knows the pattern
 # drops files, never a package.
 extraResources:

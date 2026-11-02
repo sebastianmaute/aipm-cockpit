@@ -117,7 +117,7 @@ describe("ci.yml", () => {
 
   it("has exactly the required checks as jobs (docs/AGENTS/ci.md is the list)", () => {
     expect(jobIds(CI).sort()).toEqual([...REQUIRED].sort());
-    expect(REQUIRED).toHaveLength(8);
+    expect(REQUIRED).toHaveLength(9);
   });
 
   it("has a job for every gate group, running that group", () => {
@@ -200,29 +200,32 @@ describe("ci.yml", () => {
     expect(b).toMatch(/!\.next\/cache/);
   });
 
-  // Every pull request proves the SBOM scan on real Next output: a second, standalone build with
-  // the source maps release:sbom reads, then the web-only check. It runs AFTER the upload, so the
-  // .next/ that e2e and prod-smoke get is the plain build, never the one with maps, and it uploads
-  // nothing of its own.
-  it("checks the SBOM scan on a second, mapped standalone build after the upload, uploading nothing", () => {
-    const lines = jobBlock(CI, "build").split(/\r?\n/);
+  // Every pull request proves the SBOM scan on real Next output, in a job of its own beside build:
+  // a standalone build with the source maps release:sbom reads, then the web-only check. Nothing
+  // waits for it, it uploads nothing, and build's artifact never carries maps.
+  it("checks the SBOM scan in its own job on a mapped standalone build, needing nothing and uploading nothing", () => {
+    const b = jobBlock(CI, "sbom");
+    expect(b).not.toMatch(/^ {4}needs:/m);
+    expect(b).toMatch(/^ {4}timeout-minutes: \d+$/m);
+    expect(b).not.toMatch(/upload-artifact/);
+    const lines = b.split(/\r?\n/);
     const at = (re) => lines.findIndex((l) => re.test(l));
-    const upload = at(/uses: actions\/upload-artifact@/);
-    const sbomBuild = at(/^ {6}- name: Standalone build with source maps for the SBOM check$/);
-    const desktop = at(/^ {6}- run: npm --prefix desktop ci --ignore-scripts$/);
-    const check = at(/^ {8}run: npm run release:sbom -- --build \.next --standalone \.next\/standalone --desktop desktop --web-only$/);
-    expect(upload).toBeGreaterThan(-1);
-    expect([upload, sbomBuild, desktop, check].every((i) => i > -1), "every step is present").toBe(true);
-    expect(sbomBuild).toBeGreaterThan(upload);
-    expect(desktop).toBeGreaterThan(sbomBuild);
-    expect(check).toBeGreaterThan(desktop);
-    const step = lines.slice(sbomBuild, desktop).join("\n");
+    const order = [
+      at(/^ {6}- run: npm ci$/),
+      at(/^ {6}- name: Standalone build with source maps for the SBOM check$/),
+      at(/^ {6}- run: npm --prefix desktop ci --ignore-scripts$/),
+      at(/^ {8}run: npm run release:sbom -- --build \.next --standalone \.next\/standalone --desktop desktop --web-only$/),
+    ];
+    expect(order.every((i) => i > -1), "every step is present").toBe(true);
+    expect(order).toEqual([...order].sort((x, y) => x - y));
+    const step = lines.slice(order[1], order[2]).join("\n");
     expect(step).toMatch(/NEXT_STANDALONE: "1"/);
     expect(step).toMatch(/SBOM_SOURCE_MAPS: "1"/);
     expect(step).toMatch(/run: npm run build$/m);
-    expect(lines.filter((l) => /uses: actions\/upload-artifact@/.test(l))).toHaveLength(1);
-    // The upload step's own build carries no maps.
-    expect(lines.slice(0, upload).join("\n")).not.toMatch(/SBOM_SOURCE_MAPS/);
+    // No job waits for it, and build carries no maps and no SBOM step.
+    for (const id of jobIds(CI)) expect(jobBlock(CI, id), id).not.toMatch(/^ {4}needs:.*\bsbom\b/m);
+    // (Comment lines dropped: the next job's leading comment sits inside build's block.)
+    expect(code(jobBlock(CI, "build"))).not.toMatch(/SBOM_SOURCE_MAPS|release:sbom/);
   });
 
   // Push runs are keyed by commit: a shared group keeps only one pending run, so a queued main run
@@ -411,25 +414,29 @@ describe("release.yml", () => {
     const pub = jobBlock(RELEASE, "publish").replace(/\r\n/g, "\n");
     const DIR = "${{ runner.temp }}/release";
     const V = "${{ needs.guard.outputs.version }}";
-    const step = /^ {6}- name: Attest the SBOM\n {8}if: \$\{\{ !github\.event\.repository\.private \}\}\n {8}uses: actions\/attest-sbom@[0-9a-f]{40} # v\d+\.\d+\.\d+\n {8}with:\n {10}sbom-path: (.+)\n {10}subject-path: (.+)$/m.exec(pub);
-    expect(step, "the attest-sbom step, in this exact shape").not.toBeNull();
+    // actions/attest, not the deprecated actions/attest-sbom wrapper around it.
+    const step = /^ {6}- name: Attest the SBOM\n {8}if: \$\{\{ !github\.event\.repository\.private \}\}\n {8}uses: actions\/attest@[0-9a-f]{40} # v\d+\.\d+\.\d+\n {8}with:\n {10}sbom-path: (.+)\n {10}subject-path: (.+)$/m.exec(pub);
+    expect(step, "the SBOM attestation step, in this exact shape").not.toBeNull();
+    expect(pub).not.toMatch(/attest-sbom@/);
     expect(step[1]).toBe(`${DIR}/${sbomName("9.9.9")}`.replace("9.9.9", V));
     expect(step[2]).toBe(`${DIR}/${installerName("9.9.9")}`.replace("9.9.9", V));
     expect(pub.indexOf("- name: Attest the SBOM")).toBeGreaterThan(pub.indexOf("npm run release:verify"));
     expect(pub.indexOf("- name: Attest the SBOM")).toBeLessThan(pub.indexOf("npm run release:publish"));
   });
 
-  // The order the SBOM needs: maps for the pre-pass, maps out before anything is copied or packed,
-  // the notices into the standalone public/ and (through extraFiles) the install folder, then the
-  // final pass over the packed app.asar, then the guard over what was packed.
+  // The order the SBOM needs: maps for the pre-pass; the standalone copies gone BEFORE it, so both
+  // passes see exactly the shipped tree; the build's own maps out after it and before anything is
+  // copied or packed; the notices into the standalone public/ and (through extraFiles) the install
+  // folder; then the final pass over the packed app.asar, then the guard over what was packed.
   it("builds with maps, writes the notices, strips the maps, packages, then writes the final SBOM", () => {
     const lines = jobBlock(RELEASE, "build").split(/\r?\n/);
     const at = (re) => lines.findIndex((l) => re.test(l));
     const order = [
       ["desktop install", at(/^ {6}- run: npm --prefix desktop ci$/)],
       ["mapped build", at(/^ {10}SBOM_SOURCE_MAPS: "1"$/)],
+      ["delete standalone maps", at(/^ {8}run: npm run release:strip-maps -- --delete \.next\/standalone$/)],
       ["pre-pass", at(/^ {8}run: npm run release:sbom -- --build \.next --standalone \.next\/standalone --desktop desktop --out \.next\/sbom$/)],
-      ["strip maps", at(/^ {8}run: npm run release:strip-maps -- --build \.next --keep sbom-maps$/)],
+      ["move build maps", at(/^ {8}run: npm run release:strip-maps -- --build \.next --keep sbom-maps$/)],
       ["copy-static", at(/^ {6}- run: npm run desktop:copy-static -- --notices \.next\/sbom\/THIRD-PARTY-NOTICES\.txt$/)],
       ["desktop build", at(/^ {6}- run: npm --prefix desktop run build$/)],
       ["package", at(/^ {6}- run: npm run desktop:package$/)],
@@ -445,7 +452,7 @@ describe("release.yml", () => {
     expect(build).toMatch(/NEXT_STANDALONE: "1"/);
     expect(build).toMatch(/run: npm run build$/m);
     // The final pass writes where the upload reads.
-    expect(lines[order[7][1]]).toContain(`--out ${INSTALLER_DIR} `);
+    expect(lines[order[8][1]]).toContain(`--out ${INSTALLER_DIR} `);
   });
 
   it("fails the build on a source map anywhere in the packed resources, and on notices missing from either place", () => {
@@ -454,6 +461,14 @@ describe("release.yml", () => {
     // Positive control: a moved tree must fail, not pass a walk over nothing.
     expect(b).toMatch(/test -f "\$app\/resources\/standalone\/server\.js"/);
     expect(b).toMatch(/find "\$app\/resources" -name '\*\.map' -print/);
+    // find sees app.asar as one file, so its entries are listed too: the desktop shell's production
+    // dependencies ship maps of their own. Counted into a variable (grep -c exits 1 on zero), with a
+    // positive control on the archive's own package.json.
+    expect(b).toMatch(/listing=\$\("\$asar" list "\$app\/resources\/app\.asar" \| tr -d '\\r'\) \|\| \{/);
+    expect(b).toMatch(/root=\$\(grep -cE '\^\[\/\\\\\]package\\\.json\$' <<<"\$listing"\) \|\| true/);
+    expect(b).toMatch(/\[ "\$root" = "1" \] \|\| \{/);
+    expect(b).toMatch(/asarmaps=\$\(grep -cE '\\\.map\$' <<<"\$listing"\) \|\| true/);
+    expect(b).toMatch(/\[ "\$asarmaps" = "0" \] \|\| \{/);
     expect(b).toMatch(/cmp desktop\/release\/THIRD-PARTY-NOTICES\.txt "\$app\/THIRD-PARTY-NOTICES\.txt"/);
     expect(b).toMatch(/cmp desktop\/release\/THIRD-PARTY-NOTICES\.txt "\$app\/resources\/standalone\/public\/third-party-notices\.txt"/);
   });
@@ -537,6 +552,11 @@ describe("electron-builder.yml agrees with the release library", () => {
   });
   it("publishes to this repository on GitHub", () => {
     expect(eb).toMatch(/^publish:\n\s+provider: github\n\s+owner: sebastianmaute\n\s+repo: aipm-cockpit$/m);
+  });
+  it("keeps source maps out of the app.asar files", () => {
+    const block = /^files:\n((?: {2}- .*\n)+)/m.exec(eb.replace(/\r\n/g, "\n"))?.[1] ?? "";
+    expect(block).toMatch(/^ {2}- dist\/\*\*$/m);
+    expect(block).toMatch(/^ {2}- "!\*\*\/\*\.map"$/m);
   });
   it("keeps source maps out of both standalone resources", () => {
     const block = /^extraResources:\n((?:[ \t]+.*\n|[ \t]*#.*\n)+)/m.exec(eb.replace(/\r\n/g, "\n"))?.[1] ?? "";

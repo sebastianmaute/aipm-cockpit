@@ -143,7 +143,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -163,10 +163,24 @@ jobs:
             !.next/cache
           include-hidden-files: true
           retention-days: 1
-      # The SBOM scan, proved on real Next output on every pull request: a second, standalone build
-      # with the source maps release:sbom reads, then its web-only check (the build's maps, the
-      # standalone tree, Next's vendored libraries, the guard and the licence check; no desktop set,
-      # nothing written). After the upload, so e2e and prod-smoke never get a build with maps.
+
+  # The SBOM scan, proved on real Next output on every pull request, beside build (nothing waits for
+  # it): a standalone build with the source maps release:sbom reads, then its web-only check -- the
+  # build's maps, the standalone tree, Next's vendored libraries, the guard and the licence check; no
+  # desktop set, nothing written, nothing uploaded. Not a gate-local.mjs step: it needs a second,
+  # standalone Next build with source maps, on top of the plain build the local gate already runs.
+  sbom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
       - name: Standalone build with source maps for the SBOM check
         env:
           NEXT_STANDALONE: "1"

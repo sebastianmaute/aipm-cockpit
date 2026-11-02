@@ -22,7 +22,7 @@ afterEach(() => {
 const sbom = (version) => JSON.stringify({
   bomFormat: "CycloneDX",
   specVersion: "1.5",
-  metadata: { component: { name: "AI PM Cockpit", version } },
+  metadata: { component: { name: "AI PM Cockpit", version, licenses: [{ expression: "EUPL-1.2" }] } },
   components: [{ type: "library", name: "react", version: "19.3.1" }],
 });
 

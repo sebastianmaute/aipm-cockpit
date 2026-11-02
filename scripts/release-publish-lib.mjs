@@ -32,8 +32,19 @@ export function expectedAssets(version) {
   return [exe, `${exe}.blockmap`, LATEST_YML, sbomName(version)];
 }
 
-/** Problems with the SBOM's text: it must parse as CycloneDX, describe this version at its root
- *  and list components. An empty list means it is fine. */
+/** The SBOM's root, as scripts/sbom/build-sbom.mjs writes it. */
+export const SBOM_ROOT_NAME = "AI PM Cockpit";
+export const SBOM_ROOT_LICENCE = "EUPL-1.2";
+const MIN_SPEC = [1, 5];
+
+function specAtLeast(spec, [major, minor]) {
+  const m = typeof spec === "string" ? /^(\d+)\.(\d+)$/.exec(spec) : null;
+  if (!m) return false;
+  return Number(m[1]) > major || (Number(m[1]) === major && Number(m[2]) >= minor);
+}
+
+/** Problems with the SBOM's text: it must parse as CycloneDX 1.5 or later, describe this app at
+ *  this version under EUPL-1.2 at its root, and list components. An empty list means it is fine. */
 export function checkSbom(text, version) {
   const name = sbomName(version);
   let bom;
@@ -43,8 +54,18 @@ export function checkSbom(text, version) {
     return [`cannot read ${name}: ${e instanceof Error ? e.message : String(e)}`];
   }
   if (!bom || typeof bom !== "object" || bom.bomFormat !== "CycloneDX") return [`${name} is not a CycloneDX document`];
-  const rootVersion = bom.metadata?.component?.version;
-  if (rootVersion !== version) return [`${name} describes version ${rootVersion ?? "(none)"}, expected ${version}`];
+  const problems = [];
+  if (!specAtLeast(bom.specVersion, MIN_SPEC)) {
+    problems.push(`${name} is CycloneDX ${bom.specVersion ?? "(no specVersion)"}, expected ${MIN_SPEC.join(".")} or later`);
+  }
+  const root = bom.metadata?.component;
+  if (root?.name !== SBOM_ROOT_NAME) problems.push(`${name} describes ${root?.name ?? "(no name)"}, expected ${SBOM_ROOT_NAME}`);
+  if (root?.version !== version) problems.push(`${name} describes version ${root?.version ?? "(none)"}, expected ${version}`);
+  const licences = Array.isArray(root?.licenses) ? root.licenses : [];
+  if (!licences.some((l) => l?.expression === SBOM_ROOT_LICENCE || l?.license?.id === SBOM_ROOT_LICENCE)) {
+    problems.push(`${name} does not license the app as ${SBOM_ROOT_LICENCE}`);
+  }
+  if (problems.length > 0) return problems;
   if (!Array.isArray(bom.components) || bom.components.length === 0) return [`${name} lists no components`];
   return [];
 }
