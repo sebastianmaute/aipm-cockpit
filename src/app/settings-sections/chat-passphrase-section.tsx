@@ -15,6 +15,8 @@ import { FieldError, FieldNotice } from "../field-feedback";
 import { FieldHint } from "../field-hint";
 import { useConfirm, useNotice, type ConfirmFn, type NoticeFn } from "../confirm-dialog";
 import { logDiag } from "../diagnostics";
+import { reloadRefusalText, secretLostToReload } from "../portfolio-mode-switch";
+import type { Settings } from "../settings-types";
 import { ensureChatIdentity, getChatIdentity } from "../chat-key-vault";
 import {
   ChatAdoptionMoveError, MIN_CHAT_PASSPHRASE_LENGTH, formatUnlockCode, removeChatPassphrase, setChatPassphrase, unlockWithPassphrase,
@@ -26,6 +28,9 @@ type Message = { tone: "error" | "ok"; text: string } | null;
 interface ChatPassphraseSectionProps {
   lang: Lang;
   tursoConfig: TursoConfig;
+  /** The live settings, for the reload gate an unlock runs first (a reload loses a secret typed under its
+   *  passphrase lock and not sealed yet). */
+  readSettings: () => Settings;
   /** After a successful unlock: reload so every surface reads the adopted identity (default). */
   onAdopted?: () => void;
   /** Test seams; the app's dialogs by default. */
@@ -148,9 +153,10 @@ const UNLOCK_MESSAGES: Record<"wrong" | "unknown-code", I18nKey> = {
   "unknown-code": "chatUnlockUnknown",
 };
 
-function UnlockFromOtherBrowser({ lang, tursoConfig, notice, onAdopted }: {
+function UnlockFromOtherBrowser({ lang, tursoConfig, readSettings, notice, onAdopted }: {
   lang: Lang;
   tursoConfig: TursoConfig;
+  readSettings: () => Settings;
   notice: NoticeFn;
   onAdopted: () => void;
 }) {
@@ -164,6 +170,13 @@ function UnlockFromOtherBrowser({ lang, tursoConfig, notice, onAdopted }: {
     setBusy(true);
     setMessage(null);
     try {
+      // §749 — an unlock ends in a reload, which would lose a secret typed under its passphrase lock and not
+      // sealed yet. Refuse BEFORE anything is written, and say how to save it.
+      const risk = await secretLostToReload(readSettings);
+      if (risk) {
+        setMessage({ tone: "error", text: reloadRefusalText(lang, risk) });
+        return;
+      }
       const result = await unlockWithPassphrase(tursoConfig, tursoConfig.httpUrl, code, passphrase);
       if (result.outcome !== "adopted") {
         setMessage({ tone: "error", text: t(lang, UNLOCK_MESSAGES[result.outcome]) });
@@ -207,7 +220,9 @@ function UnlockFromOtherBrowser({ lang, tursoConfig, notice, onAdopted }: {
   );
 }
 
-export function ChatPassphraseSection({ lang, tursoConfig, onAdopted = reloadPage, confirm, notice }: ChatPassphraseSectionProps) {
+export function ChatPassphraseSection({
+  lang, tursoConfig, readSettings, onAdopted = reloadPage, confirm, notice,
+}: ChatPassphraseSectionProps) {
   const headingId = useId();
   const appConfirm = useConfirm();
   const appNotice = useNotice();
@@ -217,7 +232,9 @@ export function ChatPassphraseSection({ lang, tursoConfig, onAdopted = reloadPag
       <FieldHint className="mt-1">{t(lang, "chatPassphraseIntro")}</FieldHint>
       <SetPassphrase lang={lang} tursoConfig={tursoConfig} />
       <RemovePassphrase lang={lang} tursoConfig={tursoConfig} confirm={confirm ?? appConfirm} />
-      <UnlockFromOtherBrowser lang={lang} tursoConfig={tursoConfig} notice={notice ?? appNotice} onAdopted={onAdopted} />
+      <UnlockFromOtherBrowser
+        lang={lang} tursoConfig={tursoConfig} readSettings={readSettings} notice={notice ?? appNotice} onAdopted={onAdopted}
+      />
     </div>
   );
 }

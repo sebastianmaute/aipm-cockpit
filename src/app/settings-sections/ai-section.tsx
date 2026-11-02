@@ -487,7 +487,7 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           {chatSettings.recoveryKeyInvalid && <FieldNotice>{t(lang, "aiChatRecoveryKeyInvalid")}</FieldNotice>}
         </>
       )}
-      {chatPassphraseShown && chatTursoConfig !== null && <ChatPassphraseSection lang={lang} tursoConfig={chatTursoConfig} />}
+      {chatPassphraseShown && chatTursoConfig !== null && <ChatPassphraseSection lang={lang} tursoConfig={chatTursoConfig} readSettings={() => settingsRef.current} />}
       <label className="mt-2 flex items-center gap-2">
         <Checkbox
           // While the deployment blocks AI the switch reads off, as AI is; the stored value is kept.

@@ -27,6 +27,7 @@ const REVIEWED: Record<string, [number, string]> = {
   "app/error-boundary.tsx": [1, "the crash screen's reset, the user's own click (location.assign)"],
   "app/recovery-banner.tsx": [1, "the recovery banner's way back into the app, the user's own click (location.assign)"],
   "app/recovery-panel.tsx": [1, "the recovery page's way back into the app, the user's own click (location.assign)"],
+  "app/settings-sections/chat-passphrase-section.tsx": [1, "the chat unlock's reload onto the adopted identity: secretLostToReload refuses first"],
 };
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
