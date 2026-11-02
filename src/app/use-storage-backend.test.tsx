@@ -2018,7 +2018,55 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
       expect(target.save).not.toHaveBeenCalled();
       expect(setStorageConfig).not.toHaveBeenCalled();
       expect(confirmSpy).not.toHaveBeenCalled();
-      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertTursoProbeFailed", "network down"));
+      // An unrecognised failure gets the generic sentence, never the raw message (it may carry the URL).
+      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertTursoProbeFailed", t("en-US", "integrationsTursoTestFailGeneric")));
+      expect(JSON.stringify(vi.mocked(showToast).mock.calls)).not.toContain("network down");
+    });
+
+    it("says why the check failed in words, not as an internal code", async () => {
+      // ★ The class from the mocked "./storage": it is the one `tursoErrorKind` (storage-error.ts) tests against here.
+      holdsMock.mockRejectedValue(new storageMod.StorageNotReadyError("storage-unreachable"));
+      const target = makeTarget();
+      createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValueOnce(target);
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+
+      const { result } = renderBackend(makeArgs({ setStorageConfig, settings: tursoSettings }));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await result.current.onRequestStorageSwitch("turso"); });
+
+      expect(target.save).not.toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertTursoProbeFailed", t("en-US", "integrationsTursoTestUnreachable")));
+      expect(JSON.stringify(vi.mocked(showToast).mock.calls)).not.toContain("storage-unreachable");
+    });
+
+    // The confirm can stay open for a while; a project another device creates meanwhile must still stop the write.
+    it("asks again after the confirm and refuses if a project appeared meanwhile", async () => {
+      holdsMock.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      const target = makeTarget();
+      createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValueOnce(target);
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+      const { result } = renderBackend(makeArgs({ setStorageConfig, settings: tursoSettings }));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await result.current.onRequestStorageSwitch("turso"); });
+
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(holdsMock).toHaveBeenCalledTimes(2);
+      expect(target.save).not.toHaveBeenCalled();
+      expect(setStorageConfig).not.toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertTursoHoldsProjects"));
+    });
+
+    it("does not ask when no Turso config is set: there is no database to ask", async () => {
+      const target = makeTarget();
+      createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValueOnce(target);
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+
+      const { result } = renderBackend(makeArgs({ setStorageConfig }));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await result.current.onRequestStorageSwitch("turso"); });
+
+      expect(holdsMock).not.toHaveBeenCalled();
     });
 
     it("converts as before when the database holds no project", async () => {
@@ -2030,7 +2078,7 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
       await act(async () => { await Promise.resolve(); });
       await act(async () => { await result.current.onRequestStorageSwitch("turso"); });
 
-      expect(holdsMock).toHaveBeenCalledTimes(1);
+      expect(holdsMock).toHaveBeenCalledTimes(2); // before the confirm, and again after it
       expect(target.save).toHaveBeenCalledTimes(1);
       expect(setStorageConfig).toHaveBeenCalledWith({ kind: "turso" });
     });

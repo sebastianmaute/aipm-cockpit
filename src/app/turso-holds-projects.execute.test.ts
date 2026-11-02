@@ -74,6 +74,18 @@ describe("tursoDatabaseHoldsProjects probe against a real engine (open-followups
     expect(probe(db)).toBe(false);
   });
 
+  // The state tenant column-ensure leaves on a single-project database: every table has a
+  // `project_id` column, but no row sets it. Nothing belongs to a project, so it still converts.
+  it("answers no for a single-project database whose project_id columns are all empty", () => {
+    const db = new DatabaseSync(":memory:");
+    runAll(db, workspaceToStatements(ws, undefined, { expected: null }));
+    const specs = tenantTableColumns();
+    runAll(db, buildColumnEnsureAlters(specs, pragmaStatements(specs.map((s) => s.table)).map((s) => step(db, s))));
+    expect(Number((db.prepare("SELECT COUNT(*) AS n FROM pragma_table_info('tasks') WHERE name = 'project_id'").get() as { n: number | bigint }).n)).toBe(1);
+    expect(tasks(db)).toBeGreaterThan(0);
+    expect(probe(db)).toBe(false);
+  });
+
   it("answers yes for a database created for several projects", () => {
     const db = new DatabaseSync(":memory:");
     runAll(db, tenantSchemaDdl().map((sql) => ({ sql })));
@@ -127,5 +139,22 @@ describe("tursoDatabaseHoldsProjects over the pipeline (open-followups §790)", 
   it("throws when the database cannot be read, rather than answering no", async () => {
     vi.mocked(runTursoPipeline).mockRejectedValue(new Error("network down"));
     await expect(tursoDatabaseHoldsProjects(config)).rejects.toThrow("network down");
+  });
+
+  // A malformed answer is an unread database, not an empty one. `existingColumnsFromPragma`'s
+  // `null` ("do not ALTER") would otherwise skip the table and let the probe answer no.
+  it("throws when a PRAGMA answer carries no column metadata", async () => {
+    vi.mocked(runTursoPipeline).mockImplementation(async (_cfg, stmts) =>
+      stmts.map(() => ({ type: "ok" as const, response: { type: "execute", result: { rows: [] } } })));
+    await expect(tursoDatabaseHoldsProjects(config)).rejects.toThrow(/could not be read/);
+  });
+
+  it("throws when the SELECT comes back without its row", async () => {
+    const shared = new DatabaseSync(":memory:");
+    runAll(shared, tenantSchemaDdl().map((sql) => ({ sql })));
+    vi.mocked(runTursoPipeline)
+      .mockImplementationOnce(async (_cfg, stmts) => stmts.map((s) => step(shared, s)))
+      .mockImplementationOnce(async () => []);
+    await expect(tursoDatabaseHoldsProjects(config)).rejects.toThrow(/could not be read/);
   });
 });

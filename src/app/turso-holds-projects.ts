@@ -28,26 +28,33 @@ export function holdsProjectsProbeTables(): string[] {
   return [...TABLE_NAMES, PROJECTS_TABLE];
 }
 
+const UNREADABLE = "The Turso database could not be read to check whether it holds projects.";
+
 /** The one SELECT that answers the question, built from the PRAGMA results for
- *  {@link holdsProjectsProbeTables}; `null` when no table could hold a project row at all. */
+ *  {@link holdsProjectsProbeTables}; `null` when no table could hold a project row at all.
+ *  ★★ Throws on a PRAGMA answer without column metadata. `existingColumnsFromPragma` answers
+ *  `null` for that AND for an absent table, because for the migration both mean "do not ALTER";
+ *  here the first would skip the table and turn an unread database into a "no". */
 export function holdsProjectsStatement(
   tables: readonly string[],
   pragmaResults: readonly (PipelineResultLike | undefined)[],
 ): SqlStmt | null {
   const checks: string[] = [];
   tables.forEach((table, i) => {
+    if ((pragmaResults[i]?.response?.result?.cols ?? []).length === 0) throw new Error(UNREADABLE);
     const columns = existingColumnsFromPragma(pragmaResults[i]);
-    if (columns === null) return; // the table does not exist
+    if (columns === null) return; // metadata but no rows: the table does not exist
     if (table === PROJECTS_TABLE) checks.push(`EXISTS (SELECT 1 FROM "${table}")`);
     else if (columns.includes("project_id")) checks.push(`EXISTS (SELECT 1 FROM "${table}" WHERE project_id IS NOT NULL)`);
   });
   return checks.length === 0 ? null : { sql: `SELECT (${checks.join(" OR ")}) AS held` };
 }
 
-/** Reads the answer of {@link holdsProjectsStatement}. */
+/** Reads the answer of {@link holdsProjectsStatement}; throws when the answer has no row. */
 export function holdsProjectsFromResult(res: PipelineResultLike | undefined): boolean {
-  const held = rowObjects(res)[0]?.held;
-  return held !== undefined && held !== "" && held !== "0";
+  const row = rowObjects(res)[0];
+  if (row === undefined || !("held" in row)) throw new Error(UNREADABLE);
+  return row.held !== "" && row.held !== "0";
 }
 
 /** Whether the database behind `config` holds any project. Throws when it cannot be read: a

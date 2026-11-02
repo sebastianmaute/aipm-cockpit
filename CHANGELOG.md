@@ -175,7 +175,8 @@ longer carries its own changelog comment.
 - **Converting a local copy into a Turso database that holds projects is refused (§790).** Settings → Storage
   converted into Turso as if the database held a single project. Into a shared database that could replace every
   project's data with the local copy. The app now checks the database first, copies nothing when it holds
-  projects (or cannot be checked), and says to open a project from the project list instead.
+  projects (or cannot be checked), and says how to reach those projects: set Portfolio storage to Turso in
+  Settings → Integrations.
 - **Dictation stops as soon as an organisation forces people protection (§786).** A tab already open could send
   one more recording to the speech-to-text service before it heard about the lock. It now discards the recording
   and says your organisation requires people protection, and the server refuses it too. The browser's own speech recognition (built-in dictation and voice commands) is not covered yet (§789).

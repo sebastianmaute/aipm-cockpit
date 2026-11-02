@@ -40,7 +40,7 @@ import { getTursoConfig, isEnvTokenRejected, isUsableTursoUrl } from "../turso-c
 import { testTursoConnection } from "../turso-pipeline";
 import { tursoSetupState } from "../turso-setup-state";
 import { TursoSetupSteps } from "./turso-setup-steps";
-import { tursoErrorKind } from "../storage-error";
+import { TURSO_TEST_FAIL_KEYS, tursoErrorKind } from "../storage-error";
 import { saveSecretValue, setSecretPassphrase, unlockSecret } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import type { SealedSecret } from "../secrets";
@@ -54,20 +54,6 @@ import { calendarSyncFor } from "../calendar-sync-config";
 import { useToastContext } from "../toast-context";
 import { reportSilentFailure } from "../guard-feedback";
 import { useConfirm } from "../confirm-dialog";
-
-/** Turso probe failure reason → the i18n key its message is rendered from.
- *  ★ Keys, not strings: the verdict outlives the probe, so it must be
- *  translated at RENDER time or it freezes the language it was obtained in. */
-const TURSO_TEST_FAIL_KEYS = {
-  auth: "integrationsTursoTestAuth",
-  // §337 — the probe classifies through the SAME `tursoErrorKind` as the
-  // storage banner, so a token that happens to equal the (now-rejected) env
-  // token can come back "auth-env" here too. No dedicated probe copy: the
-  // Settings screen the user is already looking at is the fix either way.
-  "auth-env": "integrationsTursoTestAuth",
-  unreachable: "integrationsTursoTestUnreachable",
-  generic: "integrationsTursoTestFailGeneric",
-} as const;
 
 export { commitPortfolioModeSwitch } from "../portfolio-mode-switch";
 import { aiKeyHeldUnsealed, commitPortfolioModeSwitch } from "../portfolio-mode-switch";

@@ -109,6 +109,22 @@ export function tursoErrorKind(err: unknown): StorageErrorKind | null {
   return null;
 }
 
+/** A Turso check's failure kind → the i18n key of its short sentence. Shared by Settings →
+ *  Integrations' "Test connection" and the §790 check before a conversion into Turso.
+ *  ★ Keys, not strings: the verdict outlives the probe, so it must be translated at RENDER
+ *  time or it freezes the language it was obtained in. ★ Never a raw message either: one
+ *  thrown here may carry the database URL. */
+export const TURSO_TEST_FAIL_KEYS = {
+  auth: "integrationsTursoTestAuth",
+  // §337 — the probe classifies through the SAME `tursoErrorKind` as the
+  // storage banner, so a token that happens to equal the (now-rejected) env
+  // token can come back "auth-env" here too. No dedicated probe copy: the
+  // Settings screen the user is already looking at is the fix either way.
+  "auth-env": "integrationsTursoTestAuth",
+  unreachable: "integrationsTursoTestUnreachable",
+  generic: "integrationsTursoTestFailGeneric",
+} as const satisfies Record<StorageErrorKind, string>;
+
 /** Classify ANY save/load failure into a banner kind: a Turso connectivity/auth
  *  kind when recognized, else "generic" so a file/CSV/MD/IndexedDB persistence
  *  failure still raises the sticky "changes not saved" banner instead of being

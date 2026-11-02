@@ -59,7 +59,7 @@ import { sealSettingsUntilReload } from "./settings-reload-seal";
 import type { TruncationOps } from "./use-load-truncation";
 import { getTursoConfig } from "./turso-config";
 import { tursoDatabaseHoldsProjects } from "./turso-holds-projects";
-import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout } from "./storage-error";
+import { TURSO_TEST_FAIL_KEYS, isSaveConflict, isSaveLockTimeout, isTursoLockTimeout, tursoErrorKind } from "./storage-error";
 import { STORAGE_LABEL_KEYS } from "./use-storage-backend-types";
 import { dropDanglingDependencies, summarizeUnsafeEmailRecords } from "./sanitize";
 import type { UseMsAuthResult } from "./use-ms-auth";
@@ -953,26 +953,32 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
     );
     // ★★★ §790 — the target below is a SINGLE-project TursoBackend: its forced rewrite sends an unscoped
     // `DELETE FROM` every workspace table, which in a database holding projects deletes them all. So ask
-    // first and refuse (before the confirm, so nobody agrees to a write that will not happen). A failed
-    // question refuses too: an unreadable database is not an empty one. See turso-holds-projects.ts.
-    if (newKind === "turso" && tursoConfig !== null) {
+    // and refuse: before the confirm, so nobody agrees to a write that will not happen, and again after it,
+    // because another device can create a project while the dialog is open. The second ask narrows that
+    // window to the write's own round trip; closing it fully would need the check inside the write batch.
+    // A failed question refuses too: an unreadable database is not an empty one. See turso-holds-projects.ts.
+    const refusedByProjects = async (stage: "before-confirm" | "after-confirm"): Promise<boolean> => {
+      if (newKind !== "turso" || tursoConfig === null) return false;
       let held: boolean;
       try {
         held = await tursoDatabaseHoldsProjects(tursoConfig);
       } catch (err) {
-        logDiag("warn", "storage.convertRefused", { reason: "probe-failed" });
-        deps.emitToast("error", t(deps.langRef.current, "storageConvertTursoProbeFailed", err instanceof Error ? err.message : String(err)));
-        return;
+        logDiag("warn", "storage.convertRefused", { reason: "probe-failed", stage });
+        // A translated sentence by failure kind, never the raw message: it may be an internal code or carry the URL.
+        const why = t(deps.langRef.current, TURSO_TEST_FAIL_KEYS[tursoErrorKind(err) ?? "generic"]);
+        deps.emitToast("error", t(deps.langRef.current, "storageConvertTursoProbeFailed", why));
+        return true;
       }
-      if (held) {
-        logDiag("warn", "storage.convertRefused", { reason: "turso-holds-projects" });
-        deps.emitToast("error", t(deps.langRef.current, "storageConvertTursoHoldsProjects"));
-        return;
-      }
-    }
+      if (!held) return false;
+      logDiag("warn", "storage.convertRefused", { reason: "turso-holds-projects", stage });
+      deps.emitToast("error", t(deps.langRef.current, "storageConvertTursoHoldsProjects"));
+      return true;
+    };
+    if (await refusedByProjects("before-confirm")) return;
     const leavingTurso = current.kind === "turso" && newKind !== "turso";
     const confirmKey = leavingTurso ? "storageTursoLeaveWarn" : "storageConvertConfirm";
     if (!(await deps.dialogsRef.current.confirm({ message: tPlural(deps.langRef.current, confirmKey, deps.tasks.length, deps.tasks.length, label) }))) return; // §752 — the app's dialog
+    if (await refusedByProjects("after-confirm")) return;
     // §752 — awaited: re-check the two facts the conversion stands on, which the frozen page of window.confirm kept true.
     if (!deps.isBackendCurrent() || !deps.loadSucceeded()) { logDiag("warn", "storage.switchDropped", { stage: "confirm" }); return; }
     const target = createBackend(newConfig, { acquireToken: deps.acquireToken, tursoConfig });
