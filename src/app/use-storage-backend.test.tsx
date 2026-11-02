@@ -91,6 +91,13 @@ vi.mock("./turso-portfolio", () => ({
 }));
 import * as tursoPortfolioMod from "./turso-portfolio";
 
+// §790 — the conversion asks the target Turso database whether it holds projects before writing.
+// Default: it does not, so every pre-§790 conversion test keeps its path.
+vi.mock("./turso-holds-projects", () => ({
+  tursoDatabaseHoldsProjects: vi.fn(async () => false),
+}));
+import * as holdsProjectsMod from "./turso-holds-projects";
+
 // ── TursoBackend mock (per-project tenant-mode backend built directly in the hook) ──
 // TursoLockTimeoutError must be exported by the mock too: storage-error.ts
 // (used unmocked by the hook's save-failure path) instanceof-checks against
@@ -1957,6 +1964,89 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
     expect(targetBackend.load).not.toHaveBeenCalled();
     // Status refresh DOES run (isReady/describe) to update storageReady/storageDescription.
     expect(targetBackend.isReady).toHaveBeenCalled();
+  });
+
+  // ★★★ §790 — the conversion target is a SINGLE-project TursoBackend, whose forced rewrite sends an
+  // unscoped DELETE for every workspace table: into a database that holds projects it deletes them
+  // all (turso-holds-projects.execute.test.ts runs that on a real engine). Refuse before asking.
+  describe("§790 — a Turso database that holds projects", () => {
+    const holdsMock = holdsProjectsMod.tursoDatabaseHoldsProjects as ReturnType<typeof vi.fn>;
+    const tursoSettings = {
+      storageConfig: { kind: "browser" },
+      integrations: { turso: { databaseUrl: "https://x.turso.io", authToken: "tok" } },
+    } as unknown as Settings;
+    const makeTarget = () => ({
+      kind: "turso",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Turso: x"),
+    });
+
+    afterEach(() => {
+      holdsMock.mockReset();
+      holdsMock.mockImplementation(async () => false);
+    });
+
+    it("refuses the conversion: nothing written, storage unchanged, no confirm, and the user is told why", async () => {
+      holdsMock.mockResolvedValue(true);
+      const target = makeTarget();
+      createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValueOnce(target);
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+      const { result } = renderBackend(makeArgs({ setStorageConfig, settings: tursoSettings }));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await result.current.onRequestStorageSwitch("turso"); });
+
+      expect(holdsMock).toHaveBeenCalledWith(expect.objectContaining({ authToken: "tok" }));
+      expect(target.save).not.toHaveBeenCalled();
+      expect(setStorageConfig).not.toHaveBeenCalled();
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertTursoHoldsProjects"));
+    });
+
+    it("refuses when the question cannot be answered: an unreadable database is not an empty one", async () => {
+      holdsMock.mockRejectedValue(new Error("network down"));
+      const target = makeTarget();
+      createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValueOnce(target);
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+      const { result } = renderBackend(makeArgs({ setStorageConfig, settings: tursoSettings }));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await result.current.onRequestStorageSwitch("turso"); });
+
+      expect(target.save).not.toHaveBeenCalled();
+      expect(setStorageConfig).not.toHaveBeenCalled();
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledWith("error", t("en-US", "storageConvertTursoProbeFailed", "network down"));
+    });
+
+    it("converts as before when the database holds no project", async () => {
+      const target = makeTarget();
+      createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValueOnce(target);
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+
+      const { result } = renderBackend(makeArgs({ setStorageConfig, settings: tursoSettings }));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await result.current.onRequestStorageSwitch("turso"); });
+
+      expect(holdsMock).toHaveBeenCalledTimes(1);
+      expect(target.save).toHaveBeenCalledTimes(1);
+      expect(setStorageConfig).toHaveBeenCalledWith({ kind: "turso" });
+    });
+
+    it("does not ask when the target is not Turso", async () => {
+      const target = { ...makeTarget(), kind: "local-json" };
+      createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValueOnce(target);
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+
+      const { result } = renderBackend(makeArgs({ setStorageConfig, settings: tursoSettings }));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { await result.current.onRequestStorageSwitch("local-json"); });
+
+      expect(holdsMock).not.toHaveBeenCalled();
+      expect(target.save).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("confirm=false → no save, no config change", async () => {

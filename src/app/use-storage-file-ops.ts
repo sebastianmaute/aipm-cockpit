@@ -58,6 +58,7 @@ import { writeSettings } from "./use-settings";
 import { sealSettingsUntilReload } from "./settings-reload-seal";
 import type { TruncationOps } from "./use-load-truncation";
 import { getTursoConfig } from "./turso-config";
+import { tursoDatabaseHoldsProjects } from "./turso-holds-projects";
 import { isSaveConflict, isSaveLockTimeout, isTursoLockTimeout } from "./storage-error";
 import { STORAGE_LABEL_KEYS } from "./use-storage-backend-types";
 import { dropDanglingDependencies, summarizeUnsafeEmailRecords } from "./sanitize";
@@ -945,18 +946,36 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       deps.emitToast("info", t(deps.langRef.current, "storageSwitchedWithoutCopy", label));
       return;
     }
+    // One config for the probe below AND the write, so the write goes to the database that was asked.
+    const tursoConfig = getTursoConfig(
+      deps.settingsRef.current.integrations?.turso?.databaseUrl,
+      deps.settingsRef.current.integrations?.turso?.authToken,
+    );
+    // ★★★ §790 — the target below is a SINGLE-project TursoBackend: its forced rewrite sends an unscoped
+    // `DELETE FROM` every workspace table, which in a database holding projects deletes them all. So ask
+    // first and refuse (before the confirm, so nobody agrees to a write that will not happen). A failed
+    // question refuses too: an unreadable database is not an empty one. See turso-holds-projects.ts.
+    if (newKind === "turso" && tursoConfig !== null) {
+      let held: boolean;
+      try {
+        held = await tursoDatabaseHoldsProjects(tursoConfig);
+      } catch (err) {
+        logDiag("warn", "storage.convertRefused", { reason: "probe-failed" });
+        deps.emitToast("error", t(deps.langRef.current, "storageConvertTursoProbeFailed", err instanceof Error ? err.message : String(err)));
+        return;
+      }
+      if (held) {
+        logDiag("warn", "storage.convertRefused", { reason: "turso-holds-projects" });
+        deps.emitToast("error", t(deps.langRef.current, "storageConvertTursoHoldsProjects"));
+        return;
+      }
+    }
     const leavingTurso = current.kind === "turso" && newKind !== "turso";
     const confirmKey = leavingTurso ? "storageTursoLeaveWarn" : "storageConvertConfirm";
     if (!(await deps.dialogsRef.current.confirm({ message: tPlural(deps.langRef.current, confirmKey, deps.tasks.length, deps.tasks.length, label) }))) return; // §752 — the app's dialog
     // §752 — awaited: re-check the two facts the conversion stands on, which the frozen page of window.confirm kept true.
     if (!deps.isBackendCurrent() || !deps.loadSucceeded()) { logDiag("warn", "storage.switchDropped", { stage: "confirm" }); return; }
-    const target = createBackend(newConfig, {
-      acquireToken: deps.acquireToken,
-      tursoConfig: getTursoConfig(
-        deps.settingsRef.current.integrations?.turso?.databaseUrl,
-        deps.settingsRef.current.integrations?.turso?.authToken,
-      ),
-    });
+    const target = createBackend(newConfig, { acquireToken: deps.acquireToken, tursoConfig });
     try {
       const binding = unregisteredBinding(); // §645 C1 — a new file no registry project names; stored with its handle
       const pick = pickFileForBackend(target, binding);
