@@ -632,6 +632,18 @@ Kept short: `AGENTS.md` owns each rule.
   `NoTursoProjectBanner` (mounted in `app-banners-block.tsx`, never in a popout) says so while the state
   lasts. A single-project
   Turso setup (portfolio not on Turso) still saves.
+- ★★★ **A conversion INTO Turso is single-project too, and is refused into a database that holds
+  projects** (§790). `onRequestStorageSwitch` (`use-storage-file-ops.ts`) builds its target with no project
+  id, and its forced write is a full rewrite. A database CREATED for several projects is spared only by
+  accident (its `plan` has no `id`, so the batch fails and rolls back); one begun single-project and later
+  used for several keeps the `id`, and there the write commits over every project. So before the confirm,
+  and again after it, the handler asks `tursoDatabaseHoldsProjects` (`turso-holds-projects.ts`: a `projects`
+  row, or a workspace row with `project_id` set) and refuses on yes, or when the question cannot be answered;
+  a malformed answer counts as unanswered, and the failure is named by `TURSO_TEST_FAIL_KEYS`, never raw
+  (`refuseConversionIntoProjects`, `storage-convert-guard.ts`; its wording names a way back only when the
+  portfolio flag is File, see §791). One switch runs at a time (`switchBusyRef`). It
+  does not depend on `portfolioMode`, which an in-place switch leaves frozen ([§791](../open-followups.md#791-the-portfolio-flag-stays-on-turso-after-an-in-place-storage-switch-and-its-other-readers-are-unaudited)).
+  `turso-holds-projects.execute.test.ts` runs the probe, and the commit it prevents, on `node:sqlite`.
 - **`TABLE_NAMES`** is `ENTITY_SPECS` tables plus `plan`, `fx_rates` and `meta`, and a save
   emits `DELETE FROM` for every dirty one. Non-workspace tables (snapshots, version history,
   chat threads, `person_links` (§785), templates, …) stay out, or a workspace save would wipe them. Each such store pins

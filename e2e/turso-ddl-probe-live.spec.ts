@@ -20,6 +20,8 @@
 import { test, expect } from "@playwright/test";
 import { colDdl, ENTITY_SPECS, TABLE_NAMES } from "../src/app/turso-schema";
 import { runTursoPipeline } from "../src/app/turso-pipeline";
+import { pragmaStatements } from "../src/app/turso-migrate";
+import { tursoDatabaseHoldsProjects } from "../src/app/turso-holds-projects";
 import {
   THROWAWAY, LIVE, PIPELINE_URL, SKIP_NO_THROWAWAY, DESTRUCTIVE_RUN, SKIP_NOT_DESTRUCTIVE_RUN,
   rawPipeline as pipeline, txt,
@@ -226,5 +228,30 @@ test.describe("§211 — a text id against the pre-idKind DDL", () => {
       await markerNote(),
       "the transaction reported no error but the co-resident write is still missing",
     ).toBe("after");
+  });
+});
+
+// ── §790: the holds-projects check, against a real engine ───────────────────
+//
+// `turso-holds-projects.ts` tells an ABSENT table from an UNREADABLE answer by whether the
+// PRAGMA answer carries column metadata: metadata with no rows is "absent", no metadata is
+// "could not read" and refuses the conversion. node:sqlite (the unit test) gives metadata for an
+// absent table; this pins that Hrana does too. If it ever answered `cols: []` there, every fresh
+// database would be refused as "could not check", and nothing else would say so. Read-only: it
+// creates and drops nothing.
+test.describe("§790 — the holds-projects check against a real engine", () => {
+  test.skip(!LIVE, SKIP_NO_THROWAWAY);
+  test.skip(!DESTRUCTIVE_RUN, SKIP_NOT_DESTRUCTIVE_RUN);
+
+  const config = () => ({ httpUrl: PIPELINE_URL.replace(/\/v2\/pipeline$/, ""), authToken: ENV.token });
+
+  test("a PRAGMA on an absent table answers with column metadata and no rows", async () => {
+    const [res] = await runTursoPipeline(config(), pragmaStatements(["e2e_790_never_created"]));
+    expect(res?.response?.result?.cols?.length ?? 0, "Hrana sent no column metadata for an absent table").toBeGreaterThan(0);
+    expect(res?.response?.result?.rows ?? []).toEqual([]);
+  });
+
+  test("the check gives an answer on the throwaway database rather than throwing", async () => {
+    await expect(tursoDatabaseHoldsProjects(config())).resolves.toEqual(expect.any(Boolean));
   });
 });
