@@ -248,7 +248,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   checks cannot complete and merging needs the admin bypass on a `gate:local` PASS — see
   `docs/RUNBOOK.md`. Several gates split exit **1 = DRIFT** from exit **2 = could not scan**, and the
   two demand opposite responses. Releases run from `.github/workflows/release.yml` on a push of a
-  `v*` tag (`guard` → `build` → `publish`; `publish` pauses for the owner's approval, a
+  `v*` tag (`guard` → `build` → `sign` → `publish`; `sign` pauses for the owner's one approval, a
   required-reviewer rule on the `release` environment since flip step 10a) — see the "Releasing"
   bullet below and
   [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md)'s `release.yml` section. The GitLab pipeline file

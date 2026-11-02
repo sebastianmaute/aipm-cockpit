@@ -250,10 +250,20 @@ go direct. That older release also ignores the `ai` value of
    refuses it.
 3. The `release` workflow (`.github/workflows/release.yml`) runs `guard` →
    `build` (Windows, ~20-30 min — installs dependencies, builds the app and the
-   installer, uploads it as a workflow artifact) → `publish`. `publish` runs in
-   the `release` environment, which pauses for the owner's approval: when
-   `build` finishes, open the run's Actions page → "Review deployments" →
-   approve `release`. The required reviewer was added at flip step 10a
+   installer, uploads it as a workflow artifact) → `sign` → `publish`. `sign` runs
+   in the `release` environment, which pauses for the owner's approval — the
+   only one per release: when `build` finishes, open the run's Actions page →
+   "Review deployments" → approve `release`. With the repository variable
+   `SIGNPATH_ENABLED` unset, `sign` only checks and passes the build's files on;
+   set to `true`, it has SignPath sign the installer, which waits for SignPath's
+   own approval of the request (up to an hour each). `sign` refuses an unsigned
+   installer once a signed release has shipped (`release-signing-guard`, exit 1;
+   exit 2 = could not decide, also a failure — re-run the job). Before switching
+   it on, the owner adds `SIGNPATH_API_TOKEN` as a secret of the `release`
+   environment and `SIGNPATH_ENABLED`, `SIGNPATH_ORGANIZATION_ID`,
+   `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG` (and optionally
+   `SIGNPATH_SIGN_APP_EXE`) as repository variables — details in
+   `docs/AGENTS/ci.md`'s `release.yml` section. The required reviewer was added at flip step 10a
    (2026-09-25). Also standing in front of it: only the owner/admin role can
    create, move or delete a `refs/tags/v*` (the tag ruleset), the tag must
    equal `APP_VERSION` and name a commit reachable from `main` (step 2's
@@ -262,7 +272,7 @@ go direct. That older release also ignores the `ai` value of
    keeps only one PENDING run per group: pushing a third tag while one run is
    in progress and a second is queued silently cancels the queued one (and a
    run paused waiting for approval occupies that same slot). A cancelled run just needs a re-run of its tag's workflow.
-4. `publish` verifies the built files (`release:verify`), attests build
+4. `publish` verifies the files `sign` passed on (`release:verify`), attests build
    provenance and the SBOM (both steps run only while the repository is public,
    which it is now; on a private repository they are skipped), drafts the GitHub
    Release, uploads the four files (installer, blockmap, `latest.yml` and the

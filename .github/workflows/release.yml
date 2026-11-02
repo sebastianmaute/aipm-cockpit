@@ -1,10 +1,13 @@
 # Builds and publishes a desktop release when a v* tag is pushed.
 # Design: docs/superpowers/specs/2026-09-24-releases-and-updates-design.md
-# ★ Only `publish` can write and it installs no packages. It runs in the `release` environment,
-#   which pauses for the owner's approval: a required-reviewer rule on it has been active since
-#   flip step 10a, when the repository went public. Beside that pause, what stands in front of
-#   `publish` -- and so in front of every installed copy's auto-update, since the installer is
-#   unsigned -- is the tag
+# ★ Only `publish` can write and it installs no packages. The owner approves each release ONCE:
+#   `sign` runs in the `release` environment, which pauses for the owner's approval (a
+#   required-reviewer rule on it has been active since flip step 10a, when the repository went
+#   public) and holds SIGNPATH_API_TOKEN; `publish` needs `sign` and names no environment, so it
+#   asks for no second approval. `sign` runs on every release: with vars.SIGNPATH_ENABLED unset
+#   it only passes the build's files through, so the approval always sits before publishing.
+#   Beside that pause, what stands in front of `publish` -- and so in front of every installed
+#   copy's auto-update while the installer is unsigned -- is the tag
 #   ruleset (only the owner/admin role can create, move or delete a `refs/tags/v*`), the `guard`
 #   job (the tag must equal APP_VERSION and name a commit reachable from `main`), and immutable
 #   releases.
@@ -59,6 +62,8 @@ jobs:
     needs: guard
     runs-on: windows-latest
     timeout-minutes: 45
+    outputs:
+      unpacked-artifact-id: ${{ steps.upload-unpacked.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -157,12 +162,164 @@ jobs:
             desktop/release/aipm-cockpit-${{ needs.guard.outputs.version }}-sbom.cdx.json
           if-no-files-found: error
           retention-days: 7
+      # Only when signing is on: the packaged app the sign job repackages (and, with
+      # SIGNPATH_SIGN_APP_EXE, submits to SignPath by this artifact's id first).
+      - name: Upload the packaged app for the sign job
+        id: upload-unpacked
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unpacked-app
+          path: desktop/release/win-unpacked
+          if-no-files-found: error
+          retention-days: 7
 
-  publish:
+  # The one approval, and the signing switch. Every step that signs carries
+  # `if: ${{ vars.SIGNPATH_ENABLED == 'true' }}`; with the switch off the job downloads the build's
+  # four files, runs the one-way guard and release:verify on them, and uploads them unchanged.
+  # With it on, the build's packaged app is repackaged once with AIPM_SIGNED_BUILD=1 (always,
+  # so a signed release never ships an updater without the publisher check), the new setup is
+  # signed by SignPath, and latest.yml and the blockmap are rewritten over the signed bytes.
+  # What SignPath can reach: the app's own PE files (the packaged-app artifact, when
+  # SIGNPATH_SIGN_APP_EXE is 'true') and the setup exe. NOT the uninstaller: makensis builds it
+  # and compresses it into the setup in one run, so no artifact ever holds it on its own.
+  sign:
     needs: [guard, build]
+    runs-on: windows-latest
+    timeout-minutes: 150
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-files
+          path: ${{ runner.temp }}/release
+      - name: Install the desktop packaging tools
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        run: npm --prefix desktop ci
+      - name: Download the packaged app
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: unpacked-app
+          path: ${{ runner.temp }}/unpacked
+      # The SignPath artifact configuration `app` names the PE files inside the zipped packaged app.
+      - name: Sign the app's own executables
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' && vars.SIGNPATH_SIGN_APP_EXE == 'true' }}
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: app
+          github-artifact-id: ${{ needs.build.outputs.unpacked-artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: ${{ runner.temp }}/unpacked-signed
+      - name: The app's executable is signed by SignPath Foundation
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' && vars.SIGNPATH_SIGN_APP_EXE == 'true' }}
+        shell: pwsh
+        env:
+          FILE: ${{ runner.temp }}/unpacked-signed/AI PM Cockpit.exe
+        run: |
+          $sig = Get-AuthenticodeSignature -LiteralPath $env:FILE
+          $subject = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { '' }
+          Write-Output "signature: $($sig.Status) -- $subject"
+          if ($sig.Status -ne 'Valid' -or $subject -notlike '*SignPath Foundation*') { Write-Output "signature check: $env:FILE is not validly signed by SignPath Foundation"; exit 1 }
+      # --prepackaged skips packing (no fuses, resource edits or asar are redone) and runs the NSIS
+      # target only, around whichever app tree APP_DIR names.
+      - name: Repackage the app as a signed build
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        shell: bash
+        env:
+          AIPM_SIGNED_BUILD: "1"
+          APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
+        run: npm run desktop:package -- --prepackaged "$APP_DIR"
+      - name: Upload the unsigned installer
+        id: upload-unsigned
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned-setup
+          path: desktop/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
+          if-no-files-found: error
+          retention-days: 1
+      # The SignPath artifact configuration `installer` names the setup exe inside the zip.
+      - name: Sign the installer
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: ${{ runner.temp }}/signed-setup
+      # Signing changed the installer's bytes, so electron-builder's latest.yml and blockmap no
+      # longer describe it; both are rewritten over the signed file (release:verify checks them).
+      - name: Take the signed installer and rewrite the update feed
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        shell: pwsh
+        env:
+          SIGNED: ${{ runner.temp }}/signed-setup
+          FINAL: ${{ runner.temp }}/release
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          $exe = "aipm-cockpit-$env:VERSION-setup.exe"
+          if (-not (Test-Path -LiteralPath (Join-Path $env:SIGNED $exe))) { Write-Output "SignPath returned no $exe"; exit 1 }
+          Copy-Item -LiteralPath (Join-Path $env:SIGNED $exe) -Destination (Join-Path $env:FINAL $exe) -Force
+          node scripts/release-latest-yml.mjs "$env:FINAL" "$env:VERSION"
+      - name: The installer is signed by SignPath Foundation
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        shell: pwsh
+        env:
+          FILE: ${{ runner.temp }}/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
+        run: |
+          $sig = Get-AuthenticodeSignature -LiteralPath $env:FILE
+          $subject = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { '' }
+          Write-Output "signature: $($sig.Status) -- $subject"
+          if ($sig.Status -ne 'Valid' -or $subject -notlike '*SignPath Foundation*') { Write-Output "signature check: $env:FILE is not validly signed by SignPath Foundation"; exit 1 }
+      # On every release, signing on or off: exit 1 (unsigned after a signed release) and exit 2
+      # (cannot decide) both fail the step.
+      - name: No unsigned release after a signed one
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          FINAL: ${{ runner.temp }}/release
+        run: node scripts/release-signing-guard.mjs "$TAG" "$FINAL"
+      - name: Verify the files
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          FINAL: ${{ runner.temp }}/release
+        run: npm run release:verify -- "$FINAL" "$TAG"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-final
+          path: ${{ runner.temp }}/release/*
+          if-no-files-found: error
+          retention-days: 7
+
+  # No environment here: the owner's approval was given at `sign`, which this job needs.
+  publish:
+    needs: [guard, sign]
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: release
     permissions:
       contents: write
       id-token: write
@@ -177,7 +334,7 @@ jobs:
           package-manager-cache: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: release-files
+          name: release-final
           path: ${{ runner.temp }}/release
       - name: Verify the files
         env:
