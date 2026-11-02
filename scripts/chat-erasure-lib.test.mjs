@@ -379,7 +379,7 @@ describe("search", () => {
     }
   });
 
-  it("still opens a row an earlier release wrote (c1 envelopes, no additional data)", async () => {
+  it("counts a row sealed in unbound c1 envelopes as unreadable, even with the right operator key", async () => {
     const threadKey = await generateThreadKey();
     const seal = async (text) => {
       const aes = await globalThis.crypto.subtle.importKey("raw", threadKey, "AES-GCM", false, ["encrypt"]);
@@ -395,8 +395,8 @@ describe("search", () => {
     });
     const a = deps(makeFakeTurso(db));
     expect(await runCli(["search", "--key", keyPath, "Müller"], a.deps)).toBe(EXIT.FOUND);
-    expect(a.out.join("\n")).toContain("t-c1\t");
-    expect(a.out.join("\n")).toContain("unreadable: 0");
+    expect(a.out.join("\n")).not.toContain("t-c1\t");
+    expect(a.out.join("\n")).toContain("unreadable: 1");
   });
 
   it("counts an owned row without key_operator as unreadable", async () => {

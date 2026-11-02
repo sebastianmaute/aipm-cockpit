@@ -7,7 +7,7 @@
 //
 // Each sealed value is bound to its row (chat-crypto.ts "c2"): a field to its id, project, owner
 // and field name (`threadFieldAd`), the owner wrap to its id and owner (`ownerKeyAd`). A value moved
-// to another row, field or owner does not open. Rows of an earlier release ("c1", unbound) still do.
+// to another row, field or owner does not open. An envelope other than "c2" does not open either.
 // The operator wrap ("r1") is not bound; the fields it opens are.
 import {
   generateThreadKey, openText, sealText, unwrapForOwner, wrapForOperator, wrapForOwner,

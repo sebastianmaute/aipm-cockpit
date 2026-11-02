@@ -12,7 +12,7 @@ import {
   wrapForOwner,
 } from "./chat-crypto";
 
-/** A version-1 envelope (no additional data), as an earlier release wrote it. */
+/** An unbound "c1." envelope (AES-GCM without additional data): not a format the app accepts. */
 async function sealC1(key: Uint8Array, plaintext: string): Promise<string> {
   const raw = new Uint8Array(key);
   const aes = await globalThis.crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt"]);
@@ -73,11 +73,11 @@ describe("sealText / openText", () => {
     }
   });
 
-  it("still opens a c1 envelope (no additional data), whatever the caller passes", async () => {
+  it("refuses an unbound c1 envelope under the right key with ChatCryptoError", async () => {
     const key = await generateThreadKey();
-    const envelope = await sealC1(key, "older");
-    expect(await openText(key, envelope, AD)).toBe("older");
-    expect(await openText(key, envelope, "anything")).toBe("older");
+    const envelope = await sealC1(key, "unbound");
+    await expect(openText(key, envelope, AD)).rejects.toBeInstanceOf(ChatCryptoError);
+    await expect(openText(key, envelope, "")).rejects.toBeInstanceOf(ChatCryptoError);
   });
 
   it("two seals of the same text differ (fresh IV)", async () => {
@@ -109,9 +109,9 @@ describe("sealText / openText", () => {
   it.each([
     ["empty", ""],
     ["wrong version", "c3.AAAA.AAAA"],
-    ["too few parts", "c1.AAAA"],
-    ["too many parts", "c1.AAAA.AAAA.AAAA"],
-    ["not base64", "c1.!!!.@@@"],
+    ["too few parts", "c2.AAAA"],
+    ["too many parts", "c2.AAAA.AAAA.AAAA"],
+    ["not base64", "c2.!!!.@@@"],
   ])("rejects a malformed envelope (%s) with ChatCryptoError", async (_label, envelope) => {
     await expect(openText(await generateThreadKey(), envelope, AD)).rejects.toBeInstanceOf(
       ChatCryptoError,
@@ -136,11 +136,11 @@ describe("owner wrapping", () => {
     await expect(unwrapForOwner(chatKey, wrapped, "t1\nowner-b\nkey")).rejects.toBeInstanceOf(ChatCryptoError);
   });
 
-  it("still unwraps a c1 owner wrap", async () => {
+  it("refuses an unbound c1 owner wrap under the right chat key", async () => {
     const chatKey = await generateChatKey();
     const threadKey = await generateThreadKey();
     const wrapped = await sealC1(chatKey, bytesToB64(threadKey));
-    expect(await unwrapForOwner(chatKey, wrapped, "t1\nowner-a\nkey")).toEqual(threadKey);
+    await expect(unwrapForOwner(chatKey, wrapped, "t1\nowner-a\nkey")).rejects.toBeInstanceOf(ChatCryptoError);
   });
 
   it("refuses to unwrap under another chat key", async () => {

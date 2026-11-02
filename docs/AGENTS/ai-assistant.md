@@ -2357,8 +2357,8 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     owned by someone else. A legacy row (`isLegacyRow`: no owner) still decodes as plaintext until it expires, and
     saving it again makes it the writer's.
     ★★ Every write is a `c2.` envelope bound to its row by AES-GCM additional data: each field to
-    `threadFieldAd` (id, project, owner, field name), the owner wrap to `ownerKeyAd` (id, owner). `c1.` (unbound,
-    an earlier release) is still READ, never written. The operator wrap stays `r1.` (unbound); the fields it
+    `threadFieldAd` (id, project, owner, field name), the owner wrap to `ownerKeyAd` (id, owner). Any other
+    envelope prefix fails as `ChatCryptoError` (the app skips the row, the script counts it unreadable). The operator wrap stays `r1.` (unbound); the fields it
     opens are bound. So anything that changes a row's owner must re-seal the fields AND the owner wrap:
     adoption does (`reownThreads` → `resealThreadFields` → `reownThreadStatements`, under the same thread key, so
     `key_operator` is untouched). Changing `owner_id`, `project_id` or `id` in SQL alone makes the row unreadable.

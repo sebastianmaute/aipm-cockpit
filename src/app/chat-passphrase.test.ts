@@ -85,7 +85,7 @@ beforeAll(async () => {
   operatorKey = pair.privateKey;
 });
 
-/** A version-1 envelope (no additional data), as an earlier release wrote it. */
+/** An unbound "c1." envelope (AES-GCM without additional data): not a format the app accepts. */
 async function sealC1(key: Uint8Array, plaintext: string): Promise<string> {
   const aes = await globalThis.crypto.subtle.importKey("raw", new Uint8Array(key), "AES-GCM", false, ["encrypt"]);
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
@@ -172,8 +172,8 @@ describe("chat passphrase", () => {
     expect(updates[0].at(-1)!.sql).toMatch(/^COMMIT/);
   });
 
-  it("a row an earlier release wrote (c1) moves over and is then readable by the new owner and the operator", async () => {
-    const { a, code } = await browserA();
+  it("a row sealed in unbound c1 envelopes is not moved and is counted as skipped", async () => {
+    const { code } = await browserA();
     const b = await browserB();
     const threadKey = globalThis.crypto.getRandomValues(new Uint8Array(32));
     server.db.prepare(
@@ -183,20 +183,17 @@ describe("chat passphrase", () => {
       await sealC1(threadKey, JSON.stringify([{ role: "user", content: "x" }])), await sealC1(threadKey, "[]"),
       await sealC1(b.chatKey, bytesToB64(threadKey)), await wrapForOperator(spki, threadKey),
     );
-    expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toEqual({ outcome: "adopted", moved: 2, skipped: 0 });
+    expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toEqual({ outcome: "adopted", moved: 1, skipped: 1 });
     const loaded = await loadThreads(cfg, "p", (await getChatIdentity(URL))!);
-    expect(loaded.map((t) => t.name).sort()).toEqual(["From A", "From B", "Old one"]);
-    const row = server.db.prepare("SELECT name, key_operator FROM chat_threads WHERE id = 'told'").get() as { name: string; key_operator: string };
-    expect(row.name.startsWith("c2.")).toBe(true);
-    const key = await unwrapForOperator(operatorKey, row.key_operator);
-    expect(await openText(key, row.name, threadFieldAd("told", "p", a.ownerId, "name"))).toBe("Old one");
+    expect(loaded.map((t) => t.name).sort()).toEqual(["From A", "From B"]);
+    expect(server.db.prepare("SELECT owner_id FROM chat_threads WHERE id = 'told'").get()).toEqual({ owner_id: b.ownerId });
   });
 
   it("a thread whose owner wrap will not open is left with the old owner and counted", async () => {
     const { code } = await browserA();
     const b = await browserB();
     await saveThread(cfg, thread("tb2", "Broken"), b, spki);
-    server.db.prepare("UPDATE chat_threads SET key_owner = 'c1.AAAA.AAAA' WHERE id = 'tb2'").run();
+    server.db.prepare("UPDATE chat_threads SET key_owner = 'c2.AAAA.AAAA' WHERE id = 'tb2'").run();
     const result = await unlockWithPassphrase(cfg, URL, code, PASS);
     expect(result).toEqual({ outcome: "adopted", moved: 1, skipped: 1 });
     expect(server.db.prepare("SELECT owner_id FROM chat_threads WHERE id = 'tb2'").get()).toEqual({ owner_id: b.ownerId });

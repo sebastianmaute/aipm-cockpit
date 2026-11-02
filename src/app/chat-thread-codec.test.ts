@@ -6,7 +6,7 @@ import type { StoredThreadRow } from "./chat-threads-schema";
 import type { ChatThread } from "./chat-threads";
 import type { PipelineResultLike } from "./turso-schema";
 
-/** A version-1 envelope (no additional data), as an earlier release wrote it. */
+/** An unbound "c1." envelope (AES-GCM without additional data): not a format the app accepts. */
 async function sealC1(key: Uint8Array, plaintext: string): Promise<string> {
   const aes = await globalThis.crypto.subtle.importKey("raw", new Uint8Array(key), "AES-GCM", false, ["encrypt"]);
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
@@ -179,7 +179,7 @@ describe("encodeThreadRow / decodeThreadRows", () => {
     await expect(openText(key, row.name, threadFieldAd("t1", "p1", "bob", "name"))).rejects.toThrow();
   });
 
-  it("still opens a row an earlier release wrote (c1, unbound)", async () => {
+  it("skips an own row sealed in unbound c1 envelopes, even under the right keys", async () => {
     const threadKey = await generateThreadKey();
     const old: StoredThreadRow = {
       id: "t1", project_id: "p1", owner_id: "alice", created_at: thread.createdAt, updated_at: thread.updatedAt,
@@ -189,8 +189,9 @@ describe("encodeThreadRow / decodeThreadRows", () => {
       key_owner: await sealC1(alice.chatKey, bytesToB64(threadKey)),
       key_operator: "",
     };
-    const [out] = await decodeThreadRows(asResult([old]), alice);
-    expect(out).toMatchObject({ id: "t1", ownerId: "alice", name: NAME, display: [{ kind: "user", text: PROMPT }] });
+    const good = await encodeThreadRow({ ...thread, id: "t2" }, alice, spkiB64);
+    const out = await decodeThreadRows(asResult([old, good]), alice);
+    expect(out.map((t) => t.id)).toEqual(["t2"]);
   });
 
   it("refuses to encode a thread owned by somebody else", async () => {
