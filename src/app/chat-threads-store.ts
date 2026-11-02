@@ -8,6 +8,7 @@ import {
   CHAT_THREADS_DDL, CHAT_THREADS_TABLE, CHAT_THREAD_CAP, chatThreadsHealAlters, threadsSelect,
   upsertThreadStatements, updateStoredThreadStatements, deleteThreadStatements, pruneThreadsStatements,
   deleteOwnerThreadsStatements, expireThreadsStatements, legacyThreadIdsSelect, allThreadIdsSelect, threadPresentSelect,
+  ownerThreadsSelect,
 } from "./chat-threads-schema";
 import { decodeThreadRows, encodeThreadRow, type ChatIdentity } from "./chat-thread-codec";
 import { pragmaStatements } from "./turso-migrate";
@@ -132,6 +133,13 @@ export async function deleteThread(
 /** Delete every thread of `ownerId`, in every project of the database. */
 export async function deleteOwnerThreads(config: TursoConfig | null, ownerId: string): Promise<void> {
   await run(config, deleteOwnerThreadsStatements(ownerId));
+}
+
+/** Every thread of `id`'s owner, in every project of the database, opened with its chat key (a row that
+ *  will not open is skipped). */
+export async function loadOwnerThreads(config: TursoConfig | null, id: ChatIdentity): Promise<ChatThread[]> {
+  const results = await run(config, ownerThreadsSelect(id.ownerId));
+  return decodeThreadRows(results[CHAT_THREADS_DDL.length], id);
 }
 
 /** The ids of the legacy owner-less threads in every project of the database. */

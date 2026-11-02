@@ -211,6 +211,7 @@ function ChatPanelImpl({
   saveChatConversation,
   tursoMode = false,
   tursoConfig = null,
+  projectNames,
   exportFooter,
   workspace,
   holidaySet,
@@ -235,6 +236,8 @@ function ChatPanelImpl({
    *  exactly as before: one ephemeral in-memory conversation, no sidebar. */
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
+  /** Project names by id, for the project of each chat the sidebar's "Find" lists. */
+  projectNames?: ReadonlyMap<string, string>;
   /** Footer line of a document card's HTML/PDF/PowerPoint download (`exportFooterText(settings.branding)`). */
   exportFooter?: string;
 } & ChatProposalProps &
@@ -258,6 +261,7 @@ function ChatPanelImpl({
       saveChatConversation={saveChatConversation}
       tursoMode={tursoMode}
       tursoConfig={tursoConfig}
+      projectNames={projectNames}
       exportFooter={exportFooter}
       workspace={workspace}
       holidaySet={holidaySet}
@@ -376,6 +380,7 @@ function ChatPanelInner({
   saveChatConversation,
   tursoMode = false,
   tursoConfig = null,
+  projectNames,
   exportFooter,
   workspace,
   holidaySet,
@@ -397,6 +402,8 @@ function ChatPanelInner({
   onConfigureAi?: () => void;
   tursoMode?: boolean;
   tursoConfig?: TursoConfig | null;
+  /** Project names by id, for the project of each chat the sidebar's "Find" lists. */
+  projectNames?: ReadonlyMap<string, string>;
   /** Footer line of a document card's HTML/PDF/PowerPoint download (`exportFooterText(settings.branding)`). */
   exportFooter?: string;
 } & ChatProposalProps &
@@ -1634,6 +1641,7 @@ function ChatPanelInner({
           onRenameCancel={chatThreads.cancelRenameDraft}
           onDelete={chatThreads.requestDeleteThread}
           erase={chatThreads.erase}
+          projectNames={projectNames}
         />
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">

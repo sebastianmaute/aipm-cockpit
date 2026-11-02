@@ -2417,8 +2417,11 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     which `useChatRetentionSweep` runs once per database per page load after the chat sweep (without waiting for
     the chat settings).
   - **Find chats mentioning a person** (`findThreadsMentioning`, `chat-thread-mentions.ts`; the operator's `search`
-    repeats the rule over every row): matches message text, tool calls and tool results of the threads loaded for
-    this project. A proposal card is not searched because it holds no text (only an id and a count); what it proposed
+    repeats the rule over every row): matches message text, tool calls and tool results of ALL this owner's rows in
+    the database, every project (`findMentioning` in `use-chat-erase.ts` reads them with `ownerThreadsSelect` and
+    opens them here), plus this project's in-memory list (its legacy rows, and chats not yet saved). Each match
+    shows its project's name (`projectNames`, built in `workspace-section.tsx`), and a ticked match is deleted in its
+    own project. With no opened identity (none yet, or locked) only this project's legacy rows are searched. A proposal card is not searched because it holds no text (only an id and a count); what it proposed
     is in the tool call beside it.
   - **Factory reset** (`clearAppConfig`) deletes the device key and the identity, so this browser can no longer
     read its own rows (unless a chat passphrase lets it adopt the identity again); it deletes no Turso row.

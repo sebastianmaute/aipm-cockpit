@@ -9,7 +9,7 @@ import { join } from "node:path";
 import {
   CHAT_THREADS_DDL, chatThreadsHealAlters, upsertThreadStatements, pruneThreadsStatements,
   expireThreadsStatements, deleteOwnerThreadsStatements, deleteThreadStatements, threadsSelect, retentionCutoff,
-  legacyThreadIdsSelect, updateStoredThreadStatements, allThreadIdsSelect,
+  legacyThreadIdsSelect, updateStoredThreadStatements, allThreadIdsSelect, ownerThreadsSelect,
   type StoredThreadRow,
 } from "./chat-threads-schema";
 import { pragmaStatements } from "./turso-migrate";
@@ -314,6 +314,16 @@ describe("chat_threads statements against a real engine", () => {
     const out = query(db, allThreadIdsSelect()[0]);
     expect(out.map((r) => r.id).sort()).toEqual(["a", "b", "n"]);
     expect(Object.keys(out[0])).toEqual(["id"]);
+  });
+
+  it("ownerThreadsSelect returns one owner's rows in every project, and no legacy or other owner's row", () => {
+    seed(db, row("a1"));
+    seed(db, row("a2", { project_id: "q" }));
+    seed(db, row("b1", { owner_id: "bob" }));
+    seed(db, row("e", { owner_id: "" }));
+    insertNullOwner(db, "n");
+    expect(query(db, ownerThreadsSelect("alice")[0]).map((r) => r.id).sort()).toEqual(["a1", "a2"]);
+    expect(() => ownerThreadsSelect("")).toThrow();
   });
 
   it("deleteOwnerThreads refuses an empty owner id", () => {

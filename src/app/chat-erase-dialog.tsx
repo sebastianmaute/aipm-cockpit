@@ -2,11 +2,12 @@
 
 // src/app/chat-erase-dialog.tsx — the chat sidebar's two erase controls: "Delete all my chats" (a
 // type-to-confirm dialog; deletes this browser's owner's threads in every project of the database)
-// and "Find chats mentioning a person" (search the threads already loaded, tick, delete). Rendered
+// and "Find chats mentioning a person" (search this owner's chats of every project and this project's
+// older shared ones, tick, delete — each in its own project; every match names its project). Rendered
 // once the chat status is known — also while chats are not saved, since deletes need no encryption;
 // the hook (`use-chat-threads.ts`) does the deleting.
 
-import { useId, useMemo, useState, type FormEvent } from "react";
+import { useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { type Lang, t } from "./i18n";
 import { Banner } from "./banner";
 import { Button } from "./button";
@@ -16,15 +17,14 @@ import { ModalHeader } from "./modal-header";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { buildRowTokens } from "./row-tokens";
 import { formatFetchedAt } from "./date-format";
-import { findThreadsMentioning } from "./chat-thread-mentions";
 import type { ChatThread } from "./chat-threads";
 import type { ChatEraseActions } from "./use-chat-threads";
 
 export interface ChatEraseControlsProps {
   lang: Lang;
-  /** The threads already loaded for this project: this owner's and legacy ones. */
-  threads: readonly ChatThread[];
   erase: ChatEraseActions;
+  /** Project names by id, for the project each found chat belongs to; an unknown id is shown as is. */
+  projectNames?: ReadonlyMap<string, string>;
 }
 
 function displayName(lang: Lang, name: string): string {
@@ -32,7 +32,7 @@ function displayName(lang: Lang, name: string): string {
   return trimmed.length > 0 ? trimmed : t(lang, "chatThreadUntitled");
 }
 
-export function ChatEraseControls({ lang, threads, erase }: ChatEraseControlsProps) {
+export function ChatEraseControls({ lang, erase, projectNames }: ChatEraseControlsProps) {
   const noOwnerId = useId();
   const [open, setOpen] = useState<"none" | "delete-all" | "find">("none");
   const [busy, setBusy] = useState(false);
@@ -100,7 +100,7 @@ export function ChatEraseControls({ lang, threads, erase }: ChatEraseControlsPro
         />
       )}
       {open === "find" && (
-        <ChatFindDialog lang={lang} threads={threads} erase={erase} onClose={() => setOpen("none")} />
+        <ChatFindDialog lang={lang} erase={erase} projectNames={projectNames} onClose={() => setOpen("none")} />
       )}
     </div>
   );
@@ -110,19 +110,19 @@ interface ChatFindDialogProps extends ChatEraseControlsProps {
   onClose: () => void;
 }
 
-/** Search the loaded threads for a name or e-mail address, tick matches, delete the ticked ones. The
- *  matches are recomputed from the live list, so a deleted thread leaves the results by itself. */
-export function ChatFindDialog({ lang, threads, erase, onClose }: ChatFindDialogProps) {
+/** Search this owner's chats (every project) and this project's older shared ones for a name or e-mail
+ *  address, tick matches, delete the ticked ones. Deleted matches leave the results. */
+export function ChatFindDialog({ lang, erase, projectNames, onClose }: ChatFindDialogProps) {
   const titleId = useId();
   const [query, setQuery] = useState("");
   const [submitted, setSubmitted] = useState<string | null>(null);
+  const [matches, setMatches] = useState<readonly ChatThread[]>([]);
+  const [searchFailed, setSearchFailed] = useState(false);
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const matches = useMemo(
-    () => (submitted === null ? [] : findThreadsMentioning(threads, submitted, erase.ownerId)),
-    [threads, submitted, erase.ownerId],
-  );
+  // Only the latest search may set the results: an earlier one that answers late is dropped.
+  const searchSeq = useRef(0);
   const tokens = useMemo(
     () => buildRowTokens(matches.map((th) => ({ id: th.id, name: displayName(lang, th.name) }))),
     [matches, lang],
@@ -133,9 +133,17 @@ export function ChatFindDialog({ lang, threads, erase, onClose }: ChatFindDialog
   function search(e: FormEvent): void {
     e.preventDefault();
     if (!canSearch) return;
-    setSubmitted(query.trim());
+    const q = query.trim();
+    const seq = ++searchSeq.current;
+    setSubmitted(q);
+    setMatches([]);
     setTicked(new Set());
     setFailed(false);
+    setSearchFailed(false);
+    erase.findMentioning(q).then(
+      (found) => { if (seq === searchSeq.current) setMatches(found); },
+      () => { if (seq === searchSeq.current) setSearchFailed(true); },
+    );
   }
 
   function toggle(id: string, on: boolean): void {
@@ -151,8 +159,12 @@ export function ChatFindDialog({ lang, threads, erase, onClose }: ChatFindDialog
     if (busy || selected.length === 0) return;
     setBusy(true);
     setFailed(false);
+    const gone = new Set(selected);
     erase.deleteSelected(selected).then(
-      () => setBusy(false),
+      () => {
+        setBusy(false);
+        setMatches((prev) => prev.filter((th) => !gone.has(th.id)));
+      },
       () => {
         setBusy(false);
         setFailed(true);
@@ -186,9 +198,9 @@ export function ChatFindDialog({ lang, threads, erase, onClose }: ChatFindDialog
           <p role="status" className="text-sm text-muted-foreground">
             {submitted === null
               ? t(lang, "chatFindIdle")
-              : matches.length === 0
-                ? t(lang, "chatFindNoMatch", submitted)
-                : ""}
+              : searchFailed || matches.length > 0
+                ? ""
+                : t(lang, "chatFindNoMatch", submitted)}
           </p>
           {matches.length > 0 && (
             <ul className="flex flex-col gap-1">
@@ -203,6 +215,8 @@ export function ChatFindDialog({ lang, threads, erase, onClose }: ChatFindDialog
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate text-foreground">{displayName(lang, th.name)}</span>
                     <span className="text-xs text-muted-foreground">
+                      {t(lang, "chatFindProject", projectNames?.get(th.projectId) ?? th.projectId)}
+                      {" · "}
                       {t(lang, "chatFindUpdated", formatFetchedAt(th.updatedAt, lang))}
                     </span>
                   </span>
@@ -210,6 +224,7 @@ export function ChatFindDialog({ lang, threads, erase, onClose }: ChatFindDialog
               ))}
             </ul>
           )}
+          {searchFailed && <Banner severity="error" role="alert">{t(lang, "chatFindSearchFailed")}</Banner>}
           {failed && <Banner severity="error" role="alert">{t(lang, "chatFindDeleteFailed")}</Banner>}
           <div className="flex justify-end">
             <Button variant="destructive" size="sm" disabled={busy || selected.length === 0} onClick={deleteTicked}>

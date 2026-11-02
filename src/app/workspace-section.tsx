@@ -300,6 +300,12 @@ export function WorkspaceSection({
   // panels routed here (e.g. the standalone RAID By-Owner report) — the stored
   // owner/assignee string is only a stale-able cache.
   const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
+  // For the chat's "Find chats mentioning a person", which lists chats of every project. One Map per
+  // change of the lists, so the memoised ChatPanel is not re-rendered by a new one each render.
+  const chatProjectNames = useMemo(
+    () => new Map([...(archivedProjects ?? []), ...projects].map((p) => [p.id, p.name])),
+    [projects, archivedProjects],
+  );
   // Per-person booked hours behind each Budget bucket role line. ★★ This is the
   // per-DEVICE Timelog cache — a DIFFERENT source from the persisted per-role
   // `actualHours` the role row directly above those people shows, and the two
@@ -525,6 +531,7 @@ export function WorkspaceSection({
             saveChatConversation={saveChatConversation}
             tursoMode={chatTursoMode}
             tursoConfig={chatTursoConfig}
+            projectNames={chatProjectNames}
             workspace={workspace}
             holidaySet={holidaySet}
             runBatched={runProposalBatch}

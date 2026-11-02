@@ -10,6 +10,7 @@
 //
 // Holds the delete rules (which owner a delete runs as, what a delete-all removes and reloads), so it
 // is coverage-gated, not excluded.
+import { useRef } from "react";
 import type React from "react";
 import { type Lang, t } from "./i18n";
 import type { TursoConfig } from "./turso-config";
@@ -17,10 +18,11 @@ import type { ConfirmFn } from "./confirm-dialog";
 import type { ChatIdentity } from "./chat-thread-codec";
 import type { ChatThread } from "./chat-threads";
 import type { ApiMessage, DisplayItem } from "./chat-api";
-import { deleteThread as deleteThreadRow, deleteOwnerThreads, loadLegacyThreadIds } from "./chat-threads-store";
+import { deleteThread as deleteThreadRow, deleteOwnerThreads, loadLegacyThreadIds, loadOwnerThreads } from "./chat-threads-store";
+import { findThreadsMentioning } from "./chat-thread-mentions";
 import { logDiag } from "./diagnostics";
 import { pendingEditScope, dropPendingEdit, dropPendingEditsWhere } from "./pending-edits";
-import { RENAME_KIND } from "./chat-thread-writes";
+import { RENAME_KIND, outboxScope } from "./chat-thread-writes";
 
 /** How a delete-all ended when it did not fail: "done" (deleted and the list reloaded, or nothing of this
  *  browser's to delete), or "not-refreshed" (deleted, but the reload afterwards failed). */
@@ -36,8 +38,12 @@ export interface ChatEraseActions {
   /** Deletes every thread of this owner in the database (all projects). Rejects when the delete fails;
    *  resolves "not-refreshed" when it succeeded but the list could not be reloaded afterwards. */
   deleteAll: () => Promise<DeleteAllOutcome>;
-  /** Deletes the listed threads of this project. Rejects when any of them could not be deleted. */
+  /** Deletes the listed threads, each in its own project: threads of the list, or found by the last
+   *  `findMentioning`. Rejects when any of them could not be deleted. */
   deleteSelected: (ids: readonly string[]) => Promise<void>;
+  /** The chats that mention `query`: this owner's in every project of the database (read and opened
+   *  here) and the older shared ones of this project. Never a colleague's private chat. */
+  findMentioning: (query: string) => Promise<ChatThread[]>;
 }
 
 export interface UseChatEraseDeps {
@@ -147,15 +153,39 @@ export function useChatErase(deps: UseChatEraseDeps) {
     return eraseOwnerIds(config)[0] ?? crypto.randomUUID();
   }
 
+  // The last search's matches, so a ticked match of another project can be deleted in its own project.
+  const foundRef = useRef<ChatThread[]>([]);
+
+  async function findMentioning(query: string): Promise<ChatThread[]> {
+    const config = writeConfig(tursoConfig);
+    const identity = knownIdentity(config);
+    // Without an opened identity (none yet, or locked) only this project's older shared chats are searched.
+    const owned = identity ? await loadOwnerThreads(config, identity) : [];
+    const byId = new Map<string, ChatThread>(owned.map((th) => [th.id, th]));
+    // This project's list is newer than the database for a chat still being saved.
+    for (const th of threadsRef.current) byId.set(th.id, th);
+    const found = findThreadsMentioning([...byId.values()], query, identity?.ownerId ?? null);
+    foundRef.current = found;
+    return found;
+  }
+
   async function deleteSelected(ids: readonly string[]): Promise<void> {
     if (!deleteGate) return;
     const config = writeConfig(tursoConfig);
-    const scope = renameScope(tursoConfig);
     const epoch = projectEpochRef.current;
-    const targets = threadsRef.current.filter((th) => ids.includes(th.id));
+    const byId = new Map<string, ChatThread>(foundRef.current.map((th) => [th.id, th]));
+    for (const th of threadsRef.current) byId.set(th.id, th);
+    const targets = ids.map((id) => byId.get(id)).filter((th): th is ChatThread => th !== undefined);
     const owner = deleteOwnerId(config);
     const results = await Promise.allSettled(targets.map((th) => deleteThreadRow(config, th.id, th.projectId, owner)));
-    removeDeleted(scope, targets.filter((_, i) => results[i].status === "fulfilled").map((th) => th.id), epoch);
+    const deleted = targets.filter((_, i) => results[i].status === "fulfilled");
+    // Each deleted thread's pending rename goes from its own project's outbox.
+    for (const th of deleted) {
+      const scope = outboxScope(config, th.projectId);
+      if (scope) dropPendingEdit(scope, RENAME_KIND, th.id);
+    }
+    removeDeleted(null, deleted.map((th) => th.id), epoch);
+    foundRef.current = foundRef.current.filter((th) => !deleted.includes(th));
     if (results.some((r) => r.status === "rejected")) throw new Error("some chat threads could not be deleted");
   }
 
@@ -225,6 +255,6 @@ export function useChatErase(deps: UseChatEraseDeps) {
     await startNewIdentityInVault(keepOld);
   }
 
-  const erase: ChatEraseActions = { enabled: deleteGate, ownerId: eraseOwnerId, deleteAll, deleteSelected };
+  const erase: ChatEraseActions = { enabled: deleteGate, ownerId: eraseOwnerId, deleteAll, deleteSelected, findMentioning };
   return { erase, requestDeleteThread, startNewIdentity };
 }

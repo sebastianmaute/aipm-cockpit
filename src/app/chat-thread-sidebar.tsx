@@ -57,6 +57,8 @@ export interface ChatThreadSidebarProps {
    *  the chat status known, in Turso mode — including while chats are not saved, because a delete needs
    *  no encryption. "Delete all" itself is disabled without a stored owner. */
   erase?: ChatEraseActions;
+  /** Project names by id, for the project each chat "Find" lists belongs to. */
+  projectNames?: ReadonlyMap<string, string>;
 }
 
 export function ChatThreadSidebar({
@@ -73,6 +75,7 @@ export function ChatThreadSidebar({
   onRenameCancel,
   onDelete,
   erase,
+  projectNames,
 }: ChatThreadSidebarProps) {
   // ★ `axis: "x"` — this column is `resize-x`, so height is not a dimension the
   // drag can change. Without it the hook records whatever height the flex row
@@ -123,7 +126,7 @@ export function ChatThreadSidebar({
           default: the chat pane already renders a reset-size button, and two
           reset controls sharing an accessible name while doing different
           things is a WCAG 2.4.6 failure that axe passes (a name exists). */}
-      {erase && <ChatEraseControls lang={lang} threads={threads} erase={erase} />}
+      {erase && <ChatEraseControls lang={lang} erase={erase} projectNames={projectNames} />}
       {/* No period while the server's setting is invalid: deleting is paused (Settings → AI says so). */}
       {chat !== null && !chat.retentionInvalid && (
         <p className="shrink-0 text-xs text-muted-foreground">{t(lang, "chatRetentionNotice", chat.retentionDays)}</p>

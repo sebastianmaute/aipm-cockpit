@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { useChatThreads, type UseChatThreadsDeps } from "./use-chat-threads";
 import {
-  loadThreads, saveThread, deleteThread, deleteOwnerThreads, expireThreads, loadLegacyThreadIds,
+  loadThreads, saveThread, deleteThread, deleteOwnerThreads, expireThreads, loadLegacyThreadIds, loadOwnerThreads,
 } from "./chat-threads-store";
 import { ChatEraseControls } from "./chat-erase-dialog";
 import { CHAT_IDENTITY_KEY, ensureChatIdentity } from "./chat-key-vault";
@@ -25,6 +25,7 @@ vi.mock("./chat-threads-store", () => ({
   deleteOwnerThreads: vi.fn(async () => undefined),
   expireThreads: vi.fn(async () => undefined),
   loadLegacyThreadIds: vi.fn(async () => []),
+  loadOwnerThreads: vi.fn(async () => []),
 }));
 
 const loadThreadsMock = loadThreads as unknown as ReturnType<typeof vi.fn>;
@@ -33,6 +34,7 @@ const deleteThreadMock = deleteThread as unknown as ReturnType<typeof vi.fn>;
 const deleteOwnerThreadsMock = deleteOwnerThreads as unknown as ReturnType<typeof vi.fn>;
 const expireThreadsMock = expireThreads as unknown as ReturnType<typeof vi.fn>;
 const loadLegacyThreadIdsMock = loadLegacyThreadIds as unknown as ReturnType<typeof vi.fn>;
+const loadOwnerThreadsMock = loadOwnerThreads as unknown as ReturnType<typeof vi.fn>;
 
 const CFG: TursoConfig = { httpUrl: "https://database-erase.example.invalid", authToken: "token-e" };
 const CHAT_ON: ChatSettings = { retentionDays: 30, retentionInvalid: false, recoveryKey: "recovery-spki", recoveryKeyInvalid: false };
@@ -80,6 +82,7 @@ beforeEach(() => {
   deleteOwnerThreadsMock.mockResolvedValue(undefined);
   expireThreadsMock.mockResolvedValue(undefined);
   loadLegacyThreadIdsMock.mockResolvedValue([]);
+  loadOwnerThreadsMock.mockResolvedValue([]);
 });
 
 describe("useChatThreads — delete all my chats", () => {
@@ -159,7 +162,7 @@ describe("useChatThreads — deletes reach the database while chats are not save
     await waitFor(() => expect(result.current.threads).toHaveLength(1));
     expect(result.current.erase.enabled).toBe(true);
     expect(result.current.erase.ownerId).toBeNull();
-    render(<ChatEraseControls lang="en-US" threads={result.current.threads} erase={result.current.erase} />);
+    render(<ChatEraseControls lang="en-US" erase={result.current.erase} />);
     expect(screen.getByRole("button", { name: "Delete all my chats" })).toBeDisabled();
     await act(async () => {
       await result.current.erase.deleteSelected(["legacy"]);
@@ -170,6 +173,36 @@ describe("useChatThreads — deletes reach the database while chats are not save
       await result.current.erase.deleteAll();
     });
     expect(deleteOwnerThreadsMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("useChatThreads — find chats mentioning a person, in every project", () => {
+  it("searches this owner's chats of every project and this project's older shared ones, and deletes a match where it lives", async () => {
+    const me = await ensureChatIdentity(CFG.httpUrl);
+    const mention = { history: [{ role: "user" as const, content: "about Erika Muster" }] };
+    const legacy = thread("legacy", mention);
+    const mineHere = thread("mine-here", { ownerId: me!.ownerId, ...mention });
+    const elsewhere = thread("elsewhere", { ownerId: me!.ownerId, projectId: "other", ...mention });
+    const quiet = thread("quiet", { ownerId: me!.ownerId, projectId: "other" });
+    const colleague = thread("colleague", { ownerId: "colleague", projectId: "other", ...mention });
+    loadThreadsMock.mockResolvedValue([legacy, mineHere]);
+    loadOwnerThreadsMock.mockResolvedValue([elsewhere, quiet, mineHere, colleague]);
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+
+    let found: ChatThread[] = [];
+    await act(async () => {
+      found = await result.current.erase.findMentioning("erika");
+    });
+    expect(loadOwnerThreadsMock).toHaveBeenCalledWith(CFG, expect.objectContaining({ ownerId: me!.ownerId }));
+    expect(found.map((th) => th.id).sort()).toEqual(["elsewhere", "legacy", "mine-here"]);
+    expect(found.find((th) => th.id === "elsewhere")!.projectId).toBe("other");
+
+    await act(async () => {
+      await result.current.erase.deleteSelected(["elsewhere"]);
+    });
+    expect(deleteThreadMock.mock.calls).toEqual([[CFG, "elsewhere", "other", me!.ownerId]]);
+    expect(result.current.threads.map((th) => th.id).sort()).toEqual(["legacy", "mine-here"]);
   });
 });
 
@@ -316,7 +349,7 @@ describe("useChatThreads — a chat started here is owned once saved", () => {
     function Harness(p: UseChatThreadsDeps) {
       const chatThreads = useChatThreads(p);
       api = chatThreads;
-      return <ChatEraseControls lang="en-US" threads={chatThreads.threads} erase={chatThreads.erase} />;
+      return <ChatEraseControls lang="en-US" erase={chatThreads.erase} />;
     }
     const props: UseChatThreadsDeps = {
       tursoMode: true, tursoConfig: CFG, projectId: "default", lang: "en-US", busy: false, history: [], display: [],
@@ -397,7 +430,7 @@ describe("useChatThreads — a locked identity can still erase its own chats", (
     await waitFor(() => expect(result.current.persistence).toBe("identity-locked"));
     expect(result.current.erase.enabled).toBe(true);
     expect(result.current.erase.ownerId).toBe("o-locked");
-    render(<ChatEraseControls lang="en-US" threads={result.current.threads} erase={result.current.erase} />);
+    render(<ChatEraseControls lang="en-US" erase={result.current.erase} />);
     expect(screen.getByRole("button", { name: "Delete all my chats" })).toBeEnabled();
     await act(async () => {
       await result.current.erase.deleteAll();

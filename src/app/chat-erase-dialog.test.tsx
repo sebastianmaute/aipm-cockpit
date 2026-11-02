@@ -1,10 +1,11 @@
 // src/app/chat-erase-dialog.test.tsx — "Delete all my chats" and "Find chats mentioning a person".
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { ChatEraseControls } from "./chat-erase-dialog";
 import type { ChatEraseActions } from "./use-chat-threads";
 import type { ChatThread } from "./chat-threads";
 import { loadI18n } from "./i18n";
+import { findThreadsMentioning } from "./chat-thread-mentions";
 
 function thread(id: string, over: Partial<ChatThread> = {}): ChatThread {
   return {
@@ -13,34 +14,43 @@ function thread(id: string, over: Partial<ChatThread> = {}): ChatThread {
   };
 }
 
-function actions(over: Partial<ChatEraseActions> = {}): ChatEraseActions {
+/** Erase actions whose search runs over `threads` (as the hook's does over the loaded rows). */
+function actions(over: Partial<ChatEraseActions> = {}, threads: ChatThread[] = []): ChatEraseActions {
   return {
     enabled: true,
     ownerId: "me",
     deleteAll: vi.fn(async () => "done" as const),
     deleteSelected: vi.fn(async () => undefined),
+    findMentioning: vi.fn(async (query: string) => findThreadsMentioning(threads, query, "me")),
     ...over,
   };
 }
 
-function renderControls(threads: ChatThread[], erase = actions(), lang: "en-US" | "de" = "en-US") {
-  render(<ChatEraseControls lang={lang} threads={threads} erase={erase} />);
-  return erase;
+function renderControls(
+  threads: ChatThread[], erase: Partial<ChatEraseActions> = {}, lang: "en-US" | "de" = "en-US",
+  projectNames?: ReadonlyMap<string, string>,
+) {
+  const full = actions(erase, threads);
+  render(<ChatEraseControls lang={lang} erase={full} projectNames={projectNames} />);
+  return full;
 }
 
-function search(query: string) {
+async function search(query: string) {
   fireEvent.click(screen.getByRole("button", { name: "Find chats mentioning a person" }));
   const dialog = screen.getByRole("dialog");
   fireEvent.change(within(dialog).getByRole("textbox", { name: "Name or e-mail address" }), { target: { value: query } });
-  fireEvent.click(within(dialog).getByRole("button", { name: "Search" }));
+  await act(async () => {
+    fireEvent.click(within(dialog).getByRole("button", { name: "Search" }));
+  });
   return dialog;
 }
 
 describe("ChatEraseControls — find chats mentioning a person", () => {
-  it("says that older shared chats are searched and can be deleted too", () => {
+  it("says that your chats of every project and older shared chats are searched and can be deleted too", () => {
     renderControls([thread("a")]);
     fireEvent.click(screen.getByRole("button", { name: "Find chats mentioning a person" }));
     const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("in every project of this database");
     expect(dialog).toHaveTextContent("older shared chats saved before chats became private, which you can delete too");
     expect(dialog).not.toHaveTextContent("Colleagues' chats are not searched.");
   });
@@ -130,7 +140,7 @@ describe("ChatEraseControls — find chats mentioning a person", () => {
 
   it("lists matches with row-unique tick boxes and deletes exactly the ticked ones", async () => {
     const erase = renderControls([jane, janeToo, other]);
-    const dialog = search("Jane");
+    const dialog = await search("Jane");
     const boxes = within(dialog).getAllByRole("checkbox");
     expect(boxes.map((b) => b.getAttribute("aria-label"))).toEqual(['Select "Budget (1)"', 'Select "Budget (2)"']);
     const deleteButton = within(dialog).getByRole("button", { name: "Delete selected" });
@@ -138,24 +148,43 @@ describe("ChatEraseControls — find chats mentioning a person", () => {
     fireEvent.click(within(dialog).getByRole("checkbox", { name: 'Select "Budget (2)"' }));
     fireEvent.click(deleteButton);
     await waitFor(() => expect(erase.deleteSelected).toHaveBeenCalledWith(["k"]));
+    await waitFor(() => expect(within(dialog).getAllByRole("checkbox")).toHaveLength(1));
   });
 
-  it("says when no chat matches", () => {
+  it("shows the project each match belongs to", async () => {
+    renderControls(
+      [jane, { ...janeToo, projectId: "q" }, { ...other, projectId: "gone", name: "Jane elsewhere" }], {}, "en-US",
+      new Map([["p", "Apollo"], ["q", "Borealis"]]),
+    );
+    const dialog = await search("jane");
+    const rows = within(dialog).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Project: Apollo");
+    expect(rows[1]).toHaveTextContent("Project: Borealis");
+    expect(rows[2]).toHaveTextContent("Project: gone");
+  });
+
+  it("says so when the search fails", async () => {
+    renderControls([jane], { findMentioning: vi.fn(async () => { throw new Error("x"); }) });
+    const dialog = await search("jane");
+    expect(await within(dialog).findByText("The chats could not be searched. Please try again.")).toBeInTheDocument();
+  });
+
+  it("says when no chat matches", async () => {
     renderControls([other]);
-    const dialog = search("jane");
+    const dialog = await search("jane");
     expect(dialog).toHaveTextContent('No chat mentions "jane".');
     expect(within(dialog).queryAllByRole("checkbox")).toHaveLength(0);
   });
 
-  it("does not list a colleague's chat", () => {
+  it("does not list a colleague's chat", async () => {
     renderControls([thread("c", { ownerId: "colleague", name: "Jane" })]);
-    const dialog = search("jane");
+    const dialog = await search("jane");
     expect(within(dialog).queryAllByRole("checkbox")).toHaveLength(0);
   });
 
   it("says so when deleting fails", async () => {
-    renderControls([jane], actions({ deleteSelected: vi.fn(async () => { throw new Error("x"); }) }));
-    const dialog = search("jane");
+    renderControls([jane], { deleteSelected: vi.fn(async () => { throw new Error("x"); }) });
+    const dialog = await search("jane");
     fireEvent.click(within(dialog).getByRole("checkbox", { name: 'Select "Budget"' }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete selected" }));
     expect(await within(dialog).findByText("Some chats could not be deleted. Please try again.")).toBeInTheDocument();

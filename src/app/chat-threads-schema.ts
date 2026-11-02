@@ -169,6 +169,13 @@ export function deleteOwnerThreadsStatements(ownerId: string): SqlStmt[] {
   return [{ sql: `DELETE FROM chat_threads WHERE owner_id = ?`, args: [txt(ownerId)] }];
 }
 
+/** Every row of one owner, in every project of the database, newest first — what "find chats mentioning
+ *  a person" searches (opened locally; never another owner's row, never a legacy one). */
+export function ownerThreadsSelect(ownerId: string): SqlStmt[] {
+  if (ownerId === "") throw new Error("ownerThreadsSelect: empty owner id");
+  return [{ sql: `SELECT * FROM chat_threads WHERE owner_id = ? ORDER BY updated_at DESC`, args: [txt(ownerId)] }];
+}
+
 /** The ids of every legacy owner-less row, in every project of the database — the rows a
  *  "delete all my chats" leaves standing. Ids only: no content is read. */
 export function legacyThreadIdsSelect(): SqlStmt[] {
