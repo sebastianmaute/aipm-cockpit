@@ -22,9 +22,9 @@ export function resetChatRetentionSweepForTests(): void {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** The age past which another database's thread-name drafts go while no retention period is in force
- *  (unknown, or its setting invalid). */
-const DEFAULT_DRAFT_DAYS = 30;
+/** The shortest age past which another database's thread-name drafts go: that database's own period is
+ *  not known here, so the current one is used only when it is longer. */
+const MIN_OTHER_DRAFT_DAYS = 30;
 /** A chat thread-name outbox scope: `<database hash>:chat:<project id>` (`pendingEditScope`). */
 const CHAT_SCOPE_RE = /^[^:]+:chat:/;
 
@@ -75,17 +75,19 @@ export type ChatRetentionSweepDeps = {
  * project-sweep retry still runs. After a sweep that ran, the pending renames of threads that no
  * longer exist in this database are dropped (`dropOrphanedRenames`).
  *
- * Also once per page load (with a database open, after the load): the thread-name drafts of every OTHER
- * database older than the retention period — 30 days while none is in force — are dropped
- * (`dropOldDraftsOfOtherDatabases`).
+ * Also once per page load, with a database open, after the load and once the chat settings are known with
+ * a retention period in force (never while it is paused): the thread-name drafts of every OTHER database
+ * older than the longer of that period and 30 days are dropped (`dropOldDraftsOfOtherDatabases`).
  */
 export function useChatRetentionSweep({ tursoConfig, loadPending }: ChatRetentionSweepDeps): void {
   const chat = getAiDeploymentState().chat;
   const retentionDays = chat && !chat.retentionInvalid ? chat.retentionDays : null;
   useEffect(() => {
-    if (!tursoConfig?.httpUrl || loadPending || otherDraftsDroppedThisLoad) return;
+    // `retentionDays` is null while the settings are unknown or the period is paused: wait (the flag is set
+    // only when this actually runs).
+    if (!tursoConfig?.httpUrl || loadPending || retentionDays === null || otherDraftsDroppedThisLoad) return;
     otherDraftsDroppedThisLoad = true;
-    dropOldDraftsOfOtherDatabases(tursoConfig.httpUrl, retentionDays ?? DEFAULT_DRAFT_DAYS);
+    dropOldDraftsOfOtherDatabases(tursoConfig.httpUrl, Math.max(retentionDays, MIN_OTHER_DRAFT_DAYS));
   }, [tursoConfig, retentionDays, loadPending]);
   useEffect(() => {
     if (!tursoConfig || loadPending) return;
