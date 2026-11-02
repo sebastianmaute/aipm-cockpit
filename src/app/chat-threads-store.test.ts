@@ -8,6 +8,7 @@ import {
   __resetChatThreadsHealForTests,
 } from "./chat-threads-store";
 import { TABLE_NAMES, type SqlStmt } from "./turso-schema";
+import { CHAT_THREADS_DDL } from "./chat-threads-schema";
 import { generateChatKey } from "./chat-crypto";
 import type { ChatIdentity } from "./chat-thread-codec";
 import type { ChatThread } from "./chat-threads";
@@ -48,6 +49,9 @@ beforeEach(() => {
   pipe.mockResolvedValue([]);
   __resetChatThreadsHealForTests();
 });
+
+/** One plain ok per DDL statement: the results of a call start with these. */
+const DDL_OK = CHAT_THREADS_DDL.map(() => ({ type: "ok" }));
 
 const lastStmts = (): SqlStmt[] => pipe.mock.calls.at(-1)![1] as SqlStmt[];
 const values = (s: SqlStmt | undefined): string[] => (s?.args ?? []).map((a) => a.value as string);
@@ -109,7 +113,8 @@ describe("chat-threads-store", () => {
     pipe.mockImplementation(updateResult(0));
     await expect(saveThread(cfg, th, alice, spkiB64, { stored: true })).resolves.toBe("gone");
     const stmts = pipe.mock.calls.map((c) => c[1] as SqlStmt[]).filter((ss) => ss.some((x) => /^UPDATE chat_threads/.test(x.sql))).at(-1)!;
-    expect(stmts.some((s) => /INSERT/i.test(s.sql))).toBe(false);
+    // The DDL's owner guard names INSERT too; no statement of the save itself may insert.
+    expect(stmts.filter((s) => !CHAT_THREADS_DDL.includes(s.sql)).some((s) => /INSERT/i.test(s.sql))).toBe(false);
     const update = stmts.find((s) => /^UPDATE chat_threads SET /.test(s.sql));
     expect(update?.sql).toMatch(/WHERE id = \? AND project_id = \? AND \(owner_id = \? OR owner_id IS NULL OR owner_id = ''\)$/);
     expect(values(update).slice(-3)).toEqual(["t1", "p", "alice"]);
@@ -193,7 +198,7 @@ describe("chat-threads-store", () => {
   it("loadLegacyThreadIds selects only the ids of owner-less rows and returns them", async () => {
     pipe.mockImplementation(async (_c: unknown, stmts: SqlStmt[]) =>
       stmts.some((s) => /^SELECT id FROM chat_threads/.test(s.sql))
-        ? [{ type: "ok" }, { type: "ok", response: { type: "execute", result: { cols: [{ name: "id" }], rows: [[{ value: "n1" }], [{ value: "n2" }]] } } }]
+        ? [...DDL_OK, { type: "ok", response: { type: "execute", result: { cols: [{ name: "id" }], rows: [[{ value: "n1" }], [{ value: "n2" }]] } } }]
         : []);
     expect(await loadLegacyThreadIds(cfg)).toEqual(["n1", "n2"]);
     const select = lastStmts().find((s) => /^SELECT id FROM chat_threads/i.test(s.sql))!;
@@ -212,7 +217,7 @@ describe("chat-threads-store", () => {
   it("loadThreads selects the owner's and legacy rows newest-first and decodes them", async () => {
     pipe.mockImplementation(async (_c: unknown, stmts: SqlStmt[]) =>
       stmts.some((s) => /^SELECT \* FROM chat_threads/.test(s.sql))
-        ? [{ type: "ok" }, selectResult([
+        ? [...DDL_OK, selectResult([
           ["t2", "p", "", "Later", "c2", "u2", "[]", "[]", "", ""],
           ["t1", "p", "", "Earlier", "c1", "u1", JSON.stringify(th.history), JSON.stringify(th.display), "", ""],
         ])]
@@ -237,7 +242,7 @@ describe("chat-threads-store", () => {
   it("a malformed legacy JSON column falls back to []", async () => {
     pipe.mockImplementation(async (_c: unknown, stmts: SqlStmt[]) =>
       stmts.some((s) => /^SELECT \* FROM chat_threads/.test(s.sql))
-        ? [{ type: "ok" }, selectResult([["t1", "p", "", "N", "c", "u", "not json", "[]", "", ""]])]
+        ? [...DDL_OK, selectResult([["t1", "p", "", "N", "c", "u", "not json", "[]", "", ""]])]
         : []);
     const out = await loadThreads(cfg, "p", null);
     expect(out[0].history).toEqual([]);
@@ -259,7 +264,7 @@ describe("chat-threads-store", () => {
     const isPragma = (stmts: SqlStmt[]) => stmts.some((s) => /^PRAGMA table_info\("chat_threads"\)$/.test(s.sql));
 
     it("adds the missing columns in one transaction, once per database", async () => {
-      pipe.mockImplementation(async (_c: unknown, stmts: SqlStmt[]) => (isPragma(stmts) ? [{ type: "ok" }, OLD_PRAGMA] : []));
+      pipe.mockImplementation(async (_c: unknown, stmts: SqlStmt[]) => (isPragma(stmts) ? [...DDL_OK, OLD_PRAGMA] : []));
       await deleteThread(cfg, "t1", "p", "alice");
       await deleteThread(cfg, "t2", "p", "alice");
       const calls = pipe.mock.calls.map((c) => c[1] as SqlStmt[]);

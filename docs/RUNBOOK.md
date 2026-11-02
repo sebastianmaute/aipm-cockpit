@@ -700,13 +700,18 @@ count of changes); what it proposed is in the tool call beside it, which is sear
 
 An open tab running THIS release cannot upload an erased chat again: its next save of that
 chat changes no row, and the tab closes the chat (its list, the conversation on screen) and
-says so. ★★ A tab or a desktop install still running an OLDER release can write it back.
-After an erasure, ask people to reload every open tab and to update every desktop install
-(desktop installs update separately), or run `search` again afterwards and repeat the delete.
+says so. A tab or a desktop install still running an OLDER release cannot write it back
+either, once the database carries the owner guard (the `chat_threads_owner_required`
+trigger, which this release creates the first time it touches the chats, and the server's
+daily sweep creates too): the database refuses every chat saved without an owner. Before
+that guard exists, it can; after an erasure, ask people to reload every open tab and to
+update every desktop install (desktop installs update separately), or run `search` again
+afterwards and repeat the delete.
 ★★ Before relying on any of these guarantees, update EVERY device that shares the database,
-desktop installs included: a device on the previous release prunes colleagues' encrypted
-chats beyond 50 per project, and can overwrite an encrypted chat so that not even the
-operator can open it.
+desktop installs included. A device on the previous release can no longer save chats: the
+owner guard refuses its save, and it shows a save error until it is updated. Without the
+guard it would have saved new chats as plain text that every colleague could read. It still
+prunes colleagues' encrypted chats beyond 50 per project, which the database cannot block.
 
 **SQL one-liners** (for example in `turso db shell <db>`):
 

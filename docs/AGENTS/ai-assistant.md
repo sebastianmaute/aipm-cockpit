@@ -2283,6 +2283,11 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   DO UPDATE … WHERE` that only overwrites a row of the same project whose owner is the writer or nobody — never
   a delete-then-insert pair, because `runTursoPipeline` only opens a transaction when the first statement is
   literal `BEGIN`. A guarded upsert that matches nothing is a silent no-op.
+  ★★ `CHAT_THREADS_DDL` also carries the trigger `chat_threads_owner_required`, which ABORTS every INSERT whose
+  `owner_id` is NULL or '' — the previous release's plaintext `INSERT OR REPLACE` included, before it can replace
+  a row. Nothing in this code may insert an owner-less row (a legacy takeover is an UPDATE), and a test fixture
+  that needs a legacy row inserts it owned and then UPDATEs the owner away
+  (`chat-threads-schema.execute.test.ts`).
   ★★ That upsert is ONLY for a thread never stored. A thread the hook knows is stored (it was loaded, or a
   save of it returned "saved") is written with `updateStoredThreadStatements`, an owner-guarded UPDATE: when
   it changes no row, `saveThread` runs ONE id-only read (`threadPresentSelect`, no content): no row is "gone"

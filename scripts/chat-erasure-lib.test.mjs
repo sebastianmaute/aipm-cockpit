@@ -106,10 +106,14 @@ function makeFakeTurso(db, { status = 200 } = {}) {
   return { fetchImpl, calls };
 }
 
+/** Insert a row as given. The owner guard refuses an owner-less INSERT, so a legacy row is written
+ *  owned and then made owner-less, the way a row from before the guard looks. */
 function insertRow(db, row) {
+  const legacy = !row.owner_id;
   db.prepare(
     `INSERT INTO chat_threads (id, project_id, owner_id, name, created_at, updated_at, history_json, display_json, key_owner, key_operator) VALUES (?,?,?,?,?,?,?,?,?,?)`,
-  ).run(row.id, row.project_id, row.owner_id, row.name, row.created_at, row.updated_at, row.history_json, row.display_json, row.key_owner, row.key_operator);
+  ).run(row.id, row.project_id, legacy ? "seed" : row.owner_id, row.name, row.created_at, row.updated_at, row.history_json, row.display_json, row.key_owner, row.key_operator);
+  if (legacy) db.prepare("UPDATE chat_threads SET owner_id = ? WHERE id = ?").run(row.owner_id ?? null, row.id);
 }
 
 function thread(id, history, display = [], name = "Chat") {

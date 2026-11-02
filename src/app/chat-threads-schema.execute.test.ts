@@ -58,17 +58,25 @@ function row(id: string, over: Partial<StoredThreadRow> = {}): StoredThreadRow {
   };
 }
 
-/** Insert a legacy row with a real SQL NULL owner, which the builders never bind. */
+/** A legacy row with a real SQL NULL owner, which the builders never bind. The owner guard refuses an
+ *  owner-less INSERT, so it is written owned and then made owner-less, the way a row from before the
+ *  guard looks. */
 function insertNullOwner(db: DatabaseSync, id: string, updatedAt: string | null = daysAgo(1), projectId = "p"): void {
-  db.prepare("INSERT INTO chat_threads (id, project_id, owner_id, name, updated_at) VALUES (?, ?, NULL, 'Old', ?)")
+  db.prepare("INSERT INTO chat_threads (id, project_id, owner_id, name, updated_at) VALUES (?, ?, 'seed', 'Old', ?)")
     .run(id, projectId, updatedAt);
+  db.prepare("UPDATE chat_threads SET owner_id = NULL WHERE id = ?").run(id);
 }
 
 /** Insert a row exactly as given, its dates included: the builders date every write by the database
  *  clock, so a fixture that needs an age is seeded directly. */
 function seed(db: DatabaseSync, r: StoredThreadRow): void {
   const cols = Object.keys(r) as (keyof StoredThreadRow)[];
-  db.prepare(`INSERT INTO chat_threads (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`).run(...cols.map((c) => r[c]));
+  const owner = r.owner_id === "" ? "seed" : r.owner_id;
+  db.prepare(`INSERT INTO chat_threads (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})`)
+    .run(...cols.map((c) => (c === "owner_id" ? owner : r[c])));
+  // A legacy (owner-less) fixture: the owner guard refuses an owner-less INSERT, so it is made
+  // owner-less afterwards, the way a row from before the guard looks.
+  if (r.owner_id === "") db.prepare("UPDATE chat_threads SET owner_id = '' WHERE id = ?").run(r.id);
 }
 
 /** Rows without their two dates, which every write takes from the database clock. */
@@ -175,7 +183,7 @@ describe("chat_threads statements against a real engine", () => {
 
   it("upsert takes over a legacy row (NULL or empty owner)", () => {
     insertNullOwner(db, "n");
-    run(db, upsertThreadStatements(row("e", { owner_id: "" })));
+    seed(db, row("e", { owner_id: "" }));
     run(db, upsertThreadStatements(row("n", { owner_id: "bob", name: "c1.bob" })));
     run(db, upsertThreadStatements(row("e", { owner_id: "bob", name: "c1.bob" })));
     expect(db.prepare("SELECT id, owner_id, name FROM chat_threads ORDER BY id").all()).toEqual([
@@ -362,5 +370,46 @@ describe("chat_threads heal", () => {
   it("emits nothing for a fresh table or an unknown PRAGMA result", () => {
     expect(chatThreadsHealAlters(pragma(db))).toEqual([]);
     expect(chatThreadsHealAlters(undefined)).toEqual([]);
+  });
+
+  it("leaves an old-shaped database with the owner guard, which refuses the previous release's insert", () => {
+    const old = new DatabaseSync(":memory:");
+    old.exec(OLD_DDL);
+    old.prepare("INSERT INTO chat_threads (id, project_id, name) VALUES ('t', 'p', 'Old')").run();
+    // The heal: the DDL, then the ALTERs it computes.
+    run(old, CHAT_THREADS_DDL.map((sql) => ({ sql })));
+    run(old, chatThreadsHealAlters(pragma(old)));
+    const triggers = old.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'chat_threads'").all();
+    expect(triggers).toEqual([{ name: "chat_threads_owner_required" }]);
+    expect(() => old.exec(`${PREVIOUS_RELEASE_INSERT} VALUES ('n', 'p', 'New', 'x', 'x', '[]', '[]')`)).toThrow(/owner required/);
+    expect(old.prepare("SELECT id, owner_id FROM chat_threads").all()).toEqual([{ id: "t", owner_id: null }]);
+  });
+});
+
+/** The previous release's save: an owner-less plaintext row, replacing any row with the same id. */
+const PREVIOUS_RELEASE_INSERT =
+  "INSERT OR REPLACE INTO chat_threads (id, project_id, name, created_at, updated_at, history_json, display_json)";
+
+describe("chat_threads owner guard", () => {
+  it("refuses an owner-less insert of a new id: no row is written", () => {
+    expect(() => db.exec(`${PREVIOUS_RELEASE_INSERT} VALUES ('n', 'p', 'Plain', 'x', 'x', '[]', '[]')`)).toThrow(/owner required/);
+    expect(() => db.exec("INSERT INTO chat_threads (id, project_id, owner_id) VALUES ('m', 'p', '')")).toThrow(/owner required/);
+    expect(ids(db)).toEqual([]);
+  });
+
+  it("refuses an owner-less replace of an owned row: the owned row stays byte-identical", () => {
+    seed(db, row("t1"));
+    const before = db.prepare("SELECT * FROM chat_threads").all();
+    expect(() => db.exec(`${PREVIOUS_RELEASE_INSERT} VALUES ('t1', 'p', 'Plain', 'x', 'x', '[]', '[]')`)).toThrow(/owner required/);
+    expect(db.prepare("SELECT * FROM chat_threads").all()).toEqual(before);
+  });
+
+  it("lets an owned write through, as an insert and as an update of a legacy row it takes over", () => {
+    run(db, upsertThreadStatements(row("t1")));
+    seed(db, row("e", { owner_id: "" }));
+    run(db, upsertThreadStatements(row("e")));
+    expect(db.prepare("SELECT id, owner_id FROM chat_threads ORDER BY id").all()).toEqual([
+      { id: "e", owner_id: "alice" }, { id: "t1", owner_id: "alice" },
+    ]);
   });
 });

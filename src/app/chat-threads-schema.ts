@@ -23,8 +23,18 @@ export const CHAT_THREADS_COLUMNS = [
   "owner_id", "key_owner", "key_operator",
 ] as const;
 
+/** The table, then the owner guard. ★ The guard refuses every INSERT without an owner, so a device
+ *  still on a release from before chat encryption cannot add a plaintext chat (which every colleague
+ *  would read) nor replace an owned row with one (its `INSERT OR REPLACE` is aborted before the
+ *  conflict is resolved). This code never inserts an owner-less row: taking over a legacy row is an
+ *  UPDATE. Legacy rows already stored are untouched. Every caller runs this list before its own
+ *  statements, so the heal creates the guard on an existing database too. On a table from before the
+ *  owner column, the trigger is created and the heal's ALTER then gives it the column it reads. */
 export const CHAT_THREADS_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS chat_threads (id TEXT PRIMARY KEY, project_id TEXT, name TEXT, created_at TEXT, updated_at TEXT, history_json TEXT, display_json TEXT, owner_id TEXT, key_owner TEXT, key_operator TEXT)`,
+  `CREATE TRIGGER IF NOT EXISTS chat_threads_owner_required BEFORE INSERT ON chat_threads ` +
+    `WHEN NEW.owner_id IS NULL OR NEW.owner_id = '' ` +
+    `BEGIN SELECT RAISE(ABORT, 'chat_threads: owner required'); END`,
 ];
 
 /** One stored row, every column as text (an owner-less legacy row carries ''). */
