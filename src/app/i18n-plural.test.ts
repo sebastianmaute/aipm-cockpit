@@ -278,33 +278,41 @@ describe("plural key pairing", () => {
     expect(callForm(probeKey).test(`const K = { a: "${probeKey}" } as const;`)).toBe(false);
 
     // ★★★ ONE PASS PER LINE, NOT ONE PER BASE (§787). The scan used to test
-    // every line against every base twice; at 183 paired bases and ~270,000
-    // scanned lines (2026-11-02) that was ~99 million checks and 5.3 s on a
-    // quiet machine, 24 s on a loaded one, against the 20 s unit timeout. Now
-    // ONE alternation finds which bases a line names, a file naming none is
-    // skipped before it is split, and the call-form regex runs only for a base
-    // the line names (it cannot match otherwise: it contains the quoted name).
-    // Same offender maps, same order: proved equal on the 2026-11-02 tree.
-    // ★★ The closing quote is a LOOKAHEAD so two adjacent literals both match,
-    // and the file check uses its own NON-global copy: `matchAll` starts from
-    // the regex's `lastIndex`, so a global `test` on the file text would make
-    // the line pass skip names. The first version did exactly that.
+    // every line against every base twice; at 183 paired bases and 270,029
+    // scanned lines (2026-11-02) that was ~99 million checks: this test took
+    // 5.3 s on a quiet machine, and the whole file 24 s on a loaded one,
+    // against the 20 s unit timeout. Now ONE alternation finds which bases a
+    // line names, a file naming none is skipped before it is split, and the
+    // call-form regex runs only for a base the line names (it cannot match
+    // otherwise: it contains the quoted name). Same offender maps, same order:
+    // proved equal on the 2026-11-02 tree. Re-derive the two counts with
+    //   node -e "const fs=require('fs'),p=require('path');const f=[];const w=d=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){const q=p.join(d,e.name);if(e.isDirectory())w(q);else if(/\.tsx?$/.test(e.name)&&!/\.test\.tsx?$/.test(e.name)&&!/^i18n(\.de)?\.ts$/.test(e.name))f.push(q)}};w('src/app');let n=0;for(const x of f)n+=fs.readFileSync(x,'utf8').split(/\r?\n/).length;console.log(f.length,n)"
+    // (files, lines) and `console.log(bases.length)` here.
+    // ★★ The closing quote is a LOOKAHEAD so a quote two needles SHARE still
+    // yields both (`"a"b"` names a and b, as `includes` found them). And the
+    // file check uses its own NON-global copy: `matchAll` starts from the
+    // regex's `lastIndex`, so a global `test` on the file text would make the
+    // line pass skip names. The first version did exactly that.
     const named = new RegExp(`"(${bases.join("|")})(?=")`, "g");
     const namesAny = new RegExp(named.source);
     const namedIn = (line: string) => new Set([...line.matchAll(named)].map((m) => m[1]));
     // The new matcher gets the same positive and negative controls: it must
-    // find an exact quoted name, two in one line, and not a longer key that
-    // merely starts with one.
+    // find an exact quoted name, two in one line, two sharing a quote, and not
+    // a longer key that merely starts with one; the file check must stay
+    // non-global.
     expect([...namedIn(`f("${probeKey}", "${bases[1]}")`)]).toEqual([probeKey, bases[1]]);
+    expect([...namedIn(`"${probeKey}"${bases[1]}"`)]).toEqual([probeKey, bases[1]]);
     expect(namedIn(`f("${probeKey}Extra")`).size).toBe(0);
     expect(namesAny.test(`x "${probeKey}" y`)).toBe(true);
+    expect(namesAny.global).toBe(false);
 
     // ★★ THIS IS THE SECOND TIME THE SCAN HAS GROWN INTO THE TIMEOUT. On
     // 2026-09-08 (42 bases) building a RegExp per line per base timed it out
     // on three full-suite runs while it passed in isolation every time; a
-    // timeout prints no assertion text, so it read as a flake. Keep every
-    // per-line step independent of the base count, or it comes back as the
-    // pairs grow. Measure the test alone with
+    // timeout prints no assertion text, so it read as a flake. Keep per-line
+    // work to cheap steps: never build or run a RegExp per base on every line
+    // (the loop below walks the bases only for a line that names one, as a
+    // `Set` lookup), or it comes back as the pairs grow. Measure the test alone with
     //   npx vitest run src/app/i18n-plural.test.ts --reporter=verbose
     // and read this test's own figure. The `> 500` floor above is an
     // anti-vacuity floor, not the file count.
