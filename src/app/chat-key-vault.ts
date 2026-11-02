@@ -137,8 +137,9 @@ export async function getChatIdentity(httpUrl: string): Promise<ChatIdentity | n
 const CHAT_IDENTITY_LOCK = "aipm-cockpit:chat-identity";
 
 /** Runs `fn` holding the identity lock across tabs when the browser has Web Locks; otherwise just
- *  runs it (the in-tab `creating` guard below still applies). */
-function withIdentityLock<T>(fn: () => Promise<T>): Promise<T> {
+ *  runs it (the in-tab `creating` guard below still applies). Not re-entrant: `fn` must not call
+ *  `ensureChatIdentity` or `startNewChatIdentity`, which take the same lock. */
+export function withIdentityLock<T>(fn: () => Promise<T>): Promise<T> {
   const locks = typeof navigator === "undefined" ? undefined : navigator.locks;
   return locks?.request ? locks.request(CHAT_IDENTITY_LOCK, fn) : fn();
 }

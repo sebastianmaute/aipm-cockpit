@@ -23,6 +23,7 @@ import { ensureChatThreadsColumns } from "./chat-threads-store";
 import { ChatCryptoError, unwrapForOwner, wrapForOwner } from "./chat-crypto";
 import {
   clearUnmovedChatIdentity, readChatIdentity, readUnmovedChatIdentity, replaceChatIdentity, storedChatOwnerIds,
+  withIdentityLock,
 } from "./chat-key-vault";
 import { ownerKeyAd, resealThreadFields, type ChatIdentity } from "./chat-thread-codec";
 import { bytesToBase64 } from "./base64";
@@ -166,7 +167,8 @@ async function reownThreads(
  *  entry), replacing the one held; the replaced identity's owner id is kept in the entry. Then that
  *  identity's threads move to the adopted owner, and only once they have is its chat_keys row deleted.
  *  A failed move throws and leaves the replaced identity in the entry, so unlocking again moves its
- *  threads. "wrong" and "unknown-code" change nothing. */
+ *  threads. The vault read, the identity write and the move run under the chat identity lock, so another
+ *  tab cannot create or replace the identity in between. "wrong" and "unknown-code" change nothing. */
 export async function unlockWithPassphrase(
   config: TursoConfig | null,
   httpUrl: string,
@@ -181,7 +183,11 @@ export async function unlockWithPassphrase(
   const chatKey = await openStoredKey(row, passphrase);
   if (!chatKey) return { outcome: "wrong" };
   const adopted: ChatIdentity = { ownerId: row.owner_id, chatKey };
+  return withIdentityLock(() => adopt(config, httpUrl, adopted));
+}
 
+/** The adoption itself, run under the identity lock (`unlockWithPassphrase`). */
+async function adopt(config: TursoConfig | null, httpUrl: string, adopted: ChatIdentity): Promise<UnlockResult> {
   const current = await readChatIdentity(httpUrl);
   // An identity that could not be read right now is not replaced: it may still be good.
   if (current.kind === "transient") throw new Error("chat identity not readable right now");

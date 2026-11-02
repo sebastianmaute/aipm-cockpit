@@ -341,6 +341,47 @@ describe("chat passphrase", () => {
     expect(storedChatOwnerIds(URL)).toEqual([a.ownerId, "o-locked"]);
   });
 
+  it("the whole adoption — the identity write and the move — runs holding the chat identity lock", async () => {
+    const { code } = await browserA();
+    await browserB();
+    const LOCK = "aipm-cockpit:chat-identity";
+    const held = new Set<string>();
+    Object.defineProperty(window.navigator, "locks", {
+      configurable: true,
+      value: {
+        request: async (name: string, cb: () => Promise<unknown>) => {
+          held.add(name);
+          try {
+            return await cb();
+          } finally {
+            held.delete(name);
+          }
+        },
+      },
+    });
+    const writesHeld: boolean[] = [];
+    const movesHeld: boolean[] = [];
+    const realSetItem = Storage.prototype.setItem;
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === LOCK) writesHeld.push(held.has(LOCK));
+      realSetItem.call(this, k, v);
+    });
+    vi.mocked(runTursoPipeline).mockImplementation(async (_config, stmts) => {
+      if (stmts.some((s) => /^UPDATE chat_threads\b/.test(s.sql))) movesHeld.push(held.has(LOCK));
+      return execute(stmts);
+    });
+    try {
+      expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toMatchObject({ outcome: "adopted", moved: 1 });
+    } finally {
+      setItem.mockRestore();
+      vi.mocked(runTursoPipeline).mockImplementation(async (_config, stmts) => execute(stmts));
+      Reflect.deleteProperty(window.navigator, "locks");
+    }
+    expect(writesHeld.length).toBeGreaterThan(0);
+    expect(writesHeld.every(Boolean)).toBe(true);
+    expect(movesHeld).toEqual([true]);
+  });
+
   it("a browser without an identity adopts without moving anything", async () => {
     const { a, code } = await browserA();
     window.localStorage.clear();

@@ -2381,6 +2381,9 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     (`reownThreads`), and only then is `unmoved` cleared and the replaced owner's `chat_keys` row deleted (a
     failed delete is logged as `chat.replacedKeyDeleteFailed` and keeps the adoption). A move that fails throws;
     unlocking again reads `readUnmovedChatIdentity` and finishes it.
+    The whole adoption (vault read, identity write, move) runs inside `withIdentityLock`, the lock creating an
+    identity takes, so another tab cannot create or replace the identity in between. ★ Not re-entrant: nothing
+    inside may call `ensureChatIdentity` or `startNewChatIdentity`.
     `startNewChatIdentity` deliberately does NOT: the old unlock code is the way back to the earlier chats, and
     the locked-identity notice tells the person to use it.
   - **Three deleters, one predicate** (`expireThreadsStatements`: older than the retention period, or no usable
