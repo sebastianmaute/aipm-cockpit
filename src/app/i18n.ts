@@ -1285,7 +1285,7 @@ const enUS = {
   chatThreadUntitled: "Untitled chat",
   chatNotSavedNoRecoveryKey: "Chats are not saved: the operator has not set a recovery key.",
   chatNotSavedNoCrypto: "Chats are not saved: this browser cannot encrypt them.",
-  chatNotSavedIdentityLocked: "Your saved chats on this browser cannot be opened any more. Start a new chat identity to save chats again; your earlier chats stay with the operator until they expire. If you set a chat passphrase earlier, start a new identity, then use “Open my chats from another browser” in Settings → AI with your unlock code to get your earlier chats back.",
+  chatNotSavedIdentityLocked: "Your saved chats cannot be opened on this browser any more. You can delete them now (“Delete my old chats”) or start a new chat identity to save chats again. If you set a chat passphrase earlier, you can get them back with your unlock code in Settings → AI.",
   chatStartNewIdentity: "Start a new chat identity",
   chatDeleteOldChats: "Delete my old chats",
   chatDeleteOldChatsTitle: "Delete my old chats?",
