@@ -154,6 +154,21 @@ function licenceFileName(dir) {
   return names.sort()[0] ?? null;
 }
 
+/** An override whose text is read from a sibling folder under the same `compiled/`. */
+function derivedLicence(pkg, override, declared) {
+  const source = join(pkg.dir, "..", override.textFrom);
+  const file = licenceFileName(source);
+  return {
+    spdx: override.spdx,
+    text: file ? readFileSync(join(source, file), "utf8") : null,
+    file,
+    declared,
+    overrideReason: override.reason,
+    derivedFrom: override.textFrom,
+    ...(file ? {} : { derivedTextMissing: true }),
+  };
+}
+
 /**
  * @param {{ name: string; dir: string; vendoredIn?: string }} pkg
  * @returns {{
@@ -162,8 +177,12 @@ function licenceFileName(dir) {
  *   file: string | null;
  *   declared: string | null;
  *   overrideReason?: string;
+ *   derivedFrom?: string;
+ *   derivedTextMissing?: boolean;
  * }} `file` is a bare name, so that no build path can reach a published file.
- *   `declared` is what the package said, usable as an id or not.
+ *   `declared` is what the package said, usable as an id or not. With an
+ *   override's `textFrom`, `text` and `file` are that sibling vendored
+ *   package's (`derivedFrom`); `derivedTextMissing` when it has none.
  */
 export function licenseOf(pkg) {
   const declared = declaredLicence(readManifest(pkg.dir));
@@ -172,6 +191,7 @@ export function licenseOf(pkg) {
   const spdx = declared ? normaliseLicence(declared) : null;
   if (spdx) return { spdx, text, file, declared };
   const override = pkg.vendoredIn && !declared && Object.hasOwn(LICENCE_OVERRIDES, pkg.name) ? LICENCE_OVERRIDES[pkg.name] : null;
+  if (override?.textFrom) return derivedLicence(pkg, override, declared);
   if (override) return { spdx: override.spdx, text, file, declared, overrideReason: override.reason };
   return { spdx: null, text, file, declared };
 }

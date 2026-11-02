@@ -18,7 +18,11 @@ function versionLabel(pkg) {
   return pkg.vendoredIn ? `${pkg.version} (bundled inside Next.js)` : pkg.version;
 }
 
-function licenceNote({ spdx, text, overrideReason }) {
+function licenceNote({ spdx, text, overrideReason, derivedFrom }) {
+  if (derivedFrom) {
+    const derived = `Derived from ${derivedFrom}; the licence text below is ${derivedFrom}'s.`;
+    return `Note: licence established by review: ${overrideReason}\n${derived}`;
+  }
   if (overrideReason) return `Note: licence established by review: ${overrideReason}`;
   if (spdx && !text) return "Note: this package ships no licence file; the identifier comes from its package.json.";
   return null;

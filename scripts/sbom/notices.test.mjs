@@ -173,8 +173,51 @@ describe("licenseOf", () => {
       expect(entry.reason.length).toBeGreaterThan(20);
     });
 
-    it.each(Object.entries(LICENCE_OVERRIDES))("%s cites the file in Next's install its licence was read from", (_name, entry) => {
-      expect(entry.reason).toMatch(/next\/dist\/compiled\/[^\s,;]+\/(LICEN[CS]E|COPYING)[^\s,;]*/i);
+    it.each(Object.entries(LICENCE_OVERRIDES))("%s cites what was read: a licence file in Next's install, or a URL", (_name, entry) => {
+      expect(entry.reason).toMatch(/next\/dist\/compiled\/[^\s,;]+\/(LICEN[CS]E|COPYING)[^\s,;]*|https:\/\/\S+/i);
+    });
+
+    it.each(Object.entries(LICENCE_OVERRIDES).filter(([, entry]) => entry.textFrom))(
+      "%s, whose text comes from another package, cites both the source of that claim and the file the text is read from",
+      (_name, entry) => {
+        expect(entry.reason).toMatch(/https:\/\/\S+/);
+        expect(entry.reason).toContain(`next/dist/compiled/${entry.textFrom}/LICENSE`);
+      },
+    );
+
+    it("image-detector is image-size's detector, per Next's build script", () => {
+      const entry = LICENCE_OVERRIDES["image-detector"];
+      expect(entry).toMatchObject({ spdx: "MIT", textFrom: "image-size" });
+      expect(entry.reason).toContain("https://github.com/vercel/next.js/blob/canary/packages/next/taskfile.js");
+      expect(entry.reason).toContain("ncc_image_detector");
+      expect(entry.reason).toContain("image-size/dist/detector.js");
+    });
+
+    describe("with textFrom", () => {
+      const COPYRIGHT = "Copyright © 2013-Present Aditya Yadav, http://netroy.in";
+      let detector;
+
+      beforeAll(() => {
+        writePkg("next/dist/compiled/image-size", { name: "image-size", license: "MIT" }, { LICENSE: `The MIT License (MIT)\n\n${COPYRIGHT}\n\nPermission is hereby granted` });
+        detector = vendoredEntry("image-detector", "vendored-in-next@16.4.2", writePkg("next/dist/compiled/image-detector", null, { "detector.js": "" }), false);
+      });
+
+      it("reads the licence text from the named sibling package", () => {
+        expect(licenseOf(detector)).toMatchObject({ spdx: "MIT", file: "LICENSE", derivedFrom: "image-size" });
+        expect(licenseOf(detector).text).toContain(COPYRIGHT);
+      });
+
+      it("has no text, and says what it looked for, when the sibling is absent", () => {
+        const lone = vendoredEntry("image-detector", "x", writePkg("lone/compiled/image-detector", null, { "detector.js": "" }), false);
+        expect(licenseOf(lone)).toMatchObject({ spdx: "MIT", text: null, file: null, derivedFrom: "image-size", derivedTextMissing: true });
+      });
+
+      it("puts image-size's copyright and the derivation in the notice", () => {
+        const notices = toNotices([detector], { electron: fileEntry("electron", "1.0.0", writePkg("electron-for-textfrom", { license: "MIT" })) });
+        const section = notices.slice(notices.indexOf("=== image-detector"), notices.indexOf("=== electron"));
+        expect(section).toContain(COPYRIGHT);
+        expect(section).toContain("Derived from image-size; the licence text below is image-size's.");
+      });
     });
   });
 });

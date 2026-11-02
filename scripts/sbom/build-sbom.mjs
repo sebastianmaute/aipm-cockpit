@@ -113,9 +113,10 @@ function licensesField(spdx) {
 }
 
 function toComponent(pkg, type = "library") {
-  const { spdx } = licenseOf(pkg);
+  const { spdx, derivedFrom } = licenseOf(pkg);
   const properties = [];
   if (pkg.vendoredIn) properties.push({ name: "aipm:vendored-in", value: pkg.vendoredIn });
+  if (derivedFrom) properties.push({ name: "aipm:derived-from", value: derivedFrom });
   if (pkg.versionKnown === false) properties.push({ name: "aipm:version-unknown", value: "true" });
   // An unknown version is left out (the field is optional): the marker the
   // vendored scan uses must never be read as an upstream version.
@@ -172,8 +173,10 @@ function describePkg(pkg) {
 export function checkLicences(set, deny) {
   const problems = [];
   for (const pkg of set) {
-    const { spdx, declared } = licenseOf(pkg);
-    if (!spdx) {
+    const { spdx, declared, derivedFrom, derivedTextMissing } = licenseOf(pkg);
+    if (derivedTextMissing) {
+      problems.push(`${describePkg(pkg)}: its licence text is to come from ${derivedFrom}, which is not installed beside it`);
+    } else if (!spdx) {
       problems.push(`${describePkg(pkg)}: unknown licence${declared ? ` (its package.json says "${declared}")` : ""}`);
     } else if (isDenied(parseLicence(spdx), deny)) {
       problems.push(`${describePkg(pkg)}: licence ${spdx} is on the deny list in ${SECURITY_WORKFLOW}`);

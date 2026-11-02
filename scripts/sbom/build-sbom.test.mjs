@@ -197,6 +197,15 @@ describe("toCycloneDx", () => {
       expect(new Set(refs).size).toBe(refs.length);
     });
 
+    it("whose licence text comes from another package records that package", () => {
+      const path = join(dir(), "image-detector");
+      writeFiles(path, { "detector.js": "" });
+      const detector = { name: "image-detector", version: "m", dir: path, vendoredIn: "next", versionKnown: false };
+      const component = toCycloneDx([detector], { appVersion: "1", electron }).components.find((c) => c.name === "image-detector");
+      expect(component.licenses).toEqual([{ expression: "MIT" }]);
+      expect(component.properties).toEqual(expect.arrayContaining([{ name: "aipm:derived-from", value: "image-size" }]));
+    });
+
     it("keeps babel-style entries sharing one folder apart", () => {
       const a = entry("@babel/a", "babel-packages", "vendored-in-next@1", false);
       const b = entry("@babel/b", "babel-packages", "vendored-in-next@1", false);
@@ -253,6 +262,13 @@ describe("checkLicences", () => {
     const problems = checkLicences([none, odd], deny);
     expect(problems[0]).toMatch(/none@1\.0\.0.*unknown/);
     expect(problems[1]).toMatch(/odd@1\.0\.0.*unknown.*SEE LICENSE IN EULA/);
+  });
+
+  it("reports an override whose licence text should come from a package that is not there", () => {
+    const dir = pkgDir("lone/compiled/image-detector", { "detector.js": "" });
+    const problems = checkLicences([{ name: "image-detector", version: "m", dir, vendoredIn: "next", versionKnown: false }], deny);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/image-detector.*image-size/);
   });
 
   it("calls an id SPDX does not define unknown, however well it is shaped", () => {
@@ -480,6 +496,14 @@ describe("the CLI", () => {
         "a shipped next-server bundle with no map beside it",
         { ".next/standalone/node_modules/next/dist/compiled/next-server/pages.runtime.prod.js": "" },
         /pages\.runtime\.prod\.js/,
+      ],
+      [
+        "a shipped image-detector whose licence text source, image-size, is not installed",
+        {
+          "node_modules/next/dist/compiled/image-detector/detector.js": "",
+          ".next/standalone/node_modules/next/dist/compiled/image-detector/detector.js": "",
+        },
+        /image-detector.*image-size/,
       ],
       [
         "a standalone copy with no licence file whose version the install does not hold",
