@@ -2265,7 +2265,10 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   `chat.threadOtherDatabase`) any write — rename, end-of-turn save, retry — whose config is not the thread's source,
   and `claimSource` keeps a send in another database's thread from inserting it here. The moment the database URL
   changes, a render-time reconcile drops the old database's rows from the list (and marks the registry not
-  loaded), before the new load settles. A turn that started in A and ends after the switch is still saved to A.
+  loaded), before the new load settles, and closes an open chat of the old database (or a conversation kept under no
+  thread) with the previous-database notice. A turn that started in A and ends after the switch is still saved to A
+  and then closed the same way; a load of B that settles mid-turn installs B's list but leaves the running turn alone
+  (`turnOfOtherDatabase`), instead of adopting B's thread and aborting the send.
   ★★★ A load keeps only held rows of ITS OWN database (`mergeThreadsAfterLoad` / `resetThreadsAfterFailedLoad`
   take a `fromLoadedDatabase` predicate). A project id is not unique across databases: without it, a close
   on a database the user left (`threadIdRef` null makes the next load take the stale branch) kept the old

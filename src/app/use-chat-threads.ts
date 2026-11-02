@@ -396,6 +396,27 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   });
   const { renameScope, confirmSavedName, namesLoadedRef } = renames;
 
+  // Whether a turn is running now, read by a load that settles: it must not take over a running turn of
+  // another database (see `turnOfOtherDatabase`).
+  const busyRef = useRef(busy);
+  useEffect(() => {
+    busyRef.current = busy;
+  });
+
+  /** A turn is running in a thread that did not come from `config`'s database: a load of that database
+   *  installs its list but leaves the running turn, its transcript and its active thread alone. The turn
+   *  finishes, is saved to its own database, and the end-of-turn effect then closes the screen with the
+   *  previous-database notice. Adopting the new list's thread here would abort the send, and the turn's
+   *  message and reply would never be saved. */
+  function turnOfOtherDatabase(config: TursoConfig | null): boolean {
+    const running = threadIdRef.current;
+    return (busyRef.current || abortRef.current !== null) && running !== null && !ledger.cameFrom(urlOf(config), running);
+  }
+  const turnOfOtherDatabaseRef = useRef(turnOfOtherDatabase);
+  useEffect(() => {
+    turnOfOtherDatabaseRef.current = turnOfOtherDatabase;
+  });
+
   // Turso mode: (re)fetch this project's thread list on mount and on project
   // switch, then adopt the most-recently-updated thread (or the empty state).
   // File mode never runs this — ChatPanel's render-time reconcile is its path.
@@ -445,7 +466,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         // §626. A rename typed before the last close and never saved: re-issue it now that the
         // server's own copy is in hand to check the draft's base against.
         namesLoadedRef.current(loaded, landingsAtStart);
-        if (settled.stale) return;
+        if (settled.stale || turnOfOtherDatabaseRef.current(tursoConfig)) return;
         setActiveThreadId(settled.next?.id ?? null);
         setHistory(settled.next?.history ?? []);
         setDisplay(settled.next?.display ?? []);
@@ -462,7 +483,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
         const settled = resetThreadsAfterFailedLoad(startedOn, threadIdRef.current, projectId, false, fromThisDatabase);
         setThreads(settled.updateThreads);
         setLoadedProjectId(projectId);
-        if (settled.stale) return;
+        if (settled.stale || turnOfOtherDatabaseRef.current(tursoConfig)) return;
         setActiveThreadId(null);
         setHistory([]);
         setDisplay([]);

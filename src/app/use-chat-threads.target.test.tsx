@@ -150,23 +150,44 @@ describe("useChatThreads — writes stay in the Turso database they started in (
     expect((saveThreadMock.mock.calls[0]![1] as ChatThread).history).toEqual(turn.history);
   });
 
-  it("a turn aborted by the new database's load saves nothing, so B's thread never reaches A", async () => {
+  it("B's load settling mid-turn leaves the running turn alone: it is saved to A, nothing to B, then the notice", async () => {
     const inB = [thread("tB", { name: "In B" })];
     loadsByDatabase([thread("t1")], undefined, inB);
-    const { result, rerender, initialProps } = renderChatThreads();
+    const abortRef: { current: AbortController | null } = { current: null };
+    const { result, rerender, initialProps } = renderChatThreads({ abortRef });
     await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
+    const setHistory = initialProps.setHistory as ReturnType<typeof vi.fn>;
 
+    const controller = new AbortController();
+    abortRef.current = controller;
     rerender({ ...initialProps, ...turn, busy: true });
     rerender({ ...initialProps, ...turn, busy: true, tursoConfig: CFG_B });
+    const historyCallsAtSwitch = setHistory.mock.calls.length;
+    // B's list is installed; the running turn and its transcript are untouched, and nothing aborts it.
     await waitFor(() => expect(result.current.threads).toEqual(inB));
+    await settle(() => {});
+    expect(result.current.activeThreadId).toBe("t1");
+    expect(setHistory.mock.calls.length).toBe(historyCallsAtSwitch);
+    expect(controller.signal.aborted).toBe(false);
+
     saveThreadMock.mockClear();
-    rerender({ ...initialProps, ...turn, busy: false, tursoConfig: CFG_B });
+    abortRef.current = null;
+    const finished = {
+      history: [...turn.history, { role: "assistant", content: "reply" }] as ApiMessage[],
+      display: [...turn.display, { kind: "assistant", text: "reply" }] as DisplayItem[],
+    };
+    rerender({ ...initialProps, ...finished, busy: false, tursoConfig: CFG_B });
     await settle(() => {});
 
-    // B's load made B's thread active and replaced the transcript: nothing on screen is this turn's.
-    expect(saveThreadMock).not.toHaveBeenCalled();
-    expect(result.current.threads).toEqual(inB);
-    expect(result.current.activeThreadId).toBe("tB");
+    const urls = saveThreadMock.mock.calls.map(([cfg]) => (cfg as TursoConfig).httpUrl);
+    expect(urls).toEqual([CFG_A.httpUrl]);
+    const saved = saveThreadMock.mock.calls[0]![1] as ChatThread;
+    expect(saved.id).toBe("t1");
+    expect(saved.history).toEqual(finished.history);
+    expect(result.current.activeThreadId).toBeNull();
+    expect(result.current.threadClosed).toBe(true);
+    expect(result.current.threadCloseReason).toBe("otherDatabase");
+    expect(setHistory.mock.calls.at(-1)).toEqual([[]]);
   });
 
   it("a turn finished after a config change, before the new database loads, is saved to A and kept out of B's list", async () => {
