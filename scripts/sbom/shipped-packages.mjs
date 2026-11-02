@@ -22,6 +22,8 @@ const DESKTOP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "d
 const desktopRequire = createRequire(join(DESKTOP_DIR, "package.json"));
 
 const STANDALONE_RESOURCE = "standalone/node_modules";
+// Drops every source map from the copy; no package folder goes with it.
+const SOURCE_MAP_FILTER = "!**/*.map";
 // `win.target: nsis` on the release workflow's windows-latest runner.
 const TARGET_OS = "win32";
 const TARGET_CPU = "x64";
@@ -50,7 +52,8 @@ function requireVersion(pkg, where) {
 /**
  * The `exclude` predicate the builder config's sharp filter amounts to, read
  * from the `extraResources` entry whose `to` is `standalone/node_modules`.
- * Only `**` + `/*` and `!<folder>/**` patterns are understood; anything else
+ * Only `**` + `/*`, `!<folder>/**` and `!**` + `/*.map` patterns are understood (the last drops
+ * source-map files, never a package folder, so it leaves the predicate alone); anything else
  * throws, because a predicate that half-mirrors the filter would list packages
  * the installer does not ship (or miss ones it does).
  *
@@ -64,7 +67,7 @@ export async function standaloneExcludeFromBuilderConfig(builderConfigPath) {
   if (!entry) throw new Error(`${builderConfigPath}: no extraResources entry with to: ${STANDALONE_RESOURCE}`);
   const dropped = [];
   for (const pattern of entry.filter ?? []) {
-    if (pattern === "**/*") continue;
+    if (pattern === "**/*" || pattern === SOURCE_MAP_FILTER) continue;
     const match = /^!([^*?[\]{}!]+)\/\*\*$/.exec(pattern);
     if (!match) throw new Error(`${builderConfigPath}: cannot mirror the filter pattern ${pattern}`);
     dropped.push(match[1]);

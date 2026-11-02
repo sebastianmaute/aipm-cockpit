@@ -53,6 +53,27 @@ describe("standaloneExcludeFromBuilderConfig", () => {
     expect(exclude("@imgix/x")).toBe(false);
   });
 
+  it("reads a source-map exclusion as dropping files, never a package", async () => {
+    const file = join(tmp, "maps.yml");
+    writeFileSync(
+      file,
+      [
+        "extraResources:",
+        "  - from: ../.next/standalone/node_modules",
+        "    to: standalone/node_modules",
+        "    filter:",
+        '      - "**/*"',
+        '      - "!sharp/**"',
+        '      - "!**/*.map"',
+        "",
+      ].join("\n"),
+    );
+    const exclude = await standaloneExcludeFromBuilderConfig(file);
+    expect(exclude("sharp")).toBe(true);
+    expect(exclude("next")).toBe(false);
+    expect(exclude("source-map")).toBe(false);
+  });
+
   it("refuses a filter pattern it cannot mirror exactly", async () => {
     const file = join(tmp, "unsupported.yml");
     writeFileSync(
@@ -63,11 +84,11 @@ describe("standaloneExcludeFromBuilderConfig", () => {
         "    to: standalone/node_modules",
         "    filter:",
         '      - "**/*"',
-        '      - "!**/*.map"',
+        '      - "!**/*.d.ts"',
         "",
       ].join("\n"),
     );
-    await expect(standaloneExcludeFromBuilderConfig(file)).rejects.toThrow(/!\*\*\/\*\.map/);
+    await expect(standaloneExcludeFromBuilderConfig(file)).rejects.toThrow(/!\*\*\/\*\.d\.ts/);
   });
 
   it("refuses a config with no standalone/node_modules resource", async () => {

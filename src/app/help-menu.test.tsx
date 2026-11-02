@@ -93,6 +93,25 @@ describe("HelpMenu floating panel", () => {
     expect(channel.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("links the third-party licence notices the release ships, after the License link", () => {
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    const notices = screen.getByRole("link", { name: "Third-party notices" });
+    expect(notices).toHaveAttribute("href", "/third-party-notices.txt");
+    expect(notices).toHaveAttribute("target", "_blank");
+    expect(notices).toHaveAttribute("rel", "noopener noreferrer");
+    const license = screen.getByRole("link", { name: t("en-US", "versionLicense") });
+    expect(license.compareDocumentPosition(notices) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("names the notices link in German (DE dict is lazy — loaded first)", async () => {
+    await loadI18n("de");
+    render(<HelpMenu lang="de" />);
+    fireEvent.click(screen.getByRole("button", { name: t("de", "help") }));
+    const notices = screen.getByRole("link", { name: "Lizenzhinweise zu Drittsoftware" });
+    expect(notices).toHaveAttribute("href", "/third-party-notices.txt");
+  });
+
   it("lets the footer's links wrap, so a narrow panel never scrolls sideways (§713)", () => {
     render(<HelpMenu lang="en-US" />);
     openPanel();

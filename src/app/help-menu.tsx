@@ -35,6 +35,11 @@ function FooterLink({ href, children }: { href: string; children: string }) {
   );
 }
 
+/** The licence notices for every third-party package a release ships. The release build writes
+ *  them into the packaged server's public/ (desktop/scripts/copy-static.mjs `--notices`); a dev
+ *  or web build has none, so the link answers 404 there. */
+export const THIRD_PARTY_NOTICES_PATH = "/third-party-notices.txt";
+
 const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
 const STORAGE_KEY_SIZE = "aipm-cockpit:help-size-v3";
 
@@ -264,6 +269,7 @@ export function HelpMenu({
             <FooterLink href={YOUTUBE_CHANNEL_URL}>{t(lang, "helpVideoChannelLink")}</FooterLink>
             <FooterLink href={INSTALL_GUIDE_URL}>{t(lang, "installGuideLink")}</FooterLink>
             <FooterLink href={APP_LICENSE_URL}>{t(lang, "versionLicense")}</FooterLink>
+            <FooterLink href={THIRD_PARTY_NOTICES_PATH}>{t(lang, "helpThirdPartyNotices")}</FooterLink>
           </div>
         </div>
       )}

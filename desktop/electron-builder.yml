@@ -35,9 +35,20 @@ files:
 # to node_modules itself ("next", "@next/env", ...), so none of them is ever
 # the literal "node_modules" and the filter has nothing to reject. Nested
 # package node_modules are unaffected -- the filter only rejects the ROOT one.
+#
+# ★★ NO source maps, in either entry. A release build makes them for
+# `npm run release:sbom` (SBOM_SOURCE_MAPS=1, next.config.ts) and the release
+# workflow strips them before packaging; "!**/*.map" keeps a stray one out
+# anyway (the matcher runs with `dot: true`, so it reaches standalone/.next/).
+# The release workflow's `build` job fails on any `*.map` in the packaged tree.
+# scripts/sbom/shipped-packages.mjs reads this filter and knows the pattern
+# drops files, never a package.
 extraResources:
   - from: ../.next/standalone
     to: standalone
+    filter:
+      - "**/*"
+      - "!**/*.map"
   - from: ../.next/standalone/node_modules
     to: standalone/node_modules
     # ★★ NO sharp. Next's standalone trace copies sharp -- the image optimizer
@@ -79,6 +90,15 @@ extraResources:
       - "**/*"
       - "!@img/**"
       - "!sharp/**"
+      - "!**/*.map"
+# The licence notices for everything the installer ships, in the installation
+# folder beside the exe. The release workflow's `build` job writes them with
+# `npm run release:sbom` before packaging and fails if they are not there after.
+# A local `desktop:package` has none, and electron-builder only warns ("file
+# source doesn't exist") and packages without them.
+extraFiles:
+  - from: ../.next/sbom/THIRD-PARTY-NOTICES.txt
+    to: THIRD-PARTY-NOTICES.txt
 # electron-builder flips these into the packaged Electron binary's fuse wire
 # (app-builder-lib's `FuseOptionsV1`, backed by @electron/fuses) after
 # packaging -- they only take effect in a PACKAGED build, never in `npm run

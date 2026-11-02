@@ -263,10 +263,11 @@ go direct. That older release also ignores the `ai` value of
    in progress and a second is queued silently cancels the queued one (and a
    run paused waiting for approval occupies that same slot). A cancelled run just needs a re-run of its tag's workflow.
 4. `publish` verifies the built files (`release:verify`), attests build
-   provenance (the step runs only while the repository is public, which it is
-   now; on a private repository it is skipped), drafts the GitHub
-   Release, uploads the three files, then publishes. Check the release page:
-   exactly three assets, the CHANGELOG notes, not a draft.
+   provenance and the SBOM (both steps run only while the repository is public,
+   which it is now; on a private repository they are skipped), drafts the GitHub
+   Release, uploads the four files (installer, blockmap, `latest.yml` and the
+   CycloneDX SBOM), then publishes. Check the release page: exactly four assets,
+   the CHANGELOG notes, not a draft.
 5. Exit codes: `release:verify` — 0 the files are exactly right, 1 named
    problems (fix the build, delete the tag, re-tag after a new commit), 2 could
    not check. `release:publish` — 0 published (or an identical release already

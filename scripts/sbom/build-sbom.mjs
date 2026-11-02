@@ -2,11 +2,17 @@
 // No shebang: vitest imports this module (scripts/sbom/build-sbom.test.mjs).
 //
 //   npm run release:sbom -- --build .next --standalone <dir> --desktop desktop --out <dir> [--asar <path>]
+//   npm run release:sbom -- --build .next --standalone <dir> --desktop desktop --web-only
 //
 // `--standalone` is the folder holding the traced node_modules (`.next/standalone`).
 // `node_modules` and the files named below are read relative to the working
 // directory. Exit 0 = both files written; 1 = problems, each named on stderr and
 // nothing written; 2 = could not run.
+//
+// `--web-only` is ci.yml's per-pull-request proof on a real build: the build's
+// maps, the standalone tree and Next's vendored libraries, with the guard and the
+// licence check, but no desktop set and no Electron (it needs no desktop install
+// beyond js-yaml) and nothing written. It takes no `--out` and no `--asar`.
 //
 // ★★ What gets published carries no absolute path: bom-refs start at the first
 // node_modules segment, and the notices print names and licence text only.
@@ -27,6 +33,7 @@ import {
   standalonePackages,
 } from "./shipped-packages.mjs";
 import { SOURCE_FILE, readSourceFrom } from "../version-sync-lib.mjs";
+import { sbomName } from "../release-publish-lib.mjs";
 
 export { licenseOf, toNotices };
 
@@ -62,6 +69,12 @@ export const MUST_INCLUDE = [
  * one of them shared. The first CI build has browser maps; tighten this from its count.
  */
 export const MIN_COMPONENTS = 84;
+
+/**
+ * The floor for `--web-only`, which leaves the desktop set and Electron out: 80%
+ * of the 89 components the same measure gives without desktop/package-lock.json's 16.
+ */
+export const MIN_WEB_COMPONENTS = 71;
 
 /**
  * node_modules paths in source maps that belong to no installed package, each
@@ -269,14 +282,14 @@ async function withInstalledDirs(pkgs, standaloneNodeModules, nodeModules) {
   return { pkgs: relocated, problems };
 }
 
-async function collect({ build, standalone, desktop, asar, cwd }) {
+async function collect({ build, standalone, desktop, asar, cwd, webOnly }) {
   const nodeModules = join(cwd, "node_modules");
   const standaloneNodeModules = join(standalone, "node_modules");
   const bundledScan = await scanBundledSources(build, nodeModules);
   const exclude = await standaloneExcludeFromBuilderConfig(join(desktop, "electron-builder.yml"));
   const standaloneScan = await withInstalledDirs(await standalonePackages(standaloneNodeModules, exclude), standaloneNodeModules, nodeModules);
   const standalonePkgs = standaloneScan.pkgs;
-  const desktopPkgs = await desktopPackages(desktop);
+  const desktopPkgs = webOnly ? [] : await desktopPackages(desktop);
   const vendoredScan = await scanNextVendored(join(nodeModules, "next"), {
     shippedNextDir: join(standaloneNodeModules, "next"),
     buildDir: build,
@@ -289,7 +302,7 @@ async function collect({ build, standalone, desktop, asar, cwd }) {
   });
   return {
     set,
-    electron: electronComponent(desktop),
+    electron: webOnly ? null : electronComponent(desktop),
     deny: readDenyList(cwd),
     problems: [
       ...checkUnresolved(bundledScan.unresolved),
@@ -309,18 +322,26 @@ function parseCli(argv, cwd) {
       desktop: { type: "string" },
       out: { type: "string" },
       asar: { type: "string" },
+      "web-only": { type: "boolean" },
     },
   });
-  for (const required of ["build", "standalone", "desktop", "out"]) {
-    if (!values[required]) throw new Error(`--${required} is required (--build <dir> --standalone <dir> --desktop <dir> --out <dir> [--asar <path>])`);
+  const webOnly = values["web-only"] === true;
+  if (webOnly) {
+    for (const refused of ["out", "asar"]) {
+      if (values[refused]) throw new Error(`--${refused} belongs to a release build and cannot be combined with --web-only, which writes nothing`);
+    }
+  }
+  for (const required of webOnly ? ["build", "standalone", "desktop"] : ["build", "standalone", "desktop", "out"]) {
+    if (!values[required]) throw new Error(`--${required} is required (--build <dir> --standalone <dir> --desktop <dir> --out <dir> [--asar <path>], or --web-only in place of --out)`);
   }
   const { build, standalone, desktop, out, asar } = values;
   return {
     cwd,
+    webOnly,
     build: resolve(cwd, build),
     standalone: resolve(cwd, standalone),
     desktop: resolve(cwd, desktop),
-    out: resolve(cwd, out),
+    out: out ? resolve(cwd, out) : null,
     asar: asar ? resolve(cwd, asar) : null,
   };
 }
@@ -329,13 +350,19 @@ async function main(argv, cwd) {
   const options = parseCli(argv, cwd);
   const { version } = readSourceFrom(readFileSync(join(cwd, ...SOURCE_FILE.split("/")), "utf8"));
   const { set, electron, deny, problems } = await collect(options);
-  const all = [...problems, ...checkLicences([...set, electron], deny), ...checkGuard(set, MUST_INCLUDE, MIN_COMPONENTS)];
+  const licensed = electron ? [...set, electron] : set;
+  const floor = options.webOnly ? MIN_WEB_COMPONENTS : MIN_COMPONENTS;
+  const all = [...problems, ...checkLicences(licensed, deny), ...checkGuard(set, MUST_INCLUDE, floor)];
   if (all.length > 0) {
     for (const problem of all) console.error(`release:sbom: ${problem}`);
     return 1;
   }
+  if (options.webOnly) {
+    console.log(`release:sbom: ${set.length} components pass (web only, nothing written)`);
+    return 0;
+  }
   mkdirSync(options.out, { recursive: true });
-  const sbomFile = `aipm-cockpit-${version}-sbom.cdx.json`;
+  const sbomFile = sbomName(version);
   writeFileSync(join(options.out, sbomFile), `${JSON.stringify(toCycloneDx(set, { appVersion: version, electron }), null, 2)}\n`);
   writeFileSync(join(options.out, NOTICES_FILE), toNotices(set, { electron }));
   console.log(`release:sbom: ${set.length + 1} components in ${sbomFile} and ${NOTICES_FILE}`);

@@ -12,6 +12,7 @@ const CLI = join(process.cwd(), "scripts", "publish-github-release.mjs");
 const VERSION = /export const APP_VERSION = "([^"]+)"/.exec(readFileSync("src/app/version.ts", "utf8"))[1];
 const TAG = `v${VERSION}`;
 const EXE = `aipm-cockpit-${VERSION}-setup.exe`;
+const SBOM = `aipm-cockpit-${VERSION}-sbom.cdx.json`;
 
 const FAKE_GH = String.raw`
 const fs = require("fs");
@@ -56,6 +57,7 @@ function setup(state = {}) {
   writeFileSync(join(dir, EXE), "exe-bytes");
   writeFileSync(join(dir, `${EXE}.blockmap`), "map");
   writeFileSync(join(dir, "latest.yml"), "yml");
+  writeFileSync(join(dir, SBOM), "{}");
   const gh = join(root, "gh.cjs");
   writeFileSync(gh, FAKE_GH);
   const stateFile = join(root, "state.json");
@@ -83,6 +85,7 @@ function setupPrerelease(state = {}) {
   writeFileSync(join(dir, exe), "exe-bytes");
   writeFileSync(join(dir, `${exe}.blockmap`), "map");
   writeFileSync(join(dir, "latest.yml"), "yml");
+  writeFileSync(join(dir, `aipm-cockpit-${version}-sbom.cdx.json`), "{}");
 
   const projectDir = join(root, "project");
   mkdirSync(join(projectDir, "src", "app"), { recursive: true });
@@ -106,14 +109,14 @@ function setupPrerelease(state = {}) {
 }
 
 describe("publish-github-release.mjs against a fake gh", () => {
-  it("creates a draft with the three files, publishes it, and confirms (exit 0)", () => {
+  it("creates a draft with the four files, publishes it, and confirms (exit 0)", () => {
     const t = setup();
     const r = t.run();
     expect(r.status, r.stderr).toBe(0);
     const s = t.read();
     expect(s.releases).toHaveLength(1);
     expect(s.releases[0]).toMatchObject({ tag_name: TAG, draft: false });
-    expect(s.releases[0].assets.map((a) => a.name)).toEqual([EXE, `${EXE}.blockmap`, "latest.yml"]);
+    expect(s.releases[0].assets.map((a) => a.name)).toEqual([EXE, `${EXE}.blockmap`, "latest.yml", SBOM]);
     expect(s.calls.find((c) => c.startsWith("release create"))).toMatch(/--draft --verify-tag/);
   });
 
@@ -137,7 +140,7 @@ describe("publish-github-release.mjs against a fake gh", () => {
 
   it("exits 0 without writing when an identical release is already published", () => {
     const t = setup();
-    const files = [EXE, `${EXE}.blockmap`, "latest.yml"];
+    const files = [EXE, `${EXE}.blockmap`, "latest.yml", SBOM];
     const t2 = setup({ releases: [{ id: 9, tag_name: TAG, draft: false, prerelease: VERSION.includes("-"),
       assets: files.map((n) => ({ name: n, size: readFileSync(join(t.dir, n)).length, digest: t.digest(n) })) }] });
     const r = t2.run();

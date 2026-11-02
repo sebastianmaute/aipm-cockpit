@@ -20,10 +20,33 @@ export function installerName(version) {
   return `aipm-cockpit-${version}-setup.exe`;
 }
 
+/** The release's CycloneDX SBOM, as `npm run release:sbom` names it. */
+export function sbomName(version) {
+  installerName(version); // validates the version
+  return `aipm-cockpit-${version}-sbom.cdx.json`;
+}
+
 /** Exactly the files a release carries, in upload order. */
 export function expectedAssets(version) {
   const exe = installerName(version);
-  return [exe, `${exe}.blockmap`, LATEST_YML];
+  return [exe, `${exe}.blockmap`, LATEST_YML, sbomName(version)];
+}
+
+/** Problems with the SBOM's text: it must parse as CycloneDX, describe this version at its root
+ *  and list components. An empty list means it is fine. */
+export function checkSbom(text, version) {
+  const name = sbomName(version);
+  let bom;
+  try {
+    bom = JSON.parse(text);
+  } catch (e) {
+    return [`cannot read ${name}: ${e instanceof Error ? e.message : String(e)}`];
+  }
+  if (!bom || typeof bom !== "object" || bom.bomFormat !== "CycloneDX") return [`${name} is not a CycloneDX document`];
+  const rootVersion = bom.metadata?.component?.version;
+  if (rootVersion !== version) return [`${name} describes version ${rootVersion ?? "(none)"}, expected ${version}`];
+  if (!Array.isArray(bom.components) || bom.components.length === 0) return [`${name} lists no components`];
+  return [];
 }
 
 export function releaseTitle(version, milestone) {

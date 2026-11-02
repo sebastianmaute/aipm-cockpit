@@ -4,11 +4,29 @@
 // NO CSS and NO images. It fails at RUNTIME and nothing at build time reports
 // it, which is why this script asserts its own result rather than trusting the
 // copy, and why the packaged smoke test asserts a computed style.
-import { cpSync, existsSync, readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+//
+//   node desktop/scripts/copy-static.mjs [--notices <file>]
+//
+// ★★ No source map is copied. A release build makes maps for release:sbom
+// (SBOM_SOURCE_MAPS=1) and must never ship them; the release workflow strips
+// them first, and this filter keeps a stray one out of the standalone tree too.
+// `--notices` copies the release's THIRD-PARTY-NOTICES.txt into the standalone
+// public/ as third-party-notices.txt, which the Help panel links to. Without it
+// (a local desktop build) no notices file is made up.
+import { copyFileSync, cpSync, existsSync, readdirSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { parseArgs } from "node:util";
 
 const ROOT = process.cwd();
 const STANDALONE = join(ROOT, ".next", "standalone");
+const NOTICES_NAME = "third-party-notices.txt";
+const { values } = parseArgs({ args: process.argv.slice(2), options: { notices: { type: "string" } } });
+const notices = values.notices ? resolve(ROOT, values.notices) : null;
+
+if (notices && !existsSync(notices)) {
+  console.error(`Notices file missing: ${notices} — run npm run release:sbom first`);
+  process.exit(1);
+}
 
 if (!existsSync(STANDALONE)) {
   console.error("No .next/standalone — run: NEXT_STANDALONE=1 npm run build");
@@ -32,8 +50,10 @@ for (const { from, to } of copies) {
   // script exists to prevent, one layer down: measured during this task, where
   // the destination had to be cleared by hand for the guard test to be real.
   rmSync(to, { recursive: true, force: true });
-  cpSync(from, to, { recursive: true });
+  cpSync(from, to, { recursive: true, filter: (src) => !src.endsWith(".map") });
 }
+
+if (notices) copyFileSync(notices, join(STANDALONE, "public", NOTICES_NAME));
 
 // Assert the result. A silent no-op copy is the failure mode this guards.
 for (const { to } of copies) {
@@ -62,5 +82,5 @@ if (cssFiles.length === 0) {
 }
 
 console.log(
-  `Copied .next/static and public/ into .next/standalone; verified ${cssFiles.length} CSS bundle(s) present.`,
+  `Copied .next/static and public/ into .next/standalone (no source maps${notices ? `, plus public/${NOTICES_NAME}` : ""}); verified ${cssFiles.length} CSS bundle(s) present.`,
 );

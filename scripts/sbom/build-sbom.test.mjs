@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   MIN_COMPONENTS,
+  MIN_WEB_COMPONENTS,
   MUST_INCLUDE,
   checkGuard,
   checkLicences,
@@ -16,6 +17,7 @@ import {
   toCycloneDx,
   toNotices,
 } from "./build-sbom.mjs";
+import { sbomName } from "../release-publish-lib.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..");
@@ -425,7 +427,8 @@ function runCli(cwd, args = ARGS) {
   });
 }
 
-const SBOM_NAME = "aipm-cockpit-9.8.7-sbom.cdx.json";
+// The name the release workflow uploads and release:verify expects.
+const SBOM_NAME = sbomName("9.8.7");
 
 describe("the CLI", () => {
   describe("on a good tree", () => {
@@ -569,6 +572,43 @@ describe("the CLI", () => {
       const repo = writeRepo("asar-missing");
       const { code } = await runCli(repo, [...ARGS, "--asar", join(tmp, "no-such.asar")]);
       expect(code).toBe(2);
+    });
+  });
+
+  describe("--web-only", () => {
+    const WEB_ARGS = ["--build", ".next", "--standalone", ".next/standalone", "--desktop", "desktop", "--web-only"];
+
+    it("checks the build, standalone and vendored sets with no desktop install, and writes nothing (exit 0)", async () => {
+      const repo = writeRepo("web-only");
+      // Neither Electron nor the shell's packages are installed: the web-only check must not need them.
+      rmSync(join(repo, "desktop", "node_modules"), { recursive: true });
+      const { code, stdout, stderr } = await runCli(repo, WEB_ARGS);
+      expect(stderr).toBe("");
+      expect(code).toBe(0);
+      expect(stdout).toMatch(/^release:sbom: \d+ components pass \(web only, nothing written\)$/m);
+      expect(existsSync(join(repo, "out"))).toBe(false);
+    });
+
+    it("still fails on a licence problem in the web set (exit 1)", async () => {
+      const repo = writeRepo("web-only-bad", {
+        "node_modules/filler-0/package.json": json({ name: "filler-0", version: "1.0.0", license: "GPL-3.0-only" }),
+      });
+      const { code, stderr } = await runCli(repo, WEB_ARGS);
+      expect(code).toBe(1);
+      expect(stderr).toContain("filler-0@1.0.0: licence GPL-3.0-only is on the deny list");
+    });
+
+    it("refuses --out and --asar, which belong to a release build (exit 2)", async () => {
+      const repo = writeRepo("web-only-args");
+      expect((await runCli(repo, [...WEB_ARGS, "--out", "out"])).code).toBe(2);
+      const withAsar = await runCli(repo, [...WEB_ARGS, "--asar", "x.asar"]);
+      expect(withAsar.code).toBe(2);
+      expect(withAsar.stderr).toMatch(/--asar belongs to a release build and cannot be combined with --web-only/);
+    });
+
+    it("has a lower floor than a release, since the desktop set is left out", () => {
+      expect(MIN_WEB_COMPONENTS).toBeGreaterThan(0);
+      expect(MIN_WEB_COMPONENTS).toBeLessThan(MIN_COMPONENTS);
     });
   });
 

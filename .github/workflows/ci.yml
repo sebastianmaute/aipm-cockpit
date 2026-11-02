@@ -143,7 +143,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -163,6 +163,19 @@ jobs:
             !.next/cache
           include-hidden-files: true
           retention-days: 1
+      # The SBOM scan, proved on real Next output on every pull request: a second, standalone build
+      # with the source maps release:sbom reads, then its web-only check (the build's maps, the
+      # standalone tree, Next's vendored libraries, the guard and the licence check; no desktop set,
+      # nothing written). After the upload, so e2e and prod-smoke never get a build with maps.
+      - name: Standalone build with source maps for the SBOM check
+        env:
+          NEXT_STANDALONE: "1"
+          SBOM_SOURCE_MAPS: "1"
+        run: npm run build
+      # js-yaml, which reads desktop/electron-builder.yml's standalone filter, is a desktop dependency.
+      - run: npm --prefix desktop ci --ignore-scripts
+      - name: SBOM check (release:sbom --web-only)
+        run: npm run release:sbom -- --build .next --standalone .next/standalone --desktop desktop --web-only
 
   e2e:
     needs: build

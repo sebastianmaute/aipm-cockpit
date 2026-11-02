@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   INSTALLER_DIR, LATEST_YML, installerName, expectedAssets, releaseTitle, changelogSection,
   releaseNotes, unwrapMarkdown, parseLatestYml, checkLatestYml, classifyRelease, verifyDraft,
+  sbomName, checkSbom,
 } from "./release-publish-lib.mjs";
 
 const SHA512 = "A".repeat(86) + "==";
@@ -28,10 +29,13 @@ describe("names", () => {
     expect(() => installerName("v1.14.0")).toThrow();
     expect(() => installerName("1.14")).toThrow();
   });
-  it("expects exactly the installer, its blockmap and latest.yml", () => {
+  it("expects exactly the installer, its blockmap, latest.yml and the SBOM", () => {
     expect(expectedAssets("1.14.0")).toEqual([
       "aipm-cockpit-1.14.0-setup.exe", "aipm-cockpit-1.14.0-setup.exe.blockmap", LATEST_YML,
+      "aipm-cockpit-1.14.0-sbom.cdx.json",
     ]);
+    expect(sbomName("1.14.0-rc.1")).toBe("aipm-cockpit-1.14.0-rc.1-sbom.cdx.json");
+    expect(() => sbomName("v1.14.0")).toThrow();
     expect(INSTALLER_DIR).toBe("desktop/release");
   });
   it("titles a release like the GitLab ones did", () => {
@@ -138,6 +142,27 @@ describe("latest.yml", () => {
       "latest.yml path is other.exe, expected aipm-cockpit-1.14.0-setup.exe",
     );
     expect(checkLatestYml("junk", "1.14.0", INSTALLER)[0]).toMatch(/cannot read latest\.yml/);
+  });
+});
+
+describe("checkSbom", () => {
+  const bom = (version, over = {}) => JSON.stringify({ bomFormat: "CycloneDX", specVersion: "1.5", metadata: { component: { name: "AI PM Cockpit", version } }, components: [{ name: "react" }], ...over });
+  it("accepts a CycloneDX document whose root component is this version", () => {
+    expect(checkSbom(bom("1.14.0"), "1.14.0")).toEqual([]);
+  });
+  it("names a root version that is not the tag's", () => {
+    expect(checkSbom(bom("1.13.2"), "1.14.0")).toEqual(["aipm-cockpit-1.14.0-sbom.cdx.json describes version 1.13.2, expected 1.14.0"]);
+  });
+  it("names a file that does not parse, or is not CycloneDX, or has no root component", () => {
+    expect(checkSbom("{", "1.14.0")[0]).toMatch(/^cannot read aipm-cockpit-1.14.0-sbom.cdx.json: /);
+    expect(checkSbom(bom("1.14.0", { bomFormat: "SPDX" }), "1.14.0")).toEqual(["aipm-cockpit-1.14.0-sbom.cdx.json is not a CycloneDX document"]);
+    expect(checkSbom(JSON.stringify({ bomFormat: "CycloneDX", components: [] }), "1.14.0")).toEqual([
+      "aipm-cockpit-1.14.0-sbom.cdx.json describes version (none), expected 1.14.0",
+    ]);
+    expect(checkSbom(JSON.stringify({ bomFormat: "CycloneDX", metadata: { component: { version: "1.14.0" } } }), "1.14.0")).toEqual([
+      "aipm-cockpit-1.14.0-sbom.cdx.json lists no components",
+    ]);
+    expect(checkSbom("null", "1.14.0")).toEqual(["aipm-cockpit-1.14.0-sbom.cdx.json is not a CycloneDX document"]);
   });
 });
 

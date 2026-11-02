@@ -5,13 +5,14 @@
 // their own tests below pin what they accept and reject. actionlint (in the static job) is the
 // structural check; this file pins the repository-specific rules actionlint cannot know.
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GATE_GROUPS, GATE_STEPS } from "./gate-local.mjs";
 import { globalTimeoutFrom, MAX_GLOBAL_TIMEOUT_MS } from "../e2e/global-timeout.ts";
 import {
   jobIds, jobBlock, unpinnedUses, topLevelBlock, requiredChecksFromDoc, pipedRunsWithoutBash,
 } from "./ci-workflow-lib.mjs";
-import { INSTALLER_DIR, installerName, expectedAssets } from "./release-publish-lib.mjs";
+import { INSTALLER_DIR, installerName, expectedAssets, sbomName } from "./release-publish-lib.mjs";
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 const SHA = "a".repeat(40);
@@ -199,6 +200,31 @@ describe("ci.yml", () => {
     expect(b).toMatch(/!\.next\/cache/);
   });
 
+  // Every pull request proves the SBOM scan on real Next output: a second, standalone build with
+  // the source maps release:sbom reads, then the web-only check. It runs AFTER the upload, so the
+  // .next/ that e2e and prod-smoke get is the plain build, never the one with maps, and it uploads
+  // nothing of its own.
+  it("checks the SBOM scan on a second, mapped standalone build after the upload, uploading nothing", () => {
+    const lines = jobBlock(CI, "build").split(/\r?\n/);
+    const at = (re) => lines.findIndex((l) => re.test(l));
+    const upload = at(/uses: actions\/upload-artifact@/);
+    const sbomBuild = at(/^ {6}- name: Standalone build with source maps for the SBOM check$/);
+    const desktop = at(/^ {6}- run: npm --prefix desktop ci --ignore-scripts$/);
+    const check = at(/^ {8}run: npm run release:sbom -- --build \.next --standalone \.next\/standalone --desktop desktop --web-only$/);
+    expect(upload).toBeGreaterThan(-1);
+    expect([upload, sbomBuild, desktop, check].every((i) => i > -1), "every step is present").toBe(true);
+    expect(sbomBuild).toBeGreaterThan(upload);
+    expect(desktop).toBeGreaterThan(sbomBuild);
+    expect(check).toBeGreaterThan(desktop);
+    const step = lines.slice(sbomBuild, desktop).join("\n");
+    expect(step).toMatch(/NEXT_STANDALONE: "1"/);
+    expect(step).toMatch(/SBOM_SOURCE_MAPS: "1"/);
+    expect(step).toMatch(/run: npm run build$/m);
+    expect(lines.filter((l) => /uses: actions\/upload-artifact@/.test(l))).toHaveLength(1);
+    // The upload step's own build carries no maps.
+    expect(lines.slice(0, upload).join("\n")).not.toMatch(/SBOM_SOURCE_MAPS/);
+  });
+
   // Push runs are keyed by commit: a shared group keeps only one pending run, so a queued main run
   // would be replaced by the next merge even with cancel-in-progress off.
   it("cancels superseded runs on pull requests only, and never replaces a queued main run", () => {
@@ -381,6 +407,57 @@ describe("release.yml", () => {
     expect(jobBlock(RELEASE, "publish")).toMatch(/if: \$\{\{ !github\.event\.repository\.private \}\}\n\s+uses: actions\/attest-build-provenance@/);
   });
 
+  it("attests the SBOM against the installer, on a public repository only, after the files are verified", () => {
+    const pub = jobBlock(RELEASE, "publish").replace(/\r\n/g, "\n");
+    const DIR = "${{ runner.temp }}/release";
+    const V = "${{ needs.guard.outputs.version }}";
+    const step = /^ {6}- name: Attest the SBOM\n {8}if: \$\{\{ !github\.event\.repository\.private \}\}\n {8}uses: actions\/attest-sbom@[0-9a-f]{40} # v\d+\.\d+\.\d+\n {8}with:\n {10}sbom-path: (.+)\n {10}subject-path: (.+)$/m.exec(pub);
+    expect(step, "the attest-sbom step, in this exact shape").not.toBeNull();
+    expect(step[1]).toBe(`${DIR}/${sbomName("9.9.9")}`.replace("9.9.9", V));
+    expect(step[2]).toBe(`${DIR}/${installerName("9.9.9")}`.replace("9.9.9", V));
+    expect(pub.indexOf("- name: Attest the SBOM")).toBeGreaterThan(pub.indexOf("npm run release:verify"));
+    expect(pub.indexOf("- name: Attest the SBOM")).toBeLessThan(pub.indexOf("npm run release:publish"));
+  });
+
+  // The order the SBOM needs: maps for the pre-pass, maps out before anything is copied or packed,
+  // the notices into the standalone public/ and (through extraFiles) the install folder, then the
+  // final pass over the packed app.asar, then the guard over what was packed.
+  it("builds with maps, writes the notices, strips the maps, packages, then writes the final SBOM", () => {
+    const lines = jobBlock(RELEASE, "build").split(/\r?\n/);
+    const at = (re) => lines.findIndex((l) => re.test(l));
+    const order = [
+      ["desktop install", at(/^ {6}- run: npm --prefix desktop ci$/)],
+      ["mapped build", at(/^ {10}SBOM_SOURCE_MAPS: "1"$/)],
+      ["pre-pass", at(/^ {8}run: npm run release:sbom -- --build \.next --standalone \.next\/standalone --desktop desktop --out \.next\/sbom$/)],
+      ["strip maps", at(/^ {8}run: npm run release:strip-maps -- --build \.next --keep sbom-maps$/)],
+      ["copy-static", at(/^ {6}- run: npm run desktop:copy-static -- --notices \.next\/sbom\/THIRD-PARTY-NOTICES\.txt$/)],
+      ["desktop build", at(/^ {6}- run: npm --prefix desktop run build$/)],
+      ["package", at(/^ {6}- run: npm run desktop:package$/)],
+      ["final pass", at(/^ {8}run: npm run release:sbom -- --build sbom-maps --standalone \.next\/standalone --desktop desktop --out desktop\/release --asar desktop\/release\/win-unpacked\/resources\/app\.asar$/)],
+      ["map and notices guard", at(/^ {6}- name: The package ships the notices and no source map$/)],
+      ["upload", at(/uses: actions\/upload-artifact@/)],
+    ];
+    for (const [name, i] of order) expect(i, name).toBeGreaterThan(-1);
+    const indices = order.map(([, i]) => i);
+    expect(indices).toEqual([...indices].sort((a, b) => a - b));
+    // The mapped build is the standalone one.
+    const build = lines.slice(order[1][1] - 3, order[1][1] + 2).join("\n");
+    expect(build).toMatch(/NEXT_STANDALONE: "1"/);
+    expect(build).toMatch(/run: npm run build$/m);
+    // The final pass writes where the upload reads.
+    expect(lines[order[7][1]]).toContain(`--out ${INSTALLER_DIR} `);
+  });
+
+  it("fails the build on a source map anywhere in the packed resources, and on notices missing from either place", () => {
+    const b = jobBlock(RELEASE, "build");
+    expect(b).toMatch(/app=desktop\/release\/win-unpacked$/m);
+    // Positive control: a moved tree must fail, not pass a walk over nothing.
+    expect(b).toMatch(/test -f "\$app\/resources\/standalone\/server\.js"/);
+    expect(b).toMatch(/find "\$app\/resources" -name '\*\.map' -print/);
+    expect(b).toMatch(/cmp desktop\/release\/THIRD-PARTY-NOTICES\.txt "\$app\/THIRD-PARTY-NOTICES\.txt"/);
+    expect(b).toMatch(/cmp desktop\/release\/THIRD-PARTY-NOTICES\.txt "\$app\/resources\/standalone\/public\/third-party-notices\.txt"/);
+  });
+
   it("guards the tag against APP_VERSION and main before building", () => {
     const g = jobBlock(RELEASE, "guard");
     expect(g).toMatch(/node scripts\/check-tag-version\.mjs "\$TAG"/);
@@ -460,6 +537,18 @@ describe("electron-builder.yml agrees with the release library", () => {
   });
   it("publishes to this repository on GitHub", () => {
     expect(eb).toMatch(/^publish:\n\s+provider: github\n\s+owner: sebastianmaute\n\s+repo: aipm-cockpit$/m);
+  });
+  it("keeps source maps out of both standalone resources", () => {
+    const block = /^extraResources:\n((?:[ \t]+.*\n|[ \t]*#.*\n)+)/m.exec(eb.replace(/\r\n/g, "\n"))?.[1] ?? "";
+    const entries = block.split(/^ {2}- /m).slice(1);
+    expect(entries.map((e) => /^to: (\S+)$/m.exec(e.replace(/^ {4}/gm, ""))?.[1])).toEqual(["standalone", "standalone/node_modules"]);
+    for (const entry of entries) expect(entry).toMatch(/^ {6}- "!\*\*\/\*\.map"$/m);
+  });
+  it("puts the notices the release:sbom pre-pass wrote into the installation folder", () => {
+    const from = /^extraFiles:\n {2}- from: (\S+)\n {4}to: THIRD-PARTY-NOTICES\.txt$/m.exec(eb.replace(/\r\n/g, "\n"))?.[1];
+    // electron-builder resolves `from` against desktop/ (the --project dir).
+    expect(from && posix.normalize(`desktop/${from}`)).toBe(".next/sbom/THIRD-PARTY-NOTICES.txt");
+    expect(jobBlock(RELEASE, "build")).toContain("--out .next/sbom");
   });
 });
 

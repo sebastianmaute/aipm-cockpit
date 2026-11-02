@@ -68,20 +68,43 @@ jobs:
           node-version: "24"
           package-manager-cache: false
       - run: npm ci
-      - name: Standalone app build
+      # Before the SBOM pre-pass: it reads the desktop set's licence texts and Electron from
+      # desktop/node_modules.
+      - run: npm --prefix desktop ci
+      # SBOM_SOURCE_MAPS=1 makes the maps release:sbom reads (next.config.ts). They never ship:
+      # release:strip-maps takes them out of .next before anything is copied or packed.
+      - name: Standalone app build, with source maps for the SBOM
         env:
           NEXT_STANDALONE: "1"
+          SBOM_SOURCE_MAPS: "1"
         run: npm run build
-      - run: npm run desktop:copy-static
-      - run: npm --prefix desktop ci
+      - name: Licence notices and a provisional SBOM (release:sbom pre-pass)
+        run: npm run release:sbom -- --build .next --standalone .next/standalone --desktop desktop --out .next/sbom
+      - name: Take the source maps out of what ships
+        run: npm run release:strip-maps -- --build .next --keep sbom-maps
+      - run: npm run desktop:copy-static -- --notices .next/sbom/THIRD-PARTY-NOTICES.txt
       - run: npm --prefix desktop run build
       - run: npm run desktop:package
-      - name: The package holds the three files and no sharp
+      # The kept maps stand in for .next; --asar fails unless the packed app.asar holds exactly the
+      # desktop set the pre-pass listed.
+      - name: The final SBOM, with the packed app.asar checked against the desktop set
+        run: npm run release:sbom -- --build sbom-maps --standalone .next/standalone --desktop desktop --out desktop/release --asar desktop/release/win-unpacked/resources/app.asar
+      - name: The package ships the notices and no source map
+        shell: bash
+        run: |
+          app=desktop/release/win-unpacked
+          test -f "$app/resources/standalone/server.js" || { echo "map guard: $app/resources/standalone/server.js is missing -- the packaged tree moved"; exit 1; }
+          maps=$(find "$app/resources" -name '*.map' -print) || { echo "map guard: find failed under $app/resources"; exit 1; }
+          if [ -n "$maps" ]; then echo "map guard: source maps in the packaged app -- see release:strip-maps and the !**/*.map filters in desktop/electron-builder.yml:"; echo "$maps"; exit 1; fi
+          # The final pass's notices equal the shipped ones only if both passes saw the same set.
+          cmp desktop/release/THIRD-PARTY-NOTICES.txt "$app/THIRD-PARTY-NOTICES.txt" || { echo "notices guard: the install folder's THIRD-PARTY-NOTICES.txt is missing or differs from the final pass's -- see extraFiles in desktop/electron-builder.yml"; exit 1; }
+          cmp desktop/release/THIRD-PARTY-NOTICES.txt "$app/resources/standalone/public/third-party-notices.txt" || { echo "notices guard: the Help panel's third-party-notices.txt is missing or differs from the final pass's -- see desktop:copy-static --notices"; exit 1; }
+      - name: The package holds the four files and no sharp
         shell: bash
         env:
           VERSION: ${{ needs.guard.outputs.version }}
         run: |
-          ls -l "desktop/release/aipm-cockpit-$VERSION-setup.exe" "desktop/release/aipm-cockpit-$VERSION-setup.exe.blockmap" desktop/release/latest.yml
+          ls -l "desktop/release/aipm-cockpit-$VERSION-setup.exe" "desktop/release/aipm-cockpit-$VERSION-setup.exe.blockmap" desktop/release/latest.yml "desktop/release/aipm-cockpit-$VERSION-sbom.cdx.json"
           nm=desktop/release/win-unpacked/resources/standalone/node_modules
           test -f "$nm/next/package.json" || { echo "sharp guard: $nm/next/package.json is missing -- the packaged tree moved, or its node_modules did not ship"; exit 1; }
           hits=$(find "$nm" \( -path '*/node_modules/sharp' -o -path '*/node_modules/@img/sharp-*' \) -prune -print) || { echo "sharp guard: find failed under $nm"; exit 1; }
@@ -119,6 +142,7 @@ jobs:
             desktop/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
             desktop/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe.blockmap
             desktop/release/latest.yml
+            desktop/release/aipm-cockpit-${{ needs.guard.outputs.version }}-sbom.cdx.json
           if-no-files-found: error
           retention-days: 7
 
@@ -153,9 +177,15 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: ${{ runner.temp }}/release/*
+      - name: Attest the SBOM
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          sbom-path: ${{ runner.temp }}/release/aipm-cockpit-${{ needs.guard.outputs.version }}-sbom.cdx.json
+          subject-path: ${{ runner.temp }}/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
       - name: Attestation skipped (private repository)
         if: ${{ github.event.repository.private }}
-        run: echo "Provenance attestation skipped - attestations on a private repository need GitHub Enterprise."
+        run: echo "Provenance and SBOM attestations skipped - attestations on a private repository need GitHub Enterprise."
       - name: Publish the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
