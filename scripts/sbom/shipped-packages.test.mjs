@@ -128,6 +128,7 @@ describe("desktopPackages and asarPackages", () => {
     "builder-util-runtime": { name: "builder-util-runtime", version: "9.7.0" },
     "@scope/lib": { name: "@scope/lib", version: "1.2.3" },
     aliased: { name: "real-name", version: "3.0.0" },
+    "win-only": { name: "win-only", version: "1.0.0" },
   };
 
   beforeAll(async () => {
@@ -145,6 +146,11 @@ describe("desktopPackages and asarPackages", () => {
           "node_modules/builder-util-runtime": { version: "9.7.0" },
           "node_modules/@scope/lib": { version: "1.2.3" },
           "node_modules/aliased": { name: "real-name", version: "3.0.0" },
+          // Optional entries: installed, and so packed, only when the platform fits.
+          "node_modules/win-only": { version: "1.0.0", optional: true, os: ["win32"], cpu: ["x64", "arm64"] },
+          "node_modules/fsevents": { version: "2.3.3", optional: true, os: ["darwin"] },
+          "node_modules/arm-only": { version: "1.0.0", optional: true, os: ["win32"], cpu: ["arm64"] },
+          "node_modules/not-windows": { version: "1.0.0", optional: true, os: ["!win32"] },
           "node_modules/electron": { version: "44.9.1", dev: true },
           "node_modules/semver": { version: "6.3.1", dev: true },
         },
@@ -170,6 +176,7 @@ describe("desktopPackages and asarPackages", () => {
       pkg("electron-updater", "6.8.9", nm, "electron-updater"),
       pkg("real-name", "3.0.0", nm, "aliased"),
       pkg("semver", "7.7.4", nm, "electron-updater/node_modules/semver"),
+      pkg("win-only", "1.0.0", nm, "win-only"),
     ]);
   });
 
@@ -180,6 +187,7 @@ describe("desktopPackages and asarPackages", () => {
       pkg("electron-updater", "6.8.9", appAsar, "node_modules/electron-updater"),
       pkg("real-name", "3.0.0", appAsar, "node_modules/aliased"),
       pkg("semver", "7.7.4", appAsar, "node_modules/electron-updater/node_modules/semver"),
+      pkg("win-only", "1.0.0", appAsar, "node_modules/win-only"),
     ]);
   });
 
@@ -189,6 +197,25 @@ describe("desktopPackages and asarPackages", () => {
 
   it("electronComponent reads the installed Electron", () => {
     expect(electronComponent(desktopDir)).toEqual(pkg("electron", "44.9.1", desktopDir, "node_modules/electron"));
+  });
+
+  it("electronComponent throws when the installed Electron is not the one the lockfile pins", () => {
+    const stale = join(tmp, "stale-desktop");
+    mkdirSync(stale, { recursive: true });
+    writeFileSync(
+      join(stale, "package-lock.json"),
+      JSON.stringify({ lockfileVersion: 3, packages: { "node_modules/electron": { version: "44.9.1", dev: true } } }),
+    );
+    writePackages(join(stale, "node_modules"), { electron: { name: "electron", version: "44.3.0" } });
+    expect(() => electronComponent(stale)).toThrow(/44.3.0.*44.9.1/);
+  });
+
+  it("electronComponent throws when the lockfile pins no Electron", () => {
+    const unpinned = join(tmp, "unpinned-desktop");
+    mkdirSync(unpinned, { recursive: true });
+    writeFileSync(join(unpinned, "package-lock.json"), JSON.stringify({ lockfileVersion: 3, packages: {} }));
+    writePackages(join(unpinned, "node_modules"), { electron: { name: "electron", version: "44.9.1" } });
+    expect(() => electronComponent(unpinned)).toThrow(/pins no electron/);
   });
 
   it("electronComponent throws when Electron is not installed", () => {

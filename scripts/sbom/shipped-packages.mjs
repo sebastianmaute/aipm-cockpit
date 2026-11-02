@@ -22,6 +22,9 @@ const DESKTOP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "d
 const desktopRequire = createRequire(join(DESKTOP_DIR, "package.json"));
 
 const STANDALONE_RESOURCE = "standalone/node_modules";
+// `win.target: nsis` on the release workflow's windows-latest runner.
+const TARGET_OS = "win32";
+const TARGET_CPU = "x64";
 
 function compare(a, b) {
   return a < b ? -1 : a > b ? 1 : 0;
@@ -131,9 +134,19 @@ export async function standalonePackages(standaloneNodeModules, exclude) {
   return sortedUnique(out);
 }
 
+/** Whether an npm `os`/`cpu` list rules `value` out (`!x` entries negate). */
+function listExcludes(list, value) {
+  if (!Array.isArray(list)) return false;
+  if (list.includes(`!${value}`)) return true;
+  const allowed = list.filter((item) => !item.startsWith("!"));
+  return allowed.length > 0 && !allowed.includes(value);
+}
+
 /**
  * The desktop shell's production dependency set: every non-dev entry of
- * desktop/package-lock.json (lockfile v2/v3 `packages`).
+ * desktop/package-lock.json (lockfile v2/v3 `packages`), minus optional entries
+ * whose `os`/`cpu` rule out the one target the installer is built for. npm
+ * installs those on no Windows x64 machine, so no asar can hold them.
  *
  * @param {string} desktopDir
  * @returns {Promise<Array<{ name: string; version: string; dir: string }>>}
@@ -145,6 +158,7 @@ export async function desktopPackages(desktopDir) {
   const out = [];
   for (const [key, entry] of Object.entries(lock.packages)) {
     if (!key.startsWith("node_modules/") || entry.dev) continue;
+    if ((entry.optional || entry.devOptional) && (listExcludes(entry.os, TARGET_OS) || listExcludes(entry.cpu, TARGET_CPU))) continue;
     if (entry.link) throw new Error(`${lockPath}: ${key} is a link, which electron-builder does not pack as a copy`);
     const name = typeof entry.name === "string" ? entry.name : key.split("node_modules/").at(-1);
     out.push({ name, version: requireVersion(entry, `${lockPath} ${key}`), dir: join(desktopDir, ...key.split("/")) });
@@ -186,7 +200,9 @@ export async function asarPackages(asarPath) {
 }
 
 /**
- * The installed Electron — the runtime electron-builder wraps the app in.
+ * The installed Electron — the runtime electron-builder wraps the app in. Throws
+ * unless it is the version desktop/package-lock.json pins: a stale tree would
+ * otherwise put the wrong Electron in the SBOM.
  *
  * @param {string} desktopDir
  * @returns {{ name: string; version: string; dir: string }}
@@ -199,5 +215,10 @@ export function electronComponent(desktopDir) {
   } catch (err) {
     throw new Error(`electron is not installed under ${desktopDir} (${err.message})`);
   }
-  return { name: "electron", version: requireVersion(pkg, join(dir, "package.json")), dir };
+  const version = requireVersion(pkg, join(dir, "package.json"));
+  const lockPath = join(desktopDir, "package-lock.json");
+  const pinned = JSON.parse(readFileSync(lockPath, "utf8")).packages?.["node_modules/electron"]?.version;
+  if (!pinned) throw new Error(`${lockPath} pins no electron`);
+  if (version !== pinned) throw new Error(`Installed electron ${version} is not the ${pinned} that ${lockPath} pins`);
+  return { name: "electron", version, dir };
 }

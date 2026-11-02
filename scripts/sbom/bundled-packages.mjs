@@ -14,10 +14,10 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
-const MAP_ROOTS = ["server", "static"];
+export const MAP_ROOTS = ["server", "static"];
 
 /** Every `*.map` file under `dir`, or [] when `dir` does not exist. */
-async function mapFiles(dir) {
+export async function mapFiles(dir) {
   let entries;
   try {
     entries = await readdir(dir, { recursive: true, withFileTypes: true });
@@ -29,7 +29,7 @@ async function mapFiles(dir) {
 }
 
 /** The `sources` of a plain map, or of every section of an index map. */
-function mapSources(map, file) {
+export function mapSources(map, file) {
   if (!Array.isArray(map.sections)) return map.sources ?? [];
   return map.sections.flatMap((section) => {
     if (!section.map) throw new Error(`${file}: index map section with a url is not supported`);
