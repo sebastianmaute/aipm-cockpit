@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LICENCE_OVERRIDES } from "./licence-overrides.mjs";
-import { isDenied, licenseOf, parseLicence } from "./licences.mjs";
+import { isDenied, licenseOf, normaliseLicence, parseLicence } from "./licences.mjs";
 import { toNotices } from "./notices.mjs";
 
 let tmp;
@@ -33,12 +33,48 @@ describe("parseLicence", () => {
     },
   );
 
-  it.each(["", "SEE LICENSE IN LICENSE.txt", "UNLICENSED", "unknown", "NOASSERTION", "NONE", "Proprietary", "Custom", "Public Domain", "Apache 2.0", "LicenseRef-acme", "(MIT", "MIT OR", "OR MIT", "MIT) OR ISC"])(
-    "calls %j unknown",
-    (expression) => {
-      expect(parseLicence(expression)).toBeNull();
-    },
-  );
+  it.each([
+    "",
+    "SEE LICENSE IN LICENSE.txt",
+    "UNLICENSED",
+    "unknown",
+    "NOASSERTION",
+    "NONE",
+    "Proprietary",
+    "Custom",
+    "Public Domain",
+    "Apache 2.0",
+    "LicenseRef-acme",
+    "(MIT",
+    "MIT OR",
+    "OR MIT",
+    "MIT) OR ISC",
+    // Shaped like an id, but not one SPDX defines.
+    "BSD",
+    "MIT-ish-1.0",
+    "MIT OR Foo-2.0",
+    "GPL-2.0-only WITH Made-up-exception",
+  ])("calls %j unknown", (expression) => {
+    expect(parseLicence(expression)).toBeNull();
+    expect(normaliseLicence(expression)).toBeNull();
+  });
+});
+
+describe("normaliseLicence", () => {
+  it.each([
+    ["mit", "MIT"],
+    ["(mit or apache-2.0)", "(MIT OR Apache-2.0)"],
+    ["isc and cc-by-3.0", "ISC AND CC-BY-3.0"],
+    ["gpl-2.0-only with classpath-exception-2.0", "GPL-2.0-only WITH Classpath-exception-2.0"],
+    ["MIT OR (BSD-2-Clause AND ISC)", "MIT OR (BSD-2-Clause AND ISC)"],
+  ])("%s -> %s", (expression, expected) => {
+    expect(normaliseLicence(expression)).toBe(expected);
+  });
+
+  it("is what licenseOf reports", () => {
+    const dir = writePkg("lower", { license: "mit or apache-2.0" });
+    expect(licenseOf(fileEntry("lower", "1.0.0", dir)).spdx).toBe("MIT OR Apache-2.0");
+  });
 });
 
 describe("isDenied", () => {
@@ -135,6 +171,10 @@ describe("licenseOf", () => {
       expect(parsed).not.toBeNull();
       expect(isDenied(parsed, ["GPL-3.0-only", "GPL-2.0-only", "AGPL-3.0-only"])).toBe(false);
       expect(entry.reason.length).toBeGreaterThan(20);
+    });
+
+    it.each(Object.entries(LICENCE_OVERRIDES))("%s cites the file in Next's install its licence was read from", (_name, entry) => {
+      expect(entry.reason).toMatch(/next\/dist\/compiled\/[^\s,;]+\/(LICEN[CS]E|COPYING)[^\s,;]*/i);
     });
   });
 });

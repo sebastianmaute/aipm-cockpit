@@ -167,11 +167,12 @@ describe("toCycloneDx", () => {
       return { name, version, dir: path, vendoredIn: "next", versionKnown };
     };
 
-    it("with no known version omits it from the purl and says so", () => {
+    it("with no known version leaves it out of the component and the purl, and says so", () => {
       const { components } = toCycloneDx([entry("zod", "zod", "vendored-in-next@16.4.2", false)], { appVersion: "1", electron });
       const zod = components.find((c) => c.name === "zod");
       expect(zod.purl).toBe("pkg:npm/zod");
-      expect(zod.version).toBe("vendored-in-next@16.4.2");
+      expect(Object.hasOwn(zod, "version")).toBe(false);
+      expect(JSON.stringify(zod)).not.toContain("vendored-in-next@");
       expect(zod.properties).toEqual(
         expect.arrayContaining([
           { name: "aipm:vendored-in", value: "next" },
@@ -252,6 +253,11 @@ describe("checkLicences", () => {
     const problems = checkLicences([none, odd], deny);
     expect(problems[0]).toMatch(/none@1\.0\.0.*unknown/);
     expect(problems[1]).toMatch(/odd@1\.0\.0.*unknown.*SEE LICENSE IN EULA/);
+  });
+
+  it("calls an id SPDX does not define unknown, however well it is shaped", () => {
+    const pkg = file("bsd", "1.0.0", pkgDir("bsd", { "package.json": json({ license: "BSD" }) }));
+    expect(checkLicences([pkg], deny)[0]).toMatch(/bsd@1\.0\.0.*unknown.*"BSD"/);
   });
 
   it("names the folder of a vendored library nobody has looked at", () => {
@@ -373,6 +379,8 @@ function writeRepo(name, tweak = {}) {
     ".next/standalone/node_modules/react/package.json": license({ name: "react", version: "19.3.1" }),
     ".next/standalone/node_modules/react-dom/package.json": license({ name: "react-dom", version: "19.3.1" }),
     ".next/standalone/node_modules/traced-only/package.json": license({ name: "traced-only", version: "1.0.0" }),
+    // Not in the install, but carrying its own licence file: no problem.
+    ".next/standalone/node_modules/traced-only/LICENSE": "TRACED ONLY TEXT",
     "desktop/electron-builder.yml": "extraResources:\n  - from: ../.next/standalone/node_modules\n    to: standalone/node_modules\n",
     "desktop/package-lock.json": json({
       lockfileVersion: 3,
@@ -472,6 +480,11 @@ describe("the CLI", () => {
         "a shipped next-server bundle with no map beside it",
         { ".next/standalone/node_modules/next/dist/compiled/next-server/pages.runtime.prod.js": "" },
         /pages\.runtime\.prod\.js/,
+      ],
+      [
+        "a standalone copy with no licence file whose version the install does not hold",
+        { "node_modules/react-dom/package.json": json({ name: "react-dom", version: "19.3.2", license: "MIT" }) },
+        /react-dom@19\.3\.1.*no licence (file|text)/,
       ],
       [
         "a must-include the set lacks",

@@ -117,11 +117,14 @@ function toComponent(pkg, type = "library") {
   const properties = [];
   if (pkg.vendoredIn) properties.push({ name: "aipm:vendored-in", value: pkg.vendoredIn });
   if (pkg.versionKnown === false) properties.push({ name: "aipm:version-unknown", value: "true" });
+  // An unknown version is left out (the field is optional): the marker the
+  // vendored scan uses must never be read as an upstream version.
+  const versionKnown = pkg.versionKnown !== false;
   return {
     type,
-    "bom-ref": `${portableDir(pkg.dir)}#${pkg.name}@${pkg.version}`,
+    "bom-ref": `${portableDir(pkg.dir)}#${pkg.name}${versionKnown ? `@${pkg.version}` : ""}`,
     name: pkg.name,
-    version: pkg.version,
+    ...(versionKnown ? { version: pkg.version } : {}),
     purl: purlOf(pkg),
     ...(spdx ? { licenses: licensesField(spdx) } : {}),
     ...(properties.length > 0 ? { properties } : {}),
@@ -235,22 +238,32 @@ export function readDenyList(repoDir) {
 
 /**
  * A traced standalone copy has package.json but no licence file, so each entry
- * points at the same package in the install when it is that version. A package
- * the install holds at another version keeps its copy, and gets a note in the notices.
+ * points at the same package in the install when it is that version.
+ *
+ * @returns {Promise<{ pkgs: object[]; problems: string[] }>} `problems` names each
+ *   copy the install cannot stand in for and that has no licence text of its own:
+ *   its notice would carry an id and no text, which the licence does not allow.
  */
 async function withInstalledDirs(pkgs, standaloneNodeModules, nodeModules) {
-  return Promise.all(
+  const problems = [];
+  const relocated = await Promise.all(
     pkgs.map(async (pkg) => {
       const installed = join(nodeModules, relative(standaloneNodeModules, pkg.dir));
+      let version = null;
       try {
-        const { version } = JSON.parse(await readFile(join(installed, "package.json"), "utf8"));
-        return version === pkg.version ? { ...pkg, dir: installed } : pkg;
+        ({ version } = JSON.parse(await readFile(join(installed, "package.json"), "utf8")));
       } catch (err) {
-        if (err.code === "ENOENT") return pkg;
-        throw err;
+        if (err.code !== "ENOENT") throw err;
       }
+      if (version === pkg.version) return { ...pkg, dir: installed };
+      if (!licenseOf(pkg).text) {
+        const held = version ? `holds ${version}` : "has no copy";
+        problems.push(`The standalone copy ${pkg.name}@${pkg.version} has no licence file, and the install ${held} to read one from`);
+      }
+      return pkg;
     }),
   );
+  return { pkgs: relocated, problems };
 }
 
 async function collect({ build, standalone, desktop, asar, cwd }) {
@@ -258,7 +271,8 @@ async function collect({ build, standalone, desktop, asar, cwd }) {
   const standaloneNodeModules = join(standalone, "node_modules");
   const bundledScan = await scanBundledSources(build, nodeModules);
   const exclude = await standaloneExcludeFromBuilderConfig(join(desktop, "electron-builder.yml"));
-  const standalonePkgs = await withInstalledDirs(await standalonePackages(standaloneNodeModules, exclude), standaloneNodeModules, nodeModules);
+  const standaloneScan = await withInstalledDirs(await standalonePackages(standaloneNodeModules, exclude), standaloneNodeModules, nodeModules);
+  const standalonePkgs = standaloneScan.pkgs;
   const desktopPkgs = await desktopPackages(desktop);
   const vendoredScan = await scanNextVendored(join(nodeModules, "next"), {
     shippedNextDir: join(standaloneNodeModules, "next"),
@@ -277,6 +291,7 @@ async function collect({ build, standalone, desktop, asar, cwd }) {
     problems: [
       ...checkUnresolved(bundledScan.unresolved),
       ...vendoredScan.problems,
+      ...standaloneScan.problems,
       ...(asar ? checkAsar(await asarPackages(asar), desktopPkgs) : []),
     ],
   };

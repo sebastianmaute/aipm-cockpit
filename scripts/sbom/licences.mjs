@@ -3,55 +3,93 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { LICENCE_OVERRIDES } from "./licence-overrides.mjs";
+import { SPDX_EXCEPTION_IDS, SPDX_LICENCE_IDS } from "./spdx-ids.mjs";
 
 const LICENCE_FILE = /^(licen[cs]e|copying)/i;
-const ID_SHAPE = /^[A-Za-z0-9][A-Za-z0-9.-]*\+?$/;
-// Well-formed as an id, and saying there is no licence we could honour.
-const NOT_A_LICENCE = /^(unlicensed|unknown|none|noassertion|proprietary|custom|commercial|licenseref-.*|documentref-.*)$/i;
+const byLowerCase = (ids) => new Map(ids.map((id) => [id.toLowerCase(), id]));
+const LICENCE_IDS = byLowerCase(SPDX_LICENCE_IDS);
+const EXCEPTION_IDS = byLowerCase(SPDX_EXCEPTION_IDS);
 
-/** One id, or `id WITH exception`, or a parenthesised expression. */
-function parseAtom(tokens) {
-  const token = tokens.shift();
-  if (token === "(") {
-    const inner = parseAny(tokens);
-    return inner && tokens.shift() === ")" ? inner : null;
-  }
-  if (!token || !ID_SHAPE.test(token) || NOT_A_LICENCE.test(token) || /^(and|or|with)$/i.test(token)) return null;
-  if (tokens[0]?.toUpperCase() === "WITH") {
-    tokens.shift();
-    if (!ID_SHAPE.test(tokens.shift() ?? "")) return null;
-  }
-  return { id: token };
-}
-
-function parseChain(tokens, operator, parseNext) {
-  const first = parseNext(tokens);
-  if (!first) return null;
-  const parts = [first];
-  while (tokens[0]?.toUpperCase() === operator) {
-    tokens.shift();
-    const next = parseNext(tokens);
-    if (!next) return null;
-    parts.push(next);
-  }
-  return parts.length === 1 ? first : { [operator]: parts };
-}
-
-function parseAny(tokens) {
-  return parseChain(tokens, "OR", (rest) => parseChain(rest, "AND", parseAtom));
+/** The SPDX spelling of a listed licence id, a trailing `+` kept, or null. */
+function canonicalLicence(token) {
+  const plus = token.endsWith("+") ? "+" : "";
+  const id = LICENCE_IDS.get((plus ? token.slice(0, -1) : token).toLowerCase());
+  return id ? `${id}${plus}` : null;
 }
 
 /**
- * An SPDX licence expression as a tree, or null when it is not one. The ids are
- * checked for shape, not against the SPDX list, so "BSD" passes as an id.
+ * A recursive-descent reader over the tokens. Every token it accepts goes to
+ * `out` in SPDX spelling (operators upper case), so a parse yields both the tree
+ * and the normalised text.
+ */
+function reader(tokens) {
+  const out = [];
+  const isOperator = (word) => tokens[0]?.toUpperCase() === word;
+
+  function atom() {
+    const token = tokens.shift();
+    if (token === "(") {
+      out.push("(");
+      const inner = any();
+      if (!inner || tokens.shift() !== ")") return null;
+      out.push(")");
+      return inner;
+    }
+    const id = token ? canonicalLicence(token) : null;
+    if (!id) return null;
+    out.push(id);
+    if (!isOperator("WITH")) return { id };
+    tokens.shift();
+    const exception = EXCEPTION_IDS.get((tokens.shift() ?? "").toLowerCase());
+    if (!exception) return null;
+    out.push("WITH", exception);
+    return { id, exception };
+  }
+
+  function chain(operator, next) {
+    const first = next();
+    if (!first) return null;
+    const parts = [first];
+    while (isOperator(operator)) {
+      tokens.shift();
+      out.push(operator);
+      const part = next();
+      if (!part) return null;
+      parts.push(part);
+    }
+    return parts.length === 1 ? first : { [operator]: parts };
+  }
+
+  function any() {
+    return chain("OR", () => chain("AND", atom));
+  }
+
+  const tree = any();
+  return tree && tokens.length === 0 ? { tree, text: out.join(" ").replace(/\( /g, "(").replace(/ \)/g, ")") } : null;
+}
+
+const tokensOf = (expression) => expression.match(/\(|\)|[^\s()]+/g) ?? [];
+
+/**
+ * An SPDX licence expression as a tree, or null when it is not one. Every id must
+ * be on the reviewed list in spdx-ids.mjs; `and`/`or`/`with` are read in any case.
  *
  * @param {string} expression
  * @returns {object | null}
  */
 export function parseLicence(expression) {
-  const tokens = expression.match(/\(|\)|[^\s()]+/g) ?? [];
-  const tree = parseAny(tokens);
-  return tree && tokens.length === 0 ? tree : null;
+  return reader(tokensOf(expression))?.tree ?? null;
+}
+
+/**
+ * The expression in SPDX spelling (`mit or apache-2.0` -> `MIT OR Apache-2.0`),
+ * parentheses kept, or null when it is not an SPDX expression.
+ *
+ * @param {string} expression
+ * @returns {string | null}
+ */
+export function normaliseLicence(expression) {
+  return reader(tokensOf(expression))?.text ?? null;
 }
 
 /** `GPL-3.0-or-later` and `GPL-3.0-only` both rule out the family `GPL-3.0`. */
@@ -131,7 +169,8 @@ export function licenseOf(pkg) {
   const declared = declaredLicence(readManifest(pkg.dir));
   const file = licenceFileName(pkg.dir);
   const text = file ? readFileSync(join(pkg.dir, file), "utf8") : null;
-  if (declared && parseLicence(declared)) return { spdx: declared, text, file, declared };
+  const spdx = declared ? normaliseLicence(declared) : null;
+  if (spdx) return { spdx, text, file, declared };
   const override = pkg.vendoredIn && !declared && Object.hasOwn(LICENCE_OVERRIDES, pkg.name) ? LICENCE_OVERRIDES[pkg.name] : null;
   if (override) return { spdx: override.spdx, text, file, declared, overrideReason: override.reason };
   return { spdx: null, text, file, declared };
