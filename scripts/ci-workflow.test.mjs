@@ -409,6 +409,8 @@ describe("release.yml", () => {
     expect(jobBlock(RELEASE, "sign")).toMatch(/^ {4}environment: release$/m);
     for (const id of ["guard", "build", "publish"]) expect(jobBlock(RELEASE, id), id).not.toMatch(/environment:/);
     const pub = jobBlock(RELEASE, "publish");
+    // No condition of its own: publish runs exactly when sign succeeded.
+    expect(pub).not.toMatch(/^ {4}if:/m);
     expect(pub).not.toMatch(/npm (ci|install|i )|npx /);
     expect(pub).toMatch(/npm run release:verify -- /);
     expect(pub).toMatch(/npm run release:publish -- /);
@@ -552,6 +554,32 @@ describe("release.yml", () => {
       expect(at(/name: Upload the unsigned installer/)).toBeLessThan(at(/name: Sign the installer/));
     });
 
+    // Switching signing on before the signed-build updater check exists must fail the release,
+    // not ship a signed installer whose updater accepts anything.
+    it("fails unless the repackaged app's update feed requires SignPath Foundation, right after the repackage", () => {
+      const s = step(/name: The repackaged app's updater requires the SignPath Foundation signature/);
+      expect(ifOf(s)).toBe(ON);
+      expect(s).toMatch(/^ {8}shell: pwsh$/m);
+      expect(s).toContain("APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}");
+      expect(s).toContain("Join-Path $env:APP_DIR 'resources/app-update.yml'");
+      expect(s).toContain("-notmatch '(?ms)^publisherName:.*SignPath Foundation'");
+      expect(s).toMatch(/exit 1/);
+      const after = steps().findIndex((x) => /--prepackaged/.test(x));
+      expect(steps()[after + 1]).toBe(s);
+    });
+
+    it("installs the packaging tools without install scripts (the job holds the SignPath token)", () => {
+      const s = step(/name: Install the desktop packaging tools/);
+      expect(s).toMatch(/^ {8}run: npm --prefix desktop ci --ignore-scripts$/m);
+      const installs = sign().match(/npm (?:--prefix \S+ )?(?:ci|install|i)\b.*$/gm) ?? [];
+      expect(installs).toEqual(["npm --prefix desktop ci --ignore-scripts"]);
+    });
+
+    // The packaged app is several hundred MB; the action's default download timeout is 300 s.
+    it("gives the signed packaged app's download more time than the default", () => {
+      expect(step(/name: Sign the app's own executables/)).toMatch(/^ {10}download-signed-artifact-timeout-in-seconds: 1800$/m);
+    });
+
     it("signs the build's packaged app by the artifact build uploaded, only when signing is on", () => {
       const b = jobBlock(RELEASE, "build").replace(/\r\n/g, "\n");
       expect(b).toMatch(/^ {6}unpacked-artifact-id: \$\{\{ steps\.upload-unpacked\.outputs\.artifact-id \}\}$/m);
@@ -566,7 +594,7 @@ describe("release.yml", () => {
       for (const name of [
         "Install the desktop packaging tools", "Download the packaged app", "Repackage the app as a signed build",
         "Upload the unsigned installer", "Sign the installer", "Take the signed installer and rewrite the update feed",
-        "The installer is signed by SignPath Foundation",
+        "The installer is signed by SignPath Foundation", "The repackaged app's updater requires the SignPath Foundation signature",
       ]) expect(ifOf(step(new RegExp(`name: ${name}`))), name).toBe(ON);
       expect(ifOf(step(/name: The app's executable is signed by SignPath Foundation/))).toBe(ON_APP);
     });
@@ -593,6 +621,7 @@ describe("release.yml", () => {
       expect(ifOf(g)).toBeNull();
       expect(g).toMatch(/run: node scripts\/release-signing-guard\.mjs "\$TAG" "\$FINAL"$/m);
       expect(g).toMatch(/GH_TOKEN: \$\{\{ github\.token \}\}/);
+      expect(g).toMatch(/^ {10}GH_REPO: \$\{\{ github\.repository \}\}$/m);
       const v = step(/npm run release:verify -- /);
       expect(ifOf(v)).toBeNull();
       expect(at(/name: The installer is signed by/)).toBeLessThan(at(/release-signing-guard/));

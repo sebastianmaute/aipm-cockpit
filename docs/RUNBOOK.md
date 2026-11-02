@@ -254,8 +254,10 @@ go direct. That older release also ignores the `ai` value of
    in the `release` environment, which pauses for the owner's approval — the
    only one per release: when `build` finishes, open the run's Actions page →
    "Review deployments" → approve `release`. With the repository variable
-   `SIGNPATH_ENABLED` unset, `sign` only checks and passes the build's files on;
-   set to `true`, it has SignPath sign the installer, which waits for SignPath's
+   `SIGNPATH_ENABLED` unset, `sign` only checks and passes the build's files on.
+   **Keep it unset until the signed-build updater check is in place** (the next
+   step of the signing work); switched on before that, `sign` fails the release
+   at its update-feed check. Set to `true`, it has SignPath sign the installer, which waits for SignPath's
    own approval of the request (up to an hour each). `sign` refuses an unsigned
    installer once a signed release has shipped (`release-signing-guard`, exit 1;
    exit 2 = could not decide, also a failure — re-run the job). Before switching

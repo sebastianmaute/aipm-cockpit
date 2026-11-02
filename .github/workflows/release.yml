@@ -180,9 +180,13 @@ jobs:
   # With it on, the build's packaged app is repackaged once with AIPM_SIGNED_BUILD=1 (always,
   # so a signed release never ships an updater without the publisher check), the new setup is
   # signed by SignPath, and latest.yml and the blockmap are rewritten over the signed bytes.
-  # What SignPath can reach: the app's own PE files (the packaged-app artifact, when
-  # SIGNPATH_SIGN_APP_EXE is 'true') and the setup exe. NOT the uninstaller: makensis builds it
-  # and compresses it into the setup in one run, so no artifact ever holds it on its own.
+  # What SignPath signs here: the app's own PE files (the packaged-app artifact, when
+  # SIGNPATH_SIGN_APP_EXE is 'true') and the setup exe. The uninstaller is NOT signed yet: it is
+  # reachable through a signing hook during the repackage (electron-builder writes it to its own
+  # file and signs it before building the setup), but that is deferred pending a decision on
+  # whether such a hook meets SignPath's trusted-build rules -- see docs/open-followups.md.
+  # ★ Keep SIGNPATH_ENABLED off until the signed-build updater check is in place: the step after
+  # the repackage fails the release unless the packed app's update feed requires the signature.
   sign:
     needs: [guard, build]
     runs-on: windows-latest
@@ -203,9 +207,10 @@ jobs:
         with:
           name: release-files
           path: ${{ runner.temp }}/release
+      # No install scripts in the job that holds the SignPath token (as ci.yml installs).
       - name: Install the desktop packaging tools
         if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
-        run: npm --prefix desktop ci
+        run: npm --prefix desktop ci --ignore-scripts
       - name: Download the packaged app
         if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -225,6 +230,8 @@ jobs:
           github-artifact-id: ${{ needs.build.outputs.unpacked-artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 3600
+          # The signed packaged app is several hundred MB; the action's 300 s default is too short.
+          download-signed-artifact-timeout-in-seconds: 1800
           output-artifact-directory: ${{ runner.temp }}/unpacked-signed
       - name: The app's executable is signed by SignPath Foundation
         if: ${{ vars.SIGNPATH_ENABLED == 'true' && vars.SIGNPATH_SIGN_APP_EXE == 'true' }}
@@ -245,6 +252,19 @@ jobs:
           AIPM_SIGNED_BUILD: "1"
           APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
         run: npm run desktop:package -- --prepackaged "$APP_DIR"
+      # A signed installer whose updater does not require the signature would install anything
+      # served as an update; until AIPM_SIGNED_BUILD writes publisherName into the packed app's
+      # resources/app-update.yml, switching signing on fails the release here.
+      - name: The repackaged app's updater requires the SignPath Foundation signature
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        shell: pwsh
+        env:
+          APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
+        run: |
+          $feed = Join-Path $env:APP_DIR 'resources/app-update.yml'
+          if (-not (Test-Path -LiteralPath $feed)) { Write-Output "update-feed check: $feed is missing"; exit 1 }
+          $text = Get-Content -LiteralPath $feed -Raw
+          if ($text -notmatch '(?ms)^publisherName:.*SignPath Foundation') { Write-Output "update-feed check: $feed has no publisherName naming SignPath Foundation -- keep SIGNPATH_ENABLED off until the signed-build updater check is in place"; exit 1 }
       - name: Upload the unsigned installer
         id: upload-unsigned
         if: ${{ vars.SIGNPATH_ENABLED == 'true' }}

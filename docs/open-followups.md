@@ -1026,6 +1026,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§788](#788-deleting-a-person-leaves-their-name-in-the-shared-person_links-table--closed-2026-11-01) | Deleting a person leaves their name in the shared person_links table | — | — | **CLOSED** 2026-11-01 |
 | [§789](#789-the-browsers-speech-recognition-keeps-listening-in-an-open-tab-after-the-people-protection-lock-is-set) | The browser's speech recognition keeps listening in an open tab after the people-protection lock is set | #937 | — | OPEN |
 | [§790](#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database) | Converting a local copy back to Turso writes through the wrong layout and may empty a shared database | #939 | — | OPEN |
+| [§792](#792-the-installers-uninstaller-is-not-code-signed) | The installer's uninstaller is not code-signed | — | — | OPEN |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46227,3 +46228,19 @@ What it would take: reproduce on real SQLite with a multi-project database, with
 Size M.
 
 **Source:** §788 code reviews, owner decision 2026-11-01 (file it, take it next).
+
+## 792. The installer's uninstaller is not code-signed
+
+**Status:** OPEN 2026-11-02, filed during the signed-installer work (the release workflow's `sign` job). Deferred by controller ruling, not a defect in shipped behaviour: signing is still switched off. Reproduced by reading: `grep -n "signIf(uninstallerPath)" desktop/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js` prints one hit, in `computeScriptAndSignUninstaller`.
+
+**Work item:** to be filed
+
+When signing is switched on (`vars.SIGNPATH_ENABLED`), the `sign` job in `.github/workflows/release.yml` has SignPath sign the setup exe and, with `SIGNPATH_SIGN_APP_EXE`, the packaged app's own executables. The uninstaller is left unsigned. It is reachable: during the job's `--prepackaged` repackage, electron-builder's NSIS target writes the uninstaller to a file of its own and calls `packager.signIf(uninstallerPath)` before it builds the setup, so a `win.signtoolOptions.sign` hook would be handed it.
+
+Why deferred: such a hook would have to call SignPath's API from inside electron-builder, one file at a time, rather than through the GitHub connector with a workflow artifact. Whether that still meets SignPath's trusted-build rules (origin verification, the artifact stored as a workflow artifact first) is not decided.
+
+What it would take: ask SignPath (or read the Foundation's terms) whether a per-file signing request from a build hook is acceptable for an OSS project. If yes, write the hook (it runs only under `AIPM_SIGNED_BUILD=1`), keep the token out of every other job, and add a check in `sign` that the uninstaller inside the setup is signed. If no, say in the README's signing policy that the uninstaller is unsigned.
+
+Size M.
+
+**Source:** review of the signing job, controller ruling 2026-11-02 (defer, file it).
