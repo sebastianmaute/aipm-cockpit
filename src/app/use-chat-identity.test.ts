@@ -7,6 +7,7 @@ import type { TursoConfig } from "./turso-config";
 const h = vi.hoisted(() => ({
   vault: new Map<string, { ownerId: string; chatKey: Uint8Array }>(),
   locked: new Set<string>(),
+  transient: new Set<string>(),
   failStart: { value: false },
 }));
 
@@ -15,12 +16,13 @@ vi.mock("./chat-key-vault", () => ({
   chatVaultAvailable: () => true,
   readChatIdentity: vi.fn(async (url: string) => {
     if (h.locked.has(url)) return { kind: "unavailable" };
+    if (h.transient.has(url)) return { kind: "transient" };
     const identity = h.vault.get(url);
     return identity ? { kind: "found", identity } : { kind: "absent" };
   }),
   getChatIdentity: vi.fn(async (url: string) => h.vault.get(url) ?? null),
   ensureChatIdentity: vi.fn(async (url: string) => {
-    if (h.locked.has(url)) return null;
+    if (h.locked.has(url) || h.transient.has(url)) return null;
     let identity = h.vault.get(url);
     if (!identity) {
       identity = { ownerId: "minted", chatKey: new Uint8Array(32) };
@@ -49,6 +51,7 @@ function render(chat: ChatSettings | null = CHAT_ON) {
 beforeEach(() => {
   h.vault.clear();
   h.locked.clear();
+  h.transient.clear();
   h.failStart.value = false;
 });
 
@@ -59,6 +62,9 @@ describe("chatPersistence", () => {
     expect(chatPersistence(CHAT_ON, true, true)).toBe("identity-locked");
     expect(chatPersistence({ ...CHAT_ON, recoveryKey: "" }, true, false)).toBe("no-recovery-key");
     expect(chatPersistence(CHAT_ON, true, false)).toBe("on");
+    expect(chatPersistence(CHAT_ON, true, false, true)).toBe("identity-retry");
+    expect(chatPersistence(CHAT_ON, true, true, true)).toBe("identity-locked");
+    expect(chatPersistence({ ...CHAT_ON, recoveryKey: "" }, true, false, true)).toBe("no-recovery-key");
   });
 });
 
@@ -104,6 +110,26 @@ describe("useChatIdentity", () => {
       await expect(result.current.writeIdentity(CFG)).rejects.toThrow("chat identity unavailable");
     });
     expect(result.current.persistence).toBe("identity-locked");
+  });
+
+  it("a vault read that fails for another reason saves nothing, offers no new identity and is retried by the next write", async () => {
+    h.vault.set(CFG.httpUrl, id("own"));
+    h.transient.add(CFG.httpUrl);
+    const { result } = render();
+    await act(async () => {
+      expect(await result.current.readIdentity(CFG)).toBeNull();
+    });
+    expect(result.current.persistence).toBe("identity-retry");
+    await act(async () => {
+      await expect(result.current.writeIdentity(CFG)).rejects.toThrow();
+    });
+    expect(result.current.persistence).toBe("identity-retry");
+    expect(h.vault.get(CFG.httpUrl)?.ownerId).toBe("own");
+    h.transient.delete(CFG.httpUrl);
+    await act(async () => {
+      expect((await result.current.writeIdentity(CFG)).ownerId).toBe("own");
+    });
+    expect(result.current.persistence).toBe("on");
   });
 
   it("starting a new identity replaces a locked one; a failure leaves the state", async () => {

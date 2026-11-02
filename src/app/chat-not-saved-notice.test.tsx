@@ -50,6 +50,15 @@ describe("ChatNotSavedNotice", () => {
     expect(onStart).toHaveBeenCalledTimes(1);
   });
 
+  it("a vault that cannot be read right now gets a neutral line and no new-identity button, in English and German", () => {
+    const { rerender } = render(<ChatNotSavedNotice lang="en-US" persistence="identity-retry" onStartNewIdentity={vi.fn()} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Saved chats are not available right now; the app will try again.");
+    expect(screen.queryByRole("button")).toBeNull();
+    rerender(<ChatNotSavedNotice lang="de" persistence="identity-retry" onStartNewIdentity={vi.fn()} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Gespeicherte Chats sind gerade nicht verfügbar; die App versucht es erneut.");
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("the no-crypto line has no button", () => {
     render(<ChatNotSavedNotice lang="en-US" persistence="no-crypto" onStartNewIdentity={vi.fn()} />);
     expect(screen.getByRole("status")).toHaveTextContent("Chats are not saved: this browser cannot encrypt them.");

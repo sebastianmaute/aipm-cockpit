@@ -134,6 +134,26 @@ describe("chat-key-vault", () => {
     expect(stored()).toBe(raw);
   });
 
+  it("reports a failure other than a key that cannot open the entry (IndexedDB blocked) as transient, and never overwrites", async () => {
+    await ensureChatIdentity(URL_A);
+    const raw = stored();
+    vi.resetModules();
+    vi.doMock("./secrets", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("./secrets")>()),
+      openDeviceValue: vi.fn(async () => { throw new Error("idb blocked"); }),
+    }));
+    try {
+      const vault = await import("./chat-key-vault");
+      expect(await vault.readChatIdentity(URL_A)).toEqual({ kind: "transient" });
+      expect(await vault.getChatIdentity(URL_A)).toBeNull();
+      expect(await vault.ensureChatIdentity(URL_A)).toBeNull();
+      expect(stored()).toBe(raw);
+    } finally {
+      vi.doUnmock("./secrets");
+      vi.resetModules();
+    }
+  });
+
   it("is unavailable without IndexedDB, and creates nothing", async () => {
     vi.stubGlobal("indexedDB", undefined);
     expect(await readChatIdentity(URL_A)).toEqual({ kind: "unavailable" });

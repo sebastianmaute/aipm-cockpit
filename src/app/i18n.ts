@@ -1287,6 +1287,7 @@ const enUS = {
   chatNotSavedNoCrypto: "Chats are not saved: this browser cannot encrypt them.",
   chatNotSavedIdentityLocked: "Your saved chats on this browser cannot be opened any more. Start a new chat identity to save chats again; your earlier chats stay with the operator until they expire. If you set a chat passphrase earlier, start a new identity, then use “Open my chats from another browser” in Settings → AI with your unlock code to get your earlier chats back.",
   chatStartNewIdentity: "Start a new chat identity",
+  chatNotSavedIdentityRetry: "Saved chats are not available right now; the app will try again.",
   chatNotSavedStatusUnknown: "Chats are not saved until the AI settings have loaded.",
   chatThreadOpen: "Open \"{0}\"",
   chatThreadRename: "Rename \"{0}\"",

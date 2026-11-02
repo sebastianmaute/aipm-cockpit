@@ -244,7 +244,8 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
 
   const identity = useChatIdentity({ tursoMode, tursoConfig, chat });
   const { persistence, identityReloads } = identity;
-  const saveGate: SaveGate | null = persistence === "on" && chat?.recoveryKey
+  // "identity-retry" saves too: the save reads the vault again, and fails (for a retry) while it cannot.
+  const saveGate: SaveGate | null = (persistence === "on" || persistence === "identity-retry") && chat?.recoveryKey
     ? { recoveryKey: chat.recoveryKey, retentionDays: retentionInForce(chat) }
     : null;
   // Deletes need no encryption, so they do not wait for "on": with the status known in Turso mode, a

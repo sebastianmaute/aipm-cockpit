@@ -2352,6 +2352,10 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     `startNewChatIdentity` (the hook's `startNewIdentity`, the notice's "Start a new chat identity" button), which
     stores a fresh identity over the locked entry; chats saved under the old one are left for the operator and
     retention. Settings → AI hides the chat passphrase area in this state too (`ai-section.tsx` reads the vault).
+  - **`"identity-retry"`**: opening the entry failed for any reason OTHER than a key that cannot open it
+    (`SecretUnlockError`) — IndexedDB blocked, quota, anything unexpected — so `readChatIdentity` answers
+    `"transient"`. ★★ Not a lock: no "Start a new chat identity" offer, the entry is never replaced (nor by an
+    unlock), the notice says the app will try again, and the next save or load reads the vault afresh.
   - **Rows.** `encodeThreadRow` (`chat-thread-codec.ts`) seals name, history and display under a fresh thread key on
     every write and wraps it twice, `wrapForOwner` and `wrapForOperator` (`chat-crypto.ts`). Loading drops every row
     owned by someone else. A legacy row (`isLegacyRow`: no owner) still decodes as plaintext until it expires, and

@@ -18,22 +18,27 @@ import { logDiag } from "./diagnostics";
 /** Whether this browser saves chats: "on", or why not. Anything but "on" means no save is sent; the
  *  panel shows one line saying why. Deletes need no encryption and are sent whenever the status is
  *  known (`deleteGate`), so a deleted chat does not come back on reload. */
-export type ChatPersistence = "on" | "no-recovery-key" | "no-crypto" | "identity-locked" | "status-unknown";
+/** "identity-retry": the vault could not be read right now for a reason other than a lost key; nothing is
+ *  saved until a later save or load reads it, and no new identity is offered. */
+export type ChatPersistence = "on" | "no-recovery-key" | "no-crypto" | "identity-locked" | "identity-retry" | "status-unknown";
 
 /** The persistence for the server's chat settings (`null` = not known yet), whether this browser can
- *  encrypt at all (Web Crypto and IndexedDB), and whether its stored identity for the database is one
- *  the device key cannot open. Checked in this order: status unknown, no crypto, identity locked, no
- *  recovery key. */
-export function chatPersistence(chat: ChatSettings | null, canEncrypt: boolean, identityLocked: boolean): ChatPersistence {
+ *  encrypt at all (Web Crypto and IndexedDB), whether its stored identity for the database is one
+ *  the device key cannot open, and whether the last vault read failed for another reason. Checked in
+ *  this order: status unknown, no crypto, identity locked, no recovery key, identity retry. */
+export function chatPersistence(
+  chat: ChatSettings | null, canEncrypt: boolean, identityLocked: boolean, identityTransient = false,
+): ChatPersistence {
   if (chat === null) return "status-unknown";
   if (!canEncrypt) return "no-crypto";
   if (identityLocked) return "identity-locked";
   if (!chat.recoveryKey) return "no-recovery-key";
+  if (identityTransient) return "identity-retry";
   return "on";
 }
 
 /** This browser's identity per database URL, as last read here; `null` identity = none stored yet. */
-type VaultRead = { url: string; kind: "found" | "absent" | "unavailable"; identity: ChatIdentity | null };
+type VaultRead = { url: string; kind: "found" | "absent" | "unavailable" | "transient"; identity: ChatIdentity | null };
 
 export interface UseChatIdentityDeps {
   tursoMode: boolean;
@@ -54,7 +59,8 @@ export function useChatIdentity({ tursoMode, tursoConfig, chat }: UseChatIdentit
   }, [vaultRead]);
   const currentUrl = urlOf(tursoConfig);
   const vaultLocked = vaultRead?.url === currentUrl && vaultRead.kind === "unavailable";
-  const persistence = chatPersistence(chat, chatVaultAvailable(), vaultLocked);
+  const vaultTransient = vaultRead?.url === currentUrl && vaultRead.kind === "transient";
+  const persistence = chatPersistence(chat, chatVaultAvailable(), vaultLocked, vaultTransient);
   const knownOwnerId = vaultRead?.url === currentUrl && vaultRead.kind === "found" ? vaultRead.identity?.ownerId ?? null : null;
 
   function record(next: VaultRead): void {
@@ -107,7 +113,8 @@ export function useChatIdentity({ tursoMode, tursoConfig, chat }: UseChatIdentit
 
   /** The identity a write to `config`'s database uses, read from the vault and created on first
    *  use. Throws when this browser cannot encrypt or its stored identity cannot be opened (and records
-   *  that, so persistence reads "no-crypto" or "identity-locked"). Throws WITHOUT recording anything
+   *  that, so persistence reads "no-crypto" or "identity-locked"), or when the vault could not be read
+   *  right now (recorded as "identity-retry"; the next save or load reads it again). Throws WITHOUT recording anything
    *  when a new identity could not be stored: that is a failed save, offered for retry, not a lock. */
   async function writeIdentity(config: TursoConfig | null): Promise<ChatIdentity> {
     const url = urlOf(config);
@@ -117,13 +124,12 @@ export function useChatIdentity({ tursoMode, tursoConfig, chat }: UseChatIdentit
     const reread = created ? null : await readChatIdentity(url);
     if (reread?.kind === "absent") throw new Error("chat identity not stored");
     const identity = created ?? (reread?.kind === "found" ? reread.identity : null);
+    const kind: VaultRead["kind"] = identity ? "found" : reread?.kind === "transient" ? "transient" : "unavailable";
     const known = vaultReadRef.current;
-    const unchanged = known?.url === url && (identity
-      ? known.kind === "found" && known.identity?.ownerId === identity.ownerId
-      : known.kind === "unavailable");
-    if (!unchanged) {
-      record(identity ? { url, kind: "found", identity } : { url, kind: "unavailable", identity: null });
-    }
+    const unchanged = known?.url === url && known.kind === kind
+      && (known.identity?.ownerId ?? null) === (identity?.ownerId ?? null);
+    if (!unchanged) record({ url, kind, identity });
+    if (kind === "transient") throw new Error("chat identity not readable right now");
     if (!identity) throw new Error("chat identity unavailable");
     return identity;
   }

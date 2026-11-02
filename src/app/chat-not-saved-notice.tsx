@@ -15,6 +15,7 @@ const CHAT_NOT_SAVED_KEY: Record<Exclude<ChatPersistence, "on">, TranslationKey>
   "no-recovery-key": "chatNotSavedNoRecoveryKey",
   "no-crypto": "chatNotSavedNoCrypto",
   "identity-locked": "chatNotSavedIdentityLocked",
+  "identity-retry": "chatNotSavedIdentityRetry",
   "status-unknown": "chatNotSavedStatusUnknown",
 };
 

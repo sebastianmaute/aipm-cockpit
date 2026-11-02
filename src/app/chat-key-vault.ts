@@ -9,22 +9,26 @@
 //
 // A malformed entry counts as absent (the next save creates a new identity). An
 // entry the device key cannot open counts as unavailable and is never
-// overwritten. Nothing here logs a key, an owner id or a URL.
+// overwritten. Any other failure while opening it (IndexedDB blocked, quota,
+// anything unexpected) is transient: nothing is created or overwritten, and the
+// next read tries again. Nothing here logs a key, an owner id or a URL.
 import { bytesToBase64 } from "./base64";
 import { generateChatKey, isChatCryptoAvailable } from "./chat-crypto";
 import type { ChatIdentity } from "./chat-thread-codec";
-import { openDeviceValue, sealDeviceValue, type DeviceSealedValue } from "./secrets";
+import { openDeviceValue, sealDeviceValue, SecretUnlockError, type DeviceSealedValue } from "./secrets";
 
 export const CHAT_IDENTITY_KEY = "aipm-cockpit:chat-identity";
 
 const CHAT_KEY_BYTES = 32;
 
-/** What this browser holds for one database: an identity, nothing yet, or one it cannot use
- *  (no Web Crypto or IndexedDB, or the device key cannot open the stored entry). */
+/** What this browser holds for one database: an identity, nothing yet, one it cannot use (no Web
+ *  Crypto or IndexedDB, or the device key cannot open the stored entry), or one it could not read
+ *  right now for another reason ("transient": try again later; never a reason to replace it). */
 export type ChatIdentityRead =
   | { kind: "found"; identity: ChatIdentity }
   | { kind: "absent" }
-  | { kind: "unavailable" };
+  | { kind: "unavailable" }
+  | { kind: "transient" };
 
 type VaultEntry = { ownerId: string; sealed: DeviceSealedValue };
 
@@ -75,8 +79,9 @@ export async function readChatIdentity(httpUrl: string): Promise<ChatIdentityRea
   let opened: string;
   try {
     opened = await openDeviceValue(entry.sealed);
-  } catch {
-    return { kind: "unavailable" };
+  } catch (err) {
+    // Only a key that cannot open the entry means it is lost here; anything else may pass.
+    return err instanceof SecretUnlockError ? { kind: "unavailable" } : { kind: "transient" };
   }
   const chatKey = decodeChatKey(opened);
   return chatKey ? { kind: "found", identity: { ownerId: entry.ownerId, chatKey } } : { kind: "absent" };
@@ -112,7 +117,7 @@ const creating = new Map<string, Promise<ChatIdentity | null>>();
 async function createChatIdentity(httpUrl: string): Promise<ChatIdentity | null> {
   const read = await readChatIdentity(httpUrl);
   if (read.kind === "found") return read.identity;
-  if (read.kind === "unavailable") return null;
+  if (read.kind === "unavailable" || read.kind === "transient") return null;
   const identity: ChatIdentity = { ownerId: crypto.randomUUID(), chatKey: await generateChatKey() };
   try {
     await replaceChatIdentity(httpUrl, identity);
@@ -126,7 +131,8 @@ async function createChatIdentity(httpUrl: string): Promise<ChatIdentity | null>
 }
 
 /** The identity for `httpUrl`, created on first use. Null when this browser cannot encrypt, or holds
- *  an entry its device key cannot open (that entry is kept, not replaced), or the new entry could not
+ *  an entry its device key cannot open or could not read right now (that entry is kept, not
+ *  replaced), or the new entry could not
  *  be sealed or stored (the vault then still reads "absent"; a caller tells the cases apart by
  *  `readChatIdentity`). Concurrent calls for one
  *  URL share a single creation in this tab, and run one at a time across tabs where Web Locks exist. */

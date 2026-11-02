@@ -178,6 +178,8 @@ export async function unlockWithPassphrase(
   const adopted: ChatIdentity = { ownerId: row.owner_id, chatKey };
 
   const current = await readChatIdentity(httpUrl);
+  // An identity that could not be read right now is not replaced: it may still be good.
+  if (current.kind === "transient") throw new Error("chat identity not readable right now");
   const counts = current.kind === "found" && current.identity.ownerId !== adopted.ownerId
     ? await reownThreads(config, current.identity, adopted)
     : { moved: 0, skipped: 0 };
