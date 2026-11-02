@@ -308,8 +308,11 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     const cfg = guardTurso();
     if (!cfg) return;
     try {
-      await portfolioHardDelete(cfg, id);
-      deps.showToast("info", t(deps.langRef.current, "projectHardDeletedToast"));
+      const { sweepPending } = await portfolioHardDelete(cfg, id);
+      // One toast either way (a second would replace the first): the warning when part of the
+      // project's data is still to be removed by the retry at the next start.
+      if (sweepPending) deps.showToast("error", t(deps.langRef.current, "projectSweepPending"));
+      else deps.showToast("info", t(deps.langRef.current, "projectHardDeletedToast"));
     } catch (err) {
       deps.reportProjectError(err);
     }

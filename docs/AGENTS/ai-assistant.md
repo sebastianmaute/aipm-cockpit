@@ -2279,10 +2279,178 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
   surface will ever have; do not read a green axe run as covering it, and eye-verify against a real
   Turso project before shipping any change to this surface.
   ★ The `chat_threads` table is deliberately OUT of `TABLE_NAMES` (else a workspace save's per-table
-  DELETE sweep wipes it); its upsert is a single atomic `INSERT OR REPLACE`, never a delete-then-insert
-  pair, because `runTursoPipeline` only opens a transaction when the first statement is literal `BEGIN`.
+  DELETE sweep wipes it); its upsert (`upsertThreadStatements`) is a single atomic `INSERT … ON CONFLICT(id)
+  DO UPDATE … WHERE` that only overwrites a row of the same project whose owner is the writer or nobody — never
+  a delete-then-insert pair, because `runTursoPipeline` only opens a transaction when the first statement is
+  literal `BEGIN`. A guarded upsert that matches nothing is a silent no-op.
+  ★★ `CHAT_THREADS_DDL` also carries the trigger `chat_threads_owner_required`, which ABORTS every INSERT whose
+  `owner_id` is NULL or '' — the previous release's plaintext `INSERT OR REPLACE` included, before it can replace
+  a row. Nothing in this code may insert an owner-less row (a legacy takeover is an UPDATE), and a test fixture
+  that needs a legacy row inserts it owned and then UPDATEs the owner away
+  (`chat-threads-schema.execute.test.ts`).
+  ★★ That upsert is ONLY for a thread never stored. A thread the hook knows is stored (it was loaded, or a
+  save of it returned "saved") is written with `updateStoredThreadStatements`, an owner-guarded UPDATE: when
+  it changes no row, `saveThread` runs ONE id-only read (`threadPresentSelect`, no content): no row is "gone"
+  (erased or deleted elsewhere), and the hook drops the thread, its registry entry and its pending rename
+  (`chat.threadGone`); a row under another owner is "not-owned" (a legacy row taken over elsewhere, see below);
+  a failed read is "unconfirmed", closed like gone but with the neutral notice "This chat could not be saved
+  and has been closed." (`chat.threadSaveUnconfirmed`). Upserting it would bring an erased chat back with its
+  whole history.
+  ★★ Dropping it from the list is NOT enough: the conversation left on screen would go out with the next
+  send under a NEW id, i.e. an INSERT of the erased transcript. So a gone ACTIVE thread is closed
+  (`closeGoneThread`: no active thread, history and display cleared, `threadClosed` drives
+  `ChatThreadClosedNotice`); with a send running, its id is marked gone in the ledger and the busy-persist
+  effect closes it without saving once the turn settles. The close ignores which database is CURRENT: after a
+  switch the old transcript is still on screen. Gone is keyed by database URL + id and looked up with the
+  database the thread CAME FROM (the turn's config; the ledger's source records each in-memory thread's
+  database on every load and mint), so the same id in another database (a fork or restore) is never closed by
+  mistake.
+  ★★ **Module map.** `use-chat-threads.ts` composes: `chat-thread-ledger.ts` (`createChatThreadLedger`, pure:
+  stored, gone and source of every thread, each keyed by database URL AND thread id — `recordLoaded`,
+  `markStored`/`isStored`, `markGone`/`isGone`, `recordSource`/`cameFrom`/`sourceOf`; an id has one source at a
+  time); `use-chat-identity.ts` (`useChatIdentity`: the vault read, `writeIdentity`, `trustedIdentity`, the
+  cross-tab `identityReloads` signal, `startNewIdentity` and `chatPersistence`); `chat-persist-queue.ts`
+  (`createChatPersistQueue`: `runPersist`, its write ordering, retries and landings, and `savesSettled`, which a delete-all awaits so an insert still on its way is not left behind); `use-chat-thread-renames.ts`
+  (`useChatThreadRenames`: rename and the §626 outbox); `use-chat-erase.ts` (`useChatErase`: single delete,
+  delete ticked, delete all); `use-chat-threads-publish.ts` (`useChatThreadsPublish`: the registry the
+  dispatcher reads); and `chat-thread-writes.ts` (shared helpers: outbox scope, `sameDatabase`, the retention
+  expiry). Every module is coverage-gated, not excluded.
+  ★★★ **A thread is written only to its own database.** The ledger records a source only for rows a load SHOWS
+  (owner and retention filter passed) and for threads minted here; `saveAction` refuses (no network,
+  `chat.threadOtherDatabase`) any write — rename, end-of-turn save, retry — whose config is not the thread's source,
+  and `claimSource` keeps a send in another database's thread from inserting it here. The moment the database URL
+  changes, a render-time reconcile drops the old database's rows from the list (and marks the registry not
+  loaded), before the new load settles, and closes an open chat of the old database (or a conversation kept under no
+  thread) with the previous-database notice. A turn that started in A and ends after the switch is still saved to A
+  and then closed the same way; a load of B that settles mid-turn installs B's list but leaves the running turn alone
+  (`turnOfOtherDatabase`), instead of adopting B's thread and aborting the send.
+  ★★★ A load keeps only held rows of ITS OWN database (`mergeThreadsAfterLoad` / `resetThreadsAfterFailedLoad`
+  take a `fromLoadedDatabase` predicate). A project id is not unique across databases: without it, a close
+  on a database the user left (`threadIdRef` null makes the next load take the stale branch) kept the old
+  database's rows in the new list, and renaming one wrote that content into the new database.
+  ★★ The same close applies to a LOCAL owner mismatch in `saveAction` (the thread is stamped with an owner
+  this browser no longer is, `chat.threadOwnerChanged`): that can be an erased row followed by a new identity
+  in another tab. ONLY a server-confirmed `"not-owned"` (the upsert of a never-stored thread whose id exists
+  under another owner, or a stored row another owner took over) keeps the conversation on screen, under no
+  thread, so the next send saves it under a NEW id of this owner's: it is this person's own content.
   `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
-  requires `projectId` (not just an id) so a delete can never reach across projects.
+  requires `projectId` AND the owner id (not just an id), so a delete can never reach across projects or into a
+  colleague's row; it also matches legacy owner-less rows.
+- **Saved chats are owned, encrypted and expire.** User-facing statement: `docs/security.md` "Saved AI chats";
+  operator steps: `docs/RUNBOOK.md` "Saved AI chats". The code facts:
+  - **Saving is gated** by `chatPersistence` (`use-chat-threads.ts`): only with the server's chat settings known
+    (`AiDeploymentState.chat`, from `readChatSettings`), a recovery public key set, and a browser that can encrypt.
+    Otherwise nothing is SAVED and the chat shows one line saying why. Deletes are still written whenever the
+    status is known in Turso mode (`deleteGate`): they need no encryption, and a deleted legacy chat must not
+    come back on reload.
+  - **Identity.** One per browser per database (`chat-key-vault.ts`, `localStorage["aipm-cockpit:chat-identity"]`,
+    the chat key sealed by the device key; `ensureChatIdentity` creates it once per URL, never on a delete).
+    ★★ Two cross-tab Web Locks serialise the races: `withIdentityLock` (lock name `aipm-cockpit:chat-identity`, the
+    same string as the storage key) around creating an identity, so two tabs cannot each mint one and orphan the
+    other's saves; and `withDeviceKeyLock` (`secrets.ts`, lock name `aipm-cockpit:device-key`) around loading or
+    creating the device key, so a tab that loses the race adopts the stored key instead of sealing under its own.
+    Without Web Locks both fall back to the in-tab guards.
+  - **`"identity-locked"`** (a `ChatPersistence` value): a stored entry exists for this database that the device key
+    cannot open (`readChatIdentity` answers `"unavailable"` with crypto present). Nothing is saved; the entry is
+    never overwritten silently. ★ A NEW identity that could not be stored is NOT this state: `writeIdentity` reads
+    the vault again and, finding it still empty, fails the save into the Retry banner. The way out is
+    `startNewChatIdentity` (the hook's `startNewIdentity`, the notice's "Start a new chat identity" button), which
+    stores a fresh identity over the locked entry. It ASKS first whether the old chats go too (a cancel keeps
+    them, the default): deleting runs the delete-all; keeping — or a delete that fails — records the old owner
+    ids in the new entry's `previousOwnerIds`, so the id is never dropped silently. Settings → AI hides the chat
+    passphrase area in this state too (`ai-section.tsx` reads the vault).
+    ★★ A locked identity can still ERASE its own chats: the entry's owner id is plain (`storedChatOwnerIds`,
+    read without the chat key), so single deletes, find-and-delete and the delete-all run as it
+    (`use-chat-erase.ts`), and the notice offers "Delete my old chats" (type-to-confirm, the delete-all's
+    confirm value). A delete-all erases the current AND every `previousOwnerIds` owner's rows.
+    The sidebar's delete-all dialog also offers "Also remove my chat passphrase" (ticked by default): after the
+    chats are gone, `removeChatPassphrase` deletes the `chat_keys` row of every owner id erased; a failure there
+    is `"passphrase-kept"`, never a failed delete. The notice's "Delete my old chats" keeps the passphrase.
+  - **`"identity-retry"`**: opening the entry failed for any reason OTHER than a key that cannot open it
+    (`SecretUnlockError`) — IndexedDB blocked, quota, anything unexpected — so `readChatIdentity` answers
+    `"transient"`. ★★ Not a lock: no "Start a new chat identity" offer, the entry is never replaced (nor by an
+    unlock), the notice says the app will try again, and the next save or load reads the vault afresh.
+  - **`"no-crypto"` after a failed first identity**: when NO entry is stored and sealing the new one fails because
+    the device key itself cannot be opened (`getDeviceKey` rejects: IndexedDB there but unusable, as in some
+    private windows), `chatVaultAvailable` answers false for the rest of the page load, the save is refused
+    (`WriteRefusedError`: no retry, no banner) and the chat says it cannot encrypt. A failure with a working device
+    key (storage full) stays a failed save offered for retry.
+    ★ That includes a TEMPORARY failure to open the key store (IndexedDB briefly blocked, say by another tab's
+    upgrade): the flag is never cleared on this page, so the chat keeps saying this browser cannot save chats until
+    the page is reloaded. Deliberate: a retry that fails the same way every time is worse than one line to reload.
+  - **Rows.** `encodeThreadRow` (`chat-thread-codec.ts`) seals name, history and display under a fresh thread key on
+    every write and wraps it twice, `wrapForOwner` and `wrapForOperator` (`chat-crypto.ts`). Loading drops every row
+    owned by someone else. A legacy row (`isLegacyRow`: no owner) still decodes as plaintext until it expires, and
+    saving it again makes it the writer's.
+    ★★ Every write is a `c2.` envelope bound to its row by AES-GCM additional data: each field to
+    `threadFieldAd` (id, project, owner, field name), the owner wrap to `ownerKeyAd` (id, owner). Any other
+    envelope prefix fails as `ChatCryptoError` (the app skips the row, the script counts it unreadable). The operator wrap stays `r1.` (unbound); the fields it
+    opens are bound. So anything that changes a row's owner must re-seal the fields AND the owner wrap:
+    adoption does (`reownThreads` → `resealThreadFields` → `reownThreadStatements`, under the same thread key, so
+    `key_operator` is untouched). Changing `owner_id`, `project_id` or `id` in SQL alone makes the row unreadable.
+    `scripts/chat-erasure-lib.mjs` repeats the additional-data rule and its tests build rows with the app's codec.
+  - **Passphrase.** `chat-passphrase.ts` + the GLOBAL `chat_keys` table (`chat-keys-schema.ts`) let another browser
+    adopt the identity with an unlock code and the passphrase. ★★ `chat_keys` is OUT of `TABLE_NAMES` like
+    `chat_threads`, and has no `project_id`, so neither a project hard delete nor a factory reset touches it.
+    ★★ ORDER: the adopted identity is stored FIRST (idempotent on a retry), with the replaced owner id in
+    `previousOwnerIds` and the replaced identity itself sealed in the entry's `unmoved` list; THEN its threads move
+    (`reownThreads`), and only then is it cleared from `unmoved` and its `chat_keys` row deleted (a failed delete
+    is logged as `chat.replacedKeyDeleteFailed` and keeps the adoption). A move that fails throws; unlocking again
+    — the same code or another one — reads `readUnmovedChatIdentities` and moves every pending identity too.
+    A failed move throws `ChatAdoptionMoveError`: the adopted identity IS stored, so Settings → AI shows why first
+    and then reloads the tab as on success (a tab left on the old identity would close its own chats as deleted).
+    ★★ Every rewrite of the entry CARRIES `unmoved` over, an entry it cannot open right now included; only the
+    identity's own successful move clears it (and a new identity started after deleting the old chats).
+    The whole adoption (vault read, identity write, move) runs inside `withIdentityLock`, the lock creating an
+    identity takes, so another tab cannot create or replace the identity in between. ★ Not re-entrant: nothing
+    inside may call `ensureChatIdentity` or `startNewChatIdentity`.
+    ★★ The move is race-safe and bounded: each `reownThreadStatements` UPDATE also requires the row to be unchanged
+    since it was read (`owner_id` AND `key_owner`, which every save renews), so a save in between is never
+    overwritten with older content; after the COMMIT one more pass (`REOWN_PASSES`) re-reads the old owner's
+    rows and moves what was saved in between. `moved` counts the rows an UPDATE actually changed.
+    `startNewChatIdentity` deliberately does NOT: the old unlock code is the way back to the earlier chats, and
+    the locked-identity notice tells the person to use it.
+  - **Three deleters, one predicate** (`expireThreadsStatements`: older than the retention period, or no usable
+    `updated_at`, or more than a day in the future). ★★ The cutoff is computed IN SQL from the DATABASE clock
+    (`strftime(…, 'now', '-N days')`), never a browser's: one client with a clock weeks ahead would otherwise
+    delete every colleague's chats. Only the on-screen filter uses the client clock (`retentionCutoff`). ★★ The same holds for the dates a write SETS: the upsert, the stored-thread update (renames included) date
+    the row with `CHAT_DB_NOW` in SQL (`created_at` on insert only, `updated_at` always), so a
+    browser clock days fast cannot get a chat deleted by the future-date rule. The in-memory `updatedAt` stays the
+    browser's, for display only. Adoption's re-own (`reownThreadStatements`) leaves `updated_at` alone: a move does
+    not restart a chat's retention period. The browser: `expireOldThreads` per project on load (whenever a period is in force,
+    `retentionInForce`, with a Turso config — no recovery key, identity or encryption needed, since it deletes
+    without reading) and before each save, and
+    `useChatRetentionSweep` once per database per page load, independent of the AI switch (after a sweep that
+    ran, `dropOrphanedRenames` drops the pending thread renames whose thread is gone, from one id-only read of
+    `chat_threads`; a failed read drops nothing). Once per page load it also drops the thread-name drafts of every
+    OTHER database older than the longer of the retention period and 30 days (`dropOldDraftsOfOtherDatabases`; it
+    waits for the chat settings and never runs while the period is paused,
+    over `dropStoredEditsWhere`): this page never opens those scopes, so their plain-text names would otherwise
+    outlive their chats. The server:
+    `startChatSweepSchedule` (`api/ai/_chat-sweep.ts`, started from `src/instrumentation.ts`) at start and every
+    24 h with `sweepCredentialsFrom`. The operator: `npm run chats:erase` (`scripts/chat-erasure-lib.mjs`
+    `runCli`), whose `expireStatements` repeats the predicate. ★ A database configured only in a browser is unknown
+    to the server; the browser sweep and the script cover it.
+    ★★ **Paused while the setting is invalid.** `AIPM_AI_CHAT_RETENTION_DAYS` set but unusable means NO period is
+    in force (`ChatSettings.retentionInvalid`), so nothing is deleted for age: the browser neither expires
+    (`retentionInForce` in `use-chat-threads.ts` is null, so `SaveGate.retentionDays` is null) nor hides threads by
+    age, `useChatRetentionSweep` skips the chat sweep but still runs the project-sweep retry, the server logs
+    `chat sweep: paused, retention setting invalid` once per run, and the script's `expire` without `--days`
+    refuses with exit 1. Chats are still listed, saved and deletable. Never fall back to the default here: a
+    typo would otherwise silently delete everything older than 30 days.
+  - **Project hard delete** sweeps `chat_threads` with the other `PROJECT_SCOPED_SIDE_TABLES`. A failed sweep is
+    queued by project id per database (`pending-project-sweeps.ts`) and retried by `retryPendingProjectSweeps`,
+    which `useChatRetentionSweep` runs once per database per page load after the chat sweep (without waiting for
+    the chat settings).
+  - **Find chats mentioning a person** (`findThreadsMentioning`, `chat-thread-mentions.ts`; the operator's `search`
+    repeats the rule over every row): matches message text, tool calls and tool results of ALL this owner's rows in
+    the database, every project (`findMentioning` in `use-chat-erase.ts` reads them with `ownerThreadsSelect` and
+    opens them here), plus this project's in-memory list (its legacy rows, and chats not yet saved). Each match
+    shows its project's name (`projectNames`, built in `workspace-section.tsx`), and a ticked match is deleted in its
+    own project. With no opened identity (none yet, or locked) only this project's legacy rows are searched. A proposal card is not searched because it holds no text (only an id and a count); what it proposed
+    is in the tool call beside it.
+  - **Factory reset** (`clearAppConfig`) deletes the device key and the identity, so this browser can no longer
+    read its own rows (unless a chat passphrase lets it adopt the identity again); it deletes no Turso row.
   ★★ `rowsToThreads` runs `minimiseStoredToolResults` (`chat-threads.ts`) over a loaded history: a thread saved
   before the tool results were minimised still holds e-mail fields and an absence's real type and note in its stored
   `tool_result` blocks, which the next message would re-send. Only `tool_result` blocks change; the user's and the

@@ -139,15 +139,35 @@ function idbPut(db: IDBDatabase, key: string, value: unknown): Promise<void> {
 }
 
 /** Get the persisted non-extractable device key, generating + storing it once.
- *  A module-level singleton promise ensures concurrent callers (e.g. two tabs)
- *  share ONE load/generate, so they can't both generate + overwrite the key and
- *  orphan ciphertext. On failure the cache resets so a later call can retry. */
+ *  A module-level singleton promise makes concurrent callers in ONE tab share one
+ *  load/generate; across tabs the load-or-create runs under a Web Lock where the
+ *  browser has one, and a tab that created a key returns what IndexedDB holds
+ *  afterwards, so a tab that lost a race adopts the winner's key instead of
+ *  orphaning ciphertext. On any failure — the IndexedDB open included — the cache
+ *  resets so a later call can retry. */
 let deviceKeyPromise: Promise<CryptoKey> | null = null;
 export function getDeviceKey(): Promise<CryptoKey> {
   if (!deviceKeyPromise) deviceKeyPromise = loadOrCreateDeviceKey();
   return deviceKeyPromise;
 }
+
+const DEVICE_KEY_LOCK = "aipm-cockpit:device-key";
+
+function withDeviceKeyLock<T>(fn: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator === "undefined" ? undefined : navigator.locks;
+  return locks?.request ? locks.request(DEVICE_KEY_LOCK, fn) : fn();
+}
+
 async function loadOrCreateDeviceKey(): Promise<CryptoKey> {
+  try {
+    return await withDeviceKeyLock(readOrCreateStoredKey);
+  } catch (err) {
+    deviceKeyPromise = null; // allow a later retry
+    throw err;
+  }
+}
+
+async function readOrCreateStoredKey(): Promise<CryptoKey> {
   const db = await idbOpen();
   try {
     const existing = (await idbGet(db, DEVICE_KEY_ID)) as CryptoKey | undefined;
@@ -157,10 +177,8 @@ async function loadOrCreateDeviceKey(): Promise<CryptoKey> {
       "decrypt",
     ]);
     await idbPut(db, DEVICE_KEY_ID, key);
-    return key;
-  } catch (err) {
-    deviceKeyPromise = null; // allow a later retry
-    throw err;
+    // The stored key, not ours: without Web Locks another tab may have written in between.
+    return ((await idbGet(db, DEVICE_KEY_ID)) as CryptoKey | undefined) ?? key;
   } finally {
     db.close();
   }
@@ -177,12 +195,13 @@ async function aesEncrypt(
   return { v: 1, id, alg: "AES-GCM", iv: toB64(iv), ciphertext: toB64(ct), ...extra } as SealedSecret;
 }
 async function aesDecrypt(key: CryptoKey, s: SealedSecret): Promise<string> {
+  return aesDecryptB64(key, s.iv, s.ciphertext);
+}
+/** Base64 IV + ciphertext in, plaintext out; any failure (bad base64, wrong
+ *  key, tampered tag) becomes a `SecretUnlockError`. */
+async function aesDecryptB64(key: CryptoKey, ivB64: string, ctB64: string): Promise<string> {
   try {
-    const pt = await subtle().decrypt(
-      { name: "AES-GCM", iv: fromB64(s.iv) },
-      key,
-      fromB64(s.ciphertext),
-    );
+    const pt = await subtle().decrypt({ name: "AES-GCM", iv: fromB64(ivB64) }, key, fromB64(ctB64));
     return dec.decode(pt);
   } catch {
     throw new SecretUnlockError();
@@ -194,6 +213,28 @@ export async function sealDevice(id: SecretId, plaintext: string): Promise<Seale
 }
 export async function openDevice(s: SealedSecret): Promise<string> {
   return aesDecrypt(await getDeviceKey(), s);
+}
+
+/** A value sealed under the device key that is not one of the `SECRET_IDS`
+ *  settings fields (e.g. a per-person chat key). Both fields are base64. */
+export interface DeviceSealedValue {
+  iv: string;
+  ciphertext: string;
+}
+
+/** Seal an arbitrary string under the same non-extractable device key as the
+ *  settings secrets, with a fresh 12-byte IV. */
+export async function sealDeviceValue(plaintext: string): Promise<DeviceSealedValue> {
+  const key = await getDeviceKey();
+  const iv = randomBytes(12);
+  const ct = await subtle().encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
+  return { iv: toB64(iv), ciphertext: toB64(ct) };
+}
+
+/** Open a `sealDeviceValue` result. Throws `SecretUnlockError` on a tampered or
+ *  malformed value, or one sealed under another device key. */
+export async function openDeviceValue(v: DeviceSealedValue): Promise<string> {
+  return aesDecryptB64(await getDeviceKey(), v.iv, v.ciphertext);
 }
 
 async function deriveKey(passphrase: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
@@ -226,4 +267,36 @@ export async function openPassphrase(s: SealedSecret, passphrase: string): Promi
   if (!s.salt) throw new SecretUnlockError("missing-salt");
   const key = await deriveKey(passphrase, fromB64(s.salt));
   return aesDecrypt(key, s);
+}
+
+/** A value sealed under a passphrase that is not one of the `SECRET_IDS` settings fields (e.g. a
+ *  chat key kept in Turso for another browser). Same PBKDF2 parameters as `sealPassphrase`; every
+ *  field is base64. */
+export interface PassphraseSealedValue {
+  salt: string;
+  iv: string;
+  ciphertext: string;
+}
+
+/** Seal an arbitrary string under a key derived from `passphrase`, with a fresh 16-byte salt and
+ *  12-byte IV. */
+export async function sealPassphraseValue(plaintext: string, passphrase: string): Promise<PassphraseSealedValue> {
+  const salt = randomBytes(16);
+  const key = await deriveKey(passphrase, salt);
+  const iv = randomBytes(12);
+  const ct = await subtle().encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
+  return { salt: toB64(salt), iv: toB64(iv), ciphertext: toB64(ct) };
+}
+
+/** Open a `sealPassphraseValue` result. A wrong passphrase, or a tampered or malformed value,
+ *  throws `SecretUnlockError`. */
+export async function openPassphraseValue(v: PassphraseSealedValue, passphrase: string): Promise<string> {
+  let salt: Uint8Array<ArrayBuffer>;
+  try {
+    salt = fromB64(v.salt);
+  } catch {
+    throw new SecretUnlockError("bad-salt");
+  }
+  const key = await deriveKey(passphrase, salt);
+  return aesDecryptB64(key, v.iv, v.ciphertext);
 }

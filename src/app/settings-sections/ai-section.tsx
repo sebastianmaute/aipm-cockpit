@@ -10,7 +10,7 @@ import { persistAiConsentChange } from "../use-settings";
 import { AiConsentDialog } from "../ai-consent-dialog";
 import { resolveAiPolicy } from "../ai-policy";
 import { aiDestinationKey } from "../ai-disclosure";
-import { aiDeploymentBlockedMessageKey } from "../ai-deployment";
+import { aiDeploymentBlockedMessageKey, getAiDeploymentState } from "../ai-deployment";
 import { TextButton } from "../text-button";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS, coerceHardCap } from "../settings-types";
 import {
@@ -39,6 +39,10 @@ import { useToastAction, useToastContext } from "../toast-context";
 import { useChatModels } from "../use-chat-models";
 import { isValidAnthropicApiKey } from "../chat-models";
 import { clearSessionAiKey } from "../session-ai-key";
+import { getTursoConfig } from "../turso-config";
+import { chatVaultAvailable, readChatIdentity } from "../chat-key-vault";
+import { chatPersistence } from "../use-chat-threads";
+import { ChatPassphraseSection } from "./chat-passphrase-section";
 
 interface AiSectionProps {
   lang: Lang;
@@ -383,6 +387,29 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
   // stored key needs neither: a user who switched AI off or withdrew the consent can still delete it.
   const blockedMessageKey = aiDeploymentBlockedMessageKey();
   const deploymentBlocked = blockedMessageKey !== null;
+  const chatSettings = getAiDeploymentState().chat;
+  // The chat passphrase area shows only while chats are saved: the same rule the chat panel uses (server
+  // settings known, this browser can encrypt, a recovery key set), plus a Turso database to store the key in,
+  // and Turso storage. The chat panel also accepts the multi-project picker's Turso `mode`, which is not
+  // reachable from Settings, so this checks the storage kind alone: with file storage chats are not saved,
+  // even when a Turso integration is configured.
+  const chatTursoConfig = getTursoConfig(settings.integrations?.turso?.databaseUrl, settings.integrations?.turso?.authToken);
+  // Hidden too while this browser's stored identity for that database is one its device key cannot
+  // open ("identity-locked"): no passphrase can be set for it. Unknown until the vault has been read.
+  const chatDbUrl = chatTursoConfig?.httpUrl ?? "";
+  const [chatIdentityRead, setChatIdentityRead] = useState<{ url: string; locked: boolean } | null>(null);
+  useEffect(() => {
+    if (chatDbUrl === "") return;
+    let live = true;
+    void readChatIdentity(chatDbUrl).then((read) => {
+      if (live) setChatIdentityRead({ url: chatDbUrl, locked: read.kind === "unavailable" });
+    });
+    return () => { live = false; };
+  }, [chatDbUrl]);
+  const chatIdentityLocked = chatIdentityRead?.url === chatDbUrl && chatIdentityRead.locked;
+  const chatPassphraseShown = settings.storageConfig.kind === "turso"
+    && chatTursoConfig !== null
+    && chatPersistence(chatSettings, chatVaultAvailable(), chatIdentityLocked) === "on";
   const consentCurrent = isConsentCurrent(settings.ai.consent);
   // While the deployment blocks AI the switch reads off, so nothing under it is shown either (no key field,
   // behaviour toggles, caps, consent review or accepting a consent). Withdrawing stays as available as giving:
@@ -451,6 +478,16 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       {blockedMessageKey !== null && (
         <FieldNotice id={deploymentNoticeId}>{t(lang, blockedMessageKey)}</FieldNotice>
       )}
+      {chatSettings !== null && (
+        <>
+          {/* While the setting is invalid no period is in force: deleting is paused, so no number is shown. */}
+          {chatSettings.retentionInvalid
+            ? <FieldNotice>{t(lang, "aiChatRetentionInvalid")}</FieldNotice>
+            : <FieldHint className="mt-1">{t(lang, "chatRetentionNotice", chatSettings.retentionDays)}</FieldHint>}
+          {chatSettings.recoveryKeyInvalid && <FieldNotice>{t(lang, "aiChatRecoveryKeyInvalid")}</FieldNotice>}
+        </>
+      )}
+      {chatPassphraseShown && chatTursoConfig !== null && <ChatPassphraseSection lang={lang} tursoConfig={chatTursoConfig} readSettings={() => settingsRef.current} />}
       <label className="mt-2 flex items-center gap-2">
         <Checkbox
           // While the deployment blocks AI the switch reads off, as AI is; the stored value is kept.

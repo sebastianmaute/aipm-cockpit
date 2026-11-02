@@ -5,7 +5,7 @@
 // the input. Used for permanent (hard) project deletion. Palette-safe: the
 // destructive action uses ui-pink.
 
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Button } from "./button";
 import { t, type Lang } from "./i18n";
 import { Input } from "./form-controls";
@@ -23,6 +23,8 @@ export interface TypeToConfirmDialogProps {
   confirmLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Extra choices shown under the message (for example a checkbox), before the typed phrase. */
+  children?: ReactNode;
 }
 
 export function TypeToConfirmDialog({
@@ -33,6 +35,7 @@ export function TypeToConfirmDialog({
   confirmLabel,
   onConfirm,
   onCancel,
+  children,
 }: TypeToConfirmDialogProps) {
   // ★★ §326. Per-INSTANCE ids. These were module constants, and two mounted
   // dialogs then put duplicate ids in the document: `aria-labelledby` and
@@ -108,6 +111,7 @@ export function TypeToConfirmDialog({
         />
         <div className="flex flex-col gap-4 p-6">
           <p className="text-sm text-foreground">{message}</p>
+          {children}
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-muted-foreground">
               {t(lang, "typeToConfirmPrompt", confirmValue)}

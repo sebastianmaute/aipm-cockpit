@@ -12,6 +12,35 @@ longer carries its own changelog comment.
 
 ### Added
 
+- **Saved AI chats are private to the person who wrote them, and are deleted after a retention period.** On a
+  Turso project a chat is now saved encrypted, readable only by its writer and by the operator holding the recovery
+  key (`AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY`); without that key no chat is saved, and the chat says why. Each
+  encrypted value is bound to its own chat (its id, project and writer), so a value copied into another chat or
+  another person's chat does not open. Colleagues no
+  longer see each other's chats; chats saved by an earlier version stay readable until they expire. Each chat is
+  deleted once the retention period has passed since its last change (`AIPM_AI_CHAT_RETENTION_DAYS`, default 30
+  days), by the browser, by the server once a day and by the operator's `npm run chats:erase`, which can also find
+  and delete every chat that mentions a person. In the chat sidebar you can delete all your chats or the ones that
+  mention a person ("Find chats mentioning a person" searches your chats in all projects), and a chat passphrase
+  in Settings → AI opens your chats on another browser. "Delete all my chats" also removes your chat passphrase
+  unless you untick that option. A browser that can no longer open your saved chats offers
+  "Delete my old chats", and asks before starting a new chat identity whether to delete them. A permanently
+  deleted project whose cleanup fails is cleaned up again the next time the app starts; while such a cleanup is
+  still waiting, the factory reset warns that it will not be retried afterwards. Setup and the erasure
+  checklist: `docs/RUNBOOK.md`.
+  ★ **Before upgrading:** on the first server start or page load after the upgrade, every chat not changed for the
+  retention period (30 days unless `AIPM_AI_CHAT_RETENTION_DAYS` is set) is deleted, older shared chats included,
+  even without a recovery key. And until `AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY` is set, no chat is saved. Set both
+  before deploying. While `AIPM_AI_CHAT_RETENTION_DAYS` is set but invalid, no chat is deleted for its age (the
+  server logs `chat sweep: paused, retention setting invalid`, and Settings → AI says deleting is paused) until it
+  is fixed.
+  ★ **Update every device that shares the database** before relying on these guarantees, desktop installs included
+  (they update separately from the web app). A device still on the previous version can no longer save chats: the
+  database now refuses a chat saved without an owner, so that device shows a save error until it is updated.
+  Without that guard it would have saved new chats as plain text that every colleague could read, and could have
+  overwritten an encrypted chat. It still prunes colleagues' encrypted chats beyond 50 per project, which the
+  database cannot block.
+
 - **Plan with AI sees a person's load in other projects.** When your projects share one Turso database, Plan with AI now reads the other projects' Planning grids and counts what each matched person is already booked for elsewhere: in the review window's over-capacity warning and in what Claude sees. Claude is told that time is booked and cannot be changed (with a count of the person's open tasks there, never their titles). Projects that keep their people hidden from the AI are left out of those figures and named in the window and in what Claude sees. The AI data notice now describes this, so AI consent is asked again. People are matched across projects by e-mail address; a person with the same first and last name but no usable e-mail is only a suggestion until you confirm it, in the person's entry (which now lists the projects they work in) or in Plan with AI's review window. "Not the same" is remembered too, also for a person matched by e-mail, and every answer can be undone from the person's entry. A project that cannot be read is named and skipped. Nothing is written to the other projects. In file and IndexedDB storage nothing is loaded and Claude is told other projects cannot be seen; in a single-project Turso database it is told there are no other projects. A new help entry explains the matching. This needs Turso storage: with any other storage the feature is switched off and nothing is read or written. Deleting a person, one at a time, in bulk, through the AI assistant, or by Redo of a delete, removes their answers too, because the shared table keeps both people's first and last names; the delete confirmation says so, and the AI assistant is told. Undo brings the person back but not their answers: an e-mail match and a name suggestion return on their own, while a "Not the same" or a confirmed name has to be answered again. If the shared database cannot be reached, the person is still deleted and a message says the answers could not be cleaned up and how to try again.
 
 - **A deployment can restrict AI to its own Anthropic organisation's keys.** The operator sets

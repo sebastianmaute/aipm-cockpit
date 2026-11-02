@@ -606,6 +606,131 @@ What to know when running it:
   features; a scheduled job does not record it but waits and retries on its next check.
   An error Anthropic itself returns, such as a rejected key, passes through unchanged.
 
+### Saved AI chats: recovery key, retention and erasure (run-time)
+
+AI Assistant chats are saved only on Turso projects, encrypted per person, and only
+once the operator has set a recovery key: without one, no chat is saved at all. What is
+stored and who can read it is in
+[security.md → Saved AI chats](security.md#saved-ai-chats); the settings' exact rules
+are in [security.md → Environment variables](security.md#environment-variables).
+
+★★ **Upgrading — set both settings BEFORE you deploy.** On the first server start or page
+load after the upgrade, every chat not changed for the retention period (30 days unless
+`AIPM_AI_CHAT_RETENTION_DAYS` is set) is deleted — older shared chats included, and even
+without a recovery key. And until `AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY` is set, no chat is
+saved at all.
+
+1. **Generate the recovery key pair** on a trusted machine:
+   ```bash
+   npm run chats:erase -- keygen --out <path>
+   ```
+   It writes the private key (PKCS#8 PEM) to `<path>`, refusing a file that already
+   exists, and prints the public key. ★★ Keep the private key offline and never commit
+   it: whoever holds it can read every saved chat. Lost, it cannot be recreated; the
+   writers can still read their own chats, but the operator can no longer search them.
+2. **Set the settings** on the server (read at run time; a restart applies them):
+
+   | Setting | Value |
+   |---|---|
+   | `AIPM_AI_CHAT_RECOVERY_PUBLIC_KEY` | the printed public key (required for saving) |
+   | `AIPM_AI_CHAT_RETENTION_DAYS` | days a chat is kept after its last change, 1–3650; default 30 |
+   | `AIPM_CHAT_SWEEP_TURSO_URL` | the database the server sweeps (optional) |
+   | `AIPM_CHAT_SWEEP_TURSO_TOKEN` | its token (needed for a remote URL) |
+
+   An invalid retention or key is shown in Settings → AI and in `/api/ai/status`. ★★ While
+   the retention is invalid, deleting chats for age is PAUSED everywhere until you fix it:
+   the browser deletes nothing for age, the server logs
+   `chat sweep: paused, retention setting invalid` on each run, and `expire` without
+   `--days` refuses. An invalid key counts as unset (nothing is saved).
+3. **Check:** after the restart the server log shows `chat sweep: <n> expired`, and a
+   new chat in a Turso project is still in the sidebar after a reload. `chat sweep: not
+   configured` means a sweep or public database URL is set but no usable URL and token pair
+   came of it (see the next paragraph): fix the pair and restart. No line at all means no URL
+   is set, so the server does not sweep.
+
+**The server sweep.** At start and every 24 hours the server deletes every chat whose
+retention period has passed, with `AIPM_CHAT_SWEEP_TURSO_URL` +
+`AIPM_CHAT_SWEEP_TURSO_TOKEN`, or, only when that URL is unset (or blank),
+`NEXT_PUBLIC_TURSO_DATABASE_URL` + `NEXT_PUBLIC_TURSO_AUTH_TOKEN` (never one of each).
+★★ The server reads that public pair from its RUN-TIME environment, not from the build:
+set it where the server runs, not only as build arguments, or there is no sweep. If
+`AIPM_CHAT_SWEEP_TURSO_URL` is set but unusable (not a `libsql://`/`https://` URL, plain
+`http://` other than loopback, or a remote URL without its token), the public pair is not
+tried and no sweep runs. It logs `chat sweep: <n> expired` or `chat sweep failed`, never
+a URL, token or error text. With no usable pair it runs no schedule; it then logs
+`chat sweep: not configured` once when one of the two URLs was set, and nothing when neither was. ★★ **Stated
+limit:** a database configured only in a user's browser (Settings → Integrations) is
+unknown to the server. Its chats are still deleted by the browser (once per page load,
+across the whole database, even with AI off) — or by you, with the script below.
+★ Several deployments sharing one database each sweep it with their OWN retention setting, so
+the shortest one wins for every chat in it: give them the same value.
+
+**The operator script** — `npm run chats:erase -- <command>`, credentials from
+`CHAT_ERASURE_TURSO_URL` and `CHAT_ERASURE_TURSO_TOKEN` (`libsql://` or `https://`;
+plain `http://` only for a loopback host). Run it with no command for usage.
+
+| Command | Does |
+|---|---|
+| `keygen --out <path>` | new recovery key pair (step 1) |
+| `search --key <pem> <text>` | lists every chat mentioning `<text>`: id, project, last change, excerpt |
+| `delete [--yes] <id…>` | deletes those chats, in one transaction |
+| `delete --all-matches --key <pem> [--yes] <text>` | deletes every chat mentioning `<text>` |
+| `expire [--days <n>]` | deletes chats not changed for `n` days, by the database clock (default: `AIPM_AI_CHAT_RETENTION_DAYS`, else 30 when it is unset; the output names the value used). While that setting is set but invalid, `expire` without `--days` refuses (exit 1) and names the setting; `--days` still works |
+
+Exit codes: **0** done · **1** matches found, a delete refused (no `yes` typed, or no
+terminal and no `--yes`), `expire` refused (the retention setting is invalid), or rows the key cannot open · **2** could not run (bad
+arguments, credentials or key, unreachable database). `search` and
+`delete --all-matches` end with `unreadable: <n>`: rows this key cannot open, for
+example ones saved under an earlier recovery key. They may mention the text too —
+repeat with that key. `search` reads each chat's message text, tool calls and tool
+results. An AI proposal card is not searched because it holds no text (only an id and a
+count of changes); what it proposed is in the tool call beside it, which is searched.
+
+**Erasure checklist** (a person asks for their data to be erased):
+
+1. `search` for each name, e-mail address and spelling; then `delete --all-matches`
+   or `delete <id…>`. Repeat with any older recovery key while `unreadable` is not 0.
+2. Run it against every database in use, including one configured only in a browser.
+3. Project data is separate from chats: remove the person from tasks, RAID items,
+   stakeholders and the resource directory in the app. Deleting a project for good
+   also deletes its chats.
+4. AI gateway logs: if AI runs through a gateway, erase there too; the app cannot.
+5. In the person's own browser, Delete all my chats (chat sidebar) removes their chats
+   in every project of that database, and (ticked by default) their chat passphrase.
+6. Chat passphrase: a person's `chat_keys` row holds no chat text, only their chat key
+   wrapped under their passphrase. When it is the person's own erasure and step 5 was not
+   done, remove it by their owner id: `DELETE FROM chat_keys WHERE owner_id = ?`. Read the
+   owner id from one of their own chats before step 1 deletes them
+   (`SELECT owner_id FROM chat_threads WHERE id = ?`).
+
+An open tab running THIS release cannot upload an erased chat again: its next save of that
+chat changes no row, and the tab closes the chat (its list, the conversation on screen) and
+says so. A tab or a desktop install still running an OLDER release cannot write it back
+either, once the database carries the owner guard (the `chat_threads_owner_required`
+trigger, which this release creates the first time it touches the chats, and the server's
+daily sweep creates too): the database refuses every chat saved without an owner. Before
+that guard exists, it can; after an erasure, ask people to reload every open tab and to
+update every desktop install (desktop installs update separately), or run `search` again
+afterwards and repeat the delete.
+★★ Before relying on any of these guarantees, update EVERY device that shares the database,
+desktop installs included. A device on the previous release can no longer save chats: the
+owner guard refuses its save, and it shows a save error until it is updated. Without the
+guard it would have saved new chats as plain text that every colleague could read. It still
+prunes colleagues' encrypted chats beyond 50 per project, which the database cannot block.
+
+**SQL one-liners** (for example in `turso db shell <db>`):
+
+```sql
+-- expire: delete chats not changed for 30 days, exactly the app's statement (a unit test pins it):
+-- also rows without a usable date, and rows dated more than a day ahead of the database clock
+DELETE FROM chat_threads WHERE (updated_at < strftime('%Y-%m-%dT%H:%M:%fZ','now', '-30 days') OR updated_at > strftime('%Y-%m-%dT%H:%M:%fZ','now', '+1 days') OR updated_at IS NULL OR updated_at = '' OR julianday(updated_at) IS NULL);
+-- delete every saved chat in the database
+DELETE FROM chat_threads;
+```
+
+`chat_keys` holds passphrase-wrapped chat keys, not chats; `DELETE FROM chat_keys;`
+retires every unlock code.
+
 ### Microsoft 365 integration setup
 
 To enable Outlook contacts/calendar import and SharePoint storage:

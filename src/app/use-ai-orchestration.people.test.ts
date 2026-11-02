@@ -38,7 +38,7 @@ function deps(): AiOrchestrationDeps {
     settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-k" } },
     guides: [], guidesReady: true, lang: "en-US", today: "2026-10-23", project: undefined,
     tasks: [], raid: [], milestones: [], changes: [], stakeholders: [], nextActions: QUEUE,
-    learning: { state: {} as never }, trendsActive: false, actionTrends: undefined, tursoConfig: null,
+    learning: { state: {} as never }, trendsActive: false, actionTrends: undefined, tursoConfig: null, loadPending: false,
     requestOpen: vi.fn(), requestChat: vi.fn(),
   };
 }

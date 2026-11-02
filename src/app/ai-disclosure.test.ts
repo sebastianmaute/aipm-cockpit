@@ -65,9 +65,10 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|5eb499ef50b6|redacted",
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted",
   ],
-  // v3: the allocation plan proposal also sends other projects' figures for a matched person (§785). Only its hash changed.
+  // v3: the allocation plan proposal also sends other projects' figures for a matched person (§785), and the chat row
+  // also says who can read a saved chat and when it is deleted. Only those two hashes changed.
   3: [
-    "chat|interactive|aiDataChatLabel|aiDataChat|0ab2b52cc0f9|redacted",
+    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted",
     "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted",
     "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|ec731819812b|redacted",
     "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted",
@@ -270,32 +271,33 @@ describe("AI_DATA_PATHS", () => {
 // names the gateway and its provider as recipients), and the gateway key note, key bullet and Help now say
 // the app's server neither stores nor logs the key while the gateway receives it, and that the gateway may
 // keep its own log. Re-pinned again when the hash took in the German text, and the gateway Help's log
-// clause moved into brackets.
+// clause moved into brackets. Re-pinned, wording only, when the four Help texts began to say who can read a
+// saved chat and when it is deleted.
 const DESTINATION_PIN: readonly string[] = [
   "direct|interactive|aiConsentDataIntro|83b84643e133",
   "direct|background|aiConsentBackgroundDataIntro|f5a79b78f629",
   "direct|keyNote|aiApiKeyHint|52324fad6918",
   "direct|keySecurity|aiConsentBullet2|d509cd229b54",
   "direct|thirdParty|aiConsentBullet3|e5f450536dea",
-  "direct|help|helpSecAiBody|b798afe12238",
+  "direct|help|helpSecAiBody|3ecd0809860d",
   "gateway|interactive|aiConsentDataIntroGateway|7ebfc37003e9",
   "gateway|background|aiConsentBackgroundDataIntroGateway|687e1f3265c0",
   "gateway|keyNote|aiApiKeyHintGateway|28c8960cc576",
   "gateway|keySecurity|aiConsentBullet2Gateway|16b9a79fc098",
   "gateway|thirdParty|aiConsentBullet3Gateway|0412e7b4a6e5",
-  "gateway|help|helpSecAiBodyGateway|c788c6e74b8c",
+  "gateway|help|helpSecAiBodyGateway|b11fe8dbcbe7",
   // The relay route (organisation key restriction) has texts of its own (AI organisation key).
   "relay|interactive|aiConsentDataIntroRelay|50239ebb92d8",
   "relay|background|aiConsentBackgroundDataIntroRelay|21999ec60bd7",
   "relay|keyNote|aiApiKeyHintRelay|c79f17b384ac",
   "relay|keySecurity|aiConsentBullet2Relay|0a146b55c15b",
   "relay|thirdParty|aiConsentBullet3Relay|ac7587dd0eb6",
-  "relay|help|helpSecAiBodyRelay|28e7a0ac847a",
+  "relay|help|helpSecAiBodyRelay|3d648f7446c4",
   // A gateway deployment that also restricts keys adds one sentence to the consent dialog (AI organisation key).
   "gateway+keyRestricted|keyRestriction|aiConsentKeyRestrictionGateway|e93f8909f467",
   "gateway+keyRestricted|keyNote|aiApiKeyHintGatewayRestricted|3d914da2249e",
   "gateway+keyRestricted|keySecurity|aiConsentBullet2GatewayRestricted|4bffef981a8e",
-  "gateway+keyRestricted|help|helpSecAiBodyGatewayRestricted|511fa4eac1c6",
+  "gateway+keyRestricted|help|helpSecAiBodyGatewayRestricted|8444285d8c9b",
 ];
 
 const pinEntry = (route: string, kind: string, key: TranslationKey) =>
@@ -417,7 +419,7 @@ describe("AI_DESTINATION_KEYS", () => {
 
   // KILLED BY: aiDestinationKey ignoring keyRestricted on the gateway route (the dialog then claims the server stores nothing next to its own fingerprint sentence).
   it("gateway with the restriction on: no key text claims the server neither stores nor logs the key, each says what it keeps and still names the gateway", () => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: true });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: true, chat: null });
     for (const kind of KEY_KINDS) {
       const key = aiDestinationKey(kind);
       expect(key, kind).not.toBe(AI_DESTINATION_KEYS.gateway[kind]);
@@ -431,7 +433,7 @@ describe("AI_DESTINATION_KEYS", () => {
   });
 
   it("plain gateway keeps its texts exactly", () => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null });
     for (const kind of KEY_KINDS) {
       const key = aiDestinationKey(kind);
       expect(key, kind).toBe(AI_DESTINATION_KEYS.gateway[kind]);
@@ -442,10 +444,10 @@ describe("AI_DESTINATION_KEYS", () => {
   it("Help's AI entry follows the route", () => {
     const entry = { bodyKey: "helpSecAiBody" } as const;
     expect(helpEntryBody("en-US", entry)).toBe(t("en-US", "helpSecAiBody"));
-    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null });
     expect(helpEntryBody("en-US", entry)).toBe(t("en-US", AI_DESTINATION_KEYS.gateway.help));
     expect(helpEntryBody("de", entry)).toBe(de[AI_DESTINATION_KEYS.gateway.help]);
-    setAiDeploymentState({ off: false, route: "relay", invalid: false, keyRestricted: true });
+    setAiDeploymentState({ off: false, route: "relay", invalid: false, keyRestricted: true, chat: null });
     expect(helpEntryBody("en-US", entry)).toBe(t("en-US", AI_DESTINATION_KEYS.relay.help));
     expect(helpEntryBody("de", entry)).toBe(de[AI_DESTINATION_KEYS.relay.help]);
   });

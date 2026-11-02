@@ -8,6 +8,7 @@
 // no gateway and stays "direct". Nothing is sent either way while `invalid` is true.
 
 import { logDiag } from "./diagnostics";
+import type { ChatSettings } from "./ai-chat-retention-config";
 
 export type AiRoute = "direct" | "gateway" | "relay";
 /** Which part of the gateway or key-restriction setting is invalid. A code, never the value; not secret. */
@@ -27,6 +28,8 @@ export type AiDeploymentState = {
   invalidReason?: AiGatewayInvalidReason;
   /** An organisation key restriction is set (valid or not): keys are checked by the relay. The ids stay on the server. */
   keyRestricted: boolean;
+  /** The server's saved-chat settings. `null` is "not known" (a state built without them); the server always sends them. */
+  chat: ChatSettings | null;
 };
 
 /** The per-send answer of `GET /api/ai/status`: the deployment state plus whether the server forces
@@ -34,7 +37,17 @@ export type AiDeploymentState = {
  *  the page loaded reaches the next send (review 4, M3). */
 export type AiStatus = AiDeploymentState & { peopleForced: boolean };
 
-let state: AiDeploymentState = { off: false, route: "direct", invalid: false, keyRestricted: false };
+let state: AiDeploymentState = { off: false, route: "direct", invalid: false, keyRestricted: false, chat: null };
+
+/** The saved-chat settings as the page may trust them: the exact shape, or `null` (unknown). Nothing is defaulted. */
+export function sanitizeChatSettings(v: unknown): ChatSettings | null {
+  if (typeof v !== "object" || v === null) return null;
+  const { retentionDays, retentionInvalid, recoveryKey, recoveryKeyInvalid } = v as Record<string, unknown>;
+  if (typeof retentionDays !== "number" || !Number.isSafeInteger(retentionDays) || retentionDays < 1) return null;
+  if (typeof retentionInvalid !== "boolean" || typeof recoveryKeyInvalid !== "boolean") return null;
+  if (recoveryKey !== null && typeof recoveryKey !== "string") return null;
+  return { retentionDays, retentionInvalid, recoveryKey, recoveryKeyInvalid };
+}
 
 let invalidLogged = false;
 
@@ -44,9 +57,10 @@ export function setAiDeploymentState(s: AiDeploymentState): void {
     invalidLogged = true;
     logDiag("warn", "ai.gateway.invalid", s.invalidReason !== undefined ? { reason: s.invalidReason } : undefined);
   }
+  const chat = sanitizeChatSettings(s.chat);
   state = s.invalid && s.invalidReason !== undefined
-    ? { off: s.off, route: s.route, invalid: true, invalidReason: s.invalidReason, keyRestricted: s.keyRestricted }
-    : { off: s.off, route: s.route, invalid: s.invalid, keyRestricted: s.keyRestricted };
+    ? { off: s.off, route: s.route, invalid: true, invalidReason: s.invalidReason, keyRestricted: s.keyRestricted, chat }
+    : { off: s.off, route: s.route, invalid: s.invalid, keyRestricted: s.keyRestricted, chat };
 }
 
 export function getAiDeploymentState(): AiDeploymentState {

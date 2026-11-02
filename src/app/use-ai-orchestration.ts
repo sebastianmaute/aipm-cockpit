@@ -38,6 +38,7 @@ import { deriveMode } from "./feature-modules";
 import { useActionAnalysis } from "./use-action-analysis";
 import { useScheduledJobs } from "./use-scheduled-jobs";
 import { useScheduledJobRunner } from "./use-scheduled-job-runner";
+import { useChatRetentionSweep } from "./use-chat-retention-sweep";
 import { loadPortfolioMode } from "./portfolio-mode";
 import { type OperatingGuide } from "./operating-guide";
 import { useGuideTextFrom } from "./action-guides-context";
@@ -72,6 +73,8 @@ export interface AiOrchestrationDeps {
   trendsActive: boolean;
   actionTrends: ActionTrends | undefined;
   tursoConfig: TursoConfig | null;
+  /** §548 — the load hold; the saved-chat retention sweep waits for it. */
+  loadPending: boolean;
   requestOpen: (view: AppView, id: number) => void;
   requestChat: (prompt: string, autoSend: boolean) => void;
 }
@@ -95,9 +98,13 @@ export function useAiOrchestration(deps: AiOrchestrationDeps) {
     trendsActive,
     actionTrends,
     tursoConfig,
+    loadPending,
     requestOpen,
     requestChat,
   } = deps;
+  // Whole-database expiry of saved chats, once per database per page load. Called unconditionally
+  // and gated on nothing AI-related: it runs with the AI switched off too.
+  useChatRetentionSweep({ tursoConfig, loadPending });
   const jobGuideText = useGuideTextFrom(guides, settings.ai?.groundInGuides === true, "jobAnalysis");
 
   // Action Center "Analyze with AI": one forced-tool Anthropic call (no agentic

@@ -52,7 +52,11 @@ interface SqlArg { type: "text" | "integer" | "null"; value?: string }
 export interface SqlStmt { sql: string; args?: SqlArg[] }
 export interface PipelineResultLike {
   type: "ok" | "error";
-  response?: { type: string; result?: { cols?: { name?: string }[]; rows?: { value?: unknown }[][] } };
+  /** `affected_row_count` is the server's count of rows a write changed (libSQL's statement result). */
+  response?: {
+    type: string;
+    result?: { cols?: { name?: string }[]; rows?: { value?: unknown }[][]; affected_row_count?: number };
+  };
   error?: { message?: string };
 }
 

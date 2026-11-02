@@ -735,7 +735,7 @@ function TaskManagerInner() {
     learning,
     trendsActive,
     actionTrends,
-    tursoConfig,
+    tursoConfig, loadPending,
     requestOpen,
     requestChat,
   });

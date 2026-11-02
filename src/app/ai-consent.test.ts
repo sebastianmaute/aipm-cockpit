@@ -20,7 +20,7 @@ import { defaultAiConfig, isAiEnabled } from "./settings-types";
 const D = new Date(0);
 
 describe("a consent given before AI people protection (disclosure version 1)", () => {
-  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false, keyRestricted: false }));
+  afterEach(() => setAiDeploymentState({ off: false, route: "direct", invalid: false, keyRestricted: false, chat: null }));
   it("is not current, so AI stays off until the user consents again", () => {
     const v1 = { acceptedAt: D.toISOString(), disclosureVersion: 1 };
     expect(AI_DISCLOSURE_VERSION).toBeGreaterThan(1);
@@ -135,10 +135,10 @@ describe("the weekly hard cap (AI-03)", () => {
   });
 });
 
-const GATEWAY = { off: false, route: "gateway", invalid: false, keyRestricted: false } as const;
-const RELAY = { off: false, route: "relay", invalid: false, keyRestricted: true } as const;
-const DIRECT = { off: false, route: "direct", invalid: false, keyRestricted: false } as const;
-const GATEWAY_RESTRICTED = { off: false, route: "gateway", invalid: false, keyRestricted: true } as const;
+const GATEWAY = { off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null } as const;
+const RELAY = { off: false, route: "relay", invalid: false, keyRestricted: true, chat: null } as const;
+const DIRECT = { off: false, route: "direct", invalid: false, keyRestricted: false, chat: null } as const;
+const GATEWAY_RESTRICTED = { off: false, route: "gateway", invalid: false, keyRestricted: true, chat: null } as const;
 
 describe("route-bound consent", () => {
   afterEach(() => { setAiDeploymentState(DIRECT); publishAiConsentState(undefined); });
@@ -218,7 +218,7 @@ describe("route-bound consent", () => {
   });
   it("sanitizeConsent keeps a boolean keyRestricted and drops anything else", () => {
     const base = { acceptedAt: D.toISOString(), disclosureVersion: 1, route: "gateway" };
-    expect(sanitizeConsent({ ...base, keyRestricted: true })?.keyRestricted).toBe(true);
+    expect(sanitizeConsent({ ...base, keyRestricted: true, chat: null })?.keyRestricted).toBe(true);
     expect(sanitizeConsent({ ...base, keyRestricted: "yes" })).toEqual(base);
   });
   it("a stored relay route parses", () => {
@@ -250,7 +250,7 @@ describe("route-bound consent", () => {
       expect(sanitizeConsent({ acceptedAt: D.toISOString(), disclosureVersion: AI_DISCLOSURE_VERSION, route })).toBeUndefined();
     },
   );
-  it.each([["off", { off: true, route: "direct", invalid: false, keyRestricted: false }], ["invalid", { off: false, route: "direct", invalid: true, keyRestricted: false }]] as const)(
+  it.each([["off", { off: true, route: "direct", invalid: false, keyRestricted: false, chat: null }], ["invalid", { off: false, route: "direct", invalid: true, keyRestricted: false, chat: null }]] as const)(
     "a deployment that is %s blocks the published state", (_n, st) => {
       const ai = { ...defaultAiConfig, enabled: true, consent: newConsent(D), backgroundConsent: newConsent(D) };
       publishAiConsentState(ai);

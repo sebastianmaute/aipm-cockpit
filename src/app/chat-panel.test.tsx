@@ -14,6 +14,9 @@ import { __setAiStatusRequestForTests } from "./ai-status-request";
 import { answerAiStatusDirect, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 // §717 — an unlocked key lives in a page-wide store now, not in one panel: forget it after every test.
 afterEach(() => { clearSessionAiKey(); });
+// Saved chats need the server's chat settings with a recovery key; every test starts with them known.
+const CHAT_ON = { retentionDays: 30, retentionInvalid: false, recoveryKey: "recovery-spki", recoveryKeyInvalid: false };
+beforeEach(() => { setAiDeploymentState({ ...DIRECT_AI_STATUS, chat: CHAT_ON }); });
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
@@ -64,6 +67,17 @@ vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
   saveThread: vi.fn(async () => undefined),
   deleteThread: vi.fn(async () => undefined),
+  expireThreads: vi.fn(async () => undefined),
+}));
+
+// This browser's chat identity: none stored yet (so a load reads legacy threads only), one created on save.
+vi.mock("./chat-key-vault", () => ({
+  chatVaultAvailable: () => true,
+  readChatIdentity: vi.fn(async () => ({ kind: "absent" })),
+  getChatIdentity: vi.fn(async () => null),
+  ensureChatIdentity: vi.fn(async () => ({ ownerId: "owner-test", chatKey: new Uint8Array(32) })),
+  storedChatOwnerId: () => "owner-test",
+  storedChatOwnerIds: () => ["owner-test"],
 }));
 
 // Default double of the shared usage context — no-op `recordChatSend` and
@@ -213,7 +227,7 @@ describe("Without a current AI consent", () => {
   });
 
   it("a deployment with AI off leaves the composer in the AI-disabled state", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false, chat: null });
     try {
       render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
       expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
@@ -225,7 +239,7 @@ describe("Without a current AI consent", () => {
 
   // The organisation switched AI off: no key or consent the user could supply would turn it on.
   it("a deployment with AI off says so instead of asking for a key", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false, chat: null });
     try {
       render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={{ ...defaultAiConfig, apiKey: "" }} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
       expect(screen.getByText(t("en-US", "aiDeploymentOff"))).toBeInTheDocument();
@@ -237,8 +251,8 @@ describe("Without a current AI consent", () => {
   });
 
   it.each([
-    ["off", { off: true, route: "direct", invalid: false, keyRestricted: false }, "aiDeploymentOff"],
-    ["invalid", { off: false, route: "gateway", invalid: true, keyRestricted: false }, "aiDeploymentInvalid"],
+    ["off", { off: true, route: "direct", invalid: false, keyRestricted: false, chat: null }, "aiDeploymentOff"],
+    ["invalid", { off: false, route: "gateway", invalid: true, keyRestricted: false, chat: null }, "aiDeploymentInvalid"],
   ] as const)("a deployment %s with a conversation on screen names it beside the disabled composer, with no consent banner", (_n, state, key) => {
     setAiDeploymentState(state);
     try {
@@ -267,7 +281,7 @@ describe("Without a current AI consent", () => {
   });
 
   it("an invalid gateway setting names the invalid setting in the empty state", () => {
-    setAiDeploymentState({ off: false, route: "gateway", invalid: true, keyRestricted: false });
+    setAiDeploymentState({ off: false, route: "gateway", invalid: true, keyRestricted: false, chat: null });
     try {
       render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
       expect(screen.getByText(t("en-US", "aiDeploymentInvalid"))).toBeInTheDocument();
@@ -282,7 +296,7 @@ describe("Without a current AI consent", () => {
     ["the empty state", false],
     ["the banner beside a transcript", true],
   ] as const)("the disabled composer is described by the deployment notice in %s", (_where, withTranscript) => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false, chat: null });
     try {
       render(
         <ChatPanel {...SCOPE_PROPS}
@@ -318,7 +332,7 @@ describe("Without a current AI consent", () => {
   });
 
   it("a deployment with AI off shows no consent review banner for a stale consent", () => {
-    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false });
+    setAiDeploymentState({ off: true, route: "direct", invalid: false, keyRestricted: false, chat: null });
     try {
       render(<ChatPanel {...SCOPE_PROPS} lang="en-US" ai={{ ...defaultAiConfig, consent: undefined, apiKey: "sk-test" }} dispatcher={makeDispatcher()} onConfigureAi={vi.fn()} />);
       // Positive control: the deployment message is on screen.
@@ -2247,6 +2261,25 @@ describe("ChatPanel — Turso thread persistence", () => {
     );
   }
 
+  it("says why chats are not saved, and only in Turso mode", async () => {
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, chat: null });
+    const { unmount } = renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    expect(await screen.findByText("Chats are not saved until the AI settings have loaded.")).toBeInTheDocument();
+    unmount();
+    setAiDeploymentState({ ...DIRECT_AI_STATUS, chat: { ...CHAT_ON, recoveryKey: null } });
+    const second = renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    expect(await screen.findByText("Chats are not saved: the operator has not set a recovery key.")).toBeInTheDocument();
+    second.unmount();
+    renderChatPanel({});
+    expect(screen.queryByText(/Chats are not saved/)).not.toBeInTheDocument();
+  });
+
+  it("shows no not-saved line while chats are saved", async () => {
+    renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    await waitFor(() => expect(loadThreads).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/Chats are not saved/)).not.toBeInTheDocument();
+  });
+
   it("does not fetch threads in file mode (tursoMode omitted) — existing behavior untouched", () => {
     renderChatPanel({});
     expect(loadThreads).not.toHaveBeenCalled();
@@ -2257,16 +2290,17 @@ describe("ChatPanel — Turso thread persistence", () => {
       {
         id: "t1",
         projectId: "default",
+        ownerId: null,
         name: "Prior chat",
         createdAt: "c",
-        updatedAt: "u",
+        updatedAt: new Date().toISOString(),
         history: [],
         display: [{ kind: "user", text: "hi" }],
       },
     ] satisfies ChatThread[]);
     renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
     await screen.findByText("hi");
-    expect(loadThreads).toHaveBeenCalledWith({}, "default");
+    expect(loadThreads).toHaveBeenCalledWith({}, "default", null);
   });
 
   it("saves a new thread after the first turn completes, auto-named from the first message", async () => {
@@ -2316,18 +2350,20 @@ describe("ChatPanel — Turso thread persistence", () => {
     {
       id: "t-a",
       projectId: "default",
+      ownerId: null,
       name: "Thread A",
       createdAt: "c",
-      updatedAt: "u2",
+      updatedAt: new Date().toISOString(),
       history: [],
       display: [{ kind: "user", text: "thread A content" }],
     },
     {
       id: "t-b",
       projectId: "default",
+      ownerId: null,
       name: "Thread B",
       createdAt: "c",
-      updatedAt: "u1",
+      updatedAt: new Date(Date.now() - 60_000).toISOString(),
       history: [],
       display: [{ kind: "user", text: "thread B content" }],
     },
@@ -2553,9 +2589,10 @@ describe("ChatPanel — Turso thread persistence", () => {
       {
         id: "t1",
         projectId: "default",
+        ownerId: null,
         name: "Prior chat",
         createdAt: "c",
-        updatedAt: "u",
+        updatedAt: new Date().toISOString(),
         history: [],
         display: [{ kind: "user", text: "prior message" }],
       },

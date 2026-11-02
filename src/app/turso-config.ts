@@ -36,8 +36,9 @@ function isLoopbackHost(hostname: string): boolean {
  *  libsql:// → https://, https:// passthrough; plaintext http:// is allowed
  *  ONLY for loopback hosts (local/self-hosted tursodb) so a Bearer token is
  *  never sent over plaintext to a remote host. Trailing slash stripped;
- *  any other scheme / non-loopback http / unparseable input → null. */
-function toHttpUrl(raw: string): string | null {
+ *  any other scheme / non-loopback http / unparseable input → null.
+ *  Exported for the server-side chat sweep, which reads its own credentials. */
+export function toHttpUrl(raw: string): string | null {
   // Replace libsql:// before parsing — Node's URL rejects protocol mutation
   // for non-standard schemes (origin stays null after reassignment).
   const normalized = raw.replace(/^libsql:\/\//, "https://");

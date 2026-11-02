@@ -62,8 +62,8 @@ describe("stt-engine — the deployment status check before the upload", () => {
   afterEach(() => __setAiStatusRequestForTests(answerAiStatusDirect));
 
   it.each([
-    ["AI switched off for the deployment", () => Promise.resolve(aiStatusResponse({ off: true, route: "direct", invalid: false, keyRestricted: false })), "ai-deployment-off"],
-    ["an invalid AI setting", () => Promise.resolve(aiStatusResponse({ off: false, route: "direct", invalid: true, keyRestricted: false })), "ai-deployment-invalid"],
+    ["AI switched off for the deployment", () => Promise.resolve(aiStatusResponse({ off: true, route: "direct", invalid: false, keyRestricted: false, chat: null })), "ai-deployment-off"],
+    ["an invalid AI setting", () => Promise.resolve(aiStatusResponse({ off: false, route: "direct", invalid: true, keyRestricted: false, chat: null })), "ai-deployment-invalid"],
     ["the server down", () => Promise.reject(new TypeError("Failed to fetch")), "ai-deployment-unconfirmed"],
   ] as const)("uploads nothing with %s", async (_name, status, code) => {
     __setAiStatusRequestForTests(status);
@@ -86,7 +86,7 @@ describe("stt-engine — the deployment status check before the upload", () => {
     ["the same route", "direct"],
     ["a changed route", "gateway"],
   ] as const)("people protection forced, %s: uploads nothing and says why", async (_name, route) => {
-    __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse({ off: false, route, invalid: false, keyRestricted: false, peopleForced: true })));
+    __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse({ off: false, route, invalid: false, keyRestricted: false, chat: null, peopleForced: true })));
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) }));
     vi.stubGlobal("fetch", fetchMock);
     const h = { onInterim: vi.fn(), onFinal: vi.fn(), onError: vi.fn(), onStatus: vi.fn() };
@@ -105,7 +105,7 @@ describe("stt-engine — the deployment status check before the upload", () => {
     const live = { ...defaultAiConfig, enabled: true, consent: newConsent(new Date(0)), backgroundConsent: newConsent(new Date(0)) };
     __setAiStatusRequestForTests(async () => {
       publishAiConsentState({ ...live, consent: undefined }); // withdrawn during the status round trip
-      return aiStatusResponse({ off: false, route: "direct", invalid: false, keyRestricted: false });
+      return aiStatusResponse({ off: false, route: "direct", invalid: false, keyRestricted: false, chat: null });
     });
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) }));
     vi.stubGlobal("fetch", fetchMock);
@@ -125,7 +125,7 @@ describe("stt-engine — the deployment status check before the upload", () => {
   });
 
   it("a changed AI route does not block dictation: STT never uses the Anthropic route", async () => {
-    __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse({ off: false, route: "gateway", invalid: false, keyRestricted: false })));
+    __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse({ off: false, route: "gateway", invalid: false, keyRestricted: false, chat: null })));
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ text: "hello" }) }));
     vi.stubGlobal("fetch", fetchMock);
     const h = { onInterim: vi.fn(), onFinal: vi.fn(), onError: vi.fn(), onStatus: vi.fn() };

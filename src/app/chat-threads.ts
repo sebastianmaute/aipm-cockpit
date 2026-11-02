@@ -8,6 +8,9 @@ export interface ChatThread {
   id: string;
   /** "default" in non-portfolio Turso mode, matching ChatPanel's own projectId default. */
   projectId: string;
+  /** The person the stored row belongs to; null for a thread not yet saved
+   *  encrypted (new, or a legacy plaintext row). See chat-thread-codec.ts. */
+  ownerId: string | null;
   /** Auto-derived from the first user message on first save; empty until then —
    *  callers show a translated "Untitled chat" fallback (this module is i18n-free). */
   name: string;
@@ -105,7 +108,7 @@ export function newThreadId(): string {
 // AI-08 / AI-05 — a thread saved before the tool results were minimised still carries, in its
 // stored API history, tool results with e-mail addresses, an absence's real type and note, and `search_history`
 // details with logged changes to withheld fields (`renderActivityEntry` now leaves those out). Loading it would
-// send them to the model again with the next message, so they are removed on load (`rowsToThreads`). Only
+// send them to the model again with the next message, so they are removed on load (`legacyRowToThread` for a plaintext row, `decodeThreadRows` in chat-thread-codec.ts for an encrypted one). Only
 // `tool_result` blocks are touched: the user's and the assistant's own text stays as written, and so does the
 // result of a `get_contact_email` call, the one tool built to return an address.
 

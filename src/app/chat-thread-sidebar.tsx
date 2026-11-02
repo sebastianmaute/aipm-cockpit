@@ -26,9 +26,12 @@ import { type Lang, t } from "./i18n";
 import { Banner } from "./banner";
 import { Button } from "./button";
 import { ChatThreadList } from "./chat-thread-list";
+import { ChatEraseControls } from "./chat-erase-dialog";
 import { ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import type { ChatThread } from "./chat-threads";
+import type { ChatSettings } from "./ai-chat-retention-config";
+import type { ChatEraseActions } from "./use-chat-threads";
 
 /** localStorage key for the persisted column width. Distinct from the chat
  *  PANE's own `aipm-cockpit:chat-size-v2` — resetting one must not clear the
@@ -41,6 +44,8 @@ export interface ChatThreadSidebarProps {
   activeThreadId: string | null;
   /** True when the last fetch/save/rename/delete against Turso failed. */
   error: boolean;
+  /** The server's saved-chat settings; `null` = not known, so no retention period is shown. */
+  chat: ChatSettings | null;
   onRetry: () => void;
   onSelect: (id: string) => void;
   onNew: () => void;
@@ -48,6 +53,12 @@ export interface ChatThreadSidebarProps {
   onRenameDraft?: (id: string, value: string) => void;
   onRenameCancel?: (id: string) => void;
   onDelete: (id: string) => void;
+  /** "Delete all my chats" and "Find chats mentioning a person"; shown while `erase.enabled` is true —
+   *  the chat status known, in Turso mode — including while chats are not saved, because a delete needs
+   *  no encryption. "Delete all" itself is disabled without a stored owner. */
+  erase?: ChatEraseActions;
+  /** Project names by id, for the project each chat "Find" lists belongs to. */
+  projectNames?: ReadonlyMap<string, string>;
 }
 
 export function ChatThreadSidebar({
@@ -55,6 +66,7 @@ export function ChatThreadSidebar({
   threads,
   activeThreadId,
   error,
+  chat,
   onRetry,
   onSelect,
   onNew,
@@ -62,6 +74,8 @@ export function ChatThreadSidebar({
   onRenameDraft,
   onRenameCancel,
   onDelete,
+  erase,
+  projectNames,
 }: ChatThreadSidebarProps) {
   // ★ `axis: "x"` — this column is `resize-x`, so height is not a dimension the
   // drag can change. Without it the hook records whatever height the flex row
@@ -112,6 +126,11 @@ export function ChatThreadSidebar({
           default: the chat pane already renders a reset-size button, and two
           reset controls sharing an accessible name while doing different
           things is a WCAG 2.4.6 failure that axe passes (a name exists). */}
+      {erase && <ChatEraseControls lang={lang} erase={erase} projectNames={projectNames} />}
+      {/* No period while the server's setting is invalid: deleting is paused (Settings → AI says so). */}
+      {chat !== null && !chat.retentionInvalid && (
+        <p className="shrink-0 text-xs text-muted-foreground">{t(lang, "chatRetentionNotice", chat.retentionDays)}</p>
+      )}
       <div className="flex shrink-0 justify-end">
         <ResetSizeButton onClick={reset} lang={lang} labelKey="chatSidebarResetSize" />
       </div>

@@ -11,6 +11,7 @@
 import { DISABLED_INTEGRATIONS_ENV, parseDisabledIntegrations } from "./integration-switches";
 import type { AiDeploymentState, AiGatewayInvalidReason } from "./ai-deployment";
 import { readAiKeyRestriction } from "./ai-key-restriction-config";
+import { readChatSettings } from "./ai-chat-retention-config";
 
 export const AI_GATEWAY_URL_ENV = "AIPM_AI_GATEWAY_URL";
 export const AI_GATEWAY_TOKEN_ENV = "AIPM_AI_GATEWAY_TOKEN";
@@ -77,9 +78,10 @@ export function aiDeploymentStateFrom(env: Env): AiDeploymentState {
   const restriction = readAiKeyRestriction(env);
   const off = parseDisabledIntegrations(env[DISABLED_INTEGRATIONS_ENV]).includes("ai");
   const keyRestricted = restriction.kind !== "none";
+  const chat = readChatSettings(env);
   const hasGateway = config.kind === "gateway" || (config.kind === "invalid" && config.reason !== "token-without-url");
   const route = hasGateway ? "gateway" : keyRestricted ? "relay" : "direct";
-  if (restriction.kind === "invalid") return { off, route, invalid: true, invalidReason: restriction.reason, keyRestricted };
-  if (config.kind === "invalid") return { off, route, invalid: true, invalidReason: config.reason, keyRestricted };
-  return { off, route, invalid: false, keyRestricted };
+  if (restriction.kind === "invalid") return { off, route, invalid: true, invalidReason: restriction.reason, keyRestricted, chat };
+  if (config.kind === "invalid") return { off, route, invalid: true, invalidReason: config.reason, keyRestricted, chat };
+  return { off, route, invalid: false, keyRestricted, chat };
 }
