@@ -256,10 +256,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // A primitive for the load effect: it reloads once when the settings become known, never on a new
   // settings object.
   const chatKnown = chat !== null;
-  // For the load effect's expiry, which must not refire the load when the settings change.
-  const saveGateRef = useRef(saveGate);
+  // For the load effect's expiry, which must not refire the load when the settings change. The period
+  // in force, not the save gate: expiry deletes without reading, so it needs no recovery key, identity
+  // or encryption — only a known, valid period (null while unknown or paused).
+  const retentionDays = retentionInForce(chat);
+  const retentionDaysRef = useRef(retentionDays);
   useEffect(() => {
-    saveGateRef.current = saveGate;
+    retentionDaysRef.current = retentionDays;
   });
 
   /** Reads this browser's identity for `config`'s database, then loads the threads it may see: its
@@ -445,10 +448,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     loadVisibleRef.current(tursoConfig, projectId)
       .then((loaded) => {
         if (cancelled) return;
-        // Retention: once the list is in, the project's threads past the server's period go. Only
-        // while chats are saved at all — never with a guessed period.
-        const gate = saveGateRef.current;
-        if (gate && gate.retentionDays !== null) expireOldThreads(tursoConfig, gate.retentionDays, projectId, () => loaded);
+        // Retention: once the list is in, the project's threads past the server's period go — whether or
+        // not this browser saves chats (the delete reads nothing), but never with an unknown or paused period.
+        const days = retentionDaysRef.current;
+        if (days !== null && tursoConfig) expireOldThreads(tursoConfig, days, projectId, () => loaded);
         setThreadsError(false);
         setLoadFailed(false);
         // MERGE, not bail, when something adopted a different thread while

@@ -2411,7 +2411,9 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     the row with `CHAT_DB_NOW` in SQL (`created_at` on insert only, `updated_at` always), so a
     browser clock days fast cannot get a chat deleted by the future-date rule. The in-memory `updatedAt` stays the
     browser's, for display only. Adoption's re-own (`reownThreadStatements`) leaves `updated_at` alone: a move does
-    not restart a chat's retention period. The browser: `expireOldThreads` per project on load and before each save, and
+    not restart a chat's retention period. The browser: `expireOldThreads` per project on load (whenever a period is in force,
+    `retentionInForce`, with a Turso config — no recovery key, identity or encryption needed, since it deletes
+    without reading) and before each save, and
     `useChatRetentionSweep` once per database per page load, independent of the AI switch (after a sweep that
     ran, `dropOrphanedRenames` drops the pending thread renames whose thread is gone, from one id-only read of
     `chat_threads`; a failed read drops nothing). Once per page load it also drops the thread-name drafts of every

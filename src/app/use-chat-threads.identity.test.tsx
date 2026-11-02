@@ -350,6 +350,26 @@ describe("useChatThreads — retention", () => {
     expect(result.current.persistence).toBe("on");
   });
 
+  it("expires after the load without a recovery key too: the delete reads nothing", async () => {
+    const { result } = renderChatThreads({ chat: { ...CHAT_ON, recoveryKey: null } });
+    await waitFor(() => expect(expireThreadsMock).toHaveBeenCalledTimes(1));
+    expect(expireThreadsMock).toHaveBeenCalledWith(CFG_A, CHAT_ON.retentionDays, "default");
+    expect(result.current.persistence).toBe("no-recovery-key");
+  });
+
+  it("expires after the load in a browser that cannot encrypt, or whose identity is locked", async () => {
+    h.available.value = false;
+    const noCrypto = renderChatThreads();
+    await waitFor(() => expect(expireThreadsMock).toHaveBeenCalledTimes(1));
+    expect(noCrypto.result.current.persistence).toBe("no-crypto");
+    noCrypto.unmount();
+    h.available.value = true;
+    h.locked.add(CFG_A.httpUrl);
+    const locked = renderChatThreads();
+    await waitFor(() => expect(expireThreadsMock).toHaveBeenCalledTimes(2));
+    expect(locked.result.current.persistence).toBe("identity-locked");
+  });
+
   it("expires before each save", async () => {
     const hook = renderChatThreads();
     await waitFor(() => expect(expireThreadsMock).toHaveBeenCalledTimes(1));
