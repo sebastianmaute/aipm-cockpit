@@ -6,7 +6,6 @@
 // chat-threads-store.test.ts) so the workspace save's per-table DELETE never touches it. Also holds
 // the two chat_threads statements adoption needs, so every SQL string lives in a schema module.
 import { txt, type SqlStmt } from "./turso-schema";
-import { CHAT_DB_NOW } from "./chat-threads-schema";
 
 export const CHAT_KEYS_TABLE = "chat_keys";
 
@@ -78,13 +77,14 @@ export type ReownedThread = {
 };
 
 /** Move one thread from `fromOwner` to `toOwner` with its owner wrap and fields re-sealed.
- *  `key_operator` is untouched (the thread key is the same). A row that is no longer `fromOwner`'s,
+ *  `key_operator` is untouched (the thread key is the same), and so is `updated_at`: a move is not a
+ *  change of the chat, so its retention period does not restart. A row that is no longer `fromOwner`'s,
  *  or no longer in that project, is left alone. */
 export function reownThreadStatements(row: ReownedThread, fromOwner: string, toOwner: string): SqlStmt[] {
   requireOwner(fromOwner, "reownThreadStatements");
   requireOwner(toOwner, "reownThreadStatements");
   return [{
-    sql: `UPDATE chat_threads SET owner_id = ?, key_owner = ?, name = ?, history_json = ?, display_json = ?, updated_at = ${CHAT_DB_NOW} ` +
+    sql: `UPDATE chat_threads SET owner_id = ?, key_owner = ?, name = ?, history_json = ?, display_json = ? ` +
       `WHERE id = ? AND project_id = ? AND owner_id = ?`,
     args: [
       txt(toOwner), txt(row.keyOwner), txt(row.name), txt(row.historyJson), txt(row.displayJson),

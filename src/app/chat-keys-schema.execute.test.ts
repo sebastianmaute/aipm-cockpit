@@ -108,15 +108,15 @@ describe("chat_keys statements against a real engine", () => {
     expect(() => ownerThreadKeysSelect("")).toThrow();
   });
 
-  it("re-own dates the moved row by the database clock and leaves the rows it did not move alone", () => {
+  it("re-own keeps the moved row's updated_at, so the move does not restart its retention period", () => {
     seed(db, threadRow("a1", "old"));
     seed(db, threadRow("b1", "bob"));
     const resealed = (id: string) => ({ id, projectId: "p", keyOwner: "k-new", name: "c2.n", historyJson: "c2.h", displayJson: "c2.d" });
     run(db, reownThreadStatements(resealed("a1"), "old", "new"));
     run(db, reownThreadStatements(resealed("b1"), "old", "new"));
-    const at = (id: string) => (db.prepare("SELECT updated_at FROM chat_threads WHERE id = ?").get(id) as { updated_at: string }).updated_at;
-    expect(Math.abs(Date.parse(at("a1")) - Date.now())).toBeLessThan(60_000);
-    expect(at("b1")).toBe("u");
+    const row = (id: string) => db.prepare("SELECT owner_id, updated_at FROM chat_threads WHERE id = ?").get(id);
+    expect(row("a1")).toEqual({ owner_id: "new", updated_at: "u" });
+    expect(row("b1")).toEqual({ owner_id: "bob", updated_at: "u" });
   });
 
   it("re-own moves one row from the old owner with its re-sealed fields, keeping key_operator", () => {
@@ -129,18 +129,12 @@ describe("chat_keys statements against a real engine", () => {
     run(db, reownThreadStatements(resealed("b1"), "old", "new"));
     seed(db, threadRow("a2", "old"));
     run(db, reownThreadStatements(resealed("a2", "q"), "old", "new"));
-    // The moved row's updated_at is the database clock (pinned in the test above); the others keep theirs.
+    // Every row keeps its updated_at (pinned in the test above), the moved one included.
     const rows = db.prepare("SELECT * FROM chat_threads ORDER BY id").all() as Record<string, unknown>[];
-    const withoutUpdatedAt = (r: object): Record<string, unknown> => {
-      const copy: Record<string, unknown> = { ...r };
-      delete copy.updated_at;
-      return copy;
-    };
-    expect(rows.map(withoutUpdatedAt)).toEqual([
+    expect(rows).toEqual([
       { ...threadRow("a1", "new"), key_owner: "k-new", name: "c2.n", history_json: "c2.h", display_json: "c2.d" },
       threadRow("a2", "old"),
       threadRow("b1", "bob"),
-    ].map(withoutUpdatedAt));
-    expect(rows.slice(1).map((r) => r.updated_at)).toEqual(["u", "u"]);
+    ]);
   });
 });
