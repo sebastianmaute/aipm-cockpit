@@ -429,6 +429,40 @@ describe("chat passphrase", () => {
     expect(loaded.every((t) => t.ownerId === a.ownerId)).toBe(true);
   });
 
+  it("a pending move survives a retry whose kept identity cannot be opened right now", async () => {
+    const { code } = await browserA();
+    const b = await browserB();
+    server.failNext = (stmts) => /^BEGIN/.test(stmts[0]?.sql ?? "") && stmts.some((s) => /^UPDATE chat_threads\b/.test(s.sql));
+    await expect(unlockWithPassphrase(cfg, URL, code, PASS)).rejects.toThrow();
+    const vault = () => JSON.parse(window.localStorage.getItem("aipm-cockpit:chat-identity")!)[URL];
+    const pending = vault().unmoved;
+    expect(JSON.stringify(pending)).toContain(b.ownerId);
+    // The kept identity's sealed key is damaged: this retry cannot open it, and must not drop it.
+    const damaged = JSON.parse(JSON.stringify(pending));
+    damaged[0].sealed.ciphertext = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    window.localStorage.setItem("aipm-cockpit:chat-identity", JSON.stringify({ [URL]: { ...vault(), unmoved: damaged } }));
+    expect(await unlockWithPassphrase(cfg, URL, code, PASS)).toEqual({ outcome: "adopted", moved: 0, skipped: 0 });
+    expect(vault().unmoved).toEqual(damaged);
+  });
+
+  it("unlocking another code while a move is pending moves the pending identity's chats too", async () => {
+    const { a, code } = await browserA();
+    window.localStorage.clear();
+    const c = (await ensureChatIdentity(URL))!;
+    const { unlockCode: codeC } = await setChatPassphrase(cfg, c, PASS);
+    const b = await browserB();
+    server.failNext = (stmts) => /^BEGIN/.test(stmts[0]?.sql ?? "") && stmts.some((s) => /^UPDATE chat_threads\b/.test(s.sql));
+    await expect(unlockWithPassphrase(cfg, URL, code, PASS)).rejects.toThrow();
+    expect((await getChatIdentity(URL))!.ownerId).toBe(a.ownerId);
+
+    expect(await unlockWithPassphrase(cfg, URL, codeC, PASS)).toEqual({ outcome: "adopted", moved: 2, skipped: 0 });
+    const owner = (id: string) => (server.db.prepare("SELECT owner_id FROM chat_threads WHERE id = ?").get(id) as { owner_id: string }).owner_id;
+    expect(owner("ta")).toBe(c.ownerId);
+    expect(owner("tb")).toBe(c.ownerId);
+    expect(JSON.parse(window.localStorage.getItem("aipm-cockpit:chat-identity")!)[URL].unmoved).toBeUndefined();
+    expect(storedChatOwnerIds(URL)).toEqual(expect.arrayContaining([c.ownerId, a.ownerId, b.ownerId]));
+  });
+
   it("a browser without an identity adopts without moving anything", async () => {
     const { a, code } = await browserA();
     window.localStorage.clear();

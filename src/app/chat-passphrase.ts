@@ -22,7 +22,7 @@ import {
 import { ensureChatThreadsColumns } from "./chat-threads-store";
 import { ChatCryptoError, unwrapForOwner, wrapForOwner } from "./chat-crypto";
 import {
-  clearUnmovedChatIdentity, readChatIdentity, readUnmovedChatIdentity, replaceChatIdentity, storedChatOwnerIds,
+  clearUnmovedChatIdentity, readChatIdentity, readUnmovedChatIdentities, replaceChatIdentity, storedChatOwnerIds,
   withIdentityLock,
 } from "./chat-key-vault";
 import { ownerKeyAd, resealThreadFields, type ChatIdentity } from "./chat-thread-codec";
@@ -218,22 +218,30 @@ async function adopt(config: TursoConfig | null, httpUrl: string, adopted: ChatI
   const current = await readChatIdentity(httpUrl);
   // An identity that could not be read right now is not replaced: it may still be good.
   if (current.kind === "transient") throw new Error("chat identity not readable right now");
-  // Whose threads move: the identity held here, or — when it is already the adopted one — the one a
-  // move that did not finish left in the entry.
-  const from = current.kind !== "found" ? null
-    : current.identity.ownerId !== adopted.ownerId ? current.identity
-      : await readUnmovedChatIdentity(httpUrl);
-  // Stored first, with every owner id held so far (a locked one's too) kept for a later delete-all.
-  await replaceChatIdentity(httpUrl, adopted, storedChatOwnerIds(httpUrl), from);
-  if (!from) return { outcome: "adopted", moved: 0, skipped: 0 };
-  const counts = await reownThreads(config, from, adopted);
-  clearUnmovedChatIdentity(httpUrl, from.ownerId);
-  // The replaced identity's own passphrase row now opens nothing (its threads moved to the adopted
-  // owner, or are ones its key could not open): delete it. A failure leaves the adoption in place.
-  try {
-    await removeChatPassphrase(config, from.ownerId);
-  } catch {
-    logDiag("warn", "chat.replacedKeyDeleteFailed");
+  // Whose threads move: the identity held here when it is not the adopted one, and every identity an
+  // earlier move that did not finish left in the entry (one that cannot be opened now stays there).
+  const replaced = current.kind === "found" && current.identity.ownerId !== adopted.ownerId ? current.identity : null;
+  const sources = new Map<string, ChatIdentity>();
+  for (const u of [...(replaced ? [replaced] : []), ...(await readUnmovedChatIdentities(httpUrl))]) {
+    if (u.ownerId !== adopted.ownerId && !sources.has(u.ownerId)) sources.set(u.ownerId, u);
   }
-  return { outcome: "adopted", ...counts };
+  // Stored first, with every owner id held so far (a locked one's too) kept for a later delete-all, and
+  // the replaced identity kept (with any pending ones, carried over) until its move has succeeded.
+  await replaceChatIdentity(httpUrl, adopted, storedChatOwnerIds(httpUrl), replaced ? [replaced] : []);
+  let moved = 0;
+  let skipped = 0;
+  for (const from of sources.values()) {
+    const counts = await reownThreads(config, from, adopted);
+    moved += counts.moved;
+    skipped += counts.skipped;
+    clearUnmovedChatIdentity(httpUrl, from.ownerId);
+    // The replaced identity's own passphrase row now opens nothing (its threads moved to the adopted
+    // owner, or are ones its key could not open): delete it. A failure leaves the adoption in place.
+    try {
+      await removeChatPassphrase(config, from.ownerId);
+    } catch {
+      logDiag("warn", "chat.replacedKeyDeleteFailed");
+    }
+  }
+  return { outcome: "adopted", moved, skipped };
 }

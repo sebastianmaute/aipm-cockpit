@@ -2377,10 +2377,12 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     adopt the identity with an unlock code and the passphrase. ★★ `chat_keys` is OUT of `TABLE_NAMES` like
     `chat_threads`, and has no `project_id`, so neither a project hard delete nor a factory reset touches it.
     ★★ ORDER: the adopted identity is stored FIRST (idempotent on a retry), with the replaced owner id in
-    `previousOwnerIds` and the replaced identity itself sealed in the entry as `unmoved`; THEN its threads move
-    (`reownThreads`), and only then is `unmoved` cleared and the replaced owner's `chat_keys` row deleted (a
-    failed delete is logged as `chat.replacedKeyDeleteFailed` and keeps the adoption). A move that fails throws;
-    unlocking again reads `readUnmovedChatIdentity` and finishes it.
+    `previousOwnerIds` and the replaced identity itself sealed in the entry's `unmoved` list; THEN its threads move
+    (`reownThreads`), and only then is it cleared from `unmoved` and its `chat_keys` row deleted (a failed delete
+    is logged as `chat.replacedKeyDeleteFailed` and keeps the adoption). A move that fails throws; unlocking again
+    — the same code or another one — reads `readUnmovedChatIdentities` and moves every pending identity too.
+    ★★ Every rewrite of the entry CARRIES `unmoved` over, an entry it cannot open right now included; only the
+    identity's own successful move clears it (and a new identity started after deleting the old chats).
     The whole adoption (vault read, identity write, move) runs inside `withIdentityLock`, the lock creating an
     identity takes, so another tab cannot create or replace the identity in between. ★ Not re-entrant: nothing
     inside may call `ensureChatIdentity` or `startNewChatIdentity`.
