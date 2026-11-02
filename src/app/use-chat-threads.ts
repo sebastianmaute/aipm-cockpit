@@ -228,9 +228,12 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     setListUrl(currentUrl);
     setThreads((prev) => prev.filter((th) => ledger.cameFrom(currentUrl, th.id)));
     setLoadedProjectId(null);
+    // What is on screen and not a thread of the new database: an open thread of another database, or a
+    // conversation kept under no thread (after a not-owned save). A fresh, empty screen stays.
     const openFromElsewhere = activeThreadId !== null && ledger.sourceOf(activeThreadId) !== null
       && !ledger.cameFrom(currentUrl, activeThreadId);
-    if (tursoMode && !busy && openFromElsewhere) {
+    const keptUnderNoThread = activeThreadId === null && (display.length > 0 || history.length > 0);
+    if (tursoMode && !busy && (openFromElsewhere || keptUnderNoThread)) {
       setActiveThreadId(null);
       setHistory([]);
       setDisplay([]);

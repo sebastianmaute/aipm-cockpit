@@ -411,6 +411,42 @@ describe("useChatThreads — between a database switch and the new load, nothing
 
   const carriesOld = (call: unknown[]): boolean => JSON.stringify(call[1]).includes("about Jane");
 
+  it("a conversation kept after a not-owned save is closed at the switch too; the next send carries nothing of it", async () => {
+    loadsByDatabase([thread("t1", OLD)]); // B's load never settles
+    const { result, rerender, initialProps } = renderChatThreads({ ...OLD });
+    await waitFor(() => expect(result.current.activeThreadId).toBe("t1"));
+    saveThreadMock.mockResolvedValueOnce("not-owned");
+    act(() => result.current.renameThread("t1", "New name"));
+    await waitFor(() => expect(result.current.activeThreadId).toBeNull());
+    expect(result.current.threadClosed).toBe(false); // kept on screen under no thread
+
+    saveThreadMock.mockClear();
+    rerender({ ...initialProps, ...OLD, tursoConfig: CFG_B });
+    expect(result.current.threadClosed).toBe(true);
+    expect(result.current.threadCloseReason).toBe("otherDatabase");
+    expect((initialProps.setHistory as ReturnType<typeof vi.fn>).mock.calls.at(-1)).toEqual([[]]);
+    expect((initialProps.setDisplay as ReturnType<typeof vi.fn>).mock.calls.at(-1)).toEqual([[]]);
+
+    const inB = { ...initialProps, history: [], display: [], tursoConfig: CFG_B };
+    rerender(inB);
+    act(() => {
+      result.current.ensureThreadForSend(turn.history, turn.display);
+    });
+    rerender({ ...inB, ...turn, busy: true });
+    rerender({ ...inB, ...turn, busy: false });
+    await settle(() => {});
+    for (const call of saveThreadMock.mock.calls) expect(carriesOld(call)).toBe(false);
+  });
+
+  it("a fresh, empty screen is not closed by a switch", async () => {
+    loadsByDatabase([]);
+    const { result, rerender, initialProps } = renderChatThreads();
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    act(() => result.current.newThread());
+    rerender({ ...initialProps, tursoConfig: CFG_B });
+    expect(result.current.threadClosed).toBe(false);
+  });
+
   it("an idle chat of A is closed at the switch, with a notice; a send then starts a fresh B thread carrying nothing of A", async () => {
     loadsByDatabase([thread("t1", OLD)]);
     const { result, rerender, initialProps } = renderChatThreads({ ...OLD });
