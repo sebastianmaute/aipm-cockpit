@@ -1638,7 +1638,12 @@ function ChatPanelInner({
       )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {tursoMode && (
-        <ChatNotSavedNotice lang={lang} persistence={chatThreads.persistence} onStartNewIdentity={chatThreads.startNewIdentity} />
+        <ChatNotSavedNotice
+          lang={lang}
+          persistence={chatThreads.persistence}
+          onStartNewIdentity={chatThreads.startNewIdentity}
+          onDeleteOldChats={chatThreads.erase.deleteAll}
+        />
       )}
       {tursoMode && <ChatThreadClosedNotice lang={lang} closed={chatThreads.threadClosed} reason={chatThreads.threadCloseReason} />}
       <div className="mb-2 flex shrink-0 items-center justify-end gap-2">

@@ -10,8 +10,8 @@ import type { TursoConfig } from "./turso-config";
 import type { ChatSettings } from "./ai-chat-retention-config";
 import type { ChatIdentity } from "./chat-thread-codec";
 import {
-  CHAT_IDENTITY_KEY, chatVaultAvailable, ensureChatIdentity, getChatIdentity, readChatIdentity, startNewChatIdentity,
-  storedChatOwnerId,
+  CHAT_IDENTITY_KEY, chatVaultAvailable, ensureChatIdentity, readChatIdentity, startNewChatIdentity, storedChatOwnerId,
+  storedChatOwnerIds,
 } from "./chat-key-vault";
 import { logDiag } from "./diagnostics";
 
@@ -62,6 +62,9 @@ export function useChatIdentity({ tursoMode, tursoConfig, chat }: UseChatIdentit
   const vaultTransient = vaultRead?.url === currentUrl && vaultRead.kind === "transient";
   const persistence = chatPersistence(chat, chatVaultAvailable(), vaultLocked, vaultTransient);
   const knownOwnerId = vaultRead?.url === currentUrl && vaultRead.kind === "found" ? vaultRead.identity?.ownerId ?? null : null;
+  // The owner id deletes run as: the known one, or — while the stored entry cannot be opened — its owner
+  // id, which stays readable, so a locked identity can still erase its own chats.
+  const eraseOwnerId = knownOwnerId ?? (vaultLocked || vaultTransient ? storedChatOwnerId(currentUrl) : null);
 
   function record(next: VaultRead): void {
     vaultReadRef.current = next;
@@ -143,27 +146,28 @@ export function useChatIdentity({ tursoMode, tursoConfig, chat }: UseChatIdentit
     return known && storedChatOwnerId(urlOf(config)) === known.ownerId ? known : null;
   }
 
-  /** The identity stored for `config`'s database, or null; never creates one. A delete runs as it,
-   *  after `knownIdentity`. */
-  function storedIdentity(config: TursoConfig | null): Promise<ChatIdentity | null> {
-    return getChatIdentity(urlOf(config));
+  /** Every owner id stored for `config`'s database, current first, then the earlier ones; read without
+   *  the chat key, so a locked entry's are here too. Never creates one. Deletes run as them. */
+  function storedOwnerIds(config: TursoConfig | null): string[] {
+    return storedChatOwnerIds(urlOf(config));
   }
 
   /** Replaces a stored identity this browser can no longer open ("identity-locked") with a new one,
-   *  so saving resumes. The old rows are not touched; they expire. A failure is logged without detail
+   *  so saving resumes. With `keepOld` the old owner ids are kept in the entry for a later delete-all;
+   *  the caller passes false only after it has deleted their rows. A failure is logged without detail
    *  and leaves the state as it was. */
-  async function startNewIdentity(): Promise<void> {
+  async function startNewIdentity(keepOld = true): Promise<void> {
     const url = urlOf(tursoConfig);
     if (!url) return;
     try {
-      record({ url, kind: "found", identity: await startNewChatIdentity(url) });
+      record({ url, kind: "found", identity: await startNewChatIdentity(url, { keepOld }) });
     } catch {
       logDiag("warn", "chat.newIdentityFailed");
     }
   }
 
   return {
-    persistence, knownOwnerId, identityReloads, readIdentity, knownIdentity, trustedIdentity, writeIdentity, storedIdentity,
-    startNewIdentity,
+    persistence, knownOwnerId, eraseOwnerId, identityReloads, readIdentity, knownIdentity, trustedIdentity, writeIdentity,
+    storedOwnerIds, startNewIdentity,
   };
 }

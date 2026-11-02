@@ -45,6 +45,7 @@ vi.mock("./chat-key-vault", () => ({
     return identity;
   }),
   storedChatOwnerId: (url: string) => h.vault.get(url)?.ownerId ?? null,
+  storedChatOwnerIds: (url: string) => (h.vault.has(url) ? [h.vault.get(url)!.ownerId] : []),
   startNewChatIdentity: vi.fn(async (url: string) => {
     h.minted.value += 1;
     const identity = { ownerId: `owner-${h.minted.value}`, chatKey: new Uint8Array(32) };

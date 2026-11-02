@@ -770,10 +770,11 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // busy-persist effect (once that turn settles) inserts it.
   }
 
-  const { erase, requestDeleteThread } = useChatErase({
-    tursoConfig, projectId, lang, confirm, deleteGate, knownOwnerId: identity.knownOwnerId, threads, threadsRef,
+  const { erase, requestDeleteThread, startNewIdentity } = useChatErase({
+    tursoConfig, projectId, lang, confirm, deleteGate, eraseOwnerId: identity.eraseOwnerId, threads, threadsRef,
     threadIdRef, projectEpochRef, setThreads, setActiveThreadId, setHistory, setDisplay,
-    knownIdentity: identity.knownIdentity, storedIdentity: identity.storedIdentity, writeConfig, renameScope, runPersist,
+    knownIdentity: identity.knownIdentity, storedOwnerIds: identity.storedOwnerIds,
+    startNewIdentityInVault: identity.startNewIdentity, writeConfig, renameScope, runPersist,
     forgetRetries: queue.forgetRetries, savesSettled: (config) => queue.savesSettled(urlOf(config)), loadVisibleThreads,
   });
 
@@ -785,7 +786,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     persistence,
     threadClosed,
     threadCloseReason,
-    startNewIdentity: identity.startNewIdentity,
+    startNewIdentity,
     setThreadsError,
     setThreads,
     threadIdRef,

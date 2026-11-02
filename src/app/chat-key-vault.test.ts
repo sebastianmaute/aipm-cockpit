@@ -2,7 +2,8 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
-  CHAT_IDENTITY_KEY, ensureChatIdentity, getChatIdentity, readChatIdentity, replaceChatIdentity,
+  CHAT_IDENTITY_KEY, ensureChatIdentity, getChatIdentity, readChatIdentity, replaceChatIdentity, startNewChatIdentity,
+  storedChatOwnerIds,
 } from "./chat-key-vault";
 import { bytesToBase64 } from "./base64";
 import { generateChatKey } from "./chat-crypto";
@@ -175,5 +176,33 @@ describe("chat-key-vault", () => {
     expect(read!.ownerId).toBe("owner-next");
     expect(Array.from(read!.chatKey)).toEqual(Array.from(next.chatKey));
     expect((await getChatIdentity(URL_B))!.ownerId).toBe(b!.ownerId);
+  });
+
+  it("a locked entry's owner ids stay readable without the key", async () => {
+    const entry = {
+      ownerId: "o-locked", previousOwnerIds: ["o-older", "", 7],
+      sealed: { iv: "AAAAAAAAAAAAAAAA", ciphertext: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" },
+    };
+    window.localStorage.setItem(CHAT_IDENTITY_KEY, JSON.stringify({ [URL_A]: entry }));
+    expect(await readChatIdentity(URL_A)).toEqual({ kind: "unavailable" });
+    expect(storedChatOwnerIds(URL_A)).toEqual(["o-locked", "o-older"]);
+    expect(storedChatOwnerIds(URL_B)).toEqual([]);
+  });
+
+  it("a new identity keeps the old owner ids for a later delete only when asked to", async () => {
+    const first = await ensureChatIdentity(URL_A);
+    const kept = await startNewChatIdentity(URL_A, { keepOld: true });
+    expect(storedChatOwnerIds(URL_A)).toEqual([kept.ownerId, first!.ownerId]);
+    const again = await startNewChatIdentity(URL_A, { keepOld: true });
+    expect(storedChatOwnerIds(URL_A)).toEqual([again.ownerId, kept.ownerId, first!.ownerId]);
+    const fresh = await startNewChatIdentity(URL_A, { keepOld: false });
+    expect(storedChatOwnerIds(URL_A)).toEqual([fresh.ownerId]);
+  });
+
+  it("replaceChatIdentity carries the entry's earlier owner ids and adds the ones given", async () => {
+    await replaceChatIdentity(URL_A, { ownerId: "o-1", chatKey: await generateChatKey() }, ["o-0"]);
+    await replaceChatIdentity(URL_A, { ownerId: "o-2", chatKey: await generateChatKey() }, ["o-1", "o-2"]);
+    expect(storedChatOwnerIds(URL_A)).toEqual(["o-2", "o-1", "o-0"]);
+    expect((await getChatIdentity(URL_A))!.ownerId).toBe("o-2");
   });
 });

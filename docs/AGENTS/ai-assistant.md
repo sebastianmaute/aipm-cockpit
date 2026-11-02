@@ -2350,8 +2350,14 @@ Moved verbatim from AGENTS.md on 2026-10-14; the always-loaded stub there keeps 
     never overwritten silently. ★ A NEW identity that could not be stored is NOT this state: `writeIdentity` reads
     the vault again and, finding it still empty, fails the save into the Retry banner. The way out is
     `startNewChatIdentity` (the hook's `startNewIdentity`, the notice's "Start a new chat identity" button), which
-    stores a fresh identity over the locked entry; chats saved under the old one are left for the operator and
-    retention. Settings → AI hides the chat passphrase area in this state too (`ai-section.tsx` reads the vault).
+    stores a fresh identity over the locked entry. It ASKS first whether the old chats go too (a cancel keeps
+    them, the default): deleting runs the delete-all; keeping — or a delete that fails — records the old owner
+    ids in the new entry's `previousOwnerIds`, so the id is never dropped silently. Settings → AI hides the chat
+    passphrase area in this state too (`ai-section.tsx` reads the vault).
+    ★★ A locked identity can still ERASE its own chats: the entry's owner id is plain (`storedChatOwnerIds`,
+    read without the chat key), so single deletes, find-and-delete and the delete-all run as it
+    (`use-chat-erase.ts`), and the notice offers "Delete my old chats" (type-to-confirm, the delete-all's
+    confirm value). A delete-all erases the current AND every `previousOwnerIds` owner's rows.
   - **`"identity-retry"`**: opening the entry failed for any reason OTHER than a key that cannot open it
     (`SecretUnlockError`) — IndexedDB blocked, quota, anything unexpected — so `readChatIdentity` answers
     `"transient"`. ★★ Not a lock: no "Start a new chat identity" offer, the entry is never replaced (nor by an

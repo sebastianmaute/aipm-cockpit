@@ -9,7 +9,7 @@ import {
   loadThreads, saveThread, deleteThread, deleteOwnerThreads, expireThreads, loadLegacyThreadIds,
 } from "./chat-threads-store";
 import { ChatEraseControls } from "./chat-erase-dialog";
-import { ensureChatIdentity } from "./chat-key-vault";
+import { CHAT_IDENTITY_KEY, ensureChatIdentity } from "./chat-key-vault";
 import { readChatThreads } from "./chat-threads-registry";
 import type { ChatThread } from "./chat-threads";
 import type { TursoConfig } from "./turso-config";
@@ -379,5 +379,87 @@ describe("useChatThreads — delete all waits for the saves still on their way",
     expect(deleteOwnerThreadsMock).toHaveBeenCalledTimes(1);
     expect(deleteOwnerThreadsMock.mock.invocationCallOrder[0]).toBeGreaterThan(saveThreadMock.mock.invocationCallOrder[0]);
     expect(done).toBe(true);
+  });
+});
+
+describe("useChatThreads — a locked identity can still erase its own chats", () => {
+  /** A stored entry this browser's device key cannot open, as after a lost device key. */
+  function storeLockedIdentity(ownerId: string): void {
+    const sealed = { iv: "AAAAAAAAAAAAAAAA", ciphertext: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" };
+    window.localStorage.setItem(CHAT_IDENTITY_KEY, JSON.stringify({ [CFG.httpUrl]: { ownerId, sealed } }));
+  }
+
+  it("delete-all runs as the stored owner id while the identity is locked", async () => {
+    await ensureChatIdentity("https://other.example.invalid"); // creates the device key
+    storeLockedIdentity("o-locked");
+    loadThreadsMock.mockResolvedValue([thread("legacy")]);
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(result.current.persistence).toBe("identity-locked"));
+    expect(result.current.erase.enabled).toBe(true);
+    expect(result.current.erase.ownerId).toBe("o-locked");
+    render(<ChatEraseControls lang="en-US" threads={result.current.threads} erase={result.current.erase} />);
+    expect(screen.getByRole("button", { name: "Delete all my chats" })).toBeEnabled();
+    await act(async () => {
+      await result.current.erase.deleteAll();
+    });
+    expect(deleteOwnerThreadsMock.mock.calls).toEqual([[CFG, "o-locked"]]);
+    await act(async () => {
+      await result.current.erase.deleteSelected(["legacy"]);
+    });
+    expect(deleteThreadMock.mock.calls[0]).toEqual([CFG, "legacy", "default", "o-locked"]);
+  });
+
+  it("starting a new identity and keeping the old chats lets a later delete-all remove both owners' rows", async () => {
+    await ensureChatIdentity("https://other.example.invalid");
+    storeLockedIdentity("o-locked");
+    const confirm = vi.fn(async () => false);
+    const { result } = renderChatThreads({ confirm });
+    await waitFor(() => expect(result.current.persistence).toBe("identity-locked"));
+    await act(async () => {
+      await result.current.startNewIdentity();
+    });
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(deleteOwnerThreadsMock).not.toHaveBeenCalled();
+    expect(result.current.persistence).toBe("on");
+    const fresh = result.current.erase.ownerId;
+    expect(fresh).not.toBe("o-locked");
+    await act(async () => {
+      await result.current.erase.deleteAll();
+    });
+    expect(deleteOwnerThreadsMock.mock.calls.map((c) => c[1]).sort()).toEqual([fresh, "o-locked"].sort());
+  });
+
+  it("starting a new identity and deleting the old chats erases them first and keeps no old owner id", async () => {
+    await ensureChatIdentity("https://other.example.invalid");
+    storeLockedIdentity("o-locked");
+    const { result } = renderChatThreads({ confirm: vi.fn(async () => true) });
+    await waitFor(() => expect(result.current.persistence).toBe("identity-locked"));
+    await act(async () => {
+      await result.current.startNewIdentity();
+    });
+    expect(deleteOwnerThreadsMock.mock.calls).toEqual([[CFG, "o-locked"]]);
+    expect(result.current.persistence).toBe("on");
+    deleteOwnerThreadsMock.mockClear();
+    await act(async () => {
+      await result.current.erase.deleteAll();
+    });
+    expect(deleteOwnerThreadsMock.mock.calls.map((c) => c[1])).toEqual([result.current.erase.ownerId]);
+  });
+
+  it("a failed delete of the old chats still starts the new identity, keeping the old owner id for later", async () => {
+    await ensureChatIdentity("https://other.example.invalid");
+    storeLockedIdentity("o-locked");
+    deleteOwnerThreadsMock.mockRejectedValueOnce(new Error("network"));
+    const { result } = renderChatThreads({ confirm: vi.fn(async () => true) });
+    await waitFor(() => expect(result.current.persistence).toBe("identity-locked"));
+    await act(async () => {
+      await result.current.startNewIdentity();
+    });
+    expect(result.current.persistence).toBe("on");
+    deleteOwnerThreadsMock.mockClear();
+    await act(async () => {
+      await result.current.erase.deleteAll();
+    });
+    expect(deleteOwnerThreadsMock.mock.calls.map((c) => c[1])).toContain("o-locked");
   });
 });

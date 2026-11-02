@@ -30,6 +30,7 @@ vi.mock("./chat-key-vault", () => ({
   getChatIdentity: vi.fn(async () => TEST_IDENTITY),
   ensureChatIdentity: vi.fn(async () => TEST_IDENTITY),
   storedChatOwnerId: () => TEST_IDENTITY.ownerId,
+  storedChatOwnerIds: () => [TEST_IDENTITY.ownerId],
 }));
 const CHAT_ON = { retentionDays: 30, retentionInvalid: false, recoveryKey: "recovery-spki", recoveryKeyInvalid: false };
 

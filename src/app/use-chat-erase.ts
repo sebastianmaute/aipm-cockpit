@@ -1,7 +1,12 @@
 // src/app/use-chat-erase.ts — deleting saved chat threads, for useChatThreads (a deps-object hook,
 // AGENTS.md "Extraction conventions", rule 1): one thread from the sidebar (after a confirm), the
 // ticked ones, and every thread of this browser's owner. Each takes the deleted threads off the list,
-// the registry, the retry slots and the rename outbox.
+// the registry, the retry slots and the rename outbox. It also starts a new chat identity in place of a
+// locked one, asking first whether the old chats go too.
+//
+// Deletes run as the stored owner id, which stays readable while the stored identity cannot be opened
+// ("identity-locked"), so a locked identity can still erase its own chats; a delete-all also erases
+// the rows of the entry's earlier owner ids (`previousOwnerIds`, chat-key-vault.ts).
 //
 // Holds the delete rules (which owner a delete runs as, what a delete-all removes and reloads), so it
 // is coverage-gated, not excluded.
@@ -42,8 +47,9 @@ export interface UseChatEraseDeps {
   confirm: ConfirmFn;
   /** Whether deletes are sent: the chat status known, in Turso mode. */
   deleteGate: boolean;
-  /** This browser's owner id for the current database, or null. */
-  knownOwnerId: string | null;
+  /** The owner id this browser's deletes run as for the current database (also while its identity is
+   *  locked), or null when none is stored. */
+  eraseOwnerId: string | null;
   threads: ChatThread[];
   threadsRef: React.MutableRefObject<ChatThread[]>;
   threadIdRef: React.MutableRefObject<string | null>;
@@ -52,9 +58,12 @@ export interface UseChatEraseDeps {
   setActiveThreadId: React.Dispatch<React.SetStateAction<string | null>>;
   setHistory: React.Dispatch<React.SetStateAction<ApiMessage[]>>;
   setDisplay: React.Dispatch<React.SetStateAction<DisplayItem[]>>;
-  /** The identity already read for a database (synchronous), and the one stored there (never created). */
+  /** The identity already read for a database (synchronous), and every owner id stored there, current
+   *  first (never created; readable while the identity is locked). */
   knownIdentity: (config: TursoConfig | null) => ChatIdentity | null;
-  storedIdentity: (config: TursoConfig | null) => Promise<ChatIdentity | null>;
+  storedOwnerIds: (config: TursoConfig | null) => string[];
+  /** Starts a new identity over a locked one; `keepOld` keeps the old owner ids for a later delete-all. */
+  startNewIdentityInVault: (keepOld: boolean) => Promise<void>;
   writeConfig: (pinned: TursoConfig | null) => TursoConfig | null;
   renameScope: (config?: TursoConfig | null) => string | null;
   runPersist: (key: string, action: () => Promise<void>) => void;
@@ -66,9 +75,9 @@ export interface UseChatEraseDeps {
 
 export function useChatErase(deps: UseChatEraseDeps) {
   const {
-    tursoConfig, projectId, lang, confirm, deleteGate, knownOwnerId, threads, threadsRef, threadIdRef, projectEpochRef,
-    setThreads, setActiveThreadId, setHistory, setDisplay, knownIdentity, storedIdentity, writeConfig, renameScope, runPersist,
-    forgetRetries, savesSettled, loadVisibleThreads,
+    tursoConfig, projectId, lang, confirm, deleteGate, eraseOwnerId, threads, threadsRef, threadIdRef, projectEpochRef,
+    setThreads, setActiveThreadId, setHistory, setDisplay, knownIdentity, storedOwnerIds, startNewIdentityInVault, writeConfig,
+    renameScope, runPersist, forgetRetries, savesSettled, loadVisibleThreads,
   } = deps;
 
   async function requestDeleteThread(id: string): Promise<void> {
@@ -103,10 +112,7 @@ export function useChatErase(deps: UseChatEraseDeps) {
     if (!deleteGate) return;
     runPersist(id, async () => {
       const config = writeConfig(deleteConfig);
-      // A delete never creates an identity. Without one, only legacy rows are this browser's to delete,
-      // and an owner id that is never stored matches exactly those (the delete's legacy branch).
-      const identity = knownIdentity(config) ?? (await storedIdentity(config));
-      await deleteThreadRow(config, id, target.projectId, identity?.ownerId ?? crypto.randomUUID());
+      await deleteThreadRow(config, id, target.projectId, deleteOwnerId(config));
     });
   }
 
@@ -127,11 +133,18 @@ export function useChatErase(deps: UseChatEraseDeps) {
     }
   }
 
-  /** The owner id deletes run as: this browser's identity, or — with none stored — one that is never
-   *  stored, which matches only legacy rows (the delete's legacy branch). Never creates an identity. */
-  async function deleteOwnerId(config: TursoConfig | null): Promise<string> {
-    const identity = knownIdentity(config) ?? (await storedIdentity(config));
-    return identity?.ownerId ?? crypto.randomUUID();
+  /** The owner ids a delete-all erases in `config`'s database: the known identity's and every one
+   *  stored there (current and earlier), without repeats. Never creates an identity. */
+  function eraseOwnerIds(config: TursoConfig | null): string[] {
+    const known = knownIdentity(config)?.ownerId;
+    return [...new Set([...(known ? [known] : []), ...storedOwnerIds(config)])];
+  }
+
+  /** The owner id a single delete runs as: this browser's (known, or stored — readable while locked),
+   *  or — with none stored — one that is never stored, which matches only legacy rows (the delete's
+   *  legacy branch). Never creates an identity. */
+  function deleteOwnerId(config: TursoConfig | null): string {
+    return eraseOwnerIds(config)[0] ?? crypto.randomUUID();
   }
 
   async function deleteSelected(ids: readonly string[]): Promise<void> {
@@ -140,7 +153,7 @@ export function useChatErase(deps: UseChatEraseDeps) {
     const scope = renameScope(tursoConfig);
     const epoch = projectEpochRef.current;
     const targets = threadsRef.current.filter((th) => ids.includes(th.id));
-    const owner = await deleteOwnerId(config);
+    const owner = deleteOwnerId(config);
     const results = await Promise.allSettled(targets.map((th) => deleteThreadRow(config, th.id, th.projectId, owner)));
     removeDeleted(scope, targets.filter((_, i) => results[i].status === "fulfilled").map((th) => th.id), epoch);
     if (results.some((r) => r.status === "rejected")) throw new Error("some chat threads could not be deleted");
@@ -149,16 +162,17 @@ export function useChatErase(deps: UseChatEraseDeps) {
   async function deleteAll(): Promise<DeleteAllOutcome> {
     if (!deleteGate) return "done";
     const config = writeConfig(tursoConfig);
-    const identity = knownIdentity(config) ?? (await storedIdentity(config));
-    if (!identity) return "done";
+    const owners = eraseOwnerIds(config);
+    if (owners.length === 0) return "done";
     const epoch = projectEpochRef.current;
     const pid = projectId;
     // A save still on its way (a first send's insert) would land after the delete and leave its row.
     await savesSettled(config);
-    await deleteOwnerThreads(config, identity.ownerId);
+    for (const owner of owners) await deleteOwnerThreads(config, owner);
     await dropDeletedDraftNames(config);
-    // This owner's threads are gone in every project, so whichever project is open now loses them.
-    const owned = threadsRef.current.filter((th) => th.ownerId === identity.ownerId).map((th) => th.id);
+    // These owners' threads are gone in every project, so whichever project is open now loses them.
+    const gone = new Set(owners);
+    const owned = threadsRef.current.filter((th) => th.ownerId !== null && gone.has(th.ownerId)).map((th) => th.id);
     removeDeleted(null, owned, projectEpochRef.current);
     // An extra check against the database. The delete itself succeeded, so a failed reload is reported
     // as such ("not-refreshed"), never as a failed delete.
@@ -187,6 +201,30 @@ export function useChatErase(deps: UseChatEraseDeps) {
     dropPendingEditsWhere(pendingEditScope(url, "chat:"), RENAME_KIND, (id) => legacy?.has(id) ?? false);
   }
 
-  const erase: ChatEraseActions = { enabled: deleteGate, ownerId: knownOwnerId, deleteAll, deleteSelected };
-  return { erase, requestDeleteThread };
+  /** "Start a new chat identity" in place of a locked one. Asks first whether the old chats go too (a
+   *  cancel keeps them, the default). Deleting them runs the delete-all; if it fails, the new identity is
+   *  still started and the old owner ids are kept, so a later delete-all can still erase their rows. */
+  async function startNewIdentity(): Promise<void> {
+    const config = writeConfig(tursoConfig);
+    const deleteOld = deleteGate && eraseOwnerIds(config).length > 0 && (await confirm({
+      title: t(lang, "chatNewIdentityDeleteOldTitle"),
+      message: t(lang, "chatNewIdentityDeleteOldMessage"),
+      confirmLabel: t(lang, "chatNewIdentityDeleteOldConfirm"),
+      cancelLabel: t(lang, "chatNewIdentityKeepOld"),
+      tone: "danger",
+    }));
+    let keepOld = true;
+    if (deleteOld) {
+      try {
+        await deleteAll();
+        keepOld = false;
+      } catch {
+        logDiag("warn", "chat.oldChatsDeleteFailed");
+      }
+    }
+    await startNewIdentityInVault(keepOld);
+  }
+
+  const erase: ChatEraseActions = { enabled: deleteGate, ownerId: eraseOwnerId, deleteAll, deleteSelected };
+  return { erase, requestDeleteThread, startNewIdentity };
 }

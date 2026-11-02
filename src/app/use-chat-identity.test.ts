@@ -31,6 +31,7 @@ vi.mock("./chat-key-vault", () => ({
     return identity;
   }),
   storedChatOwnerId: (url: string) => h.vault.get(url)?.ownerId ?? null,
+  storedChatOwnerIds: (url: string) => (h.vault.has(url) ? [h.vault.get(url)!.ownerId] : []),
   startNewChatIdentity: vi.fn(async (url: string) => {
     if (h.failStart.value) throw new Error("no");
     const identity = { ownerId: "fresh", chatKey: new Uint8Array(32) };
@@ -152,10 +153,23 @@ describe("useChatIdentity", () => {
     expect(result.current.knownOwnerId).toBe("fresh");
   });
 
-  it("the stored identity is read without creating one", async () => {
+  it("the stored owner ids are read without creating an identity", async () => {
     const { result } = render();
-    await expect(result.current.storedIdentity(CFG)).resolves.toBeNull();
+    expect(result.current.storedOwnerIds(CFG)).toEqual([]);
     expect(h.vault.size).toBe(0);
+  });
+
+  it("deletes run as the stored owner id while the identity is locked, and as nobody without one", async () => {
+    h.vault.set(CFG.httpUrl, id("o-locked"));
+    h.locked.add(CFG.httpUrl);
+    const { result } = render();
+    await act(async () => {
+      await result.current.readIdentity(CFG);
+    });
+    expect(result.current.persistence).toBe("identity-locked");
+    expect(result.current.knownOwnerId).toBeNull();
+    expect(result.current.eraseOwnerId).toBe("o-locked");
+    expect(result.current.storedOwnerIds(CFG)).toEqual(["o-locked"]);
   });
 
   it("another tab changing the identity bumps the reload count", async () => {

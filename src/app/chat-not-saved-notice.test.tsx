@@ -1,7 +1,7 @@
 // src/app/chat-not-saved-notice.test.tsx — the one line under the chat that says why chats are not
 // saved, and the way out of a chat identity this browser can no longer open.
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ChatNotSavedNotice, ChatThreadClosedNotice } from "./chat-not-saved-notice";
 import { loadI18n } from "./i18n";
 
@@ -57,6 +57,31 @@ describe("ChatNotSavedNotice", () => {
     rerender(<ChatNotSavedNotice lang="de" persistence="identity-retry" onStartNewIdentity={vi.fn()} />);
     expect(screen.getByRole("status")).toHaveTextContent("Gespeicherte Chats sind gerade nicht verfügbar; die App versucht es erneut.");
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("a locked identity can delete its old chats after typing the delete-all confirm value", async () => {
+    const onDelete = vi.fn(async () => "done" as const);
+    render(<ChatNotSavedNotice lang="en-US" persistence="identity-locked" onStartNewIdentity={vi.fn()} onDeleteOldChats={onDelete} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete my old chats" }));
+    const dialog = screen.getByRole("dialog");
+    const input = dialog.querySelector("input")!;
+    fireEvent.change(input, { target: { value: "delete my chats" } });
+    fireEvent.click(screen.getByRole("button", { name: "Delete my chats" }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("says when deleting the old chats failed, and offers no delete button outside the locked state", async () => {
+    const onDelete = vi.fn(async () => { throw new Error("network"); });
+    const { rerender } = render(
+      <ChatNotSavedNotice lang="de" persistence="identity-locked" onStartNewIdentity={vi.fn()} onDeleteOldChats={onDelete} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Meine alten Chats löschen" }));
+    fireEvent.change(screen.getByRole("dialog").querySelector("input")!, { target: { value: "meine Chats löschen" } });
+    fireEvent.click(screen.getByRole("button", { name: "Meine Chats löschen" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ihre Chats konnten nicht gelöscht werden.");
+    rerender(<ChatNotSavedNotice lang="en-US" persistence="no-crypto" onStartNewIdentity={vi.fn()} onDeleteOldChats={onDelete} />);
+    expect(screen.queryByRole("button", { name: "Delete my old chats" })).toBeNull();
   });
 
   it("the no-crypto line has no button", () => {

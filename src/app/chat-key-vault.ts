@@ -12,6 +12,11 @@
 // overwritten. Any other failure while opening it (IndexedDB blocked, quota,
 // anything unexpected) is transient: nothing is created or overwritten, and the
 // next read tries again. Nothing here logs a key, an owner id or a URL.
+//
+// An entry also keeps `previousOwnerIds`: the owner ids this browser used for the database before the
+// current one (a new identity started while the old chats were kept, or an adoption whose move did
+// not finish). They open nothing, but a delete-all still erases their rows, so no chat of this person
+// is left without a way to erase it. They stay readable while the entry itself is locked.
 import { bytesToBase64 } from "./base64";
 import { generateChatKey, isChatCryptoAvailable } from "./chat-crypto";
 import type { ChatIdentity } from "./chat-thread-codec";
@@ -30,7 +35,7 @@ export type ChatIdentityRead =
   | { kind: "unavailable" }
   | { kind: "transient" };
 
-type VaultEntry = { ownerId: string; sealed: DeviceSealedValue };
+type VaultEntry = { ownerId: string; sealed: DeviceSealedValue; previousOwnerIds?: string[] };
 
 function isVaultEntry(v: unknown): v is VaultEntry {
   if (typeof v !== "object" || v === null) return false;
@@ -52,6 +57,16 @@ function readVault(): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+/** The well-formed earlier owner ids of an entry, without repeats or the current one. */
+function previousOf(entry: VaultEntry): string[] {
+  const raw = Array.isArray(entry.previousOwnerIds) ? entry.previousOwnerIds : [];
+  return uniqueIds(raw.filter((id): id is string => typeof id === "string" && id !== "" && id !== entry.ownerId));
+}
+
+function uniqueIds(ids: readonly string[]): string[] {
+  return [...new Set(ids)];
 }
 
 /** The one writer of `CHAT_IDENTITY_KEY`: replaces the entry for `httpUrl`, keeping the others. */
@@ -93,6 +108,14 @@ export async function readChatIdentity(httpUrl: string): Promise<ChatIdentityRea
 export function storedChatOwnerId(httpUrl: string): string | null {
   const entry = readVault()[httpUrl];
   return isVaultEntry(entry) ? entry.ownerId : null;
+}
+
+/** Every owner id stored for `httpUrl`, current first, then the earlier ones (`previousOwnerIds`); empty
+ *  when there is no well-formed entry. Read without opening the chat key, so a locked entry's ids are
+ *  here too: a delete-all runs as all of them. */
+export function storedChatOwnerIds(httpUrl: string): string[] {
+  const entry = readVault()[httpUrl];
+  return isVaultEntry(entry) ? [entry.ownerId, ...previousOf(entry)] : [];
 }
 
 /** The identity for `httpUrl`, or null when there is none or it cannot be used. Never creates one. */
@@ -145,21 +168,37 @@ export function ensureChatIdentity(httpUrl: string): Promise<ChatIdentity | null
 }
 
 /** A NEW identity for `httpUrl`, stored over whatever entry is there — the way out of an entry this
- *  browser's device key can no longer open. Rows saved under the old identity are left alone (they
- *  expire). Throws when the new entry cannot be sealed or stored. */
-export function startNewChatIdentity(httpUrl: string): Promise<ChatIdentity> {
+ *  browser's device key can no longer open. With `keepOld` the stored owner ids (current and earlier)
+ *  become the new entry's `previousOwnerIds`, so a later delete-all still erases their rows; without
+ *  it (the caller has just deleted those rows) none are kept. Throws when the new entry cannot be
+ *  sealed or stored. */
+export function startNewChatIdentity(httpUrl: string, { keepOld }: { keepOld: boolean }): Promise<ChatIdentity> {
   return withIdentityLock(async () => {
+    const old = storedChatOwnerIds(httpUrl);
     const identity: ChatIdentity = { ownerId: crypto.randomUUID(), chatKey: await generateChatKey() };
-    await replaceChatIdentity(httpUrl, identity);
+    await writeIdentityEntry(httpUrl, identity, keepOld ? old : []);
     return identity;
   });
 }
 
-/** Store `id` as this browser's identity for `httpUrl`, replacing any earlier one. */
-export async function replaceChatIdentity(httpUrl: string, id: ChatIdentity): Promise<void> {
+/** Store `id` as this browser's identity for `httpUrl`, replacing any earlier one. The entry's earlier
+ *  owner ids are carried over, and `addPrevious` (owner ids whose rows may still be in the database)
+ *  joins them, so none is lost to a later delete-all. */
+export async function replaceChatIdentity(
+  httpUrl: string, id: ChatIdentity, addPrevious: readonly string[] = [],
+): Promise<void> {
+  const entry = readVault()[httpUrl];
+  const carried = isVaultEntry(entry) ? previousOf(entry) : [];
+  await writeIdentityEntry(httpUrl, id, [...addPrevious, ...carried]);
+}
+
+async function writeIdentityEntry(httpUrl: string, id: ChatIdentity, previous: readonly string[]): Promise<void> {
   if (httpUrl === "") throw new Error("replaceChatIdentity: a database URL is required");
   const sealed = await sealDeviceValue(bytesToBase64(id.chatKey));
-  writeVaultEntry(httpUrl, { ownerId: id.ownerId, sealed });
+  const previousOwnerIds = uniqueIds(previous.filter((o) => o !== "" && o !== id.ownerId));
+  writeVaultEntry(httpUrl, previousOwnerIds.length > 0
+    ? { ownerId: id.ownerId, sealed, previousOwnerIds }
+    : { ownerId: id.ownerId, sealed });
 }
 
 /** True when this browser has what sealing a chat key needs (Web Crypto and IndexedDB). */
