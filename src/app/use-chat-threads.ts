@@ -641,9 +641,10 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // URL, not a rotated token), the live list is the NEW database's: the thread is not put into it
     // (nor made active there), or a later send or rename on it would upsert A's conversation into B.
     const movedAway = !sameDatabase(turnConfig, tursoConfig);
-    // ★ And when B's load has already settled, it made B's thread active, loaded B's transcript and
-    // so aborted this send: what is on screen is B's, not the turn's. Saving it would write B's
-    // conversation into A — there is nothing of this turn left to save.
+    // ★ And when the active thread is no longer the turn's, the user selected another thread mid-turn
+    // (`selectThread` aborts the send and loads that thread's transcript): what is on screen is that
+    // thread's, not the turn's, so saving it would write the wrong conversation into A. A load of B no
+    // longer causes this — `turnOfOtherDatabase` leaves a running turn alone.
     if (movedAway && activeThreadId !== turnThreadIdRef.current) return;
     // A thread found gone while this turn ran is not saved at all (an UPDATE would match nothing, and
     // under a new id it would insert the erased transcript): it is closed now that the send has settled,
