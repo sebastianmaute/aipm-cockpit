@@ -356,13 +356,17 @@ signed build's update check against a real signed update (a signed release,
 and the one after it).
 
 **The one-way guard cannot decide.** `finalize`'s `release-signing-guard`
-exits 2 ("CANNOT DECIDE") when it cannot classify either installer. A one-off
-gh, network or PowerShell failure clears on a re-run. When it fails the same
-way on every run, the usual cause is that the newest published release's
-installer no longer reads as signed on the runner — its certificate was
-revoked, or the chain changed — so its status is no longer `Valid` with
-`CN=SignPath Foundation`, and not `NotSigned` either. Diagnose it with the
-same check the guard runs, on Windows:
+first classifies this release's own installer. When that one is validly signed
+(`Valid`, CN exactly `SignPath Foundation`) the release passes whatever the
+previous installer reads as, and the log only records that reading. Otherwise
+the guard exits 2 ("CANNOT DECIDE") when it cannot classify either installer
+or read the repository's releases. A one-off gh, network or PowerShell failure
+clears on a re-run. When an unsigned release fails the same way on every run,
+the usual cause is that the newest published release's installer no longer
+reads as signed on the runner — its certificate was revoked, or the chain
+changed — so its status is no longer `Valid` with `CN=SignPath Foundation`,
+and not `NotSigned` either. Diagnose it with the same check the guard runs, on
+Windows:
 
 ```powershell
 gh release download v<newest> --pattern '*-setup.exe' --dir $env:TEMP\guard
@@ -371,14 +375,10 @@ Get-AuthenticodeSignature $env:TEMP\guard\aipm-cockpit-<newest>-setup.exe |
 ```
 
 The guard's own message names the file, the status and the signer it saw.
-Recover with a fresh signed release once SignPath has issued a new
-certificate. ★ The guard as written classifies the newest published installer
-BEFORE this one, so while that installer reads as neither it refuses every
-run, a correctly signed one included: publishing that fresh release first
-needs a deliberate change to `scripts/release-signing-guard.mjs` (for example,
-allow a release whose own installer is signed without classifying the
-previous one — the guard only ever refuses "unsigned after signed"), reviewed
-like any change to a release gate. Never delete or unpublish releases to make
+Recover by publishing a freshly signed release once SignPath has issued a new
+certificate: the guard passes it because its own installer is validly signed,
+and logs that the previous one could not be classified. From then on that
+fresh release is the one later runs compare with. Never delete or unpublish releases to make
 the guard see an older installer, unless the owner deliberately decides to:
 releases are immutable, deleting one strands its download links, and it
 would also let an unsigned release through by the same route.

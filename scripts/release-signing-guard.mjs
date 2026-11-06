@@ -11,9 +11,12 @@
 // the subject's CN equals the name exactly);
 // "unsigned" means status NotSigned with no signer. Anything else — a broken, untrusted or foreign
 // signature, or output that cannot be read — is neither, and the guard cannot decide.
+// One exception, so that a revoked certificate cannot block every later release: an installer in
+// <dir> that is itself signed passes whatever the previous one reads as (runGuard).
 // Usage: node scripts/release-signing-guard.mjs <tag> <dir>   (needs gh and GH_TOKEN; Windows)
 // Exit: 0 allowed; 1 refused (unsigned after a signed release); 2 cannot decide — the release
-// workflow fails on it too, so a gh, network or PowerShell failure never lets a release through.
+// workflow fails on it too, so a gh, network or PowerShell failure never lets an unsigned release
+// through.
 import { execFile } from "node:child_process";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -114,30 +117,65 @@ async function signedState(signature, path) {
   return state;
 }
 
-/** Returns { code, message }; never throws. A download directory it creates is removed. */
+const errText = (err) => (err instanceof Error ? err.message : String(err));
+
+/** The newest published release's tag and its installer's state ("signed" or "unsigned"), or
+ *  { prevTag: null } when nothing is published yet. Throws whenever it cannot tell. */
+async function previousState({ gh, signature, into }) {
+  // An empty release list means "no release" only if the repository itself answers; without
+  // this, a wrong repository or a token that cannot see it would read as a first release.
+  const repo = await gh(["api", "repos/{owner}/{repo}", "--jq", ".full_name"]);
+  if (repo.notFound || !String(repo.stdout ?? "").trim()) throw new Error("the repository cannot be read");
+  const list = await gh(["api", RELEASES_PATH, "--jq", RELEASES_JQ]);
+  if (list.notFound) throw new Error("the release list cannot be read");
+  const prevTag = newestPublished(String(list.stdout ?? ""));
+  if (prevTag === null) return { prevTag: null };
+  const { files } = await gh(["release", "download", prevTag, "--pattern", "*-setup.exe", "--dir", into()]);
+  const prev = (files ?? []).filter((f) => f.endsWith("-setup.exe"));
+  if (prev.length !== 1) throw new Error(`${prevTag} has ${prev.length} installers, expected 1`);
+  try {
+    return { prevTag, state: await signedState(signature, join(into(), prev[0])) };
+  } catch (err) {
+    throw new Error(`${prevTag}: ${errText(err)}`);
+  }
+}
+
+/** Returns { code, message }; never throws. A download directory it creates is removed.
+ *  This installer is classified FIRST, from the file itself. When it is validly signed by the
+ *  expected publisher, nobody can be stranded by it, so it passes whatever the previous release
+ *  reads as — signed, unsigned, or unclassifiable (a revoked or re-chained certificate no longer
+ *  reads Valid) — and the previous reading is only logged. That is the way out after a revocation:
+ *  publish a freshly signed release. Otherwise every rule below fails closed as before. */
 export async function runGuard({ tag, dir, gh = defaultGh, signature = defaultSignature, tmp }) {
   let created = null;
+  const into = () => tmp ?? (created ??= mkdtempSync(join(tmpdir(), "signing-guard-")));
   try {
     if (typeof tag !== "string" || !tag.startsWith("v")) throw new Error(`tag "${tag}" does not start with v`);
     const now = join(dir, installerName(tag.slice(1)));
-    // An empty release list means "no release" only if the repository itself answers; without
-    // this, a wrong repository or a token that cannot see it would read as a first release.
-    const repo = await gh(["api", "repos/{owner}/{repo}", "--jq", ".full_name"]);
-    if (repo.notFound || !String(repo.stdout ?? "").trim()) throw new Error("the repository cannot be read");
-    const list = await gh(["api", RELEASES_PATH, "--jq", RELEASES_JQ]);
-    if (list.notFound) throw new Error("the release list cannot be read");
-    const prevTag = newestPublished(String(list.stdout ?? ""));
-    if (prevTag === null) return { code: 0, message: "allowed (no release has been published yet)" };
-    const into = tmp ?? (created = mkdtempSync(join(tmpdir(), "signing-guard-")));
-    const { files } = await gh(["release", "download", prevTag, "--pattern", "*-setup.exe", "--dir", into]);
-    const prev = (files ?? []).filter((f) => f.endsWith("-setup.exe"));
-    if (prev.length !== 1) throw new Error(`${prevTag} has ${prev.length} installers, expected 1`);
-    const prevSigned = (await signedState(signature, join(into, prev[0]))) === "signed";
-    const nowSigned = (await signedState(signature, now)) === "signed";
-    const d = decide({ prevSigned, nowSigned });
-    return { code: d.code, message: `${d.message} — compared with ${prevTag}` };
+    let nowState = null;
+    let nowError = null;
+    try {
+      nowState = await signedState(signature, now);
+    } catch (err) {
+      nowError = err;
+    }
+    if (nowState === "signed") {
+      let prevNote;
+      try {
+        const p = await previousState({ gh, signature, into });
+        prevNote = p.prevTag === null ? "no release has been published yet" : `previous ${p.prevTag} ${p.state}`;
+      } catch (err) {
+        prevNote = `previous release could not be classified: ${errText(err)}`;
+      }
+      return { code: 0, message: `allowed (this one signed by ${SIGNER}; ${prevNote})` };
+    }
+    const p = await previousState({ gh, signature, into });
+    if (p.prevTag === null) return { code: 0, message: "allowed (no release has been published yet)" };
+    if (nowError) throw nowError;
+    const d = decide({ prevSigned: p.state === "signed", nowSigned: false });
+    return { code: d.code, message: `${d.message} — compared with ${p.prevTag}` };
   } catch (err) {
-    return { code: 2, message: `CANNOT DECIDE: ${err instanceof Error ? err.message : String(err)}` };
+    return { code: 2, message: `CANNOT DECIDE: ${errText(err)}` };
   } finally {
     if (created) rmSync(created, { recursive: true, force: true });
   }

@@ -149,6 +149,47 @@ describe("runGuard", () => {
     expect((await run(fakeGh().gh, sigs(UNSIGNED, prev))).code).toBe(2);
   });
 
+  // A revoked (or re-chained) certificate makes the previous installer read NotTrusted on the
+  // runner. A freshly and validly signed installer strands nobody, so it must still pass — that is
+  // the way out after a revocation. The previous reading is logged, not decided on.
+  const REVOKED = { status: "NotTrusted", subject: SIGNED.subject };
+
+  it("passes a validly signed installer after a previous one that no longer reads Valid (exit 0)", async () => {
+    const r = await run(fakeGh().gh, sigs(SIGNED, REVOKED));
+    expect(r.code).toBe(0);
+    expect(r.message).toContain("previous release could not be classified");
+    expect(r.message).toContain("NotTrusted");
+  });
+
+  it("cannot decide on an unsigned installer after a previous one that no longer reads Valid (exit 2)", async () => {
+    const r = await run(fakeGh().gh, sigs(UNSIGNED, REVOKED));
+    expect(r.code).toBe(2);
+    expect(r.message).toContain("CANNOT DECIDE");
+  });
+
+  // Signed by any other CN is not "validly signed by the expected publisher": it gets no pass, and
+  // after a signed release it fails the release.
+  it("fails an installer signed by another CN after a signed release (exit 2, never 0)", async () => {
+    const r = await run(fakeGh().gh, sigs({ status: "Valid", subject: `CN=${SIGNER} Ltd, O=${SIGNER}` }, SIGNED));
+    expect(r.code).toBe(2);
+    expect(r.message).toContain("aipm-cockpit-1.15.0-setup.exe");
+  });
+
+  it("logs what the previous installer read as when this one is signed", async () => {
+    expect((await run(fakeGh().gh, sigs(SIGNED, SIGNED))).message).toContain("previous v1.14.0 signed");
+    expect((await run(fakeGh().gh, sigs(SIGNED, UNSIGNED))).message).toContain("previous v1.14.0 unsigned");
+  });
+
+  it.each([
+    ["the repository cannot be read", { releases: [], repoOk: false }],
+    ["gh fails", { fail: "network down" }],
+    ["the previous release has no installer", { assets: false }],
+  ])("passes a validly signed installer when %s, and says so (exit 0)", async (_, opts) => {
+    const r = await run(fakeGh(opts).gh, sigs(SIGNED, SIGNED));
+    expect(r.code).toBe(0);
+    expect(r.message).toContain("previous release could not be classified");
+  });
+
   it("cannot decide when this installer's signature is neither signed nor NotSigned (exit 2)", async () => {
     expect((await run(fakeGh().gh, sigs({ status: "UnknownError", subject: "" }, SIGNED))).code).toBe(2);
   });
