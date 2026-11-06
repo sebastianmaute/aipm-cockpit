@@ -267,9 +267,9 @@ go direct. That older release also ignores the `ai` value of
    re-run the job), so after the first signed release signing cannot be
    switched off again. Details in `docs/AGENTS/ci.md`'s `release.yml`
    section. The required reviewer exists since 2026-09-25. Also standing in
-   front of it: only the owner/admin role can create, move or delete a `refs/tags/v*` (the tag ruleset), the tag must
-   equal `APP_VERSION` and name a commit reachable from `main` (step 2's
-   `guard` check), and once published a release is immutable. **Push one release
+   front of it: only the owner/admin role can create, move or delete a
+   `refs/tags/v*` (the tag ruleset), the tag must equal `APP_VERSION` and
+   name a commit reachable from `main` (step 2's `guard` check), and once published a release is immutable. **Push one release
    tag at a time.** Every run shares one fixed concurrency group, and GitHub
    keeps only one PENDING run per group: pushing a third tag while one run is
    in progress and a second is queued silently cancels the queued one (and a
