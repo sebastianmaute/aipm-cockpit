@@ -19,7 +19,7 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 import { AiTriggerButton } from "./ai-trigger-button";
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor-lazy";
-import { useConfirm, useNotice } from "./confirm-dialog";
+import { useChoose, useConfirm, useNotice } from "./confirm-dialog";
 import { planTake, applyTake, isBlankReport, type TakePlan } from "./committee-report/report-sections";
 import type { ReportProposal } from "./use-meeting-report-actions";
 import { MeetingReportProposal } from "./meeting-report-proposal";
@@ -133,6 +133,7 @@ export function MeetingReportPanel({
   const readOnly = !!isPopout;
   const confirm = useConfirm();
   const notice = useNotice();
+  const choose = useChoose();
   const [draft, setDraft] = useState(report?.html ?? "");
   const [seenUpdatedAt, setSeenUpdatedAt] = useState(report?.updatedAt);
   // AI-04 — a take rewrites the draft, and the editor binds its content once at mount, so a take
@@ -195,16 +196,20 @@ export function MeetingReportPanel({
     const proposalAt = proposal.createdAt;
     const plan = planTake(base, proposal.sections, indices);
     // A section the report already has asks first: Replace swaps it (and its sub-sections) for the
-    // AI text; Keep both — or dismissing the dialog — adds the AI text after it.
-    const replace =
-      plan.replacements.length > 0 &&
-      (await confirm({
-        appUndoOff: true,
-        title: t(lang, "reportTakeConfirmTitle"),
-        message: takeConfirmMessage(lang, plan),
-        confirmLabel: t(lang, "reportTakeReplace"),
-        cancelLabel: t(lang, "reportTakeKeepBoth"),
-      }));
+    // AI text; Keep both adds the AI text after it. §784: Cancel, Escape or ✕ takes nothing, for the
+    // whole take (Take all included), and leaves the draft as it was.
+    const answer =
+      plan.replacements.length === 0
+        ? "alternate"
+        : await choose({
+            appUndoOff: true,
+            title: t(lang, "reportTakeConfirmTitle"),
+            message: takeConfirmMessage(lang, plan),
+            confirmLabel: t(lang, "reportTakeReplace"),
+            alternateLabel: t(lang, "reportTakeKeepBoth"),
+          });
+    if (answer === null) return;
+    const replace = answer === "confirm";
     // a write (save, restore, undo) landed while the confirm was open: `base` is stale and the
     // editor now shows the new stored body, so the take is dropped rather than applied to old text. Likewise
     // a new draft (or a discard) replaced the proposal: `indices` point into a proposal that is gone.

@@ -172,6 +172,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Escape on a meeting report's "Replace or Keep both" question now takes nothing (§784).** Taking an AI
+  section whose heading matches one of yours asks Replace or Keep both; pressing Escape or closing the question used
+  to count as Keep both and added the AI section after yours. The question now has a Cancel button, and Cancel,
+  Escape and closing it leave the report as it was. Replace and Keep both work as before.
 - **Converting a local copy into a Turso database that holds projects is refused (§790).** Settings → Storage
   converted into Turso as if the database held a single project. Into a shared database that could replace every
   project's data with the local copy. The app now checks the database first, copies nothing when it holds
