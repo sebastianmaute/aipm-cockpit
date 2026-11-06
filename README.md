@@ -168,10 +168,11 @@ a second inventory to keep in sync.
 
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/)
 
-Windows installers are signed through SignPath Foundation's programme for open-source projects.
-Signing is switched on per release by the maintainer; releases published before the first signed one
-are not code-signed, and each release's notes say whether its installer is signed. On a signed
-installer, Windows shows the publisher as **SignPath Foundation**.
+Windows installers are signed through SignPath Foundation's programme for open-source projects once
+the maintainer switches signing on; until then, and so for every release published so far, they are
+not. Releases published before the first signed one stay unsigned, and each release's notes say
+whether its installer is signed. On a signed installer, Windows shows the publisher as
+**SignPath Foundation**.
 
 - **What is signed:** the setup program (`aipm-cockpit-<version>-setup.exe`) on every signed
   release. The app's own executables inside it (`AI PM Cockpit.exe` among them) are signed too
