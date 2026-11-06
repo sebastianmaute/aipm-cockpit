@@ -1,7 +1,7 @@
 "use client";
 
-// The recorded budget changes beside the burn-down chart (spec 2026-09-16 §5.3,
-// planning ruling R4). One row per recorded change — date, bucket, signed
+// The recorded budget changes beside the burn-down chart (spec 2026-09-16 §5.3).
+// One row per recorded change — date, bucket, signed
 // amount and the running attributed scope — with the pace forecast's variance
 // split in the footer.
 //

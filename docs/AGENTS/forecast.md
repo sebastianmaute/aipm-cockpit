@@ -632,7 +632,7 @@ Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actio
   still shows the ISO date; it never went through `actionText`. Open Forecast lands on
   `ForecastPanelDeepLinked` (`forecast-panel.tsx`), which scrolls that milestone's row in the chances table into view
   and flashes it (`useDeepLinkRowFlash`), then consumes the request; focus stays on the main region, as for every
-  deep-link that opens no editor. ★ Rulings: the group counts in the Soon tier, the Top actions tile
+  deep-link that opens no editor. ★ Decisions: the group counts in the Soon tier, the Top actions tile
   and the greeting's needs-you count, because it is a Next-actions signal shown with the sim badge; only flat-list
   consumers are excluded.
 - ★★ **Holidays pending.** With the switch on and `holidaysReady` false, the panel computes no forecast and the
@@ -963,7 +963,7 @@ is built, see "The AI tool (§502)" below. Held back with the view like parts 1�
   in the queue by its date, at the largest base position of the milestones with open tasks dated on or before it,
   so only milestones after it move ("scope on a milestone with no open linked tasks is placed by its date").
   Overdue stays overdue whatever is attributed.
-- ★★ **The own-work clamp (Task 2 ruling).** An attributed REMOVAL comes off that milestone's remaining work and
+- ★★ **The own-work clamp (scoped decision).** An attributed REMOVAL comes off that milestone's remaining work and
   stops at zero (`clampAttributedRemovals`, in day order from `ownWorkToday`). It lowers the totals (the backlog
   When simulates, and the caps) only by the CLAMPED amount, what really came off, never the raw amount; the raw
   amount made a later milestone unreachable. Pinned by "an attributed removal lowers the backlog and the cap only
@@ -994,19 +994,19 @@ is built, see "The AI tool (§502)" below. Held back with the view like parts 1�
   currency with `currencyToBase`, at par when no exchange rate resolves ("at par"). Rows over twice the team
   (`addedShareAtFullSpeed` > 1, counting only rows that apply on at least one simulated day) show the "more than
   double the team" warning.
-- ★★ **Archived is not gone (Task 11 ruling).** An ARCHIVED person (`active === false`) on a stored row is still
+- ★★ **Archived is not gone (scoped decision).** An ARCHIVED person (`active === false`) on a stored row is still
   sized and counted, and the row says "archived — still counted in the forecast"; only a resource that no longer
   exists is "person gone" (inert). A NEW pick of an archived person is refused, as is a new pick of a gone or
   on-team one. ★ An unchanged stored reference is kept on save: a row whose milestone or person reference is the
   one the stored row had is accepted and keeps its "milestone gone" / "person gone" mark; only a newly chosen or
-  changed reference is validated (spec §4.1 / §4.1a over the brief; "saves its stale references unchanged after
+  changed reference is validated (spec §4.1 / §4.1a; "saves its stale references unchanged after
   an unrelated name edit, each row still marked", "only an unchanged stored reference is kept").
 - ★ **Refused saves say why.** The hook refuses a write without a toast by design; the editor, the rename dialog
   and Save as scenario then show the reason in the dialog and stay open (Save as scenario does not switch modes):
   "a refused write keeps the editor open with its reason", "a create refused after open keeps the dialog open
   with the reason and stays in What-if".
 - **A column with no work left reads chance on time 1**, even past plan end: the same "nothing open" rule as
-  `computeAppForecast` (Task 8 ruling; "a scenario that removes every open task is on time even past the plan
+  `computeAppForecast` (scoped decision; "a scenario that removes every open task is on time even past the plan
   end").
 - **Persistence.** `Workspace.forecastScenarios` is a **meta-blob** slice on all six write paths (no
   `TABLE_NAMES` entry), storage-only (emitted only when `config === undefined`), byte-stable when absent, sanitised
@@ -1252,7 +1252,7 @@ state is written through a FUNCTIONAL updater, so a change another writer queued
 only ignores it. ★ The `forecastDecision` document data section follows the same predicate: with bit 4 set (forecast
 off) `toolsFor` sends `create_document` and `update_document` without that key (`DOCUMENT_TOOL_DEFS_WITHOUT_DECISION`),
 and `refuseHiddenDecisionSection` (`chat-tools-forecast.ts`) refuses a document write that would ADD such a block
-(ruling P3-1). ★★ Only adding: it plays an `update_document`'s ops against the stored blocks with `applyOps` and refuses
+. ★★ Only adding: it plays an `update_document`'s ops against the stored blocks with `applyOps` and refuses
 when the decision-block count would rise, so a `replaceAll` or `replace` re-sending a block the document already holds
 passes — refusing that would teach the model to retry without it and delete the user's section through the AI.
 

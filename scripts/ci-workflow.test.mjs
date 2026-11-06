@@ -129,15 +129,22 @@ const isAllowedTokenAction = (uses) => {
 // Anything else is a way to change what runs or where (`env`: NODE_OPTIONS / BASH_ENV and the like;
 // `working-directory`; `continue-on-error`; `timeout-minutes`; `id`, which nothing reads).
 const TOKEN_STEP_KEYS = new Set(["name", "if", "uses", "with", "run", "shell"]);
-// Environment variable names that make a shell or node load extra code before the step's command.
-// Matched case-insensitively (a Windows runner's environment is) in any job- or workflow-level env.
-const STARTUP_ENV = /^(?:BASH_ENV|ENV|NODE_OPTIONS|NODE_PATH|PYTHONSTARTUP|PYTHONPATH|LD_PRELOAD|PSMODULEPATH)$/i;
+// The env names a token job may see, as an ALLOWLIST: any other name (BASH_ENV, NODE_OPTIONS,
+// NODE_EXTRA_CA_CERTS, HTTPS_PROXY, PATH, ...) can change what a step runs or where its traffic goes.
+// The real token jobs set no env of their own, so the job-level set is empty. The workflow-level
+// `env:` holds one inert flag that every job inherits (the real release.yml sets exactly this one);
+// a new workflow-level name fails here for the token jobs until it is reviewed and added.
+const TOKEN_JOB_ENV = new Set();
+const WORKFLOW_ENV_FOR_TOKEN_JOBS = new Set(["NEXT_TELEMETRY_DISABLED"]);
 // The only `${{ }}` expressions a token-job step's `with:` may hold: the secret by name, the vars
 // the real steps read, an upstream job's output, and the runner's temp folder. `github.*` is NOT
 // admitted: the real steps use none of it, and event fields (head_commit.message, a branch name)
 // are text a contributor controls.
 const WITH_EXPR = /^(?:secrets\.[A-Z][A-Z0-9_]*|vars\.[A-Z][A-Z0-9_]*|needs\.[a-z][a-z0-9-]*\.outputs\.[a-z][a-z0-9-]*|runner\.temp)$/;
-const withViolations = (w) => Object.values(w ?? {}).flatMap((v) => (typeof v === "string" ? [...v.matchAll(/\$\{\{([\s\S]*?)\}\}/g)] : []))
+// Every string in a `with:` value, however deep: a nested mapping or a list carries an expression
+// just as a plain string does.
+const withStrings = (v) => (typeof v === "string" ? [v] : v !== null && typeof v === "object" ? Object.values(v).flatMap(withStrings) : []);
+const withViolations = (w) => withStrings(w ?? {}).flatMap((v) => [...v.matchAll(/\$\{\{([\s\S]*?)\}\}/g)])
   .map((m) => m[1].trim()).filter((e) => !WITH_EXPR.test(e));
 // The one shape a token job's run: line may take: echo / Write-Output / Write-Host and plain words.
 // No pipe, chaining, redirection, subshell, backtick, backslash or parenthesis, so nothing else can
@@ -154,7 +161,7 @@ const ECHO_ONLY_LINE = /^(?:echo|Write-Output|Write-Host)(?:[ \t](?:[^|;&<>`$()\
 const TOKEN_JOB_SHELLS = new Set([undefined, "bash"]);
 const tokenJobs = (doc) => Object.entries(doc.jobs)
   .filter(([, j]) => j.environment !== undefined || /\bsecrets\b/i.test(JSON.stringify(j))).map(([id]) => id);
-const startupEnv = (where, env) => Object.keys(env ?? {}).filter((n) => STARTUP_ENV.test(n)).map((n) => `${where}: env ${n}`);
+const envViolations = (where, env, allowed) => Object.keys(env ?? {}).filter((n) => !allowed.has(n)).map((n) => `${where}: env ${n}`);
 const tokenJobViolations = (doc) => tokenJobs(doc).flatMap((id) => {
   const j = doc.jobs[id];
   // A reusable-workflow call or a container runs code that is not in this job's steps at all.
@@ -162,7 +169,7 @@ const tokenJobViolations = (doc) => tokenJobs(doc).flatMap((id) => {
   // A working directory moves every step into a folder other code may have written to; the env
   // names make bash or node load a file before the step's own command.
   const dir = [j.defaults?.run, doc.defaults?.run].some((r) => r?.["working-directory"] !== undefined) ? [`${id}: working-directory`] : [];
-  return [...jobLevel, ...dir, ...startupEnv(id, j.env), ...startupEnv(`${id} (workflow)`, doc.env),
+  return [...jobLevel, ...dir, ...envViolations(id, j.env, TOKEN_JOB_ENV), ...envViolations(`${id} (workflow)`, doc.env, WORKFLOW_ENV_FOR_TOKEN_JOBS),
     ...(j.steps ?? []).flatMap((s, i) => tokenStepViolations(doc, id, s, i))];
 });
 const tokenStepViolations = (doc, id, s, i) => {
@@ -726,12 +733,14 @@ describe("release.yml", () => {
       expect(violations(tok([{ name: "s", uses: real("actions/upload-artifact"), env: { NODE_OPTIONS: "--require x.js" } }]))).toEqual(["j: s: key env"]);
     });
 
-    it("flags a startup variable in a token job's env or the workflow's, in any letter case, and any working-directory default", () => {
-      for (const n of ["BASH_ENV", "ENV", "NODE_OPTIONS", "node_options", "Bash_Env"]) {
-        expect(violations(tok([{ run: "echo ok" }], { env: { [n]: "x.sh" } })), n).toEqual([`j: env ${n}`]);
-        expect(violations(tok([{ run: "echo ok" }]), { env: { [n]: "x.sh" } }), n).toEqual([`j (workflow): env ${n}`]);
+    it("allows no job-level env and only the workflow's one inert flag, and flags any working-directory default", () => {
+      for (const n of ["BASH_ENV", "ENV", "NODE_OPTIONS", "node_options", "NODE_EXTRA_CA_CERTS", "HTTPS_PROXY", "PATH", "Path", "NEXT_TELEMETRY_DISABLED"]) {
+        expect(violations(tok([{ run: "echo ok" }], { env: { [n]: "x" } })), n).toEqual([`j: env ${n}`]);
       }
-      expect(violations(tok([{ run: "echo ok" }], { env: { NEXT_TELEMETRY_DISABLED: "1" } }))).toEqual([]);
+      for (const n of ["BASH_ENV", "NODE_OPTIONS", "NODE_EXTRA_CA_CERTS", "HTTPS_PROXY", "PATH", "next_telemetry_disabled"]) {
+        expect(violations(tok([{ run: "echo ok" }]), { env: { [n]: "x" } }), n).toEqual([`j (workflow): env ${n}`]);
+      }
+      expect(violations(tok([{ run: "echo ok" }]), { env: { NEXT_TELEMETRY_DISABLED: "1" } })).toEqual([]);
       expect(violations(tok([{ run: "echo ok" }], { defaults: { run: { "working-directory": "desktop" } } }))).toEqual(["j: working-directory"]);
       expect(violations(tok([{ run: "echo ok" }]), { defaults: { run: { "working-directory": "desktop" } } })).toEqual(["j: working-directory"]);
     });
@@ -747,13 +756,23 @@ describe("release.yml", () => {
       expect(w("${{ secrets.A_B }}/${{ vars.C }}/${{ needs.sign-app.outputs.out-put }}/${{ runner.temp }}")).toEqual([]);
     });
 
-    it("rejects a long crafted non-echo line in well under a second", () => {
-      // `$ab...` used to be readable as `$a` + `b...` in every split, so a line the pattern fails late took exponential time.
-      for (const tail of ["(", "\\", "|"]) {
-        const line = `echo $${"a".repeat(50_000)}${tail}`;
+    it("judges expressions in nested mappings and lists of a with: value too", () => {
+      const nested = (v) => violations(tok([{ name: "s", uses: real("actions/upload-artifact"), with: { a: v } }]));
+      expect(nested({ b: { c: "${{ github.sha }}" } })).toEqual(["j: s: with expression github.sha"]);
+      expect(nested(["${{ vars.X }}", ["${{ env.Y }}"], { z: ["${{ steps.a.outputs.b }}"] }])).toEqual(["j: s: with expression env.Y", "j: s: with expression steps.a.outputs.b"]);
+      expect(nested({ b: ["${{ secrets.T }}", { c: "${{ runner.temp }}" }], d: null, e: 1, f: false })).toEqual([]);
+    });
+
+    it("rejects a long crafted non-echo line in a small fraction of the time the old pattern took", () => {
+      // `$ab...` used to be readable as `$a` + `b...` at every split, so a line the pattern fails late took
+      // quadratic time: measured on the old pattern, 50 000 chars ~2 s, 100 000 ~10 s, 200 000 ~42 s. At 120 000
+      // chars the old pattern needs ~15 s; the fixed one needs under a millisecond. The 1.5 s ceiling is ten times
+      // under the old pattern's time and far above any loaded runner's noise on the fixed one.
+      for (const tail of ["(", "\\"]) {
+        const line = "echo $" + "a".repeat(120_000) + tail;
         const t0 = performance.now();
         expect(ECHO_ONLY_LINE.test(line)).toBe(false);
-        expect(performance.now() - t0).toBeLessThan(1000);
+        expect(performance.now() - t0).toBeLessThan(1500);
       }
       // Positive control: a long line of plain words and one `$NAME` still passes.
       expect(ECHO_ONLY_LINE.test(`echo ${"word ".repeat(10_000)}$NAME`)).toBe(true);

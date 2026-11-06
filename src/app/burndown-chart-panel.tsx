@@ -3,7 +3,7 @@
 // Burn-down chart with its two switches (MR 3 addendum §5.1, §6). The switches
 // write device settings through `useSettings` with FUNCTIONAL setters; instances
 // sync through the settings listener registry, so the report and the tile agree
-// and no stale copy can overwrite the choice (plan Ruling 18). Print shows the
+// and no stale copy can overwrite the choice. Print shows the
 // chosen view; the switches themselves do not print.
 import { useMemo, type ReactNode } from "react";
 import { type Lang, t, localeFor } from "./i18n";
@@ -66,8 +66,7 @@ function hasAnyBudget(series: BurndownSeries): boolean {
  * to show: no budget in either unit, no recorded history, or no change after the
  * baseline. ONE rule for the panel and `BurndownChangeTableBlock`, so a detached
  * table can never appear where the inline one would not.
- * The footer takes the PACE forecast's split, in the displayed unit (controller
- * ruling): the cards' primary figure, and the one the chart's own pace line
+ * The footer takes the PACE forecast's split, in the displayed unit: the cards' primary figure, and the one the chart's own pace line
  * draws. Null when that forecast is unavailable — the recorded rows still stand
  * on their own.
  */

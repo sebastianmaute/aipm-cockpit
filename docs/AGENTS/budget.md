@@ -456,14 +456,13 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   2026 | Feb 2026` read long with the Start date as the period and January as the hours (I4), where it now
   reads two-period wide. ★★★ **WHERE THAT DOES NOT SETTLE IT, DETECTION ASKS (fix 7, the owner's decision
   of 2026-10-13).** Three rounds of column-guessing rules each imported wrong hours: a rightmost-hours pick
-  took `Ist`, `Actual`, `Summe` or `Betrag` over `Plan` (rr6 N1), a rank of month-LABEL cells over full
-  dates summed a `Datum` sheet into its `Eintritt` month (rr6 N3), and a header-row stop in the removed
+  took `Ist`, `Actual`, `Summe` or `Betrag` over `Plan`, a rank of month-LABEL cells over full
+  dates summed a `Datum` sheet into its `Eintritt` month, and a header-row stop in the removed
   Claude claim checker misfired on two-row headers. All were removed. `detectLayout` reports `ambiguous`
   (`ColumnAmbiguity`, from `ambiguityOf`): the HOURS whenever two or more candidates remain. ★★★ No
   header word settles it (fix 8, the owner's "fail closed" of 2026-10-13): an escape for exactly one
   NAMED hours column, later with a list of actuals words, read `Ist`, then `Iststunden`, `IstStd`,
-  `Gebuchte Stunden`, `Spent hours` or `Logged hours` silently, one missed spelling per round (rr6 N1,
-  rr7, rr8 N2); both are gone. So `Plan | Stunden`, `Stunden | Ist` and `Name | Monat | Stunden | Kosten`
+  `Gebuchte Stunden`, `Spent hours` or `Logged hours` silently, one missed spelling per round; both are gone. So `Plan | Stunden`, `Stunden | Ist` and `Name | Monat | Stunden | Kosten`
   ask, and only a sheet with ONE column holding numbers (`Name | Monat | Stunden`, `ID | Name | Month |
   Effort`, `Nr | Name | Monat | Aufwand`) is clear. ★★★ A column is an
   hours candidate when it holds ONE number, and a period candidate when it holds ONE period (round 7
@@ -482,7 +481,7 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   candidates, and refuses Apply — the button disabled, the reason its accessible description — until each
   field is confirmed: its column chosen within the long layout (an edit of another field does not count,
   and ★★ nor does the layout control — Wide then Long rebuilt the questioned preselection from the
-  defaults and once cleared the gate on the way, rr7 I2), the header row chosen in either layout, or
+  defaults and once cleared the gate on the way), the header row chosen in either layout, or
   "These columns are right". ★★ A confirmation belongs to its (layout, field) pair AND the value it
   confirmed (`unconfirmedOf`, fix 9 m-a): a period chosen in Long once also cleared the questioned Wide
   reading, so flipping back to Wide applied it; flipping back now re-arms the open fields, and a
@@ -522,7 +521,7 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   confirms it, `confirmsField`), and the confirmation is bound to the header row, person and period
   column(s). Rows that differ in no such column stay "Combined rows"; the cost is a task description per
   row (residue 32). In the Wide layout, which has no hours or period select, ONE notice names the candidate
-  columns by letter and header and asks to check the mapping and confirm (rr8 m2, round 7); a header notice and a
+  columns by letter and header and asks to check the mapping and confirm; a header notice and a
   rows notice are shown beside it. Detection
   scores each candidate header over its first `DETECTION_SAMPLE_ROWS` (200) data rows, blank rows skipped
   and not counted, so a large sheet does not freeze the dialog (M1); `gridToForecastRows` then reads every
@@ -553,7 +552,7 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   since it unmounts its own notice (M5). ★ The I1 and M4 reasons travel on the period question
   (`blankHeaded`, `pastTwelve`, and `alsoUnsure` when another reason asks too), so each has a notice of its
   own saying what the press reads, and the generic Wide notice ("Check the mapping, then confirm", with no
-  period control to check) shows only for the other reasons (rr14 N1). ★★ The LONG twin (final review 4,
+  period control to check) shows only for the other reasons. ★★ The LONG twin (final review 4,
   I2): a blank-headed column holding a number is an hours candidate (`numericColumns`, `any` only), so
   `Name | Monat | Stunden | (blank)` over `Ist | Plan` or `€ | Std` asks for the hours on either route; it
   never scores a header row (`strong`) and a labelled column is preselected before it (`preselectHours`).
@@ -673,7 +672,7 @@ engines live in `src/app/budget-import/` (no i18n, no React).
   its own; the picker may name another resource, or Skip); on none, to their role's line (blended: its
   discipline), as the spec first said. Such a person's resource is recorded (`unmatchedIds`), and a changed
   cell of a line they sit on names them apart (`unmatchedOnLine`, "in the sheet, not matched"), never under
-  `othersOnLine` (rr14 M3a); so does every candidate of an `ambiguous` or `no-role` person (final review 4,
+  `othersOnLine`; so does every candidate of an `ambiguous` or `no-role` person (final review 4,
   M2). The picker row shows the reason of the plan computed WITH the overrides once a resource is picked, so a
   pick that lands on a resource on several lines says so (`forecastImportPickSeveralLines`, final review 4
   M1); `unresolvedPeople` itself is still computed without them. Routing by role alone once created a Dev line beside Ann's Senior

@@ -12,7 +12,7 @@ values for up to 12 fields — internal audit detail that must not reach a clien
 document — so it is storage-only on every EXPORT and DOCUMENT path, and it is absent from
 `TABLE_NAMES` because it has no table of its own, NOT because it sits outside the workspace.
 
-★★ **THE ONE EXCEPTION IS AN INTERNAL AUDIT DOWNLOAD, NOT AN EXPORT (open-followups §510, owner ruling
+★★ **THE ONE EXCEPTION IS AN INTERNAL AUDIT DOWNLOAD, NOT AN EXPORT (open-followups §510, owner decision
 2026-10-04).** Settings → Storage, in expert mode only, offers "Download activity log (internal)":
 `activity-audit.ts` builds a JSON file marked internal (`ACTIVITY_AUDIT_CLASSIFICATION`, and INTERNAL in
 the file name) that DOES carry each entry's `changes` — they are the audit detail it exists for. On a
@@ -421,7 +421,7 @@ a `CSV_SECTION_BUDGET_HISTORY` `config,<json>` row and a `## Budget History` fen
 STORAGE-ONLY behind `config === undefined` (no export key), omitted everywhere when empty,
 sanitized by `sanitizeBudgetHistory` on every load, excluded from `isWorkspaceEmpty` and both
 save-time counters (`workspace-slice-policy.ts` records why), and absent from
-`applyRestoredWorkspace` and the version payload (ruling R6 — `setBudgetHistory` IS in scope
+`applyRestoredWorkspace` and the version payload (`setBudgetHistory` IS in scope
 there now; the omission is a deliberate policy choice, not a structural gap: the budget commit
 boundary is the series' only writer, and a restore's BAC movement is meant to land as
 unattributed variance rather than a recorded entry). `applyWorkspace` takes the same `logMode`

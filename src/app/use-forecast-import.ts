@@ -198,7 +198,7 @@ function unconfirmedOf(
  *  layout (a different one than before, even if they come back). ★★ A layout
  *  change confirms nothing: Wide, then Long, rebuilds the long mapping from the
  *  defaults — the very preselection in question — and once cleared the gate on
- *  the way (rr7 I2). */
+ *  the way. */
 function confirmsField(a: ColumnAmbiguity, before: ColumnMapping | null, next: ColumnMapping): boolean {
   if (before === null || before.layout !== next.layout) return false;
   // The header row has a select in either layout (fix 9 OOS-c).

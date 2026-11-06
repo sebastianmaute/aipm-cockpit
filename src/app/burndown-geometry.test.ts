@@ -424,7 +424,7 @@ describe("buildChartModel — edges", () => {
       { date: "2026-01-01", value: 9_000 }, { date: "2026-01-31", value: 7_000 },
     ]);
   });
-  it("has no forecast segments or run-out for an overdue project (Controller ruling: last.date >= planEnd)", () => {
+  it("has no forecast segments or run-out for an overdue project (Decision: last.date >= planEnd)", () => {
     // Monthly plan ending mid-month, today after it — the shape from the
     // review finding: a forecast segment from the last actual point to
     // planEnd would run backward/vertical instead of forward.

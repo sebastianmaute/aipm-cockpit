@@ -10,8 +10,7 @@
 // because `loadPause` is published only for an instance whose OWN load failed or was refused — a
 // superseded reload is neither.
 //
-// This file proves the precondition explicitly (per the Task 2 dispatch's ruling (b) — NOT stated in
-// task-2-brief.md itself): `second`'s gate must be OPEN, demonstrated by an actual save landing on
+// This file proves the precondition explicitly (a precondition the task description did not state): `second`'s gate must be OPEN, demonstrated by an actual save landing on
 // it, BEFORE the stale reload is allowed to resolve and (on today's code) close it again.
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -206,7 +205,7 @@ afterEach(() => {
  *  mount on `first`, start a reload against it (still pending), rebuild onto
  *  `second` while that reload is in flight, let `second`'s own load land and
  *  open its gate, prove the gate is genuinely open with a real edit+save
- *  (the precondition — ruling (b) in the Task 2 dispatch), THEN release the
+ *  (the precondition), THEN release the
  *  stale reload and await it. Each `it` picks up from the returned handles. */
 async function setupSupersededReloadScenario() {
   const { backend: first, release: releaseFirstLoad } = makeControlledBackend();

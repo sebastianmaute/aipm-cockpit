@@ -3,8 +3,8 @@
 // Pure and i18n-free. Three readers ask it the same question: the staging gate (`chat-panel.tsx`, through
 // `shouldStage`'s predicate), the review card (which shows the same plan's `clashes`) and the four date tools'
 // results (`runTool`, through the dispatcher's `absenceClashesFor`).
-// ★★ It reads the plan `describeProposal` builds for the card, never a rule of its own: the triggers (ruling
-//  R2) live in `inline-ai-edit/plan-clashes.ts`, so the gate, the card and the tool result judge one thing.
+// ★★ It reads the plan `describeProposal` builds for the card, never a rule of its own: the triggers
+//  live in `inline-ai-edit/plan-clashes.ts`, so the gate, the card and the tool result judge one thing.
 // ★ Ask it BEFORE the write. A trigger is a CHANGE against the stored row; after the write the row already
 //  holds the new date, so the same call reads as no change and judges nothing.
 import type { AbsenceClash, AbsenceCtx } from "./absence-clash";

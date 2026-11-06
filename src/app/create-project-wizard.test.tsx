@@ -966,7 +966,7 @@ describe("CreateProjectWizard native workspace import (Step 1, key-free)", () =>
     );
   });
 
-  // Controller ruling: the clear button must be a REAL control, not a no-op —
+  // Decision: the clear button must be a REAL control, not a no-op —
   // it drops `imported` so a subsequent Next takes the normal (Template/
   // Functions) path instead of the import shortcut.
   it("Clear import removes the notice, and a subsequent Next takes the normal (non-import) path", async () => {

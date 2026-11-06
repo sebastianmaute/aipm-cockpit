@@ -94,7 +94,7 @@ export function tursoErrorKind(err: unknown): StorageErrorKind | null {
   if (err instanceof StorageNotReadyError) {
     if (err.hint === "storage-unreachable") return "unreachable";
     // §337 — turso-pipeline throws ONE of two hints on a 401/403, and the
-    // hint alone decides the kind. Controller ruling (I2): attribute by what
+    // hint alone decides the kind. Decision (I2): attribute by what
     // THIS call rejected, never by the `isEnvTokenRejected()` global flag —
     // that flag can still be set from an earlier, unrelated incident (or
     // because a Settings-typed token also failed while the flag was already

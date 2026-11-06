@@ -338,7 +338,7 @@ switched the integration off.
   **(c)** `onOpenStorageFile`'s ACCEPT branch, which replaces tasks+raid through raw setters and so
   reaches neither of the other two. ★★ (b) and (c) are NOT
   redundant with (a): `storageTargetKey` keys `browser` and every `local-*` kind on the KIND ALONE
-  (§591 ruling 3), so a file-mode project switch never moves the key. ★ `migrateCurrentProjectToTurso`
+  (§591), so a file-mode project switch never moves the key. ★ `migrateCurrentProjectToTurso`
   never calls `applyWorkspace` — same project, new backend — so it correctly never bumps, and neither
   does a failed load or the empty-load refusal (nothing applied, scope still holds the right project).
   ★★ The bump is SYNCHRONOUS and immediately precedes the replacement it announces, so there is no
@@ -468,5 +468,5 @@ switched the integration off.
   Error rather than waiting for the blocking tab to close on its own; a late `onsuccess` after that
   reject closes the connection at once rather than resolving twice. This is the fix for the risk the
   plan carried as open ("an IndexedDB open that is BLOCKED keeps the skeleton up") — filed as a plan
-  ruling, not as its own register entry.
+  decision, not as its own register entry.
 

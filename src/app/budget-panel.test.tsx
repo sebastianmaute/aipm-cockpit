@@ -1716,7 +1716,7 @@ describe("BudgetPanel — §6.4 forecast link line", () => {
   });
 
   // Mutation: dropping the `onOpenBudgetReport &&` guard in budget-panel.tsx
-  // (the popout omission — Plan Ruling 12) turns this red.
+  // (the popout omission) turns this red.
   test("renders nothing without onOpenBudgetReport (the popout state)", () => {
     render(<BudgetPanel {...props} />);
     expect(screen.queryByRole("button", { name: "Budget Report" })).toBeNull();

@@ -175,27 +175,27 @@ export type ForecastFactsByUnit = { eur: ForecastFacts; hours: ForecastFacts };
  * `forecastFacts` has always returned. Hours facts:
  * - BAC h = `report.project.budgetHours`, AC h = `report.project.actualHours`;
  * - EV h = Σ `br.ownBudget.budgetHours` × percent complete — the same OWN-budget
- *   basis BAC h sums (§550), so EV h ÷ BAC h = EV € ÷ BAC €. ★ Ruling 1 (MR 3)
+ *   basis BAC h sums (§550), so EV h ÷ BAC h = EV € ÷ BAC €. ★ The earlier rule
  *   specified the REPORTED, spillover-inclusive basis here and is SUPERSEDED:
  *   it held only while BAC was spillover-inclusive too, and once §550 made BAC
  *   own-basis it let ΣEV exceed BAC. See the call site for the measurement;
  * - PV h from the burn-down hours series at `todayIndex`;
  * - dated values are hours, from the same day-key / spread-period rules.
  *
- * AC (§5.4/Ruling 1): per bucket, T&M → `BucketReport.consumedValue`
+ * AC (§5.4): per bucket, T&M → `BucketReport.consumedValue`
  * (external-rate basis, already report-consistent); fixed price → the
  * UNCAPPED contract ratio `contract × actualHours ÷ budgetHours`, so an
  * overrun shows (the report's own `consumedValue` is capped at the contract
  * amount and must never be reused here).
- * EV (Ruling 2, re-based by §550): `Σ ownBudget.budgetValue ×
+ * EV (re-based by §550): `Σ ownBudget.budgetValue ×
  * bucketPercentComplete(bucket, tasks) ÷ 100` over buckets with
  * `ownBudget.budgetValue > 0`; null (with the naming list) the moment any such
- * bucket has no resolvable percent complete. Ruling 2's SHAPE is unchanged —
+ * bucket has no resolvable percent complete. Its SHAPE is unchanged —
  * only the basis moved from the reported budget value to the own one, in step
  * with BAC.
- * PV (Ruling 3): `totalBudgetValue − plannedRemainingValue[todayIndex]` of
+ * PV: `totalBudgetValue − plannedRemainingValue[todayIndex]` of
  * the burn-down, 0 when `todayIndex === -1`.
- * Dated bookings (Ruling 4): only keys the report itself counts — a day key
+ * Dated bookings: only keys the report itself counts — a day key
  * whose owning period is active, or a period key at the live granularity
  * that is active, spread evenly over its working days (or placed on its
  * first calendar day when it has none). An entry with hours ≤ 0 carries no
@@ -237,11 +237,11 @@ export function forecastFactsByUnit(input: BudgetForecastInput): ForecastFactsBy
       ? currencyToBase(bucket.fixedPriceAmount ?? 0, bucket, fxRates, plan.currency) / ownBudgetHours
       : 0;
     ac += isFixed && !isEndToEnd ? fixedPerHour * br.actualHours : br.consumedValue;
-    // ★★★ OWN budget, in BOTH units. Ruling 1 (MR 3) said the opposite — EV on
+    // ★★★ OWN budget, in BOTH units. The earlier rule said the opposite — EV on
     // the REPORTED, spillover-inclusive basis — and it is SUPERSEDED by the
     // §550 project-rollup fix, not worked around.
     //
-    // Ruling 1 was sound while BAC was itself the sum of the reported per-bucket
+    // That rule was sound while BAC was itself the sum of the reported per-bucket
     // budgets: both sides carried a closed predecessor's remainder twice, so the
     // EV ÷ BAC ratio still came out right. §550 fixed BAC to sum each bucket's
     // OWN budget (the remainder is a REALLOCATION, not new scope), which left EV
@@ -270,7 +270,7 @@ export function forecastFactsByUnit(input: BudgetForecastInput): ForecastFactsBy
     for (const row of bucketRateRows(bucket, roles)) {
       const perHour = isEndToEnd ? row.rates.internal : isFixed ? fixedPerHour : row.rates.external;
       for (const [key, hours] of Object.entries(row.actualHours)) {
-        // Ruling 4: hours ≤ 0 carry no booking date at all — a negative hand
+        // hours ≤ 0 carry no booking date at all — a negative hand
         // correction is therefore excluded from the dated window BY DESIGN, so
         // Σ dated can legitimately differ from AC (`br.consumedValue`, which
         // still includes it) whenever negatives are present.

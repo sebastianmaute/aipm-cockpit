@@ -326,7 +326,7 @@ export const APP_BUILD_DATE = "2026-10-27"; // 1.20.1: a maintenance release —
  *  collision) but was rejected anyway on DESIRABILITY: this docstring's own
  *  ★★ note a few paragraphs down says the repo *prefers* a name unused
  *  anywhere in the history and has rejected a legal reuse ("Banks") on that
- *  ground alone. A brief that pre-authorised "don't worry about reuse in
+ *  ground alone. An instruction that pre-authorised "don't worry about reuse in
  *  unrelated minor lines" was WRONG to do so — legality is not the same
  *  question as desirability, and only the second one is what this repo
  *  actually enforces by convention. Passing the per-minor-line uniqueness

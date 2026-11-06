@@ -235,7 +235,7 @@ export function ForecastPanel({ lang, tasks, milestones, plan, today, holidaySet
     [tasks, milestones, today, holidaySet, historyWindow, unit, planEnd, directory, budgetFacts, costOn],
   );
 
-  // §502 part 4 — "what it would take", Quick only, searched off the render path (`useLeverSearch`). Ruling A: only
+  // §502 part 4 — "what it would take", Quick only, searched off the render path (`useLeverSearch`). Only
   // milestones WITH a chance are searched; an overdue one, or one with nothing linked, shows no lever and no Explore.
   const goal = forecastSettings?.target ?? DEFAULT_TARGET_CONFIDENCE;
   const leversOn = showSimulation && forecastSettings !== undefined && mode === "quick" && result?.kind === "forecast";

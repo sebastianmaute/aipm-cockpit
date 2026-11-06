@@ -1428,7 +1428,7 @@ describe("prompt cache layout wiring", () => {
     expect(JSON.stringify(body.messages[body.messages.length - 1])).toContain("APP CONTEXT");
   });
 
-  // The "one extra check" from the task brief: the API requires a user
+  // The "one extra check": the API requires a user
   // message's tool_result blocks to LEAD its content, and buildWireMessages
   // appends the turn context AFTER existing blocks for exactly that reason —
   // confirm that holds on a REAL tool-call round trip's second request, not

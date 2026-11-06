@@ -864,7 +864,7 @@ describe("ProjectsPanel — key-fact indicator", () => {
 
   // Rendering "Key facts not measured here" here would wrongly imply a
   // per-device gap — the meta simply hasn't loaded yet, and the current row
-  // never reads the cache either way. Ruling: render NO meter and no banner.
+  // never reads the cache either way. Decision: render NO meter and no banner.
   it("renders no meter and no banner on the current row before its metadata loads", () => {
     setup({ currentProject: undefined });
     const rowEl = row("Apollo");

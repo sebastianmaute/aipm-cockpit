@@ -172,7 +172,7 @@ function formatGap(points: number, lang: Lang): string {
 }
 
 /** §502 part 4: the "what it would take" column. `cell` renders a row WITH a chance (its row token names its
- *  controls); a row without one (overdue, nothing linked) gets an empty cell — it has no lever (Ruling A). */
+ *  controls); a row without one (overdue, nothing linked) gets an empty cell — it has no lever. */
 export type MilestoneLeverColumn = {
   header: string;
   /** The RAG level of a chance against the project's target (`chanceRagLevel`). */

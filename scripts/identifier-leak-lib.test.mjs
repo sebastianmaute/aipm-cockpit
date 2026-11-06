@@ -35,7 +35,7 @@ describe("classifyHit", () => {
   });
 });
 
-// ---- Beyond the brief's four cases: the list format and the helpers the CLI uses.
+// ---- Beyond the four basic cases: the list format and the helpers the CLI uses.
 
 describe("parseList", () => {
   it("drops blank lines and # comments, keeps entries trimmed", () => {

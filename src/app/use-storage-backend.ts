@@ -226,7 +226,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   (c) `onOpenStorageFile`'s accept branch, which replaces tasks+raid with another file's
   //       through raw setters and so reaches neither (a) nor (b).
   // ★★ (b) is NOT redundant with (a): `storageTargetKey` keys `browser` and every `local-*` kind on
-  //   the KIND ALONE (§591 ruling 3), so a file-mode project switch does not move the key at all.
+  //   the KIND ALONE (§591), so a file-mode project switch does not move the key at all.
   // ★★ It is bumped SYNCHRONOUSLY, immediately BEFORE the replacement it announces, so there is no
   //   instant at which the new project's workspace is in scope while the epoch still reads old. A
   //   writer resolving between the bump and React's commit is dropped although scope still holds the

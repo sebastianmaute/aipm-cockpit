@@ -70,7 +70,7 @@ let quitting = false;
 // !== null` (a live read COOP on an identity host's response can sever
 // mid-flow).
 //
-// ★ Keyed by `.id`, per the brief. Safe against id reuse: this Map deletes its
+// ★ Keyed by `.id`. Safe against id reuse: this Map deletes its
 // entry on `destroyed`, so a reused id never finds a stale fact. (The auth-flow
 // flag needs no map at all: lib/auth-flow-tracker.ts keeps it in a closure per
 // WebContents, collected with it.)

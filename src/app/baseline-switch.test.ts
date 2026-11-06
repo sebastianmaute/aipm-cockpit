@@ -101,7 +101,7 @@ describe("planBaselineSwitch", () => {
   });
 });
 
-// §476 pre-merge ruling — a version restore NEVER changes `plan.currency`, and every money field it
+// §476 pre-merge decision — a version restore NEVER changes `plan.currency`, and every money field it
 // takes from the version is converted into the current currency by the switches made since the
 // version was captured (`rebaseFactor`), round2. `fixedPriceAmount` and `fxRateOverride` never move.
 describe("prepareRestoredVersion", () => {

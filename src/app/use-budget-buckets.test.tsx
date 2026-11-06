@@ -21,7 +21,7 @@ type HistoryDeps = {
   today?: string;
 };
 
-// Mirrors the brief's stub: 10 hours / 100 EUR per allocation, summed across buckets.
+// Mirrors the spec's stub: 10 hours / 100 EUR per allocation, summed across buckets.
 const stubProjectBac = (buckets: readonly BudgetBucket[]): ProjectBac => ({
   hours: buckets.reduce((s, b) => s + b.allocations.length * 10, 0),
   value: buckets.reduce((s, b) => s + b.allocations.length * 100, 0),

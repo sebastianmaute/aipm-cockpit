@@ -1997,7 +1997,7 @@ describe("useChatDispatcher – resource directory", () => {
   });
 
   it("updateResource does not refuse an ARRAY that only echoes an already-stored unsafe address (§422 fix round 1)", () => {
-    // Controller ruling: an array is stored VERBATIM (never split), so
+    // Decision: an array is stored VERBATIM (never split), so
     // re-sending an address the row already holds cannot tear anything —
     // only a genuinely NEW unsafe member should be refused.
     const seeded: Resource = {

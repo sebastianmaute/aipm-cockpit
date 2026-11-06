@@ -657,7 +657,7 @@ describe("TimelogPanel", () => {
     });
   });
 
-  // ★★ Measured 2026-09-21 (task-3-brief): an empty tenant was not handled
+  // ★★ Measured 2026-09-21: an empty tenant was not handled
   // before this change, because it had never been possible — the built-in
   // default always supplied one. `isMisconfigured` checked `enabled`, `host`
   // and `apiToken` only, so a never-configured tenant reached the proxy

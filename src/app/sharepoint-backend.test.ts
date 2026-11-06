@@ -249,7 +249,7 @@ describe("SharePointBackend", () => {
 
   // §548 — the load hold is up until a load settles, so a Graph read that never answers must FAIL the
   // load. Same bound as Turso's (LOAD_TIMEOUT_MS). A plain Error, like SharePoint's HTTP-status errors,
-  // so it surfaces as the storageLoadFailed toast + the generic storage banner (plan ruling 10).
+  // so it surfaces as the storageLoadFailed toast + the generic storage banner.
   it("load fails at LOAD_TIMEOUT_MS, and not before, when the Graph read never answers", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("fetch", vi.fn((_url: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {

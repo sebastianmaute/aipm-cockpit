@@ -26,7 +26,7 @@
 //         `applyWorkspace` dep, covering switchToProject / createProject /
 //         loadProjectFromFile / createDemoProject / switchToTursoProject /
 //         createTursoProject. NOT redundant with (a): `storageTargetKey` keys `browser`
-//         and every `local-*` kind on the KIND ALONE (§591 ruling 3);
+//         and every `local-*` kind on the KIND ALONE (§591);
 //     (c) `onOpenStorageFile`'s ACCEPT branch, which replaces tasks+raid through raw
 //         setters and so reaches neither (a) nor (b).
 //   A failed load, the empty-load refusal, `onPickStorageFile` and

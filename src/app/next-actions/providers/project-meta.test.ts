@@ -137,7 +137,7 @@ describe("projectMetaProvider — ranking", () => {
     for (const a of acts) expect(a.tier).not.toBe("now");
   });
 
-  // Ruling 5: pinned THROUGH the engine, at the maximum learned bias.
+  // pinned THROUGH the engine, at the maximum learned bias.
   it("never reaches tier now through the engine even at +BIAS_CAP learned bias on every kind", () => {
     const learnedBias = Object.fromEntries(acts.map((a) => [`project-meta:${a.why.key}`, BIAS_CAP]));
     const ranked = computeNextActions(input({ projectId: "p1", projectMeta: NAME_ONLY, learnedBias }), [projectMetaProvider]);

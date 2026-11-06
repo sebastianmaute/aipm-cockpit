@@ -29,7 +29,7 @@ const full: Readout = {
 describe("ChartReadout", () => {
   it("lists every row in the legend's order with its value", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    // The box is aria-hidden (ruling 1 below), so these role queries need `hidden: true`
+    // The box is aria-hidden (see below), so these role queries need `hidden: true`
     // to see past that — otherwise Testing Library excludes them from the a11y tree.
     const rows = screen.getAllByRole("listitem", { hidden: true }).map((li) => li.textContent ?? "");
     expect(rows).toHaveLength(10);

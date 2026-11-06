@@ -487,7 +487,7 @@ export interface StorageFilePickerDeps {
    *  in-flight Graph/AI write that resolves afterwards is dropped (`scope-epoch.ts`). Called ONLY on
    *  `onOpenStorageFile`'s accept branch: that path replaces tasks+raid from another file through raw
    *  setters, never `applyWorkspace`, so the wrapper the project ops get cannot cover it — and
-   *  `storageTargetKey` keys every `local-*` kind on the KIND alone (§591 ruling 3), so the load
+   *  `storageTargetKey` keys every `local-*` kind on the KIND alone (§591), so the load
    *  effect's replace rule cannot either. `onPickStorageFile` deliberately does NOT call it DIRECTLY,
    *  and since §590 that is a statement about ONE of its two branches rather than about the op: the
    *  overwrite branch writes the CURRENT workspace out and leaves the same project in scope, so there
@@ -524,7 +524,7 @@ export interface StorageFilePickerDeps {
  * project with 10 records" and would have raised the offer over nothing.
  * Measured, not reasoned. Run it before trusting this paragraph — `vite-node` has NO `-e` flag, so
  * it has to be a file (an earlier revision of this comment documented a `-e` one-liner that cannot
- * run at all, which is the same class of unverified recipe §590's own brief shipped):
+ * run at all, which is the same class of unverified recipe §590 shipped):
  *   printf '%s\n' "import { jsonToWorkspace, workspaceToJson, emptyWorkspace } from './src/app/storage';" \
  *     "const w = jsonToWorkspace(workspaceToJson(emptyWorkspace()));" \
  *     "console.log('disciplines', w.disciplines?.length, 'grades', w.grades?.length, 'roles', w.roles?.length);" > seed-probe.ts
@@ -949,7 +949,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
         // the spread branch above.
         : ({ kind: newKind } as StorageConfig);
     const label = t(deps.langRef.current, STORAGE_LABEL_KEYS[newKind]);
-    // ★★★ §586/§587 (user ruling): a conversion copies the LIVE workspace into the new kind. If the
+    // ★★★ §586/§587 (user decision): a conversion copies the LIVE workspace into the new kind. If the
     // current storage's project never reached render scope (its load failed, came back empty over a
     // populated project and was refused, or is still pending), that workspace is the empty boot one or
     // the PREVIOUS target's project — on Turso a `DELETE FROM` every table of the target. So in that

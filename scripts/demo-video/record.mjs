@@ -33,7 +33,7 @@ if (args.list) {
 const T = L.throwaway();
 const KEY = L.readEnv('ANTHROPIC_API_KEY');
 if (!KEY) throw new Error('ANTHROPIC_API_KEY not set in .env.local');
-// Read here only so the output scan can find it (ruling R6); only the render code (narrate.mjs) uses it.
+// Read here only so the output scan can find it; only the render code (narrate.mjs) uses it.
 // Empty when unset, and an empty secret is skipped by the mask and the scan.
 const ELEVENLABS_KEY = L.readEnv('ELEVENLABS_API_KEY');
 const SECRETS = [T.url, T.host, T.token, KEY, ELEVENLABS_KEY];

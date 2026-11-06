@@ -14,7 +14,7 @@ export interface HoursMoveNoticeCtx {
 const MONTH_KEY = /^(\d{4})-(\d{2})$/;
 const WEEK_KEY = /^\d{4}-(W\d+)$/;
 
-/** Ruling R1: "2026-09" → short month name, "2026-W38" → "W38". Anything else is returned as is. */
+/** "2026-09" → short month name, "2026-W38" → "W38". Anything else is returned as is. */
 export function defaultPeriodLabel(key: string, lang: Lang): string {
   const month = MONTH_KEY.exec(key);
   if (month) {

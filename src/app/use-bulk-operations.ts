@@ -155,7 +155,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   useEffect(() => { captureFieldRowsRef.current = args.captureFieldRows; }, [args.captureFieldRows]);
   useEffect(() => { dialogsRefRef.current = args.dialogsRef ?? UNBRIDGED; }, [args.dialogsRef]);
   useEffect(() => { getScopeEpochRef.current = args.getScopeEpoch ?? NO_EPOCH; }, [args.getScopeEpoch]);
-  // §774 — a layout effect, like every other consumer of the reassign step (ruling R12): a click right after a
+  // §774 — a layout effect, like every other consumer of the reassign step: a click right after a
   // non-discrete update must not reach the previous render's step.
   useLayoutEffect(() => { reassignHoursRef.current = args.reassignHours; }, [args.reassignHours]);
 

@@ -3,7 +3,7 @@
 // "Where the hours went" (MR 3 addendum §4.4): the CAUSE behind the rate-mix
 // banner. Native <details> (the house disclosure pattern), controlled so the
 // banner action can open it; focus moves to the summary AFTER commit, keyed on
-// a nonce — never synchronously in the click handler (plan Ruling 10).
+// a nonce — never synchronously in the click handler.
 import { useEffect, useRef } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
@@ -14,7 +14,7 @@ import { RATE_MIX_DRIVER_MIN_DIFFERENCE, type RateMix } from "./budget-rate-mix"
 import type { BudgetForecast } from "./budget-forecast";
 import type { BudgetCurrency } from "./types";
 
-// Controller ruling P14: the "used of budget" cell reads "539 of 600 h (90%)"
+// Decision: the "used of budget" cell reads "539 of 600 h (90%)"
 // (spec §4.4) — a plain locale-formatted number for the actual hours, not
 // `formatHours`'s " h"-suffixed form, so the unit appears once per cell.
 function plainNumber(n: number, locale: string): string {

@@ -98,7 +98,7 @@ function rowPeriodCells(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; 
  *  ("05.01.2026") from a period label. ★★★ Null too when the row holds a period
  *  cell of its own (`rowPeriodCells`): such a row is a long row, whose cells
  *  share its one period. A metadata row's dates over a long sheet's `Stunden |
- *  Ist` once summed the two to 75 as sub-periods (final review I1, rr8 OOS-1).
+ *  Ist` once summed the two to 75 as sub-periods (final review I1).
  *  Sprint dates beside a `Start` date collide too: refused visibly, never
  *  summed wrong. `personCol` is the row's person column. */
 export function headerDateOf(sheet: SheetGrid, at: { rowIdx: number; colIdx: number; personCol?: number }): string | null {

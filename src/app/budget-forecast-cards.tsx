@@ -137,7 +137,7 @@ function HoursLine({ lang, chip, children }: { lang: Lang; chip: ReactNode; chil
  * `unitLabel` disambiguates the unattributed row's tooltip name from its
  * sibling in the OTHER unit on the same card (both would otherwise share the
  * same static accessible name); it is `null` for the € instance, which needs
- * only the card-title qualifier the brief calls for.
+ * only the card-title qualifier the spec calls for.
  */
 function VarianceSplitRows({
   lang, locale, history, baseline, attributed, bac, eac, format, cardTitle, unitLabel, noteWhenEmpty,

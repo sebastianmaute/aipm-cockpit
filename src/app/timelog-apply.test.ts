@@ -570,7 +570,7 @@ describe("buildApplyPlan", () => {
 
 describe("dated apply", () => {
   // `bucket(7, actual)` already IS "the bucket-7 fixture with actualHours
-  // replaced" — named here to match the brief's shape and to make each test's
+  // replaced" — named here to match the specified shape and to make each test's
   // intent (which actualHours the line starts with) read at the call site.
   const bucketWith = (actual: Record<string, number>) => bucket(7, actual);
   // resource 10 is in role 1 (the module-level `resources`/`roles`); timelogUserId

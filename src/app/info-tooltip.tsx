@@ -16,7 +16,7 @@ type InfoTooltipProps =
        *  visible text (WCAG 2.5.3 label-in-name). */
       label: string;
       /** Custom trigger content (e.g. a `Badge` chip), rendered inside the one
-       *  focusable trigger instead of the "i" glyph (MR 3, plan Ruling 8). */
+       *  focusable trigger instead of the "i" glyph (MR 3). */
       children: ReactNode;
     };
 

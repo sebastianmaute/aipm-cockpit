@@ -293,7 +293,7 @@ describe("contact person add follows the email write rule", () => {
     expect(setDraft).toHaveBeenCalledTimes(1);
   });
 
-  // Fix round 2 ruling — judge (and store) the value that would be STORED:
+  // Fix round 2 — judge (and store) the value that would be STORED:
   // `sanitizeContactPerson` caps email at EMAIL_MAX via `sanitizeEmail`, same
   // as every other editor. A >EMAIL_MAX value whose unsafe suffix falls past
   // the cap is added with the SAFE, capped address.

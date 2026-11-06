@@ -165,7 +165,7 @@ describe("originOnly", () => {
 });
 
 describe("isAppPage", () => {
-  // I-1: the table the brief asks for, adapted to
+  // I-1: the table, adapted to
   // the real APP_ORIGIN shape (`http://127.0.0.1:17300`).
   it.each<[string, string, boolean]>([
     ["an app URL with a path and query string", `${APP_ORIGIN}/?popout=raid`, true],
@@ -283,7 +283,7 @@ describe("decideNavigation", () => {
     expect(result).toEqual({ decision: "allow-in-app", authFlow: true });
   });
 
-  // ★★★ N-I1 -- the three combinations the fix-2 brief requires, each one
+  // ★★★ N-I1 -- the three combinations fix round 2 required, each one
   // pinning a different half of the entry gate.
   it("a same-origin popout (?popout=) + a stored identity-host link click is NOT flow entry", () => {
     // The popout's own first URL is the app's path, never blank, so

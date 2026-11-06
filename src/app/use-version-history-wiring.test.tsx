@@ -174,7 +174,7 @@ describe("useVersionHistoryWiring — capture, restore, error, notify", () => {
   });
 });
 
-// §476 pre-merge ruling — a restore never changes the currency: the wiring hands `useVersionHistory` a
+// §476 pre-merge decision — a restore never changes the currency: the wiring hands `useVersionHistory` a
 // `prepareVersion` that pins the LIVE `plan.currency` and converts the version's money by the LIVE
 // `baselineHistory` (day roles re-derived with the settings' workday hours), and the fan-out itself
 // neither appends a history entry nor logs a currency row.

@@ -27,7 +27,7 @@
 //   tenth op, `onPickStorageFile`, catches its picker's AbortError by design (§590, the cancelled
 //   dialog), so the ratio moved but the exception did not. So the throw test
 //   rejects the gate AND makes `showToast` throw, which turns every row's error path into a genuine
-//   rejection of the op, and asserts that (plan ruling 12).
+//   rejection of the op, and asserts that.
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Lang } from "./i18n";

@@ -19,7 +19,7 @@ import { RICH_FIELDS } from "./plan";
  *  `Tests 37 passed (37)` over it. Seeding the field turned it into three
  *  violations at once, the worst being `4 -> undefined` on a negative number:
  *  a SILENT UNLINK behind a card that disclosed nothing. It was found by a cold
- *  review doing this subtraction BY HAND, one entity beyond its brief.
+ *  review doing this subtraction BY HAND, one entity beyond its scope.
  *
  *  So this file does that subtraction mechanically, forever, from a source the
  *  sweep does not control: the CSV column lists, read as `PERSISTED_COLUMNS`

@@ -294,10 +294,10 @@ describe("computeDashboard", () => {
     expect(m.budget.overridden).toBe(true);
   });
 
-  // Ruling 7: once the pace forecast exists, the Budget RAG reads the pace
+  // once the pace forecast exists, the Budget RAG reads the pace
   // VAC instead of the consumed/budget ratio (spec §6.3). A single T&M bucket,
   // budgeted 1000h in June at the role's €100 external rate -> BAC €100,000.
-  describe("Budget RAG from the pace forecast (Ruling 7)", () => {
+  describe("Budget RAG from the pace forecast", () => {
     const forecastToday = "2026-09-14"; // Monday; matches the §5.6 fixture.
     // The 20 working days immediately before `forecastToday`, no holidays —
     // the pace window (`workingDaysBefore(forecastToday, 20, none)`).

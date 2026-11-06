@@ -153,7 +153,7 @@ describe("sanitizeRaidEscalations — drops an entry whose toEmail carries \"<\"
   });
 });
 
-describe("sanitizeRaidEscalations — unwraps Name <addr> before judging it (spec Part 2, Ruling Q5)", () => {
+describe("sanitizeRaidEscalations — unwraps Name <addr> before judging it (spec Part 2)", () => {
   it("keeps the entry carrying the bare address", () => {
     expect(sanitizeRaidEscalations([{ ...NOTIFY, toEmail: "Ops Team <ops@example.com>" }])).toEqual([NOTIFY]);
   });

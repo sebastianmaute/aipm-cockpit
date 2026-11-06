@@ -1,4 +1,4 @@
-// Shared burn-down chart fixtures (MR 3 addendum §5.2 / Task 11's brief test
+// Shared burn-down chart fixtures (MR 3 addendum §5.2 / the spec's test
 // table) — CHART_SERIES and CHART_FORECAST are hand-built plain objects, NOT
 // run through the real `computeBurndownSeries`/`computeBudgetForecast`
 // engines: the numbers are chosen to exercise the chart geometry's date math

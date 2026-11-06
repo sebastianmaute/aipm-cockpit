@@ -4,7 +4,7 @@
 // use-resource-directory.ts and AI `updateResource` in use-chat-dispatcher.ts),
 // pinned equal by resource-email-propagation.parity.test.tsx.
 //
-// ★★ Rulings: FK-linked rows only (never an address match — a shared mailbox
+// ★★ Decisions: FK-linked rows only (never an address match — a shared mailbox
 //  or an address-book contact must not be rewritten); only rows whose cached
 //  email still equals the OLD email (trimmed, case-folded — the convention of
 //  `resource-foundation.ts` and `purgeCalendarFor`); Jira-synced tasks skipped;

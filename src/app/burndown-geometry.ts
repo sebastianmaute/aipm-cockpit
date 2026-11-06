@@ -6,7 +6,7 @@
  * forecast's own figures. `frameDiffers` tells the surface to say so when the
  * chart's totals and the forecast's BAC/AC disagree (fixed price, bucket window).
  *
- * Overdue projects (Controller ruling — spec silent): a forecast segment always
+ * Overdue projects (Decision — spec silent): a forecast segment always
  * runs from the last actual point to `planEnd`. Once the project has slipped
  * past its own plan end — `last.date >= planEnd` — that span is zero or
  * negative, so a real (non-zero) ETC would draw backward or straight down/up
@@ -206,8 +206,8 @@ const NO_BAC: BacFields = { bacSteps: null, bacBaseline: null, bacMarkers: [] };
  * its `after` value, captured LIVE at commit time from the actual bucket state
  * (`commitBuckets`, `use-budget-buckets.ts`; `recordBudgetChange`,
  * `budget-history.ts`), never an increment over the previous entry. So an
- * undo, version restore or template-apply's unrecorded BAC movement (ruling
- * R2) only leaves the line stale UNTIL the next recorded commit — that
+ * undo, version restore or template-apply's unrecorded BAC movement
+ * only leaves the line stale UNTIL the next recorded commit — that
  * commit's own `after` reads today's true BAC (whatever the unrecorded move
  * already did to it) and the step jumps straight there, self-healing the gap.
  * The footer's unattributed row (`splitVariance`, `bac - baseline -

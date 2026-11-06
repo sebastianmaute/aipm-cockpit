@@ -602,7 +602,7 @@ describe("DashboardPanel module visibility gates (Task 8)", () => {
     expect(screen.getByText(t("en-US", "evmCpi"))).toBeInTheDocument();
   });
 
-  // ★ Spec C ruling: "hiding something which affects a value is not
+  // ★ Spec C decision: "hiding something which affects a value is not
   // acceptable" — SPI feeds the Schedule RAG and CPI feeds the Budget RAG
   // (`dashboard.ts` `evmIndexHealth`) from `model.evm`, which is computed over
   // `tasks` alone and never gated on `showBudget`; the Budget RAG it moves

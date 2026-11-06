@@ -5,7 +5,7 @@
 //
 // The cache maps an original string to its redaction (review 5, S4). The echo memory answers one question on
 // restore: when a reply carries a placeholder at a spot where the session put it into text it SENT, which spelling
-// did that text have there? Owner ruling (2026-10-31): one placeholder per person, so the model's view is unchanged;
+// did that text have there? Owner decision (2026-10-31): one placeholder per person, so the model's view is unchanged;
 // a spot the reply echoes gets its original spelling back; new text the AI writes gets the stored spelling.
 // - A whole string equal to a redaction the session produced restores that original exactly (`original`). The
 //   redaction must carry at least ECHO_MIN_CONTEXT characters besides its placeholders: a bare "[Person 1]" is

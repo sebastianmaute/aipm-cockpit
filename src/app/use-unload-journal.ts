@@ -63,7 +63,7 @@ function newTabId(): string {
 
 /** Identifies THIS page load. Minted once at module load, so it is stable for
  *  the life of the page and differs on every reload — a confirmed save clears
- *  only a journal carrying this id (ruling R1), never one an earlier page left. */
+ *  only a journal carrying this id, never one an earlier page left. */
 export const UNLOAD_JOURNAL_TAB_ID = newTabId();
 
 // Strictly increasing per tab, even when `Date.now()` does not move between
@@ -74,7 +74,7 @@ function nextSavedAt(): number {
   return lastSavedAt;
 }
 
-/** Ruling R3 — re-writes an APPLIED journal under this page's tab id, its savedAt kept, so the
+/** re-writes an APPLIED journal under this page's tab id, its savedAt kept, so the
  *  confirmation of its save-back (a later savedAt from this tab) clears it through the guard in
  *  `clearUnloadJournal`; left under the earlier page's id it would never clear. Lifts the savedAt
  *  counter to it as well, so that save-back is later even if the earlier page's clock ran ahead. */
@@ -475,7 +475,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
    *  Turso project id (the §77 order, use-storage-backend.ts's load effect), so no key in
    *  scope at apply time is the target's. The op's workspace is therefore held with NO key
    *  until `adoptHeldBase`.
-   *  ★★ Ruling R7 — and the live base is dropped meanwhile: scope no longer holds the
+   *  ★★ and the live base is dropped meanwhile: scope no longer holds the
    *  workspace it describes. A journal written in that window (an op that fails between its
    *  apply and its flip) carries base "", which no fingerprint equals, so it restores as the
    *  conflict notice, never as a match. */
@@ -525,7 +525,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
    *  of the target it came from. First, a journal whose CONTENT fingerprints as `loaded` describes
    *  what is stored — its save landed, only its `.then` never ran — so it is cleared, unguarded,
    *  with nothing applied and no notice. Otherwise returns the journal's workspace to apply INSTEAD
-   *  when the journal's base equals `loaded`'s fingerprint (ruling R8: `===` only — a base of ""
+   *  when the journal's base equals `loaded`'s fingerprint (`===` only — a base of ""
    *  never matches), re-tagged per R3. Otherwise null: on a mismatch, or a kind in
    *  `JOURNAL_FINGERPRINT_UNSTABLE_KINDS`, the journal is kept and the conflict published. A popout
    *  (or a disabled hook) never restores. */

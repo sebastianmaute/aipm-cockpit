@@ -177,7 +177,7 @@ function TaskManagerInner() {
   const isPopoutRef = useRef(isPopout);
   const forgetBridge = useForgetPeopleBridge(); // §788 — a deleted person's cross-project answers go with them; the planner below is built BEFORE crossProject, so it reports through this bridge
   const appDialogsRef = useRef<AppDialogs>(unbridgedDialogs()); // §752 — the app's dialogs for the hooks below, which run ABOVE the ConfirmProvider this renders; it fills the ref
-  const loadPendingRef = useRef(true); // §548 — filled beside `allowDestructiveSaveRef`, read by the undo hotkey below. Starts TRUE (fail safe) so a keystroke landing before the first effect commit cannot slip through the false-by-default window; `loadPending` itself is true pre-hydration anyway (ruling 8), so the effect below overwrites this immediately either way.
+  const loadPendingRef = useRef(true); // §548 — filled beside `allowDestructiveSaveRef`, read by the undo hotkey below. Starts TRUE (fail safe) so a keystroke landing before the first effect commit cannot slip through the false-by-default window; `loadPending` itself is true pre-hydration anyway, so the effect below overwrites this immediately either way.
   const armDestructiveForUndo = useCallback(() => { allowDestructiveSaveRef.current?.(); }, []);
   const readOnlyForUndo = useCallback(() => isPopoutRef.current, []);
   // §628 — same forward-ref shape; filled below with `useStorageBackend`'s stable reader, and `usePruneUndoOnScopeChange` sits after that call for the same ordering reason.

@@ -60,7 +60,7 @@ describe("journalProjectKey", () => {
     expect(journalProjectKey("turso", "not-a-token-just-an-id", "ignored")).toBe("not-a-token-just-an-id");
   });
 
-  // Fix round 1 / ruling R4: Turso with no id must NOT collide with the
+  // Fix round 1: Turso with no id must NOT collide with the
   // "browser" key an IndexedDB/local backend with no current project uses —
   // Turso single-tenant mode is one workspace per database, so it gets its
   // own sentinel instead.
@@ -170,7 +170,7 @@ describe("writeUnloadJournal / readUnloadJournal", () => {
     );
   });
 
-  // Ruling R5: malformed (parses, but a field OTHER than `v` is missing/mistyped)
+  // malformed (parses, but a field OTHER than `v` is missing/mistyped)
   // is removed+logged, same as unparseable — distinct from a well-formed
   // wrong-version record below, which is left alone.
   it("a parseable but malformed value (missing a required field) reads as null, removes the key, logs a diagnostic", () => {
@@ -190,7 +190,7 @@ describe("writeUnloadJournal / readUnloadJournal", () => {
     );
   });
 
-  // Ruling R5: a well-formed record whose `v` this build doesn't recognise
+  // a well-formed record whose `v` this build doesn't recognise
   // (e.g. a future v2) reads as null but is left in storage untouched —
   // it isn't this build's to delete, and no diagnostic fires for it.
   it("a well-formed but wrong-version value reads as null and is LEFT IN STORAGE, with no diagnostic", () => {

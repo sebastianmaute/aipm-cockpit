@@ -573,12 +573,12 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
   // ★★★ RULING 1 (MR 3) IS SUPERSEDED. This test formerly pinned the opposite —
   // "uses the reported, spillover-inclusive bucket hours for EV h" — asserting
   // BAC h 200 and EV h 140. Both numbers were artefacts of the §550 defect: the
-  // donor's 50 h remainder was counted in BOTH buckets. Ruling 1 was coherent
+  // donor's 50 h remainder was counted in BOTH buckets. That rule was coherent
   // while BAC carried the same double-count, but once §550 re-based BAC to own
   // budget it left EV as the only spillover-inclusive term, so ΣEV could exceed
   // BAC. EV is now own-basis in both units. Kept, rewritten, NOT deleted: the
   // ruling it encoded is part of this file's history.
-  it("uses OWN bucket hours for EV h — Ruling 1 (MR 3) superseded by §550", () => {
+  it("uses OWN bucket hours for EV h — earlier rule superseded by §550", () => {
     const donor = bucket(1, {
       status: "closed", successorId: 2, percentComplete: 100,
       allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 50 }, actualHours: {} }],
@@ -598,7 +598,7 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
     // what this used to pin.
     expect(hours.ev).toBeCloseTo(110, 9);
     expect(eur.ev).toBeCloseTo(11_000, 9);
-    // The two units stay in lockstep — the property Ruling 1 was protecting.
+    // The two units stay in lockstep — the property that rule was protecting.
     expect(eur.ev! / eur.bac).toBeCloseTo(hours.ev! / hours.bac, 9);
   });
 
@@ -621,7 +621,7 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
 
 /**
  * §550, second half — earned value re-based onto the OWN budget, superseding
- * Ruling 1 (MR 3). Four bases feed the forecast and three of them were already
+ * the earlier reported-basis rule. Four bases feed the forecast and three of them were already
  * own-budget: BAC (fixed by the project rollup), PV (the burn-down builds its
  * totals straight from allocations and never sees spillover — MEASURED below,
  * not assumed) and the report's own `earnedValue`, which scales `budgetCost`
@@ -632,7 +632,7 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
  * Fixture throughout: a 100 h donor closing into a 100 h successor, rates 60
  * internal / 100 external, so the donor spills 60 h and 6000 EUR.
  */
-describe("forecastFactsByUnit — EV on the own-budget basis (§550, Ruling 1 superseded)", () => {
+describe("forecastFactsByUnit — EV on the own-budget basis (§550, earlier rule superseded)", () => {
   const donor = (status: BudgetBucket["status"], percentComplete: number) =>
     bucket(1, {
       status, successorId: 2, percentComplete,

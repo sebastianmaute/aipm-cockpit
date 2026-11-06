@@ -8,7 +8,7 @@
 //      (+ Restore anyway, + Discard), a journal that already landed, each conflict
 //      action once this tab has overwritten or cleared the key, each incomplete-load cause, a
 //      failed load, an empty-load refusal, another project's journal, and a popout.
-//   2. `useUnloadJournal` on its own — ruling R7 (a held op base nulls the live one).
+//   2. `useUnloadJournal` on its own — (a held op base nulls the live one).
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { t, type Lang, type TranslationKey } from "./i18n";

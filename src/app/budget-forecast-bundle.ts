@@ -2,7 +2,7 @@
  * Forecast bundle (MR 3 addendum §3). One call builds the money and hours
  * forecasts, the rate mix and the earned-value history from the inputs the
  * Budget report and the dashboard already hold. A separate module because
- * `budget-rate-mix.ts` imports from `budget-forecast.ts` (plan Ruling 2 — no
+ * `budget-rate-mix.ts` imports from `budget-forecast.ts` (no
  * import cycle). `budget-ev-history.ts` does not: it imports
  * `budget-earned-value`, `task-status`, `budget-report`, `types` and
  * `snapshot` (type-only, for `SnapshotRecord`).

@@ -31,7 +31,7 @@ const MAX_HEADER_SCAN_ROWS = 10;
 /** The data rows under a candidate header that detection reads (`dataRowsBelow`):
  *  every pass scores up to `MAX_HEADER_SCAN_ROWS` candidates, and scoring them
  *  over a whole 250,000-cell sheet took seconds (final review M1). Blank rows
- *  are skipped, not counted (fix 7, rr6 N5). Reading the rows once the columns
+ *  are skipped, not counted (fix 7). Reading the rows once the columns
  *  are known (`gridToForecastRows`) is never cut. */
 export const DETECTION_SAMPLE_ROWS = 200;
 const MIN_WIDE_PERIODS = 3;
@@ -298,7 +298,7 @@ function wideAmbiguity(rows: Rows, mapping: ColumnMapping, ctx: Ctx): ColumnAmbi
   if (own.length === 0) return [];
   const candidates = [...new Set([...own, ...(mapping.periodCols ?? [])])].sort((a, b) => a - b);
   const isExplained = blankHeaded.length > 0 || pastTwelve.length > 0;
-  // ★ The reasons the notice can name (rr14 N1), present only when one applies.
+  // ★ The reasons the notice can name, present only when one applies.
   return [{
     field: "period",
     candidates,
@@ -379,7 +379,7 @@ const RANK_SERIAL_CELLS = 1;
  * column. ★★ `Start date` once ranked with `Month`, and the leftmost won: every
  * row's hours were summed into the start month (final review I2). ★★ A rank of
  * month-LABEL cells over full dates (final review I2 too) summed a `Datum`
- * sheet into its `Eintritt` month (rr6 N3), and was removed: when the header
+ * sheet into its `Eintritt` month, and was removed: when the header
  * words do not settle it, detection asks (`ambiguous`, fix 7).
  */
 function periodRank(header: string, cells: readonly string[]): number {
@@ -460,8 +460,7 @@ function scanPeriodColumns(header: readonly string[], data: Rows, width: number,
  *   exclusions (`numericColumns`: ID and year columns, period-shaped cells as
  *   no number; then rate and period-headed columns). ★★★ No header word settles
  *   it (fix 8): a "named hours column" escape read `Ist`, `Iststunden`,
- *   `Gebuchte Stunden` or `Logged hours` silently, one spelling per round (rr6
- *   N1, rr7, rr8 N2). `Name | Monat | Stunden | Kosten` asks, and so does a
+ *   `Gebuchte Stunden` or `Logged hours` silently, one spelling per round. `Name | Monat | Stunden | Kosten` asks, and so does a
  *   blank-headed number column (`Name | Monat | Stunden | (blank)`, final
  *   review 4, I2); one number column (`Name | Monat | Stunden`, `ID | Name |
  *   Month | Effort`) does not.
@@ -538,8 +537,8 @@ type ScoredMapping = Detected & { score: number };
  * then the higher number share, then the leftmost. ★★ Round 8 took the
  * leftmost alone, and "These columns are right" then imported `Ist`, `Tage`,
  * `FTE`, a numeric `Team` or a notes column holding one number in place of
- * `Stunden` (rr12 I-D). A share-first pick took `Ist` over a `Stunden` with
- * two `-` (rr11 I-B); a rightmost pick `Ist` or `Summe` over `Plan` (rr6 N1).
+ * `Stunden`. A share-first pick took `Ist` over a `Stunden` with
+ * two `-`; a rightmost pick `Ist` or `Summe` over `Plan`.
  * ★ `Forecast | Ist-Stunden` preselects `Ist-Stunden` (register 27); the
  * user sees the choice, because two candidates always ask. A labelled column
  * comes before a blank-headed one (`numericColumns`, final review 4, I2).

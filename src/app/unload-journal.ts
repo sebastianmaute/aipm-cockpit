@@ -61,7 +61,7 @@ function journalKey(projectKey: string): string {
  *  the Turso auth token) is deliberately NOT an input here.
  *
  *  - Turso: the Turso project id, or the sentinel `"turso"` when there is
- *    none (falsy or empty) — fix round 1 / ruling R4: Turso single-tenant
+ *    none (falsy or empty) — fix round 1: Turso single-tenant
  *    mode is one workspace per database, so a project-less Turso setup is a
  *    real, valid case, and it must NOT fall back to `"browser"` — that would
  *    collide with an IndexedDB/local backend with no current project id,
@@ -256,7 +256,7 @@ function isTimestamp(value: unknown): value is number {
 }
 
 /** Every field EXCEPT `v` matches the record shape — checked separately from
- *  `v` itself so a well-formed-but-different-version record (ruling R5: a
+ *  `v` itself so a well-formed-but-different-version record (a
  *  hypothetical future v2 journal) can be told apart from a genuinely
  *  malformed one. */
 function hasJournalFields(value: unknown): value is Omit<UnloadJournal, "v"> & Record<string, unknown> {
@@ -282,7 +282,7 @@ function isUnloadJournal(value: unknown): value is UnloadJournal {
  *  - Absent key: null, no diagnostic.
  *  - Unparseable JSON, or parsed but missing/mistyped a field OTHER than `v`:
  *    "malformed" — null, removes the key, logs `workspace.unloadJournalCorrupt`.
- *  - Parses, has every field but `v !== 1` (ruling R5 — a well-formed record
+ *  - Parses, has every field but `v !== 1` (a well-formed record
  *    from a version this build doesn't know, e.g. a future v2): null, but the
  *    key is LEFT IN PLACE untouched and nothing is logged — it isn't this
  *    build's to delete.
