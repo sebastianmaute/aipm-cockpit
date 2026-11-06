@@ -109,35 +109,68 @@ const releaseStep = (job, name) => {
 };
 const releaseStepIndex = (job, name) => releaseSteps(job).indexOf(releaseStep(job, name));
 // A job that can read a secret: it names an environment (whose secrets its steps can be handed) or
-// mentions the secrets context in any form (`secrets.X`, `secrets['X']`, `toJSON(secrets)`). The
+// mentions the secrets context in any form (`secrets.X`, `secrets['X']`, `toJSON(secrets)`), in any
+// letter case: GitHub's expression contexts are case-insensitive. The
 // SignPath token must never share a job with build code, so such a job is held to an ALLOWLIST:
-// every step is either a `uses:` of one of the two actions the token jobs use today (SHA-pinned;
-// any SHA, so a Dependabot bump still passes) or a `run:` that only prints. No checkout either: a
-// token job has no reason to have the repository's files on disk.
-const TOKEN_JOB_ACTIONS = /^(?:actions\/upload-artifact|signpath\/github-action-submit-signing-request)@[0-9a-f]{40}$/;
+// every step is either a `uses:` of one of the two actions the token jobs use today or a `run:`
+// that only prints. No checkout either: a token job has no reason to have the repository's files on
+// disk. Each action is pinned to the EXACT commit the real steps use today, so a bump of either
+// (Dependabot included) fails here until this map is edited too, which puts the new SHA in front of
+// the reviewer: a deliberate bump of a token-job action updates this map in the same change.
+const TOKEN_JOB_ACTION_SHAS = {
+  "actions/upload-artifact": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+  "signpath/github-action-submit-signing-request": "f6d04783b4569d051e0c80105fe66e82819d0092",
+};
+const isAllowedTokenAction = (uses) => {
+  const m = /^([^@]+)@([0-9a-f]{40})$/.exec(uses);
+  return m !== null && Object.hasOwn(TOKEN_JOB_ACTION_SHAS, m[1]) && TOKEN_JOB_ACTION_SHAS[m[1]] === m[2];
+};
+// The keys a token-job step may carry: exactly what the real sign-app / sign-installer steps use.
+// Anything else is a way to change what runs or where (`env`: NODE_OPTIONS / BASH_ENV and the like;
+// `working-directory`; `continue-on-error`; `timeout-minutes`; `id`, which nothing reads).
+const TOKEN_STEP_KEYS = new Set(["name", "if", "uses", "with", "run", "shell"]);
+// Environment variable names that make a shell or node load extra code before the step's command.
+// Matched case-insensitively (a Windows runner's environment is) in any job- or workflow-level env.
+const STARTUP_ENV = /^(?:BASH_ENV|ENV|NODE_OPTIONS|NODE_PATH|PYTHONSTARTUP|PYTHONPATH|LD_PRELOAD|PSMODULEPATH)$/i;
+// The only `${{ }}` expressions a token-job step's `with:` may hold: the secret by name, the vars
+// the real steps read, an upstream job's output, and the runner's temp folder. `github.*` is NOT
+// admitted: the real steps use none of it, and event fields (head_commit.message, a branch name)
+// are text a contributor controls.
+const WITH_EXPR = /^(?:secrets\.[A-Z][A-Z0-9_]*|vars\.[A-Z][A-Z0-9_]*|needs\.[a-z][a-z0-9-]*\.outputs\.[a-z][a-z0-9-]*|runner\.temp)$/;
+const withViolations = (w) => Object.values(w ?? {}).flatMap((v) => (typeof v === "string" ? [...v.matchAll(/\$\{\{([\s\S]*?)\}\}/g)] : []))
+  .map((m) => m[1].trim()).filter((e) => !WITH_EXPR.test(e));
 // The one shape a token job's run: line may take: echo / Write-Output / Write-Host and plain words.
 // No pipe, chaining, redirection, subshell, backtick, backslash or parenthesis, so nothing else can
 // be started; `$` only as `$NAME`, the shape the real step uses (`$GITHUB_REF_NAME`), so neither a
 // `$(…)` substitution nor a `${{ … }}` expression can be spliced into the script. Blank lines and
 // `#` comment lines are skipped. A script file run any other way (`pwsh x.ps1`, `. ./x.ps1`,
 // `./x.sh`, `python x.py`) is not an echo, so there is nothing to enumerate.
-const ECHO_ONLY_LINE = /^(?:echo|Write-Output|Write-Host)(?:[ \t](?:[^|;&<>`$()\\]|\$[A-Za-z_][A-Za-z0-9_]*)*)?$/;
+// The name's end is pinned by (?![A-Za-z0-9_]), so `$ab` cannot also be read as `$a` + `b`: a line
+// has one parse, and a failing one is rejected in linear time.
+const ECHO_ONLY_LINE = /^(?:echo|Write-Output|Write-Host)(?:[ \t](?:[^|;&<>`$()\\]|\$[A-Za-z_][A-Za-z0-9_]*(?![A-Za-z0-9_]))*)?$/;
 // The shells a token job's run: step may use: the runner's default (no `shell:` at all) or `bash`,
 // which the real step names. Under either, an ECHO_ONLY_LINE only prints; anything else
 // (`node {0}`, `python {0}`, `bash -e {0}`, cmd, a custom template) is a violation.
 const TOKEN_JOB_SHELLS = new Set([undefined, "bash"]);
 const tokenJobs = (doc) => Object.entries(doc.jobs)
-  .filter(([, j]) => j.environment !== undefined || /\bsecrets\b/.test(JSON.stringify(j))).map(([id]) => id);
+  .filter(([, j]) => j.environment !== undefined || /\bsecrets\b/i.test(JSON.stringify(j))).map(([id]) => id);
+const startupEnv = (where, env) => Object.keys(env ?? {}).filter((n) => STARTUP_ENV.test(n)).map((n) => `${where}: env ${n}`);
 const tokenJobViolations = (doc) => tokenJobs(doc).flatMap((id) => {
   const j = doc.jobs[id];
   // A reusable-workflow call or a container runs code that is not in this job's steps at all.
   const jobLevel = ["uses", "container", "services"].filter((k) => j[k] !== undefined).map((k) => `${id}: job ${k}`);
-  return [...jobLevel, ...(j.steps ?? []).flatMap((s, i) => tokenStepViolations(doc, id, s, i))];
+  // A working directory moves every step into a folder other code may have written to; the env
+  // names make bash or node load a file before the step's own command.
+  const dir = [j.defaults?.run, doc.defaults?.run].some((r) => r?.["working-directory"] !== undefined) ? [`${id}: working-directory`] : [];
+  return [...jobLevel, ...dir, ...startupEnv(id, j.env), ...startupEnv(`${id} (workflow)`, doc.env),
+    ...(j.steps ?? []).flatMap((s, i) => tokenStepViolations(doc, id, s, i))];
 });
 const tokenStepViolations = (doc, id, s, i) => {
   const label = `${id}: ${s.name ?? s.uses ?? `step ${i + 1}`}`;
   const out = [];
-  if (s.uses !== undefined && !TOKEN_JOB_ACTIONS.test(s.uses)) out.push(`${label}: uses ${s.uses}`);
+  for (const k of Object.keys(s)) if (!TOKEN_STEP_KEYS.has(k)) out.push(`${label}: key ${k}`);
+  if (s.uses !== undefined && !isAllowedTokenAction(s.uses)) out.push(`${label}: uses ${s.uses}`);
+  for (const e of withViolations(s.with)) out.push(`${label}: with expression ${e}`);
   if (s.run === undefined) return out;
   const bad = String(s.run).split(/\r?\n/).map((l) => l.trim()).find((l) => l !== "" && !l.startsWith("#") && !ECHO_ONLY_LINE.test(l));
   if (bad !== undefined) out.push(`${label}: runs ${bad}`);
@@ -628,6 +661,7 @@ describe("release.yml", () => {
 
   describe("tokenJobViolations (an allowlist)", () => {
     const pinned = (a) => `${a}@${SHA}`;
+    const real = (a) => `${a}@${TOKEN_JOB_ACTION_SHAS[a]}`;
     const tok = (steps, extra = {}) => ({ environment: "release", ...extra, steps });
     const violations = (job, wf = {}) => tokenJobViolations({ ...wf, jobs: { j: job } });
 
@@ -636,8 +670,9 @@ describe("release.yml", () => {
         { run: "echo ok" }, { shell: "bash", run: 'echo "release approved for $GITHUB_REF_NAME"' },
         { run: "Write-Output ok" }, { run: "Write-Host 'done'" }, { run: "echo" },
         { run: "# a note\n\necho a\r\n  echo b\n" },
-        { uses: pinned("signpath/github-action-submit-signing-request"), with: { "api-token": "${{ secrets.T }}" } },
-        { uses: pinned("actions/upload-artifact") },
+        { uses: real("signpath/github-action-submit-signing-request"), with: { "api-token": "${{ secrets.T }}", p: "${{ runner.temp }}/x-${{ needs.guard.outputs.version }}", o: "${{ vars.SIGNPATH_X }}", b: true, n: 3 } },
+        { uses: real("actions/upload-artifact"), with: { name: "n", path: "${{ needs.repackage.outputs.unsigned-artifact-id }}" } },
+        { name: "n", if: "${{ vars.X == 'true' }}", uses: real("actions/upload-artifact") },
       ]))).toEqual([]);
     });
 
@@ -647,7 +682,7 @@ describe("release.yml", () => {
       "pwsh scripts/x.ps1", "pwsh -fi x.ps1", "& ./x.ps1", ". ./x.ps1", "./x.sh", "source x.sh", "python x.py",
       // The old denylist's own cases.
       "npm --prefix desktop ci --ignore-scripts", "npx foo", "npm run desktop:package", "node scripts/x.mjs",
-      "./node_modules/.bin/tool --x", "node_modules\.bin\tool.cmd", "bash scripts/sign.sh", "set -e; sh ./x.sh",
+      "./node_modules/.bin/tool --x", "node_modules\\.bin\\tool.cmd", "bash scripts/sign.sh", "set -e; sh ./x.sh",
       "bash -e x.sh", "pwsh -NoProfile -File scripts/x.ps1", "powershell.exe -file x.ps1", "pwsh -f x.ps1",
       "bash -c 'echo ok'", "pwsh -NoProfile -Command \"Get-Date -Format o\"",
       // An echo that starts something else too.
@@ -677,6 +712,53 @@ describe("release.yml", () => {
       expect(violations(tok(bad.map((uses) => ({ uses }))))).toEqual(bad.map((u) => `j: ${u}: uses ${u}`));
     });
 
+    it("flags an allowed action pinned to any other commit, a tag or a branch", () => {
+      const a = "actions/upload-artifact";
+      const bad = [pinned(a), pinned("signpath/github-action-submit-signing-request"), `${a}@${"0".repeat(40)}`,
+        `${a}@${TOKEN_JOB_ACTION_SHAS[a].slice(0, 39)}0`, `${a}@v7.0.2`, `${a}@main`, a, `${a}-evil@${TOKEN_JOB_ACTION_SHAS[a]}`];
+      expect(violations(tok(bad.map((uses) => ({ uses }))))).toEqual(bad.map((u) => `j: ${u}: uses ${u}`));
+    });
+
+    it("flags a step key outside name, if, uses, with, run and shell", () => {
+      for (const k of ["env", "working-directory", "continue-on-error", "timeout-minutes", "id"]) {
+        expect(violations(tok([{ name: "s", run: "echo ok", [k]: k === "env" ? { A: "1" } : "x" }])), k).toEqual([`j: s: key ${k}`]);
+      }
+      expect(violations(tok([{ name: "s", uses: real("actions/upload-artifact"), env: { NODE_OPTIONS: "--require x.js" } }]))).toEqual(["j: s: key env"]);
+    });
+
+    it("flags a startup variable in a token job's env or the workflow's, in any letter case, and any working-directory default", () => {
+      for (const n of ["BASH_ENV", "ENV", "NODE_OPTIONS", "node_options", "Bash_Env"]) {
+        expect(violations(tok([{ run: "echo ok" }], { env: { [n]: "x.sh" } })), n).toEqual([`j: env ${n}`]);
+        expect(violations(tok([{ run: "echo ok" }]), { env: { [n]: "x.sh" } }), n).toEqual([`j (workflow): env ${n}`]);
+      }
+      expect(violations(tok([{ run: "echo ok" }], { env: { NEXT_TELEMETRY_DISABLED: "1" } }))).toEqual([]);
+      expect(violations(tok([{ run: "echo ok" }], { defaults: { run: { "working-directory": "desktop" } } }))).toEqual(["j: working-directory"]);
+      expect(violations(tok([{ run: "echo ok" }]), { defaults: { run: { "working-directory": "desktop" } } })).toEqual(["j: working-directory"]);
+    });
+
+    it("flags a with: expression other than secrets, vars, a needs output or runner.temp", () => {
+      const w = (v) => violations(tok([{ name: "s", uses: real("actions/upload-artifact"), with: { path: v } }]));
+      for (const e of ["github.event.head_commit.message", "github.ref_name", "env.X", "steps.a.outputs.b", "format('{0}', vars.X)",
+        "vars.X || github.sha", "needs.a.result", "runner.os", "toJSON(secrets)", "inputs.x", "secrets"]) {
+        expect(w("${{ " + e + " }}"), e).toEqual([`j: s: with expression ${e}`]);
+      }
+      // Each expression in a value is judged, not just the first.
+      expect(w("${{ vars.X }}-${{github.sha}}")).toEqual(["j: s: with expression github.sha"]);
+      expect(w("${{ secrets.A_B }}/${{ vars.C }}/${{ needs.sign-app.outputs.out-put }}/${{ runner.temp }}")).toEqual([]);
+    });
+
+    it("rejects a long crafted non-echo line in well under a second", () => {
+      // `$ab...` used to be readable as `$a` + `b...` in every split, so a line the pattern fails late took exponential time.
+      for (const tail of ["(", "\\", "|"]) {
+        const line = `echo $${"a".repeat(50_000)}${tail}`;
+        const t0 = performance.now();
+        expect(ECHO_ONLY_LINE.test(line)).toBe(false);
+        expect(performance.now() - t0).toBeLessThan(1000);
+      }
+      // Positive control: a long line of plain words and one `$NAME` still passes.
+      expect(ECHO_ONLY_LINE.test(`echo ${"word ".repeat(10_000)}$NAME`)).toBe(true);
+    });
+
     it("flags a token job that calls a reusable workflow or runs in a container", () => {
       expect(violations({ environment: "release", uses: "./.github/workflows/build.yml", secrets: "inherit" })).toEqual(["j: job uses"]);
       expect(violations(tok([{ run: "echo ok" }], { container: "node:22", services: { db: { image: "x" } } }))).toEqual(["j: job container", "j: job services"]);
@@ -688,10 +770,14 @@ describe("release.yml", () => {
         dot: { steps: [{ env: { T: "${{ secrets.T }}" }, run: "echo" }] },
         bracket: { steps: [{ env: { T: "${{ secrets['SIGNPATH_API_TOKEN'] }}" }, run: "echo" }] },
         whole: { steps: [{ env: { ALL: "${{ toJSON(secrets) }}" }, run: "echo" }] },
+        upper: { steps: [{ env: { T: "${{ Secrets.SIGNPATH_API_TOKEN }}" }, run: "echo" }] },
+        shout: { steps: [{ env: { T: "${{ SECRETS['SIGNPATH_API_TOKEN'] }}" }, run: "echo" }] },
+        wholeUpper: { steps: [{ env: { ALL: "${{ toJSON(Secrets) }}" }, run: "echo" }] },
         free: { steps: [{ run: "npm ci" }, { uses: pinned("some/other") }, { uses: pinned("actions/checkout") }, { shell: "node {0}", run: "x" }] },
       } };
-      expect(tokenJobs(doc)).toEqual(["env", "dot", "bracket", "whole"]);
-      expect(tokenJobViolations(doc)).toEqual([]);
+      expect(tokenJobs(doc)).toEqual(["env", "dot", "bracket", "whole", "upper", "shout", "wholeUpper"]);
+      // Their steps carry an env: key, itself a violation; this test is only about detection.
+      expect(tokenJobViolations(doc).every((v) => /: key env$/.test(v))).toBe(true);
     });
   });
 
@@ -789,9 +875,9 @@ describe("release.yml", () => {
     it("reads the token only as the SignPath steps' api-token; no other job or step sees a secret", () => {
       const text = code(RELEASE.replace(/\r\n/g, "\n"));
       expect(text.match(/SIGNPATH_API_TOKEN/g)).toHaveLength(2);
-      expect(text.match(/secrets\./g)).toHaveLength(2);
+      expect(text.match(/secrets\./gi)).toHaveLength(2);
       for (const id of JOBS) {
-        const n = (JSON.stringify(job(id)).match(/secrets\./g) ?? []).length;
+        const n = (JSON.stringify(job(id)).match(/secrets\./gi) ?? []).length;
         expect(n, id).toBe(["sign-app", "sign-installer"].includes(id) ? 1 : 0);
       }
     });
