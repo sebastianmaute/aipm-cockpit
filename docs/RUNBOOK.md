@@ -395,6 +395,19 @@ Get-AuthenticodeSignature $env:TEMP\guard\aipm-cockpit-<newest>-setup.exe |
 ```
 
 The guard's own message names the file, the status and the signer it saw.
+
+The other cause that no re-run clears: **the newest published release has no
+`-setup.exe` asset** (for example a docs-only release published by hand). The
+guard downloads `*-setup.exe` from the newest published release and needs
+exactly one, so it stops with "has 0 installers, expected 1" or gh's own
+error that no asset matches. It looks at that release only — never past it to
+an older one. A release whose own installer is validly signed passes anyway
+(it is classified first, and the previous reading is only logged), and from
+then on it is the newest published release the guard compares with. An
+unsigned release cannot get past it while that release stays the newest
+published one. So never publish a release without an installer: this
+workflow cannot (`release:verify` requires all four files), only a release
+made by hand can.
 Recover by publishing a freshly signed release once SignPath has issued a new
 certificate: the guard passes it because its own installer is validly signed,
 and logs that the previous one could not be classified. From then on that
