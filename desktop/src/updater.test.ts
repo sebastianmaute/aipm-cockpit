@@ -366,4 +366,45 @@ describe("a signed build's update check", () => {
     expect(fakeAutoUpdater.autoInstallOnAppQuit).toBe(false);
     expect(log.mock.calls.some((c) => /refused/.test(String(c[0])))).toBe(true);
   });
+
+  // The next check would offer, and download, the very installer that was just refused. The refused
+  // version is remembered for the session: never offered or downloaded again, while a newer one is.
+  it("does not offer or download a refused version again in the same session; a newer one is offered", async () => {
+    feed(SIGNED_FEED);
+    const updater = await createUpdater({ log: vi.fn(), window: () => null });
+    const handler = (name: string) => fakeAutoUpdater.on.mock.calls.find((c) => c[0] === name)?.[1] as (arg: unknown) => void;
+    updater.check("startup");
+    handler("update-available")({ version: "9.9.9", releaseNotes: "notes" });
+    await vi.waitFor(() => expect(fakeWindows.instances).toHaveLength(1));
+    fakeWindows.instances[0].emit("page-title-updated", { preventDefault: vi.fn() }, "aipm-update:download");
+    await vi.waitFor(() => expect(fakeAutoUpdater.downloadUpdate).toHaveBeenCalledTimes(1));
+    handler("error")(Object.assign(new Error("New version 9.9.9 is not signed by the application owner"), { code: "ERR_UPDATER_INVALID_SIGNATURE" }));
+    await vi.waitFor(() => expect(showMessageBox).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 0)); // the refusal's dialog has closed
+
+    // The next automatic check: the same version is neither offered nor downloaded.
+    updater.check("startup");
+    expect(fakeAutoUpdater.checkForUpdates).toHaveBeenCalledTimes(2);
+    handler("update-available")({ version: "9.9.9", releaseNotes: "notes" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fakeWindows.instances).toHaveLength(1);
+    expect(showMessageBox).toHaveBeenCalledTimes(1);
+    expect(fakeAutoUpdater.downloadUpdate).toHaveBeenCalledTimes(1);
+
+    // A manual check says why instead of offering it.
+    updater.check("manual");
+    handler("update-available")({ version: "9.9.9", releaseNotes: "notes" });
+    await vi.waitFor(() => expect(showMessageBox).toHaveBeenCalledTimes(2));
+    const opts = (showMessageBox.mock.calls[1] as unknown[]).at(-1) as { message: string; detail: string };
+    expect(opts.message).toBe("The update was not installed: its signature could not be verified.");
+    expect(opts.detail).toContain("9.9.9 was refused earlier");
+    expect(fakeWindows.instances).toHaveLength(1);
+    expect(fakeAutoUpdater.downloadUpdate).toHaveBeenCalledTimes(1);
+    await new Promise((r) => setTimeout(r, 0));
+
+    // A newer version is offered as usual.
+    updater.check("startup");
+    handler("update-available")({ version: "9.9.10", releaseNotes: "notes" });
+    await vi.waitFor(() => expect(fakeWindows.instances).toHaveLength(2));
+  });
 });

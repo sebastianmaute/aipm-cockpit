@@ -230,7 +230,11 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   the app falls back to `unavailableUpdater`. A refusal reaches `decideOnError` as
   `ERR_UPDATER_INVALID_SIGNATURE` (`INVALID_SIGNATURE_CODE`) and becomes the `unverified` decision: a box
   that says to download the release by hand, with Open releases page; nothing installs, and
-  `autoInstallOnAppQuit` is reset. Only the release workflow's `sign` job writes the `publisherName`
+  `autoInstallOnAppQuit` is reset. The refused version is remembered in memory for the session
+  (`decideOnAvailable`'s `refused` argument): a later automatic check neither offers nor downloads it again, a
+  manual one shows the same box, and a newer version is offered as usual. A restart forgets it. The updater also sets
+  `disableWebInstaller`, and the signature query may take `SIGNATURE_TIMEOUT_MS` (60 s, against electron-updater's
+  20 s). Only the release workflow's `sign` job writes the `publisherName`
   ([`ci.md`](ci.md), the `sign` job), so no local or `build`-job package is a signed build. ★ Not run
   against a real signed update yet: the unit tests fake electron-updater, and the one real-PowerShell
   test (Windows only) checks an unsigned file.

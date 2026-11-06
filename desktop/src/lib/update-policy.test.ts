@@ -49,6 +49,17 @@ describe("update policy", () => {
     expect(decideOnAvailable("startup", { version: "1.14.2" }, "1.14.1").kind).toBe("prompt");
   });
 
+  // A version whose installer was refused this session is the same file again: never offered, a
+  // manual check says why; a newer version is offered as usual.
+  it("never offers a version refused this session again, but offers a newer one", () => {
+    expect(decideOnAvailable("startup", { version: "1.14.1" }, null, "1.14.1")).toEqual({ kind: "silent" });
+    const manual = decideOnAvailable("manual", { version: "1.14.1" }, null, "1.14.1");
+    expect(manual).toEqual({ kind: "unverified", message: expect.stringContaining("1.14.1 was refused earlier") });
+    expect(decideOnAvailable("startup", { version: "1.14.2" }, null, "1.14.1").kind).toBe("prompt");
+    expect(decideOnAvailable("manual", { version: "1.14.2" }, null, "1.14.1").kind).toBe("prompt");
+    expect(decideOnAvailable("startup", { version: "1.14.1" }, null, null).kind).toBe("prompt");
+  });
+
   it("reports up to date and errors only for a manual check", () => {
     expect(decideOnNotAvailable("startup")).toEqual({ kind: "silent" });
     expect(decideOnNotAvailable("manual")).toEqual({ kind: "up-to-date" });

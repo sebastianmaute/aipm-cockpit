@@ -122,6 +122,11 @@ function wireUpdater(
   // always reported as a download failure even though the SAME `autoUpdater` object also fired the
   // checking-phase events earlier in this run's lifetime.
   let phase: UpdatePhase = "checking";
+  // The version being downloaded, and the one whose installer the signature check refused. Kept in
+  // memory for this session only: a later check would offer and download the very same file, which
+  // would be refused again, so that version is not offered again (decideOnAvailable); a newer one is.
+  let downloadingVersion: string | null = null;
+  let refusedVersion: string | null = null;
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
@@ -260,6 +265,7 @@ function wireUpdater(
     if (choice !== "download") return;
     downloading = true;
     phase = "downloading";
+    downloadingVersion = d.version;
     autoUpdater.autoInstallOnAppQuit = true;
     // electron-updater's own downloadUpdate() ALWAYS calls dispatchError() (emitting "error") before
     // rejecting its promise on failure -- verified against the installed package
@@ -272,7 +278,7 @@ function wireUpdater(
 
   autoUpdater.on("update-available", (info) => {
     checking = false;
-    void act(decideOnAvailable(trigger, info, readSkipped()));
+    void act(decideOnAvailable(trigger, info, readSkipped(), refusedVersion));
   });
   autoUpdater.on("update-not-available", () => {
     checking = false;
@@ -287,6 +293,7 @@ function wireUpdater(
     const decision = decideOnError(trigger, erroredPhase, err);
     // A failed or refused download leaves nothing that may install on quit.
     if (erroredPhase === "downloading" || decision.kind === "unverified") autoUpdater.autoInstallOnAppQuit = false;
+    if (decision.kind === "unverified" && downloadingVersion !== null) refusedVersion = downloadingVersion;
     void act(decision);
   });
   autoUpdater.on("download-progress", (p) => deps.window()?.setProgressBar(p.percent / 100));

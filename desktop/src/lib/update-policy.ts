@@ -58,11 +58,20 @@ export function decideCheckRequest(activity: UpdaterActivity): CheckRequestDecis
   return "start";
 }
 
+// `refused` is the version whose installer a signed build refused in this session (remembered in
+// memory only, by updater.ts). Downloading it again would fetch the same file and refuse it again,
+// so it is never offered again: an automatic check stays silent, and a manual one repeats why it was
+// not installed. A newer version is offered as usual.
 export function decideOnAvailable(
   trigger: UpdateTrigger,
   available: { version: string; releaseNotes?: unknown },
   skipped: string | null,
+  refused: string | null = null,
 ): UpdateDecision {
+  if (refused !== null && refused === available.version) {
+    if (trigger !== "manual") return { kind: "silent" };
+    return { kind: "unverified", message: `AI PM Cockpit ${available.version} was refused earlier in this session: its signature could not be verified.` };
+  }
   if (trigger === "startup" && skipped === available.version) return { kind: "silent" };
   return {
     kind: "prompt", version: available.version,

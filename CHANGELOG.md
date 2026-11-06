@@ -175,6 +175,7 @@ longer carries its own changelog comment.
   own executables; it stays off until the maintainer switches it on, each release's notes say whether its installer is
   signed, and once a signed release has shipped an unsigned one is refused. A copy installed from a signed release
   installs only updates signed by SignPath Foundation, and otherwise offers the Releases page for a manual download.
+  It does not offer a refused version again until the app is restarted; a newer version is still offered.
   Before a release goes out as signed, its installer must pass the very check an installed copy runs on an update
   (Valid, and the certificate's name exactly SignPath Foundation), so a signed release can never lock its users out
   of later updates. The updater accepts only a full installer, never a web installer that would fetch the app while
