@@ -129,6 +129,17 @@ describe("verifyUpdateSignature", () => {
     expect(await verifyUpdateSignature([SIGNER], named, answer(json(0, SUBJECT, named)))).toEqual(expect.any(String));
   });
 
+  // The Kelvin sign K (U+212A) lowercases to ASCII "k", so a check on the lowercased path would
+  // call it ASCII and compare in full against PowerShell's U+FFFD, refusing every update.
+  it("treats a path with the Kelvin sign as non-ASCII and compares the file name only", async () => {
+    const path = "C:\\Users\\\u212Aai\\AppData\\Local\\aipm-cockpit-desktop-updater\\pending\\temp-aipm-cockpit-9.9.9-setup.exe";
+    expect("\u212A".toLowerCase()).toBe("k");
+    const mangled = path.replace("\u212A", "\uFFFD");
+    expect(await verifyUpdateSignature([SIGNER], path, answer(json(0, SUBJECT, mangled)))).toBeNull();
+    expect(await verifyUpdateSignature([SIGNER], path, answer(json(0, SUBJECT, mangled.replace("9.9.9", "6.6.6")))))
+      .toEqual(expect.any(String));
+  });
+
   it("hands the path to the runner verbatim, quotes and spaces included", async () => {
     const odd = String.raw`C:\Temp\it's "a" $(calc); 'x' & y.exe`;
     const run = answer(json(0, SUBJECT, odd));
@@ -157,6 +168,12 @@ describe("powerShellInvocation", () => {
   // Constrained Language Mode (AppLocker / WDAC) refuses property setting on non-core types, so a
   // `[Console]::OutputEncoding = …` line made PowerShell exit 1 and every update, signed or not, was
   // refused (measured). The command touches no type's static member at all.
+  // Any error must end the script with a non-zero exit code, which the check refuses; PowerShell's
+  // default ('Continue') would carry on past a non-terminating one.
+  it("stops on the first error", () => {
+    expect(SIGNATURE_COMMAND).toContain("$ErrorActionPreference = 'Stop'");
+  });
+
   it("uses no type-static member, which Constrained Language Mode would block", () => {
     expect(SIGNATURE_COMMAND).not.toMatch(/\]::/);
     expect(SIGNATURE_COMMAND).not.toMatch(/\[[A-Za-z][\w.]*\]/);

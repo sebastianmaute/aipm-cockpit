@@ -136,13 +136,15 @@ const isAscii = (s: string) => [...s].every((c) => c.charCodeAt(0) < 0x80);
  *  non-ASCII character in the path -- a profile folder named "Jürgen" -- reads back as U+FFFD and the
  *  full path can never match. For such a path only the file name is compared, and only when the
  *  file name itself is ASCII (electron-updater's `temp-<artifactName>`, always ASCII here). An
- *  all-ASCII path is compared in full. Measured on Windows PowerShell 5.1, 2026-11-06. */
+ *  all-ASCII path is compared in full. Measured on Windows PowerShell 5.1, 2026-11-06.
+ *  ASCII-ness is judged on the path as given, never on its lowercased form: the Kelvin sign K
+ *  (U+212A) lowercases to an ASCII "k", yet PowerShell still reads it back as U+FFFD. */
 function sameFile(reported: string, expected: string): boolean {
+  const original = win32.normalize(expected);
   const a = win32.normalize(reported).toLowerCase();
-  const b = win32.normalize(expected).toLowerCase();
-  if (isAscii(b)) return a === b;
-  const name = win32.basename(b);
-  return isAscii(name) && win32.basename(a) === name;
+  if (isAscii(original)) return a === original.toLowerCase();
+  const name = win32.basename(original);
+  return isAscii(name) && win32.basename(a) === name.toLowerCase();
 }
 
 function judge(publisherNames: string[], installerPath: string, r: PowerShellResult): string | null {
