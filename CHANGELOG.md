@@ -198,6 +198,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Long task and Gantt lists size their visible window by the scroll area without its border or scrollbar.**
+  The list virtualiser (`@tanstack/react-virtual`, now 3.14.24) measures the visible viewport that way, and the
+  first windowed render now does the same, so it no longer starts from a slightly larger box.
 - **Built-in dictation and voice commands check for an organisation's people-protection lock each time they start
   (§789).** The browser's own speech recognition never asked the server, so a tab opened before an organisation
   forced people protection kept listening, and the browser could keep sending speech to its vendor. Each start now
