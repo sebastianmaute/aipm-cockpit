@@ -232,8 +232,8 @@ Only when you set them up yourself:
 - Microsoft 365, through Microsoft Graph and the Microsoft sign-in service, after you sign in with your Microsoft account. Sign out in Settings > Integrations to stop all of these:
   - SharePoint as project storage, if you choose it: your projects are read from and saved to the SharePoint document library you pick. Choose local storage in Settings > Storage to stop.
   - SharePoint documents you browse to or attach by link.
-  - Your Outlook calendar and contacts, read when you import absences, meetings or people, and the events the app put in your calendar, read back to pick up changes.
-  - Calendar events the app creates, updates and removes in your Outlook calendar for the milestones, meetings and tasks you choose to push there.
+  - Your Outlook calendar and contacts, read when you import absences, meetings or people; and, when you turn on syncing, the events the app put in your calendar, read back to pick up changes.
+  - Calendar events the app creates, updates and removes in your Outlook calendar, when you turn on syncing, for the milestones, meetings and tasks you choose to sync. A change read back from Outlook can be written back too: when you keep the app's date over it, the app updates the event to that date.
   - E-mail in your name: a draft saved in your mailbox, or a message sent from it, only when you ask for it (status updates and other messages, meeting reports, the digest).
 - Jira and Confluence, for the Jira projects you sync and the Confluence pages you import. Remove the Jira token in Settings > Integrations to stop.
 - Timelog, for your time bookings. Remove the Timelog token in Settings > Integrations to stop.
