@@ -9,7 +9,7 @@ import { addPublisherName, PUBLISHER } from "./release-update-feed.mjs";
 const BUILD_FEED = "owner: sebastianmaute\nrepo: aipm-cockpit\nprovider: github\nupdaterCacheDirName: aipm-cockpit-desktop-updater\n";
 
 describe("publisherNamesFromFeed", () => {
-  // The feed the sign job writes, read with the js-yaml electron-updater reads it with.
+  // The feed the repackage job writes, read with the js-yaml electron-updater reads it with.
   it("reads the list release-update-feed.mjs writes, in either line ending", () => {
     expect(publisherNamesFromFeed(addPublisherName(BUILD_FEED).text)).toEqual([PUBLISHER]);
     expect(publisherNamesFromFeed(addPublisherName(BUILD_FEED.replace(/\n/g, "\r\n")).text)).toEqual([PUBLISHER]);

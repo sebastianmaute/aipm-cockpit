@@ -250,22 +250,31 @@ go direct. That older release also ignores the `ai` value of
    refuses it.
 3. The `release` workflow (`.github/workflows/release.yml`) runs `guard` →
    `build` (Windows, ~20-30 min — installs dependencies, builds the app and the
-   installer, uploads it as a workflow artifact) → `sign` → `publish`. `sign` runs
-   in the `release` environment, which pauses for the owner's approval — the
-   only one per release: when `build` finishes, open the run's Actions page →
-   "Review deployments" → approve `release`. With the repository variable
-   `SIGNPATH_ENABLED` unset, `sign` only checks and passes the build's files on.
-   Set to `true` (after the one-time setup below), it has SignPath sign the
-   installer, which waits for SignPath's own approval of the request (up to an
-   hour each), writes the updater's `publisherName` into the app so the signed
-   build refuses unsigned updates, and checks the installer with the very
-   signature check an installed copy runs on an update. The
+   installer, uploads it as a workflow artifact) → `sign-app` → `repackage` →
+   `sign-installer` → `finalize` → `publish`. `sign-app` runs in the `release`
+   environment, which pauses for the owner's approval — the only one per
+   release: when `build` finishes, open the run's Actions page → "Review
+   deployments" → approve `release`. Nothing after it starts before that
+   approval, and no later job asks again (`sign-installer` reads its copy of
+   the token from the reviewer-free `release-signing` environment — see the
+   one-time setup below for why). With the repository variable
+   `SIGNPATH_ENABLED` unset, `repackage` and `sign-installer` are skipped and
+   `finalize` only checks and passes the build's files on. Set to `true`
+   (after the one-time setup below), SignPath signs the installer (and, with
+   `SIGNPATH_SIGN_APP_EXE`, the app's own executables first), each request
+   waiting for SignPath's own approval (up to an hour each); `repackage` writes
+   the updater's `publisherName` into the app so the signed build refuses
+   unsigned updates, and `finalize` checks the final installer with the very
+   signature check an installed copy runs on an update. The two jobs that can
+   read the SignPath token run no build code at all (`scripts/ci-workflow.test.mjs`
+   fails any that does). The
    release notes then carry the signed text with SignPath's attribution in
-   place of the unsigned notice: the job's `signed` output is `true` only when
+   place of the unsigned notice: `finalize`'s `signed` output is `true` only when
    that check passed, and `publish` passes it to `release:publish`.
-   `sign` refuses an unsigned installer once a signed release has shipped
+   `finalize` refuses an unsigned installer once a signed release has shipped
    (`release-signing-guard`, exit 1; exit 2 = could not decide, also a failure —
-   re-run the job), so after the first signed release signing cannot be
+   re-run the job; if it can never decide again, see "The one-way guard
+   cannot decide" below), so after the first signed release signing cannot be
    switched off again. Details in `docs/AGENTS/ci.md`'s `release.yml`
    section. The required reviewer exists since 2026-09-25. Also standing in
    front of it: only the owner/admin role can create, move or delete a
@@ -275,7 +284,7 @@ go direct. That older release also ignores the `ai` value of
    keeps only one PENDING run per group: pushing a third tag while one run is
    in progress and a second is queued silently cancels the queued one (and a
    run paused waiting for approval occupies that same slot). A cancelled run just needs a re-run of its tag's workflow.
-4. `publish` verifies the files `sign` passed on (`release:verify`), attests build
+4. `publish` verifies the files `finalize` passed on (`release:verify`), attests build
    provenance and the SBOM (both steps run only while the repository is public,
    which it is now; on a private repository they are skipped), drafts the GitHub
    Release, uploads the four files (installer, blockmap, `latest.yml` and the
@@ -302,13 +311,28 @@ this is done; the README's "Code signing policy" is the public side of it.
 - [ ] Connect GitHub to SignPath as the project's trusted build system, as
       SignPath's documentation for its GitHub integration describes, so that
       signing requests are accepted only from this repository's workflow
-      runs and their artifacts. The `sign` job's submit action relies on it.
+      runs and their artifacts. The `sign-app` and `sign-installer` jobs'
+      submit action relies on it.
 - [ ] In SignPath, create the artifact configurations `installer` (a zip
       holding the setup exe) and `app` (a zip holding the packaged app's PE
       files; needed only with `SIGNPATH_SIGN_APP_EXE`). The slugs must be
       exactly these: `release.yml` names them.
 - [ ] Add the secret `SIGNPATH_API_TOKEN` to the `release` environment
       (Settings → Environments → `release`), not to the repository.
+- [ ] Create a second environment, `release-signing`: NO required reviewer;
+      Deployment branches and tags → "Selected branches and tags" → add the
+      tag rule `v*` (no branch rule); and add the same `SIGNPATH_API_TOKEN`
+      secret to it. Why a second copy: a required reviewer gates each job that
+      names its environment, and `sign-installer` can start only after the
+      token-free `repackage` (the build tooling must never share a job with
+      the token), so naming `release` there would ask for a second approval.
+      What keeps this copy behind your one approval is the workflow itself —
+      `sign-installer` needs `sign-app` — and the tag ruleset (only you can
+      create a `v*` tag, so only a workflow on a commit you tagged can reach
+      the environment); GitHub has no rule that ties an environment to an
+      earlier job. So treat any change that names `release-signing`, or
+      removes a `needs:` on the way to it, as a change that reads the token.
+      When you rotate the token, rotate it in both environments.
 - [ ] Add the repository variables `SIGNPATH_ORGANIZATION_ID`,
       `SIGNPATH_PROJECT_SLUG` and `SIGNPATH_SIGNING_POLICY_SLUG`. Optionally
       add `SIGNPATH_SIGN_APP_EXE` = `true` to sign the app's own executables
@@ -316,8 +340,8 @@ this is done; the README's "Code signing policy" is the public side of it.
       `SIGNPATH_ENABLED` = `true` last, and BEFORE pushing the tag of the
       first release to be signed: each job reads it when it starts, so a
       tag pushed first is released unsigned, and a change during a run
-      leaves `build` and `sign` disagreeing. They are repository variables,
-      because `build` reads `SIGNPATH_ENABLED` and runs in no environment.
+      leaves the jobs disagreeing. They are repository variables, because
+      `build`, `repackage` and `finalize` read them and run in no environment.
 - [ ] Add the `sbom` check (ci.yml's `sbom` job) to the `main` ruleset's
       required checks, or a red SBOM run blocks nothing.
 - [ ] After the first signed release: check its notes carry the SignPath
@@ -330,6 +354,34 @@ real release: that the installer compiles with its privacy page and shows it
 (any release), and the SignPath round trip, the repackaged setup and the
 signed build's update check against a real signed update (a signed release,
 and the one after it).
+
+**The one-way guard cannot decide.** `finalize`'s `release-signing-guard`
+exits 2 ("CANNOT DECIDE") when it cannot classify either installer. A one-off
+gh, network or PowerShell failure clears on a re-run. When it fails the same
+way on every run, the usual cause is that the newest published release's
+installer no longer reads as signed on the runner — its certificate was
+revoked, or the chain changed — so its status is no longer `Valid` with
+`CN=SignPath Foundation`, and not `NotSigned` either. Diagnose it with the
+same check the guard runs, on Windows:
+
+```powershell
+gh release download v<newest> --pattern '*-setup.exe' --dir $env:TEMP\guard
+Get-AuthenticodeSignature $env:TEMP\guard\aipm-cockpit-<newest>-setup.exe |
+  Format-List Status, StatusMessage, @{n='Subject';e={$_.SignerCertificate.Subject}}
+```
+
+The guard's own message names the file, the status and the signer it saw.
+Recover with a fresh signed release once SignPath has issued a new
+certificate. ★ The guard as written classifies the newest published installer
+BEFORE this one, so while that installer reads as neither it refuses every
+run, a correctly signed one included: publishing that fresh release first
+needs a deliberate change to `scripts/release-signing-guard.mjs` (for example,
+allow a release whose own installer is signed without classifying the
+previous one — the guard only ever refuses "unsigned after signed"), reviewed
+like any change to a release gate. Never delete or unpublish releases to make
+the guard see an older installer, unless the owner deliberately decides to:
+releases are immutable, deleting one strands its download links, and it
+would also let an unsigned release through by the same route.
 
 **Withdrawing a bad release.** Releases are immutable — nothing can be edited
 in place. Publish a fixed patch version at once. On the bad one, untick "Set as

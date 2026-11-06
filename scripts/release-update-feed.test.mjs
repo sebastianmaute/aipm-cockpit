@@ -1,5 +1,5 @@
 // @vitest-environment node
-// release-update-feed: the sign job gives the packed app's resources/app-update.yml the updater's
+// release-update-feed: the repackage job gives the packed app's resources/app-update.yml the updater's
 // publisherName, so a signed build's updater refuses any update it cannot verify.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -28,7 +28,7 @@ try {
 const FEED = "owner: sebastianmaute\nrepo: aipm-cockpit\nprovider: github\nupdaterCacheDirName: aipm-cockpit-desktop-updater\n";
 const crlf = (s) => s.replace(/\n/g, "\r\n");
 
-// The sign job's update-feed check, its .NET pattern taken from release.yml and run in JS (the
+// The repackage job's update-feed check, its .NET pattern taken from release.yml and run in JS (the
 // same translation ci-workflow.test.mjs pins: '' is one ', (?m) is the "m" flag).
 function feedCheck() {
   const text = RELEASE_YML.replace(/\r\n/g, "\n");
@@ -59,7 +59,7 @@ describe("addPublisherName", () => {
       expect(r.changed).toBe(true);
       expect(r.text).toBe(`${text}publisherName:${eol}  - ${PUBLISHER}${eol}`);
       expect(r.text.startsWith(text)).toBe(true);
-      // The sign job's check after the repackage accepts it.
+      // The repackage job's check after the repackage accepts it.
       expect(feedCheck().test(r.text), JSON.stringify(eol)).toBe(true);
       expect(feedCheck().test(text)).toBe(false);
     }

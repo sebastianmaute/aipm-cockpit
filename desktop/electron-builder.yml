@@ -157,8 +157,8 @@ win:
   # entry; without one it refuses the icon rather than downscaling.
   icon: ../public/app.ico
   # electron-builder itself never signs: when signing is switched on, the
-  # release workflow's `sign` job has SignPath sign the files (README "Code
-  # signing policy"), so code SIGNING stays off here. But
+  # release workflow's `sign-app` and `sign-installer` jobs have SignPath
+  # sign the files (README "Code signing policy"), so code SIGNING stays off here. But
   # `signAndEditExecutable: false` skips BOTH signing AND resource editing --
   # the step that stamps the icon above plus the VersionInfo strings into
   # the exe -- which is why every shortcut, the taskbar and the window used
@@ -181,7 +181,7 @@ win:
   #
   # An unsigned installer means SmartScreen prompts on install. Updates come
   # from GitHub Releases behind the `release.yml` owner approval (at its
-  # `sign` job), the tag ruleset, immutable releases, build-provenance
+  # `sign-app` job), the tag ruleset, immutable releases, build-provenance
   # attestations and the sha512 in latest.yml (transfer corruption only, not
   # a substitution control); a signed build also requires each update to be
   # signed by SignPath Foundation (desktop/src/update-signature.ts).

@@ -6,7 +6,7 @@
 // install anything. This one fails CLOSED: every outcome other than a readable `Valid` verdict, for
 // this very file, from a listed publisher, is a refusal string.
 //
-// The release workflow's `sign` job writes `publisherName: [SignPath Foundation]` into the packed
+// The release workflow's `repackage` job writes `publisherName: [SignPath Foundation]` into the packed
 // app's app-update.yml (scripts/release-update-feed.mjs); an unsigned build's feed has none, so
 // updater.ts leaves electron-updater's default in place there (`feedRequiresSignature`).
 //

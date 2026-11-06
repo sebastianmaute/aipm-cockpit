@@ -101,7 +101,7 @@ export const UNSIGNED_NOTICE = [
 /** SignPath Foundation's attribution, verbatim, as its terms for open-source projects ask. */
 export const SIGNPATH_LINE = "Free code signing provided by SignPath.io, certificate by SignPath Foundation";
 
-/** Replaces UNSIGNED_NOTICE when the sign job's Authenticode check passed in this run. */
+/** Replaces UNSIGNED_NOTICE when the finalize job's Authenticode check passed in this run. */
 export const SIGNED_NOTICE = [
   "---",
   "",
@@ -114,11 +114,11 @@ export const SIGNED_NOTICE = [
   SIGNPATH_LINE,
 ].join("\n");
 
-/** The sign job's `signed` output, as the publish step receives it in RELEASE_SIGNED. */
+/** The finalize job's `signed` output, as the publish step receives it in RELEASE_SIGNED. */
 export function parseSignedFlag(value) {
   if (value === "true") return true;
   if (value === "false") return false;
-  throw new Error(`RELEASE_SIGNED must be "true" or "false" (the sign job's signed output), got ${JSON.stringify(value)}`);
+  throw new Error(`RELEASE_SIGNED must be "true" or "false" (the finalize job's signed output), got ${JSON.stringify(value)}`);
 }
 
 // A line that starts a markdown block of its own: a list item, heading, quote, fence, table row,
@@ -151,7 +151,7 @@ export function unwrapMarkdown(text) {
   return out.join("\n");
 }
 
-/** `signed` must be stated: true only when the sign job checked the installer's signature. */
+/** `signed` must be stated: true only when the finalize job checked the installer's signature. */
 export function releaseNotes(changelog, version, { signed } = {}) {
   if (typeof signed !== "boolean") {
     throw new Error(`releaseNotes needs signed: true or false, got ${JSON.stringify(signed)}`);

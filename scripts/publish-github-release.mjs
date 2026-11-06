@@ -53,7 +53,7 @@ let publishAttempted = false;
 try {
   if (!dir || !tag || !tag.startsWith("v") || !repo) throw new Error("usage: publish-github-release.mjs <dir> <tag v…> with GITHUB_REPOSITORY set");
   const lib = await import("./release-publish-lib.mjs");
-  // The sign job's `signed` output (true only after its Authenticode check passed); read before
+  // The finalize job's `signed` output (true only after its Authenticode check passed); read before
   // any gh call, so a missing value stops the run with nothing created.
   const signed = lib.parseSignedFlag(process.env.RELEASE_SIGNED);
   const { readSourceFrom, SOURCE_FILE } = await import("./version-sync-lib.mjs");

@@ -40,7 +40,7 @@ const UNVERIFIED_HINT =
   "This app installs only updates signed by its publisher. Please download the new version by hand from the releases page and install it.";
 
 // Whether the packaged resources/app-update.yml names a publisherName -- the file NsisUpdater reads
-// it from (AppUpdater.js `configOnDisk`), written there by the release workflow's sign job
+// it from (AppUpdater.js `configOnDisk`), written there by the release workflow's repackage job
 // (scripts/release-update-feed.mjs). No file means no signed feed, as electron-updater itself
 // treats ENOENT; a file that exists but cannot be read counts as signed, so the stricter verifier
 // is the one installed when in doubt (it runs only if electron-updater finds a publisherName).

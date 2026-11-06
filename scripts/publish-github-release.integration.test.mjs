@@ -203,7 +203,7 @@ describe("publish-github-release.mjs against a fake gh", () => {
     expect(s.releases[0].draft).toBe(false); // the edit succeeded; only the confirming list blew up
   });
 
-  it("writes the unsigned notice when the sign job says unsigned, and the SignPath line when it says signed", () => {
+  it("writes the unsigned notice when the finalize job says unsigned, and the SignPath line when it says signed", () => {
     const off = setup();
     const r0 = off.run();
     expect(r0.status, r0.stderr).toBe(0);

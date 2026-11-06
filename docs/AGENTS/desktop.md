@@ -203,9 +203,9 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   permission therefore needs a line in the statement too.
   The page itself is seen only in a real release build.
 - The feed is the public GitHub Releases `latest.yml`. The installer is code-signed through SignPath
-  Foundation only from the first release the `sign` job signs; before that it is unsigned, and what
+  Foundation only from the first release the signing jobs sign; before that it is unsigned, and what
   stands in for signing is recorded beside `RELEASES_URL` in `lib/constants.ts` and in §487/§563. Each
-  release's notes say which (the `sign` job's `signed` output, [`ci.md`](ci.md)). The uninstaller is
+  release's notes say which (the `finalize` job's `signed` output, [`ci.md`](ci.md)). The uninstaller is
   not signed (§793). ★★ Two transition gaps, both by design of electron-updater, not of this code: a
   copy installed from an unsigned release has no `publisherName`, so it takes the first signed update
   unchecked; and an installer already downloaded into the updater's cache is installed from there
@@ -234,8 +234,8 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   (`decideOnAvailable`'s `refused` argument): a later automatic check neither offers nor downloads it again, a
   manual one shows the same box, and a newer version is offered as usual. A restart forgets it. The updater also sets
   `disableWebInstaller`, and the signature query may take `SIGNATURE_TIMEOUT_MS` (60 s, against electron-updater's
-  20 s). Only the release workflow's `sign` job writes the `publisherName`
-  ([`ci.md`](ci.md), the `sign` job), so no local or `build`-job package is a signed build. ★ Not run
+  20 s). Only the release workflow's `repackage` job writes the `publisherName`
+  ([`ci.md`](ci.md), the `repackage` job), so no local or `build`-job package is a signed build. ★ Not run
   against a real signed update yet: the unit tests fake electron-updater, and the one real-PowerShell
   test (Windows only) checks an unsigned file.
 

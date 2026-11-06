@@ -92,7 +92,7 @@ describe("release notes", () => {
       expect(() => releaseNotes(CHANGELOG, "1.14.0", opts), JSON.stringify(opts)).toThrow(/signed/);
     }
   });
-  it("reads the sign job's output: exactly 'true' or 'false', anything else refused", () => {
+  it("reads the finalize job's output: exactly 'true' or 'false', anything else refused", () => {
     expect(parseSignedFlag("true")).toBe(true);
     expect(parseSignedFlag("false")).toBe(false);
     for (const v of [undefined, "", "TRUE", " true", "1", "yes", "skipped"]) {

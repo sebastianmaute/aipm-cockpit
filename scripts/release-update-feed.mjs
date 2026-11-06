@@ -3,7 +3,7 @@
 // `publisherName: [SignPath Foundation]` to <app>/resources/app-update.yml. electron-updater's
 // NsisUpdater reads publisherName from that file and, when it is there, hands every downloaded
 // installer to verifyUpdateCodeSignature (desktop/src/update-signature.ts, which fails closed).
-// The release workflow's `sign` job runs this on the app tree it repackages: `--prepackaged`
+// The release workflow's `repackage` job runs this on the app tree it repackages: `--prepackaged`
 // writes no app-update.yml (only electron-builder's after-pack hook does, and a prepackaged run
 // skips it), so the file in the tree is the one the `build` job packed, and this is where the
 // signed build's copy gets its publisher. The `build` job's own package stays unsigned and

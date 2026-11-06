@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Rewrites a release directory's update feed over its installer: latest.yml (sha512, size, path,
 // version, releaseDate) and the installer's .blockmap. Signing changes the installer's bytes after
-// electron-builder wrote both, so the release workflow's `sign` job runs this over the signed
+// electron-builder wrote both, so the release workflow's `finalize` job runs this over the signed
 // installer; `release:verify` then checks latest.yml against those bytes.
 // The blockmap comes from electron-builder's own buildBlockMap (app-builder-lib, installed under
 // desktop/), the function its NSIS target calls, so an updater's differential download reads it

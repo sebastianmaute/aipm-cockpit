@@ -180,7 +180,9 @@ longer carries its own changelog comment.
   Before a release goes out as signed, its installer must pass the very check an installed copy runs on an update
   (Valid, and the certificate's name exactly SignPath Foundation), so a signed release can never lock its users out
   of later updates. The updater accepts only a full installer, never a web installer that would fetch the app while
-  installing.
+  installing. The signing token is only ever available to workflow jobs that run no build tools or installed
+  packages, so a compromised build dependency cannot reach it; the maintainer still approves each release once,
+  before any signing.
   The uninstaller is not signed yet (§793). The installer shows a privacy statement, also in the README: what the
   app sends, to whom, and how to switch each connection off; it sends no telemetry. The README's "Code signing
   policy" explains how to check a download and the limits while releases move to signing. Pull requests get a new
