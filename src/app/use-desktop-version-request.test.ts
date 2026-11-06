@@ -144,6 +144,5 @@ describe("useDesktopVersionRequest", () => {
   // above is the real pin (asserts `removeEventListener` was called with the
   // SAME handler reference `addEventListener` received), and it is what
   // Task 2's own mutation check (deleting the cleanup `return`) actually
-  // caught; see review-2-report.md M2 and task-2-report.md's "Fix round 1"
-  // section for the mutation re-run confirming it here.
+  // caught (re-run in fix round 1).
 });

@@ -109,7 +109,7 @@ describe("§422: a comma-bearing address cannot be torn in two by an inline edit
     expect(plan.updates.map((u) => u.field)).toEqual(["emails"]);
   });
 
-  it("refuses a changed emails STRING while the stored list holds a comma-bearing address (controller ruling)", () => {
+  it("refuses a changed emails STRING while the stored list holds a comma-bearing address", () => {
     const plan = planFor({ id: 1, firstName: "Grace", emails: "a,b@x.com, c@y.com" });
     expect(plan.updates.map((u) => u.field)).toEqual(["firstName"]);
     // ★ `detail` is built from the RAW incoming value (`str(input[f])`), never

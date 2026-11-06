@@ -19,7 +19,7 @@
 // found vitest's CJS interop synthesizes `autoUpdater` as a named export too (its doc comment has the
 // measurement and the reasoning). Resolving named-first, default-fallback is correct either way; the
 // genuine end-to-end proof that PRODUCTION Electron resolves the real singleton through THIS function
-// is the packaged-app launch in task-6-report.md's fix-round-2 section, not a vitest run.
+// is the packaged-app launch made in fix round 2, not a vitest run.
 //
 // Pure and Electron-free so it is unit-testable on its own (electron-updater-loader.test.ts uses
 // plain mock shapes, never the real package).

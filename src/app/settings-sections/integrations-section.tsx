@@ -1250,7 +1250,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               {/* ★★ §548 — Apply exists ONLY on Turso storage, the one kind where committing the
                   credentials rebuilds the backend (see `tursoIsLive`). Hidden when NEITHER field is
                   editable: there is nothing to draft.
-                  ★★★ §337 (token half, controller ruling) — THE TOKEN HALF OF THIS GUARD RIDES
+                  ★★★ §337 (token half) — THE TOKEN HALF OF THIS GUARD RIDES
                   `hideTokenField`, NOT `envTursoTokenSet`. A present-but-REJECTED env token makes
                   `hideTokenField` false (the token input reappears, see above), and a visible,
                   editable field with no way to commit it would defeat the whole point of showing it.

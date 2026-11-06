@@ -65,7 +65,7 @@ function shiftDate(iso: string, n: number, unit: PlanGranularity, roll: boolean)
   // stay on the SAME boundary of the target month and are never weekend-rolled
   // — rolling a bucket's 1st-of-month startDate off the 1st desyncs it from
   // `bucketActivePeriods`, which compares against a period's `start`, always
-  // the 1st (controller ruling, budget-report.ts §bucketActivePeriods).
+  // the 1st (budget-report.ts §bucketActivePeriods).
   if (roll && isFirstOfMonth(iso)) return monthBoundary(iso, n, false);
   if (roll && isLastOfMonth(iso)) return monthBoundary(iso, n, true);
   const moved = addMonths(iso, n);

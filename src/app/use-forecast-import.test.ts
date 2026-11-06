@@ -1025,7 +1025,7 @@ describe("useForecastImport — Claude's mapping waits for the user's press", ()
   });
 });
 
-// Round 2 (controller ruling on concern 1): a metadata row over a long sheet's
+// Round 2: a metadata row over a long sheet's
 // Monat | Stunden | Ist reads as a wide header; its rows' own Monat column now
 // makes that reading ask.
 describe("useForecastImport — a wide reading whose rows hold their own period column waits (round 2)", () => {

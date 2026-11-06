@@ -16,7 +16,7 @@ const ERROR_MAX = 300;
 
 export type UpdateTrigger = "startup" | "manual";
 // The updater has exactly two long-running operations that can fail: asking the feed whether an
-// update exists, and pulling the installer bytes down. Fix round 1 (review R11): a download failure
+// update exists, and pulling the installer bytes down. Fix round 1: a download failure
 // was reported using whatever `trigger` the CHECK started with, so a startup-triggered download (the
 // user clicked "Download and install" after a silent startup prompt) failed in total silence. The
 // phase, not the trigger, decides whether a download error is shown -- see decideOnError.
@@ -46,7 +46,7 @@ export const INVALID_SIGNATURE_CODE = "ERR_UPDATER_INVALID_SIGNATURE";
 // What a new check request should do given what the updater is already doing. Replaces the old
 // `shouldStartCheck(inFlight: boolean): boolean`, which only ever dropped a redundant request with a
 // log line -- silently, even for a MANUAL request, which is the request a user is actively waiting on
-// (fix round 1, review R11 Important 3 and Minor 1).
+// (fix round 1).
 export interface UpdaterActivity {
   checking: boolean;
   downloading: boolean;
@@ -136,7 +136,7 @@ function clip(s: string, max: number): string {
   let end = max - 1; // room for the trailing ellipsis
   // Don't cut a surrogate pair in half: back off one more code unit when the character just before
   // the cut is a high surrogate, or the pair's low half would be dropped and a lone high surrogate
-  // would be left dangling at the end of the clipped string (fix round 1, review R11 Minor 3).
+  // would be left dangling at the end of the clipped string (fix round 1).
   if (end > 0 && isHighSurrogate(s.charCodeAt(end - 1))) end -= 1;
   return `${s.slice(0, end)}…`;
 }
@@ -153,7 +153,7 @@ export function notesToPlainText(notes: unknown, max = NOTES_MAX): string {
     raw
       // Drop <script>/<style> blocks WITH their contents -- the generic tag-strip below only removes
       // the TAGS, which would otherwise leave a script body's text (e.g. `alert(1)`) sitting in the
-      // "plain text" output (fix round 1, review R11 Minor 3).
+      // "plain text" output (fix round 1).
       .replace(/<script[\s\S]*?<\/script>/gi, "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
       .replace(/<\/(p|li|h[1-6]|div)>|<br\s*\/?>/gi, "\n")
@@ -166,7 +166,7 @@ export function notesToPlainText(notes: unknown, max = NOTES_MAX): string {
     // &amp; decodes LAST, after every other named/numeric entity: a source string genuinely meaning
     // the literal text "&lt;" is escaped upstream as "&amp;lt;", and decoding &amp; first would turn
     // that into "&lt;" in time to be caught by the &lt; replace above and double-decoded into "<"
-    // (fix round 1, review R11 Minor 3).
+    // (fix round 1).
     .replace(/&amp;/g, "&")
     .split("\n").map((l) => l.trim()).join("\n")
     .replace(/\n{3,}/g, "\n\n")

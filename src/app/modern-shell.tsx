@@ -24,7 +24,7 @@ interface ModernShellProps {
    *  longer owns a `versionOpen` boolean or renders its own
    *  `<VersionInfoModal>` — it used to, and a desktop Help → Version request
    *  arriving while that one was already open stacked a second live modal on
-   *  top of it (review-2-report.md M3). Optional so existing render tests
+   *  top of it. Optional so existing render tests
    *  that omit it keep working; the sidebar version line is then a harmless
    *  no-op click rather than a crash. */
   onOpenVersion?: () => void;

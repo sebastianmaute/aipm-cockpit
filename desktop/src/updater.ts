@@ -71,7 +71,7 @@ function packagedFeedRequiresSignature(): boolean {
 }
 
 // Every check request the app is skipping because an operator asked it to, in one place -- e2e:desktop
-// sets this so a smoke run never meets a modal update dialog (fix round 1, review R11 Minor 5). Logged
+// sets this so a smoke run never meets a modal update dialog (fix round 1). Logged
 // so a real deployment with it accidentally set is diagnosable rather than silently update-less.
 function checksDisabled(): boolean {
   return process.env.AIPM_DISABLE_UPDATE_CHECK === "1";
@@ -89,7 +89,7 @@ export const DRY_RUN_WIRED_LINE = "updater: electron-updater loaded and wired (d
 
 // A no-op Updater whose manual check reports why it cannot check, with the same releases-page
 // fallback the real error dialog offers. Used both when checks are disabled and when
-// electron-updater itself fails to load (fix round 1, review R11 Important 1c).
+// electron-updater itself fails to load (fix round 1).
 function unavailableUpdater(deps: { log(line: string): void; window(): BrowserWindow | null }, message: string): Updater {
   const box = (opts: MessageBoxOptions): Promise<number> => {
     const w = deps.window();
@@ -122,8 +122,7 @@ function wireUpdater(
   };
 
   // Three independent bits of "what is the updater doing right now", read by decideCheckRequest so a
-  // request arriving mid-operation is never just dropped with a log line (fix round 1, review R11
-  // Important 3, Minor 1):
+  // request arriving mid-operation is never just dropped with a log line (fix round 1):
   //  - checking:    a checkForUpdates() call is outstanding.
   //  - downloading: a downloadUpdate() call is outstanding.
   //  - prompting:   one of THIS updater's own dialogs is on screen (wrapped into `box` below, so
@@ -159,8 +158,8 @@ function wireUpdater(
     info: (m: unknown) => deps.log(`updater: ${String(m)}`),
     // `warn`/`error` CAN carry an Error whose `.message` embeds a multi-line diagnostic dump --
     // electron-updater's own `HttpError` bakes response headers (including `set-cookie`) directly
-    // into `.message` (see summarizeError's doc comment in update-policy.ts, and task-6-report.md's
-    // fix-round-2 evidence, which is a real capture of exactly this). `summarizeError` keeps only the
+    // into `.message` (see summarizeError's doc comment in update-policy.ts; fix round 2
+    // captured exactly this from a real 404). `summarizeError` keeps only the
     // first line, bounded, so launch.log never gets a raw header/cookie dump this way (fix round 3).
     warn: (m: unknown) => deps.log(`updater warn: ${summarizeError(m)}`),
     error: (m: unknown) => deps.log(`updater error: ${summarizeError(m)}`),
@@ -326,8 +325,7 @@ function wireUpdater(
       // ★ quitAndInstall calls this.install() SYNCHRONOUSLY first (BaseUpdater.js), which spawns the
       // NSIS installer immediately -- the installer is already RUNNING by the time quitAndInstall
       // schedules app.quit() on its own setImmediate. before-quit (killServer) and the window's own
-      // close handling therefore run AFTER the installer has started, not before it (fix round 1,
-      // review R11 Minor 2 -- the earlier comment here, and the spec's "the app's normal quit path,
+      // close handling therefore run AFTER the installer has started, not before it (fix round 1 -- the earlier comment here, and the spec's "the app's normal quit path,
       // so unsaved-work protection runs first", both had the order backwards; the spec correction is
       // routed through Task 9, not edited here). isSilent=true reuses the existing per-user install
       // directory.

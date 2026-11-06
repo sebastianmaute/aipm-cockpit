@@ -260,7 +260,7 @@ async function launchPackagedApp(extraArgs: readonly string[] = []): Promise<Lau
     // AIPM_UPDATER_DRY_RUN=1 (§741): this exe is a real packaged build, so main.ts's startup check
     // would otherwise fire ~10s in and can pop a native "Update available"/"up to date" dialog no
     // assertion here expects -- a MODAL dialog on a real OS window, which nothing in this spec closes
-    // (fix round 1, review R11 Minor 5). The dry run still LOADS and WIRES the real electron-updater and
+    // (fix round 1). The dry run still LOADS and WIRES the real electron-updater and
     // only skips the checks; AIPM_DISABLE_UPDATE_CHECK, used until §741, returned before the load, so a
     // broken updater shipped green. LOCALAPPDATA moves the launch log into this run's profile, where
     // `launchLog` reads it, instead of the developer's real log folder.

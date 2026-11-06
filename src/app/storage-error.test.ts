@@ -28,7 +28,7 @@ describe("tursoErrorKind", () => {
     expect(tursoErrorKind(new StorageNotReadyError("turso-env-token-rejected"))).toBe("auth-env");
   });
 
-  // I2 (fix round 1, controller ruling) — attribution rides the HINT alone,
+  // I2 (fix round 1) — attribution rides the HINT alone,
   // never the global `isEnvTokenRejected()` flag. A flag left set by an
   // earlier, unrelated incident must not relabel THIS rejection as "auth-env"
   // just because it happens to still be up.

@@ -176,7 +176,7 @@ export async function runTursoPipeline(
   // §337 — a success using the env token proves the deployment is fixed, so a
   // stale rejection flag (and the Settings-wins-over-env precedence it grants)
   // does not outlive the incident that set it.
-  // ★ Minor 5 (controller ruling): this ONLY fires when `config.authToken` IS
+  // ★ Minor 5: this ONLY fires when `config.authToken` IS
   // the env token — and while the flag is set AND a non-empty Settings token
   // exists, `getTursoConfig`'s `preferSettings` sends the SETTINGS token on
   // every call, never the env one. So a stale, still-populated Settings token

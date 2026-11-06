@@ -61,7 +61,7 @@ let updater: Updater | null = null;
 // error dialog claiming the background service had stopped unexpectedly.
 let quitting = false;
 
-// ★★★ N-I1 FIX (review-3-fix1-report.md). Facts latched ONCE per child
+// ★★★ N-I1 FIX. Facts latched ONCE per child
 // webContents, at the moment `did-create-window` fires on the OPENER --
 // "emitted _after_ successful creation of a window via window.open"
 // (electron.d.ts, the doc comment on `did-create-window`) -- never re-read
@@ -81,7 +81,7 @@ interface WindowFacts {
   // `setWindowOpenHandler` already decided on (HandlerDetails.url), so this
   // can only be true for a window this app's own policy already allowed.
   createdAsBlankPopup: boolean;
-  // ★★★ m3 FIX (review-3-fix2-report.md). PLAIN VALUES latched once --
+  // ★★★ m3 FIX. PLAIN VALUES latched once --
   // `processId`+`frameToken`, never a `WebFrameMain` OBJECT captured by
   // reference (round 2's approach). electron.d.ts documents no object-
   // identity guarantee across separate reads of the same frame; it does
@@ -235,7 +235,7 @@ function fileMenuClick(id: FileMenuItemId): () => void {
 // whichever window is FOCUSED, which is correct for File → Print (the user
 // wants to print what they are looking at) but not for Version: a focused
 // window that is not a TaskManager page at all -- the PDF/export popup, or
-// (M-2, final-review-report.md: an "external-link window" no longer exists
+// (M-2: an "external-link window" no longer exists
 // at HEAD; the one remaining case is the MSAL sign-in popup, see I-1 below
 // at the show-version case) -- has no listener, and before this fix the
 // event was dispatched into the void with nothing logged and nothing shown.
@@ -338,7 +338,7 @@ function helpMenuClick(id: HelpMenuItemId): () => void {
           return;
         }
         const script = versionRequestScript(join(logDir, "launch.log"), true);
-        // ★★★ I-1 FIX (final-review-report.md). NEVER `executeJavaScript`
+        // ★★★ I-1 FIX. NEVER `executeJavaScript`
         // into a page this shell does not own. `pickPrintTarget` can pick
         // the MSAL sign-in popup -- once the flow is under way it can be on
         // ANY https host (`decideNavigation`) -- and running app script
@@ -636,7 +636,7 @@ if (!app.requestSingleInstanceLock()) {
   // to unwrap.
   //
   // ★ Scoped to the app's OWN origin (`isAppPage`, window-open-policy.ts) so
-  // this never touches the PDF/export popup or (M-2, final-review-report.md:
+  // this never touches the PDF/export popup or (M-2:
   // an "external-link window" no longer exists at HEAD -- the Releases link,
   // GitHub and LinkedIn all now leave via `shell.openExternal` and never
   // render in-app at all) the MSAL sign-in popup, which DOES have listeners
@@ -666,7 +666,7 @@ if (!app.requestSingleInstanceLock()) {
       // this file installs no `uncaughtException` handler, so an uncaught one
       // here has the same blast radius as it would from a menu click.
       //
-      // ★★★ M-6 FIX (final-review-report.md). This used to be
+      // ★★★ M-6 FIX. This used to be
       // `new URL(contents.getURL()).origin !== APP_ORIGIN` inline, which
       // THROWS on an unparsable URL rather than denying -- and
       // `contents.getURL()` on the PDF/export tab (`window.open("",
@@ -727,7 +727,7 @@ if (!app.requestSingleInstanceLock()) {
             return isPdfExportFrame(details.frameName)
               ? { action: "allow", overrideBrowserWindowOptions: { show: false } }
               : { action: "allow" };
-          // ★★ ONE OF FOUR shell.openExternal CALL SITES (M-1, final-review-report.md
+          // ★★ ONE OF FOUR shell.openExternal CALL SITES (M-1
           // -- this comment used to say "the only" one, which stopped being true once
           // the navigation guards below could reach it too): this case, the
           // `will-navigate`/`will-redirect` `open-external` branches (lib/auth-flow-tracker.ts,

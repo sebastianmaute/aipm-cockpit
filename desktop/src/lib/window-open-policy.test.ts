@@ -95,7 +95,7 @@ describe("decideWindowOpen", () => {
     expect(decideWindowOpen("not a url", APP_ORIGIN)).toBe("deny");
   });
 
-  // ★ Coverage gaps review-3-report.md M-2 called out. All probed against
+  // ★ Coverage gaps a review (M-2) called out. All probed against
   // Node's real URL parser before being pinned here.
   it("treats a different hostname on the app's own port as external, not same-origin", () => {
     expect(decideWindowOpen("http://localhost:17300", APP_ORIGIN)).toBe("open-external");
@@ -165,7 +165,7 @@ describe("originOnly", () => {
 });
 
 describe("isAppPage", () => {
-  // I-1 (final-review-report.md): the table the brief asks for, adapted to
+  // I-1: the table the brief asks for, adapted to
   // the real APP_ORIGIN shape (`http://127.0.0.1:17300`).
   it.each<[string, string, boolean]>([
     ["an app URL with a path and query string", `${APP_ORIGIN}/?popout=raid`, true],

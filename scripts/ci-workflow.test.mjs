@@ -1129,7 +1129,7 @@ describe("release.yml", () => {
     expect(b).toMatch(/@img\/sharp-\*/);
   });
 
-  // Fix round 1 (review R11 Important 1b): a static import of ./updater in main.ts means a missing
+  // Fix round 1: a static import of ./updater in main.ts means a missing
   // electron-updater in the packaged app.asar breaks every installed copy at startup, not just the
   // updater feature -- so this is a POSITIVE control (asar list's real output, grepped), not a prose
   // claim about desktop/electron-builder.yml's `files:`.

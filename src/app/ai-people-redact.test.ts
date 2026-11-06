@@ -11,7 +11,7 @@ let keySeq = 0;
 const fresh = (d: PeopleDictionary) => redactionSessionFor([`test-${++keySeq}`], [d]);
 
 describe("name matching", () => {
-  // ★ Rule (controller ruling R-a): a FULL known name is always redacted. A single
+  // ★ Rule: a FULL known name is always redacted. A single
   // name token (first OR last) is redacted only when it is at least 3 characters,
   // belongs to exactly ONE known person, and is not in the small stop list of
   // common words (Mark, May, Will, Ann, …). So "Mark" alone is left alone even
@@ -331,7 +331,7 @@ describe("pattern kinds (redacted even when not in the dictionary)", () => {
     expect(s.redact("extension 5550101 or 555-0101")).toBe("extension [phone 1] or [phone 1]");
   });
 
-  // ★ Rule (controller ruling R-b): an UNKNOWN phone needs a leading "+" or "0",
+  // ★ Rule: an UNKNOWN phone needs a leading "+" or "0",
   // at least 7 digits, and only space - . ( ) / as separators.
   it("phone-shaped: these ARE phones", () => {
     for (const p of ["+49 30 1234567", "030-1234567", "+14155552671", "0049 30 1234567", "(030) 123 4567", "0171/1234567"]) {

@@ -472,7 +472,7 @@ describe("§337 — a rejected env token lets Settings override it", () => {
   });
 });
 
-// ★★★ §337 (controller ruling) — Apply must be available whenever the token
+// ★★★ §337 — Apply must be available whenever the token
 // field is, or a visible, editable field with no way to commit it defeats the
 // whole point of showing it. `tursoIsLive` (storageConfig.kind === "turso") is
 // required for the Apply button to exist at all — off Turso storage every

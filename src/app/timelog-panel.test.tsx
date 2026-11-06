@@ -714,7 +714,7 @@ describe("TimelogPanel", () => {
     });
   });
 
-  // Fix round 1 (task-3-report.md): the task-3 review found `isMisconfigured`
+  // Fix round 1: the review found `isMisconfigured`
   // and the proxy `creds` reading raw `settings.timelog` directly, never the
   // env-aware `effectiveTimelogConfig` — so `NEXT_PUBLIC_TIMELOG_TENANT` had
   // NO production effect at all. These pin the READ-time resolution through

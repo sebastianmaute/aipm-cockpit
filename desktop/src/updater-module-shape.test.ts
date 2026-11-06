@@ -27,7 +27,7 @@ const desktopDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 // export FIRST rather than assuming either shape (electron-updater-loader.test.ts covers both
 // branches with plain mocks, so it is correct under either interop). The genuine end-to-end proof that
 // PRODUCTION Electron actually resolves and wires up the real `autoUpdater` lives outside vitest
-// entirely: see task-6-report.md's fix-round-2 section for the packaged-app launch + log evidence.
+// entirely: the packaged-app launch and its log evidence come from fix round 2.
 //
 // ★★ CHECKED VIA `in` / getOwnPropertyDescriptor, NEVER BY READING THE VALUE, for the half this file
 // CAN still assert. `autoUpdater` is a dynamic getter

@@ -70,7 +70,7 @@ async function mount() {
   // `PanelSkeleton` in place of the whole tree, so the WorkspaceSection mock
   // cannot mount until the load has settled, and `findByTestId` above already
   // implies the load landed. Before the hold this test raced it in 3 of 13
-  // local runs (M-4, final-review-report.md).
+  // local runs (M-4).
   // ★ This wait is kept as a second, independent pin on the same fact.
   // `storage.loaded` is the product's own diag-log marker for "the load effect
   // applied a workspace" (`logDiag` in the load effect, written into

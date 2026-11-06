@@ -200,7 +200,7 @@ function rowPeriodColumns(rows: Rows, mapping: ColumnMapping, ctx: Ctx): number[
 
 /**
  * ★★★ A wide reading whose data rows hold a period column of their own asks
- * for the PERIOD (fix 8, controller ruling): the period may be the header's
+ * for the PERIOD (fix 8): the period may be the header's
  * columns or that column. A metadata row (`Erstellt | 01.01. | 15.01. |
  * 20.01.`) over a long sheet's `Name | Monat | Stunden | Ist` reads as a clear
  * wide header once enough person rows sit under it, and the Claude route then

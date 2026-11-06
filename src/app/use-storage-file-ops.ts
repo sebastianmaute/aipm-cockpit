@@ -601,7 +601,7 @@ export function useStorageFilePickerOps(deps: StorageFilePickerDeps) {
       //   recorded (R11) and an unforced save would fail closed; the user's pick IS the intent to
       //   overwrite that file. A file-system failure (`StorageNotReadyError`, or the `DOMException`
       //   a rejecting getFile()/text() raises) is NOT that intent: the pick is ABORTED before the bind
-      //   (§4 controller ruling) — the file may be locked by another program, and we cannot know what it holds.
+      //   (§4) — the file may be locked by another program, and we cannot know what it holds.
       if (err instanceof StorageNotReadyError || (typeof DOMException !== "undefined" && err instanceof DOMException)) return { unreadable: err };
       return "unparseable";
     }

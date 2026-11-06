@@ -71,7 +71,7 @@ function rev(lastModified: number, text: string): string {
  * Extends the `writableFakeHandle` pattern from local-file-backend.test.ts
  * with a revision that actually changes on every real write — `lastModified`
  * via a monotonic COUNTER, never `Date.now()`, so two writes inside the same
- * millisecond still produce distinct revisions (controller ruling), and
+ * millisecond still produce distinct revisions, and
  * `size` as the live `text.length` (R10 change 7's second component).
  *
  * `externalWrite` simulates a FOREIGN process (another program, or — for the
@@ -444,7 +444,7 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
     });
   });
 
-  // §4 fix round 3 (controller ruling R11) — a parse failure must not become
+  // §4 fix round 3 — a parse failure must not become
   // the save baseline.
   describe("a parse failure does not become the save baseline (R11)", () => {
     it("leaves revision() unchanged when the BOUND handle's content fails to parse", async () => {

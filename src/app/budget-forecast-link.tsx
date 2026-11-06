@@ -45,7 +45,7 @@ export function forecastLinkText(f: BudgetForecast, lang: Lang, currency: Budget
 /** Budget view link line (§6.4): the text above, plus a `TextButton` to the
  *  Budget report. The arrow is decorative (`aria-hidden`) and sits OUTSIDE the
  *  button, so the button's accessible name stays the visible "Budget Report"
- *  text alone (controller ruling 2). */
+ *  text alone. */
 export function BudgetForecastLink({
   lang, forecast, currency, onOpen,
 }: { lang: Lang; forecast: BudgetForecast; currency: BudgetCurrency; onOpen: () => void }) {

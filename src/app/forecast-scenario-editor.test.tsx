@@ -404,7 +404,7 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(first.isConnected).toBe(false);
   });
 
-  // Re-review R1: the summary was rebuilt from live state, so fixing a field rewrote the alert in place and the
+  // The summary was rebuilt from live state, so fixing a field rewrote the alert in place and the
   // screen reader re-read it mid-typing. It is now frozen at Save and replaced only by the next Save.
   it("edits after a refused Save leave the alert text alone; the next Save replaces it", async () => {
     const { user } = renderEditor();

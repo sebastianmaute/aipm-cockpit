@@ -91,7 +91,7 @@ describe("Version modal — one owner (fix round 1, M3)", () => {
     expect(screen.getAllByRole("dialog", { name: "Version" })).toHaveLength(1);
 
     // Help → Version from the native menu bar stays clickable while a modal
-    // is open (review-2-report.md M3's reproduction). With one root-owned
+    // is open. With one root-owned
     // modal this can only re-open the SAME instance, never stack a second.
     act(() => {
       window.dispatchEvent(

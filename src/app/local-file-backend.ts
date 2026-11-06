@@ -482,7 +482,7 @@ export class LocalFileBackend implements StorageBackend {
       const file = await handle.getFile();
       const text = await file.text();
       const revision = fileRevision(file);
-      // §645 fix round 3 (controller ruling R11) — recording the pre-read and
+      // §645 fix round 3 — recording the pre-read and
       // adopting the revision happens ONLY after the content has actually
       // parsed successfully (called right before each successful return
       // below, never before a throw). A half-written or corrupt file that

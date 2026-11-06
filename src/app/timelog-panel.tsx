@@ -88,8 +88,8 @@ export function TimelogPanel({
   const cfg = settings.timelog ?? defaultTimelogConfig;
   // The config actually USED to build requests / judge configuration — a
   // blank stored tenant falls back to the NEXT_PUBLIC_TIMELOG_TENANT build
-  // variable at READ time, never written back to `settings` (fix round 1,
-  // task-3-report.md: the raw `cfg` above never reached the env at all, so
+  // variable at READ time, never written back to `settings` (fix round 1:
+  // the raw `cfg` above never reached the env at all, so
   // the build variable had no production effect). Writers below (
   // `onTokenInvalid`/`onTokenValid`) intentionally keep reading/writing the
   // RAW `s.timelog`/`cfg`, not this — persisting the resolved value would

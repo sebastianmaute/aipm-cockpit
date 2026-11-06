@@ -34,7 +34,7 @@ export const APP_ORIGIN = `http://${APP_HOST}:${APP_PORT}`;
 // owner/admin role can create, move or delete a `refs/tags/v*`), the
 // `release.yml` `guard` job (tag must equal APP_VERSION, commit reachable
 // from `main`) and immutable releases. Nothing here substitutes for code
-// signing (fix round 1, review R11 Minor 4). See the spec's auto-update
+// signing (fix round 1). See the spec's auto-update
 // section and register §487/§563.
 export const RELEASES_URL =
   "https://github.com/sebastianmaute/aipm-cockpit/releases";

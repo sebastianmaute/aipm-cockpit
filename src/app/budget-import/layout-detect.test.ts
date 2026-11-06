@@ -638,7 +638,7 @@ describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
   });
 });
 
-// Fix 8 round 2 (controller ruling): a WIDE reading whose data rows carry a
+// Fix 8 round 2: a WIDE reading whose data rows carry a
 // period column of their own (a `Start` date, a long sheet's `Monat` under a
 // metadata row read as the header) is not settled: the period may be the
 // header's columns or that column. Detection asks, on both routes.

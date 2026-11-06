@@ -13,7 +13,7 @@ import { CANNOT_RUN_PREFIX, verifyUpdateSignature } from "./update-signature";
 // electron-updater with EXACTLY the shape the real package has under Electron's own runtime (no
 // named `autoUpdater`, only `.default.autoUpdater` -- see electron-updater-loader.ts's doc comment
 // and updater-module-shape.test.ts for the measurement) so this test fails the moment the call site
-// stops going through the resolver. Proven RED/GREEN: task-6-report.md's fix-round-3 section records
+// stops going through the resolver. Proven RED/GREEN in fix round 3 by
 // reverting the call site to `mod.autoUpdater` directly (RED) and restoring it (GREEN).
 const fakeAutoUpdater = vi.hoisted(() => ({
   autoDownload: true,
