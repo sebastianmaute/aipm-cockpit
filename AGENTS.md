@@ -447,7 +447,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
      A test with a synchronous fake setter cannot see this, and a real `useState` after a prior commit does not by
      itself force the deferral either (the first update in a handler often still runs eagerly), so a passing test does
      not prove the code survives a deferred updater. The robust fix is `flushSync`, or not reading the updater's result
-     at all. It cost two rounds of fixes.
+     at all.
   4. **Shared SSRF core, per-route normalize.** A new external-API proxy REUSES `api/_shared/proxy-ssrf.ts`
      for the IP-classification + host-allowlist checks and hand-rolls only its route-specific
      normalize/auth/URL. Do NOT parameterize the divergent guard chains into one `createProxyHelpers`

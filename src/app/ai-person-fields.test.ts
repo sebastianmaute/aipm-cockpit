@@ -37,7 +37,7 @@ function paths(s: Schema | undefined, prefix = ""): string[] {
 const PERSON_LIKE = /assignee|owner|requested|decision|attendee|sponsor|manager|stakeholder|email|^to[A-Z]|invitation|who/i;
 const NOT_A_PERSON: Readonly<Record<string, string>> = {
   "update_project:stakeholderCount": "a number, not a person",
-  "set_filters:assignee": "a view filter, not a record write (fix round 1)",
+  "set_filters:assignee": "a view filter, not a record write",
   "create_forecast_scenario:changes[].who": "its placeholder half names nobody; the person half is `who.resourceId`",
   "update_forecast_scenario:changes[].who": "its placeholder half names nobody; the person half is `who.resourceId`",
 };
