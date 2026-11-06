@@ -251,9 +251,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   two demand opposite responses. Releases run from `.github/workflows/release.yml` on a push of a
   `v*` tag (`guard` → `build` → `sign-app` → `repackage` → `sign-installer` → `finalize` →
   `publish`; `sign-app` pauses for the owner's one approval, a required-reviewer rule on the
-  `release` environment since flip step 10a). ★★ No job that can read the SignPath token may run
-  npm, npx, node or any unlisted action — `tokenJobViolations` in `scripts/ci-workflow.test.mjs`
-  fails it — see the "Releasing"
+  `release` environment since flip step 10a). ★★ A job that can read the SignPath token may run
+  only an allowlisted action or an `echo` — `tokenJobViolations` in `scripts/ci-workflow.test.mjs`
+  fails anything else — see the "Releasing"
   bullet below and
   [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md)'s `release.yml` section. The GitLab pipeline file
   (`.gitlab-ci.yml`) is gone; the GitLab project is a READ-ONLY mirror synced daily by

@@ -109,33 +109,42 @@ const releaseStep = (job, name) => {
 };
 const releaseStepIndex = (job, name) => releaseSteps(job).indexOf(releaseStep(job, name));
 // A job that can read a secret: it names an environment (whose secrets its steps can be handed) or
-// references one. The SignPath token must never share a job with build code, so such a job may use
-// only these pinned actions and run no package manager, node, or build tool at all. No checkout
-// either: a token job has no reason to have the repository's files on disk.
-const TOKEN_JOB_ACTIONS = /^(?:actions\/(?:setup-node|upload-artifact|download-artifact)|signpath\/github-action-submit-signing-request)@[0-9a-f]{40}$/;
-// What a run: line may not contain in a token job: a package manager or runtime, an installed
-// package's binary, or a script file handed to a shell (bash/sh <file>, pwsh/powershell -File).
-// `bash -c "…"` is inline text, and the patterns above still apply to it.
-const BUILD_CODE = [
-  /\b(?:npm|npx|pnpm|yarn|node|bun|deno|electron-builder)\b/,
-  /node_modules[\\/]\.bin[\\/]/,
-  /(?:^|[\s;&|(`])(?:bash|sh)(?:\.exe)?[ \t]+(?!-c\b)\S/m,
-  /\b(?:pwsh|powershell)(?:\.exe)?\b[^\n]*[ \t]-f(?:ile)?\b/i,
-];
-// The shells GitHub provides; anything else (`node {0}`, `python {0}`, a custom template) runs the
-// step's text through another program.
-const BUILT_IN_SHELLS = new Set(["bash", "pwsh", "cmd", "powershell"]);
+// mentions the secrets context in any form (`secrets.X`, `secrets['X']`, `toJSON(secrets)`). The
+// SignPath token must never share a job with build code, so such a job is held to an ALLOWLIST:
+// every step is either a `uses:` of one of the two actions the token jobs use today (SHA-pinned;
+// any SHA, so a Dependabot bump still passes) or a `run:` that only prints. No checkout either: a
+// token job has no reason to have the repository's files on disk.
+const TOKEN_JOB_ACTIONS = /^(?:actions\/upload-artifact|signpath\/github-action-submit-signing-request)@[0-9a-f]{40}$/;
+// The one shape a token job's run: line may take: echo / Write-Output / Write-Host and plain words.
+// No pipe, chaining, redirection, subshell, backtick, backslash or parenthesis, so nothing else can
+// be started; `$` only as `$NAME`, the shape the real step uses (`$GITHUB_REF_NAME`), so neither a
+// `$(…)` substitution nor a `${{ … }}` expression can be spliced into the script. Blank lines and
+// `#` comment lines are skipped. A script file run any other way (`pwsh x.ps1`, `. ./x.ps1`,
+// `./x.sh`, `python x.py`) is not an echo, so there is nothing to enumerate.
+const ECHO_ONLY_LINE = /^(?:echo|Write-Output|Write-Host)(?:[ \t](?:[^|;&<>`$()\\]|\$[A-Za-z_][A-Za-z0-9_]*)*)?$/;
+// The shells a token job's run: step may use: the runner's default (no `shell:` at all) or `bash`,
+// which the real step names. Under either, an ECHO_ONLY_LINE only prints; anything else
+// (`node {0}`, `python {0}`, `bash -e {0}`, cmd, a custom template) is a violation.
+const TOKEN_JOB_SHELLS = new Set([undefined, "bash"]);
 const tokenJobs = (doc) => Object.entries(doc.jobs)
-  .filter(([, j]) => j.environment !== undefined || /\bsecrets\./.test(JSON.stringify(j))).map(([id]) => id);
-const tokenJobViolations = (doc) => tokenJobs(doc).flatMap((id) => (doc.jobs[id].steps ?? []).flatMap((s, i) => {
+  .filter(([, j]) => j.environment !== undefined || /\bsecrets\b/.test(JSON.stringify(j))).map(([id]) => id);
+const tokenJobViolations = (doc) => tokenJobs(doc).flatMap((id) => {
+  const j = doc.jobs[id];
+  // A reusable-workflow call or a container runs code that is not in this job's steps at all.
+  const jobLevel = ["uses", "container", "services"].filter((k) => j[k] !== undefined).map((k) => `${id}: job ${k}`);
+  return [...jobLevel, ...(j.steps ?? []).flatMap((s, i) => tokenStepViolations(doc, id, s, i))];
+});
+const tokenStepViolations = (doc, id, s, i) => {
   const label = `${id}: ${s.name ?? s.uses ?? `step ${i + 1}`}`;
   const out = [];
   if (s.uses !== undefined && !TOKEN_JOB_ACTIONS.test(s.uses)) out.push(`${label}: uses ${s.uses}`);
-  if (s.run !== undefined && BUILD_CODE.some((re) => re.test(s.run))) out.push(`${label}: runs ${s.run.trim().split("\n")[0]}`);
+  if (s.run === undefined) return out;
+  const bad = String(s.run).split(/\r?\n/).map((l) => l.trim()).find((l) => l !== "" && !l.startsWith("#") && !ECHO_ONLY_LINE.test(l));
+  if (bad !== undefined) out.push(`${label}: runs ${bad}`);
   const shell = s.shell ?? doc.jobs[id].defaults?.run?.shell ?? doc.defaults?.run?.shell;
-  if (s.run !== undefined && shell !== undefined && !BUILT_IN_SHELLS.has(shell)) out.push(`${label}: shell ${shell}`);
+  if (!TOKEN_JOB_SHELLS.has(shell)) out.push(`${label}: shell ${shell}`);
   return out;
-}));
+};
 const REQUIRED = requiredChecksFromDoc(read("docs/AGENTS/ci.md"));
 const lock = JSON.parse(read("package-lock.json"));
 const pkg = JSON.parse(read("package.json"));
@@ -608,50 +617,82 @@ describe("release.yml", () => {
   // script: the actions a job uses sit in its writable work folder, so build code running there
   // (electron-builder, its dependency tree, the binaries it downloads, js-yaml) could rewrite the
   // SignPath action's files and capture the token.
-  it("no job that can read the SignPath token runs npm, npx, node or any action outside the allowlist", () => {
+  it("every step of a job that can read the SignPath token is an allowed action or an echo", () => {
     expect(tokenJobViolations(parsedRelease())).toEqual([]);
-    // Positive control: the two token jobs are found as token jobs.
+    // Positive control: the two token jobs are found as token jobs, and the run: step they hold is
+    // really checked (it is the `$NAME` shape ECHO_ONLY_LINE admits).
     expect(tokenJobs(parsedRelease())).toEqual(["sign-app", "sign-installer"]);
+    const runs = ["sign-app", "sign-installer"].flatMap((id) => releaseSteps(id).filter((s) => s.run !== undefined).map((s) => s.run.trim()));
+    expect(runs).toEqual(['echo "release approved for $GITHUB_REF_NAME"']);
   });
 
-  it("tokenJobViolations flags build code and unlisted actions in a token job, and nothing in a token-free one", () => {
+  describe("tokenJobViolations (an allowlist)", () => {
     const pinned = (a) => `${a}@${SHA}`;
-    const doc = {
-      jobs: {
-        clean: { environment: "release", steps: [
-          { run: "echo ok" }, { shell: "bash", run: "bash -c 'echo ok'" }, { shell: "pwsh", run: "Write-Output ok" },
-          { shell: "cmd", run: "echo ok" }, { shell: "powershell", run: "pwsh -NoProfile -Command \"Get-Date -Format o\"" },
-          { uses: pinned("signpath/github-action-submit-signing-request"), with: { "api-token": "${{ secrets.T }}" } }, { uses: pinned("actions/upload-artifact") },
-        ] },
-        npm: { environment: { name: "x" }, steps: [{ run: "npm --prefix desktop ci --ignore-scripts" }, { run: "npx foo" }, { run: "npm run desktop:package" }] },
-        script: { steps: [{ name: "s", env: { T: "${{ secrets.T }}" }, run: "node scripts/x.mjs" }] },
-        action: { environment: "release", steps: [{ uses: pinned("some/electron-builder-action") }, { uses: "actions/checkout@v5" }] },
-        checkout: { environment: "release", steps: [{ name: "co", uses: pinned("actions/checkout") }] },
-        bin: { environment: "release", steps: [{ name: "b1", run: "./node_modules/.bin/tool --x" }, { name: "b2", run: "node_modules\\.bin\\tool.cmd" }] },
-        shfile: { environment: "release", steps: [{ name: "f1", run: "bash scripts/sign.sh" }, { name: "f2", run: "set -e; sh ./x.sh" }, { name: "f3", run: "bash -e x.sh" }] },
-        psfile: { environment: "release", steps: [{ name: "p1", run: "pwsh -NoProfile -File scripts/x.ps1" }, { name: "p2", run: "powershell.exe -file x.ps1" }, { name: "p3", run: "pwsh -f x.ps1" }] },
-        shell: { environment: "release", steps: [{ name: "n", shell: "node {0}", run: "console.log(1)" }, { name: "t", shell: "bash -e {0}", run: "echo ok" }] },
-        defaults: { environment: "release", defaults: { run: { shell: "python {0}" } }, steps: [{ name: "d", run: "print(1)" }] },
+    const tok = (steps, extra = {}) => ({ environment: "release", ...extra, steps });
+    const violations = (job, wf = {}) => tokenJobViolations({ ...wf, jobs: { j: job } });
+
+    it("passes allowed actions and print-only run: steps under the default shell or bash", () => {
+      expect(violations(tok([
+        { run: "echo ok" }, { shell: "bash", run: 'echo "release approved for $GITHUB_REF_NAME"' },
+        { run: "Write-Output ok" }, { run: "Write-Host 'done'" }, { run: "echo" },
+        { run: "# a note\n\necho a\r\n  echo b\n" },
+        { uses: pinned("signpath/github-action-submit-signing-request"), with: { "api-token": "${{ secrets.T }}" } },
+        { uses: pinned("actions/upload-artifact") },
+      ]))).toEqual([]);
+    });
+
+    // Every line here starts something other than an echo; a denylist had to name each one.
+    const RUN_BYPASSES = [
+      // Slipped past the old denylist.
+      "pwsh scripts/x.ps1", "pwsh -fi x.ps1", "& ./x.ps1", ". ./x.ps1", "./x.sh", "source x.sh", "python x.py",
+      // The old denylist's own cases.
+      "npm --prefix desktop ci --ignore-scripts", "npx foo", "npm run desktop:package", "node scripts/x.mjs",
+      "./node_modules/.bin/tool --x", "node_modules\.bin\tool.cmd", "bash scripts/sign.sh", "set -e; sh ./x.sh",
+      "bash -e x.sh", "pwsh -NoProfile -File scripts/x.ps1", "powershell.exe -file x.ps1", "pwsh -f x.ps1",
+      "bash -c 'echo ok'", "pwsh -NoProfile -Command \"Get-Date -Format o\"",
+      // An echo that starts something else too.
+      "echo $(npm ci)", "echo `npm ci`", "echo ok; npm ci", "echo ok && npm ci", "echo ok | sh", "echo x > a.sh",
+      "echo ${{ github.event.head_commit.message }}", "echo ${GITHUB_REF_NAME}", "Write-Output (Invoke-Expression x)",
+      "echo ok\\", "echox", "Echo-Thing x", "npm ci # a trailing comment does not make the line one",
+    ];
+    it.each(RUN_BYPASSES)("flags the run: line %s", (line) => {
+      expect(violations(tok([{ name: "s", run: line }]))).toEqual([`j: s: runs ${line}`]);
+    });
+
+    it("flags the first non-echo line of a multi-line run:, after any number of echo lines", () => {
+      expect(violations(tok([{ name: "m", run: "echo a\n# c\nnpm ci\necho b" }]))).toEqual(["j: m: runs npm ci"]);
+    });
+
+    it("flags any shell but the default and bash, from the step, the job or the workflow", () => {
+      for (const shell of ["pwsh", "powershell", "cmd", "node {0}", "python {0}", "bash -e {0}"]) {
+        expect(violations(tok([{ name: "s", shell, run: "echo ok" }])), shell).toEqual([`j: s: shell ${shell}`]);
+      }
+      expect(violations(tok([{ name: "d", run: "echo ok" }], { defaults: { run: { shell: "python {0}" } } }))).toEqual(["j: d: shell python {0}"]);
+      expect(violations(tok([{ name: "w", run: "echo ok" }]), { defaults: { run: { shell: "node {0}" } } })).toEqual(["j: w: shell node {0}"]);
+    });
+
+    it("flags any action outside the two the token jobs use, pinned or not, checkout included", () => {
+      const bad = [pinned("actions/checkout"), pinned("actions/setup-node"), pinned("actions/download-artifact"),
+        pinned("some/electron-builder-action"), "actions/upload-artifact@v5", "./.github/actions/local", "docker://alpine:3"];
+      expect(violations(tok(bad.map((uses) => ({ uses }))))).toEqual(bad.map((u) => `j: ${u}: uses ${u}`));
+    });
+
+    it("flags a token job that calls a reusable workflow or runs in a container", () => {
+      expect(violations({ environment: "release", uses: "./.github/workflows/build.yml", secrets: "inherit" })).toEqual(["j: job uses"]);
+      expect(violations(tok([{ run: "echo ok" }], { container: "node:22", services: { db: { image: "x" } } }))).toEqual(["j: job container", "j: job services"]);
+    });
+
+    it("treats a job as a token job by its environment or any use of the secrets context, and leaves others alone", () => {
+      const doc = { jobs: {
+        env: { environment: { name: "x" }, steps: [] },
+        dot: { steps: [{ env: { T: "${{ secrets.T }}" }, run: "echo" }] },
+        bracket: { steps: [{ env: { T: "${{ secrets['SIGNPATH_API_TOKEN'] }}" }, run: "echo" }] },
+        whole: { steps: [{ env: { ALL: "${{ toJSON(secrets) }}" }, run: "echo" }] },
         free: { steps: [{ run: "npm ci" }, { uses: pinned("some/other") }, { uses: pinned("actions/checkout") }, { shell: "node {0}", run: "x" }] },
-      },
-    };
-    expect(tokenJobs(doc)).toEqual(["clean", "npm", "script", "action", "checkout", "bin", "shfile", "psfile", "shell", "defaults"]);
-    const v = tokenJobViolations(doc);
-    const of = (id) => v.filter((x) => x.startsWith(`${id}:`));
-    expect(of("clean")).toEqual([]);
-    expect(of("npm")).toHaveLength(3);
-    expect(of("script")).toEqual(["script: s: runs node scripts/x.mjs"]);
-    expect(of("action")).toHaveLength(2);
-    expect(of("checkout")).toEqual([`checkout: co: uses ${pinned("actions/checkout")}`]);
-    expect(of("bin").map((x) => x.split(":")[1].trim())).toEqual(["b1", "b2"]);
-    expect(of("shfile").map((x) => x.split(":")[1].trim())).toEqual(["f1", "f2", "f3"]);
-    expect(of("psfile").map((x) => x.split(":")[1].trim())).toEqual(["p1", "p2", "p3"]);
-    expect(of("shell")).toEqual(["shell: n: shell node {0}", "shell: t: shell bash -e {0}"]);
-    expect(of("defaults")).toEqual(["defaults: d: shell python {0}"]);
-    // A workflow-level default reaches every token job's steps too.
-    const wf = tokenJobViolations({ defaults: { run: { shell: "node {0}" } }, jobs: { j: { environment: "release", steps: [{ name: "w", run: "x" }] } } });
-    expect(wf).toEqual(["j: w: shell node {0}"]);
-    expect(of("free")).toEqual([]);
+      } };
+      expect(tokenJobs(doc)).toEqual(["env", "dot", "bracket", "whole"]);
+      expect(tokenJobViolations(doc)).toEqual([]);
+    });
   });
 
   // GitHub ties a secret to an environment, not to a job: any job, in any workflow, that names
