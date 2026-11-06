@@ -106,11 +106,12 @@ export function decideOnError(trigger: UpdateTrigger, phase: UpdatePhase, err: u
 }
 
 // One readable line, bounded, from whatever an error-ish value actually is -- never the raw thing.
-// Fix round 3: electron-updater's own `HttpError` (builder-util-runtime's httpExecutor.js
-// `createHttpError`) builds its `.message` as `"{status} {statusText}\n{description}\nHeaders:
-// {...}"`, and that headers dump includes response `set-cookie` values verbatim (measured against a
-// real 404 from a private GitHub repo's releases feed -- see task-6-report.md's fix-round-2 evidence,
-// which is exactly the multi-line dump this function now trims away). The FIRST LINE is always the
+// electron-updater's own `HttpError` (builder-util-runtime's httpExecutor.js `createHttpError`)
+// builds its `.message` as `"{status} {statusText}\n{description}\nHeaders: {...}"`, and that
+// headers dump includes response `set-cookie` values verbatim. Observed against a real 404 from a
+// private GitHub repository's releases feed: the message ran over several lines -- the "404" status
+// line, then the description, then a `Headers:` block whose `set-cookie` entries carried the cookie
+// values in full -- which is exactly the dump this function trims away. The FIRST LINE is always the
 // short, human status summary; everything after it is diagnostic detail nobody asked to see in a
 // dialog or a log line, and in electron-updater's own case sometimes third-party response headers.
 // Used both for `decideOnError`'s dialog-facing message and by updater.ts's raw logger.warn/error
