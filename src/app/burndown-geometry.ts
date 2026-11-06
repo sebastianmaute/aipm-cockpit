@@ -6,7 +6,7 @@
  * forecast's own figures. `frameDiffers` tells the surface to say so when the
  * chart's totals and the forecast's BAC/AC disagree (fixed price, bucket window).
  *
- * Overdue projects (Decision — spec silent): a forecast segment always
+ * Overdue projects (spec silent): a forecast segment always
  * runs from the last actual point to `planEnd`. Once the project has slipped
  * past its own plan end — `last.date >= planEnd` — that span is zero or
  * negative, so a real (non-zero) ETC would draw backward or straight down/up

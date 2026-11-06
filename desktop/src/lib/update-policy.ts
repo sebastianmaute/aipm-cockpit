@@ -51,7 +51,7 @@ export interface UpdaterActivity {
   checking: boolean;
   downloading: boolean;
   // Whether one of the updater's OWN dialogs (available/ready/error/up-to-date/busy) is on screen
-  // right now. Deliberately not scoped to just the "Update available" prompt Minor 1 named -- any of
+  // right now. Deliberately not scoped to just the "Update available" prompt -- any of
   // updater.ts's dialogs being open makes a second one redundant for the same reason.
   prompting: boolean;
 }

@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 const desktopDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// Partial regression guard for fix round 2, Critical 1. See electron-updater-loader.ts's doc comment
+// Partial regression guard: resolving `autoUpdater` from the dynamic import must not be mislabelled a load failure. See electron-updater-loader.ts's doc comment
 // for the full story: a dynamic `import("electron-updater")` exposes `autoUpdater` on `.default`, not
 // as a named export, under plain Node/Electron.
 //
@@ -47,7 +47,7 @@ describe("electron-updater's export shape under a dynamic import", () => {
     expect("autoUpdater" in (def as object)).toBe(true);
   });
 
-  // Fix round 3, C1(d).2: the assertion above runs INSIDE vitest's own module loader, which the test
+  // Fix round 3: the assertion above runs INSIDE vitest's own module loader, which the test
   // above it already found disagrees with plain Node/Electron on the "named export" half. This pins
   // the FULL claim -- both halves -- in a genuinely separate, freshly-spawned `node` process that
   // never goes through Vite/vitest's module graph at all, so it is the one test in this repo that can

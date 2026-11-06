@@ -14,7 +14,7 @@ import { RATE_MIX_DRIVER_MIN_DIFFERENCE, type RateMix } from "./budget-rate-mix"
 import type { BudgetForecast } from "./budget-forecast";
 import type { BudgetCurrency } from "./types";
 
-// Decision: the "used of budget" cell reads "539 of 600 h (90%)"
+// The "used of budget" cell reads "539 of 600 h (90%)"
 // (spec §4.4) — a plain locale-formatted number for the actual hours, not
 // `formatHours`'s " h"-suffixed form, so the unit appears once per cell.
 function plainNumber(n: number, locale: string): string {

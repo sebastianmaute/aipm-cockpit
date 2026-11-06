@@ -252,7 +252,7 @@ export interface NavigationDecision {
 // federated IdP, both go through `will-navigate`/`will-redirect`, which is
 // what this function decides.
 //
-// ★★★ N-I1 FIX. Round 1 gated entry on
+// ★★★ Entry-gate FIX. Round 1 gated entry on
 // `isChildWindow` alone (`opener !== null`), which is true for EVERY window
 // this app opens -- including its own `?popout=` windows (`broadcast-
 // sync.ts`) and the PDF/export `about:blank` tabs (`export.ts`,

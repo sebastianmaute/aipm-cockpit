@@ -61,7 +61,7 @@ let updater: Updater | null = null;
 // error dialog claiming the background service had stopped unexpectedly.
 let quitting = false;
 
-// ★★★ N-I1 FIX. Facts latched ONCE per child
+// ★★★ Entry-gate FIX. Facts latched ONCE per child
 // webContents, at the moment `did-create-window` fires on the OPENER --
 // "emitted _after_ successful creation of a window via window.open"
 // (electron.d.ts, the doc comment on `did-create-window`) -- never re-read
@@ -756,7 +756,7 @@ if (!app.requestSingleInstanceLock()) {
       log(`window-open handler install: ${String(e)}`);
     }
 
-    // ★★★ N-I1 FIX: LATCHES `windowFacts` FOR EVERY CHILD THIS `contents`
+    // ★★★ Entry-gate FIX: LATCHES `windowFacts` FOR EVERY CHILD THIS `contents`
     // CREATES, the moment Electron confirms creation -- "Emitted _after_
     // successful creation of a window via window.open" (electron.d.ts's
     // `did-create-window` doc). `details.url` is the SAME resolved URL

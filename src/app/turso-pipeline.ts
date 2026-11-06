@@ -140,7 +140,7 @@ export async function runTursoPipeline(
   if (res.status === 401 || res.status === 403) {
     // §337 — a DISTINCT hint, not just the flag, so the classifier attributes
     // THIS rejection by what was actually rejected, never by a flag some
-    // earlier, unrelated call may have left set. Decision: blaming
+    // earlier, unrelated call may have left set. Blaming
     // the env token via the global flag alone mislabelled a rejected
     // Settings-typed token as "auth-env" whenever the flag happened to
     // already be set. The flag is still recorded here (so the field/Apply

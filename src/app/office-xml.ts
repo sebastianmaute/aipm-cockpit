@@ -78,7 +78,7 @@ export function unescapeXml(input: string): string {
  * shape), so `\b` there is faithful porting, not a second instance of this
  * bug — extractRuns's original shape was the one exception.
  *
- * ★★★ M-3 (final-release-review.md): a THIRD regression, same shape again,
+ * ★★★ M-3: a THIRD regression, same shape again,
  * found in the pre-release review. The lookahead above used to be
  * `(?=[\s/>])` — admitting a bare "/" right after the tag name whether or
  * not it was actually followed by ">". `<a:t/a:r><a:r><a:t>t2</a:t>` (only

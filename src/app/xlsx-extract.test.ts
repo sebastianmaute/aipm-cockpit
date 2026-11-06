@@ -370,7 +370,7 @@ describe("extractXlsx", () => {
   });
 
   it("resolves a sheet name containing '>' to the right rels target (M-7)", () => {
-    // final-release-review.md M-7: forEachOpenTag hands the visitor the
+    // M-7: forEachOpenTag hands the visitor the
     // <sheet ...> tag text only up to the first ">", so a name containing
     // one — legal XML; only "<", "&" and the quote character itself must be
     // escaped in an AttValue — truncated the tag before r:id was ever read

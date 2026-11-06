@@ -345,7 +345,7 @@ const GRACEFUL_QUIT_BUDGET_MS = 20_000;
 // Resolves `true` once `child` has actually exited, `false` once `budgetMs`
 // passes without that. A `taskkill` call RETURNING is not the process
 // exiting -- see the note above waitForPortRelease(). `signalCode !== null`
-// counts as exited too (N-8, final-rereview.md): a POSIX child that exited on
+// counts as exited too (N-8): a POSIX child that exited on
 // a signal before this call has `exitCode === null` with `signalCode` set, so
 // checking `exitCode` alone would wait out the whole budget on a process that
 // has already exited and then throw a misleading force-kill error. Windows,

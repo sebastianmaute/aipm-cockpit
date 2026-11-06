@@ -4,8 +4,7 @@ import { utilityProcess, type UtilityProcess } from "electron";
 import { APP_HOST, APP_PORT } from "./lib/constants";
 
 // Environment variables that can make the forked server child LOAD OR EXECUTE
-// CODE it never chose to run, or ATTACH A DEBUGGER to it (M-6,
-// final-release-review.md). The RunAsNode / Node-inspect / NODE_OPTIONS
+// CODE it never chose to run, or ATTACH A DEBUGGER to it (M-6). The RunAsNode / Node-inspect / NODE_OPTIONS
 // fuses (electron-builder.yml, §561) are proven to cover the shipped exe
 // ITSELF -- they stop `AI PM Cockpit.exe` being used as a Node interpreter or
 // debugger target -- but nothing verified they also govern a
@@ -29,7 +28,7 @@ import { APP_HOST, APP_PORT } from "./lib/constants";
 //    practice, but it is a documented code-load vector and costs nothing to
 //    scrub as belt-and-braces.
 //
-// Probed, not assumed (M-6, final-release-review.md; see
+// Probed, not assumed (M-6; see
 // docs/open-followups.md §561): launched the PACKAGED exe with
 // NODE_OPTIONS=--require <marker-writing script> set in its OWN environment,
 // let the utility-process server start, quit it gracefully, and checked

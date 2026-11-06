@@ -285,8 +285,8 @@ describe("role and team values in person fields (review 2, D)", () => {
   });
 });
 
-// Coordinator question (2026-10-31): a person known ONLY through a one-word lowercase stored name must be redacted
-// wherever the name appears, through the real dictionary builder and the redactor. a one-word entry the
+// Question (2026-10-31): a person known ONLY through a one-word lowercase stored name must be redacted
+// wherever the name appears, through the real dictionary builder and the redactor. A one-word entry the
 // dictionary spells NOT capitalised has no capitalised form to tell a common word apart by, so it matches in any case;
 // a capitalised entry stays case-gated, so its lowercase spelling in free text is left in clear.
 describe("one-word stored names and the case gate", () => {
@@ -313,7 +313,7 @@ describe("one-word stored names and the case gate", () => {
   });
 });
 
-// Coordinator follow-up after #923: the AWAY lines (§773) put an absence's assignee into the AI context. A person known
+// Follow-up after #923: the AWAY lines (§773) put an absence's assignee into the AI context. A person known
 // ONLY as the lowercase "dorrin" through an absence must not reach the AI in clear in any of them, nor anywhere else in
 // those contexts. Each context is built by its real builder; the redaction is the transport's (`redactJsonBody` over a
 // Messages body) with the session `aiPrivacyFor` builds (`buildPeopleDictionary` of the project).

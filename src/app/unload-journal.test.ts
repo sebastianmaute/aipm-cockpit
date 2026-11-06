@@ -170,7 +170,7 @@ describe("writeUnloadJournal / readUnloadJournal", () => {
     );
   });
 
-  // malformed (parses, but a field OTHER than `v` is missing/mistyped)
+  // Malformed (parses, but a field OTHER than `v` is missing/mistyped)
   // is removed+logged, same as unparseable — distinct from a well-formed
   // wrong-version record below, which is left alone.
   it("a parseable but malformed value (missing a required field) reads as null, removes the key, logs a diagnostic", () => {
@@ -190,7 +190,7 @@ describe("writeUnloadJournal / readUnloadJournal", () => {
     );
   });
 
-  // a well-formed record whose `v` this build doesn't recognise
+  // A well-formed record whose `v` this build doesn't recognise
   // (e.g. a future v2) reads as null but is left in storage untouched —
   // it isn't this build's to delete, and no diagnostic fires for it.
   it("a well-formed but wrong-version value reads as null and is LEFT IN STORAGE, with no diagnostic", () => {

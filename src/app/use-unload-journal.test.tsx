@@ -4,7 +4,7 @@
 //
 // Two layers:
 //   1. `useStorageBackend` with a fake backend whose save promise the test
-//      settles by hand — (a) to (g) from the task.
+//      settles by hand — (a) to (g).
 //   2. `useUnloadJournal` on its own — the popout guard (unreachable through the
 //      storage hook, whose save effect returns for a popout before `doSave`
 //      exists) and the ordering rulings.

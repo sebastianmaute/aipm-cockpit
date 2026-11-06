@@ -155,7 +155,7 @@ describe("shiftWorkspaceDates", () => {
     expect(shiftWorkspaceDates(ws, 2).budgets![0].allocations[0].budgetHours).toEqual({ "2027-W01": 4 });
   });
 
-  // Decision / probe: before the month-boundary exemption above,
+  // Probe: before the month-boundary exemption above,
   // rolling a bucket's weekend 1st-of-month `startDate` off the 1st desynced
   // it from `bucketActivePeriods` (budget-report.ts), which keeps only periods
   // whose `start` (always the 1st) falls within [bucket.startDate,

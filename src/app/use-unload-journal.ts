@@ -74,7 +74,7 @@ function nextSavedAt(): number {
   return lastSavedAt;
 }
 
-/** re-writes an APPLIED journal under this page's tab id, its savedAt kept, so the
+/** Re-writes an APPLIED journal under this page's tab id, its savedAt kept, so the
  *  confirmation of its save-back (a later savedAt from this tab) clears it through the guard in
  *  `clearUnloadJournal`; left under the earlier page's id it would never clear. Lifts the savedAt
  *  counter to it as well, so that save-back is later even if the earlier page's clock ran ahead. */

@@ -10,7 +10,7 @@
 // because `loadPause` is published only for an instance whose OWN load failed or was refused — a
 // superseded reload is neither.
 //
-// This file proves the precondition explicitly (a precondition the task description did not state): `second`'s gate must be OPEN, demonstrated by an actual save landing on
+// This file proves the precondition explicitly: `second`'s gate must be OPEN, demonstrated by an actual save landing on
 // it, BEFORE the stale reload is allowed to resolve and (on today's code) close it again.
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

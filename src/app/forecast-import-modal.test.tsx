@@ -528,7 +528,7 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(applyButton()).toBeEnabled();
   });
 
-  // the layout control's Wide → Long round-trip once cleared the
+  // The layout control's Wide → Long round-trip once cleared the
   // notice and enabled Apply on the questioned preselection.
   it("keeps the notice and the disabled Apply through a Wide → Long round-trip", async () => {
     const user = userEvent.setup();
@@ -608,7 +608,7 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(within(screen.getByRole("region", { name: t(L, "forecastImportChanges") })).getByText("— → 40")).toBeInTheDocument();
   });
 
-  // the Wide layout has no hours select to choose from.
+  // The Wide layout has no hours select to choose from.
   it("asks to check the mapping, not to choose a column, in the Wide layout", async () => {
     const user = userEvent.setup();
     render(<ForecastImportModal {...propsOf()} />);
@@ -816,9 +816,9 @@ describe("ForecastImportModal — a person on two lines of the bucket (final rev
   });
 });
 
-// the merged-month (I1) and past-12 (M4) questions once confirmed
+// The merged-month (I1) and past-12 (M4) questions once confirmed
 // through the generic Wide notice, which never said what the press would read.
-// one row with no person is named in the singular.
+// One row with no person is named in the singular.
 describe("ForecastImportModal — notices that say what confirming reads", () => {
   const PEOPLE = ["Ann Lee", "Bob Ray", "Cem Oz", "Dana Fox", "Eli Roe", "Fay Wu"];
   const csv = (rows: readonly (readonly string[])[]) => `${rows.map((r) => r.join(";")).join("\r\n")}\r\n`;

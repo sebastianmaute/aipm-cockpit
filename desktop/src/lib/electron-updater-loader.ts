@@ -6,8 +6,8 @@
 // a CommonJS module's NAMED exports), so `await import("electron-updater")` exposes `autoUpdater`
 // ONLY on `.default.autoUpdater`, never as a named property on the import's own namespace object.
 //
-// ★★★ MEASURED, not assumed, against the installed package under plain Node 24 (fix round 2, Critical
-// 1): `Object.keys(await import("electron-updater"))` never lists "autoUpdater"; `m.default.autoUpdater`
+// ★★★ MEASURED, not assumed, against the installed package under plain Node 24 (fix round 2):
+// `Object.keys(await import("electron-updater"))` never lists "autoUpdater"; `m.default.autoUpdater`
 // exists. The earlier code here read `mod.autoUpdater` directly -- always `undefined` under a dynamic
 // import in Electron's own runtime -- and the resulting TypeError from wiring an undefined object was
 // then caught by the SAME try/catch as the import itself and mislabelled "failed to load", silently

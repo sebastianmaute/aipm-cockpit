@@ -7,7 +7,7 @@ import { UPDATE_DURATION_HINT } from "./lib/update-window";
 import { RELEASES_URL } from "./lib/constants";
 import { CANNOT_RUN_PREFIX, verifyUpdateSignature } from "./update-signature";
 
-// ★★★ Regression test for fix round 2's Critical 1, item (d): nothing before this file exercised
+// ★★★ Regression test: nothing before this file exercised
 // `createUpdater` itself, so `pickAutoUpdater` reverting to a direct `mod.autoUpdater` read (the
 // original bug) would have shipped again with every other test in this repo still green. Mocks
 // electron-updater with EXACTLY the shape the real package has under Electron's own runtime (no
@@ -39,7 +39,7 @@ const fakeAutoUpdater = vi.hoisted(() => ({
 // module returns `undefined` SILENTLY for a missing property, but vitest's own mocked-namespace proxy
 // throws "No 'autoUpdater' export is defined on the mock" for a key that is absent entirely (measured
 // while writing this test -- the throw landed in createUpdater's LOAD try/catch and was reported as
-// "failed to load", which read exactly like the real Critical-1 bug and cost a debugging round before
+// "failed to load", which read exactly like the real bug and cost a debugging round before
 // the cause turned out to be this mock, not `pickAutoUpdater`). Declaring the key with an `undefined`
 // value sidesteps vitest's strict check while still exercising the real fallback path.
 vi.mock("electron-updater", () => ({ autoUpdater: undefined, default: { autoUpdater: fakeAutoUpdater } }));
@@ -122,8 +122,8 @@ describe("createUpdater", () => {
       debug: expect.any(Function),
     });
 
-    // Neither failure path fired -- see updater.ts's two separate try/catch blocks (fix round 2,
-    // Critical 1b): a load failure logs "failed to load", a wiring failure logs "failed to wire".
+    // Neither failure path fired -- see updater.ts's two separate try/catch blocks (fix round 2):
+    // a load failure logs "failed to load", a wiring failure logs "failed to wire".
     const lines = log.mock.calls.map((c) => String(c[0]));
     expect(lines.some((l) => l.includes("failed to load"))).toBe(false);
     expect(lines.some((l) => l.includes("failed to wire"))).toBe(false);

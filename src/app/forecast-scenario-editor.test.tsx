@@ -423,7 +423,7 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(screen.getByRole("alert")).toHaveTextContent("1 change needs attention: Change 2, Availability (%): Between 10 and 300.");
   });
 
-  // Review minor 1: a frozen summary over a draft with no errors left misled a sighted user. It
+  // A frozen summary over a draft with no errors left misled a sighted user. It
   // now goes quietly when the last error it named is fixed; a partial fix (above) leaves it.
   it("the summary goes once every error it named is fixed", async () => {
     const { user } = renderEditor();
@@ -440,7 +440,7 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  // Review minor 2: nothing pinned that a valid Save clears a refusal shown by the previous one.
+  // Nothing pinned that a valid Save clears a refusal shown by the previous one.
   it("a valid Save clears the previous refusal", async () => {
     const { onSave, user } = renderEditor({ refuse: "A project keeps at most 4 scenarios." });
     await user.type(control("Name"), "Late");

@@ -42,7 +42,7 @@ describe("forecast-format", () => {
     expect(formatDayMonthYear("2026-10-13", "en-US")).toBe("Oct 13, 2026");
     expect(formatDayMonthYear("2026-10-13", "en-GB")).toBe("13 Oct 2026");
     expect(formatDayMonth("2026-09-15", "en-US")).toBe("Sep 15");
-    // Decision: Node's ICU prints "15 Sept" for en-GB short month.
+    // Node's ICU prints "15 Sept" for en-GB short month.
     expect(formatDayMonth("2026-09-15", "en-GB")).toMatch(/^15 Sept?$/);
   });
 });

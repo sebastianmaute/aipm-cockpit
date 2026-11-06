@@ -24,7 +24,7 @@ describe("executeActionCta", () => {
     expect(d.requestOpen).toHaveBeenCalledWith("forecast", 7);
   });
 
-  // a string id (a project id) cannot be a numeric deep-link —
+  // A string id (a project id) cannot be a numeric deep-link —
   // Number("p1") is NaN and would push #projects/NaN.
   it("navigates without a deep-link when the open CTA carries a string id", () => {
     const d = deps();

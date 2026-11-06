@@ -83,7 +83,7 @@ describe("office-xml", () => {
   });
 
   it("does not treat a bare `/` mid-tag as self-closing and merge forward (M-3)", () => {
-    // final-release-review.md M-3: the old openPattern `(?=[\s/>])` admits a
+    // M-3: the old openPattern `(?=[\s/>])` admits a
     // "/" right after the tag name even when it is NOT followed by ">", so
     // `<a:t/a:r>` (malformed) matched as if it were an ordinary open tag and
     // paired with the NEXT real `</a:t>`, leaking raw markup into the

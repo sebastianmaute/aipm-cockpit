@@ -468,5 +468,5 @@ switched the integration off.
   Error rather than waiting for the blocking tab to close on its own; a late `onsuccess` after that
   reject closes the connection at once rather than resolving twice. This is the fix for the risk the
   plan carried as open ("an IndexedDB open that is BLOCKED keeps the skeleton up") — filed as a plan
-  decision, not as its own register entry.
+  note, not as its own register entry.
 

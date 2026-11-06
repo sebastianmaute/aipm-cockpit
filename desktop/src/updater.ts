@@ -127,7 +127,7 @@ function wireUpdater(
   //  - downloading: a downloadUpdate() call is outstanding.
   //  - prompting:   one of THIS updater's own dialogs is on screen (wrapped into `box` below, so
   //                 every dialog this file shows -- available/ready/error/up-to-date/busy/not-
-  //                 packaged -- sets it, not just the "Update available" prompt Minor 1 named).
+  //                 packaged -- sets it, not just the "Update available" prompt).
   let checking = false;
   let downloading = false;
   let prompting = false;
@@ -381,11 +381,11 @@ export async function createUpdater(deps: { log(line: string): void; window(): B
   // Loaded lazily (a dynamic import, not a static top-level one) so a load failure -- a missing or
   // corrupted node_modules/electron-updater in a bad package -- degrades to a logged no-op updater
   // instead of throwing while main.ts's module graph is still loading, which would take the whole app
-  // down before a single window opens (fix round 1 review, Important 1c). main.ts's own import of
+  // down before a single window opens (fix round 1). main.ts's own import of
   // THIS module (`./updater`) stays a normal static import; only the electron-updater dependency
   // inside it is deferred, and main.ts now awaits this function's result.
   //
-  // ★★★ TWO SEPARATE try/catch BLOCKS, DELIBERATELY (fix round 2 review, Critical 1). The first
+  // ★★★ TWO SEPARATE try/catch BLOCKS, DELIBERATELY (fix round 2). The first
   // covers only the LOAD -- the dynamic import plus resolving the real `autoUpdater` singleton out of
   // whatever shape it comes back as (see pickAutoUpdater's doc comment: it is NOT a named export
   // under a dynamic import, only `.default.autoUpdater`, and reading `mod.autoUpdater` directly used

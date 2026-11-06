@@ -170,13 +170,13 @@ forecast's formatter) rather than owning a formatter of its own.
   build step 2, owner): with the fixed draws per trial below, trial `t` of every run reads the same random
   numbers, so Quick, What-if and every scenario column differ only by what was changed (common random
   numbers, see "Saved scenarios"). Dropping them from the seed moved the pinned digests once, deliberately.
-- **Separate streams (R5).** `stream(name)` derives one `mulberry32` per output — `"when"`, `"howMany"`,
+- **Separate streams.** `stream(name)` derives one `mulberry32` per output — `"when"`, `"howMany"`,
   `"milestones"` — from `seedFrom([...seedParts, name])`. No figure depends on whether another ran first.
 - **Floor.** When there is real OR simulated work (`open.length > 0 || backlog > 0`, where `backlog`
   is the post-what-if amount), fewer than `MIN_FINISHED_TASKS` completions inside the window, or fewer
   than `MIN_HISTORY_WORKING_DAYS` window days, returns `kind: "insufficient"` carrying the shortfall
-  and `doneWithoutDate`. Only a project with NO open task AND no what-if scope added skips the floor
-  (R3): it still runs `milestoneChances`, where all-closed reads 100 %, no linked tasks reads
+  and `doneWithoutDate`. Only a project with NO open task AND no what-if scope added skips the floor:
+  it still runs `milestoneChances`, where all-closed reads 100 %, no linked tasks reads
   `no-linked-tasks`, and overdue needs an open task.
 - ★★ **Neither backlog alone decides the floor.** Reading only the post-what-if `backlog` let a scope
   of −100 % empty the simulated backlog and skip the floor while real linked tasks stayed open, so
@@ -187,15 +187,15 @@ forecast's formatter) rather than owning a formatter of its own.
   floor" in `index.test.ts`.
 - **Window.** `HistoryWindow` is 30, 60, 90 or `"all"`. Both kinds end at the latest working day on or
   before `today` and start NO EARLIER than the earliest attributed completion. `"all"` starts exactly
-  there; a fixed window is that many working days, cut at that completion when the project is younger
-  (R14). With no attributed completion at all the window is empty.
-- ★★ **Why R14 cuts a fixed window.** Days before the team's first completion are not real zero days.
+  there; a fixed window is that many working days, cut at that completion when the project is younger.
+  With no attributed completion at all the window is empty.
+- ★★ **Why the days floor cuts a fixed window.** Days before the team's first completion are not real zero days.
   Padding them in made a project with 15 working days of history at 2 tasks a day forecast 60 open tasks
   at P50 ≈ 119 working days on the default window 60, instead of 30 (pinned by "a young project is
   forecast from its own days, not padded to the window (R14)" in `index.test.ts`). The cost of the rule:
   a team that genuinely idled before its first finish gets an optimistic forecast. Because of the cut, the
   days floor (`MIN_HISTORY_WORKING_DAYS`) now bites on a fixed window too, not only on `"all"`.
-- ★ **The empty state names the cut.** `dailyThroughput` sets `cutAtFirstCompletion` when R14 shortened a
+- ★ **The empty state names the cut.** `dailyThroughput` sets `cutAtFirstCompletion` when the days floor shortened a
   fixed window (it then holds fewer than `window` days), and the `insufficient` result carries
   `windowCutAt` (the first completion's day, else `null`). The view then reads
   `forecastInsufficientDaysCut` ("… The window was shortened to start at the first completion, Oct 5,
@@ -210,12 +210,12 @@ forecast's formatter) rather than owning a formatter of its own.
 
 ## Simulation
 
-- **`SimOptions` (R1).** `{ trials, rng, capacity, horizon, integer, capacityByDay? }`. `integer: true`
+- **`SimOptions`.** `{ trials, rng, capacity, horizon, integer, capacityByDay? }`. `integer: true`
   is the tasks unit: each simulated day is stochastically rounded to whole tasks. `integer: false` is
   effort: the fraction is kept. `capacityByDay`, when set, is a multiplier per simulated working day
   (index 1..horizon, index 0 unused) that replaces `capacity`; one shorter than `horizon + 1` throws
   (pinned by "a schedule shorter than horizon + 1 throws rather than finishing trials where it runs out").
-- **`dayDrawer` (R2)** is the one place a simulated day is drawn (bootstrap sample × capacity, or × that
+- **`dayDrawer`** is the one place a simulated day is drawn (bootstrap sample × capacity, or × that
   day's `capacityByDay` multiplier, rounded when `integer`); `draw(day)` takes the 1-based day index, and
   a day makes the same rng calls whatever its multiplier, so the stream never depends on the schedule.
   `drawDay` is a one-shot wrapper over it. `simulateWhen`, `simulateHowMany` and `milestoneChances` all
@@ -249,7 +249,7 @@ forecast's formatter) rather than owning a formatter of its own.
 - **When.** Working days until the backlog is done, per trial; a trial still short after
   `MAX_HORIZON_WORKING_DAYS` is `horizon + 1` and reported as `"beyond"` (with `beyondShare`). Dates come
   from `nthWorkingDayAfter(today, days, holidaySet)`; day 0 is `today`.
-- **How many reads at 100−P (R7).** The result `amount` for P50/P80/P95 is `percentile(reached, 100 − p)`
+- **How many reads at 100−P.** The result `amount` for P50/P80/P95 is `percentile(reached, 100 − p)`
   of the sorted per-trial totals: "at least N with P % confidence", the ActionableAgile How-Many
   convention the customer cited. So P95 is the LOW end.
 - ★★ **How many is capped at the backlog.** `simulateHowMany` takes the post-what-if `backlog` (tasks or
@@ -257,7 +257,7 @@ forecast's formatter) rather than owning a formatter of its own.
   `Math.min(total, backlog)`. Uncapped, a horizon target showed P50 = 1,390 beside 100 open tasks in the pre-PR review's probe.
   Pinned by "How-many is capped at the open backlog" (`index.test.ts`) and "a trial never delivers more
   than the backlog" (`simulate.test.ts`).
-- **How-many horizon (R15).** The target is capped at `lastForecastableDay(today, holidaySet)` —
+- **How-many horizon.** The target is capped at `lastForecastableDay(today, holidaySet)` —
   `MAX_HORIZON_WORKING_DAYS` working days after `today` — before its working days are counted, so the
   cost (`trials × target days` draws, run in the panel's render-time `useMemo`) is bounded the same way
   When is. Uncapped, a year-2206 target took about 14 s in the final review's probe. The panel enforces
@@ -281,7 +281,7 @@ forecast's formatter) rather than owning a formatter of its own.
   `originalEstimateMinutes > 0`); otherwise `resultUnit` falls back to `"tasks"` silently and the toolbar
   disables the toggle. The reason is a VISIBLE muted hint beside it, which is also the radiogroup's
   `aria-describedby` (a disabled radio takes no focus, so a `title` alone reached hover only). The `>=` is boundary-pinned: exactly 70 % qualifies.
-- **One measuring stick (R6/R8).** In effort mode an UNESTIMATED open task, an unestimated what-if
+- **One measuring stick.** In effort mode an UNESTIMATED open task, an unestimated what-if
   addition AND an unestimated DONE task (via `dailyThroughput`'s optional `unestimatedSize`) all count at
   the median estimate of the estimated open tasks. `backlog` is then in minutes. This is the defensive
   fallback for the 30 % without estimates.
@@ -294,7 +294,7 @@ forecast's formatter) rather than owning a formatter of its own.
   whatever the estimates.
 - The capacity field is labelled **Availability (%)** (`forecastCapacityPercent`), the word the scenario editor's
   "Availability change" uses; the field name `capacityPercent` is unchanged.
-- ★ **Scope does not move milestone chances (R9).** What-if scope is aggregate and changes When and How
+- ★ **Scope does not move milestone chances.** What-if scope is aggregate and changes When and How
   many only; `milestoneChances` keeps the real linked tasks, because added scope cannot be attributed to a
   milestone. Capacity DOES reach all three (it scales `drawDay`). A saved scenario's scope row CAN name a
   milestone, and then it does move chances (see "Saved scenarios").
@@ -310,14 +310,14 @@ forecast's formatter) rather than owning a formatter of its own.
   milestone's date.
 - **Prioritised.** `chancePrioritised` replaces the position by the sum of just its own tasks (as if
   they were worked first).
-- **Gap (R11)** = chance if prioritised − chance, in whole percentage points (`+12 pts`), computed from
+- **Gap** = chance if prioritised − chance, in whole percentage points (`+12 pts`), computed from
   the rounded percentages (`gapOf` in `forecast-tables.tsx`).
-- **`closedIds` (R4).** A linked id is open when it is in `ordered`, closed when it is in `closedIds`,
+- **`closedIds`.** A linked id is open when it is in `ordered`, closed when it is in `closedIds`,
   otherwise dangling and ignored. All linked closed → 100 %; all dangling → `no-linked-tasks`;
   a past date with open work → `overdue`; an achieved milestone is skipped. All-closed is checked BEFORE
   the date, so an overdue milestone whose linked tasks are all closed reads 100 % (pinned by "overdue with
   every linked task closed reads 1/1, not overdue (T3b)").
-- ★★ **A milestone without a valid date is omitted (R16).** `requiredIsoDateOnLoad` repairs a date to
+- ★★ **A milestone without a valid date is omitted.** `requiredIsoDateOnLoad` repairs a date to
   `""` (and `"" < today` would read `overdue`) unless it is at least shape-valid: a `YYYY-MM-DD`
   non-calendar date in 1900–2100 such as `2026-11-31` is kept raw (`isKeptNonCalendarDate` in
   `sanitize-load-date.ts`). `milestoneChances` skips any `m.date` that fails `isValidIsoDate`, which
@@ -333,7 +333,7 @@ the engine once per input change in a `useMemo`. Quick always runs the plain for
 What-if fields hold. None of this is saved to the project. The How-many target, stored or defaulted, is
 clamped into [`today`, `lastForecastableDay`] on every render by `clampHowManyTarget`, so a passing
 midnight or a far plan end re-clamps it. The date input carries the same `min` and `max` and refuses a
-date outside them with `forecastInputInvalid` (R15). Typing or arrow-stepping the date edits a draft in
+date outside them with `forecastInputInvalid`. Typing or arrow-stepping the date edits a draft in
 `PercentileTable`; blur or Enter commits it, so the forecast reruns once per accepted date. A draft
 remembers the target it began from, and a render-time reconcile drops it when the committed target
 changes underneath (a new plan end, a midnight re-clamp). While a draft is pending a muted hint,
@@ -342,15 +342,15 @@ calendar waits too) and is added to the input's `aria-describedby`; its line is 
 appears without moving the table. Pinned by "the How many target commits on
 blur or Enter, not on each change (M5)" and "a draft target is dropped when the committed target
 changes from outside (M5)" (`forecast-panel.test.tsx`). The default window is 60 working days; the
-axe spec selects **"All history" (R13)** and waits for the chart so axe sees the forecast state, not
+axe spec selects **"All history"** and waits for the chart so axe sees the forecast state, not
 only the empty state.
 
-- **Two generic Ask-Claude chips (R12, decided 2026-10-19).** `ASK_CLAUDE_PROMPTS.forecast` holds "Why this P80
+- **Two generic Ask-Claude chips (decided 2026-10-19).** `ASK_CLAUDE_PROMPTS.forecast` holds "Why this P80
   date?" (answered from `get_forecast`'s `basis`) and "How has the date moved?" (`weeklyChange` and `p80History`).
   They sit beside the view's own menu, `ForecastAskClaude`, shown only with AI on, the simulation on and not in a
   popout, and ask what it does not; see "The AI tool" below. The header chips are static per view, so with the
   simulation off they still show and the model answers with the off text (`FORECAST_OFF`), pointing to the view.
-- Percent strings go through i18n keys (EN `{0}%`, DE `{0} %`; R10).
+- Percent strings go through i18n keys (EN `{0}%`, DE `{0} %`).
 - **Amounts carry their unit.** `formatAmount` writes tasks as `forecastAmountTasks` through `tPlural`
   ("1 task", "5 tasks"; DE "1 Aufgabe", "5 Aufgaben") and effort as whole hours ("12 h"), for the
   open-work line and every How-many cell. Milestone figures are chances and already read in `%`.
@@ -632,7 +632,7 @@ Dashboard picture: a Forecast tile, a chance chip per milestone and a Next-actio
   still shows the ISO date; it never went through `actionText`. Open Forecast lands on
   `ForecastPanelDeepLinked` (`forecast-panel.tsx`), which scrolls that milestone's row in the chances table into view
   and flashes it (`useDeepLinkRowFlash`), then consumes the request; focus stays on the main region, as for every
-  deep-link that opens no editor. ★ Decisions: the group counts in the Soon tier, the Top actions tile
+  deep-link that opens no editor. ★ The group counts in the Soon tier, the Top actions tile
   and the greeting's needs-you count, because it is a Next-actions signal shown with the sim badge; only flat-list
   consumers are excluded.
 - ★★ **Holidays pending.** With the switch on and `holidaysReady` false, the panel computes no forecast and the
@@ -963,7 +963,7 @@ is built, see "The AI tool (§502)" below. Held back with the view like parts 1�
   in the queue by its date, at the largest base position of the milestones with open tasks dated on or before it,
   so only milestones after it move ("scope on a milestone with no open linked tasks is placed by its date").
   Overdue stays overdue whatever is attributed.
-- ★★ **The own-work clamp (scoped decision).** An attributed REMOVAL comes off that milestone's remaining work and
+- ★★ **The own-work clamp.** An attributed REMOVAL comes off that milestone's remaining work and
   stops at zero (`clampAttributedRemovals`, in day order from `ownWorkToday`). It lowers the totals (the backlog
   When simulates, and the caps) only by the CLAMPED amount, what really came off, never the raw amount; the raw
   amount made a later milestone unreachable. Pinned by "an attributed removal lowers the backlog and the cap only
@@ -994,7 +994,7 @@ is built, see "The AI tool (§502)" below. Held back with the view like parts 1�
   currency with `currencyToBase`, at par when no exchange rate resolves ("at par"). Rows over twice the team
   (`addedShareAtFullSpeed` > 1, counting only rows that apply on at least one simulated day) show the "more than
   double the team" warning.
-- ★★ **Archived is not gone (scoped decision).** An ARCHIVED person (`active === false`) on a stored row is still
+- ★★ **Archived is not gone.** An ARCHIVED person (`active === false`) on a stored row is still
   sized and counted, and the row says "archived — still counted in the forecast"; only a resource that no longer
   exists is "person gone" (inert). A NEW pick of an archived person is refused, as is a new pick of a gone or
   on-team one. ★ An unchanged stored reference is kept on save: a row whose milestone or person reference is the
@@ -1006,7 +1006,7 @@ is built, see "The AI tool (§502)" below. Held back with the view like parts 1�
   "a refused write keeps the editor open with its reason", "a create refused after open keeps the dialog open
   with the reason and stays in What-if".
 - **A column with no work left reads chance on time 1**, even past plan end: the same "nothing open" rule as
-  `computeAppForecast` (scoped decision; "a scenario that removes every open task is on time even past the plan
+  `computeAppForecast` ("a scenario that removes every open task is on time even past the plan
   end").
 - **Persistence.** `Workspace.forecastScenarios` is a **meta-blob** slice on all six write paths (no
   `TABLE_NAMES` entry), storage-only (emitted only when `config === undefined`), byte-stable when absent, sanitised
@@ -1251,8 +1251,7 @@ state is written through a FUNCTIONAL updater, so a change another writer queued
 ★ An id naming no saved scenario REFUSES `set_forecast_proposal` (`forecast scenario N not found`), where the UI setter
 only ignores it. ★ The `forecastDecision` document data section follows the same predicate: with bit 4 set (forecast
 off) `toolsFor` sends `create_document` and `update_document` without that key (`DOCUMENT_TOOL_DEFS_WITHOUT_DECISION`),
-and `refuseHiddenDecisionSection` (`chat-tools-forecast.ts`) refuses a document write that would ADD such a block
-. ★★ Only adding: it plays an `update_document`'s ops against the stored blocks with `applyOps` and refuses
+and `refuseHiddenDecisionSection` (`chat-tools-forecast.ts`) refuses a document write that would ADD such a block. ★★ Only adding: it plays an `update_document`'s ops against the stored blocks with `applyOps` and refuses
 when the decision-block count would rise, so a `replaceAll` or `replace` re-sending a block the document already holds
 passes — refusing that would teach the model to retry without it and delete the user's section through the AI.
 

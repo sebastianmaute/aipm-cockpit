@@ -91,7 +91,7 @@ describe("keyFactCompleteness", () => {
   });
 });
 
-// the model mirrors what the SANITIZER normalises to blank. A model
+// The model mirrors what the SANITIZER normalises to blank. A model
 // that disagreed would render a meter contradicting what every backend stores.
 describe("keyFactCompleteness mirrors sanitizeProjectMeta's blank rules", () => {
   const STRING_FACTS: KeyFactId[] = [

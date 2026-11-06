@@ -270,7 +270,7 @@ export function forecastFactsByUnit(input: BudgetForecastInput): ForecastFactsBy
     for (const row of bucketRateRows(bucket, roles)) {
       const perHour = isEndToEnd ? row.rates.internal : isFixed ? fixedPerHour : row.rates.external;
       for (const [key, hours] of Object.entries(row.actualHours)) {
-        // hours ≤ 0 carry no booking date at all — a negative hand
+        // Hours ≤ 0 carry no booking date at all — a negative hand
         // correction is therefore excluded from the dated window BY DESIGN, so
         // Σ dated can legitimately differ from AC (`br.consumedValue`, which
         // still includes it) whenever negatives are present.

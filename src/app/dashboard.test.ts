@@ -294,7 +294,7 @@ describe("computeDashboard", () => {
     expect(m.budget.overridden).toBe(true);
   });
 
-  // once the pace forecast exists, the Budget RAG reads the pace
+  // Once the pace forecast exists, the Budget RAG reads the pace
   // VAC instead of the consumed/budget ratio (spec §6.3). A single T&M bucket,
   // budgeted 1000h in June at the role's €100 external rate -> BAC €100,000.
   describe("Budget RAG from the pace forecast", () => {

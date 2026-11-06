@@ -246,7 +246,7 @@ describe("isAppOpenerFrame", () => {
 describe("decideNavigation", () => {
   // ★ Explicit per-field construction, never a two-arg "child()" shorthand --
   // round 1's `child()`/`main()` helpers collapsed the entry question to one
-  // boolean, which is exactly the shape N-I1 found too wide. Every test below
+  // boolean, which is exactly the shape that was found too wide. Every test below
   // states all three fields so a reader never has to guess a default.
   type Ctx = { createdAsBlankPopup: boolean; initiatorIsAppOpener: boolean; inAuthFlow: boolean };
   const ctx = (overrides: Partial<Ctx> = {}): Ctx => ({
@@ -283,7 +283,7 @@ describe("decideNavigation", () => {
     expect(result).toEqual({ decision: "allow-in-app", authFlow: true });
   });
 
-  // ★★★ N-I1 -- the three combinations fix round 2 required, each one
+  // ★★★ The three combinations fix round 2 required, each one
   // pinning a different half of the entry gate.
   it("a same-origin popout (?popout=) + a stored identity-host link click is NOT flow entry", () => {
     // The popout's own first URL is the app's path, never blank, so
