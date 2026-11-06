@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "devDependencies": {
-    "electron": "44.9.1",
+    "electron": "45.0.0",
     "electron-builder": "26.18.0"
   },
   "allowScripts": {
