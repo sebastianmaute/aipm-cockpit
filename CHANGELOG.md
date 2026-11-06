@@ -178,8 +178,9 @@ longer carries its own changelog comment.
   installs only updates signed by SignPath Foundation, and otherwise offers the Releases page for a manual download.
   It does not offer a refused version again until the app is restarted; a newer version is still offered.
   Before a release goes out as signed, its installer must pass the very check an installed copy runs on an update
-  (Valid, and the certificate's name exactly SignPath Foundation), so a signed release can never lock its users out
-  of later updates. The updater accepts only a full installer, never a web installer that would fetch the app while
+  (Valid, and the certificate's full subject exactly SignPath Foundation's, not merely its name), so a signed release
+  can never lock its users out of later updates; whether the notes call it signed is then decided by a second check
+  that runs no installed package. The updater accepts only a full installer, never a web installer that would fetch the app while
   installing. When the signature check cannot run on a computer at all (for example, PowerShell blocked by a
   policy), the app says so rather than calling the update's signature bad, and offers the same manual download.
   The signing token is only ever available to workflow jobs that run no build tools or installed

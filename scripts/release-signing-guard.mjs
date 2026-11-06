@@ -7,8 +7,9 @@
 // releases/latest skips prereleases, so a signed release candidate newer than the latest stable
 // release would otherwise let an unsigned release follow it.
 // "Signed" means Authenticode status Valid AND a signer whose subject passes the installed app's own
-// rule for the publisher SignPath Foundation (`signerMatches` in desktop/src/update-signature.ts:
-// the subject's CN equals the name exactly);
+// rule for the publisher SignPath Foundation (`signerMatches` in desktop/src/update-signature.ts,
+// with the full certificate subject the update feed names, PUBLISHER in release-update-feed.mjs:
+// the subject carries every attribute of that DN with exactly its value);
 // "unsigned" means status NotSigned with no signer. Anything else — a broken, untrusted or foreign
 // signature, or output that cannot be read — is neither, and the guard cannot decide.
 // One exception, so that a revoked certificate cannot block every later release: an installer in
@@ -25,8 +26,9 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { installerName } from "./release-publish-lib.mjs";
 import { signerMatches } from "../desktop/src/update-signature.ts";
+import { PUBLISHER } from "./release-update-feed.mjs";
 
-export const SIGNER = "SignPath Foundation";
+export const SIGNER = PUBLISHER;
 const run = promisify(execFile);
 const API_TIMEOUT_MS = 60_000;
 const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;

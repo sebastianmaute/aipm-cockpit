@@ -5,12 +5,13 @@
 // unlike electron-updater's own verifier, which resolves `null` (valid) on a PowerShell error.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CANNOT_RUN_PREFIX, INSTALLER_ENV, SIGNATURE_COMMAND, SIGNATURE_TIMEOUT_MS, defaultRun, feedRequiresSignature,
-  powerShellInvocation, refusalKind, verifyUpdateSignature, type PowerShellResult, type RunPowerShell,
+  powerShellInvocation, refusalKind, signerMatches, verifyUpdateSignature, type PowerShellResult, type RunPowerShell,
 } from "./update-signature";
 
 const SIGNER = "SignPath Foundation";
@@ -121,6 +122,22 @@ describe("verifyUpdateSignature", () => {
     // A DN publisher name must match on every key it names.
     expect(await verifyUpdateSignature(["CN=SignPath Foundation, O=Other"], INSTALLER, answer(json(0, SUBJECT))))
       .toEqual(expect.any(String));
+  });
+
+  // The release feed names SignPath Foundation's full DN (PUBLISHER in
+  // scripts/release-update-feed.mjs, which its own test pins to this same string).
+  it("with the release feed's full DN: accepts exactly that subject, refuses another O, C, L or S, and a CN-only subject", async () => {
+    expect(await verifyUpdateSignature([SUBJECT], INSTALLER, answer(json(0, SUBJECT)))).toBeNull();
+    for (const subject of [
+      SUBJECT.replace("O=SignPath Foundation", "O=Other"),
+      SUBJECT.replace("C=US", "C=DE"),
+      SUBJECT.replace("L=Lewes", "L=Berlin"),
+      SUBJECT.replace("S=Delaware", "S=Bavaria"),
+      "CN=SignPath Foundation",
+      "CN=SignPath Foundation, O=SignPath Foundation, C=US",
+    ]) {
+      expect(await verifyUpdateSignature([SUBJECT], INSTALLER, answer(json(0, subject))), subject).toEqual(expect.any(String));
+    }
   });
 
   it("refuses when there is no publisher name to match", async () => {
@@ -307,5 +324,73 @@ describe("feedRequiresSignature", () => {
     expect(feedRequiresSignature("# publisherName:\nowner: x\n")).toBe(false);
     expect(feedRequiresSignature("notpublisherName: x\n")).toBe(false);
     expect(feedRequiresSignature("")).toBe(false);
+  });
+});
+
+// signerMatches must decide exactly as electron-updater does, or CI could call an installer signed
+// that installed copies refuse (or the reverse). The reference is electron-updater's own rule
+// (windowsExecutableCodeSignatureVerifier.js) over the parseDn of the builder-util-runtime copy
+// electron-updater itself resolves.
+describe("signerMatches agrees with electron-updater", () => {
+  const fromUpdater = createRequire(createRequire(new URL("../package.json", import.meta.url)).resolve("electron-updater"));
+  const { parseDn } = fromUpdater("builder-util-runtime") as { parseDn: (dn: string) => Map<string, string> };
+  const electronUpdater = (subject: string, names: string[]) => {
+    const s = parseDn(subject);
+    return names.some((name) => {
+      const dn = parseDn(name);
+      if (dn.size) return [...dn.keys()].every((k) => dn.get(k) === s.get(k));
+      return name === s.get("CN");
+    });
+  };
+  const SUBJECTS = [
+    SUBJECT,
+    "O=SignPath Foundation, CN=SignPath Foundation, C=US, S=Delaware, L=Lewes",
+    "CN=SignPath Foundation ,  O=SignPath Foundation , L=Lewes, S=Delaware, C=US",
+    "CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US, OU=Extra",
+    "CN=SignPath Foundation",
+    "CN=SignPath Foundation, O=Other, L=Lewes, S=Delaware, C=US",
+    "CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=DE",
+    "cn=SignPath Foundation, o=SignPath Foundation, l=Lewes, s=Delaware, c=US",
+    'CN="SignPath Foundation", O="SignPath Foundation", L=Lewes, S=Delaware, C=US',
+    'CN="SignPath Foundation, Inc.", O=Other, C=DE',
+    "CN=SignPath Foundation; O=SignPath Foundation; L=Lewes; S=Delaware; C=US",
+    "CN=SignPath Foundation+O=SignPath Foundation, L=Lewes, S=Delaware, C=US",
+    String.raw`CN=SignPath\20Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US`,
+    String.raw`CN=SignPath Foundation\, Inc., O=Other`,
+    "CN=Other, CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US",
+    "CN=SignPath Foundation, CN=Other, O=SignPath Foundation, L=Lewes, S=Delaware, C=US",
+    "CN=SignPath Foundation Ltd, O=SignPath Foundation, C=US",
+    "CN=Someone Else, O=SignPath Foundation, C=US",
+    "CN=",
+    "",
+  ];
+  const NAMES = [
+    SUBJECT,
+    "SignPath Foundation",
+    "CN=SignPath Foundation",
+    "CN=SignPath Foundation, O=SignPath Foundation",
+    "C=US, S=Delaware, L=Lewes, O=SignPath Foundation, CN=SignPath Foundation",
+    "cn=SignPath Foundation",
+    "CN=SignPath Foundation, O=Other",
+    "SignPath Foundation, Inc.",
+  ];
+
+  it("on every subject and publisher name in the corpus, alone and in pairs", () => {
+    let agreed = 0;
+    for (const subject of SUBJECTS) {
+      for (const names of [...NAMES.map((n) => [n]), ...NAMES.flatMap((a) => NAMES.map((b) => [a, b]))]) {
+        expect(signerMatches(subject, names), `${JSON.stringify(subject)} vs ${JSON.stringify(names)}`).toBe(electronUpdater(subject, names));
+        agreed++;
+      }
+    }
+    expect(agreed).toBe(SUBJECTS.length * (NAMES.length + NAMES.length ** 2));
+    // Both sides of the corpus occur: it is not all refusals.
+    expect(SUBJECTS.filter((s) => signerMatches(s, [SUBJECT])).length).toBeGreaterThan(1);
+    expect(SUBJECTS.filter((s) => !signerMatches(s, [SUBJECT])).length).toBeGreaterThan(1);
+  });
+
+  it("differs only on an empty name, which matches nothing here", () => {
+    expect(electronUpdater("CN=", [""])).toBe(true);
+    expect(signerMatches("CN=", [""])).toBe(false);
   });
 });

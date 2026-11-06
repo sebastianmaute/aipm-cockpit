@@ -6,8 +6,9 @@
 // install anything. This one fails CLOSED: every outcome other than a readable `Valid` verdict, for
 // this very file, from a listed publisher, is a refusal string.
 //
-// The release workflow's `repackage` job writes `publisherName: [SignPath Foundation]` into the packed
-// app's app-update.yml (scripts/release-update-feed.mjs); an unsigned build's feed has none, so
+// The release workflow's `repackage` job writes `publisherName:` with SignPath Foundation's full
+// certificate subject into the packed app's app-update.yml (scripts/release-update-feed.mjs); an
+// unsigned build's feed has none, so
 // updater.ts leaves electron-updater's default in place there (`feedRequiresSignature`).
 //
 // No electron import: the root tsc and vitest reach this file directly.
@@ -108,43 +109,94 @@ function statusName(status: unknown): string {
   return "no status";
 }
 
-/** A distinguished name's attributes, upper-cased keys, values unquoted. */
+/** A distinguished name's attributes, parsed exactly as electron-updater parses both the signer's
+ *  subject and each publisher name: builder-util-runtime's `parseDn` (out/rfc2253Parser.js), ported
+ *  line for line. Keys keep their case; `"` toggles quoting and is dropped; a backslash escapes the
+ *  next character or a two-digit hex code; `,`, `;` and `+` end an attribute; spaces at either end
+ *  of a value are dropped; a repeated key keeps its LAST value. */
 function parseDn(dn: string): Map<string, string> {
-  const out = new Map<string, string>();
-  let part = "";
   let quoted = false;
-  const flush = () => {
-    const eq = part.indexOf("=");
-    if (eq > 0) {
-      let v = part.slice(eq + 1).trim();
-      if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1).replace(/""/g, '"');
-      const k = part.slice(0, eq).trim().toUpperCase();
-      if (!out.has(k)) out.set(k, v);
+  let key: string | null = null;
+  let token = "";
+  let nextNonSpace = 0;
+  const seq = dn.trim();
+  const result = new Map<string, string>();
+  for (let i = 0; i <= seq.length; i++) {
+    if (i === seq.length) {
+      if (key !== null) result.set(key, token);
+      break;
     }
-    part = "";
-  };
-  for (const ch of dn) {
-    if (ch === '"') quoted = !quoted;
-    if ((ch === "," || ch === ";") && !quoted) flush();
-    else part += ch;
+    const ch = seq[i];
+    if (quoted) {
+      if (ch === '"') {
+        quoted = false;
+        continue;
+      }
+    } else {
+      if (ch === '"') {
+        quoted = true;
+        continue;
+      }
+      if (ch === "\\") {
+        i++;
+        const ord = parseInt(seq.slice(i, i + 2), 16);
+        if (Number.isNaN(ord)) {
+          token += seq[i];
+        } else {
+          i++;
+          token += String.fromCharCode(ord);
+        }
+        continue;
+      }
+      if (key === null && ch === "=") {
+        key = token;
+        token = "";
+        continue;
+      }
+      if (ch === "," || ch === ";" || ch === "+") {
+        if (key !== null) result.set(key, token);
+        key = null;
+        token = "";
+        continue;
+      }
+    }
+    if (ch === " " && !quoted) {
+      if (token.length === 0) continue;
+      if (i > nextNonSpace) {
+        let j = i;
+        while (seq[j] === " ") j++;
+        nextNonSpace = j;
+      }
+      if (
+        nextNonSpace >= seq.length ||
+        seq[nextNonSpace] === "," ||
+        seq[nextNonSpace] === ";" ||
+        (key === null && seq[nextNonSpace] === "=") ||
+        (key !== null && seq[nextNonSpace] === "+")
+      ) {
+        i = nextNonSpace - 1;
+        continue;
+      }
+    }
+    token += ch;
   }
-  flush();
-  return out;
+  return result;
 }
 
-/** electron-updater's rule: a name with `=` is a DN and must match the subject on every key it
- *  names; a plain name must equal the subject's CN exactly. The release workflow's signature
- *  checks (scripts/release-verify-signature.mjs) and its one-way guard
- *  (scripts/release-signing-guard.mjs) use this very function, so CI calls an installer signed
- *  only by the rule the installed app applies to it. */
+/** electron-updater's rule (windowsExecutableCodeSignatureVerifier.js): a name that parses to any
+ *  attribute is a DN and must match the subject on every key it names; any other name must equal
+ *  the subject's CN exactly. One deliberate difference: an empty name matches nothing here, where
+ *  electron-updater would accept it against a subject with an empty CN. The release feed names the
+ *  full DN (PUBLISHER in scripts/release-update-feed.mjs). The release workflow's signature checks
+ *  (scripts/release-verify-signature.mjs) and its one-way guard (scripts/release-signing-guard.mjs)
+ *  use this very function, so CI calls an installer signed only by the rule the installed app
+ *  applies to it. */
 export function signerMatches(subject: string, publisherNames: string[]): boolean {
   const s = parseDn(subject);
   return publisherNames.some((name) => {
     if (!name) return false;
-    if (name.includes("=")) {
-      const want = parseDn(name);
-      return want.size > 0 && [...want].every(([k, v]) => s.get(k) === v);
-    }
+    const want = parseDn(name);
+    if (want.size > 0) return [...want].every(([k, v]) => s.get(k) === v);
     return s.get("CN") === name;
   });
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Gives a packed app's update feed the publisher its updater must require: adds
-// `publisherName: [SignPath Foundation]` to <app>/resources/app-update.yml. electron-updater's
+// Gives a packed app's update feed the publisher its updater must require: adds `publisherName:`
+// with SignPath Foundation's full certificate subject (PUBLISHER) to
+// <app>/resources/app-update.yml. electron-updater's
 // NsisUpdater reads publisherName from that file and, when it is there, hands every downloaded
 // installer to verifyUpdateCodeSignature (desktop/src/update-signature.ts, which fails closed).
 // The release workflow's `repackage` job runs this on the app tree it repackages: `--prepackaged`
@@ -16,7 +17,15 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const PUBLISHER = "SignPath Foundation";
+// SignPath Foundation's code-signing certificate subject, in full, exactly as Windows PowerShell 5.1's
+// Get-AuthenticodeSignature prints it (the form electron-updater parses). Measured 2026-11-06 on a
+// file SignPath Foundation signed, the MSIX of Kazumi's release 2.4.3: status Valid, issuer
+// "GlobalSign GCC R45 CodeSigning CA 2020", valid 2024-12-13 to 2027-09-07, thumbprint
+// C4E03C1CB258265C9621822320AB0B25447E7171. A DN publisher name must match on every key it names,
+// so a renewed certificate that changes any of these attributes fails `finalize` and
+// `attest-signature`, and every installed signed copy would refuse its updates: compare this value
+// with the new certificate's subject before the first release signed after a renewal.
+export const PUBLISHER = "CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US";
 
 const KEY = /^publisherName[ \t]*:(.*)$/;
 

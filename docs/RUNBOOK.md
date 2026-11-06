@@ -353,13 +353,20 @@ this is done; the README's "Code signing policy" is the public side of it.
       first release to be signed: each job reads it when it starts, so a
       tag pushed first is released unsigned, and a change during a run
       leaves the jobs disagreeing. They are repository variables, because
-      `build`, `repackage` and `finalize` read them and run in no environment.
+      `build`, `repackage`, `finalize` and `attest-signature` read them and
+      run in no environment.
 - [ ] Add the `sbom` check (ci.yml's `sbom` job) to the `main` ruleset's
       required checks, or a red SBOM run blocks nothing.
 - [ ] After the first signed release: check its notes carry the SignPath
       line, and that `Get-AuthenticodeSignature` on the downloaded installer
-      reports `Valid` with `CN=SignPath Foundation`. From then on no unsigned
+      reports `Valid` with the subject `CN=SignPath Foundation, O=SignPath
+      Foundation, L=Lewes, S=Delaware, C=US` (`PUBLISHER` in
+      `scripts/release-update-feed.mjs`). From then on no unsigned
       release can be published.
+- [ ] After SignPath Foundation renews its certificate: compare the new
+      certificate's subject with `PUBLISHER` before the first release it
+      signs. The update feed names that full DN, and an installed copy refuses
+      an update whose signer differs on any attribute of it.
 
 The installer is never built locally, so some of this is proved only by a
 real release: that the installer compiles with its privacy page and shows it
@@ -369,14 +376,15 @@ and the one after it).
 
 **The one-way guard cannot decide.** `finalize`'s `release-signing-guard`
 first classifies this release's own installer. When that one is validly signed
-(`Valid`, CN exactly `SignPath Foundation`) the release passes whatever the
+(`Valid`, and the signer's subject carrying every attribute of SignPath
+Foundation's DN, `PUBLISHER`) the release passes whatever the
 previous installer reads as, and the log only records that reading. Otherwise
 the guard exits 2 ("CANNOT DECIDE") when it cannot classify either installer
 or read the repository's releases. A one-off gh, network or PowerShell failure
 clears on a re-run. When an unsigned release fails the same way on every run,
 the usual cause is that the newest published release's installer no longer
 reads as signed on the runner — its certificate was revoked, or the chain
-changed — so its status is no longer `Valid` with `CN=SignPath Foundation`,
+changed — so its status is no longer `Valid` with SignPath Foundation's DN,
 and not `NotSigned` either. Diagnose it with the same check the guard runs, on
 Windows:
 

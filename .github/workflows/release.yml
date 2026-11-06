@@ -237,7 +237,8 @@ jobs:
   # `--prepackaged` writes NO resources/app-update.yml (that file is written only by
   # electron-builder's after-pack hook, which a prepackaged run skips), so the file in the tree is
   # the one the `build` job packed, which names no publisher. The step before the repackage adds
-  # `publisherName: [SignPath Foundation]` to it (scripts/release-update-feed.mjs), so the signed
+  # `publisherName:` with SignPath Foundation's full certificate subject to it
+  # (scripts/release-update-feed.mjs), so the signed
   # build's updater refuses any update it cannot verify (desktop/src/update-signature.ts); the check
   # after the repackage refuses a tree without it.
   # What SignPath signs: the app's own PE files (sign-app, when SIGNPATH_SIGN_APP_EXE is 'true') and
@@ -268,13 +269,14 @@ jobs:
           name: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && 'unpacked-signed-app' || 'unpacked-app' }}
           path: ${{ runner.temp }}/app
       # The installed app's own verifier (desktop/src/update-signature.ts) judges the signature: Valid,
-      # and the signer's CN exactly SignPath Foundation. The feed is not written yet, so the name is given.
+      # and the signer's subject carrying every attribute of SignPath Foundation's DN (PUBLISHER in
+      # scripts/release-update-feed.mjs). The feed is not written yet, so the name is given.
       - name: The app's executable is signed by SignPath Foundation
         if: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' }}
         shell: bash
         env:
           FILE: ${{ runner.temp }}/app/AI PM Cockpit.exe
-        run: node scripts/release-verify-signature.mjs --publisher "SignPath Foundation" "$FILE"
+        run: node scripts/release-verify-signature.mjs --publisher "CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US" "$FILE"
       # The packaged app's server needs both files; a tree that lost its hidden .next folder on the
       # way here (an artifact upload without include-hidden-files) would install an app that cannot
       # start, so the job stops before repackaging it.
@@ -288,7 +290,7 @@ jobs:
           done
           echo "app-tree check: server.js and .next/BUILD_ID present in $APP_DIR"
       # The tree's resources/app-update.yml is the `build` job's, which names no publisher, and the
-      # repackage below writes none. This adds `publisherName: [SignPath Foundation]` to it, keeping
+      # repackage below writes none. This adds `publisherName:` with SignPath Foundation's DN to it, keeping
       # every other key, so the signed build's updater refuses any update it cannot verify; it
       # fails the step on a missing or unreadable feed, or on any other publisherName already there.
       # app-update.yml is not a PE file, so a signed app tree's signatures are untouched.
@@ -308,7 +310,7 @@ jobs:
       # served as an update. The publisherName comes from the step before the repackage, which the
       # repackage leaves alone; should that ever not hold, the release fails here. The match is the
       # first list item directly under the key, the shape scripts/release-update-feed.mjs writes,
-      # so "SignPath Foundation" elsewhere in the file does not count.
+      # so the DN elsewhere in the file does not count.
       - name: The repackaged app's updater requires the SignPath Foundation signature
         shell: pwsh
         env:
@@ -317,7 +319,7 @@ jobs:
           $feed = Join-Path $env:APP_DIR 'resources/app-update.yml'
           if (-not (Test-Path -LiteralPath $feed)) { Write-Output "update-feed check: $feed is missing"; exit 1 }
           $text = Get-Content -LiteralPath $feed -Raw
-          if ($text -notmatch '(?m)^publisherName:[ \t]*\r?\n[ \t]+-[ \t]*[''"]?SignPath Foundation[''"]?[ \t]*\r?$') { Write-Output "update-feed check: $feed has no publisherName naming SignPath Foundation -- the signed build's updater would not verify updates"; exit 1 }
+          if ($text -notmatch '(?m)^publisherName:[ \t]*\r?\n[ \t]+-[ \t]*[''"]?CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US[''"]?[ \t]*\r?$') { Write-Output "update-feed check: $feed has no publisherName naming SignPath Foundation -- the signed build's updater would not verify updates"; exit 1 }
       - name: Upload the unsigned installer
         id: upload-unsigned
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -430,7 +432,7 @@ jobs:
       # The final signed setup, judged by the installed app's own verifier (verifyUpdateSignature in
       # desktop/src/update-signature.ts) against the publisher names in the repackaged app's
       # resources/app-update.yml -- the very check every installed copy of this release will run on
-      # the next update. Were the certificate's CN anything but exactly the feed's name, this release
+      # the next update. Were the certificate's subject to differ from the feed's DN on any attribute, this release
       # would install fine and then refuse every later update; the release fails here instead.
       - name: The installer passes the app's own update signature check
         id: installer-signature
@@ -468,8 +470,9 @@ jobs:
   # could swap the setup after finalize's own signature check. This job checks nothing out, installs
   # nothing and runs no node. It downloads `release-final` exactly as publish will, and with Windows
   # PowerShell alone requires the setup's bytes to be the ones latest.yml records (SHA-512) and its
-  # Authenticode signature to be Valid with the signer the update feed names (PUBLISHER, the value
-  # scripts/release-update-feed.mjs writes; scripts/ci-workflow.test.mjs holds the two equal).
+  # Authenticode signature to be Valid with the signer's full subject exactly the DN the update feed
+  # names (PUBLISHER, the value scripts/release-update-feed.mjs writes; scripts/ci-workflow.test.mjs
+  # holds the two equal).
   # Its `signed` output is what the release notes say (publish's RELEASE_SIGNED): true only when the
   # check ran and passed in this run, false when it was skipped (signing off). A failed check fails
   # the job, so publish never runs. Reads no secret.
@@ -498,7 +501,7 @@ jobs:
         env:
           DIR: ${{ runner.temp }}/release
           VERSION: ${{ needs.guard.outputs.version }}
-          PUBLISHER: SignPath Foundation
+          PUBLISHER: CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US
         run: |
           $name = "aipm-cockpit-$env:VERSION-setup.exe"
           $exe = Join-Path $env:DIR $name
@@ -516,9 +519,7 @@ jobs:
           $sig = Get-AuthenticodeSignature -LiteralPath $exe
           if ($sig.Status -ne 'Valid') { Write-Output "attest: $name's signature status is $($sig.Status), not Valid"; exit 1 }
           $subject = $sig.SignerCertificate.Subject
-          $cn = $null
-          foreach ($part in $subject.Split(',')) { $kv = $part.Trim(); if ($kv.StartsWith('CN=')) { $cn = $kv.Substring(3); break } }
-          if ($cn -cne $env:PUBLISHER) { Write-Output "attest: $name is signed by '$subject', whose CN is not exactly $env:PUBLISHER"; exit 1 }
+          if ($subject -cne $env:PUBLISHER) { Write-Output "attest: $name is signed by '$subject', which is not exactly '$env:PUBLISHER'"; exit 1 }
           Write-Output "attest: $name matches latest.yml and is Valid-signed by '$subject'"
       - name: Record whether the installer is signed
         id: signed

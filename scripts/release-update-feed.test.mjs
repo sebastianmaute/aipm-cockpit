@@ -72,8 +72,10 @@ describe("addPublisherName", () => {
     }
   });
 
-  it("names SignPath Foundation", () => {
-    expect(PUBLISHER).toBe("SignPath Foundation");
+  // SignPath Foundation's certificate subject, in full, as Get-AuthenticodeSignature prints it
+  // (the source is cited beside PUBLISHER).
+  it("names SignPath Foundation's full certificate subject", () => {
+    expect(PUBLISHER).toBe("CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US");
   });
 
   it("adds a line break first when the file ends without one", () => {
@@ -81,7 +83,7 @@ describe("addPublisherName", () => {
     expect(addPublisherName("owner: x\r\nrepo: y").text).toBe(`owner: x\r\nrepo: y\r\npublisherName:\r\n  - ${PUBLISHER}\r\n`);
   });
 
-  it("is idempotent when the list is already exactly SignPath Foundation", () => {
+  it("is idempotent when the list is already exactly PUBLISHER", () => {
     for (const text of [
       `${FEED}publisherName:\n  - ${PUBLISHER}\n`,
       crlf(`${FEED}publisherName:\n  - '${PUBLISHER}'\n`),
@@ -102,6 +104,7 @@ describe("addPublisherName", () => {
       `${FEED}publisherName: [${PUBLISHER}]\n`,
       `${FEED}publisherName:\n`,
       `${FEED}publisherName:\n  - ${PUBLISHER} Ltd\n`,
+      `${FEED}publisherName:\n  - SignPath Foundation\n`,
       `${FEED}publisherName:\n  - ${PUBLISHER}\npublisherName:\n  - ${PUBLISHER}\n`,
     ]) {
       expect(() => addPublisherName(text), text).toThrow(/publisherName/);

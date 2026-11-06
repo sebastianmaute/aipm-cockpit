@@ -860,7 +860,8 @@ describe("release.yml", () => {
     const ATTEST = "The final installer is the file latest.yml records, validly signed by the feed's publisher";
     const APP_DIR = "${{ runner.temp }}/app";
     // The update-feed check's .NET pattern, as written inside a PowerShell single-quoted string.
-    const PUBLISHER_PS = String.raw`(?m)^publisherName:[ \t]*\r?\n[ \t]+-[ \t]*[''"]?SignPath Foundation[''"]?[ \t]*\r?$`;
+    // PUBLISHER is SignPath Foundation's full DN, which holds no regex metacharacter, so it stands in the pattern as it is.
+    const PUBLISHER_PS = String.raw`(?m)^publisherName:[ \t]*\r?\n[ \t]+-[ \t]*[''"]?${PUBLISHER}[''"]?[ \t]*\r?$`;
     const idx = (j, name) => releaseStepIndex(j, name);
     const subs = (j) => releaseSteps(j).filter((s) => /^signpath\/github-action-submit-signing-request@/.test(s.uses ?? ""));
 
@@ -1008,20 +1009,24 @@ describe("release.yml", () => {
 
     // The step's own pattern, run in JS: PowerShell's '' is one ', and (?m) is the "m" flag. The
     // .NET and JS engines agree on every construct it uses ([ \t], \r?, ^/$ under multiline).
-    it("the publisherName pattern accepts only SignPath Foundation as the list item under the key", () => {
+    it("the publisherName pattern accepts only SignPath Foundation's full DN as the list item under the key", () => {
+      expect(PUBLISHER).toBe("CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US");
+      expect(PUBLISHER).not.toMatch(/[\\^$.|?*+()[\]{}]/);
       const ps = /-notmatch '((?:[^']|'')*)'/.exec(releaseStep("repackage", FEED_CHECK).run)?.[1];
       expect(ps).toBe(PUBLISHER_PS);
       const re = new RegExp(ps.replace(/''/g, "'").replace(/^\(\?m\)/, ""), "m");
       const yes = [
-        "owner: x\npublisherName:\n  - SignPath Foundation\nupdaterCacheDirName: y\n",
-        "publisherName:\r\n  - 'SignPath Foundation'\r\nrepo: z\r\n",
-        "provider: github\npublisherName:\n  - \"SignPath Foundation\"",
+        `owner: x\npublisherName:\n  - ${PUBLISHER}\nupdaterCacheDirName: y\n`,
+        `publisherName:\r\n  - '${PUBLISHER}'\r\nrepo: z\r\n`,
+        `provider: github\npublisherName:\n  - "${PUBLISHER}"`,
       ];
       const no = [
-        "publisherName:\n  - Other CN\nfoo: SignPath Foundation\n",
-        "publisherName: SignPath Foundation\n",
-        "# publisherName:\n  - SignPath Foundation\n",
-        "publisherName:\n  - SignPath Foundation Ltd\n",
+        `publisherName:\n  - Other CN\nfoo: ${PUBLISHER}\n`,
+        `publisherName: ${PUBLISHER}\n`,
+        `# publisherName:\n  - ${PUBLISHER}\n`,
+        `publisherName:\n  - ${PUBLISHER}, OU=x\n`,
+        "publisherName:\n  - SignPath Foundation\n",
+        `publisherName:\n  - ${PUBLISHER.replace("C=US", "C=DE")}\n`,
         "provider: github\nowner: sebastianmaute\n",
       ];
       for (const t of yes) expect(re.test(t), JSON.stringify(t)).toBe(true);
@@ -1215,10 +1220,12 @@ describe("release.yml", () => {
         expect(status, probe.stderr).toBe("Valid");
         const cn = /^CN=([^,]+),/.exec(subject)?.[1];
         expect(cn, subject).toBeTruthy();
-        const ok = attest(cn);
+        expect(subject).toMatch(/, O=[^,]+, .*C=[A-Z]{2}$/);
+        const ok = attest(subject);
         expect(ok.status, `${ok.stdout}${ok.stderr}`).toBe(0);
         expect(ok.stdout).toMatch(/matches latest\.yml and is Valid-signed by/);
-        for (const name of [a.env.PUBLISHER, `${cn} Ltd`, cn.toLowerCase(), cn.slice(0, -1), subject.replace(/^CN=[^,]+, /, "")]) {
+        for (const name of [a.env.PUBLISHER, cn, `CN=${cn}`, subject.replace(/, O=[^,]+/, ", O=Other"), subject.replace(/C=[A-Z]{2}$/, "C=ZZ"),
+          `${subject}, OU=x`, subject.toLowerCase(), subject.replace(/^CN=[^,]+, /, "")]) {
           expectRefusal(/is not exactly/, `signer ${name}`, name);
         }
       } finally {

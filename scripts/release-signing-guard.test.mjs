@@ -9,7 +9,9 @@ import {
 const TAG = "v1.15.0";
 const DIR = "/rel";
 const NOW = "/rel/aipm-cockpit-1.15.0-setup.exe";
-const SIGNED = { status: "Valid", subject: `CN=${SIGNER}, O=${SIGNER}, L=Berlin, C=DE` };
+// SignPath Foundation's certificate subject as Get-AuthenticodeSignature prints it; SIGNER is that DN.
+const SUBJECT = "CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US";
+const SIGNED = { status: "Valid", subject: SUBJECT };
 const UNSIGNED = { status: "NotSigned", subject: "" };
 const REPO_CALL = ["api", "repos/{owner}/{repo}", "--jq", ".full_name"];
 
@@ -71,24 +73,36 @@ describe("classifySignature", () => {
     expect(classifySignature(sig)).toBeNull();
   });
 
-  // The installed app accepts an update only when the subject's CN EQUALS the feed's publisher name
-  // (desktop/src/update-signature.ts `signerMatches`, which this guard imports). A subject that
-  // merely CONTAINS the name must not count as signed here either, or a release the app would refuse
-  // to update from could pass as signed and lock the one-way switch.
+  // The installed app accepts an update only when the subject carries every attribute of the feed's
+  // publisher DN with exactly its value (desktop/src/update-signature.ts `signerMatches`, which this
+  // guard imports). A subject that merely CONTAINS the name, or shares only its CN, must not count as
+  // signed here either, or a release the app would refuse to update from could pass as signed and
+  // lock the one-way switch.
+  it("names SignPath Foundation's full certificate subject", () => {
+    expect(SIGNER).toBe(SUBJECT);
+  });
+
   it.each([
-    ["the exact CN", `CN=${SIGNER}, O=${SIGNER}, C=DE`],
-    ["the exact CN, quoted", `CN="${SIGNER}", O=Other, C=DE`],
-    ["the exact CN, spaced around the separators", `O=Other ,  CN=${SIGNER} , C=DE`],
+    ["the exact subject", SUBJECT],
+    ["the same attributes in another order", "C=US, S=Delaware, L=Lewes, O=SignPath Foundation, CN=SignPath Foundation"],
+    ["the exact subject, quoted", 'CN="SignPath Foundation", O="SignPath Foundation", L=Lewes, S=Delaware, C=US'],
+    ["the exact subject, spaced around the separators", "CN=SignPath Foundation ,  O=SignPath Foundation , L=Lewes, S=Delaware, C=US"],
   ])("is signed with %s", (_, subject) => {
     expect(classifySignature({ status: "Valid", subject })).toBe("signed");
   });
 
   it.each([
-    ["a longer CN", `CN=${SIGNER} Ltd, O=${SIGNER}, C=DE`],
-    ["a CN with a trailing space inside quotes", `CN="${SIGNER} ", O=${SIGNER}, C=DE`],
-    ["a CN in another case", `CN=${SIGNER.toUpperCase()}, O=${SIGNER}, C=DE`],
-    ["the name only in O=", `CN=Someone Else, O=${SIGNER}, C=DE`],
-    ["a quoted CN holding a comma", `CN="${SIGNER}, Inc.", O=Other, C=DE`],
+    ["the CN alone", "CN=SignPath Foundation"],
+    ["another O", SUBJECT.replace("O=SignPath Foundation", "O=Other")],
+    ["another C", SUBJECT.replace("C=US", "C=DE")],
+    ["another L", SUBJECT.replace("L=Lewes", "L=Berlin")],
+    ["another S", SUBJECT.replace("S=Delaware", "S=Bavaria")],
+    ["no S", "CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, C=US"],
+    ["a longer CN", SUBJECT.replace("CN=SignPath Foundation", "CN=SignPath Foundation Ltd")],
+    ["a CN with a trailing space inside quotes", SUBJECT.replace("CN=SignPath Foundation", 'CN="SignPath Foundation "')],
+    ["a CN in another case", SUBJECT.replace("CN=SignPath Foundation", "CN=SIGNPATH FOUNDATION")],
+    ["the name only in O=", SUBJECT.replace("CN=SignPath Foundation", "CN=Someone Else")],
+    ["lower-case keys", SUBJECT.replace(/(^|, )([A-Z]+)=/g, (_, sep, k) => `${sep}${k.toLowerCase()}=`)],
   ])("cannot classify a Valid signature with %s", (_, subject) => {
     expect(classifySignature({ status: "Valid", subject })).toBeNull();
   });
@@ -170,7 +184,7 @@ describe("runGuard", () => {
   // Signed by any other CN is not "validly signed by the expected publisher": it gets no pass, and
   // after a signed release it fails the release.
   it("fails an installer signed by another CN after a signed release (exit 2, never 0)", async () => {
-    const r = await run(fakeGh().gh, sigs({ status: "Valid", subject: `CN=${SIGNER} Ltd, O=${SIGNER}` }, SIGNED));
+    const r = await run(fakeGh().gh, sigs({ status: "Valid", subject: SUBJECT.replace("CN=SignPath Foundation", "CN=SignPath Foundation Ltd") }, SIGNED));
     expect(r.code).toBe(2);
     expect(r.message).toContain("aipm-cockpit-1.15.0-setup.exe");
   });
