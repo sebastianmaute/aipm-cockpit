@@ -9,8 +9,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  INSTALLER_ENV, SIGNATURE_COMMAND, SIGNATURE_TIMEOUT_MS, defaultRun, feedRequiresSignature, powerShellInvocation,
-  verifyUpdateSignature, type PowerShellResult, type RunPowerShell,
+  CANNOT_RUN_PREFIX, INSTALLER_ENV, SIGNATURE_COMMAND, SIGNATURE_TIMEOUT_MS, defaultRun, feedRequiresSignature,
+  powerShellInvocation, refusalKind, verifyUpdateSignature, type PowerShellResult, type RunPowerShell,
 } from "./update-signature";
 
 const SIGNER = "SignPath Foundation";
@@ -29,6 +29,60 @@ const answer = (stdout: string, exitCode: number | null = 0, stderr = ""): RunPo
   vi.fn<RunPowerShell>(() => Promise.resolve<PowerShellResult>({ exitCode, stdout, stderr }));
 
 afterEach(() => { vi.useRealTimers(); });
+
+// The refusal's kind picks the words the user is shown (updater.ts): a check that could not run on
+// this computer is not a bad signature. Every case still refuses -- the kind never decides that.
+describe("refusalKind", () => {
+  const OTHER = String.raw`C:\Temp\other-setup.exe`;
+  const cannotRun: Array<[string, RunPowerShell]> = [
+    ["spawn failure", vi.fn<RunPowerShell>(() => Promise.reject(new Error("spawn powershell.exe EACCES")))],
+    ["synchronous throw", vi.fn<RunPowerShell>(() => { throw new Error("blocked"); })],
+    ["non-zero exit (e.g. blocked by policy)", answer("", 1, "running scripts is disabled on this system")],
+    ["no exit code", answer(json(0, SUBJECT), null)],
+    ["unreadable output", answer("garbage")],
+    ["no signature record", answer("[]")],
+    ["a record naming no file", answer('{"Status":0}')],
+  ];
+  const mismatch: Array<[string, RunPowerShell]> = [
+    ["unsigned", answer(json(2, null))],
+    ["hash mismatch", answer(json(3, SUBJECT))],
+    ["another signer", answer(json(0, "CN=Someone Else"))],
+    ["a verdict about another file", answer(json(0, SUBJECT, OTHER))],
+  ];
+
+  it("calls every refusal where the check could not run 'cannot-run', each still a refusal", async () => {
+    for (const [name, run] of cannotRun) {
+      const r = await verifyUpdateSignature([SIGNER], INSTALLER, run);
+      expect(r, name).toEqual(expect.any(String));
+      expect(r?.startsWith(CANNOT_RUN_PREFIX), `${name}: ${r}`).toBe(true);
+      expect(refusalKind(r as string), name).toBe("cannot-run");
+    }
+  });
+
+  it("calls a timeout 'cannot-run'", async () => {
+    vi.useFakeTimers();
+    const pending = verifyUpdateSignature([SIGNER], INSTALLER, vi.fn<RunPowerShell>(() => new Promise<PowerShellResult>(() => {})));
+    await vi.advanceTimersByTimeAsync(SIGNATURE_TIMEOUT_MS);
+    expect(refusalKind((await pending) as string)).toBe("cannot-run");
+  });
+
+  it("calls every verdict 'mismatch', and so does no publisher to check against", async () => {
+    for (const [name, run] of mismatch) {
+      const r = await verifyUpdateSignature([SIGNER], INSTALLER, run);
+      expect(r, name).toEqual(expect.any(String));
+      expect(refusalKind(r as string), `${name}: ${r}`).toBe("mismatch");
+    }
+    expect(refusalKind((await verifyUpdateSignature([], INSTALLER, answer(json(0, SUBJECT)))) as string)).toBe("mismatch");
+  });
+
+  it("reads the kind through electron-updater's wrapping of the refusal", () => {
+    const wrap = (refusal: string) => `New version 9.9.9 is not signed by the application owner: ${refusal}`;
+    expect(refusalKind(wrap(`${CANNOT_RUN_PREFIX}PowerShell exited with 1`))).toBe("cannot-run");
+    expect(refusalKind(wrap("the installer's signature is NotSigned"))).toBe("mismatch");
+    // No refusal text at all reads as a mismatch: the words stay the strict ones.
+    expect(refusalKind("New version 9.9.9 is not signed by the application owner")).toBe("mismatch");
+  });
+});
 
 describe("verifyUpdateSignature", () => {
   it("accepts an installer validly signed by the listed publisher (null, electron-updater's 'valid')", async () => {

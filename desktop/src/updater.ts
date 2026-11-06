@@ -14,7 +14,7 @@ import type { SafeNotesHtml } from "./lib/release-notes-html";
 import {
   UPDATE_DURATION_HINT, buildUpdatePromptHtml, parseChoiceTitle, updatePromptUrl, type UpdateChoice,
 } from "./lib/update-window";
-import { feedRequiresSignature, verifyUpdateSignature } from "./update-signature";
+import { feedRequiresSignature, refusalKind, verifyUpdateSignature } from "./update-signature";
 
 export interface Updater {
   check(trigger: UpdateTrigger): void;
@@ -38,6 +38,19 @@ const LOAD_FAILED_MESSAGE = "The updater could not be loaded.";
 const UNVERIFIED_MESSAGE = "The update was not installed: its signature could not be verified.";
 const UNVERIFIED_HINT =
   "This app installs only updates signed by its publisher. Please download the new version by hand from the releases page and install it.";
+// The same refusal when the check itself could not run here (refusalKind "cannot-run": PowerShell
+// could not start, failed, timed out or printed nothing readable) -- nothing says the update is bad,
+// so the words must not blame its signature.
+const CANNOT_CHECK_MESSAGE = "The update was not installed: its signature check could not run on this computer.";
+const CANNOT_CHECK_HINT =
+  "This app installs an update only after checking its publisher's signature, and that check uses Windows PowerShell, which may be blocked here (for example by a policy). Please download the new version by hand from the releases page and install it.";
+
+/** The dialog's words for a refused update: a check that could not run is not called a bad signature. */
+export function unverifiedText(refusal: string): { message: string; hint: string } {
+  return refusalKind(refusal) === "cannot-run"
+    ? { message: CANNOT_CHECK_MESSAGE, hint: CANNOT_CHECK_HINT }
+    : { message: UNVERIFIED_MESSAGE, hint: UNVERIFIED_HINT };
+}
 
 // Whether the packaged resources/app-update.yml names a publisherName -- the file NsisUpdater reads
 // it from (AppUpdater.js `configOnDisk`), written there by the release workflow's repackage job
@@ -250,8 +263,9 @@ function wireUpdater(
     }
     if (d.kind === "unverified") {
       deps.log(`updater: refused an update whose signature could not be verified: ${d.message}`);
+      const text = unverifiedText(d.message);
       const r = await box({
-        type: "warning", title: "AI PM Cockpit", message: UNVERIFIED_MESSAGE, detail: `${UNVERIFIED_HINT}\n\n${d.message}`,
+        type: "warning", title: "AI PM Cockpit", message: text.message, detail: `${text.hint}\n\n${d.message}`,
         buttons: ["OK", "Open releases page"], defaultId: 0, cancelId: 0,
       });
       if (r === 1) void shell.openExternal(RELEASES_URL).catch((e: unknown) => deps.log(`open releases page: ${String(e)}`));

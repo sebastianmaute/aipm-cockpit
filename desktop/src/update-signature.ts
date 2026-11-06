@@ -21,6 +21,21 @@ export const SIGNATURE_TIMEOUT_MS = 60_000;
 /** The environment variable that carries the installer path into PowerShell. */
 export const INSTALLER_ENV = "AIPM_UPDATE_INSTALLER";
 
+/** Starts every refusal that means the check itself could not run on this computer: PowerShell
+ *  could not be started, exited non-zero, gave no answer in time, or printed nothing readable. The
+ *  other refusals are verdicts (a status other than Valid, a signer not on the list, a verdict about
+ *  another file, no publisher to check against). Both kinds refuse the update -- the kind only picks
+ *  the words the user is shown (updater.ts), so fail-closed does not depend on it. */
+export const CANNOT_RUN_PREFIX = "signature check could not run: ";
+export type RefusalKind = "cannot-run" | "mismatch";
+/** The kind of a refusal, from its text or from any message that carries it (electron-updater
+ *  wraps it as "New version … is not signed by the application owner: <refusal>"). A certificate
+ *  subject quoted in a mismatch could carry the prefix too; that changes only the wording shown,
+ *  never whether the update is refused. */
+export function refusalKind(message: string): RefusalKind {
+  return message.includes(CANNOT_RUN_PREFIX) ? "cannot-run" : "mismatch";
+}
+
 export interface PowerShellResult {
   /** null when the process ended without an exit code (killed, timed out). */
   exitCode: number | null;
@@ -154,18 +169,19 @@ function sameFile(reported: string, expected: string): boolean {
 
 function judge(publisherNames: string[], installerPath: string, r: PowerShellResult): string | null {
   const stderr = r.stderr.trim() ? ` (${r.stderr.trim().split(/\r?\n/)[0]})` : "";
-  if (r.exitCode !== 0) return `signature check failed: PowerShell exited with ${r.exitCode ?? "no exit code"}${stderr}`;
+  if (r.exitCode !== 0) return `${CANNOT_RUN_PREFIX}PowerShell exited with ${r.exitCode ?? "no exit code"}${stderr}`;
   let data: unknown;
   try {
     data = JSON.parse(r.stdout.trim());
   } catch {
-    return `signature check failed: unreadable output from Get-AuthenticodeSignature${stderr}`;
+    return `${CANNOT_RUN_PREFIX}unreadable output from Get-AuthenticodeSignature${stderr}`;
   }
   if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    return "signature check failed: Get-AuthenticodeSignature returned no signature record";
+    return `${CANNOT_RUN_PREFIX}Get-AuthenticodeSignature returned no signature record`;
   }
   const rec = data as { Status?: unknown; Path?: unknown; SignerCertificate?: { Subject?: unknown } | null };
-  if (typeof rec.Path !== "string" || !sameFile(rec.Path, installerPath)) {
+  if (typeof rec.Path !== "string") return `${CANNOT_RUN_PREFIX}Get-AuthenticodeSignature named no file`;
+  if (!sameFile(rec.Path, installerPath)) {
     return "signature check failed: the verdict is not about the downloaded installer";
   }
   const status = statusName(rec.Status);
@@ -191,10 +207,10 @@ export async function verifyUpdateSignature(
   const timeout = new Promise<"timeout">((resolve) => { timer = setTimeout(() => resolve("timeout"), SIGNATURE_TIMEOUT_MS); });
   try {
     const result = await Promise.race([Promise.resolve().then(() => run(installerPath, SIGNATURE_TIMEOUT_MS)), timeout]);
-    if (result === "timeout") return `signature check failed: timed out after ${SIGNATURE_TIMEOUT_MS / 1000} s`;
+    if (result === "timeout") return `${CANNOT_RUN_PREFIX}timed out after ${SIGNATURE_TIMEOUT_MS / 1000} s`;
     return judge(publisherNames, installerPath, result);
   } catch (e: unknown) {
-    return `signature check failed: ${e instanceof Error ? e.message : String(e)}`;
+    return `${CANNOT_RUN_PREFIX}${e instanceof Error ? e.message : String(e)}`;
   } finally {
     clearTimeout(timer);
   }

@@ -219,7 +219,11 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   (valid) when PowerShell fails, so `createUpdater` replaces it with `verifyUpdateSignature`
   (`update-signature.ts`), which fails closed: a spawn failure, a non-zero exit, no answer within
   `SIGNATURE_TIMEOUT_MS`, unreadable output, a verdict about another file, a status other than `Valid`
-  or a signer that is not a listed publisher all refuse. The path reaches PowerShell in an environment
+  or a signer that is not a listed publisher all refuse. The first four (and a record naming no file) start
+  with `CANNOT_RUN_PREFIX`, which `refusalKind` reads back — through electron-updater's wrapping — so the
+  dialog says the check could not run on this computer (PowerShell blocked by a policy, say) instead of
+  calling the signature bad (`unverifiedText` in `updater.ts`); the kind picks only the words, every one
+  still refuses. The path reaches PowerShell in an environment
   variable (`INSTALLER_ENV`), never in the command text. ★★ `SIGNATURE_COMMAND` touches no type's static
   member: under Constrained Language Mode (AppLocker / WDAC) a `[Console]::OutputEncoding = …` line exits 1,
   which refused every update, signed ones included. Output therefore stays in the console code page, so a

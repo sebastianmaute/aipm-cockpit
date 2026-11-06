@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createUpdater, DRY_RUN_WIRED_LINE } from "./updater";
+import { createUpdater, DRY_RUN_WIRED_LINE, unverifiedText } from "./updater";
 import { UPDATE_DURATION_HINT } from "./lib/update-window";
 import { RELEASES_URL } from "./lib/constants";
-import { verifyUpdateSignature } from "./update-signature";
+import { CANNOT_RUN_PREFIX, verifyUpdateSignature } from "./update-signature";
 
 // ★★★ Regression test for fix round 2's Critical 1, item (d): nothing before this file exercised
 // `createUpdater` itself, so `pickAutoUpdater` reverting to a direct `mod.autoUpdater` read (the
@@ -365,6 +365,41 @@ describe("a signed build's update check", () => {
     // Nothing is left armed to install on quit.
     expect(fakeAutoUpdater.autoInstallOnAppQuit).toBe(false);
     expect(log.mock.calls.some((c) => /refused/.test(String(c[0])))).toBe(true);
+  });
+
+  // A check that could not run (PowerShell blocked by policy, failing, timing out) says nothing
+  // about the update itself, so the dialog does not call its signature bad -- and still refuses it.
+  it("a refusal because the check could not run says so, offers the manual download, and never installs", async () => {
+    feed(SIGNED_FEED);
+    const updater = await createUpdater({ log: vi.fn(), window: () => null });
+    updater.check("manual");
+    const handler = (name: string) => fakeAutoUpdater.on.mock.calls.find((c) => c[0] === name)?.[1] as (arg: unknown) => void;
+    handler("update-available")({ version: "9.9.9", releaseNotes: "notes" });
+    await vi.waitFor(() => expect(fakeWindows.instances).toHaveLength(1));
+    fakeWindows.instances[0].emit("page-title-updated", { preventDefault: vi.fn() }, "aipm-update:download");
+    await vi.waitFor(() => expect(fakeAutoUpdater.downloadUpdate).toHaveBeenCalledTimes(1));
+
+    showMessageBox.mockResolvedValueOnce({ response: 1 }); // Open releases page
+    handler("error")(Object.assign(
+      new Error(`New version 9.9.9 is not signed by the application owner: ${CANNOT_RUN_PREFIX}PowerShell exited with 1`),
+      { code: "ERR_UPDATER_INVALID_SIGNATURE" },
+    ));
+    await vi.waitFor(() => expect(showMessageBox).toHaveBeenCalledTimes(1));
+    const opts = (showMessageBox.mock.calls[0] as unknown[]).at(-1) as { message: string; detail: string; buttons: string[] };
+    expect(opts.message).toBe("The update was not installed: its signature check could not run on this computer.");
+    expect(opts.message).not.toMatch(/could not be verified/);
+    expect(opts.detail).toMatch(/PowerShell, which may be blocked here \(for example by a policy\)/);
+    expect(opts.detail).toMatch(/download .* by hand from the releases page/);
+    expect(opts.detail).toContain("PowerShell exited with 1");
+    expect(opts.buttons).toEqual(["OK", "Open releases page"]);
+    await vi.waitFor(() => expect(openExternal).toHaveBeenCalledWith(RELEASES_URL));
+    expect(fakeAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+    expect(fakeAutoUpdater.autoInstallOnAppQuit).toBe(false);
+  });
+
+  it("unverifiedText keeps the mismatch wording for a real mismatch and the cannot-run wording for a check that did not run", () => {
+    expect(unverifiedText("the installer's signature is NotSigned").message).toBe("The update was not installed: its signature could not be verified.");
+    expect(unverifiedText(`${CANNOT_RUN_PREFIX}timed out after 60 s`).message).toBe("The update was not installed: its signature check could not run on this computer.");
   });
 
   // The next check would offer, and download, the very installer that was just refused. The refused

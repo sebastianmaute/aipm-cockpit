@@ -45,7 +45,8 @@ before downloading or installing anything; it never updates silently.
 
 Once you have installed a signed release, the app installs an update only if its installer is
 signed by SignPath Foundation. If it cannot confirm that, it installs nothing and offers to open
-the Releases page, so you can download the release by hand and check it as in step 5. Two limits
+the Releases page (when the check cannot run on the computer at all, for example because a policy
+blocks Windows PowerShell, it says so rather than calling the update unsigned), so you can download the release by hand and check it as in step 5. Two limits
 apply while releases move to signing: a copy installed from a release before the first signed one
 takes the first signed update without that check, and an installer such a copy had already
 downloaded and kept in its update cache is installed once without the check. The uninstaller is not
