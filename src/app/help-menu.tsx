@@ -10,7 +10,7 @@ import { smoothScrollBehavior } from "./reduced-motion";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { useResizable } from "./use-resizable";
 import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-window";
-import { ResetSizeButton } from "./task-manager-ui";
+import { ResetSizeButton, useIsDesktopShell } from "./task-manager-ui";
 import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
 import { usePanelInitialFocus } from "./use-panel-focus";
 import { APP_LICENSE_URL, INSTALL_GUIDE_URL } from "./version";
@@ -37,7 +37,8 @@ function FooterLink({ href, children }: { href: string; children: string }) {
 
 /** The licence notices for every third-party package a release ships. The release build writes
  *  them into the packaged server's public/ (desktop/scripts/copy-static.mjs `--notices`); a dev
- *  or web build has none, so the link answers 404 there. */
+ *  or web build has none and would answer 404, so the Help panel links them only in the desktop
+ *  shell (`useIsDesktopShell`). */
 export const THIRD_PARTY_NOTICES_PATH = "/third-party-notices.txt";
 
 const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
@@ -96,6 +97,7 @@ export function HelpMenu({
   // instance in step through a module-level listener registry.
   const { settings } = useSettings();
   const [open, setOpen] = useState(false);
+  const isDesktopShell = useIsDesktopShell();
   const [query, setQuery] = useState("");
   // Drag/position (shared with notes-window); size stays on useResizable below.
   // The panel renders only once `pos` is set, so the placement fallback size is
@@ -269,7 +271,9 @@ export function HelpMenu({
             <FooterLink href={YOUTUBE_CHANNEL_URL}>{t(lang, "helpVideoChannelLink")}</FooterLink>
             <FooterLink href={INSTALL_GUIDE_URL}>{t(lang, "installGuideLink")}</FooterLink>
             <FooterLink href={APP_LICENSE_URL}>{t(lang, "versionLicense")}</FooterLink>
-            <FooterLink href={THIRD_PARTY_NOTICES_PATH}>{t(lang, "helpThirdPartyNotices")}</FooterLink>
+            {isDesktopShell && (
+              <FooterLink href={THIRD_PARTY_NOTICES_PATH}>{t(lang, "helpThirdPartyNotices")}</FooterLink>
+            )}
           </div>
         </div>
       )}

@@ -170,7 +170,8 @@ longer carries its own changelog comment.
   SBOM, `aipm-cockpit-<version>-sbom.cdx.json` (CycloneDX), listing every third-party package the app ships with
   its version and licence; the release workflow attests it against the installer, so
   `gh attestation verify … --predicate-type https://cyclonedx.org/bom` checks it. The full licence texts are
-  installed as `THIRD-PARTY-NOTICES.txt` in the installation folder and linked from Help. No source map ships in the
+  installed as `THIRD-PARTY-NOTICES.txt` in the installation folder and linked from Help in the desktop app (the web
+  app has no such file, so it shows no link). No source map ships in the
   installer any more. The release workflow can now have SignPath Foundation sign the installer and, optionally, the app's
   own executables; it stays off until the maintainer switches it on, each release's notes say whether its installer is
   signed, and once a signed release has shipped an unsigned one is refused. A copy installed from a signed release

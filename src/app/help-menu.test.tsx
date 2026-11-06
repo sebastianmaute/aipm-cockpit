@@ -93,7 +93,14 @@ describe("HelpMenu floating panel", () => {
     expect(channel.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("links the third-party licence notices the release ships, after the License link", () => {
+  // The notices exist only in the packaged desktop app's server (a web or dev build has none and
+  // would answer 404), so the link shows only in the desktop shell.
+  const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Electron/44.9.1 Safari/537.36";
+  const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+  const asUserAgent = (ua: string) => vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ua);
+
+  it("links the third-party licence notices the release ships, after the License link, in the desktop app", () => {
+    asUserAgent(DESKTOP_UA);
     render(<HelpMenu lang="en-US" />);
     openPanel();
     const notices = screen.getByRole("link", { name: "Third-party notices" });
@@ -104,7 +111,18 @@ describe("HelpMenu floating panel", () => {
     expect(license.compareDocumentPosition(notices) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("shows no notices link in a browser, where the file does not exist", () => {
+    asUserAgent(BROWSER_UA);
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    // The footer itself is there: the License link renders, the notices link does not.
+    expect(screen.getByRole("link", { name: t("en-US", "versionLicense") })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Third-party notices" })).toBeNull();
+    expect(document.querySelector('a[href="/third-party-notices.txt"]')).toBeNull();
+  });
+
   it("names the notices link in German (DE dict is lazy — loaded first)", async () => {
+    asUserAgent(DESKTOP_UA);
     await loadI18n("de");
     render(<HelpMenu lang="de" />);
     fireEvent.click(screen.getByRole("button", { name: t("de", "help") }));

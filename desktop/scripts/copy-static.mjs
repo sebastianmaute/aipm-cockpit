@@ -11,7 +11,7 @@
 // (SBOM_SOURCE_MAPS=1) and must never ship them; the release workflow strips
 // them first, and this filter keeps a stray one out of the standalone tree too.
 // `--notices` copies the release's THIRD-PARTY-NOTICES.txt into the standalone
-// public/ as third-party-notices.txt, which the Help panel links to. Without it
+// public/ as third-party-notices.txt, which the Help panel links to (in the desktop shell only). Without it
 // (a local desktop build) no notices file is made up.
 import { copyFileSync, cpSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
