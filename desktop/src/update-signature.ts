@@ -28,10 +28,16 @@ export interface PowerShellResult {
 /** Runs the signature query for one file. Rejects only when PowerShell cannot be started. */
 export type RunPowerShell = (installerPath: string, timeoutMs: number) => Promise<PowerShellResult>;
 
-// UTF-8 out, so a signer name outside ASCII reads back unchanged. The path is read from the
-// environment inside PowerShell, so no character of it is ever parsed as PowerShell syntax.
-const COMMAND =
-  "$ErrorActionPreference = 'Stop'; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " +
+// The path is read from the environment inside PowerShell, so no character of it is ever parsed as
+// PowerShell syntax.
+// ★★ Nothing here may assign a type's static member (`[Console]::OutputEncoding = …`). Under
+// Constrained Language Mode (AppLocker / WDAC) that is "Property setting is supported only on core
+// types", and with ErrorActionPreference Stop the script exits 1, so EVERY update would be refused,
+// signed ones included (measured: exit 1 under ConstrainedLanguage, exit 0 without the assignment).
+// The cost of leaving output in the console code page: non-ASCII characters in the reported Path
+// come back mangled -- see `sameFile`.
+export const SIGNATURE_COMMAND =
+  "$ErrorActionPreference = 'Stop'; " +
   `Get-AuthenticodeSignature -LiteralPath $env:${INSTALLER_ENV} | ConvertTo-Json -Compress`;
 
 // A plain map, not NodeJS.ProcessEnv: the root tsc's Next types make that one demand NODE_ENV.
@@ -53,7 +59,7 @@ export function powerShellInvocation(
   childEnv[INSTALLER_ENV] = installerPath;
   return {
     file,
-    args: ["-NoProfile", "-NonInteractive", "-InputFormat", "None", "-Command", COMMAND],
+    args: ["-NoProfile", "-NonInteractive", "-InputFormat", "None", "-Command", SIGNATURE_COMMAND],
     options: { env: childEnv as NodeJS.ProcessEnv, timeout: SIGNATURE_TIMEOUT_MS, windowsHide: true, shell: false, encoding: "utf8" },
   };
 }
@@ -123,7 +129,21 @@ function signerMatches(subject: string, publisherNames: string[]): boolean {
   });
 }
 
-const samePath = (a: string, b: string) => win32.normalize(a).toLowerCase() === win32.normalize(b).toLowerCase();
+const isAscii = (s: string) => [...s].every((c) => c.charCodeAt(0) < 0x80);
+
+/** Whether the verdict is about the downloaded file. Windows paths compare case-insensitively.
+ *  PowerShell writes in the console code page (SIGNATURE_COMMAND cannot switch it to UTF-8), so a
+ *  non-ASCII character in the path -- a profile folder named "Jürgen" -- reads back as U+FFFD and the
+ *  full path can never match. For such a path only the file name is compared, and only when the
+ *  file name itself is ASCII (electron-updater's `temp-<artifactName>`, always ASCII here). An
+ *  all-ASCII path is compared in full. Measured on Windows PowerShell 5.1, 2026-11-06. */
+function sameFile(reported: string, expected: string): boolean {
+  const a = win32.normalize(reported).toLowerCase();
+  const b = win32.normalize(expected).toLowerCase();
+  if (isAscii(b)) return a === b;
+  const name = win32.basename(b);
+  return isAscii(name) && win32.basename(a) === name;
+}
 
 function judge(publisherNames: string[], installerPath: string, r: PowerShellResult): string | null {
   const stderr = r.stderr.trim() ? ` (${r.stderr.trim().split(/\r?\n/)[0]})` : "";
@@ -138,7 +158,7 @@ function judge(publisherNames: string[], installerPath: string, r: PowerShellRes
     return "signature check failed: Get-AuthenticodeSignature returned no signature record";
   }
   const rec = data as { Status?: unknown; Path?: unknown; SignerCertificate?: { Subject?: unknown } | null };
-  if (typeof rec.Path !== "string" || !samePath(rec.Path, installerPath)) {
+  if (typeof rec.Path !== "string" || !sameFile(rec.Path, installerPath)) {
     return "signature check failed: the verdict is not about the downloaded installer";
   }
   const status = statusName(rec.Status);

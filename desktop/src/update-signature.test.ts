@@ -3,12 +3,13 @@
 // one of the publisher names the packaged app-update.yml lists. Every failure to establish that --
 // PowerShell missing, failing, hanging or answering nonsense -- refuses the update (fail closed),
 // unlike electron-updater's own verifier, which resolves `null` (valid) on a PowerShell error.
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  INSTALLER_ENV, SIGNATURE_TIMEOUT_MS, defaultRun, feedRequiresSignature, powerShellInvocation,
+  INSTALLER_ENV, SIGNATURE_COMMAND, SIGNATURE_TIMEOUT_MS, defaultRun, feedRequiresSignature, powerShellInvocation,
   verifyUpdateSignature, type PowerShellResult, type RunPowerShell,
 } from "./update-signature";
 
@@ -110,6 +111,22 @@ describe("verifyUpdateSignature", () => {
     // Same file, different case and separators: Windows paths are case-insensitive.
     expect(await verifyUpdateSignature([SIGNER], INSTALLER, answer(json(0, SUBJECT, INSTALLER.toUpperCase().replace(/\\/g, "/")))))
       .toBeNull();
+    // An all-ASCII path is compared in full: the same file name in another folder is refused.
+    expect(await verifyUpdateSignature([SIGNER], INSTALLER, answer(json(0, SUBJECT, String.raw`C:\elsewhere\temp-aipm-cockpit-9.9.9-setup.exe`))))
+      .toEqual(expect.any(String));
+  });
+
+  // PowerShell answers in the console code page, so a profile folder named "Jürgen" comes back as
+  // "J\uFFFDrgen" (measured on Windows PowerShell 5.1). Only the ASCII file name is then compared.
+  it("matches a non-ASCII path by its file name, and still refuses another file name", async () => {
+    const path = String.raw`C:\Users\Jürgen Ä\AppData\Local\aipm-cockpit-desktop-updater\pending\temp-aipm-cockpit-9.9.9-setup.exe`;
+    const mangled = path.replace(/[^\u0020-\u007e]/g, "\uFFFD");
+    expect(await verifyUpdateSignature([SIGNER], path, answer(json(0, SUBJECT, mangled)))).toBeNull();
+    expect(await verifyUpdateSignature([SIGNER], path, answer(json(0, SUBJECT, mangled.replace("9.9.9", "6.6.6")))))
+      .toEqual(expect.any(String));
+    // A non-ASCII file name cannot be compared at all, so it is refused.
+    const named = String.raw`C:\Temp\ü-setup.exe`;
+    expect(await verifyUpdateSignature([SIGNER], named, answer(json(0, SUBJECT, named)))).toEqual(expect.any(String));
   });
 
   it("hands the path to the runner verbatim, quotes and spaces included", async () => {
@@ -134,6 +151,15 @@ describe("powerShellInvocation", () => {
     expect(inv.options.shell).toBeFalsy();
     expect(inv.options.timeout).toBe(SIGNATURE_TIMEOUT_MS);
     expect(inv.options.windowsHide).toBe(true);
+    expect(command).toBe(SIGNATURE_COMMAND);
+  });
+
+  // Constrained Language Mode (AppLocker / WDAC) refuses property setting on non-core types, so a
+  // `[Console]::OutputEncoding = …` line made PowerShell exit 1 and every update, signed or not, was
+  // refused (measured). The command touches no type's static member at all.
+  it("uses no type-static member, which Constrained Language Mode would block", () => {
+    expect(SIGNATURE_COMMAND).not.toMatch(/\]::/);
+    expect(SIGNATURE_COMMAND).not.toMatch(/\[[A-Za-z][\w.]*\]/);
   });
 
   it("drops an inherited PSModulePath, in any letter case, so PowerShell 7's modules do not shadow 5.1's", () => {
@@ -169,6 +195,30 @@ describe.skipIf(process.platform !== "win32")("defaultRun on Windows", () => {
     for (const f of ran) rmSync(f, { force: true });
     expect(ran, "commands from the file name ran").toEqual([]);
     expect(r).toContain("NotSigned");
+  }, 30_000);
+
+  // The session is switched to ConstrainedLanguage first: the restrictions AppLocker / WDAC impose,
+  // though not an enforced policy. The old UTF-8 line exited 1 here.
+  it("answers under Constrained Language Mode", () => {
+    const dir = mkdtempSync(join(tmpdir(), "upd-sig-"));
+    dirs.push(dir);
+    const file = join(dir, "temp-x-setup.ps1");
+    writeFileSync(file, "# unsigned\r\n");
+    const inv = powerShellInvocation(file);
+    const args = inv.args.map((a) => (a === SIGNATURE_COMMAND ? `$ExecutionContext.SessionState.LanguageMode = 'ConstrainedLanguage'; ${a}` : a));
+    expect(args).not.toEqual(inv.args);
+    const r = spawnSync(inv.file, args, { env: inv.options.env, encoding: "utf8", windowsHide: true, timeout: SIGNATURE_TIMEOUT_MS });
+    expect(r.status, r.stderr).toBe(0);
+    expect(JSON.parse(r.stdout.trim()).Status).toBe(2); // NotSigned: it read the file
+  }, 30_000);
+
+  it("checks a file in a folder whose name is not ASCII", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "upd-sig-Jürgen Ä-"));
+    dirs.push(dir);
+    const file = join(dir, "temp-aipm-cockpit-9.9.9-setup.ps1");
+    writeFileSync(file, "# unsigned\r\n");
+    // NotSigned, not "not about the downloaded installer": the file-name match held.
+    expect(await verifyUpdateSignature([SIGNER], file, defaultRun)).toContain("NotSigned");
   }, 30_000);
 });
 

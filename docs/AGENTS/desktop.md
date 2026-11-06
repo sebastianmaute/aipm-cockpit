@@ -201,7 +201,11 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   (`update-signature.ts`), which fails closed: a spawn failure, a non-zero exit, no answer within
   `SIGNATURE_TIMEOUT_MS`, unreadable output, a verdict about another file, a status other than `Valid`
   or a signer that is not a listed publisher all refuse. The path reaches PowerShell in an environment
-  variable (`INSTALLER_ENV`), never in the command text. The hook is set only when
+  variable (`INSTALLER_ENV`), never in the command text. ★★ `SIGNATURE_COMMAND` touches no type's static
+  member: under Constrained Language Mode (AppLocker / WDAC) a `[Console]::OutputEncoding = …` line exits 1,
+  which refused every update, signed ones included. Output therefore stays in the console code page, so a
+  non-ASCII character in the reported path reads back mangled; for a non-ASCII path only the (ASCII) file
+  name is compared, an all-ASCII path in full. The hook is set only when
   `feedRequiresSignature` finds the key (an unreadable feed counts as signed); an unsigned build keeps
   the default, which then never runs. A signed feed on an updater without the hook fails the wiring, so
   the app falls back to `unavailableUpdater`. A refusal reaches `decideOnError` as

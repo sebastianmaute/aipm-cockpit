@@ -12,8 +12,17 @@ import { PUBLISHER, addPublisherName, writePublisherName } from "./release-updat
 
 const CLI = fileURLToPath(new URL("./release-update-feed.mjs", import.meta.url));
 const RELEASE_YML = readFileSync(fileURLToPath(new URL("../.github/workflows/release.yml", import.meta.url)), "utf8");
-// js-yaml as electron-updater loads app-update.yml with it (AppUpdater.js loadUpdateConfig).
-const yaml = createRequire(new URL("../desktop/package.json", import.meta.url))("js-yaml");
+// js-yaml as electron-updater loads app-update.yml with it (AppUpdater.js loadUpdateConfig). Only
+// desktop/node_modules has it: the root install's sole copy is nested under date-holidays, which
+// is not ours to lean on, and adding a root dependency for one assertion is not worth it. CI's unit
+// job installs the desktop deps; a root-only run skips just that one parse test, by name, and runs
+// every other test here (including the update-feed check's regex, which needs no parser).
+let yaml = null;
+try {
+  yaml = createRequire(new URL("../desktop/package.json", import.meta.url))("js-yaml");
+} catch {
+  yaml = null;
+}
 
 // What electron-builder's after-pack hook writes for this repo's `publish:` block.
 const FEED = "owner: sebastianmaute\nrepo: aipm-cockpit\nprovider: github\nupdaterCacheDirName: aipm-cockpit-desktop-updater\n";
@@ -50,11 +59,16 @@ describe("addPublisherName", () => {
       expect(r.changed).toBe(true);
       expect(r.text).toBe(`${text}publisherName:${eol}  - ${PUBLISHER}${eol}`);
       expect(r.text.startsWith(text)).toBe(true);
-      // electron-updater reads exactly that list, and the other keys as before.
-      expect(yaml.load(r.text)).toEqual({ ...yaml.load(text), publisherName: [PUBLISHER] });
       // The sign job's check after the repackage accepts it.
       expect(feedCheck().test(r.text), JSON.stringify(eol)).toBe(true);
       expect(feedCheck().test(text)).toBe(false);
+    }
+  });
+
+  it.skipIf(yaml === null)("electron-updater's parser reads exactly that list and the other keys unchanged (SKIPPED without desktop/node_modules: js-yaml lives only there)", () => {
+    for (const eol of ["\n", "\r\n"]) {
+      const text = FEED.replace(/\n/g, eol);
+      expect(yaml.load(addPublisherName(text).text)).toEqual({ ...yaml.load(text), publisherName: [PUBLISHER] });
     }
   });
 
