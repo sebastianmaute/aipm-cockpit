@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createUpdater, DRY_RUN_WIRED_LINE } from "./updater";
 import { UPDATE_DURATION_HINT } from "./lib/update-window";
+import { RELEASES_URL } from "./lib/constants";
+import { verifyUpdateSignature } from "./update-signature";
 
 // ★★★ Regression test for fix round 2's Critical 1, item (d): nothing before this file exercised
 // `createUpdater` itself, so `pickAutoUpdater` reverting to a direct `mod.autoUpdater` read (the
@@ -20,6 +25,9 @@ const fakeAutoUpdater = vi.hoisted(() => ({
   checkForUpdates: vi.fn(() => Promise.resolve(null)),
   downloadUpdate: vi.fn(() => Promise.resolve([])),
   quitAndInstall: vi.fn(),
+  // NsisUpdater's hook (electron-updater 6.8.9, NsisUpdater.js): its default, which a signed build
+  // replaces and an unsigned one leaves alone. Optional so a test can remove it.
+  verifyUpdateCodeSignature: undefined as unknown,
 }));
 
 // No named `autoUpdater` export -- matching the real package's shape under a dynamic import
@@ -253,5 +261,100 @@ describe("the Update available window", () => {
     expect(opts.detail.startsWith(UPDATE_DURATION_HINT)).toBe(true);
     await vi.waitFor(() => expect(fakeAutoUpdater.downloadUpdate).toHaveBeenCalledTimes(1));
     expect(log.mock.calls.some((c) => String(c[0]).includes("using the native dialog"))).toBe(true);
+  });
+});
+
+// A signed build (its packaged resources/app-update.yml names a publisher) checks every downloaded
+// installer with verifyUpdateSignature, which fails closed; an unsigned build keeps electron-updater's
+// default. A refused update says to download the release by hand and is never installed.
+describe("a signed build's update check", () => {
+  const DEFAULT_VERIFY = vi.fn(() => Promise.resolve(null));
+  const SIGNED_FEED = "owner: sebastianmaute\nrepo: aipm-cockpit\nprovider: github\nupdaterCacheDirName: x\npublisherName:\n  - SignPath Foundation\n";
+  const UNSIGNED_FEED = "owner: sebastianmaute\nrepo: aipm-cockpit\nprovider: github\nupdaterCacheDirName: x\n";
+  let resources: string;
+  const had = Object.getOwnPropertyDescriptor(process, "resourcesPath");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fakeWindows.instances.length = 0;
+    fakeWindows.nextLoadFails = false;
+    fakeAutoUpdater.verifyUpdateCodeSignature = DEFAULT_VERIFY;
+    fakeAutoUpdater.autoInstallOnAppQuit = false;
+    resources = mkdtempSync(join(tmpdir(), "upd-res-"));
+    Object.defineProperty(process, "resourcesPath", { value: resources, configurable: true, writable: true });
+  });
+  afterEach(() => {
+    rmSync(resources, { recursive: true, force: true });
+    if (had) Object.defineProperty(process, "resourcesPath", had);
+    else delete (process as { resourcesPath?: string }).resourcesPath;
+  });
+  const feed = (text: string) => writeFileSync(join(resources, "app-update.yml"), text);
+
+  it("installs the fail-closed verifier when the packaged feed names a publisher", async () => {
+    feed(SIGNED_FEED);
+    const log = vi.fn();
+    await createUpdater({ log, window: () => null });
+    expect(fakeAutoUpdater.verifyUpdateCodeSignature).toBe(verifyUpdateSignature);
+    expect(log.mock.calls.some((c) => String(c[0]).includes("failed to wire"))).toBe(false);
+  });
+
+  it("leaves electron-updater's default alone in an unsigned build, or with no feed at all", async () => {
+    feed(UNSIGNED_FEED);
+    await createUpdater({ log: vi.fn(), window: () => null });
+    expect(fakeAutoUpdater.verifyUpdateCodeSignature).toBe(DEFAULT_VERIFY);
+    rmSync(join(resources, "app-update.yml"));
+    await createUpdater({ log: vi.fn(), window: () => null });
+    expect(fakeAutoUpdater.verifyUpdateCodeSignature).toBe(DEFAULT_VERIFY);
+  });
+
+  it("installs the verifier when the feed exists but cannot be read (fail closed)", async () => {
+    mkdirSync(join(resources, "app-update.yml"));
+    await createUpdater({ log: vi.fn(), window: () => null });
+    expect(fakeAutoUpdater.verifyUpdateCodeSignature).toBe(verifyUpdateSignature);
+  });
+
+  it("refuses to wire up a signed build whose updater has no signature hook", async () => {
+    feed(SIGNED_FEED);
+    const saved = fakeAutoUpdater.verifyUpdateCodeSignature;
+    delete (fakeAutoUpdater as { verifyUpdateCodeSignature?: unknown }).verifyUpdateCodeSignature;
+    try {
+      const log = vi.fn();
+      const updater = await createUpdater({ log, window: () => null });
+      expect(log.mock.calls.some((c) => String(c[0]).includes("failed to wire up"))).toBe(true);
+      updater.check("startup");
+      expect(fakeAutoUpdater.checkForUpdates).not.toHaveBeenCalled();
+    } finally {
+      fakeAutoUpdater.verifyUpdateCodeSignature = saved;
+    }
+  });
+
+  it("a refused update shows the manual-download message, opens the releases page, and never installs", async () => {
+    feed(SIGNED_FEED);
+    const log = vi.fn();
+    const updater = await createUpdater({ log, window: () => null });
+    updater.check("manual");
+    const handler = (name: string) => fakeAutoUpdater.on.mock.calls.find((c) => c[0] === name)?.[1] as (arg: unknown) => void;
+    handler("update-available")({ version: "9.9.9", releaseNotes: "notes" });
+    await vi.waitFor(() => expect(fakeWindows.instances).toHaveLength(1));
+    fakeWindows.instances[0].emit("page-title-updated", { preventDefault: vi.fn() }, "aipm-update:download");
+    await vi.waitFor(() => expect(fakeAutoUpdater.downloadUpdate).toHaveBeenCalledTimes(1));
+    expect(fakeAutoUpdater.autoInstallOnAppQuit).toBe(true);
+
+    showMessageBox.mockResolvedValueOnce({ response: 1 }); // Open releases page
+    handler("error")(Object.assign(
+      new Error("New version 9.9.9 is not signed by the application owner: the installer's signature is NotSigned"),
+      { code: "ERR_UPDATER_INVALID_SIGNATURE" },
+    ));
+    await vi.waitFor(() => expect(showMessageBox).toHaveBeenCalledTimes(1));
+    const opts = (showMessageBox.mock.calls[0] as unknown[]).at(-1) as { message: string; detail: string; buttons: string[] };
+    expect(opts.message).toBe("The update was not installed: its signature could not be verified.");
+    expect(opts.detail).toMatch(/download .* by hand from the releases page/);
+    expect(opts.detail).toContain("NotSigned");
+    expect(opts.buttons).toEqual(["OK", "Open releases page"]);
+    await vi.waitFor(() => expect(openExternal).toHaveBeenCalledWith(RELEASES_URL));
+    expect(fakeAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+    // Nothing is left armed to install on quit.
+    expect(fakeAutoUpdater.autoInstallOnAppQuit).toBe(false);
+    expect(log.mock.calls.some((c) => /refused/.test(String(c[0])))).toBe(true);
   });
 });

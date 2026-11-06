@@ -71,6 +71,21 @@ describe("update policy", () => {
     });
   });
 
+  // A signed build refuses an installer whose signature it cannot verify; electron-updater reports
+  // that as an error carrying this code (NsisUpdater.js, ERR_UPDATER_INVALID_SIGNATURE).
+  it("names a refused signature as its own decision, whatever the trigger or phase", () => {
+    const refused = Object.assign(new Error("New version 9.9.9 is not signed by the application owner: the installer's signature is NotSigned"), {
+      code: "ERR_UPDATER_INVALID_SIGNATURE",
+    });
+    const want = { kind: "unverified", message: refused.message };
+    expect(decideOnError("startup", "downloading", refused)).toEqual(want);
+    expect(decideOnError("manual", "downloading", refused)).toEqual(want);
+    expect(decideOnError("startup", "checking", refused)).toEqual(want);
+    // Any other code, or none, stays an ordinary error.
+    const other = Object.assign(new Error("ENOSPC"), { code: "ENOSPC" });
+    expect(decideOnError("manual", "downloading", other)).toEqual({ kind: "error", phase: "downloading", message: "ENOSPC" });
+  });
+
   it("shows only the first line of an error, never headers or a stack trailing after it", () => {
     // Fix round 3: electron-updater's own HttpError builds `.message` as
     // "{status} {statusText}\n{description}\nHeaders: {...}" -- and a REAL 404 from a private GitHub

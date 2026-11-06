@@ -1,7 +1,7 @@
 # Desktop — the Electron shell at runtime
 
 Owns `desktop/src/`: `main.ts` (app lifecycle, windows, menu, PDF route), `server-child.ts` (the Next server child),
-`updater.ts` (electron-updater wiring), and the pure, unit-tested decisions in `desktop/src/lib/`
+`updater.ts` (electron-updater wiring), `update-signature.ts` (the signed build's update check), and the pure, unit-tested decisions in `desktop/src/lib/`
 (`window-open-policy.ts`, `print-target.ts`, `window-liveness.ts`, `menu-model.ts`, `pdf-export.ts`,
 `update-policy.ts`, `update-window.ts`, `electron-updater-loader.ts`, `port-owner.ts`, `readiness.ts`, `exit-reporting.ts`,
 `log-paths.ts`, `constants.ts`). Also the renderer's half of each boundary: `src/app/desktop-shell.ts`
@@ -194,6 +194,23 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   "Update available" window (`UPDATE_DURATION_HINT`) and the "Update ready" box (`INSTALL_HINT`).
 - The feed is the public GitHub Releases `latest.yml`; the installer is unsigned. What stands in for
   signing is recorded beside `RELEASES_URL` in `lib/constants.ts` and in §487/§563.
+- ★★ **A signed build refuses any update it cannot verify.** electron-updater's `NsisUpdater` reads
+  `publisherName` from the packaged `resources/app-update.yml` and, only when it is there, passes each
+  downloaded installer to its `verifyUpdateCodeSignature` hook. Its default verifier resolves `null`
+  (valid) when PowerShell fails, so `createUpdater` replaces it with `verifyUpdateSignature`
+  (`update-signature.ts`), which fails closed: a spawn failure, a non-zero exit, no answer within
+  `SIGNATURE_TIMEOUT_MS`, unreadable output, a verdict about another file, a status other than `Valid`
+  or a signer that is not a listed publisher all refuse. The path reaches PowerShell in an environment
+  variable (`INSTALLER_ENV`), never in the command text. The hook is set only when
+  `feedRequiresSignature` finds the key (an unreadable feed counts as signed); an unsigned build keeps
+  the default, which then never runs. A signed feed on an updater without the hook fails the wiring, so
+  the app falls back to `unavailableUpdater`. A refusal reaches `decideOnError` as
+  `ERR_UPDATER_INVALID_SIGNATURE` (`INVALID_SIGNATURE_CODE`) and becomes the `unverified` decision: a box
+  that says to download the release by hand, with Open releases page; nothing installs, and
+  `autoInstallOnAppQuit` is reset. Only the release workflow's `sign` job writes the `publisherName`
+  ([`ci.md`](ci.md), the `sign` job), so no local or `build`-job package is a signed build. ★ Not run
+  against a real signed update yet: the unit tests fake electron-updater, and the one real-PowerShell
+  test (Windows only) checks an unsigned file.
 
 ## Open register entries
 

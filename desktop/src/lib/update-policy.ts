@@ -26,7 +26,14 @@ export type UpdateDecision =
   // message box it falls back to.
   | { kind: "prompt"; version: string; notes: string; notesHtml: SafeNotesHtml }
   | { kind: "up-to-date" }
-  | { kind: "error"; phase: UpdatePhase; message: string };
+  | { kind: "error"; phase: UpdatePhase; message: string }
+  // A signed build refused the downloaded installer: its signature could not be verified
+  // (update-signature.ts). Shown whatever the trigger; the user downloads the release by hand.
+  | { kind: "unverified"; message: string };
+
+// electron-updater's error code for an installer `verifyUpdateCodeSignature` refused
+// (NsisUpdater.js, doDownloadUpdate).
+export const INVALID_SIGNATURE_CODE = "ERR_UPDATER_INVALID_SIGNATURE";
 
 // What a new check request should do given what the updater is already doing. Replaces the old
 // `shouldStartCheck(inFlight: boolean): boolean`, which only ever dropped a redundant request with a
@@ -71,6 +78,9 @@ export function decideOnNotAvailable(trigger: UpdateTrigger): UpdateDecision {
 // error is shown regardless of trigger: the user already clicked "Download and install" to get here,
 // so silence is never correct once bytes were meant to move -- see the UpdatePhase doc comment above.
 export function decideOnError(trigger: UpdateTrigger, phase: UpdatePhase, err: unknown): UpdateDecision {
+  if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === INVALID_SIGNATURE_CODE) {
+    return { kind: "unverified", message: summarizeError(err) };
+  }
   if (phase === "checking" && trigger !== "manual") return { kind: "silent" };
   return { kind: "error", phase, message: summarizeError(err) };
 }

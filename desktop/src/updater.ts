@@ -14,12 +14,14 @@ import type { SafeNotesHtml } from "./lib/release-notes-html";
 import {
   UPDATE_DURATION_HINT, buildUpdatePromptHtml, parseChoiceTitle, updatePromptUrl, type UpdateChoice,
 } from "./lib/update-window";
+import { feedRequiresSignature, verifyUpdateSignature } from "./update-signature";
 
 export interface Updater {
   check(trigger: UpdateTrigger): void;
 }
 
 type ElectronUpdaterModule = typeof import("electron-updater");
+type NsisUpdater = import("electron-updater").NsisUpdater;
 
 const NOT_PACKAGED_MESSAGE = "Updates are checked only in the installed app.";
 // The installer runs silently after "Restart now" (quitAndInstall with isSilent), so nothing is
@@ -31,6 +33,26 @@ const NOT_PACKAGED_MESSAGE = "Updates are checked only in the installed app.";
 const INSTALL_HINT =
   "Installing takes a few minutes, and nothing is visible meanwhile: the app may look frozen or close without a message. After Restart now, it opens again by itself once the new version is installed, so please do not start it again in the meantime. After On next quit, the update installs when you close the app; start it again yourself a few minutes later.";
 const LOAD_FAILED_MESSAGE = "The updater could not be loaded.";
+// A signed build refused the downloaded installer (update-signature.ts). Nothing was installed, and
+// trying again would fetch the same file, so the way forward is the releases page.
+const UNVERIFIED_MESSAGE = "The update was not installed: its signature could not be verified.";
+const UNVERIFIED_HINT =
+  "This app installs only updates signed by its publisher. Please download the new version by hand from the releases page and install it.";
+
+// Whether the packaged resources/app-update.yml names a publisherName -- the file NsisUpdater reads
+// it from (AppUpdater.js `configOnDisk`), written there by the release workflow's sign job
+// (scripts/release-update-feed.mjs). No file means no signed feed, as electron-updater itself
+// treats ENOENT; a file that exists but cannot be read counts as signed, so the stricter verifier
+// is the one installed when in doubt (it runs only if electron-updater finds a publisherName).
+function packagedFeedRequiresSignature(): boolean {
+  const resources: unknown = process.resourcesPath;
+  if (typeof resources !== "string" || resources === "") return false;
+  try {
+    return feedRequiresSignature(readFileSync(join(resources, "app-update.yml"), "utf8"));
+  } catch (e: unknown) {
+    return (e as { code?: unknown }).code !== "ENOENT";
+  }
+}
 
 // Every check request the app is skipping because an operator asked it to, in one place -- e2e:desktop
 // sets this so a smoke run never meets a modal update dialog (fix round 1, review R11 Minor 5). Logged
@@ -120,6 +142,19 @@ function wireUpdater(
     debug: () => {},
   };
 
+  // A signed build: every downloaded installer must be validly signed by the feed's publisherName,
+  // checked by verifyUpdateSignature, which fails closed where electron-updater's default verifier
+  // passes on a PowerShell error. Without the hook (not an NsisUpdater) a signed build cannot verify
+  // anything, so this throws and createUpdater degrades to the no-op updater rather than install
+  // unverified updates.
+  if (packagedFeedRequiresSignature()) {
+    if (!("verifyUpdateCodeSignature" in autoUpdater)) {
+      throw new Error("the update feed requires a signature, but this updater has no verifyUpdateCodeSignature hook");
+    }
+    (autoUpdater as NsisUpdater).verifyUpdateCodeSignature = verifyUpdateSignature;
+    deps.log("updater: signed build, an update installs only when its signature verifies");
+  }
+
   const box = async (opts: MessageBoxOptions): Promise<number> => {
     prompting = true;
     try {
@@ -205,6 +240,15 @@ function wireUpdater(
       if (r === 1) void shell.openExternal(RELEASES_URL).catch((e: unknown) => deps.log(`open releases page: ${String(e)}`));
       return;
     }
+    if (d.kind === "unverified") {
+      deps.log(`updater: refused an update whose signature could not be verified: ${d.message}`);
+      const r = await box({
+        type: "warning", title: "AI PM Cockpit", message: UNVERIFIED_MESSAGE, detail: `${UNVERIFIED_HINT}\n\n${d.message}`,
+        buttons: ["OK", "Open releases page"], defaultId: 0, cancelId: 0,
+      });
+      if (r === 1) void shell.openExternal(RELEASES_URL).catch((e: unknown) => deps.log(`open releases page: ${String(e)}`));
+      return;
+    }
     const choice = await promptAvailable(d.version, d.notes, d.notesHtml);
     if (choice === "skip") {
       try { writeFileSync(skipFile(), serializeSkipped(d.version)); } catch (e: unknown) { deps.log(`updater skip write: ${String(e)}`); }
@@ -237,7 +281,10 @@ function wireUpdater(
     checking = false;
     downloading = false;
     deps.window()?.setProgressBar(-1);
-    void act(decideOnError(trigger, erroredPhase, err));
+    const decision = decideOnError(trigger, erroredPhase, err);
+    // A failed or refused download leaves nothing that may install on quit.
+    if (erroredPhase === "downloading" || decision.kind === "unverified") autoUpdater.autoInstallOnAppQuit = false;
+    void act(decision);
   });
   autoUpdater.on("download-progress", (p) => deps.window()?.setProgressBar(p.percent / 100));
   autoUpdater.on("update-downloaded", (info) => {
