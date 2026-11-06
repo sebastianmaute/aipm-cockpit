@@ -274,8 +274,8 @@ describe("useTaskRowWindow — the box's size survives the window turning back o
   test("initialRect reads the scroll box's live size when the virtualizer asks", () => {
     const box = document.createElement("div");
     renderHook(() => useTaskRowWindow({ ids: idsOf(1000), scrollRef: { current: box }, headRef: { current: null }, estimateRowPx: ROW_PX }));
-    Object.defineProperty(box, "offsetHeight", { value: 640, configurable: true });
-    Object.defineProperty(box, "offsetWidth", { value: 1200, configurable: true });
+    Object.defineProperty(box, "clientHeight", { value: 640, configurable: true });
+    Object.defineProperty(box, "clientWidth", { value: 1200, configurable: true });
     expect(lastOptions?.initialRect?.height).toBe(640);
     expect(lastOptions?.initialRect?.width).toBe(1200);
   });

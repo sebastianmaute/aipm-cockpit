@@ -108,14 +108,14 @@ describe("GanttChart row window (§5)", () => {
   const rendered = () => [...document.querySelectorAll("[data-gantt-row]")].map((e) => e.getAttribute("data-gantt-row"));
   // jsdom lays nothing out, and a 0 × 0 scroll box gives the virtualizer an empty range.
   // A 640 px box (20 rows) stands in for the browser's.
-  const sized = (prop: "offsetHeight" | "offsetWidth", px: number) => {
-    const before = Object.getOwnPropertyDescriptor(HTMLElement.prototype, prop)!;
-    Object.defineProperty(HTMLElement.prototype, prop, { configurable: true, get: () => px });
-    return () => Object.defineProperty(HTMLElement.prototype, prop, before);
+  const sized = (prop: "clientHeight" | "clientWidth", px: number) => {
+    const before = Object.getOwnPropertyDescriptor(Element.prototype, prop)!;
+    Object.defineProperty(Element.prototype, prop, { configurable: true, get: () => px });
+    return () => Object.defineProperty(Element.prototype, prop, before);
   };
   let restore: (() => void)[] = [];
   beforeEach(() => {
-    restore = [sized("offsetHeight", 640), sized("offsetWidth", 1000)];
+    restore = [sized("clientHeight", 640), sized("clientWidth", 1000)];
   });
   afterEach(() => restore.forEach((r) => r()));
 
