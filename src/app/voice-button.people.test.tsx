@@ -186,6 +186,26 @@ describe("voice commands — §789 people lock checked at each start", () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
+  it("the project's protection switched on while the check is out starts nothing and names the project's protection", async () => {
+    let answer!: (res: Response) => void;
+    __setAiStatusRequestForTests(() => new Promise<Response>((resolve) => { answer = resolve; }));
+    let ws = allowed();
+    const onError = vi.fn();
+    const { result, rerender } = renderHook(() => useVoiceRecognition("en-US", onError), {
+      wrapper: ({ children }) => tree(ws, children),
+    });
+    act(() => result.current.toggle(() => undefined));
+    expect(result.current.listening).toBe(true);
+    ws = protectedWs();
+    rerender();
+    expect(result.current.peopleProtected).toBe(true);
+    answer(aiStatusResponse(DIRECT_AI_STATUS));
+    await settle();
+    expect(startRecognition).not.toHaveBeenCalled();
+    expect(result.current.listening).toBe(false);
+    expect(onError).toHaveBeenCalledWith(REASON);
+  });
+
   it("unmounting while the check is out constructs no recogniser", async () => {
     const { result, unmount } = hook(allowed());
     act(() => result.current.toggle(() => undefined));

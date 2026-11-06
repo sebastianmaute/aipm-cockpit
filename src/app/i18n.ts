@@ -1390,7 +1390,7 @@ const enUS = {
   dictationNeedsAiConsent: "Speech-to-text sends your audio to the configured speech service. Switch on AI and accept the AI data disclosure in Settings → AI to use it; until then dictation is unavailable. To dictate without it, choose Browser (Web Speech) as the dictation engine.",
   dictationUnavailableNeedsAiConsent: "Dictation is unavailable: the speech-to-text service needs AI switched on and the AI data disclosure accepted in Settings → AI.",
   dictationUnavailablePeopleProtected: "Dictation is off: people protection is on for this project, and audio cannot be checked for names.",
-  dictationUnavailablePeopleForced: "Dictation is off: your organisation requires people protection in every project, and audio cannot be checked for names.",
+  dictationUnavailablePeopleForced: "Dictation is off: your organisation requires people protection in every project, and dictated audio goes to a speech service before it can be checked for names.",
   // §789: built-in speech asks the server about the people lock at each start, and does not start without an answer.
   speechPeopleLockUnconfirmed: "Could not check whether your organisation requires people protection, so speech input did not start. Try again.",
   voiceCommandUnavailablePeopleForced:

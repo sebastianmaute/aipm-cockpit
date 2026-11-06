@@ -3,13 +3,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { __setAiStatusRequestForTests } from "./ai-status-request";
 import { isIntegrationDisabled, setDisabledIntegrations } from "./integration-switches";
-import { checkSpeechPeopleLock } from "./speech-people-lock";
+import { checkSpeechPeopleLock, SPEECH_PEOPLE_LOCK_TIMEOUT_MS } from "./speech-people-lock";
 import { aiStatusResponse, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-afterEach(() => setDisabledIntegrations([]));
+afterEach(() => {
+  vi.useRealTimers();
+  setDisabledIntegrations([]);
+});
 
 describe("checkSpeechPeopleLock", () => {
   it("answers clear when the server does not force people protection", async () => {
@@ -47,6 +50,23 @@ describe("checkSpeechPeopleLock", () => {
   ])("fails closed (unconfirmed) when %s", async (_label, request) => {
     __setAiStatusRequestForTests(request);
     await expect(checkSpeechPeopleLock()).resolves.toBe("unconfirmed");
+    expect(isIntegrationDisabled("ai-people")).toBe(false);
+  });
+
+  it("a request that never answers is aborted at the timeout and answers unconfirmed", async () => {
+    vi.useFakeTimers();
+    __setAiStatusRequestForTests(
+      (signal) =>
+        new Promise<Response>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    let answer: string | undefined;
+    void checkSpeechPeopleLock().then((v) => { answer = v; });
+    await vi.advanceTimersByTimeAsync(SPEECH_PEOPLE_LOCK_TIMEOUT_MS - 1);
+    expect(answer).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(answer).toBe("unconfirmed");
     expect(isIntegrationDisabled("ai-people")).toBe(false);
   });
 });
