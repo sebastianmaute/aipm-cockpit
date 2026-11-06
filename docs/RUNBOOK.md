@@ -258,7 +258,8 @@ go direct. That older release also ignores the `ai` value of
    Set to `true` (after the one-time setup below), it has SignPath sign the
    installer, which waits for SignPath's own approval of the request (up to an
    hour each), writes the updater's `publisherName` into the app so the signed
-   build refuses unsigned updates, and checks the installer's signature. The
+   build refuses unsigned updates, and checks the installer with the very
+   signature check an installed copy runs on an update. The
    release notes then carry the signed text with SignPath's attribution in
    place of the unsigned notice: the job's `signed` output is `true` only when
    that check passed, and `publish` passes it to `release:publish`.

@@ -2,8 +2,10 @@
 // The one-way signing switch: once a release has shipped a signed installer, no later release may
 // ship an unsigned one — an installed signed copy refuses an unsigned update, so its users would be
 // stranded, and switching signing off again must not be possible by accident.
-// Compares the installer in <dir> with the installer of the latest published release (GitHub's
-// "latest": not a draft, not a prerelease), downloaded with `gh release download`.
+// Compares the installer in <dir> with the installer of the newest published release, prereleases
+// included (drafts are not published), downloaded with `gh release download`. GitHub's
+// releases/latest skips prereleases, so a signed release candidate newer than the latest stable
+// release would otherwise let an unsigned release follow it.
 // "Signed" means Authenticode status Valid AND a signer whose subject passes the installed app's own
 // rule for the publisher SignPath Foundation (`signerMatches` in desktop/src/update-signature.ts:
 // the subject's CN equals the name exactly);
@@ -36,9 +38,36 @@ export function classifySignature(sig) {
   return null;
 }
 
+// The first page of releases, newest created first, reduced to what newestPublished reads. Drafts
+// are listed only to a token with push access; they are dropped either way.
+export const RELEASES_PATH = "repos/{owner}/{repo}/releases?per_page=100";
+export const RELEASES_JQ = "[.[] | {tag: .tag_name, draft: .draft, published: .published_at}]";
+
+/** The tag of the newest published (non-draft) release, prereleases included, from RELEASES_JQ's
+ *  output; null when there is none. Throws on anything it cannot read, so the guard cannot decide
+ *  rather than mistake a broken answer for "no release". */
+export function newestPublished(stdout) {
+  let list;
+  try {
+    list = JSON.parse(stdout);
+  } catch {
+    throw new Error("the release list is not JSON");
+  }
+  if (!Array.isArray(list)) throw new Error("the release list is not a list");
+  let best = null;
+  for (const r of list) {
+    if (typeof r !== "object" || r === null || typeof r.draft !== "boolean") throw new Error(`unreadable release entry: ${JSON.stringify(r)}`);
+    if (r.draft) continue;
+    const at = Date.parse(r.published);
+    if (typeof r.tag !== "string" || r.tag === "" || Number.isNaN(at)) throw new Error(`unreadable release entry: ${JSON.stringify(r)}`);
+    if (best === null || at > best.at) best = { tag: r.tag, at };
+  }
+  return best === null ? null : best.tag;
+}
+
 export function decide({ prevSigned, nowSigned }) {
   if (prevSigned && !nowSigned) {
-    return { code: 1, message: "REFUSED: the latest published release is signed and this installer is not — signing cannot be switched off once a signed release has shipped" };
+    return { code: 1, message: "REFUSED: the newest published release is signed and this installer is not — signing cannot be switched off once a signed release has shipped" };
   }
   return { code: 0, message: `allowed (previous ${prevSigned ? "signed" : "unsigned"}, this one ${nowSigned ? "signed" : "unsigned"})` };
 }
@@ -91,14 +120,14 @@ export async function runGuard({ tag, dir, gh = defaultGh, signature = defaultSi
   try {
     if (typeof tag !== "string" || !tag.startsWith("v")) throw new Error(`tag "${tag}" does not start with v`);
     const now = join(dir, installerName(tag.slice(1)));
-    // A 404 on releases/latest means "no release" only if the repository itself answers; without
+    // An empty release list means "no release" only if the repository itself answers; without
     // this, a wrong repository or a token that cannot see it would read as a first release.
     const repo = await gh(["api", "repos/{owner}/{repo}", "--jq", ".full_name"]);
     if (repo.notFound || !String(repo.stdout ?? "").trim()) throw new Error("the repository cannot be read");
-    const latest = await gh(["api", "repos/{owner}/{repo}/releases/latest", "--jq", ".tag_name"]);
-    if (latest.notFound) return { code: 0, message: "allowed (no release has been published yet)" };
-    const prevTag = String(latest.stdout ?? "").trim();
-    if (!prevTag) throw new Error("the latest release has no tag name");
+    const list = await gh(["api", RELEASES_PATH, "--jq", RELEASES_JQ]);
+    if (list.notFound) throw new Error("the release list cannot be read");
+    const prevTag = newestPublished(String(list.stdout ?? ""));
+    if (prevTag === null) return { code: 0, message: "allowed (no release has been published yet)" };
     const into = tmp ?? (created = mkdtempSync(join(tmpdir(), "signing-guard-")));
     const { files } = await gh(["release", "download", prevTag, "--pattern", "*-setup.exe", "--dir", into]);
     const prev = (files ?? []).filter((f) => f.endsWith("-setup.exe"));

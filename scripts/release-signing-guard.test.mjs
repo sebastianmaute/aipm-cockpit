@@ -2,7 +2,9 @@
 // release-signing-guard: once a release shipped signed, no later release may ship unsigned.
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { decide, runGuard, classifySignature, SIGNER } from "./release-signing-guard.mjs";
+import {
+  decide, runGuard, classifySignature, newestPublished, RELEASES_JQ, RELEASES_PATH, SIGNER,
+} from "./release-signing-guard.mjs";
 
 const TAG = "v1.15.0";
 const DIR = "/rel";
@@ -11,10 +13,13 @@ const SIGNED = { status: "Valid", subject: `CN=${SIGNER}, O=${SIGNER}, L=Berlin,
 const UNSIGNED = { status: "NotSigned", subject: "" };
 const REPO_CALL = ["api", "repos/{owner}/{repo}", "--jq", ".full_name"];
 
-/** A fake gh: `latest` is the previous release's tag (null = GitHub answers 404 — none published),
- *  `repoOk` whether the repository itself can be read, `assets` whether the download yields an
- *  installer, `fail` makes every call throw. Records each call. */
-function fakeGh({ latest = "v1.14.0", repoOk = true, assets = true, fail = null } = {}) {
+const LIST_CALL = ["api", RELEASES_PATH, "--jq", RELEASES_JQ];
+const rel = (tag, published, { draft = false } = {}) => ({ tag, draft, published });
+
+/** A fake gh: `releases` is the release list as RELEASES_JQ reduces it (null = the list answers
+ *  404), `repoOk` whether the repository itself can be read, `assets` whether the download yields
+ *  an installer, `fail` makes every call throw. Records each call. */
+function fakeGh({ releases = [rel("v1.14.0", "2026-10-01T10:00:00Z")], repoOk = true, assets = true, fail = null } = {}) {
   const calls = [];
   const gh = async (args) => {
     calls.push(args);
@@ -23,11 +28,11 @@ function fakeGh({ latest = "v1.14.0", repoOk = true, assets = true, fail = null 
       if (!repoOk) throw new Error("gh api repos failed: HTTP 404");
       return { stdout: "owner/repo\n" };
     }
-    if (args[0] === "api") {
-      if (latest === null) return { notFound: true };
-      return { stdout: `${latest}\n` };
+    if (args[0] === "api" && args[1] === RELEASES_PATH) {
+      if (releases === null) return { notFound: true };
+      return { stdout: `${JSON.stringify(releases)}\n` };
     }
-    if (args[0] === "release" && args[1] === "download") return { files: assets ? ["aipm-cockpit-1.14.0-setup.exe"] : [] };
+    if (args[0] === "release" && args[1] === "download") return { files: assets ? [`aipm-cockpit-${args[2].slice(1)}-setup.exe`] : [] };
     throw new Error(`unexpected gh ${args.join(" ")}`);
   };
   return { gh, calls };
@@ -89,6 +94,33 @@ describe("classifySignature", () => {
   });
 });
 
+describe("newestPublished", () => {
+  it("takes the newest published release by publish time, prereleases included, drafts skipped", () => {
+    const list = [
+      rel("v1.16.0", null, { draft: true }),
+      rel("v1.14.0", "2026-10-01T10:00:00Z"),
+      rel("v1.15.0-rc.1", "2026-10-20T10:00:00Z"),
+      rel("v1.13.0", "2026-09-01T10:00:00Z"),
+    ];
+    expect(newestPublished(JSON.stringify(list))).toBe("v1.15.0-rc.1");
+  });
+
+  it("is null for no published release", () => {
+    expect(newestPublished("[]")).toBeNull();
+    expect(newestPublished(JSON.stringify([rel("v1.0.0", null, { draft: true })]))).toBeNull();
+  });
+
+  it.each([
+    ["not JSON", "<html>"],
+    ["not a list", '{"tag":"v1"}'],
+    ["an entry without draft", JSON.stringify([{ tag: "v1.0.0", published: "2026-10-01T10:00:00Z" }])],
+    ["a published entry without a tag", JSON.stringify([rel("", "2026-10-01T10:00:00Z")])],
+    ["a published entry without a time", JSON.stringify([rel("v1.0.0", null)])],
+  ])("throws on %s", (_, stdout) => {
+    expect(() => newestPublished(stdout)).toThrow();
+  });
+});
+
 describe("runGuard", () => {
   const run = (gh, signature) => runGuard({ tag: TAG, dir: DIR, gh, signature, tmp: "/tmp/prev" });
 
@@ -96,6 +128,7 @@ describe("runGuard", () => {
     const { gh, calls } = fakeGh();
     expect((await run(gh, sigs(UNSIGNED, SIGNED))).code).toBe(1);
     expect(calls[0]).toEqual(REPO_CALL);
+    expect(calls[1]).toEqual(LIST_CALL);
     expect(calls[2]).toEqual(["release", "download", "v1.14.0", "--pattern", "*-setup.exe", "--dir", "/tmp/prev"]);
   });
 
@@ -121,13 +154,45 @@ describe("runGuard", () => {
   });
 
   it("passes when the repository is readable and has no release yet (exit 0)", async () => {
-    const { gh, calls } = fakeGh({ latest: null });
+    const { gh, calls } = fakeGh({ releases: [] });
     expect((await run(gh, sigs(UNSIGNED, SIGNED))).code).toBe(0);
     expect(calls).toHaveLength(2);
   });
 
-  it("cannot decide on a 404 when the repository itself cannot be read (exit 2)", async () => {
-    expect((await run(fakeGh({ latest: null, repoOk: false }).gh, sigs(UNSIGNED, SIGNED))).code).toBe(2);
+  it("passes when the only releases are drafts, which are not published (exit 0)", async () => {
+    const { gh, calls } = fakeGh({ releases: [rel("v1.15.0", null, { draft: true })] });
+    expect((await run(gh, sigs(UNSIGNED, SIGNED))).code).toBe(0);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("cannot decide on an empty list when the repository itself cannot be read (exit 2)", async () => {
+    expect((await run(fakeGh({ releases: [], repoOk: false }).gh, sigs(UNSIGNED, SIGNED))).code).toBe(2);
+  });
+
+  it("cannot decide when the release list answers 404 (exit 2)", async () => {
+    expect((await run(fakeGh({ releases: null }).gh, sigs(UNSIGNED, SIGNED))).code).toBe(2);
+  });
+
+  it("cannot decide when the release list cannot be read (exit 2)", async () => {
+    const { gh } = fakeGh();
+    const broken = async (args) => (args[1] === RELEASES_PATH ? { stdout: "<html>" } : gh(args));
+    expect((await run(broken, sigs(UNSIGNED, SIGNED))).code).toBe(2);
+  });
+
+  // releases/latest skips prereleases: a signed release candidate published after the latest stable
+  // release must still count, or an unsigned release could follow it.
+  it("compares with a signed prerelease newer than the latest stable release, and refuses an unsigned one (exit 1)", async () => {
+    const releases = [rel("v1.14.0", "2026-10-01T10:00:00Z"), rel("v1.15.0-rc.1", "2026-10-20T10:00:00Z")];
+    const { gh, calls } = fakeGh({ releases });
+    const byFile = async (path) => {
+      const p = path.replace(/\\/g, "/");
+      if (p === NOW) return UNSIGNED;
+      return p.endsWith("aipm-cockpit-1.15.0-rc.1-setup.exe") ? SIGNED : UNSIGNED;
+    };
+    const r = await run(gh, byFile);
+    expect(r.code).toBe(1);
+    expect(r.message).toContain("v1.15.0-rc.1");
+    expect(calls[2][2]).toBe("v1.15.0-rc.1");
   });
 
   it("cannot decide when gh fails (exit 2)", async () => {
