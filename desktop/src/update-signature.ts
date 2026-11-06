@@ -14,8 +14,10 @@
 import { execFile, type ExecFileOptions } from "node:child_process";
 import { win32 } from "node:path";
 
-/** How long PowerShell may take before the update is refused (electron-updater's own limit). */
-export const SIGNATURE_TIMEOUT_MS = 20_000;
+/** How long PowerShell may take before the update is refused. electron-updater's own verifier
+ *  allows 20 s; a cold Windows PowerShell start while antivirus scans the freshly downloaded
+ *  installer can take longer, and a timeout refuses a genuine update, so this allows 60 s. */
+export const SIGNATURE_TIMEOUT_MS = 60_000;
 /** The environment variable that carries the installer path into PowerShell. */
 export const INSTALLER_ENV = "AIPM_UPDATE_INSTALLER";
 

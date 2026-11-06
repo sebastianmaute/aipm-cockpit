@@ -202,7 +202,8 @@ jobs:
   sign:
     needs: [guard, build]
     runs-on: windows-latest
-    timeout-minutes: 150
+    # Two SignPath submissions, each up to 3600 s waiting and 1800 s downloading, plus the repackage.
+    timeout-minutes: 200
     environment: release
     permissions:
       contents: read

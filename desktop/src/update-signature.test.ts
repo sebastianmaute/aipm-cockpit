@@ -94,7 +94,9 @@ describe("verifyUpdateSignature", () => {
     await vi.advanceTimersByTimeAsync(SIGNATURE_TIMEOUT_MS);
     const r = await pending;
     expect(r).toMatch(/timed out/i);
-    expect(SIGNATURE_TIMEOUT_MS).toBeLessThanOrEqual(20_000);
+    // 60 s, not electron-updater's 20 s: a cold Windows PowerShell start while antivirus scans a
+    // freshly downloaded installer can take longer, and a timeout refuses a genuine update.
+    expect(SIGNATURE_TIMEOUT_MS).toBe(60_000);
     // The process itself is told the same limit, so it is killed rather than left running.
     expect(run).toHaveBeenCalledWith(INSTALLER, SIGNATURE_TIMEOUT_MS);
   });

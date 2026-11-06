@@ -547,6 +547,18 @@ describe("release.yml", () => {
       expect(sign()).toMatch(/^ {4}timeout-minutes: \d+$/m);
     });
 
+    // Both SignPath submissions may each wait their full completion timeout and download timeout;
+    // a job timeout below their sum kills a slow but healthy signing run. The rest of the job (the
+    // repackage among it) needs room on top.
+    it("gives the job more time than both SignPath submissions can take", () => {
+      const subs = releaseSteps("sign").filter((s) => /^signpath\/github-action-submit-signing-request@/.test(s.uses ?? ""));
+      expect(subs).toHaveLength(2);
+      const signingS = subs.reduce((t, s) => t + s.with["wait-for-completion-timeout-in-seconds"] + s.with["download-signed-artifact-timeout-in-seconds"], 0);
+      expect(signingS).toBe(2 * (3600 + 1800));
+      const jobMin = parsedRelease().jobs.sign["timeout-minutes"];
+      expect(jobMin * 60 - signingS).toBeGreaterThanOrEqual(15 * 60);
+    });
+
     it("submits to SignPath only through the pinned action, and only behind the switch", () => {
       const subs = steps().filter((s) => /signpath\/github-action-submit-signing-request@/.test(s));
       expect(subs).toHaveLength(2);
