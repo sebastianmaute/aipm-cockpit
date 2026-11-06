@@ -77,7 +77,7 @@ keep — see AGENTS.md's "task-manager decomposition map".
 `ProgressTrack` · `Field` (`form-field.tsx` — caption, required mark and hint around one control;
 shared by the task and project forms) · `FieldError` / `FieldHint` / `InfoTooltip` ·
 `EntityLinkPicker` (and `single-entity-picker.tsx`, both over `useEntityCombobox` in
-`entity-combobox.ts`) · `useConfirm` / `usePrompt` / `useNotice` (`confirm-dialog.tsx` — the app's own dialogs;
+`entity-combobox.ts`) · `useConfirm` / `useChoose` / `usePrompt` / `useNotice` (`confirm-dialog.tsx` — the app's own dialogs;
 never `window.confirm`/`prompt`/`alert`, §752, see `docs/AGENTS/ui-shell.md`) · `TypeToConfirmDialog` · interaction atoms `INTERACTIVE` / `FOCUS_RING` / `TRANSITION` / `PRESS`.
 
 ★ Primitives concatenate `className` with **no** tailwind-merge — a class fighting a variant prop
