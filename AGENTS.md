@@ -811,7 +811,7 @@ is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lan
 |---|---|
 | [dashboard.md](docs/AGENTS/dashboard.md) | the landing cockpit — the arrangeable tile grid · delta strip · KPI trends · sparkline · coaching · density · digest |
 | [accessibility.md](docs/AGENTS/accessibility.md) | the a11y hard constraint — accessible names · row-unique per-row names (`buildRowTokens`) · WCAG 2.5.3 label-in-name · `ToggleButton` state + the pressed marker · what the axe gate scans and is silent on |
-| [ci.md](docs/AGENTS/ci.md) | CI on GitHub Actions — the nine checks job by job (eight required; `sbom` once the owner adds it) · `release.yml` (tag guard → Windows build → publish behind the owner's approval, the sharp and electron-updater guards, exit codes) · `scheduled.yml` · operating it |
+| [ci.md](docs/AGENTS/ci.md) | CI on GitHub Actions — the nine checks job by job (eight required; `sbom` once the owner adds it) · `release.yml` (tag guard → Windows build → `sign`, where the owner's one approval pauses the run and the optional SignPath signing, the app's own signature check and the one-way signing guard run → `publish`; the sharp and electron-updater guards, exit codes) · `scheduled.yml` · operating it |
 | [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
 | [theming.md](docs/AGENTS/theming.md) | colour schemes · the `--ui-*` token families · AA derivation · the dark-mode hover trap · branding · print · design-system primitives |
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |

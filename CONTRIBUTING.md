@@ -586,7 +586,8 @@ Bump `src/app/version.ts`, run `npm run version:sync`, move the `[Unreleased]` e
 into a new `## [<version>] - <date> "<milestone>"` section below it, merge to `main`, then tag the merge commit
 (`v<version>`, owner-only; tag only a commit on `main`, and push one release tag at a time). A push of a `v*` tag runs
 `.github/workflows/release.yml`: `guard` checks the tag, `build` packages the Windows installer,
-`publish` publishes the GitHub Release once the owner approves the run (see the RUNBOOK). Full steps, exit codes and withdrawing a bad release:
+`sign` waits for the owner's approval (and signs the installer once signing is switched on), and `publish`
+publishes the GitHub Release (see the RUNBOOK). Full steps, exit codes and withdrawing a bad release:
 [`docs/RUNBOOK.md`, "Publishing a desktop release (GitHub)"](docs/RUNBOOK.md#publishing-a-desktop-release-github).
 
 ## Pull request checklist
