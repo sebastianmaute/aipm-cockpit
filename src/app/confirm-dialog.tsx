@@ -22,6 +22,8 @@
 // §752 — the same provider also replaces `window.prompt` (`usePrompt`, which THROWS in the desktop
 // app: Electron does not implement it) and `window.alert` (`useNotice`). One dialog shows at a time;
 // a new one answers an open one with its "no" (false, null, or done).
+//
+// §784 — and `useChoose`, a question with two answers plus Cancel, whose "no" is null: neither answer.
 
 import {
   createContext,
@@ -60,6 +62,27 @@ export interface ConfirmOptions {
 }
 
 export type ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>;
+
+/** §784 — a question with two answers plus Cancel. Escape, ✕, the backdrop and Cancel take neither answer, which a
+ *  confirm cannot express: its "no" is one of its two answers. */
+export interface ChooseOptions {
+  message: string;
+  /** Defaults to a generic "Please confirm". */
+  title?: string;
+  /** The first answer, styled by `tone` like a confirm's button. */
+  confirmLabel: string;
+  /** The second answer, a plain button. */
+  alternateLabel: string;
+  /** Defaults to "Cancel". */
+  cancelLabel?: string;
+  tone?: "danger" | "default";
+  /** As on ConfirmOptions. */
+  appUndoOff?: boolean;
+}
+
+/** "confirm" or "alternate" for the answer chosen; null when cancelled or dismissed. */
+export type ChooseAnswer = "confirm" | "alternate" | null;
+export type ChooseFn = (opts: ChooseOptions) => Promise<ChooseAnswer>;
 
 /** §752 — a one-line text question. `message` is the input's label. */
 export interface PromptOptions {
@@ -113,6 +136,7 @@ export const UNBRIDGED_DIALOGS_REF: { readonly current: AppDialogs } = { current
 const ConfirmContext = createContext<ConfirmFn>(() => Promise.resolve(false));
 const PromptContext = createContext<PromptFn>(() => Promise.resolve(null));
 const NoticeContext = createContext<NoticeFn>(() => Promise.resolve());
+const ChooseContext = createContext<ChooseFn>(() => Promise.resolve(null));
 
 export function useConfirm(): ConfirmFn {
   return useContext(ConfirmContext);
@@ -126,6 +150,10 @@ export function useNotice(): NoticeFn {
   return useContext(NoticeContext);
 }
 
+export function useChoose(): ChooseFn {
+  return useContext(ChooseContext);
+}
+
 const TITLE_ID = "confirm-dialog-title";
 const INPUT_ID = "confirm-dialog-input";
 
@@ -134,14 +162,15 @@ const INPUT_ID = "confirm-dialog-input";
 type Pending =
   | ({ kind: "confirm"; seq: number; resolve: (value: boolean) => void } & ConfirmOptions)
   | ({ kind: "prompt"; seq: number; resolve: (value: string | null) => void } & PromptOptions)
-  | ({ kind: "notice"; seq: number; resolve: () => void } & NoticeOptions);
+  | ({ kind: "notice"; seq: number; resolve: () => void } & NoticeOptions)
+  | ({ kind: "choose"; seq: number; resolve: (value: ChooseAnswer) => void } & ChooseOptions);
 type PendingInput = Pending extends infer P ? (P extends Pending ? Omit<P, "seq"> : never) : never;
 
 /** Answers `p` with its "no". Promise settlement is idempotent, so a second call is a no-op. */
 function decline(p: Pending | null): void {
   if (p === null) return;
   if (p.kind === "confirm") p.resolve(false);
-  else if (p.kind === "prompt") p.resolve(null);
+  else if (p.kind === "prompt" || p.kind === "choose") p.resolve(null);
   else p.resolve();
 }
 
@@ -193,6 +222,10 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
     (opts) => new Promise<void>((resolve) => open({ ...opts, kind: "notice", resolve })),
     [open],
   );
+  const choose = useCallback<ChooseFn>(
+    (opts) => new Promise<ChooseAnswer>((resolve) => open({ ...opts, kind: "choose", resolve })),
+    [open],
+  );
   useEffect(() => {
     if (bridgeRef) bridgeRef.current = confirm;
   }, [bridgeRef, confirm]);
@@ -223,33 +256,40 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
   const dismiss = useCallback((shown: Pending) => {
     if (close(shown)) decline(shown);
   }, [close]);
-  /** Closes `shown` with its "yes": true, the typed text, or done. */
+  /** Closes `shown` with its "yes": true, the typed text, "confirm", or done. */
   const accept = useCallback((shown: Pending) => {
     if (!close(shown)) return;
     if (shown.kind === "confirm") shown.resolve(true);
     else if (shown.kind === "prompt") shown.resolve(draft);
+    else if (shown.kind === "choose") shown.resolve("confirm");
     else shown.resolve();
   }, [close, draft]);
+  /** Closes a choose with its second answer. */
+  const acceptAlternate = useCallback((shown: Extract<Pending, { kind: "choose" }>) => {
+    if (close(shown)) shown.resolve("alternate");
+  }, [close]);
 
   // Stable context values — an unstable value re-renders every consumer.
   const confirmValue = useMemo(() => confirm, [confirm]);
   const promptValue = useMemo(() => prompt, [prompt]);
   const noticeValue = useMemo(() => notice, [notice]);
+  const chooseValue = useMemo(() => choose, [choose]);
 
-  const danger = pending?.kind === "confirm" && pending.tone !== "default";
+  const danger = (pending?.kind === "confirm" || pending?.kind === "choose") && pending.tone !== "default";
   const confirmClass = danger
     ? "border-ui-pink/50 bg-ui-pink text-white hover:bg-ui-pink/90"
     : "border-ui-green/50 bg-ui-green text-white hover:bg-ui-green/90";
 
   const title = pending === null
     ? ""
-    : pending.title ?? t(lang, pending.kind === "confirm" ? "confirmTitle" : pending.kind === "prompt" ? "dialogPromptTitle" : "dialogNoticeTitle");
+    : pending.title ?? t(lang, pending.kind === "prompt" ? "dialogPromptTitle" : pending.kind === "notice" ? "dialogNoticeTitle" : "confirmTitle");
   const initialFocusRef = pending?.kind === "prompt" ? inputRef : pending?.kind === "notice" ? okRef : cancelRef;
 
   return (
     <ConfirmContext.Provider value={confirmValue}>
       <PromptContext.Provider value={promptValue}>
         <NoticeContext.Provider value={noticeValue}>
+          <ChooseContext.Provider value={chooseValue}>
           {children}
           {pending && (
             <Modal
@@ -322,6 +362,11 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
                           <Button ref={cancelRef} variant="secondary" size="sm" onClick={() => dismiss(pending)}>
                             {pending.cancelLabel ?? t(lang, "cancel")}
                           </Button>
+                          {pending.kind === "choose" && (
+                            <Button variant="secondary" size="sm" onClick={() => acceptAlternate(pending)}>
+                              {pending.alternateLabel}
+                            </Button>
+                          )}
                           <button
                             type="button"
                             onClick={() => accept(pending)}
@@ -337,6 +382,7 @@ export function ConfirmProvider({ lang, children, bridgeRef, dialogsRef }: Confi
               </div>
             </Modal>
           )}
+          </ChooseContext.Provider>
         </NoticeContext.Provider>
       </PromptContext.Provider>
     </ConfirmContext.Provider>

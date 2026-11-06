@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ConfirmProvider, useConfirm, useNotice, usePrompt, type AppDialogs, type ConfirmFn } from "./confirm-dialog";
+import { ConfirmProvider, useChoose, useConfirm, useNotice, usePrompt, type AppDialogs, type ConfirmFn } from "./confirm-dialog";
 import { buttonClassFor } from "../test/button-variant";
 
 // Synchronous rAF shim so the Modal focus-management effect runs immediately.
@@ -359,5 +359,90 @@ describe("ConfirmProvider — StrictMode (§752 review)", () => {
     expect(ref.current).not.toBe(before);
     act(() => { void ref.current.confirm({ message: "Still bridged?" }); });
     expect(await screen.findByText("Still bridged?")).toBeInTheDocument();
+  });
+});
+describe("ConfirmProvider — useChoose (§784)", () => {
+  type Answer = "confirm" | "alternate" | null;
+  function ChooseHarness({ onResult }: { onResult: (v: Answer) => void }) {
+    const choose = useChoose();
+    return (
+      <button
+        type="button"
+        onClick={async () => {
+          onResult(await choose({ message: "Replace Risks?", confirmLabel: "Replace", alternateLabel: "Keep both" }));
+        }}
+      >
+        trigger
+      </button>
+    );
+  }
+  async function openChoose(onResult: (v: Answer) => void) {
+    const user = userEvent.setup();
+    render(<ConfirmProvider lang="en-US"><ChooseHarness onResult={onResult} /></ConfirmProvider>);
+    await user.click(screen.getByRole("button", { name: "trigger" }));
+    return user;
+  }
+
+  test("shows three answers with Cancel focused", async () => {
+    await openChoose(() => {});
+    expect(screen.getByText("Replace Risks?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Keep both" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus());
+  });
+
+  test("the confirm button answers confirm", async () => {
+    const onResult = vi.fn();
+    const user = await openChoose(onResult);
+    await user.click(screen.getByRole("button", { name: "Replace" }));
+    expect(onResult).toHaveBeenCalledWith("confirm");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  test("the alternate button answers alternate", async () => {
+    const onResult = vi.fn();
+    const user = await openChoose(onResult);
+    await user.click(screen.getByRole("button", { name: "Keep both" }));
+    expect(onResult).toHaveBeenCalledWith("alternate");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  test("Cancel answers null", async () => {
+    const onResult = vi.fn();
+    const user = await openChoose(onResult);
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onResult).toHaveBeenCalledWith(null);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  test("Escape answers null, not the alternate", async () => {
+    const onResult = vi.fn();
+    await openChoose(onResult);
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(onResult).toHaveBeenCalledWith(null);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  test("a dialog that replaces it answers it null", async () => {
+    const ref: { current: AppDialogs } = {
+      current: { confirm: async () => false, prompt: async () => null, notice: async () => {} },
+    };
+    function Opener() {
+      const choose = useChoose();
+      return (
+        <button type="button" onClick={() => {
+          void choose({ message: "First?", confirmLabel: "Replace", alternateLabel: "Keep both" }).then(answers.push.bind(answers));
+        }}>open</button>
+      );
+    }
+    const answers: Answer[] = [];
+    render(<ConfirmProvider lang="en-US" dialogsRef={ref}><Opener /></ConfirmProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "open" }));
+    await screen.findByText("First?");
+    act(() => { void ref.current.confirm({ message: "Second?" }); });
+    await waitFor(() => expect(answers).toEqual([null]));
+    expect(screen.getByText("Second?")).toBeInTheDocument();
   });
 });

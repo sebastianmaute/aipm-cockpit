@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { MeetingReportPanel } from "./meeting-report-panel";
@@ -322,7 +322,7 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     expect(p.onTaken).not.toHaveBeenCalled();
   });
 
-  it("cancelling keeps the user's section and adds the AI one after it", async () => {
+  it("Keep both keeps the user's section and adds the AI one after it", async () => {
     const p = renderWithProposal();
     await screen.findByLabelText("Report");
     fireEvent.click(screen.getByRole("button", { name: "Take – Risks" }));
@@ -332,6 +332,36 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     );
     expect(rowOf("Take – Risks")).toHaveTextContent("Taken");
     expect(p.onTaken).not.toHaveBeenCalled();
+  });
+
+  // §784 — Escape and Cancel take nothing: the draft stays as it was and the row stays untaken.
+  it.each([
+    ["Escape", async () => {
+      await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
+    }],
+    ["Cancel", async () => { fireEvent.click(screen.getByRole("button", { name: "Cancel" })); }],
+  ])("%s on the question takes nothing", async (_how, answer) => {
+    const p = renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take – Risks" }));
+    await screen.findByRole("dialog", { name: "Replace sections?" });
+    await answer();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>mine</p>");
+    expect(rowOf("Take – Risks")).not.toHaveTextContent("Taken");
+    expect(p.onTaken).not.toHaveBeenCalled();
+  });
+
+  it("Escape on Take all's question takes none of the sections, the unmatched ones included", async () => {
+    renderWithProposal();
+    await screen.findByLabelText("Report");
+    fireEvent.click(screen.getByRole("button", { name: "Take all" }));
+    await screen.findByRole("dialog", { name: "Replace sections?" });
+    await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByLabelText("Report")).toHaveValue("<h2>Risks</h2><p>mine</p>");
+    expect(rowOf("Take – Next steps")).not.toHaveTextContent("Taken");
+    expect(screen.getByRole("button", { name: "Take all" })).toBeEnabled();
   });
 
   it("unsaved typing before the take is still in the result", async () => {
