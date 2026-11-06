@@ -282,14 +282,16 @@
 
   • **★★★ NEVER THE BROWSER'S OWN DIALOGS (§752).** `window.prompt` THROWS in the desktop app (Electron does
   not implement it), and `window.confirm` / `window.alert` freeze the page. Ask through `confirm-dialog.tsx`:
-  `useConfirm` (yes/no), `usePrompt` (one line of text, `null` on cancel) and `useNotice` (a message with OK) —
+  `useConfirm` (yes/no), `useChoose` (two answers plus Cancel, `null` on Cancel, Escape or ✕ — §784), `usePrompt`
+  (one line of text, `null` on cancel) and `useNotice` (a message with OK) —
   one dialog at a time, a new one answering an open one with its "no". Code ABOVE `ConfirmProvider`
   (task-manager's hooks) takes a `dialogsRef` that the provider fills (`dialogsRef={appDialogsRef}`); until
-  then every question answers "no" and logs `dialog.noBridge`. `no-native-dialogs.sweep.test.ts` fails on any
+  then every question answers "no" and logs `dialog.noBridge`. ★ `useChoose` is NOT in `dialogsRef` (no caller
+  above the provider needs it); outside a provider it answers `null` at once, with no log. `no-native-dialogs.sweep.test.ts` fails on any
   `window.`/`globalThis.`/`self.` call of the three, and on a bare `alert(`.
   ★ The provider renders at the APP ROOT, outside any `data-app-undo="off"` zone, so Ctrl+Z / redo inside one of
   its dialogs reaches the app undo hotkey (`useUndoHotkey`). A surface that switches app undo off for itself must
-  also pass `appUndoOff: true` in `ConfirmOptions` / `NoticeOptions` for every dialog it opens — the meeting
+  also pass `appUndoOff: true` in `ConfirmOptions` / `ChooseOptions` / `NoticeOptions` for every dialog it opens — the meeting
   report does (`grep -n "appUndoOff: true" src/app/meeting-report-panel.tsx`).
   ★★ AN AWAITED DIALOG IS A WINDOW THE OLD ONE NEVER OPENED. The native ones froze the page, so nothing ran
   while they were up; the app's do not, so autosave, a settings rebuild, a project swap and background

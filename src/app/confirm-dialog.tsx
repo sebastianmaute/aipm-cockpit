@@ -75,6 +75,7 @@ export interface ChooseOptions {
   alternateLabel: string;
   /** Defaults to "Cancel". */
   cancelLabel?: string;
+  /** As on ConfirmOptions: destructive (ui-pink) by default. */
   tone?: "danger" | "default";
   /** As on ConfirmOptions. */
   appUndoOff?: boolean;

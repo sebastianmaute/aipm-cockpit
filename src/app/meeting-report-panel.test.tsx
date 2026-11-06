@@ -306,6 +306,8 @@ describe("MeetingReportPanel — the AI draft as a proposal (AI-04)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Take – Risks" }));
     const dialog = await screen.findByRole("dialog", { name: "Replace sections?" });
     expect(dialog).toHaveTextContent("Risks");
+    // §784 review: the question switches app undo off (it renders at the app root, outside the panel's own zone).
+    expect(dialog).toHaveAttribute("data-app-undo", "off");
     expect(p.onTaken).not.toHaveBeenCalled();
   });
 

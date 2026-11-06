@@ -415,6 +415,14 @@ describe("ConfirmProvider — useChoose (§784)", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  test("the close button answers null", async () => {
+    const onResult = vi.fn();
+    const user = await openChoose(onResult);
+    await user.click(screen.getByRole("button", { name: "Close – Please confirm" }));
+    expect(onResult).toHaveBeenCalledWith(null);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   test("Escape answers null, not the alternate", async () => {
     const onResult = vi.fn();
     await openChoose(onResult);
