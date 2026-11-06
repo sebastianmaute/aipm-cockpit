@@ -257,16 +257,16 @@ go direct. That older release also ignores the `ai` value of
    `SIGNPATH_ENABLED` unset, `sign` only checks and passes the build's files on.
    **Keep it unset until the signed-build updater check is in place** (the next
    step of the signing work); switched on before that, `sign` fails the release
-   at its update-feed check. Set to `true`, it has SignPath sign the installer, which waits for SignPath's
-   own approval of the request (up to an hour each). `sign` refuses an unsigned
-   installer once a signed release has shipped (`release-signing-guard`, exit 1;
-   exit 2 = could not decide, also a failure — re-run the job). Before switching
-   it on, the owner adds `SIGNPATH_API_TOKEN` as a secret of the `release`
-   environment and `SIGNPATH_ENABLED`, `SIGNPATH_ORGANIZATION_ID`,
-   `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG` (and optionally
-   `SIGNPATH_SIGN_APP_EXE`) as repository variables — details in
-   `docs/AGENTS/ci.md`'s `release.yml` section. The required reviewer was added at flip step 10a
-   (2026-09-25). Also standing in front of it: only the owner/admin role can
+   at its update-feed check. Set to `true`, it has SignPath sign the installer,
+   which waits for SignPath's own approval of the request (up to an hour each).
+   `sign` refuses an unsigned installer once a signed release has shipped
+   (`release-signing-guard`, exit 1; exit 2 = could not decide, also a failure —
+   re-run the job). Before switching it on, the owner adds `SIGNPATH_API_TOKEN`
+   as a secret of the `release` environment and `SIGNPATH_ENABLED`,
+   `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG`,
+   `SIGNPATH_SIGNING_POLICY_SLUG` (and optionally `SIGNPATH_SIGN_APP_EXE`) as
+   repository variables — details in `docs/AGENTS/ci.md`'s `release.yml`
+   section. The required reviewer was added at flip step 10a (2026-09-25). Also standing in front of it: only the owner/admin role can
    create, move or delete a `refs/tags/v*` (the tag ruleset), the tag must
    equal `APP_VERSION` and name a commit reachable from `main` (step 2's
    `guard` check), and once published a release is immutable. **Push one release

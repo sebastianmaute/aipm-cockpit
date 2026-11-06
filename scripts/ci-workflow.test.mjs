@@ -495,6 +495,8 @@ describe("release.yml", () => {
   describe("sign", () => {
     const ON = "if: ${{ vars.SIGNPATH_ENABLED == 'true' }}";
     const ON_APP = "if: ${{ vars.SIGNPATH_ENABLED == 'true' && vars.SIGNPATH_SIGN_APP_EXE == 'true' }}";
+    // The update-feed check's .NET pattern, as written inside a PowerShell single-quoted string.
+    const PUBLISHER_PS = String.raw`(?m)^publisherName:[ \t]*\r?\n[ \t]+-[ \t]*[''"]?SignPath Foundation[''"]?[ \t]*\r?$`;
     // Comment lines dropped: only the YAML itself is checked.
     const sign = () => code(jobBlock(RELEASE, "sign").replace(/\r\n/g, "\n"));
     // Each step of the sign job as text, from its "- " line to the next.
@@ -542,10 +544,12 @@ describe("release.yml", () => {
       expect(sign().match(/secrets\./g)).toHaveLength(2);
     });
 
-    it("whenever signing is on, repackages with AIPM_SIGNED_BUILD=1 before the setup is signed", () => {
+    it("whenever signing is on, repackages the setup before it is signed", () => {
       const s = step(/--prepackaged/);
       expect(ifOf(s)).toBe(ON);
-      expect(s).toMatch(/^ {10}AIPM_SIGNED_BUILD: "1"$/m);
+      // --prepackaged packs nothing, so the signed-build marker would change nothing here; the
+      // update feed it would have written must come from the build job's packing instead.
+      expect(sign()).not.toMatch(/AIPM_SIGNED_BUILD/);
       expect(s).toMatch(/npm run desktop:package -- --prepackaged "\$APP_DIR"/);
       // The signed app when SIGNPATH_SIGN_APP_EXE is on, the build's packaged app otherwise.
       expect(s).toContain("APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}");
@@ -562,10 +566,32 @@ describe("release.yml", () => {
       expect(s).toMatch(/^ {8}shell: pwsh$/m);
       expect(s).toContain("APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}");
       expect(s).toContain("Join-Path $env:APP_DIR 'resources/app-update.yml'");
-      expect(s).toContain("-notmatch '(?ms)^publisherName:.*SignPath Foundation'");
+      expect(s).toContain(`-notmatch '${PUBLISHER_PS}'`);
       expect(s).toMatch(/exit 1/);
       const after = steps().findIndex((x) => /--prepackaged/.test(x));
       expect(steps()[after + 1]).toBe(s);
+    });
+
+    // The step's own pattern, run in JS: PowerShell's '' is one ', and (?m) is the "m" flag. The
+    // .NET and JS engines agree on every construct it uses ([ \t], \r?, ^/$ under multiline).
+    it("the publisherName pattern accepts only SignPath Foundation as the list item under the key", () => {
+      const ps = /-notmatch '((?:[^']|'')*)'/.exec(step(/name: The repackaged app's updater requires/))?.[1];
+      expect(ps).toBe(PUBLISHER_PS);
+      const re = new RegExp(ps.replace(/''/g, "'").replace(/^\(\?m\)/, ""), "m");
+      const yes = [
+        "owner: x\npublisherName:\n  - SignPath Foundation\nupdaterCacheDirName: y\n",
+        "publisherName:\r\n  - 'SignPath Foundation'\r\nrepo: z\r\n",
+        "provider: github\npublisherName:\n  - \"SignPath Foundation\"",
+      ];
+      const no = [
+        "publisherName:\n  - Other CN\nfoo: SignPath Foundation\n",
+        "publisherName: SignPath Foundation\n",
+        "# publisherName:\n  - SignPath Foundation\n",
+        "publisherName:\n  - SignPath Foundation Ltd\n",
+        "provider: github\nowner: sebastianmaute\n",
+      ];
+      for (const t of yes) expect(re.test(t), JSON.stringify(t)).toBe(true);
+      for (const t of no) expect(re.test(t), JSON.stringify(t)).toBe(false);
     });
 
     it("installs the packaging tools without install scripts (the job holds the SignPath token)", () => {
@@ -592,7 +618,7 @@ describe("release.yml", () => {
 
     it("every step that needs signing switched on carries the switch", () => {
       for (const name of [
-        "Install the desktop packaging tools", "Download the packaged app", "Repackage the app as a signed build",
+        "Install the desktop packaging tools", "Download the packaged app", "Repackage the setup around the app tree",
         "Upload the unsigned installer", "Sign the installer", "Take the signed installer and rewrite the update feed",
         "The installer is signed by SignPath Foundation", "The repackaged app's updater requires the SignPath Foundation signature",
       ]) expect(ifOf(step(new RegExp(`name: ${name}`))), name).toBe(ON);
