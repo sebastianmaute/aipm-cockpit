@@ -30,8 +30,8 @@ afterEach(() => {
 /** A scroll box with a layout jsdom does not have: a fixed size and a writable scrollTop. */
 function makeBox(height = 600): HTMLDivElement {
   const box = document.createElement("div");
-  Object.defineProperty(box, "offsetHeight", { value: height, configurable: true });
-  Object.defineProperty(box, "offsetWidth", { value: 800, configurable: true });
+  Object.defineProperty(box, "clientHeight", { value: height, configurable: true });
+  Object.defineProperty(box, "clientWidth", { value: 800, configurable: true });
   Object.defineProperty(box, "scrollTop", { value: 0, configurable: true, writable: true });
   document.body.append(box);
   boxes.push(box);
@@ -98,7 +98,7 @@ describe("virtual-core as useTaskRowWindow drives it (§5, no mock)", () => {
     v._willUpdate();
     expect(v.scrollRect).toBeNull(); // off: the box size is forgotten
     // The box changed size while the window was off.
-    Object.defineProperty(box, "offsetHeight", { value: 500, configurable: true });
+    Object.defineProperty(box, "clientHeight", { value: 500, configurable: true });
     v.setOptions({ ...base, enabled: true, initialMeasurementsCache: snapshot });
     // The first windowed render, before `_willUpdate` attaches the rect observer.
     const first = v.getVirtualItems();

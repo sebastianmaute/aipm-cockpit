@@ -19,8 +19,8 @@ afterEach(() => {
 
 function makeBox(): HTMLDivElement {
   const box = document.createElement("div");
-  Object.defineProperty(box, "offsetHeight", { value: BOX_PX, configurable: true });
-  Object.defineProperty(box, "offsetWidth", { value: 800, configurable: true });
+  Object.defineProperty(box, "clientHeight", { value: BOX_PX, configurable: true });
+  Object.defineProperty(box, "clientWidth", { value: 800, configurable: true });
   Object.defineProperty(box, "scrollTop", { value: 0, configurable: true, writable: true });
   document.body.append(box);
   boxes.push(box);

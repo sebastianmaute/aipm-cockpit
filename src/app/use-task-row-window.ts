@@ -132,15 +132,16 @@ export function measuredRows(virtualizer: Virtualizer<HTMLElement, Element>): Vi
 }
 
 /** The scroll box's LIVE size, as a `Rect` whose getters read the box each time
- *  virtual-core asks (see `initialRect` in the hook). offsetWidth/offsetHeight,
- *  as virtual-core's own observer reads it. */
+ *  virtual-core asks (see `initialRect` in the hook). clientWidth/clientHeight —
+ *  the visible viewport, without borders or a scrollbar — as virtual-core's own
+ *  observer reads it since virtual-core 3.19.9 (`getRect`). */
 export function liveBoxRect(scrollRef: React.RefObject<HTMLElement | null>): Rect {
   return {
     get width() {
-      return scrollRef.current?.offsetWidth ?? 0;
+      return scrollRef.current?.clientWidth ?? 0;
     },
     get height() {
-      return scrollRef.current?.offsetHeight ?? 0;
+      return scrollRef.current?.clientHeight ?? 0;
     },
   };
 }
