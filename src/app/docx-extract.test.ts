@@ -44,7 +44,7 @@ describe("extractDocx", () => {
   });
 
   it("does not misroute an uppercase look-alike block to the wrong closer", () => {
-    // §558 fix round 3, item 5: forEachTagPair used to hardcode "gi", so
+    // §558, item 5: forEachTagPair used to hardcode "gi", so
     // <W:TBL matched BLOCK_PAIR's open pattern, but the exact
     // case-SENSITIVE `openMatch[0] === "<w:tbl"` comparison (both in
     // closeName and in extractDocx's own renderer choice) then failed,

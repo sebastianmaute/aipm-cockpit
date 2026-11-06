@@ -212,7 +212,7 @@ describe("useHashView", () => {
   });
 
   it("rewrites the hash to the current view when the deep link targets a disabled module", () => {
-    // Fix round 1, mutant-4 gap: a mutant that arms pendingApplyRef BEFORE the
+    // A mutant that arms pendingApplyRef BEFORE the
     // disabled-target bail (rather than after) leaves this hash stale forever
     // — "#raid/123" would point at a view the user cannot reach. The sibling
     // test above never asserts the hash, so it could not catch that.
@@ -252,7 +252,7 @@ describe("useHashView", () => {
   });
 
   it("rewrites a cold view-only stale hash to the current view in the URL", () => {
-    // Fix round 1, Critical (§478 re-opened): arming pendingApplyRef even when
+    // §478 re-opened: arming pendingApplyRef even when
     // setActiveTab(view) is a no-op (view === activeTab, as it is for the
     // stale-residue target here) starves the passive effect of the run it
     // needs to normalise the hash. Pre-fix this left "#budget" in the URL for
@@ -365,7 +365,7 @@ describe("useHashView", () => {
   });
 
   it("does not leave the flag armed after a warm re-apply whose target already matches activeTab", () => {
-    // Fix round 1, Important: a warm apply whose target equals activeTab also
+    // A warm apply whose target equals activeTab also
     // armed the flag pre-fix. setActiveTab is then a no-op (same value), so no
     // second passive-effect run ever consumes the flag — it stays armed and
     // swallows the hash write for the NEXT genuine view change.

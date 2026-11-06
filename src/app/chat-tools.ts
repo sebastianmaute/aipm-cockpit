@@ -754,7 +754,7 @@ function isEmptyUpdate(name: string, input: Readonly<Record<string, unknown>>): 
   return name.startsWith("update_") && Object.keys(input).every((k) => UPDATE_ADDRESS_KEYS.has(k));
 }
 
-/** The person references the record a call writes ALREADY holds, so the strip keeps them (fix round 1, I1):
+/** The person references the record a call writes ALREADY holds, so the strip keeps them:
  *  an edit of a forecast scenario re-sends the user's own named-person rows, because `changes` replaces the
  *  whole list — and gets back the ones it left out (review 3, R4: the AI may not remove a person). Every other
  *  tool has none. Shared with the chat's staging strip, so the card and the write agree. */

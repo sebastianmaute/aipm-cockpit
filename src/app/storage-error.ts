@@ -29,7 +29,7 @@ export function isSaveConflict(err: unknown): err is SaveConflictError {
   return err instanceof SaveConflictError;
 }
 
-/** §4 fix round 1 (R10 change 6) — a `StorageBackend.save()`'s Web Lock wait
+/** §4 (R10 change 6) — a `StorageBackend.save()`'s Web Lock wait
  *  timed out before the lock was ever granted (another window is mid-save).
  *  Generalized by `StorageKind` (the local-file backends; browser storage took it too until §4 round 7
  *  made its save one IndexedDB transaction with no lock), on the

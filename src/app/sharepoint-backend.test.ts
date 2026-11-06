@@ -859,7 +859,7 @@ describe("SharePointBackend revision guard (§4)", () => {
   });
 });
 
-// §4 fix round 1 of Task 9 — a refusal reports the stored eTag (one metadata GET), and
+// §4 — a refusal reports the stored eTag (one metadata GET), and
 // `forceNextSave(expected)` writes with `If-Match: expected` only, never blind and never create-only.
 describe("SharePointBackend conditional overwrite (§4)", () => {
   let acquireToken: Mock;

@@ -1,4 +1,4 @@
-// Greedy lane packing for the meetings band (R5 S5, Task 14). Pure,
+// Greedy lane packing for the meetings band. Pure,
 // i18n-free, clock-free: one lane renders as one <tr> in the band; an
 // occurrence occupies exactly one date cell, so two occurrences collide only
 // when they fall on the same date — packing is date-only, independent of

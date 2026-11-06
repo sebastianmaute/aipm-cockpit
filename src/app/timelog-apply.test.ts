@@ -523,7 +523,7 @@ describe("buildApplyPlan", () => {
 
     // Each person landed on their OWN role line — the whole point of the
     // breakdown surviving the aggregate→apply boundary. A dated aggregate
-    // writes day keys (Task 6), so read the period total through
+    // writes day keys, so read the period total through
     // `actualHoursIn` rather than the period key directly.
     expect(actualHoursIn(after[0].allocations[0].actualHours, "2026-06")).toBe(4);
     expect(actualHoursIn(after[0].allocations[1].actualHours, "2026-06")).toBe(6);
@@ -615,7 +615,7 @@ describe("dated apply", () => {
     expect(actualHoursIn(hours, "2026-06")).toBe(4);
   });
 
-  // Fix round 1, Important: `next` is rounded (routeBucket accumulates via
+  // `next` is rounded (routeBucket accumulates via
   // round2), but `current` read stored day keys through `actualHoursIn` with
   // NO rounding — so two decimal bookings that sum to a binary-float artifact
   // (0.1 + 0.2 = 0.30000000000000004) never equal the rounded `next` (0.3),
@@ -656,7 +656,7 @@ describe("dated apply", () => {
     expect(planApply(applied, decOverlay, resources, roles)).toEqual([]);
   });
 
-  // Fix round 1, minor 3: a routed period is owned WHOLE — every allocation
+  // A routed period is owned WHOLE — every allocation
   // line in the bucket, not just the one that received bookings. Role 2 has no
   // resource in the module-level `resources`/`roles` fixtures (only resource 10,
   // role 1), so this line is reachable by ownership but never by routing —

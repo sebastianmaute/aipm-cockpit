@@ -141,7 +141,7 @@ describe("RAID owner email follows the changed-only write rule", () => {
     fireEvent.change(screen.getByDisplayValue("old@x.com"), { target: { value: "a,b@x.com" } });
     fireEvent.submit(screen.getByDisplayValue("a,b@x.com").closest("form")!);
     expect(onSave).not.toHaveBeenCalled();
-    // Fix round 1, IMPORTANT 1 — the banner shows this SAME refusal, so the
+    // The banner shows this SAME refusal, so the
     // flag steps aside: exactly one alert, not a duplicated identical one.
     const alerts = screen.getAllByRole("alert");
     expect(alerts.map((a) => a.textContent)).toEqual([t("en-US", "errorEmailDelimiter")]);
@@ -154,7 +154,7 @@ describe("RAID owner email follows the changed-only write rule", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 
-  // Fix round 1, IMPORTANT 1 — an UNRELATED banner error (blank title) must
+  // An UNRELATED banner error (blank title) must
   // never hide the flag: the stored owner email is untouched and still unsafe.
   it("keeps the flag visible while an unrelated banner error is showing", () => {
     const onSave = vi.fn();
@@ -168,7 +168,7 @@ describe("RAID owner email follows the changed-only write rule", () => {
     expect(alerts).toHaveLength(2);
   });
 
-  // Fix round 1, IMPORTANT 3 — the copy-source exemption was unpinned: every
+  // The copy-source exemption was unpinned: every
   // host passed `resources={[]}`, so a real linked resource's unsafe email was
   // never actually exercised as a copy source.
   it("exempts a copy of the linked resource's stored email", () => {

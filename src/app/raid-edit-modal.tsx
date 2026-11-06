@@ -168,7 +168,7 @@ export function RaidEditModal({
   // rule judges against. Controlled modal (the panel owns `draft`), so it is
   // captured per record by render-time reconcile on `draft.id` — folded into
   // the SAME reconcile `categoryUnlocked` already uses, rather than a second
-  // one (fix round 1).
+  // one.
   const [openedOwnerEmail, setOpenedOwnerEmail] = useState(draft.ownerEmail);
   if (prevDraftId !== draft.id) {
     setPrevDraftId(draft.id);
@@ -180,7 +180,7 @@ export function RaidEditModal({
   // SAME treatment the AI writer (`sanitizeRaidItem`), its
   // `ownerEmail: sanitizeLoadedEmail` field descriptor and every decode path
   // give this field (M1, M-C4), matching the cap `handleSubmit` already applies
-  // to `title`/`owner` on the saved object. Fix round 1, IMPORTANT 2.
+  // to `title`/`owner` on the saved object.
   const cappedOwnerEmail = sanitizeLoadedEmail(draft.ownerEmail ?? "") || undefined;
 
   const statusOpts = statusOptionsFor(draft.category);

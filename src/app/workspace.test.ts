@@ -315,7 +315,7 @@ function wsWithActivityLog(activityLog: unknown): string {
 }
 
 // Moved from activity-log.test.ts's retired loadActivityLog/saveActivityLog
-// suite (Task 12, activity-log-workspace-data): the log is validated on load
+// suite (activity-log-workspace-data): the log is validated on load
 // by `sanitizeActivityLog` now (called from `jsonToWorkspace`), not by the
 // localStorage-only `isActivityEntry`/`normalizeEntryChanges` that used to
 // gate `loadActivityLog`. Every property carried over EXCEPT the unknown-kind

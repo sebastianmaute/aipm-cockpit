@@ -13,7 +13,7 @@
 // ★★ A job arms only if it STARTS after the request: the request is consumed by the first job that
 //   runs, and a job already running at the click has read no request. A job replaced in the queue
 //   never runs, so the newer job that replaced it carries the request instead.
-// ★★★ AND IT IS CONDITIONAL, NEVER BLIND (fix round 1). The job arms `forceNextSave(seen)`, where `seen`
+// ★★★ AND IT IS CONDITIONAL, NEVER BLIND. The job arms `forceNextSave(seen)`, where `seen`
 //   is the revision the refusal reported, i.e. the version the user was told about: the backend replaces
 //   storage wholesale ONLY while it still holds that version, and otherwise refuses as usual, so a
 //   request left pending (a destructive refusal, an incomplete load, a queue wait) can never overwrite

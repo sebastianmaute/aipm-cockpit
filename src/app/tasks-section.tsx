@@ -496,7 +496,7 @@ export function TasksSection({
       if (!beforeRow || beforeRow.jiraKey) return;
       const knownTaskIds = new Set(tasks.map((tk) => tk.id));
       // The picked resource's stored email, or undefined when the id is not a
-      // number or names no live resource (fix round 1 MINOR 4 — an `[""]`
+      // number or names no live resource (an `[""]`
       // fallback here would exempt a blank clear from the copy-source list,
       // which `emailWriteRefusal` already exempts unconditionally; a missing
       // resource must contribute NO copy source, not an empty one).
@@ -824,7 +824,7 @@ export function TasksSection({
       ) : tasksViewMode === "board" ? (
         /* Board view shows every search/people-filtered task (NOT the
            hide-finished filtered `visibleRows`) so cancelled/done columns
-           stay populated. SP-B Task 6 swaps in the rich <TaskKanbanCard>. */
+           stay populated. The board renders the rich <TaskKanbanCard>. */
         <TaskKanban
           lang={lang}
           tasks={healthFilteredTasks}

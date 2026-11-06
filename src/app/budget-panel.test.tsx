@@ -780,7 +780,7 @@ describe("BudgetPanel — Internal cost index card (EV/AC)", () => {
   });
 });
 
-describe("budget: follow-plan mirror (Task 8)", () => {
+describe("budget: follow-plan mirror", () => {
   // A resource with January capacity so allocationPlannedHours > 0.
   const resourceWithCapacity: Resource = {
     id: 7, firstName: "Cap", lastName: "Acity", roleId: 3,

@@ -107,7 +107,7 @@ export interface SteeringCommitteePanelProps {
   onChange: (next: SteeringCommittee | undefined) => void;
   resources: readonly Resource[];
   today: string;
-  /** Supplied by Task 7 (Outlook push). When absent the button is hidden.
+  /** The Outlook push. When absent the button is hidden.
    *  Errors surface via toast (not inline), so no `error` field is threaded.
    *  `onPushRow` (optional) scopes a push to a single meeting / info-schedule
    *  row — when absent the per-row "Push" buttons are hidden. `pushingTarget` is
@@ -558,7 +558,7 @@ export function SteeringCommitteePanel({
           )}
         </section>
 
-        {/* Push to Outlook (Task 7 supplies the prop; hidden until then) */}
+        {/* Push to Outlook (hidden while the prop is absent) */}
         {outlookPush ? (
           <section>
             <Button

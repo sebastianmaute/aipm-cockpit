@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 // The executor's people gate is read off the DISPATCHER here; the privacy context is not under test.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
-// AI people protection, Task 5 review round 1 (I1): a stored recommendation whose call is a people tool,
+// AI people protection: a stored recommendation whose call is a people tool,
 // confirmed after protection was switched on, is REFUSED like a stale call — nothing written, the
 // insight NOT marked applied — never counted as a hard failure that advances it.
 import { renderHook, act } from "@testing-library/react";

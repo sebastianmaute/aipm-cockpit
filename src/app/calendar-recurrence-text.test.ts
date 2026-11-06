@@ -229,7 +229,7 @@ describe("recurrenceText", () => {
 // would excuse exactly the class of defect this file exists to catch, since
 // the hand-copy and the projection could drift together. `startDate` is
 // passed identically on both sides: the LHS is what the review card would
-// show once Task 8 wires `startDate` through; the RHS is what
+// show once `startDate` is wired through; the RHS is what
 // `recurrenceText` renders for the value the write path ACTUALLY stored.
 describe("recurrenceText matches sanitizeCalendarEvent (differential)", () => {
   const START_DATE = "2026-01-15"; // day-of-month 15, used by the byMonthDay-fallback cases

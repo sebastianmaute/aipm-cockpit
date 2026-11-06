@@ -141,7 +141,7 @@ describe("writeSettings STT apiKey blanking", () => {
 });
 
 describe("on-load unreadable-secret probe", () => {
-  // §567 (fix round 1) — the mount-load probe that flags a sealed-but-
+  // §567 — the mount-load probe that flags a sealed-but-
   // unreadable secret used to carry its OWN five-id list, a third hardcoded
   // copy alongside isSealedSecret/readStore. A missed id there never gets
   // probed, so a corrupt secret for that id is silently reported as

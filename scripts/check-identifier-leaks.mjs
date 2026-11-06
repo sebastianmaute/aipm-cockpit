@@ -33,7 +33,7 @@
 //      any non-ASCII letter, e.g. a German umlaut, as a non-word separator,
 //      so a short fragment glued directly onto one could match "whole-word"
 //      in the middle of an unrelated longer word; see the display-name
-//      sanitisation task's fix round 1/2), so it matches a bare word but
+//      sanitisation), so it matches a bare word but
 //      still MISSES the same text glued into a longer compound: `acme_corp`
 //      and `acmeCorp` both fail the boundary check for a `word:acme` entry,
 //      because `_` counts as a word character and the adjoining letter is

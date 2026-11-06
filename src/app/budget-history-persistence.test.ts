@@ -94,7 +94,7 @@ beforeEach(() => {
 
 describe("budgetHistory survives the storage hook's save path", () => {
   it("control: BrowserBackend round-trips a history it is handed directly", async () => {
-    // §4 fix round 2 — a fresh backend has never loaded; force this blind
+    // §4 — a fresh backend has never loaded; force this blind
     // seed write (R10 change 1, fail closed).
     const backend = new BrowserBackend();
     backend.forceNextSave();
@@ -117,7 +117,7 @@ describe("budgetHistory survives the storage hook's save path", () => {
   });
 
   it("fires a save when budgetHistory is the ONLY thing that changed", async () => {
-    // §4 fix round 2 — force this blind seed write (R10 change 1).
+    // §4 — force this blind seed write (R10 change 1).
     const seed = new BrowserBackend();
     seed.forceNextSave();
     await seed.save({ ...emptyWorkspace(), tasks: [task] });
@@ -135,7 +135,7 @@ describe("budgetHistory survives the storage hook's save path", () => {
   });
 
   it("loads a stored budgetHistory into workspace state", async () => {
-    // §4 fix round 2 — force this blind seed write (R10 change 1).
+    // §4 — force this blind seed write (R10 change 1).
     const seed = new BrowserBackend();
     seed.forceNextSave();
     await seed.save({ ...emptyWorkspace(), tasks: [task], budgetHistory: history() });

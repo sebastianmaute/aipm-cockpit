@@ -42,7 +42,7 @@ export interface TagPairSpec {
    *  same-named close tag, silently merging real content between them into
    *  this pair's `inner`/`whole` — extractRuns (office-xml.ts) hit exactly
    *  this on `<t/>`: `<si><t/></si><si><t>hello</t></si>` extracted
-   *  `["</si><si><t>hello"]` instead of `["hello"]` (§558 fix round 3).
+   *  `["</si><si><t>hello"]` instead of `["hello"]` (§558).
    *
    *  Default (omitted): OFF, preserving every existing call site's
    *  behaviour — html-extract.ts's TABLE/ROW/CELL/HEADING/LIST_ITEM pairs

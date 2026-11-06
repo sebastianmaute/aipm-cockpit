@@ -50,7 +50,7 @@ describe("useSettings — hydration always completes (§548)", () => {
 
   it("hydrates when the secret merge THROWS, keeping the stored non-secret settings AND the still-unmigrated plaintext secrets", async () => {
     secretMode.mode = "throw";
-    // §548 fix round 2 — the earlier version of this test only asserted the
+    // §548 — the earlier version of this test only asserted the
     // NON-secret fields, so a mutant that blanks apiKey inside the fallback
     // (`catch { return merged; }` in the mount effect) survived. `merged` is
     // the whole parsed-and-sanitized blob, secrets included, so the fallback
@@ -68,7 +68,7 @@ describe("useSettings — hydration always completes (§548)", () => {
   });
 
   it("clears the merge timer on a normal (throw-path) finish — no dangling timer, no late diagnostic", async () => {
-    // §548 fix round 2 — pins the OTHER half of the race: on a normal finish
+    // §548 — pins the OTHER half of the race: on a normal finish
     // (the merge settles well inside the window), `clearTimeout(mergeTimer)`
     // must actually cancel the timer rather than leave it scheduled to fire
     // `resolve(null)` — and therefore the timeout diagnostic — later.
@@ -92,7 +92,7 @@ describe("useSettings — hydration always completes (§548)", () => {
   });
 
   it("hydrates when IndexedDB is unavailable, falling back to the in-memory plaintext secret", async () => {
-    // §548 fix round 2 — `getDeviceKey()` (secrets.ts) caches its promise at
+    // §548 — `getDeviceKey()` (secrets.ts) caches its promise at
     // module level, so a warm cache from earlier secret activity in this
     // module instance would let `sealDevice` succeed even with `indexedDB`
     // stubbed away, making this test pass whichever way the real IndexedDB
@@ -139,7 +139,7 @@ describe("useSettings — hydration always completes (§548)", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(1); });
     expect(result.current.hydrated).toBe(true);
     expect(result.current.settings.layout).toBe("classic");
-    // §548 fix round 2 — the earlier version of this test only asserted
+    // §548 — the earlier version of this test only asserted
     // `hydrated`/`layout`, so a mutant that blanks apiKey in the timeout
     // fallback (`mergeOutcome ?? merged`) survived, and the
     // `settings.secretMergeTimedOut` diagnostic itself was unpinned.

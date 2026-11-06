@@ -27,7 +27,7 @@ const desktopDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 // export FIRST rather than assuming either shape (electron-updater-loader.test.ts covers both
 // branches with plain mocks, so it is correct under either interop). The genuine end-to-end proof that
 // PRODUCTION Electron actually resolves and wires up the real `autoUpdater` lives outside vitest
-// entirely: the packaged-app launch and its log evidence come from fix round 2.
+// entirely: that evidence is a launch of the packaged app and its log.
 //
 // ★★ CHECKED VIA `in` / getOwnPropertyDescriptor, NEVER BY READING THE VALUE, for the half this file
 // CAN still assert. `autoUpdater` is a dynamic getter
@@ -47,7 +47,7 @@ describe("electron-updater's export shape under a dynamic import", () => {
     expect("autoUpdater" in (def as object)).toBe(true);
   });
 
-  // Fix round 3: the assertion above runs INSIDE vitest's own module loader, which the test
+  // The assertion above runs INSIDE vitest's own module loader, which the test
   // above it already found disagrees with plain Node/Electron on the "named export" half. This pins
   // the FULL claim -- both halves -- in a genuinely separate, freshly-spawned `node` process that
   // never goes through Vite/vitest's module graph at all, so it is the one test in this repo that can

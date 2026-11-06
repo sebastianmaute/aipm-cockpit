@@ -397,7 +397,7 @@ describe("isDestructiveCall", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Task 8 — the provisional-id dependency graph the review card cascades over.
+// The provisional-id dependency graph the review card cascades over.
 
 describe("isCreateTool", () => {
   // ★★ A LITERAL, deliberately not derived from the module — same rule as the

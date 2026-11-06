@@ -446,7 +446,7 @@ describe("the read and create routes", () => {
 
   // Blocks are passed through UNVALIDATED on purpose: the model-input
   // allow-list is ai-document-blocks.ts's job, applied by the dispatcher
-  // (Task 18). This layer only proves the value reaches it untouched.
+  // (use-document-tools.ts). This layer only proves the value reaches it untouched.
   it("passes the raw blocks and the trimmed title to the dispatcher", async () => {
     const create = vi.fn(() => ({ id: 2, title: "New", blockCount: 1 }));
     const blocks = [{ type: "pageBreak" }];

@@ -13,7 +13,7 @@
  * instead of forward. Rather than draw a stub with no forward meaning, the
  * model omits BOTH forecast segments and the run-out circle entirely once the
  * project is overdue; the actual line itself is untouched, and the surface
- * (Task 12) should read "no forecast" from `pace`/`efficiency`/`runOut` all
+ * should read "no forecast" from `pace`/`efficiency`/`runOut` all
  * being null rather than from a special-cased x position.
  */
 import { isEfficiencyAvailable, isPaceAvailable, type BudgetForecast } from "./budget-forecast";
@@ -43,7 +43,7 @@ export type ChartModel = {
    *  at a date derived by counting only WORKING days forward from today. The
    *  two are different measures over the same axis, so the circle is not
    *  guaranteed to land exactly on the segment's line — that is not a bug for
-   *  Task 12 to "fix" by snapping one to the other. */
+   *  the chart to "fix" by snapping one to the other. */
   runOut: ChartPoint | null; ev: ChartPoint | null;
   /** Earned-value history (cumulative orientation only), split into runs of
    *  partial and complete points. Neighbouring segments SHARE their boundary
@@ -70,7 +70,7 @@ export type ChartModel = {
   /** One tick per PERIOD that holds recorded changes, at the level the last of
    *  them left. Several entries in one period are summed and their bucket names
    *  joined, so the labels cannot pile up on one x. A tick whose summed amount
-   *  shows as 0 in the current unit is left out (the Task 9 join rule). */
+   *  shows as 0 in the current unit is left out (the join rule). */
   bacMarkers: readonly BacMarker[];
   bacLine: number | null; today: string | null; planEnd: string; frameDiffers: boolean;
   /** §502 — the simulated P50–P95 finish dates as a faint full-height band, P80 as a dashed line. `from`,

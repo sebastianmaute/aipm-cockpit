@@ -26,7 +26,7 @@ export interface FetchTextResult {
  *  read) — never for a coincidental non-abort failure that merely arrives after the timer fired. The
  *  timer flips `timedOut` and calls `abort()` in the same tick, so there is no window where `timedOut`
  *  is true and the abort has not been requested; but the transport can still reject with an unrelated
- *  error around the same moment (§548 fix round 2), and that must not be misreported as a timeout. */
+ *  error around the same moment (§548), and that must not be misreported as a timeout. */
 function isAbortError(err: unknown): boolean {
   // Checked by `name`, not `instanceof Error` / `instanceof DOMException`: a real abort can surface
   // as either (fetch implementations vary, and a DOMException does not reliably share a realm's Error

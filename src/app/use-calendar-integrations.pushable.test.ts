@@ -1,4 +1,4 @@
-// §486 fix round 2 — the four push inputs `useCalendarIntegrations` builds use
+// §486 — the four push inputs `useCalendarIntegrations` builds use
 // the shared `calendar-pushable.ts` predicates. An opted-out item that still
 // holds a link and has LEFT the synced set must stay in the push input, or
 // `planEntityReconcile` deletes the event the user chose to keep. The push hook

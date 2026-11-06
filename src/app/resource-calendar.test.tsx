@@ -1375,7 +1375,7 @@ it("keeps exactly one roving DAY-CELL tab stop with the meetings band rendered â
   );
   const chips = screen.getAllByRole("button", { name: /Standup/ });
   expect(chips).toHaveLength(3);
-  // The class of regression Task 6's narrower [data-cell]-only test missed:
+  // The class of regression an earlier, narrower [data-cell]-only test missed:
   // a band cell must never carry data-cell (which the roving grid indexes
   // by row/column) â€” only its own data-band-cell.
   for (const chip of chips) {

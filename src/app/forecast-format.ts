@@ -1,7 +1,7 @@
 /** Locale formatting for the budget forecast surfaces. Forecast money is in the project's baseline currency (`plan.currency`, the engine unit since §476), so a money formatter takes it as a parameter. Dates are ISO days read in UTC. */
 import type { BudgetCurrency } from "./types";
 
-// Fix round 2: some locales (measured: de-DE) do not abbreviate compact
+// Some locales (measured: de-DE) do not abbreviate compact
 // currency below roughly EUR1M at maximumSignificantDigits:3 -- Intl just
 // rounds to 3 significant digits and prints the full grouped number with no
 // K/M-style suffix, which reads as an EXACT figure rather than a rounded

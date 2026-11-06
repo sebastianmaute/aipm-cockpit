@@ -427,7 +427,7 @@ function TaskManagerInner() {
   // the banner again. Render-time reconcile, not an effect (set-state-in-effect is banned).
   if (aiKeyBannerDismissed && !isAiKeyStatusBad(aiKeyStatus)) setAiKeyBannerDismissed(false);
 
-  // ★★★ FIX ROUND 1 (M3): THE ONLY VersionInfoModal IN THE APP, and its
+  // ★★★ THE ONLY VersionInfoModal IN THE APP, and its
   // `openVersion` is now the ONE way anything opens it — the desktop shell's
   // Help → Version menu event (handled inside the hook), the sidebar version
   // line (ModernShell's `onOpenVersion` prop below), and the Settings footer

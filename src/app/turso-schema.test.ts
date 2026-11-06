@@ -379,7 +379,7 @@ describe("documentAssets entity spec", () => {
     expect(TABLE_NAMES).toContain("document_assets");
   });
 
-  // ★★ The BYTES table is the opposite — Task 10 pins that separately.
+  // ★★ The BYTES table is the opposite — pinned separately.
   it("keeps document_asset_data OUT of TABLE_NAMES", () => {
     expect(TABLE_NAMES).not.toContain("document_asset_data");
   });

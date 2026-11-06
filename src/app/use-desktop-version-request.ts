@@ -2,8 +2,8 @@
 
 // Owns the app's ONE Version modal and the desktop shell's route into it.
 //
-// ★★★ FIX ROUND 1 (M3): THIS HOOK'S <VersionInfoModal> IS NOW THE ONLY ONE
-// IN THE WHOLE APP. Task 2 shipped a THIRD independently-owned instance
+// ★★★ THIS HOOK'S <VersionInfoModal> IS NOW THE ONLY ONE
+// IN THE WHOLE APP. An earlier change shipped a THIRD independently-owned instance
 // beside modern-shell.tsx's `versionOpen` and settings-view.tsx's
 // `showVersion`, reasoning that a closed `Modal` renders nothing so a third
 // one "costs nothing" -- true when closed, but a desktop request arriving
@@ -24,7 +24,7 @@
 // modern tree), covers all three without threading a prop through
 // ModernShell/Sidebar or duplicating the listener per layout.
 //
-// ★★ FIX ROUND 1 (M4): THE LISTENER SIGNALS "HANDLED" VIA `preventDefault()`.
+// ★★ THE LISTENER SIGNALS "HANDLED" VIA `preventDefault()`.
 // main.ts's `versionRequestScript` builds a `cancelable: true` CustomEvent and
 // its injected script's completion value is `!window.dispatchEvent(ev)` --
 // `dispatchEvent` returns `false` only when something called
@@ -39,7 +39,7 @@
 // "a TaskManager page received this", independent of whether it also opened
 // the modal.
 //
-// ★★ FIX ROUND 1 (M3 log-path consistency): THE DESKTOP MAIN PROCESS SENDS
+// ★★ LOG-PATH CONSISTENCY: THE DESKTOP MAIN PROCESS SENDS
 // TWO KINDS OF REQUEST, DISTINGUISHED BY `detail.open`. Once per page load
 // (`did-finish-load`, both the main window and every popout -- see the
 // `web-contents-created` listener in main.ts) it sends `{ logPath, open:

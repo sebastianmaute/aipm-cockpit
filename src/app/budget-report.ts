@@ -612,7 +612,7 @@ export function computeBudgetReport(
   const budgetCost = sum((r) => r.budgetCost);
 
   // The shipped rollup predicate, unchanged in behaviour — its inputs moved from
-  // the per-bucket boolean fields to the equivalent helpers (Task 2 proved them
+  // the per-bucket boolean fields to the equivalent helpers (proved
   // identical by construction).
   //
   // ★★ EVERY, not SOME. `revenue` and `cost` above are summed across ALL buckets,

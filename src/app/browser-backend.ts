@@ -171,7 +171,7 @@ export class BrowserBackend implements StorageBackend {
   /** §4 — the revision this instance last loaded or wrote; `null` before any load. */
   private currentRevision: number | null = null;
   /** §4 — one-shot: set by `forceNextSave()`, consumed by `save()` only
-   *  once its write has actually succeeded (R10 change 4). §4 fix round 3 —
+   *  once its write has actually succeeded (R10 change 4). §4 —
    *  ALSO cleared by a successful `load()`, `adoptRevision()` and
    *  `adoptFrom()`, each of which establishes a genuine new baseline that a
    *  leftover forced-write intent from an earlier FAILED forced save must not
@@ -240,7 +240,7 @@ export class BrowserBackend implements StorageBackend {
     let documentAssets: Workspace["documentAssets"] | undefined;
     // §4 — stamped by `save()`; missing (never saved yet) → 0.
     let revision = 0;
-    // §4 fix round 1 (R10 change 5) — true only once EVERY read/sanitize step
+    // §4 (R10 change 5) — true only once EVERY read/sanitize step
     // in the try below has completed without throwing (set at the very end of
     // the try, never inside it). A throw anywhere in the try — including the
     // revision read itself — means the returned workspace is a FALLBACK
@@ -252,7 +252,7 @@ export class BrowserBackend implements StorageBackend {
     // next save on this instance REFUSES instead of silently winning.
     let dataLoadSucceeded = false;
     try {
-      // §4 fix round 1 — read BEFORE the parallel data reads below, in its
+      // §4 — read BEFORE the parallel data reads below, in its
       // OWN await/transaction, not alongside them in the same Promise.all.
       // `idbGet`/`idbGetAll` (idb.ts) each open their own IDB transaction, so
       // that Promise.all is not one snapshot: reading the revision LAST let a
@@ -594,7 +594,7 @@ export class BrowserBackend implements StorageBackend {
     this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
     this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
     this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
-    // §4 fix round 1 (R10 change 5) — adopt the revision this load actually
+    // §4 (R10 change 5) — adopt the revision this load actually
     // saw ONLY when the data read that revision was paired with genuinely
     // succeeded. On the IDB-unavailable/fallback path `revision` may still
     // hold a real number (the revision read can succeed before a LATER data
@@ -604,7 +604,7 @@ export class BrowserBackend implements StorageBackend {
     // fallback. Leaving it `null` (UNKNOWN) means the next save on this
     // instance fails closed (R10 change 1) instead.
     this.currentRevision = dataLoadSucceeded ? revision : null;
-    // §4 fix round 3 (Important #1) — a genuine successful load is a real new
+    // §4 (Important #1) — a genuine successful load is a real new
     // baseline; any forced-write intent left over from an earlier FAILED
     // forced save must not silently carry forward past it (e.g. a forced
     // save that failed, then another tab saves, then THIS instance reloads —
@@ -689,7 +689,7 @@ export class BrowserBackend implements StorageBackend {
    *   the store; with neither, it did. One transaction keeps the compare-and-set atomic by itself, since
    *   readwrite transactions over overlapping stores run one at a time across tabs.
    *
-   * §4 fix round 1 (R10 change 1, fail closed) — `currentRevision === null` means UNKNOWN (never loaded,
+   * §4 (R10 change 1, fail closed) — `currentRevision === null` means UNKNOWN (never loaded,
    * and not adopted or forced), and REFUSES rather than skipping the compare. An intentional blind write
    * (Save-As, create, demo, a storage conversion) goes through `forceNextSave()`.
    *
@@ -809,7 +809,7 @@ export class BrowserBackend implements StorageBackend {
   adoptRevision(rev: string): void {
     if (!/^\d+$/.test(rev)) return;
     this.currentRevision = Number.parseInt(rev, 10);
-    // §4 fix round 3 — also clears `forceNext`: adopting a real revision from
+    // §4 — also clears `forceNext`: adopting a real revision from
     // elsewhere (e.g. catching up to another tab after a conflict) is a
     // genuine new baseline, same as a real load, so it must not leave a
     // stale forced-write intent standing.
@@ -827,7 +827,7 @@ export class BrowserBackend implements StorageBackend {
   }
 
   /**
-   * §4 fix round 1 (R10 change 3) — copies another `BrowserBackend`
+   * §4 (R10 change 3) — copies another `BrowserBackend`
    * instance's revision and per-store diff baselines, so a throwaway backend
    * used to perform an op can hand its resulting state to the LIVE instance
    * in one step. Same-class only, not part of `StorageBackend`. `other` must
@@ -845,7 +845,7 @@ export class BrowserBackend implements StorageBackend {
     this.disciplinesBaseline = other.disciplinesBaseline;
     this.gradesBaseline = other.gradesBaseline;
     this.budgetsBaseline = other.budgetsBaseline;
-    // §4 fix round 3 — adopting another instance's state establishes a fresh,
+    // §4 — adopting another instance's state establishes a fresh,
     // genuine baseline; a forced-write intent left over from THIS instance's
     // own past (failed) save no longer applies to it.
     this.forceNext = false;

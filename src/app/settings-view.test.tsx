@@ -104,7 +104,7 @@ describe("SettingsView", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ expertMode: false }));
   });
 
-  // ★★★ FIX ROUND 1 (M3): SettingsView no longer owns a `showVersion` boolean
+  // ★★★ SettingsView no longer owns a `showVersion` boolean
   // or renders its own <VersionInfoModal> — clicking the footer version link
   // now calls the `onOpenVersion` prop, which task-manager.tsx wires to the
   // app's ONE root-owned modal (use-desktop-version-request.ts).

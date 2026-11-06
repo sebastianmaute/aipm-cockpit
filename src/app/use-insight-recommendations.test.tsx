@@ -522,7 +522,7 @@ describe("insight recommendations carry the operating guides (§701)", () => {
   });
 });
 
-// §476 final fix 2, item 1 (fix round 1) — a recommendation generated BEFORE a baseline-currency
+// §476 final fix 2, item 1 — a recommendation generated BEFORE a baseline-currency
 // switch holds money in the OLD currency. Replayed after it, `costImpact: 5000` would be written as
 // 5000 of the new currency, so the whole apply is refused while any call carries a money argument.
 // "Before" is decided by the history LENGTH stamped at generation (`historyLength`), not by the

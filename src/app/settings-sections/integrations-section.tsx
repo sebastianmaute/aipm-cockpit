@@ -239,7 +239,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const envTursoTokenSet = !!process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
   // §337 — lazy INITIAL read (not a render-body side effect), kept in STATE
   // rather than a plain const.
-  // ★★★ FIX ROUND 1 (I1): a plain `const [envTokenRejected] = useState(...)`
+  // ★★★ A plain `const [envTokenRejected] = useState(...)`
   // read the flag once at mount and never again — and this component does
   // NOT remount when the flag flips. The flag is written from INSIDE
   // `runTursoTest` below (via `testTursoConnection` → `runTursoPipeline` →
@@ -638,7 +638,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       await testTursoConnection(getTursoConfig(tursoUrl, tursoToken));
       setTursoTest({ kind: "ok", url: tursoUrl, token: tursoToken });
     } catch (e) {
-      // ★★★ FIX ROUND 1 (I1) — re-sync the rejection flag from THIS probe.
+      // ★★★ re-sync the rejection flag from THIS probe.
       // `testTursoConnection` may have just called `markEnvTokenRejected()`
       // (inside `runTursoPipeline`, on a 401/403 against the env token)
       // without this component remounting — see the state's own comment

@@ -778,7 +778,7 @@ describe("entity persistence registry — calendarOptOut (§486)", () => {
   });
 });
 
-// §486 fix round 1 (minor a) — only a literal `true` opts an item out, on EVERY
+// §486 (minor a) — only a literal `true` opts an item out, on EVERY
 // load path. Task and RAID rows skip a record sanitizer on JSON load, so a
 // hand-edited "false" string used to survive as a truthy opt-out.
 describe("entity persistence registry — a non-literal calendarOptOut loads as unset (§486)", () => {

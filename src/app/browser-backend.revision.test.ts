@@ -12,7 +12,7 @@ import { emptyWorkspace } from "./workspace";
 import { SaveConflictError } from "./storage-error";
 import type { Milestone, Task } from "./types";
 
-// Fix round 1 — lets one test hold back the REAL `idbGet("revision")` call
+// Lets one test hold back the REAL `idbGet("revision")` call
 // (not merely its delivery: the underlying fetch itself) until released, to
 // deterministically model `load()`'s revision read genuinely executing AFTER
 // a concurrent writer's save has landed. `gate: null` (the default) makes
@@ -22,12 +22,12 @@ import type { Milestone, Task } from "./types";
 // revision too, but inside its one `idbTransaction` (not through `idbGet`), so
 // this gate never holds it back.
 const revisionReadCtl = vi.hoisted(() => ({ gate: null as Promise<void> | null }));
-// Fix round 2 (R10 change 5) — makes the NEXT `idbGetAll` call (one of
+// Makes the NEXT `idbGetAll` call (one of
 // load()'s parallel data reads, which all run AFTER the revision read
 // succeeds) throw once, so a test can model "the revision read succeeded but
 // a data read rejected" without touching the revision-read gate above.
 const dataReadFailCtl = vi.hoisted(() => ({ armed: false }));
-// Fix round 2 (R10 change 4) — makes the NEXT `idbTransaction` call (the save's
+// Makes the NEXT `idbTransaction` call (the save's
 // one readwrite transaction) reject once, before it opens, so a test can prove a
 // forced save's flag survives a genuine write failure. The `idbBulkUpdate`
 // branch now reaches only `load()`'s backfill.
@@ -189,14 +189,14 @@ describe("BrowserBackend §4 revision guard", () => {
     );
   });
 
-  // Fix round 1 (Important finding) — `load()` used to read the revision
+  // `load()` used to read the revision
   // LAST, in the SAME Promise.all as every data store/KV read. Each of those
   // opens its OWN IndexedDB transaction (idb.ts), so that Promise.all was
   // never one snapshot: a load overlapping another tab's locked save could
   // read OLD data but a NEWER revision (the save writes data first, revision
   // last) — the next save would then pass the compare and silently rewrite
   // every KV blob with the stale view, dropping the other writer's change.
-  describe("fix round 1 — a load racing a concurrent save", () => {
+  describe("a load racing a concurrent save", () => {
     it("never ends up with a revision newer than the data it actually read", async () => {
       const a = new BrowserBackend();
       const b = new BrowserBackend();
@@ -316,7 +316,7 @@ describe("BrowserBackend §4 revision guard", () => {
     });
   });
 
-  // §4 fix round 1 (R10 change 1) — fail closed.
+  // §4 (R10 change 1) — fail closed.
   describe("fail-closed on an unknown revision (R10 change 1)", () => {
     it("a never-loaded instance refuses to save, and writes nothing", async () => {
       const backend = new BrowserBackend();
@@ -341,7 +341,7 @@ describe("BrowserBackend §4 revision guard", () => {
     });
   });
 
-  // §4 fix round 1 (R10 change 4) — force flag survives a failed write.
+  // §4 (R10 change 4) — force flag survives a failed write.
   it("forceNextSave keeps the flag when the forced write fails, for a retry", async () => {
     const a = new BrowserBackend();
     const b = new BrowserBackend();
@@ -362,9 +362,9 @@ describe("BrowserBackend §4 revision guard", () => {
     expect(reloaded.tasks.map((t) => t.id).sort()).toEqual([2]);
   });
 
-  // §4 fix round 3 (Important #1) — a leftover force from a FAILED forced
+  // §4 (Important #1) — a leftover force from a FAILED forced
   // save must not carry over past a genuine new baseline.
-  describe("a failed forced save's leftover force does not carry over (fix round 3)", () => {
+  describe("a failed forced save's leftover force does not carry over", () => {
     it("is cleared by a successful reload, so a later stale save refuses instead of full-rewriting", async () => {
       const b = new BrowserBackend();
       await b.load(); // revision 0
@@ -452,7 +452,7 @@ describe("BrowserBackend §4 revision guard", () => {
     });
   });
 
-  // §4 fix round 1 (R10 change 3) — adoptFrom.
+  // §4 (R10 change 3) — adoptFrom.
   it("adoptFrom(other): an instance adopted from a loaded instance saves without conflict", async () => {
     const op = new BrowserBackend();
     await op.load();
@@ -468,7 +468,7 @@ describe("BrowserBackend §4 revision guard", () => {
     expect(reloaded.tasks.map((t) => t.id).sort()).toEqual([1, 2]);
   });
 
-  // §4 fix round 1 (R10 change 5) — a failed data read must not adopt a revision.
+  // §4 (R10 change 5) — a failed data read must not adopt a revision.
   describe("a failed browser load must not adopt a revision (R10 change 5)", () => {
     it("load() with a real stored revision but a rejecting data read leaves the revision UNKNOWN", async () => {
       const seed = new BrowserBackend();
@@ -487,7 +487,7 @@ describe("BrowserBackend §4 revision guard", () => {
     });
   });
 
-  // §4 fix round 1 (R10 change 7) — adoptRevision only accepts an all-digit string.
+  // §4 (R10 change 7) — adoptRevision only accepts an all-digit string.
   describe("adoptRevision accepts only an all-digit string (R10 change 7)", () => {
     it("ignores a non-digit string rather than partially parsing it", async () => {
       const backend = new BrowserBackend();
@@ -506,7 +506,7 @@ describe("BrowserBackend §4 revision guard", () => {
   });
 });
 
-// §4 fix round 1 of Task 9 — the conditional overwrite: `forceNextSave(expected)` is a FULL rewrite
+// §4 — the conditional overwrite: `forceNextSave(expected)` is a FULL rewrite
 // performed only while the stored revision is still `expected`; a refusal reports the stored revision.
 describe("BrowserBackend §4 conditional overwrite", () => {
   beforeEach(() => {

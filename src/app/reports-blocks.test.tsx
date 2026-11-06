@@ -14,7 +14,7 @@ import type { TranslationKey } from "./i18n";
 
 /**
  * ★★★ WHY THIS FILE EXISTS, given `reports.test.tsx` already renders the whole
- * panel. It does not pin the headline tile VALUES. Measured during the Task 11
+ * panel. It does not pin the headline tile VALUES. Measured during the blocks'
  * extraction, not assumed: swapping `StatsBlock`'s Total tile to render `open`
  * instead of `total` left `reports.test.tsx` at **32 passed, exit 0**. The panel
  * suite asserts that the cancelled-count SUB sits in the Total tile, and the

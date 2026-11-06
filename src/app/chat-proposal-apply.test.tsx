@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-// AI people protection, Task 5: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
+// AI people protection: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../test/chat-dispatcher-fixture";
 import {
@@ -1044,7 +1044,7 @@ describe("§534 — Apply sends only what the card showed", () => {
     expect(after.emails).toBeUndefined();
   });
 
-  // ★★★ PARITY UNDER A REJECTED SIBLING (§534 fix round 2). `emails` is deduped
+  // ★★★ PARITY UNDER A REJECTED SIBLING (§534). `emails` is deduped
   //  against the primary `email`; judged beside the REJECTED `email` it used to
   //  preview `"" → x@y.com` while the stripped write, deduping against the
   //  stored `x@y.com`, stored nothing and still reported ok. The plan now

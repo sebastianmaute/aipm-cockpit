@@ -29,7 +29,7 @@
  * ★ `kpi` DID later move to h:3, for a different reason (§585): at half width
  * on xl its cells wrap to a second row in BOTH densities, and h:3 is what keeps
  * that row out of an inner scroll. `milestones` stays h:2.
- * ★★ `kpi`'s height is no longer FIXED. The §585 fix round pinned it
+ * ★★ `kpi`'s height is no longer FIXED. The §585 fix pinned it
  * (`minH === maxH`) because a stored or chosen h:2 put the wrapped second row
  * of cells behind an inner scroll. The Dashboard now MEASURES every tile whose
  * height the user has not chosen (`use-measured-heights.ts`), so the strip gets

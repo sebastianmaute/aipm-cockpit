@@ -511,7 +511,7 @@ describe("§337 — Apply is available whenever the rejected-env-token field is"
   });
 });
 
-// ★★★ FIX ROUND 1 (I1) — the two describes above both SEED the flag before the
+// ★★★ The two describes above both SEED the flag before the
 // FIRST render, which cannot catch a component that reads the flag once at
 // mount and never again: mounting fresh already sees the post-rejection
 // state. This describe seeds NOTHING — it renders with the flag clear, clicks
@@ -519,7 +519,7 @@ describe("§337 — Apply is available whenever the rejected-env-token field is"
 // its OWN side effect (mirroring what `runTursoPipeline` really does), on the
 // SAME mounted instance. That is the shape of the real bug: a live rejection
 // during the session, with no remount in between.
-describe("§337 — FIX ROUND 1 (I1): the field reappears live, without a remount", () => {
+describe("§337 — the field reappears live, without a remount", () => {
   function tursoLiveSettings(authToken: string) {
     return { ...tursoSettings(authToken), storageConfig: { kind: "turso" as const } };
   }

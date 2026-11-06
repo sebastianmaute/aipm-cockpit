@@ -108,8 +108,8 @@ export function ShiftEditModal({
 
   // Judge (and, on save, store) the value the write path actually applies:
   // `sanitizeLoadedEmail` (unwrap `Name <addr>`, then trim + EMAIL_MAX) is what
-  // `sanitizeShift`'s decode path gives `assigneeEmail`. Fix round 1,
-  // IMPORTANT 2; unwrapped since M-C4.
+  // `sanitizeShift`'s decode path gives `assigneeEmail`; unwrapped since
+  // M-C4.
   const cappedAssigneeEmail = sanitizeLoadedEmail(draft.assigneeEmail ?? "") || undefined;
 
   function update<K extends keyof Shift>(key: K, value: Shift[K]) {
@@ -229,8 +229,7 @@ export function ShiftEditModal({
           </label>
           {/* Steps aside ONLY while `error` (the banner below) shows this
               SAME refusal message — an unrelated banner error (a blank
-              assignee, an hour out of range, a duplicate) must never hide it
-              (IMPORTANT 1, fix round 1). */}
+              assignee, an hour out of range, a duplicate) must never hide it. */}
           {emailFlagVisible(lang, cappedAssigneeEmail, error) && (
             <EmailFieldError id="shift-email-error" lang={lang} value={cappedAssigneeEmail} />
           )}

@@ -332,7 +332,7 @@ describe("useProjectTools — the AI edit is logged and undoable (§715)", () =>
   });
 });
 
-// From Task 4's review: staging stamps a token-less call from `ws.project`, and the write re-checks it against
+// Staging stamps a token-less call from `ws.project`, and the write re-checks it against
 // `getProjectMeta()`. Both must read the same record, so a token-less call goes through when nothing moved and is
 // stale when the project changed after staging.
 describe("useProjectTools — a token-less update_project through the real applyProposal (§715)", () => {

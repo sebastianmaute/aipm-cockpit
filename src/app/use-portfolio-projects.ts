@@ -111,7 +111,7 @@ export function usePortfolioProjects(deps: PortfolioProjectsDeps) {
 
   // --- Multi-project panel callbacks ----------------------------------
   //
-  // Switch / create / load come straight from the storage hook (Task 10). The
+  // Switch / create / load come straight from the storage hook. The
   // empty-state / project handlers below are owned here because they wrap
   // those with state task-manager owns (the registry copy, the workspace's
   // `project`, the portfolio mode) and passes in.

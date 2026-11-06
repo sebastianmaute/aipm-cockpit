@@ -5,7 +5,7 @@
 // inputs + the portfolio storage-mode selector) in the shared Modal shell so it
 // can be opened from the create-project surfaces:
 //   • the Storage dropdown in CreateProjectForm (pick "Turso" → configure), and
-//   • the empty-state "Backend setup" buttons (Task 7).
+//   • the empty-state "Backend setup" buttons.
 //
 // It is intentionally generic: it just renders the section and a Close button.
 // All persistence happens through onChangeSettings (IntegrationsSection emits a

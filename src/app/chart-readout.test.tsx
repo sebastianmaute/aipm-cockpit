@@ -127,7 +127,7 @@ describe("ChartReadout", () => {
   });
 
   // Pins the aria-hidden contract in BOTH directions: the box really is hidden from the
-  // a11y tree (so Task 5's live region is the sole accessible channel — no double
+  // a11y tree (so the live region is the sole accessible channel — no double
   // announcement), AND an ordinary (non-`hidden: true`) role query really finds nothing,
   // so a later removal of `aria-hidden` cannot slip past unnoticed — every `{hidden: true}`
   // query above would stay green either way, which is exactly the silent-rot this closes.

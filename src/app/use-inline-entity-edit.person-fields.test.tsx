@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-// AI people protection, Task 6 (R4): an inline "Ask Claude" edit never sets, changes or clears a person under
+// AI people protection: an inline "Ask Claude" edit never sets, changes or clears a person under
 // protection — the person change is dropped from the diff BEFORE it is shown, and a person record (a
 // stakeholder, resource or absence row) is refused before the model is called. The open project's setting
 // comes from `useOpenProjectPeopleProtected`, mocked here with one stable getter, as the real one is.
@@ -96,7 +96,7 @@ describe("inline edit of a person record under people protection", () => {
   });
 });
 
-// Fix round 1 (I2): the STORED row after Apply, through the real `runTool` into a dispatcher that keeps
+// The STORED row after Apply, through the real `runTool` into a dispatcher that keeps
 // what it is given.
 describe("applying an inline task edit under people protection", () => {
   async function applyOnTask(peopleProtected: boolean) {

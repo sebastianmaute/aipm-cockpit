@@ -101,7 +101,7 @@ describe("sanitizeDocumentVersions", () => {
     expect(diag.truncatedBlocks).toBe(25);
   });
 
-  // Final fix round 4, S4. `Array#map` hands the INDEX to a second parameter.
+  // `Array#map` hands the INDEX to a second parameter.
   // With an optional `diag`, index 1 was truthy and the block-cap path threw
   // assigning `truncatedBlocks` onto a number.
   it("is safe to pass point-free even when the block cap bites", () => {

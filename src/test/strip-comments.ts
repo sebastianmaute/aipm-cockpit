@@ -28,7 +28,7 @@
 //      review — 47,380 at the parent, 48,512 one commit later, +1,107 of it
 //      from the test file added to prove the very fix being described.
 //      ★★ So the rule is not "re-derive it" but: A WHOLE-TREE AGGREGATE
-//      RE-DERIVED DURING A FIX ROUND MUST BE RE-DERIVED AFTER THAT ROUND'S LAST
+//      RE-DERIVED DURING A ROUND OF FIXES MUST BE RE-DERIVED AFTER ITS LAST
 //      EDIT, because the round edits files inside the population it counts. A
 //      number that cannot be pinned to a REVISION does not belong in prose.
 //      Reproduce it if you need it: the regexes are in git (`git show

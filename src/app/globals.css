@@ -437,7 +437,7 @@ img[data-asset-blocked]::before {
    may still an animation only where something else still carries the state. That
    holds for `animate-pulse`: skeleton's is decorative (`aria-hidden`, and the
    layout itself says "loading"), and voice-button's listening state now carries a
-   shape marker — before Task 11 gave it one the pulse WAS the cue, and stilling
+   shape marker — before it had one the pulse WAS the cue, and stilling
    it would have left a 1.21-1.42:1 tint and nothing else. Order matters if this
    is ever reverted.
 

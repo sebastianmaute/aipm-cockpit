@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-// AI people protection, Task 6 (R4): "an insight recommendation that would create a task creates it
+// AI people protection: "an insight recommendation that would create a task creates it
 // unassigned". The open project's setting is read through `useOpenProjectPeopleProtected` (mocked here with
 // one stable getter, as the real one is); the executor's own gate reads the dispatcher's.
 const people = vi.hoisted(() => {

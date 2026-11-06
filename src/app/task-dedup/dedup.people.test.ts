@@ -1,4 +1,4 @@
-// AI people protection, Task 6 (R4): "a dedup merge keeps the survivor's own person fields unchanged (the
+// AI people protection: "a dedup merge keeps the survivor's own person fields unchanged (the
 // AI chose no person); the merged-away tasks' person fields are dropped, as today." The merge offers the
 // model no person field at all, so this holds with protection on and off alike; it is pinned here so a
 // future `unifiedFields.assignee` cannot slip in unnoticed.

@@ -175,7 +175,7 @@ describe("§548 — no edit can start while the load is pending", () => {
     expect(await screen.findByTestId("ws-section-mock")).toBeInTheDocument();
     expect(screen.queryAllByRole("navigation").length).toBeGreaterThan(0);
     // A plain Error classifies as "generic" (classifyStorageError), so the sticky banner carries this text.
-    // A timed-out SharePoint load throws the same kind of error (Task 4), so this is its render half too.
+    // A timed-out SharePoint load throws the same kind of error, so this is its render half too.
     expect(await screen.findByText(t("en-US", "storageSaveFailedBanner"))).toBeInTheDocument();
   }, 45000);
 

@@ -537,7 +537,7 @@ type HeadingDraft = { level: HeadingLevel; text: string };
  *  commit when the SAME blur is the first one either control has fired
  *  (e.g. editing only the level, or only the text, then leaving the whole
  *  group). Two close-together commits are not a problem in themselves —
- *  Task 2's `shouldCoalesce` exists precisely so they fold into one
+ *  `shouldCoalesce` exists precisely so they fold into one
  *  document version rather than each minting one.
  */
 export function HeadingBlockEditor({

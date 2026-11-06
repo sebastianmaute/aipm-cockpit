@@ -11,7 +11,7 @@
  * ★★★ THESE ARE BODIES, NOT SECTIONS — no component here renders a `<Section>`
  * or any heading of its own, and that is deliberate rather than incidental.
  * `reports.tsx` still wraps each one in its `<Section title={…}>` today, which
- * is what keeps this commit a pure move; when Task 12 renders them inside an
+ * is what keeps this commit a pure move; once they render inside an
  * `ArrangementTile`, that tile draws its own bordered frame and `<h3>`, so the
  * wrapper is dropped there instead. The Dashboard learned this the hard way —
  * `docs/AGENTS/dashboard.md` records that a titled body inside tile chrome

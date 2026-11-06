@@ -30,7 +30,7 @@ import {
 import type { ImportSectionKey } from "./csv-codecs-sections";
 import { SaveConflictError, withSaveLock } from "./storage-error";
 
-/** §4 fix round 1 (R10 change 7) — the local-file revision encoding:
+/** §4 (R10 change 7) — the local-file revision encoding:
  *  `lastModified` ALONE is not fine-grained enough on filesystems/OSes with a
  *  coarse mtime resolution (some report whole seconds), so two different
  *  writes landing in the same tick would be indistinguishable and a real
@@ -130,7 +130,7 @@ export class LocalFileBackend implements StorageBackend {
   private boundHandle: FsHandle | null = null;
   /** §645 C1 — the binding `boundHandle` was bound with (see `HandleSlot`); `null` when unknown. */
   private boundBinding: string | null = null;
-  /** §645 fix round 1 (R10 change 1) — the revision this instance last loaded
+  /** §645 (R10 change 1) — the revision this instance last loaded
    *  or wrote from `boundHandle`; `null` means UNKNOWN (never loaded/written
    *  that handle, and not adopted or forced) — `save()` now FAILS CLOSED on
    *  `null` rather than skipping the compare, so `setHandle`/`pickFile`
@@ -142,7 +142,7 @@ export class LocalFileBackend implements StorageBackend {
    *  only once its write has actually succeeded (R10 change 4) — a forced
    *  save that fails (e.g. the write throws) keeps the flag set for the
    *  retry, rather than silently falling back to a compare it was never
-   *  meant to face. §645 fix round 3 — ALSO cleared by `setHandle()`,
+   *  meant to face. §645 — ALSO cleared by `setHandle()`,
    *  `pickFile()`, a successful `loadFrom()` of the BOUND target,
    *  `adoptRevision()` and `adoptFrom()`, each of which establishes a genuine
    *  new (or different) target/baseline that a leftover forced-write intent
@@ -153,7 +153,7 @@ export class LocalFileBackend implements StorageBackend {
    *  nobody was shown), and dropped with `forceNext` by every new baseline. */
   private expectNext: string | null = null;
   /**
-   * §645 fix round 1 (R10 change 2, "R6 one-shot pre-read") — the
+   * §645 (R10 change 2, "R6 one-shot pre-read") — the
    * `{handle, revision}` pair from the MOST RECENT `loadFrom()` read of ANY
    * handle, bound or not. This is what lets the §287/§590 preview-before-
    * commit flow (`openFile()`/`pickFileHandle()` → `loadFromHandleForBackend`
@@ -268,7 +268,7 @@ export class LocalFileBackend implements StorageBackend {
     this.currentRevision =
       this.pendingRead && this.pendingRead.handle === handle ? this.pendingRead.revision : null;
     this.pendingRead = null;
-    // §645 fix round 3 (Important #1) — a re-bind to a (possibly different)
+    // §645 (Important #1) — a re-bind to a (possibly different)
     // target must drop any FAILED forced save's leftover intent: without
     // this, a forced save to A that failed, followed by re-binding to B,
     // would let the next save on B skip BOTH the null check and the compare
@@ -323,7 +323,7 @@ export class LocalFileBackend implements StorageBackend {
     this.boundHandle = handle;
     this.boundBinding = binding;
     this.currentRevision = null;
-    // §645 fix round 3 — same reasoning as setHandle(): a re-bind must drop a
+    // §645 — same reasoning as setHandle(): a re-bind must drop a
     // leftover forced-save intent from whatever the PREVIOUS target was.
     this.forceNext = false;
     this.expectNext = null;
@@ -482,7 +482,7 @@ export class LocalFileBackend implements StorageBackend {
       const file = await handle.getFile();
       const text = await file.text();
       const revision = fileRevision(file);
-      // §645 fix round 3 — recording the pre-read and
+      // §645 — recording the pre-read and
       // adopting the revision happens ONLY after the content has actually
       // parsed successfully (called right before each successful return
       // below, never before a throw). A half-written or corrupt file that
@@ -503,7 +503,7 @@ export class LocalFileBackend implements StorageBackend {
         // instance's save baseline to a file it may never bind.
         if (handle === this.boundHandle) {
           this.currentRevision = revision;
-          // §645 fix round 3 (Important #1) — a genuine load of the bound
+          // §645 (Important #1) — a genuine load of the bound
           // target is a real new baseline; any forced-write intent left over
           // from an earlier FAILED forced save must not silently carry
           // forward past it.
@@ -625,7 +625,7 @@ export class LocalFileBackend implements StorageBackend {
       // §4 — read even when this instance's own revision is unknown, so the refusal names the version
       // storage holds (the conflict banner's Overwrite is conditional on exactly that one).
       // ★ A DELETED file makes `getFile()` throw `NotFoundError`, which propagates as a plain save failure,
-      //   deliberately NOT a conflict (final review, Task 9 M1): a missing file is not a newer revision, the
+      //   deliberately NOT a conflict: a missing file is not a newer revision, the
       //   generic save-failed toast is honest, and Overwrite could not target a file that is gone.
       const current = fileRevision(await handle.getFile());
       const against = expected ?? this.currentRevision;
@@ -654,7 +654,7 @@ export class LocalFileBackend implements StorageBackend {
   }
 
   /** §645: adopt `rev` as this instance's current revision without a
-   *  load/save. §645 fix round 3 — also clears `forceNext`: adopting a real
+   *  load/save. §645 — also clears `forceNext`: adopting a real
    *  revision from elsewhere is a genuine new baseline, same as a real load,
    *  so it must not leave a stale forced-write intent standing (symmetry
    *  with `BrowserBackend.adoptRevision`, which does the same). */
@@ -674,7 +674,7 @@ export class LocalFileBackend implements StorageBackend {
   }
 
   /**
-   * §645 fix round 1 (R10 change 3) — copies another `LocalFileBackend`
+   * §645 (R10 change 3) — copies another `LocalFileBackend`
    * instance's bound handle and revision, so a throwaway backend used to
    * perform an op (e.g. a preview read, or a create/convert helper) can hand
    * its resulting state to the LIVE instance in one step. Same-class only,
@@ -686,7 +686,7 @@ export class LocalFileBackend implements StorageBackend {
     this.boundHandle = other.boundHandle;
     this.boundBinding = other.boundBinding;
     this.currentRevision = other.currentRevision;
-    // §645 fix round 3 — adopting another instance's state establishes a
+    // §645 — adopting another instance's state establishes a
     // fresh, genuine baseline; a forced-write intent left over from THIS
     // instance's own past (failed) save no longer applies to it.
     this.forceNext = false;

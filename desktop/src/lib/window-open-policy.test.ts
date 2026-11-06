@@ -283,7 +283,7 @@ describe("decideNavigation", () => {
     expect(result).toEqual({ decision: "allow-in-app", authFlow: true });
   });
 
-  // ★★★ The three combinations fix round 2 required, each one
+  // ★★★ The three required combinations, each one
   // pinning a different half of the entry gate.
   it("a same-origin popout (?popout=) + a stored identity-host link click is NOT flow entry", () => {
     // The popout's own first URL is the app's path, never blank, so

@@ -615,7 +615,7 @@ describe("ResourceDirectory deep-link open", () => {
   });
 });
 
-// I1 (fix round 1): the two describe blocks above pin each host in isolation —
+// I1: the two describe blocks above pin each host in isolation —
 // this pins the SEAM between them. Nothing forced resources-report.tsx's
 // redirect effect and resource-directory.tsx's consumer effect to agree that
 // pendingOpen must survive the redirect; a redirect that also cleared it (or

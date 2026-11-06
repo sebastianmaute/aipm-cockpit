@@ -277,7 +277,7 @@ describe("contact person add follows the email write rule", () => {
     expect(setDraft).toHaveBeenCalledTimes(1);
   });
 
-  // Fix round 1, IMPORTANT 3 — the copy-source exemption was unpinned for the
+  // The copy-source exemption was unpinned for the
   // REGISTRY-resource source specifically (only the address book was tested).
   it("adds with a copied unsafe email picked from a registry resource", async () => {
     const user = userEvent.setup();
@@ -293,7 +293,7 @@ describe("contact person add follows the email write rule", () => {
     expect(setDraft).toHaveBeenCalledTimes(1);
   });
 
-  // Fix round 2 — judge (and store) the value that would be STORED:
+  // Judge (and store) the value that would be STORED:
   // `sanitizeContactPerson` caps email at EMAIL_MAX via `sanitizeEmail`, same
   // as every other editor. A >EMAIL_MAX value whose unsafe suffix falls past
   // the cap is added with the SAFE, capped address.

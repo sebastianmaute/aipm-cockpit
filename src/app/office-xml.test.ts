@@ -34,7 +34,7 @@ describe("office-xml", () => {
   });
 
   it("is case-sensitive, matching the plain \"g\" regex it replaced", () => {
-    // §558 fix round 3, item 5: forEachTagPair used to hardcode "gi"
+    // §558, item 5: forEachTagPair used to hardcode "gi"
     // unconditionally, silently widening every OOXML caller (this one
     // included) beyond the plain "g" lazy regex it replaced. OOXML element
     // names are case-sensitive XML, so an uppercase look-alike is a
@@ -44,7 +44,7 @@ describe("office-xml", () => {
   });
 
   it("does not confuse a tag with a hyphenated look-alike", () => {
-    // §558 fix round 3, item 6: `\b` fires between "t" and "-" (both are
+    // §558, item 6: `\b` fires between "t" and "-" (both are
     // non-word-vs-non-word... "-" is non-word, "t" is word, so `\b` DOES
     // match there), so a `\b`-based open pattern treated "<t-alt" as if it
     // were "<t " and merged forward into the next real <t>...</t> exactly
@@ -55,7 +55,7 @@ describe("office-xml", () => {
   });
 
   it("skips a bare self-closing tag instead of merging the next run into it (xlsx shape)", () => {
-    // §558 fix round 3: porting extractRuns onto forEachTagPair regressed
+    // §558: porting extractRuns onto forEachTagPair regressed
     // this - without skipSelfClosing, <t/> paired with the NEXT <t>...</t>,
     // swallowing "</si><si><t>" as if it were part of the first run's text.
     // Old regex: ["hello"]. New code before this fix: ["</si><si><t>hello"].
@@ -72,7 +72,7 @@ describe("office-xml", () => {
 
   it("skips a self-closing tag with attributes, not just the bare form", () => {
     // A DIFFERENT, pre-existing bug: the ORIGINAL regex (before this whole
-    // slice, and before Task 3's port) already merged THIS form forward -
+    // slice, and before its port here) already merged THIS form forward -
     // `(?:\s[^>]*)?>` fires on the leading whitespace before `xml:space`,
     // so it matched `<t xml:space="preserve"/>` as an ordinary open tag and
     // then searched for the next `</t>`. The `gt - 1 === "/"` check fixes

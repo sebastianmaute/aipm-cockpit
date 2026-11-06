@@ -40,7 +40,7 @@ import {
 // ★ The nine built-in block BODIES. This file keeps the state and every
 // derivation; the bodies are presentational and take only what they read.
 // ★★ THE `<Section>` WRAPPERS ARE GONE as of the arrangement binding — an
-// earlier revision of this comment said this file kept them, which Task 12
+// earlier revision of this comment said this file kept them, which the binding
 // falsified. `ArrangementTile` draws the frame and the `<h3>` now.
 // One-way dependency: reports.tsx → reports-blocks.tsx → reports-tables.tsx →
 // reports-stats.ts.
@@ -145,7 +145,7 @@ export function ReportsPanel({
    * ★★★ NO LONGER CALLED, AND THAT IS THE POINT OF THIS TASK — `reports.tsx`
    * stopped writing `settings.reports.extra` here, which is what makes
    * `use-reports-arrangement.ts`'s "the field retires" true rather than an
-   * obligation. Add is now `arrangement.restore`, remove is hide (Task 13's ⋮),
+   * obligation. Add is now `arrangement.restore`, remove is hide (the ⋮ menu),
    * and reorder is `arrangement.move`.
    *
    * ★★ DELIBERATELY LEFT ON THE TYPE, undestructured, so `workspace-section.tsx`
@@ -578,7 +578,7 @@ export function ReportsPanel({
   };
 
   /**
-   * ★★ ONE PREDICATE, shared by the board and (from Task 13) the shelf. Two
+   * ★★ ONE PREDICATE, shared by the board and the shelf. Two
    * copies drifted on the Dashboard: the shelf must never offer a block that
    * restoring cannot render, and a gated-off block must reappear the moment its
    * module returns. It tests the GATE and that a body actually exists — a body
@@ -780,7 +780,7 @@ export function ReportsPanel({
             w={menuSize.w}
             h={renderedH(menuSize)}
             // ★ Bounds straight off the spec: the menu takes them as props and
-            // does no catalogue lookup of its own — that was Task 8's change.
+            // does no catalogue lookup of its own.
             minW={menuSpec.minW}
             maxW={menuSpec.maxW}
             minH={menuSpec.minH}

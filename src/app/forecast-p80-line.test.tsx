@@ -86,7 +86,7 @@ describe("ForecastP80Line (§502 part 4)", () => {
     expect(texts).not.toContain(formatDayMonthYear("2026-10-01", LOCALE));
   });
 
-  // Fix round 1 — the y ticks follow the same rule over the PLOTTED dates: recordings inside one year, P80s across two.
+  // The y ticks follow the same rule over the PLOTTED dates: recordings inside one year, P80s across two.
   it("names the year on the y ticks when the plotted dates cross a year boundary", () => {
     const history = [entry("2026-10-01", "2026-12-20"), entry("2026-10-02", "2027-01-10")];
     render(<ForecastP80Line lang="en-US" history={history} planEnd="2026-12-31" />);

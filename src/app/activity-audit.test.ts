@@ -96,7 +96,7 @@ describe("activityAuditFileName", () => {
   });
 });
 
-// §476 fix round 1 — the audit download is a MACHINE path: the currency-switch entry keeps the
+// §476 — the audit download is a MACHINE path: the currency-switch entry keeps the
 // stored ISO ECB date and the raw rate; only the activity panel localises them.
 describe("buildActivityAudit — plan.currencySwitched stays raw (§476)", () => {
   it("renders the ISO date and the raw rate in the message", () => {

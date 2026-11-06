@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# One-pass history rewrite for the GitHub migration (sanitise plan, Task 11).
+# One-pass history rewrite for the GitHub migration: replaces every listed identifier in every blob
+# and commit message, and rewrites author identities, in one git-filter-repo pass.
 #
 # Usage:
 #   scripts/rewrite-history/run.sh <mirror-clone> <replacements> <mailmap>

@@ -211,7 +211,7 @@ describe("stakeholder email follows the changed-only write rule", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 
-  // Fix round 1, IMPORTANT 3 — the copy-source exemption was unpinned: every
+  // The copy-source exemption was unpinned: every
   // host passed `resources={[]}`, so a real linked resource's unsafe email was
   // never actually exercised as a copy source.
   it("exempts a copy of the linked resource's stored email", () => {
@@ -272,7 +272,7 @@ describe("stakeholder email follows the changed-only write rule", () => {
     expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
   });
 
-  // Fix round 2, MINOR — an UNRELATED banner error (blank name) must never
+  // An UNRELATED banner error (blank name) must never
   // hide the flag: the stored unsafe email is untouched.
   it("keeps the flag visible while an unrelated banner error is showing", () => {
     const onSave = vi.fn();
@@ -291,7 +291,7 @@ describe("stakeholder email follows the changed-only write rule", () => {
     expect(alerts).toHaveLength(2);
   });
 
-  // Fix round 1, IMPORTANT 2 — the value that would be STORED must be judged,
+  // The value that would be STORED must be judged,
   // not the raw typed one: `sanitizeStakeholder` caps email at BUDGET_NAME_MAX
   // (200). Capping at 200 removes the trailing delimiter, leaving a SAFE
   // 200-char address.

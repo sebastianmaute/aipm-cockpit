@@ -470,7 +470,7 @@ export function useUnloadJournal({ projectKey, enabled, isPopout, onUnreadable }
     replaceBase({ projectKey: key, workspace: ws, savedAt: lastSavedAt, fingerprint: null });
   }, [dropBoundEntry, replaceBase]);
 
-  /** ★★★ §629 fix round 1 (I1) — A PROJECT OP APPLIES BEFORE IT FLIPS THE TARGET. The
+  /** ★★★ §629 (I1) — A PROJECT OP APPLIES BEFORE IT FLIPS THE TARGET. The
    *  switch / create / open ops apply the new workspace, THEN set the storage config or
    *  Turso project id (the §77 order, use-storage-backend.ts's load effect), so no key in
    *  scope at apply time is the target's. The op's workspace is therefore held with NO key

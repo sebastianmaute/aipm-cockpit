@@ -104,7 +104,7 @@ export function useHashView(
   //    so the passive effect runs once with the OLD activeTab — it would then
   //    see the deep link's view as a mismatch and rewrite the URL to the old
   //    view, destroying `/123` (§535). Carries the TARGET view, not a bare
-  //    boolean (fix round 1 follow-up): the passive effect suppresses only
+  //    boolean: the passive effect suppresses only
   //    while its own `activeTab` has not yet caught up to that target
   //    (`pending !== activeTab`), so a warm apply whose target already EQUALS
   //    `activeTab` — a no-op `setActiveTab` — never arms this at all (armed-

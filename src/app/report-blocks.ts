@@ -117,7 +117,7 @@ export const REPORT_BLOCKS: readonly ReportBlockSpec[] = [
   })),
 ];
 
-/** ★ Delegates to the engine's `specById`, which Task 4 made generic over the
+/** ★ Delegates to the engine's `specById`, which is generic over the
  *  SPEC type precisely so it hands back the caller's own spec rather than
  *  narrowing to `BlockSpec` — that is what keeps `gate` readable here. A local
  *  `find` would be a second implementation of the same lookup. */

@@ -231,7 +231,7 @@ describe("ForecastScenarioEditor", () => {
   });
 });
 
-describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)", () => {
+describe("ForecastScenarioEditor — an old scenario stays usable", () => {
   const person = (resourceId: number): ScenarioChange =>
     ({ kind: "addPeople", who: { resourceId, hoursPerWeek: 20 }, from: TODAY, until: "", rampWeeks: 0 });
   const STALE: ScenarioChange[] = [

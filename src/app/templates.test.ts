@@ -298,7 +298,7 @@ describe("a template seed task's blockers go through the blocker log", () => {
   });
 });
 
-// Email-rule batch Task 5, fix round 2: the seed task's assigneeEmail is
+// The seed task's assigneeEmail is
 // normalised BEFORE the cap. Capping first cut the `>` off an over-cap
 // `Name <addr>`, so migrateTask's later unwrap never matched.
 describe("a template seed task's over-cap Name <addr> email loads unwrapped", () => {

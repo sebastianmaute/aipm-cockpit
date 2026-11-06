@@ -265,7 +265,7 @@ export interface NavigationDecision {
 // `initiatorIsAppOpener`: an about:blank popup satisfies the first, but a
 // click on a link INSIDE that popup is initiated by the popup's own
 // document, not its opener, so `initiatorIsAppOpener` is false and entry is
-// refused -- exactly the three cases fix round 2 required:
+// refused -- exactly the three required cases:
 //   - `?popout=` window + identity-host link click -> open-external (fails
 //     `createdAsBlankPopup`: its first URL was the app's own path).
 //   - PDF/export tab (about:blank) + identity-host link click ->

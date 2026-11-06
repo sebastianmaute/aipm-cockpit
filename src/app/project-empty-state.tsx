@@ -1,8 +1,8 @@
 "use client";
 
 // Empty-state modal shown on a fresh install when the portfolio registry has
-// zero projects.  It is always open (mounted only when projects.length === 0,
-// controlled by Task 18) and offers three start cards:
+// zero projects.  It is always open (mounted only when projects.length === 0)
+// and offers three start cards:
 //
 //   • New project      — reveals the 3-step CreateProjectWizard and calls
 //                        onCreate(meta, format, opts) when the wizard finishes.

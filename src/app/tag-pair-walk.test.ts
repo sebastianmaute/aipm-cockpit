@@ -86,7 +86,7 @@ describe("forEachTagPair", () => {
   });
 
   it("retires one name's close lookup without affecting a different name", () => {
-    // §558 fix round 3, item 8: SPEC above always returns "w:tbl", so the
+    // §558, item 8: SPEC above always returns "w:tbl", so the
     // per-name retirement map (`closers`) never holds more than one entry
     // anywhere in this file - the multi-name path is exercised only
     // indirectly, through docx's BLOCK_PAIR. This spec returns "a" or "b"
@@ -108,7 +108,7 @@ describe("forEachTagPair", () => {
   });
 
   it("pins that skipSelfClosing silently no-ops without hasAttributes (documented coupling, not enforced)", () => {
-    // §558 fix round 4, N4: self-close DETECTION lives entirely inside the
+    // §558, N4: self-close DETECTION lives entirely inside the
     // `hasAttributes` block (it needs that block's `gt` lookup to find the
     // tag's own ">"), so setting skipSelfClosing without hasAttributes:
     // true does nothing - TagPairSpec's own docs state the coupling in

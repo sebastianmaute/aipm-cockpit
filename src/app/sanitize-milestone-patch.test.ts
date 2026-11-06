@@ -324,7 +324,7 @@ describe("dropUnacceptedMilestoneFields", () => {
       //  non-string. Run INSIDE the guard it destroys the distinction the guard
       //  tests, so `typeof v === "string"` is unconditionally true and the guard
       //  is dead code. The guard must see the RAW model value — the same rule
-      //  Task 6 established for the preview, for the same reason.
+      //  already established for the preview, for the same reason.
       //
       //  ★ Raid and change are asserted too even though neither guard table
       //  names a rich field TODAY, so nothing there depends on the order yet.

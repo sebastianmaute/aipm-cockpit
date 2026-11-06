@@ -28,7 +28,7 @@ describe("ActionRow", () => {
   });
 });
 
-describe("ActionRow — inert without onOpen (§582 fix round)", () => {
+describe("ActionRow — inert without onOpen (§582)", () => {
   // ★★ Without a handler the row's outer div still rendered `cursor-pointer` +
   // `hover:bg-surface-muted`, so it LOOKED clickable and did nothing — worse
   // than no affordance at all. Those classes belong on the div only when

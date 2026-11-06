@@ -4,7 +4,7 @@
 // linked to them (milestones via RACI, RAID/changes via stakeholderIds).
 //
 // Sibling to stakeholders.ts / raid-review.ts / change-log.ts. The `reasonKey`
-// values are i18n keys consumed by the notification surface (Task 14); this
+// values are i18n keys consumed by the notification surface; this
 // module only emits the string keys.
 import { isPendingChange } from "./change-log";
 import { quadrantFor, type StakeholderQuadrant } from "./stakeholders";

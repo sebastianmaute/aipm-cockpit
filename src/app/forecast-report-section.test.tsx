@@ -419,7 +419,7 @@ describe("ForecastReportSection — Forecast by group", () => {
     spy.mockRestore();
   });
 
-  // Fix round 1 — the groups read tasks, today, holidays and the plan end only. A directory or budget edit is a new
+  // The groups read tasks, today, holidays and the plan end only. A directory or budget edit is a new
   // input object, but must not rerun them or flash the placeholder; a task edit still does (the positive control).
   test("a directory or budget edit while open reruns nothing; a task edit does", async () => {
     const spy = vi.spyOn(groupModule, "forecastByGroup");

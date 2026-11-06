@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-// AI people protection, Task 6: rendered without task-manager's privacy provider, where the people getter
+// AI people protection: rendered without task-manager's privacy provider, where the people getter
 // fails closed (protected) and the executor would strip person fields. These tests are about the feature.
 vi.mock("./ai-privacy-context", () => import("../test/ai-privacy-unprotected"));
 import type { ReactNode } from "react";
@@ -194,7 +194,7 @@ describe("human and AI resource writers propagate identically (spec Part 7 parit
     expect(ai.result.current.ws.tasks[0].assigneeEmail).toBe("OLD@x.com ");
   });
 
-  // ★★ Fix round 1 — the AI path and the register writers share ONE ref per
+  // ★★ The AI path and the register writers share ONE ref per
   //  slice. Every case below runs several tool calls inside ONE act, so no
   //  re-render (and no ref-refreshing effect) happens between them: that is a
   //  model turn, and only a shared, advanced ref can make the calls agree.

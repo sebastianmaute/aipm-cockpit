@@ -2,7 +2,7 @@
 //
 // Shared submit-time email-write-rule helpers for every editor modal whose
 // email field is judged by the changed-only write rule (`emailWriteRefusal`,
-// sanitize-core.ts). Extracted in fix round 1 after the refusal-check +
+// sanitize-core.ts). Extracted after the refusal-check +
 // flag-visibility logic was hand-copied — and drifted — across five to seven
 // editors (resource, stakeholder, RAID, shift, absence, task form, contact
 // persons).

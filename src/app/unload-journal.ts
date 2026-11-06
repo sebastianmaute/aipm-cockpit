@@ -45,7 +45,7 @@ export type UnloadJournal = {
 };
 
 /** Storage kinds whose relational round trip through Turso cannot be made
- *  fingerprint-stable by canonicalising (see `fingerprintWorkspace`). Task 3
+ *  fingerprint-stable by canonicalising (see `fingerprintWorkspace`). The journal
  *  treats a journal for one of these kinds as an always-mismatch, the same
  *  outcome as a genuine fingerprint mismatch. Populated by the Step 3 proof
  *  in `unload-journal.test.ts`; empty means every backend kind checked there
@@ -61,7 +61,7 @@ function journalKey(projectKey: string): string {
  *  the Turso auth token) is deliberately NOT an input here.
  *
  *  - Turso: the Turso project id, or the sentinel `"turso"` when there is
- *    none (falsy or empty) — fix round 1: Turso single-tenant
+ *    none (falsy or empty). Turso single-tenant
  *    mode is one workspace per database, so a project-less Turso setup is a
  *    real, valid case, and it must NOT fall back to `"browser"` — that would
  *    collide with an IndexedDB/local backend with no current project id,
@@ -87,7 +87,7 @@ export function journalProjectKey(
  *  No real key contains a colon (registry ids and Turso ids are UUIDs; "browser" / "turso"). */
 const UNLOAD_JOURNAL_KEPT_SUFFIX = ":kept";
 /** A kept slot: `<project>:kept`, or `<project>:kept:<savedAt>` for a further version kept while the
- *  first is still unresolved (fix round 3 — every kept version gets a slot of its own). */
+ *  first is still unresolved (every kept version gets a slot of its own). */
 const KEPT_KEY_RE = /:kept(:\d+)?$/;
 
 /** The project's kept slot; with `savedAt`, a numbered one beside it. */
@@ -199,7 +199,7 @@ export function fingerprintWorkspace(ws: Workspace): string {
 /** What `writeUnloadJournal` takes: the record without `v`, where `baseFingerprint`
  *  may be a thunk. A thunk is called only once the record WITHOUT it already fits
  *  the cap, so a record that is going to be skipped never pays for a fingerprint
- *  (§629 fix round 1 — the caller runs inside an unload handler). */
+ *  (§629 — the caller runs inside an unload handler). */
 export type UnloadJournalWrite = Omit<UnloadJournal, "v" | "baseFingerprint" | "ancestorFingerprints"> & {
   baseFingerprint: string | (() => string);
   ancestorFingerprints?: string[] | (() => string[]);

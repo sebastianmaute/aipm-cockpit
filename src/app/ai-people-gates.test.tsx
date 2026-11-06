@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import "../test/ai-consent-live";
-// AI people protection, Task 5 (spec layer 1): with protection on, the people features are hidden and
+// AI people protection: with protection on, the people features are hidden and
 // unreachable, the chat loses its people tools on the next send, dictation is off and says why, and the
 // context builders drop their people sections.
 import { render, screen, fireEvent, act } from "@testing-library/react";

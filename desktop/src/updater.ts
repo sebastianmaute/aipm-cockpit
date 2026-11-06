@@ -71,7 +71,7 @@ function packagedFeedRequiresSignature(): boolean {
 }
 
 // Every check request the app is skipping because an operator asked it to, in one place -- e2e:desktop
-// sets this so a smoke run never meets a modal update dialog (fix round 1). Logged
+// sets this so a smoke run never meets a modal update dialog. Logged
 // so a real deployment with it accidentally set is diagnosable rather than silently update-less.
 function checksDisabled(): boolean {
   return process.env.AIPM_DISABLE_UPDATE_CHECK === "1";
@@ -89,7 +89,7 @@ export const DRY_RUN_WIRED_LINE = "updater: electron-updater loaded and wired (d
 
 // A no-op Updater whose manual check reports why it cannot check, with the same releases-page
 // fallback the real error dialog offers. Used both when checks are disabled and when
-// electron-updater itself fails to load (fix round 1).
+// electron-updater itself fails to load.
 function unavailableUpdater(deps: { log(line: string): void; window(): BrowserWindow | null }, message: string): Updater {
   const box = (opts: MessageBoxOptions): Promise<number> => {
     const w = deps.window();
@@ -122,7 +122,7 @@ function wireUpdater(
   };
 
   // Three independent bits of "what is the updater doing right now", read by decideCheckRequest so a
-  // request arriving mid-operation is never just dropped with a log line (fix round 1):
+  // request arriving mid-operation is never just dropped with a log line:
   //  - checking:    a checkForUpdates() call is outstanding.
   //  - downloading: a downloadUpdate() call is outstanding.
   //  - prompting:   one of THIS updater's own dialogs is on screen (wrapped into `box` below, so
@@ -158,9 +158,9 @@ function wireUpdater(
     info: (m: unknown) => deps.log(`updater: ${String(m)}`),
     // `warn`/`error` CAN carry an Error whose `.message` embeds a multi-line diagnostic dump --
     // electron-updater's own `HttpError` bakes response headers (including `set-cookie`) directly
-    // into `.message` (see summarizeError's doc comment in update-policy.ts; fix round 2
-    // captured exactly this from a real 404). `summarizeError` keeps only the
-    // first line, bounded, so launch.log never gets a raw header/cookie dump this way (fix round 3).
+    // into `.message` (see summarizeError's doc comment in update-policy.ts; exactly this was
+    // captured from a real 404). `summarizeError` keeps only the
+    // first line, bounded, so launch.log never gets a raw header/cookie dump this way.
     warn: (m: unknown) => deps.log(`updater warn: ${summarizeError(m)}`),
     error: (m: unknown) => deps.log(`updater error: ${summarizeError(m)}`),
     debug: () => {},
@@ -325,9 +325,9 @@ function wireUpdater(
       // ★ quitAndInstall calls this.install() SYNCHRONOUSLY first (BaseUpdater.js), which spawns the
       // NSIS installer immediately -- the installer is already RUNNING by the time quitAndInstall
       // schedules app.quit() on its own setImmediate. before-quit (killServer) and the window's own
-      // close handling therefore run AFTER the installer has started, not before it (fix round 1 -- the earlier comment here, and the spec's "the app's normal quit path,
-      // so unsaved-work protection runs first", both had the order backwards; the spec correction is
-      // routed through Task 9, not edited here). isSilent=true reuses the existing per-user install
+      // close handling therefore run AFTER the installer has started, not before it (the earlier comment here, and the spec's "the app's normal quit path,
+      // so unsaved-work protection runs first", both had the order backwards; the spec is corrected
+      // separately, not edited here). isSilent=true reuses the existing per-user install
       // directory.
       if (r === 0) setImmediate(() => autoUpdater.quitAndInstall(true, true));
     })();
@@ -381,11 +381,11 @@ export async function createUpdater(deps: { log(line: string): void; window(): B
   // Loaded lazily (a dynamic import, not a static top-level one) so a load failure -- a missing or
   // corrupted node_modules/electron-updater in a bad package -- degrades to a logged no-op updater
   // instead of throwing while main.ts's module graph is still loading, which would take the whole app
-  // down before a single window opens (fix round 1). main.ts's own import of
+  // down before a single window opens. main.ts's own import of
   // THIS module (`./updater`) stays a normal static import; only the electron-updater dependency
   // inside it is deferred, and main.ts now awaits this function's result.
   //
-  // ★★★ TWO SEPARATE try/catch BLOCKS, DELIBERATELY (fix round 2). The first
+  // ★★★ TWO SEPARATE try/catch BLOCKS, DELIBERATELY. The first
   // covers only the LOAD -- the dynamic import plus resolving the real `autoUpdater` singleton out of
   // whatever shape it comes back as (see pickAutoUpdater's doc comment: it is NOT a named export
   // under a dynamic import, only `.default.autoUpdater`, and reading `mod.autoUpdater` directly used

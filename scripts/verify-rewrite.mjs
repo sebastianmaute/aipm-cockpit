@@ -1,4 +1,4 @@
-// Verify a rewritten history (sanitise plan, Task 12).
+// Verify a rewritten history: no listed identifier left in any blob, message or identity.
 //
 // Usage:
 //   LEAK_LIST_FILE=<list> node scripts/verify-rewrite.mjs --repo <mirror> --allow <file> --expect clean

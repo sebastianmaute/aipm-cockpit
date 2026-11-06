@@ -345,7 +345,7 @@ describe("§588 — a superseded reload must not shut the new backend's gate", (
     expect(first.save).not.toHaveBeenCalled();
   });
 
-  // ★ F1 — NOT PROBE EVIDENCE. Expected GREEN today AND after the Task 3 fix;
+  // ★ F1 — NOT PROBE EVIDENCE. Expected GREEN today AND after the fix;
   // this documents §588's own characterisation rather than proving the defect.
   // §588 is a SILENT stall — "no banner and no toast appear" — because
   // `loadPause` (the hook's pause signal, backed by `savesPaused`) is published
@@ -619,7 +619,7 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
     expect(second.save.mock.calls[1][0].tasks.map((x: Task) => x.id)).toEqual([1, 2, 3]);
   });
 
-  // ★★ §603 FIX ROUND 1 — A SKIPPED WRITE IS NOT A SAVED ONE. Autosave A hangs on `first`, autosave B
+  // ★★ §603 — A SKIPPED WRITE IS NOT A SAVED ONE. Autosave A hangs on `first`, autosave B
   // waits behind it, and the pick's write is enqueued with `settleReplacedAsOwn`, so it REPLACES B and B
   // settles exactly as the pick's write does. If the skip settled "saved", B's handler would confirm a
   // write nothing made: move the baselines, emit a success outcome and clear its unload-journal entry —

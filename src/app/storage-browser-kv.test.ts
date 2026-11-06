@@ -37,7 +37,7 @@ describe("BrowserBackend KV persistence", () => {
   it("round-trips changes, milestones, status, and stakeholders across a fresh load", async () => {
     const ws = { ...emptyWorkspace(), changes: [change], milestones: [milestone], status, stakeholders: [stakeholder] };
 
-    // §4 fix round 2 — a fresh backend has never loaded; force this blind
+    // §4 — a fresh backend has never loaded; force this blind
     // seed write (R10 change 1, fail closed).
     const writer = createBackend({ kind: "browser" });
     writer.forceNextSave?.();

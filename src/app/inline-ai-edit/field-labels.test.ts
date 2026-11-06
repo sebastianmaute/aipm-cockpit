@@ -115,7 +115,7 @@ describe("fieldLabel", () => {
     expect(fieldLabel("de", "task", "somethingNew")).toBe("somethingNew");
   });
 
-  // Task 3 (absence + calendarEvent field labels) landed BEFORE `calendarEvent`
+  // The absence + calendarEvent field labels landed BEFORE `calendarEvent`
   // was an `InlineEntity`, so `fieldLabel`'s typed `entity` parameter could not
   // take that literal and this asserted directly against the map + `t()`. An
   // EN-only check cannot prove the entry is wired: if the English string

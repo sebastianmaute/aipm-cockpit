@@ -8,7 +8,7 @@ import { withPeopleAllowed } from "./ai-people-protection";
 import { emptyWorkspace, type Workspace } from "./workspace";
 import type { Stakeholder } from "./types";
 
-// AI people protection, Task 4: the open project's privacy is read at SEND time, from the source as
+// AI people protection: the open project's privacy is read at SEND time, from the source as
 // task-manager registered it on the latest commit. A source captured once at mount would send every
 // later request with the first render's workspace (empty, protected by default) and project.
 

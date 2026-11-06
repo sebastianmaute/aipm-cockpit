@@ -1,6 +1,6 @@
 // src/app/chat-tool-defs-documents.ts — Anthropic tool schemas for project
-// documents. Pure data; routing lives in chat-tools-documents.ts (Task 17) and
-// the impl in use-document-tools.ts (Task 18).
+// documents. Pure data; routing lives in chat-tools-documents.ts and
+// the impl in use-document-tools.ts.
 //
 // Split out of chat-tool-defs.ts for COHESION, not for the ratchet. Measured
 // 2026-08-07 with the gate's own counter (`split("\n").length`, i.e. wc -l + 1):
@@ -27,7 +27,7 @@ import { DATA_SECTION_KEYS } from "./settings-types";
 // level range changes there, this description lies to the model, which will
 // then emit blocks the sanitizer silently drops (document-model.ts's structural
 // validator degrades unknown shapes rather than throwing). Verified against the
-// union as of Task 16: six variants — heading{level:1|2|3,text},
+// union as written: six variants — heading{level:1|2|3,text},
 // paragraph{html}, bullets{items,ordered?}, table{columns,rows,caption?},
 // dataSection{key}, pageBreak — field-for-field match.
 //

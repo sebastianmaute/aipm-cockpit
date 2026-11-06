@@ -19,7 +19,7 @@ interface ModernShellProps {
   bannerCount: number;
   onShowAlerts: () => void;
   onOpenAiAssistant?: () => void;
-  /** FIX ROUND 1 (M3): opens the app's ONE Version modal, owned at the
+  /** Opens the app's ONE Version modal, owned at the
    *  task-manager root (use-desktop-version-request.ts). This component no
    *  longer owns a `versionOpen` boolean or renders its own
    *  `<VersionInfoModal>` — it used to, and a desktop Help → Version request

@@ -244,7 +244,7 @@ describe("DashboardPanel Changes subsection", () => {
   });
 });
 
-describe("DashboardPanel RAG polish (Task 3)", () => {
+describe("DashboardPanel RAG polish", () => {
   it("marks the R / A / G counts with RAG dots (colour rides the dot, not small text)", () => {
     render(
       <DashboardPanel
@@ -302,7 +302,7 @@ describe("DashboardPanel RAG polish (Task 3)", () => {
   });
 });
 
-describe("DashboardPanel top-actions card (Task 7)", () => {
+describe("DashboardPanel top-actions card", () => {
   const baseProps = {
     lang: "en-US" as const,
     tasks: [],
@@ -541,7 +541,7 @@ describe("RaidRegisterCard link styling", () => {
   });
 });
 
-// ─── Task 8: showBudget / showMilestones / showRaid / showChanges gates ───────
+// ─── showBudget / showMilestones / showRaid / showChanges gates ───────
 
 const fullProps = {
   lang: "en-US" as const,
@@ -585,7 +585,7 @@ const tasksWithEvmEstimate = [
   },
 ] as never[];
 
-describe("DashboardPanel module visibility gates (Task 8)", () => {
+describe("DashboardPanel module visibility gates", () => {
   it("shows Budget burn section and RAID section when all flags are true (baseline)", () => {
     render(<DashboardPanel {...fullProps} />, { wrapper });
     expect(screen.getByText("Budget burn")).toBeInTheDocument();

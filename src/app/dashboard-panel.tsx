@@ -643,7 +643,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // in flight — otherwise it could be left open with no badge to close it.
   const [trayOpen, setTrayOpen] = useState(false);
   const trayShown = trayOpen && (shelfHidden.length > 0 || reorder.isDragging);
-  // ★ Fix round 2: a drag that opens the tray via the badge while hidden
+  // ★ A drag that opens the tray via the badge while hidden
   // count is 0 (dragEnter sets `trayOpen`) and then ends WITHOUT a drop
   // leaves `trayOpen` stuck true even though `trayShown` already fell back
   // to false for this render — the very next Hide via the tile menu would
@@ -665,7 +665,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   }
   const restoreFromShelf = (id: DashboardTileId) => {
     arrangement.restore(id);
-    // ★ Fix round 1: restoring the LAST hidden tile must also close the tray's
+    // ★ Restoring the LAST hidden tile must also close the tray's
     // own `open` state, not just let `trayShown` fall to false for this render.
     // Without this, `trayOpen` stays true and the very next Hide re-opens the
     // tray unasked (`trayShown = trayOpen && shelfHidden.length > 0` flips back

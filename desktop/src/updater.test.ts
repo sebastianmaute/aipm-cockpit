@@ -13,7 +13,7 @@ import { CANNOT_RUN_PREFIX, verifyUpdateSignature } from "./update-signature";
 // electron-updater with EXACTLY the shape the real package has under Electron's own runtime (no
 // named `autoUpdater`, only `.default.autoUpdater` -- see electron-updater-loader.ts's doc comment
 // and updater-module-shape.test.ts for the measurement) so this test fails the moment the call site
-// stops going through the resolver. Proven RED/GREEN in fix round 3 by
+// stops going through the resolver. Proven RED/GREEN by
 // reverting the call site to `mod.autoUpdater` directly (RED) and restoring it (GREEN).
 const fakeAutoUpdater = vi.hoisted(() => ({
   autoDownload: true,
@@ -122,7 +122,7 @@ describe("createUpdater", () => {
       debug: expect.any(Function),
     });
 
-    // Neither failure path fired -- see updater.ts's two separate try/catch blocks (fix round 2):
+    // Neither failure path fired -- see updater.ts's two separate try/catch blocks:
     // a load failure logs "failed to load", a wiring failure logs "failed to wire".
     const lines = log.mock.calls.map((c) => String(c[0]));
     expect(lines.some((l) => l.includes("failed to load"))).toBe(false);

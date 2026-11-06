@@ -23,8 +23,8 @@ describe("decompressRtf", () => {
 
   // The dictionary is byte-exact and load-bearing: one wrong byte silently
   // corrupts every decompressed body rather than failing loudly. Its real
-  // validation is decompressing an ACTUAL LZFu stream, which Task 16 does with
-  // the real .msg fixture. Here we only pin that it was transcribed at all.
+  // validation is decompressing an ACTUAL LZFu stream, which the .msg extraction tests do
+  // with the real .msg fixture. Here we only pin that it was transcribed at all.
   it("carries a transcribed initial dictionary", () => {
     expect(LZFU_INIT_DICT.startsWith("{")).toBe(true);
     expect(LZFU_INIT_DICT.length).toBeGreaterThan(180);
@@ -74,7 +74,7 @@ describe("decompressRtf (LZFu path)", () => {
 
   // The ring buffer's write offset starts right after the preloaded
   // dictionary. Only its LENGTH is relied on here (asserted to be 207 at
-  // module load) — never its CONTENT, which is unproven until Task 16.
+  // module load) — never its CONTENT, which only the real .msg fixture proves.
   const dictEnd = LZFU_INIT_DICT.length;
 
   it("decompresses an all-literal run", () => {
@@ -108,7 +108,7 @@ describe("decompressRtf (LZFu path)", () => {
     // this asserts the actual wrapped VALUES, not just the output length,
     // so that regression is caught rather than silently zero-filled. It
     // reads LZFU_INIT_DICT's own bytes rather than assuming particular
-    // values, since the dictionary's exact content is unproven until Task 16
+    // values, since the dictionary's exact content is proved only by the real .msg fixture
     // — only its length (207, asserted at module load) is relied on here.
     const dictSize = 4096; // mirrors lzfu.ts's internal DICT_SIZE, not exported
     const offset = dictSize - 2; // 4094; offset+2 and offset+3 wrap to 0 and 1

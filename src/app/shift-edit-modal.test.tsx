@@ -100,7 +100,7 @@ describe("shift assignee email follows the changed-only write rule", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 
-  // Fix round 1, IMPORTANT 3 — the copy-source exemption was unpinned: the
+  // The copy-source exemption was unpinned: the
   // fixture's linked resource always carried a SAFE email, so a real unsafe
   // one was never actually exercised as a copy source.
   it("exempts a copy of the linked resource's stored email", () => {
@@ -134,7 +134,7 @@ describe("shift assignee email follows the changed-only write rule", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  // Fix round 2, MINOR — an UNRELATED banner error (blank assignee) must
+  // An UNRELATED banner error (blank assignee) must
   // never hide the flag: the stored unsafe email is untouched.
   it("keeps the flag visible while an unrelated banner error is showing", () => {
     const onSave = vi.fn();

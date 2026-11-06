@@ -1,8 +1,7 @@
 "use client";
 // SP2 on-demand recommendation: a per-insight "Generate recommendation" button.
 // One bounded forced-tool Anthropic call via runInsightRecommendation; the
-// result is applied through the caller's functional setInsights writer (Task 9
-// provides it). Unlike use-action-analysis.ts's single `busy` flag, callers here
+// result is applied through the caller's functional setInsights writer. Unlike use-action-analysis.ts's single `busy` flag, callers here
 // need to know WHICH insight is generating (multiple rows can each show their
 // own button/spinner), so this hook keeps a `generatingId` instead.
 import { useCallback, useEffect, useRef, useState } from "react";

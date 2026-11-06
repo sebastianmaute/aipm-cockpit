@@ -80,7 +80,7 @@ function makeBackend(ms: number, outcome: "resolve" | "reject" = "resolve", stor
   };
 }
 
-// Module-level so a test can assert on them (Task 4 adds the SharePoint-timeout test here and reads both).
+// Module-level so a test can assert on them (the SharePoint-timeout test here reads both).
 const showToast = vi.fn();
 const onStorageOutcome = vi.fn();
 

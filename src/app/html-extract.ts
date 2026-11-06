@@ -186,7 +186,7 @@ function dropTagSubtree(html: string, tag: string): string {
 // HTML tag names are case-insensitive (`<TABLE>`/`<Table>` are the same
 // element as `<table>`), so every spec below opts into forEachTagPair's
 // "gi" flags — unlike the OOXML specs elsewhere, whose element/namespace
-// names are case-sensitive (§558 fix round 3, item 5).
+// names are case-sensitive (§558, item 5).
 const TABLE_PAIR: TagPairSpec = {
   openPattern: "<table\\b",
   closeName: () => "table",

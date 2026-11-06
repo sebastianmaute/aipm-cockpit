@@ -4,7 +4,7 @@
 // re-ground and undo are exercised end to end, not against spies.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Rendered without task-manager's AI privacy provider: requests carry the privacy of no project.
-// AI people protection, Task 6: one describe flips `people.on` (one stable getter, as the real one is).
+// AI people protection: one describe flips `people.on` (one stable getter, as the real one is).
 const people = vi.hoisted(() => {
   const state = { on: false };
   return { state, get: () => state.on };
@@ -986,7 +986,7 @@ describe("useWbsPlan (optimize work breakdown)", () => {
   });
 });
 
-// AI people protection, Task 6 (R4): a new task the model proposed with an assignee is previewed and
+// AI people protection: a new task the model proposed with an assignee is previewed and
 // applied unassigned when the project protects its people.
 describe("new-task assignees under people protection", () => {
   afterEach(() => { people.state.on = false; });

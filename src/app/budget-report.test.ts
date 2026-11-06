@@ -742,7 +742,7 @@ describe("computeBucketReport — costUnknownReason", () => {
     // A literal oracle over all reason states: each case pins the EXACT
     // costUnknownReason, and the derived helpers are checked against a hardcoded
     // expectation, NOT read back against themselves. (The boolean fields this
-    // once compared against were deleted in Task 7; comparing the helper to the
+    // once compared against were deleted; comparing the helper to the
     // helper is x === x and catches nothing — the vacuous shape this workstream
     // keeps tripping over.)
     const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];

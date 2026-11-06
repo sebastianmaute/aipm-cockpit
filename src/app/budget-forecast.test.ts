@@ -18,7 +18,7 @@ import type { BudgetBucket, ResourcePlan, Role } from "./types";
 // mathematically invariant to this narrowing for any valid chain (its bounds
 // always subsume every contributing bucket's own dates), so no
 // BudgetForecast-level return-value assertion can distinguish "spanned" from
-// "always undefined" — verified empirically, not assumed (fix round 1).
+// "always undefined" — verified empirically, not assumed.
 vi.mock("./budget-burndown", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./budget-burndown")>();
   return { ...actual, computeBurndownSeries: vi.fn(actual.computeBurndownSeries) };
@@ -511,7 +511,7 @@ describe("computeProjectForecast", () => {
     // check here would pass even under the "always pass undefined" mutant —
     // confirmed by actually reverting the ternary and re-running this file: the
     // pv-based assertion stayed green, because PV is invariant here; this
-    // spy-based one goes red as expected — fix round 1).
+    // spy-based one goes red as expected).
     vi.mocked(computeBurndownSeries).mockClear();
     computeProjectForecast({ buckets: [b], plan, roles, resources: [], workdayHours: 8, holidaySet: none, absences: [], tasks: [], fxRates: null, today });
     expect(computeBurndownSeries).toHaveBeenCalledWith(

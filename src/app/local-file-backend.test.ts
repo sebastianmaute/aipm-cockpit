@@ -249,7 +249,7 @@ describe("LocalFileBackend load() import diagnostics", () => {
 });
 
 // §620 — a stored meta slice that PARSES but SANITIZES TO NOTHING (junk
-// `steeringCommittee`, per Task 4's `sanitizedToNothing`) used to be dropped
+// `steeringCommittee`, per `sanitizedToNothing`) used to be dropped
 // silently on a JSON load; the next save then wrote the file without it.
 // `jsonToWorkspace` records the JSON key into `diag.decodeFailedSlices`
 // (workspace.test.ts pins the decoder itself); this backend's job is only to
@@ -504,7 +504,7 @@ describe("fingerprint round-trip: local-json (§629 unload journal Step 3)", () 
     const before = fingerprintWorkspace(smallWs);
     const be = new LocalFileBackend("local-json");
     await be.setHandle(writableFakeHandle());
-    // Fix round 1 — this instance never loaded the freshly-bound handle, so
+    // This instance never loaded the freshly-bound handle, so
     // under the new fail-closed rule save() would refuse. This test is about
     // the save→load round trip, not blind-write semantics, so force this
     // first write exactly like a real create/Save-As flow would.
@@ -518,7 +518,7 @@ describe("fingerprint round-trip: local-json (§629 unload journal Step 3)", () 
     const before = fingerprintWorkspace(bigWs);
     const be = new LocalFileBackend("local-json");
     await be.setHandle(writableFakeHandle());
-    // Fix round 1 — see the sibling test above.
+    // See the sibling test above.
     be.forceNextSave();
     await be.save(bigWs);
     const loaded = await be.load();

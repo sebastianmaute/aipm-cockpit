@@ -96,7 +96,7 @@ export function buildPptx(
     }
   }
 
-  // Task 9 gave every slide its own relationships; this exporter authors no
+  // Every slide has its own relationships; this exporter authors no
   // images, so every slide declares an empty media list — a ROW slide may
   // still declare external link relationships of its own.
   return buildPptxPackage(slides, footer);

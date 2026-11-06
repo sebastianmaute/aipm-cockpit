@@ -88,7 +88,7 @@ describe("update policy", () => {
   });
 
   it("always reports a download error, even one that started from a silent startup check", () => {
-    // Fix round 1: a download only ever starts because the user clicked
+    // A download only ever starts because the user clicked
     // "Download and install", so silence is never right here regardless of what triggered the CHECK
     // that preceded it.
     expect(decideOnError("startup", "downloading", new Error("ENOSPC"))).toEqual({
@@ -128,7 +128,7 @@ describe("update policy", () => {
   });
 
   it("shows only the first line of an error, never headers or a stack trailing after it", () => {
-    // Fix round 3: electron-updater's own HttpError builds `.message` as
+    // electron-updater's own HttpError builds `.message` as
     // "{status} {statusText}\n{description}\nHeaders: {...}" -- and a REAL 404 from a private GitHub
     // repo's releases feed put response set-cookie values in that Headers block. Neither a log line nor a dialog should ever show that.
     const httpLike = new Error(
@@ -142,7 +142,7 @@ describe("update policy", () => {
   });
 
   it("summarizeError trims to one bounded line for any error-ish value, not just decideOnError's callers", () => {
-    // Reused by updater.ts's raw logger.warn/error wrappers too (fix round 3), so an internal
+    // Reused by updater.ts's raw logger.warn/error wrappers too, so an internal
     // electron-updater log call with a multi-line payload gets the same treatment as a dialog error.
     expect(summarizeError(new Error("one\ntwo\nthree"))).toBe("one");
     expect(summarizeError("plain string\nwith a second line")).toBe("plain string");

@@ -8,7 +8,7 @@
 // ★ Undo is ONE entry per action. The resources fragment is a `captureFieldPart` and
 //   is never primary, so undo / redo merge `utilization` PER KEY (`mergeFieldPatch`) —
 //   a later edit to a period the move did not touch survives the undo. The task
-//   fragment is the caller's own: a `captureFieldPart` here and on the Task 4 paths,
+//   fragment is the caller's own: a `captureFieldPart` here and on the prepare paths,
 //   a whole-row `capturePart` flagged `isPrimary` on the chat `update_task` path.
 // ★★ TWO MOVES IN ONE TICK (R10). The render snapshot of `resources`/`tasks` is
 //   stale for a second call made before React re-renders — planning both from it

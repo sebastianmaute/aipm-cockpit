@@ -267,9 +267,9 @@ describe("planBaselineSwitch — rows and edge records (B2, B3)", () => {
   });
 });
 
-// §476 fix round 1 — the restore paths re-materialise a day-basis role with the SAME missing-side
+// §476 — the restore paths re-materialise a day-basis role with the SAME missing-side
 // rule as the switch (`materializeDayBasisRole`): a side with no day rate keeps its hourly money.
-describe("restore of a day-basis role missing one day field (fix round 1)", () => {
+describe("restore of a day-basis role missing one day field", () => {
   const partial = (over: Partial<Role> = {}): Role => ({
     id: 13, disciplineId: 1, gradeId: 1, rateBasis: "day", internalRateDay: 800, internalRate: 100, externalRate: 150, ...over,
   });

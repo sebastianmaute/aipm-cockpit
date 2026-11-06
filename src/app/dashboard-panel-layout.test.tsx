@@ -183,7 +183,7 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
     render(<DashboardPanel {...baseProps} projectId="p-row1-popout" isPopout />, { wrapper });
     expect(screen.queryByTestId("tile-upcoming")).toBeNull();         // the hide was persisted
     expect(screen.queryByRole("button", { name: /hidden tiles?$/ })).toBeNull();
-    // ★ Fix round 1: the tray itself (not just the badge) must be absent in a
+    // ★ The tray itself (not just the badge) must be absent in a
     // popout — it was guarded by the same `!arrangement.readOnly`, but nothing
     // pinned that the guard actually removes the tray node from the DOM.
     expect(document.getElementById(DASHBOARD_SHELF_TRAY_ID)).toBeNull();
@@ -200,7 +200,7 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
   });
 
   it("closes the tray when the last hidden tile is restored, so a later hide does not re-open it unasked", async () => {
-    // ★ Fix round 1: `trayOpen` used to survive a Restore that emptied the
+    // ★ `trayOpen` used to survive a Restore that emptied the
     // tray, so the NEXT hide immediately re-opened it (the badge remounting
     // with `aria-expanded="true"` although nobody asked for the tray open).
     const user = userEvent.setup();
@@ -217,7 +217,7 @@ describe("DashboardPanel row 1, the badge and the tray (spec C)", () => {
   });
 
   it("closes the tray after a drag that opened it at hidden-count 0 ends without a drop, so a later hide does not re-open it unasked", async () => {
-    // ★ Fix round 2: a drag entering the badge at count 0 sets `trayOpen`
+    // ★ A drag entering the badge at count 0 sets `trayOpen`
     // true; ending the drag WITHOUT a drop (no hide happens) leaves
     // `trayOpen` stale, so the very next Hide via the tile menu re-opened the
     // tray unasked — the same shape as the restore case above, reached via

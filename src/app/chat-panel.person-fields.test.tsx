@@ -15,7 +15,7 @@ import { entityToken } from "./ai-entity-token";
 import type { Absence, Resource, Task } from "./types";
 import { STAGED_TOOL_RESULT } from "./chat-proposal-stage";
 
-// AI people protection, Task 6 (R4): a staged turn's person fields are stripped BEFORE the review card is
+// AI people protection: a staged turn's person fields are stripped BEFORE the review card is
 // built, so the card shows what Apply will write, and the model is told which fields were dropped.
 
 vi.mock("./chat-threads-store", () => ({
@@ -117,7 +117,7 @@ describe("a staged turn under people protection", () => {
   });
 });
 
-// Fix round 1 (I2): the WRITTEN state behind the card, not only the card. Apply replays the staged calls
+// The WRITTEN state behind the card, not only the card. Apply replays the staged calls
 // through the real `runTool` into a dispatcher that stores what it is given.
 describe("applying a staged turn under people protection", () => {
   const TASK: Task = {

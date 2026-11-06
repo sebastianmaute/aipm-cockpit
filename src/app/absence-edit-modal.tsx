@@ -195,8 +195,7 @@ export function AbsenceEditModal({
           />
           {/* Steps aside ONLY while `error` (the blocking banner below) shows
               this SAME refusal message — an unrelated banner error (a blank
-              assignee, end before start) must never hide it (IMPORTANT 1,
-              fix round 1). */}
+              assignee, end before start) must never hide it. */}
           {isVisible("email") && emailFlagVisible(lang, cappedAssigneeEmail, error) && (
             <div className="sm:col-span-2">
               <EmailFieldError id="absence-email-error" lang={lang} value={cappedAssigneeEmail} />

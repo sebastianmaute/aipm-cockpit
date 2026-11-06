@@ -632,8 +632,8 @@ function ContactPersonsControl({
     if (!name || hasName(name)) return;
     // Judge (and store) the value that would be STORED: `sanitizeContactPerson`
     // stores `sanitizeLoadedEmail` (unwrap `Name <addr>`, then trim + EMAIL_MAX)
-    // — the same treatment every other editor's email field gets (fix round 2;
-    // unwrapped since M-C4). A TYPED unsafe email refuses the add; a
+    // — the same treatment every other editor's email field gets (unwrapped
+    // since M-C4). A TYPED unsafe email refuses the add; a
     // copy of the picked person's stored email is exempt (spec Part 1,
     // decision 1 + Part 7).
     const cappedEmail = sanitizeLoadedEmail(draft.email);

@@ -82,7 +82,7 @@ describe("ModernShell", () => {
     expect(onToggleCollapsed).toHaveBeenCalled();
   });
 
-  // ★★★ FIX ROUND 1 (M3): ModernShell no longer owns a `versionOpen` boolean
+  // ★★★ ModernShell no longer owns a `versionOpen` boolean
   // or renders its own <VersionInfoModal> — clicking the sidebar version line
   // now calls the `onOpenVersion` prop, which task-manager.tsx wires to the
   // app's ONE root-owned modal (use-desktop-version-request.ts). Asserting

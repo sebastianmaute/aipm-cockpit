@@ -54,7 +54,7 @@ export function unescapeXml(input: string): string {
  * walk paired the self-closing open with the NEXT same-named close tag
  * instead, silently injecting raw XML markup into extracted text —
  * `<si><t/></si><si><t>hello</t></si>` yielded `["</si><si><t>hello"]`
- * instead of `["hello"]`. Fixed in fix round 3 of §558. The SAME check also
+ * instead of `["hello"]`. Fixed under §558. The SAME check also
  * closes a bug the old regex already had for the ATTRIBUTE form
  * (`<t xml:space="preserve"/>` merged forward identically, pre-dating this
  * whole slice) — one fix, two bugs, only one of which was a regression.

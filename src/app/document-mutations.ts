@@ -17,7 +17,7 @@
 //
 // ★★★ NO CLOCK AND NO MINT. `now` and both id minters are injected via
 // DocContext, so applyDocMutation is a pure, deterministic function of its
-// inputs — required for Task 10's property test to drive it, and for the
+// inputs — required for its property test to drive it, and for the
 // mutation itself to be replayable/testable without wall-clock coupling.
 //
 // ★ `changed:false` paths return the caller's OWN `documents`/`versions`

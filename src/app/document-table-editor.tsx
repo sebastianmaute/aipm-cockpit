@@ -1,5 +1,5 @@
-// The table block editor. Split out of document-block-editors.tsx (Task 8 of
-// the documents-s3b slice) once that file crossed the ~400-line split
+// The table block editor. Split out of document-block-editors.tsx (in the
+// documents-s3b slice) once that file crossed the ~400-line split
 // threshold — see its own header comment for why `useBlockDraft` and
 // `BlockReadOnlyNotice` stay there as the shared template rather than being
 // duplicated here.

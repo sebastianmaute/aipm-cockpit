@@ -1,6 +1,6 @@
 // src/app/next-actions/index.test.ts
 //
-// Integration test for the assembled next-actions engine (Task 10 / SP1 final).
+// Integration test for the assembled next-actions engine (SP1).
 // Verifies that ALL_PROVIDERS wire up correctly and that the public
 // computeNextActions() entry point honours module gating, dismissals, ordering,
 // and tier classification.

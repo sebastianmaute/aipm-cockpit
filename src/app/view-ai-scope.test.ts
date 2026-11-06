@@ -138,7 +138,7 @@ describe("VIEW_AI_SCOPE", () => {
   // AGAINST ITSELF — AND THE PIN FIRED. This test used to assert the OPPOSITE:
   // that `reading` said a result "does not say which", and that
   // renderActivityEntry's output carried NO actor key. Both were true while
-  // `RenderedActivity` was {at, summary, detail?}. Task 7 put `actor` on it and
+  // `RenderedActivity` was {at, summary, detail?}. A later change put `actor` on it and
   // this test went RED on that commit — which is the whole mechanism working:
   // the two earlier claims in this entry outlived their limitations for weeks
   // because nothing tied the prose to the code. The direction is inverted; the

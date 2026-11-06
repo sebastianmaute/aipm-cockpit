@@ -592,7 +592,7 @@ related). This section replaces "S3c" as a
 bare label —
 see `docs/open-followups.md` §113 for why that label collided with a different slice.
 
-★★★ **EVERYTHING BELOW DESCRIBES THE POST-FIX-ROUND CODE.** The slice shipped its first cut with a
+★★★ **EVERYTHING BELOW DESCRIBES THE CODE AS CORRECTED AFTER REVIEW.** The slice shipped its first cut with a
 fully green gate suite — eslint, tsc, the whole unit suite, the coverage floors, axe and prod-smoke
 — and was **non-functional** on the one backend it is gated to: no image could be uploaded without
 killing every subsequent workspace save, and no image could be displayed at all. Four cold reviews
@@ -1428,7 +1428,7 @@ a string somebody chose, so a change nobody anticipated passes all five.
 
 ★★★ **THAT COUNT SAID THREE UNTIL 2026-08-24, AND HOW IT GOT THERE IS THE LESSON.** The wording
 BEFORE it excluded the builder pair with a QUALIFIER — "nothing outside each builder's own unit
-test" — and the fix round that corrected that dropped the qualifier and substituted a flat count,
+test" — and the fix that corrected that dropped the qualifier and substituted a flat count,
 trading a wrong-but-qualified claim for a wrong-and-unqualified one that under-reported existing
 coverage by two. ★★ The grep it came attached to, `grep -rln unzipBytes src`, returns ELEVEN files
 and so cannot answer the sentence it sat in: it also catches `src/test/unzip-bytes.ts`, that

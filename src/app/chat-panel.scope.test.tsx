@@ -180,7 +180,7 @@ describe("in-flight send vs. the panel's lifetime", () => {
    *  ★★★ ONE BODY, ONE PARAMETER, AND THAT IS THE POINT. The discriminator under
    *   test is `isSwapInFlight` and nothing else; two hand-copied bodies would let
    *   some other difference creep in and still read as a pair. A single-sided
-   *   version of this pair is literally how the regression got in — Task 6 pinned
+   *   version of this pair is literally how the regression got in — a test pinned
    *   the cancel and nothing pinned the not-cancel, so an UNCONDITIONAL cleanup
    *   was green while it silently killed every turn a user left by navigating to
    *   Open Points (`modern-shell.tsx`'s view ternary unmounts this subtree). */
@@ -280,7 +280,7 @@ describe("in-flight send vs. the panel's lifetime", () => {
   });
 
   it("lets an in-flight send finish when the panel unmounts with no swap in flight", async () => {
-    // ★★★ THE OPEN POINTS CASE, and a live regression against Task 6's
+    // ★★★ THE OPEN POINTS CASE, and a live regression against the earlier
     //  UNCONDITIONAL cleanup. `modern-shell.tsx`'s content ternary renders
     //  `open-points`, `settings` and `learning-insights` as their own subtrees and
     //  everything else as `workspace`, so navigating to any of the three unmounts
@@ -397,7 +397,7 @@ describe("in-flight send vs. the storage scope", () => {
     send("add a task");
 
     // PRECONDITION, asserted not assumed: the send really left the panel and is
-    // parked mid-await. Task 6 learned this the hard way — a send that never
+    // parked mid-await. This was learned the hard way — a send that never
     // started makes the final assertion vacuous.
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
 

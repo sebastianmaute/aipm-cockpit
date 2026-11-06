@@ -16,7 +16,7 @@ import type { ReadoutAnchor } from "./use-chart-readout";
  *  full mirror: the chart recolours the actual line `stroke-ui-pink` when
  *  `model.over`, but `ReadoutRow` carries no over/under flag, so the `actual`
  *  swatch here is always `bg-ui-green`. Deliberate — the row's LABEL, not its
- *  colour, carries that meaning, and threading the flag through Task 1's
+ *  colour, carries that meaning, and threading the flag through
  *  `ReadoutRow` for a swatch tint alone was not judged worth the coupling. */
 const ROW: Record<ReadoutKind, { label: TranslationKey; tip: TranslationKey; swatch: string }> = {
   plan: { label: "burndownPlanned", tip: "burndownReadoutTipPlan", swatch: "bg-muted-foreground" },

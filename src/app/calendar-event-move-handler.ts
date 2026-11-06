@@ -1,5 +1,5 @@
-// Builds the Resources → Calendar meetings-band occurrence-drag handler
-// (R5 Task 17). Extracted so the wiring — resolve the dragged occurrence's
+// Builds the Resources → Calendar meetings-band occurrence-drag handler.
+// Extracted so the wiring — resolve the dragged occurrence's
 // event by id, commit via applyOccurrenceMove, save through the panel's
 // event-save path — is unit-testable without rendering the panel. When this
 // was extracted the band could not be exercised end to end: resource-calendar.tsx

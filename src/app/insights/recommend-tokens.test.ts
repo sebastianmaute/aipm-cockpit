@@ -212,7 +212,7 @@ describe("UPDATE_TARGET is derived from the guarded set, never hand-listed", () 
     //  `"resources"`, so the row cannot be EXPRESSED without widening a type
     //  `recommend-tokens.ts` does not own.
     //
-    //  ★★ `update_absence` and `update_calendar_event` joined it when Task 4/5
+    //  ★★ `update_absence` and `update_calendar_event` joined it when a later change
     //  gave both tools an `expectedToken` schema field. They fail for that same
     //  structural reason — the Pick has no `"absences"` and no
     //  `"calendarEvents"` — AND for a second one `update_resource` does not

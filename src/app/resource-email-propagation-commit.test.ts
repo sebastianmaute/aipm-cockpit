@@ -121,7 +121,7 @@ describe("contactPersonsFragment", () => {
     expect(redone?.contactPersons).toEqual([{ ...ada, email: "new@x.com" }, namesake, carol]);
   });
 
-  // Final fix round 3, R1. `retarget` matches case- and space-insensitively, so
+  // `retarget` matches case- and space-insensitively, so
   // a row can hold the old address spelled differently from the resource's
   // trimmed primary. Undo must give each row back ITS OWN stored string, not
   // `change.from`. Driven through `commitEmailPropagation` so the wiring that
@@ -145,7 +145,7 @@ describe("contactPersonsFragment", () => {
     expect(redone?.contactPersons.map((c) => c.email)).toEqual(["new@x.com", "new@x.com"]);
   });
 
-  // Final fix round 4, S3. Pairing is by NAME, IN ORDER, one before-image per
+  // Pairing is by NAME, IN ORDER, one before-image per
   // row (`consumed`). Two same-named rows retargeted together therefore get
   // their own strings back exactly while their order is unchanged. Without
   // `consumed` both would take the FIRST before-image.

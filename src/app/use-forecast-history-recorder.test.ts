@@ -259,7 +259,7 @@ describe("useForecastHistoryRecorder", () => {
     expect(set).toHaveBeenCalledTimes(2);
   });
 
-  describe("a stored entry that is not this tab's to answer (fix round 1)", () => {
+  describe("a stored entry that is not this tab's to answer", () => {
     const X = FORECAST;
     const Y = { ...FORECAST, p50: "2026-11-02" };
     const asEntry = (f: typeof FORECAST): ForecastHistoryEntry => ({

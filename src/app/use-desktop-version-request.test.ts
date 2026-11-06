@@ -35,7 +35,7 @@ describe("useDesktopVersionRequest", () => {
     );
   });
 
-  // ★★★ FIX ROUND 1 (M3 log-path consistency): the priming ping main.ts sends
+  // ★★★ LOG-PATH CONSISTENCY: the priming ping main.ts sends
   // once per page load (did-finish-load, `open: false`) must NOT pop the
   // modal, but must still be remembered so the log-path row is already
   // correct the first time the modal opens from ANY trigger.
@@ -48,7 +48,7 @@ describe("useDesktopVersionRequest", () => {
     expect(result.current.logPath).toBe("C:\\logs\\launch.log");
   });
 
-  // ★★★ FIX ROUND 1 (M3): the sidebar version line and the Settings footer
+  // ★★★ The sidebar version line and the Settings footer
   // no longer own their own modal/state -- they call this. Threaded to them
   // as `onOpenVersion` (task-manager.tsx); this hook-level test pins the
   // primitive itself: a plain state flip, not an event dispatch (app code
@@ -101,7 +101,7 @@ describe("useDesktopVersionRequest", () => {
     expect(result.current.logPath).toBe("C:\\logs\\launch.log");
   });
 
-  // ★★★ FIX ROUND 1 (M4): main reads the dispatched event's return value
+  // ★★★ Main reads the dispatched event's return value
   // (`!window.dispatchEvent(ev)`, see menu-model.ts) to tell whether a real
   // listener handled the request; the listener signals that by calling
   // preventDefault(), which requires the event to be `cancelable`. This is
@@ -136,13 +136,13 @@ describe("useDesktopVersionRequest", () => {
     expect(removeSpy).toHaveBeenCalledWith(DESKTOP_VERSION_REQUEST_EVENT, handler);
   });
 
-  // ★★★ FIX ROUND 1 (M2): the previous "a listener from an unmounted instance
+  // ★★★ The previous "a listener from an unmounted instance
   // no longer reacts" test was REMOVED here. It compared `result.current`
   // (a frozen snapshot taken before `unmount()`) after unmounting, so `open`
   // read `false` whether or not the listener was actually removed -- it could
   // not go red no matter what the cleanup did. The spy test immediately
   // above is the real pin (asserts `removeEventListener` was called with the
   // SAME handler reference `addEventListener` received), and it is what
-  // Task 2's own mutation check (deleting the cleanup `return`) actually
-  // caught (re-run in fix round 1).
+  // the hook's own mutation check (deleting the cleanup `return`) actually
+  // caught (re-run since).
 });

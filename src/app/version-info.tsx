@@ -65,7 +65,7 @@ export function VersionInfoModal({
 }
 
 export function VersionInfo({ lang, logPath }: { lang: Lang; logPath?: string }) {
-  // ★ FIX ROUND 1 (M5): CORRECTED. This used to say VersionInfo "only ever
+  // ★ CORRECTED. This used to say VersionInfo "only ever
   // mounts once its enclosing Modal's open becomes true" — true of
   // VersionInfoModal, but not the only parent: VersionMenu (version-menu.tsx,
   // the classic header's info-icon popover) renders THIS component directly

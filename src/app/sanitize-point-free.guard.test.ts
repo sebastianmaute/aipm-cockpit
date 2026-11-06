@@ -1,4 +1,4 @@
-// Final fix round 3, R3. Every exported `sanitize*` in the sanitize modules
+// Every exported `sanitize*` in the sanitize modules
 // must be safe to pass POINT-FREE (`arr.map(sanitizeX)`, `sanitizeArr(raw,
 // sanitizeX)`). `Array.prototype.map` calls its callback with (value, INDEX,
 // ARRAY), and tsc accepts `arr.map(fn)` whenever fn's extra parameters accept
@@ -10,7 +10,7 @@
 //    point-free and receives the index.
 // Take a second MODE as a named one-argument variant instead
 // (`sanitizeLoadedMilestone`, `sanitizePriorityOr`, …).
-// ★★ Final fix round 4, S5: the scanner does NOT read the parameter's type.
+// ★★ The scanner does NOT read the parameter's type.
 //  A syntactic check missed `type Cap = number`, `{}` and a generic `T` (all
 //  admit a number), so ANY second parameter is flagged, and every required one
 //  must be on one of the two reviewed lists below. The reject-a-number claim
@@ -31,7 +31,7 @@ type Reason = "optional-extra-param" | "second-param" | "unresolved-export";
 interface Finding { name: string; reason: Reason }
 
 /** Load-funnel sanitizers outside the `sanitize*` naming, scanned by name.
- *  Final fix round 4, S4: both took an optional `diag` and threw point-free. */
+ *  Both took an optional `diag` and threw point-free. */
 const EXTRA_MODULES = ["document-model.ts", "document-versions.ts"];
 
 /** The modules the `./sanitize` barrel re-exports, plus every non-test

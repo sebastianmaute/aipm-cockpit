@@ -76,7 +76,7 @@ const B_WS = { tasks: TASK_B, raid: [], absences: [], shifts: [], activityLog: [
 const EMPTY = { tasks: [], raid: [], absences: [], shifts: [] };
 const LOCAL_ENTRY = entry("local-1", "2026-09-03T08:00:00.000Z");
 const LOCAL_HIST = hist("hl-1");
-// Fix round 1 (§591 reviewer finding): a SECOND target-A payload, distinguishable from A_WS, so a
+// §591: a SECOND target-A payload, distinguishable from A_WS, so a
 // round trip back to A can tell a REPLACE (this data alone) from a MERGE (this data plus whatever
 // was left in memory from the leg in between).
 const A2_WS = { tasks: [{ id: 30, taskName: "A2" } as unknown as Task], raid: [], absences: [], shifts: [], activityLog: [entry("a2-1", "2026-09-06T08:00:00.000Z")], budgetHistory: [hist("ha2-1")] };
@@ -102,7 +102,7 @@ function makeBackend(ms: number, stored: object): FakeBackend {
 }
 
 /**
- * Fix round 1 — a backend whose `load` returns `values[0]` on its first call and `values[1]`
+ * A backend whose `load` returns `values[0]` on its first call and `values[1]`
  * (held thereafter) on every call after that, each after `ms` on the (fake) clock. Lets one mocked
  * instance stand in for "the same backend object, read twice" (the load effect's initial read, then
  * `reloadCurrentProject`'s re-read of that SAME `backend` — no second `createBackend` call happens).
@@ -272,7 +272,7 @@ describe("§591 — a load merges the activity log and budget history only onto 
     expect(ids(result.current.activityLog)).toEqual(["a-1", "local-1"]);
   });
 
-  // ── Fix round 1 (reviewer finding) ──────────────────────────────────────────
+  // ── The post-apply re-stamp, by round trip ──────────────────────────────────────
   // (a)-(e) above pin the two TERNARIES (merge-vs-replace). None of them can tell a working
   // post-apply RE-STAMP (`scopeTargetKeyRef.current = targetKey`) from a deleted one, because within
   // a single load neither test re-reads the ref afterward. Each of (f)-(h) is a ROUND TRIP —
@@ -326,7 +326,7 @@ describe("§591 — a load merges the activity log and budget history only onto 
       await p;
     });
     // Control: the reload really read B's (non-empty this time) data and replaced with it —
-    // this leg's correctness comes from the ternary, which fix round 1 is not re-testing.
+    // this leg's correctness comes from the ternary, which is not re-tested here.
     expect(ids(result.current.activityLog)).toEqual(["rb-1"]);
     expect(ids(result.current.budgetHistory)).toEqual(["hrb-1"]);
 

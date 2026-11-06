@@ -103,7 +103,7 @@ export function TimelogSettings({ lang, config, onChange, links, onLinksChange, 
   const tenantFromEnv = config.tenant.trim() === "" && effectiveTimelogConfig(config).tenant !== "";
 
   // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1) —
-  //  shared with jira-settings.tsx via `useEmailDraft` (fix round 1).
+  //  shared with jira-settings.tsx via `useEmailDraft`.
   const {
     value: emailDraft,
     setValue: setEmailDraft,

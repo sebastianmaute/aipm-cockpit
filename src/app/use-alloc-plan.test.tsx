@@ -514,7 +514,7 @@ describe("useAllocPlan guide text", () => {
   });
 });
 
-// §769 Task 6 — task moves plus hour edits, applied through the REAL §774 step and the REAL undo stack.
+// §769 — task moves plus hour edits, applied through the REAL §774 step and the REAL undo stack.
 // Sep 1 – Dec 31, monthly. Every month from Sep to Dec has 22 workdays or more, so a hand cell never hits capacity.
 const PLAN_SD: ResourcePlan = { startDate: "2026-09-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
 const TODAY_SD = "2026-09-01";
@@ -754,7 +754,7 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     }
   });
 
-  // Fix round 1 — a fresh move §774 did not apply is counted as skipped, never dropped without a word.
+  // A fresh move §774 did not apply is counted as skipped, never dropped without a word.
   // Mutation: count only stale rows and this apply closes with no toast at all.
   it("a moves-only apply that §774 applies none of toasts the skipped count", async () => {
     await proposeWith(answer(alt("", [{ taskId: 10, toResourceId: 2 }], [])), { initialTasks: [DESIGN], wrapReassign: () => () => 0 });
@@ -765,7 +765,7 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     expect(fullLog).not.toHaveBeenCalled();
   });
 
-  // Fix round 1. Mutation: count the edits handed over (`ownerEdits.length`) and the toast says 3 applied, 0 skipped.
+  // Mutation: count the edits handed over (`ownerEdits.length`) and the toast says 3 applied, 0 skipped.
   it("counts what was written when one move's edit is a no-op", async () => {
     await proposeWith(
       answer(alt("", [{ taskId: 10, toResourceId: 2 }, { taskId: 12, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])),
@@ -780,7 +780,7 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     expect(readStack()).toEqual([{ kind: "bulk.edit", count: 2, label: expect.any(String) }]);
   });
 
-  // Fix round 2 — an entry of task moves AND hour edits names no single entity. Mutation: keep `entityKey: "task"`
+  // An entry of task moves AND hour edits names no single entity. Mutation: keep `entityKey: "task"`
   // and the label reads "Bulk edit 2 tasks", one of which is an hour cell.
   it("labels an entry of moves and hour edits by its item count", async () => {
     await proposeWith(answer(alt("", [{ taskId: 10, toResourceId: 2 }], [{ resourceId: 3, periodKey: "2026-11", hours: 12 }])), { initialTasks: [DESIGN] });
@@ -789,7 +789,7 @@ describe("useAllocPlan — task moves and hour edits (§769)", () => {
     expect(readStack()[0].label).toBe(tPlural("en-US", "undoToastEdit", 2, 2));
   });
 
-  // Fix round 4 — A→B and B→C in the same period, ticked together, are planned TOGETHER on apply exactly as the
+  // A→B and B→C in the same period, ticked together, are planned TOGETHER on apply exactly as the
   // preview plans them: the result is the preview's plan, and no hour is created or lost. Liam holds no September
   // hours of his own, so only a JOINT plan lets his task carry the 8 h he receives (planned alone, it moves 0 h).
   it("chained moves apply the preview's plan and conserve the hours", async () => {
