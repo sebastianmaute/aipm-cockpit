@@ -1164,9 +1164,9 @@
   does nothing, `confirm`/`reject`/`undo` refuse, the person's section renders nothing, and `singleProject` is FALSE (it is only for a
   Turso database with one project, so the digest never claims "this is the only project"; it says "ELSEWHERE: other projects cannot be
   seen in this storage mode" and the window shows no elsewhere note). `forgetPeople` gates on the same `portfolio`. The hook re-enables
-  when the live kind returns to `turso` (pinned at the hook). How a user gets back, and what the conversion writes, is [§790](../open-followups.md#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database).
+  when the live kind returns to `turso` (pinned at the hook). Converting back into a Turso database that holds projects is refused ([§790](../open-followups.md#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database--closed-2026-11-02)).
   `portfolioMode` stays frozen and still contradicts the comment in `portfolio-mode-switch.ts` after such a switch; only this feature is
-  made safe, and auditing the other readers is also [§790](../open-followups.md#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database)'s.
+  made safe, and auditing the other readers is [§791](../open-followups.md#791-the-portfolio-flag-stays-on-turso-after-an-in-place-storage-switch-and-its-other-readers-are-unaudited).
   ★ The AI `delete_resource` is refused while the LOAD HOLD is on (`isLoadHeld` = `isSwapInFlight() || loadPendingRef.current`, so a
   project swap, a same-project Reload, a backend rebuild and the first load), because the sweep is permanent while the delete is lost
   with the workspace it edited; only that tool is gated, and a cross-project reload is not the hold.
@@ -1184,8 +1184,8 @@
   fires when the delete happens in memory, not when it is stored, so in the "Saving paused" state (or after a failed save) the banner's
   Reload can throw the delete away while the answers are already gone and the person is back (owner decision 2026-11-01: accepted;
   gating the sweep on the save would leave the name behind after Overwrite); (5) a person deleted in a LOCAL copy after a switch away from
-  Turso and later converted back: the sweep is skipped there on purpose, and nothing sweeps on the conversion (what the conversion writes is
-  [§790](../open-followups.md#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database)); (6) Undo, which brings the person back but never their answers (owner decision 2026-11-01); (7) rows naming an ARCHIVED
+  Turso and later converted back: the sweep is skipped there on purpose, and nothing sweeps on the conversion (since
+  [§790](../open-followups.md#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database--closed-2026-11-02) a conversion into a database that holds projects is refused, so this needs one with none)); (6) Undo, which brings the person back but never their answers (owner decision 2026-11-01); (7) rows naming an ARCHIVED
   project: they are removed without the confirmation's clause, because the clause shows only when other projects are active and
   `tursoProjects` never holds an archived one, and they stay gone if that project is restored (owner decision 2026-11-01; no code change).
   The same missing clause follows when the project list failed to load or has not loaded, since `tursoProjects` is then empty too, while the
