@@ -11,11 +11,11 @@ import {
   MUST_INCLUDE,
   checkGuard,
   checkLicences,
-  checkUnresolved,
   readDenyList,
   shippedSet,
   toCycloneDx,
   toNotices,
+  UNRESOLVED_OWNERS,
 } from "./build-sbom.mjs";
 import { checkSbom, sbomName } from "../release-publish-lib.mjs";
 
@@ -333,16 +333,9 @@ describe("checkGuard", () => {
   });
 });
 
-describe("checkUnresolved", () => {
-  it("allows lucide-react's monorepo artefact", () => {
-    expect(checkUnresolved([{ name: "shared", source: "../node_modules/shared/src/x.ts" }])).toEqual([]);
-  });
-
-  it("names anything else, with the source that named it", () => {
-    const problems = checkUnresolved([{ name: "ghost", source: "../node_modules/ghost/index.js" }]);
-    expect(problems).toHaveLength(1);
-    expect(problems[0]).toContain("ghost");
-    expect(problems[0]).toContain("../node_modules/ghost/index.js");
+describe("UNRESOLVED_OWNERS", () => {
+  it("credits the two paths real builds name to the packages whose maps climb out to them", () => {
+    expect(UNRESOLVED_OWNERS).toEqual({ shared: { owner: "lucide-react" }, src: { owner: "fast-equals" } });
   });
 });
 
@@ -375,6 +368,9 @@ function writeRepo(name, tweak = {}) {
     "src/app/version.ts": 'export const APP_VERSION = "9.8.7";\nexport const APP_MILESTONE = "Test";\n',
     ".github/workflows/security.yml": "jobs:\n  a:\n    steps:\n      - with:\n          deny-licenses: GPL-3.0-only, GPL-3.0-or-later\n",
     ...installed,
+    // The build's map names node_modules/shared; lucide-react's own map climbs out to it.
+    "node_modules/lucide-react/package.json": json({ name: "lucide-react", version: "1.0.0", license: "MIT" }),
+    "node_modules/lucide-react/dist/cjs/lucide-react.js.map": map(["../../../shared/src/lucide.ts"]),
     "node_modules/next/package.json": json({ name: "next", version: "16.4.2", license: "MIT" }),
     "node_modules/next/LICENSE": "NEXT LICENCE TEXT",
     "node_modules/next/dist/compiled/react/package.json": json({ name: "react-builtin" }),

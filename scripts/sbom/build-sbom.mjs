@@ -26,7 +26,7 @@ import { readFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { scanBundledSources } from "./bundled-packages.mjs";
+import { attributeUnresolved, scanBundledSources } from "./bundled-packages.mjs";
 import { isDenied, licenseOf, parseLicence } from "./licences.mjs";
 import { scanNextVendored } from "./next-vendored-packages.mjs";
 import { toNotices } from "./notices.mjs";
@@ -85,8 +85,13 @@ export const MIN_WEB_COMPONENTS = 71;
  * node_modules paths in source maps that belong to no installed package, each
  * with the reason it is safe. Exact names, and anything else fails.
  */
-const UNRESOLVED_ALLOWED = {
-  shared: "lucide-react's own map points at its pre-publish monorepo layout; the code is inside lucide-react",
+// node_modules paths the build's maps name that no package is installed at,
+// each credited to the package whose own published maps climb out to it.
+export const UNRESOLVED_OWNERS = {
+  // lucide-react's maps point at its pre-publish monorepo layout (../../../shared/src/...).
+  shared: { owner: "lucide-react" },
+  // fast-equals' maps name ../../../src/*.ts from dist/<format>/, one level above the package.
+  src: { owner: "fast-equals" },
 };
 
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -222,16 +227,6 @@ export function checkGuard(set, mustInclude, floor) {
   return problems;
 }
 
-/**
- * @param {Array<{ name: string; source: string }>} unresolved from scanBundledSources
- * @returns {string[]} problems
- */
-export function checkUnresolved(unresolved) {
-  return unresolved
-    .filter(({ name }) => !Object.hasOwn(UNRESOLVED_ALLOWED, name))
-    .map(({ name, source }) => `A source map names a package that is not installed: ${name} (from ${source})`);
-}
-
 /** @returns {string[]} problems: what one side holds and the other does not */
 function checkAsar(inAsar, inLockfile) {
   const key = (pkg) => `${pkg.name}@${pkg.version}`;
@@ -291,6 +286,7 @@ async function collect({ build, standalone, desktop, asar, cwd, webOnly }) {
   const nodeModules = join(cwd, "node_modules");
   const standaloneNodeModules = join(standalone, "node_modules");
   const bundledScan = await scanBundledSources(build, nodeModules);
+  const credited = await attributeUnresolved(bundledScan.unresolved, nodeModules, UNRESOLVED_OWNERS);
   const exclude = await standaloneExcludeFromBuilderConfig(join(desktop, "electron-builder.yml"));
   const standaloneScan = await withInstalledDirs(await standalonePackages(standaloneNodeModules, exclude), standaloneNodeModules, nodeModules);
   const standalonePkgs = standaloneScan.pkgs;
@@ -300,7 +296,7 @@ async function collect({ build, standalone, desktop, asar, cwd, webOnly }) {
     buildDir: build,
   });
   const set = shippedSet({
-    bundled: bundledScan.packages,
+    bundled: [...bundledScan.packages, ...credited.packages],
     standalone: standalonePkgs,
     desktop: desktopPkgs,
     vendored: vendoredScan.packages,
@@ -310,7 +306,7 @@ async function collect({ build, standalone, desktop, asar, cwd, webOnly }) {
     electron: webOnly ? null : electronComponent(desktop),
     deny: readDenyList(cwd),
     problems: [
-      ...checkUnresolved(bundledScan.unresolved),
+      ...credited.problems,
       ...vendoredScan.problems,
       ...standaloneScan.problems,
       ...(asar ? checkAsar(await asarPackages(asar), desktopPkgs) : []),

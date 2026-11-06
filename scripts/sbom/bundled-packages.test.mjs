@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { bundledPackages, packagePathOf, scanBundledSources } from "./bundled-packages.mjs";
+import { attributeUnresolved, bundledPackages, embeddedPaths, packagePathOf, scanBundledSources } from "./bundled-packages.mjs";
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), "__fixtures__", "bundle");
 const BUILD = join(FIXTURE, "build");
@@ -108,11 +108,66 @@ describe("packagePathOf", () => {
   });
 });
 
+describe("embeddedPaths", () => {
+  it.each([
+    // Both shapes as a real Turbopack build's maps wrote them.
+    [
+      "../../../../node_modules/lucide-react/dist/esm/Icon.mjs/__nextjs-internal-proxy.mjs%20%7B%20server%20%3D%3E%20%22%5Bproject%5D/node_modules/lucide-react/dist/esm/Icon.mjs%22%20%7D",
+      [["lucide-react"], ["lucide-react"]],
+    ],
+    [
+      "../../../../node_modules/moment-timezone/data/packed/latest.json.%5Bjson%5D.cjs/turbopack%3A///node_modules/moment-timezone/data/packed/latest.json",
+      [["moment-timezone"], ["moment-timezone"]],
+    ],
+    ["turbopack:///[project]/node_modules/a/node_modules/@s/b/x.js", [["a", "node_modules", "@s", "b"]]],
+    ["../../../../node_modules/%40azure/msal-browser/dist/x.mjs", [["@azure", "msal-browser"]]],
+  ])("%s", (source, expected) => {
+    expect(embeddedPaths(source).map(packagePathOf).filter(Boolean)).toEqual(expected);
+  });
+});
+
 describe("scanBundledSources", () => {
   it("reports a node_modules path with no installed package instead of inventing one", async () => {
     const { packages, unresolved } = await scanBundledSources(BUILD, nodeModules);
     expect(packages.map((p) => p.name)).not.toContain("shared");
+    // Exactly one: the fixture's proxy and JSON-module sources resolve to their own packages.
     expect(unresolved).toEqual([{ name: "shared", source: "../../../../node_modules/shared/src/utils/x.ts" }]);
+  });
+});
+
+describe("attributeUnresolved", () => {
+  let owned;
+  beforeAll(() => {
+    owned = join(tmp, "owned", "node_modules");
+    writeInstalled(owned, { climber: { name: "climber", version: "5.4.0" }, plain: { name: "plain", version: "1.0.0" } });
+    writeMaps(owned, {
+      "climber/dist/cjs/index.cjs.map": { version: 3, sources: ["../../../src/utils.ts"], names: [], mappings: "" },
+      "plain/dist/index.js.map": { version: 3, sources: ["../src/index.ts"], names: [], mappings: "" },
+    });
+  });
+  const src = { name: "src", source: "turbopack:///[project]/node_modules/src/utils.ts" };
+
+  it("credits a path to the owner whose own maps climb out to it, once", async () => {
+    const out = await attributeUnresolved([src, { ...src, source: "x" }], owned, { src: { owner: "climber" } });
+    expect(out).toEqual({ packages: [{ name: "climber", version: "5.4.0", dir: join(owned, "climber") }], problems: [] });
+  });
+
+  it("names a path no owner is listed for, with the source that named it", async () => {
+    const out = await attributeUnresolved([src], owned, {});
+    expect(out.packages).toEqual([]);
+    expect(out.problems).toEqual([`A source map names a package that is not installed: src (from ${src.source})`]);
+  });
+
+  it("refuses an owner that is not installed", async () => {
+    const out = await attributeUnresolved([src], owned, { src: { owner: "ghost" } });
+    expect(out.packages).toEqual([]);
+    expect(out.problems).toEqual([expect.stringMatching(/credited to ghost, which is not installed/)]);
+  });
+
+  it("refuses an owner whose maps do not point there", async () => {
+    const out = await attributeUnresolved([src], owned, { src: { owner: "plain" } });
+    expect(out.packages).toEqual([]);
+    expect(out.problems).toEqual([expect.stringMatching(/credited to plain, but no map inside plain points there/)]);
   });
 });
 
