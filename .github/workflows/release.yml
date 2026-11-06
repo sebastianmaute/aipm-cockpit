@@ -1,6 +1,6 @@
 # Builds and publishes a desktop release when a v* tag is pushed.
 # Design: docs/superpowers/specs/2026-09-24-releases-and-updates-design.md
-# Jobs: guard -> build -> sign-app -> repackage -> sign-installer -> finalize -> publish.
+# Jobs: guard -> build -> sign-app -> repackage -> sign-installer -> finalize -> attest-signature -> publish.
 # ★ Only `publish` can write and it installs no packages. The owner approves each release ONCE:
 #   `sign-app` runs in the `release` environment, which pauses for the owner's approval (a
 #   required-reviewer rule on it has been active since flip step 10a, when the repository went
@@ -13,7 +13,8 @@
 #   downloaded build tool: an action's files sit in the job's writable work folder, so build code
 #   running in a token job could rewrite the SignPath action and capture the token. Everything
 #   that runs build tooling -- electron-builder's repackage, the blockmap rewrite, js-yaml -- runs
-#   in `repackage` and `finalize`, which read no secret.
+#   in `repackage` and `finalize`, which read no secret. Whether the release notes call the
+#   installer signed is decided after them, by `attest-signature`, which runs no installed package.
 #   Beside that pause, what stands in front of `publish` -- and so in front of every installed
 #   copy's auto-update while the installer is unsigned -- is the tag
 #   ruleset (only the owner/admin role can create, move or delete a `refs/tags/v*`), the `guard`
@@ -384,8 +385,6 @@ jobs:
     if: ${{ !cancelled() && needs.guard.result == 'success' && needs.build.result == 'success' && needs.sign-app.result == 'success' && (vars.SIGNPATH_ENABLED != 'true' || (needs.repackage.result == 'success' && needs.sign-installer.result == 'success')) }}
     runs-on: windows-latest
     timeout-minutes: 30
-    outputs:
-      signed: ${{ steps.signed.outputs.signed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -441,15 +440,6 @@ jobs:
           FEED: ${{ runner.temp }}/feed/app-update.yml
           FILE: ${{ runner.temp }}/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
         run: node scripts/release-verify-signature.mjs --feed "$FEED" "$FILE"
-      # What the release notes say (publish's RELEASE_SIGNED): true only when the check above ran
-      # and passed in this run, false when it was skipped (signing off). A failed check fails the
-      # job, so publish never runs.
-      - name: Record whether the installer is signed
-        id: signed
-        shell: bash
-        env:
-          CHECKED: ${{ steps.installer-signature.outcome == 'success' }}
-        run: echo "signed=$CHECKED" >> "$GITHUB_OUTPUT"
       # On every release, signing on or off: exit 1 (unsigned after a signed release) and exit 2
       # (cannot decide) both fail the step.
       - name: No unsigned release after a signed one
@@ -473,12 +463,76 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  # On every release. A second look at the final installer that rests on no npm package: finalize
+  # installs the desktop packaging tools and runs them in-process, so a compromised dependency there
+  # could swap the setup after finalize's own signature check. This job checks nothing out, installs
+  # nothing and runs no node. It downloads `release-final` exactly as publish will, and with Windows
+  # PowerShell alone requires the setup's bytes to be the ones latest.yml records (SHA-512) and its
+  # Authenticode signature to be Valid with the signer the update feed names (PUBLISHER, the value
+  # scripts/release-update-feed.mjs writes; scripts/ci-workflow.test.mjs holds the two equal).
+  # Its `signed` output is what the release notes say (publish's RELEASE_SIGNED): true only when the
+  # check ran and passed in this run, false when it was skipped (signing off). A failed check fails
+  # the job, so publish never runs. Reads no secret.
+  # ★ Explicit `if:` for the same reason as finalize's: with signing off, two of its ancestors are
+  # skipped, and the default condition would skip this job as well.
+  attest-signature:
+    needs: [guard, finalize]
+    if: ${{ !cancelled() && needs.guard.result == 'success' && needs.finalize.result == 'success' }}
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      signed: ${{ steps.signed.outputs.signed }}
+    steps:
+      - name: Download the final files
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-final
+          path: ${{ runner.temp }}/release
+      - name: The final installer is the file latest.yml records, validly signed by the feed's publisher
+        id: attest
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        shell: powershell
+        env:
+          DIR: ${{ runner.temp }}/release
+          VERSION: ${{ needs.guard.outputs.version }}
+          PUBLISHER: SignPath Foundation
+        run: |
+          $name = "aipm-cockpit-$env:VERSION-setup.exe"
+          $exe = Join-Path $env:DIR $name
+          $feed = Join-Path $env:DIR 'latest.yml'
+          if (-not (Test-Path -LiteralPath $exe)) { Write-Output "attest: $name is missing from release-final"; exit 1 }
+          if (-not (Test-Path -LiteralPath $feed)) { Write-Output "attest: latest.yml is missing from release-final"; exit 1 }
+          $text = [System.IO.File]::ReadAllText($feed)
+          if ($text -cnotmatch "(?m)^path: *$([regex]::Escape($name))\r?$") { Write-Output "attest: latest.yml's path is not $name"; exit 1 }
+          $recorded = @()
+          foreach ($m in [regex]::Matches($text, '(?m)^ *sha512: *(\S+)\r?$')) { if ($recorded -cnotcontains $m.Groups[1].Value) { $recorded += $m.Groups[1].Value } }
+          if ($recorded.Count -ne 1) { Write-Output "attest: latest.yml must record one sha512 for $name, found $($recorded.Count) distinct values"; exit 1 }
+          $stream = [System.IO.File]::OpenRead($exe)
+          try { $actual = [Convert]::ToBase64String([System.Security.Cryptography.SHA512]::Create().ComputeHash($stream)) } finally { $stream.Dispose() }
+          if ($actual -cne $recorded[0]) { Write-Output "attest: $name has sha512 $actual, latest.yml records $($recorded[0])"; exit 1 }
+          $sig = Get-AuthenticodeSignature -LiteralPath $exe
+          if ($sig.Status -ne 'Valid') { Write-Output "attest: $name's signature status is $($sig.Status), not Valid"; exit 1 }
+          $subject = $sig.SignerCertificate.Subject
+          $cn = $null
+          foreach ($part in $subject.Split(',')) { $kv = $part.Trim(); if ($kv.StartsWith('CN=')) { $cn = $kv.Substring(3); break } }
+          if ($cn -cne $env:PUBLISHER) { Write-Output "attest: $name is signed by '$subject', whose CN is not exactly $env:PUBLISHER"; exit 1 }
+          Write-Output "attest: $name matches latest.yml and is Valid-signed by '$subject'"
+      - name: Record whether the installer is signed
+        id: signed
+        shell: bash
+        env:
+          CHECKED: ${{ steps.attest.outcome == 'success' }}
+        run: echo "signed=$CHECKED" >> "$GITHUB_OUTPUT"
+
   # No environment here: the owner's approval was given at `sign-app`, which finalize needs.
   # ★ Explicit `if:` for the same reason as finalize's: with signing off, two of its ancestors are
   # skipped, and the default condition would skip publish as well.
   publish:
-    needs: [guard, finalize]
-    if: ${{ !cancelled() && needs.guard.result == 'success' && needs.finalize.result == 'success' }}
+    needs: [guard, finalize, attest-signature]
+    if: ${{ !cancelled() && needs.guard.result == 'success' && needs.finalize.result == 'success' && needs.attest-signature.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -519,8 +573,8 @@ jobs:
       - name: Publish the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          # finalize's signature check decides the signed or unsigned notice, not the switch.
-          RELEASE_SIGNED: ${{ needs.finalize.outputs.signed }}
+          # attest-signature's check decides the signed or unsigned notice, not the switch.
+          RELEASE_SIGNED: ${{ needs.attest-signature.outputs.signed }}
           TAG: ${{ github.ref_name }}
           DIR: ${{ runner.temp }}/release
         run: npm run release:publish -- "$DIR" "$TAG"

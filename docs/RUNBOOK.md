@@ -251,7 +251,7 @@ go direct. That older release also ignores the `ai` value of
 3. The `release` workflow (`.github/workflows/release.yml`) runs `guard` →
    `build` (Windows, ~20-30 min — installs dependencies, builds the app and the
    installer, uploads it as a workflow artifact) → `sign-app` → `repackage` →
-   `sign-installer` → `finalize` → `publish`. `sign-app` runs in the `release`
+   `sign-installer` → `finalize` → `attest-signature` → `publish`. `sign-app` runs in the `release`
    environment, which pauses for the owner's approval — the only one per
    release: when `build` finishes, open the run's Actions page → "Review
    deployments" → approve `release`. Nothing after it starts before that
@@ -269,8 +269,12 @@ go direct. That older release also ignores the `ai` value of
    read the SignPath token run no build code at all (`scripts/ci-workflow.test.mjs`
    fails any that does). The
    release notes then carry the signed text with SignPath's attribution in
-   place of the unsigned notice: `finalize`'s `signed` output is `true` only when
-   that check passed, and `publish` passes it to `release:publish`.
+   place of the unsigned notice. That is decided by `attest-signature`, a job
+   that installs nothing and runs no `node`: in Windows PowerShell alone it
+   checks that the final installer is the file `latest.yml` records (SHA-512)
+   and that Windows reports its signature `Valid` with the signer the update
+   feed names. Its `signed` output is `true` only when that check passed, and
+   `publish` passes it to `release:publish`; a failed check stops the release.
    `finalize` refuses an unsigned installer once a signed release has shipped
    (`release-signing-guard`, exit 1; exit 2 = could not decide, also a failure —
    re-run the job, which needs no new approval (see "Re-running a failed
@@ -287,7 +291,7 @@ go direct. That older release also ignores the `ai` value of
    run paused waiting for approval occupies that same slot). A cancelled run just needs a re-run of its tag's workflow.
    **Re-running a failed job** ("Re-run failed jobs" on the run page) keeps the
    jobs that succeeded, and the files they passed on are kept 7 days. Re-running
-   a failed `sign-installer`, `finalize` or `publish` reuses the run's earlier
+   a failed `sign-installer`, `finalize`, `attest-signature` or `publish` reuses the run's earlier
    approval — none of them names the `release` environment — and a re-run
    `sign-installer` reads the SignPath token again (and submits a new signing
    request). Re-running a failed `sign-app` asks for the approval again, and so

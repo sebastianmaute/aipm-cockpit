@@ -205,7 +205,7 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
 - The feed is the public GitHub Releases `latest.yml`. The installer is code-signed through SignPath
   Foundation only from the first release the signing jobs sign; before that it is unsigned, and what
   stands in for signing is recorded beside `RELEASES_URL` in `lib/constants.ts` and in §487/§563. Each
-  release's notes say which (the `finalize` job's `signed` output, [`ci.md`](ci.md)). The uninstaller is
+  release's notes say which (the `attest-signature` job's `signed` output, [`ci.md`](ci.md)). The uninstaller is
   not signed (§793). ★★ Two transition gaps, both by design of electron-updater, not of this code: a
   copy installed from an unsigned release has no `publisherName`, so it takes the first signed update
   unchecked; and an installer already downloaded into the updater's cache is installed from there
