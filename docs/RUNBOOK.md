@@ -296,6 +296,12 @@ this is done; the README's "Code signing policy" is the public side of it.
 - [ ] Apply to SignPath Foundation's open-source programme for this
       repository, and enable multi-factor authentication on the SignPath
       account (and on the GitHub account that approves releases).
+- [ ] In SignPath, create the project for this repository and its signing
+      policy; their slugs become `SIGNPATH_PROJECT_SLUG` and `SIGNPATH_SIGNING_POLICY_SLUG`.
+- [ ] Connect GitHub to SignPath as the project's trusted build system, as
+      SignPath's documentation for its GitHub integration describes, so that
+      signing requests are accepted only from this repository's workflow
+      runs and their artifacts. The `sign` job's submit action relies on it.
 - [ ] In SignPath, create the artifact configurations `installer` (a zip
       holding the setup exe) and `app` (a zip holding the packaged app's PE
       files; needed only with `SIGNPATH_SIGN_APP_EXE`). The slugs must be
@@ -303,9 +309,10 @@ this is done; the README's "Code signing policy" is the public side of it.
 - [ ] Add the secret `SIGNPATH_API_TOKEN` to the `release` environment
       (Settings → Environments → `release`), not to the repository.
 - [ ] Add the repository variables `SIGNPATH_ORGANIZATION_ID`,
-      `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG` and
-      `SIGNPATH_SIGN_APP_EXE` (`true` to sign the app's own executables too),
-      then `SIGNPATH_ENABLED` = `true` last. They are repository variables,
+      `SIGNPATH_PROJECT_SLUG` and `SIGNPATH_SIGNING_POLICY_SLUG`. Optionally
+      add `SIGNPATH_SIGN_APP_EXE` = `true` to sign the app's own executables
+      too; left unset, only the setup is signed. Then set
+      `SIGNPATH_ENABLED` = `true` last. They are repository variables,
       because `build` reads `SIGNPATH_ENABLED` and runs in no environment.
 - [ ] Add the `sbom` check (ci.yml's `sbom` job) to the `main` ruleset's
       required checks, or a red SBOM run blocks nothing.

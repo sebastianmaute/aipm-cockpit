@@ -173,9 +173,11 @@ Signing is switched on per release by the maintainer; releases published before 
 are not code-signed, and each release's notes say whether its installer is signed. On a signed
 installer, Windows shows the publisher as **SignPath Foundation**.
 
-- **What is signed:** the setup program (`aipm-cockpit-<version>-setup.exe`) and the app's own
-  executables inside it. The uninstaller that setup installs is not signed yet
-  ([#951](https://github.com/sebastianmaute/aipm-cockpit/issues/951)).
+- **What is signed:** the setup program (`aipm-cockpit-<version>-setup.exe`) on every signed
+  release. The app's own executables inside it (`AI PM Cockpit.exe` among them) are signed too
+  when the maintainer has switched that on as well; to see whether a release's are, check the
+  installed `AI PM Cockpit.exe` the same way as the installer below. The uninstaller that setup
+  installs is not signed yet ([#951](https://github.com/sebastianmaute/aipm-cockpit/issues/951)).
 - **How it is built:** only by this repository's [release workflow](.github/workflows/release.yml) on
   GitHub Actions, from a version tag on `main`. The workflow submits the files to SignPath and checks the
   returned signature before anything is published; once a signed release has shipped, it refuses to
@@ -195,19 +197,28 @@ installer, Windows shows the publisher as **SignPath Foundation**.
 **Verifying a download.** In Explorer, open the installer's **Properties → Digital Signatures**: the
 signer must be *SignPath Foundation*. In PowerShell,
 `Get-AuthenticodeSignature .\aipm-cockpit-<version>-setup.exe` must report `Valid` with
-`CN=SignPath Foundation` in the signer. Every release, signed or not, also carries GitHub attestations
-made by the release workflow, for the installer's build provenance and for its SBOM
-(`aipm-cockpit-<version>-sbom.cdx.json`, the list of every third-party package the app ships):
+`CN=SignPath Foundation` in the signer.
+
+A release that lists an SBOM, `aipm-cockpit-<version>-sbom.cdx.json` (the list of every third-party
+package the app ships), among its files also carries GitHub attestations made by the release workflow,
+signed or not: build provenance for each of its files, the SBOM included, and an SBOM attestation for
+the installer. Check the installer's provenance, the installer's SBOM attestation, and the SBOM file
+you downloaded:
 
     gh attestation verify aipm-cockpit-<version>-setup.exe --repo sebastianmaute/aipm-cockpit
     gh attestation verify aipm-cockpit-<version>-setup.exe --repo sebastianmaute/aipm-cockpit --predicate-type https://cyclonedx.org/bom
+    gh attestation verify aipm-cockpit-<version>-sbom.cdx.json --repo sebastianmaute/aipm-cockpit
 
 ## Privacy statement
 
-The desktop installer shows the same statement on a page of its own.
+This statement is about the desktop app, which the installer shows on a page of its own. On a web
+deployment of the app, requests to Jira, Confluence, Timelog, the speech-to-text service, the European
+Central Bank, and to Anthropic when the operator routes AI through a gateway or restricts it to the
+organisation's keys, go through that deployment's own server, which forwards them; the tokens and keys
+they need pass through it too.
 
 <!-- privacy-statement:start -->
-AI PM Cockpit needs no account and has no backend that stores your data. Your projects stay on this computer unless you choose online storage. The app sends no telemetry, no usage analytics and no crash reports.
+AI PM Cockpit needs no account and has no backend that stores your data. Your projects stay on this computer unless you choose online storage (Turso or SharePoint). The app sends no telemetry, no usage analytics and no crash reports.
 
 It connects to these services, each only for the purpose named here:
 
@@ -217,7 +228,12 @@ It connects to these services, each only for the purpose named here:
 Only when you set them up yourself:
 
 - Turso, which stores your projects online if you choose Turso storage. Choose local storage in Settings > Storage to stop.
-- Microsoft 365 (Microsoft Graph and the Microsoft sign-in service), for your Outlook calendar and contacts and for SharePoint files, after you sign in. Sign out in Settings > Integrations.
+- Microsoft 365, through Microsoft Graph and the Microsoft sign-in service, after you sign in with your Microsoft account. Sign out in Settings > Integrations to stop all of these:
+  - SharePoint as project storage, if you choose it: your projects are read from and saved to the SharePoint document library you pick. Choose local storage in Settings > Storage to stop.
+  - SharePoint documents you browse to or attach by link.
+  - Your Outlook calendar and contacts, read when you import absences, meetings or people, and the events the app put in your calendar, read back to pick up changes.
+  - Calendar events the app creates, updates and removes in your Outlook calendar for the milestones, meetings and tasks you choose to push there.
+  - E-mail in your name: a draft saved in your mailbox, or a message sent from it, only when you ask for it (status updates and other messages, meeting reports, the digest).
 - Jira and Confluence, for the Jira projects you sync and the Confluence pages you import. Remove the Jira token in Settings > Integrations to stop.
 - Timelog, for your time bookings. Remove the Timelog token in Settings > Integrations to stop.
 - A speech-to-text service you name, for the audio you record with cloud dictation. Choose browser dictation, or remove the service's key, in the dictation settings to stop.

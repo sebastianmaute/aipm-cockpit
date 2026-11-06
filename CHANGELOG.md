@@ -171,14 +171,15 @@ longer carries its own changelog comment.
   its version and licence; the release workflow attests it against the installer, so
   `gh attestation verify … --predicate-type https://cyclonedx.org/bom` checks it. The full licence texts are
   installed as `THIRD-PARTY-NOTICES.txt` in the installation folder and linked from Help. No source map ships in the
-  installer any more. The release workflow can now have SignPath Foundation sign the installer and the app's own
-  executables; it stays off until the maintainer switches it on, each release's notes say whether its installer is
+  installer any more. The release workflow can now have SignPath Foundation sign the installer and, optionally, the app's
+  own executables; it stays off until the maintainer switches it on, each release's notes say whether its installer is
   signed, and once a signed release has shipped an unsigned one is refused. A copy installed from a signed release
   installs only updates signed by SignPath Foundation, and otherwise offers the Releases page for a manual download.
-  The uninstaller is not signed yet (#951). The installer shows a privacy statement, also in the README: what the
+  The uninstaller is not signed yet (§792). The installer shows a privacy statement, also in the README: what the
   app sends, to whom, and how to switch each connection off; it sends no telemetry. The README's "Code signing
   policy" explains how to check a download and the limits while releases move to signing. Pull requests get a new
-  required check, `sbom`, which builds the SBOM from a real build.
+  CI check, `sbom`, which builds the SBOM from a real build; it blocks a merge only once the maintainer adds it to
+  the `main` ruleset's required checks, which the RUNBOOK's signing setup lists.
 
 ### Changed
 

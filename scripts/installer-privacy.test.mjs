@@ -1,7 +1,7 @@
 // The privacy statement: one text, shown on the installer's privacy page and in the README, and
 // naming every service the app can reach. The installer itself is built only in the release
 // workflow, so what this can pin is the input makensis is given, not the rendered page.
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const read = (p) => readFileSync(p, "utf8").replace(/\r\n/g, "\n");
@@ -15,6 +15,15 @@ describe("the installer's privacy page", () => {
     // Printable ASCII and newlines only: no encoding makensis might assume can misread it.
     expect(TEXT).toMatch(/^[\x20-\x7e\n]+$/);
     expect(TEXT.endsWith("\n")).toBe(true);
+  });
+
+  // makensis passes the file to the license page's RichEdit control as it is; .gitattributes pins
+  // it to CRLF so every line break shows.
+  it("has Windows line endings, pinned by .gitattributes", () => {
+    const raw = readFileSync("desktop/installer-privacy.txt", "utf8");
+    expect(raw).toContain("\r\n");
+    expect(raw).not.toMatch(/(?<!\r)\n/);
+    expect(read(".gitattributes")).toMatch(/^desktop\/\*\* text eol=lf\n(?:#.*\n)*desktop\/installer-privacy\.txt text eol=crlf$/m);
   });
 
   it("is a license page fed from that file, after the welcome page, with a Next button", () => {
@@ -36,7 +45,12 @@ describe("the installer's privacy page", () => {
     const eb = read("desktop/electron-builder.yml");
     expect(eb).toMatch(/^ {2}include: installer\.nsh$/m);
     expect(eb).not.toMatch(/^ {2}license:/m);
-    expect(readdirSync("desktop").filter((f) => /^(license|eula)_/i.test(f))).toEqual([]);
+    // electron-builder turns any license*/eula* file in its resources directory (desktop/build,
+    // when there is one) into a page of its own; desktop/ itself is checked too.
+    for (const dir of ["desktop", "desktop/build"]) {
+      const files = existsSync(dir) ? readdirSync(dir) : [];
+      expect(files.filter((f) => /^(license|eula)/i.test(f)), dir).toEqual([]);
+    }
   });
 });
 
@@ -101,5 +115,49 @@ describe("the statement names every service the app can reach", () => {
     expect(TEXT).toMatch(/^- GitHub, to check for updates/m);
     expect(TEXT).toContain("AIPM_DISABLE_UPDATE_CHECK");
     expect(TEXT).toContain("no telemetry");
+  });
+});
+
+// Naming Microsoft is not enough: each Graph permission the app asks for is a purpose the statement
+// must describe. A permission added without a line here fails.
+describe("the statement says what each Microsoft Graph permission is used for", () => {
+  const PURPOSE_FOR_SCOPE = {
+    "User.Read": "after you sign in with your Microsoft account",
+    "Files.ReadWrite.All": "SharePoint as project storage, if you choose it: your projects are read from and saved to",
+    "Sites.Read.All": "SharePoint documents you browse to",
+    "Calendars.Read": "Your Outlook calendar and contacts, read when you import",
+    "Contacts.Read": "Your Outlook calendar and contacts, read when you import",
+    "Calendars.ReadWrite": "Calendar events the app creates, updates and removes in your Outlook calendar",
+    "Mail.ReadWrite": "a draft saved in your mailbox",
+    "Mail.Send": "a message sent from it",
+  };
+  const sources = (dir) => readdirSync(dir, { recursive: true })
+    .filter((f) => /\.(ts|tsx)$/.test(f) && !/\.(test|spec)\.|[\\/]__/.test(f))
+    .map((f) => readFileSync(`${dir}/${f}`, "utf8"))
+    .join("\n");
+  const SRC = sources("src/app");
+  const scopes = [...new Set(SRC.match(/"(?:User|Mail|Calendars|Contacts|Files|Sites|People|Chat|Team|Tasks|Notes)\.[A-Za-z.]+"/g) ?? [])]
+    .map((s) => s.slice(1, -1));
+
+  it("every permission requested in src/app", () => {
+    // Positive controls: storage and sending mail.
+    expect(scopes).toContain("Files.ReadWrite.All");
+    expect(scopes).toContain("Mail.Send");
+    for (const s of scopes) {
+      expect(PURPOSE_FOR_SCOPE[s], `${s} has no purpose in this test's list`).toBeDefined();
+      expect(TEXT, s).toContain(PURPOSE_FOR_SCOPE[s]);
+    }
+  });
+
+  it("SharePoint is online storage, with how to stop it, and mail is sent in the user's name", () => {
+    expect(TEXT).toMatch(/unless you choose online storage \(Turso or SharePoint\)/);
+    expect(TEXT).toMatch(/SharePoint as project storage[^\n]*Choose local storage in Settings > Storage to stop\./);
+    expect(TEXT).toMatch(/E-mail in your name/);
+    expect(TEXT).toMatch(/Microsoft account\. Sign out in Settings > Integrations to stop all of these:\n {2}- SharePoint as project storage/);
+  });
+
+  it("documents fetched by a sharing link", () => {
+    expect(SRC).toMatch(/\/shares\/\$\{/);
+    expect(TEXT).toContain("attach by link");
   });
 });

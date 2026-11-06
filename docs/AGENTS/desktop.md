@@ -196,8 +196,11 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   license page relabelled with a Next button (`installer.nsh`), read by makensis from `PROJECT_DIR`. The
   README's "Privacy statement" carries the same text between `privacy-statement` markers, and
   `scripts/installer-privacy.test.mjs` fails when the two differ, when a `connect-src`/`frame-src` host in
-  `src/proxy.ts` or a server route under `src/app/api` has no service named in it, or when the file is
-  not plain ASCII. ★ A new external host or proxy route therefore needs a line in the statement too.
+  `src/proxy.ts` or a server route under `src/app/api` has no service named in it, when a Microsoft Graph
+  permission requested in `src/app` has no purpose described in it, or when the file is not plain ASCII
+  with CRLF line endings (`.gitattributes` pins it to `eol=crlf`, overriding `desktop/**`, so the
+  license page's RichEdit shows each line break). ★ A new external host, proxy route or Graph
+  permission therefore needs a line in the statement too.
   The page itself is seen only in a real release build.
 - The feed is the public GitHub Releases `latest.yml`. The installer is code-signed through SignPath
   Foundation only from the first release the `sign` job signs; before that it is unsigned, and what
@@ -234,7 +237,9 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
 
 ## Open register entries
 
-§462 (no Linux installer) · §479 (1.0.1–1.0.3 never tagged) · §487 and
-§563 (unsigned installer; open until the first signed release) · §792 (unsigned uninstaller) · §547 (the sign-in state machine has no harness) · §561 (fuses confirmed on
-a local package only). Re-list them with
-`grep -nE "^## [0-9]+\..*(desktop|Electron|installer).*OPEN" docs/open-followups.md`.
+§462 (no Linux installer) · §487 and §563 (unsigned installer; open until the first signed
+release) · §629 (the unload journal on a packaged desktop close) · §728 (the splash's German text on a
+packaged build) · §792 (unsigned uninstaller). Re-list them with
+`grep -nE "^## [0-9]+\..*(desktop|Electron|installer)" docs/open-followups.md | grep -v CLOSED`
+(six lines on 2026-11-06). Not every open heading carries the word OPEN (§792's does not), so the
+command drops CLOSED ones instead of matching OPEN.
