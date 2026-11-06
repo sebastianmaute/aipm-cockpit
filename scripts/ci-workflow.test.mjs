@@ -1,10 +1,12 @@
 // @vitest-environment node
 //
-// Textual guard over .github/workflows/*.yml. There is no YAML parser in this repository and one is
-// not added for this: the helpers read the fixed two-space layout these files are written in, and
-// their own tests below pin what they accept and reject. actionlint (in the static job) is the
+// Mostly a textual guard over .github/workflows/*.yml: the helpers read the fixed two-space layout
+// these files are written in, and their own tests below pin what they accept and reject. The release
+// sign path's app-tree checks are asserted on PARSED YAML instead (js-yaml, which only
+// desktop/node_modules holds -- see parsedRelease). actionlint (in the static job) is the
 // structural check; this file pins the repository-specific rules actionlint cannot know.
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { createRequire } from "node:module";
 import { posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GATE_GROUPS, GATE_STEPS } from "./gate-local.mjs";
@@ -82,6 +84,29 @@ const SCHEDULED_PATH = ".github/workflows/scheduled.yml";
 
 const CI = read(".github/workflows/ci.yml");
 const RELEASE = read(".github/workflows/release.yml");
+// release.yml parsed. js-yaml is electron-builder's dependency, so only desktop/node_modules has it
+// (the root copy is nested under date-holidays and not ours to lean on); CI's unit jobs install the
+// desktop packages. Loaded on first use, so a root-only run fails just the parsed tests -- loudly,
+// never by skipping them.
+let releaseDoc = null;
+const parsedRelease = () => {
+  if (releaseDoc) return releaseDoc;
+  let yaml;
+  try {
+    yaml = createRequire(new URL("../desktop/package.json", import.meta.url))("js-yaml");
+  } catch {
+    throw new Error("js-yaml not found: run `npm --prefix desktop ci --ignore-scripts` first");
+  }
+  releaseDoc = yaml.load(RELEASE);
+  return releaseDoc;
+};
+const releaseSteps = (job) => parsedRelease().jobs[job].steps;
+const releaseStep = (job, name) => {
+  const hits = releaseSteps(job).filter((s) => s.name === name);
+  expect(hits, `${job}: ${name}`).toHaveLength(1);
+  return hits[0];
+};
+const releaseStepIndex = (job, name) => releaseSteps(job).indexOf(releaseStep(job, name));
 const REQUIRED = requiredChecksFromDoc(read("docs/AGENTS/ci.md"));
 const lock = JSON.parse(read("package-lock.json"));
 const pkg = JSON.parse(read("package.json"));
@@ -495,6 +520,11 @@ describe("release.yml", () => {
   describe("sign", () => {
     const ON = "if: ${{ vars.SIGNPATH_ENABLED == 'true' }}";
     const ON_APP = "if: ${{ vars.SIGNPATH_ENABLED == 'true' && vars.SIGNPATH_SIGN_APP_EXE == 'true' }}";
+    // The same switch and app-tree path as parsed values.
+    const ON_EXPR = "${{ vars.SIGNPATH_ENABLED == 'true' }}";
+    const APP_DIR_EXPR = "${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}";
+    const REPACKAGE = "Repackage the setup around the app tree";
+    const APP_TREE_CHECK = "The app tree holds the standalone server and its .next build";
     // The update-feed check's .NET pattern, as written inside a PowerShell single-quoted string.
     const PUBLISHER_PS = String.raw`(?m)^publisherName:[ \t]*\r?\n[ \t]+-[ \t]*[''"]?SignPath Foundation[''"]?[ \t]*\r?$`;
     // Comment lines dropped: only the YAML itself is checked.
@@ -546,10 +576,12 @@ describe("release.yml", () => {
 
     it("whenever signing is on, repackages the setup before it is signed", () => {
       const s = step(/--prepackaged/);
-      expect(ifOf(s)).toBe(ON);
-      expect(s).toMatch(/npm run desktop:package -- --prepackaged "\$APP_DIR"/);
+      const p = releaseStep("sign", REPACKAGE);
+      expect(p.if).toBe(ON_EXPR);
+      expect(p.run).toBe('npm run desktop:package -- --prepackaged "$APP_DIR"');
       // The signed app when SIGNPATH_SIGN_APP_EXE is on, the build's packaged app otherwise.
-      expect(s).toContain("APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}");
+      expect(p.env.APP_DIR).toBe(APP_DIR_EXPR);
+      expect(s).toContain(p.name);
       expect(at(/name: Sign the app's own executables/)).toBeLessThan(at(/--prepackaged/));
       expect(at(/--prepackaged/)).toBeLessThan(at(/name: Upload the unsigned installer/));
       expect(at(/name: Upload the unsigned installer/)).toBeLessThan(at(/name: Sign the installer/));
@@ -568,8 +600,37 @@ describe("release.yml", () => {
       expect(s.trimEnd()).toMatch(/\n {8}run: node scripts\/release-update-feed\.mjs "\$APP_DIR"$/);
       expect(at(/name: Download the packaged app/)).toBeLessThan(at(/name: Require the SignPath Foundation signature/));
       expect(at(/name: The app's executable is signed by/)).toBeLessThan(at(/name: Require the SignPath Foundation signature/));
-      const i = steps().indexOf(s);
-      expect(steps()[i + 1]).toMatch(/name: Repackage the setup around the app tree/);
+      expect(releaseStepIndex("sign", "Require the SignPath Foundation signature in the app's update feed") + 1)
+        .toBe(releaseStepIndex("sign", REPACKAGE));
+    });
+
+    // upload-artifact skips dot-folders unless told otherwise, so a packaged app uploaded without
+    // include-hidden-files reaches the sign job without resources/standalone/.next, and the setup
+    // repackaged around it installs an app whose server cannot start. This step refuses such a tree
+    // before the repackage, on the same APP_DIR and in the same shell the repackage uses.
+    it("fails before the repackage unless the app tree holds server.js and .next/BUILD_ID", () => {
+      const c = releaseStep("sign", APP_TREE_CHECK);
+      const p = releaseStep("sign", REPACKAGE);
+      expect(c.if).toBe(ON_EXPR);
+      expect(c.shell).toBe(p.shell);
+      expect(c.env.APP_DIR).toBe(p.env.APP_DIR);
+      expect(c.run).toContain('"$APP_DIR/resources/standalone/server.js"');
+      expect(c.run).toContain('"$APP_DIR/resources/standalone/.next/BUILD_ID"');
+      expect(c.run).toMatch(/\[ -f "\$f" \] \|\| \{ [^}]*exit 1; \}/);
+      const ci = releaseStepIndex("sign", APP_TREE_CHECK);
+      expect(ci).toBeLessThan(releaseStepIndex("sign", REPACKAGE));
+      // After the tree is in place: the download, and the signed copy's check when that is on.
+      expect(releaseStepIndex("sign", "Download the packaged app")).toBeLessThan(ci);
+      expect(releaseStepIndex("sign", "The app's executable is signed by SignPath Foundation")).toBeLessThan(ci);
+    });
+
+    it("uploads the packaged app with its hidden .next folder", () => {
+      const u = releaseStep("build", "Upload the packaged app for the sign job");
+      expect(u.with["include-hidden-files"]).toBe(true);
+      // Every artifact in release.yml that carries the packaged app tree, not just this one.
+      const trees = Object.values(parsedRelease().jobs).flatMap((j) => j.steps)
+        .filter((s) => /^actions\/upload-artifact@/.test(s.uses ?? "") && /unpacked/.test(String(s.with?.path)));
+      expect(trees).toEqual([u]);
     });
 
     // The feed is no longer the build job's to write, so no signed-build marker exists anywhere.
@@ -629,7 +690,11 @@ describe("release.yml", () => {
     it("signs the build's packaged app by the artifact build uploaded, only when signing is on", () => {
       const b = jobBlock(RELEASE, "build").replace(/\r\n/g, "\n");
       expect(b).toMatch(/^ {6}unpacked-artifact-id: \$\{\{ steps\.upload-unpacked\.outputs\.artifact-id \}\}$/m);
-      expect(b).toMatch(/- name: Upload the packaged app for the sign job\n {8}id: upload-unpacked\n {8}if: \$\{\{ vars\.SIGNPATH_ENABLED == 'true' \}\}\n {8}uses: actions\/upload-artifact@[0-9a-f]{40} # v\S+\n {8}with:\n {10}name: unpacked-app\n {10}path: desktop\/release\/win-unpacked\n/);
+      const u = releaseStep("build", "Upload the packaged app for the sign job");
+      expect(u.id).toBe("upload-unpacked");
+      expect(u.if).toBe(ON_EXPR);
+      expect(u.uses).toMatch(/^actions\/upload-artifact@[0-9a-f]{40}$/);
+      expect(u.with).toMatchObject({ name: "unpacked-app", path: "desktop/release/win-unpacked", "include-hidden-files": true });
       expect(step(/name: Sign the app's own executables/)).toMatch(/github-artifact-id: \$\{\{ needs\.build\.outputs\.unpacked-artifact-id \}\}/);
       const inst = step(/name: Sign the installer/);
       expect(inst).toMatch(/github-artifact-id: \$\{\{ steps\.upload-unsigned\.outputs\.artifact-id \}\}/);
@@ -641,7 +706,7 @@ describe("release.yml", () => {
         "Install the desktop packaging tools", "Download the packaged app", "Repackage the setup around the app tree",
         "Upload the unsigned installer", "Sign the installer", "Take the signed installer and rewrite the update feed",
         "The installer is signed by SignPath Foundation", "The repackaged app's updater requires the SignPath Foundation signature",
-        "Require the SignPath Foundation signature in the app's update feed",
+        "Require the SignPath Foundation signature in the app's update feed", APP_TREE_CHECK,
       ]) expect(ifOf(step(new RegExp(`name: ${name}`))), name).toBe(ON);
       expect(ifOf(step(/name: The app's executable is signed by SignPath Foundation/))).toBe(ON_APP);
     });

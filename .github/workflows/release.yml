@@ -164,6 +164,9 @@ jobs:
           retention-days: 7
       # Only when signing is on: the packaged app the sign job repackages (and, with
       # SIGNPATH_SIGN_APP_EXE, submits to SignPath by this artifact's id first).
+      # ★ include-hidden-files: upload-artifact skips dot-folders by default, which would drop
+      # resources/standalone/.next and ship an app whose server cannot start. The sign job checks
+      # for it before repackaging.
       - name: Upload the packaged app for the sign job
         id: upload-unpacked
         if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
@@ -171,6 +174,7 @@ jobs:
         with:
           name: unpacked-app
           path: desktop/release/win-unpacked
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 7
 
@@ -250,6 +254,19 @@ jobs:
           $subject = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { '' }
           Write-Output "signature: $($sig.Status) -- $subject"
           if ($sig.Status -ne 'Valid' -or $subject -notlike '*SignPath Foundation*') { Write-Output "signature check: $env:FILE is not validly signed by SignPath Foundation"; exit 1 }
+      # The packaged app's server needs both files; a tree that lost its hidden .next folder on the
+      # way here (an artifact upload without include-hidden-files) would install an app that cannot
+      # start, so the job stops before repackaging it.
+      - name: The app tree holds the standalone server and its .next build
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        shell: bash
+        env:
+          APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
+        run: |
+          for f in "$APP_DIR/resources/standalone/server.js" "$APP_DIR/resources/standalone/.next/BUILD_ID"; do
+            [ -f "$f" ] || { echo "app-tree check: $f is missing -- the packaged app would not start"; exit 1; }
+          done
+          echo "app-tree check: server.js and .next/BUILD_ID present in $APP_DIR"
       # The tree's resources/app-update.yml is the `build` job's, which names no publisher, and the
       # repackage below writes none. This adds `publisherName: [SignPath Foundation]` to it, keeping
       # every other key, so the signed build's updater refuses any update it cannot verify; it
