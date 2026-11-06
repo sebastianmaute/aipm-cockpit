@@ -1027,6 +1027,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§789](#789-the-browsers-speech-recognition-keeps-listening-in-an-open-tab-after-the-people-protection-lock-is-set) | The browser's speech recognition keeps listening in an open tab after the people-protection lock is set | #937 | — | OPEN |
 | [§790](#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database--closed-2026-11-02) | Converting a local copy back to Turso writes through the wrong layout and may empty a shared database | — | — | **CLOSED** 2026-11-02 |
 | [§791](#791-the-portfolio-flag-stays-on-turso-after-an-in-place-storage-switch-and-its-other-readers-are-unaudited) | The portfolio flag stays on Turso after an in-place storage switch, and its other readers are unaudited | #942 | — | OPEN |
+| [§792](#792-no-test-proves-writesettings-blanks-every-sealed-secret-the-five-fields-are-named-by-hand) | No test proves writeSettings blanks every sealed secret; the five fields are named by hand | #950 | — | OPEN |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46238,3 +46239,15 @@ What it would take: either have an in-place storage switch keep `portfolioMode` 
 Size M.
 
 **Source:** §790, owner decision 2026-11-02 (file it separately).
+
+## 792. No test proves writeSettings blanks every sealed secret; the five fields are named by hand
+
+**Status:** OPEN 2026-11-06, filed from the review of code-scanning alert #65. `writeSettings` (`use-settings.ts`) is the only writer of the settings key in localStorage and blanks each sealed secret before the write. The blanking and its tests both name the five fields by hand (`ai.apiKey`, `integrations.turso.authToken`, `jira.apiToken`, `timelog.apiToken`, `dictation.sttApiKey`; three tests in `use-settings.secrets.test.ts`). A sixth id in `SECRET_IDS` (`secrets.ts`) gets a `SECRET_SETTINGS_PATHS` entry because tsc demands it, but nothing makes `writeSettings` blank it or a test notice, so its decrypted value would be written in clear text on every settings change. CodeQL raised `js/clear-text-storage-of-sensitive-data` on that `setItem` twice (alerts #22 and #65); both were dismissed as false positives because the five fields are blanked today.
+
+**Work item:** #950
+
+What it would take: a `writeSettings` test shaped like "exportConfig redacts EVERY sealed secret" in `recovery-config.test.ts`. Fill every path in `SECRET_SETTINGS_PATHS`, call `writeSettings`, and assert every path reads empty in the stored JSON. Keep a fixture that spells the paths by hand, so a wrong path cannot hide. Optionally, derive the blanking from `SECRET_SETTINGS_PATHS`.
+
+Size S.
+
+**Source:** code-scanning alert #65 review, owner decision 2026-11-06 (dismiss and file).
