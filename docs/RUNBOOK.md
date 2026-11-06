@@ -266,8 +266,8 @@ go direct. That older release also ignores the `ai` value of
    (`release-signing-guard`, exit 1; exit 2 = could not decide, also a failure —
    re-run the job), so after the first signed release signing cannot be
    switched off again. Details in `docs/AGENTS/ci.md`'s `release.yml`
-   section. The required reviewer was added at flip step 10a (2026-09-25). Also standing in front of it: only the owner/admin role can
-   create, move or delete a `refs/tags/v*` (the tag ruleset), the tag must
+   section. The required reviewer exists since 2026-09-25. Also standing in
+   front of it: only the owner/admin role can create, move or delete a `refs/tags/v*` (the tag ruleset), the tag must
    equal `APP_VERSION` and name a commit reachable from `main` (step 2's
    `guard` check), and once published a release is immutable. **Push one release
    tag at a time.** Every run shares one fixed concurrency group, and GitHub
@@ -312,7 +312,10 @@ this is done; the README's "Code signing policy" is the public side of it.
       `SIGNPATH_PROJECT_SLUG` and `SIGNPATH_SIGNING_POLICY_SLUG`. Optionally
       add `SIGNPATH_SIGN_APP_EXE` = `true` to sign the app's own executables
       too; left unset, only the setup is signed. Then set
-      `SIGNPATH_ENABLED` = `true` last. They are repository variables,
+      `SIGNPATH_ENABLED` = `true` last, and BEFORE pushing the tag of the
+      first release to be signed: each job reads it when it starts, so a
+      tag pushed first is released unsigned, and a change during a run
+      leaves `build` and `sign` disagreeing. They are repository variables,
       because `build` reads `SIGNPATH_ENABLED` and runs in no environment.
 - [ ] Add the `sbom` check (ci.yml's `sbom` job) to the `main` ruleset's
       required checks, or a red SBOM run blocks nothing.
