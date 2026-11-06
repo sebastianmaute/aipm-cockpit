@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   INSTALLER_DIR, LATEST_YML, installerName, expectedAssets, releaseTitle, changelogSection,
   releaseNotes, unwrapMarkdown, parseLatestYml, checkLatestYml, classifyRelease, verifyDraft,
-  sbomName, checkSbom,
+  sbomName, checkSbom, SIGNPATH_LINE, parseSignedFlag,
 } from "./release-publish-lib.mjs";
 
 const SHA512 = "A".repeat(86) + "==";
@@ -58,11 +58,46 @@ describe("release notes", () => {
     expect(changelogSection(CHANGELOG, "9.9.9")).toBeNull();
   });
   it("appends the unsigned-installer notice and refuses a missing section", () => {
-    const notes = releaseNotes(CHANGELOG, "1.14.0");
+    const notes = releaseNotes(CHANGELOG, "1.14.0", { signed: false });
     expect(notes.startsWith("Auto-update arrives.")).toBe(true);
     expect(notes).toMatch(/not code-signed/);
     expect(notes).toMatch(/SmartScreen/);
-    expect(() => releaseNotes(CHANGELOG, "9.9.9")).toThrow(/CHANGELOG\.md has no section/);
+    expect(() => releaseNotes(CHANGELOG, "9.9.9", { signed: false })).toThrow(/CHANGELOG\.md has no section/);
+  });
+  // The unsigned text is byte for byte what every release before code signing carried.
+  it("leaves an unsigned release's notes exactly as they were", () => {
+    expect(releaseNotes(CHANGELOG, "1.14.0", { signed: false })).toBe([
+      "Auto-update arrives.", "", "### Added", "", "- Updates.", "",
+      "---", "",
+      "The installer is not code-signed, so Windows SmartScreen shows a prompt on first run: "
+        + "**More info → Run anyway**. It installs for the current user and needs no admin rights. "
+        + "Installed copies from 1.14.0 on check this page for updates and ask before installing one. "
+        + "Verify a download with `gh attestation verify <file> --repo sebastianmaute/aipm-cockpit`.",
+      "",
+    ].join("\n"));
+  });
+  it("gives a signed release the SignPath line, verbatim, in place of the unsigned notice", () => {
+    expect(SIGNPATH_LINE).toBe("Free code signing provided by SignPath.io, certificate by SignPath Foundation");
+    const notes = releaseNotes(CHANGELOG, "1.14.0", { signed: true });
+    expect(notes.startsWith("Auto-update arrives.\n\n### Added\n\n- Updates.\n\n---\n")).toBe(true);
+    // Its own paragraph, never joined onto the line before it.
+    expect(notes.endsWith(`\n\n${SIGNPATH_LINE}\n`)).toBe(true);
+    expect(notes).toMatch(/publisher as \*\*SignPath Foundation\*\*/);
+    expect(notes).toMatch(/gh attestation verify <file> --repo sebastianmaute\/aipm-cockpit/);
+    expect(notes).not.toMatch(/not code-signed|SmartScreen|Run anyway/);
+  });
+  // The caller must say which: a forgotten flag must not fall back to either text.
+  it("refuses notes when it is not told whether the installer is signed", () => {
+    for (const opts of [undefined, {}, { signed: "true" }, { signed: 1 }, { signed: null }]) {
+      expect(() => releaseNotes(CHANGELOG, "1.14.0", opts), JSON.stringify(opts)).toThrow(/signed/);
+    }
+  });
+  it("reads the sign job's output: exactly 'true' or 'false', anything else refused", () => {
+    expect(parseSignedFlag("true")).toBe(true);
+    expect(parseSignedFlag("false")).toBe(false);
+    for (const v of [undefined, "", "TRUE", " true", "1", "yes", "skipped"]) {
+      expect(() => parseSignedFlag(v), String(v)).toThrow(/RELEASE_SIGNED/);
+    }
   });
   // GitHub renders every newline in a release body as <br>, so a CHANGELOG hard-wrapped at ~100
   // columns showed as broken lines on the release page and in the desktop update dialog (1.14.0).
@@ -109,7 +144,7 @@ describe("release notes", () => {
   });
   it("publishes notes with no line that continues the one before it", () => {
     const cl = ['## [2.0.0] - 2026-10-01 "X"', "", "First line of a", "wrapped paragraph.", "", "- An item", "  wrapped.", ""].join("\n");
-    const notes = releaseNotes(cl, "2.0.0");
+    const notes = releaseNotes(cl, "2.0.0", { signed: false });
     expect(notes).toMatch(/^First line of a wrapped paragraph\.\n\n- An item wrapped\.\n/);
     expect(notes).toMatch(/on first run: \*\*More info → Run anyway\*\*\. It installs/);
   });

@@ -678,6 +678,29 @@ describe("release.yml", () => {
       expect(RELEASE).not.toMatch(/continue-on-error/);
       expect(g).not.toMatch(/\|\||; *exit 0|\$LASTEXITCODE/);
     });
+
+    // The release notes call the installer signed only when its Authenticode check passed in this
+    // run: the switch alone does not decide. Skipped (switch off) or anything but success is false;
+    // a failed check fails the job, so publish never runs.
+    it("outputs signed=true only after the installer's signature check passed, and publish passes it on", () => {
+      expect(sign()).toMatch(/^ {4}outputs:\n {6}signed: \$\{\{ steps\.signed\.outputs\.signed \}\}\n {4}steps:$/m);
+      const check = step(/name: The installer is signed by SignPath Foundation/);
+      expect(check).toMatch(/^ {8}id: installer-signature$/m);
+      const rec = step(/name: Record whether the installer is signed/);
+      expect(rec).toMatch(/^ {8}id: signed$/m);
+      expect(ifOf(rec)).toBeNull();
+      expect(rec).toMatch(/^ {8}shell: bash$/m);
+      expect(rec).toMatch(/^ {10}CHECKED: \$\{\{ steps\.installer-signature\.outcome == 'success' \}\}$/m);
+      expect(rec.trimEnd()).toMatch(/\n {8}run: echo "signed=\$CHECKED" >> "\$GITHUB_OUTPUT"$/);
+      // Nothing else writes the output.
+      expect(sign().match(/signed=/g)).toHaveLength(1);
+      expect(at(/name: The installer is signed by/)).toBeLessThan(at(/name: Record whether the installer is signed/));
+      expect(at(/name: Record whether the installer is signed/)).toBeLessThan(at(/name: release-final/));
+      const pub = code(jobBlock(RELEASE, "publish").replace(/\r\n/g, "\n"));
+      const publishStep = pub.split(/\n(?= {6}- )/).find((s) => /npm run release:publish -- /.test(s));
+      expect(publishStep).toMatch(/^ {10}RELEASE_SIGNED: \$\{\{ needs\.sign\.outputs\.signed \}\}$/m);
+      expect(pub.match(/RELEASE_SIGNED/g)).toHaveLength(1);
+    });
   });
 
   it("guards the tag against APP_VERSION and main before building", () => {

@@ -98,6 +98,29 @@ export const UNSIGNED_NOTICE = [
   "Verify a download with `gh attestation verify <file> --repo sebastianmaute/aipm-cockpit`.",
 ].join("\n");
 
+/** SignPath Foundation's attribution, verbatim, as its terms for open-source projects ask. */
+export const SIGNPATH_LINE = "Free code signing provided by SignPath.io, certificate by SignPath Foundation";
+
+/** Replaces UNSIGNED_NOTICE when the sign job's Authenticode check passed in this run. */
+export const SIGNED_NOTICE = [
+  "---",
+  "",
+  "The installer is code-signed: Windows shows its publisher as **SignPath Foundation**.",
+  "It installs for the current user and needs no admin rights. The uninstaller it installs is not signed yet.",
+  "Installed copies from 1.14.0 on check this page for updates and ask before installing one; a copy",
+  "installed from a signed release installs an update only if it is signed by SignPath Foundation.",
+  "Verify a download with `gh attestation verify <file> --repo sebastianmaute/aipm-cockpit`.",
+  "",
+  SIGNPATH_LINE,
+].join("\n");
+
+/** The sign job's `signed` output, as the publish step receives it in RELEASE_SIGNED. */
+export function parseSignedFlag(value) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`RELEASE_SIGNED must be "true" or "false" (the sign job's signed output), got ${JSON.stringify(value)}`);
+}
+
 // A line that starts a markdown block of its own: a list item, heading, quote, fence, table row,
 // raw HTML, a rule or a setext underline.
 const BLOCK_START_RE = /^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|>|```|~~~|\||<|(?:-{3,}|\*{3,}|_{3,}|={3,})\s*$)/;
@@ -128,12 +151,16 @@ export function unwrapMarkdown(text) {
   return out.join("\n");
 }
 
-export function releaseNotes(changelog, version) {
+/** `signed` must be stated: true only when the sign job checked the installer's signature. */
+export function releaseNotes(changelog, version, { signed } = {}) {
+  if (typeof signed !== "boolean") {
+    throw new Error(`releaseNotes needs signed: true or false, got ${JSON.stringify(signed)}`);
+  }
   const section = changelogSection(changelog, version);
   if (section === null || section === "") {
     throw new Error(`CHANGELOG.md has no section "## [${version}]" — add it before tagging`);
   }
-  return unwrapMarkdown(`${section}\n\n${UNSIGNED_NOTICE}\n`);
+  return unwrapMarkdown(`${section}\n\n${signed ? SIGNED_NOTICE : UNSIGNED_NOTICE}\n`);
 }
 
 /** Reads the fixed layout electron-builder writes; throws on anything else. */
