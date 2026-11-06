@@ -65,6 +65,28 @@ describe("classifySignature", () => {
   ])("cannot classify %s", (_, sig) => {
     expect(classifySignature(sig)).toBeNull();
   });
+
+  // The installed app accepts an update only when the subject's CN EQUALS the feed's publisher name
+  // (desktop/src/update-signature.ts `signerMatches`, which this guard imports). A subject that
+  // merely CONTAINS the name must not count as signed here either, or a release the app would refuse
+  // to update from could pass as signed and lock the one-way switch.
+  it.each([
+    ["the exact CN", `CN=${SIGNER}, O=${SIGNER}, C=DE`],
+    ["the exact CN, quoted", `CN="${SIGNER}", O=Other, C=DE`],
+    ["the exact CN, spaced around the separators", `O=Other ,  CN=${SIGNER} , C=DE`],
+  ])("is signed with %s", (_, subject) => {
+    expect(classifySignature({ status: "Valid", subject })).toBe("signed");
+  });
+
+  it.each([
+    ["a longer CN", `CN=${SIGNER} Ltd, O=${SIGNER}, C=DE`],
+    ["a CN with a trailing space inside quotes", `CN="${SIGNER} ", O=${SIGNER}, C=DE`],
+    ["a CN in another case", `CN=${SIGNER.toUpperCase()}, O=${SIGNER}, C=DE`],
+    ["the name only in O=", `CN=Someone Else, O=${SIGNER}, C=DE`],
+    ["a quoted CN holding a comma", `CN="${SIGNER}, Inc.", O=Other, C=DE`],
+  ])("cannot classify a Valid signature with %s", (_, subject) => {
+    expect(classifySignature({ status: "Valid", subject })).toBeNull();
+  });
 });
 
 describe("runGuard", () => {

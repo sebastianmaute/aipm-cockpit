@@ -116,8 +116,11 @@ function parseDn(dn: string): Map<string, string> {
 }
 
 /** electron-updater's rule: a name with `=` is a DN and must match the subject on every key it
- *  names; a plain name must equal the subject's CN exactly. */
-function signerMatches(subject: string, publisherNames: string[]): boolean {
+ *  names; a plain name must equal the subject's CN exactly. The release workflow's signature
+ *  checks (scripts/release-verify-signature.mjs) and its one-way guard
+ *  (scripts/release-signing-guard.mjs) use this very function, so CI calls an installer signed
+ *  only by the rule the installed app applies to it. */
+export function signerMatches(subject: string, publisherNames: string[]): boolean {
   const s = parseDn(subject);
   return publisherNames.some((name) => {
     if (!name) return false;

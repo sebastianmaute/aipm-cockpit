@@ -196,6 +196,9 @@ jobs:
   # whether such a hook meets SignPath's trusted-build rules -- see docs/open-followups.md.
   # ★ A signed installer whose updater accepts any update must not ship: the step after the
   # repackage fails the release unless the packed app's update feed requires the signature.
+  # ★ And the final signed setup must pass the installed app's OWN verifier, fed that feed's
+  # publisher names (scripts/release-verify-signature.mjs): a certificate whose CN is not exactly
+  # the name would ship a release that refuses every later update.
   sign:
     needs: [guard, build]
     runs-on: windows-latest
@@ -244,16 +247,14 @@ jobs:
           # The signed packaged app is several hundred MB; the action's 300 s default is too short.
           download-signed-artifact-timeout-in-seconds: 1800
           output-artifact-directory: ${{ runner.temp }}/unpacked-signed
+      # The installed app's own verifier (desktop/src/update-signature.ts) judges the signature: Valid,
+      # and the signer's CN exactly SignPath Foundation. The feed is not written yet, so the name is given.
       - name: The app's executable is signed by SignPath Foundation
         if: ${{ vars.SIGNPATH_ENABLED == 'true' && vars.SIGNPATH_SIGN_APP_EXE == 'true' }}
-        shell: pwsh
+        shell: bash
         env:
           FILE: ${{ runner.temp }}/unpacked-signed/AI PM Cockpit.exe
-        run: |
-          $sig = Get-AuthenticodeSignature -LiteralPath $env:FILE
-          $subject = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { '' }
-          Write-Output "signature: $($sig.Status) -- $subject"
-          if ($sig.Status -ne 'Valid' -or $subject -notlike '*SignPath Foundation*') { Write-Output "signature check: $env:FILE is not validly signed by SignPath Foundation"; exit 1 }
+        run: node scripts/release-verify-signature.mjs --publisher "SignPath Foundation" "$FILE"
       # The packaged app's server needs both files; a tree that lost its hidden .next folder on the
       # way here (an artifact upload without include-hidden-files) would install an app that cannot
       # start, so the job stops before repackaging it.
@@ -340,17 +341,19 @@ jobs:
           if (-not (Test-Path -LiteralPath (Join-Path $env:SIGNED $exe))) { Write-Output "SignPath returned no $exe"; exit 1 }
           Copy-Item -LiteralPath (Join-Path $env:SIGNED $exe) -Destination (Join-Path $env:FINAL $exe) -Force
           node scripts/release-latest-yml.mjs "$env:FINAL" "$env:VERSION"
-      - name: The installer is signed by SignPath Foundation
+      # The final signed setup, judged by the installed app's own verifier (verifyUpdateSignature in
+      # desktop/src/update-signature.ts) against the publisher names in the repackaged app's
+      # resources/app-update.yml -- the very check every installed copy of this release will run on
+      # the next update. Were the certificate's CN anything but exactly the feed's name, this release
+      # would install fine and then refuse every later update; the release fails here instead.
+      - name: The installer passes the app's own update signature check
         id: installer-signature
         if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
-        shell: pwsh
+        shell: bash
         env:
+          APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
           FILE: ${{ runner.temp }}/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
-        run: |
-          $sig = Get-AuthenticodeSignature -LiteralPath $env:FILE
-          $subject = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { '' }
-          Write-Output "signature: $($sig.Status) -- $subject"
-          if ($sig.Status -ne 'Valid' -or $subject -notlike '*SignPath Foundation*') { Write-Output "signature check: $env:FILE is not validly signed by SignPath Foundation"; exit 1 }
+        run: node scripts/release-verify-signature.mjs --feed "$APP_DIR/resources/app-update.yml" "$FILE"
       # What the release notes say (publish's RELEASE_SIGNED): true only when the check above ran
       # and passed in this run, false when it was skipped (signing off). A failed check fails the
       # job, so publish never runs.

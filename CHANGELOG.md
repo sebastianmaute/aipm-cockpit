@@ -175,6 +175,9 @@ longer carries its own changelog comment.
   own executables; it stays off until the maintainer switches it on, each release's notes say whether its installer is
   signed, and once a signed release has shipped an unsigned one is refused. A copy installed from a signed release
   installs only updates signed by SignPath Foundation, and otherwise offers the Releases page for a manual download.
+  Before a release goes out as signed, its installer must pass the very check an installed copy runs on an update
+  (Valid, and the certificate's name exactly SignPath Foundation), so a signed release can never lock its users out
+  of later updates.
   The uninstaller is not signed yet (§793). The installer shows a privacy statement, also in the README: what the
   app sends, to whom, and how to switch each connection off; it sends no telemetry. The README's "Code signing
   policy" explains how to check a download and the limits while releases move to signing. Pull requests get a new

@@ -4,7 +4,9 @@
 // stranded, and switching signing off again must not be possible by accident.
 // Compares the installer in <dir> with the installer of the latest published release (GitHub's
 // "latest": not a draft, not a prerelease), downloaded with `gh release download`.
-// "Signed" means Authenticode status Valid AND a signer subject naming SignPath Foundation;
+// "Signed" means Authenticode status Valid AND a signer whose subject passes the installed app's own
+// rule for the publisher SignPath Foundation (`signerMatches` in desktop/src/update-signature.ts:
+// the subject's CN equals the name exactly);
 // "unsigned" means status NotSigned with no signer. Anything else — a broken, untrusted or foreign
 // signature, or output that cannot be read — is neither, and the guard cannot decide.
 // Usage: node scripts/release-signing-guard.mjs <tag> <dir>   (needs gh and GH_TOKEN; Windows)
@@ -17,6 +19,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { installerName } from "./release-publish-lib.mjs";
+import { signerMatches } from "../desktop/src/update-signature.ts";
 
 export const SIGNER = "SignPath Foundation";
 const run = promisify(execFile);
@@ -28,7 +31,7 @@ const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
 export function classifySignature(sig) {
   if (!sig || typeof sig !== "object" || typeof sig.status !== "string") return null;
   const subject = typeof sig.subject === "string" ? sig.subject : "";
-  if (sig.status === "Valid" && subject.includes(SIGNER)) return "signed";
+  if (sig.status === "Valid" && signerMatches(subject, [SIGNER])) return "signed";
   if (sig.status === "NotSigned" && subject === "") return "unsigned";
   return null;
 }

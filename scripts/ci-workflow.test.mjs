@@ -15,6 +15,7 @@ import {
   jobIds, jobBlock, unpinnedUses, topLevelBlock, requiredChecksFromDoc, pipedRunsWithoutBash,
 } from "./ci-workflow-lib.mjs";
 import { INSTALLER_DIR, installerName, expectedAssets, sbomName } from "./release-publish-lib.mjs";
+import { PUBLISHER } from "./release-update-feed.mjs";
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 const SHA = "a".repeat(40);
@@ -525,6 +526,8 @@ describe("release.yml", () => {
     const APP_DIR_EXPR = "${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}";
     const REPACKAGE = "Repackage the setup around the app tree";
     const APP_TREE_CHECK = "The app tree holds the standalone server and its .next build";
+    const INSTALLER_CHECK = "The installer passes the app's own update signature check";
+    const EXE_CHECK = "The app's executable is signed by SignPath Foundation";
     // The update-feed check's .NET pattern, as written inside a PowerShell single-quoted string.
     const PUBLISHER_PS = String.raw`(?m)^publisherName:[ \t]*\r?\n[ \t]+-[ \t]*[''"]?SignPath Foundation[''"]?[ \t]*\r?$`;
     // Comment lines dropped: only the YAML itself is checked.
@@ -707,7 +710,7 @@ describe("release.yml", () => {
       for (const name of [
         "Install the desktop packaging tools", "Download the packaged app", "Repackage the setup around the app tree",
         "Upload the unsigned installer", "Sign the installer", "Take the signed installer and rewrite the update feed",
-        "The installer is signed by SignPath Foundation", "The repackaged app's updater requires the SignPath Foundation signature",
+        INSTALLER_CHECK, "The repackaged app's updater requires the SignPath Foundation signature",
         "Require the SignPath Foundation signature in the app's update feed", APP_TREE_CHECK,
       ]) expect(ifOf(step(new RegExp(`name: ${name}`))), name).toBe(ON);
       expect(ifOf(step(/name: The app's executable is signed by SignPath Foundation/))).toBe(ON_APP);
@@ -718,16 +721,51 @@ describe("release.yml", () => {
       // pwsh: node is the step's last command, so its exit code is the step's.
       expect(feed).toMatch(/^ {8}shell: pwsh$/m);
       expect(feed.trimEnd()).toMatch(/\n {10}node scripts\/release-latest-yml\.mjs "\$env:FINAL" "\$env:VERSION"$/);
-      for (const name of ["The installer is signed by SignPath Foundation", "The app's executable is signed by SignPath Foundation"]) {
-        const check = step(new RegExp(`name: ${name}`));
-        expect(check, name).toMatch(/^ {8}shell: pwsh$/m);
-        expect(check, name).toContain("Get-AuthenticodeSignature -LiteralPath");
-        expect(check, name).toContain("$sig.Status -ne 'Valid'");
-        expect(check, name).toContain("-notlike '*SignPath Foundation*'");
-        expect(check, name).toMatch(/exit 1/);
-      }
       expect(at(/name: Sign the installer/)).toBeLessThan(at(/name: Take the signed installer/));
-      expect(at(/name: Take the signed installer/)).toBeLessThan(at(/name: The installer is signed by/));
+      expect(releaseStepIndex("sign", "Take the signed installer and rewrite the update feed") + 1)
+        .toBe(releaseStepIndex("sign", INSTALLER_CHECK));
+    });
+
+    // The installed app accepts an update only when verifyUpdateSignature passes it: Valid, and the
+    // signer's CN EXACTLY a name in the packaged feed's publisherName. A substring check here let a
+    // certificate whose CN merely contains the name pass as signed, shipping a release that would
+    // refuse every later update. So the release runs that very verifier on the final setup, with the
+    // names from the repackaged tree's own feed, and nothing else in the release judges a signer.
+    it("judges the final signed setup with the app's own verifier and the repackaged feed, after the repackage", () => {
+      const v = releaseStep("sign", INSTALLER_CHECK);
+      const p = releaseStep("sign", REPACKAGE);
+      expect(v.if).toBe(ON_EXPR);
+      expect(v.id).toBe("installer-signature");
+      expect(v.shell).toBe("bash");
+      expect(v.env.APP_DIR).toBe(APP_DIR_EXPR);
+      expect(v.env.APP_DIR).toBe(p.env.APP_DIR);
+      expect(v.env.FILE).toBe("${{ runner.temp }}/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe");
+      expect(v.run.trim()).toBe('node scripts/release-verify-signature.mjs --feed "$APP_DIR/resources/app-update.yml" "$FILE"');
+      const vi = releaseStepIndex("sign", INSTALLER_CHECK);
+      expect(releaseStepIndex("sign", REPACKAGE)).toBeLessThan(vi);
+      expect(releaseStepIndex("sign", "The repackaged app's updater requires the SignPath Foundation signature")).toBeLessThan(vi);
+      expect(releaseStepIndex("sign", "Sign the installer")).toBeLessThan(vi);
+      // It feeds `signed`: the record step reads this step's outcome, after it.
+      const rec = releaseStep("sign", "Record whether the installer is signed");
+      expect(rec.env.CHECKED).toBe("${{ steps.installer-signature.outcome == 'success' }}");
+      expect(vi).toBeLessThan(releaseStepIndex("sign", "Record whether the installer is signed"));
+      expect(parsedRelease().jobs.sign.outputs.signed).toBe("${{ steps.signed.outputs.signed }}");
+    });
+
+    it("judges the app's executable with the same verifier, before the feed exists, by the feed's own name", () => {
+      const e = releaseStep("sign", EXE_CHECK);
+      expect(e.if).toBe("${{ vars.SIGNPATH_ENABLED == 'true' && vars.SIGNPATH_SIGN_APP_EXE == 'true' }}");
+      expect(e.shell).toBe("bash");
+      expect(e.env.FILE).toBe("${{ runner.temp }}/unpacked-signed/AI PM Cockpit.exe");
+      expect(e.run.trim()).toBe(`node scripts/release-verify-signature.mjs --publisher "${PUBLISHER}" "$FILE"`);
+      expect(releaseStepIndex("sign", "Sign the app's own executables") + 1).toBe(releaseStepIndex("sign", EXE_CHECK));
+    });
+
+    it("leaves no substring signer check anywhere in the release", () => {
+      expect(code(RELEASE)).not.toMatch(/-(?:not)?like\b/);
+      expect(code(RELEASE)).not.toMatch(/Get-AuthenticodeSignature/);
+      const runs = releaseSteps("sign").map((s) => s.run ?? "").filter((r) => /release-verify-signature/.test(r));
+      expect(runs).toHaveLength(2);
     });
 
     it("runs the one-way guard and release:verify on every release, before the upload, and fails on any non-zero exit", () => {
@@ -738,7 +776,7 @@ describe("release.yml", () => {
       expect(g).toMatch(/^ {10}GH_REPO: \$\{\{ github\.repository \}\}$/m);
       const v = step(/npm run release:verify -- /);
       expect(ifOf(v)).toBeNull();
-      expect(at(/name: The installer is signed by/)).toBeLessThan(at(/release-signing-guard/));
+      expect(at(/name: The installer passes the app's own/)).toBeLessThan(at(/release-signing-guard/));
       expect(at(/release-signing-guard/)).toBeLessThan(at(/npm run release:verify/));
       expect(at(/npm run release:verify/)).toBeLessThan(at(/name: release-final/));
       // Exit 2 ("cannot decide") must fail the job like exit 1 does.
@@ -751,7 +789,7 @@ describe("release.yml", () => {
     // a failed check fails the job, so publish never runs.
     it("outputs signed=true only after the installer's signature check passed, and publish passes it on", () => {
       expect(sign()).toMatch(/^ {4}outputs:\n {6}signed: \$\{\{ steps\.signed\.outputs\.signed \}\}\n {4}steps:$/m);
-      const check = step(/name: The installer is signed by SignPath Foundation/);
+      const check = step(/name: The installer passes the app's own update signature check/);
       expect(check).toMatch(/^ {8}id: installer-signature$/m);
       const rec = step(/name: Record whether the installer is signed/);
       expect(rec).toMatch(/^ {8}id: signed$/m);
@@ -761,7 +799,7 @@ describe("release.yml", () => {
       expect(rec.trimEnd()).toMatch(/\n {8}run: echo "signed=\$CHECKED" >> "\$GITHUB_OUTPUT"$/);
       // Nothing else writes the output.
       expect(sign().match(/signed=/g)).toHaveLength(1);
-      expect(at(/name: The installer is signed by/)).toBeLessThan(at(/name: Record whether the installer is signed/));
+      expect(at(/name: The installer passes the app's own/)).toBeLessThan(at(/name: Record whether the installer is signed/));
       expect(at(/name: Record whether the installer is signed/)).toBeLessThan(at(/name: release-final/));
       const pub = code(jobBlock(RELEASE, "publish").replace(/\r\n/g, "\n"));
       const publishStep = pub.split(/\n(?= {6}- )/).find((s) => /npm run release:publish -- /.test(s));
