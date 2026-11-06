@@ -254,7 +254,7 @@ describe("ci.yml", () => {
       at(/^ {6}- run: npm ci$/),
       at(/^ {6}- name: Standalone build with source maps for the SBOM check$/),
       at(/^ {6}- run: npm --prefix desktop ci --ignore-scripts$/),
-      at(/^ {8}run: npm run release:sbom -- --build \.next --standalone \.next\/standalone --desktop desktop --web-only$/),
+      at(/^ {8}run: npm run release:sbom -- --build \.next --standalone \.next\/standalone --desktop desktop --web-only --desktop-licences$/),
     ];
     expect(order.every((i) => i > -1), "every step is present").toBe(true);
     expect(order).toEqual([...order].sort((x, y) => x - y));

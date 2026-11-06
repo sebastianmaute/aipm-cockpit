@@ -23,7 +23,7 @@ nothing. `scripts/ci-workflow.test.mjs` fails if this list, `sbom` included, and
 - `unit` — `npm run test:coverage`; the coverage floors are vitest's
 - `unit-shuffled` — `npm run test:shuffle`, after `unit`
 - `build` — `npm run build`; publishes `.next/` for prod-smoke
-- `sbom` — `release:sbom --web-only` on a standalone build with source maps; beside `build`, nothing waits for it
+- `sbom` — `release:sbom --web-only --desktop-licences` on a standalone build with source maps; beside `build`, nothing waits for it
 - `e2e` — `npm run e2e`, including the axe gate
 - `prod-smoke` — `npm run e2e:smoke:prod` over the built `.next/`
 - `semgrep` — ERROR-severity gate; full report as SARIF
@@ -151,10 +151,16 @@ re-resolved by hand.
   directory found" for the wrong reason. The workflow test pins the key.
 - **`sbom`** (15 min, no `needs`, and nothing needs it). The SBOM scan on real Next output on every pull
   request: `npm ci`, a build with `NEXT_STANDALONE=1` and `SBOM_SOURCE_MAPS=1`, `npm --prefix desktop ci
-  --ignore-scripts` (js-yaml reads `desktop/electron-builder.yml`'s standalone filter), then
-  `npm run release:sbom -- … --web-only`: the build's maps, the standalone tree and Next's vendored
-  libraries, with the guard and the licence check. No desktop set, no Electron, nothing written and
-  nothing uploaded — the release build is the only place the installer half runs. A job of its own so
+  --ignore-scripts` (js-yaml reads `desktop/electron-builder.yml`'s standalone filter, and the
+  licence check below reads the shell's packages from it), then
+  `npm run release:sbom -- … --web-only --desktop-licences`: the build's maps, the standalone tree and
+  Next's vendored libraries, with the guard and the licence check, plus — through `--desktop-licences`
+  — the release's licence check over the desktop set (every package `desktop/package-lock.json` ships,
+  and Electron), with the same `licenseOf` rules and deny list, so a shell dependency with a denied
+  or unknown licence fails the pull request instead of the release (its problems are prefixed
+  `desktop/package-lock.json:`). The desktop set joins neither the web set's guard nor its floor;
+  no asar, nothing written and nothing uploaded — the release build is the only place the
+  installer half runs. A job of its own so
   `build`'s artifact never carries maps and `e2e`/`prod-smoke` never wait for it. ★ Deliberately NOT a
   `gate-local.mjs` step: it needs a second, standalone Next build with source maps on top of the plain
   build the local gate already runs, so `gate:local` does not reproduce it. ★★ A required check: the

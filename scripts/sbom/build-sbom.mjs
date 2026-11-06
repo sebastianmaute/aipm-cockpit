@@ -2,7 +2,7 @@
 // No shebang: vitest imports this module (scripts/sbom/build-sbom.test.mjs).
 //
 //   npm run release:sbom -- --build .next --standalone <dir> --desktop desktop --out <dir> [--asar <path>]
-//   npm run release:sbom -- --build .next --standalone <dir> --desktop desktop --web-only
+//   npm run release:sbom -- --build .next --standalone <dir> --desktop desktop --web-only [--desktop-licences]
 //
 // `--standalone` is the folder holding the traced node_modules (`.next/standalone`).
 // `node_modules` and the files named below are read relative to the working
@@ -13,6 +13,11 @@
 // maps, the standalone tree and Next's vendored libraries, with the guard and the
 // licence check, but no desktop set and no Electron (it needs no desktop install
 // beyond js-yaml) and nothing written. It takes no `--out` and no `--asar`.
+// `--desktop-licences` (with `--web-only` only) adds the release's licence check over
+// the desktop set — every package desktop/package-lock.json ships, and Electron —
+// read from desktop/node_modules (an `--ignore-scripts` install is enough), so a
+// shell dependency with a denied or unknown licence fails the pull request rather
+// than the release. It adds nothing to the web set, its guard or its floor.
 //
 // ★★ What gets published carries no absolute path: bom-refs start at the first
 // node_modules segment, and the notices print names and licence text only.
@@ -323,9 +328,14 @@ function parseCli(argv, cwd) {
       out: { type: "string" },
       asar: { type: "string" },
       "web-only": { type: "boolean" },
+      "desktop-licences": { type: "boolean" },
     },
   });
   const webOnly = values["web-only"] === true;
+  const desktopLicences = values["desktop-licences"] === true;
+  if (desktopLicences && !webOnly) {
+    throw new Error("--desktop-licences adds the desktop set's licence check to --web-only; a release build checks that set already");
+  }
   if (webOnly) {
     for (const refused of ["out", "asar"]) {
       if (values[refused]) throw new Error(`--${refused} belongs to a release build and cannot be combined with --web-only, which writes nothing`);
@@ -338,6 +348,7 @@ function parseCli(argv, cwd) {
   return {
     cwd,
     webOnly,
+    desktopLicences,
     build: resolve(cwd, build),
     standalone: resolve(cwd, standalone),
     desktop: resolve(cwd, desktop),
@@ -352,13 +363,17 @@ async function main(argv, cwd) {
   const { set, electron, deny, problems } = await collect(options);
   const licensed = electron ? [...set, electron] : set;
   const floor = options.webOnly ? MIN_WEB_COMPONENTS : MIN_COMPONENTS;
-  const all = [...problems, ...checkLicences(licensed, deny), ...checkGuard(set, MUST_INCLUDE, floor)];
+  // The same desktop set and Electron a release licenses, checked apart from the web set.
+  const desktopSet = options.desktopLicences ? [...(await desktopPackages(options.desktop)), electronComponent(options.desktop)] : [];
+  const desktopProblems = checkLicences(desktopSet, deny).map((p) => `desktop/package-lock.json: ${p}`);
+  const all = [...problems, ...checkLicences(licensed, deny), ...desktopProblems, ...checkGuard(set, MUST_INCLUDE, floor)];
   if (all.length > 0) {
     for (const problem of all) console.error(`release:sbom: ${problem}`);
     return 1;
   }
   if (options.webOnly) {
-    console.log(`release:sbom: ${set.length} components pass (web only, nothing written)`);
+    const desktopNote = options.desktopLicences ? `, and the ${desktopSet.length} desktop packages' licences pass` : "";
+    console.log(`release:sbom: ${set.length} components pass (web only, nothing written)${desktopNote}`);
     return 0;
   }
   mkdirSync(options.out, { recursive: true });

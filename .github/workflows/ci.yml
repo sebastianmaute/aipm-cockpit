@@ -186,10 +186,11 @@ jobs:
           NEXT_STANDALONE: "1"
           SBOM_SOURCE_MAPS: "1"
         run: npm run build
-      # js-yaml, which reads desktop/electron-builder.yml's standalone filter, is a desktop dependency.
+      # js-yaml, which reads desktop/electron-builder.yml's standalone filter, is a desktop dependency;
+      # --desktop-licences reads the shell's packages and Electron from the same install.
       - run: npm --prefix desktop ci --ignore-scripts
-      - name: SBOM check (release:sbom --web-only)
-        run: npm run release:sbom -- --build .next --standalone .next/standalone --desktop desktop --web-only
+      - name: SBOM check (release:sbom --web-only --desktop-licences)
+        run: npm run release:sbom -- --build .next --standalone .next/standalone --desktop desktop --web-only --desktop-licences
 
   e2e:
     needs: build

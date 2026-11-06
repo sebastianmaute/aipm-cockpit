@@ -610,6 +610,47 @@ describe("the CLI", () => {
       expect(withAsar.stderr).toMatch(/--asar belongs to a release build and cannot be combined with --web-only/);
     });
 
+    it("with --desktop-licences, also passes the desktop set and Electron when their licences are allowed (exit 0)", async () => {
+      const repo = writeRepo("web-desktop-ok");
+      const { code, stdout, stderr } = await runCli(repo, [...WEB_ARGS, "--desktop-licences"]);
+      expect(stderr).toBe("");
+      expect(code).toBe(0);
+      // shell-dep and Electron: the lockfile's one shipped package plus Electron.
+      expect(stdout).toMatch(/^release:sbom: \d+ components pass \(web only, nothing written\), and the 2 desktop packages' licences pass$/m);
+      expect(existsSync(join(repo, "out"))).toBe(false);
+    });
+
+    it("with --desktop-licences, fails on a desktop package whose licence is unknown, naming it (exit 1)", async () => {
+      const repo = writeRepo("web-desktop-unknown", {
+        "desktop/node_modules/shell-dep/package.json": json({ name: "shell-dep", version: "3.0.0" }),
+      });
+      const { code, stderr } = await runCli(repo, [...WEB_ARGS, "--desktop-licences"]);
+      expect(code).toBe(1);
+      expect(stderr).toContain("release:sbom: desktop/package-lock.json: shell-dep@3.0.0: unknown licence");
+      // Without the flag the same tree passes: the check is the flag's.
+      expect((await runCli(repo, WEB_ARGS)).code).toBe(0);
+    });
+
+    it("with --desktop-licences, fails on a desktop package whose licence is denied (exit 1)", async () => {
+      const repo = writeRepo("web-desktop-denied", {
+        "desktop/node_modules/shell-dep/package.json": json({ name: "shell-dep", version: "3.0.0", license: "GPL-3.0-or-later" }),
+      });
+      const { code, stderr } = await runCli(repo, [...WEB_ARGS, "--desktop-licences"]);
+      expect(code).toBe(1);
+      expect(stderr).toContain("desktop/package-lock.json: shell-dep@3.0.0: licence GPL-3.0-or-later is on the deny list");
+    });
+
+    it("refuses --desktop-licences without --web-only, and runs it only over an installed desktop set (exit 2)", async () => {
+      const repo = writeRepo("web-desktop-args");
+      const alone = await runCli(repo, [...ARGS, "--desktop-licences"]);
+      expect(alone.code).toBe(2);
+      expect(alone.stderr).toMatch(/--desktop-licences adds the desktop set's licence check to --web-only/);
+      rmSync(join(repo, "desktop", "node_modules", "electron"), { recursive: true });
+      const noElectron = await runCli(repo, [...WEB_ARGS, "--desktop-licences"]);
+      expect(noElectron.code).toBe(2);
+      expect(noElectron.stderr).toMatch(/electron is not installed/);
+    });
+
     it("has a lower floor than a release, since the desktop set is left out", () => {
       expect(MIN_WEB_COMPONENTS).toBeGreaterThan(0);
       expect(MIN_WEB_COMPONENTS).toBeLessThan(MIN_COMPONENTS);
