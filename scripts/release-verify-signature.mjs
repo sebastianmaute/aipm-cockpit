@@ -55,7 +55,12 @@ export async function runVerify({ argv, verify = verifyUpdateSignature, readFile
   }
   // The verifier compares the path Get-AuthenticodeSignature reports with this one, so it is absolute.
   const file = resolve(args.file);
-  const refusal = await verify(names, file);
+  let refusal;
+  try {
+    refusal = await verify(names, file);
+  } catch (err) {
+    return { code: 2, message: `CANNOT CHECK: ${file}: ${err instanceof Error ? err.message : String(err)}` };
+  }
   if (refusal !== null) return { code: 1, message: `REFUSED: ${file}: ${refusal}` };
   return { code: 0, message: `verified: ${file} is validly signed by ${names.join(" | ")}` };
 }

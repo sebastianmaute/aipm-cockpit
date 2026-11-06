@@ -32,6 +32,10 @@ describe("HelpMenu with the forecast view held back (§502)", () => {
 });
 
 describe("HelpMenu floating panel", () => {
+  // asUserAgent spies on navigator.userAgent; restore it so a later test in this
+  // block does not run as the desktop app (order matters under unit-shuffled).
+  afterEach(() => vi.restoreAllMocks());
+
   // The close button's aria-label was the hardcoded English "Close", so German
   // users got an untranslated control. The EN value is unchanged, so only a DE
   // assertion can catch a regression here.

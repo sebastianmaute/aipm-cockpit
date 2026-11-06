@@ -73,6 +73,12 @@ describe("runVerify", () => {
     expect(verify).not.toHaveBeenCalled();
   });
 
+  it("cannot check (exit 2) when the verifier itself throws", async () => {
+    const r = await runVerify({ argv: ["--publisher", PUBLISHER, "x.exe"], verify: async () => { throw new Error("spawn EPERM"); } });
+    expect(r.code).toBe(2);
+    expect(r.message).toContain("spawn EPERM");
+  });
+
   it("cannot check (exit 2) on bad arguments", async () => {
     expect((await runVerify({ argv: ["x.exe"], verify: async () => null })).code).toBe(2);
   });
