@@ -18,9 +18,10 @@ import { YOUTUBE_CHANNEL_URL } from "./help-videos";
 import { useSettings } from "./use-settings";
 import { FOCUS_RING } from "./interaction-styles";
 
-/** One footer link that opens in a new tab (the desktop app: the system browser). The ↗ is
- *  decorative, so the accessible name is exactly the visible label, as in the Help entries'
- *  video links. */
+/** One footer link that opens in a new tab. In the desktop app an external link opens in the
+ *  system browser, but a same-origin one -- THIRD_PARTY_NOTICES_PATH -- opens in a new app window
+ *  (`decideWindowOpen` answers allow-in-app for the app's own origin). The ↗ is decorative, so
+ *  the accessible name is exactly the visible label, as in the Help entries' video links. */
 function FooterLink({ href, children }: { href: string; children: string }) {
   return (
     <a

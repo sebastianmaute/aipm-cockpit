@@ -19,6 +19,14 @@ describe("decideWindowOpen", () => {
     expect(decideWindowOpen(`${APP_ORIGIN}/?popout=raid`, APP_ORIGIN)).toBe("allow-in-app");
   });
 
+  it("opens the Help panel's third-party notices in an app window, not the system browser", () => {
+    // src/app/help-menu.tsx links THIRD_PARTY_NOTICES_PATH, a same-origin path, with
+    // target="_blank": the renderer resolves it against the app origin, which stays in-app.
+    expect(decideWindowOpen(`${APP_ORIGIN}/third-party-notices.txt`, APP_ORIGIN)).toBe("allow-in-app");
+    // The footer's other links are external and still go to the system browser.
+    expect(decideWindowOpen("https://github.com/sebastianmaute/aipm-cockpit", APP_ORIGIN)).toBe("open-external");
+  });
+
   it("allows the empty string", () => {
     // The PDF export tab (export.ts exportPdf) and the document-download PDF
     // tab both call `window.open("", "_blank")`.
