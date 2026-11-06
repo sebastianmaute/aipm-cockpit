@@ -544,16 +544,64 @@ describe("release.yml", () => {
     expect(pub).toMatch(/npm run release:publish -- /);
   });
 
-  // Each `if:` evaluated as GitHub would for the case at hand: `!cancelled()` true (a cancelled
-  // run is not a case here), vars and needs results substituted, == and != as string compares.
+  // Each `if:` evaluated as GitHub would for the case at hand: `cancelled()` false (a cancelled
+  // run is not a case here), vars and needs results looked up, == and != as string compares,
+  // with !, &&, || and parentheses. Anything else in the expression fails the test.
   const evalIf = (expr, { vars = {}, results = {} }) => {
-    const js = expr.replace(/^\$\{\{\s*|\s*\}\}$/g, "")
-      .replace(/!cancelled\(\)/g, "true")
-      .replace(/needs\.([\w-]+)\.result/g, (_, n) => JSON.stringify(results[n] ?? "missing"))
-      .replace(/vars\.(\w+)/g, (_, n) => JSON.stringify(vars[n] ?? ""))
-      .replace(/([!=])=/g, "$1==");
-    expect(js).not.toMatch(/[a-z_]\w*\./i);
-    return new Function(`return (${js});`)();
+    const body = expr.replace(/^\$\{\{\s*|\s*\}\}$/g, "");
+    const TOKEN = /\s*(cancelled\(\)|needs\.[\w-]+\.result|vars\.\w+|'[^']*'|==|!=|&&|\|\||!|\(|\))/y;
+    const tokens = [];
+    for (let m = TOKEN.exec(body); m; m = TOKEN.lastIndex < body.length ? TOKEN.exec(body) : null) tokens.push(m[1]);
+    expect(TOKEN.lastIndex, `unparsed: ${body.slice(TOKEN.lastIndex)}`).toBe(body.length);
+    let i = 0;
+    const value = (t) => {
+      if (t === "cancelled()") return false;
+      if (t.startsWith("'")) return t.slice(1, -1);
+      const need = /^needs\.([\w-]+)\.result$/.exec(t);
+      if (need) return results[need[1]] ?? "missing";
+      const v = /^vars\.(\w+)$/.exec(t);
+      if (v) return vars[v[1]] ?? "";
+      throw new Error(`unexpected token ${t} in ${body}`);
+    };
+    let or;
+    const primary = () => {
+      const t = tokens[i++];
+      if (t === "!") return !primary();
+      if (t === "(") {
+        const inner = or();
+        expect(tokens[i++], body).toBe(")");
+        return inner;
+      }
+      return value(t);
+    };
+    const compare = () => {
+      const left = primary();
+      if (tokens[i] !== "==" && tokens[i] !== "!=") return left;
+      const op = tokens[i++];
+      const right = primary();
+      return op === "==" ? left === right : left !== right;
+    };
+    const and = () => {
+      let v = compare();
+      while (tokens[i] === "&&") {
+        i++;
+        const r = compare();
+        v = v && r;
+      }
+      return v;
+    };
+    or = () => {
+      let v = and();
+      while (tokens[i] === "||") {
+        i++;
+        const r = and();
+        v = v || r;
+      }
+      return v;
+    };
+    const out = or();
+    expect(i, `trailing tokens in ${body}`).toBe(tokens.length);
+    return out;
   };
 
   it("the signing switch skips repackage and sign-installer, and finalize, attest-signature and publish still run (switch off: exactly as before)", () => {
@@ -1243,7 +1291,7 @@ describe("release.yml", () => {
         // Its ProductVersion is not 9.9.9: refused on the version alone.
         writeFileSync(join(files, exe), bytes);
         feed(yml());
-        expectRefusal(new RegExp(`ProductVersion is '${node.product.replace(/\./g, "\\.")}', not 9\\.9\\.9`), "another version", subject);
+        expectRefusal(new RegExp(`ProductVersion is '${node.product.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}', not 9\\.9\\.9`), "another version", subject);
         // Named and recorded as its own version: accepted with exactly its signer.
         rmSync(join(files, exe));
         const nodeExe = installerName(node.product);
