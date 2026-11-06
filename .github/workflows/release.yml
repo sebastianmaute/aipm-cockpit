@@ -229,7 +229,7 @@ jobs:
           path: ${{ runner.temp }}/unpacked-signed
           include-hidden-files: true
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
 
   # Signing on only. Reads no secret, so this is where the build tooling runs: the setup is rebuilt
   # with `--prepackaged` around the build's packaged app (or sign-app's signed copy).
@@ -324,7 +324,7 @@ jobs:
           name: unsigned-setup
           path: desktop/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
       # finalize judges the signed setup against the publisher names in this very feed.
       - name: Upload the repackaged app's update feed
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -332,7 +332,7 @@ jobs:
           name: app-update-feed
           path: ${{ runner.temp }}/app/resources/app-update.yml
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
 
   # Signing on only. The second token job: GitHub cannot carry one approval across two jobs that
   # pause at different times, so the token it reads is a second copy in the `release-signing`
@@ -371,7 +371,7 @@ jobs:
           name: signed-setup
           path: ${{ runner.temp }}/signed-setup/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
 
   # On every release. With the switch off it downloads the build's four files, runs the one-way
   # guard and release:verify on them, and uploads them unchanged. With it on, it puts the signed

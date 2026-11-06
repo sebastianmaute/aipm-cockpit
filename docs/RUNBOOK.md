@@ -273,7 +273,8 @@ go direct. That older release also ignores the `ai` value of
    that check passed, and `publish` passes it to `release:publish`.
    `finalize` refuses an unsigned installer once a signed release has shipped
    (`release-signing-guard`, exit 1; exit 2 = could not decide, also a failure —
-   re-run the job; if it can never decide again, see "The one-way guard
+   re-run the job, which needs no new approval (see "Re-running a failed
+   job" below); if it can never decide again, see "The one-way guard
    cannot decide" below), so after the first signed release signing cannot be
    switched off again. Details in `docs/AGENTS/ci.md`'s `release.yml`
    section. The required reviewer exists since 2026-09-25. Also standing in
@@ -284,6 +285,13 @@ go direct. That older release also ignores the `ai` value of
    keeps only one PENDING run per group: pushing a third tag while one run is
    in progress and a second is queued silently cancels the queued one (and a
    run paused waiting for approval occupies that same slot). A cancelled run just needs a re-run of its tag's workflow.
+   **Re-running a failed job** ("Re-run failed jobs" on the run page) keeps the
+   jobs that succeeded, and the files they passed on are kept 7 days. Re-running
+   a failed `sign-installer`, `finalize` or `publish` reuses the run's earlier
+   approval — none of them names the `release` environment — and a re-run
+   `sign-installer` reads the SignPath token again (and submits a new signing
+   request). Re-running a failed `sign-app` asks for the approval again, and so
+   does a full re-run ("Re-run all jobs"), which starts over from `guard`.
 4. `publish` verifies the files `finalize` passed on (`release:verify`), attests build
    provenance and the SBOM (both steps run only while the repository is public,
    which it is now; on a private repository they are skipped), drafts the GitHub
