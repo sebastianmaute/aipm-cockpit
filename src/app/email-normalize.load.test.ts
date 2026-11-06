@@ -44,7 +44,7 @@ const CODECS: [string, RoundTrip][] = [
   ["Markdown", (ws) => markdownToWorkspace(workspaceToMarkdown(ws))],
 ];
 
-// Fix round 1: the normaliser runs BEFORE the cap. Capping first cut the `>`
+// The normaliser runs BEFORE the cap. Capping first cut the `>`
 // off a `Name <addr>` longer than the cap, storing it torn instead of unwrapped.
 describe("a Name <addr> longer than its field's cap still unwraps", () => {
   const longStakeholder = `Ann ${"x".repeat(196)} <a@x.com>`; // BUDGET_NAME_MAX (200) site

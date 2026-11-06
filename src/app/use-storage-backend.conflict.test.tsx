@@ -218,7 +218,7 @@ describe("useStorageBackend — a stale save pauses saving and keeps the edits j
     expect(posts.at(-1)?.revision).toBe(file.revision());
   });
 
-  describe("the record kept on a switch away from a paused project (fix rounds 1 and 2)", () => {
+  describe("the record kept on a switch away from a paused project", () => {
     const KEPT_P = `${UNLOAD_JOURNAL_PREFIX}${keptProjectKey("p")}`;
     const OWN_P = `${UNLOAD_JOURNAL_PREFIX}p`;
     const stored = (key: string) => journals().find((j) => j.key === key)?.journal ?? null;
@@ -600,7 +600,7 @@ describe("useStorageBackend — resolving a conflict pause: Reload, Overwrite, D
     expect(app.ops().conflictPause).toBe(true);
   });
 
-  it("a peer write between the click and the Overwrite's job re-pauses and writes nothing (fix round 1)", async () => {
+  it("a peer write between the click and the Overwrite's job re-pauses and writes nothing", async () => {
     const { app, file } = await pausedOnConflict();
     await edit(app, [task(1, "FIRST"), task(2, "LIVE")]);
     act(() => { app.ops().resolveConflictOverwrite(); });
@@ -611,7 +611,7 @@ describe("useStorageBackend — resolving a conflict pause: Reload, Overwrite, D
     expect(app.ops().canOverwriteConflict).toBe(true); // offered again, now against the newer version
   });
 
-  describe("an Overwrite held by a destructive refusal (fix round 1)", () => {
+  describe("an Overwrite held by a destructive refusal", () => {
     // Enough tasks that deleting them all is a mass deletion even beside the seeded reference lists.
     const MANY = Array.from({ length: 400 }, (_, i) => task(i + 1, `T${i + 1}`));
     /** Many tasks on disk; a peer writes; a rename is refused (the pause); then every task is deleted while paused. */

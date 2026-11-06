@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   INSTALLER_DIR, LATEST_YML, installerName, expectedAssets, releaseTitle, changelogSection,
   releaseNotes, unwrapMarkdown, parseLatestYml, checkLatestYml, classifyRelease, verifyDraft,
+  sbomName, checkSbom, SIGNPATH_LINE, parseSignedFlag,
 } from "./release-publish-lib.mjs";
 
 const SHA512 = "A".repeat(86) + "==";
@@ -28,10 +29,13 @@ describe("names", () => {
     expect(() => installerName("v1.14.0")).toThrow();
     expect(() => installerName("1.14")).toThrow();
   });
-  it("expects exactly the installer, its blockmap and latest.yml", () => {
+  it("expects exactly the installer, its blockmap, latest.yml and the SBOM", () => {
     expect(expectedAssets("1.14.0")).toEqual([
       "aipm-cockpit-1.14.0-setup.exe", "aipm-cockpit-1.14.0-setup.exe.blockmap", LATEST_YML,
+      "aipm-cockpit-1.14.0-sbom.cdx.json",
     ]);
+    expect(sbomName("1.14.0-rc.1")).toBe("aipm-cockpit-1.14.0-rc.1-sbom.cdx.json");
+    expect(() => sbomName("v1.14.0")).toThrow();
     expect(INSTALLER_DIR).toBe("desktop/release");
   });
   it("titles a release like the GitLab ones did", () => {
@@ -54,11 +58,46 @@ describe("release notes", () => {
     expect(changelogSection(CHANGELOG, "9.9.9")).toBeNull();
   });
   it("appends the unsigned-installer notice and refuses a missing section", () => {
-    const notes = releaseNotes(CHANGELOG, "1.14.0");
+    const notes = releaseNotes(CHANGELOG, "1.14.0", { signed: false });
     expect(notes.startsWith("Auto-update arrives.")).toBe(true);
     expect(notes).toMatch(/not code-signed/);
     expect(notes).toMatch(/SmartScreen/);
-    expect(() => releaseNotes(CHANGELOG, "9.9.9")).toThrow(/CHANGELOG\.md has no section/);
+    expect(() => releaseNotes(CHANGELOG, "9.9.9", { signed: false })).toThrow(/CHANGELOG\.md has no section/);
+  });
+  // The unsigned text is byte for byte what every release before code signing carried.
+  it("leaves an unsigned release's notes exactly as they were", () => {
+    expect(releaseNotes(CHANGELOG, "1.14.0", { signed: false })).toBe([
+      "Auto-update arrives.", "", "### Added", "", "- Updates.", "",
+      "---", "",
+      "The installer is not code-signed, so Windows SmartScreen shows a prompt on first run: "
+        + "**More info → Run anyway**. It installs for the current user and needs no admin rights. "
+        + "Installed copies from 1.14.0 on check this page for updates and ask before installing one. "
+        + "Verify a download with `gh attestation verify <file> --repo sebastianmaute/aipm-cockpit`.",
+      "",
+    ].join("\n"));
+  });
+  it("gives a signed release the SignPath line, verbatim, in place of the unsigned notice", () => {
+    expect(SIGNPATH_LINE).toBe("Free code signing provided by SignPath.io, certificate by SignPath Foundation");
+    const notes = releaseNotes(CHANGELOG, "1.14.0", { signed: true });
+    expect(notes.startsWith("Auto-update arrives.\n\n### Added\n\n- Updates.\n\n---\n")).toBe(true);
+    // Its own paragraph, never joined onto the line before it.
+    expect(notes.endsWith(`\n\n${SIGNPATH_LINE}\n`)).toBe(true);
+    expect(notes).toMatch(/publisher as \*\*SignPath Foundation\*\*/);
+    expect(notes).toMatch(/gh attestation verify <file> --repo sebastianmaute\/aipm-cockpit/);
+    expect(notes).not.toMatch(/not code-signed|SmartScreen|Run anyway/);
+  });
+  // The caller must say which: a forgotten flag must not fall back to either text.
+  it("refuses notes when it is not told whether the installer is signed", () => {
+    for (const opts of [undefined, {}, { signed: "true" }, { signed: 1 }, { signed: null }]) {
+      expect(() => releaseNotes(CHANGELOG, "1.14.0", opts), JSON.stringify(opts)).toThrow(/signed/);
+    }
+  });
+  it("reads the finalize job's output: exactly 'true' or 'false', anything else refused", () => {
+    expect(parseSignedFlag("true")).toBe(true);
+    expect(parseSignedFlag("false")).toBe(false);
+    for (const v of [undefined, "", "TRUE", " true", "1", "yes", "skipped"]) {
+      expect(() => parseSignedFlag(v), String(v)).toThrow(/RELEASE_SIGNED/);
+    }
   });
   // GitHub renders every newline in a release body as <br>, so a CHANGELOG hard-wrapped at ~100
   // columns showed as broken lines on the release page and in the desktop update dialog (1.14.0).
@@ -105,7 +144,7 @@ describe("release notes", () => {
   });
   it("publishes notes with no line that continues the one before it", () => {
     const cl = ['## [2.0.0] - 2026-10-01 "X"', "", "First line of a", "wrapped paragraph.", "", "- An item", "  wrapped.", ""].join("\n");
-    const notes = releaseNotes(cl, "2.0.0");
+    const notes = releaseNotes(cl, "2.0.0", { signed: false });
     expect(notes).toMatch(/^First line of a wrapped paragraph\.\n\n- An item wrapped\.\n/);
     expect(notes).toMatch(/on first run: \*\*More info → Run anyway\*\*\. It installs/);
   });
@@ -138,6 +177,42 @@ describe("latest.yml", () => {
       "latest.yml path is other.exe, expected aipm-cockpit-1.14.0-setup.exe",
     );
     expect(checkLatestYml("junk", "1.14.0", INSTALLER)[0]).toMatch(/cannot read latest\.yml/);
+  });
+});
+
+describe("checkSbom", () => {
+  const NAME = "aipm-cockpit-1.14.0-sbom.cdx.json";
+  const root = (over = {}) => ({ name: "AI PM Cockpit", version: "1.14.0", licenses: [{ expression: "EUPL-1.2" }], ...over });
+  const bom = (over = {}, rootOver = {}) => JSON.stringify({
+    bomFormat: "CycloneDX", specVersion: "1.5", metadata: { component: root(rootOver) }, components: [{ name: "react" }], ...over,
+  });
+  it("accepts a CycloneDX 1.5+ document whose root is this app, this version, under EUPL-1.2", () => {
+    expect(checkSbom(bom(), "1.14.0")).toEqual([]);
+    expect(checkSbom(bom({ specVersion: "1.6" }), "1.14.0")).toEqual([]);
+    expect(checkSbom(bom({}, { licenses: [{ license: { id: "EUPL-1.2" } }] }), "1.14.0")).toEqual([]);
+  });
+  it("names a root version that is not the tag's", () => {
+    expect(checkSbom(bom({}, { version: "1.13.2" }), "1.14.0")).toEqual([`${NAME} describes version 1.13.2, expected 1.14.0`]);
+  });
+  it("names a spec version below 1.5, or none", () => {
+    expect(checkSbom(bom({ specVersion: "1.4" }), "1.14.0")).toEqual([`${NAME} is CycloneDX 1.4, expected 1.5 or later`]);
+    expect(checkSbom(bom({ specVersion: undefined }), "1.14.0")).toEqual([`${NAME} is CycloneDX (no specVersion), expected 1.5 or later`]);
+  });
+  it("names a root that is not this app, or not under EUPL-1.2", () => {
+    expect(checkSbom(bom({}, { name: "Other" }), "1.14.0")).toEqual([`${NAME} describes Other, expected AI PM Cockpit`]);
+    expect(checkSbom(bom({}, { licenses: [{ expression: "MIT" }] }), "1.14.0")).toEqual([`${NAME} does not license the app as EUPL-1.2`]);
+    expect(checkSbom(bom({}, { licenses: undefined }), "1.14.0")).toEqual([`${NAME} does not license the app as EUPL-1.2`]);
+  });
+  it("names a file that does not parse, or is not CycloneDX, or has no root component or components", () => {
+    expect(checkSbom("{", "1.14.0")[0]).toMatch(/^cannot read aipm-cockpit-1\.14\.0-sbom\.cdx\.json: /);
+    expect(checkSbom(bom({ bomFormat: "SPDX" }), "1.14.0")).toEqual([`${NAME} is not a CycloneDX document`]);
+    expect(checkSbom("null", "1.14.0")).toEqual([`${NAME} is not a CycloneDX document`]);
+    expect(checkSbom(bom({ metadata: undefined }), "1.14.0")).toEqual([
+      `${NAME} describes (no name), expected AI PM Cockpit`,
+      `${NAME} describes version (none), expected 1.14.0`,
+      `${NAME} does not license the app as EUPL-1.2`,
+    ]);
+    expect(checkSbom(bom({ components: [] }), "1.14.0")).toEqual([`${NAME} lists no components`]);
   });
 });
 

@@ -123,7 +123,7 @@ export function AssetPreviewModal({
     if (urlRef.current) { URL.revokeObjectURL(urlRef.current); urlRef.current = null; }
   }, []);
 
-  // ★★ `loadImage` is a function PROP. The natural call site (Task 8) passes
+  // ★★ `loadImage` is a function PROP. The natural call site passes
   // an inline arrow, a new identity on every parent render — with `loadImage`
   // itself in the deps below, an incidental parent re-render while the modal
   // is open would fire this effect's cleanup and revoke the URL currently ON

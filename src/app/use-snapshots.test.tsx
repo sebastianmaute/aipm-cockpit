@@ -180,7 +180,7 @@ describe("useSnapshots", () => {
     expect(result.current.snapshots.find((s) => s.id === partial.id)?.isBaseline).toBe(false);
   });
 
-  // §78 fix round: the rule is "the FIRST complete row", not "any complete row
+  // §78: the rule is "the FIRST complete row", not "any complete row
   // while nothing is flagged". A user who deleted the baseline in Trends leaves
   // complete, unflagged rows; the next auto capture must not flag itself.
   it("does not flag a later complete capture when a complete row already exists unflagged", async () => {

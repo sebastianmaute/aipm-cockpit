@@ -1,5 +1,5 @@
 /** Pure GitHub REST/GraphQL helpers, reused by `import-issues.mjs`'s real GitHub client
- *  and by Task 7's weekly sync check. No fetch, no shebang here — a `#!` on an imported
+ *  and by the weekly issue sync check. No fetch, no shebang here — a `#!` on an imported
  *  `.mjs` makes vitest throw naming the WRONG file (see identifier-leak-lib.mjs's header
  *  for the same shape). */
 

@@ -5068,6 +5068,7 @@ const enUS = {
   helpVideos: "Video guides",
   helpVideoLinkLabel: "{0} – video on YouTube, opens in your browser",
   helpVideoChannelLink: "Video guides on YouTube",
+  helpThirdPartyNotices: "Third-party notices",
   helpConceptMilestoneTitle: "Milestone",
   helpConceptMilestoneBody: "What: A milestone is a significant, dated checkpoint that marks a key achievement in the project.\n\nWhy it matters: Milestones make schedule risk visible; without tracking them, slippage can go unnoticed until it is too late to recover.\n\nIn this app: Milestones appear on the Gantt chart and in the dashboard horizon strip so you always see what is coming; their dates drive the Schedule RAG health colour.",
   helpConceptRaidTitle: "RAID register",

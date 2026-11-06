@@ -8,7 +8,7 @@ export const EMAIL_REFUSAL_KEY: Readonly<Record<EmailRefusal, "errorInvalidEmail
   delimiter: "errorEmailDelimiter",
 };
 
-/** ★★ Fix round 1 MINOR 3 — the i18n key for refusing a freshly TYPED value
+/** ★★ The i18n key for refusing a freshly TYPED value
  *  (a prompt/alert's own input, never a stored one — `stored` is always
  *  `undefined`), which was the same four-site copy at every prompt flow
  *  (`use-action-center-handlers.ts`, `use-bulk-operations.ts`,

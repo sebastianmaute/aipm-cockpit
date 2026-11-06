@@ -131,7 +131,7 @@ function ForecastReportBody({ lang, input, scenarios, settings, history, currenc
     () => (proposalChanges === null ? null : computeScenarioColumn(input, proposalChanges, context)),
     [input, proposalChanges, context],
   );
-  // Ruling A: only targets WITH an As-is chance are searched; an overdue milestone, or one with nothing linked, has no lever.
+  // Only targets WITH an As-is chance are searched; an overdue milestone, or one with nothing linked, has no lever.
   const chanceOnTime = asIs.chanceOnTime;
   const targets = useMemo<LeverTarget[]>(() => (forecast.kind !== "forecast" ? [] : [
     ...(chanceOnTime === null ? [] : [PLAN_END]),

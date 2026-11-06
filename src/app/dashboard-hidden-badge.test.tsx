@@ -51,7 +51,7 @@ describe("DashboardHiddenBadge — what it shows (spec C decision 2)", () => {
     expect(badge(2)).toHaveAccessibleName("2 hidden tiles");
   });
 
-  // ★ Fix round 1: the separate "contains its visible text in its accessible
+  // ★ The separate "contains its visible text in its accessible
   // name (WCAG 2.5.3)" test was removed here. It duplicated the assertion just
   // above (`toHaveAccessibleName("2 hidden tiles")` already proves the name
   // contains the digit "2"), and its `b.textContent ?? " "` fallback had been

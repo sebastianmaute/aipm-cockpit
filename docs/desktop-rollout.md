@@ -18,8 +18,10 @@ Prefer to watch? The video [Install: download and set up the desktop app](https:
 
    ![Edge's second warning, "Make sure you trust the installer before you open it", with Keep anyway under the arrow beside Delete](assets/guide/download-keep-anyway.manual.png)
 
-3. Windows will show a blue **"Windows protected your PC"** box. This is expected: the app is not
-   code-signed. Click **More info**, then **Run anyway**. The pictures show the box on a German
+3. The release notes say whether that release's installer is code-signed. A signed installer names
+   its publisher, **SignPath Foundation**, when Windows asks whether to run it. For an installer
+   that is not signed, Windows shows a blue **"Windows protected your PC"** box. This is expected:
+   click **More info**, then **Run anyway**. The pictures show the box on a German
    Windows, where it reads *"Der Computer wurde durch Windows geschützt"* and the two are
    *Weitere Informationen* and *Trotzdem ausführen*.
 
@@ -28,13 +30,27 @@ Prefer to watch? The video [Install: download and set up the desktop app](https:
    ![The same box after More info: the installer's name, publisher unknown, and the Run anyway button beside Don't run](assets/guide/smartscreen-run-anyway.manual.png)
 
 4. The app installs for your user only — you do **not** need admin rights.
-5. Optional: verify the download carries this repository's build provenance —
-   `gh attestation verify aipm-cockpit-<version>-setup.exe --repo sebastianmaute/aipm-cockpit`.
+5. Optional: check the download. For a signed installer, right-click it, choose **Properties →
+   Digital Signatures**, and check the signer is *SignPath Foundation*. For any release, check it
+   carries this repository's build provenance and SBOM attestations —
+   `gh attestation verify aipm-cockpit-<version>-setup.exe --repo sebastianmaute/aipm-cockpit`, and
+   the same command with `--predicate-type https://cyclonedx.org/bom` for the SBOM.
+6. Before installing, the installer shows the app's privacy statement: what the app sends, to
+   whom, and how to switch each connection off. The README carries the same text.
 
 If you installed a 1.13.x release, it has no updater: install the first release that has one (the
 release notes say so) by hand, once, the same way as above. From then on the app checks for updates
 itself — a short delay after it starts, or any time from **Help → Check for updates…** — and asks
 before downloading or installing anything; it never updates silently.
+
+Once you have installed a signed release, the app installs an update only if its installer is
+signed by SignPath Foundation. If it cannot confirm that, it installs nothing and offers to open
+the Releases page (when the check cannot run on the computer at all, for example because a policy
+blocks Windows PowerShell, it says so rather than calling the update unsigned), so you can download the release by hand and check it as in step 5. Two limits
+apply while releases move to signing: a copy installed from a release before the first signed one
+takes the first signed update without that check, and an installer such a copy had already
+downloaded and kept in its update cache is installed once without the check. The uninstaller is not
+signed yet ([#951](https://github.com/sebastianmaute/aipm-cockpit/issues/951)).
 
 ## The first time you open it
 

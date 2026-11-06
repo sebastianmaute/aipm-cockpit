@@ -512,7 +512,7 @@ function ResourceCalendarInner({
     [resourceByKey],
   );
 
-  // Meetings band (Task 14). id -> CalendarEvent for the band's chip lookup.
+  // Meetings band. id -> CalendarEvent for the band's chip lookup.
   const eventsById = useMemo<Map<number, CalendarEvent>>(
     () => new Map((calendarEvents ?? []).map((e) => [e.id, e])),
     [calendarEvents],

@@ -281,7 +281,7 @@ describe("Step0ImportPanel native workspace routing", () => {
     expect(onImportWorkspace).not.toHaveBeenCalled();
   });
 
-  // Controller ruling: the `ignored` sibling-file list is a real, tested
+  // The `ignored` sibling-file list is a real, tested
   // value — not just plumbing. A workspace import is a solo action; anything
   // dropped alongside it is named so the wizard can show it was skipped.
   it("imports a workspace JSON dropped alongside another file, reporting the sibling as ignored", async () => {
@@ -304,7 +304,7 @@ describe("Step0ImportPanel native workspace routing", () => {
     expect(onIngest).not.toHaveBeenCalled();
   });
 
-  // Controller ruling: the `invalid` branch (JSON that HAS the tasks+raid
+  // The `invalid` branch (JSON that HAS the tasks+raid
   // shape but fails the strict decoder) is a real, tested guard — without it
   // such a file would silently fall through to the model as a document.
   it("shows an alert for a JSON that looks like a workspace but fails strict decode, and imports nothing", async () => {

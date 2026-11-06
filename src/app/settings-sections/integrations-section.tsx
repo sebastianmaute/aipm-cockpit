@@ -239,7 +239,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const envTursoTokenSet = !!process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN;
   // §337 — lazy INITIAL read (not a render-body side effect), kept in STATE
   // rather than a plain const.
-  // ★★★ FIX ROUND 1 (I1): a plain `const [envTokenRejected] = useState(...)`
+  // ★★★ A plain `const [envTokenRejected] = useState(...)`
   // read the flag once at mount and never again — and this component does
   // NOT remount when the flag flips. The flag is written from INSIDE
   // `runTursoTest` below (via `testTursoConnection` → `runTursoPipeline` →
@@ -638,7 +638,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       await testTursoConnection(getTursoConfig(tursoUrl, tursoToken));
       setTursoTest({ kind: "ok", url: tursoUrl, token: tursoToken });
     } catch (e) {
-      // ★★★ FIX ROUND 1 (I1) — re-sync the rejection flag from THIS probe.
+      // ★★★ re-sync the rejection flag from THIS probe.
       // `testTursoConnection` may have just called `markEnvTokenRejected()`
       // (inside `runTursoPipeline`, on a 401/403 against the env token)
       // without this component remounting — see the state's own comment
@@ -1250,7 +1250,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               {/* ★★ §548 — Apply exists ONLY on Turso storage, the one kind where committing the
                   credentials rebuilds the backend (see `tursoIsLive`). Hidden when NEITHER field is
                   editable: there is nothing to draft.
-                  ★★★ §337 (token half, controller ruling) — THE TOKEN HALF OF THIS GUARD RIDES
+                  ★★★ §337 (token half) — THE TOKEN HALF OF THIS GUARD RIDES
                   `hideTokenField`, NOT `envTursoTokenSet`. A present-but-REJECTED env token makes
                   `hideTokenField` false (the token input reappears, see above), and a visible,
                   editable field with no way to commit it would defeat the whole point of showing it.

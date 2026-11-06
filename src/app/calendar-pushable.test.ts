@@ -3,7 +3,7 @@ import { isPushableAbsence, isPushableChange, isPushableRaid, isPushableTask } f
 import { planEntityReconcile } from "./calendar-reconcile";
 import type { Absence, ChangeItem, RaidItem, Task } from "./types";
 
-// §486 fix round 1 (I2) — an opted-out item that LEAVES the synced set (task
+// §486 (I2) — an opted-out item that LEAVES the synced set (task
 // done, RAID closed, change undated, absence past) must stay in the push input,
 // or the push deletes the event the user chose to keep. Each case runs the
 // predicate end-to-end through the planner: the kept event survives, and the

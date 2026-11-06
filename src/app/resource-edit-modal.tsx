@@ -191,7 +191,7 @@ export function ResourceEditModal({
   // carry an unsafe suffix (a second, delimiter-joined address) that
   // truncation silently drops, so judging the raw string would show a flag
   // for a save that actually succeeds SAFELY, or worse, miss a refusal the
-  // capped value still earns. Fix round 2.
+  // capped value still earns.
   // ★ M-C4: the stored value is `sanitizeLoadedEmail` — `Name <addr>` unwrapped
   // FIRST, then trimmed + capped — what `sanitizeResource` stores for every AI
   // write and load. The report only counts a cap of that same unwrapped value.
@@ -298,9 +298,8 @@ export function ResourceEditModal({
               <CharCounter value={draft.email ?? ""} max={EMAIL_MAX} id="resource-email-counter" lang={lang} />
               {/* Steps aside ONLY while `error` (the banner below) shows this
                   SAME refusal message — an unrelated banner error (a blank
-                  name) must never hide it (IMPORTANT 1, fix round 1). Judges
-                  the CAPPED value, matching what `handleSubmit` would store
-                  (IMPORTANT, fix round 2). */}
+                  name) must never hide it. Judges
+                  the CAPPED value, matching what `handleSubmit` would store. */}
               {emailFlagVisible(lang, cappedEmail, error) && (
                 <EmailFieldError id="resource-email-error" lang={lang} value={cappedEmail} />
               )}

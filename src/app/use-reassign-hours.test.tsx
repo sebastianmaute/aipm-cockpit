@@ -347,7 +347,7 @@ describe("useReassignHours.prepare", () => {
   });
 });
 
-// §774 Task 4 — `record`: the prepare paths' one-entry capture.
+// §774 — `record`: the prepare paths' one-entry capture.
 describe("useReassignHours.record", () => {
   const MOVE = { task: { ...TASK, ...LIAM_OWNS } as Task, fromResourceId: 1, toResourceId: 2 };
   const fieldPart = (setTasks: Parameters<typeof captureFieldPart<Task>>[0]["setter"]) =>
@@ -442,7 +442,7 @@ describe("useReassignHours: two moves in one tick", () => {
     });
     expect(util(hook.result.current.resources, 1)).toEqual({ "2026-09": 42, "2026-10": 32, "2026-11": 20 });
     expect(util(hook.result.current.resources, 2)).toEqual(MOVED_LIAM);
-    // ★ KNOWN LIMIT (ruling R11), pinned, not a goal: undo is absolute per key, so the
+    // ★ KNOWN LIMIT, pinned, not a goal: undo is absolute per key, so the
     // same-cell external +10 that landed before the move in the same tick is lost on undo
     // (Sep back to the 40 the hook saw) and redo writes the planned 32, not 42.
     act(() => { hook.result.current.undo.undo(); });
@@ -487,7 +487,7 @@ describe("useReassignHours: two moves in one tick", () => {
     expect(util(hook.result.current.resources, 2)).toEqual({ "2026-09": 2, "2026-10": 8 });
   });
 
-  // Second review of the fix round: the scaling works in SHOWN hours, so absences count on both sides.
+  // The scaling works in SHOWN hours, so absences count on both sides.
   const setRes = (hook: ReturnType<typeof setup>["hook"], id: number, patch: Partial<Resource>) =>
     hook.result.current.setResources((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch, utilization: { ...r.utilization, ...patch.utilization } } : r)));
   const shownOf = (hook: ReturnType<typeof setup>["hook"], id: number, key: string) => {

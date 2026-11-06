@@ -6,7 +6,7 @@
 //  one clash rule (`absence-clash.ts`).
 // ★ Only a trigger asks the question (owner-approved): a new or moved date, a new task owner, a task newly
 //  linked to a milestone. An update changing none of those yields nothing, even on an already-clashing row.
-// ★★ A trigger judges only what it makes newly the owner's (ruling R2): a date-only move asks about the
+// ★★ A trigger judges only what it makes newly the owner's: a date-only move asks about the
 //  moved date and the span it changes, never an unchanged stored start date; a new owner or a new link
 //  hands over the whole item, so every date is judged.
 // ★★ A later block of the same change is judged against the item as the earlier blocks leave it

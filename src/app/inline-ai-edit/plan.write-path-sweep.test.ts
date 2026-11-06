@@ -36,7 +36,7 @@
 // before touching a seeded value.
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-// AI people protection, Task 5: this file tests the write path, not the protection (`ai-people-gates.test.tsx`).
+// AI people protection: this file tests the write path, not the protection (`ai-people-gates.test.tsx`).
 vi.mock("../ai-privacy-context", () => import("../../test/ai-privacy-unprotected"));
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
 import {
@@ -448,7 +448,7 @@ describe("the probe layer", () => {
     ).toEqual([]);
   });
 
-  // ★★★ THE FLOOR THE WHOLE SWEEP RESTS ON. Everything Task 5 relates —
+  // ★★★ THE FLOOR THE WHOLE SWEEP RESTS ON. Everything the sweep relates —
   //  "previewed ⇒ stored", "rejected ⇒ unchanged" — is satisfied by a replay
   //  that writes NOTHING. A missing `expectedToken`, a renamed tool, a wrapper
   //  that never mounts the provider: each one turns the sweep green across all

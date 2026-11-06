@@ -380,7 +380,7 @@ describe("useDigest", () => {
     expect(showToast).not.toHaveBeenCalled();
   });
 
-  // §125 fix round: emailing regenerates for the narrative, so the Generate
+  // §125: emailing regenerates for the narrative, so the Generate
   // button reads "Stop" right after Email is clicked. Pressing it must stop the
   // (irreversible) send, not mail a narrative-less digest.
   it("a Stop during the email's narrative stops the email too", async () => {

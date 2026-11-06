@@ -2,7 +2,7 @@
 // Pure helper: wire a predecessor/successor dependency between a parent task and
 // a child task. `TaskDependency` lives on the DEPENDENT task and points at its
 // predecessor (see types.ts). Consumed by the task-editor "create linked task"
-// flow (Task 8) both for existing parents and buffer-flushed new parents.
+// flow both for existing parents and buffer-flushed new parents.
 import type { DependencyType, Task } from "./types";
 import type { LinkSpec } from "./use-task-editor-buffer";
 

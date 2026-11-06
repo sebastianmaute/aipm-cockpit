@@ -263,7 +263,7 @@ function renderBackend(args = makeArgs()) {
 }
 
 // ── Seam harness: the REAL undo stack + the REAL clear-all, over this hook ────
-// ★★★ THE POINT IS THAT NOTHING HERE IS A STAND-IN FOR THE BYPASS. Task 9's
+// ★★★ THE POINT IS THAT NOTHING HERE IS A STAND-IN FOR THE BYPASS. The
 // undo-stack tests pass a `vi.fn()` as `allowDestructiveSave`, so they prove a
 // redo CALLS an arm — never that the arm reaches the guard that refused. This
 // composes `useUndoStack` + `useStorageBackend` + `useBulkOperations` so the
@@ -3928,7 +3928,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
   });
 
   // §295's owed verification: "a test driving clear-all -> undo -> redo against
-  // evaluateSaveGuard". Task 4 pins the storage half and Task 9 the undo half;
+  // evaluateSaveGuard". One test pins the storage half and another the undo half;
   // per-task checks miss the SEAM between them, which is where this bug lived.
   //
   // ★ IT LIVES UNDER A §103 DESCRIBE ON PURPOSE — do not "tidy" it into a §295
@@ -5345,7 +5345,7 @@ describe("useStorageBackend — the decode signal survives the empty-load refusa
 });
 
 // §620 twin of the decode-signal coverage above: File/SharePoint/IndexedDB
-// backends now publish `lastDecodeFailures` too (Task 5), and `reportFor`
+// backends now publish `lastDecodeFailures` too, and `reportFor`
 // reads the field generically off ANY backend — it never branches on `kind`
 // (see `truncationOps.reportFor` / `reportDecodeFailures` in
 // use-load-truncation.ts) — so the same pause and the same "Save anyway"

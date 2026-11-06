@@ -1,17 +1,25 @@
 // @vitest-environment node
 //
-// Textual guard over .github/workflows/*.yml. There is no YAML parser in this repository and one is
-// not added for this: the helpers read the fixed two-space layout these files are written in, and
-// their own tests below pin what they accept and reject. actionlint (in the static job) is the
+// Mostly a textual guard over .github/workflows/*.yml: the helpers read the fixed two-space layout
+// these files are written in, and their own tests below pin what they accept and reject. The release
+// sign path's app-tree checks are asserted on PARSED YAML instead (js-yaml, which only
+// desktop/node_modules holds -- see parsedRelease). actionlint (in the static job) is the
 // structural check; this file pins the repository-specific rules actionlint cannot know.
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
+import { join, posix } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GATE_GROUPS, GATE_STEPS } from "./gate-local.mjs";
 import { globalTimeoutFrom, MAX_GLOBAL_TIMEOUT_MS } from "../e2e/global-timeout.ts";
 import {
   jobIds, jobBlock, unpinnedUses, topLevelBlock, requiredChecksFromDoc, pipedRunsWithoutBash,
 } from "./ci-workflow-lib.mjs";
-import { INSTALLER_DIR, installerName, expectedAssets } from "./release-publish-lib.mjs";
+import { INSTALLER_DIR, installerName, expectedAssets, sbomName } from "./release-publish-lib.mjs";
+import { PUBLISHER } from "./release-update-feed.mjs";
+import { latestYmlText } from "./release-latest-yml.mjs";
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 const SHA = "a".repeat(40);
@@ -81,6 +89,106 @@ const SCHEDULED_PATH = ".github/workflows/scheduled.yml";
 
 const CI = read(".github/workflows/ci.yml");
 const RELEASE = read(".github/workflows/release.yml");
+// release.yml parsed. js-yaml is electron-builder's dependency, so only desktop/node_modules has it
+// (the root copy is nested under date-holidays and not ours to lean on); CI's unit jobs install the
+// desktop packages. Loaded on first use, so a root-only run fails just the parsed tests -- loudly,
+// never by skipping them.
+let releaseDoc = null;
+const parsedRelease = () => {
+  if (releaseDoc) return releaseDoc;
+  let yaml;
+  try {
+    yaml = createRequire(new URL("../desktop/package.json", import.meta.url))("js-yaml");
+  } catch {
+    throw new Error("js-yaml not found: run `npm --prefix desktop ci --ignore-scripts` first");
+  }
+  releaseDoc = yaml.load(RELEASE);
+  return releaseDoc;
+};
+const releaseSteps = (job) => parsedRelease().jobs[job].steps;
+const releaseStep = (job, name) => {
+  const hits = releaseSteps(job).filter((s) => s.name === name);
+  expect(hits, `${job}: ${name}`).toHaveLength(1);
+  return hits[0];
+};
+const releaseStepIndex = (job, name) => releaseSteps(job).indexOf(releaseStep(job, name));
+// A job that can read a secret: it names an environment (whose secrets its steps can be handed) or
+// mentions the secrets context in any form (`secrets.X`, `secrets['X']`, `toJSON(secrets)`), in any
+// letter case: GitHub's expression contexts are case-insensitive. The
+// SignPath token must never share a job with build code, so such a job is held to an ALLOWLIST:
+// every step is either a `uses:` of one of the two actions the token jobs use today or a `run:`
+// that only prints. No checkout either: a token job has no reason to have the repository's files on
+// disk. Each action is pinned to the EXACT commit the real steps use today, so a bump of either
+// (Dependabot included) fails here until this map is edited too, which puts the new SHA in front of
+// the reviewer: a deliberate bump of a token-job action updates this map in the same change.
+const TOKEN_JOB_ACTION_SHAS = {
+  "actions/upload-artifact": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+  "signpath/github-action-submit-signing-request": "f6d04783b4569d051e0c80105fe66e82819d0092",
+};
+const isAllowedTokenAction = (uses) => {
+  const m = /^([^@]+)@([0-9a-f]{40})$/.exec(uses);
+  return m !== null && Object.hasOwn(TOKEN_JOB_ACTION_SHAS, m[1]) && TOKEN_JOB_ACTION_SHAS[m[1]] === m[2];
+};
+// The keys a token-job step may carry: exactly what the real sign-app / sign-installer steps use.
+// Anything else is a way to change what runs or where (`env`: NODE_OPTIONS / BASH_ENV and the like;
+// `working-directory`; `continue-on-error`; `timeout-minutes`; `id`, which nothing reads).
+const TOKEN_STEP_KEYS = new Set(["name", "if", "uses", "with", "run", "shell"]);
+// The env names a token job may see, as an ALLOWLIST: any other name (BASH_ENV, NODE_OPTIONS,
+// NODE_EXTRA_CA_CERTS, HTTPS_PROXY, PATH, ...) can change what a step runs or where its traffic goes.
+// The real token jobs set no env of their own, so the job-level set is empty. The workflow-level
+// `env:` holds one inert flag that every job inherits (the real release.yml sets exactly this one);
+// a new workflow-level name fails here for the token jobs until it is reviewed and added.
+const TOKEN_JOB_ENV = new Set();
+const WORKFLOW_ENV_FOR_TOKEN_JOBS = new Set(["NEXT_TELEMETRY_DISABLED"]);
+// The only `${{ }}` expressions a token-job step's `with:` may hold: the secret by name, the vars
+// the real steps read, an upstream job's output, and the runner's temp folder. `github.*` is NOT
+// admitted: the real steps use none of it, and event fields (head_commit.message, a branch name)
+// are text a contributor controls.
+const WITH_EXPR = /^(?:secrets\.[A-Z][A-Z0-9_]*|vars\.[A-Z][A-Z0-9_]*|needs\.[a-z][a-z0-9-]*\.outputs\.[a-z][a-z0-9-]*|runner\.temp)$/;
+// Every string in a `with:` value, however deep: a nested mapping or a list carries an expression
+// just as a plain string does.
+const withStrings = (v) => (typeof v === "string" ? [v] : v !== null && typeof v === "object" ? Object.values(v).flatMap(withStrings) : []);
+const withViolations = (w) => withStrings(w ?? {}).flatMap((v) => [...v.matchAll(/\$\{\{([\s\S]*?)\}\}/g)])
+  .map((m) => m[1].trim()).filter((e) => !WITH_EXPR.test(e));
+// The one shape a token job's run: line may take: echo / Write-Output / Write-Host and plain words.
+// No pipe, chaining, redirection, subshell, backtick, backslash or parenthesis, so nothing else can
+// be started; `$` only as `$NAME`, the shape the real step uses (`$GITHUB_REF_NAME`), so neither a
+// `$(…)` substitution nor a `${{ … }}` expression can be spliced into the script. Blank lines and
+// `#` comment lines are skipped. A script file run any other way (`pwsh x.ps1`, `. ./x.ps1`,
+// `./x.sh`, `python x.py`) is not an echo, so there is nothing to enumerate.
+// The name's end is pinned by (?![A-Za-z0-9_]), so `$ab` cannot also be read as `$a` + `b`: a line
+// has one parse, and a failing one is rejected in linear time.
+const ECHO_ONLY_LINE = /^(?:echo|Write-Output|Write-Host)(?:[ \t](?:[^|;&<>`$()\\]|\$[A-Za-z_][A-Za-z0-9_]*(?![A-Za-z0-9_]))*)?$/;
+// The shells a token job's run: step may use: the runner's default (no `shell:` at all) or `bash`,
+// which the real step names. Under either, an ECHO_ONLY_LINE only prints; anything else
+// (`node {0}`, `python {0}`, `bash -e {0}`, cmd, a custom template) is a violation.
+const TOKEN_JOB_SHELLS = new Set([undefined, "bash"]);
+const tokenJobs = (doc) => Object.entries(doc.jobs)
+  .filter(([, j]) => j.environment !== undefined || /\bsecrets\b/i.test(JSON.stringify(j))).map(([id]) => id);
+const envViolations = (where, env, allowed) => Object.keys(env ?? {}).filter((n) => !allowed.has(n)).map((n) => `${where}: env ${n}`);
+const tokenJobViolations = (doc) => tokenJobs(doc).flatMap((id) => {
+  const j = doc.jobs[id];
+  // A reusable-workflow call or a container runs code that is not in this job's steps at all.
+  const jobLevel = ["uses", "container", "services"].filter((k) => j[k] !== undefined).map((k) => `${id}: job ${k}`);
+  // A working directory moves every step into a folder other code may have written to; the env
+  // names make bash or node load a file before the step's own command.
+  const dir = [j.defaults?.run, doc.defaults?.run].some((r) => r?.["working-directory"] !== undefined) ? [`${id}: working-directory`] : [];
+  return [...jobLevel, ...dir, ...envViolations(id, j.env, TOKEN_JOB_ENV), ...envViolations(`${id} (workflow)`, doc.env, WORKFLOW_ENV_FOR_TOKEN_JOBS),
+    ...(j.steps ?? []).flatMap((s, i) => tokenStepViolations(doc, id, s, i))];
+});
+const tokenStepViolations = (doc, id, s, i) => {
+  const label = `${id}: ${s.name ?? s.uses ?? `step ${i + 1}`}`;
+  const out = [];
+  for (const k of Object.keys(s)) if (!TOKEN_STEP_KEYS.has(k)) out.push(`${label}: key ${k}`);
+  if (s.uses !== undefined && !isAllowedTokenAction(s.uses)) out.push(`${label}: uses ${s.uses}`);
+  for (const e of withViolations(s.with)) out.push(`${label}: with expression ${e}`);
+  if (s.run === undefined) return out;
+  const bad = String(s.run).split(/\r?\n/).map((l) => l.trim()).find((l) => l !== "" && !l.startsWith("#") && !ECHO_ONLY_LINE.test(l));
+  if (bad !== undefined) out.push(`${label}: runs ${bad}`);
+  const shell = s.shell ?? doc.jobs[id].defaults?.run?.shell ?? doc.defaults?.run?.shell;
+  if (!TOKEN_JOB_SHELLS.has(shell)) out.push(`${label}: shell ${shell}`);
+  return out;
+};
 const REQUIRED = requiredChecksFromDoc(read("docs/AGENTS/ci.md"));
 const lock = JSON.parse(read("package-lock.json"));
 const pkg = JSON.parse(read("package.json"));
@@ -116,7 +224,7 @@ describe("ci.yml", () => {
 
   it("has exactly the required checks as jobs (docs/AGENTS/ci.md is the list)", () => {
     expect(jobIds(CI).sort()).toEqual([...REQUIRED].sort());
-    expect(REQUIRED).toHaveLength(8);
+    expect(REQUIRED).toHaveLength(9);
   });
 
   it("has a job for every gate group, running that group", () => {
@@ -197,6 +305,34 @@ describe("ci.yml", () => {
     const b = jobBlock(CI, "build");
     expect(b).toMatch(/include-hidden-files: true/);
     expect(b).toMatch(/!\.next\/cache/);
+  });
+
+  // Every pull request proves the SBOM scan on real Next output, in a job of its own beside build:
+  // a standalone build with the source maps release:sbom reads, then the web-only check. Nothing
+  // waits for it, it uploads nothing, and build's artifact never carries maps.
+  it("checks the SBOM scan in its own job on a mapped standalone build, needing nothing and uploading nothing", () => {
+    const b = jobBlock(CI, "sbom");
+    expect(b).not.toMatch(/^ {4}needs:/m);
+    expect(b).toMatch(/^ {4}timeout-minutes: \d+$/m);
+    expect(b).not.toMatch(/upload-artifact/);
+    const lines = b.split(/\r?\n/);
+    const at = (re) => lines.findIndex((l) => re.test(l));
+    const order = [
+      at(/^ {6}- run: npm ci$/),
+      at(/^ {6}- name: Standalone build with source maps for the SBOM check$/),
+      at(/^ {6}- run: npm --prefix desktop ci --ignore-scripts$/),
+      at(/^ {8}run: npm run release:sbom -- --build \.next --standalone \.next\/standalone --desktop desktop --web-only --desktop-licences$/),
+    ];
+    expect(order.every((i) => i > -1), "every step is present").toBe(true);
+    expect(order).toEqual([...order].sort((x, y) => x - y));
+    const step = lines.slice(order[1], order[2]).join("\n");
+    expect(step).toMatch(/NEXT_STANDALONE: "1"/);
+    expect(step).toMatch(/SBOM_SOURCE_MAPS: "1"/);
+    expect(step).toMatch(/run: npm run build$/m);
+    // No job waits for it, and build carries no maps and no SBOM step.
+    for (const id of jobIds(CI)) expect(jobBlock(CI, id), id).not.toMatch(/^ {4}needs:.*\bsbom\b/m);
+    // (Comment lines dropped: the next job's leading comment sits inside build's block.)
+    expect(code(jobBlock(CI, "build"))).not.toMatch(/SBOM_SOURCE_MAPS|release:sbom/);
   });
 
   // Push runs are keyed by commit: a shared group keeps only one pending run, so a queued main run
@@ -356,29 +492,822 @@ describe("release.yml", () => {
     expect(topLevelBlock(RELEASE, "on")).toEqual(["push:", "tags:", '- "v*"']);
   });
 
-  it("has guard, build, publish, chained in that order", () => {
-    expect(jobIds(RELEASE)).toEqual(["guard", "build", "publish"]);
-    expect(jobBlock(RELEASE, "build")).toMatch(/^\s+needs: guard$/m);
-    expect(jobBlock(RELEASE, "publish")).toMatch(/^\s+needs: \[guard, build\]$/m);
+  const JOBS = ["guard", "build", "sign-app", "repackage", "sign-installer", "finalize", "attest-signature", "publish"];
+  const job = (id) => parsedRelease().jobs[id];
+  const needsOf = (id) => [job(id).needs ?? []].flat();
+  const ancestors = (id) => {
+    const seen = new Set();
+    const walk = (j) => { for (const n of needsOf(j)) if (!seen.has(n)) { seen.add(n); walk(n); } };
+    walk(id);
+    return seen;
+  };
+  const ON_EXPR = "${{ vars.SIGNPATH_ENABLED == 'true' }}";
+  const ON_APP_EXPR = "${{ vars.SIGNPATH_ENABLED == 'true' && vars.SIGNPATH_SIGN_APP_EXE == 'true' }}";
+
+  it("has guard, build, sign-app, repackage, sign-installer, finalize, attest-signature, publish, chained in that order", () => {
+    expect(jobIds(RELEASE)).toEqual(JOBS);
+    expect(Object.fromEntries(JOBS.map((id) => [id, needsOf(id)]))).toEqual({
+      guard: [],
+      build: ["guard"],
+      "sign-app": ["guard", "build"],
+      repackage: ["guard", "build", "sign-app"],
+      "sign-installer": ["guard", "sign-app", "repackage"],
+      finalize: ["guard", "build", "sign-app", "repackage", "sign-installer"],
+      "attest-signature": ["guard", "finalize"],
+      publish: ["guard", "finalize", "attest-signature"],
+    });
   });
 
   it("reads by default, and only publish can write", () => {
     expect(topLevelBlock(RELEASE, "permissions")).toEqual(["contents: read"]);
-    for (const id of ["guard", "build"]) expect(jobBlock(RELEASE, id)).not.toMatch(/permissions:|: write/);
-    const pub = jobBlock(RELEASE, "publish");
-    expect(pub).toMatch(/permissions:\n\s+contents: write\n\s+id-token: write\n\s+attestations: write/);
+    for (const id of ["guard", "build", "repackage", "finalize"]) expect(job(id).permissions, id).toBeUndefined();
+    // SignPath's connector reads the run's jobs and downloads its artifacts with the job token.
+    for (const id of ["sign-app", "sign-installer"]) expect(job(id).permissions, id).toEqual({ contents: "read", actions: "read" });
+    // The attestation downloads an artifact of this very run, which needs no actions: read.
+    expect(job("attest-signature").permissions).toEqual({ contents: "read" });
+    for (const id of JOBS.filter((j) => j !== "publish")) expect(JSON.stringify(job(id).permissions ?? {}), id).not.toMatch(/write/);
+    expect(job("publish").permissions).toEqual({ contents: "write", "id-token": "write", attestations: "write" });
   });
 
-  it("publish runs in the release environment and installs no packages", () => {
+  // One approval per release: the required reviewer on `release` pauses `sign-app`, the first job
+  // that can read the SignPath token. Every job after it needs it, so nothing that signs or
+  // publishes starts before the approval, and no other job names `release`, so GitHub asks once.
+  it("the owner approves once, at sign-app, before any token use and before publish", () => {
+    expect(job("sign-app").environment).toBe("release");
+    expect(job("sign-installer").environment).toBe("release-signing");
+    for (const id of ["guard", "build", "repackage", "finalize", "attest-signature", "publish"]) expect(job(id).environment, id).toBeUndefined();
+    for (const id of ["repackage", "sign-installer", "finalize", "attest-signature", "publish"]) expect(ancestors(id).has("sign-app"), id).toBe(true);
+    expect(ancestors("sign-app")).toEqual(new Set(["guard", "build"]));
     const pub = jobBlock(RELEASE, "publish");
-    expect(pub).toMatch(/^\s+environment: release$/m);
     expect(pub).not.toMatch(/npm (ci|install|i )|npx /);
     expect(pub).toMatch(/npm run release:verify -- /);
     expect(pub).toMatch(/npm run release:publish -- /);
   });
 
+  // Each `if:` evaluated as GitHub would for the case at hand: `cancelled()` false (a cancelled
+  // run is not a case here), vars and needs results looked up, == and != as string compares,
+  // with !, &&, || and parentheses. Anything else in the expression fails the test.
+  const evalIf = (expr, { vars = {}, results = {} }) => {
+    const body = expr.replace(/^\$\{\{\s*|\s*\}\}$/g, "");
+    const TOKEN = /\s*(cancelled\(\)|needs\.[\w-]+\.result|vars\.\w+|'[^']*'|==|!=|&&|\|\||!|\(|\))/y;
+    const tokens = [];
+    for (let m = TOKEN.exec(body); m; m = TOKEN.lastIndex < body.length ? TOKEN.exec(body) : null) tokens.push(m[1]);
+    expect(TOKEN.lastIndex, `unparsed: ${body.slice(TOKEN.lastIndex)}`).toBe(body.length);
+    let i = 0;
+    const value = (t) => {
+      if (t === "cancelled()") return false;
+      if (t.startsWith("'")) return t.slice(1, -1);
+      const need = /^needs\.([\w-]+)\.result$/.exec(t);
+      if (need) return results[need[1]] ?? "missing";
+      const v = /^vars\.(\w+)$/.exec(t);
+      if (v) return vars[v[1]] ?? "";
+      throw new Error(`unexpected token ${t} in ${body}`);
+    };
+    let or;
+    const primary = () => {
+      const t = tokens[i++];
+      if (t === "!") return !primary();
+      if (t === "(") {
+        const inner = or();
+        expect(tokens[i++], body).toBe(")");
+        return inner;
+      }
+      return value(t);
+    };
+    const compare = () => {
+      const left = primary();
+      if (tokens[i] !== "==" && tokens[i] !== "!=") return left;
+      const op = tokens[i++];
+      const right = primary();
+      return op === "==" ? left === right : left !== right;
+    };
+    const and = () => {
+      let v = compare();
+      while (tokens[i] === "&&") {
+        i++;
+        const r = compare();
+        v = v && r;
+      }
+      return v;
+    };
+    or = () => {
+      let v = and();
+      while (tokens[i] === "||") {
+        i++;
+        const r = and();
+        v = v || r;
+      }
+      return v;
+    };
+    const out = or();
+    expect(i, `trailing tokens in ${body}`).toBe(tokens.length);
+    return out;
+  };
+
+  it("the signing switch skips repackage and sign-installer, and finalize, attest-signature and publish still run (switch off: exactly as before)", () => {
+    for (const id of ["guard", "build", "sign-app"]) expect(job(id).if, id).toBeUndefined();
+    expect(job("repackage").if).toBe(ON_EXPR);
+    expect(job("sign-installer").if).toBe(ON_EXPR);
+    const ok = { guard: "success", build: "success", "sign-app": "success" };
+    const off = { results: { ...ok, repackage: "skipped", "sign-installer": "skipped" } };
+    const on = { vars: { SIGNPATH_ENABLED: "true" }, results: { ...ok, repackage: "success", "sign-installer": "success" } };
+    const fin = job("finalize").if;
+    expect(evalIf(fin, off)).toBe(true);
+    expect(evalIf(fin, { ...off, vars: { SIGNPATH_ENABLED: "false" } })).toBe(true);
+    expect(evalIf(fin, on)).toBe(true);
+    // Signing on: finalize never runs over an unsigned or unrepackaged setup.
+    for (const [n, r] of [["repackage", "failure"], ["repackage", "skipped"], ["sign-installer", "failure"], ["sign-installer", "skipped"], ["sign-installer", "cancelled"]]) {
+      expect(evalIf(fin, { ...on, results: { ...on.results, [n]: r } }), `${n} ${r}`).toBe(false);
+    }
+    // Either way: no approval (or a failed build) means no finalize.
+    for (const n of ["guard", "build", "sign-app"]) {
+      for (const c of [off, on]) expect(evalIf(fin, { ...c, results: { ...c.results, [n]: "failure" } }), n).toBe(false);
+      expect(evalIf(fin, { ...off, results: { ...off.results, [n]: "skipped" } }), n).toBe(false);
+    }
+    const att = job("attest-signature").if;
+    expect(evalIf(att, { results: { guard: "success", finalize: "success" } })).toBe(true);
+    for (const r of ["failure", "skipped", "cancelled"]) {
+      expect(evalIf(att, { results: { guard: "success", finalize: r } }), r).toBe(false);
+      expect(evalIf(att, { results: { guard: r, finalize: "success" } }), r).toBe(false);
+    }
+    const pub = job("publish").if;
+    const done = { guard: "success", finalize: "success", "attest-signature": "success" };
+    expect(evalIf(pub, { results: done })).toBe(true);
+    for (const n of ["guard", "finalize", "attest-signature"]) {
+      for (const r of ["failure", "skipped", "cancelled"]) expect(evalIf(pub, { results: { ...done, [n]: r } }), `${n} ${r}`).toBe(false);
+    }
+  });
+
+  it("publish verifies, attests and publishes the files finalize uploaded, not the build's", () => {
+    const pub = jobBlock(RELEASE, "publish").replace(/\r\n/g, "\n");
+    expect(pub).toMatch(/uses: actions\/download-artifact@[0-9a-f]{40} # v\S+\n {8}with:\n {10}name: release-final\n {10}path: \$\{\{ runner\.temp \}\}\/release$/m);
+    expect(pub).not.toMatch(/name: release-files/);
+    const fin = jobBlock(RELEASE, "finalize").replace(/\r\n/g, "\n");
+    expect(fin).toMatch(/uses: actions\/download-artifact@[0-9a-f]{40} # v\S+\n {8}with:\n {10}name: release-files\n {10}path: \$\{\{ runner\.temp \}\}\/release$/m);
+    expect(fin).toMatch(/uses: actions\/upload-artifact@[0-9a-f]{40} # v\S+\n {8}with:\n {10}name: release-final\n {10}path: \$\{\{ runner\.temp \}\}\/release\/\*\n {10}if-no-files-found: error$/m);
+    // Only finalize uploads the final files.
+    const finals = JOBS.filter((id) => (job(id).steps ?? []).some((s) => s.with?.name === "release-final" && /upload-artifact@/.test(s.uses ?? "")));
+    expect(finals).toEqual(["finalize"]);
+  });
+
   it("attests only on a public repository", () => {
     expect(jobBlock(RELEASE, "publish")).toMatch(/if: \$\{\{ !github\.event\.repository\.private \}\}\n\s+uses: actions\/attest-build-provenance@/);
+  });
+
+  it("attests the SBOM against the installer, on a public repository only, after the files are verified", () => {
+    const pub = jobBlock(RELEASE, "publish").replace(/\r\n/g, "\n");
+    const DIR = "${{ runner.temp }}/release";
+    const V = "${{ needs.guard.outputs.version }}";
+    // actions/attest, not the deprecated actions/attest-sbom wrapper around it.
+    const step = /^ {6}- name: Attest the SBOM\n {8}if: \$\{\{ !github\.event\.repository\.private \}\}\n {8}uses: actions\/attest@[0-9a-f]{40} # v\d+\.\d+\.\d+\n {8}with:\n {10}sbom-path: (.+)\n {10}subject-path: (.+)$/m.exec(pub);
+    expect(step, "the SBOM attestation step, in this exact shape").not.toBeNull();
+    expect(pub).not.toMatch(/attest-sbom@/);
+    expect(step[1]).toBe(`${DIR}/${sbomName("9.9.9")}`.replace("9.9.9", V));
+    expect(step[2]).toBe(`${DIR}/${installerName("9.9.9")}`.replace("9.9.9", V));
+    expect(pub.indexOf("- name: Attest the SBOM")).toBeGreaterThan(pub.indexOf("npm run release:verify"));
+    expect(pub.indexOf("- name: Attest the SBOM")).toBeLessThan(pub.indexOf("npm run release:publish"));
+  });
+
+  // The order the SBOM needs: maps for the pre-pass; the standalone copies gone BEFORE it, so both
+  // passes see exactly the shipped tree; the build's own maps out after it and before anything is
+  // copied or packed; the notices into the standalone public/ and (through extraFiles) the install
+  // folder; then the final pass over the packed app.asar, then the guard over what was packed.
+  it("builds with maps, writes the notices, strips the maps, packages, then writes the final SBOM", () => {
+    const lines = jobBlock(RELEASE, "build").split(/\r?\n/);
+    const at = (re) => lines.findIndex((l) => re.test(l));
+    const order = [
+      ["desktop install", at(/^ {6}- run: npm --prefix desktop ci$/)],
+      ["mapped build", at(/^ {10}SBOM_SOURCE_MAPS: "1"$/)],
+      ["delete standalone maps", at(/^ {8}run: npm run release:strip-maps -- --delete \.next\/standalone$/)],
+      ["pre-pass", at(/^ {8}run: npm run release:sbom -- --build \.next --standalone \.next\/standalone --desktop desktop --out \.next\/sbom$/)],
+      ["move build maps", at(/^ {8}run: npm run release:strip-maps -- --build \.next --keep sbom-maps$/)],
+      ["copy-static", at(/^ {6}- run: npm run desktop:copy-static -- --notices \.next\/sbom\/THIRD-PARTY-NOTICES\.txt$/)],
+      ["desktop build", at(/^ {6}- run: npm --prefix desktop run build$/)],
+      ["package", at(/^ {6}- run: npm run desktop:package$/)],
+      ["final pass", at(/^ {8}run: npm run release:sbom -- --build sbom-maps --standalone \.next\/standalone --desktop desktop --out desktop\/release --asar desktop\/release\/win-unpacked\/resources\/app\.asar$/)],
+      ["map and notices guard", at(/^ {6}- name: The package ships the notices and no source map$/)],
+      ["upload", at(/uses: actions\/upload-artifact@/)],
+    ];
+    for (const [name, i] of order) expect(i, name).toBeGreaterThan(-1);
+    const indices = order.map(([, i]) => i);
+    expect(indices).toEqual([...indices].sort((a, b) => a - b));
+    // The mapped build is the standalone one.
+    const build = lines.slice(order[1][1] - 3, order[1][1] + 2).join("\n");
+    expect(build).toMatch(/NEXT_STANDALONE: "1"/);
+    expect(build).toMatch(/run: npm run build$/m);
+    // The final pass writes where the upload reads.
+    expect(lines[order[8][1]]).toContain(`--out ${INSTALLER_DIR} `);
+  });
+
+  it("fails the build on a source map anywhere in the packed resources, and on notices missing from either place", () => {
+    const b = jobBlock(RELEASE, "build");
+    expect(b).toMatch(/app=desktop\/release\/win-unpacked$/m);
+    // Positive control: a moved tree must fail, not pass a walk over nothing.
+    expect(b).toMatch(/test -f "\$app\/resources\/standalone\/server\.js"/);
+    expect(b).toMatch(/find "\$app\/resources" -name '\*\.map' -print/);
+    // find sees app.asar as one file, so its entries are listed too: the desktop shell's production
+    // dependencies ship maps of their own. Counted into a variable (grep -c exits 1 on zero), with a
+    // positive control on the archive's own package.json.
+    expect(b).toMatch(/listing=\$\("\$asar" list "\$app\/resources\/app\.asar" \| tr -d '\\r'\) \|\| \{/);
+    expect(b).toMatch(/root=\$\(grep -cE '\^\[\/\\\\\]package\\\.json\$' <<<"\$listing"\) \|\| true/);
+    expect(b).toMatch(/\[ "\$root" = "1" \] \|\| \{/);
+    expect(b).toMatch(/asarmaps=\$\(grep -cE '\\\.map\$' <<<"\$listing"\) \|\| true/);
+    expect(b).toMatch(/\[ "\$asarmaps" = "0" \] \|\| \{/);
+    expect(b).toMatch(/cmp desktop\/release\/THIRD-PARTY-NOTICES\.txt "\$app\/THIRD-PARTY-NOTICES\.txt"/);
+    expect(b).toMatch(/cmp desktop\/release\/THIRD-PARTY-NOTICES\.txt "\$app\/resources\/standalone\/public\/third-party-notices\.txt"/);
+  });
+
+  // ★ A job that can read the SignPath token runs no npm-installed package and no repository
+  // script: the actions a job uses sit in its writable work folder, so build code running there
+  // (electron-builder, its dependency tree, the binaries it downloads, js-yaml) could rewrite the
+  // SignPath action's files and capture the token.
+  it("every step of a job that can read the SignPath token is an allowed action or an echo", () => {
+    expect(tokenJobViolations(parsedRelease())).toEqual([]);
+    // Positive control: the two token jobs are found as token jobs, and the run: step they hold is
+    // really checked (it is the `$NAME` shape ECHO_ONLY_LINE admits).
+    expect(tokenJobs(parsedRelease())).toEqual(["sign-app", "sign-installer"]);
+    const runs = ["sign-app", "sign-installer"].flatMap((id) => releaseSteps(id).filter((s) => s.run !== undefined).map((s) => s.run.trim()));
+    expect(runs).toEqual(['echo "release approved for $GITHUB_REF_NAME"']);
+  });
+
+  describe("tokenJobViolations (an allowlist)", () => {
+    const pinned = (a) => `${a}@${SHA}`;
+    const real = (a) => `${a}@${TOKEN_JOB_ACTION_SHAS[a]}`;
+    const tok = (steps, extra = {}) => ({ environment: "release", ...extra, steps });
+    const violations = (job, wf = {}) => tokenJobViolations({ ...wf, jobs: { j: job } });
+
+    it("passes allowed actions and print-only run: steps under the default shell or bash", () => {
+      expect(violations(tok([
+        { run: "echo ok" }, { shell: "bash", run: 'echo "release approved for $GITHUB_REF_NAME"' },
+        { run: "Write-Output ok" }, { run: "Write-Host 'done'" }, { run: "echo" },
+        { run: "# a note\n\necho a\r\n  echo b\n" },
+        { uses: real("signpath/github-action-submit-signing-request"), with: { "api-token": "${{ secrets.T }}", p: "${{ runner.temp }}/x-${{ needs.guard.outputs.version }}", o: "${{ vars.SIGNPATH_X }}", b: true, n: 3 } },
+        { uses: real("actions/upload-artifact"), with: { name: "n", path: "${{ needs.repackage.outputs.unsigned-artifact-id }}" } },
+        { name: "n", if: "${{ vars.X == 'true' }}", uses: real("actions/upload-artifact") },
+      ]))).toEqual([]);
+    });
+
+    // Every line here starts something other than an echo; a denylist had to name each one.
+    const RUN_BYPASSES = [
+      // Slipped past the old denylist.
+      "pwsh scripts/x.ps1", "pwsh -fi x.ps1", "& ./x.ps1", ". ./x.ps1", "./x.sh", "source x.sh", "python x.py",
+      // The old denylist's own cases.
+      "npm --prefix desktop ci --ignore-scripts", "npx foo", "npm run desktop:package", "node scripts/x.mjs",
+      "./node_modules/.bin/tool --x", "node_modules\\.bin\\tool.cmd", "bash scripts/sign.sh", "set -e; sh ./x.sh",
+      "bash -e x.sh", "pwsh -NoProfile -File scripts/x.ps1", "powershell.exe -file x.ps1", "pwsh -f x.ps1",
+      "bash -c 'echo ok'", "pwsh -NoProfile -Command \"Get-Date -Format o\"",
+      // An echo that starts something else too.
+      "echo $(npm ci)", "echo `npm ci`", "echo ok; npm ci", "echo ok && npm ci", "echo ok | sh", "echo x > a.sh",
+      "echo ${{ github.event.head_commit.message }}", "echo ${GITHUB_REF_NAME}", "Write-Output (Invoke-Expression x)",
+      "echo ok\\", "echox", "Echo-Thing x", "npm ci # a trailing comment does not make the line one",
+    ];
+    it.each(RUN_BYPASSES)("flags the run: line %s", (line) => {
+      expect(violations(tok([{ name: "s", run: line }]))).toEqual([`j: s: runs ${line}`]);
+    });
+
+    it("flags the first non-echo line of a multi-line run:, after any number of echo lines", () => {
+      expect(violations(tok([{ name: "m", run: "echo a\n# c\nnpm ci\necho b" }]))).toEqual(["j: m: runs npm ci"]);
+    });
+
+    it("flags any shell but the default and bash, from the step, the job or the workflow", () => {
+      for (const shell of ["pwsh", "powershell", "cmd", "node {0}", "python {0}", "bash -e {0}"]) {
+        expect(violations(tok([{ name: "s", shell, run: "echo ok" }])), shell).toEqual([`j: s: shell ${shell}`]);
+      }
+      expect(violations(tok([{ name: "d", run: "echo ok" }], { defaults: { run: { shell: "python {0}" } } }))).toEqual(["j: d: shell python {0}"]);
+      expect(violations(tok([{ name: "w", run: "echo ok" }]), { defaults: { run: { shell: "node {0}" } } })).toEqual(["j: w: shell node {0}"]);
+    });
+
+    it("flags any action outside the two the token jobs use, pinned or not, checkout included", () => {
+      const bad = [pinned("actions/checkout"), pinned("actions/setup-node"), pinned("actions/download-artifact"),
+        pinned("some/electron-builder-action"), "actions/upload-artifact@v5", "./.github/actions/local", "docker://alpine:3"];
+      expect(violations(tok(bad.map((uses) => ({ uses }))))).toEqual(bad.map((u) => `j: ${u}: uses ${u}`));
+    });
+
+    it("flags an allowed action pinned to any other commit, a tag or a branch", () => {
+      const a = "actions/upload-artifact";
+      const bad = [pinned(a), pinned("signpath/github-action-submit-signing-request"), `${a}@${"0".repeat(40)}`,
+        `${a}@${TOKEN_JOB_ACTION_SHAS[a].slice(0, 39)}0`, `${a}@v7.0.2`, `${a}@main`, a, `${a}-evil@${TOKEN_JOB_ACTION_SHAS[a]}`];
+      expect(violations(tok(bad.map((uses) => ({ uses }))))).toEqual(bad.map((u) => `j: ${u}: uses ${u}`));
+    });
+
+    it("flags a step key outside name, if, uses, with, run and shell", () => {
+      for (const k of ["env", "working-directory", "continue-on-error", "timeout-minutes", "id"]) {
+        expect(violations(tok([{ name: "s", run: "echo ok", [k]: k === "env" ? { A: "1" } : "x" }])), k).toEqual([`j: s: key ${k}`]);
+      }
+      expect(violations(tok([{ name: "s", uses: real("actions/upload-artifact"), env: { NODE_OPTIONS: "--require x.js" } }]))).toEqual(["j: s: key env"]);
+    });
+
+    it("allows no job-level env and only the workflow's one inert flag, and flags any working-directory default", () => {
+      for (const n of ["BASH_ENV", "ENV", "NODE_OPTIONS", "node_options", "NODE_EXTRA_CA_CERTS", "HTTPS_PROXY", "PATH", "Path", "NEXT_TELEMETRY_DISABLED"]) {
+        expect(violations(tok([{ run: "echo ok" }], { env: { [n]: "x" } })), n).toEqual([`j: env ${n}`]);
+      }
+      for (const n of ["BASH_ENV", "NODE_OPTIONS", "NODE_EXTRA_CA_CERTS", "HTTPS_PROXY", "PATH", "next_telemetry_disabled"]) {
+        expect(violations(tok([{ run: "echo ok" }]), { env: { [n]: "x" } }), n).toEqual([`j (workflow): env ${n}`]);
+      }
+      expect(violations(tok([{ run: "echo ok" }]), { env: { NEXT_TELEMETRY_DISABLED: "1" } })).toEqual([]);
+      expect(violations(tok([{ run: "echo ok" }], { defaults: { run: { "working-directory": "desktop" } } }))).toEqual(["j: working-directory"]);
+      expect(violations(tok([{ run: "echo ok" }]), { defaults: { run: { "working-directory": "desktop" } } })).toEqual(["j: working-directory"]);
+    });
+
+    it("flags a with: expression other than secrets, vars, a needs output or runner.temp", () => {
+      const w = (v) => violations(tok([{ name: "s", uses: real("actions/upload-artifact"), with: { path: v } }]));
+      for (const e of ["github.event.head_commit.message", "github.ref_name", "env.X", "steps.a.outputs.b", "format('{0}', vars.X)",
+        "vars.X || github.sha", "needs.a.result", "runner.os", "toJSON(secrets)", "inputs.x", "secrets"]) {
+        expect(w("${{ " + e + " }}"), e).toEqual([`j: s: with expression ${e}`]);
+      }
+      // Each expression in a value is judged, not just the first.
+      expect(w("${{ vars.X }}-${{github.sha}}")).toEqual(["j: s: with expression github.sha"]);
+      expect(w("${{ secrets.A_B }}/${{ vars.C }}/${{ needs.sign-app.outputs.out-put }}/${{ runner.temp }}")).toEqual([]);
+    });
+
+    it("judges expressions in nested mappings and lists of a with: value too", () => {
+      const nested = (v) => violations(tok([{ name: "s", uses: real("actions/upload-artifact"), with: { a: v } }]));
+      expect(nested({ b: { c: "${{ github.sha }}" } })).toEqual(["j: s: with expression github.sha"]);
+      expect(nested(["${{ vars.X }}", ["${{ env.Y }}"], { z: ["${{ steps.a.outputs.b }}"] }])).toEqual(["j: s: with expression env.Y", "j: s: with expression steps.a.outputs.b"]);
+      expect(nested({ b: ["${{ secrets.T }}", { c: "${{ runner.temp }}" }], d: null, e: 1, f: false })).toEqual([]);
+    });
+
+    it("rejects a long crafted non-echo line in a small fraction of the time the old pattern took", () => {
+      // `$ab...` used to be readable as `$a` + `b...` at every split, so a line the pattern fails late took
+      // quadratic time: measured on the old pattern, 50 000 chars ~2 s, 100 000 ~10 s, 200 000 ~42 s. At 120 000
+      // chars the old pattern needs ~15 s; the fixed one needs under a millisecond. The 1.5 s ceiling is ten times
+      // under the old pattern's time and far above any loaded runner's noise on the fixed one.
+      for (const tail of ["(", "\\"]) {
+        const line = "echo $" + "a".repeat(120_000) + tail;
+        const t0 = performance.now();
+        expect(ECHO_ONLY_LINE.test(line)).toBe(false);
+        expect(performance.now() - t0).toBeLessThan(1500);
+      }
+      // Positive control: a long line of plain words and one `$NAME` still passes.
+      expect(ECHO_ONLY_LINE.test(`echo ${"word ".repeat(10_000)}$NAME`)).toBe(true);
+    });
+
+    it("flags a token job that calls a reusable workflow or runs in a container", () => {
+      expect(violations({ environment: "release", uses: "./.github/workflows/build.yml", secrets: "inherit" })).toEqual(["j: job uses"]);
+      expect(violations(tok([{ run: "echo ok" }], { container: "node:22", services: { db: { image: "x" } } }))).toEqual(["j: job container", "j: job services"]);
+    });
+
+    it("treats a job as a token job by its environment or any use of the secrets context, and leaves others alone", () => {
+      const doc = { jobs: {
+        env: { environment: { name: "x" }, steps: [] },
+        dot: { steps: [{ env: { T: "${{ secrets.T }}" }, run: "echo" }] },
+        bracket: { steps: [{ env: { T: "${{ secrets['SIGNPATH_API_TOKEN'] }}" }, run: "echo" }] },
+        whole: { steps: [{ env: { ALL: "${{ toJSON(secrets) }}" }, run: "echo" }] },
+        upper: { steps: [{ env: { T: "${{ Secrets.SIGNPATH_API_TOKEN }}" }, run: "echo" }] },
+        shout: { steps: [{ env: { T: "${{ SECRETS['SIGNPATH_API_TOKEN'] }}" }, run: "echo" }] },
+        wholeUpper: { steps: [{ env: { ALL: "${{ toJSON(Secrets) }}" }, run: "echo" }] },
+        free: { steps: [{ run: "npm ci" }, { uses: pinned("some/other") }, { uses: pinned("actions/checkout") }, { shell: "node {0}", run: "x" }] },
+      } };
+      expect(tokenJobs(doc)).toEqual(["env", "dot", "bracket", "whole", "upper", "shout", "wholeUpper"]);
+      // Their steps carry an env: key, itself a violation; this test is only about detection.
+      expect(tokenJobViolations(doc).every((v) => /: key env$/.test(v))).toBe(true);
+    });
+  });
+
+  // GitHub ties a secret to an environment, not to a job: any job, in any workflow, that names
+  // `release` or `release-signing` can be handed the SignPath token. So the exact set of jobs that
+  // name an environment is pinned across every workflow file (no other workflow names one today).
+  it("only sign-app names release and only sign-installer names release-signing, in every workflow", () => {
+    const yaml = createRequire(new URL("../desktop/package.json", import.meta.url))("js-yaml");
+    const named = [];
+    for (const f of ALL_WORKFLOWS) {
+      const doc = yaml.load(read(`.github/workflows/${f}`));
+      for (const [id, j] of Object.entries(doc?.jobs ?? {})) {
+        if (j?.environment === undefined) continue;
+        named.push([f, id, typeof j.environment === "string" ? j.environment : j.environment?.name ?? JSON.stringify(j.environment)]);
+      }
+    }
+    expect(ALL_WORKFLOWS).toContain("release.yml");
+    expect(named).toEqual([["release.yml", "sign-app", "release"], ["release.yml", "sign-installer", "release-signing"]]);
+    // GitHub's context names are case-insensitive; any spelling of the token's name outside
+    // release.yml fails, comments included.
+    for (const f of ALL_WORKFLOWS.filter((n) => n !== "release.yml")) {
+      expect(read(`.github/workflows/${f}`), f).not.toMatch(/SIGNPATH_API_TOKEN/i);
+    }
+  });
+
+  // A failed signing-path job is re-run on its own; the files earlier jobs passed it must still be
+  // there, so every artifact this workflow uploads is kept as long as the build's (7 days).
+  it("keeps every artifact the release jobs pass on for 7 days, so a failed job can be re-run", () => {
+    const uploads = JOBS.flatMap((id) => (job(id).steps ?? [])
+      .filter((s) => /^actions\/upload-artifact@/.test(s.uses ?? ""))
+      .map((s) => [id, s.with?.name, s.with?.["retention-days"]]));
+    expect(uploads.map(([, name]) => name)).toEqual(expect.arrayContaining(["unpacked-signed-app", "unsigned-setup", "app-update-feed", "signed-setup"]));
+    for (const [id, name, days] of uploads) expect(days, `${id} ${name}`).toBe(7);
+  });
+
+  describe("signing", () => {
+    const REPACKAGE = "Repackage the setup around the app tree";
+    const APP_TREE_CHECK = "The app tree holds the standalone server and its .next build";
+    const FEED_WRITE = "Require the SignPath Foundation signature in the app's update feed";
+    const FEED_CHECK = "The repackaged app's updater requires the SignPath Foundation signature";
+    const INSTALLER_CHECK = "The installer passes the app's own update signature check";
+    const EXE_CHECK = "The app's executable is signed by SignPath Foundation";
+    const TAKE_SIGNED = "Take the signed installer and rewrite the update feed";
+    const RECORD = "Record whether the installer is signed";
+    const ATTEST = "The final installer is the file latest.yml records, validly signed by the feed's publisher";
+    const APP_DIR = "${{ runner.temp }}/app";
+    // The update-feed check's .NET pattern, as written inside a PowerShell single-quoted string.
+    // PUBLISHER is SignPath Foundation's full DN, which holds no regex metacharacter, so it stands in the pattern as it is.
+    const PUBLISHER_PS = String.raw`(?m)^publisherName:[ \t]*\r?\n[ \t]+-[ \t]*[''"]?${PUBLISHER}[''"]?[ \t]*\r?$`;
+    const idx = (j, name) => releaseStepIndex(j, name);
+    const subs = (j) => releaseSteps(j).filter((s) => /^signpath\/github-action-submit-signing-request@/.test(s.uses ?? ""));
+
+    it("runs every signing job on windows with a timeout", () => {
+      for (const id of ["sign-app", "repackage", "sign-installer", "finalize", "attest-signature"]) {
+        expect(job(id)["runs-on"], id).toBe("windows-latest");
+        expect(job(id)["timeout-minutes"], id).toBeGreaterThan(0);
+      }
+    });
+
+    // A submission may wait its full completion timeout and download timeout; a job timeout below
+    // their sum kills a slow but healthy signing run.
+    it("gives each token job more time than its one SignPath submission can take", () => {
+      for (const id of ["sign-app", "sign-installer"]) {
+        const s = subs(id);
+        expect(s, id).toHaveLength(1);
+        const signingS = s[0].with["wait-for-completion-timeout-in-seconds"] + s[0].with["download-signed-artifact-timeout-in-seconds"];
+        expect(signingS, id).toBe(3600 + 1800);
+        expect(job(id)["timeout-minutes"] * 60 - signingS, id).toBeGreaterThanOrEqual(15 * 60);
+      }
+    });
+
+    it("submits to SignPath only through the pinned action, in the two token jobs, behind the switch", () => {
+      const all = JOBS.flatMap((id) => subs(id).map((s) => [id, s]));
+      expect(all.map(([id]) => id)).toEqual(["sign-app", "sign-installer"]);
+      for (const [id, s] of all) {
+        expect(s.uses, id).toMatch(/^signpath\/github-action-submit-signing-request@[0-9a-f]{40}$/);
+        expect(s.with["api-token"], id).toBe("${{ secrets.SIGNPATH_API_TOKEN }}");
+        for (const v of ["ORGANIZATION_ID", "PROJECT_SLUG", "SIGNING_POLICY_SLUG"]) {
+          expect(s.with[v.toLowerCase().replace(/_/g, "-")], `${id} ${v}`).toBe(`\${{ vars.SIGNPATH_${v} }}`);
+        }
+        expect(s.with["wait-for-completion"], id).toBe(true);
+        // The packaged app and the setup are large; the action's default download timeout is 300 s.
+        expect(s.with["download-signed-artifact-timeout-in-seconds"], id).toBe(1800);
+      }
+      expect(releaseStep("sign-app", "Sign the app's own executables").if).toBe(ON_APP_EXPR);
+      expect(releaseStep("sign-app", "Sign the app's own executables").with["artifact-configuration-slug"]).toBe("app");
+      // sign-installer's own `if:` is the switch, at job level.
+      expect(releaseStep("sign-installer", "Sign the installer").if).toBeUndefined();
+      expect(releaseStep("sign-installer", "Sign the installer").with["artifact-configuration-slug"]).toBe("installer");
+      // Nowhere else in any workflow.
+      for (const f of ALL_WORKFLOWS) {
+        if (f === "release.yml") continue;
+        expect(read(`.github/workflows/${f}`), f).not.toMatch(/signpath/i);
+      }
+    });
+
+    it("reads the token only as the SignPath steps' api-token; no other job or step sees a secret", () => {
+      const text = code(RELEASE.replace(/\r\n/g, "\n"));
+      expect(text.match(/SIGNPATH_API_TOKEN/g)).toHaveLength(2);
+      expect(text.match(/secrets\./gi)).toHaveLength(2);
+      for (const id of JOBS) {
+        const n = (JSON.stringify(job(id)).match(/secrets\./gi) ?? []).length;
+        expect(n, id).toBe(["sign-app", "sign-installer"].includes(id) ? 1 : 0);
+      }
+    });
+
+    it("the app's signed tree reaches repackage by artifact, and the setup is repackaged before it is signed", () => {
+      // build -> sign-app: by the build's artifact id.
+      const b = jobBlock(RELEASE, "build").replace(/\r\n/g, "\n");
+      expect(b).toMatch(/^ {6}unpacked-artifact-id: \$\{\{ steps\.upload-unpacked\.outputs\.artifact-id \}\}$/m);
+      const u = releaseStep("build", "Upload the packaged app for signing");
+      expect(u.id).toBe("upload-unpacked");
+      expect(u.if).toBe(ON_EXPR);
+      expect(u.with).toMatchObject({ name: "unpacked-app", path: "desktop/release/win-unpacked", "include-hidden-files": true });
+      const appSign = releaseStep("sign-app", "Sign the app's own executables");
+      expect(appSign.with["github-artifact-id"]).toBe("${{ needs.build.outputs.unpacked-artifact-id }}");
+      expect(appSign.with["output-artifact-directory"]).toBe("${{ runner.temp }}/unpacked-signed");
+      const up = releaseStep("sign-app", "Upload the signed app for the repackage job");
+      expect(up.if).toBe(ON_APP_EXPR);
+      expect(up.with).toMatchObject({ name: "unpacked-signed-app", path: "${{ runner.temp }}/unpacked-signed", "include-hidden-files": true, "if-no-files-found": "error" });
+      expect(idx("sign-app", "Sign the app's own executables")).toBeLessThan(idx("sign-app", "Upload the signed app for the repackage job"));
+      // sign-app -> repackage: the signed tree when SIGNPATH_SIGN_APP_EXE is on, the build's otherwise.
+      const dl = releaseStep("repackage", "Download the packaged app");
+      expect(dl.with).toEqual({ name: "${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && 'unpacked-signed-app' || 'unpacked-app' }}", path: APP_DIR });
+      // repackage -> sign-installer: by the unsigned setup's artifact id.
+      expect(job("repackage").outputs["unsigned-artifact-id"]).toBe("${{ steps.upload-unsigned.outputs.artifact-id }}");
+      const unsigned = releaseStep("repackage", "Upload the unsigned installer");
+      expect(unsigned.id).toBe("upload-unsigned");
+      expect(unsigned.with.path).toBe("desktop/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe");
+      const inst = releaseStep("sign-installer", "Sign the installer");
+      expect(inst.with["github-artifact-id"]).toBe("${{ needs.repackage.outputs.unsigned-artifact-id }}");
+      expect(inst.with["output-artifact-directory"]).toBe("${{ runner.temp }}/signed-setup");
+      // sign-installer -> finalize: the signed setup by name.
+      const signedUp = releaseStep("sign-installer", "Upload the signed installer");
+      expect(signedUp.with).toMatchObject({ name: "signed-setup", path: "${{ runner.temp }}/signed-setup/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe", "if-no-files-found": "error" });
+      expect(releaseStep("finalize", "Download the signed installer").with).toEqual({ name: "signed-setup", path: "${{ runner.temp }}/signed-setup" });
+      expect(releaseStep("finalize", TAKE_SIGNED).env.SIGNED).toBe("${{ runner.temp }}/signed-setup");
+      // Inside repackage: tree in place, checks, feed, repackage, feed check, upload.
+      const order = ["Download the packaged app", EXE_CHECK, APP_TREE_CHECK, FEED_WRITE, REPACKAGE, FEED_CHECK, "Upload the unsigned installer"].map((n) => idx("repackage", n));
+      expect(order).toEqual([...order].sort((a, c) => a - c));
+      expect(idx("repackage", FEED_WRITE) + 1).toBe(idx("repackage", REPACKAGE));
+      expect(idx("repackage", REPACKAGE) + 1).toBe(idx("repackage", FEED_CHECK));
+      expect(releaseStep("repackage", REPACKAGE).run).toBe('npm run desktop:package -- --prepackaged "$APP_DIR"');
+      for (const n of [APP_TREE_CHECK, FEED_WRITE, REPACKAGE, FEED_CHECK]) expect(releaseStep("repackage", n).env.APP_DIR, n).toBe(APP_DIR);
+    });
+
+    // upload-artifact skips dot-folders unless told otherwise, so a packaged app uploaded without
+    // include-hidden-files arrives without resources/standalone/.next, and the setup repackaged
+    // around it installs an app whose server cannot start. This step refuses such a tree before the
+    // repackage, on the same APP_DIR and in the same shell the repackage uses.
+    it("fails before the repackage unless the app tree holds server.js and .next/BUILD_ID", () => {
+      const c = releaseStep("repackage", APP_TREE_CHECK);
+      const p = releaseStep("repackage", REPACKAGE);
+      expect(c.shell).toBe(p.shell);
+      expect(c.env.APP_DIR).toBe(p.env.APP_DIR);
+      expect(c.run).toContain('"$APP_DIR/resources/standalone/server.js"');
+      expect(c.run).toContain('"$APP_DIR/resources/standalone/.next/BUILD_ID"');
+      expect(c.run).toMatch(/\[ -f "\$f" \] \|\| \{ [^}]*exit 1; \}/);
+      expect(idx("repackage", APP_TREE_CHECK)).toBeLessThan(idx("repackage", REPACKAGE));
+    });
+
+    it("uploads every artifact that carries the app tree with its hidden .next folder", () => {
+      const trees = JOBS.flatMap((id) => releaseSteps(id))
+        .filter((s) => /^actions\/upload-artifact@/.test(s.uses ?? "") && /unpacked/.test(String(s.with?.path)));
+      expect(trees.map((s) => s.with.path)).toEqual(["desktop/release/win-unpacked", "${{ runner.temp }}/unpacked-signed"]);
+      for (const s of trees) expect(s.with["include-hidden-files"], s.with.path).toBe(true);
+    });
+
+    // The feed is no longer the build job's to write, so no signed-build marker exists anywhere.
+    it("sets no signed-build marker on any packing", () => {
+      for (const f of [".github/workflows/release.yml", ".github/workflows/ci.yml", "desktop/electron-builder.yml", "package.json", "docs/AGENTS/ci.md"]) {
+        expect(read(f), f).not.toMatch(/AIPM_SIGNED_BUILD/);
+      }
+    });
+
+    // --prepackaged writes no resources/app-update.yml (electron-builder's after-pack hook does, and
+    // a prepackaged run skips it), so the feed in the tree is the build job's, which names no
+    // publisher. This step adds it, directly before the repackage.
+    it("writes the updater's publisherName into the app tree right before the repackage", () => {
+      const s = releaseStep("repackage", FEED_WRITE);
+      expect(s.shell).toBe("bash");
+      // node is the step's only command, so its exit code is the step's.
+      expect(s.run).toBe('node scripts/release-update-feed.mjs "$APP_DIR"');
+    });
+
+    // A signed installer whose updater accepts anything must fail the release, not ship.
+    it("fails unless the repackaged app's update feed requires SignPath Foundation, right after the repackage", () => {
+      const s = releaseStep("repackage", FEED_CHECK);
+      expect(s.shell).toBe("pwsh");
+      expect(s.run).toContain("Join-Path $env:APP_DIR 'resources/app-update.yml'");
+      expect(s.run).toContain(`-notmatch '${PUBLISHER_PS}'`);
+      expect(s.run).toMatch(/exit 1/);
+    });
+
+    // The step's own pattern, run in JS: PowerShell's '' is one ', and (?m) is the "m" flag. The
+    // .NET and JS engines agree on every construct it uses ([ \t], \r?, ^/$ under multiline).
+    it("the publisherName pattern accepts only SignPath Foundation's full DN as the list item under the key", () => {
+      expect(PUBLISHER).toBe("CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US");
+      expect(PUBLISHER).not.toMatch(/[\\^$.|?*+()[\]{}]/);
+      const ps = /-notmatch '((?:[^']|'')*)'/.exec(releaseStep("repackage", FEED_CHECK).run)?.[1];
+      expect(ps).toBe(PUBLISHER_PS);
+      const re = new RegExp(ps.replace(/''/g, "'").replace(/^\(\?m\)/, ""), "m");
+      const yes = [
+        `owner: x\npublisherName:\n  - ${PUBLISHER}\nupdaterCacheDirName: y\n`,
+        `publisherName:\r\n  - '${PUBLISHER}'\r\nrepo: z\r\n`,
+        `provider: github\npublisherName:\n  - "${PUBLISHER}"`,
+      ];
+      const no = [
+        `publisherName:\n  - Other CN\nfoo: ${PUBLISHER}\n`,
+        `publisherName: ${PUBLISHER}\n`,
+        `# publisherName:\n  - ${PUBLISHER}\n`,
+        `publisherName:\n  - ${PUBLISHER}, OU=x\n`,
+        "publisherName:\n  - SignPath Foundation\n",
+        `publisherName:\n  - ${PUBLISHER.replace("C=US", "C=DE")}\n`,
+        "provider: github\nowner: sebastianmaute\n",
+      ];
+      for (const t of yes) expect(re.test(t), JSON.stringify(t)).toBe(true);
+      for (const t of no) expect(re.test(t), JSON.stringify(t)).toBe(false);
+    });
+
+    it("installs the packaging tools without install scripts, only in the token-free repackage and finalize", () => {
+      const installs = JOBS.flatMap((id) => releaseSteps(id).filter((s) => /npm (?:--prefix \S+ )?(?:ci|install|i)\b/.test(s.run ?? "")).map((s) => [id, s.run.trim(), s.if ?? null]));
+      expect(installs).toEqual([
+        ["build", "npm ci", null],
+        ["build", "npm --prefix desktop ci", null],
+        ["repackage", "npm --prefix desktop ci --ignore-scripts", null],
+        ["finalize", "npm --prefix desktop ci --ignore-scripts", ON_EXPR],
+      ]);
+    });
+
+    it("every finalize step that needs signing switched on carries the switch, and the rest run on every release", () => {
+      for (const name of ["Install the desktop packaging tools", "Download the signed installer", "Download the repackaged app's update feed", TAKE_SIGNED, INSTALLER_CHECK]) {
+        expect(releaseStep("finalize", name).if, name).toBe(ON_EXPR);
+      }
+      const unconditional = releaseSteps("finalize").filter((s) => s.if === undefined).map((s) => s.name ?? s.uses.replace(/@.*/, ""));
+      expect(unconditional).toEqual(["actions/checkout", "actions/setup-node", "actions/download-artifact", "No unsigned release after a signed one", "Verify the files", "actions/upload-artifact"]);
+      // In attest-signature only the record step runs with the switch off, and it then says false.
+      expect(releaseSteps("attest-signature").map((s) => [s.name, s.if ?? null])).toEqual([["Download the final files", ON_EXPR], [ATTEST, ON_EXPR], [RECORD, null]]);
+      // Inside repackage the switch is the job's; only the app-exe check has a step condition.
+      expect(releaseSteps("repackage").filter((s) => s.if !== undefined).map((s) => [s.name, s.if])).toEqual([[EXE_CHECK, "${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' }}"]]);
+      expect(releaseSteps("sign-app").filter((s) => s.if !== undefined).map((s) => s.if)).toEqual([ON_APP_EXPR, ON_APP_EXPR]);
+      expect(releaseSteps("sign-installer").filter((s) => s.if !== undefined)).toEqual([]);
+    });
+
+    it("rewrites latest.yml and the blockmap over the signed installer, then checks its signature", () => {
+      const feed = releaseStep("finalize", TAKE_SIGNED);
+      // pwsh: node is the step's last command, so its exit code is the step's.
+      expect(feed.shell).toBe("pwsh");
+      expect(feed.run.trimEnd()).toMatch(/\nnode scripts\/release-latest-yml\.mjs "\$env:FINAL" "\$env:VERSION"$/);
+      expect(idx("finalize", "Download the signed installer")).toBeLessThan(idx("finalize", TAKE_SIGNED));
+      expect(idx("finalize", "Install the desktop packaging tools")).toBeLessThan(idx("finalize", TAKE_SIGNED));
+      expect(idx("finalize", TAKE_SIGNED) + 1).toBe(idx("finalize", INSTALLER_CHECK));
+    });
+
+    // The installed app accepts an update only when verifyUpdateSignature passes it: Valid, and the
+    // signer's CN EXACTLY a name in the packaged feed's publisherName. A substring check here let a
+    // certificate whose CN merely contains the name pass as signed, shipping a release that would
+    // refuse every later update. So the release runs that very verifier on the final setup, with the
+    // names from the repackaged tree's own feed, and nothing else in the release judges a signer.
+    it("judges the final signed setup with the app's own verifier and the repackaged feed", () => {
+      const v = releaseStep("finalize", INSTALLER_CHECK);
+      expect(v.id).toBe("installer-signature");
+      expect(v.shell).toBe("bash");
+      expect(v.env.FILE).toBe("${{ runner.temp }}/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe");
+      expect(v.env.FEED).toBe("${{ runner.temp }}/feed/app-update.yml");
+      expect(v.run.trim()).toBe('node scripts/release-verify-signature.mjs --feed "$FEED" "$FILE"');
+      // The feed is the repackaged tree's own.
+      const feedUp = releaseStep("repackage", "Upload the repackaged app's update feed");
+      expect(feedUp.with).toMatchObject({ name: "app-update-feed", path: `${APP_DIR}/resources/app-update.yml`, "if-no-files-found": "error" });
+      expect(idx("repackage", FEED_CHECK)).toBeLessThan(idx("repackage", "Upload the repackaged app's update feed"));
+      expect(releaseStep("finalize", "Download the repackaged app's update feed").with).toEqual({ name: "app-update-feed", path: "${{ runner.temp }}/feed" });
+      expect(idx("finalize", "Download the repackaged app's update feed")).toBeLessThan(idx("finalize", INSTALLER_CHECK));
+    });
+
+    it("judges the app's executable with the same verifier, before the feed exists, by the feed's own name", () => {
+      const e = releaseStep("repackage", EXE_CHECK);
+      expect(e.shell).toBe("bash");
+      expect(e.env.FILE).toBe(`${APP_DIR}/AI PM Cockpit.exe`);
+      expect(e.run.trim()).toBe(`node scripts/release-verify-signature.mjs --publisher "${PUBLISHER}" "$FILE"`);
+    });
+
+    it("leaves no substring signer check anywhere in the release", () => {
+      expect(code(RELEASE)).not.toMatch(/-(?:not)?like\b/);
+      // Windows' own Authenticode check runs in attest-signature alone, and compares the signer exactly.
+      const auth = JOBS.flatMap((id) => releaseSteps(id).filter((s) => /Get-AuthenticodeSignature/.test(s.run ?? "")).map((s) => [id, s.name]));
+      expect(auth).toEqual([["attest-signature", ATTEST]]);
+      expect(releaseStep("attest-signature", ATTEST).run).not.toMatch(/-[ci]?(?:not)?(?:match|contains)\b[^\n]*PUBLISHER|\.(?:Contains|StartsWith|EndsWith)\([^\n]*PUBLISHER/i);
+      const runs = JOBS.flatMap((id) => releaseSteps(id)).map((s) => s.run ?? "").filter((r) => /release-verify-signature/.test(r));
+      expect(runs).toHaveLength(2);
+    });
+
+    it("runs the one-way guard and release:verify on every release, before the upload, and fails on any non-zero exit", () => {
+      const g = releaseStep("finalize", "No unsigned release after a signed one");
+      expect(g.if).toBeUndefined();
+      expect(g.run.trim()).toBe('node scripts/release-signing-guard.mjs "$TAG" "$FINAL"');
+      expect(g.env).toMatchObject({ GH_TOKEN: "${{ github.token }}", GH_REPO: "${{ github.repository }}" });
+      const v = releaseStep("finalize", "Verify the files");
+      expect(v.if).toBeUndefined();
+      expect(v.run.trim()).toBe('npm run release:verify -- "$FINAL" "$TAG"');
+      const upload = releaseSteps("finalize").findIndex((s) => s.with?.name === "release-final");
+      expect(idx("finalize", INSTALLER_CHECK)).toBeLessThan(idx("finalize", "No unsigned release after a signed one"));
+      expect(idx("finalize", "No unsigned release after a signed one")).toBeLessThan(idx("finalize", "Verify the files"));
+      expect(idx("finalize", "Verify the files")).toBeLessThan(upload);
+      // Exit 2 ("cannot decide") must fail the job like exit 1 does.
+      expect(RELEASE).not.toMatch(/continue-on-error/);
+      expect(g.run).not.toMatch(/\|\||; *exit 0|\$LASTEXITCODE/);
+    });
+
+    // The release notes call the installer signed only when attest-signature's Authenticode check
+    // passed in this run: the switch alone does not decide. Skipped (switch off) or anything but
+    // success is false; a failed check fails the job, so publish never runs.
+    it("outputs signed=true only after attest-signature's check passed, and publish passes it on", () => {
+      expect(job("attest-signature").outputs).toEqual({ signed: "${{ steps.signed.outputs.signed }}" });
+      const rec = releaseStep("attest-signature", RECORD);
+      expect(rec.id).toBe("signed");
+      expect(rec.if).toBeUndefined();
+      expect(rec.shell).toBe("bash");
+      expect(rec.env).toEqual({ CHECKED: "${{ steps.attest.outcome == 'success' }}" });
+      expect(rec.run.trim()).toBe('echo "signed=$CHECKED" >> "$GITHUB_OUTPUT"');
+      expect(releaseStep("attest-signature", ATTEST).id).toBe("attest");
+      // Nothing else writes the output, and no other job has one called signed.
+      expect(code(RELEASE).match(/signed=/g)).toHaveLength(1);
+      for (const id of JOBS.filter((j) => j !== "attest-signature")) expect(job(id).outputs?.signed, id).toBeUndefined();
+      expect(idx("attest-signature", ATTEST)).toBeLessThan(idx("attest-signature", RECORD));
+      const publishStep = releaseStep("publish", "Publish the GitHub Release");
+      expect(publishStep.env.RELEASE_SIGNED).toBe("${{ needs.attest-signature.outputs.signed }}");
+      expect(code(RELEASE).match(/RELEASE_SIGNED/g)).toHaveLength(1);
+    });
+
+    // finalize installs the desktop packaging tools and runs them in-process; attest-signature is
+    // the check that a compromised dependency there cannot reach, so it must run none of it.
+    it("attest-signature installs and runs nothing but Windows PowerShell and the artifact download", () => {
+      const steps = releaseSteps("attest-signature");
+      expect(steps.filter((s) => s.uses !== undefined).map((s) => s.uses.replace(/@.*/, ""))).toEqual(["actions/download-artifact"]);
+      for (const s of steps) {
+        expect(s.uses ?? "", s.name).not.toMatch(/setup-node|checkout/);
+        expect(s.run ?? "", s.name).not.toMatch(/\b(?:npm|npx|node|pnpm|yarn|bun|deno|python|pip)\b/);
+      }
+      expect(jobBlock(RELEASE, "attest-signature")).not.toMatch(/\b(?:npm|npx|setup-node|checkout)\b/);
+      expect(tokenJobs(parsedRelease())).not.toContain("attest-signature");
+      expect(JSON.stringify(job("attest-signature"))).not.toMatch(/secrets/i);
+      const a = releaseStep("attest-signature", ATTEST);
+      expect(a.shell).toBe("powershell");
+      expect(a.env).toEqual({ DIR: "${{ runner.temp }}/release", VERSION: "${{ needs.guard.outputs.version }}", PUBLISHER });
+      // The very files publish receives.
+      const dl = releaseStep("attest-signature", "Download the final files");
+      expect(dl.uses).toBe(releaseSteps("publish").find((s) => s.with?.name === "release-final").uses);
+      expect(dl.with).toEqual({ name: "release-final", path: "${{ runner.temp }}/release" });
+      expect(idx("attest-signature", "Download the final files")).toBeLessThan(idx("attest-signature", ATTEST));
+      expect(a.run).toMatch(/\$sig\.Status -ne 'Valid'/);
+      expect(a.run).toMatch(/Get-AuthenticodeSignature -LiteralPath \$exe/);
+      // The file's own signature, never a catalog entry; and the tag's version, exactly.
+      expect(a.run).toContain(`if ("$($sig.SignatureType)" -cne 'Authenticode') {`);
+      expect(a.run).toContain("$product = (Get-Item -LiteralPath $exe).VersionInfo.ProductVersion");
+      expect(a.run).toContain("if ($product -cne $env:VERSION) {");
+    });
+
+    // The attestation's own script, run as GitHub's `shell: powershell` runs it. Each feed defect fails
+    // it with its own message; a feed that matches gets past the hash to the signature, which refuses
+    // an unsigned file. Nothing here can sign with SignPath's certificate, so the signer, signature-type
+    // and version rules run against two files Windows reports as Valid: a copy of cmd.exe, which is
+    // CATALOG-signed (refused: no signature of its own), and a copy of the running node.exe, which
+    // carries an embedded Authenticode signature and a ProductVersion — with PUBLISHER set to its signer
+    // and VERSION to its ProductVersion it is accepted, and refused for any other name or version.
+    // Windows only (and node.exe must be the signed official build, which the test checks first).
+    it.skipIf(process.platform !== "win32")("attest-signature's script passes only the setup latest.yml records, Valid-signed by exactly PUBLISHER", () => {
+      const a = releaseStep("attest-signature", ATTEST);
+      const dir = mkdtempSync(join(tmpdir(), "attest-"));
+      // Windows PowerShell cannot load its own modules under PowerShell 7's PSModulePath.
+      const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => k.toLowerCase() !== "psmodulepath"));
+      const ps = (command, extra = {}) => spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command], {
+        encoding: "utf8", env: { ...env, ...extra }, timeout: 60_000,
+      });
+      try {
+        const script = join(dir, "attest.ps1");
+        writeFileSync(script, `$ErrorActionPreference = 'stop'\r\n${a.run.replace(/\r?\n/g, "\r\n")}`);
+        const files = join(dir, "release");
+        mkdirSync(files);
+        const version = "9.9.9";
+        const exe = installerName(version);
+        const attest = (publisher = a.env.PUBLISHER, v = version) => ps(`. '${script}'`, { DIR: files, VERSION: v, PUBLISHER: publisher });
+        const expectRefusal = (re, label, publisher, v) => {
+          const r = attest(publisher, v);
+          expect(r.status, `${label}: ${r.stdout}${r.stderr}`).toBe(1);
+          expect(r.stdout, label).toMatch(re);
+        };
+        expectRefusal(/is missing from release-final/, "no setup");
+        let bytes = Buffer.from("not a signed installer");
+        writeFileSync(join(files, exe), bytes);
+        const sha512 = (b) => createHash("sha512").update(b).digest("base64");
+        const other = sha512("other");
+        const yml = (o = {}) => latestYmlText({ version, name: exe, sha512: sha512(bytes), size: bytes.length, releaseDate: "2026-01-01T00:00:00.000Z", ...o });
+        const feed = (text) => writeFileSync(join(files, "latest.yml"), text);
+        expectRefusal(/latest\.yml is missing from release-final/, "no feed");
+        feed(yml({ sha512: other }));
+        expectRefusal(/latest\.yml records/, "wrong sha512");
+        feed(yml({ name: installerName("9.9.8") }));
+        expectRefusal(/latest\.yml's path is not/, "wrong path");
+        feed(yml().replace(/^sha512: .*$/m, `sha512: ${other}`));
+        expectRefusal(/found 2 distinct values/, "two sha512 values");
+        feed(yml().replace(/^ *sha512: .*\n/gm, ""));
+        expectRefusal(/found 0 distinct values/, "no sha512");
+        // The hash matches, so it is the signature that refuses.
+        feed(yml());
+        expectRefusal(/signature status is \w+, not Valid/, "unsigned");
+        const probe = (path) => {
+          const r = ps(`$s = Get-AuthenticodeSignature -LiteralPath '${path}'; Write-Output $s.Status; Write-Output $s.SignatureType; Write-Output $s.SignerCertificate.Subject; Write-Output (Get-Item -LiteralPath '${path}').VersionInfo.ProductVersion`);
+          const [status, type, subject, product] = r.stdout.split(/\r?\n/);
+          return { status, type, subject, product, err: r.stderr };
+        };
+        // A Valid but CATALOG signature: the file carries no signature of its own, so it is refused
+        // even with PUBLISHER set to the signer Windows reports for it.
+        bytes = readFileSync(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe"));
+        writeFileSync(join(files, exe), bytes);
+        feed(yml().replace(/\n/g, "\r\n"));
+        const cmd = probe(join(files, exe));
+        expect([cmd.status, cmd.type], cmd.err).toEqual(["Valid", "Catalog"]);
+        expectRefusal(/signature is Catalog, not an embedded Authenticode signature/, "catalog-signed", cmd.subject);
+        // An embedded Authenticode signature (node.exe): the rule decides on the signer and the version.
+        bytes = readFileSync(process.execPath);
+        const node = probe(process.execPath);
+        expect([node.status, node.type], `${process.execPath} must be the signed official build: ${node.err}`).toEqual(["Valid", "Authenticode"]);
+        expect(node.product).toMatch(/^\d+\.\d+\.\d+$/);
+        const subject = node.subject;
+        const cn = /^CN=([^,]+),/.exec(subject)?.[1];
+        expect(cn, subject).toBeTruthy();
+        expect(subject).toMatch(/, O=[^,]+, .*C=[A-Z]{2}$/);
+        // Its ProductVersion is not 9.9.9: refused on the version alone.
+        writeFileSync(join(files, exe), bytes);
+        feed(yml());
+        expectRefusal(new RegExp(`ProductVersion is '${node.product.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}', not 9\\.9\\.9`), "another version", subject);
+        // Named and recorded as its own version: accepted with exactly its signer.
+        rmSync(join(files, exe));
+        const nodeExe = installerName(node.product);
+        writeFileSync(join(files, nodeExe), bytes);
+        feed(latestYmlText({ version: node.product, name: nodeExe, sha512: sha512(bytes), size: bytes.length, releaseDate: "2026-01-01T00:00:00.000Z" }));
+        const ok = attest(subject, node.product);
+        expect(ok.status, `${ok.stdout}${ok.stderr}`).toBe(0);
+        expect(ok.stdout).toMatch(/matches latest\.yml and is Valid-signed by/);
+        for (const name of [a.env.PUBLISHER, cn, `CN=${cn}`, subject.replace(/, O=[^,]+/, ", O=Other"), subject.replace(/C=[A-Z]{2}$/, "C=ZZ"),
+          `${subject}, OU=x`, subject.toLowerCase(), subject.replace(/^CN=[^,]+, /, "")]) {
+          expectRefusal(/is not exactly/, `signer ${name}`, name, node.product);
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }, 120_000);
   });
 
   it("guards the tag against APP_VERSION and main before building", () => {
@@ -412,7 +1341,7 @@ describe("release.yml", () => {
     expect(b).toMatch(/@img\/sharp-\*/);
   });
 
-  // Fix round 1 (review R11 Important 1b): a static import of ./updater in main.ts means a missing
+  // A static import of ./updater in main.ts means a missing
   // electron-updater in the packaged app.asar breaks every installed copy at startup, not just the
   // updater feature -- so this is a POSITIVE control (asar list's real output, grepped), not a prose
   // claim about desktop/electron-builder.yml's `files:`.
@@ -460,6 +1389,23 @@ describe("electron-builder.yml agrees with the release library", () => {
   });
   it("publishes to this repository on GitHub", () => {
     expect(eb).toMatch(/^publish:\n\s+provider: github\n\s+owner: sebastianmaute\n\s+repo: aipm-cockpit$/m);
+  });
+  it("keeps source maps out of the app.asar files", () => {
+    const block = /^files:\n((?: {2}- .*\n)+)/m.exec(eb.replace(/\r\n/g, "\n"))?.[1] ?? "";
+    expect(block).toMatch(/^ {2}- dist\/\*\*$/m);
+    expect(block).toMatch(/^ {2}- "!\*\*\/\*\.map"$/m);
+  });
+  it("keeps source maps out of both standalone resources", () => {
+    const block = /^extraResources:\n((?:[ \t]+.*\n|[ \t]*#.*\n)+)/m.exec(eb.replace(/\r\n/g, "\n"))?.[1] ?? "";
+    const entries = block.split(/^ {2}- /m).slice(1);
+    expect(entries.map((e) => /^to: (\S+)$/m.exec(e.replace(/^ {4}/gm, ""))?.[1])).toEqual(["standalone", "standalone/node_modules"]);
+    for (const entry of entries) expect(entry).toMatch(/^ {6}- "!\*\*\/\*\.map"$/m);
+  });
+  it("puts the notices the release:sbom pre-pass wrote into the installation folder", () => {
+    const from = /^extraFiles:\n {2}- from: (\S+)\n {4}to: THIRD-PARTY-NOTICES\.txt$/m.exec(eb.replace(/\r\n/g, "\n"))?.[1];
+    // electron-builder resolves `from` against desktop/ (the --project dir).
+    expect(from && posix.normalize(`desktop/${from}`)).toBe(".next/sbom/THIRD-PARTY-NOTICES.txt");
+    expect(jobBlock(RELEASE, "build")).toContain("--out .next/sbom");
   });
 });
 

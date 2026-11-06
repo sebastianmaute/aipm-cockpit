@@ -164,6 +164,34 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
+  # The SBOM scan, proved on real Next output on every pull request, beside build (nothing waits for
+  # it): a standalone build with the source maps release:sbom reads, then its web-only check -- the
+  # build's maps, the standalone tree, Next's vendored libraries, the guard and the licence check; no
+  # desktop set, nothing written, nothing uploaded. Not a gate-local.mjs step: it needs a second,
+  # standalone Next build with source maps, on top of the plain build the local gate already runs.
+  sbom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Standalone build with source maps for the SBOM check
+        env:
+          NEXT_STANDALONE: "1"
+          SBOM_SOURCE_MAPS: "1"
+        run: npm run build
+      # js-yaml, which reads desktop/electron-builder.yml's standalone filter, is a desktop dependency;
+      # --desktop-licences reads the shell's packages and Electron from the same install.
+      - run: npm --prefix desktop ci --ignore-scripts
+      - name: SBOM check (release:sbom --web-only --desktop-licences)
+        run: npm run release:sbom -- --build .next --standalone .next/standalone --desktop desktop --web-only --desktop-licences
+
   e2e:
     needs: build
     runs-on: ubuntu-latest

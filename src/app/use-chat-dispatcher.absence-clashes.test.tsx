@@ -1,4 +1,4 @@
-// §773 Task 4 — the live chat dispatcher judges a date write against the project's absences and holidays,
+// §773 — the live chat dispatcher judges a date write against the project's absences and holidays,
 // so `runTool` can tell the model when Claude put someone's work on a day they are away.
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";

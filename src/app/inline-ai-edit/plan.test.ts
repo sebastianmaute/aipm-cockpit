@@ -1012,7 +1012,7 @@ describe("preview matches what Apply stores", () => {
     expect(clear.updates.map((u) => u.after)).toEqual([""]);
   });
 
-  // ★ RECOMPUTE (Task 2, email write rule): the probe used to be
+  // ★ RECOMPUTE (email write rule): the probe used to be
   //  `"a".repeat(400) + "@x.com"`, which clips at BUDGET_NAME_MAX (200) to 200
   //  "a"s with the "@x.com" suffix sheared off entirely — no "@" survives the
   //  cap, so `stakeholder.email` joining `emailFormatFields` now correctly
@@ -1809,7 +1809,7 @@ describe("a reversed absence date pair previews the swap the writer performs", (
     expect(plan.rejected).toEqual([]);
   });
 
-  // §534 fix round 3 — EACH BLOCK IS JUDGED ON ITS OWN, so block 2's swap is
+  // §534 — EACH BLOCK IS JUDGED ON ITS OWN, so block 2's swap is
   //  disclosed on block 2's own rows. With one shared plan the swap step patched
   //  the FIRST `startDate` row across ALL blocks (block 1's), while block 2's raw
   //  unswapped start still won the inline consumer's last-wins patch: a

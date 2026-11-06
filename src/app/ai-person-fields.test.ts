@@ -1,4 +1,4 @@
-// AI people protection, Task 6 (spec P4, R4): with protection on, no AI write sets, changes or clears a
+// AI people protection: with protection on, no AI write sets, changes or clears a
 // person. Every write tool is classified; a classified field is stripped, the rest applies.
 import { describe, it, expect } from "vitest";
 import {
@@ -37,7 +37,7 @@ function paths(s: Schema | undefined, prefix = ""): string[] {
 const PERSON_LIKE = /assignee|owner|requested|decision|attendee|sponsor|manager|stakeholder|email|^to[A-Z]|invitation|who/i;
 const NOT_A_PERSON: Readonly<Record<string, string>> = {
   "update_project:stakeholderCount": "a number, not a person",
-  "set_filters:assignee": "a view filter, not a record write (controller ruling, fix round 1)",
+  "set_filters:assignee": "a view filter, not a record write",
   "create_forecast_scenario:changes[].who": "its placeholder half names nobody; the person half is `who.resourceId`",
   "update_forecast_scenario:changes[].who": "its placeholder half names nobody; the person half is `who.resourceId`",
 };
@@ -100,7 +100,7 @@ describe("stripPersonFields", () => {
     expect(stripPersonFields("update_raid_item", { id: 3, owner: null }).removed).toEqual(["owner"]);
   });
 
-  // Fix round 1 (I1): a scenario row without its person is invalid and would refuse the whole call, so the
+  // A scenario row without its person is invalid and would refuse the whole call, so the
   // ROW naming a person the AI chose is dropped and the rest applies; a person already stored passes.
   const PERSON_ROW = { kind: "addPeople", who: { resourceId: 4, hoursPerWeek: 40 }, from: "2026-11-01" };
   const PLACEHOLDER_ROW = { kind: "addPeople", who: { label: "Dev", count: 1, rate: 1, currency: "EUR", hoursPerWeek: 40 }, from: "2026-11-01" };

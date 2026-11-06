@@ -618,7 +618,7 @@ describe("gridToForecastRows — the year it assumed", () => {
   });
 });
 
-// Round 3 (rr2 Minor 5): neither an employee-number column nor a year column is
+// Round 3: neither an employee-number column nor a year column is
 // "hours left out".
 describe("gridToForecastRows — columns that are never hours", () => {
   it("does not report an ID column: PersNr | Name | Jan 2026 …", () => {

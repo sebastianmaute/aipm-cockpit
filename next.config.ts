@@ -41,6 +41,18 @@ const nextConfig: NextConfig = {
   // (the "N" badge, bottom left) stays out of every recorded frame. Normal
   // development keeps the indicator; errors still surface either way.
   ...(process.env.DEMO_RECORDER === "1" ? { devIndicators: false as const } : {}),
+  // ★★ ENV-GATED, deliberately. scripts/sbom/bundled-packages.mjs lists the npm
+  // packages compiled into the build from the `sources` of its source maps, so
+  // the build it reads must emit browser maps (off by default, and they would
+  // be served to anyone who asks) and server maps (Turbopack's default today;
+  // stated explicitly so a default change cannot shorten the list silently).
+  // SBOM_SOURCE_MAPS=1 only for the builds that produce an SBOM. The maps land
+  // in .next/static and .next/server — and `.next/static` is copied wholesale
+  // into the standalone tree — so such a build must delete every `*.map` after
+  // reading them and before anything is packaged or served.
+  ...(process.env.SBOM_SOURCE_MAPS === "1"
+    ? { productionBrowserSourceMaps: true, experimental: { serverSourceMaps: true } }
+    : {}),
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

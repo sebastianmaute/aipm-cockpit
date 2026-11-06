@@ -1,4 +1,4 @@
-// AI people protection, Task 5 review round 1 (I2): with protection on, the dictation mic's
+// AI people protection: with protection on, the dictation mic's
 // replacement appears only where a mic would have rendered, stays compact, and never joins a
 // control's accessible name — the milestone name's mic sits INSIDE its <label>.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";

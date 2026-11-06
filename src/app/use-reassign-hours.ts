@@ -8,7 +8,7 @@
 // ★ Undo is ONE entry per action. The resources fragment is a `captureFieldPart` and
 //   is never primary, so undo / redo merge `utilization` PER KEY (`mergeFieldPatch`) —
 //   a later edit to a period the move did not touch survives the undo. The task
-//   fragment is the caller's own: a `captureFieldPart` here and on the Task 4 paths,
+//   fragment is the caller's own: a `captureFieldPart` here and on the prepare paths,
 //   a whole-row `capturePart` flagged `isPrimary` on the chat `update_task` path.
 // ★★ TWO MOVES IN ONE TICK (R10). The render snapshot of `resources`/`tasks` is
 //   stale for a second call made before React re-renders — planning both from it
@@ -26,7 +26,7 @@
 //   receiver was deleted in the same tick is left out, and the period's other moves still go through; a percent value rounds to
 //   0.01 %. When nothing moved under the plan, it writes the plan's own `after` values, so
 //   the forward write, undo and redo agree exactly.
-// ★★ UNDO IS ABSOLUTE PER KEY (ruling R11, the codebase convention for every
+// ★★ UNDO IS ABSOLUTE PER KEY (the codebase convention for every
 //   `captureFieldPart`). Undo restores each key the move touched to its value just
 //   before the move AS THIS HOOK SAW IT (the ref state); keys the move did not touch
 //   keep their live value. So undo of a later move returns its keys to the earlier

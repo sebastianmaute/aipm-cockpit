@@ -1,5 +1,5 @@
-// Remap backticked commit citations in tracked *.md onto a rewritten history (sanitise plan,
-// Task 13).
+// Remap backticked commit citations in tracked *.md onto a rewritten history, so a doc that
+// cites a commit by its old hash names the same change by its new one.
 //
 // Usage, from the root of a working tree of the REWRITTEN history:
 //   node scripts/remap-commit-citations.mjs --old <original-mirror> --map <commit-map>          # dry run

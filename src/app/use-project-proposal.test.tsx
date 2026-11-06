@@ -28,7 +28,7 @@ function mockFetchToolUse(input: unknown) {
 }
 
 describe("useProjectProposal", () => {
-  // AI people protection, Task 6 (R4): the project "Use AI" creates carries no override, so it protects its
+  // AI people protection: the project "Use AI" creates carries no override, so it protects its
   // people by default; the proposal reaches the wizard with no person in it. The positive control (allowed)
   // is in ai-project-proposal.people.test.ts.
   it("returns the proposal without its people, for a project that protects them by default", async () => {

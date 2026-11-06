@@ -76,7 +76,7 @@ describe("ForecastFactsRow — rate fact (MR 3)", () => {
     // getByText only reads an element's DIRECT text-node children (nested
     // elements, like the aria-hidden arrow span, don't contribute to the
     // match), so this also locates the ONE element that wraps the whole
-    // value — that element's full textContent (fix round 1: the previous
+    // value — that element's full textContent (the previous
     // version stopped at the getByText match, which is blind to where the
     // arrow sits, or even whether it exists at all — a mutant moving the
     // `aria-hidden` span BEFORE the rate still reads as "rate note" once

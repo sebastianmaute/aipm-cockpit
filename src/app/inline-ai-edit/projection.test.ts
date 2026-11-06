@@ -105,7 +105,7 @@ describe("a model-sent withheld field is ignored, not shown as a rejected row", 
   });
 });
 
-describe("nested emails (D7 fix round 1)", () => {
+describe("nested emails", () => {
   const raid = { id: 4, title: "Vendor slip", escalations: [{ at: "2026-10-01T09:00:00Z", toName: "Pat", toEmail: "pat@example.com", toSeverity: "High" }] };
 
   it("keeps the other escalation fields but drops toEmail", () => {

@@ -121,7 +121,7 @@ export function StakeholderEditModal({
   // `sanitizeStakeholder` stores `sanitizeLoadedStakeholderEmail` — `Name <addr>`
   // unwrapped, then capped at `BUDGET_NAME_MAX` (200), same as
   // `name`/`organization`/`title` here — and the field's own `onBlur` cap
-  // does not cover an Enter-submit. Fix round 1, IMPORTANT 2. ★ M-C4: this is
+  // does not cover an Enter-submit. ★ M-C4: this is
   // also the value `handleSubmit` hands to `onSave`, so what is judged is stored.
   const cappedEmail = sanitizeLoadedStakeholderEmail(draft.email);
   const showToast = useToastContext();
@@ -352,7 +352,7 @@ export function StakeholderEditModal({
                 <CharCounter value={draft.email ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-email-counter" lang={lang} />
                 {/* Steps aside ONLY while `error` (the banner below) shows
                     this SAME refusal message — an unrelated banner error (a
-                    blank name) must never hide it (IMPORTANT 1, fix round 1). */}
+                    blank name) must never hide it. */}
                 {emailFlagVisible(lang, cappedEmail, error) && (
                   <EmailFieldError id="stakeholder-email-error" lang={lang} value={cappedEmail} />
                 )}

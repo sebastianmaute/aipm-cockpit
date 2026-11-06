@@ -33,7 +33,7 @@ describe("sanitizeDocumentAsset", () => {
   });
 
   // ★ The store is mime-GENERIC on purpose: format policy lives in the upload
-  //   pipeline (Task 11), never here. A PDF row must survive this sanitizer so a
+  //   pipeline, never here. A PDF row must survive this sanitizer so a
   //   later attachment slice needs no migration.
   it("keeps a non-image mime and omits dimensions", () => {
     const out = sanitizeDocumentAsset({

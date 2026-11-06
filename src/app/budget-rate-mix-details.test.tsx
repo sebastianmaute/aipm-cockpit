@@ -17,7 +17,7 @@ describe("RateMixDetails", () => {
     expect(within(junior).getByText("30%")).toBeInTheDocument();
     expect(within(junior).getByText("37%")).toBeInTheDocument();
     expect(within(junior).getByText("+7 pts")).toBeInTheDocument();
-    // Controller ruling P14: "used of budget" reads "{n} of {budget h} ({pct})"
+    // "Used of budget" reads "{n} of {budget h} ({pct})"
     // — a plain number for the actual hours, not "{n} h of {budget h}".
     expect(within(junior).getByText("539 of 600 h (90%)")).toBeInTheDocument();
   });

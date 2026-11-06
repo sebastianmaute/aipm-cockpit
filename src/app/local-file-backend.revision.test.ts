@@ -10,7 +10,7 @@
 // is a second LocalFileBackend instance sharing the same mocked IDB
 // handle-slot.
 //
-// §4 fix round 1 (R10) additions: fail-closed on an unknown revision (change
+// §4 (R10) additions: fail-closed on an unknown revision (change
 // 1), the R6 one-shot pre-read (change 2), adoptFrom (change 3), the force
 // flag surviving a failed write (change 4), the lock-wait timeout (change 6)
 // and the lastModified:size revision encoding (change 7).
@@ -71,7 +71,7 @@ function rev(lastModified: number, text: string): string {
  * Extends the `writableFakeHandle` pattern from local-file-backend.test.ts
  * with a revision that actually changes on every real write — `lastModified`
  * via a monotonic COUNTER, never `Date.now()`, so two writes inside the same
- * millisecond still produce distinct revisions (controller ruling), and
+ * millisecond still produce distinct revisions, and
  * `size` as the live `text.length` (R10 change 7's second component).
  *
  * `externalWrite` simulates a FOREIGN process (another program, or — for the
@@ -210,7 +210,7 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
     expect(be.revision()).not.toBe(rev(1000, ""));
   });
 
-  // §4 fix round 1 (R10 change 1) — fail closed.
+  // §4 (R10 change 1) — fail closed.
   describe("fail-closed on an unknown revision (R10 change 1)", () => {
     it("a bound-but-never-loaded instance refuses to save, and writes nothing", async () => {
       const be = new LocalFileBackend("local-json");
@@ -253,7 +253,7 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
     });
   });
 
-  // §4 fix round 1 (R10 change 2) — the R6 one-shot pre-read.
+  // §4 (R10 change 2) — the R6 one-shot pre-read.
   describe("R6 one-shot pre-read (R10 change 2)", () => {
     it("setHandle adopts the revision from a prior loadFrom of the SAME handle (preview-then-commit)", async () => {
       const be = new LocalFileBackend("local-json");
@@ -309,7 +309,7 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
     });
   });
 
-  // §4 fix round 1 (R10 change 4) — force flag survives a failed write.
+  // §4 (R10 change 4) — force flag survives a failed write.
   it("forceNextSave keeps the flag when the forced write fails, for a retry", async () => {
     const be = new LocalFileBackend("local-json");
     const handle = revisionFakeHandle({ text: "", lastModified: 1000 });
@@ -330,7 +330,7 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
     expect(await file.text()).toBe(workspaceToJson(emptyWorkspace()));
   });
 
-  // §4 fix round 1 (R10 change 3) — adoptFrom.
+  // §4 (R10 change 3) — adoptFrom.
   it("adoptFrom(other): an instance adopted from a loaded instance saves without conflict and writes the adopted handle, not the slot's current one", async () => {
     const op = new LocalFileBackend("local-json");
     const x = revisionFakeHandle({ text: "", lastModified: 1000 });
@@ -352,10 +352,10 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
     expect(await yFile.text()).toBe("Y-original");
   });
 
-  // §4 fix round 3 (Important #1) — a leftover force from a FAILED forced
+  // §4 (Important #1) — a leftover force from a FAILED forced
   // save must not carry over to a different target (or a genuinely
   // re-established baseline).
-  describe("a failed forced save's leftover force does not carry over (fix round 3)", () => {
+  describe("a failed forced save's leftover force does not carry over", () => {
     it("is cleared by setHandle, so re-binding to a different target still refuses", async () => {
       const be = new LocalFileBackend("local-json");
       const a = revisionFakeHandle({ text: "", lastModified: 1000 });
@@ -444,7 +444,7 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
     });
   });
 
-  // §4 fix round 3 (controller ruling R11) — a parse failure must not become
+  // §4 — a parse failure must not become
   // the save baseline.
   describe("a parse failure does not become the save baseline (R11)", () => {
     it("leaves revision() unchanged when the BOUND handle's content fails to parse", async () => {
@@ -499,7 +499,7 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
       expect(seenNames).toEqual(["aipm-cockpit:save:local-csv"]);
     });
 
-    // §4 fix round 1 (R10 change 6) — lock-wait timeout.
+    // §4 (R10 change 6) — lock-wait timeout.
     it("a lock-wait timeout surfaces as SaveLockTimeoutError and writes nothing", async () => {
       const handle = revisionFakeHandle({ text: "original", lastModified: 1000 });
       const be = new LocalFileBackend("local-json");
@@ -545,7 +545,7 @@ describe("LocalFileBackend §4 §645 revision guard", () => {
   });
 });
 
-// §4 fix round 1 of Task 9 — the conditional overwrite: `forceNextSave(expected)` writes the whole
+// §4 — the conditional overwrite: `forceNextSave(expected)` writes the whole
 // file ONLY while it is still at `expected` (the version the user was shown), and a refusal reports
 // the revision storage holds.
 describe("LocalFileBackend §4 conditional overwrite", () => {

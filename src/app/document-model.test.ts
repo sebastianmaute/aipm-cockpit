@@ -610,7 +610,7 @@ describe("sanitizeProjectDocuments", () => {
     expect(sanitizeProjectDocumentsWithDiag(many, undefined)).toHaveLength(MAX_DOCUMENTS);
   });
 
-  // Final fix round 4, S4. `Array#map` hands the INDEX to a second parameter.
+  // `Array#map` hands the INDEX to a second parameter.
   // With an optional `diag`, index 1 was truthy and the cap path threw
   // assigning `truncatedEntries` onto a number.
   it("is safe to pass point-free even when the cap bites", () => {

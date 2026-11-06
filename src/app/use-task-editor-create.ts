@@ -1,7 +1,7 @@
 // src/app/use-task-editor-create.ts
 //
 // The task editor's "create from the editor" wiring: the create-RAID mini-form
-// (Task 7) and the new-linked-task modal (Task 8). In edit mode each applies at
+// and the new-linked-task modal. In edit mode each applies at
 // once to the task being edited; in create mode, where the task has no id yet,
 // each is staged in the editor buffer (`useTaskEditorBuffer`) and flushed once
 // the new parent id is resolved on save. Also the live RAID mirror the RAID
@@ -51,7 +51,7 @@ export function useTaskEditorCreate(deps: TaskEditorCreateDeps) {
     raidRef.current = raid;
   }, [raid]);
 
-  // Task editor: create RAID (Task 7) + linked tasks (Task 8) from the editor.
+  // Task editor: create RAID + linked tasks from the editor.
   // Edit-mode applies immediately; create-mode stages in `editorBuffer` and
   // flushes once the new parent id is resolved on save.
   const applyRaidFromTask = useCallback(
@@ -83,7 +83,7 @@ export function useTaskEditorCreate(deps: TaskEditorCreateDeps) {
   const editorBuffer = useTaskEditorBuffer({ applyRaid: applyRaidFromTask, applyLink: applyLinkFromTask });
   const { stageRaid: stageEditorRaid, stageLink: stageEditorLink } = editorBuffer;
 
-  // create-RAID (Task 7): apply immediately in edit-mode, stage in create-mode.
+  // create-RAID: apply immediately in edit-mode, stage in create-mode.
   const handleAddRaidFromEditor = useCallback(
     (spec: RaidSpec) => {
       if (editingId !== null) applyRaidFromTask(editingId, spec);
@@ -92,7 +92,7 @@ export function useTaskEditorCreate(deps: TaskEditorCreateDeps) {
     [editingId, applyRaidFromTask, stageEditorRaid],
   );
 
-  // create linked task (Task 8): mirror the normal create path (mint id,
+  // create linked task: mirror the normal create path (mint id,
   // functional setTasks, route status through applyStatusChange), then wire the
   // parent↔child link (immediate for an existing parent, staged for a new one).
   const [linkedTaskOpen, setLinkedTaskOpen] = useState(false);

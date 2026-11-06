@@ -369,7 +369,7 @@ const stakeholderReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedStakeholderFields({ [field]: value });
   try {
     // BUDGET_NAME_MAX (200), not the default EMAIL_MAX (320) — `sanitizeStakeholder`
-    // caps `email` there via `sanitizeText`, not `sanitizeEmail` (fix round 1,
+    // caps `email` there via `sanitizeText`, not `sanitizeEmail` (this
     // mirrors `use-register-tools.ts`'s createStakeholder/updateStakeholder).
     refuseEmailWrite("email", (patch as { email?: unknown }).email, STK_BASE.email, BUDGET_NAME_MAX);
   } catch {
@@ -487,7 +487,7 @@ const changeReader: StoredReader = (field, value) => {
  *  same "no stored list" `findTornEmail` sees from `createResource`. */
 const resourceReader: StoredReader = (field, value) => {
   const patch = dropUnacceptedResourceFields({ [field]: value });
-  // Task 1's LIST-field guard, kept — do not remove this line in Task 2.
+  // The LIST-field guard, kept on purpose — do not remove this line.
   // ★ M1: `normalize`, exactly as `createResource`/`updateResource` and the card ask it.
   if (findTornEmail(patch.emails, undefined, true) !== undefined) return null;
   try {
@@ -1106,7 +1106,7 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
   });
 });
 
-// ★★★ FIX ROUND 1 — `stakeholder.email` PAST ITS OWN CAP, PINNED IN BOTH
+// ★★★ `stakeholder.email` PAST ITS OWN CAP, PINNED IN BOTH
 // DIRECTIONS. `sanitizeStakeholder` caps `email` at BUDGET_NAME_MAX (200) via
 // `sanitizeText`, not EMAIL_MAX (320) via `sanitizeEmail` — a cap the generic
 // `refuseEmailWrite` did not know about until this fix, so it judged the RAW
@@ -1124,7 +1124,7 @@ describe("preview normalisation matches the apply path's sanitizer", () => {
 // The fix makes the writer cap at BUDGET_NAME_MAX FIRST (an explicit `cap`
 // argument on `refuseEmailWrite`, defaulted to EMAIL_MAX for every OTHER
 // caller), so both sides judge the exact string that would be stored.
-describe("stakeholder.email: preview and apply agree past the 200-char cap (fix round 1)", () => {
+describe("stakeholder.email: preview and apply agree past the 200-char cap", () => {
   it("a delimiter the cap removes — the raw value is unsafe, the STORED (capped) one is not", () => {
     const value = "a".repeat(195) + "@x.co,zz"; // 203 raw chars; comma sits past index 200
     const preview = previewOf("stakeholder", STK_BASE, "email", value);

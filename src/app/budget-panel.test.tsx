@@ -780,7 +780,7 @@ describe("BudgetPanel — Internal cost index card (EV/AC)", () => {
   });
 });
 
-describe("budget: follow-plan mirror (Task 8)", () => {
+describe("budget: follow-plan mirror", () => {
   // A resource with January capacity so allocationPlannedHours > 0.
   const resourceWithCapacity: Resource = {
     id: 7, firstName: "Cap", lastName: "Acity", roleId: 3,
@@ -1716,7 +1716,7 @@ describe("BudgetPanel — §6.4 forecast link line", () => {
   });
 
   // Mutation: dropping the `onOpenBudgetReport &&` guard in budget-panel.tsx
-  // (the popout omission — Plan Ruling 12) turns this red.
+  // (the popout omission) turns this red.
   test("renders nothing without onOpenBudgetReport (the popout state)", () => {
     render(<BudgetPanel {...props} />);
     expect(screen.queryByRole("button", { name: "Budget Report" })).toBeNull();

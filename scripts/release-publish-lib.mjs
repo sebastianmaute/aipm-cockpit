@@ -20,10 +20,54 @@ export function installerName(version) {
   return `aipm-cockpit-${version}-setup.exe`;
 }
 
+/** The release's CycloneDX SBOM, as `npm run release:sbom` names it. */
+export function sbomName(version) {
+  installerName(version); // validates the version
+  return `aipm-cockpit-${version}-sbom.cdx.json`;
+}
+
 /** Exactly the files a release carries, in upload order. */
 export function expectedAssets(version) {
   const exe = installerName(version);
-  return [exe, `${exe}.blockmap`, LATEST_YML];
+  return [exe, `${exe}.blockmap`, LATEST_YML, sbomName(version)];
+}
+
+/** The SBOM's root, as scripts/sbom/build-sbom.mjs writes it. */
+export const SBOM_ROOT_NAME = "AI PM Cockpit";
+export const SBOM_ROOT_LICENCE = "EUPL-1.2";
+const MIN_SPEC = [1, 5];
+
+function specAtLeast(spec, [major, minor]) {
+  const m = typeof spec === "string" ? /^(\d+)\.(\d+)$/.exec(spec) : null;
+  if (!m) return false;
+  return Number(m[1]) > major || (Number(m[1]) === major && Number(m[2]) >= minor);
+}
+
+/** Problems with the SBOM's text: it must parse as CycloneDX 1.5 or later, describe this app at
+ *  this version under EUPL-1.2 at its root, and list components. An empty list means it is fine. */
+export function checkSbom(text, version) {
+  const name = sbomName(version);
+  let bom;
+  try {
+    bom = JSON.parse(text);
+  } catch (e) {
+    return [`cannot read ${name}: ${e instanceof Error ? e.message : String(e)}`];
+  }
+  if (!bom || typeof bom !== "object" || bom.bomFormat !== "CycloneDX") return [`${name} is not a CycloneDX document`];
+  const problems = [];
+  if (!specAtLeast(bom.specVersion, MIN_SPEC)) {
+    problems.push(`${name} is CycloneDX ${bom.specVersion ?? "(no specVersion)"}, expected ${MIN_SPEC.join(".")} or later`);
+  }
+  const root = bom.metadata?.component;
+  if (root?.name !== SBOM_ROOT_NAME) problems.push(`${name} describes ${root?.name ?? "(no name)"}, expected ${SBOM_ROOT_NAME}`);
+  if (root?.version !== version) problems.push(`${name} describes version ${root?.version ?? "(none)"}, expected ${version}`);
+  const licences = Array.isArray(root?.licenses) ? root.licenses : [];
+  if (!licences.some((l) => l?.expression === SBOM_ROOT_LICENCE || l?.license?.id === SBOM_ROOT_LICENCE)) {
+    problems.push(`${name} does not license the app as ${SBOM_ROOT_LICENCE}`);
+  }
+  if (problems.length > 0) return problems;
+  if (!Array.isArray(bom.components) || bom.components.length === 0) return [`${name} lists no components`];
+  return [];
 }
 
 export function releaseTitle(version, milestone) {
@@ -53,6 +97,29 @@ export const UNSIGNED_NOTICE = [
   "Installed copies from 1.14.0 on check this page for updates and ask before installing one.",
   "Verify a download with `gh attestation verify <file> --repo sebastianmaute/aipm-cockpit`.",
 ].join("\n");
+
+/** SignPath Foundation's attribution, verbatim, as its terms for open-source projects ask. */
+export const SIGNPATH_LINE = "Free code signing provided by SignPath.io, certificate by SignPath Foundation";
+
+/** Replaces UNSIGNED_NOTICE when the finalize job's Authenticode check passed in this run. */
+export const SIGNED_NOTICE = [
+  "---",
+  "",
+  "The installer is code-signed: Windows shows its publisher as **SignPath Foundation**.",
+  "It installs for the current user and needs no admin rights. The uninstaller it installs is not signed yet.",
+  "Installed copies from 1.14.0 on check this page for updates and ask before installing one; a copy",
+  "installed from a signed release installs an update only if it is signed by SignPath Foundation.",
+  "Verify a download with `gh attestation verify <file> --repo sebastianmaute/aipm-cockpit`.",
+  "",
+  SIGNPATH_LINE,
+].join("\n");
+
+/** The finalize job's `signed` output, as the publish step receives it in RELEASE_SIGNED. */
+export function parseSignedFlag(value) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`RELEASE_SIGNED must be "true" or "false" (the finalize job's signed output), got ${JSON.stringify(value)}`);
+}
 
 // A line that starts a markdown block of its own: a list item, heading, quote, fence, table row,
 // raw HTML, a rule or a setext underline.
@@ -84,12 +151,16 @@ export function unwrapMarkdown(text) {
   return out.join("\n");
 }
 
-export function releaseNotes(changelog, version) {
+/** `signed` must be stated: true only when the finalize job checked the installer's signature. */
+export function releaseNotes(changelog, version, { signed } = {}) {
+  if (typeof signed !== "boolean") {
+    throw new Error(`releaseNotes needs signed: true or false, got ${JSON.stringify(signed)}`);
+  }
   const section = changelogSection(changelog, version);
   if (section === null || section === "") {
     throw new Error(`CHANGELOG.md has no section "## [${version}]" — add it before tagging`);
   }
-  return unwrapMarkdown(`${section}\n\n${UNSIGNED_NOTICE}\n`);
+  return unwrapMarkdown(`${section}\n\n${signed ? SIGNED_NOTICE : UNSIGNED_NOTICE}\n`);
 }
 
 /** Reads the fixed layout electron-builder writes; throws on anything else. */

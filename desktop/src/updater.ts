@@ -8,18 +8,20 @@ import { RELEASES_URL } from "./lib/constants";
 import { pickAutoUpdater } from "./lib/electron-updater-loader";
 import {
   decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable, parseSkipped,
-  serializeSkipped, summarizeError, type UpdateDecision, type UpdatePhase, type UpdateTrigger,
+  serializeSkipped, summarizeError, type RefusedUpdate, type UpdateDecision, type UpdatePhase, type UpdateTrigger,
 } from "./lib/update-policy";
 import type { SafeNotesHtml } from "./lib/release-notes-html";
 import {
   UPDATE_DURATION_HINT, buildUpdatePromptHtml, parseChoiceTitle, updatePromptUrl, type UpdateChoice,
 } from "./lib/update-window";
+import { feedRequiresSignature, verifyUpdateSignature, type RefusalKind } from "./update-signature";
 
 export interface Updater {
   check(trigger: UpdateTrigger): void;
 }
 
 type ElectronUpdaterModule = typeof import("electron-updater");
+type NsisUpdater = import("electron-updater").NsisUpdater;
 
 const NOT_PACKAGED_MESSAGE = "Updates are checked only in the installed app.";
 // The installer runs silently after "Restart now" (quitAndInstall with isSilent), so nothing is
@@ -31,9 +33,45 @@ const NOT_PACKAGED_MESSAGE = "Updates are checked only in the installed app.";
 const INSTALL_HINT =
   "Installing takes a few minutes, and nothing is visible meanwhile: the app may look frozen or close without a message. After Restart now, it opens again by itself once the new version is installed, so please do not start it again in the meantime. After On next quit, the update installs when you close the app; start it again yourself a few minutes later.";
 const LOAD_FAILED_MESSAGE = "The updater could not be loaded.";
+// A signed build refused the downloaded installer (update-signature.ts). Nothing was installed, and
+// trying again would fetch the same file, so the way forward is the releases page.
+const UNVERIFIED_MESSAGE = "The update was not installed: its signature could not be verified.";
+const UNVERIFIED_HINT =
+  "This app installs only updates signed by its publisher. Please download the new version by hand from the releases page and install it.";
+// The same refusal when the check itself could not run here (refusalKind "cannot-run": PowerShell
+// could not start, failed, timed out or printed nothing readable) -- nothing says the update is bad,
+// so the words must not blame its signature.
+const CANNOT_CHECK_MESSAGE = "The update was not installed: its signature check could not run on this computer.";
+const CANNOT_CHECK_HINT =
+  "This app installs an update only after checking its publisher's signature, and that check uses Windows PowerShell, which may be blocked here (for example by a policy). Please download the new version by hand from the releases page and install it.";
+
+/**
+ * The words for a refused update -- the dialog's message and hint, and the log line's reason: a
+ * check that could not run is not called a bad signature in either place.
+ */
+export function unverifiedText(refusal: RefusalKind): { message: string; hint: string; logReason: string } {
+  return refusal === "cannot-run"
+    ? { message: CANNOT_CHECK_MESSAGE, hint: CANNOT_CHECK_HINT, logReason: "its signature check could not run on this computer" }
+    : { message: UNVERIFIED_MESSAGE, hint: UNVERIFIED_HINT, logReason: "its signature could not be verified" };
+}
+
+// Whether the packaged resources/app-update.yml names a publisherName -- the file NsisUpdater reads
+// it from (AppUpdater.js `configOnDisk`), written there by the release workflow's repackage job
+// (scripts/release-update-feed.mjs). No file means no signed feed, as electron-updater itself
+// treats ENOENT; a file that exists but cannot be read counts as signed, so the stricter verifier
+// is the one installed when in doubt (it runs only if electron-updater finds a publisherName).
+function packagedFeedRequiresSignature(): boolean {
+  const resources: unknown = process.resourcesPath;
+  if (typeof resources !== "string" || resources === "") return false;
+  try {
+    return feedRequiresSignature(readFileSync(join(resources, "app-update.yml"), "utf8"));
+  } catch (e: unknown) {
+    return (e as { code?: unknown }).code !== "ENOENT";
+  }
+}
 
 // Every check request the app is skipping because an operator asked it to, in one place -- e2e:desktop
-// sets this so a smoke run never meets a modal update dialog (fix round 1, review R11 Minor 5). Logged
+// sets this so a smoke run never meets a modal update dialog. Logged
 // so a real deployment with it accidentally set is diagnosable rather than silently update-less.
 function checksDisabled(): boolean {
   return process.env.AIPM_DISABLE_UPDATE_CHECK === "1";
@@ -51,7 +89,7 @@ export const DRY_RUN_WIRED_LINE = "updater: electron-updater loaded and wired (d
 
 // A no-op Updater whose manual check reports why it cannot check, with the same releases-page
 // fallback the real error dialog offers. Used both when checks are disabled and when
-// electron-updater itself fails to load (fix round 1, review R11 Important 1c).
+// electron-updater itself fails to load.
 function unavailableUpdater(deps: { log(line: string): void; window(): BrowserWindow | null }, message: string): Updater {
   const box = (opts: MessageBoxOptions): Promise<number> => {
     const w = deps.window();
@@ -84,13 +122,12 @@ function wireUpdater(
   };
 
   // Three independent bits of "what is the updater doing right now", read by decideCheckRequest so a
-  // request arriving mid-operation is never just dropped with a log line (fix round 1, review R11
-  // Important 3, Minor 1):
+  // request arriving mid-operation is never just dropped with a log line:
   //  - checking:    a checkForUpdates() call is outstanding.
   //  - downloading: a downloadUpdate() call is outstanding.
   //  - prompting:   one of THIS updater's own dialogs is on screen (wrapped into `box` below, so
   //                 every dialog this file shows -- available/ready/error/up-to-date/busy/not-
-  //                 packaged -- sets it, not just the "Update available" prompt Minor 1 named).
+  //                 packaged -- sets it, not just the "Update available" prompt).
   let checking = false;
   let downloading = false;
   let prompting = false;
@@ -100,11 +137,20 @@ function wireUpdater(
   // always reported as a download failure even though the SAME `autoUpdater` object also fired the
   // checking-phase events earlier in this run's lifetime.
   let phase: UpdatePhase = "checking";
+  // The version being downloaded, and the one whose installer the signature check refused with the
+  // kind of refusal (so a later manual check repeats the right words). Kept in memory for this
+  // session only: a later check would offer and download the very same file, which
+  // would be refused again, so that version is not offered again (decideOnAvailable); a newer one is.
+  let downloadingVersion: string | null = null;
+  let refused: RefusedUpdate | null = null;
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowPrerelease = false;
   autoUpdater.allowDowngrade = false;
+  // Releases ship the full NSIS installer, never a web installer that fetches the app at install
+  // time; refusing one keeps an update from installing bytes nobody downloaded or verified here.
+  autoUpdater.disableWebInstaller = true;
   autoUpdater.logger = {
     // `info` calls are electron-updater's own short, single-line status messages ("Checking for
     // update", a staging-user-id line) -- left as `String(m)` rather than `summarizeError`, since
@@ -112,13 +158,26 @@ function wireUpdater(
     info: (m: unknown) => deps.log(`updater: ${String(m)}`),
     // `warn`/`error` CAN carry an Error whose `.message` embeds a multi-line diagnostic dump --
     // electron-updater's own `HttpError` bakes response headers (including `set-cookie`) directly
-    // into `.message` (see summarizeError's doc comment in update-policy.ts, and task-6-report.md's
-    // fix-round-2 evidence, which is a real capture of exactly this). `summarizeError` keeps only the
-    // first line, bounded, so launch.log never gets a raw header/cookie dump this way (fix round 3).
+    // into `.message` (see summarizeError's doc comment in update-policy.ts; exactly this was
+    // captured from a real 404). `summarizeError` keeps only the
+    // first line, bounded, so launch.log never gets a raw header/cookie dump this way.
     warn: (m: unknown) => deps.log(`updater warn: ${summarizeError(m)}`),
     error: (m: unknown) => deps.log(`updater error: ${summarizeError(m)}`),
     debug: () => {},
   };
+
+  // A signed build: every downloaded installer must be validly signed by the feed's publisherName,
+  // checked by verifyUpdateSignature, which fails closed where electron-updater's default verifier
+  // passes on a PowerShell error. Without the hook (not an NsisUpdater) a signed build cannot verify
+  // anything, so this throws and createUpdater degrades to the no-op updater rather than install
+  // unverified updates.
+  if (packagedFeedRequiresSignature()) {
+    if (!("verifyUpdateCodeSignature" in autoUpdater)) {
+      throw new Error("the update feed requires a signature, but this updater has no verifyUpdateCodeSignature hook");
+    }
+    (autoUpdater as NsisUpdater).verifyUpdateCodeSignature = verifyUpdateSignature;
+    deps.log("updater: signed build, an update installs only when its signature verifies");
+  }
 
   const box = async (opts: MessageBoxOptions): Promise<number> => {
     prompting = true;
@@ -205,6 +264,16 @@ function wireUpdater(
       if (r === 1) void shell.openExternal(RELEASES_URL).catch((e: unknown) => deps.log(`open releases page: ${String(e)}`));
       return;
     }
+    if (d.kind === "unverified") {
+      const text = unverifiedText(d.refusal);
+      deps.log(`updater: refused an update: ${text.logReason}: ${d.message}`);
+      const r = await box({
+        type: "warning", title: "AI PM Cockpit", message: text.message, detail: `${text.hint}\n\n${d.message}`,
+        buttons: ["OK", "Open releases page"], defaultId: 0, cancelId: 0,
+      });
+      if (r === 1) void shell.openExternal(RELEASES_URL).catch((e: unknown) => deps.log(`open releases page: ${String(e)}`));
+      return;
+    }
     const choice = await promptAvailable(d.version, d.notes, d.notesHtml);
     if (choice === "skip") {
       try { writeFileSync(skipFile(), serializeSkipped(d.version)); } catch (e: unknown) { deps.log(`updater skip write: ${String(e)}`); }
@@ -213,6 +282,7 @@ function wireUpdater(
     if (choice !== "download") return;
     downloading = true;
     phase = "downloading";
+    downloadingVersion = d.version;
     autoUpdater.autoInstallOnAppQuit = true;
     // electron-updater's own downloadUpdate() ALWAYS calls dispatchError() (emitting "error") before
     // rejecting its promise on failure -- verified against the installed package
@@ -225,7 +295,7 @@ function wireUpdater(
 
   autoUpdater.on("update-available", (info) => {
     checking = false;
-    void act(decideOnAvailable(trigger, info, readSkipped()));
+    void act(decideOnAvailable(trigger, info, readSkipped(), refused));
   });
   autoUpdater.on("update-not-available", () => {
     checking = false;
@@ -237,7 +307,11 @@ function wireUpdater(
     checking = false;
     downloading = false;
     deps.window()?.setProgressBar(-1);
-    void act(decideOnError(trigger, erroredPhase, err));
+    const decision = decideOnError(trigger, erroredPhase, err);
+    // A failed or refused download leaves nothing that may install on quit.
+    if (erroredPhase === "downloading" || decision.kind === "unverified") autoUpdater.autoInstallOnAppQuit = false;
+    if (decision.kind === "unverified" && downloadingVersion !== null) refused = { version: downloadingVersion, refusal: decision.refusal };
+    void act(decision);
   });
   autoUpdater.on("download-progress", (p) => deps.window()?.setProgressBar(p.percent / 100));
   autoUpdater.on("update-downloaded", (info) => {
@@ -251,10 +325,9 @@ function wireUpdater(
       // ★ quitAndInstall calls this.install() SYNCHRONOUSLY first (BaseUpdater.js), which spawns the
       // NSIS installer immediately -- the installer is already RUNNING by the time quitAndInstall
       // schedules app.quit() on its own setImmediate. before-quit (killServer) and the window's own
-      // close handling therefore run AFTER the installer has started, not before it (fix round 1,
-      // review R11 Minor 2 -- the earlier comment here, and the spec's "the app's normal quit path,
-      // so unsaved-work protection runs first", both had the order backwards; the spec correction is
-      // routed through Task 9, not edited here). isSilent=true reuses the existing per-user install
+      // close handling therefore run AFTER the installer has started, not before it (the earlier comment here, and the spec's "the app's normal quit path,
+      // so unsaved-work protection runs first", both had the order backwards; the spec is corrected
+      // separately, not edited here). isSilent=true reuses the existing per-user install
       // directory.
       if (r === 0) setImmediate(() => autoUpdater.quitAndInstall(true, true));
     })();
@@ -308,11 +381,11 @@ export async function createUpdater(deps: { log(line: string): void; window(): B
   // Loaded lazily (a dynamic import, not a static top-level one) so a load failure -- a missing or
   // corrupted node_modules/electron-updater in a bad package -- degrades to a logged no-op updater
   // instead of throwing while main.ts's module graph is still loading, which would take the whole app
-  // down before a single window opens (fix round 1 review, Important 1c). main.ts's own import of
+  // down before a single window opens. main.ts's own import of
   // THIS module (`./updater`) stays a normal static import; only the electron-updater dependency
   // inside it is deferred, and main.ts now awaits this function's result.
   //
-  // ★★★ TWO SEPARATE try/catch BLOCKS, DELIBERATELY (fix round 2 review, Critical 1). The first
+  // ★★★ TWO SEPARATE try/catch BLOCKS, DELIBERATELY. The first
   // covers only the LOAD -- the dynamic import plus resolving the real `autoUpdater` singleton out of
   // whatever shape it comes back as (see pickAutoUpdater's doc comment: it is NOT a named export
   // under a dynamic import, only `.default.autoUpdater`, and reading `mod.autoUpdater` directly used

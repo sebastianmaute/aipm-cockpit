@@ -75,7 +75,7 @@ interface SettingsViewProps {
   onChangeLearningConfig?: (c: NextActionsLearningConfig) => void;
   onResetLearning?: () => void;
   onOpenInsights?: () => void;
-  /** FIX ROUND 1 (M3): opens the app's ONE Version modal, owned at the
+  /** Opens the app's ONE Version modal, owned at the
    *  task-manager root (use-desktop-version-request.ts). This view no
    *  longer owns a `showVersion` boolean or renders its own
    *  `<VersionInfoModal>` — see modern-shell.tsx's identical prop for why

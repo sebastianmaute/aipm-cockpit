@@ -237,7 +237,7 @@ describe("ResourceEditModal", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 
-  // Fix round 2, IMPORTANT — judge (and flag) the value that would be
+  // Judge (and flag) the value that would be
   // STORED: the primary email is capped at EMAIL_MAX before ever reaching
   // `emailWriteRefusal`. A >EMAIL_MAX value can carry an unsafe suffix
   // truncation silently drops — capping first shows a value that is SAFE.
@@ -269,7 +269,7 @@ describe("ResourceEditModal", () => {
     expect(screen.getAllByRole("alert").map((a) => a.textContent)).toContain(t("en-US", "errorEmailDelimiter"));
   });
 
-  // Fix round 2, MINOR — an UNRELATED banner error (blank name) must never
+  // An UNRELATED banner error (blank name) must never
   // hide the flag: the stored unsafe email is untouched.
   it("keeps the flag visible while an unrelated banner error is showing", () => {
     const onSave = vi.fn();
@@ -282,10 +282,10 @@ describe("ResourceEditModal", () => {
     expect(alerts).toHaveLength(2);
   });
 
-  // §422 fix round 2 (final-review finding 1) — mirrors updateResource's
+  // §422 (final-review finding 1) — mirrors updateResource's
   // "not already stored" exclusion: an echoed legacy comma/semicolon address
   // must not block a save that touches an unrelated field.
-  it("saves an unrelated field unchanged when the stored resource already carries a delimiter-unsafe address (§422 fix round 2)", () => {
+  it("saves an unrelated field unchanged when the stored resource already carries a delimiter-unsafe address (§422)", () => {
     const onSave = vi.fn();
     const stored: Resource = { ...base, emails: ["a,b@x.com"] };
     setupFull({ resource: stored, onSave });
@@ -295,7 +295,7 @@ describe("ResourceEditModal", () => {
     expect(onSave.mock.calls[0][0]).toMatchObject({ firstName: "Ada", emails: ["a,b@x.com"] });
   });
 
-  it("still refuses a NEW additional email carrying a delimiter, even when the stored list already holds one (§422 fix round 2)", () => {
+  it("still refuses a NEW additional email carrying a delimiter, even when the stored list already holds one (§422)", () => {
     const onSave = vi.fn();
     const stored: Resource = { ...base, emails: ["a,b@x.com"] };
     setupFull({ resource: stored, onSave });

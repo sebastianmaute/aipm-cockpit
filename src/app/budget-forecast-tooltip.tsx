@@ -1,8 +1,7 @@
 "use client";
 
 // Shared term + tooltip trigger for the forecast surfaces (§6.2): "What is X?"
-// by default, or "What does X mean?" for a verb/adjective term (controller
-// ruling 2 — Needs, Runs out, Extra working days, and the two card-method
+// by default, or "What does X mean?" for a verb/adjective term (Needs, Runs out, Extra working days, and the two card-method
 // titles). Used by both `budget-forecast-facts.tsx` and
 // `budget-forecast-cards.tsx` — extracted so the two files don't carry
 // near-identical copies.

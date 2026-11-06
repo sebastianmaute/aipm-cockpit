@@ -321,7 +321,7 @@ describe("useCrossProjectPeople — nameOf (§785)", () => {
   });
 });
 
-// §785 — fix round: a request made during the load hold, the single-project signal, a reload racing a write.
+// §785 — a request made during the load hold, the single-project signal, a reload racing a write.
 describe("useCrossProjectPeople — request during the load hold (§785)", () => {
   test("a request made while loadPending runs once the hold ends", async () => {
     const { hook, load, deps } = setup({ loadPending: true });

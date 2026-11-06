@@ -79,7 +79,7 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
       "onPullMilestonesFromOutlook",
       "calendarPushBusy",
       "calendarPullBusy",
-      // raid / change / absence consolidated into EntityCalendarProps bags (Task 8)
+      // raid / change / absence consolidated into EntityCalendarProps bags
       "raidCalendar",
       "changeCalendar",
       "absenceCalendar",

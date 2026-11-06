@@ -10,7 +10,7 @@ import { emptyWorkspace, type Workspace } from "./workspace";
 import type { Stakeholder } from "./types";
 import type { ScheduledJob } from "./scheduled-jobs/types";
 
-// AI people protection, Task 4, Review Focus 5 (spec R3): a scheduled job reports on a STORED project,
+// AI people protection: a scheduled job reports on a STORED project,
 // so its request carries that project's privacy — its setting and its people — never the open one's.
 // The REAL runner, run, analysis call, forced-tool envelope and transport run here; only the storage
 // edges are mocked, and the assertion reads the request body `fetch` was handed.

@@ -228,7 +228,7 @@ describe("popout read-only guard — undo capture (open-followups §91)", () => 
   //  renders the header undo control (`undoControlEl`), so a page-wide
   //  `getByRole("button", { name: "Undo" })` could pass with no toast at all.
   //  The toast is the REAL one — `app-modals.tsx` renders `{toast && <div
-  //  role="status">…}` with the action button, and Task 7's AppModals capture
+  //  role="status">…}` with the action button, and the AppModals capture
   //  renders through (pre-flight C2). `task.deleted` is a delete kind, so the
   //  text is `undoToastDelete`.
   const toastText = () => tPlural("en-US", "undoToastDelete", 1, 1);

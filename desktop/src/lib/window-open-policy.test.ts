@@ -19,6 +19,14 @@ describe("decideWindowOpen", () => {
     expect(decideWindowOpen(`${APP_ORIGIN}/?popout=raid`, APP_ORIGIN)).toBe("allow-in-app");
   });
 
+  it("opens the Help panel's third-party notices in an app window, not the system browser", () => {
+    // src/app/help-menu.tsx links THIRD_PARTY_NOTICES_PATH, a same-origin path, with
+    // target="_blank": the renderer resolves it against the app origin, which stays in-app.
+    expect(decideWindowOpen(`${APP_ORIGIN}/third-party-notices.txt`, APP_ORIGIN)).toBe("allow-in-app");
+    // The footer's other links are external and still go to the system browser.
+    expect(decideWindowOpen("https://github.com/sebastianmaute/aipm-cockpit", APP_ORIGIN)).toBe("open-external");
+  });
+
   it("allows the empty string", () => {
     // The PDF export tab (export.ts exportPdf) and the document-download PDF
     // tab both call `window.open("", "_blank")`.
@@ -87,7 +95,7 @@ describe("decideWindowOpen", () => {
     expect(decideWindowOpen("not a url", APP_ORIGIN)).toBe("deny");
   });
 
-  // ★ Coverage gaps review-3-report.md M-2 called out. All probed against
+  // ★ Coverage gaps a review (M-2) called out. All probed against
   // Node's real URL parser before being pinned here.
   it("treats a different hostname on the app's own port as external, not same-origin", () => {
     expect(decideWindowOpen("http://localhost:17300", APP_ORIGIN)).toBe("open-external");
@@ -157,7 +165,7 @@ describe("originOnly", () => {
 });
 
 describe("isAppPage", () => {
-  // I-1 (final-review-report.md): the table the brief asks for, adapted to
+  // I-1: the table, adapted to
   // the real APP_ORIGIN shape (`http://127.0.0.1:17300`).
   it.each<[string, string, boolean]>([
     ["an app URL with a path and query string", `${APP_ORIGIN}/?popout=raid`, true],
@@ -238,7 +246,7 @@ describe("isAppOpenerFrame", () => {
 describe("decideNavigation", () => {
   // ★ Explicit per-field construction, never a two-arg "child()" shorthand --
   // round 1's `child()`/`main()` helpers collapsed the entry question to one
-  // boolean, which is exactly the shape N-I1 found too wide. Every test below
+  // boolean, which is exactly the shape that was found too wide. Every test below
   // states all three fields so a reader never has to guess a default.
   type Ctx = { createdAsBlankPopup: boolean; initiatorIsAppOpener: boolean; inAuthFlow: boolean };
   const ctx = (overrides: Partial<Ctx> = {}): Ctx => ({
@@ -275,7 +283,7 @@ describe("decideNavigation", () => {
     expect(result).toEqual({ decision: "allow-in-app", authFlow: true });
   });
 
-  // ★★★ N-I1 -- the three combinations the fix-2 brief requires, each one
+  // ★★★ The three required combinations, each one
   // pinning a different half of the entry gate.
   it("a same-origin popout (?popout=) + a stored identity-host link click is NOT flow entry", () => {
     // The popout's own first URL is the app's path, never blank, so

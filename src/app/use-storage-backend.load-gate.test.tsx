@@ -626,7 +626,7 @@ describe("§586 — no save before a load for the current backend has succeeded"
     expect(converted.save).not.toHaveBeenCalled();
     expect(setStorageConfig).not.toHaveBeenCalledWith({ kind: "local-json" });
   });
-  // ── §586/§587 (user ruling): a storage-KIND switch with nothing loaded copies nothing ──
+  // ── §586/§587 (user decision): a storage-KIND switch with nothing loaded copies nothing ──
   // `onRequestStorageSwitch` normally copies the LIVE workspace into the new kind through
   // `guardedWrite`. Before any load of the current storage was applied, that workspace is the empty
   // boot one (or, after an empty-load refusal, the PREVIOUS target's project), so the switch goes

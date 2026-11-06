@@ -14,7 +14,7 @@ import { de } from "./i18n.de";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ChatConversation } from "./workspace-tab-context";
 
-// AI people protection, Task 4: an image (or a document whose text cannot be extracted) cannot be
+// AI people protection: an image (or a document whose text cannot be extracted) cannot be
 // redacted, so with protection on the transport refuses the request before sending it. The chat says
 // why, and that the image in the conversation is what blocks it: an earlier one blocks every later send.
 

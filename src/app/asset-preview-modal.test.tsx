@@ -131,7 +131,7 @@ describe("AssetPreviewModal — object URL lifecycle", () => {
     expect(revoked).toContain(created[0]);
   });
 
-  // ★★★ THE IDENTITY-STABILITY TEST. Task 8's real call site passes an inline
+  // ★★★ THE IDENTITY-STABILITY TEST. The real call site passes an inline
   // arrow as `loadImage` — a fresh function identity on every parent render.
   // A re-render while the modal is open (for any reason unrelated to
   // navigate/close) must NOT revoke or re-mint the URL currently on screen.

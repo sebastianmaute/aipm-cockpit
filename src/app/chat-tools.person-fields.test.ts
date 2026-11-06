@@ -1,4 +1,4 @@
-// AI people protection, Task 6 (spec R4): the executor strips person fields from every write it serves
+// AI people protection: the executor strips person fields from every write it serves
 // under protection, applies the rest, and tells the model which fields were dropped. Protection off, the
 // same calls apply unchanged (positive control).
 import { describe, it, expect, vi } from "vitest";
@@ -106,7 +106,7 @@ describe("escalate_raid_item under people protection", () => {
   });
 });
 
-// Fix round 1 (I1): `changes` REPLACES the whole list, so an edit of a scenario must be able to re-send the
+// `changes` REPLACES the whole list, so an edit of a scenario must be able to re-send the
 // user's own named-person row. A row naming a person already in the stored scenario passes; a row naming
 // a person the AI chose is dropped (the note names it) and the rest applies.
 describe("update_forecast_scenario under people protection", () => {

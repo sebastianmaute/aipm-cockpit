@@ -1,10 +1,10 @@
-// Shared burn-down chart fixtures (MR 3 addendum §5.2 / Task 11's brief test
+// Shared burn-down chart fixtures (MR 3 addendum §5.2 / the spec's test
 // table) — CHART_SERIES and CHART_FORECAST are hand-built plain objects, NOT
 // run through the real `computeBurndownSeries`/`computeBudgetForecast`
 // engines: the numbers are chosen to exercise the chart geometry's date math
 // and forecast-segment placement directly (round period boundaries, a clean
 // today mid-period, an ETC that lands the forecast lines below zero). Used by
-// `src/app/burndown-geometry.test.ts` (Task 11) and reused as-is by Task 12's
+// `src/app/burndown-geometry.test.ts` and reused as-is by the
 // SVG-renderer test so both layers assert against one set of numbers.
 import type { BurndownSeries } from "../app/budget-burndown";
 import type { BudgetForecast } from "../app/budget-forecast";
@@ -39,7 +39,7 @@ export const CHART_FORECAST: BudgetForecast = {
 // implicit €/hour ratio baked into CHART_SERIES: 9_000 € / 90 h), so it lines
 // up with CHART_SERIES's hours arrays (total 90, last actual 50 at
 // "2026-02-14" in burndown orientation → cumulative-spent 40, matching
-// facts.ac here for a frameDiffers === false case). Used by Task 11's
+// facts.ac here for a frameDiffers === false case). Used by the
 // hours-unit + forecast coverage test.
 export const CHART_FORECAST_HOURS: BudgetForecast = {
   facts: { bac: 90, ac: 40, remaining: 50, ev: 36, percentComplete: 40 },

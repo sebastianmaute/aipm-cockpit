@@ -1,4 +1,4 @@
-// AI people protection, Task 6 (R4): a "Use AI" project proposal carries no person when the project
+// AI people protection: a "Use AI" project proposal carries no person when the project
 // protects its people — the seeded tasks and risks are applied without their assignees and owners.
 import { describe, it, expect } from "vitest";
 import { parseProposal, proposalToDraftPatch, proposalToSeed, withoutProposalPeople, type ProjectProposal } from "./ai-project-proposal";

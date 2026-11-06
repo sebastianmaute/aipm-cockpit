@@ -377,7 +377,7 @@
   target must hold still.
   ★★★ SPELL IT WITH DISJOINT PER-SIDE COLOURS (`border-t-… border-b-transparent`), never a baseline
   `border-transparent` with a directional layered over it — and an earlier revision of THIS line
-  recommended the second form, in the same fix round that removed it from the code. `border-transparent`
+  recommended the second form, in the same change that removed it from the code. `border-transparent`
   is the `border-color` SHORTHAND and `border-t-…` is `border-top-color`: two declarations, identical
   specificity, different properties, so the winner is decided by Tailwind's EMIT order rather than by
   the order they appear in the class list. The indicator would then either work or render invisible

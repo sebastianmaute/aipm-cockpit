@@ -1,4 +1,4 @@
-// ★★★ open-followups §204 guard (Ruling Q6). Executes EVERY schema DDL the
+// ★★★ open-followups §204 guard. Executes EVERY schema DDL the
 // repo declares in node:sqlite, reads each table's columns, and fails on a table
 // with a `project_id` column that is neither a TABLE_NAMES member (swept by the
 // tenant transaction) nor in PROJECT_SCOPED_SIDE_TABLES (swept after it).

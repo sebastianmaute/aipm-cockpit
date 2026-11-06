@@ -77,9 +77,10 @@ strip), **popout** (read-only mirror, no header). A new top-bar control must be 
 
 ## CI gates (GitHub Actions)
 
-`static · unit · unit-shuffled · build · e2e · prod-smoke · semgrep · audit`, all required checks on
-every pull request and push to `main` (not a chain — the only `needs:` edges are `unit-shuffled` on
-`unit`, and `e2e`/`prod-smoke` both on `build`; the rest run independently); a separate tag-triggered
+`static · unit · unit-shuffled · build · sbom · e2e · prod-smoke · semgrep · audit`, run on every pull
+request and push to `main` (not a chain — the only `needs:` edges are `unit-shuffled` on
+`unit`, and `e2e`/`prod-smoke` both on `build`; the rest, `sbom` included, run independently). All but
+`sbom` are required checks; `sbom` is required only once the owner adds it to the `main` ruleset. A separate tag-triggered
 `release.yml` builds and publishes the desktop installer. Job detail is in `docs/AGENTS/ci.md`;
 enumerate the ids from the source with
 `awk '/^jobs:/{f=1;next} f && /^  [a-z][a-zA-Z0-9_-]*:/{print}' .github/workflows/ci.yml` (lint fails

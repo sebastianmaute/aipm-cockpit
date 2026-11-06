@@ -18,8 +18,8 @@
  *   `grep -rn "useReportsArrangement" src/`                → bound in `reports.tsx`
  * ★★ THIS BLOCK HAS NOW BEEN WRONG IN BOTH DIRECTIONS, WHICH IS THE LESSON. It
  * first stated the retirement in the present tense while the write was still
- * live; the correction pushed it into the future ("an obligation on Task 12, not
- * a description of today"), and that correction was itself re-staled when Task 12
+ * live; the correction pushed it into the future ("an obligation on the binding, not
+ * a description of today"), and that correction was itself re-staled when the binding
  * landed later ON THIS SAME BRANCH. A correction is a NEW claim and inherits none
  * of the verification of the thing it corrects — re-run the greps rather than
  * trusting this paragraph's tense.

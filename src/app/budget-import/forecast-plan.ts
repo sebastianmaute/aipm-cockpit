@@ -35,7 +35,7 @@ export type CellChange = {
    *  period: the imported value replaces the whole cell, their share included. */
   othersOnLine?: string[];
   /** Members of the line who ARE in the sheet but were not routed to it (on
-   *  several lines, or skipped): the value replaces their share too (rr14). */
+   *  several lines, or skipped): the value replaces their share too. */
   unmatchedOnLine?: string[];
 };
 /** `several-lines`: the matched resource sits on more than one line of the
@@ -367,7 +367,7 @@ function diffAllocation(acc: Acc, stored: StoredAlloc | undefined, scope: DiffSc
     if (target && hasUncoveredWorkday(target, covers, scope.holidaySet)) change.partial = true;
     // ★ Per period (final review 3, M2): a member the sheet lists for January
     // but leaves blank for April loses their April share, and April says so.
-    // ★ A member the sheet names but did not route here (rr14 M3a) is no
+    // ★ A member the sheet names but did not route here is no
     // "not in the sheet": they are named apart.
     const routed = acc.peopleByPeriod.get(period) ?? new Set<number>();
     const others = lineMembers(stored, scope.byId, (id) => !routed.has(id) && !scope.unmatchedIds.has(id));

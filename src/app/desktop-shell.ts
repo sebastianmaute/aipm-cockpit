@@ -35,7 +35,7 @@ export function isDesktopShellUserAgent(userAgent: string): boolean {
 // dispatches on `window` (see desktop/src/lib/menu-model.ts
 // `versionRequestScript`) to ask the already-loaded page to open the app's
 // own Version panel instead of a native dialog. `detail` carries
-// `{ logPath, open }` (M-3, final-review-report.md -- this used to say
+// `{ logPath, open }` (M-3 -- this used to say
 // `{ logPath: string }` alone; see `versionRequestScript` in
 // desktop/src/lib/menu-model.ts and `readDetail` in
 // use-desktop-version-request.ts for the real shape, and that hook's own

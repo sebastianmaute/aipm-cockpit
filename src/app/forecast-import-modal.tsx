@@ -276,7 +276,7 @@ const MAX_NAMED_ROWS = 5;
 
 /** A notice's text: rows and continuations quote their samples (a continuation
  *  without any reads the plain variant), and one row with no person reads
- *  the singular (rr14 N4). */
+ *  the singular. */
 function noticeText(lang: Lang, a: ColumnAmbiguity, names: string): string {
   if (a.field === "rows") return t(lang, AMBIGUOUS_KEY.rows, names, a.samples.join(", "));
   if (a.field === "continuation") {
@@ -289,12 +289,12 @@ function noticeText(lang: Lang, a: ColumnAmbiguity, names: string): string {
 }
 
 /** A wide period question that only the named reasons explain: its own notices
- *  say what the press reads, and the generic Wide notice stays away (rr14 N1). */
+ *  say what the press reads, and the generic Wide notice stays away. */
 function isExplainedOnly(a: ColumnAmbiguity): boolean {
   return a.field === "period" && (a.blankHeaded !== undefined || a.pastTwelve !== undefined) && a.alsoUnsure !== true;
 }
 
-/** The notices of a wide period question's named reasons (rr14 N1): the
+/** The notices of a wide period question's named reasons: the
  *  blank-headed number columns beside the period columns (final review 3,
  *  I1), and an `N/YYYY` run past 12 (M4), each saying what confirming reads. */
 function reasonNotices(lang: Lang, a: ColumnAmbiguity, periodCols: readonly number[], nameOf: (col: number) => string): string[] {
@@ -318,7 +318,7 @@ function wideNames(columns: readonly ColumnAmbiguity[], nameOf: (col: number) =>
  *  button that confirms the mapping as it stands. Choosing the field's column
  *  confirms it too, on the hand route.
  *  ★ In the Wide layout there is no hours or period select to choose from, so
- *  ONE notice asks to check the mapping instead (rr8 m2). One person's
+ *  ONE notice asks to check the mapping instead. One person's
  *  differing rows (round 9 I-W) name their columns and sample values in either
  *  layout; only the button accepts their sum. Rows with no person (final
  *  review 3, I2) name their rows, and two detectable sheets (M1) their sheets.

@@ -37,7 +37,7 @@ export interface InsightRecommendRunnerArgs {
   /** Closes over the live workspace. */
   buildIndex: () => GroundingIndex;
   buildContextFor: (insight: Insight) => string;
-  /** Functional setInsights writer (Task 9 provides). `snapshot` is the
+  /** Functional setInsights writer, from the caller. `snapshot` is the
    *  candidate's prompt-time entity snapshot (§350). */
   applyRecommendation: (id: number, rec: InsightRecommendation, snapshot?: RecommendSnapshot) => void;
   /** §350 — read per CANDIDATE, beside its prompt. Omitted outside the stamping

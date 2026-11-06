@@ -47,7 +47,7 @@ describe("corrected AI copy (AI-20)", () => {
   });
 });
 
-// Fix round 1: sentences the first correction still got wrong for this branch.
+// Sentences the first correction still got wrong for this branch.
 type Fix = { key: keyof typeof de; enHas: string[]; enNot: string[]; deHas: string[]; deNot: string[] };
 const FIXES: Fix[] = [
   { key: "disclaimerIntro", enHas: ["most AI changes are logged", "insight recommendations", "wizard's AI draft is not logged"], enNot: ["every AI write", "applying an insight recommendation", "through its chat tools"], deHas: ["die meisten KI-Änderungen", "Insight-Empfehlungen", "nicht protokolliert"], deNot: ["jeder KI-Schreibvorgang", "Übernehmen einer Insight-Empfehlung"] },
@@ -59,7 +59,7 @@ const FIXES: Fix[] = [
   { key: "aiGuideBudgetWarning", enHas: ["no cache marker of its own"], enNot: ["Both are cached"], deHas: ["keine eigene Cache-Markierung"], deNot: ["Beide werden nach dem ersten Senden zwischengespeichert"] },
 ];
 
-describe("corrected AI copy, fix round 1", () => {
+describe("corrected AI copy", () => {
   beforeAll(async () => { await loadI18n("de"); });
   for (const fx of FIXES) {
     it(`${String(fx.key)}: EN`, () => {

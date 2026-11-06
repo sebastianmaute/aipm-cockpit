@@ -29,7 +29,7 @@ const full: Readout = {
 describe("ChartReadout", () => {
   it("lists every row in the legend's order with its value", () => {
     render(<ChartReadout lang="en-US" readout={full} anchor={{ top: 10, left: 20 }} fmt={fmt} locale="en-US" />);
-    // The box is aria-hidden (ruling 1 below), so these role queries need `hidden: true`
+    // The box is aria-hidden (see below), so these role queries need `hidden: true`
     // to see past that — otherwise Testing Library excludes them from the a11y tree.
     const rows = screen.getAllByRole("listitem", { hidden: true }).map((li) => li.textContent ?? "");
     expect(rows).toHaveLength(10);
@@ -127,7 +127,7 @@ describe("ChartReadout", () => {
   });
 
   // Pins the aria-hidden contract in BOTH directions: the box really is hidden from the
-  // a11y tree (so Task 5's live region is the sole accessible channel — no double
+  // a11y tree (so the live region is the sole accessible channel — no double
   // announcement), AND an ordinary (non-`hidden: true`) role query really finds nothing,
   // so a later removal of `aria-hidden` cannot slip past unnoticed — every `{hidden: true}`
   // query above would stay green either way, which is exactly the silent-rot this closes.

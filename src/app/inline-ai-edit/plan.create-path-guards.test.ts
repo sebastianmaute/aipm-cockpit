@@ -66,7 +66,7 @@
 // `update_*` tools only (verified: no `create_*` tool name appears in it).
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-// AI people protection, Task 5: this file tests the write path, not the protection (`ai-people-gates.test.tsx`).
+// AI people protection: this file tests the write path, not the protection (`ai-people-gates.test.tsx`).
 vi.mock("../ai-privacy-context", () => import("../../test/ai-privacy-unprotected"));
 
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";

@@ -35,7 +35,7 @@ export function ActionRow(props: ActionRowProps) {
   const title = actionText(lang, action.title);
   const why = actionText(lang, action.why);
   const sourceLabel = t(lang, ACTION_SOURCE_LABEL[action.source]);
-  // §582 fix round — without a handler this div did nothing on click but still
+  // §582 — without a handler this div did nothing on click but still
   // wore `cursor-pointer` + the hover tint, so it looked clickable and was not.
   // Both classes are whole literal strings, applied only when `onOpen` is wired.
   const onOpenHandler = props.onOpen;

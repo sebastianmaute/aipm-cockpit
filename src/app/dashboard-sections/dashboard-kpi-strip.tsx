@@ -96,7 +96,7 @@ export const KPI_STRIP_COLS: Record<KpiCellCount, string> = {
  *  nest a second bordered surface inside the first. */
 export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc, simulation, simulationGap, simulationPending, onOpenHelp }: DashboardKpiStripProps) {
   const noActiveScope = hasNoActiveScope(model.progress);
-  // ★ Spec C decision 8, user's ruling: each index is shown whenever IT can
+  // ★ Spec C decision 8, user's decision: each index is shown whenever IT can
   // move a value the user sees — never gated on the Budget module. SPI feeds
   // the Schedule RAG and CPI feeds the Budget RAG (`dashboard.ts`
   // `evmIndexHealth`) from `model.evm`, which is computed over `tasks` alone

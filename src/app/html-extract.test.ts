@@ -94,7 +94,7 @@ describe("extractHtmlMarkdown", () => {
   });
 
   it("renders uppercase tag names, matching HTML's case-insensitive tags", () => {
-    // §558 fix round 4, N1: TABLE_PAIR/ROW_PAIR/CELL_PAIR/HEADING_PAIR all
+    // §558, N1: TABLE_PAIR/ROW_PAIR/CELL_PAIR/HEADING_PAIR all
     // set caseInsensitive: true on TagPairSpec - this is the ONLY test that
     // exercises the true side of that flag (the two OOXML regression tests
     // added earlier this slice only exercise the false side). Uppercase tag

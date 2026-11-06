@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Creates and publishes the GitHub Release for a tag from a verified release directory.
-// Usage: node scripts/publish-github-release.mjs <dir> <tag>   (env GITHUB_REPOSITORY, GH_TOKEN)
+// Usage: node scripts/publish-github-release.mjs <dir> <tag>   (env GITHUB_REPOSITORY, GH_TOKEN, RELEASE_SIGNED)
 // Exit: 0 published, or an identical release already was.
 // 1 REFUSED — a human must act: a published release for the tag differs (immutable releases
 //   cannot be fixed in place: publish a new version instead), or ANYTHING goes wrong at or after
@@ -53,6 +53,9 @@ let publishAttempted = false;
 try {
   if (!dir || !tag || !tag.startsWith("v") || !repo) throw new Error("usage: publish-github-release.mjs <dir> <tag v…> with GITHUB_REPOSITORY set");
   const lib = await import("./release-publish-lib.mjs");
+  // The finalize job's `signed` output (true only after its Authenticode check passed); read before
+  // any gh call, so a missing value stops the run with nothing created.
+  const signed = lib.parseSignedFlag(process.env.RELEASE_SIGNED);
   const { readSourceFrom, SOURCE_FILE } = await import("./version-sync-lib.mjs");
   const version = tag.slice(1);
   const { milestone } = readSourceFrom(readFileSync(SOURCE_FILE, "utf8"));
@@ -85,7 +88,7 @@ try {
   }
 
   const notesFile = join(mkdtempSync(join(tmpdir(), "notes-")), "notes.md");
-  writeFileSync(notesFile, lib.releaseNotes(readFileSync("CHANGELOG.md", "utf8"), version));
+  writeFileSync(notesFile, lib.releaseNotes(readFileSync("CHANGELOG.md", "utf8"), version, { signed }));
   gh([
     "release", "create", tag, ...files, "--repo", repo, "--draft", "--verify-tag",
     "--title", lib.releaseTitle(version, milestone), "--notes-file", notesFile,

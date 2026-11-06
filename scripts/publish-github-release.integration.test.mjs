@@ -12,6 +12,7 @@ const CLI = join(process.cwd(), "scripts", "publish-github-release.mjs");
 const VERSION = /export const APP_VERSION = "([^"]+)"/.exec(readFileSync("src/app/version.ts", "utf8"))[1];
 const TAG = `v${VERSION}`;
 const EXE = `aipm-cockpit-${VERSION}-setup.exe`;
+const SBOM = `aipm-cockpit-${VERSION}-sbom.cdx.json`;
 
 const FAKE_GH = String.raw`
 const fs = require("fs");
@@ -35,6 +36,7 @@ if (a[0] === "api") {
 if (a[0] === "release" && a[1] === "create") {
   const files = a.slice(3).filter((x, i, all) => !x.startsWith("--") && !(all[i - 1] || "").match(/^--(repo|title|notes-file)$/));
   state.releases.push({ id: 100 + state.releases.length, tag_name: a[2], draft: true, prerelease: a.includes("--prerelease"),
+    notes: fs.readFileSync(a[a.indexOf("--notes-file") + 1], "utf8"),
     assets: files.map((f) => ({ name: require("path").basename(f), size: fs.statSync(f).size, digest: state.noDigest ? undefined : "sha256:" + sha(f) })) });
   save(); process.exit(0);
 }
@@ -56,13 +58,14 @@ function setup(state = {}) {
   writeFileSync(join(dir, EXE), "exe-bytes");
   writeFileSync(join(dir, `${EXE}.blockmap`), "map");
   writeFileSync(join(dir, "latest.yml"), "yml");
+  writeFileSync(join(dir, SBOM), "{}");
   const gh = join(root, "gh.cjs");
   writeFileSync(gh, FAKE_GH);
   const stateFile = join(root, "state.json");
   writeFileSync(stateFile, JSON.stringify({ calls: [], releases: [], ...state }));
   const run = (env = {}) => spawnSync(process.execPath, [CLI, dir, TAG], {
     encoding: "utf8",
-    env: { ...process.env, VITEST: "1", GITHUB_REPOSITORY: "o/r", GH_TOKEN: "t", PUBLISH_RELEASE_TEST_GH: gh, FAKE_GH_STATE: stateFile, ...env },
+    env: { ...process.env, VITEST: "1", GITHUB_REPOSITORY: "o/r", GH_TOKEN: "t", RELEASE_SIGNED: "false", PUBLISH_RELEASE_TEST_GH: gh, FAKE_GH_STATE: stateFile, ...env },
   });
   const read = () => JSON.parse(readFileSync(stateFile, "utf8"));
   const digest = (name) => "sha256:" + createHash("sha256").update(readFileSync(join(dir, name))).digest("hex");
@@ -83,6 +86,7 @@ function setupPrerelease(state = {}) {
   writeFileSync(join(dir, exe), "exe-bytes");
   writeFileSync(join(dir, `${exe}.blockmap`), "map");
   writeFileSync(join(dir, "latest.yml"), "yml");
+  writeFileSync(join(dir, `aipm-cockpit-${version}-sbom.cdx.json`), "{}");
 
   const projectDir = join(root, "project");
   mkdirSync(join(projectDir, "src", "app"), { recursive: true });
@@ -99,21 +103,21 @@ function setupPrerelease(state = {}) {
   const run = (env = {}) => spawnSync(process.execPath, [CLI, dir, tag], {
     encoding: "utf8",
     cwd: projectDir,
-    env: { ...process.env, VITEST: "1", GITHUB_REPOSITORY: "o/r", GH_TOKEN: "t", PUBLISH_RELEASE_TEST_GH: gh, FAKE_GH_STATE: stateFile, ...env },
+    env: { ...process.env, VITEST: "1", GITHUB_REPOSITORY: "o/r", GH_TOKEN: "t", RELEASE_SIGNED: "false", PUBLISH_RELEASE_TEST_GH: gh, FAKE_GH_STATE: stateFile, ...env },
   });
   const read = () => JSON.parse(readFileSync(stateFile, "utf8"));
   return { run, read, tag, exe, version };
 }
 
 describe("publish-github-release.mjs against a fake gh", () => {
-  it("creates a draft with the three files, publishes it, and confirms (exit 0)", () => {
+  it("creates a draft with the four files, publishes it, and confirms (exit 0)", () => {
     const t = setup();
     const r = t.run();
     expect(r.status, r.stderr).toBe(0);
     const s = t.read();
     expect(s.releases).toHaveLength(1);
     expect(s.releases[0]).toMatchObject({ tag_name: TAG, draft: false });
-    expect(s.releases[0].assets.map((a) => a.name)).toEqual([EXE, `${EXE}.blockmap`, "latest.yml"]);
+    expect(s.releases[0].assets.map((a) => a.name)).toEqual([EXE, `${EXE}.blockmap`, "latest.yml", SBOM]);
     expect(s.calls.find((c) => c.startsWith("release create"))).toMatch(/--draft --verify-tag/);
   });
 
@@ -137,7 +141,7 @@ describe("publish-github-release.mjs against a fake gh", () => {
 
   it("exits 0 without writing when an identical release is already published", () => {
     const t = setup();
-    const files = [EXE, `${EXE}.blockmap`, "latest.yml"];
+    const files = [EXE, `${EXE}.blockmap`, "latest.yml", SBOM];
     const t2 = setup({ releases: [{ id: 9, tag_name: TAG, draft: false, prerelease: VERSION.includes("-"),
       assets: files.map((n) => ({ name: n, size: readFileSync(join(t.dir, n)).length, digest: t.digest(n) })) }] });
     const r = t2.run();
@@ -197,6 +201,29 @@ describe("publish-github-release.mjs against a fake gh", () => {
     const s = t.read();
     expect(s.calls.some((c) => c.startsWith("release edit"))).toBe(true);
     expect(s.releases[0].draft).toBe(false); // the edit succeeded; only the confirming list blew up
+  });
+
+  it("writes the unsigned notice when the finalize job says unsigned, and the SignPath line when it says signed", () => {
+    const off = setup();
+    const r0 = off.run();
+    expect(r0.status, r0.stderr).toBe(0);
+    expect(off.read().releases[0].notes).toMatch(/not code-signed/);
+    const on = setup();
+    const r1 = on.run({ RELEASE_SIGNED: "true" });
+    expect(r1.status, r1.stderr).toBe(0);
+    const notes = on.read().releases[0].notes;
+    expect(notes).toContain("Free code signing provided by SignPath.io, certificate by SignPath Foundation");
+    expect(notes).not.toMatch(/not code-signed/);
+  });
+
+  it("refuses (exit 2) without a readable RELEASE_SIGNED, calling gh not at all", () => {
+    for (const v of ["", "yes"]) {
+      const t = setup();
+      const r = t.run({ RELEASE_SIGNED: v });
+      expect(r.status, v).toBe(2);
+      expect(r.stderr).toMatch(/RELEASE_SIGNED/);
+      expect(t.read().calls).toEqual([]);
+    }
   });
 
   it("refuses the fake-gh hook outside vitest (exit 2), calling gh not at all", () => {

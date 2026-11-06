@@ -71,7 +71,7 @@ describe("assignRunPeriods — year rollover", () => {
   });
 });
 
-// Round 3 (rr2 Minors 1–3).
+// Round 3.
 describe("assignRunPeriods — what a year-less run rolls on, and what anchors it", () => {
   it("rolls only on a step back of six months or more (KW: 26 weeks)", () => {
     expect(assignRunPeriods(["Dez", "Nov", "Okt", "Sep"], { defaultYear: 2026 })).toEqual(["2026-12", "2026-11", "2026-10", "2026-09"]);
@@ -96,7 +96,7 @@ describe("assignRunPeriods — what a year-less run rolls on, and what anchors i
     expect(assignRunPeriods(["Dez", "KW01 2027"])).toEqual(["2026-12", "2027-W01"]);
   });
 
-  // Round 4 (rr3 Minor 4): left of the first label is earlier — counting back
+  // Round 4: left of the first label is earlier — counting back
   // never stays in the label's year for a later month, however small the gap.
   it("counts back always back in time: Mai | Jan 2027 is May 2026, Feb | Jan 2027 is Feb 2026", () => {
     expect(assignRunPeriods(["Mai", "Jan 2027"])).toEqual(["2026-05", "2027-01"]);
@@ -108,7 +108,7 @@ describe("assignRunPeriods — what a year-less run rolls on, and what anchors i
     expect(assignRunPeriods(["Dez", "Nov", "Okt", "Sep"], { defaultYear: 2026 })).toEqual(["2026-12", "2026-11", "2026-10", "2026-09"]);
   });
 
-  // Round 4 (rr3 Minor 6): in a row of month or week labels, dates and serials
+  // Round 4: in a row of month or week labels, dates and serials
   // never anchor the labels' year, however many of them there are.
   it("lets two serial code cells in a labelled header anchor nothing: 40100 | 40200 | Jan | Feb | Mär", () => {
     const run = assignRunPeriods(["Name", "40100", "40200", "Jan", "Feb", "Mär"], { defaultYear: 2026, numbers: "dot" });
@@ -187,7 +187,7 @@ describe("isWeekSpacedColumn and assignCellPeriod — a long sheet's dates", () 
   });
 });
 
-// Round 5 (rr4 Important 2): a title row's date RANGE (`Zeitraum | 01.01.2026 |
+// Round 5: a title row's date RANGE (`Zeitraum | 01.01.2026 |
 // 31.12.2026`) is two dates, so it read as a two-period header and vouched for
 // December under a long sheet's hours column.
 describe("assignRunPeriods — two dates far apart are a range, not periods", () => {

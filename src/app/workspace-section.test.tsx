@@ -506,7 +506,7 @@ describe("WorkspaceSection — budget people-row actuals wiring", () => {
   });
 });
 
-// §6.4 / Plan Ruling 12: `onOpenBudgetReport` switches to the budget-report
+// §6.4 / Plan `onOpenBudgetReport` switches to the budget-report
 // tab, and is omitted (not a no-op) in a popout — `isPopout` comes from
 // `WorkspaceTabProvider`, driven by the `?popout=` URL search param
 // (task-manager.key-facts-cache.test.tsx / task-manager.popout-guard.test.tsx

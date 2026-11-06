@@ -37,7 +37,7 @@ describe("shiftWorkspaceDates", () => {
     // The master's own weekend date-only values are now all month-boundary
     // dates (verified: budgets[3].startDate "2026-08-01" Sat, budgets[3].endDate
     // "2026-10-31" Sat, budgets[5].startDate "2026-11-01" Sun — see the boundary
-    // test below), so per the controller ruling they no longer roll at any n,
+    // test below), so by design they no longer roll at any n,
     // including n=0 — this assertion no longer exercises the n===0 guard by
     // itself. Kept as a broad regression check; the guard itself is pinned by
     // the dedicated non-boundary-weekend fixture test right after this one.
@@ -76,7 +76,7 @@ describe("shiftWorkspaceDates", () => {
     expect(out.plan.endDate).toBe("2026-04-07"); // Tue stays (non-boundary, no rolling needed)
   });
 
-  it("exempts a month-boundary date-only value from weekend rolling (controller ruling)", () => {
+  it("exempts a month-boundary date-only value from weekend rolling", () => {
     // 2026-01-31 is the LAST day of January. Naive addMonths+clamp gives 02-28
     // too (Jan has more days than Feb), so this alone wouldn't distinguish the
     // fix from the old code — the point is that 02-28 IS a Saturday and must
@@ -155,7 +155,7 @@ describe("shiftWorkspaceDates", () => {
     expect(shiftWorkspaceDates(ws, 2).budgets![0].allocations[0].budgetHours).toEqual({ "2027-W01": 4 });
   });
 
-  // Controller ruling / probe: before the month-boundary exemption above,
+  // Probe: before the month-boundary exemption above,
   // rolling a bucket's weekend 1st-of-month `startDate` off the 1st desynced
   // it from `bucketActivePeriods` (budget-report.ts), which keeps only periods
   // whose `start` (always the 1st) falls within [bucket.startDate,

@@ -360,7 +360,7 @@ describe("useVersionHistory", () => {
     });
   });
 
-  // §476 pre-merge ruling — a restore converts the money it takes from a version into the CURRENT
+  // §476 pre-merge decision — a restore converts the money it takes from a version into the CURRENT
   // currency (the switches made since the version's capture) and never changes `plan.currency`. The
   // hook hands the parsed version and its capture time to `prepareVersion` BEFORE the diff and the
   // merge, so whole-record and per-field restores both see converted values. Real `applyRestore`.

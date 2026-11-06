@@ -6,7 +6,7 @@ import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 
 /**
- * Spec C fix round 1: pins that the panel really passes the digest into row
+ * Pins that the panel really passes the digest into row
  * 1's digest slot, at the panel level — not just that the slot exists
  * (`dashboard-panel-layout.test.tsx`) or that `DashboardTopRow`'s slot collapses
  * when empty (`dashboard-rows.test.tsx`).
@@ -43,7 +43,7 @@ const baseProps = {
   holidaySet: new Set<string>(), workdayHours: 8, today: "2026-06-02",
 };
 
-describe("DashboardPanel row 1 digest wiring (spec C fix round 1)", () => {
+describe("DashboardPanel row 1 digest wiring", () => {
   it("renders the digest exactly once, inside row 1's digest slot", () => {
     render(<DashboardPanel {...baseProps} projectId="p-row1-digest-wiring" />, { wrapper });
     expect(screen.getAllByTestId("digest-probe")).toHaveLength(1);

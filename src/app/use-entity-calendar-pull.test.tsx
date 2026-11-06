@@ -447,7 +447,7 @@ describe("useEntityCalendarPull — the scope epoch (§548)", () => {
   });
 });
 
-// §486 fix round 1 (I1) — an opted-out item keeps its Outlook event but the
+// §486 (I1) — an opted-out item keeps its Outlook event but the
 // app must never follow it (pull) nor converge it (Keep app date → PATCH).
 describe("useEntityCalendarPull — an opted-out item is never pulled or PATCHed (§486)", () => {
   const moved = () => { mockEvents([{ id: "evt", date: "2026-07-10" }]); };

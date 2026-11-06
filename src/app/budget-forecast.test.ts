@@ -18,8 +18,7 @@ import type { BudgetBucket, ResourcePlan, Role } from "./types";
 // mathematically invariant to this narrowing for any valid chain (its bounds
 // always subsume every contributing bucket's own dates), so no
 // BudgetForecast-level return-value assertion can distinguish "spanned" from
-// "always undefined" — verified empirically, not assumed (see task-3-report.md
-// Fix round 1).
+// "always undefined" — verified empirically, not assumed.
 vi.mock("./budget-burndown", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./budget-burndown")>();
   return { ...actual, computeBurndownSeries: vi.fn(actual.computeBurndownSeries) };
@@ -100,13 +99,13 @@ describe("computeForecastFromFacts — pace window", () => {
     expect(isPaceAvailable(f.pace) && f.pace.daysBeforePlannedEnd).toBeNull();
   });
 
-  it("returns no run-out when remaining is exactly 0 (controller ruling 2, <= not < mutant killer)", () => {
+  it("returns no run-out when remaining is exactly 0 (<= not < mutant killer)", () => {
     const f = computeForecastFromFacts(fixture({ ac: 240_000 }));
     expect(isPaceAvailable(f.pace) && f.pace.runOutDate).toBeNull();
     expect(isPaceAvailable(f.pace) && f.pace.daysBeforePlannedEnd).toBeNull();
   });
 
-  it("keeps the run-out day count tolerance-safe against float division rounding (controller ruling 1, probe: burn=3/20, remaining=burn×54)", () => {
+  it("keeps the run-out day count tolerance-safe against float division rounding (probe: burn=3/20, remaining=burn×54)", () => {
     const burnRatePerDay = 3 / 20;
     const ac = 100_000;
     const remaining = burnRatePerDay * 54;
@@ -203,7 +202,7 @@ describe("computeForecastFromFacts — efficiency unavailable", () => {
     expect(computeForecastFromFacts(fixture({ ev: 0 })).efficiency).toEqual({ unavailable: "no-earned-value" });
   });
 
-  it("no actual cost wins over no earned value when both are 0 (controller ruling 2, check-order mutant killer)", () => {
+  it("no actual cost wins over no earned value when both are 0 (check-order mutant killer)", () => {
     const f = computeForecastFromFacts(fixture({ ac: 0, ev: 0 }));
     expect(f.efficiency).toEqual({ unavailable: "no-actual-cost" });
   });
@@ -242,7 +241,7 @@ describe("forecastGap", () => {
     expect(forecastGap(pace, eff(110_000), 0)).toMatchObject({ percentOfBac: 0, severity: "info" });
   });
 
-  it("returns null when the burn rate is zero or negative (controller ruling 3)", () => {
+  it("returns null when the burn rate is zero or negative", () => {
     expect(forecastGap({ ...pace, burnRatePerDay: 0 }, eff(110_000), 100_000)).toBeNull();
     expect(forecastGap({ ...pace, burnRatePerDay: -5 }, eff(110_000), 100_000)).toBeNull();
   });
@@ -393,7 +392,7 @@ describe("forecastFacts", () => {
     expect(forecastFacts(input([withActual(1, {})], [], "2025-06-01")).pv).toBe(0);
   });
 
-  it("excludes non-positive hours from dated bookings entirely (controller ruling 4)", () => {
+  it("excludes non-positive hours from dated bookings entirely", () => {
     const b = withActual(1, { "2026-06-10": 0, "2026-06-11": -5, "2026-06": 0 });
     const f = forecastFacts(input([b]));
     expect(f.dated).toEqual([]);
@@ -512,7 +511,7 @@ describe("computeProjectForecast", () => {
     // check here would pass even under the "always pass undefined" mutant —
     // confirmed by actually reverting the ternary and re-running this file: the
     // pv-based assertion stayed green, because PV is invariant here; this
-    // spy-based one goes red as expected — see task-3-report.md Fix round 1).
+    // spy-based one goes red as expected).
     vi.mocked(computeBurndownSeries).mockClear();
     computeProjectForecast({ buckets: [b], plan, roles, resources: [], workdayHours: 8, holidaySet: none, absences: [], tasks: [], fxRates: null, today });
     expect(computeBurndownSeries).toHaveBeenCalledWith(
@@ -574,12 +573,12 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
   // ★★★ RULING 1 (MR 3) IS SUPERSEDED. This test formerly pinned the opposite —
   // "uses the reported, spillover-inclusive bucket hours for EV h" — asserting
   // BAC h 200 and EV h 140. Both numbers were artefacts of the §550 defect: the
-  // donor's 50 h remainder was counted in BOTH buckets. Ruling 1 was coherent
+  // donor's 50 h remainder was counted in BOTH buckets. That rule was coherent
   // while BAC carried the same double-count, but once §550 re-based BAC to own
   // budget it left EV as the only spillover-inclusive term, so ΣEV could exceed
   // BAC. EV is now own-basis in both units. Kept, rewritten, NOT deleted: the
   // ruling it encoded is part of this file's history.
-  it("uses OWN bucket hours for EV h — Ruling 1 (MR 3) superseded by §550", () => {
+  it("uses OWN bucket hours for EV h — earlier rule superseded by §550", () => {
     const donor = bucket(1, {
       status: "closed", successorId: 2, percentComplete: 100,
       allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 50 }, actualHours: {} }],
@@ -599,7 +598,7 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
     // what this used to pin.
     expect(hours.ev).toBeCloseTo(110, 9);
     expect(eur.ev).toBeCloseTo(11_000, 9);
-    // The two units stay in lockstep — the property Ruling 1 was protecting.
+    // The two units stay in lockstep — the property that rule was protecting.
     expect(eur.ev! / eur.bac).toBeCloseTo(hours.ev! / hours.bac, 9);
   });
 
@@ -622,7 +621,7 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
 
 /**
  * §550, second half — earned value re-based onto the OWN budget, superseding
- * Ruling 1 (MR 3). Four bases feed the forecast and three of them were already
+ * the earlier reported-basis rule. Four bases feed the forecast and three of them were already
  * own-budget: BAC (fixed by the project rollup), PV (the burn-down builds its
  * totals straight from allocations and never sees spillover — MEASURED below,
  * not assumed) and the report's own `earnedValue`, which scales `budgetCost`
@@ -633,7 +632,7 @@ describe("hours facts (MR 3 addendum §3.1)", () => {
  * Fixture throughout: a 100 h donor closing into a 100 h successor, rates 60
  * internal / 100 external, so the donor spills 60 h and 6000 EUR.
  */
-describe("forecastFactsByUnit — EV on the own-budget basis (§550, Ruling 1 superseded)", () => {
+describe("forecastFactsByUnit — EV on the own-budget basis (§550, earlier rule superseded)", () => {
   const donor = (status: BudgetBucket["status"], percentComplete: number) =>
     bucket(1, {
       status, successorId: 2, percentComplete,

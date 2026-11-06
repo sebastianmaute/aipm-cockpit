@@ -8,7 +8,7 @@
 // this one would wipe the whole image library on every workspace save. The
 // metadata rides ENTITY_SPECS (turso-schema.ts, table "document_assets"); only
 // the bytes live here, and they are written one row at a time by the async
-// store this schema feeds (document-assets-store.ts, Task 9). A guard test in
+// store this schema feeds (document-assets-store.ts). A guard test in
 // turso-schema.test.ts pins the exclusion.
 //
 // ★★ Bytes are base64 TEXT because SqlArg.value is string-only even for

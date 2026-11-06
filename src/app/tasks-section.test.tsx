@@ -1836,7 +1836,7 @@ describe("TasksSection — the scope epoch reaches the manual Outlook push/pull 
   });
 
 
-  // §486 fix round 2 — this pane builds its OWN push input, so it must use the
+  // §486 — this pane builds its OWN push input, so it must use the
   // shared `isPushableTask`: an opted-out task that still holds a link stays in
   // the push input after it is finished, or the push deletes the kept event.
   it("keeps an opted-out, linked, finished task in the push input (§486)", () => {

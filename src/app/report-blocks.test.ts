@@ -188,7 +188,7 @@ describe("report-blocks — label keys in DE", () => {
     // shortening two labels to the same word is exactly the shape that survives
     // an EN-only check. tsc enforces key parity, never value distinctness.
     //
-    // ★ Same class as the shelf defect found in Task 8 — a collision nothing
+    // ★ Same class as the shelf defect found earlier — a collision nothing
     // could produce from the catalogue in front of you, until it could.
     //
     // ★★ THE MEASUREMENT, so nobody re-litigates this from the prop argument
@@ -273,7 +273,7 @@ describe("report-blocks — the default layout", () => {
   it("places every catalogue block on the board with nothing hidden", () => {
     // ★★ A catalogue CANNOT declare a block hidden-by-default: `defaultLayout`
     // places every member and `reconcile` re-inserts every absent one. Reports'
-    // "only the reports you added" behaviour is therefore Task 10's migration
+    // "only the reports you added" behaviour is therefore the migration's
     // SEED, which writes the `hidden` list explicitly — not something this file
     // can express. Keeping `hidden` empty here is what makes that split honest.
     expect(REPORTS_DEFAULT_LAYOUT.board.map((p) => p.id)).toEqual(REPORT_BLOCKS.map((b) => b.id));

@@ -110,8 +110,8 @@ test("strips markers before matching so markup is unsearchable", () => {
 
 // ★★ A property over the WHOLE rendered pane, not one entry: no help body may
 // ever show bracket markup to a user. It passes trivially until the first
-// marker lands, and becomes load-bearing the moment one does — Task 9 Step 5
-// of the plan breaks a marker to prove this can actually fail.
+// marker lands, and becomes load-bearing the moment one does — breaking a
+// marker on purpose proves this can actually fail.
 test("renders a marked label as styled text, never as raw brackets", () => {
   render(<HelpContentPane lang="en-US" query="" />);
   expect(screen.queryByText(/\[\[/)).toBeNull();

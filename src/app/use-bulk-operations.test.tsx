@@ -1545,7 +1545,7 @@ describe("useBulkOperations", () => {
       };
       act(() => { result.current.workspace.setTasks([task]); });
       act(() => { result.current.bulk.onToggleSelect(1); });
-      // Fix round 1 MINOR 2: a fixture that accidentally reached the send loop
+      // A fixture that accidentally reached the send loop
       // (e.g. a guard dropped instead of `continue`d) would still leave these
       // two unexercised — assert they never fire, not just the toast.
       const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);

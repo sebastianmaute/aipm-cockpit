@@ -72,7 +72,7 @@ describe("the media-free OOXML packages match their committed manifests", () => 
   // together. Reading the live [Content_Types].xml is what stays red.
   //
   // ★★ IT IS NOT REDUNDANT WITH THE PRIMITIVES' OWN TESTS, AND THE REASON IS
-  // SCOPE, NOT ABSENCE. The brief that prompted this said pptx had no
+  // SCOPE, NOT ABSENCE. The request that prompted this said pptx had no
   // `not.toContain("image/")` anywhere and docx did; both files have one on a
   // media-free package (`ooxml-docx-primitives.test.ts` and
   // `ooxml-pptx-primitives.test.ts`, verified by grep before this comment was

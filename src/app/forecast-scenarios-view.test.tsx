@@ -249,7 +249,7 @@ describe("ForecastScenariosView", () => {
   });
 });
 
-describe("ForecastScenariosView — no silent refusals (fix round 1)", () => {
+describe("ForecastScenariosView — no silent refusals", () => {
   const REFUSED = "Not saved: the scenarios were changed elsewhere.";
 
   it("a create refused after open keeps the editor open with the reason", async () => {

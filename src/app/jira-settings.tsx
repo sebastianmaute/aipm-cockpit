@@ -68,7 +68,7 @@ export function JiraSettingsSection({
   const userSearchSeq = useRef(0);
 
   // ★ A LOCAL DRAFT, persisted only once write-safe (spec Part 1, decision 1) —
-  //  shared with timelog-settings.tsx via `useEmailDraft` (fix round 1).
+  //  shared with timelog-settings.tsx via `useEmailDraft`.
   const {
     value: emailDraft,
     setValue: setEmailDraft,

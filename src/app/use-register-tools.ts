@@ -407,7 +407,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       //  same turn reads this write — and finds its token moved.
       //  ★★ The note is authored "AI created" (`aiEscalationNoteAuthor`), never
       //  `settings.selfResourceId` — the user did not write it.
-      //  ★ KNOWN LIMIT (Task 3's, deviation 15): a same-tick SEVERITY write is
+      //  ★ KNOWN LIMIT: a same-tick SEVERITY write is
       //  overwritten by the planned step. No mail; no address in the activity row.
       //  ★★ UNDO IS A FIELD PATCH (`captureFieldPart`), NOT A WHOLE-ROW IMAGE.
       //  A whole-row undo keeps `noteLog` live (WRITE_THROUGH_FIELDS, §50), so it
@@ -769,7 +769,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
       createStakeholder: (input) => {
         if (isReadOnly) throw readOnlyError();
         // BUDGET_NAME_MAX (200), not the default EMAIL_MAX (320) — `sanitizeStakeholder`
-        // caps `email` there via `sanitizeText`, not `sanitizeEmail` (fix round 1).
+        // caps `email` there via `sanitizeText`, not `sanitizeEmail`.
         refuseEmailWrite("email", (input as { email?: unknown }).email, undefined, BUDGET_NAME_MAX);
         const id = mintId("stakeholder", stakeholdersRef.current);
         // ★★★ `resourceId` is the reason this line changed. `9c230204` guarded

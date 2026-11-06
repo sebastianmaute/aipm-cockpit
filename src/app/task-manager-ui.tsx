@@ -15,7 +15,7 @@ import { IconButton } from "./icon-button";
 import { DragHandle } from "./drag-handle";
 import { isDesktopShellUserAgent } from "./desktop-shell";
 
-// --- Hydration-safe desktop-shell detection for PrintButton ---
+// --- Hydration-safe desktop-shell detection (PrintButton, HelpMenu) ---
 //
 // ★★ COPIED FROM global-search-box.tsx's platform detection ON PURPOSE, and
 // for the same reason: this tree IS server-rendered (page.tsx awaits
@@ -33,6 +33,11 @@ function getIsDesktopShellClient(): boolean {
 }
 function getIsDesktopShellServer(): boolean {
   return false;
+}
+
+/** Whether the app runs in its own Electron desktop shell; `false` on the server and in a browser. */
+export function useIsDesktopShell(): boolean {
+  return useSyncExternalStore(subscribeNoop, getIsDesktopShellClient, getIsDesktopShellServer);
 }
 
 export function TabButton({
@@ -182,11 +187,7 @@ export function PrintButton({
   onClick?: () => void;
   lang: Lang;
 }) {
-  const isDesktopShell = useSyncExternalStore(
-    subscribeNoop,
-    getIsDesktopShellClient,
-    getIsDesktopShellServer,
-  );
+  const isDesktopShell = useIsDesktopShell();
   // ★★★ RENDER NOTHING IN THE DESKTOP SHELL, because the button cannot work
   // there. Electron refuses a renderer-initiated window.print() (its binary
   // carries `Scripted print is not supported`), and no CALL SITE overrides the

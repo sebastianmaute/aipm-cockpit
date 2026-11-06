@@ -51,8 +51,7 @@ function sheetNames(entries: Map<string, Uint8Array>): string[] {
  * skipping any ">" that sits INSIDE a quoted attribute value instead of
  * stopping there. Real XML allows a literal ">" unescaped in an AttValue
  * (only "<", "&" and the quote character itself are excluded), and a
- * user-typed sheet name can and does contain one (M-7,
- * final-release-review.md) — a naive `indexOf(">", from)` truncates the tag
+ * user-typed sheet name can and does contain one (M-7) — a naive `indexOf(">", from)` truncates the tag
  * right there. Shared by `readSheetName` (the positional-fallback reader,
  * below) and `sheetTagAttrs` (the rels-mapping reader) rather than a second
  * copy of the quote-tracking scan — dup:check is blocking.

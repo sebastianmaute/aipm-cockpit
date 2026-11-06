@@ -1,4 +1,4 @@
-// AI people protection, Task 5 (spec layer 1): the chat's people tools are classified, removed from the
+// AI people protection: the chat's people tools are classified, removed from the
 // request and refused by the executor, with ONE predicate behind both gates.
 import { describe, it, expect, vi } from "vitest";
 import { TOOL_DEFS, PEOPLE_TOOLS, NON_PEOPLE_TOOLS, PEOPLE_TOOL_REFUSAL, peopleToolsLive } from "./chat-tool-defs";

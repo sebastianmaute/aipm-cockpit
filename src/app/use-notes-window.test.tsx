@@ -242,8 +242,8 @@ describe("useNotesWindow — the change arm", () => {
   });
 
   // ★★★ WRITE-THROUGH. The log is owned by the notes window, NOT by the change
-  // editor's draft: `handleSaveChange` reads `noteLog` back from the STORED row
-  // (Task 5), so routing a note commit through it would read the note back out
+  // editor's draft: `handleSaveChange` reads `noteLog` back from the STORED row,
+  // so routing a note commit through it would read the note back out
   // and LOSE it. This pins that the window's onAdd lands in `changes` directly —
   // `setChanges` is the only setter it touches.
   it("writes a note straight into `changes`, never through a change-save handler", () => {

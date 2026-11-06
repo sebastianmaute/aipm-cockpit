@@ -372,7 +372,7 @@ A synchronous localStorage copy of the unconfirmed outgoing workspace:
   nothing else had changed. Only a save that STARTED WRITING can have landed: `doSave` calls
   `noteSaveRunning` inside its queue job, and a save the queue replaced while it waited (save-queue.ts)
   never runs and loses its copy to the save that replaced it. A save started BEFORE the base was set
-  is never an ancestor, and a held op base (R7) has none. Only the newest `MAX_ANCESTORS` earlier runs
+  is never an ancestor, and a held op base has none. Only the newest `MAX_ANCESTORS` earlier runs
   of a key keep their workspace for this (a backlog of failed saves holds keys, not copies), so
   pagehide computes at most that many ancestor fingerprints, each cached; a record whose
   `ancestorFingerprints` is not a list of strings is malformed (`hasJournalFields`).

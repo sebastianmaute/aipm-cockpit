@@ -1,4 +1,4 @@
-// src/test/reassign-hours-rig.ts — §774 Task 4: the shared fixture for the
+// src/test/reassign-hours-rig.ts — §774: the shared fixture for the
 // path tests (triage, editor, inline, Kanban, Action Center). It runs the REAL
 // `useReassignHours` over real state cells and the REAL undo stack, so a path
 // test reads utilization and the undo toast as the app would produce them.

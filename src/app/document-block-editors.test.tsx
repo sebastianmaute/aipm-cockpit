@@ -493,7 +493,7 @@ describe("ParagraphBlockEditor — the visible-character cap (§185)", () => {
   });
 });
 
-// ★★★ §185 fix rounds 1–2 — a refused draft lives only in the component, and a
+// ★★★ §185 — a refused draft lives only in the component, and a
 //  window close, reload or navigation runs no React cleanup, so the unmount
 //  flush alone would LOSE it. `pagehide` commits it flattened instead. A tab
 //  switch or minimise (`visibilitychange` → hidden) must NOT: the owner ruled

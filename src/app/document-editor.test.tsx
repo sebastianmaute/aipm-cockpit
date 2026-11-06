@@ -310,7 +310,7 @@ describe("DocumentEditor", () => {
     // ★★★ THE FIRST BLOCK CARRIES SEEDED TEXT, NOT AN EMPTY ONE.
     //  document-model.ts drops a paragraph whose visible text length is 0, so an
     //  empty seed would create a block that renders now and is GONE on the next
-    //  load — the exact failure Task 7 of this round exists to prevent.
+    //  load — the exact failure this test exists to prevent.
     //  ★★ It goes through `structural.insert(0, …)`, NOT a prop of its own. The
     //   empty state is the ONLY path into a zero-block document, so routing it
     //   through the optional `onAppendBlock` it used to have meant a wiring

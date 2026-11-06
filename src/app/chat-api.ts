@@ -140,8 +140,8 @@ export const ATTACHMENT_DATA_NOTICE =
  *  content block is unverified here and is NOT the reason for this — do not
  *  cite an API error as the justification.
  *
- *  ★★ Split out of `buildSystemPrompt` (Task 5 of the prompt-cache-layout
- *  slice) so the layout engine (Task 6) and the relocation (Task 7) can each
+ *  ★★ Split out of `buildSystemPrompt` (the prompt-cache-layout slice) so the
+ *  layout engine and the relocation of the volatile context can each
  *  address the two halves independently. `buildSystemPrompt` below is kept
  *  as a thin composition of this and `buildTurnContext` — nothing about
  *  which text lands in which half changed here. The always-on/view-scoped
@@ -156,7 +156,7 @@ export const ATTACHMENT_DATA_NOTICE =
  *  the volatile half; it is accepted here only so both halves share one
  *  param list. This is what makes both these blocks genuinely STABLE across
  *  a conversation's turns even when a setting toggle changes mid-thread —
- *  see Task 7, which depends on it. */
+ *  the relocation of the volatile context depends on it. */
 export function buildStableSystemBlocks(
   lang: Lang,
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,

@@ -315,7 +315,7 @@ function wsWithActivityLog(activityLog: unknown): string {
 }
 
 // Moved from activity-log.test.ts's retired loadActivityLog/saveActivityLog
-// suite (Task 12, activity-log-workspace-data): the log is validated on load
+// suite (activity-log-workspace-data): the log is validated on load
 // by `sanitizeActivityLog` now (called from `jsonToWorkspace`), not by the
 // localStorage-only `isActivityEntry`/`normalizeEntryChanges` that used to
 // gate `loadActivityLog`. Every property carried over EXCEPT the unknown-kind
@@ -561,7 +561,7 @@ describe("jsonToWorkspace — a slice that sanitizes to nothing (§620)", () => 
   // assertion assumes the key vanishes entirely).
   it("records status when it sanitizes to an object with no own keys", () => {
     const junk = { unknownField: "x" };
-    expect(Object.keys(sanitizeProjectStatus(junk))).toEqual([]); // sanity, per brief
+    expect(Object.keys(sanitizeProjectStatus(junk))).toEqual([]); // sanity
     const { ws, failed } = load({ status: junk });
     expect(failed).toEqual(["status"]);
     expect(ws.status).toEqual({});
@@ -574,7 +574,7 @@ describe("jsonToWorkspace — a slice that sanitizes to nothing (§620)", () => 
   });
 
   // One junk value per slice: it has content, and its sanitizer keeps none.
-  // ★ steeringCommittee and timelogLinks depart from the brief's proposed junk
+  // ★ steeringCommittee and timelogLinks depart from the proposed junk
   //  ({ members: "not-a-list", x: 1 } / { junk: 1 }): both sanitizers build an
   //  object literal with FIXED own keys for any object input regardless of its
   //  contents — sanitizeSteeringCommittee always returns

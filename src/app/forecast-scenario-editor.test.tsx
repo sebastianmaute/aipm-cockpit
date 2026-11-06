@@ -231,7 +231,7 @@ describe("ForecastScenarioEditor", () => {
   });
 });
 
-describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)", () => {
+describe("ForecastScenarioEditor — an old scenario stays usable", () => {
   const person = (resourceId: number): ScenarioChange =>
     ({ kind: "addPeople", who: { resourceId, hoursPerWeek: 20 }, from: TODAY, until: "", rampWeeks: 0 });
   const STALE: ScenarioChange[] = [
@@ -404,7 +404,7 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(first.isConnected).toBe(false);
   });
 
-  // Re-review R1: the summary was rebuilt from live state, so fixing a field rewrote the alert in place and the
+  // The summary was rebuilt from live state, so fixing a field rewrote the alert in place and the
   // screen reader re-read it mid-typing. It is now frozen at Save and replaced only by the next Save.
   it("edits after a refused Save leave the alert text alone; the next Save replaces it", async () => {
     const { user } = renderEditor();
@@ -423,7 +423,7 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(screen.getByRole("alert")).toHaveTextContent("1 change needs attention: Change 2, Availability (%): Between 10 and 300.");
   });
 
-  // Controller-commit review minor 1: a frozen summary over a draft with no errors left misled a sighted user. It
+  // A frozen summary over a draft with no errors left misled a sighted user. It
   // now goes quietly when the last error it named is fixed; a partial fix (above) leaves it.
   it("the summary goes once every error it named is fixed", async () => {
     const { user } = renderEditor();
@@ -440,7 +440,7 @@ describe("ForecastScenarioEditor — an old scenario stays usable (fix round 1)"
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  // Controller-commit review minor 2: nothing pinned that a valid Save clears a refusal shown by the previous one.
+  // Nothing pinned that a valid Save clears a refusal shown by the previous one.
   it("a valid Save clears the previous refusal", async () => {
     const { onSave, user } = renderEditor({ refuse: "A project keeps at most 4 scenarios." });
     await user.type(control("Name"), "Late");

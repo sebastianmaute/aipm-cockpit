@@ -12,7 +12,7 @@ import {
 } from "./sanitize";
 import { sanitizeSeed } from "./templates";
 
-// §539 follow-up (final fix round F1). A REQUIRED date that is shape-valid but
+// §539 follow-up. A REQUIRED date that is shape-valid but
 // not a real calendar date must not drop its whole record on load: it is kept
 // raw, with a diagnostic. Optional dates still blank; writes still refuse.
 const BAD = "2026-02-30";
@@ -56,7 +56,7 @@ describe("requiredIsoDateOnLoad", () => {
   });
 });
 
-// Final fix round 3, R2. The diagnostic fired on EVERY load of an affected
+// The diagnostic fired on EVERY load of an affected
 // record (Turso re-reads call the decoder repeatedly), and a template seed's
 // milestone logged exactly like a workspace milestone with the same id.
 describe("the non-calendar date diagnostic names its source and does not repeat", () => {

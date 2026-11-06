@@ -1464,7 +1464,7 @@ describe("useUndoStack — read-only (open-followups §91)", () => {
   });
 });
 
-// §486 fix round 1 (I3) — the background prune writes `calendarOptOut` in the
+// §486 (I3) — the background prune writes `calendarOptOut` in the
 // same statement as `outlookEventId`, so a whole-row undo captured BEFORE a
 // prune must keep both live values. Restoring the captured `calendarOptOut:
 // undefined` beside the live cleared link would leave an unlinked, opted-in

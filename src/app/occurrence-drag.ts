@@ -1,5 +1,5 @@
-// Pure resolution of a meetings-band drag gesture (R5 Task 14/17 fix, closed
-// further after a second review round). Mirrors calendar-drag.ts's
+// Pure resolution of a meetings-band drag gesture, closed further after a
+// second review. Mirrors calendar-drag.ts's
 // resolveCalendarDrag shape: the caller supplies exactly what was grabbed and
 // where it was dropped; this module decides what that means, or that it
 // means nothing.

@@ -236,7 +236,7 @@ describe("budgetVariance", () => {
     expect(detect({ budgets: [b], plan: PLAN }).filter((i) => i.type === "budgetVariance")).toHaveLength(0);
   });
 
-  // Ruling 4 in the plan: a closed predecessor's spillover stays part of the successor's budget to date.
+  // A closed predecessor's spillover stays part of the successor's budget to date.
   // Predecessor: 1000 budgeted, 910 booked (9%, under the threshold), so 90 h spill into the successor.
   // Successor: 300 budgeted Apr–Jun, 380 booked. Own-only that is 26.7%; with the spillover 390 vs 380.
   it("a closed predecessor's spillover counts toward the successor's budget to date", () => {
@@ -251,7 +251,7 @@ describe("budgetVariance", () => {
     expect(detect({ budgets: [predecessor, successor], plan: PLAN }).filter((i) => i.type === "budgetVariance")).toHaveLength(0);
   });
 
-  // Ruling 4's other half — the not-started EARLY RETURN in bucketFiguresToDate must not be bypassed
+  // The other half — the not-started EARLY RETURN in bucketFiguresToDate must not be bypassed
   // by a positive spillover: a successor whose own window has not started is counted "once the bucket's
   // first period has started" (the ruling's own words), not the moment its predecessor closes. Here the
   // successor already has hours booked in one of its own (still-future) periods — actuals sum over every

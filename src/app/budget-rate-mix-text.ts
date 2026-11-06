@@ -103,13 +103,13 @@ export function rateMixWhyName(lang: Lang, visibleText: string): string {
 export function rateMixPoints(lang: Lang, difference: number): string {
   const points = Math.round(difference * 100);
   // ASCII hyphen-minus for a negative, matching `formatSignedPercent` on the
-  // same page (controller ruling); `String(-7)` is "-7" and `String(0)` "0".
+  // same page; `String(-7)` is "-7" and `String(0)` "0".
   const text = points > 0 ? `+${points}` : String(points);
   return tPlural(lang, "forecastMixPoints", Math.abs(points), text);
 }
 
 /**
- * Rate fact value split into its parts (controller ruling P13). `rate` is
+ * Rate fact value split into its parts. `rate` is
  * always the booked rate per hour; `note`/`arrow` depend on whether the
  * drift is at or above `RATE_DRIFT_SIGNAL_RATIO` — the ONLY place that
  * threshold is checked (`rateFactValue` derives from this, never re-checks

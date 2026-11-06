@@ -122,7 +122,7 @@ describe("ForecastReportSection — a forecast", () => {
     expect(lastSearch().goal).toBe(80);
     const { targets } = lastSearch();
     expect(targets[0]).toEqual({ kind: "planEnd" });
-    // Overdue "Old" (id 3) has no chance, so it is never searched (Ruling A).
+    // Overdue "Old" (id 3) has no chance, so it is never searched.
     expect(targets.flatMap((t) => (t.kind === "milestone" ? [t.id] : [])).sort()).toEqual([1, 2]);
   });
 
@@ -177,7 +177,7 @@ describe("ForecastReportSection — a forecast", () => {
     renderSection();
     const order = [...document.querySelectorAll("[data-milestone-row]")].map((r) => r.getAttribute("data-milestone-row"));
     expect(order).toEqual(["1", "2", "3"]);
-    // The row names carry the dot's meaning as text (Ruling F): colour alone says nothing to a screen reader.
+    // The row names carry the dot's meaning as text colour alone says nothing to a screen reader.
     expect(rowNames()).toEqual(["Go-live, below 50%", "Wrap-up, at or above target", "Old"]);
   });
 
@@ -419,7 +419,7 @@ describe("ForecastReportSection — Forecast by group", () => {
     spy.mockRestore();
   });
 
-  // Fix round 1 — the groups read tasks, today, holidays and the plan end only. A directory or budget edit is a new
+  // The groups read tasks, today, holidays and the plan end only. A directory or budget edit is a new
   // input object, but must not rerun them or flash the placeholder; a task edit still does (the positive control).
   test("a directory or budget edit while open reruns nothing; a task edit does", async () => {
     const spy = vi.spyOn(groupModule, "forecastByGroup");

@@ -1,6 +1,6 @@
 "use client";
 
-// Review modal for an AI insight recommendation (#6B SP2 — Task 9). Presentational
+// Review modal for an AI insight recommendation (#6B SP2). Presentational
 // only: shows the recommendation's one-line summary + a preview of its proposed
 // tool calls (reusing the EditPlan shape the inline "Ask Claude" editor already
 // renders), and lets the user Confirm (task-manager replays the proposed calls

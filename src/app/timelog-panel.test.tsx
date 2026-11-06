@@ -315,7 +315,7 @@ function enableTimelogNoTenant() {
 }
 
 /** Timelog switched ON with a host and token, and the given stored tenant
- *  (blank or set) — used by the fix-round-1 env-fallback tests below, which
+ *  (blank or set) — used by the env-fallback tests below, which
  *  need to vary the stored tenant against a stubbed `NEXT_PUBLIC_TIMELOG_TENANT`. */
 function enableTimelogWithTenant(tenant: string) {
   window.localStorage.setItem(
@@ -657,12 +657,12 @@ describe("TimelogPanel", () => {
     });
   });
 
-  // ★★ Measured 2026-09-21 (task-3-brief): an empty tenant was not handled
+  // ★★ Measured 2026-09-21: an empty tenant was not handled
   // before this change, because it had never been possible — the built-in
   // default always supplied one. `isMisconfigured` checked `enabled`, `host`
   // and `apiToken` only, so a never-configured tenant reached the proxy
   // instead of showing this panel's existing not-configured state.
-  describe("blank tenant is misconfigured (Task 3)", () => {
+  describe("blank tenant is misconfigured", () => {
     it("shows the misconfigured state when enabled/host/token are set but the tenant is blank", async () => {
       enableTimelogNoTenant();
       const { useTimelogSync } = await import("./use-timelog-sync");
@@ -714,12 +714,12 @@ describe("TimelogPanel", () => {
     });
   });
 
-  // Fix round 1 (task-3-report.md): the task-3 review found `isMisconfigured`
+  // The review found `isMisconfigured`
   // and the proxy `creds` reading raw `settings.timelog` directly, never the
   // env-aware `effectiveTimelogConfig` — so `NEXT_PUBLIC_TIMELOG_TENANT` had
   // NO production effect at all. These pin the READ-time resolution through
   // the panel, not just the `timelog-sanitize.ts` unit.
-  describe("env-supplied tenant is used at read time, never persisted (fix round 1)", () => {
+  describe("env-supplied tenant is used at read time, never persisted", () => {
     it("uses the build-variable tenant when nothing is stored, and mounts configured", async () => {
       vi.stubEnv("NEXT_PUBLIC_TIMELOG_TENANT", "acme");
       enableTimelogWithTenant("");
@@ -732,7 +732,7 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
 
-      // Settle to the STORED config (see the Task 3 test above for why this
+      // Settle to the STORED config (see the blank-tenant test above for why this
       // wait is load-bearing rather than a plain button/text assertion).
       await waitFor(() => {
         const lastCreds = vi.mocked(useTimelogSync).mock.calls.at(-1)?.[0]?.creds;
@@ -802,7 +802,7 @@ describe("TimelogPanel", () => {
       // Every fetch action is gone, not merely disabled. "timelogSync" is the
       // FETCH button's label key (it gains a ` (N)` suffix when a selection
       // exists, hence the RegExp); "timelogRefreshReapply" is the Refresh &
-      // re-apply button Task 11 added — it reaches the network too, so it must
+      // re-apply button — it reaches the network too, so it must
       // not survive the gate either.
       expect(
         screen.queryByRole("button", { name: new RegExp(t("en-US", "timelogSync")) }),

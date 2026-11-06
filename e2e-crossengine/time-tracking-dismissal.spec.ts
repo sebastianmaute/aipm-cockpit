@@ -62,7 +62,7 @@ import { FOCUSABLE_SELECTOR } from "../src/app/focusables";
  *       here depends on the focusable total, or on any absolute index but the
  *       non-edge start, is unchanged and is why this file stayed green.)
  *
- * ★★ TWO MUTANTS THE BRIEF FOR THIS FILE SUGGESTED AND WHICH DO NOT WORK, kept
+ * ★★ TWO MUTANTS THAT WERE SUGGESTED FOR THIS FILE AND DO NOT WORK, kept
  * here so nobody re-derives them:
  *   - Removing `zIndex={50}` from the dialog changes NO dismissal behaviour.
  *     Escape and Tab are routed by the dismissal stack, never by paint order,

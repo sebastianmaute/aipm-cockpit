@@ -70,7 +70,7 @@
 // stays green. Read a seed's docstring there before changing its value.
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-// AI people protection, Task 5: this file tests the write path, not the protection (`ai-people-gates.test.tsx`).
+// AI people protection: this file tests the write path, not the protection (`ai-people-gates.test.tsx`).
 vi.mock("../ai-privacy-context", () => import("../../test/ai-privacy-unprotected"));
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
 import {
@@ -279,7 +279,7 @@ const CASES: WriteCase[] = [
     expectStored: { category: "Sponsor", influence: "High" },
   },
   {
-    // ★★★ THE SANITIZER'S FALLBACK LEG — the case a fix-round review built to
+    // ★★★ THE SANITIZER'S FALLBACK LEG — the case a review built to
     // prove the first attempt at it was only half done. sanitizeResource
     // splits `name` when BOTH parts are empty, which happens exactly when the
     // dispatcher does NOT split, because an explicit part was supplied as a

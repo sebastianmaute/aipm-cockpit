@@ -18,7 +18,7 @@
 // Together: OFFERED ⟺ WRITABLE.
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-// AI people protection, Task 5: this file tests the write path, not the protection (`ai-people-gates.test.tsx`).
+// AI people protection: this file tests the write path, not the protection (`ai-people-gates.test.tsx`).
 vi.mock("../ai-privacy-context", () => import("../../test/ai-privacy-unprotected"));
 
 import { dispatcherWrapperWith, makeDispatcherArgs } from "../../test/chat-dispatcher-fixture";
@@ -653,7 +653,7 @@ it("no probe drives calendarEvent.sendInvitations true", () => {
  *  create arm alone adds `threw`, `no-row` and `control-threw` /
  *  `control-no-row` for the base create — the last two the only kinds whose
  *  subject is the bare entity. Relation A adds `stored`: the model's
- *  undeclared value landed, which is a defect to FIX (plan Task 6), never to
+ *  undeclared value landed, which is a defect to FIX, never to
  *  ledger — and, on its update arm alone, `destroyed` (§441): an undeclared
  *  column the writer does not stamp was overwritten with something the model
  *  did not send, which is the same defect with the value coerced or cleared.
@@ -795,7 +795,7 @@ const EXPECTED_FINDINGS: Ledger = {
 /** Relation A's ledger — the same both-directions contract as
  *  `EXPECTED_FINDINGS`, for the undeclared axis. It holds `dead` and
  *  `unmeasured` entries only: a `stored` finding is a live undeclared write,
- *  and is fixed rather than ledgered. Filled by plan Task 5 from a measured
+ *  and is fixed rather than ledgered. Filled from a measured
  *  run (2026-09-11) — every entry below is `dead` or `unmeasured`; that run
  *  found no live undeclared write.
  *
@@ -1199,7 +1199,7 @@ describe.each(ENTITIES)("Relation B — %s: a declared field must land or be vis
   });
 });
 
-// §486 fix round 1 — the update arm Relation A cannot probe (see the raid:update
+// §486 — the update arm Relation A cannot probe (see the raid:update
 // ledger entry), measured directly on the real dispatch path. Two halves:
 //   (1) the model sends `calendarOptOut: false` → the seeded `true` survives
 //       (the strip holds; without it the flag would be CLEARED);

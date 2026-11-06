@@ -271,14 +271,14 @@ describe("ReportsPanel — composed reports", () => {
    * ★★ THREE TESTS WERE DELETED HERE RATHER THAN REWRITTEN, and each is recorded
    * because a deleted test is invisible afterwards:
    *   · "a report's remove button removes it" — the per-card ✕ is gone. Removal
-   *     is the ⋮ menu's Hide, which Task 13 wires; there is nothing to click.
+   *     is the ⋮ menu's Hide; there is nothing to click.
    *   · "the remove-report select removes a chosen report" — `removeReportControl`
    *     was deleted with the legacy mechanism.
    *   · "the remove-report select is absent when there are no added reports" —
    *     it still PASSED, but vacuously: the control no longer exists in ANY
    *     state, so it asserted nothing. A test that is green for a reason
    *     unrelated to its name is worse than none.
-   * Hide/restore coverage returns with Task 13's shelf and menu.
+   * Hide/restore coverage is with the shelf and menu below.
    */
   it("the add-report menu restores a hidden report onto the board", () => {
     renderComposed([]);
@@ -666,7 +666,7 @@ describe("ReportsPanel — sortable headers are unique across the sibling tables
 });
 
 /**
- * The arrangement binding (Task 12): every block — the nine built-ins and the
+ * The arrangement binding: every block — the nine built-ins and the
  * four addable reports — renders as one `ArrangementTile` inside one
  * `ArrangementGrid`, replacing the `<Section>` stack and the bespoke
  * extra-report card. One reorder mechanism, not two.
@@ -816,8 +816,8 @@ describe("ReportsPanel — toolbar order", () => {
    *
    * ★★ `contiguous: true` is the half that matters. Plain ordering passes while
    * a new control sits between Print and a reset — which is exactly the drift
-   * `AGENTS.md` records four instances of, and exactly the risk Task 13 carries
-   * when it adds the reset-layout button to this group.
+   * `AGENTS.md` records four instances of, and exactly the risk the reset-layout
+   * button carries in this group.
    *
    * ★ Uses the shared helper deliberately: `buttonIndex` THROWS when a key
    * matches zero or several buttons, where a hand-rolled `findIndex` silently
@@ -861,8 +861,8 @@ describe("ReportsPanel — toolbar order", () => {
 });
 
 /**
- * The shelf and the ⋮ block menu (Task 13). These retire the inert ⋮ that Task
- * 12 shipped as a knowingly-temporary false affordance.
+ * The shelf and the ⋮ block menu. These retire the inert ⋮ shipped earlier as
+ * a knowingly-temporary false affordance.
  *
  * ★★★ NO `requireCollisionSeed` HERE, AND THE REASON IS NOT `ArrangementTile`'s.
  * The collision-seeded guard lives on the SHARED component, in
@@ -883,8 +883,8 @@ describe("ReportsPanel — the shelf and the block menu", () => {
     await user.click(screen.getByRole("button", { name: `${t("en-US", "actionMoreActions")} – ${title}` }));
   };
 
-  it("opens a REAL menu from the ⋮, retiring the inert one Task 12 shipped", async () => {
-    // ★★★ Task 12 passed `onOpenMenu={() => {}}` and said in place that a control
+  it("opens a REAL menu from the ⋮, retiring the inert one shipped earlier", async () => {
+    // ★★★ The arrangement binding passed `onOpenMenu={() => {}}` and said in place that a control
     // doing nothing is a false affordance that must not survive the branch. This
     // is what retires it: the ⋮ now opens a dialog with the two size axes.
     const user = userEvent.setup();

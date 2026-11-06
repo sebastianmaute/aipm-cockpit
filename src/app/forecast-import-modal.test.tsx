@@ -528,7 +528,7 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(applyButton()).toBeEnabled();
   });
 
-  // rr7 I2: the layout control's Wide → Long round-trip once cleared the
+  // The layout control's Wide → Long round-trip once cleared the
   // notice and enabled Apply on the questioned preselection.
   it("keeps the notice and the disabled Apply through a Wide → Long round-trip", async () => {
     const user = userEvent.setup();
@@ -608,7 +608,7 @@ describe("ForecastImportModal — ambiguous columns (fix 7)", () => {
     expect(within(screen.getByRole("region", { name: t(L, "forecastImportChanges") })).getByText("— → 40")).toBeInTheDocument();
   });
 
-  // rr8 m2: the Wide layout has no hours select to choose from.
+  // The Wide layout has no hours select to choose from.
   it("asks to check the mapping, not to choose a column, in the Wide layout", async () => {
     const user = userEvent.setup();
     render(<ForecastImportModal {...propsOf()} />);
@@ -816,10 +816,10 @@ describe("ForecastImportModal — a person on two lines of the bucket (final rev
   });
 });
 
-// rr14 N1: the merged-month (I1) and past-12 (M4) questions once confirmed
+// The merged-month (I1) and past-12 (M4) questions once confirmed
 // through the generic Wide notice, which never said what the press would read.
-// rr14 N4: one row with no person is named in the singular.
-describe("ForecastImportModal — notices that say what confirming reads (rr14 N1, N4)", () => {
+// One row with no person is named in the singular.
+describe("ForecastImportModal — notices that say what confirming reads", () => {
   const PEOPLE = ["Ann Lee", "Bob Ray", "Cem Oz", "Dana Fox", "Eli Roe", "Fay Wu"];
   const csv = (rows: readonly (readonly string[])[]) => `${rows.map((r) => r.join(";")).join("\r\n")}\r\n`;
   const widePrefix = () => t(L, "forecastImportAmbiguousWide", "\u0000").split("\u0000")[0];
@@ -878,7 +878,7 @@ describe("ForecastImportModal — notices that say what confirming reads (rr14 N
   });
 });
 
-describe("ForecastImportModal — a shared line's member who is in the sheet but unresolved (rr14 M3a)", () => {
+describe("ForecastImportModal — a shared line's member who is in the sheet but unresolved", () => {
   it("says she is in the sheet and not matched, not that she is missing from it", async () => {
     const SENIOR: Role = { ...ROLE, id: 11 };
     const CAROL: Resource = { ...ANN, id: 3, firstName: "Carol", lastName: "Ito", roleId: SENIOR.id };

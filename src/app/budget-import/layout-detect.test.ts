@@ -468,7 +468,7 @@ describe("detectLayout — samples the rows under a candidate header (final revi
     expect(out.dropped).toHaveLength(100);
   });
 
-  // Fix 7 (rr6 N5): blank rows under the header are skipped, not counted, so a
+  // Fix 7: blank rows under the header are skipped, not counted, so a
   // sheet whose data starts after 210 blank rows is still sampled.
   it("skips blank rows under the header: 210 blank rows, then the data, detect as without them", () => {
     const blanks = Array.from({ length: 210 }, (_, i) => (i % 2 === 0 ? [] : ["", "", ""]));
@@ -485,7 +485,7 @@ describe("detectLayout — samples the rows under a candidate header (final revi
 // mapping it returns is the deterministic default; the dialog asks.
 describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
   const months = ["Jan 2026", "Feb 2026", "Mär 2026"];
-  /** `Name | Monat | x | y`, Ann and Bob over three months (rr6 N1). */
+  /** `Name | Monat | x | y`, Ann and Bob over three months. */
   const twoFigures = (x: string, y: string, xs: readonly string[], ys: readonly string[]): string[][] => [
     ["Name", "Monat", x, y],
     ...["Ann Lee", "Bob Kay"].flatMap((p) => months.map((m, i) => [p, m, xs[i], ys[i]])),
@@ -511,7 +511,7 @@ describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
     expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
   });
 
-  // Fix 8 (owner decision 2026-10-13, rr8 N2): no header word settles the
+  // Fix 8 (owner decision 2026-10-13): no header word settles the
   // hours. Each round's "named hours column" escape let a new actuals
   // spelling through (`Ist`, then `Iststunden`, `Gebuchte Stunden` …).
   // Round 9 I-D: the hours word preselects Stunden again (round 8 took Plan).
@@ -522,7 +522,7 @@ describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
   });
 
   it.each(["Iststunden", "IstStd", "Gebuchte Stunden", "Geleistete Stunden", "Spent hours", "Logged hours"])(
-    "Forecast | %s asks (rr8 N2): a second number column is a choice, whatever its header", (actuals) => {
+    "Forecast | %s asks: a second number column is a choice, whatever its header", (actuals) => {
       const detected = detectLayout(twoFigures("Forecast", actuals, PLAN, ["35", "30", "25"]), { defaultYear: 2026 });
       expect(detected.ambiguous).toEqual([{ field: "hours", candidates: [2, 3] }]);
     },
@@ -638,7 +638,7 @@ describe("detectLayout — ambiguous hours or period columns (fix 7)", () => {
   });
 });
 
-// Fix 8 round 2 (controller ruling): a WIDE reading whose data rows carry a
+// Fix 8 round 2: a WIDE reading whose data rows carry a
 // period column of their own (a `Start` date, a long sheet's `Monat` under a
 // metadata row read as the header) is not settled: the period may be the
 // header's columns or that column. Detection asks, on both routes.
@@ -673,7 +673,7 @@ describe("detectLayout — a wide reading whose rows hold their own period colum
   });
 });
 
-// Fix 9 I-1 (rr9): ONE period-shaped data cell outside the period and person
+// Fix 9 I-1: ONE period-shaped data cell outside the period and person
 // columns makes a wide reading ask. A share threshold let a single placeholder
 // in the long sheet's Monat column (`offen`, `-`) switch the question off.
 describe("detectLayout — any period cell outside the wide period columns asks (fix 9 I-1)", () => {
@@ -695,7 +695,7 @@ describe("detectLayout — any period cell outside the wide period columns asks 
   });
 });
 
-// Fix 9 OOS-b (rr9): a per-row year column beside year-less month headers was
+// Fix 9 OOS-b: a per-row year column beside year-less month headers was
 // ignored, and Ann's 2027 row read as 2026-01 = 10 on both routes.
 describe("detectLayout — a year column beside year-less wide headers asks (fix 9 OOS-b)", () => {
   it("Name | Jahr | Jan | Feb asks for the period, the year column among the candidates", () => {
@@ -715,7 +715,7 @@ describe("detectLayout — a year column beside year-less wide headers asks (fix
   });
 });
 
-// Fix 9 OOS-c (rr9): more than one row of the scan range reads as a header for
+// Fix 9 OOS-c: more than one row of the scan range reads as a header for
 // the chosen layout — stacked long blocks (`Name|Monat|Forecast` over
 // `Name|Monat|Ist`, where the hand route took the Ist block) and stacked wide
 // year blocks (residue 9, the later block summed into the first block's year).
@@ -749,7 +749,7 @@ describe("detectLayout — more than one header row asks (fix 9 OOS-c)", () => {
   });
 });
 
-// Round 7 I-B (rr10): on a long sheet a column is an hours candidate when it
+// Round 7 I-B: on a long sheet a column is an hours candidate when it
 // holds ONE number, and a period candidate when it holds ONE period, so a
 // placeholder can no longer push the right column out of the question. The
 // preselection keeps today's share-based ranking.
@@ -777,7 +777,7 @@ describe("detectLayout — placeholders cannot push a long column out of the que
   });
 });
 
-// Round 7 C1 (rr10): the header question's preselection skips a candidate
+// Round 7 C1: the header question's preselection skips a candidate
 // with no data rows before the next one. A zero-row first wide block was
 // preselected over the real header, and "These columns are right" then read
 // the 2027 data as 2026.
@@ -802,7 +802,7 @@ describe("detectLayout — an empty first block is not preselected (round 7 C1)"
   });
 });
 
-// Round 9 I-D (rr12): the leftmost-hours preselection of round 8 took Ist,
+// Round 9 I-D: the leftmost-hours preselection of round 8 took Ist,
 // Tage, FTE, a team number or a one-number notes column over Stunden. The
 // hours word ranks first again, then share, then leftmost.
 describe("detectLayout — the hours word preselects among all candidates (round 9 I-D)", () => {
@@ -827,7 +827,7 @@ describe("detectLayout — the hours word preselects among all candidates (round
   });
 });
 
-// Round 9 I-W (rr12): one person on several rows that differ in another TEXT
+// Round 9 I-W: one person on several rows that differ in another TEXT
 // column (`Art`: Plan and Ist; `Aufgabe`) was summed silently — 50 + 43 = 93.
 // Detection now asks (`field: "rows"`); pure repeats stay "Combined rows".
 describe("detectLayout — one person, several rows that differ in a text column (round 9 I-W)", () => {

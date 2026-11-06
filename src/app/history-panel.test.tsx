@@ -372,7 +372,7 @@ it("offers no compare-header restore controls when every change is non-restorabl
   ]);
   renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={vi.fn().mockResolvedValue(undefined)} />);
   fireEvent.click(screen.getByText(/Compared with current/i));
-  // The diff itself still RENDERS — it is what arms a capture, and Task 10 shows
+  // The diff itself still RENDERS — it is what arms a capture, and the panel shows
   // the row with a "managed per document" hint instead of a checkbox.
   await screen.findByText("Doc");
   expect(screen.queryByRole("button", { name: "Restore this state" })).toBeNull();

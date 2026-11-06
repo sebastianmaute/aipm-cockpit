@@ -53,8 +53,8 @@ function rowsByPerson(rows: readonly string[][], mapping: ColumnMapping, numbers
  * ★★ Two or more rows of ONE person (and, long, one period) that differ in a
  * TEXT column the mapping does not read (`Art`: Plan and Ist; a task
  * description) are a question, not a sum: `Name | Art | Jan 2026` with a Plan
- * and an Ist row once imported 50 + 43 = 93 on both routes, unasked (rr12
- * I-W). `candidates` are those columns, `samples` the first such group's
+ * and an Ist row once imported 50 + 43 = 93 on both routes, unasked.
+ * `candidates` are those columns, `samples` the first such group's
  * distinct values. Rows that repeat (no such column) stay the preview's
  * "Combined rows". The cost: a sheet with a task line per row asks too.
  */

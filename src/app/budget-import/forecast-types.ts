@@ -47,7 +47,7 @@ export type ColumnMapping = {
  *  any. Confirming accepts that they are not read. `sheet` (final review 3,
  *  M1, the hook's own question): `candidates` are the 0-based SHEETS a layout
  *  is detected on, two or more; choosing a sheet confirms it. A wide `period`
- *  question says WHY when it can (rr14 N1), so its notice can say what the
+ *  question says WHY when it can, so its notice can say what the
  *  press reads: `blankHeaded`, the blank-headed number columns beside the
  *  period columns (final review 3, I1); `pastTwelve`, an `N/YYYY` run past 12
  *  (M4); `alsoUnsure` when another reason asks as well. */

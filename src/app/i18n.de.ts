@@ -4793,6 +4793,7 @@ export const de: Record<TranslationKey, string> = {
   helpVideos: "Video-Anleitungen",
   helpVideoLinkLabel: "{0} – Video auf YouTube (Englisch), öffnet im Browser",
   helpVideoChannelLink: "Video-Anleitungen auf YouTube",
+  helpThirdPartyNotices: "Lizenzhinweise zu Drittsoftware",
   helpConceptMilestoneTitle: "Meilenstein",
   helpConceptMilestoneBody: "Was: Ein Meilenstein ist ein bedeutender, datierter Kontrollpunkt, der einen wichtigen Projektfortschritt markiert.\n\nWarum wichtig: Meilensteine machen Terminrisiken sichtbar; ohne ihre Verfolgung bleibt ein Verzug oft unbemerkt, bis er kaum noch aufzuholen ist.\n\nIn dieser App: Meilensteine erscheinen im Gantt-Diagramm und im Dashboard-Horizont; ihre Termine bestimmen die Termin-Ampel (RAG).",
   helpConceptRaidTitle: "RAID-Register",

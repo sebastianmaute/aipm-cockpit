@@ -226,7 +226,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   (c) `onOpenStorageFile`'s accept branch, which replaces tasks+raid with another file's
   //       through raw setters and so reaches neither (a) nor (b).
   // ★★ (b) is NOT redundant with (a): `storageTargetKey` keys `browser` and every `local-*` kind on
-  //   the KIND ALONE (§591 ruling 3), so a file-mode project switch does not move the key at all.
+  //   the KIND ALONE (§591), so a file-mode project switch does not move the key at all.
   // ★★ It is bumped SYNCHRONOUSLY, immediately BEFORE the replacement it announces, so there is no
   //   instant at which the new project's workspace is in scope while the epoch still reads old. A
   //   writer resolving between the bump and React's commit is dropped although scope still holds the
@@ -308,7 +308,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //   SYNCHRONOUSLY immediately before it applies, so there is no instant at which the new target's
   //   workspace is in scope while the epoch still reads old. `!hydrated` is pre-mount and has no
   //   turn to cancel at all.
-  // ★★ UNCHANGED FROM `main`. The loss predates Task 6, which closed it only as a side effect of an
+  // ★★ UNCHANGED FROM `main`. The loss predates an earlier change, which closed it only as a side effect of an
   //   unconditional cancel that broke ordinary navigation. Narrowing re-opens it behind a five-term
   //   conjunction to close the common case; that trade was made knowingly.
   // ★ Do NOT "fix" it by wrapping `onRequestStorageSwitch` in `holdDuring` — checked, and it does
@@ -441,7 +441,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const otherJournals = useOtherJournals({ projectKey: journalProjectKey, restoredKeys: unloadJournal.restoredKeys, unreadableRecords: unloadJournal.unreadableRecords, enabled: args.hydrated && workspaceLoaded, isPopout: args.isPopout });
   // ★ A `const`, not a `function` declaration: `use-load-truncation.test.ts` keys each `.save(` on the
   // nearest preceding DECLARATION, and one here would rename the `flushCurrent` write's key below.
-  // ★★ NEVER CALL DURING RENDER (final review, Task 9 M3): it reads `conflictResolution`, declared below it (a TDZ in render); effects and callbacks only, and hoisting that hook is circular (`openGate` needs this).
+  // ★★ NEVER CALL DURING RENDER: it reads `conflictResolution`, declared below it (a TDZ in render); effects and callbacks only, and hoisting that hook is circular (`openGate` needs this).
   const allowSavesTo = (target: ReturnType<typeof createBackend>): void => {
     savesAllowedForRef.current = target;
     conflictPausedForRef.current = null;

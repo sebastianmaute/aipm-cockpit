@@ -396,7 +396,7 @@ describe("buildNewProjectWorkspace — an AI seed does not store an unsafe email
   });
 });
 
-describe("buildNewProjectWorkspace — imported native workspace (Task 4)", () => {
+describe("buildNewProjectWorkspace — imported native workspace", () => {
   const importedTask: Task = {
     id: 7,
     taskName: "Imported",

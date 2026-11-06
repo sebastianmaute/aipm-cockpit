@@ -1,0 +1,13 @@
+{
+  "server-only-pkg": { "name": "server-only-pkg", "version": "1.0.0" },
+  "client-only-pkg": { "name": "client-only-pkg", "version": "2.1.0" },
+  "@scope/name": { "name": "@scope/name", "version": "0.3.0" },
+  "a": { "name": "a", "version": "2.0.0" },
+  "a/node_modules/b": { "name": "b", "version": "1.5.0" },
+  "b": { "name": "b", "version": "1.0.0" },
+  "host": { "name": "host", "version": "1.0.0" },
+  "host/node_modules/b": { "name": "b", "version": "1.5.0" },
+  "aliased": { "name": "real-name", "version": "4.0.0" },
+  "cache-only-pkg": { "name": "cache-only-pkg", "version": "9.9.9" },
+  "standalone-only-pkg": { "name": "standalone-only-pkg", "version": "9.9.9" }
+}

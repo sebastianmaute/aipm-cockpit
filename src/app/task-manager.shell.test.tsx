@@ -73,12 +73,12 @@ describe("TaskManager shell selection", () => {
 
 });
 
-// ★★★ FIX ROUND 1 (M3): the app now has exactly ONE VersionInfoModal render
+// ★★★ The app now has exactly ONE VersionInfoModal render
 // site (task-manager.tsx's modalsBlock, built in app-modals-block.tsx, via use-desktop-version-request.ts).
 // modern-shell.test.tsx and settings-view.test.tsx pin their two triggers
 // call the SAME `onOpenVersion` prop at the unit level; this full-stack
 // suite is what proves that wiring actually reaches the one real modal.
-describe("Version modal — one owner (fix round 1, M3)", () => {
+describe("Version modal — one owner", () => {
   beforeEach(() => {
     window.localStorage.clear();
     seedRegistry();
@@ -91,7 +91,7 @@ describe("Version modal — one owner (fix round 1, M3)", () => {
     expect(screen.getAllByRole("dialog", { name: "Version" })).toHaveLength(1);
 
     // Help → Version from the native menu bar stays clickable while a modal
-    // is open (review-2-report.md M3's reproduction). With one root-owned
+    // is open. With one root-owned
     // modal this can only re-open the SAME instance, never stack a second.
     act(() => {
       window.dispatchEvent(

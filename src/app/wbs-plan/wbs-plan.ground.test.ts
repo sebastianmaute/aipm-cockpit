@@ -345,7 +345,7 @@ describe("groundWbsProposal — links", () => {
     ).toEqual(["badPieces", "badDate", "unresolvedRef", "unresolvedRef", "unresolvedRef", "unresolvedRef"]);
   });
 
-  // The brief said "task 1 depends on 2", which makes 2 → a → 1 a second path
+  // The task said "task 1 depends on 2", which makes 2 → a → 1 a second path
   // into 1, not a cycle (see the next test). The cycle needs 2 to depend on 1.
   test("refuses a link that cycles through a proposed new task", () => {
     const tasks = [task(1), task(2, { dependencies: [{ taskId: 1, type: "FS" }] })];

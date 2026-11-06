@@ -95,7 +95,7 @@ export interface BudgetPanelProps {
   timelogProjectId: string;
   onGoToTimelog?: () => void;
   /** Opens the Budget report tab (§6.4 link line). `workspace-section.tsx`
-   *  omits this prop in a popout (Plan Ruling 12), so the link renders only
+   *  omits this prop in a popout, so the link renders only
    *  when both this and a project forecast exist. */
   onOpenBudgetReport?: () => void;
   /** First-run setup checklist links (§710). `workspace-section.tsx` omits all

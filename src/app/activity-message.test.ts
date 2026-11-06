@@ -129,7 +129,7 @@ describe("activityMessage", () => {
   // §769 — an applied alternative is logged by its NUMBER and counts only, never the model's summary.
   it("renders an applied Plan with AI alternative by number and counts", () => {
     expect(activityMessage("en-US", "ai.allocationPlanAlt", [2, 3, 4])).toBe("AI applied alternative 2: task moves 3, hour edits 4");
-    // Count-neutral (ruling R6): two counts cannot share one plural selector, so a count of one still reads right.
+    // Count-neutral: two counts cannot share one plural selector, so a count of one still reads right.
     expect(activityMessage("en-US", "ai.allocationPlanAlt", [1, 1, 1])).toBe("AI applied alternative 1: task moves 1, hour edits 1");
     expect(activityMessage("de", "ai.allocationPlanAlt", [2, 3, 4])).toBe("KI hat Alternative 2 übernommen: Aufgabenverschiebungen 3, Stundenänderungen 4");
   });

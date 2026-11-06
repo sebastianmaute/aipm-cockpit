@@ -142,7 +142,7 @@ describe("useMilestoneCalendarPull — the scope epoch (§548)", () => {
   });
 });
 
-// §486 fix round 1 (I1) — an opted-out milestone keeps its Outlook event but is
+// §486 (I1) — an opted-out milestone keeps its Outlook event but is
 // never pulled, never offered, and never PATCHed by "Keep app date".
 describe("useMilestoneCalendarPull — an opted-out milestone is never pulled or PATCHed (§486)", () => {
   it("CONTROL: a moved event is offered for an opted-in milestone", async () => {

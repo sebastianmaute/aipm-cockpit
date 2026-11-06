@@ -519,7 +519,7 @@ describe("sanitizeActivityEntry — timestamp normalisation (§161)", () => {
     },
   );
 
-  // ★★★ CALENDAR-RANGE VALIDATION (fix round 1). `Number.isFinite(ms)` alone
+  // ★★★ CALENDAR-RANGE VALIDATION. `Number.isFinite(ms)` alone
   //   is NOT a validity check: V8's `Date.parse` ROLLS OVER an out-of-range
   //   day-of-month instead of returning NaN — `"2026-02-30"` silently becomes
   //   2026-03-02 — unlike month overflow, which DOES parse to NaN. Every

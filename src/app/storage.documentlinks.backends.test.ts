@@ -89,7 +89,7 @@ describe("BrowserBackend knowledgeLinks round-trip", () => {
       ],
     };
 
-    // §4 fix round 2 — a fresh backend has never loaded; force this blind
+    // §4 — a fresh backend has never loaded; force this blind
     // seed write (R10 change 1, fail closed).
     const writer = createBackend({ kind: "browser" });
     writer.forceNextSave?.();

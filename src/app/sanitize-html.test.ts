@@ -343,7 +343,7 @@ describe("sanitizeRichHtml — the wider allow-list", () => {
     // toolbar can produce", which is not true of `mark`/`sub`/`sup` — those
     // extensions are installed but registered on no editor, so no control emits
     // them yet. They are here because the list must cover DOCUMENT_ALLOWED_TAGS
-    // once Task 3 derives it from this array, not because a button exists.
+    // once it is derived from this array, not because a button exists.
     for (const tag of ["p", "br", "hr", "strong", "em", "u", "s", "code", "pre",
                        "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li",
                        "mark", "sub", "sup", "a"]) {

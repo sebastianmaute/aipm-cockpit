@@ -1,4 +1,4 @@
-// §650 fix round 2 — a banner's "open settings" action in the CLASSIC layout.
+// §650 — a banner's "open settings" action in the CLASSIC layout.
 //
 // Classic has no Settings view: `setActiveTab("settings")` is bounced to chat by task-manager's
 // classic-fallback effect, and classic settings live in the header's `SettingsMenu` popover. So

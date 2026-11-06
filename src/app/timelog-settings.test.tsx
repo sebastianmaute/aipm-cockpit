@@ -145,8 +145,8 @@ describe("TimelogSettings", () => {
 
 // register §200 finding 6: the env-tenant hint and the "Test connection" call
 // were both untested. Both routes already go through `effectiveTimelogConfig`
-// (Task 3, fix round 1) — these pin that routing rather than fix a defect.
-describe("TimelogSettings — env-supplied tenant (fix round 1)", () => {
+// — these pin that routing rather than fix a defect.
+describe("TimelogSettings — env-supplied tenant", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.unstubAllEnvs());
 

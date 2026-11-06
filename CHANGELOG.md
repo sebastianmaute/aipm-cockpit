@@ -166,6 +166,32 @@ longer carries its own changelog comment.
   cannot be applied or discarded while the assistant is still answering. A reopened saved thread has its attachments
   removed and is trusted again. Help and the threat model say so.
 
+- **Every release lists what it ships, and installers can be code-signed.** Each desktop release now carries an
+  SBOM, `aipm-cockpit-<version>-sbom.cdx.json` (CycloneDX), listing every third-party package the app ships with
+  its version and licence; the release workflow attests it against the installer, so
+  `gh attestation verify … --predicate-type https://cyclonedx.org/bom` checks it. The full licence texts are
+  installed as `THIRD-PARTY-NOTICES.txt` in the installation folder and linked from Help in the desktop app (the web
+  app has no such file, so it shows no link). No source map ships in the
+  installer any more. The release workflow can now have SignPath Foundation sign the installer and, optionally, the app's
+  own executables; it stays off until the maintainer switches it on, each release's notes say whether its installer is
+  signed, and once a signed release has shipped an unsigned one is refused. A copy installed from a signed release
+  installs only updates signed by SignPath Foundation, and otherwise offers the Releases page for a manual download.
+  It does not offer a refused version again until the app is restarted; a newer version is still offered.
+  Before a release goes out as signed, its installer must pass the very check an installed copy runs on an update
+  (Valid, and the certificate's full subject exactly SignPath Foundation's, not merely its name), so a signed release
+  can never lock its users out of later updates; whether the notes call it signed is then decided by a second check
+  that runs no installed package. The updater accepts only a full installer, never a web installer that would fetch the app while
+  installing. When the signature check cannot run on a computer at all (for example, PowerShell blocked by a
+  policy), the app says so rather than calling the update's signature bad, and offers the same manual download.
+  The signing token is only ever available to workflow jobs that run no build tools or installed
+  packages, so a compromised build dependency cannot reach it; the maintainer still approves each release once,
+  before any signing.
+  The uninstaller is not signed yet (§793). The installer shows a privacy statement, also in the README: what the
+  app sends, to whom, and how to switch each connection off; it sends no telemetry. The README's "Code signing
+  policy" explains how to check a download and the limits while releases move to signing. Pull requests get a new
+  CI check, `sbom`, which builds the SBOM from a real build; it blocks a merge only once the maintainer adds it to
+  the `main` ruleset's required checks, which the RUNBOOK's signing setup lists.
+
 ### Changed
 
 - A stored meeting report with no text and no previous version (for instance the empty paragraph an emptied editor leaves) is no longer kept when a workspace loads (a sent date on such a report goes with it).

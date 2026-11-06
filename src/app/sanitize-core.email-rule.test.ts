@@ -119,7 +119,7 @@ describe("withNormalizedEmailField / withNormalizedResourceEmails", () => {
     expect(withNormalizedEmailField({ id: 1, ownerEmail: "Ann <a@x.com>" }, "ownerEmail")).toEqual({ id: 1, ownerEmail: "a@x.com" });
     expect(withNormalizedResourceEmails({ id: 1, email: "Ann <a@x.com>", emails: ["b@y.com; c@z.com"] })).toEqual({ id: 1, email: "a@x.com", emails: ["b@y.com", "c@z.com"] });
   });
-  it("matches sanitizeResource: drops the primary from the list and never invents an emails key (fix round 1)", () => {
+  it("matches sanitizeResource: drops the primary from the list and never invents an emails key", () => {
     const deduped = withNormalizedResourceEmails({ id: 1, email: "Ann <a@x.com>", emails: ["a@x.com"] });
     expect(deduped).toEqual({ id: 1, email: "a@x.com" });
     expect(Object.prototype.hasOwnProperty.call(deduped, "emails")).toBe(false);
@@ -129,7 +129,7 @@ describe("withNormalizedEmailField / withNormalizedResourceEmails", () => {
   });
 });
 
-describe("sanitizeLoadedEmail — normalise, THEN cap (fix round 1)", () => {
+describe("sanitizeLoadedEmail — normalise, THEN cap", () => {
   it("unwraps a Name <addr> longer than the cap instead of storing it torn", () => {
     const long = `Ann ${"x".repeat(196)} <a@x.com>`;
     expect(long.length).toBeGreaterThan(200);

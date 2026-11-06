@@ -10,8 +10,7 @@
 // because `loadPause` is published only for an instance whose OWN load failed or was refused — a
 // superseded reload is neither.
 //
-// This file proves the precondition explicitly (per the Task 2 dispatch's ruling (b) — NOT stated in
-// task-2-brief.md itself): `second`'s gate must be OPEN, demonstrated by an actual save landing on
+// This file proves the precondition explicitly: `second`'s gate must be OPEN, demonstrated by an actual save landing on
 // it, BEFORE the stale reload is allowed to resolve and (on today's code) close it again.
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -206,7 +205,7 @@ afterEach(() => {
  *  mount on `first`, start a reload against it (still pending), rebuild onto
  *  `second` while that reload is in flight, let `second`'s own load land and
  *  open its gate, prove the gate is genuinely open with a real edit+save
- *  (the precondition — ruling (b) in the Task 2 dispatch), THEN release the
+ *  (the precondition), THEN release the
  *  stale reload and await it. Each `it` picks up from the returned handles. */
 async function setupSupersededReloadScenario() {
   const { backend: first, release: releaseFirstLoad } = makeControlledBackend();
@@ -346,7 +345,7 @@ describe("§588 — a superseded reload must not shut the new backend's gate", (
     expect(first.save).not.toHaveBeenCalled();
   });
 
-  // ★ F1 — NOT PROBE EVIDENCE. Expected GREEN today AND after the Task 3 fix;
+  // ★ F1 — NOT PROBE EVIDENCE. Expected GREEN today AND after the fix;
   // this documents §588's own characterisation rather than proving the defect.
   // §588 is a SILENT stall — "no banner and no toast appear" — because
   // `loadPause` (the hook's pause signal, backed by `savesPaused`) is published
@@ -620,7 +619,7 @@ describe("§588 — a superseded pick must not write to, or arm, the dead backen
     expect(second.save.mock.calls[1][0].tasks.map((x: Task) => x.id)).toEqual([1, 2, 3]);
   });
 
-  // ★★ §603 FIX ROUND 1 — A SKIPPED WRITE IS NOT A SAVED ONE. Autosave A hangs on `first`, autosave B
+  // ★★ §603 — A SKIPPED WRITE IS NOT A SAVED ONE. Autosave A hangs on `first`, autosave B
   // waits behind it, and the pick's write is enqueued with `settleReplacedAsOwn`, so it REPLACES B and B
   // settles exactly as the pick's write does. If the skip settled "saved", B's handler would confirm a
   // write nothing made: move the baselines, emit a success outcome and clear its unload-journal entry —

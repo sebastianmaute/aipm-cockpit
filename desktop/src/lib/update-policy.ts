@@ -1,6 +1,7 @@
 // What the updater does, decided without Electron so it is unit-testable (the wiring is
 // desktop/src/updater.ts). Spec: docs/superpowers/specs/2026-09-24-releases-and-updates-design.md §2.
 import { notesSource, notesToSafeHtml, type SafeNotesHtml } from "./release-notes-html";
+import { refusalKind, type RefusalKind } from "../update-signature";
 
 export const STARTUP_CHECK_DELAY_MS = 10_000;
 // The notes now render in a SCROLLING window (lib/update-window.ts), so this is a flood guard
@@ -15,7 +16,7 @@ const ERROR_MAX = 300;
 
 export type UpdateTrigger = "startup" | "manual";
 // The updater has exactly two long-running operations that can fail: asking the feed whether an
-// update exists, and pulling the installer bytes down. Fix round 1 (review R11): a download failure
+// update exists, and pulling the installer bytes down. A download failure
 // was reported using whatever `trigger` the CHECK started with, so a startup-triggered download (the
 // user clicked "Download and install" after a silent startup prompt) failed in total silence. The
 // phase, not the trigger, decides whether a download error is shown -- see decideOnError.
@@ -26,17 +27,30 @@ export type UpdateDecision =
   // message box it falls back to.
   | { kind: "prompt"; version: string; notes: string; notesHtml: SafeNotesHtml }
   | { kind: "up-to-date" }
-  | { kind: "error"; phase: UpdatePhase; message: string };
+  | { kind: "error"; phase: UpdatePhase; message: string }
+  // A signed build refused the downloaded installer (update-signature.ts). Shown whatever the
+  // trigger; the user downloads the release by hand. `refusal` picks the words: a signature that did
+  // not verify ("mismatch") or a check that could not run on this computer ("cannot-run").
+  | { kind: "unverified"; message: string; refusal: RefusalKind };
+
+/** A version whose installer was refused this session, and which kind of refusal it was. */
+export interface RefusedUpdate {
+  version: string;
+  refusal: RefusalKind;
+}
+
+// electron-updater's error code for an installer `verifyUpdateCodeSignature` refused
+// (NsisUpdater.js, doDownloadUpdate).
+export const INVALID_SIGNATURE_CODE = "ERR_UPDATER_INVALID_SIGNATURE";
 
 // What a new check request should do given what the updater is already doing. Replaces the old
 // `shouldStartCheck(inFlight: boolean): boolean`, which only ever dropped a redundant request with a
-// log line -- silently, even for a MANUAL request, which is the request a user is actively waiting on
-// (fix round 1, review R11 Important 3 and Minor 1).
+// log line -- silently, even for a MANUAL request, which is the request a user is actively waiting on.
 export interface UpdaterActivity {
   checking: boolean;
   downloading: boolean;
   // Whether one of the updater's OWN dialogs (available/ready/error/up-to-date/busy) is on screen
-  // right now. Deliberately not scoped to just the "Update available" prompt Minor 1 named -- any of
+  // right now. Deliberately not scoped to just the "Update available" prompt -- any of
   // updater.ts's dialogs being open makes a second one redundant for the same reason.
   prompting: boolean;
 }
@@ -51,11 +65,21 @@ export function decideCheckRequest(activity: UpdaterActivity): CheckRequestDecis
   return "start";
 }
 
+// `refused` is the version whose installer a signed build refused in this session, with the kind of
+// refusal (remembered in memory only, by updater.ts). Downloading it again would fetch the same file and refuse it again,
+// so it is never offered again: an automatic check stays silent, and a manual one repeats why it was
+// not installed, in the words of the refusal it was. A newer version is offered as usual.
 export function decideOnAvailable(
   trigger: UpdateTrigger,
   available: { version: string; releaseNotes?: unknown },
   skipped: string | null,
+  refused: RefusedUpdate | null = null,
 ): UpdateDecision {
+  if (refused !== null && refused.version === available.version) {
+    if (trigger !== "manual") return { kind: "silent" };
+    const why = refused.refusal === "cannot-run" ? "its signature check could not run on this computer" : "its signature could not be verified";
+    return { kind: "unverified", message: `AI PM Cockpit ${available.version} was refused earlier in this session: ${why}.`, refusal: refused.refusal };
+  }
   if (trigger === "startup" && skipped === available.version) return { kind: "silent" };
   return {
     kind: "prompt", version: available.version,
@@ -71,16 +95,22 @@ export function decideOnNotAvailable(trigger: UpdateTrigger): UpdateDecision {
 // error is shown regardless of trigger: the user already clicked "Download and install" to get here,
 // so silence is never correct once bytes were meant to move -- see the UpdatePhase doc comment above.
 export function decideOnError(trigger: UpdateTrigger, phase: UpdatePhase, err: unknown): UpdateDecision {
+  if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === INVALID_SIGNATURE_CODE) {
+    // The kind is read from the whole message: the dialog line is clipped, and could lose the prefix.
+    const raw = err instanceof Error ? err.message : String((err as { message?: unknown }).message ?? "");
+    return { kind: "unverified", message: summarizeError(err), refusal: refusalKind(raw) };
+  }
   if (phase === "checking" && trigger !== "manual") return { kind: "silent" };
   return { kind: "error", phase, message: summarizeError(err) };
 }
 
 // One readable line, bounded, from whatever an error-ish value actually is -- never the raw thing.
-// Fix round 3: electron-updater's own `HttpError` (builder-util-runtime's httpExecutor.js
-// `createHttpError`) builds its `.message` as `"{status} {statusText}\n{description}\nHeaders:
-// {...}"`, and that headers dump includes response `set-cookie` values verbatim (measured against a
-// real 404 from a private GitHub repo's releases feed -- see task-6-report.md's fix-round-2 evidence,
-// which is exactly the multi-line dump this function now trims away). The FIRST LINE is always the
+// electron-updater's own `HttpError` (builder-util-runtime's httpExecutor.js `createHttpError`)
+// builds its `.message` as `"{status} {statusText}\n{description}\nHeaders: {...}"`, and that
+// headers dump includes response `set-cookie` values verbatim. Observed against a real 404 from a
+// private GitHub repository's releases feed: the message ran over several lines -- the "404" status
+// line, then the description, then a `Headers:` block whose `set-cookie` entries carried the cookie
+// values in full -- which is exactly the dump this function trims away. The FIRST LINE is always the
 // short, human status summary; everything after it is diagnostic detail nobody asked to see in a
 // dialog or a log line, and in electron-updater's own case sometimes third-party response headers.
 // Used both for `decideOnError`'s dialog-facing message and by updater.ts's raw logger.warn/error
@@ -105,7 +135,7 @@ function clip(s: string, max: number): string {
   let end = max - 1; // room for the trailing ellipsis
   // Don't cut a surrogate pair in half: back off one more code unit when the character just before
   // the cut is a high surrogate, or the pair's low half would be dropped and a lone high surrogate
-  // would be left dangling at the end of the clipped string (fix round 1, review R11 Minor 3).
+  // would be left dangling at the end of the clipped string.
   if (end > 0 && isHighSurrogate(s.charCodeAt(end - 1))) end -= 1;
   return `${s.slice(0, end)}…`;
 }
@@ -122,7 +152,7 @@ export function notesToPlainText(notes: unknown, max = NOTES_MAX): string {
     raw
       // Drop <script>/<style> blocks WITH their contents -- the generic tag-strip below only removes
       // the TAGS, which would otherwise leave a script body's text (e.g. `alert(1)`) sitting in the
-      // "plain text" output (fix round 1, review R11 Minor 3).
+      // "plain text" output.
       .replace(/<script[\s\S]*?<\/script>/gi, "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
       .replace(/<\/(p|li|h[1-6]|div)>|<br\s*\/?>/gi, "\n")
@@ -134,8 +164,7 @@ export function notesToPlainText(notes: unknown, max = NOTES_MAX): string {
   )
     // &amp; decodes LAST, after every other named/numeric entity: a source string genuinely meaning
     // the literal text "&lt;" is escaped upstream as "&amp;lt;", and decoding &amp; first would turn
-    // that into "&lt;" in time to be caught by the &lt; replace above and double-decoded into "<"
-    // (fix round 1, review R11 Minor 3).
+    // that into "&lt;" in time to be caught by the &lt; replace above and double-decoded into "<".
     .replace(/&amp;/g, "&")
     .split("\n").map((l) => l.trim()).join("\n")
     .replace(/\n{3,}/g, "\n\n")

@@ -76,7 +76,7 @@ vi.mock("./idb", async (importOriginal) => {
   };
 });
 
-// §620 fix round 1 — forces the documents/documentVersions rich-field pass to
+// §620 — forces the documents/documentVersions rich-field pass to
 // throw, for the containment tests below. Mirrors `forceRichFieldThrow` in
 // workspace.documents.test.ts. It simulates a sanitizer that throws for any reason
 // OTHER than a missing DOM: since §97 a real missing DOM throws
@@ -121,7 +121,7 @@ import { IDB_RAID_STORE, IDB_TASKS_STORE, idbGet, idbSet } from "./idb";
 import { emptyWorkspace, jsonToWorkspace, workspaceToJson, type Workspace } from "./workspace";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 
-// Fix round 1 (R10 change 1, fail closed) — a fresh backend has never
+// Fail closed — a fresh backend has never
 // loaded, so under the new fail-closed rule its first save() would throw
 // SaveConflictError. Most tests in this file are about the save→load ROUND
 // TRIP through IndexedDB, not about conflict semantics, so this forces the
@@ -186,7 +186,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("advances NO baseline when one store write rejects (retry re-emits everything dirty)", async () => {
     const backend = new BrowserBackend();
-    // Fix round 1 — establish a real revision baseline first (load on an
+    // Establish a real revision baseline first (load on an
     // empty store still counts as a load): this test is about a write that
     // fails PARTWAY through, not about a never-loaded instance's blind
     // write, so give it a genuine baseline rather than forcing.
@@ -289,7 +289,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
     expect(loaded.resources[0]?.emails).toEqual(["two@x.com"]);
   });
 
-  // Fix round 1: IndexedDB casts resources, so its email pair must come out
+  // IndexedDB casts resources, so its email pair must come out
   // exactly as sanitizeResource (JSON/CSV/MD/Turso) stores it — primary
   // excluded from the list, and no `emails` key invented.
   it("loads a resource's email pair exactly as the JSON path does", async () => {
@@ -410,7 +410,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("clears a previously-saved fieldVisibility when re-saved empty", async () => {
     const backend = new BrowserBackend();
-    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
+    backend.forceNextSave(); // never-loaded instance's first save.
     await backend.save({
       ...emptyWorkspace(),
       fieldVisibility: { task: { fields: ["taskName"] } },
@@ -453,7 +453,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("clears stored documentVersions when re-saved with none", async () => {
     const backend = new BrowserBackend();
-    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
+    backend.forceNextSave(); // never-loaded instance's first save.
     await backend.save({
       ...emptyWorkspace(),
       documentVersions: [{
@@ -477,7 +477,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] },
     ];
     const backend = new BrowserBackend();
-    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
+    backend.forceNextSave(); // never-loaded instance's first save.
     await backend.save({ ...emptyWorkspace(), activityLog: log });
 
     const loaded = await new BrowserBackend().load();
@@ -489,7 +489,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] },
     ];
     const backend = new BrowserBackend();
-    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
+    backend.forceNextSave(); // never-loaded instance's first save.
     await backend.save({ ...emptyWorkspace(), activityLog: log });
     await backend.save({ ...emptyWorkspace(), activityLog: [] });
 
@@ -508,7 +508,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("deletes the stored budgetHistory when it is cleared, so it cannot reload stale", async () => {
     const backend = new BrowserBackend();
-    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
+    backend.forceNextSave(); // never-loaded instance's first save.
     await backend.save({ ...emptyWorkspace(), budgetHistory: budgetHistoryFixture() });
     expect((await new BrowserBackend().load()).budgetHistory).toHaveLength(2);
     await backend.save({ ...emptyWorkspace(), budgetHistory: [] });
@@ -527,7 +527,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
   });
 
   // §620 — a stored meta slice that PARSES but SANITIZES TO NOTHING (junk
-  // `steeringCommittee`, per Task 4's `sanitizedToNothing`) used to be dropped
+  // `steeringCommittee`, per `sanitizedToNothing`) used to be dropped
   // silently on load, and the next save wrote IDB without it. Unlike the JSON
   // backend (`jsonToWorkspace` records it centrally), this backend reads each
   // KV slot independently, so it needs its own `noteIfDropped` calls.
@@ -552,7 +552,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       expect(backend.lastDecodeFailures).toEqual([]);
     });
 
-    // ★★★ Fix round 1 — the rich-field pass is the ONLY DOM-dependent step in
+    // ★★★ The rich-field pass is the ONLY DOM-dependent step in
     // EITHER of these two slices, and it had no local catch: a throw there
     // reached the outer "IDB unavailable" catch, which falls through silently.
     // Since documents/documentVersions are read in the middle of that outer
@@ -561,7 +561,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
     // saving not paused, and the next save `idbDelete`s all four slices for
     // good. Mirrors `jsonToWorkspace`'s own containment
     // (workspace.documents.test.ts).
-    describe("a throwing rich-field pass is CONTAINED (fix round 1)", () => {
+    describe("a throwing rich-field pass is CONTAINED", () => {
       const DOC = {
         id: 1, title: "Status report",
         blocks: [{ type: "heading" as const, level: 1 as const, text: "March" }],
@@ -622,7 +622,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
       });
     });
 
-    // ★★★ Fix round 1 correction — my original report explained M2's survival
+    // ★★★ My original report explained M2's survival
     // with the wrong reason (that the end-of-load publish always overwrites
     // the field). It does NOT on every path: `migrateWorkspaceV10(raw)` and
     // everything after the outer try/catch (lines ~400-447: `migrateLegacyIfNeeded`,
@@ -647,7 +647,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
   it("second save of an unchanged workspace emits empty deltas (baselines advanced)", async () => {
     const backend = new BrowserBackend();
-    backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
+    backend.forceNextSave(); // never-loaded instance's first save.
     const ws = { ...emptyWorkspace(), tasks: [task], raid: [raidItem] };
     await backend.save(ws);
 
@@ -664,12 +664,12 @@ describe("BrowserBackend parallel IDB save/load", () => {
   describe("calendarOptOut over IndexedDB (§486)", () => {
     it("round-trips calendarOptOut on all five calendar-pushed entities", async () => {
       const backend = new BrowserBackend();
-      backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
+      backend.forceNextSave(); // never-loaded instance's first save.
       await backend.save(calendarOptOutWorkspace());
       expect(readCalendarOptOuts(await backend.load())).toEqual(EXPECTED_CALENDAR_OPT_OUTS);
     });
 
-    // Fix round 1 (minor a) — every register is cast verbatim here, so the
+    // Every register is cast verbatim here, so the
     // load must drop a non-literal flag itself.
     it("drops a non-literal calendarOptOut on load, on all five entities", async () => {
       const ws = calendarOptOutWorkspace();
@@ -695,7 +695,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
     it("round-trips documentAssets through save and load", async () => {
       const backend = new BrowserBackend();
-      backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
+      backend.forceNextSave(); // never-loaded instance's first save.
       await backend.save({ ...emptyWorkspace(), documentAssets: [asset] });
       const back = await backend.load();
       expect(back.documentAssets?.[0]).toEqual(asset);
@@ -703,7 +703,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
     it("leaves the key undefined when there are no assets", async () => {
       const backend = new BrowserBackend();
-      backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
+      backend.forceNextSave(); // never-loaded instance's first save.
       await backend.save(emptyWorkspace());
       expect((await backend.load()).documentAssets).toBeUndefined();
     });
@@ -734,7 +734,7 @@ describe("BrowserBackend parallel IDB save/load", () => {
     // directly is the only observable that catches the stale-key bug.
     it("deletes the stored key (not merely re-saves []) so raw storage cannot hold stale data", async () => {
       const backend = new BrowserBackend();
-      backend.forceNextSave(); // Fix round 1 — never-loaded instance's first save.
+      backend.forceNextSave(); // never-loaded instance's first save.
       await backend.save({ ...emptyWorkspace(), documentAssets: [asset] });
       await backend.save({ ...emptyWorkspace(), documentAssets: [] });
 

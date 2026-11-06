@@ -29,7 +29,7 @@ export function isSaveConflict(err: unknown): err is SaveConflictError {
   return err instanceof SaveConflictError;
 }
 
-/** §4 fix round 1 (R10 change 6) — a `StorageBackend.save()`'s Web Lock wait
+/** §4 (R10 change 6) — a `StorageBackend.save()`'s Web Lock wait
  *  timed out before the lock was ever granted (another window is mid-save).
  *  Generalized by `StorageKind` (the local-file backends; browser storage took it too until §4 round 7
  *  made its save one IndexedDB transaction with no lock), on the
@@ -94,7 +94,7 @@ export function tursoErrorKind(err: unknown): StorageErrorKind | null {
   if (err instanceof StorageNotReadyError) {
     if (err.hint === "storage-unreachable") return "unreachable";
     // §337 — turso-pipeline throws ONE of two hints on a 401/403, and the
-    // hint alone decides the kind. Controller ruling (I2): attribute by what
+    // hint alone decides the kind (I2): attribute by what
     // THIS call rejected, never by the `isEnvTokenRejected()` global flag —
     // that flag can still be set from an earlier, unrelated incident (or
     // because a Settings-typed token also failed while the flag was already

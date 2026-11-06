@@ -134,7 +134,7 @@ function sanitizeEntry(raw: unknown): RaidEscalation | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const o = raw as Record<string, unknown>;
   const at = typeof o.at === "string" && !Number.isNaN(Date.parse(o.at)) ? o.at.slice(0, AT_MAX) : "";
-  // Ruling Q5: Name <addr> is unwrapped BEFORE isEscalationEmail judges it.
+  // Name <addr> is unwrapped BEFORE isEscalationEmail judges it.
   const toEmail = typeof o.toEmail === "string" ? normalizeEmailShape(o.toEmail.trim()).slice(0, EMAIL_MAX) : "";
   // isEscalationEmail, not a bare "@" check: rejects a malformed address AND
   // one holding "<"/">" (§515 defence in depth — mirrors the `toName` bracket

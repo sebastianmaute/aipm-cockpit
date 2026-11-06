@@ -1,4 +1,4 @@
-// AI people protection, Task 5 review round 1 (I1): under protection the recommendation call does not
+// AI people protection: under protection the recommendation call does not
 // offer the people tools that `ALLOWED_REC_TOOLS` admits (the stakeholder writers). The allowlist itself
 // is a security boundary and stays as it is; the ADVERTISED schema is filtered per send.
 import { describe, it, expect, vi } from "vitest";

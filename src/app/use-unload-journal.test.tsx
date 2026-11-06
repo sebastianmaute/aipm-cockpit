@@ -4,7 +4,7 @@
 //
 // Two layers:
 //   1. `useStorageBackend` with a fake backend whose save promise the test
-//      settles by hand — (a) to (g) from the task brief.
+//      settles by hand — (a) to (g).
 //   2. `useUnloadJournal` on its own — the popout guard (unreachable through the
 //      storage hook, whose save effect returns for a popout before `doSave`
 //      exists) and the ordering rulings.
@@ -42,7 +42,7 @@ vi.mock("./project-file-handles", () => ({
 }));
 vi.mock("./broadcast-sync", () => ({ useBroadcastSync: vi.fn(), useRevisionSync: vi.fn(), postRevision: vi.fn() }));
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
-// A pass-through spy: every fingerprint the hook computes is counted (fix round 1, M1).
+// A pass-through spy: every fingerprint the hook computes is counted.
 vi.mock("./unload-journal", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./unload-journal")>();
   return { ...actual, fingerprintWorkspace: vi.fn(actual.fingerprintWorkspace) };
@@ -478,7 +478,7 @@ describe("§629 — useUnloadJournal on its own", () => {
     const { result } = renderJournal();
     result.current.setBase(WS_1, "p1");
     result.current.holdBase(WS_2);
-    expect(result.current.baseFingerprint()).toBe(""); // R7 (Task 3): the hold drops the live base — no pair stands
+    expect(result.current.baseFingerprint()).toBe(""); // R7: the hold drops the live base — no pair stands
     result.current.adoptHeldBase("p2");
     expect(result.current.baseFingerprint()).toBe(""); // p1 has no base now; the held one went to p2
   });

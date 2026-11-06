@@ -331,7 +331,7 @@ describe("AbsenceEditModal", () => {
     expect(onSave.mock.calls[0][0].assigneeEmail).toBe("sofia@example.com");
   });
 
-  // Fix round 1, IMPORTANT 1 — an UNRELATED banner error (end before start)
+  // An UNRELATED banner error (end before start)
   // must never hide the flag: the stored assignee email is untouched and
   // still unsafe.
   it("keeps the flag visible while an unrelated banner error is showing", () => {

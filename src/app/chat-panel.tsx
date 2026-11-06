@@ -495,7 +495,7 @@ function ChatPanelInner({
     holidaySetRef.current = holidaySet;
   }, [holidaySet]);
   // Turso thread state (deps-object hook, AGENTS.md rule 1). Kept as one
-  // object — most fields wire onto ChatThreadList in Task 6; submitPrompt
+  // object — most fields wire onto ChatThreadList; submitPrompt
   // below reads .activeThreadId/.threadIdRef and calls .ensureThreadForSend.
   const chatSettings = getAiDeploymentState().chat;
   const chatThreads = useChatThreads({

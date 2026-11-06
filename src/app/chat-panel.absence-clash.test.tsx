@@ -1,4 +1,4 @@
-// src/app/chat-panel.absence-clash.test.tsx — §773 Task 4: a lone chat write that lands someone's work on
+// src/app/chat-panel.absence-clash.test.tsx — §773: a lone chat write that lands someone's work on
 // their absence goes to the review card instead of being written; the staged tool result tells Claude about
 // the clash while the card waits, and once approved the write lands.
 import "fake-indexeddb/auto";

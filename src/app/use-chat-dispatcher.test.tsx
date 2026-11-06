@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-// AI people protection, Task 5: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
-// Task 6: one describe at the end flips `people.on` to show a stripped create lands unassigned; the getter
+// AI people protection: this file tests the feature, not the protection (`ai-people-gates.test.tsx`).
+// One describe at the end flips `people.on` to show a stripped create lands unassigned; the getter
 // stays one identity, as the real one is, so the dispatcher's memo does not churn.
 const people = vi.hoisted(() => {
   const state = { on: false };
@@ -1996,8 +1996,8 @@ describe("useChatDispatcher – resource directory", () => {
     expect(result.current.getResource(1)?.title).toBeUndefined();
   });
 
-  it("updateResource does not refuse an ARRAY that only echoes an already-stored unsafe address (§422 fix round 1)", () => {
-    // Controller ruling: an array is stored VERBATIM (never split), so
+  it("updateResource does not refuse an ARRAY that only echoes an already-stored unsafe address (§422)", () => {
+    // An array is stored VERBATIM (never split), so
     // re-sending an address the row already holds cannot tear anything —
     // only a genuinely NEW unsafe member should be refused.
     const seeded: Resource = {
@@ -2014,7 +2014,7 @@ describe("useChatDispatcher – resource directory", () => {
     expect(result.current.getResourceRow(1)).toMatchObject({ title: "Lead", emails: ["a,b@x.com"] });
   });
 
-  it("updateResource still refuses an ARRAY carrying a genuinely NEW unsafe address (§422 fix round 1)", () => {
+  it("updateResource still refuses an ARRAY carrying a genuinely NEW unsafe address (§422)", () => {
     const seeded: Resource = {
       id: 1, firstName: "Ada", lastName: "Lovelace",
       roleId: null, utilizationMode: "percent", utilization: {},
@@ -4407,7 +4407,7 @@ describe("the email write rule on AI writers (spec Part 1)", () => {
     expect(() => result.current.createStakeholder({ name: "Sam", email: "a,b@x.com" })).toThrow('email must not contain "," or ";"');
   });
 
-  // ★★ Fix round 1 — census miss: updateRaid/updateStakeholder/updateAbsence
+  // ★★ Census miss: updateRaid/updateStakeholder/updateAbsence
   // had no changed-only pin, so the `stored` argument each passes to
   // `refuseEmailWrite`/`refuseInvalidAbsenceEmail` (`existing.ownerEmail` /
   // `existing.email` / `existing.assigneeEmail`) was unverified — a patch
@@ -4722,7 +4722,7 @@ describe("AI person writes keep the resource link in step with the name", () => 
   });
 });
 
-// AI people protection, Task 6 (R4): `runTool` strips a create's assignee under protection, so the
+// AI people protection: `runTool` strips a create's assignee under protection, so the
 // dispatcher must then create the task unassigned instead of refusing it for the missing assignee.
 describe("create_task under people protection", () => {
   it("creates the task with its title and no assignee", async () => {

@@ -20,7 +20,7 @@ const read = (rows: string[][], mapping: ColumnMapping, numbers: Numbers = "text
 const triples = (rows: ReadonlyArray<{ person: string; period: string; hours: number }>) => rows.map((r) => [r.person, r.period, r.hours]);
 const both = ["text", "dot"] as const;
 
-describe("stacked year blocks (rr8 N1, residue 9)", () => {
+describe("stacked year blocks", () => {
   const sheets: Record<Numbers, string[][]> = {
     text: [["Name", "Jan 2026", "Feb 2026"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "Jan 2027", "Feb 2027"], ["Ann", "30", "40"], ["Bob", "31", "41"]],
     dot: [["Name", "46023", "46054"], ["Ann", "10", "20"], ["Bob", "11", "21"], ["Name", "46388", "46419"], ["Ann", "30", "40"], ["Bob", "31", "41"]],
@@ -74,7 +74,7 @@ describe("a row with its own period cell is never a sub-period row", () => {
   });
 });
 
-// Round 5 ruling 1: a REPEATED HEADER row ends the reading, and detection asks
+// Round 5: a REPEATED HEADER row ends the reading, and detection asks
 // which header row is meant whatever the block sizes.
 describe("a repeated header row ends the reading (round 5)", () => {
   const longBlocks = (perBlock: 1 | 2, numbers: Numbers) => {
@@ -179,7 +179,7 @@ describe("a repeated header row under another label ends the reading too (round 
   });
 });
 
-// Round 7 I-A (rr10): a row inside the reading that it reads nothing from (a
+// Round 7 I-A: a row inside the reading that it reads nothing from (a
 // blank or "-" forecast, blank months) contributes nothing: Bob's Ist or
 // Budget cell is never forecast hours.
 describe("a row the reading reads nothing from contributes nothing (round 7 I-A)", () => {

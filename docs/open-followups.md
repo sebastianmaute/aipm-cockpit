@@ -547,7 +547,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--closed-2026-08-31) | ~~The type-to-confirm prompt renders its phrase undelimited and gives no feedback on a mismatch~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
 | [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--closed-2026-08-31) | ~~Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap~~ | found 2026-08-30, fixing the DE wipe phrase | M | **CLOSED** 2026-08-31 |
 | [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--closed-2026-08-31) | ~~The storage readiness indicator is never disclosed to assistive technology, in either state~~ | found 2026-08-30, fixing the colour-only state cue | M | **CLOSED** 2026-08-31 |
-| [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31) | ~~One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint~~ | found 2026-08-30, in the destructive-refusal fix round | M | **CLOSED** 2026-08-31 |
+| [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--closed-2026-08-31) | ~~One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint~~ | found 2026-08-30, while fixing the destructive refusal | M | **CLOSED** 2026-08-31 |
 | [§304](#304-every-export-section-header-is-an-untranslated-raw-string-not-a-display-label--closed-2026-09-27) | Every export section header is an untranslated raw string, not a display label | — | — | **CLOSED** 2026-09-27 |
 | [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates--closed-2026-09-01) | ~~Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates~~ | — | — | **CLOSED** 2026-09-01 |
 | [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--closed-2026-10-03) | Negative test assertions matching quoted English literals go silently vacuous on a reword | found 2026-08-30, in the destructive-refusal deletion round | M | **CLOSED** 2026-10-03 |
@@ -564,12 +564,12 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§317](#317-an-unsettled-chat-persist-is-invisible-to-retryloads-gate-so-a-reload-in-that-window-drops-the-reply-from-screen--closed-2026-08-31-02720) | An unsettled chat persist is invisible to `retryLoad`'s gate, so a reload in that window drops the reply from screen | — | — | **CLOSED** 2026-08-31, 0.272.0 |
 | [§318](#318-use-focus-trap-runs-a-tab-trap-that-never-joins-the-dismissal-stack--closed-2026-09-01) | `use-focus-trap` runs a Tab trap that never joins the dismissal stack | found 2026-08-31 while closing §100 | S | **CLOSED** 2026-09-01 |
 | [§319](#319-this-registers-own-index-rebuild-recipe-silently-strips-hand-written-state-cells-and-claims-to-be-idempotent--closed-2026-09-26) | This register's own index-rebuild recipe silently strips hand-written `State` cells, and claims to be idempotent | found 2026-08-31 while filing §318 | S | **CLOSED** 2026-09-26 |
-| [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone--closed-2026-09-26) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix round | M | **CLOSED** 2026-09-26 |
+| [§320](#320-the-html-and-pdf-exports-tell-the-reader-a-policy-refused-images-data-is-gone--closed-2026-09-26) | The HTML and PDF exports tell the reader a policy-refused image's data is gone | found 2026-08-31 in the §230 fix | M | **CLOSED** 2026-09-26 |
 | [§321](#321-submitprompt-is-still-only-effectively-single-flight-and-the-identity-clear-does-not-make-it-structural--closed-2026-10-01) | `submitPrompt` is still only EFFECTIVELY single-flight, and the identity clear does not make it structural | split out of §312 on closing it | S | **CLOSED** 2026-10-01 |
 | [§322](#322-the-asset-library-offers-insert-on-a-refused-format-row-which-can-only-ever-render-as-blocked--closed-2026-09-14) | The asset library offers Insert on a refused-format row, which can only ever render as blocked | found 2026-08-31 in the §230 cold review | S | **CLOSED** 2026-09-14 |
 | [§323](#323-the-single-task-delete-is-the-one-entity-delete-that-never-arms-the-destructive-save-bypass--closed-2026-09-14) | The single-task delete is the one entity delete that never arms the destructive-save bypass | found 2026-08-31, closing §303 | S | **CLOSED** 2026-09-14 |
 | [§324](#324-actionscoretooltip-is-mounted-bare-by-both-next-actions-surfaces-so-tied-scores-announce-one-name--closed-2026-09-01) | ~~`actionScoreTooltip` is mounted bare by both Next-actions surfaces, so tied scores announce one name~~ | 0.272.0 (Zoline) | S | **CLOSED** 2026-09-01 (closed WIDER than its title; popover internals carved out to §328) |
-| [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix round | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
+| [§325](#325-raw-text-ui-pink-is-used-as-a-text-colour-at-12-more-sites-and-it-is-under-aa-in-all-four-light-schemes--closed-2026-09-01) | ~~Raw `text-ui-pink` is used as a TEXT colour at 12 more sites, and it is under AA in ALL FOUR light schemes~~ | found 2026-08-31 in the §300 fix | M | **CLOSED** 2026-09-01 (title AMENDED — the filed figure was beacon vs `--surface`; all four light schemes fail against `--surface-muted`) |
 | [§326](#326-typetoconfirmdialog-uses-module-constant-dom-ids-so-two-mounted-dialogs-collide--closed-2026-09-02) | ~~`TypeToConfirmDialog` uses module-constant DOM ids, so two mounted dialogs collide~~ | found 2026-08-31, adding the §300 mismatch region | S | **CLOSED** 2026-09-02 (`useId()` for both; the probe REFUTED the entry's click path and found the voice-nonce one) |
 | [§327](#327-use-storage-backendts-sits-one-line-under-the-800-line-size-ratchet-with-no-usable-headroom--closed-2026-09-03) | ~~`use-storage-backend.ts` sits one line under the 800-line size ratchet, with no usable headroom~~ | found 2026-08-31, closing §303 | S | **CLOSED** 2026-09-03 |
 | [§328](#328-the-next-actions-popover-internal-controls-are-left-unqualified-on-a-reasoned-not-measured-single-open-premise--closed-2026-10-01) | The Next-actions popover-internal controls are left unqualified on a reasoned, not measured, single-open premise | found 2026-09-01, fixing §324 | S | **CLOSED** 2026-10-01 |
@@ -579,7 +579,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§332](#332-the-reduced-motion-policy-covers-two-utilities-and-nothing-gates-the-next-animation--closed-2026-09-30) | The reduced-motion policy covers two utilities and nothing gates the next animation | found 2026-09-01, adding the rule | S | **CLOSED** 2026-09-30 |
 | [§333](#333-the-chip-clear-buttons-in-labels-input-and-stakeholder-recipient-input-carry-no-onmousedown-guard--closed-2026-09-02) | ~~The chip clear buttons in `labels-input` and `stakeholder-recipient-input` carry no `onMouseDown` guard~~ | found 2026-09-01 while adopting `IconButton`; PRE-EXISTING | S | **CLOSED** 2026-09-02 (**DISPROVED**, not fixed — the clear renders inside the `rootRef` containment check that governs the close; no code written) |
 | [§334](#334-racichippickers-popover-is-positioned-with-no-right-edge-clamp--closed-2026-09-02) | ~~`RaciChipPicker`'s popover is positioned with no right-edge clamp~~ | found 2026-09-01, fixing §55's RACI half; PRE-EXISTING | S | **CLOSED** 2026-09-02 (adopted `PopoverPanel`; closed WIDER than its title — the chips were unreachable by Tab, and the panel's `ariaLabel` was inert without a `role`. One stated constraint, chip-anchored positioning, was DECLINED) |
-| [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes--closed-2026-10-01) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix round, from a cold docs review | S | **CLOSED** 2026-10-01 |
+| [§335](#335-the-rag-health-chips-override-togglebuttons-derived-state-border-so-amber-and-green-stay-under-31-in-the-four-light-schemes--closed-2026-10-01) | The RAG health chips override `ToggleButton`'s derived state border, so amber and green stay under 3:1 in the four light schemes | found 2026-09-01 in the §55 fix, from a cold docs review | S | **CLOSED** 2026-10-01 |
 | [§336](#336-a-docx-hyperlink-is-followable-but-invisible--no-hyperlink-character-style-while-pptx-colours-its-links-from-the-theme--closed-2026-09-01) | ~~A `.docx` hyperlink is followable but INVISIBLE — no `Hyperlink` character style, while PPTX colours its links from the theme~~ | found 2026-09-01 in the §119/§30 cold review; MINTED AS §333 and renumbered on the 2026-09-02 merge, which is why source comments say both | S | **CLOSED** 2026-09-01 (the palette decision: `COLOR_DARK_BLUE` + underline, matching the PPTX theme; closed WIDER than its title — the workspace exporter carried it too) |
 | [§337](#337-a-non-empty-but-unusable-next_public_turso_-both-hides-the-settings-field-and-outranks-it-so-turso-cannot-be-configured-from-the-ui-at-all--closed-2026-09-25) | ~~A non-empty but UNUSABLE `NEXT_PUBLIC_TURSO_*` both hides the settings field and outranks it, so Turso cannot be configured from the UI at all~~ | found 2026-09-02 debugging "enabling Turso shows no configuration fields"; URL half shipped `28b517b77`, token half this commit | S | **CLOSED** 2026-09-25 |
 | [§338](#338-useresizable-is-a-no-op-in-every-modal-that-stays-mounted-while-closed--closed-2026-09-27) | `useResizable` is a no-op in every modal that stays mounted while closed | found 2026-09-02 in the asset-preview lightbox (0.278.0 "Gilman") cold review | M (repo-wide) | **CLOSED** 2026-09-27 |
@@ -715,7 +715,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§472](#472-burndown-values-a-fixed-price-bucket-as-hours-and-the-test-that-would-pair-it-uses-a-tm-fixture--closed-2026-09-13) | Burndown values a fixed-price bucket as hours, and the test that would pair it uses a T&M fixture | found 2026-09-12 while closing §465, after the currency explanation for the same divergence was investigated and REFUTED; pre-existing | S-M — renaming the fixture turns the existing pairing assertion red; deciding what the burndown should draw for a fixed-price bucket is the work | **CLOSED** 2026-09-13 |
 | [§473](#473-nothing-decides-what-currency-role-rates-are-in-so-a-non-eur-plan-both-mislabels-resources-money-and-miscomputes-a-fixed-price-margin--closed-2026-10-02) | Nothing decides what currency role rates are in, so a non-EUR plan both mislabels Resources money and miscomputes a fixed-price margin | found 2026-09-12 by the whole-branch review of `feat/budget-currency-boundary`, in the same pass that caught a false attribution in §465; filed as ONE entry because splitting the display and arithmetic faces would let one close while the other stood | M — the seven display sites and the type narrowing are small edits; coercing stored non-EUR plan currencies at load, and its tests, are the work | **CLOSED** 2026-10-02 |
 | [§474](#474-a-rateless-non-eur-bucket-is-summed-into-the-eur-rollup-at-par-and-reads-almost-like-a-rated-one--closed-2026-09-13) | A rateless non-EUR bucket is summed into the EUR rollup at par and reads almost like a rated one | found 2026-09-12 by the documentation-correction pass over `feat/budget-currency-boundary`, from the default no-rate path neither the design spec nor the register had considered; NOT a regression — at rate 1 the conversion is the identity, so no figure moved | S-M — the arithmetic must not change, so the work is disclosure: whether the report marks a rateless non-EUR bucket and whether the EUR rollup flags a summand it could not convert, plus tests | **CLOSED** 2026-09-13 |
-| [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--closed-2026-09-13) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fix round; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `0f7f8d46` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | **CLOSED** 2026-09-13 |
+| [§475](#475-the-bucket-modal-accepts-and-persists-an-fx-override-on-an-eur-bucket-that-nothing-will-ever-read--closed-2026-09-13) | The bucket modal accepts and persists an FX override on an EUR bucket that nothing will ever read | found 2026-09-12 by the cold review of `feat/budget-currency-boundary`'s own fixes; the field is gated on the advanced field TIER, never on the bucket's currency, so the value is accepted, `aria-invalid`-validated, persisted across all six write paths — and, since `0f7f8d46` decides an EUR bucket before its override, never read back; the same reorder removed the `(×rate)` suffix that was its only visible tell | S — gate the field on `draft.currency !== "EUR"` and decide separately whether switching a bucket back to EUR should clear a stored override; a UI decision, deliberately not taken on that branch | **CLOSED** 2026-09-13 |
 | [§476](#476-the-engines-baseline-currency-is-hardcoded-eur-so-a-project-cannot-be-run-in-another-one-let-alone-re-denominated-into-one--closed-2026-10-14) | The engine's baseline currency is hardcoded EUR, so a project cannot be run in another one, let alone re-denominated into one | requested 2026-09-12 by the project owner during the 1.0.2 release; option C of three semantics for an in-flight change (pin history at the rate in force when booked) was chosen deliberately, with A (rewrite the stored data) and B (re-derive at read time) recorded as rejected so neither is silently re-proposed | L — the field and the engine's one-line short-circuit are small; the rate stamp on every money-bearing figure (nothing records one today), its six write paths, the blocked-without-rates guard and its confirmation, and the display sweep are the work | **CLOSED** 2026-10-14 |
 | [§477](#477-only-three-currencies-are-supported-and-inr-is-wanted--closed-2026-10-03) | Only three currencies are supported, and INR is wanted | requested 2026-09-12 alongside §476 and independent of it — an INR bucket under today's EUR baseline needs none of the baseline work | XS if the ECB daily feed carries INR (one array member plus a fixture exercising the parser's filter on a fourth currency); unknown and much larger if it does not, which nothing has yet checked | **CLOSED** 2026-10-03 |
 | [§478](#478-switching-back-to-the-modern-layout-moves-the-user-off-their-current-view--closed-2026-09-14) | Switching back to the modern layout moves the user off their current view | found 2026-09-12 while fixing the cold startup rule's re-run defect (`2a1fe97a`, on `fix/shell-polish-mr-c`), as the alternative that fix did not take | S–M — separate page-load cold from layout re-entry, and rewrite the re-arm test | **CLOSED** 2026-09-14 |
@@ -780,7 +780,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§537](#537-project-contact-persons-have-no-ids--closed-2026-10-02) | Project contact persons have no ids | filed 2026-09-14 while specifying the email-guard batch (spec Part 7); user decision: stay id-less for that batch, follow up later; GitLab #327 | M — a storage-format change to the `contactPersons` cell across CSV/Markdown/Turso-tenant, decoder back-compat, and 13 non-test call sites | **CLOSED** 2026-10-02 |
 | [§538](#538-single-db-turso-never-persists-project-meta--closed-2026-09-25) | Single-DB Turso never persists project meta | found 2026-09-14 while filing §537; GitLab #328 | M — a single-tenant `project_meta` meta row, `dirtyWorkspaceTables` taught about project-only edits, and `handleUpdateCurrentProjectByMode`'s no-config no-op fixed | **CLOSED** 2026-09-25 |
 | [§539](#539-sanitizeisodate-accepts-dates-that-are-not-real-calendar-dates--closed-2026-09-14) | `sanitizeIsoDate` accepts dates that are not real calendar dates | reported 2026-09-14 by a peer session's §273 work; user approved "file and fix" in the email-guard batch; GitLab #329 | S — a month/day calendar check in one function plus test migration across ~30 referencing files | **CLOSED** 2026-09-14 |
-| [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--closed-2026-09-20) | A repeated resource deep link re-runs the open while that resource's editor is open | found 2026-09-14 by the fix-round reviews of §362 on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | **CLOSED** 2026-09-20 |
+| [§540](#540-a-repeated-resource-deep-link-re-runs-the-open-while-that-resources-editor-is-open--closed-2026-09-20) | A repeated resource deep link re-runs the open while that resource's editor is open | found 2026-09-14 by the reviews of the §362 fixes on `fix/ui-residuals-batch` | S — skip the open when the requested resource's editor is already open, where the editor state lives | **CLOSED** 2026-09-20 |
 | [§541](#541-the-stakeholder-editor-saves-its-text-fields-uncapped-when-submitted-with-enter--closed-2026-09-21) | The stakeholder editor saves its text fields uncapped when submitted with Enter | found 2026-09-14 by the email-guard batch's Task 3 review; user approved filing; GitLab #331 | S — cap each field in `handleSubmit` before `onSave`, or sanitise in `handleSaveStakeholder` | closed |
 | [§542](#542-the-calendar-event-writer-accepts-a-day-past-its-months-end-and-rolls-it-over--closed-2026-09-21) | The calendar event writer accepts a day past its month's end and rolls it over | found 2026-09-14 by the whole-branch and cold reviews of `fix/email-and-guard-batch`; user approved filing; GitLab #332 | S — replace the `Date.parse` leg with a calendar round trip (as `sanitizeIsoDate` does since §539) | closed |
 | [§543](#543-a-dated-timelog-apply-leaves-a-period-key-of-the-other-granularity-in-place-so-switching-back-counts-those-hours-twice--closed-2026-09-15) | A dated TimeLog Apply leaves a period key of the other granularity in place, so switching back counts those hours twice | found 2026-09-15 by the final whole-branch review of `feat/budget-forecast-union` | S — let a dated Apply also remove other-granularity period keys that overlap its covered days | **CLOSED** 2026-09-15 |
@@ -1028,6 +1028,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§790](#790-converting-a-local-copy-back-to-turso-writes-through-the-wrong-layout-and-may-empty-a-shared-database--closed-2026-11-02) | Converting a local copy back to Turso writes through the wrong layout and may empty a shared database | — | — | **CLOSED** 2026-11-02 |
 | [§791](#791-the-portfolio-flag-stays-on-turso-after-an-in-place-storage-switch-and-its-other-readers-are-unaudited) | The portfolio flag stays on Turso after an in-place storage switch, and its other readers are unaudited | #942 | — | OPEN |
 | [§792](#792-no-test-proves-writesettings-blanks-every-sealed-secret-the-five-fields-are-named-by-hand--closed-2026-11-06) | No test proves writeSettings blanks every sealed secret; the five fields are named by hand | — | — | **CLOSED** 2026-11-06 |
+| [§793](#793-the-installers-uninstaller-is-not-code-signed) | The installer's uninstaller is not code-signed | #951 | — | OPEN |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -2681,7 +2682,7 @@ seven rich entity fields plus the note logs, enumerable with
 
 ★★ RAID's `description` needed it exactly as much as `mitigation` did — `sanitizeSeedRaidItem` runs
 BOTH through nothing but a trim, so neither ever got even the upgrade this entry credits the boundary
-with. A brief written from this entry's wording said otherwise and was corrected by reading the source.
+with. A summary written from this entry's wording said otherwise and was corrected by reading the source.
 ★★ The change fields became reachable in the SAME slice, because §168's carry lands a note log there.
 
 ★★★ **EVERY ROW OF THAT TABLE IS MUTATION-PROVED, AND SAYING SO IS NOT DECORATION — the first cut
@@ -3248,7 +3249,7 @@ passed (4)`, `Tests 214 passed (214)`). `milestones-panel.tsx`'s own hand-rolled
 (component docstring: "Milestone push/pull is deliberately NOT routed through this") are unaffected
 and remain unqualified — out of scope for this entry, which is about `CalendarSyncControls` only.
 
-★★ **Corrected 2026-09-14 (final fix round): where two instances really co-render.** The source
+★★ **Corrected 2026-09-14: where two instances really co-render.** The source
 comment this fix added cited "the Calendar sub-tab's absences + meeting series" as the collision.
 No meeting-series `CalendarSyncControls` exists: the four callers are `tasks-section.tsx`,
 `raid-panel-toolbar.tsx`, `change-panel.tsx` and `resources-panel.tsx`, and i18n has only the Task,
@@ -6715,7 +6716,7 @@ Verified 2026-09-14: `npx vitest run src/app/task-kanban.test.ts src/app/resourc
 src/app/resource-foundation.test.ts` → `Test Files 3 passed (3)`, `Tests 86 passed (86)`, exit 0;
 `npx tsc --noEmit` exit 0.
 
-★★ **Corrected 2026-09-14 (final fix round): the lane engine never email-matches an external.** As
+★★ **Corrected 2026-09-14: the lane engine never email-matches an external.** As
 first closed, the new email pass matched an EXTERNAL resource, so an FK-less task carrying an
 external's `assigneeEmail` got that external's `res:<id>` lane. `isExternalTask` is link-only, so
 with "Hide externals" on the task stayed visible, and its lane was a live drop target that stamped
@@ -10382,7 +10383,7 @@ owns its `AbortController` and whether that hook aborts on unmount:
 
 ★★★ THE TABLE BELOW CARRIED `file:line` CITATIONS AND THEY WERE ALREADY WRONG. They were exact at
 `f8acb709` and rotted within the same branch — `inline-ai-edit-popover.tsx:77` is now 88 and
-`use-tasks-dedup.tsx:181` is now 198, moved by the very fix rounds this entry describes. Worse, the
+`use-tasks-dedup.tsx:181` is now 198, moved by the very fixes this entry describes. Worse, the
 paragraph directly above says line numbers are DELIBERATELY OMITTED, so the table contradicted its
 own entry. They are dropped here in favour of file + symbol, which is this repo's standing rule
 precisely because a line can be broken by the commit that writes it. Do not reintroduce them.
@@ -10397,7 +10398,7 @@ precisely because a line can be broken by the commit that writes it. Do not rein
 | `use-tasks-dedup.tsx` | `use-tasks-dedup.tsx` | **no — this entry** |
 
 ★★★ **CLOSED for THIS hook, and the table above is now HISTORY — it is the audit taken before slice
-3's fix round, kept because the count is the point.** `use-tasks-dedup.tsx` gained the cleanup-only
+3's fixes, kept because the count is the point.** `use-tasks-dedup.tsx` gained the cleanup-only
 `useEffect(() => () => abortRef.current?.abort(), [])` in slice 3's review round, pinned by a test
 that captures the signal, asserts `aborted === false` before unmount and `true` after (mutation-proved
 red with the effect deleted). The gap remaining **when this entry was closed** was two of six —
@@ -10408,7 +10409,7 @@ defect; both are kept for the count and the reasoning. Re-run the sweep below ra
 either.
 
 So THREE of the six lacked it at audit time, not one. ★★★ **AT AUDIT TIME (2026-08-08, before slice
-3's fix round) exactly THREE files carried the cleanup-only shape** `useEffect(() => () =>
+3's fixes) exactly THREE files carried the cleanup-only shape** `useEffect(() => () =>
 abortRef.current?.abort(), [])` — `use-abortable-ai.ts`, `use-alloc-plan.tsx`, `use-raci-suggest.tsx`.
 That sentence used to be written in the present tense with the number three, and it was FALSE the
 moment `use-tasks-dedup.tsx` gained the shape in the round that closed this very entry — the fix and
@@ -11960,13 +11961,13 @@ claim**: a mechanism asserted from how it ought to behave rather than run.
 ★ A fixture pins the tags someone thought to list; a probe-based property pins the ones in its
 universe; only a config read-back pins the ones nobody imagined.
 
-★★ **A THIRD INSTANCE OF THE SAME CLASS, from this branch's a11y follow-on.** The brief for the
+★★ **A THIRD INSTANCE OF THE SAME CLASS, from this branch's a11y follow-on.** The plan for the
 toolbar group naming asserted that "the editable regions are uniquely named" and scoped the fix to
 the toolbars alone. True per PANEL — and false across two MOUNTED panels, which is precisely the
 mount the fix exists for: `NoteLogPanel`'s two `RichTextEditor` `label` props ignored `labelSuffix`,
 so with the floating notes window and the task editor's inline panel both open, the composers and the
 entry editors collided, and the new toolbar groups — which take that same string — collided with
-them. A fix whose entire purpose is disambiguation would have inherited a collision its own brief
+them. A fix whose entire purpose is disambiguation would have inherited a collision its own plan
 said did not exist. Found by the implementer ENUMERATING the actual `label` at every call site
 instead of accepting the premise. Fixed in `4b767e01`; the residue is **§142**.
 
@@ -12036,7 +12037,7 @@ large — a11y and CSS entries no static check can judge — and it came back at
 > Superseded 2026-10-12: P2 and P3 are done and P4's tech-debt part was done on 2026-09-13; the Status above says what remains.
 
 **P2 — probe all open entries behaviourally.** The only phase whose size is already known, and about
-60% of what is left. Read-only agents, batched; each brief must carry the entry text **verbatim**,
+60% of what is left. Read-only agents, batched; each agent's instructions must carry the entry text **verbatim**,
 because an agent told to "read §84" reads the wrong lines the moment the register shifts.
 ★★★ **Distrust the verdicts.** This slice already measured what a plausible absence heuristic does
 to this file: reusing the symbol gate's proximity matcher (`markedNear` / `PROXIMITY`) to decide
@@ -12881,7 +12882,7 @@ before that test existed, with `change-edit-modal.test.tsx` 28/28 and `raid-edit
 this branch re-ran `rich-text-editor.test.tsx` and saw **1 red in 3**, which reads exactly like an
 order- or timing-dependent test. It was not: a CONCURRENT agent was editing `rich-text-toolbar.tsx`
 in the SAME working tree while the run was in flight, so the suite was reading a half-written module.
-Re-run on a quiet tree by the controller afterwards: **five consecutive runs, 34/34 each**. ★ That
+Re-run on a quiet tree afterwards: **five consecutive runs, 34/34 each**. ★ That
 read "5/5 green" at first, which collides with the passed-of-total notation this same entry uses
 three paragraphs up (`33/33`, `28/28`, `20/20`) and so announced a five-test file; it has 34. A run
 COUNT and a test count are not interchangeable in a register that quotes both. ★ The lesson is review HYGIENE,
@@ -13891,7 +13892,7 @@ across BOTH codec families. Do not record §152 as closed on the strength of the
 surface is single-slot (`useToast` holds a `useState<Toast | null>`; `showToast` REPLACES it, with no
 queue and no stacking — it clears the pause ref and calls `setToast(...)`), so of two calls in one
 stretch only the LAST is seen. Putting a diagnostic in front
-of a confirmation is exactly the defect the §105 branch's own fix round shipped and had to undo — the
+of a confirmation is exactly the defect the §105 branch's own fixes shipped and had to undo — the
 warning was raised, overwritten, and lost, with the suite green because the test asserted `showToast`
 had been CALLED rather than reading the surviving toast. Assert on the LAST call.
 
@@ -14308,7 +14309,7 @@ message in a `for … await runTool(…)` loop, and the awaits between them are 
 batches. So "switch to German and turn off view hints" issued TWO credits against ONE run. While the
 effect DECREMENTED, the surplus outlived the turn and silently ate the user's next settings row,
 whenever that came. **The effect now CLEARS the counter**, which bounds any leak to the render that
-created it. Found by a cold review of this very fix round; the entry as first closed asserted the
+created it. Found by a cold review of these very fixes; the entry as first closed asserted the
 wrong invariant in three places (here, `task-manager.tsx`, and `chat-dispatcher-types.ts`).
 
 ★★ **Residual of the clear, deliberately accepted and the strictly better trade:** if two AI writes in
@@ -14687,7 +14688,7 @@ the AI's `delete_all_tasks` — so AI mass deletes counted and the far commoner 
 `use-bulk-operations.ts`'s `handleClearAll` and `handleBulkDelete` took an undo capture and wrote NO
 activity entry at all. Both now log `bulk.delete`, with the count taken from the rows actually removed
 (`removed.length`, never `ids.size` — a stale selection can name ids no longer present, and the walk
-subtracts whatever the entry carries). Found by a cold review of the fix round. **Check both actors
+subtracts whatever the entry carries). Found by a cold review of the fixes. **Check both actors
 whenever a metric is corrected for one of them** — "the AI half" is a scope, not a fix.
 
 Opened 2026-08-16 out of the AI Recall B2b slice. Only reachable when a project has **fewer than two
@@ -14899,7 +14900,7 @@ hits: the type declaration, two in the settings toggle, the consumer, and TWO do
 `activity-recap.ts`. ★★ That count read **five** when this section was first written, and it was
 correct then — a SIBLING edit in the same review round gave `activity-recap.ts` its second mention.
 Neither author could have caught it alone, and no gate can see a count at all. **After any parallel
-fix round, re-derive every count that greps a file another agent touched.** So:
+round of fixes, re-derive every count that greps a file another agent touched.** So:
 
 switch OFF → `false` stored → reload → sanitizer drops the key → `undefined !== false` → **ON**.
 
@@ -14948,7 +14949,7 @@ git show 2e2c8c00:src/app/settings-types.ts | sed -n '/^export function sanitize
 
 ## 166. An UNDONE `bulk.delete` corrupted the completion trend permanently — CLOSED
 
-Opened 2026-08-17 by a cold review of the §163 fix round; **closed the same day**, in the round that
+Opened 2026-08-17 by a cold review of the §163 fix; **closed the same day**, in the round that
 found it. **Introduced by §163's user half**: the user path previously logged nothing at all, so
 there was no forward row for an undo to contradict. The AI path has emitted the same `bulk.delete`
 LOGGING shape since the kind was minted, but never the defect — the AI dispatcher takes no undo
@@ -15398,7 +15399,7 @@ recorded because nothing anywhere else says it.
 
 **Previously:** open — an ambient pointer built from a list the failure branch leaves populated. Reproduced 2026-08-28 by `grep -c "threads" src/app/use-chat-search-bindings.ts`.
 
-Found by a cold review of the fix round on 2026-08-18 (`feat/ai-recall-b2c`), not by any gate.
+Found by a cold review of the fixes on 2026-08-18 (`feat/ai-recall-b2c`), not by any gate.
 
 `useChatThreads`' load effect has a `catch` branch for a MID-FLIGHT THREAD ADOPTION — the active
 thread changed between issuing the fetch and its rejection (`ensureThreadForSend` minting one for a
@@ -15622,7 +15623,7 @@ Two ways out, neither taken here:
   — see the duplication note below, which is the sharper version of this same risk.
 
 This slice deliberately scoped these sites out — converting every whole-row capture in the app was not
-in §50's blast radius, and doing it inside the fix round that closed §50 is how a regression ships (the
+in §50's blast radius, and doing it inside the fixes that closed §50 is how a regression ships (the
 same reasoning §50 itself gave in 0.211.1 for not touching shared undo machinery mid-batch).
 
 ★★ **The write-through field list is duplicated, and that duplication is itself residue.**
@@ -15682,7 +15683,7 @@ plain `string`, so whole-value capture is exactly right there and there is no su
 same cell and more, so Part B strictly narrowed the defect rather than introducing it. Closing it
 needs per-key diffing and per-key merging of object-valued fields, which is a different data model
 for a patch (`{path, before, after}` rather than `{field, before, after}`) and a different restore
-runner. That is a design slice, not a fix-round edit to shared undo machinery — the same reasoning
+runner. That is a design slice, not a corrective edit to shared undo machinery — the same reasoning
 §50 gave in 0.211.1.
 
 ---
@@ -15725,7 +15726,7 @@ Result: a duplicate RAID item plus a stale one, from three keystrokes and one no
 preserve list did not alter the delete path in either direction. The fix is not "pass `preserve` to
 `rowsEqual`" either: the guard exists to stop redo destroying an unrelated live row that reused a
 freed id (real data loss), so relaxing it needs an identity notion that is neither whole-row equality
-nor id alone. Scoping that inside the fix round that closed §50 is how a regression ships.
+nor id alone. Scoping that inside the fixes that closed §50 is how a regression ships.
 
 ---
 
@@ -15785,7 +15786,7 @@ reached it from well-formed data. Closing §183 did not restore that ground so m
 `src` writer supplies the inconsistent row any more, but stored data still can and §227 re-stores
 one, so re-argue the deferral rather than inheriting it. Fixing it means threading the per-entity `FieldGroup[]` through
 `captureFieldRows` to every one of the converted call sites — a change to the shared capture contract,
-which is exactly the class §50 declined to make inside a fix round.
+which is exactly the class §50 declined to make inside a correction.
 
 ---
 
@@ -16105,7 +16106,7 @@ not change that.
 "Edit blocks" toggle before the scan in `e2e/a11y.spec.ts`, and — in the SAME
 commit — re-measure the spec's test total with
 `npx playwright test e2e/a11y.spec.ts --list` and update AGENTS.md's count.
-Deliberately deferred out of the S3b fix round: the surface was being
+Deliberately deferred out of the S3b fixes: the surface was being
 restructured by that round's docked-toolbar task, and the count could not be
 measured under its constraints.
 
@@ -16569,7 +16570,7 @@ superseded note above).
 
 **Previously:** open. **Severity:** low (an announcement that may not fire, on a
 surface that already shows the reason visually). **Found by:** cold code review
-of the S3b fix round, 2026-08-19. Never machine-verified by a committed probe.
+of the S3b fixes, 2026-08-19. Never machine-verified by a committed probe.
 
 ★ Narrowed 2026-09-28 (register sweep): the notice now uses `text-ui-pink-strong` (`7b17f3912`), the same
 token as `FieldNotice`, so the palette cost under "Costs" is gone and only the `mt-1` margin differs.
@@ -17061,7 +17062,7 @@ ternary, and RED under `everFocused` forced true — i.e. it kills the three mut
 assertion did not.
 
 ★★ DEFERRED DELIBERATELY, and the reason is procedural rather than technical: it was found during a
-fix round, whose job is to CUT. Adding a new fixture while correcting is the highest-risk commit
+round of corrections, whose job is to CUT. Adding a new fixture while correcting is the highest-risk commit
 class in this repo, which is the thing this branch has now demonstrated twice.
 
 ## 197. `appendText`'s return value is over-claimed by one word — `focus` can also return false — CLOSED 2026-09-27
@@ -17446,7 +17447,7 @@ The history proof, against a `git clone --mirror` of the GitHub repository:
   missing=0).
 - The 7 are assistant `Claude-Session:` trailer lines, leak-list class `session-url`, on commits
   3e2c163b 3de78c55 3d0b3f01 022142ef d911fd04 753befa9 2bc6b65a. The first four reached `main`
-  through PR #4 and the last three through PR #5. A wrong controller ruling during the rollout let
+  through PR #4 and the last three through PR #5. A wrong decision during the rollout let
   them through: it treated a session trailer as allowed, when the leak list classes it as an
   identifier. Reproduce the list without printing a trailer:
   `git log origin/main --grep="Claude-Session:" --fixed-strings --format=%h --since=2026-09-22`.
@@ -17936,7 +17937,7 @@ exclusion and quote-awareness are independent narrowings with different blast ra
 them produced §250. Asserted as a residual in `rich-text-plain.test.ts` so it cannot be mistaken for
 fixed.
 
-**Status:** was OPEN — latent, pre-existing, and deliberately NOT fixed in the S3c-1 fix round,
+**Status:** was OPEN — latent, pre-existing, and deliberately NOT fixed in the S3c-1 fixes,
 where fixing it in place would have weakened a DoS bound. CLOSED 2026-08-28: §251 bounded the
 projection instead, which removed that objection, and the overflow branch now routes through
 `degradeToPlain`. ★ This line still read `**Status:** open` under a `— CLOSED` heading after the
@@ -18101,7 +18102,7 @@ the allow-list, the HTML the renderers emit — are dropped without having to be
 camelCase name, is invisible to it. A bare `grep -rn "data-asset-id" src/app` returns some hundreds of lines that
 must be READ rather than counted; a grep cannot tell a comment from a regex.
 ★★ NO FIGURE IS QUOTED HERE ANY MORE, on purpose. This said "~62" and was measured at 292 by a
-reviewer, then at a different number an hour later — because the fix round that was CORRECTING the
+reviewer, then at a different number an hour later — because the round of fixes that was CORRECTING the
 number was itself adding `data-asset-id` fixtures to the test file the number counts. An aggregate
 restales inside its own correction. Run the command.
 
@@ -18111,7 +18112,7 @@ by `doc-render-html.ts`, `doc-render-docx.ts`, `doc-render-pptx.ts` and `documen
 is global and captures the id. `ASSET_ID_RE` (`document-asset-usage.ts`) is attribute-only with NO `<img>` anchor —
 so it matches strings the other two do not, deliberately: its module header records that it runs on
 already-sanitized stored html, where a literal `data-asset-id="…"` in TEXT would already have been
-escaped. `ASSET_IMG_RE` (`document-model.ts`, added by the S3c-1 fix round) is case-INSENSITIVE,
+escaped. `ASSET_IMG_RE` (`document-model.ts`, added by the S3c-1 fixes) is case-INSENSITIVE,
 non-global, requires a NON-empty id and captures nothing.
 ★★ **`ASSET_IMG_RE` diverged FURTHER in `22110894` and the gap is now wider than the rest of this
 entry implies.** The other two read a double-quoted value only; this one was widened to an
@@ -18135,7 +18136,7 @@ are load-bearing.
 ★★ **They could not be shared as things stand** — WRITTEN BEFORE THE CLOSURE, and the paragraph
 below is what the closing slice built. Its diagnosis was right and its blocker was real; the escape
 was the module depending on NOTHING, which is why "imports nothing" is a property the new module's
-test enforces rather than a description of it. This is why the S3c-1 fix round left them all
+test enforces rather than a description of it. This is why the S3c-1 fixes left them all
 in place and why `dd3f9404` could only fold the three byte-identical ones.
 `document-asset-usage.ts`'s `assetIdsInBlock` is the natural home and is NOT exported; and
 `document-asset-usage.ts` already depends on `document-model.ts` (an `import type` of `DocBlock` /
@@ -18919,7 +18920,7 @@ finding the population. BOTH halves were wrong.** That grep returns ELEVEN files
 `src/test/unzip-bytes.ts`, that helper's own test, `zip.test.ts`, the media-FREE manifest gate
 (§216) and `document-export-assets.ts` itself — so it never answered the sentence it was attached
 to. And the builder pair was simply omitted. The wording THREE replaced had excluded that pair by a
-QUALIFIER ("nothing outside each builder's own unit test"); the fix round dropped the qualifier and
+QUALIFIER ("nothing outside each builder's own unit test"); the fix dropped the qualifier and
 substituted a flat count, trading a wrong-but-qualified claim for a wrong-and-unqualified one that
 under-reported existing coverage by two. There is no one-line grep for "unzips a package that HAS
 media" — `grep -rln 'word/media/\|ppt/media/' src --include=*.test.ts` comes closest and still
@@ -20643,7 +20644,7 @@ loss appears on the next load.
 the string in that file was `7f3c1c65`, which added the load line. ★★ **The obvious command for
 that no longer demonstrates it, and it stopped the moment this entry was committed** — a bare
 `git log -S"steeringCommittee" -- src/app/use-storage-backend.ts` now returns TWO commits, the
-second being the fix itself. That is this repo's recurring "a fix round edits files inside the
+second being the fix itself. That is this repo's recurring "a round of fixes edits files inside the
 population it counts" pathology, so state it in a form that survives its own commit:
 
 ```bash
@@ -22883,7 +22884,7 @@ speak about the slice" (skip) from "this capture says the slice was empty" (appl
 i.e. clear it). Nothing writes such a marker today; `getVersionPayload` and the version row shape
 would both need a decision about where it lives and how older captures without it default.
 
-**Why not fixed here.** Out of scope for `b671c088`, which was a data-loss fix round under time
+**Why not fixed here.** Out of scope for `b671c088`, which was a data-loss fix under time
 pressure — the safe-direction guard was the right thing to ship immediately. A capture-format marker
 changes what is written into every future version payload and how every existing captured row is
 read back, which deserves its own design decision rather than riding along inside a bug fix.
@@ -23849,7 +23850,7 @@ skips a milestone connector when it fails. It is fed `visibleMilestones`, now de
 cannot misnumber anything. Leaving an undrawable milestone out of `rows` also means it no longer
 takes a row index or counts toward `totalRowsCount`, which it used to do while drawing nothing.
 
-★★ **Added 2026-09-14 (final fix round), two consequences of that exclusion.** (1) Row index and
+★★ **Added 2026-09-14, two consequences of that exclusion.** (1) Row index and
 overlay height are now pinned: `gantt.test.tsx` "§273: an undrawable milestone takes no row index and
 no overlay height ('below' placement)" puts a "2026-00-10" milestone (it sorts before every valid 2026
 date) ahead of a drawn milestone linked to a task, and asserts the linked milestone's connector ends at
@@ -24478,7 +24479,7 @@ about names.
 
 **Status:** CLOSED 2026-09-26 on `fix/gate-tooling`. `matchDelimiters` (`scripts/rowname-surfaces-lib.mjs`) now skips `//` line comments and `/* */` block comments when it counts brackets. A `//` counts as a comment only at the start of the text or after whitespace or one of `{ } ( ) [ ] , ;`, so a URL such as `https://` is not one. Quotes are deliberately NOT skipped: an apostrophe in JSX text would open a phantom string. String and template literals remain a documented hole, listed in the docstring with the known misreads (a protocol-relative string, a regex literal, `${a}//${b}` interpolation, JSX text such as `<p> //host</p>`). The instance live when this was verified (brackets inside `//` comments in `resource-directory.tsx`) is recovered: `npm run rownames:check` reports 271 sites, up from 269, with the COVERED/VIA_PARENT/GAP split unchanged at 71/32/10. Pinned in `scripts/rowname-surfaces-lib.test.mjs` and mutation-checked. Classified against the TypeScript parser over every `//` in `src`, false comment reads fall from 1,892 to 26, none of them in the corpus `rownames:check` scans.
 
-Original status: open. Filed 2026-08-28, out of the fix round that produced `50876f2a`. Never machine-verified by a committed probe.
+Original status: open. Filed 2026-08-28, out of the fixes that produced `50876f2a`. Never machine-verified by a committed probe.
 
 `scripts/rowname-surfaces-lib.mjs`'s `matchDelimiters` walks forward from an opening `(`/`{`/`[`
 counting depth until it balances. It does not skip STRING literals or COMMENTS, so a bracket
@@ -26261,7 +26262,7 @@ whitespace-bearing `confirmValue` arriving some other way is no longer permanent
 the prompt renders it as if it were fine. Verify with
 `npx vitest run src/app/type-to-confirm-dialog.test.tsx`.
 
-★★★ **What the fix ROUND found is the more interesting half, and nothing in this repo gates it.**
+★★★ **What the CORRECTIONS found is the more interesting half, and nothing in this repo gates it.**
 The first cut coloured the mismatch text `text-ui-pink`. That IS a sanctioned palette token — it is
 the FILL/BORDER one — and as small (12px) TEXT on `--surface` it measures 4.63 (harbor L) / 6.78
 (harbor D) / 4.74 / 6.44 / 5.19 / 6.41 across six scheme combos, and **3.83 on beacon, which is
@@ -26327,7 +26328,7 @@ has its OWN German test — `general-section.test.tsx`'s reset-dialog one and `t
 clear-all one — and per site that German test is the only one that can fail for this defect. Both
 were mutation-proved: restoring the hardcoded constant at that site turns its German test red. Any
 "we replaced a literal with an i18n key" test needs a non-EN assertion, or it is decorative.
-★★ The clear-all German test was added 2026-09-01, in the fix round that found this paragraph
+★★ The clear-all German test was added 2026-09-01, in the fixes that found this paragraph
 claiming a coverage it did not have — until then the `tasksClearAllConfirmValue` site was pinned by
 nothing at all, and this entry said otherwise.
 
@@ -26478,7 +26479,7 @@ to read than a uniform over-count.
 The only discriminator is whether `evaluate` MINTED a new refusal object or returned the standing one, and
 `evaluate` does not report that today. Closing this means changing its return in
 `use-destructive-save-guard.ts` and having the save effect record on the mint — a change to the guard's
-contract, which is why it was left rather than bodged during a fix round.
+contract, which is why it was left rather than bodged during a correction.
 
 ## 304. Every export section header is an untranslated raw string, not a display label — CLOSED 2026-09-27
 
@@ -26679,7 +26680,7 @@ slice rewrote a large fraction of `notifications.test.tsx`
 (`git diff --numstat origin/main...HEAD -- src/app/notifications.test.tsx`; use numstat, NOT the
 `--stat` summary, whose insertion figure is the TWO-file total and was misread into this entry once)
 — so the reason they were left is narrower than
-"don't touch other people's tests": converting assertions a fix round does not otherwise need is how
+"don't touch other people's tests": converting assertions a correction does not otherwise need is how
 a release branch doubles in size.
 
 ★★ **The rule, so a reader does not over-apply it.** Derive from `t(...)` when the assertion is a
@@ -27209,7 +27210,7 @@ not the detector on the unlinked side — the explicit collapsed-name assertions
   DOES — so `"Bob  Smith"` and `"Bob Smith"` are two rows announcing one name. Two cold reviewers
   reached this independently from opposite sides, which is what promoted it from Minor.
   ★★★ **THE REFUTED PREMISE HAD SPREAD PAST THE CONTROL THIS ENTRY NAMES, and each review round found
-  another copy — do not read the list below as closed by construction.** Round 1 fixed the weekly-hours
+  another copy — do not read the list below as closed by construction.** The first round fixed the weekly-hours
   button. Round 2 found the add-as-resource button and the clear-unlinked ✕ still carrying it in their
   own comments (`aa47b65c`). Round 3 found two more COMMENTS stating it — at the unlinked absence chip
   and in `resource-workload.test.tsx`'s §276 test, the latter also asserting that `buildRowTokens`
@@ -27247,7 +27248,7 @@ not the detector on the unlinked side — the explicit collapsed-name assertions
   a third population at the render site without touching the memo input, and the fallback silently
   restores the raw un-tokenised name with every gate green. Hoisting the lookups into two per-row
   helpers would make that structurally impossible; not done here because it touches eight call sites
-  for zero behaviour change, and a fix round is this repo's highest-risk commit class.
+  for zero behaviour change, and a correction is this repo's highest-risk commit class.
   (2) `hideExternal` is never passed anywhere in `resource-workload.test.tsx`, so the "build the map
   over the POST-filter list" property — correct today, and the reason a withheld row cannot consume an
   occurrence index — is pinned by nothing.
@@ -27726,7 +27727,7 @@ would arm here too.
    consumers all pass ONE id and none loops: the row/Kanban prop (`task-manager.tsx`), the editor's
    `TaskDeleteButton` (same file), and the voice `"delete"` command
    (`use-bulk-operations.ts`, which finds one task by `cmd.id`).
-   ★ The original brief for this entry said TWO consumers; the third — the voice command, reached
+   ★ An earlier draft of this entry said TWO consumers; the third — the voice command, reached
    via the `handlers` bag rather than a JSX prop — was missed. It is single-id like the other two, so
    the conclusion is unchanged and the ENUMERATION was wrong. ★★ The grep this entry ORIGINALLY
    prescribed could not have found it either: it matched `handlers.onDelete` and `onDelete={onDelete}`,
@@ -27839,7 +27840,7 @@ paragraph on the same sweep adjudicates the other three candidates as non-defect
 **Status:** CLOSED 2026-09-01 by `06b33073` (six real-text sites) and `c5c035a4` (six hover glyphs).
 Filed 2026-08-31 from the
 [§300](#300-the-type-to-confirm-prompt-renders-its-phrase-undelimited-and-gives-no-feedback-on-a-mismatch--closed-2026-08-31)
-fix round, which found this on ONE site and fixed that one. Every candidate WAS measured before being
+fix, which found this on ONE site and fixed that one. Every candidate WAS measured before being
 touched, on 2026-09-01, by computing the WCAG relative-luminance ratio of `--ui-pink` against both
 `--surface` and `--surface-muted` for all seven built-in combos — the figures are in the amendment
 below, and they widened the finding. Residue re-measured the same day with the inventory grep: ONE
@@ -28778,7 +28779,7 @@ the Settings token is emptied (or the field is otherwise driven back to the env 
 env-token call succeeds. This is NOT "a fixed deployment wins again automatically" — it is "a fixed
 deployment wins again once nothing in Settings is still overriding it".
 
-★★★ **FIX ROUND 1 (same day), three review findings against the commit above, all closed in a
+★★★ **THE SAME DAY, three review findings against the commit above, all closed in a
 second commit:**
 - **I1 — the field never reappeared without a Settings reopen.** `envTokenRejected` was a plain
   `useState` read once at mount; the flag is written from INSIDE this same component's own
@@ -28803,7 +28804,7 @@ Both arms of the original report are closed. Nothing here needed `.env.local` in
 `integrations-section.test.tsx` cover both halves without a real deployment.
 
 ★★ **Added after the closure (branch review BR1 of `fix/defect-batch-6`; each still true):**
-- **The internal hint codes no longer reach users.** The distinct-hint split in fix round 1 (I2)
+- **The internal hint codes no longer reach users.** The distinct-hint split
   made attribution precise, but every surface that still displayed `err.message` directly then
   showed `turso-token-rejected` / `turso-env-token-rejected` verbatim. `4e1df31a7` translates them at
   every raw-message display site through `tursoErrorMessageKey` (`storage-error.ts`). The sites are
@@ -29896,7 +29897,7 @@ previous worst case, not a new one. Behaviour is exactly as designed and no cap 
 the unimplemented batch ceiling is more reachable than it was the day before.
 
 ★★ A larger unbounded batch quantity sits beside it and is NOT what this entry is about:
-`MAX_BASE64_CHARS` binds only below the root (§ the ingest-breadth fix round), so a multi-file
+`MAX_BASE64_CHARS` binds only below the root (see the ingest-breadth fix), so a multi-file
 import of N large PDFs carries N x up to 20 MB of base64 with no ceiling at any level. Recorded
 here because a reader closing this entry should not conclude the batch question is settled.
 
@@ -29999,9 +30000,9 @@ three producers — the guardrail insight, global-search's resource hits and Rec
 (`global-search-box.tsx`'s `onSelect`), and an item-bearing `#resources/<id>` hash — now
 all land on Directory with the row opened, where before they opened only the Resources report tab.
 
-★★ **KNOWN RESIDUAL, not guarded (corrected 2026-09-14, final fix round):** unlike stakeholders/raid,
+★★ **KNOWN RESIDUAL, not guarded (corrected 2026-09-14):** unlike stakeholders/raid,
 a repeated deep link to a resource whose editor is already open is not skipped. A skip-if-already-open
-guard was added in fix round 1 and removed on re-review because it could not fire in the wired app:
+guard was added in a first fix and removed on re-review because it could not fire in the wired app:
 every producer above tags the request "resources", `requestOpen` flips `activeTab` through
 "resources" first, and `workspace-section.tsx` renders `ResourceDirectory` only while
 `activeTab === "directory"`, so a repeat request unmounts and remounts a fresh
@@ -30011,7 +30012,7 @@ row from `resources`, and the editor stays open on the same resource. `ResourceE
 draft only when its `resource` prop changes identity (its `prevResource` reconcile), so **unsaved
 edits are kept when that row is the same reference the editor already holds, and are lost only if
 the stored row was replaced while the editor was open** (for example by a concurrent write), because
-the handler then passes the new reference. The fix-round-2 wording here said a repeat "can discard
+the handler then passes the new reference. An earlier wording here said a repeat "can discard
 unsaved edits" in general, "including via browser back/forward"; the first overstated the common
 case, and back/forward was never measured. The KNOWN RESIDUAL test below observes the edit handler
 only, not the editor's draft. A working guard needs the editor state, `editingResource`, which is
@@ -30027,10 +30028,10 @@ the deep link arrived on is rewritten the same way.
 Pinned by `ResourceDirectory deep-link open` (`resource-directory.test.tsx`: opens + clears on a
 match, honours a request armed before mount, consumes an unknown id silently) and `ResourcesReportPanel
 deep-link redirect` (`resources-report.test.tsx`: redirects to Directory, stays put when `embedded`).
-The fix-round-1 addition `§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirectory
+The addition `§362 deep-link seam: ResourcesReportPanel redirect -> ResourceDirectory
 consumer` (`resource-directory.test.tsx`) mounts BOTH panels behind the same `activeTab` gate
 `workspace-section.tsx` uses and asserts the editor opens end to end, so the redirect and the consumer
-are pinned together and not just each in isolation; fix round 2 adds one more case to that same
+are pinned together and not just each in isolation; a later fix adds one more case to that same
 describe block — "KNOWN RESIDUAL: re-fires the edit handler for a repeated deep-link to the resource
 whose editor is already open" — which fires the identical id twice through that same real
 `resources`→`directory` hop and asserts the edit handler is called TWICE, pinning today's behaviour as
@@ -30157,7 +30158,7 @@ closes stays unverified by this suite.
 All three now enforce `> 0 && <= MAX_HOURS_PER_DAY`, which admits `0.5`. The field's `min={1}` was
 pre-existing, decorative (it blocks nothing) and narrower than the real window.
 
-★ Deliberately NOT narrowed to `>= 1` in the fix round: doing so at the writer alone would
+★ Deliberately NOT narrowed to `>= 1` in the fix: doing so at the writer alone would
 reintroduce exactly the writer/loader divergence that fix removed. Moving all three to `>= 1`
 together is a coherent three-site change if a sub-hour cap is judged meaningless; leaving the
 attribute alone is the other coherent answer. What is not coherent is the current split, where the
@@ -32693,7 +32694,7 @@ its own output is not an independent pass. "What would close the gap" below stan
 
 ★ No total for converted keys is quoted anywhere in this entry. The keys live in `src/app/i18n.ts`,
 this entry is a claim ABOUT that file, and any number written here restales on the next commit that
-touches it — inside its own fix round, which is the failure this register records most often. The
+touches it — inside its own fixes, which is the failure this register records most often. The
 live measurement is the pairing test in `src/app/i18n-plural.test.ts`, which scans the dictionary
 for `…One` keys itself and fails on a stranded singular.
 
@@ -32795,7 +32796,7 @@ navigation advice pointed at "the two `const key = activityMessageKey(...)` line
 collapsed them to one. **When you close an entry, re-read the whole entry — the closing sentence is
 the smallest part of the edit.**
 ★★ **The user-visible half is `activity-log-panel.tsx`** — `renderActivityEntry` renders on a
-hardcoded `"en-US"` and cannot produce a German defect at all. An earlier brief named it as the
+hardcoded `"en-US"` and cannot produce a German defect at all. An earlier draft named it as the
 user-visible renderer; a reader who followed that landed in the one file where the DE half of the
 class is unreachable by construction. That trap is still worth knowing, because both paths now share
 `activityMessage` and only one of them can be wrong in German.
@@ -33488,7 +33489,7 @@ Pinned by `npx vitest run src/app/inline-ai-edit/emails-write-parity.test.ts src
 _The Status line below, as written 2026-09-13, is superseded by the one above; preserved as the dated record._
 
 **Status:** CLOSED 2026-09-13 — stopped at WRITE, never on load. The resource editor and
-`updateResource` share one exclusion, `findNewDelimiterUnsafeEmail` (`sanitize-core.ts`, fix round 2):
+`updateResource` share one exclusion, `findNewDelimiterUnsafeEmail` (`sanitize-core.ts`):
 both refuse an `emails` ARRAY only for a member that is BOTH unsafe AND not already present, trimmed,
 in the resource's stored `emails` (an array is never split, so re-sending an address the row already
 holds is harmless) — the editor compares against the resource as of when the modal opened, never live
@@ -33589,7 +33590,7 @@ _(Superseded 2026-09-14 — the three rules below disagreed with each other; see
 **CLOSED 2026-09-13 — stop at write.** `resource.emails` keeps its joined transport and
 `sanitizeEmailList` and every load/decode path are unchanged. Instead, no write boundary accepts an
 address the transport would tear: `isDelimiterSafeEmail` (`sanitize-core.ts`) refuses a trimmed value
-holding `,` or `;`, with no format validation beyond that. **Fix round 2 controller ruling:** the
+holding `,` or `;`, with no format validation beyond that. **Second decision:** the
 resource editor blocks save with `resourceErrorEmailDelimiter` only for an array member that is BOTH
 unsafe AND not already present, trimmed, in the resource as of when the modal opened (never live
 workspace state) — a NEW resource has no stored list, so every member counts as new there too. The
@@ -33597,7 +33598,7 @@ shared helper `findNewDelimiterUnsafeEmail` (`sanitize-core.ts`) holds this rule
 and `updateResource` below, so the two write boundaries cannot drift. `createResource` in
 `use-chat-dispatcher.ts` throws a tool error naming
 `emails` when any array member is unsafe — there is no stored row yet, so every member counts as new.
-**Fix round 1 controller ruling:** `updateResource` throws the same error for an ARRAY only when the
+**First decision:** `updateResource` throws the same error for an ARRAY only when the
 unsafe member is NOT already present, trimmed, in the stored list — an array is stored VERBATIM, never
 split, so re-sending an address the row already holds is harmless, and only a genuinely new unsafe
 member can tear anything; without this exclusion a resource already carrying a legacy comma address
@@ -33608,7 +33609,7 @@ refused wholesale rather than diffed — this includes a string that DROPS that 
 list entirely (e.g. `""`); fixing such a legacy row needs an array-typed call. `describeEntityCalls`
 refuses the `emails` FIELD when a CHANGED incoming array carries such an address, so the patch never
 holds it and the call's other fields apply — the `emailFormatFields` shape — and, by the same
-controller ruling, refuses a CHANGED STRING while the stored list already holds an unsafe address. ★★
+decision, refuses a CHANGED STRING while the stored list already holds an unsafe address. ★★
 The plan guard is keyed on the INCOMING value, not the stored list, deliberately: a stored comma
 address is only torn when the call carries it back, and a proposed list that drops it shows the removal
 on the card instead — the existing `before === after` skip already handles an unchanged echo, so the
@@ -35040,7 +35041,7 @@ was in NEITHER, so the sweep passed over it in silence and reported `Tests 37 pa
 defect was live. **A green sweep bounds what it looked at, never what exists.** §435 was closed on
 that green, and its "the sweep is GREEN on its own terms" read as completeness when it was only
 coverage. Found by a cold reviewer extending the type-minus-axis subtraction ONE ENTITY BEYOND its
-brief — the only reason it surfaced at all.
+scope — the only reason it surfaced at all.
 
 Measured, seeding the field on the otherwise untouched tree — EXIT=1, `Tests 1 failed | 36 passed
 (37)`, three violations:
@@ -35145,7 +35146,7 @@ that hides it — behind a create card with no vocabulary for the field. `utiliz
 `raci` and `resourceId` on the same shape.
 
 ★★ NOT A REGRESSION from the §435/§437 work, and it must not be read as one: it predates both, and
-those guards were always scoped to the UPDATE path. What the fix round DID do is widen the asymmetry
+those guards were always scoped to the UPDATE path. What the fix DID do is widen the asymmetry
 — every field guarded on update is now a field that create still accepts.
 
 ★★★ It needs its own slice rather than a one-line fix, and the reason is the detector, not the
@@ -36754,7 +36755,7 @@ and compile, because the parameter type was `Pick<Workspace, ExportWorkspaceKey>
 ten fields that are optional on `Workspace` optional — and `action-menus-sweep.test.ts` checks only
 that the literal goes through the builder, not what it holds. The
 parameter is now `ExportWorkspaceSlices` (`{ [K in ExportWorkspaceKey]-?: Workspace[K] }`): every key
-required, `undefined` still allowed where the `Workspace` field is optional. The brief's
+required, `undefined` still allowed where the `Workspace` field is optional. The first sketch's
 `Workspace[K] | undefined` was not used — it would also admit `undefined` for the nine required
 slices, which `buildExportWorkspace` then returns as a `Workspace` (TS2322 on each). Removing
 `insights,` from `handleExportCurrentProject`'s literal now fails `npx tsc --noEmit` with TS2345
@@ -37147,7 +37148,7 @@ full size; Cancel writes nothing and shows no error; a slow save (more than 60 s
 error. The same run confirmed the two UI fixes the first packaged check had also found (the header stays
 readable in a non-maximised window, the Projects card uses the width, and the Export project menu is not
 clipped). The production BROWSER path was not part of the owner's run; its evidence is the branch's
-measurement of a production build in Chromium, recorded in the task-8 report: before the fix, two CSP
+measurement of a production build in Chromium, recorded for this entry: before the fix, two CSP
 violations, Times New Roman and `window.print` never called; after it, no violations, the sans stack, and
 `window.print` called once.
 
@@ -37242,7 +37243,7 @@ own relabelled `"EUR"` literal.
 Deferred rather than folded into the currency-boundary slice because removing the field is a schema
 change: the `snapshot` table's DDL, its column list, the encode and the decode. ★ That is ONE table,
 not the six workspace write paths — `snapshot` is deliberately out of `TABLE_NAMES` (it is not
-workspace data), so the usual six-path rule does not apply here. A brief for this entry claimed six;
+workspace data), so the usual six-path rule does not apply here. An earlier draft of this entry claimed six;
 it is wrong, and the wrong version would have scoped the fix several times too large.
 
 Risk: a stored-and-never-read field is exactly what a future reader re-wires, reintroducing the
@@ -38282,7 +38283,7 @@ class as `outlookEventId`'s write-through race and is not specific to this fix.
 
 ## 487. The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN
 
-**Status:** **Update 2026-10-20 (open-issue audit, `origin/main` 362d2a1d0):** still open, and the signing question is unchanged. The "2026-09-24 (gap found while verifying the above)" paragraph below is resolved: §741 closed 2026-10-20. Its PR #826 made `e2e/desktop-smoke.spec.ts` launch the packaged app with `AIPM_UPDATER_DRY_RUN=1` in place of `AIPM_DISABLE_UPDATE_CHECK` (`grep -n "AIPM_UPDATER_DRY_RUN" e2e/desktop-smoke.spec.ts`), so the smoke test loads and wires the real electron-updater and fails on either fallback line. PR #829 recorded the owner's passing packaged run. The smoke test runs in no CI job. **Earlier:** **Update 2026-10-16 (owner decision):** the unknown-publisher warning is accepted for the pilot phase. No certificate is bought now; the entry stays open to revisit before a wider rollout. Meanwhile the rollout guide walks users through both warnings (`grep -n "Keep anyway" docs/desktop-rollout.md`). The updater smoke-test gap recorded below is now its own entry, §741.
+**Status:** **Update 2026-11-06 (signing pipeline, not yet switched on):** a code-signing pipeline now exists but is switched off: the release workflow's signing jobs (`sign-app`, `sign-installer`) have SignPath Foundation sign the setup (and, with `SIGNPATH_SIGN_APP_EXE`, the app's own executables) once the owner sets `SIGNPATH_ENABLED` (`grep -n "SIGNPATH_ENABLED" .github/workflows/release.yml`), a signed build refuses any update not signed by SignPath Foundation (`desktop/src/update-signature.ts`), and the README's "Code signing policy" and the RUNBOOK's one-time setup checklist describe it. Nothing is signed until then, so this entry stays open; it closes with the first release whose notes carry the SignPath line. The unsigned uninstaller is [§793](#793-the-installers-uninstaller-is-not-code-signed). The "Sign in `.github/workflows/release.yml`'s `build` job" step below is superseded: signing happens in the `sign` job, and `signExecutable: false` stays, since electron-builder itself never signs. **Earlier:** **Update 2026-10-20 (open-issue audit, `origin/main` 362d2a1d0):** still open, and the signing question is unchanged. The "2026-09-24 (gap found while verifying the above)" paragraph below is resolved: §741 closed 2026-10-20. Its PR #826 made `e2e/desktop-smoke.spec.ts` launch the packaged app with `AIPM_UPDATER_DRY_RUN=1` in place of `AIPM_DISABLE_UPDATE_CHECK` (`grep -n "AIPM_UPDATER_DRY_RUN" e2e/desktop-smoke.spec.ts`), so the smoke test loads and wires the real electron-updater and fails on either fallback line. PR #829 recorded the owner's passing packaged run. The smoke test runs in no CI job. **Earlier:** **Update 2026-10-16 (owner decision):** the unknown-publisher warning is accepted for the pilot phase. No certificate is bought now; the entry stays open to revisit before a wider rollout. Meanwhile the rollout guide walks users through both warnings (`grep -n "Keep anyway" docs/desktop-rollout.md`). The updater smoke-test gap recorded below is now its own entry, §741.
 
 **Earlier:** **Update 2026-10-13 (pilot onboarding):** seen live: a pilot user had to choose **Keep** on the browser's download warning twice before Windows' box appeared, and asked whether the file was safe. `docs/desktop-rollout.md` then named only the Windows box; §713 (closed 2026-10-14) added the browser's **Keep** and **Keep anyway** steps (`grep -n "Keep anyway" docs/desktop-rollout.md`), so the guide now covers both warnings — signing is what would remove them. **Update 2026-10-12 (§138 P2 probe):** still open; the job name is stale. Sign in `release.yml`'s `build` job (a GitHub Actions secret), not a `desktop-package-tag` job (`grep -rn desktop-package-tag .github scripts` → nothing). Since f12056ea1, release.yml's "The packaged app actually contains electron-updater" step fails a release whose app.asar lacks the module, which covers MISSING only; a present-but-broken module or a wiring failure is still unchecked.
 
@@ -38662,9 +38663,9 @@ Size M — one agreed formula, then the Budget panel, Budget report and Dashboar
 
 Final review (2026-10-12) fixed five gaps: a workbook's number cells read with a dot and never vote on the column's style (`SheetGrid.numbers`); `Mrz`, `Jän` and `Jänner` are months, and a number column whose header is not a period is listed (`IgnoredColumn`); on the Claude route the PERSON must be on the cited row and an email the row does not hold is stripped, so a model-supplied email cannot route hours to another resource; a reply cut off at the output budget is refused (`runForcedToolCallWithStop`, output budget 16,000 tokens, `MAX_CLAUDE_IMPORT_CELLS` lowered from 20,000 to 4,000); and month names and weeks without a year are read in `ColumnMapping.year`, which starts at the bucket's start year and is editable on the mapping step. Measured after those fixes with `npx vitest run --maxWorkers=1 src/app/budget-import src/app/forecast-import-call.test.ts src/app/use-forecast-import.test.ts src/app/forecast-import-modal.test.tsx src/app/budget-panel.test.tsx src/app/xlsx-extract.test.ts src/app/attachment-ingest.test.ts src/app/ai-forced-call.test.ts src/app/operating-guide-targets.test.ts src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-plural.test.ts src/app/i18n-plural-escape.test.ts src/app/i18n-cpi-labels.test.ts src/app/raci-suggest-call.test.ts src/app/wbs-plan-call.test.ts src/app/insights/recommend-call.test.ts`: 23 files, 717 passed.
 
-Fix wave 2 (2026-10-13) fixed how a period is assigned to a cell, in ONE module (`period-assign.ts`) the hand route, detection and the Claude check all read: a wide header row is read as a run (year rollover for `Dez | Jan`, fiscal `Jul … Jun` and `KW52 | KW01`; dates a week apart read as ISO weeks), so Monday-date headers no longer collapse into months and a two-year header no longer sums 2027 into 2026; `detectLayout` runs every pass without the default year first; a long sheet's year column (`ColumnMapping.yearCol`) supplies the year; two cells of one sheet row on the same person and period are `collisions` that block Apply (`same-row-period`), and rows summed from different rows are listed as "Combined rows", not under "Not imported"; the preview shows the year it assumed (`assumedYear`), and one year value feeds both routes. On the Claude route the period must be the nearest header above the cited cell (`checkSource`, `source-evidence.ts`), the person cell is excluded by position, the cell is read by the sheet's number rule, and `findUnreadCells` lists cells the reply skipped. Also: every unread number column is reported in either layout, quarter and fiscal-year totals are total headers, the person column prefers a Name-like header, "Last, First" names match, archived resources are neither matched nor offered, a cell on a line shared with people the sheet does not list names them (`othersOnLine`), and `,5` reads 0.5 in comma style. Round 2 of the wave: a CSV stops at `MAX_XLSX_SHEET_CELLS` and is marked as cut (`readDelimited`); a long sheet's period column of dates a week apart is read as ISO weeks (`isWeekSpacedColumn`, over its distinct dates, sorted); and year-less header cells before the first labelled one count back from it (`Nov | Dez | Jan 2027` is Nov and Dez 2026). Measured with `npx vitest run --maxWorkers=1 src/app/budget-import src/app/forecast-import-call.test.ts src/app/use-forecast-import.test.ts src/app/forecast-import-modal.test.tsx src/app/budget-panel.test.tsx src/app/xlsx-extract.test.ts src/app/attachment-ingest.test.ts src/app/ai-forced-call.test.ts src/app/operating-guide-targets.test.ts src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-plural.test.ts src/app/i18n-plural-escape.test.ts src/app/i18n-cpi-labels.test.ts`: 23 files, 797 passed (787 before round 2). Round 3 (re-review of the wave): `detectLayout` runs its passes in a fixed order (wide without, then with, the default year; long and two-period wide without it; then both with it), because the wave's year-less-first order read a year-less wide sheet with a date column as long; date columns finer than the period (bi-weekly, semi-monthly) sum into their month (`subPeriods`) instead of hitting the same-row blocker; a year-less run rolls on only at a step back of half a year or more, counts back across months and weeks, and a header's lone date or serial anchors nothing; the near-cell search stops at the header; unread reporting skips period-shaped cells and lists rows the reply skipped entirely, with their person; ID and year columns are never listed as unread; data rows above the header row are reported (`rowsAboveHeader`); and per-column facts are cached (`columnFacts`). Measured with the same command plus `src/app/budget-import/source-evidence.test.ts` (inside `src/app/budget-import`): 24 files, 822 passed. Round 4 (re-review 3): the near-cell search is no longer bounded by text in the grid — the round-3 bound rejected every valid Claude claim under a `-`, `Urlaub`, a `Std` unit row or a `Plan | Ist` sub-header, and brought back the same-row blocker for sprint dates under a placeholder; it now takes the nearest row whose run gives the column a period, passing over a title row's lone date. Cells left of the first labelled header count back always back in time (`Mai | Jan 2027` is May 2026); dates beside month labels never anchor their year (`40100 | 40200 | Jan`); `rowsAboveHeader` counts only a stacked block's rows, not metadata; a workbook's serial date column is not an ignored number column; and an unread row names its person from the accepted rows' person column. Measured with the same command: 24 files, 844 passed. Round 5 (re-review 4): `detectLayout`'s round-3 pass order is back — round 4 had moved both two-period wide passes ahead of the long passes, which read long workbooks with two date columns (`Von | Bis` as serials, a month column stored as dates beside another date column, a date-range title row) wide from a data row, their serials as hours; and a run of exactly two dates more than 92 days apart (`MAX_TWO_DATE_PERIOD_GAP_DAYS`: `Zeitraum | 01.01.2026 | 31.12.2026`) is a range, not two period columns, so on the Claude route it no longer vouches for December under a long sheet. Measured with the same command: 24 files, 856 passed. Final review 2 (2026-10-13) fixed four Important gaps and three minors. On the Claude route a header row for the cited row's person column (`Name | Monat | Stunden`: no number cells, two or more text cells, one in the person column, and a person header there or a period or hours header in another cell) between a period row and the cell stops the period-header search, so a quarter title range (`Zeitraum | 01.01.2026 | 31.03.2026`, 89 days), a `von | … | bis | …` pair or a three-date metadata row no longer vouches for a wrong month above a long sheet (I1; `headerDateOf` and `findUnreadCells` stop the same way). On the hand route a long sheet's period column ranks a month/period/`Zeitraum`/week header, then period-label cells, above a `Start date` column (I2); an ID, row-number or year column is never the hours, `Aufwand` and `Effort` are hours headers, and of several unnamed number columns the rightmost is taken (I3); and a period-headed column is never a long sheet's hours, so `Name | Start | Jan 2026 | Feb 2026` and the year-less `Name | Start | Jan | Feb` read two-period wide (I4, closing residue (13)). Detection samples 200 data rows per candidate header (M1), Apply's refusal names a same-row collision or nothing left to change (M3), and a CSV's delimiter is decided over the first five non-blank lines, tab included (M6). Measured with `npx vitest run src/app/budget-import src/app/ai-forced-call.test.ts src/app/budget-panel.test.tsx src/app/forecast-import-call.test.ts src/app/forecast-import-modal.test.tsx src/app/operating-guide-targets.test.ts src/app/use-forecast-import.test.ts src/app/xlsx-extract.test.ts src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-plural.test.ts src/app/i18n-plural-escape.test.ts src/app/i18n-cpi-labels.test.ts --maxWorkers=1`: 23 files, 856 passed after round 2 (the header row also needs a recognised label, so a person row of placeholders alone no longer stops the search). 15 distinct mutants (I1 ×4, I2 ×2, I3 ×4, I4, M3, M6 ×3), all killed by assertion; two of them (a date or start word back in the period-header regex, the ID exclusion dropped) survived until they got tests of their own. Fix 7 (2026-10-13, the owner's decision after three rounds of column-guessing rules each imported wrong hours): ask instead of guess. The rightmost-hours pick of I3 (it took `Ist`, `Actual`, `Summe` or `Betrag` over `Plan`), the period-label rank of I2 (it summed a `Datum` sheet into its `Eintritt` month) and the Claude route's header-row stop of I1 (it fired on two-row headers and placeholder rows) were removed. `detectLayout` reports `ambiguous` hours or period columns — not exactly one candidate headed by an hours word, or by a period word as a whole word — and the hand route then opens on the mapping step and refuses Apply until each field is confirmed, by choosing its column or by "These columns are right". On the Claude route a claim whose row and column header name different periods is refused as `period-conflict`. Detection skips blank rows instead of counting them toward its sample. Measured with the same command: 23 files, 919 passed. 13 distinct mutants (the gate in the hook and in the modal, an edit of another field confirming, the hours rule without its named-header test, the period rule off and with substring words, the leftmost pick, the conflict rule off, its labelled-column exemption off, the exemption's numbers test and its period-word test dropped, the sub-period guard off, blank rows counted in the sample), all killed by assertion. Fix 7 round 2 (re-review rr7, controller rulings): the layout control no longer confirms an ambiguous column (Wide, then Long, rebuilt the questioned preselection from the defaults and cleared the gate, I2); on the Claude route, where the hand route's own detection of the sheet is clear and reads the cited cell (or, on a long sheet, its row), the claim must name the period the hand route reads there, else `period-conflict` naming it (`handReadingOf`, once per grid and default year) — a key/value title row such as `Erstellt von | Max | 01.03.2026` had let a wrong month through the evidence exemption and summed Stunden + Ist to 75 (I1), and the right months on such sheets are now accepted instead of refused (M1); the conflict reasons are lower case and name periods by label (M2); and a header naming actuals (`Ist-Stunden`, `Actual hours`, `Gebucht (Std)`) is no named hours column, so `Forecast | Ist-Stunden` asks. Measured with the same command: 23 files, 944 passed. 8 more distinct mutants (the layout confirming, the hand-route check off, its cache keyed without the year, its long-row lookup off, the long-row collision off, an ambiguous detection read as clear, the actuals rule off, the period labels off), all killed by assertion.
+Fix wave 2 (2026-10-13) fixed how a period is assigned to a cell, in ONE module (`period-assign.ts`) the hand route, detection and the Claude check all read: a wide header row is read as a run (year rollover for `Dez | Jan`, fiscal `Jul … Jun` and `KW52 | KW01`; dates a week apart read as ISO weeks), so Monday-date headers no longer collapse into months and a two-year header no longer sums 2027 into 2026; `detectLayout` runs every pass without the default year first; a long sheet's year column (`ColumnMapping.yearCol`) supplies the year; two cells of one sheet row on the same person and period are `collisions` that block Apply (`same-row-period`), and rows summed from different rows are listed as "Combined rows", not under "Not imported"; the preview shows the year it assumed (`assumedYear`), and one year value feeds both routes. On the Claude route the period must be the nearest header above the cited cell (`checkSource`, `source-evidence.ts`), the person cell is excluded by position, the cell is read by the sheet's number rule, and `findUnreadCells` lists cells the reply skipped. Also: every unread number column is reported in either layout, quarter and fiscal-year totals are total headers, the person column prefers a Name-like header, "Last, First" names match, archived resources are neither matched nor offered, a cell on a line shared with people the sheet does not list names them (`othersOnLine`), and `,5` reads 0.5 in comma style. Round 2 of the wave: a CSV stops at `MAX_XLSX_SHEET_CELLS` and is marked as cut (`readDelimited`); a long sheet's period column of dates a week apart is read as ISO weeks (`isWeekSpacedColumn`, over its distinct dates, sorted); and year-less header cells before the first labelled one count back from it (`Nov | Dez | Jan 2027` is Nov and Dez 2026). Measured with `npx vitest run --maxWorkers=1 src/app/budget-import src/app/forecast-import-call.test.ts src/app/use-forecast-import.test.ts src/app/forecast-import-modal.test.tsx src/app/budget-panel.test.tsx src/app/xlsx-extract.test.ts src/app/attachment-ingest.test.ts src/app/ai-forced-call.test.ts src/app/operating-guide-targets.test.ts src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-plural.test.ts src/app/i18n-plural-escape.test.ts src/app/i18n-cpi-labels.test.ts`: 23 files, 797 passed (787 before round 2). Round 3 (re-review of the wave): `detectLayout` runs its passes in a fixed order (wide without, then with, the default year; long and two-period wide without it; then both with it), because the wave's year-less-first order read a year-less wide sheet with a date column as long; date columns finer than the period (bi-weekly, semi-monthly) sum into their month (`subPeriods`) instead of hitting the same-row blocker; a year-less run rolls on only at a step back of half a year or more, counts back across months and weeks, and a header's lone date or serial anchors nothing; the near-cell search stops at the header; unread reporting skips period-shaped cells and lists rows the reply skipped entirely, with their person; ID and year columns are never listed as unread; data rows above the header row are reported (`rowsAboveHeader`); and per-column facts are cached (`columnFacts`). Measured with the same command plus `src/app/budget-import/source-evidence.test.ts` (inside `src/app/budget-import`): 24 files, 822 passed. Round 4 (re-review 3): the near-cell search is no longer bounded by text in the grid — the round-3 bound rejected every valid Claude claim under a `-`, `Urlaub`, a `Std` unit row or a `Plan | Ist` sub-header, and brought back the same-row blocker for sprint dates under a placeholder; it now takes the nearest row whose run gives the column a period, passing over a title row's lone date. Cells left of the first labelled header count back always back in time (`Mai | Jan 2027` is May 2026); dates beside month labels never anchor their year (`40100 | 40200 | Jan`); `rowsAboveHeader` counts only a stacked block's rows, not metadata; a workbook's serial date column is not an ignored number column; and an unread row names its person from the accepted rows' person column. Measured with the same command: 24 files, 844 passed. Round 5 (re-review 4): `detectLayout`'s round-3 pass order is back — round 4 had moved both two-period wide passes ahead of the long passes, which read long workbooks with two date columns (`Von | Bis` as serials, a month column stored as dates beside another date column, a date-range title row) wide from a data row, their serials as hours; and a run of exactly two dates more than 92 days apart (`MAX_TWO_DATE_PERIOD_GAP_DAYS`: `Zeitraum | 01.01.2026 | 31.12.2026`) is a range, not two period columns, so on the Claude route it no longer vouches for December under a long sheet. Measured with the same command: 24 files, 856 passed. Final review 2 (2026-10-13) fixed four Important gaps and three minors. On the Claude route a header row for the cited row's person column (`Name | Monat | Stunden`: no number cells, two or more text cells, one in the person column, and a person header there or a period or hours header in another cell) between a period row and the cell stops the period-header search, so a quarter title range (`Zeitraum | 01.01.2026 | 31.03.2026`, 89 days), a `von | … | bis | …` pair or a three-date metadata row no longer vouches for a wrong month above a long sheet (I1; `headerDateOf` and `findUnreadCells` stop the same way). On the hand route a long sheet's period column ranks a month/period/`Zeitraum`/week header, then period-label cells, above a `Start date` column (I2); an ID, row-number or year column is never the hours, `Aufwand` and `Effort` are hours headers, and of several unnamed number columns the rightmost is taken (I3); and a period-headed column is never a long sheet's hours, so `Name | Start | Jan 2026 | Feb 2026` and the year-less `Name | Start | Jan | Feb` read two-period wide (I4, closing residue (13)). Detection samples 200 data rows per candidate header (M1), Apply's refusal names a same-row collision or nothing left to change (M3), and a CSV's delimiter is decided over the first five non-blank lines, tab included (M6). Measured with `npx vitest run src/app/budget-import src/app/ai-forced-call.test.ts src/app/budget-panel.test.tsx src/app/forecast-import-call.test.ts src/app/forecast-import-modal.test.tsx src/app/operating-guide-targets.test.ts src/app/use-forecast-import.test.ts src/app/xlsx-extract.test.ts src/app/i18n.test.ts src/app/i18n-encoding.test.ts src/app/i18n-plural.test.ts src/app/i18n-plural-escape.test.ts src/app/i18n-cpi-labels.test.ts --maxWorkers=1`: 23 files, 856 passed after round 2 (the header row also needs a recognised label, so a person row of placeholders alone no longer stops the search). 15 distinct mutants (I1 ×4, I2 ×2, I3 ×4, I4, M3, M6 ×3), all killed by assertion; two of them (a date or start word back in the period-header regex, the ID exclusion dropped) survived until they got tests of their own. Fix 7 (2026-10-13, the owner's decision after three rounds of column-guessing rules each imported wrong hours): ask instead of guess. The rightmost-hours pick of I3 (it took `Ist`, `Actual`, `Summe` or `Betrag` over `Plan`), the period-label rank of I2 (it summed a `Datum` sheet into its `Eintritt` month) and the Claude route's header-row stop of I1 (it fired on two-row headers and placeholder rows) were removed. `detectLayout` reports `ambiguous` hours or period columns — not exactly one candidate headed by an hours word, or by a period word as a whole word — and the hand route then opens on the mapping step and refuses Apply until each field is confirmed, by choosing its column or by "These columns are right". On the Claude route a claim whose row and column header name different periods is refused as `period-conflict`. Detection skips blank rows instead of counting them toward its sample. Measured with the same command: 23 files, 919 passed. 13 distinct mutants (the gate in the hook and in the modal, an edit of another field confirming, the hours rule without its named-header test, the period rule off and with substring words, the leftmost pick, the conflict rule off, its labelled-column exemption off, the exemption's numbers test and its period-word test dropped, the sub-period guard off, blank rows counted in the sample), all killed by assertion. Fix 7 round 2 (re-review): the layout control no longer confirms an ambiguous column (Wide, then Long, rebuilt the questioned preselection from the defaults and cleared the gate, I2); on the Claude route, where the hand route's own detection of the sheet is clear and reads the cited cell (or, on a long sheet, its row), the claim must name the period the hand route reads there, else `period-conflict` naming it (`handReadingOf`, once per grid and default year) — a key/value title row such as `Erstellt von | Max | 01.03.2026` had let a wrong month through the evidence exemption and summed Stunden + Ist to 75 (I1), and the right months on such sheets are now accepted instead of refused (M1); the conflict reasons are lower case and name periods by label (M2); and a header naming actuals (`Ist-Stunden`, `Actual hours`, `Gebucht (Std)`) is no named hours column, so `Forecast | Ist-Stunden` asks. Measured with the same command: 23 files, 944 passed. 8 more distinct mutants (the layout confirming, the hand-route check off, its cache keyed without the year, its long-row lookup off, the long-row collision off, an ambiguous detection read as clear, the actuals rule off, the period labels off), all killed by assertion.
 
-Known residue, accepted (not exhaustive — other deferred minors are in the branch's review record): (1) no e2e or axe run covers the modal — the Budget view is in `A11Y_VIEWS`, but the scan never opens the modal and no e2e spec drives an import; its accessible names are pinned only by `forecast-import-modal.test.tsx`. (2) The hook reads settings through its own `useSettings()` instance, so an Anthropic key sealed behind a passphrase and unlocked elsewhere stays blank there and "Ask Claude" shows disabled until the key is unlocked in that instance — the same pre-existing gap as `raci-panel.tsx`; fixing it needs a settings prop path into the budget panel. (3) A CSV column that mixes conventions reads by the column's style: an English thousands mark (`1,234`) flips it to German, where a dot is read only as a thousands mark in groups of three, so a stray `2.5` is dropped as not a number (it read 25 until the final review). A workbook (`SheetGrid.numbers` "dot") is exempt: Excel stores every number cell with a dot, so those cells are read with a dot and never vote on the style. (4) Total labels are a fixed word list (Total, Subtotal, Grand total, Sum, Summe, Zwischensumme, Gesamt, Gesamtsumme, Σ); any other spelling imports as a person, visible in the preview as unmatched. (5) One unresolved entry per name can hide a namesake row's different failure, and one override then routes both. (6) `forecast-plan.ts` is 499 lines by the `size:check` count (429 before final review 3 added routing by line, M3, the not-matched note of fix 10b and its widening by final review 4, M2; reproduce: `node -e "console.log(require('fs').readFileSync('src/app/budget-import/forecast-plan.ts','utf8').split('\n').length)"`); the next growth should split matching from apply. (7) The spec's source step has a target-bucket picker (preselected); the modal instead imports into the bucket whose card opened it, with no picker. (8) Deferred by ruling: namesakes with different emails merge into one unresolved entry; E-notation numbers (`1E2`, `7.4999999999999997E-2`) read as null in every decimal style and in workbooks too, a visible `bad-number` drop (tightened by final review 3, M6); a workbook TEXT cell `1.234` reads 1.234, since the grid cannot tell text cells from number cells. (9) Stacked year blocks with two or more people per block keep the first block's header (its period columns are numeric enough), so on the hand route the later block's rows sum into the first block's year, shown only under "Combined rows" — narrowed by fix 9 OOS-c: the second header row now makes detection ask (the `header` ambiguity), so the hand route waits for the user; only a user who confirms header row 1 still gets the sum — closed by round 5 for blocks under the same person label: the second block's header is a repeated header, the reading stops before it; residue (28) keeps a block whose header names the person column differently. (10) A long workbook with three serial date columns (`Start | Ende | Datum | Stunden`) is read wide from a data row (its dates as period headers), and now asks the `header` question before anything is applied, every scanned row that reads as a header among the candidates; the date cells it would read as hours exceed 744 h and are rejected, so nothing is written (re-measured 2026-10-13 on a five-person workbook: header row 5 preselected, candidates rows 1–5, three cells read, none accepted). (11) A year-less long sheet whose period column sits beside another column of month names (`Name | Phase | Wann | Stunden` with `Mai` under Phase and `Jan` under Wann) takes the first month column as the period; the labelled variant reads correctly. (12) Two numeric code cells beside year-less month labels no longer anchor the months' year, but still read as their own dates (`40100` is 2009-10), so a code column holding numbers would show as hours outside the bucket's periods. (14) A two-column date header more than 92 days apart (half-year) is read as a range, not periods. (15) Dates beside year-less month labels no longer roll the labels' year: `01.11.2026 | 01.12.2026 | Jan | Feb` reads Jan and Feb as 2026, not 2027 (the assumed-year notice is shown). (16) Data rows above the header row with no period header of their own are not counted in `rowsAboveHeader` (`Ann Lee | 10 | 20 | 30` directly above the header gives 0). (19) The mapping step's header-row select stops at row 50, and a wide sheet's period columns are derived from the header row and cannot be picked or unpicked one by one. (21) An hours column headed by a bare month or week (`Mai`, `W1`) is never a long sheet's hours (final review I4), so such a sheet detects as unknown and opens on the mapping step — visible, and the column can be set by hand (rr6 N6). (24) Either route (widened by fix 8): sprint-date sheets with a `Start` date column now collide and block Apply — date columns finer than the period on a row that also holds any date cell of its own (a `Start` or `Eintritt` column, labelled or not) are not summed as sub-periods, because a metadata row's January dates over `Stunden | Ist` look the same and once summed the two — also where detection takes such a metadata row for a clear wide header. Before fix 8 a `Start` column the header row labelled was exempt and summed. (25) The mapping step's layout round-trip, Wide then Long, rebuilds the long columns from the defaults on a clear sheet too: on `Name | Rolle | Monat | Stunden` (read as Monat and Stunden) the period becomes column B and the hours column C, and a year column is dropped, with no notice; the selects and the sample show it, and an ambiguous sheet keeps its confirmation gate: a confirmation belongs to its layout and the column it confirmed, so a round-trip that resets a confirmed column re-arms it (fix 9 m-a). (26) Either route (fix 8 round 2, corrected by fix 9): a wide sheet whose data rows hold ANY period-shaped cell outside the period and person columns (a `Start` or `Eintritt` date, a long sheet's `Monat` under a metadata row that detection takes for the header, a notes column with one date; in a workbook also any column of 5-digit integers, such as a `PersNr`, a postal code or a cost centre, which read as serial dates), or a year column beside year-less month headers, asks for the period, so such sheets open on the mapping step and Apply waits until the user confirms the columns (a Claude mapping is asked the same); a wide sheet without such a column does not ask. (28) Either route (fix 9 OOS-c, narrowed by rounds 5 and 6): a repeated header row now ends the reading and makes detection ask whatever the block sizes. It holds no number in the hours or period columns and repeats the person label, or has a person header word in the person column, or (wide) two or more period labels, or (long) an hours word in the hours column or a period word in the period column, so stacked blocks under `Name`, `Mitarbeiter` or any label with month labels import only the chosen block. What is left (probed in round 6): a second header made of unrelated words that match none of these (`Wer | Wann | Wieviel` over `Team | Zeit | Menge`). With one row per block it does not ask and reads the later block (Ist) silently; with more rows it asks, but header row 1 then reads on through the second block and sums both under "Combined rows". (30) Either route (parked, round 7): a placeholder person row in a wide sheet (`Ressource`, `Person`, `Mitarbeiter` or `Name` with blank months, a TBD hire) is a repeated header by rule (b), and so is a long hours cell such as `Stunden folgen` by rule (d): the reading stops there, visibly ("rows below a repeated header row were not read"), and no mapping reads the rows on both sides. (32) Either route (round 9): one person on several rows (on a long sheet, in one period) that differ in a text column the mapping does not read asks before the rows are summed (`differingRows`), so a sheet with a task description or a comment per line opens on the mapping step and Apply waits until the user confirms (a Claude mapping is asked the same); the notice quotes the first such person's values only, rows that differ only in a number or a date do not ask, and changing the person or period column re-arms the question with the columns detection named. (33) Either route (2026-10-13, the owner's decision): a sheet that no one mapping describes — several tables on one sheet, or a second header the repeated-header rule does not recognise (28) — cannot be imported by either route, since Claude now only proposes a mapping and the reader reads one block with it; split the sheet first. (34) Either route, pre-existing (final review 2, M8): the xlsx reader reads a cell's stored value and never its number format (`styles.xml`), so an hours cell formatted as a duration (`8:00`, stored as 0.333…) imports as 0.33 h without a notice; the preview's old → new shows the figure. (35) Hand route (final review 2b, N1): setting the email or rate column to a period column and back to none leaves that period out of the period columns; nothing asks, but no wrong number is written: the month is not imported and the preview lists the column as left out by the mapping. Re-detect restores it. (36) Either route (final review 3, I1): a wide sheet with a column of numbers whose header is blank, among the period columns or in the blank-headed columns right after them (a month header merged over `Ist | Plan`, `Actual | Forecast` or `€ | Std` sub-columns), asks for the period, whichever sub-column comes first, so a `Plan | Ist` order asks too, with a notice of its own that names the unread columns and the columns read (rr14 N1); confirmed, the import reads the LEFT sub-column under each month, because neither route can pick the right one (period columns come from the header row, residue 19). Split or relabel such a sheet. A blank-headed number column further right, past a labelled column, does not ask and is listed as not read. On a LONG sheet (final review 4, I2) a column holding a number with a blank header, anywhere, asks for the hours with that column among the candidates (a `Stunden` header merged over `Ist | Plan` or `€ | Std`, either order); the labelled column stays preselected, and unlike wide the user can pick the blank-headed one in the Hours select. The cost: an unlabelled column of numbers, such as a row index written by a script, asks too. (37) Either route (final review 3, I2): a row of the reading with no person but a number in a read column, below a person row, asks (`continuation`, `continuationRows`), and confirmed it is not read, as before; the person is never carried down, so an unlabelled total row at the bottom asks rather than being summed into the last person. The notice names the first five such rows and the first one's differing text. The cost: a long sheet that writes each name once over several month rows (a name merged down) asks and, confirmed, reads one row per person; fill the names in. A row with no person holding a total label in any cell, a row whose person cell is a total label, and a spacer with no number, do not ask; a person row with a total word in another column (`Ann Lee | Gesamt`) is still the person row the rows below it continue, so they ask (final review 4, I1). (38) Either route (final review 3, M1, owner decision 2026-10-13): a workbook with two or more sheets that detect a layout opens on the mapping step with the `sheet` question; choosing a sheet in the Sheet select or "These columns are right" confirms it, and Detect columns and Ask Claude ask it again. Choosing the sheet already shown fires no change, so the button is the confirmation then. (39) Either route (final review 3, M4): a header run of `N/YYYY` (or `N.YYYY`) that goes past 12 asks for the period, with a notice of its own saying that 01–12 will be read as months (rr14 N1); confirmed, 01–12 still read as months and the higher numbers are listed as not read — there is no week reading of that notation. A run that stops at 12 or below reads as months unasked. (40) Either route (final review 3, M3, owner decision 2026-10-13): a matched person on exactly one line of the target bucket (in its planning mode) is routed to that line whatever its role, and a sheet rate is compared with that line's role; on several lines they are unresolved (`several-lines`): the picker can name another resource or Skip, picking the same resource keeps them unresolved, and the import cannot choose between the lines — edit the bucket's lines first. Another member's figure still replaces a shared cell of such a line (spec §1, replace covered cells); since fix 10b (rr14 M3a) its note names the unresolved person as "in the sheet, not matched" (`unmatchedOnLine`), no longer as "not in the sheet for this period". A resource without a role stays `no-role` even when one line lists them. (41) Either route (final review 3, M7): a 1904-system workbook (`workbookPr date1904`) has every cell of five digits (an optional fraction) moved by 1,462 days to the 1900 system, in any column and whether stored as a number or as text, since the grid holds no cell types. In a period or header cell that corrects the date; in an hours, rate or person column it changes a value no import uses: such hours exceed 744 and are rejected, and rates are never written (corrected after rr14 N3). (42) Either route (final review 4, M1): once a resource is picked for an unresolved person, the picker row shows the reason of the plan computed with the overrides (a resource on several lines: "the chosen resource is on more than one line of this bucket"); the list of rows itself is still computed without overrides, so the row stays and can be re-picked or skipped. (43) Either route (final review 4, M2): every candidate of an unresolved person (`ambiguous` namesakes, a `no-role` match) on a shared line is named "in the sheet, not matched"; once a pick routes that person elsewhere or leaves them on several lines, the namesakes not picked are again named "not in the sheet for this period". (44) Either route (final review 4, I1, clarified after rr15 N3): detection's row sample runs before the person column is known, so it drops a row only when the row's FIRST non-blank cell, in whatever column, is a total label. Two shapes follow, both probed 2026-10-14. (a) A label column LEFT of the person column holds the total: with a header `Art | Name | Jan 2026 …` and groups `Gesamt | Ann Lee | 110 …` over `Ist | (blank) | 10 …` and `Plan | (blank) | 100 …`, every person row is dropped from the sample, detection takes `Art` (column A) as the person column and asks nothing, and the reader then reads the people `Ist` and `Plan`, which match no resource: they are unresolved and nothing is written for anyone. A mapping with `Name` (column B) as the person column, Claude's or the user's, asks the continuation question for all 12 blank-person rows. (b) The total sits in the person column RIGHT of another filled column: with a header `Team | Name | Jan 2026 …` and a row `Team A | Summe | 60 …`, the first non-blank cell is `Team A`, so the row stays in the sample that chooses the columns; detection still takes `Name` as the person column, and the reader drops that row as a total (its person cell is `Summe`). The continuation question never asks about a blank-person row holding a total word, and a person-cell total row is never the person row the rows below continue.
+Known residue, accepted (not exhaustive — other deferred minors are in the branch's review record): (1) no e2e or axe run covers the modal — the Budget view is in `A11Y_VIEWS`, but the scan never opens the modal and no e2e spec drives an import; its accessible names are pinned only by `forecast-import-modal.test.tsx`. (2) The hook reads settings through its own `useSettings()` instance, so an Anthropic key sealed behind a passphrase and unlocked elsewhere stays blank there and "Ask Claude" shows disabled until the key is unlocked in that instance — the same pre-existing gap as `raci-panel.tsx`; fixing it needs a settings prop path into the budget panel. (3) A CSV column that mixes conventions reads by the column's style: an English thousands mark (`1,234`) flips it to German, where a dot is read only as a thousands mark in groups of three, so a stray `2.5` is dropped as not a number (it read 25 until the final review). A workbook (`SheetGrid.numbers` "dot") is exempt: Excel stores every number cell with a dot, so those cells are read with a dot and never vote on the style. (4) Total labels are a fixed word list (Total, Subtotal, Grand total, Sum, Summe, Zwischensumme, Gesamt, Gesamtsumme, Σ); any other spelling imports as a person, visible in the preview as unmatched. (5) One unresolved entry per name can hide a namesake row's different failure, and one override then routes both. (6) `forecast-plan.ts` is 499 lines by the `size:check` count (429 before final review 3 added routing by line, M3, the not-matched note of fix 10b and its widening by final review 4, M2; reproduce: `node -e "console.log(require('fs').readFileSync('src/app/budget-import/forecast-plan.ts','utf8').split('\n').length)"`); the next growth should split matching from apply. (7) The spec's source step has a target-bucket picker (preselected); the modal instead imports into the bucket whose card opened it, with no picker. (8) Deferred by decision: namesakes with different emails merge into one unresolved entry; E-notation numbers (`1E2`, `7.4999999999999997E-2`) read as null in every decimal style and in workbooks too, a visible `bad-number` drop (tightened by final review 3, M6); a workbook TEXT cell `1.234` reads 1.234, since the grid cannot tell text cells from number cells. (9) Stacked year blocks with two or more people per block keep the first block's header (its period columns are numeric enough), so on the hand route the later block's rows sum into the first block's year, shown only under "Combined rows" — narrowed by fix 9 OOS-c: the second header row now makes detection ask (the `header` ambiguity), so the hand route waits for the user; only a user who confirms header row 1 still gets the sum — closed by round 5 for blocks under the same person label: the second block's header is a repeated header, the reading stops before it; residue (28) keeps a block whose header names the person column differently. (10) A long workbook with three serial date columns (`Start | Ende | Datum | Stunden`) is read wide from a data row (its dates as period headers), and now asks the `header` question before anything is applied, every scanned row that reads as a header among the candidates; the date cells it would read as hours exceed 744 h and are rejected, so nothing is written (re-measured 2026-10-13 on a five-person workbook: header row 5 preselected, candidates rows 1–5, three cells read, none accepted). (11) A year-less long sheet whose period column sits beside another column of month names (`Name | Phase | Wann | Stunden` with `Mai` under Phase and `Jan` under Wann) takes the first month column as the period; the labelled variant reads correctly. (12) Two numeric code cells beside year-less month labels no longer anchor the months' year, but still read as their own dates (`40100` is 2009-10), so a code column holding numbers would show as hours outside the bucket's periods. (14) A two-column date header more than 92 days apart (half-year) is read as a range, not periods. (15) Dates beside year-less month labels no longer roll the labels' year: `01.11.2026 | 01.12.2026 | Jan | Feb` reads Jan and Feb as 2026, not 2027 (the assumed-year notice is shown). (16) Data rows above the header row with no period header of their own are not counted in `rowsAboveHeader` (`Ann Lee | 10 | 20 | 30` directly above the header gives 0). (19) The mapping step's header-row select stops at row 50, and a wide sheet's period columns are derived from the header row and cannot be picked or unpicked one by one. (21) An hours column headed by a bare month or week (`Mai`, `W1`) is never a long sheet's hours (final review I4), so such a sheet detects as unknown and opens on the mapping step — visible, and the column can be set by hand. (24) Either route (widened by fix 8): sprint-date sheets with a `Start` date column now collide and block Apply — date columns finer than the period on a row that also holds any date cell of its own (a `Start` or `Eintritt` column, labelled or not) are not summed as sub-periods, because a metadata row's January dates over `Stunden | Ist` look the same and once summed the two — also where detection takes such a metadata row for a clear wide header. Before fix 8 a `Start` column the header row labelled was exempt and summed. (25) The mapping step's layout round-trip, Wide then Long, rebuilds the long columns from the defaults on a clear sheet too: on `Name | Rolle | Monat | Stunden` (read as Monat and Stunden) the period becomes column B and the hours column C, and a year column is dropped, with no notice; the selects and the sample show it, and an ambiguous sheet keeps its confirmation gate: a confirmation belongs to its layout and the column it confirmed, so a round-trip that resets a confirmed column re-arms it (fix 9 m-a). (26) Either route (fix 8 round 2, corrected by fix 9): a wide sheet whose data rows hold ANY period-shaped cell outside the period and person columns (a `Start` or `Eintritt` date, a long sheet's `Monat` under a metadata row that detection takes for the header, a notes column with one date; in a workbook also any column of 5-digit integers, such as a `PersNr`, a postal code or a cost centre, which read as serial dates), or a year column beside year-less month headers, asks for the period, so such sheets open on the mapping step and Apply waits until the user confirms the columns (a Claude mapping is asked the same); a wide sheet without such a column does not ask. (28) Either route (fix 9 OOS-c, narrowed by rounds 5 and 6): a repeated header row now ends the reading and makes detection ask whatever the block sizes. It holds no number in the hours or period columns and repeats the person label, or has a person header word in the person column, or (wide) two or more period labels, or (long) an hours word in the hours column or a period word in the period column, so stacked blocks under `Name`, `Mitarbeiter` or any label with month labels import only the chosen block. What is left (probed in round 6): a second header made of unrelated words that match none of these (`Wer | Wann | Wieviel` over `Team | Zeit | Menge`). With one row per block it does not ask and reads the later block (Ist) silently; with more rows it asks, but header row 1 then reads on through the second block and sums both under "Combined rows". (30) Either route (parked, round 7): a placeholder person row in a wide sheet (`Ressource`, `Person`, `Mitarbeiter` or `Name` with blank months, a TBD hire) is a repeated header by rule (b), and so is a long hours cell such as `Stunden folgen` by rule (d): the reading stops there, visibly ("rows below a repeated header row were not read"), and no mapping reads the rows on both sides. (32) Either route (round 9): one person on several rows (on a long sheet, in one period) that differ in a text column the mapping does not read asks before the rows are summed (`differingRows`), so a sheet with a task description or a comment per line opens on the mapping step and Apply waits until the user confirms (a Claude mapping is asked the same); the notice quotes the first such person's values only, rows that differ only in a number or a date do not ask, and changing the person or period column re-arms the question with the columns detection named. (33) Either route (2026-10-13, the owner's decision): a sheet that no one mapping describes — several tables on one sheet, or a second header the repeated-header rule does not recognise (28) — cannot be imported by either route, since Claude now only proposes a mapping and the reader reads one block with it; split the sheet first. (34) Either route, pre-existing (final review 2, M8): the xlsx reader reads a cell's stored value and never its number format (`styles.xml`), so an hours cell formatted as a duration (`8:00`, stored as 0.333…) imports as 0.33 h without a notice; the preview's old → new shows the figure. (35) Hand route (final review 2b, N1): setting the email or rate column to a period column and back to none leaves that period out of the period columns; nothing asks, but no wrong number is written: the month is not imported and the preview lists the column as left out by the mapping. Re-detect restores it. (36) Either route (final review 3, I1): a wide sheet with a column of numbers whose header is blank, among the period columns or in the blank-headed columns right after them (a month header merged over `Ist | Plan`, `Actual | Forecast` or `€ | Std` sub-columns), asks for the period, whichever sub-column comes first, so a `Plan | Ist` order asks too, with a notice of its own that names the unread columns and the columns read; confirmed, the import reads the LEFT sub-column under each month, because neither route can pick the right one (period columns come from the header row, residue 19). Split or relabel such a sheet. A blank-headed number column further right, past a labelled column, does not ask and is listed as not read. On a LONG sheet (final review 4, I2) a column holding a number with a blank header, anywhere, asks for the hours with that column among the candidates (a `Stunden` header merged over `Ist | Plan` or `€ | Std`, either order); the labelled column stays preselected, and unlike wide the user can pick the blank-headed one in the Hours select. The cost: an unlabelled column of numbers, such as a row index written by a script, asks too. (37) Either route (final review 3, I2): a row of the reading with no person but a number in a read column, below a person row, asks (`continuation`, `continuationRows`), and confirmed it is not read, as before; the person is never carried down, so an unlabelled total row at the bottom asks rather than being summed into the last person. The notice names the first five such rows and the first one's differing text. The cost: a long sheet that writes each name once over several month rows (a name merged down) asks and, confirmed, reads one row per person; fill the names in. A row with no person holding a total label in any cell, a row whose person cell is a total label, and a spacer with no number, do not ask; a person row with a total word in another column (`Ann Lee | Gesamt`) is still the person row the rows below it continue, so they ask (final review 4, I1). (38) Either route (final review 3, M1, owner decision 2026-10-13): a workbook with two or more sheets that detect a layout opens on the mapping step with the `sheet` question; choosing a sheet in the Sheet select or "These columns are right" confirms it, and Detect columns and Ask Claude ask it again. Choosing the sheet already shown fires no change, so the button is the confirmation then. (39) Either route (final review 3, M4): a header run of `N/YYYY` (or `N.YYYY`) that goes past 12 asks for the period, with a notice of its own saying that 01–12 will be read as months; confirmed, 01–12 still read as months and the higher numbers are listed as not read — there is no week reading of that notation. A run that stops at 12 or below reads as months unasked. (40) Either route (final review 3, M3, owner decision 2026-10-13): a matched person on exactly one line of the target bucket (in its planning mode) is routed to that line whatever its role, and a sheet rate is compared with that line's role; on several lines they are unresolved (`several-lines`): the picker can name another resource or Skip, picking the same resource keeps them unresolved, and the import cannot choose between the lines — edit the bucket's lines first. Another member's figure still replaces a shared cell of such a line (spec §1, replace covered cells); since fix 10b its note names the unresolved person as "in the sheet, not matched" (`unmatchedOnLine`), no longer as "not in the sheet for this period". A resource without a role stays `no-role` even when one line lists them. (41) Either route (final review 3, M7): a 1904-system workbook (`workbookPr date1904`) has every cell of five digits (an optional fraction) moved by 1,462 days to the 1900 system, in any column and whether stored as a number or as text, since the grid holds no cell types. In a period or header cell that corrects the date; in an hours, rate or person column it changes a value no import uses: such hours exceed 744 and are rejected, and rates are never written. (42) Either route (final review 4, M1): once a resource is picked for an unresolved person, the picker row shows the reason of the plan computed with the overrides (a resource on several lines: "the chosen resource is on more than one line of this bucket"); the list of rows itself is still computed without overrides, so the row stays and can be re-picked or skipped. (43) Either route (final review 4, M2): every candidate of an unresolved person (`ambiguous` namesakes, a `no-role` match) on a shared line is named "in the sheet, not matched"; once a pick routes that person elsewhere or leaves them on several lines, the namesakes not picked are again named "not in the sheet for this period". (44) Either route (final review 4, I1): detection's row sample runs before the person column is known, so it drops a row only when the row's FIRST non-blank cell, in whatever column, is a total label. Two shapes follow, both probed 2026-10-14. (a) A label column LEFT of the person column holds the total: with a header `Art | Name | Jan 2026 …` and groups `Gesamt | Ann Lee | 110 …` over `Ist | (blank) | 10 …` and `Plan | (blank) | 100 …`, every person row is dropped from the sample, detection takes `Art` (column A) as the person column and asks nothing, and the reader then reads the people `Ist` and `Plan`, which match no resource: they are unresolved and nothing is written for anyone. A mapping with `Name` (column B) as the person column, Claude's or the user's, asks the continuation question for all 12 blank-person rows. (b) The total sits in the person column RIGHT of another filled column: with a header `Team | Name | Jan 2026 …` and a row `Team A | Summe | 60 …`, the first non-blank cell is `Team A`, so the row stays in the sample that chooses the columns; detection still takes `Name` as the person column, and the reader drops that row as a total (its person cell is `Summe`). The continuation question never asks about a blank-person row holding a total word, and a person-cell total row is never the person row the rows below continue.
 
 ★ Update 2026-10-14: residues (34), (2), (1), (7) and (8) are now open entries of their own: §716, §717, §718, §719 and §720. Every other item is in one of seven themed entries, each listing its items by number: §721 number and date cells (3, 12, 41), §722 period assignment (10, 11, 14, 15, 21, 24, 26, 39), §723 blocks and headers (9, 16, 28, 30, 33, 36), §724 total and continuation rows (4, 32, 37, 44), §725 the mapping step (19, 25, 35, 38), §726 person matching and routing (5, 40, 42, 43) and §727 the size of forecast-plan.ts (6). The list above is unchanged as the record of what was accepted at closure.
 
@@ -39790,8 +39791,7 @@ row to lose at all), but the "single-DB Turso now persists project meta" claim a
 while every writer to that database is on this release or later. Carry this into the eventual
 CHANGELOG entry.
 
-★ **A `project_meta` ROW THAT PARSES BUT FAILS SANITIZING IS DROPPED WITH NO DIAGNOSTIC (T3, parked
-Minor 4).** `rowsToWorkspace`'s read is `if (pm) ws.project = pm;` (`turso-schema.ts`) — `catch` only
+★ **A `project_meta` ROW THAT PARSES BUT FAILS SANITIZING IS DROPPED WITH NO DIAGNOSTIC (T3, parked).** `rowsToWorkspace`'s read is `if (pm) ws.project = pm;` (`turso-schema.ts`) — `catch` only
 fires on a THROW (bad JSON, a sanitizer that throws), and `sanitizeLoadedProjectMeta` returning a
 falsy value without throwing takes neither branch: no `reportUnreadableSlice` call, no
 `decodeFailedSlices` entry, nothing in the Saving-paused / Save-anyway plumbing. `ws.project` simply
@@ -39816,7 +39816,7 @@ npx vitest run src/app/use-turso-projects.test.ts -t "§538"       # no-tursoPro
 
 **Status:** CLOSED 2026-09-14 — `sanitizeIsoDate` rejects a non-calendar date by returning `""`: write paths refuse it and load paths blank an optional date field with it, while a required date is kept raw on load (see the corrected ★ note below); pinned by `sanitize-core.iso-date.test.ts`, the strengthened property in `sanitize.property.test.ts` and `sanitize-load-date.test.ts`.
 
-★ Corrected 2026-09-14 (final fix round) — the "Planned fix" below says dropping such a value on load
+★ Corrected 2026-09-14 — the "Planned fix" below says dropping such a value on load
 "loses nothing usable". That is FALSE for a REQUIRED date: blanking it made the entity sanitizer return
 `null` and the load funnel drop the whole record (an absence or milestone dated `2026-02-30` vanished on a
 JSON load while IndexedDB kept it). What the code does now: OPTIONAL date fields still blank on load.
@@ -39839,7 +39839,7 @@ strictly, so every AI update of a kept-raw row threw ("invalid milestone update"
 update") on ANY field while the card previewed it as accepted. Pinned by the kept-raw tests in
 `use-chat-dispatcher.test.tsx` and the card-vs-write rows in `plan.sanitizer-parity.test.ts`.
 
-★ Corrected 2026-09-14 (final fix round 3) — the diagnostic above now also names its `source`
+★ Corrected 2026-09-14 — the diagnostic above now also names its `source`
 (`workspace` or `templateSeed`), and logs once per session per source, entity, id, field and value
 (Turso re-reads and settings hydration used to re-log it on every load). Stored template seeds read the
 milestone date through `sanitizeLoadedSeedMilestone` (`requiredIsoDateOnTemplateLoad`), no longer
@@ -40236,8 +40236,8 @@ would invalidate any packaged-build sign-in eye-check done before the refactor l
 
 Size S–M.
 
-**Source:** `final-review-report.md` M-7 and its "Recommendation on item 2 (`main.ts` testability)" (same dir
-as this branch's SDD notes); `review-3-fix1-report.md` M-1 (first raised, out of scope for that round).
+**Source:** the branch's final review, finding M-7 and its recommendation on item 2 (`main.ts` testability);
+finding M-1 of an earlier review round (first raised, out of scope for that round).
 
 ## 548. An edit made during a project's first backend load is overwritten when that load lands — CLOSED 2026-09-19
 
@@ -40306,7 +40306,7 @@ project rollup sums those instead of the reported spillover-inclusive twins, so 
 nothing. All four project figures were measured wrong first: budget hours 210 against an honest 150, win/loss
 hours 170 against 110, budget value 31500 against 22500, win/loss value 25500 against 16500. A fifth,
 `project.consumption.percent`, rode `budgetValue` and read 19.05% closed against 26.67% open. Earned value was
-re-based onto the same own basis in both units, which SUPERSEDES Ruling 1 of the MR 3 plan — that ruling was
+re-based onto the same own basis in both units, which SUPERSEDES the MR 3 plan's reported-basis rule — that rule was
 sound only while BAC carried the same double-count, so both sides cancelled. Before the re-basing, a
 fully-complete spillover fixture reported EV 26000 against BAC 20000, 130% complete, ETC −1615.38 and EAC
 5384.62 below the 7000 already spent. `budgetCost` was MEASURED clean and is not affected, and `pv` was
@@ -40505,7 +40505,7 @@ axe scan renders the change table. Leave the Turso-only span to an eye-verify.
 
 ## 558. The three OOXML extractors were quadratic on repetitive unclosed markup — CLOSED 2026-09-18
 
-**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` in `office-xml.ts` all located their elements with lazy backtracking `[\s\S]*?` pair regexes, so a single unclosed open tag made every following open re-scan to end of input. All four now walk one linear cursor — `forEachTagPair` in the new `src/app/tag-pair-walk.ts`, extracted from `html-extract.ts`, which had already solved this for itself and was the only OOXML-adjacent extractor not affected. `xlsx-extract.ts` additionally needed a local `forEachXmlElement` (`grep -n "function forEachXmlElement" src/app/xlsx-extract.ts`), because real xlsx self-closes empty rows and cells and the shared walk is paired-only. Eleven commits: `783d3425` (extract the walk), `6530d75d` (docx), `e9153889` (the close-name ordering test), `a95bc6bc` (xlsx, pptx, `extractRuns`), `e14c820e` and `34d0a83f` (the self-closing path, and marking which of its tests are mutation-proved and which are not), then three fix rounds — `d04e9292` (`extractRuns` corrupted output on a bare self-closing text tag), `5f3cc1ca` (harden the xlsx cache pin, correct the docx perf comment's numbers, drop the now-dead `runsText`), `87918bf7` (restore case sensitivity, tighten the open-tag boundary), `986ab5be` (pin the close-lookup retirement) — and `00eae397` (pin case-insensitive tag matching). The final review then found three more quadratic reads in the same extractors. That sweep could not see them because it grepped only for the lazy pair shape. `728145d8` fixed all three. docx `renderParagraph` read its heading level with `<w:pStyle\b[^>]*w:val=…`. It now calls `headingDigit` (`docx-extract.ts`). xlsx `sheetEntries` used `<sheet\b[^>]*\/?>` and `<Relationship\b[^>]*\/?>`. Both now call `forEachOpenTag`, a new walk in `tag-pair-walk.ts`. xlsx `sheetNames` used `<sheet\b[^>]*\bname=…`. It now calls `readSheetName`, which `989cd6a0` made keep a quoted `>` inside a name, as the regex did. xlsx `cellValue` used `<v>([\s\S]*?)<\/v>`. It now finds the first `<v>` with two forward `indexOf` scans. The same commit makes `sheetRows` drop a cell whose column is past XFD (`MAX_XLSX_COLUMNS`). Before, `<c r="ZZZZZZZ1"/>` padded the row towards about 8e9 entries. The cap bounds a ROW, not a sheet: many rows can each still pad out to 16,384 cells ([§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open)). Verified by `npx vitest run src/app/tag-pair-walk.test.ts src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts src/app/html-extract.test.ts --maxWorkers=1`.
+**Status:** CLOSED 2026-09-18 by `fix/security-audit-followups`: `docx-extract.ts`, `xlsx-extract.ts`, `pptx-extract.ts` and the shared `extractRuns` in `office-xml.ts` all located their elements with lazy backtracking `[\s\S]*?` pair regexes, so a single unclosed open tag made every following open re-scan to end of input. All four now walk one linear cursor — `forEachTagPair` in the new `src/app/tag-pair-walk.ts`, extracted from `html-extract.ts`, which had already solved this for itself and was the only OOXML-adjacent extractor not affected. `xlsx-extract.ts` additionally needed a local `forEachXmlElement` (`grep -n "function forEachXmlElement" src/app/xlsx-extract.ts`), because real xlsx self-closes empty rows and cells and the shared walk is paired-only. Eleven commits: `783d3425` (extract the walk), `6530d75d` (docx), `e9153889` (the close-name ordering test), `a95bc6bc` (xlsx, pptx, `extractRuns`), `e14c820e` and `34d0a83f` (the self-closing path, and marking which of its tests are mutation-proved and which are not), then three rounds of fixes — `d04e9292` (`extractRuns` corrupted output on a bare self-closing text tag), `5f3cc1ca` (harden the xlsx cache pin, correct the docx perf comment's numbers, drop the now-dead `runsText`), `87918bf7` (restore case sensitivity, tighten the open-tag boundary), `986ab5be` (pin the close-lookup retirement) — and `00eae397` (pin case-insensitive tag matching). The final review then found three more quadratic reads in the same extractors. That sweep could not see them because it grepped only for the lazy pair shape. `728145d8` fixed all three. docx `renderParagraph` read its heading level with `<w:pStyle\b[^>]*w:val=…`. It now calls `headingDigit` (`docx-extract.ts`). xlsx `sheetEntries` used `<sheet\b[^>]*\/?>` and `<Relationship\b[^>]*\/?>`. Both now call `forEachOpenTag`, a new walk in `tag-pair-walk.ts`. xlsx `sheetNames` used `<sheet\b[^>]*\bname=…`. It now calls `readSheetName`, which `989cd6a0` made keep a quoted `>` inside a name, as the regex did. xlsx `cellValue` used `<v>([\s\S]*?)<\/v>`. It now finds the first `<v>` with two forward `indexOf` scans. The same commit makes `sheetRows` drop a cell whose column is past XFD (`MAX_XLSX_COLUMNS`). Before, `<c r="ZZZZZZZ1"/>` padded the row towards about 8e9 entries. The cap bounds a ROW, not a sheet: many rows can each still pad out to 16,384 cells ([§579](#579-an-xlsx-whose-rows-each-reach-column-xfd-expands-to-16384-cells-per-row-bounded-only-by-the-inflate-cap--open)). Verified by `npx vitest run src/app/tag-pair-walk.test.ts src/app/docx-extract.test.ts src/app/xlsx-extract.test.ts src/app/pptx-extract.test.ts src/app/office-xml.test.ts src/app/html-extract.test.ts --maxWorkers=1`.
 
 **The shape.** A lazy pair regex is linear on well-formed markup, because each open finds its close
 nearby. It is quadratic on markup where the close is missing: the engine scans from the open to end
@@ -40533,7 +40533,7 @@ scale — three times the reps (40k to 120k) for roughly sixteen times the time 
 ★★★ **An earlier statement of this curve — "36 / 142 / 524 / 1861 ms at 20k / 40k / 80k / 160k
 chars" — is WRONG and was retracted on this branch by `5f3cc1ca`.** It conflated repetition count
 with character count and understated the fixture tenfold: the committed 40k-repetition fixture is
-280,063 chars and measured ~1.5 s, not 142 ms. It survived into the slice's own hand-off brief after
+280,063 chars and measured ~1.5 s, not 142 ms. It survived into the slice's own hand-off after
 being corrected in the tree, which is the whole reason it is written out here — a reader who
 re-derives from the test files gets the table above, and a reader who copies a prose curve gets a
 number that refutes itself. Re-check any of these with `node -e` against the fixture and print
@@ -40588,7 +40588,7 @@ comfortably under the ceiling, so that size could not have caught it. The next p
 these will reach for 40k; the ceiling is deliberately loose because it must fail on the pattern
 class, not on a machine's speed.
 
-★★ **A later pre-release review (`final-release-review.md`) found two more defects in the same
+★★ **A later pre-release review found two more defects in the same
 four extractors, both closed 2026-09-18 on `fix/security-audit-followups`.**
 
 - **M-3 — `37d02683`: `extractRuns`'s open pattern admitted a malformed tag as if it were
@@ -40733,7 +40733,7 @@ model as the rest of this entry.
    e2e:desktop` green, all three tests.
 3. `ELECTRON_RUN_AS_NODE=1 <app>.exe -e "console.log(1)"` must no longer execute as Node. Not run;
    the fuse read is the only evidence so far.
-4. **M-6 (`final-release-review.md`) — Done 2026-09-18, `74f2c922`.** Nothing had verified that the
+4. **M-6 — Done 2026-09-18, `74f2c922`.** Nothing had verified that the
    `enableNodeOptionsEnvironmentVariable` fuse also covers a `utilityProcess.fork`ed child's own env
    (`spawnServer` builds it from `{ ...process.env, ... }`), as opposed to only the exe itself.
    `server-child.ts` now scrubs `NODE_OPTIONS`, `NODE_PATH` and `NODE_REPL_EXTERNAL_MODULE` from that
@@ -40810,7 +40810,7 @@ Related: §13 (PX-9's original filing).
 
 ## 563. The desktop installer is unsigned — OPEN (tied to the publishing decision)
 
-**Status:** **Update 2026-10-12 (§138 P2 probe):** the gap is now LIVE. The repository is public and its Releases page carries v1.14.0-rc.1 through v1.17.0; `Get-AuthenticodeSignature` on the downloaded `aipm-cockpit-1.17.0-setup.exe` → `NotSigned` (control: notepad.exe → `Valid`), and `grep -n "signExecutable: false" desktop/electron-builder.yml` → line 160 (the key; line 135 is a comment). The approval pause IS configured: `gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq '[.protection_rules[].type]'` → `["branch_policy","required_reviewers"]`. release.yml's header comment (lines 3–10) still calls the repository private and the pause future, and `grep -n "not yet configured" desktop/electron-builder.yml` → line 155 says the same; both are stale. The gap the 2026-09-24 decision accepted is now live, so the ★ rule's "sign if public" half is due.
+**Status:** **Update 2026-11-06 (signing pipeline, not yet switched on):** the ★ rule's "sign if public" half now has its mechanism, switched off until the owner turns it on; [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open)'s update of the same date describes it. This entry stays open with §487 and closes with the first release whose notes carry the SignPath line. The stale `electron-builder.yml` comment this entry's 2026-10-12 update quoted ("not yet configured") is rewritten. **Earlier:** **Update 2026-10-12 (§138 P2 probe):** the gap is now LIVE. The repository is public and its Releases page carries v1.14.0-rc.1 through v1.17.0; `Get-AuthenticodeSignature` on the downloaded `aipm-cockpit-1.17.0-setup.exe` → `NotSigned` (control: notepad.exe → `Valid`), and `grep -n "signExecutable: false" desktop/electron-builder.yml` → line 160 (the key; line 135 is a comment). The approval pause IS configured: `gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq '[.protection_rules[].type]'` → `["branch_policy","required_reviewers"]`. release.yml's header comment (lines 3–10) still calls the repository private and the pause future, and `grep -n "not yet configured" desktop/electron-builder.yml` → line 155 says the same; both are stale. The gap the 2026-09-24 decision accepted is now live, so the ★ rule's "sign if public" half is due.
 
 **Earlier:** OPEN 2026-09-18 — established by reading `desktop/electron-builder.yml`, readable with `grep -n "signExecutable" desktop/electron-builder.yml`; **never machine-verified** against a produced installer. Not filed as a defect: it is acceptable under the current distribution model and becomes a real gap only under a distribution model nobody has decided on yet.
 
@@ -40860,7 +40860,7 @@ RED on the uppercase GUID, actual RED on exactly that one (1 failed / 16 passed)
 (drop the `\d` lookahead) — predicted RED on the i18n key and the German word, actual RED on
 exactly those two (2 failed / 15 passed), no mismatch. 6d (`{32,}` to `{31,}`) — predicted RED on
 the 31-char row, actual RED on exactly that one (1 failed / 16 passed), no mismatch. No UUID-shape
-exclusion was added, per the brief: with the class rule in place, removing one would change no
+exclusion was added: with the class rule in place, removing one would change no
 output on any canonical UUID, so it would be a guard with no killing mutant. No lookbehind was
 used either, since the tsconfig target rejects it. **Known miss:** a token that is entirely
 single-case hex (e.g. an all-lowercase or all-uppercase opaque secret with no digit, or one that
@@ -40872,7 +40872,7 @@ single-case-hex secrets instead. **Two departures from
 the entry's own fix-shape line below** (both load-bearing, not incidental): (1) the fix-shape line
 proposed a plain unbroken `[A-Za-z0-9_-]{32,}` run with no class requirement — the mutant results
 above show why that would not do: a plain run redacts the lowercase UUID, the uppercase GUID, the
-commit SHA, the i18n key and the German word alike, which the brief's own requirement (legitimate
+commit SHA, the i18n key and the German word alike, which the entry's own requirement (legitimate
 ids must survive) rules out. The three mixed-class lookaheads are what makes the difference. (2) the
 fix-shape line called for redacting "with its length preserved"; the shipped pattern instead emits
 the same fixed `[redacted]` string as the other six patterns in this list (`scrubSecretValues`
@@ -40905,7 +40905,7 @@ unconditional seals, not two — `jira-settings.tsx` `handleApiTokenChange`, `ti
 `removeSealed`-using column alongside the AI-key and Turso-lock-toggle sections. The Turso site was
 **visible in the UI, not merely a ciphertext-hygiene issue**: `commitTurso`'s seal `.then(() =>
 setTokenStored(true))` turned the "Remove stored secret" button ON immediately after the user
-cleared the token field. Recon (this branch's own task brief) had also wrongly named
+cleared the token field. Recon (an earlier draft of this entry) had also wrongly named
 `handleTokenLockToggle` as the pattern to follow — that function already special-cases blank
 correctly; the two unconditional sealers below it (`commitTurso`,
 `confirmPortfolioModeSwitch`) did not.
@@ -41004,7 +41004,7 @@ are what stands between that and the whole lockstep collapsing to one edit.
 **★★ Why it was deliberately deferred, which is a judgement worth recording rather than repeating.**
 `secrets.ts` and `secrets-store.ts` are the most safety-critical modules in the app, and the failure
 mode of a mistake here is silent loss of a user's API keys with no error and no log line. Doing that
-as an unplanned addition at the tail of a long branch — after eleven commits and three fix rounds,
+as an unplanned addition at the tail of a long branch — after eleven commits and three rounds of fixes,
 with the branch's own review attention spent — is the exact circumstance in which that kind of
 mistake ships. It wants its own slice, its own tests (a round-trip per id, driven off `SECRET_IDS`
 so a sixth id is covered without being named) and its own reviewer.
@@ -41083,7 +41083,7 @@ row's sentence and its tip with a full stop, `` `${flagged}. ${t(lang, ROW[row.k
 spoken tip starts its own sentence instead of reading as a capitalised word mid-sentence. No `i18n.ts` /
 `i18n.de.ts` change was needed — the fix is entirely in the join, per the entry's own preferred option below.
 Test: `chart-readout.test.tsx` — the pre-existing "speaks each row's explanation after its value" pinning
-assertion was updated to the full-stop form (its third, unmentioned-in-brief expectation for the `runOut` row
+assertion was updated to the full-stop form (its third, unmentioned-in-the-task expectation for the `runOut` row
 also needed the same comma-to-period edit, or it would have stayed red after the fix; not a departure from
 this entry, which never specified test wording), plus a new `it.each(["en-US", "de"])` case
 ("§570: each spoken explanation starts its own sentence") that reads all ten tips off the rendered box via
@@ -41578,7 +41578,7 @@ click handler to keep it compiling) — the RED test above failed again (10 pass
 restored the guard. Verified with `npx vitest run src/app/action-hero-card.test.tsx
 src/app/action-row.test.tsx src/app/actions-panel.test.tsx src/app/dashboard-panel-layout.test.tsx
 src/app/workspace-section.test.tsx` (136/136 passed), `npx tsc --noEmit` (0 errors) and
-`npx eslint --max-warnings=0` on the touched files (0 warnings). **Fix round 1 (2026-09-19):** the
+`npx eslint --max-warnings=0` on the touched files (0 warnings). **After review (2026-09-19):** the
 Dashboard's Top-actions tile (`dashboard-sections/dashboard-top-actions.tsx`) had the identical
 Open-does-nothing fallback (`onOpenAction ?? (() => {})`) for its `ActionRow` list; it now forwards
 `onOpenAction` through as-is so that tile's Open CTA hides the same way when the handler is absent —
@@ -41608,8 +41608,8 @@ so a future caller cannot omit it silently.
 
 ## 583. `budget-history.property.test.ts` flaked once in CI under an unseeded fast-check run — CLOSED 2026-09-19
 
-**Status:** CLOSED 2026-09-19 — root cause found and fixed on `docs/spec-c-dashboard-rework`; sharpened in
-fix round 1 after review. Reproduced by running `npx vitest run src/app/budget-history.property.test.ts -t
+**Status:** CLOSED 2026-09-19 — root cause found and fixed on `docs/spec-c-dashboard-rework`; sharpened
+after review. Reproduced by running `npx vitest run src/app/budget-history.property.test.ts -t
 "unattributed is 0"` five times with no explicit seed (unseeded, so each run drew its own); the third run
 failed at `seed -1591760474` after 39378 property runs, with `Counterexample:
 [0,[0.000001,1.0587911840678754e-22,0.0000018680146407231636,0],0]`.
@@ -41630,14 +41630,14 @@ bypassing this write path entirely (documented in the file header, now also on `
 Fix: `budget-history.property.test.ts`'s "unattributed is close to 0…" property now sizes its slack to the
 drops actually observed in that run — `droppedCount = steps.length - (history.length - 1)` — and asserts
 `Math.abs(split.unattributed) <= (droppedCount + 1) * BAC_EPSILON` (one extra `BAC_EPSILON` of headroom for
-ordinary floating summation noise on top), replacing the round-1 fix's `steps.length * BAC_EPSILON`
+ordinary floating summation noise on top), replacing the first fix's `steps.length * BAC_EPSILON`
 worst-case bound. The captured counterexample is pinned as an explicit MECHANISM regression (history has
 baseline + 3 recorded, i.e. `steps[1]` was dropped; `split.unattributed` equals the dropped move
 `steps[1] - steps[0]` to 12 decimal places), not just the widened bound. Verified stable: 3 further runs of
 200000 `numRuns` each (600000 total) against both the droppedCount-based property bound and the original
 round-1 bound, all green; two mutation checks — reverting the regression's tolerance to a flat `1e-6` (round
 1) and temporarily disabling the `BAC_EPSILON` skip in `recordBudgetChange` itself so the sub-ε move gets
-recorded (round-1-fix round, a production mutant) — both turned the regression red, then were reverted;
+recorded (a production mutant) — both turned the regression red, then were reverted;
 `git diff --stat` clean apart from this file and the two source files each round touched.
 
 ## 584. Two Next-actions hero tests are weaker than they look — CLOSED 2026-09-18
@@ -41698,7 +41698,7 @@ when it moves burn to the front, and never a user-chosen size. Verified with
 `npx playwright test e2e/dashboard-grid.spec.ts --project=chromium --workers=1`: KPI right of burn with
 overlapping vertical ranges (red against `w: 4`), and at a 1280px viewport a seeded 4- and 5-cell strip, in both
 densities, ends inside the tile body with nothing to scroll (all four red against `h: 2`).
-**Fix round (2026-09-19):** `kpi`'s `minH` raised from 2 to 3 in `DASHBOARD_TILES`, so with `maxH` already 3
+**After review (2026-09-19):** `kpi`'s `minH` raised from 2 to 3 in `DASHBOARD_TILES`, so with `maxH` already 3
 its height is effectively fixed — a user can no longer shrink it back to h:2 and reopen the inner-scroll gap
 this entry exists to close. `reconcile` already clamps a stored size per axis, so a layout below the new
 floor (from a build before this raise) is lifted to 3 on the next load — the resize menu itself renders no
@@ -42093,7 +42093,7 @@ Pinned by `chat-panel.scope.test.tsx` (both branches of the cancel condition, bo
 
 ★★★ **The class this belongs to, and it covers every finding on this branch.** The thing review caught here was not a wrong conclusion but a **wrong EVIDENCE LABEL on a right conclusion**. Those are the expensive ones precisely because the answer survives the challenge and the reasoning does not, so nothing downstream ever signals that the load-bearing step was never checked. The general form: **a narrowing argument has to enumerate what reaches the excluded state, not name one thing that does.** "Can write into a swapped project" named one path and implied a race; enumerating what actually reaches an unmount found that all three preconditions hold unconditionally. See also the sibling entries filed in the same batch — the load/report census that was green while standing over the Critical it existed to catch, and the `dropStaleScopeWrite` recipe whose prose and instrument agreed while both were blind.
 
-★★★ **AND A SECOND, DIFFERENT CLASS SURFACED WHILE THIS BATCH WAS BEING WRITTEN, worth recording because it needs a different defence.** The earlier defects on this branch were briefs wrong about WORDING — a clause overstating its evidence, a count left to rot, a recipe naming the wrong anchor. Filing these entries turned up four where the brief was wrong about **REALITY**: it instructed that four defects be filed OPEN which the branch had already closed (the scaled samples, regenerated as a side effect of an unrelated commit; the picker guard's drop arm, witnessed by a later fix round; a residual whose stated consequence a second guard had since made false; and a precondition discharged at the source). ★★ **A brief can be internally consistent, cite only real symbols, pass every gate, and still describe a repository that no longer exists.** No gate can catch that, because every gate here checks the document against ITSELF or against the mere EXISTENCE of a name — none checks a claim against the current behaviour of the code. The only defence is to re-verify each finding against HEAD before writing it up, and the cost of skipping it is worse than a stale sentence: a register entry for a hole that does not exist sends the next reader to reproduce a defect they cannot, and when they fail they learn to distrust the register rather than the entry.
+★★★ **AND A SECOND, DIFFERENT CLASS SURFACED WHILE THIS BATCH WAS BEING WRITTEN, worth recording because it needs a different defence.** The earlier defects on this branch were plans wrong about WORDING — a clause overstating its evidence, a count left to rot, a recipe naming the wrong anchor. Filing these entries turned up four where the plan was wrong about **REALITY**: it instructed that four defects be filed OPEN which the branch had already closed (the scaled samples, regenerated as a side effect of an unrelated commit; the picker guard's drop arm, witnessed by a later fix; a residual whose stated consequence a second guard had since made false; and a precondition discharged at the source). ★★ **A brief can be internally consistent, cite only real symbols, pass every gate, and still describe a repository that no longer exists.** No gate can catch that, because every gate here checks the document against ITSELF or against the mere EXISTENCE of a name — none checks a claim against the current behaviour of the code. The only defence is to re-verify each finding against HEAD before writing it up, and the cost of skipping it is worse than a stale sentence: a register entry for a hole that does not exist sends the next reader to reproduce a defect they cannot, and when they fail they learn to distrust the register rather than the entry.
 
 ★★ **"NO GATE CAN CATCH THAT" IS TOO STRONG, AND THE CORRECTION IS ITSELF THE USEFUL PART.** One gate here does read a DOCUMENT and assert a property of its CLAIMS: `followup-status-lib.test.mjs` (run by the ordinary unit suite, because `vitest.config.ts` includes `scripts/**/*.{test,spec}.mjs`) reads this register from disk and fails when an OPEN entry's `**Status:**` line neither names an EXECUTED verification nor admits `never machine-verified`. It cannot check that the evidence is REAL — a fabricated command passes it — but it forces the author to declare an **evidence CLASS**, which is exactly the step the wrong-evidence-label defects above all skipped. ★★★ Its own header carries the matching prohibition, **"DO NOT SATISFY A RED RUN BY INVENTING A VERIFICATION"**, and the escape hatch exists precisely so that admitting none is easier than fabricating one. ★ Six of this batch's own OPEN entries were RED on it when first written, including the entry you are reading; they were made green by stating what was actually true, which for most of them is `never machine-verified`. So the accurate general claim is narrower than the paragraph above first put it: **no gate here checks whether a claim is TRUE, but one checks whether a claim says how it was established** — and that is a meaningful fraction of the value, because an unlabelled claim is the one nobody re-checks.
 
@@ -42190,7 +42190,7 @@ Related: §586, §587, §590.
 
 ★★ **PROVENANCE, because the gap in that table is the finding and not an inference from one.** Both readings were MEASURED at `280207fc` by the Task 5 implementer, and then independently re-verified by the Task 5 cold reviewer against the repo's real `src/test/strip-comments.ts` rather than a hand-rolled stripper — two measurements by two parties. Nobody derived the stripped row by reasoning about what a stripper would do. ★ That matters here more than it usually would: this entry's whole claim is that a count can be confidently wrong, so a count offered in support of it has to say who took it and on what.
 
-**The gate was built to catch a load path that forgets to report its load. That is exactly the Critical this slice's cold review found — and the census was standing right over it reporting success, because a comment explaining how to find its own call sites was occupying the missing report's slot.** Two of the five raw matches were grep recipes inside comments: one pre-existing, and one added by the very fix round that was correcting a different overclaim.
+**The gate was built to catch a load path that forgets to report its load. That is exactly the Critical this slice's cold review found — and the census was standing right over it reporting success, because a comment explaining how to find its own call sites was occupying the missing report's slot.** Two of the five raw matches were grep recipes inside comments: one pre-existing, and one added by the very fix that was correcting a different overclaim.
 
 ★★★ **The CLASS, which is the part worth carrying: a source-scanning gate that reads raw text counts its own documentation.** Both sides of this ledger were inflatable. The report side was inflated in fact. The LOAD side has the identical hole and is the more dangerous direction: a comment merely MENTIONING a load spelling inflates `loads`, which makes the ledger demand a report that no code needs — and the obvious repair is to add one, or to mark an exemption, at a site that has neither. Both sides are stripped now, so neither can happen. This is related to, but not the same as, the `docs:symbols:check` weakness AGENTS.md already records (that gate proves a NAME is real, never that a CLAIM about it is true); do not restate the two as one finding.
 
@@ -42212,7 +42212,7 @@ Related: §590, §596, §603.
 
 **Status:** CLOSED 2026-09-29 by `fix/persistence-backlog` (GitHub #384). `guardedWrite(backend, ws, isCurrent?)` now asks `isCurrent` INSIDE the thunk it hands to `enqueueSave`, immediately before `backend.save`, and `onPickStorageFile` passes `deps.isBackendCurrent`. A picked-file write that queued behind a running save therefore never reaches a backend replaced while it waited: it is skipped, logged as `storage.supersededLoadDropped` with `{ writer: "onPickStorageFile", stage: "write-queued" }`, and `guardedWrite` resolves false, which takes the existing superseded exit (the save gate is not moved). The skip settles the queue entry "superseded", not "saved", so an autosave it replaced under `settleReplacedAsOwn` inherits not-saved: its baselines, unload-journal entry and outcome are left alone for edits nothing wrote. Pinned by "a picked-file write queued behind an autosave never reaches a backend replaced while it waited" (`use-storage-backend.superseded-gate.test.tsx`). ★★ **RESIDUAL, recorded rather than fixed:** a save that is already RUNNING when the rebuild lands cannot be aborted — no backend can abort an in-flight write — so the write inside `guardedWrite`'s own await still reaches the superseded backend. That is a one-write window, and the reasoning below (a stray write to a file the user picked is recoverable, a save gate left on a dead backend is not) still holds for it; re-judge if a backend's `save` ever makes that window human-scale.
 
-**Original filing (2026-09-20):** read from code, **never machine-verified**, and filed as an ACCEPTED residual with its rationale rather than as a defect awaiting a fix. Nothing drives a rebuild into the window inside `guardedWrite`'s own await; the guards on either side of that window ARE pinned by named tests, but the residue between them is by definition what no test here observes. Raised as concern C2 of the [§588](#588-a-reload-or-file-pick-still-running-from-before-a-backend-rebuild-can-shut-the-new-backends-save-gate-and-nothing-says-so--closed-2026-09-20) implementation. ★★ **C2 as originally stated — that a rebuild landing in that window "would still reach `allowSavesToActiveBackend`" — is FALSE at today's HEAD**, and the entry says so rather than preserving the stronger claim: C2 was written when `onPickStorageFile` carried one guard, and §588's fix round added a second AFTER `guardedWrite` (the drop logged with `stage` `"write"`), which closes the gate half. What remains is narrower.
+**Original filing (2026-09-20):** read from code, **never machine-verified**, and filed as an ACCEPTED residual with its rationale rather than as a defect awaiting a fix. Nothing drives a rebuild into the window inside `guardedWrite`'s own await; the guards on either side of that window ARE pinned by named tests, but the residue between them is by definition what no test here observes. Raised as concern C2 of the [§588](#588-a-reload-or-file-pick-still-running-from-before-a-backend-rebuild-can-shut-the-new-backends-save-gate-and-nothing-says-so--closed-2026-09-20) implementation. ★★ **C2 as originally stated — that a rebuild landing in that window "would still reach `allowSavesToActiveBackend`" — is FALSE at today's HEAD**, and the entry says so rather than preserving the stronger claim: C2 was written when `onPickStorageFile` carried one guard, and §588's fix added a second AFTER `guardedWrite` (the drop logged with `stage` `"write"`), which closes the gate half. What remains is narrower.
 
 
 `guardedWrite` is itself an `await`, so a backend rebuild can land INSIDE it, after every guard above has already answered "current". By the time control returns, the write has already gone to the superseded instance and the destructive-save one-shot has already been spent; no post-await guard can undo either. The guard that follows therefore recovers only the half that OUTLIVES the tick — the save gate — and its own comment says so, calling its hazard set a strict SUBSET of the picker guard's.
@@ -42398,7 +42398,7 @@ instance of Error`). (13b) revert the ECB site to raw `err` — predicted RED on
 (`not.toBeInstanceOf(Error)` on the fetch-failure test, and the exact-object `toHaveBeenCalledWith` on
 the timeout test), actual RED on both, same reasons. Both matched their prediction; no mismatch.
 
-Fix round 1 (review finding I1 — the timeout test pinned what jsdom's `DOMException` produces, not
+After review (the timeout test pinned what jsdom's `DOMException` produces, not
 what the Node route actually logs): `ecb/route.test.ts` moved to `// @vitest-environment node` and the
 timeout assertion corrected to the real Node-logged shape (see Status above). 13b was re-run against
 this final code with the same prediction — actual RED on both ECB tests again, the timeout test's diff
@@ -42583,7 +42583,7 @@ all" — `small n=100000 35.5ms, large n=400000 354.2ms, ratio 9.43 (max 8), pai
 11.55], loops 4096`. The same test passed in five other full-suite CI runs. The implementation is
 correct: this entry's branch re-proved the site's mutant red.
 
-**The figures first reached the controller through a Copilot log analysis**, because `gh run view
+**The figures first reached us through a Copilot log analysis**, because `gh run view
 --log` showed no vitest output at all. That was NOT the dot reporter printing nothing. The raw log
 (`gh api repos/<owner>/<repo>/actions/jobs/107137300632/logs --allow-escape-sequences`) and the
 run's log zip both hold the failure and the summary: the dot reporter wrote all 19,568 dots and
@@ -42658,7 +42658,7 @@ non-literal constraint.
 `scripts/ci-workflow.test.mjs` gained an assertion that both semgrep steps pass
 `--config .semgrep/injection.yml`; `docs/AGENTS/ci.md`'s `semgrep` bullet now names the local
 config and why it exists. **The CI red proof is pending** — re-running the three-sink plant inside a
-real PR and requiring the `semgrep` job to go red is for the controller to do once this branch is up,
+real PR and requiring the `semgrep` job to go red is still to be done once this branch is up,
 since semgrep's registry-config resolution inside the pinned `semgrep/semgrep` container was not
 independently checked against this pip install.
 
@@ -43113,7 +43113,7 @@ still commits nothing (owner rule, §185). Mutations: M1 (restore the over-cap-o
 the plan predicted, because the `blockChanged` baseline check also stops that double commit. The same
 hook fixes the dashboard narrative (§625) and, from the §625 sweep, the task-row inline cells and assignee
 (through `use-inline-cell-edit.ts`), the roles-editor discipline/grade rename and the templates-section
-rename. A fix round made those two renames drop a draft once blur commits it, so a later `pagehide`
+rename. A later fix made those two renames drop a draft once blur commits it, so a later `pagehide`
 cannot replay it over a later external change.
 
 **2026-09-27, the unload journal (§629):** the committed draft now also survives a real RELOAD.
@@ -43126,7 +43126,7 @@ in 3 of 3 runs: a document heading typed and never blurred, then reloaded, is in
 reload, and so is a heading blurred and reloaded at once. A TAB CLOSE is not fixed for the heading: its
 close writes no journal (a `test.fail` in that spec), which stays owed under §629.
 
-**2026-09-27, the tab close (§629 fix round):** an unblurred draft now survives a reload AND a tab
+**2026-09-27, the tab close (§629):** an unblurred draft now survives a reload AND a tab
 close via the unload journal. Measured in Chromium on the default IndexedDB backend by
 `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`, 10 of 10
 passed in each of 3 runs, with no `test.fail`. The spec drives two editors: a document HEADING block
@@ -43322,7 +43322,7 @@ green in 3 of 3 runs. On a tab close the cell's journal is written and the draft
 IndexedDB write also won the unload race, so the next load shows the conflict notice (§629). The
 narrative editor itself is not driven by that spec.
 
-**2026-09-27, the tab close (§629 fix round):** an unblurred draft now survives a reload AND a tab
+**2026-09-27, the tab close (§629):** an unblurred draft now survives a reload AND a tab
 close via the unload journal, with no conflict notice. Measured in Chromium on the default IndexedDB
 backend by `PORT=3107 npx playwright test e2e/pagehide-draft-persist.spec.ts --project=chromium --workers=1`,
 10 of 10 passed in each of 3 runs. The spec drives two editors: a task-name inline cell
@@ -43460,7 +43460,7 @@ Discard) when one did. Read from the code; never machine-verified on the file or
 IN-SESSION race is unchanged: while the page stays, an older snapshot that finishes last still
 overwrites the newer one, and the newer save's confirmation clears the journal.
 
-**2026-09-27, §629 fix round:** when the save that landed is the journal's own (its content is what
+**2026-09-27, §629:** when the save that landed is the journal's own (its content is what
 the next load returns), that load now clears the journal silently instead of offering it. The notice
 remains for this entry's race, where an OLDER snapshot lands last: neither the journal's content nor
 its base is what loads. Read from `restoreOnLoad` in `src/app/use-unload-journal.ts`; never
@@ -43468,7 +43468,7 @@ machine-verified on the file or SharePoint backend.
 
 Every `useCommitOnPageHide` commit that changes the workspace re-runs the workspace save effect, and because `debounced-save.ts` knows the page is hiding (`pageHiding`), each run flushes a full `backend.save` at once. React state is correct, since each snapshot contains the earlier commits. But `LocalFileBackend.save` and the SharePoint backend do not serialise saves, so an older snapshot that finishes last overwrites the newer one and drops the later commit. IndexedDB orders its transactions.
 
-It is reachable whenever a pagehide commit starts a save while any other save is pending or in flight, and ONE dirty draft is enough (corrected 2026-09-27; this paragraph first said "only with two or more dirty drafts at unload"). With a single draft the other save can be: a save the debounce timer already started that is still writing; the flush that `visibilitychange` → hidden fires on a tab close just before `pagehide` (`onVisibilityChange` in `scheduleDebouncedSave`); or a pending save whose own `pagehide` listener, registered before the editor's (an edit committed inside the debounce window just before that editor mounted), flushes first. Two or more dirty drafts, for example a refused over-cap paragraph plus another unblurred edit, is one more way in. The §622 test "commits BOTH of two dirty editors on one pagehide" asserts the commit callbacks, not the last persisted snapshot; until the 2026-09-27 fix round it did not even hold two drafts dirty at once (`userEvent.type` into the second editor blurred and committed the first), and it now changes the second with `fireEvent.change` so both are dirty at the pagehide. A fix needs save serialisation (or coalescing to one final save) on those backends, and a test on the persisted result.
+It is reachable whenever a pagehide commit starts a save while any other save is pending or in flight, and ONE dirty draft is enough (corrected 2026-09-27; this paragraph first said "only with two or more dirty drafts at unload"). With a single draft the other save can be: a save the debounce timer already started that is still writing; the flush that `visibilitychange` → hidden fires on a tab close just before `pagehide` (`onVisibilityChange` in `scheduleDebouncedSave`); or a pending save whose own `pagehide` listener, registered before the editor's (an edit committed inside the debounce window just before that editor mounted), flushes first. Two or more dirty drafts, for example a refused over-cap paragraph plus another unblurred edit, is one more way in. The §622 test "commits BOTH of two dirty editors on one pagehide" asserts the commit callbacks, not the last persisted snapshot; until the 2026-09-27 fixes it did not even hold two drafts dirty at once (`userEvent.type` into the second editor blurred and committed the first), and it now changes the second with `fireEvent.change` so both are dirty at the pagehide. A fix needs save serialisation (or coalescing to one final save) on those backends, and a test on the persisted result.
 
 **Source:** batch-8 whole-branch review (2026-09-27), owner decision at PR time.
 
@@ -43525,10 +43525,10 @@ bump, hold fall, all mid-batch) pushes nothing, toasts nothing, and an undo leav
 live, the undo batch gets that same reader, and the prune is fed this stack's `pruneStale` and the
 storage hook's `loadPending`.
 
-Results. Test counts, failures and mutant lines are quoted from the named run logs (scratchpad of the
-fixing session, 2026-09-27). The round-3 logs carry their own `EXIT=` line; the round-1 and round-2 exit
-codes are recorded in that session's `undo-report.md`, not in those logs.
-- **Red against `main`** (round 1, `undo-red.log`, a variant without the companion call): T1, T1b, T2
+Results. Test counts, failures and mutant lines are quoted from the fixing session's run logs (2026-09-27),
+which are not kept in the repo. The round-3 logs carry their own `EXIT=` line; the round-1 and round-2 exit
+codes are not in those logs.
+- **Red against `main`** (round 1, a variant without the companion call): T1, T1b, T2
   and T2b failed on their assertions and T3 passed. T2's diff shows B's unrelated row 3
   (`"B3-unrelated"`) received `"A3-before"`. T1b's body has since changed, so that result covers the
   round-1 T1b only.
@@ -43621,7 +43621,7 @@ that completed 2 runs:
   the conflict notice and kept the journal, though the draft was already stored. That happened in both
   completed probe runs, so the spec asserts only that the draft is stored for that case. No data is
   lost, but the notice is a false alarm.
-- **Known limitation, controller ruling R9 (derived from the spec's multi-tab rule, "the last close
+- **Known limitation, by design decision (derived from the spec's multi-tab rule, "the last close
   wins"); confirmed by the owner on 2026-09-27.** Corrected 2026-09-27: this line first called it
   "owner-accepted", which no owner decision supports, and said an ignored notice "does not survive the
   session", which claimed more than the code does. What happens: there is one key per project and the
@@ -43659,7 +43659,7 @@ that completed 2 runs:
   `src/app/use-unload-journal.restore.test.tsx`; the close half is read from `use-unload-journal.ts`
   and never machine-verified.
 
-**2026-09-27, §629 fix round (3 items: the heading close was a spec race; the false notice and the conflict-action identity are fixed on `fix/defect-batch-8`):**
+**2026-09-27, §629 (3 items: the heading close was a spec race; the false notice and the conflict-action identity are fixed on `fix/defect-batch-8`):**
 
 - **The heading's tab close was a spec race, not an app defect.** The close does write the journal,
   with the draft in it. `page.close({ runBeforeUnload: true })` resolves before the closing page's
@@ -43738,14 +43738,14 @@ that completed 2 runs:
   project, then pagehide with no new edit: nothing is journaled, and the next page load restores
   nothing" (red with the call removed) and "I1 — Reload project leaves an earlier page's conflict
   record, its notice and its in-memory copy alone" (red with the tab-id guard dropped).
-- **The picker's "load the file instead" makes the same call (controller ruling).** Accepting
+- **The picker's "load the file instead" makes the same call (by decision).** Accepting
   `storagePickFileHasProject` in `onPickStorageFile` discards the live workspace and `setBase`s the
   picked one, the I1 shape, so `applyPickedWorkspace` (`use-storage-backend.ts`) now also calls
   `dropUnconfirmed`. Pinned in `src/app/use-storage-file-ops.pick-overwrite.test.tsx` by "a FAILED
   save, then load the picked file instead, then pagehide: nothing is journaled, and the next page
   load restores nothing" (red with the call removed). `onOpenStorageFile` is ruled not a discard and
   is unchanged: it sets no base, so a failed save's journal there can only raise the notice.
-- **Undo after Restore anyway: kept live, by controller choice.** Restore anyway applies with the
+- **Undo after Restore anyway: kept live, on purpose.** Restore anyway applies with the
   "merge" log mode and calls neither `resolveLogModeAndStamp` nor `bumpScopeEpoch`, so the scope
   epoch does not move and undo entries captured before the click
   stay live and an undo applies them onto the restored workspace of the same project; this matches
@@ -43978,7 +43978,7 @@ error is ignored), and a statement that neither ran nor failed is a shape error 
 `rollbackBestEffort` and its separate follow-up request are gone. A list without `BEGIN` is still sent as
 separate `execute` requests; a `BEGIN` anywhere but first, or a `BEGIN` with no trailing `COMMIT`, is now
 refused before anything is sent, because it would silently commit around a failing statement. Review
-(Important 1) found the one such caller: `hardDeleteProject` (`turso-portfolio.ts`) put the tenant DDL
+found the one such caller: `hardDeleteProject` (`turso-portfolio.ts`) put the tenant DDL
 before `BEGIN`, so its deletes were never one transaction and a failing DELETE left a half-deleted project.
 The DDL now goes after `BEGIN`, as `appendStatements` already did. The comments in `turso-schema.ts` (`EntityIdKind`), `snapshot-schema.ts` and
 `chat-threads-schema.ts`, AGENTS.md's `idKind` bullet, and `docs/AGENTS/documents.md` and
@@ -44098,7 +44098,7 @@ is private, the asset links need GitHub access.
 
 **Status:** CLOSED 2026-09-28 on `fix/reload-drains-save-queue` (owner: "fix all", after the post-merge integration review of §601 and §627). `reloadCurrentProject` in `use-storage-backend.ts` now waits for every save queued to its backend before it reads: `whenSaved(backend)` (`src/app/save-queue.ts`) resolves once the running save and the one waiting behind it have settled, or the §627 stall timer released them, and never rejects. It drops nothing, so those saves land and the reload reads them. It is `null` while nothing is saving, so on the idle path the read still starts in the click's own tick, which the §588 superseded-reload tests pin. If a save started while the reload read (`holdDuring` does not clear the save effect's debounce timer, so an edit just before the click can fire its save mid-read), the reload waits for it and reads again, at most `RELOAD_REREAD_LIMIT` (2) extra times; from `load()` resolving to the apply nothing awaits, and the apply's render clears a pending debounce timer (review I1 on §641). A rebuild seen by the wait skips the read of the replaced instance, and the §588 guard drops the click, logged as `storage.supersededLoadDropped` with `outcome: "waited"` (review M1). The same wait now precedes the picker's load-instead bind (`onPickStorageFile` in `use-storage-file-ops.ts`): the bind re-points the same backend instance at the picked file, so a save still queued for the old file would have written the pre-pick workspace over the project the user chose to load (review M5). Before this, the waiting slot started its save only when the running one settled, possibly after the reload's read had returned. That save then overwrote on disk what the reload had just applied, and its `.then` moved `committedBaselineRef` and the §629 journal base onto the discarded snapshot. The reload arms `suppressNextSaveRef`, so nothing rewrote the file until the next edit, and the screen and the file disagreed. A §601 confirmed replace took the same path. Tests: `save-queue.test.ts` (`whenSaved`: null when idle and after draining, waits for the running and the waiting save, does not replace the waiting one, resolves after a failure and on a stall release, per backend); the §641 block in `use-storage-backend.load-gate.test.tsx`: (a) a reload with one save running and one waiting reads only after both landed, and nothing is written after it; (b) (integration review M1) a rebuild onto a seed-only target while the old backend has a save running and one waiting never writes the target, a regression pin that passes without this fix too; (c) a save started during the read makes the reload read again and apply what landed; (d) a rebuild during the wait does not read the replaced backend again. `use-storage-file-ops.pick-overwrite.test.tsx` pins the picker binding only after the queue drained. Mutation: the reload not waiting, `whenSaved` null while saving, notifying before the waiting save ran, never notifying, no re-read, no superseded check after the wait, and the picker not waiting, all killed. The review's two comment findings are corrected: the §627 note on overlapping saves now names both remaining exceptions, and the pre-switch flush comment says it writes the workspace live when the flush is requested.
 
-Known limits: a debounce falling due in the few ms between the read resolving and React committing the apply can still start the pre-reload save (re-review N1). A save still in flight after the last re-read (more than `RELOAD_REREAD_LIMIT` saves started during the reload) can still land after the apply. `whenSaved` also resolves when the stall timer releases a save that never settled, and that write can still land after the reload, as any stalled save can. Saves from two backend instances pointing at the same target are still not ordered with each other (the queue is keyed by instance). The wait is bounded per stalled save by `SAVE_STALL_MS` (30 s), so a running and a waiting save that both stall hold the reload for 60 s or more.
+Known limits: a debounce falling due in the few ms between the read resolving and React committing the apply can still start the pre-reload save (found in re-review). A save still in flight after the last re-read (more than `RELOAD_REREAD_LIMIT` saves started during the reload) can still land after the apply. `whenSaved` also resolves when the stall timer releases a save that never settled, and that write can still land after the reload, as any stalled save can. Saves from two backend instances pointing at the same target are still not ordered with each other (the queue is keyed by instance). The wait is bounded per stalled save by `SAVE_STALL_MS` (30 s), so a running and a waiting save that both stall hold the reload for 60 s or more.
 
 **Originally recorded 2026-09-28:** the integration review of main at 718a0f014 (§601 + §627, review I1; M1 to M3 minor).
 
@@ -44186,7 +44186,7 @@ The SharePoint backends (`sp-json`, `sp-csv`) have unit tests only. Those use MS
 
 When a rename and a body edit of the same template are saved concurrently, each save carries the other field's OLD value, so whichever lands last writes that old value back to the server. §626 limits the damage: landings are ordered per template, so the confirmed base and the on-screen list never move backwards and a stale row is never reused as the base of the next write, and the pending-edits outbox keeps the losing field's draft tracked, so a page close writes it and the next start replays it. Until that replay, or the next edit of that field, the server row is wrong. A fix serializes template writes per template id (a later save waits for, and rebuilds from, the earlier one), or writes per-field `UPDATE`s instead of full-row upserts.
 
-**Source:** the §626 fix-round review, 2026-09-29; residual (3) of §626.
+**Source:** the §626 fix review, 2026-09-29; residual (3) of §626.
 
 ## 654. The §4 Turso revision guard has never run against a live database — CLOSED 2026-10-10
 
@@ -44266,7 +44266,7 @@ When a queued save's snapshot holds nothing but slices mirrored from a peer (`cr
 
 **Status:** CLOSED 2026-10-02. `switchToProject` (`use-storage-file-ops.ts`) no longer reads the shared registry to decide "already open": it asks a new `windowProjectId` dep, which `use-storage-backend.ts` answers with this window's committed `fileBinding` (mirrored into a ref) for a local-file window, so a window still on `a` switches to `b` even after another tab made `b` current. Non-file kinds have no per-window binding and keep the registry comparison they always had — pinned by the existing "switchToProject is a no-op when the target id is the current project" (browser kind), which the first cut of this fix broke and which drove the split. An unknown binding (`null`, e.g. after a failed load) never matches, so the switch proceeds and at worst reloads. Pinned by the entry's own named check in `use-storage-backend.file-scope.test.tsx` → "a window still on a project switches when another tab already made the target current": W2 switches to b, then W1 does; W1 shows b, its edit lands in b.json and W2 mirrors it, and a.json never sees it; restoring the registry guard reddens it. ★ The second paragraph below — the false pauses that remain BY DESIGN (failed or refused loads, the registered-file pick, two independent picks, the boot race on a bare-handle slot, old-code tabs) — is unchanged by this and was never this entry's defect; its optional fix direction for the registered-file pick still stands. The history below is kept as written.
 
-**Previously:** open 2026-09-30, found by the §4 final-fix round (its concern 5). Never machine-verified: read off `use-storage-file-ops.ts`, where `switchToProject` returns early when `loadRegistry().currentProjectId === id`.
+**Previously:** open 2026-09-30, found while fixing §4 (concern 5 of that work). Never machine-verified: read off `use-storage-file-ops.ts`, where `switchToProject` returns early when `loadRegistry().currentProjectId === id`.
 
 Since §645 each window writes the file it is bound to, and the tab-sync scope of a local file names that binding (`fileBinding`, `sync-scope.ts`), stored with the handle in the shared slot. One place still reads the registry every tab shares through localStorage, so what one tab did decides what another window does: `switchToProject(id)` returns early when the SHARED registry's `currentProjectId` already equals `id`, which it does whenever ANOTHER tab switched there last. A window still showing project A then does nothing when its user picks B: no load, no toast, and it stays on A. Found while writing `use-storage-backend.file-scope.test.tsx`, whose "switched away and back" test is shaped around it. Named check: a two-window hook test in that harness where W2 switches to b and then W1 switches to b; W1 must end up showing b's tasks, bound to `b.json` (its edit reaches b's file and W2 mirrors it). Fix direction: compare against the project this WINDOW has open (its binding or its own last op), never the shared registry.
 
@@ -44274,7 +44274,7 @@ The false pauses that remain by design (visible, no loss), recorded here because
 
 A second residual was filed here first and is closed by the re-review RC1 fix (2026-09-30): a load racing another tab's switch (slot re-pointed, registry not yet committed) captured the other project's id. The binding now travels in the same slot record as the handle, so a load reads a consistent pair; `use-storage-backend.file-scope.test.tsx` ("… even while the registry still names the first") boots a window in exactly that gap.
 
-**Source:** the §4 final-fix round's report, concerns 4 and 5, 2026-09-30.
+**Source:** the last §4 fixes, concerns 4 and 5, 2026-09-30.
 
 ## 660. The §185 tab-close refusal test in `document-block-editors.test.tsx` times out under load — CLOSED 2026-10-01
 
@@ -44297,7 +44297,7 @@ The failing wait is the `findByText(refusalText)` in the shared setup, `refuseIn
 
 So the cause sits after the lock grant and is not a file-system call, and it is not known whether it is the app or the headless browser; a headed run was not tried. The attempted spec was not committed. Until a run gets past the conversion, the close-time question below stays open.
 
-**Status before this update:** open 2026-10-01, found by the review of the §4 round-7 fix. Never machine-verified for local files: inferred from `LocalFileBackend.save`, which still runs under `withSaveLock`, and from the round-7 browser-storage probes.
+**Status before this update:** open 2026-10-01, found by the review of the seventh §4 fix. Never machine-verified for local files: inferred from `LocalFileBackend.save`, which still runs under `withSaveLock`, and from the round-7 browser-storage probes.
 
 
 On browser storage, the §4 round-7 probes measured that waiting for a Web Lock at tab close loses the close-time save. Browser storage therefore dropped the lock for one readwrite transaction with an explicit commit. A local-file save still waits for its lock, and no e2e closes a tab on a local-file project, so whether that save reaches the file at close is unknown. The unload journal is the fallback, but it is not a complete one: it skips a record over `UNLOAD_JOURNAL_MAX_CHARS`, and §629 has not verified it on the file backends. So until the named check runs, this may be a loss rather than only a durability gap. `docs/AGENTS/storage.md` names it in the Conflicts section's close-time limits. Named check: an e2e that closes a tab on a local-file project mid-edit and asserts whether the file received the save. If it did not, decide whether the journal alone is acceptable, or whether the file save must avoid the lock wait at close.
@@ -44318,11 +44318,11 @@ Both hooks keep the target task id in state that survives the task's deletion an
 
 **Status:** CLOSED 2026-10-02 — decided by the owner: a newer build cannot stop an older client from writing, so there is no guard. Fixed on `fix/blocker-log-followups` by correcting `docs/AGENTS/rich-text.md`, which now names every backend: Turso, CSV and Markdown column lists predate `blockerLog`; JSON and IndexedDB keep unknown task fields in today's pipeline, so an older build would likely keep the log there (inference). The release notes of the version that ships the blocker log must warn against running an older build on the same data.
 
-**Original status:** open 2026-10-02, found by the blocker-log fix-round review.
+**Original status:** open 2026-10-02, found by the review of the blocker-log fixes.
 
 `docs/AGENTS/rich-text.md` names one downgrade exposure: an older client saving to Turso omits the new column, so `blockerLog` becomes NULL and the history collapses to one legacy entry on the next load. An older client's CSV and Markdown writers have no `blockerLog` column either, and its JSON and IndexedDB paths very likely drop the unknown field too, so the same collapse happens on every backend. `noteLog` had the same exposure when it shipped. Decide whether to say so in the release notes of the version that ships the blocker log, or to guard against a downgrade; either way, correct the rich-text note.
 
-**Source:** the blocker-log fix-round re-review, 2026-10-02.
+**Source:** the re-review of the blocker-log fixes, 2026-10-02.
 
 ## 664. Legacy blocker text with an impossible or missing date makes load non-deterministic — CLOSED 2026-10-02
 
@@ -44392,7 +44392,7 @@ Named check: a hook test with two windows, each with a pending own edit, whose s
 
 **Status:** CLOSED 2026-10-03 — fixed in `use-jira-sync.ts`: the sync and the conflict resolution capture `getScopeEpoch()` before their first await (threaded from `task-manager.tsx`) and drop through `dropStaleScopeWrite` — the sync after the search and again before its single commit, the resolution before each row's push and before each row's commit, against the epoch the conflicts were queued in. A dropped run writes no task, queues no conflict, logs no activity (the pull arms' transitions are buffered until after the commit) and releases the in-flight guard; a dropped resolution also clears the stale conflicts. Pinned by the "§667" describe in `use-jira-sync.test.tsx`, a drop plus a positive control for each path; removing each check turns its test red. A conflict queue left from before the swap is no longer shown either: the hook records the epoch the queue was computed in and returns no conflicts while it is stale, derived at render (pinned by "conflicts queued before a swap are not shown after it", red with the check removed). ★ Not undone: Jira pushes a dropped sync already sent before the swap. They stay sent, and their rows keep the old `lastSyncedAt` and their `localModifiedAt`. Because the push moved Jira's `updated`, the next sync in that project sees both sides moved and takes the conflict arm, not the push arm, so nothing is resent: it re-stamps the row when the values match, or queues a conflict when a field did not round-trip (for example the resolution date Jira stamped on a done-transition). No data is lost and nothing is duplicated; the pushes were plain field updates. (A revision of this closure said the next sync "sends the same field update again"; that was wrong, found by the branch review.)
 
-**Original status:** open 2026-10-03, found by the review of the 1.15.0 double-sync fix (its Minor 1). Read off the code, not reproduced in a browser.
+**Original status:** open 2026-10-03, found by the review of the 1.15.0 double-sync fix. Read off the code, not reproduced in a browser.
 
 `handleJiraSync` (`use-jira-sync.ts`) awaits `searchAllIssues`, builds the new task list from `tasksRef` and commits it with one `setTasks`, then queues conflicts and shows the summary toast. Neither it nor the conflict resolution, which awaits a push per row before writing that row, captures `getScopeEpoch()` or calls `dropStaleScopeWrite`, although every Outlook and insight writer that awaits does both (`docs/AGENTS/platform.md`, "The load hold"). `loadPending` only answers "may I start?": `useJiraSync` lives in `task-manager.tsx`, which the load hold does not unmount, so a sync that started before a project swap runs on after it. When the search resolves after the swap, `tasksRef` already holds the next project's rows, and the sync writes that list merged with the old project's Jira issues into the next project. The pull arms also log status transitions into the activity log of whichever project is then in scope, and any conflicts it queues belong to the old project. A resolution has the same window, and so does a conflict queue left from before the swap: its task ids are looked up in the next project's list, and a match would push that row's fields to the old project's Jira issue. The double-sync fix did not introduce this. Holding the in-flight guard across the module download only widens the window a little.
 
@@ -45366,7 +45366,7 @@ Size S.
 
 ★ The text below is the record as opened: it names two pictures, before Edge's second warning was found.
 
-Two steps of the install guide's "Installing" section have no picture: the browser's "isn't commonly downloaded" warning with **Keep**, and Windows' "Windows protected your PC" box with **More info** → **Run anyway**. Both happen outside the web page, so `npm run docs:guide-shots` (§713) cannot take them. They were left out on purpose until they exist (plan ruling R8): an image line pointing at a missing file would fail `scripts/doc-image-refs.test.mjs`.
+Two steps of the install guide's "Installing" section have no picture: the browser's "isn't commonly downloaded" warning with **Keep**, and Windows' "Windows protected your PC" box with **More info** → **Run anyway**. Both happen outside the web page, so `npm run docs:guide-shots` (§713) cannot take them. They were left out on purpose until they exist: an image line pointing at a missing file would fail `scripts/doc-image-refs.test.mjs`.
 
 To close: capture both on Windows while downloading and running a real release installer; save them as `docs/assets/guide/download-keep.manual.png` and `docs/assets/guide/smartscreen.manual.png` (the spec never writes a `.manual.png`); embed each at its step with alt text that says what it shows; crop out anything personal (user name, other downloads, paths). The image test then checks both files exist.
 
@@ -45506,7 +45506,7 @@ Proposed: route `rematerializeDayBasisRoles` through `materializeDayBasisRole` s
 
 Size S.
 
-**Source:** found in review of the §476 fix round, 2026-10-14; filed on the owner's word.
+**Source:** found in review of the §476 fix, 2026-10-14; filed on the owner's word.
 
 ## 739. A new project's plan start date is the UTC day, not the local day — CLOSED 2026-10-15
 
@@ -45524,7 +45524,7 @@ Proposed: take the start date from the app's local today (the clock the rest of 
 
 Size S.
 
-**Source:** found in review of the §476 fix round, 2026-10-14 (pre-existing); filed on the owner's word.
+**Source:** found in review of the §476 fix, 2026-10-14 (pre-existing); filed on the owner's word.
 
 ## 740. A project created on Turso storage outside Turso mode reopens as an empty browser workspace — CLOSED 2026-10-15
 
@@ -45898,7 +45898,7 @@ Size S.
 
 ## 771. Suggest RACI guesses roles from job titles, takes no rule from the user and cannot hand Accountable over — CLOSED 2026-10-31
 
-**Status:** CLOSED 2026-10-31 on `feat/771-raci-context` (design `docs/superpowers/specs/2026-10-31-raci-context-design.md`). Suggest RACI now reads the work. The app, not the model, matches people to stakeholders (`stakeholdersForItem` in `raci-suggest/raci-evidence.ts`: an item's resource id naming a live resource matches only the stakeholders linked to it, otherwise its typed name is compared; an item that reaches more than one stakeholder counts for none) and `buildRaciEvidence` tallies, per stakeholder and milestone in the milestone's scope (`linkedTaskIds`), the tasks owned (and closed), the RAID items owned (open or closed, by category) and the change requests requested. `buildRaciContext` (`raci-suggest/raci-context.ts`) sends those as an EVIDENCE block, adds each linked resource's discipline and grade to the stakeholder rows, and each milestone's scope size and linked document titles (`MAX_DOC_TITLES_PER_MILESTONE` 5, `DOC_TITLE_CHARS` 80). Evidence is capped at `MAX_EVIDENCE_LINES` (500), cut from the end so earlier milestones stay complete; `truncated` is set by exactly three things: the stakeholder or milestone caps (120 / 60), more than 500 evidence lines, and a request cut at `RACI_REQUEST_MAX_CHARS` (2000); dropping document titles beyond 5 on a milestone does not set it (owner ruling R6, 2026-10-31: titles are milestone context, never person evidence), and neither does a shortened description or document title. The dialog opens on an input stage with an optional request box, and nothing is sent until Suggest is chosen; a non-blank request goes into the digest as a REQUEST block. Grounding (`groundRaciCells`) now accepts a new Accountable on a milestone with exactly one stored holder when the same proposal gives that holder a valid non-A role, and marks both cells with a shared `pairKey`; without the demotion the new A is refused as `accountable-needs-demotion` (the old `raciSuggestSkippedHandover` string is replaced by `raciSuggestSkippedDuplicateNeedsDemotion`). The review shows the pair as one row with one checkbox, naming the new holder's current role when they have one. On confirm, `onConfirm` drops the cells whose stakeholder was deleted since the proposal; then `dropStaleAccountables` re-reads the live Accountable holders and drops an unpaired A when its milestone now has another holder, and a paired A unless the milestone's live holders are exactly the pair's demoted stakeholder; then `dropOrphanedPairHalves` keeps a pair only when it is exactly one A and one non-A, so one half is never written. People protection is unchanged: Suggest RACI stays off under it. Owner decisions 2026-10-31: no new stakeholder rows, only people who already have one; one forced call, no read tools. Verified with `grep -n "pairKey" src/app/raci-suggest-modal.tsx src/app/use-raci-suggest.tsx`, `grep -rn "accountable-needs-demotion" src/app` and `grep -rn "raciSuggestSkippedHandover" src` (no hit left in `src`), and with `npx vitest run src/app/raci-suggest src/app/raci-suggest-modal.test.tsx src/app/raci-suggest-call.test.ts src/app/use-raci-suggest.test.tsx`, each new behaviour test failing on the code before it. **Earlier:** tracked as issue #859 from 2026-10-23, the owner's request: the prompt told Claude to decide from job titles, although the project already records who owns the milestone's tasks, risks and changes, and a handover of Accountable was refused outright.
+**Status:** CLOSED 2026-10-31 on `feat/771-raci-context` (design `docs/superpowers/specs/2026-10-31-raci-context-design.md`). Suggest RACI now reads the work. The app, not the model, matches people to stakeholders (`stakeholdersForItem` in `raci-suggest/raci-evidence.ts`: an item's resource id naming a live resource matches only the stakeholders linked to it, otherwise its typed name is compared; an item that reaches more than one stakeholder counts for none) and `buildRaciEvidence` tallies, per stakeholder and milestone in the milestone's scope (`linkedTaskIds`), the tasks owned (and closed), the RAID items owned (open or closed, by category) and the change requests requested. `buildRaciContext` (`raci-suggest/raci-context.ts`) sends those as an EVIDENCE block, adds each linked resource's discipline and grade to the stakeholder rows, and each milestone's scope size and linked document titles (`MAX_DOC_TITLES_PER_MILESTONE` 5, `DOC_TITLE_CHARS` 80). Evidence is capped at `MAX_EVIDENCE_LINES` (500), cut from the end so earlier milestones stay complete; `truncated` is set by exactly three things: the stakeholder or milestone caps (120 / 60), more than 500 evidence lines, and a request cut at `RACI_REQUEST_MAX_CHARS` (2000); dropping document titles beyond 5 on a milestone does not set it (owner decision, 2026-10-31: titles are milestone context, never person evidence), and neither does a shortened description or document title. The dialog opens on an input stage with an optional request box, and nothing is sent until Suggest is chosen; a non-blank request goes into the digest as a REQUEST block. Grounding (`groundRaciCells`) now accepts a new Accountable on a milestone with exactly one stored holder when the same proposal gives that holder a valid non-A role, and marks both cells with a shared `pairKey`; without the demotion the new A is refused as `accountable-needs-demotion` (the old `raciSuggestSkippedHandover` string is replaced by `raciSuggestSkippedDuplicateNeedsDemotion`). The review shows the pair as one row with one checkbox, naming the new holder's current role when they have one. On confirm, `onConfirm` drops the cells whose stakeholder was deleted since the proposal; then `dropStaleAccountables` re-reads the live Accountable holders and drops an unpaired A when its milestone now has another holder, and a paired A unless the milestone's live holders are exactly the pair's demoted stakeholder; then `dropOrphanedPairHalves` keeps a pair only when it is exactly one A and one non-A, so one half is never written. People protection is unchanged: Suggest RACI stays off under it. Owner decisions 2026-10-31: no new stakeholder rows, only people who already have one; one forced call, no read tools. Verified with `grep -n "pairKey" src/app/raci-suggest-modal.tsx src/app/use-raci-suggest.tsx`, `grep -rn "accountable-needs-demotion" src/app` and `grep -rn "raciSuggestSkippedHandover" src` (no hit left in `src`), and with `npx vitest run src/app/raci-suggest src/app/raci-suggest-modal.test.tsx src/app/raci-suggest-call.test.ts src/app/use-raci-suggest.test.tsx`, each new behaviour test failing on the code before it. **Earlier:** tracked as issue #859 from 2026-10-23, the owner's request: the prompt told Claude to decide from job titles, although the project already records who owns the milestone's tasks, risks and changes, and a handover of Accountable was refused outright.
 
 Size M.
 
@@ -46126,7 +46126,7 @@ Size M.
 
 ## 782. An insight recommendation can propose a change that cannot be applied, and the failure is silent — CLOSED 2026-10-24
 
-**Status:** CLOSED 2026-10-24 on `fix/insight-rec-schema`, owner decision 2026-10-24 to fix it now. `propose_insight_actions` (`insights/recommend.ts`) now offers each tool in `ALLOWED_REC_TOOLS` with its own arguments: `REC_CALL_ITEM_SCHEMA` (`insights/recommend-schema.ts`) has one `anyOf` branch per tool, whose input is the chat tool's own `input_schema` from `TOOL_DEFS` minus `expectedToken` (the store stamps that token), so the chat definitions are read and never edited. The digest lists the people a create may assign (`## People (assign by name)`, at most 30: the active resources, then the assignees of open tasks, with archived resources' names left out; see review round 3), and the system prompt asks for every required argument. `recommendationCallProblem` names a call missing an argument its writer requires (a blank string counts as missing; `create_task`'s `dueDate` and `create_milestone`'s `date` must be YYYY-MM-DD). `describeRecommendationPlan` shows such a call as rejected with that reason and never as a create, and the apply loop in `use-insight-recommendations.ts` asks the same question of the stored calls it replays, counting such a call as refused (so the existing §351/§534 wording applies); since the review round it refuses every whole-call rejection the review shows, so an `update_*` on a row deleted since is refused too instead of being dispatched into "not found". A call that still throws is logged as `insight.recommendation.callFailed` with the tool, the message and the argument names (never their values), and the toast names it: `insightRecommendationApplyFailedDetail`, which opens with the old `insightRecommendationApplyFailed` sentence. Review round: such a call is counted in `refusedCalls` as well, so the card reads "Partly applied" and offers Generate instead of plain "Recommendation applied." (the field's doc in `insights/insight.ts` now says "did not land": a call that threw may have written part of its work, which is why the insight still advances). `matchesSchema` and `closeObjects` (`ai-tool-schema.ts`) now enter `anyOf`: a call that fits no branch fails the match, so the reply is re-asked strict, and the strict form closes every branch (before, 20 of the tool's 21 objects stayed open and the API would have refused every strict request for it). The false comment saying a stale update id does not throw is corrected. Verified with `npx vitest run src/app/insights/recommend-schema.test.ts src/app/insights/recommend-plan.test.ts src/app/insights/recommend-context.test.ts src/app/insights/recommend.test.ts src/app/use-insight-recommendations.test.tsx` (each new test failed first on the code before it) and over every `src/app/insights` test, the chat tool, forced-call and tool-schema tests (32 files, green); a mutant that disables the apply loop's whole-call guard (`plan.rejected.some((r) => r.field === undefined)`) fails three tests. Live check, 2026-10-24, `claude-sonnet-5-5`: `count_tokens` accepted both forms the app sends that model, plain tools with `tool_choice` auto (5,932 input tokens) and the strict form (6,142); a forced `tool_choice` is refused by that model, which the app already answers by switching it to auto. One with-AI demo rehearsal of the ai-insight clip, on a throwaway merge with the recorder branch, then applied the recommendation in full: card and toast read "Recommendation applied.", and the whole take took 55 s. Still not verified: `count_tokens` may not run every check the Messages endpoint does, and that run cannot show whether a strict retry happened, so the strict form could still be refused as too complex (about 115 mostly-optional properties across 10 branches) on a reply that breaks a branch; `postStrict` then marks the tool non-strict, and the plan and the apply loop remain the check. Each request now carries about 12.8 KB more tool schema (roughly 3–4k input tokens). Latency is unmeasured on the auto-choice models: the first reply that breaks a branch (including an update `id` sent as a numeric string, which `matchesSchema` types as a number) now sends a strict request, after which every Generate that session goes strict first; if the API refuses the strict form as too complex, that refusal can be slow (`propose_wbs_changes`' took 108 s, per `ai-forced-call.ts`). Watch it in the next with-AI recordings. Review round 3: People now adds the assignees of the project's open tasks after the active resources (`recommendPeople`: blanks dropped, each name once compared case-insensitively after trimming and collapsing inner whitespace, same cap of 30; a task `isTaskClosed` counts as closed, and an assignee matching an archived resource's name, compared the same way, is dropped, so People names no archived resource), so a project without a resource directory can get a valid `create_task`. People is advisory: a name written another way ("Ortiz, Dana" beside "Dana Ortiz") is not recognised as the same person and can appear twice; when the list is still empty the digest says no one is known and not to propose `create_task`, and the system prompt says the same. A stale refusal and a thrown call in one apply now show `insightRecommendationStalePartialDetail`, which names the failure. The review words a refused call's reason in the UI language (`insightRecommendationCallArgsRequired`, `insightRecommendationCallArgDate`, `insightRecommendationCallNotAllowed`; tool and argument names stay as they are, and the dispatcher's own messages in a failure toast stay English). An `ai-forced-call.test.ts` test drives the strict retry with the real `RECOMMEND_TOOL`. Each new test failed first on the round-2 code except that one, which pins behaviour round 2 already had; six one-line mutants (no assignees, a bare "(none)", the stale toast winning, the English formatter in review, `matchesSchema` or `closeObjects` skipping `anyOf`) each fail at least one of this round's new tests. Only the target file was run for the first four. The last two were also run over `ai-forced-call.test.ts`, `recommend-schema.test.ts` and `ai-tool-schema.test.ts`, and each fails one test in each of the three: the forced-call test, plus round 2's `anyOf` tests. The live checks above predate this round: its system prompt is one sentence longer, and no live request was sent for it. Not changed: a reply cut at `max_tokens` that breaks a branch is still re-asked strict inside `postAuto`, and marks the tool strict, before `recommend-call` retries at 8192; skipping the retry there would change it for every forced-call tool on the auto-choice models. **Earlier:** found by the demo recorder's with-AI rehearsal; the cause was read from the code (diagnosis of 2026-10-24).
+**Status:** CLOSED 2026-10-24 on `fix/insight-rec-schema`, owner decision 2026-10-24 to fix it now. `propose_insight_actions` (`insights/recommend.ts`) now offers each tool in `ALLOWED_REC_TOOLS` with its own arguments: `REC_CALL_ITEM_SCHEMA` (`insights/recommend-schema.ts`) has one `anyOf` branch per tool, whose input is the chat tool's own `input_schema` from `TOOL_DEFS` minus `expectedToken` (the store stamps that token), so the chat definitions are read and never edited. The digest lists the people a create may assign (`## People (assign by name)`, at most 30: the active resources, then the assignees of open tasks, with archived resources' names left out; see the third review round), and the system prompt asks for every required argument. `recommendationCallProblem` names a call missing an argument its writer requires (a blank string counts as missing; `create_task`'s `dueDate` and `create_milestone`'s `date` must be YYYY-MM-DD). `describeRecommendationPlan` shows such a call as rejected with that reason and never as a create, and the apply loop in `use-insight-recommendations.ts` asks the same question of the stored calls it replays, counting such a call as refused (so the existing §351/§534 wording applies); since the review round it refuses every whole-call rejection the review shows, so an `update_*` on a row deleted since is refused too instead of being dispatched into "not found". A call that still throws is logged as `insight.recommendation.callFailed` with the tool, the message and the argument names (never their values), and the toast names it: `insightRecommendationApplyFailedDetail`, which opens with the old `insightRecommendationApplyFailed` sentence. Review round: such a call is counted in `refusedCalls` as well, so the card reads "Partly applied" and offers Generate instead of plain "Recommendation applied." (the field's doc in `insights/insight.ts` now says "did not land": a call that threw may have written part of its work, which is why the insight still advances). `matchesSchema` and `closeObjects` (`ai-tool-schema.ts`) now enter `anyOf`: a call that fits no branch fails the match, so the reply is re-asked strict, and the strict form closes every branch (before, 20 of the tool's 21 objects stayed open and the API would have refused every strict request for it). The false comment saying a stale update id does not throw is corrected. Verified with `npx vitest run src/app/insights/recommend-schema.test.ts src/app/insights/recommend-plan.test.ts src/app/insights/recommend-context.test.ts src/app/insights/recommend.test.ts src/app/use-insight-recommendations.test.tsx` (each new test failed first on the code before it) and over every `src/app/insights` test, the chat tool, forced-call and tool-schema tests (32 files, green); a mutant that disables the apply loop's whole-call guard (`plan.rejected.some((r) => r.field === undefined)`) fails three tests. Live check, 2026-10-24, `claude-sonnet-5-5`: `count_tokens` accepted both forms the app sends that model, plain tools with `tool_choice` auto (5,932 input tokens) and the strict form (6,142); a forced `tool_choice` is refused by that model, which the app already answers by switching it to auto. One with-AI demo rehearsal of the ai-insight clip, on a throwaway merge with the recorder branch, then applied the recommendation in full: card and toast read "Recommendation applied.", and the whole take took 55 s. Still not verified: `count_tokens` may not run every check the Messages endpoint does, and that run cannot show whether a strict retry happened, so the strict form could still be refused as too complex (about 115 mostly-optional properties across 10 branches) on a reply that breaks a branch; `postStrict` then marks the tool non-strict, and the plan and the apply loop remain the check. Each request now carries about 12.8 KB more tool schema (roughly 3–4k input tokens). Latency is unmeasured on the auto-choice models: the first reply that breaks a branch (including an update `id` sent as a numeric string, which `matchesSchema` types as a number) now sends a strict request, after which every Generate that session goes strict first; if the API refuses the strict form as too complex, that refusal can be slow (`propose_wbs_changes`' took 108 s, per `ai-forced-call.ts`). Watch it in the next with-AI recordings. Review round 3: People now adds the assignees of the project's open tasks after the active resources (`recommendPeople`: blanks dropped, each name once compared case-insensitively after trimming and collapsing inner whitespace, same cap of 30; a task `isTaskClosed` counts as closed, and an assignee matching an archived resource's name, compared the same way, is dropped, so People names no archived resource), so a project without a resource directory can get a valid `create_task`. People is advisory: a name written another way ("Ortiz, Dana" beside "Dana Ortiz") is not recognised as the same person and can appear twice; when the list is still empty the digest says no one is known and not to propose `create_task`, and the system prompt says the same. A stale refusal and a thrown call in one apply now show `insightRecommendationStalePartialDetail`, which names the failure. The review words a refused call's reason in the UI language (`insightRecommendationCallArgsRequired`, `insightRecommendationCallArgDate`, `insightRecommendationCallNotAllowed`; tool and argument names stay as they are, and the dispatcher's own messages in a failure toast stay English). An `ai-forced-call.test.ts` test drives the strict retry with the real `RECOMMEND_TOOL`. Each new test failed first on the round-2 code except that one, which pins behaviour round 2 already had; six one-line mutants (no assignees, a bare "(none)", the stale toast winning, the English formatter in review, `matchesSchema` or `closeObjects` skipping `anyOf`) each fail at least one of this round's new tests. Only the target file was run for the first four. The last two were also run over `ai-forced-call.test.ts`, `recommend-schema.test.ts` and `ai-tool-schema.test.ts`, and each fails one test in each of the three: the forced-call test, plus round 2's `anyOf` tests. The live checks above predate this round: its system prompt is one sentence longer, and no live request was sent for it. Not changed: a reply cut at `max_tokens` that breaks a branch is still re-asked strict inside `postAuto`, and marks the tool strict, before `recommend-call` retries at 8192; skipping the retry there would change it for every forced-call tool on the auto-choice models. **Earlier:** found by the demo recorder's with-AI rehearsal; the cause was read from the code (diagnosis of 2026-10-24).
 
 A with-AI rehearsal of the "Budget off plan" insight (Generate recommendation, review, Apply) ended with "Recommendation applied." on the card and the toast "Some changes in this recommendation couldn't be applied.", so at least one proposed call threw. `propose_insight_actions` sent each call's `input` as a bare `{type:"object"}` with no argument names, and the digest named no person, so the model could propose a `create_task` without `taskName` or `assignee`. The review titled that call from `title` and showed it as a normal create, and `runTool` then threw "taskName, assignee, and dueDate are required". The apply loop only counted the error: nothing recorded which call failed or why.
 
@@ -46184,7 +46184,7 @@ What it would take: measure which test takes the time, then make the scan cheape
 
 Size S.
 
-**Source:** §773 PR-head fix round, owner decision 2026-10-31 (file it).
+**Source:** the §773 PR-head fixes, owner decision 2026-10-31 (file it).
 
 ## 788. Deleting a person leaves their name in the shared person_links table — CLOSED 2026-11-01
 
@@ -46249,3 +46249,21 @@ What it would take: a `writeSettings` test shaped like "exportConfig redacts EVE
 Size S.
 
 **Source:** code-scanning alert #65 review, owner decision 2026-11-06 (dismiss and file).
+
+## 793. The installer's uninstaller is not code-signed
+
+**Status:** OPEN 2026-11-02, filed during the signed-installer work (the release workflow's `sign` job). Deferred, not a defect in shipped behaviour: signing is still switched off. Reproduced by reading: `grep -n "signIf(uninstallerPath)" desktop/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js` prints one hit, in `computeScriptAndSignUninstaller`.
+
+**Work item:** #951
+
+**Update 2026-11-06:** the single `sign` job was split so that no job holding the SignPath token runs build tooling: `sign-app` and `sign-installer` hold the token and run only actions, while the `--prepackaged` repackage runs in the token-free `repackage` job ([`docs/AGENTS/ci.md`](AGENTS/ci.md)'s `release.yml` section). A signing hook inside electron-builder would put the token back into a job that runs build code, which `scripts/ci-workflow.test.mjs` (`tokenJobViolations`) now refuses — so the "If yes" path below also needs a design that keeps the token out of the repackage, for example a separate token job between two repackage passes.
+
+When signing is switched on (`vars.SIGNPATH_ENABLED`), the release workflow (`.github/workflows/release.yml`) has SignPath sign the setup exe and, with `SIGNPATH_SIGN_APP_EXE`, the packaged app's own executables. The uninstaller is left unsigned. It is reachable: during the `--prepackaged` repackage, electron-builder's NSIS target writes the uninstaller to a file of its own and calls `packager.signIf(uninstallerPath)` before it builds the setup, so a `win.signtoolOptions.sign` hook would be handed it.
+
+Why deferred: such a hook would have to call SignPath's API from inside electron-builder, one file at a time, rather than through the GitHub connector with a workflow artifact. Whether that still meets SignPath's trusted-build rules (origin verification, the artifact stored as a workflow artifact first) is not decided.
+
+What it would take: ask SignPath (or read the Foundation's terms) whether a per-file signing request from a build hook is acceptable for an OSS project. If yes, write the hook (it runs only when signing is on), keep the token out of every other job, and add a check in `finalize` that the uninstaller inside the setup is signed. If no, say in the README's signing policy that the uninstaller is unsigned.
+
+Size M.
+
+**Source:** review of the signing job, 2026-11-02. Decision: the uninstaller is not signed in this change; it waits until SignPath confirms whether a build-hook signing request is acceptable.

@@ -24,7 +24,7 @@ export const PERSON_FIELDS_BY_TOOL: Readonly<Record<string, readonly string[]>> 
   delete_all_tasks: [],
   // The WBS preview strips its own new-task assignees (`withoutWbsAssignees`); this tool only opens it.
   optimize_wbs: [],
-  // A view filter, not a record write (controller ruling, fix round 1): filtering by a person sets no one.
+  // A view filter, not a record write: filtering by a person sets no one.
   set_filters: [],
   set_language: [],
   update_settings: [],

@@ -395,7 +395,7 @@ describe("GanttPanel dependency toggle", () => {
   });
 });
 
-// ---------- source-scan tests (Task 6: toolbar ordering + pane resize) ------
+// ---------- source-scan tests (toolbar ordering + pane resize) ------
 
 test("gantt toolbar: + Add Task markup precedes the search input", () => {
   // Toolbar markup lives in gantt-chrome.tsx (GanttToolbar) since the
@@ -426,7 +426,7 @@ test("gantt root pane has print-root and print-landscape classes", () => {
   expect(src).toMatch(/print-landscape/);
 });
 
-// ---------- resizable task-name column (Task 1) ----------------------------
+// ---------- resizable task-name column ----------------------------
 
 describe("GanttPanel task-name column resize", () => {
   const KEY = "aipm-cockpit:gantt-namecol";
@@ -600,10 +600,10 @@ test("gantt toolbar clears the search box from a labelled button", async () => {
   expect(field.value).toBe("");
 });
 
-// ---------- dedupButton slot (slice F, Task 2) ------------------------------
+// ---------- dedupButton slot (slice F) ------------------------------
 //
 // GanttPanel/GanttToolbar don't build the AI dedup trigger themselves (that's
-// gantt-view.tsx's job, Task 3) — they just render whatever ReactNode the
+// gantt-view.tsx's job) — they just render whatever ReactNode the
 // caller hands them, in the same toolbar slot the Open Points toolbar uses
 // (Add · [Jira sync] · dedup · search).
 
@@ -661,7 +661,7 @@ describe("GanttPanel dedupButton slot", () => {
   });
 });
 
-// ---------- v2 status filter semantics (Task 8) ----------------------------
+// ---------- v2 status filter semantics ----------------------------
 //
 // Under the v2 prefs schema an EMPTY `statuses` array means "show nothing", not
 // "show everything", and the milestone rows obey the same buckets. These tests

@@ -581,7 +581,7 @@ describe("Attachment guidance", () => {
     // handleFiles is async (ingestFile awaits file.arrayBuffer()) — a
     // synchronous check here would pass whether the onDrop guard blocked the
     // drop OR the async chain simply had not resolved yet, which is vacuous
-    // (fix-round-1: a mutant that deletes only the guard line, leaving
+    // (a mutant that deletes only the guard line, leaving
     // onDrop/handleFiles intact, stayed green against the old synchronous
     // assertion). Flush real timers first so any staging that WOULD happen
     // has actually happened before asserting its absence.
@@ -1265,8 +1265,8 @@ describe("prompt caching", () => {
     vi.restoreAllMocks();
   });
 
-  // ★★★ `system` no longer carries the volatile half — Task 7 (the
-  //   prompt-cache-layout slice) moved it (APP CONTEXT et al.) off the
+  // ★★★ `system` no longer carries the volatile half — the
+  //   prompt-cache-layout slice moved it (APP CONTEXT et al.) off the
   //   `system` array and onto the current user turn, via `buildWireMessages`,
   //   so the `system` array sent over the wire is only ever
   //   `buildStableSystemBlocks`'s output. See the "prompt cache layout
@@ -1328,7 +1328,7 @@ describe("prompt caching", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Prompt cache layout wiring (Task 7 of the prompt-cache-layout slice) — the
+// Prompt cache layout wiring (the prompt-cache-layout slice) — the
 // volatile turn context moves off `system` and onto the current user turn's
 // wire copy, so the transcript sits inside a byte-identical, cacheable prefix.
 // ---------------------------------------------------------------------------
@@ -1428,7 +1428,7 @@ describe("prompt cache layout wiring", () => {
     expect(JSON.stringify(body.messages[body.messages.length - 1])).toContain("APP CONTEXT");
   });
 
-  // The "one extra check" from the task brief: the API requires a user
+  // The "one extra check": the API requires a user
   // message's tool_result blocks to LEAD its content, and buildWireMessages
   // appends the turn context AFTER existing blocks for exactly that reason —
   // confirm that holds on a REAL tool-call round trip's second request, not
@@ -1902,7 +1902,7 @@ describe("history budget keeps stored attachments (§575)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Attach / dictate button sizing (UX toolbar polish batch, Task 20)
+// Attach / dictate button sizing (UX toolbar polish batch)
 // ---------------------------------------------------------------------------
 describe("attach and dictate button sizing", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -2441,7 +2441,7 @@ describe("ChatPanel — Turso thread persistence", () => {
   });
 
   // -------------------------------------------------------------------
-  // Task 6: the sidebar itself. Everything above this point predates the
+  // The sidebar itself. Everything above this point predates the
   // sidebar UI; these two pin that the tursoMode gate — the one thing that
   // could silently regress file mode — actually gates rendering.
   // -------------------------------------------------------------------
@@ -2845,7 +2845,7 @@ describe("historySearch reaches the request body", () => {
   /** Both halves of the ONE request body: the tool schema list and the full
    *  prompt text the model reads this turn. `system` is `SystemBlock[]`
    *  (`{type:"text", text}`), joined with the volatile turn context — since
-   *  Task 7 of the prompt-cache-layout slice, that context is no longer a
+   *  the prompt-cache-layout slice, that context is no longer a
    *  `system` block at all; `buildWireMessages` appends it as a trailing text
    *  block on the final user message instead (see chat-cache-layout.ts), which
    *  is where `buildViewScopeBlock`'s tool advertisement now lives. Joining
@@ -3080,7 +3080,7 @@ describe("staged tool calls (the review card)", () => {
     Array.from(card.querySelectorAll('[data-proposal-row] input[type="checkbox"]'));
 
   /** The `tool_result` blocks the SECOND request carries back to the model.
-   *  ★ Filtered to `type === "tool_result"`: since Task 7 of the
+   *  ★ Filtered to `type === "tool_result"`: since the
    *  prompt-cache-layout slice, `buildWireMessages` appends the volatile turn
    *  context as a trailing text block on this same message (after the
    *  tool_result blocks, per the API's ordering requirement — see the
@@ -4800,7 +4800,7 @@ describe("AI-17 a transport failure shows its own message", () => {
 });
 
 // ---------------------------------------------------------------------------
-// §650 fix round — a passphrase-UNLOCKED key is the live key for the verdict. The settings key reads
+// §650 — a passphrase-UNLOCKED key is the live key for the verdict. The settings key reads
 // "" for a passphrase-wrapped record, so task-manager syncs "" and, without the panel syncing the
 // unlocked key, every report made with it would be dropped as stale.
 // ---------------------------------------------------------------------------

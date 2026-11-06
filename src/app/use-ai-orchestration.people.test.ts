@@ -1,4 +1,4 @@
-// AI people protection, Task 5 review round 1 (I4): "Analyze with AI" and the weight-suggestion context
+// AI people protection: "Analyze with AI" and the weight-suggestion context
 // hand the Action Center's live queue to the model. Under protection, its people signals (workload,
 // stakeholder comms) are filtered out by ONE predicate over the action's SOURCE, never its text.
 import { describe, it, expect, vi, beforeEach } from "vitest";

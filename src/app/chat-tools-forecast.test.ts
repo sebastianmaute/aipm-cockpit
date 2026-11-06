@@ -293,7 +293,7 @@ describe("the decision writes (§502 part 4)", () => {
   });
 });
 
-// §502 part 4, ruling P3-1 — the forecast decision data section exists only while the simulation is active.
+// §502 part 4 — the forecast decision data section exists only while the simulation is active.
 describe("the forecastDecision data section follows the simulation", () => {
   type Def = { name: string; input_schema: unknown };
   const keysIn = (defs: readonly Def[], name: string): string[] => {

@@ -844,7 +844,7 @@ describe("useForecastImport — ambiguous columns are confirmed before Apply (fi
     expect(deps.onChangeBuckets).not.toHaveBeenCalled();
   });
 
-  // rr7 I2: Wide, then Long again, rebuilt the long mapping from the defaults
+  // Wide, then Long again, rebuilt the long mapping from the defaults
   // (the questioned preselection) and had cleared the gate on the way.
   it("a layout round-trip (Long, Wide, Long) confirms nothing", async () => {
     const deps = depsOf();
@@ -1025,7 +1025,7 @@ describe("useForecastImport — Claude's mapping waits for the user's press", ()
   });
 });
 
-// Round 2 (controller ruling on concern 1): a metadata row over a long sheet's
+// Round 2: a metadata row over a long sheet's
 // Monat | Stunden | Ist reads as a wide header; its rows' own Monat column now
 // makes that reading ask.
 describe("useForecastImport — a wide reading whose rows hold their own period column waits (round 2)", () => {
@@ -1054,7 +1054,7 @@ describe("useForecastImport — a wide reading whose rows hold their own period 
   });
 });
 
-// Fix 9 I-1 (rr9 H5): with an "offen" in the Monat column the sheet once opened
+// Fix 9 I-1: with an "offen" in the Monat column the sheet once opened
 // straight on the preview, and February Ist cells were applied as January.
 describe("useForecastImport — one placeholder does not switch the row-period question off (fix 9 I-1)", () => {
   it("gates the sheet on the hand route", async () => {
@@ -1111,7 +1111,7 @@ describe("useForecastImport — more than one header row waits for the user (fix
   });
 });
 
-// Fix 9 m-a (rr9 H2): a confirmation belongs to a (layout, field) pair and to
+// Fix 9 m-a: a confirmation belongs to a (layout, field) pair and to
 // the column it confirmed. Choosing the period in Long once also cleared the
 // Wide reading's question, so flipping back to Wide applied the very reading
 // that was questioned.
@@ -1150,7 +1150,7 @@ describe("useForecastImport — a confirmation belongs to its layout and column 
   });
 });
 
-// Round 7 I-A (rr10 U1): after confirming Stunden, the Ist cell on Bob's
+// Round 7 I-A: after confirming Stunden, the Ist cell on Bob's
 // blank-forecast row was once applied as his February forecast (25).
 describe("useForecastImport — a blank forecast row's Ist is never applied (round 7 I-A)", () => {
   it("reads nothing from Bob's blank Stunden cell once the Stunden column is confirmed", async () => {
@@ -1162,7 +1162,7 @@ describe("useForecastImport — a blank forecast row's Ist is never applied (rou
   });
 });
 
-// Round 7 I-B (rr10 P1/E1): two "-" in Stunden made Ist the only hours
+// Round 7 I-B: two "-" in Stunden made Ist the only hours
 // candidate, and the actuals (83) were applied without a word.
 describe("useForecastImport — placeholders in the hours column ask (round 7 I-B)", () => {
   it("Stunden with two '-' beside Ist opens on the mapping step, and the 83 of actuals is not applied", async () => {
@@ -1181,7 +1181,7 @@ describe("useForecastImport — placeholders in the hours column ask (round 7 I-
   });
 });
 
-// Round 8 m-1 (rr11): the preselection follows the candidates, not the share.
+// Round 8 m-1: the preselection follows the candidates, not the share.
 // The hours preselect the LEFTMOST candidate; the period ranks by header word
 // first, then share, then leftmost. "These columns are right" once applied
 // the actuals (Ist) or every row in March (Erfasst am).
@@ -1208,7 +1208,7 @@ describe("useForecastImport — the preselection is the forecast column (round 8
   });
 });
 
-// Round 9 I-D (rr12 K4): "These columns are right" on FTE | Stunden applied
+// Round 9 I-D: "These columns are right" on FTE | Stunden applied
 // the FTE fractions as hours.
 describe("useForecastImport — FTE | Stunden confirms the Stunden hours (round 9 I-D)", () => {
   it("preselects Stunden and applies 80 and 160", async () => {
@@ -1222,7 +1222,7 @@ describe("useForecastImport — FTE | Stunden confirms the Stunden hours (round 
   });
 });
 
-// Round 9 I-W (rr12): one person on several rows that differ in a text column
+// Round 9 I-W: one person on several rows that differ in a text column
 // (Plan and Ist) was summed on both routes, unasked. Both routes ask it of the
 // mapping in effect, detection's or Claude's; once confirmed, the sum is
 // applied and shown.

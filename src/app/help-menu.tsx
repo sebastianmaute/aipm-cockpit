@@ -10,7 +10,7 @@ import { smoothScrollBehavior } from "./reduced-motion";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { useResizable } from "./use-resizable";
 import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-window";
-import { ResetSizeButton } from "./task-manager-ui";
+import { ResetSizeButton, useIsDesktopShell } from "./task-manager-ui";
 import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
 import { usePanelInitialFocus } from "./use-panel-focus";
 import { APP_LICENSE_URL, INSTALL_GUIDE_URL } from "./version";
@@ -18,9 +18,10 @@ import { YOUTUBE_CHANNEL_URL } from "./help-videos";
 import { useSettings } from "./use-settings";
 import { FOCUS_RING } from "./interaction-styles";
 
-/** One footer link that opens in a new tab (the desktop app: the system browser). The ↗ is
- *  decorative, so the accessible name is exactly the visible label, as in the Help entries'
- *  video links. */
+/** One footer link that opens in a new tab. In the desktop app an external link opens in the
+ *  system browser, but a same-origin one -- THIRD_PARTY_NOTICES_PATH -- opens in a new app window
+ *  (`decideWindowOpen` answers allow-in-app for the app's own origin). The ↗ is decorative, so
+ *  the accessible name is exactly the visible label, as in the Help entries' video links. */
 function FooterLink({ href, children }: { href: string; children: string }) {
   return (
     <a
@@ -34,6 +35,12 @@ function FooterLink({ href, children }: { href: string; children: string }) {
     </a>
   );
 }
+
+/** The licence notices for every third-party package a release ships. The release build writes
+ *  them into the packaged server's public/ (desktop/scripts/copy-static.mjs `--notices`); a dev
+ *  or web build has none and would answer 404, so the Help panel links them only in the desktop
+ *  shell (`useIsDesktopShell`). */
+export const THIRD_PARTY_NOTICES_PATH = "/third-party-notices.txt";
 
 const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
 const STORAGE_KEY_SIZE = "aipm-cockpit:help-size-v3";
@@ -91,6 +98,7 @@ export function HelpMenu({
   // instance in step through a module-level listener registry.
   const { settings } = useSettings();
   const [open, setOpen] = useState(false);
+  const isDesktopShell = useIsDesktopShell();
   const [query, setQuery] = useState("");
   // Drag/position (shared with notes-window); size stays on useResizable below.
   // The panel renders only once `pos` is set, so the placement fallback size is
@@ -264,6 +272,9 @@ export function HelpMenu({
             <FooterLink href={YOUTUBE_CHANNEL_URL}>{t(lang, "helpVideoChannelLink")}</FooterLink>
             <FooterLink href={INSTALL_GUIDE_URL}>{t(lang, "installGuideLink")}</FooterLink>
             <FooterLink href={APP_LICENSE_URL}>{t(lang, "versionLicense")}</FooterLink>
+            {isDesktopShell && (
+              <FooterLink href={THIRD_PARTY_NOTICES_PATH}>{t(lang, "helpThirdPartyNotices")}</FooterLink>
+            )}
           </div>
         </div>
       )}

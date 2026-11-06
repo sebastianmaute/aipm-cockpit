@@ -98,7 +98,7 @@ describe("steeringCommittee survives the storage hook's save path (§232)", () =
   // Without this, a red test below could equally mean "IndexedDB/jsdom cannot
   // hold this shape at all" — which would make the other two prove nothing.
   it("control: BrowserBackend round-trips a committee it is handed directly", async () => {
-    // §4 fix round 2 — a fresh backend has never loaded; force this blind
+    // §4 — a fresh backend has never loaded; force this blind
     // seed write (R10 change 1, fail closed).
     const backend = new BrowserBackend();
     backend.forceNextSave();
@@ -141,7 +141,7 @@ describe("steeringCommittee survives the storage hook's save path (§232)", () =
   it("fires a save when the committee is the ONLY thing that changed", async () => {
     // Seed through the real backend so the hook's load applies real data and
     // the post-load suppressed save is consumed before the assertion window.
-    // §4 fix round 2 — force this blind seed write (R10 change 1).
+    // §4 — force this blind seed write (R10 change 1).
     const seed = new BrowserBackend();
     seed.forceNextSave();
     await seed.save({ ...emptyWorkspace(), tasks: [task] });

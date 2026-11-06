@@ -178,7 +178,7 @@ describe("probe: a long sheet of Monday dates (round 2)", () => {
   });
 });
 
-// Round 3 (rr2 Important 1): a year-less wide sheet with a date column was
+// Round 3: a year-less wide sheet with a date column was
 // detected as LONG once A2 ran the long pass before the wide pass with a year.
 describe("probe: a year-less wide sheet with a date column stays wide (round 3)", () => {
   const months6 = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun"];
@@ -224,7 +224,7 @@ describe("probe: a year-less wide sheet with a date column stays wide (round 3)"
   });
 });
 
-// Round 3 (rr2 Important 2): date columns finer than the period are sub-period
+// Round 3: date columns finer than the period are sub-period
 // columns and are summed; only identical or equivalent labels collide.
 describe("probe: bi-weekly and semi-monthly date headers (round 3)", () => {
   const monthPlan = (run: Run) => {
@@ -259,7 +259,7 @@ describe("probe: bi-weekly and semi-monthly date headers (round 3)", () => {
     expect(readSheet([["Name", "05.01.2026", "05.01.2026", "Feb 2026"], ["Ann Lee", "1", "2", "3"]]).validated.collisions).toHaveLength(1);
   });
 
-  // Round 4 (rr3 Important 1c): a placeholder above a cell once hid its date
+  // Round 4: a placeholder above a cell once hid its date
   // header, and Bob's January became a same-row collision.
   it("a - in Ann's row does not stop Bob's sprint dates being summed: 2026-01 = 80, no blocker", () => {
     const run = readSheet([
@@ -288,7 +288,7 @@ describe("probe: bi-weekly and semi-monthly date headers (round 3)", () => {
   });
 });
 
-// Round 3 (rr2 observation 2): stacked year blocks. Detection takes the second
+// Round 3: stacked year blocks. Detection takes the second
 // block's header; the rows of the first block are reported, not dropped silently.
 describe("probe: stacked year blocks on the hand route (round 3)", () => {
   it("reports the first block's rows above the detected header row", () => {
@@ -307,7 +307,7 @@ describe("probe: stacked year blocks on the hand route (round 3)", () => {
     expect(run.out.rowsAboveHeader).toBe(0);
   });
 
-  // Round 4 (rr3 Minor 3): metadata rows above the header are not unread data.
+  // Round 4: metadata rows above the header are not unread data.
   it("counts no metadata row: a workbook Stand | 46296 (a serial date)", () => {
     const run = readSheet([["Stand", "46296"], [], ["Name", "Jan 2026", "Feb 2026", "Mar 2026"], ["Ann Lee", "1", "2", "3"]], "dot");
     expect(run.out.rows).toHaveLength(3);
@@ -361,7 +361,7 @@ describe("probe: stacked year blocks on the hand route (round 3)", () => {
   });
 });
 
-// Round 4 (rr3 Minor 6): two numeric code cells once moved Jan…Mär into 2010.
+// Round 4: two numeric code cells once moved Jan…Mär into 2010.
 describe("probe: numeric code cells in a header of year-less months (round 4)", () => {
   it("two serial code cells beside year-less months leave the months in the default year, no collision", () => {
     const rows = [["Name", "40100", "40200", "Jan", "Feb", "Mär"], ["Ann Lee", "", "", "8", "8", "8"]];
@@ -371,7 +371,7 @@ describe("probe: numeric code cells in a header of year-less months (round 4)", 
   });
 });
 
-// Round 4 (rr3 Minor 5): a workbook's serial date column is period-shaped, never
+// Round 4: a workbook's serial date column is period-shaped, never
 // an unread hours column.
 describe("probe: a serial date column is not an ignored number column (round 4)", () => {
   it("Name | Eintritt | Jan | Feb | Mär with Eintritt 45000 in a workbook lists no ignored column", () => {
@@ -394,7 +394,7 @@ describe("probe: a serial date column is not an ignored number column (round 4)"
   });
 });
 
-// Round 5 (rr4 Important 1): moving both two-period wide passes ahead of the
+// Round 5: moving both two-period wide passes ahead of the
 // long passes turned long WORKBOOKS with two date columns wide — a data row of
 // two serials read as a two-period header, the serials below as hours. The
 // round-3 order is back. The year-less `Name | Start | Jan | Feb` it misread
@@ -480,7 +480,7 @@ describe("probe: long workbooks with two date columns stay long (round 5)", () =
   });
 });
 
-// Round 5 (rr4 Important 2): two dates more than 92 days apart are a range, not
+// Round 5: two dates more than 92 days apart are a range, not
 // two period columns; two closer ones still head a two-period wide sheet.
 describe("probe: a title row's date range over a long sheet (round 5)", () => {
   it("reads the long sheet under Zeitraum | 01.01.2026 | 31.12.2026, every row in its month", () => {
@@ -537,7 +537,7 @@ describe("probe: a start-date column beside the period column (final review I2)"
   });
 
   // Fix 7: with no period word on either header, nothing tells Beginn from
-  // Wann (a label-over-date rank once did, and summed rr6 N3's Datum sheets into
+  // Wann (a label-over-date rank once did, and summed the Datum sheets into
   // their Eintritt month). Detection asks; the leftmost is only the default.
   it("Name | Beginn | Wann | Stunden asks which column is the period", () => {
     const rows = [["Name", "Beginn", "Wann", "Stunden"], ["Ann Lee", "01.01.2026", "Jan 2026", "80"], ["Ann Lee", "01.01.2026", "Feb 2026", "60"]];
@@ -580,7 +580,7 @@ describe("probe: an ID or number column is never the hours (final review I3)", (
     expect(run.out.ignoredColumns).toEqual([]);
   });
 
-  // Fix 7: the rightmost pick read Menge here, and Ist / Actual / Summe on rr6
+  // Fix 7: the rightmost pick read Menge here, and Ist / Actual / Summe on
   // N1's sheets. Two unnamed number columns are asked about instead.
   it("asks between two unnamed number columns: Team | Menge, Team preselected", () => {
     const rows = [["Name", "Monat", "Team", "Menge"], ["Ann Lee", "Jan 2026", "7", "40"], ["Ann Lee", "Feb 2026", "7", "30"]];
@@ -655,7 +655,7 @@ describe("probe: a column headed by a period is never a long sheet's hours (fina
   });
 });
 
-// Fix 7 (owner decision 2026-10-13): rr6's N1 and N3 sheets, end to end. Each
+// Fix 7 (owner decision 2026-10-13): the earlier N1 and N3 sheets, end to end. Each
 // is reported ambiguous; read with the confirmed column, the hours are right.
 // The dialog keeps Apply disabled until that confirmation (use-forecast-import).
 describe("probe: ambiguous columns are asked about, and the confirmed column reads right (fix 7)", () => {

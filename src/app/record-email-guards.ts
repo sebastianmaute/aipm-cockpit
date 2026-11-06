@@ -15,7 +15,7 @@ export function emailRefusalMessage(field: string, refusal: EmailRefusal): strin
  *  (`emailWriteRefusal`, judged against the row's `stored` value; a create
  *  passes undefined). A non-string `incoming` is not this guard's business —
  *  the record sanitizer blanks it — and a blank one is a legal clear.
- *  ★★ Fix round 1: `cap` is the FIELD'S OWN storage cap, defaulting to
+ *  ★★ `cap` is the FIELD'S OWN storage cap, defaulting to
  *  EMAIL_MAX (320) — what plain `sanitizeEmail` applies, and what every
  *  caller but one wants. The guard must judge the value the sanitizer will
  *  actually STORE, never a looser one: `sanitizeStakeholder` caps `email` at

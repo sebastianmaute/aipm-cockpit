@@ -434,7 +434,7 @@ describe("ForecastCards — In hours (MR 3)", () => {
   });
 });
 
-// Task 11: three-part variance split (performance / added scope / unattributed)
+// Three-part variance split (performance / added scope / unattributed)
 // beneath the VAC row, in € always and in hours whenever the hours line shows.
 // `pace.eac` and `efficiency.eac` are deliberately DIFFERENT on both fixtures
 // below (1440 vs 1300 hours; 144000 vs 130000 €) so a mutant that has the

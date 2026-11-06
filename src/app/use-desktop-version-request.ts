@@ -2,13 +2,13 @@
 
 // Owns the app's ONE Version modal and the desktop shell's route into it.
 //
-// ★★★ FIX ROUND 1 (M3): THIS HOOK'S <VersionInfoModal> IS NOW THE ONLY ONE
-// IN THE WHOLE APP. Task 2 shipped a THIRD independently-owned instance
+// ★★★ THIS HOOK'S <VersionInfoModal> IS NOW THE ONLY ONE
+// IN THE WHOLE APP. An earlier change shipped a THIRD independently-owned instance
 // beside modern-shell.tsx's `versionOpen` and settings-view.tsx's
 // `showVersion`, reasoning that a closed `Modal` renders nothing so a third
 // one "costs nothing" -- true when closed, but a desktop request arriving
 // while a sidebar- or Settings-opened modal was already open stacked a
-// SECOND live modal on top of it (review-2-report.md M3). Both of those
+// SECOND live modal on top of it. Both of those
 // components' own state and `<VersionInfoModal>` were removed; they now call
 // this hook's `openVersion` (threaded down as an `onOpenVersion` prop from
 // task-manager.tsx) instead of owning anything. Opening while already open
@@ -24,13 +24,13 @@
 // modern tree), covers all three without threading a prop through
 // ModernShell/Sidebar or duplicating the listener per layout.
 //
-// ★★ FIX ROUND 1 (M4): THE LISTENER SIGNALS "HANDLED" VIA `preventDefault()`.
+// ★★ THE LISTENER SIGNALS "HANDLED" VIA `preventDefault()`.
 // main.ts's `versionRequestScript` builds a `cancelable: true` CustomEvent and
 // its injected script's completion value is `!window.dispatchEvent(ev)` --
 // `dispatchEvent` returns `false` only when something called
 // `preventDefault()`, so main can tell a real page (this listener exists) from
-// a focused window with nobody listening (the PDF/export popup -- M-2,
-// final-review-report.md: an "external-link window" no longer exists at
+// a focused window with nobody listening (the PDF/export popup -- M-2:
+// an "external-link window" no longer exists at
 // HEAD; the one other non-app in-app page, the MSAL sign-in popup, is now
 // never scripted at all, see I-1 in desktop/src/main.ts) and retry on the
 // main window instead of failing silently. Called UNCONDITIONALLY whenever
@@ -39,7 +39,7 @@
 // "a TaskManager page received this", independent of whether it also opened
 // the modal.
 //
-// ★★ FIX ROUND 1 (M3 log-path consistency): THE DESKTOP MAIN PROCESS SENDS
+// ★★ LOG-PATH CONSISTENCY: THE DESKTOP MAIN PROCESS SENDS
 // TWO KINDS OF REQUEST, DISTINGUISHED BY `detail.open`. Once per page load
 // (`did-finish-load`, both the main window and every popout -- see the
 // `web-contents-created` listener in main.ts) it sends `{ logPath, open:

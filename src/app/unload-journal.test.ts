@@ -60,7 +60,7 @@ describe("journalProjectKey", () => {
     expect(journalProjectKey("turso", "not-a-token-just-an-id", "ignored")).toBe("not-a-token-just-an-id");
   });
 
-  // Fix round 1 / ruling R4: Turso with no id must NOT collide with the
+  // Turso with no id must NOT collide with the
   // "browser" key an IndexedDB/local backend with no current project uses —
   // Turso single-tenant mode is one workspace per database, so it gets its
   // own sentinel instead.
@@ -170,7 +170,7 @@ describe("writeUnloadJournal / readUnloadJournal", () => {
     );
   });
 
-  // Ruling R5: malformed (parses, but a field OTHER than `v` is missing/mistyped)
+  // Malformed (parses, but a field OTHER than `v` is missing/mistyped)
   // is removed+logged, same as unparseable — distinct from a well-formed
   // wrong-version record below, which is left alone.
   it("a parseable but malformed value (missing a required field) reads as null, removes the key, logs a diagnostic", () => {
@@ -190,7 +190,7 @@ describe("writeUnloadJournal / readUnloadJournal", () => {
     );
   });
 
-  // Ruling R5: a well-formed record whose `v` this build doesn't recognise
+  // A well-formed record whose `v` this build doesn't recognise
   // (e.g. a future v2) reads as null but is left in storage untouched —
   // it isn't this build's to delete, and no diagnostic fires for it.
   it("a well-formed but wrong-version value reads as null and is LEFT IN STORAGE, with no diagnostic", () => {
@@ -298,8 +298,7 @@ describe("fingerprintWorkspace", () => {
   /** Mutates ONE slice, regardless of its shape, in a way that survives that
    *  slice's own load-time sanitizer. Several `Workspace` slices are
    *  whitelist-sanitized on decode (`sanitizeProjectStatus`, `sanitizeLoadedFxRates`,
-   *  `sanitizeFieldVisibility`, `sanitizeSettingsOverrides`, ... — see the
-   *  fix-round-1 review), so an arbitrary unknown marker field is silently
+   *  `sanitizeFieldVisibility`, `sanitizeSettingsOverrides`, ...), so an arbitrary unknown marker field is silently
    *  stripped there and the "before"/"after" fingerprints would collide for
    *  the wrong reason: the mutation never survived to be hashed, not that the
    *  fingerprint is blind to it. Slices whose sanitizer whitelists specific
@@ -426,7 +425,7 @@ describe("fingerprintWorkspace", () => {
     return { ...ws, [key]: mutated } as Workspace;
   }
 
-  // Fix round 1: the reviewer found the previous `Object.keys(emptyWorkspace())`
+  // The reviewer found the previous `Object.keys(emptyWorkspace())`
   // list covered only 15 of `Workspace`'s 29 fields (emptyWorkspace() never
   // sets project/fieldVisibility/features/steeringCommittee/timelogLinks/
   // knowledgeItems/insights/activityLog/budgetHistory/documents/
@@ -447,7 +446,7 @@ describe("fingerprintWorkspace", () => {
   } satisfies Record<keyof Workspace, true>;
   const slices = Object.keys(ALL_WORKSPACE_KEYS) as (keyof Workspace)[];
 
-  it("covers the full 32-key Workspace surface (29 in the fix-round-1 report, + baselineHistory §476, + forecastHistory and forecastScenarios §502)", () => {
+  it("covers the full 32-key Workspace surface (29 at first, + baselineHistory §476, + forecastHistory and forecastScenarios §502)", () => {
     expect(slices.length).toBe(32);
   });
 
@@ -486,7 +485,7 @@ describe("fingerprint round-trip: browser (IndexedDB)", () => {
 
   it("small sample workspace", async () => {
     const before = fingerprintWorkspace(smallWs);
-    // §4 fix round 2 — a fresh backend has never loaded; force this blind
+    // §4 — a fresh backend has never loaded; force this blind
     // seed write (R10 change 1, fail closed).
     const backend = new BrowserBackend();
     backend.forceNextSave();
@@ -497,7 +496,7 @@ describe("fingerprint round-trip: browser (IndexedDB)", () => {
 
   it("bigger sample workspace (documents included)", async () => {
     const before = fingerprintWorkspace(bigWs);
-    // §4 fix round 2 — see the sibling test above.
+    // §4 — see the sibling test above.
     const backend = new BrowserBackend();
     backend.forceNextSave();
     await backend.save(bigWs);

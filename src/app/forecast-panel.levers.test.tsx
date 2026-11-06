@@ -42,7 +42,7 @@ const TASKS: Task[] = [
   ...HISTORY.map((d, i) => done(1000 + i, d, i === 0 ? "Ola Nord" : i === 1 ? "Per Sand" : "")),
   ...OPEN,
 ];
-// Go-live: due, with linked open work. Old: overdue (Ruling A: no chance, so no lever and no Explore).
+// Go-live: due, with linked open work. Old: overdue (no chance, so no lever and no Explore).
 const MILESTONES: Milestone[] = [
   { id: 1, name: "Go-live", date: "2026-11-20", linkedTaskIds: OPEN.slice(0, 10).map((t) => t.id) },
   { id: 3, name: "Old", date: "2026-10-01", linkedTaskIds: [OPEN[10].id] },
@@ -169,7 +169,7 @@ describe("ForecastPanel — what it would take (§502 part 4)", () => {
     expect(dots.length).toBeGreaterThan(0);
   });
 
-  test("Ruling A: an overdue milestone is not searched and its row has no lever and no Explore", () => {
+  test("an overdue milestone is not searched and its row has no lever and no Explore", () => {
     stub.values = new Map<string, LeverValue>([["m:1", GO_LIVE_LEVERS], ["m:3", { ...GO_LIVE_LEVERS, target: { kind: "milestone", id: 3 } }]]);
     render(<Harness />);
     expect(lastSearch().targets).toEqual([{ kind: "milestone", id: 1 }]);

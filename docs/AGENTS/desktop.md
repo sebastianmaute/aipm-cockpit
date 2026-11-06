@@ -1,7 +1,7 @@
 # Desktop — the Electron shell at runtime
 
 Owns `desktop/src/`: `main.ts` (app lifecycle, windows, menu, PDF route), `server-child.ts` (the Next server child),
-`updater.ts` (electron-updater wiring), and the pure, unit-tested decisions in `desktop/src/lib/`
+`updater.ts` (electron-updater wiring), `update-signature.ts` (the signed build's update check), and the pure, unit-tested decisions in `desktop/src/lib/`
 (`window-open-policy.ts`, `print-target.ts`, `window-liveness.ts`, `menu-model.ts`, `pdf-export.ts`,
 `update-policy.ts`, `update-window.ts`, `electron-updater-loader.ts`, `port-owner.ts`, `readiness.ts`, `exit-reporting.ts`,
 `log-paths.ts`, `constants.ts`). Also the renderer's half of each boundary: `src/app/desktop-shell.ts`
@@ -192,12 +192,62 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
 - Installing looks frozen, and three places say so: the installer's welcome page (`desktop/installer.nsh`,
   first install and manual reinstall only, since an update runs the installer with `/S`), the
   "Update available" window (`UPDATE_DURATION_HINT`) and the "Update ready" box (`INSTALL_HINT`).
-- The feed is the public GitHub Releases `latest.yml`; the installer is unsigned. What stands in for
-  signing is recorded beside `RELEASES_URL` in `lib/constants.ts` and in §487/§563.
+- The installer's second page is the privacy statement: `desktop/installer-privacy.txt` on a stock MUI2
+  license page relabelled with a Next button (`installer.nsh`), read by makensis from `PROJECT_DIR`. The
+  README's "Privacy statement" carries the same text between `privacy-statement` markers, and
+  `scripts/installer-privacy.test.mjs` fails when the two differ, when a `connect-src`/`frame-src` host in
+  `src/proxy.ts` or a server route under `src/app/api` has no service named in it, when a Microsoft Graph
+  permission requested in `src/app` has no purpose described in it, or when the file is not plain ASCII
+  with CRLF line endings (`.gitattributes` pins it to `eol=crlf`, overriding `desktop/**`, so the
+  license page's RichEdit shows each line break). ★ A new external host, proxy route or Graph
+  permission therefore needs a line in the statement too.
+  The page itself is seen only in a real release build.
+- The feed is the public GitHub Releases `latest.yml`. The installer is code-signed through SignPath
+  Foundation only from the first release the signing jobs sign; before that it is unsigned, and what
+  stands in for signing is recorded beside `RELEASES_URL` in `lib/constants.ts` and in §487/§563. Each
+  release's notes say which (the `attest-signature` job's `signed` output, [`ci.md`](ci.md)). The uninstaller is
+  not signed (§793). ★★ Two transition gaps, both by design of electron-updater, not of this code: a
+  copy installed from an unsigned release has no `publisherName`, so it takes the first signed update
+  unchecked; and an installer already downloaded into the updater's cache is installed from there
+  without the signature hook running (the cached-file branch of electron-updater's own AppUpdater compares only its
+  sha512 with the feed's; the hook sits in `NsisUpdater`'s download task, which that branch skips), so
+  one cached by an unsigned build is installed unchecked once.
+  The README's "Code signing policy" states both.
+- ★★ **A signed build refuses any update it cannot verify.** electron-updater's `NsisUpdater` reads
+  `publisherName` from the packaged `resources/app-update.yml` and, only when it is there, passes each
+  downloaded installer to its `verifyUpdateCodeSignature` hook. Its default verifier resolves `null`
+  (valid) when PowerShell fails, so `createUpdater` replaces it with `verifyUpdateSignature`
+  (`update-signature.ts`), which fails closed: a spawn failure, a non-zero exit, no answer within
+  `SIGNATURE_TIMEOUT_MS`, unreadable output, a verdict about another file, a status other than `Valid`
+  or a signer that is not a listed publisher all refuse. The first four (and a record naming no file) start
+  with `CANNOT_RUN_PREFIX`, which `refusalKind` reads back — through electron-updater's wrapping — so the
+  dialog says the check could not run on this computer (PowerShell blocked by a policy, say) instead of
+  calling the signature bad (`unverifiedText` in `updater.ts`); the kind picks only the words, every one
+  still refuses. The path reaches PowerShell in an environment
+  variable (`INSTALLER_ENV`), never in the command text. ★★ `SIGNATURE_COMMAND` touches no type's static
+  member: under Constrained Language Mode (AppLocker / WDAC) a `[Console]::OutputEncoding = …` line exits 1,
+  which refused every update, signed ones included. Output therefore stays in the console code page, so a
+  non-ASCII character in the reported path reads back mangled; for a non-ASCII path only the (ASCII) file
+  name is compared, an all-ASCII path in full. The hook is set only when
+  `feedRequiresSignature` finds the key (an unreadable feed counts as signed); an unsigned build keeps
+  the default, which then never runs. A signed feed on an updater without the hook fails the wiring, so
+  the app falls back to `unavailableUpdater`. A refusal reaches `decideOnError` as
+  `ERR_UPDATER_INVALID_SIGNATURE` (`INVALID_SIGNATURE_CODE`) and becomes the `unverified` decision: a box
+  that says to download the release by hand, with Open releases page; nothing installs, and
+  `autoInstallOnAppQuit` is reset. The refused version is remembered in memory for the session
+  (`decideOnAvailable`'s `refused` argument): a later automatic check neither offers nor downloads it again, a
+  manual one shows the same box, and a newer version is offered as usual. A restart forgets it. The updater also sets
+  `disableWebInstaller`, and the signature query may take `SIGNATURE_TIMEOUT_MS` (60 s, against electron-updater's
+  20 s). Only the release workflow's `repackage` job writes the `publisherName`
+  ([`ci.md`](ci.md), the `repackage` job), so no local or `build`-job package is a signed build. ★ Not run
+  against a real signed update yet: the unit tests fake electron-updater, and the one real-PowerShell
+  test (Windows only) checks an unsigned file.
 
 ## Open register entries
 
-§462 (no Linux installer) · §479 (1.0.1–1.0.3 never tagged) · §487 and
-§563 (unsigned installer) · §547 (the sign-in state machine has no harness) · §561 (fuses confirmed on
-a local package only). Re-list them with
-`grep -nE "^## [0-9]+\..*(desktop|Electron|installer).*OPEN" docs/open-followups.md`.
+§462 (no Linux installer) · §487 and §563 (unsigned installer; open until the first signed
+release) · §629 (the unload journal on a packaged desktop close) · §728 (the splash's German text on a
+packaged build) · §793 (unsigned uninstaller). Re-list them with
+`grep -nE "^## [0-9]+\..*(desktop|Electron|installer)" docs/open-followups.md | grep -v CLOSED`
+(six lines on 2026-11-06). Not every open heading carries the word OPEN (§793's does not), so the
+command drops CLOSED ones instead of matching OPEN.

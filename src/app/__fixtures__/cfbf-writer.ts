@@ -1,7 +1,7 @@
 // Test-only minimal MS-CFB writer. Emits 512-byte-sector compound files, and
 // deliberately malformed ones for the guard tests. Layout is [FAT][directory]
 // [streams]; every stream is written above the 4096 mini-stream cutoff, so the
-// mini path is exercised only by the real inlined file in Task 16.
+// mini path is exercised only by a real inlined file.
 //
 // VERIFIED: this exact layout round-trips through a reference reader — a simple
 // stream yields 1 reachable entry, two same-named streams in two storages yield

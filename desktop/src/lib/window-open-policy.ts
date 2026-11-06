@@ -89,7 +89,7 @@ export const MS_IDENTITY_HOSTS: readonly string[] = [
   "login.live.com",
 ];
 
-// ★★★ m3/n1 FIX (review-3-fix2-report.md). Round 2 computed
+// ★★★ m3/n1 FIX. Round 2 computed
 // `initiatorIsAppOpener` by comparing `details.initiator` against a latched
 // `WebFrameMain` OBJECT by reference. electron.d.ts documents no object-
 // identity guarantee for repeated reads of the same underlying frame --
@@ -155,7 +155,7 @@ export function isAppOpenerFrame(
   }
 }
 
-// ★★★ I-1 FIX (final-review-report.md). Is `url` a page THIS SHELL OWNS --
+// ★★★ I-1 FIX. Is `url` a page THIS SHELL OWNS --
 // safe to `executeJavaScript` into? Exact origin match only, same rule as
 // `decideWindowOpen`/`decideNavigation` above (never `startsWith`). Unlike
 // those two, `about:blank` and the empty string are NOT allowed here: they
@@ -252,7 +252,7 @@ export interface NavigationDecision {
 // federated IdP, both go through `will-navigate`/`will-redirect`, which is
 // what this function decides.
 //
-// ★★★ N-I1 FIX (review-3-fix1-report.md). Round 1 gated entry on
+// ★★★ Entry-gate FIX. Round 1 gated entry on
 // `isChildWindow` alone (`opener !== null`), which is true for EVERY window
 // this app opens -- including its own `?popout=` windows (`broadcast-
 // sync.ts`) and the PDF/export `about:blank` tabs (`export.ts`,
@@ -265,7 +265,7 @@ export interface NavigationDecision {
 // `initiatorIsAppOpener`: an about:blank popup satisfies the first, but a
 // click on a link INSIDE that popup is initiated by the popup's own
 // document, not its opener, so `initiatorIsAppOpener` is false and entry is
-// refused -- exactly the three cases the fix-2 brief requires:
+// refused -- exactly the three required cases:
 //   - `?popout=` window + identity-host link click -> open-external (fails
 //     `createdAsBlankPopup`: its first URL was the app's own path).
 //   - PDF/export tab (about:blank) + identity-host link click ->
@@ -280,7 +280,7 @@ export interface NavigationDecision {
 // overall navigation, not "who sent the 302"), and requiring the entry
 // booleans again on every hop would break exactly the federated/personal-
 // account tenants this whole feature exists for.
-// ★★ N-1 (final-review-report.md), BY DESIGN: the same "no re-check" rule
+// ★★ N-1, BY DESIGN: the same "no re-check" rule
 // applies to a `will-navigate`, not only a server `will-redirect` -- so
 // once the popup has entered the flow, ANY https link a user clicks INSIDE
 // the identity or federated page (not just a 30x it receives) keeps

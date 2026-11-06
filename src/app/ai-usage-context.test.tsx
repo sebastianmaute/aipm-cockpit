@@ -260,7 +260,7 @@ describe("AiUsageProvider", () => {
     });
 
     // Cost basis, not a raw sum: 100 input * 1 + 50 output * 5 = 350. This
-    // predates the weighted-cost design (Task 1) and previously passed only
+    // predates the weighted-cost design and previously passed only
     // because the provider had not yet switched to usageCostEquivalent.
     expect(result.current.sessionTotal).toBe(350);
     expect(result.current.weekTotal).toBe(350);

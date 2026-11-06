@@ -6,8 +6,8 @@
 // a CommonJS module's NAMED exports), so `await import("electron-updater")` exposes `autoUpdater`
 // ONLY on `.default.autoUpdater`, never as a named property on the import's own namespace object.
 //
-// ★★★ MEASURED, not assumed, against the installed package under plain Node 24 (fix round 2, Critical
-// 1): `Object.keys(await import("electron-updater"))` never lists "autoUpdater"; `m.default.autoUpdater`
+// ★★★ MEASURED, not assumed, against the installed package under plain Node 24:
+// `Object.keys(await import("electron-updater"))` never lists "autoUpdater"; `m.default.autoUpdater`
 // exists. The earlier code here read `mod.autoUpdater` directly -- always `undefined` under a dynamic
 // import in Electron's own runtime -- and the resulting TypeError from wiring an undefined object was
 // then caught by the SAME try/catch as the import itself and mislabelled "failed to load", silently
@@ -19,7 +19,7 @@
 // found vitest's CJS interop synthesizes `autoUpdater` as a named export too (its doc comment has the
 // measurement and the reasoning). Resolving named-first, default-fallback is correct either way; the
 // genuine end-to-end proof that PRODUCTION Electron resolves the real singleton through THIS function
-// is the packaged-app launch in task-6-report.md's fix-round-2 section, not a vitest run.
+// is a launch of the packaged app, not a vitest run.
 //
 // Pure and Electron-free so it is unit-testable on its own (electron-updater-loader.test.ts uses
 // plain mock shapes, never the real package).

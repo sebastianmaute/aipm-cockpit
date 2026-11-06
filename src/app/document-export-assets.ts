@@ -42,7 +42,7 @@ import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
  *
  *  ★★ THE BUILDER PAIR WAS MISSING FROM THE COUNT THIS REPLACES, and HOW is
  *  the lesson. The wording before that one excluded them by a QUALIFIER —
- *  "nothing outside each builder's own unit test" — and the fix round that
+ *  "nothing outside each builder's own unit test" — and the fix that
  *  corrected it dropped the qualifier and substituted a flat "THREE", trading
  *  a wrong-but-qualified claim for a wrong-and-unqualified one that
  *  under-reported existing coverage by two.

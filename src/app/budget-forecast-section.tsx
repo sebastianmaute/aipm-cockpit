@@ -6,8 +6,7 @@
 // row at full width. Owns the disclosure's open state, the focus nonce the
 // banner action bumps, and the device setting that picks the card (read and
 // written through `useSettings` with a FUNCTIONAL setter, as the chart's own
-// switches are), so the Budget report panel stays an orchestrator (plan
-// Ruling 10) and keeps owning the chart's data wiring.
+// switches are), so the Budget report panel stays an orchestrator and keeps owning the chart's data wiring.
 // Below `xl` (1280px) the row stacks card-then-chart in one column.
 import { useState, type ReactNode } from "react";
 import type { Lang } from "./i18n";

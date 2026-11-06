@@ -3,6 +3,7 @@ import {
   BOX_NOTES_MAX, NOTES_MAX, STARTUP_CHECK_DELAY_MS, decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable,
   notesToPlainText, parseSkipped, serializeSkipped, summarizeError,
 } from "./update-policy";
+import { CANNOT_RUN_PREFIX } from "../update-signature";
 
 describe("update policy", () => {
   it("waits 10 s after start", () => expect(STARTUP_CHECK_DELAY_MS).toBe(10_000));
@@ -49,6 +50,33 @@ describe("update policy", () => {
     expect(decideOnAvailable("startup", { version: "1.14.2" }, "1.14.1").kind).toBe("prompt");
   });
 
+  // A version whose installer was refused this session is the same file again: never offered, a
+  // manual check says why; a newer version is offered as usual.
+  it("never offers a version refused this session again, but offers a newer one", () => {
+    const refused = { version: "1.14.1", refusal: "mismatch" } as const;
+    expect(decideOnAvailable("startup", { version: "1.14.1" }, null, refused)).toEqual({ kind: "silent" });
+    const manual = decideOnAvailable("manual", { version: "1.14.1" }, null, refused);
+    expect(manual).toEqual({ kind: "unverified", message: expect.stringContaining("1.14.1 was refused earlier"), refusal: "mismatch" });
+    expect(decideOnAvailable("startup", { version: "1.14.2" }, null, refused).kind).toBe("prompt");
+    expect(decideOnAvailable("manual", { version: "1.14.2" }, null, refused).kind).toBe("prompt");
+    expect(decideOnAvailable("startup", { version: "1.14.1" }, null, null).kind).toBe("prompt");
+  });
+
+  // A manual re-check repeats the refusal in its own words: a signature that did not verify, or a
+  // check that could not run on this computer, which says nothing about the update itself.
+  it("repeats a refusal in the words of its kind on a manual re-check", () => {
+    const mismatch = decideOnAvailable("manual", { version: "1.14.1" }, null, { version: "1.14.1", refusal: "mismatch" });
+    expect(mismatch).toEqual({
+      kind: "unverified", refusal: "mismatch",
+      message: "AI PM Cockpit 1.14.1 was refused earlier in this session: its signature could not be verified.",
+    });
+    const cannotRun = decideOnAvailable("manual", { version: "1.14.1" }, null, { version: "1.14.1", refusal: "cannot-run" });
+    expect(cannotRun).toEqual({
+      kind: "unverified", refusal: "cannot-run",
+      message: "AI PM Cockpit 1.14.1 was refused earlier in this session: its signature check could not run on this computer.",
+    });
+  });
+
   it("reports up to date and errors only for a manual check", () => {
     expect(decideOnNotAvailable("startup")).toEqual({ kind: "silent" });
     expect(decideOnNotAvailable("manual")).toEqual({ kind: "up-to-date" });
@@ -60,7 +88,7 @@ describe("update policy", () => {
   });
 
   it("always reports a download error, even one that started from a silent startup check", () => {
-    // Fix round 1 (review R11 Important 2): a download only ever starts because the user clicked
+    // A download only ever starts because the user clicked
     // "Download and install", so silence is never right here regardless of what triggered the CHECK
     // that preceded it.
     expect(decideOnError("startup", "downloading", new Error("ENOSPC"))).toEqual({
@@ -71,11 +99,38 @@ describe("update policy", () => {
     });
   });
 
+  // A signed build refuses an installer whose signature it cannot verify; electron-updater reports
+  // that as an error carrying this code (NsisUpdater.js, ERR_UPDATER_INVALID_SIGNATURE).
+  it("names a refused signature as its own decision, whatever the trigger or phase", () => {
+    const refused = Object.assign(new Error("New version 9.9.9 is not signed by the application owner: the installer's signature is NotSigned"), {
+      code: "ERR_UPDATER_INVALID_SIGNATURE",
+    });
+    const want = { kind: "unverified", message: refused.message, refusal: "mismatch" };
+    expect(decideOnError("startup", "downloading", refused)).toEqual(want);
+    expect(decideOnError("manual", "downloading", refused)).toEqual(want);
+    expect(decideOnError("startup", "checking", refused)).toEqual(want);
+    // Any other code, or none, stays an ordinary error.
+    const other = Object.assign(new Error("ENOSPC"), { code: "ENOSPC" });
+    expect(decideOnError("manual", "downloading", other)).toEqual({ kind: "error", phase: "downloading", message: "ENOSPC" });
+  });
+
+  // The kind of a refusal is read from the WHOLE message, so a prefix past the dialog line's clip
+  // still counts.
+  it("names a refusal whose check could not run as cannot-run, even past the clipped line", () => {
+    const cannotRun = Object.assign(new Error(`New version 9.9.9 is not signed by the application owner: ${CANNOT_RUN_PREFIX}PowerShell exited with 1`), {
+      code: "ERR_UPDATER_INVALID_SIGNATURE",
+    });
+    expect(decideOnError("manual", "downloading", cannotRun)).toMatchObject({ kind: "unverified", refusal: "cannot-run" });
+    const late = Object.assign(new Error(`${"x".repeat(400)}: ${CANNOT_RUN_PREFIX}timed out`), { code: "ERR_UPDATER_INVALID_SIGNATURE" });
+    const d = decideOnError("manual", "downloading", late);
+    expect(d).toMatchObject({ kind: "unverified", refusal: "cannot-run" });
+    expect(d.kind === "unverified" && d.message.includes(CANNOT_RUN_PREFIX)).toBe(false);
+  });
+
   it("shows only the first line of an error, never headers or a stack trailing after it", () => {
-    // Fix round 3: electron-updater's own HttpError builds `.message` as
+    // electron-updater's own HttpError builds `.message` as
     // "{status} {statusText}\n{description}\nHeaders: {...}" -- and a REAL 404 from a private GitHub
-    // repo's releases feed put response set-cookie values in that Headers block (task-6-report.md's
-    // fix-round-2 evidence). Neither a log line nor a dialog should ever show that.
+    // repo's releases feed put response set-cookie values in that Headers block. Neither a log line nor a dialog should ever show that.
     const httpLike = new Error(
       '404 Not Found\n"method: GET url: https://example.invalid/releases.atom"\n' +
         'Headers: {"set-cookie":["_gh_sess=verysecret; path=/; HttpOnly"]}',
@@ -87,7 +142,7 @@ describe("update policy", () => {
   });
 
   it("summarizeError trims to one bounded line for any error-ish value, not just decideOnError's callers", () => {
-    // Reused by updater.ts's raw logger.warn/error wrappers too (fix round 3), so an internal
+    // Reused by updater.ts's raw logger.warn/error wrappers too, so an internal
     // electron-updater log call with a multi-line payload gets the same treatment as a dialog error.
     expect(summarizeError(new Error("one\ntwo\nthree"))).toBe("one");
     expect(summarizeError("plain string\nwith a second line")).toBe("plain string");

@@ -63,7 +63,7 @@ describe("fetchTextWithTimeout", () => {
   });
 
   it("does not misreport a non-abort error that arrives after the timer fires", async () => {
-    // §548 fix round 2 — the timer flips `timedOut` and calls abort() in the same tick, so a naive
+    // §548 — the timer flips `timedOut` and calls abort() in the same tick, so a naive
     // `if (timedOut) throw FetchTimeoutError` wraps EVERY error that arrives once the timer has fired,
     // even one that has nothing to do with our abort. Model that: the transport rejects with a plain
     // (non-AbortError) Error only once the abort signal fires.

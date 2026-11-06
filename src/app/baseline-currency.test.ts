@@ -109,7 +109,7 @@ describe("rebaseSnapshots", () => {
     expect(r.series[0].plannedCost).toBeCloseTo(200 * 0.85 * 1.3);
     expect(r.series[0].actualCost).toBeNull();
   });
-  test("single entry matches brief numbers", () => {
+  test("single entry matches the specified numbers", () => {
     const [r] = rebaseSnapshots([snap], [history[0]]);
     expect([r.remainingCost, r.series[0].plannedCost]).toEqual([850, 170]);
   });

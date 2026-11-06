@@ -648,11 +648,11 @@ describe("the line's members not in the sheet, per period (final review 3, M2)",
   });
 });
 
-// rr14 (out of scope, taken into fix10b): a person on two lines is
+// a person on two lines is
 // unresolved, yet another member's figure still replaces the shared cell, and
 // the note called her "not in the sheet for this period". She is in the
 // sheet; the note now says she was not matched.
-describe("a shared line's member who is in the sheet but unresolved (rr14 M3a)", () => {
+describe("a shared line's member who is in the sheet but unresolved", () => {
   it("names her apart from the members the sheet does not list", () => {
     const resources = [person(1, "Ann", "Lee"), person(2, "Bob", "Ray"), person(3, "Carol", "Ito", { roleId: ROLE_B.id })];
     const bucket = bucketOf({ allocations: [alloc(ROLE_B.id, { "2026-01": 100 }, [1, 3]), alloc(ROLE_A.id, {}, [1, 2])] });

@@ -140,8 +140,8 @@ interface Props {
    *  `isPopout`, so a caller need not double-guard (mirrors `onMoveAbsence`). */
   onEditCalendarEvent?: (event: CalendarEvent) => void;
   /** Commit a change to a calendar event. Added ahead of the series editor's
-   *  full save/create/delete wiring (Task 17 needs it for occurrence-drag
-   *  only) — mirrors `onMoveAbsence`'s own precedent of landing before its
+   *  full save/create/delete wiring (occurrence-drag needs it
+   *  alone) — mirrors `onMoveAbsence`'s own precedent of landing before its
    *  caller-side handler did. Omit in popouts, same convention. */
   onSaveCalendarEvent?: (event: CalendarEvent) => void;
   onImportOutlookCalendar?: () => void;

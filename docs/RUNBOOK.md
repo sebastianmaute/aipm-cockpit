@@ -250,23 +250,58 @@ go direct. That older release also ignores the `ai` value of
    refuses it.
 3. The `release` workflow (`.github/workflows/release.yml`) runs `guard` →
    `build` (Windows, ~20-30 min — installs dependencies, builds the app and the
-   installer, uploads it as a workflow artifact) → `publish`. `publish` runs in
-   the `release` environment, which pauses for the owner's approval: when
-   `build` finishes, open the run's Actions page → "Review deployments" →
-   approve `release`. The required reviewer was added at flip step 10a
-   (2026-09-25). Also standing in front of it: only the owner/admin role can
-   create, move or delete a `refs/tags/v*` (the tag ruleset), the tag must
-   equal `APP_VERSION` and name a commit reachable from `main` (step 2's
-   `guard` check), and once published a release is immutable. **Push one release
+   installer, uploads it as a workflow artifact) → `sign-app` → `repackage` →
+   `sign-installer` → `finalize` → `attest-signature` → `publish`. `sign-app` runs in the `release`
+   environment, which pauses for the owner's approval — the only one per
+   release: when `build` finishes, open the run's Actions page → "Review
+   deployments" → approve `release`. Nothing after it starts before that
+   approval, and no later job asks again (`sign-installer` reads its copy of
+   the token from the reviewer-free `release-signing` environment — see the
+   one-time setup below for why). With the repository variable
+   `SIGNPATH_ENABLED` unset, `repackage` and `sign-installer` are skipped and
+   `finalize` only checks and passes the build's files on. Set to `true`
+   (after the one-time setup below), SignPath signs the installer (and, with
+   `SIGNPATH_SIGN_APP_EXE`, the app's own executables first), each request
+   waiting for SignPath's own approval (up to an hour each); `repackage` writes
+   the updater's `publisherName` into the app so the signed build refuses
+   unsigned updates, and `finalize` checks the final installer with the very
+   signature check an installed copy runs on an update. The two jobs that can
+   read the SignPath token run no build code at all (`scripts/ci-workflow.test.mjs`
+   fails any that does). The
+   release notes then carry the signed text with SignPath's attribution in
+   place of the unsigned notice. That is decided by `attest-signature`, a job
+   that installs nothing and runs no `node`: in Windows PowerShell alone it
+   checks that the final installer is the file `latest.yml` records (SHA-512)
+   and that Windows reports its signature `Valid` with the signer the update
+   feed names. Its `signed` output is `true` only when that check passed, and
+   `publish` passes it to `release:publish`; a failed check stops the release.
+   `finalize` refuses an unsigned installer once a signed release has shipped
+   (`release-signing-guard`, exit 1; exit 2 = could not decide, also a failure —
+   re-run the job, which needs no new approval (see "Re-running a failed
+   job" below); if it can never decide again, see "The one-way guard
+   cannot decide" below), so after the first signed release signing cannot be
+   switched off again. Details in `docs/AGENTS/ci.md`'s `release.yml`
+   section. The required reviewer exists since 2026-09-25. Also standing in
+   front of it: only the owner/admin role can create, move or delete a
+   `refs/tags/v*` (the tag ruleset), the tag must equal `APP_VERSION` and
+   name a commit reachable from `main` (step 2's `guard` check), and once published a release is immutable. **Push one release
    tag at a time.** Every run shares one fixed concurrency group, and GitHub
    keeps only one PENDING run per group: pushing a third tag while one run is
    in progress and a second is queued silently cancels the queued one (and a
    run paused waiting for approval occupies that same slot). A cancelled run just needs a re-run of its tag's workflow.
-4. `publish` verifies the built files (`release:verify`), attests build
-   provenance (the step runs only while the repository is public, which it is
-   now; on a private repository it is skipped), drafts the GitHub
-   Release, uploads the three files, then publishes. Check the release page:
-   exactly three assets, the CHANGELOG notes, not a draft.
+   **Re-running a failed job** ("Re-run failed jobs" on the run page) keeps the
+   jobs that succeeded, and the files they passed on are kept 7 days. Re-running
+   a failed `sign-installer`, `finalize`, `attest-signature` or `publish` reuses the run's earlier
+   approval — none of them names the `release` environment — and a re-run
+   `sign-installer` reads the SignPath token again (and submits a new signing
+   request). Re-running a failed `sign-app` asks for the approval again, and so
+   does a full re-run ("Re-run all jobs"), which starts over from `guard`.
+4. `publish` verifies the files `finalize` passed on (`release:verify`), attests build
+   provenance and the SBOM (both steps run only while the repository is public,
+   which it is now; on a private repository they are skipped), drafts the GitHub
+   Release, uploads the four files (installer, blockmap, `latest.yml` and the
+   CycloneDX SBOM), then publishes. Check the release page: exactly four assets,
+   the CHANGELOG notes, not a draft.
 5. Exit codes: `release:verify` — 0 the files are exactly right, 1 named
    problems (fix the build, delete the tag, re-tag after a new commit), 2 could
    not check. `release:publish` — 0 published (or an identical release already
@@ -276,6 +311,122 @@ go direct. That older release also ignores the `ai` value of
    already be live: inspect it by hand, don't just re-run), 2 safe to retry
    (nothing has gone live yet, including a still-unpublished draft this run
    just created that didn't match).
+
+**Code signing: the owner's one-time setup.** Signing stays off until all of
+this is done; the README's "Code signing policy" is the public side of it.
+
+- [ ] Apply to SignPath Foundation's open-source programme for this
+      repository, and enable multi-factor authentication on the SignPath
+      account (and on the GitHub account that approves releases).
+- [ ] In SignPath, create the project for this repository and its signing
+      policy; their slugs become `SIGNPATH_PROJECT_SLUG` and `SIGNPATH_SIGNING_POLICY_SLUG`.
+- [ ] Connect GitHub to SignPath as the project's trusted build system, as
+      SignPath's documentation for its GitHub integration describes, so that
+      signing requests are accepted only from this repository's workflow
+      runs and their artifacts. The `sign-app` and `sign-installer` jobs'
+      submit action relies on it.
+- [ ] In SignPath, create the artifact configurations `installer` (a zip
+      holding the setup exe) and `app` (a zip holding the packaged app's PE
+      files; needed only with `SIGNPATH_SIGN_APP_EXE`). The slugs must be
+      exactly these: `release.yml` names them.
+- [ ] Add the secret `SIGNPATH_API_TOKEN` to the `release` environment
+      (Settings → Environments → `release`), not to the repository.
+- [ ] Create a second environment, `release-signing`: NO required reviewer;
+      Deployment branches and tags → "Selected branches and tags" → add the
+      tag rule `v*` (no branch rule); and add the same `SIGNPATH_API_TOKEN`
+      secret to it. Why a second copy: a required reviewer gates each job that
+      names its environment, and `sign-installer` can start only after the
+      token-free `repackage` (the build tooling must never share a job with
+      the token), so naming `release` there would ask for a second approval.
+      What keeps this copy behind your one approval is the workflow itself —
+      `sign-installer` needs `sign-app` — and the tag ruleset (only you can
+      create a `v*` tag, so only a workflow on a commit you tagged can reach
+      the environment); GitHub has no rule that ties an environment to an
+      earlier job. So treat any change that names `release-signing`, or
+      removes a `needs:` on the way to it, as a change that reads the token.
+      When you rotate the token, rotate it in both environments.
+- [ ] Add the repository variables `SIGNPATH_ORGANIZATION_ID`,
+      `SIGNPATH_PROJECT_SLUG` and `SIGNPATH_SIGNING_POLICY_SLUG`. Optionally
+      add `SIGNPATH_SIGN_APP_EXE` = `true` to sign the app's own executables
+      too; left unset, only the setup is signed. Then set
+      `SIGNPATH_ENABLED` = `true` last, and BEFORE pushing the tag of the
+      first release to be signed: each job reads it when it starts, so a
+      tag pushed first is released unsigned, and a change during a run
+      leaves the jobs disagreeing. They are repository variables, because
+      `build`, `repackage`, `finalize` and `attest-signature` read them and
+      run in no environment.
+- [ ] Add the `sbom` check (ci.yml's `sbom` job) to the `main` ruleset's
+      required checks, or a red SBOM run blocks nothing.
+- [ ] After the first signed release: check its notes carry the SignPath
+      line, and that `Get-AuthenticodeSignature` on the downloaded installer
+      reports `Valid` with the subject `CN=SignPath Foundation, O=SignPath
+      Foundation, L=Lewes, S=Delaware, C=US` (`PUBLISHER` in
+      `scripts/release-update-feed.mjs`). From then on no unsigned
+      release can be published.
+- [ ] After SignPath Foundation renews its certificate: compare the new
+      certificate's subject with `PUBLISHER` before the first release it
+      signs. The update feed names that full DN, and an installed copy refuses
+      an update whose signer differs on any attribute of it. **If it
+      differs,** the release stops before `publish`: `finalize`'s signature
+      check and `attest-signature` refuse the installer, and the one-way
+      guard cannot classify it as signed. Changing `PUBLISHER` to the new DN
+      lets new releases through, but every copy installed from an earlier
+      signed release still lists only the old DN, so it refuses those updates
+      and offers the Releases page instead: its users must download and
+      install the new release by hand, once. A bridge release whose feed lists
+      both the old and the new DN would avoid that, but needs support for more
+      than one publisher name that does not exist today
+      (`release-update-feed.mjs` writes a single list item, and the guard has
+      one `SIGNER`).
+
+The installer is never built locally, so some of this is proved only by a
+real release: that the installer compiles with its privacy page and shows it
+(any release), and the SignPath round trip, the repackaged setup and the
+signed build's update check against a real signed update (a signed release,
+and the one after it).
+
+**The one-way guard cannot decide.** `finalize`'s `release-signing-guard`
+first classifies this release's own installer. When that one is validly signed
+(`Valid`, and the signer's subject carrying every attribute of SignPath
+Foundation's DN, `PUBLISHER`) the release passes whatever the
+previous installer reads as, and the log only records that reading. Otherwise
+the guard exits 2 ("CANNOT DECIDE") when it cannot classify either installer
+or read the repository's releases. A one-off gh, network or PowerShell failure
+clears on a re-run. When an unsigned release fails the same way on every run,
+the usual cause is that the newest published release's installer no longer
+reads as signed on the runner — its certificate was revoked, or the chain
+changed — so its status is no longer `Valid` with SignPath Foundation's DN,
+and not `NotSigned` either. Diagnose it with the same check the guard runs, on
+Windows:
+
+```powershell
+gh release download v<newest> --pattern '*-setup.exe' --dir $env:TEMP\guard
+Get-AuthenticodeSignature $env:TEMP\guard\aipm-cockpit-<newest>-setup.exe |
+  Format-List Status, StatusMessage, @{n='Subject';e={$_.SignerCertificate.Subject}}
+```
+
+The guard's own message names the file, the status and the signer it saw.
+Recover by publishing a freshly signed release once SignPath has issued a new
+certificate: the guard passes it because its own installer is validly signed,
+and logs that the previous one could not be classified. From then on that
+fresh release is the one later runs compare with. Never delete or unpublish releases to make
+the guard see an older installer, unless the owner deliberately decides to:
+releases are immutable, deleting one strands its download links, and it
+would also let an unsigned release through by the same route.
+
+The other cause that no re-run clears: **the newest published release has no
+`-setup.exe` asset** (for example a docs-only release published by hand). The
+guard downloads `*-setup.exe` from the newest published release and needs
+exactly one, so it stops with "has 0 installers, expected 1" or gh's own
+error that no asset matches. It looks at that release only — never past it to
+an older one. So never publish a release without an installer: this
+workflow cannot (`release:verify` requires all four files), only a release
+made by hand can. **Remedy:** publish the next release signed (signing
+switched on). The guard classifies this release's own installer first; when
+it is validly signed the release passes, the unreadable previous release is
+only logged, and from then on the new release is the one later runs compare
+with. An unsigned release cannot get past while the installer-less release
+stays the newest published one.
 
 **Withdrawing a bad release.** Releases are immutable — nothing can be edited
 in place. Publish a fixed patch version at once. On the bad one, untick "Set as
@@ -754,7 +905,8 @@ To enable Turso as a storage backend:
 ## Common issues
 
 ### "A required check is red"
-CI is `.github/workflows/ci.yml`; its eight jobs are the required checks, detailed in
+CI is `.github/workflows/ci.yml`; its nine jobs run on every pull request; all but `sbom` are the required checks (`sbom` is
+required only once the owner adds it to the `main` ruleset, a step of "Code signing: the owner's one-time setup"), detailed in
 [`docs/AGENTS/ci.md`](AGENTS/ci.md). Open the red job's **step summary** first. `static` runs every
 static gate even after one fails (`--keep-going`) and lists every failing step with its exit code,
 so one run shows them all; `unit` puts the "All files" coverage line and the failing tests there.

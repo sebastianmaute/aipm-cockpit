@@ -43,8 +43,8 @@ export function ForecastFactsRow({
   const remainingTerm = t(lang, "forecastFactRemaining");
   const evTerm = t(lang, "forecastFactEv");
 
-  // Split into rate/note/arrow by Task 7's `rateFactParts` — the ONE place the
-  // `RATE_DRIFT_SIGNAL_RATIO` threshold is checked (controller ruling P13);
+  // Split into rate/note/arrow by `rateFactParts` — the ONE place the
+  // `RATE_DRIFT_SIGNAL_RATIO` threshold is checked;
   // this component never re-derives the arrow from the raw drift ratio.
   const rateParts = mix ? rateFactParts(lang, mix, currency) : null;
 

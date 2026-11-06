@@ -2,7 +2,7 @@
 
 // The Reports Forecast section's milestones table (§502 part 4, spec §3.2 item 4): worst first, a RAG dot against
 // the project's target, and "what it would take" (`ForecastLeverCell`) on each below-target row. On-target rows say
-// "On target"; an overdue milestone or one with nothing linked says so, with no chance and no lever (Ruling A).
+// "On target"; an overdue milestone or one with nothing linked says so, with no chance and no lever.
 // Presentational: the section runs the forecast and the lever search, orders the rows and mints their tokens (with
 // the plan end as a pseudo row, so no milestone's Explore name can equal the plan end's).
 

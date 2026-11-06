@@ -4,7 +4,7 @@ import { join, relative } from "node:path";
 import ts from "typescript";
 import * as aiPrivacy from "./ai-privacy";
 
-// AI people protection, Task 4 (spec R3): every AI call site names the privacy of the project(s)
+// AI people protection: every AI call site names the privacy of the project(s)
 // whose data it sends. Calls are found with the TypeScript parser, so a mention in a comment or a
 // string is not a site, and a real call cannot hide behind formatting.
 //
@@ -242,7 +242,7 @@ describe("every AI call site supplies the privacy of the project it sends (spec 
     expect([...found].sort()).toEqual(Object.keys(NEW_PROJECT_ALLOWED).sort());
   });
 
-  // Task 8 fix round 1 (I3): the call-site checks above see only the argument of `callClaude` / `runForcedToolCall*`.
+  // The call-site checks above see only the argument of `callClaude` / `runForcedToolCall*`.
   // A hook that hands its `*-call` function `privacy: aiPrivacyFor([])` (or any value built on the spot) one hop up
   // passed them all, and the wire test, which drives the call functions with a real privacy, cannot see it either.
   it("only the listed files build a privacy with aiPrivacyFor", () => {

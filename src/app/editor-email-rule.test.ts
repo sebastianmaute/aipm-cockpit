@@ -88,7 +88,7 @@ describe("emailFlagVisible", () => {
     expect(emailFlagVisible(EN, "a,b@x.com", null)).toBe(true);
   });
 
-  // IMPORTANT 1 ruling: an UNRELATED banner error never hides the flag.
+  // IMPORTANT 1: an UNRELATED banner error never hides the flag.
   it("stays true while the banner shows an unrelated error", () => {
     expect(emailFlagVisible(EN, "a,b@x.com", t(EN, "raidErrorTitleRequired"))).toBe(true);
   });

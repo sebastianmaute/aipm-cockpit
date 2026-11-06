@@ -1,4 +1,4 @@
-// AI people protection, Task 5 review round 2 (I2): with protection on, the dictation-off reason reaches
+// AI people protection: with protection on, the dictation-off reason reaches
 // assistive tech as the field's DESCRIPTION, so EVERY call site of `useDictationMic` must take its
 // `describedById` and name it in its field's aria-describedby. The milestone name is pinned through the DOM
 // (`milestone-edit-modal.people.test.tsx`); this sweep keeps every other site from forgetting.

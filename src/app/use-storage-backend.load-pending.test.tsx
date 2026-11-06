@@ -80,7 +80,7 @@ function makeBackend(ms: number, outcome: "resolve" | "reject" = "resolve", stor
   };
 }
 
-// Module-level so a test can assert on them (Task 4 adds the SharePoint-timeout test here and reads both).
+// Module-level so a test can assert on them (the SharePoint-timeout test here reads both).
 const showToast = vi.fn();
 const onStorageOutcome = vi.fn();
 
@@ -350,7 +350,7 @@ describe("§548 — loadPending", () => {
     expect(result.current.loadPending).toBe(true);
   });
 
-  // §548 + ruling 10 — the hold must lift when a SharePoint load hangs: the Graph read times out at
+  // §548 — the hold must lift when a SharePoint load hangs: the Graph read times out at
   // LOAD_TIMEOUT_MS, the load effect's catch settles it, saving pauses and the failure is reported (the
   // outcome that raises the storage banner, and the storageLoadFailed toast).
   it("(g) a SharePoint load that never answers settles at 10 s: loadPending drops and the failure is reported", async () => {
@@ -502,13 +502,13 @@ describe("§548 — getScopeEpoch: transitions that MUST move it", () => {
     await act(async () => { await op; });
     await advance(100);
     expect(built.load).toHaveBeenCalledTimes(1); // control: the target really loaded
-    // ★ `storageTargetKey` keys every local-* kind on the KIND alone (§591 ruling 3), so the load
+    // ★ `storageTargetKey` keys every local-* kind on the KIND alone (§591), so the load
     //   effect's replace rule cannot see this switch — only clause (b), `applyWorkspaceForOp`, can.
     expect(isScopeStale(read, started)).toBe(true);
   });
 
   // The picker path replaces tasks+raid through RAW setters, never `applyWorkspace`, so neither clause
-  // (a) (the local-* target key does not move — §591 ruling 3) nor `applyWorkspaceForOp` can see it.
+  // (a) (the local-* target key does not move — §591) nor `applyWorkspaceForOp` can see it.
   it("(i3) onOpenStorageFile's ACCEPT branch makes an in-flight write stale", async () => {
     const backend = makeBackend(0);
     createBackendMock.mockReturnValue(backend);

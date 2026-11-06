@@ -237,7 +237,7 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     //    only reason it is a footnote rather than a fourth incident. The
     //    replacement for the second said a result "does not say which, so never
     //    attribute an entry to anyone", true of `RenderedActivity` while it was
-    //    `{at, summary, detail?}`. Task 7 put `actor` on it, the guard in
+    //    `{at, summary, detail?}`. A later change put `actor` on it, the guard in
     //    view-ai-scope.test.ts went red on the SAME commit, and the sentence
     //    moved with the code instead of six weeks later. The caution survives in
     //    NARROWED form — an entry whose actor is absent is still unattributable,

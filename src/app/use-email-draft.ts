@@ -1,7 +1,7 @@
 // src/app/use-email-draft.ts
 //
-// Shared local-draft state for a write-safe-only email field. Extracted in
-// fix round 1 after the draft/reconcile block (Task 4's `emailDraft` /
+// Shared local-draft state for a write-safe-only email field. Extracted
+// after the draft/reconcile block (`emailDraft` /
 // `seenEmail` / render-time reconcile / `emailRefusal`) shipped byte-identical
 // in jira-settings.tsx and timelog-settings.tsx — the same drift class
 // editor-email-rule.ts was extracted to close for the editor modals.

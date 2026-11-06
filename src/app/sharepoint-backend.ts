@@ -76,7 +76,7 @@ export class SharePointBackend implements StorageBackend {
    *  exactly like `lastLoadTruncation`, for the same stale-value reason. */
   lastDecodeFailures: readonly string[] = [];
   private location: SpFileLocation;
-  /** §4 — THREE states, not two (controller ruling R8), and `revision()` alone cannot tell them apart:
+  /** §4 — THREE states, not two, and `revision()` alone cannot tell them apart:
    *  never loaded (`baselineKnown` false — save REFUSES), loaded with an ETag (`currentRevision` set —
    *  save sends `If-Match`), loaded WITHOUT one (`baselineKnown` true, `currentRevision` null — save
    *  goes without `If-Match`, i.e. today's behaviour, and does not refuse). */
