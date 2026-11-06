@@ -1,11 +1,19 @@
 # Builds and publishes a desktop release when a v* tag is pushed.
 # Design: docs/superpowers/specs/2026-09-24-releases-and-updates-design.md
+# Jobs: guard -> build -> sign-app -> repackage -> sign-installer -> finalize -> publish.
 # ★ Only `publish` can write and it installs no packages. The owner approves each release ONCE:
-#   `sign` runs in the `release` environment, which pauses for the owner's approval (a
+#   `sign-app` runs in the `release` environment, which pauses for the owner's approval (a
 #   required-reviewer rule on it has been active since flip step 10a, when the repository went
-#   public) and holds SIGNPATH_API_TOKEN; `publish` needs `sign` and names no environment, so it
-#   asks for no second approval. `sign` runs on every release: with vars.SIGNPATH_ENABLED unset
-#   it only passes the build's files through, so the approval always sits before publishing.
+#   public). Every later job needs `sign-app`, so nothing after it starts before that approval,
+#   and none of them names `release`, so GitHub asks once. `sign-app` runs on every release:
+#   with vars.SIGNPATH_ENABLED unset it signs nothing, so the approval always sits before publishing.
+# ★ The SignPath token is read by exactly two jobs, `sign-app` (environment `release`) and
+#   `sign-installer` (environment `release-signing`, which holds a second copy of the token, has
+#   no reviewer and deploys only from v* tags). Neither runs any npm-installed package or
+#   downloaded build tool: an action's files sit in the job's writable work folder, so build code
+#   running in a token job could rewrite the SignPath action and capture the token. Everything
+#   that runs build tooling -- electron-builder's repackage, the blockmap rewrite, js-yaml -- runs
+#   in `repackage` and `finalize`, which read no secret.
 #   Beside that pause, what stands in front of `publish` -- and so in front of every installed
 #   copy's auto-update while the installer is unsigned -- is the tag
 #   ruleset (only the owner/admin role can create, move or delete a `refs/tags/v*`), the `guard`
@@ -61,7 +69,7 @@ jobs:
   build:
     needs: guard
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     outputs:
       unpacked-artifact-id: ${{ steps.upload-unpacked.outputs.artifact-id }}
     steps:
@@ -162,12 +170,12 @@ jobs:
             desktop/release/aipm-cockpit-${{ needs.guard.outputs.version }}-sbom.cdx.json
           if-no-files-found: error
           retention-days: 7
-      # Only when signing is on: the packaged app the sign job repackages (and, with
-      # SIGNPATH_SIGN_APP_EXE, submits to SignPath by this artifact's id first).
+      # Only when signing is on: the packaged app the repackage job wraps (and, with
+      # SIGNPATH_SIGN_APP_EXE, that sign-app submits to SignPath by this artifact's id first).
       # ★ include-hidden-files: upload-artifact skips dot-folders by default, which would drop
-      # resources/standalone/.next and ship an app whose server cannot start. The sign job checks
-      # for it before repackaging.
-      - name: Upload the packaged app for the sign job
+      # resources/standalone/.next and ship an app whose server cannot start. The repackage job
+      # checks for it before repackaging.
+      - name: Upload the packaged app for signing
         id: upload-unpacked
         if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -178,61 +186,25 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # The one approval, and the signing switch. Every step that signs carries
-  # `if: ${{ vars.SIGNPATH_ENABLED == 'true' }}`; with the switch off the job downloads the build's
-  # four files, runs the one-way guard and release:verify on them, and uploads them unchanged.
-  # With it on, the setup is rebuilt with `--prepackaged` around the build's packaged app (or its
-  # SignPath-signed copy), the new setup is signed by SignPath, and latest.yml and the blockmap are
-  # rewritten over the signed bytes. `--prepackaged` writes NO resources/app-update.yml (that file
-  # is written only by electron-builder's after-pack hook, which a prepackaged run skips), so the
-  # file in the tree is the one the `build` job packed, which names no publisher. The step before
-  # the repackage adds `publisherName: [SignPath Foundation]` to it (scripts/release-update-feed.mjs),
-  # so the signed build's updater refuses any update it cannot verify
-  # (desktop/src/update-signature.ts); the check after the repackage refuses a tree without it.
-  # What SignPath signs here: the app's own PE files (the packaged-app artifact, when
-  # SIGNPATH_SIGN_APP_EXE is 'true') and the setup exe. The uninstaller is NOT signed yet: it is
-  # reachable through a signing hook during the repackage (electron-builder writes it to its own
-  # file and signs it before building the setup), but that is deferred pending a decision on
-  # whether such a hook meets SignPath's trusted-build rules -- see docs/open-followups.md.
-  # ★ A signed installer whose updater accepts any update must not ship: the step after the
-  # repackage fails the release unless the packed app's update feed requires the signature.
-  # ★ And the final signed setup must pass the installed app's OWN verifier, fed that feed's
-  # publisher names (scripts/release-verify-signature.mjs): a certificate whose CN is not exactly
-  # the name would ship a release that refuses every later update.
-  sign:
+  # The one approval. The `release` environment's required reviewer pauses this job before it
+  # starts, so before any token is read: nothing after it runs until the owner approves. With
+  # vars.SIGNPATH_ENABLED and vars.SIGNPATH_SIGN_APP_EXE both 'true' it has SignPath sign the app's
+  # own PE files (the SignPath artifact configuration `app` names them inside the zipped packaged
+  # app) and uploads the signed tree; otherwise it signs nothing.
+  # ★ A token job: actions and shell built-ins only -- no checkout, no npm, no repository script.
+  sign-app:
     needs: [guard, build]
     runs-on: windows-latest
-    # Two SignPath submissions, each up to 3600 s waiting and 1800 s downloading, plus the repackage.
-    timeout-minutes: 200
+    # One SignPath submission: up to 3600 s waiting and 1800 s downloading.
+    timeout-minutes: 110
     environment: release
     permissions:
       contents: read
       actions: read
-    outputs:
-      signed: ${{ steps.signed.outputs.signed }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24"
-          package-manager-cache: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-files
-          path: ${{ runner.temp }}/release
-      # No install scripts in the job that holds the SignPath token (as ci.yml installs).
-      - name: Install the desktop packaging tools
-        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
-        run: npm --prefix desktop ci --ignore-scripts
-      - name: Download the packaged app
-        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: unpacked-app
-          path: ${{ runner.temp }}/unpacked
-      # The SignPath artifact configuration `app` names the PE files inside the zipped packaged app.
+      - name: The owner approved the release
+        shell: bash
+        run: echo "release approved for $GITHUB_REF_NAME"
       - name: Sign the app's own executables
         if: ${{ vars.SIGNPATH_ENABLED == 'true' && vars.SIGNPATH_SIGN_APP_EXE == 'true' }}
         uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
@@ -248,22 +220,67 @@ jobs:
           # The signed packaged app is several hundred MB; the action's 300 s default is too short.
           download-signed-artifact-timeout-in-seconds: 1800
           output-artifact-directory: ${{ runner.temp }}/unpacked-signed
+      # ★ include-hidden-files, as for the build's upload: the tree's .next folder must survive.
+      - name: Upload the signed app for the repackage job
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' && vars.SIGNPATH_SIGN_APP_EXE == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unpacked-signed-app
+          path: ${{ runner.temp }}/unpacked-signed
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  # Signing on only. Reads no secret, so this is where the build tooling runs: the setup is rebuilt
+  # with `--prepackaged` around the build's packaged app (or sign-app's signed copy).
+  # `--prepackaged` writes NO resources/app-update.yml (that file is written only by
+  # electron-builder's after-pack hook, which a prepackaged run skips), so the file in the tree is
+  # the one the `build` job packed, which names no publisher. The step before the repackage adds
+  # `publisherName: [SignPath Foundation]` to it (scripts/release-update-feed.mjs), so the signed
+  # build's updater refuses any update it cannot verify (desktop/src/update-signature.ts); the check
+  # after the repackage refuses a tree without it.
+  # What SignPath signs: the app's own PE files (sign-app, when SIGNPATH_SIGN_APP_EXE is 'true') and
+  # the setup exe (sign-installer). The uninstaller is NOT signed yet: it is reachable through a
+  # signing hook during the repackage (electron-builder writes it to its own file and signs it
+  # before building the setup), but that is deferred pending a decision on whether such a hook
+  # meets SignPath's trusted-build rules -- see docs/open-followups.md.
+  repackage:
+    needs: [guard, build, sign-app]
+    if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    outputs:
+      unsigned-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: Install the desktop packaging tools
+        run: npm --prefix desktop ci --ignore-scripts
+      - name: Download the packaged app
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && 'unpacked-signed-app' || 'unpacked-app' }}
+          path: ${{ runner.temp }}/app
       # The installed app's own verifier (desktop/src/update-signature.ts) judges the signature: Valid,
       # and the signer's CN exactly SignPath Foundation. The feed is not written yet, so the name is given.
       - name: The app's executable is signed by SignPath Foundation
-        if: ${{ vars.SIGNPATH_ENABLED == 'true' && vars.SIGNPATH_SIGN_APP_EXE == 'true' }}
+        if: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' }}
         shell: bash
         env:
-          FILE: ${{ runner.temp }}/unpacked-signed/AI PM Cockpit.exe
+          FILE: ${{ runner.temp }}/app/AI PM Cockpit.exe
         run: node scripts/release-verify-signature.mjs --publisher "SignPath Foundation" "$FILE"
       # The packaged app's server needs both files; a tree that lost its hidden .next folder on the
       # way here (an artifact upload without include-hidden-files) would install an app that cannot
       # start, so the job stops before repackaging it.
       - name: The app tree holds the standalone server and its .next build
-        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
         shell: bash
         env:
-          APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
+          APP_DIR: ${{ runner.temp }}/app
         run: |
           for f in "$APP_DIR/resources/standalone/server.js" "$APP_DIR/resources/standalone/.next/BUILD_ID"; do
             [ -f "$f" ] || { echo "app-tree check: $f is missing -- the packaged app would not start"; exit 1; }
@@ -275,18 +292,16 @@ jobs:
       # fails the step on a missing or unreadable feed, or on any other publisherName already there.
       # app-update.yml is not a PE file, so a signed app tree's signatures are untouched.
       - name: Require the SignPath Foundation signature in the app's update feed
-        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
         shell: bash
         env:
-          APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
+          APP_DIR: ${{ runner.temp }}/app
         run: node scripts/release-update-feed.mjs "$APP_DIR"
       # --prepackaged skips packing (no fuses, resource edits, asar or app-update.yml are redone)
-      # and runs the NSIS target only, around whichever app tree APP_DIR names.
+      # and runs the NSIS target only, around the app tree in APP_DIR.
       - name: Repackage the setup around the app tree
-        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
         shell: bash
         env:
-          APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
+          APP_DIR: ${{ runner.temp }}/app
         run: npm run desktop:package -- --prepackaged "$APP_DIR"
       # A signed installer whose updater does not require the signature would install anything
       # served as an update. The publisherName comes from the step before the repackage, which the
@@ -294,10 +309,9 @@ jobs:
       # first list item directly under the key, the shape scripts/release-update-feed.mjs writes,
       # so "SignPath Foundation" elsewhere in the file does not count.
       - name: The repackaged app's updater requires the SignPath Foundation signature
-        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
         shell: pwsh
         env:
-          APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
+          APP_DIR: ${{ runner.temp }}/app
         run: |
           $feed = Join-Path $env:APP_DIR 'resources/app-update.yml'
           if (-not (Test-Path -LiteralPath $feed)) { Write-Output "update-feed check: $feed is missing"; exit 1 }
@@ -305,16 +319,39 @@ jobs:
           if ($text -notmatch '(?m)^publisherName:[ \t]*\r?\n[ \t]+-[ \t]*[''"]?SignPath Foundation[''"]?[ \t]*\r?$') { Write-Output "update-feed check: $feed has no publisherName naming SignPath Foundation -- the signed build's updater would not verify updates"; exit 1 }
       - name: Upload the unsigned installer
         id: upload-unsigned
-        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: unsigned-setup
           path: desktop/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
           if-no-files-found: error
           retention-days: 1
+      # finalize judges the signed setup against the publisher names in this very feed.
+      - name: Upload the repackaged app's update feed
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-update-feed
+          path: ${{ runner.temp }}/app/resources/app-update.yml
+          if-no-files-found: error
+          retention-days: 1
+
+  # Signing on only. The second token job: GitHub cannot carry one approval across two jobs that
+  # pause at different times, so the token it reads is a second copy in the `release-signing`
+  # environment, which has no reviewer and deploys only from v* tags. It needs `sign-app`, the
+  # approved job, so in this workflow it cannot start before the owner's approval.
+  # ★ A token job: actions only -- no checkout, no npm, no repository script.
+  sign-installer:
+    needs: [guard, sign-app, repackage]
+    if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+    runs-on: windows-latest
+    # One SignPath submission: up to 3600 s waiting and 1800 s downloading.
+    timeout-minutes: 110
+    environment: release-signing
+    permissions:
+      contents: read
+      actions: read
+    steps:
       # The SignPath artifact configuration `installer` names the setup exe inside the zip.
       - name: Sign the installer
-        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
         uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -322,12 +359,61 @@ jobs:
           project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
           signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
           artifact-configuration-slug: installer
-          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          github-artifact-id: ${{ needs.repackage.outputs.unsigned-artifact-id }}
           wait-for-completion: true
           wait-for-completion-timeout-in-seconds: 3600
           # The action's 300 s default HTTP timeout for fetching the signed zip; the setup is large too.
           download-signed-artifact-timeout-in-seconds: 1800
           output-artifact-directory: ${{ runner.temp }}/signed-setup
+      - name: Upload the signed installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signed-setup
+          path: ${{ runner.temp }}/signed-setup/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
+          if-no-files-found: error
+          retention-days: 1
+
+  # On every release. With the switch off it downloads the build's four files, runs the one-way
+  # guard and release:verify on them, and uploads them unchanged. With it on, it puts the signed
+  # setup in place, rewrites latest.yml and the blockmap over the signed bytes, and judges the
+  # final setup with the installed app's own verifier. Reads no secret.
+  # ★ Explicit `if:`: with the switch off, `repackage` and `sign-installer` are skipped, and a job
+  # whose needs include a skipped job is skipped too unless its condition says otherwise.
+  finalize:
+    needs: [guard, build, sign-app, repackage, sign-installer]
+    if: ${{ !cancelled() && needs.guard.result == 'success' && needs.build.result == 'success' && needs.sign-app.result == 'success' && (vars.SIGNPATH_ENABLED != 'true' || (needs.repackage.result == 'success' && needs.sign-installer.result == 'success')) }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    outputs:
+      signed: ${{ steps.signed.outputs.signed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-files
+          path: ${{ runner.temp }}/release
+      # app-builder-lib (the blockmap) and js-yaml (the feed's publisher names).
+      - name: Install the desktop packaging tools
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        run: npm --prefix desktop ci --ignore-scripts
+      - name: Download the signed installer
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: signed-setup
+          path: ${{ runner.temp }}/signed-setup
+      - name: Download the repackaged app's update feed
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: app-update-feed
+          path: ${{ runner.temp }}/feed
       # Signing changed the installer's bytes, so electron-builder's latest.yml and blockmap no
       # longer describe it; both are rewritten over the signed file (release:verify checks them).
       - name: Take the signed installer and rewrite the update feed
@@ -352,9 +438,9 @@ jobs:
         if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
         shell: bash
         env:
-          APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
+          FEED: ${{ runner.temp }}/feed/app-update.yml
           FILE: ${{ runner.temp }}/release/aipm-cockpit-${{ needs.guard.outputs.version }}-setup.exe
-        run: node scripts/release-verify-signature.mjs --feed "$APP_DIR/resources/app-update.yml" "$FILE"
+        run: node scripts/release-verify-signature.mjs --feed "$FEED" "$FILE"
       # What the release notes say (publish's RELEASE_SIGNED): true only when the check above ran
       # and passed in this run, false when it was skipped (signing off). A failed check fails the
       # job, so publish never runs.
@@ -387,9 +473,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # No environment here: the owner's approval was given at `sign`, which this job needs.
+  # No environment here: the owner's approval was given at `sign-app`, which finalize needs.
+  # ★ Explicit `if:` for the same reason as finalize's: with signing off, two of its ancestors are
+  # skipped, and the default condition would skip publish as well.
   publish:
-    needs: [guard, sign]
+    needs: [guard, finalize]
+    if: ${{ !cancelled() && needs.guard.result == 'success' && needs.finalize.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -430,8 +519,8 @@ jobs:
       - name: Publish the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          # The sign job's signature check decides the signed or unsigned notice, not the switch.
-          RELEASE_SIGNED: ${{ needs.sign.outputs.signed }}
+          # finalize's signature check decides the signed or unsigned notice, not the switch.
+          RELEASE_SIGNED: ${{ needs.finalize.outputs.signed }}
           TAG: ${{ github.ref_name }}
           DIR: ${{ runner.temp }}/release
         run: npm run release:publish -- "$DIR" "$TAG"
