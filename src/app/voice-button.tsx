@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { MicrophoneIcon, MicrophoneSlashIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { usePeopleProtected } from "./ai-privacy-context";
+import { checkSpeechPeopleLock } from "./speech-people-lock";
 import { ToggleButton } from "./toggle-button";
 import {
   type Command,
@@ -27,10 +28,16 @@ function MicIcon({ className }: { className?: string }) {
 // voice commands are OFF — the browser's built-in recognition can send the audio to the browser vendor. Read from
 // `usePeopleProtected`, the same source as the dictation gate, and enforced HERE in `toggle`, so no caller of this
 // hook can construct a recogniser while protected, whatever it renders. Fail closed: protected outside the provider.
+// §789: the recogniser makes no request to this app, so a lock the organisation added while the tab was open never
+// reached it. Each start now asks the server first (`checkSpeechPeopleLock`) and listens only on a clear answer; a
+// lock, or no trustworthy answer, starts nothing (fail closed, owner decision 2026-11-06). The button shows
+// listening while the check is out, and a second click, or unmounting, cancels it.
 export function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) {
   const peopleProtected = usePeopleProtected();
   const [listening, setListening] = useState(false);
   const stopRef = useRef<RecognitionStop | null>(null);
+  // Bumped by every start, stop and unmount, so a lock check that resolves for an earlier click is ignored.
+  const generationRef = useRef(0);
   // The protection as of the last commit, for a result the browser delivers after protection switched on.
   const protectedRef = useRef(peopleProtected);
   // `isVoiceSupported()` reads `window.SpeechRecognition`, which doesn't
@@ -44,7 +51,9 @@ export function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only hydration; lazy initializer would run during SSR
     setSupported(isVoiceSupported());
+    const generation = generationRef;
     return () => {
+      generation.current += 1;
       stopRef.current?.();
     };
   }, []);
@@ -58,7 +67,10 @@ export function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) 
 
   function toggle(onFinal: (text: string) => void) {
     if (listening) {
-      stopRef.current?.();
+      generationRef.current += 1;
+      // No recogniser yet means the lock check is still out: the bump above cancels it.
+      if (stopRef.current) stopRef.current();
+      else setListening(false);
       return;
     }
     if (peopleProtected) {
@@ -70,28 +82,43 @@ export function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) 
       return;
     }
     setListening(true);
-    const stop = startRecognition({
-      lang,
-      // Belt and braces with the abort above: a result that still arrives under protection runs nothing.
-      onFinal: (text) => {
-        if (!protectedRef.current) onFinal(text);
-      },
-      onEnd: () => {
+    const mine = ++generationRef.current;
+    void checkSpeechPeopleLock().then((lock) => {
+      if (mine !== generationRef.current) return;
+      if (lock !== "clear") {
         setListening(false);
-        stopRef.current = null;
-      },
-      onError: (err) => {
+        onError(t(lang, lock === "locked" ? "voiceCommandUnavailablePeopleForced" : "speechPeopleLockUnconfirmed"));
+        return;
+      }
+      // The project's own protection switched on while the check was out.
+      if (protectedRef.current) {
         setListening(false);
-        stopRef.current = null;
-        if (err === "not-allowed" || err === "service-not-allowed") {
-          onError(t(lang, "voicePermissionDenied"));
-        } else if (err !== "aborted" && err !== "no-speech") {
-          onError(t(lang, "voiceFailed"));
-        }
-      },
+        onError(t(lang, "voiceCommandUnavailablePeopleProtected"));
+        return;
+      }
+      const stop = startRecognition({
+        lang,
+        // Belt and braces with the abort above: a result that still arrives under protection runs nothing.
+        onFinal: (text) => {
+          if (!protectedRef.current) onFinal(text);
+        },
+        onEnd: () => {
+          setListening(false);
+          stopRef.current = null;
+        },
+        onError: (err) => {
+          setListening(false);
+          stopRef.current = null;
+          if (err === "not-allowed" || err === "service-not-allowed") {
+            onError(t(lang, "voicePermissionDenied"));
+          } else if (err !== "aborted" && err !== "no-speech") {
+            onError(t(lang, "voiceFailed"));
+          }
+        },
+      });
+      stopRef.current = stop;
+      if (!stop) setListening(false);
     });
-    stopRef.current = stop;
-    if (!stop) setListening(false);
   }
 
   return { listening, supported, peopleProtected, toggle };

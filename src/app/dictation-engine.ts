@@ -31,6 +31,9 @@ export const DICTATION_AI_DEPLOYMENT_INVALID = "ai-deployment-invalid";
 export const DICTATION_AI_DEPLOYMENT_UNCONFIRMED = "ai-deployment-unconfirmed";
 /** §786: the organisation forced people protection while this tab was open, so a recording is discarded unsent. */
 export const DICTATION_PEOPLE_FORCED = "people-forced";
+/** §789: built-in speech could not learn whether the organisation forces people protection (no answer, or one it
+ *  cannot trust), so it did not start. Fail closed. */
+export const DICTATION_PEOPLE_LOCK_UNCONFIRMED = "people-lock-unconfirmed";
 
 /** Space-aware append of a dictated segment to existing text. */
 export function appendDictation(prev: string, text: string): string {

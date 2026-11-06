@@ -8,7 +8,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AiPrivacyProvider, useAiPrivacySource } from "./ai-privacy-context";
 import { withPeopleAllowed } from "./ai-people-protection";
 import { t } from "./i18n";
-import { setDisabledIntegrations } from "./integration-switches";
+import { isIntegrationDisabled, setDisabledIntegrations } from "./integration-switches";
+import { __setAiStatusRequestForTests } from "./ai-status-request";
+import { aiStatusResponse, DIRECT_AI_STATUS } from "../test/ai-status-fetch";
 import { useVoiceRecognition, VoiceCommandButton } from "./voice-button";
 import { emptyWorkspace, type Workspace } from "./workspace";
 
@@ -42,6 +44,9 @@ const tree = (ws: Workspace, children: ReactNode) => (
   </AiPrivacyProvider>
 );
 
+/** §789: the start-time lock check resolves on a microtask; let it land inside act. */
+const settle = () => act(async () => { await new Promise<void>((r) => setTimeout(r, 0)); });
+
 function renderButton(start: Workspace, onError = vi.fn(), onCommand = vi.fn()) {
   const node = <VoiceCommandButton lang="en-US" onCommand={onCommand} onError={onError} />;
   const view = render(tree(start, node));
@@ -57,9 +62,10 @@ afterEach(() => {
 });
 
 describe("voice commands under people protection", () => {
-  it("positive control: with people allowed the button is offered and starts recognition", () => {
+  it("positive control: with people allowed the button is offered and starts recognition", async () => {
     renderButton(allowed());
     fireEvent.click(screen.getByRole("button", { name: "Voice command" }));
+    await settle();
     expect(startRecognition).toHaveBeenCalledTimes(1);
   });
 
@@ -95,17 +101,19 @@ describe("voice commands under people protection", () => {
     expect(onError).toHaveBeenCalledWith(REASON);
   });
 
-  it("the same handler starts recognition with people allowed (positive control for the direct call)", () => {
+  it("the same handler starts recognition with people allowed (positive control for the direct call)", async () => {
     const { result } = renderHook(() => useVoiceRecognition("en-US", vi.fn()), {
       wrapper: ({ children }) => tree(allowed(), children),
     });
     act(() => result.current.toggle(() => undefined));
+    await settle();
     expect(startRecognition).toHaveBeenCalledTimes(1);
   });
 
-  it("protection switched on while listening ABORTS the recogniser (not stop) and removes the button", () => {
+  it("protection switched on while listening ABORTS the recogniser (not stop) and removes the button", async () => {
     const { flip } = renderButton(allowed());
     fireEvent.click(screen.getByRole("button", { name: "Voice command" }));
+    await settle();
     expect(voiceEnv.stop.abort).not.toHaveBeenCalled();
     flip(protectedWs());
     expect(voiceEnv.stop.abort).toHaveBeenCalledTimes(1);
@@ -113,10 +121,11 @@ describe("voice commands under people protection", () => {
     expect(screen.queryByRole("button", { name: /voice command/i })).toBeNull();
   });
 
-  it("a final result delivered after protection flips mid-listen runs no command", () => {
+  it("a final result delivered after protection flips mid-listen runs no command", async () => {
     const onCommand = vi.fn();
     const { flip } = renderButton(allowed(), vi.fn(), onCommand);
     fireEvent.click(screen.getByRole("button", { name: "Voice command" }));
+    await settle();
     const deliver = voiceEnv.last!.onFinal;
     // Anti-vacuity: while allowed, a delivered result runs the command.
     act(() => deliver("search blockers"));
@@ -124,5 +133,64 @@ describe("voice commands under people protection", () => {
     flip(protectedWs());
     act(() => deliver("delete task 3"));
     expect(onCommand).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("voice commands — §789 people lock checked at each start", () => {
+  const hook = (ws: Workspace, onError = vi.fn()) =>
+    renderHook(() => useVoiceRecognition("en-US", onError), { wrapper: ({ children }) => tree(ws, children) });
+
+  it("asks the status route at the click, and constructs no recogniser before the answer", async () => {
+    const request = vi.fn(() => Promise.resolve(aiStatusResponse(DIRECT_AI_STATUS)));
+    __setAiStatusRequestForTests(request);
+    const { result } = hook(allowed());
+    act(() => result.current.toggle(() => undefined));
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(startRecognition).not.toHaveBeenCalled();
+    expect(result.current.listening).toBe(true);
+    await settle();
+    expect(startRecognition).toHaveBeenCalledTimes(1);
+  });
+
+  it("a lock the organisation added since page load starts nothing and names the organisation's lock", async () => {
+    __setAiStatusRequestForTests(() => Promise.resolve(aiStatusResponse({ ...DIRECT_AI_STATUS, peopleForced: true })));
+    const onError = vi.fn();
+    const { result } = hook(allowed(), onError);
+    act(() => result.current.toggle(() => undefined));
+    await settle();
+    expect(startRecognition).not.toHaveBeenCalled();
+    expect(result.current.listening).toBe(false);
+    expect(onError).toHaveBeenCalledWith(t("en-US", "voiceCommandUnavailablePeopleForced"));
+    expect(isIntegrationDisabled("ai-people")).toBe(true);
+  });
+
+  it("fails closed: no answer starts nothing and says the lock could not be checked", async () => {
+    __setAiStatusRequestForTests(() => Promise.reject(new TypeError("Failed to fetch")));
+    const onError = vi.fn();
+    const { result } = hook(allowed(), onError);
+    act(() => result.current.toggle(() => undefined));
+    await settle();
+    expect(startRecognition).not.toHaveBeenCalled();
+    expect(result.current.listening).toBe(false);
+    expect(onError).toHaveBeenCalledWith(t("en-US", "speechPeopleLockUnconfirmed"));
+  });
+
+  it("a second click while the check is out cancels it: no recogniser, not listening", async () => {
+    const onError = vi.fn();
+    const { result } = hook(allowed(), onError);
+    act(() => result.current.toggle(() => undefined));
+    act(() => result.current.toggle(() => undefined));
+    expect(result.current.listening).toBe(false);
+    await settle();
+    expect(startRecognition).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("unmounting while the check is out constructs no recogniser", async () => {
+    const { result, unmount } = hook(allowed());
+    act(() => result.current.toggle(() => undefined));
+    unmount();
+    await settle();
+    expect(startRecognition).not.toHaveBeenCalled();
   });
 });

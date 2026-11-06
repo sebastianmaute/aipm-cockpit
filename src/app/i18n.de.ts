@@ -1292,6 +1292,9 @@ export const de: Record<TranslationKey, string> = {
   dictationUnavailableNeedsAiConsent: "Das Diktat ist nicht verfügbar: Der Spracherkennungsdienst erfordert, dass die KI unter Einstellungen → KI eingeschaltet und der Datenhinweis zur KI akzeptiert ist.",
   dictationUnavailablePeopleProtected: "Das Diktat ist ausgeschaltet: Für dieses Projekt ist der Personenschutz aktiv, und Audio kann nicht auf Namen geprüft werden.",
   dictationUnavailablePeopleForced: "Das Diktat ist ausgeschaltet: Ihre Organisation schreibt den Personenschutz für alle Projekte vor, und Audio kann nicht auf Namen geprüft werden.",
+  speechPeopleLockUnconfirmed: "Es konnte nicht geprüft werden, ob Ihre Organisation den Personenschutz vorschreibt, daher wurde die Spracheingabe nicht gestartet. Bitte erneut versuchen.",
+  voiceCommandUnavailablePeopleForced:
+    "Sprachbefehle sind ausgeschaltet: Ihre Organisation schreibt den Personenschutz für alle Projekte vor, und die Spracherkennung des Browsers kann Audio an den Browserhersteller senden.",
   dictationUnavailableSttNotSetUp: "Das Diktat ist nicht verfügbar: Als Diktier-Engine ist die Spracherkennung gewählt, aber die Basis-URL des Transkriptionsdienstes oder der API-Schlüssel fehlt, oder der Schlüssel kann auf diesem Gerät nicht gelesen werden. Vervollständigen Sie die Einrichtung der Spracherkennung in den Einstellungen oder wählen Sie als Diktier-Engine „Browser (Web Speech)“.",
   dictationSttBaseUrl: "Basis-URL des Transkriptionsdienstes",
   dictationSttModel: "Modell",

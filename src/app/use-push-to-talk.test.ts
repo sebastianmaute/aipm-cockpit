@@ -174,3 +174,17 @@ describe("usePushToTalk", () => {
     expect(result.current.transcribing).toBe(false);
   });
 });
+
+describe("usePushToTalk — §789 a start-time refusal ends the hold", () => {
+  it.each(["people-forced", "people-lock-unconfirmed"])("%s, arriving after start answered true, clears listening and is reported", (code) => {
+    const a = mkArgs();
+    const { result } = renderHook(() => usePushToTalk(a));
+    act(() => down(result));
+    expect(result.current.listening).toBe(true);
+    const handlers = start.mock.calls[0][0];
+    act(() => handlers.onError(code));
+    expect(result.current.listening).toBe(false);
+    expect(a.onError).toHaveBeenCalledWith(code);
+    expect(a.onInterim).toHaveBeenLastCalledWith("");
+  });
+});

@@ -54,7 +54,11 @@
   (`addDisabledIntegration`) and `postAiMessages` protects THAT send — an unprotected privacy becomes its
   projects' protected one through `ifForced` (`aiPrivacyFor`), the wizard loses its image exemption, and a
   privacy with no `ifForced` is refused (review 4, M3). The Messages path protects the send; dictation
-  (`stt-engine.ts`) discards the recording (§786), and `/api/stt` refuses too. ★ One status request per send, so: the chat makes one per `callClaude` round (a reply with tool
+  (`stt-engine.ts`) discards the recording (§786), and `/api/stt` refuses too. ★ The BROWSER's own recognition (the
+  web-speech dictation engine and voice commands) makes no request to this app, so each START asks the same route
+  through `checkSpeechPeopleLock` (`speech-people-lock.ts`, §789), which reads `peopleForced` ALONE (AI off does not stop
+  built-in speech) and fails closed: no trustworthy answer starts nothing. A stop, second click or unmount while the
+  check is out cancels it; silence-gap restarts within one hold are not checked again. ★ One status request per send, so: the chat makes one per `callClaude` round (a reply with tool
   calls takes up to `maxChatTurns` rounds, `DEFAULT_MAX_CHAT_TURNS` by default); a forced call one per `postOnce`
   (more than one when it falls back); a scheduled job two in the usual case (its `confirmDeployment` before the run,
   then its analysis's `postOnce`). Reproduce the call sites:
