@@ -547,9 +547,6 @@ describe("release.yml", () => {
     it("whenever signing is on, repackages the setup before it is signed", () => {
       const s = step(/--prepackaged/);
       expect(ifOf(s)).toBe(ON);
-      // --prepackaged packs nothing, so the signed-build marker would change nothing here; the
-      // update feed it would have written must come from the build job's packing instead.
-      expect(sign()).not.toMatch(/AIPM_SIGNED_BUILD/);
       expect(s).toMatch(/npm run desktop:package -- --prepackaged "\$APP_DIR"/);
       // The signed app when SIGNPATH_SIGN_APP_EXE is on, the build's packaged app otherwise.
       expect(s).toContain("APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}");
@@ -558,8 +555,31 @@ describe("release.yml", () => {
       expect(at(/name: Upload the unsigned installer/)).toBeLessThan(at(/name: Sign the installer/));
     });
 
-    // Switching signing on before the signed-build updater check exists must fail the release,
-    // not ship a signed installer whose updater accepts anything.
+    // --prepackaged writes no resources/app-update.yml (electron-builder's after-pack hook does, and
+    // a prepackaged run skips it), so the feed in the tree is the build job's, which names no
+    // publisher. This step adds it to the tree the repackage wraps: after the tree is in place (the
+    // download, and the signed app's check when that is on), directly before the repackage.
+    it("writes the updater's publisherName into the app tree right before the repackage", () => {
+      const s = step(/name: Require the SignPath Foundation signature in the app's update feed/);
+      expect(ifOf(s)).toBe(ON);
+      expect(s).toMatch(/^ {8}shell: bash$/m);
+      expect(s).toContain("APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}");
+      // node is the step's only command, so its exit code is the step's.
+      expect(s.trimEnd()).toMatch(/\n {8}run: node scripts\/release-update-feed\.mjs "\$APP_DIR"$/);
+      expect(at(/name: Download the packaged app/)).toBeLessThan(at(/name: Require the SignPath Foundation signature/));
+      expect(at(/name: The app's executable is signed by/)).toBeLessThan(at(/name: Require the SignPath Foundation signature/));
+      const i = steps().indexOf(s);
+      expect(steps()[i + 1]).toMatch(/name: Repackage the setup around the app tree/);
+    });
+
+    // The feed is no longer the build job's to write, so no signed-build marker exists anywhere.
+    it("sets no signed-build marker on any packing", () => {
+      for (const f of [".github/workflows/release.yml", ".github/workflows/ci.yml", "desktop/electron-builder.yml", "package.json", "docs/AGENTS/ci.md"]) {
+        expect(read(f), f).not.toMatch(/AIPM_SIGNED_BUILD/);
+      }
+    });
+
+    // A signed installer whose updater accepts anything must fail the release, not ship.
     it("fails unless the repackaged app's update feed requires SignPath Foundation, right after the repackage", () => {
       const s = step(/name: The repackaged app's updater requires the SignPath Foundation signature/);
       expect(ifOf(s)).toBe(ON);
@@ -621,6 +641,7 @@ describe("release.yml", () => {
         "Install the desktop packaging tools", "Download the packaged app", "Repackage the setup around the app tree",
         "Upload the unsigned installer", "Sign the installer", "Take the signed installer and rewrite the update feed",
         "The installer is signed by SignPath Foundation", "The repackaged app's updater requires the SignPath Foundation signature",
+        "Require the SignPath Foundation signature in the app's update feed",
       ]) expect(ifOf(step(new RegExp(`name: ${name}`))), name).toBe(ON);
       expect(ifOf(step(/name: The app's executable is signed by SignPath Foundation/))).toBe(ON_APP);
     });

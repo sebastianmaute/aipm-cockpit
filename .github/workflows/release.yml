@@ -181,15 +181,17 @@ jobs:
   # SignPath-signed copy), the new setup is signed by SignPath, and latest.yml and the blockmap are
   # rewritten over the signed bytes. `--prepackaged` writes NO resources/app-update.yml (that file
   # is written only by electron-builder's after-pack hook, which a prepackaged run skips), so the
-  # updater's publisherName must already sit in the tree the `build` job packed; the check after
-  # the repackage refuses a tree without it.
+  # file in the tree is the one the `build` job packed, which names no publisher. The step before
+  # the repackage adds `publisherName: [SignPath Foundation]` to it (scripts/release-update-feed.mjs),
+  # so the signed build's updater refuses any update it cannot verify
+  # (desktop/src/update-signature.ts); the check after the repackage refuses a tree without it.
   # What SignPath signs here: the app's own PE files (the packaged-app artifact, when
   # SIGNPATH_SIGN_APP_EXE is 'true') and the setup exe. The uninstaller is NOT signed yet: it is
   # reachable through a signing hook during the repackage (electron-builder writes it to its own
   # file and signs it before building the setup), but that is deferred pending a decision on
   # whether such a hook meets SignPath's trusted-build rules -- see docs/open-followups.md.
-  # ★ Keep SIGNPATH_ENABLED off until the signed-build updater check is in place: the step after
-  # the repackage fails the release unless the packed app's update feed requires the signature.
+  # ★ A signed installer whose updater accepts any update must not ship: the step after the
+  # repackage fails the release unless the packed app's update feed requires the signature.
   sign:
     needs: [guard, build]
     runs-on: windows-latest
@@ -246,9 +248,19 @@ jobs:
           $subject = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { '' }
           Write-Output "signature: $($sig.Status) -- $subject"
           if ($sig.Status -ne 'Valid' -or $subject -notlike '*SignPath Foundation*') { Write-Output "signature check: $env:FILE is not validly signed by SignPath Foundation"; exit 1 }
+      # The tree's resources/app-update.yml is the `build` job's, which names no publisher, and the
+      # repackage below writes none. This adds `publisherName: [SignPath Foundation]` to it, keeping
+      # every other key, so the signed build's updater refuses any update it cannot verify; it
+      # fails the step on a missing or unreadable feed, or on any other publisherName already there.
+      # app-update.yml is not a PE file, so a signed app tree's signatures are untouched.
+      - name: Require the SignPath Foundation signature in the app's update feed
+        if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
+        shell: bash
+        env:
+          APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
+        run: node scripts/release-update-feed.mjs "$APP_DIR"
       # --prepackaged skips packing (no fuses, resource edits, asar or app-update.yml are redone)
-      # and runs the NSIS target only, around whichever app tree APP_DIR names. No AIPM_SIGNED_BUILD
-      # here: it would change only what packing writes, and this pass packs nothing.
+      # and runs the NSIS target only, around whichever app tree APP_DIR names.
       - name: Repackage the setup around the app tree
         if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
         shell: bash
@@ -256,10 +268,10 @@ jobs:
           APP_DIR: ${{ vars.SIGNPATH_SIGN_APP_EXE == 'true' && format('{0}/unpacked-signed', runner.temp) || format('{0}/unpacked', runner.temp) }}
         run: npm run desktop:package -- --prepackaged "$APP_DIR"
       # A signed installer whose updater does not require the signature would install anything
-      # served as an update. The file comes from the `build` job's packing, unchanged by the
-      # repackage; until that job writes publisherName into it, switching signing on fails the
-      # release here. The match is the first list item directly under the key, the shape
-      # electron-builder writes, so "SignPath Foundation" elsewhere in the file does not count.
+      # served as an update. The publisherName comes from the step before the repackage, which the
+      # repackage leaves alone; should that ever not hold, the release fails here. The match is the
+      # first list item directly under the key, the shape scripts/release-update-feed.mjs writes,
+      # so "SignPath Foundation" elsewhere in the file does not count.
       - name: The repackaged app's updater requires the SignPath Foundation signature
         if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
         shell: pwsh
@@ -269,7 +281,7 @@ jobs:
           $feed = Join-Path $env:APP_DIR 'resources/app-update.yml'
           if (-not (Test-Path -LiteralPath $feed)) { Write-Output "update-feed check: $feed is missing"; exit 1 }
           $text = Get-Content -LiteralPath $feed -Raw
-          if ($text -notmatch '(?m)^publisherName:[ \t]*\r?\n[ \t]+-[ \t]*[''"]?SignPath Foundation[''"]?[ \t]*\r?$') { Write-Output "update-feed check: $feed has no publisherName naming SignPath Foundation -- keep SIGNPATH_ENABLED off until the signed-build updater check is in place"; exit 1 }
+          if ($text -notmatch '(?m)^publisherName:[ \t]*\r?\n[ \t]+-[ \t]*[''"]?SignPath Foundation[''"]?[ \t]*\r?$') { Write-Output "update-feed check: $feed has no publisherName naming SignPath Foundation -- the signed build's updater would not verify updates"; exit 1 }
       - name: Upload the unsigned installer
         id: upload-unsigned
         if: ${{ vars.SIGNPATH_ENABLED == 'true' }}
