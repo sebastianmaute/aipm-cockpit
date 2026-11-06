@@ -127,6 +127,9 @@ function wireUpdater(
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowPrerelease = false;
   autoUpdater.allowDowngrade = false;
+  // Releases ship the full NSIS installer, never a web installer that fetches the app at install
+  // time; refusing one keeps an update from installing bytes nobody downloaded or verified here.
+  autoUpdater.disableWebInstaller = true;
   autoUpdater.logger = {
     // `info` calls are electron-updater's own short, single-line status messages ("Checking for
     // update", a staging-user-id line) -- left as `String(m)` rather than `summarizeError`, since

@@ -20,6 +20,7 @@ const fakeAutoUpdater = vi.hoisted(() => ({
   autoInstallOnAppQuit: true,
   allowPrerelease: true,
   allowDowngrade: true,
+  disableWebInstaller: false,
   logger: null as unknown,
   on: vi.fn(),
   checkForUpdates: vi.fn(() => Promise.resolve(null)),
@@ -126,6 +127,14 @@ describe("createUpdater", () => {
     const lines = log.mock.calls.map((c) => String(c[0]));
     expect(lines.some((l) => l.includes("failed to load"))).toBe(false);
     expect(lines.some((l) => l.includes("failed to wire"))).toBe(false);
+  });
+
+  // Releases ship the full installer; electron-updater would otherwise accept a web installer that
+  // fetches the app at install time.
+  it("refuses web installers", async () => {
+    fakeAutoUpdater.disableWebInstaller = false;
+    await createUpdater({ log: vi.fn(), window: () => null });
+    expect(fakeAutoUpdater.disableWebInstaller).toBe(true);
   });
 
   it("registers a listener for every event wireUpdater depends on", async () => {
