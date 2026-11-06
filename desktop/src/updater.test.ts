@@ -364,14 +364,16 @@ describe("a signed build's update check", () => {
     expect(fakeAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
     // Nothing is left armed to install on quit.
     expect(fakeAutoUpdater.autoInstallOnAppQuit).toBe(false);
-    expect(log.mock.calls.some((c) => /refused/.test(String(c[0])))).toBe(true);
+    const refusedLines = log.mock.calls.map((c) => String(c[0])).filter((l) => /refused/.test(l));
+    expect(refusedLines).toEqual([expect.stringMatching(/^updater: refused an update: its signature could not be verified: .*NotSigned/)]);
   });
 
   // A check that could not run (PowerShell blocked by policy, failing, timing out) says nothing
   // about the update itself, so the dialog does not call its signature bad -- and still refuses it.
   it("a refusal because the check could not run says so, offers the manual download, and never installs", async () => {
     feed(SIGNED_FEED);
-    const updater = await createUpdater({ log: vi.fn(), window: () => null });
+    const log = vi.fn();
+    const updater = await createUpdater({ log, window: () => null });
     updater.check("manual");
     const handler = (name: string) => fakeAutoUpdater.on.mock.calls.find((c) => c[0] === name)?.[1] as (arg: unknown) => void;
     handler("update-available")({ version: "9.9.9", releaseNotes: "notes" });
@@ -391,6 +393,10 @@ describe("a signed build's update check", () => {
     expect(opts.detail).toMatch(/PowerShell, which may be blocked here \(for example by a policy\)/);
     expect(opts.detail).toMatch(/download .* by hand from the releases page/);
     expect(opts.detail).toContain("PowerShell exited with 1");
+    // The log line names the same reason as the dialog, not a bad signature.
+    const refusedLines = log.mock.calls.map((c) => String(c[0])).filter((l) => /refused/.test(l));
+    expect(refusedLines).toEqual([expect.stringMatching(/^updater: refused an update: its signature check could not run on this computer: .*PowerShell exited with 1/)]);
+    expect(refusedLines.join("\n")).not.toMatch(/could not be verified/);
     expect(opts.buttons).toEqual(["OK", "Open releases page"]);
     await vi.waitFor(() => expect(openExternal).toHaveBeenCalledWith(RELEASES_URL));
     expect(fakeAutoUpdater.quitAndInstall).not.toHaveBeenCalled();

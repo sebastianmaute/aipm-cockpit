@@ -45,11 +45,14 @@ const CANNOT_CHECK_MESSAGE = "The update was not installed: its signature check 
 const CANNOT_CHECK_HINT =
   "This app installs an update only after checking its publisher's signature, and that check uses Windows PowerShell, which may be blocked here (for example by a policy). Please download the new version by hand from the releases page and install it.";
 
-/** The dialog's words for a refused update: a check that could not run is not called a bad signature. */
-export function unverifiedText(refusal: RefusalKind): { message: string; hint: string } {
+/**
+ * The words for a refused update -- the dialog's message and hint, and the log line's reason: a
+ * check that could not run is not called a bad signature in either place.
+ */
+export function unverifiedText(refusal: RefusalKind): { message: string; hint: string; logReason: string } {
   return refusal === "cannot-run"
-    ? { message: CANNOT_CHECK_MESSAGE, hint: CANNOT_CHECK_HINT }
-    : { message: UNVERIFIED_MESSAGE, hint: UNVERIFIED_HINT };
+    ? { message: CANNOT_CHECK_MESSAGE, hint: CANNOT_CHECK_HINT, logReason: "its signature check could not run on this computer" }
+    : { message: UNVERIFIED_MESSAGE, hint: UNVERIFIED_HINT, logReason: "its signature could not be verified" };
 }
 
 // Whether the packaged resources/app-update.yml names a publisherName -- the file NsisUpdater reads
@@ -263,8 +266,8 @@ function wireUpdater(
       return;
     }
     if (d.kind === "unverified") {
-      deps.log(`updater: refused an update whose signature could not be verified: ${d.message}`);
       const text = unverifiedText(d.refusal);
+      deps.log(`updater: refused an update: ${text.logReason}: ${d.message}`);
       const r = await box({
         type: "warning", title: "AI PM Cockpit", message: text.message, detail: `${text.hint}\n\n${d.message}`,
         buttons: ["OK", "Open releases page"], defaultId: 0, cancelId: 0,
