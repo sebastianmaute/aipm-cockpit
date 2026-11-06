@@ -3,6 +3,7 @@ import {
   BOX_NOTES_MAX, NOTES_MAX, STARTUP_CHECK_DELAY_MS, decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable,
   notesToPlainText, parseSkipped, serializeSkipped, summarizeError,
 } from "./update-policy";
+import { CANNOT_RUN_PREFIX } from "../update-signature";
 
 describe("update policy", () => {
   it("waits 10 s after start", () => expect(STARTUP_CHECK_DELAY_MS).toBe(10_000));
@@ -52,12 +53,28 @@ describe("update policy", () => {
   // A version whose installer was refused this session is the same file again: never offered, a
   // manual check says why; a newer version is offered as usual.
   it("never offers a version refused this session again, but offers a newer one", () => {
-    expect(decideOnAvailable("startup", { version: "1.14.1" }, null, "1.14.1")).toEqual({ kind: "silent" });
-    const manual = decideOnAvailable("manual", { version: "1.14.1" }, null, "1.14.1");
-    expect(manual).toEqual({ kind: "unverified", message: expect.stringContaining("1.14.1 was refused earlier") });
-    expect(decideOnAvailable("startup", { version: "1.14.2" }, null, "1.14.1").kind).toBe("prompt");
-    expect(decideOnAvailable("manual", { version: "1.14.2" }, null, "1.14.1").kind).toBe("prompt");
+    const refused = { version: "1.14.1", refusal: "mismatch" } as const;
+    expect(decideOnAvailable("startup", { version: "1.14.1" }, null, refused)).toEqual({ kind: "silent" });
+    const manual = decideOnAvailable("manual", { version: "1.14.1" }, null, refused);
+    expect(manual).toEqual({ kind: "unverified", message: expect.stringContaining("1.14.1 was refused earlier"), refusal: "mismatch" });
+    expect(decideOnAvailable("startup", { version: "1.14.2" }, null, refused).kind).toBe("prompt");
+    expect(decideOnAvailable("manual", { version: "1.14.2" }, null, refused).kind).toBe("prompt");
     expect(decideOnAvailable("startup", { version: "1.14.1" }, null, null).kind).toBe("prompt");
+  });
+
+  // A manual re-check repeats the refusal in its own words: a signature that did not verify, or a
+  // check that could not run on this computer, which says nothing about the update itself.
+  it("repeats a refusal in the words of its kind on a manual re-check", () => {
+    const mismatch = decideOnAvailable("manual", { version: "1.14.1" }, null, { version: "1.14.1", refusal: "mismatch" });
+    expect(mismatch).toEqual({
+      kind: "unverified", refusal: "mismatch",
+      message: "AI PM Cockpit 1.14.1 was refused earlier in this session: its signature could not be verified.",
+    });
+    const cannotRun = decideOnAvailable("manual", { version: "1.14.1" }, null, { version: "1.14.1", refusal: "cannot-run" });
+    expect(cannotRun).toEqual({
+      kind: "unverified", refusal: "cannot-run",
+      message: "AI PM Cockpit 1.14.1 was refused earlier in this session: its signature check could not run on this computer.",
+    });
   });
 
   it("reports up to date and errors only for a manual check", () => {
@@ -88,13 +105,26 @@ describe("update policy", () => {
     const refused = Object.assign(new Error("New version 9.9.9 is not signed by the application owner: the installer's signature is NotSigned"), {
       code: "ERR_UPDATER_INVALID_SIGNATURE",
     });
-    const want = { kind: "unverified", message: refused.message };
+    const want = { kind: "unverified", message: refused.message, refusal: "mismatch" };
     expect(decideOnError("startup", "downloading", refused)).toEqual(want);
     expect(decideOnError("manual", "downloading", refused)).toEqual(want);
     expect(decideOnError("startup", "checking", refused)).toEqual(want);
     // Any other code, or none, stays an ordinary error.
     const other = Object.assign(new Error("ENOSPC"), { code: "ENOSPC" });
     expect(decideOnError("manual", "downloading", other)).toEqual({ kind: "error", phase: "downloading", message: "ENOSPC" });
+  });
+
+  // The kind of a refusal is read from the WHOLE message, so a prefix past the dialog line's clip
+  // still counts.
+  it("names a refusal whose check could not run as cannot-run, even past the clipped line", () => {
+    const cannotRun = Object.assign(new Error(`New version 9.9.9 is not signed by the application owner: ${CANNOT_RUN_PREFIX}PowerShell exited with 1`), {
+      code: "ERR_UPDATER_INVALID_SIGNATURE",
+    });
+    expect(decideOnError("manual", "downloading", cannotRun)).toMatchObject({ kind: "unverified", refusal: "cannot-run" });
+    const late = Object.assign(new Error(`${"x".repeat(400)}: ${CANNOT_RUN_PREFIX}timed out`), { code: "ERR_UPDATER_INVALID_SIGNATURE" });
+    const d = decideOnError("manual", "downloading", late);
+    expect(d).toMatchObject({ kind: "unverified", refusal: "cannot-run" });
+    expect(d.kind === "unverified" && d.message.includes(CANNOT_RUN_PREFIX)).toBe(false);
   });
 
   it("shows only the first line of an error, never headers or a stack trailing after it", () => {

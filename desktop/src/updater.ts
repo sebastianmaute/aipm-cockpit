@@ -8,13 +8,13 @@ import { RELEASES_URL } from "./lib/constants";
 import { pickAutoUpdater } from "./lib/electron-updater-loader";
 import {
   decideCheckRequest, decideOnAvailable, decideOnError, decideOnNotAvailable, parseSkipped,
-  serializeSkipped, summarizeError, type UpdateDecision, type UpdatePhase, type UpdateTrigger,
+  serializeSkipped, summarizeError, type RefusedUpdate, type UpdateDecision, type UpdatePhase, type UpdateTrigger,
 } from "./lib/update-policy";
 import type { SafeNotesHtml } from "./lib/release-notes-html";
 import {
   UPDATE_DURATION_HINT, buildUpdatePromptHtml, parseChoiceTitle, updatePromptUrl, type UpdateChoice,
 } from "./lib/update-window";
-import { feedRequiresSignature, refusalKind, verifyUpdateSignature } from "./update-signature";
+import { feedRequiresSignature, verifyUpdateSignature, type RefusalKind } from "./update-signature";
 
 export interface Updater {
   check(trigger: UpdateTrigger): void;
@@ -46,8 +46,8 @@ const CANNOT_CHECK_HINT =
   "This app installs an update only after checking its publisher's signature, and that check uses Windows PowerShell, which may be blocked here (for example by a policy). Please download the new version by hand from the releases page and install it.";
 
 /** The dialog's words for a refused update: a check that could not run is not called a bad signature. */
-export function unverifiedText(refusal: string): { message: string; hint: string } {
-  return refusalKind(refusal) === "cannot-run"
+export function unverifiedText(refusal: RefusalKind): { message: string; hint: string } {
+  return refusal === "cannot-run"
     ? { message: CANNOT_CHECK_MESSAGE, hint: CANNOT_CHECK_HINT }
     : { message: UNVERIFIED_MESSAGE, hint: UNVERIFIED_HINT };
 }
@@ -135,11 +135,12 @@ function wireUpdater(
   // always reported as a download failure even though the SAME `autoUpdater` object also fired the
   // checking-phase events earlier in this run's lifetime.
   let phase: UpdatePhase = "checking";
-  // The version being downloaded, and the one whose installer the signature check refused. Kept in
-  // memory for this session only: a later check would offer and download the very same file, which
+  // The version being downloaded, and the one whose installer the signature check refused with the
+  // kind of refusal (so a later manual check repeats the right words). Kept in memory for this
+  // session only: a later check would offer and download the very same file, which
   // would be refused again, so that version is not offered again (decideOnAvailable); a newer one is.
   let downloadingVersion: string | null = null;
-  let refusedVersion: string | null = null;
+  let refused: RefusedUpdate | null = null;
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
@@ -263,7 +264,7 @@ function wireUpdater(
     }
     if (d.kind === "unverified") {
       deps.log(`updater: refused an update whose signature could not be verified: ${d.message}`);
-      const text = unverifiedText(d.message);
+      const text = unverifiedText(d.refusal);
       const r = await box({
         type: "warning", title: "AI PM Cockpit", message: text.message, detail: `${text.hint}\n\n${d.message}`,
         buttons: ["OK", "Open releases page"], defaultId: 0, cancelId: 0,
@@ -292,7 +293,7 @@ function wireUpdater(
 
   autoUpdater.on("update-available", (info) => {
     checking = false;
-    void act(decideOnAvailable(trigger, info, readSkipped(), refusedVersion));
+    void act(decideOnAvailable(trigger, info, readSkipped(), refused));
   });
   autoUpdater.on("update-not-available", () => {
     checking = false;
@@ -307,7 +308,7 @@ function wireUpdater(
     const decision = decideOnError(trigger, erroredPhase, err);
     // A failed or refused download leaves nothing that may install on quit.
     if (erroredPhase === "downloading" || decision.kind === "unverified") autoUpdater.autoInstallOnAppQuit = false;
-    if (decision.kind === "unverified" && downloadingVersion !== null) refusedVersion = downloadingVersion;
+    if (decision.kind === "unverified" && downloadingVersion !== null) refused = { version: downloadingVersion, refusal: decision.refusal };
     void act(decision);
   });
   autoUpdater.on("download-progress", (p) => deps.window()?.setProgressBar(p.percent / 100));

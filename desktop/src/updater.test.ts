@@ -398,8 +398,36 @@ describe("a signed build's update check", () => {
   });
 
   it("unverifiedText keeps the mismatch wording for a real mismatch and the cannot-run wording for a check that did not run", () => {
-    expect(unverifiedText("the installer's signature is NotSigned").message).toBe("The update was not installed: its signature could not be verified.");
-    expect(unverifiedText(`${CANNOT_RUN_PREFIX}timed out after 60 s`).message).toBe("The update was not installed: its signature check could not run on this computer.");
+    expect(unverifiedText("mismatch").message).toBe("The update was not installed: its signature could not be verified.");
+    expect(unverifiedText("cannot-run").message).toBe("The update was not installed: its signature check could not run on this computer.");
+  });
+
+  // The refused version is remembered with the kind of refusal, so a manual re-check repeats the
+  // words that fit: a check that could not run is never called a bad signature the second time either.
+  it("a manual re-check of a version refused because the check could not run keeps the cannot-run words", async () => {
+    feed(SIGNED_FEED);
+    const updater = await createUpdater({ log: vi.fn(), window: () => null });
+    const handler = (name: string) => fakeAutoUpdater.on.mock.calls.find((c) => c[0] === name)?.[1] as (arg: unknown) => void;
+    updater.check("manual");
+    handler("update-available")({ version: "9.9.9", releaseNotes: "notes" });
+    await vi.waitFor(() => expect(fakeWindows.instances).toHaveLength(1));
+    fakeWindows.instances[0].emit("page-title-updated", { preventDefault: vi.fn() }, "aipm-update:download");
+    await vi.waitFor(() => expect(fakeAutoUpdater.downloadUpdate).toHaveBeenCalledTimes(1));
+    handler("error")(Object.assign(
+      new Error(`New version 9.9.9 is not signed by the application owner: ${CANNOT_RUN_PREFIX}PowerShell exited with 1`),
+      { code: "ERR_UPDATER_INVALID_SIGNATURE" },
+    ));
+    await vi.waitFor(() => expect(showMessageBox).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 0)); // the refusal's dialog has closed
+
+    updater.check("manual");
+    handler("update-available")({ version: "9.9.9", releaseNotes: "notes" });
+    await vi.waitFor(() => expect(showMessageBox).toHaveBeenCalledTimes(2));
+    const opts = (showMessageBox.mock.calls[1] as unknown[]).at(-1) as { message: string; detail: string };
+    expect(opts.message).toBe("The update was not installed: its signature check could not run on this computer.");
+    expect(opts.detail).toContain("9.9.9 was refused earlier in this session: its signature check could not run on this computer.");
+    expect(`${opts.message}\n${opts.detail}`).not.toMatch(/could not be verified/);
+    expect(fakeAutoUpdater.downloadUpdate).toHaveBeenCalledTimes(1);
   });
 
   // The next check would offer, and download, the very installer that was just refused. The refused

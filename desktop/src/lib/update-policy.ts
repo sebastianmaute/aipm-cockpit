@@ -1,6 +1,7 @@
 // What the updater does, decided without Electron so it is unit-testable (the wiring is
 // desktop/src/updater.ts). Spec: docs/superpowers/specs/2026-09-24-releases-and-updates-design.md §2.
 import { notesSource, notesToSafeHtml, type SafeNotesHtml } from "./release-notes-html";
+import { refusalKind, type RefusalKind } from "../update-signature";
 
 export const STARTUP_CHECK_DELAY_MS = 10_000;
 // The notes now render in a SCROLLING window (lib/update-window.ts), so this is a flood guard
@@ -27,9 +28,16 @@ export type UpdateDecision =
   | { kind: "prompt"; version: string; notes: string; notesHtml: SafeNotesHtml }
   | { kind: "up-to-date" }
   | { kind: "error"; phase: UpdatePhase; message: string }
-  // A signed build refused the downloaded installer: its signature could not be verified
-  // (update-signature.ts). Shown whatever the trigger; the user downloads the release by hand.
-  | { kind: "unverified"; message: string };
+  // A signed build refused the downloaded installer (update-signature.ts). Shown whatever the
+  // trigger; the user downloads the release by hand. `refusal` picks the words: a signature that did
+  // not verify ("mismatch") or a check that could not run on this computer ("cannot-run").
+  | { kind: "unverified"; message: string; refusal: RefusalKind };
+
+/** A version whose installer was refused this session, and which kind of refusal it was. */
+export interface RefusedUpdate {
+  version: string;
+  refusal: RefusalKind;
+}
 
 // electron-updater's error code for an installer `verifyUpdateCodeSignature` refused
 // (NsisUpdater.js, doDownloadUpdate).
@@ -58,19 +66,20 @@ export function decideCheckRequest(activity: UpdaterActivity): CheckRequestDecis
   return "start";
 }
 
-// `refused` is the version whose installer a signed build refused in this session (remembered in
-// memory only, by updater.ts). Downloading it again would fetch the same file and refuse it again,
+// `refused` is the version whose installer a signed build refused in this session, with the kind of
+// refusal (remembered in memory only, by updater.ts). Downloading it again would fetch the same file and refuse it again,
 // so it is never offered again: an automatic check stays silent, and a manual one repeats why it was
-// not installed. A newer version is offered as usual.
+// not installed, in the words of the refusal it was. A newer version is offered as usual.
 export function decideOnAvailable(
   trigger: UpdateTrigger,
   available: { version: string; releaseNotes?: unknown },
   skipped: string | null,
-  refused: string | null = null,
+  refused: RefusedUpdate | null = null,
 ): UpdateDecision {
-  if (refused !== null && refused === available.version) {
+  if (refused !== null && refused.version === available.version) {
     if (trigger !== "manual") return { kind: "silent" };
-    return { kind: "unverified", message: `AI PM Cockpit ${available.version} was refused earlier in this session: its signature could not be verified.` };
+    const why = refused.refusal === "cannot-run" ? "its signature check could not run on this computer" : "its signature could not be verified";
+    return { kind: "unverified", message: `AI PM Cockpit ${available.version} was refused earlier in this session: ${why}.`, refusal: refused.refusal };
   }
   if (trigger === "startup" && skipped === available.version) return { kind: "silent" };
   return {
@@ -88,7 +97,9 @@ export function decideOnNotAvailable(trigger: UpdateTrigger): UpdateDecision {
 // so silence is never correct once bytes were meant to move -- see the UpdatePhase doc comment above.
 export function decideOnError(trigger: UpdateTrigger, phase: UpdatePhase, err: unknown): UpdateDecision {
   if (typeof err === "object" && err !== null && (err as { code?: unknown }).code === INVALID_SIGNATURE_CODE) {
-    return { kind: "unverified", message: summarizeError(err) };
+    // The kind is read from the whole message: the dialog line is clipped, and could lose the prefix.
+    const raw = err instanceof Error ? err.message : String((err as { message?: unknown }).message ?? "");
+    return { kind: "unverified", message: summarizeError(err), refusal: refusalKind(raw) };
   }
   if (phase === "checking" && trigger !== "manual") return { kind: "silent" };
   return { kind: "error", phase, message: summarizeError(err) };
