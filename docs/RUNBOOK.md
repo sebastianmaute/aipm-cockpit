@@ -366,7 +366,18 @@ this is done; the README's "Code signing policy" is the public side of it.
 - [ ] After SignPath Foundation renews its certificate: compare the new
       certificate's subject with `PUBLISHER` before the first release it
       signs. The update feed names that full DN, and an installed copy refuses
-      an update whose signer differs on any attribute of it.
+      an update whose signer differs on any attribute of it. **If it
+      differs,** the release stops before `publish`: `finalize`'s signature
+      check and `attest-signature` refuse the installer, and the one-way
+      guard cannot classify it as signed. Changing `PUBLISHER` to the new DN
+      lets new releases through, but every copy installed from an earlier
+      signed release still lists only the old DN, so it refuses those updates
+      and offers the Releases page instead: its users must download and
+      install the new release by hand, once. A bridge release whose feed lists
+      both the old and the new DN would avoid that, but needs support for more
+      than one publisher name that does not exist today
+      (`release-update-feed.mjs` writes a single list item, and the guard has
+      one `SIGNER`).
 
 The installer is never built locally, so some of this is proved only by a
 real release: that the installer compiles with its privacy page and shows it
@@ -395,19 +406,6 @@ Get-AuthenticodeSignature $env:TEMP\guard\aipm-cockpit-<newest>-setup.exe |
 ```
 
 The guard's own message names the file, the status and the signer it saw.
-
-The other cause that no re-run clears: **the newest published release has no
-`-setup.exe` asset** (for example a docs-only release published by hand). The
-guard downloads `*-setup.exe` from the newest published release and needs
-exactly one, so it stops with "has 0 installers, expected 1" or gh's own
-error that no asset matches. It looks at that release only — never past it to
-an older one. A release whose own installer is validly signed passes anyway
-(it is classified first, and the previous reading is only logged), and from
-then on it is the newest published release the guard compares with. An
-unsigned release cannot get past it while that release stays the newest
-published one. So never publish a release without an installer: this
-workflow cannot (`release:verify` requires all four files), only a release
-made by hand can.
 Recover by publishing a freshly signed release once SignPath has issued a new
 certificate: the guard passes it because its own installer is validly signed,
 and logs that the previous one could not be classified. From then on that
@@ -415,6 +413,20 @@ fresh release is the one later runs compare with. Never delete or unpublish rele
 the guard see an older installer, unless the owner deliberately decides to:
 releases are immutable, deleting one strands its download links, and it
 would also let an unsigned release through by the same route.
+
+The other cause that no re-run clears: **the newest published release has no
+`-setup.exe` asset** (for example a docs-only release published by hand). The
+guard downloads `*-setup.exe` from the newest published release and needs
+exactly one, so it stops with "has 0 installers, expected 1" or gh's own
+error that no asset matches. It looks at that release only — never past it to
+an older one. So never publish a release without an installer: this
+workflow cannot (`release:verify` requires all four files), only a release
+made by hand can. **Remedy:** publish the next release signed (signing
+switched on). The guard classifies this release's own installer first; when
+it is validly signed the release passes, the unreadable previous release is
+only logged, and from then on the new release is the one later runs compare
+with. An unsigned release cannot get past while the installer-less release
+stays the newest published one.
 
 **Withdrawing a bad release.** Releases are immutable — nothing can be edited
 in place. Publish a fixed patch version at once. On the bad one, untick "Set as

@@ -23,8 +23,12 @@ import { pathToFileURL } from "node:url";
 // "GlobalSign GCC R45 CodeSigning CA 2020", valid 2024-12-13 to 2027-09-07, thumbprint
 // C4E03C1CB258265C9621822320AB0B25447E7171. A DN publisher name must match on every key it names,
 // so a renewed certificate that changes any of these attributes fails `finalize` and
-// `attest-signature`, and every installed signed copy would refuse its updates: compare this value
-// with the new certificate's subject before the first release signed after a renewal.
+// `attest-signature` (the release stops before publish), and every installed signed copy would
+// refuse its updates: compare this value with the new certificate's subject before the first
+// release signed after a renewal. If it differs, changing this value lets new releases through,
+// but copies installed from earlier signed releases keep the old DN and need one manual reinstall
+// from the Releases page; a bridge feed naming both DNs would need more than the single list item
+// written here and the guard's single SIGNER (docs/RUNBOOK.md, the renewal checklist item).
 export const PUBLISHER = "CN=SignPath Foundation, O=SignPath Foundation, L=Lewes, S=Delaware, C=US";
 
 const KEY = /^publisherName[ \t]*:(.*)$/;
