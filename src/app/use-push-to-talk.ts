@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Lang } from "./i18n";
 import { getCtor } from "./voice";
 import { dictationUnavailableReason, resolveDictationEngine } from "./dictation-config";
-import type { DictationEngine } from "./dictation-engine";
+import { DICTATION_PEOPLE_FORCED, DICTATION_PEOPLE_LOCK_UNCONFIRMED, type DictationEngine } from "./dictation-engine";
 
 const TAP_MS = 250;
 
@@ -56,8 +56,13 @@ export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError
     onInterim("");
   }, [onInterim]);
 
+  // An error that ends the hold clears the listening state. §789: so does the web-speech engine's start-time
+  // refusal (a people lock, or no answer about one), which arrives after `start` already answered true.
   const handleError = useCallback((err: string) => {
-    if (err === "not-allowed" || err === "not-supported" || err === "audio-capture") {
+    if (
+      err === "not-allowed" || err === "not-supported" || err === "audio-capture"
+      || err === DICTATION_PEOPLE_FORCED || err === DICTATION_PEOPLE_LOCK_UNCONFIRMED
+    ) {
       listeningRef.current = false;
       setListening(false);
       setTranscribing(false);
