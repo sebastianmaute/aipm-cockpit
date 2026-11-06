@@ -27,10 +27,10 @@ describe("writeSettings secret blanking", () => {
     });
     const persisted = JSON.parse(localStorage.getItem(SETTINGS_KEY)!);
     expect(persisted.ai.apiKey).toBe("");
-    expect(persisted.integrations.turso.authToken ?? "").toBe("");
+    expect(persisted.integrations.turso.authToken).toBe("");
     expect(persisted.integrations.turso.databaseUrl).toBe("libsql://x");
     // Jira token blanked, but identifying (non-secret) fields preserved.
-    expect(persisted.jira.apiToken ?? "").toBe("");
+    expect(persisted.jira.apiToken).toBe("");
     expect(persisted.jira.siteUrl).toBe("https://x.atlassian.net");
     expect(persisted.jira.email).toBe("a@b.c");
   });
@@ -40,9 +40,12 @@ describe("writeSettings secret blanking", () => {
   // paths instead, so a new id fails here until writeSettings blanks it.
   it("blanks EVERY sealed secret in SECRET_SETTINGS_PATHS, not the five a hand-kept list names", () => {
     const valueFor = (id: string) => `plaintext-${id}`;
-    // The fixture spells all five paths by hand, so a wrong path in SECRET_SETTINGS_PATHS cannot hide:
-    // the real field would keep its value and the raw-text check below would find it.
-    const settings = {
+    // The fixture spells all five paths by hand. Today a wrong path in SECRET_SETTINGS_PATHS fails through
+    // the loop below (the wrong field stays filled); if the blanking is ever derived from the paths, the
+    // real field here keeps its value and the raw-text check is what still fails it.
+    // structuredClone: the loop writes in place, and a future path under another slice must not write
+    // its value into the shared module defaults for later tests.
+    const settings = structuredClone({
       ...defaultSettings,
       ai: { ...defaultSettings.ai, apiKey: valueFor("anthropicApiKey") },
       integrations: {
@@ -52,7 +55,7 @@ describe("writeSettings secret blanking", () => {
       jira: { ...defaultSettings.jira, apiToken: valueFor("jiraApiToken") },
       timelog: { ...defaultTimelogConfig, apiToken: valueFor("timelogApiToken") },
       dictation: { engine: "stt" as const, sttApiKey: valueFor("sttApiKey") },
-    };
+    });
     // Then fill every path, building any missing parent: writeSettings blanks a field only when its
     // parent slice exists, so a path left unfilled would read undefined and pass.
     for (const id of SECRET_IDS) {
