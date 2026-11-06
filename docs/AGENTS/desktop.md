@@ -192,8 +192,24 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
 - Installing looks frozen, and three places say so: the installer's welcome page (`desktop/installer.nsh`,
   first install and manual reinstall only, since an update runs the installer with `/S`), the
   "Update available" window (`UPDATE_DURATION_HINT`) and the "Update ready" box (`INSTALL_HINT`).
-- The feed is the public GitHub Releases `latest.yml`; the installer is unsigned. What stands in for
-  signing is recorded beside `RELEASES_URL` in `lib/constants.ts` and in §487/§563.
+- The installer's second page is the privacy statement: `desktop/installer-privacy.txt` on a stock MUI2
+  license page relabelled with a Next button (`installer.nsh`), read by makensis from `PROJECT_DIR`. The
+  README's "Privacy statement" carries the same text between `privacy-statement` markers, and
+  `scripts/installer-privacy.test.mjs` fails when the two differ, when a `connect-src`/`frame-src` host in
+  `src/proxy.ts` or a server route under `src/app/api` has no service named in it, or when the file is
+  not plain ASCII. ★ A new external host or proxy route therefore needs a line in the statement too.
+  The page itself is seen only in a real release build.
+- The feed is the public GitHub Releases `latest.yml`. The installer is code-signed through SignPath
+  Foundation only from the first release the `sign` job signs; before that it is unsigned, and what
+  stands in for signing is recorded beside `RELEASES_URL` in `lib/constants.ts` and in §487/§563. Each
+  release's notes say which (the `sign` job's `signed` output, [`ci.md`](ci.md)). The uninstaller is
+  not signed (§792). ★★ Two transition gaps, both by design of electron-updater, not of this code: a
+  copy installed from an unsigned release has no `publisherName`, so it takes the first signed update
+  unchecked; and an installer already downloaded into the updater's cache is installed from there
+  without the signature hook running (the cached-file branch of electron-updater's own AppUpdater compares only its
+  sha512 with the feed's; the hook sits in `NsisUpdater`'s download task, which that branch skips), so
+  one cached by an unsigned build is installed unchecked once.
+  The README's "Code signing policy" states both.
 - ★★ **A signed build refuses any update it cannot verify.** electron-updater's `NsisUpdater` reads
   `publisherName` from the packaged `resources/app-update.yml` and, only when it is there, passes each
   downloaded installer to its `verifyUpdateCodeSignature` hook. Its default verifier resolves `null`
@@ -219,6 +235,6 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
 ## Open register entries
 
 §462 (no Linux installer) · §479 (1.0.1–1.0.3 never tagged) · §487 and
-§563 (unsigned installer) · §547 (the sign-in state machine has no harness) · §561 (fuses confirmed on
+§563 (unsigned installer; open until the first signed release) · §792 (unsigned uninstaller) · §547 (the sign-in state machine has no harness) · §561 (fuses confirmed on
 a local package only). Re-list them with
 `grep -nE "^## [0-9]+\..*(desktop|Electron|installer).*OPEN" docs/open-followups.md`.

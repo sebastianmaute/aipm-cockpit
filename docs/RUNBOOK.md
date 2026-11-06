@@ -255,17 +255,17 @@ go direct. That older release also ignores the `ai` value of
    only one per release: when `build` finishes, open the run's Actions page →
    "Review deployments" → approve `release`. With the repository variable
    `SIGNPATH_ENABLED` unset, `sign` only checks and passes the build's files on.
-   **Keep it unset until the signed-build updater check is in place** (the next
-   step of the signing work); switched on before that, `sign` fails the release
-   at its update-feed check. Set to `true`, it has SignPath sign the installer,
-   which waits for SignPath's own approval of the request (up to an hour each).
+   Set to `true` (after the one-time setup below), it has SignPath sign the
+   installer, which waits for SignPath's own approval of the request (up to an
+   hour each), writes the updater's `publisherName` into the app so the signed
+   build refuses unsigned updates, and checks the installer's signature. The
+   release notes then carry the signed text with SignPath's attribution in
+   place of the unsigned notice: the job's `signed` output is `true` only when
+   that check passed, and `publish` passes it to `release:publish`.
    `sign` refuses an unsigned installer once a signed release has shipped
    (`release-signing-guard`, exit 1; exit 2 = could not decide, also a failure —
-   re-run the job). Before switching it on, the owner adds `SIGNPATH_API_TOKEN`
-   as a secret of the `release` environment and `SIGNPATH_ENABLED`,
-   `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG`,
-   `SIGNPATH_SIGNING_POLICY_SLUG` (and optionally `SIGNPATH_SIGN_APP_EXE`) as
-   repository variables — details in `docs/AGENTS/ci.md`'s `release.yml`
+   re-run the job), so after the first signed release signing cannot be
+   switched off again. Details in `docs/AGENTS/ci.md`'s `release.yml`
    section. The required reviewer was added at flip step 10a (2026-09-25). Also standing in front of it: only the owner/admin role can
    create, move or delete a `refs/tags/v*` (the tag ruleset), the tag must
    equal `APP_VERSION` and name a commit reachable from `main` (step 2's
@@ -289,6 +289,36 @@ go direct. That older release also ignores the `ai` value of
    already be live: inspect it by hand, don't just re-run), 2 safe to retry
    (nothing has gone live yet, including a still-unpublished draft this run
    just created that didn't match).
+
+**Code signing: the owner's one-time setup.** Signing stays off until all of
+this is done; the README's "Code signing policy" is the public side of it.
+
+- [ ] Apply to SignPath Foundation's open-source programme for this
+      repository, and enable multi-factor authentication on the SignPath
+      account (and on the GitHub account that approves releases).
+- [ ] In SignPath, create the artifact configurations `installer` (a zip
+      holding the setup exe) and `app` (a zip holding the packaged app's PE
+      files; needed only with `SIGNPATH_SIGN_APP_EXE`). The slugs must be
+      exactly these: `release.yml` names them.
+- [ ] Add the secret `SIGNPATH_API_TOKEN` to the `release` environment
+      (Settings → Environments → `release`), not to the repository.
+- [ ] Add the repository variables `SIGNPATH_ORGANIZATION_ID`,
+      `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG` and
+      `SIGNPATH_SIGN_APP_EXE` (`true` to sign the app's own executables too),
+      then `SIGNPATH_ENABLED` = `true` last. They are repository variables,
+      because `build` reads `SIGNPATH_ENABLED` and runs in no environment.
+- [ ] Add the `sbom` check (ci.yml's `sbom` job) to the `main` ruleset's
+      required checks, or a red SBOM run blocks nothing.
+- [ ] After the first signed release: check its notes carry the SignPath
+      line, and that `Get-AuthenticodeSignature` on the downloaded installer
+      reports `Valid` with `CN=SignPath Foundation`. From then on no unsigned
+      release can be published.
+
+The installer is never built locally, so some of this is proved only by a
+real release: that the installer compiles with its privacy page and shows it
+(any release), and the SignPath round trip, the repackaged setup and the
+signed build's update check against a real signed update (a signed release,
+and the one after it).
 
 **Withdrawing a bad release.** Releases are immutable — nothing can be edited
 in place. Publish a fixed patch version at once. On the bad one, untick "Set as

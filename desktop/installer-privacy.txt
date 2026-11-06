@@ -1,0 +1,21 @@
+Privacy statement
+
+AI PM Cockpit needs no account and has no backend that stores your data. Your projects stay on this computer unless you choose online storage. The app sends no telemetry, no usage analytics and no crash reports.
+
+It connects to these services, each only for the purpose named here:
+
+- GitHub, to check for updates and to download one. A check reads the public release feed and sends no project data; GitHub sees the request as it sees any download. Nothing is downloaded or installed until you agree. To turn the checks off, set the environment variable AIPM_DISABLE_UPDATE_CHECK to 1.
+- The AI provider (Anthropic, or the AI gateway your organisation runs), only after you switch AI on in Settings > AI Assistant and accept the data disclosure shown there, which lists what each AI feature sends. AI is off until you do. Switch it off, or revoke the consent, in the same place.
+
+Only when you set them up yourself:
+
+- Turso, which stores your projects online if you choose Turso storage. Choose local storage in Settings > Storage to stop.
+- Microsoft 365 (Microsoft Graph and the Microsoft sign-in service), for your Outlook calendar and contacts and for SharePoint files, after you sign in. Sign out in Settings > Integrations.
+- Jira and Confluence, for the Jira projects you sync and the Confluence pages you import. Remove the Jira token in Settings > Integrations to stop.
+- Timelog, for your time bookings. Remove the Timelog token in Settings > Integrations to stop.
+- A speech-to-text service you name, for the audio you record with cloud dictation. Choose browser dictation, or remove the service's key, in the dictation settings to stop.
+- The European Central Bank, for its public exchange-rate table, only when you refresh the rates. Nothing about you or your projects is sent.
+
+Browser dictation uses the speech recognition built into the browser engine, which may send the audio to that engine's maker.
+
+API keys and tokens are encrypted on this computer. The security document in the source repository (docs/security.md) describes what is stored where and what leaves the app.

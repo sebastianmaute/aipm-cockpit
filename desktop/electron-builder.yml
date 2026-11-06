@@ -156,7 +156,9 @@ win:
   # ★ Six sizes up to 256x256 at 32bpp. electron-builder REQUIRES a 256x256
   # entry; without one it refuses the icon rather than downscaling.
   icon: ../public/app.ico
-  # No certificate is available, so code SIGNING must stay off. But
+  # electron-builder itself never signs: when signing is switched on, the
+  # release workflow's `sign` job has SignPath sign the files (README "Code
+  # signing policy"), so code SIGNING stays off here. But
   # `signAndEditExecutable: false` skips BOTH signing AND resource editing --
   # the step that stamps the icon above plus the VersionInfo strings into
   # the exe -- which is why every shortcut, the taskbar and the window used
@@ -177,15 +179,12 @@ win:
   # package.json". A plain-string author is enough, because the package reader
   # parses it into `{ name }` (normalizePackageData.js `parsePerson`).
   #
-  # See the electron-app-bundling design's Section 7 security note
-  # (docs/superpowers/specs/2026-09-10-electron-app-bundling-design.md) --
-  # unsigned means SmartScreen prompts on install. Updates come from GitHub
-  # Releases behind the `release.yml` publish job (its owner-approval pause
-  # is wired in but not yet configured -- see flip step 10a), the tag
-  # ruleset, immutable releases, build-provenance attestations (once public)
-  # and the sha512 in latest.yml (transfer corruption only, not a
-  # substitution control) -- see
-  # docs/superpowers/specs/2026-09-24-releases-and-updates-design.md.
+  # An unsigned installer means SmartScreen prompts on install. Updates come
+  # from GitHub Releases behind the `release.yml` owner approval (at its
+  # `sign` job), the tag ruleset, immutable releases, build-provenance
+  # attestations and the sha512 in latest.yml (transfer corruption only, not
+  # a substitution control); a signed build also requires each update to be
+  # signed by SignPath Foundation (desktop/src/update-signature.ts).
   signExecutable: false
 nsis:
   # Per-user install: corporate laptops routinely deny admin rights, and a
@@ -210,5 +209,7 @@ nsis:
   installerSidebar: ../public/sidebar.bmp
   uninstallerSidebar: ../public/sidebar.bmp
   # Adds a welcome page saying that installing takes a few minutes and may look frozen
-  # (desktop/installer.nsh says why). Resolved like `icon:` above: build/ first, then desktop/.
+  # (desktop/installer.nsh says why), then the privacy statement from
+  # desktop/installer-privacy.txt. Resolved like `icon:` above: build/ first, then desktop/.
+  # No `license:` key here: electron-builder would add a second license page.
   include: installer.nsh

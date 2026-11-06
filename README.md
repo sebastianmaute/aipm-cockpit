@@ -103,8 +103,10 @@ installer from the [Releases page](https://github.com/sebastianmaute/aipm-cockpi
 
 Two things surprise people on a first run, and both are expected:
 
-- Windows shows a **"Windows protected your PC"** box, because the app is not
-  code-signed. Choose **More info → Run anyway**.
+- For an installer that is not code-signed, Windows shows a **"Windows
+  protected your PC"** box. Choose **More info → Run anyway**. Each release's
+  notes say whether its installer is signed (see
+  [Code signing policy](#code-signing-policy)).
 - The app **starts empty even if you have used it in your browser**. The
   desktop build keeps its own data store; nothing has been lost, and the
   browser version still has its own copy.
@@ -161,6 +163,70 @@ a second inventory to keep in sync.
 - **AI**: Anthropic Claude API (key entered client-side in Settings; encrypted at rest)
 - **Optional storage**: Turso (libSQL), Microsoft Graph / SharePoint
 - **Desktop**: Electron (Windows installer, per-user)
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/)
+
+Windows installers are signed through SignPath Foundation's programme for open-source projects.
+Signing is switched on per release by the maintainer; releases published before the first signed one
+are not code-signed, and each release's notes say whether its installer is signed. On a signed
+installer, Windows shows the publisher as **SignPath Foundation**.
+
+- **What is signed:** the setup program (`aipm-cockpit-<version>-setup.exe`) and the app's own
+  executables inside it. The uninstaller that setup installs is not signed yet
+  ([#951](https://github.com/sebastianmaute/aipm-cockpit/issues/951)).
+- **How it is built:** only by this repository's [release workflow](.github/workflows/release.yml) on
+  GitHub Actions, from a version tag on `main`. The workflow submits the files to SignPath and checks the
+  returned signature before anything is published; once a signed release has shipped, it refuses to
+  publish an unsigned one.
+- **Roles:** committer, reviewer and approver is the repository owner,
+  [sebastianmaute](https://github.com/sebastianmaute). Outside contributions arrive as pull requests,
+  which the owner reviews before merging. The owner approves each release in the workflow's
+  `release` environment and each signing request in SignPath.
+- **Updates:** a copy installed from a signed release installs an update only when its installer is
+  validly signed by SignPath Foundation; otherwise it refuses and points you to the
+  [Releases page](https://github.com/sebastianmaute/aipm-cockpit/releases) to download by hand. Two
+  limits apply while releases move to signing. A copy installed from a release before the first signed
+  one takes the first signed update without a signature check, because that check is part of the
+  signed release. And an installer that such a copy had already downloaded and cached is installed
+  without a check, once, because the updater does not re-check a cached download.
+
+**Verifying a download.** In Explorer, open the installer's **Properties → Digital Signatures**: the
+signer must be *SignPath Foundation*. In PowerShell,
+`Get-AuthenticodeSignature .\aipm-cockpit-<version>-setup.exe` must report `Valid` with
+`CN=SignPath Foundation` in the signer. Every release, signed or not, also carries GitHub attestations
+made by the release workflow, for the installer's build provenance and for its SBOM
+(`aipm-cockpit-<version>-sbom.cdx.json`, the list of every third-party package the app ships):
+
+    gh attestation verify aipm-cockpit-<version>-setup.exe --repo sebastianmaute/aipm-cockpit
+    gh attestation verify aipm-cockpit-<version>-setup.exe --repo sebastianmaute/aipm-cockpit --predicate-type https://cyclonedx.org/bom
+
+## Privacy statement
+
+The desktop installer shows the same statement on a page of its own.
+
+<!-- privacy-statement:start -->
+AI PM Cockpit needs no account and has no backend that stores your data. Your projects stay on this computer unless you choose online storage. The app sends no telemetry, no usage analytics and no crash reports.
+
+It connects to these services, each only for the purpose named here:
+
+- GitHub, to check for updates and to download one. A check reads the public release feed and sends no project data; GitHub sees the request as it sees any download. Nothing is downloaded or installed until you agree. To turn the checks off, set the environment variable AIPM_DISABLE_UPDATE_CHECK to 1.
+- The AI provider (Anthropic, or the AI gateway your organisation runs), only after you switch AI on in Settings > AI Assistant and accept the data disclosure shown there, which lists what each AI feature sends. AI is off until you do. Switch it off, or revoke the consent, in the same place.
+
+Only when you set them up yourself:
+
+- Turso, which stores your projects online if you choose Turso storage. Choose local storage in Settings > Storage to stop.
+- Microsoft 365 (Microsoft Graph and the Microsoft sign-in service), for your Outlook calendar and contacts and for SharePoint files, after you sign in. Sign out in Settings > Integrations.
+- Jira and Confluence, for the Jira projects you sync and the Confluence pages you import. Remove the Jira token in Settings > Integrations to stop.
+- Timelog, for your time bookings. Remove the Timelog token in Settings > Integrations to stop.
+- A speech-to-text service you name, for the audio you record with cloud dictation. Choose browser dictation, or remove the service's key, in the dictation settings to stop.
+- The European Central Bank, for its public exchange-rate table, only when you refresh the rates. Nothing about you or your projects is sent.
+
+Browser dictation uses the speech recognition built into the browser engine, which may send the audio to that engine's maker.
+
+API keys and tokens are encrypted on this computer. The security document in the source repository (docs/security.md) describes what is stored where and what leaves the app.
+<!-- privacy-statement:end -->
 
 ## Documentation
 
