@@ -13,8 +13,10 @@
 
 ## Required checks
 
-The ruleset on `main` requires exactly these, and `scripts/ci-workflow.test.mjs` fails if this list
-and the job ids in `.github/workflows/ci.yml` differ.
+The ruleset on `main` requires these, except `sbom`, which is required only once the owner adds it
+to the ruleset (a step of the RUNBOOK's "Code signing: the owner's one-time setup"); until then a red `sbom` run blocks
+nothing. `scripts/ci-workflow.test.mjs` fails if this list, `sbom` included, and the job ids in
+`.github/workflows/ci.yml` differ.
 
 <!-- required-checks:begin -->
 - `static` — every `static` step of `scripts/gate-local.mjs` (`--keep-going`), the commit-message leak scan, then actionlint

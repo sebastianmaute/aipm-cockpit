@@ -804,7 +804,8 @@ To enable Turso as a storage backend:
 ## Common issues
 
 ### "A required check is red"
-CI is `.github/workflows/ci.yml`; its nine jobs are the required checks, detailed in
+CI is `.github/workflows/ci.yml`; its nine jobs run on every pull request; all but `sbom` are the required checks (`sbom` is
+required only once the owner adds it to the `main` ruleset, a step of "Code signing: the owner's one-time setup"), detailed in
 [`docs/AGENTS/ci.md`](AGENTS/ci.md). Open the red job's **step summary** first. `static` runs every
 static gate even after one fails (`--keep-going`) and lists every failing step with its exit code,
 so one run shows them all; `unit` puts the "All files" coverage line and the failing tests there.

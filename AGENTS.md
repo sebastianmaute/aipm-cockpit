@@ -238,9 +238,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   Add `--workers=1` when `-g` matches more than one view: CI runs axe serially, and local contention fails tests as timeouts, not violations.
   After a `globals.css` `@theme` edit, run axe on a FRESH server, never a reused one: since §58 (b) a plain run boots its own, so give it a free port (`PORT=3100 npx playwright test ...`).
 - **CI is GitHub Actions → [`docs/AGENTS/ci.md`](docs/AGENTS/ci.md).** `.github/workflows/ci.yml`
-  runs on every pull request and every push to `main`; its nine job ids ARE the required checks on
-  the `main` ruleset (`static` · `unit` · `unit-shuffled` · `build` · `sbom` · `e2e` · `prod-smoke` ·
-  `semgrep` · `audit`), and `scripts/ci-workflow.test.mjs` fails when the workflow, the gate list in
+  runs on every pull request and every push to `main`; its eight job ids other than `sbom` ARE the required checks
+  on the `main` ruleset (`static` · `unit` · `unit-shuffled` · `build` · `e2e` · `prod-smoke` · `semgrep` ·
+  `audit`); the ninth, `sbom`, is required only once the owner adds it to that ruleset (until then a red
+  `sbom` run blocks nothing), and `scripts/ci-workflow.test.mjs` fails when the workflow, the gate list in
   `scripts/gate-local.mjs` and the list in `docs/AGENTS/ci.md` disagree. ★★ `gate-local.mjs` is the
   ONE gate list: a new blocking npm gate goes there with a group, never straight into the YAML.
   `npm run gate:local` is the pre-push check, no longer the merge gate. ★ The repository is public, so
@@ -810,7 +811,7 @@ is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lan
 |---|---|
 | [dashboard.md](docs/AGENTS/dashboard.md) | the landing cockpit — the arrangeable tile grid · delta strip · KPI trends · sparkline · coaching · density · digest |
 | [accessibility.md](docs/AGENTS/accessibility.md) | the a11y hard constraint — accessible names · row-unique per-row names (`buildRowTokens`) · WCAG 2.5.3 label-in-name · `ToggleButton` state + the pressed marker · what the axe gate scans and is silent on |
-| [ci.md](docs/AGENTS/ci.md) | CI on GitHub Actions — the nine required checks job by job · `release.yml` (tag guard → Windows build → publish behind the owner's approval, the sharp and electron-updater guards, exit codes) · `scheduled.yml` · operating it |
+| [ci.md](docs/AGENTS/ci.md) | CI on GitHub Actions — the nine checks job by job (eight required; `sbom` once the owner adds it) · `release.yml` (tag guard → Windows build → publish behind the owner's approval, the sharp and electron-updater guards, exit codes) · `scheduled.yml` · operating it |
 | [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · tables (`SortResizeTh` · `TableFilter`) · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
 | [theming.md](docs/AGENTS/theming.md) | colour schemes · the `--ui-*` token families · AA derivation · the dark-mode hover trap · branding · print · design-system primitives |
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |

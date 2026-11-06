@@ -569,8 +569,9 @@ A change lands like this:
    the commit it gated. Its two vitest steps use half the logical CPUs; set `GATE_LOCAL_WORKERS=<n>`
    to choose another count. It is REQUIRED only for the checks-cannot-run fallback below.
 2. Push the branch to `origin` and open a pull request (`gh pr create`).
-3. Wait for the nine required checks of `.github/workflows/ci.yml` (`static` · `unit` ·
-   `unit-shuffled` · `build` · `sbom` · `e2e` · `prod-smoke` · `semgrep` · `audit`) to go green. A red check:
+3. Wait for the nine checks of `.github/workflows/ci.yml` (`static` · `unit` ·
+   `unit-shuffled` · `build` · `sbom` · `e2e` · `prod-smoke` · `semgrep` · `audit`) to go green. All but
+   `sbom` are required checks; `sbom` is required only once the owner adds it to the `main` ruleset. A red check:
    open that job's step summary first — `static` lists every failing step.
 4. Merge with a merge commit, naming the head you saw green:
    `gh pr merge --merge --match-head-commit <sha>`. Squash and rebase merging are disabled so the
