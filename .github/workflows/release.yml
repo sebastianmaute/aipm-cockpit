@@ -472,7 +472,10 @@ jobs:
   # PowerShell alone requires the setup's bytes to be the ones latest.yml records (SHA-512) and its
   # Authenticode signature to be Valid with the signer's full subject exactly the DN the update feed
   # names (PUBLISHER, the value scripts/release-update-feed.mjs writes; scripts/ci-workflow.test.mjs
-  # holds the two equal).
+  # holds the two equal). The signature must be the file's own (SignatureType Authenticode, not a
+  # catalog entry), and the setup's ProductVersion must equal the tag's version exactly: electron-builder's
+  # NSIS target writes ProductVersion from desktop/package.json's version unchanged (computeVersionKey),
+  # and version:check holds that equal to APP_VERSION, which `guard` holds equal to the tag.
   # Its `signed` output is what the release notes say (publish's RELEASE_SIGNED): true only when the
   # check ran and passed in this run, false when it was skipped (signing off). A failed check fails
   # the job, so publish never runs. Reads no secret.
@@ -518,8 +521,11 @@ jobs:
           if ($actual -cne $recorded[0]) { Write-Output "attest: $name has sha512 $actual, latest.yml records $($recorded[0])"; exit 1 }
           $sig = Get-AuthenticodeSignature -LiteralPath $exe
           if ($sig.Status -ne 'Valid') { Write-Output "attest: $name's signature status is $($sig.Status), not Valid"; exit 1 }
+          if ("$($sig.SignatureType)" -cne 'Authenticode') { Write-Output "attest: $name's signature is $($sig.SignatureType), not an embedded Authenticode signature"; exit 1 }
           $subject = $sig.SignerCertificate.Subject
           if ($subject -cne $env:PUBLISHER) { Write-Output "attest: $name is signed by '$subject', which is not exactly '$env:PUBLISHER'"; exit 1 }
+          $product = (Get-Item -LiteralPath $exe).VersionInfo.ProductVersion
+          if ($product -cne $env:VERSION) { Write-Output "attest: $name's ProductVersion is '$product', not $env:VERSION"; exit 1 }
           Write-Output "attest: $name matches latest.yml and is Valid-signed by '$subject'"
       - name: Record whether the installer is signed
         id: signed

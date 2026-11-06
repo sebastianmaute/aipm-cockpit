@@ -1164,13 +1164,20 @@ describe("release.yml", () => {
       expect(idx("attest-signature", "Download the final files")).toBeLessThan(idx("attest-signature", ATTEST));
       expect(a.run).toMatch(/\$sig\.Status -ne 'Valid'/);
       expect(a.run).toMatch(/Get-AuthenticodeSignature -LiteralPath \$exe/);
+      // The file's own signature, never a catalog entry; and the tag's version, exactly.
+      expect(a.run).toContain(`if ("$($sig.SignatureType)" -cne 'Authenticode') {`);
+      expect(a.run).toContain("$product = (Get-Item -LiteralPath $exe).VersionInfo.ProductVersion");
+      expect(a.run).toContain("if ($product -cne $env:VERSION) {");
     });
 
     // The attestation's own script, run as GitHub's `shell: powershell` runs it. Each feed defect fails
     // it with its own message; a feed that matches gets past the hash to the signature, which refuses
-    // an unsigned file. Nothing here can sign with SignPath's certificate, so the signer rule is run
-    // against a copy of Windows' own cmd.exe (Valid, catalog-signed by Microsoft) with PUBLISHER set
-    // to that file's signer: accepted exactly, refused for any other name. Windows only.
+    // an unsigned file. Nothing here can sign with SignPath's certificate, so the signer, signature-type
+    // and version rules run against two files Windows reports as Valid: a copy of cmd.exe, which is
+    // CATALOG-signed (refused: no signature of its own), and a copy of the running node.exe, which
+    // carries an embedded Authenticode signature and a ProductVersion — with PUBLISHER set to its signer
+    // and VERSION to its ProductVersion it is accepted, and refused for any other name or version.
+    // Windows only (and node.exe must be the signed official build, which the test checks first).
     it.skipIf(process.platform !== "win32")("attest-signature's script passes only the setup latest.yml records, Valid-signed by exactly PUBLISHER", () => {
       const a = releaseStep("attest-signature", ATTEST);
       const dir = mkdtempSync(join(tmpdir(), "attest-"));
@@ -1186,9 +1193,9 @@ describe("release.yml", () => {
         mkdirSync(files);
         const version = "9.9.9";
         const exe = installerName(version);
-        const attest = (publisher = a.env.PUBLISHER) => ps(`. '${script}'`, { DIR: files, VERSION: version, PUBLISHER: publisher });
-        const expectRefusal = (re, label, publisher) => {
-          const r = attest(publisher);
+        const attest = (publisher = a.env.PUBLISHER, v = version) => ps(`. '${script}'`, { DIR: files, VERSION: v, PUBLISHER: publisher });
+        const expectRefusal = (re, label, publisher, v) => {
+          const r = attest(publisher, v);
           expect(r.status, `${label}: ${r.stdout}${r.stderr}`).toBe(1);
           expect(r.stdout, label).toMatch(re);
         };
@@ -1211,22 +1218,43 @@ describe("release.yml", () => {
         // The hash matches, so it is the signature that refuses.
         feed(yml());
         expectRefusal(/signature status is \w+, not Valid/, "unsigned");
-        // A Valid signature: the rule decides on the signer alone.
+        const probe = (path) => {
+          const r = ps(`$s = Get-AuthenticodeSignature -LiteralPath '${path}'; Write-Output $s.Status; Write-Output $s.SignatureType; Write-Output $s.SignerCertificate.Subject; Write-Output (Get-Item -LiteralPath '${path}').VersionInfo.ProductVersion`);
+          const [status, type, subject, product] = r.stdout.split(/\r?\n/);
+          return { status, type, subject, product, err: r.stderr };
+        };
+        // A Valid but CATALOG signature: the file carries no signature of its own, so it is refused
+        // even with PUBLISHER set to the signer Windows reports for it.
         bytes = readFileSync(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe"));
         writeFileSync(join(files, exe), bytes);
         feed(yml().replace(/\n/g, "\r\n"));
-        const probe = ps(`$s = Get-AuthenticodeSignature -LiteralPath '${join(files, exe)}'; Write-Output $s.Status; Write-Output $s.SignerCertificate.Subject`);
-        const [status, subject] = probe.stdout.split(/\r?\n/);
-        expect(status, probe.stderr).toBe("Valid");
+        const cmd = probe(join(files, exe));
+        expect([cmd.status, cmd.type], cmd.err).toEqual(["Valid", "Catalog"]);
+        expectRefusal(/signature is Catalog, not an embedded Authenticode signature/, "catalog-signed", cmd.subject);
+        // An embedded Authenticode signature (node.exe): the rule decides on the signer and the version.
+        bytes = readFileSync(process.execPath);
+        const node = probe(process.execPath);
+        expect([node.status, node.type], `${process.execPath} must be the signed official build: ${node.err}`).toEqual(["Valid", "Authenticode"]);
+        expect(node.product).toMatch(/^\d+\.\d+\.\d+$/);
+        const subject = node.subject;
         const cn = /^CN=([^,]+),/.exec(subject)?.[1];
         expect(cn, subject).toBeTruthy();
         expect(subject).toMatch(/, O=[^,]+, .*C=[A-Z]{2}$/);
-        const ok = attest(subject);
+        // Its ProductVersion is not 9.9.9: refused on the version alone.
+        writeFileSync(join(files, exe), bytes);
+        feed(yml());
+        expectRefusal(new RegExp(`ProductVersion is '${node.product.replace(/\./g, "\\.")}', not 9\\.9\\.9`), "another version", subject);
+        // Named and recorded as its own version: accepted with exactly its signer.
+        rmSync(join(files, exe));
+        const nodeExe = installerName(node.product);
+        writeFileSync(join(files, nodeExe), bytes);
+        feed(latestYmlText({ version: node.product, name: nodeExe, sha512: sha512(bytes), size: bytes.length, releaseDate: "2026-01-01T00:00:00.000Z" }));
+        const ok = attest(subject, node.product);
         expect(ok.status, `${ok.stdout}${ok.stderr}`).toBe(0);
         expect(ok.stdout).toMatch(/matches latest\.yml and is Valid-signed by/);
         for (const name of [a.env.PUBLISHER, cn, `CN=${cn}`, subject.replace(/, O=[^,]+/, ", O=Other"), subject.replace(/C=[A-Z]{2}$/, "C=ZZ"),
           `${subject}, OU=x`, subject.toLowerCase(), subject.replace(/^CN=[^,]+, /, "")]) {
-          expectRefusal(/is not exactly/, `signer ${name}`, name);
+          expectRefusal(/is not exactly/, `signer ${name}`, name, node.product);
         }
       } finally {
         rmSync(dir, { recursive: true, force: true });
