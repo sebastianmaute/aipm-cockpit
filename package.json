@@ -119,7 +119,7 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^5.27.0",
-    "@tanstack/react-virtual": "3.14.19",
+    "@tanstack/react-virtual": "3.14.24",
     "@tiptap/extension-highlight": "^3.32.1",
     "@tiptap/extension-list": "^3.32.1",
     "@tiptap/extension-subscript": "^3.32.1",
