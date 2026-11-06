@@ -206,7 +206,7 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
   Foundation only from the first release the `sign` job signs; before that it is unsigned, and what
   stands in for signing is recorded beside `RELEASES_URL` in `lib/constants.ts` and in §487/§563. Each
   release's notes say which (the `sign` job's `signed` output, [`ci.md`](ci.md)). The uninstaller is
-  not signed (§792). ★★ Two transition gaps, both by design of electron-updater, not of this code: a
+  not signed (§793). ★★ Two transition gaps, both by design of electron-updater, not of this code: a
   copy installed from an unsigned release has no `publisherName`, so it takes the first signed update
   unchecked; and an installer already downloaded into the updater's cache is installed from there
   without the signature hook running (the cached-file branch of electron-updater's own AppUpdater compares only its
@@ -239,7 +239,7 @@ out. Add new logic as a pure `lib/` function plus its Electron call in `main.ts`
 
 §462 (no Linux installer) · §487 and §563 (unsigned installer; open until the first signed
 release) · §629 (the unload journal on a packaged desktop close) · §728 (the splash's German text on a
-packaged build) · §792 (unsigned uninstaller). Re-list them with
+packaged build) · §793 (unsigned uninstaller). Re-list them with
 `grep -nE "^## [0-9]+\..*(desktop|Electron|installer)" docs/open-followups.md | grep -v CLOSED`
-(six lines on 2026-11-06). Not every open heading carries the word OPEN (§792's does not), so the
+(six lines on 2026-11-06). Not every open heading carries the word OPEN (§793's does not), so the
 command drops CLOSED ones instead of matching OPEN.
