@@ -683,8 +683,10 @@ describe("release.yml", () => {
     });
 
     // The packaged app is several hundred MB; the action's default download timeout is 300 s.
-    it("gives the signed packaged app's download more time than the default", () => {
-      expect(step(/name: Sign the app's own executables/)).toMatch(/^ {10}download-signed-artifact-timeout-in-seconds: 1800$/m);
+    it("gives both signed downloads more time than the action's 300 s default", () => {
+      for (const name of ["Sign the app's own executables", "Sign the installer"]) {
+        expect(releaseStep("sign", name).with["download-signed-artifact-timeout-in-seconds"], name).toBe(1800);
+      }
     });
 
     it("signs the build's packaged app by the artifact build uploaded, only when signing is on", () => {
