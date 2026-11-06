@@ -4,7 +4,7 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { writeSettings, SETTINGS_KEY, hydrateSecretsInto, useSettings } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import { defaultTimelogConfig } from "./timelog-types";
-import { sealDevice, sealPassphrase, SECRET_IDS } from "./secrets";
+import { sealDevice, sealPassphrase, SECRET_IDS, SECRET_SETTINGS_PATHS } from "./secrets";
 import { saveSealed } from "./secrets-store";
 import * as secretsStoreModule from "./secrets-store";
 import { __resetAiKeyStatusForTests, getAiKeyStatus } from "./ai-key-status";
@@ -33,6 +33,54 @@ describe("writeSettings secret blanking", () => {
     expect(persisted.jira.apiToken ?? "").toBe("");
     expect(persisted.jira.siteUrl).toBe("https://x.atlassian.net");
     expect(persisted.jira.email).toBe("a@b.c");
+  });
+
+  // §792 — writeSettings names the five fields by hand, so a sixth id in SECRET_IDS would get a
+  // SECRET_SETTINGS_PATHS entry (tsc demands it) and still be written in clear text. This test walks the
+  // paths instead, so a new id fails here until writeSettings blanks it.
+  it("blanks EVERY sealed secret in SECRET_SETTINGS_PATHS, not the five a hand-kept list names", () => {
+    const valueFor = (id: string) => `plaintext-${id}`;
+    // The fixture spells all five paths by hand, so a wrong path in SECRET_SETTINGS_PATHS cannot hide:
+    // the real field would keep its value and the raw-text check below would find it.
+    const settings = {
+      ...defaultSettings,
+      ai: { ...defaultSettings.ai, apiKey: valueFor("anthropicApiKey") },
+      integrations: {
+        ...defaultSettings.integrations,
+        turso: { enabled: true, databaseUrl: "libsql://x", authToken: valueFor("tursoAuthToken") },
+      },
+      jira: { ...defaultSettings.jira, apiToken: valueFor("jiraApiToken") },
+      timelog: { ...defaultTimelogConfig, apiToken: valueFor("timelogApiToken") },
+      dictation: { engine: "stt" as const, sttApiKey: valueFor("sttApiKey") },
+    };
+    // Then fill every path, building any missing parent: writeSettings blanks a field only when its
+    // parent slice exists, so a path left unfilled would read undefined and pass.
+    for (const id of SECRET_IDS) {
+      const path = SECRET_SETTINGS_PATHS[id];
+      let node = settings as unknown as Record<string, unknown>;
+      for (const key of path.slice(0, -1)) {
+        if (typeof node[key] !== "object" || node[key] === null) node[key] = {};
+        node = node[key] as Record<string, unknown>;
+      }
+      node[path[path.length - 1]] = valueFor(id);
+    }
+
+    expect(writeSettings(settings)).toBe(true);
+    const raw = localStorage.getItem(SETTINGS_KEY)!;
+    const persisted = JSON.parse(raw);
+
+    expect(SECRET_IDS.length).toBeGreaterThanOrEqual(5); // anti-vacuity: the loop must run
+    // Collect rather than assert per id: "which secrets were written" is the whole answer. Strict
+    // equality to "" — never `?? ""`, which would count a missing field as blank.
+    const notBlank = SECRET_IDS.filter((id) => {
+      const leaf = SECRET_SETTINGS_PATHS[id].reduce<unknown>(
+        (node, key) => (node as Record<string, unknown> | undefined)?.[key],
+        persisted,
+      );
+      return leaf !== "";
+    });
+    expect(notBlank).toEqual([]);
+    expect(SECRET_IDS.filter((id) => raw.includes(valueFor(id)))).toEqual([]);
   });
 });
 
