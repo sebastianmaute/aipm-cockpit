@@ -177,7 +177,7 @@ longer carries its own changelog comment.
   forced people protection kept listening, and the browser could keep sending speech to its vendor. Each start now
   asks first (unless the tab already knows about the lock) and does not listen under the lock. When the app cannot
   get an answer within five seconds, speech input does not start and says so; try again. Speech already being
-  heard when the lock is added carries on until you stop it.
+  heard when the lock is added may carry on until you stop it.
 - **Escape on a meeting report's "Replace or Keep both" question now takes nothing (§784).** Taking an AI
   section whose heading matches one of yours asks Replace or Keep both; pressing Escape or closing the question used
   to count as Keep both and added the AI section after yours. The question now has a Cancel button, and Cancel,

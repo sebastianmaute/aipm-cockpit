@@ -24,6 +24,7 @@ export async function checkSpeechPeopleLock(): Promise<SpeechPeopleLock> {
   if (isIntegrationDisabled("ai-people")) return "locked";
   let body: unknown;
   // A plain timer, not AbortSignal.timeout: the abort also covers reading the body, and tests drive it with fake timers.
+// The timeout ends a request only through its signal, so a test request must honour the signal or it can still hang.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SPEECH_PEOPLE_LOCK_TIMEOUT_MS);
   try {
