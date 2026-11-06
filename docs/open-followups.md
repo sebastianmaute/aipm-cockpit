@@ -46255,7 +46255,7 @@ Size S.
 
 ## 793. The installer's uninstaller is not code-signed
 
-**Status:** OPEN 2026-11-02, filed during the signed-installer work (the release workflow's `sign` job). Deferred by controller ruling, not a defect in shipped behaviour: signing is still switched off. Reproduced by reading: `grep -n "signIf(uninstallerPath)" desktop/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js` prints one hit, in `computeScriptAndSignUninstaller`.
+**Status:** OPEN 2026-11-02, filed during the signed-installer work (the release workflow's `sign` job). Deferred, not a defect in shipped behaviour: signing is still switched off. Reproduced by reading: `grep -n "signIf(uninstallerPath)" desktop/node_modules/app-builder-lib/out/targets/nsis/NsisTarget.js` prints one hit, in `computeScriptAndSignUninstaller`.
 
 **Work item:** #951
 
@@ -46267,4 +46267,4 @@ What it would take: ask SignPath (or read the Foundation's terms) whether a per-
 
 Size M.
 
-**Source:** review of the signing job, controller ruling 2026-11-02 (defer, file it).
+**Source:** review of the signing job, 2026-11-02. Decision: the uninstaller is not signed in this change; it waits until SignPath confirms whether a build-hook signing request is acceptable.
