@@ -148,7 +148,7 @@ export {
   EllipsisIcon as EllipsisHorizontalIcon,
   EllipsisVerticalIcon,
   MailIcon as EnvelopeIcon,
-  TriangleAlertIcon as ExclamationTriangleIcon,
+  TriangleExclamationPointIcon as ExclamationTriangleIcon,
   EyeOffIcon as EyeSlashIcon,
   FlagIcon,
   IdCardIcon as IdentificationIcon,
