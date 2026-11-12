@@ -39,7 +39,7 @@ const EXPECTED_GLYPH: Record<AppView, string> = {
   "manage-roles": "lucide-shield-check",
   budget: "lucide-circle-dollar-sign",
   "budget-report": "lucide-file-chart-column",
-  raid: "lucide-triangle-alert",
+  raid: "lucide-triangle-exclamation-point",
   "raid-report": "lucide-file-chart-column",
   changes: "lucide-arrow-left-right",
   "change-report": "lucide-file-chart-column",

@@ -55,7 +55,7 @@ const EXPECTED: Record<string, string> = {
   EllipsisHorizontalIcon: "Ellipsis",
   EllipsisVerticalIcon: "EllipsisVertical",
   EnvelopeIcon: "Mail",
-  ExclamationTriangleIcon: "TriangleAlert",
+  ExclamationTriangleIcon: "TriangleExclamationPoint",
   EyeSlashIcon: "EyeOff",
   FlagIcon: "Flag",
   IdentificationIcon: "IdCard",
