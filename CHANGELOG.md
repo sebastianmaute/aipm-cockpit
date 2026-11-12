@@ -194,12 +194,14 @@ longer carries its own changelog comment.
 
 ### Changed
 
+- The warning-triangle icon (the RAID view and the dangling-link marker, among others) now comes from lucide-react 1.69's
+  `TriangleExclamationPoint`, the new name of the same glyph, which replaced the deprecated `TriangleAlert`.
 - A stored meeting report with no text and no previous version (for instance the empty paragraph an emptied editor leaves) is no longer kept when a workspace loads (a sent date on such a report goes with it).
 
 ### Fixed
 
 - **Long task and Gantt lists size their visible window by the scroll area without its border or scrollbar.**
-  The list virtualiser (`@tanstack/react-virtual`, now 3.14.24) measures the visible viewport that way, and the
+  The list virtualiser (`@tanstack/react-virtual`, 3.14.24 and later) measures the visible viewport that way, and the
   first windowed render now does the same, so it no longer starts from a slightly larger box.
 - **Built-in dictation and voice commands check for an organisation's people-protection lock each time they start
   (§789).** The browser's own speech recognition never asked the server, so a tab opened before an organisation
