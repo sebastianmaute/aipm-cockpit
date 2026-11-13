@@ -192,11 +192,11 @@ longer carries its own changelog comment.
   CI check, `sbom`, which builds the SBOM from a real build; it blocks a merge only once the maintainer adds it to
   the `main` ruleset's required checks, which the RUNBOOK's signing setup lists.
 
-- **A public compliance pack, in English and German, under `docs/compliance/`.** It covers the records an operator
-  needs for a data-protection and AI-governance review: the data flows and destinations, the deployment variables,
+- **A public compliance pack, in English and German, under `docs/compliance/`.** It gives an operator input for
+  their own data-protection and AI-governance review: the data flows and destinations, the deployment variables,
   the technical and organisational measures, AI Act readiness and a works-council annex. Its tables are generated from
-  the code (`npm run compliance:generate`) and checked by `npm run compliance:check` in CI and by a unit test, so they
-  cannot drift from what the app does. `docs/security.md` and the README link to it. New open follow-ups §794 to §806
+  the code (`npm run compliance:generate`) and checked by `npm run compliance:check` in CI and by a unit test, so the
+  tables stay in step with the code. `docs/security.md` and the README link to it. New open follow-ups §794 to §806
   and §810 record the gaps found while writing it.
 
 ### Changed

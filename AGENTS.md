@@ -378,7 +378,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   CONFIG IndexedDB DBs `aipm-cockpit-secrets` (device key) and `aipm-cockpit-project-handles` (FS-access
   pointers). It must NEVER delete the WORKSPACE IndexedDB DB `aipm-cockpit` (project data) — reset is
   detach-only ("no file/DB deletion"). Any new clear/reset path obeys the same split. IDB deletes
-  are fire-and-forget (awaiting can hang on `onblocked` across tabs).
+  are fire-and-forget (awaiting can hang on `onblocked` across tabs). It also removes the Microsoft
+  sign-in (MSAL) keys — `msal.`-prefixed ones and those containing the client id — from localStorage
+  AND sessionStorage (`removeMsalKeys`).
 - **Storage namespace = `aipm-cockpit`** (renamed from legacy `lop-app`; MR rename-aipm-cockpit).
   The one-time `lop-app`→`aipm-cockpit` migration (`storage-migration.ts` + its boot-IIFE duplicate) was
   REMOVED in 0.190.41 once complete — there is no longer any `lop-app*`/`lop-*` runtime literal, migration
