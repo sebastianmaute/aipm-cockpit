@@ -21,6 +21,11 @@ const fakeAutoUpdater = vi.hoisted(() => ({
   allowPrerelease: true,
   allowDowngrade: true,
   disableWebInstaller: false,
+  requestHeaders: null as Record<string, string> | null,
+  // electron-updater 6.8.9 AppUpdater.computeFinalHeaders: the instance requestHeaders are merged OVER the given ones.
+  computeFinalHeaders(headers: Record<string, string>) {
+    return this.requestHeaders == null ? headers : Object.assign(headers, this.requestHeaders);
+  },
   logger: null as unknown,
   on: vi.fn(),
   checkForUpdates: vi.fn(() => Promise.resolve(null)),
@@ -127,6 +132,18 @@ describe("createUpdater", () => {
     const lines = log.mock.calls.map((c) => String(c[0]));
     expect(lines.some((l) => l.includes("failed to load"))).toBe(false);
     expect(lines.some((l) => l.includes("failed to wire"))).toBe(false);
+  });
+
+  // electron-updater sends x-user-staging-id on every check; its default is a random per-installation
+  // UUID. The app uses no staged rollout, so every installation must send the same constant.
+  it("sends one fixed staging id, never a per-installation one", async () => {
+    fakeAutoUpdater.requestHeaders = null;
+    await createUpdater({ log: vi.fn(), window: () => null });
+    expect(fakeAutoUpdater.requestHeaders?.["x-user-staging-id"]).toBe("00000000-0000-0000-0000-000000000000");
+    const finalHeaders = fakeAutoUpdater.computeFinalHeaders({
+      "x-user-staging-id": "7f3c2a9e-1b4d-5e6f-8a7b-9c0d1e2f3a4b",
+    });
+    expect(finalHeaders["x-user-staging-id"]).toBe("00000000-0000-0000-0000-000000000000");
   });
 
   // Releases ship the full installer; electron-updater would otherwise accept a web installer that
