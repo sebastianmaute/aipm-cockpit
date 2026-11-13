@@ -25,14 +25,23 @@ function walk(dir: string, out: string[]): void {
   }
 }
 
+/** Comments are dropped so a name only mentioned in prose does not count as read. Crude on purpose:
+ *  a "//" inside a string or URL is kept by the lookbehind, which suffices for the names scanned. */
+function withoutComments(text: string): string {
+  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
+}
+
+/** Every AIPM_ token in code: quoted ("AIPM_X"), dotted (process.env.AIPM_X) or computed. This file's
+ *  subject, the registry, is left out, since it names every registered variable itself. */
 function literalsByFile(): Map<string, string[]> {
   const files: string[] = [];
   for (const root of SCAN_ROOTS) walk(join(ROOT, root), files);
   const found = new Map<string, string[]>();
   for (const file of files) {
-    const text = readFileSync(file, "utf8");
-    for (const m of text.matchAll(/["'`](AIPM_[A-Z0-9_]+)["'`]/g)) {
-      found.set(m[1], [...(found.get(m[1]) ?? []), relative(ROOT, file)]);
+    const rel = relative(ROOT, file).split(sep).join("/");
+    if (rel === "src/app/deployment-variables.ts") continue;
+    for (const m of withoutComments(readFileSync(file, "utf8")).matchAll(/\bAIPM_[A-Z0-9_]+\b/g)) {
+      found.set(m[0], [...(found.get(m[0]) ?? []), rel]);
     }
   }
   return found;
