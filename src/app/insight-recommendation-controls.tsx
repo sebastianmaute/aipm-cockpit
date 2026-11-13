@@ -42,7 +42,7 @@ function timelogWithheld(insight: Insight, timelogEnabled: boolean | undefined):
  *  Two texts: Generate says no recommendation is made; Apply sits under a recommendation the user can
  *  see, so it says that one cannot be applied. */
 function TimelogOffNote({ lang, withheld }: { lang: Lang; withheld: "generate" | "apply" }) {
-  const key = withheld === "apply" ? "insightRecommendationApplyTimelogOff" : "insightRecommendationTimelogOff";
+  const key = withheld === "apply" ? "insightRecommendationTimelogOffApply" : "insightRecommendationTimelogOff";
   return <p className="w-full text-xs text-muted-foreground">{t(lang, key)}</p>;
 }
 

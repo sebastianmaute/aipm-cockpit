@@ -441,7 +441,7 @@ describe("InsightsPanel", () => {
         expect(screen.queryByRole("button", { name: generateName })).toBeNull();
         expect(screen.queryByRole("button", { name: /Generate recommendation/ })).toBeNull();
         expect(screen.getByText(offNote)).toBeInTheDocument();
-        expect(screen.queryByText(t("en-US", "insightRecommendationApplyTimelogOff"))).toBeNull();
+        expect(screen.queryByText(t("en-US", "insightRecommendationTimelogOffApply"))).toBeNull();
       });
 
       it("offers the Generate control, with no note, while Timelog is on", () => {
@@ -469,7 +469,7 @@ describe("InsightsPanel", () => {
         const proposed = () =>
           guardrail({ recommendation: { summary: "Cap the day", proposedCalls: [], generatedAt: "2026-06-10T00:00:00.000Z", status: "proposed" } });
         const applyName = `${t("en-US", "insightApplyRecommendation")} – ${titleOf("timelogCapPerDay")}`;
-        const applyNote = t("en-US", "insightRecommendationApplyTimelogOff");
+        const applyNote = t("en-US", "insightRecommendationTimelogOffApply");
         const rejectName = `${t("en-US", "insightRejectRecommendation")} – ${titleOf("timelogCapPerDay")}`;
 
         it("offers no Apply while Timelog is off, says why, and keeps Reject", () => {
