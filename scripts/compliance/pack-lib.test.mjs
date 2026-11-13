@@ -6,6 +6,8 @@ import {
   PACK_FILES,
   parityViolations,
   parseBlocks,
+  proseGapCitations,
+  proseGapViolations,
   replaceBlocks,
   reviewLineViolations,
   structureOf,
@@ -226,6 +228,115 @@ describe("claimViolations", () => {
 
   it("rejects an unknown language", () => {
     expect(() => claimViolations("x", "fr")).toThrow();
+  });
+
+  it.each([
+    ["en", "Your data never\nleaves the device.", "line 3", "never leaves"],
+    ["en", "The app complies\nwith the GDPR.", "line 3", "complies with"],
+    ["en", "It is not\nhigh-risk.", "line 3", "not high-risk"],
+    ["de", "Die App ist kein\nHochrisiko-System.", "line 3", "kein Hochrisiko"],
+  ])("flags a %s phrase split across a hard wrap, naming its first line: %j", (lang, para, line, label) => {
+    const out = claimViolations(`# Title\n\n${para}\n`, lang);
+    expect(out).toEqual([`${line}: denied phrase "${label}"`]);
+  });
+
+  it("follows a hard wrap inside a blockquote and a list item", () => {
+    expect(claimViolations("> Data never\n> leaves the device.", "en")).toEqual(['line 1: denied phrase "never leaves"']);
+    expect(claimViolations("- Data never\n  leaves the device.", "en")).toEqual(['line 1: denied phrase "never leaves"']);
+  });
+
+  it("does not join across a blank line, a heading, a list item or a table row", () => {
+    expect(claimViolations("Data never\n\nleaves.", "en")).toEqual([]);
+    expect(claimViolations("Data never\n## leaves", "en")).toEqual([]);
+    expect(claimViolations("- data never\n- leaves", "en")).toEqual([]);
+    expect(claimViolations("Data never\n| leaves | x |", "en")).toEqual([]);
+  });
+
+  it("checks table rows one row at a time, as before", () => {
+    expect(claimViolations("| a | b |\n|---|---|\n| never | x |\n| leaves | y |", "en")).toEqual([]);
+    expect(claimViolations("| a | b |\n|---|---|\n| x | it is compliant |", "en")).toEqual(['line 3: denied phrase "compliant"']);
+  });
+
+  it("still exempts fenced code across lines", () => {
+    expect(claimViolations("Text\n```\nnever\nleaves\n```\n", "en")).toEqual([]);
+  });
+
+  it("keeps the quote exemption on wrapped text: short spans pass, long ones are checked", () => {
+    expect(claimViolations('We never say "data never\nleaves" here.', "en")).toEqual([]);
+    const long = '"The whole product is fully and in every\nrespect compliant with every rule there is"';
+    expect(claimViolations(long, "en")).toEqual(['line 2: denied phrase "compliant"']);
+  });
+
+  it("reports a phrase on a later line of a paragraph at that line", () => {
+    expect(claimViolations("First line is fine.\nSecond line is compliant.", "en")).toEqual(['line 2: denied phrase "compliant"']);
+  });
+});
+
+describe("proseGapCitations", () => {
+  it("collects register citations with their lines, outside generated blocks and fences", () => {
+    const src = [
+      "See §794 and §805.", // 1
+      "<!-- PACK:open-gaps:BEGIN -->", // 2
+      "| §999 | generated |", // 3
+      "<!-- PACK:open-gaps:END -->", // 4
+      "```", // 5
+      "§888", // 6
+      "```", // 7
+      "Also §810.", // 8
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 794, line: 1 },
+      { n: 805, line: 1 },
+      { n: 810, line: 8 },
+    ]);
+  });
+
+  it.each([
+    "the co-determination right (§87(1) No. 6)",
+    "§ 87 Abs. 1 Nr. 6 BetrVG",
+    "BetrVG §90",
+    "§§ 87, 90 und 80 BetrVG",
+    "§ 80 Abs. 3 BetrVG",
+    "§90(2)",
+    "§ 412 BGB",
+    "BDSG §426",
+    "§450 Abs. 2",
+    "§401 SGB",
+    "§§ 412, 413",
+  ])("ignores a statute section: %s", (text) => {
+    expect(proseGapCitations(text)).toEqual([]);
+  });
+
+  it.each([
+    ["§400", [400]],
+    ["(register §794)", [794]],
+    ["§801, §802", [801, 802]],
+    ["[vendor statement; register §810]", [810]],
+    ["Register §562 und §487.", [562, 487]],
+  ])("takes a register citation: %s", (text, numbers) => {
+    expect(proseGapCitations(text).map((c) => c.n)).toEqual(numbers);
+  });
+});
+
+describe("proseGapViolations", () => {
+  const register = [
+    "## 401. Open one",
+    "## 402. Done — CLOSED 2026-11-06",
+    "## 403. Open but uncited",
+  ].join("\n");
+
+  it("accepts an open, cited entry and ignores statute sections", () => {
+    expect(proseGapViolations("Gap §401. See §87(1) and § 90 BetrVG.", [401], register)).toEqual([]);
+  });
+
+  it("flags a closed entry, a missing entry and an open entry left out of CITED_GAPS, with lines", () => {
+    expect(proseGapViolations("ok\n§402 and §499\n§403", [401, 402, 403], register)).toEqual([
+      "line 2: §402 is cited but is closed",
+      "line 2: §499 is cited but is not in the register",
+    ]);
+    expect(proseGapViolations("§403", [401], register)).toEqual([
+      "line 1: §403 is cited but is not in CITED_GAPS (pack-config.mjs)",
+    ]);
   });
 });
 

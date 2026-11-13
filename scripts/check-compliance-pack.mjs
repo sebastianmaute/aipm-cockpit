@@ -10,8 +10,12 @@
 //   2. parity: en/ and de/ hold the same files, each pair with the same heading levels
 //      and block names in the same order;
 //   3. claims: no deny-listed phrase in either language, anywhere in a file, generated
-//      block bodies included (they are published like the prose around them);
-//   4. gaps: every CITED_GAPS number is an open register entry;
+//      block bodies included (they are published like the prose around them), matched across
+//      the hard line wraps of a paragraph;
+//   4. gaps: every CITED_GAPS number is an open register entry, and every register citation in
+//      the prose (outside generated blocks and fences; `proseGapCitations` states the rule that
+//      tells a register `§NNN` from a statute section such as "§ 87 BetrVG") is an open entry
+//      listed in CITED_GAPS;
 //   5. review line: each README has exactly one, both name the same version and date,
 //      and the version is not newer than APP_VERSION (read from src/app/version.ts as text);
 //   6. the root README links to en/README.md and de/README.md.
@@ -31,6 +35,7 @@ import {
   gapViolations,
   parityViolations,
   parseBlocks,
+  proseGapViolations,
   reviewLineViolations,
 } from "./compliance/pack-lib.mjs";
 
@@ -70,6 +75,7 @@ for (const lang of PACK_LANGS) {
   if (!rootReadme.includes(`](${lang}/README.md)`)) violations.push(`README.md: no link to ${lang}/README.md`);
 }
 for (const c of claimViolations(rootReadme, "en")) violations.push(`README.md: ${c}`);
+for (const g of proseGapViolations(rootReadme, CITED_GAPS, register)) violations.push(`README.md: gaps: ${g}`);
 for (const name of PACK_FILES) {
   if (!Object.hasOwn(BLOCKS_BY_FILE, name)) violations.push(`BLOCKS_BY_FILE: no entry for ${name}`);
 }
@@ -102,6 +108,7 @@ for (const lang of PACK_LANGS) {
       );
     }
     for (const c of claimViolations(src, lang)) violations.push(`${lang}/${name}: ${c}`);
+    for (const g of proseGapViolations(src, CITED_GAPS, register)) violations.push(`${lang}/${name}: gaps: ${g}`);
   }
 }
 

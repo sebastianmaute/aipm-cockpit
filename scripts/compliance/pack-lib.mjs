@@ -233,32 +233,107 @@ function entryRegex(entry, lang) {
 /** Longest quoted span that still reads as a mention rather than a claim. */
 const MAX_QUOTED_CHARS = 40;
 
-/** Blank out what a claim check must not see: inline code and short quoted
- *  spans. A longer quotation is text the pack would itself be making. */
-function stripExempt(line) {
+/** Blank out what a claim check must not see: inline code (within one line, so
+ *  a stray backtick never swallows the next line) and short quoted spans (which
+ *  may wrap). A longer quotation is text the pack would itself be making. The
+ *  result has the input's length, so offsets still map to source lines. */
+function stripExempt(text) {
   const blank = (m) => " ".repeat(m.length);
   const n = MAX_QUOTED_CHARS;
-  return line
-    .replace(/`[^`]*`/g, blank)
+  return text
+    .replace(/`[^`\n]*`/g, blank)
     .replace(new RegExp(`"[^"]{0,${n}}"`, "g"), blank)
     .replace(new RegExp(`“[^”]{0,${n}}”`, "g"), blank)
     .replace(new RegExp(`„[^“”]{0,${n}}[“”]`, "g"), blank);
 }
 
-/** Deny-list hits outside fenced code, inline code and short quoted spans.
- *  `>` blockquote lines are NOT exempt. */
+const TABLE_ROW_RE = /^\s*\|/;
+const LIST_ITEM_RE = /^\s*(?:[-*+]|\d+[.)])\s/;
+const BLOCKQUOTE_PREFIX_RE = /^\s*(?:>\s?)+/;
+const COMMENT_LINE_RE = /^\s*<!--/;
+
+/** The text units a claim check reads. The pack is hard-wrapped, so a phrase may
+ *  straddle a line break: a unit is a paragraph, its lines joined with their
+ *  line breaks. A unit ends at a blank line or a fenced block; a list item starts
+ *  a new one; a heading, a table row and an HTML comment line are each a unit of
+ *  their own (so table rows are still checked one row at a time). Blockquote `>`
+ *  markers are blanked so a wrapped quotation joins too. `lineOf[k]` is the
+ *  0-based source line of character k, so a hit maps back to its first line. */
+function textUnits(lines) {
+  const fenced = fencedFlags(lines);
+  const units = [];
+  let cur = null;
+  const close = () => {
+    if (cur) units.push(cur);
+    cur = null;
+  };
+  lines.forEach((line, i) => {
+    if (fenced[i] || line.trim() === "") return close();
+    const standalone = TABLE_ROW_RE.test(line) || HEADING_RE.test(line) || COMMENT_LINE_RE.test(line);
+    if (standalone || LIST_ITEM_RE.test(line)) close();
+    const prefix = BLOCKQUOTE_PREFIX_RE.exec(line);
+    const body = prefix ? " ".repeat(prefix[0].length) + line.slice(prefix[0].length) : line;
+    if (!cur) {
+      cur = { text: "", lineOf: [] };
+    } else {
+      cur.text += "\n";
+      cur.lineOf.push(i);
+    }
+    cur.text += body;
+    for (let k = 0; k < body.length; k++) cur.lineOf.push(i);
+    if (standalone) close();
+  });
+  close();
+  return units;
+}
+
+/** Deny-list hits outside fenced code, inline code and short quoted spans,
+ *  matched across hard line wraps within a paragraph (`textUnits`). `>`
+ *  blockquotes are NOT exempt. One message per phrase and line, naming the line
+ *  the hit starts on. */
 export function claimViolations(src, lang) {
   const phrases = DENY_PHRASES[lang];
   if (!phrases) throw new Error(`unknown language "${lang}"`);
-  const regexes = phrases.map((p) => entryRegex(p, lang));
-  const lines = splitLines(src);
+  const regexes = phrases.map((p) => {
+    const [label, re] = entryRegex(p, lang);
+    return [label, new RegExp(re.source, "giu")];
+  });
+  const hits = [];
+  for (const unit of textUnits(splitLines(src))) {
+    const text = stripExempt(unit.text);
+    for (const [phrase, re] of regexes) {
+      for (const m of text.matchAll(re)) hits.push([unit.lineOf[m.index], phrase]);
+    }
+  }
+  hits.sort((a, b) => a[0] - b[0]);
+  const messages = hits.map(([i, phrase]) => `line ${i + 1}: denied phrase "${phrase}"`);
+  return [...new Set(messages)];
+}
+
+/** Register citations in a pack file's prose. The rule: `§` directly followed
+ *  (no space) by a number of three or more digits, at least 400. Statute
+ *  sections are never register citations and are skipped: `§§`, `§ 87` (space),
+ *  any number below 400, a number followed by `(` or by `Abs.`/`Nr.`/`No.`/`S.`,
+ *  and a number preceded or followed by a statute abbreviation (a capitalised
+ *  word that ends in a capital letter: `BetrVG §90`, `§401 SGB`). Generated block
+ *  bodies and fenced code are not prose and are skipped too.
+ *  @returns {{ n: number, line: number }[]} in document order, 1-based lines. */
+export function proseGapCitations(src) {
+  const { lines, blocks } = scanBlocks(src);
   const fenced = fencedFlags(lines);
+  const inBlock = (i) => blocks.some((b) => i > b.begin && i < b.end);
+  const cite = /(?<![§\p{L}\p{N}])§(\d{3,})(?!\d)/gu;
+  const statuteBefore = /(?:^|[^\p{L}])\p{Lu}[\p{L}-]*\p{Lu}\s*$/u;
+  const statuteAfter = /^(?:\(|\s*(?:Abs|Nr|No|S)\.|\s+\p{Lu}[\p{L}-]*\p{Lu}(?!\p{L}))/u;
   const out = [];
   lines.forEach((line, i) => {
-    if (fenced[i]) return;
-    const text = stripExempt(line);
-    for (const [phrase, re] of regexes) {
-      if (re.test(text)) out.push(`line ${i + 1}: denied phrase "${phrase}"`);
+    if (fenced[i] || inBlock(i)) return;
+    for (const m of line.matchAll(cite)) {
+      const n = Number(m[1]);
+      if (n < 400) continue;
+      if (statuteBefore.test(line.slice(0, m.index))) continue;
+      if (statuteAfter.test(line.slice(m.index + m[0].length))) continue;
+      out.push({ n, line: i + 1 });
     }
   });
   return out;
@@ -294,6 +369,22 @@ export function gapViolations(cited, registerSrc) {
         ? `§${n} is cited as an open gap but is closed`
         : `§${n} is cited as an open gap but is not in the register`,
     );
+}
+
+/** Every register citation in a file's prose (`proseGapCitations`) must be an
+ *  open register entry and must be in `cited` (CITED_GAPS), so the open-gaps
+ *  table lists every gap the prose relies on. One message per citation. */
+export function proseGapViolations(src, cited, registerSrc) {
+  const entries = registerEntries(registerSrc);
+  const open = new Set(entries.filter(([, closed]) => !closed).map(([n]) => n));
+  const known = new Set(entries.map(([n]) => n));
+  const out = [];
+  for (const { n, line } of proseGapCitations(src)) {
+    if (!known.has(n)) out.push(`line ${line}: §${n} is cited but is not in the register`);
+    else if (!open.has(n)) out.push(`line ${line}: §${n} is cited but is closed`);
+    else if (!cited.includes(n)) out.push(`line ${line}: §${n} is cited but is not in CITED_GAPS (pack-config.mjs)`);
+  }
+  return out;
 }
 
 export const REVIEW_LINE = {
