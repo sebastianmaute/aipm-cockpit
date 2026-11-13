@@ -2,11 +2,199 @@
 
 ## Über dieses Dokument
 
+Zwei Vorlagen, mit denen Sie Menschen darüber informieren, dass Ihre Organisation AI PM Cockpit und seine
+KI-Funktionen nutzt: eine für Beschäftigte, eine für externe Personen, die in Ihren Projekten vorkommen,
+etwa Mitglieder des Lenkungsausschusses, Ansprechpersonen beim Kunden und Beschäftigte von Lieferanten. Sie
+richten sich an Datenschutzbeauftragte, die sie anpassen, und landen am Ende bei den betroffenen Personen.
+Wann der handgeschriebene Text zuletzt geprüft wurde, steht in der [Prüfzeile](README.md#stand-des-textes)
+der README.
+
+Diese Vorlagen sind Material für Ihre eigene Arbeit. Sie sind keine Rechtsberatung, und sie sind erst
+vollständig, wenn Sie jeden Platzhalter ausgefüllt und entfernt haben, was nicht zutrifft. [Frage an Sie]
+
+Ein Hinweis an Personen, deren Daten Sie bei ihnen selbst erheben, muss unter anderem Namen und
+Kontaktdaten des Verantwortlichen, die Kontaktdaten des Datenschutzbeauftragten, die Zwecke und die
+Rechtsgrundlage, die Empfänger, eine etwaige Übermittlung in ein Drittland mit ihrer Garantie, die
+Speicherdauer, die Rechte der Person und das Bestehen einer automatisierten Entscheidungsfindung angeben
+(Art. 13 DSGVO). Stammen die Daten aus einer anderen Quelle, muss der Hinweis zusätzlich die
+Datenkategorien und ihre Quelle angeben und innerhalb einer angemessenen Frist, spätestens innerhalb eines
+Monats, oder bei der ersten Mitteilung an die Person erteilt werden (Art. 14). [extern: Verordnung (EU)
+2016/679, Art. 13 und Art. 14, Amtsblatt L 119 vom 4. Mai 2016, gelesen beim Amt für Veröffentlichungen
+der EU unter http://publications.europa.eu/resource/cellar/3e485e15-11bd-11e6-ba9a-01aa75ed71a1 am
+2026-11-13] Beide Vorlagen folgen dieser Reihenfolge. Welcher Artikel für welche Person gilt, entscheiden
+Sie. [Frage an Sie]
+
+**So füllen Sie sie aus.** Text in eckigen Klammern ersetzen Sie: `[Organisation]` ist der Name Ihrer
+Organisation, und die übrigen sagen, was dort hingehört. Aussagen in den Vorlagen darüber, was die App tut,
+stammen aus der Tabelle am Ende dieses Dokuments und aus den anderen Dokumenten dieses Pakets und sind dort
+geprüft; die Anmerkungen nach jeder Vorlage nennen die Quelle. Halten Sie sie mit der Tabelle in
+Übereinstimmung, wenn Sie Funktionen ein- oder ausschalten. [geprüft: `src/app/ai-disclosure.ts`; die in
+den Anmerkungen genannten Quellen]
+
 ## Hinweis für Beschäftigte
+
+> **Wie [Organisation] KI im Projektmanagement einsetzt**
+>
+> **Wer verantwortlich ist.** [Organisation], [Anschrift], ist für die hier beschriebene Verarbeitung
+> verantwortlich. Unsere Datenschutzbeauftragte oder unseren Datenschutzbeauftragten erreichen Sie unter
+> [Kontaktdaten].
+>
+> **Was wir einsetzen und warum.** Wir steuern Projekte mit AI PM Cockpit, einem
+> Projektmanagement-Werkzeug. Wir nutzen es für [Zwecke, zum Beispiel die Planung von Aufgaben und
+> Ressourcen und die Berichterstattung über den Projektstand]. Rechtsgrundlage ist [Rechtsgrundlage].
+> [Wenn Sie sich auf berechtigte Interessen stützen: Unser berechtigtes Interesse ist [Interesse].]
+>
+> **Welche Daten über Sie darin stehen.** Je nach Ihrer Rolle in einem Projekt: Ihr Name, [Ihre
+> Berufsbezeichnung, Abteilung, Ihr Unternehmen, Ihre Rolle,] die Ihnen zugewiesenen Aufgaben und Risiken,
+> Ihre geplante Auslastung je Zeitraum, [Ihre Abwesenheiten mit ihrer Art (Urlaub, Krankheit, Schulung
+> oder Sonstiges),] [Ihre in Timelog erfasste Arbeitszeit und die Prüfungen, die wir darauf anwenden,] und
+> was Kolleginnen und Kollegen in Aufgaben, Notizen und Dokumenten über die Arbeit schreiben. Das Werkzeug
+> hält Änderungen in einem Aktivitätsprotokoll fest, das zeigt, was sich geändert hat und ob eine Person,
+> die KI oder eine Integration es geändert hat, nicht aber, welche Person. [Notizen und Blocker-Einträge
+> halten Namen und Zeitpunkt ihres Verfassers fest, wenn dieser im Werkzeug festgelegt hat, welche Person
+> er ist.]
+>
+> **KI-Funktionen.** Wir haben diese KI-Funktionen eingeschaltet: [aus der Tabelle unten aufzählen].
+> Nutzt eine Kollegin oder ein Kollege eine davon, werden die Daten, die diese Funktion braucht, an
+> [Vertragspartner bei Anthropic, wie in Ihrem Vertrag mit Anthropic genannt] gesendet [, über unser
+> KI-Gateway, betrieben von [Betreiber des Gateways]]. Die Tabelle unten führt je Funktion auf, was
+> gesendet wird. [Der Personenschutz ist in allen unseren Projekten eingeschaltet: Bevor Daten gesendet
+> werden, werden die Namen, E-Mail-Adressen und Telefonnummern der Personen, die das Projekt kennt, durch
+> Platzhalter ersetzt, die KI kann niemandem Arbeit zuweisen, und die Funktionen, die die Zuteilung von
+> Beschäftigten planen und RACI-Rollen vorschlagen, sind nicht verfügbar. Namen, die in Freitext oder
+> angehängte Dateien geschrieben sind, können weiterhin gesendet werden.] [Oder, wenn der Schutz in
+> einigen Projekten ausgeschaltet ist: In [Projekte] sieht die KI auch Ihren Namen und kann vorschlagen,
+> wie Ihnen Arbeit zugeteilt wird.]
+>
+> **KI im Hintergrund.** [Streichen, wenn nicht genutzt.] [Geplante Analysen, automatische
+> Insight-Empfehlungen und die geplante Digest-Zusammenfassung] senden Projektdaten nach Zeitplan an die
+> KI, ohne dass eine Person jeden Lauf startet.
+>
+> **Wer entscheidet.** Die KI schlägt vor; eine Person prüft ihre Vorschläge und übernimmt sie. Eine
+> Ausnahme: Eine einzelne Änderung, die der KI-Chat vornimmt, kann sofort ausgeführt werden, ohne
+> Prüfschritt; sie wird als Änderung der KI festgehalten. [Wir treffen keine Entscheidungen über Sie, die
+> ausschließlich auf KI-Ausgaben beruhen. / Beschreiben Sie jede solche Entscheidung.]
+>
+> **Empfänger.** [Anthropic, als unser Auftragsverarbeiter, für die KI-Funktionen.] [Microsoft 365,
+> Turso, Atlassian, Timelog, ein Speech-to-Text-Dienst: Führen Sie die auf, die Sie nutzen, mit ihrer
+> Rolle.]
+>
+> **Übermittlungen außerhalb der EU.** KI-Anfragen werden in den Vereinigten Staaten oder in einer anderen
+> Region verarbeitet, die Anthropic nutzt, je nach unseren Einstellungen bei Anthropic: [unsere
+> Einstellung]. [Und wo unser KI-Gateway läuft: [Standort].] Die Garantie ist [zum Beispiel die
+> Standardvertragsklauseln in unserem Auftragsverarbeitungsvertrag mit Anthropic].
+>
+> **Wie lange wir Daten aufbewahren.** Projektdaten: [Ihre Aufbewahrungsfrist]. Gespeicherte KI-Chats:
+> [Anzahl] Tage nach ihrer letzten Änderung. An Anthropic gesendete Anfragen: [Frist aus Ihrem Vertrag
+> oder den aktuellen Bedingungen von Anthropic].
+>
+> **Ihre Rechte.** Sie können von uns Auskunft über Ihre Daten, deren Berichtigung oder Löschung, die
+> Einschränkung ihrer Verarbeitung und ihre Herausgabe in einem übertragbaren Format verlangen, und Sie
+> können ihrer Verarbeitung widersprechen. [Wenn wir uns auf eine Einwilligung stützen: Sie können Ihre
+> Einwilligung jederzeit widerrufen.] Sie können sich bei [Aufsichtsbehörde] beschweren.
+>
+> **Betriebsvereinbarung.** [Verweis auf die Betriebsvereinbarung, oder streichen.]
+>
+> **Fragen.** [Ansprechpartner.]
+
+Anmerkungen zum Hinweis für Beschäftigte: [geprüft wie angegeben]
+
+- Der Satz zum Aktivitätsprotokoll: `ActivityActor` in `src/app/activity-log.ts`.
+- Der Satz zu Notizen und Blockern: `NoteLogEntry` und `BlockerEntry` in `src/app/types.ts` sowie
+  `selfResourceId` in `src/app/settings-types.ts` (je Gerät festgelegt).
+- Der Satz zum Personenschutz: `src/app/ai-people-protection.ts`, `src/app/ai-person-fields.ts` und die
+  letzte Spalte der Tabelle unten. Der Schutz ist je Projekt standardmäßig eingeschaltet; prüfen Sie, ob
+  ein Projekt ihn ausgeschaltet hat, oder erzwingen Sie ihn mit `AIPM_DISABLED_INTEGRATIONS=ai-people`
+  (`src/app/deployment-variables.ts`).
+- Der Satz zum Hintergrund: die drei Zeilen der Tabelle unten, deren Zustimmung „gesondert“ abgefragt
+  wird (`level: "background"` in `src/app/ai-disclosure.ts`); offene Lücke §795.
+- Der Satz „Eine Ausnahme“: `shouldStage` in `src/app/chat-proposal.ts`; offene Lücke §794. Auch andere
+  Bedingungen führen eine Chat-Änderung zur Prüfung; die [Anlage für den
+  Betriebsrat](works-council-annex.md#was-die-ki-ohne-freigabe-durch-eine-person-tun-darf) führt sie auf.
+- Der Satz zur Übermittlung: der Input für die Datenschutz-Folgenabschätzung, [Übermittlungen außerhalb
+  der EU](dpia-input.md#übermittlungen-außerhalb-der-eu), wo die Aussagen von Anthropic mit Quelle und
+  Datum gekennzeichnet sind.
+- Die Aufbewahrung der Chats: `AIPM_AI_CHAT_RETENTION_DAYS`, 30 Tage, wenn nicht gesetzt
+  (`src/app/ai-chat-retention-config.ts`).
 
 ## Hinweis für externe Stakeholder
 
+> **Wie [Organisation] Ihre Daten in ihrem Projektmanagement verarbeitet**
+>
+> **Wer verantwortlich ist.** [Organisation], [Anschrift], ist für die hier beschriebene Verarbeitung
+> verantwortlich. Unsere Datenschutzbeauftragte oder unseren Datenschutzbeauftragten erreichen Sie unter
+> [Kontaktdaten].
+>
+> **Warum wir Ihre Daten führen.** Sie sind [Mitglied des Lenkungsausschusses / Ansprechperson /
+> Stakeholder] in unserem Projekt [Projekt]. Wir erfassen Sie in unserem Projektmanagement-Werkzeug, AI PM
+> Cockpit, um [Zwecke, zum Beispiel die Kommunikation und die Entscheidungen des Projekts zu planen]. Die
+> Rechtsgrundlage ist [Rechtsgrundlage]. [Wenn Sie sich auf berechtigte Interessen stützen: Unser
+> berechtigtes Interesse ist [Interesse].]
+>
+> **Welche Daten wir führen und woher sie stammen.** Ihr Name, Ihre Organisation, Ihr Titel, Ihre
+> E-Mail-Adresse, [Ihre Kategorie als Stakeholder, unsere Einschätzung Ihres Einflusses auf das Projekt und
+> Ihres Interesses daran, Ihre Rolle je Meilenstein (verantwortlich, rechenschaftspflichtig, zu
+> konsultieren oder zu informieren), unsere Notizen,] [E-Mails, die Sie uns gesendet haben, soweit wir sie
+> im Werkzeug anhängen]. Wir haben sie [von Ihnen / von [Quelle]] erhalten.
+>
+> **KI-Funktionen.** Einige Funktionen des Werkzeugs nutzen KI. Nutzt eine Kollegin oder ein Kollege eine
+> davon, können die Daten, die diese Funktion braucht, an [Vertragspartner bei Anthropic, wie in Ihrem
+> Vertrag mit Anthropic genannt] gesendet werden. Bei Ihnen können das Ihr Name, Titel, Ihre Organisation,
+> Kategorie, [unsere Einschätzung von Einfluss und Interesse,] [Ihre Rolle je Meilenstein
+> (verantwortlich, rechenschaftspflichtig, zu konsultieren oder zu informieren),] die übrigen Angaben, die
+> wir im Werkzeug über Sie führen, Ihre E-Mail-Adresse (der KI-Assistent kann sie abrufen, jeweils eine
+> Adresse) sowie Inhalt, Absender und Empfänger von E-Mails von Ihnen sein, die wir anhängen. [Der
+> Personenschutz ist in allen unseren Projekten eingeschaltet: Bevor Daten gesendet werden, werden die
+> Namen, E-Mail-Adressen und Telefonnummern der Personen, die das Projekt kennt, durch Platzhalter
+> ersetzt. Namen in Freitext oder in angehängten E-Mails können weiterhin gesendet werden.]
+>
+> **Wer entscheidet.** Die KI schlägt vor; unsere Beschäftigten prüfen ihre Vorschläge und übernehmen sie.
+> Eine Ausnahme: Eine einzelne Änderung, die der KI-Chat vornimmt, kann sofort ausgeführt werden, ohne
+> Prüfschritt; sie wird als Änderung der KI festgehalten. [Wir treffen keine Entscheidungen über Sie, die
+> ausschließlich auf KI-Ausgaben beruhen.]
+>
+> **Empfänger.** [Anthropic, als unser Auftragsverarbeiter, für die KI-Funktionen.] [Weitere, die Sie
+> nutzen.]
+>
+> **Übermittlungen außerhalb der EU.** KI-Anfragen werden in den Vereinigten Staaten oder in einer anderen
+> Region verarbeitet, die Anthropic nutzt, je nach unseren Einstellungen bei Anthropic: [unsere
+> Einstellung]. [Und wo unser KI-Gateway läuft: [Standort].] Die Garantie ist [Garantie].
+>
+> **Wie lange wir Daten aufbewahren.** [Ihre Aufbewahrungsfrist, zum Beispiel bis zum Projektende
+> zuzüglich [Frist].]
+>
+> **Ihre Rechte.** Sie können von uns Auskunft über Ihre Daten, deren Berichtigung oder Löschung, die
+> Einschränkung ihrer Verarbeitung und ihre Herausgabe in einem übertragbaren Format verlangen, und Sie
+> können ihrer Verarbeitung widersprechen. Sie können sich bei [Aufsichtsbehörde] beschweren.
+>
+> **Fragen.** [Ansprechpartner.]
+
+Anmerkungen zum Hinweis für Stakeholder: [geprüft wie angegeben]
+
+- Die Datenliste: `Stakeholder` in `src/app/types.ts` (Name, Organisation, Titel, E-Mail, Kategorie,
+  Einfluss, Interesse, Notizen und RACI-Rollen). Streichen Sie, was Sie nicht erfassen.
+- Der Satz zur KI: Der RACI-Vorschlag sendet Namen, Titel, Organisationen, Kategorien, Einfluss und
+  Interesse der Stakeholder sowie die bestehenden RACI-Zuordnungen je Meilenstein; die Analyse der
+  nächsten Schritte sendet Namen von Stakeholdern mit ihrem Titel oder ihrer Organisation und der
+  Gewichtungsvorschlag Namen von Stakeholdern; der Chat kann Stakeholder-Datensätze lesen, bei Bedarf
+  jeweils eine E-Mail-Adresse abrufen und angehängte E-Mails mit ihren Absendern und Empfängern lesen. Der
+  Satz darf nicht weniger sagen als die Tabelle unten; gleichen Sie ihn beim Ausfüllen mit der Tabelle ab.
+  [geprüft: die Zeilen zum RACI-Vorschlag, zur Analyse, zum Gewichtungsvorschlag und zum Chat in
+  `src/app/ai-disclosure.ts`; `get_contact_email` in `PEOPLE_TOOLS`, `src/app/chat-tool-defs.ts`]
+- Bei eingeschaltetem Personenschutz ist der RACI-Vorschlag nicht verfügbar, und der Chat kann keine
+  Stakeholder-Datensätze lesen; Namen externer Personen in angehängten E-Mails, die das Projekt nicht
+  kennt, werden weiterhin gesendet. [geprüft: `src/app/ai-disclosure.ts`, `PEOPLE_TOOLS` in
+  `src/app/chat-tool-defs.ts`]
+- Der Satz „Eine Ausnahme“: wie beim Hinweis für Beschäftigte (§794).
+- Wann externe Personen zu informieren sind (Art. 14 Abs. 3): innerhalb einer angemessenen Frist,
+  spätestens innerhalb eines Monats nach Erlangung ihrer Daten; wenn Sie die Daten zur Kommunikation mit
+  ihnen verwenden, spätestens bei der ersten Mitteilung. [extern: wie oben zitiert]
+
 ## Was die KI-Funktionen senden
+
+Die eigene Liste der App mit jeder KI-Funktion, dem, was sie sendet, und dem, was der Personenschutz
+ändert, erzeugt aus der Tabelle, die der Zustimmungsdialog zeigt. Verwenden Sie sie, um die KI-Sätze der
+Hinweise auszufüllen. [geprüft: `src/app/ai-disclosure.ts`]
 
 <!-- PACK:ai-paths:BEGIN -->
 | Funktion | Zustimmung | Was gesendet wird | Bei aktivem Personenschutz |

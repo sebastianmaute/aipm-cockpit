@@ -2,9 +2,45 @@
 
 ## Über dieses Dokument
 
+Dieses Dokument hilft Datenschutzbeauftragten, das Verzeichnis von Verarbeitungstätigkeiten der
+Organisation für ihre Nutzung von AI PM Cockpit zu erstellen (Art. 30 Abs. 1 DSGVO). Es führt die Felder
+eines solchen Verzeichnisses auf, füllt aus, was der Maintainer über die App beitragen kann, und
+kennzeichnet, was nur Ihre Organisation beantworten kann. Wann der handgeschriebene Text zuletzt geprüft
+wurde, steht in der [Prüfzeile](README.md#stand-des-textes) der README.
+
+Dieses Dokument ist Material für Ihre eigene Arbeit. Es ist keine Rechtsberatung und kein fertiges
+Verzeichnis.
+
+Der Maintainer erhält die personenbezogenen Daten, die Sie in der App verarbeiten, nicht; der Maintainer
+ist daher kein Empfänger in Ihrem Verzeichnis (siehe [Berührungspunkte mit dem
+Anbieter](vendor-touchpoints.md)). [Aussage des Maintainers; die Hosts und Ziele: geprüft, `src/proxy.ts`,
+`src/app/outbound-destinations.ts`]
+
 ## Felder des Verzeichnisses
 
+Die Feldbezeichnungen folgen Art. 30 Abs. 1 Buchstaben a bis g. [extern: Verordnung (EU) 2016/679,
+Art. 30 Abs. 1, Amtsblatt L 119 vom 4. Mai 2016, gelesen beim Amt für Veröffentlichungen der EU unter
+http://publications.europa.eu/resource/cellar/3e485e15-11bd-11e6-ba9a-01aa75ed71a1 am 2026-11-13]
+
+| Feld | Was der Maintainer beiträgt | Was Sie ausfüllen |
+|---|---|---|
+| a) Verantwortlicher und gegebenenfalls gemeinsam Verantwortliche, Vertreter des Verantwortlichen und Datenschutzbeauftragter | Nichts. | Name und Kontaktdaten jeder dieser Stellen. **Frage an Sie** |
+| b) Zwecke | Die App ist ein Projektmanagement-Werkzeug: Aufgaben, Risiken, Probleme und Entscheidungen (RAID), Meilensteine, Änderungen, Stakeholder, ein Ressourcenverzeichnis mit Auslastungs- und Abwesenheitsplanung, Budgets, aus Timelog importierte Zeitbuchungen, Dokumente und optionale KI-Unterstützung. [geprüft: `src/app/types.ts`, `src/app/nav-config.ts`] | Die Zwecke, für die Ihre Organisation sie nutzt, und die Rechtsgrundlage für jeden davon. **Frage an Sie** |
+| c) Kategorien betroffener Personen | Personen, die in einem Projekt vorkommen: Beschäftigte und externe Personen im Ressourcenverzeichnis, Zugewiesene und Verantwortliche von Aufgaben, Stakeholder, Personen, die in angehängten E-Mails und Dateien genannt sind, sowie die Nutzer der App. [geprüft: `src/app/types.ts`] | Welche davon bei Ihrer Nutzung vorkommen. **Frage an Sie** |
+| c) Kategorien personenbezogener Daten | Personen im Ressourcenverzeichnis: Vor- und Nachname, Berufsbezeichnung, Telefon, Standort, Abteilung, E-Mail-Adressen, Unternehmen, Geburtstag (Monat und Tag), Notizen, ob extern, ob aktiv, Rolle und geplante Auslastung je Zeitraum. Abwesenheiten: Person, Daten, Art (Urlaub, Krankheit, Schulung, Sonstiges) und eine Notiz. Stakeholder: Name, Organisation, Titel, E-Mail, Kategorie, Einfluss, Interesse, Notizen und RACI-Rollen. Stundensätze werden je Rolle geführt, nicht je Person. Freitext in Aufgaben, RAID-Einträgen, Änderungen, Dokumenten und Notizverläufen kann alles enthalten, was Nutzer schreiben. Timelog-Arbeitszeitzahlen je Person, auf dem Gerät zwischengespeichert. Das Aktivitätsprotokoll mit den alten und neuen Werten geänderter Felder. Gespeicherte KI-Chats. Bei Turso-Speicher außerdem: „dieselbe Person“-Antworten, die Personen projektübergreifend verknüpfen, mit Vor- und Nachnamen beider Personen und einem Feld dafür, wer entschieden hat (`decided_by`); bis zu 25 gespeicherte Entwürfe jedes Lenkungsausschuss-Berichts; die Ergebnisse geplanter KI-Aufträge (bis zu 50 je Auftrag); in Dokumente eingefügte Bilder; und Kopien des gesamten Projekts im Versionsverlauf. [geprüft: `src/app/types.ts` (`Resource`, `Absence`, `Stakeholder`, `Role`), `src/app/timelog-actuals-store.ts`, `src/app/activity-log.ts`, `src/app/chat-crypto.ts`, `src/app/person-links-schema.ts`, `MEETING_REPORT_VERSION_CAP` in `src/app/committee-report-versions-schema.ts`, `REPORT_RETENTION_PER_JOB` in `src/app/scheduled-reports-store.ts`, `src/app/document-assets-schema.ts`, `src/app/version-history.ts`; die Liste dieser Tabellen ist `PROJECT_SCOPED_SIDE_TABLES` in `src/app/project-side-tables.ts`] | Welche davon Sie tatsächlich erfassen und ob eine davon zu einer besonderen Kategorie gehört (zum Beispiel krankheitsbedingte Abwesenheiten als Gesundheitsdaten). **Frage an Sie** |
+| d) Empfänger | Die Dienste, an die die App sendet, jeweils nur, wenn Ihre Nutzer oder Ihr Betreiber sie einrichten: Anthropic (oder das KI-Gateway Ihrer Organisation), Microsoft 365, Turso, Atlassian, Timelog, ein Speech-to-Text-Dienst und die Europäische Zentralbank (die keine Projektdaten erhält, aber die IP-Adresse des Servers sieht, in der Desktop-App die des Computers des Nutzers). Die Tabellen unten sagen, was jeder erhält. [geprüft: `src/proxy.ts`, `src/app/outbound-destinations.ts`, `src/app/ai-disclosure.ts`] | Welche davon Ihre Bereitstellung nutzt und unter welchem Vertrag mit jedem. **Frage an Sie** |
+| e) Übermittlungen an Drittländer | Die App legt nicht fest, wo Anthropic eine Anfrage verarbeitet; sie sendet keinen Parameter `inference_geo`. [geprüft: keine Verwendung von `inference_geo` in `src/`] Anthropic bietet zwei Inferenz-Geografien an, `global` (die Voreinstellung; die Inferenz kann in jeder verfügbaren Geografie laufen) und `us`. Davon getrennt bestimmt die Workspace-Geo-Einstellung von Anthropic, wo Daten gespeichert werden und wo Verarbeitung am Endpunkt wie die Umwandlung von Bildern stattfindet; `us` ist derzeit die einzige verfügbare Workspace-Geo. [extern: Claude Platform Docs, „Data residency“, https://platform.claude.com/docs/en/manage-claude/data-residency, gelesen am 2026-11-13] Das Data Processing Addendum von Anthropic bezieht die Standardvertragsklauseln, Modul Zwei und/oder Drei, ein, soweit das Datenschutzrecht es verlangt. [extern: Anthropic Data Processing Addendum, https://www.anthropic.com/legal/data-processing-addendum, gültig ab 24. Februar 2025, gelesen am 2026-11-13] | Wo jeder Ihrer Dienste Daten verarbeitet, welche Garantie für die Übermittlung gilt und welche Inferenz-Einstellung Ihr Workspace bei Anthropic hat. **Frage an Sie** |
+| f) Fristen für die Löschung | Siehe [Aufbewahrung und Löschung](#aufbewahrung-und-löschung). | Ihre Aufbewahrungsfristen für Projektdaten, die die App nicht von sich aus löscht. **Frage an Sie** |
+| g) Technische und organisatorische Maßnahmen | Siehe das [TOM-Blatt](tom-sheet.md). | Ihre eigenen Maßnahmen rund um die App. **Frage an Sie** |
+
 ## KI-Verarbeitung
+
+Die Tabelle unten ist die eigene Liste der App mit jeder Funktion, die Daten an einen KI- oder
+Sprachdienst sendet: die Zustimmung, die sie braucht, was sie sendet und was der Personenschutz ändert. Der
+Zustimmungsdialog in der App zeigt dieselben Zeilen. [geprüft: `src/app/ai-disclosure.ts`,
+`src/app/ai-disclosure.test.ts`] KI ist ausgeschaltet, bis ein Nutzer sie einschaltet und diesen Hinweis
+auf dem Gerät annimmt. Die Daten gehen an Anthropic oder über das KI-Gateway Ihrer Organisation, außer beim
+Diktat, das an den vom Nutzer eingerichteten Sprachdienst geht. [geprüft: `src/app/ai-disclosure.ts`]
 
 <!-- PACK:ai-paths:BEGIN -->
 | Funktion | Zustimmung | Was gesendet wird | Bei aktivem Personenschutz |
@@ -30,6 +66,13 @@
 
 ## Empfänger und Ziele
 
+Neben den KI-Funktionen oben verbindet sich der Browser direkt mit Turso und Microsoft 365, wenn ein
+Nutzer diese einrichtet; die [Berührungspunkte mit dem
+Anbieter](vendor-touchpoints.md#hosts-die-der-browser-kontaktieren-darf) führen diese Hosts auf.
+[geprüft: `src/proxy.ts`] Die Tabelle unten führt auf, was der eigene Server der App und die Desktop-App
+senden und an wen. [geprüft: `src/app/outbound-destinations.ts`] Wie sie zu lesen ist, erklären die
+Berührungspunkte mit dem Anbieter.
+
 <!-- PACK:server-destinations:BEGIN -->
 | Betrieben von | Code, der sendet | Was gesendet wird | Auslöser |
 |---|---|---|---|
@@ -45,3 +88,89 @@
 <!-- PACK:server-destinations:END -->
 
 ## Aufbewahrung und Löschung
+
+**Projektdaten.** Die App löscht Projektdaten nicht nach Alter. Aufgaben, Personen, Abwesenheiten,
+Stakeholder, Dokumente und alles Übrige bleiben, bis ein Nutzer sie oder das Projekt löscht. [Aussage des
+Maintainers] Aufbewahrungsfristen für sie festzulegen und nach deren Ablauf von Hand zu löschen, ist Ihre
+Sache. [Frage an Sie]
+
+**Versionsverlauf (nur bei Turso-Speicher).** Die App bewahrt vollständige Kopien der Daten eines
+Projekts als Versionen auf. Bei jedem Speichern einer Version werden die automatischen Versionen auf eine
+festgelegte Anzahl reduziert: standardmäßig 50, und von 50 bis 1000, wie ein Nutzer es in den
+Einstellungen festlegt („Versionsverlauf: behalten“), gespeichert mit den Einstellungen dieses Geräts.
+Versionen, die ein Nutzer von Hand speichert, bleiben, bis sie von Hand gelöscht werden. Aus dem Projekt
+gelöschte Daten bleiben in diesen Kopien erhalten, bis diese reduziert oder gelöscht werden. [geprüft:
+`src/app/version-history.ts` (`DEFAULT_VERSION_RETENTION`, `MAX_VERSION_RETENTION`), `pruneStatements` in
+`src/app/version-schema.ts`, `versionHistoryRetention` in `src/app/settings-types.ts`,
+`src/app/settings-sections/mode-section.tsx`]
+
+**Aktivitätsprotokoll.** Jedes Projekt behält seine neuesten 500 Einträge; ältere entfallen. Die Grenze
+ist eine Anzahl von Einträgen, keine Zeitspanne. Einträge halten die alten und neuen Werte geänderter
+Felder fest, die auch Namen von Personen enthalten können. [geprüft: `ACTIVITY_MAX_ENTRIES` in
+`src/app/activity-log.ts`, `src/app/activity-log.test.ts`]
+
+**Gespeicherte KI-Chats.** Chats werden nur bei Turso-Speicher gespeichert und nur, wenn der Betreiber
+einen Wiederherstellungsschlüssel gesetzt hat. [geprüft: die Speicherbedingung in
+`src/app/use-chat-threads.ts`] Ein Chat wird gelöscht, wenn die Aufbewahrungsdauer seit seiner letzten
+Änderung abgelaufen ist: 30 Tage, sofern der Betreiber `AIPM_AI_CHAT_RETENTION_DAYS` nicht auf eine ganze
+Zahl von 1 bis 3650 setzt. Ein ungültiger Wert pausiert das Löschen nach Alter, bis er korrigiert ist.
+[geprüft: `src/app/ai-chat-retention-config.ts`, `src/app/ai-chat-retention-config.test.ts`] Drei Teile
+der App löschen abgelaufene Chats unabhängig voneinander: der Browser, der Server einmal täglich, wo er
+über Turso-Zugangsdaten verfügt, und das Skript des Betreibers (`npm run chats:erase -- expire`).
+[geprüft: `src/app/use-chat-retention-sweep.ts`, `src/app/api/ai/_chat-sweep.ts`,
+`scripts/chat-erasure.mjs`]
+
+**Löschwerkzeuge für Chats.** Ein Nutzer kann alle eigenen Chats in jedem Projekt der Datenbank löschen
+(„Alle meine Chats löschen“) und seine Chats nach dem Namen oder der E-Mail-Adresse einer Person
+durchsuchen, um die Treffer zu löschen („Chats finden, die eine Person erwähnen“). Der Betreiber kann mit
+`npm run chats:erase` und dem privaten Wiederherstellungsschlüssel in der gesamten Datenbank suchen und
+löschen. Wird ein Projekt endgültig gelöscht, werden auch seine Chats, sein Versionsverlauf und seine
+übrigen Nebentabellen gelöscht; schlägt diese Bereinigung fehl, versucht die App sie beim nächsten Start
+erneut. [geprüft: `src/app/i18n.ts` (`chatDeleteAllButton`, `chatFindButton`), `scripts/chat-erasure.mjs`,
+`scripts/chat-erasure-lib.mjs`, `src/app/project-side-tables.ts`, `src/app/pending-project-sweeps.ts`]
+
+**Löschung einer einzelnen Person.** Keine einzelne Funktion entfernt eine Person aus allem. Muss eine
+Person gelöscht werden, berücksichtigen Sie mindestens: die Projektdaten selbst, die Kopien im
+Versionsverlauf, Einträge im Aktivitätsprotokoll, gespeicherte Chats (nutzen Sie die Suche oben),
+gespeicherte Entwürfe von Lenkungsausschuss-Berichten, Ergebnisse geplanter KI-Aufträge, Bilder in
+Dokumenten, „dieselbe Person“-Antworten über Projekte hinweg, bereits erstellte Exporte und Dokumente
+sowie die Daten bei den Diensten, an die die App sie gesendet hat (Anthropic, die Protokolle eines
+KI-Gateways, Jira, Timelog, Microsoft 365). [Aussage des Maintainers; die Orte: geprüft wie oben] Das
+Löschen einer Person entfernt in den meisten Fällen ihre „dieselbe Person“-Antworten; die Fälle, in denen
+das nicht geschieht, stehen in `docs/security.md`, Abschnitt „What is stored where“. [Aussage des
+Maintainers; `docs/security.md`] Wie Sie mit Löschersuchen umgehen, entscheiden Sie. [Frage an Sie]
+
+**Zurücksetzen auf Werkseinstellungen.** Einstellungen → Anwendung zurücksetzen löscht die Konfiguration
+der App in diesem Browser:
+
+- Es löscht jeden Eintrag im Browserspeicher, den die App unter ihrem eigenen Namen (`aipm-cockpit:`)
+  führt: Einstellungen, die verschlüsselten Geheimnisse, die Nachweise der KI-Zustimmung, die
+  Projektliste, die Chat-Identität dieses Browsers, das Diagnoseprotokoll und die zwischengespeicherten
+  Timelog-Zahlen. Es löscht den Geräteschlüssel und die gespeicherten Dateizugriffe (File Handles).
+  [geprüft: `src/app/app-reset.ts`, `src/app/app-reset.test.ts`]
+- Da Geräteschlüssel und Chat-Identität weg sind, kann dieser Browser seine eigenen gespeicherten Chats
+  nicht mehr lesen, sofern der Nutzer keine Chat-Passphrase gesetzt hatte. [geprüft:
+  `src/app/chat-key-vault.ts`]
+- Es leert außerdem die Warteschlange gelöschter Projekte, deren Bereinigung noch erneut versucht werden
+  sollte; diese Bereinigung wird also nicht erneut versucht, und die verbliebenen Zeilen dieser Projekte
+  bleiben bestehen (ihre Chats laufen weiterhin ab). [geprüft: `src/app/app-reset.ts` (das Löschen unter
+  `aipm-cockpit:`), `src/app/pending-project-sweeps.ts`]
+- Es entfernt den Cache der Microsoft-Anmeldebibliothek auf diesem Gerät: das Konto und seine Tokens, die
+  diese Bibliothek unter eigenen Namen im Browserspeicher ablegt. [geprüft: `cacheLocation` in
+  `src/app/use-ms-auth.ts`; `removeMsalKeys` in `src/app/app-reset.ts`; die Tests unter „clearAppConfig
+  removes the Microsoft sign-in cache“ in `src/app/app-reset.test.ts`] Schließen Sie zuvor andere offene
+  Tabs der App: Ein anderer offener Tab kann seinen Anmelde-Cache zurückschreiben. [extern:
+  @azure/msal-browser 5.28.0, Quellcode, `dist/cache/LocalStorage.mjs` (`setUserData`), gelesen am
+  2026-11-13]
+
+Nicht gelöscht werden:
+
+- Projektdaten: die im Browser gespeicherten Projekte, Dateien, Turso-Datenbanken (einschließlich
+  gespeicherter Chats und Zeilen mit Chat-Passphrasen) und SharePoint-Bibliotheken. Projekte werden
+  abgekoppelt, nicht gelöscht. [geprüft: `src/app/app-reset.ts`]
+- die Anmeldung bei Microsoft. Das Zurücksetzen entfernt nur die Kopie auf diesem Gerät und meldet das
+  Konto nicht bei Microsoft ab; um auch diese Sitzung zu beenden, melden Sie sich vor dem Zurücksetzen
+  unter Einstellungen → Integrationen von Microsoft 365 ab. [geprüft: `src/app/app-reset.ts` ruft keine
+  Microsoft-Abmeldung auf und öffnet kein Fenster]
+- alles, was bereits an einen anderen Dienst gesendet wurde. [geprüft: `src/app/app-reset.ts` stellt keine
+  Netzwerkanfrage]

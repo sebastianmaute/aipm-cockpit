@@ -2,9 +2,160 @@
 
 ## Über dieses Dokument
 
+Dieses Dokument beschreibt die Funktionen von AI PM Cockpit, die Daten über Beschäftigte erfassen oder
+sich zu deren Auswertung nutzen lassen, was ein Betreiber und ein Projekt abschalten können und was die KI
+ohne Freigabe durch eine Person tun darf. Es richtet sich an den Betriebsrat und an die Arbeitgeberseite,
+die mit ihm eine Vereinbarung vorbereitet, und ist so geschrieben, dass es einer Betriebsvereinbarung als
+Systembeschreibung beigefügt werden kann. Wann der handgeschriebene Text zuletzt geprüft wurde, steht in
+der [Prüfzeile](README.md#stand-des-textes) der README.
+
+Dieses Dokument ist Material für Ihre eigene Arbeit. Es ist keine Rechtsberatung. Ob die App der
+Mitbestimmung unterliegt und was eine Vereinbarung regeln sollte, entscheiden Arbeitgeber und Betriebsrat.
+[Frage an Sie]
+
+Das Betriebsverfassungsgesetz (BetrVG) gibt dem Betriebsrat ein Mitbestimmungsrecht bei der „Einführung
+und Anwendung von technischen Einrichtungen, die dazu bestimmt sind, das Verhalten oder die Leistung der
+Arbeitnehmer zu überwachen“ (§ 87 Abs. 1 Nr. 6 BetrVG); es verpflichtet den Arbeitgeber, den Betriebsrat
+rechtzeitig über die Planung „von Arbeitsverfahren und Arbeitsabläufen einschließlich des Einsatzes von
+Künstlicher Intelligenz“ zu unterrichten und die vorgesehenen Maßnahmen und ihre Auswirkungen auf die
+Arbeitnehmer mit ihm zu beraten (§ 90 Abs. 1 Nr. 3, Abs. 2 BetrVG); und es gilt die Hinzuziehung eines
+Sachverständigen als erforderlich, soweit der Betriebsrat die Einführung oder Anwendung von Künstlicher
+Intelligenz beurteilen muss (§ 80 Abs. 3 BetrVG). [extern: Betriebsverfassungsgesetz, §§ 87, 90 und 80,
+https://www.gesetze-im-internet.de/betrvg/__87.html, https://www.gesetze-im-internet.de/betrvg/__90.html,
+https://www.gesetze-im-internet.de/betrvg/__80.html, gelesen am 2026-11-13; in Anführungszeichen der
+Wortlaut des Gesetzes, im Übrigen eine Zusammenfassung des Maintainers] Ob diese Vorschriften auf Ihre
+Nutzung anwendbar sind, entscheiden Sie. [Frage an Sie]
+
 ## Funktionen, die Beschäftigte erfassen oder auswerten
 
+Die App hat keine Benutzerkonten. [Aussage des Maintainers; `docs/security.md`, Abschnitt „Security
+model“] Ein Nutzer kann auf seinem Gerät festlegen, welche Person im Ressourcenverzeichnis er ist; tut er
+das, halten die Notizen und Blocker-Einträge, die er schreibt, den Namen und die Ressourcen-ID dieser
+Person mit dem Zeitpunkt fest (siehe die Liste unten). [geprüft: `selfResourceId` in
+`src/app/settings-types.ts`; `NoteLogEntry` und `BlockerEntry` in `src/app/types.ts`;
+`src/app/use-notes-window.ts`, `src/app/blocker-log.ts`] Die App enthält außerdem Daten über die
+Personen, die in einem Projekt arbeiten. Jeder mit Zugriff auf ein Projekt sieht alle diese Daten: Die App
+hat keine Rollen. [Aussage des Maintainers; die Zeile „Zugriff auf Projektdaten regelt Ihr Speicher“ im
+TOM-Blatt] Die folgenden Funktionen erfassen oder bewerten Beschäftigte.
+
+Es gibt zwei Arten von Schaltern. Ein **Projekt** kann eine Funktion in seinen Einstellungen unter
+„Funktionen“ ausblenden; die Daten bleiben gespeichert, und die ausgeblendete Funktion kehrt beim
+Wiedereinschalten so zurück, wie sie war. Ein **Betreiber** kann eine Integration oder die KI mit
+`AIPM_DISABLED_INTEGRATIONS` für die gesamte Bereitstellung abschalten (Tabelle
+[unten](#schalter-für-den-betrieb)). [geprüft: `FEATURE_MODULES` und `sanitizeFeatures` in
+`src/app/feature-modules.ts`; `src/app/deployment-variables.ts`] Auch der KI-Chat kann die Funktionen
+eines Projekts ein- oder ausschalten: Eine solche Änderung wird sofort ausgeführt, ohne Prüfkarte, und
+lässt sich nicht rückgängig machen; sie wird nur protokolliert. [geprüft: `isEntityWriteCall` und der
+Kommentar zu `shouldStage` in `src/app/chat-proposal.ts` (`update_settings` mit `enabledModules`)] Das
+Ausblenden der Ressourcen-Funktion entzieht dem KI-Chat seine Werkzeuge nicht: Dem Chat wird mitgeteilt,
+welche Funktionen eingeschaltet sind, aber solange der Personenschutz aus ist, kann er in diesem Projekt
+weiterhin Personen, Abwesenheiten und Zuteilungen lesen sowie Personen und Abwesenheiten ändern (§810).
+[geprüft: `toolsFor` und `variantKey` in `src/app/chat-api.ts`, deren Einstellungen keinen
+Funktionsschalter enthalten; `PEOPLE_TOOLS` in `src/app/chat-tool-defs.ts`] Für Timelog gilt etwas
+anderes: siehe den Eintrag unten.
+
+- **Aktivitätsprotokoll.** Hält jede Änderung mit Zeitpunkt, Art, den alten und neuen Werten der
+  geänderten Felder (die auch Namen von Personen enthalten können) und der Angabe fest, ob ein Nutzer, die
+  KI oder eine Integration sie vorgenommen hat. Welcher Nutzer, hält es nicht fest. Es behält die neuesten
+  500 Einträge. [geprüft: `src/app/activity-log.ts` (`ActivityActor`, `ACTIVITY_MAX_ENTRIES`)] Schalter:
+  keiner; das Protokoll gehört zu jedem Projekt. [geprüft: `CORE_VIEWS` in `src/app/feature-modules.ts`]
+- **Timelog.** Importiert die Arbeitszeit, die Personen in Timelog erfasst haben, und prüft sie je
+  Person: ein einzelner Eintrag oder die Tagessumme über einem Grenzwert, mehr Stunden als die
+  festgelegten Stunden der Person, Zeit an einem arbeitsfreien Tag oder an einem Tag, an dem die Person
+  abwesend war (Urlaub, Krankheit oder Schulung), und Änderungen in einem abgeschlossenen Monat. Jede
+  Regel, die anschlägt, wird zu einem Insight, das die Person nennt. Die Zahlen werden auf dem Gerät
+  zwischengespeichert. [geprüft: `INSIGHT_TYPES` in `src/app/insights/insight.ts`,
+  `src/app/timelog-policy.ts`, `src/app/timelog-actuals-store.ts`] Schalter: Projekt (die
+  Timelog-Funktion); Betreiber (`timelog`, schaltet die Funktion in jedem Projekt der Bereitstellung ab).
+  Jeder der beiden Schalter beendet die Prüfungen: Es entstehen keine neuen Befunde, gespeicherte Befunde,
+  die niemand angefasst hat, werden entfernt und zur Kenntnis genommene geschlossen (verworfene bleiben,
+  wie sie sind, und solche, auf die eine Person reagiert hat, bleiben eingefroren erhalten), und solange
+  Timelog aus ist, erreicht kein Timelog-Befund die KI (weder im Chat noch in Empfehlungen). Der Schalter
+  des Betreibers wird beim nächsten Laden der Seite wirksam und gilt für die Bereitstellung, nicht für das
+  Projekt: Ein Projekt, das aus einer Bereitstellung mit eingeschaltetem Timelog geöffnet wird, führt die
+  Prüfungen wieder aus. Die zwischengespeicherten Zahlen bleiben auf dem Gerät. [geprüft:
+  `isModuleEnabled` und `MODULE_INTEGRATION` in `src/app/feature-modules.ts`;
+  `src/app/use-insight-lifecycle.ts`; `withTimelog` in `src/app/insights/insight-prompt.ts` und
+  `src/app/chat-api.ts`; `setDisabledIntegrations` in `src/app/integration-switches.ts`]
+- **Notizen und Blocker-Einträge mit ihrem Verfasser.** Aufgaben, RAID-Einträge und Änderungen haben
+  einen datierten Notizverlauf, Aufgaben zusätzlich einen Blocker-Verlauf. Jeder Eintrag speichert seinen
+  Zeitpunkt und, wenn der Verfasser auf seinem Gerät festgelegt hat, wer er ist, den Namen und die
+  Ressourcen-ID dieser Person. [geprüft: `NoteLogEntry` und `BlockerEntry` in `src/app/types.ts`;
+  `src/app/use-notes-window.ts`, `src/app/blocker-log.ts`] Schalter: keiner für die Verläufe als solche;
+  das Ausblenden der Funktion RAID oder Änderungen blendet diese Register samt ihren Verläufen aus.
+  [geprüft: `FEATURE_MODULES` und `CORE_VIEWS` in `src/app/feature-modules.ts`]
+- **Berichte je Person.** Die Berichtsansicht enthält eine Tabelle je zugewiesener Person: Aufgaben
+  insgesamt, offen, erledigt, überfällig sowie pünktlich oder verspätet geliefert, und die Anzahl
+  gesendeter Statusanfragen. [geprüft: `byAssignee` in `computeStats`, `src/app/reports-stats.ts`]
+  Schalter: keiner; Berichte gehören zu jedem Projekt. [geprüft: `CORE_VIEWS` in
+  `src/app/feature-modules.ts`]
+- **Auslastungsansicht.** Zeigt je Person die Anzahl offener Aufgaben, offener RAID-Einträge und
+  überfälliger Aufgaben (mit den überfälligen Aufgaben selbst), Wochenstunden, Schicht und anstehende
+  Abwesenheiten. [geprüft: `src/app/resource-workload-rows.ts`] Schalter: Projekt (die
+  Ressourcen-Funktion).
+- **Ressourcenplanung.** Enthält die geplante Auslastung jeder Person je Zeitraum, in Prozent oder
+  Stunden, gemessen an ihren verfügbaren Stunden. [geprüft: `Resource` in `src/app/types.ts`;
+  `src/app/resource-capacity.ts`] Schalter: Projekt (die Ressourcen-Funktion).
+- **Abwesenheiten.** Erfasst die Person, die Daten, die Art (Urlaub, Krankheit, Schulung oder Sonstiges)
+  und eine Notiz. [geprüft: `Absence` in `src/app/types.ts`] Schalter: Projekt (die Ressourcen-Funktion,
+  die den Abwesenheitskalender enthält). [geprüft: `FEATURE_MODULES` in `src/app/feature-modules.ts`]
+- **Bewertungen von Stakeholdern.** Stakeholder, die auch Beschäftigte sein können, tragen eine Bewertung
+  von Einfluss und Interesse sowie RACI-Rollen je Meilenstein. [geprüft: `Stakeholder` in
+  `src/app/types.ts`] Schalter: Projekt (die Stakeholder-Funktion).
+- **Verknüpfungen derselben Person über Projekte hinweg.** In einer gemeinsam genutzten Turso-Datenbank
+  kann eine Person in einem Projekt mit derselben Person in einem anderen verknüpft werden; der
+  Zuteilungsvorschlag rechnet dann die dort für sie gebuchten Stunden mit ein. [geprüft:
+  `src/app/person-links-schema.ts`; die Zeile „Vorschlag für die Ressourcenplanung“ in der Tabelle
+  [unten](#ki-funktionen-und-die-gesendeten-daten)] Schalter: Der Personenschutz blendet den
+  Zuteilungsvorschlag aus; ein Projekt, das seine Personen schützt, wird bei den von dort gezählten
+  Stunden nicht berücksichtigt. [geprüft: dieselbe Zeile]
+- **KI-Zuteilungsvorschlag („Mit KI planen“).** Schlägt geplante Stunden je Person und Zeitraum vor sowie
+  das Verschieben offener Aufgaben von einer Person auf eine andere. [geprüft:
+  `src/app/alloc-plan/alloc-plan.ts`, `src/app/alloc-plan/alloc-ground-moves.ts`] Schalter: Der
+  Personenschutz blendet ihn aus (standardmäßig an, vom Betreiber mit `ai-people` erzwungen); der Schalter
+  `ai` des Betreibers schaltet die gesamte KI ab. [geprüft: `src/app/use-alloc-plan.tsx`,
+  `src/app/ai-people-protection.ts`]
+- **KI-RACI-Vorschlag.** Schlägt je Stakeholder und Meilenstein eine RACI-Rolle vor. [geprüft:
+  `src/app/raci-suggest/raci-suggest.ts`] Schalter: wie beim Zuteilungsvorschlag. [geprüft:
+  `src/app/ai-disclosure.ts` (`whenProtected: "hidden"`)]
+- **Zuweisungen durch den KI-Chat und die Zeilenbearbeitung.** Solange der Personenschutz aus ist, können
+  der KI-Chat und die Bearbeitung einer Zeile mit „Claude fragen“ die zugewiesene Person einer Aufgabe und
+  andere Personenfelder setzen oder ändern. Bei eingeschaltetem Schutz werden diese Felder aus den
+  Änderungen der KI entfernt, bevor sie ausgeführt werden. [geprüft: `PERSON_FIELDS_BY_TOOL` in
+  `src/app/ai-person-fields.ts`; `inlineAiEditPeopleWithheld` in `src/app/i18n.ts`]
+
+Welche dieser Funktionen Sie nutzen, wer ihre Daten sehen darf und wofür sie genutzt werden dürfen, regelt
+die Vereinbarung. [Frage an Sie]
+
 ## Was der Personenschutz bewirkt
+
+Der Personenschutz ist eine Einstellung je Projekt. Er ist standardmäßig eingeschaltet; ein Nutzer kann
+ihn für ein Projekt in den Einstellungen ausschalten, nach einer Bestätigung, die sagt, dass die KI dann
+die im KI-Datenhinweis aufgeführten Personen sieht. Ein Betreiber kann ihn mit
+`AIPM_DISABLED_INTEGRATIONS=ai-people` in jedem Projekt erzwingen; die Projekteinstellung lässt sich dann
+nicht ausschalten. [geprüft: `src/app/ai-people-protection.ts`; `aiPeopleProtectionOffConfirm` und
+`aiPeopleProtectionLocked` in `src/app/i18n.ts`] Die Einstellung wird mit dem Projekt gespeichert, nicht
+auf dem Gerät: Jeder Nutzer mit Zugriff auf das Projekt, der sie ausschaltet, schaltet sie für alle aus,
+die in diesem Projekt arbeiten. Die App hat keine Rollen, die einschränken würden, wer das tun darf.
+[geprüft: `settingsOverrides` in `src/app/workspace.ts`, `withPeopleAllowed` in
+`src/app/ai-people-protection.ts`; die Rollen: Aussage des Maintainers, `docs/security.md`] Wer ihn
+ausschalten darf oder ob der Betreiber ihn erzwingt, regelt die Vereinbarung. [Frage an Sie]
+
+Solange er eingeschaltet ist, werden die Namen, E-Mail-Adressen und Telefonnummern der Personen, die das
+Projekt kennt, vor dem Senden einer KI-Anfrage durch Platzhalter ersetzt; die KI kann bei keinem Eintrag
+eine Person setzen, ändern oder entfernen; die Werkzeuge des Chats, die Personen, Abwesenheiten,
+Zuteilungen und Kontakte lesen oder ändern, sind abgeschaltet; und der Zuteilungsvorschlag, der
+RACI-Vorschlag und das Cloud-Diktat sind nicht verfügbar. [geprüft: `src/app/ai-people-protection.ts`,
+`src/app/ai-person-fields.ts`, `PEOPLE_TOOLS` in `src/app/chat-tool-defs.ts`, `aiPeopleProtectionHelp` in
+`src/app/i18n.ts`] Namen, die das Projekt nicht kennt und die in Freitext eingegeben werden oder in
+Anhängen stehen, erfasst er nicht. Er wird in der App im Browser durchgesetzt; nur die Diktat-Route lehnt
+auch auf dem Server ab, daher könnte ein veränderter Client ihn umgehen. [geprüft: die Tabelle unten; die
+Zeile „Personenschutz“ im TOM-Blatt]
+
+Die Tabelle führt die KI-Funktionen auf, deren Anfragen Daten über Personen enthalten können, jeweils mit
+der Wirkung des Schutzes. Sie wird aus der Hinweistabelle der App erzeugt. Nicht aufgeführt sind die beiden
+Digest-Zusammenfassungen, die Namen nur enthalten, wo jemand sie in einen Meilensteinnamen geschrieben hat.
+[geprüft: `PEOPLE_PATH_IDS` in `src/app/compliance/pack-blocks.ts`, `src/app/ai-disclosure.ts`]
 
 <!-- PACK:ai-paths-people:BEGIN -->
 | Funktion | Zustimmung | Was gesendet wird | Bei aktivem Personenschutz |
@@ -27,6 +178,12 @@
 <!-- PACK:ai-paths-people:END -->
 
 ## KI-Funktionen und die gesendeten Daten
+
+Alle KI-Funktionen, jeweils mit dem, was sie sendet, und der Zustimmung, die sie braucht. KI ist
+ausgeschaltet, bis ein Nutzer sie einschaltet und diese Liste auf seinem Gerät annimmt; die drei
+Funktionen, deren Zustimmung „gesondert“ abgefragt wird, laufen im Hintergrund, solange die App geöffnet
+ist, ohne dass eine Person jeden Lauf startet (§795). [geprüft: `src/app/ai-disclosure.ts`,
+`src/app/ai-consent.ts`]
 
 <!-- PACK:ai-paths:BEGIN -->
 | Funktion | Zustimmung | Was gesendet wird | Bei aktivem Personenschutz |
@@ -52,7 +209,71 @@
 
 ## Was die KI ohne Freigabe durch eine Person tun darf
 
+Die meisten KI-Funktionen schlagen vor, und eine Person übernimmt. Die Ausnahmen sind je Funktion
+aufgeführt. [geprüft je Punkt unten]
+
+- **Chat mit dem KI-Assistenten.** Eine vorgeschlagene Änderung wartet auf einer Prüfkarte, auf der sich
+  jede Zeile vor „Übernehmen“ abwählen lässt, wenn der Gesprächsschritt etwas löscht, Einladungen an
+  Besprechungsteilnehmer sendet, den Projektdatensatz bearbeitet, ein Datum setzt, das auf die Abwesenheit
+  einer Person fällt, oder über die Nachricht des Nutzers hinweg mehr als eine Änderung vornimmt; und jede
+  Änderung wartet, solange eine Datei an die Unterhaltung angehängt ist. [geprüft: `shouldStage` in
+  `src/app/chat-proposal.ts`, `stagesWhenUntrusted` in `src/app/chat-send-record.ts`] **Ausnahme:** Eine
+  einzelne Änderung außerhalb dieser Fälle wird sofort ausgeführt, ohne Karte (§794). Sie wird als
+  Änderung der KI protokolliert, und die meisten solchen Änderungen lassen sich rückgängig machen, aber
+  keine Person hat sie vorher freigegeben. [geprüft: der Registereintrag §794] Fremder Text, den der Chat
+  über seine Werkzeuge liest, etwa aus Jira synchronisierte Inhalte, löst das Zurückhalten nicht aus
+  (§797). [geprüft: der Registereintrag §797] Eine Statusanfrage, die der Chat vorbereitet, öffnet sich als
+  E-Mail-Entwurf im eigenen Mailprogramm des Nutzers, der sie selbst sendet. [geprüft: `send_inquiry` in
+  `src/app/chat-tool-defs.ts`, `sendInquiry` in `src/app/use-chat-dispatcher.ts`]
+- **Bearbeitung einer Zeile mit „Claude fragen“.** Zeigt die Änderungen und führt sie erst aus, wenn der
+  Nutzer „Anwenden“ wählt. [geprüft: `src/app/inline-ai-edit/plan.ts`; `inlineAiEditPreview` und
+  `inlineAiEditApply` in `src/app/i18n.ts`]
+- **Zuteilungsvorschlag, RACI-Vorschlag, Prüfung auf doppelte Aufgaben, Vorschlag für den
+  Projektstrukturplan.** Jede dieser Funktionen listet die vorgeschlagenen Änderungen einzeln auf (bei der
+  Dublettenprüfung jede vorgeschlagene Zusammenführung), jeder Eintrag lässt sich abwählen, und nichts wird
+  geschrieben, bevor der Nutzer bestätigt. Die Vorschauen für Zuteilung, RACI und Projektstrukturplan
+  zeigen jede Änderung mit ihrem aktuellen und ihrem neuen Wert. [geprüft: `src/app/alloc-plan-modal.tsx`,
+  `src/app/raci-suggest-modal.tsx`, `src/app/task-dedup-modal.tsx`, `src/app/wbs-plan-modal.tsx`]
+  **Ausnahme beim Rückgängigmachen:** Aufgaben, die ein übernommener Projektstrukturplan anlegt, lassen
+  sich nicht rückgängig machen und müssen von Hand gelöscht werden (§796). [geprüft: der Registereintrag
+  §796]
+- **Prognose-Import.** Wird erst nach einer Vorschau ausgeführt und, wo die KI die Zuordnung der Spalten
+  vorgeschlagen hat, erst nachdem der Nutzer diese Zuordnung bestätigt hat. [geprüft:
+  `src/app/forecast-import-modal.tsx`]
+- **Gewichtungsvorschlag für die nächsten Schritte.** Jede vorgeschlagene Gewichtung wird nur mit
+  „Übernehmen“ oder „Alle übernehmen“ übernommen. [geprüft: `weightSuggestAccept` und
+  `weightSuggestAcceptAll` in `src/app/i18n.ts`]
+- **Vorschlag für ein neues Projekt.** Füllt das Formular des Projektassistenten aus, das der Nutzer
+  vervollständigt, bevor das Projekt angelegt wird. [geprüft: `src/app/create-project-wizard.tsx`]
+- **Insight-Empfehlungen, auf Anfrage und automatisch.** Eine Empfehlung wird mit ihrem Insight
+  gespeichert und ändert das Projekt erst, wenn eine Person sie bestätigt. [geprüft:
+  `confirmInsightRecommendation` in `src/app/use-insight-recommendations.ts`;
+  `src/app/use-insight-recommend-runner.ts`]
+- **Entwurf des Lenkungsausschuss-Berichts, Digest-Zusammenfassung, Analyse der nächsten Schritte,
+  Analyse durch geplante Aufträge.** Diese erzeugen Text und ändern keine Projektdatensätze. [geprüft:
+  `src/app/committee-report/report-call.ts`, `src/app/use-digest.ts`, `src/app/use-action-analysis.ts`,
+  `src/app/scheduled-job-run.ts`] **Ausnahme:** Die Analyse durch geplante Aufträge, die automatischen
+  Insight-Empfehlungen und die geplante Digest-Zusammenfassung senden bei jedem Lauf Daten an die KI, ohne
+  dass eine Person ihn startet (§795). [geprüft: `src/app/ai-disclosure.ts`] Schickt sich ein Nutzer den
+  Digest per E-Mail und hat dieser noch keine Zusammenfassung, wird die Zusammenfassung im selben Schritt
+  geschrieben und gesendet, ohne gesonderte Freigabe ihres Textes. [geprüft: `emailDigest` in
+  `src/app/use-digest.ts`, `src/app/digest/digest-mail-sender.ts`]
+
+Keine KI-Funktion läuft, solange die App geschlossen ist: Die Hintergrundfunktionen laufen nur in einer
+geöffneten App. [geprüft: `src/app/use-scheduled-job-runner.ts`, `src/app/use-insight-recommend-runner.ts`]
+
 ## Schalter für den Betrieb
+
+Jede Einstellung, die der Betreiber dem Server der App oder der Desktop-App mitgibt. Für Beschäftigte
+sind die maßgeblichen Werte von `AIPM_DISABLED_INTEGRATIONS` `ai` (die gesamte KI aus), `ai-people`
+(Personenschutz in jedem Projekt erzwungen), `timelog` (Timelog-Integration und -Funktion aus) und `stt`
+(die Speech-to-Text-Route aus), und `AIPM_AI_CHAT_RETENTION_DAYS` legt fest, wie lange gespeicherte
+KI-Chats aufbewahrt werden. [geprüft: `src/app/deployment-variables.ts`] Eine Änderung wird wirksam, wenn
+der Server oder die Desktop-App neu startet. [Aussage des Maintainers; `docs/security.md`, Abschnitt
+„Environment variables“] Die eigenen Einstellungen der Nutzer bleiben gespeichert; wird ein Wert
+entfernt, kehrt die Funktion also so zurück, wie sie war. [geprüft: `src/app/feature-modules.ts`
+(`isModuleSwitchedOff`); die Zeile „Schalter für Integrationen und KI“ im TOM-Blatt] Welche Schalter Ihre
+Bereitstellung setzt und wer sie ändern darf, hält die Vereinbarung fest. [Frage an Sie]
 
 <!-- PACK:deployment-switches:BEGIN -->
 | Variable | Auch akzeptiert als | Gilt für | Erlaubte Werte | Wirkung |

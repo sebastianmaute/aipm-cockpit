@@ -234,7 +234,7 @@ replaced Art 111(2), read 2026-11-13 as above] Whether and how that applies to t
 run is something to check. [question for you]
 
 If your organisation classifies the allocation or RACI suggestions as high-risk, the deployer duties of
-Art 26 would apply to it from that date. In summary: [external: Regulation (EU) 2024/1689, Art 26, read
+Art 26 would apply to it from 2 December 2027, the date for Annex III systems. In summary: [external: Regulation (EU) 2024/1689, Art 26, read
 2026-11-13 as above]
 
 - use the system according to the provider's instructions for use, with appropriate technical and

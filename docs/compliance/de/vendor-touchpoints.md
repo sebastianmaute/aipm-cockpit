@@ -2,13 +2,109 @@
 
 ## Über dieses Dokument
 
+Dieses Dokument sagt, was beim Maintainer von AI PM Cockpit ankommt, wenn Ihre Organisation die App
+nutzt, und führt jeden externen Host auf, den die App kontaktiert. Es richtet sich an Datenschutzbeauftragte,
+die entscheiden müssen, ob der Maintainer personenbezogene Daten erhält, und an
+Informationssicherheitsbeauftragte, die wissen müssen, wohin die App Verbindungen aufbaut. Wann der
+handgeschriebene Text zuletzt geprüft wurde, steht in der [Prüfzeile](README.md#stand-des-textes) der README.
+
+Dieses Dokument ist Material für Ihre eigene Arbeit. Es ist keine Rechtsberatung.
+
 ## Was beim Maintainer ankommt
+
+Nichts, was die App zur Laufzeit tut, sendet Daten an den Maintainer. Der Maintainer betreibt für die
+App keinen Server, kein KI-Gateway, keinen Telemetrie- oder Analysedienst und keinen Dienst für
+Absturzberichte. [Aussage des Maintainers]
+
+Der Code bestätigt das. Die Hosts, zu denen eine Browserseite der App Verbindungen aufbauen darf, legt
+ihre Content Security Policy fest; sie stehen in der ersten Tabelle unten, und keiner von ihnen wird vom
+Maintainer betrieben. [geprüft: `src/proxy.ts`, festgeschrieben durch `src/proxy.test.ts`] Alles, was der
+eigene Server der App und die Desktop-App kontaktieren, steht in der zweiten Tabelle. Ein Test durchläuft
+den ausgelieferten Quellcode und schlägt fehl, wenn ein Verzeichnis einer Server-Route oder eine Datei der
+Desktop-App, die Netzwerkaufrufe macht, in dieser Liste fehlt; keines der aufgeführten Ziele wird vom
+Maintainer betrieben. [geprüft: `src/app/outbound-destinations.ts`,
+`src/app/outbound-destinations.test.ts`]
+
+Die README des Projekts sagt in ihrer Datenschutzerklärung dasselbe für die Desktop-App: kein Konto, kein
+Backend, das Ihre Daten speichert, keine Telemetrie, keine Nutzungsanalyse und keine Absturzberichte.
+[Aussage des Maintainers]
 
 ### Updates
 
+Die Desktop-App sucht in den GitHub-Releases des Projekts nach Updates. Die Anfrage geht an GitHub, nicht
+an den Maintainer. [geprüft: `desktop/src/updater.ts`]
+
+- **Wann.** In einer installierten Desktop-App 10 Sekunden nach dem Start und jedes Mal, wenn der Nutzer
+  den Menüpunkt „Check for updates“ wählt. Wird die Umgebungsvariable `AIPM_DISABLE_UPDATE_CHECK` auf `1`
+  gesetzt, unterbleiben alle Prüfungen. [geprüft: `STARTUP_CHECK_DELAY_MS` in
+  `desktop/src/lib/update-policy.ts`, verwendet in `desktop/src/main.ts`; `desktop/src/updater.ts`;
+  `src/app/deployment-variables.ts`]
+- **Was GitHub sieht.** Die Anfrage selbst, die die IP-Adresse des Computers, den User-Agent der
+  Update-Bibliothek (electron-builder) und eine feste Kennung im Header `x-user-staging-id` trägt. Diese
+  Kennung hat für jede Installation denselben Wert und unterscheidet Installationen daher nicht. Die
+  Update-Bibliothek speichert zudem eine eigene Zufallskennung im Datenordner der App; die App sendet sie
+  nicht. Projektdaten werden nicht gesendet. [geprüft: `desktop/src/updater.ts`; der Test „sends one fixed
+  staging id, never a per-installation one“ in `desktop/src/updater.test.ts`]
+- **Downloads.** Ein Installer wird erst heruntergeladen, nachdem der Nutzer das Update angenommen hat.
+  [geprüft: `desktop/src/updater.ts`]
+- **Was der Maintainer sehen kann.** GitHub führt für jede Release-Datei einen Download-Zähler und stellt
+  ihn als Zahl je Datei bereit (`download_count`). [extern: GitHub REST API, „Release assets“,
+  https://docs.github.com/en/rest/releases/assets, gelesen am 2026-11-13] Darüber hinaus erhält der
+  Maintainer nichts darüber, wer geprüft oder heruntergeladen hat. [Aussage des Maintainers]
+- **Signaturprüfung.** Eine aus einem signierten Release installierte Kopie lehnt ein Update ab, dessen
+  Installer nicht von der SignPath Foundation signiert ist. Bisher ist kein Release signiert (§487), daher
+  schützt diese Prüfung noch keine installierte Kopie. [geprüft: `README.md`, Abschnitt „Code signing
+  policy“; `.github/workflows/release.yml`]
+
+Eine Web-Bereitstellung der App hat keinen Updater. Neue Versionen stellt Ihre Organisation selbst bereit.
+[geprüft: `src/app/outbound-destinations.ts` führt den Updater nur für `desktop/src/updater.ts` auf]
+
+Was GitHub mit den empfangenen Anfragen tut, regeln die eigenen Bedingungen von GitHub, nicht der
+Maintainer. [Aussage des Maintainers] Ob diese Bedingungen für die Update-Prüfungen Ihrer Computer
+annehmbar sind oder ob Sie die Prüfungen abschalten, entscheiden Sie. [Frage an Sie]
+
 ### Support und Schwachstellenmeldungen
 
+Support findet öffentlich statt, über die GitHub-Issues des Repositorys. Eine Schwachstelle wird
+vertraulich über die GitHub-Funktion „Report a vulnerability“ gemeldet, wie `SECURITY.md` es beschreibt.
+[geprüft: `SECURITY.md`]
+
+Beide enthalten nur, was die meldende Person hineinschreibt. Die App hat keine Funktion, die Protokolle,
+Projektdaten oder Diagnosedaten an den Maintainer sendet. [Aussage des Maintainers] Das Diagnoseprotokoll,
+das die App führt, wird im Browser gespeichert (begrenzt auf 200 Ereignisse) und nirgendwohin gesendet.
+[geprüft: `src/app/diagnostics.ts`] Hängen Ihre Beschäftigten Screenshots, Protokolle oder exportierte
+Dateien an ein Issue an, ist dieser Inhalt öffentlich. Legen Sie fest, ob Beschäftigte Probleme öffentlich
+melden dürfen und was sie dabei angeben dürfen. [Frage an Sie]
+
+Der Maintainer hat keinen Fernzugriff auf irgendeine Installation und verlangt keinen. [Aussage des
+Maintainers]
+
 ## Hosts, die der Browser kontaktieren darf
+
+Die Tabelle unten führt jeden externen Host auf, den die Content Security Policy der App einer Seite der
+App zu kontaktieren erlaubt. Sie wird aus denselben Konstanten gelesen, aus denen der Server die Richtlinie
+aufbaut. [geprüft: `src/proxy.ts`] So lesen Sie sie:
+
+- **Direktive.** „Verbindungen“ sind Anfragen, die die Seite selbst stellt (Daten, Anmelde-Tokens).
+  „Eingebettete Frames“ sind Seiten, die die App in sich selbst laden darf; hier nur die
+  Microsoft-Anmeldeseite, die Tokens in einem verborgenen Frame erneuert. [geprüft: `src/proxy.ts`]
+- **Bedingung.** „Immer erlaubt“ heißt, dass die Richtlinie den Host in jeder Bereitstellung zulässt. Die
+  Seite kontaktiert ihn nur, wenn der Nutzer die passende Funktion einrichtet: Turso-Speicher,
+  Microsoft-365-Anmeldung oder, für die beiden lokalen Adressen, eine Turso-Datenbank auf dem eigenen
+  Computer des Nutzers. [Aussage des Maintainers; wofür jeder Host genutzt wird, beschreibt
+  `src/proxy.ts`]
+- **Wer jeden Host betreibt.** `api.anthropic.com` ist Anthropic. `*.turso.io` ist Turso und enthält eine
+  Datenbank in einem Konto, das der Nutzer oder Ihre Organisation angelegt hat. `graph.microsoft.com`,
+  `*.sharepoint.com`, `*.files.1drv.com` und `login.microsoftonline.com` sind Microsoft, tätig für den
+  Microsoft-365-Mandanten, bei dem sich der Nutzer anmeldet. `localhost` und `127.0.0.1` sind der eigene
+  Computer des Nutzers. [geprüft: `src/proxy.ts`]
+- **Nicht in der Tabelle.** Jede Seite darf außerdem ihren eigenen Ursprung kontaktieren: den Server Ihrer
+  Bereitstellung oder, in der Desktop-App, den lokalen Server, den die Desktop-App auf dem Computer des
+  Nutzers startet. [geprüft: `src/proxy.ts` (`connect-src 'self'`)] Nicht erfasst von der Richtlinie wird
+  das Browser-Diktat, das die im Browser eingebaute Spracherkennung nutzt und in manchen Browsern das
+  Audio an den Browserhersteller sendet. Ebenso wenig erfasst sie Fenster, die die App öffnet, etwa das
+  Microsoft-Anmeldefenster, oder Links, denen der Nutzer folgt. [geprüft: `src/proxy.ts`, Kommentar zu
+  `frame-src`; `docs/security.md`]
 
 <!-- PACK:browser-hosts:BEGIN -->
 | Host | Direktive | Bedingung |
@@ -24,7 +120,25 @@
 | https://login.microsoftonline.com | Eingebettete Frames (frame-src) | Immer erlaubt |
 <!-- PACK:browser-hosts:END -->
 
+Die Platzhaltereinträge erlauben jede Turso-Datenbank und jeden SharePoint- oder OneDrive-Dateihost, nicht
+nur Ihre (§800). [geprüft: `src/proxy.ts`; der Registereintrag §800 in `docs/open-followups.md`]
+
 ## Ziele des Servers und der Desktop-App
+
+Manche Anfragen kommen nicht von der Browserseite, sondern vom eigenen Server der App (in einer
+Web-Bereitstellung oder als lokaler Server in der Desktop-App) oder von der Desktop-App selbst. Die
+Content Security Policy sieht diese nicht, daher sind sie gesondert aufgeführt. [geprüft:
+`src/app/outbound-destinations.ts`] So lesen Sie die Tabelle:
+
+- **Betrieben von** nennt, wer den empfangenden Dienst betreibt. „Die bereitstellende Organisation“ ist
+  Ihr eigenes KI-Gateway. „Ein vom Nutzer eingetragener Dienst“ ist jeder Speech-to-Text-Endpunkt, den ein
+  Nutzer in die Einstellungen einträgt.
+- **Code, der sendet** ist die Server-Route oder das Desktop-Modul, das die Anfrage stellt, damit Ihre
+  Prüfer sie lesen können.
+- **Was gesendet wird** und **Auslöser** beschreiben die Anfrage so, wie der Code sie aufbaut. Dort
+  aufgeführte Zugangsdaten (API-Schlüssel, Tokens) gehören dem Nutzer oder Ihrer Organisation; der Server
+  leitet sie weiter und speichert sie nicht. [geprüft: `src/app/outbound-destinations.ts`; für das
+  KI-Relay `docs/security.md`, Abschnitt „AI features“]
 
 <!-- PACK:server-destinations:BEGIN -->
 | Betrieben von | Code, der sendet | Was gesendet wird | Auslöser |
@@ -40,4 +154,53 @@
 | GitHub | desktop/src/updater.ts | Anfragen an github.com nach dem Releases-Feed der App (releases.atom), dem neuesten Release-Tag und dessen Update-Informationsdatei (latest.yml) und, wenn der Nutzer ein Update annimmt, ein Download des Installers (und seiner Block-Map, falls das Release eine hat) von den Release-Asset-Hosts von GitHub; die Update-Prüfungen und Downloads enthalten die IP-Adresse des Anfragenden, den User-Agent der Update-Bibliothek (electron-builder) und eine feste Kennung (Header x-user-staging-id), die für jede Installation gleich ist, jedoch keine Arbeitsbereichsdaten; die Bibliothek speichert weiterhin eine zufällige Kennung je Installation im Datenordner der App, sie bleibt aber auf dem Gerät und wird nicht gesendet. | In einer installierten Desktop-App 10 Sekunden nach dem Start und jedes Mal, wenn der Nutzer Nach Updates suchen wählt, außer AIPM_DISABLE_UPDATE_CHECK ist auf 1 gesetzt; der Download des Installers beginnt erst, wenn der Nutzer das Update annimmt. |
 <!-- PACK:server-destinations:END -->
 
+Die Prüfung auf private Adressen beim Speech-to-Text beurteilt die Adresse so, wie sie eingegeben wurde,
+und löst keinen Hostnamen auf (§803). [geprüft: der Registereintrag §803 in `docs/open-followups.md`]
+
+**Der Server prüft nicht, wer ihn aufruft.** Keine der Server-Routen der App authentifiziert ihren
+Aufrufer; serverseitig gibt es keine Anmeldung. [geprüft: die 15 Routendateien unter `src/app/api`] Jeder,
+der den Server erreicht, kann diese Routen daher nutzen: KI-Anfragen unter dem Token Ihrer Organisation
+über deren Gateway senden (§805) und Anfragen an die Integrationen mit Zugangsdaten senden, über die er
+selbst verfügt. Die Routen für KI und Diktat haben keine Anfragebegrenzung (§806), und die Begrenzung der
+übrigen Routen lässt sich umgehen (§562). [geprüft: die Registereinträge §805, §806 und §562 in
+`docs/open-followups.md`] Betreiben Sie den Server hinter der eigenen Zugangskontrolle Ihrer
+Organisation, etwa einem Reverse Proxy mit Anmeldung, Single Sign-on oder einer Netzwerkbeschränkung.
+[Aussage des Maintainers; wie Sie das umsetzen: Frage an Sie]
+
+Ein Betreiber kann jede serverseitige Integration mit `AIPM_DISABLED_INTEGRATIONS` abschalten; das
+[TOM-Blatt](tom-sheet.md#schalter-für-den-betrieb) führt die Schalter auf. [geprüft:
+`src/app/deployment-variables.ts`, `src/app/api/_shared/integration-switch.ts`]
+
 ## Rollen
+
+**Der Maintainer.** AI PM Cockpit ist ein kostenloses, nicht kommerzielles Open-Source-Projekt. Der
+Maintainer stellt es ohne Vertrag, ohne Service-Level und ohne Supportzeitraum bereit. Korrekturen fließen
+nur in das jeweils neueste Release ein. Schwachstellenmeldungen bearbeitet der Maintainer, wie
+`SECURITY.md` es beschreibt. [Aussage des Maintainers; `SECURITY.md`]
+
+**Ihre Organisation.** Sie entscheiden, wo die App läuft, welchen Speicher und welche Integrationen sie
+nutzt, welche KI-Route und welche Schlüssel sie verwendet und wer sie nutzen darf. Ob Ihre Organisation
+dadurch Verantwortlicher für die Daten in der App ist und auf welcher Rechtsgrundlage sie diese
+verarbeitet, entscheiden Sie. [Frage an Sie]
+
+**Die Dienste, mit denen die App verbunden ist.** Anthropic, Microsoft, Turso, Atlassian, Timelog, ein
+Speech-to-Text-Dienst und ein KI-Gateway erhalten Daten nur über Konten, die der Nutzer oder Ihre
+Organisation einrichtet, mit Schlüsseln oder Anmeldungen, die dem Nutzer oder Ihrer Organisation gehören.
+Der Vertrag für jeden dieser Dienste besteht zwischen dem Dienst und dem Inhaber des Kontos, nicht über
+den Maintainer. [geprüft: die Zugangsdaten in jeder Zeile der Tabelle oben,
+`src/app/outbound-destinations.ts`; Vertragsrollen: Frage an Sie]
+
+Für Anthropic gilt: Seine Commercial Terms beziehen sein Data Processing Addendum durch Verweis ein.
+[extern: Anthropic Commercial Terms of Service, https://www.anthropic.com/legal/commercial-terms, gültig
+ab 17. Juni 2025, gelesen am 2026-11-13] Dieses Addendum legt fest, dass für personenbezogene Daten des
+Kunden der Kunde Verantwortlicher und Anthropic Auftragsverarbeiter des Kunden ist. [extern: Anthropic
+Data Processing Addendum, https://www.anthropic.com/legal/data-processing-addendum, gültig ab
+24. Februar 2025, gelesen am 2026-11-13] Wer der „Kunde“ ist, hängt davon ab, zu wessen Anthropic-Konto
+der API-Schlüssel gehört: zu dem Ihrer Organisation oder zum eigenen Konto eines Beschäftigten. Ein
+Betreiber kann die App so einstellen, dass sie nur Schlüssel des Anthropic-Kontos Ihrer Organisation
+annimmt (`AIPM_AI_ORGANIZATION_ID`). [geprüft: `src/app/ai-key-restriction-config.ts`] Ob Sie das
+einstellen und ob Ihr Vertrag mit Anthropic diese Nutzung abdeckt, prüfen Sie. [Frage an Sie]
+
+**GitHub.** GitHub hostet den Code, die Releases und die Issues und empfängt die oben beschriebenen
+Update-Prüfungen. [geprüft: `desktop/src/updater.ts`] Der Maintainer hat keine Vereinbarung mit GitHub in
+Ihrem Namen. [Aussage des Maintainers]
