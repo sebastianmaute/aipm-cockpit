@@ -464,6 +464,38 @@ describe("InsightsPanel", () => {
         expect(screen.getByText(offNote)).toBeInTheDocument();
       });
 
+      describe("with a proposed recommendation", () => {
+        const proposed = () =>
+          guardrail({ recommendation: { summary: "Cap the day", proposedCalls: [], generatedAt: "2026-06-10T00:00:00.000Z", status: "proposed" } });
+        const applyName = `${t("en-US", "insightApplyRecommendation")} – ${titleOf("timelogCapPerDay")}`;
+        const rejectName = `${t("en-US", "insightRejectRecommendation")} – ${titleOf("timelogCapPerDay")}`;
+
+        it("offers no Apply while Timelog is off, says why, and keeps Reject", () => {
+          renderWith([proposed()], false);
+          expect(screen.queryByRole("button", { name: applyName })).toBeNull();
+          expect(screen.getByText(offNote)).toBeInTheDocument();
+          expect(screen.getByRole("button", { name: rejectName })).toBeInTheDocument();
+        });
+
+        it("offers Apply, with no note, while Timelog is on", () => {
+          renderWith([proposed()], true);
+          expect(screen.getByRole("button", { name: applyName })).toBeInTheDocument();
+          expect(screen.getByRole("button", { name: rejectName })).toBeInTheDocument();
+          expect(screen.queryByText(offNote)).toBeNull();
+        });
+
+        it("keeps Apply on a proposed recommendation of any other insight while Timelog is off", () => {
+          renderWith(
+            [makeInsight({ id: 23, type: "milestoneSlip", status: "active", recommendation: { summary: "s", proposedCalls: [], generatedAt: "2026-06-10T00:00:00.000Z", status: "proposed" } })],
+            false,
+          );
+          expect(
+            screen.getByRole("button", { name: `${t("en-US", "insightApplyRecommendation")} – ${titleOf("milestoneSlip")}` }),
+          ).toBeInTheDocument();
+          expect(screen.queryByText(offNote)).toBeNull();
+        });
+      });
+
       it("leaves the Generate control on every other insight", () => {
         renderWith([guardrail(), makeInsight({ id: 22, type: "milestoneSlip", status: "active" })], false);
         expect(
