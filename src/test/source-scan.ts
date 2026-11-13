@@ -120,6 +120,11 @@ const REQUIRE_BINDING = new RegExp(
 const DYNAMIC_IMPORT = new RegExp(String.raw`\bimport\(\s*${NODE_HTTP_MODULE}\s*\)`);
 /** `https.get(`, `http.request(` and the like, whatever the module was imported as. */
 const MODULE_CALL = /\bhttps?\.(?:get|request)\(/;
+/** A method called straight on an unbound `require`: `require("node:https").get(`, with any
+ *  whitespace (line breaks included) around the dot and before the bracket. */
+const CHAINED_REQUIRE_CALL = new RegExp(
+  String.raw`\brequire\(\s*${NODE_HTTP_MODULE}\s*\)\s*\.\s*(?:get|request)\s*\(`,
+);
 
 const escapeName = (name: string): string => name.replace(/\$/g, "\\$");
 const callOf = (name: string): RegExp => new RegExp(String.raw`(?<![\w$.])${escapeName(name)}\(`);
@@ -154,11 +159,15 @@ function importClauseBindings(clause: string): { methods: string[]; modules: str
  *  - a `get` or `request` bound from `node:http(s)` (or `http(s)`) under any local name, by a static
  *    import (`{ … }`, also beside a default import) or a destructuring `require`, and then called;
  *  - either method on a module object: a default or `* as` import, or `const x = require(…)`;
+ *  - either method chained straight on `require("node:https")`;
  *  - any dynamic `import("node:https")` — counted as a call however it is used, the safe direction for
  *    a registry scan.
- *  A type-only import is not a call. */
+ *  A type-only import is not a call. Deliberate false positive: the code is read as text with string
+ *  contents kept (`stripComments` keeps them), so a string or template literal that spells one of these
+ *  forms counts as a call too — again the safe direction; the module name in escaped quotes inside a
+ *  "…" string does not match. */
 export function callsNodeHttp(code: string): boolean {
-  if (MODULE_CALL.test(code) || DYNAMIC_IMPORT.test(code)) return true;
+  if (MODULE_CALL.test(code) || CHAINED_REQUIRE_CALL.test(code) || DYNAMIC_IMPORT.test(code)) return true;
   const methods: string[] = [];
   const modules: string[] = [];
   for (const m of code.matchAll(STATIC_IMPORT)) {

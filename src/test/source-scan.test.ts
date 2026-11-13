@@ -69,7 +69,24 @@ describe("callsNodeHttp", () => {
     ['const { request } = await import("node:https");\nrequest(u);'],
     ['const mod = await import("node:https");\nmod.request(u);'],
     ['import("node:https").then((m) => m.get(u));'],
+    ['require("node:https").get(u);'],
+    ['require("https").request(o, cb);'],
+    ["require('node:http').get(u);"],
+    ['require("http") .request(u);'],
+    ['require("node:https")\n  .get(u);'],
+    ['require( "node:https" ).get (u);'],
   ])("finds a node:http(s) call: %s", (src) => {
+    expect(callsNodeHttp(src)).toBe(true);
+  });
+
+  // Deliberate false positive: the scan reads code as text and keeps string contents, so a string or
+  // template literal that only SPELLS an import of the module and a call counts as one. For a registry
+  // scan that is the safe direction (the file is asked to register or give a reason), so it is pinned
+  // rather than fixed.
+  it.each([
+    ['const doc = `import("node:https")`;'],
+    ['const doc = `import client from "node:https"; client.get(u)`;'],
+  ])("counts a string that only spells a node:http(s) call (deliberate false positive): %s", (src) => {
     expect(callsNodeHttp(src)).toBe(true);
   });
 
@@ -81,6 +98,11 @@ describe("callsNodeHttp", () => {
     ['const { STATUS_CODES } = require("node:http");\nlog(STATUS_CODES);'],
     ['const { request } = require("./local");\nrequest(u);'],
     ['import client, { STATUS_CODES } from "./local";\nclient.get(u);'],
+    ['const codes = require("node:https").STATUS_CODES;'],
+    ['require("./local").get(u);'],
+    ['require("node:https").getHeader(u);'],
+    // The module name in escaped quotes inside a "…" string does not read as an import.
+    ['const doc = "import client from \\"node:https\\"; client.get(u)";'],
   ])("ignores what is not a node:http(s) call: %s", (src) => {
     expect(callsNodeHttp(src)).toBe(false);
   });
