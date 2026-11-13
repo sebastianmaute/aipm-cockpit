@@ -6165,6 +6165,16 @@ const enUS = {
   chatProposalExpired: "This proposal is no longer active.",
   chatProposalDiscarded: "Proposal discarded.",
   chatProposalScopeChanged: "This plan was made for a different project and was not applied.",
+  deployVarAiGatewayUrl: "Sends this deployment's AI requests to the given https gateway address instead of directly to Anthropic; an unusable value makes AI requests fail until it is fixed.",
+  deployVarAiGatewayToken: "Token the server sends to the AI gateway with each request; it never reaches the browser, and without a gateway address it is an invalid setting.",
+  deployVarAiOrganizationId: "Restricts AI use to API keys of this Anthropic organisation: the server checks each key's organisation before forwarding a request and refuses other keys.",
+  deployVarAiWorkspaceIds: "With the organisation id, further restricts AI use to keys of the listed Anthropic workspaces (comma-separated); without the organisation id it is an invalid setting.",
+  deployVarDisabledIntegrations: "Comma-separated integrations this deployment switches off: the server refuses their requests and the app hides them, and the value ai-people keeps the AI from seeing people data in every project.",
+  deployVarAiChatRetentionDays: "Days a saved AI chat is kept before the server deletes it (1 to 3650, 30 when unset); an invalid value pauses deletion for age until it is fixed.",
+  deployVarAiChatRecoveryPublicKey: "Operator's RSA public key (base64, at least 3072 bits) that saved AI chats are also encrypted to for recovery; while it is unset or unusable, no chat is saved.",
+  deployVarChatSweepTursoUrl: "Turso database address the server's daily deletion of expired AI chats connects to; when unset, the public Turso address of the app is used instead.",
+  deployVarChatSweepTursoToken: "Auth token paired with the sweep database address for the server's daily deletion of expired AI chats.",
+  deployVarDisableUpdateCheck: "Set to 1, the desktop app makes no update checks and shows no update dialog.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
