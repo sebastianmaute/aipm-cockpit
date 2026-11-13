@@ -16,7 +16,7 @@ import { getMsalConfig } from "./msal-config";
 
 const LOP_APP_PREFIX = "aipm-cockpit:";
 /** Same key as `use-settings.ts` `SETTINGS_KEY`; a literal, as in `recovery-config.ts`, so the
- *  reset (also run from the recovery page) does not pull in the settings hook module. */
+ *  reset does not pull in the settings hook module. */
 const SETTINGS_KEY = `${LOP_APP_PREFIX}settings`;
 /** IndexedDB databases a full reset removes. These hold CONFIG, not project
  *  data: the non-extractable secrets device key, and saved File-System-Access
@@ -34,9 +34,9 @@ const CONFIG_DBS = ["aipm-cockpit-secrets", "aipm-cockpit-project-handles"] as c
  *  credential keys written by older MSAL versions) — the library's own `clear` matches those by
  *  client id, and so does this.
  *
- *  The library's `clearCache` is NOT used: it needs an initialised `PublicClientApplication`,
- *  which the recovery page and safe mode never create, and it is async while the reset reloads
- *  straight after. Removing the keys signs nothing out at Microsoft and opens no window. */
+ *  The library's `clearCache` is NOT used: the Settings reset runs whether or not M365 was ever
+ *  initialised in this tab, `clearCache` needs an initialised `PublicClientApplication`, and it
+ *  is async while the reset reloads synchronously straight after. Removing the keys signs nothing out at Microsoft and opens no window. */
 const MSAL_KEY_PREFIX = "msal.";
 /** Entra application (client) ids are GUIDs. Anything else is not used to match keys, so a
  *  malformed setting cannot widen the sweep to unrelated keys. */

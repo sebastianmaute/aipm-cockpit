@@ -117,7 +117,7 @@ describe("clearAppConfig removes the Microsoft sign-in cache", () => {
     expect(localStorage.getItem(appMetadataKey)).toBeNull();
   });
 
-  it("works with no settings at all, as on the recovery page", () => {
+  it("works with no settings at all, when M365 was never configured", () => {
     seedMsalCache();
     expect(localStorage.getItem("aipm-cockpit:settings")).toBeNull();
     clearAppConfig();

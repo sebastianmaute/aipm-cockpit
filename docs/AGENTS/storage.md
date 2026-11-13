@@ -694,8 +694,13 @@ deletes the two config IndexedDB databases, `aipm-cockpit-secrets` and
 `aipm-cockpit-project-handles` (`grep -n "CONFIG_DBS" src/app/app-reset.ts`). Before that sweep it
 removes the Microsoft sign-in cache from localStorage and sessionStorage by MSAL's own key scheme
 (`removeMsalKeys`: every `msal.` key, plus unprefixed keys holding the configured client id, which
-it reads from the settings before they go). It does not call the library's own cache clear, which
-needs an initialised instance the recovery page never has, and it signs nothing out at Microsoft.
+it reads from the settings before they go). It does not call the library's own cache clear: the
+reset runs whether or not M365 was ever initialised in this tab, that clear needs an initialised
+instance, and it is async while the reset reloads synchronously. It signs nothing out at Microsoft,
+and it leaves MSAL's `msal.cache.encryption` session cookie (a key, no token; it expires at session
+end), as MSAL's own clear does. Unprefixed entries written by MSAL versions before the
+schema-versioned `msal.` keys (msal-browser 4.x and earlier) survive only when no client id is known,
+and any token in them would be a long-expired refresh token.
 It never deletes the workspace database `aipm-cockpit`, files or Turso data. Rule: `AGENTS.md`
 **App config vs project data (reset/clear boundary)**.
 
