@@ -69,6 +69,12 @@ function headingIsClosed(title: string): boolean {
   return /\bCLOSED\b/.test(title) || title.includes("~~");
 }
 
+/** A register title without its trailing open-status suffix ("— OPEN", "— open", "— OPEN (decision owed)"):
+ *  every cited gap is open, so the suffix says nothing in the pack's table. */
+export function gapTitle(title: string): string {
+  return title.replace(/\s+—\s+open\b(?:\s*\([^)]*\))?\s*$/i, "");
+}
+
 /** `{ number -> title }` for every `## N. title` heading of the register. */
 function registerTitles(src: string): Map<number, string> {
   const titles = new Map<number, string>();
@@ -96,7 +102,7 @@ export function renderPackBlocks(lang: PackLang, registerSrc: string, citedGaps:
     const title = titles.get(n);
     if (title === undefined) throw new Error(`open-gaps: the register has no entry ${n}`);
     if (headingIsClosed(title)) throw new Error(`open-gaps: register entry ${n} is closed`);
-    return [`§${n}`, title];
+    return [`§${n}`, gapTitle(title)];
   });
 
   const hostRows = [

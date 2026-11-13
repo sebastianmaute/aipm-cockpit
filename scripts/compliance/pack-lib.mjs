@@ -190,7 +190,9 @@ export const DENY_PHRASES = Object.freeze({
     { re: "eu[- ]hosted", label: "eu-hosted" },
     { re: "hosted\\s+in\\s+(?:the\\s+eu|germany)", label: "hosted in the EU or Germany" },
     { re: "stays?\\s+in\\s+the\\s+eu", label: "stays in the EU" },
-    { re: "never\\s+(?:leaves?|sent)", label: "never leaves / never sent" },
+    // Not "never sent": the app's own disclosure texts, which the generated blocks publish, list the fields a
+    // path withholds as "Never sent: …". That is a fact about one request, not a claim about the product.
+    { re: "never\\s+leaves?", label: "never leaves" },
     { re: "no\\s+(?:personal\\s+)?data\\s+(?:is\\s+sent|leaves)", label: "no data is sent / leaves" },
     "fully auditable",
     { re: "instant(?:ly)?\\s+revo(?:cation|ked)", label: "instant revocation" },

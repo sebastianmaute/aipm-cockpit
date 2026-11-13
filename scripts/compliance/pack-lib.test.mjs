@@ -186,7 +186,7 @@ describe("claimViolations", () => {
   it.each([
     ["en", "never leave the device"],
     ["en", "no data leaves the device"],
-    ["en", "it is never sent"],
+    ["en", "your data never leaves the network"],
     ["en", "data stays in the EU"],
     ["en", "the app complies with the GDPR"],
     ["en", "in compliance with the GDPR"],
@@ -215,6 +215,7 @@ describe("claimViolations", () => {
     ["en", "compliance"],
     ["en", "Compliance-Paket"],
     ["en", "the compliance pack"],
+    ["en", "Never sent: e-mail addresses, note logs and a person's phone number."],
   ])("does not flag %s: %s", (lang, text) => {
     expect(claimViolations(text, lang), text).toEqual([]);
   });

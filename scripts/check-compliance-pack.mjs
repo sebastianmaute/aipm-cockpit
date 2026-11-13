@@ -5,14 +5,16 @@
 //
 // Checks, with the pure rules in scripts/compliance/pack-lib.mjs:
 //   1. markers: every file parses (no unknown, unpaired or nested block) and carries
-//      exactly the blocks BLOCKS_BY_FILE (pack-config.mjs) assigns it;
+//      exactly the blocks BLOCKS_BY_FILE (pack-config.mjs) assigns it; BLOCKS_BY_FILE
+//      names every PACK_FILES file and nothing else;
 //   2. parity: en/ and de/ hold the same files, each pair with the same heading levels
 //      and block names in the same order;
-//   3. claims: no deny-listed phrase in either language, in the hand-written text
-//      (generated block bodies are the app's own texts, pinned by the drift test);
+//   3. claims: no deny-listed phrase in either language, anywhere in a file, generated
+//      block bodies included (they are published like the prose around them);
 //   4. gaps: every CITED_GAPS number is an open register entry;
 //   5. review line: each README has exactly one, both name the same version and date,
-//      and the version is not newer than APP_VERSION (read from src/app/version.ts as text).
+//      and the version is not newer than APP_VERSION (read from src/app/version.ts as text);
+//   6. the root README links to en/README.md and de/README.md.
 // Whether the block BODIES match the code is the unit test pack-drift.test.ts, because
 // rendering them needs the TypeScript sources; `npm run compliance:generate` rewrites them.
 //
@@ -35,38 +37,6 @@ import {
 const PACK_DIR = "docs/compliance";
 const REGISTER = "docs/open-followups.md";
 const VERSION_FILE = "src/app/version.ts";
-
-const MARKER_RE = /^\s*<!-- PACK:[A-Za-z0-9-]+:(BEGIN|END) -->\s*$/;
-const FENCE_RE = /^ {0,3}(`{3,}|~{3,})/;
-
-/** The file with every generated block body blanked, line numbers kept. A body
- *  reproduces the app's own disclosure texts (for example a "Never sent:" list of
- *  withheld fields), which the drift test pins to the code; the claim check is for
- *  the prose written by hand around them. */
-function withoutBlockBodies(src) {
-  let inBlock = false;
-  let fence = null;
-  return src
-    .split(/\r?\n/)
-    .map((line) => {
-      const f = FENCE_RE.exec(line);
-      if (fence) {
-        if (f && f[1][0] === fence[0] && f[1].length >= fence.length && line.trim() === f[1]) fence = null;
-        return inBlock ? "" : line;
-      }
-      if (f) {
-        fence = f[1];
-        return inBlock ? "" : line;
-      }
-      const m = MARKER_RE.exec(line);
-      if (m) {
-        inBlock = m[1] === "BEGIN";
-        return line;
-      }
-      return inBlock ? "" : line;
-    })
-    .join("\n");
-}
 
 function cannotScan(message) {
   console.error(`CANNOT SCAN: ${message}`);
@@ -93,9 +63,19 @@ const versionMatch = /export const APP_VERSION = "(\d+\.\d+\.\d+)"/.exec(read(VE
 if (!versionMatch) cannotScan(`${VERSION_FILE}: APP_VERSION declaration not found.`);
 const appVersion = versionMatch[1];
 const register = read(REGISTER);
-read(join(PACK_DIR, "README.md"));
+const rootReadme = read(join(PACK_DIR, "README.md"));
 
 const violations = [];
+for (const lang of PACK_LANGS) {
+  if (!rootReadme.includes(`](${lang}/README.md)`)) violations.push(`README.md: no link to ${lang}/README.md`);
+}
+for (const c of claimViolations(rootReadme, "en")) violations.push(`README.md: ${c}`);
+for (const name of PACK_FILES) {
+  if (!Object.hasOwn(BLOCKS_BY_FILE, name)) violations.push(`BLOCKS_BY_FILE: no entry for ${name}`);
+}
+for (const name of Object.keys(BLOCKS_BY_FILE)) {
+  if (!PACK_FILES.includes(name)) violations.push(`BLOCKS_BY_FILE: ${name} is not a pack file (PACK_FILES)`);
+}
 const trees = {};
 for (const lang of PACK_LANGS) {
   const dir = join(PACK_DIR, lang);
@@ -114,14 +94,14 @@ for (const lang of PACK_LANGS) {
   for (const [name, src] of Object.entries(trees[lang])) {
     const { blocks, errors } = parseBlocks(src);
     for (const e of errors) violations.push(`${lang}/${name}: ${e}`);
-    const expected = BLOCKS_BY_FILE[name];
+    const expected = Object.hasOwn(BLOCKS_BY_FILE, name) ? BLOCKS_BY_FILE[name] : [];
     const actual = blocks.map((b) => b.name);
-    if (expected && actual.join(",") !== expected.join(",")) {
+    if (actual.join(",") !== expected.join(",")) {
       violations.push(
         `${lang}/${name}: blocks [${actual.join(", ")}], expected [${expected.join(", ")}] (BLOCKS_BY_FILE)`,
       );
     }
-    for (const c of claimViolations(withoutBlockBodies(src), lang)) violations.push(`${lang}/${name}: ${c}`);
+    for (const c of claimViolations(src, lang)) violations.push(`${lang}/${name}: ${c}`);
   }
 }
 

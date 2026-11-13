@@ -797,11 +797,13 @@ npm run followups:index:check # heading ⟺ index-row GATE over docs/open-follow
                             # `check-followup-index.mjs` owns the I/O and the exit codes.
 npm run compliance:check    # compliance pack GATE over docs/compliance/{en,de}/ (BLOCKING in CI, `static`)
                             # Fails on a malformed, unknown or misplaced generated block (each file's
-                            # blocks are BLOCKS_BY_FILE in `scripts/compliance/pack-config.mjs`), an
-                            # English/German pair whose heading levels or block names differ, a denied
-                            # claim in the hand-written text, a CITED_GAPS number that is not an open
-                            # register entry, or a README review line that is missing, doubled, differs
-                            # between the languages or names a version newer than APP_VERSION.
+                            # blocks are BLOCKS_BY_FILE in `scripts/compliance/pack-config.mjs`, which
+                            # must name every pack file), an English/German pair whose heading levels or
+                            # block names differ, a denied claim anywhere in a file (generated block
+                            # bodies included: they are published too), a CITED_GAPS number that is not an
+                            # open register entry, a README review line that is missing, doubled, differs
+                            # between the languages or names a version newer than APP_VERSION, or a root
+                            # README without its links to en/README.md and de/README.md.
                             # ★★ Exit 1 = drift, exit 2 = could not scan (docs/compliance, a language
                             # directory, the register or src/app/version.ts unreadable).
                             # ★★ It does NOT check that block BODIES match the code: rendering them needs

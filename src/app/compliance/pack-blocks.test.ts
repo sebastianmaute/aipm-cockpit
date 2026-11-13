@@ -5,7 +5,7 @@ import { CSP_CONNECT_HOSTS, CSP_FRAME_HOSTS } from "../../proxy";
 import { DEPLOYMENT_VARIABLES } from "../deployment-variables";
 import { OUTBOUND_DESTINATIONS } from "../outbound-destinations";
 import { BLOCK_NAMES } from "../../../scripts/compliance/pack-lib.mjs";
-import { PEOPLE_PATH_IDS, renderPackBlocks, type PackLang } from "./pack-blocks";
+import { PEOPLE_PATH_IDS, gapTitle, renderPackBlocks, type PackLang } from "./pack-blocks";
 
 const REGISTER = [
   "# Register",
@@ -111,6 +111,25 @@ describe("pack-blocks", () => {
     expect(gaps).toContain("§12");
     expect(gaps).toContain("A gap with a \\| pipe in `code`");
     expect(gaps).not.toContain("Done thing");
+  });
+
+  it("open-gaps drops a trailing open-status suffix from a title, and nothing else", () => {
+    const register = [
+      "## 1. Plain title",
+      "## 2. Signing is off — OPEN",
+      "## 3. A limiter — OPEN (decision owed)",
+      "## 4. Fork PRs — open",
+      "## 5. Open questions — the OPEN half stays",
+    ].join("\n");
+    const rowsOf = rows(renderPackBlocks("en", register, [1, 2, 3, 4, 5])["open-gaps"]).slice(2);
+    expect(rowsOf).toEqual([
+      "| §1 | Plain title |",
+      "| §2 | Signing is off |",
+      "| §3 | A limiter |",
+      "| §4 | Fork PRs |",
+      "| §5 | Open questions — the OPEN half stays |",
+    ]);
+    expect(gapTitle("Signing is off — OPEN (tied to the publishing decision)")).toBe("Signing is off");
   });
 
   it("the anthropic condition names all three requirements", () => {

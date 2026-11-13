@@ -727,7 +727,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§484](#484-storage-and-recovery-have-no-docsagents-reference--closed-2026-09-28) | Storage and recovery have no docs/AGENTS reference | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — narrowed 2026-09-27 to one new storage/recovery file, citing symbols rather than line numbers | **CLOSED** 2026-09-28 |
 | [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--closed-2026-09-27) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | **CLOSED** 2026-09-27 |
 | [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--closed-2026-09-26) | ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13; fixed on `fix/defect-batch-6` | M — a per-item `calendarOptOut` across all six write paths, the reconcile change, and an editor checkbox | **CLOSED** 2026-09-26 |
-| [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
+| [§487](#487-the-windows-installer-is-still-unsigned-the-signing-pipeline-exists-but-is-switched-off-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is still unsigned: the signing pipeline exists but is switched off, so every install shows an unknown-publisher warning | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
 | [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--closed-2026-10-02) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | **CLOSED** 2026-10-02 |
 | [§489](#489-the-floating-helpmenu-has-no-deep-link-input-and-nothing-calls-for-one-yet--closed-2026-10-03) | The floating HelpMenu has no deep-link input, and nothing calls for one yet | split 2026-09-13 from §424 (gap 4), whose modal half shipped as a popover and so never needed this route | S–M once a caller exists — a request prop following the remount-swallow rule | **CLOSED** 2026-10-03 |
 | [§490](#490-six-write-path-persistence-is-mitigated-per-slice-only-and-the-unified-codec-and-schema-rewrite-stays-deferred--open) | Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred | tech-debt-register TD-2 (Phase 3 T10), moved into the register 2026-09-13 | L if ever built — a unified codec/schema layer across JSON, CSV, Markdown, both Turso layouts and IndexedDB; the near-term work is the decision | open |
@@ -1032,13 +1032,14 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§794](#794-a-single-ai-chat-write-applies-without-the-review-card) | A single AI chat write applies without the review card | — | — | open |
 | [§795](#795-background-ai-runs-are-consented-once-not-approved-run-by-run) | Background AI runs are consented once, not approved run by run | — | — | open |
 | [§796](#796-tasks-created-by-plan-with-ais-work-breakdown-cannot-be-undone) | Tasks created by Plan with AI's work breakdown cannot be undone | — | — | open |
-| [§797](#797-the-chats-review-hold-for-untrusted-input-reacts-to-attachments-only-not-to-text-imported-from-jira) | The chat's review hold for untrusted input reacts to attachments only, not to text imported from Jira | — | — | open |
-| [§798](#798-ai-requests-have-no-client-timeout-on-the-direct-route-and-are-not-retried-on-a-rate-limit-or-overload) | AI requests have no client timeout on the direct route and are not retried on a rate limit or overload | — | — | open |
+| [§797](#797-external-text-that-the-chats-tools-read-does-not-trigger-the-review-hold) | External text that the chat's tools read does not trigger the review hold | — | — | open |
+| [§798](#798-most-ai-requests-have-no-client-time-limit-and-none-is-retried-on-a-rate-limit-or-overload) | Most AI requests have no client time limit, and none is retried on a rate limit or overload | — | — | open |
 | [§799](#799-an-activity-entry-written-by-the-ai-does-not-link-to-the-chat-message-that-caused-it) | An activity entry written by the AI does not link to the chat message that caused it | — | — | open |
 | [§800](#800-the-content-security-policy-allows-whole-host-families-by-wildcard) | The Content Security Policy allows whole host families by wildcard | — | — | open |
 | [§801](#801-text-the-ai-writes-carries-no-machine-readable-marking) | Text the AI writes carries no machine-readable marking | — | — | open |
 | [§802](#802-the-ai-gateway-route-has-never-been-run-against-a-real-gateway) | The AI gateway route has never been run against a real gateway | — | — | open |
-| [§803](#803-dictations-private-address-guard-checks-ip-literals-only) | Dictation's private-address guard checks IP literals only | — | — | open |
+| [§803](#803-dictations-private-address-check-does-not-resolve-host-names) | Dictation's private-address check does not resolve host names | — | — | open |
+| [§804](#804-plan-with-ai-always-sends-internal-hourly-rates-there-is-no-option-to-leave-them-out) | Plan with AI always sends internal hourly rates; there is no option to leave them out | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38291,7 +38292,7 @@ class as `outlookEventId`'s write-through race and is not specific to this fix.
 
 **Source:** `docs/superpowers/plans/2026-07-02-calendar-twoway-sp5-autopull.md`, `docs/tech-debt-register.md` (TD-3); audit candidate 9
 
-## 487. The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN
+## 487. The Windows installer is still unsigned: the signing pipeline exists but is switched off, so every install shows an unknown-publisher warning — OPEN
 
 **Status:** **Update 2026-11-06 (signing pipeline, not yet switched on):** a code-signing pipeline now exists but is switched off: the release workflow's signing jobs (`sign-app`, `sign-installer`) have SignPath Foundation sign the setup (and, with `SIGNPATH_SIGN_APP_EXE`, the app's own executables) once the owner sets `SIGNPATH_ENABLED` (`grep -n "SIGNPATH_ENABLED" .github/workflows/release.yml`), a signed build refuses any update not signed by SignPath Foundation (`desktop/src/update-signature.ts`), and the README's "Code signing policy" and the RUNBOOK's one-time setup checklist describe it. Nothing is signed until then, so this entry stays open; it closes with the first release whose notes carry the SignPath line. The unsigned uninstaller is [§793](#793-the-installers-uninstaller-is-not-code-signed). The "Sign in `.github/workflows/release.yml`'s `build` job" step below is superseded: signing happens in the `sign` job, and `signExecutable: false` stays, since electron-builder itself never signs. **Earlier:** **Update 2026-10-20 (open-issue audit, `origin/main` 362d2a1d0):** still open, and the signing question is unchanged. The "2026-09-24 (gap found while verifying the above)" paragraph below is resolved: §741 closed 2026-10-20. Its PR #826 made `e2e/desktop-smoke.spec.ts` launch the packaged app with `AIPM_UPDATER_DRY_RUN=1` in place of `AIPM_DISABLE_UPDATE_CHECK` (`grep -n "AIPM_UPDATER_DRY_RUN" e2e/desktop-smoke.spec.ts`), so the smoke test loads and wires the real electron-updater and fails on either fallback line. PR #829 recorded the owner's passing packaged run. The smoke test runs in no CI job. **Earlier:** **Update 2026-10-16 (owner decision):** the unknown-publisher warning is accepted for the pilot phase. No certificate is bought now; the entry stays open to revisit before a wider rollout. Meanwhile the rollout guide walks users through both warnings (`grep -n "Keep anyway" docs/desktop-rollout.md`). The updater smoke-test gap recorded below is now its own entry, §741.
 
@@ -40820,7 +40821,7 @@ Related: §13 (PX-9's original filing).
 
 ## 563. The desktop installer is unsigned — OPEN (tied to the publishing decision)
 
-**Status:** **Update 2026-11-06 (signing pipeline, not yet switched on):** the ★ rule's "sign if public" half now has its mechanism, switched off until the owner turns it on; [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open)'s update of the same date describes it. This entry stays open with §487 and closes with the first release whose notes carry the SignPath line. The stale `electron-builder.yml` comment this entry's 2026-10-12 update quoted ("not yet configured") is rewritten. **Earlier:** **Update 2026-10-12 (§138 P2 probe):** the gap is now LIVE. The repository is public and its Releases page carries v1.14.0-rc.1 through v1.17.0; `Get-AuthenticodeSignature` on the downloaded `aipm-cockpit-1.17.0-setup.exe` → `NotSigned` (control: notepad.exe → `Valid`), and `grep -n "signExecutable: false" desktop/electron-builder.yml` → line 160 (the key; line 135 is a comment). The approval pause IS configured: `gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq '[.protection_rules[].type]'` → `["branch_policy","required_reviewers"]`. release.yml's header comment (lines 3–10) still calls the repository private and the pause future, and `grep -n "not yet configured" desktop/electron-builder.yml` → line 155 says the same; both are stale. The gap the 2026-09-24 decision accepted is now live, so the ★ rule's "sign if public" half is due.
+**Status:** **Update 2026-11-06 (signing pipeline, not yet switched on):** the ★ rule's "sign if public" half now has its mechanism, switched off until the owner turns it on; [§487](#487-the-windows-installer-is-still-unsigned-the-signing-pipeline-exists-but-is-switched-off-so-every-install-shows-an-unknown-publisher-warning--open)'s update of the same date describes it. This entry stays open with §487 and closes with the first release whose notes carry the SignPath line. The stale `electron-builder.yml` comment this entry's 2026-10-12 update quoted ("not yet configured") is rewritten. **Earlier:** **Update 2026-10-12 (§138 P2 probe):** the gap is now LIVE. The repository is public and its Releases page carries v1.14.0-rc.1 through v1.17.0; `Get-AuthenticodeSignature` on the downloaded `aipm-cockpit-1.17.0-setup.exe` → `NotSigned` (control: notepad.exe → `Valid`), and `grep -n "signExecutable: false" desktop/electron-builder.yml` → line 160 (the key; line 135 is a comment). The approval pause IS configured: `gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq '[.protection_rules[].type]'` → `["branch_policy","required_reviewers"]`. release.yml's header comment (lines 3–10) still calls the repository private and the pause future, and `grep -n "not yet configured" desktop/electron-builder.yml` → line 155 says the same; both are stale. The gap the 2026-09-24 decision accepted is now live, so the ★ rule's "sign if public" half is due.
 
 **Earlier:** OPEN 2026-09-18 — established by reading `desktop/electron-builder.yml`, readable with `grep -n "signExecutable" desktop/electron-builder.yml`; **never machine-verified** against a produced installer. Not filed as a defect: it is acceptable under the current distribution model and becomes a real gap only under a distribution model nobody has decided on yet.
 
@@ -46320,27 +46321,27 @@ Size M.
 
 **Source:** compliance pack gap check, 2026-11-13.
 
-## 797. The chat's review hold for untrusted input reacts to attachments only, not to text imported from Jira
+## 797. External text that the chat's tools read does not trigger the review hold
 
-**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -n 'b.type === "image" || b.type === "document"' src/app/chat-send-record.ts` prints one hit, in `openSendRecord`, the only place a send is marked untrusted.
+**Status:** OPEN 2026-11-13, found by reading the code during the compliance pack's gap check; never machine-verified.
 
 **Work item:** #TBD (created at push)
 
-When an image or document is in the conversation, every change the chat proposes goes to the review card, because the attachment's text may carry instructions the model follows. Text that reaches the model through the read tools is not treated that way, although some of it comes from outside: a Jira-synced task's name and description are written by whoever edits the issue in Jira. A conversation that only reads such tasks can still apply a single write without review (see §794).
+The chat holds its proposed changes for review when the conversation contains an attached file, because text from outside may carry instructions. Text from outside that the chat reads through its tools, such as content synced from Jira, does not start that hold.
 
-What it would take: mark a send untrusted when a read tool returns content from an external source (Jira-synced tasks first), with a test for a send that reads one and then writes.
+What it would take: treat externally sourced text read by the chat's tools like an attachment for the review hold, with tests.
 
 Size M.
 
 **Source:** compliance pack gap check, 2026-11-13.
 
-## 798. AI requests have no client timeout on the direct route and are not retried on a rate limit or overload
+## 798. Most AI requests have no client time limit, and none is retried on a rate limit or overload
 
-**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -c "AbortSignal.timeout" src/app/ai-transport.ts src/app/chat-api.ts src/app/ai-forced-call.ts` prints 0 for each file, and `grep -n "status === 429" src/app/ai-errors.ts` prints the one line that turns a 429 or an overload into a "limit" error shown to the user.
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -rnE "setTimeout\(\(\) => [a-zA-Z.]*abort|AbortSignal.timeout" src/app --include=*.ts --include=*.tsx` lists, among the AI callers, only `use-digest.ts` (the on-request digest summary, `AI_TIMEOUT_MS`, 20 s) and `use-ai-key-check.ts` (the key check, 15 s); `grep -n "status === 429" src/app/ai-errors.ts` prints the one line that turns a 429 or an overload into a "limit" error shown to the user.
 
 **Work item:** #TBD (created at push)
 
-A request sent straight from the browser to the AI has no time limit of its own: it ends when the user cancels or the connection fails. The server relay has a 15-minute idle timeout. A rate-limit or overload answer is reported to the user as such, and nothing tries again; the retry the AI helpers do make is for an answer cut off by its token budget, not for a transient failure.
+Only two AI calls set a time limit of their own: the digest summary asked for on request (20 seconds) and the API key check (15 seconds). The others, among them the chat, the inline edit, Plan with AI, the work breakdown, the steering-committee report, insight recommendations and the scheduled runs, end only when the user cancels or the connection fails. On a gateway or organisation-key deployment the server relay adds a 15-minute idle timeout. A rate-limit or overload answer is reported to the user as such, and nothing tries again; the retry the AI helpers do make is for an answer cut off by its token budget, not for a transient failure.
 
 What it would take: an overall timeout for each AI request, and a bounded retry with backoff on 429 and overload answers that honours `retry-after`, kept off for a streamed answer once text has arrived. Tests for each.
 
@@ -46404,16 +46405,30 @@ Size S.
 
 **Source:** compliance pack gap check, 2026-11-13.
 
-## 803. Dictation's private-address guard checks IP literals only
+## 803. Dictation's private-address check does not resolve host names
 
-**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13, not fixed. Reproduced by reading: `grep -cE "dns|lookup" src/app/api/_shared/proxy-ssrf.ts` prints 0: the private-host check looks at the host name as typed.
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13, not fixed; found by reading the code, never machine-verified.
 
 **Work item:** #TBD (created at push)
 
-The speech-to-text proxy refuses a private address typed as an IP, but a host name that resolves to a private address is not refused, because the name is not resolved before the request.
+The speech-to-text endpoint check refuses private network addresses, but it judges the address as entered and does not resolve a host name first.
 
-What it would take: resolve the host name, refuse private results, and connect to the address that was checked so a second lookup cannot answer differently. Tests for a name resolving to a private address and for one resolving to a public one.
+What it would take: resolve host names in the check and refuse private results, with tests.
 
 Size M.
 
 **Source:** owner decision 2026-11-13 (file it).
+
+## 804. Plan with AI always sends internal hourly rates; there is no option to leave them out
+
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `grep -n 'rate=${' src/app/alloc-plan/alloc-plan.ts` prints the one line that adds ` rate=<internal hourly rate>/h` to each internal person with a role in the allocation request.
+
+**Work item:** #TBD (created at push)
+
+Plan with AI sends the internal hourly rate of each internal person's role with every request. A project or deployment that does not want rates to reach the AI has no setting for it: the only control that keeps them out is people protection, which removes Plan with AI altogether. The AI data notice names the rate.
+
+What it would take: a project setting (and a deployment override) that leaves rates out of the request, and tests that no rate is sent when the setting is on.
+
+Size S.
+
+**Source:** owner decision 2026-11-13 (file it), from the compliance pack's gap check.
