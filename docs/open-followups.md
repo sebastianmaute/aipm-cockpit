@@ -1042,6 +1042,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§804](#804-plan-with-ai-always-sends-internal-hourly-rates-there-is-no-option-to-leave-them-out) | Plan with AI always sends internal hourly rates; there is no option to leave them out | — | — | open |
 | [§805](#805-the-ai-relay-attaches-the-deployments-gateway-token-for-any-caller-that-reaches-the-server) | The AI relay attaches the deployment's gateway token for any caller that reaches the server | — | — | open |
 | [§806](#806-the-ai-relay-and-dictation-routes-have-no-request-limit) | The AI relay and dictation routes have no request limit | — | — | open |
+| [§810](#810-hiding-a-projects-resources-function-does-not-withdraw-the-chats-people-absence-and-allocation-tools) | Hiding a project's Resources function does not withdraw the chat's people, absence and allocation tools | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46458,6 +46459,20 @@ Size M.
 Requests to Jira, Confluence, Timelog and the exchange-rate route are limited per caller. The AI relay and the dictation route have no limit, and the dictation route forwards audio to whatever public https address the caller names.
 
 What it would take: a request limit on the AI and dictation routes, with tests that a burst is refused.
+
+Size S.
+
+**Source:** owner decision 2026-11-13 (file it), from the compliance pack's review.
+
+## 810. Hiding a project's Resources function does not withdraw the chat's people, absence and allocation tools
+
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `toolsFor` in `src/app/chat-api.ts` builds the chat's tool list from the history-search, chat-search, forecast and people-protection settings only (`variantKey`); no project function switch is among them. `grep -n "isModuleEnabled" src/app/chat-api.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts` prints only the Timelog check that keeps Timelog insights out of the chat prompt, none for the Resources function.
+
+**Work item:** #TBD (created at push)
+
+A project can hide its Resources function, which holds the resource directory, workload, planning and the absence calendar. The AI chat is told which functions are on, but its tools that list and change people, absences and allocations stay available while people protection is off. A user or a works council reading "switched off" as "the AI cannot reach it" would be wrong.
+
+What it would take: decide whether a hidden function also withdraws the chat tools that read or write its data. If yes, derive the tool list from the project's functions as well, enforce it in the executor as people protection is, and test both the advertised list and a refused call.
 
 Size S.
 

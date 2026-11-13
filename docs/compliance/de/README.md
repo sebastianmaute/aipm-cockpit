@@ -31,6 +31,7 @@ Text zuletzt geprüft für Version 1.20.1 am 2026-11-13.
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |
 | §805 | The AI relay attaches the deployment's gateway token for any caller that reaches the server |
 | §806 | The AI relay and dictation routes have no request limit |
+| §810 | Hiding a project's Resources function does not withdraw the chat's people, absence and allocation tools |
 <!-- PACK:open-gaps:END -->
 
 ## So lesen Sie die Kennzeichnungen

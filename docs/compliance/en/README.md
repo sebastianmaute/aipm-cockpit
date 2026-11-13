@@ -81,6 +81,7 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |
 | §805 | The AI relay attaches the deployment's gateway token for any caller that reaches the server |
 | §806 | The AI relay and dictation routes have no request limit |
+| §810 | Hiding a project's Resources function does not withdraw the chat's people, absence and allocation tools |
 <!-- PACK:open-gaps:END -->
 
 What each gap means for you. Each sentence restates its register entry in `docs/open-followups.md`,
@@ -122,6 +123,9 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
   organisation's cost where the gateway bills it. Run the server behind your own access control.
 - **§806** — The AI routes and the dictation route accept any number of requests, and dictation forwards
   audio to whatever public https address the caller names. Limit access in front of the app.
+- **§810** — Hiding a project's Resources function hides its views, but while people protection is off
+  the AI chat can still read and change people, absences and allocations in that project. To keep the AI
+  away from that data, leave people protection on.
 
 ## How to read the labels
 
