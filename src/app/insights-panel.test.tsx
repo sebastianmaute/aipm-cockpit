@@ -407,6 +407,123 @@ describe("InsightsPanel", () => {
       expect(screen.queryByRole("button", { name: /Generate recommendation/ })).not.toBeInTheDocument();
     });
 
+    // While Timelog is off, the recommendations leave every TimeLog guardrail row out
+    // (`useInsightRecommendations`), so a Generate click on one did nothing at all. An ACTED
+    // guardrail row stays listed then (it is frozen, not retired), which is how a user reaches it.
+    describe("a TimeLog guardrail insight while Timelog is off", () => {
+      const guardrail = (over: Partial<Insight> = {}) =>
+        makeInsight({
+          id: 21,
+          type: "timelogCapPerDay",
+          status: "acted",
+          entityRef: undefined,
+          data: { person: "Ann", count: 2, worstHours: 11, threshold: 10 },
+          ...over,
+        });
+      const generateName = `${t("en-US", "insightGenerateRecommendation")} – ${titleOf("timelogCapPerDay")}`;
+      const offNote = t("en-US", "insightRecommendationTimelogOff");
+      const renderWith = (insights: Insight[], timelogEnabled: boolean | undefined) =>
+        render(
+          <InsightsPanel
+            insights={insights}
+            lang="en-US" today={TODAY}
+            actions={{
+              onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+              onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+            }}
+            aiEnabled
+            timelogEnabled={timelogEnabled}
+          />,
+        );
+
+      it("offers no Generate control and says why", () => {
+        renderWith([guardrail()], false);
+        expect(screen.queryByRole("button", { name: generateName })).toBeNull();
+        expect(screen.queryByRole("button", { name: /Generate recommendation/ })).toBeNull();
+        expect(screen.getByText(offNote)).toBeInTheDocument();
+        expect(screen.queryByText(t("en-US", "insightRecommendationTimelogOffApply"))).toBeNull();
+      });
+
+      it("offers the Generate control, with no note, while Timelog is on", () => {
+        renderWith([guardrail()], true);
+        expect(screen.getByRole("button", { name: generateName })).toBeInTheDocument();
+        expect(screen.queryByText(offNote)).toBeNull();
+      });
+
+      it("offers it when the state is not passed (unknown counts as on)", () => {
+        renderWith([guardrail()], undefined);
+        expect(screen.getByRole("button", { name: generateName })).toBeInTheDocument();
+      });
+
+      it("withholds regenerate on a rejected guardrail recommendation too", () => {
+        renderWith(
+          [guardrail({ recommendation: { summary: "s", proposedCalls: [], generatedAt: "2026-06-10T00:00:00.000Z", status: "rejected" } })],
+          false,
+        );
+        expect(screen.getByText("Recommendation dismissed.")).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: /Generate recommendation/ })).toBeNull();
+        expect(screen.getByText(offNote)).toBeInTheDocument();
+      });
+
+      describe("with a proposed recommendation", () => {
+        const proposed = () =>
+          guardrail({ recommendation: { summary: "Cap the day", proposedCalls: [], generatedAt: "2026-06-10T00:00:00.000Z", status: "proposed" } });
+        const applyName = `${t("en-US", "insightApplyRecommendation")} – ${titleOf("timelogCapPerDay")}`;
+        const applyNote = t("en-US", "insightRecommendationTimelogOffApply");
+        const rejectName = `${t("en-US", "insightRejectRecommendation")} – ${titleOf("timelogCapPerDay")}`;
+
+        it("offers no Apply while Timelog is off, says why, and keeps Reject", () => {
+          renderWith([proposed()], false);
+          expect(screen.queryByRole("button", { name: applyName })).toBeNull();
+          expect(screen.getByText(applyNote)).toBeInTheDocument();
+          expect(screen.queryByText(offNote)).toBeNull(); // the Generate text would contradict the shown recommendation
+          expect(screen.getByRole("button", { name: rejectName })).toBeInTheDocument();
+        });
+
+        it("offers Apply, with no note, while Timelog is on", () => {
+          renderWith([proposed()], true);
+          expect(screen.getByRole("button", { name: applyName })).toBeInTheDocument();
+          expect(screen.getByRole("button", { name: rejectName })).toBeInTheDocument();
+          expect(screen.queryByText(applyNote)).toBeNull();
+        });
+
+        it("keeps Apply on a proposed recommendation of any other insight while Timelog is off", () => {
+          renderWith(
+            [makeInsight({ id: 23, type: "milestoneSlip", status: "active", recommendation: { summary: "s", proposedCalls: [], generatedAt: "2026-06-10T00:00:00.000Z", status: "proposed" } })],
+            false,
+          );
+          expect(
+            screen.getByRole("button", { name: `${t("en-US", "insightApplyRecommendation")} – ${titleOf("milestoneSlip")}` }),
+          ).toBeInTheDocument();
+          expect(screen.queryByText(applyNote)).toBeNull();
+        });
+      });
+
+      it("leaves the Generate control on every other insight", () => {
+        renderWith([guardrail(), makeInsight({ id: 22, type: "milestoneSlip", status: "active" })], false);
+        expect(
+          screen.getByRole("button", { name: `${t("en-US", "insightGenerateRecommendation")} – ${titleOf("milestoneSlip")}` }),
+        ).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: generateName })).toBeNull();
+      });
+
+      it("shows no note when AI is off, as no Generate control is offered anyway", () => {
+        render(
+          <InsightsPanel
+            insights={[guardrail()]}
+            lang="en-US" today={TODAY}
+            actions={{
+              onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+              onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+            }}
+            aiEnabled={false}
+            timelogEnabled={false}
+          />,
+        );
+        expect(screen.queryByText(offNote)).toBeNull();
+      });
+    });
+
     it("renders no recommendation UI in a popout even with a proposed recommendation", () => {
       const insight = makeInsight({
         id: 7,

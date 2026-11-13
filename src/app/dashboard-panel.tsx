@@ -8,7 +8,7 @@ import { useSettings } from "./use-settings";
 import { SimulationSwitch } from "./simulation-switch";
 import { SimulationIntro } from "./simulation-intro";
 import { isSimulationActive, isSimulationOn, withSimulation } from "./forecast-simulation";
-import { isViewEnabled } from "./feature-modules";
+import { isModuleEnabled, isViewEnabled } from "./feature-modules";
 import { FORECAST_SIM_HELP_ID } from "./sim-explainer";
 import { type Lang, t } from "./i18n";
 import type { Health } from "./health";
@@ -437,6 +437,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     insightGeneratingId: props.insightGeneratingId,
     onCancelInsightRecommendation: props.onCancelInsightRecommendation,
     insightAiEnabled: props.insightAiEnabled,
+    insightTimelogEnabled: isModuleEnabled("timelog", settings.features),
     onNavigate: props.onNavigate,
     onOpenRaid,
     onOpenTask,

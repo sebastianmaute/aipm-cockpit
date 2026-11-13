@@ -86,6 +86,37 @@ import { DISABLED_INTEGRATIONS_ENV, parseDisabledIntegrations } from "./app/inte
 
 const IS_DEV = process.env.NODE_ENV !== "production";
 
+/** "ai-direct" = present only when the browser may call Anthropic directly. */
+export type CspHostCondition = "always" | "ai-direct";
+export interface CspHost {
+  source: string;
+  when: CspHostCondition;
+}
+
+/** connect-src sources after 'self', in header order. */
+export const CSP_CONNECT_HOSTS: readonly CspHost[] = [
+  { source: "https://api.anthropic.com", when: "ai-direct" },
+  { source: "https://*.turso.io", when: "always" },
+  { source: "https://graph.microsoft.com", when: "always" },
+  { source: "https://*.sharepoint.com", when: "always" },
+  { source: "https://*.files.1drv.com", when: "always" },
+  { source: "https://login.microsoftonline.com", when: "always" },
+  { source: "http://localhost:*", when: "always" },
+  { source: "http://127.0.0.1:*", when: "always" },
+];
+
+/** frame-src sources, in header order. */
+export const CSP_FRAME_HOSTS: readonly CspHost[] = [
+  { source: "https://login.microsoftonline.com", when: "always" },
+];
+
+function hostSources(hosts: readonly CspHost[], allowAnthropic: boolean): string {
+  return hosts
+    .filter((h) => h.when === "always" || allowAnthropic)
+    .map((h) => h.source)
+    .join(" ");
+}
+
 function buildCsp(nonce: string, allowAnthropic: boolean): string {
   const scriptExtras = IS_DEV ? " 'unsafe-eval'" : "";
   // Dev: omit the nonce from style-src-elem so 'unsafe-inline' actually works.
@@ -118,8 +149,8 @@ function buildCsp(nonce: string, allowAnthropic: boolean): string {
     // can only ever decode an image.
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    `connect-src 'self'${allowAnthropic ? " https://api.anthropic.com" : ""} https://*.turso.io https://graph.microsoft.com https://*.sharepoint.com https://*.files.1drv.com https://login.microsoftonline.com http://localhost:* http://127.0.0.1:*`,
-    "frame-src https://login.microsoftonline.com",
+    `connect-src 'self' ${hostSources(CSP_CONNECT_HOSTS, allowAnthropic)}`,
+    `frame-src ${hostSources(CSP_FRAME_HOSTS, allowAnthropic)}`,
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",

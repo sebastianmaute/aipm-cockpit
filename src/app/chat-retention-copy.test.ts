@@ -44,7 +44,7 @@ describe("saved-chat disclosure texts", () => {
   it("help says a Turso chat is saved only once a recovery key is set", () => {
     for (const key of HELP_BODIES) {
       expect(t("en-US", key)).toContain("once the operator has set a recovery key");
-      expect(t("de", key)).toContain("sobald der Betreiber einen Wiederherstellungsschlüssel festgelegt hat");
+      expect(t("de", key)).toContain("sobald der Administrator einen Wiederherstellungsschlüssel festgelegt hat");
     }
   });
 });

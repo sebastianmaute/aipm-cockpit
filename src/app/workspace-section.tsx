@@ -1155,6 +1155,7 @@ export function WorkspaceSection({
               generatingId={isPopout ? undefined : insightGeneratingId}
               onCancelGenerate={isPopout ? undefined : onCancelInsightRecommendation}
               aiEnabled={isAiEnabled(settings.ai)}
+              timelogEnabled={isModuleEnabled("timelog", features)}
               onOpen={(refItem) => {
                 if (refItem.id < 0) setActiveTab(refItem.view);
                 else requestOpen(refItem.view, refItem.id);

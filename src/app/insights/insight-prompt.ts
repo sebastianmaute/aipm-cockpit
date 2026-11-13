@@ -4,7 +4,7 @@
 // the operating guides — English regardless of UI language). This is VOLATILE
 // content: it MUST be appended AFTER the prompt-cache breakpoint in chat-api's
 // buildSystemPrompt, never inside the cached prefix. Deterministic — no clock.
-import { INSIGHT_SEVERITY_RANK, type Insight, type InsightOutcome } from "./insight";
+import { GUARDRAIL_INSIGHT_TYPES, INSIGHT_SEVERITY_RANK, type Insight, type InsightOutcome } from "./insight";
 
 /** Only these statuses represent an open, still-relevant insight. */
 const SURFACED_STATUSES: ReadonlySet<Insight["status"]> = new Set(["active", "acknowledged"]);
@@ -110,9 +110,19 @@ export function buildInsightsPromptBlock(
   all: readonly Insight[],
   /** AI people protection: `withPeople: false` drops every insight about one person (its data names a
    *  `person`, as the TimeLog violations do). Absent, all are kept. */
-  opts: { withPeople?: boolean } = {},
+  opts: {
+    withPeople?: boolean;
+    /** `withTimelog: false` drops every TimeLog guardrail insight from BOTH sections, the outcomes included:
+     *  the project hides the Timelog function or the deployment switched Timelog off, and a row stored before
+     *  that (an acted one stays frozen) must not keep naming a person to the AI. Absent, all are kept. */
+    withTimelog?: boolean;
+  } = {},
 ): string {
-  const insights = opts.withPeople === false ? all.filter((i) => !("person" in i.data)) : all;
+  const insights = all.filter(
+    (i) =>
+      !(opts.withPeople === false && "person" in i.data) &&
+      !(opts.withTimelog === false && GUARDRAIL_INSIGHT_TYPES.has(i.type)),
+  );
   const surfaced = insights
     .filter((i) => SURFACED_STATUSES.has(i.status))
     .sort((a, b) => INSIGHT_SEVERITY_RANK[a.severity] - INSIGHT_SEVERITY_RANK[b.severity])

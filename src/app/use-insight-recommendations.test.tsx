@@ -12,6 +12,7 @@ import { baselineHistoryDigest, type Insight, type InsightRecommendation } from 
 import { actionGuideText, type OperatingGuide } from "./operating-guide";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import { InsightRecommendationControls } from "./insight-recommendation-controls";
+import { setDisabledIntegrations } from "./integration-switches";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -915,5 +916,39 @@ describe("§773 — the review plan warns of absence clashes", () => {
     expect(result.current.reviewPlan?.clashes).toEqual([
       expect.objectContaining({ entity: "task", id: 42, clash: expect.objectContaining({ person: "Maya Patel", resourceId: 1 }) }),
     ]);
+  });
+});
+
+// Timelog switched off (the function hidden or the integration disabled): a stored TimeLog guardrail row gets no
+// recommendation, so its person-naming figures never reach the AI. The same condition as the Timelog checks.
+describe("TimeLog insights while Timelog is off", () => {
+  afterEach(() => setDisabledIntegrations([]));
+  const timelogRow = mkInsight({
+    id: 5, key: "timelog:timelogCapPerDay:7", type: "timelogCapPerDay", severity: "medium",
+    data: { person: "Dana Ortiz", count: 2, threshold: 8, worstHours: 12, timelogUserId: 7 },
+  });
+  const withFeatures = (features: string[]) =>
+    ({ ...mkDeps().settings, features }) as unknown as InsightRecommendationDeps["settings"];
+  async function generate(features: string[]): Promise<number> {
+    const call = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(mkRec({ id: 42, status: "In Progress" }));
+    const store = mkStore([timelogRow]);
+    const { result } = renderHook(() =>
+      useInsightRecommendations(mkDeps({ settings: withFeatures(features), insights: store.read(), setInsights: store.setInsights })),
+    );
+    await act(async () => { result.current.insightActions.onGenerateRecommendation(5); });
+    return call.mock.calls.length;
+  }
+
+  it("asks the AI while the Timelog function is shown and the integration is on", async () => {
+    expect(await generate(["timelog"])).toBe(1);
+  });
+
+  it("does not ask while the project hides the Timelog function", async () => {
+    expect(await generate(["resources"])).toBe(0);
+  });
+
+  it("does not ask while the deployment has switched the timelog integration off", async () => {
+    setDisabledIntegrations(["timelog"]);
+    expect(await generate(["timelog"])).toBe(0);
   });
 });

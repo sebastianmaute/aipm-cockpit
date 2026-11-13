@@ -7,7 +7,7 @@
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
 import { AiTriggerButton } from "./ai-trigger-button";
-import type { Insight, InsightActions } from "./insights/insight";
+import { GUARDRAIL_INSIGHT_TYPES, type Insight, type InsightActions } from "./insights/insight";
 
 export interface InsightRecommendationControlsProps {
   insight: Insight;
@@ -25,12 +25,33 @@ export interface InsightRecommendationControlsProps {
    *  reject of an EXISTING recommendation stay available — they don't call AI).
    *  Undefined = unknown (tests) → treated as enabled for back-compat. */
   aiEnabled?: boolean;
+  /** Whether Timelog is on for the project (`isModuleEnabled("timelog", …)`). `false` withholds the
+   *  Generate CTA, and Apply on a proposed recommendation, on a TimeLog guardrail insight and says why
+   *  in visible text: while Timelog is off the recommendations leave every guardrail row out
+   *  (`useInsightRecommendations`). Reject stays. Undefined = unknown (tests) → treated as on, like `aiEnabled`. */
+  timelogEnabled?: boolean;
+}
+
+/** A TimeLog guardrail insight while Timelog is off: the recommendations leave it out, so neither
+ *  Generate nor Apply can act on it. */
+function timelogWithheld(insight: Insight, timelogEnabled: boolean | undefined): boolean {
+  return timelogEnabled === false && GUARDRAIL_INSIGHT_TYPES.has(insight.type);
+}
+
+/** Said in place of a withheld Generate or Apply — visible text, so a screen-reader user reads it too.
+ *  Two texts: Generate says no recommendation is made; Apply sits under a recommendation the user can
+ *  see, so it says that one cannot be applied. */
+function TimelogOffNote({ lang, withheld }: { lang: Lang; withheld: "generate" | "apply" }) {
+  const key = withheld === "apply" ? "insightRecommendationTimelogOffApply" : "insightRecommendationTimelogOff";
+  return <p className="w-full text-xs text-muted-foreground">{t(lang, key)}</p>;
 }
 
 /** The "Generate recommendation" CTA — rendered both for an insight with no
  *  recommendation yet AND for a rejected one (regenerate). Returns null when AI
  *  is off: generating needs AI, so a click would fire a guaranteed-401 call.
- *  Every other AI CTA in the app gates visibility the same way. */
+ *  Every other AI CTA in the app gates visibility the same way. A TimeLog
+ *  guardrail insight while Timelog is off gets a muted note in its place —
+ *  plain text, so a screen-reader user reads the reason too. */
 function GenerateRecommendationCta({
   insight,
   title,
@@ -39,8 +60,10 @@ function GenerateRecommendationCta({
   generatingId,
   onCancelGenerate,
   aiEnabled,
+  timelogEnabled,
 }: InsightRecommendationControlsProps) {
   if (aiEnabled === false) return null;
+  if (timelogWithheld(insight, timelogEnabled)) return <TimelogOffNote lang={lang} withheld="generate" />;
   // ★ `nameQualifier` is NOT optional polish here — every insight row renders
   //   this CTA, so without the row-unique suffix a list is N identically-named
   //   buttons (WCAG 2.4.6), and it must qualify the Stop state too since that
@@ -100,14 +123,19 @@ export function InsightRecommendationControls(props: InsightRecommendationContro
       <p className="w-full text-xs text-muted-foreground">
         {t(lang, "insightRecommendationSuggests", rec.summary)}
       </p>
-      <Button
-        variant="secondary"
-        size="xs"
-        aria-label={`${t(lang, "insightApplyRecommendation")} – ${title}`}
-        onClick={() => actions.onApplyRecommendation(insight.id)}
-      >
-        {t(lang, "insightApplyRecommendation")}
-      </Button>
+      {/* Apply is withheld like Generate while Timelog is off; Reject stays, it calls nothing. */}
+      {timelogWithheld(insight, props.timelogEnabled) ? (
+        <TimelogOffNote lang={lang} withheld="apply" />
+      ) : (
+        <Button
+          variant="secondary"
+          size="xs"
+          aria-label={`${t(lang, "insightApplyRecommendation")} – ${title}`}
+          onClick={() => actions.onApplyRecommendation(insight.id)}
+        >
+          {t(lang, "insightApplyRecommendation")}
+        </Button>
+      )}
       <Button
         variant="secondary"
         size="xs"

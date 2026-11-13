@@ -192,6 +192,13 @@ longer carries its own changelog comment.
   CI check, `sbom`, which builds the SBOM from a real build; it blocks a merge only once the maintainer adds it to
   the `main` ruleset's required checks, which the RUNBOOK's signing setup lists.
 
+- **A public compliance pack, in English and German, under `docs/compliance/`.** It gives an operator input for
+  their own data-protection and AI-governance review: the data flows and destinations, the deployment variables,
+  the technical and organisational measures, AI Act readiness and a works-council annex. Its tables are generated from
+  the code (`npm run compliance:generate`) and checked by `npm run compliance:check` in CI and by a unit test, so the
+  tables stay in step with the code. `docs/security.md` and the README link to it. New open follow-ups §794 to §806
+  and §810 record the gaps found while writing it.
+
 ### Changed
 
 - The warning-triangle icon (the RAID view and the dangling-link marker, among others) now comes from lucide-react 1.69's
@@ -199,6 +206,37 @@ longer carries its own changelog comment.
 - A stored meeting report with no text and no previous version (for instance the empty paragraph an emptied editor leaves) is no longer kept when a workspace loads (a sent date on such a report goes with it).
 
 ### Fixed
+
+- **The desktop updater sends one fixed identifier instead of a per-installation one.** The update check no longer
+  carries an identifier that told installations apart.
+
+- **A factory reset also removes the Microsoft sign-in cache on this device.** It used to leave the cached Microsoft
+  tokens behind.
+
+- **The German AI texts say "Zustimmung" for the AI consent and "Administrator" for whoever runs the installation.**
+
+- **The AI data notice now says everything Plan with AI sends.** Its line for the allocation plan proposal left out
+  that each internal person's internal hourly rate (from their role) is sent, and also the workday length, the plan
+  currency, whether a person is planned in percent or hours, and the open tasks, milestones and responsible or
+  accountable people that Claude reads to plan. The request itself is unchanged; the notice and `docs/security.md`
+  now list it, so AI consent is asked again.
+
+- **The AI data notice now says that five features send who is away.** The steering committee report draft, Analyze
+  next actions, the scheduled job analysis, the insight recommendation (on request and automatic) and the work breakdown
+  proposal send the names of people who are absent, with their number in the resource directory and their absent days
+  (not the type or reason): the next 28 days, or the project window for the work breakdown proposal. Their lines did
+  not say so, and the committee report's line said it sent no people's names. The requests are unchanged; the notice
+  and `docs/security.md` now list it (with, for Analyze next actions and the scheduled job analysis, the project mode
+  and modules, the date a RAID item last changed and the stakeholder category), so AI consent is asked again.
+
+- **The Timelog checks stop when the project hides the Timelog function or the deployment switches Timelog off.**
+  They ran on this device's saved Timelog figures, which never expire, so they kept raising insights that name a
+  person (and those insights kept reaching the AI Assistant and the recommendations) after Timelog was turned off.
+  Now no Timelog insight is raised while either is off, and the stored ones are retired like any insight that is no
+  longer detected: one nobody touched is removed, one you acknowledged or dismissed stays in the history. One you
+  acted on is kept as it is, so it is never marked as improved without a measurement. While Timelog is off, the AI
+  Assistant and the recommendations leave every Timelog insight out, including those kept ones and their outcomes.
+  The saved figures are kept.
 
 - **Long task and Gantt lists size their visible window by the scroll area without its border or scrollbar.**
   The list virtualiser (`@tanstack/react-virtual`, 3.14.24 and later) measures the visible viewport that way, and the

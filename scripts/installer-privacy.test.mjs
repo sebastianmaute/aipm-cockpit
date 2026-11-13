@@ -3,6 +3,7 @@
 // workflow, so what this can pin is the input makensis is given, not the rendered page.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { CSP_CONNECT_HOSTS, CSP_FRAME_HOSTS } from "../src/proxy";
 
 const read = (p) => readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 const TEXT = read("desktop/installer-privacy.txt");
@@ -85,12 +86,9 @@ describe("the statement names every service the app can reach", () => {
   };
 
   it("every host the browser may call (src/proxy.ts connect-src and frame-src)", () => {
-    const proxy = read("src/proxy.ts");
-    // The policy's own lines (comment lines start with //, so they do not match).
-    const directives = proxy.match(/^\s*["`](?:connect|frame)-src .*$/gm) ?? [];
-    expect(directives).toHaveLength(2);
-    const hosts = [...new Set(directives.flatMap((d) => d.match(/https?:\/\/[^\s"`]+/g) ?? []))];
-    // Positive controls: one plain host, and the one inside the template's AI conditional.
+    // The lists the policy is built from (src/proxy.ts builds both directives from them; proxy.test.ts pins that).
+    const hosts = [...new Set([...CSP_CONNECT_HOSTS, ...CSP_FRAME_HOSTS].map((h) => h.source))];
+    // Positive controls: one host sent always, and the one sent only when the browser calls Anthropic itself.
     expect(hosts).toContain("https://graph.microsoft.com");
     expect(hosts).toContain("https://api.anthropic.com");
     for (const h of hosts) {

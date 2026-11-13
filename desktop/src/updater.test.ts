@@ -21,12 +21,13 @@ const fakeAutoUpdater = vi.hoisted(() => ({
   allowPrerelease: true,
   allowDowngrade: true,
   disableWebInstaller: false,
+  requestHeaders: null as Record<string, string> | null,
   logger: null as unknown,
   on: vi.fn(),
   checkForUpdates: vi.fn(() => Promise.resolve(null)),
   downloadUpdate: vi.fn(() => Promise.resolve([])),
   quitAndInstall: vi.fn(),
-  // NsisUpdater's hook (electron-updater 6.8.9, NsisUpdater.js): its default, which a signed build
+  // NsisUpdater's hook (electron-updater 6.8.11, NsisUpdater.js): its default, which a signed build
   // replaces and an unsigned one leaves alone. Optional so a test can remove it.
   verifyUpdateCodeSignature: undefined as unknown,
 }));
@@ -127,6 +128,30 @@ describe("createUpdater", () => {
     const lines = log.mock.calls.map((c) => String(c[0]));
     expect(lines.some((l) => l.includes("failed to load"))).toBe(false);
     expect(lines.some((l) => l.includes("failed to wire"))).toBe(false);
+  });
+
+  // electron-updater sends x-user-staging-id on every check; its default is a random per-installation
+  // UUID. The app uses no staged rollout, so every installation must send the same constant.
+  it("sends one fixed staging id, never a per-installation one", async () => {
+    fakeAutoUpdater.requestHeaders = null;
+    await createUpdater({ log: vi.fn(), window: () => null });
+    expect(fakeAutoUpdater.requestHeaders?.["x-user-staging-id"]).toBe("00000000-0000-0000-0000-000000000000");
+    // The REAL library methods, so a library change to the merge order fails here. Their `this` is the
+    // configured header value alone; AppUpdater.js requires `electron` only lazily inside functions.
+    const { AppUpdater } = await vi.importActual<typeof import("electron-updater/out/AppUpdater")>(
+      "electron-updater/out/AppUpdater",
+    );
+    // Both methods are private in the typings, so they are read through a loose view of the prototype.
+    const proto = AppUpdater.prototype as unknown as Record<string, (...a: unknown[]) => Record<string, string>>;
+    const self = { requestHeaders: fakeAutoUpdater.requestHeaders, computeFinalHeaders: proto.computeFinalHeaders };
+    const randomId = "7f3c2a9e-1b4d-5e6f-8a7b-9c0d1e2f3a4b";
+    const fixedId = "00000000-0000-0000-0000-000000000000";
+    const check = proto.computeFinalHeaders.call(self, { "x-user-staging-id": randomId });
+    expect(check["x-user-staging-id"]).toBe(fixedId);
+    const download = proto.computeRequestHeaders.call(self, { fileExtraDownloadHeaders: null });
+    expect(download["x-user-staging-id"]).toBe(fixedId);
+    const downloadExtra = proto.computeRequestHeaders.call(self, { fileExtraDownloadHeaders: { "x-user-staging-id": randomId } });
+    expect(downloadExtra["x-user-staging-id"]).toBe(fixedId);
   });
 
   // Releases ship the full installer; electron-updater would otherwise accept a web installer that

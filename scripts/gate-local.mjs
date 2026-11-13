@@ -60,6 +60,7 @@ export const GATE_STEPS = [
   s("static", ["npm", "run", "followups:index:check"]),
   s("static", ["npm", "run", "followups:workitems:check"]),
   s("static", ["npm", "run", "version:check"]),
+  s("static", ["npm", "run", "compliance:check"]),
   // Reads the PR's labels with CI's GH_TOKEN; it is the ONLY step that receives it (`stepEnv`).
   s("static", ["npm", "run", "changelog:check"], { passEnv: ["GH_TOKEN"] }),
   // The list lives outside the repository, so most contributors cannot run this step. Locally an

@@ -67,6 +67,9 @@ export interface InsightsPanelProps {
   /** Aborts the in-flight recommendation generate. */
   onCancelGenerate?: () => void;
   aiEnabled?: boolean;
+  /** Whether Timelog is on for the project; `false` withholds Generate, and Apply on a proposed
+   *  recommendation, on a TimeLog guardrail insight (`InsightRecommendationControls`). */
+  timelogEnabled?: boolean;
   /** Deep-link to the insight's entity (only rendered when `entityRef` is set). */
   onOpen?: (ref: InsightEntityRef) => void;
   isPopout?: boolean;
@@ -81,6 +84,7 @@ export function InsightsPanel({
   generatingId,
   onCancelGenerate,
   aiEnabled,
+  timelogEnabled,
   onOpen,
   isPopout,
 }: InsightsPanelProps) {
@@ -295,6 +299,7 @@ export function InsightsPanel({
                             generatingId={generatingId}
                             onCancelGenerate={onCancelGenerate}
                             aiEnabled={aiEnabled}
+                            timelogEnabled={timelogEnabled}
                           />
                         </>
                       ) : null}

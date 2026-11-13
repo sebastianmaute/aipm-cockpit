@@ -94,6 +94,7 @@ disprove, in the same commit.
 | **AGENTS.md** (this file) | ALWAYS LOADED. Landmines and hard constraints that apply to any task, plus the architecture pointers and module maps. |
 | [`docs/AGENTS/`](docs/AGENTS/) | NOT loaded. The per-subsystem deep reference this file used to carry inline — same conventions, same gate. Open the one you are working in. |
 | [`docs/CODEMAPS/`](docs/CODEMAPS/) (5 files) | layered overview — architecture · frontend · backend · data · dependencies. Read these FIRST for shape; AGENTS.md + `docs/AGENTS/` for detail. |
+| [`docs/compliance/`](docs/compliance/) | the EN/DE compliance pack. Its tables are generated from code (renderer `src/app/compliance/pack-blocks.ts`; registries in `src/proxy.ts`, `src/app/deployment-variables.ts`, `src/app/outbound-destinations.ts` and `AI_DATA_PATHS`) and checked by `npm run compliance:check` (static) and `src/app/compliance/pack-drift.test.ts`; regenerate with `npm run compliance:generate`. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | process + conventions: setup, scripts, testing layers, release checklist. |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | operations: build, deploy, rollback, secrets, and a symptom-indexed "common issues" list. |
 | [`docs/open-followups.md`](docs/open-followups.md) | every known-open defect and deferred decision, numbered. |
@@ -377,7 +378,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   CONFIG IndexedDB DBs `aipm-cockpit-secrets` (device key) and `aipm-cockpit-project-handles` (FS-access
   pointers). It must NEVER delete the WORKSPACE IndexedDB DB `aipm-cockpit` (project data) — reset is
   detach-only ("no file/DB deletion"). Any new clear/reset path obeys the same split. IDB deletes
-  are fire-and-forget (awaiting can hang on `onblocked` across tabs).
+  are fire-and-forget (awaiting can hang on `onblocked` across tabs). It also removes the Microsoft
+  sign-in (MSAL) keys — `msal.`-prefixed ones and those containing the client id — from localStorage
+  AND sessionStorage (`removeMsalKeys`).
 - **Storage namespace = `aipm-cockpit`** (renamed from legacy `lop-app`; MR rename-aipm-cockpit).
   The one-time `lop-app`→`aipm-cockpit` migration (`storage-migration.ts` + its boot-IIFE duplicate) was
   REMOVED in 0.190.41 once complete — there is no longer any `lop-app*`/`lop-*` runtime literal, migration

@@ -12,6 +12,7 @@ import type { Lang } from "./i18n";
 import { selectActiveGuides, assembleGuideBlocks, type OperatingGuide } from "./operating-guide";
 import type { AttachmentBlock } from "./chat-attachments";
 import { buildInsightsPromptBlock } from "./insights/insight-prompt";
+import { isModuleEnabled } from "./feature-modules";
 import { buildViewScopeBlock, buildViewStateBlock } from "./view-ai-scope-block";
 import { buildActivityRecapBlock } from "./activity-recap";
 import { buildChatPointerBlock } from "./chat-recap";
@@ -280,7 +281,12 @@ export function buildTurnContext(
   // Active insights are VOLATILE (change as detectors reconcile) → this block
   // MUST stay in the uncached suffix, or it would invalidate the cached prefix.
   // AI people protection: a per-person insight line (a TimeLog violation names its person) is dropped.
-  const insightsBlock = buildInsightsPromptBlock(snapshot.insights ?? [], { withPeople: peopleToolsLive(toolFlags.peopleProtected) });
+  // Timelog switched off (the function hidden, or the integration disabled): no TimeLog insight line either,
+  // by the same condition that stops the checks in use-insight-lifecycle.ts.
+  const insightsBlock = buildInsightsPromptBlock(snapshot.insights ?? [], {
+    withPeople: peopleToolsLive(toolFlags.peopleProtected),
+    withTimelog: isModuleEnabled("timelog", snapshot.enabledModules),
+  });
   // The digest (what is on screen right now) is per-call and changes on every
   // filter/sort tweak — it MUST stay in the uncached suffix too, or it would
   // silently invalidate the cache on every interaction. See view-ai-scope-block.ts.

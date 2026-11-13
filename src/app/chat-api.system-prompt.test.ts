@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
+import { setDisabledIntegrations } from "./integration-switches";
 import { buildSystemPrompt, buildStableSystemBlocks, buildTurnContext, CACHED_TOOLS, ATTACHMENT_DATA_NOTICE } from "./chat-api";
 import { TOOL_DEFS } from "./chat-tool-defs";
 import type { Insight } from "./insights/insight";
@@ -239,6 +240,34 @@ describe("buildSystemPrompt insight block placement", () => {
     expect(volatile.text).toContain("CACHEPROBE");
     expect(volatile.text).toContain("Recent outcomes");
     expect(volatile.text).toContain("4242 tasks stalled");
+  });
+});
+
+// The turn context asks the same condition as the Timelog checks: the project shows the Timelog function AND the
+// deployment has not switched the `timelog` integration off. Off, a frozen acted TimeLog row with a measured
+// outcome must not name its person to the AI.
+describe("buildTurnContext Timelog insight lines", () => {
+  const timelogActed: Insight = {
+    id: 7, key: "timelog:timelogCapPerDay:7", type: "timelogCapPerDay", severity: "medium",
+    data: { person: "TLPROBE", count: 1, threshold: 8, worstHours: 11 },
+    status: "acted", firstSeenAt: "2026-08-01", lastSeenAt: "2026-08-03", occurrences: 2, actedAt: "2026-08-03",
+    outcome: { direction: "improved", baseline: 3, current: 1, delta: 2, measuredAt: "2026-08-04" },
+  };
+  afterEach(() => setDisabledIntegrations([]));
+  const turn = (enabledModules: string[]) =>
+    buildTurnContext("en-US", snapshot({ insights: [timelogActed], enabledModules }), [], false, {});
+
+  it("names the TimeLog outcome while Timelog is on", () => {
+    expect(turn(["timelog"])).toContain("TLPROBE");
+  });
+
+  it("drops it while the project hides the Timelog function", () => {
+    expect(turn(["resources"])).not.toContain("TLPROBE");
+  });
+
+  it("drops it while the deployment has switched the timelog integration off", () => {
+    setDisabledIntegrations(["timelog"]);
+    expect(turn(["timelog"])).not.toContain("TLPROBE");
   });
 });
 

@@ -23,7 +23,7 @@ import type { Absence, Shift } from "./types";
 import type { TimelogLinks } from "./timelog-types";
 import { CORE_INSIGHT_TYPES, detectInsights, type InsightInput } from "./insights/detect";
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
-import type { Insight, InsightType } from "./insights/insight";
+import { GUARDRAIL_INSIGHT_TYPES, type Insight, type InsightType } from "./insights/insight";
 import { loadLandingState } from "./landing-state";
 import { loadActualsCache } from "./timelog-actuals-store";
 import { closedMonthCertifies, evaluateTimelogPolicy } from "./timelog-policy";
@@ -31,7 +31,7 @@ import { metricAtActionPatch } from "./insights/outcome";
 import { applyInsightLoggedAsRaid } from "./insights/log-as-raid";
 import type { ForecastHistoryEntry } from "./forecast-history";
 import type { SettingsOverrides } from "./settings-types";
-import type { FeatureModuleId } from "./feature-modules";
+import { isModuleEnabled, type FeatureModuleId } from "./feature-modules";
 import type { ScopeEpochReader } from "./scope-epoch";
 import { isSharedStorage, useForecastHistoryRecorder } from "./use-forecast-history-recorder";
 import type { StorageConfig } from "./storage-config-kind";
@@ -61,7 +61,8 @@ export interface InsightLifecycleDeps
   requestOpen: (view: AppView, id: number) => void;
   /** §502 — the daily forecast recorder runs here (see use-forecast-history-recorder.ts). */
   settingsOverrides: SettingsOverrides | undefined;
-  /** Enabled feature modules (the forecast recorder stops when the Forecast view is hidden). */
+  /** Enabled feature modules: the forecast recorder stops when the Forecast view is hidden, and the Timelog
+   *  checks when the Timelog function is (or its integration is switched off). */
   features: readonly FeatureModuleId[];
   forecastHistory: readonly ForecastHistoryEntry[];
   setForecastHistory: Dispatch<SetStateAction<readonly ForecastHistoryEntry[]>>;
@@ -143,13 +144,19 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
     // `loadPending` is a dep, so the reconcile runs once the load does.
     if (!hydrated || isPopout || loadPending) return;
     const timer = setTimeout(() => {
+      // ★★ The Timelog checks run only while the project shows the Timelog function AND the deployment has not
+      // switched the `timelog` integration off — `isModuleEnabled` asks both. The cache below never expires, so
+      // without this a project that hid Timelog, or a deployment that disabled it, kept raising person-naming
+      // insights from old figures. Off, the cache is not read (and not deleted): no roll, so nothing is evaluated
+      // and nothing raised; the stored rows are retired in the predicate below.
+      const timelogOn = isModuleEnabled("timelog", features);
       // The guardrail rules read the per-device daily roll from the actuals
       // cache — keyed the same way TimelogPanel WRITES it (open-followups §14).
       // ★★ Read the entry ONCE. `daily`, `partial` and `dailyWindow` describe
       // ONE fetch, and the predicate below compares them against each other;
       // three separate `loadActualsCache` calls could straddle a write and pair
       // a window with a roll it never covered.
-      const actuals = loadActualsCache(currentProjectId ?? "default");
+      const actuals = timelogOn ? loadActualsCache(currentProjectId ?? "default") : null;
       // ★★★ ANY NON-FALSE `partial` FREEZES HERE — and this deliberately does
       // NOT match how the Apply path reads the same flag. `partial` is validated
       // NOWHERE, so a non-boolean
@@ -218,6 +225,16 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         // this is the difference between freezing and fabricating forever.
         if (insight.type === "budgetVariance") return holidaysReady;
         if (CORE_INSIGHT_TYPES.includes(insight.type)) return true;
+        // ★★ Timelog switched off (above): its guardrail rows are retired as no longer detected — reconcile
+        // removes an untouched one, resolves one the user acknowledged and leaves a dismissed one (`clear`). The
+        // function switch is per project, but the integration switch (AIPM_DISABLED_INTEGRATIONS) is per
+        // DEPLOYMENT: a project opened from a deployment with Timelog off retires these rows, and opened from one
+        // with it on, the next covering fetch raises them again — reconcile then rebuilds a resolved or dismissed
+        // row as active and drops its stored recommendation and review, and a removed row comes back as a new one.
+        // An ACTED row stays frozen: `clear` would resolve it with a measured "improved"
+        // (`computeClearedOutcome`), and nothing was measured. While Timelog is off, the chat prompt
+        // (`buildInsightsPromptBlock`, `withTimelog`) and the recommendations leave every guardrail row out.
+        if (!timelogOn && GUARDRAIL_INSIGHT_TYPES.has(insight.type)) return insight.status !== "acted";
         // Everything left is a guardrail rule (or, defensively, a type nothing
         // here evaluates — which falls through to false, the safe direction).
         // The policy module's OWN report, never the rules that happened to
@@ -317,7 +334,7 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
     // ★ `priorOverdueCount` is a dep in its OWN right, not merely via
     // `buildInsightInput`: the predicate above reads it directly to decide
     // whether `overdueTrend` was evaluated at all.
-  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, holidaysReady, shifts, absences, resources, priorOverdueCount, loadPending]);
+  }, [buildInsightInput, today, hydrated, isPopout, setInsights, currentProjectId, timelogLinks, holidaySet, holidaysReady, shifts, absences, resources, priorOverdueCount, loadPending, features]);
 
   // Lifecycle handlers. Acknowledge, act and dismiss reach the dashboard and the
   // Insights view through `useInsightRecommendations`' `insightActions` bag; the

@@ -86,6 +86,51 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|5eb499ef50b6|redacted",
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted",
   ],
+  // v4: the allocation plan proposal's text names what its request already sent — the internal hourly rate of an
+  // internal person's role, the workday length and plan currency, the percent-or-hours mode, and the open tasks,
+  // milestones and R/A holders. Only that hash changed.
+  4: [
+    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted",
+    "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|ec731819812b|redacted",
+    "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted",
+    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|77d3b27235a2|redacted",
+    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|dd308831307b|redacted",
+    "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|8454d8b056cd|redacted",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|353f4c07ced6|hidden",
+    "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden",
+    "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted",
+    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|1a29e0f163bd|redacted",
+    "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51|redacted",
+    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|redacted",
+    "dictation|interactive|aiDataDictationLabel|aiDataDictation|11af271ca960|off",
+    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|43c341548943|redacted",
+    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|5eb499ef50b6|redacted",
+    "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted",
+  ],
+  // v5: the committee report draft, Analyze next actions, the scheduled job analysis, the insight recommendation (both
+  // rows share a text) and the WBS proposal name the absence list (`buildAwaySummary`) their requests already sent.
+  // Only those six hashes changed. The scheduled job's text repeats the action analysis's list, which is the same
+  // digest (`buildProjectDigest`). The WBS text names its whole fallback window.
+  5: [
+    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted",
+    "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|dab0929eea32|redacted",
+    "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted",
+    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|77d3b27235a2|redacted",
+    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|7433c859ec84|redacted",
+    "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|37a0083b91fb|redacted",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|353f4c07ced6|hidden",
+    "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden",
+    "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted",
+    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|315ad3046125|redacted",
+    "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51|redacted",
+    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|redacted",
+    "dictation|interactive|aiDataDictationLabel|aiDataDictation|11af271ca960|off",
+    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|e83fee7d86c3|redacted",
+    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|3e517407a4da|redacted",
+    "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted",
+  ],
 };
 
 // Which disclosure rows each activation site (src/test/ai-activation-sites.ts) leads to. A new site
@@ -272,32 +317,33 @@ describe("AI_DATA_PATHS", () => {
 // the app's server neither stores nor logs the key while the gateway receives it, and that the gateway may
 // keep its own log. Re-pinned again when the hash took in the German text, and the gateway Help's log
 // clause moved into brackets. Re-pinned, wording only, when the four Help texts began to say who can read a
-// saved chat and when it is deleted.
+// saved chat and when it is deleted. Re-pinned, German wording only, when the four Help texts began to call
+// the person who runs the installation "Administrator" instead of "Betreiber" (the AI Act's word for deployer).
 const DESTINATION_PIN: readonly string[] = [
   "direct|interactive|aiConsentDataIntro|83b84643e133",
   "direct|background|aiConsentBackgroundDataIntro|f5a79b78f629",
   "direct|keyNote|aiApiKeyHint|52324fad6918",
   "direct|keySecurity|aiConsentBullet2|d509cd229b54",
   "direct|thirdParty|aiConsentBullet3|e5f450536dea",
-  "direct|help|helpSecAiBody|3ecd0809860d",
+  "direct|help|helpSecAiBody|bf59d2bdc4a1",
   "gateway|interactive|aiConsentDataIntroGateway|7ebfc37003e9",
   "gateway|background|aiConsentBackgroundDataIntroGateway|687e1f3265c0",
   "gateway|keyNote|aiApiKeyHintGateway|28c8960cc576",
   "gateway|keySecurity|aiConsentBullet2Gateway|16b9a79fc098",
   "gateway|thirdParty|aiConsentBullet3Gateway|0412e7b4a6e5",
-  "gateway|help|helpSecAiBodyGateway|b11fe8dbcbe7",
+  "gateway|help|helpSecAiBodyGateway|3f997d7a8a66",
   // The relay route (organisation key restriction) has texts of its own (AI organisation key).
   "relay|interactive|aiConsentDataIntroRelay|50239ebb92d8",
   "relay|background|aiConsentBackgroundDataIntroRelay|21999ec60bd7",
   "relay|keyNote|aiApiKeyHintRelay|c79f17b384ac",
   "relay|keySecurity|aiConsentBullet2Relay|0a146b55c15b",
   "relay|thirdParty|aiConsentBullet3Relay|ac7587dd0eb6",
-  "relay|help|helpSecAiBodyRelay|3d648f7446c4",
+  "relay|help|helpSecAiBodyRelay|757fab9d7d07",
   // A gateway deployment that also restricts keys adds one sentence to the consent dialog (AI organisation key).
   "gateway+keyRestricted|keyRestriction|aiConsentKeyRestrictionGateway|e93f8909f467",
   "gateway+keyRestricted|keyNote|aiApiKeyHintGatewayRestricted|3d914da2249e",
   "gateway+keyRestricted|keySecurity|aiConsentBullet2GatewayRestricted|4bffef981a8e",
-  "gateway+keyRestricted|help|helpSecAiBodyGatewayRestricted|8444285d8c9b",
+  "gateway+keyRestricted|help|helpSecAiBodyGatewayRestricted|d1b79c261c5f",
 ];
 
 const pinEntry = (route: string, kind: string, key: TranslationKey) =>

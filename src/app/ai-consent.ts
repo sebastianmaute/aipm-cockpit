@@ -11,8 +11,16 @@ import { type AiRoute, currentAiRoute, getAiDeploymentState, isAiDeploymentOn } 
  *  matches. A wording-only text change re-pins the current version instead.
  *  2 — AI people protection: the table gained its protected column and a v1 consent is asked again.
  *  3 — §785: the allocation plan proposal also sends, for a person matched in another project of the same database, that
- *  project's name and the hours booked, open tasks and remaining hours there. */
-export const AI_DISCLOSURE_VERSION = 3;
+ *  project's name and the hours booked, open tasks and remaining hours there.
+ *  4 — the allocation plan proposal's text now names what its request already carried: each internal person's
+ *  role hourly rate, the workday length and plan currency, the percent-or-hours mode, and the open tasks,
+ *  milestones and R/A holders of the project digest.
+ *  5 — the texts of the committee report draft, Analyze next actions, the scheduled job analysis, the insight
+ *  recommendation (on request and automatic) and the WBS proposal now name the absence list their requests already
+ *  carried (`buildAwaySummary`: who is away, with their resource number and absent days). The action analysis and
+ *  scheduled job texts (one digest, `buildProjectDigest`) also name the project mode and modules, the RAID
+ *  last-changed date and the stakeholder category. */
+export const AI_DISCLOSURE_VERSION = 5;
 
 /** `route` is where the AI traffic went when the user accepted; absent counts as `direct`. `keyRestricted` is
  *  whether the deployment restricted AI to its organisation's Anthropic keys then; absent counts as false. */

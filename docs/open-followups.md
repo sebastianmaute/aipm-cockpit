@@ -248,7 +248,9 @@ zero — `SECTION_TITLE_RE` in the same file requires `^§[1-9]\d*:`) and the la
 flip, with `gh issue create` — the switch is the repository variable `REGISTER_TRACKER=github`, set
 at [the flip checklist's step 7](superpowers/specs/2026-09-23-flip-checklist.md). Closing an entry
 removes its `**Work item:**` line entirely (a closed entry carrying one is the workitems gate's
-`ON_CLOSED` finding) and closes the corresponding issue.
+`ON_CLOSED` finding) and closes the corresponding issue. An entry listed in `CITED_GAPS`
+(`scripts/compliance/pack-config.mjs`) must leave that list, and the compliance pack's prose that cites it
+must be updated, in the same change — or `npm run compliance:check` and `src/app/compliance/pack-drift.test.ts` fail.
 
 <!-- INDEX:BEGIN -->
 | # | Item | Origin | Size | State |
@@ -727,7 +729,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§484](#484-storage-and-recovery-have-no-docsagents-reference--closed-2026-09-28) | Storage and recovery have no docs/AGENTS reference | found 2026-09-13 by the housekeeping audit's docs/AGENTS coverage pass | M — narrowed 2026-09-27 to one new storage/recovery file, citing symbols rather than line numbers | **CLOSED** 2026-09-28 |
 | [§485](#485-nothing-keeps-docsfeaturesmd-in-sync-with-libapp-feature-guidemd-and-the-human-facing-copy-has-already-drifted--closed-2026-09-27) | Nothing keeps docs/features.md in sync with lib/app-feature-guide.md, and the human-facing copy has already drifted | found 2026-09-13 by the housekeeping audit's general-docs pass, which counted five false claims in docs/features.md | S — generate features.md from the guide, or add a section-parity check | **CLOSED** 2026-09-27 |
 | [§486](#486-auto-pull-re-creates-an-outlook-event-the-user-pruned-because-an-item-cannot-opt-out-of-calendar-sync--closed-2026-09-26) | ~~Auto-pull re-creates an Outlook event the user pruned, because an item cannot opt out of calendar sync~~ | documented as a known limit by calendar two-way SP5 (0.164) and carried only as tech-debt-register TD-3 until 2026-09-13; fixed on `fix/defect-batch-6` | M — a per-item `calendarOptOut` across all six write paths, the reconcile change, and an editor checkbox | **CLOSED** 2026-09-26 |
-| [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
+| [§487](#487-the-windows-installer-is-still-unsigned-the-signing-pipeline-exists-but-is-switched-off-so-every-install-shows-an-unknown-publisher-warning--open) | The Windows installer is still unsigned: the signing pipeline exists but is switched off, so every install shows an unknown-publisher warning | found 2026-09-13 by the housekeeping audit; recorded as a constraint in `desktop/electron-builder.yml` and as a user instruction in `docs/desktop-rollout.md` | S once a certificate exists — procuring one is an organisational step and the long pole; the CI change is signing settings plus a protected variable | open |
 | [§488](#488-the-390-h-booked-vs-104-h-planned-gap-seen-in-the-demo-is-unexplained-and-a-fixed-price-contract-converted-to-end-to-end-responsibility-has-no-model--closed-2026-10-02) | The 390 h booked vs 104 h planned gap seen in the demo is unexplained, and a fixed-price contract converted to end-to-end responsibility has no model | GitLab #42 (F-5, demo 2026-09-11); its currency lead became #77 / §465 (closed 2026-09-12), and its external-resources lead was refuted in the issue's own comments | M — reproduce the gap on the demo data first; modelling an end-to-end contract type is the open design question | **CLOSED** 2026-10-02 |
 | [§489](#489-the-floating-helpmenu-has-no-deep-link-input-and-nothing-calls-for-one-yet--closed-2026-10-03) | The floating HelpMenu has no deep-link input, and nothing calls for one yet | split 2026-09-13 from §424 (gap 4), whose modal half shipped as a popover and so never needed this route | S–M once a caller exists — a request prop following the remount-swallow rule | **CLOSED** 2026-10-03 |
 | [§490](#490-six-write-path-persistence-is-mitigated-per-slice-only-and-the-unified-codec-and-schema-rewrite-stays-deferred--open) | Six-write-path persistence is mitigated per slice only, and the unified codec and schema rewrite stays deferred | tech-debt-register TD-2 (Phase 3 T10), moved into the register 2026-09-13 | L if ever built — a unified codec/schema layer across JSON, CSV, Markdown, both Turso layouts and IndexedDB; the near-term work is the decision | open |
@@ -1029,6 +1031,20 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§791](#791-the-portfolio-flag-stays-on-turso-after-an-in-place-storage-switch-and-its-other-readers-are-unaudited) | The portfolio flag stays on Turso after an in-place storage switch, and its other readers are unaudited | #942 | — | OPEN |
 | [§792](#792-no-test-proves-writesettings-blanks-every-sealed-secret-the-five-fields-are-named-by-hand--closed-2026-11-06) | No test proves writeSettings blanks every sealed secret; the five fields are named by hand | — | — | **CLOSED** 2026-11-06 |
 | [§793](#793-the-installers-uninstaller-is-not-code-signed) | The installer's uninstaller is not code-signed | #951 | — | OPEN |
+| [§794](#794-a-single-ai-chat-write-applies-without-the-review-card) | A single AI chat write applies without the review card | — | — | open |
+| [§795](#795-background-ai-runs-are-consented-once-not-approved-run-by-run) | Background AI runs are consented once, not approved run by run | — | — | open |
+| [§796](#796-tasks-created-by-plan-with-ais-work-breakdown-cannot-be-undone) | Tasks created by Plan with AI's work breakdown cannot be undone | — | — | open |
+| [§797](#797-external-text-that-the-chats-tools-read-does-not-trigger-the-review-hold) | External text that the chat's tools read does not trigger the review hold | — | — | open |
+| [§798](#798-most-ai-requests-have-no-client-time-limit-and-none-is-retried-on-a-rate-limit-or-overload) | Most AI requests have no client time limit, and none is retried on a rate limit or overload | — | — | open |
+| [§799](#799-an-activity-entry-written-by-the-ai-does-not-link-to-the-chat-message-that-caused-it) | An activity entry written by the AI does not link to the chat message that caused it | — | — | open |
+| [§800](#800-the-content-security-policy-allows-whole-host-families-by-wildcard) | The Content Security Policy allows whole host families by wildcard | — | — | open |
+| [§801](#801-text-the-ai-writes-carries-no-machine-readable-marking) | Text the AI writes carries no machine-readable marking | — | — | open |
+| [§802](#802-the-ai-gateway-route-has-never-been-run-against-a-real-gateway) | The AI gateway route has never been run against a real gateway | — | — | open |
+| [§803](#803-dictations-private-address-check-does-not-resolve-host-names) | Dictation's private-address check does not resolve host names | — | — | open |
+| [§804](#804-plan-with-ai-always-sends-internal-hourly-rates-there-is-no-option-to-leave-them-out) | Plan with AI always sends internal hourly rates; there is no option to leave them out | — | — | open |
+| [§805](#805-the-ai-relay-attaches-the-deployments-gateway-token-for-any-caller-that-reaches-the-server) | The AI relay attaches the deployment's gateway token for any caller that reaches the server | — | — | open |
+| [§806](#806-the-ai-relay-and-dictation-routes-have-no-request-limit) | The AI relay and dictation routes have no request limit | — | — | open |
+| [§810](#810-hiding-a-projects-resources-function-keeps-neither-the-chats-people-tools-nor-the-absence-list-from-the-ai) | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -38281,7 +38297,7 @@ class as `outlookEventId`'s write-through race and is not specific to this fix.
 
 **Source:** `docs/superpowers/plans/2026-07-02-calendar-twoway-sp5-autopull.md`, `docs/tech-debt-register.md` (TD-3); audit candidate 9
 
-## 487. The Windows installer is unsigned because no code-signing certificate exists, so every install shows an unknown-publisher warning — OPEN
+## 487. The Windows installer is still unsigned: the signing pipeline exists but is switched off, so every install shows an unknown-publisher warning — OPEN
 
 **Status:** **Update 2026-11-06 (signing pipeline, not yet switched on):** a code-signing pipeline now exists but is switched off: the release workflow's signing jobs (`sign-app`, `sign-installer`) have SignPath Foundation sign the setup (and, with `SIGNPATH_SIGN_APP_EXE`, the app's own executables) once the owner sets `SIGNPATH_ENABLED` (`grep -n "SIGNPATH_ENABLED" .github/workflows/release.yml`), a signed build refuses any update not signed by SignPath Foundation (`desktop/src/update-signature.ts`), and the README's "Code signing policy" and the RUNBOOK's one-time setup checklist describe it. Nothing is signed until then, so this entry stays open; it closes with the first release whose notes carry the SignPath line. The unsigned uninstaller is [§793](#793-the-installers-uninstaller-is-not-code-signed). The "Sign in `.github/workflows/release.yml`'s `build` job" step below is superseded: signing happens in the `sign` job, and `signExecutable: false` stays, since electron-builder itself never signs. **Earlier:** **Update 2026-10-20 (open-issue audit, `origin/main` 362d2a1d0):** still open, and the signing question is unchanged. The "2026-09-24 (gap found while verifying the above)" paragraph below is resolved: §741 closed 2026-10-20. Its PR #826 made `e2e/desktop-smoke.spec.ts` launch the packaged app with `AIPM_UPDATER_DRY_RUN=1` in place of `AIPM_DISABLE_UPDATE_CHECK` (`grep -n "AIPM_UPDATER_DRY_RUN" e2e/desktop-smoke.spec.ts`), so the smoke test loads and wires the real electron-updater and fails on either fallback line. PR #829 recorded the owner's passing packaged run. The smoke test runs in no CI job. **Earlier:** **Update 2026-10-16 (owner decision):** the unknown-publisher warning is accepted for the pilot phase. No certificate is bought now; the entry stays open to revisit before a wider rollout. Meanwhile the rollout guide walks users through both warnings (`grep -n "Keep anyway" docs/desktop-rollout.md`). The updater smoke-test gap recorded below is now its own entry, §741.
 
@@ -40810,7 +40826,7 @@ Related: §13 (PX-9's original filing).
 
 ## 563. The desktop installer is unsigned — OPEN (tied to the publishing decision)
 
-**Status:** **Update 2026-11-06 (signing pipeline, not yet switched on):** the ★ rule's "sign if public" half now has its mechanism, switched off until the owner turns it on; [§487](#487-the-windows-installer-is-unsigned-because-no-code-signing-certificate-exists-so-every-install-shows-an-unknown-publisher-warning--open)'s update of the same date describes it. This entry stays open with §487 and closes with the first release whose notes carry the SignPath line. The stale `electron-builder.yml` comment this entry's 2026-10-12 update quoted ("not yet configured") is rewritten. **Earlier:** **Update 2026-10-12 (§138 P2 probe):** the gap is now LIVE. The repository is public and its Releases page carries v1.14.0-rc.1 through v1.17.0; `Get-AuthenticodeSignature` on the downloaded `aipm-cockpit-1.17.0-setup.exe` → `NotSigned` (control: notepad.exe → `Valid`), and `grep -n "signExecutable: false" desktop/electron-builder.yml` → line 160 (the key; line 135 is a comment). The approval pause IS configured: `gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq '[.protection_rules[].type]'` → `["branch_policy","required_reviewers"]`. release.yml's header comment (lines 3–10) still calls the repository private and the pause future, and `grep -n "not yet configured" desktop/electron-builder.yml` → line 155 says the same; both are stale. The gap the 2026-09-24 decision accepted is now live, so the ★ rule's "sign if public" half is due.
+**Status:** **Update 2026-11-06 (signing pipeline, not yet switched on):** the ★ rule's "sign if public" half now has its mechanism, switched off until the owner turns it on; [§487](#487-the-windows-installer-is-still-unsigned-the-signing-pipeline-exists-but-is-switched-off-so-every-install-shows-an-unknown-publisher-warning--open)'s update of the same date describes it. This entry stays open with §487 and closes with the first release whose notes carry the SignPath line. The stale `electron-builder.yml` comment this entry's 2026-10-12 update quoted ("not yet configured") is rewritten. **Earlier:** **Update 2026-10-12 (§138 P2 probe):** the gap is now LIVE. The repository is public and its Releases page carries v1.14.0-rc.1 through v1.17.0; `Get-AuthenticodeSignature` on the downloaded `aipm-cockpit-1.17.0-setup.exe` → `NotSigned` (control: notepad.exe → `Valid`), and `grep -n "signExecutable: false" desktop/electron-builder.yml` → line 160 (the key; line 135 is a comment). The approval pause IS configured: `gh api repos/sebastianmaute/aipm-cockpit/environments/release --jq '[.protection_rules[].type]'` → `["branch_policy","required_reviewers"]`. release.yml's header comment (lines 3–10) still calls the repository private and the pause future, and `grep -n "not yet configured" desktop/electron-builder.yml` → line 155 says the same; both are stale. The gap the 2026-09-24 decision accepted is now live, so the ★ rule's "sign if public" half is due.
 
 **Earlier:** OPEN 2026-09-18 — established by reading `desktop/electron-builder.yml`, readable with `grep -n "signExecutable" desktop/electron-builder.yml`; **never machine-verified** against a produced installer. Not filed as a defect: it is acceptable under the current distribution model and becomes a real gap only under a distribution model nobody has decided on yet.
 
@@ -46267,3 +46283,199 @@ What it would take: ask SignPath (or read the Foundation's terms) whether a per-
 Size M.
 
 **Source:** review of the signing job, 2026-11-02. Decision: the uninstaller is not signed in this change; it waits until SignPath confirms whether a build-hook signing request is acceptable.
+
+## 794. A single AI chat write applies without the review card
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Deliberate behaviour, filed so the pack can cite it. Reproduced by reading: `grep -n "return writes > 1" src/app/chat-proposal.ts` prints one hit, the last line of `shouldStage`.
+
+**Work item:** #969
+
+The chat sends a turn to the review card when it holds a destructive call, a calendar write that mails attendees, a tool that always stages, a date write that lands on someone's absence, more than one entity write across the user's send, or any change while an attachment is in the conversation. Outside those cases one entity write applies at once: it is logged as the AI's, and most entities can undo it, but nobody approves it before it lands. A few lone writes (an inquiry sent, a forecast setting, the enabled modules) cannot be undone at all.
+
+What it would take: decide whether a deployment or a project may ask for every write to be reviewed. If yes, a setting read by `shouldStage`, with tests for the lone write in both states.
+
+Size S.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 795. Background AI runs are consented once, not approved run by run
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Deliberate behaviour, filed so the pack can cite it. Reproduced by reading: `grep -c 'level: "background"' src/app/ai-disclosure.ts` prints 3 (scheduled job analysis, automatic insight recommendations, the scheduled digest summary).
+
+**Work item:** #970
+
+Three AI paths run without a person starting them: scheduled job analyses, automatic insight recommendations and the scheduled digest summary. Each sends project data to the AI under the background consent, which is given once and covers every later run until it is withdrawn. Scheduled jobs and recommendations only advise (a person applies a recommendation), but the data leaves on each run without anyone approving that run.
+
+What it would take: decide whether a deployment may require a person to start each background run, or switch background runs off while leaving interactive AI on. Either needs a deployment setting, the consent dialog's wording, and tests on each of the three paths.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 796. Tasks created by Plan with AI's work breakdown cannot be undone
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -c "new tasks stay" src/app/i18n.ts` prints 1, the note the apply dialog shows ("Undo reverts the changes to existing tasks; new tasks stay and can be deleted by hand.").
+
+**Work item:** #971
+
+Applying an AI work breakdown captures an undo entry for the tasks it changes, but not for the tasks it creates, because the undo stack cannot reverse a create without duplicating the row. After an apply, the user removes unwanted new tasks by hand.
+
+What it would take: an undo kind that deletes the rows a create added (by id, checking they are unchanged since), wired into the work-breakdown apply, with a test that undo removes exactly the created tasks and keeps a task edited since.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 797. External text that the chat's tools read does not trigger the review hold
+
+**Status:** OPEN 2026-11-13, found by reading the code during the compliance pack's gap check; never machine-verified.
+
+**Work item:** #972
+
+The chat holds its proposed changes for review when the conversation contains an attached file, because text from outside may carry instructions. Text from outside that the chat reads through its tools, such as content synced from Jira, does not start that hold.
+
+What it would take: treat externally sourced text read by the chat's tools like an attachment for the review hold, with tests.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 798. Most AI requests have no client time limit, and none is retried on a rate limit or overload
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -rnE "setTimeout\(\(\) => [a-zA-Z.]*abort|AbortSignal.timeout" src/app --include=*.ts --include=*.tsx` lists, among the AI callers, only `use-digest.ts` (the on-request digest summary, `AI_TIMEOUT_MS`, 20 s) and `use-ai-key-check.ts` (the key check, 15 s); `grep -n "status === 429" src/app/ai-errors.ts` prints the one line that turns a 429 or an overload into a "limit" error shown to the user.
+
+**Work item:** #973
+
+Only two AI calls set a time limit of their own: the digest summary asked for on request (20 seconds) and the API key check (15 seconds). The others, among them the chat, the inline edit, Plan with AI, the work breakdown, the steering-committee report, insight recommendations and the scheduled runs, end only when the user cancels or the connection fails. On a gateway or organisation-key deployment the server relay adds a 15-minute idle timeout. A rate-limit or overload answer is reported to the user as such, and nothing tries again; the retry the AI helpers do make is for an answer cut off by its token budget, not for a transient failure.
+
+What it would take: an overall timeout for each AI request, and a bounded retry with backoff on 429 and overload answers that honours `retry-after`, kept off for a streamed answer once text has arrived. Tests for each.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 799. An activity entry written by the AI does not link to the chat message that caused it
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -nE "^\s*(actor|changes)\?:" src/app/activity-log.ts` prints the two optional fields an entry carries beyond its kind and arguments (and their uses in the sanitiser and the append helper); neither names a chat thread or message.
+
+**Work item:** #974
+
+The activity log records that the AI made a change, and what changed, but not which conversation or message asked for it. Someone reviewing an AI change cannot get from the log entry to the request behind it. (The 500-entry cap is a separate, accepted limit: §510.)
+
+What it would take: an optional reference on an entry (thread and message id) written by the chat's write paths, carried through the six write paths like the entry itself, and shown as a link in the Activity view when the thread still exists.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 800. The Content Security Policy allows whole host families by wildcard
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -cE 'source: "https?://[^"]*\*' src/proxy.ts` prints 5 (Turso, SharePoint, OneDrive files, and any port on localhost and 127.0.0.1).
+
+**Work item:** #975
+
+The browser may connect to any subdomain of the Turso, SharePoint and OneDrive file hosts, and to any local port, whatever this deployment actually uses. The wildcards exist because the database and site names are each user's own. The policy therefore bounds the page to those providers, not to the one database or site configured.
+
+What it would take: decide whether a deployment may name its own hosts (for example its Turso database and SharePoint site) so the policy lists them exactly, and keep the wildcard only where nothing is configured. Tests on the built header for both cases.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 801. Text the AI writes carries no machine-readable marking
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -rniE "c2pa|machine-readable" src/app --include=*.ts --include=*.tsx` finds one comment and no marking code outside tests.
+
+**Work item:** #976
+
+The app tells people in its own screens when text comes from the AI (for example the "AI-generated — review before acting" note), but the text it writes into tasks, documents, reports and exports carries no marking a machine can read. Once copied or exported, AI text cannot be told apart from text a person wrote.
+
+What it would take: decide what to mark (stored fields, generated documents, exports) and how (a stored flag, document metadata, a standard such as C2PA where the format allows), then mark at the AI write paths with tests per format.
+
+Size L.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 802. The AI gateway route has never been run against a real gateway
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Never run against a real gateway: the relay's tests use a fake upstream or a local TLS server (`grep -n "local TLS server" src/app/api/ai/_relay.https.test.ts` prints the file's header line).
+
+**Work item:** #977
+
+A deployment can send all AI traffic through an organisation's gateway (Cloudflare AI Gateway is the one the operating guide describes). The relay, its headers and the key check are tested against fakes and a local server, never against a real gateway, so how a real one answers (its own errors, caching, logging, dropped headers) is assumed from its documentation.
+
+What it would take: one run through a real gateway with a throwaway account, covering a chat, a streamed answer, a refused token and the key restriction, with the results written into the operating guide.
+
+Size S.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 803. Dictation's private-address check does not resolve host names
+
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13, not fixed; found by reading the code, never machine-verified.
+
+**Work item:** #978
+
+The speech-to-text endpoint check refuses private network addresses, but it judges the address as entered and does not resolve a host name first.
+
+What it would take: resolve host names in the check and refuse private results, with tests.
+
+Size M.
+
+**Source:** owner decision 2026-11-13 (file it).
+
+## 804. Plan with AI always sends internal hourly rates; there is no option to leave them out
+
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `grep -n 'rate=${' src/app/alloc-plan/alloc-plan.ts` prints the one line that adds ` rate=<internal hourly rate>/h` to each internal person with a role in the allocation request.
+
+**Work item:** #979
+
+Plan with AI sends the internal hourly rate of each internal person's role with every request. A project or deployment that does not want rates to reach the AI has no setting for it: the only control that keeps them out is people protection, which removes Plan with AI altogether. The AI data notice names the rate.
+
+What it would take: a project setting (and a deployment override) that leaves rates out of the request, and tests that no rate is sent when the setting is on.
+
+Size S.
+
+**Source:** owner decision 2026-11-13 (file it), from the compliance pack's gap check.
+
+## 805. The AI relay attaches the deployment's gateway token for any caller that reaches the server
+
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `grep -rln "authorization\|session\|cookie" src/app/api/ai/messages src/app/api/ai/models` finds no caller check, and `grep -n "cf-aig-authorization" src/app/api/ai/_relay.ts` prints the header the relay adds with the deployment's gateway token.
+
+**Work item:** #980
+
+The app's server routes do not authenticate their callers. On a deployment that routes AI through an organisation's gateway, the relay adds the gateway token to every request it forwards, so anyone who can reach the server can send AI requests through the organisation's gateway, under its token, and so at the organisation's cost where the gateway bills it.
+
+What it would take: decide whether the app should check callers itself or require the deployment to put the server behind its own access control, and say which in the operating guide; if the app checks, tests for a refused caller on both AI routes.
+
+Size M.
+
+**Source:** owner decision 2026-11-13 (file it), from the compliance pack's review.
+
+## 806. The AI relay and dictation routes have no request limit
+
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `grep -rln "rateLimit(" src/app/api --include=*.ts` lists only the Jira helpers (which the Confluence route reuses), the Timelog helpers, the ECB route and the limiter itself; the AI routes and the dictation route are not among them.
+
+**Work item:** #981
+
+Requests to Jira, Confluence, Timelog and the exchange-rate route are limited per caller. The AI relay and the dictation route have no limit, and the dictation route forwards audio to whatever public https address the caller names.
+
+What it would take: a request limit on the AI and dictation routes, with tests that a burst is refused.
+
+Size S.
+
+**Source:** owner decision 2026-11-13 (file it), from the compliance pack's review.
+
+## 810. Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI
+
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13 and widened the same day by owner decision 2026-11-13. Reproduced by reading. (a) The chat: `toolsFor` in `src/app/chat-api.ts` builds the chat's tool list from the history-search, chat-search, forecast and people-protection settings only (`variantKey`); no project function switch is among them. `grep -n "isModuleEnabled" src/app/chat-api.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts` prints two lines, both in `chat-api.ts`: the import of `isModuleEnabled` and the Timelog check that keeps Timelog insights out of the chat prompt; none concerns the Resources function. (b) The absence list: `grep -n "buildAwaySummary(" src/app/project-digest.ts src/app/use-meeting-report-actions.ts src/app/insights/recommend-context.ts src/app/wbs-plan/wbs-plan.ts` prints one call in each of the four files, and `grep -c "isModuleEnabled"` over the same four files prints 0 for each: none checks the Resources function before the "who is away" lines go into the prompt.
+
+**Work item:** #982
+
+A project can hide its Resources function, which holds the resource directory, workload, planning and the absence calendar. Hiding it hides those views; it does not keep their data from the AI. Two routes stay open. (a) While people protection is off, the AI chat is told which functions are on, but its tools that read people, absences and allocations, and change people and absences, stay available; with people protection on they are withdrawn. (b) With people protection on or off, five features send the list of who is away in the coming weeks, whatever the Resources function's state: by name and absent days when it is off, and with names replaced by placeholders when it is on, but still with the resource-directory number and the absent days: the steering committee report draft, Analyze next actions, the scheduled job analysis, insight recommendations (on request and automatic) and the WBS proposal. A user or a works council reading "switched off" as "the AI cannot reach it" would be wrong.
+
+What it would take: decide whether a hidden function also withdraws the AI's access to its data. If yes, derive the chat's tool list from the project's functions as well and enforce it in the executor as people protection is, leave the "who is away" lines out of every prompt builder while the Resources function is hidden, and test the advertised tool list, a refused call and each of the five prompts.
+
+Size S.
+
+**Source:** owner decision 2026-11-13 (file it), from the compliance pack's review.

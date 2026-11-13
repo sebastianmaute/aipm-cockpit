@@ -23,6 +23,8 @@ export interface Updater {
 type ElectronUpdaterModule = typeof import("electron-updater");
 type NsisUpdater = import("electron-updater").NsisUpdater;
 
+// The one value every installation sends as the staging id (see the requestHeaders assignment below).
+const FIXED_STAGING_ID = "00000000-0000-0000-0000-000000000000";
 const NOT_PACKAGED_MESSAGE = "Updates are checked only in the installed app.";
 // The installer runs silently after "Restart now" (quitAndInstall with isSilent), so nothing is
 // visible for a few minutes and the app can look frozen -- seen on the first real update, 1.14.0.
@@ -151,6 +153,12 @@ function wireUpdater(
   // Releases ship the full NSIS installer, never a web installer that fetches the app at install
   // time; refusing one keeps an update from installing bytes nobody downloaded or verified here.
   autoUpdater.disableWebInstaller = true;
+  // electron-updater sends `x-user-staging-id` on every check, by default a random UUID persisted per
+  // installation (AppUpdater.getUpdateInfoAndProvider). Releases use no staged rollout, so the id buys
+  // nothing and would let the host link one installation's checks. `computeFinalHeaders` merges
+  // `requestHeaders` OVER it, so this fixed value, identical for every
+  // installation, is what goes on the wire (checks and downloads).
+  autoUpdater.requestHeaders = { "x-user-staging-id": FIXED_STAGING_ID };
   autoUpdater.logger = {
     // `info` calls are electron-updater's own short, single-line status messages ("Checking for
     // update", a staging-user-id line) -- left as `String(m)` rather than `summarizeError`, since
