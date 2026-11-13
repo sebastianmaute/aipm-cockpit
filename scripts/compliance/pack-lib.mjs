@@ -28,7 +28,8 @@ export const BLOCK_NAMES = Object.freeze([
 export const PACK_LANGS = Object.freeze(["en", "de"]);
 
 const MARKER_RE = /^\s*<!-- PACK:([A-Za-z0-9-]+):(BEGIN|END) -->\s*$/;
-const FENCE_RE = /^\s*(`{3,}|~{3,})/;
+const FENCE_RE = /^ {0,3}(`{3,}|~{3,})/;
+const PACK_COMMENT_RE = /<!--\s*PACK:/;
 const HEADING_RE = /^(#{1,6})\s+\S/;
 
 const splitLines = (src) => src.split(/\r?\n/);
@@ -64,7 +65,12 @@ function scanBlocks(src) {
   lines.forEach((line, i) => {
     if (fenced[i]) return;
     const m = MARKER_RE.exec(line);
-    if (!m) return;
+    if (!m) {
+      if (PACK_COMMENT_RE.test(line)) {
+        errors.push(`line ${i + 1}: malformed PACK marker (a marker must stand alone on its line)`);
+      }
+      return;
+    }
     const [, name, kind] = m;
     const at = `line ${i + 1}`;
     if (!BLOCK_NAMES.includes(name)) {
@@ -168,67 +174,86 @@ export function parityViolations(en, de) {
   return out;
 }
 
-/** Claims the pack must never make, in either language. Matched
- *  case-insensitively on word boundaries; a single German word also matches its
- *  adjective endings and hyphen compounds (`DSGVO-konforme`), but not
- *  `Konformität`. */
+/** Claims the pack must never make, in either language. An entry is a literal
+ *  phrase or `{ re, label }` with a RegExp source. Both are matched
+ *  case-insensitively between word boundaries; spaces in a literal match any
+ *  whitespace run, and a single German literal also takes adjective endings.
+ *  `konform` also matches as the tail of a closed compound (`DSGVO-konforme`,
+ *  `datenschutzkonform`) but never `Konformität` or `Konformitätsbewertung`;
+ *  `compliance` is never matched. */
 export const DENY_PHRASES = Object.freeze({
   en: Object.freeze([
     "compliant",
-    "not high-risk",
-    "eu-hosted",
-    "hosted in the eu",
-    "never leaves",
-    "no personal data is sent",
+    { re: "complies\\s+with", label: "complies with" },
+    { re: "in\\s+compliance\\s+with", label: "in compliance with" },
+    { re: "not\\s+(?:a\\s+)?high[- ]risk(?:\\s+system)?", label: "not high-risk" },
+    { re: "eu[- ]hosted", label: "eu-hosted" },
+    { re: "hosted\\s+in\\s+(?:the\\s+eu|germany)", label: "hosted in the EU or Germany" },
+    { re: "stays?\\s+in\\s+the\\s+eu", label: "stays in the EU" },
+    { re: "never\\s+(?:leaves?|sent)", label: "never leaves / never sent" },
+    { re: "no\\s+(?:personal\\s+)?data\\s+(?:is\\s+sent|leaves)", label: "no data is sent / leaves" },
     "fully auditable",
-    "instant revocation",
+    { re: "instant(?:ly)?\\s+revo(?:cation|ked)", label: "instant revocation" },
     "always in the loop",
   ]),
   de: Object.freeze([
-    "konform",
-    "kein hochrisiko",
-    "nicht hochrisiko",
-    "in der eu gehostet",
-    "verlässt nie",
-    "verlassen nie",
+    { re: "\\p{L}*konform(?:e|er|es|en|em)?", label: "konform" },
+    { re: "(?:dsgvo|gdpr)-konformität", label: "DSGVO-Konformität" },
+    { re: "kein(?:e|es|en)?\\s+hochrisik\\p{L}*", label: "kein Hochrisiko" },
+    { re: "nicht\\s+(?:als\\s+)?hochrisik\\p{L}*", label: "nicht Hochrisiko" },
+    { re: "nicht\\s+hochriskant", label: "nicht hochriskant" },
+    { re: "in\\s+der\\s+eu\\s+gehostet|eu[- ]gehostet|in\\s+deutschland\\s+gehostet", label: "in der EU gehostet" },
+    { re: "(?:verlässt|verlassen)(?:\\s+\\p{L}+){0,3}\\s+nie(?:mals)?", label: "verlässt nie(mals)" },
     "keine personenbezogenen daten",
     "vollständig auditierbar",
-    "sofortiger widerruf",
+    { re: "sofortiger\\s+widerruf|sofort\\s+widerrufbar", label: "sofortiger Widerruf" },
     "immer ein mensch",
   ]),
 });
 
 const DE_ENDINGS = "(?:e|er|es|en|em)?";
+const BOUNDARY_BEFORE = "(?<![\\p{L}\\p{N}])";
+const BOUNDARY_AFTER = "(?![\\p{L}\\p{N}])";
 
-function phraseRegex(phrase, lang) {
-  const body = phrase
+/** [label, RegExp] for one deny-list entry. */
+function entryRegex(entry, lang) {
+  if (typeof entry !== "string") {
+    return [entry.label, new RegExp(`${BOUNDARY_BEFORE}(?:${entry.re})${BOUNDARY_AFTER}`, "iu")];
+  }
+  const body = entry
     .split(/\s+/)
     .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("\\s+");
-  const ending = lang === "de" && !/\s/.test(phrase) ? DE_ENDINGS : "";
-  return new RegExp(`(?<![\\p{L}\\p{N}])${body}${ending}(?![\\p{L}\\p{N}])`, "iu");
+  const ending = lang === "de" && !/\s/.test(entry) ? DE_ENDINGS : "";
+  return [entry, new RegExp(`${BOUNDARY_BEFORE}${body}${ending}${BOUNDARY_AFTER}`, "iu")];
 }
 
-/** Blank out what a claim check must not see: inline code and quotations. */
+/** Longest quoted span that still reads as a mention rather than a claim. */
+const MAX_QUOTED_CHARS = 40;
+
+/** Blank out what a claim check must not see: inline code and short quoted
+ *  spans. A longer quotation is text the pack would itself be making. */
 function stripExempt(line) {
   const blank = (m) => " ".repeat(m.length);
+  const n = MAX_QUOTED_CHARS;
   return line
     .replace(/`[^`]*`/g, blank)
-    .replace(/"[^"]*"/g, blank)
-    .replace(/“[^”]*”/g, blank)
-    .replace(/„[^“”]*[“”]/g, blank);
+    .replace(new RegExp(`"[^"]{0,${n}}"`, "g"), blank)
+    .replace(new RegExp(`“[^”]{0,${n}}”`, "g"), blank)
+    .replace(new RegExp(`„[^“”]{0,${n}}[“”]`, "g"), blank);
 }
 
-/** Deny-list hits outside fenced code, inline code, `>` lines and quotations. */
+/** Deny-list hits outside fenced code, inline code and short quoted spans.
+ *  `>` blockquote lines are NOT exempt. */
 export function claimViolations(src, lang) {
   const phrases = DENY_PHRASES[lang];
   if (!phrases) throw new Error(`unknown language "${lang}"`);
-  const regexes = phrases.map((p) => [p, phraseRegex(p, lang)]);
+  const regexes = phrases.map((p) => entryRegex(p, lang));
   const lines = splitLines(src);
   const fenced = fencedFlags(lines);
   const out = [];
   lines.forEach((line, i) => {
-    if (fenced[i] || line.trimStart().startsWith(">")) return;
+    if (fenced[i]) return;
     const text = stripExempt(line);
     for (const [phrase, re] of regexes) {
       if (re.test(text)) out.push(`line ${i + 1}: denied phrase "${phrase}"`);

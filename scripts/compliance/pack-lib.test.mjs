@@ -37,6 +37,13 @@ describe("parseBlocks", () => {
     expect(parseBlocks(lf.replace(/\n/g, "\r\n"))).toEqual(parseBlocks(lf));
   });
 
+  it("reports a marker that shares a line with prose, and ignores one in a fence", () => {
+    expect(parseBlocks("text <!-- PACK:ai-paths:BEGIN -->").errors).toHaveLength(1);
+    expect(parseBlocks("```\ntext <!-- PACK:ai-paths:BEGIN -->\n```").errors).toEqual([]);
+    // 4 leading spaces: not a fence, so the marker below it is live (and unpaired)
+    expect(parseBlocks("    ```\n<!-- PACK:ai-paths:BEGIN -->").errors).toHaveLength(1);
+  });
+
   it("reports an unpaired BEGIN, a stray END, nesting, an unknown name and a repeated name", () => {
     expect(parseBlocks(B("ai-paths")).errors).toHaveLength(1);
     expect(parseBlocks(E("ai-paths")).errors).toHaveLength(1);
@@ -146,18 +153,70 @@ describe("claimViolations", () => {
     expect(claimViolations("Uncompliantly worded.", "en")).toEqual([]);
   });
 
-  it("exempts fenced code, inline code, blockquotes and curly or straight quotes", () => {
+  it("exempts fenced code, inline code and short quoted spans", () => {
     const src = [
       "```",
       "compliant",
       "```",
       "Use `compliant` here.",
-      "> compliant quote",
       'He said "compliant".',
       "She said “compliant”.",
+      "The app is \"compliant\"",
       "Fine.",
     ].join("\n");
     expect(claimViolations(src, "en")).toEqual([]);
+  });
+
+  it("flags a claim inside a quotation longer than 40 characters", () => {
+    const long = '"The whole product is fully compliant with every rule there is"';
+    expect(claimViolations(long, "en")).toHaveLength(1);
+    expect(claimViolations("„Das ganze Produkt ist vollständig und überall DSGVO-konform ohne Ausnahme“", "de").length).toBeGreaterThan(0);
+  });
+
+  it("flags a claim on a blockquote line", () => {
+    expect(claimViolations("> The app is compliant.", "en")).toHaveLength(1);
+    expect(claimViolations("> Die App ist konform.", "de")).toHaveLength(1);
+  });
+
+  it("does not treat a 4-space-indented triple backtick as a fence", () => {
+    expect(claimViolations("    ```\nIt is compliant.\n    ```", "en")).toHaveLength(1);
+    expect(claimViolations("   ```\nIt is compliant.\n   ```", "en")).toEqual([]);
+  });
+
+  it.each([
+    ["en", "never leave the device"],
+    ["en", "no data leaves the device"],
+    ["en", "it is never sent"],
+    ["en", "data stays in the EU"],
+    ["en", "the app complies with the GDPR"],
+    ["en", "in compliance with the GDPR"],
+    ["en", "EU hosted"],
+    ["en", "hosted in Germany"],
+    ["en", "not a high-risk system"],
+    ["en", "access is instantly revoked"],
+    ["de", "datenschutzkonform"],
+    ["de", "Datenschutzkonform"],
+    ["de", "verlässt niemals das Gerät"],
+    ["de", "verlassen niemals das Gerät"],
+    ["de", "verlässt die EU nie"],
+    ["de", "ein DSGVO-Konformität garantiert"],
+    ["de", "EU-gehostet"],
+    ["de", "nicht hochriskant"],
+    ["de", "Zugriff ist sofort widerrufbar"],
+  ])("flags %s evasion form: %s", (lang, text) => {
+    expect(claimViolations(text, lang), text).toHaveLength(1);
+  });
+
+  it.each([
+    ["de", "Konformität"],
+    ["de", "Konformitätsbewertung"],
+    ["de", "Konformitätserklärung"],
+    ["de", "Compliance-Paket"],
+    ["en", "compliance"],
+    ["en", "Compliance-Paket"],
+    ["en", "the compliance pack"],
+  ])("does not flag %s: %s", (lang, text) => {
+    expect(claimViolations(text, lang), text).toEqual([]);
   });
 
   it("names the line", () => {
