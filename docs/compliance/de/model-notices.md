@@ -57,7 +57,7 @@ den Anmerkungen genannten Quellen]
 > **KI-Funktionen.** Wir haben diese KI-Funktionen eingeschaltet: [aus der Tabelle unten aufzählen].
 > Nutzt eine Kollegin oder ein Kollege eine davon, werden die Daten, die diese Funktion braucht, an
 > [Vertragspartner bei Anthropic, wie in Ihrem Vertrag mit Anthropic genannt] gesendet [, über unser
-> KI-Gateway, betrieben von [Administrator des Gateways]]. Die Tabelle unten führt je Funktion auf, was
+> KI-Gateway, betrieben von [Organisation, die das Gateway betreibt]]. Die Tabelle unten führt je Funktion auf, was
 > gesendet wird. [Der Personenschutz ist in allen unseren Projekten eingeschaltet: Bevor Daten gesendet
 > werden, werden die Namen, E-Mail-Adressen und Telefonnummern der Personen, die das Projekt kennt, durch
 > Platzhalter ersetzt, die KI kann niemandem Arbeit zuweisen, und die Funktionen, die die Zuteilung von
