@@ -1040,6 +1040,8 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§802](#802-the-ai-gateway-route-has-never-been-run-against-a-real-gateway) | The AI gateway route has never been run against a real gateway | — | — | open |
 | [§803](#803-dictations-private-address-check-does-not-resolve-host-names) | Dictation's private-address check does not resolve host names | — | — | open |
 | [§804](#804-plan-with-ai-always-sends-internal-hourly-rates-there-is-no-option-to-leave-them-out) | Plan with AI always sends internal hourly rates; there is no option to leave them out | — | — | open |
+| [§805](#805-the-ai-relay-attaches-the-deployments-gateway-token-for-any-caller-that-reaches-the-server) | The AI relay attaches the deployment's gateway token for any caller that reaches the server | — | — | open |
+| [§806](#806-the-ai-relay-and-dictation-routes-have-no-request-limit) | The AI relay and dictation routes have no request limit | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46432,3 +46434,31 @@ What it would take: a project setting (and a deployment override) that leaves ra
 Size S.
 
 **Source:** owner decision 2026-11-13 (file it), from the compliance pack's gap check.
+
+## 805. The AI relay attaches the deployment's gateway token for any caller that reaches the server
+
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `grep -rln "authorization\|session\|cookie" src/app/api/ai/messages src/app/api/ai/models` finds no caller check, and `grep -n "cf-aig-authorization" src/app/api/ai/_relay.ts` prints the header the relay adds with the deployment's gateway token.
+
+**Work item:** #TBD (created at push)
+
+The app's server routes do not authenticate their callers. On a deployment that routes AI through an organisation's gateway, the relay adds the gateway token to every request it forwards, so anyone who can reach the server can send AI requests through the organisation's gateway, under its token, and so at the organisation's cost where the gateway bills it.
+
+What it would take: decide whether the app should check callers itself or require the deployment to put the server behind its own access control, and say which in the operating guide; if the app checks, tests for a refused caller on both AI routes.
+
+Size M.
+
+**Source:** owner decision 2026-11-13 (file it), from the compliance pack's review.
+
+## 806. The AI relay and dictation routes have no request limit
+
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `grep -rln "rateLimit(" src/app/api --include=*.ts` lists only the Jira helpers (which the Confluence route reuses), the Timelog helpers, the ECB route and the limiter itself; the AI routes and the dictation route are not among them.
+
+**Work item:** #TBD (created at push)
+
+Requests to Jira, Confluence, Timelog and the exchange-rate route are limited per caller. The AI relay and the dictation route have no limit, and the dictation route forwards audio to whatever public https address the caller names.
+
+What it would take: a request limit on the AI and dictation routes, with tests that a burst is refused.
+
+Size S.
+
+**Source:** owner decision 2026-11-13 (file it), from the compliance pack's review.
