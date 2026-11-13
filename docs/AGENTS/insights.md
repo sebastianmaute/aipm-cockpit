@@ -216,9 +216,10 @@ types through the validator was weighed and rejected.
   "improved" that nothing measured. The cache itself is kept. While Timelog is off, the chat prompt
   (`buildInsightsPromptBlock` with `withTimelog: false`, from `buildTurnContext`) and the recommendations
   (`useInsightRecommendations`) leave out every guardrail row, the frozen acted ones and their outcomes
-  included. So the Generate CTA on a guardrail row (an acted one stays listed) would do
-  nothing: `InsightRecommendationControls` takes `timelogEnabled` and, when it is `false`, shows a muted
-  note in its place, and in place of Apply on a proposed recommendation (Reject stays) (both surfaces; the Insights view and the dashboard card). ★★ The integration switch is per DEPLOYMENT, not per project: one project opened from a
+  included. So Generate on a guardrail row (an acted one stays listed) would do nothing, and
+  neither would Apply on one's proposed recommendation. `InsightRecommendationControls` takes
+  `timelogEnabled`; when it is `false`, both controls are replaced by a muted note, each with its own text,
+  and Reject stays. This holds on both surfaces, the Insights view and the dashboard card. ★★ The integration switch is per DEPLOYMENT, not per project: one project opened from a
   deployment with Timelog off retires the rows, and opened from one with it on re-raises them on the next
   covering fetch — reconcile rebuilds a resolved or dismissed row as active and drops its stored
   recommendation and review, and a removed row returns as a new one. ★★ The policy's

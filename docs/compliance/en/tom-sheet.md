@@ -80,7 +80,7 @@ this table: they are built into the app and listed in the build-time table of `d
 "Environment variables". The server also reads the Turso pair, `NEXT_PUBLIC_TURSO_DATABASE_URL` and
 `NEXT_PUBLIC_TURSO_AUTH_TOKEN`, from its run-time environment for the daily chat clean-up when
 `AIPM_CHAT_SWEEP_TURSO_URL` is unset, so for that clean-up they must be set where the server runs, not only
-at build time. [verified: `src/app/api/ai/_chat-sweep.ts`] The table is generated from the app's list of these variables; a test fails when the code reads an `AIPM_`
+at build time. [verified: `src/app/api/ai/_chat-sweep.ts`] The table is generated from the app's list of `AIPM_` variables; a test fails when the code reads an `AIPM_`
 name that the list does not hold. [verified: `src/app/deployment-variables.ts`,
 `src/app/deployment-variables.test.ts`] The values are read from the process environment, so a change
 takes effect when the server or the desktop app restarts. [vendor statement; `docs/security.md`, section

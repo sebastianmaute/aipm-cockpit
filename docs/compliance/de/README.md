@@ -38,8 +38,8 @@ eigenen Server-Routen und die Windows-Desktop-App, die dieselbe Web-App auf dem 
 ausführt. Es beschreibt, was die App speichert, was sie wohin sendet, was ein Administrator ein- oder
 ausschalten kann und welche bekannten Lücken noch offen sind.
 
-Zu den Begriffen: „Administrator“ heißt in diesem Paket, wer die Installation der App betreibt und ihre
-Umgebungsvariablen setzt. „Betreiber“ und „Anbieter“ werden nur im Sinne der Verordnung (EU) 2024/1689
+Zu den Begriffen: „Administrator“ heißt in diesem Paket, wer die Installation der App bereitstellt und verwaltet
+und ihre Umgebungsvariablen setzt. „Betreiber“ und „Anbieter“ werden nur im Sinne der Verordnung (EU) 2024/1689
 (KI-Verordnung) verwendet, dort für „deployer“ und „provider“; siehe den [Hinweis zur
 KI-Verordnung](ai-act-readiness.md).
 

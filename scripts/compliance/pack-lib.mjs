@@ -333,6 +333,8 @@ const STATUTE_AFTER = new RegExp(
  *  (`BetrVG §90`, `§401 SGB`, `§611a BGB`; a single lowercase letter right after
  *  the number belongs to the section). Generated block bodies and fenced code
  *  are not prose and are skipped too.
+ *  A register citation is recognised ONLY as `§NNN` (no space, NNN at least 400): a German-style
+ *  `§ NNN` or a lower number is never checked against the register.
  *  @returns {{ n: number, line: number }[]} in document order, 1-based lines. */
 export function proseGapCitations(src) {
   const { lines, blocks } = scanBlocks(src);

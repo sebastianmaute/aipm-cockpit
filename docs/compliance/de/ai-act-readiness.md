@@ -12,7 +12,7 @@ Wann der handgeschriebene Text zuletzt geprüft wurde, steht in der [Prüfzeile]
 der README.
 
 „Betreiber“ und „Anbieter“ stehen hier im Sinne der KI-Verordnung; „Administrator“ ist, wer die
-Installation betreibt (siehe [Umfang](README.md#umfang) in der README).
+Installation bereitstellt und verwaltet (siehe [Umfang](README.md#umfang) in der README).
 
 Dieser Hinweis ist Material für Ihre eigene Arbeit. Er ist keine Rechtsberatung. Er kommt zu keinem
 Ergebnis darüber, wie die App oder eine ihrer Funktionen einzustufen ist; diese Einstufung nehmen Sie vor,
@@ -263,7 +263,7 @@ Pflichten Hochrisiko-Systeme erreichen, die vor dem Tag, ab dem Kapitel III für
 Anhang III der 2. Dezember 2027), in Verkehr gebracht oder in Betrieb genommen wurden: nur wenn sich ihre
 Konzeption ab diesem Tag erheblich ändert, mit einer gesonderten Frist bis zum 2. August 2030 für Systeme,
 die zur Verwendung durch Behörden bestimmt sind. [extern: Verordnung (EU) 2026/1744, der ersetzte Art. 111
-Abs. 2, gelesen am 2026-11-13 wie oben] Ob und wie das auf die Version der App zutrifft, die Sie betreiben,
+Abs. 2, gelesen am 2026-11-13 wie oben] Ob und wie das auf die Version der App zutrifft, die Sie bereitstellen,
 ist zu prüfen. [Frage an Sie]
 
 Stuft Ihre Organisation die Zuteilungs- oder RACI-Vorschläge als Hochrisiko-System ein, gälten für sie ab

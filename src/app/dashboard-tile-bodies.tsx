@@ -150,7 +150,8 @@ export interface TileBodyArgs {
   insightGeneratingId?: number | null;
   onCancelInsightRecommendation?: () => void;
   insightAiEnabled?: boolean;
-  /** Whether Timelog is on for the project (see `InsightRecommendationControls`). */
+  /** Whether Timelog is on for the project; `false` withholds Generate, and Apply on a proposed
+   *  recommendation, on a TimeLog guardrail insight (see `InsightRecommendationControls`). */
   insightTimelogEnabled?: boolean;
   onNavigate?: (view: AppView) => void;
   onOpenRaid?: (id: number) => void;
