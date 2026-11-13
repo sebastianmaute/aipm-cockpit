@@ -310,21 +310,37 @@ export function claimViolations(src, lang) {
   return [...new Set(messages)];
 }
 
+/** Statute abbreviations that mark a `§` number as a section of a law, not a
+ *  register entry. An explicit list: any other capitalised word next to the
+ *  number (`AI §805`, `§794 RACI`, `§810 KI-Funktionen`) is prose, and the
+ *  number stays a register citation. `SGB` may carry a book numeral (`SGB IX`). */
+export const STATUTE_ABBREVIATIONS = [
+  "ArbVG", "BDSG", "BetrVG", "BGB", "DS-GVO", "DSGVO", "GDPR", "HGB", "KI-VO", "SGB", "TDDDG", "TTDSG", "UWG",
+];
+
+const STATUTE_ALT = STATUTE_ABBREVIATIONS.map((a) => (a === "SGB" ? String.raw`SGB(?:\s+[IVX]+)?` : a)).join("|");
+const STATUTE_BEFORE = new RegExp(String.raw`(?:^|[^\p{L}\p{N}-])(?:${STATUTE_ALT})\s*$`, "u");
+const STATUTE_AFTER = new RegExp(
+  String.raw`^(?:\(|\s*(?:Abs|Nr|No|S)\.|\s+Satz(?!\p{L})|\s+(?:${STATUTE_ALT})(?![\p{L}\p{N}-]))`,
+  "u",
+);
+
 /** Register citations in a pack file's prose. The rule: `§` directly followed
  *  (no space) by a number of three or more digits, at least 400. Statute
  *  sections are never register citations and are skipped: `§§`, `§ 87` (space),
- *  any number below 400, a number followed by `(` or by `Abs.`/`Nr.`/`No.`/`S.`,
- *  and a number preceded or followed by a statute abbreviation (a capitalised
- *  word that ends in a capital letter: `BetrVG §90`, `§401 SGB`). Generated block
- *  bodies and fenced code are not prose and are skipped too.
+ *  any number below 400, a number followed by `(` or by `Abs.`/`Nr.`/`No.`/`S.`/
+ *  `Satz`, and a number preceded or followed by one of `STATUTE_ABBREVIATIONS`
+ *  (`BetrVG §90`, `§401 SGB`, `§611a BGB`; a single lowercase letter right after
+ *  the number belongs to the section). Generated block bodies and fenced code
+ *  are not prose and are skipped too.
  *  @returns {{ n: number, line: number }[]} in document order, 1-based lines. */
 export function proseGapCitations(src) {
   const { lines, blocks } = scanBlocks(src);
   const fenced = fencedFlags(lines);
   const inBlock = (i) => blocks.some((b) => i > b.begin && i < b.end);
-  const cite = /(?<![§\p{L}\p{N}])§(\d{3,})(?!\d)/gu;
-  const statuteBefore = /(?:^|[^\p{L}])\p{Lu}[\p{L}-]*\p{Lu}\s*$/u;
-  const statuteAfter = /^(?:\(|\s*(?:Abs|Nr|No|S)\.|\s+\p{Lu}[\p{L}-]*\p{Lu}(?!\p{L}))/u;
+  const cite = /(?<![§\p{L}\p{N}])§(\d{3,})(?!\d)(?:[a-z](?!\p{L}))?/gu;
+  const statuteBefore = STATUTE_BEFORE;
+  const statuteAfter = STATUTE_AFTER;
   const out = [];
   lines.forEach((line, i) => {
     if (fenced[i] || inBlock(i)) return;

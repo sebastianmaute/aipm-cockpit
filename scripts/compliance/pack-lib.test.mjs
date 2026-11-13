@@ -303,6 +303,22 @@ describe("proseGapCitations", () => {
     "§450 Abs. 2",
     "§401 SGB",
     "§§ 412, 413",
+    "§ 87 BetrVG",
+    "BetrVG §87",
+    "§611a BGB",
+    "§§ 87, 90 und 80",
+    "§ 810 BetrVG",
+    "§450 Satz 2",
+    "KI-VO §450",
+    "§412 DSGVO",
+    "§412 DS-GVO",
+    "GDPR §412",
+    "TDDDG §425",
+    "§412 TTDSG",
+    "ArbVG §496",
+    "HGB §438",
+    "§412 UWG",
+    "SGB IX §412",
   ])("ignores a statute section: %s", (text) => {
     expect(proseGapCitations(text)).toEqual([]);
   });
@@ -313,6 +329,12 @@ describe("proseGapCitations", () => {
     ["§801, §802", [801, 802]],
     ["[vendor statement; register §810]", [810]],
     ["Register §562 und §487.", [562, 487]],
+    ["AI §805", [805]],
+    ["KI §801", [801]],
+    ["EU §801", [801]],
+    ["§810 KI-Funktionen", [810]],
+    ["§794 RACI", [794]],
+    ["the GDPR text and §810", [810]],
   ])("takes a register citation: %s", (text, numbers) => {
     expect(proseGapCitations(text).map((c) => c.n)).toEqual(numbers);
   });
@@ -327,6 +349,20 @@ describe("proseGapViolations", () => {
 
   it("accepts an open, cited entry and ignores statute sections", () => {
     expect(proseGapViolations("Gap §401. See §87(1) and § 90 BetrVG.", [401], register)).toEqual([]);
+  });
+
+  it("treats a capitalised word that is not a statute abbreviation as prose, not a statute", () => {
+    const reg = ["## 805. Open AI one", "## 801. Open KI one", "## 810. Open", "## 794. Open"].join("\n");
+    const text = ["AI §805", "KI §801", "EU §801", "§810 KI-Funktionen", "§794 RACI"].join("\n");
+    expect(proseGapViolations(text, [794, 801, 805, 810], reg)).toEqual([]);
+    expect(proseGapViolations(text, [], reg)).toEqual([
+      "line 1: §805 is cited but is not in CITED_GAPS (pack-config.mjs)",
+      "line 2: §801 is cited but is not in CITED_GAPS (pack-config.mjs)",
+      "line 3: §801 is cited but is not in CITED_GAPS (pack-config.mjs)",
+      "line 4: §810 is cited but is not in CITED_GAPS (pack-config.mjs)",
+      "line 5: §794 is cited but is not in CITED_GAPS (pack-config.mjs)",
+    ]);
+    expect(proseGapViolations("AI §806", [], reg)).toEqual(["line 1: §806 is cited but is not in the register"]);
   });
 
   it("flags a closed entry, a missing entry and an open entry left out of CITED_GAPS, with lines", () => {
