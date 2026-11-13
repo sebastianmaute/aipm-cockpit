@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
-import { config, proxy } from "./proxy";
+import { CSP_CONNECT_HOSTS, CSP_FRAME_HOSTS, config, proxy } from "./proxy";
 
 function cspFor(url = "http://localhost:3000/"): string {
   const res = proxy(new NextRequest(new Request(url)));
@@ -211,6 +211,63 @@ describe("proxy CSP — follows the key restriction", () => {
     vi.stubEnv("AIPM_AI_ORGANIZATION_ID", "");
     vi.stubEnv("AIPM_AI_WORKSPACE_IDS", "");
     expect(directive(cspFor(), "connect-src")).toContain("https://api.anthropic.com");
+  });
+});
+
+describe("proxy CSP — host constants", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  const COMMON_TAIL =
+    "https://*.turso.io https://graph.microsoft.com https://*.sharepoint.com https://*.files.1drv.com https://login.microsoftonline.com http://localhost:* http://127.0.0.1:*";
+  const STATIC_TAIL = [
+    "font-src 'self'",
+    "__CONNECT__",
+    "frame-src https://login.microsoftonline.com",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ];
+  function expected(dev: boolean, ai: boolean): string {
+    const connect = `connect-src 'self'${ai ? " https://api.anthropic.com" : ""} ${COMMON_TAIL}`;
+    return [
+      "default-src 'self'",
+      `script-src 'self' 'nonce-N' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
+      "worker-src 'self'",
+      dev ? "style-src-elem 'self' 'unsafe-inline'" : "style-src-elem 'self' 'nonce-N'",
+      "style-src-attr 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      ...STATIC_TAIL.map((d) => (d === "__CONNECT__" ? connect : d)),
+    ].join("; ");
+  }
+
+  it.each([
+    ["production", false, true],
+    ["production", false, false],
+    ["development", true, true],
+    ["development", true, false],
+  ] as const)("buildCsp header is byte-identical to the pre-refactor policy (%s, ai=%s)", async (nodeEnv, dev, ai) => {
+    if (!ai) vi.stubEnv("AIPM_DISABLED_INTEGRATIONS", "ai");
+    const csp = await cspForNodeEnv(nodeEnv);
+    expect(csp.replace(/nonce-[^']+/g, "nonce-N")).toBe(expected(dev, ai));
+  });
+
+  it("CSP_CONNECT_HOSTS lists api.anthropic.com only under ai-direct", () => {
+    const anthropic = CSP_CONNECT_HOSTS.filter((h) => h.source.includes("api.anthropic.com"));
+    expect(anthropic).toEqual([{ source: "https://api.anthropic.com", when: "ai-direct" }]);
+    expect(CSP_CONNECT_HOSTS.filter((h) => h.when === "always").length).toBe(CSP_CONNECT_HOSTS.length - 1);
+    expect(CSP_FRAME_HOSTS).toEqual([{ source: "https://login.microsoftonline.com", when: "always" }]);
+  });
+
+  it("every connect-src host in the header comes from CSP_CONNECT_HOSTS", () => {
+    const sources = directive(cspFor(), "connect-src").split(" ").slice(1).filter((x) => x !== "'self'");
+    expect(sources).toEqual(CSP_CONNECT_HOSTS.map((h) => h.source));
+    vi.stubEnv("AIPM_DISABLED_INTEGRATIONS", "ai");
+    const off = directive(cspFor(), "connect-src").split(" ").slice(1).filter((x) => x !== "'self'");
+    expect(off).toEqual(CSP_CONNECT_HOSTS.filter((h) => h.when === "always").map((h) => h.source));
   });
 });
 
