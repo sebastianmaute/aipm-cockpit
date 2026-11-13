@@ -16,8 +16,9 @@ export type PackLang = "en" | "de";
 /** The `AI_DATA_PATHS` ids whose data concerns people, for the works-council annex. A hand-kept list,
  *  pinned by the tests against the table: every row people protection hides or switches off is here,
  *  plus every row whose data text names people (assignees, stakeholders, resource-directory people,
- *  e-mail senders, Timelog persons, the voice itself). Left out, because their texts say they carry
- *  no people's names: committee-report, digest-narrative and digest-narrative-scheduled. */
+ *  e-mail senders, Timelog persons, the voice itself). Left out: committee-report, digest-narrative and
+ *  digest-narrative-scheduled, whose requests carry names only where the user typed them into titles,
+ *  the agenda or milestone names. */
 export const PEOPLE_PATH_IDS: readonly string[] = [
   "chat", // names, e-mails with sender and recipients, resource-directory people, Timelog insights
   "inline-edit", // row with assignee and blocker-log authors, resource-directory person details
@@ -53,14 +54,19 @@ const CONDITION_KEY: Readonly<Record<CspHostCondition, TranslationKey>> = {
   "ai-direct": "compliancePackCondAiDirect",
 };
 
-/** One cell: newlines flattened, `|` escaped, trimmed. */
+/** One cell: newlines flattened, every `|` escaped, trimmed. */
 function cell(text: string): string {
-  return text.replace(/\s*[\r\n]+\s*/g, " ").replace(/(?<!\\)\|/g, "\\|").trim();
+  return text.replace(/\s*[\r\n]+\s*/g, " ").replace(/\|/g, "\\|").trim();
 }
 
 function table(header: readonly string[], body: readonly (readonly string[])[]): string {
   const line = (cells: readonly string[]) => `| ${cells.map(cell).join(" | ")} |`;
   return [line(header), `|${header.map(() => "---").join("|")}|`, ...body.map(line)].join("\n");
+}
+
+/** The register's own closed test (`isClosed` in scripts/followup-claims-lib.mjs): the bare word CLOSED or a strike in the heading. */
+function headingIsClosed(title: string): boolean {
+  return /\bCLOSED\b/.test(title) || title.includes("~~");
 }
 
 /** `{ number -> title }` for every `## N. title` heading of the register. */
@@ -89,6 +95,7 @@ export function renderPackBlocks(lang: PackLang, registerSrc: string, citedGaps:
   const gapRows = citedGaps.map((n) => {
     const title = titles.get(n);
     if (title === undefined) throw new Error(`open-gaps: the register has no entry ${n}`);
+    if (headingIsClosed(title)) throw new Error(`open-gaps: register entry ${n} is closed`);
     return [`§${n}`, title];
   });
 

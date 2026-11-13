@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { AI_DATA_PATHS } from "../ai-disclosure";
-import { loadI18n } from "../i18n";
+import { loadI18n, t } from "../i18n";
 import { CSP_CONNECT_HOSTS, CSP_FRAME_HOSTS } from "../../proxy";
 import { DEPLOYMENT_VARIABLES } from "../deployment-variables";
 import { OUTBOUND_DESTINATIONS } from "../outbound-destinations";
@@ -46,7 +46,30 @@ describe("pack-blocks", () => {
     expect(Object.keys(en)).toEqual([...BLOCK_NAMES]);
     expect(Object.keys(de)).toEqual([...BLOCK_NAMES]);
     for (const name of BLOCK_NAMES) expect(rows(de[name]).length).toBe(rows(en[name]).length);
-    expect(en["ai-paths"]).not.toBe(de["ai-paths"]);
+    for (const name of BLOCK_NAMES.filter((n: string) => n !== "open-gaps")) expect(de[name]).not.toBe(en[name]);
+  });
+
+  it("an interactive row shows the interactive consent text and a background row the background one", () => {
+    const en = rows(renderPackBlocks("en", REGISTER, CITED)["ai-paths"]);
+    const interactive = AI_DATA_PATHS.findIndex((r) => r.level === "interactive");
+    const background = AI_DATA_PATHS.findIndex((r) => r.level === "background");
+    expect(en[2 + interactive]).toContain(t("en-US", "compliancePackConsentInteractive"));
+    expect(en[2 + interactive]).not.toContain(t("en-US", "compliancePackConsentBackground"));
+    expect(en[2 + background]).toContain(t("en-US", "compliancePackConsentBackground"));
+    expect(en[2 + background]).toContain(t("en-US", AI_DATA_PATHS[background].labelKey));
+  });
+
+  it("a deployment-switches row shows its subsystem, alias and values cells", () => {
+    const en = rows(renderPackBlocks("en", REGISTER, CITED)["deployment-switches"]);
+    const at = DEPLOYMENT_VARIABLES.findIndex((v) => v.values !== undefined);
+    const v = DEPLOYMENT_VARIABLES[at];
+    const cells = en[2 + at].split(" | ");
+    expect(cells[0]).toBe("| " + v.name);
+    expect(cells[1]).toBe("-");
+    expect(cells[2]).toBe("Server");
+    expect(cells[3]).toBe((v.values ?? []).join(", "));
+    const desktop = DEPLOYMENT_VARIABLES.findIndex((d) => d.subsystem === "desktop");
+    expect(en[2 + desktop].split(" | ")[2]).toBe("Desktop app");
   });
 
   it("ai-paths has one row per AI_DATA_PATHS row", () => {
@@ -68,6 +91,7 @@ describe("pack-blocks", () => {
       const line = rows(renderPackBlocks(lang, REGISTER, CITED)["browser-hosts"]).find((l) => l.includes("api.anthropic.com"));
       expect(line).toBeDefined();
       expect(line).toMatch(/Anthropic/);
+      expect(line).toContain(t(lang === "en" ? "en-US" : "de", "compliancePackCondAiDirect"));
       expect(line).not.toMatch(/Always allowed|Immer erlaubt/);
     }
   });
@@ -87,6 +111,18 @@ describe("pack-blocks", () => {
     expect(gaps).toContain("§12");
     expect(gaps).toContain("A gap with a \\| pipe in `code`");
     expect(gaps).not.toContain("Done thing");
+  });
+
+  it("the anthropic condition names all three requirements", () => {
+    const text = t("en-US", "compliancePackCondAiDirect");
+    expect(text).toMatch(/directly to Anthropic/);
+    expect(text).toMatch(/restrict AI to its organisation/);
+    expect(text).toMatch(/AI integration is not switched off/);
+  });
+
+  it("open-gaps throws on a cited number whose heading is closed or struck", () => {
+    expect(() => renderPackBlocks("en", REGISTER, [3])).toThrow(/closed/);
+    expect(() => renderPackBlocks("en", "## 4. Struck ~~thing~~", [4])).toThrow(/closed/);
   });
 
   it("open-gaps throws on a cited number the register does not have", () => {
