@@ -46288,7 +46288,7 @@ Size M.
 
 **Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Deliberate behaviour, filed so the pack can cite it. Reproduced by reading: `grep -n "return writes > 1" src/app/chat-proposal.ts` prints one hit, the last line of `shouldStage`.
 
-**Work item:** #TBD (created at push)
+**Work item:** #969
 
 The chat sends a turn to the review card when it holds a destructive call, a calendar write that mails attendees, a tool that always stages, a date write that lands on someone's absence, more than one entity write across the user's send, or any change while an attachment is in the conversation. Outside those cases one entity write applies at once: it is logged as the AI's, and most entities can undo it, but nobody approves it before it lands. A few lone writes (an inquiry sent, a forecast setting, the enabled modules) cannot be undone at all.
 
@@ -46302,7 +46302,7 @@ Size S.
 
 **Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Deliberate behaviour, filed so the pack can cite it. Reproduced by reading: `grep -c 'level: "background"' src/app/ai-disclosure.ts` prints 3 (scheduled job analysis, automatic insight recommendations, the scheduled digest summary).
 
-**Work item:** #TBD (created at push)
+**Work item:** #970
 
 Three AI paths run without a person starting them: scheduled job analyses, automatic insight recommendations and the scheduled digest summary. Each sends project data to the AI under the background consent, which is given once and covers every later run until it is withdrawn. Scheduled jobs and recommendations only advise (a person applies a recommendation), but the data leaves on each run without anyone approving that run.
 
@@ -46316,7 +46316,7 @@ Size M.
 
 **Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -c "new tasks stay" src/app/i18n.ts` prints 1, the note the apply dialog shows ("Undo reverts the changes to existing tasks; new tasks stay and can be deleted by hand.").
 
-**Work item:** #TBD (created at push)
+**Work item:** #971
 
 Applying an AI work breakdown captures an undo entry for the tasks it changes, but not for the tasks it creates, because the undo stack cannot reverse a create without duplicating the row. After an apply, the user removes unwanted new tasks by hand.
 
@@ -46330,7 +46330,7 @@ Size M.
 
 **Status:** OPEN 2026-11-13, found by reading the code during the compliance pack's gap check; never machine-verified.
 
-**Work item:** #TBD (created at push)
+**Work item:** #972
 
 The chat holds its proposed changes for review when the conversation contains an attached file, because text from outside may carry instructions. Text from outside that the chat reads through its tools, such as content synced from Jira, does not start that hold.
 
@@ -46344,7 +46344,7 @@ Size M.
 
 **Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -rnE "setTimeout\(\(\) => [a-zA-Z.]*abort|AbortSignal.timeout" src/app --include=*.ts --include=*.tsx` lists, among the AI callers, only `use-digest.ts` (the on-request digest summary, `AI_TIMEOUT_MS`, 20 s) and `use-ai-key-check.ts` (the key check, 15 s); `grep -n "status === 429" src/app/ai-errors.ts` prints the one line that turns a 429 or an overload into a "limit" error shown to the user.
 
-**Work item:** #TBD (created at push)
+**Work item:** #973
 
 Only two AI calls set a time limit of their own: the digest summary asked for on request (20 seconds) and the API key check (15 seconds). The others, among them the chat, the inline edit, Plan with AI, the work breakdown, the steering-committee report, insight recommendations and the scheduled runs, end only when the user cancels or the connection fails. On a gateway or organisation-key deployment the server relay adds a 15-minute idle timeout. A rate-limit or overload answer is reported to the user as such, and nothing tries again; the retry the AI helpers do make is for an answer cut off by its token budget, not for a transient failure.
 
@@ -46358,7 +46358,7 @@ Size M.
 
 **Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -nE "^\s*(actor|changes)\?:" src/app/activity-log.ts` prints the two optional fields an entry carries beyond its kind and arguments (and their uses in the sanitiser and the append helper); neither names a chat thread or message.
 
-**Work item:** #TBD (created at push)
+**Work item:** #974
 
 The activity log records that the AI made a change, and what changed, but not which conversation or message asked for it. Someone reviewing an AI change cannot get from the log entry to the request behind it. (The 500-entry cap is a separate, accepted limit: §510.)
 
@@ -46372,7 +46372,7 @@ Size M.
 
 **Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -cE 'source: "https?://[^"]*\*' src/proxy.ts` prints 5 (Turso, SharePoint, OneDrive files, and any port on localhost and 127.0.0.1).
 
-**Work item:** #TBD (created at push)
+**Work item:** #975
 
 The browser may connect to any subdomain of the Turso, SharePoint and OneDrive file hosts, and to any local port, whatever this deployment actually uses. The wildcards exist because the database and site names are each user's own. The policy therefore bounds the page to those providers, not to the one database or site configured.
 
@@ -46386,7 +46386,7 @@ Size M.
 
 **Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -rniE "c2pa|machine-readable" src/app --include=*.ts --include=*.tsx` finds one comment and no marking code outside tests.
 
-**Work item:** #TBD (created at push)
+**Work item:** #976
 
 The app tells people in its own screens when text comes from the AI (for example the "AI-generated — review before acting" note), but the text it writes into tasks, documents, reports and exports carries no marking a machine can read. Once copied or exported, AI text cannot be told apart from text a person wrote.
 
@@ -46400,7 +46400,7 @@ Size L.
 
 **Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Never run against a real gateway: the relay's tests use a fake upstream or a local TLS server (`grep -n "local TLS server" src/app/api/ai/_relay.https.test.ts` prints the file's header line).
 
-**Work item:** #TBD (created at push)
+**Work item:** #977
 
 A deployment can send all AI traffic through an organisation's gateway (Cloudflare AI Gateway is the one the operating guide describes). The relay, its headers and the key check are tested against fakes and a local server, never against a real gateway, so how a real one answers (its own errors, caching, logging, dropped headers) is assumed from its documentation.
 
@@ -46414,7 +46414,7 @@ Size S.
 
 **Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13, not fixed; found by reading the code, never machine-verified.
 
-**Work item:** #TBD (created at push)
+**Work item:** #978
 
 The speech-to-text endpoint check refuses private network addresses, but it judges the address as entered and does not resolve a host name first.
 
@@ -46428,7 +46428,7 @@ Size M.
 
 **Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `grep -n 'rate=${' src/app/alloc-plan/alloc-plan.ts` prints the one line that adds ` rate=<internal hourly rate>/h` to each internal person with a role in the allocation request.
 
-**Work item:** #TBD (created at push)
+**Work item:** #979
 
 Plan with AI sends the internal hourly rate of each internal person's role with every request. A project or deployment that does not want rates to reach the AI has no setting for it: the only control that keeps them out is people protection, which removes Plan with AI altogether. The AI data notice names the rate.
 
@@ -46442,7 +46442,7 @@ Size S.
 
 **Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `grep -rln "authorization\|session\|cookie" src/app/api/ai/messages src/app/api/ai/models` finds no caller check, and `grep -n "cf-aig-authorization" src/app/api/ai/_relay.ts` prints the header the relay adds with the deployment's gateway token.
 
-**Work item:** #TBD (created at push)
+**Work item:** #980
 
 The app's server routes do not authenticate their callers. On a deployment that routes AI through an organisation's gateway, the relay adds the gateway token to every request it forwards, so anyone who can reach the server can send AI requests through the organisation's gateway, under its token, and so at the organisation's cost where the gateway bills it.
 
@@ -46456,7 +46456,7 @@ Size M.
 
 **Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `grep -rln "rateLimit(" src/app/api --include=*.ts` lists only the Jira helpers (which the Confluence route reuses), the Timelog helpers, the ECB route and the limiter itself; the AI routes and the dictation route are not among them.
 
-**Work item:** #TBD (created at push)
+**Work item:** #981
 
 Requests to Jira, Confluence, Timelog and the exchange-rate route are limited per caller. The AI relay and the dictation route have no limit, and the dictation route forwards audio to whatever public https address the caller names.
 
@@ -46470,7 +46470,7 @@ Size S.
 
 **Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13 and widened the same day by owner decision 2026-11-13. Reproduced by reading. (a) The chat: `toolsFor` in `src/app/chat-api.ts` builds the chat's tool list from the history-search, chat-search, forecast and people-protection settings only (`variantKey`); no project function switch is among them. `grep -n "isModuleEnabled" src/app/chat-api.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts` prints two lines, both in `chat-api.ts`: the import of `isModuleEnabled` and the Timelog check that keeps Timelog insights out of the chat prompt; none concerns the Resources function. (b) The absence list: `grep -n "buildAwaySummary(" src/app/project-digest.ts src/app/use-meeting-report-actions.ts src/app/insights/recommend-context.ts src/app/wbs-plan/wbs-plan.ts` prints one call in each of the four files, and `grep -c "isModuleEnabled"` over the same four files prints 0 for each: none checks the Resources function before the "who is away" lines go into the prompt.
 
-**Work item:** #TBD (created at push)
+**Work item:** #982
 
 A project can hide its Resources function, which holds the resource directory, workload, planning and the absence calendar. Hiding it hides those views; it does not keep their data from the AI. Two routes stay open. (a) While people protection is off, the AI chat is told which functions are on, but its tools that read people, absences and allocations, and change people and absences, stay available; with people protection on they are withdrawn. (b) With people protection on or off, five features send the list of who is away in the coming weeks, whatever the Resources function's state: by name and absent days when it is off, and with names replaced by placeholders when it is on, but still with the resource-directory number and the absent days: the steering committee report draft, Analyze next actions, the scheduled job analysis, insight recommendations (on request and automatic) and the WBS proposal. A user or a works council reading "switched off" as "the AI cannot reach it" would be wrong.
 
