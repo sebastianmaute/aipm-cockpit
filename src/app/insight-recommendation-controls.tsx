@@ -38,9 +38,12 @@ function timelogWithheld(insight: Insight, timelogEnabled: boolean | undefined):
   return timelogEnabled === false && GUARDRAIL_INSIGHT_TYPES.has(insight.type);
 }
 
-/** Said in place of a withheld Generate or Apply — visible text, so a screen-reader user reads it too. */
-function TimelogOffNote({ lang }: { lang: Lang }) {
-  return <p className="w-full text-xs text-muted-foreground">{t(lang, "insightRecommendationTimelogOff")}</p>;
+/** Said in place of a withheld Generate or Apply — visible text, so a screen-reader user reads it too.
+ *  Two texts: Generate says no recommendation is made; Apply sits under a recommendation the user can
+ *  see, so it says that one cannot be applied. */
+function TimelogOffNote({ lang, withheld }: { lang: Lang; withheld: "generate" | "apply" }) {
+  const key = withheld === "apply" ? "insightRecommendationApplyTimelogOff" : "insightRecommendationTimelogOff";
+  return <p className="w-full text-xs text-muted-foreground">{t(lang, key)}</p>;
 }
 
 /** The "Generate recommendation" CTA — rendered both for an insight with no
@@ -60,7 +63,7 @@ function GenerateRecommendationCta({
   timelogEnabled,
 }: InsightRecommendationControlsProps) {
   if (aiEnabled === false) return null;
-  if (timelogWithheld(insight, timelogEnabled)) return <TimelogOffNote lang={lang} />;
+  if (timelogWithheld(insight, timelogEnabled)) return <TimelogOffNote lang={lang} withheld="generate" />;
   // ★ `nameQualifier` is NOT optional polish here — every insight row renders
   //   this CTA, so without the row-unique suffix a list is N identically-named
   //   buttons (WCAG 2.4.6), and it must qualify the Stop state too since that
@@ -122,7 +125,7 @@ export function InsightRecommendationControls(props: InsightRecommendationContro
       </p>
       {/* Apply is withheld like Generate while Timelog is off; Reject stays, it calls nothing. */}
       {timelogWithheld(insight, props.timelogEnabled) ? (
-        <TimelogOffNote lang={lang} />
+        <TimelogOffNote lang={lang} withheld="apply" />
       ) : (
         <Button
           variant="secondary"

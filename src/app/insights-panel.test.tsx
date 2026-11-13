@@ -441,6 +441,7 @@ describe("InsightsPanel", () => {
         expect(screen.queryByRole("button", { name: generateName })).toBeNull();
         expect(screen.queryByRole("button", { name: /Generate recommendation/ })).toBeNull();
         expect(screen.getByText(offNote)).toBeInTheDocument();
+        expect(screen.queryByText(t("en-US", "insightRecommendationApplyTimelogOff"))).toBeNull();
       });
 
       it("offers the Generate control, with no note, while Timelog is on", () => {
@@ -468,12 +469,14 @@ describe("InsightsPanel", () => {
         const proposed = () =>
           guardrail({ recommendation: { summary: "Cap the day", proposedCalls: [], generatedAt: "2026-06-10T00:00:00.000Z", status: "proposed" } });
         const applyName = `${t("en-US", "insightApplyRecommendation")} – ${titleOf("timelogCapPerDay")}`;
+        const applyNote = t("en-US", "insightRecommendationApplyTimelogOff");
         const rejectName = `${t("en-US", "insightRejectRecommendation")} – ${titleOf("timelogCapPerDay")}`;
 
         it("offers no Apply while Timelog is off, says why, and keeps Reject", () => {
           renderWith([proposed()], false);
           expect(screen.queryByRole("button", { name: applyName })).toBeNull();
-          expect(screen.getByText(offNote)).toBeInTheDocument();
+          expect(screen.getByText(applyNote)).toBeInTheDocument();
+          expect(screen.queryByText(offNote)).toBeNull(); // the Generate text would contradict the shown recommendation
           expect(screen.getByRole("button", { name: rejectName })).toBeInTheDocument();
         });
 
@@ -481,7 +484,7 @@ describe("InsightsPanel", () => {
           renderWith([proposed()], true);
           expect(screen.getByRole("button", { name: applyName })).toBeInTheDocument();
           expect(screen.getByRole("button", { name: rejectName })).toBeInTheDocument();
-          expect(screen.queryByText(offNote)).toBeNull();
+          expect(screen.queryByText(applyNote)).toBeNull();
         });
 
         it("keeps Apply on a proposed recommendation of any other insight while Timelog is off", () => {
@@ -492,7 +495,7 @@ describe("InsightsPanel", () => {
           expect(
             screen.getByRole("button", { name: `${t("en-US", "insightApplyRecommendation")} – ${titleOf("milestoneSlip")}` }),
           ).toBeInTheDocument();
-          expect(screen.queryByText(offNote)).toBeNull();
+          expect(screen.queryByText(applyNote)).toBeNull();
         });
       });
 

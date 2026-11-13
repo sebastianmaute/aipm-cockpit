@@ -5591,6 +5591,7 @@ export const de: Record<TranslationKey, string> = {
   insightRecommendationSuggests: "KI schlägt vor: {0}",
   insightRecommendationRejected: "Empfehlung verworfen.",
   insightRecommendationTimelogOff: "Keine KI-Empfehlung zu einem Timelog-Befund, solange Timelog ausgeschaltet ist.",
+  insightRecommendationApplyTimelogOff: "Diese Empfehlung lässt sich nicht anwenden, solange Timelog ausgeschaltet ist.",
   activityAiInsightRecommendation: "KI hat eine Insight-Empfehlung angewendet: {1}",
 
   // AI resource-allocation planning
