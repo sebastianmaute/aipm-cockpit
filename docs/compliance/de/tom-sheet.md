@@ -79,7 +79,11 @@ Jede Laufzeit-Einstellung, die ein Administrator dem Server der App oder der Des
 Microsoft-Anmeldung, URL und Token der Turso-Datenbank, Verantwortlicher und Link der KI-Richtlinie, die
 Fußzeile der Exporte und der Timelog-Tenant) stehen nicht in dieser Tabelle: Sie werden beim Erstellen in
 die App eingebaut und sind in der Tabelle der Build-Variablen in `docs/security.md`, Abschnitt
-„Environment variables“, aufgeführt. Die Tabelle wird aus der Liste dieser Variablen in der App erzeugt; ein Test schlägt fehl, wenn
+„Environment variables“, aufgeführt. Das Turso-Paar, `NEXT_PUBLIC_TURSO_DATABASE_URL` und
+`NEXT_PUBLIC_TURSO_AUTH_TOKEN`, liest zusätzlich der Server zur Laufzeit aus seiner Umgebung, für die
+tägliche Bereinigung der Chats, wenn `AIPM_CHAT_SWEEP_TURSO_URL` nicht gesetzt ist; für diese Bereinigung
+müssen die beiden daher dort gesetzt sein, wo der Server läuft, nicht nur beim Erstellen. [geprüft:
+`src/app/api/ai/_chat-sweep.ts`] Die Tabelle wird aus der Liste dieser Variablen in der App erzeugt; ein Test schlägt fehl, wenn
 der Code einen `AIPM_`-Namen liest, den die Liste nicht enthält. [geprüft:
 `src/app/deployment-variables.ts`, `src/app/deployment-variables.test.ts`] Die Werte werden aus der
 Prozessumgebung gelesen; eine Änderung wird daher wirksam, wenn der Server oder die Desktop-App neu
