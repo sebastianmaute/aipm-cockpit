@@ -15,18 +15,18 @@ and destinations: verified, `src/proxy.ts`, `src/app/outbound-destinations.ts`]
 
 ## Record fields
 
-The field names follow Art 30(1) points (a) to (g). [external: Regulation (EU) 2016/679, Art 30(1);
-unconfirmed, because the maintainer could not open the official text at eur-lex.europa.eu on
-2026-11-13; check the names against the official text]
+The field names follow Art 30(1) points (a) to (g). [external: Regulation (EU) 2016/679, Art 30(1), Official
+Journal L 119 of 4 May 2016, read from the EU Publications Office at
+http://publications.europa.eu/resource/cellar/3e485e15-11bd-11e6-ba9a-01aa75ed71a1 on 2026-11-13]
 
 | Field | What the maintainer supplies | What you fill in |
 |---|---|---|
-| (a) Controller, its representative, the data protection officer | Nothing. | Name and contact details of your organisation and its data protection officer. **question for you** |
+| (a) Controller and, where applicable, the joint controller, the controller's representative and the data protection officer | Nothing. | Name and contact details of each. **question for you** |
 | (b) Purposes | The app is a project management tool: tasks, risks, issues and decisions (RAID), milestones, changes, stakeholders, a resource directory with workload and absence planning, budgets, time bookings imported from Timelog, documents, and optional AI assistance. [verified: `src/app/types.ts`, `src/app/nav-config.ts`] | The purposes for which your organisation uses it, and the legal basis for each. **question for you** |
 | (c) Categories of data subjects | People who appear in a project: staff and external people in the resource directory, task assignees and owners, stakeholders, people named in attached e-mails and files, and the users of the app. [verified: `src/app/types.ts`] | Which of these occur in your use. **question for you** |
-| (c) Categories of personal data | People in the resource directory: first and last name, job title, phone, location, department, e-mail addresses, company, birthday (month and day), notes, whether external, whether active, role, and planned workload per period. Absences: person, dates, type (vacation, sick, training, other) and a note. Stakeholders: name, organisation, title, e-mail, category, influence, interest, notes and RACI roles. Hourly rates are held per role, not per person. Free text in tasks, RAID items, changes, documents and note logs can hold anything users write. Timelog working-time figures per person, cached on the device. The activity log, with the old and new values of changed fields. Saved AI chats. [verified: `src/app/types.ts` (`Resource`, `Absence`, `Stakeholder`, `Role`), `src/app/timelog-actuals-store.ts`, `src/app/activity-log.ts`, `src/app/chat-crypto.ts`] | Which of these you actually record, and whether any is a special category (for example sickness absences as health data). **question for you** |
-| (d) Recipients | The services the app sends to, each only when your users or operator set it up: Anthropic (or your organisation's AI gateway), Microsoft 365, Turso, Atlassian, Timelog, a speech-to-text service and the European Central Bank (which receives no personal data). The tables below say what each receives. [verified: `src/proxy.ts`, `src/app/outbound-destinations.ts`, `src/app/ai-disclosure.ts`] | Which of these your deployment uses, and under which contract with each. **question for you** |
-| (e) Transfers to third countries | The app does not set where Anthropic processes a request; it sends no `inference_geo` parameter. [verified: no use of `inference_geo` in `src/`] Anthropic offers two inference geographies, `global` (the default; inference may run in any available geography) and `us`. [external: Claude Platform Docs, "Data residency", https://platform.claude.com/docs/en/manage-claude/data-residency, read 2026-11-13] Anthropic's Data Processing Addendum incorporates the Standard Contractual Clauses, Module Two and/or Three, to the extent data protection law requires. [external: Anthropic Data Processing Addendum, https://www.anthropic.com/legal/data-processing-addendum, effective 24 February 2025, read 2026-11-13] | Where each of your services processes data, which transfer safeguard applies, and your workspace's inference setting at Anthropic. **question for you** |
+| (c) Categories of personal data | People in the resource directory: first and last name, job title, phone, location, department, e-mail addresses, company, birthday (month and day), notes, whether external, whether active, role, and planned workload per period. Absences: person, dates, type (vacation, sick, training, other) and a note. Stakeholders: name, organisation, title, e-mail, category, influence, interest, notes and RACI roles. Hourly rates are held per role, not per person. Free text in tasks, RAID items, changes, documents and note logs can hold anything users write. Timelog working-time figures per person, cached on the device. The activity log, with the old and new values of changed fields. Saved AI chats. On Turso storage also: "same person" answers that link people across projects, with both people's first and last names and a field for who decided (`decided_by`); up to 25 saved drafts of each steering-committee report; the results of scheduled AI jobs (up to 50 per job); images placed in documents; and version-history copies of the whole project. [verified: `src/app/types.ts` (`Resource`, `Absence`, `Stakeholder`, `Role`), `src/app/timelog-actuals-store.ts`, `src/app/activity-log.ts`, `src/app/chat-crypto.ts`, `src/app/person-links-schema.ts`, `MEETING_REPORT_VERSION_CAP` in `src/app/committee-report-versions-schema.ts`, `REPORT_RETENTION_PER_JOB` in `src/app/scheduled-reports-store.ts`, `src/app/document-assets-schema.ts`, `src/app/version-history.ts`; the list of these tables is `PROJECT_SCOPED_SIDE_TABLES` in `src/app/project-side-tables.ts`] | Which of these you actually record, and whether any is a special category (for example sickness absences as health data). **question for you** |
+| (d) Recipients | The services the app sends to, each only when your users or operator set it up: Anthropic (or your organisation's AI gateway), Microsoft 365, Turso, Atlassian, Timelog, a speech-to-text service and the European Central Bank (which receives no project data, but sees the IP address of the server, or in the desktop app of the user's computer). The tables below say what each receives. [verified: `src/proxy.ts`, `src/app/outbound-destinations.ts`, `src/app/ai-disclosure.ts`] | Which of these your deployment uses, and under which contract with each. **question for you** |
+| (e) Transfers to third countries | The app does not set where Anthropic processes a request; it sends no `inference_geo` parameter. [verified: no use of `inference_geo` in `src/`] Anthropic offers two inference geographies, `global` (the default; inference may run in any available geography) and `us`. Separately, Anthropic's workspace geo controls where data is stored at rest and where endpoint processing such as image transcoding happens; `us` is currently the only workspace geo available. [external: Claude Platform Docs, "Data residency", https://platform.claude.com/docs/en/manage-claude/data-residency, read 2026-11-13] Anthropic's Data Processing Addendum incorporates the Standard Contractual Clauses, Module Two and/or Three, to the extent data protection law requires. [external: Anthropic Data Processing Addendum, https://www.anthropic.com/legal/data-processing-addendum, effective 24 February 2025, read 2026-11-13] | Where each of your services processes data, which transfer safeguard applies, and your workspace's inference setting at Anthropic. **question for you** |
 | (f) Time limits for erasure | See [Retention and erasure](#retention-and-erasure). | Your retention periods for project data, which the app does not delete by itself. **question for you** |
 | (g) Technical and organisational measures | See the [TOM sheet](tom-sheet.md). | Your own measures around the app. **question for you** |
 
@@ -89,10 +89,12 @@ documents and the rest stay until a user deletes them or deletes the project. [v
 retention periods for them, and deleting by hand when they end, is yours. [question for you]
 
 **Version history (Turso storage only).** The app keeps full copies of a project's data as versions.
-Each time a version is saved, automatic versions are pruned to a set number, 50 by default, configurable
-from 50 to 1000; versions a user saves by hand stay until deleted by hand. Data deleted from the project remains in these
+Each time a version is saved, automatic versions are pruned to a set number: 50 by default, and from 50
+to 1000 as set by a user in Settings ("Version history: keep"), stored with that device's settings.
+Versions a user saves by hand stay until deleted by hand. Data deleted from the project remains in these
 copies until they are pruned or deleted. [verified: `src/app/version-history.ts`
-(`DEFAULT_VERSION_RETENTION`, `MAX_VERSION_RETENTION`), `pruneStatements` in `src/app/version-schema.ts`]
+(`DEFAULT_VERSION_RETENTION`, `MAX_VERSION_RETENTION`), `pruneStatements` in `src/app/version-schema.ts`,
+`versionHistoryRetention` in `src/app/settings-types.ts`, `src/app/settings-sections/mode-section.tsx`]
 
 **Activity log.** Each project keeps its newest 500 entries; older ones are dropped. The limit is a
 number of entries, not a time. Entries record the old and new values of changed fields, which can include
@@ -119,9 +121,12 @@ its next start. [verified: `src/app/i18n.ts` (`chatDeleteAllButton`, `chatFindBu
 
 **Erasing one person.** No single function removes a person from everything. When a person must be
 erased, consider at least: the project data itself, version history copies, activity log entries, saved
-chats (use the search above), exports and documents already made, and the data held by the services the
-app sent it to (Anthropic, an AI gateway's logs, Jira, Timelog, Microsoft 365). [vendor statement; the
-places: verified as above] How you handle erasure requests is yours to decide. [question for you]
+chats (use the search above), saved drafts of steering-committee reports, results of scheduled AI jobs,
+images in documents, "same person" answers across projects, exports and documents already made, and the
+data held by the services the app sent it to (Anthropic, an AI gateway's logs, Jira, Timelog, Microsoft
+365). [vendor statement; the places: verified as above] Deleting a person removes their "same person"
+answers in most cases; the cases where it does not are listed in `docs/security.md`, section "What is
+stored where". [vendor statement; `docs/security.md`] How you handle erasure requests is yours to decide. [question for you]
 
 **Factory reset.** Settings → Reset application clears the app's configuration in this browser:
 

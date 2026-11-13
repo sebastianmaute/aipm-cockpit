@@ -33,7 +33,8 @@ maintainer. [verified: `desktop/src/updater.ts`]
 
 - **When.** In a packaged desktop app, 10 seconds after start and whenever the user chooses Check for
   updates. Setting the environment variable `AIPM_DISABLE_UPDATE_CHECK` to `1` stops all checks.
-  [verified: `desktop/src/updater.ts`, `src/app/deployment-variables.ts`]
+  [verified: `STARTUP_CHECK_DELAY_MS` in `desktop/src/lib/update-policy.ts`, used in `desktop/src/main.ts`;
+  `desktop/src/updater.ts`; `src/app/deployment-variables.ts`]
 - **What GitHub sees.** The request itself, which carries the computer's IP address, the update
   library's user agent (electron-builder), and a fixed identifier in the header `x-user-staging-id`.
   That identifier is the same value for every installation, so it does not tell installations apart. The
@@ -55,7 +56,8 @@ A web deployment of the app has no updater. Your organisation deploys new versio
 `src/app/outbound-destinations.ts` lists the updater only for `desktop/src/updater.ts`]
 
 What GitHub does with the requests it receives is governed by GitHub's own terms, not by the
-maintainer. [question for you]
+maintainer. [vendor statement] Whether those terms are acceptable for the update checks your computers
+make, or whether you turn the checks off, is for you to decide. [question for you]
 
 ### Support and vulnerability reports
 
@@ -110,7 +112,7 @@ app to contact. It is read from the same constants the server uses to build the 
 <!-- PACK:browser-hosts:END -->
 
 The wildcard entries allow any Turso database and any SharePoint or OneDrive file host, not only yours
-(§800).
+(§800). [verified: `src/proxy.ts`; the register entry §800 in `docs/open-followups.md`]
 
 ## Destinations of the server and the desktop app
 
@@ -143,7 +145,18 @@ read the table:
 <!-- PACK:server-destinations:END -->
 
 The private-address check for speech-to-text judges the address as typed and does not resolve a host
-name (§803). An operator can switch off each server-side integration with `AIPM_DISABLED_INTEGRATIONS`;
+name (§803). [verified: the register entry §803 in `docs/open-followups.md`]
+
+**The server does not check who is calling.** None of the app's server routes authenticates its caller;
+there is no sign-in on the server side. [verified: the 15 route files under `src/app/api`] Anyone who can
+reach the server can therefore use these routes: send AI requests through your organisation's gateway
+under its token (§805), and send requests to the integrations with credentials they hold themselves. The
+AI and dictation routes have no request limit (§806), and the limit on the other routes can be avoided
+(§562). [verified: the register entries §805, §806 and §562 in `docs/open-followups.md`] Run the server
+behind your organisation's own access control, such as a reverse proxy with sign-in, single sign-on or a
+network restriction. [vendor statement; how you do it: question for you]
+
+An operator can switch off each server-side integration with `AIPM_DISABLED_INTEGRATIONS`;
 the [TOM sheet](tom-sheet.md#deployment-switches) lists the switches. [verified:
 `src/app/deployment-variables.ts`, `src/app/api/_shared/integration-switch.ts`]
 
