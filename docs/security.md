@@ -4,6 +4,7 @@ What the app stores, where it stores it, what leaves the browser, and the
 build-time environment variables that change any of that.
 
 This file owns the subject. `README.md` links here rather than summarising it.
+For the reviewer-facing compliance pack (English and German), see [docs/compliance/README.md](compliance/README.md).
 
 ## Environment variables
 

@@ -94,6 +94,7 @@ disprove, in the same commit.
 | **AGENTS.md** (this file) | ALWAYS LOADED. Landmines and hard constraints that apply to any task, plus the architecture pointers and module maps. |
 | [`docs/AGENTS/`](docs/AGENTS/) | NOT loaded. The per-subsystem deep reference this file used to carry inline — same conventions, same gate. Open the one you are working in. |
 | [`docs/CODEMAPS/`](docs/CODEMAPS/) (5 files) | layered overview — architecture · frontend · backend · data · dependencies. Read these FIRST for shape; AGENTS.md + `docs/AGENTS/` for detail. |
+| [`docs/compliance/`](docs/compliance/) | the EN/DE compliance pack. Its tables are generated from code (renderer `src/app/compliance/pack-blocks.ts`; registries in `src/proxy.ts`, `src/app/deployment-variables.ts`, `src/app/outbound-destinations.ts` and `AI_DATA_PATHS`) and checked by `npm run compliance:check` (static) and `src/app/compliance/pack-drift.test.ts`; regenerate with `npm run compliance:generate`. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | process + conventions: setup, scripts, testing layers, release checklist. |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | operations: build, deploy, rollback, secrets, and a symptom-indexed "common issues" list. |
 | [`docs/open-followups.md`](docs/open-followups.md) | every known-open defect and deferred decision, numbered. |

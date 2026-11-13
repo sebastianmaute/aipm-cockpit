@@ -192,6 +192,13 @@ longer carries its own changelog comment.
   CI check, `sbom`, which builds the SBOM from a real build; it blocks a merge only once the maintainer adds it to
   the `main` ruleset's required checks, which the RUNBOOK's signing setup lists.
 
+- **A public compliance pack, in English and German, under `docs/compliance/`.** It covers the records an operator
+  needs for a data-protection and AI-governance review: the data flows and destinations, the deployment variables,
+  the technical and organisational measures, AI Act readiness and a works-council annex. Its tables are generated from
+  the code (`npm run compliance:generate`) and checked by `npm run compliance:check` in CI and by a unit test, so they
+  cannot drift from what the app does. `docs/security.md` and the README link to it. New open follow-ups §794 to §806
+  and §810 record the gaps found while writing it.
+
 ### Changed
 
 - The warning-triangle icon (the RAID view and the dangling-link marker, among others) now comes from lucide-react 1.69's
@@ -199,6 +206,14 @@ longer carries its own changelog comment.
 - A stored meeting report with no text and no previous version (for instance the empty paragraph an emptied editor leaves) is no longer kept when a workspace loads (a sent date on such a report goes with it).
 
 ### Fixed
+
+- **The desktop updater sends one fixed identifier instead of a per-installation one.** The update check no longer
+  carries an identifier that told installations apart.
+
+- **A factory reset also removes the Microsoft sign-in cache on this device.** It used to leave the cached Microsoft
+  tokens behind.
+
+- **The German AI texts say "Zustimmung" for the AI consent and "Administrator" for whoever runs the installation.**
 
 - **The AI data notice now says everything Plan with AI sends.** Its line for the allocation plan proposal left out
   that each internal person's internal hourly rate (from their role) is sent, and also the workday length, the plan
