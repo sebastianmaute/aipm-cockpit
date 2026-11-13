@@ -75,6 +75,21 @@ describe("outbound destinations registry", () => {
     expect(paths.filter((p) => !/^(src\/app\/api\/[^/]+(\/[^/]+\.ts)?|desktop\/src\/.+)$/.test(p))).toEqual([]);
   });
 
+  it("each destination has the operator that runs the service its host is pinned to", () => {
+    const operators = Object.fromEntries(OUTBOUND_DESTINATIONS.map((d) => [d.id, d.operator]));
+    expect(operators).toEqual({
+      "ai-relay-anthropic": "anthropic",
+      "ai-gateway": "customer",
+      "chat-sweep-turso": "turso",
+      jira: "atlassian",
+      confluence: "atlassian",
+      timelog: "timelog",
+      "speech-to-text": "user-chosen",
+      "ecb-rates": "ecb",
+      "desktop-updater": "github",
+    });
+  });
+
   it("ids are unique", () => {
     const ids = OUTBOUND_DESTINATIONS.map((d) => d.id);
     expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);

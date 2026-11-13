@@ -7,8 +7,8 @@
 
 import type { TranslationKey } from "./i18n";
 
-/** Who runs the receiving service. `customer` is a service the deploying organisation (or its user) chooses and runs or contracts. */
-export type DestinationOperator = "customer" | "anthropic" | "microsoft" | "ecb" | "github";
+/** Who RUNS the receiving service: the vendor when the code pins its host (anthropic, atlassian, timelog, turso, ecb, github), `customer` when the deploying organisation runs it (its own AI gateway), `user-chosen` when the user enters any endpoint. */
+export type DestinationOperator = "customer" | "anthropic" | "atlassian" | "timelog" | "turso" | "ecb" | "github" | "user-chosen";
 
 export interface OutboundDestination {
   id: string;
@@ -24,11 +24,11 @@ export interface OutboundDestination {
 export const OUTBOUND_DESTINATIONS: readonly OutboundDestination[] = [
   { id: "ai-relay-anthropic", caller: "src/app/api/ai/_relay.ts", operator: "anthropic", sentKey: "outboundAiRelaySent", whenKey: "outboundAiRelayWhen" },
   { id: "ai-gateway", caller: "src/app/api/ai/_relay.ts", operator: "customer", sentKey: "outboundAiGatewaySent", whenKey: "outboundAiGatewayWhen" },
-  { id: "chat-sweep-turso", caller: "src/app/api/ai/_chat-sweep.ts", operator: "customer", sentKey: "outboundChatSweepSent", whenKey: "outboundChatSweepWhen" },
-  { id: "jira", caller: "src/app/api/jira", operator: "customer", sentKey: "outboundJiraSent", whenKey: "outboundJiraWhen" },
-  { id: "confluence", caller: "src/app/api/confluence", operator: "customer", sentKey: "outboundConfluenceSent", whenKey: "outboundConfluenceWhen" },
-  { id: "timelog", caller: "src/app/api/timelog", operator: "customer", sentKey: "outboundTimelogSent", whenKey: "outboundTimelogWhen" },
-  { id: "speech-to-text", caller: "src/app/api/stt", operator: "customer", sentKey: "outboundSttSent", whenKey: "outboundSttWhen" },
+  { id: "chat-sweep-turso", caller: "src/app/api/ai/_chat-sweep.ts", operator: "turso", sentKey: "outboundChatSweepSent", whenKey: "outboundChatSweepWhen" },
+  { id: "jira", caller: "src/app/api/jira", operator: "atlassian", sentKey: "outboundJiraSent", whenKey: "outboundJiraWhen" },
+  { id: "confluence", caller: "src/app/api/confluence", operator: "atlassian", sentKey: "outboundConfluenceSent", whenKey: "outboundConfluenceWhen" },
+  { id: "timelog", caller: "src/app/api/timelog", operator: "timelog", sentKey: "outboundTimelogSent", whenKey: "outboundTimelogWhen" },
+  { id: "speech-to-text", caller: "src/app/api/stt", operator: "user-chosen", sentKey: "outboundSttSent", whenKey: "outboundSttWhen" },
   { id: "ecb-rates", caller: "src/app/api/ecb", operator: "ecb", sentKey: "outboundEcbSent", whenKey: "outboundEcbWhen" },
   { id: "desktop-updater", caller: "desktop/src/updater.ts", operator: "github", sentKey: "outboundUpdaterSent", whenKey: "outboundUpdaterWhen" },
 ];
