@@ -156,7 +156,8 @@ function wireUpdater(
   // electron-updater sends `x-user-staging-id` on every check, by default a random UUID persisted per
   // installation (AppUpdater.getUpdateInfoAndProvider). Releases use no staged rollout, so the id buys
   // nothing and would let the host link one installation's checks. `computeFinalHeaders` merges
-  // `requestHeaders` OVER it, so this nil UUID (which `UUID.check` accepts) is what goes on the wire.
+  // `requestHeaders` OVER it, so this fixed value, identical for every
+  // installation, is what goes on the wire (checks and downloads).
   autoUpdater.requestHeaders = { "x-user-staging-id": FIXED_STAGING_ID };
   autoUpdater.logger = {
     // `info` calls are electron-updater's own short, single-line status messages ("Checking for
