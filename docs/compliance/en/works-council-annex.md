@@ -2,9 +2,111 @@
 
 ## About this document
 
+This document describes the functions of AI PM Cockpit that record data about staff or can be used to
+evaluate them, what an operator and a project can switch off, and what the AI may do without a person
+approving it. It is for the works council and for the employer side preparing an agreement with it, and it
+is written so that it can be attached to a works agreement as a description of the system. The
+hand-written text was last reviewed as the README's [review line](README.md#text-last-reviewed) states.
+
+This document is input for your own work. It is not legal advice. Whether the app is subject to
+co-determination, and what an agreement should say, is for the employer and the works council to decide.
+[question for you]
+
+The German Works Constitution Act gives the works council a right of co-determination over the
+introduction and use of technical devices designed to monitor the behaviour or performance of employees
+(§87(1) No. 6); requires the employer to inform the works council in good time about the planning of work
+procedures and workflows, including the use of artificial intelligence, and to consult it on their effects
+(§90(1) No. 3, §90(2)); and treats an expert as necessary where the works council must assess the
+introduction or use of artificial intelligence (§80(3)). [external: Betriebsverfassungsgesetz, §87, §90 and
+§80, https://www.gesetze-im-internet.de/betrvg/__87.html, https://www.gesetze-im-internet.de/betrvg/__90.html,
+https://www.gesetze-im-internet.de/betrvg/__80.html, read 2026-11-13; the English wording is the
+maintainer's summary of the German text] Whether these provisions apply to your use is for you to decide.
+[question for you]
+
 ## Features that record or evaluate staff
 
+The app has no user accounts and does not record which person uses it. [vendor statement;
+`docs/security.md`, section "Security model"] It does hold data about the people who work in a project.
+Everyone with access to a project sees all of it: the app has no roles. [vendor statement; the TOM sheet
+row "Access to project data is your storage's"] The functions below record or evaluate staff.
+
+Two kinds of switch exist. A **project** can hide a function in its Functions settings; the data stays
+stored, and the hidden function returns as it was when switched on again. An **operator** can switch an
+integration or AI off for the whole deployment with `AIPM_DISABLED_INTEGRATIONS` (table
+[below](#deployment-switches)). [verified: `FEATURE_MODULES` and `sanitizeFeatures` in
+`src/app/feature-modules.ts`; `src/app/deployment-variables.ts`] Hiding a function does not withdraw the
+AI chat's tools: the chat is told which functions are on, but while people protection is off it can still
+read people, absences and allocations in a project that hides its resources function. [verified: `toolsFor`
+in `src/app/chat-api.ts`, whose settings carry no function switch; `PEOPLE_TOOLS` in
+`src/app/chat-tool-defs.ts`]
+
+- **Activity log.** Records each change with its time, its kind, the old and new values of the changed
+  fields (which can include people's names), and whether a user, the AI or an integration made it. It does
+  not record which user. It keeps the newest 500 entries. [verified: `src/app/activity-log.ts`
+  (`ActivityActor`, `ACTIVITY_MAX_ENTRIES`)] Switch: none; the log is part of every project. [verified:
+  `CORE_VIEWS` in `src/app/feature-modules.ts`]
+- **Timelog.** Imports the working time people logged in Timelog and checks it per person: a single entry
+  or a day's total over a limit, more hours than the person's defined hours, time logged on a non-working
+  day or on a day the person was absent (vacation, sick or training), and changes in a closed month. Each
+  rule that fires becomes an insight that names the person. The figures are cached on the device.
+  [verified: `INSIGHT_TYPES` in `src/app/insights/insight.ts`, `src/app/timelog-policy.ts`,
+  `src/app/timelog-actuals-store.ts`] Switch: project (the Timelog function); operator (`timelog`, which
+  also hides the function in every project). [verified: `MODULE_INTEGRATION` in
+  `src/app/feature-modules.ts`]
+- **Workload view.** Shows per person the number of open tasks, open RAID items and overdue tasks (with
+  the overdue tasks themselves), weekly hours, shift and upcoming absences. [verified:
+  `src/app/resource-workload-rows.ts`] Switch: project (the Resources function).
+- **Resource planning.** Holds each person's planned workload per period, in percent or hours, against
+  their available hours. [verified: `Resource` in `src/app/types.ts`; `src/app/resource-capacity.ts`]
+  Switch: project (the Resources function).
+- **Absences.** Records the person, the dates, the type (vacation, sick, training or other) and a note.
+  [verified: `Absence` in `src/app/types.ts`] Switch: project (the Resources function, which holds the
+  absence calendar). [verified: `FEATURE_MODULES` in `src/app/feature-modules.ts`]
+- **Stakeholder ratings.** Stakeholders, who can be staff, carry an influence and an interest rating and
+  RACI roles per milestone. [verified: `Stakeholder` in `src/app/types.ts`] Switch: project (the
+  Stakeholders function).
+- **Links of the same person across projects.** On a shared Turso database, a person in one project can be
+  linked to the same person in another, and the allocation proposal then counts the hours booked for them
+  there. [verified: `src/app/person-links-schema.ts`; the allocation row of the table
+  [below](#ai-features-and-the-data-they-send)] Switch: people protection hides the allocation proposal;
+  a project that protects its people is left out of the hours counted from it. [verified: the same row]
+- **AI allocation proposal ("Plan with AI").** Proposes planned hours per person and period, and moves of
+  open tasks from one person to another. [verified: `src/app/alloc-plan/alloc-plan.ts`,
+  `src/app/alloc-plan/alloc-ground-moves.ts`] Switch: people protection hides it (on by default, forced by
+  the operator with `ai-people`); the operator's `ai` switches all AI off. [verified:
+  `src/app/use-alloc-plan.tsx`, `src/app/ai-people-protection.ts`]
+- **AI RACI suggestion.** Proposes a RACI role per stakeholder and milestone. [verified:
+  `src/app/raci-suggest/raci-suggest.ts`] Switch: as for the allocation proposal. [verified:
+  `src/app/ai-disclosure.ts` (`whenProtected: "hidden"`)]
+- **Assignments by the AI chat and the row edit.** While people protection is off, the AI chat and the
+  "Ask Claude" edit of a row can set or change a task's assignee and other person fields. With protection
+  on, those fields are removed from the AI's changes before they apply. [verified: `PERSON_FIELDS_BY_TOOL`
+  in `src/app/ai-person-fields.ts`; `inlineAiEditPeopleWithheld` in `src/app/i18n.ts`]
+
+Which of these functions you use, who may see their data, and what they may be used for, is for the
+agreement to settle. [question for you]
+
 ## What people protection does
+
+People protection is a setting per project. It is on by default; a user can turn it off for one project
+in Settings, after a confirmation that says the AI will then see the people listed in the AI data
+disclosure. An operator can force it on in every project with `AIPM_DISABLED_INTEGRATIONS=ai-people`; the
+project setting then cannot be turned off. [verified: `src/app/ai-people-protection.ts`;
+`aiPeopleProtectionOffConfirm` and `aiPeopleProtectionLocked` in `src/app/i18n.ts`]
+
+While it is on, the names, e-mail addresses and phone numbers of the people the project knows are replaced
+by placeholders before an AI request is sent; the AI cannot set, change or clear a person on any record;
+the chat's tools that read or change people, absences, allocations and contacts are switched off; and the
+allocation proposal, the RACI suggestion and cloud dictation are unavailable. [verified:
+`src/app/ai-people-protection.ts`, `src/app/ai-person-fields.ts`, `PEOPLE_TOOLS` in
+`src/app/chat-tool-defs.ts`, `aiPeopleProtectionHelp` in `src/app/i18n.ts`] It does not catch names the
+project does not know, typed into free text or contained in attachments. It is enforced in the app in the
+browser; only the dictation route also refuses on the server, so a modified client could bypass it.
+[verified: the table below; the TOM sheet row "People protection"]
+
+The table lists the AI features whose requests can carry data about people, with what protection does to
+each. It is generated from the app's disclosure table. [verified: `PEOPLE_PATH_IDS` in
+`src/app/compliance/pack-blocks.ts`, `src/app/ai-disclosure.ts`]
 
 <!-- PACK:ai-paths-people:BEGIN -->
 | Feature | Consent | What is sent | With people protection on |
@@ -26,6 +128,11 @@
 <!-- PACK:ai-paths-people:END -->
 
 ## AI features and the data they send
+
+All AI features, with what each sends and the consent it needs. AI is off until a user switches it on and
+accepts this list on their device; the three features asked "separately" run in the background while the
+app is open, without a person starting each run (§795). [verified: `src/app/ai-disclosure.ts`,
+`src/app/ai-consent.ts`]
 
 <!-- PACK:ai-paths:BEGIN -->
 | Feature | Consent | What is sent | With people protection on |
@@ -51,7 +158,63 @@
 
 ## What the AI may do without a person approving it
 
+Most AI features propose and a person applies. The exceptions are listed per feature. [verified per item
+below]
+
+- **AI Assistant chat.** A proposed change waits on a review card, where each row can be deselected before
+  Apply, when the turn deletes something, sends invitations to meeting attendees, edits the project record,
+  sets a date that falls on someone's absence, or makes more than one change across the user's message;
+  and every change waits while a file is attached to the conversation. [verified: `shouldStage` in
+  `src/app/chat-proposal.ts`, `stagesWhenUntrusted` in `src/app/chat-send-record.ts`] **Exception:** a
+  single change outside those cases applies at once, without a card (§794). It is logged as the AI's, and
+  most such changes can be undone, but no person approved it first. [verified: the register entry §794]
+  Outside text the chat reads through its tools, such as content synced from Jira, does not start the hold
+  (§797). [verified: the register entry §797] A status inquiry the chat prepares opens as a draft e-mail in
+  the user's own mail program, which the user sends. [verified: `send_inquiry` in
+  `src/app/chat-tool-defs.ts`, `sendInquiry` in `src/app/use-chat-dispatcher.ts`]
+- **"Ask Claude" edit of a row.** Shows the changes and applies them only when the user chooses Apply.
+  [verified: `src/app/inline-ai-edit/plan.ts`; `inlineAiEditPreview` and `inlineAiEditApply` in
+  `src/app/i18n.ts`]
+- **Allocation proposal, RACI suggestion, duplicate task check, work breakdown proposal.** Each lists the
+  proposed changes item by item (for the duplicate check, each proposed merge), each item can be
+  deselected, and nothing is written until the user confirms. The allocation, RACI and work breakdown
+  previews show each change with its current and new value.
+  [verified: `src/app/alloc-plan-modal.tsx`, `src/app/raci-suggest-modal.tsx`,
+  `src/app/task-dedup-modal.tsx`, `src/app/wbs-plan-modal.tsx`] **Exception for undo:** tasks that an
+  applied work breakdown creates cannot be undone and must be deleted by hand (§796). [verified: the
+  register entry §796]
+- **Forecast import.** Applies only after a preview and, where the AI proposed the column mapping, only
+  after the user confirms that mapping. [verified: `src/app/forecast-import-modal.tsx`]
+- **Next-actions weight suggestion.** Each suggested weight is taken over only with Accept or Accept all.
+  [verified: `weightSuggestAccept` and `weightSuggestAcceptAll` in `src/app/i18n.ts`]
+- **New project proposal.** Fills in the project wizard's form, which the user completes before the project
+  is created. [verified: `src/app/create-project-wizard.tsx`]
+- **Insight recommendations, on request and automatic.** A recommendation is stored with its insight and
+  changes the project only when a person confirms it. [verified: `confirmInsightRecommendation` in
+  `src/app/use-insight-recommendations.ts`; `src/app/use-insight-recommend-runner.ts`]
+- **Steering committee report draft, digest summary, analysis of next actions, scheduled job analysis.**
+  These produce text and change no project records. [verified: `src/app/committee-report/report-call.ts`,
+  `src/app/use-digest.ts`, `src/app/use-action-analysis.ts`, `src/app/scheduled-job-run.ts`] **Exception:**
+  the scheduled job analysis, the automatic insight recommendations and the scheduled digest summary send
+  data to the AI on each run without a person starting it (§795). [verified: `src/app/ai-disclosure.ts`]
+  When a user e-mails the digest to themselves and it has no summary yet, the summary is written and sent
+  in the same step, with no separate approval of its text. [verified: `emailDigest` in `src/app/use-digest.ts`,
+  `src/app/digest/digest-mail-sender.ts`]
+
+No AI feature runs while the app is closed: the background features run in an open app only. [verified:
+`src/app/use-scheduled-job-runner.ts`, `src/app/use-insight-recommend-runner.ts`]
+
 ## Deployment switches
+
+Every setting the operator gives the app's server or the desktop app. For staff, the relevant values of
+`AIPM_DISABLED_INTEGRATIONS` are `ai` (all AI off), `ai-people` (people protection forced on in every
+project), `timelog` (the Timelog integration and function off) and `stt` (the speech-to-text route off),
+and `AIPM_AI_CHAT_RETENTION_DAYS` sets how long saved AI chats are kept. [verified:
+`src/app/deployment-variables.ts`] A change takes effect when the server or the desktop app restarts.
+[vendor statement; `docs/security.md`, section "Environment variables"] Users' own settings stay stored,
+so removing a value brings the function back as it was. [verified: `src/app/feature-modules.ts`
+(`isModuleSwitchedOff`); the TOM sheet row "Switches for integrations and AI"] Which switches your
+deployment sets, and who may change them, is for the agreement to record. [question for you]
 
 <!-- PACK:deployment-switches:BEGIN -->
 | Variable | Also accepted as | Applies to | Allowed values | Effect |
