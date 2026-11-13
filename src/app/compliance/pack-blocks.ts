@@ -13,30 +13,14 @@ import { CSP_CONNECT_HOSTS, CSP_FRAME_HOSTS, type CspHostCondition } from "../..
 
 export type PackLang = "en" | "de";
 
-/** The `AI_DATA_PATHS` ids whose data concerns people, for the works-council annex. A hand-kept list,
- *  pinned by the tests against the table: every row people protection hides or switches off is here,
- *  plus every row whose data text names people (assignees, stakeholders, resource-directory people,
- *  e-mail senders, absent people, Timelog persons, the voice itself). Left out: digest-narrative and
- *  digest-narrative-scheduled, whose data text (`aiDataDigestNarrative`) and builder
- *  (`digest/digest-narrative.ts` over `DigestModel`: status, counts, due-soon milestone names and dates)
- *  carry names only where a user typed them into a milestone name. */
-export const PEOPLE_PATH_IDS: readonly string[] = [
-  "chat", // names, e-mails with sender and recipients, resource-directory people, Timelog insights
-  "committee-report", // who is absent in the next 28 days, by name and day (consent v5)
-  "inline-edit", // row with assignee and blocker-log authors, resource-directory person details
-  "forecast-import", // sheet content: usually people's names, hours, rates
-  "insight-recommendation", // names of up to 30 people, Timelog working time of one person
-  "action-analysis", // assignees, RAID owners, stakeholder names
-  "alloc-plan", // each person's name, role and hours; hidden under protection
-  "raci-suggest", // stakeholder names, titles, organisations; hidden under protection
-  "task-dedup", // assignee of each task
-  "wbs-plan", // assignee of each task
-  "weight-suggestion", // stakeholder names
-  "project-proposal", // names in the brief and files; names cannot be redacted
-  "dictation", // the recorded voice; switched off under protection
-  "scheduled-job", // assignees, RAID owners, stakeholder names
-  "insight-recommendation-auto", // as insight-recommendation, run in the background
-];
+/** The `AI_DATA_PATHS` ids left OUT of the works council's people table, each with its reason. Every
+ *  other row is in the table by default, so a new AI path concerns people until someone argues here that
+ *  it does not; the tests pin that every row people protection hides or switches off stays in. */
+export const PEOPLE_PATH_EXCLUDED_IDS: Readonly<Record<string, string>> = {
+  "digest-narrative":
+    "data text aiDataDigestNarrative; builder digest/digest-narrative.ts over DigestModel (status, counts, due-soon milestone names and dates) carries names only where a user typed them into a milestone name",
+  "digest-narrative-scheduled": "the same summary as digest-narrative, run by the scheduler",
+};
 
 const LANG: Readonly<Record<PackLang, Lang>> = { en: "en-US", de: "de" };
 
@@ -114,7 +98,7 @@ export function renderPackBlocks(lang: PackLang, registerSrc: string, citedGaps:
 
   return {
     "ai-paths": table(aiHeader, AI_DATA_PATHS.map(aiRow)),
-    "ai-paths-people": table(aiHeader, AI_DATA_PATHS.filter((r) => PEOPLE_PATH_IDS.includes(r.id)).map(aiRow)),
+    "ai-paths-people": table(aiHeader, AI_DATA_PATHS.filter((r) => !Object.hasOwn(PEOPLE_PATH_EXCLUDED_IDS, r.id)).map(aiRow)),
     "browser-hosts": table(
       [tr("compliancePackColHost"), tr("compliancePackColDirective"), tr("compliancePackColCondition")],
       hostRows,

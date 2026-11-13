@@ -5,7 +5,7 @@ import { CSP_CONNECT_HOSTS, CSP_FRAME_HOSTS } from "../../proxy";
 import { DEPLOYMENT_VARIABLES } from "../deployment-variables";
 import { OUTBOUND_DESTINATIONS } from "../outbound-destinations";
 import { BLOCK_NAMES } from "../../../scripts/compliance/pack-lib.mjs";
-import { PEOPLE_PATH_IDS, gapTitle, renderPackBlocks, type PackLang } from "./pack-blocks";
+import { PEOPLE_PATH_EXCLUDED_IDS, gapTitle, renderPackBlocks, type PackLang } from "./pack-blocks";
 
 const REGISTER = [
   "# Register",
@@ -28,15 +28,20 @@ describe("pack-blocks", () => {
     await loadI18n("de");
   });
 
-  it("every PEOPLE_PATH_IDS id exists in AI_DATA_PATHS", () => {
+  it("every PEOPLE_PATH_EXCLUDED_IDS id exists in AI_DATA_PATHS", () => {
     const ids = new Set(AI_DATA_PATHS.map((r) => r.id));
-    for (const id of PEOPLE_PATH_IDS) expect(ids.has(id)).toBe(true);
-    expect(new Set(PEOPLE_PATH_IDS).size).toBe(PEOPLE_PATH_IDS.length);
+    const excluded = Object.keys(PEOPLE_PATH_EXCLUDED_IDS);
+    expect(excluded.length).toBeGreaterThan(0);
+    for (const id of excluded) expect(ids.has(id), id).toBe(true);
   });
 
-  it("every hidden or off row is in PEOPLE_PATH_IDS", () => {
-    for (const r of AI_DATA_PATHS) {
-      if (r.whenProtected !== "redacted") expect(PEOPLE_PATH_IDS).toContain(r.id);
+  it("every hidden or off row is in the people table", () => {
+    const people = rows(renderPackBlocks("en", REGISTER, CITED)["ai-paths-people"]).slice(2);
+    const hiddenOrOff = AI_DATA_PATHS.filter((r) => r.whenProtected !== "redacted");
+    expect(hiddenOrOff.length).toBeGreaterThan(0);
+    for (const r of hiddenOrOff) {
+      expect(Object.keys(PEOPLE_PATH_EXCLUDED_IDS)).not.toContain(r.id);
+      expect(people.some((line) => line.startsWith(`| ${t("en-US", r.labelKey)} |`)), r.id).toBe(true);
     }
   });
 
@@ -75,7 +80,7 @@ describe("pack-blocks", () => {
   it("ai-paths has one row per AI_DATA_PATHS row", () => {
     const en = renderPackBlocks("en", REGISTER, CITED);
     expect(rows(en["ai-paths"]).length).toBe(AI_DATA_PATHS.length + 2);
-    expect(rows(en["ai-paths-people"]).length).toBe(PEOPLE_PATH_IDS.length + 2);
+    expect(rows(en["ai-paths-people"]).length).toBe(AI_DATA_PATHS.length - Object.keys(PEOPLE_PATH_EXCLUDED_IDS).length + 2);
   });
 
   it("each block has a header, a separator and one row per source item", () => {
