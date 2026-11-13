@@ -1,4 +1,4 @@
-# Berührungspunkte mit dem Anbieter
+# Berührungspunkte mit dem Maintainer
 
 ## Über dieses Dokument
 
@@ -34,7 +34,7 @@ Backend, das Ihre Daten speichert, keine Telemetrie, keine Nutzungsanalyse und k
 Die Desktop-App sucht in den GitHub-Releases des Projekts nach Updates. Die Anfrage geht an GitHub, nicht
 an den Maintainer. [geprüft: `desktop/src/updater.ts`]
 
-- **Wann.** In einer installierten Desktop-App 10 Sekunden nach dem Start und jedes Mal, wenn der Nutzer
+- **Wann.** In einer paketierten (installierbaren) Desktop-App 10 Sekunden nach dem Start und jedes Mal, wenn der Nutzer
   den Menüpunkt „Check for updates“ wählt. Wird die Umgebungsvariable `AIPM_DISABLE_UPDATE_CHECK` auf `1`
   gesetzt, unterbleiben alle Prüfungen. [geprüft: `STARTUP_CHECK_DELAY_MS` in
   `desktop/src/lib/update-policy.ts`, verwendet in `desktop/src/main.ts`; `desktop/src/updater.ts`;
@@ -159,15 +159,15 @@ und löst keinen Hostnamen auf (§803). [geprüft: der Registereintrag §803 in 
 
 **Der Server prüft nicht, wer ihn aufruft.** Keine der Server-Routen der App authentifiziert ihren
 Aufrufer; serverseitig gibt es keine Anmeldung. [geprüft: die 15 Routendateien unter `src/app/api`] Jeder,
-der den Server erreicht, kann diese Routen daher nutzen: KI-Anfragen unter dem Token Ihrer Organisation
-über deren Gateway senden (§805) und Anfragen an die Integrationen mit Zugangsdaten senden, über die er
+der den Server erreicht, kann diese Routen daher nutzen: KI-Anfragen unter dem Token Ihres Gateways
+über dieses senden (§805) und Anfragen an die Integrationen mit Zugangsdaten senden, über die er
 selbst verfügt. Die Routen für KI und Diktat haben keine Anfragebegrenzung (§806), und die Begrenzung der
 übrigen Routen lässt sich umgehen (§562). [geprüft: die Registereinträge §805, §806 und §562 in
 `docs/open-followups.md`] Betreiben Sie den Server hinter der eigenen Zugangskontrolle Ihrer
 Organisation, etwa einem Reverse Proxy mit Anmeldung, Single Sign-on oder einer Netzwerkbeschränkung.
 [Aussage des Maintainers; wie Sie das umsetzen: Frage an Sie]
 
-Ein Betreiber kann jede serverseitige Integration mit `AIPM_DISABLED_INTEGRATIONS` abschalten; das
+Ein Administrator kann jede serverseitige Integration mit `AIPM_DISABLED_INTEGRATIONS` abschalten; das
 [TOM-Blatt](tom-sheet.md#schalter-für-den-betrieb) führt die Schalter auf. [geprüft:
 `src/app/deployment-variables.ts`, `src/app/api/_shared/integration-switch.ts`]
 
@@ -197,7 +197,7 @@ Kunden der Kunde Verantwortlicher und Anthropic Auftragsverarbeiter des Kunden i
 Data Processing Addendum, https://www.anthropic.com/legal/data-processing-addendum, gültig ab
 24. Februar 2025, gelesen am 2026-11-13] Wer der „Kunde“ ist, hängt davon ab, zu wessen Anthropic-Konto
 der API-Schlüssel gehört: zu dem Ihrer Organisation oder zum eigenen Konto eines Beschäftigten. Ein
-Betreiber kann die App so einstellen, dass sie nur Schlüssel des Anthropic-Kontos Ihrer Organisation
+Administrator kann die App so einstellen, dass sie nur Schlüssel des Anthropic-Kontos Ihrer Organisation
 annimmt (`AIPM_AI_ORGANIZATION_ID`). [geprüft: `src/app/ai-key-restriction-config.ts`] Ob Sie das
 einstellen und ob Ihr Vertrag mit Anthropic diese Nutzung abdeckt, prüfen Sie. [Frage an Sie]
 

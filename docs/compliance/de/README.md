@@ -32,8 +32,13 @@ Paket, das Sie an einem Release-Tag des Repositorys lesen, ist das Paket für di
 
 Das Paket behandelt die App in diesem Repository in der Version, in der Sie es lesen: die Web-App, ihre
 eigenen Server-Routen und die Windows-Desktop-App, die dieselbe Web-App auf dem Computer des Nutzers
-ausführt. Es beschreibt, was die App speichert, was sie wohin sendet, was ein Betreiber ein- oder
+ausführt. Es beschreibt, was die App speichert, was sie wohin sendet, was ein Administrator ein- oder
 ausschalten kann und welche bekannten Lücken noch offen sind.
+
+Zu den Begriffen: „Administrator“ heißt in diesem Paket, wer die Installation der App betreibt und ihre
+Umgebungsvariablen setzt. „Betreiber“ und „Anbieter“ werden nur im Sinne der Verordnung (EU) 2024/1689
+(KI-Verordnung) verwendet, dort für „deployer“ und „provider“; siehe den [Hinweis zur
+KI-Verordnung](ai-act-readiness.md).
 
 Nicht behandelt werden:
 
@@ -48,11 +53,11 @@ Nicht behandelt werden:
 
 | Dokument | Wofür es dient | Hauptlesergruppe |
 |---|---|---|
-| [Berührungspunkte mit dem Anbieter](vendor-touchpoints.md) | Was beim Maintainer ankommt (zur Laufzeit nichts aus der App), und jeder Host, den der Browser, der Server und die Desktop-App kontaktieren | DSB, CISO |
-| [Input für das Verzeichnis von Verarbeitungstätigkeiten](record-of-processing-input.md) | Die Felder eines Verzeichnisses von Verarbeitungstätigkeiten (Art. 30 Abs. 1 DSGVO), mit den Angaben, die der Maintainer liefern kann, bereits ausgefüllt | DSB |
-| [Input für die Datenschutz-Folgenabschätzung](dpia-input.md) | Eine Beschreibung der Verarbeitung in der Gliederung, die eine Datenschutz-Folgenabschätzung erwartet | DSB |
+| [Berührungspunkte mit dem Maintainer](vendor-touchpoints.md) | Was beim Maintainer ankommt (zur Laufzeit nichts aus der App), und jeder Host, den der Browser, der Server und die Desktop-App kontaktieren | DSB, CISO |
+| [Angaben für das Verzeichnis von Verarbeitungstätigkeiten](record-of-processing-input.md) | Die Felder eines Verzeichnisses von Verarbeitungstätigkeiten (Art. 30 Abs. 1 DSGVO), mit den Angaben, die der Maintainer liefern kann, bereits ausgefüllt | DSB |
+| [Angaben für die Datenschutz-Folgenabschätzung](dpia-input.md) | Eine Beschreibung der Verarbeitung in der Gliederung, die eine Datenschutz-Folgenabschätzung erwartet | DSB |
 | [Technische und organisatorische Maßnahmen](tom-sheet.md) | Die Sicherheitsmaßnahmen der App, jeweils mit dem, was sie nicht abdecken | CISO, DSB |
-| [Anlage für den Betriebsrat](works-council-annex.md) | Welche Funktionen Beschäftigte erfassen oder auswerten und was ein Betreiber abschalten kann | Betriebsrat |
+| [Anlage für den Betriebsrat](works-council-annex.md) | Welche Funktionen Beschäftigte erfassen oder auswerten und was ein Administrator abschalten kann | Betriebsrat |
 | [Hinweis zur KI-Verordnung](ai-act-readiness.md) | Die Rollen nach der Verordnung (EU) 2024/1689 (KI-Verordnung), wie der Maintainer sie liest, und die offenen Fragen | KI-Beauftragte |
 | [Musterhinweise](model-notices.md) | Vorlagen zur Information von Beschäftigten und externen Stakeholdern | DSB |
 | [KI-Kompetenz](ai-literacy.md) | Material in einfacher Sprache für die Menschen, die die App nutzen | Alle, die die KI nutzen |
@@ -132,7 +137,7 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
 - **§804** — „Mit KI planen“ sendet immer den internen Stundensatz der Rolle jeder internen Person. Der
   einzige Weg, Stundensätze von der KI fernzuhalten, ist der Personenschutz, der die Funktion ausblendet.
 - **§805** — Der Server der App prüft nicht, wer ihn aufruft. Bei einer Bereitstellung mit KI-Gateway
-  kann jeder, der den Server erreicht, KI-Anfragen unter dessen Token über Ihr Gateway senden, auf Kosten
+  kann jeder, der den Server erreicht, KI-Anfragen unter dem Token Ihres Gateways über dieses senden, auf Kosten
   Ihrer Organisation, soweit das Gateway sie abrechnet. Betreiben Sie den Server hinter Ihrer eigenen
   Zugangskontrolle.
 - **§806** — Die KI-Routen und die Diktat-Route nehmen beliebig viele Anfragen an, und das Diktat leitet
