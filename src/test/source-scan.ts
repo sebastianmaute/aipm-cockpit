@@ -126,7 +126,7 @@ const CHAINED_REQUIRE_CALL = new RegExp(
   String.raw`\brequire\(\s*${NODE_HTTP_MODULE}\s*\)\s*\.\s*(?:get|request)\s*\(`,
 );
 
-const escapeName = (name: string): string => name.replace(/\$/g, "\\$");
+const escapeName = (name: string): string => name.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
 const callOf = (name: string): RegExp => new RegExp(String.raw`(?<![\w$.])${escapeName(name)}\(`);
 const methodCallOn = (name: string): RegExp =>
   new RegExp(String.raw`(?<![\w$.])${escapeName(name)}\.(?:get|request)\(`);

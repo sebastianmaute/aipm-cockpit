@@ -256,7 +256,7 @@ describe("proxy CSP — host constants", () => {
   });
 
   it("CSP_CONNECT_HOSTS lists api.anthropic.com only under ai-direct", () => {
-    const anthropic = CSP_CONNECT_HOSTS.filter((h) => h.source.includes("api.anthropic.com"));
+    const anthropic = CSP_CONNECT_HOSTS.filter((h) => /^https:\/\/(?:[\w-]+\.)*anthropic\.com$/.test(h.source));
     expect(anthropic).toEqual([{ source: "https://api.anthropic.com", when: "ai-direct" }]);
     expect(CSP_CONNECT_HOSTS.filter((h) => h.when === "always").length).toBe(CSP_CONNECT_HOSTS.length - 1);
     expect(CSP_FRAME_HOSTS).toEqual([{ source: "https://login.microsoftonline.com", when: "always" }]);

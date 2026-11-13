@@ -93,7 +93,7 @@ describe("pack-blocks", () => {
 
   it("browser-hosts shows the condition of api.anthropic.com", () => {
     for (const lang of ["en", "de"] as PackLang[]) {
-      const line = rows(renderPackBlocks(lang, REGISTER, CITED)["browser-hosts"]).find((l) => l.includes("api.anthropic.com"));
+      const line = rows(renderPackBlocks(lang, REGISTER, CITED)["browser-hosts"]).find((l) => l.split("|").some((c) => c.trim() === "https://api.anthropic.com"));
       expect(line).toBeDefined();
       expect(line).toMatch(/Anthropic/);
       expect(line).toContain(t(lang === "en" ? "en-US" : "de", "compliancePackCondAiDirect"));
@@ -116,6 +116,12 @@ describe("pack-blocks", () => {
     expect(gaps).toContain("§12");
     expect(gaps).toContain("A gap with a \\| pipe in `code`");
     expect(gaps).not.toContain("Done thing");
+  });
+
+  it("open-gaps escapes a backslash in a title before it escapes a pipe", () => {
+    const register = String.raw`## 5. A path C:\temp\ and a | pipe`;
+    const gaps = renderPackBlocks("en", register, [5])["open-gaps"];
+    expect(gaps).toContain(String.raw`A path C:\\temp\\ and a \| pipe`);
   });
 
   it("open-gaps drops a trailing open-status suffix from a title, and nothing else", () => {

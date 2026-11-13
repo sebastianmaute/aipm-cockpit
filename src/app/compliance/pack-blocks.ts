@@ -40,9 +40,13 @@ const CONDITION_KEY: Readonly<Record<CspHostCondition, TranslationKey>> = {
   "ai-direct": "compliancePackCondAiDirect",
 };
 
-/** One cell: newlines flattened, every `|` escaped, trimmed. */
+/** One cell: newlines flattened, every `\` and then every `|` escaped, trimmed. */
 function cell(text: string): string {
-  return text.replace(/\s*[\r\n]+\s*/g, " ").replace(/\|/g, "\\|").trim();
+  return text
+    .replace(/\s*[\r\n]+\s*/g, " ")
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|")
+    .trim();
 }
 
 function table(header: readonly string[], body: readonly (readonly string[])[]): string {
