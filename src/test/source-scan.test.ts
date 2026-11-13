@@ -60,6 +60,15 @@ describe("callsNodeHttp", () => {
     ['import { get as httpGet, request } from "node:http";\nhttpGet(u);'],
     ["https.get(u);"],
     ["http.request(u);"],
+    ['import client, { request } from "node:https";\nrequest(u);'],
+    ['import client, { get } from "node:https";\nclient.request(u);'],
+    ['import client, * as other from "node:http";\nother.get(u);'],
+    ['const { request } = require("node:https");\nrequest(u);'],
+    ['const { get: fetchIt, request } = require("https");\nfetchIt(u);'],
+    ['const client = require("node:http");\nclient.get(u);'],
+    ['const { request } = await import("node:https");\nrequest(u);'],
+    ['const mod = await import("node:https");\nmod.request(u);'],
+    ['import("node:https").then((m) => m.get(u));'],
   ])("finds a node:http(s) call: %s", (src) => {
     expect(callsNodeHttp(src)).toBe(true);
   });
@@ -69,6 +78,9 @@ describe("callsNodeHttp", () => {
     ['import { request } from "./local";\nrequest(u);'],
     ["const request = (u: string) => u;\nrequest(u);"],
     ['import { request } from "node:https";\nconst f = request;'],
+    ['const { STATUS_CODES } = require("node:http");\nlog(STATUS_CODES);'],
+    ['const { request } = require("./local");\nrequest(u);'],
+    ['import client, { STATUS_CODES } from "./local";\nclient.get(u);'],
   ])("ignores what is not a node:http(s) call: %s", (src) => {
     expect(callsNodeHttp(src)).toBe(false);
   });

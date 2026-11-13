@@ -107,30 +107,68 @@ export function stripComments(text: string): string {
 }
 
 const NODE_HTTP_MODULE = String.raw`["'](?:node:)?https?["']`;
-const NAMED_IMPORT = new RegExp(String.raw`import\s*\{([^}]*)\}\s*from\s*${NODE_HTTP_MODULE}`, "g");
-const NAMESPACE_IMPORT = new RegExp(
-  String.raw`import\s+(?:\*\s+as\s+)?([A-Za-z_$][\w$]*)\s+from\s*${NODE_HTTP_MODULE}`,
+const IDENT = String.raw`[A-Za-z_$][\w$]*`;
+/** A static import of the module, any clause: default, `* as ns`, `{ … }`, or default plus either.
+ *  `import type …` is left out: a type-only import cannot call anything. */
+const STATIC_IMPORT = new RegExp(String.raw`import\s+(?!type\b)([^;'"]*?)\s*from\s*${NODE_HTTP_MODULE}`, "g");
+/** `const x = require("node:https")` or `const { … } = require("node:https")`. */
+const REQUIRE_BINDING = new RegExp(
+  String.raw`\b(?:const|let|var)\s+(\{[^}]*\}|${IDENT})\s*=\s*require\(\s*${NODE_HTTP_MODULE}\s*\)`,
   "g",
 );
+/** Any dynamic `import("node:https")`, however its result is used. */
+const DYNAMIC_IMPORT = new RegExp(String.raw`\bimport\(\s*${NODE_HTTP_MODULE}\s*\)`);
 /** `https.get(`, `http.request(` and the like, whatever the module was imported as. */
 const MODULE_CALL = /\bhttps?\.(?:get|request)\(/;
 
-const callOf = (name: string): RegExp => new RegExp(String.raw`(?<![\w$.])${name.replace(/\$/g, "\\$")}\(`);
+const escapeName = (name: string): string => name.replace(/\$/g, "\\$");
+const callOf = (name: string): RegExp => new RegExp(String.raw`(?<![\w$.])${escapeName(name)}\(`);
+const methodCallOn = (name: string): RegExp =>
+  new RegExp(String.raw`(?<![\w$.])${escapeName(name)}\.(?:get|request)\(`);
 
-/** Whether the code calls Node's own HTTP client: `https.get(` / `http.request(` (and the other two
- *  pairings), a `get` or `request` imported by name from `node:http(s)` (under any local alias), or
- *  either method on a default or namespace import of that module. A type-only import is not a call. */
+/** Local names bound to `get` or `request` by a `{ … }` list; `separator` is `as` (import) or `:`
+ *  (destructuring). */
+function boundMethods(list: string, separator: RegExp): string[] {
+  return list
+    .replace(/[{}]/g, "")
+    .split(",")
+    .map((spec) => spec.trim().split(separator))
+    .filter((parts) => parts[0] === "get" || parts[0] === "request")
+    .map((parts) => (parts[1] ?? parts[0]).trim());
+}
+
+/** The local names an import clause binds: method names from `{ … }`, module objects otherwise. */
+function importClauseBindings(clause: string): { methods: string[]; modules: string[] } {
+  const braces = /\{[^}]*\}/.exec(clause);
+  const methods = braces ? boundMethods(braces[0], /\s+as\s+/) : [];
+  const rest = clause.replace(/\{[^}]*\}/, "");
+  const modules = rest
+    .split(",")
+    .map((part) => part.trim().replace(/^\*\s+as\s+/, ""))
+    .filter((part) => new RegExp(`^${IDENT}$`).test(part));
+  return { methods, modules };
+}
+
+/** Whether the code calls Node's own HTTP client:
+ *  - `https.get(` / `http.request(` (and the other two pairings), by those names;
+ *  - a `get` or `request` bound from `node:http(s)` (or `http(s)`) under any local name, by a static
+ *    import (`{ … }`, also beside a default import) or a destructuring `require`, and then called;
+ *  - either method on a module object: a default or `* as` import, or `const x = require(…)`;
+ *  - any dynamic `import("node:https")` — counted as a call however it is used, the safe direction for
+ *    a registry scan.
+ *  A type-only import is not a call. */
 export function callsNodeHttp(code: string): boolean {
-  if (MODULE_CALL.test(code)) return true;
-  for (const m of code.matchAll(NAMESPACE_IMPORT)) {
-    if (new RegExp(String.raw`(?<![\w$.])${m[1]}\.(?:get|request)\(`).test(code)) return true;
+  if (MODULE_CALL.test(code) || DYNAMIC_IMPORT.test(code)) return true;
+  const methods: string[] = [];
+  const modules: string[] = [];
+  for (const m of code.matchAll(STATIC_IMPORT)) {
+    const bound = importClauseBindings(m[1]);
+    methods.push(...bound.methods);
+    modules.push(...bound.modules);
   }
-  for (const m of code.matchAll(NAMED_IMPORT)) {
-    for (const spec of m[1].split(",")) {
-      const parts = spec.trim().split(/\s+as\s+/);
-      if (parts[0] !== "get" && parts[0] !== "request") continue;
-      if (callOf(parts[1] ?? parts[0]).test(code)) return true;
-    }
+  for (const m of code.matchAll(REQUIRE_BINDING)) {
+    if (m[1].startsWith("{")) methods.push(...boundMethods(m[1], /\s*:\s*/));
+    else modules.push(m[1]);
   }
-  return false;
+  return methods.some((name) => callOf(name).test(code)) || modules.some((name) => methodCallOn(name).test(code));
 }
