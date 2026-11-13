@@ -691,9 +691,13 @@ each to a timestamped backup key, indexes it, then removes the live key: a move,
 **Factory reset.** `resetAppToCleanSlate` (Settings → General) calls `clearAppConfig` and
 reloads. `clearAppConfig` removes every `aipm-cockpit:*` localStorage key and fire-and-forget
 deletes the two config IndexedDB databases, `aipm-cockpit-secrets` and
-`aipm-cockpit-project-handles` (`grep -n "CONFIG_DBS" src/app/app-reset.ts`). It never deletes the
-workspace database `aipm-cockpit`, files or Turso data. Rule: `AGENTS.md` **App config vs project
-data (reset/clear boundary)**.
+`aipm-cockpit-project-handles` (`grep -n "CONFIG_DBS" src/app/app-reset.ts`). Before that sweep it
+removes the Microsoft sign-in cache from localStorage and sessionStorage by MSAL's own key scheme
+(`removeMsalKeys`: every `msal.` key, plus unprefixed keys holding the configured client id, which
+it reads from the settings before they go). It does not call the library's own cache clear, which
+needs an initialised instance the recovery page never has, and it signs nothing out at Microsoft.
+It never deletes the workspace database `aipm-cockpit`, files or Turso data. Rule: `AGENTS.md`
+**App config vs project data (reset/clear boundary)**.
 
 ## Follow-ups found while writing this page
 

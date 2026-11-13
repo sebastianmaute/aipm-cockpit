@@ -139,16 +139,18 @@ stored where". [vendor statement; `docs/security.md`] How you handle erasure req
 - It also clears the queue of deleted projects whose cleanup was still to be retried, so that cleanup
   is not tried again and those projects' leftover rows stay (their chats still expire). [verified:
   `src/app/app-reset.ts` (the `aipm-cockpit:` sweep), `src/app/pending-project-sweeps.ts`]
+- It removes the Microsoft sign-in library's cache on this device: the account and its tokens, which
+  that library keeps in the browser's storage under its own names. [verified: `cacheLocation` in
+  `src/app/use-ms-auth.ts`; `removeMsalKeys` in `src/app/app-reset.ts`; the tests under "clearAppConfig
+  removes the Microsoft sign-in cache" in `src/app/app-reset.test.ts`]
 
 It does not delete:
 
 - project data: the projects stored in the browser, files, Turso databases (including saved chats and
   chat passphrase rows) and SharePoint libraries. Projects are detached, not deleted. [verified:
   `src/app/app-reset.ts`]
-- the Microsoft sign-in library's own cache. That library keeps its tokens in the browser's storage
-  under its own names, which the reset leaves alone; sign out of Microsoft 365 in Settings →
-  Integrations before a reset if the computer changes hands. [verified: `cacheLocation` in
-  `src/app/use-ms-auth.ts`; the test "removes every aipm-cockpit:* key but leaves foreign keys
-  untouched" in `src/app/app-reset.test.ts`]
+- the sign-in at Microsoft. The reset removes only this device's copy and does not sign the account
+  out at Microsoft; to end that session too, sign out of Microsoft 365 in Settings → Integrations
+  before the reset. [verified: `src/app/app-reset.ts` calls no Microsoft sign-out and opens no window]
 - anything already sent to another service. [verified: `src/app/app-reset.ts` makes no network
   request]
