@@ -16,11 +16,13 @@ export type PackLang = "en" | "de";
 /** The `AI_DATA_PATHS` ids whose data concerns people, for the works-council annex. A hand-kept list,
  *  pinned by the tests against the table: every row people protection hides or switches off is here,
  *  plus every row whose data text names people (assignees, stakeholders, resource-directory people,
- *  e-mail senders, Timelog persons, the voice itself). Left out: committee-report, digest-narrative and
- *  digest-narrative-scheduled, whose requests carry names only where the user typed them into titles,
- *  the agenda or milestone names. */
+ *  e-mail senders, absent people, Timelog persons, the voice itself). Left out: digest-narrative and
+ *  digest-narrative-scheduled, whose data text (`aiDataDigestNarrative`) and builder
+ *  (`digest/digest-narrative.ts` over `DigestModel`: status, counts, due-soon milestone names and dates)
+ *  carry names only where a user typed them into a milestone name. */
 export const PEOPLE_PATH_IDS: readonly string[] = [
   "chat", // names, e-mails with sender and recipients, resource-directory people, Timelog insights
+  "committee-report", // who is absent in the next 28 days, by name and day (consent v5)
   "inline-edit", // row with assignee and blocker-log authors, resource-directory person details
   "forecast-import", // sheet content: usually people's names, hours, rates
   "insight-recommendation", // names of up to 30 people, Timelog working time of one person
