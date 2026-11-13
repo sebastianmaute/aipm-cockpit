@@ -206,6 +206,14 @@ longer carries its own changelog comment.
   accountable people that Claude reads to plan. The request itself is unchanged; the notice and `docs/security.md`
   now list it, so AI consent is asked again.
 
+- **The AI data notice now says that five features send who is away.** The steering committee report draft, Analyze
+  next actions, the scheduled job analysis, the insight recommendation (on request and automatic) and the work breakdown
+  proposal send the names of people who are absent, with their number in the resource directory and their absent days
+  (not the type or reason): the next 28 days, or the project window for the work breakdown proposal. Their lines did
+  not say so, and the committee report's line said it sent no people's names. The requests are unchanged; the notice
+  and `docs/security.md` now list it (with, for Analyze next actions, the project mode and modules and the date a RAID
+  item last changed, and the stakeholder category), so AI consent is asked again.
+
 - **Long task and Gantt lists size their visible window by the scroll area without its border or scrollbar.**
   The list virtualiser (`@tanstack/react-virtual`, 3.14.24 and later) measures the visible viewport that way, and the
   first windowed render now does the same, so it no longer starts from a slightly larger box.
