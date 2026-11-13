@@ -200,6 +200,12 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The AI data notice now says everything Plan with AI sends.** Its line for the allocation plan proposal left out
+  that each internal person's internal hourly rate (from their role) is sent, and also the workday length, the plan
+  currency, whether a person is planned in percent or hours, and the open tasks, milestones and responsible or
+  accountable people that Claude reads to plan. The request itself is unchanged; the notice and `docs/security.md`
+  now list it, so AI consent is asked again.
+
 - **Long task and Gantt lists size their visible window by the scroll area without its border or scrollbar.**
   The list virtualiser (`@tanstack/react-virtual`, 3.14.24 and later) measures the visible viewport that way, and the
   first windowed render now does the same, so it no longer starts from a slightly larger box.

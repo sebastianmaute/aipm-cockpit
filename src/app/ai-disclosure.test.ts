@@ -86,6 +86,28 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|5eb499ef50b6|redacted",
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted",
   ],
+  // v4: the allocation plan proposal's text names what its request already sent — the internal hourly rate of an
+  // internal person's role, the workday length and plan currency, the percent-or-hours mode, and the open tasks,
+  // milestones and R/A holders. Only that hash changed.
+  4: [
+    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted",
+    "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|ec731819812b|redacted",
+    "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted",
+    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|77d3b27235a2|redacted",
+    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|dd308831307b|redacted",
+    "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|8454d8b056cd|redacted",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|353f4c07ced6|hidden",
+    "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden",
+    "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted",
+    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|1a29e0f163bd|redacted",
+    "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51|redacted",
+    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|redacted",
+    "dictation|interactive|aiDataDictationLabel|aiDataDictation|11af271ca960|off",
+    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|43c341548943|redacted",
+    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|5eb499ef50b6|redacted",
+    "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted",
+  ],
 };
 
 // Which disclosure rows each activation site (src/test/ai-activation-sites.ts) leads to. A new site
