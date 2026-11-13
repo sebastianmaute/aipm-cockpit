@@ -129,6 +129,8 @@ function clear(prev: Insight, today: string): Insight | null {
 /**
  * @param isEvaluated - Answers, for ONE stored insight, whether this pass could
  * actually have re-detected it. `false` ⇒ freeze it untouched.
+ * ONE deliberate exception answers `true` for a row nothing evaluated: while Timelog is
+ * switched off, the use-insight-lifecycle.ts predicate retires non-acted guardrail rows (see there).
  *
  * ★★★ REQUIRED, WITH NO DEFAULT, AND THAT IS THE POINT. `clear()` above reads
  * "absent from the detection set" as "the condition cleared". That inference is

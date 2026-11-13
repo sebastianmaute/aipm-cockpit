@@ -226,9 +226,14 @@ export function useInsightLifecycle(deps: InsightLifecycleDeps): InsightLifecycl
         if (insight.type === "budgetVariance") return holidaysReady;
         if (CORE_INSIGHT_TYPES.includes(insight.type)) return true;
         // ★★ Timelog switched off (above): its guardrail rows are retired as no longer detected — reconcile
-        // removes an untouched one and keeps one the user acknowledged or dismissed (`clear`). The switch is
-        // per project or per deployment, so every device agrees. An ACTED row stays frozen: `clear` would
-        // resolve it with a measured "improved" (`computeClearedOutcome`), and nothing was measured.
+        // removes an untouched one, resolves one the user acknowledged and leaves a dismissed one (`clear`). The
+        // function switch is per project, but the integration switch (AIPM_DISABLED_INTEGRATIONS) is per
+        // DEPLOYMENT: a project opened from a deployment with Timelog off retires these rows, and opened from one
+        // with it on, the next covering fetch raises them again — reconcile then rebuilds a resolved or dismissed
+        // row as active and drops its stored recommendation and review, and a removed row comes back as a new one.
+        // An ACTED row stays frozen: `clear` would resolve it with a measured "improved"
+        // (`computeClearedOutcome`), and nothing was measured. While Timelog is off, the chat prompt
+        // (`buildInsightsPromptBlock`, `withTimelog`) and the recommendations leave every guardrail row out.
         if (!timelogOn && GUARDRAIL_INSIGHT_TYPES.has(insight.type)) return insight.status !== "acted";
         // Everything left is a guardrail rule (or, defensively, a type nothing
         // here evaluates — which falls through to false, the safe direction).

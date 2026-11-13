@@ -221,6 +221,7 @@ describe("useInsightLifecycle runner → Timelog function and integration", () =
   const untouched = guardrail(21, {});
   const acknowledged = guardrail(22, { status: "acknowledged", acknowledgedAt: "2026-10-02" });
   const acted = guardrail(23, { status: "acted", actedAt: "2026-10-02", metricAtAction: { count: 2 } });
+  const dismissed = guardrail(24, { status: "dismissed", dismissedAt: "2026-10-02", dismissReason: "known" });
 
   afterEach(() => {
     setDisabledIntegrations([]);
@@ -267,18 +268,21 @@ describe("useInsightLifecycle runner → Timelog function and integration", () =
   });
 
   // Switched off, the stored rows are retired the way reconcile retires an insight that is no longer detected:
-  // an untouched one is removed, one the user acknowledged is kept as resolved (no outcome). An ACTED one is
+  // an untouched one is removed, one the user acknowledged is kept as resolved (no outcome), a dismissed one stays
+  // dismissed. An ACTED one is
   // carried through unchanged, because resolving it would write a measured "improved" that nobody measured.
   it.each([
     ["hidden function", ["resources"] as FeatureModuleId[], false],
     ["disabled integration", ["timelog"] as FeatureModuleId[], true],
   ])("retires the stored Timelog insights, acted ones untouched (%s)", (_label, features, disable) => {
     if (disable) setDisabledIntegrations(["timelog"]);
-    const after = run(features, [untouched, acknowledged, acted]);
-    expect(after.map((i) => i.key).sort()).toEqual([acknowledged.key, acted.key].sort());
+    const after = run(features, [untouched, acknowledged, acted, dismissed]);
+    expect(after.map((i) => i.key).sort()).toEqual([acknowledged.key, acted.key, dismissed.key].sort());
     expect(after.find((i) => i.key === untouched.key)).toBeUndefined();
     const resolved = after.find((i) => i.key === acknowledged.key);
-    expect(resolved).toMatchObject({ status: "resolved", resolvedAt: TODAY });
+    // The acknowledgement stays on the resolved row: the history still says the user saw it.
+    expect(resolved).toMatchObject({ status: "resolved", resolvedAt: TODAY, acknowledgedAt: "2026-10-02" });
+    expect(after.find((i) => i.key === dismissed.key)).toEqual(dismissed);
     expect(resolved?.outcome).toBeUndefined();
     expect(after.find((i) => i.key === acted.key)).toEqual(acted);
     expect(after.some((i) => i.key === CAP_KEY)).toBe(false);

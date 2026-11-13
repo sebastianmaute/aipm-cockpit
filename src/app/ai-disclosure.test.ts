@@ -110,7 +110,8 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
   ],
   // v5: the committee report draft, Analyze next actions, the scheduled job analysis, the insight recommendation (both
   // rows share a text) and the WBS proposal name the absence list (`buildAwaySummary`) their requests already sent.
-  // Only those six hashes changed.
+  // Only those six hashes changed. The scheduled job's text repeats the action analysis's list, which is the same
+  // digest (`buildProjectDigest`). The WBS text names its whole fallback window.
   5: [
     "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted",
     "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted",
@@ -122,11 +123,11 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|353f4c07ced6|hidden",
     "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden",
     "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted",
-    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|e4e202afe064|redacted",
+    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|315ad3046125|redacted",
     "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51|redacted",
     "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|redacted",
     "dictation|interactive|aiDataDictationLabel|aiDataDictation|11af271ca960|off",
-    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|c54a6255579e|redacted",
+    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|e83fee7d86c3|redacted",
     "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|3e517407a4da|redacted",
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted",
   ],

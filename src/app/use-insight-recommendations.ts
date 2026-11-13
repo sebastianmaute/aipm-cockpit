@@ -32,7 +32,8 @@ import {
   type Settings,
 } from "./settings-types";
 import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
-import { ALLOWED_REC_TOOLS, baselineHistoryDigest, recommendationPredatesSwitch } from "./insights/insight";
+import { ALLOWED_REC_TOOLS, GUARDRAIL_INSIGHT_TYPES, baselineHistoryDigest, recommendationPredatesSwitch } from "./insights/insight";
+import { isModuleEnabled } from "./feature-modules";
 import type { BaselineEntry } from "./baseline-currency";
 import { metricAtActionPatch } from "./insights/outcome";
 import type { ScopeEpochReader } from "./scope-epoch";
@@ -150,6 +151,16 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     onLogAsRaid,
   } = deps;
   const recommendGuideText = useGuideTextFrom(guides, settings.ai?.groundInGuides === true, "insightRecommend");
+  // The insights a recommendation may be generated for, on request or by the runner. Timelog switched off (the
+  // function hidden, or the integration disabled): no TimeLog guardrail row, so none of its person-naming figures
+  // reach the AI. The same condition stops the checks in use-insight-lifecycle.ts.
+  // `?? []`: a settings object without `features` (the type forbids it; partial test doubles carry one) counts
+  // as Timelog off, the direction that sends less.
+  const timelogOn = isModuleEnabled("timelog", settings.features ?? []);
+  const recommendable = useMemo(
+    () => (timelogOn ? insights ?? [] : (insights ?? []).filter((i) => !GUARDRAIL_INSIGHT_TYPES.has(i.type))),
+    [insights, timelogOn],
+  );
 
   // --- Insights → Action Loop (#6B SP2) ---------------------------------
   // Generate/apply/reject handlers for an insight's AI recommendation. Apply
@@ -313,7 +324,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     generate: generateInsightRecommendation,
     cancel: cancelInsightRecommendation,
   } = useInsightRecommend({
-    insights: insights ?? [],
+    insights: recommendable,
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText },
     today,
     buildIndex: buildInsightGroundingIndex,
@@ -335,7 +346,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     // Unattended and billed: needs the BACKGROUND consent on top of the interactive one (AI-10).
     enabled: isAiBackgroundEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout && !loadPending,
     guidesReady: settings.ai.groundInGuides !== true || guidesReady,
-    insights: insights ?? [],
+    insights: recommendable,
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-5", guideText: recommendGuideText },
     today,
     intervalMinutes: settings.ai.insightRecommendationIntervalMinutes ?? DEFAULT_INSIGHT_REC_INTERVAL_MIN,

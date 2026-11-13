@@ -309,3 +309,31 @@ describe("recent outcomes section", () => {
     expect(buildInsightsPromptBlock([noOutcome])).not.toContain("Recent outcomes");
   });
 });
+
+// Timelog switched off (the function hidden or the integration disabled): no TimeLog line reaches the AI, from
+// either section. A frozen ACTED row with a measured outcome is the case the outcomes section would otherwise leak.
+describe("withTimelog", () => {
+  const activeRow = make(1, "timelogCapPerDay", "medium", "active", { person: "TLACTIVE", count: 2, threshold: 8, worstHours: 12 });
+  const actedRow: Insight = {
+    ...make(2, "timelogCapPerDay", "medium", "acted", { person: "TLACTED", count: 1, threshold: 8, worstHours: 10 }),
+    outcome: { direction: "improved", baseline: 3, current: 1, delta: 2, measuredAt: "2026-07-02" },
+  };
+  const core = make(3, "stalledWork", "high", "active", { count: 7 });
+  const all = [activeRow, actedRow, core];
+
+  it("keeps both TimeLog rows while Timelog is on (and when unstated)", () => {
+    for (const block of [buildInsightsPromptBlock(all, { withTimelog: true }), buildInsightsPromptBlock(all)]) {
+      expect(block).toContain("TLACTIVE");
+      expect(block).toContain("TLACTED");
+      expect(block).toContain("Recent outcomes");
+    }
+  });
+
+  it("drops both TimeLog rows, the acted outcome included, while Timelog is off", () => {
+    const block = buildInsightsPromptBlock(all, { withTimelog: false });
+    expect(block).toContain("7 tasks stalled"); // the block is still built
+    expect(block).not.toContain("TLACTIVE");
+    expect(block).not.toContain("TLACTED");
+    expect(block).not.toContain("Recent outcomes");
+  });
+});

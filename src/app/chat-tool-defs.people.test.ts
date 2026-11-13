@@ -111,7 +111,8 @@ describe("advertisement gate", () => {
   it("the protected turn context drops per-person insight lines", () => {
     const snapshot = {
       today: "2026-10-30", language: "en-US", holidayCountries: [], storageKind: "memory", taskCount: 0,
-      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: [] as string[],
+      // Timelog shown: a TimeLog line is sent at all only then.
+      knownGroups: [], knownLabels: [], mode: "advanced" as const, enabledModules: ["timelog"] as string[],
       currentView: "open-points" as const,
       insights: [{
         id: 1, type: "timelogCapPerDay", severity: "medium", status: "active",

@@ -17,9 +17,9 @@ import { type AiRoute, currentAiRoute, getAiDeploymentState, isAiDeploymentOn } 
  *  milestones and R/A holders of the project digest.
  *  5 — the texts of the committee report draft, Analyze next actions, the scheduled job analysis, the insight
  *  recommendation (on request and automatic) and the WBS proposal now name the absence list their requests already
- *  carried (`buildAwaySummary`: who is away, with their resource number and absent days). The action analysis text
- *  also names the project mode and modules and the RAID last-changed date; it and the scheduled job's name the
- *  stakeholder category. */
+ *  carried (`buildAwaySummary`: who is away, with their resource number and absent days). The action analysis and
+ *  scheduled job texts (one digest, `buildProjectDigest`) also name the project mode and modules, the RAID
+ *  last-changed date and the stakeholder category. */
 export const AI_DISCLOSURE_VERSION = 5;
 
 /** `route` is where the AI traffic went when the user accepted; absent counts as `direct`. `keyRestricted` is

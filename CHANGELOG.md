@@ -211,15 +211,17 @@ longer carries its own changelog comment.
   proposal send the names of people who are absent, with their number in the resource directory and their absent days
   (not the type or reason): the next 28 days, or the project window for the work breakdown proposal. Their lines did
   not say so, and the committee report's line said it sent no people's names. The requests are unchanged; the notice
-  and `docs/security.md` now list it (with, for Analyze next actions, the project mode and modules and the date a RAID
-  item last changed, and the stakeholder category), so AI consent is asked again.
+  and `docs/security.md` now list it (with, for Analyze next actions and the scheduled job analysis, the project mode
+  and modules, the date a RAID item last changed and the stakeholder category), so AI consent is asked again.
 
 - **The Timelog checks stop when the project hides the Timelog function or the deployment switches Timelog off.**
   They ran on this device's saved Timelog figures, which never expire, so they kept raising insights that name a
   person (and those insights kept reaching the AI Assistant and the recommendations) after Timelog was turned off.
   Now no Timelog insight is raised while either is off, and the stored ones are retired like any insight that is no
   longer detected: one nobody touched is removed, one you acknowledged or dismissed stays in the history. One you
-  acted on is kept as it is, so it is never marked as improved without a measurement. The saved figures are kept.
+  acted on is kept as it is, so it is never marked as improved without a measurement. While Timelog is off, the AI
+  Assistant and the recommendations leave every Timelog insight out, including those kept ones and their outcomes.
+  The saved figures are kept.
 
 - **Long task and Gantt lists size their visible window by the scroll area without its border or scrollbar.**
   The list virtualiser (`@tanstack/react-virtual`, 3.14.24 and later) measures the visible viewport that way, and the

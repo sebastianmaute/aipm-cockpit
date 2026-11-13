@@ -211,9 +211,15 @@ types through the validator was weighed and rejected.
   per-device actuals cache; with no daily roll or no policy it returns nothing. ★★ The runner reads that
   cache only while `isModuleEnabled("timelog", features)` — the project shows the Timelog function AND the
   deployment has not switched the `timelog` integration off. Off, nothing is evaluated or raised, and the
-  predicate retires the stored guardrail rows through `clear()` (untouched ones removed, acknowledged or
-  dismissed ones kept) EXCEPT `acted` ones, which stay frozen: resolving them would write a measured
-  "improved" that nothing measured. The cache itself is kept. ★★ The policy's
+  predicate retires the stored guardrail rows through `clear()` (untouched ones removed, acknowledged ones
+  resolved, dismissed ones left) EXCEPT `acted` ones, which stay frozen: resolving them would write a measured
+  "improved" that nothing measured. The cache itself is kept. While Timelog is off, the chat prompt
+  (`buildInsightsPromptBlock` with `withTimelog: false`, from `buildTurnContext`) and the recommendations
+  (`useInsightRecommendations`) leave out every guardrail row, the frozen acted ones and their outcomes
+  included. ★★ The integration switch is per DEPLOYMENT, not per project: one project opened from a
+  deployment with Timelog off retires the rows, and opened from one with it on re-raises them on the next
+  covering fetch — reconcile rebuilds a resolved or dismissed row as active and drops its stored
+  recommendation and review, and a removed row returns as a new one. ★★ The policy's
   `evaluated` set, not its violations, decides whether a stored guardrail insight may resolve: a rule
   that could not run produced nothing because it was not evaluated, not because nothing was violated
   (see the `timelog-policy.ts` header). ★ All five measure `count` (violating days), never `worstHours`.
