@@ -76,7 +76,7 @@ Maintainer](vendor-touchpoints.md#ziele-des-servers-und-der-desktop-app), die er
 
 Jede Laufzeit-Einstellung, die ein Administrator dem Server der App oder der Desktop-App als
 `AIPM_`-Umgebungsvariable mitgibt. Die Build-Variablen `NEXT_PUBLIC_*` (Client- und Tenant-ID der
-Microsoft-Anmeldung, URL und Token der Turso-Datenbank, Verantwortlicher und Link der KI-Richtlinie, die
+Microsoft-Anmeldung, URL und Token der Turso-Datenbank, Zuständige Stelle und Link der KI-Richtlinie, die
 Fußzeile der Exporte und der Timelog-Tenant) stehen nicht in dieser Tabelle: Sie werden beim Erstellen in
 die App eingebaut und sind in der Tabelle der Build-Variablen in `docs/security.md`, Abschnitt
 „Environment variables“, aufgeführt. Das Turso-Paar, `NEXT_PUBLIC_TURSO_DATABASE_URL` und
