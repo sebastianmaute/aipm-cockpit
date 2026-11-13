@@ -7,7 +7,7 @@
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
 import { AiTriggerButton } from "./ai-trigger-button";
-import type { Insight, InsightActions } from "./insights/insight";
+import { GUARDRAIL_INSIGHT_TYPES, type Insight, type InsightActions } from "./insights/insight";
 
 export interface InsightRecommendationControlsProps {
   insight: Insight;
@@ -25,12 +25,19 @@ export interface InsightRecommendationControlsProps {
    *  reject of an EXISTING recommendation stay available — they don't call AI).
    *  Undefined = unknown (tests) → treated as enabled for back-compat. */
   aiEnabled?: boolean;
+  /** Whether Timelog is on for the project (`isModuleEnabled("timelog", …)`). `false` withholds the
+   *  Generate CTA on a TimeLog guardrail insight and says why in visible text: while Timelog is off the
+   *  recommendations leave every guardrail row out (`useInsightRecommendations`), so a click would do
+   *  nothing. Undefined = unknown (tests) → treated as on, like `aiEnabled`. */
+  timelogEnabled?: boolean;
 }
 
 /** The "Generate recommendation" CTA — rendered both for an insight with no
  *  recommendation yet AND for a rejected one (regenerate). Returns null when AI
  *  is off: generating needs AI, so a click would fire a guaranteed-401 call.
- *  Every other AI CTA in the app gates visibility the same way. */
+ *  Every other AI CTA in the app gates visibility the same way. A TimeLog
+ *  guardrail insight while Timelog is off gets a muted note in its place —
+ *  plain text, so a screen-reader user reads the reason too. */
 function GenerateRecommendationCta({
   insight,
   title,
@@ -39,8 +46,12 @@ function GenerateRecommendationCta({
   generatingId,
   onCancelGenerate,
   aiEnabled,
+  timelogEnabled,
 }: InsightRecommendationControlsProps) {
   if (aiEnabled === false) return null;
+  if (timelogEnabled === false && GUARDRAIL_INSIGHT_TYPES.has(insight.type)) {
+    return <p className="w-full text-xs text-muted-foreground">{t(lang, "insightRecommendationTimelogOff")}</p>;
+  }
   // ★ `nameQualifier` is NOT optional polish here — every insight row renders
   //   this CTA, so without the row-unique suffix a list is N identically-named
   //   buttons (WCAG 2.4.6), and it must qualify the Stop state too since that

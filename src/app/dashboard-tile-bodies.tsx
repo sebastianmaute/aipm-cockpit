@@ -150,6 +150,8 @@ export interface TileBodyArgs {
   insightGeneratingId?: number | null;
   onCancelInsightRecommendation?: () => void;
   insightAiEnabled?: boolean;
+  /** Whether Timelog is on for the project (see `InsightRecommendationControls`). */
+  insightTimelogEnabled?: boolean;
   onNavigate?: (view: AppView) => void;
   onOpenRaid?: (id: number) => void;
   onOpenTask?: (id: number) => void;
@@ -212,6 +214,7 @@ export function buildTileBodies(a: TileBodyArgs): Partial<Record<DashboardTileId
         generatingId={a.insightGeneratingId}
         onCancelGenerate={a.onCancelInsightRecommendation}
         aiEnabled={a.insightAiEnabled}
+        timelogEnabled={a.insightTimelogEnabled}
         onOpen={a.openInsightEntity}
         isPopout={a.isPopout}
       />

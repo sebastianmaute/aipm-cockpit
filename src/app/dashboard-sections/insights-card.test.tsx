@@ -214,6 +214,32 @@ describe("InsightsCard", () => {
       expect(screen.queryByRole("button", { name: /Generate recommendation/ })).not.toBeInTheDocument();
     });
 
+    it("withholds the Generate CTA on a TimeLog guardrail insight while Timelog is off, and says why", () => {
+      const guardrail = makeInsight({
+        id: 4,
+        type: "timelogCapPerDay",
+        entityRef: undefined,
+        data: { person: "Ann", count: 2, worstHours: 11, threshold: 10 },
+      });
+      const name = `Generate recommendation – ${insightTitle(guardrail, "en-US")}`;
+      const props = {
+        insights: [guardrail],
+        lang: "en-US" as const,
+        dc,
+        actions: {
+          onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+          onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+        },
+      };
+      const { unmount } = render(<InsightsCard {...props} timelogEnabled={false} />);
+      expect(screen.queryByRole("button", { name })).toBeNull();
+      expect(screen.getByText(t("en-US", "insightRecommendationTimelogOff"))).toBeInTheDocument();
+      unmount();
+      render(<InsightsCard {...props} timelogEnabled />);
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+      expect(screen.queryByText(t("en-US", "insightRecommendationTimelogOff"))).toBeNull();
+    });
+
     it("turns the CTA into an OPERABLE Stop while a recommendation is generating", async () => {
       // Was: disabled + a "Generating…" label. The CTA is the shared
       // AiTriggerButton now, so a billed call is never left running with no way

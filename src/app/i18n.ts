@@ -5875,6 +5875,7 @@ const enUS = {
   insightRecommendationGenerating: "Generating…",
   insightRecommendationSuggests: "AI suggests: {0}",
   insightRecommendationRejected: "Recommendation dismissed.",
+  insightRecommendationTimelogOff: "No AI recommendation for a Timelog finding while Timelog is switched off.",
   activityAiInsightRecommendation: "AI applied an insight recommendation: {1}",
 
   // AI resource-allocation planning
