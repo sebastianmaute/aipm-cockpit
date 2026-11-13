@@ -143,9 +143,8 @@ stored where". [vendor statement; `docs/security.md`] How you handle erasure req
   that library keeps in the browser's storage under its own names. [verified: `cacheLocation` in
   `src/app/use-ms-auth.ts`; `removeMsalKeys` in `src/app/app-reset.ts`; the tests under "clearAppConfig
   removes the Microsoft sign-in cache" in `src/app/app-reset.test.ts`] Close other open tabs of the app
-  first: another open tab can write its sign-in cache back. [verified: the sign-in library keeps an
-  in-memory copy per tab and writes each new token back to the browser's storage (`setUserData` in
-  `@azure/msal-browser` 5.28.0, `dist/cache/LocalStorage.mjs`)]
+  first: another open tab can write its sign-in cache back. [external: @azure/msal-browser 5.28.0
+  source, `dist/cache/LocalStorage.mjs` (`setUserData`), read 2026-11-13]
 
 It does not delete:
 

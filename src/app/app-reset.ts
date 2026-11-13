@@ -36,7 +36,8 @@ const CONFIG_DBS = ["aipm-cockpit-secrets", "aipm-cockpit-project-handles"] as c
  *
  *  The library's `clearCache` is NOT used: the Settings reset runs whether or not M365 was ever
  *  initialised in this tab, `clearCache` needs an initialised `PublicClientApplication`, and it
- *  is async while the reset reloads synchronously straight after. Removing the keys signs nothing out at Microsoft and opens no window. */
+ *  is async while the reset reloads synchronously straight after. Removing the keys signs
+ *  nothing out at Microsoft and opens no window. */
 const MSAL_KEY_PREFIX = "msal.";
 /** Entra application (client) ids are GUIDs. Anything else is not used to match keys, so a
  *  malformed setting cannot widen the sweep to unrelated keys. */
