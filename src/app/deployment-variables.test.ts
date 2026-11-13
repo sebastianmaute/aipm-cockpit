@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { DISABLED_INTEGRATIONS_ENV, INTEGRATION_IDS } from "./integration-switches";
 import { loadI18n, t } from "./i18n";
 import { DEPLOYMENT_VARIABLES, DEPLOYMENT_VARIABLE_EXCLUSIONS } from "./deployment-variables";
+import { stripComments } from "../test/source-scan";
 
 const ROOT = join(__dirname, "..", "..");
 const SCAN_ROOTS = ["src", "desktop/src"];
@@ -25,13 +26,8 @@ function walk(dir: string, out: string[]): void {
   }
 }
 
-/** Comments are dropped so a name only mentioned in prose does not count as read. Crude on purpose:
- *  a "//" inside a string or URL is kept by the lookbehind, which suffices for the names scanned. */
-function withoutComments(text: string): string {
-  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
-}
-
-/** Every AIPM_ token in code: quoted ("AIPM_X"), dotted (process.env.AIPM_X) or computed. This file's
+/** Every AIPM_ token in code: quoted ("AIPM_X"), dotted (process.env.AIPM_X) or computed. Comments are
+ *  dropped (`stripComments`) so a name only mentioned in prose does not count as read. This file's
  *  subject, the registry, is left out, since it names every registered variable itself. */
 function literalsByFile(): Map<string, string[]> {
   const files: string[] = [];
@@ -40,7 +36,7 @@ function literalsByFile(): Map<string, string[]> {
   for (const file of files) {
     const rel = relative(ROOT, file).split(sep).join("/");
     if (rel === "src/app/deployment-variables.ts") continue;
-    for (const m of withoutComments(readFileSync(file, "utf8")).matchAll(/\bAIPM_[A-Z0-9_]+\b/g)) {
+    for (const m of stripComments(readFileSync(file, "utf8")).matchAll(/\bAIPM_[A-Z0-9_]+\b/g)) {
       found.set(m[0], [...(found.get(m[0]) ?? []), rel]);
     }
   }

@@ -5,15 +5,18 @@ import { join, relative, sep } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { loadI18n, t } from "./i18n";
 import { NO_OUTBOUND_CALLERS, OUTBOUND_DESTINATIONS } from "./outbound-destinations";
+import { callsNodeHttp, stripComments } from "../test/source-scan";
 
 const ROOT = join(__dirname, "..", "..");
 const API_ROOT = "src/app/api";
 const SKIP_DIRS = new Set(["node_modules", "__fixtures__", ".next"]);
 const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
-/** What makes a server file a network caller: the platform fetch, node:https, or the Turso pipeline. */
-const API_CALL = /\bfetch\(|\bhttpsRequest\(|\brunTursoPipeline\(|\bcreateClient\(|\bnet\.request/;
-/** What makes a desktop file a candidate: fetch, Electron's net, the updater, or an absolute URL literal. */
+/** What makes a server file a network caller: the platform fetch, the Turso pipeline or client, Electron's
+ *  net, or Node's own HTTP client (`callsNodeHttp`, which `filesMatching` adds to every pattern). */
+const API_CALL = /\bfetch\(|\brunTursoPipeline\(|\bcreateClient\(|\bnet\.request/;
+/** What makes a desktop file a candidate: fetch, Electron's net, the updater, an absolute URL literal, or
+ *  Node's own HTTP client (`callsNodeHttp`). */
 const DESKTOP_CALL = /\bfetch\(|\bnet\.request|\bautoUpdater\b|https?:\/\//;
 
 const posix = (p: string): string => p.split(sep).join("/");
@@ -29,16 +32,16 @@ function walk(dir: string, out: string[]): void {
   }
 }
 
-/** Comments are dropped so a URL or call only mentioned in prose does not count. Crude on purpose: a "//"
- *  inside a string or URL is kept by the lookbehind, which suffices for the patterns scanned. */
-function withoutComments(text: string): string {
-  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
-}
-
+/** Files under `root` whose code matches `pattern` or calls Node's own HTTP client (`callsNodeHttp`:
+ *  `https.get(`, `http.request(`, a `request` or `get` imported from node:http(s) under any name).
+ *  Comments are dropped (`stripComments`) so a URL or call only mentioned in prose does not count. */
 function filesMatching(root: string, pattern: RegExp): string[] {
   const files: string[] = [];
   walk(join(ROOT, root), files);
-  return files.filter((f) => pattern.test(withoutComments(readFileSync(join(ROOT, f), "utf8"))));
+  return files.filter((f) => {
+    const code = stripComments(readFileSync(join(ROOT, f), "utf8"));
+    return pattern.test(code) || callsNodeHttp(code);
+  });
 }
 
 /** A caller covers a path when it is that file or the directory above it. */
@@ -59,10 +62,11 @@ describe("outbound destinations registry", () => {
   it("every api file that calls out is under a registered caller", () => {
     const callingFiles = filesMatching(API_ROOT, API_CALL).filter((f) => !f.startsWith(`${API_ROOT}/_shared/`));
     expect(callingFiles.length).toBeGreaterThan(3); // the scan found the known callers
+    expect(callingFiles).toContain("src/app/api/ai/_relay.ts"); // found through its aliased node:https import
     expect(callingFiles.filter((f) => !callers().some((c) => covers(c, f)) && !noOutbound().some((n) => covers(n, f)))).toEqual([]);
   });
 
-  it("every desktop/src non-test file containing fetch(, net.request, autoUpdater or an http(s):// literal is a caller or listed with a reason", () => {
+  it("every desktop/src non-test file containing fetch(, net.request, autoUpdater, an http(s):// literal or a node:http(s) call is a caller or listed with a reason", () => {
     const candidates = filesMatching("desktop/src", DESKTOP_CALL);
     expect(candidates).toContain("desktop/src/updater.ts"); // a name read through the scan is still found
     const known = new Set([...callers(), ...noOutbound()]);
