@@ -795,6 +795,20 @@ npm run followups:index:check # heading ⟺ index-row GATE over docs/open-follow
                             # ★ Parsing is pure (`followup-index-lib.mjs`, unit-tested, NO shebang — a `#!`
                             # on an imported .mjs makes vitest throw naming the WRONG file); the CLI
                             # `check-followup-index.mjs` owns the I/O and the exit codes.
+npm run compliance:check    # compliance pack GATE over docs/compliance/{en,de}/ (BLOCKING in CI, `static`)
+                            # Fails on a malformed, unknown or misplaced generated block (each file's
+                            # blocks are BLOCKS_BY_FILE in `scripts/compliance/pack-config.mjs`), an
+                            # English/German pair whose heading levels or block names differ, a denied
+                            # claim in the hand-written text, a CITED_GAPS number that is not an open
+                            # register entry, or a README review line that is missing, doubled, differs
+                            # between the languages or names a version newer than APP_VERSION.
+                            # ★★ Exit 1 = drift, exit 2 = could not scan (docs/compliance, a language
+                            # directory, the register or src/app/version.ts unreadable).
+                            # ★★ It does NOT check that block BODIES match the code: rendering them needs
+                            # the TypeScript sources, so that is the unit test
+                            # `src/app/compliance/pack-drift.test.ts` (`unit` job). Rewrite them with
+                            # `npm run compliance:generate`. The pure rules are in
+                            # `scripts/compliance/pack-lib.mjs`, tested by `pack-lib.test.mjs`.
 npm run src:symbols:check   # REPORT, not a gate — backticked names cited in `src/` COMMENTS that resolve
                             # nowhere in the CODE. ★★★ IT COVERS THE HALF `docs:symbols:check` CANNOT SEE:
                             # that gate reads AGENTS.md + `docs/AGENTS/*.md` and NOTHING else, so an

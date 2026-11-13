@@ -1029,6 +1029,16 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§791](#791-the-portfolio-flag-stays-on-turso-after-an-in-place-storage-switch-and-its-other-readers-are-unaudited) | The portfolio flag stays on Turso after an in-place storage switch, and its other readers are unaudited | #942 | — | OPEN |
 | [§792](#792-no-test-proves-writesettings-blanks-every-sealed-secret-the-five-fields-are-named-by-hand--closed-2026-11-06) | No test proves writeSettings blanks every sealed secret; the five fields are named by hand | — | — | **CLOSED** 2026-11-06 |
 | [§793](#793-the-installers-uninstaller-is-not-code-signed) | The installer's uninstaller is not code-signed | #951 | — | OPEN |
+| [§794](#794-a-single-ai-chat-write-applies-without-the-review-card) | A single AI chat write applies without the review card | — | — | open |
+| [§795](#795-background-ai-runs-are-consented-once-not-approved-run-by-run) | Background AI runs are consented once, not approved run by run | — | — | open |
+| [§796](#796-tasks-created-by-plan-with-ais-work-breakdown-cannot-be-undone) | Tasks created by Plan with AI's work breakdown cannot be undone | — | — | open |
+| [§797](#797-the-chats-review-hold-for-untrusted-input-reacts-to-attachments-only-not-to-text-imported-from-jira) | The chat's review hold for untrusted input reacts to attachments only, not to text imported from Jira | — | — | open |
+| [§798](#798-ai-requests-have-no-client-timeout-on-the-direct-route-and-are-not-retried-on-a-rate-limit-or-overload) | AI requests have no client timeout on the direct route and are not retried on a rate limit or overload | — | — | open |
+| [§799](#799-an-activity-entry-written-by-the-ai-does-not-link-to-the-chat-message-that-caused-it) | An activity entry written by the AI does not link to the chat message that caused it | — | — | open |
+| [§800](#800-the-content-security-policy-allows-whole-host-families-by-wildcard) | The Content Security Policy allows whole host families by wildcard | — | — | open |
+| [§801](#801-text-the-ai-writes-carries-no-machine-readable-marking) | Text the AI writes carries no machine-readable marking | — | — | open |
+| [§802](#802-the-ai-gateway-route-has-never-been-run-against-a-real-gateway) | The AI gateway route has never been run against a real gateway | — | — | open |
+| [§803](#803-dictations-private-address-guard-checks-ip-literals-only) | Dictation's private-address guard checks IP literals only | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46267,3 +46277,143 @@ What it would take: ask SignPath (or read the Foundation's terms) whether a per-
 Size M.
 
 **Source:** review of the signing job, 2026-11-02. Decision: the uninstaller is not signed in this change; it waits until SignPath confirms whether a build-hook signing request is acceptable.
+
+## 794. A single AI chat write applies without the review card
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Deliberate behaviour, filed so the pack can cite it. Reproduced by reading: `grep -n "return writes > 1" src/app/chat-proposal.ts` prints one hit, the last line of `shouldStage`.
+
+**Work item:** #TBD (created at push)
+
+The chat sends a turn to the review card when it holds a destructive call, a calendar write that mails attendees, a tool that always stages, a date write that lands on someone's absence, more than one entity write across the user's send, or any change while an attachment is in the conversation. Outside those cases one entity write applies at once: it is logged as the AI's, and most entities can undo it, but nobody approves it before it lands. A few lone writes (an inquiry sent, a forecast setting, the enabled modules) cannot be undone at all.
+
+What it would take: decide whether a deployment or a project may ask for every write to be reviewed. If yes, a setting read by `shouldStage`, with tests for the lone write in both states.
+
+Size S.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 795. Background AI runs are consented once, not approved run by run
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Deliberate behaviour, filed so the pack can cite it. Reproduced by reading: `grep -c 'level: "background"' src/app/ai-disclosure.ts` prints 3 (scheduled job analysis, automatic insight recommendations, the scheduled digest summary).
+
+**Work item:** #TBD (created at push)
+
+Three AI paths run without a person starting them: scheduled job analyses, automatic insight recommendations and the scheduled digest summary. Each sends project data to the AI under the background consent, which is given once and covers every later run until it is withdrawn. Scheduled jobs and recommendations only advise (a person applies a recommendation), but the data leaves on each run without anyone approving that run.
+
+What it would take: decide whether a deployment may require a person to start each background run, or switch background runs off while leaving interactive AI on. Either needs a deployment setting, the consent dialog's wording, and tests on each of the three paths.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 796. Tasks created by Plan with AI's work breakdown cannot be undone
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -c "new tasks stay" src/app/i18n.ts` prints 1, the note the apply dialog shows ("Undo reverts the changes to existing tasks; new tasks stay and can be deleted by hand.").
+
+**Work item:** #TBD (created at push)
+
+Applying an AI work breakdown captures an undo entry for the tasks it changes, but not for the tasks it creates, because the undo stack cannot reverse a create without duplicating the row. After an apply, the user removes unwanted new tasks by hand.
+
+What it would take: an undo kind that deletes the rows a create added (by id, checking they are unchanged since), wired into the work-breakdown apply, with a test that undo removes exactly the created tasks and keeps a task edited since.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 797. The chat's review hold for untrusted input reacts to attachments only, not to text imported from Jira
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -n 'b.type === "image" || b.type === "document"' src/app/chat-send-record.ts` prints one hit, in `openSendRecord`, the only place a send is marked untrusted.
+
+**Work item:** #TBD (created at push)
+
+When an image or document is in the conversation, every change the chat proposes goes to the review card, because the attachment's text may carry instructions the model follows. Text that reaches the model through the read tools is not treated that way, although some of it comes from outside: a Jira-synced task's name and description are written by whoever edits the issue in Jira. A conversation that only reads such tasks can still apply a single write without review (see §794).
+
+What it would take: mark a send untrusted when a read tool returns content from an external source (Jira-synced tasks first), with a test for a send that reads one and then writes.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 798. AI requests have no client timeout on the direct route and are not retried on a rate limit or overload
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -c "AbortSignal.timeout" src/app/ai-transport.ts src/app/chat-api.ts src/app/ai-forced-call.ts` prints 0 for each file, and `grep -n "status === 429" src/app/ai-errors.ts` prints the one line that turns a 429 or an overload into a "limit" error shown to the user.
+
+**Work item:** #TBD (created at push)
+
+A request sent straight from the browser to the AI has no time limit of its own: it ends when the user cancels or the connection fails. The server relay has a 15-minute idle timeout. A rate-limit or overload answer is reported to the user as such, and nothing tries again; the retry the AI helpers do make is for an answer cut off by its token budget, not for a transient failure.
+
+What it would take: an overall timeout for each AI request, and a bounded retry with backoff on 429 and overload answers that honours `retry-after`, kept off for a streamed answer once text has arrived. Tests for each.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 799. An activity entry written by the AI does not link to the chat message that caused it
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -nE "^\s*(actor|changes)\?:" src/app/activity-log.ts` prints the two optional fields an entry carries beyond its kind and arguments (and their uses in the sanitiser and the append helper); neither names a chat thread or message.
+
+**Work item:** #TBD (created at push)
+
+The activity log records that the AI made a change, and what changed, but not which conversation or message asked for it. Someone reviewing an AI change cannot get from the log entry to the request behind it. (The 500-entry cap is a separate, accepted limit: §510.)
+
+What it would take: an optional reference on an entry (thread and message id) written by the chat's write paths, carried through the six write paths like the entry itself, and shown as a link in the Activity view when the thread still exists.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 800. The Content Security Policy allows whole host families by wildcard
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -cE 'source: "https?://[^"]*\*' src/proxy.ts` prints 5 (Turso, SharePoint, OneDrive files, and any port on localhost and 127.0.0.1).
+
+**Work item:** #TBD (created at push)
+
+The browser may connect to any subdomain of the Turso, SharePoint and OneDrive file hosts, and to any local port, whatever this deployment actually uses. The wildcards exist because the database and site names are each user's own. The policy therefore bounds the page to those providers, not to the one database or site configured.
+
+What it would take: decide whether a deployment may name its own hosts (for example its Turso database and SharePoint site) so the policy lists them exactly, and keep the wildcard only where nothing is configured. Tests on the built header for both cases.
+
+Size M.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 801. Text the AI writes carries no machine-readable marking
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -rniE "c2pa|machine-readable" src/app --include=*.ts --include=*.tsx` finds one comment and no marking code outside tests.
+
+**Work item:** #TBD (created at push)
+
+The app tells people in its own screens when text comes from the AI (for example the "AI-generated — review before acting" note), but the text it writes into tasks, documents, reports and exports carries no marking a machine can read. Once copied or exported, AI text cannot be told apart from text a person wrote.
+
+What it would take: decide what to mark (stored fields, generated documents, exports) and how (a stored flag, document metadata, a standard such as C2PA where the format allows), then mark at the AI write paths with tests per format.
+
+Size L.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 802. The AI gateway route has never been run against a real gateway
+
+**Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Never run against a real gateway: the relay's tests use a fake upstream or a local TLS server (`grep -n "local TLS server" src/app/api/ai/_relay.https.test.ts` prints the file's header line).
+
+**Work item:** #TBD (created at push)
+
+A deployment can send all AI traffic through an organisation's gateway (Cloudflare AI Gateway is the one the operating guide describes). The relay, its headers and the key check are tested against fakes and a local server, never against a real gateway, so how a real one answers (its own errors, caching, logging, dropped headers) is assumed from its documentation.
+
+What it would take: one run through a real gateway with a throwaway account, covering a chat, a streamed answer, a refused token and the key restriction, with the results written into the operating guide.
+
+Size S.
+
+**Source:** compliance pack gap check, 2026-11-13.
+
+## 803. Dictation's private-address guard checks IP literals only
+
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13, not fixed. Reproduced by reading: `grep -cE "dns|lookup" src/app/api/_shared/proxy-ssrf.ts` prints 0: the private-host check looks at the host name as typed.
+
+**Work item:** #TBD (created at push)
+
+The speech-to-text proxy refuses a private address typed as an IP, but a host name that resolves to a private address is not refused, because the name is not resolved before the request.
+
+What it would take: resolve the host name, refuse private results, and connect to the address that was checked so a second lookup cannot answer differently. Tests for a name resolving to a private address and for one resolving to a public one.
+
+Size M.
+
+**Source:** owner decision 2026-11-13 (file it).
