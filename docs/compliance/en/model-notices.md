@@ -68,7 +68,8 @@ you switch features on or off. [verified: `src/app/ai-disclosure.ts`; the source
 > Timelog, a speech-to-text service: list those you use, with their role.]
 >
 > **Transfers outside the EU.** AI requests are processed in the United States or in another region
-> Anthropic uses, depending on our settings with Anthropic: [our setting]. The safeguard is [for example
+> Anthropic uses, depending on our settings with Anthropic: [our setting]. [And where our AI gateway runs:
+> [location].] The safeguard is [for example
 > the Standard Contractual Clauses in our data processing agreement with Anthropic].
 >
 > **How long we keep data.** Project data: [your retention period]. Saved AI chats: [number] days after
@@ -117,8 +118,10 @@ Notes for the staff notice: [verified as named]
 >
 > **AI functions.** Some functions of the tool use AI. When a colleague uses one, the data that function
 > needs can be sent to [Anthropic contracting entity, as named in your contract with Anthropic]. For you,
-> that can be your name, title, organisation, category and [our influence and interest assessment], and
-> the content of e-mails of yours that we attach. [People protection is on in all our projects: before
+> that can be your name, title, organisation, category, [our influence and interest assessment,] [your
+> role per milestone (responsible, accountable, consulted or informed),] the other details we hold about
+> you in the tool, your e-mail address (the AI assistant can look it up, one address at a time), and the
+> content, senders and recipients of e-mails of yours that we attach. [People protection is on in all our projects: before
 > data is sent, the names, e-mail addresses and phone numbers of people the project knows are replaced by
 > placeholders. Names in free text or attached e-mails can still be sent.]
 >
@@ -129,7 +132,8 @@ Notes for the staff notice: [verified as named]
 > **Recipients.** [Anthropic, as our processor, for the AI functions.] [Others you use.]
 >
 > **Transfers outside the EU.** AI requests are processed in the United States or in another region
-> Anthropic uses, depending on our settings with Anthropic: [our setting]. The safeguard is [safeguard].
+> Anthropic uses, depending on our settings with Anthropic: [our setting]. [And where our AI gateway runs:
+> [location].] The safeguard is [safeguard].
 >
 > **How long we keep data.** [Your retention period, for example until the end of the project plus
 > [period].]
@@ -145,9 +149,12 @@ Notes for the stakeholder notice: [verified as named]
 - The data list: `Stakeholder` in `src/app/types.ts` (name, organisation, title, e-mail, category,
   influence, interest, notes and RACI roles). Delete what you do not record.
 - The AI sentence: the RACI suggestion sends stakeholders' names, titles, organisations, categories,
-  influence and interest; the analysis of next actions and the weight suggestion send stakeholder names;
-  the chat can read stakeholders and attached e-mails with their senders and recipients. See the table
-  below.
+  influence and interest, and the existing RACI assignments per milestone; the analysis of next actions
+  sends stakeholder names with their title or organisation, and the weight suggestion stakeholder names;
+  the chat can read stakeholder records, look up one e-mail address at a time when it needs it, and read
+  attached e-mails with their senders and recipients. The sentence must not say less than the table below;
+  check it against the table when you fill it in. [verified: the RACI, analysis, weight suggestion and chat
+  rows of `src/app/ai-disclosure.ts`; `get_contact_email` in `PEOPLE_TOOLS`, `src/app/chat-tool-defs.ts`]
 - With people protection on, the RACI suggestion is unavailable and the chat cannot read stakeholder
   records; external people's names in attached e-mails that the project does not know are still sent.
   [verified: `src/app/ai-disclosure.ts`, `PEOPLE_TOOLS` in `src/app/chat-tool-defs.ts`]

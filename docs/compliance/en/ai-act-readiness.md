@@ -43,6 +43,11 @@ The maintainer's reading, which is not a legal conclusion: [vendor statement]
   Anthropic's API, directly or through your organisation's gateway. [verified: `src/app/ai-disclosure.ts`,
   `src/app/outbound-destinations.ts`]
 
+**Intended purpose (maintainer's statement).** The app's AI features are meant to help a project manager
+draft and plan project work. The allocation and RACI suggestions are proposals for the project manager to
+review; they are not meant for evaluating, ranking or deciding about employees. This statement does not
+settle how the app is classified: a deployer's own use of it determines that. [vendor statement]
+
 A deployer that changes the intended purpose of an AI system that was not classified as high-risk, so that
 it becomes high-risk, is treated as its provider and takes on the provider's obligations (Art 25(1)(c)).
 [external: Regulation (EU) 2024/1689, Art 25(1), read 2026-11-13 as above] What your organisation uses the
@@ -81,9 +86,12 @@ Whether you publish AI-written text from the app in that way is for you to decid
   logged in the activity log with the AI as their actor. [verified: `chatProposalTitle` in
   `src/app/i18n.ts`; `ActivityActor` in `src/app/activity-log.ts`; the register entry §794]
 
-People outside your organisation, such as steering-committee members, do not use the app. They meet the
-AI's work only in what your users pass on: reports, e-mails and exports. [vendor statement] How you inform
-them is for you to decide; the [model notices](model-notices.md) offer a template. [question for you]
+The app has no guest access and no accounts of its own: who can open a project depends on who you give
+access to its storage. [vendor statement; `docs/security.md`, section "Security model"] Whether people
+outside your organisation, such as steering-committee members, get that access is for you to decide.
+[question for you] Those who do not meet the AI's work only in what your users pass on, such as reports,
+e-mails and exports. How you inform them is for you to decide; the [model notices](model-notices.md) offer
+a template. [question for you]
 
 ### Marking of generated text
 
@@ -122,9 +130,10 @@ Arguments that they could fall under point 4(b): [vendor statement; the facts: v
   RACI suggestion assigns roles. [verified: as above]
 - Outside these two features, the chat and the row edit can also assign tasks to people while people
   protection is off. [verified: `PERSON_FIELDS_BY_TOOL` in `src/app/ai-person-fields.ts`]
-- The app evaluates logged working time per person through its Timelog rules, and those findings, which
-  name the person, go to the AI in chat requests and insight recommendations. [verified: the chat and
-  insight rows of the table [below](#ai-features-and-the-data-they-send); `src/app/timelog-policy.ts`]
+- While the Timelog function is on, the app evaluates logged working time per person through its Timelog
+  rules, and those findings, which name the person, go to the AI in chat requests and insight
+  recommendations. [verified: the chat and insight rows of the table
+  [below](#ai-features-and-the-data-they-send); `src/app/timelog-policy.ts`, `src/app/use-insight-lifecycle.ts`]
 - Classification follows the intended purpose and the use. A deployer that uses the proposals to decide
   who does which work may be in the area the annex describes, whatever the inputs. [vendor statement]
 
@@ -214,7 +223,12 @@ The obligations for high-risk systems (Chapter III, Sections 1 to 3) were to app
 the original text. Regulation (EU) 2026/1744 moved them to 2 December 2027 for systems classified as
 high-risk under Art 6(2) and Annex III, and to 2 August 2028 for systems under Art 6(1) and Annex I.
 [external: Regulation (EU) 2024/1689, Art 113, and Regulation (EU) 2026/1744, the replaced Art 113 third
-paragraph point (c), both read 2026-11-13 as above]
+paragraph point (c), both read 2026-11-13 as above] Article 111(2), as replaced by Regulation (EU)
+2026/1744, sets how these obligations reach high-risk systems placed on the market or put into service
+before that date: only if their design changes significantly from then on, with a separate deadline of
+2 August 2030 for systems intended for use by public authorities. [external: Regulation (EU) 2026/1744, the
+replaced Art 111(2), read 2026-11-13 as above] Whether and how that applies to the version of the app you
+run is something to check. [question for you]
 
 If your organisation classifies the allocation or RACI suggestions as high-risk, the deployer duties of
 Art 26 would apply to it from that date. In summary: [external: Regulation (EU) 2024/1689, Art 26, read

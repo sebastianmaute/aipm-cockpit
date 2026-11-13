@@ -49,7 +49,18 @@ attention:
   checks them against rules: a single entry or a day's total over a limit, more hours than the person's
   defined hours, time logged on a non-working day or on a day the person was absent, and changes in a
   closed month. Each rule that fires becomes an insight naming the person. [verified: `INSIGHT_TYPES` in
-  `src/app/insights/insight.ts`, `src/app/timelog-policy.ts`]
+  `src/app/insights/insight.ts`, `src/app/timelog-policy.ts`] While a project hides its Timelog function,
+  or the operator switches the `timelog` integration off, the checks stop and no Timelog finding reaches the
+  AI; the operator's switch takes effect on the next page load and applies to the deployment, not the
+  project. The imported figures stay cached on the device. [verified: `src/app/use-insight-lifecycle.ts`,
+  `withTimelog` in `src/app/insights/insight-prompt.ts`, `src/app/integration-switches.ts`]
+- **Per-person task figures.** The Reports view has a table per assignee: total, open, completed and
+  overdue tasks, tasks delivered on time or late, and status inquiries sent. Reports are part of every
+  project and cannot be switched off. [verified: `byAssignee` in `src/app/reports-stats.ts`; `CORE_VIEWS`
+  in `src/app/feature-modules.ts`]
+- **Note and blocker authors.** When a user has set on their device which person they are, the note-log
+  and blocker entries they write store that person's name and resource id with the time. [verified:
+  `NoteLogEntry`, `BlockerEntry` in `src/app/types.ts`; `selfResourceId` in `src/app/settings-types.ts`]
 - **Ratings of people.** Stakeholders carry an influence and an interest rating and RACI roles.
   [verified: `Stakeholder` in `src/app/types.ts`]
 - **Hourly rates.** Rates are held per role, not per person, but a person with a role is linked to its
@@ -81,8 +92,11 @@ organisation, is for you to assess. [question for you]
 
 ## Recipients
 
-The app sends data only to services that a user or your operator sets up, each with a key or sign-in that
-belongs to the user or your organisation:
+Most recipients are services that a user or your operator sets up, each with a key or sign-in that belongs
+to the user or your organisation. Three are reached without one: the European Central Bank's rates feed,
+GitHub for the desktop app's update check, and, for browser dictation, the browser maker. [verified:
+`src/app/outbound-destinations.ts`, `desktop/src/updater.ts`; the dictation row of the table below] The
+recipients:
 
 - **Anthropic**, for the AI features, directly from the browser or through the app's server and, where
   your operator sets one, your organisation's AI gateway. [verified: `src/app/ai-disclosure.ts`,
@@ -92,8 +106,16 @@ belongs to the user or your organisation:
 - **Microsoft 365, Turso, Atlassian (Jira, Confluence) and Timelog**, when users or your operator set up
   those integrations. [verified: `src/proxy.ts`, `src/app/outbound-destinations.ts`]
 - **The European Central Bank**, for exchange rates. It receives no project data but sees the IP address
-  of the server, or in the desktop app of the user's computer. [verified:
+  of the server, or in the desktop app of the user's computer. No key is involved. [verified:
   `src/app/outbound-destinations.ts`]
+- **GitHub**, for the desktop app's update checks: the request carries the computer's IP address and a
+  fixed identifier that is the same for every installation, and no project data. An operator can stop the
+  checks with `AIPM_DISABLE_UPDATE_CHECK=1`. [verified: `desktop/src/updater.ts`,
+  `desktop/src/updater.test.ts`, `src/app/deployment-variables.ts`; see
+  [vendor touchpoints](vendor-touchpoints.md#updates)]
+- **The browser maker**, when a user chooses browser dictation: the browser's built-in speech recognition
+  sends audio to the browser maker's service in some browsers. The app does not control this. [verified:
+  the dictation row of the table below; `docs/security.md`]
 
 The maintainer receives nothing from the app at runtime and is not a recipient; see
 [vendor touchpoints](vendor-touchpoints.md#what-reaches-the-maintainer). [vendor statement; the hosts:
@@ -194,7 +216,7 @@ the [README](README.md#open-gaps). [verified: the TOM sheet rows and register en
 | Someone who is not entitled reads or changes project data | Access is decided by the storage you choose; secrets entered in Settings are encrypted at rest on the device. [verified: `src/app/secrets.ts`; `docs/security.md`, section "Security model"] | Secrets sealed at rest; Access to project data is your storage's | Within a project everyone with access sees and can change everything; the app has no roles. Anyone with the Turso token can read every project in that database. [vendor statement; `docs/security.md`] |
 | The AI changes project data without a person approving it | The chat holds a proposed change on a review card when it deletes something, mails meeting attendees, edits the project record, changes more than one item, lands a date on someone's absence, or while a file is attached. The other AI features that change project data show their result first (an itemized preview, or a pre-filled form in the project wizard) and change nothing until a person applies it. Chat changes are logged as the AI's. [verified: `shouldStage` in `src/app/chat-proposal.ts`; `src/app/activity-log.ts`; the per-feature evidence is in the [works council annex](works-council-annex.md#what-the-ai-may-do-without-a-person-approving-it)] | Review before AI changes; Activity log | A single chat change outside those cases applies at once (§794). Outside text read through the chat's tools does not start the hold (§797). Tasks created by an applied work breakdown cannot be undone (§796). The log does not link an AI change to the chat message behind it (§799). |
 | Wrong or made-up AI output is used in decisions about people | Allocation and RACI proposals are shown cell by cell with the current and proposed value and can be deselected one by one before Apply; both are hidden while people protection is on. [verified: `src/app/alloc-plan-modal.tsx`, `src/app/raci-suggest-modal.tsx`, `src/app/use-alloc-plan.tsx`] | People protection; Review before AI changes | The app cannot check whether a proposal is right or fair. The same request can give different proposals from run to run: the app sets no sampling temperature. [verified: no use of `temperature` in `src/app`] How people are trained to judge AI output is yours (see [AI literacy](ai-literacy.md)). [question for you] |
-| Staff are monitored or evaluated through the app | The Timelog module and the resources module can be switched off per project; an operator can switch the Timelog integration off for the deployment. [verified: `src/app/feature-modules.ts`, `src/app/deployment-variables.ts`] | Switches for integrations and AI | The activity log cannot be switched off. Who may see workload, absences and logged working time is not limited inside a project. See the [works council annex](works-council-annex.md). [verified: `CORE_VIEWS` in `src/app/feature-modules.ts`] |
+| Staff are monitored or evaluated through the app | The Timelog and Resources functions can be hidden per project; an operator can switch the Timelog integration off for the deployment. Timelog off stops its checks and keeps its findings away from the AI. [verified: `src/app/feature-modules.ts`, `src/app/deployment-variables.ts`, `src/app/use-insight-lifecycle.ts`] | Switches for integrations and AI | The activity log, the note and blocker logs with their authors, and the per-person table in Reports (tasks open, completed, overdue, on time, late, inquiries) cannot be switched off. Hiding the Resources function does not keep the AI chat from people and absences (§810). Who may see workload, absences and logged working time is not limited inside a project. See the [works council annex](works-council-annex.md). [verified: `CORE_VIEWS` in `src/app/feature-modules.ts`, `byAssignee` in `src/app/reports-stats.ts`] |
 | AI runs send project data without anyone starting them | Background runs need a second consent on each device, apply people protection, and only advise: a recommendation applies only when a person confirms it. [verified: `src/app/ai-consent.ts`, `src/app/use-insight-recommendations.ts`, `src/app/scheduled-job-run.ts`] | AI consent per device | Runs are not approved one by one (§795). |
 | Data is kept longer than needed | Saved AI chats are deleted after a retention period (30 days unless the operator sets another), and users and the operator have erasure tools. [verified: `src/app/ai-chat-retention-config.ts`, `scripts/chat-erasure.mjs`] | Saved AI chats: encryption, retention, erasure; Activity log | Project data, version history kept by hand, and data sent to other services are not deleted by age. See the record of processing input, [Retention and erasure](record-of-processing-input.md#retention-and-erasure). |
 | Instructions hidden in a file or in outside text make the AI act against the user's intent | While a file is attached to the conversation, every change the chat proposes waits on the review card. [verified: `stagesWhenUntrusted` in `src/app/chat-send-record.ts`, `shouldStage` in `src/app/chat-proposal.ts`] | Review before AI changes | Outside text read through the chat's tools, such as content synced from Jira, does not start the hold (§797). |
@@ -214,7 +236,8 @@ read 2026-11-13] They are listed here as questions, with the facts about the app
 maintainer does not score them: the answers depend on your use. [vendor statement]
 
 1. **Evaluation or scoring.** Do you use the Timelog rules that flag a person's logged working time, the
-   workload view, or stakeholders' influence and interest ratings to evaluate people? [question for you]
+   workload view, the per-person table in Reports, or stakeholders' influence and interest ratings to
+   evaluate people? [question for you]
    The facts: those functions exist and are described in the [works council annex](works-council-annex.md).
    [verified: see that annex]
 2. **Automated decision-making with legal or similar significant effect.** Do decisions about people rest
@@ -222,8 +245,8 @@ maintainer does not score them: the answers depend on your use. [vendor statemen
    exception of a single chat change outside the review rules (§794). [verified: `shouldStage` in
    `src/app/chat-proposal.ts`]
 3. **Systematic monitoring.** Does importing logged working time and checking it against rules amount to
-   monitoring in your use? [question for you] The facts: the checks run while the app is open, on the
-   figures cached on the device. [verified: `src/app/timelog-policy.ts`, `src/app/use-insight-lifecycle.ts`,
+   monitoring in your use? [question for you] The facts: the checks run while the app is open and the
+   Timelog function is on, on the figures cached on the device. [verified: `src/app/timelog-policy.ts`, `src/app/use-insight-lifecycle.ts`,
    `src/app/timelog-actuals-store.ts`]
 4. **Sensitive data or data of a highly personal nature.** Do you record sick absences, or let staff write
    health or other sensitive details into free text? [question for you]

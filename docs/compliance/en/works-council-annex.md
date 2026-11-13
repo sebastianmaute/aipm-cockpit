@@ -25,8 +25,12 @@ maintainer's summary of the German text] Whether these provisions apply to your 
 
 ## Features that record or evaluate staff
 
-The app has no user accounts and does not record which person uses it. [vendor statement;
-`docs/security.md`, section "Security model"] It does hold data about the people who work in a project.
+The app has no user accounts. [vendor statement; `docs/security.md`, section "Security model"] A user can
+set on their device which person in the resource directory they are; when they do, the notes and blocker
+entries they write record that person's name and resource id with the time (see the list below).
+[verified: `selfResourceId` in `src/app/settings-types.ts`; `NoteLogEntry` and `BlockerEntry` in
+`src/app/types.ts`; `src/app/use-notes-window.ts`, `src/app/blocker-log.ts`] The app also holds data about
+the people who work in a project.
 Everyone with access to a project sees all of it: the app has no roles. [vendor statement; the TOM sheet
 row "Access to project data is your storage's"] The functions below record or evaluate staff.
 
@@ -34,11 +38,14 @@ Two kinds of switch exist. A **project** can hide a function in its Functions se
 stored, and the hidden function returns as it was when switched on again. An **operator** can switch an
 integration or AI off for the whole deployment with `AIPM_DISABLED_INTEGRATIONS` (table
 [below](#deployment-switches)). [verified: `FEATURE_MODULES` and `sanitizeFeatures` in
-`src/app/feature-modules.ts`; `src/app/deployment-variables.ts`] Hiding a function does not withdraw the
-AI chat's tools: the chat is told which functions are on, but while people protection is off it can still
-read people, absences and allocations in a project that hides its resources function. [verified: `toolsFor`
-in `src/app/chat-api.ts`, whose settings carry no function switch; `PEOPLE_TOOLS` in
-`src/app/chat-tool-defs.ts`]
+`src/app/feature-modules.ts`; `src/app/deployment-variables.ts`] The AI chat can switch a project's
+functions on or off too: one such change applies at once, without a review card, and cannot be undone; it
+is only logged. [verified: `isEntityWriteCall` and the comment on `shouldStage` in
+`src/app/chat-proposal.ts` (`update_settings` with `enabledModules`)] Hiding the Resources function does not
+withdraw the AI chat's tools: the chat is told which functions are on, but while people protection is off
+it can still read and change people, absences and allocations in that project (§810). [verified: `toolsFor`
+and `variantKey` in `src/app/chat-api.ts`, whose settings carry no function switch; `PEOPLE_TOOLS` in
+`src/app/chat-tool-defs.ts`] Timelog is different: see its entry below.
 
 - **Activity log.** Records each change with its time, its kind, the old and new values of the changed
   fields (which can include people's names), and whether a user, the AI or an integration made it. It does
@@ -51,8 +58,25 @@ in `src/app/chat-api.ts`, whose settings carry no function switch; `PEOPLE_TOOLS
   rule that fires becomes an insight that names the person. The figures are cached on the device.
   [verified: `INSIGHT_TYPES` in `src/app/insights/insight.ts`, `src/app/timelog-policy.ts`,
   `src/app/timelog-actuals-store.ts`] Switch: project (the Timelog function); operator (`timelog`, which
-  also hides the function in every project). [verified: `MODULE_INTEGRATION` in
-  `src/app/feature-modules.ts`]
+  turns the function off in every project of the deployment). Either switch stops the checks: no new
+  findings are raised, stored findings nobody touched are removed and acknowledged ones closed (ones a person
+  acted on stay, frozen), and no Timelog finding reaches the AI
+  (in the chat or in recommendations) while Timelog is off. The operator's switch takes effect on the next
+  page load and applies to the deployment, not to the project: a project opened from a deployment with
+  Timelog on runs the checks again. The cached figures stay on the device. [verified: `isModuleEnabled` and
+  `MODULE_INTEGRATION` in `src/app/feature-modules.ts`; `src/app/use-insight-lifecycle.ts`;
+  `withTimelog` in `src/app/insights/insight-prompt.ts` and `src/app/chat-api.ts`;
+  `setDisabledIntegrations` in `src/app/integration-switches.ts`]
+- **Notes and blocker entries with their author.** Tasks, RAID items and changes carry a dated note log,
+  and tasks a blocker log. Each entry stores its time and, when the writer has set who they are on their
+  device, that person's name and resource id. [verified: `NoteLogEntry` and `BlockerEntry` in
+  `src/app/types.ts`; `src/app/use-notes-window.ts`, `src/app/blocker-log.ts`] Switch: none for the logs as
+  such; hiding the RAID or Changes function hides those registers with their logs. [verified:
+  `FEATURE_MODULES` and `CORE_VIEWS` in `src/app/feature-modules.ts`]
+- **Reports per person.** The Reports view has a table per assignee: total, open, completed, overdue, and
+  delivered on time or late tasks, and the number of status inquiries sent. [verified: `byAssignee` in
+  `computeStats`, `src/app/reports-stats.ts`] Switch: none; Reports is part of every project. [verified:
+  `CORE_VIEWS` in `src/app/feature-modules.ts`]
 - **Workload view.** Shows per person the number of open tasks, open RAID items and overdue tasks (with
   the overdue tasks themselves), weekly hours, shift and upcoming absences. [verified:
   `src/app/resource-workload-rows.ts`] Switch: project (the Resources function).
@@ -92,7 +116,12 @@ People protection is a setting per project. It is on by default; a user can turn
 in Settings, after a confirmation that says the AI will then see the people listed in the AI data
 disclosure. An operator can force it on in every project with `AIPM_DISABLED_INTEGRATIONS=ai-people`; the
 project setting then cannot be turned off. [verified: `src/app/ai-people-protection.ts`;
-`aiPeopleProtectionOffConfirm` and `aiPeopleProtectionLocked` in `src/app/i18n.ts`]
+`aiPeopleProtectionOffConfirm` and `aiPeopleProtectionLocked` in `src/app/i18n.ts`] The setting is stored
+with the project, not on the device: any user with access to the project who turns it off turns it off for
+everyone who works in that project. The app has no roles that would limit who may do so. [verified:
+`settingsOverrides` in `src/app/workspace.ts`, `withPeopleAllowed` in `src/app/ai-people-protection.ts`;
+the roles: vendor statement, `docs/security.md`] Who may turn it off, or whether the operator forces it
+on, is for the agreement to settle. [question for you]
 
 While it is on, the names, e-mail addresses and phone numbers of the people the project knows are replaced
 by placeholders before an AI request is sent; the AI cannot set, change or clear a person on any record;

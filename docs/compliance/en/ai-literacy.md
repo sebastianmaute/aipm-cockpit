@@ -118,7 +118,7 @@ change something I did not ask for? Would I make this change if a colleague prop
 ## What people protection changes
 
 People protection is a setting per project, and it is on unless someone turned it off for that project.
-Your organisation may have switched it on for every project; then it cannot be turned off. [verified:
+It is stored with the project, so it is the same for everyone who works in it. Your organisation may have switched it on for every project; then it cannot be turned off. [verified:
 `src/app/ai-people-protection.ts`, `aiPeopleProtectionLocked` in `src/app/i18n.ts`]
 
 While it is on:
@@ -149,6 +149,12 @@ paste personal details into the chat that the task does not need. [verified: `ai
   `AIPM_DISABLED_INTEGRATIONS` in `src/app/deployment-variables.ts`]
 
 Switching off stops new requests. What was already sent stays where it went. [verified: the TOM sheet row
-"Switches for integrations and AI"] Each setting applies to the device where you set it: on another
-computer or browser, switch it off there too. [verified: `src/app/ai-consent.ts` (consent recorded on this
-device)]
+"Switches for integrations and AI"] The settings reach different people:
+
+- Switching AI on or off, your consent and the background setting apply to the device and browser where
+  you set them; on another computer or browser, set them there too. [verified: `src/app/ai-consent.ts`
+  (consent recorded on this device)]
+- People protection is stored with the project, so turning it on or off changes it for everyone who works
+  in that project. [verified: `settingsOverrides` in `src/app/workspace.ts`,
+  `src/app/ai-people-protection.ts`]
+- The operator's switch applies to the whole installation. [verified: `src/app/integration-switches.ts`]
