@@ -124,7 +124,7 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
 - **§806** — The AI routes and the dictation route accept any number of requests, and dictation forwards
   audio to whatever public https address the caller names. Limit access in front of the app.
 - **§810** — Hiding a project's Resources function hides its views, but while people protection is off
-  the AI chat can still read and change people, absences and allocations in that project. To keep the AI
+  the AI chat can still read people, absences and allocations, and change people and absences, in that project. To keep the AI
   away from that data, leave people protection on.
 
 ## How to read the labels

@@ -44,7 +44,8 @@ you switch features on or off. [verified: `src/app/ai-disclosure.ts`; the source
 > [your absences with their type (vacation, sick, training or other),] [your logged working time from
 > Timelog and the checks we run on it,] and what colleagues write about the work in tasks, notes and
 > documents. The tool records changes in an activity log that shows what changed and whether a person,
-> the AI or an integration changed it, but not which person.
+> the AI or an integration changed it, but not which person. [Notes and blocker entries record their
+> author's name and the time when the writer has set in the tool which person they are.]
 >
 > **AI functions.** We have switched on these AI functions: [list them from the table below]. When a
 > colleague uses one of them, the data that function needs is sent to [Anthropic contracting entity, as
@@ -87,6 +88,8 @@ you switch features on or off. [verified: `src/app/ai-disclosure.ts`; the source
 Notes for the staff notice: [verified as named]
 
 - The activity log sentence: `ActivityActor` in `src/app/activity-log.ts`.
+- The notes and blocker sentence: `NoteLogEntry` and `BlockerEntry` in `src/app/types.ts`, and
+  `selfResourceId` in `src/app/settings-types.ts` (set per device).
 - The people protection sentence: `src/app/ai-people-protection.ts`, `src/app/ai-person-fields.ts`, and the
   last column of the table below. Protection is on by default per project; check whether a project has
   turned it off, or force it on with `AIPM_DISABLED_INTEGRATIONS=ai-people` (`src/app/deployment-variables.ts`).

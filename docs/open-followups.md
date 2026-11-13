@@ -46466,11 +46466,11 @@ Size S.
 
 ## 810. Hiding a project's Resources function does not withdraw the chat's people, absence and allocation tools
 
-**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `toolsFor` in `src/app/chat-api.ts` builds the chat's tool list from the history-search, chat-search, forecast and people-protection settings only (`variantKey`); no project function switch is among them. `grep -n "isModuleEnabled" src/app/chat-api.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts` prints only the Timelog check that keeps Timelog insights out of the chat prompt, none for the Resources function.
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `toolsFor` in `src/app/chat-api.ts` builds the chat's tool list from the history-search, chat-search, forecast and people-protection settings only (`variantKey`); no project function switch is among them. `grep -n "isModuleEnabled" src/app/chat-api.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts` prints two lines, both in `chat-api.ts`: the import of `isModuleEnabled` and the Timelog check that keeps Timelog insights out of the chat prompt; none concerns the Resources function.
 
 **Work item:** #TBD (created at push)
 
-A project can hide its Resources function, which holds the resource directory, workload, planning and the absence calendar. The AI chat is told which functions are on, but its tools that list and change people, absences and allocations stay available while people protection is off. A user or a works council reading "switched off" as "the AI cannot reach it" would be wrong.
+A project can hide its Resources function, which holds the resource directory, workload, planning and the absence calendar. The AI chat is told which functions are on, but its tools that read people, absences and allocations, and change people and absences, stay available while people protection is off. A user or a works council reading "switched off" as "the AI cannot reach it" would be wrong.
 
 What it would take: decide whether a hidden function also withdraws the chat tools that read or write its data. If yes, derive the tool list from the project's functions as well, enforce it in the executor as people protection is, and test both the advertised list and a refused call.
 

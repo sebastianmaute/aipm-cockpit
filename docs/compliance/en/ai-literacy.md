@@ -118,7 +118,8 @@ change something I did not ask for? Would I make this change if a colleague prop
 ## What people protection changes
 
 People protection is a setting per project, and it is on unless someone turned it off for that project.
-It is stored with the project, so it is the same for everyone who works in it. Your organisation may have switched it on for every project; then it cannot be turned off. [verified:
+It is stored with the project, so it is the same for everyone who works in it. Your organisation may have
+switched it on for every project; then it cannot be turned off. [verified:
 `src/app/ai-people-protection.ts`, `aiPeopleProtectionLocked` in `src/app/i18n.ts`]
 
 While it is on:
