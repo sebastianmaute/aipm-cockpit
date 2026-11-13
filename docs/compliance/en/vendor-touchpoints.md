@@ -145,14 +145,14 @@ read the table:
 <!-- PACK:server-destinations:END -->
 
 The private-address check for speech-to-text judges the address as typed and does not resolve a host
-name (§803). [verified: the register entry §803 in `docs/open-followups.md`]
+name (§803). [vendor statement; register §803]
 
 **The server does not check who is calling.** None of the app's server routes authenticates its caller;
 there is no sign-in on the server side. [verified: the 15 route files under `src/app/api`] Anyone who can
 reach the server can therefore use these routes: send AI requests through your organisation's gateway
 under its token (§805), and send requests to the integrations with credentials they hold themselves. The
 AI and dictation routes have no request limit (§806), and the limit on the other routes can be avoided
-(§562). [verified: the register entries §805, §806 and §562 in `docs/open-followups.md`] Run the server
+(§562). [vendor statement; register §805, §806 and §562] Run the server
 behind your organisation's own access control, such as a reverse proxy with sign-in, single sign-on or a
 network restriction. [vendor statement; how you do it: question for you]
 

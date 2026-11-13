@@ -45,7 +45,7 @@ Schreiben Sie in die App so, als könnte eine Kollegin oder ein Kollege außerha
 Alles, was Sie in eine Aufgabe, eine Notiz oder einen Anhang schreiben, kann die KI erreichen, wenn jemand
 eine Funktion nutzt, die es sendet. [Aussage des Maintainers]
 
-## Die KI entwirft, Menschen entscheiden
+## Was die KI selbst ändern darf
 
 Die KI schlägt vor; Sie entscheiden. Die meisten Funktionen zeigen Ihnen, was sie ändern wollen, und
 ändern nichts, bis Sie „Übernehmen“ oder „Anwenden“ wählen oder bestätigen. [geprüft: die Liste in der
@@ -57,19 +57,19 @@ Kennen Sie die Ausnahmen:
   Fälligkeitsdatums, kann er sie sofort vornehmen, ohne Prüfkarte. Er fragt immer vorher, wenn er etwas
   löschen, Besprechungsteilnehmer einladen, die eigenen Angaben des Projekts bearbeiten, mehr als eine
   Sache ändern oder Arbeit auf einen Tag legen will, an dem jemand abwesend ist, und immer dann, wenn eine
-  Datei an die Unterhaltung angehängt ist. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`; offene
-  Lücke §794]
+  Datei an die Unterhaltung angehängt ist. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`; Register
+  §794]
 - **Von außen gelesener Text.** Hat der Chat Text von außerhalb der App gelesen, zum Beispiel aus Jira
-  synchronisierte Inhalte, fragt er allein aus diesem Grund nicht vorher. [geprüft: offene Lücke §797]
+  synchronisierte Inhalte, fragt er allein aus diesem Grund nicht vorher. [geprüft: `untrusted` in `SendRecord`, `src/app/chat-send-record.ts`; Register §797]
 - **Läufe im Hintergrund.** Die oben genannten Hintergrundfunktionen senden bei jedem Lauf Daten, ohne
   jedes Mal zu fragen. Ihre Ergebnisse sind nur Ratschläge: Eine Empfehlung ändert nichts, bis eine Person
   sie bestätigt. [geprüft: `src/app/use-insight-recommendations.ts`, `src/app/scheduled-job-run.ts`;
-  offene Lücke §795]
+  Register §795]
 
 Was der Chat ändert, wird im Aktivitätsprotokoll als Änderung der KI festgehalten, und die meisten
 Änderungen lassen sich mit „Rückgängig“ zurücknehmen. Aufgaben, die durch einen von Ihnen übernommenen
 Projektstrukturplan angelegt wurden, lassen sich nicht rückgängig machen; löschen Sie sie von Hand.
-[geprüft: `src/app/activity-log.ts`; offene Lücke §796]
+[geprüft: `src/app/activity-log.ts`; Register §796]
 
 Sie bleiben verantwortlich für das, was Sie übernehmen, und für das, was Sie weitergeben, etwa einen
 Bericht oder eine E-Mail, die die KI entworfen hat. [Aussage des Maintainers; die Regeln Ihrer
@@ -122,10 +122,10 @@ Kollegin oder ein Kollege sie vorschlüge? [Aussage des Maintainers]
 - **In Text versteckte Anweisungen.** Eine Datei, eine E-Mail oder synchronisierter Text kann
   Anweisungen enthalten, die sich an die KI richten. Deshalb fragt der Chat vor jeder Änderung, solange
   eine Datei angehängt ist; bei Text, den er über seine Werkzeuge von außen liest, tut er das nicht.
-  [geprüft: `stagesWhenUntrusted` in `src/app/chat-send-record.ts`; offene Lücke §797]
+  [geprüft: `stagesWhenUntrusted` in `src/app/chat-send-record.ts`; Register §797]
 - **Lange Wartezeiten und Fehler.** Die meisten KI-Anfragen haben in der App kein Zeitlimit, und eine
   Anfrage, die abgelehnt wird, weil der Dienst ausgelastet ist, wird nicht erneut versucht. Brechen Sie ab
-  und versuchen Sie es später noch einmal. [geprüft: offene Lücke §798]
+  und versuchen Sie es später noch einmal. [Aussage des Maintainers; Register §798]
 - **Unbekannte Namen.** Der Personenschutz verbirgt Namen, die das Projekt kennt, nicht aber Namen, die
   Sie eingeben und die es nicht kennt. [geprüft: `aiPeopleProtectionHelp` in `src/app/i18n.ts` und `src/app/i18n.de.ts`]
 

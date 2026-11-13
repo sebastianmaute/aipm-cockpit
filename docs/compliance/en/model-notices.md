@@ -94,8 +94,8 @@ Notes for the staff notice: [verified as named]
   last column of the table below. Protection is on by default per project; check whether a project has
   turned it off, or force it on with `AIPM_DISABLED_INTEGRATIONS=ai-people` (`src/app/deployment-variables.ts`).
 - The background sentence: the three rows of the table below whose consent is "asked separately"
-  (`level: "background"` in `src/app/ai-disclosure.ts`); open gap §795.
-- The "one exception" sentence: `shouldStage` in `src/app/chat-proposal.ts`; open gap §794. Other
+  (`level: "background"` in `src/app/ai-disclosure.ts`); register §795.
+- The "one exception" sentence: `shouldStage` in `src/app/chat-proposal.ts`; register §794. Other
   conditions also bring a chat change to review; the [works council annex](works-council-annex.md#what-the-ai-may-do-without-a-person-approving-it)
   lists them.
 - The transfer sentence: the DPIA input, [Transfers outside the EU](dpia-input.md#transfers-outside-the-eu),
@@ -153,11 +153,14 @@ Notes for the stakeholder notice: [verified as named]
   influence, interest, notes and RACI roles). Delete what you do not record.
 - The AI sentence: the RACI suggestion sends stakeholders' names, titles, organisations, categories,
   influence and interest, and the existing RACI assignments per milestone; the analysis of next actions
-  sends stakeholder names with their title or organisation, and the weight suggestion stakeholder names;
-  the chat can read stakeholder records, look up one e-mail address at a time when it needs it, and read
-  attached e-mails with their senders and recipients. The sentence must not say less than the table below;
-  check it against the table when you fill it in. [verified: the RACI, analysis, weight suggestion and chat
-  rows of `src/app/ai-disclosure.ts`; `get_contact_email` in `PEOPLE_TOOLS`, `src/app/chat-tool-defs.ts`]
+  and the scheduled job analysis send stakeholder names with their title, organisation or category; the
+  weight suggestion sends stakeholder names; Plan with AI sends which of the people it lists are the
+  responsible or accountable stakeholders of each milestone; the chat can read stakeholder records, look up
+  one e-mail address at a time when it needs it, and read attached e-mails with their senders and
+  recipients. The sentence must not say less than the table below; check it against the table when you
+  fill it in. [verified: the RACI, analysis, scheduled job, Plan with AI, weight suggestion and chat rows of
+  `src/app/ai-disclosure.ts`; `raciSection` in `src/app/alloc-plan/alloc-project-digest.ts`;
+  `get_contact_email` in `PEOPLE_TOOLS`, `src/app/chat-tool-defs.ts`]
 - With people protection on, the RACI suggestion is unavailable and the chat cannot read stakeholder
   records; external people's names in attached e-mails that the project does not know are still sent.
   [verified: `src/app/ai-disclosure.ts`, `PEOPLE_TOOLS` in `src/app/chat-tool-defs.ts`]

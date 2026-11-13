@@ -155,16 +155,16 @@ Content Security Policy sieht diese nicht, daher sind sie gesondert aufgeführt.
 <!-- PACK:server-destinations:END -->
 
 Die Prüfung auf private Adressen beim Speech-to-Text beurteilt die Adresse so, wie sie eingegeben wurde,
-und löst keinen Hostnamen auf (§803). [geprüft: der Registereintrag §803 in `docs/open-followups.md`]
+und löst keinen Hostnamen auf (§803). [Aussage des Maintainers; Register §803]
 
 **Der Server prüft nicht, wer ihn aufruft.** Keine der Server-Routen der App authentifiziert ihren
 Aufrufer; serverseitig gibt es keine Anmeldung. [geprüft: die 15 Routendateien unter `src/app/api`] Jeder,
 der den Server erreicht, kann diese Routen daher nutzen: KI-Anfragen unter dem Token Ihres Gateways
 über dieses senden (§805) und Anfragen an die Integrationen mit Zugangsdaten senden, über die er
 selbst verfügt. Die Routen für KI und Diktat haben keine Anfragebegrenzung (§806), und die Begrenzung der
-übrigen Routen lässt sich umgehen (§562). [geprüft: die Registereinträge §805, §806 und §562 in
-`docs/open-followups.md`] Betreiben Sie den Server hinter der eigenen Zugangskontrolle Ihrer
-Organisation, etwa einem Reverse Proxy mit Anmeldung, Single Sign-on oder einer Netzwerkbeschränkung.
+übrigen Routen lässt sich umgehen (§562). [Aussage des Maintainers; Register §805, §806 und §562]
+Stellen Sie den Server hinter der eigenen Zugangskontrolle Ihrer Organisation bereit, etwa einem Reverse
+Proxy mit Anmeldung, Single Sign-on oder einer Netzwerkbeschränkung.
 [Aussage des Maintainers; wie Sie das umsetzen: Frage an Sie]
 
 Ein Administrator kann jede serverseitige Integration mit `AIPM_DISABLED_INTEGRATIONS` abschalten; das

@@ -97,8 +97,7 @@ a template. [question for you]
 ### Marking of generated text
 
 The app does not mark text the AI writes in a machine-readable way. Once that text is in a task, a
-document, a report or an export, nothing in it shows that the AI wrote it (§801). [verified: the register
-entry §801 in `docs/open-followups.md`] Whether some of the app's AI paths are assistive editing in the
+document, a report or an export, nothing in it shows that the AI wrote it (§801). [vendor statement; register §801] Whether some of the app's AI paths are assistive editing in the
 sense of the exception above, for example a one-row edit the user asked for, is an open question; the
 maintainer has not settled it. [vendor statement; question for you]
 
@@ -168,7 +167,7 @@ protection"] A deployer that does not want to use these features at all can ther
 the whole deployment, and record that in its own assessment. [question for you]
 
 The table lists the AI features whose requests can carry data about people, and what protection does to
-each. Left out are the two digest summaries, which carry names only where someone typed them into a milestone name. [verified: `PEOPLE_PATH_IDS` in `src/app/compliance/pack-blocks.ts`, `src/app/digest/digest-narrative.ts`]
+each. Left out are only the two digest summaries, which carry names only where someone typed them into a milestone name. [verified: `PEOPLE_PATH_EXCLUDED_IDS` in `src/app/compliance/pack-blocks.ts`, `src/app/digest/digest-narrative.ts`]
 
 <!-- PACK:ai-paths-people:BEGIN -->
 | Feature | Consent | What is sent | With people protection on |
@@ -267,7 +266,7 @@ assessment of whether it is enough: question for you]
   Help in the app and `docs/security.md` describe the app. [vendor statement]
 - **Human oversight.** Allocation and RACI proposals are applied by a person, change by change.
   [verified: `src/app/alloc-plan-modal.tsx`, `src/app/raci-suggest-modal.tsx`] A single chat change can
-  apply without review (§794). [verified: the register entry §794]
+  apply without review (§794). [verified: `shouldStage` in `src/app/chat-proposal.ts`; register §794]
 - **Logs.** The activity log keeps the newest 500 entries per project, a count rather than a period, and
   does not link an AI change to the chat message that caused it (§799). Saved AI chats are deleted after
   the retention period the operator sets: 30 days by default, at most 3650. Whether either covers six

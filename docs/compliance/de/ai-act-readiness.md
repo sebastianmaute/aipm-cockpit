@@ -112,7 +112,7 @@ entscheiden Sie; die [Musterhinweise](model-notices.md) bieten eine Vorlage. [Fr
 
 Die App kennzeichnet Text, den die KI schreibt, nicht maschinenlesbar. Steht dieser Text erst einmal in
 einer Aufgabe, einem Dokument, einem Bericht oder einem Export, zeigt nichts darin, dass die KI ihn
-geschrieben hat (§801). [geprüft: der Registereintrag §801 in `docs/open-followups.md`] Ob einige der
+geschrieben hat (§801). [Aussage des Maintainers; Register §801] Ob einige der
 KI-Wege der App unterstützende Bearbeitung im Sinne der obigen Ausnahme sind, zum Beispiel eine vom Nutzer
 angeforderte Bearbeitung einer Zeile, ist eine offene Frage; der Maintainer hat sie nicht entschieden.
 [Aussage des Maintainers; Frage an Sie]
@@ -198,8 +198,8 @@ App im Browser durchgesetzt, daher könnte ein veränderter Client ihn umgehen. 
 für die gesamte Bereitstellung abschalten und das in seiner eigenen Bewertung festhalten. [Frage an Sie]
 
 Die Tabelle führt die KI-Funktionen auf, deren Anfragen Daten über Personen enthalten können, und was der
-Schutz bei jeder bewirkt. Nicht aufgeführt sind die beiden Zeilen „Text der Zusammenfassung“ (auf Anfrage und geplant), die Namen nur
-enthalten, wo jemand sie in einen Meilensteinnamen geschrieben hat. [geprüft: `PEOPLE_PATH_IDS` in
+Schutz bei jeder bewirkt. Nicht aufgeführt sind nur die beiden Zeilen „Text der Zusammenfassung“ (auf Anfrage und geplant), die Namen nur
+enthalten, wo jemand sie in einen Meilensteinnamen geschrieben hat. [geprüft: `PEOPLE_PATH_EXCLUDED_IDS` in
 `src/app/compliance/pack-blocks.ts`, `src/app/digest/digest-narrative.ts`]
 
 <!-- PACK:ai-paths-people:BEGIN -->
@@ -305,7 +305,7 @@ Bewertung, ob das ausreicht: Frage an Sie]
   App. [Aussage des Maintainers]
 - **Menschliche Aufsicht.** Zuteilungs- und RACI-Vorschläge werden von einer Person übernommen, Änderung
   für Änderung. [geprüft: `src/app/alloc-plan-modal.tsx`, `src/app/raci-suggest-modal.tsx`] Eine einzelne
-  Chat-Änderung kann ohne Prüfung ausgeführt werden (§794). [geprüft: der Registereintrag §794]
+  Chat-Änderung kann ohne Prüfung ausgeführt werden (§794). [geprüft: `shouldStage` in `src/app/chat-proposal.ts`; Register §794]
 - **Protokolle.** Das Aktivitätsprotokoll behält je Projekt die neuesten 500 Einträge, eine Anzahl statt
   eines Zeitraums, und verknüpft eine KI-Änderung nicht mit der Chat-Nachricht, die sie veranlasst hat
   (§799). Gespeicherte KI-Chats werden nach der Aufbewahrungsdauer gelöscht, die der Administrator

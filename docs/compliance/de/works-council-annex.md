@@ -47,12 +47,21 @@ Wiedereinschalten so zurück, wie sie war. Ein **Administrator** kann eine Integ
 eines Projekts ein- oder ausschalten: Eine solche Änderung wird sofort ausgeführt, ohne Prüfkarte, und
 lässt sich nicht rückgängig machen; sie wird nur protokolliert. [geprüft: `isEntityWriteCall` und der
 Kommentar zu `shouldStage` in `src/app/chat-proposal.ts` (`update_settings` mit `enabledModules`)] Das
-Ausblenden der Ressourcen-Funktion entzieht dem KI-Chat seine Werkzeuge nicht: Dem Chat wird mitgeteilt,
-welche Funktionen eingeschaltet sind, aber solange der Personenschutz aus ist, kann er in diesem Projekt
-weiterhin Personen, Abwesenheiten und Zuteilungen lesen sowie Personen und Abwesenheiten ändern (§810).
-[geprüft: `toolsFor` und `variantKey` in `src/app/chat-api.ts`, deren Einstellungen keinen
-Funktionsschalter enthalten; `PEOPLE_TOOLS` in `src/app/chat-tool-defs.ts`] Für Timelog gilt etwas
-anderes: siehe den Eintrag unten.
+Ausblenden der Ressourcen-Funktion blendet deren Ansichten aus; es hält ihre Daten nicht von der KI fern
+(§810). Dem KI-Chat wird mitgeteilt, welche Funktionen eingeschaltet sind, aber solange der
+Personenschutz aus ist, kann er in diesem Projekt weiterhin Personen, Abwesenheiten und Zuteilungen lesen
+sowie Personen und Abwesenheiten ändern. [geprüft: `toolsFor` und `variantKey` in `src/app/chat-api.ts`,
+deren Einstellungen keinen Funktionsschalter enthalten; `PEOPLE_TOOLS` in `src/app/chat-tool-defs.ts`]
+Fünf Funktionen senden die Liste, wer abwesend ist, mit Namen und Abwesenheitstagen, unabhängig davon, ob
+die Ressourcen-Funktion eingeschaltet ist: der Entwurf des Lenkungsausschuss-Berichts, „Nächste Schritte
+mit KI analysieren“, die Analyse durch geplante Aufträge, die Insight-Empfehlungen (auf Anfrage und
+automatisch) und der Vorschlag für den Projektstrukturplan. Bei eingeschaltetem Personenschutz werden in
+dieser Liste die Namen der Personen, die das Projekt kennt, durch Platzhalter ersetzt; die
+Abwesenheitstage werden weiterhin gesendet. [geprüft: die Aufrufe von `buildAwaySummary` in
+`src/app/project-digest.ts`, `src/app/use-meeting-report-actions.ts`,
+`src/app/insights/recommend-context.ts` und `src/app/wbs-plan/wbs-plan.ts`, von denen keiner die
+Funktion prüft; `AI_DATA_PATHS` in `src/app/ai-disclosure.ts`] Für Timelog gilt etwas anderes: siehe den
+Eintrag unten.
 
 - **Aktivitätsprotokoll.** Hält jede Änderung mit Zeitpunkt, Art, den alten und neuen Werten der
   geänderten Felder (die auch Namen von Personen enthalten können) und der Angabe fest, ob ein Nutzer, die
@@ -99,6 +108,8 @@ anderes: siehe den Eintrag unten.
 - **Abwesenheiten.** Erfasst die Person, die Daten, die Art (Urlaub, Krankheit, Schulung oder Sonstiges)
   und eine Notiz. [geprüft: `Absence` in `src/app/types.ts`] Schalter: Projekt (die Ressourcen-Funktion,
   die den Abwesenheitskalender enthält). [geprüft: `FEATURE_MODULES` in `src/app/feature-modules.ts`]
+  Das Ausblenden blendet den Kalender aus, hält die Abwesenheitsliste aber weder von den fünf oben
+  genannten KI-Funktionen noch vom KI-Chat fern (§810).
 - **Bewertungen von Stakeholdern.** Stakeholder, die auch Beschäftigte sein können, tragen eine Bewertung
   von Einfluss und Interesse sowie RACI-Rollen je Meilenstein. [geprüft: `Stakeholder` in
   `src/app/types.ts`] Schalter: Projekt (die Stakeholder-Funktion).
@@ -153,9 +164,9 @@ auch auf dem Server ab, daher könnte ein veränderter Client ihn umgehen. [gepr
 Zeile „Personenschutz“ im TOM-Blatt]
 
 Die Tabelle führt die KI-Funktionen auf, deren Anfragen Daten über Personen enthalten können, jeweils mit
-der Wirkung des Schutzes. Sie wird aus der Hinweistabelle der App erzeugt. Nicht aufgeführt sind die beiden
+der Wirkung des Schutzes. Sie wird aus der Hinweistabelle der App erzeugt. Nicht aufgeführt sind nur die beiden
 Zeilen „Text der Zusammenfassung“ (auf Anfrage und geplant), die Namen nur enthalten, wo jemand sie in einen Meilensteinnamen geschrieben hat.
-[geprüft: `PEOPLE_PATH_IDS` in `src/app/compliance/pack-blocks.ts`, `src/app/ai-disclosure.ts`]
+[geprüft: `PEOPLE_PATH_EXCLUDED_IDS` in `src/app/compliance/pack-blocks.ts`, `src/app/ai-disclosure.ts`]
 
 <!-- PACK:ai-paths-people:BEGIN -->
 | Funktion | Zustimmung | Was gesendet wird | Bei aktivem Personenschutz |
@@ -220,9 +231,9 @@ aufgeführt. [geprüft je Punkt unten]
   `src/app/chat-proposal.ts`, `stagesWhenUntrusted` in `src/app/chat-send-record.ts`] **Ausnahme:** Eine
   einzelne Änderung außerhalb dieser Fälle wird sofort ausgeführt, ohne Karte (§794). Sie wird als
   Änderung der KI protokolliert, und die meisten solchen Änderungen lassen sich rückgängig machen, aber
-  keine Person hat sie vorher freigegeben. [geprüft: der Registereintrag §794] Fremder Text, den der Chat
+  keine Person hat sie vorher freigegeben. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`; Register §794] Fremder Text, den der Chat
   über seine Werkzeuge liest, etwa aus Jira synchronisierte Inhalte, löst das Zurückhalten nicht aus
-  (§797). [geprüft: der Registereintrag §797] Eine Statusanfrage, die der Chat vorbereitet, öffnet sich als
+  (§797). [geprüft: `untrusted` in `SendRecord`, `src/app/chat-send-record.ts`; Register §797] Eine Statusanfrage, die der Chat vorbereitet, öffnet sich als
   E-Mail-Entwurf im eigenen Mailprogramm des Nutzers, der sie selbst sendet. [geprüft: `send_inquiry` in
   `src/app/chat-tool-defs.ts`, `sendInquiry` in `src/app/use-chat-dispatcher.ts`]
 - **Bearbeitung einer Zeile mit „Claude fragen“.** Zeigt die Änderungen und führt sie erst aus, wenn der
@@ -235,8 +246,7 @@ aufgeführt. [geprüft je Punkt unten]
   zeigen jede Änderung mit ihrem aktuellen und ihrem neuen Wert. [geprüft: `src/app/alloc-plan-modal.tsx`,
   `src/app/raci-suggest-modal.tsx`, `src/app/task-dedup-modal.tsx`, `src/app/wbs-plan-modal.tsx`]
   **Ausnahme beim Rückgängigmachen:** Aufgaben, die ein übernommener Projektstrukturplan anlegt, lassen
-  sich nicht rückgängig machen und müssen von Hand gelöscht werden (§796). [geprüft: der Registereintrag
-  §796]
+  sich nicht rückgängig machen und müssen von Hand gelöscht werden (§796). [Aussage des Maintainers; Register §796]
 - **Prognose-Import.** Wird erst nach einer Vorschau ausgeführt und, wo die KI die Zuordnung der Spalten
   vorgeschlagen hat, erst nachdem der Nutzer diese Zuordnung bestätigt hat. [geprüft:
   `src/app/forecast-import-modal.tsx`]
@@ -264,7 +274,9 @@ geöffneten App. [geprüft: `src/app/use-scheduled-job-runner.ts`, `src/app/use-
 
 ## Schalter für den Betrieb
 
-Jede Einstellung, die der Administrator dem Server der App oder der Desktop-App mitgibt. Für Beschäftigte
+Jede Laufzeit-Einstellung (`AIPM_`), die der Administrator dem Server der App oder der Desktop-App
+mitgibt; die Build-Variablen `NEXT_PUBLIC_*` stehen nicht in dieser Tabelle und sind in
+`docs/security.md`, Abschnitt „Environment variables“, aufgeführt. Für Beschäftigte
 sind die maßgeblichen Werte von `AIPM_DISABLED_INTEGRATIONS` `ai` (die gesamte KI aus), `ai-people`
 (Personenschutz in jedem Projekt erzwungen), `timelog` (Timelog-Integration und -Funktion aus) und `stt`
 (die Speech-to-Text-Route aus), und `AIPM_AI_CHAT_RETENTION_DAYS` legt fest, wie lange gespeicherte

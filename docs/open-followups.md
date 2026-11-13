@@ -248,7 +248,9 @@ zero — `SECTION_TITLE_RE` in the same file requires `^§[1-9]\d*:`) and the la
 flip, with `gh issue create` — the switch is the repository variable `REGISTER_TRACKER=github`, set
 at [the flip checklist's step 7](superpowers/specs/2026-09-23-flip-checklist.md). Closing an entry
 removes its `**Work item:**` line entirely (a closed entry carrying one is the workitems gate's
-`ON_CLOSED` finding) and closes the corresponding issue.
+`ON_CLOSED` finding) and closes the corresponding issue. An entry listed in `CITED_GAPS`
+(`scripts/compliance/pack-config.mjs`) must leave that list, and the compliance pack's prose that cites it
+must be updated, in the same change — or `npm run compliance:check` and `src/app/compliance/pack-drift.test.ts` fail.
 
 <!-- INDEX:BEGIN -->
 | # | Item | Origin | Size | State |
@@ -1042,7 +1044,7 @@ removes its `**Work item:**` line entirely (a closed entry carrying one is the w
 | [§804](#804-plan-with-ai-always-sends-internal-hourly-rates-there-is-no-option-to-leave-them-out) | Plan with AI always sends internal hourly rates; there is no option to leave them out | — | — | open |
 | [§805](#805-the-ai-relay-attaches-the-deployments-gateway-token-for-any-caller-that-reaches-the-server) | The AI relay attaches the deployment's gateway token for any caller that reaches the server | — | — | open |
 | [§806](#806-the-ai-relay-and-dictation-routes-have-no-request-limit) | The AI relay and dictation routes have no request limit | — | — | open |
-| [§810](#810-hiding-a-projects-resources-function-does-not-withdraw-the-chats-people-absence-and-allocation-tools) | Hiding a project's Resources function does not withdraw the chat's people, absence and allocation tools | — | — | open |
+| [§810](#810-hiding-a-projects-resources-function-keeps-neither-the-chats-people-tools-nor-the-absence-list-from-the-ai) | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -46464,15 +46466,15 @@ Size S.
 
 **Source:** owner decision 2026-11-13 (file it), from the compliance pack's review.
 
-## 810. Hiding a project's Resources function does not withdraw the chat's people, absence and allocation tools
+## 810. Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI
 
-**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13. Reproduced by reading: `toolsFor` in `src/app/chat-api.ts` builds the chat's tool list from the history-search, chat-search, forecast and people-protection settings only (`variantKey`); no project function switch is among them. `grep -n "isModuleEnabled" src/app/chat-api.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts` prints two lines, both in `chat-api.ts`: the import of `isModuleEnabled` and the Timelog check that keeps Timelog insights out of the chat prompt; none concerns the Resources function.
+**Status:** OPEN 2026-11-13, filed by owner decision 2026-11-13 and widened the same day by owner decision 2026-11-13. Reproduced by reading. (a) The chat: `toolsFor` in `src/app/chat-api.ts` builds the chat's tool list from the history-search, chat-search, forecast and people-protection settings only (`variantKey`); no project function switch is among them. `grep -n "isModuleEnabled" src/app/chat-api.ts src/app/chat-tool-defs.ts src/app/chat-tools.ts` prints two lines, both in `chat-api.ts`: the import of `isModuleEnabled` and the Timelog check that keeps Timelog insights out of the chat prompt; none concerns the Resources function. (b) The absence list: `grep -n "buildAwaySummary(" src/app/project-digest.ts src/app/use-meeting-report-actions.ts src/app/insights/recommend-context.ts src/app/wbs-plan/wbs-plan.ts` prints one call in each of the four files, and `grep -c "isModuleEnabled"` over the same four files prints 0 for each: none checks the Resources function before the "who is away" lines go into the prompt.
 
 **Work item:** #TBD (created at push)
 
-A project can hide its Resources function, which holds the resource directory, workload, planning and the absence calendar. The AI chat is told which functions are on, but its tools that read people, absences and allocations, and change people and absences, stay available while people protection is off. A user or a works council reading "switched off" as "the AI cannot reach it" would be wrong.
+A project can hide its Resources function, which holds the resource directory, workload, planning and the absence calendar. Hiding it hides those views; it does not keep their data from the AI. Two routes stay open while people protection is off. (a) The AI chat is told which functions are on, but its tools that read people, absences and allocations, and change people and absences, stay available. (b) Five features send the list of who is away in the coming weeks, by name and absent days, whatever the Resources function's state: the steering committee report draft, Analyze next actions, the scheduled job analysis, insight recommendations (on request and automatic) and the WBS proposal. A user or a works council reading "switched off" as "the AI cannot reach it" would be wrong.
 
-What it would take: decide whether a hidden function also withdraws the chat tools that read or write its data. If yes, derive the tool list from the project's functions as well, enforce it in the executor as people protection is, and test both the advertised list and a refused call.
+What it would take: decide whether a hidden function also withdraws the AI's access to its data. If yes, derive the chat's tool list from the project's functions as well and enforce it in the executor as people protection is, leave the "who is away" lines out of every prompt builder while the Resources function is hidden, and test the advertised tool list, a refused call and each of the five prompts.
 
 Size S.
 

@@ -24,7 +24,9 @@ Text last reviewed for version 1.20.1 on 2026-11-13.
 This line says when a person last re-read the hand-written text against the app. The tables between
 `PACK:` markers are not covered by it: they are generated from the code and checked on every change (see
 [How to read the labels](#how-to-read-the-labels)). The pack you read at a release tag of the repository
-is the pack for that release.
+is the pack for that release. Read at any other commit, it describes the code from that commit on,
+which can be ahead of the latest release: behaviour changes listed under "Unreleased" in the
+[CHANGELOG](../../../CHANGELOG.md) reach users with the next release.
 
 ## Scope
 
@@ -81,7 +83,7 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |
 | §805 | The AI relay attaches the deployment's gateway token for any caller that reaches the server |
 | §806 | The AI relay and dictation routes have no request limit |
-| §810 | Hiding a project's Resources function does not withdraw the chat's people, absence and allocation tools |
+| §810 | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI |
 <!-- PACK:open-gaps:END -->
 
 What each gap means for you. Each sentence restates its register entry in `docs/open-followups.md`,
@@ -123,9 +125,12 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
   organisation's cost where the gateway bills it. Run the server behind your own access control.
 - **§806** — The AI routes and the dictation route accept any number of requests, and dictation forwards
   audio to whatever public https address the caller names. Limit access in front of the app.
-- **§810** — Hiding a project's Resources function hides its views, but while people protection is off
-  the AI chat can still read people, absences and allocations, and change people and absences, in that project. To keep the AI
-  away from that data, leave people protection on.
+- **§810** — Hiding a project's Resources function hides its views but does not keep their data from the
+  AI. While people protection is off, the AI chat can still read people, absences and allocations, and
+  change people and absences, in that project. And five AI features (the steering committee report draft,
+  Analyze next actions, the scheduled job analysis, the insight recommendations and the WBS proposal) send
+  the list of who is away, by name and absent days, whatever the function's state. People protection switches
+  the chat's people tools off and replaces known names with placeholders; the absent days are still sent.
 
 ## How to read the labels
 

@@ -41,11 +41,18 @@ integration or AI off for the whole deployment with `AIPM_DISABLED_INTEGRATIONS`
 `src/app/feature-modules.ts`; `src/app/deployment-variables.ts`] The AI chat can switch a project's
 functions on or off too: one such change applies at once, without a review card, and cannot be undone; it
 is only logged. [verified: `isEntityWriteCall` and the comment on `shouldStage` in
-`src/app/chat-proposal.ts` (`update_settings` with `enabledModules`)] Hiding the Resources function does not
-withdraw the AI chat's tools: the chat is told which functions are on, but while people protection is off
-it can still read people, absences and allocations, and change people and absences, in that project (§810). [verified: `toolsFor`
-and `variantKey` in `src/app/chat-api.ts`, whose settings carry no function switch; `PEOPLE_TOOLS` in
-`src/app/chat-tool-defs.ts`] Timelog is different: see its entry below.
+`src/app/chat-proposal.ts` (`update_settings` with `enabledModules`)] Hiding the Resources function hides its
+views; it does not keep their data from the AI (§810). The AI chat is told which functions are on, but
+while people protection is off it can still read people, absences and allocations, and change people and
+absences, in that project. [verified: `toolsFor` and `variantKey` in `src/app/chat-api.ts`, whose
+settings carry no function switch; `PEOPLE_TOOLS` in `src/app/chat-tool-defs.ts`] Five features send the
+list of who is away, by name and absent days, whatever the Resources function's state: the steering
+committee report draft, Analyze next actions, the scheduled job analysis, the insight recommendations (on
+request and automatic) and the WBS proposal. With people protection on, the names of people the project
+knows are replaced by placeholders in that list; the absent days are still sent. [verified: the
+`buildAwaySummary` calls in `src/app/project-digest.ts`, `src/app/use-meeting-report-actions.ts`,
+`src/app/insights/recommend-context.ts` and `src/app/wbs-plan/wbs-plan.ts`, none of which checks the
+function; `AI_DATA_PATHS` in `src/app/ai-disclosure.ts`] Timelog is different: see its entry below.
 
 - **Activity log.** Records each change with its time, its kind, the old and new values of the changed
   fields (which can include people's names), and whether a user, the AI or an integration made it. It does
@@ -85,7 +92,9 @@ and `variantKey` in `src/app/chat-api.ts`, whose settings carry no function swit
   Switch: project (the Resources function).
 - **Absences.** Records the person, the dates, the type (vacation, sick, training or other) and a note.
   [verified: `Absence` in `src/app/types.ts`] Switch: project (the Resources function, which holds the
-  absence calendar). [verified: `FEATURE_MODULES` in `src/app/feature-modules.ts`]
+  absence calendar). [verified: `FEATURE_MODULES` in `src/app/feature-modules.ts`] Hiding it hides the
+  calendar but does not keep the absence list from the five AI features named above or from the AI chat
+  (§810).
 - **Stakeholder ratings.** Stakeholders, who can be staff, carry an influence and an interest rating and
   RACI roles per milestone. [verified: `Stakeholder` in `src/app/types.ts`] Switch: project (the
   Stakeholders function).
@@ -134,7 +143,7 @@ browser; only the dictation route also refuses on the server, so a modified clie
 [verified: the table below; the TOM sheet row "People protection"]
 
 The table lists the AI features whose requests can carry data about people, with what protection does to
-each. It is generated from the app's disclosure table. Left out are the two digest summaries, which carry names only where someone typed them into a milestone name. [verified: `PEOPLE_PATH_IDS` in
+each. It is generated from the app's disclosure table. Left out are only the two digest summaries, which carry names only where someone typed them into a milestone name. [verified: `PEOPLE_PATH_EXCLUDED_IDS` in
 `src/app/compliance/pack-blocks.ts`, `src/app/ai-disclosure.ts`]
 
 <!-- PACK:ai-paths-people:BEGIN -->
@@ -197,9 +206,9 @@ below]
   and every change waits while a file is attached to the conversation. [verified: `shouldStage` in
   `src/app/chat-proposal.ts`, `stagesWhenUntrusted` in `src/app/chat-send-record.ts`] **Exception:** a
   single change outside those cases applies at once, without a card (§794). It is logged as the AI's, and
-  most such changes can be undone, but no person approved it first. [verified: the register entry §794]
+  most such changes can be undone, but no person approved it first. [verified: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`; register §794]
   Outside text the chat reads through its tools, such as content synced from Jira, does not start the hold
-  (§797). [verified: the register entry §797] A status inquiry the chat prepares opens as a draft e-mail in
+  (§797). [verified: `untrusted` in `SendRecord`, `src/app/chat-send-record.ts`; register §797] A status inquiry the chat prepares opens as a draft e-mail in
   the user's own mail program, which the user sends. [verified: `send_inquiry` in
   `src/app/chat-tool-defs.ts`, `sendInquiry` in `src/app/use-chat-dispatcher.ts`]
 - **"Ask Claude" edit of a row.** Shows the changes and applies them only when the user chooses Apply.
@@ -211,8 +220,7 @@ below]
   previews show each change with its current and new value.
   [verified: `src/app/alloc-plan-modal.tsx`, `src/app/raci-suggest-modal.tsx`,
   `src/app/task-dedup-modal.tsx`, `src/app/wbs-plan-modal.tsx`] **Exception for undo:** tasks that an
-  applied work breakdown creates cannot be undone and must be deleted by hand (§796). [verified: the
-  register entry §796]
+  applied work breakdown creates cannot be undone and must be deleted by hand (§796). [vendor statement; register §796]
 - **Forecast import.** Applies only after a preview and, where the AI proposed the column mapping, only
   after the user confirms that mapping. [verified: `src/app/forecast-import-modal.tsx`]
 - **Next-actions weight suggestion.** Each suggested weight is taken over only with Accept or Accept all.
@@ -236,7 +244,9 @@ No AI feature runs while the app is closed: the background features run in an op
 
 ## Deployment switches
 
-Every setting the operator gives the app's server or the desktop app. For staff, the relevant values of
+Every run-time `AIPM_` setting the operator gives the app's server or the desktop app; the build-time
+`NEXT_PUBLIC_*` variables are not in this table and are listed in `docs/security.md`, section
+"Environment variables". For staff, the relevant values of
 `AIPM_DISABLED_INTEGRATIONS` are `ai` (all AI off), `ai-people` (people protection forced on in every
 project), `timelog` (the Timelog integration and function off) and `stt` (the speech-to-text route off),
 and `AIPM_AI_CHAT_RETENTION_DAYS` sets how long saved AI chats are kept. [verified:

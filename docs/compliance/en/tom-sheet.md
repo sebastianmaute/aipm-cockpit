@@ -73,8 +73,11 @@ how to read it. [verified: `src/app/outbound-destinations.ts`]
 
 ## Deployment switches
 
-Every setting an operator gives the app's server, or the desktop app, as an environment variable. The
-table is generated from the app's list of these variables; a test fails when the code reads an `AIPM_`
+Every run-time `AIPM_` setting an operator gives the app's server, or the desktop app, as an environment
+variable. The build-time `NEXT_PUBLIC_*` variables (the Microsoft sign-in client and tenant id, the Turso
+database URL and token, the AI policy owner and link, the export footer and the Timelog tenant) are not in
+this table: they are built into the app and listed in the build-time table of `docs/security.md`, section
+"Environment variables". The table is generated from the app's list of these variables; a test fails when the code reads an `AIPM_`
 name that the list does not hold. [verified: `src/app/deployment-variables.ts`,
 `src/app/deployment-variables.test.ts`] The values are read from the process environment, so a change
 takes effect when the server or the desktop app restarts. [vendor statement; `docs/security.md`, section

@@ -42,7 +42,7 @@ on, the app showed you a list of every feature and what it sends; you can read t
 Write into the app as if a colleague outside the project could read it: anything you type into a task,
 note or attachment can reach the AI when someone uses a feature that sends it. [vendor statement]
 
-## The AI drafts, people decide
+## What the AI may change on its own
 
 The AI proposes; you decide. Most features show you what they want to change and change nothing until you
 choose Apply, Accept or confirm. [verified: the list in the
@@ -54,16 +54,16 @@ Know the exceptions:
   make it straight away, without a review card. It always asks first when it wants to delete something,
   invite meeting attendees, edit the project's own details, change more than one thing, or put work on a
   day someone is absent, and whenever a file is attached to the conversation. [verified: `shouldStage` in
-  `src/app/chat-proposal.ts`; open gap §794]
+  `src/app/chat-proposal.ts`; register §794]
 - **Text read from outside.** When the chat has read text from outside the app, for example content synced
-  from Jira, it does not ask first for that reason alone. [verified: open gap §797]
+  from Jira, it does not ask first for that reason alone. [verified: `untrusted` in `SendRecord`, `src/app/chat-send-record.ts`; register §797]
 - **Background runs.** The background features above send data on every run without asking each time.
   Their results only advise: a recommendation changes nothing until a person confirms it. [verified:
-  `src/app/use-insight-recommendations.ts`, `src/app/scheduled-job-run.ts`; open gap §795]
+  `src/app/use-insight-recommendations.ts`, `src/app/scheduled-job-run.ts`; register §795]
 
 What the chat changes is recorded in the activity log as the AI's change, and most changes can be undone
 with Undo. Tasks created by a work breakdown you applied cannot be undone; delete them by hand.
-[verified: `src/app/activity-log.ts`; open gap §796]
+[verified: `src/app/activity-log.ts`; register §796]
 
 You remain responsible for what you apply and for what you send on, such as a report or an e-mail the AI
 drafted. [vendor statement; your organisation's rules: question for you]
@@ -109,9 +109,9 @@ change something I did not ask for? Would I make this change if a colleague prop
 - **Instructions hidden in text.** A file, an e-mail or synced text can contain instructions aimed at the
   AI. That is why the chat asks before every change while a file is attached; it does not do so for text
   it reads from outside through its tools. [verified: `stagesWhenUntrusted` in
-  `src/app/chat-send-record.ts`; open gap §797]
+  `src/app/chat-send-record.ts`; register §797]
 - **Long waits and failures.** Most AI requests have no time limit in the app, and a request refused because
-  the service is busy is not retried. Stop and try again later. [verified: open gap §798]
+  the service is busy is not retried. Stop and try again later. [vendor statement; register §798]
 - **Unknown names.** People protection hides names the project knows, not names you type that it does not
   know. [verified: `aiPeopleProtectionHelp` in `src/app/i18n.ts`]
 

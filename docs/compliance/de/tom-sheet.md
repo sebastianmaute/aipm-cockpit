@@ -74,8 +74,12 @@ Maintainer](vendor-touchpoints.md#ziele-des-servers-und-der-desktop-app), die er
 
 ## Schalter für den Betrieb
 
-Jede Einstellung, die ein Administrator dem Server der App oder der Desktop-App als Umgebungsvariable
-mitgibt. Die Tabelle wird aus der Liste dieser Variablen in der App erzeugt; ein Test schlägt fehl, wenn
+Jede Laufzeit-Einstellung, die ein Administrator dem Server der App oder der Desktop-App als
+`AIPM_`-Umgebungsvariable mitgibt. Die Build-Variablen `NEXT_PUBLIC_*` (Client- und Tenant-ID der
+Microsoft-Anmeldung, URL und Token der Turso-Datenbank, Verantwortlicher und Link der KI-Richtlinie, die
+Fußzeile der Exporte und der Timelog-Tenant) stehen nicht in dieser Tabelle: Sie werden beim Erstellen in
+die App eingebaut und sind in der Tabelle der Build-Variablen in `docs/security.md`, Abschnitt
+„Environment variables“, aufgeführt. Die Tabelle wird aus der Liste dieser Variablen in der App erzeugt; ein Test schlägt fehl, wenn
 der Code einen `AIPM_`-Namen liest, den die Liste nicht enthält. [geprüft:
 `src/app/deployment-variables.ts`, `src/app/deployment-variables.test.ts`] Die Werte werden aus der
 Prozessumgebung gelesen; eine Änderung wird daher wirksam, wenn der Server oder die Desktop-App neu
@@ -124,8 +128,9 @@ Die Maßnahmen oben sind die der App. Folgendes liegt außerhalb von ihr:
 - **Ihr Netzwerk und Ihre Zugangskontrolle.** Der Server der App authentifiziert seine Aufrufer nicht.
   [geprüft: die 15 Routendateien unter `src/app/api`] Wer ihn erreicht, kann KI-Anfragen unter dem Token
   Ihres Gateways über dieses senden (§805), und die Routen für KI und Diktat haben keine
-  Anfragebegrenzung (§806). Betreiben Sie den Server hinter der eigenen Zugangskontrolle Ihrer
-  Organisation, etwa einem Reverse Proxy mit Anmeldung, Single Sign-on oder einer Netzwerkbeschränkung.
+  Anfragebegrenzung (§806). Stellen Sie den Server hinter der eigenen Zugangskontrolle Ihrer
+  Organisation bereit, etwa einem Reverse Proxy mit Anmeldung, Single Sign-on oder einer
+  Netzwerkbeschränkung.
   [Aussage des Maintainers; wie Sie das umsetzen: Frage an Sie]
 - **Schulung und Anweisungen.** Was Beschäftigten über die KI gesagt wird und welche Regeln sie befolgen,
   ist Ihre Sache. Das Material zur [KI-Kompetenz](ai-literacy.md) ist ein Ausgangspunkt. [Frage an Sie]

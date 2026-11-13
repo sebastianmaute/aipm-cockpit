@@ -26,7 +26,10 @@ Text zuletzt geprüft für Version 1.20.1 am 2026-11-13.
 Diese Zeile gibt an, wann eine Person den handgeschriebenen Text zuletzt mit der App abgeglichen hat. Die
 Tabellen zwischen den `PACK:`-Markierungen erfasst sie nicht: Diese werden aus dem Code erzeugt und bei
 jeder Änderung geprüft (siehe [So lesen Sie die Kennzeichnungen](#so-lesen-sie-die-kennzeichnungen)). Das
-Paket, das Sie an einem Release-Tag des Repositorys lesen, ist das Paket für dieses Release.
+Paket, das Sie an einem Release-Tag des Repositorys lesen, ist das Paket für dieses Release. An einem
+anderen Commit gelesen, beschreibt es den Code ab diesem Commit, der dem neuesten Release voraus sein
+kann: Verhaltensänderungen, die im [CHANGELOG](../../../CHANGELOG.md) unter „Unreleased“ stehen,
+erreichen die Nutzer mit dem nächsten Release.
 
 ## Umfang
 
@@ -45,7 +48,7 @@ Nicht behandelt werden:
 - die Dienste, mit denen die App kommuniziert (Anthropic, Microsoft 365, Turso, Atlassian, Timelog, ein
   Speech-to-Text-Dienst, ein KI-Gateway). Deren Bedingungen und eigene Maßnahmen sind ihre Sache; wo das
   Paket sie zitiert, kennzeichnet es die Aussage und nennt die Quelle.
-- die Computer, Browser, Netzwerke und Speicherkonten, auf denen Sie die App betreiben.
+- die Computer, Browser, Netzwerke und Speicherkonten, auf denen die App läuft.
 - Ihre Zwecke, Rechtsgrundlagen, Aufbewahrungsentscheidungen und Betriebsvereinbarungen. Diese sind Ihre
   Sache; die Dokumente kennzeichnen jeden dieser Punkte als **Frage an Sie**.
 
@@ -90,7 +93,7 @@ Registers.
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |
 | §805 | The AI relay attaches the deployment's gateway token for any caller that reaches the server |
 | §806 | The AI relay and dictation routes have no request limit |
-| §810 | Hiding a project's Resources function does not withdraw the chat's people, absence and allocation tools |
+| §810 | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI |
 <!-- PACK:open-gaps:END -->
 
 Was jede Lücke für Sie bedeutet. Jeder Satz gibt seinen Registereintrag in `docs/open-followups.md` wieder,
@@ -138,15 +141,19 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
   einzige Weg, Stundensätze von der KI fernzuhalten, ist der Personenschutz, der die Funktion ausblendet.
 - **§805** — Der Server der App prüft nicht, wer ihn aufruft. Bei einer Bereitstellung mit KI-Gateway
   kann jeder, der den Server erreicht, KI-Anfragen unter dem Token Ihres Gateways über dieses senden, auf Kosten
-  Ihrer Organisation, soweit das Gateway sie abrechnet. Betreiben Sie den Server hinter Ihrer eigenen
-  Zugangskontrolle.
+  Ihrer Organisation, soweit das Gateway sie abrechnet. Stellen Sie den Server hinter Ihrer eigenen
+  Zugangskontrolle bereit.
 - **§806** — Die KI-Routen und die Diktat-Route nehmen beliebig viele Anfragen an, und das Diktat leitet
   Audio an jede öffentliche https-Adresse weiter, die der Aufrufer angibt. Begrenzen Sie den Zugang vor
   der App.
-- **§810** — Das Ausblenden der Ressourcen-Funktion eines Projekts blendet deren Ansichten aus, aber
-  solange der Personenschutz aus ist, kann der KI-Chat in diesem Projekt weiterhin Personen, Abwesenheiten
-  und Zuteilungen lesen sowie Personen und Abwesenheiten ändern. Um die KI von diesen Daten fernzuhalten,
-  lassen Sie den Personenschutz eingeschaltet.
+- **§810** — Das Ausblenden der Ressourcen-Funktion eines Projekts blendet deren Ansichten aus, hält ihre
+  Daten aber nicht von der KI fern. Solange der Personenschutz aus ist, kann der KI-Chat in diesem Projekt
+  weiterhin Personen, Abwesenheiten und Zuteilungen lesen sowie Personen und Abwesenheiten ändern. Und fünf
+  KI-Funktionen (der Entwurf des Lenkungsausschuss-Berichts, „Nächste Schritte mit KI analysieren“, die
+  Analyse durch geplante Aufträge, die Insight-Empfehlungen und der Vorschlag für den Projektstrukturplan)
+  senden die Liste, wer abwesend ist, mit Namen und Abwesenheitstagen, unabhängig vom Zustand der
+  Funktion. Der Personenschutz schaltet die Personen-Werkzeuge des Chats ab und ersetzt bekannte
+  Namen durch Platzhalter; die Abwesenheitstage werden weiterhin gesendet.
 
 ## So lesen Sie die Kennzeichnungen
 

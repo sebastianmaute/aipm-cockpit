@@ -107,8 +107,8 @@ Anmerkungen zum Hinweis für Beschäftigte: [geprüft wie angegeben]
   ein Projekt ihn ausgeschaltet hat, oder erzwingen Sie ihn mit `AIPM_DISABLED_INTEGRATIONS=ai-people`
   (`src/app/deployment-variables.ts`).
 - Der Satz zum Hintergrund: die drei Zeilen der Tabelle unten, deren Zustimmung „gesondert“ abgefragt
-  wird (`level: "background"` in `src/app/ai-disclosure.ts`); offene Lücke §795.
-- Der Satz „Eine Ausnahme“: `shouldStage` in `src/app/chat-proposal.ts`; offene Lücke §794. Auch andere
+  wird (`level: "background"` in `src/app/ai-disclosure.ts`); Register §795.
+- Der Satz „Eine Ausnahme“: `shouldStage` in `src/app/chat-proposal.ts`; Register §794. Auch andere
   Bedingungen führen eine Chat-Änderung zur Prüfung; die [Anlage für den
   Betriebsrat](works-council-annex.md#was-die-ki-ohne-freigabe-durch-eine-person-tun-darf) führt sie auf.
 - Der Satz zur Übermittlung: die Angaben für die Datenschutz-Folgenabschätzung, [Übermittlungen außerhalb
@@ -175,12 +175,16 @@ Anmerkungen zum Hinweis für Stakeholder: [geprüft wie angegeben]
   Einfluss, Interesse, Notizen und RACI-Rollen). Streichen Sie, was Sie nicht erfassen.
 - Der Satz zur KI: Der RACI-Vorschlag sendet Namen, Titel, Organisationen, Kategorien, Einfluss und
   Interesse der Stakeholder sowie die bestehenden RACI-Zuordnungen je Meilenstein; die Analyse der
-  nächsten Schritte sendet Namen von Stakeholdern mit ihrem Titel oder ihrer Organisation und der
-  Gewichtungsvorschlag Namen von Stakeholdern; der Chat kann Stakeholder-Datensätze lesen, bei Bedarf
-  jeweils eine E-Mail-Adresse abrufen und angehängte E-Mails mit ihren Absendern und Empfängern lesen. Der
-  Satz darf nicht weniger sagen als die Tabelle unten; gleichen Sie ihn beim Ausfüllen mit der Tabelle ab.
-  [geprüft: die Zeilen zum RACI-Vorschlag, zur Analyse, zum Gewichtungsvorschlag und zum Chat in
-  `src/app/ai-disclosure.ts`; `get_contact_email` in `PEOPLE_TOOLS`, `src/app/chat-tool-defs.ts`]
+  nächsten Schritte und die Analyse durch geplante Aufträge senden Namen von Stakeholdern mit ihrem Titel,
+  ihrer Organisation oder ihrer Kategorie; der Gewichtungsvorschlag sendet Namen von Stakeholdern; „Mit KI
+  planen“ sendet, welche der aufgeführten Personen für jeden Meilenstein als Stakeholder verantwortlich (R)
+  oder rechenschaftspflichtig (A) sind; der Chat kann Stakeholder-Datensätze lesen, bei Bedarf jeweils eine
+  E-Mail-Adresse abrufen und angehängte E-Mails mit ihren Absendern und Empfängern lesen. Der Satz darf
+  nicht weniger sagen als die Tabelle unten; gleichen Sie ihn beim Ausfüllen mit der Tabelle ab. [geprüft:
+  die Zeilen zum RACI-Vorschlag, zur Analyse, zu den geplanten Aufträgen, zu „Mit KI planen“, zum
+  Gewichtungsvorschlag und zum Chat in `src/app/ai-disclosure.ts`; `raciSection` in
+  `src/app/alloc-plan/alloc-project-digest.ts`; `get_contact_email` in `PEOPLE_TOOLS`,
+  `src/app/chat-tool-defs.ts`]
 - Bei eingeschaltetem Personenschutz ist der RACI-Vorschlag nicht verfügbar, und der Chat kann keine
   Stakeholder-Datensätze lesen; Namen externer Personen in angehängten E-Mails, die das Projekt nicht
   kennt, werden weiterhin gesendet. [geprüft: `src/app/ai-disclosure.ts`, `PEOPLE_TOOLS` in
