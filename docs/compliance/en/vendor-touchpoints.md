@@ -2,13 +2,98 @@
 
 ## About this document
 
+This document says what reaches the maintainer of AI PM Cockpit when your organisation uses it, and
+lists every outside host the app contacts. It is for the data protection officer, who must decide whether
+the maintainer receives any personal data, and for the information security officer, who must know where
+the app connects. The hand-written text was last reviewed as the README's
+[review line](README.md#text-last-reviewed) states.
+
+This document is input for your own work. It is not legal advice.
+
 ## What reaches the maintainer
+
+Nothing the app does at runtime sends data to the maintainer. The maintainer runs no server, no AI
+gateway, no telemetry or analytics service and no crash-report service for the app. [vendor statement]
+
+The code bears this out. The hosts a browser page of the app may connect to are fixed by its Content
+Security Policy, listed in the first table below; none of them is run by the maintainer. [verified:
+`src/proxy.ts`, pinned by `src/proxy.test.ts`] Everything the app's own server and the desktop app
+contact is listed in the second table. A test walks the shipped source and fails when a server route
+directory, or a desktop file that makes network calls, is missing from that list; none of the listed
+destinations is run by the maintainer. [verified: `src/app/outbound-destinations.ts`,
+`src/app/outbound-destinations.test.ts`]
+
+The project's README states the same for the desktop app in its privacy statement: no account, no
+backend that stores your data, no telemetry, no usage analytics and no crash reports. [vendor statement]
 
 ### Updates
 
+The desktop app checks the project's GitHub releases for updates. The request goes to GitHub, not to the
+maintainer. [verified: `desktop/src/updater.ts`]
+
+- **When.** In a packaged desktop app, 10 seconds after start and whenever the user chooses Check for
+  updates. Setting the environment variable `AIPM_DISABLE_UPDATE_CHECK` to `1` stops all checks.
+  [verified: `desktop/src/updater.ts`, `src/app/deployment-variables.ts`]
+- **What GitHub sees.** The request itself, which carries the computer's IP address, the update
+  library's user agent (electron-builder), and a fixed identifier in the header `x-user-staging-id`.
+  That identifier is the same value for every installation, so it does not tell installations apart. The
+  update library also stores a random identifier of its own in the app's data folder; the app does not
+  send it. No project data is sent. [verified: `desktop/src/updater.ts`; the test "sends one fixed staging
+  id, never a per-installation one" in `desktop/src/updater.test.ts`]
+- **Downloads.** An installer is downloaded only after the user accepts the update. [verified:
+  `desktop/src/updater.ts`]
+- **What the maintainer can see.** GitHub keeps a download count for each release file and makes it
+  available as a number per file (`download_count`). [external: GitHub REST API, "Release assets",
+  https://docs.github.com/en/rest/releases/assets, read 2026-11-13] The maintainer receives nothing else
+  about who checked or downloaded. [vendor statement]
+- **Signature check.** A copy installed from a signed release refuses an update whose installer is not
+  signed by SignPath Foundation. No release has been signed so far (§487), so this check does not yet
+  protect any installed copy. [verified: `README.md`, section "Code signing policy";
+  `.github/workflows/release.yml`]
+
+A web deployment of the app has no updater. Your organisation deploys new versions itself. [verified:
+`src/app/outbound-destinations.ts` lists the updater only for `desktop/src/updater.ts`]
+
+What GitHub does with the requests it receives is governed by GitHub's own terms, not by the
+maintainer. [question for you]
+
 ### Support and vulnerability reports
 
+Support happens in public, through the GitHub issues of the repository. A vulnerability is reported
+privately through GitHub's "Report a vulnerability" function, as `SECURITY.md` describes. [verified:
+`SECURITY.md`]
+
+Both contain only what the person reporting writes into them. The app has no function that sends logs,
+project data or diagnostics to the maintainer. [vendor statement] The diagnostic log the app keeps is
+stored in the browser (capped at 200 events) and is not sent anywhere. [verified: `src/app/diagnostics.ts`]
+If your staff attach screenshots, logs or exported files to an issue, that content is
+public. Decide whether staff may report problems in public, and what they may include. [question for you]
+
+The maintainer has no remote access to any installation and asks for none. [vendor statement]
+
 ## Hosts the browser may contact
+
+The table below lists every outside host that the app's Content Security Policy allows a page of the
+app to contact. It is read from the same constants the server uses to build the policy. [verified:
+`src/proxy.ts`] How to read it:
+
+- **Directive.** "Connections" are requests the page makes itself (data, sign-in tokens). "Embedded
+  frames" are pages the app may load inside itself; here only the Microsoft sign-in page, which renews
+  tokens in a hidden frame. [verified: `src/proxy.ts`]
+- **Condition.** "Always allowed" means the policy permits the host on every deployment. The page
+  contacts it only when the user sets up the matching feature: Turso storage, Microsoft 365 sign-in, or a
+  Turso database on the user's own computer for the two local addresses. [vendor statement; the use of
+  each host is described in `src/proxy.ts`]
+- **Who runs each host.** `api.anthropic.com` is Anthropic. `*.turso.io` is Turso, holding a database in
+  an account that the user or your organisation created. `graph.microsoft.com`, `*.sharepoint.com`,
+  `*.files.1drv.com` and `login.microsoftonline.com` are Microsoft, acting for the Microsoft 365 tenant
+  the user signs in to. `localhost` and `127.0.0.1` are the user's own computer. [verified: `src/proxy.ts`]
+- **Not in the table.** Every page may also contact its own origin: the server of your deployment, or
+  in the desktop app, the local server the desktop app starts on the user's computer. [verified:
+  `src/proxy.ts` (`connect-src 'self'`)] The policy does not govern browser dictation, which uses the
+  speech recognition built into the browser and in some browsers sends the audio to the browser maker.
+  It does not govern windows the app opens either, such as the Microsoft sign-in window, or links the
+  user follows. [verified: `src/proxy.ts`, comment on `frame-src`; `docs/security.md`]
 
 <!-- PACK:browser-hosts:BEGIN -->
 | Host | Directive | Condition |
@@ -24,7 +109,24 @@
 | https://login.microsoftonline.com | Embedded frames (frame-src) | Always allowed |
 <!-- PACK:browser-hosts:END -->
 
+The wildcard entries allow any Turso database and any SharePoint or OneDrive file host, not only yours
+(§800).
+
 ## Destinations of the server and the desktop app
+
+Some requests do not come from the browser page but from the app's own server (on a web deployment, or
+the local server inside the desktop app) or from the desktop app itself. The Content Security Policy
+cannot see these, so they are listed separately. [verified: `src/app/outbound-destinations.ts`] How to
+read the table:
+
+- **Run by** names who runs the receiving service. "The deploying organisation" is your own AI gateway.
+  "A service the user enters" is any speech-to-text endpoint a user types into the settings.
+- **Code that sends it** is the server route or desktop module that makes the request, so your
+  reviewers can read it.
+- **What is sent** and **What triggers it** describe the request as the code builds it. Credentials
+  listed there (API keys, tokens) belong to the user or your organisation; the server forwards them and
+  does not store them. [verified: `src/app/outbound-destinations.ts`; for the AI relay, `docs/security.md`
+  section "AI features"]
 
 <!-- PACK:server-destinations:BEGIN -->
 | Run by | Code that sends it | What is sent | What triggers it |
@@ -40,4 +142,37 @@
 | GitHub | desktop/src/updater.ts | Requests to github.com for the app's releases feed (releases.atom), the latest release tag and its update information file (latest.yml) and, when the user accepts an update, a download of the installer (and of its block map, when the release has one) from GitHub's release-asset hosts; the update checks and downloads carry the requester's IP address, the update library's User-Agent (electron-builder) and a fixed identifier (header x-user-staging-id) that is the same for every installation, and no workspace data; the library still stores a random per-installation identifier in the app's data folder, but it stays on the device and is not sent. | In a packaged desktop app 10 seconds after start and whenever the user chooses Check for updates, unless AIPM_DISABLE_UPDATE_CHECK is set to 1; the installer download starts only when the user accepts the update. |
 <!-- PACK:server-destinations:END -->
 
+The private-address check for speech-to-text judges the address as typed and does not resolve a host
+name (§803). An operator can switch off each server-side integration with `AIPM_DISABLED_INTEGRATIONS`;
+the [TOM sheet](tom-sheet.md#deployment-switches) lists the switches. [verified:
+`src/app/deployment-variables.ts`, `src/app/api/_shared/integration-switch.ts`]
+
 ## Roles
+
+**The maintainer.** AI PM Cockpit is a free, non-commercial open-source project. The maintainer provides
+it without a contract, a service level or a support period. Fixes go into the latest release only. The
+maintainer handles vulnerability reports as `SECURITY.md` describes. [vendor statement; `SECURITY.md`]
+
+**Your organisation.** You decide where the app runs, which storage and integrations it uses, which AI
+route and keys it uses, and who may use it. Whether that makes your organisation the controller for the
+data in the app, and on what legal basis it processes it, is for you to decide. [question for you]
+
+**The services the app connects to.** Anthropic, Microsoft, Turso, Atlassian, Timelog, a speech-to-text
+service and an AI gateway receive data only through accounts that the user or your organisation sets up,
+with keys or sign-ins that belong to the user or your organisation. The contract for each runs between
+that service and whoever holds the account, not through the maintainer. [verified: the credentials in
+each row of the table above, `src/app/outbound-destinations.ts`; contract roles: question for you]
+
+For Anthropic, its Commercial Terms incorporate its Data Processing Addendum by reference. [external:
+Anthropic Commercial Terms of Service, https://www.anthropic.com/legal/commercial-terms, effective
+17 June 2025, read 2026-11-13] That addendum states that, for customer personal data, the customer is the
+controller and Anthropic is the customer's processor. [external: Anthropic Data Processing Addendum,
+https://www.anthropic.com/legal/data-processing-addendum, effective 24 February 2025, read 2026-11-13]
+Who the "customer" is depends on whose Anthropic account the API key belongs to: your organisation's, or
+an employee's own. An operator can make the app accept only keys of your organisation's Anthropic
+account (`AIPM_AI_ORGANIZATION_ID`). [verified: `src/app/ai-key-restriction-config.ts`] Whether you set
+it, and whether your contract with Anthropic covers this use, is for you to check. [question for you]
+
+**GitHub.** GitHub hosts the code, the releases and the issues, and receives the update checks described
+above. [verified: `desktop/src/updater.ts`] The maintainer has no agreement with GitHub on your behalf.
+[vendor statement]

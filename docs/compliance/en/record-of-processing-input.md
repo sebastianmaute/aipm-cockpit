@@ -2,9 +2,42 @@
 
 ## About this document
 
+This document helps the data protection officer write the organisation's record of processing
+activities for its use of AI PM Cockpit (GDPR Art 30(1)). It lists the fields such a record holds, fills
+in what the maintainer can supply about the app, and marks what only your organisation can answer. The
+hand-written text was last reviewed as the README's [review line](README.md#text-last-reviewed) states.
+
+This document is input for your own work. It is not legal advice, and it is not a completed record.
+
+The maintainer does not receive the personal data you process in the app, so the maintainer is not a
+recipient in your record (see [vendor touchpoints](vendor-touchpoints.md)). [vendor statement; the hosts
+and destinations: verified, `src/proxy.ts`, `src/app/outbound-destinations.ts`]
+
 ## Record fields
 
+The field names follow Art 30(1) points (a) to (g). [external: Regulation (EU) 2016/679, Art 30(1);
+unconfirmed, because the maintainer could not open the official text at eur-lex.europa.eu on
+2026-11-13; check the names against the official text]
+
+| Field | What the maintainer supplies | What you fill in |
+|---|---|---|
+| (a) Controller, its representative, the data protection officer | Nothing. | Name and contact details of your organisation and its data protection officer. **question for you** |
+| (b) Purposes | The app is a project management tool: tasks, risks, issues and decisions (RAID), milestones, changes, stakeholders, a resource directory with workload and absence planning, budgets, time bookings imported from Timelog, documents, and optional AI assistance. [verified: `src/app/types.ts`, `src/app/nav-config.ts`] | The purposes for which your organisation uses it, and the legal basis for each. **question for you** |
+| (c) Categories of data subjects | People who appear in a project: staff and external people in the resource directory, task assignees and owners, stakeholders, people named in attached e-mails and files, and the users of the app. [verified: `src/app/types.ts`] | Which of these occur in your use. **question for you** |
+| (c) Categories of personal data | People in the resource directory: first and last name, job title, phone, location, department, e-mail addresses, company, birthday (month and day), notes, whether external, whether active, role, and planned workload per period. Absences: person, dates, type (vacation, sick, training, other) and a note. Stakeholders: name, organisation, title, e-mail, category, influence, interest, notes and RACI roles. Hourly rates are held per role, not per person. Free text in tasks, RAID items, changes, documents and note logs can hold anything users write. Timelog working-time figures per person, cached on the device. The activity log, with the old and new values of changed fields. Saved AI chats. [verified: `src/app/types.ts` (`Resource`, `Absence`, `Stakeholder`, `Role`), `src/app/timelog-actuals-store.ts`, `src/app/activity-log.ts`, `src/app/chat-crypto.ts`] | Which of these you actually record, and whether any is a special category (for example sickness absences as health data). **question for you** |
+| (d) Recipients | The services the app sends to, each only when your users or operator set it up: Anthropic (or your organisation's AI gateway), Microsoft 365, Turso, Atlassian, Timelog, a speech-to-text service and the European Central Bank (which receives no personal data). The tables below say what each receives. [verified: `src/proxy.ts`, `src/app/outbound-destinations.ts`, `src/app/ai-disclosure.ts`] | Which of these your deployment uses, and under which contract with each. **question for you** |
+| (e) Transfers to third countries | The app does not set where Anthropic processes a request; it sends no `inference_geo` parameter. [verified: no use of `inference_geo` in `src/`] Anthropic offers two inference geographies, `global` (the default; inference may run in any available geography) and `us`. [external: Claude Platform Docs, "Data residency", https://platform.claude.com/docs/en/manage-claude/data-residency, read 2026-11-13] Anthropic's Data Processing Addendum incorporates the Standard Contractual Clauses, Module Two and/or Three, to the extent data protection law requires. [external: Anthropic Data Processing Addendum, https://www.anthropic.com/legal/data-processing-addendum, effective 24 February 2025, read 2026-11-13] | Where each of your services processes data, which transfer safeguard applies, and your workspace's inference setting at Anthropic. **question for you** |
+| (f) Time limits for erasure | See [Retention and erasure](#retention-and-erasure). | Your retention periods for project data, which the app does not delete by itself. **question for you** |
+| (g) Technical and organisational measures | See the [TOM sheet](tom-sheet.md). | Your own measures around the app. **question for you** |
+
 ## AI processing
+
+The table below is the app's own list of every feature that sends data to an AI or speech service: the
+consent it needs, what it sends, and what people protection changes. The consent dialog in the app shows
+the same rows. [verified: `src/app/ai-disclosure.ts`, `src/app/ai-disclosure.test.ts`] AI is off until a
+user switches it on and accepts this disclosure on the device. The data goes to Anthropic, or through
+your organisation's AI gateway, except dictation, which goes to the speech service the user configured.
+[verified: `src/app/ai-disclosure.ts`]
 
 <!-- PACK:ai-paths:BEGIN -->
 | Feature | Consent | What is sent | With people protection on |
@@ -30,6 +63,11 @@
 
 ## Recipients and destinations
 
+Besides the AI features above, the browser connects directly to Turso and Microsoft 365 when a user sets
+them up; the [vendor touchpoints](vendor-touchpoints.md#hosts-the-browser-may-contact) list those hosts.
+[verified: `src/proxy.ts`] The table below lists what the app's own server and the desktop app send, and
+to whom. [verified: `src/app/outbound-destinations.ts`] The vendor touchpoints explain how to read it.
+
 <!-- PACK:server-destinations:BEGIN -->
 | Run by | Code that sends it | What is sent | What triggers it |
 |---|---|---|---|
@@ -45,3 +83,67 @@
 <!-- PACK:server-destinations:END -->
 
 ## Retention and erasure
+
+**Project data.** The app does not delete project data by age. Tasks, people, absences, stakeholders,
+documents and the rest stay until a user deletes them or deletes the project. [vendor statement] Setting
+retention periods for them, and deleting by hand when they end, is yours. [question for you]
+
+**Version history (Turso storage only).** The app keeps full copies of a project's data as versions.
+Each time a version is saved, automatic versions are pruned to a set number, 50 by default, configurable
+from 50 to 1000; versions a user saves by hand stay until deleted by hand. Data deleted from the project remains in these
+copies until they are pruned or deleted. [verified: `src/app/version-history.ts`
+(`DEFAULT_VERSION_RETENTION`, `MAX_VERSION_RETENTION`), `pruneStatements` in `src/app/version-schema.ts`]
+
+**Activity log.** Each project keeps its newest 500 entries; older ones are dropped. The limit is a
+number of entries, not a time. Entries record the old and new values of changed fields, which can include
+people's names. [verified: `ACTIVITY_MAX_ENTRIES` in `src/app/activity-log.ts`,
+`src/app/activity-log.test.ts`]
+
+**Saved AI chats.** Chats are saved only on Turso storage and only when the operator has set a recovery
+key. [verified: the save gate in `src/app/use-chat-threads.ts`] A chat is deleted when the retention
+period has passed since its last change: 30 days unless the operator sets `AIPM_AI_CHAT_RETENTION_DAYS`
+to a whole number from 1 to 3650. An invalid value pauses deletion for age until it is fixed. [verified:
+`src/app/ai-chat-retention-config.ts`, `src/app/ai-chat-retention-config.test.ts`] Three parts of the
+app delete expired chats independently: the browser, the server once a day where it has Turso
+credentials, and the operator's script (`npm run chats:erase -- expire`). [verified:
+`src/app/use-chat-retention-sweep.ts`, `src/app/api/ai/_chat-sweep.ts`, `scripts/chat-erasure.mjs`]
+
+**Erasure tools for chats.** A user can delete all their own chats in every project of the database
+("Delete all my chats"), and search their chats for a person's name or e-mail address to delete the
+matches ("Find chats mentioning a person"). The operator can search and delete across the whole
+database with `npm run chats:erase` and the recovery private key. Deleting a project for good deletes
+its chats, its version history and its other side tables too; if that cleanup fails, the app retries at
+its next start. [verified: `src/app/i18n.ts` (`chatDeleteAllButton`, `chatFindButton`),
+`scripts/chat-erasure.mjs`, `scripts/chat-erasure-lib.mjs`, `src/app/project-side-tables.ts`,
+`src/app/pending-project-sweeps.ts`]
+
+**Erasing one person.** No single function removes a person from everything. When a person must be
+erased, consider at least: the project data itself, version history copies, activity log entries, saved
+chats (use the search above), exports and documents already made, and the data held by the services the
+app sent it to (Anthropic, an AI gateway's logs, Jira, Timelog, Microsoft 365). [vendor statement; the
+places: verified as above] How you handle erasure requests is yours to decide. [question for you]
+
+**Factory reset.** Settings → Reset application clears the app's configuration in this browser:
+
+- It deletes every browser storage entry the app keeps under its own name (`aipm-cockpit:`): settings,
+  the encrypted secrets, AI consent records, the project list, this browser's chat identity, the
+  diagnostic log and the cached Timelog figures. It deletes the device key and the saved file handles.
+  [verified: `src/app/app-reset.ts`, `src/app/app-reset.test.ts`]
+- Because the device key and the chat identity are gone, this browser can no longer read its own saved
+  chats, unless the user had set a chat passphrase. [verified: `src/app/chat-key-vault.ts`]
+- It also clears the queue of deleted projects whose cleanup was still to be retried, so that cleanup
+  is not tried again and those projects' leftover rows stay (their chats still expire). [verified:
+  `src/app/app-reset.ts` (the `aipm-cockpit:` sweep), `src/app/pending-project-sweeps.ts`]
+
+It does not delete:
+
+- project data: the projects stored in the browser, files, Turso databases (including saved chats and
+  chat passphrase rows) and SharePoint libraries. Projects are detached, not deleted. [verified:
+  `src/app/app-reset.ts`]
+- the Microsoft sign-in library's own cache. That library keeps its tokens in the browser's storage
+  under its own names, which the reset leaves alone; sign out of Microsoft 365 in Settings →
+  Integrations before a reset if the computer changes hands. [verified: `cacheLocation` in
+  `src/app/use-ms-auth.ts`; the test "removes every aipm-cockpit:* key but leaves foreign keys
+  untouched" in `src/app/app-reset.test.ts`]
+- anything already sent to another service. [verified: `src/app/app-reset.ts` makes no network
+  request]

@@ -2,9 +2,40 @@
 
 ## About this document
 
+This document lists the security measures built into AI PM Cockpit, for your own description of
+technical and organisational measures (GDPR Art 32). It is for the information security officer and the
+data protection officer. Each measure names its evidence and says what it does not cover; the last
+section names what lies outside the app altogether. The hand-written text was last reviewed as the
+README's [review line](README.md#text-last-reviewed) states.
+
+This document is input for your own work. It is not legal advice. Whether these measures are appropriate
+to the risk of your processing is for you to judge. [question for you]
+
 ## Measures
 
+| Measure | What it does | Evidence | What it does not cover |
+|---|---|---|---|
+| Secrets sealed at rest | API keys and tokens entered in Settings (Anthropic, Turso, Jira, Timelog, speech-to-text) are stored encrypted with AES-256-GCM under a non-extractable WebCrypto key kept in the browser's IndexedDB. The settings are written with these fields blanked. Some secrets can also be locked with a passphrase (PBKDF2, 600,000 iterations). | verified: `src/app/secrets.ts`, `src/app/secrets-store.ts`, `writeSettings` in `src/app/use-settings.ts` | Where WebCrypto or IndexedDB is unavailable, the app keeps the secrets in memory as plain text for the session and does not save them (`src/app/use-settings.ts`). While the app is open, the decrypted secrets are in memory and anyone or anything running in that browser profile can use them. A Turso token set at build time (`NEXT_PUBLIC_TURSO_AUTH_TOKEN`) is built into the app's code and is not secret (`docs/security.md`). Identifying fields such as the Jira site address and e-mail address are stored unencrypted. |
+| Content Security Policy | Each page carries a policy that runs only scripts bearing a per-request nonce, allows connections only to the app's own origin and the hosts listed [below](#hosts-the-browser-may-contact), forbids embedding the app in other sites and forbids plug-in objects. Anthropic's host is dropped when AI goes through a gateway, is restricted to the organisation's keys, or is switched off. | verified: `src/proxy.ts`, `src/proxy.test.ts` | Whole host families are allowed by wildcard (§800). Inline style attributes are allowed. Requests made by the app's own server are not governed by it; they are listed [below](#destinations-of-the-server-and-the-desktop-app). Browser dictation, windows the app opens and links a user follows are outside it. A development server runs a looser policy. |
+| Access to project data is your storage's | The app has no user accounts or roles of its own. Who can read and change a project is decided by where it is stored: the browser profile, a file and its folder permissions, a Turso database and whoever holds its token, or a SharePoint library and its permissions. | vendor statement; `docs/security.md`, section "Security model" | Within a project, everyone with access sees and can change everything. Anyone holding the Turso token the app uses can read and change every project in that database. The app's own server routes cannot tell users apart; they act on the credentials the caller sends. Setting up and reviewing access is yours. [question for you] |
+| Organisation key restriction | With `AIPM_AI_ORGANIZATION_ID` (and optionally `AIPM_AI_WORKSPACE_IDS`) set, the server checks which Anthropic organisation and workspace each API key belongs to before it forwards an AI request, and refuses other keys. A malformed or misspelled setting switches AI off. | verified: `src/app/ai-key-restriction-config.ts`, `src/app/api/ai/_relay.ts` and their tests | The check proves which account a key belongs to, not what your contract with Anthropic covers. A person with a key can still use it outside the app. An operator with access to the server environment can change or remove the setting. Results are cached per server process, so a key is not re-checked on every request. (`docs/security.md`, section "AI features") |
+| AI gateway route | With `AIPM_AI_GATEWAY_URL` set, AI requests go from the browser to the app's server and through your organisation's gateway; the gateway token stays on the server. An invalid setting switches AI off instead of falling back to a direct call. | verified: `src/app/api/ai/_relay.ts`, `src/app/deployment-variables.ts` | It has never been run against a real gateway (§802). What the gateway logs and keeps is set by your organisation, not by the app. |
+| Switches for integrations and AI | `AIPM_DISABLED_INTEGRATIONS` switches off Jira, Confluence, Timelog, exchange rates, speech-to-text or all AI for a deployment: the server routes refuse with an error and the app hides the controls. Before each AI request the app asks the server for the current setting. | verified: `src/app/api/_shared/integration-switch.ts`, `confirmAiDeployment` in `src/app/ai-transport.ts`, `src/app/deployment-variables.ts` | A change needs a server restart. Browser dictation stays available. Data already sent stays where it went. Users' stored settings are kept, so removing a name from the list brings an integration back as it was. |
+| People protection | On by default in every project; an operator can force it on for all projects (`ai-people`). The names, e-mail addresses and phone numbers of people the project knows are replaced by placeholders before an AI request; the allocation and RACI features are hidden; cloud dictation is off. The per-feature effect is in the record of processing's AI table. | verified: `src/app/ai-people-protection.ts`, `src/app/ai-disclosure.ts` | Names the project does not know, typed into free text or contained in attachments, may still be sent. The new-project wizard sends the names in what the user gives it. It is enforced in the app; only the dictation route also refuses on the server (`src/app/api/stt/_helpers.ts`), so a modified client could bypass it. |
+| AI consent per device | AI is off until a user switches it on and accepts a disclosure that lists what each AI feature sends. Background AI needs a second consent. Both are asked again when the disclosure, the AI route or the key restriction changes. | verified: `src/app/ai-disclosure.ts` | A device consent is a record that the user saw the disclosure; whether it is a legal basis for anything is for you to decide. [question for you] Background runs are not approved run by run (§795). |
+| Review before AI changes | The chat holds proposed changes on a review card when they delete something, send mail to meeting attendees, set a date that falls on someone's absence, change more than one item, or come from a tool that always asks for review, and whenever a file is attached to the conversation. | verified: `shouldStage` in `src/app/chat-proposal.ts` | A single change outside those cases is applied at once (§794). Outside text read through the chat's tools does not trigger the hold (§797). Tasks created by an applied work breakdown cannot be undone (§796). |
+| Activity log | Each project keeps a log of changes with time, kind, the fields changed with old and new values, and whether a user, the AI or an integration made the change. It keeps the newest 500 entries. It is stored with the project and left out of every export; the one way out is an internal audit download in Settings (expert mode), as JSON. | verified: `src/app/activity-log.ts` (`ACTIVITY_MAX_ENTRIES`), `src/app/activity-log.test.ts`, `src/app/activity-audit.ts` | It does not name the person who made a change. It does not link an AI change to the chat message behind it (§799). Older entries are dropped beyond 500. Anyone who can write the project's storage can change it. The audit download is not access-controlled: the app has no roles, and anyone can switch expert mode on. |
+| Saved AI chats: encryption, retention, erasure | Chats are saved only on Turso storage and only with an operator recovery key set. Each chat is encrypted (AES-256-GCM); its key is stored for the writer and, with RSA-OAEP to a key of at least 3072 bits, for the operator. A chat is deleted when the retention period (30 days by default) has passed since its last change, by the browser, by the server daily and by the operator's script. Users can delete all their chats or find chats that mention a person; the operator can search and delete across the database. | verified: `src/app/chat-crypto.ts`, `src/app/ai-chat-retention-config.ts`, `src/app/use-chat-retention-sweep.ts`, `src/app/api/ai/_chat-sweep.ts`, `scripts/chat-erasure.mjs` | Chats saved by older versions are not encrypted and readable by anyone in the project until they expire. Anyone with the Turso token sees each chat's project, random owner id and times, and can delete rows. An invalid retention setting pauses deletion for age. An AI gateway's own logs, and what Anthropic keeps, are outside the app. |
+| Release integrity | Releases are built only by the repository's release workflow from a version tag on `main`. Each release with an SBOM carries GitHub attestations: build provenance for its files and an SBOM attestation for the installer. A code-signing pipeline exists. | verified: `.github/workflows/release.yml`; `README.md`, section "Code signing policy"; `SECURITY.md` | Signing is switched off: no installer released so far is signed (§487), and the uninstaller will not be signed when it is switched on (§793). A copy installed before the first signed release takes that release without a signature check. A web deployment is built by you, and these attestations do not cover your build. |
+| Checks on every change | Every pull request and every push to `main` runs these jobs: static checks, unit tests (twice, once shuffled), the build, an SBOM build, end-to-end tests with an accessibility scan, a smoke test against a production server, Semgrep (failing on error severity) and `npm audit` (failing on high severity in production dependencies). | verified: `.github/workflows/ci.yml`, kept in line with the gate list by `scripts/ci-workflow.test.mjs` | That `main` cannot take a change while one of these is red is a GitHub repository setting, not code. [vendor statement] Scanners find known patterns only. No external penetration test or certification has been done. [vendor statement] |
+| Server-side request guards | The server routes for Jira and Confluence forward only to addresses under `atlassian.net`, Timelog only under `timelog.com`, and speech-to-text only over https to an address that is not private; they do not follow redirects. Requests are rate-limited per caller. | verified: `src/app/api/_shared/proxy-ssrf.ts`, `src/app/api/jira/_helpers.ts`, `src/app/api/timelog/_helpers.ts`, `src/app/api/stt/_helpers.ts` | The private-address check does not resolve host names (§803). The rate limit can be avoided with a forwarding header and resets on restart (§562). |
+| Vulnerability handling | Reports go privately through GitHub. The maintainer gives a first answer within a week and fixes the latest release. | vendor statement; `SECURITY.md` | There is no contract, no service level and no support period. Older releases get no fixes. There is no notification channel other than the releases page. |
+
 ## Hosts the browser may contact
+
+The same table as in the [vendor touchpoints](vendor-touchpoints.md#hosts-the-browser-may-contact),
+which explains how to read it. It is the host list of the Content Security Policy above. [verified:
+`src/proxy.ts`]
 
 <!-- PACK:browser-hosts:BEGIN -->
 | Host | Directive | Condition |
@@ -22,6 +53,10 @@
 
 ## Destinations of the server and the desktop app
 
+The same table as in the
+[vendor touchpoints](vendor-touchpoints.md#destinations-of-the-server-and-the-desktop-app), which explains
+how to read it. [verified: `src/app/outbound-destinations.ts`]
+
 <!-- PACK:server-destinations:BEGIN -->
 | Run by | Code that sends it | What is sent | What triggers it |
 |---|---|---|---|
@@ -37,6 +72,14 @@
 <!-- PACK:server-destinations:END -->
 
 ## Deployment switches
+
+Every setting an operator gives the app's server, or the desktop app, as an environment variable. The
+table is generated from the app's list of these variables; a test fails when the code reads an `AIPM_`
+name that the list does not hold. [verified: `src/app/deployment-variables.ts`,
+`src/app/deployment-variables.test.ts`] The values are read from the process environment, so a change
+takes effect when the server or the desktop app restarts. [vendor statement; `docs/security.md`, section
+"Environment variables"] Which of these your deployment
+sets, and who may change them, is yours to decide and record. [question for you]
 
 <!-- PACK:deployment-switches:BEGIN -->
 | Variable | Also accepted as | Applies to | Allowed values | Effect |
@@ -54,3 +97,27 @@
 <!-- PACK:deployment-switches:END -->
 
 ## What these measures do not cover
+
+The measures above are the app's. These lie outside it:
+
+- **The device and the browser profile.** The browser profile is the security boundary: anyone with
+  access to it can use every stored credential while the app is open. Device security, screen locks,
+  malware protection and who may use which computer are yours. [verified: `docs/security.md`, section
+  "Security model"; the measures: question for you]
+- **Your storage.** Backups, access rights and encryption of files, Turso databases and SharePoint
+  libraries are set by you and by those providers. [question for you]
+- **The services the app sends to.** Anthropic, Microsoft, Turso, Atlassian, Timelog, a speech-to-text
+  service and an AI gateway apply their own measures under their own terms. Check them against your
+  contracts with each. [question for you]
+- **Where AI requests are processed.** The app does not set Anthropic's `inference_geo` request
+  parameter. [verified: no use of `inference_geo` in `src/`] Anthropic documents two values for it,
+  `global` (the default, where inference may run in any available geography) and `us`, and a workspace
+  setting that can fix the default and the allowed values. [external: Claude Platform Docs, "Data
+  residency", https://platform.claude.com/docs/en/manage-claude/data-residency, read 2026-11-13] Which
+  setting your Anthropic workspace uses is yours to set and record. [question for you]
+- **Your network.** Whether the app's server is reachable only from your network, behind a login or a
+  reverse proxy, is yours to arrange; the app's routes do not authenticate callers (§562 covers the rate
+  limit). [vendor statement; the arrangement: question for you]
+- **Training and instructions.** What staff are told about the AI, and the rules they follow, are yours.
+  The [AI literacy](ai-literacy.md) material is a starting point. [question for you]
+- **Support.** There is no support period and no service level. [vendor statement]
