@@ -214,6 +214,13 @@ longer carries its own changelog comment.
   and `docs/security.md` now list it (with, for Analyze next actions, the project mode and modules and the date a RAID
   item last changed, and the stakeholder category), so AI consent is asked again.
 
+- **The Timelog checks stop when the project hides the Timelog function or the deployment switches Timelog off.**
+  They ran on this device's saved Timelog figures, which never expire, so they kept raising insights that name a
+  person (and those insights kept reaching the AI Assistant and the recommendations) after Timelog was turned off.
+  Now no Timelog insight is raised while either is off, and the stored ones are retired like any insight that is no
+  longer detected: one nobody touched is removed, one you acknowledged or dismissed stays in the history. One you
+  acted on is kept as it is, so it is never marked as improved without a measurement. The saved figures are kept.
+
 - **Long task and Gantt lists size their visible window by the scroll area without its border or scrollbar.**
   The list virtualiser (`@tanstack/react-virtual`, 3.14.24 and later) measures the visible viewport that way, and the
   first windowed render now does the same, so it no longer starts from a slightly larger box.

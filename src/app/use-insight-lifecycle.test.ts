@@ -7,6 +7,8 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { showForecastView } from "../test/forecast-view";
 import type { Insight } from "./insights/insight";
+import type { FeatureModuleId } from "./feature-modules";
+import { setDisabledIntegrations } from "./integration-switches";
 import { saveActualsCache } from "./timelog-actuals-store";
 import { dailyKey, type TimelogLinks } from "./timelog-types";
 import { defaultResourcePlan } from "./resource-foundation";
@@ -134,7 +136,8 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
         tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan: null,
         holidaySet: new Set<string>(), holidaysReady: true, shifts: [], absences: [], timelogLinks,
         insights, setInsights, requestOpen: vi.fn(),
-        settingsOverrides: undefined, features: [], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0, storageKind: "browser", portfolioMode: "file",
+        // The Timelog checks run only while the project shows the Timelog function.
+        settingsOverrides: undefined, features: ["timelog"], forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0, storageKind: "browser", portfolioMode: "file",
       };
       useInsightLifecycle(deps);
       return insights;
@@ -191,5 +194,93 @@ describe("useInsightLifecycle runner → timelogClosedMonth", () => {
     rerender("2026-10-06");
     expect(stable.setForecastHistory).toHaveBeenCalledTimes(writes);
     shown.mockRestore();
+  });
+});
+
+// The Timelog checks run on this device's cached Timelog figures, which never expire. They run only while the
+// project shows the Timelog function AND the deployment has not switched the `timelog` integration off.
+describe("useInsightLifecycle runner → Timelog function and integration", () => {
+  const CAP_KEY = "timelog:timelogCapPerDay:7";
+  const capLinks: TimelogLinks = {
+    userLinks: [],
+    projectLinks: [],
+    policy: { timelogCapPerDay: { enabled: true, threshold: 8 } },
+  };
+  const guardrail = (id: number, over: Partial<Insight>): Insight => ({
+    id,
+    key: `timelog:timelogCapPerDay:${id}`,
+    type: "timelogCapPerDay",
+    severity: "medium",
+    data: { person: `#${id}`, count: 2, timelogUserId: id, firstViolationDate: "2026-09-01", lastViolationDate: "2026-09-02" },
+    status: "active",
+    firstSeenAt: "2026-09-03",
+    lastSeenAt: "2026-10-01",
+    occurrences: 3,
+    ...over,
+  });
+  const untouched = guardrail(21, {});
+  const acknowledged = guardrail(22, { status: "acknowledged", acknowledgedAt: "2026-10-02" });
+  const acted = guardrail(23, { status: "acted", actedAt: "2026-10-02", metricAtAction: { count: 2 } });
+
+  afterEach(() => {
+    setDisabledIntegrations([]);
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  function run(features: FeatureModuleId[], stored: readonly Insight[] = []) {
+    vi.useFakeTimers();
+    // 12 hours on one day for Timelog user 7: over the 8-hour cap.
+    saveActualsCache("p1", {
+      fetchedAt: "2026-10-04T08:00:00.000Z",
+      daily: { [dailyKey(7, "2026-09-12")]: { hours: 12, maxEntryHours: 6, entryCount: 2 } },
+      dailyWindow: { from: "2026-09-01", to: "2026-10-04" },
+      dailyUsers: [7],
+    });
+    const { result } = renderHook(() => {
+      const [insights, setInsights] = useState<readonly Insight[] | undefined>(stored);
+      useInsightLifecycle({
+        hydrated: true, isPopout: false, loadPending: false, today: TODAY,
+        currentProjectId: "p1", landingProjectId: "p1",
+        tasks: [], milestones: [], raid: [], budgets: [], roles: [], resources: [], plan: null,
+        holidaySet: new Set<string>(), holidaysReady: true, shifts: [], absences: [], timelogLinks: capLinks,
+        insights, setInsights, requestOpen: vi.fn(),
+        settingsOverrides: undefined, features, forecastHistory: [], setForecastHistory: vi.fn(), getScopeEpoch: () => 0, storageKind: "browser", portfolioMode: "file",
+      });
+      return insights;
+    });
+    act(() => { vi.advanceTimersByTime(4_000); });
+    return result.current ?? [];
+  }
+
+  it("raises a Timelog insight while the function is shown and the integration is on", () => {
+    expect(run(["timelog"]).map((i) => i.key)).toEqual([CAP_KEY]);
+  });
+
+  it("raises none while the project hides the Timelog function", () => {
+    expect(run(["resources", "budget"])).toEqual([]);
+  });
+
+  it("raises none while the deployment has switched the timelog integration off", () => {
+    setDisabledIntegrations(["timelog"]);
+    expect(run(["timelog"])).toEqual([]);
+  });
+
+  // Switched off, the stored rows are retired the way reconcile retires an insight that is no longer detected:
+  // an untouched one is removed, one the user acknowledged is kept as resolved (no outcome). An ACTED one is
+  // carried through unchanged, because resolving it would write a measured "improved" that nobody measured.
+  it.each([
+    ["hidden function", ["resources"] as FeatureModuleId[], false],
+    ["disabled integration", ["timelog"] as FeatureModuleId[], true],
+  ])("retires the stored Timelog insights, acted ones untouched (%s)", (_label, features, disable) => {
+    if (disable) setDisabledIntegrations(["timelog"]);
+    const after = run(features, [untouched, acknowledged, acted]);
+    expect(after.map((i) => i.key).sort()).toEqual([acknowledged.key, acted.key].sort());
+    expect(after.find((i) => i.key === untouched.key)).toBeUndefined();
+    const resolved = after.find((i) => i.key === acknowledged.key);
+    expect(resolved).toMatchObject({ status: "resolved", resolvedAt: TODAY });
+    expect(resolved?.outcome).toBeUndefined();
+    expect(after.find((i) => i.key === acted.key)).toEqual(acted);
+    expect(after.some((i) => i.key === CAP_KEY)).toBe(false);
   });
 });

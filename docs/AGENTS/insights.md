@@ -208,7 +208,12 @@ types through the validator was weighed and rejected.
   `timelogAbsenceDay` (§700: time booked on a vacation, sick or training absence of the linked person), all
   `medium` severity, with an `entityRef` to the resource only when the user link resolves. The rules
   run in pure `timelog-policy.ts` `evaluateTimelogPolicy`, which the runner in `use-insight-lifecycle.ts` feeds from the
-  per-device actuals cache; with no daily roll or no policy it returns nothing. ★★ The policy's
+  per-device actuals cache; with no daily roll or no policy it returns nothing. ★★ The runner reads that
+  cache only while `isModuleEnabled("timelog", features)` — the project shows the Timelog function AND the
+  deployment has not switched the `timelog` integration off. Off, nothing is evaluated or raised, and the
+  predicate retires the stored guardrail rows through `clear()` (untouched ones removed, acknowledged or
+  dismissed ones kept) EXCEPT `acted` ones, which stay frozen: resolving them would write a measured
+  "improved" that nothing measured. The cache itself is kept. ★★ The policy's
   `evaluated` set, not its violations, decides whether a stored guardrail insight may resolve: a rule
   that could not run produced nothing because it was not evaluated, not because nothing was violated
   (see the `timelog-policy.ts` header). ★ All five measure `count` (violating days), never `worstHours`.
