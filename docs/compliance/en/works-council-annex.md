@@ -93,8 +93,10 @@ function; `AI_DATA_PATHS` in `src/app/ai-disclosure.ts`] Timelog is different: s
 - **Absences.** Records the person, the dates, the type (vacation, sick, training or other) and a note.
   [verified: `Absence` in `src/app/types.ts`] Switch: project (the Resources function, which holds the
   absence calendar). [verified: `FEATURE_MODULES` in `src/app/feature-modules.ts`] Hiding it hides the
-  calendar but does not keep the absence list from the five AI features named above or from the AI chat
-  (§810).
+  calendar but does not keep the absence list from the AI (§810), by two routes. The AI chat's absence
+  tools stay available while people protection is off and are withdrawn while it is on. The five AI
+  features named above send the absence list whether people protection is on or off; with it on, names
+  are replaced by placeholders, but the resource-directory number and the absent days are still sent.
 - **Stakeholder ratings.** Stakeholders, who can be staff, carry an influence and an interest rating and
   RACI roles per milestone. [verified: `Stakeholder` in `src/app/types.ts`] Switch: project (the
   Stakeholders function).

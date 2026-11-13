@@ -108,8 +108,11 @@ Eintrag unten.
 - **Abwesenheiten.** Erfasst die Person, die Daten, die Art (Urlaub, Krankheit, Schulung oder Sonstiges)
   und eine Notiz. [geprüft: `Absence` in `src/app/types.ts`] Schalter: Projekt (die Ressourcen-Funktion,
   die den Abwesenheitskalender enthält). [geprüft: `FEATURE_MODULES` in `src/app/feature-modules.ts`]
-  Das Ausblenden blendet den Kalender aus, hält die Abwesenheitsliste aber weder von den fünf oben
-  genannten KI-Funktionen noch vom KI-Chat fern (§810).
+  Das Ausblenden blendet den Kalender aus, hält die Abwesenheitsliste aber auf zwei Wegen nicht von der
+  KI fern (§810). Die Abwesenheits-Werkzeuge des KI-Chats bleiben verfügbar, solange der Personenschutz
+  aus ist, und werden entzogen, solange er an ist. Die fünf oben genannten KI-Funktionen senden die
+  Abwesenheitsliste, ob der Personenschutz an oder aus ist; ist er an, werden Namen durch Platzhalter
+  ersetzt, die Nummer im Ressourcenverzeichnis und die Abwesenheitstage werden aber weiterhin gesendet.
 - **Bewertungen von Stakeholdern.** Stakeholder, die auch Beschäftigte sein können, tragen eine Bewertung
   von Einfluss und Interesse sowie RACI-Rollen je Meilenstein. [geprüft: `Stakeholder` in
   `src/app/types.ts`] Schalter: Projekt (die Stakeholder-Funktion).
