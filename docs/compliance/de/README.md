@@ -65,6 +65,8 @@ Nicht behandelt werden:
 | [Musterhinweise](model-notices.md) | Vorlagen zur Information von Beschäftigten und externen Stakeholdern | DSB |
 | [KI-Kompetenz](ai-literacy.md) | Material in einfacher Sprache für die Menschen, die die App nutzen | Alle, die die KI nutzen |
 
+Einseitige KI-Kurzinformationen je Rolle, die auf diese Dokumente verweisen, stehen in [docs/briefs](../../briefs/README.md).
+
 ## Offene Lücken
 
 Dies sind bekannte Lücken, die noch offen sind. Jede ist ein Eintrag im öffentlichen Register offener

@@ -5,6 +5,7 @@ build-time environment variables that change any of that.
 
 This file owns the subject. `README.md` links here rather than summarising it.
 For the reviewer-facing compliance pack (English and German), see [docs/compliance/README.md](compliance/README.md).
+For one-page AI briefs per role (English and German), see [docs/briefs/README.md](briefs/README.md).
 
 ## Environment variables
 

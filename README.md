@@ -259,6 +259,7 @@ rather than restating this one.
 | [docs/ai-cost.md](docs/ai-cost.md) | Prompt caching: the layout, what it bought and cost, and the prompt-quality harness. |
 | [docs/security.md](docs/security.md) | What is stored where, what leaves the browser, and the build-time environment variables. |
 | [docs/compliance/README.md](docs/compliance/README.md) | The compliance pack, English and German: data flows, deployment variables, measures and AI Act readiness, with tables generated from the code. |
+| [docs/briefs/README.md](docs/briefs/README.md) | One-page AI briefs per role, English and German: CEO, CIO, CISO, Chief AI Officer, COO, data protection officer and project manager, with an evidence appendix. |
 | [docs/desktop-rollout.md](docs/desktop-rollout.md) | Installing the desktop app: what to expect on a first run and what to send when reporting a problem. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, the full script table, project layout, conventions, the testing layers, and the pull-request checklist. |
 | [docs/RUNBOOK.md](docs/RUNBOOK.md) | Operations: build and deploy, hosting, security headers, rollback, secrets, monitoring, and a symptom-indexed list of common issues. |

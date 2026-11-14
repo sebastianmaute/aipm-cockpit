@@ -57,6 +57,8 @@ It does not cover:
 | [Model notices](model-notices.md) | Templates for informing staff and external stakeholders | DPO |
 | [AI literacy](ai-literacy.md) | Plain-language material for the people who use the app | Everyone using the AI |
 
+One-page AI briefs per role, which link into these documents, are in [docs/briefs](../../briefs/README.md).
+
 ## Open gaps
 
 These are known gaps that are still open. Each is an entry of the project's public register of open
