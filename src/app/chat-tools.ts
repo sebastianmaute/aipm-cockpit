@@ -30,7 +30,8 @@ import { type DepRejection } from "./task-dependency-write";
 import { type KnowledgeLinkKind } from "./document-link";
 import { type CalendarEvent, type RecurrenceRule, type EventException } from "./calendar-event";
 
-import type { AppMode, FeatureModuleId } from "./feature-modules";
+import { isModuleEnabled, type AppMode, type FeatureModuleId } from "./feature-modules";
+import { insightReachesAi } from "./insights/insight-prompt";
 import type { AppView } from "./nav-config";
 import type { Insight } from "./insights/insight";
 import type { ActivityEntry } from "./activity-log";
@@ -925,8 +926,20 @@ async function runToolAsSent(
       return { language: l };
     }
 
-    case "get_app_state":
-      return d.getSnapshot();
+    case "get_app_state": {
+      // AI people protection and Timelog: the insights go out by the SAME rule and inputs the chat's system prompt
+      // applies to its copy of this snapshot (`buildInsightsPromptBlock` in chat-api.ts): no insight about one person
+      // while protected, no Timelog insight while Timelog is off. ★ Here, not in `getSnapshot`: this handler is the one
+      // path that returns the snapshot to the model verbatim (the prompt filters its own copy), and `runTool` is where
+      // every other people gate asks `d.isPeopleProtected()` at call time.
+      const snapshot = d.getSnapshot();
+      if (!snapshot.insights) return snapshot;
+      const scope = {
+        withPeople: peopleToolsLive(d.isPeopleProtected()),
+        withTimelog: isModuleEnabled("timelog", snapshot.enabledModules),
+      };
+      return { ...snapshot, insights: snapshot.insights.filter((i) => insightReachesAi(i, scope)) };
+    }
 
     case "get_dashboard_snapshot":
       return d.getDashboardSnapshot();

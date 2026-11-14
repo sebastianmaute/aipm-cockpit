@@ -9,10 +9,11 @@
 // ★★ `whenProtected` (and `protectedKey`) is the PROTECTED column: what people protection does to the path. The consent
 //    dialog and docs/security.md "People protection" render it per row; it is pinned with the row.
 // ★★ `AI_DISCLOSURE_VERSION` (`ai-consent.ts`) must be bumped whenever this table changes (a row
-//    added, removed, re-levelled or re-keyed): consent was given to the table as it was, so a changed
-//    table must be asked again. `ai-disclosure.test.ts` pins the table per version, with a hash of
-//    each row's English label and data text, and fails on any change until it is re-pinned (wording
-//    only) or the version is bumped (what is sent changed).
+//    added, removed, re-levelled or re-keyed, its protected state or `protectedKey` included): consent was
+//    given to the table as it was, so a changed table must be asked again. `ai-disclosure.test.ts` pins the
+//    table per version, with a hash of each row's English label and data text AND of its PROTECTED text
+//    (`aiProtectedTextKey`, English and German — the dialog shows it), and fails on any change until it is
+//    re-pinned (wording only) or the version is bumped (what is sent, or what protection does, changed).
 import type { TranslationKey } from "./i18n";
 import { type AiRoute, currentAiRoute, getAiDeploymentState } from "./ai-deployment";
 
@@ -55,7 +56,7 @@ export const AI_DATA_PATHS: readonly AiDataPath[] = [
   { id: "committee-report", level: "interactive", labelKey: "aiDataCommitteeReportLabel", dataKey: "aiDataCommitteeReport", whenProtected: "redacted" },
   { id: "digest-narrative", level: "interactive", labelKey: "aiDataDigestNarrativeLabel", dataKey: "aiDataDigestNarrative", whenProtected: "redacted" },
   { id: "forecast-import", level: "interactive", labelKey: "aiDataForecastImportLabel", dataKey: "aiDataForecastImport", whenProtected: "redacted" },
-  { id: "insight-recommendation", level: "interactive", labelKey: "aiDataInsightRecommendationLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted" },
+  { id: "insight-recommendation", level: "interactive", labelKey: "aiDataInsightRecommendationLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted", protectedKey: "aiProtectedInsightRecommendation" },
   { id: "action-analysis", level: "interactive", labelKey: "aiDataActionAnalysisLabel", dataKey: "aiDataActionAnalysis", whenProtected: "redacted" },
   { id: "alloc-plan", level: "interactive", labelKey: "aiDataAllocPlanLabel", dataKey: "aiDataAllocPlan", whenProtected: "hidden", protectedKey: "aiProtectedAllocPlan" },
   { id: "raci-suggest", level: "interactive", labelKey: "aiDataRaciSuggestLabel", dataKey: "aiDataRaciSuggest", whenProtected: "hidden" },
@@ -65,7 +66,7 @@ export const AI_DATA_PATHS: readonly AiDataPath[] = [
   { id: "project-proposal", level: "interactive", labelKey: "aiDataProjectProposalLabel", dataKey: "aiDataProjectProposal", whenProtected: "redacted", protectedKey: "aiProtectedProjectProposal" },
   { id: "dictation", level: "interactive", labelKey: "aiDataDictationLabel", dataKey: "aiDataDictation", whenProtected: "off" },
   { id: "scheduled-job", level: "background", labelKey: "aiDataScheduledJobLabel", dataKey: "aiDataScheduledJob", whenProtected: "redacted" },
-  { id: "insight-recommendation-auto", level: "background", labelKey: "aiDataInsightRecommendationAutoLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted" },
+  { id: "insight-recommendation-auto", level: "background", labelKey: "aiDataInsightRecommendationAutoLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted", protectedKey: "aiProtectedInsightRecommendation" },
   { id: "digest-narrative-scheduled", level: "background", labelKey: "aiDataDigestNarrativeScheduledLabel", dataKey: "aiDataDigestNarrative", whenProtected: "redacted" },
 ];
 

@@ -7,7 +7,7 @@
 // `currentDone`, `currentTotal` are passed in.
 
 import type { SnapshotRecord } from "./snapshot";
-import type { ActivityEntry } from "./activity-log";
+import { wbsPlanCreatedTasks, type ActivityEntry } from "./activity-log";
 import { isTaskDelivered } from "./task-closed";
 import type { Task } from "./types";
 
@@ -158,6 +158,12 @@ function bulkTaskCount(args: readonly (string | number)[]): number {
   return positiveCount(args[0]);
 }
 
+/** Kinds that CREATE tasks and say how many by the (id, title) pairs after their first arg: one `ai.wbsPlan` entry
+ *  stands for that many `task.created` (`wbsPlanCreatedTasks`). Not `COUNT_KINDS` (±1 each) and not
+ *  `BULK_TOTAL_KINDS` (a count in `args[0]`, subtracted): `args[0]` here is the applied count, edits included.
+ *  A count-only entry written before the pairs reads 0 and seeds no day, as before. */
+const BULK_CREATE_KINDS = new Set(["ai.wbsPlan"]);
+
 /** The FORWARD `total` delta of the ops an `undo`/`redo` row reverses (§166).
  *
  *  ROW SHAPE: `args[0]` is the total row count (the i18n message's `{0}`), and
@@ -298,9 +304,10 @@ function reconstructFromActivity(
     const dir = e.kind === "undo" ? -1 : e.kind === "redo" ? 1 : 0;
     const reversal = dir === 0 ? 0 : dir * reversedForwardDelta(e.args);
     const isBulk = BULK_TOTAL_KINDS.has(e.kind);
+    const createdN = BULK_CREATE_KINDS.has(e.kind) ? wbsPlanCreatedTasks(e.args).length : 0;
     // §299 — an undo/redo of a mark-done (or of a reopen) seeds its day too.
     const flipsDelivery = dir !== 0 && reversesCompletion(e.args);
-    if (reversal === 0 && !isBulk && !COUNT_KINDS.has(e.kind) && !flipsDelivery) continue;
+    if (reversal === 0 && !isBulk && createdN === 0 && !COUNT_KINDS.has(e.kind) && !flipsDelivery) continue;
     const day = e.timestamp.slice(0, 10);
     if (day > today) continue; // clock-skew guard
     // ★ Reversal first, then bulk: both read their delta from the entry rather
@@ -308,6 +315,7 @@ function reconstructFromActivity(
     let dTotal = 0;
     if (reversal !== 0) dTotal = reversal;
     else if (isBulk) dTotal = -bulkTaskCount(e.args);
+    else if (createdN > 0) dTotal = createdN;
     else if (e.kind === "task.created") dTotal = 1;
     else if (e.kind === "task.deleted") dTotal = -1;
     // A completion kind falls through with dTotal 0 and STILL seeds the day.

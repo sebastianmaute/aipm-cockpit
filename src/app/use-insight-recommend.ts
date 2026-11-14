@@ -21,6 +21,9 @@ export interface UseInsightRecommendArgs {
   today: string;
   buildIndex: () => GroundingIndex;
   buildContextFor: (insight: Insight) => string;
+  /** Read at send time: false means this insight is not sent at all (AI people protection, Timelog off —
+   *  `insightReachesAi`). Omitted, every insight may be sent. */
+  canRecommend?: (insight: Insight) => boolean;
   /** `snapshot` is what `snapshotEntities` returned when the prompt was BUILT
    *  (§350), so the store can stamp concurrency tokens from the rows the model
    *  actually read rather than from rows as they stand when it answers. */
@@ -68,7 +71,7 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
     const current = argsRef.current;
     if (current.isPopout) return;
     const insight = current.insights.find((i) => i.id === insightId);
-    if (!insight) return;
+    if (!insight || current.canRecommend?.(insight) === false) return;
 
     setGeneratingId(insightId);
     // §548 — the project this insight (and its grounding context) was read from.

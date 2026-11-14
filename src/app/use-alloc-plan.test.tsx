@@ -17,7 +17,7 @@ import { planHoursMoves } from "./reassign-hours";
 import { groundAlternative, ownerChangeFor } from "./alloc-plan/alloc-ground-moves";
 import { alternativeEffect } from "./alloc-plan/alloc-effect";
 import * as call from "./alloc-plan-call";
-import { type RawAllocCell } from "./alloc-plan/alloc-plan";
+import { ALLOC_CONTEXT_MAX_RESOURCES, type RawAllocCell } from "./alloc-plan/alloc-plan";
 import { type ParsedAllocAlternatives } from "./alloc-plan/alloc-alternatives";
 import { t, tPlural } from "./i18n";
 import { type CrossProjectPeople } from "./use-cross-project-people";
@@ -65,6 +65,8 @@ interface HarnessProps {
    *  another edit/background sync landing while the preview modal is open. */
   externalEdit?: (resources: readonly Resource[]) => readonly Resource[];
   crossProject?: CrossProjectPeople;
+  /** The resources the harness starts with (default: Alice and Bob). */
+  initialResources?: readonly Resource[];
 }
 
 /** Renders of the component that owns the hook (in the app, the Resources panel and its planning grid). */
@@ -78,10 +80,11 @@ function Harness({
   onResources,
   externalEdit,
   crossProject,
+  initialResources,
 }: HarnessProps) {
   // Counted in an effect (every committed render runs it): mutating it in the render body is refused by lint.
   useEffect(() => { harnessRenders.count++; });
-  const [resources, setResources] = useState<readonly Resource[]>([
+  const [resources, setResources] = useState<readonly Resource[]>(initialResources ?? [
     mkResource(1, "Alice", "Anderson"),
     mkResource(2, "Bob", "Baker"),
   ]);
@@ -315,6 +318,20 @@ describe("useAllocPlan (plan-then-apply)", () => {
 
     await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBe(1));
     expect(screen.queryByText(t("en-US", "allocPlanTruncated"))).toBeNull();
+  });
+
+  // The preview says what the SENT request left out, not what a request built now would: an edit landing while the
+  // preview is open (here two people removed) must not change the counts the user reads about that proposal.
+  it("the preview's left-out counts are the ones from when the request was sent", async () => {
+    vi.mocked(call.runAllocProposal).mockResolvedValue(proposal([{ resourceId: 1, periodKey: "2026-08", hours: 40 }]));
+    const many = Array.from({ length: ALLOC_CONTEXT_MAX_RESOURCES + 3 }, (_, i) => mkResource(i + 1, `P${i}`, "X"));
+    renderHarness({ initialResources: many, externalEdit: (prev) => prev.slice(0, prev.length - 2) });
+    openAndType();
+    expect(screen.getByText(/Left out of the request/).textContent).toContain("3 people");
+    fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
+    await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBe(1));
+    fireEvent.click(screen.getByRole("button", { name: "external-edit" }));
+    expect(screen.getByText(/Left out of the request/).textContent).toContain("3 people");
   });
 
   it("confirm applies ONLY the selected cells", async () => {

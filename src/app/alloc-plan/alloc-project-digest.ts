@@ -200,6 +200,19 @@ function milestoneSection(args: ProjectDigestArgs, shown: ReadonlySet<number>): 
   return [...lines, ...raciSection(shownMilestones, stakeholders, shown)];
 }
 
+/** How many open tasks and milestones the digest leaves out at its caps (0 when all are described). The digest's own
+ *  "…(N more … truncated)" lines report the same counts to the model; Plan with AI shows them to the user. */
+export function projectDigestOmissions(
+  tasks: readonly Task[],
+  milestones: readonly Milestone[],
+): { tasks: number; milestones: number } {
+  const open = tasks.filter((t) => !isTaskClosed(t)).length;
+  return {
+    tasks: Math.max(0, open - ALLOC_CONTEXT_MAX_TASKS),
+    milestones: Math.max(0, milestones.length - ALLOC_CONTEXT_MAX_MILESTONES),
+  };
+}
+
 /** TASKS, MILESTONES and RACI lines for the allocation digest; empty when there is nothing to describe. */
 export function buildProjectDigest(args: ProjectDigestArgs): string[] {
   const all = new Map(args.resources.map((r) => [r.id, r] as const));
