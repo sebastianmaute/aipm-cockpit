@@ -2,13 +2,11 @@
 
 ## Auf einen Blick
 
-Die KI der App entwirft und schlägt Projektarbeit vor: ein Chat-Assistent, Änderungen an Zeilen, Entwürfe für
-den Lenkungsausschuss-Bericht, Analysen und Planungsvorschläge, drei davon laufen im Hintergrund; der Anhang
-führt alle 17 Funktionen auf und sagt, was jede sendet (E1, *im Code gelesen*). Jede Person bringt ihren eigenen
-Anthropic-API-Schlüssel mit, und Anfragen an das Modell gehen an Anthropic, direkt aus dem Browser oder über den
-eigenen Server der App (E2, *getestet (Unit)*; E4, *getestet (Unit)*). Wie viel Arbeitszeit die KI spart, hat
-niemand gemessen (E26, *nicht belegt*). Zur Entscheidung steht daher keine Einführung, sondern ein begrenzter
-Pilot, der das misst.
+Die KI der App entwirft und schlägt Projektarbeit in 17 Funktionen vor, drei davon laufen im Hintergrund (E1,
+*im Code gelesen*). Jede Person bringt ihren eigenen Anthropic-API-Schlüssel mit, und Anfragen an das Modell
+gehen an Anthropic, direkt aus dem Browser oder über den eigenen Server der App (E2, *getestet (Unit)*; E4,
+*getestet (Unit)*). Wie viel Arbeitszeit die KI spart, hat niemand gemessen (E26, *nicht belegt*). Zur
+Entscheidung steht daher keine Einführung, sondern ein begrenzter Pilot, der das misst.
 
 ## Was hinausgeht und wer es freigibt
 
@@ -22,11 +20,8 @@ Pilot, der das misst.
   werden so gesendet, wie sie dastehen (E35, *im Code gelesen*).
 - **Region:** Alle 96 gemessenen Anfragen meldeten für Anthropics inference_geo den Wert `global` (E22,
   *gemessen*); was das für Übermittlungen bedeutet, ist eine Frage für die Datenschutzbeauftragten.
-- **Andere Dienste,** mit denen die App spricht, sind mit dem aufgeführt, was jeder erhält (E34,
-  *im Code gelesen*).
 - **Freigabe in der App:** Jede Person akzeptiert den KI-Datenhinweis auf jedem Gerät und erneut, wenn sich sein
-  Text oder der Weg ändert (E31, *getestet (Unit)*); die drei Hintergrundfunktionen brauchen eine eigene
-  Zustimmung, die einmal gegeben wird (E32, *getestet (Unit)*).
+  Text oder der Weg ändert (E31, *getestet (Unit)*).
 
 Die Freigabe in der Organisation liegt bei Ihnen: Rechtsgrundlage, Ihr Vertrag und Ihre
 Auftragsverarbeitungsvereinbarung mit Anthropic, Übermittlungen und eine Betriebsvereinbarung sind Fragen, die
@@ -39,7 +34,7 @@ nur Ihre Organisation beantworten kann.
 - **Schlüssel:** Die KI lässt sich auf Schlüssel Ihrer eigenen Anthropic-Organisation beschränken; andere
   Schlüssel werden abgelehnt, bevor irgendetwas weitergeleitet wird (E7, *getestet (Unit)*).
 - **Weg:** Der KI-Verkehr kann über Ihr eigenes Gateway laufen (E5, *getestet (Unit)*), noch nicht gegen ein
-  echtes Gateway betrieben (§802).
+  echtes Gateway betrieben (§802; E12, *nicht belegt*).
 - **Aufbewahrung:** Gespeicherte Chats gibt es nur mit einer Turso-Datenbank und dem Wiederherstellungsschlüssel
   des Betreibers (E28, *im Code gelesen*); wo die Löschung eingerichtet ist, werden sie 30 Tage nach ihrer
   letzten Änderung gelöscht, sofern der Betreiber nicht 1 bis 3650 Tage einstellt (E29, *im Code gelesen*).
@@ -52,8 +47,7 @@ nur Ihre Organisation beantworten kann.
 2. **§802:** Der Gateway-Weg lief noch nie gegen ein echtes Gateway (E12, *nicht belegt*).
 3. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter die wöchentliche
    harte Obergrenze (E39, *nicht belegt*).
-4. **§813:** Das Löschen von Chats ist auf einer echten Datenbank nur für die Löschanweisungen belegt, nicht für
-   die Löschläufe, die Sicherungen des Anbieters oder das, was der Modellanbieter aufbewahrt (E30,
+4. **§813:** Das Löschen von Chats ist live nur für seine Datenbankanweisungen belegt (E30,
    *getestet (Live-Datenbank)*).
 5. **§795:** Der Hintergrund-KI wird einmal zugestimmt; sie wird nicht Lauf für Lauf freigegeben (E32,
    *getestet (Unit)*).
@@ -64,19 +58,20 @@ nur Ihre Organisation beantworten kann.
   [Anlage für den Betriebsrat](../../compliance/de/works-council-annex.md) zu prüfen und die Fragen oben zu
   beantworten, und fragen Sie den CIO, welche [Betriebsschalter](appendix.md#betriebsschalter) der Pilot setzt.
 - **Pilot, als Vorlage:**
-  - *Umfang:* Personenschutz erzwingen (E19, *getestet (Unit)*); das blendet den Vorschlag für die
-    Ressourcenplanung und den RACI-Vorschlag aus und schaltet das Diktat ab (E18, *getestet (Unit)*). Namen,
-    die das Projekt nicht kennt, werden weiterhin so gesendet, wie sie dastehen (E35, *im Code gelesen*). Den
-    Vorschlag für ein neues Projekt auslassen, dessen Namen sich nicht schützen lassen: Kein Schalter erledigt
-    das, sagen Sie es den Nutzern (E42, *im Code gelesen*). Ressourcenplanung und RACI erst, wenn Betriebsrat
-    und Datenschutzbeauftragte zustimmen; dazu wird der erzwungene Schutz aufgehoben, und danach bleibt jedes
-    Projekt geschützt, bis es Personen ausdrücklich zulässt (E41, *getestet (Unit)*).
+  - *Umfang:* Personenschutz erzwingen, gleich was ein Projekt gespeichert hat (E19, *getestet (Unit)*; E41,
+    *getestet (Unit)*); das blendet den Vorschlag für die Ressourcenplanung und den RACI-Vorschlag aus und
+    schaltet das Diktat ab (E18, *getestet (Unit)*). Namen, die das Projekt nicht kennt, werden weiterhin so
+    gesendet, wie sie dastehen (E35, *im Code gelesen*). Den Vorschlag für ein neues Projekt auslassen, dessen
+    Namen sich nicht schützen lassen: Kein Schalter erledigt das, sagen Sie es den Nutzern (E42,
+    *im Code gelesen*). Ressourcenplanung und RACI erst, wenn Betriebsrat und Datenschutzbeauftragte zustimmen;
+    wird die Sperre aufgehoben, gilt wieder die eigene Einstellung jedes Projekts, prüfen Sie diese daher
+    vorher (E43, *im Code gelesen*).
   - *Dauer und Größe:* nach Ihrer Wahl, etwa 6–12 Wochen und 10–30 Projektleitungen.
   - *Budget:* etwa 25 $, 67 $ oder 165 $ im Monat je Team von fünf Personen bei leichter, typischer oder
     intensiver Nutzung (E25, *geschätzt*).
   - *Messen:* Ausgaben je Person und Woche; Zeit je Aufgabe gegenüber einer Ausgangsbasis; Annahme- und
-    Nacharbeitsquote der KI-Vorschläge; Wiederholbarkeit des Vorschlags für den Projektstrukturplan über
-    mehrere Läufe (§812; E27, *nicht belegt*).
+    Nacharbeitsquote der KI-Vorschläge; Wiederholbarkeit des Vorschlags für den Projektstrukturplan (§812; E27,
+    *nicht belegt*).
   - *Abbruch und Freigabe:* abbrechen, wenn Ausgaben, Nacharbeit oder ein Befund zum Personenschutz eine vorher
     festgelegte Grenze überschreiten; Freigabe durch Betriebsrat, Datenschutzbeauftragte, CISO und die
     Budgetverantwortlichen.
