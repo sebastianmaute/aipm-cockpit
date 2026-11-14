@@ -210,15 +210,15 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **An organisation key that is removed from the organisation stops working on the relay within 15 minutes.** A key
-  that passed the organisation check used to stay accepted until the server restarted; the check is now repeated
-  once a passed result is 15 minutes old, however often the key is used.
+- **A key that no longer passes the organisation check stops working on the relay within 15 minutes.** For example,
+  a key moved to a workspace the setting does not list. A key that passed the check used to stay accepted until the
+  server restarted; the check is now repeated once a passed result is 15 minutes old, however often the key is used.
 - **Inline AI edit respects people protection.** With people protection on, inline edit now sends the protected
   instruction and leaves out the tools that change people, as the chat does. Names were already replaced before
   sending, and person fields could not be set; the request itself no longer offers those tools.
 - **The server's key check is described as it works.** The data-flow texts and the compliance pack said the
-  organisation check runs before every relayed request. The server keeps a passed check in memory and a refusal for
-  up to five minutes, so later requests with the same key are usually not checked again; the texts now say so.
+  organisation check runs before every relayed request. The server keeps a passed check in memory for up to 15
+  minutes and a refusal for up to five minutes, so later requests with the same key are usually not checked again; the texts now say so.
 - **Two AI help texts name every condition.** "Enable AI assistant" now lists the scheduled digest narrative among
   the features that need background consent, and the advanced AI help says the helpers need the master switch, the
   accepted AI data disclosure and a key.
