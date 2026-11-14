@@ -46418,8 +46418,6 @@ Size S.
 
 **Status:** CLOSED 2026-11-14 on `fix/805-806-803-route-hardening`. `parseSttRequest` (`src/app/api/stt/_helpers.ts`) now resolves the endpoint's host name (`lookup` from `node:dns/promises`, every address) and answers `400` "blocked host" when any resolved address is private by `isPrivateHost`; a name that does not resolve answers `502` without forwarding, and an IP literal is still judged as written, with no lookup. Tests in `src/app/api/stt/route.test.ts`, with `node:dns/promises` mocked so no test reaches real DNS: a name resolving to an RFC 1918 address, the metadata address, IPv6 loopback, and one private address among public ones, each refused with nothing sent; an unresolvable name; an IP literal with no lookup. Each failed before the change; `npx vitest run src/app/api/ai/_relay.test.ts src/app/api/ai/_relay.wire.test.ts src/app/api/stt/route.test.ts` passed 109 tests in 3 files on 2026-11-14. Residual, accepted and stated in the code and in `docs/security.md`: DNS rebinding, because `fetch` resolves the name again when it connects. Filed OPEN 2026-11-13; the original entry follows.
 
-**Work item:** #978
-
 The speech-to-text endpoint check refuses private network addresses, but it judges the address as entered and does not resolve a host name first.
 
 What it would take: resolve host names in the check and refuse private results, with tests.
@@ -46448,8 +46446,6 @@ Size S.
 
 Reproduced by reading (2026-11-13): `grep -rln "authorization\|session\|cookie" src/app/api/ai/messages src/app/api/ai/models` finds no caller check, and `grep -n "cf-aig-authorization" src/app/api/ai/_relay.ts` prints the header the relay adds with the deployment's gateway token.
 
-**Work item:** #980
-
 The app's server routes do not authenticate their callers. On a deployment that routes AI through an organisation's gateway, the relay adds the gateway token to every request it forwards, so anyone who can reach the server can send AI requests through the organisation's gateway, under its token, and so at the organisation's cost where the gateway bills it.
 
 What it would take: decide whether the app should check callers itself or require the deployment to put the server behind its own access control, and say which in the operating guide; if the app checks, tests for a refused caller on both AI routes.
@@ -46463,8 +46459,6 @@ Size M.
 **Status:** CLOSED 2026-11-14 on `fix/805-806-803-route-hardening`. The AI relay (`relay` in `src/app/api/ai/_relay.ts`, both `/api/ai/messages` and `/api/ai/models`, scope `"ai"`, `RELAY_MAX_REQUESTS` = 120 a minute, checked before the key check, which is itself an upstream call) and `/api/stt` (`parseSttRequest`, scope `"stt"`, `STT_MAX_REQUESTS` = 60) now call the same `rateLimit` (`src/app/api/jira/_rate-limit.ts`, which takes the maximum as an optional third argument) and answer `429` `too-many-requests` with `Retry-After`. Tests: a burst one over the maximum from one caller is refused with nothing sent upstream, and another caller is unaffected (`_relay.test.ts`, `src/app/api/stt/route.test.ts`); both failed before the change; `npx vitest run src/app/api/ai/_relay.test.ts src/app/api/ai/_relay.wire.test.ts src/app/api/stt/route.test.ts` passed 109 tests in 3 files on 2026-11-14. Residual: like the other routes', the limit is per process and keyed by the first `x-forwarded-for` entry, which a caller sets, so it can be avoided (§562). Filed OPEN 2026-11-13; the original entry follows.
 
 Reproduced by reading (2026-11-13): `grep -rln "rateLimit(" src/app/api --include=*.ts` lists only the Jira helpers (which the Confluence route reuses), the Timelog helpers, the ECB route and the limiter itself; the AI routes and the dictation route are not among them.
-
-**Work item:** #981
 
 Requests to Jira, Confluence, Timelog and the exchange-rate route are limited per caller. The AI relay and the dictation route have no limit, and the dictation route forwards audio to whatever public https address the caller names.
 
