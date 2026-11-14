@@ -198,6 +198,9 @@ longer carries its own changelog comment.
   the code (`npm run compliance:generate`) and checked by `npm run compliance:check` in CI and by a unit test, so the
   tables stay in step with the code. `docs/security.md` and the README link to it. New open follow-ups §794 to §806
   and §810 record the gaps found while writing it.
+- **Live checks for deleting saved AI chats.** A new live-Turso test runs the real statements against a database:
+  deleting one chat, "Delete all my chats", keeping the newest 50 chats per person, deleting chats older than the
+  retention period, and removing a permanently deleted project's chats. It runs in CI's destructive live-Turso job.
 
 ### Changed
 
@@ -207,6 +210,21 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Inline AI edit respects people protection.** With people protection on, inline edit now sends the protected
+  instruction and leaves out the tools that change people, as the chat does. Names were already replaced before
+  sending, and person fields could not be set; the request itself no longer offers those tools.
+- **The server's key check is described as it works.** The data-flow texts and the compliance pack said the
+  organisation check runs before every relayed request. The server keeps a passed check in memory and a refusal for
+  up to five minutes, so later requests with the same key are usually not checked again; the texts now say so.
+- **Two AI help texts name every condition.** "Enable AI assistant" now lists the scheduled digest narrative among
+  the features that need background consent, and the advanced AI help says the helpers need the master switch, the
+  accepted AI data disclosure and a key.
+- **The built-in feature guide and the feature list catch up with consent and people protection.** They now say that
+  AI needs consent as well as a key, that PDFs and images are refused while people protection is on, that saved
+  chats need the recovery key and expire, that "Draft with AI" proposes the report section by section and sends the
+  names of people who are away, and what "Analyze with AI" sends.
+- **The demo recorder accepts the AI consent dialog.** It now clicks "I understand — enable AI" and "I understand —
+  allow background AI". A code comment on usage cost weights no longer quotes prices that had changed.
 - **The desktop updater sends one fixed identifier instead of a per-installation one.** The update check no longer
   carries an identifier that told installations apart.
 
