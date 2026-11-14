@@ -1,4 +1,4 @@
-import { type ActivityKind, activityMessageKey } from "./activity-log";
+import { type ActivityKind, activityMessageKey, wbsPlanCreatedTasks } from "./activity-log";
 import { type Lang, type PluralBaseKey, localeFor, t, tPlural } from "./i18n";
 import { formatExpiryDate } from "./date-format";
 import { PROJECT_META_LABEL_KEY } from "./project-field-labels";
@@ -169,6 +169,21 @@ export function activityChangeValues(
   };
 }
 
+/** Detail appended to a kind's message from args its template has no slot for, after " — ". An `ai.wbsPlan` entry names
+ *  the tasks it created (`#id title`, `wbsPlanCreatedTasks`); a count-only entry written before gets none. Shown in the
+ *  panel and in the AI's activity recap alike: the titles are the tasks' own, already in the workspace. */
+const ACTIVITY_DETAIL: Partial<Record<ActivityKind, (lang: Lang, args: (string | number)[]) => string | null>> = {
+  "ai.wbsPlan": (lang, args) => {
+    const created = wbsPlanCreatedTasks(args);
+    return created.length === 0 ? null : t(lang, "activityAiWbsPlanCreated", created.map((c) => `#${c.id} ${c.title}`).join(", "));
+  },
+};
+
+function withDetail(lang: Lang, kind: string, args: (string | number)[], message: string): string {
+  const detail = Object.hasOwn(ACTIVITY_DETAIL, kind) ? ACTIVITY_DETAIL[kind as ActivityKind]?.(lang, args) : null;
+  return detail ? `${message} — ${detail}` : message;
+}
+
 export function activityMessage(
   lang: Lang,
   kind: string,
@@ -200,9 +215,9 @@ export function activityMessage(
     //   non-string/non-number `args` element to `""` at the load boundary, so
     //   a Symbol cannot reach a stored entry. A caller that bypasses that
     //   boundary and hands this a Symbol in the count slot gets a TypeError.
-    return tPlural(lang, plural.base, Number(raw), ...args);
+    return withDetail(lang, kind, args, tPlural(lang, plural.base, Number(raw), ...args));
   }
 
   const display = opts?.display ? ACTIVITY_ARG_DISPLAY[kind as ActivityKind] : undefined;
-  return t(lang, key, ...(display ? display(lang, args) : args));
+  return withDetail(lang, kind, args, t(lang, key, ...(display ? display(lang, args) : args)));
 }

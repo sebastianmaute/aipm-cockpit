@@ -34,6 +34,7 @@ import { type Lang, t, tPlural } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Task } from "./types";
 import { type LogActivityAsFn } from "./activity-log-context";
+import { wbsPlanActivityArgs } from "./activity-log";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { useToastContext } from "./toast-context";
 import { useWorkspace } from "./workspace-context";
@@ -444,12 +445,11 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
           entityKey: "task",
         });
       }
-      // One AI create entry per created row, in the shape the chat's create_task writes (`task.created`, id then
-      // title), so each task the breakdown made can be found again in the log. From the updater's OWN result, like
-      // the count below. ★ These are also what the completion trend counts as +1 each; before them the rows a
-      // breakdown created were missing from its backward walk.
-      for (const created of result.created) logActivityAs?.("ai", "task.created", created.id, created.taskName);
-      logActivityAs?.("ai", "ai.wbsPlan", result.applied);
+      // ONE entry per apply, naming every created row by id and title (`wbsPlanActivityArgs`), so each task the
+      // breakdown made can be found again — never one entry per task, which could push hundreds of older entries
+      // out of the capped log. From the updater's OWN result. The completion trend counts its created pairs;
+      // without them its backward walk read every earlier total too high by the tasks a breakdown created.
+      logActivityAs?.("ai", "ai.wbsPlan", ...wbsPlanActivityArgs(result.applied, result.created));
     }
     // ONE toast: there is a single toast slot, so a second call in this
     // handler would replace the first and a partial apply would report only

@@ -39,7 +39,7 @@ before your first edit — the rest is reference, reachable from here.
 | [features](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
 | [documents](docs/AGENTS/documents.md) | version before-images · retention + tombstones · the single mutation path · `documentVersions` across the six write paths · surfaces + the block editor |
 | [rich-text](docs/AGENTS/rich-text.md) | note logs · the seven rich fields · DOM-free vs browser-only · sanitizers + model-write boundaries · export fidelity · the toolbar |
-| [activity-log](docs/AGENTS/activity-log.md) | meta-blob persistence · `logMode` · actors · forward-compat sanitising · the three completion-trend delta shapes |
+| [activity-log](docs/AGENTS/activity-log.md) | meta-blob persistence · `logMode` · actors · forward-compat sanitising · the four completion-trend delta shapes |
 | [task-status](docs/AGENTS/task-status.md) | the `status` ⟺ `completedDate` pair · the five writers · load does NOT repair a split pair · `isTaskClosed` vs `isTaskDelivered` |
 | [forecast](docs/AGENTS/forecast.md) | the Monte Carlo schedule forecast (§502) · seed + separate rng streams · the history floor · effort mode · what-if scope vs milestone chances · How-many reads at 100−P · the Show-simulation switch · `forecastHistory` (meta-blob, six paths) · the daily recorder |
 | [task-manager](docs/AGENTS/task-manager.md) | the orchestrator's decomposition map — every extracted `use*` hook and `build*` builder, coverage-gated or excluded, and why |
@@ -751,7 +751,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   an entry's `changes` carries old/new values that must never reach a client-facing document),
   `applyWorkspace`'s `logMode` defaults to REPLACE, `isWorkspaceEmpty` deliberately EXCLUDES it
   (inverting the `documents` rule, and counting it would turn a data-loss guard into a data-loss
-  vector), and the trend now derives from THREE incompatible delta shapes that must not be merged.
+  vector), and the trend now derives from FOUR incompatible delta shapes that must not be merged.
 - **AI Assistant chat-thread sidebar is Turso-ONLY → [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md)
   "chat-thread sidebar".** `chat-panel.tsx` mounts `ChatThreadSidebar` only when `tursoMode`, which
   `workspace-section.tsx` computes as `(settings.storageConfig.kind === "turso" || mode === "turso") &&
@@ -826,7 +826,7 @@ is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lan
 | [platform.md](docs/AGENTS/platform.md) | diagnostics ring · guard transparency · dictation · the AI master switch · the load hold (`loadPending`, the render hold, the background-writer gates) |
 | [features.md](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
 | [rich-text.md](docs/AGENTS/rich-text.md) | ALL rich HTML — the three note-log registers (each closing the SAME defect by a DIFFERENT mechanism) · the seven rich entity fields · the DOM-free vs browser-only module split · `sanitizeRichText` / `sanitizeAiRichText` / `AI_RICH_FIELDS` write boundaries · the per-sink `isHtmlStart` rule · `RichCell` export fidelity · the `role="toolbar"` keyboard contract |
-| [activity-log.md](docs/AGENTS/activity-log.md) | `Workspace.activityLog` — meta-blob persistence · storage-only on every export/document path (one internal audit download, §510) · `logMode` REPLACE-by-default · entry ids and actors · forward-compat sanitising · the THREE incompatible completion-trend delta shapes |
+| [activity-log.md](docs/AGENTS/activity-log.md) | `Workspace.activityLog` — meta-blob persistence · storage-only on every export/document path (one internal audit download, §510) · `logMode` REPLACE-by-default · entry ids and actors · forward-compat sanitising · the FOUR incompatible completion-trend delta shapes |
 | [documents.md](docs/AGENTS/documents.md) | documents — the DATA half: `DocVersion` before-images · retention + tombstones + the `"restored"` marker · `applyDocMutation` (the single mutation path) · `documentVersions` across all six write paths and both load funnels · AND the UI half: renderers, pane split, the hand block editor |
 | [task-status.md](docs/AGENTS/task-status.md) | the task completion model — the `status` ⟺ `completedDate` invariant · the FIVE paths that write the pair and the mechanism each holds it by · why `migrateTask` does NOT repair a split pair · the `isTaskClosed` / `isTaskDelivered` split |
 | [forecast.md](docs/AGENTS/forecast.md) | the Monte Carlo schedule forecast — engine files in `src/app/forecast/` · seed and per-output rng streams · history floor and window · queue-position milestone chance · effort mode and the median fallback · what-if scope (milestones unaffected) · Gap · How-many at 100−P, capped at the backlog · exact early exits (the rng skips) and always 10,000 trials · the measured cost (about 30 ms by default, about 600 ms at the What-if extremes, no worker) · the Show-simulation switch (`SettingsOverrides.forecast`) · `forecastHistory` (meta-blob, six paths) and its daily recorder |

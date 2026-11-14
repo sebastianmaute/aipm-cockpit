@@ -5768,6 +5768,7 @@ export const de: Record<TranslationKey, string> = {
   activityAiAllocationPlanAlt: "KI hat Alternative {0} übernommen: Aufgabenverschiebungen {1}, Stundenänderungen {2}",
   activityAiWbsPlan: "KI hat {0} Änderungen an den Arbeitspaketen übernommen",
   activityAiWbsPlanOne: "KI hat 1 Änderung an den Arbeitspaketen übernommen",
+  activityAiWbsPlanCreated: "angelegt: {0}",
   activityAiDocumentWrite: "Assistent hat ein Dokument bearbeitet",
 
   // Asset library (S3c-1 — document images)

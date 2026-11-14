@@ -210,9 +210,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **Tasks from an applied work breakdown can be found again.** Applying an AI work breakdown now records each task
-  it created in the activity log, by number and title and marked as made by the AI, beside the count of changes it
-  applied. Those tasks now also count in the completion trend.
+- **Tasks from an applied work breakdown can be found again.** Applying an AI work breakdown now names each task it
+  created, by number and title, in its one activity log entry (marked as made by the AI), beside the count of changes
+  it applied. The completion trend’s history now accounts for these tasks; before, it counted past totals too high.
 - **Plan with AI says when it left people or tasks out.** When a plan is too large to send in full, the
   allocation plan dialog now says so and how many people, periods, open tasks and milestones the AI did not see;
   until now only the AI was told.

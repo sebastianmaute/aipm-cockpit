@@ -1,7 +1,7 @@
 # Activity log — `Workspace.activityLog`
 
 Owns the per-project audit trail: its meta-blob persistence, the `logMode` split across the
-two load funnels, entry ids, forward-compat sanitising, who stamps the actor, and the three
+two load funnels, entry ids, forward-compat sanitising, who stamps the actor, and the four
 incompatible delta shapes the completion trend derives from it.
 
 Does NOT own the undo stack itself, the AI dispatcher's tool surface
@@ -275,10 +275,15 @@ newest entries until the next save.
   `task.deleted` (the register writers in `use-register-tools.ts` write no `task.*` kind). So tasks the AI
   creates or deletes now move that trend. Intended, but it is a change to
   an EXISTING derived metric — the trend can shift with no user action behind it.
-  ★ The WBS apply (`use-wbs-plan.tsx`) writes one AI `task.created` per row it CREATES (id, then title — the
-  chat's shape), beside its one `ai.wbsPlan` count, so each task a breakdown made is findable in the log and
-  counted by the trend; its edits ride the `bulk.edit` undo capture and log no `task.*` kind. Creates stay out
-  of the undo images (undo.md "Creates").
+  ★★ The WBS apply (`use-wbs-plan.tsx`) writes ONE AI `ai.wbsPlan` entry per apply: `[applied, id, title, …]`
+  (`wbsPlanActivityArgs`), the id and title of every row it CREATED after the applied count. Never one
+  `task.created` per row — an apply can create hundreds, and `ACTIVITY_MAX_ENTRIES` would push the older log
+  out. The panel names them (`wbsPlanCreatedTasks`, appended as "created: #id title, …"); a count-only entry
+  written before reads as it did. The generic load sanitiser covers the pairs (coerce in place, so every id
+  keeps its slot), and like every entry they are storage-only on exports. ★ The FOURTH trend delta shape:
+  `BULK_CREATE_KINDS` in `completion-trend.ts` adds +N for the N pairs — not `COUNT_KINDS` (±1) and not
+  `BULK_TOTAL_KINDS` (`args[0]`, which here counts edits too). Its edits ride the `bulk.edit` undo capture;
+  creates stay out of the undo images (undo.md "Creates"), so no undo row reverses the pairs.
   `grep -n COUNT_KINDS src/app/completion-trend.ts` prints the set;
   `grep -ohE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts | sort | uniq -c`
   prints the kinds the chat entity writers emit and how often, of which those two intersect the set.
