@@ -2,8 +2,9 @@
 
 *How to read this page:* `E<n>` is a row of the [evidence table](appendix.md#evidence-table); its
 [label](appendix.md#evidence-labels) is *measured*, *tested (unit)* (a test with fakes, not a live run),
-*tested (live database)*, *read in code* (no test or run checks it), *estimated* or *not proven*. `§N` is an open entry of
-the project's public [register](../../open-followups.md), listed under [Open gaps](appendix.md#open-gaps).
+*tested (live database)*, *read in code* (these briefs cite no test or run for it), *estimated* or
+*not proven*. `§N` is an open entry of the project's public [register](../../open-followups.md), listed under
+[Open gaps](appendix.md#open-gaps).
 
 ## In one paragraph
 
@@ -38,15 +39,16 @@ to watch spend: nothing in the app stops interactive AI at a spend limit (E38, *
   working that long (E9, *tested (unit)*). The server holds no Anthropic credential, so it cannot revoke a
   user's key: that is for the Anthropic account the key belongs to (E52, *read in code*).
 - **Model:** each user picks it from the models Anthropic lists for their key, Claude Sonnet 5 by default; no
-  deployment switch sets it (E45, *read in code*); the figures cover claude-sonnet-5 only (E33, *measured*).
+  deployment switch sets it (E45, *tested (unit)*); the figures cover claude-sonnet-5 only (E33, *measured*).
 - **Switches:** AI off, or people protection forced on in every project (E19, *tested (unit)*). No switch turns
-  off a single AI feature (E42, *read in code*); `stt` does not stop dictation but moves it to the browser's own
+  off a single AI feature (E42, *tested (unit)*); `stt` does not stop dictation but moves it to the browser's own
   speech recognition, which in some browsers sends audio to the browser maker; people protection switches
   dictation off (E1, *read in code*; E18, *tested (unit)*).
 - **Monitoring:** the relay writes no log of its own, none with a key, token, body or URL, apart from a
-  one-time warning that the gateway, key-restriction or chat-retention setting is invalid (the reason only),
-  and usage is counted only in each browser, so per-user figures must come from Anthropic or your gateway (E65,
-  *read in code*; E6, *tested (unit)*; E38, *read in code*).
+  warning, once per server process for each reason, that the gateway or key-restriction setting is invalid;
+  the chat deletion warns the same way about an invalid chat setting (the reason only). Usage is counted only
+  in each browser, so per-user figures must come from Anthropic or your gateway (E65, *tested (unit)*; E6,
+  *tested (unit)*; E38, *read in code*).
 - **Cost at scale:** about $5, $13 or $33 per user and month at light, typical or heavy use (E25,
   *estimated*), from 2 to 6 calls per feature on one demo project (E37, *measured*).
 

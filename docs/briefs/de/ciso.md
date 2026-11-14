@@ -2,9 +2,10 @@
 
 *So lesen Sie diese Seite:* `E<n>` ist eine Zeile der [Belegtabelle](appendix.md#belegtabelle); ihre
 [Belegart](appendix.md#belegarten) ist *gemessen*, *getestet (Unit)* (ein Test mit Attrappen, kein Lauf gegen
-echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (kein Test und kein Lauf prüft es), *geschätzt* oder
-*nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen [Register](../../open-followups.md) (englisch) des
-Projekts, aufgeführt unter [Offene Lücken](appendix.md#offene-lücken).
+echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (diese Kurzinformationen nennen keinen Test
+und keinen Lauf dafür), *geschätzt* oder *nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen
+[Register](../../open-followups.md) (englisch) des Projekts, aufgeführt unter
+[Offene Lücken](appendix.md#offene-lücken).
 
 ## Auf einen Blick
 
@@ -27,14 +28,15 @@ der App.
 
 - **Aus dem Browser:** nur an die Hosts in der Content Security Policy der Seite, die der Server sendet und der
   Browser durchsetzt, außer beim Diktat mit der eingebauten Spracherkennung des Browsers, die in manchen
-  Browsern Audio an den Browserhersteller sendet (E1, *im Code gelesen*); api.anthropic.com steht nur auf dem direkten Weg bei eingeschalteter KI darin (E53,
-  *getestet (Unit)*). Turso-, SharePoint- und OneDrive-Hosts sind per Platzhalter erlaubt, ebenso jeder lokale
-  Port ([Browser-Hosts](appendix.md#browser-hosts); §800; E34, *im Code gelesen*).
+  Browsern Audio an den Browserhersteller sendet (E1, *im Code gelesen*); api.anthropic.com steht nur auf dem
+  direkten Weg bei eingeschalteter KI darin (E53, *getestet (Unit)*). Turso-, SharePoint- und
+  OneDrive-Hosts sind per Platzhalter erlaubt, ebenso jeder lokale Port
+  ([Browser-Hosts](appendix.md#browser-hosts); §800; E34, *im Code gelesen*).
 - **Vom Server:** Das Relay leitet vier Anthropic-Header weiter, dazu das Gateway-Token, wenn eines gesetzt
   ist, und keine Cookies, und protokolliert weder Schlüssel noch Token, Inhalt oder URL (E6,
   *getestet (Unit)*); die übrigen [Server-Ziele](appendix.md#server-ziele) sind aufgeführt. Updates kommen aus den
   GitHub-Releases des Projekts; ein Update installiert also dieselbe unsignierte Installationsdatei wie die
-  erste Installation (E34, *im Code gelesen*; E51, *im Code gelesen*).
+  erste Installation (E34, *im Code gelesen*; E51, *getestet (Unit)*).
 - **Schlüssel:** Der Schlüssel der Nutzenden wird im Browser verschlüsselt gespeichert; zur Nutzung geladen,
   liegt er im Klartext im Speicher der Seite (E46, *getestet (Unit)*).
 - **Personen:** Bei aktivem *Personenschutz* werden die Namen bekannter Personen (einwortige Namen nur dort, wo
@@ -57,8 +59,8 @@ der App.
   Vorschau öffnet (E47, *getestet (Unit)*). Eingefügter Text und Text, den der Chat über seine Werkzeuge liest,
   etwa eine aus Jira synchronisierte Aufgabe, lösen diese Prüfpflicht nicht aus (§797; E48, *im Code gelesen*).
 - **Installationsdatei:** Jede Desktop-Version trägt eine SBOM, mit Herkunftsnachweisen (Attestierungen) nur,
-  solange das Repository öffentlich ist (E50, *im Code gelesen*); die Installationsdatei ist nicht codesigniert
-  (E51, *im Code gelesen*). `AIPM_DISABLE_UPDATE_CHECK` schaltet die Update-Prüfung der Desktop-App ab (E34,
+  solange das Repository öffentlich ist (E50, *getestet (Unit)*); die Installationsdatei ist nicht codesigniert
+  (E51, *getestet (Unit)*). `AIPM_DISABLE_UPDATE_CHECK` schaltet die Update-Prüfung der Desktop-App ab (E34,
   *im Code gelesen*).
 
 ## Noch nicht belegt / offene Lücken
@@ -69,7 +71,7 @@ der App.
 3. **§805:** Das Relay fügt das Gateway-Token für jeden Aufrufer hinzu, der den Server erreicht (E13,
    *im Code gelesen*).
 4. **§487, §793:** Die Windows-Installationsdatei ist unsigniert, und das Deinstallationsprogramm bliebe auch mit
-   eingeschalteter Signierung unsigniert (E51, *im Code gelesen*).
+   eingeschalteter Signierung unsigniert (E51, *getestet (Unit)*).
 5. **§800:** Die Policy erlaubt ganze Host-Familien per Platzhalter (E34, *im Code gelesen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
@@ -88,7 +90,7 @@ der App.
   verweist auf die Chat-Nachricht dahinter (§799; E55, *im Code gelesen*).
 - Fragen Sie Anthropic, was es von einer Anfrage aufbewahrt, wie lange und ob es damit trainiert.
 - Prüfen Sie SBOM und Herkunftsnachweise der Version, die Sie installieren, und weisen Sie die Nutzenden auf die
-  Warnung vor einem unbekannten Herausgeber hin (E50, *im Code gelesen*; E51, *im Code gelesen*).
+  Warnung vor einem unbekannten Herausgeber hin (E50, *getestet (Unit)*; E51, *getestet (Unit)*).
 
 ## Weiterlesen
 

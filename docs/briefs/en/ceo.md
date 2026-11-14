@@ -2,8 +2,9 @@
 
 *How to read this page:* `E<n>` is a row of the [evidence table](appendix.md#evidence-table); its
 [label](appendix.md#evidence-labels) is *measured*, *tested (unit)* (a test with fakes, not a live run),
-*tested (live database)*, *read in code* (no test or run checks it), *estimated* or *not proven*. `§N` is an open entry of
-the project's public [register](../../open-followups.md), listed under [Open gaps](appendix.md#open-gaps).
+*tested (live database)*, *read in code* (these briefs cite no test or run for it), *estimated* or
+*not proven*. `§N` is an open entry of the project's public [register](../../open-followups.md), listed under
+[Open gaps](appendix.md#open-gaps).
 
 ## In one paragraph
 
@@ -67,7 +68,7 @@ Anthropic, transfers and a works agreement are questions only your organisation 
   - *Scope:* force people protection on, whatever a project stores (E19, *tested (unit)*; E41,
     *tested (unit)*); this hides the allocation plan proposal and the RACI suggestion and switches dictation off
     (E18, *tested (unit)*). Leave out the new project proposal, whose names cannot be protected: no switch does
-    this, so tell users (E35, *read in code*; E42, *read in code*). Allocation and RACI only after the works
+    this, so tell users (E35, *read in code*; E42, *tested (unit)*). Allocation and RACI only after the works
     council and the DPO agree; lifting the lock returns each project to its own setting, so check those first
     (E43, *read in code*).
   - *Duration and size:* your choice, for example 6–12 weeks and 10–30 project managers.

@@ -2,8 +2,9 @@
 
 *How to read this page:* `E<n>` is a row of the [evidence table](appendix.md#evidence-table); its
 [label](appendix.md#evidence-labels) is *measured*, *tested (unit)* (a test with fakes, not a live run),
-*tested (live database)*, *read in code* (no test or run checks it), *estimated* or *not proven*. `§N` is an open entry of
-the project's public [register](../../open-followups.md), listed under [Open gaps](appendix.md#open-gaps).
+*tested (live database)*, *read in code* (these briefs cite no test or run for it), *estimated* or
+*not proven*. `§N` is an open entry of the project's public [register](../../open-followups.md), listed under
+[Open gaps](appendix.md#open-gaps).
 
 ## In one paragraph
 
@@ -42,7 +43,7 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
 - **Limits of that switch:** protection runs in the browser, so a modified copy can send without it (E15,
   *read in code*); names the project does not know are sent as written, and a new project's names cannot be
   protected (E35, *read in code*); lifting the lock returns each project to its stored setting (E43,
-  *read in code*). No switch turns off a single feature (E42, *read in code*).
+  *read in code*). No switch turns off a single feature (E42, *tested (unit)*).
 - **For Article 50 (transparency):** the screens name the AI ("AI Assistant", "Ask Claude", "AI-generated — review
   before acting.") and the activity log shows its chat changes with the actor "AI assistant"; machine-readable
   marking of the text it writes is absent (§801; E55, *read in code*).

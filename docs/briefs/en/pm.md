@@ -2,8 +2,9 @@
 
 *How to read this page:* `E<n>` is a row of the [evidence table](appendix.md#evidence-table); its
 [label](appendix.md#evidence-labels) is *measured*, *tested (unit)* (a test with fakes, not a live run),
-*tested (live database)*, *read in code* (no test or run checks it), *estimated* or *not proven*. `§N` is an open entry of
-the project's public [register](../../open-followups.md), listed under [Open gaps](appendix.md#open-gaps).
+*tested (live database)*, *read in code* (these briefs cite no test or run for it), *estimated* or
+*not proven*. `§N` is an open entry of the project's public [register](../../open-followups.md), listed under
+[Open gaps](appendix.md#open-gaps).
 
 ## In one paragraph
 
@@ -28,7 +29,8 @@ feature on one demo project (E37, *measured*).
   *read in code*). The new
   project proposal fills in the wizard, and nothing is created until you finish it (E49, *read in code*).
 - **Applies on its own:** an ordinary chat change, one change in one send that deletes nothing, invites no one,
-  puts no date on someone's absence and uses no tool that always asks for review, applies at once (§794; E47, *tested (unit)*) and shows in the activity
+  puts no date on someone's absence and uses no tool that always asks for review, applies at once (§794; E47,
+  *tested (unit)*) and shows in the activity
   log as the AI's (E55, *read in code*). Anything else waits on a *review card* for you, as does every change
   while a file is attached, except the work breakdown optimisation, which opens its own preview; a reopened
   saved chat keeps no attachment (E47, *tested (unit)*). Text the chat reads through its tools does not start
@@ -51,9 +53,9 @@ feature on one demo project (E37, *measured*).
   *read in code*).
 - **Cross-project allocation:** hours from other projects count only on a shared Turso database, for people
   matched by your confirmation or a shared e-mail address, and only from projects that allow people, which by
-  default none does (E60, *read in code*; E41, *tested (unit)*). The request describes at most 120 people, 26
+  default none does (E60, *tested (unit)*; E41, *tested (unit)*). The request describes at most 120 people, 26
   periods, 150 open tasks and 40 milestones of yours; the model is told about the rest left out, the screen is
-  not (E60, *read in code*).
+  not (E60, *tested (unit)*).
 
 ## Not yet proven / open gaps
 
@@ -71,7 +73,7 @@ feature on one demo project (E37, *measured*).
 - Check every name, date and number in a proposal against the project, and treat one plan as one option: ask
   again and compare before you apply (E61, *read in code*).
 - Before "Plan with AI" on a shared database, answer its "same person" suggestions, or those people's hours in
-  other projects are not counted (E60, *read in code*).
+  other projects are not counted (E60, *tested (unit)*).
 
 ## Where to read more
 

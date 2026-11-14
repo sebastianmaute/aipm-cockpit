@@ -2,8 +2,9 @@
 
 *How to read this page:* `E<n>` is a row of the [evidence table](appendix.md#evidence-table); its
 [label](appendix.md#evidence-labels) is *measured*, *tested (unit)* (a test with fakes, not a live run),
-*tested (live database)*, *read in code* (no test or run checks it), *estimated* or *not proven*. `§N` is an open entry of
-the project's public [register](../../open-followups.md), listed under [Open gaps](appendix.md#open-gaps).
+*tested (live database)*, *read in code* (these briefs cite no test or run for it), *estimated* or
+*not proven*. `§N` is an open entry of the project's public [register](../../open-followups.md), listed under
+[Open gaps](appendix.md#open-gaps).
 
 ## In one paragraph
 
@@ -23,14 +24,15 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
 
 - **From the browser:** only to the hosts in the page's Content Security Policy, which the server sends and the
   browser enforces, except dictation with the browser's own speech recognition, which in some browsers sends
-  audio to the browser maker (E1, *read in code*); api.anthropic.com is in it only on the direct route with AI on (E53, *tested (unit)*).
+  audio to the browser maker (E1, *read in code*); api.anthropic.com is in it only on the direct route with AI
+  on (E53, *tested (unit)*).
   Turso, SharePoint and OneDrive hosts are allowed by wildcard, and so is any local port
   ([browser hosts](appendix.md#browser-hosts); §800; E34, *read in code*).
 - **From the server:** the relay forwards four Anthropic headers, plus the gateway token when one is set, and
   no cookies, and logs no key, token, body or URL (E6, *tested (unit)*); the other
   [server destinations](appendix.md#server-destinations) are listed. Updates come from the project's GitHub
   releases, so an update installs the same unsigned installer as a first install (E34, *read in code*; E51,
-  *read in code*).
+  *tested (unit)*).
 - **Keys:** each user's key is stored encrypted in the browser; loaded for use, it is held in plain text in the
   page's memory (E46, *tested (unit)*).
 - **People:** with *people protection* on, known people's names (a one-word name only where written with a
@@ -52,7 +54,7 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
   (E47, *tested (unit)*). Pasted text and text the chat reads through its tools, such as a Jira-synced task, do
   not start that hold (§797; E48, *read in code*).
 - **Installer:** each desktop release carries an SBOM, with attestations only while the repository is public
-  (E50, *read in code*); the installer is not code-signed (E51, *read in code*). `AIPM_DISABLE_UPDATE_CHECK`
+  (E50, *tested (unit)*); the installer is not code-signed (E51, *tested (unit)*). `AIPM_DISABLE_UPDATE_CHECK`
   switches the desktop update check off (E34, *read in code*).
 
 ## Not yet proven / open gaps
@@ -61,7 +63,7 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
 2. **§794:** a single chat write applies without the review card (E47, *tested (unit)*).
 3. **§805:** the relay adds the gateway token for any caller that reaches the server (E13, *read in code*).
 4. **§487, §793:** the Windows installer is unsigned, and the uninstaller would stay unsigned with signing on
-   (E51, *read in code*).
+   (E51, *tested (unit)*).
 5. **§800:** the policy allows whole host families by wildcard (E34, *read in code*).
 
 ## What to check or ask for before saying yes
@@ -78,7 +80,7 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
   message behind it (§799; E55, *read in code*).
 - Ask Anthropic what it retains of a request, for how long, and whether it trains on it.
 - Check the SBOM and attestations of the release you install, and tell users about the unknown-publisher
-  warning (E50, *read in code*; E51, *read in code*).
+  warning (E50, *tested (unit)*; E51, *tested (unit)*).
 
 ## Where to read more
 

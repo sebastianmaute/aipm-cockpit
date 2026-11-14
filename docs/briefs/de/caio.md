@@ -2,9 +2,10 @@
 
 *So lesen Sie diese Seite:* `E<n>` ist eine Zeile der [Belegtabelle](appendix.md#belegtabelle); ihre
 [Belegart](appendix.md#belegarten) ist *gemessen*, *getestet (Unit)* (ein Test mit Attrappen, kein Lauf gegen
-echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (kein Test und kein Lauf prüft es), *geschätzt* oder
-*nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen [Register](../../open-followups.md) (englisch) des
-Projekts, aufgeführt unter [Offene Lücken](appendix.md#offene-lücken).
+echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (diese Kurzinformationen nennen keinen Test
+und keinen Lauf dafür), *geschätzt* oder *nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen
+[Register](../../open-followups.md) (englisch) des Projekts, aufgeführt unter
+[Offene Lücken](appendix.md#offene-lücken).
 
 ## Auf einen Blick
 
@@ -48,7 +49,7 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
   (E15, *im Code gelesen*); Namen, die das Projekt nicht kennt, werden so gesendet, wie sie dastehen, und die
   Namen eines neuen Projekts lassen sich nicht schützen (E35, *im Code gelesen*); wird die Sperre aufgehoben,
   gilt für jedes Projekt wieder seine gespeicherte Einstellung (E43, *im Code gelesen*). Kein Schalter schaltet
-  eine einzelne Funktion ab (E42, *im Code gelesen*).
+  eine einzelne Funktion ab (E42, *getestet (Unit)*).
 - **Zu Artikel 50 (Transparenz):** Die Oberflächen benennen die KI („KI-Assistent“, „Claude fragen“,
   „KI-generiert – vor dem Handeln prüfen.“), und das Aktivitätsprotokoll zeigt ihre Änderungen im Chat mit dem
   Akteur „KI-Assistent“; eine maschinenlesbare Kennzeichnung des Textes, den sie schreibt, fehlt (§801; E55,

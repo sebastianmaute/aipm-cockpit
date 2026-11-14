@@ -2,9 +2,10 @@
 
 *So lesen Sie diese Seite:* `E<n>` ist eine Zeile der [Belegtabelle](appendix.md#belegtabelle); ihre
 [Belegart](appendix.md#belegarten) ist *gemessen*, *getestet (Unit)* (ein Test mit Attrappen, kein Lauf gegen
-echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (kein Test und kein Lauf prüft es), *geschätzt* oder
-*nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen [Register](../../open-followups.md) (englisch) des
-Projekts, aufgeführt unter [Offene Lücken](appendix.md#offene-lücken).
+echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (diese Kurzinformationen nennen keinen Test
+und keinen Lauf dafür), *geschätzt* oder *nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen
+[Register](../../open-followups.md) (englisch) des Projekts, aufgeführt unter
+[Offene Lücken](appendix.md#offene-lücken).
 
 ## Auf einen Blick
 
@@ -59,10 +60,10 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
   Änderungen er übernommen hat, notieren Sie die neuen Aufgaben also vor dem Übernehmen (E66, *im Code gelesen*).
 - **Projektübergreifende Ressourcenplanung:** Stunden aus anderen Projekten zählen nur auf einer gemeinsam
   genutzten Turso-Datenbank, für Personen, deren Zuordnung Sie bestätigt haben oder die eine E-Mail-Adresse
-  teilen, und nur aus Projekten, die Personen zulassen, was standardmäßig keines tut (E60, *im Code gelesen*;
+  teilen, und nur aus Projekten, die Personen zulassen, was standardmäßig keines tut (E60, *getestet (Unit)*;
   E41, *getestet (Unit)*). Die Anfrage beschreibt von Ihrem Projekt höchstens 120 Personen, 26 Zeiträume, 150
   offene Aufgaben und 40 Meilensteine; vom weggelassenen Rest erfährt das Modell, der Bildschirm nicht (E60,
-  *im Code gelesen*).
+  *getestet (Unit)*).
 
 ## Noch nicht belegt / offene Lücken
 
@@ -82,7 +83,7 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
 - Prüfen Sie jeden Namen, jedes Datum und jede Zahl eines Vorschlags am Projekt, und behandeln Sie einen Plan als
   eine Möglichkeit: Fragen Sie erneut und vergleichen Sie, bevor Sie übernehmen (E61, *im Code gelesen*).
 - Beantworten Sie vor „Mit KI planen“ auf einer gemeinsamen Datenbank dessen Vorschläge zu „derselben Person“,
-  sonst zählen die Stunden dieser Personen in anderen Projekten nicht (E60, *im Code gelesen*).
+  sonst zählen die Stunden dieser Personen in anderen Projekten nicht (E60, *getestet (Unit)*).
 
 ## Weiterlesen
 

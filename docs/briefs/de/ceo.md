@@ -2,9 +2,10 @@
 
 *So lesen Sie diese Seite:* `E<n>` ist eine Zeile der [Belegtabelle](appendix.md#belegtabelle); ihre
 [Belegart](appendix.md#belegarten) ist *gemessen*, *getestet (Unit)* (ein Test mit Attrappen, kein Lauf gegen
-echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (kein Test und kein Lauf prüft es), *geschätzt* oder
-*nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen [Register](../../open-followups.md) (englisch) des
-Projekts, aufgeführt unter [Offene Lücken](appendix.md#offene-lücken).
+echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (diese Kurzinformationen nennen keinen Test
+und keinen Lauf dafür), *geschätzt* oder *nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen
+[Register](../../open-followups.md) (englisch) des Projekts, aufgeführt unter
+[Offene Lücken](appendix.md#offene-lücken).
 
 ## Auf einen Blick
 
@@ -13,7 +14,8 @@ Die KI der App entwirft und schlägt Projektarbeit in 17 Funktionen vor, drei da
 Modell gehen an Anthropic, direkt aus dem Browser (der direkte Weg) oder über den eigenen Server der App (der
 Relay-Weg; siehe das [Diagramm](appendix.md#zwei-wege-zum-modell)) (E2, *getestet (Unit)*; E4,
 *getestet (Unit)*); diktierte Sprache geht nicht an Anthropic, sondern an den Sprachdienst, den die nutzende
-Person einrichtet, oder an die eingebaute Spracherkennung des Browsers (E1, *im Code gelesen*). Wie viel Arbeitszeit die KI spart, hat niemand gemessen; diese
+Person einrichtet, oder an die eingebaute Spracherkennung des Browsers (E1, *im Code gelesen*). Wie viel
+Arbeitszeit die KI spart, hat niemand gemessen; diese
 Kurzinformationen behaupten daher keinen Nutzen (§811; E26, *nicht belegt*). Zur Entscheidung steht keine
 Einführung, sondern ein begrenzter Pilot, der das misst.
 
@@ -23,7 +25,8 @@ Einführung, sondern ein begrenzter Pilot, der das misst.
   Ressourcenverzeichnis, Abwesenheiten sowie angehängte Dateien und E-Mails
   ([KI-Pfade](appendix.md#ki-pfade); E1, *im Code gelesen*).
 - **Personen:** Der *Personenschutz* ersetzt im Browser vor dem Senden die Namen der Personen, die das Projekt
-  kennt (einen einwortigen Namen nur dort, wo er großgeschrieben ist), sowie jede E-Mail-Adresse, jede gültige IBAN und
+  kennt (einen einwortigen Namen nur dort, wo er großgeschrieben ist), sowie jede E-Mail-Adresse, jede
+  gültige IBAN und
   jede Zahl in Form einer Telefonnummer durch Platzhalter (E14, *getestet (Unit)*; E15, *im Code gelesen*).
   Namen, die das Projekt nicht kennt, in getipptem Text, angehängten E-Mails und Dateien oder in der
   Beschreibung eines neuen Projekts, werden so gesendet, wie sie dastehen (E35, *im Code gelesen*).
@@ -75,7 +78,7 @@ nur Ihre Organisation beantworten kann.
     *getestet (Unit)*); das blendet den Vorschlag für die Ressourcenplanung und den RACI-Vorschlag aus und
     schaltet das Diktat ab (E18, *getestet (Unit)*). Den Vorschlag für ein neues Projekt auslassen, dessen
     Namen sich nicht schützen lassen: Kein Schalter erledigt das, informieren Sie die Nutzenden daher selbst
-    (E35, *im Code gelesen*; E42, *im Code gelesen*). Ressourcenplanung und RACI erst, wenn Betriebsrat und DSB
+    (E35, *im Code gelesen*; E42, *getestet (Unit)*). Ressourcenplanung und RACI erst, wenn Betriebsrat und DSB
     zustimmen; wird die Sperre aufgehoben, gilt wieder die eigene Einstellung jedes Projekts, prüfen Sie diese
     daher vorher (E43, *im Code gelesen*).
   - *Dauer und Größe:* nach Ihrer Wahl, etwa 6–12 Wochen und 10–30 Projektleitungen.

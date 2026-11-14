@@ -2,9 +2,10 @@
 
 *So lesen Sie diese Seite:* `E<n>` ist eine Zeile der [Belegtabelle](appendix.md#belegtabelle); ihre
 [Belegart](appendix.md#belegarten) ist *gemessen*, *getestet (Unit)* (ein Test mit Attrappen, kein Lauf gegen
-echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (kein Test und kein Lauf prüft es), *geschätzt* oder
-*nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen [Register](../../open-followups.md) (englisch) des
-Projekts, aufgeführt unter [Offene Lücken](appendix.md#offene-lücken).
+echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (diese Kurzinformationen nennen keinen Test
+und keinen Lauf dafür), *geschätzt* oder *nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen
+[Register](../../open-followups.md) (englisch) des Projekts, aufgeführt unter
+[Offene Lücken](appendix.md#offene-lücken).
 
 ## Auf einen Blick
 
@@ -25,10 +26,11 @@ Fragen, die nur Ihre Organisation beantworten kann.
   ihrer Rolle, und Timelog-Insights nennen eine Person mit Befunden zu ihrer erfassten Arbeitszeit (E1,
   *im Code gelesen*); fünf Funktionen senden, wer abwesend ist, auch bei ausgeblendeter Ressourcen-Funktion
   (E59, *im Code gelesen*).
-- **Abwesenheitstypen (möglicherweise besondere Kategorien personenbezogener Daten):** Kein KI-Pfad sendet den gespeicherten Typ einer Abwesenheit: Der Chat führt
-  jede als „absent“, die Bearbeitung einer Zeile und die Listen, wer abwesend ist, lassen ihn weg (E63,
-  *getestet (Unit)*; E1, *im Code gelesen*). Ein Hinweis bleibt: Der Timelog-Insight zu Zeit, die an einem
-  Abwesenheitstag gebucht wurde, nennt die Person als abwesend „(vacation, sick or training)“, ohne den Typ zu
+- **Abwesenheitstypen (möglicherweise besondere Kategorien personenbezogener Daten):** Kein KI-Pfad sendet
+  den gespeicherten Typ einer Abwesenheit: Der Chat führt jede als „absent“, die Bearbeitung einer Zeile und
+  die Listen, wer abwesend ist, lassen ihn weg (E63, *getestet (Unit)*; E1, *im Code gelesen*). Ein Hinweis
+  bleibt: Der Timelog-Insight zu Zeit, die an einem Abwesenheitstag gebucht wurde, nennt die Person als
+  abwesend „(vacation, sick or training)“, ohne den Typ zu
   nennen, und erreicht den Chat, die Bearbeitung einer Zeile und die Insight-Empfehlungen (E63,
   *getestet (Unit)*; E1, *im Code gelesen*). Er wird nicht gesendet, solange `timelog` abgeschaltet oder Timelog
   im Projekt ausgeblendet ist, und der Chat lässt ihn bei Personenschutz weg; ein Typ, den eine nutzende Person
