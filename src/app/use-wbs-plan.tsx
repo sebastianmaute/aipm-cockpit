@@ -444,6 +444,11 @@ export function useWbsPlan(deps: WbsPlanDeps): WbsPlan {
           entityKey: "task",
         });
       }
+      // One AI create entry per created row, in the shape the chat's create_task writes (`task.created`, id then
+      // title), so each task the breakdown made can be found again in the log. From the updater's OWN result, like
+      // the count below. ★ These are also what the completion trend counts as +1 each; before them the rows a
+      // breakdown created were missing from its backward walk.
+      for (const created of result.created) logActivityAs?.("ai", "task.created", created.id, created.taskName);
       logActivityAs?.("ai", "ai.wbsPlan", result.applied);
     }
     // ONE toast: there is a single toast slot, so a second call in this

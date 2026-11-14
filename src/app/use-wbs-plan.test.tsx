@@ -30,6 +30,7 @@ import * as call from "./wbs-plan-call";
 import * as engine from "./wbs-plan/wbs-plan";
 import { type ParsedWbsProposal, type RawWbsItem } from "./wbs-plan/wbs-plan";
 import { loadI18n, t, tPlural } from "./i18n";
+import { sanitizeActivityEntry, type ActivityActor, type ActivityEntry, type ActivityKind } from "./activity-log";
 import type { OperatingGuide } from "./operating-guide";
 
 vi.mock("./wbs-plan-call");
@@ -252,6 +253,13 @@ describe("useWbsPlan (optimize work breakdown)", () => {
     expect(created!.id).toBeGreaterThan(3);
     expect(created!.resourceId).toBeUndefined();
     expect(logActivitySpy).toHaveBeenCalledWith("ai", "ai.wbsPlan", 1);
+    // The created row can be found again: one AI create entry per created task, in the shape the chat's
+    // create_task writes (`task.created`, id then title), and it survives the log's load sanitiser as written.
+    const creates = logActivitySpy.mock.calls.filter((c) => c[1] === "task.created");
+    expect(creates).toEqual([["ai", "task.created", created!.id, "Design B"]]);
+    const [actor, kind, ...args] = creates[0] as [ActivityActor, ActivityKind, ...(string | number)[]];
+    const entry: ActivityEntry = { id: "dev-s-1", timestamp: "2026-10-12T09:00:00.000Z", kind, args, actor };
+    expect(sanitizeActivityEntry(JSON.parse(JSON.stringify(entry)))).toEqual(entry);
     expect(showToast).toHaveBeenCalledWith("info", tPlural("en-US", "wbsPlanApplied", 1, 1));
     // Back to idle — the preview is gone.
     expect(screen.queryByRole("checkbox")).toBeNull();

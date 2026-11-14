@@ -275,6 +275,10 @@ newest entries until the next save.
   `task.deleted` (the register writers in `use-register-tools.ts` write no `task.*` kind). So tasks the AI
   creates or deletes now move that trend. Intended, but it is a change to
   an EXISTING derived metric — the trend can shift with no user action behind it.
+  ★ The WBS apply (`use-wbs-plan.tsx`) writes one AI `task.created` per row it CREATES (id, then title — the
+  chat's shape), beside its one `ai.wbsPlan` count, so each task a breakdown made is findable in the log and
+  counted by the trend; its edits ride the `bulk.edit` undo capture and log no `task.*` kind. Creates stay out
+  of the undo images (undo.md "Creates").
   `grep -n COUNT_KINDS src/app/completion-trend.ts` prints the set;
   `grep -ohE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts src/app/use-register-tools.ts | sort | uniq -c`
   prints the kinds the chat entity writers emit and how often, of which those two intersect the set.
