@@ -34,7 +34,6 @@ const P = "erasure-live-project-p";
 const Q = "erasure-live-project-q";
 const A = "erasure-live-owner-a";
 const B = "erasure-live-owner-b";
-const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 
 /** An owned row as the app stores it (the sealed columns are opaque text to the database). */
@@ -113,6 +112,7 @@ test.describe("chat_threads erasure and retention on libSQL", () => {
       ...seedRow(id("all-b-p"), P, B),
       ...seedRow(id("all-b-q"), Q, B),
     ]);
+    expect(await ids()).toEqual([id("all-a-p"), id("all-a-q"), id("all-b-p"), id("all-b-q")]);
     await run(deleteOwnerThreadsStatements(A));
     expect(await ids()).toEqual([id("all-b-p"), id("all-b-q")]);
   });
@@ -145,8 +145,8 @@ test.describe("chat_threads erasure and retention on libSQL", () => {
   });
 
   // Unit pins: "expire deletes a row 31 days old at 30, keeps one 29 days old, and deletes NULL or
-  // empty updated_at" and "expire scoped to a project leaves other projects alone"; and
-  // "retentionCutoff is now minus whole days, as ISO". SQL: `updated_at < strftime(…,'now','-30 days')`
+  // empty updated_at" and "expire scoped to a project leaves other projects alone". `retentionCutoff`
+  // only places the rows here. SQL: `updated_at < strftime(…,'now','-30 days')`
   // — a STRICT comparison against the DATABASE clock at the moment the DELETE runs.
   // ★ No unit test pins a row EXACTLY at the cutoff, and none can be pinned here: `retentionCutoff`
   // is the CLIENT clock (display only), the DELETE reads the server's, and the two differ by the
@@ -157,7 +157,6 @@ test.describe("chat_threads erasure and retention on libSQL", () => {
     const days = 30;
     const now = new Date();
     const cutoff = retentionCutoff(now, days);
-    expect(cutoff).toBe(new Date(now.getTime() - days * DAY_MS).toISOString());
     const before = new Date(Date.parse(cutoff) - HOUR_MS).toISOString();
     const after = new Date(Date.parse(cutoff) + HOUR_MS).toISOString();
     await run([
@@ -167,6 +166,9 @@ test.describe("chat_threads erasure and retention on libSQL", () => {
       // Dated by the database clock on write: today.
       ...seedRow(id("exp-p-stamped"), P, B),
       ...seedRow(id("exp-q-before"), Q, A, before),
+    ]);
+    expect(await ids()).toEqual([
+      id("exp-p-after"), id("exp-p-before"), id("exp-p-blank"), id("exp-p-stamped"), id("exp-q-before"),
     ]);
 
     // One project: its stale and undated rows go; the other project's stale row stays.
@@ -186,6 +188,7 @@ test.describe("chat_threads erasure and retention on libSQL", () => {
       ...seedRow(id("sweep-b-p"), P, B),
       ...seedRow(id("sweep-a-q"), Q, A),
     ]);
+    expect(await ids()).toEqual([id("sweep-a-p"), id("sweep-a-q"), id("sweep-b-p")]);
     await run(projectSideTableSweepStatements(P));
     expect(await ids()).toEqual([id("sweep-a-q")]);
   });
