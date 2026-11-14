@@ -244,7 +244,7 @@ test.describe("chat_threads erasure and retention on libSQL", () => {
   // the database clock, and keeps one an hour ahead" — far (now + 2 days), year9999, soon (now + 1 hour).
   // SQL: `updated_at > strftime('%Y-%m-%dT%H:%M:%fZ','now', '+1 days')`, by the DATABASE clock, so far
   // and year9999 go and soon stays. The dates are placed by the CLIENT clock: far is deleted while the
-  // server is less than a day behind the runner, and soon kept while it is less than 23 hours ahead —
+  // server is less than a day ahead of the runner, and soon kept while it is less than 23 hours behind —
   // the same tolerance shape as the retention test above, only wider.
   test("retention expiry deletes threads dated more than a day in the future", async () => {
     const now = Date.now();
