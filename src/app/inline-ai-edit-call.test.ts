@@ -7,6 +7,7 @@ import { VIEW_AI_SCOPE } from "./view-ai-scope";
 import { buildViewScopeBlock } from "./view-ai-scope-block";
 import type { AppView } from "./nav-config";
 import { aiPrivacyFor } from "./ai-privacy";
+import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS, TOOL_DEFS } from "./chat-tool-defs";
 
 /** These tests are about the call mechanics, not people: a request for no project (unprotected). */
 const UNPROTECTED = aiPrivacyFor([]);
@@ -46,7 +47,7 @@ describe("callInlineEdit", () => {
     vi.spyOn(chatApi, "callClaude").mockResolvedValue(response);
     const r = await callInlineEdit({
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx", privacy: UNPROTECTED, model: "claude-x", lang: "en-US",
-      entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done", snapshot, guides: [], groundInGuides: false,
+      entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done", snapshot, guides: [], groundInGuides: false, peopleProtected: false,
     });
     expect(r.blocks.map((b) => b.name)).toEqual(["update_task"]);
     expect(r.text).toContain("Sure");
@@ -60,7 +61,7 @@ describe("callInlineEdit", () => {
       usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
     };
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(response);
-    await callInlineEdit({ apiKey: "sk-ant-secret000000000000", privacy: UNPROTECTED, model: "claude-y", lang: "en-US", entity: "task", item, itemLabel: "x", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    await callInlineEdit({ apiKey: "sk-ant-secret000000000000", privacy: UNPROTECTED, model: "claude-y", lang: "en-US", entity: "task", item, itemLabel: "x", instruction: "x", snapshot, guides: [], groundInGuides: false, peopleProtected: false });
     expect(spy.mock.calls[0][0]).toBe("sk-ant-secret000000000000");
     expect(spy.mock.calls[0][1]).toBe("claude-y");
   });
@@ -72,7 +73,7 @@ describe("callInlineEdit", () => {
       usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
     };
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(response);
-    await callInlineEdit({ apiKey: "sk-ant-secret000000000000", privacy: UNPROTECTED, model: "claude-y", lang: "en-US", entity: "task", item, itemLabel: "x", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    await callInlineEdit({ apiKey: "sk-ant-secret000000000000", privacy: UNPROTECTED, model: "claude-y", lang: "en-US", entity: "task", item, itemLabel: "x", instruction: "x", snapshot, guides: [], groundInGuides: false, peopleProtected: false });
     expect(spy.mock.calls[0][8]).toBe("inline-edit");
   });
 
@@ -96,7 +97,7 @@ describe("callInlineEdit", () => {
         viewDigest:
           "12 tasks visible as rows in the table.\nVisible rows: #7 Somebody else's task [To Do]",
       },
-      guides: [], groundInGuides: false,
+      guides: [], groundInGuides: false, peopleProtected: false,
     });
     const systemText = spy.mock.calls[0][2].map((b) => b.text).join("\n");
     expect(systemText).not.toContain("VIEW STATE");
@@ -140,7 +141,7 @@ describe("callInlineEdit", () => {
       await callInlineEdit({
         apiKey: "sk-ant-xxxxxxxxxxxxxxxx", privacy: UNPROTECTED, model: "claude-x", lang: "en-US",
         entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done",
-        snapshot: snap, guides: [], groundInGuides: false,
+        snapshot: snap, guides: [], groundInGuides: false, peopleProtected: false,
       });
       return spy;
     }
@@ -231,7 +232,7 @@ describe("callInlineEdit", () => {
       await callInlineEdit({
         apiKey: "sk-ant-xxxxxxxxxxxxxxxx", privacy: UNPROTECTED, model: "claude-x", lang: "en-US",
         entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done",
-        snapshot: withPointer, guides: [], groundInGuides: false,
+        snapshot: withPointer, guides: [], groundInGuides: false, peopleProtected: false,
       });
       const systemText = spy.mock.calls[0][2].map((b) => b.text).join("\n");
       expect(systemText).not.toContain("earlier conversations in this project");
@@ -256,7 +257,7 @@ describe("callInlineEdit guide text", () => {
     await callInlineEdit({
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx", privacy: UNPROTECTED, model: "claude-x", lang: "en-US",
       entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done",
-      snapshot, guides: [], groundInGuides: true, guideText,
+      snapshot, guides: [], groundInGuides: true, peopleProtected: false, guideText,
     });
     return spy.mock.calls[0][2] as { text: string }[];
   }
@@ -288,7 +289,7 @@ describe("callInlineEdit forecast block", () => {
     await callInlineEdit({
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx", privacy: UNPROTECTED, model: "claude-x", lang: "en-US",
       entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done",
-      snapshot: { ...snapshot, forecastView: true, forecastSimulation }, guides: [], groundInGuides: false,
+      snapshot: { ...snapshot, forecastView: true, forecastSimulation }, guides: [], groundInGuides: false, peopleProtected: false,
     });
     return (spy.mock.calls[0][2] as { text: string }[]).map((b) => b.text).join("\n");
   }
@@ -321,7 +322,7 @@ describe("the tools an inline edit offers (§715 D1)", () => {
   it("are exactly the tools its plan can act on", async () => {
     const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
-    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false, peopleProtected: false });
     const tools = spy.mock.calls[0][7] as { name: string }[] | undefined;
     expect(tools, "a tool list is passed").toBeDefined();
     const names = tools!.map((t) => t.name);
@@ -344,7 +345,7 @@ describe("the tools an inline edit's prompt names (§715 D1)", () => {
     expect(/Relevant tools here: ([^\n]*)\./.exec(buildViewScopeBlock("milestones", chatApi.toolNamesFor({})))?.[1]).toContain("list_milestones");
     for (const currentView of views) {
       spy.mockClear();
-      await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot: { ...snapshot, currentView }, guides: [], groundInGuides: false });
+      await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot: { ...snapshot, currentView }, guides: [], groundInGuides: false, peopleProtected: false });
       const carried = new Set((spy.mock.calls[0][7] as { name: string }[]).map((t) => t.name));
       const text = chatApi.systemBlocksText(spy.mock.calls[0][2]);
       // Control: the view scope block itself still ran for this view.
@@ -366,7 +367,7 @@ describe("the inline scope block (§715 D1)", () => {
   it("says the request carries no read tools", async () => {
     const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
-    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false, peopleProtected: false });
     const system = spy.mock.calls[0][2];
     const scope = system.find((b) => b.text.startsWith("INLINE EDIT MODE."));
     expect(scope?.text).toContain("This request carries no read tools");
@@ -380,7 +381,7 @@ describe("the inline request's update tools (§715 D1)", () => {
   it("do not ask for expectedToken", async () => {
     const empty: Awaited<ReturnType<typeof chatApi.callClaude>> = { content: [], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
-    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "milestone", item: { id: 5, name: "MVP target" }, itemLabel: "MVP target", instruction: "x", snapshot, guides: [], groundInGuides: false, peopleProtected: false });
     const tools = spy.mock.calls[0][7] as { name: string; input_schema: { properties?: Record<string, unknown>; required?: string[] } }[];
     // Control: the full list does carry it, so the check below has something to remove.
     const full = chatApi.toolsFor({}).find((d) => d.name === "update_milestone") as unknown as (typeof tools)[number];
@@ -409,7 +410,7 @@ describe("what the inline request carries (D7, AI-07)", () => {
   it("sends no stakeholder email, notes, influence, interest or noteLog, but keeps the name", async () => {
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
     const row = { id: 9, name: "Ada Lovelace", email: "x@example.com", notes: "secret note", influence: "High", interest: "Low", noteLog: [{ text: "log-entry-text" }] };
-    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "stakeholder", item: row, itemLabel: "Ada Lovelace", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "stakeholder", item: row, itemLabel: "Ada Lovelace", instruction: "x", snapshot, guides: [], groundInGuides: false, peopleProtected: false });
     const text = spy.mock.calls[0][2].map((b) => b.text).join("\n");
     expect(text).toContain("Ada Lovelace"); // positive control: the scope block is there
     for (const hidden of ["x@example.com", "secret note", "log-entry-text", "\"influence\"", "\"interest\""]) expect(text).not.toContain(hidden);
@@ -417,7 +418,7 @@ describe("what the inline request carries (D7, AI-07)", () => {
 
   it("drops the withheld properties from the entity's update tool", async () => {
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(empty);
-    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "stakeholder", item: { id: 9, name: "Ada" }, itemLabel: "Ada", instruction: "x", snapshot, guides: [], groundInGuides: false });
+    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "stakeholder", item: { id: 9, name: "Ada" }, itemLabel: "Ada", instruction: "x", snapshot, guides: [], groundInGuides: false, peopleProtected: false });
     const tools = spy.mock.calls[0][7] as Tool[];
     const props = (name: string) => Object.keys(tools.find((d) => d.name === name)?.input_schema.properties ?? {});
     const full = Object.keys((chatApi.toolsFor({}).find((d) => d.name === "update_stakeholder") as unknown as Tool).input_schema.properties ?? {});
@@ -427,5 +428,59 @@ describe("what the inline request carries (D7, AI-07)", () => {
     expect(props("update_task")).not.toContain("assigneeEmail");
     expect(props("update_absence")).not.toContain("type");
     expect(props("update_absence")).not.toContain("note");
+  });
+});
+
+describe("callInlineEdit under people protection", () => {
+  const EMPTY: Awaited<ReturnType<typeof chatApi.callClaude>> = {
+    content: [], stop_reason: "end_turn",
+    usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+  };
+  async function send(peopleProtected: boolean) {
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(EMPTY);
+    await callInlineEdit({ apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "task", item, itemLabel: "x", instruction: "x", snapshot, guides: [], groundInGuides: false, peopleProtected });
+    const call = spy.mock.calls[0];
+    spy.mockRestore();
+    return {
+      text: call[2].map((b) => b.text).join(" "),
+      flags: call[4],
+      tools: call[7] as ReadonlyArray<{ name: string; description: string }>,
+    };
+  }
+  const PEOPLE_LIVE_LINE = "You can also manage the resource directory";
+  const PROTECTED_OPENING = chatApi.PEOPLE_PROTECTED_INSTRUCTION.slice(0, 60);
+
+  it("protected inline edit sends the protected people instruction", async () => {
+    const r = await send(true);
+    expect(r.text).toContain(PROTECTED_OPENING);
+    expect(r.text).not.toContain(PEOPLE_LIVE_LINE);
+    expect(r.flags.peopleProtected).toBe(true);
+  });
+
+  it("protected inline edit offers no people tools", async () => {
+    const r = await send(true);
+    expect(r.tools.length).toBeGreaterThan(0);
+    expect(r.tools.filter((d) => PEOPLE_TOOLS.has(d.name))).toEqual([]);
+    const protectedOffered = r.tools.filter((d) => PEOPLE_PROTECTED_DEFS.has(d.name));
+    expect(protectedOffered.length).toBeGreaterThan(0);
+    for (const d of protectedOffered) expect(d.description).toBe(PEOPLE_PROTECTED_DEFS.get(d.name)!.description);
+  });
+
+  it("unprotected inline edit keeps the people tools", async () => {
+    const r = await send(false);
+    expect(r.text).toContain(PEOPLE_LIVE_LINE);
+    expect(r.flags.peopleProtected).toBe(false);
+    expect(r.tools.some((d) => PEOPLE_TOOLS.has(d.name))).toBe(true);
+    for (const d of r.tools.filter((x) => PEOPLE_PROTECTED_DEFS.has(x.name))) {
+      expect(d.description).toBe(TOOL_DEFS.find((x) => x.name === d.name)!.description);
+    }
+  });
+
+  it("inline tools follow each call's protection state", async () => {
+    for (const state of [true, false, true]) {
+      const r = await send(state);
+      expect(r.tools.some((d) => PEOPLE_TOOLS.has(d.name))).toBe(!state);
+      expect(r.text.includes(PEOPLE_LIVE_LINE)).toBe(!state);
+    }
   });
 });

@@ -19,8 +19,11 @@ import {
  *  same-typed flags cannot be transposed (§159). The inline path edits ONE item
  *  from a scoped prompt; searching prior chat history or prior threads is out of
  *  scope for it, and every tool it does not carry is schema it does not pay for
- *  on each keystroke-sized request. */
+ *  on each keystroke-sized request. People protection is NOT part of this
+ *  constant: it is per project and per call, so `callInlineEdit` adds
+ *  `peopleProtected` from its args to both the prompt and the request flags. */
 const NO_RECALL_TOOLS: ToolFlags = { historySearch: false, chatSearch: false };
+import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS } from "./chat-tool-defs";
 import { type ToolDispatcher } from "./chat-tools";
 import { type Lang } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
@@ -43,6 +46,10 @@ export interface InlineEditArgs {
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>;
   guides: readonly OperatingGuide[];
   groundInGuides: boolean;
+  /** AI people protection: the open project protects its people, so the request carries the protected
+   *  instruction and tool set, exactly as a chat send does. Required: a caller that forgets it would
+   *  send the people tools to a protected project. */
+  peopleProtected: boolean;
   /** §701 — the guides that target inline edit, from `actionGuideText`;
    *  appended after the scope block. */
   guideText?: string;
@@ -61,7 +68,7 @@ export interface InlineEditResult {
 }
 
 type InlineTools = ReturnType<typeof toolsNamed>;
-let inlineToolsCache: InlineTools | null = null;
+const inlineToolsCache = new Map<boolean, InlineTools>();
 
 /** The `update_*` tool name -> the fields the inline editor withholds from it (D7). */
 function withheldByUpdateTool(): ReadonlyMap<string, ReadonlySet<string>> {
@@ -73,10 +80,16 @@ function withheldByUpdateTool(): ReadonlyMap<string, ReadonlySet<string>> {
  *  stored row's token itself at apply (`use-inline-entity-edit.ts`). A model that follows the schema
  *  asks to read first, which ends in an empty plan. Built once: the set never changes. ★ So a test
  *  that mocks `toolsNamed` after the first inline call in its file never reaches this path. */
-function inlineTools(): InlineTools {
-  if (inlineToolsCache) return inlineToolsCache;
+function inlineTools(peopleProtected: boolean): InlineTools {
+  const cached = inlineToolsCache.get(peopleProtected);
+  if (cached) return cached;
   const withheld = withheldByUpdateTool();
-  inlineToolsCache = toolsNamed(PLANNABLE_TOOL_NAMES).map((def) => {
+  // Under protection the people tools go and four definitions swap for their protected variants, the
+  // selection chat makes (`toolsFor`): same sets, same map. The cache breakpoint rides the swap.
+  const names = peopleProtected ? new Set([...PLANNABLE_TOOL_NAMES].filter((n) => !PEOPLE_TOOLS.has(n))) : PLANNABLE_TOOL_NAMES;
+  const built = toolsNamed(names).map((base) => {
+    const protectedDef = peopleProtected ? PEOPLE_PROTECTED_DEFS.get(base.name) : undefined;
+    const def = protectedDef ? { ...protectedDef, ...("cache_control" in base ? { cache_control: base.cache_control } : {}) } : base;
     const schema = def.input_schema as { properties?: Record<string, unknown>; required?: readonly string[] };
     if (!schema.properties) return def;
     // D7: the entity's update tool also loses the withheld properties - a schema the model cannot see
@@ -93,7 +106,8 @@ function inlineTools(): InlineTools {
       },
     };
   }) as InlineTools;
-  return inlineToolsCache;
+  inlineToolsCache.set(peopleProtected, built);
+  return built;
 }
 
 function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLabel: string): SystemBlock {
@@ -167,7 +181,8 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // disappears with the tool. `NO_RECALL_TOOLS` alone would not: it names every
   // tool but the two recall ones.
   // §715 D1 — only the tools the plan can act on: a read tool here is a call nobody answers.
-  const tools = inlineTools();
+  const tools = inlineTools(args.peopleProtected);
+  const toolFlags: ToolFlags = { ...NO_RECALL_TOOLS, peopleProtected: args.peopleProtected };
   const offered = new Set(tools.map((d) => d.name));
   const system: SystemBlock[] = [
     ...buildSystemPrompt(
@@ -180,7 +195,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
       },
       args.guides,
       args.groundInGuides,
-      NO_RECALL_TOOLS,
+      toolFlags,
       offered,
     ),
     scopeBlock(args.entity, args.item, args.itemLabel),
@@ -198,7 +213,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     args.model,
     system,
     [{ role: "user", content: args.instruction }],
-    NO_RECALL_TOOLS,
+    toolFlags,
     args.privacy,
     args.signal,
     tools,
