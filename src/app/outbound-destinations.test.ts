@@ -121,13 +121,17 @@ describe("outbound destinations registry", () => {
         expect(de, key).not.toMatch(/\b(sicher|konform|EU-gehostet|niemals)\b/i);
       }
     });
-    it("relay and gateway texts say the key is checked before the first request a server process sees with it", () => {
+    it("relay and gateway texts say when the key check repeats", () => {
       for (const key of ["outboundAiRelaySent", "outboundAiGatewaySent"] as const) {
         const en = t("en-US", key);
-        expect(en, key).toContain("first request");
-        expect(en, key).not.toContain("before each such request");
-        expect(en, key).not.toContain("each is preceded by");
-        expect(t("de", key), key).not.toContain("vor jeder solchen Anfrage");
+        expect(en, key).toContain("no recent result");
+        expect(en, key).toContain("usually not checked again");
+        for (const old of ["before each such request", "each is preceded by", "first request", "every request"]) {
+          expect(en, key).not.toContain(old);
+        }
+        const de = t("de", key);
+        expect(de, key).toContain("kein aktuelles Ergebnis");
+        expect(de, key).not.toContain("vor jeder solchen Anfrage");
       }
     });
   });
