@@ -478,7 +478,7 @@ describe("AI briefs", () => {
     expect(figuresViolations(f)).toHaveLength(2);
   });
 
-  const appendix = ["| id | what |", "|---|---|", "| E1 | one |", "| E2 | two |"].join("\n");
+  const appendix = ["| Id | Claim | Label | Source |", "|---|---|", "| E1 | one | l | s |", "| E2 | two | l | s |"].join("\n");
 
   it("evidenceViolations reports a missing id and a language mismatch", () => {
     const ok = { "en/ceo.md": "See E1 and E2.", "de/ceo.md": "Siehe E2 und E1." };
@@ -588,7 +588,7 @@ describe("AI briefs, fix round 1", () => {
   });
 
   const appendixOf = (ids, extra = "") =>
-    ["| id | what |", "|---|---|", ...ids.map((n) => `| E${n} | row |`), extra].join("\n");
+    ["| Id | Claim | Label | Source |", "|---|---|", ...ids.map((n) => `| E${n} | row |`), extra].join("\n");
 
   it("evidenceViolations counts appendix rows only outside generated blocks and fences", () => {
     const hidden = [appendixOf([1]), B("figures"), "| E2 | generated |", E("figures"), "```", "| E3 | fenced |", "```"].join("\n");
@@ -619,5 +619,63 @@ describe("AI briefs, fix round 1", () => {
     expect(linkViolations(readme, BRIEF_FILES)).toEqual([]);
     expect(claimViolations(readme, "en")).toEqual([]);
     expect(claimViolations(readme, "de")).toEqual([]);
+  });
+});
+
+describe("AI briefs, tooling review", () => {
+  const figures = () => JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "docs", "briefs", "figures.json"), "utf8"));
+  const mutate = (fn) => {
+    const f = figures();
+    fn(f);
+    return figuresViolations(f);
+  };
+
+  it("I1: the German deny list catches compounds ending in a denied stem", () => {
+    for (const l of ["Datensouveränität ist gegeben.", "Digitale Souveränität.", "Eine datensouveräne Lösung."]) {
+      expect(claimViolations(l, "de"), l).not.toHaveLength(0);
+    }
+  });
+
+  it("I2: a protection state outside off/on/relay is rejected", () => {
+    expect(mutate((f) => { f.paths[0].protection = "ON"; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.paths[0].protection = "maybe"; })).not.toHaveLength(0);
+  });
+
+  it("I3: usdPerCall must follow from the tokens at the listed rates, and the model must have rates", () => {
+    expect(mutate((f) => { f.paths[0].usdPerCall = f.paths[0].usdPerCall + 0.01; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.model = "claude-unknown-9"; })).not.toHaveLength(0);
+    expect(mutate((f) => { delete f.rates["claude-sonnet-5"]; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.paths[0].usdPerCall = f.paths[0].usdPerCall + 0.00004; })).toEqual([]);
+  });
+
+  it("M4: more paraphrases of the denied claims are caught", () => {
+    for (const l of ["It's secure.", "The savings have been measured.", "Humans always stay in the loop.", "Savings were measured."]) {
+      expect(claimViolations(l, "en"), l).not.toHaveLength(0);
+    }
+    for (const l of [
+      "Die Einsparungen wurden gemessen.", "Die Zeitersparnis wurde belegt.", "Anthropics Bedingungen garantieren die Löschung.",
+      "Ein Mensch ist stets beteiligt.", "Der Mensch bleibt stets eingebunden.",
+    ]) {
+      expect(claimViolations(l, "de"), l).not.toHaveLength(0);
+    }
+  });
+
+  it("M5: counts, duplicates and ids are checked for plausibility", () => {
+    expect(mutate((f) => { f.paths[0].calls = -1; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.paths[0].protectionUnverifiedCalls = f.paths[0].calls + 1; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.paths.push({ ...f.paths[0] }); })).not.toHaveLength(0);
+    expect(mutate((f) => { f.hiddenWhenProtected = ["chat"]; })).not.toHaveLength(0);
+    expect(mutate((f) => { f.paths[0].id = "not ok!"; })).not.toHaveLength(0);
+  });
+
+  const table = (ids) => ["| Id | Claim | Label | Source |", "|---|---|---|---|", ...ids.map((n) => `| E${n} | c | l | s |`)].join("\n");
+
+  it("M9: ids cited in the appendix's own prose must be rows, and only the Id table's rows count", () => {
+    const pages = { "en/a.md": "E1", "de/a.md": "E1" };
+    expect(evidenceViolations(pages, `Intro cites E1.\n\n${table([1])}`, `Intro zitiert E1.\n\n${table([1])}`)).toEqual([]);
+    const bad = evidenceViolations(pages, `Intro cites E9.\n\n${table([1])}`, `Intro.\n\n${table([1])}`);
+    expect(bad).toEqual(["en/appendix.md: cites E9, which is not a row of the appendix evidence table"]);
+    const other = `| Name | x |\n|---|---|\n| E2 | other table |\n\n${table([1])}`;
+    expect(evidenceViolations({ "en/a.md": "E2", "de/a.md": "E2" }, other, other)).toHaveLength(2);
   });
 });

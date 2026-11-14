@@ -795,7 +795,12 @@ npm run followups:index:check # heading ⟺ index-row GATE over docs/open-follow
                             # ★ Parsing is pure (`followup-index-lib.mjs`, unit-tested, NO shebang — a `#!`
                             # on an imported .mjs makes vitest throw naming the WRONG file); the CLI
                             # `check-followup-index.mjs` owns the I/O and the exit codes.
-npm run compliance:check    # compliance pack GATE over docs/compliance/{en,de}/ (BLOCKING in CI, `static`)
+npm run compliance:check    # compliance pack GATE over docs/compliance/{en,de}/ AND the AI briefs in docs/briefs/{en,de}/
+                            # (BLOCKING in CI, `static`). The briefs run the same rules over BRIEF_FILES /
+                            # BRIEF_BLOCKS_BY_FILE, plus: `docs/briefs/figures.json` shape, protection states,
+                            # commit and cost-per-call arithmetic (`figuresViolations`); every `E<n>` a page or the
+                            # appendix prose cites is a row of the appendix evidence table, and en/de cite the same
+                            # ids (`evidenceViolations`); the briefs README links all sixteen pages (`linkViolations`).
                             # Fails on a malformed, unknown or misplaced generated block (each file's
                             # blocks are BLOCKS_BY_FILE in `scripts/compliance/pack-config.mjs`, which
                             # must name every pack file), an English/German pair whose heading levels or
@@ -805,7 +810,10 @@ npm run compliance:check    # compliance pack GATE over docs/compliance/{en,de}/
                             # between the languages or names a version newer than APP_VERSION, or a root
                             # README without its links to en/README.md and de/README.md.
                             # ★★ Exit 1 = drift, exit 2 = could not scan (docs/compliance, a language
-                            # directory, the register or src/app/version.ts unreadable).
+                            # directory, the register, src/app/version.ts, docs/briefs/README.md or
+                            # docs/briefs/{en,de}/ unreadable; an invalid figures.json is exit 1).
+                            # `scripts/check-compliance-pack.test.mjs` runs the script against a scratch copy, one
+                            # injected violation per wiring point.
                             # ★★ It does NOT check that block BODIES match the code: rendering them needs
                             # the TypeScript sources, so that is the unit test
                             # `src/app/compliance/pack-drift.test.ts` (`unit` job). Rewrite them with
