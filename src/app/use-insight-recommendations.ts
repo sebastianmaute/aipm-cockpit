@@ -390,6 +390,10 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     },
     [isPopout, setInsights],
   );
+  // Review 3, R6: the RENDER-REACTIVE answer from the same source as `peopleProtectedNow`. The getter is stable,
+  // so as a memo input it never told the preview that the project's protection flipped; this boolean does, so
+  // the preview strips (or shows) person fields exactly as the confirm will, and the controls withhold Generate.
+  const peopleProtectedLive = usePeopleProtected();
   const insightActions: InsightActions = useMemo(
     () => ({
       onAcknowledge: onAcknowledgeInsight, onAct: onActInsight, onDismiss: onDismissInsight,
@@ -397,9 +401,11 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
       onApplyRecommendation: onApplyRecommendationInsight,
       onRejectRecommendation: onRejectRecommendationInsight,
       ...(onLogAsRaid ? { onLogAsRaid } : {}),
+      // The controls withhold Generate on a person's insight by the same live answer the send-time rule reads.
+      peopleProtected: peopleProtectedLive,
     }),
     [onAcknowledgeInsight, onActInsight, onDismissInsight, onGenerateRecommendationInsight,
-      onApplyRecommendationInsight, onRejectRecommendationInsight, onLogAsRaid],
+      onApplyRecommendationInsight, onRejectRecommendationInsight, onLogAsRaid, peopleProtectedLive],
   );
 
   // The insight currently under review + a live preview of its recommendation's
@@ -410,10 +416,6 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     () => ({ absences, resources: [...resourcesById.values()], holidaySet }),
     [absences, resourcesById, holidaySet],
   );
-  // Review 3, R6: the RENDER-REACTIVE answer from the same source as `peopleProtectedNow`. The getter is stable,
-  // so as a memo input it never told the preview that the project's protection flipped; this boolean does, so
-  // the preview strips (or shows) person fields exactly as the confirm will.
-  const peopleProtectedLive = usePeopleProtected();
   const reviewPlan = useMemo(
     () =>
       reviewInsight?.recommendation

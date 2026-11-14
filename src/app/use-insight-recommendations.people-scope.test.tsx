@@ -113,3 +113,12 @@ describe("in the background", () => {
     for (const term of PROFILE) expect(personCtx).toContain(term);
   });
 });
+
+// The CTA side: the controls read the same live answer, so a protected person insight says why it gets nothing.
+describe("the insight actions carry the live protection", () => {
+  it.each([true, false])("peopleProtected = %s", (on) => {
+    flags.peopleProtected = on;
+    const { result } = renderHook(() => useInsightRecommendations(mkDeps([PERSON_INSIGHT], false)));
+    expect(result.current.insightActions.peopleProtected).toBe(on);
+  });
+});

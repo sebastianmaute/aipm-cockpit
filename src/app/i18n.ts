@@ -5878,6 +5878,7 @@ const enUS = {
   insightRecommendationRejected: "Recommendation dismissed.",
   insightRecommendationTimelogOff: "No AI recommendation for a Timelog finding while Timelog is switched off.",
   insightRecommendationTimelogOffApply: "This recommendation can't be applied while Timelog is switched off.",
+  insightRecommendationPeopleProtected: "No AI recommendation for an insight about one person while people protection is on.",
   activityAiInsightRecommendation: "AI applied an insight recommendation: {1}",
 
   // AI resource-allocation planning

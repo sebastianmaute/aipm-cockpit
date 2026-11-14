@@ -236,6 +236,9 @@ export interface InsightActions {
   readonly onRejectRecommendation: (id: number) => void;
   /** Opens the floating RAID editor seeded from the insight (§515). Absent in popouts. */
   readonly onLogAsRaid?: (insight: Insight) => void;
+  /** AI people protection, render-reactive (`usePeopleProtected`): true withholds Generate on an insight about one
+   *  person, which the recommendations never send (`insightReachesAi`), and says why. Absent = not protected. */
+  readonly peopleProtected?: boolean;
 }
 
 /** A fresh detection (no lifecycle/timestamps — reconcile owns those). */
