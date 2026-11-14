@@ -16,11 +16,12 @@ Pilot, der das misst.
   Ressourcenverzeichnis, Abwesenheiten sowie angehängte Dateien und E-Mails
   ([KI-Pfade](appendix.md#ki-pfade); E1, *im Code gelesen*).
 - **Personen:** Bei aktivem Personenschutz werden die Namen, E-Mail-Adressen und Telefonnummern der Personen,
-  die das Projekt kennt, vor dem Senden durch Platzhalter ersetzt (E14, *getestet (Unit)*). Namen, die es nicht
-  kennt, und die Namen in der Beschreibung eines neuen Projekts werden so gesendet, wie sie dastehen (E35,
-  *im Code gelesen*).
+  die das Projekt kennt, vor dem Senden durch Platzhalter ersetzt, ebenso jede E-Mail-Adresse, jede IBAN und
+  jede Zahl in Form einer Telefonnummer, gleich wem sie gehört (E14, *getestet (Unit)*). Namen, die das Projekt
+  nicht kennt, in getipptem Text, angehängten E-Mails und Dateien oder in der Beschreibung eines neuen Projekts,
+  werden so gesendet, wie sie dastehen (E35, *im Code gelesen*).
 - **Region:** Alle 96 gemessenen Anfragen meldeten für Anthropics inference_geo den Wert `global` (E22,
-  *gemessen*).
+  *gemessen*); was das für Übermittlungen bedeutet, ist eine Frage für die Datenschutzbeauftragten.
 - **Andere Dienste,** mit denen die App spricht, sind mit dem aufgeführt, was jeder erhält (E34,
   *im Code gelesen*).
 - **Freigabe in der App:** Jede Person akzeptiert den KI-Datenhinweis auf jedem Gerät und erneut, wenn sich sein
@@ -37,10 +38,11 @@ nur Ihre Organisation beantworten kann.
   (E19, *getestet (Unit)*).
 - **Schlüssel:** Die KI lässt sich auf Schlüssel Ihrer eigenen Anthropic-Organisation beschränken; andere
   Schlüssel werden abgelehnt, bevor irgendetwas weitergeleitet wird (E7, *getestet (Unit)*).
-- **Weg:** Der KI-Verkehr kann über Ihr eigenes Gateway laufen (E5, *getestet (Unit)*).
-- **Aufbewahrung:** Gespeicherte Chats gibt es nur mit einer Turso-Datenbank; sie werden 30 Tage nach ihrer
-  letzten Änderung gelöscht, sofern der Betreiber nicht 1 bis 3650 Tage einstellt (E28, E29,
-  *im Code gelesen*).
+- **Weg:** Der KI-Verkehr kann über Ihr eigenes Gateway laufen (E5, *getestet (Unit)*), noch nicht gegen ein
+  echtes Gateway betrieben (§802).
+- **Aufbewahrung:** Gespeicherte Chats gibt es nur mit einer Turso-Datenbank und dem Wiederherstellungsschlüssel
+  des Betreibers (E28, *im Code gelesen*); wo die Löschung eingerichtet ist, werden sie 30 Tage nach ihrer
+  letzten Änderung gelöscht, sofern der Betreiber nicht 1 bis 3650 Tage einstellt (E29, *im Code gelesen*).
 - **Grenze:** Der Schutz gilt in der App, wie sie ausgeliefert wird; eine veränderte Kopie oder ein anderer
   Client mit demselben Schlüssel kann ohne ihn senden (E15, *im Code gelesen*).
 
@@ -63,9 +65,12 @@ nur Ihre Organisation beantworten kann.
   beantworten, und fragen Sie den CIO, welche [Betriebsschalter](appendix.md#betriebsschalter) der Pilot setzt.
 - **Pilot, als Vorlage:**
   - *Umfang:* Personenschutz erzwingen (E19, *getestet (Unit)*); das blendet den Vorschlag für die
-    Ressourcenplanung und den RACI-Vorschlag aus und schaltet das Diktat ab (E18, *getestet (Unit)*). Den
-    Vorschlag für ein neues Projekt auslassen, dessen Namen sich nicht schützen lassen (E35,
-    *im Code gelesen*). Ressourcenplanung und RACI erst, wenn Betriebsrat und Datenschutzbeauftragte zustimmen.
+    Ressourcenplanung und den RACI-Vorschlag aus und schaltet das Diktat ab (E18, *getestet (Unit)*). Namen,
+    die das Projekt nicht kennt, werden weiterhin so gesendet, wie sie dastehen (E35, *im Code gelesen*). Den
+    Vorschlag für ein neues Projekt auslassen, dessen Namen sich nicht schützen lassen: Kein Schalter erledigt
+    das, sagen Sie es den Nutzern (E42, *im Code gelesen*). Ressourcenplanung und RACI erst, wenn Betriebsrat
+    und Datenschutzbeauftragte zustimmen; dazu wird der erzwungene Schutz aufgehoben, und danach bleibt jedes
+    Projekt geschützt, bis es Personen ausdrücklich zulässt (E41, *getestet (Unit)*).
   - *Dauer und Größe:* nach Ihrer Wahl, etwa 6–12 Wochen und 10–30 Projektleitungen.
   - *Budget:* etwa 25 $, 67 $ oder 165 $ im Monat je Team von fünf Personen bei leichter, typischer oder
     intensiver Nutzung (E25, *geschätzt*).
