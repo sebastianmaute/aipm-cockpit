@@ -6,10 +6,9 @@ Die KI sendet Projektinhalte an Anthropic oder an das Gateway der Organisation, 
 Server der App (E4, *getestet (Unit)*; E5, *getestet (Unit)*). Das Modell liest Text, den andere geschrieben
 haben, etwa angehängte E-Mails, aus Jira synchronisierte Aufgaben und für ein neues Projekt ausgewählte
 Confluence-Seiten; der Chat macht aus seinen Antworten Änderungen, der Projektassistent füllt nur ein Formular
-vor (E47, *getestet (Unit)*; E48, *im Code gelesen*; E49, *im Code gelesen*). Auf dem Relay-Weg setzt der
-Server die
-Schlüsselprüfung und die Ablehnung bei abgeschalteter KI durch (E7, *getestet (Unit)*; E19,
-*getestet (Unit)*); auf dem direkten Weg besteht die Abschaltung aus der Content Security Policy der Seite und der
+vor (E47, *getestet (Unit)*; E48, *im Code gelesen*; E49, *im Code gelesen*). Auf dem Relay-Weg lehnt der
+Server Aufrufe ab, solange die KI abgeschaltet ist (E19, *getestet (Unit)*), und führt, wenn eine
+Schlüsselbeschränkung gesetzt ist, die Schlüsselprüfung aus (E7, *getestet (Unit)*); auf dem direkten Weg besteht die Abschaltung aus der Content Security Policy der Seite und der
 eigenen Prüfung der App, beide im Browser angewendet (E53, *getestet (Unit)*; E3, *getestet (Unit)*), sodass eine
 veränderte Kopie dort nicht aufgehalten wird, und ein anderer Client mit demselben Schlüssel wird auf keinem
 der beiden Wege aufgehalten (E52, *im Code gelesen*). Auch der

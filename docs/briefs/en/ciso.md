@@ -6,8 +6,8 @@ The AI sends project content to Anthropic, or to the organisation's gateway, fro
 server (E4, *tested (unit)*; E5, *tested (unit)*). The model reads text others wrote, such as attached mail,
 Jira-synced tasks and Confluence pages picked for a new project; the chat turns its answers into changes, while
 the project wizard only pre-fills a form (E47, *tested (unit)*; E48, *read in code*; E49, *read in code*). On
-the relay route the
-server enforces the key check and the AI-off refusal (E7, *tested (unit)*; E19, *tested (unit)*); on the direct
+the relay route the server refuses calls while AI is off (E19, *tested (unit)*) and, when a key restriction
+is set, runs the key check (E7, *tested (unit)*); on the direct
 route AI-off is the page's content policy and the app's own check, both applied by the browser (E53,
 *tested (unit)*; E3, *tested (unit)*), so a modified copy is not stopped there, and another client with the
 same key is not stopped on either route (E52, *read in code*).
