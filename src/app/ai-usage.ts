@@ -14,7 +14,7 @@ const EMPTY_USAGE: Usage = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 };
 
 /** Billing weight per usage class, as a RATIO against the base input price
  *  rather than as money. Anthropic holds these ratios across its current
- *  models (Sonnet $3/$15, Haiku $1/$5, Opus $15/$75 — all 1:5 input:output;
+ *  models (Sonnet, Opus and Haiku alike: output 5x input,
  *  cache write 1.25x and cache read 0.1x everywhere), so a cost basis built on
  *  them needs NO price table and NO per-model branch, and cannot go stale when
  *  a published rate moves.
