@@ -216,7 +216,7 @@ export const DENY_PHRASES = Object.freeze({
     { re: "sovereign(?:ty)?", label: "sovereign" },
     { re: "(?:savings|time\\s+saved)\\s+(?:are|is|were|have\\s+been|has\\s+been)\\s+(?:measured|proven|verified)", label: "savings stated as measured" },
     { re: "(?:measured|proven|verified)\\s+(?:time\\s+)?savings", label: "measured savings" },
-    { re: "(?:\\p{L}+['’]s|is|are)\\s+(?:fully\\s+)?secure", label: "is secure" },
+    { re: "(?:(?:it|that)['’]s|is|are)\\s+(?:fully\\s+)?secure", label: "is secure" },
     { re: "(?:gateway|central(?:ly)?\\s+governance)\\s+(?:is|are)\\s+proven", label: "gateway proven" },
     { re: "central(?:ised|ized)?\\s+governance", label: "central governance" },
     { re: "per[- ]feature\\s+cost\\s+(?:control|limits?|caps?)", label: "per-feature cost control" },
@@ -613,7 +613,8 @@ export function figuresViolations(figures) {
     for (const k of FIGURE_KEYS.path.slice(2)) c.num(o[k], `${where}.${k}`);
     if (typeof o.id === "string" && !FREE_KEY.test(o.id)) out.push(`${where}.id: must match ${FREE_KEY}`);
     if (!PROTECTIONS.includes(o.protection)) out.push(`${where}.protection: must be one of ${PROTECTIONS.join(", ")}`);
-    for (const k of FIGURE_KEYS.path.slice(2)) if (isNum(o[k]) && o[k] < 0) out.push(`${where}.${k}: must not be negative`);
+    if (isNum(o.calls) && o.calls < 1) out.push(`${where}.calls: must be at least 1`);
+    for (const k of FIGURE_KEYS.path.slice(2)) if (isNum(o[k]) && o[k] < 0 && k !== "calls") out.push(`${where}.${k}: must not be negative`);
     if (isNum(o.protectionUnverifiedCalls) && isNum(o.calls) && o.protectionUnverifiedCalls > o.calls) {
       out.push(`${where}.protectionUnverifiedCalls: exceeds calls`);
     }
@@ -662,15 +663,16 @@ const EVIDENCE_ROW_RE = /^\s*\|\s*E(\d+)\s*\|/;
 const EVIDENCE_HEADER_RE =
   /^\s*\|\s*Id\s*\|\s*(?:Claim|Aussage)\s*\|\s*(?:Label|Belegart)\s*\|\s*(?:Source|Quelle)\s*\|\s*$/;
 
-/** Evidence ids cited in one page's prose (outside fences and generated blocks), as a sorted unique list. */
-function citedEvidenceIds(src) {
+/** Evidence ids cited in one text's prose (outside fences and generated blocks), as a sorted unique list. In the
+ *  appendix (`isAppendix`) a table row's own id cell defines the row and is not a citation; on a page it is one. */
+function citedEvidenceIds(src, isAppendix = false) {
   const { lines, blocks } = scanBlocks(src);
   const fenced = fencedFlags(lines);
   const ids = new Set();
   lines.forEach((line, i) => {
     if (fenced[i] || blocks.some((b) => i >= b.begin && i <= b.end)) return;
-    // A table row's own id cell defines the row; only what is cited around and inside it counts.
-    for (const m of line.replace(EVIDENCE_ROW_RE, "|").matchAll(EVIDENCE_ID_RE)) ids.add(Number(m[1]));
+    const text = isAppendix ? line.replace(EVIDENCE_ROW_RE, "|") : line;
+    for (const m of text.matchAll(EVIDENCE_ID_RE)) ids.add(Number(m[1]));
   });
   return [...ids].sort((a, b) => a - b);
 }
@@ -715,7 +717,7 @@ export function evidenceViolations(pages, appendix, appendixDe) {
     out.push(`appendix: evidence row ids differ (en [${idList(enRows)}]; de [${idList(deRows)}])`);
   }
   for (const [lang, src, rows] of [["en", appendix, enRows], ["de", appendixDe ?? appendix, deRows]]) {
-    for (const n of citedEvidenceIds(src)) {
+    for (const n of citedEvidenceIds(src, true)) {
       if (!rows.has(n)) out.push(`${lang}/appendix.md: cites E${n}, which is not a row of the appendix evidence table`);
     }
     if (appendixDe === undefined) break;

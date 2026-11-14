@@ -679,3 +679,36 @@ describe("AI briefs, tooling review", () => {
     expect(evidenceViolations({ "en/a.md": "E2", "de/a.md": "E2" }, other, other)).toHaveLength(2);
   });
 });
+
+describe("AI briefs, last open paths", () => {
+  const figures = () => JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "docs", "briefs", "figures.json"), "utf8"));
+  const table = (ids) => ["| Id | Claim | Label | Source |", "|---|---|---|---|", ...ids.map((n) => `| E${n} | c | l | s |`)].join("\n");
+
+  it("N1: a table row id on a brief page is a citation, not a definition", () => {
+    const pages = { "en/ceo.md": "| E99 | x |", "de/ceo.md": "| E99 | x |" };
+    expect(evidenceViolations(pages, table([1]), table([1]))).toEqual([
+      "en/ceo.md: cites E99, which is not a row of the appendix evidence table",
+      "de/ceo.md: cites E99, which is not a row of the appendix evidence table",
+    ]);
+    expect(evidenceViolations({ "en/ceo.md": "| E1 | x |", "de/ceo.md": "| E1 | x |" }, table([1]), table([1]))).toEqual([]);
+  });
+
+  it("N1: the appendix's own row id cells still define rows rather than cite them", () => {
+    expect(evidenceViolations({}, table([1, 2]), table([1, 2]))).toEqual([]);
+  });
+
+  it("N4: only it's / that's / is / are forms flag 'secure'", () => {
+    expect(claimViolations("It's secure.", "en")).not.toHaveLength(0);
+    expect(claimViolations("That's secure.", "en")).not.toHaveLength(0);
+    expect(claimViolations("The service is secure.", "en")).not.toHaveLength(0);
+    expect(claimViolations("Let's secure the key.", "en")).toEqual([]);
+    expect(claimViolations("The team's secure channel is separate.", "en")).toEqual([]);
+  });
+
+  it("N5: every path needs at least one call", () => {
+    const f = figures();
+    f.paths[0].calls = 0;
+    f.paths[0].protectionUnverifiedCalls = 0;
+    expect(figuresViolations(f)).toEqual(["figures.paths[0].calls: must be at least 1"]);
+  });
+});

@@ -810,10 +810,17 @@ npm run compliance:check    # compliance pack GATE over docs/compliance/{en,de}/
                             # between the languages or names a version newer than APP_VERSION, or a root
                             # README without its links to en/README.md and de/README.md.
                             # ★★ Exit 1 = drift, exit 2 = could not scan (docs/compliance, a language
-                            # directory, the register, src/app/version.ts, docs/briefs/README.md or
-                            # docs/briefs/{en,de}/ unreadable; an invalid figures.json is exit 1).
-                            # `scripts/check-compliance-pack.test.mjs` runs the script against a scratch copy, one
-                            # injected violation per wiring point.
+                            # directory, the register, src/app/version.ts, docs/briefs/README.md,
+                            # docs/briefs/figures.json or docs/briefs/{en,de}/ unreadable or missing; a
+                            # figures.json that is present but not valid JSON is exit 1).
+                            # `scripts/check-compliance-pack.test.mjs` spawns the script against a scratch copy
+                            # of docs/compliance, docs/briefs and the scripts, and expects exit 1 for the
+                            # injections it lists (claims, register citations, evidence ids, blocks, missing
+                            # and extra pages, parity, root-README links, CITED_GAPS, figures.json). For nine
+                            # of them (blocks vs BLOCKS_BY_FILE, briefs-README citations, missing and extra
+                            # page, root-README claim, citation and link, pack parity, `gapViolations`) the
+                            # script line that catches it was deleted and the test went red; a check the test
+                            # does not list is not covered by it.
                             # ★★ It does NOT check that block BODIES match the code: rendering them needs
                             # the TypeScript sources, so that is the unit test
                             # `src/app/compliance/pack-drift.test.ts` (`unit` job). Rewrite them with
