@@ -527,6 +527,14 @@ describe("AllocPlanModal — what the request left out", () => {
     expect(notice.textContent).toContain("milestones: 3");
   });
 
+  it("before the request says the AI will not see it, after says it did not", () => {
+    const input = render(<AllocPlanModal {...props({ stage: "input", omitted: cut })} />);
+    expect(screen.getByText(/Left out of the request/).textContent).toContain("will not see");
+    input.unmount();
+    render(<AllocPlanModal {...props({ stage: "preview", omitted: cut })} />);
+    expect(screen.getByText(/Left out of the request/).textContent).toContain("did not see");
+  });
+
   it("names only the kinds that were cut", () => {
     render(<AllocPlanModal {...props({ omitted: { resources: 0, periods: 0, tasks: 4, milestones: 0 } })} />);
     const notice = screen.getByText(/Left out of the request/);

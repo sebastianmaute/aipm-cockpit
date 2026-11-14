@@ -5616,6 +5616,7 @@ export const de: Record<TranslationKey, string> = {
   allocPlanHoursOfCapacity: "{0}h von {1}h",
   allocPlanTruncated: "Einige vorgeschlagene Änderungen wurden nicht angezeigt — der Plan war zu groß.",
   allocPlanOmitted: "Zu umfangreich, um vollständig gesendet zu werden: Die KI sieht nicht den ganzen Plan, ihr Vorschlag kann das Ausgelassene also nicht berücksichtigen. Nicht in der Anfrage enthalten: {0}.",
+  allocPlanOmittedInput: "Zu umfangreich, um vollständig gesendet zu werden: Die KI wird nicht den ganzen Plan sehen, ihr Vorschlag kann das Ausgelassene also nicht berücksichtigen. Nicht in der Anfrage enthalten: {0}.",
   allocPlanOmittedPeople: "Personen: {0}",
   allocPlanOmittedPeriods: "Zeiträume: {0}",
   allocPlanOmittedTasks: "offene Aufgaben: {0}",

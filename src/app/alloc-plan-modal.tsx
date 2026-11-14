@@ -101,11 +101,12 @@ const OMITTED_KEY: Record<keyof AllocOmissions, TranslationKey> = {
   milestones: "allocPlanOmittedMilestones",
 };
 
-function omittedText(lang: Lang, omitted: AllocOmissions): string {
+/** Before the request is sent the AI "will not see" what is cut; once the proposal is back it "did not see" it. */
+function omittedText(lang: Lang, omitted: AllocOmissions, stage: "input" | "preview"): string {
   const parts = (Object.keys(OMITTED_KEY) as (keyof AllocOmissions)[])
     .filter((k) => omitted[k] > 0)
     .map((k) => t(lang, OMITTED_KEY[k], omitted[k]));
-  return t(lang, "allocPlanOmitted", parts.join(", "));
+  return t(lang, stage === "input" ? "allocPlanOmittedInput" : "allocPlanOmitted", parts.join(", "));
 }
 
 const MOVE_SKIP_REASON_KEY: Record<MoveSkipReason, TranslationKey> = {
@@ -215,7 +216,7 @@ export function AllocPlanModal({
               className="w-full"
             />
           </label>
-          {hasAllocOmissions(omitted) && <p className="mt-2 text-xs text-foreground">{omittedText(lang, omitted)}</p>}
+          {hasAllocOmissions(omitted) && <p className="mt-2 text-xs text-foreground">{omittedText(lang, omitted, stage)}</p>}
           {crossProject && crossProject.protectedProjects.length > 0 && (
             <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereProtected", crossProject.protectedProjects.map((p) => p.projectName).join(", "))}</p>
           )}

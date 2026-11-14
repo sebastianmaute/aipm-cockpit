@@ -5901,6 +5901,7 @@ const enUS = {
   allocPlanHoursOfCapacity: "{0}h of {1}h",
   allocPlanTruncated: "Some proposed changes were not shown — the plan was too large.",
   allocPlanOmitted: "Too large to send in full: the AI did not see the whole plan, so its proposal cannot cover what was left out. Left out of the request: {0}.",
+  allocPlanOmittedInput: "Too large to send in full: the AI will not see the whole plan, so its proposal cannot cover what is left out. Left out of the request: {0}.",
   allocPlanOmittedPeople: "people: {0}",
   allocPlanOmittedPeriods: "periods: {0}",
   allocPlanOmittedTasks: "open tasks: {0}",
