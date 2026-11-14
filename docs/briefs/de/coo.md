@@ -60,9 +60,9 @@ enthält einen (E1, *im Code gelesen*).
   - *Dauer und Größe:* nach Ihrer Wahl, etwa 6–12 Wochen und 10–30 Projektleitungen.
   - *Messen:* Ausgaben je Person und Woche; Zeit je Aufgabe gegenüber der Ausgangsbasis; wie viele
     KI-Vorschläge angenommen werden und wie viele Nacharbeit brauchen; Wiederholbarkeit des Vorschlags für den
-    Projektstrukturplan (§812).
+    Projektstrukturplan (§812; E27, *nicht belegt*).
   - *Abbruch und Freigabe:* abbrechen, wenn Ausgaben, Nacharbeit oder ein Befund zum Personenschutz eine vorher
-    festgelegte Grenze überschreiten; Freigabe durch Betriebsrat, Datenschutzbeauftragte, CISO und die
+    festgelegte Grenze überschreiten; der Betrieb kann die KI ganz abschalten (E19, *getestet (Unit)*); Freigabe durch Betriebsrat, Datenschutzbeauftragte, CISO und die
     Budgetverantwortlichen.
 
 ## Weiterlesen

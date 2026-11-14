@@ -48,9 +48,9 @@ and no people's names unless a milestone name holds one (E1, *read in code*).
     returns each project to its own setting, so check each project's setting first (E43, *read in code*).
   - *Duration and size:* your choice, for example 6–12 weeks and 10–30 project managers.
   - *Measure:* spend per user per week; time per task against the baseline; how many AI proposals are accepted
-    and how many need rework; repeatability of the work breakdown proposal (§812).
-  - *Stop and sign-off:* stop when spend, rework or a protection finding passes a limit set beforehand;
-    sign-off by the works council, the DPO, the CISO and the budget owner.
+    and how many need rework; repeatability of the work breakdown proposal (§812; E27, *not proven*).
+  - *Stop and sign-off:* stop when spend, rework or a protection finding passes a limit set beforehand; the
+    deployment can switch AI off entirely (E19, *tested (unit)*); sign-off by the works council, the DPO, the CISO and the budget owner.
 
 ## Where to read more
 
