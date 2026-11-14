@@ -166,3 +166,18 @@ describe("the insight actions carry the live protection", () => {
     expect(result.current.insightActions.peopleProtected).toBe(on);
   });
 });
+
+// Liveness: the runner takes at most MAX_BG_RECS_PER_TICK (3) candidates per tick. Protected person insights must
+// be filtered out BEFORE that cut, or three of them at the front would take every slot on every tick and the
+// project-level insight behind them would never get a recommendation.
+describe("protected person insights do not crowd out the background run", () => {
+  it("three person insights first: the project-level insight behind them is still sent", async () => {
+    flags.peopleProtected = true;
+    const third = { ...UNLINKED_INSIGHT, id: 9, key: "timelog:timelogCapPerDay:4712", data: { ...UNLINKED_INSIGHT.data, person: "#4712" } } as Insight;
+    const call = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(REC);
+    renderHook(() => useInsightRecommendations(mkDeps([PERSON_INSIGHT, UNLINKED_INSIGHT, third, PROJECT_INSIGHT], true)));
+    for (let i = 0; i < 4; i++) await act(async () => { await Promise.resolve(); });
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(call.mock.calls[0][0].context).toContain("stalledWork");
+  });
+});
