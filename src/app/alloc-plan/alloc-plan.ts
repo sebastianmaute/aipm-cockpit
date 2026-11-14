@@ -31,7 +31,7 @@ import {
 import { HOURS_MAP_MAX } from "../sanitize";
 import { oneLine } from "../rich-text-plain";
 import { periodCost } from "../resource-cost";
-import { buildProjectDigest } from "./alloc-project-digest";
+import { buildProjectDigest, projectDigestOmissions } from "./alloc-project-digest";
 import { type ElsewhereFigure } from "../cross-project/elsewhere-hours";
 
 export { availableCapacityHours };
@@ -152,6 +152,33 @@ function hourlyRate(r: Resource, roles: readonly Role[]): string {
   const role = roles.find((x) => x.id === r.roleId);
   if (!role) return "";
   return ` rate=${Math.round(periodCost(1, role).internal * 100) / 100}/h`;
+}
+
+/** What a Plan with AI request leaves out at its caps: resources and periods (`ALLOC_CONTEXT_MAX_RESOURCES`,
+ *  `ALLOC_CONTEXT_MAX_PERIODS`), open tasks and milestones (the project digest's caps). 0 = nothing cut. */
+export interface AllocOmissions {
+  resources: number;
+  periods: number;
+  tasks: number;
+  milestones: number;
+}
+
+/** The counts `buildAllocContext` cuts for these inputs, the same ones its "…(N more … truncated)" lines tell the
+ *  model. Plan with AI shows them, so the user knows the proposal could not cover what was left out. */
+export function allocContextOmissions(
+  args: Pick<AllocContextArgs, "resources" | "plan" | "tasks" | "milestones">,
+): AllocOmissions {
+  const periods = generatePeriods(args.plan.startDate, args.plan.endDate, args.plan.granularity).length;
+  return {
+    resources: Math.max(0, args.resources.length - ALLOC_CONTEXT_MAX_RESOURCES),
+    periods: Math.max(0, periods - ALLOC_CONTEXT_MAX_PERIODS),
+    ...projectDigestOmissions(args.tasks, args.milestones),
+  };
+}
+
+/** True when any cap applied. */
+export function hasAllocOmissions(o: AllocOmissions): boolean {
+  return o.resources > 0 || o.periods > 0 || o.tasks > 0 || o.milestones > 0;
 }
 
 /** Compact, token-bounded digest of resources + their per-period capacity and

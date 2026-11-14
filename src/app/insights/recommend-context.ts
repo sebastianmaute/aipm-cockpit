@@ -31,7 +31,9 @@ export interface RecommendContextInput {
   readonly absences: readonly Absence[];
   readonly resources: readonly Resource[];
   /** AI people protection (layer 1): the project protects its people, so the digest has no People section
-   *  and `people` is ignored. With no one listed the system prompt already forbids create_task. */
+   *  and `people` is ignored. With no one listed the system prompt already forbids create_task. A `resources`
+   *  entity (a person's profile digest) is dropped too: the backstop behind `insightReachesAi`, which already
+   *  keeps an insight about one person from being sent. */
   readonly peopleProtected?: boolean;
 }
 
@@ -81,8 +83,9 @@ const PEOPLE_CAP = 30;
  *  message, never in the cached system block. */
 export function buildRecommendContext(input: RecommendContextInput): string {
   const dataLines = Object.entries(input.data).map(([k, v]) => `- ${k}: ${v}`).join("\n") || "(none)";
-  const entity = input.entity
-    ? `Linked ${input.entity.view}#${input.entity.id}: ${input.entity.title}\n${input.entity.fields}`
+  const linked = input.peopleProtected === true && input.entity?.view === "resources" ? undefined : input.entity;
+  const entity = linked
+    ? `Linked ${linked.view}#${linked.id}: ${linked.title}\n${linked.fields}`
     : "(no linked entity)";
   const tasks = input.relatedTasks.length
     ? input.relatedTasks

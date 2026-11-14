@@ -1719,6 +1719,7 @@ export const de: Record<TranslationKey, string> = {
   aiProtectedAllocPlan: "Nicht verfügbar: Die Funktion ist ausgeblendet, solange der Schutz aktiv ist. Wo sie verfügbar ist, werden andere Projekte, die ihre Personen schützen, bei den von dort gezählten Stunden ausgelassen.",
   aiProtectedOff: "Nicht verfügbar: Die Funktion ist bei eingeschaltetem Schutz ausgeschaltet.",
   aiProtectedChat: "Namen, E-Mail-Adressen und Telefonnummern von Personen, die das Projekt kennt, werden vor dem Senden durch Platzhalter ersetzt, und der Assistent kann niemanden zuweisen, verschieben oder bewerten. Bilder und PDFs werden abgelehnt, solange der Schutz eingeschaltet ist. Namen, die das Projekt nicht kennt und die im Freitext oder in Textanhängen stehen, können weiterhin gesendet werden.",
+  aiProtectedInsightRecommendation: "Für einen Insight über eine einzelne Person, etwa einen Arbeitszeit-Insight aus Timelog, wird keine Empfehlung erstellt; seine Kennzahlen sowie Berufsbezeichnung, Abteilung und Firma der Person werden also nicht gesendet, und die Liste der Personen entfällt. Bei den übrigen Insights werden Namen, E-Mail-Adressen und Telefonnummern von Personen, die das Projekt kennt, vor dem Senden durch Platzhalter ersetzt. Namen, die das Projekt nicht kennt und die im Freitext stehen, können weiterhin gesendet werden.",
   aiProtectedProjectProposal: "E-Mail-Adressen, Telefonnummern und IBANs werden immer durch Platzhalter ersetzt. Namen können nicht ersetzt werden: Ein neues Projekt kennt noch keine Personen, daher werden Namen in Ihrer Beschreibung und in Dateien, die Sie dem Assistenten hinzufügen, gesendet. Bilder sowie gescannte oder PDF-Dokumente werden ebenfalls gesendet, sofern Ihre Organisation den Schutz nicht erzwingt; dann werden sie abgelehnt. Der Vorschlag der KI wird ohne Personen übernommen: kein Sponsor, keine Projektleitung, keine Stakeholder, Ressourcen und keine Zuständigen für Aufgaben oder RAID-Einträge.",
   credentialStorageNote:
     "Verschlüsselt in diesem Browser gespeichert (Geräteschlüssel). Wer Zugriff auf dieses Browserprofil hat, kann sie dennoch verwenden – verwenden Sie auf gemeinsam genutzten oder nicht vertrauenswürdigen Rechnern keine produktiven Zugangsdaten.",
@@ -5592,6 +5593,7 @@ export const de: Record<TranslationKey, string> = {
   insightRecommendationRejected: "Empfehlung verworfen.",
   insightRecommendationTimelogOff: "Keine KI-Empfehlung zu einem Timelog-Befund, solange Timelog ausgeschaltet ist.",
   insightRecommendationTimelogOffApply: "Diese Empfehlung lässt sich nicht anwenden, solange Timelog ausgeschaltet ist.",
+  insightRecommendationPeopleProtected: "Keine KI-Empfehlung zu einem Insight über eine einzelne Person, solange der Personenschutz eingeschaltet ist.",
   activityAiInsightRecommendation: "KI hat eine Insight-Empfehlung angewendet: {1}",
 
   // AI resource-allocation planning
@@ -5613,6 +5615,16 @@ export const de: Record<TranslationKey, string> = {
   allocPlanClamped: "auf das Maximum gekürzt",
   allocPlanHoursOfCapacity: "{0}h von {1}h",
   allocPlanTruncated: "Einige vorgeschlagene Änderungen wurden nicht angezeigt — der Plan war zu groß.",
+  allocPlanOmitted: "Zu umfangreich, um vollständig gesendet zu werden: Die KI hat nicht den ganzen Plan gesehen, ihr Vorschlag konnte das Ausgelassene also nicht berücksichtigen. Nicht in der Anfrage enthalten: {0}.",
+  allocPlanOmittedInput: "Zu umfangreich, um vollständig gesendet zu werden: Die KI wird nicht den ganzen Plan sehen, ihr Vorschlag kann das Ausgelassene also nicht berücksichtigen. Nicht in der Anfrage enthalten: {0}.",
+  allocPlanOmittedPeople: "{0} Personen",
+  allocPlanOmittedPeopleOne: "1 Person",
+  allocPlanOmittedPeriods: "{0} Zeiträume",
+  allocPlanOmittedPeriodsOne: "1 Zeitraum",
+  allocPlanOmittedTasks: "{0} offene Aufgaben",
+  allocPlanOmittedTasksOne: "1 offene Aufgabe",
+  allocPlanOmittedMilestones: "{0} Meilensteine",
+  allocPlanOmittedMilestonesOne: "1 Meilenstein",
   allocPlanSkippedStale: "{0} Änderungen wurden übersprungen, weil sich die Planung geändert hat.",
   allocPlanSkippedStaleOne: "1 Änderung wurde übersprungen, weil sich die Planung geändert hat.",
   allocPlanSkippedCovered: "{0} Stundenänderungen wurden übersprungen: bereits durch die Aufgabenverschiebungen abgedeckt.",
@@ -5761,6 +5773,8 @@ export const de: Record<TranslationKey, string> = {
   activityAiAllocationPlanAlt: "KI hat Alternative {0} übernommen: Aufgabenverschiebungen {1}, Stundenänderungen {2}",
   activityAiWbsPlan: "KI hat {0} Änderungen an den Arbeitspaketen übernommen",
   activityAiWbsPlanOne: "KI hat 1 Änderung an den Arbeitspaketen übernommen",
+  activityAiWbsPlanCreated: "angelegt: {0}",
+  activityAiWbsPlanCreatedMore: "und {0} weitere",
   activityAiDocumentWrite: "Assistent hat ein Dokument bearbeitet",
 
   // Asset library (S3c-1 — document images)

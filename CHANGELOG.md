@@ -210,6 +210,24 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The AI Assistant’s view of the app respects people protection.** When the assistant reads the app’s state, it
+  no longer receives the insights about one person (such as a working-time finding from Timelog) while people
+  protection is on, nor the Timelog insights while Timelog is switched off, the same insights its instructions
+  already left out.
+- **The AI data disclosure is asked once more.** What it says people protection does to each AI feature is now
+  part of the version you accept, so a change to that text asks again; this release changes it for the insight
+  recommendations, so everyone accepts the disclosure once more. If you let AI run in the background (scheduled jobs,
+  automatic insight recommendations, the scheduled digest summary), allow it again in Settings → AI; until then those
+  stay off.
+- **Tasks from an applied work breakdown can be found again.** Applying an AI work breakdown now names each task it
+  created, by number and title, in its one activity log entry (marked as made by the AI), beside the count of changes
+  it applied. The completion trend’s history now accounts for these tasks; before, it counted past totals too high.
+- **Plan with AI says when it left people or tasks out.** When a plan is too large to send in full, the
+  allocation plan dialog now says so and how many people, periods, open tasks and milestones the AI did not see;
+  until now only the AI was told.
+- **Insight recommendations respect people protection.** With people protection on, no recommendation is made
+  for an insight about one person, such as a working-time insight from Timelog, on request or automatically, so its
+  figures, the person’s Timelog user number and their job title, department and company are no longer sent.
 - **A key that no longer passes the organisation check stops working on the relay within 15 minutes.** For example,
   a key moved to a workspace the setting does not list. A key that passed the check used to stay accepted until the
   server restarted; the check is now repeated once a passed result is 15 minutes old, however often the key is used.

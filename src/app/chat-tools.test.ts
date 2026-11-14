@@ -34,6 +34,8 @@ import { entityToken, type TokenEntity } from "./ai-entity-token";
 import { slimTaskForList } from "./chat-tools-lists";
 import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
 import type { ActivitySummary } from "./history-search";
+import type { Insight } from "./insights/insight";
+import type { FeatureModuleId } from "./feature-modules";
 
 function makeTask(over: Partial<Task> = {}): Task {
   return {
@@ -1477,6 +1479,37 @@ describe("runTool — set_language", () => {
       "unsupported language",
     );
     expect(d.setLanguage).not.toHaveBeenCalled();
+  });
+});
+
+// AI people protection and Timelog: `get_app_state` returns the snapshot's insights by the SAME rule the chat's
+// system prompt applies to them (`insightReachesAi`): under protection no insight about one person, and with
+// Timelog off no Timelog insight. Asserted on the tool's actual result, with an unprotected control.
+describe("runTool — get_app_state insights follow the chat's rule", () => {
+  const person = { id: 1, key: "timelog:timelogCapPerDay:4711", type: "timelogCapPerDay", severity: "medium",
+    data: { person: "#4711", count: 2, worstHours: 12 }, status: "active", firstSeenAt: "x", lastSeenAt: "x", occurrences: 1 } as unknown as Insight;
+  const named = { ...person, id: 2, key: "stalled:1", type: "stalledWork", data: { person: "Dana Ortiz", count: 3 } } as unknown as Insight;
+  const project = { ...person, id: 3, key: "slip:1", type: "milestoneSlip", data: { name: "Go-live", daysOverdue: 4 } } as unknown as Insight;
+  async function appStateInsights(peopleProtected: boolean, enabledModules: FeatureModuleId[]): Promise<number[]> {
+    const base = makeDispatcher();
+    const d = makeDispatcher({
+      isPeopleProtected: () => peopleProtected,
+      getSnapshot: () => ({ ...base.getSnapshot(), enabledModules, insights: [person, named, project] }) as ReturnType<ToolDispatcher["getSnapshot"]>,
+    });
+    const snapshot = (await runTool(d, "get_app_state", {})) as { insights?: readonly Insight[] };
+    return (snapshot.insights ?? []).map((i) => i.id);
+  }
+
+  it("protected: no insight about one person", async () => {
+    expect(await appStateInsights(true, ["timelog"])).toEqual([3]);
+  });
+
+  it("unprotected: every insight, the per-person ones included", async () => {
+    expect(await appStateInsights(false, ["timelog"])).toEqual([1, 2, 3]);
+  });
+
+  it("Timelog off: no Timelog insight, even unprotected", async () => {
+    expect(await appStateInsights(false, ["resources"])).toEqual([2, 3]);
   });
 });
 

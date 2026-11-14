@@ -325,7 +325,7 @@ write paths, which means a new field on an entry is a six-path change, not a
 one-line one. It is also **storage-only**: it has no export key, deliberately,
 because an entry's `changes` carries old and new values.
 [`docs/AGENTS/activity-log.md`](docs/AGENTS/activity-log.md) owns the rest —
-`logMode`, the two load funnels, and the three incompatible completion-trend
+`logMode`, the two load funnels, and the four incompatible completion-trend
 delta shapes.
 
 ### Dependencies

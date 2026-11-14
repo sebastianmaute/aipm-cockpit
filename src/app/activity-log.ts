@@ -15,6 +15,7 @@
 // long-lived project's stored blob can't grow unbounded.
 
 import type { TranslationKey } from "./i18n";
+import { oneLine } from "./rich-text-plain";
 
 export type ActivityKind =
   | "task.created"
@@ -109,6 +110,9 @@ export type ActivityKind =
    *  summary text: it is untrusted, and the log is read back into AI prompts. A cells-only apply still logs
    *  `ai.allocationPlan` (one arg: the cells), which old entries also carry. */
   | "ai.allocationPlanAlt"
+  /** A work breakdown was applied: `[applied, id, title, id, title, …]` — the count of changes, then the id and
+   *  title of every task it CREATED (`wbsPlanActivityArgs`). ONE entry per apply, never one per task: an apply can
+   *  create hundreds against `ACTIVITY_MAX_ENTRIES`. Entries written before carry the count alone. */
   | "ai.wbsPlan"
   | "ai.raciSuggest"
   | "ai.documentWrite"
@@ -247,6 +251,26 @@ function isFieldChange(v: unknown): v is FieldChange {
 function sanitizeChanges(v: unknown): readonly FieldChange[] | undefined {
   if (!Array.isArray(v) || v.length === 0 || !v.every(isFieldChange)) return undefined;
   return v.slice(0, MAX_FIELD_CHANGES) as FieldChange[];
+}
+
+/** Cap on each created task's title in an `ai.wbsPlan` entry (the id is the stable handle; the title is a reminder). */
+export const WBS_ACTIVITY_TITLE_MAX = 120;
+
+/** The `ai.wbsPlan` args: the applied count, then each created task's id and title (one line, capped). */
+export function wbsPlanActivityArgs(
+  applied: number,
+  created: readonly { readonly id: number; readonly taskName: string }[],
+): (string | number)[] {
+  return [applied, ...created.flatMap((task) => [task.id, oneLine(task.taskName).slice(0, WBS_ACTIVITY_TITLE_MAX)])];
+}
+
+/** The created tasks an `ai.wbsPlan` entry names, in order: none for a count-only entry written before. A trailing
+ *  half pair (damage) is ignored, so it is never read as one more task. Args reach here already sanitised
+ *  (`sanitizeActivityEntry` coerces a bad element to "" in place), so a pair keeps its slot. */
+export function wbsPlanCreatedTasks(args: readonly (string | number)[]): { id: string | number; title: string }[] {
+  const out: { id: string | number; title: string }[] = [];
+  for (let i = 1; i + 1 < args.length; i += 2) out.push({ id: args[i]!, title: String(args[i + 1]) });
+  return out;
 }
 
 const ACTIVITY_STORAGE_KEY = "aipm-cockpit:activity-log";
