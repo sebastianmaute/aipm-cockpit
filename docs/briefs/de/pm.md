@@ -34,7 +34,9 @@ entworfen hat, liegt also bei Ihnen (E55, *im Code gelesen*; E62, *im Code geles
 
 ## Was Sie steuern
 
-- **Übernehmen oder lassen:** In jedem Vorschlag können Sie Punkte abwählen (E56, *im Code gelesen*). Der
+- **Übernehmen oder lassen:** In den Vorschlägen für Ressourcenplanung, RACI, Projektstrukturplan und doppelte
+  Aufgaben können Sie Punkte abwählen; die übrigen werden als Ganzes übernommen, angenommen oder bestätigt (E56,
+  *im Code gelesen*). Der
   Entwurf für den Lenkungsausschuss wartet unter „KI-Entwurf – Abschnitte in den Bericht übernehmen“, bis Sie
   einen Abschnitt oder alle übernehmen (E62, *im Code gelesen*).
 - **Eine Prüfung erzwingen:** Hängen Sie eine Datei an das Chat-Gespräch an, dann wartet jede vorgeschlagene
@@ -45,7 +47,9 @@ entworfen hat, liegt also bei Ihnen (E55, *im Code gelesen*; E62, *im Code geles
 - **Projektübergreifende Ressourcenplanung:** Stunden aus anderen Projekten zählen nur auf einer gemeinsam
   genutzten Turso-Datenbank, für Personen, deren Zuordnung bestätigt ist oder die eine E-Mail-Adresse teilen;
   Projekte, die ihre Personen schützen, bleiben außen vor, und die Anfrage beschreibt von Ihrem Projekt höchstens
-  120 Personen, 26 Zeiträume, 150 offene Aufgaben und 40 Meilensteine (E60, *im Code gelesen*).
+  120 Personen, 26 Zeiträume, 150 offene Aufgaben und 40 Meilensteine (E60, *im Code gelesen*). Der Schutz ist in
+  jedem Projekt aktiv, außer das Projekt lässt Personen zu; standardmäßig zählen also nur Projekte, die Personen
+  zulassen (E41, *getestet (Unit)*).
 
 ## Noch nicht belegt / offene Lücken
 
@@ -65,7 +69,8 @@ entworfen hat, liegt also bei Ihnen (E55, *im Code gelesen*; E62, *im Code geles
 - Prüfen Sie jeden Namen, jedes Datum und jede Zahl eines Vorschlags am Projekt, und behandeln Sie einen Plan als
   eine Möglichkeit: Fragen Sie erneut und vergleichen Sie, bevor Sie übernehmen (E61, *im Code gelesen*).
 - Beantworten Sie vor „Mit KI planen“ auf einer gemeinsamen Datenbank dessen Vorschläge zu „derselben Person“,
-  sonst zählen die Stunden dieser Personen in anderen Projekten nicht (E60, *im Code gelesen*).
+  sonst zählen die Stunden dieser Personen in anderen Projekten nicht; auch dann zählen nur Projekte, die
+  Personen zulassen (E60, *im Code gelesen*; E41, *getestet (Unit)*).
 
 ## Weiterlesen
 

@@ -31,7 +31,8 @@ drafted is up to you (E55, *read in code*; E62, *read in code*).
 
 ## What you control
 
-- **Take or leave:** in every proposal you can deselect items (E56, *read in code*). The steering committee
+- **Take or leave:** in the allocation, RACI, work breakdown and duplicate proposals you can deselect items;
+  the others are applied, accepted or confirmed as a whole (E56, *read in code*). The steering committee
   draft waits under "AI draft – take sections into the report" until you take a section or all of them (E62,
   *read in code*).
 - **Force a review:** attach a file to the chat conversation and every change it proposes waits on the review
@@ -41,7 +42,8 @@ drafted is up to you (E55, *read in code*; E62, *read in code*).
 - **Cross-project allocation:** hours from other projects count only on a Turso database shared with them, for
   people matched by your confirmation or a shared e-mail address; projects that protect their people are left
   out, and the request describes at most 120 people, 26 periods, 150 open tasks and 40 milestones of yours
-  (E60, *read in code*).
+  (E60, *read in code*). Protection is on in every project unless that project allows people, so by default
+  only projects that allow people count (E41, *tested (unit)*).
 
 ## Not yet proven / open gaps
 
@@ -59,7 +61,8 @@ drafted is up to you (E55, *read in code*; E62, *read in code*).
 - Check every name, date and number in a proposal against the project, and treat one plan as one option: ask
   again and compare before you apply (E61, *read in code*).
 - Before Plan with AI on a shared database, answer its "same person" suggestions, or those people's hours in
-  other projects are not counted (E60, *read in code*).
+  other projects are not counted; even then, only projects that allow people count (E60, *read in code*; E41,
+  *tested (unit)*).
 
 ## Where to read more
 
