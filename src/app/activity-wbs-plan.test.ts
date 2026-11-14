@@ -56,12 +56,33 @@ describe("the entry round-trips through the log's sanitiser", () => {
 describe("the activity panel names the created tasks", () => {
   it("in English", () => {
     const text = activityMessage("en-US", "ai.wbsPlan", wbsPlanActivityArgs(3, CREATED), { display: true });
-    expect(text).toBe("AI applied 3 work-breakdown changes — created: #12 Design B, #13 Rollout, phase 2");
+    expect(text).toBe("AI applied 3 work-breakdown changes — created: #12 Design B; #13 Rollout, phase 2");
   });
 
   it("in German, with the singular", () => {
     const text = activityMessage("de", "ai.wbsPlan", wbsPlanActivityArgs(1, CREATED.slice(0, 1)), { display: true });
     expect(text).toBe("KI hat 1 Änderung an den Arbeitspaketen übernommen — angelegt: #12 Design B");
+  });
+
+  // The rendered line also reaches the model (`search_history` renders entries through `renderActivityEntry`), so
+  // it names at most the first 20 tasks; the stored entry keeps every id.
+  it("names at most 20 created tasks, then how many more, in both languages", () => {
+    const many = Array.from({ length: 25 }, (_, i) => ({ id: 100 + i, taskName: `Piece ${i}` }));
+    const args = wbsPlanActivityArgs(25, many);
+    expect(wbsPlanCreatedTasks(args)).toHaveLength(25); // stored complete
+    const en = activityMessage("en-US", "ai.wbsPlan", args);
+    expect(en).toContain("#100 Piece 0; ");
+    expect(en).toContain("#119 Piece 19");
+    expect(en).not.toContain("#120");
+    expect(en.endsWith("#119 Piece 19; and 5 more")).toBe(true);
+    expect(activityMessage("de", "ai.wbsPlan", args).endsWith("#119 Piece 19; und 5 weitere")).toBe(true);
+  });
+
+  it("exactly 20 created tasks name them all, with no remainder", () => {
+    const twenty = Array.from({ length: 20 }, (_, i) => ({ id: 100 + i, taskName: `Piece ${i}` }));
+    const en = activityMessage("en-US", "ai.wbsPlan", wbsPlanActivityArgs(20, twenty));
+    expect(en.endsWith("#119 Piece 19")).toBe(true);
+    expect(en).not.toContain("more");
   });
 
   it("a count-only entry reads as before", () => {

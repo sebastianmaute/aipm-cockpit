@@ -6055,6 +6055,7 @@ const enUS = {
   activityAiWbsPlan: "AI applied {0} work-breakdown changes",
   activityAiWbsPlanOne: "AI applied 1 work-breakdown change",
   activityAiWbsPlanCreated: "created: {0}",
+  activityAiWbsPlanCreatedMore: "and {0} more",
   activityAiDocumentWrite: "Assistant edited a document",
 
   // Asset library (S3c-1 — document images)

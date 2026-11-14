@@ -169,13 +169,22 @@ export function activityChangeValues(
   };
 }
 
+/** How many created tasks an `ai.wbsPlan` line names before "and N more". The stored entry keeps every id. */
+export const WBS_DETAIL_MAX_TASKS = 20;
+
 /** Detail appended to a kind's message from args its template has no slot for, after " — ". An `ai.wbsPlan` entry names
- *  the tasks it created (`#id title`, `wbsPlanCreatedTasks`); a count-only entry written before gets none. Shown in the
- *  panel and in the AI's activity recap alike: the titles are the tasks' own, already in the workspace. */
+ *  the tasks it created (`#id title`, `wbsPlanCreatedTasks`), "; "-separated because a title may hold a comma; a
+ *  count-only entry written before gets none. ★ This line is not only the panel's: `search_history` renders each
+ *  matching entry through `renderActivityEntry` (activity-prompt.ts) into a tool result the MODEL reads, so the list is
+ *  capped at `WBS_DETAIL_MAX_TASKS` — one apply can create hundreds of tasks, and the titles are the tasks' own. */
 const ACTIVITY_DETAIL: Partial<Record<ActivityKind, (lang: Lang, args: (string | number)[]) => string | null>> = {
   "ai.wbsPlan": (lang, args) => {
     const created = wbsPlanCreatedTasks(args);
-    return created.length === 0 ? null : t(lang, "activityAiWbsPlanCreated", created.map((c) => `#${c.id} ${c.title}`).join(", "));
+    if (created.length === 0) return null;
+    const named = created.slice(0, WBS_DETAIL_MAX_TASKS).map((c) => `#${c.id} ${c.title}`);
+    const rest = created.length - named.length;
+    const parts = rest > 0 ? [...named, t(lang, "activityAiWbsPlanCreatedMore", rest)] : named;
+    return t(lang, "activityAiWbsPlanCreated", parts.join("; "));
   },
 };
 

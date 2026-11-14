@@ -278,8 +278,9 @@ newest entries until the next save.
   ★★ The WBS apply (`use-wbs-plan.tsx`) writes ONE AI `ai.wbsPlan` entry per apply: `[applied, id, title, …]`
   (`wbsPlanActivityArgs`), the id and title of every row it CREATED after the applied count. Never one
   `task.created` per row — an apply can create hundreds, and `ACTIVITY_MAX_ENTRIES` would push the older log
-  out. The panel names them (`wbsPlanCreatedTasks`, appended as "created: #id title, …"); a count-only entry
-  written before reads as it did. The generic load sanitiser covers the pairs (coerce in place, so every id
+  out. The panel names them (`wbsPlanCreatedTasks`, appended as "created: #id title; …"); a count-only entry
+  written before reads as it did. ★ The rendered line reaches the MODEL too (`search_history` → `renderActivityEntry`),
+  so it names at most `WBS_DETAIL_MAX_TASKS` (20) and then "and N more"; the stored args stay complete. The generic load sanitiser covers the pairs (coerce in place, so every id
   keeps its slot), and like every entry they are storage-only on exports. ★ The FOURTH trend delta shape:
   `BULK_CREATE_KINDS` in `completion-trend.ts` adds +N for the N pairs — not `COUNT_KINDS` (±1) and not
   `BULK_TOTAL_KINDS` (`args[0]`, which here counts edits too). Its edits ride the `bulk.edit` undo capture;
