@@ -52,6 +52,22 @@ function seedRow(id: string, projectId: string, ownerId: string, updatedAt?: str
   return [...stmts, { sql: "UPDATE chat_threads SET updated_at = ? WHERE id = ?", args: [txt(updatedAt), txt(id)] }];
 }
 
+/** The owner a legacy fixture is written under before it is made owner-less. */
+const SEED_OWNER = "erasure-live-owner-seed";
+
+/** Seed one LEGACY owner-less row, the way a row from before the owner guard looks. The guard
+ *  (`chat_threads_owner_required` in `CHAT_THREADS_DDL`) is `BEFORE INSERT` only, so the row is
+ *  written owned through the upsert and then made owner-less by an UPDATE — `''` or a real SQL NULL,
+ *  the two forms `LEGACY_OWNER` matches. This mirrors the unit tests' `seed` (owner `''`) and
+ *  `insertNullOwner` (owner NULL) in `chat-threads-schema.execute.test.ts`. */
+function seedLegacy(id: string, projectId: string, owner: "" | null, updatedAt?: string): SqlStmt[] {
+  const blank = owner === null ? "NULL" : "''";
+  return [
+    ...seedRow(id, projectId, SEED_OWNER, updatedAt),
+    { sql: `UPDATE chat_threads SET owner_id = ${blank} WHERE id = ?`, args: [txt(id)] },
+  ];
+}
+
 async function run(stmts: SqlStmt[]): Promise<void> {
   await runTursoPipeline(CONFIG, stmts);
 }
@@ -103,6 +119,28 @@ test.describe("chat_threads erasure and retention on libSQL", () => {
     expect(await ids()).toEqual([id("del-a-q"), id("del-b-p")]);
   });
 
+  // Unit pin, mirrored step for step: "delete is scoped to the owner: bob cannot delete alice's row,
+  // but can delete a legacy one" — rows a (alice), n (NULL owner), e ('' owner), all in project p.
+  // SQL: `DELETE … WHERE id = ? AND project_id = ? AND (owner_id = ? OR owner_id IS NULL OR owner_id = '')`,
+  // so another owner's delete takes both legacy rows and leaves the owned one, and the owner's own
+  // delete naming the wrong project takes nothing.
+  test("deleting one thread can take a legacy owner-less row", async () => {
+    await run([
+      ...seedRow(id("leg-del-a"), P, A),
+      ...seedLegacy(id("leg-del-n"), P, null),
+      ...seedLegacy(id("leg-del-e"), P, ""),
+    ]);
+    expect(await ids()).toEqual([id("leg-del-a"), id("leg-del-e"), id("leg-del-n")]);
+    await run(deleteThreadStatements(id("leg-del-a"), P, B));
+    await run(deleteThreadStatements(id("leg-del-n"), P, B));
+    await run(deleteThreadStatements(id("leg-del-e"), P, B));
+    expect(await ids()).toEqual([id("leg-del-a")]);
+    await run(deleteThreadStatements(id("leg-del-a"), Q, A));
+    expect(await ids()).toEqual([id("leg-del-a")]);
+    await run(deleteThreadStatements(id("leg-del-a"), P, A));
+    expect(await ids()).toEqual([]);
+  });
+
   // Unit pin: "deleteOwnerThreads removes one owner's rows in every project and nothing else".
   // SQL: `DELETE FROM chat_threads WHERE owner_id = ?`.
   test("delete all my chats removes every thread of one owner across projects", async () => {
@@ -121,7 +159,8 @@ test.describe("chat_threads erasure and retention on libSQL", () => {
   // there; 52 here, so exactly the two oldest go). SQL: delete the project+owner rows NOT IN the
   // newest `keep` by `updated_at DESC, id DESC`. Distinct ages come from the explicit UPDATE in
   // `seedRow`; owner B's rows are OLDER than all of A's, so a prune that ignored the owner would
-  // take them first.
+  // take them first. As in the unit test, a legacy NULL-owner row older than every other row stays:
+  // the owner prune names `owner_id = ?`, which an owner-less row never matches.
   test("prune keeps the newest 50 threads per owner", async () => {
     const base = Date.parse("2026-01-01T00:00:00.000Z");
     const at = (minutes: number) => new Date(base + minutes * 60_000).toISOString();
@@ -129,19 +168,40 @@ test.describe("chat_threads erasure and retention on libSQL", () => {
     const aP = Array.from({ length: 52 }, (_, i) => id(`prune-a-p-${pad(i)}`));
     const bP = Array.from({ length: 3 }, (_, i) => id(`prune-b-p-${i}`));
     const aQ = Array.from({ length: 10 }, (_, i) => id(`prune-a-q-${pad(i)}`));
+    const legacy = id("prune-legacy");
     await run([
       ...aP.flatMap((rowId, i) => seedRow(rowId, P, A, at(1000 + i))),
       ...bP.flatMap((rowId, i) => seedRow(rowId, P, B, at(i))),
       ...aQ.flatMap((rowId, i) => seedRow(rowId, Q, A, at(500 + i))),
+      ...seedLegacy(legacy, P, null, at(-1000)),
     ]);
 
     // Ten threads, under the cap of 50: nothing is deleted.
     await run(pruneThreadsStatements(Q, A, 50));
-    expect(await ids()).toEqual([...aP, ...aQ, ...bP].sort());
+    expect(await ids()).toEqual([...aP, ...aQ, ...bP, legacy].sort());
 
-    // 52 threads: the two oldest of A in P go; B's three and A's ten in Q stay.
+    // 52 threads: the two oldest of A in P go; B's three, A's ten in Q and the legacy row stay.
     await run(pruneThreadsStatements(P, A, 50));
-    expect(await ids()).toEqual([...aP.slice(2), ...aQ, ...bP].sort());
+    expect(await ids()).toEqual([...aP.slice(2), ...aQ, ...bP, legacy].sort());
+  });
+
+  // Unit pin, mirrored with the same rows and relative ages: "prune of the legacy group touches only
+  // owner-less rows" — n1 (NULL, 5 days old), n2 (NULL, 1 day), e1 ('', 9 days), a (owner A, 99 days),
+  // pruned to 1. SQL (`ownerId` null): delete the project's `owner_id IS NULL OR owner_id = ''` rows
+  // NOT IN the newest one by `updated_at DESC, id DESC`. So n2 alone of the three legacy rows stays,
+  // and a stays although it is the oldest row of all.
+  test("prune of the legacy group touches only owner-less rows", async () => {
+    const base = Date.parse("2026-06-01T00:00:00.000Z");
+    const daysBefore = (n: number) => new Date(base - n * 86_400_000).toISOString();
+    await run([
+      ...seedLegacy(id("leg-prune-n1"), P, null, daysBefore(5)),
+      ...seedLegacy(id("leg-prune-n2"), P, null, daysBefore(1)),
+      ...seedLegacy(id("leg-prune-e1"), P, "", daysBefore(9)),
+      ...seedRow(id("leg-prune-a"), P, A, daysBefore(99)),
+    ]);
+    expect(await ids()).toEqual([id("leg-prune-a"), id("leg-prune-e1"), id("leg-prune-n1"), id("leg-prune-n2")]);
+    await run(pruneThreadsStatements(P, null, 1));
+    expect(await ids()).toEqual([id("leg-prune-a"), id("leg-prune-n2")]);
   });
 
   // Unit pins: "expire deletes a row 31 days old at 30, keeps one 29 days old, and deletes NULL or
@@ -178,6 +238,24 @@ test.describe("chat_threads erasure and retention on libSQL", () => {
     // No project: every project.
     await run(expireThreadsStatements(days));
     expect(await ids()).toEqual([id("exp-p-after"), id("exp-p-stamped")]);
+  });
+
+  // Unit pin, mirrored with the same three rows: "expire deletes a date more than a day in the future by
+  // the database clock, and keeps one an hour ahead" — far (now + 2 days), year9999, soon (now + 1 hour).
+  // SQL: `updated_at > strftime('%Y-%m-%dT%H:%M:%fZ','now', '+1 days')`, by the DATABASE clock, so far
+  // and year9999 go and soon stays. The dates are placed by the CLIENT clock: far is deleted while the
+  // server is less than a day behind the runner, and soon kept while it is less than 23 hours ahead —
+  // the same tolerance shape as the retention test above, only wider.
+  test("retention expiry deletes threads dated more than a day in the future", async () => {
+    const now = Date.now();
+    await run([
+      ...seedRow(id("fut-far"), P, A, new Date(now + 2 * 24 * HOUR_MS).toISOString()),
+      ...seedRow(id("fut-year9999"), P, A, "9999-01-01T00:00:00.000Z"),
+      ...seedRow(id("fut-soon"), P, A, new Date(now + HOUR_MS).toISOString()),
+    ]);
+    expect(await ids()).toEqual([id("fut-far"), id("fut-soon"), id("fut-year9999")]);
+    await run(expireThreadsStatements(30));
+    expect(await ids()).toEqual([id("fut-soon")]);
   });
 
   // `projectSideTableSweepStatements` ends with `DELETE FROM chat_threads WHERE project_id = ?`
