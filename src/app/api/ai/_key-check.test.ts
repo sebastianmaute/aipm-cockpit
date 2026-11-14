@@ -224,9 +224,60 @@ describe("createKeyChecker — refusals", () => {
     const { send, calls } = fakeSend(org(ORG));
     const checker = createKeyChecker({ refusalTtlMs: 1000, now: clock });
     await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
-    now += 10 * 24 * 60 * 60 * 1000;
+    now += 60 * 1000;
     expect(await checker.check(KEY, ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "pass" });
     expect(calls).toHaveLength(1);
+  });
+
+  it("a cached pass is re-checked after the pass TTL", async () => {
+    const { send, calls } = fakeSend(org(ORG));
+    const checker = createKeyChecker({ passTtlMs: 15 * 60 * 1000, now: clock });
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    now += 15 * 60 * 1000 - 1;
+    expect(await checker.check(KEY, ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "pass" });
+    expect(calls).toHaveLength(1);
+    now += 1;
+    expect(await checker.check(KEY, ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "pass" });
+    expect(calls).toHaveLength(2);
+  });
+
+  it("the default pass lifetime is fifteen minutes", async () => {
+    const { send, calls } = fakeSend(org(ORG));
+    const checker = createKeyChecker({ now: clock });
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    now += 15 * 60 * 1000 - 1;
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    expect(calls).toHaveLength(1);
+    now += 1;
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("a pass used often is still re-checked after the pass TTL", async () => {
+    const { send, calls } = fakeSend(org(ORG));
+    const checker = createKeyChecker({ passTtlMs: 10 * 60 * 1000, now: clock });
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    for (let minute = 1; minute < 10; minute++) {
+      now += 60 * 1000;
+      await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    }
+    expect(calls).toHaveLength(1);
+    now += 60 * 1000;
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("a re-check that now refuses replaces the pass", async () => {
+    let upstreamOrg = ORG;
+    const { send, calls } = fakeSend((call) => org(upstreamOrg)(call));
+    const checker = createKeyChecker({ passTtlMs: 60_000, now: clock });
+    expect(await checker.check(KEY, ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "pass" });
+    upstreamOrg = OTHER_ORG;
+    now += 60_000;
+    expect(await checker.check(KEY, ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "wrong-organization" });
+    expect(await checker.check(KEY, ORG_ONLY, ANTHROPIC, send)).toEqual({ kind: "wrong-organization" });
+    expect(calls).toHaveLength(2);
+    expect(checker.size()).toBe(1);
   });
 });
 

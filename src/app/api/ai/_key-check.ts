@@ -26,9 +26,12 @@
 //
 // Verdicts are cached in memory by an HMAC-SHA-256 of the key under a secret drawn at random
 // when this module loads, so a fingerprint means nothing outside this process. A pass is kept for
-// the life of the entry, a refusal for `refusalTtlMs`, Anthropic's own 401 for `rejectedTtlMs`;
-// "unavailable", a 403 and a gateway's refusal never. Past `maxEntries` the least recently used
-// entry is evicted (a cache hit counts as a use). A change of the
+// `passTtlMs` (15 minutes), a refusal for `refusalTtlMs`, Anthropic's own 401 for `rejectedTtlMs`;
+// "unavailable", a 403 and a gateway's refusal never. Every lifetime counts from the moment the
+// verdict was reached upstream (`at`), which a cache hit never refreshes: a key in constant use is
+// still checked again once its pass is that old, so a key moved out of the organisation stops
+// passing. Past `maxEntries` the least recently used entry is evicted; recency is the Map order
+// (a cache hit moves the entry to the end), kept apart from `at`. A change of the
 // restriction (its `signature`) clears the cache. The key itself is never logged, returned or
 // stored; it lives only in the pre-flight while that runs.
 
@@ -57,6 +60,8 @@ export interface KeyChecker {
 }
 
 export const KEY_CHECK_DEFAULT_MAX_ENTRIES = 1000;
+// How long a passed check is trusted before the key is checked again (counted from the check, not from the last use).
+export const KEY_CHECK_DEFAULT_PASS_TTL_MS = 15 * 60 * 1000;
 export const KEY_CHECK_DEFAULT_REFUSAL_TTL_MS = 5 * 60 * 1000;
 // How long Anthropic's own 401 for a key is remembered: short, so a key fixed upstream is tried again soon.
 export const KEY_CHECK_DEFAULT_REJECTED_TTL_MS = 60 * 1000;
@@ -233,6 +238,7 @@ function rememberable(finding: Finding): Kept | null {
 export function createKeyChecker(
   opts: {
     maxEntries?: number;
+    passTtlMs?: number;
     refusalTtlMs?: number;
     rejectedTtlMs?: number;
     maxPreflightsInFlight?: number;
@@ -241,6 +247,7 @@ export function createKeyChecker(
   } = {},
 ): KeyChecker {
   const maxEntries = opts.maxEntries ?? KEY_CHECK_DEFAULT_MAX_ENTRIES;
+  const passTtlMs = opts.passTtlMs ?? KEY_CHECK_DEFAULT_PASS_TTL_MS;
   const refusalTtlMs = opts.refusalTtlMs ?? KEY_CHECK_DEFAULT_REFUSAL_TTL_MS;
   const rejectedTtlMs = opts.rejectedTtlMs ?? KEY_CHECK_DEFAULT_REJECTED_TTL_MS;
   const maxPreflightsInFlight = opts.maxPreflightsInFlight ?? MAX_PREFLIGHTS_IN_FLIGHT;
@@ -257,12 +264,13 @@ export function createKeyChecker(
   const cached = (hash: string): Finding | null => {
     const entry = cache.get(hash);
     if (!entry) return null;
-    const ttl = entry.kind === "upstream-error" ? rejectedTtlMs : refusalTtlMs;
-    if (entry.kind !== "pass" && now() - entry.at >= ttl) {
+    const ttl = entry.kind === "pass" ? passTtlMs : entry.kind === "upstream-error" ? rejectedTtlMs : refusalTtlMs;
+    // `at` is when the verdict was reached upstream; a hit below moves the entry in the Map, never this.
+    if (now() - entry.at >= ttl) {
       cache.delete(hash);
       return null;
     }
-    // Most recently used now; the entry keeps the time its verdict was reached.
+    // Most recently used now (Map order only); the entry keeps the time its verdict was reached.
     cache.delete(hash);
     cache.set(hash, entry);
     return entry.kind === "upstream-error"
