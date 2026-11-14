@@ -210,6 +210,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **An organisation key that is removed from the organisation stops working on the relay within 15 minutes.** A key
+  that passed the organisation check used to stay accepted until the server restarted; the check is now repeated
+  once a passed result is 15 minutes old, however often the key is used.
 - **Inline AI edit respects people protection.** With people protection on, inline edit now sends the protected
   instruction and leaves out the tools that change people, as the chat does. Names were already replaced before
   sending, and person fields could not be set; the request itself no longer offers those tools.
