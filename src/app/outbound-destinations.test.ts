@@ -121,5 +121,14 @@ describe("outbound destinations registry", () => {
         expect(de, key).not.toMatch(/\b(sicher|konform|EU-gehostet|niemals)\b/i);
       }
     });
+    it("relay and gateway texts say the key is checked before the first request a server process sees with it", () => {
+      for (const key of ["outboundAiRelaySent", "outboundAiGatewaySent"] as const) {
+        const en = t("en-US", key);
+        expect(en, key).toContain("first request");
+        expect(en, key).not.toContain("before each such request");
+        expect(en, key).not.toContain("each is preceded by");
+        expect(t("de", key), key).not.toContain("vor jeder solchen Anfrage");
+      }
+    });
   });
 });
