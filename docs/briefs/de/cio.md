@@ -26,7 +26,7 @@ Schalter und die Beobachtung der Ausgaben: Nichts in der App hält interaktive K
 - **Vom Server der App:** Arbeitsbereichsdaten gehen nur an Dienste, die die nutzende Person oder die
   Organisation einrichtet (Anthropic oder sein Gateway, Atlassian, Timelog, ein Sprachdienst). Die
   Wechselkursanfrage trägt keine; die Update-Prüfung der Desktop-App trägt keine Arbeitsbereichsdaten, sendet
-  aber die IP-Adresse der anfragenden Person und eine feste Kennung, die für jede Installation gleich ist
+  aber die IP-Adresse des anfragenden Geräts und eine feste Kennung, die für jede Installation gleich ist
   ([Server-Ziele](appendix.md#server-ziele); E34, *im Code gelesen*). Wo die Löschung von Chats auf dem Server
   eingerichtet ist, hält der Server eine Turso-Adresse und ein Token (E44, *im Code gelesen*; E29,
   *im Code gelesen*).

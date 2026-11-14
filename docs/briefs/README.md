@@ -3,7 +3,7 @@
 Short briefs on how the app uses AI, one per reader: CEO, CIO, CISO, Chief AI Officer, COO, data protection officer and project manager.
 Each exists in English (`en/`) and German (`de/`) and follows the same six parts.
 
-Kurze Informationen dazu, wie die App KI nutzt, eine je Leserkreis: CEO, CIO, CISO, KI-Verantwortung (Chief AI Officer), COO, Datenschutzbeauftragte und Projektleitung.
+Kurze Informationen dazu, wie die App KI nutzt, eine je Leserkreis: CEO, CIO, CISO, KI-Verantwortung (Chief AI Officer), COO, Datenschutz (DSB) und Projektleitung.
 Jede gibt es auf Englisch (`en/`) und Deutsch (`de/`), jeweils mit denselben sechs Teilen.
 
 | Reader | English | Deutsch |
@@ -30,11 +30,11 @@ What each brief covers:
 Was jede Kurzinformation behandelt:
 
 - **CEO:** wofür die KI da ist, was die Organisation verlässt und mit welcher Freigabe, die offenen Lücken und eine Vorlage für ein Pilotprojekt.
-- **CIO:** Architektur und Betrieb: wo Daten liegen, der eigene Schlüssel jeder Person, der direkte und der Relay-Weg, die Schalter und die Kosten im großen Maßstab.
-- **CISO:** was das Netz verlässt und an welche Hosts, eingeschleuste Anweisungen, der Notschalter, das Installationsprogramm und was eine veränderte Kopie umgehen könnte.
+- **CIO:** Architektur und Betrieb: wo Daten liegen, der eigene Schlüssel jeder nutzenden Person, der direkte und der Relay-Weg, die Schalter und die Kosten im großen Maßstab.
+- **CISO:** was das Netz verlässt und an welche Hosts, eingeschleuste Anweisungen, der Notschalter, die Installationsdatei und was eine veränderte Kopie umgehen könnte.
 - **KI-Verantwortung (Chief AI Officer):** eine Lesart der KI-Verordnung: Anfragen mit Personenbezug, wo eine Person freigibt, Kennzeichnung, KI-Kompetenz und die Grenzen des Personenschutzes.
 - **COO:** gemessene Kosten je Aufruf, ein geschätzter Teammonat und was ein Pilotprojekt messen muss; die Zeitersparnis wurde nicht gemessen.
-- **Datenschutzbeauftragte:** welche personenbezogenen Daten jede Funktion sendet, der Schutz und seine Grenzen, gespeicherte Chats und ihre Löschung und die Fragen, die nur die Organisation beantworten kann.
+- **Datenschutz (DSB):** welche personenbezogenen Daten jede Funktion sendet, der Schutz und seine Grenzen, gespeicherte Chats und ihre Löschung und die Fragen, die nur die Organisation beantworten kann.
 - **Projektleitung:** welche KI-Ergebnisse Sie freigeben und welche von selbst angewendet werden, was sich von Lauf zu Lauf unterscheidet, was die projektübergreifende Ressourcenplanung sieht und was Sie vor einem Lenkungsausschuss kennzeichnen sollten.
 
 Every factual sentence in a brief carries an evidence id (E1, E2, …) and a label: *measured*, *tested (unit)*, *tested (live database)*, *read in code*, *estimated* or *not proven*. The appendix says what each label means and where each id comes from. The prose describes the code at commit f34d66937; the figures were measured on 2026-11-14 with claude-sonnet-5 at commit e63693393.

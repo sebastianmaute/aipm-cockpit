@@ -13,7 +13,7 @@ Für den Betrieb ist die KI laufende Kosten auf dem eigenen Anthropic-Schlüssel
 Nutzen (§811; E26, *nicht belegt*). Im Demoprojekt kostete ein Chat-Aufruf 0,0668 $ mit Personenschutz und
 0,0711 $ ohne, die anderen Funktionen 0,0034 $ bis 0,0314 $ (E24, *gemessen*), bei einer Wartezeit (Median) von
 2,0 s bis 24,1 s (E37, *gemessen*); jede Zahl beruht auf 2 bis 6 Aufrufen in einem Demoprojekt mit einem Modell
-(E37, *gemessen*; E33, *gemessen*). Mit angenommenen Aufrufen je Person und Tag sind das etwa 5 $, 13 $ oder
+(E37, *gemessen*; E33, *gemessen*). Mit angenommenen Aufrufen je nutzender Person und Tag sind das etwa 5 $, 13 $ oder
 33 $ je nutzender Person und Monat bei leichter, typischer oder intensiver Nutzung, nur für die Modellkosten;
 Betrieb, Administration und Schulung sind nicht geschätzt (E25, *geschätzt*). Ein Pilot liefert die Zahl, an der
 die Wirtschaftlichkeit hängt.
