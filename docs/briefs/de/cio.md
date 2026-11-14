@@ -73,5 +73,5 @@ der Ausgaben: Nichts in der App hält interaktive KI bei einem Ausgabenlimit an 
 - Der [Betriebsleitfaden](../../RUNBOOK.md) (englisch): KI auf Ihre Schlüssel beschränken, KI über ein Gateway
   leiten, gespeicherte Chats.
 - [TOM-Übersicht](../../compliance/de/tom-sheet.md) und
-  [Berührungspunkte mit Anbietern](../../compliance/de/vendor-touchpoints.md).
+  [Berührungspunkte mit dem Maintainer](../../compliance/de/vendor-touchpoints.md).
 - Die anderen Kurzinformationen: [CEO](ceo.md), [CISO](ciso.md), [COO](coo.md), [DSB](dpo.md).

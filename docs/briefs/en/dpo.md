@@ -5,9 +5,7 @@
 Depending on the feature, the AI sends personal data to Anthropic, directly or through the organisation's
 gateway: names in tasks, RAID items and stakeholders, people in the resource directory, absences as days
 away, and attached files and e-mails with their senders and recipients (E1, *read in code*; E4,
-*tested (unit)*; E5, *tested (unit)*). People protection, on in every project unless the project allows people, replaces known
-people's names and contact details before sending, in the browser (E41, *tested (unit)*; E14,
-*tested (unit)*; E15, *read in code*). Who is controller and who processor, the legal basis, your contract and
+*tested (unit)*; E5, *tested (unit)*). Who is controller and who processor, the legal basis, your contract and
 data processing agreement with Anthropic, transfers and a works agreement are questions only your organisation
 can answer; this page gives the facts for them.
 
@@ -19,30 +17,32 @@ can answer; this page gives the facts for them.
   role (E1, *read in code*); insights from Timelog name one person with findings about their logged working
   time (E1, *read in code*); five features send who is away even while the Resources function is hidden (E59,
   *read in code*).
-- **Minimisation:** list results in the chat carry no e-mail addresses, and the row edit never sends a
-  person's phone number, birthday or notes (E1, *read in code*).
-- **Protection and its limits:** with it on, known people's names, every e-mail address, valid IBAN and
-  phone-shaped number are replaced (E14, *tested (unit)*); names the project does not know are sent as written,
-  and a new project's names cannot be protected (E35, *read in code*); a modified copy of the app can send
-  without protection (E15, *read in code*).
+- **Minimisation:** list results in the chat carry no e-mail addresses, though addresses can still appear in
+  attachments, documents and logged edits, and the row edit never sends a person's phone number, birthday or
+  notes (E1, *read in code*).
+- **Protection and its limits:** people protection is on in every project unless the project allows people
+  (E41, *tested (unit)*); with it on, known people's names, every e-mail address, valid IBAN and phone-shaped
+  number are replaced (E14, *tested (unit)*); names the project does not know are sent as written, and a new
+  project's names cannot be protected (E35, *read in code*); it is applied in the browser, so a modified copy
+  of the app can send without it (E15, *read in code*).
 - **Region:** all 96 measured requests reported Anthropic's inference_geo value `global` (E22, *measured*), and
-  the app sets none itself (E58, *read in code*); what that means for transfers is your question.
-- **Approval in the app:** each user accepts the AI disclosure on each device (E31, *tested (unit)*); background
-  AI is consented once, not run by run (E32, *tested (unit)*). Whether that consent plays any part in your legal
-  basis is for you to decide.
+  the app sets no such parameter itself (E58, *read in code*); what that means for transfers is your question,
+  and Anthropic's to answer for your account.
+- **Approval in the app:** whether a user's AI consent on a device plays any part in your legal basis is for
+  you to decide (E31, *tested (unit)*).
 
 ## What you control
 
 - **Protection everywhere:** `ai-people` forces protection on in every project (E19, *tested (unit)*), hiding
   the allocation proposal and the RACI suggestion (E18, *tested (unit)*); lifting that lock returns each project
   to its stored setting (E43, *read in code*).
-- **Whose account:** the key restriction accepts only keys of your Anthropic organisation (E7,
-  *tested (unit)*); a key that no longer passes is still accepted for up to 15 minutes (E9, *tested (unit)*).
 - **Saved chats:** kept only with a Turso database and the operator's recovery key (E28, *read in code*);
   deleted 30 days after their last change unless the operator sets 1 to 3650 days, by the browser and, where it
   is set up, by the server (E29, *read in code*).
-- **Erasure and lookup:** users can delete all their own chats or search them for a person and delete the
-  matches; the operator can do both across the database (E57, *read in code*).
+- **Erasure and lookup:** users can delete all their own chats, except their own chats from before the upgrade
+  to private chats, which belong to no one and stay until they expire; the search for a person also reaches
+  this project's older shared chats, which can hold other people's conversations, and can delete them; the
+  operator can search and delete across the database (E57, *read in code*).
 
 ## Not yet proven / open gaps
 
@@ -52,14 +52,15 @@ can answer; this page gives the facts for them.
    *read in code*).
 3. **§804:** the allocation proposal always sends internal hourly rates (E1, *read in code*).
 4. **§795:** background AI is consented once, not approved run by run (E32, *tested (unit)*).
-5. **§802:** the gateway route has never run against a real gateway (E12, *not proven*).
+5. **§814:** the refusal of images and PDFs while protection is on, and the hours from other projects in the
+   allocation proposal, have no observed behaviour from a measured run (E39, *not proven*).
 
 ## What to check or ask for before saying yes
 
 - Record your answers to the controller, processor, legal basis, transfer and works-agreement questions, using
   the [DPIA input](../../compliance/en/dpia-input.md#questions-for-your-assessment); set the key restriction so
   that requests through this deployment run on your organisation's keys (E7, *tested (unit)*; E52,
-  *read in code*).
+  *read in code*); a key that no longer passes is still accepted for up to 15 minutes (E9, *tested (unit)*).
 - Ask Anthropic what it keeps of a request; the app's erasure proof does not cover it (E30,
   *tested (live database)*).
 - In a test project on Turso, search the saved chats for a name, delete the matches and check that the

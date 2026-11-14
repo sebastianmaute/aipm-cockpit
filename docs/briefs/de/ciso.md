@@ -79,5 +79,5 @@ Personenschutz läuft im Browser, mit derselben Grenze (E15, *im Code gelesen*).
 - Das [Sicherheitsmodell](../../security.md) (englisch) und der [Betriebsleitfaden](../../RUNBOOK.md)
   (englisch).
 - [TOM-Übersicht](../../compliance/de/tom-sheet.md) und
-  [Berührungspunkte mit Anbietern](../../compliance/de/vendor-touchpoints.md).
+  [Berührungspunkte mit dem Maintainer](../../compliance/de/vendor-touchpoints.md).
 - Die anderen Kurzinformationen: [CEO](ceo.md), [CIO](cio.md), [DSB](dpo.md).
