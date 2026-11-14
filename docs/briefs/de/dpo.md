@@ -29,12 +29,13 @@ Fragen, die nur Ihre Organisation beantworten kann.
 - **Abwesenheitstypen (möglicherweise besondere Kategorien personenbezogener Daten):** Kein KI-Pfad sendet
   den gespeicherten Typ einer Abwesenheit: Der Chat führt jede als „absent“, die Bearbeitung einer Zeile und
   die Listen, wer abwesend ist, lassen ihn weg (E63, *getestet (Unit)*; E1, *im Code gelesen*). Ein Hinweis
-  bleibt: Der Timelog-Insight zu Zeit, die an einem Abwesenheitstag gebucht wurde, nennt die Person als
-  abwesend „(vacation, sick or training)“, ohne den Typ zu
-  nennen, und erreicht den Chat, die Bearbeitung einer Zeile und die Insight-Empfehlungen (E63,
-  *getestet (Unit)*; E1, *im Code gelesen*). Er wird nicht gesendet, solange `timelog` abgeschaltet oder Timelog
-  im Projekt ausgeblendet ist, und der Chat lässt ihn bei Personenschutz weg; ein Typ, den eine nutzende Person
-  schreibt, etwa „krank“, wird so gesendet, wie er dasteht (E64, *im Code gelesen*).
+  bleibt bei ausgeschaltetem Personenschutz: Der Timelog-Insight zu Zeit, die an einem Abwesenheitstag gebucht
+  wurde, nennt die Person als abwesend „(vacation, sick or training)“, ohne den Typ zu nennen, und kann den Chat
+  (seine Insight-Zeilen und sein Werkzeug `get_app_state`), die Bearbeitung einer Zeile und beide
+  Insight-Empfehlungen erreichen (E63, *getestet (Unit)*; E1, *im Code gelesen*). Bei aktivem Personenschutz
+  sendet ihn keiner dieser Pfade (E67, *getestet (Unit)*); keiner tut es, solange `timelog` abgeschaltet oder
+  Timelog im Projekt ausgeblendet ist, und ein Typ, den eine nutzende Person schreibt, etwa „krank“, wird so
+  gesendet, wie er dasteht (E64, *im Code gelesen*).
 - **Diktat:** Audio geht nicht an Anthropic, sondern an den Sprachdienst, den die nutzende Person einrichtet,
   oder beim Browser-Diktat an die eingebaute Spracherkennung des Browsers, die es in manchen Browsern an den
   Browserhersteller sendet (E1, *im Code gelesen*).

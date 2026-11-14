@@ -23,8 +23,9 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
 - **Most person-related requests:** the allocation request carries each person's role, external status,
   planned and available hours and the internal hourly rate of their role; the RACI request carries
   stakeholders' influence and interest; insights from Timelog name one person with findings about their logged
-  working time and go to the chat, the row edit and the insight recommendations
-  ([AI paths and people data](appendix.md#ai-paths-and-people-data); E1, *read in code*).
+  working time and, while people protection is off, go to the chat, the row edit and the insight
+  recommendations ([AI paths and people data](appendix.md#ai-paths-and-people-data); E1, *read in code*);
+  while it is on, to none of them (E67, *tested (unit)*).
 - **Where a person approves:** each allocation and RACI change is shown with its current and proposed value
   and can be deselected (E56, *read in code*). The chat holds changes on a *review card* for the user in set
   cases, such as a deletion or more than one write, and every change while a file is attached, except the work

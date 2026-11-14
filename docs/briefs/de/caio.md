@@ -26,8 +26,9 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
 - **Die Anfragen mit dem stärksten Personenbezug:** Die Anfrage zur Ressourcenplanung enthält je Person Rolle,
   Status als extern, geplante und verfügbare Stunden und den internen Stundensatz ihrer Rolle; die RACI-Anfrage
   enthält Einfluss und Interesse der Stakeholder; Insights aus Timelog nennen eine Person mit Befunden zu ihrer
-  erfassten Arbeitszeit und gehen an den Chat, die Bearbeitung einer Zeile und die Insight-Empfehlungen
-  ([KI-Pfade und Personendaten](appendix.md#ki-pfade-und-personendaten); E1, *im Code gelesen*).
+  erfassten Arbeitszeit und gehen bei ausgeschaltetem Personenschutz an den Chat, die Bearbeitung einer Zeile und
+  die Insight-Empfehlungen ([KI-Pfade und Personendaten](appendix.md#ki-pfade-und-personendaten); E1,
+  *im Code gelesen*); bei aktivem Personenschutz an keinen davon (E67, *getestet (Unit)*).
 - **Wo eine Person freigibt:** Jede Änderung der Ressourcenplanung und des RACI-Vorschlags wird mit ihrem
   bisherigen und dem vorgeschlagenen Wert gezeigt und lässt sich abwählen (E56, *im Code gelesen*). Der Chat
   hält Änderungen in festgelegten Fällen für die nutzende Person auf einer *Prüfkarte* fest, etwa bei einer

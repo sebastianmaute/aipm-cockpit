@@ -24,12 +24,12 @@ with Anthropic, transfers and a works agreement are questions only your organisa
   send who is away even while the Resources function is hidden (E59, *read in code*).
 - **Absence types (possible special-category data):** no AI path sends an absence's stored type: the chat
   lists each as "absent", and the row edit and the lists of who is away leave it out (E63, *tested (unit)*;
-  E1, *read in code*). One hint remains: the Timelog insight for time booked on an absence day names the
-  person as absent "(vacation, sick or training)", without saying which, and reaches the chat, the row edit
-  and the insight recommendations
-  (E63, *tested (unit)*; E1, *read in code*). It is not sent while `timelog` is switched off or Timelog is
-  hidden in the project, and the chat drops it under people protection; a type a user writes, such as "sick",
-  is sent as written (E64, *read in code*).
+  E1, *read in code*). One hint remains while people protection is off: the Timelog insight for time booked on
+  an absence day names the person as absent "(vacation, sick or training)", without saying which, and can reach
+  the chat (its insight lines and its `get_app_state` tool), the row edit and both insight recommendations
+  (E63, *tested (unit)*; E1, *read in code*). With people protection on, none of these paths sends it (E67,
+  *tested (unit)*); none does while `timelog` is switched off or Timelog is hidden in the project, and a type a
+  user writes, such as "sick", is sent as written (E64, *read in code*).
 - **Dictation:** audio goes not to Anthropic but to the speech service the user sets up or, with browser
   dictation, to the browser's own recognition, which in some browsers sends it to the browser maker (E1,
   *read in code*).

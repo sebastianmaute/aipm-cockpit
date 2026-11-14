@@ -56,14 +56,15 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
   Entwurf für den Lenkungsausschuss wartet unter „KI-Entwurf – Abschnitte in den Bericht übernehmen“, bis Sie
   einen Abschnitt oder alle übernehmen (E62, *im Code gelesen*).
 - **Rückgängig machen und wiederfinden:** Aufgaben, die ein übernommener Projektstrukturplan anlegt, lassen sich
-  nicht rückgängig machen und tragen kein KI-Kennzeichen; das Aktivitätsprotokoll hält nur fest, wie viele
-  Änderungen er übernommen hat, notieren Sie die neuen Aufgaben also vor dem Übernehmen (E66, *im Code gelesen*).
+  nicht rückgängig machen und tragen kein KI-Kennzeichen (E66, *im Code gelesen*); der Eintrag im
+  Aktivitätsprotokoll zum Übernehmen nennt jede angelegte Aufgabe mit Nummer und Titel, dort finden Sie sie also
+  wieder (E68, *getestet (Unit)*).
 - **Projektübergreifende Ressourcenplanung:** Stunden aus anderen Projekten zählen nur auf einer gemeinsam
   genutzten Turso-Datenbank, für Personen, deren Zuordnung Sie bestätigt haben oder die eine E-Mail-Adresse
   teilen, und nur aus Projekten, die Personen zulassen, was standardmäßig keines tut (E60, *getestet (Unit)*;
   E41, *getestet (Unit)*). Die Anfrage beschreibt von Ihrem Projekt höchstens 120 Personen, 26 Zeiträume, 150
-  offene Aufgaben und 40 Meilensteine; vom weggelassenen Rest erfährt das Modell, der Bildschirm nicht (E60,
-  *getestet (Unit)*).
+  offene Aufgaben und 40 Meilensteine; wie viel weggelassen wurde, erfährt das Modell, und „Mit KI planen“ zeigt
+  Ihnen dieselben Zahlen (E60, *getestet (Unit)*).
 
 ## Noch nicht belegt / offene Lücken
 
