@@ -602,10 +602,15 @@ which owns that list.
      server that is already running 32 checks for other keys: a new key's check is not
      sent then, and its user sees the same "could not be checked, try again".
    - A pass is cached in memory only, by a keyed SHA-256 (HMAC) of the key whose
-     secret is drawn at random when the server starts, until the restriction settings
-     change or the cache (at most 1000 entries) evicts it; when full, the cache evicts
+     secret is drawn at random when the server starts, for 15 minutes from the check (a
+     key in steady use is checked again then, not kept for good), or until the restriction
+     settings change or the cache (at most 1000 entries) evicts it; when full, the cache evicts
      the entry whose key was used least recently, so keys in steady use stay cached. A
-     restart empties the cache.
+     restart empties the cache. Because a pass lasts 15 minutes, each key needs a
+     successful pre-flight that often, so a steadily used key can occasionally get the
+     503 "could not be checked, try again" answer when that re-check is unavailable (for
+     example a 429 or 5xx on the models list, a slow gateway, the in-flight cap); this is
+     fail-closed by design.
    - Anthropic's own `401` or `403` for the key is passed through unchanged. The `401`
      is remembered for 60 seconds (by the same keyed hash), so repeated calls with
      one invalid key send one check, not one each; the `403` is not cached.
@@ -630,8 +635,8 @@ What the restriction does not do (the same four limits as
 workspace a key belongs to, not what that organisation's contract covers; it is
 enforced in this app's server, so a person with a key can still call Anthropic outside
 the app; anyone with access to the server environment can change or remove it; and
-verdicts are cached per server process, and a cached pass is not checked again until
-the cache evicts it or the restriction settings change; a key that is revoked is
+verdicts are cached per server process, and a cached pass is not checked again for
+15 minutes, unless the cache evicts it or the restriction settings change first; a key that is revoked is
 refused by Anthropic itself.
 
 The relay is not reserved for the app's own pages: it answers any same-origin request,
