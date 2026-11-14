@@ -1,6 +1,130 @@
-# Appendix: the generated facts behind the briefs
+# Appendix: the facts behind the briefs
+
+## How to read this appendix
+
+The seven briefs keep to one page each. They carry a label and an evidence id (E1, E2, …) on each factual
+sentence; this appendix says where each one comes from. It has four parts:
+
+- the evidence labels, which say how far each claim has been checked;
+- a diagram of the two routes an AI request can take;
+- the evidence table, one row per id, naming its file and symbol, test, generated block or measured figure;
+- the generated tables. Everything between a pair of `PACK:` markers is written by `npm run compliance:generate`
+  from the app's own code and texts, and `npm run compliance:check` fails when a table no longer matches.
+
+Every claim is about the code at commit e63693393. The figures were measured on 2026-11-14 against the demo
+project at that commit. Open gaps are cited by their number in the project's register of open follow-ups
+(`docs/open-followups.md`), for example §802; the table under "Open gaps" lists every one the briefs cite.
+
+## Evidence labels
+
+| Label | What it means |
+|---|---|
+| *measured* | Observed in paid runs against the demo project on 2026-11-14, with the app at commit e63693393. The aggregates are in `docs/briefs/figures.json`. A small sample, not a guarantee for other data. |
+| *tested (unit)* | An automated unit test in the repository checks it; the test is named in the table. Unit tests use fakes for the network, the model and the database. |
+| *tested (live database)* | An automated test checks it against a real Turso (libSQL) database; the table says what the test does not cover. |
+| *read in code* | Someone read the code and it does this. No test or run checks the claim as stated. |
+| *estimated* | Worked out from measured figures and stated assumptions; the assumptions are given beside it. |
+| *not proven* | Nobody has shown it either way. The register entry says what it would take. |
+
+"Read in code" is weaker than "tested": a later change can break it without any check failing.
+
+## Two routes to the model
+
+Each user brings their own Anthropic API key. Where a request goes depends on two server settings of the
+deployment: a gateway address (`AIPM_AI_GATEWAY_URL`) and a key restriction to the organisation's Anthropic
+keys (`AIPM_AI_ORGANIZATION_ID`, optionally `AIPM_AI_WORKSPACE_IDS`). With neither, the browser calls Anthropic
+itself (the direct route). With either, the browser calls the app's own server, which relays the request
+(E4, E5). People protection, when it is on, is applied in the browser before either route (E15).
+
+```mermaid
+flowchart TB
+  B["Browser: the app, with the user's own Anthropic key<br/>people protection applied here, when on"]
+  ST["App server: /api/ai/status<br/>asked before every send: AI on? which route?"]
+  A["api.anthropic.com"]
+  R["Same-origin relay on the app's server<br/>/api/ai/messages, /api/ai/models"]
+  KR{"Key restriction set?<br/>AIPM_AI_ORGANIZATION_ID"}
+  KC["Key check: GET /v1/models?limit=1<br/>with the user's key, through the same upstream<br/>result kept in the server's memory"]
+  NO["Refused: 403 (other organisation or workspace)<br/>or 503 (check could not run)<br/>nothing forwarded"]
+  UP{"Gateway address set?<br/>AIPM_AI_GATEWAY_URL"}
+  G["The organisation's gateway<br/>the relay adds the gateway token<br/>configured, not proven live (§802)"]
+
+  B -.->|"before every send"| ST
+  B -->|"Direct route: no gateway address and no key restriction"| A
+  B -->|"Relay route: a gateway address or a key restriction is set"| R
+  R --> KR
+  KR -->|"no"| UP
+  KR -->|"yes"| KC
+  KC -->|"pass"| UP
+  KC -->|"refusal or unavailable"| NO
+  UP -->|"yes"| G
+  UP -->|"no"| A
+  G --> A
+
+  style G stroke-dasharray: 5 5
+```
+
+What the diagram shows, with the evidence for each step:
+
+- Before every send, the browser asks the app's server whether AI is still on and which route applies, and
+  sends nothing if the answer is missing, says AI is off, reports an invalid setting or names another route
+  (E3).
+- Direct route: the browser posts to api.anthropic.com. This is the only case in which the browser may connect
+  to Anthropic at all (E4, E34).
+- Relay route: the browser posts to `/api/ai/messages` on the app's own origin. The relay sends the request on
+  to the gateway when a gateway address is set, otherwise straight to api.anthropic.com. With neither set the
+  relay answers 404; any invalid setting refuses every call (E5).
+- With a key restriction set, nothing is forwarded until the user's key has passed the key check, which asks
+  Anthropic, through the same upstream, which organisation and workspace the key belongs to (E7). Its results
+  are kept in the server's memory (E8, E9). A gateway without a key restriction runs no key check.
+- The gateway is any https address the operator sets; the app adds its token and has never been run against a
+  real gateway (E11, E12, E13).
+
+## Evidence table
+
+Test titles are quoted exactly as they appear in the test file. `_relay.ts`, `_key-check.ts` and their tests are
+in `src/app/api/ai/`.
+
+| Id | Claim | Label | Source |
+|---|---|---|---|
+| E1 | For each AI feature: what it sends, which consent it needs, and what changes while people protection is on. | *read in code* | blocks `ai-paths` and `ai-paths-people`, generated from `AI_DATA_PATHS` in `src/app/ai-disclosure.ts` |
+| E2 | Every AI request carries the user's own Anthropic API key. The relay forwards that key, adds no key of its own, and refuses a call that brings none (400). | *tested (unit)* | `relay` and `forwardHeaders` in `_relay.ts`; tests `models without a key → 400 missing-api-key without calling send` and `a call without a key of its own is still refused with 400` in `_relay.test.ts` |
+| E3 | Before every send the browser asks the app's server (`/api/ai/status`) whether AI is on and which route applies. If AI is off, the setting is invalid, the route has changed or no valid answer comes, nothing is sent. | *tested (unit)* | `confirmAiDeployment` in `src/app/ai-transport.ts`; tests `page state direct, status answers relay: route-changed, and Anthropic is never called` and `an answer that says AI is off is off even without the people lock` in `src/app/ai-transport.test.ts` |
+| E4 | Direct route: with no gateway address and no key restriction, the browser sends AI requests straight to api.anthropic.com. Relay route: with either set, the browser sends them to the app's own same-origin relay and not to Anthropic. | *tested (unit)* | `postAiMessages` and `usesRelay` in `src/app/ai-transport.ts`; tests `direct: checks the status, then posts to Anthropic with today's four headers`, `gateway: posts to the same-origin relay without the browser-access header` and `relay: posts to the same-origin relay, never to Anthropic, without the browser-access header` in `src/app/ai-transport.test.ts` |
+| E5 | The relay sends to the gateway when `AIPM_AI_GATEWAY_URL` is set, otherwise to api.anthropic.com when keys are restricted to an organisation; with neither it answers 404. Any invalid setting refuses every call with 503. | *tested (unit)* | `upstreamFor` in `_relay.ts`; tests `direct deployment → 404, no relay`, `a Messages call goes to api.anthropic.com with the four forwarded headers and no gateway token`, `a gateway wins over the restriction: the check and the call both go to it with its token, like the real request` and `an invalid restriction → 503 ai-gateway-invalid, nothing sent` in `_relay.test.ts` |
+| E6 | The relay refuses cross-site browser calls, forwards only four Anthropic headers (plus the gateway token when one is set) and no cookies, and logs no key, token, body or URL. It does not authenticate its callers (see E13). | *tested (unit)* | `relay`, `isSameOrigin` and `forwardHeaders` in `_relay.ts`; tests `Sec-Fetch-Site: cross-site → 403 not-same-origin`, `forwards exactly the four Anthropic headers plus the gateway token` and `no console or diagnostics output carries the key, token, body or URL` in `_relay.test.ts` |
+| E7 | Key check: when `AIPM_AI_ORGANIZATION_ID` is set, the relay first sends a one-item model-list request (`GET /v1/models?limit=1`) with the user's key through the same upstream as the real request, and reads the organisation (and, with `AIPM_AI_WORKSPACE_IDS`, the workspace) from Anthropic's answer headers. A key of another organisation or workspace is refused with 403, and a check that cannot run answers 503; in both cases nothing is forwarded. | *tested (unit)* | `createKeyChecker` in `_key-check.ts` and `refusalFor` in `_relay.ts`; test `sends GET <base>/v1/models?limit=1 with the caller's key and version; a matching org passes` in `_key-check.test.ts`; tests `another organisation → 403 ai-key-wrong-organization; no Messages call, no body read upstream` and `the check unavailable → 503 ai-key-check-unavailable; no Messages call` in `_relay.test.ts` |
+| E8 | The key check keeps its results in the server's memory only, under a keyed hash of the key. A pass is kept until the server restarts, the restriction changes or the entry is evicted (beyond 1,000 keys, least recently used first); a refusal (another organisation or workspace) for 5 minutes; Anthropic's own 401 for 60 seconds. A check that could not run, Anthropic's 403 and a gateway's refusal are never kept. | *tested (unit)* | `createKeyChecker`, `rememberable`, `KEY_CHECK_DEFAULT_REFUSAL_TTL_MS`, `KEY_CHECK_DEFAULT_REJECTED_TTL_MS` and `KEY_CHECK_DEFAULT_MAX_ENTRIES` in `_key-check.ts`; tests `a pass outlives the refusal lifetime`, `the default refusal lifetime is five minutes`, `remembers the 401 for 60 seconds, then sends a second pre-flight`, `a gateway's own 401 (not Anthropic-shaped) is not remembered`, `the default cap is 1000 entries` and the group `createKeyChecker — Anthropic's own 403 is passed through, not cached` in `_key-check.test.ts` |
+| E9 | Because a pass is kept (E8), a key that has passed is not checked again on that server while its entry is kept. A key moved out of the organisation or workspace goes on passing the check until a restart, a change of the restriction or eviction. | *read in code* | `createKeyChecker` in `_key-check.ts`; test `a passed key is not checked again on the next call` in `_relay.test.ts` |
+| E10 | The key check added 724 ms to the first relayed chat request with a new key and 344 ms to the first relayed inline edit, one run each. The extra time once a pass is kept was not measured. | *measured* | `figures.json relayKeyCheck.runs`; `figures.json relayKeyCheck.warmExtraMs` (empty) |
+| E11 | The gateway is whatever https address the operator sets in `AIPM_AI_GATEWAY_URL`. The relay adds `AIPM_AI_GATEWAY_TOKEN` to every forwarded call as the `cf-aig-authorization` header (Cloudflare AI Gateway's, the gateway the operating guide describes). The address and the token are not sent to the browser. | *read in code* | `parseAiGatewayConfig` and `aiDeploymentStateFrom` in `src/app/ai-gateway-config.ts`; `forwardHeaders` in `_relay.ts`; `docs/RUNBOOK.md` |
+| E12 | The gateway route has never been run against a real gateway; its tests use a fake upstream and a local TLS server. | *not proven* | register §802; `src/app/api/ai/_relay.https.test.ts` |
+| E13 | The relay adds the gateway token for any caller that reaches the server: the app's server routes do not authenticate callers. | *read in code* | register §805; `forwardHeaders` in `_relay.ts` |
+| E14 | People protection replaces, before a request is sent, the names of people the project knows with placeholders such as `[Person 1]`, and e-mail addresses, IBANs and phone numbers with placeholders by their pattern, known or not. Placeholders in the answer are turned back into the names on the device. A name the project does not know is sent as written. | *read in code* | `redactJsonBody` and `restoreJsonText` in `src/app/ai-people-redact.ts`, whose header comment states the matching rules; `aiPrivacyFor` in `src/app/ai-privacy.ts` |
+| E15 | Protection is applied in the app's browser code, before a request leaves the device; neither the relay nor any other server route applies it. It holds for this app as shipped: a modified copy of the app, or another client using the same key, can send without it. | *read in code* | `redactForSend` and `postAiMessages` in `src/app/ai-transport.ts`; `relay` in `_relay.ts`; test `calls fetch with an Anthropic URL only in the transport` in `src/app/ai-transport-sites.test.ts` |
+| E16 | With protection on, no person of the test fixture reaches a request body on any AI path that sends; with protection off, the same paths do send people, so the test can see them. | *tested (unit)* | groups `with protection on, no fixture person reaches a request body` and `anti-vacuity: with protection off, the same drivers send people` in `src/app/ai-people-protection.wire.test.ts` |
+| E17 | With protection on, an AI answer that acts on a person (an assignee, a resource, a stakeholder) applies nothing person-related; the rest of the change applies. | *tested (unit)* | test `protection on: the assignee, the resource and the stakeholder are untouched; the rest of the task write applies` in `src/app/ai-people-protection.wire.test.ts` |
+| E18 | With protection on, the allocation plan proposal and the RACI suggestion are hidden, and dictation is switched off. | *tested (unit)* | `figures.json hiddenWhenProtected`; block `ai-paths`; the `is not offered` cases of the group `with protection on, no fixture person reaches a request body` in `src/app/ai-people-protection.wire.test.ts` |
+| E19 | A deployment can switch AI off (`ai` in `AIPM_DISABLED_INTEGRATIONS`; the relay then refuses every call) or force people protection on in every project (`ai-people`), whatever a project has stored. | *tested (unit)* | block `deployment-switches`; test `switched off → 503 integration-disabled` in `_relay.test.ts`; group `the deployment lock` in `src/app/ai-people-protection.wire.test.ts` |
+| E20 | With protection on, the measured request bodies held 0 names and 0 e-mail addresses of the demo project's people, apart from 1 name in the new project proposal, the documented exception (a new project has no known people yet, so names in its brief are sent). | *measured* | `figures.json behaviour.protectedNameHitsOn`, `figures.json behaviour.emailHitsOn`, `figures.json behaviour.documentedExceptionHitsOn` |
+| E21 | Positive control: with protection off, the same check found the demo project's people names 72 times, so it can see them. | *measured* | `figures.json behaviour.positiveControlHitsOff` |
+| E22 | All 96 measured requests (47 with protection off, 41 with it on, 8 through the relay) reported the inference_geo value `global`. | *measured* | `figures.json behaviour.inferenceGeo`, `figures.json behaviour.requests` |
+| E23 | The relay rows were run with people protection on (a run condition; `figures.json` does not record it). | *measured* | `figures.json paths[protection=relay]` |
+| E24 | Cost per call on the measured model claude-sonnet-5, at list prices fetched on 2026-11-14: the chat $0.0668 with protection on and $0.0711 with it off; the other measured features $0.0034 to $0.0314. A row marked "unverified" is one whose requests did not show the protection state. | *measured* | block `figures`; `figures.json paths[].usdPerCall`; `figures.json rates` |
+| E25 | For a team of five, the monthly AI cost comes to about $25 (light use), $67 (typical) or $165 (heavy); the calls per user per day are assumptions. | *estimated* | block `team-month` |
+| E26 | The time the AI features save has not been measured. | *not proven* | register §811 |
+| E27 | Whether Optimize work breakdown with AI gives the same result on repeated runs has not been measured. | *not proven* | register §812 |
+| E28 | Saved chats are kept only when the project uses a Turso database, encrypted so that only their writer and the operator holding the recovery key can read them; while the recovery key is unset or unusable, no chat is saved. | *read in code* | `chatTursoMode` in `src/app/workspace-section.tsx`; `src/app/chat-crypto.ts`; blocks `ai-paths` and `deployment-switches` |
+| E29 | A saved chat is deleted once the retention period (30 days unless the operator sets 1 to 3650) has passed since its last change: by the app in the browser, and by the server once at start and every 24 hours where the server's deletion is configured. An invalid setting pauses deletion for age. | *read in code* | `DEFAULT_CHAT_RETENTION_DAYS` and `MAX_CHAT_RETENTION_DAYS` in `src/app/ai-chat-retention-config.ts`; `CHAT_SWEEP_INTERVAL_MS` in `src/app/api/ai/_chat-sweep.ts`; `src/app/use-chat-retention-sweep.ts`; block `deployment-switches` |
+| E30 | On a real libSQL database, the erasure and retention statements remove exactly the expected rows: one chat, all chats of one person across projects, the cap of 50 chats per person, expiry by age, a deleted project's chats, and the per-person lookup behind finding and erasing a person's chats. Not covered: the screens, the two deletion sweeps run with real credentials, the database provider's backups and what the model vendor keeps (§813). The test runs on every pull request and push to main, but is not a required check. | *tested (live database)* | tests `deleting one thread removes only that owner's row`, `delete all my chats removes every thread of one owner across projects`, `prune keeps the newest 50 threads per owner`, `retention expiry deletes threads older than the cutoff`, `the project hard-delete sweep removes the project's chat threads` and `an owner's threads are selectable for find and erase` in `e2e/chat-threads-erasure-live.spec.ts`; register §813 |
+| E31 | Interactive AI runs only while the AI master switch is on and the user has accepted the current AI disclosure on this device. The acceptance is asked again when the disclosure text changes, when the route changes and when the key restriction is switched on or off. | *tested (unit)* | `isInteractiveAiAllowed`, `isConsentCurrent` and `AI_DISCLOSURE_VERSION` in `src/app/ai-consent.ts`; tests `throws while AI is switched off, the consent kept (AI-01)`, `is false for another disclosure version`, `a direct or gateway record is stale under relay; a new consent records relay and is current` and `a gateway consent given without the key restriction is stale once the restriction is on, and a new one is current` in `src/app/ai-consent.test.ts` |
+| E32 | Background AI (the scheduled job analysis, the automatic insight recommendations, the scheduled digest) also needs a separate background acceptance, given once rather than run by run (§795). The weekly hard cap pauses background AI only. | *tested (unit)* | `assertBackgroundConsentLive` and `AiConsentLevel` in `src/app/ai-consent.ts`; tests `a withdrawn background consent leaves the interactive level live` and `blocks the background level with AiWeeklyCapReachedError and leaves the interactive level live` in `src/app/ai-consent.test.ts`; register §795 |
+| E33 | The model the figures were measured with was claude-sonnet-5. | *measured* | `figures.json model` |
+| E34 | The hosts the browser may connect to, and the services the app's server sends to, with what each receives and when. | *read in code* | blocks `browser-hosts` and `server-destinations` |
 
 ## AI paths and people data
+
+The AI features that send data about people: every row of the next table except the two digest summaries, which
+carry people's names only where someone typed one into a milestone name (E1).
 
 <!-- PACK:ai-paths-people:BEGIN -->
 | Feature | Consent | What is sent | With people protection on |
@@ -23,6 +147,8 @@
 <!-- PACK:ai-paths-people:END -->
 
 ## AI paths
+
+Every AI feature of the app, with the text the app itself shows before a user accepts the AI disclosure (E1).
 
 <!-- PACK:ai-paths:BEGIN -->
 | Feature | Consent | What is sent | With people protection on |
@@ -97,6 +223,9 @@
 
 ## Open gaps
 
+The open register entries the briefs cite. Each is an open item in `docs/open-followups.md`, with what it would
+take to close it.
+
 <!-- PACK:open-gaps:BEGIN -->
 | Register entry | Title |
 |---|---|
@@ -124,6 +253,10 @@
 <!-- PACK:open-gaps:END -->
 
 ## Measured figures
+
+Measured on 2026-11-14 against the demo project at commit e63693393 (E24). The rows marked "on (relay)" went
+through the same-origin relay with the key check and were run with people protection on; `figures.json` does
+not record that condition (E23). The behaviour counts behind E20 to E22 are in the same file.
 
 <!-- PACK:figures:BEGIN -->
 | Feature | People protection | n (calls) | $/call | Cache-read share | Median latency |
@@ -165,6 +298,9 @@ Measured with commit e63693393 on 2026-11-14, model claude-sonnet-5, on the demo
 <!-- PACK:figures:END -->
 
 ## Team-month estimate
+
+An estimate built from the measured cost per call and assumed usage, not a measurement (E25). The arithmetic is
+stated under the table.
 
 <!-- PACK:team-month:BEGIN -->
 | Feature group | $ per call | light (calls per user per day → $ per month) | typical (calls per user per day → $ per month) | heavy (calls per user per day → $ per month) |

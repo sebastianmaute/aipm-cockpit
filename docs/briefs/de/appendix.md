@@ -1,6 +1,136 @@
-# Anhang: die erzeugten Fakten hinter den Kurzinformationen
+# Anhang: die Fakten hinter den Kurzinformationen
+
+## So lesen Sie diesen Anhang
+
+Die sieben Kurzinformationen umfassen je eine Seite. Jede Tatsachenaussage trägt dort eine Kennzeichnung und eine
+Belegnummer (E1, E2, …); dieser Anhang sagt, woher sie stammt. Er besteht aus vier Teilen:
+
+- den Belegarten, die angeben, wie weit eine Aussage geprüft ist;
+- einem Diagramm der beiden Wege, die eine KI-Anfrage nehmen kann;
+- der Belegtabelle, eine Zeile je Nummer, mit Datei und Symbol, Test, erzeugtem Block oder gemessenem Wert;
+- den erzeugten Tabellen. Alles zwischen zwei `PACK:`-Markierungen schreibt `npm run compliance:generate` aus dem
+  Code und den Texten der App selbst, und `npm run compliance:check` schlägt fehl, sobald eine Tabelle nicht mehr
+  passt.
+
+Jede Aussage bezieht sich auf den Code im Commit e63693393. Die Zahlen wurden am 2026-11-14 im Demoprojekt mit
+diesem Commit gemessen. Offene Lücken werden mit ihrer Nummer im Verzeichnis offener Punkte des Projekts
+(`docs/open-followups.md`) zitiert, zum Beispiel §802; die Tabelle unter „Offene Lücken“ führt jede auf, die
+die Kurzinformationen zitieren.
+
+## Belegarten
+
+| Belegart | Bedeutung |
+|---|---|
+| *gemessen* | Beobachtet in bezahlten Läufen im Demoprojekt am 2026-11-14, mit der App im Commit e63693393. Die Summen stehen in `docs/briefs/figures.json`. Eine kleine Stichprobe, keine Zusage für andere Daten. |
+| *getestet (Unit)* | Ein automatischer Unit-Test im Repository prüft es; die Tabelle nennt den Test. Unit-Tests ersetzen Netz, Modell und Datenbank durch Attrappen. |
+| *getestet (Live-Datenbank)* | Ein automatischer Test prüft es gegen eine echte Turso-Datenbank (libSQL); die Tabelle sagt, was der Test nicht abdeckt. |
+| *im Code gelesen* | Jemand hat den Code gelesen, und er tut das. Kein Test und kein Lauf prüft die Aussage so, wie sie dasteht. |
+| *geschätzt* | Aus gemessenen Werten und genannten Annahmen errechnet; die Annahmen stehen daneben. |
+| *nicht belegt* | Niemand hat es in die eine oder andere Richtung gezeigt. Der Verzeichniseintrag sagt, was es bräuchte. |
+
+„Im Code gelesen“ wiegt weniger als „getestet“: Eine spätere Änderung kann es brechen, ohne dass eine Prüfung
+fehlschlägt.
+
+## Zwei Wege zum Modell
+
+Jede Person nutzt ihren eigenen Anthropic-API-Schlüssel. Wohin eine Anfrage geht, bestimmen zwei
+Server-Einstellungen der Installation: eine Gateway-Adresse (`AIPM_AI_GATEWAY_URL`) und eine Beschränkung auf
+die Anthropic-Schlüssel der eigenen Organisation (`AIPM_AI_ORGANIZATION_ID`, wahlweise mit
+`AIPM_AI_WORKSPACE_IDS`). Ist keine von beiden gesetzt, ruft der Browser Anthropic selbst auf (der direkte Weg).
+Ist eine gesetzt, ruft der Browser den Server der App auf, der die Anfrage weiterleitet (E4, E5). Ist der
+Personenschutz an, wirkt er im Browser, vor beiden Wegen (E15).
+
+```mermaid
+flowchart TB
+  B["Browser: die App, mit dem eigenen Anthropic-Schlüssel der Person<br/>Personenschutz wirkt hier, wenn er an ist"]
+  ST["Server der App: /api/ai/status<br/>vor jedem Senden gefragt: KI an? welcher Weg?"]
+  A["api.anthropic.com"]
+  R["Relay auf dem Server der App, gleicher Ursprung<br/>/api/ai/messages, /api/ai/models"]
+  KR{"Schlüsselbeschränkung gesetzt?<br/>AIPM_AI_ORGANIZATION_ID"}
+  KC["Schlüsselprüfung: GET /v1/models?limit=1<br/>mit dem Schlüssel der Person, über dasselbe Ziel<br/>Ergebnis im Speicher des Servers gehalten"]
+  NO["Abgelehnt: 403 (andere Organisation oder anderer Workspace)<br/>oder 503 (Prüfung nicht möglich)<br/>nichts weitergeleitet"]
+  UP{"Gateway-Adresse gesetzt?<br/>AIPM_AI_GATEWAY_URL"}
+  G["Das Gateway der Organisation<br/>das Relay fügt das Gateway-Token hinzu<br/>konfiguriert, live nicht erprobt (§802)"]
+
+  B -.->|"vor jedem Senden"| ST
+  B -->|"Direkter Weg: keine Gateway-Adresse und keine Schlüsselbeschränkung"| A
+  B -->|"Relay-Weg: eine Gateway-Adresse oder eine Schlüsselbeschränkung ist gesetzt"| R
+  R --> KR
+  KR -->|"nein"| UP
+  KR -->|"ja"| KC
+  KC -->|"bestanden"| UP
+  KC -->|"Ablehnung oder nicht möglich"| NO
+  UP -->|"ja"| G
+  UP -->|"nein"| A
+  G --> A
+
+  style G stroke-dasharray: 5 5
+```
+
+Was das Diagramm zeigt, mit dem Beleg für jeden Schritt:
+
+- Vor jedem Senden fragt der Browser den Server der App, ob die KI noch an ist und welcher Weg gilt. Er sendet
+  nichts, wenn keine Antwort kommt, die Antwort „KI aus“ lautet, eine ungültige Einstellung meldet oder einen
+  anderen Weg nennt (E3).
+- Direkter Weg: Der Browser sendet an api.anthropic.com. Nur in diesem Fall darf der Browser Anthropic überhaupt
+  erreichen (E4, E34).
+- Relay-Weg: Der Browser sendet an `/api/ai/messages` auf dem Ursprung der App. Das Relay leitet die Anfrage an
+  das Gateway weiter, wenn eine Gateway-Adresse gesetzt ist, sonst direkt an api.anthropic.com. Ist keine von
+  beiden Einstellungen gesetzt, antwortet das Relay mit 404; jede ungültige Einstellung lehnt jeden Aufruf ab
+  (E5).
+- Ist eine Schlüsselbeschränkung gesetzt, wird nichts weitergeleitet, bevor der Schlüssel der Person die
+  Schlüsselprüfung bestanden hat. Sie fragt Anthropic über dasselbe Ziel, zu welcher Organisation und welchem
+  Workspace der Schlüssel gehört (E7). Ihre Ergebnisse hält der Server in seinem Speicher (E8, E9). Ein Gateway
+  ohne Schlüsselbeschränkung führt keine Schlüsselprüfung aus.
+- Das Gateway ist jede https-Adresse, die der Betreiber setzt; die App fügt sein Token hinzu und wurde noch nie
+  gegen ein echtes Gateway betrieben (E11, E12, E13).
+
+## Belegtabelle
+
+Testnamen stehen genau so da wie in der Testdatei (auf Englisch). `_relay.ts`, `_key-check.ts` und ihre Tests
+liegen in `src/app/api/ai/`.
+
+| Id | Aussage | Belegart | Quelle |
+|---|---|---|---|
+| E1 | Für jede KI-Funktion: was sie sendet, welche Zustimmung sie braucht und was sich bei aktivem Personenschutz ändert. | *im Code gelesen* | Blöcke `ai-paths` und `ai-paths-people`, erzeugt aus `AI_DATA_PATHS` in `src/app/ai-disclosure.ts` |
+| E2 | Jede KI-Anfrage trägt den eigenen Anthropic-API-Schlüssel der Person. Das Relay leitet diesen Schlüssel weiter, fügt keinen eigenen hinzu und lehnt einen Aufruf ohne Schlüssel ab (400). | *getestet (Unit)* | `relay` und `forwardHeaders` in `_relay.ts`; Tests `models without a key → 400 missing-api-key without calling send` und `a call without a key of its own is still refused with 400` in `_relay.test.ts` |
+| E3 | Vor jedem Senden fragt der Browser den Server der App (`/api/ai/status`), ob die KI an ist und welcher Weg gilt. Ist die KI aus, die Einstellung ungültig, der Weg geändert oder kommt keine gültige Antwort, wird nichts gesendet. | *getestet (Unit)* | `confirmAiDeployment` in `src/app/ai-transport.ts`; Tests `page state direct, status answers relay: route-changed, and Anthropic is never called` und `an answer that says AI is off is off even without the people lock` in `src/app/ai-transport.test.ts` |
+| E4 | Direkter Weg: Ohne Gateway-Adresse und ohne Schlüsselbeschränkung sendet der Browser KI-Anfragen direkt an api.anthropic.com. Relay-Weg: Ist eine von beiden gesetzt, sendet der Browser sie an das Relay der App auf demselben Ursprung und nicht an Anthropic. | *getestet (Unit)* | `postAiMessages` und `usesRelay` in `src/app/ai-transport.ts`; Tests `direct: checks the status, then posts to Anthropic with today's four headers`, `gateway: posts to the same-origin relay without the browser-access header` und `relay: posts to the same-origin relay, never to Anthropic, without the browser-access header` in `src/app/ai-transport.test.ts` |
+| E5 | Das Relay sendet an das Gateway, wenn `AIPM_AI_GATEWAY_URL` gesetzt ist, sonst an api.anthropic.com, wenn die Schlüssel auf eine Organisation beschränkt sind; ist keines von beiden gesetzt, antwortet es mit 404. Jede ungültige Einstellung lehnt jeden Aufruf mit 503 ab. | *getestet (Unit)* | `upstreamFor` in `_relay.ts`; Tests `direct deployment → 404, no relay`, `a Messages call goes to api.anthropic.com with the four forwarded headers and no gateway token`, `a gateway wins over the restriction: the check and the call both go to it with its token, like the real request` und `an invalid restriction → 503 ai-gateway-invalid, nothing sent` in `_relay.test.ts` |
+| E6 | Das Relay lehnt Browser-Aufrufe von fremden Websites ab, leitet nur vier Anthropic-Header weiter (dazu das Gateway-Token, wenn eines gesetzt ist) und keine Cookies, und es protokolliert weder Schlüssel noch Token, Inhalt oder URL. Es authentifiziert seine Aufrufer nicht (siehe E13). | *getestet (Unit)* | `relay`, `isSameOrigin` und `forwardHeaders` in `_relay.ts`; Tests `Sec-Fetch-Site: cross-site → 403 not-same-origin`, `forwards exactly the four Anthropic headers plus the gateway token` und `no console or diagnostics output carries the key, token, body or URL` in `_relay.test.ts` |
+| E7 | Schlüsselprüfung: Ist `AIPM_AI_ORGANIZATION_ID` gesetzt, sendet das Relay zuerst eine Anfrage nach einer Modellliste mit einem Eintrag (`GET /v1/models?limit=1`), mit dem Schlüssel der Person und über dasselbe Ziel wie die eigentliche Anfrage, und liest die Organisation (und mit `AIPM_AI_WORKSPACE_IDS` den Workspace) aus den Antwort-Headern von Anthropic. Ein Schlüssel einer anderen Organisation oder eines anderen Workspaces wird mit 403 abgelehnt, eine Prüfung, die nicht laufen kann, antwortet mit 503; in beiden Fällen wird nichts weitergeleitet. | *getestet (Unit)* | `createKeyChecker` in `_key-check.ts` und `refusalFor` in `_relay.ts`; Test `sends GET <base>/v1/models?limit=1 with the caller's key and version; a matching org passes` in `_key-check.test.ts`; Tests `another organisation → 403 ai-key-wrong-organization; no Messages call, no body read upstream` und `the check unavailable → 503 ai-key-check-unavailable; no Messages call` in `_relay.test.ts` |
+| E8 | Die Schlüsselprüfung hält ihre Ergebnisse nur im Speicher des Servers, unter einem mit einem Geheimnis gebildeten Hashwert des Schlüssels. Ein Bestehen gilt, bis der Server neu startet, die Beschränkung sich ändert oder der Eintrag verdrängt wird (ab 1.000 Schlüsseln, der am längsten ungenutzte zuerst); eine Ablehnung (andere Organisation oder anderer Workspace) 5 Minuten; die eigene 401-Antwort von Anthropic 60 Sekunden. Eine Prüfung, die nicht laufen konnte, die 403-Antwort von Anthropic und die Ablehnung durch ein Gateway werden nie gehalten. | *getestet (Unit)* | `createKeyChecker`, `rememberable`, `KEY_CHECK_DEFAULT_REFUSAL_TTL_MS`, `KEY_CHECK_DEFAULT_REJECTED_TTL_MS` und `KEY_CHECK_DEFAULT_MAX_ENTRIES` in `_key-check.ts`; Tests `a pass outlives the refusal lifetime`, `the default refusal lifetime is five minutes`, `remembers the 401 for 60 seconds, then sends a second pre-flight`, `a gateway's own 401 (not Anthropic-shaped) is not remembered`, `the default cap is 1000 entries` und die Gruppe `createKeyChecker — Anthropic's own 403 is passed through, not cached` in `_key-check.test.ts` |
+| E9 | Weil ein Bestehen gehalten wird (E8), wird ein Schlüssel, der bestanden hat, auf diesem Server nicht erneut geprüft, solange sein Eintrag besteht. Ein Schlüssel, der aus der Organisation oder dem Workspace entfernt wurde, besteht die Prüfung weiter, bis der Server neu startet, die Beschränkung sich ändert oder der Eintrag verdrängt wird. | *im Code gelesen* | `createKeyChecker` in `_key-check.ts`; Test `a passed key is not checked again on the next call` in `_relay.test.ts` |
+| E10 | Die Schlüsselprüfung verlängerte die erste weitergeleitete Chat-Anfrage mit einem neuen Schlüssel um 724 ms und die erste weitergeleitete Inline-Bearbeitung um 344 ms, je ein Lauf. Die Zusatzzeit, sobald ein Bestehen gehalten wird, wurde nicht gemessen. | *gemessen* | `figures.json relayKeyCheck.runs`; `figures.json relayKeyCheck.warmExtraMs` (leer) |
+| E11 | Das Gateway ist die https-Adresse, die der Betreiber in `AIPM_AI_GATEWAY_URL` setzt. Das Relay fügt `AIPM_AI_GATEWAY_TOKEN` jedem weitergeleiteten Aufruf als Header `cf-aig-authorization` hinzu (der Header von Cloudflare AI Gateway, das die Betriebsanleitung beschreibt). Adresse und Token werden nicht an den Browser gesendet. | *im Code gelesen* | `parseAiGatewayConfig` und `aiDeploymentStateFrom` in `src/app/ai-gateway-config.ts`; `forwardHeaders` in `_relay.ts`; `docs/RUNBOOK.md` |
+| E12 | Der Gateway-Weg wurde noch nie gegen ein echtes Gateway betrieben; seine Tests nutzen ein nachgebildetes Ziel und einen lokalen TLS-Server. | *nicht belegt* | Verzeichniseintrag §802; `src/app/api/ai/_relay.https.test.ts` |
+| E13 | Das Relay fügt das Gateway-Token für jeden Aufrufer hinzu, der den Server erreicht: Die Server-Routen der App authentifizieren ihre Aufrufer nicht. | *im Code gelesen* | Verzeichniseintrag §805; `forwardHeaders` in `_relay.ts` |
+| E14 | Der Personenschutz ersetzt vor dem Senden die Namen der Personen, die das Projekt kennt, durch Platzhalter wie `[Person 1]`, und E-Mail-Adressen, IBANs und Telefonnummern nach ihrem Muster durch Platzhalter, ob bekannt oder nicht. Platzhalter in der Antwort werden auf dem Gerät wieder in die Namen zurückverwandelt. Ein Name, den das Projekt nicht kennt, wird so gesendet, wie er dasteht. | *im Code gelesen* | `redactJsonBody` und `restoreJsonText` in `src/app/ai-people-redact.ts`, deren Kopfkommentar die Abgleichregeln nennt; `aiPrivacyFor` in `src/app/ai-privacy.ts` |
+| E15 | Der Personenschutz wirkt im Browser-Code der App, bevor eine Anfrage das Gerät verlässt; weder das Relay noch eine andere Server-Route wendet ihn an. Er gilt für diese App, wie sie ausgeliefert wird: Eine veränderte Kopie der App oder ein anderer Client mit demselben Schlüssel kann ohne ihn senden. | *im Code gelesen* | `redactForSend` und `postAiMessages` in `src/app/ai-transport.ts`; `relay` in `_relay.ts`; Test `calls fetch with an Anthropic URL only in the transport` in `src/app/ai-transport-sites.test.ts` |
+| E16 | Bei aktivem Personenschutz erreicht keine Person der Testdaten den Inhalt einer Anfrage, auf keinem KI-Pfad, der sendet; ohne Personenschutz senden dieselben Pfade Personen, der Test kann sie also sehen. | *getestet (Unit)* | Gruppen `with protection on, no fixture person reaches a request body` und `anti-vacuity: with protection off, the same drivers send people` in `src/app/ai-people-protection.wire.test.ts` |
+| E17 | Bei aktivem Personenschutz übernimmt die App aus einer KI-Antwort, die eine Person betrifft (eine zuständige Person, eine Ressource, einen Stakeholder), nichts Personenbezogenes; der Rest der Änderung wird übernommen. | *getestet (Unit)* | Test `protection on: the assignee, the resource and the stakeholder are untouched; the rest of the task write applies` in `src/app/ai-people-protection.wire.test.ts` |
+| E18 | Bei aktivem Personenschutz sind der Vorschlag für die Ressourcenplanung und der RACI-Vorschlag ausgeblendet, und das Diktat ist abgeschaltet. | *getestet (Unit)* | `figures.json hiddenWhenProtected`; Block `ai-paths`; die Fälle `is not offered` der Gruppe `with protection on, no fixture person reaches a request body` in `src/app/ai-people-protection.wire.test.ts` |
+| E19 | Eine Installation kann die KI abschalten (`ai` in `AIPM_DISABLED_INTEGRATIONS`; das Relay lehnt dann jeden Aufruf ab) oder den Personenschutz in jedem Projekt erzwingen (`ai-people`), gleich was ein Projekt gespeichert hat. | *getestet (Unit)* | Block `deployment-switches`; Test `switched off → 503 integration-disabled` in `_relay.test.ts`; Gruppe `the deployment lock` in `src/app/ai-people-protection.wire.test.ts` |
+| E20 | Bei aktivem Personenschutz enthielten die gemessenen Anfragen 0 Namen und 0 E-Mail-Adressen der Personen des Demoprojekts, bis auf 1 Namen im Vorschlag für ein neues Projekt, die dokumentierte Ausnahme (ein neues Projekt kennt noch keine Personen, daher werden Namen in seiner Beschreibung gesendet). | *gemessen* | `figures.json behaviour.protectedNameHitsOn`, `figures.json behaviour.emailHitsOn`, `figures.json behaviour.documentedExceptionHitsOn` |
+| E21 | Positivkontrolle: Ohne Personenschutz fand dieselbe Prüfung die Namen der Personen des Demoprojekts 72-mal, sie kann sie also sehen. | *gemessen* | `figures.json behaviour.positiveControlHitsOff` |
+| E22 | Alle 96 gemessenen Anfragen (47 ohne Personenschutz, 41 mit, 8 über das Relay) meldeten für inference_geo den Wert `global`. | *gemessen* | `figures.json behaviour.inferenceGeo`, `figures.json behaviour.requests` |
+| E23 | Die Relay-Zeilen liefen mit aktivem Personenschutz (eine Laufbedingung; `figures.json` hält sie nicht fest). | *gemessen* | `figures.json paths[protection=relay]` |
+| E24 | Kosten je Aufruf mit dem gemessenen Modell claude-sonnet-5, zu den am 2026-11-14 abgerufenen Listenpreisen: der Chat 0,0668 $ mit Personenschutz und 0,0711 $ ohne; die anderen gemessenen Funktionen 0,0034 $ bis 0,0314 $. Eine als „nicht bestätigt“ markierte Zeile ist eine, deren Anfragen den Schutzzustand nicht zeigten. | *gemessen* | Block `figures`; `figures.json paths[].usdPerCall`; `figures.json rates` |
+| E25 | Für ein Team von fünf Personen kommen die monatlichen KI-Kosten auf etwa 25 $ (leichte Nutzung), 67 $ (typisch) oder 165 $ (intensiv); die Aufrufe je Person und Tag sind Annahmen. | *geschätzt* | Block `team-month` |
+| E26 | Die Zeit, die die KI-Funktionen sparen, wurde nicht gemessen. | *nicht belegt* | Verzeichniseintrag §811 |
+| E27 | Ob „Arbeitspakete mit KI optimieren“ bei wiederholten Läufen dasselbe Ergebnis liefert, wurde nicht gemessen. | *nicht belegt* | Verzeichniseintrag §812 |
+| E28 | Gespeicherte Chats werden nur aufbewahrt, wenn das Projekt eine Turso-Datenbank nutzt, und zwar so verschlüsselt, dass nur die Person, die sie geschrieben hat, und der Betreiber mit dem Wiederherstellungsschlüssel sie lesen können; solange der Wiederherstellungsschlüssel fehlt oder unbrauchbar ist, wird kein Chat gespeichert. | *im Code gelesen* | `chatTursoMode` in `src/app/workspace-section.tsx`; `src/app/chat-crypto.ts`; Blöcke `ai-paths` und `deployment-switches` |
+| E29 | Ein gespeicherter Chat wird gelöscht, sobald die Aufbewahrungsfrist (30 Tage, sofern der Betreiber nicht einen Wert von 1 bis 3650 setzt) seit seiner letzten Änderung abgelaufen ist: von der App im Browser und vom Server einmal beim Start und danach alle 24 Stunden, wo die Löschung auf dem Server eingerichtet ist. Eine ungültige Einstellung setzt das Löschen nach Alter aus. | *im Code gelesen* | `DEFAULT_CHAT_RETENTION_DAYS` und `MAX_CHAT_RETENTION_DAYS` in `src/app/ai-chat-retention-config.ts`; `CHAT_SWEEP_INTERVAL_MS` in `src/app/api/ai/_chat-sweep.ts`; `src/app/use-chat-retention-sweep.ts`; Block `deployment-switches` |
+| E30 | Auf einer echten libSQL-Datenbank entfernen die Lösch- und Aufbewahrungsanweisungen genau die erwarteten Zeilen: einen Chat, alle Chats einer Person über Projekte hinweg, alles über der Obergrenze von 50 Chats je Person, abgelaufene Chats, die Chats eines gelöschten Projekts, und die Abfrage je Person, mit der sich die Chats einer Person finden und löschen lassen, liefert die erwarteten Zeilen. Nicht abgedeckt: die Oberflächen, die beiden Löschläufe mit echten Zugangsdaten, die Sicherungen des Datenbankanbieters und was der Modellanbieter aufbewahrt (§813). Der Test läuft bei jedem Pull Request und jedem Push auf main, ist aber keine Pflichtprüfung. | *getestet (Live-Datenbank)* | Tests `deleting one thread removes only that owner's row`, `delete all my chats removes every thread of one owner across projects`, `prune keeps the newest 50 threads per owner`, `retention expiry deletes threads older than the cutoff`, `the project hard-delete sweep removes the project's chat threads` und `an owner's threads are selectable for find and erase` in `e2e/chat-threads-erasure-live.spec.ts`; Verzeichniseintrag §813 |
+| E31 | Interaktive KI läuft nur, solange der KI-Hauptschalter an ist und die Person den aktuellen KI-Datenhinweis auf diesem Gerät akzeptiert hat. Die Zustimmung wird erneut erfragt, wenn sich der Hinweistext ändert, wenn sich der Weg ändert und wenn die Schlüsselbeschränkung ein- oder ausgeschaltet wird. | *getestet (Unit)* | `isInteractiveAiAllowed`, `isConsentCurrent` und `AI_DISCLOSURE_VERSION` in `src/app/ai-consent.ts`; Tests `throws while AI is switched off, the consent kept (AI-01)`, `is false for another disclosure version`, `a direct or gateway record is stale under relay; a new consent records relay and is current` und `a gateway consent given without the key restriction is stale once the restriction is on, and a new one is current` in `src/app/ai-consent.test.ts` |
+| E32 | Hintergrund-KI (die Analyse durch geplante Aufträge, die automatischen Insight-Empfehlungen, die geplante Zusammenfassung) braucht zusätzlich eine eigene Hintergrund-Zustimmung, die einmal gegeben wird und nicht Lauf für Lauf (§795). Die wöchentliche harte Obergrenze hält nur die Hintergrund-KI an. | *getestet (Unit)* | `assertBackgroundConsentLive` und `AiConsentLevel` in `src/app/ai-consent.ts`; Tests `a withdrawn background consent leaves the interactive level live` und `blocks the background level with AiWeeklyCapReachedError and leaves the interactive level live` in `src/app/ai-consent.test.ts`; Verzeichniseintrag §795 |
+| E33 | Das Modell, mit dem die Zahlen gemessen wurden, war claude-sonnet-5. | *gemessen* | `figures.json model` |
+| E34 | Die Hosts, die der Browser erreichen darf, und die Dienste, an die der Server der App sendet, jeweils mit dem, was sie erhalten, und wann. | *im Code gelesen* | Blöcke `browser-hosts` und `server-destinations` |
 
 ## KI-Pfade und Personendaten
+
+Die KI-Funktionen, die Daten über Personen senden: jede Zeile der nächsten Tabelle außer den beiden
+Zusammenfassungen, die Namen nur dort enthalten, wo jemand einen in einen Meilensteinnamen geschrieben hat (E1).
 
 <!-- PACK:ai-paths-people:BEGIN -->
 | Funktion | Zustimmung | Was gesendet wird | Bei aktivem Personenschutz |
@@ -23,6 +153,9 @@
 <!-- PACK:ai-paths-people:END -->
 
 ## KI-Pfade
+
+Jede KI-Funktion der App, mit dem Text, den die App selbst zeigt, bevor eine Person den KI-Datenhinweis
+akzeptiert (E1).
 
 <!-- PACK:ai-paths:BEGIN -->
 | Funktion | Zustimmung | Was gesendet wird | Bei aktivem Personenschutz |
@@ -97,6 +230,9 @@
 
 ## Offene Lücken
 
+Die offenen Verzeichniseinträge, die die Kurzinformationen zitieren. Jeder ist ein offener Punkt in
+`docs/open-followups.md`, mit dem, was es zu seiner Schließung bräuchte.
+
 <!-- PACK:open-gaps:BEGIN -->
 | Register-Eintrag | Titel |
 |---|---|
@@ -124,6 +260,10 @@
 <!-- PACK:open-gaps:END -->
 
 ## Gemessene Zahlen
+
+Gemessen am 2026-11-14 im Demoprojekt mit dem Commit e63693393 (E24). Die Zeilen „an (Relay)“ liefen über das
+Relay der App mit Schlüsselprüfung und mit aktivem Personenschutz; `figures.json` hält diese Bedingung nicht fest
+(E23). Die Verhaltenszahlen hinter E20 bis E22 stehen in derselben Datei.
 
 <!-- PACK:figures:BEGIN -->
 | Funktion | Personenschutz | n (Aufrufe) | $/Aufruf | Cache-Lese-Anteil | Median-Latenz |
@@ -165,6 +305,9 @@ Gemessen mit Commit e63693393 am 2026-11-14, Modell claude-sonnet-5, im Demoproj
 <!-- PACK:figures:END -->
 
 ## Teammonat-Schätzung
+
+Eine Schätzung aus den gemessenen Kosten je Aufruf und einer angenommenen Nutzung, keine Messung (E25). Die
+Rechnung steht unter der Tabelle.
 
 <!-- PACK:team-month:BEGIN -->
 | Funktionsgruppe | $ je Aufruf | leicht (Aufrufe je Nutzer und Tag → $ je Monat) | typisch (Aufrufe je Nutzer und Tag → $ je Monat) | intensiv (Aufrufe je Nutzer und Tag → $ je Monat) |
