@@ -94,7 +94,7 @@ types through the validator was weighed and rejected.
   error; gated `isAiEnabled && settings.ai.insightRecommendations === true && !isPopout && !loadPending`
   (§548), default OFF).
   ★★ WHICH insights either trigger may send is the chat's rule, ONE predicate: `insightReachesAi`
-  (`insight-prompt.ts`, also behind `buildInsightsPromptBlock`). Under AI people protection an insight about one
+  (`insight-prompt.ts`, also behind `buildInsightsPromptBlock` and the chat's `get_app_state` result in `runTool`). Under AI people protection an insight about one
   person (`isPersonScopedInsight`: its data names a `person`, as every Timelog guardrail does) gets NO
   recommendation, so its figures (Timelog user number, dates) and its `resources` profile digest (job title,
   department, company, flags) never leave; Timelog switched off drops the guardrail rows the same way. Both hooks

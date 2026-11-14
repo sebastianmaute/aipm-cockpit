@@ -210,6 +210,10 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The AI Assistant’s view of the app respects people protection.** When the assistant reads the app’s state, it
+  no longer receives the insights about one person (such as a working-time finding from Timelog) while people
+  protection is on, nor the Timelog insights while Timelog is switched off, the same insights its instructions
+  already left out.
 - **The AI data disclosure is asked once more.** What it says people protection does to each AI feature is now
   part of the version you accept, so a change to that text asks again; this release changes it for the insight
   recommendations, so everyone accepts the disclosure once more. If you let AI run in the background (scheduled jobs,
