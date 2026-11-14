@@ -1033,7 +1033,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§793](#793-the-installers-uninstaller-is-not-code-signed) | The installer's uninstaller is not code-signed | #951 | — | OPEN |
 | [§794](#794-a-single-ai-chat-write-applies-without-the-review-card) | A single AI chat write applies without the review card | — | — | open |
 | [§795](#795-background-ai-runs-are-consented-once-not-approved-run-by-run) | Background AI runs are consented once, not approved run by run | — | — | open |
-| [§796](#796-tasks-created-by-plan-with-ais-work-breakdown-cannot-be-undone) | Tasks created by Plan with AI's work breakdown cannot be undone | — | — | open |
+| [§796](#796-tasks-created-by-optimize-work-breakdown-with-ai-cannot-be-undone) | Tasks created by Optimize work breakdown with AI cannot be undone | — | — | open |
 | [§797](#797-external-text-that-the-chats-tools-read-does-not-trigger-the-review-hold) | External text that the chat's tools read does not trigger the review hold | — | — | open |
 | [§798](#798-most-ai-requests-have-no-client-time-limit-and-none-is-retried-on-a-rate-limit-or-overload) | Most AI requests have no client time limit, and none is retried on a rate limit or overload | — | — | open |
 | [§799](#799-an-activity-entry-written-by-the-ai-does-not-link-to-the-chat-message-that-caused-it) | An activity entry written by the AI does not link to the chat message that caused it | — | — | open |
@@ -46316,7 +46316,7 @@ Size M.
 
 **Source:** compliance pack gap check, 2026-11-13.
 
-## 796. Tasks created by Plan with AI's work breakdown cannot be undone
+## 796. Tasks created by Optimize work breakdown with AI cannot be undone
 
 **Status:** OPEN 2026-11-13, found by the compliance pack's gap check. Reproduced by reading: `grep -c "new tasks stay" src/app/i18n.ts` prints 1, the note the apply dialog shows ("Undo reverts the changes to existing tasks; new tasks stay and can be deleted by hand.").
 

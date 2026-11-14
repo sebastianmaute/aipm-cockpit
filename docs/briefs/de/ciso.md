@@ -2,7 +2,7 @@
 
 *So lesen Sie diese Seite:* `E<n>` ist eine Zeile der [Belegtabelle](appendix.md#belegtabelle); ihre
 [Belegart](appendix.md#belegarten) ist *gemessen*, *getestet (Unit)* (ein Test mit Attrappen, kein Lauf gegen
-echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (niemand hat es ausgeführt), *geschätzt* oder
+echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (kein Test und kein Lauf prüft es), *geschätzt* oder
 *nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen [Register](../../open-followups.md) (englisch) des
 Projekts, aufgeführt unter [Offene Lücken](appendix.md#offene-lücken).
 
@@ -26,7 +26,8 @@ der App.
 ## Was hinausgeht und wer es freigibt
 
 - **Aus dem Browser:** nur an die Hosts in der Content Security Policy der Seite, die der Server sendet und der
-  Browser durchsetzt; api.anthropic.com steht nur auf dem direkten Weg bei eingeschalteter KI darin (E53,
+  Browser durchsetzt, außer beim Diktat mit der eingebauten Spracherkennung des Browsers, die in manchen
+  Browsern Audio an den Browserhersteller sendet (E1, *im Code gelesen*); api.anthropic.com steht nur auf dem direkten Weg bei eingeschalteter KI darin (E53,
   *getestet (Unit)*). Turso-, SharePoint- und OneDrive-Hosts sind per Platzhalter erlaubt, ebenso jeder lokale
   Port ([Browser-Hosts](appendix.md#browser-hosts); §800; E34, *im Code gelesen*).
 - **Vom Server:** Das Relay leitet vier Anthropic-Header weiter, dazu das Gateway-Token, wenn eines gesetzt

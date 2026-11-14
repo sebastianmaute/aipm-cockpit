@@ -2,7 +2,7 @@
 
 *How to read this page:* `E<n>` is a row of the [evidence table](appendix.md#evidence-table); its
 [label](appendix.md#evidence-labels) is *measured*, *tested (unit)* (a test with fakes, not a live run),
-*tested (live database)*, *read in code* (nobody ran it), *estimated* or *not proven*. `§N` is an open entry of
+*tested (live database)*, *read in code* (no test or run checks it), *estimated* or *not proven*. `§N` is an open entry of
 the project's public [register](../../open-followups.md), listed under [Open gaps](appendix.md#open-gaps).
 
 ## In one paragraph
@@ -43,8 +43,9 @@ to watch spend: nothing in the app stops interactive AI at a spend limit (E38, *
   off a single AI feature (E42, *read in code*); `stt` does not stop dictation but moves it to the browser's own
   speech recognition, which in some browsers sends audio to the browser maker; people protection switches
   dictation off (E1, *read in code*; E18, *tested (unit)*).
-- **Monitoring:** the relay writes no log of its own, none with a key, token, body or URL, and usage is
-  counted only in each browser, so per-user figures must come from Anthropic or your gateway (E65,
+- **Monitoring:** the relay writes no log of its own, none with a key, token, body or URL, apart from a
+  one-time warning that the gateway, key-restriction or chat-retention setting is invalid (the reason only),
+  and usage is counted only in each browser, so per-user figures must come from Anthropic or your gateway (E65,
   *read in code*; E6, *tested (unit)*; E38, *read in code*).
 - **Cost at scale:** about $5, $13 or $33 per user and month at light, typical or heavy use (E25,
   *estimated*), from 2 to 6 calls per feature on one demo project (E37, *measured*).

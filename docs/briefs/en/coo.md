@@ -2,7 +2,7 @@
 
 *How to read this page:* `E<n>` is a row of the [evidence table](appendix.md#evidence-table); its
 [label](appendix.md#evidence-labels) is *measured*, *tested (unit)* (a test with fakes, not a live run),
-*tested (live database)*, *read in code* (nobody ran it), *estimated* or *not proven*. `§N` is an open entry of
+*tested (live database)*, *read in code* (no test or run checks it), *estimated* or *not proven*. `§N` is an open entry of
 the project's public [register](../../open-followups.md), listed under [Open gaps](appendix.md#open-gaps).
 
 ## In one paragraph
@@ -22,7 +22,7 @@ What every feature sends is in the [AI paths](appendix.md#ai-paths) table (E1, *
 summary, for example, sends status figures, the milestones due soon and the user's operating guide for the
 digest, and no people's names unless a milestone name holds one (E1, *read in code*). With *people protection*
 on, the names of people the project knows (a one-word name only where written with a capital) and every e-mail
-address, IBAN and phone-shaped number are replaced by placeholders in the browser before sending (E14,
+address, valid IBAN and phone-shaped number are replaced by placeholders in the browser before sending (E14,
 *tested (unit)*; E15, *read in code*).
 
 ## What you control

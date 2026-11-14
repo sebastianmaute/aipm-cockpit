@@ -2,7 +2,7 @@
 
 *How to read this page:* `E<n>` is a row of the [evidence table](appendix.md#evidence-table); its
 [label](appendix.md#evidence-labels) is *measured*, *tested (unit)* (a test with fakes, not a live run),
-*tested (live database)*, *read in code* (nobody ran it), *estimated* or *not proven*. `§N` is an open entry of
+*tested (live database)*, *read in code* (no test or run checks it), *estimated* or *not proven*. `§N` is an open entry of
 the project's public [register](../../open-followups.md), listed under [Open gaps](appendix.md#open-gaps).
 
 ## In one paragraph
@@ -22,7 +22,7 @@ of you is therefore not a rollout but a scoped pilot that measures it.
   resource directory, absences, and attached files and e-mails ([AI paths](appendix.md#ai-paths); E1,
   *read in code*).
 - **People:** *people protection* replaces, in the browser before sending, the names of people the project
-  knows (a one-word name only where it is written with a capital) and every e-mail address, IBAN and
+  knows (a one-word name only where it is written with a capital) and every e-mail address, valid IBAN and
   phone-shaped number with placeholders (E14, *tested (unit)*; E15, *read in code*). Names the project does not
   know, in typed text, attached mail and files or a new project's brief, are sent as written (E35,
   *read in code*).

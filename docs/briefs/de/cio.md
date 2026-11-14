@@ -2,7 +2,7 @@
 
 *So lesen Sie diese Seite:* `E<n>` ist eine Zeile der [Belegtabelle](appendix.md#belegtabelle); ihre
 [Belegart](appendix.md#belegarten) ist *gemessen*, *getestet (Unit)* (ein Test mit Attrappen, kein Lauf gegen
-echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (niemand hat es ausgeführt), *geschätzt* oder
+echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (kein Test und kein Lauf prüft es), *geschätzt* oder
 *nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen [Register](../../open-followups.md) (englisch) des
 Projekts, aufgeführt unter [Offene Lücken](appendix.md#offene-lücken).
 
@@ -51,8 +51,9 @@ Schalter und die Beobachtung der Ausgaben: Nichts in der App hält interaktive K
   verlegt es auf die eingebaute Spracherkennung des Browsers, die in manchen Browsern Audio an den
   Browserhersteller sendet; der Personenschutz schaltet das Diktat ab (E1, *im Code gelesen*; E18,
   *getestet (Unit)*).
-- **Beobachtung:** Das Relay schreibt kein eigenes Protokoll, keines mit Schlüssel, Token, Inhalt oder URL, und
-  die Nutzung wird nur in jedem Browser gezählt; Zahlen je nutzender Person müssen also von Anthropic oder Ihrem
+- **Beobachtung:** Das Relay schreibt kein eigenes Protokoll, keines mit Schlüssel, Token, Inhalt oder URL,
+  abgesehen von einer einmaligen Warnung, dass die Gateway-, Schlüsselbeschränkungs- oder
+  Chat-Aufbewahrungseinstellung ungültig ist (nur der Grund), und die Nutzung wird nur in jedem Browser gezählt; Zahlen je nutzender Person müssen also von Anthropic oder Ihrem
   Gateway kommen (E65, *im Code gelesen*; E6, *getestet (Unit)*; E38, *im Code gelesen*).
 - **Kosten im großen Maßstab:** etwa 5 $, 13 $ oder 33 $ je nutzender Person und Monat bei leichter, typischer
   oder intensiver Nutzung (E25, *geschätzt*), aus 2 bis 6 Aufrufen je Funktion in einem Demoprojekt (E37,

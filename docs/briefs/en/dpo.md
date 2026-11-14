@@ -2,7 +2,7 @@
 
 *How to read this page:* `E<n>` is a row of the [evidence table](appendix.md#evidence-table); its
 [label](appendix.md#evidence-labels) is *measured*, *tested (unit)* (a test with fakes, not a live run),
-*tested (live database)*, *read in code* (nobody ran it), *estimated* or *not proven*. `§N` is an open entry of
+*tested (live database)*, *read in code* (no test or run checks it), *estimated* or *not proven*. `§N` is an open entry of
 the project's public [register](../../open-followups.md), listed under [Open gaps](appendix.md#open-gaps).
 
 ## In one paragraph
@@ -20,13 +20,16 @@ with Anthropic, transfers and a works agreement are questions only your organisa
   proposal sends each person's planned and available hours and their role's internal hourly rate, and Timelog
   insights name one person with findings about their logged working time (E1, *read in code*); five features
   send who is away even while the Resources function is hidden (E59, *read in code*).
-- **Absence types (Article 9):** no AI path sends an absence's stored type: the chat lists each as "absent",
+- **Absence types (possible special-category data):** no AI path sends an absence's stored type: the chat lists each as "absent",
   and the row edit and the lists of who is away leave it out (E63, *tested (unit)*; E1, *read in code*). One
   hint remains: the Timelog insight for time booked on an absence day names the person as absent "(vacation,
   sick or training)", without saying which, and reaches the chat, the row edit and the insight recommendations
   (E63, *tested (unit)*; E1, *read in code*). It is not sent while `timelog` is switched off or Timelog is
   hidden in the project, and the chat drops it under people protection; a type a user writes, such as "sick",
   is sent as written (E64, *read in code*).
+- **Dictation:** audio goes not to Anthropic but to the speech service the user sets up or, with browser
+  dictation, to the browser's own recognition, which in some browsers sends it to the browser maker (E1,
+  *read in code*).
 - **Minimisation:** chat list results carry no e-mail addresses (attachments, documents and logged edits can),
   and the row edit never sends a person's phone number, birthday or notes (E1, *read in code*).
 - **Protection and its limits:** *people protection* is on unless a project allows people (E41,

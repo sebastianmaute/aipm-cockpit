@@ -74,7 +74,7 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | §793 | The installer's uninstaller is not code-signed |
 | §794 | A single AI chat write applies without the review card |
 | §795 | Background AI runs are consented once, not approved run by run |
-| §796 | Tasks created by Plan with AI's work breakdown cannot be undone |
+| §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §797 | External text that the chat's tools read does not trigger the review hold |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |

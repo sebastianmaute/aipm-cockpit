@@ -2,7 +2,7 @@
 
 *So lesen Sie diese Seite:* `E<n>` ist eine Zeile der [Belegtabelle](appendix.md#belegtabelle); ihre
 [Belegart](appendix.md#belegarten) ist *gemessen*, *getestet (Unit)* (ein Test mit Attrappen, kein Lauf gegen
-echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (niemand hat es ausgeführt), *geschätzt* oder
+echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (kein Test und kein Lauf prüft es), *geschätzt* oder
 *nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen [Register](../../open-followups.md) (englisch) des
 Projekts, aufgeführt unter [Offene Lücken](appendix.md#offene-lücken).
 
@@ -25,7 +25,7 @@ Fragen, die nur Ihre Organisation beantworten kann.
   ihrer Rolle, und Timelog-Insights nennen eine Person mit Befunden zu ihrer erfassten Arbeitszeit (E1,
   *im Code gelesen*); fünf Funktionen senden, wer abwesend ist, auch bei ausgeblendeter Ressourcen-Funktion
   (E59, *im Code gelesen*).
-- **Abwesenheitstypen (Artikel 9):** Kein KI-Pfad sendet den gespeicherten Typ einer Abwesenheit: Der Chat führt
+- **Abwesenheitstypen (möglicherweise besondere Kategorien personenbezogener Daten):** Kein KI-Pfad sendet den gespeicherten Typ einer Abwesenheit: Der Chat führt
   jede als „absent“, die Bearbeitung einer Zeile und die Listen, wer abwesend ist, lassen ihn weg (E63,
   *getestet (Unit)*; E1, *im Code gelesen*). Ein Hinweis bleibt: Der Timelog-Insight zu Zeit, die an einem
   Abwesenheitstag gebucht wurde, nennt die Person als abwesend „(vacation, sick or training)“, ohne den Typ zu
@@ -33,6 +33,9 @@ Fragen, die nur Ihre Organisation beantworten kann.
   *getestet (Unit)*; E1, *im Code gelesen*). Er wird nicht gesendet, solange `timelog` abgeschaltet oder Timelog
   im Projekt ausgeblendet ist, und der Chat lässt ihn bei Personenschutz weg; ein Typ, den eine nutzende Person
   schreibt, etwa „krank“, wird so gesendet, wie er dasteht (E64, *im Code gelesen*).
+- **Diktat:** Audio geht nicht an Anthropic, sondern an den Sprachdienst, den die nutzende Person einrichtet,
+  oder beim Browser-Diktat an die eingebaute Spracherkennung des Browsers, die es in manchen Browsern an den
+  Browserhersteller sendet (E1, *im Code gelesen*).
 - **Datensparsamkeit:** Listenergebnisse im Chat enthalten keine E-Mail-Adressen (Anhänge, Dokumente und
   protokollierte Änderungen schon), und die Bearbeitung einer Zeile sendet nie Telefonnummer, Geburtstag oder
   Notizen einer Person (E1, *im Code gelesen*).

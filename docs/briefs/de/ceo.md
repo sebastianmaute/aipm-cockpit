@@ -2,7 +2,7 @@
 
 *So lesen Sie diese Seite:* `E<n>` ist eine Zeile der [Belegtabelle](appendix.md#belegtabelle); ihre
 [Belegart](appendix.md#belegarten) ist *gemessen*, *getestet (Unit)* (ein Test mit Attrappen, kein Lauf gegen
-echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (niemand hat es ausgeführt), *geschätzt* oder
+echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (kein Test und kein Lauf prüft es), *geschätzt* oder
 *nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen [Register](../../open-followups.md) (englisch) des
 Projekts, aufgeführt unter [Offene Lücken](appendix.md#offene-lücken).
 
@@ -23,7 +23,7 @@ Einführung, sondern ein begrenzter Pilot, der das misst.
   Ressourcenverzeichnis, Abwesenheiten sowie angehängte Dateien und E-Mails
   ([KI-Pfade](appendix.md#ki-pfade); E1, *im Code gelesen*).
 - **Personen:** Der *Personenschutz* ersetzt im Browser vor dem Senden die Namen der Personen, die das Projekt
-  kennt (einen einwortigen Namen nur dort, wo er großgeschrieben ist), sowie jede E-Mail-Adresse, jede IBAN und
+  kennt (einen einwortigen Namen nur dort, wo er großgeschrieben ist), sowie jede E-Mail-Adresse, jede gültige IBAN und
   jede Zahl in Form einer Telefonnummer durch Platzhalter (E14, *getestet (Unit)*; E15, *im Code gelesen*).
   Namen, die das Projekt nicht kennt, in getipptem Text, angehängten E-Mails und Dateien oder in der
   Beschreibung eines neuen Projekts, werden so gesendet, wie sie dastehen (E35, *im Code gelesen*).
