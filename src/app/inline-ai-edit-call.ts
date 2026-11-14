@@ -14,6 +14,15 @@ import {
   type ToolFlags,
   type ToolUseBlock,
 } from "./chat-api";
+import { peopleToolsLive } from "./chat-tool-defs";
+import { type ToolDispatcher } from "./chat-tools";
+import { type Lang } from "./i18n";
+import { type OperatingGuide } from "./operating-guide";
+import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
+import { PLANNABLE_TOOL_NAMES } from "./inline-ai-edit/plan";
+import { INLINE_EDIT_PATH } from "./ai-usage-paths";
+import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
+import { projectForInlineEdit } from "./inline-ai-edit/projection";
 
 /** ★★ BOTH RECALL TOOLS OFF for the inline editor, spelled by NAME so the two
  *  same-typed flags cannot be transposed (§159). The inline path edits ONE item
@@ -23,15 +32,6 @@ import {
  *  constant: it is per project and per call, so `callInlineEdit` adds
  *  `peopleProtected` from its args to both the prompt and the request flags. */
 const NO_RECALL_TOOLS: ToolFlags = { historySearch: false, chatSearch: false };
-import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS, peopleToolsLive } from "./chat-tool-defs";
-import { type ToolDispatcher } from "./chat-tools";
-import { type Lang } from "./i18n";
-import { type OperatingGuide } from "./operating-guide";
-import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
-import { PLANNABLE_TOOL_NAMES } from "./inline-ai-edit/plan";
-import { INLINE_EDIT_PATH } from "./ai-usage-paths";
-import { INLINE_DESCRIPTORS } from "./inline-ai-edit/entity-descriptor";
-import { projectForInlineEdit } from "./inline-ai-edit/projection";
 
 export interface InlineEditArgs {
   apiKey: string;
@@ -86,12 +86,9 @@ function inlineTools(peopleProtected: boolean): InlineTools {
   const cached = inlineToolsCache.get(withoutPeople);
   if (cached) return cached;
   const withheld = withheldByUpdateTool();
-  // Under protection the people tools go and four definitions swap for their protected variants, the
-  // selection chat makes (`toolsFor`): same sets, same map. The cache breakpoint rides the swap.
-  const names = withoutPeople ? new Set([...PLANNABLE_TOOL_NAMES].filter((n) => !PEOPLE_TOOLS.has(n))) : PLANNABLE_TOOL_NAMES;
-  const built = toolsNamed(names).map((base) => {
-    const protectedDef = withoutPeople ? PEOPLE_PROTECTED_DEFS.get(base.name) : undefined;
-    const def = protectedDef ? { ...protectedDef, ...("cache_control" in base ? { cache_control: base.cache_control } : {}) } : base;
+  // Under protection `toolsNamed` makes chat's selection (`selectPeopleTools`, which `toolsFor` uses too):
+  // the people tools go, their protected variants swap in, and the cache breakpoint is set after both.
+  const built = toolsNamed(PLANNABLE_TOOL_NAMES, peopleProtected).map((def) => {
     const schema = def.input_schema as { properties?: Record<string, unknown>; required?: readonly string[] };
     if (!schema.properties) return def;
     // D7: the entity's update tool also loses the withheld properties - a schema the model cannot see

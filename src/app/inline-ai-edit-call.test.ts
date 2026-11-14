@@ -491,6 +491,17 @@ describe("callInlineEdit under people protection", () => {
     expect(list((await send(true)).text)).toEqual(five.filter((n) => n !== "create_stakeholder"));
   });
 
+  // Chat's rule (`withCacheBreakpoint`): one cache breakpoint, on the LAST tool. The protected list both drops
+  // tools and swaps definitions, and either could lose or duplicate the mark.
+  it("each inline tool list carries exactly one cache breakpoint, on its last tool", async () => {
+    for (const state of [true, false]) {
+      const tools = (await send(state)).tools as ReadonlyArray<{ name: string; cache_control?: unknown }>;
+      const marked = tools.flatMap((d, i) => ("cache_control" in d ? [i] : []));
+      expect(marked, `protected=${state}`).toEqual([tools.length - 1]);
+      expect(tools[tools.length - 1].cache_control).toEqual({ type: "ephemeral" });
+    }
+  });
+
   it("inline tools follow each call's protection state", async () => {
     for (const state of [true, false, true]) {
       const r = await send(state);

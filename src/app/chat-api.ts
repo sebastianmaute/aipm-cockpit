@@ -553,7 +553,8 @@ export type ToolFlags = Pick<AiConfig, "historySearch" | "chatSearch"> & {
   peopleProtected?: boolean;
 };
 
-/** Tool names removed by each bit of the variant key. */
+/** Tool names removed by each bit of the variant key. Bit 8 (people protection) is not listed: its drop and
+ *  its definition swap are one step, `selectPeopleTools`, which the inline editor's list shares. */
 const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
   [1, "search_history"],
   [2, "search_chats"],
@@ -563,9 +564,20 @@ const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
   [4, "delete_forecast_scenario"],
   [4, "set_forecast_proposal"],
   [4, "set_forecast_target_confidence"],
-  // AI people protection: every people tool, by the SAME predicate `runTool` enforces (`peopleToolsLive`).
-  ...[...PEOPLE_TOOLS].map((name) => [8, name] as const),
 ];
+
+/** AI people protection: the tool selection of a request that withholds people, shared by chat
+ *  (`variantFor`, bit 8) and the inline editor (`toolsNamed`). Withheld, every `PEOPLE_TOOLS` name goes and
+ *  each `PEOPLE_PROTECTED_DEFS` entry replaces its original; otherwise `defs` stay as given. The cache
+ *  breakpoint is set AFTER both steps (`withCacheBreakpoint`, on the last tool kept), so neither the drop
+ *  nor the swap can lose or duplicate it. `defs` must carry no breakpoint yet. Callers decide
+ *  `withoutPeople` with the SAME predicate `runTool` enforces (`peopleToolsLive`). */
+export function selectPeopleTools(defs: typeof TOOL_DEFS, withoutPeople: boolean): ReturnType<typeof withCacheBreakpoint> {
+  if (!withoutPeople) return withCacheBreakpoint(defs);
+  return withCacheBreakpoint(
+    defs.filter((d) => !PEOPLE_TOOLS.has(d.name)).map((d) => (PEOPLE_PROTECTED_DEFS.get(d.name) as typeof d | undefined) ?? d),
+  );
+}
 
 /** The document tools as sent with bit 4 set (forecast off): no `forecastDecision` data section (§502 part 4). */
 const DOCUMENTS_WITHOUT_DECISION = new Map(DOCUMENT_TOOL_DEFS_WITHOUT_DECISION.map((d) => [d.name, d]));
@@ -611,10 +623,9 @@ function variantFor(key: number) {
   //   bill.
   const kept = TOOL_DEFS.filter((d) => !removed.has(d.name));
   const decided = (key & 4) === 0 ? kept : kept.map((d) => (DOCUMENTS_WITHOUT_DECISION.get(d.name) as typeof d | undefined) ?? d);
-  // §773 — bit 8 withholds list_absences, so the date-writing tools stop pointing at it.
-  const built = withCacheBreakpoint(
-    (key & 8) === 0 ? decided : decided.map((d) => (PEOPLE_PROTECTED_DEFS.get(d.name) as typeof d | undefined) ?? d),
-  );
+  // Bit 8 drops the people tools; §773 — it also withholds list_absences, so the date-writing tools swap
+  // for variants that stop pointing at it.
+  const built = selectPeopleTools(decided, (key & 8) !== 0);
   TOOL_VARIANTS.set(key, built);
   return built;
 }
@@ -653,13 +664,16 @@ export function toolNamesFor(flags: ToolFlags): ReadonlySet<string> {
 const NAMED_VARIANTS = new Map<string, ReturnType<typeof withCacheBreakpoint>>();
 
 /** The definitions of exactly the named tools, for a path that must not offer the rest (§715 D1: the
- *  single-shot inline edit, where a read tool can never be answered). One array per name set, like
- *  `toolsFor`, with the cache breakpoint recomputed for the subset. */
-export function toolsNamed(names: ReadonlySet<string>): ReturnType<typeof withCacheBreakpoint> {
-  const key = [...names].sort().join(",");
+ *  single-shot inline edit, where a read tool can never be answered). One array per name set and
+ *  protection state, like `toolsFor`, with the cache breakpoint recomputed for the subset. Under people
+ *  protection the list is chat's protected selection of those names (`selectPeopleTools`); only an
+ *  explicit true protects (`peopleToolsLive`). */
+export function toolsNamed(names: ReadonlySet<string>, peopleProtected?: boolean): ReturnType<typeof withCacheBreakpoint> {
+  const withoutPeople = !peopleToolsLive(peopleProtected);
+  const key = `${withoutPeople ? "protected" : "people"}:${[...names].sort().join(",")}`;
   const cached = NAMED_VARIANTS.get(key);
   if (cached) return cached;
-  const built = withCacheBreakpoint(TOOL_DEFS.filter((d) => names.has(d.name)));
+  const built = selectPeopleTools(TOOL_DEFS.filter((d) => names.has(d.name)), withoutPeople);
   NAMED_VARIANTS.set(key, built);
   return built;
 }
