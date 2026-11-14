@@ -101,18 +101,21 @@ const TEXT = {
     latency: "Median latency",
     off: "off",
     on: "on",
-    relay: "relay",
+    relay: "on (relay)",
     hidden: "hidden while people protection is on",
-    capFigures: (commit: string, date: string, model: string) =>
-      `Measured with commit ${commit} on ${date}, model ${model}, on the demo project. n is the number of measured calls per row; cache-read share = cache-read tokens / (input + cache-write + cache-read tokens).`,
+    unverified: (n: number) => ` (${n} unverified)`,
+    capFigures: (commit: string, date: string, model: string, fetchedAt: string) =>
+      `Measured with commit ${commit} on ${date}, model ${model}, on the demo project. n is the number of measured calls per row; "unverified" means the request did not show the protection state. Cache-read share = cache-read tokens / (input + cache-write + cache-read tokens). $/call = the measured tokens at the list prices fetched on ${fetchedAt}.`,
     group: "Feature group",
-    perDay: "calls per user per day",
     perCall: "$ per call",
+    bandHead: (band: string) => `${band} (calls per user per day → $ per month)`,
     totalRow: (n: number) => `Total, team of ${n}, $ per month`,
     capEstimate: (days: number, users: number) =>
-      `*Estimated*, not measured. Monthly cost = calls per user per day x ${days} working days x ${users} users x $ per call, summed over the feature groups. $ per call is the mean measured value of the group's features with people protection on (off where a feature has no protected row). The calls per user per day are assumptions.`,
+      `*Estimated*, not measured. Monthly cost = calls per user per day × ${days} working days × ${users} users × $ per call, summed over the feature groups. $ per call is the unweighted mean of the measured values of the group's features, so a group's calls are split evenly across its features; it uses the people-protection-on value, or the off value where a feature has no protected row (features hidden under people protection run only with protection off, so they are priced at off). Background jobs are counted per user as a modelling choice. The calls per user per day are assumptions.`,
     bands: { light: "light", typical: "typical", heavy: "heavy" },
     num: (n: number, digits: number) => n.toFixed(digits),
+    money: (n: number, digits: number) => `$${n.toFixed(digits)}`,
+    percent: (n: number) => `${n.toFixed(0)}%`,
   },
   de: {
     path: "Funktion",
@@ -123,18 +126,21 @@ const TEXT = {
     latency: "Median-Latenz",
     off: "aus",
     on: "an",
-    relay: "Relay",
+    relay: "an (Relay)",
     hidden: "ausgeblendet, solange der Personenschutz an ist",
-    capFigures: (commit: string, date: string, model: string) =>
-      `Gemessen mit Commit ${commit} am ${date}, Modell ${model}, am Demoprojekt. n ist die Zahl der gemessenen Aufrufe je Zeile; Cache-Lese-Anteil = Cache-Lese-Token / (Eingabe- + Cache-Schreib- + Cache-Lese-Token).`,
+    unverified: (n: number) => ` (${n} nicht bestätigt)`,
+    capFigures: (commit: string, date: string, model: string, fetchedAt: string) =>
+      `Gemessen mit Commit ${commit} am ${date}, Modell ${model}, im Demoprojekt. n ist die Zahl der gemessenen Aufrufe je Zeile; „nicht bestätigt“ heißt, dass die Anfrage den Schutzzustand nicht zeigte. Cache-Lese-Anteil = Cache-Lese-Token / (Eingabe- + Cache-Schreib- + Cache-Lese-Token). $/Aufruf = die gemessenen Token zu den am ${fetchedAt} abgerufenen Listenpreisen.`,
     group: "Funktionsgruppe",
-    perDay: "Aufrufe je Nutzer und Tag",
     perCall: "$ je Aufruf",
+    bandHead: (band: string) => `${band} (Aufrufe je Nutzer und Tag → $ je Monat)`,
     totalRow: (n: number) => `Summe, Team mit ${n} Personen, $ je Monat`,
     capEstimate: (days: number, users: number) =>
-      `*Geschätzt*, nicht gemessen. Monatskosten = Aufrufe je Nutzer und Tag x ${days} Arbeitstage x ${users} Nutzer x $ je Aufruf, summiert über die Funktionsgruppen. $ je Aufruf ist der Mittelwert der gemessenen Werte der Funktionen der Gruppe bei aktivem Personenschutz (bei aus, wo eine Funktion keine geschützte Zeile hat). Die Aufrufe je Nutzer und Tag sind Annahmen.`,
+      `*Geschätzt*, nicht gemessen. Monatskosten = Aufrufe je Nutzer und Tag × ${days} Arbeitstage × ${users} Nutzer × $ je Aufruf, summiert über die Funktionsgruppen. $ je Aufruf ist der ungewichtete Mittelwert der gemessenen Werte je Funktion der Gruppe, die Aufrufe einer Gruppe verteilen sich also gleichmäßig auf ihre Funktionen; verwendet wird der Wert bei aktivem Personenschutz, bei einer Funktion ohne geschützte Zeile der Wert ohne Personenschutz (unter Personenschutz ausgeblendete Funktionen laufen nur ohne Personenschutz und sind deshalb mit diesem Wert angesetzt). Hintergrundjobs werden als Modellannahme je Nutzer gezählt. Die Aufrufe je Nutzer und Tag sind Annahmen.`,
     bands: { light: "leicht", typical: "typisch", heavy: "intensiv" },
     num: (n: number, digits: number) => n.toFixed(digits).replace(".", ","),
+    money: (n: number, digits: number) => `${n.toFixed(digits).replace(".", ",")} $`,
+    percent: (n: number) => `${n.toFixed(0)} %`,
   },
 } as const;
 
@@ -155,26 +161,33 @@ export function cacheReadShare(p: Pick<FigurePath, "inputTokens" | "cacheWriteTo
 
 function featureName(lang: PackLang, id: string): string {
   const row = AI_DATA_PATHS.find((r) => r.id === (FEATURE_ALIAS[id] ?? id));
-  return row ? t(lang === "de" ? "de" : "en-US", row.labelKey) : id;
+  if (!row) throw new Error(`brief-blocks: no feature name for path ${id}`);
+  return t(lang === "de" ? "de" : "en-US", row.labelKey);
 }
 
 function groupCost(figures: Figures, group: UsageGroup): number {
   const prices = group.paths.map((id) => {
     const row = figures.paths.find((p) => p.id === id && p.protection === "on") ?? figures.paths.find((p) => p.id === id && p.protection === "off");
-    return row?.usdPerCall ?? 0;
+    if (!row) throw new Error(`brief-blocks: no figures row for path ${id}`);
+    return row.usdPerCall;
   });
   return prices.reduce((a, b) => a + b, 0) / prices.length;
 }
 
+function assertDemoData(f: Figures): void {
+  if (f.data !== "demo project") throw new Error(`brief-blocks: the captions say demo project, figures.data is "${f.data}"`);
+}
+
 function renderFiguresTable(lang: PackLang, f: Figures): string {
+  assertDemoData(f);
   const x = TEXT[lang];
   const order: FigureProtection[] = ["off", "on", "relay"];
   const rowFor = (p: FigurePath) => [
     featureName(lang, p.id),
     x[p.protection],
-    String(p.calls),
+    `${p.calls}${p.protectionUnverifiedCalls > 0 ? x.unverified(p.protectionUnverifiedCalls) : ""}`,
     x.num(p.usdPerCall, 4),
-    `${x.num(cacheReadShare(p) * 100, 0)} %`,
+    x.percent(cacheReadShare(p) * 100),
     `${x.num(p.medianLatencyMs / 1000, 1)} s`,
   ];
   const hiddenRow = (id: string) => [featureName(lang, id), x.on, "-", "-", "-", x.hidden];
@@ -183,20 +196,21 @@ function renderFiguresTable(lang: PackLang, f: Figures): string {
     ...(state === "on" ? f.hiddenWhenProtected.map(hiddenRow) : []),
   ]);
   const header = [x.path, x.protection, x.calls, x.usd, x.cache, x.latency];
-  return `${table(header, body)}\n\n${x.capFigures(f.commit.slice(0, 9), f.runDate, f.model)}`;
+  return `${table(header, body)}\n\n${x.capFigures(f.commit.slice(0, 9), f.runDate, f.model, String(f.rates.fetchedAt))}`;
 }
 
 function renderTeamMonth(lang: PackLang, f: Figures): string {
+  assertDemoData(f);
   const x = TEXT[lang];
   const monthly = (g: UsageGroup, band: UsageBand) => g.callsPerUserPerDay[band] * WORKING_DAYS_PER_MONTH * TEAM_SIZE * groupCost(f, g);
-  const header = [x.group, x.perCall, ...BANDS.map((b) => `${x.bands[b]} (${x.perDay})`)];
+  const header = [x.group, x.perCall, ...BANDS.map((b) => x.bandHead(x.bands[b]))];
   const body = USAGE_GROUPS.map((g) => [
     g.label[lang],
     x.num(groupCost(f, g), 4),
-    ...BANDS.map((b) => x.num(g.callsPerUserPerDay[b], 1)),
+    ...BANDS.map((b) => `${x.num(g.callsPerUserPerDay[b], 1)} → ${x.money(monthly(g, b), 2)}`),
   ]);
   const totals = BANDS.map((b) => USAGE_GROUPS.reduce((sum, g) => sum + monthly(g, b), 0));
-  const totalRow = [x.totalRow(TEAM_SIZE), "", ...totals.map((v) => `$ ${x.num(v, 2)}`)];
+  const totalRow = [x.totalRow(TEAM_SIZE), "", ...totals.map((v) => x.money(v, 2))];
   return `${table(header, [...body, totalRow])}\n\n${x.capEstimate(WORKING_DAYS_PER_MONTH, TEAM_SIZE)}`;
 }
 
