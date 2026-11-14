@@ -85,7 +85,8 @@ type CachedKind = "pass" | "wrong-organization" | "wrong-workspace";
 
 type UpstreamErrorFinding = { kind: "upstream-error"; status: number; contentType: string | null; body: Uint8Array };
 type Kept = { kind: CachedKind } | UpstreamErrorFinding;
-type CacheEntry = Kept & { at: number };
+/** `at` is the monotonic stamp, `wallAt` the wall-clock one, both taken when the verdict was reached. */
+type CacheEntry = Kept & { at: number; wallAt: number };
 
 /** What one pre-flight found, shared by every caller coalesced onto it. A passed-through error
  *  keeps its bytes, so each caller gets a Response of its own (a body is readable once). */
@@ -244,6 +245,7 @@ export function createKeyChecker(
     maxPreflightsInFlight?: number;
     deadlineMs?: number;
     now?: () => number;
+    wallNow?: () => number;
   } = {},
 ): KeyChecker {
   const maxEntries = opts.maxEntries ?? KEY_CHECK_DEFAULT_MAX_ENTRIES;
@@ -252,8 +254,13 @@ export function createKeyChecker(
   const rejectedTtlMs = opts.rejectedTtlMs ?? KEY_CHECK_DEFAULT_REJECTED_TTL_MS;
   const maxPreflightsInFlight = opts.maxPreflightsInFlight ?? MAX_PREFLIGHTS_IN_FLIGHT;
   const deadlineMs = opts.deadlineMs ?? KEY_CHECK_DEADLINE_MS;
-  // Monotonic by default: a wall-clock step backwards (NTP, a resumed VM) must not stretch a lifetime.
+  // Two clocks, and an entry is expired when EITHER says so. `now` is monotonic (performance.now) and
+  // guards against the wall clock stepping backwards (NTP, a resumed VM) stretching a lifetime; it does
+  // not advance while the system is suspended. `wallNow` (Date.now) guards against exactly that: a
+  // suspend or a forward jump still ages an entry by real time. A negative age on either clock
+  // (it went backwards) counts as expired.
   const now = opts.now ?? (() => performance.now());
+  const wallNow = opts.wallNow ?? Date.now;
   // Map order is recency order: the first entry is the least recently used, and a hit moves its
   // entry to the end, so eviction drops the entry unused for longest.
   const cache = new Map<string, CacheEntry>();
@@ -269,7 +276,8 @@ export function createKeyChecker(
     // `at` is when the verdict was reached upstream; a hit below moves the entry in the Map, never this.
     // A negative age (a clock that went backwards) counts as expired, never as fresh.
     const age = now() - entry.at;
-    if (age < 0 || age >= ttl) {
+    const wallAge = wallNow() - entry.wallAt;
+    if (age < 0 || age >= ttl || wallAge < 0 || wallAge >= ttl) {
       cache.delete(hash);
       return null;
     }
@@ -287,7 +295,7 @@ export function createKeyChecker(
     const entry = rememberable(finding);
     if (!entry) return;
     cache.delete(hash);
-    cache.set(hash, { ...entry, at: now() });
+    cache.set(hash, { ...entry, at: now(), wallAt: wallNow() });
     while (cache.size > maxEntries) {
       const oldest = cache.keys().next();
       if (oldest.done) break;

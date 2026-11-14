@@ -276,6 +276,61 @@ describe("createKeyChecker — refusals", () => {
     expect(calls).toHaveLength(2);
   });
 
+  it("the wall clock jumping forward past the TTL expires a pass whose monotonic age is small", async () => {
+    let wall = 5_000_000;
+    const { send, calls } = fakeSend(org(ORG));
+    const checker = createKeyChecker({ passTtlMs: 60_000, now: clock, wallNow: () => wall });
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    wall += 60_000;
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("the monotonic clock running while the wall clock steps back also expires a pass", async () => {
+    let wall = 5_000_000;
+    const { send, calls } = fakeSend(org(ORG));
+    const checker = createKeyChecker({ passTtlMs: 60_000, now: clock, wallNow: () => wall });
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    now += 1_000;
+    wall -= 3_600_000;
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    expect(calls).toHaveLength(2);
+  });
+
+  describe("the default clocks", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it("the default monotonic clock is performance.now: a pass expires when only it advances", async () => {
+      let mono = 100;
+      vi.spyOn(performance, "now").mockImplementation(() => mono);
+      vi.spyOn(Date, "now").mockReturnValue(9_000_000);
+      const { send, calls } = fakeSend(org(ORG));
+      const checker = createKeyChecker();
+      await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+      mono += 15 * 60 * 1000 - 1;
+      await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+      expect(calls).toHaveLength(1);
+      mono += 1;
+      await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+      expect(calls).toHaveLength(2);
+    });
+
+    it("the default wall clock is Date.now: a pass expires when only it advances", async () => {
+      let wall = 9_000_000;
+      vi.spyOn(performance, "now").mockReturnValue(100);
+      vi.spyOn(Date, "now").mockImplementation(() => wall);
+      const { send, calls } = fakeSend(org(ORG));
+      const checker = createKeyChecker();
+      await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+      wall += 15 * 60 * 1000 - 1;
+      await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+      expect(calls).toHaveLength(1);
+      wall += 1;
+      await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+      expect(calls).toHaveLength(2);
+    });
+  });
+
   it("a re-check that now refuses replaces the pass", async () => {
     let upstreamOrg = ORG;
     const { send, calls } = fakeSend((call) => org(upstreamOrg)(call));
