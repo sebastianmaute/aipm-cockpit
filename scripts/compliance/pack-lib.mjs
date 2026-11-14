@@ -16,6 +16,19 @@ export const PACK_FILES = Object.freeze([
   "ai-literacy.md",
 ]);
 
+/** The per-language files of the AI briefs under `docs/briefs/{en,de}/`: one page per reader, plus the appendix
+ *  that carries the generated blocks. */
+export const BRIEF_FILES = Object.freeze([
+  "ceo.md",
+  "cio.md",
+  "ciso.md",
+  "caio.md",
+  "coo.md",
+  "dpo.md",
+  "pm.md",
+  "appendix.md",
+]);
+
 export const BLOCK_NAMES = Object.freeze([
   "ai-paths",
   "ai-paths-people",
@@ -23,6 +36,8 @@ export const BLOCK_NAMES = Object.freeze([
   "server-destinations",
   "deployment-switches",
   "open-gaps",
+  "figures",
+  "team-month",
 ]);
 
 export const PACK_LANGS = Object.freeze(["en", "de"]);
@@ -195,8 +210,18 @@ export const DENY_PHRASES = Object.freeze({
     { re: "never\\s+leaves?", label: "never leaves" },
     { re: "no\\s+(?:personal\\s+)?data\\s+(?:is\\s+sent|leaves)", label: "no data is sent / leaves" },
     "fully auditable",
-    { re: "instant(?:ly)?\\s+revo(?:cation|ked)", label: "instant revocation" },
+    { re: "instant(?:ly)?\\s+revo(?:cation|ke|kes|ked|king)", label: "instant revocation" },
     "always in the loop",
+    // Brief claims (docs/briefs): each is a promise the product does not make.
+    { re: "sovereign(?:ty)?", label: "sovereign" },
+    { re: "(?:savings|time\\s+saved)\\s+(?:are|is|were)\\s+(?:measured|proven|verified)", label: "savings stated as measured" },
+    { re: "(?:measured|proven|verified)\\s+(?:time\\s+)?savings", label: "measured savings" },
+    { re: "(?:is|are)\\s+(?:fully\\s+)?secure", label: "is secure" },
+    { re: "(?:gateway|central(?:ly)?\\s+governance)\\s+(?:is|are)\\s+proven", label: "gateway proven" },
+    { re: "central(?:ised|ized)?\\s+governance", label: "central governance" },
+    { re: "per[- ]feature\\s+cost\\s+(?:control|limits?|caps?)", label: "per-feature cost control" },
+    { re: "anthropic(?:'s|’s)?\\s+(?:terms|guarantees?)\\s+(?:guarantee|ensure|bind|protect)\\w*", label: "Anthropic's terms as guarantees" },
+    { re: "anthropic\\s+guarantees", label: "Anthropic guarantees" },
   ]),
   de: Object.freeze([
     { re: "\\p{L}*konform(?:e|er|es|en|em)?", label: "konform" },
@@ -210,6 +235,17 @@ export const DENY_PHRASES = Object.freeze({
     "vollständig auditierbar",
     { re: "sofortiger\\s+widerruf|sofort\\s+widerrufbar", label: "sofortiger Widerruf" },
     "immer ein mensch",
+    // Brief claims (docs/briefs): each is a promise the product does not make.
+    { re: "souverän\\p{L}*", label: "souverän" },
+    { re: "vollständig\\s+(?:nachvollziehbar|prüfbar)\\p{L}*", label: "vollständig nachvollziehbar" },
+    { re: "(?:ist|sind)\\s+(?:vollständig\\s+)?sicher", label: "ist sicher" },
+    { re: "(?:einsparungen|zeitersparnis)\\s+(?:sind|ist)\\s+(?:gemessen|belegt|nachgewiesen)", label: "Einsparung als gemessen" },
+    { re: "(?:gemessene|belegte|nachgewiesene)\\s+(?:einsparung|zeitersparnis)\\p{L}*", label: "gemessene Einsparung" },
+    { re: "zentrale\\p{L}*\\s+(?:governance|steuerung)", label: "zentrale Governance" },
+    { re: "gateway\\s+(?:ist\\s+)?(?:belegt|nachgewiesen|bewiesen)", label: "Gateway belegt" },
+    { re: "sofort\\s+widerrufen", label: "sofort widerrufen" },
+    { re: "kostenkontrolle\\s+(?:je|pro)\\s+funktion", label: "Kostenkontrolle je Funktion" },
+    { re: "anthropic\\s+garantiert", label: "Anthropic garantiert" },
   ]),
 });
 
@@ -434,6 +470,113 @@ export function reviewLineViolations(enReadme, deReadme, appVersion) {
   for (const [lang, m] of [["en", en], ["de", de]]) {
     if (compareVersions(m[1], appVersion) > 0) {
       out.push(`${lang} review version ${m[1]} is newer than the app version ${appVersion}`);
+    }
+  }
+  return out;
+}
+
+/** Keys allowed in `docs/briefs/figures.json`, by level. The file is machine-written by the measured run, so an
+ *  unknown key is a sign something else was pasted in. Free-key maps are checked by FREE_KEY instead. */
+const FIGURE_KEYS = {
+  top: ["schema", "commit", "runDate", "model", "data", "hiddenWhenProtected", "paths", "behaviour", "relayKeyCheck", "rates"],
+  path: [
+    "id", "protection", "protectionUnverifiedCalls", "calls", "inputTokens", "cacheWriteTokens", "cacheReadTokens",
+    "outputTokens", "usdPerCall", "medianLatencyMs",
+  ],
+  behaviour: [
+    "protectedNameHitsOn", "emailHitsOn", "documentedExceptionHitsOn", "positiveControlHitsOff", "inferenceGeo", "requests",
+  ],
+  relayKeyCheck: ["runs", "warmExtraMs"],
+  relayRun: ["path", "coldExtraMs"],
+  rate: ["input", "output", "cacheWrite", "cacheRead"],
+};
+const FREE_KEY = /^[a-z0-9._-]{1,64}$/i;
+const COMMIT_RE = /^[0-9a-f]{40}$/;
+const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+
+function unknownKeys(obj, allowed, where, out) {
+  for (const k of Object.keys(obj)) if (!allowed.includes(k)) out.push(`${where}: key "${k}" is not allowed`);
+}
+
+function badFreeKeys(obj, where, out) {
+  for (const k of Object.keys(obj)) if (!FREE_KEY.test(k)) out.push(`${where}: key "${k}" does not match ${FREE_KEY}`);
+}
+
+/** The measured-figures file: schema 1, ONE 40-hex commit for the whole run, allowlisted keys only.
+ *  @returns {string[]} one message per defect. */
+export function figuresViolations(figures) {
+  const out = [];
+  if (!isObj(figures)) return ["figures: not an object"];
+  unknownKeys(figures, FIGURE_KEYS.top, "figures", out);
+  if (figures.schema !== 1) out.push(`figures: schema is ${JSON.stringify(figures.schema)}, expected 1`);
+  if (typeof figures.commit !== "string" || !COMMIT_RE.test(figures.commit)) {
+    out.push("figures: commit must be a single 40-hex commit (a run measured at mixed commits is not one run)");
+  }
+  (Array.isArray(figures.paths) ? figures.paths : []).forEach((p, i) => {
+    if (isObj(p)) unknownKeys(p, FIGURE_KEYS.path, `figures.paths[${i}]`, out);
+    else out.push(`figures.paths[${i}]: not an object`);
+  });
+  if (isObj(figures.behaviour)) {
+    const b = figures.behaviour;
+    unknownKeys(b, FIGURE_KEYS.behaviour, "figures.behaviour", out);
+    for (const k of ["documentedExceptionHitsOn", "inferenceGeo", "requests"]) {
+      if (isObj(b[k])) badFreeKeys(b[k], `figures.behaviour.${k}`, out);
+    }
+  }
+  if (isObj(figures.relayKeyCheck)) {
+    const r = figures.relayKeyCheck;
+    unknownKeys(r, FIGURE_KEYS.relayKeyCheck, "figures.relayKeyCheck", out);
+    (Array.isArray(r.runs) ? r.runs : []).forEach((run, i) => {
+      if (isObj(run)) unknownKeys(run, FIGURE_KEYS.relayRun, `figures.relayKeyCheck.runs[${i}]`, out);
+    });
+  }
+  if (isObj(figures.rates)) {
+    for (const [k, v] of Object.entries(figures.rates)) {
+      if (k === "fetchedAt") continue;
+      if (!FREE_KEY.test(k)) out.push(`figures.rates: key "${k}" does not match ${FREE_KEY}`);
+      if (isObj(v)) unknownKeys(v, FIGURE_KEYS.rate, `figures.rates.${k}`, out);
+    }
+  }
+  return out;
+}
+
+const EVIDENCE_ID_RE = /(?<![\p{L}\p{N}])E(\d+)(?![\p{L}\p{N}])/gu;
+const EVIDENCE_ROW_RE = /^\s*\|\s*E(\d+)\s*\|/;
+
+/** Evidence ids cited in one page's prose (outside fences and generated blocks), as a sorted unique list. */
+function citedEvidenceIds(src) {
+  const { lines, blocks } = scanBlocks(src);
+  const fenced = fencedFlags(lines);
+  const ids = new Set();
+  lines.forEach((line, i) => {
+    if (fenced[i] || blocks.some((b) => i >= b.begin && i <= b.end)) return;
+    for (const m of line.matchAll(EVIDENCE_ID_RE)) ids.add(Number(m[1]));
+  });
+  return [...ids].sort((a, b) => a - b);
+}
+
+/** Evidence ids: every `E<n>` a page cites must be a row id (`| E<n> |`) of the appendix table, and the English
+ *  and German pages of one reader must cite identical id sets. `pages` maps `<lang>/<file>` to its text.
+ *  @returns {string[]} one message per defect. */
+export function evidenceViolations(pages, appendix) {
+  const out = [];
+  const rows = new Set();
+  for (const line of splitLines(appendix)) {
+    const m = EVIDENCE_ROW_RE.exec(line);
+    if (m) rows.add(Number(m[1]));
+  }
+  const cited = {};
+  for (const [name, src] of Object.entries(pages)) {
+    cited[name] = citedEvidenceIds(src);
+    for (const n of cited[name]) if (!rows.has(n)) out.push(`${name}: cites E${n}, which is not a row of the appendix evidence table`);
+  }
+  for (const name of Object.keys(pages)) {
+    const m = /^en\/(.+)$/.exec(name);
+    if (!m) continue;
+    const twin = `de/${m[1]}`;
+    if (!Object.hasOwn(pages, twin)) continue;
+    if (cited[name].join(",") !== cited[twin].join(",")) {
+      out.push(`${m[1]}: evidence ids differ (en [${cited[name].map((n) => "E" + n).join(", ")}]; de [${cited[twin].map((n) => "E" + n).join(", ")}])`);
     }
   }
   return out;

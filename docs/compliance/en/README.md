@@ -81,6 +81,10 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | §802 | The AI gateway route has never been run against a real gateway |
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |
 | §810 | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI |
+| §811 | The time the AI features save is not measured |
+| §812 | Whether Optimize work breakdown with AI repeats is not measured |
+| §813 | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers |
+| §814 | Several AI paths have no recorded cost or observed behaviour from a measured run |
 <!-- PACK:open-gaps:END -->
 
 What each gap means for you. Each sentence restates its register entry in `docs/open-followups.md`,

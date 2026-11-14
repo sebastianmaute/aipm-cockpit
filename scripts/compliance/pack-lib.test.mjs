@@ -1,7 +1,12 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   BLOCK_NAMES,
+  BRIEF_FILES,
   claimViolations,
+  evidenceViolations,
+  figuresViolations,
   gapViolations,
   PACK_FILES,
   parityViolations,
@@ -17,9 +22,9 @@ const B = (name) => `<!-- PACK:${name}:BEGIN -->`;
 const E = (name) => `<!-- PACK:${name}:END -->`;
 
 describe("constants", () => {
-  it("lists nine files and six block names", () => {
+  it("lists nine files and eight block names", () => {
     expect(PACK_FILES).toHaveLength(9);
-    expect(BLOCK_NAMES).toHaveLength(6);
+    expect(BLOCK_NAMES).toHaveLength(8);
   });
 });
 
@@ -434,5 +439,98 @@ describe("reviewLineViolations", () => {
   it("reads a CRLF README", () => {
     const crlf = en("1.0.0", "2026-11-12").replace(/\n/g, "\r\n");
     expect(reviewLineViolations(crlf, de("1.0.0", "2026-11-12"), "1.20.1")).toEqual([]);
+  });
+});
+
+describe("AI briefs", () => {
+  const figures = () => JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "docs", "briefs", "figures.json"), "utf8"));
+
+  it("figuresViolations accepts the committed figures.json", () => {
+    expect(figuresViolations(figures())).toEqual([]);
+  });
+
+  it("figuresViolations rejects mixed commits", () => {
+    const a = "a".repeat(40);
+    const b = "b".repeat(40);
+    expect(figuresViolations({ ...figures(), commit: `${a} ${b}` })).toHaveLength(1);
+    expect(figuresViolations({ ...figures(), commit: [a, b] })).toHaveLength(1);
+    expect(figuresViolations({ ...figures(), commit: "abc123" })).toHaveLength(1);
+    const f = figures();
+    f.paths[0].commit = b;
+    expect(figuresViolations(f)).toEqual(['figures.paths[0]: key "commit" is not allowed']);
+  });
+
+  it("figuresViolations rejects a key outside the allowlist", () => {
+    expect(figuresViolations({ ...figures(), note: "x" })).toEqual(['figures: key "note" is not allowed']);
+    const f = figures();
+    f.behaviour.extra = 1;
+    f.rates["claude-sonnet-5"].discount = 1;
+    f.relayKeyCheck.runs[0].secret = "x";
+    expect(figuresViolations(f)).toHaveLength(3);
+    expect(figuresViolations({ ...figures(), schema: 2 })).toHaveLength(1);
+  });
+
+  it("figuresViolations checks free keys against a pattern", () => {
+    const f = figures();
+    f.behaviour.inferenceGeo["not ok!"] = 1;
+    f.rates["a b"] = {};
+    expect(figuresViolations(f)).toHaveLength(2);
+  });
+
+  const appendix = ["| id | what |", "|---|---|", "| E1 | one |", "| E2 | two |"].join("\n");
+
+  it("evidenceViolations reports a missing id and a language mismatch", () => {
+    const ok = { "en/ceo.md": "See E1 and E2.", "de/ceo.md": "Siehe E2 und E1." };
+    expect(evidenceViolations(ok, appendix)).toEqual([]);
+    const missing = { "en/ceo.md": "See E3.", "de/ceo.md": "Siehe E3." };
+    expect(evidenceViolations(missing, appendix)).toHaveLength(2);
+    const mismatch = { "en/cio.md": "See E1.", "de/cio.md": "Siehe E1 und E2." };
+    expect(evidenceViolations(mismatch, appendix)).toEqual(["cio.md: evidence ids differ (en [E1]; de [E1, E2])"]);
+  });
+
+  it("evidenceViolations does not read E-numbers inside words or generated blocks", () => {
+    const pages = { "en/x.md": ["RE12 and E9X", B("figures"), "E77", E("figures")].join("\n"), "de/x.md": "" };
+    expect(evidenceViolations(pages, appendix)).toEqual([]);
+  });
+
+  it("claimViolations flags each brief deny phrase in en and de", () => {
+    const en = [
+      "It is GDPR-compliant.", "It is AI-Act-compliant.", "The service is EU-hosted.", "Data never leaves the EU.",
+      "A sovereign setup.", "A human is always in the loop.", "It is fully auditable.", "Access is instantly revoked.",
+      "Per-feature cost control exists.", "The savings are measured.", "It is secure.", "The gateway is proven.",
+      "Anthropic guarantees deletion.",
+    ];
+    for (const line of en) expect(claimViolations(line, "en"), line).not.toHaveLength(0);
+    const de = [
+      "Das ist DSGVO-konform.", "Das ist KI-VO-konform.", "Das System ist in der EU gehostet.", "Das verlässt nie die EU.",
+      "Eine souveräne Lösung.", "Es ist immer ein Mensch beteiligt.", "Es ist vollständig nachvollziehbar.",
+      "Es ist vollständig auditierbar.", "Zugriff wird sofort widerrufen.", "Kostenkontrolle je Funktion ist da.",
+      "Die Einsparungen sind gemessen.", "Das System ist sicher.", "Das Gateway ist belegt.", "Anthropic garantiert die Löschung.",
+    ];
+    for (const line of de) expect(claimViolations(line, "de"), line).not.toHaveLength(0);
+  });
+
+  it("brief deny phrases leave honest negations and neutral wording alone", () => {
+    expect(claimViolations("We make no claim that this is GDPR \"compliant\".", "en")).toEqual([]);
+    expect(claimViolations("Savings are not measured; see the open gap.", "en")).toEqual([]);
+    expect(claimViolations("Access can be revoked, but not instantly.", "en")).toEqual([]);
+    expect(claimViolations("Die Einsparung ist nicht gemessen.", "de")).toEqual([]);
+    expect(claimViolations("Der Zugriff lässt sich widerrufen, nicht sofort.", "de")).toEqual([]);
+  });
+
+  it("brief gap citations must be open and listed", () => {
+    const register = ["## 811. Open", "## 812. Done — CLOSED 2026-11-06"].join("\n");
+    expect(proseGapViolations("Gap §811.", [811], register)).toEqual([]);
+    expect(proseGapViolations("Gap §811.", [], register)).toHaveLength(1);
+    expect(proseGapViolations("Gap §812.", [812], register)).toHaveLength(1);
+  });
+
+  it("the brief file list is exactly BRIEF_FILES", () => {
+    const expected = ["ceo", "cio", "ciso", "caio", "coo", "dpo", "pm", "appendix"].map((n) => `${n}.md`);
+    expect([...BRIEF_FILES]).toEqual(expected);
+    for (const lang of ["en", "de"]) {
+      const dir = join(import.meta.dirname, "..", "..", "docs", "briefs", lang);
+      expect(readdirSync(dir).filter((n) => n.endsWith(".md")).sort()).toEqual([...expected].sort());
+    }
   });
 });

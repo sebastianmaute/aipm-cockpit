@@ -19,6 +19,8 @@
 //   5. review line: each README has exactly one, both name the same version and date,
 //      and the version is not newer than APP_VERSION (read from src/app/version.ts as text);
 //   6. the root README links to en/README.md and de/README.md.
+//   7. briefs (docs/briefs/{en,de}/): the same rules 1-4 over BRIEF_FILES and BRIEF_BLOCKS_BY_FILE, plus
+//      figures.json (figuresViolations) and the evidence ids the pages cite (evidenceViolations);
 // Whether the block BODIES match the code is the unit test pack-drift.test.ts, because
 // rendering them needs the TypeScript sources; `npm run compliance:generate` rewrites them.
 //
@@ -26,12 +28,15 @@
 // must read is missing or unreadable) — a scan that reads nothing must never pass.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BLOCKS_BY_FILE, CITED_GAPS } from "./compliance/pack-config.mjs";
+import { BLOCKS_BY_FILE, BRIEF_BLOCKS_BY_FILE, CITED_GAPS } from "./compliance/pack-config.mjs";
 import {
+  BRIEF_FILES,
   PACK_FILES,
   PACK_LANGS,
   REVIEW_LINE,
   claimViolations,
+  evidenceViolations,
+  figuresViolations,
   gapViolations,
   parityViolations,
   parseBlocks,
@@ -40,6 +45,7 @@ import {
 } from "./compliance/pack-lib.mjs";
 
 const PACK_DIR = "docs/compliance";
+const BRIEF_DIR = "docs/briefs";
 const REGISTER = "docs/open-followups.md";
 const VERSION_FILE = "src/app/version.ts";
 
@@ -126,7 +132,71 @@ if (enReadme !== undefined && deReadme !== undefined) {
   for (const r of reviewLineViolations(enReadme, deReadme, appVersion)) violations.push(`review line: ${r}`);
 }
 
-const fileCount = PACK_LANGS.reduce((n, lang) => n + Object.keys(trees[lang]).length, 0);
+// The AI briefs: same machinery, their own file list and block table.
+const briefReadme = read(join(BRIEF_DIR, "README.md"));
+for (const c of claimViolations(briefReadme, "en")) violations.push(`briefs/README.md: ${c}`);
+for (const g of proseGapViolations(briefReadme, CITED_GAPS, register)) violations.push(`briefs/README.md: gaps: ${g}`);
+for (const name of BRIEF_FILES) {
+  if (!Object.hasOwn(BRIEF_BLOCKS_BY_FILE, name)) violations.push(`BRIEF_BLOCKS_BY_FILE: no entry for ${name}`);
+}
+for (const name of Object.keys(BRIEF_BLOCKS_BY_FILE)) {
+  if (!BRIEF_FILES.includes(name)) violations.push(`BRIEF_BLOCKS_BY_FILE: ${name} is not a brief file (BRIEF_FILES)`);
+}
+const briefTrees = {};
+for (const lang of PACK_LANGS) {
+  const dir = join(BRIEF_DIR, lang);
+  const names = listMarkdown(dir);
+  if (names.length === 0) cannotScan(`${dir} holds no Markdown files.`);
+  for (const name of BRIEF_FILES) {
+    if (!names.includes(name)) violations.push(`briefs/${lang}/${name}: missing`);
+  }
+  for (const name of names) {
+    if (!BRIEF_FILES.includes(name)) violations.push(`briefs/${lang}/${name}: not a brief file (BRIEF_FILES)`);
+  }
+  briefTrees[lang] = Object.fromEntries(names.map((n) => [n, read(join(dir, n))]));
+  for (const [name, src] of Object.entries(briefTrees[lang])) {
+    const { blocks, errors } = parseBlocks(src);
+    for (const e of errors) violations.push(`briefs/${lang}/${name}: ${e}`);
+    const expected = Object.hasOwn(BRIEF_BLOCKS_BY_FILE, name) ? BRIEF_BLOCKS_BY_FILE[name] : [];
+    const actual = blocks.map((b) => b.name);
+    if (actual.join(",") !== expected.join(",")) {
+      violations.push(
+        `briefs/${lang}/${name}: blocks [${actual.join(", ")}], expected [${expected.join(", ")}] (BRIEF_BLOCKS_BY_FILE)`,
+      );
+    }
+    for (const c of claimViolations(src, lang)) violations.push(`briefs/${lang}/${name}: ${c}`);
+    for (const g of proseGapViolations(src, CITED_GAPS, register)) violations.push(`briefs/${lang}/${name}: gaps: ${g}`);
+  }
+}
+for (const p of parityViolations(briefTrees.en, briefTrees.de)) violations.push(`briefs parity: ${p}`);
+
+let figures = null;
+try {
+  figures = JSON.parse(read(join(BRIEF_DIR, "figures.json")));
+} catch (err) {
+  violations.push(`briefs/figures.json: not valid JSON (${err.message})`);
+}
+if (figures !== null) for (const f of figuresViolations(figures)) violations.push(`briefs/${f}`);
+
+const evidencePages = {};
+for (const lang of PACK_LANGS) {
+  for (const [name, src] of Object.entries(briefTrees[lang])) {
+    if (name !== "appendix.md") evidencePages[`${lang}/${name}`] = src;
+  }
+}
+// English pages against the English appendix (this also compares the id sets of each en/de pair); German pages
+// against the German appendix, where every cited id must be a row too.
+for (const e of evidenceViolations(evidencePages, briefTrees.en["appendix.md"] ?? "")) {
+  violations.push(`briefs evidence: ${e}`);
+}
+const dePages = Object.fromEntries(Object.entries(evidencePages).filter(([k]) => k.startsWith("de/")));
+for (const e of evidenceViolations(dePages, briefTrees.de["appendix.md"] ?? "")) {
+  violations.push(`briefs evidence (de appendix): ${e}`);
+}
+
+const fileCount =
+  PACK_LANGS.reduce((n, lang) => n + Object.keys(trees[lang]).length, 0) +
+  PACK_LANGS.reduce((n, lang) => n + Object.keys(briefTrees[lang]).length, 0);
 if (violations.length > 0) {
   console.error(`Compliance pack: ${violations.length} problem(s) in ${fileCount} files.\n`);
   for (const v of violations) console.error(`  ${v}`);
