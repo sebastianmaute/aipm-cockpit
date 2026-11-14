@@ -99,7 +99,8 @@ types through the validator was weighed and rejected.
   recommendation, so its figures (Timelog user number, dates) and its `resources` profile digest (job title,
   department, company, flags) never leave; Timelog switched off drops the guardrail rows the same way. Both hooks
   ask it at SEND time through their `canRecommend` arg (the runner also per candidate, so a mid-tick switch-on
-  holds the rest), and `buildInsightRecommendContext` drops a `resources` digest under protection on its own.
+  holds the rest), and `buildRecommendContext` drops a `resources` digest under protection on its own
+  (pinned in `recommend-context.test.ts`).
   Pinned by `use-insight-recommendations.people-scope.test.tsx`.
   ★★ APPLY replays `rec.proposedCalls` DIRECTLY through the chat `runTool` dispatcher (each `{name,input}` carries
   its id; the `EditPlan` is PREVIEW-ONLY — its `updates` carry no id, so a multi-call rec can't apply from the

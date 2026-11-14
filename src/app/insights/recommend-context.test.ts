@@ -220,3 +220,26 @@ describe("buildRecommendContext — a large team away (§773 N-2)", () => {
     expect(AWAY_SUMMARY_MAX_CHARS).toBe(3_000);
   });
 });
+
+// AI people protection, the backstop: whatever reaches the builder, a protected digest never carries a person's
+// profile (a `resources` entity: job title, department, company, flags). Other linked entities are kept.
+describe("buildRecommendContext — a person's profile under people protection", () => {
+  const person = { view: "resources", id: 7, title: "Dana Ortiz", fields: ["jobTitle: Data Engineer", "department: Analytics", "company: Acme"].join("\n") };
+  const milestone = { view: "milestones", id: 42, title: "Go-live", fields: "achieved: no" };
+
+  it("drops the resources entity when protected", () => {
+    const out = buildRecommendContext({ ...BASE, entity: person, peopleProtected: true });
+    for (const term of ["resources#7", "Dana Ortiz", "Data Engineer", "Analytics", "Acme"]) expect(out).not.toContain(term);
+    expect(out).toContain("(no linked entity)");
+  });
+
+  it("keeps it when not protected", () => {
+    const out = buildRecommendContext({ ...BASE, entity: person, peopleProtected: false });
+    expect(out).toContain("Linked resources#7: Dana Ortiz");
+    expect(out).toContain("jobTitle: Data Engineer");
+  });
+
+  it("keeps any other linked entity when protected", () => {
+    expect(buildRecommendContext({ ...BASE, entity: milestone, peopleProtected: true })).toContain("Linked milestones#42: Go-live");
+  });
+});

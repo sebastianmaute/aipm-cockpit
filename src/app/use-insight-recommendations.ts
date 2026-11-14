@@ -258,14 +258,13 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   );
   const buildInsightRecommendContext = useCallback(
     (insight: Insight) => {
-      const peopleProtected = peopleProtectedNow();
-      // AI people protection: never a person's profile digest (job title, department, company, flags), even for
-      // an insight that reached here without naming a `person`.
-      const entity = peopleProtected && insight.entityRef?.view === "resources" ? undefined : resolveInsightEntity(insight);
+      const entity = resolveInsightEntity(insight);
       return buildRecommendContext({
         absences,
         resources: [...resourcesById.values()],
-        peopleProtected,
+        // AI people protection: also drops a person's profile digest, even for an insight that reached here
+        // without naming a `person` (the backstop lives in `buildRecommendContext`, pinned there).
+        peopleProtected: peopleProtectedNow(),
         projectName: project?.name ?? "",
         today,
         insightType: insight.type,

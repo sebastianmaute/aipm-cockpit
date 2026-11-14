@@ -26,11 +26,18 @@ const PERSON: Resource = {
   company: "Acme", isExternal: true, active: true,
 } as Resource;
 
-/** A Timelog working-time insight: about one person, linked to their resource row. */
+/** A Timelog working-time insight: about one person, linked to their resource row (as `detect.ts` builds it). */
 const PERSON_INSIGHT = {
   id: 5, key: "timelog:timelogCapPerDay:4711", type: "timelogCapPerDay", severity: "medium",
   entityRef: { view: "resources", id: 7 },
-  data: { person: "Dana Ortiz", count: 2, threshold: 8, worstHours: 12, timelogUserId: 4711, firstDate: "2026-09-01", lastDate: "2026-09-02" },
+  data: { person: "Dana Ortiz", count: 2, threshold: 8, worstHours: 12, firstDate: "2026-09-01", lastDate: "2026-09-02" },
+  status: "active", firstSeenAt: "2026-09-01", lastSeenAt: "2026-09-03", occurrences: 1,
+} as unknown as Insight;
+
+/** The same check for a Timelog user linked to no resource: no entityRef, and the person is their Timelog user number. */
+const UNLINKED_INSIGHT = {
+  id: 8, key: "timelog:timelogCapPerDay:4711", type: "timelogCapPerDay", severity: "medium",
+  data: { person: "#4711", count: 1, threshold: 8, worstHours: 10, firstDate: "2026-09-02", lastDate: "2026-09-02" },
   status: "active", firstSeenAt: "2026-09-01", lastSeenAt: "2026-09-03", occurrences: 1,
 } as unknown as Insight;
 
@@ -62,7 +69,7 @@ function mkDeps(insights: readonly Insight[], background: boolean): InsightRecom
 /** The contexts of every request the on-request path built for `id`. */
 async function onRequest(id: number): Promise<string[]> {
   const call = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(REC);
-  const { result } = renderHook(() => useInsightRecommendations(mkDeps([PERSON_INSIGHT, PROJECT_INSIGHT], false)));
+  const { result } = renderHook(() => useInsightRecommendations(mkDeps([PERSON_INSIGHT, PROJECT_INSIGHT, UNLINKED_INSIGHT], false)));
   await act(async () => { result.current.insightActions.onGenerateRecommendation(id); });
   return call.mock.calls.map((c) => c[0].context);
 }
@@ -70,18 +77,19 @@ async function onRequest(id: number): Promise<string[]> {
 /** The contexts of every request the background runner's mount tick built. */
 async function inBackground(): Promise<string[]> {
   const call = vi.spyOn(recommendCall, "runInsightRecommendation").mockResolvedValue(REC);
-  renderHook(() => useInsightRecommendations(mkDeps([PERSON_INSIGHT, PROJECT_INSIGHT], true)));
-  await act(async () => { await Promise.resolve(); });
-  await act(async () => { await Promise.resolve(); });
+  renderHook(() => useInsightRecommendations(mkDeps([PERSON_INSIGHT, PROJECT_INSIGHT, UNLINKED_INSIGHT], true)));
+  for (let i = 0; i < 4; i++) await act(async () => { await Promise.resolve(); });
   return call.mock.calls.map((c) => c[0].context);
 }
 
-const PROFILE = ["jobTitle", "Data Engineer", "Analytics", "Acme", "4711"];
+/** The linked person's profile digest, and the unlinked person's Timelog user number. */
+const PROFILE = ["jobTitle", "Data Engineer", "Analytics", "Acme"];
+const TIMELOG_USER = "#4711";
 
 describe("on request", () => {
-  it("protected: an insight about one person is not sent", async () => {
+  it.each([5, 8])("protected: an insight about one person (#%s) is not sent", async (id) => {
     flags.peopleProtected = true;
-    expect(await onRequest(5)).toEqual([]);
+    expect(await onRequest(id)).toEqual([]);
   });
 
   it("protected: a project-level insight is still sent", async () => {
@@ -89,28 +97,64 @@ describe("on request", () => {
     expect(await onRequest(6)).toHaveLength(1);
   });
 
-  it("unprotected: the insight about one person is sent, with its profile digest and Timelog user number", async () => {
+  it("unprotected: the linked person's insight is sent with their profile digest", async () => {
     const contexts = await onRequest(5);
     expect(contexts).toHaveLength(1);
     for (const term of PROFILE) expect(contexts[0]).toContain(term);
   });
+
+  it("unprotected: the unlinked person's insight is sent with their Timelog user number", async () => {
+    const contexts = await onRequest(8);
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0]).toContain(TIMELOG_USER);
+  });
 });
 
 describe("in the background", () => {
-  it("protected: only the project-level insight is sent, and no request carries the person's profile", async () => {
+  it("protected: only the project-level insight is sent, and no request carries a person's profile or number", async () => {
     flags.peopleProtected = true;
     const contexts = await inBackground();
     expect(contexts).toHaveLength(1);
     expect(contexts[0]).toContain("stalledWork");
-    for (const ctx of contexts) for (const term of PROFILE) expect(ctx).not.toContain(term);
+    for (const ctx of contexts) for (const term of [...PROFILE, TIMELOG_USER]) expect(ctx).not.toContain(term);
   });
 
-  it("unprotected: both insights are sent, the person's with its profile", async () => {
+  it("unprotected: all three are sent, each person's with their profile or number", async () => {
     const contexts = await inBackground();
-    expect(contexts).toHaveLength(2);
-    const personCtx = contexts.find((c) => c.includes("timelogCapPerDay"));
-    expect(personCtx).toBeDefined();
-    for (const term of PROFILE) expect(personCtx).toContain(term);
+    expect(contexts).toHaveLength(3);
+    const linked = contexts.find((c) => c.includes("Dana Ortiz"));
+    expect(linked).toBeDefined();
+    for (const term of PROFILE) expect(linked).toContain(term);
+    expect(contexts.some((c) => c.includes(TIMELOG_USER))).toBe(true);
+  });
+
+  // Protection switched on while the runner's FIRST call is in flight: the candidates were picked unprotected, so
+  // only the per-candidate check before each send can hold back the person's insight that comes next.
+  it("protection switched on during the first call holds back the person's insight after it", async () => {
+    let answer: (rec: InsightRecommendation) => void = () => undefined;
+    const call = vi.spyOn(recommendCall, "runInsightRecommendation")
+      .mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }))
+      .mockResolvedValue(REC);
+    renderHook(() => useInsightRecommendations(mkDeps([PROJECT_INSIGHT, UNLINKED_INSIGHT], true)));
+    for (let i = 0; i < 2; i++) await act(async () => { await Promise.resolve(); });
+    expect(call).toHaveBeenCalledTimes(1); // the first call is in flight
+    flags.peopleProtected = true;
+    await act(async () => { answer(REC); });
+    for (let i = 0; i < 4; i++) await act(async () => { await Promise.resolve(); });
+    expect(call).toHaveBeenCalledTimes(1);
+  });
+
+  it("control: left unprotected, the same run sends the person's insight next", async () => {
+    let answer: (rec: InsightRecommendation) => void = () => undefined;
+    const call = vi.spyOn(recommendCall, "runInsightRecommendation")
+      .mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }))
+      .mockResolvedValue(REC);
+    renderHook(() => useInsightRecommendations(mkDeps([PROJECT_INSIGHT, UNLINKED_INSIGHT], true)));
+    for (let i = 0; i < 2; i++) await act(async () => { await Promise.resolve(); });
+    await act(async () => { answer(REC); });
+    for (let i = 0; i < 4; i++) await act(async () => { await Promise.resolve(); });
+    expect(call).toHaveBeenCalledTimes(2);
+    expect(call.mock.calls[1][0].context).toContain(TIMELOG_USER);
   });
 });
 
