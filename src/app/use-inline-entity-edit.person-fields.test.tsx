@@ -138,7 +138,7 @@ describe("inline edit passes the protection state to the call", () => {
     return spy.mock.calls[0][0];
   }
 
-  it("forced protection sends the protected tool set", async () => {
+  it("forced protection passes peopleProtected: true to callInlineEdit", async () => {
     expect((await submitAndGetArgs(true)).peopleProtected).toBe(true);
   });
 

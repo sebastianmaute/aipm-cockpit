@@ -23,7 +23,7 @@ import {
  *  constant: it is per project and per call, so `callInlineEdit` adds
  *  `peopleProtected` from its args to both the prompt and the request flags. */
 const NO_RECALL_TOOLS: ToolFlags = { historySearch: false, chatSearch: false };
-import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS } from "./chat-tool-defs";
+import { PEOPLE_PROTECTED_DEFS, PEOPLE_TOOLS, peopleToolsLive } from "./chat-tool-defs";
 import { type ToolDispatcher } from "./chat-tools";
 import { type Lang } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
@@ -78,17 +78,19 @@ function withheldByUpdateTool(): ReadonlyMap<string, ReadonlySet<string>> {
 /** The plannable tools, without `expectedToken` (§715 D1). Its schema text says "REQUIRED. The token
  *  returned when you read this record", but this path has no read tools and the app stamps the
  *  stored row's token itself at apply (`use-inline-entity-edit.ts`). A model that follows the schema
- *  asks to read first, which ends in an empty plan. Built once: the set never changes. ★ So a test
+ *  asks to read first, which ends in an empty plan. Built once per protection state. ★ So a test
  *  that mocks `toolsNamed` after the first inline call in its file never reaches this path. */
 function inlineTools(peopleProtected: boolean): InlineTools {
-  const cached = inlineToolsCache.get(peopleProtected);
+  // Chat's predicate (`peopleToolsLive`): only an explicit true withholds the people tools.
+  const withoutPeople = !peopleToolsLive(peopleProtected);
+  const cached = inlineToolsCache.get(withoutPeople);
   if (cached) return cached;
   const withheld = withheldByUpdateTool();
   // Under protection the people tools go and four definitions swap for their protected variants, the
   // selection chat makes (`toolsFor`): same sets, same map. The cache breakpoint rides the swap.
-  const names = peopleProtected ? new Set([...PLANNABLE_TOOL_NAMES].filter((n) => !PEOPLE_TOOLS.has(n))) : PLANNABLE_TOOL_NAMES;
+  const names = withoutPeople ? new Set([...PLANNABLE_TOOL_NAMES].filter((n) => !PEOPLE_TOOLS.has(n))) : PLANNABLE_TOOL_NAMES;
   const built = toolsNamed(names).map((base) => {
-    const protectedDef = peopleProtected ? PEOPLE_PROTECTED_DEFS.get(base.name) : undefined;
+    const protectedDef = withoutPeople ? PEOPLE_PROTECTED_DEFS.get(base.name) : undefined;
     const def = protectedDef ? { ...protectedDef, ...("cache_control" in base ? { cache_control: base.cache_control } : {}) } : base;
     const schema = def.input_schema as { properties?: Record<string, unknown>; required?: readonly string[] };
     if (!schema.properties) return def;
@@ -106,19 +108,20 @@ function inlineTools(peopleProtected: boolean): InlineTools {
       },
     };
   }) as InlineTools;
-  inlineToolsCache.set(peopleProtected, built);
+  inlineToolsCache.set(withoutPeople, built);
   return built;
 }
 
-function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLabel: string): SystemBlock {
+function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLabel: string, offered: ReadonlySet<string>): SystemBlock {
+  // The create_* tools this request actually carries: a protected request must not name `create_stakeholder`.
+  const creates = [...offered].filter((n) => n.startsWith("create_")).join(" / ");
   const fields = JSON.stringify(projectForInlineEdit(entity, item));
   return {
     type: "text",
     text:
       `INLINE EDIT MODE. You are editing exactly ONE ${entity} (below): ${itemLabel}. Use tool calls to ` +
       `make the user's requested change: the ${entity}'s update tool for this item's fields, and you may ` +
-      "create related items (create_task / create_raid_item / create_change / " +
-      "create_milestone / create_stakeholder) when asked. Do NOT update or delete any OTHER item. Do NOT " +
+      `create related items (${creates}) when asked. Do NOT update or delete any OTHER item. Do NOT ` +
       "chat or explain unless you cannot proceed without more detail. This request carries no read tools " +
       "(no list_, get_ or search_ calls), whatever any other guidance says: the target's fields are " +
       `below, so act on them directly. Target ${entity}:\n` +
@@ -198,7 +201,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
       toolFlags,
       offered,
     ),
-    scopeBlock(args.entity, args.item, args.itemLabel),
+    scopeBlock(args.entity, args.item, args.itemLabel, offered),
   ];
   // §701 — the guides that target inline edit itself. ★ `args.guides` (the
   // CHAT path above) is `[]` from both production callers, so this path sends

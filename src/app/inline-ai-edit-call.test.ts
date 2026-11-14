@@ -476,6 +476,14 @@ describe("callInlineEdit under people protection", () => {
     }
   });
 
+  it("protected inline edit names no people tool it does not offer", async () => {
+    const r = await send(true);
+    const offered = new Set(r.tools.map((d) => d.name));
+    const named = [...PEOPLE_TOOLS].filter((n) => r.text.includes(n) && !offered.has(n));
+    expect(named).toEqual([]);
+    expect(r.text).toContain("create_task"); // control: the create list is still there
+  });
+
   it("inline tools follow each call's protection state", async () => {
     for (const state of [true, false, true]) {
       const r = await send(state);
