@@ -149,21 +149,25 @@ Content Security Policy sieht diese nicht, daher sind sie gesondert aufgeführt.
 | Atlassian | src/app/api/jira | Die Jira-E-Mail-Adresse und das API-Token des Nutzers als Basic-Authentifizierung sowie die vom Nutzer ausgelöste Anfrage (zum Beispiel eine Suchabfrage oder die Felder eines Vorgangs, der angelegt, geändert oder weitergeschaltet wird, und die zugehörigen Abfragen wie Projekte, Vorgangstypen und Benutzer), gesendet an die eigene Atlassian-Cloud-Site des Nutzers (eine Adresse unter atlassian.net). | Wenn Jira in den Projekteinstellungen aktiviert ist, die Integration für die Bereitstellung nicht abgeschaltet wurde und ein Nutzer eine Jira-Funktion wie Suche, Import oder Abgleich verwendet. |
 | Atlassian | src/app/api/confluence | Die Atlassian-E-Mail-Adresse und das API-Token des Nutzers als Basic-Authentifizierung sowie die ID der einen Confluence-Seite, die der Nutzer angefordert hat, gesendet an die eigene Atlassian-Cloud-Site des Nutzers (eine Adresse unter atlassian.net). | Wenn ein Nutzer eine Confluence-Seite importiert und die Integration für die Bereitstellung nicht abgeschaltet wurde. |
 | Timelog | src/app/api/timelog | Das Timelog-Zugriffstoken des Nutzers als Bearer-Token, der Timelog-Mandantenname in der Adresse und die vom Nutzer ausgelöste Anfrage (ein Pfad, eine Abfrage und bei Schreibzugriffen die Zeitbuchungsdaten), gesendet an den eigenen Timelog-Host des Nutzers (eine Adresse unter timelog.com). | Wenn Timelog in den Einstellungen konfiguriert ist, die Integration für die Bereitstellung nicht abgeschaltet wurde und ein Nutzer eine Timelog-Funktion wie Zeitbuchung oder das Laden von Buchungen verwendet. |
-| Ein vom Nutzer eingetragener Dienst | src/app/api/stt | Die aufgenommene Audiodatei des Diktats (als webm-Datei), der Name des Sprachmodells und der Speech-to-Text-API-Schlüssel des Nutzers als Bearer-Token, gesendet per https an die Endpunktadresse, die der Nutzer in den Diktat-Einstellungen eingetragen hat, sofern sie keine private IP-Adresse ist. | Wenn ein Nutzer diktiert und ein Speech-to-Text-Endpunkt konfiguriert ist, weder die Diktat-Integration, die KI-Integration noch die Personenschutz-Sperre für die Bereitstellung abgeschaltet ist und die KI-Gateway-Einstellung der Bereitstellung nicht ungültig ist. |
+| Ein vom Nutzer eingetragener Dienst | src/app/api/stt | Die aufgenommene Audiodatei des Diktats (als webm-Datei), der Name des Sprachmodells und der Speech-to-Text-API-Schlüssel des Nutzers als Bearer-Token, gesendet per https an die Endpunktadresse, die der Nutzer in den Diktat-Einstellungen eingetragen hat, sofern sie keine private IP-Adresse ist und ihr Hostname auf keine private IP-Adresse verweist. | Wenn ein Nutzer diktiert und ein Speech-to-Text-Endpunkt konfiguriert ist, weder die Diktat-Integration, die KI-Integration noch die Personenschutz-Sperre für die Bereitstellung abgeschaltet ist und die KI-Gateway-Einstellung der Bereitstellung nicht ungültig ist. |
 | Europäische Zentralbank | src/app/api/ecb | Eine einfache Anfrage nach den täglichen Euro-Referenzkursen der Europäischen Zentralbank, ohne Arbeitsbereichsdaten und ohne Zugangsdaten. | Wenn die App Wechselkurse lädt oder aktualisiert und die Integration ecb für die Bereitstellung nicht abgeschaltet wurde. |
 | GitHub | desktop/src/updater.ts | Anfragen an github.com nach dem Releases-Feed der App (releases.atom), dem neuesten Release-Tag und dessen Update-Informationsdatei (latest.yml) und, wenn der Nutzer ein Update annimmt, ein Download des Installers (und seiner Block-Map, falls das Release eine hat) von den Release-Asset-Hosts von GitHub; die Update-Prüfungen und Downloads enthalten die IP-Adresse des Anfragenden, den User-Agent der Update-Bibliothek (electron-builder) und eine feste Kennung (Header x-user-staging-id), die für jede Installation gleich ist, jedoch keine Arbeitsbereichsdaten; die Bibliothek speichert weiterhin eine zufällige Kennung je Installation im Datenordner der App, sie bleibt aber auf dem Gerät und wird nicht gesendet. | In einer installierten Desktop-App 10 Sekunden nach dem Start und jedes Mal, wenn der Nutzer Nach Updates suchen wählt, außer AIPM_DISABLE_UPDATE_CHECK ist auf 1 gesetzt; der Download des Installers beginnt erst, wenn der Nutzer das Update annimmt. |
 <!-- PACK:server-destinations:END -->
 
-Die Prüfung auf private Adressen beim Speech-to-Text beurteilt die Adresse so, wie sie eingegeben wurde,
-und löst keinen Hostnamen auf (§803). [Aussage des Maintainers; Register §803]
+Die Prüfung auf private Adressen beim Speech-to-Text beurteilt einen Hostnamen nach jeder Adresse, zu der
+er aufgelöst wird. Die Anfrage löst den Namen beim Senden erneut auf; ein Name, der seine Adresse
+dazwischen ändert, wird daher nicht erkannt. [geprüft: `classifyResolvedHost` in `src/app/api/stt/_helpers.ts`]
 
 **Der Server prüft nicht, wer ihn aufruft.** Keine der Server-Routen der App authentifiziert ihren
 Aufrufer; serverseitig gibt es keine Anmeldung. [geprüft: die 15 Routendateien unter `src/app/api`] Jeder,
 der den Server erreicht, kann diese Routen daher nutzen: KI-Anfragen unter dem Token Ihres Gateways
-über dieses senden (§805) und Anfragen an die Integrationen mit Zugangsdaten senden, über die er
-selbst verfügt. Die Routen für KI und Diktat haben keine Anfragebegrenzung (§806), und die Begrenzung der
-übrigen Routen lässt sich umgehen (§562). [Aussage des Maintainers; Register §805, §806 und §562]
-Stellen Sie den Server hinter der eigenen Zugangskontrolle Ihrer Organisation bereit, etwa einem Reverse
+über dieses senden und Anfragen an die Integrationen mit Zugangsdaten senden, über die er selbst
+verfügt. Das KI-Relay lehnt einen Aufruf ohne Herkunfts-Header eines Browsers ab, und jede
+weiterleitende Route begrenzt Anfragen je Aufrufer, doch ein Skript kann diesen Header senden, und die
+Begrenzung lässt sich umgehen (§562). [geprüft: `isSameOrigin` und `rateLimit` in
+`src/app/api/ai/_relay.ts`; Register §562]
+Stellen Sie den Server hinter der eigenen Zugangskontrolle Ihrer Organisation bereit (eine
+Bereitstellung, die KI über ein Gateway leitet, muss das), etwa einem Reverse
 Proxy mit Anmeldung, Single Sign-on oder einer Netzwerkbeschränkung.
 [Aussage des Maintainers; wie Sie das umsetzen: Frage an Sie]
 
