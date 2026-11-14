@@ -224,9 +224,9 @@ longer carries its own changelog comment.
 - **The AI data disclosure is asked once more.** What it says people protection does to each AI feature is now
   part of the version you accept, so a change to that text asks again; this release changes it for the insight
   recommendations, the chat and the inline AI edit, which now say that an insight about one person is not sent
-  while protection is on, so everyone accepts the disclosure once more. If you let AI run in the background (scheduled jobs,
-  automatic insight recommendations, the scheduled digest summary), allow it again in Settings → AI; until then those
-  stay off.
+  while protection is on, so everyone accepts the disclosure once more. If you let AI run in the background
+  (scheduled jobs, automatic insight recommendations, the scheduled digest summary), allow it again in Settings → AI;
+  until then those stay off.
 - **Tasks from an applied work breakdown can be found again.** Applying an AI work breakdown now names each task it
   created, by number and title, in its one activity log entry (marked as made by the AI), beside the count of changes
   it applied. The completion trend’s history now accounts for these tasks; before, it counted past totals too high.

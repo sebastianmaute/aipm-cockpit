@@ -159,8 +159,8 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
   // v7: the chat and inline-edit protected texts say an insight about one person is not sent (`insightReachesAi`,
   // in code since v6); inline edit got its own `protectedKey`, `aiProtectedInlineEdit`, so this is a bump.
   7: [
-    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted|aiProtectedChat|43694f2085e5",
-    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted|aiProtectedInlineEdit|9c87c56d3e73",
+    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted|aiProtectedChat|4fad6aaf2297",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted|aiProtectedInlineEdit|e1ebddccde79",
     "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|dab0929eea32|redacted|aiProtectedRedacted|755d95d88527",
     "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted|aiProtectedRedacted|755d95d88527",
     "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|77d3b27235a2|redacted|aiProtectedRedacted|755d95d88527",
@@ -282,7 +282,8 @@ describe("AI_DATA_PATHS", () => {
   });
 
   // Every path that sends the open-insight lines leaves out an insight about one person under protection
-  // (`insightReachesAi`); the protected text the user accepts must say so, in both languages.
+  // (`insightReachesAi`); the protected text the user accepts must say so, in both languages. The list is by hand:
+  // a new path that sends insight lines (a caller of `buildInsightsPromptBlock` or `insightReachesAi`) joins it.
   it.each(["chat", "inline-edit", "insight-recommendation", "insight-recommendation-auto"])(
     "%s: the protected text says an insight about one person is not sent",
     (id) => {
