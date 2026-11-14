@@ -138,7 +138,9 @@ describe("inline edit passes the protection state to the call", () => {
     return spy.mock.calls[0][0];
   }
 
-  it("forced protection passes peopleProtected: true to callInlineEdit", async () => {
+  // The mocked getter answers "on"; the organisation-forced path, through the real provider, is pinned in
+  // `ai-people-gates.test.tsx` ("forced protection passes peopleProtected: true even when the project allows people").
+  it("protection on passes peopleProtected: true to callInlineEdit", async () => {
     expect((await submitAndGetArgs(true)).peopleProtected).toBe(true);
   });
 
