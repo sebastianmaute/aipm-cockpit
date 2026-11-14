@@ -55,7 +55,7 @@ export const AI_DATA_PATHS: readonly AiDataPath[] = [
   { id: "committee-report", level: "interactive", labelKey: "aiDataCommitteeReportLabel", dataKey: "aiDataCommitteeReport", whenProtected: "redacted" },
   { id: "digest-narrative", level: "interactive", labelKey: "aiDataDigestNarrativeLabel", dataKey: "aiDataDigestNarrative", whenProtected: "redacted" },
   { id: "forecast-import", level: "interactive", labelKey: "aiDataForecastImportLabel", dataKey: "aiDataForecastImport", whenProtected: "redacted" },
-  { id: "insight-recommendation", level: "interactive", labelKey: "aiDataInsightRecommendationLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted" },
+  { id: "insight-recommendation", level: "interactive", labelKey: "aiDataInsightRecommendationLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted", protectedKey: "aiProtectedInsightRecommendation" },
   { id: "action-analysis", level: "interactive", labelKey: "aiDataActionAnalysisLabel", dataKey: "aiDataActionAnalysis", whenProtected: "redacted" },
   { id: "alloc-plan", level: "interactive", labelKey: "aiDataAllocPlanLabel", dataKey: "aiDataAllocPlan", whenProtected: "hidden", protectedKey: "aiProtectedAllocPlan" },
   { id: "raci-suggest", level: "interactive", labelKey: "aiDataRaciSuggestLabel", dataKey: "aiDataRaciSuggest", whenProtected: "hidden" },
@@ -65,7 +65,7 @@ export const AI_DATA_PATHS: readonly AiDataPath[] = [
   { id: "project-proposal", level: "interactive", labelKey: "aiDataProjectProposalLabel", dataKey: "aiDataProjectProposal", whenProtected: "redacted", protectedKey: "aiProtectedProjectProposal" },
   { id: "dictation", level: "interactive", labelKey: "aiDataDictationLabel", dataKey: "aiDataDictation", whenProtected: "off" },
   { id: "scheduled-job", level: "background", labelKey: "aiDataScheduledJobLabel", dataKey: "aiDataScheduledJob", whenProtected: "redacted" },
-  { id: "insight-recommendation-auto", level: "background", labelKey: "aiDataInsightRecommendationAutoLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted" },
+  { id: "insight-recommendation-auto", level: "background", labelKey: "aiDataInsightRecommendationAutoLabel", dataKey: "aiDataInsightRecommendation", whenProtected: "redacted", protectedKey: "aiProtectedInsightRecommendation" },
   { id: "digest-narrative-scheduled", level: "background", labelKey: "aiDataDigestNarrativeScheduledLabel", dataKey: "aiDataDigestNarrative", whenProtected: "redacted" },
 ];
 

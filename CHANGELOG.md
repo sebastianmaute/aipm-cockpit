@@ -210,6 +210,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Insight recommendations respect people protection.** With people protection on, no recommendation is made
+  for an insight about one person, such as a working-time insight from Timelog, on request or automatically, so its
+  figures, the person’s Timelog user number and their job title, department and company are no longer sent.
 - **A key that no longer passes the organisation check stops working on the relay within 15 minutes.** For example,
   a key moved to a workspace the setting does not list. A key that passed the check used to stay accepted until the
   server restarted; the check is now repeated once a passed result is 15 minutes old, however often the key is used.

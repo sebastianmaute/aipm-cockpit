@@ -32,7 +32,8 @@ import {
   type Settings,
 } from "./settings-types";
 import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
-import { ALLOWED_REC_TOOLS, GUARDRAIL_INSIGHT_TYPES, baselineHistoryDigest, recommendationPredatesSwitch } from "./insights/insight";
+import { ALLOWED_REC_TOOLS, baselineHistoryDigest, recommendationPredatesSwitch } from "./insights/insight";
+import { insightReachesAi } from "./insights/insight-prompt";
 import { isModuleEnabled } from "./feature-modules";
 import type { BaselineEntry } from "./baseline-currency";
 import { metricAtActionPatch } from "./insights/outcome";
@@ -62,6 +63,8 @@ import { useOpenProjectPeopleProtected, usePeopleProtected } from "./ai-privacy-
 // recommendation prompt — the digest rides a billed call, so an unbounded
 // description must not blow up the token count (SP3).
 const ENTITY_DIGEST_TEXT_CAP = 200;
+
+const NO_INSIGHTS: readonly Insight[] = [];
 
 /** §782 round 3 — a refused call's reason in the UI language, for the review
  *  modal. Tool and argument names are identifiers and stay as they are. */
@@ -151,16 +154,15 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     onLogAsRaid,
   } = deps;
   const recommendGuideText = useGuideTextFrom(guides, settings.ai?.groundInGuides === true, "insightRecommend");
-  // The insights a recommendation may be generated for, on request or by the runner. Timelog switched off (the
-  // function hidden, or the integration disabled): no TimeLog guardrail row, so none of its person-naming figures
-  // reach the AI. The same condition stops the checks in use-insight-lifecycle.ts.
-  // `?? []`: a settings object without `features` (the type forbids it; partial test doubles carry one) counts
-  // as Timelog off, the direction that sends less.
+  // The insights a recommendation may be generated for, on request or by the runner — the chat's rule
+  // (`insightReachesAi`), asked at SEND time by both. AI people protection: no insight about one person (a
+  // Timelog working-time insight names its person, their Timelog user number and the dates), so neither its
+  // figures nor its person's profile digest reach the AI. Timelog switched off (the function hidden, or the
+  // integration disabled): no TimeLog guardrail row either; the same condition stops the checks in
+  // use-insight-lifecycle.ts. `?? []`: a settings object without `features` (the type forbids it; partial test
+  // doubles carry one) counts as Timelog off, the direction that sends less.
   const timelogOn = isModuleEnabled("timelog", settings.features ?? []);
-  const recommendable = useMemo(
-    () => (timelogOn ? insights ?? [] : (insights ?? []).filter((i) => !GUARDRAIL_INSIGHT_TYPES.has(i.type))),
-    [insights, timelogOn],
-  );
+  const recommendable = insights ?? NO_INSIGHTS;
 
   // --- Insights → Action Loop (#6B SP2) ---------------------------------
   // Generate/apply/reject handlers for an insight's AI recommendation. Apply
@@ -250,13 +252,20 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
   // AI people protection: read when the context is BUILT (on demand or by the background runner), so the
   // project's setting at run time decides.
   const peopleProtectedNow = useOpenProjectPeopleProtected();
+  const canRecommend = useCallback(
+    (insight: Insight) => insightReachesAi(insight, { withPeople: !peopleProtectedNow(), withTimelog: timelogOn }),
+    [peopleProtectedNow, timelogOn],
+  );
   const buildInsightRecommendContext = useCallback(
     (insight: Insight) => {
-      const entity = resolveInsightEntity(insight);
+      const peopleProtected = peopleProtectedNow();
+      // AI people protection: never a person's profile digest (job title, department, company, flags), even for
+      // an insight that reached here without naming a `person`.
+      const entity = peopleProtected && insight.entityRef?.view === "resources" ? undefined : resolveInsightEntity(insight);
       return buildRecommendContext({
         absences,
         resources: [...resourcesById.values()],
-        peopleProtected: peopleProtectedNow(),
+        peopleProtected,
         projectName: project?.name ?? "",
         today,
         insightType: insight.type,
@@ -329,6 +338,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     today,
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
+    canRecommend,
     applyRecommendation: applyInsightRecommendation,
     snapshotEntities,
     getScopeEpoch,
@@ -352,6 +362,7 @@ export function useInsightRecommendations(deps: InsightRecommendationDeps) {
     intervalMinutes: settings.ai.insightRecommendationIntervalMinutes ?? DEFAULT_INSIGHT_REC_INTERVAL_MIN,
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
+    canRecommend,
     applyRecommendation: applyInsightRecommendation,
     snapshotEntities,
     getScopeEpoch,
