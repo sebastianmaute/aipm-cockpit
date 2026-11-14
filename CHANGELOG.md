@@ -224,7 +224,7 @@ longer carries its own changelog comment.
   chats need the recovery key and expire, that "Draft with AI" proposes the report section by section and sends the
   names of people who are away, and what "Analyze with AI" sends.
 - **The demo recorder accepts the AI consent dialog.** It now clicks "I understand — enable AI" and "I understand —
-  allow background AI". A code comment on usage cost weights no longer quotes prices that had changed.
+  allow background AI".
 - **The desktop updater sends one fixed identifier instead of a per-installation one.** The update check no longer
   carries an identifier that told installations apart.
 
