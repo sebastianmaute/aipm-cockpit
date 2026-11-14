@@ -222,7 +222,7 @@ longer carries its own changelog comment.
 - **The built-in feature guide and the feature list catch up with consent and people protection.** They now say that
   AI needs consent as well as a key, that PDFs and images are refused while people protection is on, that saved
   chats need the recovery key and expire, that "Draft with AI" proposes the report section by section and sends the
-  names of people who are away, and what "Analyze with AI" sends.
+  names of people who are away (as placeholders while people protection is on), and what "Analyze with AI" sends.
 - **The demo recorder accepts the AI consent dialog.** It now clicks "I understand — enable AI" and "I understand —
   allow background AI".
 - **The desktop updater sends one fixed identifier instead of a per-installation one.** The update check no longer

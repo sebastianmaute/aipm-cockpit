@@ -54,7 +54,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - This chat. Ask about the project, get explanations, or have records created/updated.
 - All AI features need the "Enable AI assistant" master switch in Settings → AI (off by default), the accepted AI data disclosure and a Claude API key (cloud dictation needs the switch and the disclosure but no Anthropic key). Features that run unattended (scheduled jobs, background recommendations, the scheduled digest narrative) also need the separate background consent ("Allow AI to run in the background").
-- Attach documents (PDF, image, text) — records can be extracted from them. PDFs and images are read natively only while people protection is off; with protection on (the default) they are refused, and a text document is sent with names redacted.
+- Attach documents (PDF, image, text) — records can be extracted from them. PDFs and images are read natively only while people protection is off; with protection on (the default) they are refused, and a text document is sent with the names the project knows replaced by placeholders.
 - Reads the live workspace via list tools for grounded answers.
 - Conversations are saved as threads on a Turso project: a sidebar lists them, you can rename, delete and switch between them, and its width is draggable. Saving needs the operator's recovery key (set on the deployment) and Web Crypto in the browser, and a thread is deleted after the retention period without activity (30 days unless the operator sets another). On file storage the panel is a single unsaved conversation with no sidebar.
 - Two recall tools, both individually switchable in Settings → AI and both defaulting ON: one searches this project's ACTIVITY HISTORY (when a milestone moved, who changed a field), the other searches this project's EARLIER CHATS. Turning either off removes the tool from the model's offered set AND refuses to serve it, so it can never advertise off while serving on.
@@ -146,7 +146,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - Committee members, scheduled meetings, info-pack reminders, and Outlook meeting push.
 - User-edited content (membership and agendas are maintained here, not via tools).
-- Each meeting has a status report. With the AI assistant on, its "Draft with AI" button drafts the report from the project's data and proposes it section by section, and the user takes the sections they want into the report (a reply that is cut off is retried with more room, so the user gets the whole draft or an error, never half). The draft prompt includes the names of people who are away. The report keeps versions that can be compared and restored, and with Microsoft 365 connected it is sent to the committee members' email addresses.
+- Each meeting has a status report. With the AI assistant on, its "Draft with AI" button drafts the report from the project's data and proposes it section by section, and the user takes the sections they want into the report (a reply that is cut off is retried with more room, so the user gets the whole draft or an error, never half). The draft prompt includes the names of people who are away (as placeholders while people protection is on). The report keeps versions that can be compared and restored, and with Microsoft 365 connected it is sent to the committee members' email addresses.
 - AI: can explain the area and draft agendas or summaries in chat; there is no steering-committee write tool.
 
 ## Calendar
@@ -216,7 +216,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - A standalone register of project knowledge links — documents, Confluence pages, and general web URLs; entities (RAID, changes, milestones, stakeholders, etc.) can also carry their own knowledge links.
 - A link can be added three ways: a SharePoint document (when Microsoft 365 / SharePoint is configured), a Confluence page URL, or any general web URL; every link is validated as a safe http(s) URL and shows a kind-appropriate icon.
 - The search box and source filter cover both lists: links attached to records and the library's own cards. The search matches library cards by name; a source other than All hides them (they belong to none).
-- AI: can LIST the library's links (name, URL, kind, and which tasks each is linked to) but has no knowledge WRITE tool — it cannot add links here. It reads the link record, never the linked document's contents. In chat it can read documents you attach and extract records from them; PDFs and images are read natively only while people protection is off, and with protection on (the default) they are refused and text documents are redacted.
+- AI: can LIST the library's links (name, URL, kind, and which tasks each is linked to) but has no knowledge WRITE tool — it cannot add links here. It reads the link record, never the linked document's contents. In chat it can read documents you attach and extract records from them; PDFs and images are read natively only while people protection is off, and with protection on (the default) they are refused and text documents are sent with the names the project knows replaced by placeholders.
 
 ## Documents
 

@@ -291,7 +291,7 @@ const DRIVERS: Readonly<Record<string, Driver>> = {
           today: FIXTURE_TODAY, language: "en-US", holidayCountries: [], storageKind: "memory", taskCount: c.ws.tasks.length,
           knownGroups: ["Platform"], knownLabels: [], mode: "advanced", enabledModules: [], currentView: "open-points",
         } as unknown as Parameters<typeof callInlineEdit>[0]["snapshot"],
-        guides: [], groundInGuides: false, peopleProtected: false,
+        guides: [], groundInGuides: false, peopleProtected: c.peopleProtected,
       });
     },
   },
