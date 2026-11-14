@@ -35,6 +35,7 @@ import { useActionGuideText } from "./action-guides-context";
 import { useOpenProjectAiPrivacy, usePeopleProtected } from "./ai-privacy-context";
 import {
   applyAllocationCells,
+  allocContextOmissions,
   buildAllocContext,
   cellKey,
   type GroundedAllocCell,
@@ -405,6 +406,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
         activeIndex={activeIndex}
         onSelectAlternative={setActiveIndex}
         truncated={truncated}
+        omitted={allocContextOmissions({ resources, plan, tasks, milestones })}
         selected={selected}
         staleMoves={staleMoves}
         effect={alternativeEffect(active ?? EMPTY_ALTERNATIVE, selected, {

@@ -106,6 +106,7 @@ function props(over: Partial<AllocPlanModalProps> = {}): AllocPlanModalProps {
     busy: false,
     canCancel: true,
     truncated: false,
+    omitted: { resources: 0, periods: 0, tasks: 0, milestones: 0 },
     currency: "EUR",
     liveTaskName: () => undefined,
     liveResourceName: () => undefined,
@@ -509,5 +510,39 @@ describe("AllocPlanModal — elsewhere (§785)", () => {
   it("shows no notice when everything loaded", () => {
     render(<AllocPlanModal {...withMove({ crossProject: crossProject() })} />);
     expect(screen.queryByText(/could not be/i)).toBeNull();
+  });
+});
+
+// The request cut people, periods, tasks or milestones at a cap: the modal says what was left out, in plain text.
+describe("AllocPlanModal — what the request left out", () => {
+  beforeAll(() => loadI18n("de"));
+  const cut = { resources: 7, periods: 25, tasks: 12, milestones: 3 };
+
+  it.each(["input", "preview"] as const)("names every count that a cap applied to (%s)", (stage) => {
+    render(<AllocPlanModal {...props({ stage, omitted: cut })} />);
+    const notice = screen.getByText(/Left out of the request/);
+    expect(notice.textContent).toContain("people: 7");
+    expect(notice.textContent).toContain("periods: 25");
+    expect(notice.textContent).toContain("open tasks: 12");
+    expect(notice.textContent).toContain("milestones: 3");
+  });
+
+  it("names only the kinds that were cut", () => {
+    render(<AllocPlanModal {...props({ omitted: { resources: 0, periods: 0, tasks: 4, milestones: 0 } })} />);
+    const notice = screen.getByText(/Left out of the request/);
+    expect(notice.textContent).toContain("open tasks: 4");
+    expect(notice.textContent).not.toMatch(/people|periods|milestones/);
+  });
+
+  it("shows no notice when nothing was cut", () => {
+    render(<AllocPlanModal {...props()} />);
+    expect(screen.queryByText(/Left out of the request/)).toBeNull();
+  });
+
+  it("says it in German too", () => {
+    render(<AllocPlanModal {...props({ lang: "de", omitted: cut })} />);
+    const notice = screen.getByText(/Nicht in der Anfrage enthalten/);
+    expect(notice.textContent).toContain("Personen: 7");
+    expect(notice.textContent).toContain("offene Aufgaben: 12");
   });
 });

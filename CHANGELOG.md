@@ -210,6 +210,9 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **Plan with AI says when it left people or tasks out.** When a plan is too large to send in full, the
+  allocation plan dialog now says so and how many people, periods, open tasks and milestones the AI did not see;
+  until now only the AI was told.
 - **Insight recommendations respect people protection.** With people protection on, no recommendation is made
   for an insight about one person, such as a working-time insight from Timelog, on request or automatically, so its
   figures, the person’s Timelog user number and their job title, department and company are no longer sent.
