@@ -37,6 +37,7 @@ import {
   applyAllocationCells,
   allocContextOmissions,
   buildAllocContext,
+  type AllocOmissions,
   cellKey,
   type GroundedAllocCell,
 } from "./alloc-plan/alloc-plan";
@@ -134,6 +135,9 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   // Each alternative keeps its own ticks, so switching back and forth loses nothing (§769 "The review window").
   const [selectedByAlt, setSelectedByAlt] = useState<ReadonlyMap<number, ReadonlySet<string>>>(new Map());
   const [truncated, setTruncated] = useState(false);
+  // What the SENT request left out, for the preview: an edit landing while it is open must not change the counts
+  // the user reads about that proposal. The input stage counts live, since nothing has been sent yet.
+  const [sentOmitted, setSentOmitted] = useState<AllocOmissions | null>(null);
   // Monotonic request generation: a slow proposal that resolves after cancel /
   // a new open is discarded (can't land a stale proposal or a stale error toast).
   const reqIdRef = useRef(0);
@@ -156,6 +160,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     setActiveIndex(0);
     setSelectedByAlt(new Map());
     setTruncated(false);
+    setSentOmitted(null);
   }
   // Refs only, no state: a proposal still in flight when protection turns on is aborted and discarded.
   useEffect(() => {
@@ -175,6 +180,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     setActiveIndex(0);
     setSelectedByAlt(new Map());
     setTruncated(false);
+    setSentOmitted(null);
   }, []);
 
   const reset = useCallback(() => {
@@ -207,6 +213,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     abortRef.current = controller;
     setPhase("thinking");
     try {
+      setSentOmitted(allocContextOmissions({ resources, plan, tasks, milestones }));
       const context = buildAllocContext({
         resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, tasks, milestones, stakeholders, instruction, today,
         elsewhere: crossProject && { status: crossProject.status, figuresFor: crossProject.elsewhere, failures: crossProject.failures, protectedProjects: crossProject.protectedProjects, loadFailed: crossProject.loadFailed, singleProject: crossProject.singleProject },
@@ -406,7 +413,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
         activeIndex={activeIndex}
         onSelectAlternative={setActiveIndex}
         truncated={truncated}
-        omitted={allocContextOmissions({ resources, plan, tasks, milestones })}
+        omitted={stage === "preview" && sentOmitted ? sentOmitted : allocContextOmissions({ resources, plan, tasks, milestones })}
         selected={selected}
         staleMoves={staleMoves}
         effect={alternativeEffect(active ?? EMPTY_ALTERNATIVE, selected, {

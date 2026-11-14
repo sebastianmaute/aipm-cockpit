@@ -21,7 +21,7 @@
 // deselected.
 
 import { useState } from "react";
-import { type Lang, t, type TranslationKey } from "./i18n";
+import { type Lang, t, tPlural, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
 import { Checkbox, Textarea } from "./form-controls";
@@ -94,18 +94,19 @@ const SKIP_REASON_KEY: Record<SkipReason, TranslationKey> = {
 };
 
 // Order of the "left out" notice; exhaustive so a new count is a compile error here, not a silent omission.
-const OMITTED_KEY: Record<keyof AllocOmissions, TranslationKey> = {
-  resources: "allocPlanOmittedPeople",
-  periods: "allocPlanOmittedPeriods",
-  tasks: "allocPlanOmittedTasks",
-  milestones: "allocPlanOmittedMilestones",
+// Each a literal `tPlural` call, so "1 person" and "7 people" both read naturally (the plural scan sees the key).
+const OMITTED_TEXT: Record<keyof AllocOmissions, (lang: Lang, n: number) => string> = {
+  resources: (lang, n) => tPlural(lang, "allocPlanOmittedPeople", n, n),
+  periods: (lang, n) => tPlural(lang, "allocPlanOmittedPeriods", n, n),
+  tasks: (lang, n) => tPlural(lang, "allocPlanOmittedTasks", n, n),
+  milestones: (lang, n) => tPlural(lang, "allocPlanOmittedMilestones", n, n),
 };
 
 /** Before the request is sent the AI "will not see" what is cut; once the proposal is back it "did not see" it. */
 function omittedText(lang: Lang, omitted: AllocOmissions, stage: "input" | "preview"): string {
-  const parts = (Object.keys(OMITTED_KEY) as (keyof AllocOmissions)[])
+  const parts = (Object.keys(OMITTED_TEXT) as (keyof AllocOmissions)[])
     .filter((k) => omitted[k] > 0)
-    .map((k) => t(lang, OMITTED_KEY[k], omitted[k]));
+    .map((k) => OMITTED_TEXT[k](lang, omitted[k]));
   return t(lang, stage === "input" ? "allocPlanOmittedInput" : "allocPlanOmitted", parts.join(", "));
 }
 

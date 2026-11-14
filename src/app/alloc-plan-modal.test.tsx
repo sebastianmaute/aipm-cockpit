@@ -521,10 +521,7 @@ describe("AllocPlanModal — what the request left out", () => {
   it.each(["input", "preview"] as const)("names every count that a cap applied to (%s)", (stage) => {
     render(<AllocPlanModal {...props({ stage, omitted: cut })} />);
     const notice = screen.getByText(/Left out of the request/);
-    expect(notice.textContent).toContain("people: 7");
-    expect(notice.textContent).toContain("periods: 25");
-    expect(notice.textContent).toContain("open tasks: 12");
-    expect(notice.textContent).toContain("milestones: 3");
+    expect(notice.textContent).toContain("7 people, 25 periods, 12 open tasks, 3 milestones");
   });
 
   it("before the request says the AI will not see it, after says it did not", () => {
@@ -538,7 +535,7 @@ describe("AllocPlanModal — what the request left out", () => {
   it("names only the kinds that were cut", () => {
     render(<AllocPlanModal {...props({ omitted: { resources: 0, periods: 0, tasks: 4, milestones: 0 } })} />);
     const notice = screen.getByText(/Left out of the request/);
-    expect(notice.textContent).toContain("open tasks: 4");
+    expect(notice.textContent).toContain("4 open tasks");
     expect(notice.textContent).not.toMatch(/people|periods|milestones/);
   });
 
@@ -550,7 +547,17 @@ describe("AllocPlanModal — what the request left out", () => {
   it("says it in German too", () => {
     render(<AllocPlanModal {...props({ lang: "de", omitted: cut })} />);
     const notice = screen.getByText(/Nicht in der Anfrage enthalten/);
-    expect(notice.textContent).toContain("Personen: 7");
-    expect(notice.textContent).toContain("offene Aufgaben: 12");
+    expect(notice.textContent).toContain("7 Personen, 25 Zeiträume, 12 offene Aufgaben, 3 Meilensteine");
+    // Preview stage: the request has gone, so German says so in the past tense, as English does.
+    expect(notice.textContent).toContain("hat nicht den ganzen Plan gesehen");
+  });
+
+  it("names one of a kind in the singular, in both languages", () => {
+    const one = { resources: 1, periods: 1, tasks: 1, milestones: 1 };
+    const en = render(<AllocPlanModal {...props({ omitted: one })} />);
+    expect(screen.getByText(/Left out of the request/).textContent).toContain("1 person, 1 period, 1 open task, 1 milestone");
+    en.unmount();
+    render(<AllocPlanModal {...props({ lang: "de", omitted: one })} />);
+    expect(screen.getByText(/Nicht in der Anfrage enthalten/).textContent).toContain("1 Person, 1 Zeitraum, 1 offene Aufgabe, 1 Meilenstein");
   });
 });
