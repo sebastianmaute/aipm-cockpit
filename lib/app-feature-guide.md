@@ -43,7 +43,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - The single most-urgent action is promoted to a focus "Do this first" card at the top; below it, actions stay grouped by urgency tier (Now / Soon / Monitor), each capped with a show-more control so the list stays short.
 - All signals for one item are grouped into a single row with a "+N more reasons" expander. Each row is action-first — it leads with its real next step (assign, reschedule, clear blocker, re-baseline, draft…) and folds the rest into a "⋮" overflow; urgency reads from a coloured tier dot and left stripe. The Center flags unassigned, stale, blocked, and dependency-blocked tasks.
 - You can resolve items in place — assign an owner, mark done, clear the blocker, or reschedule — without leaving the Center.
-- "Analyze with AI" runs a one-off advisory analysis of the open project, from a digest with dates, status, owner and overdue state per item (up to a size limit).
+- "Analyze with AI" runs a one-off advisory analysis of the open project, from a digest with dates, status, owner and overdue state per item (up to a size limit). The digest also carries the stakeholders' names (left out under people protection) and who is away in the next four weeks.
 - The ranking engine is deterministic; AI analysis is advisory and adds no automatic changes.
 - An opt-in learning layer (Settings → Next actions, "Learn from my Action Center responses") adapts the ranking, within bounds, to how the user acts on, snoozes or dismisses each kind of suggestion. "View learning insights" lists each reason in words with the adjustment in effect (the learned value beneath it), and a reason can be left on Auto or set to Always surface, Always suppress or Off. A reason with a count ("Due in 1 working day", "Due in 3 working days") is learned once, whatever the count.
 - AI: advisory only here, but can act on a suggested record using the task and RAID tools (e.g. create the task a suggestion describes, or update its owner/status). The in-row resolve buttons are user UI actions, not separate AI tools.
@@ -53,10 +53,10 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 <!-- views: chat -->
 
 - This chat. Ask about the project, get explanations, or have records created/updated.
-- All AI features are gated by an "Enable AI assistant" master switch in Settings → AI (off by default); a Claude API key is still required on top.
-- Attach documents (PDF, image, text) — they are read natively and records can be extracted from them.
+- All AI features need the "Enable AI assistant" master switch in Settings → AI (off by default), the accepted AI disclosure (consent) and a Claude API key. Features that run unattended (scheduled jobs, background recommendations) also need the separate background consent.
+- Attach documents (PDF, image, text) — they are read natively and records can be extracted from them, but only while people protection is off. With protection on (the default) a PDF or image is refused and a text document is sent with names redacted.
 - Reads the live workspace via list tools for grounded answers.
-- Conversations are saved as threads on a Turso project: a sidebar lists them, you can rename, delete and switch between them, and its width is draggable. On file storage the panel is a single unsaved conversation with no sidebar.
+- Conversations are saved as threads on a Turso project: a sidebar lists them, you can rename, delete and switch between them, and its width is draggable. Saving needs the operator's recovery key (set on the deployment) and Web Crypto in the browser, and a thread is deleted after the retention period without activity (30 days unless the operator sets another). On file storage the panel is a single unsaved conversation with no sidebar.
 - Two recall tools, both individually switchable in Settings → AI and both defaulting ON: one searches this project's ACTIVITY HISTORY (when a milestone moved, who changed a field), the other searches this project's EARLIER CHATS. Turning either off removes the tool from the model's offered set AND refuses to serve it, so it can never advertise off while serving on.
 - A one-sentence recap of the last seven days of project activity is supplied as context, so the assistant opens knowing what has been going on. It is switchable off too.
 - Knows which view you are on and what that view is for, and on Open Points, Workload, Gantt and Budget it is also told what the current filters are showing. Where it has no way to read something it says so instead of guessing.
@@ -146,7 +146,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - Committee members, scheduled meetings, info-pack reminders, and Outlook meeting push.
 - User-edited content (membership and agendas are maintained here, not via tools).
-- Each meeting has a status report. With the AI assistant on, its "Draft with AI" button writes the whole report from the project's data (a reply that is cut off is retried with more room, so the user gets the whole report or an error, never half). The report keeps versions that can be compared and restored, and with Microsoft 365 connected it is sent to the committee members' email addresses.
+- Each meeting has a status report. With the AI assistant on, its "Draft with AI" button drafts the report from the project's data and proposes it section by section, and the user takes the sections they want into the report (a reply that is cut off is retried with more room, so the user gets the whole draft or an error, never half). The draft prompt includes the names of people who are away. The report keeps versions that can be compared and restored, and with Microsoft 365 connected it is sent to the committee members' email addresses.
 - AI: can explain the area and draft agendas or summaries in chat; there is no steering-committee write tool.
 
 ## Calendar
