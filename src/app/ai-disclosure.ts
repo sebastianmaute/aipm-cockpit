@@ -9,10 +9,11 @@
 // ★★ `whenProtected` (and `protectedKey`) is the PROTECTED column: what people protection does to the path. The consent
 //    dialog and docs/security.md "People protection" render it per row; it is pinned with the row.
 // ★★ `AI_DISCLOSURE_VERSION` (`ai-consent.ts`) must be bumped whenever this table changes (a row
-//    added, removed, re-levelled or re-keyed): consent was given to the table as it was, so a changed
-//    table must be asked again. `ai-disclosure.test.ts` pins the table per version, with a hash of
-//    each row's English label and data text, and fails on any change until it is re-pinned (wording
-//    only) or the version is bumped (what is sent changed).
+//    added, removed, re-levelled or re-keyed, its protected state or `protectedKey` included): consent was
+//    given to the table as it was, so a changed table must be asked again. `ai-disclosure.test.ts` pins the
+//    table per version, with a hash of each row's English label and data text AND of its PROTECTED text
+//    (`aiProtectedTextKey`, English and German — the dialog shows it), and fails on any change until it is
+//    re-pinned (wording only) or the version is bumped (what is sent, or what protection does, changed).
 import type { TranslationKey } from "./i18n";
 import { type AiRoute, currentAiRoute, getAiDeploymentState } from "./ai-deployment";
 
