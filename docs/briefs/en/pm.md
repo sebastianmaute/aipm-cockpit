@@ -1,49 +1,59 @@
 # AI brief for the project manager
 
+*How to read this page:* `E<n>` is a row of the [evidence table](appendix.md#evidence-table); its
+[label](appendix.md#evidence-labels) is *measured*, *tested (unit)* (a test with fakes, not a live run),
+*tested (live database)*, *read in code* (nobody ran it), *estimated* or *not proven*. `§N` is an open entry of
+the project's public [register](../../open-followups.md), listed under [Open gaps](appendix.md#open-gaps).
+
 ## In one paragraph
 
 The AI drafts and proposes work for you: most features change nothing until you apply their proposal, but a
 single ordinary change in the chat applies at once (E56, *read in code*; E47, *tested (unit)*). Its answers can
 differ between runs: the app does nothing to make the same request give the same answer, and whether the work
-breakdown optimisation repeats has not been measured (E61, *read in code*; E27, *not proven*). Text the AI
-writes carries no mark of its own once it is in your report, so telling a steering committee which parts the AI
-drafted is up to you (E55, *read in code*; E62, *read in code*).
+breakdown optimisation repeats has not been measured (E61, *read in code*; E27, *not proven*). AI text in your
+report carries no mark, so telling a steering committee what the AI drafted is up to you (E55, *read in code*;
+E62, *read in code*). Your use costs about $5, $13 or $33 a month
+at light, typical or heavy use, an estimate from assumed usage (E25, *estimated*) and 2 to 6 measured calls per
+feature on one demo project (E37, *measured*).
 
 ## What leaves, and who approves it
 
 - **What leaves:** each feature sends the project data listed in the [AI paths](appendix.md#ai-paths) (E1,
-  *read in code*). With people protection on, the names of people the project knows are replaced before
-  sending; a name the project does not know, typed into a task or a chat, is sent as written (E14,
-  *tested (unit)*; E35, *read in code*).
-- **You approve:** the row edit, the allocation plan proposal, the RACI suggestion, the work breakdown
-  proposal, the duplicate check, the forecast import, the weight suggestion and insight recommendations each
-  change the project only when you apply, accept or confirm; allocation and RACI show each change with its
-  current and proposed value (E56, *read in code*). The new project proposal fills in the wizard, and nothing
-  is created until you finish it (E49, *read in code*).
-- **Applies on its own:** one ordinary chat change, such as a single due date, applies at once and is logged
-  as the AI's (§794; E47, *tested (unit)*). The chat holds changes on a review card in set cases, for
-  example a deletion, an invitation, a date on someone's absence or more than one write, and holds every change while a file is
-  attached (E47, *tested (unit)*). Text the chat reads through its tools, such as a Jira-synced task, does not
-  start that hold (E48, *read in code*).
+  *read in code*). With *people protection* on, the names of people the project knows (a one-word name only
+  where written with a capital) are replaced before sending; a name the project does not know, typed into a
+  task or a chat, is sent as written (E14, *tested (unit)*; E35, *read in code*).
+- **You approve:** the row edit, the allocation plan proposal ("Plan with AI"), the RACI suggestion, the work
+  breakdown proposal ("Optimize work breakdown with AI"), the duplicate check, the forecast import, the weight
+  suggestion and insight recommendations each change the project only when you apply, accept or confirm (E56,
+  *read in code*). The new
+  project proposal fills in the wizard, and nothing is created until you finish it (E49, *read in code*).
+- **Applies on its own:** an ordinary chat change, one change in one send that deletes nothing, invites no one,
+  puts no date on someone's absence and uses no tool that always asks for review, applies at once (§794; E47, *tested (unit)*) and shows in the activity
+  log as the AI's (E55, *read in code*). Anything else waits on a *review card* for you, as does every change
+  while a file is attached, except the work breakdown optimisation, which opens its own preview; a reopened
+  saved chat keeps no attachment (E47, *tested (unit)*). Text the chat reads through its tools does not start
+  that hold (E48, *read in code*).
 - **In the background:** the scheduled analyses and digests produce text and change no project record, and a
   recommendation waits for your confirmation (E56, *read in code*); you consent to background runs once, not
   run by run (E32, *tested (unit)*).
 
 ## What you control
 
-- **Take or leave:** in the allocation, RACI, work breakdown and duplicate proposals you can deselect items;
-  the others are applied, accepted or confirmed as a whole (E56, *read in code*). The steering committee
-  draft waits under "AI draft – take sections into the report" until you take a section or all of them (E62,
+- **Not the switches:** AI off, forced protection, the route and the key restriction are server settings of
+  the deployment's operator (E19, *tested (unit)*; E4, *tested (unit)*; E7, *tested (unit)*); in the pilot the
+  CEO and COO briefs suggest, protection is forced on, which hides allocation and RACI (E18, *tested (unit)*).
+- **Take or leave:** in the allocation, RACI, work breakdown and duplicate proposals you can deselect items, and
+  the weight suggestion offers Accept for each weight; the others are applied, accepted or confirmed as a whole
+  (E56, *read in code*). The steering committee draft waits under "AI draft – take sections into the report"
+  until you take a section or all of them (E62, *read in code*).
+- **Undo and find again:** tasks created by an applied work breakdown cannot be undone, and carry no AI mark;
+  the activity log records only how many changes it applied, so note the new tasks before you apply (E66,
   *read in code*).
-- **Force a review:** attach a file to the chat conversation and every change it proposes waits on the review
-  card, except the work breakdown optimisation, which opens its own preview (E47, *tested (unit)*).
-- **Undo:** tasks created by an applied work breakdown cannot be undone; delete them by hand (E56,
-  *read in code*).
-- **Cross-project allocation:** hours from other projects count only on a Turso database shared with them, for
-  people matched by your confirmation or a shared e-mail address; projects that protect their people are left
-  out, and the request describes at most 120 people, 26 periods, 150 open tasks and 40 milestones of yours
-  (E60, *read in code*). Protection is on in every project unless that project allows people, so by default
-  only projects that allow people count (E41, *tested (unit)*).
+- **Cross-project allocation:** hours from other projects count only on a shared Turso database, for people
+  matched by your confirmation or a shared e-mail address, and only from projects that allow people, which by
+  default none does (E60, *read in code*; E41, *tested (unit)*). The request describes at most 120 people, 26
+  periods, 150 open tasks and 40 milestones of yours; the model is told about the rest left out, the screen is
+  not (E60, *read in code*).
 
 ## Not yet proven / open gaps
 
@@ -60,9 +70,8 @@ drafted is up to you (E55, *read in code*; E62, *read in code*).
   exports; the activity log shows which saves held AI-drafted text (E62, *read in code*).
 - Check every name, date and number in a proposal against the project, and treat one plan as one option: ask
   again and compare before you apply (E61, *read in code*).
-- Before Plan with AI on a shared database, answer its "same person" suggestions, or those people's hours in
-  other projects are not counted; even then, only projects that allow people count (E60, *read in code*; E41,
-  *tested (unit)*).
+- Before "Plan with AI" on a shared database, answer its "same person" suggestions, or those people's hours in
+  other projects are not counted (E60, *read in code*).
 
 ## Where to read more
 

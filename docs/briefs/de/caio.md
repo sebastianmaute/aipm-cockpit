@@ -1,15 +1,24 @@
 # KI-Kurzinformation für die KI-Verantwortung (Chief AI Officer)
 
+*So lesen Sie diese Seite:* `E<n>` ist eine Zeile der [Belegtabelle](appendix.md#belegtabelle); ihre
+[Belegart](appendix.md#belegarten) ist *gemessen*, *getestet (Unit)* (ein Test mit Attrappen, kein Lauf gegen
+echte Dienste), *getestet (Live-Datenbank)*, *im Code gelesen* (niemand hat es ausgeführt), *geschätzt* oder
+*nicht belegt*. `§N` ist ein offener Eintrag im öffentlichen [Register](../../open-followups.md) (englisch) des
+Projekts, aufgeführt unter [Offene Lücken](appendix.md#offene-lücken).
+
 ## Auf einen Blick
 
 Die KI der App entwirft, analysiert und schlägt Projektmanagement-Arbeit in 17 Funktionen vor, drei davon laufen
 im Hintergrund (E1, *im Code gelesen*). Außerhalb des Chats wendet eine Funktion, die Änderungen vorschlägt,
-nichts an, bevor eine Person es tut; der Chat wendet eine einzelne gewöhnliche Änderung sofort an (E56,
-*im Code gelesen*; E47, *getestet (Unit)*). Zwei Funktionen schlagen Änderungen an der Arbeit von Personen vor:
-Der Vorschlag für die Ressourcenplanung schlägt geplante Stunden von Personen und Verschiebungen offener
-Aufgaben zwischen ihnen vor, und der RACI-Vorschlag schlägt eine Rolle je Person und Meilenstein vor (E56,
-*im Code gelesen*). Wie sich diese Funktionen und Ihre Nutzung zu Anhang III der KI-Verordnung verhalten,
-ordnet Ihre Organisation ein; diese Seite liefert die Fakten dafür, keine Schlussfolgerung.
+nichts an, bevor eine Person es tut, so der Code, ohne dass ein Test es festlegt; der Chat wendet eine einzelne
+gewöhnliche Änderung sofort an (E56, *im Code gelesen*; E47, *getestet (Unit)*). Zwei Funktionen schlagen
+Änderungen an der Arbeit von Personen vor: Der Vorschlag für die Ressourcenplanung („Mit KI planen“) schlägt
+geplante Stunden von Personen und Verschiebungen offener Aufgaben zwischen ihnen vor, und der RACI-Vorschlag
+schlägt eine Rolle je Person und Meilenstein vor (E56, *im Code gelesen*). Wie sich diese Funktionen und Ihre
+Nutzung zu Anhang III der KI-Verordnung verhalten, ordnet Ihre Organisation ein; diese Seite liefert die Fakten
+dafür, keine Schlussfolgerung. Nichts in diesen Kurzinformationen misst Genauigkeit, Verzerrung oder
+Wiederholbarkeit dieser Vorschläge, und die App tut nichts dafür, dass eine Anfrage zweimal dieselbe Antwort
+ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
 
 ## Was hinausgeht und wer es freigibt
 
@@ -20,11 +29,14 @@ ordnet Ihre Organisation ein; diese Seite liefert die Fakten dafür, keine Schlu
   ([KI-Pfade und Personendaten](appendix.md#ki-pfade-und-personendaten); E1, *im Code gelesen*).
 - **Wo eine Person freigibt:** Jede Änderung der Ressourcenplanung und des RACI-Vorschlags wird mit ihrem
   bisherigen und dem vorgeschlagenen Wert gezeigt und lässt sich abwählen (E56, *im Code gelesen*). Der Chat
-  hält Änderungen in festgelegten Fällen auf einer Prüfkarte fest, etwa bei einer Löschung oder mehr als einer
-  Änderung, und hält jede Änderung fest, solange eine Datei angehängt ist (E47, *getestet (Unit)*).
-  Ergebnisse der Hintergrund-KI ändern keinen Projektdatensatz, bevor jemand bestätigt (E56, *im Code gelesen*).
-- **Wo niemand vorher freigibt:** Text, den der Chat über seine Werkzeuge liest, etwa eine aus Jira
-  synchronisierte Aufgabe, löst die Prüfpflicht nicht aus (E48, *im Code gelesen*).
+  hält Änderungen in festgelegten Fällen für die nutzende Person auf einer *Prüfkarte* fest, etwa bei einer
+  Löschung oder mehr als einer Änderung, und jede Änderung, solange eine Datei angehängt ist, außer der
+  Optimierung der Arbeitspakete, die ihre eigene Vorschau öffnet; ein wieder geöffneter gespeicherter Chat behält
+  keinen Anhang (E47, *getestet (Unit)*). Ergebnisse der Hintergrund-KI ändern keinen
+  Projektdatensatz, bevor jemand bestätigt (E56, *im Code gelesen*).
+- **Wo niemand vorher freigibt:** eine einzelne gewöhnliche Änderung im Chat, und Text, den der Chat über seine
+  Werkzeuge liest, etwa eine aus Jira synchronisierte Aufgabe, der die Prüfpflicht nicht auslöst (§794; E47,
+  *getestet (Unit)*; E48, *im Code gelesen*).
 
 ## Was Sie steuern
 
@@ -37,9 +49,9 @@ ordnet Ihre Organisation ein; diese Seite liefert die Fakten dafür, keine Schlu
   Namen eines neuen Projekts lassen sich nicht schützen (E35, *im Code gelesen*); wird die Sperre aufgehoben,
   gilt für jedes Projekt wieder seine gespeicherte Einstellung (E43, *im Code gelesen*). Kein Schalter schaltet
   eine einzelne Funktion ab (E42, *im Code gelesen*).
-- **Kennzeichnung nach Artikel 50:** Die Oberflächen benennen die KI („KI-Assistent“, „Claude fragen“,
-  „KI-generiert – vor dem Handeln prüfen.“), und das Aktivitätsprotokoll zeigt ihre Änderungen mit dem Akteur
-  „KI-Assistent“; der Text, den sie schreibt, trägt keine maschinenlesbare Kennzeichnung (E55,
+- **Zu Artikel 50 (Transparenz):** Die Oberflächen benennen die KI („KI-Assistent“, „Claude fragen“,
+  „KI-generiert – vor dem Handeln prüfen.“), und das Aktivitätsprotokoll zeigt ihre Änderungen im Chat mit dem
+  Akteur „KI-Assistent“; eine maschinenlesbare Kennzeichnung des Textes, den sie schreibt, fehlt (§801; E55,
   *im Code gelesen*).
 - **KI-Kompetenz nach Artikel 4:** Siehe das [Material zur KI-Kompetenz](../../compliance/de/ai-literacy.md) und
   die [Musterhinweise](../../compliance/de/model-notices.md) im Compliance-Paket.
@@ -49,24 +61,31 @@ ordnet Ihre Organisation ein; diese Seite liefert die Fakten dafür, keine Schlu
 1. **§794:** Eine einzelne Änderung im Chat wird ohne Prüfkarte angewendet (E47, *getestet (Unit)*).
 2. **§801:** Text, den die KI schreibt, trägt keine maschinenlesbare Kennzeichnung; legen Sie also fest, wie er
    gekennzeichnet wird, sobald er die App in Berichten und Exporten verlässt (E55, *im Code gelesen*).
-3. **§795:** Der Hintergrund-KI wird einmal zugestimmt, sie wird nicht Lauf für Lauf freigegeben (E32,
-   *getestet (Unit)*).
+3. **§812:** Ob die Optimierung der Arbeitspakete ihr Ergebnis wiederholt, ist nicht gemessen (E27,
+   *nicht belegt*).
 4. **§797:** Text, den der Chat über seine Werkzeuge liest, löst die Prüfpflicht nicht aus (E48,
    *im Code gelesen*).
-5. **§810:** Das Ausblenden der Ressourcen-Funktion eines Projekts hält dessen Personen und Abwesenheiten nicht
-   von der KI fern (E59, *im Code gelesen*).
+5. **§795:** Für die Hintergrund-KI wird einmal zugestimmt, nicht für jeden Lauf (E32, *getestet (Unit)*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 
 - Schreiben Sie auf, wofür Ihre Organisation Ressourcenplanung und RACI nutzen wird, und lesen Sie das, neben der
   [Zweckbestimmung des Maintainers](../../compliance/de/ai-act-readiness.md#rollen), mit dem
   [Hinweis zur KI-Verordnung](../../compliance/de/ai-act-readiness.md#zuteilungs--und-raci-vorschläge-anhang-iii)
-  gegen Anhang III Nummer 4 Buchstabe b und Artikel 6 Absatz 3; bis das geklärt ist, erzwingen Sie den Schutz
-  (E18, *getestet (Unit)*; E19, *getestet (Unit)*).
+  gegen Anhang III Nummer 4 Buchstabe b (im Bereich Beschäftigung unter anderem KI, die Aufgaben aufgrund des
+  individuellen Verhaltens oder persönlicher Merkmale zuweist oder Beschäftigte beobachtet und bewertet) und
+  Artikel 6 Absatz 3; bis das geklärt ist, erzwingen Sie den Schutz (E18, *getestet (Unit)*; E19,
+  *getestet (Unit)*).
+- Beantworten Sie für Ihre Organisation: Ist sie Anbieter oder Betreiber dessen, was sie auf der App aufbaut,
+  wer beaufsichtigt Ressourcenplanung und RACI, wie lange werden Protokolle aufbewahrt, und wie werden
+  Beschäftigte informiert? Das Aktivitätsprotokoll der App nennt die KI als Akteur ihrer Änderungen im Chat,
+  ihrer Berichtsentwürfe und übernommener Projektstrukturpläne (E55, *im Code gelesen*; E62, *im Code gelesen*;
+  E66, *im Code gelesen*).
 - Bitten Sie den Chat in einem Testprojekt um eine einzelne Terminänderung an einer Aufgabe, deren zuständige
-  Person an dem Tag nicht abwesend ist, und sehen Sie, dass sie ohne Karte angewendet wird und im
-  Aktivitätsprotokoll als Änderung der KI erscheint; hängen Sie dann eine Datei an und sehen Sie, dass dieselbe
-  Bitte wartet (E47, *getestet (Unit)*; E55, *im Code gelesen*).
+  Person dann nicht abwesend ist: Sie wird ohne Karte angewendet, und das Aktivitätsprotokoll zeigt sie als
+  Änderung der KI; mit angehängter Datei wartet dieselbe Bitte (E47, *getestet (Unit)*; E55, *im Code gelesen*).
+- Fragen Sie Anthropic, was es von einer Anfrage aufbewahrt, ob es damit trainiert und welche Bedingungen für
+  Ihr Konto gelten.
 
 ## Weiterlesen
 

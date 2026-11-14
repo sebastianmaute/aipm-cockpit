@@ -1,17 +1,23 @@
 # AI brief for the CISO
 
+*How to read this page:* `E<n>` is a row of the [evidence table](appendix.md#evidence-table); its
+[label](appendix.md#evidence-labels) is *measured*, *tested (unit)* (a test with fakes, not a live run),
+*tested (live database)*, *read in code* (nobody ran it), *estimated* or *not proven*. `§N` is an open entry of
+the project's public [register](../../open-followups.md), listed under [Open gaps](appendix.md#open-gaps).
+
 ## In one paragraph
 
-The AI sends project content to Anthropic, or to the organisation's gateway, from the browser or the app's
-server (E4, *tested (unit)*; E5, *tested (unit)*). The model reads text others wrote, such as attached mail,
-Jira-synced tasks and Confluence pages picked for a new project; the chat turns its answers into changes, while
-the project wizard only pre-fills a form (E47, *tested (unit)*; E48, *read in code*; E49, *read in code*). On
-the relay route the server refuses calls while AI is off (E19, *tested (unit)*) and, when a key restriction
-is set, runs the key check (E7, *tested (unit)*); on the direct
+The AI sends project content to Anthropic straight from the browser (the direct route), or through the app's
+server and, when one is set, the organisation's gateway (the relay route;
+[diagram](appendix.md#two-routes-to-the-model)) (E4, *tested (unit)*; E5, *tested (unit)*). The model reads
+text others wrote, such as attached mail, Jira-synced tasks and Confluence pages picked for a new project; the
+chat turns its answers into changes, while the project wizard only pre-fills a form (E47, *tested (unit)*; E48,
+*read in code*; E49, *read in code*). On the relay route the server refuses calls while AI is off (E19,
+*tested (unit)*) and, when a key restriction is set, runs the key check (E7, *tested (unit)*); on the direct
 route AI-off is the page's content policy and the app's own check, both applied by the browser (E53,
 *tested (unit)*; E3, *tested (unit)*), so a modified copy is not stopped there, and another client with the
-same key is not stopped on either route (E52, *read in code*).
-People protection also runs in the browser, with the same limit (E15, *read in code*).
+same key is not stopped on either route (E52, *read in code*). People protection also runs in the browser, with
+the same limit (E15, *read in code*). These briefs reference no independent security assessment of the app.
 
 ## What leaves, and who approves it
 
@@ -21,27 +27,32 @@ People protection also runs in the browser, with the same limit (E15, *read in c
   ([browser hosts](appendix.md#browser-hosts); §800; E34, *read in code*).
 - **From the server:** the relay forwards four Anthropic headers, plus the gateway token when one is set, and
   no cookies, and logs no key, token, body or URL (E6, *tested (unit)*); the other
-  [server destinations](appendix.md#server-destinations) are listed (E34, *read in code*).
+  [server destinations](appendix.md#server-destinations) are listed. Updates come from the project's GitHub
+  releases, so an update installs the same unsigned installer as a first install (E34, *read in code*; E51,
+  *read in code*).
 - **Keys:** each user's key is stored encrypted in the browser; loaded for use, it is held in plain text in the
   page's memory (E46, *tested (unit)*).
-- **People:** with protection on, known people's names and every e-mail address, valid IBAN and phone-shaped number
-  are replaced before sending, but an unknown name is sent as written (E14, *tested (unit)*; E35,
-  *read in code*).
+- **People:** with *people protection* on, known people's names (a one-word name only where written with a
+  capital) and every e-mail address, valid IBAN and phone-shaped number are replaced before sending, but an
+  unknown name is sent as written (E14, *tested (unit)*; E35, *read in code*).
 
 ## What you control
 
-- **Kill switch:** `ai` in `AIPM_DISABLED_INTEGRATIONS` makes the relay refuse every call (E19,
-  *tested (unit)*) and drops api.anthropic.com from the policy (E53, *tested (unit)*); it acts on this
+- **Deployment-scoped off switch:** `ai` in `AIPM_DISABLED_INTEGRATIONS` makes the relay refuse every call
+  (E19, *tested (unit)*) and drops api.anthropic.com from the policy (E53, *tested (unit)*); it acts on this
   deployment only and revokes no key (E52, *read in code*).
 - **Keys:** the key restriction refuses, on the server, keys of other organisations or workspaces (E7,
-  *tested (unit)*); a pass stays valid for up to 15 minutes (E9, *tested (unit)*).
-- **Injected instructions:** while an attached file or e-mail is in the chat, every proposed change waits on a
-  review card, except the work breakdown optimisation, which opens its own preview (E47, *tested (unit)*).
-  Pasted text, and text the chat reads through its tools such as Jira-synced tasks, do not start that hold
-  (E48, *read in code*).
+  *tested (unit)*); a *pass*, the server's memory of a positive check, stays valid for up to 15 minutes (E9,
+  *tested (unit)*).
+- **Gateway:** never run against a real gateway, so not yet a control you can count on (§802; E12,
+  *not proven*).
+- **Instructions injected through attachments:** while an attached file or e-mail is in the chat, every
+  proposed change waits on a review card, except the work breakdown optimisation, which opens its own preview
+  (E47, *tested (unit)*). Pasted text and text the chat reads through its tools, such as a Jira-synced task, do
+  not start that hold (§797; E48, *read in code*).
 - **Installer:** each desktop release carries an SBOM, with attestations only while the repository is public
-  (E50, *read in code*); the installer is not code-signed (E51, *read in code*). `AIPM_DISABLE_UPDATE_CHECK` switches the desktop update check off (E34,
-  *read in code*).
+  (E50, *read in code*); the installer is not code-signed (E51, *read in code*). `AIPM_DISABLE_UPDATE_CHECK`
+  switches the desktop update check off (E34, *read in code*).
 
 ## Not yet proven / open gaps
 
@@ -56,13 +67,15 @@ People protection also runs in the browser, with the same limit (E15, *read in c
 
 - On a test deployment, set `ai` and confirm that the page's policy lacks api.anthropic.com and that the relay
   refuses with 503 (E19, *tested (unit)*; E53, *tested (unit)*).
-- Attach a mail that carries an instruction and check that a single proposed change waits on the review card.
-  Then put the same text into a synced Jira issue's description and see that a single ordinary write it
-  prompts applies at once; destructive or inviting proposals wait either way (E47, *tested (unit)*; E48,
-  *read in code*).
-- Put the app's server behind your own access control: the relay checks no caller and has no request limit,
-  and the other routes' limit is keyed on a header the caller can set (§805, §806, §562; E13, *read in code*;
-  E54, *read in code*).
+- Attach a mail that carries an instruction and check that a single proposed change waits on the review card;
+  put the same text into a synced Jira issue and see a single ordinary write apply at once, while deleting or
+  inviting changes wait either way (E47, *tested (unit)*; E48, *read in code*).
+- Put the app's server behind your own access control: anyone who can reach it can call the relay, which adds
+  the gateway token and has no request limit, and the other routes' limit is keyed on a header the caller can
+  set (§805, §806, §562; E13, *read in code*; E54, *read in code*).
+- For incidents: the activity log names the AI as actor of its chat changes, but no entry links to the chat
+  message behind it (§799; E55, *read in code*).
+- Ask Anthropic what it retains of a request, for how long, and whether it trains on it.
 - Check the SBOM and attestations of the release you install, and tell users about the unknown-publisher
   warning (E50, *read in code*; E51, *read in code*).
 
