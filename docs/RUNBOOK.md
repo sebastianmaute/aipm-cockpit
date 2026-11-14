@@ -606,7 +606,11 @@ which owns that list.
      key in steady use is checked again then, not kept for good), or until the restriction
      settings change or the cache (at most 1000 entries) evicts it; when full, the cache evicts
      the entry whose key was used least recently, so keys in steady use stay cached. A
-     restart empties the cache.
+     restart empties the cache. Because a pass lasts 15 minutes, each key needs a
+     successful pre-flight that often, so a steadily used key can occasionally get the
+     503 "could not be checked, try again" answer when that re-check is unavailable (a
+     429 or 5xx on the models list, a slow gateway, the in-flight cap); this is
+     fail-closed by design.
    - Anthropic's own `401` or `403` for the key is passed through unchanged. The `401`
      is remembered for 60 seconds (by the same keyed hash), so repeated calls with
      one invalid key send one check, not one each; the `403` is not cached.

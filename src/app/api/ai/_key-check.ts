@@ -252,7 +252,8 @@ export function createKeyChecker(
   const rejectedTtlMs = opts.rejectedTtlMs ?? KEY_CHECK_DEFAULT_REJECTED_TTL_MS;
   const maxPreflightsInFlight = opts.maxPreflightsInFlight ?? MAX_PREFLIGHTS_IN_FLIGHT;
   const deadlineMs = opts.deadlineMs ?? KEY_CHECK_DEADLINE_MS;
-  const now = opts.now ?? Date.now;
+  // Monotonic by default: a wall-clock step backwards (NTP, a resumed VM) must not stretch a lifetime.
+  const now = opts.now ?? (() => performance.now());
   // Map order is recency order: the first entry is the least recently used, and a hit moves its
   // entry to the end, so eviction drops the entry unused for longest.
   const cache = new Map<string, CacheEntry>();
@@ -266,7 +267,9 @@ export function createKeyChecker(
     if (!entry) return null;
     const ttl = entry.kind === "pass" ? passTtlMs : entry.kind === "upstream-error" ? rejectedTtlMs : refusalTtlMs;
     // `at` is when the verdict was reached upstream; a hit below moves the entry in the Map, never this.
-    if (now() - entry.at >= ttl) {
+    // A negative age (a clock that went backwards) counts as expired, never as fresh.
+    const age = now() - entry.at;
+    if (age < 0 || age >= ttl) {
       cache.delete(hash);
       return null;
     }

@@ -267,6 +267,15 @@ describe("createKeyChecker — refusals", () => {
     expect(calls).toHaveLength(2);
   });
 
+  it("a clock that steps backwards after a pass gives no cache hit", async () => {
+    const { send, calls } = fakeSend(org(ORG));
+    const checker = createKeyChecker({ now: clock });
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    now -= 60 * 60 * 1000;
+    await checker.check(KEY, ORG_ONLY, ANTHROPIC, send);
+    expect(calls).toHaveLength(2);
+  });
+
   it("a re-check that now refuses replaces the pass", async () => {
     let upstreamOrg = ORG;
     const { send, calls } = fakeSend((call) => org(upstreamOrg)(call));

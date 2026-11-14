@@ -218,7 +218,8 @@ longer carries its own changelog comment.
   sending, and person fields could not be set; the request itself no longer offers those tools.
 - **The server's key check is described as it works.** The data-flow texts and the compliance pack said the
   organisation check runs before every relayed request. The server keeps a passed check in memory for up to 15
-  minutes and a refusal for up to five minutes, so later requests with the same key are usually not checked again; the texts now say so.
+  minutes and a refusal for up to five minutes, so later requests with the same key are usually not checked
+  again; the texts now say so.
 - **Two AI help texts name every condition.** "Enable AI assistant" now lists the scheduled digest narrative among
   the features that need background consent, and the advanced AI help says the helpers need the master switch, the
   accepted AI data disclosure and a key.
