@@ -484,6 +484,13 @@ describe("callInlineEdit under people protection", () => {
     expect(r.text).toContain("create_task"); // control: the create list is still there
   });
 
+  it("the scope text names exactly the five create tools, minus any not offered", async () => {
+    const list = (text: string) => /create related items \(([^)]*)\)/.exec(text)![1].split(" / ");
+    const five = ["create_task", "create_raid_item", "create_change", "create_milestone", "create_stakeholder"];
+    expect(list((await send(false)).text)).toEqual(five);
+    expect(list((await send(true)).text)).toEqual(five.filter((n) => n !== "create_stakeholder"));
+  });
+
   it("inline tools follow each call's protection state", async () => {
     for (const state of [true, false, true]) {
       const r = await send(state);

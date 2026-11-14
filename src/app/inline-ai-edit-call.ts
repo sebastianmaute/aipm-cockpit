@@ -112,9 +112,12 @@ function inlineTools(peopleProtected: boolean): InlineTools {
   return built;
 }
 
+/** The create tools the scope text invites, in the order it has always named them. Filtered by what the
+ *  request carries, so a protected request does not name `create_stakeholder`. */
+const SCOPE_CREATE_TOOLS = ["create_task", "create_raid_item", "create_change", "create_milestone", "create_stakeholder"] as const;
+
 function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLabel: string, offered: ReadonlySet<string>): SystemBlock {
-  // The create_* tools this request actually carries: a protected request must not name `create_stakeholder`.
-  const creates = [...offered].filter((n) => n.startsWith("create_")).join(" / ");
+  const creates = SCOPE_CREATE_TOOLS.filter((n) => offered.has(n)).join(" / ");
   const fields = JSON.stringify(projectForInlineEdit(entity, item));
   return {
     type: "text",
