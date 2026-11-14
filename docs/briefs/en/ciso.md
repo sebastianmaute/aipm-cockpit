@@ -5,10 +5,12 @@
 The AI sends project content to Anthropic, or to the organisation's gateway, from the browser or the app's
 server (E4, *tested (unit)*; E5, *tested (unit)*). The model reads text others wrote, such as attached mail,
 Jira-synced tasks and Confluence pages picked for a new project; the chat turns its answers into changes, while
-the project wizard only pre-fills a form (E47, *tested (unit)*; E49, *read in code*). On the relay route the
+the project wizard only pre-fills a form (E47, *tested (unit)*; E48, *read in code*; E49, *read in code*). On
+the relay route the
 server enforces the key check and the AI-off refusal (E7, *tested (unit)*; E19, *tested (unit)*); on the direct
 route AI-off is the page's content policy and the app's own check, both applied by the browser (E53,
-*tested (unit)*; E3, *tested (unit)*), so a modified copy or another client with the same key is not stopped.
+*tested (unit)*; E3, *tested (unit)*), so a modified copy is not stopped there, and another client with the
+same key is not stopped on either route (E52, *read in code*).
 People protection also runs in the browser, with the same limit (E15, *read in code*).
 
 ## What leaves, and who approves it
@@ -37,8 +39,8 @@ People protection also runs in the browser, with the same limit (E15, *read in c
   review card, except the work breakdown optimisation, which opens its own preview (E47, *tested (unit)*).
   Pasted text, and text the chat reads through its tools such as Jira-synced tasks, do not start that hold
   (E48, *read in code*).
-- **Installer:** each desktop release carries an SBOM (E50, *read in code*); the installer is not code-signed
-  (E51, *read in code*). `AIPM_DISABLE_UPDATE_CHECK` switches the desktop update check off (E34,
+- **Installer:** each desktop release carries an SBOM, with attestations only while the repository is public
+  (E50, *read in code*); the installer is not code-signed (E51, *read in code*). `AIPM_DISABLE_UPDATE_CHECK` switches the desktop update check off (E34,
   *read in code*).
 
 ## Not yet proven / open gaps

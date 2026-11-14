@@ -6,11 +6,13 @@ Die KI sendet Projektinhalte an Anthropic oder an das Gateway der Organisation, 
 Server der App (E4, *getestet (Unit)*; E5, *getestet (Unit)*). Das Modell liest Text, den andere geschrieben
 haben, etwa angehängte E-Mails, aus Jira synchronisierte Aufgaben und für ein neues Projekt ausgewählte
 Confluence-Seiten; der Chat macht aus seinen Antworten Änderungen, der Projektassistent füllt nur ein Formular
-vor (E47, *getestet (Unit)*; E49, *im Code gelesen*). Auf dem Relay-Weg setzt der Server die
+vor (E47, *getestet (Unit)*; E48, *im Code gelesen*; E49, *im Code gelesen*). Auf dem Relay-Weg setzt der
+Server die
 Schlüsselprüfung und die Ablehnung bei abgeschalteter KI durch (E7, *getestet (Unit)*; E19,
 *getestet (Unit)*); auf dem direkten Weg besteht die Abschaltung aus der Content Security Policy der Seite und der
 eigenen Prüfung der App, beide im Browser angewendet (E53, *getestet (Unit)*; E3, *getestet (Unit)*), sodass eine
-veränderte Kopie oder ein anderer Client mit demselben Schlüssel nicht aufgehalten wird. Auch der
+veränderte Kopie dort nicht aufgehalten wird, und ein anderer Client mit demselben Schlüssel wird auf keinem
+der beiden Wege aufgehalten (E52, *im Code gelesen*). Auch der
 Personenschutz läuft im Browser, mit derselben Grenze (E15, *im Code gelesen*).
 
 ## Was hinausgeht und wer es freigibt
@@ -40,8 +42,9 @@ Personenschutz läuft im Browser, mit derselben Grenze (E15, *im Code gelesen*).
   vorgeschlagene Änderung auf einer Prüfkarte, außer der Optimierung der Arbeitspakete, die ihre eigene
   Vorschau öffnet (E47, *getestet (Unit)*). Eingefügter Text und Text, den der Chat über seine Werkzeuge liest,
   etwa aus Jira synchronisierte Aufgaben, lösen diese Prüfpflicht nicht aus (E48, *im Code gelesen*).
-- **Installationsprogramm:** Jede Desktop-Version trägt eine SBOM (E50, *im Code gelesen*); das
-  Installationsprogramm ist nicht codesigniert (E51, *im Code gelesen*). `AIPM_DISABLE_UPDATE_CHECK` schaltet
+- **Installationsprogramm:** Jede Desktop-Version trägt eine SBOM, mit Attestierungen nur, solange das
+  Repository öffentlich ist (E50, *im Code gelesen*); das Installationsprogramm ist nicht codesigniert (E51,
+  *im Code gelesen*). `AIPM_DISABLE_UPDATE_CHECK` schaltet
   die Update-Prüfung der Desktop-App ab (E34, *im Code gelesen*).
 
 ## Noch nicht belegt / offene Lücken
