@@ -20,6 +20,7 @@ classification; this page gives the facts for it, not a conclusion.
 - **Where a person approves:** each allocation and RACI change is shown with its current and proposed value
   and can be deselected (E56, *read in code*). The chat holds changes on a review card in set cases, such as
   a deletion or more than one write, and holds every change while a file is attached (E47, *tested (unit)*).
+  Background AI results change no project record until someone confirms (E56, *read in code*).
 - **Where nobody approves first:** text the chat reads through its tools, such as a Jira-synced task, does not
   start the review hold (E48, *read in code*).
 

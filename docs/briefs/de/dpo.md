@@ -29,9 +29,9 @@ kann; diese Seite liefert die Fakten dafür.
   veränderte Kopie der App kann also ohne ihn senden (E15, *im Code gelesen*).
 - **Region:** Alle 96 gemessenen Anfragen meldeten Anthropics inference_geo-Wert `global` (E22, *gemessen*), und
   die App setzt selbst keinen solchen Parameter (E58, *im Code gelesen*); was das für Übermittlungen bedeutet,
-  ist Ihre Frage, und für Ihr Konto beantwortet sie Anthropic.
-- **Freigabe in der App:** Ob die KI-Zustimmung einer Person auf einem Gerät in Ihrer Rechtsgrundlage eine
-  Rolle spielt, entscheiden Sie (E31, *getestet (Unit)*).
+  ist Ihre Frage, und sie ist für Ihr Konto von Anthropic zu beantworten.
+- **Freigabe in der App:** Jede Person stimmt dem KI-Hinweis auf jedem Gerät zu (E31, *getestet (Unit)*); ob
+  diese Zustimmung in Ihrer Rechtsgrundlage eine Rolle spielt, entscheiden Sie.
 
 ## Was Sie steuern
 

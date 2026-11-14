@@ -28,8 +28,8 @@ can answer; this page gives the facts for them.
 - **Region:** all 96 measured requests reported Anthropic's inference_geo value `global` (E22, *measured*), and
   the app sets no such parameter itself (E58, *read in code*); what that means for transfers is your question,
   and Anthropic's to answer for your account.
-- **Approval in the app:** whether a user's AI consent on a device plays any part in your legal basis is for
-  you to decide (E31, *tested (unit)*).
+- **Approval in the app:** users accept the AI disclosure on each device (E31, *tested (unit)*); whether that
+  consent plays any part in your legal basis is for you to decide.
 
 ## What you control
 

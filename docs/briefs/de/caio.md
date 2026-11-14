@@ -22,6 +22,7 @@ ordnet Ihre Organisation ein; diese Seite liefert die Fakten dafür, keine Schlu
   bisherigen und dem vorgeschlagenen Wert gezeigt und lässt sich abwählen (E56, *im Code gelesen*). Der Chat
   hält Änderungen in festgelegten Fällen auf einer Prüfkarte fest, etwa bei einer Löschung oder mehr als einer
   Änderung, und hält jede Änderung fest, solange eine Datei angehängt ist (E47, *getestet (Unit)*).
+  Ergebnisse der Hintergrund-KI ändern keinen Projektdatensatz, bevor jemand bestätigt (E56, *im Code gelesen*).
 - **Wo niemand vorher freigibt:** Text, den der Chat über seine Werkzeuge liest, etwa eine aus Jira
   synchronisierte Aufgabe, löst die Prüfpflicht nicht aus (E48, *im Code gelesen*).
 
