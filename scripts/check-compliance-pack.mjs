@@ -38,6 +38,7 @@ import {
   evidenceViolations,
   figuresViolations,
   gapViolations,
+  linkViolations,
   parityViolations,
   parseBlocks,
   proseGapViolations,
@@ -134,7 +135,10 @@ if (enReadme !== undefined && deReadme !== undefined) {
 
 // The AI briefs: same machinery, their own file list and block table.
 const briefReadme = read(join(BRIEF_DIR, "README.md"));
-for (const c of claimViolations(briefReadme, "en")) violations.push(`briefs/README.md: ${c}`);
+for (const lang of PACK_LANGS) {
+  for (const c of claimViolations(briefReadme, lang)) violations.push(`briefs/README.md: ${c}`);
+}
+for (const l of linkViolations(briefReadme, BRIEF_FILES)) violations.push(`briefs/${l}`);
 for (const g of proseGapViolations(briefReadme, CITED_GAPS, register)) violations.push(`briefs/README.md: gaps: ${g}`);
 for (const name of BRIEF_FILES) {
   if (!Object.hasOwn(BRIEF_BLOCKS_BY_FILE, name)) violations.push(`BRIEF_BLOCKS_BY_FILE: no entry for ${name}`);
@@ -184,14 +188,10 @@ for (const lang of PACK_LANGS) {
     if (name !== "appendix.md") evidencePages[`${lang}/${name}`] = src;
   }
 }
-// English pages against the English appendix (this also compares the id sets of each en/de pair); German pages
-// against the German appendix, where every cited id must be a row too.
-for (const e of evidenceViolations(evidencePages, briefTrees.en["appendix.md"] ?? "")) {
+// Every page against its own language's appendix; the two appendices must carry the same rows, and each en/de
+// pair must cite the same ids.
+for (const e of evidenceViolations(evidencePages, briefTrees.en["appendix.md"] ?? "", briefTrees.de["appendix.md"] ?? "")) {
   violations.push(`briefs evidence: ${e}`);
-}
-const dePages = Object.fromEntries(Object.entries(evidencePages).filter(([k]) => k.startsWith("de/")));
-for (const e of evidenceViolations(dePages, briefTrees.de["appendix.md"] ?? "")) {
-  violations.push(`briefs evidence (de appendix): ${e}`);
 }
 
 const fileCount =

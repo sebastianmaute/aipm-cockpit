@@ -8,6 +8,7 @@ import {
   evidenceViolations,
   figuresViolations,
   gapViolations,
+  linkViolations,
   PACK_FILES,
   parityViolations,
   parseBlocks,
@@ -473,7 +474,7 @@ describe("AI briefs", () => {
   it("figuresViolations checks free keys against a pattern", () => {
     const f = figures();
     f.behaviour.inferenceGeo["not ok!"] = 1;
-    f.rates["a b"] = {};
+    f.rates["a b"] = { input: 1, output: 1, cacheWrite: 1, cacheRead: 1 };
     expect(figuresViolations(f)).toHaveLength(2);
   });
 
@@ -532,5 +533,91 @@ describe("AI briefs", () => {
       const dir = join(import.meta.dirname, "..", "..", "docs", "briefs", lang);
       expect(readdirSync(dir).filter((n) => n.endsWith(".md")).sort()).toEqual([...expected].sort());
     }
+  });
+});
+
+describe("AI briefs, fix round 1", () => {
+  const figures = () => JSON.parse(readFileSync(join(import.meta.dirname, "..", "..", "docs", "briefs", "figures.json"), "utf8"));
+  const mutate = (fn) => {
+    const f = figures();
+    fn(f);
+    return figuresViolations(f);
+  };
+
+  it("figuresViolations rejects every wrong shape", () => {
+    const cases = {
+      "paths as an object": (f) => { f.paths = { a: 1 }; },
+      "a path that is a string": (f) => { f.paths[0] = "x"; },
+      "behaviour as an array": (f) => { f.behaviour = []; },
+      "inferenceGeo value an object": (f) => { f.behaviour.inferenceGeo.global = { apiKey: "k" }; },
+      "requests value a string": (f) => { f.behaviour.requests.off = "47"; },
+      "documentedExceptionHitsOn value NaN": (f) => { f.behaviour.documentedExceptionHitsOn["project-proposal"] = NaN; },
+      "hiddenWhenProtected an object": (f) => { f.hiddenWhenProtected = {}; },
+      "hiddenWhenProtected holds an object": (f) => { f.hiddenWhenProtected = [{ id: "x" }]; },
+      "hiddenWhenProtected holds a bad id": (f) => { f.hiddenWhenProtected = ["not ok!"]; },
+      "fetchedAt an object": (f) => { f.rates.fetchedAt = { a: 1 }; },
+      "fetchedAt not a date": (f) => { f.rates.fetchedAt = "yesterday"; },
+      "runDate not a date": (f) => { f.runDate = "14.11.2026"; },
+      "a rate that is a string": (f) => { f.rates["claude-sonnet-5"] = "cheap"; },
+      "a rate field that is a string": (f) => { f.rates["claude-sonnet-5"].input = "2"; },
+      "rates as an array": (f) => { f.rates = []; },
+      "relayKeyCheck as an array": (f) => { f.relayKeyCheck = []; },
+      "relayKeyCheck.runs as an object": (f) => { f.relayKeyCheck.runs = {}; },
+      "a run that is a string": (f) => { f.relayKeyCheck.runs = ["text"]; },
+      "a run with a string coldExtraMs": (f) => { f.relayKeyCheck.runs[0].coldExtraMs = "724"; },
+      "warmExtraMs a string": (f) => { f.relayKeyCheck.warmExtraMs = "x"; },
+      "a path number as a string": (f) => { f.paths[0].calls = "6"; },
+      "a path number Infinity": (f) => { f.paths[0].usdPerCall = Infinity; },
+      "a path id that is a number": (f) => { f.paths[0].id = 3; },
+      "a behaviour number as a string": (f) => { f.behaviour.emailHitsOn = "0"; },
+    };
+    for (const [name, fn] of Object.entries(cases)) expect(mutate(fn), name).not.toHaveLength(0);
+  });
+
+  it("figuresViolations accepts a null warmExtraMs", () => {
+    expect(mutate((f) => { f.relayKeyCheck.warmExtraMs = null; })).toEqual([]);
+  });
+
+  it("claimViolations flags the human-in-the-loop paraphrases", () => {
+    for (const l of ["A person is always a human in the loop.", "There is always a human in the loop.", "Always a human in the loop."]) {
+      expect(claimViolations(l, "en"), l).not.toHaveLength(0);
+    }
+    for (const l of ["Der Mensch ist immer beteiligt.", "Ein Mensch ist immer beteiligt.", "Es ist immer eine Person dabei, ein Mensch bleibt immer eingebunden."]) {
+      expect(claimViolations(l, "de"), l).not.toHaveLength(0);
+    }
+  });
+
+  const appendixOf = (ids, extra = "") =>
+    ["| id | what |", "|---|---|", ...ids.map((n) => `| E${n} | row |`), extra].join("\n");
+
+  it("evidenceViolations counts appendix rows only outside generated blocks and fences", () => {
+    const hidden = [appendixOf([1]), B("figures"), "| E2 | generated |", E("figures"), "```", "| E3 | fenced |", "```"].join("\n");
+    const pages = { "en/a.md": "E2", "de/a.md": "E2" };
+    expect(evidenceViolations(pages, hidden)).toHaveLength(2);
+    expect(evidenceViolations({ "en/a.md": "E3", "de/a.md": "E3" }, hidden)).toHaveLength(2);
+    expect(evidenceViolations({ "en/a.md": "E1", "de/a.md": "E1" }, hidden)).toEqual([]);
+  });
+
+  it("evidenceViolations requires equal EN and DE appendix row ids and checks DE pages against the DE appendix", () => {
+    const pages = { "en/a.md": "E1", "de/a.md": "E1" };
+    expect(evidenceViolations(pages, appendixOf([1, 2]), appendixOf([1, 2]))).toEqual([]);
+    const unequal = evidenceViolations(pages, appendixOf([1, 2]), appendixOf([1]));
+    expect(unequal).toEqual(["appendix: evidence row ids differ (en [E1, E2]; de [E1])"]);
+    expect(evidenceViolations(pages, appendixOf([1]), appendixOf([2]))).toHaveLength(2);
+  });
+
+  it("linkViolations reports every unlinked page", () => {
+    const files = ["ceo.md", "appendix.md"];
+    const all = "[a](en/ceo.md) [b](en/appendix.md) [c](de/ceo.md) [d](de/appendix.md)";
+    expect(linkViolations(all, files)).toEqual([]);
+    expect(linkViolations(all.replace("[d](de/appendix.md)", ""), files)).toEqual(["README.md: no link to de/appendix.md"]);
+    expect(linkViolations("", files)).toHaveLength(4);
+  });
+
+  it("the committed briefs README links to all sixteen pages and holds no deny-listed claim in either language", () => {
+    const readme = readFileSync(join(import.meta.dirname, "..", "..", "docs", "briefs", "README.md"), "utf8");
+    expect(linkViolations(readme, BRIEF_FILES)).toEqual([]);
+    expect(claimViolations(readme, "en")).toEqual([]);
+    expect(claimViolations(readme, "de")).toEqual([]);
   });
 });
