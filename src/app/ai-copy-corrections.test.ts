@@ -55,7 +55,8 @@ const FIXES: Fix[] = [
   { key: "helpSecAiBody", enHas: ["master switch, accept the disclosure, key", "run on their own"], enNot: ["master switch, key, accept the disclosure", "and only when you use it"], deHas: ["Hauptschalter, Datenhinweis, Schlüssel", "von selbst"], deNot: ["Hauptschalter, Schlüssel, Datenhinweis", "nur bei Nutzung"] },
   { key: "aiConsentBullet6", enHas: ["before enabling the AI features"], enNot: ["enabling chat"], deHas: ["bevor Sie die KI-Funktionen aktivieren"], deNot: ["des Chats"] },
   { key: "aiPolicyOrgHint", enHas: ["AI consent screen in Settings → AI"], enNot: ["AI Assistant's consent screen"], deHas: ["KI-Zustimmungsdialog unter Einstellungen → KI"], deNot: ["Einwilligungsdialog des KI-Assistenten"] },
-  { key: "aiEnableHelp", enHas: ["separate “Allow AI to run in the background” acceptance"], enNot: ["suggestions, scheduled jobs, and"], deHas: ["separate Zustimmung „KI darf im Hintergrund laufen“"], deNot: ["KI-Aktionsvorschläge, geplante Jobs"] },
+  { key: "aiEnableHelp", enHas: ["separate “Allow AI to run in the background” acceptance", "scheduled digest narrative"], enNot: ["suggestions, scheduled jobs, and"], deHas: ["separate Zustimmung „KI darf im Hintergrund laufen“", "Text der geplanten Zusammenfassung"], deNot: ["KI-Aktionsvorschläge, geplante Jobs"] },
+  { key: "helpSecAiAdvancedBody", enHas: ["master switch on, the AI data disclosure accepted and an Anthropic key"], enNot: ["an Anthropic key unlocks"], deHas: ["Hauptschalter", "akzeptierten KI-Datenhinweis", "Anthropic-Schlüssel"], deNot: ["schaltet ein Anthropic-Schlüssel"] },
   { key: "aiGuideBudgetWarning", enHas: ["no cache marker of its own"], enNot: ["Both are cached"], deHas: ["keine eigene Cache-Markierung"], deNot: ["Beide werden nach dem ersten Senden zwischengespeichert"] },
 ];
 
