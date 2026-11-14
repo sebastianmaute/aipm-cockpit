@@ -315,21 +315,23 @@ export async function relay(
   const config = upstreamFor(readAiGatewayConfig(env), restriction);
   if (config === "invalid") return fail(503, AI_GATEWAY_INVALID);
   if (config === "not-found") return new Response(null, { status: 404 });
-  // §806: before the key check, which is itself an upstream call.
-  const limited = rateLimit(request, "ai", RELAY_MAX_REQUESTS);
-  if (limited) {
-    // The relay's own code, so the browser names this server, not Anthropic's limit or the gateway's.
-    const refused = fail(429, AI_RELAY_RATE_LIMITED);
-    const retryAfter = limited.headers.get("retry-after");
-    if (retryAfter) refused.headers.set("retry-after", retryAfter);
-    return refused;
-  }
   if (!isSameOrigin(request)) return fail(403, NOT_SAME_ORIGIN);
   // The gateway token is attached to every relayed call, and a gateway can hold a
   // stored provider key; a call without a key of its own must never reach it.
   // 400, never 401/403: the client reads those as a rejected key.
   const apiKey = request.headers.get("x-api-key");
   if (!apiKey?.trim()) return fail(400, MISSING_API_KEY);
+  // §806: after the origin and key checks, so a refused call never uses up a caller's count (a web page can make
+  // a visitor's browser send cross-site calls, but not with a key header), and before the key check, which is
+  // itself an upstream call.
+  const limited = rateLimit(request, "ai", RELAY_MAX_REQUESTS);
+  if (limited) {
+    // The relay's own code, so the browser names this server, not Anthropic's limit or the gateway's.
+    const overLimit = fail(429, AI_RELAY_RATE_LIMITED);
+    const retryAfter = limited.headers.get("retry-after");
+    if (retryAfter) overLimit.headers.set("retry-after", retryAfter);
+    return overLimit;
+  }
 
   if (restriction.kind === "restricted") {
     // The same key value that would be forwarded is the one checked. Nothing goes upstream

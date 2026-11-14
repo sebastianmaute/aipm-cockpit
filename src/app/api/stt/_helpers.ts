@@ -40,10 +40,12 @@ export async function parseSttRequest(
   if (readAiGatewayConfig(process.env).kind === "invalid") {
     return { error: Response.json({ error: AI_GATEWAY_INVALID }, { status: 503, headers: { "cache-control": "no-store" } }) };
   }
-  const limited = rateLimit(request, "stt", STT_MAX_REQUESTS);
-  if (limited) return { error: limited };
   const key = request.headers.get("x-stt-key") ?? "";
   if (!key) return { error: new Response("missing key", { status: 400 }) };
+  // §806: after the key check, so a key-less call (all a web page can send cross-site without a CORS preflight)
+  // never uses up a caller's count.
+  const limited = rateLimit(request, "stt", STT_MAX_REQUESTS);
+  if (limited) return { error: limited };
 
   // Cap the upload before request.formData() buffers the whole body — an
   // unbounded multipart body is a trivial memory-DoS on the serverless function.

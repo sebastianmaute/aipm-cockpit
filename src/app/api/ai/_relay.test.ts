@@ -209,6 +209,21 @@ describe("relay — refusals before any upstream call", () => {
     expect(other.status).toBe(200);
   });
 
+  // A web page can make a visitor's browser send cross-site calls (without a key: a key header needs a CORS
+  // preflight, which the relay never grants). Refused calls must not use up that visitor's count.
+  it("refused cross-site and key-less calls do not count against the caller's limit", async () => {
+    const { send } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const ip = "203.0.113.82";
+    for (let i = 0; i < RELAY_MAX_REQUESTS + 5; i++) {
+      const crossSite = await relay(getModels({ "x-forwarded-for": ip, "sec-fetch-site": "cross-site" }), "models", GATEWAY_ENV, send);
+      expect(crossSite.status).toBe(403);
+      const keyless = new Request("http://localhost:3000/api/ai/models", { headers: { "sec-fetch-site": "same-origin", "x-forwarded-for": ip } });
+      expect((await relay(keyless, "models", GATEWAY_ENV, send)).status).toBe(400);
+    }
+    const ok = await relay(getModels({ "x-forwarded-for": ip }), "models", GATEWAY_ENV, send);
+    expect(ok.status).toBe(200);
+  });
+
   it("no Sec-Fetch-Site and the request's own Origin → relayed", async () => {
     const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
     const req = new Request("http://localhost:3000/api/ai/messages", {

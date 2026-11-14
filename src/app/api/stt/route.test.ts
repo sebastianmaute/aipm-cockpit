@@ -90,6 +90,18 @@ describe("POST /api/stt", () => {
     expect(fetch).toHaveBeenCalledTimes(STT_MAX_REQUESTS);
   });
 
+  // A key-less call (a web page cannot add the key header cross-site without a CORS preflight) is refused before
+  // it counts, so a page cannot use up a visitor's limit.
+  it("key-less calls do not count against the caller's limit", async () => {
+    const ip = "203.0.113.91";
+    for (let i = 0; i < STT_MAX_REQUESTS + 5; i++) {
+      const res = await POST(req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" }, "", true, ip));
+      expect(res.status).toBe(400);
+    }
+    const ok = await POST(req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" }, "sk-test", true, ip));
+    expect(ok.status).toBe(200);
+  });
+
   it("blocks a non-https baseUrl", async () => {
     const res = await POST(req({ model: "whisper-1", baseUrl: "http://api.openai.com/v1" }));
     expect(res.status).toBe(400);
