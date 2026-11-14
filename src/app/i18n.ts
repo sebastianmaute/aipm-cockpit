@@ -1238,6 +1238,7 @@ const enUS = {
   aiGatewayRejected: "Your organisation's AI gateway refused this app (check the gateway token). Ask your administrator.",
   aiGatewayFailed: "Your organisation's AI gateway could not be reached or returned an error. Try again later.",
   aiGatewayRateLimited: "Your organisation's AI gateway is limiting requests right now. Try again in a little while.",
+  aiRelayRateLimited: "This app's server is limiting AI requests from your connection right now. Wait a minute and try again.",
   aiEnableHelp: "Turn on to use Claude chat, AI action suggestions and AI project creation; switching on asks you to accept the AI data disclosure first. Scheduled jobs, automatic insight recommendations and the scheduled digest narrative also need the separate “Allow AI to run in the background” acceptance. Off by default.",
   // Shown by the AI sub-sections (guides, views) that are gated on the master
   // switch but do NOT contain it. `aiEnableHelp` is the switch's own field help
@@ -6189,7 +6190,7 @@ const enUS = {
   outboundConfluenceWhen: "When a user imports a Confluence page and the integration is not switched off for the deployment.",
   outboundTimelogSent: "The user's Timelog access token as a bearer token, the Timelog tenant name in the address, and the request the user triggered (a path, a query and, for writes, the time-registration data), sent to the user's own Timelog host (an address under timelog.com).",
   outboundTimelogWhen: "When Timelog is configured in the settings, the integration is not switched off for the deployment, and a user uses a Timelog function such as booking time or loading registrations.",
-  outboundSttSent: "The recorded audio of the dictation (as a webm file), the speech model name and the user's speech-to-text API key as a bearer token, sent over https to the endpoint address the user entered in the dictation settings, unless that address is a private IP address.",
+  outboundSttSent: "The recorded audio of the dictation (as a webm file), the speech model name and the user's speech-to-text API key as a bearer token, sent over https to the endpoint address the user entered in the dictation settings, unless that address is a private IP address or its host name resolves to one.",
   outboundSttWhen: "When a user dictates with a speech-to-text endpoint configured, and neither the dictation integration, the AI integration nor the people-protection lock is switched off for the deployment, and the deployment's AI gateway setting is not invalid.",
   outboundEcbSent: "A plain request for the European Central Bank's daily euro reference rates, carrying no workspace data and no credentials.",
   outboundEcbWhen: "When the app loads or refreshes exchange rates and the ecb integration is not switched off for the deployment.",

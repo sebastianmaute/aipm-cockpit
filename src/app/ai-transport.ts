@@ -34,6 +34,7 @@ import {
   AI_GATEWAY_ERROR,
   AI_GATEWAY_INVALID,
   AI_GATEWAY_RATE_LIMITED,
+  AI_RELAY_RATE_LIMITED,
   AI_GATEWAY_REJECTED,
   AI_KEY_CHECK_UNAVAILABLE,
   AI_KEY_WRONG_ORGANIZATION,
@@ -101,7 +102,12 @@ const RELAY_MODELS_URL = "/api/ai/models";
  *  server-only; `api/ai/_relay.wire.test.ts` pins it against the relay's real answer. */
 const RELAY_DISABLED = "integration-disabled";
 
-const GATEWAY_CODES: ReadonlySet<string> = new Set([AI_GATEWAY_REJECTED, AI_GATEWAY_ERROR, AI_GATEWAY_RATE_LIMITED]);
+const GATEWAY_CODES: ReadonlySet<string> = new Set([
+  AI_GATEWAY_REJECTED,
+  AI_GATEWAY_ERROR,
+  AI_GATEWAY_RATE_LIMITED,
+  AI_RELAY_RATE_LIMITED,
+]);
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;

@@ -34,6 +34,7 @@ import {
   AI_GATEWAY_RATE_LIMITED,
   AI_GATEWAY_REJECTED,
   AI_KEY_CHECK_UNAVAILABLE,
+  AI_RELAY_RATE_LIMITED,
   AI_KEY_WRONG_ORGANIZATION,
   AI_KEY_WRONG_WORKSPACE,
 } from "../../ai-errors";
@@ -316,7 +317,13 @@ export async function relay(
   if (config === "not-found") return new Response(null, { status: 404 });
   // §806: before the key check, which is itself an upstream call.
   const limited = rateLimit(request, "ai", RELAY_MAX_REQUESTS);
-  if (limited) return limited;
+  if (limited) {
+    // The relay's own code, so the browser names this server, not Anthropic's limit or the gateway's.
+    const refused = fail(429, AI_RELAY_RATE_LIMITED);
+    const retryAfter = limited.headers.get("retry-after");
+    if (retryAfter) refused.headers.set("retry-after", retryAfter);
+    return refused;
+  }
   if (!isSameOrigin(request)) return fail(403, NOT_SAME_ORIGIN);
   // The gateway token is attached to every relayed call, and a gateway can hold a
   // stored provider key; a call without a key of its own must never reach it.

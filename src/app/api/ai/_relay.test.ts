@@ -201,7 +201,8 @@ describe("relay — refusals before any upstream call", () => {
     }
     const refused = await relay(getModels({ "x-forwarded-for": ip }), "models", GATEWAY_ENV, send);
     expect(refused.status).toBe(429);
-    expect(await refused.json()).toEqual({ error: "too-many-requests" });
+    expect(refused.headers.get("retry-after")).toMatch(/^[0-9]+$/);
+    expect(await refused.json()).toEqual({ error: "ai-relay-rate-limited" });
     expect(calls).toHaveLength(RELAY_MAX_REQUESTS);
     // Another caller is not affected.
     const other = await relay(getModels({ "x-forwarded-for": "203.0.113.81" }), "models", GATEWAY_ENV, send);
