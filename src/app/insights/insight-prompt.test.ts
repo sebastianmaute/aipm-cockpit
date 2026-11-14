@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { Insight, InsightSeverity, InsightStatus, InsightType } from "./insight";
 import {
   buildInsightsPromptBlock,
+  insightReachesAi,
   MAX_PROMPT_INSIGHTS,
   MAX_PROMPT_OUTCOMES,
 } from "./insight-prompt";
@@ -335,5 +336,21 @@ describe("withTimelog", () => {
     expect(block).not.toContain("TLACTIVE");
     expect(block).not.toContain("TLACTED");
     expect(block).not.toContain("Recent outcomes");
+  });
+});
+
+// The one rule the chat's insight block and both recommendation paths share.
+describe("insightReachesAi", () => {
+  const person = { type: "timelogCapPerDay", data: { person: "Dana Ortiz", count: 2 } } as Pick<Insight, "type" | "data">;
+  const project = { type: "stalledWork", data: { count: 3 } } as Pick<Insight, "type" | "data">;
+  it("drops an insight about one person only under people protection", () => {
+    expect(insightReachesAi(person, { withPeople: false })).toBe(false);
+    expect(insightReachesAi(person, { withPeople: true, withTimelog: true })).toBe(true);
+    expect(insightReachesAi(person, {})).toBe(true);
+    expect(insightReachesAi(project, { withPeople: false })).toBe(true);
+  });
+  it("drops a Timelog guardrail insight while Timelog is off", () => {
+    expect(insightReachesAi(person, { withTimelog: false })).toBe(false);
+    expect(insightReachesAi(project, { withTimelog: false })).toBe(true);
   });
 });

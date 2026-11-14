@@ -37,6 +37,9 @@ export interface InsightRecommendRunnerArgs {
   /** Closes over the live workspace. */
   buildIndex: () => GroundingIndex;
   buildContextFor: (insight: Insight) => string;
+  /** Read per tick and again per candidate, right before its send: false means the insight is not sent
+   *  (AI people protection, Timelog off — `insightReachesAi`). Omitted, every insight may be sent. */
+  canRecommend?: (insight: Insight) => boolean;
   /** Functional setInsights writer, from the caller. `snapshot` is the
    *  candidate's prompt-time entity snapshot (§350). */
   applyRecommendation: (id: number, rec: InsightRecommendation, snapshot?: RecommendSnapshot) => void;
@@ -59,6 +62,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   const todayRef = useRef(args.today);
   const buildIndexRef = useRef(args.buildIndex);
   const buildContextForRef = useRef(args.buildContextFor);
+  const canRecommendRef = useRef(args.canRecommend);
   const applyRecommendationRef = useRef(args.applyRecommendation);
   const getScopeEpochRef = useRef(args.getScopeEpoch);
   const snapshotEntitiesRef = useRef(args.snapshotEntities);
@@ -72,6 +76,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   useEffect(() => { todayRef.current = args.today; }, [args.today]);
   useEffect(() => { buildIndexRef.current = args.buildIndex; }, [args.buildIndex]);
   useEffect(() => { buildContextForRef.current = args.buildContextFor; }, [args.buildContextFor]);
+  useEffect(() => { canRecommendRef.current = args.canRecommend; }, [args.canRecommend]);
   useEffect(() => { applyRecommendationRef.current = args.applyRecommendation; }, [args.applyRecommendation]);
   useEffect(() => { getScopeEpochRef.current = args.getScopeEpoch; }, [args.getScopeEpoch]);
   useEffect(() => { snapshotEntitiesRef.current = args.snapshotEntities; }, [args.snapshotEntities]);
@@ -103,7 +108,8 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
     const candidates = insightsRef.current
       .filter(
         (insight) =>
-          (insight.status === "active" || insight.status === "acknowledged") && !insight.recommendation,
+          (insight.status === "active" || insight.status === "acknowledged") && !insight.recommendation &&
+          canRecommendRef.current?.(insight) !== false,
       )
       .slice(0, MAX_BG_RECS_PER_TICK);
     if (candidates.length === 0) return;
@@ -128,6 +134,8 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
         // AI-01: `enabled` is also the background-consent gate. A flip to false while an earlier candidate
         // is in flight must stop the REST of this tick, not just the next one.
         if (!enabledRef.current) break;
+        // AI people protection: switched on while an earlier candidate was in flight — this one is not sent.
+        if (canRecommendRef.current?.(insight) === false) continue;
         // AI people protection (final review F2): checked BEFORE the send, against the tick's epoch.
         if (dropStaleScopeWrite(getScopeEpochRef.current, tickEpoch, "useInsightRecommendRunner", { insightId: insight.id })) break;
         // §548 — per CANDIDATE, not per tick: the calls are serial, so a swap between two of them

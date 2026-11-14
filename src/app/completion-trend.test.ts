@@ -697,3 +697,23 @@ describe("a project-currency entry does not touch the completion trend (§476)",
     expect(withSwitch).toEqual(without);
   });
 });
+
+// A work-breakdown apply logs ONE `ai.wbsPlan` entry carrying the (id, title) pair of every task it created. Its
+// creates move the denominator exactly like that many `task.created` entries; a count-only entry written before
+// the pairs moves nothing, as it always did (those creates were never recorded).
+describe("a work-breakdown apply counts the tasks it created", () => {
+  const BASE = { snapshots: [], tasks: doneBefore(2), currentDone: 2, currentTotal: 7, today: "2026-06-21" } as const;
+  const prefix = () => [ev("2026-06-16T09:00:00.000Z", "task.created"), ev("2026-06-18T09:00:00.000Z", "task.created")];
+  const percents = (activity: ActivityEntry[]) => computeCompletionTrend({ ...BASE, activity }).map((p) => p.percent);
+
+  test("N created tasks in one entry read like N creates", () => {
+    const viaWbs = percents([...prefix(), evArgs("2026-06-20T09:00:00.000Z", "ai.wbsPlan", [4, 101, "A", 102, "B", 103, "C"])]);
+    const viaCreates = percents([...prefix(), ...[1, 2, 3].map(() => ev("2026-06-20T09:00:00.000Z", "task.created"))]);
+    expect(viaWbs).toEqual(viaCreates);
+    expect(viaWbs).not.toEqual(percents(prefix())); // anti-vacuity: the entry moved the series
+  });
+
+  test("a count-only entry moves nothing", () => {
+    expect(percents([...prefix(), evArgs("2026-06-20T09:00:00.000Z", "ai.wbsPlan", [3])])).toEqual(percents(prefix()));
+  });
+});

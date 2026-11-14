@@ -8,6 +8,7 @@ import { type Lang, t } from "./i18n";
 import { Button } from "./button";
 import { AiTriggerButton } from "./ai-trigger-button";
 import { GUARDRAIL_INSIGHT_TYPES, type Insight, type InsightActions } from "./insights/insight";
+import { isPersonScopedInsight } from "./insights/insight-prompt";
 
 export interface InsightRecommendationControlsProps {
   insight: Insight;
@@ -46,6 +47,12 @@ function TimelogOffNote({ lang, withheld }: { lang: Lang; withheld: "generate" |
   return <p className="w-full text-xs text-muted-foreground">{t(lang, key)}</p>;
 }
 
+/** AI people protection: an insight about one person is never sent, so Generate would do nothing. Said in
+ *  visible text in its place, like `TimelogOffNote`. */
+function PeopleProtectedNote({ lang }: { lang: Lang }) {
+  return <p className="w-full text-xs text-muted-foreground">{t(lang, "insightRecommendationPeopleProtected")}</p>;
+}
+
 /** The "Generate recommendation" CTA — rendered both for an insight with no
  *  recommendation yet AND for a rejected one (regenerate). Returns null when AI
  *  is off: generating needs AI, so a click would fire a guaranteed-401 call.
@@ -64,6 +71,7 @@ function GenerateRecommendationCta({
 }: InsightRecommendationControlsProps) {
   if (aiEnabled === false) return null;
   if (timelogWithheld(insight, timelogEnabled)) return <TimelogOffNote lang={lang} withheld="generate" />;
+  if (actions.peopleProtected === true && isPersonScopedInsight(insight)) return <PeopleProtectedNote lang={lang} />;
   // ★ `nameQualifier` is NOT optional polish here — every insight row renders
   //   this CTA, so without the row-unique suffix a list is N identically-named
   //   buttons (WCAG 2.4.6), and it must qualify the Stop state too since that

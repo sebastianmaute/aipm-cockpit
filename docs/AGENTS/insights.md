@@ -93,6 +93,15 @@ types through the validator was weighed and rejected.
   clamped by `clampInsightRecInterval`), serial, capped `MAX_BG_RECS_PER_TICK`, breaks the tick on a limit/auth
   error; gated `isAiEnabled && settings.ai.insightRecommendations === true && !isPopout && !loadPending`
   (§548), default OFF).
+  ★★ WHICH insights either trigger may send is the chat's rule, ONE predicate: `insightReachesAi`
+  (`insight-prompt.ts`, also behind `buildInsightsPromptBlock` and the chat's `get_app_state` result in `runTool`). Under AI people protection an insight about one
+  person (`isPersonScopedInsight`: its data names a `person`, as every Timelog guardrail does) gets NO
+  recommendation, so its figures (Timelog user number, dates) and its `resources` profile digest (job title,
+  department, company, flags) never leave; Timelog switched off drops the guardrail rows the same way. Both hooks
+  ask it at SEND time through their `canRecommend` arg (the runner also per candidate, so a mid-tick switch-on
+  holds the rest), and `buildRecommendContext` drops a `resources` digest under protection on its own
+  (pinned in `recommend-context.test.ts`).
+  Pinned by `use-insight-recommendations.people-scope.test.tsx`.
   ★★ APPLY replays `rec.proposedCalls` DIRECTLY through the chat `runTool` dispatcher (each `{name,input}` carries
   its id; the `EditPlan` is PREVIEW-ONLY — its `updates` carry no id, so a multi-call rec can't apply from the
   plan). `useInsightRecommendations` (`use-insight-recommendations.ts`, called from task-manager right after

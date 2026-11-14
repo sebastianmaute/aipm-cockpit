@@ -20,6 +20,26 @@ export const MAX_PROMPT_INSIGHTS = 10;
  *  every turn. */
 export const MAX_PROMPT_OUTCOMES = 5;
 
+/** Which insights may reach the AI at all. `withPeople: false` (AI people protection) drops every insight about
+ *  ONE person: its data names a `person`, as the Timelog working-time checks do. `withTimelog: false` drops every
+ *  Timelog guardrail insight. Absent, a flag keeps all. ★ The ONE rule for the chat's insight block
+ *  (`buildInsightsPromptBlock`) and both insight recommendation paths (`use-insight-recommendations.ts`). */
+export interface InsightAiScope {
+  readonly withPeople?: boolean;
+  readonly withTimelog?: boolean;
+}
+
+/** True when the insight is about one person (its data names a `person`). */
+export function isPersonScopedInsight(insight: Pick<Insight, "data">): boolean {
+  return "person" in insight.data;
+}
+
+/** True when the insight may be sent to the AI under `scope`. */
+export function insightReachesAi(insight: Pick<Insight, "type" | "data">, scope: InsightAiScope): boolean {
+  if (scope.withPeople === false && isPersonScopedInsight(insight)) return false;
+  return !(scope.withTimelog === false && GUARDRAIL_INSIGHT_TYPES.has(insight.type));
+}
+
 function str(data: Insight["data"], key: string, fallback = "?"): string {
   const v = data[key];
   return v === undefined || v === null || v === "" ? fallback : String(v);
@@ -108,21 +128,11 @@ function outcomeLine(insight: MeasuredInsight): string {
  */
 export function buildInsightsPromptBlock(
   all: readonly Insight[],
-  /** AI people protection: `withPeople: false` drops every insight about one person (its data names a
-   *  `person`, as the TimeLog violations do). Absent, all are kept. */
-  opts: {
-    withPeople?: boolean;
-    /** `withTimelog: false` drops every TimeLog guardrail insight from BOTH sections, the outcomes included:
-     *  the project hides the Timelog function or the deployment switched Timelog off, and a row stored before
-     *  that (an acted one stays frozen) must not keep naming a person to the AI. Absent, all are kept. */
-    withTimelog?: boolean;
-  } = {},
+  /** `insightReachesAi`'s scope, applied to BOTH sections, the outcomes included: an acted row stays frozen, and
+   *  one stored before protection or before Timelog was switched off must not keep naming a person to the AI. */
+  opts: InsightAiScope = {},
 ): string {
-  const insights = all.filter(
-    (i) =>
-      !(opts.withPeople === false && "person" in i.data) &&
-      !(opts.withTimelog === false && GUARDRAIL_INSIGHT_TYPES.has(i.type)),
-  );
+  const insights = all.filter((i) => insightReachesAi(i, opts));
   const surfaced = insights
     .filter((i) => SURFACED_STATUSES.has(i.status))
     .sort((a, b) => INSIGHT_SEVERITY_RANK[a.severity] - INSIGHT_SEVERITY_RANK[b.severity])

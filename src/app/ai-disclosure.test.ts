@@ -13,18 +13,20 @@ import { AI_ACTIVATION_SITES, AI_BACKGROUND_SITES } from "../test/ai-activation-
 
 // ★★ THE VERSION GUARD. Consent is recorded against `AI_DISCLOSURE_VERSION`; a disclosure change that
 // keeps the version would leave every existing consent "current" for a text the user never saw.
-// Each version's table is pinned below, one line per row: `id|level|labelKey|dataKey|hash`, where
-// `hash` is the first 12 hex digits of SHA-256 over the row's ENGLISH label, a newline, and its
-// ENGLISH data text (`textHash` below). The test requires the highest pinned version to be
-// `AI_DISCLOSURE_VERSION` and its pin to equal the live table, so ANY change to a row, a level, a key
-// or an English text is red until someone decides which of the two cases it is:
+// Each version's table is pinned below, one line per row: `id|level|labelKey|dataKey|hash|whenProtected`,
+// since v6 followed by `|protectedTextKey|protectedHash`. `hash` is the first 12 hex digits of SHA-256 over the
+// row's ENGLISH label, a newline, and its ENGLISH data text (`textHash` below); `protectedHash` the same over the
+// PROTECTED column's text key and its English and German text (`protectedHash`), because the consent dialog
+// shows that text too. The test requires the highest pinned version to be `AI_DISCLOSURE_VERSION` and its pin
+// to equal the live table, so ANY change to a row, a level, a key, a protected state or text, or an English
+// text is red until someone decides which of the two cases it is:
 //   • WHAT A PATH SENDS changed (a field added or dropped, a path added, removed or re-levelled):
 //     bump `AI_DISCLOSURE_VERSION` in ai-consent.ts and ADD a pin for the new version. Never edit an
 //     older version's pin; it records what that version's users accepted.
 //   • WORDING ONLY (a typo, a clearer phrase, the same facts): re-pin the changed hash in the CURRENT
 //     version's line and say "wording only" in the commit message. Existing consents stay valid.
-// Print the live lines with `fingerprint()` (the failure diff shows them). German texts are not
-// hashed: they translate the English, which is the reference text.
+// Print the live lines with `fingerprint()` (the failure diff shows them). German label and data texts are not
+// hashed: they translate the English, which is the reference text. The protected text is hashed in both.
 const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
   1: [
     "chat|interactive|aiDataChatLabel|aiDataChat|0ab2b52cc0f9",
@@ -131,6 +133,29 @@ const DISCLOSED_TABLES: Readonly<Record<number, readonly string[]>> = {
     "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|3e517407a4da|redacted",
     "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted",
   ],
+  // v6: the pin covers the PROTECTED column's text too (its key, and its English and German text), which the consent
+  // dialog shows. The insight recommendation rows' text changed with it: under protection no recommendation is made
+  // for an insight about one person (`aiProtectedInsightRecommendation`, a new `protectedKey`). A re-keyed row is a
+  // table change, so this is a bump, not a re-pin, though what is sent only narrowed.
+  6: [
+    "chat|interactive|aiDataChatLabel|aiDataChat|877edc85d82b|redacted|aiProtectedChat|cfbeb6b5c549",
+    "inline-edit|interactive|aiDataInlineEditLabel|aiDataInlineEdit|5f4bd300b6f6|redacted|aiProtectedRedacted|755d95d88527",
+    "committee-report|interactive|aiDataCommitteeReportLabel|aiDataCommitteeReport|dab0929eea32|redacted|aiProtectedRedacted|755d95d88527",
+    "digest-narrative|interactive|aiDataDigestNarrativeLabel|aiDataDigestNarrative|d8ff9691d793|redacted|aiProtectedRedacted|755d95d88527",
+    "forecast-import|interactive|aiDataForecastImportLabel|aiDataForecastImport|77d3b27235a2|redacted|aiProtectedRedacted|755d95d88527",
+    "insight-recommendation|interactive|aiDataInsightRecommendationLabel|aiDataInsightRecommendation|7433c859ec84|redacted|aiProtectedInsightRecommendation|a1f791791528",
+    "action-analysis|interactive|aiDataActionAnalysisLabel|aiDataActionAnalysis|37a0083b91fb|redacted|aiProtectedRedacted|755d95d88527",
+    "alloc-plan|interactive|aiDataAllocPlanLabel|aiDataAllocPlan|353f4c07ced6|hidden|aiProtectedAllocPlan|6c3ea3b2cddb",
+    "raci-suggest|interactive|aiDataRaciSuggestLabel|aiDataRaciSuggest|c8bdc16faa5f|hidden|aiProtectedHidden|bb828968bb82",
+    "task-dedup|interactive|aiDataTaskDedupLabel|aiDataTaskDedup|b0832e394653|redacted|aiProtectedRedacted|755d95d88527",
+    "wbs-plan|interactive|aiDataWbsPlanLabel|aiDataWbsPlan|315ad3046125|redacted|aiProtectedRedacted|755d95d88527",
+    "weight-suggestion|interactive|aiDataWeightSuggestionLabel|aiDataWeightSuggestion|f01d808dbb51|redacted|aiProtectedRedacted|755d95d88527",
+    "project-proposal|interactive|aiDataProjectProposalLabel|aiDataProjectProposal|155bba30c3ac|redacted|aiProtectedProjectProposal|4a15ce1fd465",
+    "dictation|interactive|aiDataDictationLabel|aiDataDictation|11af271ca960|off|aiProtectedOff|64eeff2a6195",
+    "scheduled-job|background|aiDataScheduledJobLabel|aiDataScheduledJob|e83fee7d86c3|redacted|aiProtectedRedacted|755d95d88527",
+    "insight-recommendation-auto|background|aiDataInsightRecommendationAutoLabel|aiDataInsightRecommendation|3e517407a4da|redacted|aiProtectedInsightRecommendation|a1f791791528",
+    "digest-narrative-scheduled|background|aiDataDigestNarrativeScheduledLabel|aiDataDigestNarrative|490866689998|redacted|aiProtectedRedacted|755d95d88527",
+  ],
 };
 
 // Which disclosure rows each activation site (src/test/ai-activation-sites.ts) leads to. A new site
@@ -171,8 +196,18 @@ const PREDICATE_DEFINITIONS = new Set(["app/settings-types.ts"]);
 const textHash = (row: (typeof AI_DATA_PATHS)[number]) =>
   createHash("sha256").update(`${t("en-US", row.labelKey)}
 ${t("en-US", row.dataKey)}`).digest("hex").slice(0, 12);
-const fingerprint = () =>
-  AI_DATA_PATHS.map((row) => `${row.id}|${row.level}|${row.labelKey}|${row.dataKey}|${textHash(row)}|${row.whenProtected}`);
+/** A text by language, so a test can swap one text and see the fingerprint move. Live: the two dictionaries. */
+type TextOf = (lang: "en-US" | "de", key: TranslationKey) => string;
+const liveText: TextOf = (lang, key) => (lang === "de" ? de[key] ?? "" : t("en-US", key));
+/** The PROTECTED column's text as the consent dialog shows it (`aiProtectedTextKey`: the row's `protectedKey`, else
+ *  its state's standard text), hashed in BOTH languages: each user accepts the text in their own. */
+const protectedHash = (row: (typeof AI_DATA_PATHS)[number], text: TextOf) => {
+  const key = aiProtectedTextKey(row);
+  return createHash("sha256").update([key, text("en-US", key), text("de", key)].join("\n")).digest("hex").slice(0, 12);
+};
+const fingerprint = (text: TextOf = liveText) =>
+  AI_DATA_PATHS.map((row) =>
+    `${row.id}|${row.level}|${row.labelKey}|${row.dataKey}|${textHash(row)}|${row.whenProtected}|${aiProtectedTextKey(row)}|${protectedHash(row, text)}`);
 const ids = new Set(AI_DATA_PATHS.map((row) => row.id));
 
 describe("AI_DATA_PATHS", () => {
@@ -210,6 +245,19 @@ describe("AI_DATA_PATHS", () => {
     const versions = Object.keys(DISCLOSED_TABLES).map(Number);
     expect(Math.max(...versions)).toBe(AI_DISCLOSURE_VERSION);
     expect(fingerprint()).toEqual(DISCLOSED_TABLES[AI_DISCLOSURE_VERSION]);
+  });
+
+  // The protected column is shown in the consent dialog, so a protected text that changed with no change to the
+  // fingerprint would leave every consent "current" for a text the user never saw. Swap one text, in each language.
+  it.each(["en-US", "de"] as const)("a changed protected text (%s) changes the fingerprint of every row that shows it", (lang) => {
+    const row = AI_DATA_PATHS.find((r) => r.protectedKey !== undefined)!;
+    const key = aiProtectedTextKey(row);
+    const changed: TextOf = (l, k) => (l === lang && k === key ? `${liveText(l, k)} And more.` : liveText(l, k));
+    const before = fingerprint();
+    const after = fingerprint(changed);
+    const moved = AI_DATA_PATHS.filter((_, i) => before[i] !== after[i]).map((r) => r.id);
+    expect(moved).toEqual(AI_DATA_PATHS.filter((r) => aiProtectedTextKey(r) === key).map((r) => r.id));
+    expect(moved).toContain(row.id);
   });
 
   it("a version-1 table (consented before people protection) is no longer the current one", () => {

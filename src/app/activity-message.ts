@@ -1,4 +1,4 @@
-import { type ActivityKind, activityMessageKey } from "./activity-log";
+import { type ActivityKind, activityMessageKey, wbsPlanCreatedTasks } from "./activity-log";
 import { type Lang, type PluralBaseKey, localeFor, t, tPlural } from "./i18n";
 import { formatExpiryDate } from "./date-format";
 import { PROJECT_META_LABEL_KEY } from "./project-field-labels";
@@ -169,6 +169,31 @@ export function activityChangeValues(
   };
 }
 
+/** How many created tasks an `ai.wbsPlan` line names before "and N more". The stored entry keeps every id. */
+export const WBS_DETAIL_MAX_TASKS = 20;
+
+/** Detail appended to a kind's message from args its template has no slot for, after " — ". An `ai.wbsPlan` entry names
+ *  the tasks it created (`#id title`, `wbsPlanCreatedTasks`), "; "-separated because a title may hold a comma; a
+ *  count-only entry written before gets none. ★ Two readers, two lengths. The Activity panel (`display: true`) lists
+ *  EVERY task, since that is where a user finds them again. The model path (no `display`: `search_history` renders each
+ *  matching entry through `renderActivityEntry` in activity-prompt.ts) names at most `WBS_DETAIL_MAX_TASKS`, then
+ *  "and N more" — one apply can create hundreds of tasks, and the titles are the tasks' own. */
+const ACTIVITY_DETAIL: Partial<Record<ActivityKind, (lang: Lang, args: (string | number)[], display: boolean) => string | null>> = {
+  "ai.wbsPlan": (lang, args, display) => {
+    const created = wbsPlanCreatedTasks(args);
+    if (created.length === 0) return null;
+    const named = (display ? created : created.slice(0, WBS_DETAIL_MAX_TASKS)).map((c) => `#${c.id} ${c.title}`);
+    const rest = created.length - named.length;
+    const parts = rest > 0 ? [...named, t(lang, "activityAiWbsPlanCreatedMore", rest)] : named;
+    return t(lang, "activityAiWbsPlanCreated", parts.join("; "));
+  },
+};
+
+function withDetail(lang: Lang, kind: string, args: (string | number)[], message: string, display: boolean): string {
+  const detail = Object.hasOwn(ACTIVITY_DETAIL, kind) ? ACTIVITY_DETAIL[kind as ActivityKind]?.(lang, args, display) : null;
+  return detail ? `${message} — ${detail}` : message;
+}
+
 export function activityMessage(
   lang: Lang,
   kind: string,
@@ -200,9 +225,9 @@ export function activityMessage(
     //   non-string/non-number `args` element to `""` at the load boundary, so
     //   a Symbol cannot reach a stored entry. A caller that bypasses that
     //   boundary and hands this a Symbol in the count slot gets a TypeError.
-    return tPlural(lang, plural.base, Number(raw), ...args);
+    return withDetail(lang, kind, args, tPlural(lang, plural.base, Number(raw), ...args), opts?.display === true);
   }
 
   const display = opts?.display ? ACTIVITY_ARG_DISPLAY[kind as ActivityKind] : undefined;
-  return t(lang, key, ...(display ? display(lang, args) : args));
+  return withDetail(lang, kind, args, t(lang, key, ...(display ? display(lang, args) : args)), opts?.display === true);
 }

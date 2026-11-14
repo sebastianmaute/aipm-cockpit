@@ -19,8 +19,11 @@ import { type AiRoute, currentAiRoute, getAiDeploymentState, isAiDeploymentOn } 
  *  recommendation (on request and automatic) and the WBS proposal now name the absence list their requests already
  *  carried (`buildAwaySummary`: who is away, with their resource number and absent days). The action analysis and
  *  scheduled job texts (one digest, `buildProjectDigest`) also name the project mode and modules, the RAID
- *  last-changed date and the stakeholder category. */
-export const AI_DISCLOSURE_VERSION = 5;
+ *  last-changed date and the stakeholder category.
+ *  6 — the pinned table covers each row's PROTECTED text (what people protection does, as the dialog shows it), and
+ *  the two insight recommendation rows got their own: under protection no recommendation is made for an insight
+ *  about one person. Narrowing only, but a re-keyed row is a table change, so every consent is asked once again. */
+export const AI_DISCLOSURE_VERSION = 6;
 
 /** `route` is where the AI traffic went when the user accepted; absent counts as `direct`. `keyRestricted` is
  *  whether the deployment restricted AI to its organisation's Anthropic keys then; absent counts as false. */

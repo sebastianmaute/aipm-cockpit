@@ -21,7 +21,7 @@
 // deselected.
 
 import { useState } from "react";
-import { type Lang, t, type TranslationKey } from "./i18n";
+import { type Lang, t, tPlural, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
 import { Checkbox, Textarea } from "./form-controls";
@@ -32,9 +32,11 @@ import { type CrossProjectPeople } from "./use-cross-project-people";
 import { type AltEffect } from "./alloc-plan/alloc-effect";
 import { type GroundedAlternative, type MoveSkipReason } from "./alloc-plan/alloc-ground-moves";
 import {
+  type AllocOmissions,
   type SkipReason,
   cellKey,
   formatAllocValue,
+  hasAllocOmissions,
 } from "./alloc-plan/alloc-plan";
 
 export interface AllocPlanModalProps {
@@ -50,6 +52,9 @@ export interface AllocPlanModalProps {
   onSelectAlternative: (index: number) => void;
   /** True when the proposal was too large and some cells were not shown at all. */
   truncated: boolean;
+  /** What the request leaves out at its caps (`allocContextOmissions`); a notice names each count above 0.
+   *  Required, so a caller cannot forget to tell the user that the AI saw only part of the plan. */
+  omitted: AllocOmissions;
   /** The ACTIVE alternative's ticks: cellKey()s and moveKey()s the user has selected to apply (stale moves excluded). */
   selected: ReadonlySet<string>;
   /** The active alternative's moves whose inputs changed since they were proposed: marked and not applied. */
@@ -88,6 +93,23 @@ const SKIP_REASON_KEY: Record<SkipReason, TranslationKey> = {
   "covered-by-move": "allocPlanSkipCoveredByMove",
 };
 
+// Order of the "left out" notice; exhaustive so a new count is a compile error here, not a silent omission.
+// Each a literal `tPlural` call, so "1 person" and "7 people" both read naturally (the plural scan sees the key).
+const OMITTED_TEXT: Record<keyof AllocOmissions, (lang: Lang, n: number) => string> = {
+  resources: (lang, n) => tPlural(lang, "allocPlanOmittedPeople", n, n),
+  periods: (lang, n) => tPlural(lang, "allocPlanOmittedPeriods", n, n),
+  tasks: (lang, n) => tPlural(lang, "allocPlanOmittedTasks", n, n),
+  milestones: (lang, n) => tPlural(lang, "allocPlanOmittedMilestones", n, n),
+};
+
+/** Before the request is sent the AI "will not see" what is cut; once the proposal is back it "did not see" it. */
+function omittedText(lang: Lang, omitted: AllocOmissions, stage: "input" | "preview"): string {
+  const parts = (Object.keys(OMITTED_TEXT) as (keyof AllocOmissions)[])
+    .filter((k) => omitted[k] > 0)
+    .map((k) => OMITTED_TEXT[k](lang, omitted[k]));
+  return t(lang, stage === "input" ? "allocPlanOmittedInput" : "allocPlanOmitted", parts.join(", "));
+}
+
 const MOVE_SKIP_REASON_KEY: Record<MoveSkipReason, TranslationKey> = {
   "unknown-task": "allocPlanSkipMoveUnknownTask",
   closed: "allocPlanSkipMoveClosed",
@@ -106,6 +128,7 @@ export function AllocPlanModal({
   activeIndex,
   onSelectAlternative,
   truncated,
+  omitted,
   selected,
   staleMoves,
   effect,
@@ -194,6 +217,7 @@ export function AllocPlanModal({
               className="w-full"
             />
           </label>
+          {hasAllocOmissions(omitted) && <p className="mt-2 text-xs text-foreground">{omittedText(lang, omitted, stage)}</p>}
           {crossProject && crossProject.protectedProjects.length > 0 && (
             <p className="mt-2 text-xs text-foreground">{t(lang, "allocElsewhereProtected", crossProject.protectedProjects.map((p) => p.projectName).join(", "))}</p>
           )}
