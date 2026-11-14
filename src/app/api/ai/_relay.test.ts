@@ -13,7 +13,7 @@ vi.mock("../../diagnostics", async (importOriginal) => {
 });
 
 import { logDiag } from "../../diagnostics";
-import { createKeyChecker } from "./_key-check";
+import { createKeyChecker, type KeyChecker, type KeyVerdict } from "./_key-check";
 import {
   relay,
   RELAY_MAX_BODY_BYTES,
@@ -87,10 +87,16 @@ function upstream(
 const respondWith = (status: number, body: string, contentType?: string) => (call: Call) =>
   call.respond(upstream(status, body, contentType));
 
+// The relay's rate limiter keeps a module-level count per caller address for the whole file, so each helper-built
+// request gets an address of its own unless a test names one (the limit tests do).
+let callerSeq = 0;
+const nextCaller = () => `198.18.${Math.floor(callerSeq / 250) % 250}.${callerSeq++ % 250}`;
+
 function post(headers: Record<string, string> = {}, body = JSON.stringify({ prompt: PROMPT })): Request {
   return new Request("http://localhost:3000/api/ai/messages", {
     method: "POST",
     headers: {
+      "x-forwarded-for": nextCaller(),
       "x-api-key": KEY,
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
@@ -103,7 +109,13 @@ function post(headers: Record<string, string> = {}, body = JSON.stringify({ prom
 
 function getModels(headers: Record<string, string> = {}): Request {
   return new Request("http://localhost:3000/api/ai/models", {
-    headers: { "x-api-key": KEY, "anthropic-version": "2023-06-01", "sec-fetch-site": "same-origin", ...headers },
+    headers: {
+      "x-forwarded-for": nextCaller(),
+      "x-api-key": KEY,
+      "anthropic-version": "2023-06-01",
+      "sec-fetch-site": "same-origin",
+      ...headers,
+    },
   });
 }
 
@@ -593,6 +605,20 @@ describe("relay — logs nothing secret", () => {
 
 const ORG = "11111111-2222-3333-4444-555555555555";
 const RESTRICTED_ENV = { AIPM_AI_ORGANIZATION_ID: ORG };
+
+// §806: the limit is checked before the key check, which is itself an upstream call.
+it("with the restriction on, a call over RELAY_MAX_REQUESTS never reaches the key check", async () => {
+  const { send } = fakeSend(respondWith(200, ANTHROPIC_OK));
+  const check = vi.fn(async (): Promise<KeyVerdict> => ({ kind: "pass" }));
+  const checker: KeyChecker = { check, size: () => 0 };
+  const ip = "203.0.113.83";
+  for (let i = 0; i < RELAY_MAX_REQUESTS; i++) {
+    expect((await relay(getModels({ "x-forwarded-for": ip }), "models", RESTRICTED_ENV, send, checker)).status).toBe(200);
+  }
+  const refused = await relay(getModels({ "x-forwarded-for": ip }), "models", RESTRICTED_ENV, send, checker);
+  expect(refused.status).toBe(429);
+  expect(check).toHaveBeenCalledTimes(RELAY_MAX_REQUESTS);
+});
 
 const isPreflight = (call: Call) => call.url.pathname.endsWith("/v1/models") && call.url.searchParams.get("limit") === "1";
 

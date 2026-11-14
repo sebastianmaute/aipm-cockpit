@@ -71,10 +71,19 @@ describe("POST /api/stt", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("an IP literal is judged as it is, without a lookup", async () => {
-    const res = await POST(req({ model: "whisper-1", baseUrl: "https://192.168.0.1/v1" }));
-    expect(res.status).toBe(400);
+  // A public literal, so only the literal branch decides: a private one is refused before the lookup is reached.
+  it("a public IP literal is forwarded without a lookup", async () => {
+    lookup.mockResolvedValue([{ address: "10.0.0.5", family: 4 }]);
+    const res = await POST(req({ model: "whisper-1", baseUrl: "https://93.184.216.34/v1" }));
+    expect(res.status).toBe(200);
     expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("a lookup that returns no address → 502, calling nothing upstream", async () => {
+    lookup.mockResolvedValue([]);
+    const res = await POST(req({ model: "whisper-1", baseUrl: "https://empty.example.com/v1" }));
+    expect(res.status).toBe(502);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   // §806: the route is limited per caller like the Jira, Timelog and exchange-rate routes.

@@ -212,7 +212,7 @@ longer carries its own changelog comment.
 
 - **The AI relay and dictation limit each caller, and dictation checks where a host name points.** The AI relay
   answers at most 120 requests a minute from one caller and dictation 60; over the limit, the AI features say that
-  this app's server is limiting requests, not that Anthropic is. The relay also refuses a call that carries no
+  this app's server is limiting requests, not that Anthropic is (dictation shows its usual transcription error). The relay also refuses a call that carries no
   browser origin header, which a plain script does not send. Dictation now refuses an endpoint whose host name
   resolves to a private network address, not only a private address typed as such. None of this authenticates
   callers: a deployment that routes AI through a gateway must run the server behind its own access control
