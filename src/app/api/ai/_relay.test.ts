@@ -17,6 +17,7 @@ import { createKeyChecker } from "./_key-check";
 import {
   relay,
   RELAY_MAX_BODY_BYTES,
+  RELAY_MAX_REQUESTS,
   RELAY_TIMEOUT_MS,
   type RelaySend,
   type UpstreamResponse,
@@ -172,6 +173,39 @@ describe("relay — refusals before any upstream call", () => {
     const res = await relay(req, "messages", GATEWAY_ENV, send);
     expect(res.status).toBe(403);
     expect(calls).toHaveLength(0);
+  });
+
+  // §805: a call that carries neither header is not a browser call from this app's pages.
+  // The app's own pages always send one of them, so refusing costs no browser user anything.
+  it("neither Sec-Fetch-Site nor Origin → 403 not-same-origin, nothing sent", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const req = new Request("http://localhost:3000/api/ai/messages", {
+      method: "POST",
+      headers: { "x-api-key": KEY, "content-type": "application/json" },
+      body: "{}",
+    });
+    const res = await relay(req, "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "not-same-origin" });
+    expect(calls).toHaveLength(0);
+  });
+
+  // §806: the relay is limited per caller like the Jira, Timelog and exchange-rate routes. The
+  // limiter's store is module-level, so this test uses an address no other test sends.
+  it("a burst over RELAY_MAX_REQUESTS from one caller → 429, and the refused call sends nothing", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const ip = "203.0.113.80";
+    for (let i = 0; i < RELAY_MAX_REQUESTS; i++) {
+      const ok = await relay(getModels({ "x-forwarded-for": ip }), "models", GATEWAY_ENV, send);
+      expect(ok.status).toBe(200);
+    }
+    const refused = await relay(getModels({ "x-forwarded-for": ip }), "models", GATEWAY_ENV, send);
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toEqual({ error: "too-many-requests" });
+    expect(calls).toHaveLength(RELAY_MAX_REQUESTS);
+    // Another caller is not affected.
+    const other = await relay(getModels({ "x-forwarded-for": "203.0.113.81" }), "models", GATEWAY_ENV, send);
+    expect(other.status).toBe(200);
   });
 
   it("no Sec-Fetch-Site and the request's own Origin → relayed", async () => {

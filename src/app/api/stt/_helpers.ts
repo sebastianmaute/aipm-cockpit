@@ -4,12 +4,17 @@
 // exposed to a third-party host directly from the browser. The key and the
 // recorded audio are forwarded upstream only — never logged.
 
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { isPrivateHost } from "../_shared/proxy-ssrf";
+import { rateLimit } from "../jira/_rate-limit";
 import { refuseIfDisabled } from "../_shared/integration-switch";
 import { readAiGatewayConfig } from "../../ai-gateway-config";
 import { AI_GATEWAY_INVALID } from "../../ai-errors";
 
 const TIMEOUT_MS = 30_000;
+// §806: dictation requests one caller may send per minute (`rateLimit`, scope "stt").
+export const STT_MAX_REQUESTS = 60;
 // 25MB — short recordings only. Checked twice: once via content-length before
 // formData() buffers the body (fast-path reject), and again post-parse on the
 // actual file size (a chunked request has no content-length and would
@@ -35,6 +40,8 @@ export async function parseSttRequest(
   if (readAiGatewayConfig(process.env).kind === "invalid") {
     return { error: Response.json({ error: AI_GATEWAY_INVALID }, { status: 503, headers: { "cache-control": "no-store" } }) };
   }
+  const limited = rateLimit(request, "stt", STT_MAX_REQUESTS);
+  if (limited) return { error: limited };
   const key = request.headers.get("x-stt-key") ?? "";
   if (!key) return { error: new Response("missing key", { status: 400 }) };
 
@@ -65,12 +72,14 @@ export async function parseSttRequest(
   }
 
   // SSRF model: baseUrl is USER-configured (bring-your-own OpenAI-compatible
-  // endpoint), so there is no fixed vendor apex to allowlist. We block IP-literal
-  // private hosts (isPrivateHost) + require https, and callStt refuses redirects
-  // so an upstream can't 302 us into the internal network. Accepted residuals
-  // (inherent to an arbitrary user endpoint): DNS-rebinding (host resolves public
-  // at check time, private at connect time) and that this is a generic
-  // authenticated egress proxy to any public host.
+  // endpoint), so there is no fixed vendor apex to allowlist. We require https,
+  // block private hosts — an IP literal as written, a host name by every address
+  // it resolves to (§803) — and callStt refuses redirects so an upstream can't
+  // 302 us into the internal network. Accepted residuals (inherent to an arbitrary
+  // user endpoint): DNS rebinding (the name resolves public at check time and
+  // private when fetch connects, because fetch resolves it again) and that this is
+  // a generic authenticated egress proxy to any public host, bounded per caller by
+  // the rate limit above.
   let u: URL;
   try {
     u = new URL(baseUrl);
@@ -83,12 +92,41 @@ export async function parseSttRequest(
   if (isPrivateHost(u.hostname)) {
     return { error: new Response("blocked host", { status: 400 }) };
   }
+  const resolved = await classifyResolvedHost(u.hostname);
+  if (resolved === "unresolved") return { error: upstreamFailed() };
+  if (resolved === "private") return { error: new Response("blocked host", { status: 400 }) };
 
   const upstream = new FormData();
   upstream.append("file", file, "audio.webm");
   upstream.append("model", model);
   const url = `${baseUrl.replace(/\/$/, "")}/audio/transcriptions`;
   return { fwd: { url, key, form: upstream } };
+}
+
+/**
+ * §803: a host name is judged by the addresses it resolves to — private when ANY of them is
+ * (a name with one public and one private address could connect to either). An IP literal was
+ * already judged as written and needs no lookup. A name that does not resolve cannot be
+ * reached either, so it is answered like a failed upstream call, never forwarded.
+ */
+async function classifyResolvedHost(hostname: string): Promise<"public" | "private" | "unresolved"> {
+  const bare = hostname.startsWith("[") ? hostname.slice(1, -1) : hostname;
+  if (isIP(bare) !== 0) return "public";
+  let addresses: { address: string }[];
+  try {
+    addresses = await lookup(bare, { all: true, verbatim: true });
+  } catch {
+    return "unresolved";
+  }
+  if (addresses.length === 0) return "unresolved";
+  return addresses.some((a) => isPrivateHost(a.address)) ? "private" : "public";
+}
+
+function upstreamFailed(): Response {
+  return new Response(JSON.stringify({ error: "stt upstream failed" }), {
+    status: 502,
+    headers: { "content-type": "application/json" },
+  });
 }
 
 /** Forward the validated request upstream and relay its response. Never logs the key/audio. */
@@ -121,10 +159,7 @@ export async function callStt(fwd: SttForward): Promise<Response> {
     // Network-level failure before any response (DNS, connection refused, TLS,
     // timeout/abort). Never log the error object — it could echo the request
     // (key/audio); hand the client a structured 502 instead.
-    return new Response(JSON.stringify({ error: "stt upstream failed" }), {
-      status: 502,
-      headers: { "content-type": "application/json" },
-    });
+    return upstreamFailed();
   } finally {
     clearTimeout(timer);
   }
