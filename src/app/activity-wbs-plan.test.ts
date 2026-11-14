@@ -78,6 +78,19 @@ describe("the activity panel names the created tasks", () => {
     expect(activityMessage("de", "ai.wbsPlan", args).endsWith("#119 Piece 19; und 5 weitere")).toBe(true);
   });
 
+  // The Activity panel (`display: true`) is where a user finds the tasks again, so it lists every one; only the
+  // model path (no `display`: `renderActivityEntry`, `searchHistory`) is capped.
+  it("the panel row names all 25, while the model path names 20 and how many more", () => {
+    const many = Array.from({ length: 25 }, (_, i) => ({ id: 100 + i, taskName: `Piece ${i}` }));
+    const args = wbsPlanActivityArgs(25, many);
+    const panel = activityMessage("en-US", "ai.wbsPlan", args, { display: true });
+    for (let i = 0; i < 25; i++) expect(panel).toContain(`#${100 + i} Piece ${i}`);
+    expect(panel).not.toContain("more");
+    const model = activityMessage("en-US", "ai.wbsPlan", args);
+    expect(model).not.toContain("#120");
+    expect(model.endsWith("#119 Piece 19; and 5 more")).toBe(true);
+  });
+
   it("exactly 20 created tasks name them all, with no remainder", () => {
     const twenty = Array.from({ length: 20 }, (_, i) => ({ id: 100 + i, taskName: `Piece ${i}` }));
     const en = activityMessage("en-US", "ai.wbsPlan", wbsPlanActivityArgs(20, twenty));
