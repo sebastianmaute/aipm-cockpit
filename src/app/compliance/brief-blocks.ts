@@ -101,7 +101,7 @@ const TEXT = {
     latency: "Median latency",
     off: "off",
     on: "on",
-    relay: "on (relay)",
+    relay: "relay",
     hidden: "hidden while people protection is on",
     unverified: (n: number) => ` (${n} unverified)`,
     capFigures: (commit: string, date: string, model: string, fetchedAt: string) =>
@@ -126,7 +126,7 @@ const TEXT = {
     latency: "Median-Latenz",
     off: "aus",
     on: "an",
-    relay: "an (Relay)",
+    relay: "Relay",
     hidden: "ausgeblendet, solange der Personenschutz an ist",
     unverified: (n: number) => ` (${n} nicht bestätigt)`,
     capFigures: (commit: string, date: string, model: string, fetchedAt: string) =>

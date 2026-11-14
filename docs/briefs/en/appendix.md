@@ -102,7 +102,7 @@ in `src/app/api/ai/`.
 | E11 | The gateway is whatever https address the operator sets in `AIPM_AI_GATEWAY_URL`. When `AIPM_AI_GATEWAY_TOKEN` is set, the relay adds it to every forwarded call as the `cf-aig-authorization` header (Cloudflare AI Gateway's, the gateway the operating guide describes). The address and the token are not sent to the browser. | *read in code* | `parseAiGatewayConfig` and `aiDeploymentStateFrom` in `src/app/ai-gateway-config.ts`; `forwardHeaders` in `_relay.ts`; `docs/RUNBOOK.md` |
 | E12 | The gateway route has never been run against a real gateway; its tests use a fake upstream and a local TLS server. A live proof against a real gateway is written but has never been run. | *not proven* | register §802; `src/app/api/ai/_relay.https.test.ts`; `src/app/api/ai/_relay.live.test.ts`, run only by hand through `.github/workflows/ai-live.yml` |
 | E13 | The relay adds the gateway token for any caller that reaches the server: the app's server routes do not authenticate callers. | *read in code* | register §805; `forwardHeaders` in `_relay.ts` |
-| E14 | People protection replaces, before a request is sent, the names of people the project knows with placeholders such as `[Person 1]`, whatever their case, umlaut spelling or possessive ending. It also replaces every e-mail address, every IBAN with a valid checksum, a known person's phone number written with any separators, and any other phone number that starts with + or 0 (also inside a bracket), has at least 7 digits, uses only spaces, hyphens, dots, slashes and brackets as separators and does not look like a date. Placeholders in the answer are turned back into the original text on the device. | *tested (unit)* | `redactJsonBody` and `restoreJsonText` in `src/app/ai-people-redact.ts`; tests `diacritics, case, ue-transliteration and possessive all map to one placeholder`, `emails, phones and IBANs get their own placeholders and counts`, `a known phone is matched by its digits even without a leading + or 0`, `phone-shaped: these ARE phones`, `dates, times, integers, money, versions and ids are NOT phones`, `an IBAN-shaped string with a bad checksum is left alone, phone pattern included` and `restore(redact(t)) === t when every match is a full known spelling` in `src/app/ai-people-redact.test.ts` |
+| E14 | People protection replaces, before a request is sent, the names of people the project knows with placeholders such as `[Person 1]`, with or without umlauts or a possessive ending. A name of several words is replaced however it is capitalised. A single word, that is a one-word name or one word of a longer name, is replaced only where the text writes it capitalised or in capitals, unless the project itself stores it in lower case; one word of a longer name also needs at least 3 letters and must not be a common word on the app's stop list. It also replaces every e-mail address; every IBAN written as two capital letters, two digits and then 8 to 31 capital letters or digits, either run together or in groups of four separated by single spaces, whose mod-97 checksum is valid; a known person's phone number written with any separators, and any other phone number that starts with + or 0 (also inside a bracket), has at least 7 digits, uses only spaces, hyphens, dots, slashes and brackets as separators and does not look like a date. Placeholders in the answer are turned back into the original text on the device. | *tested (unit)* | `redactJsonBody` and `restoreJsonText` in `src/app/ai-people-redact.ts`; tests `diacritics, case, ue-transliteration and possessive all map to one placeholder`, `a one-word entry stored in lower case is redacted in any case; a capitalised one stays case-gated`, `the case gate still holds for lone tokens of a multi-word name`, `emails, phones and IBANs get their own placeholders and counts`, `a known phone is matched by its digits even without a leading + or 0`, `phone-shaped: these ARE phones`, `dates, times, integers, money, versions and ids are NOT phones`, `an IBAN-shaped string with a bad checksum is left alone, phone pattern included` and `restore(redact(t)) === t when every match is a full known spelling` in `src/app/ai-people-redact.test.ts` |
 | E15 | Protection is applied in the app's browser code, before a request leaves the device; neither the relay nor any other server route applies it. It holds for this app as shipped: a modified copy of the app, or another client using the same key, can send without it. | *read in code* | `redactForSend` and `postAiMessages` in `src/app/ai-transport.ts`; `relay` in `_relay.ts`; test `calls fetch with an Anthropic URL only in the transport` in `src/app/ai-transport-sites.test.ts` |
 | E16 | With protection on, no person of the test fixture reaches a request body on any AI path that sends; with protection off, the same paths do send people, so the test can see them. The exception is the new project proposal: a new project has no known people, so the fixture holds none to send and its names cannot be protected (E20, E35). | *tested (unit)* | groups `with protection on, no fixture person reaches a request body` and `anti-vacuity: with protection off, the same drivers send people` in `src/app/ai-people-protection.wire.test.ts` |
 | E17 | With protection on, an AI answer that acts on a person (an assignee, a resource, a stakeholder) applies nothing person-related; the rest of the change applies. | *tested (unit)* | test `protection on: the assignee, the resource and the stakeholder are untouched; the rest of the task write applies` in `src/app/ai-people-protection.wire.test.ts` |
@@ -128,8 +128,10 @@ in `src/app/api/ai/`.
 
 ## AI paths and people data
 
-The AI features that concern people: the full list under "AI paths" without the two digest summaries, whose only
-text is milestone names, so they carry a person's name only where someone typed one into a milestone name (E1).
+The AI features that concern people: the full list under "AI paths" without the two digest summaries. Besides the
+user's operating guide and status figures (overall status, counts of overdue tasks and of open and high-severity
+RAID items), the only project text they send is the names and dates of milestones due soon, so they carry a
+person's name only where someone typed one into a milestone name (E1).
 
 <!-- PACK:ai-paths-people:BEGIN -->
 | Feature | Consent | What is sent | With people protection on |
@@ -259,7 +261,7 @@ take to close it.
 
 ## Measured figures
 
-Measured on 2026-11-14 against the demo project at commit e63693393 (E24). The rows marked "on (relay)" went
+Measured on 2026-11-14 against the demo project at commit e63693393 (E24). The rows marked "relay" went
 through the same-origin relay; that the organisation key check was on follows from the code, not from the file
 (E23). People protection was a run condition for those rows that `figures.json` does not record (E36). The
 behaviour counts behind E20 to E22 are in the same file.
@@ -297,8 +299,8 @@ behaviour counts behind E20 to E22 are in the same file.
 | Next-actions weight suggestion | on | 3 | 0.0111 | 0% | 4.8 s |
 | Allocation plan proposal | on | - | - | - | hidden while people protection is on |
 | RACI suggestion | on | - | - | - | hidden while people protection is on |
-| AI Assistant chat | on (relay) | 5 | 0.0632 | 67% | 24.1 s |
-| Inline AI edit on a row | on (relay) | 3 | 0.0120 | 58% | 3.7 s |
+| AI Assistant chat | relay | 5 | 0.0632 | 67% | 24.1 s |
+| Inline AI edit on a row | relay | 3 | 0.0120 | 58% | 3.7 s |
 
 Measured with commit e63693393 on 2026-11-14, model claude-sonnet-5, on the demo project. n is the number of measured calls per row; "unverified" means the request did not show the protection state. Cache-read share = cache-read tokens / (input + cache-write + cache-read tokens). $/call = the measured tokens at the list prices fetched on 2026-11-14.
 <!-- PACK:figures:END -->

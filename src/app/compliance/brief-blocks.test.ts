@@ -60,8 +60,12 @@ describe("brief-blocks", () => {
     const lines = renderFigureBlocks("en", fixture()).figures.split("\n");
     expect(lines.filter((l) => l.includes("hidden while people protection is on"))).toHaveLength(2);
     expect(lines.filter((l) => l.includes("| 2 |"))).toHaveLength(1);
-    expect(lines.filter((l) => l.includes("| on (relay) | 5 |"))).toHaveLength(1);
-    expect(renderFigureBlocks("de", fixture()).figures).toContain("| an (Relay) | 5 |");
+    // The relay rows' protection state is not recorded in the figures file, so the column names the route only.
+    expect(lines.filter((l) => l.includes("| relay | 5 |"))).toHaveLength(1);
+    expect(lines.some((l) => l.includes("on (relay)"))).toBe(false);
+    const de = renderFigureBlocks("de", fixture()).figures;
+    expect(de).toContain("| Relay | 5 |");
+    expect(de).not.toContain("an (Relay)");
   });
 
   it("shows unverified calls in the n cell and explains the word", () => {
