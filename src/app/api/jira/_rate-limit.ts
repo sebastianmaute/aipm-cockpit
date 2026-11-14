@@ -1,5 +1,5 @@
 // In-memory sliding-window rate limiter for the /api/* proxy routes (Jira,
-// ECB). Suitable for single-process deployments (local dev, single-instance
+// Confluence, Timelog, ECB, the AI relay and dictation). Suitable for single-process deployments (local dev, single-instance
 // server). For multi-instance deployments, replace the Map with a shared
 // store (Redis).
 
@@ -38,8 +38,9 @@ function getClientIp(request: Request): string {
  *
  * `scope` namespaces the per-IP bucket so distinct routes importing this
  * helper (e.g. the Jira proxy vs /api/ecb) do not drain each other's quota.
+ * `max` is the number of requests a caller may send per window in that scope.
  */
-export function rateLimit(request: Request, scope = "jira"): Response | null {
+export function rateLimit(request: Request, scope = "jira", max = MAX_REQUESTS): Response | null {
   const key = `${scope}:${getClientIp(request)}`;
   const now = Date.now();
   const rec = store.get(key);
@@ -50,7 +51,7 @@ export function rateLimit(request: Request, scope = "jira"): Response | null {
     return null;
   }
 
-  if (rec.count >= MAX_REQUESTS) {
+  if (rec.count >= max) {
     const retryAfter = Math.ceil((rec.windowStart + WINDOW_MS - now) / 1000);
     return Response.json(
       { error: "too-many-requests" },

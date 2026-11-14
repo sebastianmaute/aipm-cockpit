@@ -13,10 +13,11 @@ vi.mock("../../diagnostics", async (importOriginal) => {
 });
 
 import { logDiag } from "../../diagnostics";
-import { createKeyChecker } from "./_key-check";
+import { createKeyChecker, type KeyChecker, type KeyVerdict } from "./_key-check";
 import {
   relay,
   RELAY_MAX_BODY_BYTES,
+  RELAY_MAX_REQUESTS,
   RELAY_TIMEOUT_MS,
   type RelaySend,
   type UpstreamResponse,
@@ -86,10 +87,16 @@ function upstream(
 const respondWith = (status: number, body: string, contentType?: string) => (call: Call) =>
   call.respond(upstream(status, body, contentType));
 
+// The relay's rate limiter keeps a module-level count per caller address for the whole file, so each helper-built
+// request gets an address of its own unless a test names one (the limit tests do).
+let callerSeq = 0;
+const nextCaller = () => `198.18.${Math.floor(callerSeq / 250) % 250}.${callerSeq++ % 250}`;
+
 function post(headers: Record<string, string> = {}, body = JSON.stringify({ prompt: PROMPT })): Request {
   return new Request("http://localhost:3000/api/ai/messages", {
     method: "POST",
     headers: {
+      "x-forwarded-for": nextCaller(),
       "x-api-key": KEY,
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
@@ -102,7 +109,13 @@ function post(headers: Record<string, string> = {}, body = JSON.stringify({ prom
 
 function getModels(headers: Record<string, string> = {}): Request {
   return new Request("http://localhost:3000/api/ai/models", {
-    headers: { "x-api-key": KEY, "anthropic-version": "2023-06-01", "sec-fetch-site": "same-origin", ...headers },
+    headers: {
+      "x-forwarded-for": nextCaller(),
+      "x-api-key": KEY,
+      "anthropic-version": "2023-06-01",
+      "sec-fetch-site": "same-origin",
+      ...headers,
+    },
   });
 }
 
@@ -172,6 +185,55 @@ describe("relay — refusals before any upstream call", () => {
     const res = await relay(req, "messages", GATEWAY_ENV, send);
     expect(res.status).toBe(403);
     expect(calls).toHaveLength(0);
+  });
+
+  // §805: a call that carries neither header is not a browser call from this app's pages.
+  // The app's own pages always send one of them, so refusing costs no browser user anything.
+  it("neither Sec-Fetch-Site nor Origin → 403 not-same-origin, nothing sent", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const req = new Request("http://localhost:3000/api/ai/messages", {
+      method: "POST",
+      headers: { "x-api-key": KEY, "content-type": "application/json" },
+      body: "{}",
+    });
+    const res = await relay(req, "messages", GATEWAY_ENV, send);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "not-same-origin" });
+    expect(calls).toHaveLength(0);
+  });
+
+  // §806: the relay is limited per caller like the Jira, Timelog and exchange-rate routes. The
+  // limiter's store is module-level, so this test uses an address no other test sends.
+  it("a burst over RELAY_MAX_REQUESTS from one caller → 429, and the refused call sends nothing", async () => {
+    const { send, calls } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const ip = "203.0.113.80";
+    for (let i = 0; i < RELAY_MAX_REQUESTS; i++) {
+      const ok = await relay(getModels({ "x-forwarded-for": ip }), "models", GATEWAY_ENV, send);
+      expect(ok.status).toBe(200);
+    }
+    const refused = await relay(getModels({ "x-forwarded-for": ip }), "models", GATEWAY_ENV, send);
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get("retry-after")).toMatch(/^[0-9]+$/);
+    expect(await refused.json()).toEqual({ error: "ai-relay-rate-limited" });
+    expect(calls).toHaveLength(RELAY_MAX_REQUESTS);
+    // Another caller is not affected.
+    const other = await relay(getModels({ "x-forwarded-for": "203.0.113.81" }), "models", GATEWAY_ENV, send);
+    expect(other.status).toBe(200);
+  });
+
+  // A web page can make a visitor's browser send cross-site calls (without a key: a key header needs a CORS
+  // preflight, which the relay never grants). Refused calls must not use up that visitor's count.
+  it("refused cross-site and key-less calls do not count against the caller's limit", async () => {
+    const { send } = fakeSend(respondWith(200, ANTHROPIC_OK));
+    const ip = "203.0.113.82";
+    for (let i = 0; i < RELAY_MAX_REQUESTS + 5; i++) {
+      const crossSite = await relay(getModels({ "x-forwarded-for": ip, "sec-fetch-site": "cross-site" }), "models", GATEWAY_ENV, send);
+      expect(crossSite.status).toBe(403);
+      const keyless = new Request("http://localhost:3000/api/ai/models", { headers: { "sec-fetch-site": "same-origin", "x-forwarded-for": ip } });
+      expect((await relay(keyless, "models", GATEWAY_ENV, send)).status).toBe(400);
+    }
+    const ok = await relay(getModels({ "x-forwarded-for": ip }), "models", GATEWAY_ENV, send);
+    expect(ok.status).toBe(200);
   });
 
   it("no Sec-Fetch-Site and the request's own Origin → relayed", async () => {
@@ -543,6 +605,20 @@ describe("relay — logs nothing secret", () => {
 
 const ORG = "11111111-2222-3333-4444-555555555555";
 const RESTRICTED_ENV = { AIPM_AI_ORGANIZATION_ID: ORG };
+
+// §806: the limit is checked before the key check, which is itself an upstream call.
+it("with the restriction on, a call over RELAY_MAX_REQUESTS never reaches the key check", async () => {
+  const { send } = fakeSend(respondWith(200, ANTHROPIC_OK));
+  const check = vi.fn(async (): Promise<KeyVerdict> => ({ kind: "pass" }));
+  const checker: KeyChecker = { check, size: () => 0 };
+  const ip = "203.0.113.83";
+  for (let i = 0; i < RELAY_MAX_REQUESTS; i++) {
+    expect((await relay(getModels({ "x-forwarded-for": ip }), "models", RESTRICTED_ENV, send, checker)).status).toBe(200);
+  }
+  const refused = await relay(getModels({ "x-forwarded-for": ip }), "models", RESTRICTED_ENV, send, checker);
+  expect(refused.status).toBe(429);
+  expect(check).toHaveBeenCalledTimes(RELAY_MAX_REQUESTS);
+});
 
 const isPreflight = (call: Call) => call.url.pathname.endsWith("/v1/models") && call.url.searchParams.get("limit") === "1";
 

@@ -79,10 +79,7 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | §800 | The Content Security Policy allows whole host families by wildcard |
 | §801 | Text the AI writes carries no machine-readable marking |
 | §802 | The AI gateway route has never been run against a real gateway |
-| §803 | Dictation's private-address check does not resolve host names |
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |
-| §805 | The AI relay attaches the deployment's gateway token for any caller that reaches the server |
-| §806 | The AI relay and dictation routes have no request limit |
 | §810 | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI |
 <!-- PACK:open-gaps:END -->
 
@@ -91,9 +88,9 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
 
 - **§487** — No installer released so far is code-signed, so Windows cannot show you who published it.
   Check each download with the GitHub attestation commands in `SECURITY.md` instead.
-- **§562** — The request limit on the Jira, Confluence, Timelog and exchange-rate routes can be avoided
-  by a caller who sets a forwarding header, and it starts again from zero when the server restarts. (The
-  AI and dictation routes have no limit at all; see §806.)
+- **§562** — The request limit on the Jira, Confluence, Timelog, exchange-rate, AI and dictation routes
+  can be avoided by a caller who sets a forwarding header, and it starts again from zero when the server
+  restarts.
 - **§793** — Even once signing is switched on, the uninstaller that setup puts on the computer will not be
   signed, so a tool that checks every program on the machine will flag it.
 - **§794** — When the AI chat makes exactly one change and none of the conditions that force a review
@@ -116,15 +113,8 @@ which has the detail. [verified: the register entries in `docs/open-followups.md
   Once copied or exported, it cannot be told apart from text a person wrote.
 - **§802** — Routing AI through an organisation's gateway has been tested against fakes and a local
   server only. How a real gateway behaves with the app has not been confirmed by a run.
-- **§803** — The check that keeps dictation away from private network addresses looks at the address as
-  typed and does not resolve a host name, so a host name that points to a private address is not caught.
 - **§804** — Plan with AI always sends the internal hourly rate of each internal person's role. The only
   way to keep rates from the AI is people protection, which hides the feature.
-- **§805** — The app's server does not check who is calling. On a deployment that uses an AI gateway,
-  anyone who can reach the server can send AI requests through your gateway under its token, at your
-  organisation's cost where the gateway bills it. Run the server behind your own access control.
-- **§806** — The AI routes and the dictation route accept any number of requests, and dictation forwards
-  audio to whatever public https address the caller names. Limit access in front of the app.
 - **§810** — Hiding a project's Resources function hides its views but does not keep their data from the
   AI. While people protection is off, the AI chat can still read people, absences and allocations, and
   change people and absences, in that project. And five AI features (the steering committee report draft,

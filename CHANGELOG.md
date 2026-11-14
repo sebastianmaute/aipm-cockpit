@@ -210,6 +210,13 @@ longer carries its own changelog comment.
 
 ### Fixed
 
+- **The AI relay and dictation limit each caller, and dictation checks where a host name points.** The AI relay
+  answers at most 120 requests a minute from one caller and dictation 60; over the limit, the AI features say that
+  this app's server is limiting requests, not that Anthropic is (dictation shows its usual transcription error). The relay also refuses a call that carries no
+  browser origin header, which a plain script does not send. Dictation now refuses an endpoint whose host name
+  resolves to a private network address, not only a private address typed as such. None of this authenticates
+  callers: a deployment that routes AI through a gateway must run the server behind its own access control
+  (`docs/RUNBOOK.md`).
 - **A key that no longer passes the organisation check stops working on the relay within 15 minutes.** For example,
   a key moved to a workspace the setting does not list. A key that passed the check used to stay accepted until the
   server restarted; the check is now repeated once a passed result is 15 minutes old, however often the key is used.

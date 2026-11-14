@@ -12,7 +12,8 @@
 //     `content-type` from the browser, plus `cf-aig-authorization` with the
 //     deployment's gateway token when one is set. Cookies and every other header stay
 //     here;
-//   - accepts same-origin browser calls only (see `isSameOrigin`);
+//   - accepts same-origin browser calls only (see `isSameOrigin`), and at most
+//     `RELAY_MAX_REQUESTS` a minute from one caller;
 //   - streams a 2xx answer back without buffering it; passes an error through only
 //     when it is Anthropic-shaped, otherwise answers 502 with a code of its own;
 //   - logs nothing: not the key, the token, the URL or the body.
@@ -24,6 +25,7 @@
 import { request as httpsRequest } from "node:https";
 import type { RequestOptions } from "node:http";
 import { refuseIfDisabled } from "../_shared/integration-switch";
+import { rateLimit } from "../jira/_rate-limit";
 import { readAiGatewayConfig, type AiGatewayConfig } from "../../ai-gateway-config";
 import { readAiKeyRestriction, type AiKeyRestriction } from "../../ai-key-restriction-config";
 import {
@@ -32,6 +34,7 @@ import {
   AI_GATEWAY_RATE_LIMITED,
   AI_GATEWAY_REJECTED,
   AI_KEY_CHECK_UNAVAILABLE,
+  AI_RELAY_RATE_LIMITED,
   AI_KEY_WRONG_ORGANIZATION,
   AI_KEY_WRONG_WORKSPACE,
 } from "../../ai-errors";
@@ -45,6 +48,10 @@ export const RELAY_MAX_BODY_BYTES = 32 * 1024 * 1024;
 // Idle timeout on the upstream socket (node's `timeout` option): a streamed answer
 // that keeps sending is never cut off, a silent one is after 15 minutes.
 export const RELAY_TIMEOUT_MS = 15 * 60 * 1000;
+// §806: relayed calls one caller may send per minute (`rateLimit`, scope "ai"). Above the other
+// routes' 60, because one chat turn that uses tools is several calls, and an office behind one
+// address shares the count.
+export const RELAY_MAX_REQUESTS = 120;
 
 // The gateway codes come from the client's own module, so the two sides cannot drift; the
 // remaining codes are pinned against the client by `_relay.wire.test.ts`.
@@ -111,14 +118,17 @@ type Env = Record<string, string | undefined>;
  * ingress the protocol may read `http:` while `Origin` reads `https:`; such an old
  * browser is then refused (fails closed). `X-Forwarded-Host` and its peers are never
  * consulted: whoever sends the request sets them, so they cannot grant access.
- * A call with neither header (not a browser) passes; `relay` still requires an
- * `x-api-key` of the caller's own.
+ * §805: a call with neither header is refused. The app's own pages always send one, so
+ * this costs no browser user anything; it stops a plain script from using the
+ * deployment's gateway token. It is NOT access control: a script can send either
+ * header. A deployment that relays through a gateway must put the server behind its
+ * own access control (docs/RUNBOOK.md).
  */
 function isSameOrigin(request: Request): boolean {
   const site = request.headers.get("sec-fetch-site");
   if (site !== null) return site === "same-origin";
   const origin = request.headers.get("origin");
-  if (origin === null) return true;
+  if (origin === null) return false;
   return origin === new URL(request.url).origin;
 }
 
@@ -311,6 +321,17 @@ export async function relay(
   // 400, never 401/403: the client reads those as a rejected key.
   const apiKey = request.headers.get("x-api-key");
   if (!apiKey?.trim()) return fail(400, MISSING_API_KEY);
+  // §806: after the origin and key checks, so a refused call never uses up a caller's count (a web page can make
+  // a visitor's browser send cross-site calls, but not with a key header), and before the key check, which is
+  // itself an upstream call.
+  const limited = rateLimit(request, "ai", RELAY_MAX_REQUESTS);
+  if (limited) {
+    // The relay's own code, so the browser names this server, not Anthropic's limit or the gateway's.
+    const overLimit = fail(429, AI_RELAY_RATE_LIMITED);
+    const retryAfter = limited.headers.get("retry-after");
+    if (retryAfter) overLimit.headers.set("retry-after", retryAfter);
+    return overLimit;
+  }
 
   if (restriction.kind === "restricted") {
     // The same key value that would be forwarded is the one checked. Nothing goes upstream

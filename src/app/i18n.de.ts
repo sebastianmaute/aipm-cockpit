@@ -1143,6 +1143,7 @@ export const de: Record<TranslationKey, string> = {
   aiGatewayRejected: "Das KI-Gateway Ihrer Organisation hat diese App abgelehnt (prüfen Sie das Gateway-Token). Bitte wenden Sie sich an Ihren Administrator.",
   aiGatewayFailed: "Das KI-Gateway Ihrer Organisation war nicht erreichbar oder hat einen Fehler gemeldet. Versuchen Sie es später erneut.",
   aiGatewayRateLimited: "Das KI-Gateway Ihrer Organisation begrenzt gerade die Anfragen. Versuchen Sie es in Kürze erneut.",
+  aiRelayRateLimited: "Der Server dieser App begrenzt gerade die KI-Anfragen Ihrer Verbindung. Warten Sie eine Minute und versuchen Sie es erneut.",
   aiEnableHelp: "Aktivieren, um Claude-Chat, KI-Aktionsvorschläge und die KI-Projekterstellung zu nutzen; beim Einschalten werden Sie zuerst gebeten, den KI-Datenhinweis zu akzeptieren. Geplante Jobs, automatische Insight-Empfehlungen und der Text der geplanten Zusammenfassung brauchen zusätzlich die separate Zustimmung „KI darf im Hintergrund laufen“. Standardmäßig aus.",
   aiDisabledSectionHint:
     "Der KI-Assistent ist ausgeschaltet, daher gibt es hier nichts einzustellen. Schalten Sie ihn unter Einstellungen → KI-Assistent ein.",
@@ -5881,7 +5882,7 @@ export const de: Record<TranslationKey, string> = {
   outboundConfluenceWhen: "Wenn ein Nutzer eine Confluence-Seite importiert und die Integration für die Bereitstellung nicht abgeschaltet wurde.",
   outboundTimelogSent: "Das Timelog-Zugriffstoken des Nutzers als Bearer-Token, der Timelog-Mandantenname in der Adresse und die vom Nutzer ausgelöste Anfrage (ein Pfad, eine Abfrage und bei Schreibzugriffen die Zeitbuchungsdaten), gesendet an den eigenen Timelog-Host des Nutzers (eine Adresse unter timelog.com).",
   outboundTimelogWhen: "Wenn Timelog in den Einstellungen konfiguriert ist, die Integration für die Bereitstellung nicht abgeschaltet wurde und ein Nutzer eine Timelog-Funktion wie Zeitbuchung oder das Laden von Buchungen verwendet.",
-  outboundSttSent: "Die aufgenommene Audiodatei des Diktats (als webm-Datei), der Name des Sprachmodells und der Speech-to-Text-API-Schlüssel des Nutzers als Bearer-Token, gesendet per https an die Endpunktadresse, die der Nutzer in den Diktat-Einstellungen eingetragen hat, sofern sie keine private IP-Adresse ist.",
+  outboundSttSent: "Die aufgenommene Audiodatei des Diktats (als webm-Datei), der Name des Sprachmodells und der Speech-to-Text-API-Schlüssel des Nutzers als Bearer-Token, gesendet per https an die Endpunktadresse, die der Nutzer in den Diktat-Einstellungen eingetragen hat, sofern sie keine private IP-Adresse ist und ihr Hostname auf keine private IP-Adresse verweist.",
   outboundSttWhen: "Wenn ein Nutzer diktiert und ein Speech-to-Text-Endpunkt konfiguriert ist, weder die Diktat-Integration, die KI-Integration noch die Personenschutz-Sperre für die Bereitstellung abgeschaltet ist und die KI-Gateway-Einstellung der Bereitstellung nicht ungültig ist.",
   outboundEcbSent: "Eine einfache Anfrage nach den täglichen Euro-Referenzkursen der Europäischen Zentralbank, ohne Arbeitsbereichsdaten und ohne Zugangsdaten.",
   outboundEcbWhen: "Wenn die App Wechselkurse lädt oder aktualisiert und die Integration ecb für die Bereitstellung nicht abgeschaltet wurde.",
