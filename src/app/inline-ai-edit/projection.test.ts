@@ -123,7 +123,7 @@ describe("nested emails", () => {
     await callInlineEdit({
       apiKey: "k", privacy: UNPROTECTED, model: "m", lang: "en-US", entity: "raid", item: raid, itemLabel: "Vendor slip", instruction: "x",
       snapshot: { today: "2026-07-03", language: "en-US", holidayCountries: [], storageKind: "browser", taskCount: 0, knownGroups: [], knownLabels: [], mode: "advanced", enabledModules: [], currentView: "raid", timezone: asTimeZoneForTests("UTC") },
-      guides: [], groundInGuides: false,
+      guides: [], groundInGuides: false, peopleProtected: false,
     });
     const text = spy.mock.calls[0][2].map((b) => b.text).join(" ");
     expect(text).toContain("Vendor slip"); // control: the scope block is there

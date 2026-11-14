@@ -992,7 +992,7 @@
   emitted ONLY when
   `offeredTools` (`toolNamesFor(toolFlags)`, or a caller's `offered` set) holds the name, so the recap's shipped lie — naming a tool the
   request did not carry — cannot recur here. ★ `inline-ai-edit-call.ts` blanks `chatPointer` out of the
-  snapshot it forwards, alongside `viewDigest` and `activitySummary`: that path passes `NO_RECALL_TOOLS`, so
+  snapshot it forwards, alongside `viewDigest` and `activitySummary`: that path passes `NO_RECALL_TOOLS` (plus the call's `peopleProtected`), so
   the closing instruction was already suppressed and what survived named conversations the model had no tool
   to open. **Extend the strip list, do not trust it.**
   ★★ **THE MESSAGE COUNT IS NOT A SIZE BUDGET.** Every field of the schema is optional, so a bare

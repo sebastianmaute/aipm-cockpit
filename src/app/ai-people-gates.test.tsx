@@ -3,7 +3,7 @@ import "../test/ai-consent-live";
 // AI people protection: with protection on, the people features are hidden and
 // unreachable, the chat loses its people tools on the next send, dictation is off and says why, and the
 // context builders drop their people sections.
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, renderHook, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { setDisabledIntegrations } from "./integration-switches";
 import type { ReactNode } from "react";
@@ -25,6 +25,8 @@ import { buildAnalysisContext } from "./action-ai";
 import { buildProjectAnalysisInput } from "./project-analysis-input";
 import { buildProjectDigest } from "./project-digest";
 import type { Milestone, Resource, ResourcePlan, Stakeholder } from "./types";
+import * as inlineCall from "./inline-ai-edit-call";
+import { useInlineEntityEdit, type InlineEntityEditDeps } from "./use-inline-entity-edit";
 
 // Review 3, R6: a RACI proposal the test can reach the preview with, without a request.
 vi.mock("./raci-suggest-call", () => ({
@@ -251,6 +253,54 @@ describe("dictation under protection", () => {
     } finally {
       setDisabledIntegrations([]);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Inline edit reads the organisation's forced lock through the real provider.
+// ---------------------------------------------------------------------------
+
+describe("inline edit: the protection state reaches the call", () => {
+  const TASK = { id: 42, taskName: "Fix login", assignee: "Ann", status: "To Do", dueDate: "2026-08-12", priority: "Medium" };
+  const deps: InlineEntityEditDeps = {
+    entity: "task",
+    dispatcher: { getSnapshot: () => ({ today: "2026-07-03", language: "en-US" }) } as unknown as InlineEntityEditDeps["dispatcher"],
+    ai: { enabled: true, consent: newConsent(new Date(0)), apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
+    apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
+    isPopout: false, lang: "en-US",
+    showToast: vi.fn(),
+    ws: { tasks: [TASK], raid: [], milestones: [], changes: [], stakeholders: [], resources: [] } as unknown as InlineEntityEditDeps["ws"],
+    guides: [],
+  };
+
+  async function peopleProtectedSent(): Promise<unknown> {
+    const spy = vi.spyOn(inlineCall, "callInlineEdit").mockResolvedValue({
+      blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 42, priority: "High" } }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof inlineCall.callInlineEdit>>);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <AiPrivacyProvider>
+        <Source ws={() => allowed(base())}>{children}</Source>
+      </AiPrivacyProvider>
+    );
+    const { result } = renderHook(() => useInlineEntityEdit(deps), { wrapper });
+    act(() => result.current.openFor(TASK));
+    await act(async () => { await result.current.submit("raise it"); });
+    expect(spy).toHaveBeenCalledTimes(1);
+    return spy.mock.calls[0][0].peopleProtected;
+  }
+
+  it("forced protection passes peopleProtected: true even when the project allows people", async () => {
+    setDisabledIntegrations(["ai-people"]);
+    try {
+      expect(await peopleProtectedSent()).toBe(true);
+    } finally {
+      setDisabledIntegrations([]);
+    }
+  });
+
+  it("not forced, the same project passes peopleProtected: false (positive control)", async () => {
+    expect(await peopleProtectedSent()).toBe(false);
   });
 });
 

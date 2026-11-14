@@ -105,8 +105,11 @@ async function firstScreen(ctx) {
   }
 }
 
-async function acknowledge(ctx) {
-  const ack = ctx.page.getByRole('button', { name: 'I understand', exact: true });
+/** The accept button of an AI consent dialog (i18n aiConsentAccept, aiConsentBackgroundAccept) or the plain one. */
+const ACK_NAME = /^I understand( — (enable AI|allow background AI))?$/;
+
+export async function acknowledge(ctx) {
+  const ack = ctx.page.getByRole('button', { name: ACK_NAME });
   if (await ack.isVisible().catch(() => false)) await click(ctx, ack, 'I understand');
 }
 

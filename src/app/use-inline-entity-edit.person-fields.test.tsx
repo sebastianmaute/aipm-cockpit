@@ -127,3 +127,24 @@ describe("applying an inline task edit under people protection", () => {
     expect(stored).toMatchObject({ priority: "High", assignee: "Marco" });
   });
 });
+
+describe("inline edit passes the protection state to the call", () => {
+  async function submitAndGetArgs(peopleProtected: boolean) {
+    people.state.on = peopleProtected;
+    const spy = modelProposes({ id: 42, priority: "High" });
+    const { result } = renderHook(() => useInlineEntityEdit(mkDeps("task")));
+    act(() => result.current.openFor(task));
+    await act(async () => { await result.current.submit("raise it"); });
+    return spy.mock.calls[0][0];
+  }
+
+  // The mocked getter answers "on"; the organisation-forced path, through the real provider, is pinned in
+  // `ai-people-gates.test.tsx` ("forced protection passes peopleProtected: true even when the project allows people").
+  it("protection on passes peopleProtected: true to callInlineEdit", async () => {
+    expect((await submitAndGetArgs(true)).peopleProtected).toBe(true);
+  });
+
+  it("submit passes peopleProtected to callInlineEdit", async () => {
+    expect((await submitAndGetArgs(false)).peopleProtected).toBe(false);
+  });
+});

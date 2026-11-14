@@ -222,7 +222,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         apiKey: deps.apiKey, model: deps.ai.model, lang: deps.lang, privacy: aiPrivacy(),
         entity: deps.entity, item: target, itemLabel: d.titleOf(target),
         instruction, snapshot: deps.dispatcher.getSnapshot(),
-        guides: deps.guides, groundInGuides: deps.ai.groundInGuides, guideText: inlineGuideText,
+        guides: deps.guides, groundInGuides: deps.ai.groundInGuides, guideText: inlineGuideText, peopleProtected,
         // ★ `historySearch` is NOT forwarded: `callInlineEdit` drops
         //   `search_history` unconditionally, because this path is single-shot
         //   and a search here can only yield an empty plan. Its own comment
