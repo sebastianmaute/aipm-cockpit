@@ -297,6 +297,21 @@ describe("proseGapCitations", () => {
     ]);
   });
 
+  // A quoted test title or code name can carry a register number ("… (§797)") without citing that gap; only prose
+  // outside inline code cites one.
+  it("skips a § number inside an inline code span, and still finds one beside it", () => {
+    const src = [
+      "test `a Jira-linked task read in an earlier send stages a lone create (§797)` in `chat-panel.test.tsx`", // 1
+      "the residual (§562; `rateLimit`) and ``a `§801` inside a double span``, then §810", // 2
+      "an unclosed ` before §804 is prose", // 3
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 562, line: 2 },
+      { n: 810, line: 2 },
+      { n: 804, line: 3 },
+    ]);
+  });
+
   it.each([
     "the co-determination right (§87(1) No. 6)",
     "§ 87 Abs. 1 Nr. 6 BetrVG",

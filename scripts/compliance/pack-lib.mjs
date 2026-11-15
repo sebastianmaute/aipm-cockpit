@@ -368,14 +368,29 @@ const STATUTE_AFTER = new RegExp(
   "u",
 );
 
+/** The [start, end) ranges of a line's inline code spans, as CommonMark reads them: a run of N backticks opens
+ *  a span that the next run of exactly N closes; a run with no closing run is literal text. */
+function codeSpanRanges(line) {
+  const runs = [...line.matchAll(/`+/g)].map((m) => ({ at: m.index, len: m[0].length }));
+  const ranges = [];
+  for (let i = 0; i < runs.length; i++) {
+    const close = runs.findIndex((r, j) => j > i && r.len === runs[i].len);
+    if (close === -1) continue;
+    ranges.push([runs[i].at, runs[close].at + runs[close].len]);
+    i = close;
+  }
+  return ranges;
+}
+
 /** Register citations in a pack file's prose. The rule: `§` directly followed
  *  (no space) by a number of three or more digits, at least 400. Statute
  *  sections are never register citations and are skipped: `§§`, `§ 87` (space),
  *  any number below 400, a number followed by `(` or by `Abs.`/`Nr.`/`No.`/`S.`/
  *  `Satz`, and a number preceded or followed by one of `STATUTE_ABBREVIATIONS`
  *  (`BetrVG §90`, `§401 SGB`, `§611a BGB`; a single lowercase letter right after
- *  the number belongs to the section). Generated block bodies and fenced code
- *  are not prose and are skipped too.
+ *  the number belongs to the section). Generated block bodies, fenced code and
+ *  inline code spans are not prose and are skipped too: a quoted test title can
+ *  carry a register number without citing that gap.
  *  A register citation is recognised ONLY as `§NNN` (no space, NNN at least 400): a German-style
  *  `§ NNN` or a lower number is never checked against the register.
  *  @returns {{ n: number, line: number }[]} in document order, 1-based lines. */
@@ -389,7 +404,9 @@ export function proseGapCitations(src) {
   const out = [];
   lines.forEach((line, i) => {
     if (fenced[i] || inBlock(i)) return;
+    const spans = codeSpanRanges(line);
     for (const m of line.matchAll(cite)) {
+      if (spans.some(([s, e]) => m.index >= s && m.index < e)) continue;
       const n = Number(m[1]);
       if (n < 400) continue;
       if (statuteBefore.test(line.slice(0, m.index))) continue;
