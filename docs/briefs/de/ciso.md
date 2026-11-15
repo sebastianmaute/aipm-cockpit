@@ -66,7 +66,7 @@ der App.
 
 ## Noch nicht belegt / offene Lücken
 
-1. **Fremder Text ohne Kennzeichnung:** Text von außen ohne Kennzeichnung seiner Herkunft, etwa aus einer
+1. **Fremder Text ohne Kennzeichnung und Änderungen im selben Schritt:** Text von außen ohne Kennzeichnung seiner Herkunft, etwa aus einer
    importierten Datei angelegte Einträge, und eine Änderung, die im selben Schritt wie ein Lesen aus Jira gesendet
    wurde, lösen die Prüfpflicht nicht aus (E48, *getestet (Unit)*).
 2. **§794:** Eine einzelne Änderung im Chat wird ohne Prüfkarte angewendet (E47, *getestet (Unit)*).

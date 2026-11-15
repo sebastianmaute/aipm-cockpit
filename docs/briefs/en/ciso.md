@@ -60,7 +60,7 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
 
 ## Not yet proven / open gaps
 
-1. **Unmarked outside text:** text from outside that carries no mark of its origin, such as rows created from an
+1. **Unmarked outside text and same-turn writes:** text from outside that carries no mark of its origin, such as rows created from an
    imported file, and a change sent in the same turn as a Jira read, do not start the review hold (E48,
    *tested (unit)*).
 2. **§794:** a single chat write applies without the review card (E47, *tested (unit)*).
