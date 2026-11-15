@@ -11,15 +11,22 @@ this file covers what to do when the app needs to ship or starts misbehaving.
   `jira/*` (eight), `confluence/page`, `timelog`, `stt`, `ecb`, and `ai/status`,
   `ai/messages`, `ai/models` (the optional AI gateway relay, see
   [Routing AI through a gateway](#routing-ai-through-a-gateway-run-time-optional)).
-  Count them with `find src/app/api -name route.ts | wc -l`. No database,
-  no auth middleware, no session store,
-  and no _server_ background jobs. "Scheduled jobs" (recurring Claude analyses,
-  0.105.0+) run entirely in the browser while the app is open — there is no
-  server cron; a run missed on an earlier day is skipped. They are opt-in and off by
-  default (see "Disable / reset scheduled jobs" below).
-- **All user data lives in the browser** (`IndexedDB` for the workspace,
-  `localStorage` for settings). Losing the server tier loses nothing about the
-  users; losing the browser profile loses the user's data.
+  Count them with `find src/app/api -name route.ts | wc -l`. No database of
+  its own, no auth middleware, no session store. The server runs ONE background
+  job: the deletion of expired saved AI chats (`startChatSweepSchedule` in
+  `src/app/api/ai/_chat-sweep.ts`, started from `src/instrumentation.ts`), once at
+  start and every 24 hours, with the Turso address and token it is configured with
+  (see [Saved AI chats](#saved-ai-chats-recovery-key-retention-and-erasure-run-time)).
+  "Scheduled jobs" (recurring Claude analyses, 0.105.0+) run entirely in the
+  browser while the app is open — there is no server cron for them; a run missed
+  on an earlier day is skipped. They are opt-in and off by default (see
+  "Disable / reset scheduled jobs" below).
+- **User data lives where the user's storage setting puts it**: the browser
+  (`IndexedDB` for the workspace), a JSON, CSV or Markdown file on the device,
+  a JSON or CSV file on a SharePoint site, or a Turso database (`createBackend`
+  in `src/app/storage.ts`); settings are in `localStorage`. The server keeps no
+  project data, so losing the server tier loses none; losing the browser profile
+  loses the settings, and the workspace too when it is stored in the browser.
 - **Credentials are NOT in `localStorage` in the clear.** The five secrets
   (Anthropic key, Turso auth token, Jira, Timelog and STT tokens) are stored
   only as AES-256-GCM ciphertext (`localStorage["aipm-cockpit:secrets"]`),

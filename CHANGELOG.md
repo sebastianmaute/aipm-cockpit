@@ -204,6 +204,8 @@ longer carries its own changelog comment.
 - **Live checks for deleting saved AI chats.** A new live-Turso test runs the real statements against a database:
   deleting one chat, "Delete all my chats", keeping the newest 50 chats per person, deleting chats older than the
   retention period, and removing a permanently deleted project's chats. It runs in CI's destructive live-Turso job.
+- **Role briefs on AI use (CEO, COO, CIO, CISO, CAIO, DPO, project manager) in English and German under
+  `docs/briefs/`, with an evidence table.**
 
 ### Changed
 

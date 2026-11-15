@@ -57,6 +57,8 @@ It does not cover:
 | [Model notices](model-notices.md) | Templates for informing staff and external stakeholders | DPO |
 | [AI literacy](ai-literacy.md) | Plain-language material for the people who use the app | Everyone using the AI |
 
+One-page AI briefs per role, which link into these documents, are in [docs/briefs](../../briefs/README.md).
+
 ## Open gaps
 
 These are known gaps that are still open. Each is an entry of the project's public register of open
@@ -72,7 +74,7 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | §793 | The installer's uninstaller is not code-signed |
 | §794 | A single AI chat write applies without the review card |
 | §795 | Background AI runs are consented once, not approved run by run |
-| §796 | Tasks created by Plan with AI's work breakdown cannot be undone |
+| §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
 | §800 | The Content Security Policy allows whole host families by wildcard |
@@ -80,6 +82,10 @@ and the pack's check fails when a listed entry is closed or missing. [verified:
 | §802 | The AI gateway route has never been run against a real gateway |
 | §804 | Plan with AI always sends internal hourly rates; there is no option to leave them out |
 | §810 | Hiding a project's Resources function keeps neither the chat's people tools nor the absence list from the AI |
+| §811 | The time the AI features save is not measured |
+| §812 | Whether Optimize work breakdown with AI repeats is not measured |
+| §813 | Erasure and retention of saved chats are proven live only for the statements the erasure spec covers |
+| §814 | Several AI paths have no recorded cost or observed behaviour from a measured run |
 <!-- PACK:open-gaps:END -->
 
 What each gap means for you. Each sentence restates its register entry in `docs/open-followups.md`,

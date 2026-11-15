@@ -16,6 +16,19 @@ export const PACK_FILES = Object.freeze([
   "ai-literacy.md",
 ]);
 
+/** The per-language files of the AI briefs under `docs/briefs/{en,de}/`: one page per reader, plus the appendix
+ *  that carries the generated blocks. */
+export const BRIEF_FILES = Object.freeze([
+  "ceo.md",
+  "cio.md",
+  "ciso.md",
+  "caio.md",
+  "coo.md",
+  "dpo.md",
+  "pm.md",
+  "appendix.md",
+]);
+
 export const BLOCK_NAMES = Object.freeze([
   "ai-paths",
   "ai-paths-people",
@@ -23,6 +36,8 @@ export const BLOCK_NAMES = Object.freeze([
   "server-destinations",
   "deployment-switches",
   "open-gaps",
+  "figures",
+  "team-month",
 ]);
 
 export const PACK_LANGS = Object.freeze(["en", "de"]);
@@ -195,8 +210,21 @@ export const DENY_PHRASES = Object.freeze({
     { re: "never\\s+leaves?", label: "never leaves" },
     { re: "no\\s+(?:personal\\s+)?data\\s+(?:is\\s+sent|leaves)", label: "no data is sent / leaves" },
     "fully auditable",
-    { re: "instant(?:ly)?\\s+revo(?:cation|ked)", label: "instant revocation" },
+    { re: "instant(?:ly)?\\s+revo(?:cation|ke|kes|ked|king)", label: "instant revocation" },
     "always in the loop",
+    // Brief claims (docs/briefs): each is a promise the product does not make.
+    { re: "sovereign(?:ty)?", label: "sovereign" },
+    { re: "(?:savings|time\\s+saved)\\s+(?:are|is|were|have\\s+been|has\\s+been)\\s+(?:measured|proven|verified)", label: "savings stated as measured" },
+    { re: "(?:measured|proven|verified)\\s+(?:time\\s+)?savings", label: "measured savings" },
+    { re: "(?:(?:it|that)['’]s|is|are)\\s+(?:fully\\s+)?secure", label: "is secure" },
+    { re: "(?:gateway|central(?:ly)?\\s+governance)\\s+(?:is|are)\\s+proven", label: "gateway proven" },
+    { re: "central(?:ised|ized)?\\s+governance", label: "central governance" },
+    { re: "per[- ]feature\\s+cost\\s+(?:control|limits?|caps?)", label: "per-feature cost control" },
+    { re: "anthropic(?:'s|’s)?\\s+(?:terms|guarantees?)\\s+(?:guarantee|ensure|bind|protect)\\w*", label: "Anthropic's terms as guarantees" },
+    { re: "anthropic\\s+guarantees", label: "Anthropic guarantees" },
+    { re: "always\\s+(?:a\\s+)?human\\s+in\\s+the\\s+loop", label: "always a human in the loop" },
+    { re: "(?:humans?|people|a\\s+person)\\s+always\\s+(?:stays?|remains?|are|is)\\s+in\\s+the\\s+loop", label: "humans always stay in the loop" },
+    { re: "always\\s+(?:stays?|remains?)\\s+in\\s+the\\s+loop", label: "always stays in the loop" },
   ]),
   de: Object.freeze([
     { re: "\\p{L}*konform(?:e|er|es|en|em)?", label: "konform" },
@@ -210,6 +238,21 @@ export const DENY_PHRASES = Object.freeze({
     "vollständig auditierbar",
     { re: "sofortiger\\s+widerruf|sofort\\s+widerrufbar", label: "sofortiger Widerruf" },
     "immer ein mensch",
+    // Brief claims (docs/briefs): each is a promise the product does not make.
+    { re: "\\p{L}*souverän\\p{L}*", label: "souverän" },
+    { re: "vollständig\\s+(?:nachvollziehbar|prüfbar)\\p{L}*", label: "vollständig nachvollziehbar" },
+    { re: "(?:ist|sind)\\s+(?:vollständig\\s+)?sicher", label: "ist sicher" },
+    { re: "(?:einsparungen|zeitersparnis)\\s+(?:sind|ist|wurden?)\\s+(?:gemessen|belegt|nachgewiesen)", label: "Einsparung als gemessen" },
+    { re: "(?:gemessene|belegte|nachgewiesene)\\s+(?:einsparung|zeitersparnis)\\p{L}*", label: "gemessene Einsparung" },
+    { re: "zentrale\\p{L}*\\s+(?:governance|steuerung)", label: "zentrale Governance" },
+    { re: "gateway\\s+(?:ist\\s+)?(?:belegt|nachgewiesen|bewiesen)", label: "Gateway belegt" },
+    { re: "sofort\\s+widerrufen", label: "sofort widerrufen" },
+    { re: "kostenkontrolle\\s+(?:je|pro)\\s+funktion", label: "Kostenkontrolle je Funktion" },
+    { re: "anthropic\\s+garantiert", label: "Anthropic garantiert" },
+    { re: "anthropics?\\s+bedingungen\\s+garantier\\p{L}*", label: "Anthropics Bedingungen garantieren" },
+    { re: "(?:immer|stets)\\s+eine?n?\\s+(?:mensch|person)\\p{L}*\\s+(?:beteiligt|dabei|eingebunden)", label: "immer ein Mensch beteiligt" },
+    { re: "mensch\\s+(?:ist|bleibt)\\s+(?:immer|stets)\\s+(?:beteiligt|dabei|eingebunden)", label: "Mensch ist immer beteiligt" },
+    { re: "(?:mensch|person)\\s+(?:ist|bleibt)\\s+(?:immer|stets)\\s+(?:beteiligt|dabei|eingebunden)", label: "Person ist immer beteiligt" },
   ]),
 });
 
@@ -435,6 +478,273 @@ export function reviewLineViolations(enReadme, deReadme, appVersion) {
     if (compareVersions(m[1], appVersion) > 0) {
       out.push(`${lang} review version ${m[1]} is newer than the app version ${appVersion}`);
     }
+  }
+  return out;
+}
+
+/** Keys allowed in `docs/briefs/figures.json`, by level. The file is machine-written by the measured run, so an
+ *  unknown key is a sign something else was pasted in. Free-key maps are checked by FREE_KEY instead. */
+const FIGURE_KEYS = {
+  top: ["schema", "commit", "runDate", "model", "data", "hiddenWhenProtected", "paths", "behaviour", "relayKeyCheck", "rates"],
+  path: [
+    "id", "protection", "protectionUnverifiedCalls", "calls", "inputTokens", "cacheWriteTokens", "cacheReadTokens",
+    "outputTokens", "usdPerCall", "medianLatencyMs",
+  ],
+  behaviour: [
+    "protectedNameHitsOn", "emailHitsOn", "documentedExceptionHitsOn", "positiveControlHitsOff", "inferenceGeo", "requests",
+  ],
+  relayKeyCheck: ["runs", "warmExtraMs"],
+  relayRun: ["path", "coldExtraMs"],
+  rate: ["input", "output", "cacheWrite", "cacheRead"],
+};
+const FREE_KEY = /^[a-z0-9._-]{1,64}$/i;
+const COMMIT_RE = /^[0-9a-f]{40}$/;
+const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+
+const PROTECTIONS = ["off", "on", "relay"];
+/** usdPerCall is "measured tokens at list prices" (the figures caption says so); allow rounding to four places. */
+const COST_TOLERANCE = 5e-5;
+
+/** Cross-row checks: no duplicate (id, protection), no hidden id with an "on" row, and every usdPerCall follows
+ *  from its tokens at the listed rates of the run's model. Rates are per million tokens. */
+function pathRowViolations(figures, out) {
+  const rows = Array.isArray(figures.paths) ? figures.paths.filter(isObj) : [];
+  const seen = new Set();
+  for (const p of rows) {
+    const key = `${p.id}/${p.protection}`;
+    if (seen.has(key)) out.push(`figures.paths: duplicate row ${key}`);
+    seen.add(key);
+  }
+  const hidden = Array.isArray(figures.hiddenWhenProtected) ? figures.hiddenWhenProtected : [];
+  for (const id of hidden) {
+    if (rows.some((p) => p.id === id && p.protection === "on")) {
+      out.push(`figures.hiddenWhenProtected: "${id}" has an "on" row`);
+    }
+  }
+  const rate = isObj(figures.rates) && isObj(figures.rates[figures.model]) ? figures.rates[figures.model] : null;
+  if (!rate) {
+    out.push(`figures.rates: no rates for the run's model "${figures.model}"`);
+    return;
+  }
+  rows.forEach((p, i) => {
+    const nums = [p.calls, p.inputTokens, p.cacheWriteTokens, p.cacheReadTokens, p.outputTokens, p.usdPerCall];
+    if (!nums.every(isNum) || !["input", "output", "cacheWrite", "cacheRead"].every((k) => isNum(rate[k])) || p.calls <= 0) return;
+    const usd =
+      (p.inputTokens * rate.input + p.cacheWriteTokens * rate.cacheWrite + p.cacheReadTokens * rate.cacheRead +
+        p.outputTokens * rate.output) / 1e6 / p.calls;
+    if (Math.abs(usd - p.usdPerCall) > COST_TOLERANCE) {
+      out.push(`figures.paths[${i}].usdPerCall: ${p.usdPerCall} does not follow from its tokens at the listed rates (${usd.toFixed(4)})`);
+    }
+  });
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const isNum = (v) => typeof v === "number" && Number.isFinite(v);
+
+/** Collects one message per defect while walking the figures file. */
+function checker(out) {
+  const keys = (obj, allowed, where) => {
+    for (const k of Object.keys(obj)) if (!allowed.includes(k)) out.push(`${where}: key "${k}" is not allowed`);
+  };
+  return {
+    keys,
+    /** `v` must be a plain object; returns it, or null after reporting. */
+    object(v, where) {
+      if (isObj(v)) return v;
+      out.push(`${where}: must be an object`);
+      return null;
+    },
+    array(v, where) {
+      if (Array.isArray(v)) return v;
+      out.push(`${where}: must be an array`);
+      return null;
+    },
+    num(v, where) {
+      if (!isNum(v)) out.push(`${where}: must be a finite number`);
+    },
+    str(v, where) {
+      if (typeof v !== "string" || v === "") out.push(`${where}: must be a non-empty string`);
+    },
+    date(v, where) {
+      if (typeof v !== "string" || !DATE_RE.test(v)) out.push(`${where}: must be a YYYY-MM-DD date`);
+    },
+    /** A free-key map of finite numbers; every key matches FREE_KEY. */
+    numberMap(v, where) {
+      const o = this.object(v, where);
+      if (!o) return;
+      for (const [k, n] of Object.entries(o)) {
+        if (!FREE_KEY.test(k)) out.push(`${where}: key "${k}" does not match ${FREE_KEY}`);
+        this.num(n, `${where}.${k}`);
+      }
+    },
+  };
+}
+
+/** The measured-figures file: schema 1, ONE 40-hex commit for the whole run, allowlisted keys only, and every
+ *  value the shape the renderer reads (objects, arrays, finite numbers, dates, key-pattern ids).
+ *  @returns {string[]} one message per defect. */
+export function figuresViolations(figures) {
+  const out = [];
+  if (!isObj(figures)) return ["figures: not an object"];
+  const c = checker(out);
+  c.keys(figures, FIGURE_KEYS.top, "figures");
+  if (figures.schema !== 1) out.push(`figures: schema is ${JSON.stringify(figures.schema)}, expected 1`);
+  if (typeof figures.commit !== "string" || !COMMIT_RE.test(figures.commit)) {
+    out.push("figures: commit must be a single 40-hex commit (a run measured at mixed commits is not one run)");
+  }
+  c.date(figures.runDate, "figures.runDate");
+  c.str(figures.model, "figures.model");
+  c.str(figures.data, "figures.data");
+
+  const hidden = c.array(figures.hiddenWhenProtected, "figures.hiddenWhenProtected");
+  (hidden ?? []).forEach((id, i) => {
+    if (typeof id !== "string" || !FREE_KEY.test(id)) {
+      out.push(`figures.hiddenWhenProtected[${i}]: must be a string matching ${FREE_KEY}`);
+    }
+  });
+
+  (c.array(figures.paths, "figures.paths") ?? []).forEach((p, i) => {
+    const where = `figures.paths[${i}]`;
+    const o = c.object(p, where);
+    if (!o) return;
+    c.keys(o, FIGURE_KEYS.path, where);
+    c.str(o.id, `${where}.id`);
+    c.str(o.protection, `${where}.protection`);
+    for (const k of FIGURE_KEYS.path.slice(2)) c.num(o[k], `${where}.${k}`);
+    if (typeof o.id === "string" && !FREE_KEY.test(o.id)) out.push(`${where}.id: must match ${FREE_KEY}`);
+    if (!PROTECTIONS.includes(o.protection)) out.push(`${where}.protection: must be one of ${PROTECTIONS.join(", ")}`);
+    if (isNum(o.calls) && o.calls < 1) out.push(`${where}.calls: must be at least 1`);
+    for (const k of FIGURE_KEYS.path.slice(2)) if (isNum(o[k]) && o[k] < 0 && k !== "calls") out.push(`${where}.${k}: must not be negative`);
+    if (isNum(o.protectionUnverifiedCalls) && isNum(o.calls) && o.protectionUnverifiedCalls > o.calls) {
+      out.push(`${where}.protectionUnverifiedCalls: exceeds calls`);
+    }
+  });
+  pathRowViolations(figures, out);
+
+  const b = c.object(figures.behaviour, "figures.behaviour");
+  if (b) {
+    c.keys(b, FIGURE_KEYS.behaviour, "figures.behaviour");
+    for (const k of ["protectedNameHitsOn", "emailHitsOn", "positiveControlHitsOff"]) c.num(b[k], `figures.behaviour.${k}`);
+    for (const k of ["documentedExceptionHitsOn", "inferenceGeo", "requests"]) c.numberMap(b[k], `figures.behaviour.${k}`);
+  }
+
+  const r = c.object(figures.relayKeyCheck, "figures.relayKeyCheck");
+  if (r) {
+    c.keys(r, FIGURE_KEYS.relayKeyCheck, "figures.relayKeyCheck");
+    (c.array(r.runs, "figures.relayKeyCheck.runs") ?? []).forEach((run, i) => {
+      const where = `figures.relayKeyCheck.runs[${i}]`;
+      const o = c.object(run, where);
+      if (!o) return;
+      c.keys(o, FIGURE_KEYS.relayRun, where);
+      c.str(o.path, `${where}.path`);
+      c.num(o.coldExtraMs, `${where}.coldExtraMs`);
+    });
+    if (r.warmExtraMs !== null) c.num(r.warmExtraMs, "figures.relayKeyCheck.warmExtraMs");
+  }
+
+  const rates = c.object(figures.rates, "figures.rates");
+  if (rates) {
+    c.date(rates.fetchedAt, "figures.rates.fetchedAt");
+    for (const [k, v] of Object.entries(rates)) {
+      if (k === "fetchedAt") continue;
+      if (!FREE_KEY.test(k)) out.push(`figures.rates: key "${k}" does not match ${FREE_KEY}`);
+      const o = c.object(v, `figures.rates.${k}`);
+      if (!o) continue;
+      c.keys(o, FIGURE_KEYS.rate, `figures.rates.${k}`);
+      for (const f of FIGURE_KEYS.rate) c.num(o[f], `figures.rates.${k}.${f}`);
+    }
+  }
+  return out;
+}
+
+const EVIDENCE_ID_RE = /(?<![\p{L}\p{N}])E(\d+)(?![\p{L}\p{N}])/gu;
+const EVIDENCE_ROW_RE = /^\s*\|\s*E(\d+)\s*\|/;
+// The evidence table's header, English then German; no other table's rows are evidence rows.
+const EVIDENCE_HEADER_RE =
+  /^\s*\|\s*Id\s*\|\s*(?:Claim|Aussage)\s*\|\s*(?:Label|Belegart)\s*\|\s*(?:Source|Quelle)\s*\|\s*$/;
+
+/** Evidence ids cited in one text's prose (outside fences and generated blocks), as a sorted unique list. In the
+ *  appendix (`isAppendix`) a table row's own id cell defines the row and is not a citation; on a page it is one. */
+function citedEvidenceIds(src, isAppendix = false) {
+  const { lines, blocks } = scanBlocks(src);
+  const fenced = fencedFlags(lines);
+  const ids = new Set();
+  lines.forEach((line, i) => {
+    if (fenced[i] || blocks.some((b) => i >= b.begin && i <= b.end)) return;
+    const text = isAppendix ? line.replace(EVIDENCE_ROW_RE, "|") : line;
+    for (const m of text.matchAll(EVIDENCE_ID_RE)) ids.add(Number(m[1]));
+  });
+  return [...ids].sort((a, b) => a - b);
+}
+
+/** Row ids (`| E<n> |`) of an appendix evidence table, outside generated blocks and fenced code. */
+function evidenceRowIds(appendix) {
+  const { lines, blocks } = scanBlocks(appendix);
+  const fenced = fencedFlags(lines);
+  const ids = new Set();
+  let inTable = false;
+  lines.forEach((line, i) => {
+    if (fenced[i] || blocks.some((b) => i >= b.begin && i <= b.end)) {
+      inTable = false;
+      return;
+    }
+    if (EVIDENCE_HEADER_RE.test(line)) {
+      inTable = true;
+      return;
+    }
+    if (!/^\s*\|/.test(line)) {
+      inTable = false;
+      return;
+    }
+    const m = inTable ? EVIDENCE_ROW_RE.exec(line) : null;
+    if (m) ids.add(Number(m[1]));
+  });
+  return ids;
+}
+
+const idList = (ids) => [...ids].sort((x, y) => x - y).map((n) => "E" + n).join(", ");
+
+/** Evidence ids: every `E<n>` a page cites must be a row id (`| E<n> |`, outside generated blocks and fenced
+ *  code) of the appendix table, and the English and German pages of one reader must cite identical id sets.
+ *  `pages` maps `<lang>/<file>` to its text. With `appendixDe`, German pages are checked against it and both
+ *  appendices must carry the same row ids; without it, every page is checked against `appendix`.
+ *  @returns {string[]} one message per defect. */
+export function evidenceViolations(pages, appendix, appendixDe) {
+  const out = [];
+  const enRows = evidenceRowIds(appendix);
+  const deRows = appendixDe === undefined ? enRows : evidenceRowIds(appendixDe);
+  if (idList(enRows) !== idList(deRows)) {
+    out.push(`appendix: evidence row ids differ (en [${idList(enRows)}]; de [${idList(deRows)}])`);
+  }
+  for (const [lang, src, rows] of [["en", appendix, enRows], ["de", appendixDe ?? appendix, deRows]]) {
+    for (const n of citedEvidenceIds(src, true)) {
+      if (!rows.has(n)) out.push(`${lang}/appendix.md: cites E${n}, which is not a row of the appendix evidence table`);
+    }
+    if (appendixDe === undefined) break;
+  }
+  const cited = {};
+  for (const [name, src] of Object.entries(pages)) {
+    cited[name] = citedEvidenceIds(src);
+    const rows = name.startsWith("de/") ? deRows : enRows;
+    for (const n of cited[name]) if (!rows.has(n)) out.push(`${name}: cites E${n}, which is not a row of the appendix evidence table`);
+  }
+  for (const name of Object.keys(pages)) {
+    const m = /^en\/(.+)$/.exec(name);
+    if (!m) continue;
+    const twin = `de/${m[1]}`;
+    if (!Object.hasOwn(pages, twin)) continue;
+    if (cited[name].join(",") !== cited[twin].join(",")) {
+      out.push(`${m[1]}: evidence ids differ (en [${idList(cited[name])}]; de [${idList(cited[twin])}])`);
+    }
+  }
+  return out;
+}
+
+/** A README must link every page of both languages (`](en/<file>)` and `](de/<file>)`). */
+export function linkViolations(readme, files) {
+  const out = [];
+  for (const lang of PACK_LANGS) {
+    for (const f of files) if (!readme.includes(`](${lang}/${f})`)) out.push(`README.md: no link to ${lang}/${f}`);
   }
   return out;
 }
