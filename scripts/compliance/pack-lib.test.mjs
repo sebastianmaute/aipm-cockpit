@@ -843,3 +843,39 @@ describe("AI briefs, last open paths", () => {
     expect(figuresViolations(f)).toEqual(["figures.paths[0].calls: must be at least 1"]);
   });
 });
+
+// The line-based checks (blocks, headings, claims, register entries, evidence ids) skip fenced code as CommonMark
+// reads it. A backtick line whose info string holds a backtick opens no fence, so what follows it is prose; a tilde
+// fence may carry one and still opens; a fence inside a list item is code too.
+describe("fenced code, as CommonMark parses it, in the line-based checks", () => {
+  const notAFence = "``` a`b";
+
+  it("parseBlocks reads a marker after a backtick line with a backtick in its info string", () => {
+    expect(parseBlocks([notAFence, B("ai-paths"), notAFence].join("\n")).errors).toHaveLength(1);
+    expect(parseBlocks(["~~~ a`b", B("ai-paths"), "~~~"].join("\n")).errors).toEqual([]);
+  });
+
+  it("parseBlocks ignores a marker inside a fence that belongs to a list item", () => {
+    expect(parseBlocks(["- ```", `  ${B("ai-paths")}`, "  ```"].join("\n")).errors).toEqual([]);
+  });
+
+  it("structureOf keeps a heading after a backtick line with a backtick in its info string", () => {
+    expect(structureOf([notAFence, "## B"].join("\n")).headings).toEqual(["##"]);
+  });
+
+  it("claimViolations checks the line after a backtick line with a backtick in its info string", () => {
+    expect(claimViolations([notAFence, "It is compliant."].join("\n"), "en")).toHaveLength(1);
+  });
+
+  it("gapViolations finds a register entry after a backtick line with a backtick in its info string", () => {
+    const register = ["# Register", notAFence, "## 5. Open after the line"].join("\n");
+    expect(gapViolations([5], register)).toEqual([]);
+  });
+
+  it("evidenceViolations reads ids after a backtick line with a backtick in its info string", () => {
+    const appendix = ["| Id | Claim | Label | Source |", "|---|---|", "| E1 | row |"].join("\n");
+    expect(evidenceViolations({ "en/a.md": `${notAFence}\nE9`, "de/a.md": `${notAFence}\nE9` }, appendix)).toHaveLength(2);
+    const rowAfter = [notAFence, "| Id | Claim | Label | Source |", "|---|---|", "| E9 | row |"].join("\n");
+    expect(evidenceViolations({ "en/a.md": "E9", "de/a.md": "E9" }, rowAfter)).toEqual([]);
+  });
+});

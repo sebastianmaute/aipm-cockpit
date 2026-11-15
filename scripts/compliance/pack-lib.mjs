@@ -45,29 +45,30 @@ export const BLOCK_NAMES = Object.freeze([
 export const PACK_LANGS = Object.freeze(["en", "de"]);
 
 const MARKER_RE = /^\s*<!-- PACK:([A-Za-z0-9-]+):(BEGIN|END) -->\s*$/;
-const FENCE_RE = /^ {0,3}(`{3,}|~{3,})/;
 const PACK_COMMENT_RE = /<!--\s*PACK:/;
 const HEADING_RE = /^(#{1,6})\s+\S/;
 
 const splitLines = (src) => src.split(/\r?\n/);
 
-/** Per line: is it inside (or part of) a fenced code block? A fence closes on
- *  the same character with at least as many characters. */
+/** One check run reads the same files many times, and the register alone takes about a second to parse, so
+ *  `fencedFlags` keeps its answer per source text. Callers never modify the returned array. */
+const fencedCache = new Map();
+const FENCED_CACHE_MAX = 64;
+
+/** Per line: is it inside (or part of) a fenced code block, as CommonMark parses it (`markdownEvents`)? A regex
+ *  read a backtick line with a backtick in its info string as a fence, which CommonMark does not, and so skipped the
+ *  prose after it; and it missed a fence inside a list item or block quote. */
 function fencedFlags(lines) {
-  const flags = [];
-  let open = null;
-  for (const line of lines) {
-    const m = FENCE_RE.exec(line);
-    if (open) {
-      flags.push(true);
-      if (m && m[1][0] === open.ch && m[1].length >= open.len && line.trim() === m[1]) open = null;
-    } else if (m) {
-      flags.push(true);
-      open = { ch: m[1][0], len: m[1].length };
-    } else {
-      flags.push(false);
-    }
+  const src = lines.join("\n");
+  const cached = fencedCache.get(src);
+  if (cached) return cached;
+  const flags = lines.map(() => false);
+  for (const [kind, token] of markdownEvents(src)) {
+    if (kind !== "enter" || token.type !== "codeFenced") continue;
+    for (let l = token.start.line; l <= token.end.line; l++) flags[l - 1] = true;
   }
+  if (fencedCache.size >= FENCED_CACHE_MAX) fencedCache.clear();
+  fencedCache.set(src, flags);
   return flags;
 }
 
@@ -370,15 +371,19 @@ const STATUTE_AFTER = new RegExp(
   "u",
 );
 
+/** micromark's parse events for `src`, with the GFM table extension because the pack's tables are GFM tables. */
+function markdownEvents(src) {
+  return postprocess(parse({ extensions: [gfmTable()] }).document().write(preprocess()(src, undefined, true)));
+}
+
 /** The [start, end) source offsets of everything in `src` that Markdown renders as code: inline code spans and
  *  indented and fenced code blocks. Read with micromark, a
  *  CommonMark parser, plus its GFM table extension because the pack's tables are GFM tables: hand-written pairing got
  *  hard wraps, block quotes, lists, indented code and HTML blocks wrong in turn, and either error direction is a
  *  defect here — a span missed reports a number that is code, a span invented swallows a real citation. */
 function codeRanges(src) {
-  const events = postprocess(parse({ extensions: [gfmTable()] }).document().write(preprocess()(src, undefined, true)));
   const ranges = [];
-  for (const [kind, token] of events) {
+  for (const [kind, token] of markdownEvents(src)) {
     if (kind === "enter" && (token.type === "codeText" || token.type === "codeIndented" || token.type === "codeFenced")) {
       ranges.push([token.start.offset, token.end.offset]);
     }
@@ -408,8 +413,6 @@ function lineStartOffsets(src) {
  *  @returns {{ n: number, line: number }[]} in document order, 1-based lines. */
 export function proseGapCitations(src) {
   const { lines, blocks } = scanBlocks(src);
-  // Fenced code comes from `codeRanges` alone, not also from `fencedFlags`: the line-based check reads a backtick
-  // line whose info string holds a backtick as a fence, which CommonMark does not, and would skip real prose.
   const inBlock = (i) => blocks.some((b) => i > b.begin && i < b.end);
   const cite = /(?<![§\p{L}\p{N}])§(\d{3,})(?!\d)(?:[a-z](?!\p{L}))?/gu;
   const statuteBefore = STATUTE_BEFORE;
