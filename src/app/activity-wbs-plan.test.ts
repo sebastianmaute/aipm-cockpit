@@ -85,7 +85,8 @@ describe("the activity panel names the created tasks", () => {
     const args = wbsPlanActivityArgs(25, many);
     const panel = activityMessage("en-US", "ai.wbsPlan", args, { display: true });
     for (let i = 0; i < 25; i++) expect(panel).toContain(`#${100 + i} Piece ${i}`);
-    expect(panel).not.toContain("more");
+    // Ends on the last task: no remainder follows, whatever its wording.
+    expect(panel.endsWith("#124 Piece 24")).toBe(true);
     const model = activityMessage("en-US", "ai.wbsPlan", args);
     expect(model).not.toContain("#120");
     expect(model.endsWith("#119 Piece 19; and 5 more")).toBe(true);
@@ -95,7 +96,7 @@ describe("the activity panel names the created tasks", () => {
     const twenty = Array.from({ length: 20 }, (_, i) => ({ id: 100 + i, taskName: `Piece ${i}` }));
     const en = activityMessage("en-US", "ai.wbsPlan", wbsPlanActivityArgs(20, twenty));
     expect(en.endsWith("#119 Piece 19")).toBe(true);
-    expect(en).not.toContain("more");
+    expect(en.split("; ")).toHaveLength(20);
   });
 
   it("a count-only entry reads as before", () => {

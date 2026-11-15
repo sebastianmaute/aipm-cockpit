@@ -63,7 +63,9 @@ function auditEntry(e: ActivityEntry): ActivityAuditEntry {
     kind: e.kind,
     args: [...e.args],
     ...(e.actor !== undefined ? { actor: e.actor } : {}),
-    message: activityMessage("en-US", e.kind, e.args),
+    // `allDetail`: people read this file, so a work-breakdown entry names every task it created, as the Activity
+    // panel does; stored values stay raw (no `display`, §476), and the capped form is the model's alone.
+    message: activityMessage("en-US", e.kind, e.args, { allDetail: true }),
     ...(e.changes !== undefined ? { changes: e.changes.map((c) => ({ ...c })) } : {}),
   };
 }
