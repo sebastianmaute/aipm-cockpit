@@ -3,6 +3,8 @@
  *  reader. Same split as `followup-index-lib.mjs` and its CLI. */
 import { ENTRY_RE } from "../followup-claims-lib.mjs";
 import { headingState, stateIsClosed } from "../followup-index-lib.mjs";
+import { parse, postprocess, preprocess } from "micromark";
+import { gfmTable } from "micromark-extension-gfm-table";
 
 export const PACK_FILES = Object.freeze([
   "README.md",
@@ -368,123 +370,27 @@ const STATUTE_AFTER = new RegExp(
   "u",
 );
 
-/** The [start, end) ranges of the inline code spans in one Markdown block's text (its lines joined by "\n"): a run
- *  of N backticks opens a span that the next run of exactly N closes, so a span can cross a hard wrap; a run with no
- *  closing run is literal text. A backtick right after an odd number of backslashes is escaped and cannot open a
- *  span (the rest of its run still can); inside a span a backslash escapes nothing, so any run of N closes it. */
-function codeSpanRanges(text) {
-  const runs = [...text.matchAll(/`+/g)].map((m) => {
-    const slashes = /\\*$/.exec(text.slice(0, m.index))[0].length;
-    return { at: m.index, len: m[0].length, escaped: slashes % 2 === 1 };
-  });
+/** The [start, end) source offsets of everything in `src` that Markdown renders as code: inline code spans and
+ *  indented code blocks (fenced code is also skipped line by line, `fencedFlags`). Read with micromark, a
+ *  CommonMark parser, plus its GFM table extension because the pack's tables are GFM tables: hand-written pairing got
+ *  hard wraps, block quotes, lists, indented code and HTML blocks wrong in turn, and either error direction is a
+ *  defect here — a span missed reports a number that is code, a span invented swallows a real citation. */
+function codeRanges(src) {
+  const events = postprocess(parse({ extensions: [gfmTable()] }).document().write(preprocess()(src, undefined, true)));
   const ranges = [];
-  for (let i = 0; i < runs.length; i++) {
-    const open = runs[i].escaped ? { at: runs[i].at + 1, len: runs[i].len - 1 } : runs[i];
-    if (open.len === 0) continue;
-    const close = runs.findIndex((r, j) => j > i && r.len === open.len);
-    if (close === -1) continue;
-    ranges.push([open.at, runs[close].at + runs[close].len]);
-    i = close;
+  for (const [kind, token] of events) {
+    if (kind === "enter" && (token.type === "codeText" || token.type === "codeIndented" || token.type === "codeFenced")) {
+      ranges.push([token.start.offset, token.end.offset]);
+    }
   }
   return ranges;
 }
 
-/** Where a new Markdown block starts even without a blank line before it, judged on the line's text inside any
- *  block-quote markers: a table row, a list item or a heading. Code spans never cross into such a line. */
-const BLOCK_START = /^\s*(?:\||[-*+]\s|\d+[.)]\s|#)/;
-
-/** A line that is a whole block on its own, judged inside any block-quote markers: a table row, a heading, a
- *  thematic break (`---`, `***`, `___`), a setext underline (`===`; a `---` one is a thematic break here) or an HTML
- *  comment line. Code spans cross neither into nor out of it. */
-const ONE_LINE_BLOCK = /^\s*(?:\||#|<!--|(?:[-*_][ \t]*){3,}$|=+[ \t]*$)/;
-
-/** A list item's marker, judged inside any block-quote markers. */
-const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])\s/;
-
-/** The opening of an HTML block (CommonMark types 6 and 7): a block-level tag, which may interrupt a paragraph, or
- *  any other tag alone on its line, which may not. An HTML comment line is `ONE_LINE_BLOCK`. */
-const HTML_BLOCK_TAG =
-  /^ {0,3}<\/?(?:address|article|aside|blockquote|body|details|dialog|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|head|header|hr|html|li|main|nav|ol|p|pre|section|summary|table|tbody|td|tfoot|th|thead|tr|ul)(?=[\s/>]|$)/i;
-const HTML_OTHER_TAG = /^ {0,3}<\/?[A-Za-z][A-Za-z0-9-]*(?:\s[^>]*)?\/?>\s*$/;
-
-/** A line's block-quote depth (its leading `>` markers) and its text inside them. */
-function quoteParts(line) {
-  const m = /^(?: {0,3}> ?)+/.exec(line);
-  if (!m) return { depth: 0, inner: line };
-  return { depth: (m[0].match(/>/g) ?? []).length, inner: line.slice(m[0].length) };
-}
-
-/** Per line, the line's code-span ranges as [start, end) offsets into that line, and the lines of indented code
- *  blocks. Spans are paired across the lines of one Markdown paragraph (`codeSpanRanges`), as CommonMark reads it:
- *  - a paragraph ends at a blank line (inside quote markers too), at a line that `BLOCK_START` or `ONE_LINE_BLOCK`
- *    match, and where the block-quote depth changes, except a lazy continuation line, which stays in the paragraph;
- *  - an indented code block (four spaces or a tab, after a blank line or another block, outside a list) is code:
- *    its lines are returned in `code`, pair nothing and are not prose;
- *  - an HTML block (`HTML_BLOCK_TAG`, or `HTML_OTHER_TAG` after a blank line) runs to the next blank line, and no
- *    backtick in it opens a span.
- *  `skip(i)` marks lines that are not prose (fenced code, generated blocks): they end a block and get no ranges. */
-function lineCodeSpans(lines, skip) {
-  const spans = lines.map(() => []);
-  const code = new Set();
-  let block = [];
-  let kind = "none"; // "para" | "html" | "none"
-  let depth = 0;
-  let inList = false;
-  const flush = () => {
-    if (kind === "para" && block.length > 0) {
-      const starts = [];
-      let off = 0;
-      for (const i of block) {
-        starts.push(off);
-        off += lines[i].length + 1;
-      }
-      for (const [s, e] of codeSpanRanges(block.map((i) => lines[i]).join("\n"))) {
-        block.forEach((i, k) => {
-          const from = Math.max(s, starts[k]) - starts[k];
-          const to = Math.min(e, starts[k] + lines[i].length) - starts[k];
-          if (from < to) spans[i].push([from, to]);
-        });
-      }
-    }
-    block = [];
-    kind = "none";
-  };
-  lines.forEach((line, i) => {
-    if (skip(i)) {
-      flush();
-      inList = false;
-      return;
-    }
-    const q = quoteParts(line);
-    if (q.inner.trim() === "") {
-      flush();
-      return;
-    }
-    if (kind === "html") return; // runs to the next blank line
-    if (q.depth === 0 && kind === "none" && !inList && /^(?: {4}|\t)/.test(line)) {
-      code.add(i);
-      return;
-    }
-    const startsBlock = BLOCK_START.test(q.inner) || ONE_LINE_BLOCK.test(q.inner);
-    if (HTML_BLOCK_TAG.test(q.inner) || (kind === "none" && HTML_OTHER_TAG.test(q.inner))) {
-      flush();
-      kind = "html";
-      depth = q.depth;
-      return;
-    }
-    const lazy = kind === "para" && q.depth < depth && !startsBlock;
-    if (kind === "para" && (startsBlock || (q.depth !== depth && !lazy))) flush();
-    if (kind === "none") {
-      kind = "para";
-      depth = q.depth;
-    }
-    block.push(i);
-    if (ONE_LINE_BLOCK.test(q.inner)) flush();
-    if (LIST_ITEM.test(q.inner)) inList = true;
-    else if (q.depth === 0 && !/^\s/.test(line) && block.length === 1) inList = false;
-  });
-  flush();
-  return { spans, code };
+/** The source offset at which each line of `src` starts, for lines split as `splitLines` splits them. */
+function lineStartOffsets(src) {
+  const starts = [0];
+  for (const m of src.matchAll(/\r?\n/g)) starts.push(m.index + m[0].length);
+  return starts;
 }
 
 /** Register citations in a pack file's prose. The rule: `§` directly followed
@@ -493,12 +399,10 @@ function lineCodeSpans(lines, skip) {
  *  any number below 400, a number followed by `(` or by `Abs.`/`Nr.`/`No.`/`S.`/
  *  `Satz`, and a number preceded or followed by one of `STATUTE_ABBREVIATIONS`
  *  (`BetrVG §90`, `§401 SGB`, `§611a BGB`; a single lowercase letter right after
- *  the number belongs to the section). Generated block bodies, fenced and
- *  indented code, and inline code spans are not prose and are skipped too: a
- *  quoted test title can carry a register number without citing that gap. Spans
- *  are paired within one Markdown paragraph, as `lineCodeSpans` describes, so one
- *  can cross a hard wrap or a block quote's lines but never a block boundary, no
- *  span opens inside an HTML block, and an escaped backtick opens none.
+ *  the number belongs to the section). Generated block bodies and everything
+ *  Markdown renders as code (`codeRanges`: inline code spans, indented and fenced
+ *  code, as CommonMark parses them) are not prose and are skipped too: a quoted
+ *  test title can carry a register number without citing that gap.
  *  A register citation is recognised ONLY as `§NNN` (no space, NNN at least 400): a German-style
  *  `§ NNN` or a lower number is never checked against the register.
  *  @returns {{ n: number, line: number }[]} in document order, 1-based lines. */
@@ -510,13 +414,13 @@ export function proseGapCitations(src) {
   const statuteBefore = STATUTE_BEFORE;
   const statuteAfter = STATUTE_AFTER;
   const out = [];
-  const skip = (i) => fenced[i] || inBlock(i);
-  const { spans: spansByLine, code } = lineCodeSpans(lines, skip);
+  const code = codeRanges(src);
+  const starts = lineStartOffsets(src);
   lines.forEach((line, i) => {
-    if (skip(i) || code.has(i)) return;
-    const spans = spansByLine[i];
+    if (fenced[i] || inBlock(i)) return;
     for (const m of line.matchAll(cite)) {
-      if (spans.some(([s, e]) => m.index >= s && m.index < e)) continue;
+      const at = starts[i] + m.index;
+      if (code.some(([s, e]) => at >= s && at < e)) continue;
       const n = Number(m[1]);
       if (n < 400) continue;
       if (statuteBefore.test(line.slice(0, m.index))) continue;

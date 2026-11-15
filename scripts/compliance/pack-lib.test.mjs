@@ -330,11 +330,12 @@ describe("proseGapCitations", () => {
     expect(proseGapCitations("escaped \\` then §810 and `x`")).toEqual([{ n: 810, line: 1 }]);
   });
 
-  // A heading, a table row, a thematic break and an HTML comment line are each a block of one line, so a stray
-  // backtick on one never pairs with a backtick in the prose that follows.
+  // A heading, a table row, a thematic break and an HTML comment line each end a block, so a stray backtick on one
+  // never pairs with a backtick in the prose that follows. (A plain line right after a table row is a further row of
+  // that table in GFM, and a span never crosses a cell.)
   it.each([
     ["a heading", "# Title `foo"],
-    ["a table row", "| a ` b |"],
+    ["a table row", "| a | b |\n|---|---|\n| c ` d | e |"],
     ["prose closed by a thematic break", "a `b\n---"],
     ["prose closed by an HTML comment line", "a `b\n<!-- c -->"],
     ["a heading with a setext underline", "a `b\n==="],
@@ -343,19 +344,28 @@ describe("proseGapCitations", () => {
     expect(proseGapCitations(src)).toEqual([{ n: 810, line: before.split("\n").length + 1 }]);
   });
 
-  // A table row is its own block in Markdown, so an unbalanced backtick in one row never swallows the next row.
-  it("keeps each table row and list item apart", () => {
+  // In a GFM table an unbalanced backtick in one cell never swallows the next cell or row, and a list item is a block
+  // of its own.
+  it("keeps each table cell, table row and list item apart", () => {
     const src = [
-      "| a ` stray | §810 |", // 1
-      "| `x` | §562 |", // 2
-      "- an item with a stray `", // 3
-      "- §804 in the next item", // 4
+      "| h | i |", // 1
+      "|---|---|", // 2
+      "| a ` stray | §810 |", // 3
+      "| `x` | §562 |", // 4
+      "- an item with a stray `", // 5
+      "- §804 in the next item", // 6
     ].join("\n");
     expect(proseGapCitations(src)).toEqual([
-      { n: 810, line: 1 },
-      { n: 562, line: 2 },
-      { n: 804, line: 4 },
+      { n: 810, line: 3 },
+      { n: 562, line: 4 },
+      { n: 804, line: 6 },
     ]);
+  });
+
+  // Without a delimiter row a pipe line is not a table but paragraph text, so CommonMark carries a span on into the
+  // next line, and the number inside it is code.
+  it("reads a pipe line with no delimiter row as paragraph text", () => {
+    expect(proseGapCitations("| a ` b |\nprose (§797) and ` x §810")).toEqual([{ n: 810, line: 2 }]);
   });
 
   // CommonMark carries a span across the lines of one block quote paragraph, and across a lazy continuation line.
