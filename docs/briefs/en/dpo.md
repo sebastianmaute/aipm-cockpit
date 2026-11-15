@@ -27,10 +27,11 @@ with Anthropic, transfers and a works agreement are questions only your organisa
   E1, *read in code*). One hint remains while people protection is off: the Timelog insight for time booked on
   an absence day names the person as absent "(vacation, sick or training)", without saying which, and can reach
   the chat (its insight lines and its `get_app_state` tool), the row edit and both insight recommendations
-  (E63, *tested (unit)*; E1, *read in code*). With people protection on, none of these paths adds it to a request, but
-  the chat sends the earlier messages of a conversation again as they were, including a tool reply from before
-  protection was switched on (E67, *tested (unit)*; the resending *read in code*); none does while `timelog` is switched off or Timelog is hidden in the project, and a type a
-  user writes, such as "sick", is sent as written (E64, *read in code*).
+  (E63, *tested (unit)*; E1, *read in code*). With people protection on, none of these paths adds it to a
+  request, but the chat sends the earlier messages of a conversation again as they were, including a tool reply
+  from before protection was switched on (E67, *tested (unit)*; the resending *read in code*); none sends it while
+  `timelog` is switched off or Timelog is hidden in the project, and a type a user writes, such as "sick", is
+  sent as written (E64, *read in code*).
 - **Dictation:** audio goes not to Anthropic but to the speech service the user sets up or, with browser
   dictation, to the browser's own recognition, which in some browsers sends it to the browser maker (E1,
   *read in code*).
