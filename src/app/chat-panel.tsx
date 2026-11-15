@@ -82,7 +82,7 @@ import {
   type PlanRow,
   type ProposedCall,
 } from "./chat-proposal";
-import { isPureReadTool, openSendRecord, runsInPlaceWhenStaging } from "./chat-send-record";
+import { isPureReadTool, markUntrustedByResults, openSendRecord, runsInPlaceWhenStaging } from "./chat-send-record";
 import { describeProposal, type DescribedRow } from "./chat-proposal-describe";
 import { NO_HOLIDAYS, type AbsenceCtx } from "./absence-clash";
 import { callAbsenceClashes, DATE_WRITE_TOOLS } from "./chat-absence-clashes";
@@ -1112,7 +1112,11 @@ function ChatPanelInner({
           if (results.length > 0) {
             messages.push({ role: "user", content: results });
           }
-          sendRecord = { ...sendRecord, appliedWrites: sendRecord.appliedWrites + directWrites };
+          // §797: a read that showed the model a Jira-synced row makes every later turn of this send untrusted.
+          sendRecord = markUntrustedByResults(
+            { ...sendRecord, appliedWrites: sendRecord.appliedWrites + directWrites },
+            results,
+          );
           continueBubble = false; // tool output breaks the text flow — new bubble
           continue;
         }

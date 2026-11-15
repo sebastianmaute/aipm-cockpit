@@ -38,9 +38,9 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
   Optimierung der Arbeitspakete, die ihre eigene Vorschau öffnet; ein wieder geöffneter gespeicherter Chat behält
   keinen Anhang (E47, *getestet (Unit)*). Ergebnisse der Hintergrund-KI ändern keinen
   Projektdatensatz, bevor jemand bestätigt (E56, *im Code gelesen*).
-- **Wo niemand vorher freigibt:** eine einzelne gewöhnliche Änderung im Chat, und Text, den der Chat über seine
-  Werkzeuge liest, etwa eine aus Jira synchronisierte Aufgabe, der die Prüfpflicht nicht auslöst (§794; E47,
-  *getestet (Unit)*; E48, *im Code gelesen*).
+- **Wo niemand vorher freigibt:** eine einzelne gewöhnliche Änderung im Chat, auch nach dem Lesen fremden Textes
+  ohne Kennzeichnung seiner Herkunft, etwa aus einer importierten Datei angelegter Einträge (§794; E47,
+  *getestet (Unit)*; E48, *getestet (Unit)*).
 
 ## Was Sie steuern
 
@@ -67,8 +67,8 @@ ergibt (§812; E27, *nicht belegt*; E61, *im Code gelesen*).
    gekennzeichnet wird, sobald er die App in Berichten und Exporten verlässt (E55, *im Code gelesen*).
 3. **§812:** Ob die Optimierung der Arbeitspakete ihr Ergebnis wiederholt, ist nicht gemessen (E27,
    *nicht belegt*).
-4. **§797:** Text, den der Chat über seine Werkzeuge liest, löst die Prüfpflicht nicht aus (E48,
-   *im Code gelesen*).
+4. **Fremder Text ohne Kennzeichnung:** Fremder Text ohne Kennzeichnung seiner Herkunft löst die Prüfpflicht
+   nicht aus; eine aus Jira synchronisierte Aufgabe tut es (E48, *getestet (Unit)*).
 5. **§795:** Für die Hintergrund-KI wird einmal zugestimmt, nicht für jeden Lauf (E32, *getestet (Unit)*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten

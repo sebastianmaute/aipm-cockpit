@@ -55,8 +55,13 @@ Know the exceptions:
   invite meeting attendees, edit the project's own details, change more than one thing, or put work on a
   day someone is absent, and whenever a file is attached to the conversation. [verified: `shouldStage` in
   `src/app/chat-proposal.ts`; register §794]
-- **Text read from outside.** When the chat has read text from outside the app, for example content synced
-  from Jira, it does not ask first for that reason alone. [verified: `untrusted` in `SendRecord`, `src/app/chat-send-record.ts`; register §797]
+- **Text read from outside.** Once the chat has read a task synced from Jira in a conversation, every change
+  it proposes after that waits on the review card, as it does while a file is attached. Text from outside
+  that carries no mark of where it came from does not start that hold: rows created from an imported file
+  or mail, absence notes pulled from Outlook, a task whose Jira link was removed, the app's own summaries of
+  the project, and what the app writes into the prompt itself. Entries a sync wrote into the activity history
+  count as outside text. [verified:
+  `resultCarriesExternalText` and `openSendRecord` in `src/app/chat-send-record.ts`]
 - **Background runs.** The background features above send data on every run without asking each time.
   Their results only advise: a recommendation changes nothing until a person confirms it. [verified:
   `src/app/use-insight-recommendations.ts`, `src/app/scheduled-job-run.ts`; register §795]
@@ -107,9 +112,10 @@ change something I did not ask for? Would I make this change if a colleague prop
   not make the AI repeatable. Treat a plan as one option, not as the answer. [verified: no `temperature`
   setting in `src/app`; the rest: vendor statement]
 - **Instructions hidden in text.** A file, an e-mail or synced text can contain instructions aimed at the
-  AI. That is why the chat asks before every change while a file is attached; it does not do so for text
-  it reads from outside through its tools. [verified: `stagesWhenUntrusted` in
-  `src/app/chat-send-record.ts`; register §797]
+  AI. That is why the chat asks before every change while a file is attached, and once it has read a task
+  synced from Jira; it does not do so for outside text that carries no such mark, such as rows created from
+  an imported file. [verified: `stagesWhenUntrusted` and `resultCarriesExternalText` in
+  `src/app/chat-send-record.ts`]
 - **Long waits and failures.** Most AI requests have no time limit in the app, and a request refused because
   the service is busy is not retried. Stop and try again later. [vendor statement; register §798]
 - **Unknown names.** People protection hides names the project knows, not names you type that it does not

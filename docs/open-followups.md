@@ -1034,7 +1034,7 @@ must be updated, in the same change — or `npm run compliance:check` and `src/a
 | [§794](#794-a-single-ai-chat-write-applies-without-the-review-card) | A single AI chat write applies without the review card | — | — | open |
 | [§795](#795-background-ai-runs-are-consented-once-not-approved-run-by-run) | Background AI runs are consented once, not approved run by run | — | — | open |
 | [§796](#796-tasks-created-by-optimize-work-breakdown-with-ai-cannot-be-undone) | Tasks created by Optimize work breakdown with AI cannot be undone | — | — | open |
-| [§797](#797-external-text-that-the-chats-tools-read-does-not-trigger-the-review-hold) | External text that the chat's tools read does not trigger the review hold | — | — | open |
+| [§797](#797-external-text-that-the-chats-tools-read-does-not-trigger-the-review-hold--closed-2026-11-15) | External text that the chat's tools read does not trigger the review hold | — | — | **CLOSED** 2026-11-15 |
 | [§798](#798-most-ai-requests-have-no-client-time-limit-and-none-is-retried-on-a-rate-limit-or-overload) | Most AI requests have no client time limit, and none is retried on a rate limit or overload | — | — | open |
 | [§799](#799-an-activity-entry-written-by-the-ai-does-not-link-to-the-chat-message-that-caused-it) | An activity entry written by the AI does not link to the chat message that caused it | — | — | open |
 | [§800](#800-the-content-security-policy-allows-whole-host-families-by-wildcard) | The Content Security Policy allows whole host families by wildcard | — | — | open |
@@ -46330,11 +46330,11 @@ Size M.
 
 **Source:** compliance pack gap check, 2026-11-13.
 
-## 797. External text that the chat's tools read does not trigger the review hold
+## 797. External text that the chat's tools read does not trigger the review hold — CLOSED 2026-11-15
 
-**Status:** OPEN 2026-11-13, found by reading the code during the compliance pack's gap check; never machine-verified.
+**Status:** CLOSED 2026-11-15 on `fix/797-external-text-review-hold` (owner decision: rows with a marked origin). A tool result that shows the model a task synced from Jira (a non-empty `jiraKey`) or an activity entry an integration wrote (`actor: "integration"`, through `search_history`) (`resultCarriesExternalText` in `src/app/chat-send-record.ts`) makes the rest of that send untrusted (`markUntrustedByResults`, called after each tool turn in `chat-panel.tsx`), so every later change goes to the review card as it does after an attachment. `openSendRecord` also scans the history's tool results, so a Jira read in an earlier send of the conversation holds the next send too. A change in the SAME turn as the read is not held for that reason, since the model wrote it before it saw the result. Residual, stated in the compliance pack: text from outside that no stored row marks (rows created from an imported file or mail, absence notes pulled from Outlook, which the pull writes with no marker, a task whose Jira link was removed, the app's own summaries (`get_app_state`'s view digest, insights and activity summary), earlier chats found by `search_chats`, and text the app puts into the prompt itself) does not start the hold. Verified with `npx vitest run src/app/chat-send-record.test.ts src/app/chat-panel.test.tsx src/app/chat-proposal src/app/compliance src/app/chat-threads src/app/history-search.test.ts`: 24 files, 822 passed. Mutants 3/3 killed, each by its own test only: the `markUntrustedByResults` call in `chat-panel.tsx` removed, the tool-result scan dropped from `openSendRecord`, and `jiraKey` dropped from `slimTaskForList` (the real `list_tasks` result).
 
-**Work item:** #972
+**Earlier:** OPEN 2026-11-13, found by reading the code during the compliance pack's gap check; never machine-verified.
 
 The chat holds its proposed changes for review when the conversation contains an attached file, because text from outside may carry instructions. Text from outside that the chat reads through its tools, such as content synced from Jira, does not start that hold.
 

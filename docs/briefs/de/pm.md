@@ -38,8 +38,9 @@ trägt kein Kennzeichen; einem Lenkungsausschuss zu sagen, was die KI entworfen 
   im Aktivitätsprotokoll als Änderung der KI (E55, *im Code gelesen*). Alles andere wartet auf einer *Prüfkarte*
   auf Sie, ebenso jede Änderung, solange eine Datei angehängt ist, außer der Optimierung der Arbeitspakete, die
   ihre eigene Vorschau öffnet; ein wieder geöffneter gespeicherter Chat behält keinen Anhang (E47,
-  *getestet (Unit)*). Text, den der Chat über seine Werkzeuge liest, löst diese Prüfpflicht nicht aus (E48,
-  *im Code gelesen*).
+  *getestet (Unit)*). Eine aus Jira synchronisierte Aufgabe, die der Chat gelesen hat, löst diese Prüfpflicht
+  für den Rest der Unterhaltung aus; aus einer importierten Datei angelegte Einträge tun das nicht (E48,
+  *getestet (Unit)*).
 - **Im Hintergrund:** Die geplanten Analysen und Zusammenfassungen erzeugen Text und ändern keinen
   Projektdatensatz, und eine Empfehlung wartet auf Ihre Bestätigung (E56, *im Code gelesen*); für
   Hintergrundläufe stimmen Sie einmal zu, nicht für jeden Lauf (E32, *getestet (Unit)*).

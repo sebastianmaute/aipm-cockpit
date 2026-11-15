@@ -33,8 +33,8 @@ feature on one demo project (E37, *measured*).
   *tested (unit)*) and shows in the activity
   log as the AI's (E55, *read in code*). Anything else waits on a *review card* for you, as does every change
   while a file is attached, except the work breakdown optimisation, which opens its own preview; a reopened
-  saved chat keeps no attachment (E47, *tested (unit)*). Text the chat reads through its tools does not start
-  that hold (E48, *read in code*).
+  saved chat keeps no attachment (E47, *tested (unit)*). A task synced from Jira that the chat has read starts
+  that hold for the rest of the conversation; rows created from an imported file do not (E48, *tested (unit)*).
 - **In the background:** the scheduled analyses and digests produce text and change no project record, and a
   recommendation waits for your confirmation (E56, *read in code*); you consent to background runs once, not
   run by run (E32, *tested (unit)*).

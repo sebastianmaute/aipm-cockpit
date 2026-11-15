@@ -209,8 +209,9 @@ below]
   `src/app/chat-proposal.ts`, `stagesWhenUntrusted` in `src/app/chat-send-record.ts`] **Exception:** a
   single change outside those cases applies at once, without a card (§794). It is logged as the AI's, and
   most such changes can be undone, but no person approved it first. [verified: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`; register §794]
-  Outside text the chat reads through its tools, such as content synced from Jira, does not start the hold
-  (§797). [verified: `untrusted` in `SendRecord`, `src/app/chat-send-record.ts`; register §797] A status inquiry the chat prepares opens as a draft e-mail in
+  Once the chat has read a task synced from Jira, every later change in the conversation waits on the card as
+  well; outside text that carries no mark of its origin, such as rows created from an imported file or the app's
+  own summaries of the project, does not start that hold. [verified: `resultCarriesExternalText` and `openSendRecord` in `src/app/chat-send-record.ts`] A status inquiry the chat prepares opens as a draft e-mail in
   the user's own mail program, which the user sends. [verified: `send_inquiry` in
   `src/app/chat-tool-defs.ts`, `sendInquiry` in `src/app/use-chat-dispatcher.ts`]
 - **"Ask Claude" edit of a row.** Shows the changes and applies them only when the user chooses Apply.

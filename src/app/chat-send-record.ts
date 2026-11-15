@@ -3,15 +3,16 @@
 // Pure and i18n-free. `shouldStage` (`chat-proposal.ts`) judges one model turn; a single send can run
 // several turns, so the gate also needs what earlier turns of the SAME send did and what the
 // conversation holds. `chat-panel.tsx` opens one record per send and carries it through its tool loop.
-import type { ApiMessage } from "./chat-api";
+import type { ApiMessage, ToolResultBlock } from "./chat-api";
 import type { ProposedCall } from "./chat-proposal";
 
 /** One user send, as the staging gate sees it.
  *  - `appliedWrites`: entity writes that already ran directly in an earlier turn of this send, so
  *    "more than one write stages" counts across the send, not per turn.
- *  - `untrusted`: an attachment (an `image` or `document` block) is somewhere in the history. Its
- *    text reaches the model as input it may follow, so every change goes to the review card
- *    (`stagesWhenUntrusted`) — the prompt-injection gate.
+ *  - `untrusted`: an attachment (an `image` or `document` block) is somewhere in the history, or (§797)
+ *    a tool result there or earlier in this send carried a row that came from outside
+ *    (`resultCarriesExternalText`). That text reaches the model as input it may follow, so every change
+ *    goes to the review card (`stagesWhenUntrusted`) — the prompt-injection gate.
  *  - `staged`: a turn of this send already staged a card. A later turn's reads still run
  *    (`isPureReadTool`); every other call runs nothing and gets `PROPOSAL_PENDING_RESULT`
  *    (`chat-proposal-stage.ts`), so that card is never replaced before the user saw it. */
@@ -28,9 +29,47 @@ export type SendRecord = {
  *  (`stripAttachmentsForPersistence`), and the model never sees their content again after that. */
 export function openSendRecord(history: readonly ApiMessage[]): SendRecord {
   const untrusted = history.some(
-    (m) => Array.isArray(m.content) && m.content.some((b) => b.type === "image" || b.type === "document"),
+    (m) =>
+      Array.isArray(m.content) &&
+      m.content.some(
+        (b) => b.type === "image" || b.type === "document" || (b.type === "tool_result" && resultCarriesExternalText(b)),
+      ),
   );
   return { appliedWrites: 0, untrusted, staged: false };
+}
+
+/** The two recorded outside origins, as JSON writes them (`stringifyResult`, compact or indented): a row with a
+ *  non-empty `jiraKey`, and an activity entry whose `actor` is `"integration"` (a sync wrote it). Inside a text
+ *  value the quotes are escaped, so text that merely mentions either field does not match. */
+const EXTERNAL_ORIGIN = /"jiraKey"\s*:\s*"[^"]|"actor"\s*:\s*"integration"/;
+
+/** §797: true when a tool result showed the model text that came from outside the app and is marked as such: a
+ *  task synced from Jira (it carries a `jiraKey`; the sync writes its name and description), or an activity entry
+ *  an integration wrote (`search_history`). Outside text with no such marker is not recognised: rows created from
+ *  an imported file, absences pulled from Outlook, a task whose Jira link was removed, `get_app_state`'s view
+ *  digest, insights and activity summary, `search_chats`, and the prompt itself (the register entry names this
+ *  residual). Judged on the serialized result, the same string the model is sent and the history keeps, so a later
+ *  send reaches the same answer; content that is not a string is judged by its JSON. An error result echoes no row. */
+export function resultCarriesExternalText(result: ToolResultBlock): boolean {
+  if (result.is_error === true) return false;
+  return EXTERNAL_ORIGIN.test(contentText(result.content));
+}
+
+/** The text a result shows the model: the string itself, each text block's text, or else its JSON. */
+function contentText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map(contentText).join(" ");
+  if (content !== null && typeof content === "object" && typeof (content as { text?: unknown }).text === "string") {
+    return (content as { text: string }).text;
+  }
+  return JSON.stringify(content) ?? "";
+}
+
+/** §797: the record after a tool turn: untrusted for the rest of the send once any of the turn's results carried
+ *  external text. The SAME record when nothing changes. */
+export function markUntrustedByResults(record: SendRecord, results: readonly ToolResultBlock[]): SendRecord {
+  if (record.untrusted || !results.some(resultCarriesExternalText)) return record;
+  return { ...record, untrusted: true };
 }
 
 /** The tools that only read: they write no entity, setting, filter or language and propose nothing. */

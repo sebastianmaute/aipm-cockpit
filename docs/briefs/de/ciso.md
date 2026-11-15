@@ -14,7 +14,7 @@ und, wenn eines gesetzt ist, das Gateway der Organisation (der Relay-Weg;
 [Diagramm](appendix.md#zwei-wege-zum-modell)) (E4, *getestet (Unit)*; E5, *getestet (Unit)*). Das Modell liest
 Text, den andere geschrieben haben, etwa angehängte E-Mails, aus Jira synchronisierte Aufgaben und für ein
 neues Projekt ausgewählte Confluence-Seiten; der Chat macht aus seinen Antworten Änderungen, der
-Projektassistent füllt nur ein Formular vor (E47, *getestet (Unit)*; E48, *im Code gelesen*; E49,
+Projektassistent füllt nur ein Formular vor (E47, *getestet (Unit)*; E48, *getestet (Unit)*; E49,
 *im Code gelesen*). Auf dem Relay-Weg lehnt der Server Aufrufe ab, solange die KI abgeschaltet ist (E19,
 *getestet (Unit)*), und führt, wenn eine Schlüsselbeschränkung gesetzt ist, die Schlüsselprüfung aus (E7,
 *getestet (Unit)*); auf dem direkten Weg besteht die Abschaltung aus der Content Security Policy der Seite und
@@ -56,8 +56,9 @@ der App.
   können (§802; E12, *nicht belegt*).
 - **Über Anhänge eingeschleuste Anweisungen:** Solange eine angehängte Datei oder E-Mail im Chat ist, wartet
   jede vorgeschlagene Änderung auf einer Prüfkarte, außer der Optimierung der Arbeitspakete, die ihre eigene
-  Vorschau öffnet (E47, *getestet (Unit)*). Eingefügter Text und Text, den der Chat über seine Werkzeuge liest,
-  etwa eine aus Jira synchronisierte Aufgabe, lösen diese Prüfpflicht nicht aus (§797; E48, *im Code gelesen*).
+  Vorschau öffnet (E47, *getestet (Unit)*). Ebenso nach dem Lesen einer aus Jira synchronisierten Aufgabe, für den
+  Rest der Unterhaltung. Eingefügter Text und fremder Text ohne Kennzeichnung seiner Herkunft, etwa aus einer
+  importierten Datei angelegte Einträge, lösen diese Prüfpflicht nicht aus (E48, *getestet (Unit)*).
 - **Installationsdatei:** Jede Desktop-Version trägt eine SBOM, mit Herkunftsnachweisen (Attestierungen) nur,
   solange das Repository öffentlich ist (E50, *getestet (Unit)*); die Installationsdatei ist nicht codesigniert
   (E51, *getestet (Unit)*). `AIPM_DISABLE_UPDATE_CHECK` schaltet die Update-Prüfung der Desktop-App ab (E34,
@@ -65,8 +66,9 @@ der App.
 
 ## Noch nicht belegt / offene Lücken
 
-1. **§797:** Text, den der Chat über seine Werkzeuge liest, löst die Prüfpflicht nicht aus (E48,
-   *im Code gelesen*).
+1. **Fremder Text ohne Kennzeichnung und Änderungen im selben Schritt:** Text von außen ohne Kennzeichnung seiner Herkunft, etwa aus einer
+   importierten Datei angelegte Einträge, und eine Änderung, die im selben Schritt wie ein Lesen aus Jira gesendet
+   wurde, lösen die Prüfpflicht nicht aus (E48, *getestet (Unit)*).
 2. **§794:** Eine einzelne Änderung im Chat wird ohne Prüfkarte angewendet (E47, *getestet (Unit)*).
 3. **§487, §793:** Die Windows-Installationsdatei ist unsigniert, und das Deinstallationsprogramm bliebe auch mit
    eingeschalteter Signierung unsigniert (E51, *getestet (Unit)*).
@@ -80,9 +82,9 @@ der App.
 - Setzen Sie auf einer Testinstallation `ai` und prüfen Sie, dass api.anthropic.com in der Policy der Seite
   fehlt und das Relay mit 503 ablehnt (E19, *getestet (Unit)*; E53, *getestet (Unit)*).
 - Hängen Sie eine E-Mail mit einer Anweisung an und prüfen Sie, dass eine einzelne vorgeschlagene Änderung auf
-  der Prüfkarte wartet; schreiben Sie denselben Text in einen synchronisierten Jira-Vorgang und sehen Sie, dass
-  eine einzelne gewöhnliche Änderung sofort angewendet wird, während Änderungen, die Löschungen oder Einladungen
-  auslösen, in beiden Fällen warten (E47, *getestet (Unit)*; E48, *im Code gelesen*).
+  der Prüfkarte wartet; schreiben Sie denselben Text in einen synchronisierten Jira-Vorgang, lassen Sie den Chat
+  diese Aufgabe lesen und prüfen Sie, dass auch eine einzelne gewöhnliche Änderung, die er danach vorschlägt,
+  wartet (E47, *getestet (Unit)*; E48, *getestet (Unit)*).
 - Stellen Sie den Server der App hinter Ihre eigene Zugangskontrolle: Die App authentifiziert ihre Aufrufer
   nicht, und das Relay fügt jedem weitergeleiteten Aufruf das Gateway-Token hinzu (E13, *im Code gelesen*). Das
   Relay lehnt einen Aufruf ohne Herkunfts-Header ab und begrenzt wie die Diktat-Route jeden Aufrufer, aber beide

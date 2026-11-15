@@ -254,7 +254,8 @@
   decision 2026-10-24); a call without the key is a device-only write and stays exempt, like `set_language` — in a
   trusted send. ★★ AI-02: the count runs across the whole user send, not per model turn (`SendRecord.appliedWrites`,
   `chat-send-record.ts`, opened by `openSendRecord` from the full history); while an `image` or `document` block is
-  anywhere in that history the send is untrusted and EVERY call that is not a pure read (`isPureReadTool`) stages
+  anywhere in that history, or (§797) a tool result there or in an earlier turn of the send carried a Jira-synced
+  row or an activity entry an integration wrote (`resultCarriesExternalText`, applied per turn by `markUntrustedByResults`), the send is untrusted and EVERY call that is not a pure read (`isPureReadTool`) stages
   alone, a version-checked update included (owner decision; `stagesWhenUntrusted`). The one exemption is
   `optimize_wbs`: it writes nothing and opens the WBS preview, which is its own per-item review. It FAILS CLOSED: a
   tool it does not know stages. ★★ Every tool that can stage must reach the card as a described line, never its bare

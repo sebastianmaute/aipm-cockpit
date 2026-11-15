@@ -85,7 +85,6 @@ Registers.
 | §794 | A single AI chat write applies without the review card |
 | §795 | Background AI runs are consented once, not approved run by run |
 | §796 | Tasks created by Optimize work breakdown with AI cannot be undone |
-| §797 | External text that the chat's tools read does not trigger the review hold |
 | §798 | Most AI requests have no client time limit, and none is retried on a rate limit or overload |
 | §799 | An activity entry written by the AI does not link to the chat message that caused it |
 | §800 | The Content Security Policy allows whole host families by wildcard |
@@ -120,9 +119,6 @@ wo die Einzelheiten stehen. [geprüft: die Registereinträge in `docs/open-follo
 - **§796** — Nachdem eine Person einen KI-Projektstrukturplan übernommen hat, macht „Rückgängig“ die
   Änderungen an bestehenden Aufgaben rückgängig, nicht aber die Aufgaben, die er angelegt hat. Diese
   müssen von Hand gelöscht werden.
-- **§797** — Der Chat hält seine vorgeschlagenen Änderungen zur Prüfung zurück, wenn eine Datei angehängt
-  ist, nicht aber, wenn er über seine Werkzeuge fremden Text gelesen hat (zum Beispiel aus Jira
-  synchronisierte Inhalte), obwohl auch solcher Text Anweisungen enthalten könnte.
 - **§798** — Die meisten KI-Anfragen warten, bis der Nutzer abbricht oder die Verbindung abreißt, und
   eine Anfrage, die abgelehnt wird, weil der Dienst ausgelastet ist, wird nicht erneut versucht. Nutzer
   sehen einen Fehler oder warten lange.

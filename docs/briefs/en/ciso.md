@@ -13,7 +13,7 @@ server and, when one is set, the organisation's gateway (the relay route;
 [diagram](appendix.md#two-routes-to-the-model)) (E4, *tested (unit)*; E5, *tested (unit)*). The model reads
 text others wrote, such as attached mail, Jira-synced tasks and Confluence pages picked for a new project; the
 chat turns its answers into changes, while the project wizard only pre-fills a form (E47, *tested (unit)*; E48,
-*read in code*; E49, *read in code*). On the relay route the server refuses calls while AI is off (E19,
+*tested (unit)*; E49, *read in code*). On the relay route the server refuses calls while AI is off (E19,
 *tested (unit)*) and, when a key restriction is set, runs the key check (E7, *tested (unit)*); on the direct
 route AI-off is the page's content policy and the app's own check, both applied by the browser (E53,
 *tested (unit)*; E3, *tested (unit)*), so a modified copy is not stopped there, and another client with the
@@ -51,15 +51,18 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
   *not proven*).
 - **Instructions injected through attachments:** while an attached file or e-mail is in the chat, every
   proposed change waits on a review card, except the work breakdown optimisation, which opens its own preview
-  (E47, *tested (unit)*). Pasted text and text the chat reads through its tools, such as a Jira-synced task, do
-  not start that hold (§797; E48, *read in code*).
+  (E47, *tested (unit)*). So does a Jira-synced task the chat has read, for the rest of the conversation. Pasted
+  text, and outside text with no mark of its origin, such as rows created from an imported file, do not start
+  that hold (E48, *tested (unit)*).
 - **Installer:** each desktop release carries an SBOM, with attestations only while the repository is public
   (E50, *tested (unit)*); the installer is not code-signed (E51, *tested (unit)*). `AIPM_DISABLE_UPDATE_CHECK`
   switches the desktop update check off (E34, *read in code*).
 
 ## Not yet proven / open gaps
 
-1. **§797:** text the chat reads through its tools does not start the review hold (E48, *read in code*).
+1. **Unmarked outside text and same-turn writes:** text from outside that carries no mark of its origin, such as rows created from an
+   imported file, and a change sent in the same turn as a Jira read, do not start the review hold (E48,
+   *tested (unit)*).
 2. **§794:** a single chat write applies without the review card (E47, *tested (unit)*).
 3. **§487, §793:** the Windows installer is unsigned, and the uninstaller would stay unsigned with signing on
    (E51, *tested (unit)*).
@@ -72,8 +75,8 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
 - On a test deployment, set `ai` and confirm that the page's policy lacks api.anthropic.com and that the relay
   refuses with 503 (E19, *tested (unit)*; E53, *tested (unit)*).
 - Attach a mail that carries an instruction and check that a single proposed change waits on the review card;
-  put the same text into a synced Jira issue and see a single ordinary write apply at once, while deleting or
-  inviting changes wait either way (E47, *tested (unit)*; E48, *read in code*).
+  put the same text into a synced Jira issue, let the chat read that task, and check that a single ordinary
+  write it proposes afterwards waits too (E47, *tested (unit)*; E48, *tested (unit)*).
 - Put the app's server behind your own access control: the app does not authenticate callers, and the relay
   adds the gateway token to every call it forwards (E13, *read in code*). The relay refuses a call without an
   origin header and, like the dictation route, limits each caller, but both checks rest on headers a caller can

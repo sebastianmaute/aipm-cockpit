@@ -33,9 +33,9 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
   breakdown optimisation, which opens its own preview; a reopened saved chat keeps no attachment (E47,
   *tested (unit)*). Background AI results change no project record until someone confirms
   (E56, *read in code*).
-- **Where nobody approves first:** a single ordinary chat write, and text the chat reads through its tools,
-  such as a Jira-synced task, which does not start the review hold (§794; E47, *tested (unit)*; E48,
-  *read in code*).
+- **Where nobody approves first:** a single ordinary chat write, and one made after reading outside text that
+  carries no mark of its origin, such as rows created from an imported file (§794; E47, *tested (unit)*; E48,
+  *tested (unit)*).
 
 ## What you control
 
@@ -58,7 +58,8 @@ app does nothing to make a request give the same answer twice (§812; E27, *not 
 2. **§801:** text the AI writes carries no machine-readable marking, so decide how it is labelled once it
    leaves the app in reports and exports (E55, *read in code*).
 3. **§812:** whether the work breakdown optimisation repeats its result is not measured (E27, *not proven*).
-4. **§797:** text the chat reads through its tools does not start the review hold (E48, *read in code*).
+4. **Unmarked outside text:** outside text with no mark of its origin does not start the review hold; a
+   Jira-synced task does (E48, *tested (unit)*).
 5. **§795:** background AI is consented once, not approved run by run (E32, *tested (unit)*).
 
 ## What to check or ask for before saying yes
