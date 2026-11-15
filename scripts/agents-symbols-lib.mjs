@@ -5,11 +5,40 @@
 // ★ NOT a pure layer, despite the shape of the exports: `collectIdentifiers`
 // walks the tree with fs. The seam is drawn there deliberately — it is where
 // GATE_SELF_FILES is applied, and a second gate that scanned the code itself
-// would re-open the self-exclusion hole. The CLI (`check-agents-symbols.mjs`)
-// keeps doc discovery, reporting and exit codes.
+// would re-open the self-exclusion hole. Which docs are gated is here too
+// (`gatedDocs`), so a test can pin the list; the CLI (`check-agents-symbols.mjs`)
+// keeps reporting and exit codes.
 import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
+
+/** The directories whose `*.md` files are gated, besides AGENTS.md itself. Each is globbed, so a new file is
+ *  covered the moment it is written, and each must contribute at least one file (`gatedDocsEmptyDirs`): a folder
+ *  that moves or empties must fail the gate, not quietly stop being scanned.
+ *  - `docs/AGENTS`: the subsystem reference split out of AGENTS.md on 2026-08-04.
+ *  - `docs/briefs` and its two languages: the AI briefs cite code by name for outside readers, so a renamed
+ *    symbol there is a false claim to them. */
+export const GATED_DOC_DIRS = ["docs/AGENTS", "docs/briefs", "docs/briefs/en", "docs/briefs/de"];
+
+/** A directory's entries, or null when it does not exist. */
+function readDirOrNull(dir) {
+  return fs.existsSync(dir) ? fs.readdirSync(dir) : null;
+}
+
+/** AGENTS.md plus every `*.md` in `GATED_DOC_DIRS`, sorted per directory, as `/`-joined repo paths. */
+export function gatedDocs(readDir = readDirOrNull) {
+  const docs = ["AGENTS.md"];
+  for (const dir of GATED_DOC_DIRS) {
+    const entries = readDir(dir) ?? [];
+    docs.push(...entries.filter((f) => f.endsWith(".md")).sort().map((f) => `${dir}/${f}`));
+  }
+  return docs;
+}
+
+/** The entries of `GATED_DOC_DIRS` that are missing or hold no `*.md` file. */
+export function gatedDocsEmptyDirs(readDir = readDirOrNull) {
+  return GATED_DOC_DIRS.filter((dir) => !(readDir(dir) ?? []).some((f) => f.endsWith(".md")));
+}
 
 const CODE_EXT = /\.(ts|tsx|mjs|cjs|js|jsx|json)$/;
 const SKIP_DIRS = new Set(["node_modules", ".next", "dist", "build", "coverage"]);
@@ -79,6 +108,8 @@ export const ALLOWLIST = new Map([
   ["compareX", "placeholder for a panel's own comparator, not a real function"],
   ["resolveJsonModule", "a tsconfig compiler option, not repo code"],
   ["UnsupportedApiVersion", "an upstream TimeLog API error string"],
+  ["inference_geo", "an Anthropic Messages API parameter the briefs say the app does NOT set (E58)"],
+  ["top_p", "an Anthropic Messages API parameter the briefs say the app does NOT set (E61)"],
 ]);
 
 // ★★ Suppression is PROXIMITY-based, and both simpler rules were tried and

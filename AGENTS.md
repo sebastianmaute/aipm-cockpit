@@ -53,8 +53,8 @@ caused a bug, **★★★** = something that has caused the same bug more than o
 live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 
 ★★★ **Almost nothing gates these files, and the one gate that exists checks the weakest property.**
-`agents-symbol-check` (`npm run docs:symbols:check`) fails when a backticked name in THIS file or in
-any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`/`desktop/src`/`desktop/scripts`. That is all it does: it proves a NAME
+`agents-symbol-check` (`npm run docs:symbols:check`) fails when a backticked name in THIS file, in
+any `docs/AGENTS/*.md` or in an AI brief (`docs/briefs/`) exists nowhere in `src`/`scripts`/`e2e`/`desktop/src`/`desktop/scripts`. That is all it does: it proves a NAME
 is real, never that a CLAIM about it is true. "`sanitizeX` guards this path" passes the gate whether
 or not that path calls it. ★★★ NARROWER STILL — **it only checks MIXED-CASE names, so every
 backticked `SCREAMING_CASE` constant in AGENTS.md and every file in `docs/AGENTS/` is completely ungated.** The scan requires
@@ -810,8 +810,9 @@ without a single red pipeline. **A bullet that grows past ~60 lines of subsystem
 in `docs/AGENTS/`, and moving it is a NET WIN even when every line of it is true** — which is
 why it regrows: nothing here is wrong, it is merely not worth every session's context.
 
-★★ `npm run docs:symbols:check` gates every file in `docs/AGENTS/`, not just this one — `docs/AGENTS/`
-is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lands.
+★★ `npm run docs:symbols:check` gates every file in `docs/AGENTS/`, not just this one, and the AI briefs in
+`docs/briefs/` — each folder in `GATED_DOC_DIRS` is GLOBBED, so a new file is scanned the moment it lands, and a
+folder that empties fails the gate instead of dropping out of it.
 
 | File | Owns |
 |---|---|
