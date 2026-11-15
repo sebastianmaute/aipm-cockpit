@@ -61,10 +61,9 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
 
 1. **§797:** text the chat reads through its tools does not start the review hold (E48, *read in code*).
 2. **§794:** a single chat write applies without the review card (E47, *tested (unit)*).
-3. **§805:** the relay adds the gateway token for any caller that reaches the server (E13, *read in code*).
-4. **§487, §793:** the Windows installer is unsigned, and the uninstaller would stay unsigned with signing on
+3. **§487, §793:** the Windows installer is unsigned, and the uninstaller would stay unsigned with signing on
    (E51, *tested (unit)*).
-5. **§800:** the policy allows whole host families by wildcard (E34, *read in code*).
+4. **§800:** the policy allows whole host families by wildcard (E34, *read in code*).
 
 ## What to check or ask for before saying yes
 
@@ -73,9 +72,11 @@ the same limit (E15, *read in code*). These briefs reference no independent secu
 - Attach a mail that carries an instruction and check that a single proposed change waits on the review card;
   put the same text into a synced Jira issue and see a single ordinary write apply at once, while deleting or
   inviting changes wait either way (E47, *tested (unit)*; E48, *read in code*).
-- Put the app's server behind your own access control: anyone who can reach it can call the relay, which adds
-  the gateway token and has no request limit, and the other routes' limit is keyed on a header the caller can
-  set (§805, §806, §562; E13, *read in code*; E54, *read in code*).
+- Put the app's server behind your own access control: the app does not authenticate callers, and the relay
+  adds the gateway token to every call it forwards (E13, *read in code*). The relay refuses a call without an
+  origin header and, like the dictation route, limits each caller, but both checks rest on headers a caller can
+  set (§562; E54, *read in code*; E69, *tested (unit)*). The dictation route refuses an endpoint whose host name
+  resolves to a private address, though DNS rebinding remains (E70, *tested (unit)*).
 - For incidents: the activity log names the AI as actor of its chat changes, but no entry links to the chat
   message behind it (§799; E55, *read in code*).
 - Ask Anthropic what it retains of a request, for how long, and whether it trains on it.

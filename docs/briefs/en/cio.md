@@ -55,18 +55,17 @@ to watch spend: nothing in the app stops interactive AI at a spend limit (E38, *
 ## Not yet proven / open gaps
 
 1. **§802:** the gateway route has never run against a real gateway (E12, *not proven*).
-2. **§805:** the server routes do not authenticate callers, so anyone who can reach the server can use the
-   relay, and the relay adds the gateway token for them (E13, *read in code*).
-3. **§798:** most AI calls have no time limit of their own, and none is retried on a rate limit or overload
+2. **§798:** most AI calls have no time limit of their own, and none is retried on a rate limit or overload
    (E40, *read in code*).
-4. **§814:** six paths have no measured cost or behaviour, a refused key among them (E39, *not proven*).
-5. **§806:** the AI relay and the dictation route have no request limit (E54, *read in code*).
+3. **§814:** six paths have no measured cost or behaviour, a refused key among them (E39, *not proven*).
 
 ## What to check or ask for before saying yes
 
 - Choose the route and write down the [deployment switches](appendix.md#deployment-switches) you set. Whenever
-  the relay is used, put the app's server behind your own access control (§805, §806; E13, *read in code*;
-  E54, *read in code*).
+  the relay is used, put the app's server behind your own access control: the app does not authenticate callers
+  (E13, *read in code*). The relay's origin check and its limit of 120 calls a minute per caller stop a plain
+  script, not a determined caller, because both rest on headers a caller can set (§562; E54, *read in code*;
+  E69, *tested (unit)*).
 - Before relying on a gateway, ask for one run of the live proof through a test gateway of yours (§802; E12,
   *not proven*).
 - Ask Anthropic, for your organisation's account: what it retains of a request and for how long, whether it

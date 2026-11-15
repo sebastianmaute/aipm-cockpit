@@ -65,19 +65,19 @@ Schalter und die Beobachtung der Ausgaben: Nichts in der App hält interaktive K
 ## Noch nicht belegt / offene Lücken
 
 1. **§802:** Der Gateway-Weg lief noch nie gegen ein echtes Gateway (E12, *nicht belegt*).
-2. **§805:** Die Server-Routen authentifizieren ihre Aufrufer nicht; wer den Server erreicht, kann also das
-   Relay nutzen, und das Relay fügt für ihn das Gateway-Token hinzu (E13, *im Code gelesen*).
-3. **§798:** Die meisten KI-Aufrufe haben kein eigenes Zeitlimit, und keiner wird bei Ratenlimit oder
+2. **§798:** Die meisten KI-Aufrufe haben kein eigenes Zeitlimit, und keiner wird bei Ratenlimit oder
    Überlastung wiederholt (E40, *im Code gelesen*).
-4. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter ein abgelehnter
+3. **§814:** Sechs Pfade haben weder gemessene Kosten noch beobachtetes Verhalten, darunter ein abgelehnter
    Schlüssel (E39, *nicht belegt*).
-5. **§806:** Das KI-Relay und die Diktat-Route haben keine Begrenzung der Anfragen (E54, *im Code gelesen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 
 - Legen Sie den Weg fest und halten Sie fest, welche [Betriebsschalter](appendix.md#betriebsschalter) Sie
-  setzen. Sobald das Relay genutzt wird, stellen Sie den Server der App hinter Ihre eigene Zugangskontrolle
-  (§805, §806; E13, *im Code gelesen*; E54, *im Code gelesen*).
+  setzen. Sobald das Relay genutzt wird, stellen Sie den Server der App hinter Ihre eigene Zugangskontrolle: Die
+  App authentifiziert ihre Aufrufer nicht (E13, *im Code gelesen*). Die Herkunftsprüfung des Relays und seine
+  Grenze von 120 Aufrufen je Minute und Aufrufer halten ein einfaches Skript auf, aber keinen entschlossenen
+  Aufrufer, denn beide beruhen auf Headern, die der Aufrufer selbst setzen kann (§562; E54, *im Code gelesen*;
+  E69, *getestet (Unit)*).
 - Bevor Sie sich auf ein Gateway verlassen, verlangen Sie einen Lauf des Live-Nachweises über ein Test-Gateway
   Ihrer Organisation (§802; E12, *nicht belegt*).
 - Fragen Sie Anthropic für das Konto Ihrer Organisation: was es von einer Anfrage aufbewahrt und wie lange, ob

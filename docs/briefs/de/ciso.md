@@ -68,11 +68,9 @@ der App.
 1. **§797:** Text, den der Chat über seine Werkzeuge liest, löst die Prüfpflicht nicht aus (E48,
    *im Code gelesen*).
 2. **§794:** Eine einzelne Änderung im Chat wird ohne Prüfkarte angewendet (E47, *getestet (Unit)*).
-3. **§805:** Das Relay fügt das Gateway-Token für jeden Aufrufer hinzu, der den Server erreicht (E13,
-   *im Code gelesen*).
-4. **§487, §793:** Die Windows-Installationsdatei ist unsigniert, und das Deinstallationsprogramm bliebe auch mit
+3. **§487, §793:** Die Windows-Installationsdatei ist unsigniert, und das Deinstallationsprogramm bliebe auch mit
    eingeschalteter Signierung unsigniert (E51, *getestet (Unit)*).
-5. **§800:** Die Policy erlaubt ganze Host-Familien per Platzhalter (E34, *im Code gelesen*).
+4. **§800:** Die Policy erlaubt ganze Host-Familien per Platzhalter (E34, *im Code gelesen*).
 
 ## Was Sie vor einer Zusage prüfen oder verlangen sollten
 
@@ -82,10 +80,12 @@ der App.
   der Prüfkarte wartet; schreiben Sie denselben Text in einen synchronisierten Jira-Vorgang und sehen Sie, dass
   eine einzelne gewöhnliche Änderung sofort angewendet wird, während Änderungen, die Löschungen oder Einladungen
   auslösen, in beiden Fällen warten (E47, *getestet (Unit)*; E48, *im Code gelesen*).
-- Stellen Sie den Server der App hinter Ihre eigene Zugangskontrolle: Wer ihn erreicht, kann das Relay aufrufen,
-  das das Gateway-Token hinzufügt und keine Begrenzung der Anfragen hat, und die Begrenzung der anderen Routen
-  zählt nach einem Header, den der Aufrufer selbst setzen kann (§805, §806, §562; E13, *im Code gelesen*; E54,
-  *im Code gelesen*).
+- Stellen Sie den Server der App hinter Ihre eigene Zugangskontrolle: Die App authentifiziert ihre Aufrufer
+  nicht, und das Relay fügt jedem weitergeleiteten Aufruf das Gateway-Token hinzu (E13, *im Code gelesen*). Das
+  Relay lehnt einen Aufruf ohne Herkunfts-Header ab und begrenzt wie die Diktat-Route jeden Aufrufer, aber beide
+  Prüfungen beruhen auf Headern, die der Aufrufer selbst setzen kann (§562; E54, *im Code gelesen*; E69,
+  *getestet (Unit)*). Die Diktat-Route lehnt einen Endpunkt ab, dessen Hostname zu einer privaten Adresse
+  aufgelöst wird; DNS-Rebinding bleibt möglich (E70, *getestet (Unit)*).
 - Für Vorfälle: Das Aktivitätsprotokoll nennt die KI als Akteur ihrer Änderungen im Chat, aber kein Eintrag
   verweist auf die Chat-Nachricht dahinter (§799; E55, *im Code gelesen*).
 - Fragen Sie Anthropic, was es von einer Anfrage aufbewahrt, wie lange und ob es damit trainiert.
