@@ -99,6 +99,46 @@ describe("POST /api/stt", () => {
     expect(fetch).toHaveBeenCalledTimes(STT_MAX_REQUESTS);
   });
 
+  it("AIPM_STT_MAX_REQUESTS sets dictation's per-caller limit", async () => {
+    vi.stubEnv("AIPM_STT_MAX_REQUESTS", "2");
+    try {
+      const ip = "203.0.113.92";
+      for (let i = 0; i < 2; i++) {
+        const ok = await POST(req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" }, "sk-test", true, ip));
+        expect(ok.status).toBe(200);
+      }
+      const refused = await POST(req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" }, "sk-test", true, ip));
+      expect(refused.status).toBe(429);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("an invalid AIPM_STT_MAX_REQUESTS keeps the default limit", async () => {
+    vi.stubEnv("AIPM_STT_MAX_REQUESTS", "0");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const ip = "203.0.113.93";
+      for (let i = 0; i < STT_MAX_REQUESTS; i++) {
+        const ok = await POST(req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" }, "sk-test", true, ip));
+        expect(ok.status).toBe(200);
+      }
+      const refused = await POST(req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" }, "sk-test", true, ip));
+      expect(refused.status).toBe(429);
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("a host name that resolves into the shared address space 100.64.0.0/10 is blocked", async () => {
+    lookup.mockResolvedValue([{ address: "100.100.100.200", family: 4 }]);
+    const res = await POST(req({ model: "whisper-1", baseUrl: "https://stt.example.com/v1" }));
+    expect(res.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   // A key-less call (a web page cannot add the key header cross-site without a CORS preflight) is refused before
   // it counts, so a page cannot use up a visitor's limit.
   it("key-less calls do not count against the caller's limit", async () => {

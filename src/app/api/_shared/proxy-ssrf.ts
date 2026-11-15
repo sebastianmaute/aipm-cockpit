@@ -27,13 +27,16 @@ export function mappedIpv4ToDotted(suffix: string): string | null {
 }
 
 /**
- * True when `hostname` resolves to (or literally is) an internal/private address
- * range that must never be reachable through an outbound proxy: loopback, RFC1918
- * private, link-local / cloud metadata (169.254.169.254), IPv6 ULA/link-local,
- * NAT64, and IPv4-mapped IPv6. A mapped address that cannot be decoded is treated
- * as private (fail closed). Note: this catches IP LITERALS only — the DNS
- * "resolves-to-internal" vector is closed separately by each route's host
- * allowlist (see isAllowedHostSuffix).
+ * True when `hostname` is an internal/private address that must never be
+ * reachable through an outbound proxy: loopback, "this network" (0.0.0.0/8),
+ * RFC1918 private, the shared address space of carrier-grade NAT (100.64.0.0/10,
+ * also used by overlay networks for internal hosts), link-local / cloud metadata
+ * (169.254.169.254), IPv6 ULA/link-local, NAT64, and IPv4-mapped and IPv4-compatible
+ * IPv6. An embedded address that cannot be decoded is treated as private (fail closed). Note: this
+ * judges the string it is given, so it catches IP LITERALS only — the DNS
+ * "resolves-to-internal" vector is closed separately: by each route's host
+ * allowlist (see isAllowedHostSuffix), and for dictation, which has none, by
+ * checking every address the name resolves to (§803).
  */
 export function isPrivateHost(hostname: string): boolean {
   // Strip IPv6 brackets (e.g. "[::1]" → "::1").
@@ -57,11 +60,23 @@ export function isPrivateHost(hostname: string): boolean {
     const mapped = mappedIpv4ToDotted(lower.slice(7));
     if (mapped === null) return true;
     ipv4 = mapped;
+  } else if (lower.startsWith("::")) {
+    // IPv4-compatible IPv6 (deprecated, "::10.0.0.1", canonicalized to "::a00:1") embeds an IPv4
+    // address the same way; judge it as that address. A suffix that is neither dotted nor two
+    // groups is not this form and falls through to "not an IPv4 address" below.
+    const rest = lower.slice(2);
+    if (rest.includes(".") || rest.split(":").length === 2) {
+      const embedded = mappedIpv4ToDotted(rest);
+      if (embedded === null) return true;
+      ipv4 = embedded;
+    }
   }
   const parts = ipv4.split(".").map(Number);
   if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255))
     return false;
   const [a, b] = parts;
+  // 0.0.0.0/8 — "this network"; a connection to it reaches the local host on common systems
+  if (a === 0) return true;
   // 127.0.0.0/8 — loopback
   if (a === 127) return true;
   // 10.0.0.0/8 — private
@@ -70,6 +85,8 @@ export function isPrivateHost(hostname: string): boolean {
   if (a === 172 && b >= 16 && b <= 31) return true;
   // 192.168.0.0/16 — private
   if (a === 192 && b === 168) return true;
+  // 100.64.0.0/10 — shared address space (RFC 6598): carrier-grade NAT and overlay networks' internal hosts
+  if (a === 100 && b >= 64 && b <= 127) return true;
   // 169.254.0.0/16 — link-local / cloud instance metadata (e.g. 169.254.169.254)
   if (a === 169 && b === 254) return true;
   return false;

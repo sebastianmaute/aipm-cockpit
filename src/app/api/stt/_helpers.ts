@@ -8,12 +8,14 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { isPrivateHost } from "../_shared/proxy-ssrf";
 import { rateLimit } from "../jira/_rate-limit";
+import { readRequestLimit, STT_MAX_REQUESTS_ENV } from "../_shared/request-limit-config";
 import { refuseIfDisabled } from "../_shared/integration-switch";
 import { readAiGatewayConfig } from "../../ai-gateway-config";
 import { AI_GATEWAY_INVALID } from "../../ai-errors";
 
 const TIMEOUT_MS = 30_000;
-// §806: dictation requests one caller may send per minute (`rateLimit`, scope "stt").
+// §806: dictation requests one caller may send per minute (`rateLimit`, scope "stt"), unless the operator
+// sets `AIPM_STT_MAX_REQUESTS` (`readRequestLimit`).
 export const STT_MAX_REQUESTS = 60;
 // 25MB — short recordings only. Checked twice: once via content-length before
 // formData() buffers the body (fast-path reject), and again post-parse on the
@@ -44,7 +46,7 @@ export async function parseSttRequest(
   if (!key) return { error: new Response("missing key", { status: 400 }) };
   // §806: after the key check, so a key-less call (all a web page can send cross-site without a CORS preflight)
   // never uses up a caller's count.
-  const limited = rateLimit(request, "stt", STT_MAX_REQUESTS);
+  const limited = rateLimit(request, "stt", readRequestLimit(process.env, STT_MAX_REQUESTS_ENV, STT_MAX_REQUESTS));
   if (limited) return { error: limited };
 
   // Cap the upload before request.formData() buffers the whole body — an

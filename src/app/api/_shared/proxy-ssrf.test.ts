@@ -50,6 +50,17 @@ describe("isPrivateHost", () => {
     ["IPv4-mapped dotted private", "::ffff:10.0.0.1"],
     ["IPv4-mapped hex private (canonicalized)", "::ffff:a00:1"],
     ["IPv4-mapped undecodable -> fail closed", "::ffff:a:b:c"],
+    ["\"this network\" 0.0.0.0/8 (0.1.2.3)", "0.1.2.3"],
+    ["\"this network\" 0.0.0.0/8 top (0.255.255.255)", "0.255.255.255"],
+    ["shared address space 100.64.0.0/10 bottom", "100.64.0.0"],
+    ["shared address space 100.64.0.0/10 top", "100.127.255.255"],
+    ["IPv4-mapped shared address space", "::ffff:100.64.0.1"],
+    ["IPv4-mapped hex shared address space (canonicalized)", "::ffff:6440:1"],
+    ["IPv4-compatible dotted private", "::10.0.0.1"],
+    ["IPv4-compatible hex private (canonicalized)", "::a00:1"],
+    ["IPv4-compatible hex shared address space", "::6440:1"],
+    ["bracketed IPv4-compatible metadata", "[::a9fe:a9fe]"],
+    ["IPv4-compatible undecodable -> fail closed", "::zz:1"],
   ])("flags %s as private", (_label, host) => {
     expect(isPrivateHost(host)).toBe(true);
   });
@@ -59,6 +70,10 @@ describe("isPrivateHost", () => {
     ["just below the 172.16 range (172.15)", "172.15.0.1"],
     ["just above the 172.31 range (172.32)", "172.32.0.1"],
     ["public 1.2.3.4", "1.2.3.4"],
+    ["just below 100.64.0.0/10 (100.63.255.255)", "100.63.255.255"],
+    ["just above 100.64.0.0/10 (100.128.0.0)", "100.128.0.0"],
+    ["just above 0.0.0.0/8 (1.0.0.0)", "1.0.0.0"],
+    ["IPv4-compatible public", "::808:808"],
     ["a non-IP DNS hostname", "acme.atlassian.net"],
   ])("does NOT flag %s as private", (_label, host) => {
     expect(isPrivateHost(host)).toBe(false);
