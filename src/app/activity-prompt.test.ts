@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   ACTIVITY_KIND_TO_KEY,
+  wbsPlanActivityArgs,
   type ActivityEntry,
   type ActivityKind,
 } from "./activity-log";
@@ -21,6 +22,15 @@ describe("renderActivityEntry", () => {
     expect(r.summary).toBe("Task #7 created: Fix login");
     expect(r.at).toBe("2026-08-10T09:00:00.000Z");
     expect(r.detail).toBeUndefined();
+  });
+
+  // The model's copy of the log stays short: one apply can create hundreds of tasks. The panel and the audit
+  // download list them all; this is the seam that keeps the model's form capped.
+  it("names 20 tasks of a work-breakdown entry, then how many more", () => {
+    const many = Array.from({ length: 25 }, (_, i) => ({ id: 100 + i, taskName: `Piece ${i}` }));
+    const r = renderActivityEntry(entry({ kind: "ai.wbsPlan", args: wbsPlanActivityArgs(25, many) }));
+    expect(r.summary).not.toContain("#120");
+    expect(r.summary.endsWith("#119 Piece 19; and 5 more")).toBe(true);
   });
 
   it("renders a field-diff suffix when the entry carries changes", () => {

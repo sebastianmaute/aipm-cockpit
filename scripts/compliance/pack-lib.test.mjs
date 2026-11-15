@@ -297,6 +297,137 @@ describe("proseGapCitations", () => {
     ]);
   });
 
+  // CommonMark opens no fence on a backtick line whose info string holds a backtick, so what follows is prose.
+  it("does not take a backtick line with a backtick in its info string for a fence", () => {
+    expect(proseGapCitations("``` a`b\n§810\n§811")).toEqual([
+      { n: 810, line: 2 },
+      { n: 811, line: 3 },
+    ]);
+  });
+
+  // A quoted test title or code name can carry a register number ("… (§797)") without citing that gap; only prose
+  // outside inline code cites one.
+  it("skips a § number inside an inline code span, and still finds one beside it", () => {
+    const src = [
+      "test `a Jira-linked task read in an earlier send stages a lone create (§797)` in `chat-panel.test.tsx`", // 1
+      "the residual (§562; `rateLimit`) and ``a `§801` inside a double span``, then §810", // 2
+      "an unclosed ` before §804 is prose", // 3
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 562, line: 2 },
+      { n: 810, line: 2 },
+      { n: 804, line: 3 },
+    ]);
+  });
+
+  // The files are hard-wrapped, so a quoted title can break across lines; a span is paired within its paragraph.
+  it("pairs a code span across a line wrap, so neither the title's number nor the prose after it is misread", () => {
+    const src = [
+      "the test `a long title (§797)", // 1
+      "wrapped here` names §810 and `x`", // 2
+      "", // 3
+      "a new paragraph `opens` here and §562 is prose", // 4
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 810, line: 2 },
+      { n: 562, line: 4 },
+    ]);
+  });
+
+  it("does not open a span at a backslash-escaped backtick", () => {
+    expect(proseGapCitations("escaped \\` then §810 and `x`")).toEqual([{ n: 810, line: 1 }]);
+  });
+
+  // A heading, a table row, a thematic break and an HTML comment line each end a block, so a stray backtick on one
+  // never pairs with a backtick in the prose that follows. (A plain line right after a table row is a further row of
+  // that table in GFM, and a span never crosses a cell.)
+  it.each([
+    ["a heading", "# Title `foo"],
+    ["a table row", "| a | b |\n|---|---|\n| c ` d | e |"],
+    ["prose closed by a thematic break", "a `b\n---"],
+    ["prose closed by an HTML comment line", "a `b\n<!-- c -->"],
+    ["a heading with a setext underline", "a `b\n==="],
+  ])("a stray backtick in %s does not hide the next line's citation", (_label, before) => {
+    const src = `${before}\nprose §810 and \`x\``;
+    expect(proseGapCitations(src)).toEqual([{ n: 810, line: before.split("\n").length + 1 }]);
+  });
+
+  // In a GFM table an unbalanced backtick in one cell never swallows the next cell or row, and a list item is a block
+  // of its own.
+  it("keeps each table cell, table row and list item apart", () => {
+    const src = [
+      "| h | i |", // 1
+      "|---|---|", // 2
+      "| a ` stray | §810 |", // 3
+      "| `x` | §562 |", // 4
+      "- an item with a stray `", // 5
+      "- §804 in the next item", // 6
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 810, line: 3 },
+      { n: 562, line: 4 },
+      { n: 804, line: 6 },
+    ]);
+  });
+
+  // Without a delimiter row a pipe line is not a table but paragraph text, so CommonMark carries a span on into the
+  // next line, and the number inside it is code.
+  it("reads a pipe line with no delimiter row as paragraph text", () => {
+    expect(proseGapCitations("| a ` b |\nprose (§797) and ` x §810")).toEqual([{ n: 810, line: 2 }]);
+  });
+
+  // CommonMark carries a span across the lines of one block quote paragraph, and across a lazy continuation line.
+  it("pairs a code span across the lines of a block quote", () => {
+    const src = [
+      "> a quoted title `(§797)", // 1
+      "> wrapped` and §810 `x`", // 2
+      "lazy continuation `(§798)", // 3
+      "here` and §562", // 4
+      "", // 5
+      "> a new quote ` stray", // 6
+      "", // 7
+      "§804 after the blank", // 8
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 810, line: 2 },
+      { n: 562, line: 4 },
+      { n: 804, line: 8 },
+    ]);
+  });
+
+  // An indented code block (four spaces after a blank line, outside a list) is code: no citation in it, and its
+  // backticks pair with nothing outside it.
+  it("skips an indented code block, but not an indented list continuation", () => {
+    const src = [
+      "prose", // 1
+      "", // 2
+      "    code with §797 and a stray `", // 3
+      "prose §810 and `x`", // 4
+      "", // 5
+      "- an item", // 6
+      "", // 7
+      "    its continuation cites §562", // 8
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 810, line: 4 },
+      { n: 562, line: 8 },
+    ]);
+  });
+
+  // CommonMark parses no code spans inside an HTML block, which runs to the next blank line.
+  it("pairs no backticks inside an HTML block", () => {
+    const src = [
+      "<details><summary>a ` stray</summary>", // 1
+      "§810 inside `the` HTML block", // 2
+      "", // 3
+      "prose §562 and `x`", // 4
+    ].join("\n");
+    expect(proseGapCitations(src)).toEqual([
+      { n: 810, line: 2 },
+      { n: 562, line: 4 },
+    ]);
+  });
+
   it.each([
     "the co-determination right (§87(1) No. 6)",
     "§ 87 Abs. 1 Nr. 6 BetrVG",

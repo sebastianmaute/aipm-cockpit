@@ -25,9 +25,36 @@ import {
   GATE_SELF_FILES,
   collectIdentifiers,
   collectIdentifiersFromFiles,
+  gatedDocs,
+  gatedDocsEmptyDirs,
   isGatedSymbolName,
   markedNear,
 } from "./agents-symbols-lib.mjs";
+
+describe("gatedDocs", () => {
+  // ★★ The briefs cite code by name for outside readers (`forwardHeaders` in `_relay.ts`); a renamed symbol there
+  // is a false claim to a CIO, so they are gated like the agent docs. Globbed, so a new brief is covered at once.
+  it("covers AGENTS.md, every docs/AGENTS file and every brief, in both languages", () => {
+    const docs = gatedDocs();
+    expect(docs).toContain("AGENTS.md");
+    expect(docs).toContain("docs/AGENTS/ci.md");
+    expect(docs).toContain("docs/briefs/README.md");
+    expect(docs).toContain("docs/briefs/en/cio.md");
+    expect(docs).toContain("docs/briefs/de/ciso.md");
+    expect(docs.filter((d) => d.startsWith("docs/briefs/en/")).length).toBe(
+      fs.readdirSync("docs/briefs/en").filter((f) => f.endsWith(".md")).length,
+    );
+    expect(docs.every((d) => d.endsWith(".md"))).toBe(true);
+  });
+
+  it("names each directory that contributes no file, so the gate can refuse a pass", () => {
+    const fake = { "docs/AGENTS": ["a.md", "notes.txt"], "docs/briefs": ["README.md"], "docs/briefs/de": ["notes.txt"] };
+    const read = (dir) => fake[dir] ?? null;
+    expect(gatedDocs(read)).toEqual(["AGENTS.md", "docs/AGENTS/a.md", "docs/briefs/README.md"]);
+    // `en` is missing, `de` holds no Markdown: both must fail the gate.
+    expect(gatedDocsEmptyDirs(read)).toEqual(["docs/briefs/en", "docs/briefs/de"]);
+  });
+});
 
 describe("isGatedSymbolName", () => {
   it("accepts a mixed-case identifier longer than three characters", () => {
