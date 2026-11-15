@@ -236,8 +236,8 @@ aufgeführt. [geprüft je Punkt unten]
   Änderung der KI protokolliert, und die meisten solchen Änderungen lassen sich rückgängig machen, aber
   keine Person hat sie vorher freigegeben. [geprüft: `shouldStage` in `src/app/chat-proposal.ts`, `src/app/activity-log.ts`; Register §794] Hat der Chat eine aus Jira
   synchronisierte Aufgabe gelesen, wartet auch jede spätere Änderung der Unterhaltung auf der Karte; Text
-  von außen ohne Kennzeichnung seiner Herkunft, etwa aus einer importierten Datei angelegte Einträge, löst
-  das Zurückhalten nicht aus. [geprüft: `resultCarriesExternalText` und `openSendRecord` in
+  von außen ohne Kennzeichnung seiner Herkunft, etwa aus einer importierten Datei angelegte Einträge oder die
+  eigenen Zusammenfassungen der App zum Projekt, löst das Zurückhalten nicht aus. [geprüft: `resultCarriesExternalText` und `openSendRecord` in
   `src/app/chat-send-record.ts`] Eine Statusanfrage, die der Chat vorbereitet, öffnet sich als
   E-Mail-Entwurf im eigenen Mailprogramm des Nutzers, der sie selbst sendet. [geprüft: `send_inquiry` in
   `src/app/chat-tool-defs.ts`, `sendInquiry` in `src/app/use-chat-dispatcher.ts`]

@@ -63,7 +63,9 @@ Kennen Sie die Ausnahmen:
   gelesen, wartet danach jede Änderung, die er vorschlägt, auf der Prüfkarte, wie bei einer angehängten
   Datei. Text von außen, der keine Kennzeichnung seiner Herkunft trägt, löst das Zurückhalten nicht aus:
   Einträge, die aus einer importierten Datei oder E-Mail angelegt wurden, aus Outlook übernommene
-  Abwesenheitsnotizen und was die App selbst in die Anweisung schreibt. [geprüft:
+  Abwesenheitsnotizen, eine Aufgabe, deren Jira-Verknüpfung entfernt wurde, die eigenen Zusammenfassungen
+  der App zum Projekt und was die App selbst in den Prompt schreibt. Einträge, die eine Synchronisierung in
+  den Aktivitätsverlauf geschrieben hat, gelten als Text von außen. [geprüft:
   `resultCarriesExternalText` und `openSendRecord` in `src/app/chat-send-record.ts`]
 - **Läufe im Hintergrund.** Die oben genannten Hintergrundfunktionen senden bei jedem Lauf Daten, ohne
   jedes Mal zu fragen. Ihre Ergebnisse sind nur Ratschläge: Eine Empfehlung ändert nichts, bis eine Person

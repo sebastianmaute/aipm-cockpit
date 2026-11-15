@@ -38,18 +38,31 @@ export function openSendRecord(history: readonly ApiMessage[]): SendRecord {
   return { appliedWrites: 0, untrusted, staged: false };
 }
 
-/** A `jiraKey` field with a non-empty value, as JSON writes it (`stringifyResult`, compact or indented). Inside
- *  a text value the quotes are escaped, so a description that merely mentions the field name does not match. */
-const JIRA_LINKED_ROW = /"jiraKey"\s*:\s*"[^"]/;
+/** The two recorded outside origins, as JSON writes them (`stringifyResult`, compact or indented): a row with a
+ *  non-empty `jiraKey`, and an activity entry whose `actor` is `"integration"` (a sync wrote it). Inside a text
+ *  value the quotes are escaped, so text that merely mentions either field does not match. */
+const EXTERNAL_ORIGIN = /"jiraKey"\s*:\s*"[^"]|"actor"\s*:\s*"integration"/;
 
-/** §797: true when a tool result showed the model a row whose text came from outside the app: a task synced from
- *  Jira (it carries a `jiraKey`; the sync writes its name and description). That is the one origin a stored row
- *  records. Rows created from an imported file, absences pulled from Outlook, and text in the prompt itself carry
- *  no such marker and are not recognised here (the register entry names this residual). Judged on the serialized
- *  result, the same string the model is sent and the history keeps, so a later send reaches the same answer. An
- *  error result echoes no row. */
+/** §797: true when a tool result showed the model text that came from outside the app and is marked as such: a
+ *  task synced from Jira (it carries a `jiraKey`; the sync writes its name and description), or an activity entry
+ *  an integration wrote (`search_history`). Outside text with no such marker is not recognised: rows created from
+ *  an imported file, absences pulled from Outlook, a task whose Jira link was removed, `get_app_state`'s view
+ *  digest, insights and activity summary, `search_chats`, and the prompt itself (the register entry names this
+ *  residual). Judged on the serialized result, the same string the model is sent and the history keeps, so a later
+ *  send reaches the same answer; content that is not a string is judged by its JSON. An error result echoes no row. */
 export function resultCarriesExternalText(result: ToolResultBlock): boolean {
-  return result.is_error !== true && JIRA_LINKED_ROW.test(result.content);
+  if (result.is_error === true) return false;
+  return EXTERNAL_ORIGIN.test(contentText(result.content));
+}
+
+/** The text a result shows the model: the string itself, each text block's text, or else its JSON. */
+function contentText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map(contentText).join(" ");
+  if (content !== null && typeof content === "object" && typeof (content as { text?: unknown }).text === "string") {
+    return (content as { text: string }).text;
+  }
+  return JSON.stringify(content) ?? "";
 }
 
 /** §797: the record after a tool turn: untrusted for the rest of the send once any of the turn's results carried

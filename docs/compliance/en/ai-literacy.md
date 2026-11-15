@@ -58,7 +58,9 @@ Know the exceptions:
 - **Text read from outside.** Once the chat has read a task synced from Jira in a conversation, every change
   it proposes after that waits on the review card, as it does while a file is attached. Text from outside
   that carries no mark of where it came from does not start that hold: rows created from an imported file
-  or mail, absence notes pulled from Outlook, and what the app writes into the prompt itself. [verified:
+  or mail, absence notes pulled from Outlook, a task whose Jira link was removed, the app's own summaries of
+  the project, and what the app writes into the prompt itself. Entries a sync wrote into the activity history
+  count as outside text. [verified:
   `resultCarriesExternalText` and `openSendRecord` in `src/app/chat-send-record.ts`]
 - **Background runs.** The background features above send data on every run without asking each time.
   Their results only advise: a recommendation changes nothing until a person confirms it. [verified:
