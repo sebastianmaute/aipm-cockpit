@@ -110,13 +110,13 @@ aufbaut. [geprüft: `src/proxy.ts`] So lesen Sie sie:
 | Host | Direktive | Bedingung |
 |---|---|---|
 | https://api.anthropic.com | Verbindungen (connect-src) | Nur wenn alle drei Bedingungen zutreffen: Die Bereitstellung sendet KI-Anfragen direkt an Anthropic (kein KI-Gateway), sie beschränkt KI nicht auf die Schlüssel ihrer Organisation, und die KI-Integration ist nicht abgeschaltet |
-| https://*.turso.io | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an seine Stelle |
+| https://*.turso.io | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an die Stelle dieses Hosts |
 | https://graph.microsoft.com | Verbindungen (connect-src) | Immer erlaubt |
-| https://*.sharepoint.com | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_SHAREPOINT_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an seine Stelle |
-| https://*.files.1drv.com | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_SHAREPOINT_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an seine Stelle |
+| https://*.sharepoint.com | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_SHAREPOINT_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an die Stelle dieses Hosts |
+| https://*.files.1drv.com | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_SHAREPOINT_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an die Stelle dieses Hosts |
 | https://login.microsoftonline.com | Verbindungen (connect-src) | Immer erlaubt |
-| http://localhost:* | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an seine Stelle |
-| http://127.0.0.1:* | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an seine Stelle |
+| http://localhost:* | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an die Stelle dieses Hosts |
+| http://127.0.0.1:* | Verbindungen (connect-src) | Immer erlaubt, außer wenn AIPM_CSP_TURSO_HOSTS gesetzt ist: Dann treten die dort genannten Hosts an die Stelle dieses Hosts |
 | https://login.microsoftonline.com | Eingebettete Frames (frame-src) | Immer erlaubt |
 <!-- PACK:browser-hosts:END -->
 

@@ -82,7 +82,15 @@ describe("readCspHostSettings", () => {
     });
   });
 
-  it("an invalid setting keeps its wildcards (null) and is logged once, naming the setting, never its value", () => {
+  // The once-per-process record is module state, so each logging test gets a fresh module: in shuffled order the
+  // other one would otherwise have reported the setting already.
+  async function freshRead() {
+    vi.resetModules();
+    return (await import("./csp-host-settings")).readCspHostSettings;
+  }
+
+  it("an invalid setting keeps its wildcards (null) and is logged once, naming the setting, never its value", async () => {
+    const readCspHostSettings = await freshRead();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const env = { [CSP_TURSO_HOSTS_ENV]: "secret-ish.example.com" };
     expect(readCspHostSettings(env).turso).toBeNull();
@@ -90,6 +98,18 @@ describe("readCspHostSettings", () => {
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toContain(CSP_TURSO_HOSTS_ENV);
     expect(String(warn.mock.calls[0][0])).not.toContain("secret-ish");
+  });
+
+  // Mutation: keying the once-only set on a constant turns this red: the second setting is never reported.
+  it("each invalid setting is logged once under its own name", async () => {
+    const readCspHostSettings = await freshRead();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const env = { [CSP_TURSO_HOSTS_ENV]: "bad", [CSP_SHAREPOINT_HOSTS_ENV]: "also-bad" };
+    readCspHostSettings(env);
+    readCspHostSettings(env);
+    const messages = warn.mock.calls.map((c) => String(c[0]));
+    expect(messages.filter((m) => m.includes(CSP_SHAREPOINT_HOSTS_ENV))).toHaveLength(1);
+    expect(messages.filter((m) => m.endsWith(CSP_TURSO_HOSTS_ENV))).toHaveLength(1);
   });
 
   it("the setting names are the documented ones", () => {
