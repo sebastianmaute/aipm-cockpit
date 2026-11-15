@@ -27,13 +27,15 @@ Persistence is entirely client-side (see `data.md`).
 ### Shared guard core — `api/_shared/proxy-ssrf.ts`
 
 `isPrivateHost` (fail-closed: RFC1918, loopback, 0.0.0.0/8, 100.64/10 shared address space, 169.254/16
-metadata, IPv6 ULA/link-local, NAT64, mapped-IPv4) + `mappedIpv4ToDotted` + `isAllowedHostSuffix(host, apex)` (leading-dot suffix match, so
+metadata, IPv6 ULA/link-local, NAT64, mapped- and compatible-IPv4) + `mappedIpv4ToDotted` + `isAllowedHostSuffix(host, apex)` (leading-dot suffix match, so
 `evil-atlassian.net` cannot pass). Imported by the jira, timelog and stt helpers; **provider-specific
 normalize/auth/URL stays per-route by design** — do not parameterize divergent security guards into
 one factory.
 
 Also enforced per route: HTTPS only, `..`/CRLF/`#` rejected in path, `@`/`:` rejected in host, 10s
-`AbortSignal.timeout`, 60/min/IP sliding window scoped per route (`jira/_rate-limit.ts`), and
+`AbortSignal.timeout`, a per-caller fixed one-minute window scoped per route (`jira/_rate-limit.ts`: 60 by
+default; the AI relay 120 and dictation 60, each changeable by the operator through
+`api/_shared/request-limit-config.ts`), and
 `console.error` that logs status/error only — never a token or body (an upstream fetch failure goes
 through `describeUpstreamError`, `api/_shared/upstream-error.ts`).
 

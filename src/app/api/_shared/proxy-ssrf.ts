@@ -31,8 +31,8 @@ export function mappedIpv4ToDotted(suffix: string): string | null {
  * reachable through an outbound proxy: loopback, "this network" (0.0.0.0/8),
  * RFC1918 private, the shared address space of carrier-grade NAT (100.64.0.0/10,
  * also used by overlay networks for internal hosts), link-local / cloud metadata
- * (169.254.169.254), IPv6 ULA/link-local, NAT64, and IPv4-mapped IPv6. A mapped
- * address that cannot be decoded is treated as private (fail closed). Note: this
+ * (169.254.169.254), IPv6 ULA/link-local, NAT64, and IPv4-mapped and IPv4-compatible
+ * IPv6. An embedded address that cannot be decoded is treated as private (fail closed). Note: this
  * judges the string it is given, so it catches IP LITERALS only — the DNS
  * "resolves-to-internal" vector is closed separately: by each route's host
  * allowlist (see isAllowedHostSuffix), and for dictation, which has none, by
@@ -60,6 +60,16 @@ export function isPrivateHost(hostname: string): boolean {
     const mapped = mappedIpv4ToDotted(lower.slice(7));
     if (mapped === null) return true;
     ipv4 = mapped;
+  } else if (lower.startsWith("::")) {
+    // IPv4-compatible IPv6 (deprecated, "::10.0.0.1", canonicalized to "::a00:1") embeds an IPv4
+    // address the same way; judge it as that address. A suffix that is neither dotted nor two
+    // groups is not this form and falls through to "not an IPv4 address" below.
+    const rest = lower.slice(2);
+    if (rest.includes(".") || rest.split(":").length === 2) {
+      const embedded = mappedIpv4ToDotted(rest);
+      if (embedded === null) return true;
+      ipv4 = embedded;
+    }
   }
   const parts = ipv4.split(".").map(Number);
   if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255))

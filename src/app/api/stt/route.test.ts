@@ -115,6 +115,23 @@ describe("POST /api/stt", () => {
     }
   });
 
+  it("an invalid AIPM_STT_MAX_REQUESTS keeps the default limit", async () => {
+    vi.stubEnv("AIPM_STT_MAX_REQUESTS", "0");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const ip = "203.0.113.93";
+      for (let i = 0; i < STT_MAX_REQUESTS; i++) {
+        const ok = await POST(req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" }, "sk-test", true, ip));
+        expect(ok.status).toBe(200);
+      }
+      const refused = await POST(req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" }, "sk-test", true, ip));
+      expect(refused.status).toBe(429);
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("a host name that resolves into the shared address space 100.64.0.0/10 is blocked", async () => {
     lookup.mockResolvedValue([{ address: "100.100.100.200", family: 4 }]);
     const res = await POST(req({ model: "whisper-1", baseUrl: "https://stt.example.com/v1" }));
